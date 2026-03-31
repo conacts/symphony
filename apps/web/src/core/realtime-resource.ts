@@ -12,6 +12,20 @@ import {
 
 export type RealtimeResourceStatus = "connecting" | "connected" | "degraded";
 
+export function shouldDegradeRealtimeState(input: {
+  hasResource: boolean;
+  hasConnectedOnce: boolean;
+}): boolean {
+  return input.hasResource || input.hasConnectedOnce;
+}
+
+export function shouldRefreshAfterConnectionAck(input: {
+  hasResource: boolean;
+  error: string | null;
+}): boolean {
+  return !input.hasResource || input.error !== null;
+}
+
 export function useRealtimeResource<T>(input: {
   loadResource: () => Promise<T>;
   websocketUrl: string;
@@ -23,6 +37,7 @@ export function useRealtimeResource<T>(input: {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<RealtimeResourceStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
+  const [hasConnectedOnce, setHasConnectedOnce] = useState(false);
   const channelsKey = input.channels.join("|");
   const shouldRefresh = useEffectEvent(input.shouldRefresh);
 
@@ -41,12 +56,63 @@ export function useRealtimeResource<T>(input: {
           ? resourceError.message
           : "Failed to load the requested resource.";
 
+      if (
+        shouldDegradeRealtimeState({
+          hasResource: resource !== null,
+          hasConnectedOnce
+        })
+      ) {
+        startTransition(() => {
+          setLoading(false);
+          setError(nextError);
+          setStatus("degraded");
+        });
+        return;
+      }
+
       startTransition(() => {
-        setLoading(false);
-        setError(nextError);
-        setStatus("degraded");
+        setLoading(true);
+        setError(null);
+        setStatus("connecting");
       });
     }
+  });
+
+  const handleConnectionAck = useEffectEvent(() => {
+    const shouldRefreshNow = shouldRefreshAfterConnectionAck({
+      hasResource: resource !== null,
+      error
+    });
+
+    startTransition(() => {
+      setHasConnectedOnce(true);
+      setStatus("connected");
+      setError(null);
+    });
+
+    if (shouldRefreshNow) {
+      void refresh();
+    }
+  });
+
+  const handleConnectionFailure = useEffectEvent((message: string) => {
+    if (
+      shouldDegradeRealtimeState({
+        hasResource: resource !== null,
+        hasConnectedOnce
+      })
+    ) {
+      startTransition(() => {
+        setStatus("degraded");
+        setError((currentError) => currentError ?? message);
+      });
+      return;
+    }
+
+    startTransition(() => {
+      setStatus("connecting");
+      setError(null);
+    });
   });
 
   useEffect(() => {
@@ -90,9 +156,7 @@ export function useRealtimeResource<T>(input: {
         }
 
         if (message.type === "connection.ack") {
-          startTransition(() => {
-            setStatus("connected");
-          });
+          handleConnectionAck();
           return;
         }
 
@@ -106,19 +170,13 @@ export function useRealtimeResource<T>(input: {
           return;
         }
 
-        startTransition(() => {
-          setStatus("degraded");
-          setError((currentError) => currentError ?? "Realtime connection closed.");
-        });
+        handleConnectionFailure("Realtime connection closed.");
 
         reconnectTimeout = window.setTimeout(connect, 1_500);
       });
 
       socket.addEventListener("error", () => {
-        startTransition(() => {
-          setStatus("degraded");
-          setError((currentError) => currentError ?? "Realtime connection failed.");
-        });
+        handleConnectionFailure("Realtime connection failed.");
       });
     };
 
@@ -133,7 +191,15 @@ export function useRealtimeResource<T>(input: {
 
       socket?.close();
     };
-  }, [channelsKey, input.refreshKey, input.websocketUrl, refresh, shouldRefresh]);
+  }, [
+    channelsKey,
+    handleConnectionAck,
+    handleConnectionFailure,
+    input.refreshKey,
+    input.websocketUrl,
+    refresh,
+    shouldRefresh
+  ]);
 
   return {
     resource,

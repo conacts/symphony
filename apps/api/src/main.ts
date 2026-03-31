@@ -31,9 +31,9 @@ async function main() {
     runJournalFile: env.runJournalFile,
     logLevel: env.logLevel
   });
-  const { server } = createSymphonyRuntimeServer(services, env);
+  const { server } = await createSymphonyRuntimeServer(services, env);
 
-  const shutdown = (signal: NodeJS.Signals) => {
+  const shutdown = (signal: "SIGINT" | "SIGTERM") => {
     services.logger.info("Received shutdown signal", {
       signal
     });

@@ -4,20 +4,33 @@ import type { SymphonyRuntimeAppServices } from "./core/runtime-services.js";
 import type { SymphonyRuntimeAppEnv } from "./core/env.js";
 import { createSymphonyRuntimeApplication } from "./http/app.js";
 
-export function createSymphonyRuntimeServer(
+export async function createSymphonyRuntimeServer(
   services: SymphonyRuntimeAppServices,
   env: SymphonyRuntimeAppEnv
-): {
+): Promise<{
   app: ReturnType<typeof createSymphonyRuntimeApplication>["app"];
   server: Server;
-} {
+}> {
   const runtimeApplication = createSymphonyRuntimeApplication(services);
   const server = createAdaptorServer({
-    fetch: runtimeApplication.app.fetch,
-    port: env.port
+    fetch: runtimeApplication.app.fetch
   }) as Server;
 
   runtimeApplication.nodeWebSocket.injectWebSocket(server);
+  await new Promise<void>((resolve, reject) => {
+    const handleError = (error: Error) => {
+      server.off("listening", handleListening);
+      reject(error);
+    };
+    const handleListening = () => {
+      server.off("error", handleError);
+      resolve();
+    };
+
+    server.once("error", handleError);
+    server.once("listening", handleListening);
+    server.listen(env.port);
+  });
 
   return {
     app: runtimeApplication.app,
