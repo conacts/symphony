@@ -35,13 +35,6 @@ github:
     - "conacts"
   allowed_rework_comment_logins:
     - "conacts"
-hooks:
-  after_create: |
-    "${SYMPHONY_SOURCE_REPO:-$COLDETS_SYMPHONY_SOURCE_REPO}/scripts/symphony/bootstrap-worktree.sh" "$PWD" "${SYMPHONY_ISSUE_IDENTIFIER:-$COLDETS_SYMPHONY_ISSUE_IDENTIFIER}"
-  before_run: |
-    "${SYMPHONY_SOURCE_REPO:-$COLDETS_SYMPHONY_SOURCE_REPO}/scripts/symphony/validate-worktree.sh" "$PWD" "${SYMPHONY_ISSUE_IDENTIFIER:-$COLDETS_SYMPHONY_ISSUE_IDENTIFIER}"
-  before_remove: |
-    "${SYMPHONY_SOURCE_REPO:-$COLDETS_SYMPHONY_SOURCE_REPO}/scripts/symphony/cleanup-worktree.sh" "$PWD"
 agent:
   max_concurrent_agents: 5
   max_concurrent_agents_by_state:
@@ -69,8 +62,6 @@ Description:
 3. Update ADRs, living docs, and the rubric when the change affects durable behavior, boundaries, or engineering standards.
 4. Do not add CLI retries; retries belong in API-only paths.
 5. Treat communication-decision audit failures as hard failures in smoke validation.
-6. Treat the generated worktree env files as the source of truth for local topology. Do not switch back to shared localhost defaults unless the ticket explicitly requires it.
-7. When you need long-lived local services from a Symphony worktree, prefer the issue-scoped `portless` URLs already wired into that workspace instead of hard-coded localhost ports.
 
 ## Issue Workflow
 

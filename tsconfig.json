@@ -12,19 +12,22 @@
       "path": "./packages/errors"
     },
     {
-      "path": "./packages/symphony-contracts"
+      "path": "./packages/logger"
     },
     {
-      "path": "./packages/symphony-core"
+      "path": "./packages/contracts"
+    },
+    {
+      "path": "./packages/core"
     },
     {
       "path": "./packages/vitest-configs"
     },
     {
-      "path": "./apps/symphony-runtime"
+      "path": "./apps/api"
     },
     {
-      "path": "./apps/symphony-dashboard"
+      "path": "./apps/web"
     }
   ]
 }

@@ -19,16 +19,6 @@ require_env() {
   fi
 }
 
-require_workflow_hook() {
-  local pattern="$1"
-  local description="$2"
-
-  if ! grep -Fq "$pattern" "$WORKFLOW_PATH"; then
-    echo "Workflow is missing the required Symphony hook for $description: $pattern" >&2
-    exit 1
-  fi
-}
-
 symfony_binary_is_stale() {
   local install_root="$1"
   local binary_path="$install_root/bin/symphony"
@@ -79,17 +69,7 @@ DEFAULT_SYMPHONY_INSTALL_ROOT="$REPO_ROOT/symphony/elixir"
 
 export SYMPHONY_SOURCE_REPO="${SYMPHONY_SOURCE_REPO:-${COLDETS_SYMPHONY_SOURCE_REPO:-$REPO_ROOT}}"
 export COLDETS_SYMPHONY_SOURCE_REPO="$SYMPHONY_SOURCE_REPO"
-export SYMPHONY_ENV_SOURCE_REPO="${SYMPHONY_ENV_SOURCE_REPO:-${COLDETS_SYMPHONY_ENV_SOURCE_REPO:-$REPO_ROOT}}"
-export COLDETS_SYMPHONY_ENV_SOURCE_REPO="$SYMPHONY_ENV_SOURCE_REPO"
 export SYMPHONY_WORKSPACE_ROOT="${SYMPHONY_WORKSPACE_ROOT:-$HOME/code/workspaces/symphony}"
-export SYMPHONY_INSTALL_CMD="${SYMPHONY_INSTALL_CMD:-${COLDETS_SYMPHONY_INSTALL_CMD:-pnpm install}}"
-export COLDETS_SYMPHONY_INSTALL_CMD="$SYMPHONY_INSTALL_CMD"
-export SYMPHONY_BASE_REF="${SYMPHONY_BASE_REF:-${COLDETS_SYMPHONY_BASE_REF:-origin/main}}"
-export COLDETS_SYMPHONY_BASE_REF="$SYMPHONY_BASE_REF"
-export SYMPHONY_OVERLAY_SOURCE_DIFFS="${SYMPHONY_OVERLAY_SOURCE_DIFFS:-${COLDETS_SYMPHONY_OVERLAY_SOURCE_DIFFS:-0}}"
-export COLDETS_SYMPHONY_OVERLAY_SOURCE_DIFFS="$SYMPHONY_OVERLAY_SOURCE_DIFFS"
-export SYMPHONY_PREPARE_ISSUE_DATABASE="${SYMPHONY_PREPARE_ISSUE_DATABASE:-${COLDETS_SYMPHONY_PREPARE_ISSUE_DATABASE:-0}}"
-export COLDETS_SYMPHONY_PREPARE_ISSUE_DATABASE="$SYMPHONY_PREPARE_ISSUE_DATABASE"
 export SYMPHONY_INSTALL_ROOT="${SYMPHONY_INSTALL_ROOT:-$DEFAULT_SYMPHONY_INSTALL_ROOT}"
 
 require_env LINEAR_API_KEY
@@ -105,10 +85,6 @@ if [ ! -f "$WORKFLOW_PATH" ]; then
   echo "Workflow file not found: $WORKFLOW_PATH" >&2
   exit 1
 fi
-
-require_workflow_hook "bootstrap-worktree.sh" "worktree bootstrap"
-require_workflow_hook "validate-worktree.sh" "worktree validation"
-require_workflow_hook "cleanup-worktree.sh" "worktree cleanup"
 
 if [ ! -d "$SYMPHONY_INSTALL_ROOT" ]; then
   echo "Symphony install root not found: $SYMPHONY_INSTALL_ROOT" >&2

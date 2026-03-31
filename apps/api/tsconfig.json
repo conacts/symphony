@@ -1,0 +1,27 @@
+{
+  "extends": "../../packages/typescript-configs/tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "types": ["node"]
+  },
+  "references": [
+    {
+      "path": "../../packages/env"
+    },
+    {
+      "path": "../../packages/errors"
+    },
+    {
+      "path": "../../packages/logger"
+    },
+    {
+      "path": "../../packages/contracts"
+    },
+    {
+      "path": "../../packages/core"
+    }
+  ],
+  "include": ["src/**/*.ts"]
+}

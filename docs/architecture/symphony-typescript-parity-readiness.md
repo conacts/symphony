@@ -31,47 +31,47 @@ Those surfaces define the current admitted V1 behavior we are trying to preserve
 
 - [x] Runtime summary HTTP surface
   Evidence:
-  - `apps/symphony-runtime/src/http/app.test.ts`
-  - `apps/symphony-dashboard/src/core/runtime-summary-client.test.ts`
-  - `apps/symphony-dashboard/src/components/runtime-summary-view.test.tsx`
+  - `apps/api/src/http/app.test.ts`
+  - `apps/web/src/core/runtime-summary-client.test.ts`
+  - `apps/web/src/components/runtime-summary-view.test.tsx`
 - [x] Realtime websocket invalidation model
   Evidence:
-  - `apps/symphony-runtime/src/http/realtime.test.ts`
-  - `apps/symphony-dashboard/src/core/runtime-summary-client.test.ts`
-  - `apps/symphony-dashboard/src/core/realtime-resource.ts`
+  - `apps/api/src/http/realtime.test.ts`
+  - `apps/web/src/core/runtime-summary-client.test.ts`
+  - `apps/web/src/core/realtime-resource.ts`
 - [x] Issue, run, and problem-run forensics drilldowns
   Evidence:
-  - `apps/symphony-runtime/src/http/app.test.ts`
-  - `apps/symphony-dashboard/src/core/forensics-client.test.ts`
-  - `apps/symphony-dashboard/src/components/issue-detail-view.test.tsx`
-  - `apps/symphony-dashboard/src/components/problem-runs-view.test.tsx`
-  - `apps/symphony-dashboard/src/components/run-detail-view.test.tsx`
+  - `apps/api/src/http/app.test.ts`
+  - `apps/web/src/core/forensics-client.test.ts`
+  - `apps/web/src/components/issue-detail-view.test.tsx`
+  - `apps/web/src/components/problem-runs-view.test.tsx`
+  - `apps/web/src/components/run-detail-view.test.tsx`
 - [x] Refresh action parity
   Evidence:
-  - `apps/symphony-runtime/src/http/app.test.ts`
-  - `apps/symphony-dashboard/src/core/runtime-operator-client.test.ts`
-  - `apps/symphony-dashboard/src/components/runtime-refresh-panel.test.tsx`
+  - `apps/api/src/http/app.test.ts`
+  - `apps/web/src/core/runtime-operator-client.test.ts`
+  - `apps/web/src/components/runtime-refresh-panel.test.tsx`
 - [x] Requeue parity through existing GitHub and Linear flows
   Evidence:
-  - `apps/symphony-runtime/src/http/serializers.ts`
-  - `packages/symphony-contracts/src/domain/runtime/runtime.test.ts`
-  - `apps/symphony-dashboard/src/components/issue-requeue-panel.test.tsx`
+  - `apps/api/src/http/serializers.ts`
+  - `packages/contracts/src/domain/runtime/runtime.test.ts`
+  - `apps/web/src/components/issue-requeue-panel.test.tsx`
 - [x] GitHub review ingress transport parity
   Evidence:
-  - `apps/symphony-runtime/src/http/app.test.ts`
-  - `packages/symphony-contracts/src/domain/github-review-events/github-review-events.test.ts`
+  - `apps/api/src/http/app.test.ts`
+  - `packages/contracts/src/domain/github-review-events/github-review-events.test.ts`
 
 ### Runtime-Critical Parity
 
 - [ ] Real Linear-backed tracker polling and reconciliation
   Current status:
-  - `apps/symphony-runtime/src/core/runtime-services.ts` still boots the default runtime with
+  - `apps/api/src/core/runtime-services.ts` still boots the default runtime with
     `createMemorySymphonyTracker([])`.
   Cutover gate:
   - replace the memory tracker with a real admitted Linear adapter that uses `WORKFLOW.md` config.
 - [ ] Real Codex app-server execution
   Current status:
-  - `apps/symphony-runtime/src/core/runtime-services.ts` still uses a stub `agentRuntime` that does
+  - `apps/api/src/core/runtime-services.ts` still uses a stub `agentRuntime` that does
     not launch Codex and returns `sessionId: null`.
   Cutover gate:
   - replace the stub runtime with the real Codex app-server orchestration path.
@@ -105,8 +105,8 @@ pnpm exec turbo run build lint test typecheck \
   --filter=@symphony/errors \
   --filter=@symphony/contracts \
   --filter=@symphony/core \
-  --filter=@symphony/runtime \
-  --filter=@symphony/dashboard
+  --filter=@symphony/api \
+  --filter=@symphony/web
 ```
 
 This is necessary evidence for operator-surface parity. It is **not** sufficient evidence for full
@@ -124,7 +124,7 @@ The TypeScript runtime now has a direct local launcher:
 
 Expected env source:
 
-- `apps/symphony-runtime/.env.local`
+- `apps/api/.env.local`
 - or exported shell env vars
 
 Minimum env:
@@ -143,7 +143,7 @@ The launcher defaults:
 Equivalent direct package command:
 
 ```bash
-pnpm --filter @symphony/runtime dev
+pnpm --filter @symphony/api dev
 ```
 
 ### Dashboard
@@ -151,12 +151,12 @@ pnpm --filter @symphony/runtime dev
 Run the dashboard separately:
 
 ```bash
-pnpm --filter @symphony/dashboard dev
+pnpm --filter @symphony/web dev
 ```
 
 Expected env source:
 
-- `apps/symphony-dashboard/.env.local`
+- `apps/web/.env.local`
 
 Minimum env:
 

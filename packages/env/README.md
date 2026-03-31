@@ -4,8 +4,8 @@ Type-safe environment variable handling powered by `@t3-oss/env-core`.
 
 ## Read next
 - System docs flow: `README.md`
-- Runtime env usage: `apps/symphony-runtime/README.md`
-- Dashboard env usage: `apps/symphony-dashboard/README.md`
+- API env usage: `apps/api/README.md`
+- Web env usage: `apps/web/README.md`
 
 Usage:
 

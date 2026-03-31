@@ -13,13 +13,9 @@ For the TypeScript control-plane parity checklist and cutover gates, see
 ## Repo-Owned Files
 
 - `WORKFLOW.md`
-- `scripts/symphony/bootstrap-worktree.sh`
-- `scripts/symphony/cleanup-worktree.sh`
-- `scripts/symphony/render-workspace-env.sh`
 - `scripts/symphony/run-local.sh`
 - `scripts/symphony/run-typescript-local.sh`
 - `scripts/symphony/check-typescript-parity.sh`
-- `scripts/symphony/validate-worktree.sh`
 - `symphony/README.md`
 - `symphony/elixir/README.md`
 - `docs/adr/2026-03-20-symphony-local-evaluation-workflow.md`
@@ -66,16 +62,9 @@ Model pinning note:
 `./scripts/symphony/run-local.sh` exports these defaults before starting Symphony:
 
 - `SYMPHONY_SOURCE_REPO=$REPO_ROOT`
-- `SYMPHONY_ENV_SOURCE_REPO=$REPO_ROOT`
 - `SYMPHONY_WORKSPACE_ROOT=$HOME/code/workspaces/symphony`
-- `SYMPHONY_INSTALL_CMD=pnpm install`
-- `SYMPHONY_BASE_REF=origin/main`
-- `SYMPHONY_OVERLAY_SOURCE_DIFFS=0`
-- `SYMPHONY_PREPARE_ISSUE_DATABASE=0`
 - `SYMPHONY_INSTALL_ROOT=$REPO_ROOT/symphony/elixir`
 - `SYMPHONY_PR_BASE_REF=<repo default branch unless overridden>`
-
-Legacy `COLDETS_SYMPHONY_*` names are still accepted by the scripts as compatibility fallbacks.
 
 Requirements:
 
@@ -198,63 +187,9 @@ Run-forensics behavior:
    - other failure outcomes emitted by the orchestrator
 7. The run-detail page supports direct JSON export by copying the nested run document from the API.
 
-`WORKFLOW.md` hook commands run as plain shell commands from the issue workspace. They are not
-Liquid-rendered like the prompt body, so hook arguments that need issue metadata must come from the
-explicit hook env contract rather than from prompt interpolation.
-
-`bootstrap-worktree.sh`:
-
-1. requires `SYMPHONY_SOURCE_REPO` (or the legacy `COLDETS_SYMPHONY_SOURCE_REPO` fallback),
-2. fetches `origin` refs and defaults new issue branches from the configured remote base ref (`origin/main` by default),
-3. rejects dirty source checkouts unless `SYMPHONY_OVERLAY_SOURCE_DIFFS=1`,
-4. creates branch `symphony/<issue-identifier>` and a git worktree at the Symphony workspace path,
-5. optionally overlays tracked and untracked source-repo diffs only when that override is enabled,
-6. runs `SYMPHONY_INSTALL_CMD` inside the workspace,
-7. writes `.symphony/workspace.env` through `render-workspace-env.sh`,
-8. removes the worktree automatically if any bootstrap stage fails.
-
-`validate-worktree.sh`:
-
-1. runs in the `before_run` hook and fails closed before Codex starts,
-2. requires the workspace to be a linked git worktree registered under the source repo,
-3. requires the branch to match `symphony/<issue-identifier>`,
-4. requires `.symphony/workspace.env` so bootstrap metadata is present,
-5. rejects plain directories, standalone clones, wrong-repo worktrees, wrong branches, and the
-   source repo root itself,
-6. is also used by the local repo-owned runtime to decide whether an existing workspace is safe to
-   reuse or must be reset and bootstrapped again.
-
-Workspace naming and hook contract:
-
-1. Issue workspaces now use prefixed basenames such as `symphony-COL-42`.
-2. The git branch remains `symphony/COL-42`.
-3. Hook scripts consume `SYMPHONY_ISSUE_IDENTIFIER` and still accept the legacy
-   `COLDETS_SYMPHONY_ISSUE_IDENTIFIER` fallback instead of deriving the ticket id from the
-   workspace basename.
-
-Optional bootstrap env vars:
-
-- `SYMPHONY_SOURCE_REPO`
-- `SYMPHONY_ENV_SOURCE_REPO`
-- `SYMPHONY_INSTALL_CMD`
-- `SYMPHONY_BASE_REF`
-- `SYMPHONY_OVERLAY_SOURCE_DIFFS`
-- `SYMPHONY_PREPARE_ISSUE_DATABASE`
-- `SYMPHONY_PR_BASE_REF`
-
-`cleanup-worktree.sh`:
-
-1. resolves the source repo from `SYMPHONY_SOURCE_REPO` (or its legacy fallback) or the worktree's common git dir,
-2. runs `git worktree remove --force <workspace>`,
-3. runs `git worktree prune`.
-
-The `before_remove` hook should invoke `cleanup-worktree.sh` through
-`$SYMPHONY_SOURCE_REPO/scripts/symphony/cleanup-worktree.sh` (or the legacy env fallback) rather
-than a relative `./scripts/...` path, because terminal-state cleanup may run from an empty or only
-partially bootstrapped workspace.
-
-The local launcher also fails fast if `WORKFLOW.md` is not wired to the repo-owned bootstrap,
-validation, and cleanup hook scripts.
+This repo no longer owns host-repo worktree bootstrap, validation, or cleanup scripts. If a target
+application wants per-issue worktrees or repo-specific lifecycle hooks, that integration should be
+owned by the target repository rather than duplicated here.
 
 ## Environment Model
 
@@ -290,7 +225,6 @@ Matching env values:
 
 - `SYMPHONY_INSTALL_ROOT=/home/<user>/code/symphony/symphony/elixir`
 - `SYMPHONY_SOURCE_REPO=/home/<user>/code/symphony`
-- `SYMPHONY_ENV_SOURCE_REPO=/home/<user>/code/symphony`
 - `SYMPHONY_WORKSPACE_ROOT=/home/<user>/code/workspaces/symphony`
 - `SYMPHONY_GITHUB_STATE_PATH=/home/<user>/.symphony/state/github-review-events.ndjson`
 
@@ -343,8 +277,5 @@ From the repo root:
 
 The command fails fast if `LINEAR_API_KEY`, `mise`, `codex`, `WORKFLOW.md`, or the built Symphony binary are missing.
 
-For a manual prefixed worktree bootstrap:
-
-```bash
-./scripts/symphony/bootstrap-worktree.sh "$SYMPHONY_WORKSPACE_ROOT/symphony-COL-42" COL-42
-```
+If a target repository needs issue worktrees or custom workspace hooks, invoke that repository's
+own tooling instead of shelling back into this repo.

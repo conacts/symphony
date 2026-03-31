@@ -45,6 +45,3 @@ logs/
 
 # OS and editor noise
 .DS_Store
-
-# User-requested ignore
-*.m

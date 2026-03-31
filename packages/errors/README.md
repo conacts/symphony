@@ -4,8 +4,8 @@ Shared error codes, helpers, and response envelope types used across Symphony pa
 
 ## Read next
 - System docs flow: `README.md`
-- Runtime app: `apps/symphony-runtime/README.md`
-- Contracts package: `packages/symphony-contracts/README.md`
+- API app: `apps/api/README.md`
+- Contracts package: `packages/contracts/README.md`
 
 Exports:
 - `AppError` and `ErrorCode`

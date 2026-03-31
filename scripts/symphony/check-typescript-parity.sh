@@ -10,5 +10,5 @@ exec pnpm exec turbo run build lint test typecheck \
   --filter=@symphony/errors \
   --filter=@symphony/contracts \
   --filter=@symphony/core \
-  --filter=@symphony/runtime \
-  --filter=@symphony/dashboard
+  --filter=@symphony/api \
+  --filter=@symphony/web

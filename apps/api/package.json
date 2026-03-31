@@ -1,0 +1,33 @@
+{
+  "name": "@symphony/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "dev": "tsx watch src/main.ts",
+    "lint": "eslint .",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@symphony/env": "workspace:*",
+    "@symphony/errors": "workspace:*",
+    "@symphony/logger": "workspace:*",
+    "@symphony/contracts": "workspace:*",
+    "@symphony/core": "workspace:*",
+    "@hono/node-server": "^1.19.12",
+    "@hono/node-ws": "^1.3.0",
+    "hono": "^4.11.4"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "@symphony/eslint-configs": "workspace:*",
+    "@symphony/vitest-configs": "workspace:*",
+    "tsx": "^4.21.0",
+    "vitest": "^4.1.2",
+    "ws": "^8.20.0"
+  }
+}

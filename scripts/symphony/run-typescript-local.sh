@@ -33,4 +33,4 @@ export WORKFLOW_PATH="${WORKFLOW_PATH:-$REPO_ROOT/WORKFLOW.md}"
 export SYMPHONY_RUN_JOURNAL_FILE="${SYMPHONY_RUN_JOURNAL_FILE:-$REPO_ROOT/.symphony/run-journal.json}"
 
 cd "$REPO_ROOT"
-exec pnpm --filter @symphony/runtime dev
+exec pnpm --filter @symphony/api dev
