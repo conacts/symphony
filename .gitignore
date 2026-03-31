@@ -1,0 +1,50 @@
+# Local agent and workspace metadata
+.agents/
+.codex/
+symphony/.codex/
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build and test output
+.turbo/
+**/.turbo/
+.next/
+**/.next/
+dist/
+**/dist/
+coverage/
+**/coverage/
+*.tsbuildinfo
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+.env.machine.local
+apps/*/.env.local
+apps/*/.env.*.local
+packages/*/.env.local
+packages/*/.env.*.local
+
+# Runtime and logging artifacts
+.symphony/
+**/.symphony/
+log/
+logs/
+*.log
+*.jsonl
+*.ndjson
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# OS and editor noise
+.DS_Store
+
+# User-requested ignore
+*.m

@@ -1,0 +1,15 @@
+{
+  "name": "@symphony/typescript-configs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "*.json"
+  ],
+  "scripts": {
+    "lint": "eslint eslint.config.ts"
+  },
+  "devDependencies": {
+    "@symphony/eslint-configs": "workspace:*"
+  }
+}

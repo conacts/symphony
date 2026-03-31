@@ -1,0 +1,187 @@
+import {
+  symphonyForensicsIssueDetailResponseSchema,
+  symphonyForensicsIssueListResponseSchema,
+  symphonyForensicsProblemRunsResponseSchema,
+  symphonyForensicsRunDetailResponseSchema,
+  type SymphonyForensicsIssueDetailResult,
+  type SymphonyForensicsIssueListResult,
+  type SymphonyForensicsProblemRunsQuery,
+  type SymphonyForensicsProblemRunsResult,
+  type SymphonyForensicsRunDetailResult,
+  type SymphonyRealtimeServerMessage
+} from "@symphony/contracts";
+import { messageInvalidatesPath } from "@/core/runtime-summary-client";
+
+export async function fetchIssueIndex(
+  runtimeBaseUrl: string,
+  input: {
+    limit?: number;
+  } = {},
+  fetchImpl: typeof fetch = fetch
+): Promise<SymphonyForensicsIssueListResult> {
+  const endpoint = createRuntimeUrl(runtimeBaseUrl, "/api/v1/issues", {
+    limit: String(input.limit ?? 200)
+  });
+  const response = await fetchImpl(endpoint, {
+    headers: {
+      accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Issue index request failed with ${response.status}.`);
+  }
+
+  const parsed = symphonyForensicsIssueListResponseSchema.parse(await response.json());
+
+  if (!parsed.ok) {
+    throw new Error(parsed.error.message);
+  }
+
+  return parsed.data;
+}
+
+export async function fetchIssueDetail(
+  runtimeBaseUrl: string,
+  issueIdentifier: string,
+  input: {
+    limit?: number;
+  } = {},
+  fetchImpl: typeof fetch = fetch
+): Promise<SymphonyForensicsIssueDetailResult> {
+  const endpoint = createRuntimeUrl(
+    runtimeBaseUrl,
+    `/api/v1/issues/${issueIdentifier}`,
+    {
+      limit: String(input.limit ?? 200)
+    }
+  );
+  const response = await fetchImpl(endpoint, {
+    headers: {
+      accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Issue detail request failed with ${response.status}.`);
+  }
+
+  const parsed = symphonyForensicsIssueDetailResponseSchema.parse(await response.json());
+
+  if (!parsed.ok) {
+    throw new Error(parsed.error.message);
+  }
+
+  return parsed.data;
+}
+
+export async function fetchRunDetail(
+  runtimeBaseUrl: string,
+  runId: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<SymphonyForensicsRunDetailResult> {
+  const endpoint = createRuntimeUrl(runtimeBaseUrl, `/api/v1/runs/${runId}`);
+  const response = await fetchImpl(endpoint, {
+    headers: {
+      accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Run detail request failed with ${response.status}.`);
+  }
+
+  const parsed = symphonyForensicsRunDetailResponseSchema.parse(await response.json());
+
+  if (!parsed.ok) {
+    throw new Error(parsed.error.message);
+  }
+
+  return parsed.data;
+}
+
+export async function fetchProblemRuns(
+  runtimeBaseUrl: string,
+  query: SymphonyForensicsProblemRunsQuery,
+  fetchImpl: typeof fetch = fetch
+): Promise<SymphonyForensicsProblemRunsResult> {
+  const endpoint = createRuntimeUrl(runtimeBaseUrl, "/api/v1/problem-runs", {
+    limit: String(query.limit),
+    outcome: query.outcome,
+    issueIdentifier: query.issueIdentifier
+  });
+  const response = await fetchImpl(endpoint, {
+    headers: {
+      accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Problem-runs request failed with ${response.status}.`);
+  }
+
+  const parsed = symphonyForensicsProblemRunsResponseSchema.parse(await response.json());
+
+  if (!parsed.ok) {
+    throw new Error(parsed.error.message);
+  }
+
+  return parsed.data;
+}
+
+export function shouldRefreshIssueIndex(
+  message: SymphonyRealtimeServerMessage
+): boolean {
+  return (
+    message.type === "issue.updated" || message.type === "problem-runs.updated"
+  );
+}
+
+export function shouldRefreshIssueDetail(
+  message: SymphonyRealtimeServerMessage,
+  issueIdentifier: string
+): boolean {
+  if (
+    message.type === "issue.updated" &&
+    message.issueIdentifier === issueIdentifier
+  ) {
+    return true;
+  }
+
+  return messageInvalidatesPath(message, `/api/v1/issues/${issueIdentifier}`);
+}
+
+export function shouldRefreshRunDetail(
+  message: SymphonyRealtimeServerMessage,
+  runId: string
+): boolean {
+  return messageInvalidatesPath(message, `/api/v1/runs/${runId}`);
+}
+
+export function shouldRefreshProblemRuns(
+  message: SymphonyRealtimeServerMessage
+): boolean {
+  return message.type === "problem-runs.updated";
+}
+
+function createRuntimeUrl(
+  runtimeBaseUrl: string,
+  path: string,
+  params?: Record<string, string | undefined>
+): string {
+  const url = new URL(path, runtimeBaseUrl);
+
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      if (value && value.trim() !== "") {
+        url.searchParams.set(key, value);
+      }
+    }
+  }
+
+  return url.toString();
+}

@@ -1,0 +1,253 @@
+defmodule SymphonyElixir.AgentRunner do
+  @moduledoc """
+  Executes a single Linear issue in its workspace with Codex.
+  """
+
+  require Logger
+  alias SymphonyElixir.Codex.AppServer
+  alias SymphonyElixir.{Config, ForensicsRecorder, Linear.Issue, PromptBuilder, Tracker, Workspace}
+
+  @type worker_host :: String.t() | nil
+
+  @spec run(map(), pid() | nil, keyword()) :: :ok | no_return()
+  def run(issue, codex_update_recipient \\ nil, opts \\ []) do
+    # The orchestrator owns host retries so one worker lifetime never hops machines.
+    worker_host = selected_worker_host(Keyword.get(opts, :worker_host), Config.settings!().worker.ssh_hosts)
+
+    Logger.info("Starting agent run for #{issue_context(issue)} worker_host=#{worker_host_for_log(worker_host)}")
+
+    case run_on_worker_host(issue, codex_update_recipient, opts, worker_host) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        send_agent_failure(codex_update_recipient, issue, reason)
+        Logger.error("Agent run failed for #{issue_context(issue)}: #{inspect(reason)}")
+        raise RuntimeError, "Agent run failed for #{issue_context(issue)}: #{inspect(reason)}"
+    end
+  end
+
+  defp run_on_worker_host(issue, codex_update_recipient, opts, worker_host) do
+    Logger.info("Starting worker attempt for #{issue_context(issue)} worker_host=#{worker_host_for_log(worker_host)}")
+    run_id = Keyword.get(opts, :run_id)
+
+    case Workspace.create_for_issue(issue, worker_host) do
+      {:ok, workspace} ->
+        send_worker_runtime_info(codex_update_recipient, issue, worker_host, workspace)
+
+        try do
+          with :ok <- Workspace.run_before_run_hook(workspace, issue, worker_host) do
+            :ok = ForensicsRecorder.record_workspace_ready(run_id, workspace, worker_host)
+            result = run_codex_turns(workspace, issue, codex_update_recipient, opts, worker_host)
+            :ok = ForensicsRecorder.record_run_end_snapshot(run_id, workspace, worker_host)
+            result
+          end
+        after
+          Workspace.run_after_run_hook(workspace, issue, worker_host)
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp codex_message_handler(recipient, issue, run_id, turn_journal_id) do
+    fn message ->
+      :ok = ForensicsRecorder.record_event(run_id, turn_journal_id, message)
+      send_codex_update(recipient, issue, message)
+    end
+  end
+
+  defp send_codex_update(recipient, %Issue{id: issue_id}, message)
+       when is_binary(issue_id) and is_pid(recipient) do
+    send(recipient, {:codex_worker_update, issue_id, message})
+    :ok
+  end
+
+  defp send_codex_update(_recipient, _issue, _message), do: :ok
+
+  defp send_worker_runtime_info(recipient, %Issue{id: issue_id}, worker_host, workspace)
+       when is_binary(issue_id) and is_pid(recipient) and is_binary(workspace) do
+    send(
+      recipient,
+      {:worker_runtime_info, issue_id,
+       %{
+         worker_host: worker_host,
+         workspace_path: workspace
+       }}
+    )
+
+    :ok
+  end
+
+  defp send_worker_runtime_info(_recipient, _issue, _worker_host, _workspace), do: :ok
+
+  defp send_agent_failure(recipient, %Issue{id: issue_id}, reason)
+       when is_binary(issue_id) and is_pid(recipient) do
+    send(recipient, {:agent_failure, issue_id, reason})
+    :ok
+  end
+
+  defp send_agent_failure(_recipient, _issue, _reason), do: :ok
+
+  defp send_agent_max_turns_reached(recipient, %Issue{id: issue_id}, max_turns)
+       when is_binary(issue_id) and is_pid(recipient) and is_integer(max_turns) do
+    send(recipient, {:agent_max_turns_reached, issue_id, max_turns})
+    :ok
+  end
+
+  defp send_agent_max_turns_reached(_recipient, _issue, _max_turns), do: :ok
+
+  defp run_codex_turns(workspace, issue, codex_update_recipient, opts, worker_host) do
+    max_turns = Keyword.get(opts, :max_turns, Config.settings!().agent.max_turns)
+    issue_state_fetcher = Keyword.get(opts, :issue_state_fetcher, &Tracker.fetch_issue_states_by_ids/1)
+
+    with {:ok, session} <- AppServer.start_session(workspace, worker_host: worker_host, issue: issue) do
+      try do
+        do_run_codex_turns(session, workspace, issue, codex_update_recipient, opts, issue_state_fetcher, 1, max_turns)
+      after
+        AppServer.stop_session(session)
+      end
+    end
+  end
+
+  defp do_run_codex_turns(app_session, workspace, issue, codex_update_recipient, opts, issue_state_fetcher, turn_number, max_turns) do
+    prompt = build_turn_prompt(issue, opts, turn_number, max_turns)
+    run_id = Keyword.get(opts, :run_id)
+    turn_journal_id = ForensicsRecorder.start_turn(run_id, turn_number, prompt)
+
+    case AppServer.run_turn(
+           app_session,
+           prompt,
+           issue,
+           on_message: codex_message_handler(codex_update_recipient, issue, run_id, turn_journal_id)
+         ) do
+      {:ok, turn_session} ->
+        :ok =
+          ForensicsRecorder.finalize_turn(turn_journal_id, run_id, "completed", %{
+            codex_thread_id: turn_session[:thread_id],
+            codex_turn_id: turn_session[:turn_id],
+            codex_session_id: turn_session[:session_id]
+          })
+
+        Logger.info("Completed agent run for #{issue_context(issue)} session_id=#{turn_session[:session_id]} workspace=#{workspace} turn=#{turn_number}/#{max_turns}")
+
+        case continue_with_issue?(issue, issue_state_fetcher) do
+          {:continue, refreshed_issue} when turn_number < max_turns ->
+            Logger.info("Continuing agent run for #{issue_context(refreshed_issue)} after normal turn completion turn=#{turn_number}/#{max_turns}")
+
+            do_run_codex_turns(
+              app_session,
+              workspace,
+              refreshed_issue,
+              codex_update_recipient,
+              opts,
+              issue_state_fetcher,
+              turn_number + 1,
+              max_turns
+            )
+
+          {:continue, refreshed_issue} ->
+            Logger.info("Reached agent.max_turns for #{issue_context(refreshed_issue)} with issue still active; returning control to orchestrator")
+            send_agent_max_turns_reached(codex_update_recipient, refreshed_issue, max_turns)
+
+            :ok
+
+          {:done, _refreshed_issue} ->
+            :ok
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        :ok =
+          ForensicsRecorder.finalize_turn(turn_journal_id, run_id, "failed", %{
+            metadata: %{reason: normalize_reason(reason)}
+          })
+
+        {:error, reason}
+    end
+  end
+
+  defp build_turn_prompt(issue, opts, 1, _max_turns), do: PromptBuilder.build_prompt(issue, opts)
+
+  defp build_turn_prompt(_issue, _opts, turn_number, max_turns) do
+    """
+    Continuation guidance:
+
+    - The previous Codex turn completed normally, but the Linear issue is still in an active state.
+    - This is continuation turn ##{turn_number} of #{max_turns} for the current agent run.
+    - Resume from the current workspace and workpad state instead of restarting from scratch.
+    - The original task instructions and prior turn context are already present in this thread, so do not restate them before acting.
+    - Focus on the remaining ticket work and do not end the turn while the issue stays active unless you are truly blocked.
+    """
+  end
+
+  defp continue_with_issue?(%Issue{id: issue_id} = issue, issue_state_fetcher) when is_binary(issue_id) do
+    case issue_state_fetcher.([issue_id]) do
+      {:ok, [%Issue{} = refreshed_issue | _]} ->
+        if active_issue_state?(refreshed_issue.state) do
+          {:continue, refreshed_issue}
+        else
+          {:done, refreshed_issue}
+        end
+
+      {:ok, []} ->
+        {:done, issue}
+
+      {:error, reason} ->
+        {:error, {:issue_state_refresh_failed, reason}}
+    end
+  end
+
+  defp continue_with_issue?(issue, _issue_state_fetcher), do: {:done, issue}
+
+  defp active_issue_state?(state_name) when is_binary(state_name) do
+    normalized_state = normalize_issue_state(state_name)
+
+    Config.settings!().tracker.dispatchable_states
+    |> Enum.any?(fn active_state -> normalize_issue_state(active_state) == normalized_state end)
+  end
+
+  defp active_issue_state?(_state_name), do: false
+
+  defp selected_worker_host(nil, []), do: nil
+
+  defp selected_worker_host(preferred_host, configured_hosts) when is_list(configured_hosts) do
+    hosts =
+      configured_hosts
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.uniq()
+
+    case preferred_host do
+      host when is_binary(host) and host != "" -> host
+      _ when hosts == [] -> nil
+      _ -> List.first(hosts)
+    end
+  end
+
+  defp worker_host_for_log(nil), do: "local"
+  defp worker_host_for_log(worker_host), do: worker_host
+
+  defp normalize_issue_state(state_name) when is_binary(state_name) do
+    state_name
+    |> String.trim()
+    |> String.downcase()
+  end
+
+  defp issue_context(%Issue{id: issue_id, identifier: identifier}) do
+    "issue_id=#{issue_id} issue_identifier=#{identifier}"
+  end
+
+  defp normalize_reason(%DateTime{} = value), do: DateTime.to_iso8601(value)
+  defp normalize_reason(%NaiveDateTime{} = value), do: NaiveDateTime.to_iso8601(value)
+  defp normalize_reason(%Date{} = value), do: Date.to_iso8601(value)
+  defp normalize_reason(%Time{} = value), do: Time.to_iso8601(value)
+  defp normalize_reason(%_{} = value), do: value |> Map.from_struct() |> normalize_reason()
+  defp normalize_reason(value) when is_map(value), do: Map.new(value, fn {key, item} -> {to_string(key), normalize_reason(item)} end)
+  defp normalize_reason(value) when is_list(value), do: Enum.map(value, &normalize_reason/1)
+  defp normalize_reason(value) when is_atom(value), do: Atom.to_string(value)
+  defp normalize_reason(value), do: value
+end

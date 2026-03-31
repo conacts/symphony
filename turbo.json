@@ -1,0 +1,60 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**",
+        "tsconfig.tsbuildinfo"
+      ]
+    },
+    "lint": {},
+    "test": {
+      "dependsOn": [
+        "build"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "build"
+      ]
+    },
+    "policy:check": {
+      "dependsOn": [
+        "^policy:check"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
+    }
+  },
+  "globalEnv": [
+    "NODE_ENV"
+  ],
+  "globalPassThroughEnv": [
+    "GITHUB_TOKEN",
+    "GITHUB_WEBHOOK_SECRET",
+    "LINEAR_API_KEY",
+    "NEXT_PUBLIC_SYMPHONY_RUNTIME_BASE_URL",
+    "PORT",
+    "SYMPHONY_GITHUB_STATE_PATH",
+    "SYMPHONY_RUN_JOURNAL_FILE",
+    "SYMPHONY_RUNTIME_BASE_URL",
+    "SYMPHONY_WORKSPACE_ROOT",
+    "WORKFLOW_PATH"
+  ],
+  "globalDependencies": [
+    "WORKFLOW.md",
+    "packages/typescript-configs/tsconfig.base.json",
+    "packages/eslint-configs/eslint.config.ts",
+    "packages/eslint-configs/src/**"
+  ]
+}

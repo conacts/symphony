@@ -1,0 +1,30 @@
+{
+  "extends": "./packages/typescript-configs/tsconfig.base.json",
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/eslint-configs"
+    },
+    {
+      "path": "./packages/env"
+    },
+    {
+      "path": "./packages/errors"
+    },
+    {
+      "path": "./packages/symphony-contracts"
+    },
+    {
+      "path": "./packages/symphony-core"
+    },
+    {
+      "path": "./packages/vitest-configs"
+    },
+    {
+      "path": "./apps/symphony-runtime"
+    },
+    {
+      "path": "./apps/symphony-dashboard"
+    }
+  ]
+}

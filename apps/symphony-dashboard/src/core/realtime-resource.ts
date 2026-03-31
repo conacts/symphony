@@ -1,0 +1,145 @@
+"use client";
+
+import { startTransition, useEffect, useEffectEvent, useState } from "react";
+import type {
+  SymphonyRealtimeChannel,
+  SymphonyRealtimeServerMessage
+} from "@symphony/contracts";
+import {
+  parseRealtimeServerMessage,
+  serializeRealtimeClientMessage
+} from "@/core/runtime-summary-client";
+
+export type RealtimeResourceStatus = "connecting" | "connected" | "degraded";
+
+export function useRealtimeResource<T>(input: {
+  loadResource: () => Promise<T>;
+  websocketUrl: string;
+  channels: SymphonyRealtimeChannel[];
+  shouldRefresh: (message: SymphonyRealtimeServerMessage) => boolean;
+  refreshKey: string;
+}) {
+  const [resource, setResource] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<RealtimeResourceStatus>("connecting");
+  const [error, setError] = useState<string | null>(null);
+  const channelsKey = input.channels.join("|");
+  const shouldRefresh = useEffectEvent(input.shouldRefresh);
+
+  const refresh = useEffectEvent(async () => {
+    try {
+      const nextResource = await input.loadResource();
+
+      startTransition(() => {
+        setResource(nextResource);
+        setLoading(false);
+        setError(null);
+      });
+    } catch (resourceError) {
+      const nextError =
+        resourceError instanceof Error
+          ? resourceError.message
+          : "Failed to load the requested resource.";
+
+      startTransition(() => {
+        setLoading(false);
+        setError(nextError);
+        setStatus("degraded");
+      });
+    }
+  });
+
+  useEffect(() => {
+    startTransition(() => {
+      setLoading(true);
+      setError(null);
+    });
+    void refresh();
+  }, [input.refreshKey, refresh]);
+
+  useEffect(() => {
+    let disposed = false;
+    let socket: WebSocket | null = null;
+    let reconnectTimeout: number | null = null;
+
+    const connect = () => {
+      if (disposed) {
+        return;
+      }
+
+      socket = new WebSocket(input.websocketUrl);
+
+      socket.addEventListener("open", () => {
+        socket?.send(
+          serializeRealtimeClientMessage({
+            type: "subscribe",
+            channels: input.channels
+          })
+        );
+      });
+
+      socket.addEventListener("message", (event) => {
+        const message = parseRealtimeServerMessage(String(event.data));
+
+        if (!message) {
+          startTransition(() => {
+            setStatus("degraded");
+            setError("Received an invalid realtime message.");
+          });
+          return;
+        }
+
+        if (message.type === "connection.ack") {
+          startTransition(() => {
+            setStatus("connected");
+          });
+          return;
+        }
+
+        if (shouldRefresh(message)) {
+          void refresh();
+        }
+      });
+
+      socket.addEventListener("close", () => {
+        if (disposed) {
+          return;
+        }
+
+        startTransition(() => {
+          setStatus("degraded");
+          setError((currentError) => currentError ?? "Realtime connection closed.");
+        });
+
+        reconnectTimeout = window.setTimeout(connect, 1_500);
+      });
+
+      socket.addEventListener("error", () => {
+        startTransition(() => {
+          setStatus("degraded");
+          setError((currentError) => currentError ?? "Realtime connection failed.");
+        });
+      });
+    };
+
+    connect();
+
+    return () => {
+      disposed = true;
+
+      if (reconnectTimeout !== null) {
+        window.clearTimeout(reconnectTimeout);
+      }
+
+      socket?.close();
+    };
+  }, [channelsKey, input.refreshKey, input.websocketUrl, refresh, shouldRefresh]);
+
+  return {
+    resource,
+    loading,
+    status,
+    error,
+    refresh
+  };
+}
