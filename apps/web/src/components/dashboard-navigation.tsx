@@ -1,32 +1,120 @@
+"use client";
+
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import type { SymphonyDashboardNavigationItem } from "@/core/dashboard-foundation";
+import { usePathname } from "next/navigation";
+import {
+  FolderKanbanIcon,
+  HistoryIcon,
+  TriangleAlertIcon
+} from "lucide-react";
+import { IssueStateIcon } from "@/components/issue-state-icon";
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem
+} from "@/components/ui/sidebar";
+import type {
+  SymphonyDashboardActiveIssue,
+  SymphonyDashboardNavigationItem
+} from "@/core/dashboard-foundation";
+
+const navigationIcons = {
+  Issues: FolderKanbanIcon,
+  Runs: HistoryIcon,
+  "Problem Runs": TriangleAlertIcon
+} as const;
 
 export function DashboardNavigation(input: {
   items: SymphonyDashboardNavigationItem[];
+  activeIssues: SymphonyDashboardActiveIssue[];
+  loadingActiveIssues: boolean;
 }) {
+  const pathname = usePathname();
+
   return (
-    <nav aria-label="Symphony dashboard" className="flex flex-col gap-3">
-      {input.items.map((item) => (
-        <Link
-          key={item.label}
-          href={item.href}
-          className={cn(
-            "flex flex-col gap-2 rounded-lg border bg-card p-4 hover:bg-accent"
-          )}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-medium">{item.label}</span>
-            <Badge
-              variant={item.readiness === "available" ? "secondary" : "outline"}
-            >
-              {item.readiness === "available" ? "Available" : "Coming next"}
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">{item.description}</p>
-        </Link>
-      ))}
-    </nav>
+    <>
+      <SidebarGroup>
+        <SidebarGroupLabel>Pages</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {input.items.map((item) => {
+              const Icon = navigationIcons[item.label as keyof typeof navigationIcons];
+
+              return (
+                <SidebarMenuItem key={item.label}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isNavigationActive(pathname, item.href)}
+                    tooltip={item.label}
+                  >
+                    <Link href={item.href} aria-label={item.label}>
+                      {Icon ? <Icon /> : null}
+                      <span className="truncate group-data-[collapsible=icon]:hidden">
+                        {item.label}
+                      </span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      <SidebarGroup>
+        <SidebarGroupLabel>Active Tickets</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {input.loadingActiveIssues && input.activeIssues.length === 0 ? (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  className="group-data-[collapsible=icon]:hidden"
+                  disabled
+                >
+                  <span>Loading active tickets…</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ) : input.activeIssues.length === 0 ? (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  className="group-data-[collapsible=icon]:hidden"
+                  disabled
+                >
+                  <span>No active tickets</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ) : (
+              input.activeIssues.map((issue) => (
+                <SidebarMenuItem key={issue.issueIdentifier}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === issue.href}
+                    tooltip={`${issue.title} - ${issue.state}`}
+                  >
+                    <Link href={issue.href} aria-label={`${issue.title} - ${issue.state}`}>
+                      <IssueStateIcon state={issue.state} />
+                      <span className="truncate group-data-[collapsible=icon]:hidden">
+                        {issue.title}
+                      </span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))
+            )}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </>
   );
+}
+
+function isNavigationActive(pathname: string, href: string): boolean {
+  if (href === "/") {
+    return pathname === "/";
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
 }

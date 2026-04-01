@@ -19,6 +19,13 @@ export type SymphonyDashboardNavigationItem = {
   readiness: "available" | "foundation";
 };
 
+export type SymphonyDashboardActiveIssue = {
+  issueIdentifier: string;
+  title: string;
+  state: string;
+  href: string;
+};
+
 export type SymphonyDashboardFoundationModel = {
   title: string;
   tagline: string;
@@ -97,12 +104,6 @@ export function buildSymphonyDashboardFoundation(
         "The dashboard is wired to the Hono runtime and typed websocket stream, with runtime summary, forensic drilldowns, and parity-safe operator actions available from the current shell."
     },
     navigation: [
-      {
-        href: "/",
-        label: "Overview",
-        description: "Runtime summary, connection status, and top-level operator signals.",
-        readiness: "available"
-      },
       {
         href: "/issues",
         label: "Issues",
