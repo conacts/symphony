@@ -20,6 +20,10 @@ import {
   buildSymphonyRuntimeIssueResult,
   buildSymphonyRuntimeRefreshResult
 } from "@/test-support/build-symphony-runtime-operator";
+import {
+  loadSymphonyDashboardEnv,
+  type EnvironmentSource
+} from "@/core/env";
 
 const mockIssues: SymphonyForensicsIssueSummary[] = [
   {
@@ -523,9 +527,9 @@ const mockTimelineByIssueIdentifier: Record<string, SymphonyForensicsIssueTimeli
 };
 
 export function isMockRuntimeEnabled(
-  env: Record<string, string | undefined> = process.env
+  env?: EnvironmentSource
 ): boolean {
-  return env.NEXT_PUBLIC_SYMPHONY_USE_MOCK_RUNTIME === "true";
+  return loadSymphonyDashboardEnv(env).useMockRuntime === true;
 }
 
 export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {

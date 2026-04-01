@@ -705,26 +705,6 @@ function buildIssueSummary(
   };
 }
 
-function isProblemRun(
-  run: typeof symphonyRunsTable.$inferSelect,
-  outcomeFilter?: string,
-  issueIdentifierFilter?: string
-): boolean {
-  if (!run.outcome || completedOutcomes.has(run.outcome)) {
-    return false;
-  }
-
-  if (outcomeFilter && run.outcome !== outcomeFilter) {
-    return false;
-  }
-
-  if (issueIdentifierFilter && run.issueIdentifier !== issueIdentifierFilter) {
-    return false;
-  }
-
-  return true;
-}
-
 function matchesRunFilters(
   run: typeof symphonyRunsTable.$inferSelect,
   opts: SymphonyRunJournalRunsOptions

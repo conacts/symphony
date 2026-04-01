@@ -7,6 +7,11 @@ import {
   createFileBackedSymphonyRunJournal,
   defaultSymphonyRunJournalFile
 } from "../journal/file-backed-symphony-run-journal.js";
+import type {
+  SymphonyRunExport,
+  SymphonyRunJournal,
+  SymphonyRunSummary
+} from "../journal/symphony-run-journal-types.js";
 import {
   buildSymphonyEventAttrs,
   buildSymphonyRunFinishAttrs,
@@ -79,4 +84,87 @@ describe("symphony forensics read model", () => {
     expect(await readModel.issueForensicsBundle("COL-MISSING")).toBeNull();
     expect(await readModel.runDetail("run-missing")).toBeNull();
   });
+
+  it("fails fast when a run exists without a matching issue summary", async () => {
+    const readModel = createSymphonyForensicsReadModel({
+      journal: createIncompleteJournal()
+    });
+
+    await expect(readModel.issues()).rejects.toThrow(
+      "Missing issue summary for COL-157"
+    );
+    await expect(readModel.issueForensicsBundle("COL-157")).rejects.toThrow(
+      "Missing issue summary for COL-157"
+    );
+  });
 });
+
+function createIncompleteJournal(): SymphonyRunJournal {
+  const run: SymphonyRunSummary = {
+    runId: "run-1",
+    issueId: "issue-1",
+    issueIdentifier: "COL-157",
+    attempt: 1,
+    status: "finished",
+    outcome: "completed",
+    workerHost: null,
+    workspacePath: null,
+    startedAt: "2026-03-31T00:00:00.000Z",
+    endedAt: "2026-03-31T00:01:00.000Z",
+    commitHashStart: null,
+    commitHashEnd: null,
+    turnCount: 1,
+    eventCount: 1,
+    lastEventType: "turn_completed",
+    lastEventAt: "2026-03-31T00:01:00.000Z",
+    durationSeconds: 60,
+    errorClass: null,
+    errorMessage: null,
+    inputTokens: 10,
+    outputTokens: 20,
+    totalTokens: 30
+  };
+
+  return {
+    dbFile: "/tmp/incomplete-journal.json",
+    retentionDays: 90,
+    payloadMaxBytes: 64 * 1024,
+    async recordRunStarted() {
+      throw new Error("unused");
+    },
+    async recordTurnStarted() {
+      throw new Error("unused");
+    },
+    async recordEvent() {
+      throw new Error("unused");
+    },
+    async updateTurn() {
+      throw new Error("unused");
+    },
+    async finalizeTurn() {
+      throw new Error("unused");
+    },
+    async updateRun() {
+      throw new Error("unused");
+    },
+    async finalizeRun() {
+      throw new Error("unused");
+    },
+    async listIssues() {
+      return [];
+    },
+    async listRuns() {
+      return [run];
+    },
+    async listRunsForIssue(issueIdentifier) {
+      return issueIdentifier === run.issueIdentifier ? [run] : [];
+    },
+    async listProblemRuns() {
+      return [];
+    },
+    async fetchRunExport(): Promise<SymphonyRunExport | null> {
+      return null;
+    },
+    async pruneRetention() {}
+  };
+}

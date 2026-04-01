@@ -51,12 +51,15 @@
     "start": "pnpm build && pnpm -r --parallel --stream --filter @symphony/api --filter @symphony/web start",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "verify": "turbo run lint typecheck test",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
     "@vitest/coverage-v8": "^4.1.2",
     "eslint": "^10.1.0",
+    "husky": "^9.1.7",
     "jiti": "^2.6.1",
     "tsx": "^4.21.0",
     "turbo": "^2.9.3",

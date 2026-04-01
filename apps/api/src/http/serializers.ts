@@ -73,13 +73,29 @@ export function serializeRuntimeIssue(
     return null;
   }
 
-  const resolvedTrackedIssue = trackedIssue ?? buildFallbackTrackedIssue({
-    issueIdentifier,
-    running,
-    retry
-  });
-  const branchName =
-    resolvedTrackedIssue.branchName ?? issueBranchName(issueIdentifier);
+  const tracked =
+    trackedIssue ??
+    running?.issue ?? {
+      id: retry?.issueId ?? issueIdentifier,
+      identifier: issueIdentifier,
+      title: issueIdentifier,
+      description: null,
+      priority: null,
+      state: "Retrying",
+      branchName: issueBranchName(issueIdentifier),
+      url: null,
+      projectId: null,
+      projectName: null,
+      projectSlug: null,
+      teamKey: null,
+      assigneeId: null,
+      blockedBy: [],
+      labels: [],
+      assignedToWorker: true,
+      createdAt: null,
+      updatedAt: null
+    };
+  const branchName = tracked.branchName ?? issueBranchName(issueIdentifier);
   const githubPullRequestSearchUrl = buildGitHubPullRequestSearchUrl(
     workflowConfig.github.repo,
     branchName
@@ -95,7 +111,7 @@ export function serializeRuntimeIssue(
 
   return {
     issueIdentifier,
-    issueId: running?.issueId ?? retry?.issueId ?? resolvedTrackedIssue.id,
+    issueId: running?.issueId ?? retry?.issueId ?? tracked.id,
     status: running ? "running" : retry ? "retrying" : "tracked",
     workspace: {
       path: workspacePath,
@@ -134,13 +150,13 @@ export function serializeRuntimeIssue(
       : null,
     lastError: retry?.error ?? null,
     tracked: {
-      title: resolvedTrackedIssue.title,
-      state: resolvedTrackedIssue.state,
-      branchName: resolvedTrackedIssue.branchName,
-      url: resolvedTrackedIssue.url,
-      projectName: resolvedTrackedIssue.projectName,
-      projectSlug: resolvedTrackedIssue.projectSlug,
-      teamKey: resolvedTrackedIssue.teamKey
+      title: tracked.title,
+      state: tracked.state,
+      branchName: tracked.branchName,
+      url: tracked.url,
+      projectName: tracked.projectName,
+      projectSlug: tracked.projectSlug,
+      teamKey: tracked.teamKey
     },
     operator: {
       refreshPath: "/api/v1/refresh",
@@ -259,37 +275,6 @@ function parseTokenCount(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? Math.floor(value)
     : 0;
-}
-
-function buildFallbackTrackedIssue(input: {
-  issueIdentifier: string;
-  running:
-    | SymphonyOrchestratorSnapshot["running"][number]
-    | undefined;
-  retry:
-    | SymphonyOrchestratorSnapshot["retrying"][number]
-    | undefined;
-}): SymphonyTrackerIssue {
-  return {
-    id: input.running?.issueId ?? input.retry?.issueId ?? input.issueIdentifier,
-    identifier: input.issueIdentifier,
-    title: input.running?.issue.title ?? input.issueIdentifier,
-    description: input.running?.issue.description ?? null,
-    priority: input.running?.issue.priority ?? null,
-    state: input.running?.issue.state ?? "Retrying",
-    branchName: input.running?.issue.branchName ?? issueBranchName(input.issueIdentifier),
-    url: input.running?.issue.url ?? null,
-    projectId: input.running?.issue.projectId ?? null,
-    projectName: input.running?.issue.projectName ?? null,
-    projectSlug: input.running?.issue.projectSlug ?? null,
-    teamKey: input.running?.issue.teamKey ?? null,
-    assigneeId: input.running?.issue.assigneeId ?? null,
-    blockedBy: input.running?.issue.blockedBy ?? [],
-    labels: input.running?.issue.labels ?? [],
-    assignedToWorker: input.running?.issue.assignedToWorker ?? true,
-    createdAt: input.running?.issue.createdAt ?? null,
-    updatedAt: input.running?.issue.updatedAt ?? null
-  };
 }
 
 function buildGitHubPullRequestSearchUrl(

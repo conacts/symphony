@@ -248,7 +248,10 @@ export function createSymphonyForensicsReadModel(
       );
       const issues = Array.from(groupRunsByIssue(scopedRuns).entries())
         .map(([issueIdentifier, runs]) =>
-          buildIssueAggregate(issueRecordMap.get(issueIdentifier) ?? buildFallbackIssueSummary(runs), runs)
+          buildIssueAggregate(
+            requireIssueSummary(issueRecordMap, issueIdentifier),
+            runs
+          )
         )
         .filter((issue) => matchesIssueFlags(issue, filters.hasFlags))
         .sort((left, right) => compareIssueAggregates(left, right, filters));
@@ -319,9 +322,10 @@ export function createSymphonyForensicsReadModel(
         return null;
       }
 
-      const issueRecord =
-        issueRecords.find((candidate) => candidate.issueIdentifier === issueIdentifier) ??
-        buildFallbackIssueSummary(runs);
+      const issueRecordMap = new Map(
+        issueRecords.map((issue) => [issue.issueIdentifier, issue] as const)
+      );
+      const issueRecord = requireIssueSummary(issueRecordMap, issueIdentifier);
       const issue = buildIssueAggregate(issueRecord, runs);
 
       if (!matchesIssueFlags(issue, filters.hasFlags)) {
@@ -559,22 +563,19 @@ function groupRunsByIssue(runs: SymphonyRunSummary[]): Map<string, SymphonyRunSu
   return grouped;
 }
 
-function buildFallbackIssueSummary(runs: SymphonyRunSummary[]): SymphonyIssueSummary {
-  const latestRun = runs[0] ?? null;
+function requireIssueSummary(
+  issues: ReadonlyMap<string, SymphonyIssueSummary>,
+  issueIdentifier: string
+): SymphonyIssueSummary {
+  const issue = issues.get(issueIdentifier);
 
-  return {
-    issueId: latestRun?.issueId ?? "unknown",
-    issueIdentifier: latestRun?.issueIdentifier ?? "unknown",
-    latestRunStartedAt: latestRun?.startedAt ?? null,
-    latestRunId: latestRun?.runId ?? null,
-    latestRunStatus: latestRun?.status ?? null,
-    latestRunOutcome: latestRun?.outcome ?? null,
-    runCount: runs.length,
-    latestProblemOutcome: runs.find((run) => isProblemOutcome(run.outcome))?.outcome ?? null,
-    lastCompletedOutcome: runs.find((run) => isCompletedOutcome(run.outcome))?.outcome ?? null,
-    insertedAt: null,
-    updatedAt: null
-  };
+  if (issue) {
+    return issue;
+  }
+
+  throw new TypeError(
+    `Missing issue summary for ${issueIdentifier}. Issue records must exist before forensics queries run.`
+  );
 }
 
 function matchesIssueFlags(
