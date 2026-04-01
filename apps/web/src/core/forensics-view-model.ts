@@ -82,6 +82,7 @@ export function buildIssueDetailViewModel(
       startedAt: formatTimestamp(run.startedAt),
       durationSeconds:
         run.durationSeconds === null ? "n/a" : formatDuration(run.durationSeconds),
+      totalTokens: formatCount(run.totalTokens),
       turnsAndEvents: `${formatCount(run.turnCount)} / ${formatCount(run.eventCount)}`,
       status: run.status ?? "n/a",
       outcome: run.outcome ?? "n/a"
@@ -119,6 +120,10 @@ export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult)
       {
         label: "Turns / events",
         value: `${formatCount(input.run.turnCount)} / ${formatCount(input.run.eventCount)}`
+      },
+      {
+        label: "Total tokens",
+        value: formatCount(input.run.totalTokens)
       },
       {
         label: "Commit",
