@@ -6,10 +6,16 @@ export {
 } from "./public/index.js";
 export type {
   AgentRuntime,
+  PreparedWorkspace,
   ReviewProvider,
   ReviewPublisher,
   SymphonyRuntime,
-  WorkspaceBackend
+  WorkspaceBackend,
+  WorkspaceCleanupInput,
+  WorkspaceContext,
+  WorkspaceHookInput,
+  WorkspacePathInput,
+  WorkspacePrepareInput
 } from "./public/index.js";
 export { SYMPHONY_CORE_PACKAGE_NAME } from "./core/repository-target.js";
 export type { SymphonyRepositoryTarget } from "./core/repository-target.js";
@@ -60,17 +66,8 @@ export type {
   SymphonyTrackerOperation
 } from "./tracker/symphony-tracker.js";
 export {
-  createLocalSymphonyWorkspaceManager,
   sanitizeSymphonyIssueIdentifier,
-  symphonyWorkspaceDirectoryName,
-  SymphonyWorkspaceError
-} from "./workspace/local-symphony-workspace-manager.js";
-export type {
-  SymphonyWorkspace,
-  SymphonyWorkspaceCommandResult,
-  SymphonyWorkspaceCommandRunner,
-  SymphonyWorkspaceContext,
-  SymphonyWorkspaceManager
+  symphonyWorkspaceDirectoryName
 } from "./workspace/local-symphony-workspace-manager.js";
 export {
   extractSymphonyGithubReviewSignal,

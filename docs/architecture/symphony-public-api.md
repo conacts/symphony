@@ -6,8 +6,8 @@ Date: 2026-04-01
 
 Freeze a minimal, opinionated public API for Symphony without changing current runtime behavior.
 
-This is a shape decision, not a runtime rewrite. Existing exports stay in place for compatibility.
-The new root surface is additive and intentionally small.
+This is a shape decision, not a runtime rewrite. The root surface is intentionally small and
+prefers stable facade types over local implementation details.
 
 ## Front Door
 
@@ -17,7 +17,13 @@ import {
   createCodexAgentRuntime,
   createGitHubReviewPublisher,
   createSymphonyRuntime,
+  type PreparedWorkspace,
   type WorkspaceBackend,
+  type WorkspaceCleanupInput,
+  type WorkspaceContext,
+  type WorkspaceHookInput,
+  type WorkspacePathInput,
+  type WorkspacePrepareInput,
   type AgentRuntime,
   type ReviewProvider,
   type ReviewPublisher,
@@ -28,8 +34,12 @@ import {
 ## Frozen Concepts
 
 - `WorkspaceBackend`
-  Stable issue-workspace port. Today this is a naming facade over
-  `createLocalSymphonyWorkspaceManager`.
+  Stable issue-workspace port. This is now a real lifecycle contract with explicit prepare,
+  hook, cleanup, and path-resolution operations.
+- `WorkspacePrepareInput`, `PreparedWorkspace`, `WorkspaceHookInput`, `WorkspaceCleanupInput`,
+  `WorkspacePathInput`, `WorkspaceContext`
+  Stable workspace-lifecycle DTOs that make the seam concrete for both callers and future
+  backend implementations.
 - `AgentRuntime`
   Stable agent-execution port. Today this is a naming facade over the existing
   `SymphonyAgentRuntime` shape.
@@ -46,7 +56,9 @@ import {
 ## Opinionated Factories
 
 - `createLocalWorkspaceBackend()`
-  Public name for the local filesystem-backed workspace implementation.
+  Public factory for the default local filesystem-backed workspace implementation. It adapts the
+  existing local workspace manager into the `WorkspaceBackend` contract rather than re-exporting
+  the manager shape directly.
 - `createCodexAgentRuntime(runtime)`
   Transitional naming facade. The concrete Codex implementation still lives in
   `apps/api/src/core/codex-agent-runtime.ts`, so the root factory currently standardizes the public
@@ -60,9 +72,12 @@ import {
 
 ## Current Mapping
 
-- `WorkspaceBackend` -> `SymphonyWorkspaceManager`
+- `WorkspaceBackend` -> explicit lifecycle interface:
+  `prepareWorkspace`, `runBeforeRun`, `runAfterRun`, `cleanupWorkspace`,
+  `getWorkspacePath`
+- `createLocalWorkspaceBackend` -> adapter over `createLocalSymphonyWorkspaceManager`
+- `PreparedWorkspace` -> stable workspace DTO returned from `WorkspaceBackend.prepareWorkspace()`
 - `AgentRuntime` -> `SymphonyAgentRuntime`
-- `createLocalWorkspaceBackend` -> `createLocalSymphonyWorkspaceManager`
 - `createSymphonyRuntime` -> `new SymphonyOrchestrator(...)`
 
 The Codex runtime and GitHub review publisher are the intentional exceptions. Their concrete
@@ -71,10 +86,13 @@ implementations are not moved in this change.
 The current GitHub webhook ingress and Linear requeue path remain internal. If they are extracted
 later, they belong behind an inbound adapter/provider seam, not behind `ReviewPublisher`.
 
+The local filesystem workspace manager still exists as the implementation behind the adapter, but
+it is no longer the root happy-path API for consumers of `@symphony/core`. Expert consumers can
+reach it explicitly through `@symphony/core/workspace/local`.
+
 ## Non-Goals
 
 - No runtime behavior changes
-- No package export pruning yet
 - No movement of the current Codex runtime implementation into `@symphony/core`
 - No movement of the current GitHub webhook ingress implementation into `ReviewPublisher`
 - No change to `apps/api/src/core/runtime-services.ts`
@@ -92,7 +110,9 @@ later, they belong behind an inbound adapter/provider seam, not behind `ReviewPu
 
 Keep at root:
 
-- `WorkspaceBackend`, `AgentRuntime`, `ReviewProvider`, `ReviewPublisher`, `SymphonyRuntime`
+- `WorkspaceBackend`, `WorkspacePrepareInput`, `PreparedWorkspace`, `WorkspaceHookInput`,
+  `WorkspaceCleanupInput`, `WorkspacePathInput`, `WorkspaceContext`
+- `AgentRuntime`, `ReviewProvider`, `ReviewPublisher`, `SymphonyRuntime`
 - `createLocalWorkspaceBackend`, `createCodexAgentRuntime`, `createGitHubReviewPublisher`,
   `createSymphonyRuntime`
 - workflow-loading entry points needed to stand up a runtime:
@@ -102,10 +122,16 @@ Keep at root:
 Move to subpaths later:
 
 - tracker-specific implementations and helpers
-- workspace implementation details such as command-runner types and local manager errors
+- workspace implementation details such as the local manager, command-runner types, path
+  sanitizers, and local manager errors
 - GitHub-specific event and signal types
 - orchestration internals such as `SymphonyOrchestrator`, observer contracts, retry state, and
   Codex event plumbing
+
+Current expert-only subpaths:
+
+- `@symphony/core/workspace/local`
+  Local filesystem workspace manager implementation and related expert-only types.
 - journal and forensics exports
 
 Suggested later subpaths:

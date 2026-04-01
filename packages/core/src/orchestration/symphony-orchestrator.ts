@@ -8,10 +8,10 @@ import {
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
 import type {
-  SymphonyWorkspace,
-  SymphonyWorkspaceContext,
-  SymphonyWorkspaceManager
-} from "../workspace/local-symphony-workspace-manager.js";
+  PreparedWorkspace,
+  WorkspaceBackend,
+  WorkspaceContext
+} from "../workspace/workspace-backend.js";
 import {
   extractRateLimits,
   extractTokenUsage,
@@ -115,7 +115,7 @@ export interface SymphonyAgentRuntime {
     runId: string | null;
     attempt: number;
     workflowConfig: SymphonyResolvedWorkflowConfig;
-    workspace: SymphonyWorkspace;
+    workspace: PreparedWorkspace;
   }): Promise<SymphonyAgentRuntimeLaunchResult>;
   stopRun(input: {
     issue: SymphonyTrackerIssue;
@@ -210,7 +210,7 @@ export function createSymphonyOrchestratorState(
 export class SymphonyOrchestrator {
   readonly #workflowConfig: SymphonyResolvedWorkflowConfig;
   readonly #tracker: SymphonyTracker;
-  readonly #workspaceManager: SymphonyWorkspaceManager;
+  readonly #workspaceBackend: WorkspaceBackend;
   readonly #agentRuntime: SymphonyAgentRuntime;
   readonly #observer: SymphonyOrchestratorObserver | null;
   readonly #clock: SymphonyClock;
@@ -220,7 +220,7 @@ export class SymphonyOrchestrator {
   constructor(input: {
     workflowConfig: SymphonyResolvedWorkflowConfig;
     tracker: SymphonyTracker;
-    workspaceManager: SymphonyWorkspaceManager;
+    workspaceBackend: WorkspaceBackend;
     agentRuntime: SymphonyAgentRuntime;
     observer?: SymphonyOrchestratorObserver;
     clock?: SymphonyClock;
@@ -228,7 +228,7 @@ export class SymphonyOrchestrator {
   }) {
     this.#workflowConfig = input.workflowConfig;
     this.#tracker = input.tracker;
-    this.#workspaceManager = input.workspaceManager;
+    this.#workspaceBackend = input.workspaceBackend;
     this.#agentRuntime = input.agentRuntime;
     this.#observer = input.observer ?? null;
     this.#clock = input.clock ?? systemClock;
@@ -397,10 +397,10 @@ export class SymphonyOrchestrator {
       issue
     );
     const startedAt = this.#clock.now().toISOString();
-    const predictedWorkspacePath = this.#workspaceManager.workspacePathForIssue(
-      preparedIssue.identifier,
-      this.#workflowConfig.workspace.root
-    );
+    const predictedWorkspacePath = this.#workspaceBackend.getWorkspacePath({
+      issueIdentifier: preparedIssue.identifier,
+      config: this.#workflowConfig.workspace
+    });
     const runId =
       (await this.#observer?.startRun({
         issue: preparedIssue,
@@ -410,7 +410,7 @@ export class SymphonyOrchestrator {
         startedAt
       })) ?? null;
 
-    const workspaceContext: SymphonyWorkspaceContext = {
+    const workspaceContext: WorkspaceContext = {
       issueId: preparedIssue.id,
       issueIdentifier: preparedIssue.identifier
     };
@@ -445,12 +445,12 @@ export class SymphonyOrchestrator {
     });
 
     try {
-      const workspace = await this.#workspaceManager.createForIssue(
-        workspaceContext,
-        this.#workflowConfig.workspace,
-        this.#workflowConfig.hooks,
-        this.#workspaceRunnerOptions(preferredWorkerHost)
-      );
+      const workspace = await this.#workspaceBackend.prepareWorkspace({
+        context: workspaceContext,
+        config: this.#workflowConfig.workspace,
+        hooks: this.#workflowConfig.hooks,
+        ...this.#workspaceRunnerOptions(preferredWorkerHost)
+      });
 
       await this.#observer?.recordLifecycleEvent({
         issue: preparedIssue,
@@ -466,12 +466,12 @@ export class SymphonyOrchestrator {
         }
       });
 
-      await this.#workspaceManager.runBeforeRunHook(
-        workspace.path,
-        workspaceContext,
-        this.#workflowConfig.hooks,
-        this.#workspaceRunnerOptions(preferredWorkerHost)
-      );
+      await this.#workspaceBackend.runBeforeRun({
+        workspacePath: workspace.path,
+        context: workspaceContext,
+        hooks: this.#workflowConfig.hooks,
+        ...this.#workspaceRunnerOptions(preferredWorkerHost)
+      });
 
       await this.#observer?.recordLifecycleEvent({
         issue: preparedIssue,
@@ -630,30 +630,29 @@ export class SymphonyOrchestrator {
     delete this.#state.running[issueId];
     this.#state.claimed.delete(issueId);
 
-    await this.#workspaceManager.runAfterRunHook(
-      runningEntry.workspacePath ?? this.#workspaceManager.workspacePathForIssue(
-        runningEntry.issue.identifier,
-        this.#workflowConfig.workspace.root
-      ),
-      {
+    const workspacePath =
+      runningEntry.workspacePath ??
+      this.#workspaceBackend.getWorkspacePath({
+        issueIdentifier: runningEntry.issue.identifier,
+        config: this.#workflowConfig.workspace
+      });
+
+    await this.#workspaceBackend.runAfterRun({
+      workspacePath,
+      context: {
         issueId,
         issueIdentifier: runningEntry.issue.identifier
       },
-      this.#workflowConfig.hooks,
-      this.#workspaceRunnerOptions(runningEntry.workerHost)
-    );
+      hooks: this.#workflowConfig.hooks,
+      ...this.#workspaceRunnerOptions(runningEntry.workerHost)
+    });
 
     await this.#observer?.finalizeRun({
       issue: runningEntry.issue,
       runId: runningEntry.runId,
       completion,
       workerHost: runningEntry.workerHost,
-      workspacePath:
-        runningEntry.workspacePath ??
-        this.#workspaceManager.workspacePathForIssue(
-          runningEntry.issue.identifier,
-          this.#workflowConfig.workspace.root
-        ),
+      workspacePath,
       startedAt: runningEntry.startedAt,
       endedAt: this.#clock.now().toISOString(),
       turnCount: runningEntry.turnCount,
@@ -857,12 +856,12 @@ export class SymphonyOrchestrator {
     });
 
     if (cleanupWorkspace && runningEntry.workspacePath) {
-      await this.#workspaceManager.removeIssueWorkspace(
-        runningEntry.issue.identifier,
-        this.#workflowConfig.workspace,
-        this.#workflowConfig.hooks,
-        this.#workspaceRunnerOptions(runningEntry.workerHost)
-      );
+      await this.#workspaceBackend.cleanupWorkspace({
+        issueIdentifier: runningEntry.issue.identifier,
+        config: this.#workflowConfig.workspace,
+        hooks: this.#workflowConfig.hooks,
+        ...this.#workspaceRunnerOptions(runningEntry.workerHost)
+      });
     }
 
     delete this.#state.running[issueId];
@@ -973,12 +972,12 @@ export class SymphonyOrchestrator {
       }
     );
 
-    await this.#workspaceManager.removeIssueWorkspace(
-      issue.identifier,
-      this.#workflowConfig.workspace,
-      this.#workflowConfig.hooks,
-      this.#workspaceRunnerOptions(workerHost)
-    );
+    await this.#workspaceBackend.cleanupWorkspace({
+      issueIdentifier: issue.identifier,
+      config: this.#workflowConfig.workspace,
+      hooks: this.#workflowConfig.hooks,
+      ...this.#workspaceRunnerOptions(workerHost)
+    });
 
     await this.#observer?.recordLifecycleEvent({
       issue,

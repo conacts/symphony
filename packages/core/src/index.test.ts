@@ -72,7 +72,12 @@ describe("@symphony/core scaffold", () => {
     });
 
     expect(
-      workspaceBackend.workspacePathForIssue("COL-123", "/tmp/symphony-root")
+      workspaceBackend.getWorkspacePath({
+        issueIdentifier: "COL-123",
+        config: {
+          root: "/tmp/symphony-root"
+        }
+      })
     ).toBe(path.join("/tmp/symphony-root", "symphony-COL-123"));
     expect(
       Object.prototype.hasOwnProperty.call(runtime, "orchestrator")

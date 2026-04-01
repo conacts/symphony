@@ -10,7 +10,7 @@ import {
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
 import { buildSymphonyTrackerIssue } from "../test-support/build-symphony-tracker-issue.js";
 import { createMemorySymphonyTracker } from "../tracker/symphony-tracker.js";
-import { createLocalSymphonyWorkspaceManager } from "../workspace/local-symphony-workspace-manager.js";
+import { createLocalWorkspaceBackend } from "../workspace/workspace-backend.js";
 
 function createAgentRuntime(
   overrides: Partial<SymphonyAgentRuntime> = {}
@@ -70,7 +70,7 @@ describe("symphony orchestrator", () => {
   it("dispatches eligible issues, updates snapshots, and schedules continuation retries", async () => {
     const workflowConfig = buildSymphonyWorkflowConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
-    const manager = createLocalSymphonyWorkspaceManager({
+    const manager = createLocalWorkspaceBackend({
       commandRunner: async () => ({
         exitCode: 0,
         stdout: "",
@@ -90,7 +90,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceManager: manager,
+      workspaceBackend: manager,
       agentRuntime,
       clock: {
         now: () => new Date("2026-03-31T00:00:00.000Z"),
@@ -176,7 +176,7 @@ describe("symphony orchestrator", () => {
           return;
         }
       },
-      workspaceManager: createLocalSymphonyWorkspaceManager({
+      workspaceBackend: createLocalWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -215,7 +215,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceManager: createLocalSymphonyWorkspaceManager({
+      workspaceBackend: createLocalWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -276,7 +276,7 @@ describe("symphony orchestrator", () => {
     });
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
     const hookEnvs: Array<Record<string, string>> = [];
-    const manager = createLocalSymphonyWorkspaceManager({
+    const manager = createLocalWorkspaceBackend({
       commandRunner: async ({ env }) => {
         hookEnvs.push(env);
         return {
@@ -290,7 +290,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceManager: manager,
+      workspaceBackend: manager,
       agentRuntime: createAgentRuntime(),
       runnerEnv: {
         LINEAR_API_KEY: "test-linear-api-key",
@@ -322,7 +322,7 @@ describe("symphony orchestrator", () => {
   it("tracks rate-limit payloads in the runtime snapshot", async () => {
     const workflowConfig = buildSymphonyWorkflowConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
-    const manager = createLocalSymphonyWorkspaceManager({
+    const manager = createLocalWorkspaceBackend({
       commandRunner: async () => ({
         exitCode: 0,
         stdout: "",
@@ -333,7 +333,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceManager: manager,
+      workspaceBackend: manager,
       agentRuntime: createAgentRuntime({
         async startRun(input): Promise<SymphonyAgentRuntimeLaunchResult> {
           return {
@@ -403,7 +403,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceManager: createLocalSymphonyWorkspaceManager({
+      workspaceBackend: createLocalWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -438,7 +438,7 @@ describe("symphony orchestrator", () => {
   it("schedules backoff retries after failures", async () => {
     const workflowConfig = buildSymphonyWorkflowConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
-    const manager = createLocalSymphonyWorkspaceManager({
+    const manager = createLocalWorkspaceBackend({
       commandRunner: async () => ({
         exitCode: 0,
         stdout: "",
@@ -449,7 +449,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceManager: manager,
+      workspaceBackend: manager,
       agentRuntime: createAgentRuntime(),
       clock: {
         now: () => new Date("2026-03-31T00:00:00.000Z"),
@@ -482,7 +482,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceManager: createLocalSymphonyWorkspaceManager({
+      workspaceBackend: createLocalWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -554,7 +554,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceManager: createLocalSymphonyWorkspaceManager({
+      workspaceBackend: createLocalWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -621,7 +621,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceManager: createLocalSymphonyWorkspaceManager({
+      workspaceBackend: createLocalWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -696,7 +696,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceManager: createLocalSymphonyWorkspaceManager({
+      workspaceBackend: createLocalWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -737,7 +737,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceManager: createLocalSymphonyWorkspaceManager({
+      workspaceBackend: createLocalWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",

@@ -55,7 +55,7 @@ export function createSymphonyRuntime<
   const orchestrator = new SymphonyOrchestrator({
     workflowConfig: input.workflowConfig,
     tracker: input.tracker,
-    workspaceManager: input.workspaceBackend,
+    workspaceBackend: input.workspaceBackend,
     agentRuntime: input.agentRuntime,
     observer: input.observer,
     clock: input.clock,

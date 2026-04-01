@@ -4,10 +4,8 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  createLocalSymphonyWorkspaceManager,
-  SymphonyWorkspaceError
-} from "./local-symphony-workspace-manager.js";
+import { SymphonyWorkspaceError } from "./local-symphony-workspace-manager.js";
+import { createLocalWorkspaceBackend } from "./workspace-backend.js";
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
 
 const tempDirectories: string[] = [];
@@ -32,7 +30,7 @@ afterEach(async () => {
   );
 });
 
-describe("local symphony workspace manager", () => {
+describe("local workspace backend", () => {
   it("creates deterministic workspaces and only runs after_create on first creation", async () => {
     const hookCalls: string[] = [];
     const root = await createWorkspaceRoot();
@@ -49,7 +47,7 @@ describe("local symphony workspace manager", () => {
       }
     });
 
-    const manager = createLocalSymphonyWorkspaceManager({
+    const backend = createLocalWorkspaceBackend({
       commandRunner: async ({ command, cwd }) => {
         hookCalls.push(`${command}@${cwd}`);
         return {
@@ -60,22 +58,22 @@ describe("local symphony workspace manager", () => {
       }
     });
 
-    const first = await manager.createForIssue(
-      {
+    const first = await backend.prepareWorkspace({
+      context: {
         issueId: "issue-1",
         issueIdentifier: "COL/200"
       },
-      config.workspace,
-      config.hooks
-    );
-    const second = await manager.createForIssue(
-      {
+      config: config.workspace,
+      hooks: config.hooks
+    });
+    const second = await backend.prepareWorkspace({
+      context: {
         issueId: "issue-1",
         issueIdentifier: "COL/200"
       },
-      config.workspace,
-      config.hooks
-    );
+      config: config.workspace,
+      hooks: config.hooks
+    });
 
     expect(first.path).toBe(second.path);
     expect(path.basename(first.path)).toBe("symphony-COL_200");
@@ -107,15 +105,15 @@ describe("local symphony workspace manager", () => {
       }
     });
 
-    const manager = createLocalSymphonyWorkspaceManager();
-    const workspace = await manager.createForIssue(
-      {
+    const backend = createLocalWorkspaceBackend();
+    const workspace = await backend.prepareWorkspace({
+      context: {
         issueId: "issue-bootstrap",
         issueIdentifier: "S-1"
       },
-      config.workspace,
-      config.hooks
-    );
+      config: config.workspace,
+      hooks: config.hooks
+    });
 
     expect(await readFile(path.join(workspace.path, "README.md"), "utf8")).toBe(
       "hook clone\n"
@@ -132,19 +130,22 @@ describe("local symphony workspace manager", () => {
         root
       }
     });
-    const manager = createLocalSymphonyWorkspaceManager();
-    const workspacePath = manager.workspacePathForIssue("COL-300", root);
+    const backend = createLocalWorkspaceBackend();
+    const workspacePath = backend.getWorkspacePath({
+      issueIdentifier: "COL-300",
+      config: config.workspace
+    });
 
     await writeFile(workspacePath, "stale path");
 
-    const workspace = await manager.createForIssue(
-      {
+    const workspace = await backend.prepareWorkspace({
+      context: {
         issueId: "issue-300",
         issueIdentifier: "COL-300"
       },
-      config.workspace,
-      config.hooks
-    );
+      config: config.workspace,
+      hooks: config.hooks
+    });
 
     expect(workspace.created).toBe(true);
   });
@@ -177,7 +178,7 @@ describe("local symphony workspace manager", () => {
       }
     });
 
-    const manager = createLocalSymphonyWorkspaceManager({
+    const backend = createLocalWorkspaceBackend({
       commandRunner: async ({ command, cwd }) => {
         hookCalls.push(`${command}@${cwd}`);
         return {
@@ -188,19 +189,17 @@ describe("local symphony workspace manager", () => {
       }
     });
 
-    const workspace = await manager.createForIssue(
-      {
+    const workspace = await backend.prepareWorkspace({
+      context: {
         issueId: "issue-302",
         issueIdentifier: "COL-302"
       },
-      config.workspace,
-      config.hooks,
-      {
-        env: {
-          SYMPHONY_SOURCE_REPO: path.join(root, "source")
-        }
+      config: config.workspace,
+      hooks: config.hooks,
+      env: {
+        SYMPHONY_SOURCE_REPO: path.join(root, "source")
       }
-    );
+    });
 
     expect(workspace.created).toBe(false);
     expect(workspace.path).toBe(await realpath(workspacePath));
@@ -235,20 +234,18 @@ describe("local symphony workspace manager", () => {
       }
     });
 
-    const manager = createLocalSymphonyWorkspaceManager();
-    const workspace = await manager.createForIssue(
-      {
+    const backend = createLocalWorkspaceBackend();
+    const workspace = await backend.prepareWorkspace({
+      context: {
         issueId: "issue-303",
         issueIdentifier: "COL-303"
       },
-      config.workspace,
-      config.hooks,
-      {
-        env: {
-          SYMPHONY_SOURCE_REPO: path.join(root, "source")
-        }
+      config: config.workspace,
+      hooks: config.hooks,
+      env: {
+        SYMPHONY_SOURCE_REPO: path.join(root, "source")
       }
-    );
+    });
 
     expect(workspace.created).toBe(true);
     expect(await readFile(path.join(workspace.path, "README.md"), "utf8")).toBe(
@@ -286,17 +283,17 @@ describe("local symphony workspace manager", () => {
         root: workspaceRoot
       }
     });
-    const manager = createLocalSymphonyWorkspaceManager();
+    const backend = createLocalWorkspaceBackend();
 
     await expect(
-      manager.createForIssue(
-        {
+      backend.prepareWorkspace({
+        context: {
           issueId: "issue-sym",
           issueIdentifier: "MT-SYM"
         },
-        config.workspace,
-        config.hooks
-      )
+        config: config.workspace,
+        hooks: config.hooks
+      })
     ).rejects.toMatchObject({
       code: "workspace_outside_root"
     });
@@ -317,16 +314,16 @@ describe("local symphony workspace manager", () => {
         root: linkedRoot
       }
     });
-    const manager = createLocalSymphonyWorkspaceManager();
+    const backend = createLocalWorkspaceBackend();
 
-    const workspace = await manager.createForIssue(
-      {
+    const workspace = await backend.prepareWorkspace({
+      context: {
         issueId: "issue-link",
         issueIdentifier: "MT-LINK"
       },
-      config.workspace,
-      config.hooks
-    );
+      config: config.workspace,
+      hooks: config.hooks
+    });
 
     expect(workspace.path).toBe(
       await realpath(path.join(actualRoot, "symphony-MT-LINK"))
@@ -348,7 +345,7 @@ describe("local symphony workspace manager", () => {
       }
     });
 
-    const manager = createLocalSymphonyWorkspaceManager({
+    const backend = createLocalWorkspaceBackend({
       commandRunner: async ({ command }) => ({
         exitCode: command === "exit 1" ? 1 : 0,
         stdout: "",
@@ -356,38 +353,38 @@ describe("local symphony workspace manager", () => {
       })
     });
 
-    const workspace = await manager.createForIssue(
-      {
+    const workspace = await backend.prepareWorkspace({
+      context: {
         issueId: "issue-400",
         issueIdentifier: "COL-400"
       },
-      config.workspace,
-      {
+      config: config.workspace,
+      hooks: {
         ...config.hooks,
         beforeRun: null
       }
-    );
+    });
 
     await expect(
-      manager.runBeforeRunHook(
-        workspace.path,
-        {
+      backend.runBeforeRun({
+        workspacePath: workspace.path,
+        context: {
           issueId: "issue-400",
           issueIdentifier: "COL-400"
         },
-        config.hooks
-      )
+        hooks: config.hooks
+      })
     ).rejects.toThrowError(SymphonyWorkspaceError);
 
     await expect(
-      manager.runAfterRunHook(
-        workspace.path,
-        {
+      backend.runAfterRun({
+        workspacePath: workspace.path,
+        context: {
           issueId: "issue-400",
           issueIdentifier: "COL-400"
         },
-        config.hooks
-      )
+        hooks: config.hooks
+      })
     ).resolves.toBeUndefined();
   });
 
@@ -406,7 +403,7 @@ describe("local symphony workspace manager", () => {
       }
     });
 
-    const failureManager = createLocalSymphonyWorkspaceManager({
+    const failureBackend = createLocalWorkspaceBackend({
       commandRunner: async () => ({
         exitCode: 17,
         stdout: "nope\n",
@@ -415,14 +412,14 @@ describe("local symphony workspace manager", () => {
     });
 
     await expect(
-      failureManager.createForIssue(
-        {
+      failureBackend.prepareWorkspace({
+        context: {
           issueId: "issue-fail",
           issueIdentifier: "MT-FAIL"
         },
-        failureConfig.workspace,
-        failureConfig.hooks
-      )
+        config: failureConfig.workspace,
+        hooks: failureConfig.hooks
+      })
     ).rejects.toMatchObject({
       code: "workspace_hook_failed"
     });
@@ -440,7 +437,7 @@ describe("local symphony workspace manager", () => {
       }
     });
 
-    const timeoutManager = createLocalSymphonyWorkspaceManager({
+    const timeoutBackend = createLocalWorkspaceBackend({
       commandRunner: async () => {
         throw new SymphonyWorkspaceError(
           "workspace_hook_timeout",
@@ -450,14 +447,14 @@ describe("local symphony workspace manager", () => {
     });
 
     await expect(
-      timeoutManager.createForIssue(
-        {
+      timeoutBackend.prepareWorkspace({
+        context: {
           issueId: "issue-timeout",
           issueIdentifier: "MT-TIMEOUT"
         },
-        timeoutConfig.workspace,
-        timeoutConfig.hooks
-      )
+        config: timeoutConfig.workspace,
+        hooks: timeoutConfig.hooks
+      })
     ).rejects.toMatchObject({
       code: "workspace_hook_timeout"
     });
