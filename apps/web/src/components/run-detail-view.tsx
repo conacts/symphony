@@ -32,23 +32,18 @@ import type { RuntimeSummaryConnectionState } from "@/core/runtime-summary-view-
 import { buildRunDetailViewModel } from "@/core/forensics-view-model";
 import type { SymphonyForensicsRunDetailResult } from "@symphony/contracts";
 
-const turnsPerPage = 10;
+const eventsPerPage = 25;
 
-type SelectedTurn = {
-  eventCount: string;
-  events: Array<{
-    eventSequence: string;
-    eventType: string;
-    payloadText: string;
-    recordedAt: string;
-    summary: string;
-  }>;
+type SelectedEvent = {
+  eventSequence: string;
+  eventType: string;
+  payloadText: string;
   promptText: string;
-  latestEventAt: string;
-  latestEventType: string;
+  recordedAt: string;
   sessionLabel: string;
   status: string;
   turnTitle: string;
+  summary: string;
 };
 
 export function RunDetailView(input: {
@@ -58,15 +53,31 @@ export function RunDetailView(input: {
   runDetail: SymphonyForensicsRunDetailResult | null;
 }) {
   const [page, setPage] = useState(1);
-  const [selectedTurn, setSelectedTurn] = useState<SelectedTurn | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
   const viewModel = input.runDetail
     ? buildRunDetailViewModel(input.runDetail)
     : null;
+  const eventRows = viewModel
+    ? viewModel.turns.flatMap((turn) =>
+        turn.events.map((event) => ({
+          eventSequence: event.eventSequence,
+          eventType: event.eventType,
+          payloadText: event.payloadText,
+          promptText: turn.promptText,
+          recordedAt: event.recordedAt,
+          sessionLabel: turn.sessionLabel,
+          status: turn.status,
+          summary: event.summary,
+          turnSequence: turn.turnSequence,
+          turnTitle: turn.title
+        }))
+      )
+    : [];
   const totalPages = viewModel
-    ? Math.max(1, Math.ceil(viewModel.turns.length / turnsPerPage))
+    ? Math.max(1, Math.ceil(eventRows.length / eventsPerPage))
     : 1;
-  const paginatedTurns = viewModel
-    ? viewModel.turns.slice((page - 1) * turnsPerPage, page * turnsPerPage)
+  const paginatedEvents = viewModel
+    ? eventRows.slice((page - 1) * eventsPerPage, page * eventsPerPage)
     : [];
 
   return (
@@ -131,9 +142,9 @@ export function RunDetailView(input: {
 
           <Card>
             <CardHeader>
-              <CardTitle>Turns</CardTitle>
+              <CardTitle>Events</CardTitle>
               <CardDescription>
-                Turn activity with the latest event details inline.
+                Event activity across the run, with turn context inline.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -144,44 +155,37 @@ export function RunDetailView(input: {
                     <TableHead>At</TableHead>
                     <TableHead>Session</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Events</TableHead>
                     <TableHead>Event</TableHead>
                     <TableHead>Summary</TableHead>
                     <TableHead>Payload</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedTurns.map((turn) => (
-                    <TableRow key={turn.turnSequence}>
+                  {paginatedEvents.map((event) => (
+                    <TableRow key={`${event.turnSequence}:${event.eventSequence}`}>
                       <TableCell className="font-medium">
-                        {turn.turnSequence}
+                        {event.turnSequence}
                       </TableCell>
-                      <TableCell>{turn.latestEventAt}</TableCell>
-                      <TableCell>{turn.sessionLabel}</TableCell>
-                      <TableCell>{turn.status}</TableCell>
-                      <TableCell>{turn.eventCount}</TableCell>
-                      <TableCell>{turn.latestEventType}</TableCell>
-                      <TableCell>{turn.latestSummary}</TableCell>
+                      <TableCell>{event.recordedAt}</TableCell>
+                      <TableCell>{event.sessionLabel}</TableCell>
+                      <TableCell>{event.status}</TableCell>
+                      <TableCell>{event.eventType}</TableCell>
+                      <TableCell>{event.summary}</TableCell>
                       <TableCell>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            setSelectedTurn({
-                              eventCount: turn.eventCount,
-                              events: turn.events.map((event) => ({
-                                eventSequence: event.eventSequence,
-                                eventType: event.eventType,
-                                payloadText: event.payloadText,
-                                recordedAt: event.recordedAt,
-                                summary: event.summary
-                              })),
-                              promptText: turn.promptText,
-                              latestEventAt: turn.latestEventAt,
-                              latestEventType: turn.latestEventType,
-                              sessionLabel: turn.sessionLabel,
-                              status: turn.status,
-                              turnTitle: turn.title
+                            setSelectedEvent({
+                              eventSequence: event.eventSequence,
+                              eventType: event.eventType,
+                              payloadText: event.payloadText,
+                              promptText: event.promptText,
+                              recordedAt: event.recordedAt,
+                              sessionLabel: event.sessionLabel,
+                              status: event.status,
+                              turnTitle: event.turnTitle,
+                              summary: event.summary
                             })
                           }
                         >
@@ -222,58 +226,44 @@ export function RunDetailView(input: {
 
           <Drawer
             direction="right"
-            open={selectedTurn !== null}
+            open={selectedEvent !== null}
             onOpenChange={(open) => {
               if (!open) {
-                setSelectedTurn(null);
+                setSelectedEvent(null);
               }
             }}
           >
             <DrawerContent className="h-svh data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-3xl">
               <DrawerHeader>
                 <DrawerTitle>
-                  {selectedTurn?.turnTitle ?? "Turn details"}
+                  {selectedEvent?.turnTitle ?? "Event details"}
                 </DrawerTitle>
                 <DrawerDescription>
-                  {selectedTurn
-                    ? `${selectedTurn.latestEventType} · ${selectedTurn.latestEventAt}`
-                    : "Turn details"}
+                  {selectedEvent
+                    ? `${selectedEvent.eventType} · ${selectedEvent.recordedAt}`
+                    : "Event details"}
                 </DrawerDescription>
               </DrawerHeader>
               <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-                {selectedTurn ? (
+                {selectedEvent ? (
                   <>
                     <div className="flex flex-col gap-4">
                       <div className="rounded-xl border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
                         <div>
-                          Session {selectedTurn.sessionLabel} · {selectedTurn.status} ·{" "}
-                          {selectedTurn.eventCount} events
+                          Session {selectedEvent.sessionLabel} · {selectedEvent.status}
                         </div>
                         <div className="mt-2 font-medium text-foreground">
-                          {selectedTurn.promptText}
+                          {selectedEvent.promptText}
                         </div>
                       </div>
-                      {selectedTurn.events.map((event) => (
-                        <div
-                          key={event.eventSequence}
-                          className="flex flex-col gap-3 rounded-xl border border-border/70 bg-background/70 p-4"
-                        >
-                          <div className="flex flex-col gap-1">
-                            <div className="text-sm font-medium text-foreground">
-                              Event {event.eventSequence} · {event.eventType}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {event.recordedAt}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {event.summary}
-                            </div>
-                          </div>
-                          <pre className="overflow-x-auto text-xs leading-6 text-muted-foreground">
-                            {event.payloadText}
-                          </pre>
-                        </div>
-                      ))}
+                      <div className="rounded-xl border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
+                        Event {selectedEvent.eventSequence} · {selectedEvent.summary}
+                      </div>
+                      <div className="rounded-xl border border-border/70 bg-background/70 p-4">
+                        <pre className="overflow-x-auto text-xs leading-6 text-muted-foreground">
+                          {selectedEvent.payloadText}
+                        </pre>
+                      </div>
                     </div>
                   </>
                 ) : null}
