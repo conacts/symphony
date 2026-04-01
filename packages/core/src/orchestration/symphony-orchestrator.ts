@@ -7,6 +7,7 @@ import {
   type SymphonyTrackerIssue
 } from "../tracker/symphony-tracker.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
+import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
 import type {
   SymphonyWorkspace,
   SymphonyWorkspaceContext,
@@ -46,6 +47,7 @@ export type SymphonyRunningEntry = {
   codexLastReportedInputTokens: number;
   codexLastReportedOutputTokens: number;
   codexLastReportedTotalTokens: number;
+  lastRateLimits: SymphonyJsonObject | null;
   codexAppServerPid: string | null;
   startedAt: string;
 };
@@ -71,6 +73,7 @@ export type SymphonyOrchestratorState = {
   claimed: Set<string>;
   retryAttempts: Record<string, SymphonyRetryEntry>;
   codexTotals: SymphonyCodexTotals;
+  rateLimits: SymphonyJsonObject | null;
 };
 
 export type SymphonyAgentRuntimeLaunchResult = {
@@ -81,7 +84,10 @@ export type SymphonyAgentRuntimeLaunchResult = {
 
 export type SymphonyAgentRuntimeCompletion =
   | { kind: "normal" }
+  | { kind: "max_turns_reached"; reason: string; maxTurns: number }
   | { kind: "startup_failure"; reason: string }
+  | { kind: "rate_limited"; reason: string }
+  | { kind: "stalled"; reason: string }
   | { kind: "failure"; reason: string };
 
 export type SymphonyAgentRuntimeUpdate = {
@@ -164,6 +170,7 @@ export type SymphonyOrchestratorSnapshot = {
   nextPollDueAtMs: number | null;
   pollCheckInProgress: boolean;
   codexTotals: SymphonyCodexTotals;
+  rateLimits: SymphonyJsonObject | null;
 };
 
 export function createSymphonyOrchestratorState(
@@ -184,7 +191,8 @@ export function createSymphonyOrchestratorState(
       outputTokens: 0,
       totalTokens: 0,
       secondsRunning: 0
-    }
+    },
+    rateLimits: null
   };
 }
 
@@ -244,7 +252,8 @@ export class SymphonyOrchestrator {
       maxConcurrentAgents: this.#state.maxConcurrentAgents,
       nextPollDueAtMs: this.#state.nextPollDueAtMs,
       pollCheckInProgress: this.#state.pollCheckInProgress,
-      codexTotals: this.#state.codexTotals
+      codexTotals: this.#state.codexTotals,
+      rateLimits: this.#state.rateLimits
     };
   }
 
@@ -280,6 +289,7 @@ export class SymphonyOrchestrator {
   }
 
   async reconcileRunningIssues(): Promise<void> {
+    await this.#reconcileStalledRunningIssues();
     const runningIssueIds = Object.keys(this.#state.running);
     if (runningIssueIds.length === 0) {
       return;
@@ -488,6 +498,7 @@ export class SymphonyOrchestrator {
         codexLastReportedInputTokens: 0,
         codexLastReportedOutputTokens: 0,
         codexLastReportedTotalTokens: 0,
+        lastRateLimits: null,
         codexAppServerPid: null,
         startedAt
       };
@@ -560,9 +571,14 @@ export class SymphonyOrchestrator {
     }
 
     const usage = extractTokenUsage(update);
+    const rateLimits = extractRateLimits(update);
     const nextInput = usage?.inputTokens ?? runningEntry.codexInputTokens;
     const nextOutput = usage?.outputTokens ?? runningEntry.codexOutputTokens;
     const nextTotal = usage?.totalTokens ?? runningEntry.codexTotalTokens;
+
+    if (rateLimits) {
+      this.#state.rateLimits = rateLimits;
+    }
 
     this.#state.running[issueId] = {
       ...runningEntry,
@@ -584,6 +600,7 @@ export class SymphonyOrchestrator {
       codexLastReportedInputTokens: nextInput,
       codexLastReportedOutputTokens: nextOutput,
       codexLastReportedTotalTokens: nextTotal,
+      lastRateLimits: rateLimits ?? runningEntry.lastRateLimits,
       codexAppServerPid: update.codexAppServerPid ?? runningEntry.codexAppServerPid
     };
   }
@@ -635,7 +652,10 @@ export class SymphonyOrchestrator {
       totalTokens: runningEntry.codexTotalTokens
     });
 
-    if (completion.kind === "normal") {
+    if (
+      completion.kind === "normal" ||
+      completion.kind === "max_turns_reached"
+    ) {
       this.#state.completed.add(issueId);
       await this.scheduleIssueRetry(issueId, 1, {
         identifier: runningEntry.issue.identifier,
@@ -657,11 +677,25 @@ export class SymphonyOrchestrator {
       return;
     }
 
+    if (completion.kind === "stalled") {
+      await this.scheduleIssueRetry(issueId, runningEntry.retryAttempt + 1, {
+        identifier: runningEntry.issue.identifier,
+        error: completion.reason,
+        workerHost: runningEntry.workerHost,
+        workspacePath: runningEntry.workspacePath,
+        delayType: "failure"
+      });
+      return;
+    }
+
     await this.#leaveFailureComment(
       runningEntry.issue,
       completion.reason,
-      "retry_scheduled",
-      runningEntry.runId
+      completion.kind === "rate_limited"
+        ? "rate_limited"
+        : "retry_scheduled",
+      runningEntry.runId,
+      runningEntry.lastRateLimits
     );
 
     await this.scheduleIssueRetry(issueId, runningEntry.retryAttempt + 1, {
@@ -899,9 +933,10 @@ export class SymphonyOrchestrator {
     issue: SymphonyTrackerIssue,
     reason: string,
     outcome: string,
-    runId: string | null
+    runId: string | null,
+    rateLimits: SymphonyJsonObject | null = null
   ): Promise<void> {
-    const comment = buildFailureCommentBody(issue, reason, outcome);
+    const comment = buildFailureCommentBody(issue, reason, outcome, rateLimits);
 
     try {
       await this.#tracker.createComment(issue.id, comment);
@@ -917,6 +952,44 @@ export class SymphonyOrchestrator {
       });
     } catch {
       return;
+    }
+  }
+
+  async #reconcileStalledRunningIssues(): Promise<void> {
+    const timeoutMs = this.#workflowConfig.codex.stallTimeoutMs;
+    if (timeoutMs <= 0) {
+      return;
+    }
+
+    const runningIssueIds = Object.keys(this.#state.running);
+    if (runningIssueIds.length === 0) {
+      return;
+    }
+
+    for (const issueId of runningIssueIds) {
+      const runningEntry = this.#state.running[issueId];
+      if (!runningEntry) {
+        continue;
+      }
+
+      const elapsedMs = stallElapsedMs(runningEntry, this.#clock.now());
+      if (elapsedMs === null || elapsedMs <= timeoutMs) {
+        continue;
+      }
+
+      const reason = `stalled for ${elapsedMs}ms without codex activity`;
+
+      await this.#agentRuntime.stopRun({
+        issue: runningEntry.issue,
+        workspacePath: runningEntry.workspacePath,
+        workerHost: runningEntry.workerHost,
+        cleanupWorkspace: false
+      });
+
+      await this.handleRunCompletion(issueId, {
+        kind: "stalled",
+        reason
+      });
     }
   }
 }
@@ -981,8 +1054,14 @@ function runtimeSeconds(startedAt: string, now: Date): number {
 function buildFailureCommentBody(
   issue: SymphonyTrackerIssue,
   reason: string,
-  outcome: string
+  outcome: string,
+  rateLimits: SymphonyJsonObject | null = null
 ): string {
+  const latestRateLimits =
+    rateLimits && (rateLimitReason(reason) || outcome === "paused_max_turns")
+      ? `Latest rate limits: ${JSON.stringify(rateLimits)}`
+      : null;
+
   return [
     "Symphony status update.",
     "",
@@ -991,7 +1070,8 @@ function buildFailureCommentBody(
     "What changed: the current Symphony run hit a ticket-scoped execution failure.",
     "",
     "Failure summary:",
-    truncateReason(reason)
+    truncateReason(reason),
+    latestRateLimits
   ].join("\n");
 }
 
@@ -1018,24 +1098,44 @@ function extractTokenUsage(
 
   const payload = update.payload as Record<string, unknown>;
 
-  if (
-    payload.method === "thread/tokenUsage/updated" &&
-    isRecord(payload.params) &&
-    isRecord(payload.params.tokenUsage) &&
-    isRecord(payload.params.tokenUsage.total)
-  ) {
-    return extractTokenCountRecord(payload.params.tokenUsage.total);
-  }
+  const usage =
+    absoluteTokenUsageFromPayload(payload) ??
+    turnCompletedUsageFromPayload(update, payload);
 
-  if (update.event === "turn_completed" && isRecord(payload.usage)) {
-    return {
-      inputTokens: toInteger(payload.usage.input_tokens),
-      outputTokens: toInteger(payload.usage.output_tokens),
-      totalTokens: toInteger(payload.usage.total_tokens)
-    };
+  if (usage) {
+    return extractTokenCountRecord(usage);
   }
 
   return null;
+}
+
+function absoluteTokenUsageFromPayload(
+  payload: Record<string, unknown>
+): Record<string, unknown> | null {
+  const candidates = [
+    mapAtPath(payload, ["params", "msg", "payload", "info", "total_token_usage"]),
+    mapAtPath(payload, ["params", "msg", "info", "total_token_usage"]),
+    mapAtPath(payload, ["params", "tokenUsage", "total"]),
+    mapAtPath(payload, ["tokenUsage", "total"])
+  ];
+
+  return (
+    candidates.find((candidate) => candidate && integerTokenMap(candidate)) ?? null
+  );
+}
+
+function turnCompletedUsageFromPayload(
+  update: SymphonyAgentRuntimeUpdate,
+  payload: Record<string, unknown>
+): Record<string, unknown> | null {
+  if (update.event !== "turn_completed") {
+    return null;
+  }
+
+  const directUsage =
+    mapAtPath(payload, ["usage"]) ?? mapAtPath(payload, ["params", "usage"]);
+
+  return directUsage && integerTokenMap(directUsage) ? directUsage : null;
 }
 
 function extractTokenCountRecord(
@@ -1046,10 +1146,148 @@ function extractTokenCountRecord(
   totalTokens: number;
 } {
   return {
-    inputTokens: toInteger(total.inputTokens),
-    outputTokens: toInteger(total.outputTokens),
-    totalTokens: toInteger(total.totalTokens)
+    inputTokens: toInteger(total.inputTokens ?? total.input_tokens ?? total.prompt_tokens),
+    outputTokens: toInteger(
+      total.outputTokens ?? total.output_tokens ?? total.completion_tokens
+    ),
+    totalTokens: toInteger(total.totalTokens ?? total.total_tokens)
   };
+}
+
+function extractRateLimits(
+  update: SymphonyAgentRuntimeUpdate
+): SymphonyJsonObject | null {
+  if (!update.payload || typeof update.payload !== "object") {
+    return null;
+  }
+
+  return rateLimitsFromPayload(update.payload);
+}
+
+function rateLimitsFromPayload(payload: unknown): SymphonyJsonObject | null {
+  if (!payload) {
+    return null;
+  }
+
+  if (Array.isArray(payload)) {
+    for (const entry of payload) {
+      const nested = rateLimitsFromPayload(entry);
+      if (nested) {
+        return nested;
+      }
+    }
+    return null;
+  }
+
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const direct = payload.rate_limits ?? payload.rateLimits;
+  if (rateLimitsMap(direct)) {
+    return normalizeUnknownJsonObject(direct);
+  }
+
+  if (rateLimitsMap(payload)) {
+    return normalizeUnknownJsonObject(payload);
+  }
+
+  for (const value of Object.values(payload)) {
+    const nested = rateLimitsFromPayload(value);
+    if (nested) {
+      return nested;
+    }
+  }
+
+  return null;
+}
+
+function rateLimitsMap(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const limitId =
+    value.limit_id ??
+    value.limitId ??
+    value.limit_name ??
+    value.limitName;
+  const hasBuckets =
+    "primary" in value || "secondary" in value || "credits" in value;
+
+  return !isNilish(limitId) && hasBuckets;
+}
+
+function integerTokenMap(value: Record<string, unknown>): boolean {
+  return (
+    "totalTokens" in value ||
+    "total_tokens" in value ||
+    "inputTokens" in value ||
+    "input_tokens" in value ||
+    "prompt_tokens" in value ||
+    "outputTokens" in value ||
+    "output_tokens" in value ||
+    "completion_tokens" in value
+  );
+}
+
+function mapAtPath(
+  value: Record<string, unknown>,
+  path: string[]
+): Record<string, unknown> | null {
+  let current: unknown = value;
+
+  for (const segment of path) {
+    if (!isRecord(current)) {
+      return null;
+    }
+
+    current = current[segment];
+  }
+
+  return isRecord(current) ? current : null;
+}
+
+function normalizeUnknownJsonObject(value: unknown): SymphonyJsonObject {
+  return normalizeUnknownJsonValue(value) as SymphonyJsonObject;
+}
+
+function normalizeUnknownJsonValue(value: unknown): unknown {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeUnknownJsonValue(entry));
+  }
+
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [
+        key,
+        normalizeUnknownJsonValue(nested)
+      ])
+    );
+  }
+
+  return String(value);
+}
+
+function rateLimitReason(reason: string): boolean {
+  const normalized = reason.toLowerCase();
+
+  return (
+    normalized.includes("rate limit") ||
+    normalized.includes("rate_limit") ||
+    normalized.includes("ratelimit") ||
+    normalized.includes("too many requests") ||
+    normalized.includes("rate_limit_exceeded")
+  );
 }
 
 function toInteger(value: unknown): number {
@@ -1067,6 +1305,24 @@ function toInteger(value: unknown): number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isNilish(value: unknown): boolean {
+  return value === null || value === undefined;
+}
+
+function stallElapsedMs(
+  runningEntry: SymphonyRunningEntry,
+  now: Date
+): number | null {
+  const lastActivity = runningEntry.lastCodexTimestamp ?? runningEntry.startedAt;
+  const lastActivityMs = Date.parse(lastActivity);
+
+  if (Number.isNaN(lastActivityMs)) {
+    return null;
+  }
+
+  return Math.max(0, now.getTime() - lastActivityMs);
 }
 
 function isTerminalTurnEvent(event: string): boolean {

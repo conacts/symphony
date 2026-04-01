@@ -1,6 +1,8 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
 import path from "node:path";
 import { tmpdir } from "node:os";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   createLocalSymphonyWorkspaceManager,
@@ -9,6 +11,7 @@ import {
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
 
 const tempDirectories: string[] = [];
+const execFileAsync = promisify(execFile);
 
 async function createWorkspaceRoot(): Promise<string> {
   const directory = await mkdtemp(
@@ -81,6 +84,47 @@ describe("local symphony workspace manager", () => {
     expect(hookCalls).toHaveLength(1);
   });
 
+  it("bootstraps a workspace through after_create hooks", async () => {
+    const root = await createWorkspaceRoot();
+    const templateRepo = path.join(root, "source");
+    await mkdir(path.join(templateRepo, "keep"), {
+      recursive: true
+    });
+    await writeFile(path.join(templateRepo, "README.md"), "hook clone\n");
+    await writeFile(path.join(templateRepo, "keep", "file.txt"), "keep me");
+    await initializeGitRepository(templateRepo, ["README.md", "keep/file.txt"]);
+
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root: path.join(root, "workspaces")
+      },
+      hooks: {
+        afterCreate: `git clone --depth 1 ${templateRepo} .`,
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: null,
+        timeoutMs: 5_000
+      }
+    });
+
+    const manager = createLocalSymphonyWorkspaceManager();
+    const workspace = await manager.createForIssue(
+      {
+        issueId: "issue-bootstrap",
+        issueIdentifier: "S-1"
+      },
+      config.workspace,
+      config.hooks
+    );
+
+    expect(await readFile(path.join(workspace.path, "README.md"), "utf8")).toBe(
+      "hook clone\n"
+    );
+    expect(
+      await readFile(path.join(workspace.path, "keep", "file.txt"), "utf8")
+    ).toBe("keep me");
+  });
+
   it("replaces stale non-directory workspace paths", async () => {
     const root = await createWorkspaceRoot();
     const config = buildSymphonyWorkflowConfig({
@@ -103,6 +147,190 @@ describe("local symphony workspace manager", () => {
     );
 
     expect(workspace.created).toBe(true);
+  });
+
+  it("reuses repo-owned validated workspaces without rerunning after_create", async () => {
+    const root = await createWorkspaceRoot();
+    const workspaceRoot = path.join(root, "workspaces");
+    const workspacePath = path.join(workspaceRoot, "symphony-COL-302");
+    const hookCalls: string[] = [];
+
+    await mkdir(path.join(workspacePath, ".symphony"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(workspacePath, ".symphony", "workspace.env"),
+      "DATABASE_URL=postgres://example\n"
+    );
+    await writeFile(path.join(workspacePath, "README.md"), "existing\n");
+
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root: workspaceRoot
+      },
+      hooks: {
+        afterCreate: "echo should-not-run > after_create.txt",
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: null,
+        timeoutMs: 1_000
+      }
+    });
+
+    const manager = createLocalSymphonyWorkspaceManager({
+      commandRunner: async ({ command, cwd }) => {
+        hookCalls.push(`${command}@${cwd}`);
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        };
+      }
+    });
+
+    const workspace = await manager.createForIssue(
+      {
+        issueId: "issue-302",
+        issueIdentifier: "COL-302"
+      },
+      config.workspace,
+      config.hooks,
+      {
+        env: {
+          SYMPHONY_SOURCE_REPO: path.join(root, "source")
+        }
+      }
+    );
+
+    expect(workspace.created).toBe(false);
+    expect(workspace.path).toBe(await realpath(workspacePath));
+    expect(await readFile(path.join(workspace.path, "README.md"), "utf8")).toBe(
+      "existing\n"
+    );
+    expect(hookCalls).toHaveLength(0);
+  });
+
+  it("resets stale repo-owned directories missing metadata before rerunning after_create", async () => {
+    const root = await createWorkspaceRoot();
+    const workspaceRoot = path.join(root, "workspaces");
+    const workspacePath = path.join(workspaceRoot, "symphony-COL-303");
+
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await writeFile(path.join(workspacePath, "README.md"), "stale\n");
+    await writeFile(path.join(workspacePath, "local-progress.txt"), "keep me if reused\n");
+
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root: workspaceRoot
+      },
+      hooks: {
+        afterCreate:
+          "mkdir -p .symphony && echo DATABASE_URL=postgres://example > .symphony/workspace.env && echo bootstrapped > README.md",
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: null,
+        timeoutMs: 5_000
+      }
+    });
+
+    const manager = createLocalSymphonyWorkspaceManager();
+    const workspace = await manager.createForIssue(
+      {
+        issueId: "issue-303",
+        issueIdentifier: "COL-303"
+      },
+      config.workspace,
+      config.hooks,
+      {
+        env: {
+          SYMPHONY_SOURCE_REPO: path.join(root, "source")
+        }
+      }
+    );
+
+    expect(workspace.created).toBe(true);
+    expect(await readFile(path.join(workspace.path, "README.md"), "utf8")).toBe(
+      "bootstrapped\n"
+    );
+    await expect(
+      readFile(path.join(workspace.path, "local-progress.txt"), "utf8")
+    ).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    expect(
+      await readFile(
+        path.join(workspace.path, ".symphony", "workspace.env"),
+        "utf8"
+      )
+    ).toContain("DATABASE_URL=postgres://example");
+  });
+
+  it("rejects workspace symlink escapes under the configured root", async () => {
+    const root = await createWorkspaceRoot();
+    const workspaceRoot = path.join(root, "workspaces");
+    const outsideRoot = path.join(root, "outside");
+    const symlinkPath = path.join(workspaceRoot, "symphony-MT-SYM");
+
+    await mkdir(workspaceRoot, {
+      recursive: true
+    });
+    await mkdir(outsideRoot, {
+      recursive: true
+    });
+    await symlink(outsideRoot, symlinkPath);
+
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root: workspaceRoot
+      }
+    });
+    const manager = createLocalSymphonyWorkspaceManager();
+
+    await expect(
+      manager.createForIssue(
+        {
+          issueId: "issue-sym",
+          issueIdentifier: "MT-SYM"
+        },
+        config.workspace,
+        config.hooks
+      )
+    ).rejects.toMatchObject({
+      code: "workspace_outside_root"
+    });
+  });
+
+  it("canonicalizes symlinked workspace roots before creating issue directories", async () => {
+    const root = await createWorkspaceRoot();
+    const actualRoot = path.join(root, "actual-workspaces");
+    const linkedRoot = path.join(root, "linked-workspaces");
+
+    await mkdir(actualRoot, {
+      recursive: true
+    });
+    await symlink(actualRoot, linkedRoot);
+
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root: linkedRoot
+      }
+    });
+    const manager = createLocalSymphonyWorkspaceManager();
+
+    const workspace = await manager.createForIssue(
+      {
+        issueId: "issue-link",
+        issueIdentifier: "MT-LINK"
+      },
+      config.workspace,
+      config.hooks
+    );
+
+    expect(workspace.path).toBe(
+      await realpath(path.join(actualRoot, "symphony-MT-LINK"))
+    );
   });
 
   it("fails closed on before_run hook errors and swallows after_run failures", async () => {
@@ -162,4 +390,97 @@ describe("local symphony workspace manager", () => {
       )
     ).resolves.toBeUndefined();
   });
+
+  it("surfaces after_create hook failures and hook timeouts", async () => {
+    const root = await createWorkspaceRoot();
+    const failureConfig = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      },
+      hooks: {
+        afterCreate: "echo nope && exit 17",
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: null,
+        timeoutMs: 1_000
+      }
+    });
+
+    const failureManager = createLocalSymphonyWorkspaceManager({
+      commandRunner: async () => ({
+        exitCode: 17,
+        stdout: "nope\n",
+        stderr: ""
+      })
+    });
+
+    await expect(
+      failureManager.createForIssue(
+        {
+          issueId: "issue-fail",
+          issueIdentifier: "MT-FAIL"
+        },
+        failureConfig.workspace,
+        failureConfig.hooks
+      )
+    ).rejects.toMatchObject({
+      code: "workspace_hook_failed"
+    });
+
+    const timeoutConfig = buildSymphonyWorkflowConfig({
+      workspace: {
+        root: path.join(root, "timeout")
+      },
+      hooks: {
+        afterCreate: "sleep 1",
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: null,
+        timeoutMs: 10
+      }
+    });
+
+    const timeoutManager = createLocalSymphonyWorkspaceManager({
+      commandRunner: async () => {
+        throw new SymphonyWorkspaceError(
+          "workspace_hook_timeout",
+          "Workspace hook timed out after 10ms."
+        );
+      }
+    });
+
+    await expect(
+      timeoutManager.createForIssue(
+        {
+          issueId: "issue-timeout",
+          issueIdentifier: "MT-TIMEOUT"
+        },
+        timeoutConfig.workspace,
+        timeoutConfig.hooks
+      )
+    ).rejects.toMatchObject({
+      code: "workspace_hook_timeout"
+    });
+  });
 });
+
+async function initializeGitRepository(
+  repoPath: string,
+  files: string[]
+): Promise<void> {
+  await execFileAsync("git", ["init", "-b", "main"], {
+    cwd: repoPath
+  });
+  await execFileAsync("git", ["config", "user.name", "Test User"], {
+    cwd: repoPath
+  });
+  await execFileAsync("git", ["config", "user.email", "test@example.com"], {
+    cwd: repoPath
+  });
+  await execFileAsync("git", ["add", ...files], {
+    cwd: repoPath
+  });
+  await execFileAsync("git", ["commit", "-m", "initial"], {
+    cwd: repoPath
+  });
+}

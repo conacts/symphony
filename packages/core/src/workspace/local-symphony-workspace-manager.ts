@@ -1,7 +1,10 @@
-import { mkdir, rm, stat } from "node:fs/promises";
+import { access, mkdir, realpath, rm, stat } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import type { SymphonyWorkflowHooksConfig, SymphonyWorkflowWorkspaceConfig } from "../workflow/symphony-workflow.js";
+
+const workspaceMetadataRelativePath = path.join(".symphony", "workspace.env");
+const repoOwnedSourceRepoEnvName = "SYMPHONY_SOURCE_REPO";
 
 export type SymphonyWorkspaceContext = {
   issueId: string | null;
@@ -92,12 +95,29 @@ export function symphonyWorkspaceDirectoryName(issueIdentifier: string): string 
 
 export function createLocalSymphonyWorkspaceManager(options: {
   commandRunner?: SymphonyWorkspaceCommandRunner;
+  repoOwnedSourceRepo?: string | null;
 } = {}): SymphonyWorkspaceManager {
   const commandRunner = options.commandRunner ?? defaultWorkspaceCommandRunner;
 
   return {
     async createForIssue(context, config, hooks, runnerOptions = {}) {
-      const workspacePath = ensureWorkspacePath(context.issueIdentifier, config.root);
+      const workspacePath = await resolveManagedWorkspacePath(
+        context.issueIdentifier,
+        config.root,
+        true
+      );
+      const existingWorkspaceMode = await classifyExistingWorkspace(
+        workspacePath,
+        resolveRepoOwnedSourceRepo(options.repoOwnedSourceRepo, runnerOptions.env)
+      );
+
+      if (existingWorkspaceMode === "reset") {
+        await rm(workspacePath, {
+          recursive: true,
+          force: true
+        });
+      }
+
       const created = await ensureLocalWorkspace(workspacePath);
 
       if (created && hooks.afterCreate) {
@@ -158,7 +178,11 @@ export function createLocalSymphonyWorkspaceManager(options: {
     },
 
     async removeIssueWorkspace(issueIdentifier, config, hooks, runnerOptions = {}) {
-      const workspacePath = ensureWorkspacePath(issueIdentifier, config.root);
+      const workspacePath = await resolveManagedWorkspacePath(
+        issueIdentifier,
+        config.root,
+        false
+      );
 
       if (hooks.beforeRemove) {
         try {
@@ -186,7 +210,7 @@ export function createLocalSymphonyWorkspaceManager(options: {
     },
 
     workspacePathForIssue(issueIdentifier, root) {
-      return ensureWorkspacePath(issueIdentifier, root);
+      return buildWorkspacePath(issueIdentifier, root);
     }
   };
 }
@@ -216,7 +240,7 @@ async function ensureLocalWorkspace(workspacePath: string): Promise<boolean> {
   return true;
 }
 
-function ensureWorkspacePath(issueIdentifier: string, root: string): string {
+function buildWorkspacePath(issueIdentifier: string, root: string): string {
   const resolvedRoot = path.resolve(root);
   const workspacePath = path.resolve(
     resolvedRoot,
@@ -239,6 +263,116 @@ function ensureWorkspacePath(issueIdentifier: string, root: string): string {
   }
 
   return workspacePath;
+}
+
+async function resolveManagedWorkspacePath(
+  issueIdentifier: string,
+  root: string,
+  ensureRootExists: boolean
+): Promise<string> {
+  const resolvedRoot = path.resolve(root);
+
+  if (ensureRootExists) {
+    await mkdir(resolvedRoot, {
+      recursive: true
+    });
+  }
+
+  const canonicalRoot = await canonicalizePath(resolvedRoot);
+  const workspacePath = buildWorkspacePath(issueIdentifier, canonicalRoot);
+  const rootPrefix = `${canonicalRoot}${path.sep}`;
+
+  try {
+    const canonicalWorkspace = await canonicalizePath(workspacePath);
+
+    if (canonicalWorkspace === canonicalRoot) {
+      throw new SymphonyWorkspaceError(
+        "workspace_equals_root",
+        "Workspace path must not equal the workspace root."
+      );
+    }
+
+    if (!canonicalWorkspace.startsWith(rootPrefix)) {
+      throw new SymphonyWorkspaceError(
+        "workspace_outside_root",
+        `Workspace path escaped the root: ${canonicalWorkspace}`
+      );
+    }
+
+    return canonicalWorkspace;
+  } catch (error) {
+    if (isEnoent(error)) {
+      return workspacePath;
+    }
+
+    throw error;
+  }
+}
+
+async function classifyExistingWorkspace(
+  workspacePath: string,
+  repoOwnedSourceRepo: string | null
+): Promise<"create" | "reuse" | "reset"> {
+  try {
+    const existing = await stat(workspacePath);
+
+    if (!existing.isDirectory()) {
+      return "create";
+    }
+
+    if (!repoOwnedWorkspaceModeEnabled(repoOwnedSourceRepo)) {
+      return "reuse";
+    }
+
+    return (await hasWorkspaceMetadataFile(workspacePath)) ? "reuse" : "reset";
+  } catch (error) {
+    if (isEnoent(error)) {
+      return "create";
+    }
+
+    throw error;
+  }
+}
+
+async function hasWorkspaceMetadataFile(workspacePath: string): Promise<boolean> {
+  try {
+    await access(path.join(workspacePath, workspaceMetadataRelativePath));
+    return true;
+  } catch (error) {
+    if (isEnoent(error)) {
+      return false;
+    }
+
+    throw error;
+  }
+}
+
+function repoOwnedWorkspaceModeEnabled(repoOwnedSourceRepo: string | null): boolean {
+  return typeof repoOwnedSourceRepo === "string" && repoOwnedSourceRepo.trim() !== "";
+}
+
+function resolveRepoOwnedSourceRepo(
+  configuredSourceRepo: string | null | undefined,
+  env: Record<string, string | undefined> | undefined
+): string | null {
+  const runtimeSourceRepo = env?.[repoOwnedSourceRepoEnvName];
+  if (typeof runtimeSourceRepo === "string" && runtimeSourceRepo.trim() !== "") {
+    return runtimeSourceRepo;
+  }
+
+  if (typeof configuredSourceRepo === "string" && configuredSourceRepo.trim() !== "") {
+    return configuredSourceRepo;
+  }
+
+  return null;
+}
+
+async function canonicalizePath(targetPath: string): Promise<string> {
+  return await realpath(targetPath);
+}
+
+function isEnoent(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 async function runWorkspaceHook(

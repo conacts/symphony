@@ -118,6 +118,7 @@ async function executeRun(input: {
   toolExecutor: CodexAppServerToolExecutor;
 }): Promise<void> {
   let turnJournalId: string | null = null;
+  let maxTurnsReached = false;
 
   try {
     if (input.runId) {
@@ -263,6 +264,11 @@ async function executeRun(input: {
         break;
       }
 
+      if (turnNumber >= input.workflowConfig.agent.maxTurns) {
+        maxTurnsReached = true;
+        break;
+      }
+
       currentIssue = refreshedIssue;
     }
 
@@ -278,9 +284,17 @@ async function executeRun(input: {
         });
       }
 
-      await input.callbacks.onComplete(input.issue.id, {
-        kind: "normal"
-      });
+      if (maxTurnsReached) {
+        await input.callbacks.onComplete(input.issue.id, {
+          kind: "max_turns_reached",
+          reason: `Reached the configured ${input.workflowConfig.agent.maxTurns}-turn limit while the issue remained active.`,
+          maxTurns: input.workflowConfig.agent.maxTurns
+        });
+      } else {
+        await input.callbacks.onComplete(input.issue.id, {
+          kind: "normal"
+        });
+      }
     }
   } catch (error) {
     if (input.activeRun.stopped) {
@@ -324,7 +338,11 @@ async function executeRun(input: {
     });
 
     await input.callbacks.onComplete(input.issue.id, {
-      kind: isStartupFailure(error) ? "startup_failure" : "failure",
+      kind: isStartupFailure(error)
+        ? "startup_failure"
+        : isRateLimitedError(error)
+          ? "rate_limited"
+          : "failure",
       reason
     });
   } finally {
@@ -629,6 +647,28 @@ function isStartupFailure(error: unknown): boolean {
 
   const message = error instanceof Error ? error.message : String(error);
   return message.includes("thread/start") || message.includes("initialize");
+}
+
+function isRateLimitedError(error: unknown): boolean {
+  const messages = [
+    error instanceof Error ? error.message : String(error)
+  ];
+
+  if (error instanceof CodexAppServerError && error.detail) {
+    messages.push(JSON.stringify(error.detail));
+  }
+
+  return messages.some((message) => {
+    const normalized = message.toLowerCase();
+
+    return (
+      normalized.includes("rate limit") ||
+      normalized.includes("rate_limit") ||
+      normalized.includes("ratelimit") ||
+      normalized.includes("too many requests") ||
+      normalized.includes("rate_limit_exceeded")
+    );
+  });
 }
 
 function normalizeLinearGraphqlArguments(

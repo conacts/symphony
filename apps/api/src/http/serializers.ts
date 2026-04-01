@@ -53,7 +53,7 @@ export function serializeRuntimeState(
       workspacePath: entry.workspacePath
     })),
     codexTotals: snapshot.codexTotals,
-    rateLimits: null
+    rateLimits: snapshot.rateLimits
   };
 }
 

@@ -54,6 +54,7 @@ export function buildSymphonyOrchestratorSnapshot(
       totalTokens: 0,
       secondsRunning: 0
     },
+    rateLimits: null,
     ...overrides
   };
 }
@@ -264,6 +265,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
         codexLastReportedInputTokens: 12,
         codexLastReportedOutputTokens: 4,
         codexLastReportedTotalTokens: 16,
+        lastRateLimits: null,
         codexAppServerPid: "4242",
         startedAt: "2026-03-31T00:00:00.000Z",
         runtimeSeconds: 12

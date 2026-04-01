@@ -580,7 +580,7 @@ function createDbBackedOrchestratorObserver(input: {
       }
 
       await input.runJournal.finalizeRun(runId, {
-        status: "finished",
+        status: completionStatus(completion),
         outcome: completionOutcome(completion),
         endedAt,
         metadata: {
@@ -593,11 +593,32 @@ function createDbBackedOrchestratorObserver(input: {
             totalTokens
           }
         },
-        errorClass: completion.kind === "normal" ? null : completion.kind,
-        errorMessage: completion.kind === "normal" ? null : completion.reason
+        errorClass:
+          completion.kind === "normal" ? null : completionErrorClass(completion),
+        errorMessage:
+          completion.kind === "normal" ? null : completion.reason
       });
     }
   };
+}
+
+function completionStatus(
+  completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
+): string {
+  switch (completion.kind) {
+    case "normal":
+      return "finished";
+    case "max_turns_reached":
+      return "paused";
+    case "startup_failure":
+      return "startup_failed";
+    case "rate_limited":
+      return "rate_limited";
+    case "stalled":
+      return "stalled";
+    case "failure":
+      return "failed";
+  }
 }
 
 function completionOutcome(
@@ -606,10 +627,29 @@ function completionOutcome(
   switch (completion.kind) {
     case "normal":
       return "completed_turn_batch";
+    case "max_turns_reached":
+      return "paused_max_turns";
     case "startup_failure":
       return "startup_failed";
+    case "rate_limited":
+      return "rate_limited";
+    case "stalled":
+      return "stalled";
     case "failure":
       return "failed";
+  }
+}
+
+function completionErrorClass(
+  completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
+): string {
+  switch (completion.kind) {
+    case "max_turns_reached":
+      return "max_turns_reached";
+    case "normal":
+      return "normal";
+    default:
+      return completion.kind;
   }
 }
 

@@ -4,6 +4,7 @@ import {
   prepareIssueForDispatch,
   SymphonyOrchestrator,
   type SymphonyAgentRuntime,
+  type SymphonyAgentRuntimeCompletion,
   type SymphonyAgentRuntimeLaunchResult
 } from "./symphony-orchestrator.js";
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
@@ -149,6 +150,69 @@ describe("symphony orchestrator", () => {
     expect(completedSnapshot.codexTotals.totalTokens).toBe(16);
   });
 
+  it("tracks rate-limit payloads in the runtime snapshot", async () => {
+    const workflowConfig = buildSymphonyWorkflowConfig();
+    const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
+    const manager = createLocalSymphonyWorkspaceManager({
+      commandRunner: async () => ({
+        exitCode: 0,
+        stdout: "",
+        stderr: ""
+      })
+    });
+
+    const orchestrator = new SymphonyOrchestrator({
+      workflowConfig,
+      tracker,
+      workspaceManager: manager,
+      agentRuntime: createAgentRuntime({
+        async startRun(input): Promise<SymphonyAgentRuntimeLaunchResult> {
+          return {
+            sessionId: "thread-live",
+            workerHost: null,
+            workspacePath: input.workspace.path
+          };
+        }
+      }),
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.runPollCycle();
+    orchestrator.applyAgentUpdate("issue-123", {
+      event: "notification",
+      payload: {
+        method: "codex/event/token_count",
+        params: {
+          msg: {
+            type: "event_msg",
+            payload: {
+              type: "token_count",
+              rate_limits: {
+                limit_id: "codex",
+                primary: {
+                  remaining: 90,
+                  limit: 100
+                }
+              }
+            }
+          }
+        }
+      },
+      timestamp: "2026-03-31T00:00:01.000Z"
+    });
+
+    expect(orchestrator.snapshot().rateLimits).toEqual({
+      limit_id: "codex",
+      primary: {
+        remaining: 90,
+        limit: 100
+      }
+    });
+  });
+
   it("reconciles terminal and non-dispatchable running issues by stopping them", async () => {
     const workflowConfig = buildSymphonyWorkflowConfig({
       tracker: {
@@ -233,5 +297,123 @@ describe("symphony orchestrator", () => {
     expect(orchestrator.snapshot().retrying[0]?.dueAtMs).toBe(
       Date.parse("2026-03-31T00:00:00.000Z") + 10_000
     );
+  });
+
+  it("treats max-turn pauses as continuation retries and journals a paused outcome", async () => {
+    const workflowConfig = buildSymphonyWorkflowConfig();
+    const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
+    const finalized: SymphonyAgentRuntimeCompletion[] = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      workflowConfig,
+      tracker,
+      workspaceManager: createLocalSymphonyWorkspaceManager({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent() {
+          return;
+        },
+        finalizeRun(input) {
+          finalized.push(input.completion);
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 0);
+    await orchestrator.handleRunCompletion("issue-123", {
+      kind: "max_turns_reached",
+      maxTurns: 2,
+      reason: "Reached the configured 2-turn limit while the issue remained active."
+    });
+
+    expect(orchestrator.snapshot().retrying[0]?.delayType).toBe("continuation");
+    expect(finalized).toEqual([
+      {
+        kind: "max_turns_reached",
+        maxTurns: 2,
+        reason: "Reached the configured 2-turn limit while the issue remained active."
+      }
+    ]);
+  });
+
+  it("restarts stalled runs with retry backoff instead of leaving them active", async () => {
+    const workflowConfig = buildSymphonyWorkflowConfig({
+      codex: {
+        ...buildSymphonyWorkflowConfig().codex,
+        stallTimeoutMs: 1_000
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const stopped: string[] = [];
+    const finalized: SymphonyAgentRuntimeCompletion[] = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      workflowConfig,
+      tracker,
+      workspaceManager: createLocalSymphonyWorkspaceManager({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime({
+        async stopRun({ issue }) {
+          stopped.push(issue.id);
+        }
+      }),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent() {
+          return;
+        },
+        finalizeRun(input) {
+          finalized.push(input.completion);
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:05.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:05.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 0);
+    orchestrator.applyAgentUpdate("issue-123", {
+      event: "session_started",
+      sessionId: "thread-live",
+      timestamp: "2026-03-31T00:00:00.000Z"
+    });
+
+    await orchestrator.reconcileRunningIssues();
+
+    expect(stopped).toEqual(["issue-123"]);
+    expect(finalized).toEqual([
+      {
+        kind: "stalled",
+        reason: "stalled for 5000ms without codex activity"
+      }
+    ]);
+    expect(orchestrator.snapshot().running).toHaveLength(0);
+    expect(orchestrator.snapshot().retrying[0]?.delayType).toBe("failure");
   });
 });
