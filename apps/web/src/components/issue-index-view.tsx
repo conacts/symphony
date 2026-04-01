@@ -1,17 +1,15 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ChevronDown,
   ChevronRight,
   Columns3,
   Copy,
-  Download,
-  MoreHorizontal
+  Download
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,7 +30,6 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -45,7 +42,6 @@ import { fetchIssueForensicsBundle } from "@/core/forensics-client";
 import { buildIssueIndexViewModel } from "@/core/forensics-view-model";
 import type { RuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
 import type {
-  SymphonyForensicsIssueFlag,
   SymphonyForensicsIssueForensicsBundleResult,
   SymphonyForensicsIssueListResult,
   SymphonyForensicsIssuesQuery
@@ -58,11 +54,8 @@ const defaultColumns = [
   "latestProblem",
   "lastCompleted",
   "retries",
-  "tokens",
   "avgDuration",
-  "lastActive",
-  "flags",
-  "actions"
+  "lastActive"
 ] as const;
 
 const columnLabels: Record<(typeof defaultColumns)[number], string> = {
@@ -72,25 +65,9 @@ const columnLabels: Record<(typeof defaultColumns)[number], string> = {
   latestProblem: "Latest problem",
   lastCompleted: "Last completed",
   retries: "Retries",
-  tokens: "Tokens",
   avgDuration: "Avg duration",
-  lastActive: "Last active",
-  flags: "Flags",
-  actions: "Actions"
+  lastActive: "Last active"
 };
-
-const flagOptions: Array<{
-  value: SymphonyForensicsIssueFlag;
-  label: string;
-}> = [
-  { value: "rate_limited", label: "Rate limited" },
-  { value: "max_turns", label: "Max turns" },
-  { value: "startup_failure", label: "Startup failure" },
-  { value: "no_success", label: "No successful completion" },
-  { value: "high_token_burn", label: "High token burn" },
-  { value: "long_duration", label: "Long duration" },
-  { value: "many_retries", label: "Many retries" }
-];
 
 const timeRangeOptions = [
   { value: "all", label: "All time" },
@@ -102,7 +79,6 @@ const timeRangeOptions = [
 const sortOptions = [
   { value: "lastActive", label: "Last active" },
   { value: "problemRate", label: "Problem rate" },
-  { value: "totalTokens", label: "Total tokens" },
   { value: "retries", label: "Retries" },
   { value: "runCount", label: "Run count" },
   { value: "avgDuration", label: "Avg duration" }
@@ -118,7 +94,6 @@ export function IssueIndexView(input: {
   runtimeBaseUrl: string;
 }) {
   const [expandedIssues, setExpandedIssues] = useState<Record<string, boolean>>({});
-  const [onlyFailures, setOnlyFailures] = useState(false);
   const [columns, setColumns] = useState<string[]>([...defaultColumns]);
   const [bundleCache, setBundleCache] = useState<
     Record<string, SymphonyForensicsIssueForensicsBundleResult>
@@ -126,14 +101,7 @@ export function IssueIndexView(input: {
   const [bundleErrors, setBundleErrors] = useState<Record<string, string>>({});
   const [loadingBundles, setLoadingBundles] = useState<Record<string, boolean>>({});
   const [copyState, setCopyState] = useState<string | null>(null);
-
-  const scopedIssueIndex = useMemo(
-    () => buildScopedIssueIndex(input.issueIndex, onlyFailures),
-    [input.issueIndex, onlyFailures]
-  );
-  const viewModel = scopedIssueIndex
-    ? buildIssueIndexViewModel(scopedIssueIndex)
-    : null;
+  const viewModel = input.issueIndex ? buildIssueIndexViewModel(input.issueIndex) : null;
 
   useEffect(() => {
     setExpandedIssues({});
@@ -257,17 +225,6 @@ export function IssueIndexView(input: {
     });
   }
 
-  function toggleFlag(flag: SymphonyForensicsIssueFlag) {
-    const currentFlags = parseFlags(input.query.hasFlag);
-    const nextFlags = currentFlags.includes(flag)
-      ? currentFlags.filter((currentFlag) => currentFlag !== flag)
-      : [...currentFlags, flag];
-
-    updateQuery({
-      hasFlag: nextFlags.length === 0 ? undefined : nextFlags.join(",")
-    });
-  }
-
   function toggleColumn(column: string) {
     setColumns((current) =>
       current.includes(column)
@@ -308,7 +265,7 @@ export function IssueIndexView(input: {
       {viewModel ? (
         <>
           {(() => {
-            const activeIssueIndex = scopedIssueIndex!;
+            const activeIssueIndex = input.issueIndex!;
 
             return (
               <>
@@ -344,18 +301,6 @@ export function IssueIndexView(input: {
                   </DropdownMenuRadioGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem disabled>Custom</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline">
-                    Saved view
-                    <ChevronDown className="ml-2 size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem disabled>Placeholder</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -400,9 +345,6 @@ export function IssueIndexView(input: {
                   <CardDescription>{card.label}</CardDescription>
                   <CardTitle className="text-2xl">{card.value}</CardTitle>
                 </CardHeader>
-                <CardContent className="text-xs text-muted-foreground">
-                  {card.detail}
-                </CardContent>
               </Card>
             ))}
           </section>
@@ -442,38 +384,6 @@ export function IssueIndexView(input: {
                     })
                   }
                 />
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="outline">
-                      Flags
-                      {parseFlags(input.query.hasFlag).length > 0
-                        ? ` (${parseFlags(input.query.hasFlag).length})`
-                        : ""}
-                      <ChevronDown className="ml-2 size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuLabel>Flags</DropdownMenuLabel>
-                    {flagOptions.map((flag) => (
-                      <DropdownMenuCheckboxItem
-                        key={flag.value}
-                        checked={parseFlags(input.query.hasFlag).includes(flag.value)}
-                        onCheckedChange={() => toggleFlag(flag.value)}
-                      >
-                        {flag.label}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <FilterDropdown
-                  label="Time range"
-                  value={input.query.timeRange ?? "all"}
-                  options={timeRangeOptions.map((option) => ({
-                    value: option.value,
-                    label: option.label
-                  }))}
-                  onChange={(value) => updateTimeRange(value as "all" | "24h" | "7d" | "30d")}
-                />
                 <FilterDropdown
                   label="Sort by"
                   value={input.query.sortBy ?? "lastActive"}
@@ -508,11 +418,6 @@ export function IssueIndexView(input: {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <Switch checked={onlyFailures} onCheckedChange={setOnlyFailures} />
-                <span>Only issues with failures</span>
-              </div>
             </CardHeader>
             <CardContent>
               {viewModel.rows.length === 0 ? (
@@ -534,13 +439,10 @@ export function IssueIndexView(input: {
                         <TableHead>Last completed</TableHead>
                       ) : null}
                       {columns.includes("retries") ? <TableHead>Retries</TableHead> : null}
-                      {columns.includes("tokens") ? <TableHead>Tokens</TableHead> : null}
                       {columns.includes("avgDuration") ? (
                         <TableHead>Avg duration</TableHead>
                       ) : null}
                       {columns.includes("lastActive") ? <TableHead>Last active</TableHead> : null}
-                      {columns.includes("flags") ? <TableHead>Flags</TableHead> : null}
-                      {columns.includes("actions") ? <TableHead>Actions</TableHead> : null}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -593,87 +495,10 @@ export function IssueIndexView(input: {
                               <TableCell>{row.lastCompletedOutcome}</TableCell>
                             ) : null}
                             {columns.includes("retries") ? <TableCell>{row.retryCount}</TableCell> : null}
-                            {columns.includes("tokens") ? <TableCell>{row.totalTokens}</TableCell> : null}
                             {columns.includes("avgDuration") ? (
                               <TableCell>{row.avgDuration}</TableCell>
                             ) : null}
                             {columns.includes("lastActive") ? <TableCell>{row.lastActive}</TableCell> : null}
-                            {columns.includes("flags") ? (
-                              <TableCell>
-                                <div className="flex flex-wrap gap-1">
-                                  {row.flags.length === 0 ? (
-                                    <span className="text-xs text-muted-foreground">none</span>
-                                  ) : (
-                                    row.flags.map((flag) => (
-                                      <Badge key={flag} variant="outline">
-                                        {flag}
-                                      </Badge>
-                                    ))
-                                  )}
-                                </div>
-                              </TableCell>
-                            ) : null}
-                            {columns.includes("actions") ? (
-                              <TableCell>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button size="icon" variant="ghost">
-                                      <MoreHorizontal className="size-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem
-                                      onSelect={() =>
-                                        window.location.assign(row.issueHref)
-                                      }
-                                    >
-                                      Open issue detail
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      onSelect={() =>
-                                        void handleIssueExport(
-                                          row.issueIdentifier,
-                                          "forensics"
-                                        )
-                                      }
-                                    >
-                                      Copy issue forensic JSON
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onSelect={() =>
-                                        void handleIssueExport(
-                                          row.issueIdentifier,
-                                          "latestFailure"
-                                        )
-                                      }
-                                    >
-                                      Copy latest failure JSON
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onSelect={() =>
-                                        void handleIssueExport(
-                                          row.issueIdentifier,
-                                          "timeline"
-                                        )
-                                      }
-                                    >
-                                      Copy timeline JSON
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onSelect={() =>
-                                        void handleIssueExport(
-                                          row.issueIdentifier,
-                                          "runtimeLogs"
-                                        )
-                                      }
-                                    >
-                                      Copy runtime logs JSON
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </TableCell>
-                            ) : null}
                           </TableRow>
 
                           {isExpanded ? (
@@ -811,8 +636,7 @@ export function IssueIndexView(input: {
                                           </div>
                                           {issueRow ? (
                                             <p className="text-xs text-muted-foreground">
-                                              {issueRow.totalTokens} tokens, {issueRow.runCount} runs,
-                                              {issueRow.problemRunCount} problem runs.
+                                              {issueRow.runCount} runs, {issueRow.problemRunCount} problem runs.
                                             </p>
                                           ) : null}
                                         </section>
@@ -927,50 +751,6 @@ function DistributionList(input: {
   );
 }
 
-function buildScopedIssueIndex(
-  issueIndex: SymphonyForensicsIssueListResult | null,
-  onlyFailures: boolean
-): SymphonyForensicsIssueListResult | null {
-  if (!issueIndex) {
-    return null;
-  }
-
-  const issues = onlyFailures
-    ? issueIndex.issues.filter((issue) => issue.problemRunCount > 0)
-    : issueIndex.issues;
-
-  return {
-    ...issueIndex,
-    issues,
-    totals: issues.reduce(
-      (totals, issue) => ({
-        issueCount: totals.issueCount + 1,
-        runCount: totals.runCount + issue.runCount,
-        completedRunCount: totals.completedRunCount + issue.completedRunCount,
-        problemRunCount: totals.problemRunCount + issue.problemRunCount,
-        rateLimitedCount: totals.rateLimitedCount + issue.rateLimitedCount,
-        maxTurnsCount: totals.maxTurnsCount + issue.maxTurnsCount,
-        startupFailureCount: totals.startupFailureCount + issue.startupFailureCount,
-        inputTokens: totals.inputTokens + issue.totalInputTokens,
-        outputTokens: totals.outputTokens + issue.totalOutputTokens,
-        totalTokens: totals.totalTokens + issue.totalTokens
-      }),
-      {
-        issueCount: 0,
-        runCount: 0,
-        completedRunCount: 0,
-        problemRunCount: 0,
-        rateLimitedCount: 0,
-        maxTurnsCount: 0,
-        startupFailureCount: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        totalTokens: 0
-      }
-    )
-  };
-}
-
 function toBundleQuery(
   query: SymphonyForensicsIssuesQuery
 ): SymphonyForensicsIssuesQuery & {
@@ -984,17 +764,6 @@ function toBundleQuery(
     timelineLimit: 200,
     runtimeLogLimit: 200
   };
-}
-
-function parseFlags(value: string | undefined): SymphonyForensicsIssueFlag[] {
-  if (!value) {
-    return [];
-  }
-
-  return value
-    .split(",")
-    .map((flag) => flag.trim())
-    .filter((flag): flag is SymphonyForensicsIssueFlag => flag.length > 0);
 }
 
 function labelForTimeRange(value: string): string {

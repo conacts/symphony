@@ -74,6 +74,7 @@ describe("forensics view model", () => {
     expect(issueIndex.summaryCards[3]?.value).toBe("33.3%");
     expect(issueIndex.rows[0]?.issueHref).toBe("/issues/COL-165");
     expect(issueIndex.rows[0]?.problemRate).toBe("66.7%");
+    expect(issueIndex.rows[0]?.lastActive).not.toBe("2026-03-31T18:05:00.000Z");
   });
 
   it("formats the issue and run drilldown surfaces", () => {

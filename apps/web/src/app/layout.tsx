@@ -24,7 +24,7 @@ export default function RootLayout(input: { children: ReactNode }) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("antialiased", ibmPlexMono.variable, "font-sans", publicSans.variable)}
+      className={cn("dark antialiased", ibmPlexMono.variable, "font-sans", publicSans.variable)}
     >
       <body>
         <ThemeProvider>{input.children}</ThemeProvider>

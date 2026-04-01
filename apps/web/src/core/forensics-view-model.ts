@@ -9,50 +9,32 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
     input.totals.runCount === 0
       ? 0
       : input.totals.completedRunCount / input.totals.runCount;
-  const avgTokensPerRun =
-    input.totals.runCount === 0 ? 0 : input.totals.totalTokens / input.totals.runCount;
 
   return {
     summaryCards: [
       {
         label: "Total issues",
-        value: formatCount(input.totals.issueCount),
-        detail: "all time"
+        value: formatCount(input.totals.issueCount)
       },
       {
         label: "Total runs",
-        value: formatCount(input.totals.runCount),
-        detail: "filtered set"
+        value: formatCount(input.totals.runCount)
       },
       {
         label: "Problem runs",
-        value: formatCount(input.totals.problemRunCount),
-        detail: "visible issues"
+        value: formatCount(input.totals.problemRunCount)
       },
       {
         label: "Success rate",
-        value: formatPercent(successRate),
-        detail: "completed / total"
+        value: formatPercent(successRate)
       },
       {
         label: "Rate-limited runs",
-        value: formatCount(input.totals.rateLimitedCount),
-        detail: "current filter scope"
+        value: formatCount(input.totals.rateLimitedCount)
       },
       {
         label: "Max-turn pauses",
-        value: formatCount(input.totals.maxTurnsCount),
-        detail: "current filter scope"
-      },
-      {
-        label: "Total tokens",
-        value: formatCount(input.totals.totalTokens),
-        detail: `In ${formatCount(input.totals.inputTokens)} / Out ${formatCount(input.totals.outputTokens)}`
-      },
-      {
-        label: "Avg tokens per run",
-        value: formatCount(Math.round(avgTokensPerRun)),
-        detail: "filtered runs"
+        value: formatCount(input.totals.maxTurnsCount)
       }
     ],
     rows: input.issues.map((issue) => ({
@@ -63,10 +45,8 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
       latestProblemOutcome: issue.latestProblemOutcome ?? "n/a",
       lastCompletedOutcome: issue.lastCompletedOutcome ?? "n/a",
       retryCount: formatCount(issue.retryCount),
-      totalTokens: formatCount(issue.totalTokens),
       avgDuration: formatDuration(issue.avgDurationSeconds),
-      lastActive: issue.latestActivityAt ?? "n/a",
-      flags: issue.flags,
+      lastActive: formatTimestamp(issue.latestActivityAt),
       latestErrorClass: issue.latestErrorClass ?? "n/a",
       latestErrorMessage: issue.latestErrorMessage ?? "n/a"
     })),
@@ -193,6 +173,25 @@ function formatDuration(value: number): string {
   }
 
   return `${Math.round(value)}s`;
+}
+
+function formatTimestamp(value: string | null): string {
+  if (!value) {
+    return "n/a";
+  }
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(parsed);
 }
 
 function prettyValue(value: unknown): string {
