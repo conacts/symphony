@@ -1,15 +1,17 @@
 import {
+  createCodexAgentRuntime,
   createLinearSymphonyTracker,
-  createLocalSymphonyWorkspaceManager,
+  createLocalWorkspaceBackend,
   createMemorySymphonyTracker,
   createSymphonyForensicsReadModel,
+  createSymphonyRuntime,
   loadSymphonyWorkflow,
   SymphonyGithubReviewProcessor,
-  SymphonyOrchestrator,
   type SymphonyForensicsReadModel,
   type SymphonyLoadedWorkflow,
   type SymphonyOrchestratorSnapshot,
   type SymphonyResolvedWorkflowConfig,
+  type SymphonyRuntime as CoreSymphonyRuntime,
   type SymphonyTracker
 } from "@symphony/core";
 import type {
@@ -26,7 +28,8 @@ import {
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
   createSqliteSymphonyRunJournal,
-  initializeSymphonyDb
+  initializeSymphonyDb,
+  type SymphonyRuntimeLogStore
 } from "@symphony/db";
 import {
   createSymphonyLogger,
@@ -97,6 +100,132 @@ export type SymphonyRuntimeAppServices = {
   realtime: SymphonyRealtimeHub;
   shutdown(): Promise<void>;
 };
+
+function createRuntimeOrchestratorPort(input: {
+  runtime: Pick<CoreSymphonyRuntime, "snapshot" | "runPollCycle">;
+  logger: SymphonyLogger;
+  runtimeLogs: SymphonyRuntimeLogStore;
+  realtime: SymphonyRealtimeHub;
+}): SymphonyRuntimeOrchestratorPort {
+  let inFlightPollCycle: Promise<SymphonyOrchestratorSnapshot> | null = null;
+  let manualRefreshQueued = false;
+  let manualRefreshDrainScheduled = false;
+
+  const scheduleQueuedManualRefreshDrain = (): void => {
+    if (manualRefreshDrainScheduled) {
+      return;
+    }
+
+    manualRefreshDrainScheduled = true;
+    setImmediate(() => {
+      manualRefreshDrainScheduled = false;
+      void drainQueuedManualRefresh();
+    });
+  };
+
+  const drainQueuedManualRefresh = async (): Promise<void> => {
+    if (!manualRefreshQueued || inFlightPollCycle) {
+      return;
+    }
+
+    manualRefreshQueued = false;
+
+    try {
+      await port.runPollCycle();
+    } catch (error) {
+      input.logger.error("Queued manual refresh poll cycle failed", {
+        error
+      });
+    }
+  };
+
+  const port: SymphonyRuntimeOrchestratorPort = {
+    snapshot() {
+      return input.runtime.snapshot();
+    },
+
+    isPollCycleInFlight() {
+      return inFlightPollCycle !== null;
+    },
+
+    async requestRefresh() {
+      const requestedAt = new Date().toISOString();
+      const coalesced = manualRefreshQueued;
+      manualRefreshQueued = true;
+
+      input.logger.info(
+        coalesced ? "Manual refresh request coalesced" : "Manual refresh queued",
+        {
+          coalesced
+        }
+      );
+      await input.runtimeLogs.record({
+        level: "info",
+        source: "runtime",
+        eventType: coalesced
+          ? "manual_refresh_coalesced"
+          : "manual_refresh_queued",
+        message: coalesced
+          ? "Coalesced manual refresh request."
+          : "Queued manual refresh request.",
+        payload: {
+          coalesced
+        },
+        recordedAt: requestedAt
+      });
+      scheduleQueuedManualRefreshDrain();
+
+      return {
+        queued: true,
+        coalesced,
+        requestedAt,
+        operations: ["poll", "reconcile"]
+      };
+    },
+
+    async runPollCycle() {
+      if (inFlightPollCycle) {
+        return await inFlightPollCycle;
+      }
+
+      const before = input.runtime.snapshot();
+      inFlightPollCycle = (async () => {
+        input.logger.info("Starting orchestrator poll cycle", {
+          runningCount: before.running.length,
+          retryingCount: before.retrying.length
+        });
+
+        try {
+          const after = await input.runtime.runPollCycle();
+          const changed = snapshotRequiresRealtimeInvalidation(before, after);
+
+          input.logger.info("Finished orchestrator poll cycle", {
+            runningCount: after.running.length,
+            retryingCount: after.retrying.length,
+            changed
+          });
+
+          publishRealtimeSnapshotDiff(input.realtime, before, after, input.logger);
+          return after;
+        } catch (error) {
+          input.logger.error("Orchestrator poll cycle failed", {
+            error
+          });
+          throw error;
+        } finally {
+          inFlightPollCycle = null;
+          if (manualRefreshQueued) {
+            scheduleQueuedManualRefreshDrain();
+          }
+        }
+      })();
+
+      return await inFlightPollCycle;
+    }
+  };
+
+  return port;
+}
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -186,7 +315,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     });
   }
 
-  const workspaceManager = createLocalSymphonyWorkspaceManager({
+  const workspaceBackend = createLocalWorkspaceBackend({
     repoOwnedSourceRepo: env.sourceRepo
   });
   logger.info("Initialized workspace manager", {
@@ -204,152 +333,45 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runJournal,
     issueTimelineStore
   });
-  let orchestratorRef: SymphonyOrchestrator | null = null;
-  const agentRuntime = createLocalCodexSymphonyAgentRuntime({
-    promptTemplate: workflow.promptTemplate,
-    tracker,
-    runJournal,
-    runtimeLogs: runtimeLogStore,
-    workflowConfig: workflow.config,
-    logger,
-    callbacks: {
-      async onUpdate(issueId, update) {
-        orchestratorRef?.applyAgentUpdate(issueId, update);
-      },
-      async onComplete(issueId, completion) {
-        if (orchestratorRef) {
-          await orchestratorRef.handleRunCompletion(issueId, completion);
+  let runtimeRef: Pick<
+    CoreSymphonyRuntime,
+    "applyAgentUpdate" | "handleRunCompletion"
+  > | null = null;
+  const agentRuntime = createCodexAgentRuntime(
+    createLocalCodexSymphonyAgentRuntime({
+      promptTemplate: workflow.promptTemplate,
+      tracker,
+      runJournal,
+      runtimeLogs: runtimeLogStore,
+      workflowConfig: workflow.config,
+      logger,
+      callbacks: {
+        async onUpdate(issueId, update) {
+          runtimeRef?.applyAgentUpdate(issueId, update);
+        },
+        async onComplete(issueId, completion) {
+          if (runtimeRef) {
+            await runtimeRef.handleRunCompletion(issueId, completion);
+          }
         }
       }
-    }
-  });
-  const orchestrator = new SymphonyOrchestrator({
+    })
+  );
+  const runtime = createSymphonyRuntime({
     workflowConfig: workflow.config,
     tracker,
-    workspaceManager,
+    workspaceBackend,
     observer,
     agentRuntime,
     runnerEnv: environmentSource
   });
-  orchestratorRef = orchestrator;
-
-  let inFlightPollCycle: Promise<SymphonyOrchestratorSnapshot> | null = null;
-  let manualRefreshQueued = false;
-  let manualRefreshDrainScheduled = false;
-  let orchestratorPort: SymphonyRuntimeOrchestratorPort;
-
-  const scheduleQueuedManualRefreshDrain = (): void => {
-    if (manualRefreshDrainScheduled) {
-      return;
-    }
-
-    manualRefreshDrainScheduled = true;
-    setImmediate(() => {
-      manualRefreshDrainScheduled = false;
-      void drainQueuedManualRefresh();
-    });
-  };
-
-  const drainQueuedManualRefresh = async (): Promise<void> => {
-    if (!manualRefreshQueued || inFlightPollCycle) {
-      return;
-    }
-
-    manualRefreshQueued = false;
-
-    try {
-      await orchestratorPort.runPollCycle();
-    } catch (error) {
-      logger.error("Queued manual refresh poll cycle failed", {
-        error
-      });
-    }
-  };
-
-  orchestratorPort = {
-    snapshot() {
-      return orchestrator.snapshot();
-    },
-
-    isPollCycleInFlight() {
-      return inFlightPollCycle !== null;
-    },
-
-    async requestRefresh() {
-      const requestedAt = new Date().toISOString();
-      const coalesced = manualRefreshQueued;
-      manualRefreshQueued = true;
-
-      logger.info(
-        coalesced ? "Manual refresh request coalesced" : "Manual refresh queued",
-        {
-          coalesced
-        }
-      );
-      await runtimeLogStore.record({
-        level: "info",
-        source: "runtime",
-        eventType: coalesced
-          ? "manual_refresh_coalesced"
-          : "manual_refresh_queued",
-        message: coalesced
-          ? "Coalesced manual refresh request."
-          : "Queued manual refresh request.",
-        payload: {
-          coalesced
-        },
-        recordedAt: requestedAt
-      });
-      scheduleQueuedManualRefreshDrain();
-
-      return {
-        queued: true,
-        coalesced,
-        requestedAt,
-        operations: ["poll", "reconcile"]
-      };
-    },
-
-    async runPollCycle() {
-      if (inFlightPollCycle) {
-        return await inFlightPollCycle;
-      }
-
-      const before = orchestrator.snapshot();
-      inFlightPollCycle = (async () => {
-        logger.info("Starting orchestrator poll cycle", {
-          runningCount: before.running.length,
-          retryingCount: before.retrying.length
-        });
-
-        try {
-          const after = await orchestrator.runPollCycle();
-          const changed = snapshotRequiresRealtimeInvalidation(before, after);
-
-          logger.info("Finished orchestrator poll cycle", {
-            runningCount: after.running.length,
-            retryingCount: after.retrying.length,
-            changed
-          });
-
-          publishRealtimeSnapshotDiff(realtime, before, after, logger);
-          return after;
-        } catch (error) {
-          logger.error("Orchestrator poll cycle failed", {
-            error
-          });
-          throw error;
-        } finally {
-          inFlightPollCycle = null;
-          if (manualRefreshQueued) {
-            scheduleQueuedManualRefreshDrain();
-          }
-        }
-      })();
-
-      return await inFlightPollCycle;
-    }
-  };
+  runtimeRef = runtime;
+  const orchestratorPort = createRuntimeOrchestratorPort({
+    runtime,
+    logger,
+    runtimeLogs: runtimeLogStore,
+    realtime
+  });
 
   let pollScheduler: SymphonyRuntimePollScheduler | null = null;
   const issueTimeline: SymphonyIssueTimelinePort = {
