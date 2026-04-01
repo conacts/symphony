@@ -1,6 +1,9 @@
 export { createCodexAgentRuntime } from "../runtime/agent-runtime.js";
 export { createGitHubReviewPublisher } from "../review/review-publisher.js";
-export { createLocalWorkspaceBackend } from "../workspace/workspace-backend.js";
+export {
+  createDockerWorkspaceBackend,
+  createLocalWorkspaceBackend
+} from "../workspace/workspace-backend.js";
 export { createSymphonyRuntime } from "../runtime/symphony-runtime.js";
 export type {
   AgentRunInput,
@@ -21,6 +24,9 @@ export type {
 } from "../review/review-publisher.js";
 export type { SymphonyRuntime } from "../runtime/symphony-runtime.js";
 export type {
+  DockerWorkspaceBackendOptions,
+  DockerWorkspaceCommandResult,
+  DockerWorkspaceCommandRunner,
   PreparedWorkspace,
   WorkspaceBackend,
   WorkspaceBackendKind,

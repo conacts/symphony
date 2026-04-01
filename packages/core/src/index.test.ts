@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import * as core from "./index.js";
 import {
   createCodexAgentRuntime,
+  createDockerWorkspaceBackend,
   createGitHubReviewPublisher,
   createLocalWorkspaceBackend,
   createSymphonyRuntime,
@@ -38,6 +39,7 @@ describe("@symphony/core scaffold", () => {
   it("keeps the default runtime barrel focused on the happy path", () => {
     expect(core).toMatchObject({
       createCodexAgentRuntime,
+      createDockerWorkspaceBackend,
       createGitHubReviewPublisher,
       createLocalWorkspaceBackend,
       createSymphonyRuntime

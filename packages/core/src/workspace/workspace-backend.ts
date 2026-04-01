@@ -2,6 +2,12 @@ import {
   createLocalSymphonyWorkspaceManager,
   type SymphonyWorkspaceContext
 } from "./local-symphony-workspace-manager.js";
+export {
+  createDockerWorkspaceBackend,
+  type DockerWorkspaceBackendOptions,
+  type DockerWorkspaceCommandResult,
+  type DockerWorkspaceCommandRunner
+} from "./docker-workspace-backend.js";
 import type {
   SymphonyWorkflowHooksConfig,
   SymphonyWorkflowWorkspaceConfig

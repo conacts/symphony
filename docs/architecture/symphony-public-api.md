@@ -13,6 +13,7 @@ prefers stable facade types over local implementation details.
 
 ```ts
 import {
+  createDockerWorkspaceBackend,
   createLocalWorkspaceBackend,
   createCodexAgentRuntime,
   createGitHubReviewPublisher,
@@ -76,6 +77,11 @@ import {
   Public factory for the default local filesystem-backed workspace implementation. It adapts the
   existing local workspace manager into the `WorkspaceBackend` contract rather than re-exporting
   the manager shape directly.
+- `createDockerWorkspaceBackend()`
+  Public factory for the experimental Docker-backed workspace implementation. It owns container
+  prepare/reuse/hook/cleanup lifecycle and returns container-shaped `PreparedWorkspace` metadata,
+  but it does not make Docker the default backend and it does not yet imply container-native agent
+  execution.
 - `createCodexAgentRuntime(runtime)`
   Public adapter for the concrete Codex runtime implementation. The concrete implementation still
   lives in `apps/api/src/core/codex-agent-runtime.ts`, but callers now depend on the real
@@ -92,6 +98,9 @@ import {
 - `WorkspaceBackend` -> explicit lifecycle interface:
   `prepareWorkspace`, `runBeforeRun`, `runAfterRun`, `cleanupWorkspace`
 - `createLocalWorkspaceBackend` -> adapter over `createLocalSymphonyWorkspaceManager`
+- `createDockerWorkspaceBackend` -> Docker-backed `WorkspaceBackend` that prepares a bind-mounted
+  host workspace, starts or reuses a deterministic container, runs hooks via `docker exec`, and
+  tears the container/workspace down during cleanup
 - `PreparedWorkspace` -> stable workspace DTO returned from
   `WorkspaceBackend.prepareWorkspace()` with explicit `backendKind`, `executionTarget`, and
   `materialization`
@@ -144,7 +153,7 @@ Keep at root:
 - `ReviewProvider`, `ReviewRequest`, `ReviewFinding`, `ReviewResult`
 - `ReviewPublisher`, `PublishReviewInput`, `PublishReviewResult`, `SymphonyRuntime`
 - `createLocalWorkspaceBackend`, `createCodexAgentRuntime`, `createGitHubReviewPublisher`,
-  `createSymphonyRuntime`
+  `createDockerWorkspaceBackend`, `createSymphonyRuntime`
 - workflow-loading entry points needed to stand up a runtime:
   `loadSymphonyWorkflow`, `parseSymphonyWorkflow`, `defaultSymphonyWorkflowPath`,
   `defaultSymphonyPromptTemplate`, `SymphonyWorkflowError`, and the resolved workflow config types

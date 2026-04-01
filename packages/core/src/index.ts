@@ -1,5 +1,6 @@
 export {
   createCodexAgentRuntime,
+  createDockerWorkspaceBackend,
   createGitHubReviewPublisher,
   createLocalWorkspaceBackend,
   createSymphonyRuntime
@@ -9,6 +10,9 @@ export type {
   AgentRunLaunch,
   AgentRuntime,
   AgentStopInput,
+  DockerWorkspaceBackendOptions,
+  DockerWorkspaceCommandResult,
+  DockerWorkspaceCommandRunner,
   PreparedWorkspace,
   PublishReviewInput,
   PublishReviewResult,
