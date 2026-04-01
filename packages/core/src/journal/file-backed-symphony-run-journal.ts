@@ -457,27 +457,3 @@ function findTurnRecord(
 ): SymphonyTurnRecord | undefined {
   return turns.find((entry) => entry.turnId === turnId);
 }
-
-function isProblemRun(
-  run: SymphonyRunRecord,
-  outcomeFilter?: string,
-  issueIdentifierFilter?: string
-): boolean {
-  if (!run.outcome) {
-    return false;
-  }
-
-  if (["completed", "completed_turn_batch", "merged", "done"].includes(run.outcome)) {
-    return false;
-  }
-
-  if (outcomeFilter && run.outcome !== outcomeFilter) {
-    return false;
-  }
-
-  if (issueIdentifierFilter && run.issueIdentifier !== issueIdentifierFilter) {
-    return false;
-  }
-
-  return true;
-}

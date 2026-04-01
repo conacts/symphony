@@ -593,7 +593,7 @@ function compareIssueAggregates(
   right: SymphonyForensicsIssueAggregate,
   filters: SymphonyForensicsIssueFilters
 ): number {
-  let comparison = 0;
+  let comparison: number;
 
   switch (filters.sortBy) {
     case "problemRate":
