@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { ChevronDown, Columns3 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -117,6 +116,10 @@ export function IssueIndexView(input: {
         ? current.filter((currentColumn) => currentColumn !== column)
         : [...current, column]
     );
+  }
+
+  function navigateToIssue(href: string) {
+    window.location.assign(href);
   }
 
   return (
@@ -279,15 +282,21 @@ export function IssueIndexView(input: {
                   </TableHeader>
                   <TableBody>
                     {viewModel.rows.map((row) => (
-                      <TableRow key={row.issueIdentifier}>
+                      <TableRow
+                        key={row.issueIdentifier}
+                        tabIndex={0}
+                        className="cursor-pointer"
+                        onClick={() => navigateToIssue(row.issueHref)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            navigateToIssue(row.issueHref);
+                          }
+                        }}
+                      >
                         {columns.includes("issue") ? (
-                          <TableCell>
-                            <Link
-                              className="font-medium underline underline-offset-4"
-                              href={row.issueHref}
-                            >
-                              {row.issueIdentifier}
-                            </Link>
+                          <TableCell className="font-medium">
+                            {row.issueIdentifier}
                           </TableCell>
                         ) : null}
                         {columns.includes("runs") ? <TableCell>{row.runCount}</TableCell> : null}

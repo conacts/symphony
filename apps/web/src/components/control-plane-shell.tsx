@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { CircleEllipsisIcon } from "lucide-react";
 import { ConnectionStateBadge } from "@/components/connection-state-badge";
 import { DashboardNavigation } from "@/components/dashboard-navigation";
 import {
@@ -9,9 +10,6 @@ import {
   SidebarContent,
   SidebarHeader,
   SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger
 } from "@/components/ui/sidebar";
@@ -35,25 +33,17 @@ export function ControlPlaneShell(input: {
       <SidebarProvider>
         <Sidebar collapsible="icon">
           <SidebarHeader className="relative">
-            <div className="group-data-[collapsible=icon]:hidden">
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild size="lg">
-                    <Link
-                      href="/"
-                      aria-label="Symphony Control Plane"
-                      className="pr-10"
-                    >
-                      <div className="grid flex-1 text-left leading-tight">
-                        <span className="truncate text-lg font-semibold">
-                          Symphony
-                        </span>
-                      </div>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </div>
+            <Link
+              href="/"
+              aria-label="Symphony Control Plane"
+              title="Symphony"
+              className="flex min-h-12 items-center gap-2 rounded-md px-2 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+            >
+              <CircleEllipsisIcon />
+              <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+                <span className="truncate text-lg font-semibold">Symphony</span>
+              </div>
+            </Link>
           </SidebarHeader>
 
           <SidebarContent>
@@ -69,8 +59,8 @@ export function ControlPlaneShell(input: {
           </SidebarContent>
         </Sidebar>
 
-        <SidebarInset>
-          <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4">
+        <SidebarInset className="h-svh overflow-y-auto">
+          <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
             <div className="flex min-w-0 items-center gap-2">
               <SidebarTrigger className="-ml-1" />
             </div>
