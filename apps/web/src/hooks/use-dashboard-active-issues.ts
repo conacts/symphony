@@ -16,19 +16,6 @@ export function useDashboardActiveIssues(input: {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!input.runtimeSummary) {
-      setActiveIssues([]);
-      setLoading(false);
-      return;
-    }
-
-    const issueIdentifiers = collectActiveIssueIdentifiers(input.runtimeSummary);
-    if (issueIdentifiers.length === 0) {
-      setActiveIssues([]);
-      setLoading(false);
-      return;
-    }
-
     let cancelled = false;
     setLoading(true);
 
@@ -39,8 +26,23 @@ export function useDashboardActiveIssues(input: {
         sortDirection: "desc"
       }).catch(() => null);
 
-      const candidateIdentifiers =
-        issueIndex?.issues.map((issue) => issue.issueIdentifier) ?? issueIdentifiers;
+      const runtimeIdentifiers = input.runtimeSummary
+        ? collectActiveIssueIdentifiers(input.runtimeSummary)
+        : [];
+      const indexIdentifiers =
+        issueIndex?.issues.map((issue) => issue.issueIdentifier) ?? [];
+      const candidateIdentifiers = dedupeIssueIdentifiers([
+        ...runtimeIdentifiers,
+        ...indexIdentifiers
+      ]);
+
+      if (candidateIdentifiers.length === 0) {
+        if (!cancelled) {
+          setActiveIssues([]);
+          setLoading(false);
+        }
+        return;
+      }
 
       const resolvedIssues = await Promise.all(
         candidateIdentifiers.map(async (issueIdentifier) => {
@@ -121,6 +123,20 @@ function collectActiveIssueIdentifiers(
     if (!seen.has(entry.issueIdentifier)) {
       seen.add(entry.issueIdentifier);
       ordered.push(entry.issueIdentifier);
+    }
+  }
+
+  return ordered;
+}
+
+function dedupeIssueIdentifiers(values: string[]): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+
+  for (const value of values) {
+    if (!seen.has(value)) {
+      seen.add(value);
+      ordered.push(value);
     }
   }
 
