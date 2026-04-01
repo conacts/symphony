@@ -252,9 +252,6 @@ export function RunDetailView(input: {
                         <div>
                           Session {selectedEvent.sessionLabel} · {selectedEvent.status}
                         </div>
-                        <div className="mt-2 font-medium text-foreground">
-                          {selectedEvent.promptText}
-                        </div>
                       </div>
                       <div className="rounded-xl border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
                         Event {selectedEvent.eventSequence} · {selectedEvent.summary}
