@@ -2,21 +2,31 @@ export {
   symphonyForensicsIssuesQuerySchema,
   symphonyForensicsIssuePathSchema,
   symphonyForensicsIssueQuerySchema,
+  symphonyForensicsIssueForensicsBundleQuerySchema,
   symphonyForensicsIssueTimelineQuerySchema,
   symphonyForensicsRunPathSchema,
-  symphonyForensicsProblemRunsQuerySchema
+  symphonyForensicsProblemRunsQuerySchema,
+  symphonyForensicsIssueTimeRangeSchema,
+  symphonyForensicsIssueSortBySchema,
+  symphonyForensicsIssueSortDirectionSchema,
+  symphonyForensicsIssueFlagSchema
 } from "./requests.js";
 export {
   symphonyForensicsIssueSummarySchema,
   symphonyForensicsRunSummarySchema,
+  symphonyForensicsIssueFiltersSchema,
+  symphonyForensicsIssueTotalsSchema,
+  symphonyForensicsIssueFacetsSchema,
   symphonyForensicsIssueListResultSchema,
   symphonyForensicsIssueDetailResultSchema,
+  symphonyForensicsIssueForensicsBundleResultSchema,
   symphonyForensicsIssueTimelineEntrySchema,
   symphonyForensicsIssueTimelineResultSchema,
   symphonyForensicsRunDetailResultSchema,
   symphonyForensicsProblemRunsResultSchema,
   symphonyForensicsIssueListResponseSchema,
   symphonyForensicsIssueDetailResponseSchema,
+  symphonyForensicsIssueForensicsBundleResponseSchema,
   symphonyForensicsIssueTimelineResponseSchema,
   symphonyForensicsRunDetailResponseSchema,
   symphonyForensicsProblemRunsResponseSchema
@@ -24,8 +34,13 @@ export {
 
 export type {
   SymphonyForensicsIssuesQuery,
+  SymphonyForensicsIssueTimeRange,
+  SymphonyForensicsIssueSortBy,
+  SymphonyForensicsIssueSortDirection,
+  SymphonyForensicsIssueFlag,
   SymphonyForensicsIssuePath,
   SymphonyForensicsIssueQuery,
+  SymphonyForensicsIssueForensicsBundleQuery,
   SymphonyForensicsIssueTimelineQuery,
   SymphonyForensicsRunPath,
   SymphonyForensicsProblemRunsQuery
@@ -33,8 +48,12 @@ export type {
 export type {
   SymphonyForensicsIssueSummary,
   SymphonyForensicsRunSummary,
+  SymphonyForensicsIssueFilters,
+  SymphonyForensicsIssueTotals,
+  SymphonyForensicsIssueFacets,
   SymphonyForensicsIssueListResult,
   SymphonyForensicsIssueDetailResult,
+  SymphonyForensicsIssueForensicsBundleResult,
   SymphonyForensicsIssueTimelineEntry,
   SymphonyForensicsIssueTimelineResult,
   SymphonyForensicsRunDetailResult,

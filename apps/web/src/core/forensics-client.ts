@@ -1,9 +1,13 @@
 import {
   symphonyForensicsIssueDetailResponseSchema,
+  symphonyForensicsIssueForensicsBundleResponseSchema,
   symphonyForensicsIssueListResponseSchema,
   symphonyForensicsProblemRunsResponseSchema,
   symphonyForensicsRunDetailResponseSchema,
   type SymphonyForensicsIssueDetailResult,
+  type SymphonyForensicsIssueForensicsBundleQuery,
+  type SymphonyForensicsIssueForensicsBundleResult,
+  type SymphonyForensicsIssuesQuery,
   type SymphonyForensicsIssueListResult,
   type SymphonyForensicsProblemRunsQuery,
   type SymphonyForensicsProblemRunsResult,
@@ -14,13 +18,19 @@ import { messageInvalidatesPath } from "@/core/runtime-summary-client";
 
 export async function fetchIssueIndex(
   runtimeBaseUrl: string,
-  input: {
-    limit?: number;
-  } = {},
+  input: Partial<SymphonyForensicsIssuesQuery> = {},
   fetchImpl: typeof fetch = fetch
 ): Promise<SymphonyForensicsIssueListResult> {
   const endpoint = createRuntimeUrl(runtimeBaseUrl, "/api/v1/issues", {
-    limit: String(input.limit ?? 200)
+    limit: input.limit ? String(input.limit) : undefined,
+    timeRange: input.timeRange,
+    startedAfter: input.startedAfter,
+    startedBefore: input.startedBefore,
+    outcome: input.outcome,
+    errorClass: input.errorClass,
+    hasFlag: input.hasFlag,
+    sortBy: input.sortBy,
+    sortDirection: input.sortDirection
   });
   const response = await fetchImpl(endpoint, {
     headers: {
@@ -34,6 +44,52 @@ export async function fetchIssueIndex(
   }
 
   const parsed = symphonyForensicsIssueListResponseSchema.parse(await response.json());
+
+  if (!parsed.ok) {
+    throw new Error(parsed.error.message);
+  }
+
+  return parsed.data;
+}
+
+export async function fetchIssueForensicsBundle(
+  runtimeBaseUrl: string,
+  issueIdentifier: string,
+  input: Partial<SymphonyForensicsIssueForensicsBundleQuery> = {},
+  fetchImpl: typeof fetch = fetch
+): Promise<SymphonyForensicsIssueForensicsBundleResult> {
+  const endpoint = createRuntimeUrl(
+    runtimeBaseUrl,
+    `/api/v1/issues/${issueIdentifier}/forensics-bundle`,
+    {
+      limit: input.limit ? String(input.limit) : undefined,
+      timeRange: input.timeRange,
+      startedAfter: input.startedAfter,
+      startedBefore: input.startedBefore,
+      outcome: input.outcome,
+      errorClass: input.errorClass,
+      hasFlag: input.hasFlag,
+      sortBy: input.sortBy,
+      sortDirection: input.sortDirection,
+      recentRunLimit: input.recentRunLimit ? String(input.recentRunLimit) : undefined,
+      timelineLimit: input.timelineLimit ? String(input.timelineLimit) : undefined,
+      runtimeLogLimit: input.runtimeLogLimit ? String(input.runtimeLogLimit) : undefined
+    }
+  );
+  const response = await fetchImpl(endpoint, {
+    headers: {
+      accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Issue forensic bundle request failed with ${response.status}.`);
+  }
+
+  const parsed = symphonyForensicsIssueForensicsBundleResponseSchema.parse(
+    await response.json()
+  );
 
   if (!parsed.ok) {
     throw new Error(parsed.error.message);

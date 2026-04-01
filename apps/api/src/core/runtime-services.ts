@@ -133,7 +133,20 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     dbFile: database.dbFile,
     timelineStore: issueTimelineStore
   });
-  const forensics = createSymphonyForensicsReadModel(runJournal);
+  const forensics = createSymphonyForensicsReadModel({
+    journal: runJournal,
+    async listIssueTimeline(input) {
+      return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
+        limit: input.limit
+      });
+    },
+    async listRuntimeLogs(input) {
+      return runtimeLogStore.list({
+        limit: input.limit,
+        issueIdentifier: input.issueIdentifier
+      });
+    }
+  });
 
   await runtimeLogStore.record({
     level: "info",

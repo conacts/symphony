@@ -6,21 +6,73 @@ import type {
 } from "@symphony/contracts";
 
 export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult) {
+  const successRate =
+    input.totals.runCount === 0
+      ? 0
+      : input.totals.completedRunCount / input.totals.runCount;
+  const avgTokensPerRun =
+    input.totals.runCount === 0 ? 0 : input.totals.totalTokens / input.totals.runCount;
+
   return {
-    summaryCards: Object.entries(input.problemSummary).map(([outcome, count]) => ({
-      outcome,
-      count: formatCount(count)
-    })),
+    summaryCards: [
+      {
+        label: "Total issues",
+        value: formatCount(input.totals.issueCount),
+        detail: "all time"
+      },
+      {
+        label: "Total runs",
+        value: formatCount(input.totals.runCount),
+        detail: "filtered set"
+      },
+      {
+        label: "Problem runs",
+        value: formatCount(input.totals.problemRunCount),
+        detail: "visible issues"
+      },
+      {
+        label: "Success rate",
+        value: formatPercent(successRate),
+        detail: "completed / total"
+      },
+      {
+        label: "Rate-limited runs",
+        value: formatCount(input.totals.rateLimitedCount),
+        detail: "current filter scope"
+      },
+      {
+        label: "Max-turn pauses",
+        value: formatCount(input.totals.maxTurnsCount),
+        detail: "current filter scope"
+      },
+      {
+        label: "Total tokens",
+        value: formatCount(input.totals.totalTokens),
+        detail: `In ${formatCount(input.totals.inputTokens)} / Out ${formatCount(input.totals.outputTokens)}`
+      },
+      {
+        label: "Avg tokens per run",
+        value: formatCount(Math.round(avgTokensPerRun)),
+        detail: "filtered runs"
+      }
+    ],
     rows: input.issues.map((issue) => ({
       issueIdentifier: issue.issueIdentifier,
       issueHref: `/issues/${issue.issueIdentifier}`,
       runCount: formatCount(issue.runCount),
-      latestRunStartedAt: issue.latestRunStartedAt ?? "n/a",
-      latestRunStatus: issue.latestRunStatus ?? "n/a",
-      latestRunOutcome: issue.latestRunOutcome ?? "n/a",
+      problemRate: formatPercent(issue.problemRate),
       latestProblemOutcome: issue.latestProblemOutcome ?? "n/a",
-      lastCompletedOutcome: issue.lastCompletedOutcome ?? "n/a"
-    }))
+      lastCompletedOutcome: issue.lastCompletedOutcome ?? "n/a",
+      retryCount: formatCount(issue.retryCount),
+      totalTokens: formatCount(issue.totalTokens),
+      avgDuration: formatDuration(issue.avgDurationSeconds),
+      lastActive: issue.latestActivityAt ?? "n/a",
+      flags: issue.flags,
+      latestErrorClass: issue.latestErrorClass ?? "n/a",
+      latestErrorMessage: issue.latestErrorMessage ?? "n/a"
+    })),
+    filters: input.filters,
+    facets: input.facets
   };
 }
 
@@ -146,6 +198,29 @@ export function buildProblemRunsViewModel(
 
 function formatCount(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatPercent(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "percent",
+    maximumFractionDigits: 1
+  }).format(value);
+}
+
+function formatDuration(value: number): string {
+  if (value <= 0) {
+    return "0s";
+  }
+
+  if (value >= 3600) {
+    return `${(value / 3600).toFixed(1)}h`;
+  }
+
+  if (value >= 60) {
+    return `${(value / 60).toFixed(1)}m`;
+  }
+
+  return `${Math.round(value)}s`;
 }
 
 function prettyValue(value: unknown): string {

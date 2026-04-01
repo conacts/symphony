@@ -6,6 +6,13 @@ import {
   nonEmptyStringSchema,
   nullableNonEmptyStringSchema
 } from "../../core/shared.js";
+import {
+  symphonyForensicsIssueFlagSchema,
+  symphonyForensicsIssueSortBySchema,
+  symphonyForensicsIssueSortDirectionSchema,
+  symphonyForensicsIssueTimeRangeSchema
+} from "./requests.js";
+import { symphonyRuntimeLogEntrySchema } from "../runtime/responses.js";
 
 export const symphonyForensicsIssueSummarySchema = z.strictObject({
   issueId: nonEmptyStringSchema,
@@ -15,8 +22,26 @@ export const symphonyForensicsIssueSummarySchema = z.strictObject({
   latestRunStatus: nullableNonEmptyStringSchema,
   latestRunOutcome: nullableNonEmptyStringSchema,
   runCount: z.number().int().nonnegative(),
+  completedRunCount: z.number().int().nonnegative(),
+  problemRunCount: z.number().int().nonnegative(),
+  problemRate: z.number().min(0).max(1),
   latestProblemOutcome: nullableNonEmptyStringSchema,
   lastCompletedOutcome: nullableNonEmptyStringSchema,
+  retryCount: z.number().int().nonnegative(),
+  latestRetryAttempt: z.number().int().nonnegative(),
+  rateLimitedCount: z.number().int().nonnegative(),
+  maxTurnsCount: z.number().int().nonnegative(),
+  startupFailureCount: z.number().int().nonnegative(),
+  totalInputTokens: z.number().int().nonnegative(),
+  totalOutputTokens: z.number().int().nonnegative(),
+  totalTokens: z.number().int().nonnegative(),
+  avgDurationSeconds: z.number().nonnegative(),
+  avgTurns: z.number().nonnegative(),
+  avgEvents: z.number().nonnegative(),
+  latestErrorClass: nullableNonEmptyStringSchema,
+  latestErrorMessage: nullableNonEmptyStringSchema,
+  latestActivityAt: isoTimestampSchema.nullable(),
+  flags: z.array(symphonyForensicsIssueFlagSchema),
   insertedAt: isoTimestampSchema.nullable(),
   updatedAt: isoTimestampSchema.nullable()
 });
@@ -38,13 +63,49 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   eventCount: z.number().int().nonnegative(),
   lastEventType: nullableNonEmptyStringSchema,
   lastEventAt: isoTimestampSchema.nullable(),
-  durationSeconds: z.number().int().nonnegative().nullable()
+  durationSeconds: z.number().int().nonnegative().nullable(),
+  errorClass: nullableNonEmptyStringSchema,
+  errorMessage: nullableNonEmptyStringSchema,
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  totalTokens: z.number().int().nonnegative()
+});
+
+export const symphonyForensicsIssueFiltersSchema = z.strictObject({
+  limit: z.number().int().positive().nullable(),
+  timeRange: symphonyForensicsIssueTimeRangeSchema,
+  startedAfter: isoTimestampSchema.nullable(),
+  startedBefore: isoTimestampSchema.nullable(),
+  outcome: nullableNonEmptyStringSchema,
+  errorClass: nullableNonEmptyStringSchema,
+  hasFlags: z.array(symphonyForensicsIssueFlagSchema),
+  sortBy: symphonyForensicsIssueSortBySchema,
+  sortDirection: symphonyForensicsIssueSortDirectionSchema
+});
+
+export const symphonyForensicsIssueTotalsSchema = z.strictObject({
+  issueCount: z.number().int().nonnegative(),
+  runCount: z.number().int().nonnegative(),
+  completedRunCount: z.number().int().nonnegative(),
+  problemRunCount: z.number().int().nonnegative(),
+  rateLimitedCount: z.number().int().nonnegative(),
+  maxTurnsCount: z.number().int().nonnegative(),
+  startupFailureCount: z.number().int().nonnegative(),
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  totalTokens: z.number().int().nonnegative()
+});
+
+export const symphonyForensicsIssueFacetsSchema = z.strictObject({
+  outcomes: z.array(nonEmptyStringSchema),
+  errorClasses: z.array(nonEmptyStringSchema)
 });
 
 export const symphonyForensicsIssueListResultSchema = z.strictObject({
   issues: z.array(symphonyForensicsIssueSummarySchema),
-  problemRuns: z.array(symphonyForensicsRunSummarySchema),
-  problemSummary: z.record(z.string(), z.number().int().nonnegative())
+  totals: symphonyForensicsIssueTotalsSchema,
+  filters: symphonyForensicsIssueFiltersSchema,
+  facets: symphonyForensicsIssueFacetsSchema
 });
 
 export const symphonyForensicsIssueDetailResultSchema = z.strictObject({
@@ -106,8 +167,6 @@ export const symphonyForensicsRunDetailSchema = symphonyForensicsRunSummarySchem
   repoStart: jsonObjectSchema.nullable(),
   repoEnd: jsonObjectSchema.nullable(),
   metadata: jsonObjectSchema.nullable(),
-  errorClass: nullableNonEmptyStringSchema,
-  errorMessage: nullableNonEmptyStringSchema,
   insertedAt: isoTimestampSchema.nullable(),
   updatedAt: isoTimestampSchema.nullable()
 });
@@ -176,11 +235,38 @@ export const symphonyForensicsProblemRunsResultSchema = z.strictObject({
   })
 });
 
+export const symphonyForensicsIssueForensicsBundleResultSchema = z.strictObject({
+  issue: symphonyForensicsIssueSummarySchema,
+  recentRuns: z.array(symphonyForensicsRunSummarySchema),
+  distributions: z.strictObject({
+    outcomes: z.record(z.string(), z.number().int().nonnegative()),
+    errorClasses: z.record(z.string(), z.number().int().nonnegative()),
+    timelineEvents: z.record(z.string(), z.number().int().nonnegative())
+  }),
+  latestFailure: z
+    .strictObject({
+      runId: nonEmptyStringSchema,
+      startedAt: isoTimestampSchema.nullable(),
+      outcome: nullableNonEmptyStringSchema,
+      errorClass: nullableNonEmptyStringSchema,
+      errorMessage: nullableNonEmptyStringSchema,
+      timelineEntries: z.array(symphonyForensicsIssueTimelineEntrySchema),
+      runtimeLogs: z.array(symphonyRuntimeLogEntrySchema)
+    })
+    .nullable(),
+  timeline: z.array(symphonyForensicsIssueTimelineEntrySchema),
+  runtimeLogs: z.array(symphonyRuntimeLogEntrySchema),
+  filters: symphonyForensicsIssueFiltersSchema
+});
+
 export const symphonyForensicsIssueListResponseSchema = createEnvelopeSchema(
   symphonyForensicsIssueListResultSchema
 );
 export const symphonyForensicsIssueDetailResponseSchema = createEnvelopeSchema(
   symphonyForensicsIssueDetailResultSchema
+);
+export const symphonyForensicsIssueForensicsBundleResponseSchema = createEnvelopeSchema(
+  symphonyForensicsIssueForensicsBundleResultSchema
 );
 export const symphonyForensicsRunDetailResponseSchema = createEnvelopeSchema(
   symphonyForensicsRunDetailResultSchema
@@ -194,6 +280,9 @@ export const symphonyForensicsIssueTimelineResponseSchema = createEnvelopeSchema
 
 export type SymphonyForensicsIssueSummary = z.infer<typeof symphonyForensicsIssueSummarySchema>;
 export type SymphonyForensicsRunSummary = z.infer<typeof symphonyForensicsRunSummarySchema>;
+export type SymphonyForensicsIssueFilters = z.infer<typeof symphonyForensicsIssueFiltersSchema>;
+export type SymphonyForensicsIssueTotals = z.infer<typeof symphonyForensicsIssueTotalsSchema>;
+export type SymphonyForensicsIssueFacets = z.infer<typeof symphonyForensicsIssueFacetsSchema>;
 export type SymphonyForensicsIssueListResult = z.infer<
   typeof symphonyForensicsIssueListResultSchema
 >;
@@ -211,4 +300,7 @@ export type SymphonyForensicsRunDetailResult = z.infer<
 >;
 export type SymphonyForensicsProblemRunsResult = z.infer<
   typeof symphonyForensicsProblemRunsResultSchema
+>;
+export type SymphonyForensicsIssueForensicsBundleResult = z.infer<
+  typeof symphonyForensicsIssueForensicsBundleResultSchema
 >;

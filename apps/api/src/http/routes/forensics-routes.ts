@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import {
   symphonyForensicsIssueDetailResponseSchema,
+  symphonyForensicsIssueForensicsBundleQuerySchema,
+  symphonyForensicsIssueForensicsBundleResponseSchema,
   symphonyForensicsIssueListResponseSchema,
   symphonyForensicsIssuePathSchema,
   symphonyForensicsIssueQuerySchema,
@@ -12,6 +14,7 @@ import {
   symphonyForensicsRunDetailResponseSchema,
   symphonyForensicsRunPathSchema
 } from "@symphony/contracts";
+import type { SymphonyForensicsIssueFlag } from "@symphony/contracts";
 import type { SymphonyRuntimeAppServices } from "../../core/runtime-services.js";
 import { createHttpError } from "../../core/errors.js";
 import { jsonOk } from "../../core/envelope.js";
@@ -31,12 +34,22 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
     const query = parseWithSchema(symphonyForensicsIssuesQuerySchema, c.req.query());
     const result = serializeForensicsIssueList(
       await services.forensics.issues({
-        limit: query.limit
+        limit: query.limit,
+        timeRange: query.timeRange,
+        startedAfter: query.startedAfter,
+        startedBefore: query.startedBefore,
+        outcome: query.outcome,
+        errorClass: query.errorClass,
+        hasFlags: parseFlags(query.hasFlag),
+        sortBy: query.sortBy,
+        sortDirection: query.sortDirection
       })
     );
 
     c.get("logger").debug("Returning forensics issue list", {
       limit: query.limit,
+      outcome: query.outcome ?? null,
+      errorClass: query.errorClass ?? null,
       count: result.issues.length
     });
 
@@ -53,6 +66,57 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
     return jsonOk(c, result, {
       count: result.issues.length
     });
+  });
+
+  forensicsRoutes.get("/issues/:issueIdentifier/forensics-bundle", async (c) => {
+    const path = parseWithSchema(symphonyForensicsIssuePathSchema, c.req.param());
+    const query = parseWithSchema(
+      symphonyForensicsIssueForensicsBundleQuerySchema,
+      c.req.query()
+    );
+    const result = await services.forensics.issueForensicsBundle(
+      path.issueIdentifier,
+      {
+        limit: query.limit,
+        timeRange: query.timeRange,
+        startedAfter: query.startedAfter,
+        startedBefore: query.startedBefore,
+        outcome: query.outcome,
+        errorClass: query.errorClass,
+        hasFlags: parseFlags(query.hasFlag),
+        sortBy: query.sortBy,
+        sortDirection: query.sortDirection,
+        recentRunLimit: query.recentRunLimit,
+        timelineLimit: query.timelineLimit,
+        runtimeLogLimit: query.runtimeLogLimit
+      }
+    );
+
+    if (!result) {
+      c.get("logger").warn("Forensics issue bundle not found", {
+        issueIdentifier: path.issueIdentifier
+      });
+      throw createHttpError("NOT_FOUND", "Issue not found.");
+    }
+
+    c.get("logger").debug("Returning forensics issue bundle", {
+      issueIdentifier: path.issueIdentifier,
+      runCount: result.recentRuns.length,
+      timelineCount: result.timeline.length,
+      runtimeLogCount: result.runtimeLogs.length
+    });
+
+    symphonyForensicsIssueForensicsBundleResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      data: result,
+      meta: {
+        durationMs: 0,
+        generatedAt: new Date().toISOString()
+      }
+    });
+
+    return jsonOk(c, result);
   });
 
   forensicsRoutes.get("/issues/:issueIdentifier/timeline", async (c) => {
@@ -194,4 +258,15 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
   });
 
   return forensicsRoutes;
+}
+
+function parseFlags(value: string | undefined): SymphonyForensicsIssueFlag[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry): entry is SymphonyForensicsIssueFlag => entry.length > 0);
 }

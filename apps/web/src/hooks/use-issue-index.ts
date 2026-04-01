@@ -5,16 +5,18 @@ import {
   fetchIssueIndex,
   shouldRefreshIssueIndex
 } from "@/core/forensics-client";
+import type { SymphonyForensicsIssuesQuery } from "@symphony/contracts";
 
 export function useIssueIndex(input: {
   runtimeBaseUrl: string;
   websocketUrl: string;
+  query: SymphonyForensicsIssuesQuery;
 }) {
   return useRealtimeResource({
-    loadResource: () => fetchIssueIndex(input.runtimeBaseUrl),
+    loadResource: () => fetchIssueIndex(input.runtimeBaseUrl, input.query),
     websocketUrl: input.websocketUrl,
     channels: ["issues", "problem-runs"],
     shouldRefresh: shouldRefreshIssueIndex,
-    refreshKey: `${input.runtimeBaseUrl}:issues`
+    refreshKey: `${input.runtimeBaseUrl}:issues:${JSON.stringify(input.query)}`
   });
 }

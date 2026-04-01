@@ -63,6 +63,9 @@ describe("@symphony/api app", () => {
     const app = createSymphonyRuntimeApp(harness.services);
     const issuesResponse = await app.request("/api/v1/issues");
     const issueDetailResponse = await app.request("/api/v1/issues/COL-123");
+    const issueBundleResponse = await app.request(
+      "/api/v1/issues/COL-123/forensics-bundle"
+    );
     const runDetailResponse = await app.request("/api/v1/runs/run-123");
     const problemRunsResponse = await app.request("/api/v1/problem-runs");
     const runtimeIssueResponse = await app.request("/api/v1/COL-123");
@@ -71,6 +74,9 @@ describe("@symphony/api app", () => {
         issues: Array<{
           issueIdentifier: string;
         }>;
+        totals: {
+          issueCount: number;
+        };
       };
     }>(issuesResponse);
     const issueDetailPayload = await responseJson<{
@@ -78,6 +84,14 @@ describe("@symphony/api app", () => {
         issueIdentifier: string;
       };
     }>(issueDetailResponse);
+    const issueBundlePayload = await responseJson<{
+      data: {
+        issue: {
+          issueIdentifier: string;
+        };
+        recentRuns: unknown[];
+      };
+    }>(issueBundleResponse);
     const runDetailPayload = await responseJson<{
       data: {
         run: {
@@ -105,9 +119,14 @@ describe("@symphony/api app", () => {
 
     expect(issuesResponse.status).toBe(200);
     expect(issuesPayload.data.issues[0]?.issueIdentifier).toBe("COL-123");
+    expect(issuesPayload.data.totals.issueCount).toBeGreaterThanOrEqual(1);
 
     expect(issueDetailResponse.status).toBe(200);
     expect(issueDetailPayload.data.issueIdentifier).toBe("COL-123");
+
+    expect(issueBundleResponse.status).toBe(200);
+    expect(issueBundlePayload.data.issue.issueIdentifier).toBe("COL-123");
+    expect(Array.isArray(issueBundlePayload.data.recentRuns)).toBe(true);
 
     expect(runDetailResponse.status).toBe(200);
     expect(runDetailPayload.data.run.runId).toBe("run-123");

@@ -18,15 +18,56 @@ describe("forensics view model", () => {
           latestRunStatus: "finished",
           latestRunOutcome: "completed",
           runCount: 3,
+          completedRunCount: 1,
+          problemRunCount: 2,
+          problemRate: 2 / 3,
           latestProblemOutcome: "max_turns",
           lastCompletedOutcome: "completed",
+          retryCount: 2,
+          latestRetryAttempt: 3,
+          rateLimitedCount: 1,
+          maxTurnsCount: 1,
+          startupFailureCount: 0,
+          totalInputTokens: 6000,
+          totalOutputTokens: 2500,
+          totalTokens: 8500,
+          avgDurationSeconds: 420,
+          avgTurns: 5,
+          avgEvents: 10,
+          latestErrorClass: "max_turns",
+          latestErrorMessage: "Reached max turns.",
+          latestActivityAt: "2026-03-31T18:05:00.000Z",
+          flags: ["max_turns", "many_retries"],
           insertedAt: "2026-03-31T18:00:00.000Z",
           updatedAt: "2026-03-31T18:05:00.000Z"
         }
       ],
-      problemRuns: [],
-      problemSummary: {
-        max_turns: 2
+      totals: {
+        issueCount: 1,
+        runCount: 3,
+        completedRunCount: 1,
+        problemRunCount: 2,
+        rateLimitedCount: 1,
+        maxTurnsCount: 1,
+        startupFailureCount: 0,
+        inputTokens: 6000,
+        outputTokens: 2500,
+        totalTokens: 8500
+      },
+      filters: {
+        limit: null,
+        timeRange: "all",
+        startedAfter: null,
+        startedBefore: null,
+        outcome: null,
+        errorClass: null,
+        hasFlags: [],
+        sortBy: "lastActive",
+        sortDirection: "desc"
+      },
+      facets: {
+        outcomes: ["completed", "max_turns"],
+        errorClasses: ["max_turns"]
       }
     });
     const problemRuns = buildProblemRunsViewModel({
@@ -48,7 +89,12 @@ describe("forensics view model", () => {
           eventCount: 4,
           lastEventType: "message.output",
           lastEventAt: "2026-03-31T18:02:00.000Z",
-          durationSeconds: 120
+          durationSeconds: 120,
+          errorClass: "max_turns",
+          errorMessage: "Reached max turns.",
+          inputTokens: 120,
+          outputTokens: 80,
+          totalTokens: 200
         }
       ],
       problemSummary: {
@@ -61,11 +107,10 @@ describe("forensics view model", () => {
       }
     });
 
-    expect(issueIndex.summaryCards[0]).toEqual({
-      outcome: "max_turns",
-      count: "2"
-    });
+    expect(issueIndex.summaryCards[0]?.label).toBe("Total issues");
+    expect(issueIndex.summaryCards[3]?.value).toBe("33.3%");
     expect(issueIndex.rows[0]?.issueHref).toBe("/issues/COL-165");
+    expect(issueIndex.rows[0]?.problemRate).toBe("66.7%");
     expect(problemRuns.filters.outcome).toBe("max_turns");
     expect(problemRuns.rows[0]?.runHref).toBe("/runs/run_123");
   });
@@ -91,7 +136,12 @@ describe("forensics view model", () => {
           eventCount: 4,
           lastEventType: "message.output",
           lastEventAt: "2026-03-31T18:02:00.000Z",
-          durationSeconds: 120
+          durationSeconds: 120,
+          errorClass: null,
+          errorMessage: null,
+          inputTokens: 120,
+          outputTokens: 80,
+          totalTokens: 200
         }
       ],
       summary: {
@@ -135,6 +185,9 @@ describe("forensics view model", () => {
         lastEventType: "message.output",
         lastEventAt: "2026-03-31T18:02:00.000Z",
         durationSeconds: 120,
+        inputTokens: 120,
+        outputTokens: 80,
+        totalTokens: 200,
         repoStart: {
           branch: "main"
         },

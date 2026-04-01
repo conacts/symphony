@@ -176,6 +176,24 @@ export function serializeForensicsRunDetail(
   result: SymphonyRunExport
 ): SymphonyForensicsRunDetailResult {
   const allEvents = result.turns.flatMap((turn) => turn.events);
+  const tokenTotals = result.turns.reduce(
+    (totals, turn) => {
+      const inputTokens = parseTokenCount(turn.tokens?.inputTokens);
+      const outputTokens = parseTokenCount(turn.tokens?.outputTokens);
+      const totalTokens = parseTokenCount(turn.tokens?.totalTokens);
+
+      return {
+        inputTokens: totals.inputTokens + inputTokens,
+        outputTokens: totals.outputTokens + outputTokens,
+        totalTokens: totals.totalTokens + (totalTokens || inputTokens + outputTokens)
+      };
+    },
+    {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0
+    }
+  );
   const sortedEvents = [...allEvents].sort((left, right) => {
     const recordedAtOrder = (right.recordedAt ?? "").localeCompare(left.recordedAt ?? "");
 
@@ -195,6 +213,9 @@ export function serializeForensicsRunDetail(
       eventCount: allEvents.length,
       lastEventType: lastEvent?.eventType ?? null,
       lastEventAt: lastEvent?.recordedAt ?? null,
+      inputTokens: tokenTotals.inputTokens,
+      outputTokens: tokenTotals.outputTokens,
+      totalTokens: tokenTotals.totalTokens,
       durationSeconds:
         result.run.startedAt && result.run.endedAt
           ? Math.max(
@@ -232,6 +253,12 @@ function summarizeMessage(message: unknown): string | null {
   } catch {
     return String(message);
   }
+}
+
+function parseTokenCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : 0;
 }
 
 function buildFallbackTrackedIssue(input: {

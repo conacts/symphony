@@ -9,6 +9,7 @@ import {
   compareDescendingTimestamps,
   createEmptyRunJournalDocument,
   isoNow,
+  matchesRunFilters,
   normalizeIsoTimestamp,
   normalizeLimit,
   normalizeOptionalFilter,
@@ -26,6 +27,7 @@ import type {
   SymphonyRunJournal,
   SymphonyRunJournalDocument,
   SymphonyRunJournalListOptions,
+  SymphonyRunJournalRunsOptions,
   SymphonyRunJournalProblemRunsOptions,
   SymphonyRunRecord,
   SymphonyRunStartAttrs,
@@ -281,11 +283,20 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
     issueIdentifier: string,
     opts: SymphonyRunJournalListOptions = {}
   ): Promise<SymphonyRunSummary[]> {
+    return this.listRuns({
+      issueIdentifier,
+      limit: opts.limit
+    });
+  }
+
+  async listRuns(
+    opts: SymphonyRunJournalRunsOptions = {}
+  ): Promise<SymphonyRunSummary[]> {
     const document = await this.#read();
-    const limit = normalizeLimit(opts.limit, 50);
+    const limit = normalizeLimit(opts.limit, 200);
 
     return document.runs
-      .filter((run) => run.issueIdentifier === issueIdentifier)
+      .filter((run) => matchesRunFilters(run, opts))
       .sort((left, right) => compareDescendingTimestamps(left.startedAt, right.startedAt))
       .slice(0, limit)
       .map((run) => buildRunSummary(run, document.turns, document.events));
@@ -294,18 +305,12 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
   async listProblemRuns(
     opts: SymphonyRunJournalProblemRunsOptions = {}
   ): Promise<SymphonyRunSummary[]> {
-    const document = await this.#read();
-    const limit = normalizeLimit(opts.limit, 50);
-    const outcome = normalizeOptionalFilter(opts.outcome);
-    const issueIdentifier = normalizeOptionalFilter(opts.issueIdentifier);
-
-    return document.runs
-      .filter((run) => isProblemRun(run, outcome, issueIdentifier))
-      .sort((left, right) =>
-        compareDescendingTimestamps(left.endedAt ?? left.startedAt, right.endedAt ?? right.startedAt)
-      )
-      .slice(0, limit)
-      .map((run) => buildRunSummary(run, document.turns, document.events));
+    return this.listRuns({
+      limit: opts.limit,
+      outcome: normalizeOptionalFilter(opts.outcome),
+      issueIdentifier: normalizeOptionalFilter(opts.issueIdentifier),
+      problemOnly: true
+    });
   }
 
   async fetchRunExport(runId: string): Promise<SymphonyRunExport | null> {

@@ -15,12 +15,20 @@ describe("issue index view", () => {
         error={null}
         issueIndex={buildSymphonyForensicsIssueListResult()}
         loading={false}
+        onQueryChange={() => {}}
+        query={{
+          timeRange: "all",
+          sortBy: "lastActive",
+          sortDirection: "desc"
+        }}
+        runtimeBaseUrl="http://localhost:4100"
       />
     );
 
-    expect(html).toContain("Issue index");
+    expect(html).toContain("Issues");
     expect(html).toContain("COL-165");
-    expect(html).toContain("Issue detail");
+    expect(html).toContain("Historical process forensics");
     expect(html).toContain("max_turns");
+    expect(html).toContain("Total issues");
   });
 });

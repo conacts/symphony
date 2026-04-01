@@ -107,6 +107,7 @@ export type {
   SymphonyRunJournal,
   SymphonyRunJournalDocument,
   SymphonyRunJournalListOptions,
+  SymphonyRunJournalRunsOptions,
   SymphonyRunJournalProblemRunsOptions,
   SymphonyRunRecord,
   SymphonyRunStartAttrs,
@@ -119,8 +120,19 @@ export type {
   SymphonyTurnUpdateAttrs
 } from "./journal/symphony-run-journal-types.js";
 export type {
+  SymphonyForensicsIssueAggregate,
   SymphonyForensicsIssueDetail,
+  SymphonyForensicsIssueFlag,
+  SymphonyForensicsIssueFilters,
+  SymphonyForensicsIssueForensicsBundle,
   SymphonyForensicsIssueList,
+  SymphonyForensicsIssueSortBy,
+  SymphonyForensicsIssueSortDirection,
+  SymphonyForensicsIssueTimeRange,
+  SymphonyForensicsIssueTotals,
+  SymphonyForensicsIssuesQuery,
   SymphonyForensicsProblemRuns,
+  SymphonyForensicsRuntimeLogEntry,
+  SymphonyForensicsTimelineEntry,
   SymphonyForensicsReadModel
 } from "./forensics/symphony-forensics-read-model.js";

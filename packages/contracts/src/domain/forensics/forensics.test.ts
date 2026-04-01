@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   symphonyForensicsIssueListResponseSchema,
   symphonyForensicsIssueDetailResponseSchema,
+  symphonyForensicsIssueForensicsBundleResponseSchema,
   symphonyForensicsRunDetailResponseSchema,
   symphonyForensicsProblemRunsQuerySchema,
   symphonyForensicsProblemRunsResponseSchema
@@ -27,14 +28,57 @@ describe("symphony forensics contracts", () => {
             latestRunStatus: "completed",
             latestRunOutcome: "done",
             runCount: 2,
+            completedRunCount: 2,
+            problemRunCount: 0,
+            problemRate: 0,
             latestProblemOutcome: null,
             lastCompletedOutcome: "done",
+            retryCount: 0,
+            latestRetryAttempt: 1,
+            rateLimitedCount: 0,
+            maxTurnsCount: 0,
+            startupFailureCount: 0,
+            totalInputTokens: 10,
+            totalOutputTokens: 20,
+            totalTokens: 30,
+            avgDurationSeconds: 60,
+            avgTurns: 1,
+            avgEvents: 1,
+            latestErrorClass: null,
+            latestErrorMessage: null,
+            latestActivityAt: "2026-03-31T00:01:00.000Z",
+            flags: [],
             insertedAt: "2026-03-31T00:00:00.000Z",
             updatedAt: "2026-03-31T00:00:00.000Z"
           }
         ],
-        problemRuns: [],
-        problemSummary: {}
+        totals: {
+          issueCount: 1,
+          runCount: 2,
+          completedRunCount: 2,
+          problemRunCount: 0,
+          rateLimitedCount: 0,
+          maxTurnsCount: 0,
+          startupFailureCount: 0,
+          inputTokens: 10,
+          outputTokens: 20,
+          totalTokens: 30
+        },
+        filters: {
+          limit: 200,
+          timeRange: "all",
+          startedAfter: null,
+          startedBefore: null,
+          outcome: null,
+          errorClass: null,
+          hasFlags: [],
+          sortBy: "lastActive",
+          sortDirection: "desc"
+        },
+        facets: {
+          outcomes: ["done"],
+          errorClasses: []
+        }
       }
     });
 
@@ -106,6 +150,9 @@ describe("symphony forensics contracts", () => {
           lastEventType: "turn_completed",
           lastEventAt: "2026-03-31T00:01:00.000Z",
           durationSeconds: 60,
+          inputTokens: 10,
+          outputTokens: 20,
+          totalTokens: 30,
           repoStart: {},
           repoEnd: {},
           metadata: {},
@@ -151,6 +198,72 @@ describe("symphony forensics contracts", () => {
             ]
           }
         ]
+      }
+    });
+
+    expect(parsed.ok).toBe(true);
+  });
+
+  it("parses the issue forensic bundle envelope", () => {
+    const parsed = symphonyForensicsIssueForensicsBundleResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      meta: {
+        durationMs: 1,
+        generatedAt: "2026-03-31T00:00:00.000Z"
+      },
+      data: {
+        issue: {
+          issueId: "issue-1",
+          issueIdentifier: "COL-157",
+          latestRunStartedAt: "2026-03-31T00:00:00.000Z",
+          latestRunId: "run-1",
+          latestRunStatus: "completed",
+          latestRunOutcome: "done",
+          runCount: 2,
+          completedRunCount: 2,
+          problemRunCount: 0,
+          problemRate: 0,
+          latestProblemOutcome: null,
+          lastCompletedOutcome: "done",
+          retryCount: 0,
+          latestRetryAttempt: 1,
+          rateLimitedCount: 0,
+          maxTurnsCount: 0,
+          startupFailureCount: 0,
+          totalInputTokens: 10,
+          totalOutputTokens: 20,
+          totalTokens: 30,
+          avgDurationSeconds: 60,
+          avgTurns: 1,
+          avgEvents: 1,
+          latestErrorClass: null,
+          latestErrorMessage: null,
+          latestActivityAt: "2026-03-31T00:01:00.000Z",
+          flags: [],
+          insertedAt: "2026-03-31T00:00:00.000Z",
+          updatedAt: "2026-03-31T00:00:00.000Z"
+        },
+        recentRuns: [],
+        distributions: {
+          outcomes: {},
+          errorClasses: {},
+          timelineEvents: {}
+        },
+        latestFailure: null,
+        timeline: [],
+        runtimeLogs: [],
+        filters: {
+          limit: 200,
+          timeRange: "all",
+          startedAfter: null,
+          startedBefore: null,
+          outcome: null,
+          errorClass: null,
+          hasFlags: [],
+          sortBy: "lastActive",
+          sortDirection: "desc"
+        }
       }
     });
 

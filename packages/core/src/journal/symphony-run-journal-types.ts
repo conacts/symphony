@@ -200,6 +200,11 @@ export type SymphonyRunSummary = {
   lastEventType: string | null;
   lastEventAt: SymphonyIsoTimestamp | null;
   durationSeconds: number | null;
+  errorClass: string | null;
+  errorMessage: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
 };
 
 export type SymphonyTurnExport = SymphonyTurnRecord & {
@@ -215,6 +220,15 @@ export type SymphonyRunExport = {
 
 export type SymphonyRunJournalListOptions = {
   limit?: number;
+};
+
+export type SymphonyRunJournalRunsOptions = SymphonyRunJournalListOptions & {
+  issueIdentifier?: string;
+  outcome?: string;
+  errorClass?: string;
+  startedAfter?: SymphonyIsoTimestamp;
+  startedBefore?: SymphonyIsoTimestamp;
+  problemOnly?: boolean;
 };
 
 export type SymphonyRunJournalProblemRunsOptions = SymphonyRunJournalListOptions & {
@@ -240,6 +254,7 @@ export interface SymphonyRunJournal {
   updateRun(runId: string, attrs: SymphonyRunUpdateAttrs): Promise<void>;
   finalizeRun(runId: string, attrs: SymphonyRunFinishAttrs): Promise<void>;
   listIssues(opts?: SymphonyRunJournalListOptions): Promise<SymphonyIssueSummary[]>;
+  listRuns(opts?: SymphonyRunJournalRunsOptions): Promise<SymphonyRunSummary[]>;
   listRunsForIssue(
     issueIdentifier: string,
     opts?: SymphonyRunJournalListOptions

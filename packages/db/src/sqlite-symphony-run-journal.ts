@@ -9,6 +9,7 @@ import type {
   SymphonyRunFinishAttrs,
   SymphonyRunJournal,
   SymphonyRunJournalListOptions,
+  SymphonyRunJournalRunsOptions,
   SymphonyRunJournalProblemRunsOptions,
   SymphonyRunStartAttrs,
   SymphonyRunSummary,
@@ -428,40 +429,41 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
     return issues.map((issue) => buildIssueSummary(issue, runs));
   }
 
-  async listRunsForIssue(
-    issueIdentifier: string,
-    opts: SymphonyRunJournalListOptions = {}
-  ): Promise<SymphonyRunSummary[]> {
-    const limit = normalizeLimit(opts.limit, 50);
+  async listRuns(opts: SymphonyRunJournalRunsOptions = {}): Promise<SymphonyRunSummary[]> {
+    const limit = normalizeLimit(opts.limit, 200);
     const runs = this.#db
       .select()
       .from(symphonyRunsTable)
-      .where(eq(symphonyRunsTable.issueIdentifier, issueIdentifier))
       .orderBy(desc(symphonyRunsTable.startedAt))
-      .limit(limit)
       .all();
     const turns = this.#db.select().from(symphonyTurnsTable).all();
     const events = this.#db.select().from(symphonyEventsTable).all();
 
-    return runs.map((run) => buildRunSummary(run, turns, events));
+    return runs
+      .filter((run) => matchesRunFilters(run, opts))
+      .slice(0, limit)
+      .map((run) => buildRunSummary(run, turns, events));
+  }
+
+  async listRunsForIssue(
+    issueIdentifier: string,
+    opts: SymphonyRunJournalListOptions = {}
+  ): Promise<SymphonyRunSummary[]> {
+    return this.listRuns({
+      issueIdentifier,
+      limit: opts.limit
+    });
   }
 
   async listProblemRuns(
     opts: SymphonyRunJournalProblemRunsOptions = {}
   ): Promise<SymphonyRunSummary[]> {
-    const limit = normalizeLimit(opts.limit, 50);
-    const allRuns = this.#db
-      .select()
-      .from(symphonyRunsTable)
-      .orderBy(desc(sql`COALESCE(${symphonyRunsTable.endedAt}, ${symphonyRunsTable.startedAt})`))
-      .all();
-    const turns = this.#db.select().from(symphonyTurnsTable).all();
-    const events = this.#db.select().from(symphonyEventsTable).all();
-
-    return allRuns
-      .filter((run) => isProblemRun(run, opts.outcome, opts.issueIdentifier))
-      .slice(0, limit)
-      .map((run) => buildRunSummary(run, turns, events));
+    return this.listRuns({
+      limit: opts.limit,
+      outcome: opts.outcome,
+      issueIdentifier: opts.issueIdentifier,
+      problemOnly: true
+    });
   }
 
   async fetchRunExport(runId: string): Promise<SymphonyRunExport | null> {
@@ -634,6 +636,23 @@ function buildRunSummary(
 
   const lastEvent = sortedEvents[0];
 
+  const tokenTotals = runTurns.reduce(
+    (totals, turn) => {
+      const turnTokens = parseTokenTotals(turn.tokens);
+
+      return {
+        inputTokens: totals.inputTokens + turnTokens.inputTokens,
+        outputTokens: totals.outputTokens + turnTokens.outputTokens,
+        totalTokens: totals.totalTokens + turnTokens.totalTokens
+      };
+    },
+    {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0
+    }
+  );
+
   return {
     runId: run.runId,
     issueId: run.issueId,
@@ -651,7 +670,12 @@ function buildRunSummary(
     eventCount: runEvents.length,
     lastEventType: lastEvent?.eventType ?? null,
     lastEventAt: lastEvent?.recordedAt ?? null,
-    durationSeconds: durationSeconds(run.startedAt, run.endedAt)
+    durationSeconds: durationSeconds(run.startedAt, run.endedAt),
+    errorClass: run.errorClass ?? null,
+    errorMessage: run.errorMessage ?? null,
+    inputTokens: tokenTotals.inputTokens,
+    outputTokens: tokenTotals.outputTokens,
+    totalTokens: tokenTotals.totalTokens
   };
 }
 
@@ -701,12 +725,75 @@ function isProblemRun(
   return true;
 }
 
+function matchesRunFilters(
+  run: typeof symphonyRunsTable.$inferSelect,
+  opts: SymphonyRunJournalRunsOptions
+): boolean {
+  if (opts.issueIdentifier && run.issueIdentifier !== opts.issueIdentifier) {
+    return false;
+  }
+
+  if (opts.outcome && run.outcome !== opts.outcome) {
+    return false;
+  }
+
+  if (opts.errorClass && run.errorClass !== opts.errorClass) {
+    return false;
+  }
+
+  if (opts.problemOnly && !isProblemOutcome(run.outcome)) {
+    return false;
+  }
+
+  const startedAtMs = Date.parse(run.startedAt);
+
+  if (opts.startedAfter) {
+    const startedAfterMs = Date.parse(opts.startedAfter);
+
+    if (!Number.isNaN(startedAtMs) && !Number.isNaN(startedAfterMs) && startedAtMs < startedAfterMs) {
+      return false;
+    }
+  }
+
+  if (opts.startedBefore) {
+    const startedBeforeMs = Date.parse(opts.startedBefore);
+
+    if (!Number.isNaN(startedAtMs) && !Number.isNaN(startedBeforeMs) && startedAtMs > startedBeforeMs) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function isProblemOutcome(outcome: string | null): boolean {
   return typeof outcome === "string" && !completedOutcomes.has(outcome);
 }
 
 function isCompletedOutcome(outcome: string | null): boolean {
   return typeof outcome === "string" && completedOutcomes.has(outcome);
+}
+
+function parseTokenTotals(tokens: SymphonyJsonObject | Record<string, unknown> | null): {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+} {
+  const inputTokens = parseTokenCount(tokens?.inputTokens);
+  const outputTokens = parseTokenCount(tokens?.outputTokens);
+  const totalTokens = parseTokenCount(tokens?.totalTokens);
+
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: totalTokens || inputTokens + outputTokens
+  };
+}
+
+function parseTokenCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : 0;
 }
 
 const secretKeyPattern = /(authorization|cookie|token|password|secret|api[_-]?key)/i;

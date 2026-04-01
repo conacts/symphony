@@ -52,13 +52,20 @@ describe("symphony forensics read model", () => {
     const issueDetail = await readModel.issueDetail("COL-157", {
       limit: 200
     });
+    const issueBundle = await readModel.issueForensicsBundle("COL-157", {
+      recentRunLimit: 5,
+      timelineLimit: 20,
+      runtimeLogLimit: 20
+    });
     const runDetail = await readModel.runDetail(runId);
     const problemRuns = await readModel.problemRuns({
       limit: 200
     });
 
     expect(issues.issues[0]?.issueIdentifier).toBe("COL-157");
+    expect(issues.totals.issueCount).toBe(1);
     expect(issueDetail?.summary.runCount).toBe(1);
+    expect(issueBundle?.issue.issueIdentifier).toBe("COL-157");
     expect(runDetail?.run.runId).toBe(runId);
     expect(problemRuns.problemRuns[0]?.runId).toBe(runId);
     expect(problemRuns.problemSummary.paused_max_turns).toBe(1);
@@ -69,6 +76,7 @@ describe("symphony forensics read model", () => {
     const readModel = createSymphonyForensicsReadModel(journal);
 
     expect(await readModel.issueDetail("COL-MISSING")).toBeNull();
+    expect(await readModel.issueForensicsBundle("COL-MISSING")).toBeNull();
     expect(await readModel.runDetail("run-missing")).toBeNull();
   });
 });

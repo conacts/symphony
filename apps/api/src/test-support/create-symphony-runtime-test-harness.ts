@@ -298,7 +298,17 @@ export async function createSymphonyRuntimeTestHarness(input: {
         return snapshot;
       }
     },
-    forensics: createSymphonyForensicsReadModel(runJournal),
+    forensics: createSymphonyForensicsReadModel({
+      journal: runJournal,
+      async listIssueTimeline(input) {
+        return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
+          limit: input.limit
+        });
+      },
+      async listRuntimeLogs(input) {
+        return runtimeLogStore.list(input);
+      }
+    }),
     issueTimeline: {
       async list({ issueIdentifier, limit }) {
         const entries = await issueTimelineStore.listIssueTimeline(

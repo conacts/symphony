@@ -135,15 +135,56 @@ export function buildSymphonyForensicsIssueListResult(
         latestRunStatus: "finished",
         latestRunOutcome: "completed",
         runCount: 3,
+        completedRunCount: 1,
+        problemRunCount: 2,
+        problemRate: 2 / 3,
         latestProblemOutcome: "max_turns",
         lastCompletedOutcome: "completed",
+        retryCount: 2,
+        latestRetryAttempt: 3,
+        rateLimitedCount: 1,
+        maxTurnsCount: 1,
+        startupFailureCount: 0,
+        totalInputTokens: 6000,
+        totalOutputTokens: 2500,
+        totalTokens: 8500,
+        avgDurationSeconds: 420,
+        avgTurns: 5.3,
+        avgEvents: 12,
+        latestErrorClass: "max_turns",
+        latestErrorMessage: "Reached max turns before completion.",
+        latestActivityAt: "2026-03-31T18:05:00.000Z",
+        flags: ["rate_limited", "max_turns", "many_retries"],
         insertedAt: "2026-03-31T18:00:00.000Z",
         updatedAt: "2026-03-31T18:05:00.000Z"
       }
     ],
-    problemRuns: [],
-    problemSummary: {
-      max_turns: 2
+    totals: {
+      issueCount: 1,
+      runCount: 3,
+      completedRunCount: 1,
+      problemRunCount: 2,
+      rateLimitedCount: 1,
+      maxTurnsCount: 1,
+      startupFailureCount: 0,
+      inputTokens: 6000,
+      outputTokens: 2500,
+      totalTokens: 8500
+    },
+    filters: {
+      limit: null,
+      timeRange: "all",
+      startedAfter: null,
+      startedBefore: null,
+      outcome: null,
+      errorClass: null,
+      hasFlags: [],
+      sortBy: "lastActive",
+      sortDirection: "desc"
+    },
+    facets: {
+      outcomes: ["completed", "max_turns", "rate_limited"],
+      errorClasses: ["max_turns", "rate_limit_exceeded"]
     },
     ...overrides
   };
@@ -172,7 +213,12 @@ export function buildSymphonyForensicsIssueDetailResult(
         eventCount: 4,
         lastEventType: "message.output",
         lastEventAt: "2026-03-31T18:02:00.000Z",
-        durationSeconds: 120
+        durationSeconds: 120,
+        errorClass: null,
+        errorMessage: null,
+        inputTokens: 120,
+        outputTokens: 80,
+        totalTokens: 200
       }
     ],
     summary: {
@@ -209,7 +255,12 @@ export function buildSymphonyForensicsProblemRunsResult(
         eventCount: 4,
         lastEventType: "message.output",
         lastEventAt: "2026-03-31T18:02:00.000Z",
-        durationSeconds: 120
+        durationSeconds: 120,
+        errorClass: "max_turns",
+        errorMessage: "Reached max turns.",
+        inputTokens: 120,
+        outputTokens: 80,
+        totalTokens: 200
       }
     ],
     problemSummary: {
@@ -259,6 +310,9 @@ export function buildSymphonyForensicsRunDetailResult(
       lastEventType: "message.output",
       lastEventAt: "2026-03-31T18:02:00.000Z",
       durationSeconds: 120,
+      inputTokens: 120,
+      outputTokens: 80,
+      totalTokens: 200,
       repoStart: {},
       repoEnd: {},
       metadata: {},
