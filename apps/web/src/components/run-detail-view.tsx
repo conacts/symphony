@@ -32,15 +32,22 @@ import type { RuntimeSummaryConnectionState } from "@/core/runtime-summary-view-
 import { buildRunDetailViewModel } from "@/core/forensics-view-model";
 import type { SymphonyForensicsRunDetailResult } from "@symphony/contracts";
 
-type SelectedPayload = {
-  eventSequence: string;
-  eventType: string;
-  payloadText: string;
+const turnsPerPage = 10;
+
+type SelectedTurn = {
+  eventCount: string;
+  events: Array<{
+    eventSequence: string;
+    eventType: string;
+    payloadText: string;
+    recordedAt: string;
+    summary: string;
+  }>;
   promptText: string;
-  recordedAt: string;
+  latestEventAt: string;
+  latestEventType: string;
   sessionLabel: string;
   status: string;
-  summary: string;
   turnTitle: string;
 };
 
@@ -50,25 +57,16 @@ export function RunDetailView(input: {
   loading: boolean;
   runDetail: SymphonyForensicsRunDetailResult | null;
 }) {
-  const [selectedPayload, setSelectedPayload] = useState<SelectedPayload | null>(null);
+  const [page, setPage] = useState(1);
+  const [selectedTurn, setSelectedTurn] = useState<SelectedTurn | null>(null);
   const viewModel = input.runDetail
     ? buildRunDetailViewModel(input.runDetail)
     : null;
-  const eventRows = viewModel
-    ? viewModel.turns.flatMap((turn) =>
-        turn.events.map((event) => ({
-          eventSequence: event.eventSequence,
-          eventType: event.eventType,
-          payloadText: event.payloadText,
-          promptText: turn.promptText,
-          recordedAt: event.recordedAt,
-          sessionLabel: turn.sessionLabel,
-          status: turn.status,
-          summary: event.summary,
-          turnSequence: turn.turnSequence,
-          turnTitle: turn.title
-        }))
-      )
+  const totalPages = viewModel
+    ? Math.max(1, Math.ceil(viewModel.turns.length / turnsPerPage))
+    : 1;
+  const paginatedTurns = viewModel
+    ? viewModel.turns.slice((page - 1) * turnsPerPage, page * turnsPerPage)
     : [];
 
   return (
@@ -146,37 +144,44 @@ export function RunDetailView(input: {
                     <TableHead>At</TableHead>
                     <TableHead>Session</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Events</TableHead>
                     <TableHead>Event</TableHead>
                     <TableHead>Summary</TableHead>
                     <TableHead>Payload</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {eventRows.map((event) => (
-                    <TableRow key={`${event.turnSequence}:${event.eventSequence}`}>
+                  {paginatedTurns.map((turn) => (
+                    <TableRow key={turn.turnSequence}>
                       <TableCell className="font-medium">
-                        {event.turnSequence}
+                        {turn.turnSequence}
                       </TableCell>
-                      <TableCell>{event.recordedAt}</TableCell>
-                      <TableCell>{event.sessionLabel}</TableCell>
-                      <TableCell>{event.status}</TableCell>
-                      <TableCell>{event.eventType}</TableCell>
-                      <TableCell>{event.summary}</TableCell>
+                      <TableCell>{turn.latestEventAt}</TableCell>
+                      <TableCell>{turn.sessionLabel}</TableCell>
+                      <TableCell>{turn.status}</TableCell>
+                      <TableCell>{turn.eventCount}</TableCell>
+                      <TableCell>{turn.latestEventType}</TableCell>
+                      <TableCell>{turn.latestSummary}</TableCell>
                       <TableCell>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            setSelectedPayload({
-                              eventSequence: event.eventSequence,
-                              eventType: event.eventType,
-                              payloadText: event.payloadText,
-                              promptText: event.promptText,
-                              recordedAt: event.recordedAt,
-                              sessionLabel: event.sessionLabel,
-                              status: event.status,
-                              summary: event.summary,
-                              turnTitle: event.turnTitle
+                            setSelectedTurn({
+                              eventCount: turn.eventCount,
+                              events: turn.events.map((event) => ({
+                                eventSequence: event.eventSequence,
+                                eventType: event.eventType,
+                                payloadText: event.payloadText,
+                                recordedAt: event.recordedAt,
+                                summary: event.summary
+                              })),
+                              promptText: turn.promptText,
+                              latestEventAt: turn.latestEventAt,
+                              latestEventType: turn.latestEventType,
+                              sessionLabel: turn.sessionLabel,
+                              status: turn.status,
+                              turnTitle: turn.title
                             })
                           }
                         >
@@ -187,47 +192,88 @@ export function RunDetailView(input: {
                   ))}
                 </TableBody>
               </Table>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={page <= 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={page >= totalPages}
+                    onClick={() =>
+                      setPage((current) => Math.min(totalPages, current + 1))
+                    }
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
           <Drawer
             direction="right"
-            open={selectedPayload !== null}
+            open={selectedTurn !== null}
             onOpenChange={(open) => {
               if (!open) {
-                setSelectedPayload(null);
+                setSelectedTurn(null);
               }
             }}
           >
-            <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-2xl">
+            <DrawerContent className="h-svh data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:max-w-3xl">
               <DrawerHeader>
                 <DrawerTitle>
-                  {selectedPayload?.turnTitle ?? "Payload"}
+                  {selectedTurn?.turnTitle ?? "Turn details"}
                 </DrawerTitle>
                 <DrawerDescription>
-                  {selectedPayload
-                    ? `${selectedPayload.eventType} · ${selectedPayload.turnTitle} · ${selectedPayload.recordedAt}`
-                    : "Payload details"}
+                  {selectedTurn
+                    ? `${selectedTurn.latestEventType} · ${selectedTurn.latestEventAt}`
+                    : "Turn details"}
                 </DrawerDescription>
               </DrawerHeader>
-              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-4 pb-4">
-                {selectedPayload ? (
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+                {selectedTurn ? (
                   <>
-                    <div className="text-sm text-muted-foreground">
-                      {selectedPayload.summary}
-                    </div>
-                    <div className="rounded-xl border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
-                      <div>
-                        Session {selectedPayload.sessionLabel} · {selectedPayload.status}
+                    <div className="flex flex-col gap-4">
+                      <div className="rounded-xl border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
+                        <div>
+                          Session {selectedTurn.sessionLabel} · {selectedTurn.status} ·{" "}
+                          {selectedTurn.eventCount} events
+                        </div>
+                        <div className="mt-2 font-medium text-foreground">
+                          {selectedTurn.promptText}
+                        </div>
                       </div>
-                      <div className="mt-2 font-medium text-foreground">
-                        {selectedPayload.promptText}
-                      </div>
-                    </div>
-                    <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border/70 bg-background/70 p-4">
-                      <pre className="overflow-x-auto text-xs leading-6 text-muted-foreground">
-                        {selectedPayload.payloadText}
-                      </pre>
+                      {selectedTurn.events.map((event) => (
+                        <div
+                          key={event.eventSequence}
+                          className="flex flex-col gap-3 rounded-xl border border-border/70 bg-background/70 p-4"
+                        >
+                          <div className="flex flex-col gap-1">
+                            <div className="text-sm font-medium text-foreground">
+                              Event {event.eventSequence} · {event.eventType}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {event.recordedAt}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {event.summary}
+                            </div>
+                          </div>
+                          <pre className="overflow-x-auto text-xs leading-6 text-muted-foreground">
+                            {event.payloadText}
+                          </pre>
+                        </div>
+                      ))}
                     </div>
                   </>
                 ) : null}

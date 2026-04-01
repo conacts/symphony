@@ -31,6 +31,7 @@ Minimum env:
 
 Supported overrides:
 
+- `GITHUB_TOKEN`
 - `PORT`
 - `WORKFLOW_PATH`
 - `SYMPHONY_DB_FILE`

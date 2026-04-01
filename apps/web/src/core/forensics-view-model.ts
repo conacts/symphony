@@ -90,6 +90,20 @@ export function buildIssueDetailViewModel(
 }
 
 export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult) {
+  const commitValue =
+    input.run.commitHashEnd ??
+    input.run.commitHashStart ??
+    extractRepoSnapshotCommit(input.run.repoEnd) ??
+    extractRepoSnapshotCommit(input.run.repoStart) ??
+    "Unavailable";
+  const durationValue =
+    input.run.durationSeconds !== null
+      ? formatDuration(input.run.durationSeconds)
+      : deriveDuration(
+          input.run.startedAt,
+          input.run.endedAt ?? input.run.lastEventAt ?? input.run.updatedAt
+        );
+
   return {
     issueIdentifier: input.issue.issueIdentifier,
     startedAt: formatTimestamp(input.run.startedAt),
@@ -100,10 +114,7 @@ export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult)
       },
       {
         label: "Duration",
-        value:
-          input.run.durationSeconds === null
-            ? "n/a"
-            : formatDuration(input.run.durationSeconds)
+        value: durationValue ?? "Unavailable"
       },
       {
         label: "Turns / events",
@@ -111,17 +122,25 @@ export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult)
       },
       {
         label: "Commit",
-        value: input.run.commitHashEnd ?? input.run.commitHashStart ?? "n/a"
+        value: commitValue
       }
     ],
-    repoStartText: prettyValue(input.run.repoStart),
-    repoEndText: prettyValue(input.run.repoEnd),
-    turns: input.turns.map((turn) => ({
+    repoStartText: formatRepoSnapshot(input.run.repoStart),
+    repoEndText: formatRepoSnapshot(input.run.repoEnd),
+    turns: [...input.turns]
+      .sort((left, right) => right.turnSequence - left.turnSequence)
+      .map((turn) => ({
       turnSequence: turn.turnSequence,
       title: `Turn ${turn.turnSequence}`,
       sessionLabel: turn.codexSessionId ?? turn.turnId,
       status: turn.status ?? "n/a",
       eventCount: formatCount(turn.eventCount),
+      latestEventAt: formatTimestamp(turn.events.at(-1)?.recordedAt ?? turn.endedAt ?? turn.updatedAt),
+      latestEventType: turn.events.at(-1)?.eventType ?? "n/a",
+      latestSummary:
+        turn.events.at(-1)?.summary ??
+        turn.events.at(-1)?.eventType ??
+        "n/a",
       promptText: turn.promptText,
       events: [...turn.events]
         .sort((left, right) => {
@@ -196,6 +215,50 @@ function prettyValue(value: unknown): string {
   }
 
   return JSON.stringify(value, null, 2);
+}
+
+function deriveDuration(
+  startedAt: string | null | undefined,
+  endedAt: string | null | undefined
+): string | null {
+  if (!startedAt || !endedAt) {
+    return null;
+  }
+
+  const startTime = Date.parse(startedAt);
+  const endTime = Date.parse(endedAt);
+
+  if (Number.isNaN(startTime) || Number.isNaN(endTime)) {
+    return null;
+  }
+
+  return formatDuration(Math.max(0, Math.floor((endTime - startTime) / 1_000)));
+}
+
+function formatRepoSnapshot(value: unknown): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return "No repository snapshot was captured for this run.";
+  }
+
+  const snapshot = value as Record<string, unknown>;
+
+  if (snapshot.available === false) {
+    return typeof snapshot.error === "string"
+      ? `Repository snapshot unavailable.\n\n${snapshot.error}`
+      : "Repository snapshot unavailable.";
+  }
+
+  return prettyValue(value);
+}
+
+function extractRepoSnapshotCommit(value: unknown): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const commitHash = (value as Record<string, unknown>).commit_hash;
+
+  return typeof commitHash === "string" && commitHash.length > 0 ? commitHash : null;
 }
 
 function compareTimestamps(
