@@ -382,6 +382,18 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
   })
 };
 
+function requireMockTimestamp(
+  value: string | null,
+  fieldName: string,
+  runId: string
+): string {
+  if (value) {
+    return value;
+  }
+
+  throw new Error(`Mock run ${runId} is missing required timestamp ${fieldName}.`);
+}
+
 const mockRuntimeLogsByIssueIdentifier: Record<string, SymphonyRuntimeLogEntry[]> = {
   "COL-165": [
     {
@@ -731,6 +743,13 @@ export function buildMockRunDetailResult(
     return null;
   }
 
+  const runEndedAt = requireMockTimestamp(run.endedAt, "endedAt", run.runId);
+  const runLastEventAt = requireMockTimestamp(
+    run.lastEventAt,
+    "lastEventAt",
+    run.runId
+  );
+
   return buildSymphonyForensicsRunDetailResult({
     issue: {
       issueId: issue.issueId,
@@ -757,7 +776,7 @@ export function buildMockRunDetailResult(
         mocked: true
       },
       insertedAt: run.startedAt,
-      updatedAt: run.endedAt
+      updatedAt: runEndedAt
     },
     turns: [
       {
@@ -770,13 +789,13 @@ export function buildMockRunDetailResult(
         promptText: `Investigate ${issue.issueIdentifier}`,
         status: "completed",
         startedAt: run.startedAt,
-        endedAt: run.endedAt,
+        endedAt: runEndedAt,
         tokens: {},
         metadata: {
           mocked: true
         },
         insertedAt: run.startedAt,
-        updatedAt: run.endedAt,
+        updatedAt: runEndedAt,
         eventCount: 1,
         events: [
           {
@@ -785,7 +804,7 @@ export function buildMockRunDetailResult(
             runId: run.runId,
             eventSequence: 1,
             eventType: run.lastEventType ?? "message.output",
-            recordedAt: run.lastEventAt,
+            recordedAt: runLastEventAt,
             payload: {
               summary: run.errorMessage ?? "Mock event payload"
             },
@@ -795,7 +814,7 @@ export function buildMockRunDetailResult(
             codexThreadId: null,
             codexTurnId: null,
             codexSessionId: `session_${run.runId}`,
-            insertedAt: run.lastEventAt
+            insertedAt: runLastEventAt
           }
         ]
       }

@@ -100,10 +100,7 @@ export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult)
   const durationValue =
     input.run.durationSeconds !== null
       ? formatDuration(input.run.durationSeconds)
-      : deriveDuration(
-          input.run.startedAt,
-          input.run.endedAt ?? input.run.lastEventAt ?? input.run.updatedAt
-        );
+      : null;
 
   return {
     issueIdentifier: input.issue.issueIdentifier,
@@ -140,7 +137,7 @@ export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult)
       sessionLabel: turn.codexSessionId ?? turn.turnId,
       status: turn.status ?? "n/a",
       eventCount: formatCount(turn.eventCount),
-      latestEventAt: formatTimestamp(turn.events.at(-1)?.recordedAt ?? turn.endedAt ?? turn.updatedAt),
+      latestEventAt: formatTimestamp(turn.events.at(-1)?.recordedAt ?? null),
       latestEventType: turn.events.at(-1)?.eventType ?? "n/a",
       latestSummary:
         turn.events.at(-1)?.summary ??
@@ -220,24 +217,6 @@ function prettyValue(value: unknown): string {
   }
 
   return JSON.stringify(value, null, 2);
-}
-
-function deriveDuration(
-  startedAt: string | null | undefined,
-  endedAt: string | null | undefined
-): string | null {
-  if (!startedAt || !endedAt) {
-    return null;
-  }
-
-  const startTime = Date.parse(startedAt);
-  const endTime = Date.parse(endedAt);
-
-  if (Number.isNaN(startTime) || Number.isNaN(endTime)) {
-    return null;
-  }
-
-  return formatDuration(Math.max(0, Math.floor((endTime - startTime) / 1_000)));
 }
 
 function formatRepoSnapshot(value: unknown): string {

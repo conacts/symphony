@@ -14,6 +14,18 @@ import {
 } from "./requests.js";
 import { symphonyRuntimeLogEntrySchema } from "../runtime/responses.js";
 
+const terminalRunStatuses = new Set([
+  "finished",
+  "completed",
+  "failed",
+  "paused",
+  "startup_failed",
+  "rate_limited",
+  "stalled"
+]);
+
+const terminalTurnStatuses = new Set(["completed", "failed"]);
+
 export const symphonyForensicsIssueSummarySchema = z.strictObject({
   issueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
@@ -55,7 +67,7 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   outcome: nullableNonEmptyStringSchema,
   workerHost: nullableNonEmptyStringSchema,
   workspacePath: nullableNonEmptyStringSchema,
-  startedAt: isoTimestampSchema.nullable(),
+  startedAt: isoTimestampSchema,
   endedAt: isoTimestampSchema.nullable(),
   commitHashStart: nullableNonEmptyStringSchema,
   commitHashEnd: nullableNonEmptyStringSchema,
@@ -69,6 +81,42 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
   totalTokens: z.number().int().nonnegative()
+}).superRefine((value, context) => {
+  if (value.eventCount > 0 && !value.lastEventAt) {
+    context.addIssue({
+      code: "custom",
+      message: "Runs with events must include lastEventAt.",
+      path: ["lastEventAt"]
+    });
+  }
+
+  if (value.eventCount > 0 && !value.lastEventType) {
+    context.addIssue({
+      code: "custom",
+      message: "Runs with events must include lastEventType.",
+      path: ["lastEventType"]
+    });
+  }
+
+  if (!value.status || !terminalRunStatuses.has(value.status)) {
+    return;
+  }
+
+  if (!value.endedAt) {
+    context.addIssue({
+      code: "custom",
+      message: "Terminal runs must include endedAt.",
+      path: ["endedAt"]
+    });
+  }
+
+  if (value.durationSeconds === null) {
+    context.addIssue({
+      code: "custom",
+      message: "Terminal runs must include durationSeconds.",
+      path: ["durationSeconds"]
+    });
+  }
 });
 
 export const symphonyForensicsIssueFiltersSchema = z.strictObject({
@@ -163,7 +211,7 @@ export const symphonyForensicsIssueExportSchema = z.strictObject({
   updatedAt: isoTimestampSchema.nullable()
 });
 
-export const symphonyForensicsRunDetailSchema = symphonyForensicsRunSummarySchema.extend({
+export const symphonyForensicsRunDetailSchema = symphonyForensicsRunSummarySchema.safeExtend({
   repoStart: jsonObjectSchema.nullable(),
   repoEnd: jsonObjectSchema.nullable(),
   metadata: jsonObjectSchema.nullable(),
@@ -177,7 +225,7 @@ export const symphonyForensicsEventSchema = z.strictObject({
   runId: nonEmptyStringSchema,
   eventSequence: z.number().int().positive(),
   eventType: nonEmptyStringSchema,
-  recordedAt: isoTimestampSchema.nullable(),
+  recordedAt: isoTimestampSchema,
   payload: z.union([
     jsonObjectSchema,
     z.array(jsonValueSchema),
@@ -192,7 +240,7 @@ export const symphonyForensicsEventSchema = z.strictObject({
   codexThreadId: nullableNonEmptyStringSchema,
   codexTurnId: nullableNonEmptyStringSchema,
   codexSessionId: nullableNonEmptyStringSchema,
-  insertedAt: isoTimestampSchema.nullable()
+  insertedAt: isoTimestampSchema
 });
 
 export const symphonyForensicsTurnSchema = z.strictObject({
@@ -204,19 +252,31 @@ export const symphonyForensicsTurnSchema = z.strictObject({
   codexSessionId: nullableNonEmptyStringSchema,
   promptText: nonEmptyStringSchema,
   status: nullableNonEmptyStringSchema,
-  startedAt: isoTimestampSchema.nullable(),
+  startedAt: isoTimestampSchema,
   endedAt: isoTimestampSchema.nullable(),
   tokens: jsonObjectSchema.nullable(),
   metadata: jsonObjectSchema.nullable(),
-  insertedAt: isoTimestampSchema.nullable(),
-  updatedAt: isoTimestampSchema.nullable(),
+  insertedAt: isoTimestampSchema,
+  updatedAt: isoTimestampSchema,
   eventCount: z.number().int().nonnegative(),
   events: z.array(symphonyForensicsEventSchema)
+}).superRefine((value, context) => {
+  if (!value.status || !terminalTurnStatuses.has(value.status)) {
+    return;
+  }
+
+  if (!value.endedAt) {
+    context.addIssue({
+      code: "custom",
+      message: "Terminal turns must include endedAt.",
+      path: ["endedAt"]
+    });
+  }
 });
 
 export const symphonyForensicsRunDetailResultSchema = z.strictObject({
   issue: symphonyForensicsIssueExportSchema,
-  run: symphonyForensicsRunDetailSchema.extend({
+  run: symphonyForensicsRunDetailSchema.safeExtend({
     turnCount: z.number().int().nonnegative(),
     eventCount: z.number().int().nonnegative(),
     lastEventType: nullableNonEmptyStringSchema,

@@ -204,6 +204,122 @@ describe("symphony forensics contracts", () => {
     expect(parsed.ok).toBe(true);
   });
 
+  it("rejects terminal runs without endedAt and durationSeconds", () => {
+    expect(() =>
+      symphonyForensicsRunDetailResponseSchema.parse({
+        schemaVersion: "1",
+        ok: true,
+        meta: {
+          durationMs: 1,
+          generatedAt: "2026-03-31T00:00:00.000Z"
+        },
+        data: {
+          issue: {
+            issueId: "issue-1",
+            issueIdentifier: "COL-157",
+            latestRunStartedAt: "2026-03-31T00:00:00.000Z",
+            latestRunId: "run-1",
+            latestRunStatus: "finished",
+            latestRunOutcome: "done",
+            runCount: 1,
+            latestProblemOutcome: null,
+            lastCompletedOutcome: "done",
+            insertedAt: "2026-03-31T00:00:00.000Z",
+            updatedAt: "2026-03-31T00:00:00.000Z"
+          },
+          run: {
+            runId: "run-1",
+            issueId: "issue-1",
+            issueIdentifier: "COL-157",
+            attempt: 1,
+            status: "finished",
+            outcome: "done",
+            workerHost: "local",
+            workspacePath: "/tmp/COL-157",
+            startedAt: "2026-03-31T00:00:00.000Z",
+            endedAt: null,
+            commitHashStart: null,
+            commitHashEnd: null,
+            turnCount: 1,
+            eventCount: 1,
+            lastEventType: "turn_completed",
+            lastEventAt: "2026-03-31T00:01:00.000Z",
+            durationSeconds: null,
+            inputTokens: 10,
+            outputTokens: 20,
+            totalTokens: 30,
+            repoStart: {},
+            repoEnd: {},
+            metadata: {},
+            errorClass: null,
+            errorMessage: null,
+            insertedAt: "2026-03-31T00:00:00.000Z",
+            updatedAt: "2026-03-31T00:01:00.000Z"
+          },
+          turns: []
+        }
+      })
+    ).toThrowError();
+  });
+
+  it("rejects runs with events that omit the canonical last event fields", () => {
+    expect(() =>
+      symphonyForensicsRunDetailResponseSchema.parse({
+        schemaVersion: "1",
+        ok: true,
+        meta: {
+          durationMs: 1,
+          generatedAt: "2026-03-31T00:00:00.000Z"
+        },
+        data: {
+          issue: {
+            issueId: "issue-1",
+            issueIdentifier: "COL-157",
+            latestRunStartedAt: "2026-03-31T00:00:00.000Z",
+            latestRunId: "run-1",
+            latestRunStatus: "finished",
+            latestRunOutcome: "done",
+            runCount: 1,
+            latestProblemOutcome: null,
+            lastCompletedOutcome: "done",
+            insertedAt: "2026-03-31T00:00:00.000Z",
+            updatedAt: "2026-03-31T00:00:00.000Z"
+          },
+          run: {
+            runId: "run-1",
+            issueId: "issue-1",
+            issueIdentifier: "COL-157",
+            attempt: 1,
+            status: "finished",
+            outcome: "done",
+            workerHost: "local",
+            workspacePath: "/tmp/COL-157",
+            startedAt: "2026-03-31T00:00:00.000Z",
+            endedAt: "2026-03-31T00:01:00.000Z",
+            commitHashStart: null,
+            commitHashEnd: null,
+            turnCount: 1,
+            eventCount: 1,
+            lastEventType: null,
+            lastEventAt: null,
+            durationSeconds: 60,
+            inputTokens: 10,
+            outputTokens: 20,
+            totalTokens: 30,
+            repoStart: {},
+            repoEnd: {},
+            metadata: {},
+            errorClass: null,
+            errorMessage: null,
+            insertedAt: "2026-03-31T00:00:00.000Z",
+            updatedAt: "2026-03-31T00:01:00.000Z"
+          },
+          turns: []
+        }
+      })
+    ).toThrowError();
+  });
+
   it("parses the issue forensic bundle envelope", () => {
     const parsed = symphonyForensicsIssueForensicsBundleResponseSchema.parse({
       schemaVersion: "1",

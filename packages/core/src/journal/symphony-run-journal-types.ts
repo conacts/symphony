@@ -191,7 +191,7 @@ export type SymphonyRunSummary = {
   outcome: string | null;
   workerHost: string | null;
   workspacePath: string | null;
-  startedAt: SymphonyIsoTimestamp | null;
+  startedAt: SymphonyIsoTimestamp;
   endedAt: SymphonyIsoTimestamp | null;
   commitHashStart: string | null;
   commitHashEnd: string | null;

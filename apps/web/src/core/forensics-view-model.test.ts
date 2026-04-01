@@ -214,4 +214,73 @@ describe("forensics view model", () => {
     expect(runDetail.metrics[3]?.value).toBe("200");
     expect(runDetail.turns[0]?.events[0]?.payloadText).toContain('"text": "done"');
   });
+
+  it("does not invent a latest turn event time when the turn has no events", () => {
+    const runDetail = buildRunDetailViewModel({
+      issue: {
+        issueId: "issue_123",
+        issueIdentifier: "COL-165",
+        latestRunStartedAt: "2026-03-31T18:00:00.000Z",
+        latestRunId: "run_123",
+        latestRunStatus: "finished",
+        latestRunOutcome: "completed",
+        runCount: 1,
+        latestProblemOutcome: null,
+        lastCompletedOutcome: "completed",
+        insertedAt: "2026-03-31T18:00:00.000Z",
+        updatedAt: "2026-03-31T18:05:00.000Z"
+      },
+      run: {
+        runId: "run_123",
+        issueId: "issue_123",
+        issueIdentifier: "COL-165",
+        attempt: 1,
+        status: "finished",
+        outcome: "completed",
+        workerHost: "worker-a",
+        workspacePath: "/tmp/workspaces/col-165",
+        startedAt: "2026-03-31T18:00:00.000Z",
+        endedAt: "2026-03-31T18:02:00.000Z",
+        commitHashStart: "abc",
+        commitHashEnd: "def",
+        turnCount: 1,
+        eventCount: 0,
+        lastEventType: null,
+        lastEventAt: null,
+        durationSeconds: 120,
+        inputTokens: 120,
+        outputTokens: 80,
+        totalTokens: 200,
+        repoStart: null,
+        repoEnd: null,
+        metadata: {},
+        errorClass: null,
+        errorMessage: null,
+        insertedAt: "2026-03-31T18:00:00.000Z",
+        updatedAt: "2026-03-31T18:02:00.000Z"
+      },
+      turns: [
+        {
+          turnId: "turn_123",
+          runId: "run_123",
+          turnSequence: 1,
+          codexThreadId: null,
+          codexTurnId: null,
+          codexSessionId: "session_123",
+          promptText: "Solve the task",
+          status: "completed",
+          startedAt: "2026-03-31T18:00:00.000Z",
+          endedAt: "2026-03-31T18:01:00.000Z",
+          tokens: {},
+          metadata: {},
+          insertedAt: "2026-03-31T18:00:00.000Z",
+          updatedAt: "2026-03-31T18:01:00.000Z",
+          eventCount: 0,
+          events: []
+        }
+      ]
+    });
+
+    expect(runDetail.turns[0]?.latestEventAt).toBe("n/a");
+  });
 });
