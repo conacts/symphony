@@ -23,9 +23,13 @@ export function publishRealtimeSnapshotDiff(
   realtime.publishProblemRunsUpdated();
 
   const issueIdentifiers = new Set<string>();
+  const runs = new Map<string, string | undefined>();
 
   for (const entry of before.running) {
     issueIdentifiers.add(entry.issue.identifier);
+    if (entry.runId) {
+      runs.set(entry.runId, entry.issue.identifier);
+    }
   }
 
   for (const entry of before.retrying) {
@@ -34,6 +38,9 @@ export function publishRealtimeSnapshotDiff(
 
   for (const entry of after.running) {
     issueIdentifiers.add(entry.issue.identifier);
+    if (entry.runId) {
+      runs.set(entry.runId, entry.issue.identifier);
+    }
   }
 
   for (const entry of after.retrying) {
@@ -42,6 +49,10 @@ export function publishRealtimeSnapshotDiff(
 
   for (const issueIdentifier of issueIdentifiers) {
     realtime.publishIssueUpdated(issueIdentifier);
+  }
+
+  for (const [runId, issueIdentifier] of runs) {
+    realtime.publishRunUpdated(runId, issueIdentifier);
   }
 }
 

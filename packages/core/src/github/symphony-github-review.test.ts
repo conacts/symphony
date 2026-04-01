@@ -117,4 +117,97 @@ describe("symphony github review policy", () => {
       reason: "auto_rework_disabled"
     });
   });
+
+  it("acknowledges successful manual /rework requests on GitHub", async () => {
+    const baseConfig = buildSymphonyWorkflowConfig();
+    const workflowConfig = buildSymphonyWorkflowConfig({
+      github: {
+        ...baseConfig.github,
+        allowedReworkCommentLogins: ["reviewer"]
+      }
+    });
+
+    const tracker = createMemorySymphonyTracker([
+      buildSymphonyTrackerIssue({
+        state: "In Review"
+      })
+    ]);
+    const githubComments: Array<{
+      repository: string;
+      issueNumber: number;
+      body: string;
+    }> = [];
+
+    const processor = new SymphonyGithubReviewProcessor({
+      workflowConfig,
+      tracker,
+      pullRequestResolver: {
+        async fetchPullRequest() {
+          return {
+            headRef: "symphony/COL-123",
+            htmlUrl: "https://github.com/openai/symphony/pull/123"
+          };
+        },
+        async createIssueComment(repository, issueNumber, body) {
+          githubComments.push({
+            repository,
+            issueNumber,
+            body
+          });
+        }
+      }
+    });
+
+    const result = await processor.processEvent(buildSymphonyGithubIssueCommentEvent());
+
+    expect(result).toEqual({
+      status: "requeued",
+      issueIdentifier: "COL-123"
+    });
+    expect(githubComments).toEqual([
+      {
+        repository: "openai/symphony",
+        issueNumber: 123,
+        body: "Queued rework via Symphony."
+      }
+    ]);
+  });
+
+  it("does not claim manual /rework was queued when no Symphony issue matches", async () => {
+    const baseConfig = buildSymphonyWorkflowConfig();
+    const workflowConfig = buildSymphonyWorkflowConfig({
+      github: {
+        ...baseConfig.github,
+        allowedReworkCommentLogins: ["reviewer"]
+      }
+    });
+
+    const tracker = createMemorySymphonyTracker([]);
+    const githubComments: string[] = [];
+
+    const processor = new SymphonyGithubReviewProcessor({
+      workflowConfig,
+      tracker,
+      pullRequestResolver: {
+        async fetchPullRequest() {
+          return {
+            headRef: "symphony/COL-404",
+            htmlUrl: "https://github.com/openai/symphony/pull/404"
+          };
+        },
+        async createIssueComment(_repository, _issueNumber, body) {
+          githubComments.push(body);
+        }
+      }
+    });
+
+    const result = await processor.processEvent(buildSymphonyGithubIssueCommentEvent());
+
+    expect(result).toEqual({
+      status: "skipped",
+      issueIdentifier: "COL-404",
+      reason: "issue_not_found"
+    });
+    expect(githubComments).toEqual([]);
+  });
 });

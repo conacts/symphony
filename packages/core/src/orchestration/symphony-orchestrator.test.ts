@@ -150,6 +150,114 @@ describe("symphony orchestrator", () => {
     expect(completedSnapshot.codexTotals.totalTokens).toBe(16);
   });
 
+  it("clears the poll-in-progress flag when a poll cycle fails", async () => {
+    const workflowConfig = buildSymphonyWorkflowConfig();
+    const issue = buildSymphonyTrackerIssue();
+
+    const orchestrator = new SymphonyOrchestrator({
+      workflowConfig,
+      tracker: {
+        async fetchCandidateIssues() {
+          throw new Error("boom");
+        },
+        async fetchIssuesByStates() {
+          return [issue];
+        },
+        async fetchIssueStatesByIds() {
+          return [];
+        },
+        async fetchIssueByIdentifier() {
+          return issue;
+        },
+        async createComment() {
+          return;
+        },
+        async updateIssueState() {
+          return;
+        }
+      },
+      workspaceManager: createLocalSymphonyWorkspaceManager({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await expect(orchestrator.runPollCycle()).rejects.toThrow("boom");
+    expect(orchestrator.snapshot().pollCheckInProgress).toBe(false);
+  });
+
+  it("records retry scheduling after a run completes", async () => {
+    const workflowConfig = buildSymphonyWorkflowConfig({
+      tracker: {
+        ...buildSymphonyWorkflowConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: []
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const lifecycleEvents: Array<{
+      eventType: string;
+      runId: string | null;
+      issueIdentifier: string;
+    }> = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      workflowConfig,
+      tracker,
+      workspaceManager: createLocalSymphonyWorkspaceManager({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push({
+            eventType: input.eventType,
+            runId: input.runId ?? null,
+            issueIdentifier: input.issue.identifier
+          });
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.handleRunCompletion("issue-123", {
+      kind: "failure",
+      reason: "agent exited"
+    });
+
+    expect(lifecycleEvents).toContainEqual({
+      eventType: "retry_scheduled",
+      runId: "run-1",
+      issueIdentifier: "COL-123"
+    });
+  });
+
   it("passes runner env through workspace lifecycle hooks", async () => {
     const workflowConfig = buildSymphonyWorkflowConfig({
       tracker: {

@@ -202,17 +202,22 @@ export class SymphonyGithubReviewProcessor {
       issueIdentifier
     );
 
+    const githubAcknowledgement =
+      result.status === "requeued"
+        ? "Queued rework via Symphony."
+        : result.reason === "not_in_review"
+          ? notInReviewCommentBody()
+          : null;
+
     if (
-      result.status === "skipped" &&
+      githubAcknowledgement &&
       this.#pullRequestResolver.createIssueComment &&
       signal.repository
     ) {
       await this.#pullRequestResolver.createIssueComment(
         signal.repository,
         signal.issueNumber,
-        result.reason === "not_in_review"
-          ? notInReviewCommentBody()
-          : "Queued rework via Symphony."
+        githubAcknowledgement
       );
     }
 

@@ -273,33 +273,35 @@ export class SymphonyOrchestrator {
 
   async runPollCycle(): Promise<SymphonyOrchestratorSnapshot> {
     this.#state.pollCheckInProgress = true;
+    try {
+      await this.reconcileRunningIssues();
+      await this.#processDueRetries();
 
-    await this.reconcileRunningIssues();
-    await this.#processDueRetries();
+      if (this.availableSlots() > 0) {
+        const issues = await this.#tracker.fetchCandidateIssues(
+          this.#workflowConfig.tracker
+        );
 
-    if (this.availableSlots() > 0) {
-      const issues = await this.#tracker.fetchCandidateIssues(
-        this.#workflowConfig.tracker
-      );
+        for (const issue of issues) {
+          if (!this.shouldDispatchIssue(issue)) {
+            continue;
+          }
 
-      for (const issue of issues) {
-        if (!this.shouldDispatchIssue(issue)) {
-          continue;
-        }
+          await this.dispatchIssue(issue, 0);
 
-        await this.dispatchIssue(issue, 0);
-
-        if (this.availableSlots() <= 0) {
-          break;
+          if (this.availableSlots() <= 0) {
+            break;
+          }
         }
       }
+
+      this.#state.nextPollDueAtMs =
+        this.#clock.nowMs() + this.#workflowConfig.polling.intervalMs;
+
+      return this.snapshot();
+    } finally {
+      this.#state.pollCheckInProgress = false;
     }
-
-    this.#state.pollCheckInProgress = false;
-    this.#state.nextPollDueAtMs =
-      this.#clock.nowMs() + this.#workflowConfig.polling.intervalMs;
-
-    return this.snapshot();
   }
 
   async reconcileRunningIssues(): Promise<void> {
@@ -676,6 +678,8 @@ export class SymphonyOrchestrator {
       this.#state.completed.add(issueId);
       await this.scheduleIssueRetry(issueId, 1, {
         identifier: runningEntry.issue.identifier,
+        issue: runningEntry.issue,
+        runId: runningEntry.runId,
         workerHost: runningEntry.workerHost,
         workspacePath: runningEntry.workspacePath,
         delayType: "continuation"
@@ -698,6 +702,8 @@ export class SymphonyOrchestrator {
       await this.scheduleIssueRetry(issueId, runningEntry.retryAttempt + 1, {
         identifier: runningEntry.issue.identifier,
         error: completion.reason,
+        issue: runningEntry.issue,
+        runId: runningEntry.runId,
         workerHost: runningEntry.workerHost,
         workspacePath: runningEntry.workspacePath,
         delayType: "failure"
@@ -720,6 +726,8 @@ export class SymphonyOrchestrator {
     await this.scheduleIssueRetry(issueId, runningEntry.retryAttempt + 1, {
       identifier: runningEntry.issue.identifier,
       error: completion.reason,
+      issue: runningEntry.issue,
+      runId: runningEntry.runId,
       workerHost: runningEntry.workerHost,
       workspacePath: runningEntry.workspacePath,
       delayType: "failure"
@@ -732,6 +740,8 @@ export class SymphonyOrchestrator {
     metadata: {
       identifier: string;
       error?: string;
+      issue?: SymphonyTrackerIssue;
+      runId?: string | null;
       workerHost?: string | null;
       workspacePath?: string | null;
       delayType: "continuation" | "failure";
@@ -753,12 +763,13 @@ export class SymphonyOrchestrator {
       delayType: metadata.delayType
     };
 
-    const issue = this.#state.running[issueId]?.issue;
+    const issue = metadata.issue ?? this.#state.running[issueId]?.issue;
+    const runId = metadata.runId ?? this.#state.running[issueId]?.runId ?? null;
 
     if (issue) {
       await this.#observer?.recordLifecycleEvent({
         issue,
-        runId: this.#state.running[issueId]?.runId ?? null,
+        runId,
         source: "orchestrator",
         eventType: "retry_scheduled",
         message:
