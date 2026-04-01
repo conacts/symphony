@@ -41,7 +41,12 @@ export function RuntimeSummaryLiveScreen(input: {
   });
 
   return (
-    <ControlPlaneShell connection={connection} model={input.model}>
+    <ControlPlaneShell
+      connection={connection}
+      model={input.model}
+      sidebarLoading={runtimeSummaryState.loading}
+      sidebarRuntimeSummary={runtimeSummaryState.runtimeSummary}
+    >
       <RuntimeRefreshPanel
         error={refreshAction.error}
         lastResult={refreshAction.lastResult}

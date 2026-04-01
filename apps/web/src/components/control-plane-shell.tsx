@@ -18,47 +18,54 @@ import {
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
+import type { SymphonyRuntimeStateResult } from "@symphony/contracts";
 import { useDashboardActiveIssues } from "@/hooks/use-dashboard-active-issues";
+import { useRuntimeSummary } from "@/hooks/use-runtime-summary";
 
 export function ControlPlaneShell(input: {
   connection?: SymphonyDashboardFoundationModel["connection"];
   children?: ReactNode;
+  sidebarLoading?: boolean;
+  sidebarRuntimeSummary?: SymphonyRuntimeStateResult | null;
   model: SymphonyDashboardFoundationModel;
 }) {
   const connection = input.connection ?? input.model.connection;
-  const activeIssuesState = useDashboardActiveIssues({
-    runtimeBaseUrl: input.model.runtimeBaseUrl,
-    stateUrl: input.model.runtimeSurface.stateUrl,
-    websocketUrl: input.model.websocketUrl
-  });
 
   return (
     <TooltipProvider>
       <SidebarProvider>
         <Sidebar>
-        <SidebarHeader className="relative">
-          <div className="group-data-[collapsible=icon]:hidden">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild size="lg">
-                  <Link href="/" aria-label="Symphony Control Plane" className="pr-10">
-                    <div className="grid flex-1 text-left leading-tight">
-                      <span className="truncate font-semibold">Symphony</span>
-                    </div>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </div>
-        </SidebarHeader>
+          <SidebarHeader className="relative">
+            <div className="group-data-[collapsible=icon]:hidden">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild size="lg">
+                    <Link
+                      href="/"
+                      aria-label="Symphony Control Plane"
+                      className="pr-10"
+                    >
+                      <div className="grid flex-1 text-left leading-tight">
+                        <span className="truncate font-semibold">Symphony</span>
+                      </div>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </div>
+          </SidebarHeader>
 
-        <SidebarContent>
-          <DashboardNavigation
-            items={input.model.navigation}
-            activeIssues={activeIssuesState.activeIssues}
-            loadingActiveIssues={activeIssuesState.loading}
-          />
-        </SidebarContent>
+          <SidebarContent>
+            {input.sidebarRuntimeSummary !== undefined ? (
+              <SidebarNavigationFromSummary
+                loading={input.sidebarLoading ?? false}
+                model={input.model}
+                runtimeSummary={input.sidebarRuntimeSummary}
+              />
+            ) : (
+              <SidebarNavigationLive model={input.model} />
+            )}
+          </SidebarContent>
         </Sidebar>
 
         <SidebarInset>
@@ -78,5 +85,47 @@ export function ControlPlaneShell(input: {
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
+  );
+}
+
+function SidebarNavigationLive(input: {
+  model: SymphonyDashboardFoundationModel;
+}) {
+  const runtimeSummaryState = useRuntimeSummary({
+    stateUrl: input.model.runtimeSurface.stateUrl,
+    websocketUrl: input.model.websocketUrl
+  });
+  const activeIssuesState = useDashboardActiveIssues({
+    runtimeBaseUrl: input.model.runtimeBaseUrl,
+    runtimeSummary: runtimeSummaryState.runtimeSummary
+  });
+
+  return (
+    <DashboardNavigation
+      items={input.model.navigation}
+      activeIssues={activeIssuesState.activeIssues}
+      loadingActiveIssues={
+        runtimeSummaryState.loading || activeIssuesState.loading
+      }
+    />
+  );
+}
+
+function SidebarNavigationFromSummary(input: {
+  loading: boolean;
+  model: SymphonyDashboardFoundationModel;
+  runtimeSummary: SymphonyRuntimeStateResult | null;
+}) {
+  const activeIssuesState = useDashboardActiveIssues({
+    runtimeBaseUrl: input.model.runtimeBaseUrl,
+    runtimeSummary: input.runtimeSummary
+  });
+
+  return (
+    <DashboardNavigation
+      items={input.model.navigation}
+      activeIssues={activeIssuesState.activeIssues}
+      loadingActiveIssues={input.loading || activeIssuesState.loading}
+    />
   );
 }

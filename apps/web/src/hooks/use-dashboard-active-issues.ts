@@ -4,42 +4,32 @@ import { useEffect, useState } from "react";
 import type {
   SymphonyDashboardActiveIssue
 } from "@/core/dashboard-foundation";
-import { useRealtimeResource } from "@/core/realtime-resource";
 import { fetchRuntimeIssue } from "@/core/runtime-operator-client";
-import {
-  fetchRuntimeSummary,
-  shouldRefreshRuntimeSummary
-} from "@/core/runtime-summary-client";
 import type { SymphonyRuntimeStateResult } from "@symphony/contracts";
 
 export function useDashboardActiveIssues(input: {
   runtimeBaseUrl: string;
-  stateUrl: string;
-  websocketUrl: string;
+  runtimeSummary: SymphonyRuntimeStateResult | null;
 }) {
-  const runtimeSummaryState = useRealtimeResource({
-    loadResource: () => fetchRuntimeSummary(input.stateUrl),
-    websocketUrl: input.websocketUrl,
-    channels: ["runtime"],
-    shouldRefresh: shouldRefreshRuntimeSummary,
-    refreshKey: `${input.stateUrl}:${input.websocketUrl}:sidebar-active-issues`
-  });
   const [activeIssues, setActiveIssues] = useState<SymphonyDashboardActiveIssue[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const runtimeSummary = runtimeSummaryState.resource;
-    if (!runtimeSummary) {
+    if (!input.runtimeSummary) {
       setActiveIssues([]);
+      setLoading(false);
       return;
     }
 
-    const issueIdentifiers = collectActiveIssueIdentifiers(runtimeSummary);
+    const issueIdentifiers = collectActiveIssueIdentifiers(input.runtimeSummary);
     if (issueIdentifiers.length === 0) {
       setActiveIssues([]);
+      setLoading(false);
       return;
     }
 
     let cancelled = false;
+    setLoading(true);
 
     void (async () => {
       const resolvedIssues = await Promise.all(
@@ -69,18 +59,18 @@ export function useDashboardActiveIssues(input: {
 
       if (!cancelled) {
         setActiveIssues(resolvedIssues);
+        setLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [input.runtimeBaseUrl, runtimeSummaryState.resource]);
+  }, [input.runtimeBaseUrl, input.runtimeSummary]);
 
   return {
     activeIssues,
-    loading: runtimeSummaryState.loading,
-    error: runtimeSummaryState.error
+    loading
   };
 }
 
