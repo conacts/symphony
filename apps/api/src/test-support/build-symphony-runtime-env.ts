@@ -4,7 +4,6 @@ export function buildSymphonyRuntimeEnv(
       | "PORT"
       | "WORKFLOW_PATH"
       | "SYMPHONY_DB_FILE"
-      | "SYMPHONY_RUN_JOURNAL_FILE"
       | "LINEAR_API_KEY"
       | "LOG_LEVEL",
       string

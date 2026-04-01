@@ -95,6 +95,7 @@ export type SymphonyAgentRuntimeUpdate = {
 export interface SymphonyAgentRuntime {
   startRun(input: {
     issue: SymphonyTrackerIssue;
+    runId: string | null;
     attempt: number;
     workflowConfig: SymphonyResolvedWorkflowConfig;
     workspace: SymphonyWorkspace;
@@ -464,6 +465,7 @@ export class SymphonyOrchestrator {
 
       const launch = await this.#agentRuntime.startRun({
         issue: preparedIssue,
+        runId,
         attempt,
         workflowConfig: this.#workflowConfig,
         workspace
@@ -566,9 +568,9 @@ export class SymphonyOrchestrator {
       ...runningEntry,
       sessionId: update.sessionId ?? runningEntry.sessionId,
       turnCount:
-        update.event === "session_started"
-          ? runningEntry.turnCount
-          : runningEntry.turnCount + 1,
+        isTerminalTurnEvent(update.event)
+          ? runningEntry.turnCount + 1
+          : runningEntry.turnCount,
       lastCodexEvent: update.event,
       lastCodexTimestamp: update.timestamp,
       lastCodexMessage: {
@@ -1065,6 +1067,10 @@ function toInteger(value: unknown): number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isTerminalTurnEvent(event: string): boolean {
+  return event === "turn_completed" || event === "turn_failed" || event === "turn_cancelled";
 }
 
 function isFatalRuntimeError(error: unknown): boolean {

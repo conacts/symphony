@@ -38,6 +38,7 @@ import {
 import { createRuntimeHttpError } from "./errors.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
+import { createLocalCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
 import {
   createSymphonyRealtimeHub,
   type SymphonyRealtimeHub
@@ -184,40 +185,33 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runJournal,
     issueTimelineStore
   });
+  let orchestratorRef: SymphonyOrchestrator | null = null;
+  const agentRuntime = createLocalCodexSymphonyAgentRuntime({
+    promptTemplate: workflow.promptTemplate,
+    tracker,
+    runJournal,
+    runtimeLogs: runtimeLogStore,
+    workflowConfig: workflow.config,
+    logger,
+    callbacks: {
+      async onUpdate(issueId, update) {
+        orchestratorRef?.applyAgentUpdate(issueId, update);
+      },
+      async onComplete(issueId, completion) {
+        if (orchestratorRef) {
+          await orchestratorRef.handleRunCompletion(issueId, completion);
+        }
+      }
+    }
+  });
   const orchestrator = new SymphonyOrchestrator({
     workflowConfig: workflow.config,
     tracker,
     workspaceManager,
     observer,
-    agentRuntime: {
-      async startRun(input) {
-        logger.warn("Using stub agent runtime placeholder", {
-          workspacePath: input.workspace.path,
-          codexGapTicket: "COL-161"
-        });
-        await runtimeLogStore.record({
-          level: "warn",
-          source: "runtime",
-          eventType: "stub_agent_runtime",
-          message: "Using stub agent runtime placeholder.",
-          issueId: input.issue.id,
-          issueIdentifier: input.issue.identifier,
-          payload: {
-            workspacePath: input.workspace.path,
-            codexGapTicket: "COL-161"
-          }
-        });
-        return {
-          sessionId: null,
-          workerHost: null,
-          workspacePath: input.workspace.path
-        };
-      },
-      async stopRun() {
-        return;
-      }
-    }
+    agentRuntime
   });
+  orchestratorRef = orchestrator;
 
   let inFlightPollCycle: Promise<SymphonyOrchestratorSnapshot> | null = null;
   const orchestratorPort: SymphonyRuntimeOrchestratorPort = {

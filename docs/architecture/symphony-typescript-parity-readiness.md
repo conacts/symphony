@@ -133,12 +133,12 @@ Minimum env:
 - optional overrides:
   - `PORT`
   - `WORKFLOW_PATH`
-  - `SYMPHONY_RUN_JOURNAL_FILE`
+  - `SYMPHONY_DB_FILE`
 
 The launcher defaults:
 
 - `WORKFLOW_PATH` to the repo-owned `WORKFLOW.md`
-- `SYMPHONY_RUN_JOURNAL_FILE` to `.symphony/run-journal.json`
+- `SYMPHONY_DB_FILE` to `symphony.db`
 
 Equivalent direct package command:
 

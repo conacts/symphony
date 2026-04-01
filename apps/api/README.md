@@ -39,18 +39,18 @@ Supported overrides:
 
 - `PORT`
 - `WORKFLOW_PATH`
-- `SYMPHONY_RUN_JOURNAL_FILE`
+- `SYMPHONY_DB_FILE`
 
-## Current Limitation
+## Current State
 
-This app now owns the real TypeScript HTTP and websocket surfaces, but the default runtime wiring is
-still evaluation-only:
+This app now owns the real TypeScript HTTP and websocket surfaces, DB-backed observability,
+autonomous polling, a real Linear tracker, and a local Codex app-server execution path.
 
-- tracker polling still uses an in-memory tracker
-- agent execution still uses a stub runtime rather than Codex app-server
-- repo-owned workspace lifecycle scripts are not yet wired in
+The remaining cutover work is backend hardening rather than basic runtime wiring:
 
-So this app is suitable for transport and dashboard evaluation today, but it is not yet the active
-replacement for `symphony/elixir`.
+- live parity validation against the installed Codex binary
+- broader Elixir-to-TypeScript behavioral parity sweeps
+- backend refactors to tighten module boundaries and split oversized files
+- frontend/dashboard work after backend parity is stable
 
 See `docs/architecture/symphony-typescript-parity-readiness.md` for the explicit cutover gates.

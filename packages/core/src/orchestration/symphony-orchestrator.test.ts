@@ -120,6 +120,17 @@ describe("symphony orchestrator", () => {
       timestamp: "2026-03-31T00:00:02.000Z",
       codexAppServerPid: "4242"
     });
+    orchestrator.applyAgentUpdate("issue-123", {
+      event: "turn_completed",
+      payload: {
+        usage: {
+          input_tokens: 12,
+          output_tokens: 4,
+          total_tokens: 16
+        }
+      },
+      timestamp: "2026-03-31T00:00:03.000Z"
+    });
 
     const runningSnapshot = orchestrator.snapshot();
     expect(runningSnapshot.running[0]?.sessionId).toBe("thread-live");
