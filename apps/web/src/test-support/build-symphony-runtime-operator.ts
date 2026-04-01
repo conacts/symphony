@@ -47,16 +47,6 @@ export function buildSymphonyRuntimeIssueResult(
       }
     },
     retry: null,
-    logs: {
-      codexSessionLogs: []
-    },
-    recentEvents: [
-      {
-        at: "2026-03-31T18:04:00.000Z",
-        event: "notification",
-        message: "Working on implementation"
-      }
-    ],
     lastError: null,
     tracked: {
       title: "Preserve refresh and requeue parity",
