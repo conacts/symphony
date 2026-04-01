@@ -74,6 +74,7 @@ describe("forensics view model", () => {
     expect(issueIndex.summaryCards[3]?.value).toBe("33.3%");
     expect(issueIndex.rows[0]?.issueHref).toBe("/issues/COL-165");
     expect(issueIndex.rows[0]?.problemRate).toBe("66.7%");
+    expect(issueIndex.rows[0]?.avgDuration).toBe("7:00");
     expect(issueIndex.rows[0]?.lastActive).not.toBe("2026-03-31T18:05:00.000Z");
   });
 
@@ -205,8 +206,10 @@ describe("forensics view model", () => {
 
     expect(issueDetail.metrics[0]?.value).toBe("3");
     expect(issueDetail.rows[0]?.runHref).toBe("/runs/run_123");
+    expect(issueDetail.rows[0]?.durationSeconds).toBe("2:00");
     expect(runDetail.issueIdentifier).toBe("COL-165");
     expect(runDetail.startedAt).not.toBe("2026-03-31T18:00:00.000Z");
+    expect(runDetail.metrics[1]?.value).toBe("2:00");
     expect(runDetail.turns[0]?.events[0]?.payloadText).toContain('"text": "done"');
   });
 });

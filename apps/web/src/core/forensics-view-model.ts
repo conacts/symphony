@@ -80,7 +80,8 @@ export function buildIssueDetailViewModel(
       runId: run.runId,
       runHref: `/runs/${run.runId}`,
       startedAt: formatTimestamp(run.startedAt),
-      durationSeconds: run.durationSeconds === null ? "n/a" : String(run.durationSeconds),
+      durationSeconds:
+        run.durationSeconds === null ? "n/a" : formatDuration(run.durationSeconds),
       turnsAndEvents: `${formatCount(run.turnCount)} / ${formatCount(run.eventCount)}`,
       status: run.status ?? "n/a",
       outcome: run.outcome ?? "n/a"
@@ -102,7 +103,7 @@ export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult)
         value:
           input.run.durationSeconds === null
             ? "n/a"
-            : `${input.run.durationSeconds}s`
+            : formatDuration(input.run.durationSeconds)
       },
       {
         label: "Turns / events",
@@ -158,19 +159,16 @@ function formatPercent(value: number): string {
 }
 
 function formatDuration(value: number): string {
-  if (value <= 0) {
-    return "0s";
+  const totalSeconds = Math.max(0, Math.floor(value));
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
 
-  if (value >= 3600) {
-    return `${(value / 3600).toFixed(1)}h`;
-  }
-
-  if (value >= 60) {
-    return `${(value / 60).toFixed(1)}m`;
-  }
-
-  return `${Math.round(value)}s`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function formatTimestamp(value: string | null): string {

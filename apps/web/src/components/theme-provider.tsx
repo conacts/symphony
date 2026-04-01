@@ -10,7 +10,6 @@ export function ThemeProvider(props: ComponentProps<typeof NextThemesProvider>) 
       defaultTheme="dark"
       disableTransitionOnChange
       enableSystem={false}
-      forcedTheme="dark"
       {...props}
     />
   );

@@ -2,18 +2,22 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { CircleEllipsisIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CircleEllipsisIcon, MoonIcon, SunIcon } from "lucide-react";
+import { useTheme } from "next-themes";
 import { ConnectionStateBadge } from "@/components/connection-state-badge";
 import { DashboardNavigation } from "@/components/dashboard-navigation";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
   SidebarTrigger
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
 import type { SymphonyRuntimeStateResult } from "@symphony/contracts";
 import { useDashboardActiveIssues } from "@/hooks/use-dashboard-active-issues";
@@ -57,6 +61,9 @@ export function ControlPlaneShell(input: {
               <SidebarNavigationLive model={input.model} />
             )}
           </SidebarContent>
+          <SidebarFooter>
+            <ThemeToggleButton />
+          </SidebarFooter>
         </Sidebar>
 
         <SidebarInset className="h-svh overflow-y-auto">
@@ -75,6 +82,37 @@ export function ControlPlaneShell(input: {
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
+  );
+}
+
+function ThemeToggleButton() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDark = mounted ? resolvedTheme !== "light" : true;
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="w-full justify-start gap-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+    >
+      {isDark ? (
+        <SunIcon data-icon="inline-start" />
+      ) : (
+        <MoonIcon data-icon="inline-start" />
+      )}
+      <span className="group-data-[collapsible=icon]:hidden">
+        {isDark ? "Light mode" : "Dark mode"}
+      </span>
+    </Button>
   );
 }
 
