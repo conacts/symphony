@@ -11,6 +11,36 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./meta": {
+      "types": "./dist/meta.d.ts",
+      "import": "./dist/meta.js",
+      "default": "./dist/meta.js"
+    },
+    "./tracker": {
+      "types": "./dist/tracker.d.ts",
+      "import": "./dist/tracker.js",
+      "default": "./dist/tracker.js"
+    },
+    "./github": {
+      "types": "./dist/github.d.ts",
+      "import": "./dist/github.js",
+      "default": "./dist/github.js"
+    },
+    "./orchestration": {
+      "types": "./dist/orchestration.d.ts",
+      "import": "./dist/orchestration.js",
+      "default": "./dist/orchestration.js"
+    },
+    "./journal": {
+      "types": "./dist/journal.d.ts",
+      "import": "./dist/journal.js",
+      "default": "./dist/journal.js"
+    },
+    "./forensics": {
+      "types": "./dist/forensics.d.ts",
+      "import": "./dist/forensics.js",
+      "default": "./dist/forensics.js"
+    },
     "./workspace/local": {
       "types": "./dist/workspace/local.d.ts",
       "import": "./dist/workspace/local.js",

@@ -1,14 +1,20 @@
 import type {
-  SymphonyAgentRuntime,
-  SymphonyAgentRuntimeCompletion,
-  SymphonyJsonObject,
-  SymphonyAgentRuntimeUpdate,
-  SymphonyJsonValue,
   SymphonyResolvedWorkflowConfig,
-  SymphonyRunJournal,
+  AgentRuntime
+} from "@symphony/core";
+import type {
+  SymphonyAgentRuntimeCompletion,
+  SymphonyAgentRuntimeUpdate
+} from "@symphony/core/orchestration";
+import type {
+  SymphonyJsonObject,
+  SymphonyJsonValue,
+  SymphonyRunJournal
+} from "@symphony/core/journal";
+import type {
   SymphonyTracker,
   SymphonyTrackerIssue
-} from "@symphony/core";
+} from "@symphony/core/tracker";
 import type { SymphonyRuntimeLogStore } from "@symphony/db";
 import type { SymphonyLogger } from "@symphony/logger";
 import {
@@ -47,7 +53,7 @@ export function createLocalCodexSymphonyAgentRuntime(input: {
   workflowConfig: SymphonyResolvedWorkflowConfig;
   logger: SymphonyLogger;
   callbacks: RunCallbacks;
-}): SymphonyAgentRuntime {
+}): AgentRuntime {
   const activeRuns = new Map<string, ActiveRun>();
 
   return {

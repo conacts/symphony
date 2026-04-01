@@ -3,20 +3,22 @@ import {
   createSymphonyOrchestratorState,
   prepareIssueForDispatch,
   SymphonyOrchestrator,
-  type SymphonyAgentRuntime,
-  type SymphonyAgentRuntimeCompletion,
-  type SymphonyAgentRuntimeLaunchResult
+  type SymphonyAgentRuntimeCompletion
 } from "./symphony-orchestrator.js";
+import type {
+  AgentRunLaunch,
+  AgentRuntime
+} from "../runtime/agent-runtime.js";
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
 import { buildSymphonyTrackerIssue } from "../test-support/build-symphony-tracker-issue.js";
 import { createMemorySymphonyTracker } from "../tracker/symphony-tracker.js";
 import { createLocalWorkspaceBackend } from "../workspace/workspace-backend.js";
 
 function createAgentRuntime(
-  overrides: Partial<SymphonyAgentRuntime> = {}
-): SymphonyAgentRuntime {
+  overrides: Partial<AgentRuntime> = {}
+): AgentRuntime {
   return {
-    async startRun(): Promise<SymphonyAgentRuntimeLaunchResult> {
+    async startRun(): Promise<AgentRunLaunch> {
       return {
         sessionId: "thread-1",
         workerHost: null,
@@ -78,7 +80,7 @@ describe("symphony orchestrator", () => {
       })
     });
     const agentRuntime = createAgentRuntime({
-      async startRun(input): Promise<SymphonyAgentRuntimeLaunchResult> {
+      async startRun(input): Promise<AgentRunLaunch> {
         return {
           sessionId: "thread-live",
           workerHost: null,
@@ -335,7 +337,7 @@ describe("symphony orchestrator", () => {
       tracker,
       workspaceBackend: manager,
       agentRuntime: createAgentRuntime({
-        async startRun(input): Promise<SymphonyAgentRuntimeLaunchResult> {
+        async startRun(input): Promise<AgentRunLaunch> {
           return {
             sessionId: "thread-live",
             workerHost: null,

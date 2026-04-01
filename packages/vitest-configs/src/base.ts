@@ -6,7 +6,34 @@ import { defineConfig } from "vitest/config";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../../..");
 
-function createWorkspacePackageAliases(): Array<{ find: string; replacement: string }> {
+type AliasEntry = { find: RegExp; replacement: string };
+
+type PackageJsonExports = Record<
+  string,
+  string | { default?: string; import?: string; types?: string }
+>;
+
+function resolveSourceEntryPath(
+  packageDirectory: string,
+  exportTarget: string
+): string | null {
+  if (!exportTarget.startsWith("./dist/")) {
+    return null;
+  }
+
+  const candidatePath = path.join(
+    packageDirectory,
+    exportTarget.replace("./dist/", "src/").replace(/\.d\.ts$|\.js$/u, ".ts")
+  );
+
+  return fs.existsSync(candidatePath) ? candidatePath : null;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function createWorkspacePackageAliases(): AliasEntry[] {
   const packagesDirectory = path.join(repoRoot, "packages");
 
   return fs
@@ -23,18 +50,57 @@ function createWorkspacePackageAliases(): Array<{ find: string; replacement: str
 
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as {
         name?: unknown;
+        exports?: unknown;
       };
 
-      return typeof packageJson.name === "string" && packageJson.name.startsWith("@symphony/")
-        ? [
-            {
-              find: packageJson.name,
-              replacement: sourceIndexPath
-            }
-          ]
-        : [];
+      if (typeof packageJson.name !== "string" || !packageJson.name.startsWith("@symphony/")) {
+        return [];
+      }
+
+      const aliases: AliasEntry[] = [
+        {
+          find: new RegExp(`^${escapeRegExp(packageJson.name)}$`, "u"),
+          replacement: sourceIndexPath
+        }
+      ];
+
+      if (
+        packageJson.exports &&
+        typeof packageJson.exports === "object" &&
+        !Array.isArray(packageJson.exports)
+      ) {
+        for (const [exportKey, exportValue] of Object.entries(
+          packageJson.exports as PackageJsonExports
+        )) {
+          if (exportKey === "." || exportKey === "./package.json") {
+            continue;
+          }
+
+          const exportTarget =
+            typeof exportValue === "string"
+              ? exportValue
+              : exportValue.import ?? exportValue.default ?? exportValue.types;
+
+          if (typeof exportTarget !== "string") {
+            continue;
+          }
+
+          const sourcePath = resolveSourceEntryPath(packageDirectory, exportTarget);
+
+          if (!sourcePath) {
+            continue;
+          }
+
+          aliases.push({
+            find: new RegExp(`^${escapeRegExp(`${packageJson.name}/${exportKey.slice(2)}`)}$`, "u"),
+            replacement: sourcePath
+          });
+        }
+      }
+
+      return aliases;
     })
-    .sort((left, right) => right.find.length - left.find.length);
+    .sort((left, right) => right.find.source.length - left.find.source.length);
 }
 
 const workspacePackageAliases = createWorkspacePackageAliases();

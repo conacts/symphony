@@ -1,11 +1,11 @@
 import path from "node:path";
+import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
+import type { SymphonyRunExport } from "@symphony/core/journal";
 import {
   issueBranchName,
-  symphonyWorkspaceDirectoryName,
-  type SymphonyOrchestratorSnapshot,
-  type SymphonyRunExport,
   type SymphonyTrackerIssue
-} from "@symphony/core";
+} from "@symphony/core/tracker";
+import { symphonyWorkspaceDirectoryName } from "@symphony/core/workspace/local";
 import type {
   SymphonyForensicsIssueDetailResult,
   SymphonyForensicsIssueListResult,

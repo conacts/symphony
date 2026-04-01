@@ -1,4 +1,4 @@
-import type { SymphonyOrchestratorSnapshot } from "@symphony/core";
+import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
 import type { SymphonyLogger } from "@symphony/logger";
 import type { SymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 

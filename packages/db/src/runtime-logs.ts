@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
-import type { SymphonyJsonValue } from "@symphony/core";
+import type { SymphonyJsonValue } from "@symphony/core/journal";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { symphonyRuntimeLogsTable } from "./schema.js";
 

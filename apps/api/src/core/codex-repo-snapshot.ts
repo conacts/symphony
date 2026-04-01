@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { SymphonyJsonObject } from "@symphony/core";
+import type { SymphonyJsonObject } from "@symphony/core/journal";
 
 const execFileAsync = promisify(execFile);
 const defaultPatchMaxBytes = 64 * 1024;

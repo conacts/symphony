@@ -13,7 +13,7 @@ import type {
 import type {
   SymphonyGitHubReviewEvent,
   SymphonyGithubReviewProcessor
-} from "@symphony/core";
+} from "@symphony/core/github";
 import {
   createSilentSymphonyLogger,
   type SymphonyLogger

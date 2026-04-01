@@ -1,5 +1,4 @@
 import { SYMPHONY_CONTRACTS_PACKAGE_NAME } from "@symphony/contracts";
-import { SYMPHONY_CORE_PACKAGE_NAME } from "@symphony/core";
 import { SYMPHONY_LOGGER_PACKAGE_NAME } from "@symphony/logger";
 import {
   buildSymphonyRuntimeEnvironmentSource,
@@ -19,7 +18,7 @@ import { createSymphonyRuntimeServer } from "./server.js";
 export const SYMPHONY_RUNTIME_APP_BOUNDARY = {
   packageName: "@symphony/api",
   dependsOn: [
-    SYMPHONY_CORE_PACKAGE_NAME,
+    "@symphony/core",
     SYMPHONY_CONTRACTS_PACKAGE_NAME,
     "@symphony/db",
     SYMPHONY_LOGGER_PACKAGE_NAME

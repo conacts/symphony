@@ -1,7 +1,7 @@
 import type {
-  SymphonyResolvedWorkflowConfig,
-  SymphonyTrackerIssue
+  SymphonyResolvedWorkflowConfig
 } from "@symphony/core";
+import type { SymphonyTrackerIssue } from "@symphony/core/tracker";
 
 export type CodexAppServerLogger = {
   debug(message: string, context?: Record<string, unknown>): void;

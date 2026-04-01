@@ -10,10 +10,8 @@ import {
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import type {
-  SymphonyResolvedWorkflowConfig,
-  SymphonyTrackerIssue
-} from "@symphony/core";
+import type { SymphonyResolvedWorkflowConfig } from "@symphony/core";
+import type { SymphonyTrackerIssue } from "@symphony/core/tracker";
 import {
   buildSymphonyRuntimeTrackerIssue,
   buildSymphonyRuntimeWorkflowConfig

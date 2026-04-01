@@ -1,19 +1,21 @@
 import {
   createCodexAgentRuntime,
-  createLinearSymphonyTracker,
   createLocalWorkspaceBackend,
-  createMemorySymphonyTracker,
-  createSymphonyForensicsReadModel,
   createSymphonyRuntime,
   loadSymphonyWorkflow,
-  SymphonyGithubReviewProcessor,
-  type SymphonyForensicsReadModel,
   type SymphonyLoadedWorkflow,
-  type SymphonyOrchestratorSnapshot,
   type SymphonyResolvedWorkflowConfig,
-  type SymphonyRuntime as CoreSymphonyRuntime,
-  type SymphonyTracker
+  type SymphonyRuntime as CoreSymphonyRuntime
 } from "@symphony/core";
+import { createSymphonyForensicsReadModel } from "@symphony/core/forensics";
+import type { SymphonyForensicsReadModel } from "@symphony/core/forensics";
+import { SymphonyGithubReviewProcessor } from "@symphony/core/github";
+import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
+import {
+  createLinearSymphonyTracker,
+  createMemorySymphonyTracker,
+  type SymphonyTracker
+} from "@symphony/core/tracker";
 import type {
   SymphonyForensicsIssueTimelineResult,
   SymphonyGitHubReviewIngressResult,

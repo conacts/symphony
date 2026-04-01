@@ -1,7 +1,11 @@
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { createCodexAgentRuntime } from "../runtime/agent-runtime.js";
+import {
+  createCodexAgentRuntime,
+  type AgentRunLaunch,
+  type AgentRuntime
+} from "../runtime/agent-runtime.js";
 import {
   createSymphonyRuntime,
   type SymphonyRuntime
@@ -11,10 +15,6 @@ import {
   type MemorySymphonyTracker,
   type SymphonyTrackerIssue
 } from "../tracker/symphony-tracker.js";
-import type {
-  SymphonyAgentRuntime,
-  SymphonyAgentRuntimeLaunchResult
-} from "../orchestration/symphony-orchestrator.js";
 import { createLocalWorkspaceBackend } from "../workspace/workspace-backend.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import { buildSymphonyTrackerIssue } from "./build-symphony-tracker-issue.js";
@@ -38,7 +38,7 @@ export type SymphonyRuntimeCompositionHarness = {
 };
 
 export async function createSymphonyRuntimeCompositionHarness(input: {
-  agentRuntime?: Partial<SymphonyAgentRuntime>;
+  agentRuntime?: Partial<AgentRuntime>;
   issue?: Partial<SymphonyTrackerIssue>;
   rootPrefix?: string;
   workflowConfig?: Partial<SymphonyResolvedWorkflowConfig>;
@@ -61,8 +61,8 @@ export async function createSymphonyRuntimeCompositionHarness(input: {
   const launchRecords: SymphonyRuntimeCompositionHarness["launchRecords"] = [];
   const stopRecords: SymphonyRuntimeCompositionHarness["stopRecords"] = [];
 
-  const agentRuntime: SymphonyAgentRuntime = {
-    async startRun(runInput): Promise<SymphonyAgentRuntimeLaunchResult> {
+  const agentRuntime: AgentRuntime = {
+    async startRun(runInput): Promise<AgentRunLaunch> {
       launchRecords.push({
         attempt: runInput.attempt,
         issueId: runInput.issue.id,

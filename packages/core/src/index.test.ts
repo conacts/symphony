@@ -1,12 +1,11 @@
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import * as core from "./index.js";
 import {
   createCodexAgentRuntime,
   createGitHubReviewPublisher,
   createLocalWorkspaceBackend,
-  createMemorySymphonyTracker,
   createSymphonyRuntime,
-  SYMPHONY_CORE_PACKAGE_NAME,
   type AgentRuntime
 } from "./index.js";
 import { buildSymphonyRepositoryTarget } from "./test-support/build-symphony-repository-target.js";
@@ -15,9 +14,36 @@ import { buildSymphonyTrackerIssue } from "./test-support/build-symphony-tracker
 import { buildSymphonyRuntimeConfig } from "./test-support/build-symphony-runtime-config.js";
 import { buildSymphonyWorkflowConfig } from "./test-support/build-symphony-workflow-config.js";
 
+const inertTracker = {
+  async fetchCandidateIssues() {
+    return [];
+  },
+  async fetchIssuesByStates() {
+    return [];
+  },
+  async fetchIssueStatesByIds() {
+    return [];
+  },
+  async fetchIssueByIdentifier() {
+    return null;
+  },
+  async createComment() {
+    return;
+  },
+  async updateIssueState() {
+    return;
+  }
+};
+
 describe("@symphony/core scaffold", () => {
-  it("exposes the extraction-ready package name", () => {
-    expect(SYMPHONY_CORE_PACKAGE_NAME).toBe("@symphony/core");
+  it("keeps the default runtime barrel focused on the happy path", () => {
+    expect(core).toMatchObject({
+      createCodexAgentRuntime,
+      createGitHubReviewPublisher,
+      createLocalWorkspaceBackend,
+      createSymphonyRuntime
+    });
+    expect("SYMPHONY_CORE_PACKAGE_NAME" in core).toBe(false);
   });
 
   it("ships deterministic local builders for future boundary tests", () => {
@@ -53,21 +79,31 @@ describe("@symphony/core scaffold", () => {
       },
       async stopRun() {}
     };
-    const publish = vi.fn(async (review: { id: string }) => ({
-      ok: review.id
+    const publish = vi.fn(async (review: { findings: Array<unknown> }) => ({
+      ok: review.findings.length
     }));
     const runtime = createSymphonyRuntime({
       workflowConfig: buildSymphonyWorkflowConfig(),
-      tracker: createMemorySymphonyTracker(),
+      tracker: inertTracker,
       workspaceBackend,
       agentRuntime: createCodexAgentRuntime(agentRuntime),
       reviewProvider: {
-        resolve(input: string) {
-          return input === "publish" ? { id: "review-1" } : null;
+        review(input: string) {
+          return input === "publish"
+            ? {
+                summary: "Review for COL-123",
+                findings: [
+                  {
+                    title: "Missing guard",
+                    body: "Add a validation check."
+                  }
+                ]
+              }
+            : null;
         }
       },
       reviewPublisher: {
-        publish
+        publishReview: publish
       }
     });
 
@@ -88,13 +124,18 @@ describe("@symphony/core scaffold", () => {
         retrying: []
       })
     );
-    expect(await runtime.ingestReview("publish")).toEqual({
-      ok: "review-1"
+    expect(await runtime.runReview("publish")).toEqual({
+      ok: 1
     });
     expect(await runtime.publishReview({
-      id: "review-2"
+      findings: [
+        {
+          title: "Manual finding",
+          body: "Handle the explicit publish path."
+        }
+      ]
     })).toEqual({
-      ok: "review-2"
+      ok: 1
     });
     expect(await runtime.ingestReview("skip")).toBeNull();
     expect(publish).toHaveBeenCalledTimes(2);
@@ -156,7 +197,7 @@ describe("@symphony/core scaffold", () => {
   it("fails fast when review methods are called without review wiring", async () => {
     const runtime = createSymphonyRuntime({
       workflowConfig: buildSymphonyWorkflowConfig(),
-      tracker: createMemorySymphonyTracker(),
+      tracker: inertTracker,
       workspaceBackend: createLocalWorkspaceBackend(),
       agentRuntime: createCodexAgentRuntime({
         async startRun() {
@@ -170,10 +211,17 @@ describe("@symphony/core scaffold", () => {
       })
     });
 
-    await expect(runtime.publishReview({
-      id: "review-1"
-    })).rejects.toThrow("ReviewPublisher");
-    await expect(runtime.ingestReview("publish")).rejects.toThrow(
+    await expect(
+      runtime.publishReview({
+        findings: [
+          {
+            title: "Missing guard",
+            body: "Add a validation check."
+          }
+        ]
+      })
+    ).rejects.toThrow("ReviewPublisher");
+    await expect(runtime.runReview("publish")).rejects.toThrow(
       "ReviewProvider"
     );
   });
@@ -182,14 +230,19 @@ describe("@symphony/core scaffold", () => {
     const review = {
       repository: "openai/symphony",
       pullRequestNumber: 123,
-      body: "Request changes"
+      findings: [
+        {
+          title: "Request changes",
+          body: "Add the missing guard before dispatch."
+        }
+      ]
     };
     const publish = vi.fn(async (input: typeof review) => ({
       delivered: input.pullRequestNumber
     }));
     const publisher = createGitHubReviewPublisher(publish);
 
-    await expect(publisher.publish(review)).resolves.toEqual({
+    await expect(publisher.publishReview(review)).resolves.toEqual({
       delivered: 123
     });
     expect(publish).toHaveBeenCalledWith(review);

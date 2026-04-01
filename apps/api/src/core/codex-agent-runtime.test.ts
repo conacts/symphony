@@ -9,11 +9,11 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
+import type { SymphonyAgentRuntimeCompletion } from "@symphony/core/orchestration";
 import type {
-  SymphonyAgentRuntimeCompletion,
   SymphonyTracker,
   SymphonyTrackerIssue
-} from "@symphony/core";
+} from "@symphony/core/tracker";
 import { createLocalCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
 import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimeWorkflowConfig } from "../test-support/create-symphony-runtime-test-harness.js";
 
@@ -131,11 +131,9 @@ describe("local codex symphony agent runtime", () => {
 
     const exportPayload = await runJournal.fetchRunExport(runId);
     expect(exportPayload?.turns).toHaveLength(1);
-    expect(exportPayload?.turns[0]?.events.map((event) => event.eventType)).toEqual([
-      "session_started",
-      "thread/tokenUsage/updated",
-      "turn_completed"
-    ]);
+    expect(
+      exportPayload?.turns[0]?.events.map((event: { eventType: string }) => event.eventType)
+    ).toEqual(["session_started", "thread/tokenUsage/updated", "turn_completed"]);
     expect(exportPayload?.run.commitHashStart).toMatch(/[0-9a-f]{40}/);
     expect(exportPayload?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
     expect(exportPayload?.run.repoStart).toMatchObject({

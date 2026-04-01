@@ -17,7 +17,7 @@ import type {
   SymphonyTurnFinishAttrs,
   SymphonyTurnStartAttrs,
   SymphonyTurnUpdateAttrs
-} from "@symphony/core";
+} from "@symphony/core/journal";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { createSymphonyIssueTimelineStore, type SymphonyIssueTimelineStore } from "./issue-timeline.js";
 import {

@@ -6,24 +6,35 @@ import {
   type SymphonyOrchestratorObserver,
   type SymphonyOrchestratorSnapshot
 } from "../orchestration/symphony-orchestrator.js";
-import type { ReviewProvider } from "../review/review-provider.js";
-import type { ReviewPublisher } from "../review/review-publisher.js";
+import type {
+  ReviewProvider,
+  ReviewRequest,
+  ReviewResult
+} from "../review/review-provider.js";
+import type {
+  PublishReviewInput,
+  PublishReviewResult,
+  ReviewPublisher
+} from "../review/review-publisher.js";
 import type { SymphonyTracker } from "../tracker/symphony-tracker.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type { WorkspaceBackend } from "../workspace/workspace-backend.js";
 import type { AgentRuntime } from "./agent-runtime.js";
 
 export interface SymphonyRuntime<
-  ReviewInput = unknown,
-  Review = unknown,
-  ReviewResult = unknown
+  Request = ReviewRequest,
+  Reviewed extends ReviewResult = ReviewResult,
+  Published = PublishReviewResult
 > {
   readonly workflowConfig: SymphonyResolvedWorkflowConfig;
   readonly tracker: SymphonyTracker;
   readonly workspaceBackend: WorkspaceBackend;
   readonly agentRuntime: AgentRuntime;
-  readonly reviewProvider: ReviewProvider<ReviewInput, Review> | null;
-  readonly reviewPublisher: ReviewPublisher<Review, ReviewResult> | null;
+  readonly reviewProvider: ReviewProvider<Request, Reviewed> | null;
+  readonly reviewPublisher: ReviewPublisher<
+    PublishReviewInput<Reviewed>,
+    Published
+  > | null;
   snapshot(): SymphonyOrchestratorSnapshot;
   runPollCycle(): Promise<SymphonyOrchestratorSnapshot>;
   applyAgentUpdate(issueId: string, update: SymphonyAgentRuntimeUpdate): void;
@@ -31,27 +42,36 @@ export interface SymphonyRuntime<
     issueId: string,
     completion: SymphonyAgentRuntimeCompletion
   ): Promise<void>;
-  publishReview(review: Review): Promise<ReviewResult>;
-  ingestReview(input: ReviewInput): Promise<ReviewResult | null>;
+  publishReview(
+    review: PublishReviewInput<Reviewed>
+  ): Promise<PublishReviewResult<Published>>;
+  runReview(input: Request): Promise<PublishReviewResult<Published> | null>;
+  ingestReview(input: Request): Promise<PublishReviewResult<Published> | null>;
 }
 
 export function createSymphonyRuntime<
-  ReviewInput = unknown,
-  Review = unknown,
-  ReviewResult = unknown
+  Request = ReviewRequest,
+  Reviewed extends ReviewResult = ReviewResult,
+  Published = PublishReviewResult
 >(input: {
   workflowConfig: SymphonyResolvedWorkflowConfig;
   tracker: SymphonyTracker;
   workspaceBackend: WorkspaceBackend;
   agentRuntime: AgentRuntime;
-  reviewProvider?: ReviewProvider<ReviewInput, Review> | null;
-  reviewPublisher?: ReviewPublisher<Review, ReviewResult> | null;
+  reviewProvider?:
+    | ReviewProvider<Request, Reviewed>
+    | LegacyReviewProvider<Request, Reviewed>
+    | null;
+  reviewPublisher?:
+    | ReviewPublisher<PublishReviewInput<Reviewed>, Published>
+    | LegacyReviewPublisher<PublishReviewInput<Reviewed>, Published>
+    | null;
   observer?: SymphonyOrchestratorObserver;
   clock?: SymphonyClock;
   runnerEnv?: Record<string, string | undefined>;
-}): SymphonyRuntime<ReviewInput, Review, ReviewResult> {
-  const reviewProvider = input.reviewProvider ?? null;
-  const reviewPublisher = input.reviewPublisher ?? null;
+}): SymphonyRuntime<Request, Reviewed, Published> {
+  const reviewProvider = normalizeReviewProvider(input.reviewProvider ?? null);
+  const reviewPublisher = normalizeReviewPublisher(input.reviewPublisher ?? null);
   const orchestrator = new SymphonyOrchestrator({
     workflowConfig: input.workflowConfig,
     tracker: input.tracker,
@@ -61,6 +81,21 @@ export function createSymphonyRuntime<
     clock: input.clock,
     runnerEnv: input.runnerEnv
   });
+  const publishReview = async (
+    review: PublishReviewInput<Reviewed>
+  ): Promise<PublishReviewResult<Published>> =>
+    await requireReviewPublisher(reviewPublisher).publishReview(review);
+  const runReview = async (
+    reviewRequest: Request
+  ): Promise<PublishReviewResult<Published> | null> => {
+    const resolvedReviewProvider = requireReviewProvider(reviewProvider);
+    const review = await resolvedReviewProvider.review(reviewRequest);
+    if (review === null) {
+      return null;
+    }
+
+    return await publishReview(review);
+  };
 
   return {
     workflowConfig: input.workflowConfig,
@@ -82,24 +117,70 @@ export function createSymphonyRuntime<
       await orchestrator.handleRunCompletion(issueId, completion);
     },
     async publishReview(review) {
-      return await requireReviewPublisher(reviewPublisher).publish(review);
+      return await publishReview(review);
+    },
+    async runReview(reviewInput) {
+      return await runReview(reviewInput);
     },
     async ingestReview(reviewInput) {
-      const resolvedReviewProvider = requireReviewProvider(reviewProvider);
-      const resolvedReviewPublisher = requireReviewPublisher(reviewPublisher);
-      const review = await resolvedReviewProvider.resolve(reviewInput);
-      if (review === null) {
-        return null;
-      }
-
-      return await resolvedReviewPublisher.publish(review);
+      return await runReview(reviewInput);
     }
   };
 }
 
-function requireReviewProvider<ReviewInput, Review>(
-  reviewProvider: ReviewProvider<ReviewInput, Review> | null
-): ReviewProvider<ReviewInput, Review> {
+type LegacyReviewProvider<Request, Reviewed extends ReviewResult> = {
+  resolve(input: Request): Promise<Reviewed | null> | Reviewed | null;
+};
+
+type LegacyReviewPublisher<Input extends ReviewResult, Published> = {
+  publish(input: Input): Promise<Published> | Published;
+};
+
+function normalizeReviewProvider<Request, Reviewed extends ReviewResult>(
+  reviewProvider:
+    | ReviewProvider<Request, Reviewed>
+    | LegacyReviewProvider<Request, Reviewed>
+    | null
+): ReviewProvider<Request, Reviewed> | null {
+  if (!reviewProvider) {
+    return null;
+  }
+
+  if ("review" in reviewProvider) {
+    return reviewProvider;
+  }
+
+  return {
+    async review(input) {
+      return await reviewProvider.resolve(input);
+    }
+  };
+}
+
+function normalizeReviewPublisher<Input extends ReviewResult, Published>(
+  reviewPublisher:
+    | ReviewPublisher<Input, Published>
+    | LegacyReviewPublisher<Input, Published>
+    | null
+): ReviewPublisher<Input, Published> | null {
+  if (!reviewPublisher) {
+    return null;
+  }
+
+  if ("publishReview" in reviewPublisher) {
+    return reviewPublisher;
+  }
+
+  return {
+    async publishReview(input) {
+      return await reviewPublisher.publish(input);
+    }
+  };
+}
+
+function requireReviewProvider<Request, Reviewed extends ReviewResult>(
+  reviewProvider: ReviewProvider<Request, Reviewed> | null
+): ReviewProvider<Request, Reviewed> {
   if (reviewProvider) {
     return reviewProvider;
   }
@@ -109,9 +190,9 @@ function requireReviewProvider<ReviewInput, Review>(
   );
 }
 
-function requireReviewPublisher<Review, ReviewResult>(
-  reviewPublisher: ReviewPublisher<Review, ReviewResult> | null
-): ReviewPublisher<Review, ReviewResult> {
+function requireReviewPublisher<Input extends ReviewResult, Published>(
+  reviewPublisher: ReviewPublisher<Input, Published> | null
+): ReviewPublisher<Input, Published> {
   if (reviewPublisher) {
     return reviewPublisher;
   }

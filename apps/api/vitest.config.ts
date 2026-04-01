@@ -13,10 +13,6 @@ export default mergeConfig(
         "@symphony/contracts": path.resolve(
           __dirname,
           "../../packages/contracts/src/index.ts"
-        ),
-        "@symphony/core": path.resolve(
-          __dirname,
-          "../../packages/core/src/index.ts"
         )
       }
     }

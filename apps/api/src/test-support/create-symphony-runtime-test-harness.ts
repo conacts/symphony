@@ -2,14 +2,16 @@ import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import {
-  createMemorySymphonyTracker,
-  createSymphonyForensicsReadModel,
-  SymphonyGithubReviewProcessor,
   type SymphonyLoadedWorkflow,
-  type SymphonyOrchestratorSnapshot,
-  type SymphonyResolvedWorkflowConfig,
-  type SymphonyTrackerIssue
+  type SymphonyResolvedWorkflowConfig
 } from "@symphony/core";
+import { createSymphonyForensicsReadModel } from "@symphony/core/forensics";
+import { SymphonyGithubReviewProcessor } from "@symphony/core/github";
+import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
+import {
+  createMemorySymphonyTracker,
+  type SymphonyTrackerIssue
+} from "@symphony/core/tracker";
 import {
   buildSymphonyEventAttrs,
   buildSymphonyOrchestratorSnapshot,

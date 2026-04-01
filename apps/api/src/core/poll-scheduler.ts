@@ -1,4 +1,4 @@
-import type { SymphonyOrchestratorSnapshot } from "@symphony/core";
+import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
 import type { SymphonyRuntimeLogStore } from "@symphony/db";
 import type { SymphonyLogger } from "@symphony/logger";
 

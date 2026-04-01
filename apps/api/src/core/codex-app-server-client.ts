@@ -1,8 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import type {
-  SymphonyResolvedWorkflowConfig,
-  SymphonyTrackerIssue
-} from "@symphony/core";
+import type { SymphonyResolvedWorkflowConfig } from "@symphony/core";
+import type { SymphonyTrackerIssue } from "@symphony/core/tracker";
 import {
   buildDynamicToolSpecs,
   resolveCodexLaunchSettings,

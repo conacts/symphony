@@ -41,13 +41,24 @@ import {
   Stable workspace-lifecycle DTOs that make the seam concrete for both callers and future
   backend implementations.
 - `AgentRuntime`
-  Stable agent-execution port. Today this is a naming facade over the existing
-  `SymphonyAgentRuntime` shape.
+  Stable agent-execution port with explicit lifecycle methods:
+  `startRun(input: AgentRunInput): Promise<AgentRunLaunch>` and
+  `stopRun(input: AgentStopInput): Promise<void>`.
+- `AgentRunInput`, `AgentRunLaunch`, `AgentStopInput`
+  Stable runtime DTOs that make agent launch and shutdown behavior explicit without exposing
+  orchestration internals.
 - `ReviewProvider`
-  Optional adapter that resolves provider-specific or inbound review input into a runtime-level
-  review object.
+  Optional adapter that turns provider-specific review input into a normalized runtime review via
+  `review(request)`.
+- `ReviewRequest`, `ReviewFinding`, `ReviewResult`
+  Stable review DTOs for normalized review generation. `ReviewResult` is the canonical
+  runtime-level review shape and is made up of typed `ReviewFinding` entries. Public review
+  contracts may extend this shape, but they must still carry normalized findings.
 - `ReviewPublisher`
-  Stable port for publishing runtime-generated review output to an external system such as GitHub.
+  Stable port for publishing a normalized review result to an external destination via
+  `publishReview(input)`.
+- `PublishReviewInput`, `PublishReviewResult`
+  Stable publication DTO names for the outbound review seam.
 - `SymphonyRuntime`
   Composition root for tracker + workspace backend + agent runtime + optional review plumbing.
   Today it is an additive wrapper around `SymphonyOrchestrator`, but it does not expose the
@@ -60,12 +71,12 @@ import {
   existing local workspace manager into the `WorkspaceBackend` contract rather than re-exporting
   the manager shape directly.
 - `createCodexAgentRuntime(runtime)`
-  Transitional naming facade. The concrete Codex implementation still lives in
-  `apps/api/src/core/codex-agent-runtime.ts`, so the root factory currently standardizes the public
-  name without moving behavior yet.
+  Public adapter for the concrete Codex runtime implementation. The concrete implementation still
+  lives in `apps/api/src/core/codex-agent-runtime.ts`, but callers now depend on the real
+  `AgentRuntime` contract rather than an orchestration type alias.
 - `createGitHubReviewPublisher()`
-  Transitional naming facade for outbound GitHub review publication. It does not wrap the current
-  webhook ingress or requeue processor.
+  Public adapter for outbound review publication. It standardizes the `ReviewPublisher`
+  contract but does not wrap the current webhook ingress or requeue processor.
 - `createSymphonyRuntime()`
   Additive composition helper that returns a stable runtime object and delegates orchestration to
   `SymphonyOrchestrator` internally.
@@ -77,7 +88,14 @@ import {
   `getWorkspacePath`
 - `createLocalWorkspaceBackend` -> adapter over `createLocalSymphonyWorkspaceManager`
 - `PreparedWorkspace` -> stable workspace DTO returned from `WorkspaceBackend.prepareWorkspace()`
-- `AgentRuntime` -> `SymphonyAgentRuntime`
+- `AgentRuntime` -> explicit lifecycle interface:
+  `startRun`, `stopRun`
+- `createCodexAgentRuntime` -> adapter over the concrete Codex runtime implementation
+- `ReviewProvider` -> explicit review-generation interface:
+  `review`
+- `ReviewPublisher` -> explicit review-publication interface:
+  `publishReview`
+- `ReviewResult` is the normalized review base shape for both provider output and publisher input
 - `createSymphonyRuntime` -> `new SymphonyOrchestrator(...)`
 
 The Codex runtime and GitHub review publisher are the intentional exceptions. Their concrete
@@ -101,10 +119,12 @@ reach it explicitly through `@symphony/core/workspace/local`.
 ## Runtime Wiring Rules
 
 - `publishReview()` requires a configured `ReviewPublisher` and throws on misconfiguration.
-- `ingestReview()` requires both a configured `ReviewProvider` and `ReviewPublisher` and throws on
+- `runReview()` requires both a configured `ReviewProvider` and `ReviewPublisher` and throws on
   misconfiguration.
-- `ingestReview()` may still return `null` when the configured provider intentionally resolves no
-  review from the supplied input.
+- `runReview()` may still return `null` when the configured provider intentionally yields no
+  review for the supplied request.
+- `ingestReview()` remains a compatibility alias for `runReview()`, but `runReview()` is the
+  intended public runtime method.
 
 ## Root Vs Subpaths Later
 
@@ -112,7 +132,9 @@ Keep at root:
 
 - `WorkspaceBackend`, `WorkspacePrepareInput`, `PreparedWorkspace`, `WorkspaceHookInput`,
   `WorkspaceCleanupInput`, `WorkspacePathInput`, `WorkspaceContext`
-- `AgentRuntime`, `ReviewProvider`, `ReviewPublisher`, `SymphonyRuntime`
+- `AgentRuntime`, `AgentRunInput`, `AgentRunLaunch`, `AgentStopInput`
+- `ReviewProvider`, `ReviewRequest`, `ReviewFinding`, `ReviewResult`
+- `ReviewPublisher`, `PublishReviewInput`, `PublishReviewResult`, `SymphonyRuntime`
 - `createLocalWorkspaceBackend`, `createCodexAgentRuntime`, `createGitHubReviewPublisher`,
   `createSymphonyRuntime`
 - workflow-loading entry points needed to stand up a runtime:
@@ -132,14 +154,15 @@ Current expert-only subpaths:
 
 - `@symphony/core/workspace/local`
   Local filesystem workspace manager implementation and related expert-only types.
-- journal and forensics exports
-
-Suggested later subpaths:
-
-- `@symphony/core/workflow`
+- `@symphony/core/meta`
+  Core package metadata and runtime-config types that are intentionally off the root happy path.
 - `@symphony/core/tracker`
-- `@symphony/core/workspace`
-- `@symphony/core/review/github`
-- `@symphony/core/runtime/internal`
+  Tracker implementations, issue helpers, and tracker-specific DTOs.
+- `@symphony/core/github`
+  GitHub review event types and the GitHub review processor.
+- `@symphony/core/orchestration`
+  Orchestrator internals, observer contracts, snapshots, and Codex completion/update plumbing.
 - `@symphony/core/journal`
+  Run-journal implementations and journal/export DTOs.
 - `@symphony/core/forensics`
+  Forensics read-model helpers and related expert-only types.

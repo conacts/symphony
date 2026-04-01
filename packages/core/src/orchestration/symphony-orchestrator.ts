@@ -5,10 +5,10 @@ import {
   type SymphonyTracker,
   type SymphonyTrackerIssue
 } from "../tracker/symphony-tracker.js";
+import type { AgentRuntime } from "../runtime/agent-runtime.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
 import type {
-  PreparedWorkspace,
   WorkspaceBackend,
   WorkspaceContext
 } from "../workspace/workspace-backend.js";
@@ -87,12 +87,6 @@ export type SymphonyOrchestratorState = {
   rateLimits: SymphonyJsonObject | null;
 };
 
-export type SymphonyAgentRuntimeLaunchResult = {
-  sessionId: string | null;
-  workerHost: string | null;
-  workspacePath: string;
-};
-
 export type SymphonyAgentRuntimeCompletion =
   | { kind: "normal" }
   | { kind: "max_turns_reached"; reason: string; maxTurns: number }
@@ -108,22 +102,6 @@ export type SymphonyAgentRuntimeUpdate = {
   sessionId?: string | null;
   codexAppServerPid?: string | null;
 };
-
-export interface SymphonyAgentRuntime {
-  startRun(input: {
-    issue: SymphonyTrackerIssue;
-    runId: string | null;
-    attempt: number;
-    workflowConfig: SymphonyResolvedWorkflowConfig;
-    workspace: PreparedWorkspace;
-  }): Promise<SymphonyAgentRuntimeLaunchResult>;
-  stopRun(input: {
-    issue: SymphonyTrackerIssue;
-    workspacePath: string | null;
-    workerHost: string | null;
-    cleanupWorkspace: boolean;
-  }): Promise<void>;
-}
 
 export interface SymphonyOrchestratorObserver {
   startRun(input: {
@@ -211,7 +189,7 @@ export class SymphonyOrchestrator {
   readonly #workflowConfig: SymphonyResolvedWorkflowConfig;
   readonly #tracker: SymphonyTracker;
   readonly #workspaceBackend: WorkspaceBackend;
-  readonly #agentRuntime: SymphonyAgentRuntime;
+  readonly #agentRuntime: AgentRuntime;
   readonly #observer: SymphonyOrchestratorObserver | null;
   readonly #clock: SymphonyClock;
   readonly #runnerEnv: Record<string, string | undefined> | undefined;
@@ -221,7 +199,7 @@ export class SymphonyOrchestrator {
     workflowConfig: SymphonyResolvedWorkflowConfig;
     tracker: SymphonyTracker;
     workspaceBackend: WorkspaceBackend;
-    agentRuntime: SymphonyAgentRuntime;
+    agentRuntime: AgentRuntime;
     observer?: SymphonyOrchestratorObserver;
     clock?: SymphonyClock;
     runnerEnv?: Record<string, string | undefined>;
