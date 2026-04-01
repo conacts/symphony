@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type {
   SymphonyDashboardActiveIssue
 } from "@/core/dashboard-foundation";
+import { fetchIssueIndex } from "@/core/forensics-client";
 import { fetchRuntimeIssue } from "@/core/runtime-operator-client";
 import type { SymphonyRuntimeStateResult } from "@symphony/contracts";
 
@@ -32,13 +33,26 @@ export function useDashboardActiveIssues(input: {
     setLoading(true);
 
     void (async () => {
+      const issueIndex = await fetchIssueIndex(input.runtimeBaseUrl, {
+        limit: 200,
+        sortBy: "lastActive",
+        sortDirection: "desc"
+      }).catch(() => null);
+
+      const candidateIdentifiers =
+        issueIndex?.issues.map((issue) => issue.issueIdentifier) ?? issueIdentifiers;
+
       const resolvedIssues = await Promise.all(
-        issueIdentifiers.map(async (issueIdentifier) => {
+        candidateIdentifiers.map(async (issueIdentifier) => {
           try {
             const runtimeIssue = await fetchRuntimeIssue(
               input.runtimeBaseUrl,
               issueIdentifier
             );
+
+            if (!isActiveTicketState(runtimeIssue.tracked.state)) {
+              return null;
+            }
 
             return {
               issueIdentifier,
@@ -47,18 +61,17 @@ export function useDashboardActiveIssues(input: {
               href: `/issues/${issueIdentifier}`
             };
           } catch {
-            return {
-              issueIdentifier,
-              title: issueIdentifier,
-              state: "Unknown",
-              href: `/issues/${issueIdentifier}`
-            };
+            return null;
           }
         })
       );
 
       if (!cancelled) {
-        setActiveIssues(resolvedIssues);
+        setActiveIssues(
+          resolvedIssues.filter(
+            (issue): issue is SymphonyDashboardActiveIssue => issue !== null
+          )
+        );
         setLoading(false);
       }
     })();
@@ -72,6 +85,19 @@ export function useDashboardActiveIssues(input: {
     activeIssues,
     loading
   };
+}
+
+function isActiveTicketState(state: string): boolean {
+  const normalized = state.trim().toLowerCase().replace(/[\s_-]+/gu, " ");
+
+  return (
+    normalized === "todo" ||
+    normalized === "in progress" ||
+    normalized === "rework" ||
+    normalized === "in review" ||
+    normalized === "approved" ||
+    normalized === "blocked"
+  );
 }
 
 function collectActiveIssueIdentifiers(

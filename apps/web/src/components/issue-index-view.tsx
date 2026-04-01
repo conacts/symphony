@@ -1,14 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import {
-  ChevronDown,
-  ChevronRight,
-  Columns3,
-  Copy,
-  Download
-} from "lucide-react";
+import { ChevronDown, Columns3 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,11 +16,9 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,11 +30,9 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import { fetchIssueForensicsBundle } from "@/core/forensics-client";
 import { buildIssueIndexViewModel } from "@/core/forensics-view-model";
 import type { RuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
 import type {
-  SymphonyForensicsIssueForensicsBundleResult,
   SymphonyForensicsIssueListResult,
   SymphonyForensicsIssuesQuery
 } from "@symphony/contracts";
@@ -93,112 +83,8 @@ export function IssueIndexView(input: {
   query: SymphonyForensicsIssuesQuery;
   runtimeBaseUrl: string;
 }) {
-  const [expandedIssues, setExpandedIssues] = useState<Record<string, boolean>>({});
   const [columns, setColumns] = useState<string[]>([...defaultColumns]);
-  const [bundleCache, setBundleCache] = useState<
-    Record<string, SymphonyForensicsIssueForensicsBundleResult>
-  >({});
-  const [bundleErrors, setBundleErrors] = useState<Record<string, string>>({});
-  const [loadingBundles, setLoadingBundles] = useState<Record<string, boolean>>({});
-  const [copyState, setCopyState] = useState<string | null>(null);
   const viewModel = input.issueIndex ? buildIssueIndexViewModel(input.issueIndex) : null;
-
-  useEffect(() => {
-    setExpandedIssues({});
-    setBundleCache({});
-    setBundleErrors({});
-    setLoadingBundles({});
-  }, [input.query]);
-
-  async function ensureBundle(issueIdentifier: string) {
-    if (bundleCache[issueIdentifier] || loadingBundles[issueIdentifier]) {
-      return bundleCache[issueIdentifier] ?? null;
-    }
-
-    setLoadingBundles((current) => ({
-      ...current,
-      [issueIdentifier]: true
-    }));
-
-    try {
-      const bundle = await fetchIssueForensicsBundle(
-        input.runtimeBaseUrl,
-        issueIdentifier,
-        toBundleQuery(input.query)
-      );
-
-      setBundleCache((current) => ({
-        ...current,
-        [issueIdentifier]: bundle
-      }));
-      setBundleErrors((current) => {
-        const next = { ...current };
-        delete next[issueIdentifier];
-        return next;
-      });
-
-      return bundle;
-    } catch (error) {
-      setBundleErrors((current) => ({
-        ...current,
-        [issueIdentifier]:
-          error instanceof Error
-            ? error.message
-            : "Failed to load issue forensic bundle."
-      }));
-      return null;
-    } finally {
-      setLoadingBundles((current) => ({
-        ...current,
-        [issueIdentifier]: false
-      }));
-    }
-  }
-
-  async function copyJson(label: string, payload: unknown) {
-    const value = JSON.stringify(payload, null, 2);
-
-    await navigator.clipboard.writeText(value);
-    setCopyState(label);
-    window.setTimeout(() => {
-      setCopyState((current) => (current === label ? null : current));
-    }, 2_000);
-  }
-
-  async function handleIssueExport(
-    issueIdentifier: string,
-    exportKind: "forensics" | "latestFailure" | "timeline" | "runtimeLogs"
-  ) {
-    const bundle = await ensureBundle(issueIdentifier);
-
-    if (!bundle) {
-      return;
-    }
-
-    switch (exportKind) {
-      case "forensics":
-        await copyJson(`issue:${issueIdentifier}`, {
-          issue: bundle.issue,
-          aggregateMetrics: bundle.issue,
-          recentRuns: bundle.recentRuns,
-          distributions: bundle.distributions,
-          appliedFilters: bundle.filters
-        });
-        return;
-      case "latestFailure":
-        await copyJson(`failure:${issueIdentifier}`, {
-          issueIdentifier: bundle.issue.issueIdentifier,
-          latestFailure: bundle.latestFailure
-        });
-        return;
-      case "timeline":
-        await copyJson(`timeline:${issueIdentifier}`, bundle.timeline);
-        return;
-      case "runtimeLogs":
-        await copyJson(`logs:${issueIdentifier}`, bundle.runtimeLogs);
-        return;
-    }
-  }
 
   function updateQuery(next: Partial<SymphonyForensicsIssuesQuery>) {
     input.onQueryChange({
@@ -233,19 +119,6 @@ export function IssueIndexView(input: {
     );
   }
 
-  async function toggleExpanded(issueIdentifier: string) {
-    const isOpening = !expandedIssues[issueIdentifier];
-
-    setExpandedIssues((current) => ({
-      ...current,
-      [issueIdentifier]: isOpening
-    }));
-
-    if (isOpening) {
-      await ensureBundle(issueIdentifier);
-    }
-  }
-
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {input.error ? (
@@ -255,20 +128,8 @@ export function IssueIndexView(input: {
         </Alert>
       ) : null}
 
-      {copyState ? (
-        <Alert>
-          <AlertTitle>JSON copied</AlertTitle>
-          <AlertDescription>{copyState}</AlertDescription>
-        </Alert>
-      ) : null}
-
       {viewModel ? (
         <>
-          {(() => {
-            const activeIssueIndex = input.issueIndex!;
-
-            return (
-              <>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-1">
               <h1 className="text-3xl font-semibold tracking-tight">Issues</h1>
@@ -299,40 +160,6 @@ export function IssueIndexView(input: {
                       </DropdownMenuRadioItem>
                     ))}
                   </DropdownMenuRadioGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled>Custom</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline">
-                    <Download className="mr-2 size-4" />
-                    Export
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onSelect={() =>
-                      void copyJson("visible-issues", {
-                        filters: activeIssueIndex.filters,
-                        totals: activeIssueIndex.totals,
-                        issues: activeIssueIndex.issues
-                      })
-                    }
-                  >
-                    Copy visible issues JSON
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() =>
-                      void copyJson("issue-totals", {
-                        filters: activeIssueIndex.filters,
-                        totals: activeIssueIndex.totals
-                      })
-                    }
-                  >
-                    Copy aggregate JSON
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -351,6 +178,12 @@ export function IssueIndexView(input: {
 
           <Card>
             <CardHeader className="gap-4">
+              <div className="flex flex-col gap-1">
+                <CardTitle>Issue table</CardTitle>
+                <CardDescription>
+                  Recent issue activity and outcome trends.
+                </CardDescription>
+              </div>
               <div className="flex flex-col gap-2 xl:flex-row xl:flex-wrap">
                 <FilterDropdown
                   label="Outcome"
@@ -428,7 +261,6 @@ export function IssueIndexView(input: {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-10" />
                       {columns.includes("issue") ? <TableHead>Issue</TableHead> : null}
                       {columns.includes("runs") ? <TableHead>Runs</TableHead> : null}
                       {columns.includes("problemRate") ? <TableHead>Problem rate</TableHead> : null}
@@ -446,223 +278,42 @@ export function IssueIndexView(input: {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {viewModel.rows.map((row) => {
-                      const isExpanded = expandedIssues[row.issueIdentifier] ?? false;
-                      const bundle = bundleCache[row.issueIdentifier];
-                      const issueRow = activeIssueIndex.issues.find(
-                        (issue) => issue.issueIdentifier === row.issueIdentifier
-                      );
-
-                      return (
-                        <React.Fragment key={row.issueIdentifier}>
-                          <TableRow>
-                            <TableCell>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => void toggleExpanded(row.issueIdentifier)}
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="size-4" />
-                                ) : (
-                                  <ChevronRight className="size-4" />
-                                )}
-                              </Button>
-                            </TableCell>
-                            {columns.includes("issue") ? (
-                              <TableCell>
-                                <div className="flex flex-col gap-1">
-                                  <Link
-                                    className="font-medium underline underline-offset-4"
-                                    href={row.issueHref}
-                                  >
-                                    {row.issueIdentifier}
-                                  </Link>
-                                  <span className="text-xs text-muted-foreground">
-                                    {row.latestErrorClass}
-                                  </span>
-                                </div>
-                              </TableCell>
-                            ) : null}
-                            {columns.includes("runs") ? <TableCell>{row.runCount}</TableCell> : null}
-                            {columns.includes("problemRate") ? (
-                              <TableCell>{row.problemRate}</TableCell>
-                            ) : null}
-                            {columns.includes("latestProblem") ? (
-                              <TableCell>{row.latestProblemOutcome}</TableCell>
-                            ) : null}
-                            {columns.includes("lastCompleted") ? (
-                              <TableCell>{row.lastCompletedOutcome}</TableCell>
-                            ) : null}
-                            {columns.includes("retries") ? <TableCell>{row.retryCount}</TableCell> : null}
-                            {columns.includes("avgDuration") ? (
-                              <TableCell>{row.avgDuration}</TableCell>
-                            ) : null}
-                            {columns.includes("lastActive") ? <TableCell>{row.lastActive}</TableCell> : null}
-                          </TableRow>
-
-                          {isExpanded ? (
-                            <TableRow>
-                              <TableCell colSpan={columns.length + 1}>
-                                <div className="grid gap-4 rounded-lg border bg-muted/20 p-4">
-                                  {loadingBundles[row.issueIdentifier] ? (
-                                    <div className="grid gap-3 lg:grid-cols-2">
-                                      <Skeleton className="h-28 w-full" />
-                                      <Skeleton className="h-28 w-full" />
-                                    </div>
-                                  ) : bundle ? (
-                                    <>
-                                      <div className="grid gap-4 lg:grid-cols-2">
-                                        <section className="space-y-2">
-                                          <h3 className="text-sm font-medium">
-                                            Recent run snapshot
-                                          </h3>
-                                          <div className="space-y-2 text-xs">
-                                            {bundle.recentRuns.map((run) => (
-                                              <div
-                                                key={run.runId}
-                                                className="grid grid-cols-2 gap-2 rounded border bg-background p-2 lg:grid-cols-7"
-                                              >
-                                                <span>{run.outcome ?? "n/a"}</span>
-                                                <span>{run.status ?? "n/a"}</span>
-                                                <span>{run.startedAt ?? "n/a"}</span>
-                                                <span>{run.durationSeconds ?? "n/a"}s</span>
-                                                <span>{run.turnCount} turns</span>
-                                                <span>{run.eventCount} events</span>
-                                                <span>{run.totalTokens} tokens</span>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </section>
-
-                                        <section className="space-y-2">
-                                          <h3 className="text-sm font-medium">Distributions</h3>
-                                          <div className="grid gap-3 text-xs lg:grid-cols-3">
-                                            <DistributionList
-                                              title="Outcomes"
-                                              values={bundle.distributions.outcomes}
-                                            />
-                                            <DistributionList
-                                              title="Error classes"
-                                              values={bundle.distributions.errorClasses}
-                                            />
-                                            <DistributionList
-                                              title="Timeline events"
-                                              values={bundle.distributions.timelineEvents}
-                                            />
-                                          </div>
-                                        </section>
-                                      </div>
-
-                                      <div className="grid gap-4 lg:grid-cols-2">
-                                        <section className="space-y-2 rounded border bg-background p-3">
-                                          <h3 className="text-sm font-medium">Latest failure</h3>
-                                          {bundle.latestFailure ? (
-                                            <div className="space-y-1 text-xs text-muted-foreground">
-                                              <p>
-                                                <span className="font-medium text-foreground">
-                                                  Error class:
-                                                </span>{" "}
-                                                {bundle.latestFailure.errorClass ?? "n/a"}
-                                              </p>
-                                              <p>
-                                                <span className="font-medium text-foreground">
-                                                  Error message:
-                                                </span>{" "}
-                                                {bundle.latestFailure.errorMessage ?? "n/a"}
-                                              </p>
-                                              <p>
-                                                <span className="font-medium text-foreground">
-                                                  Last failing run:
-                                                </span>{" "}
-                                                {bundle.latestFailure.runId}
-                                              </p>
-                                              <p>
-                                                <span className="font-medium text-foreground">
-                                                  Started:
-                                                </span>{" "}
-                                                {bundle.latestFailure.startedAt ?? "n/a"}
-                                              </p>
-                                            </div>
-                                          ) : (
-                                            <p className="text-xs text-muted-foreground">
-                                              No failing run exists in the current scope.
-                                            </p>
-                                          )}
-                                        </section>
-
-                                        <section className="space-y-2 rounded border bg-background p-3">
-                                          <h3 className="text-sm font-medium">Export actions</h3>
-                                          <div className="flex flex-wrap gap-2">
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={() =>
-                                                void handleIssueExport(
-                                                  row.issueIdentifier,
-                                                  "forensics"
-                                                )
-                                              }
-                                            >
-                                              <Copy className="mr-2 size-4" />
-                                              Copy issue forensic JSON
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={() =>
-                                                void handleIssueExport(
-                                                  row.issueIdentifier,
-                                                  "timeline"
-                                                )
-                                              }
-                                            >
-                                              <Copy className="mr-2 size-4" />
-                                              Copy timeline JSON
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={() =>
-                                                void handleIssueExport(
-                                                  row.issueIdentifier,
-                                                  "runtimeLogs"
-                                                )
-                                              }
-                                            >
-                                              <Copy className="mr-2 size-4" />
-                                              Copy logs JSON
-                                            </Button>
-                                          </div>
-                                          {issueRow ? (
-                                            <p className="text-xs text-muted-foreground">
-                                              {issueRow.runCount} runs, {issueRow.problemRunCount} problem runs.
-                                            </p>
-                                          ) : null}
-                                        </section>
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <p className="text-sm text-destructive">
-                                      {bundleErrors[row.issueIdentifier] ??
-                                        "Unable to load forensic drilldown."}
-                                    </p>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ) : null}
-                        </React.Fragment>
-                      );
-                    })}
+                    {viewModel.rows.map((row) => (
+                      <TableRow key={row.issueIdentifier}>
+                        {columns.includes("issue") ? (
+                          <TableCell>
+                            <Link
+                              className="font-medium underline underline-offset-4"
+                              href={row.issueHref}
+                            >
+                              {row.issueIdentifier}
+                            </Link>
+                          </TableCell>
+                        ) : null}
+                        {columns.includes("runs") ? <TableCell>{row.runCount}</TableCell> : null}
+                        {columns.includes("problemRate") ? (
+                          <TableCell>{row.problemRate}</TableCell>
+                        ) : null}
+                        {columns.includes("latestProblem") ? (
+                          <TableCell>{row.latestProblemOutcome}</TableCell>
+                        ) : null}
+                        {columns.includes("lastCompleted") ? (
+                          <TableCell>{row.lastCompletedOutcome}</TableCell>
+                        ) : null}
+                        {columns.includes("retries") ? <TableCell>{row.retryCount}</TableCell> : null}
+                        {columns.includes("avgDuration") ? (
+                          <TableCell>{row.avgDuration}</TableCell>
+                        ) : null}
+                        {columns.includes("lastActive") ? (
+                          <TableCell>{row.lastActive}</TableCell>
+                        ) : null}
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               )}
             </CardContent>
           </Card>
-              </>
-            );
-          })()}
         </>
       ) : input.loading ? (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -722,48 +373,6 @@ function FilterDropdown(input: {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
-
-function DistributionList(input: {
-  title: string;
-  values: Record<string, number>;
-}) {
-  const entries = Object.entries(input.values).sort((left, right) => right[1] - left[1]);
-
-  return (
-    <div className="rounded border bg-background p-3">
-      <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {input.title}
-      </h4>
-      <div className="space-y-1 text-xs">
-        {entries.length === 0 ? (
-          <p className="text-muted-foreground">none</p>
-        ) : (
-          entries.map(([key, count]) => (
-            <div key={key} className="flex items-center justify-between gap-2">
-              <span className="truncate">{key}</span>
-              <span className="font-medium">{count}</span>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-function toBundleQuery(
-  query: SymphonyForensicsIssuesQuery
-): SymphonyForensicsIssuesQuery & {
-  recentRunLimit: number;
-  timelineLimit: number;
-  runtimeLogLimit: number;
-} {
-  return {
-    ...query,
-    recentRunLimit: 8,
-    timelineLimit: 200,
-    runtimeLogLimit: 200
-  };
 }
 
 function labelForTimeRange(value: string): string {

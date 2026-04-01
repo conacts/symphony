@@ -10,15 +10,14 @@ describe("issue requeue panel", () => {
       <IssueRequeuePanel
         error={null}
         issue={buildSymphonyRuntimeIssueResult()}
+        issueIdentifier="COL-167"
         loading={false}
       />
     );
 
-    expect(html).toContain("Open in Linear");
-    expect(html).toContain("Open GitHub PR search");
-    expect(html).toContain("/rework");
-    expect(html).toContain("Delegates to Linear");
-    expect(html).toContain("Delegates to GitHub /rework");
+    expect(html).toContain("Preserve refresh and requeue parity");
+    expect(html).toContain("Linear");
+    expect(html).toContain("GitHub");
   });
 
   it("renders operator context failures", () => {
@@ -26,6 +25,7 @@ describe("issue requeue panel", () => {
       <IssueRequeuePanel
         error="Runtime issue request failed with 404."
         issue={null}
+        issueIdentifier="COL-167"
         loading={false}
       />
     );

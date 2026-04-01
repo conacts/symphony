@@ -79,7 +79,7 @@ export function buildIssueDetailViewModel(
     rows: input.runs.map((run) => ({
       runId: run.runId,
       runHref: `/runs/${run.runId}`,
-      startedAt: run.startedAt ?? "n/a",
+      startedAt: formatTimestamp(run.startedAt),
       durationSeconds: run.durationSeconds === null ? "n/a" : String(run.durationSeconds),
       turnsAndEvents: `${formatCount(run.turnCount)} / ${formatCount(run.eventCount)}`,
       status: run.status ?? "n/a",

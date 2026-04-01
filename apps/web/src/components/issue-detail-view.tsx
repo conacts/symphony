@@ -32,7 +32,7 @@ export function IssueDetailView(input: {
     : null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       {input.error ? (
         <Alert variant="destructive">
           <AlertTitle>Issue detail degraded</AlertTitle>
@@ -42,16 +42,13 @@ export function IssueDetailView(input: {
 
       {viewModel ? (
         <>
-          <section className="grid gap-4 md:grid-cols-3">
+          <section className="grid gap-5 md:grid-cols-3">
             {viewModel.metrics.map((metric) => (
               <Card key={metric.label}>
                 <CardHeader>
                   <CardDescription>{metric.label}</CardDescription>
                   <CardTitle className="text-3xl">{metric.value}</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
-                  {metric.detail}
-                </CardContent>
               </Card>
             ))}
           </section>
