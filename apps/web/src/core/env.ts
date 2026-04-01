@@ -4,19 +4,25 @@ export type EnvironmentSource = Record<string, string | undefined>;
 
 export type SymphonyDashboardEnv = {
   runtimeBaseUrl: string;
+  useMockRuntime?: boolean;
 };
 
 export function loadSymphonyDashboardEnv(
   env: EnvironmentSource = process.env
 ): SymphonyDashboardEnv {
+  const useMockRuntime =
+    env.NEXT_PUBLIC_SYMPHONY_USE_MOCK_RUNTIME?.trim() === "true" ||
+    env.SYMPHONY_USE_MOCK_RUNTIME?.trim() === "true";
   const runtimeBaseUrl =
     env.NEXT_PUBLIC_SYMPHONY_RUNTIME_BASE_URL?.trim() ??
     env.SYMPHONY_RUNTIME_BASE_URL?.trim();
 
   return {
-    runtimeBaseUrl:
-      runtimeBaseUrl && runtimeBaseUrl.length > 0
+    runtimeBaseUrl: useMockRuntime
+      ? ""
+      : runtimeBaseUrl && runtimeBaseUrl.length > 0
         ? runtimeBaseUrl
-        : DEFAULT_SYMPHONY_RUNTIME_BASE_URL
+        : DEFAULT_SYMPHONY_RUNTIME_BASE_URL,
+    useMockRuntime
   };
 }

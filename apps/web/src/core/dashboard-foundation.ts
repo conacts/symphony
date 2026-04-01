@@ -6,6 +6,10 @@ import {
   loadSymphonyDashboardEnv,
   type SymphonyDashboardEnv
 } from "@/core/env";
+import {
+  createRuntimeUrl,
+  createRuntimeWebsocketUrl
+} from "@/core/runtime-url";
 
 export type SymphonyDashboardConnectionKind =
   | "waiting"
@@ -56,22 +60,11 @@ export type SymphonyDashboardFoundationModel = {
 };
 
 export function buildSymphonyRuntimeSurfaceUrls(runtimeBaseUrl: string) {
-  const sanitizedBaseUrl = runtimeBaseUrl.replace(/\/+$/u, "");
-  const runtimeUrl = new URL(sanitizedBaseUrl);
-
-  const stateUrl = new URL("/api/v1/state", runtimeUrl);
-  const refreshUrl = new URL("/api/v1/refresh", runtimeUrl);
-  const issuesUrl = new URL("/api/v1/issues", runtimeUrl);
-  const websocketUrl = new URL("/api/v1/ws", runtimeUrl);
-
-  websocketUrl.protocol =
-    runtimeUrl.protocol === "https:" ? "wss:" : "ws:";
-
   return {
-    stateUrl: stateUrl.toString(),
-    refreshUrl: refreshUrl.toString(),
-    issuesUrl: issuesUrl.toString(),
-    websocketUrl: websocketUrl.toString()
+    stateUrl: createRuntimeUrl("/api/v1/state", runtimeBaseUrl),
+    refreshUrl: createRuntimeUrl("/api/v1/refresh", runtimeBaseUrl),
+    issuesUrl: createRuntimeUrl("/api/v1/issues", runtimeBaseUrl),
+    websocketUrl: createRuntimeWebsocketUrl("/api/v1/ws", runtimeBaseUrl)
   };
 }
 

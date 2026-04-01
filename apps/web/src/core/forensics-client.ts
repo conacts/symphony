@@ -12,13 +12,14 @@ import {
   type SymphonyRealtimeServerMessage
 } from "@symphony/contracts";
 import { messageInvalidatesPath } from "@/core/runtime-summary-client";
+import { createRuntimeUrl } from "@/core/runtime-url";
 
 export async function fetchIssueIndex(
   runtimeBaseUrl: string,
   input: Partial<SymphonyForensicsIssuesQuery> = {},
   fetchImpl: typeof fetch = fetch
 ): Promise<SymphonyForensicsIssueListResult> {
-  const endpoint = createRuntimeUrl(runtimeBaseUrl, "/api/v1/issues", {
+  const endpoint = createRuntimeUrl("/api/v1/issues", runtimeBaseUrl, {
     limit: input.limit ? String(input.limit) : undefined,
     timeRange: input.timeRange,
     startedAfter: input.startedAfter,
@@ -56,8 +57,8 @@ export async function fetchIssueForensicsBundle(
   fetchImpl: typeof fetch = fetch
 ): Promise<SymphonyForensicsIssueForensicsBundleResult> {
   const endpoint = createRuntimeUrl(
-    runtimeBaseUrl,
     `/api/v1/issues/${issueIdentifier}/forensics-bundle`,
+    runtimeBaseUrl,
     {
       limit: input.limit ? String(input.limit) : undefined,
       timeRange: input.timeRange,
@@ -104,8 +105,8 @@ export async function fetchIssueDetail(
   fetchImpl: typeof fetch = fetch
 ): Promise<SymphonyForensicsIssueDetailResult> {
   const endpoint = createRuntimeUrl(
-    runtimeBaseUrl,
     `/api/v1/issues/${issueIdentifier}`,
+    runtimeBaseUrl,
     {
       limit: String(input.limit ?? 200)
     }
@@ -135,7 +136,7 @@ export async function fetchRunDetail(
   runId: string,
   fetchImpl: typeof fetch = fetch
 ): Promise<SymphonyForensicsRunDetailResult> {
-  const endpoint = createRuntimeUrl(runtimeBaseUrl, `/api/v1/runs/${runId}`);
+  const endpoint = createRuntimeUrl(`/api/v1/runs/${runId}`, runtimeBaseUrl);
   const response = await fetchImpl(endpoint, {
     headers: {
       accept: "application/json"
@@ -183,22 +184,4 @@ export function shouldRefreshRunDetail(
   runId: string
 ): boolean {
   return messageInvalidatesPath(message, `/api/v1/runs/${runId}`);
-}
-
-function createRuntimeUrl(
-  runtimeBaseUrl: string,
-  path: string,
-  params?: Record<string, string | undefined>
-): string {
-  const url = new URL(path, runtimeBaseUrl);
-
-  if (params) {
-    for (const [key, value] of Object.entries(params)) {
-      if (value && value.trim() !== "") {
-        url.searchParams.set(key, value);
-      }
-    }
-  }
-
-  return url.toString();
 }

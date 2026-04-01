@@ -6,13 +6,14 @@ import {
   type SymphonyRuntimeRefreshResult
 } from "@symphony/contracts";
 import { messageInvalidatesPath } from "@/core/runtime-summary-client";
+import { createRuntimeUrl } from "@/core/runtime-url";
 
 export async function fetchRuntimeIssue(
   runtimeBaseUrl: string,
   issueIdentifier: string,
   fetchImpl: typeof fetch = fetch
 ): Promise<SymphonyRuntimeIssueResult> {
-  const endpoint = createRuntimeUrl(runtimeBaseUrl, `/api/v1/${issueIdentifier}`);
+  const endpoint = createRuntimeUrl(`/api/v1/${issueIdentifier}`, runtimeBaseUrl);
   const response = await fetchImpl(endpoint, {
     headers: {
       accept: "application/json"
@@ -70,8 +71,4 @@ export function shouldRefreshRuntimeIssue(
   }
 
   return messageInvalidatesPath(message, `/api/v1/${issueIdentifier}`);
-}
-
-function createRuntimeUrl(runtimeBaseUrl: string, path: string): string {
-  return new URL(path, runtimeBaseUrl).toString();
 }

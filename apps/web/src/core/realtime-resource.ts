@@ -46,6 +46,7 @@ export function useRealtimeResource<T>(input: {
   const [hasConnectedOnce, setHasConnectedOnce] = useState(false);
   const channelsKey = input.channels.join("|");
   const shouldRefresh = useEffectEvent(input.shouldRefresh);
+  const realtimeEnabled = input.websocketUrl.trim().length > 0;
 
   const refresh = useEffectEvent(async () => {
     try {
@@ -55,6 +56,10 @@ export function useRealtimeResource<T>(input: {
         setResource(nextResource);
         setLoading(false);
         setError(null);
+        if (!realtimeEnabled) {
+          setHasConnectedOnce(true);
+          setStatus("connected");
+        }
       });
     } catch (resourceError) {
       const nextError =
@@ -129,6 +134,10 @@ export function useRealtimeResource<T>(input: {
   }, [input.refreshKey]);
 
   useEffect(() => {
+    if (!realtimeEnabled) {
+      return;
+    }
+
     let disposed = false;
     let socket: WebSocket | null = null;
     let reconnectTimeout: number | null = null;
@@ -196,7 +205,7 @@ export function useRealtimeResource<T>(input: {
 
       socket?.close();
     };
-  }, [channelsKey, input.websocketUrl]);
+  }, [channelsKey, input.websocketUrl, realtimeEnabled]);
 
   return {
     resource,

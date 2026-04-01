@@ -7,6 +7,7 @@
     "build": "next build",
     "clean": "rm -rf .next tsconfig.tsbuildinfo",
     "dev": "next dev --turbopack",
+    "dev:mock": "NEXT_PUBLIC_SYMPHONY_USE_MOCK_RUNTIME=true next dev --turbopack",
     "lint": "eslint .",
     "start": "next start",
     "test": "vitest run",
