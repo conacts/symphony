@@ -8,7 +8,7 @@ import {
 import { RunDetailView } from "./run-detail-view.js";
 
 describe("run detail view", () => {
-  it("renders the run metrics and turn drilldown", () => {
+  it("renders the run metrics and flat turns table", () => {
     const html = renderToStaticMarkup(
       <RunDetailView
         connection={buildSymphonyDashboardConnectionState()}
@@ -21,7 +21,8 @@ describe("run detail view", () => {
     expect(html).toContain("COL-165");
     expect(html).toContain("Repo start");
     expect(html).toContain("Turns");
-    expect(html).toContain("Solve the task");
+    expect(html).toContain("Session");
+    expect(html).toContain("Turn");
     expect(html).toContain("View payload");
   });
 });

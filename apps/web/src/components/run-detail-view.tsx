@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,7 +36,10 @@ type SelectedPayload = {
   eventSequence: string;
   eventType: string;
   payloadText: string;
+  promptText: string;
   recordedAt: string;
+  sessionLabel: string;
+  status: string;
   summary: string;
   turnTitle: string;
 };
@@ -52,6 +54,22 @@ export function RunDetailView(input: {
   const viewModel = input.runDetail
     ? buildRunDetailViewModel(input.runDetail)
     : null;
+  const eventRows = viewModel
+    ? viewModel.turns.flatMap((turn) =>
+        turn.events.map((event) => ({
+          eventSequence: event.eventSequence,
+          eventType: event.eventType,
+          payloadText: event.payloadText,
+          promptText: turn.promptText,
+          recordedAt: event.recordedAt,
+          sessionLabel: turn.sessionLabel,
+          status: turn.status,
+          summary: event.summary,
+          turnSequence: turn.turnSequence,
+          turnTitle: turn.title
+        }))
+      )
+    : [];
 
   return (
     <div className="flex flex-col gap-8">
@@ -117,73 +135,58 @@ export function RunDetailView(input: {
             <CardHeader>
               <CardTitle>Turns</CardTitle>
               <CardDescription>
-                Rendered prompts and raw event timelines.
+                Turn activity with the latest event details inline.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Accordion type="single" collapsible defaultValue="turn-1">
-                {viewModel.turns.map((turn) => (
-                  <AccordionItem
-                    key={turn.turnSequence}
-                    value={`turn-${turn.turnSequence}`}
-                  >
-                    <AccordionTrigger>
-                      <div className="flex flex-col gap-1 text-left">
-                        <span>{turn.title}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {turn.sessionLabel} · {turn.status} · {turn.eventCount} events
-                        </span>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="flex flex-col gap-4">
-                        <pre className="overflow-x-auto rounded-xl border border-border/70 bg-background/70 p-4 text-xs leading-6 text-muted-foreground">
-                          {turn.promptText}
-                        </pre>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Seq</TableHead>
-                              <TableHead>At</TableHead>
-                              <TableHead>Event</TableHead>
-                              <TableHead>Summary</TableHead>
-                              <TableHead>Payload</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {turn.events.map((event) => (
-                              <TableRow key={`${turn.turnSequence}:${event.eventSequence}`}>
-                                <TableCell>{event.eventSequence}</TableCell>
-                                <TableCell>{event.recordedAt}</TableCell>
-                                <TableCell>{event.eventType}</TableCell>
-                                <TableCell>{event.summary}</TableCell>
-                                <TableCell>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() =>
-                                      setSelectedPayload({
-                                        eventSequence: event.eventSequence,
-                                        eventType: event.eventType,
-                                        payloadText: event.payloadText,
-                                        recordedAt: event.recordedAt,
-                                        summary: event.summary,
-                                        turnTitle: turn.title
-                                      })
-                                    }
-                                  >
-                                    View payload
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Turn</TableHead>
+                    <TableHead>At</TableHead>
+                    <TableHead>Session</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Event</TableHead>
+                    <TableHead>Summary</TableHead>
+                    <TableHead>Payload</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {eventRows.map((event) => (
+                    <TableRow key={`${event.turnSequence}:${event.eventSequence}`}>
+                      <TableCell className="font-medium">
+                        {event.turnSequence}
+                      </TableCell>
+                      <TableCell>{event.recordedAt}</TableCell>
+                      <TableCell>{event.sessionLabel}</TableCell>
+                      <TableCell>{event.status}</TableCell>
+                      <TableCell>{event.eventType}</TableCell>
+                      <TableCell>{event.summary}</TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setSelectedPayload({
+                              eventSequence: event.eventSequence,
+                              eventType: event.eventType,
+                              payloadText: event.payloadText,
+                              promptText: event.promptText,
+                              recordedAt: event.recordedAt,
+                              sessionLabel: event.sessionLabel,
+                              status: event.status,
+                              summary: event.summary,
+                              turnTitle: event.turnTitle
+                            })
+                          }
+                        >
+                          View payload
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
 
@@ -203,7 +206,7 @@ export function RunDetailView(input: {
                 </DrawerTitle>
                 <DrawerDescription>
                   {selectedPayload
-                    ? `${selectedPayload.eventType} · seq ${selectedPayload.eventSequence} · ${selectedPayload.recordedAt}`
+                    ? `${selectedPayload.eventType} · ${selectedPayload.turnTitle} · ${selectedPayload.recordedAt}`
                     : "Payload details"}
                 </DrawerDescription>
               </DrawerHeader>
@@ -212,6 +215,14 @@ export function RunDetailView(input: {
                   <>
                     <div className="text-sm text-muted-foreground">
                       {selectedPayload.summary}
+                    </div>
+                    <div className="rounded-xl border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
+                      <div>
+                        Session {selectedPayload.sessionLabel} · {selectedPayload.status}
+                      </div>
+                      <div className="mt-2 font-medium text-foreground">
+                        {selectedPayload.promptText}
+                      </div>
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border/70 bg-background/70 p-4">
                       <pre className="overflow-x-auto text-xs leading-6 text-muted-foreground">

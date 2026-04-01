@@ -1,5 +1,4 @@
 import React from "react";
-import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
@@ -79,14 +78,20 @@ export function IssueDetailView(input: {
                   </TableHeader>
                   <TableBody>
                     {viewModel.rows.map((row) => (
-                      <TableRow key={row.runId}>
-                        <TableCell>
-                          <Link
-                            className="font-medium underline underline-offset-4"
-                            href={row.runHref}
-                          >
-                            {row.runId.slice(0, 8)}
-                          </Link>
+                      <TableRow
+                        key={row.runId}
+                        tabIndex={0}
+                        className="cursor-pointer"
+                        onClick={() => window.location.assign(row.runHref)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            window.location.assign(row.runHref);
+                          }
+                        }}
+                      >
+                        <TableCell className="font-medium">
+                          {row.runId.slice(0, 8)}
                         </TableCell>
                         <TableCell>{row.startedAt}</TableCell>
                         <TableCell>{row.durationSeconds}</TableCell>
