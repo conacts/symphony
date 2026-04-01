@@ -300,7 +300,13 @@ describe("symphony orchestrator", () => {
   });
 
   it("treats max-turn pauses as continuation retries and journals a paused outcome", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig();
+    const workflowConfig = buildSymphonyWorkflowConfig({
+      tracker: {
+        ...buildSymphonyWorkflowConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: []
+      }
+    });
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
     const finalized: SymphonyAgentRuntimeCompletion[] = [];
 
@@ -348,6 +354,18 @@ describe("symphony orchestrator", () => {
         reason: "Reached the configured 2-turn limit while the issue remained active."
       }
     ]);
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "comment",
+      issueId: "issue-123",
+      body: expect.stringContaining("Symphony agent paused after reaching max turns.")
+    });
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "comment",
+      issueId: "issue-123",
+      body: expect.stringContaining(
+        "Symphony will start a fresh run automatically while the issue remains in an active state."
+      )
+    });
   });
 
   it("restarts stalled runs with retry backoff instead of leaving them active", async () => {
@@ -415,5 +433,195 @@ describe("symphony orchestrator", () => {
     ]);
     expect(orchestrator.snapshot().running).toHaveLength(0);
     expect(orchestrator.snapshot().retrying[0]?.delayType).toBe("failure");
+  });
+
+  it("formats startup-failure comments with moved-state guidance", async () => {
+    const workflowConfig = buildSymphonyWorkflowConfig({
+      tracker: {
+        ...buildSymphonyWorkflowConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: [],
+        startupFailureTransitionToState: "Backlog"
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+
+    const orchestrator = new SymphonyOrchestrator({
+      workflowConfig,
+      tracker,
+      workspaceManager: createLocalSymphonyWorkspaceManager({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.handleRunCompletion("issue-123", {
+      kind: "startup_failure",
+      reason: "workspace hook `before_run` exited with status 1."
+    });
+
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "update_state",
+      issueId: "issue-123",
+      stateName: "Backlog"
+    });
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "comment",
+      issueId: "issue-123",
+      body: expect.stringContaining("Symphony agent startup failed.")
+    });
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "comment",
+      issueId: "issue-123",
+      body: expect.stringContaining("Symphony moved the issue to `Backlog`.")
+    });
+  });
+
+  it("formats startup-failure comments with manual cleanup guidance when transition fails", async () => {
+    const workflowConfig = buildSymphonyWorkflowConfig({
+      tracker: {
+        ...buildSymphonyWorkflowConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: [],
+        startupFailureTransitionToState: "Backlog"
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const comments: string[] = [];
+
+    const tracker = {
+      async fetchCandidateIssues() {
+        return [issue];
+      },
+      async fetchIssuesByStates() {
+        return [issue];
+      },
+      async fetchIssueStatesByIds() {
+        return [issue];
+      },
+      async fetchIssueByIdentifier() {
+        return issue;
+      },
+      async createComment(_issueId: string, body: string) {
+        comments.push(body);
+      },
+      async updateIssueState() {
+        throw new Error("tracker unavailable");
+      }
+    };
+
+    const orchestrator = new SymphonyOrchestrator({
+      workflowConfig,
+      tracker,
+      workspaceManager: createLocalSymphonyWorkspaceManager({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.handleRunCompletion("issue-123", {
+      kind: "startup_failure",
+      reason: "workspace hook `before_run` exited with status 1."
+    });
+
+    expect(comments[0]).toContain(
+      "Symphony could not move the issue to `Backlog`, so manual state cleanup is required before the ticket is requeued."
+    );
+  });
+
+  it("formats rate-limited comments with rate-limit detail", async () => {
+    const workflowConfig = buildSymphonyWorkflowConfig({
+      tracker: {
+        ...buildSymphonyWorkflowConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: []
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+
+    const orchestrator = new SymphonyOrchestrator({
+      workflowConfig,
+      tracker,
+      workspaceManager: createLocalSymphonyWorkspaceManager({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 0);
+    orchestrator.applyAgentUpdate("issue-123", {
+      event: "notification",
+      payload: {
+        method: "codex/event/token_count",
+        params: {
+          msg: {
+            type: "event_msg",
+            payload: {
+              type: "token_count",
+              rate_limits: {
+                limit_id: "codex",
+                primary: {
+                  remaining: 90,
+                  limit: 100,
+                  reset_in_seconds: 95
+                }
+              }
+            }
+          }
+        }
+      },
+      timestamp: "2026-03-31T00:00:01.000Z"
+    });
+    await orchestrator.handleRunCompletion("issue-123", {
+      kind: "rate_limited",
+      reason: "rate_limit_exceeded"
+    });
+
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "comment",
+      issueId: "issue-123",
+      body: expect.stringContaining(
+        "Symphony agent paused after hitting a Codex rate limit."
+      )
+    });
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "comment",
+      issueId: "issue-123",
+      body: expect.stringContaining("Latest rate limits: codex; primary: 90/100 remaining, reset 95s")
+    });
   });
 });

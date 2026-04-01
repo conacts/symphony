@@ -151,6 +151,20 @@ export type SymphonyClock = {
   nowMs(): number;
 };
 
+type SymphonyStartupFailureTransition =
+  | {
+      kind: "none";
+    }
+  | {
+      kind: "moved";
+      targetState: string;
+    }
+  | {
+      kind: "failed";
+      targetState: string;
+      reason: string;
+    };
+
 export type SymphonyOrchestratorSnapshot = {
   running: Array<
     SymphonyRunningEntry & {
@@ -652,10 +666,19 @@ export class SymphonyOrchestrator {
       totalTokens: runningEntry.codexTotalTokens
     });
 
-    if (
-      completion.kind === "normal" ||
-      completion.kind === "max_turns_reached"
-    ) {
+    if (completion.kind === "normal" || completion.kind === "max_turns_reached") {
+      if (completion.kind === "max_turns_reached") {
+        await this.#leaveFailureComment(
+          runningEntry.issue,
+          completion.reason,
+          "paused_max_turns",
+          runningEntry.runId,
+          {
+            rateLimits: runningEntry.lastRateLimits
+          }
+        );
+      }
+
       this.#state.completed.add(issueId);
       await this.scheduleIssueRetry(issueId, 1, {
         identifier: runningEntry.issue.identifier,
@@ -695,7 +718,9 @@ export class SymphonyOrchestrator {
         ? "rate_limited"
         : "retry_scheduled",
       runningEntry.runId,
-      runningEntry.lastRateLimits
+      {
+        rateLimits: runningEntry.lastRateLimits
+      }
     );
 
     await this.scheduleIssueRetry(issueId, runningEntry.retryAttempt + 1, {
@@ -879,30 +904,60 @@ export class SymphonyOrchestrator {
   ): Promise<void> {
     const targetState =
       this.#workflowConfig.tracker.startupFailureTransitionToState;
+    let transition: SymphonyStartupFailureTransition = {
+      kind: "none"
+    };
 
     if (targetState) {
-      await this.#tracker.updateIssueState(issue.id, targetState);
-      await this.#observer?.recordLifecycleEvent({
-        issue: {
-          ...issue,
-          state: targetState
-        },
-        runId,
-        source: "tracker",
-        eventType: "startup_failure_transition",
-        message: `Issue moved to ${targetState} after startup failure.`,
-        payload: {
-          fromState: issue.state,
-          toState: targetState
-        }
-      });
+      try {
+        await this.#tracker.updateIssueState(issue.id, targetState);
+        transition = {
+          kind: "moved",
+          targetState
+        };
+        await this.#observer?.recordLifecycleEvent({
+          issue: {
+            ...issue,
+            state: targetState
+          },
+          runId,
+          source: "tracker",
+          eventType: "startup_failure_transition",
+          message: `Issue moved to ${targetState} after startup failure.`,
+          payload: {
+            fromState: issue.state,
+            toState: targetState
+          }
+        });
+      } catch (error) {
+        transition = {
+          kind: "failed",
+          targetState,
+          reason: error instanceof Error ? error.message : String(error)
+        };
+        await this.#observer?.recordLifecycleEvent({
+          issue,
+          runId,
+          source: "tracker",
+          eventType: "startup_failure_transition_failed",
+          message: `Issue could not be moved to ${targetState} after startup failure.`,
+          payload: {
+            fromState: issue.state,
+            toState: targetState,
+            reason: transition.reason
+          }
+        });
+      }
     }
 
     await this.#leaveFailureComment(
       issue,
       reason,
       targetState ? "startup_failed_backlog" : "startup_failed",
-      runId
+      runId,
+      {
+        startupFailureTransition: transition
+      }
     );
 
     await this.#workspaceManager.removeIssueWorkspace(
@@ -934,9 +989,12 @@ export class SymphonyOrchestrator {
     reason: string,
     outcome: string,
     runId: string | null,
-    rateLimits: SymphonyJsonObject | null = null
+    options: {
+      rateLimits?: SymphonyJsonObject | null;
+      startupFailureTransition?: SymphonyStartupFailureTransition;
+    } = {}
   ): Promise<void> {
-    const comment = buildFailureCommentBody(issue, reason, outcome, rateLimits);
+    const comment = buildFailureCommentBody(issue, reason, outcome, options);
 
     try {
       await this.#tracker.createComment(issue.id, comment);
@@ -1055,24 +1113,23 @@ function buildFailureCommentBody(
   issue: SymphonyTrackerIssue,
   reason: string,
   outcome: string,
-  rateLimits: SymphonyJsonObject | null = null
+  options: {
+    rateLimits?: SymphonyJsonObject | null;
+    startupFailureTransition?: SymphonyStartupFailureTransition;
+  } = {}
 ): string {
-  const latestRateLimits =
-    rateLimits && (rateLimitReason(reason) || outcome === "paused_max_turns")
-      ? `Latest rate limits: ${JSON.stringify(rateLimits)}`
-      : null;
-
   return [
-    "Symphony status update.",
+    failureCommentTitle(outcome, reason),
     "",
-    `Issue: \`${issue.identifier}\``,
-    `Outcome: \`${outcome}\``,
-    "What changed: the current Symphony run hit a ticket-scoped execution failure.",
+    `Summary: ${failureCommentSummary(outcome, reason)}`,
+    failureCommentDetailBlock(
+      failureCommentDetails(reason, outcome, options)
+    ),
     "",
-    "Failure summary:",
-    truncateReason(reason),
-    latestRateLimits
-  ].join("\n");
+    ...failureCommentFollowUpLines(outcome, options.startupFailureTransition)
+  ]
+    .filter((line): line is string => typeof line === "string" && line !== "")
+    .join("\n");
 }
 
 function truncateReason(reason: string, maxLength = 1_000): string {
@@ -1081,6 +1138,234 @@ function truncateReason(reason: string, maxLength = 1_000): string {
   }
 
   return `${reason.slice(0, maxLength)}...`;
+}
+
+function failureCommentTitle(outcome: string, reason: string): string {
+  if (outcome === "startup_failed" || outcome === "startup_failed_backlog") {
+    return "Symphony agent startup failed.";
+  }
+
+  if (outcome === "paused_max_turns") {
+    return "Symphony agent paused after reaching max turns.";
+  }
+
+  if (outcome === "rate_limited" || rateLimitReason(reason)) {
+    return "Symphony agent paused after hitting a Codex rate limit.";
+  }
+
+  return "Symphony agent run failed.";
+}
+
+function failureCommentSummary(outcome: string, reason: string): string {
+  if (outcome === "rate_limited" || rateLimitReason(reason)) {
+    return "Codex hit a rate limit and ended the current run.";
+  }
+
+  return truncateReason(reason);
+}
+
+function failureCommentDetails(
+  reason: string,
+  outcome: string,
+  options: {
+    rateLimits?: SymphonyJsonObject | null;
+    startupFailureTransition?: SymphonyStartupFailureTransition;
+  }
+): string | null {
+  const details: string[] = [];
+  const primaryDetail =
+    outcome === "rate_limited" || outcome === "paused_max_turns"
+      ? null
+      : truncateReason(reason);
+
+  if (primaryDetail) {
+    details.push(primaryDetail);
+  }
+
+  const transitionDetail = startupFailureTransitionDetail(
+    options.startupFailureTransition
+  );
+  if (transitionDetail) {
+    details.push(transitionDetail);
+  }
+
+  const rateLimitDetail = formatRateLimitDetail(reason, outcome, options.rateLimits);
+  if (rateLimitDetail) {
+    details.push(rateLimitDetail);
+  }
+
+  if (details.length === 0) {
+    return null;
+  }
+
+  return details.join("\n\n");
+}
+
+function failureCommentDetailBlock(details: string | null): string | null {
+  if (!details) {
+    return null;
+  }
+
+  return ["Details:", "```text", details, "```"].join("\n");
+}
+
+function failureCommentFollowUpLines(
+  outcome: string,
+  transition: SymphonyStartupFailureTransition | undefined
+): string[] {
+  if (outcome === "startup_failed" || outcome === "startup_failed_backlog") {
+    return startupFailureFollowUpLines(transition);
+  }
+
+  if (outcome === "paused_max_turns") {
+    return [
+      "Symphony will start a fresh run automatically while the issue remains in an active state."
+    ];
+  }
+
+  if (outcome === "rate_limited") {
+    return [
+      "Symphony will retry automatically after backoff while the issue remains in an active state."
+    ];
+  }
+
+  return [
+    "Symphony will retry automatically while the issue remains in an active state."
+  ];
+}
+
+function startupFailureFollowUpLines(
+  transition: SymphonyStartupFailureTransition | undefined
+): string[] {
+  if (transition?.kind === "moved") {
+    return [
+      "Symphony did not retry automatically.",
+      `Symphony moved the issue to \`${transition.targetState}\`. After fixing the startup problem, move it back into an active state to request another run.`
+    ];
+  }
+
+  if (transition?.kind === "failed") {
+    return [
+      "Symphony did not retry automatically.",
+      `Symphony could not move the issue to \`${transition.targetState}\`, so manual state cleanup is required before the ticket is requeued.`
+    ];
+  }
+
+  return [
+    "Symphony did not retry automatically.",
+    "After fixing the startup problem, move the issue back into an active state to request another run."
+  ];
+}
+
+function startupFailureTransitionDetail(
+  transition: SymphonyStartupFailureTransition | undefined
+): string | null {
+  if (transition?.kind !== "failed") {
+    return null;
+  }
+
+  return truncateReason(
+    `State transition to \`${transition.targetState}\` failed:\n${transition.reason}`
+  );
+}
+
+function formatRateLimitDetail(
+  reason: string,
+  outcome: string,
+  rateLimits: SymphonyJsonObject | null | undefined
+): string | null {
+  if (
+    !rateLimits ||
+    !(rateLimitReason(reason) || outcome === "paused_max_turns" || outcome === "rate_limited")
+  ) {
+    return null;
+  }
+
+  return `Latest rate limits: ${formatRateLimitsForComment(rateLimits)}`;
+}
+
+function formatRateLimitsForComment(rateLimits: SymphonyJsonObject): string {
+  const parts = [
+    stringOrNull(
+      rateLimits.limit_id ??
+        rateLimits.limitId ??
+        rateLimits.limit_name ??
+        rateLimits.limitName
+    ),
+    formatRateLimitBucketForComment(
+      "primary",
+      asJsonObject(rateLimits.primary)
+    ),
+    formatRateLimitBucketForComment(
+      "secondary",
+      asJsonObject(rateLimits.secondary)
+    ),
+    formatRateLimitCreditsForComment(asJsonObject(rateLimits.credits))
+  ].filter((part): part is string => typeof part === "string" && part !== "");
+
+  return parts.join("; ");
+}
+
+function formatRateLimitBucketForComment(
+  label: string,
+  bucket: SymphonyJsonObject | null
+): string | null {
+  if (!bucket) {
+    return null;
+  }
+
+  const remaining = stringOrNull(bucket.remaining);
+  const limit = stringOrNull(bucket.limit);
+  const resetInSeconds = stringOrNull(
+    bucket.reset_in_seconds ?? bucket.resetInSeconds
+  );
+
+  const fragments = [
+    remaining && limit ? `${remaining}/${limit} remaining` : null,
+    resetInSeconds ? `reset ${resetInSeconds}s` : null
+  ].filter((fragment): fragment is string => typeof fragment === "string");
+
+  return fragments.length > 0 ? `${label}: ${fragments.join(", ")}` : null;
+}
+
+function formatRateLimitCreditsForComment(
+  credits: SymphonyJsonObject | null
+): string | null {
+  if (!credits) {
+    return null;
+  }
+
+  const hasCredits = stringOrNull(credits.has_credits ?? credits.hasCredits);
+  const unlimited = stringOrNull(credits.unlimited);
+  const balance = stringOrNull(credits.balance);
+  const fragments = [
+    hasCredits ? `has_credits=${hasCredits}` : null,
+    unlimited ? `unlimited=${unlimited}` : null,
+    balance ? `balance=${balance}` : null
+  ].filter((fragment): fragment is string => typeof fragment === "string");
+
+  return fragments.length > 0 ? `credits: ${fragments.join(", ")}` : null;
+}
+
+function asJsonObject(value: unknown): SymphonyJsonObject | null {
+  return isRecord(value) ? (normalizeUnknownJsonObject(value) as SymphonyJsonObject) : null;
+}
+
+function stringOrNull(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed === "" ? null : trimmed;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  return null;
 }
 
 function extractTokenUsage(
