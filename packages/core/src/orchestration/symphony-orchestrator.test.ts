@@ -150,6 +150,67 @@ describe("symphony orchestrator", () => {
     expect(completedSnapshot.codexTotals.totalTokens).toBe(16);
   });
 
+  it("passes runner env through workspace lifecycle hooks", async () => {
+    const workflowConfig = buildSymphonyWorkflowConfig({
+      tracker: {
+        ...buildSymphonyWorkflowConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: [],
+        startupFailureTransitionToState: null
+      },
+      hooks: {
+        afterCreate: "echo after_create",
+        beforeRun: "echo before_run",
+        afterRun: "echo after_run",
+        beforeRemove: "echo before_remove",
+        timeoutMs: 1_000
+      }
+    });
+    const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
+    const hookEnvs: Array<Record<string, string>> = [];
+    const manager = createLocalSymphonyWorkspaceManager({
+      commandRunner: async ({ env }) => {
+        hookEnvs.push(env);
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        };
+      }
+    });
+
+    const orchestrator = new SymphonyOrchestrator({
+      workflowConfig,
+      tracker,
+      workspaceManager: manager,
+      agentRuntime: createAgentRuntime(),
+      runnerEnv: {
+        LINEAR_API_KEY: "test-linear-api-key",
+        SYMPHONY_SOURCE_REPO: "/tmp/source-repo"
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 0);
+    await orchestrator.handleRunCompletion("issue-123", {
+      kind: "startup_failure",
+      reason: "workspace hook failed"
+    });
+
+    expect(hookEnvs).toHaveLength(4);
+    expect(hookEnvs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          LINEAR_API_KEY: "test-linear-api-key",
+          SYMPHONY_SOURCE_REPO: "/tmp/source-repo"
+        })
+      ])
+    );
+  });
+
   it("tracks rate-limit payloads in the runtime snapshot", async () => {
     const workflowConfig = buildSymphonyWorkflowConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);

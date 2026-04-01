@@ -4,15 +4,19 @@ Date: 2026-03-31
 
 ## Current Decision
 
-The TypeScript Symphony control plane is **not ready to replace** the Elixir runtime as the active
-default today.
+The TypeScript Symphony control plane backend is now the primary implementation for the repo-owned,
+single-host workflow we are validating locally.
 
-The new implementation has strong parity on the operator-facing HTTP, websocket, dashboard, and
-forensics surfaces. It does **not** yet have parity on the real tracker, workspace, or Codex
-execution paths that make the current Elixir runtime production-useful.
+The major runtime-critical seams are now real:
 
-Maintain the TypeScript control plane in evaluation mode and continue to treat `symphony/elixir` as the runtime oracle until the cutover gates in
-this document are explicitly satisfied.
+- real Linear-backed polling and reconciliation
+- real Codex app-server execution
+- repo-owned workspace reuse/reset integration
+- DB-backed observability and forensics
+- live refresh/requeue/operator transport parity
+
+Keep `symphony/elixir` as the comparison oracle for regression audits and behavior checks, but the
+remaining work is now hardening, documentation sync, structural cleanup, and UI.
 
 ## Elixir Oracle
 
@@ -21,7 +25,7 @@ The current oracle remains:
 - `symphony/elixir/README.md`
 - `symphony/elixir/lib/symphony_elixir_web/router.ex`
 - `docs/architecture/symphony-evaluation-setup.md`
-- the repo-owned launcher `scripts/symphony/run-local.sh`
+- the repo-owned workflow contract in `WORKFLOW.md`
 
 Those surfaces define the current admitted V1 behavior we are trying to preserve or replace safely.
 
@@ -63,41 +67,29 @@ Those surfaces define the current admitted V1 behavior we are trying to preserve
 
 ### Runtime-Critical Parity
 
-- [ ] Real Linear-backed tracker polling and reconciliation
-  Current status:
-  - `apps/api/src/core/runtime-services.ts` still boots the default runtime with
-    `createMemorySymphonyTracker([])`.
-  Cutover gate:
-  - replace the memory tracker with a real admitted Linear adapter that uses `WORKFLOW.md` config.
-- [ ] Real Codex app-server execution
-  Current status:
-  - `apps/api/src/core/runtime-services.ts` still uses a stub `agentRuntime` that does
-    not launch Codex and returns `sessionId: null`.
-  Cutover gate:
-  - replace the stub runtime with the real Codex app-server orchestration path.
-- [ ] Repo-owned workspace bootstrap, validation, and cleanup integration
-  Current status:
-  - the TypeScript runtime does not yet invoke the repo-owned scripts under `scripts/symphony/`.
-  Cutover gate:
-  - prove the TypeScript runtime honors the same workspace lifecycle contract the Elixir launcher
-    relies on today.
-- [ ] Launch-path parity with the current Elixir evaluation loop
-  Current status:
-  - a TypeScript launch path now exists for evaluation, but it remains operator-surface-only until
-    the tracker and agent runtime seams are real.
-  Cutover gate:
-  - an operator can stop the Elixir process, start the TypeScript runtime and dashboard, and still
-    process real Symphony work end to end.
+- [x] Real Linear-backed tracker polling and reconciliation
+  Evidence:
+  - `packages/core/src/tracker/linear-symphony-tracker.ts`
+  - `apps/api/src/core/runtime-services.ts`
+- [x] Real Codex app-server execution
+  Evidence:
+  - `apps/api/src/core/codex-agent-runtime.ts`
+  - `apps/api/src/core/codex-app-server-client.ts`
+  - `apps/api/src/core/codex-agent-runtime.test.ts`
+- [x] Repo-owned workspace bootstrap, validation, and cleanup integration
+  Evidence:
+  - `packages/core/src/workspace/local-symphony-workspace-manager.ts`
+  - `packages/core/src/orchestration/symphony-orchestrator.ts`
+  - `packages/core/src/workspace/local-symphony-workspace-manager.test.ts`
+- [x] Launch-path parity with the current TypeScript evaluation loop
+  Evidence:
+  - `pnpm --filter @symphony/api build`
+  - `pnpm --filter @symphony/api start`
+  - live validation against the installed Codex binary plus the API surfaces
 
 ## Validation Evidence
 
 Current evidence command:
-
-```bash
-./scripts/symphony/check-typescript-parity.sh
-```
-
-That command runs:
 
 ```bash
 pnpm exec turbo run build lint test typecheck \
@@ -109,18 +101,11 @@ pnpm exec turbo run build lint test typecheck \
   --filter=@symphony/web
 ```
 
-This is necessary evidence for operator-surface parity. It is **not** sufficient evidence for full
-runtime cutover because the current runtime still uses a memory tracker and stub agent runtime.
+This is the current monorepo validation gate. The old wrapper parity script has been removed.
 
 ## Local Launch Path For Evaluation
 
 ### Runtime
-
-The TypeScript runtime now has a direct local launcher:
-
-```bash
-./scripts/symphony/run-typescript-local.sh
-```
 
 Expected env source:
 
@@ -134,13 +119,9 @@ Minimum env:
   - `PORT`
   - `WORKFLOW_PATH`
   - `SYMPHONY_DB_FILE`
+  - `SYMPHONY_SOURCE_REPO`
 
-The launcher defaults:
-
-- `WORKFLOW_PATH` to the repo-owned `WORKFLOW.md`
-- `SYMPHONY_DB_FILE` to `symphony.db`
-
-Equivalent direct package command:
+Start command:
 
 ```bash
 pnpm --filter @symphony/api dev
@@ -179,21 +160,16 @@ system.
 
 ### Current Status
 
-**Do not cut over yet.**
+**Backend parity is strong enough to proceed with UI work.**
 
-### Required Before Cutover
+### Remaining Before Declaring The Migration Finished
 
-All of the following must be true before the Elixir runtime stops being the active default:
+The remaining work is no longer “make the runtime real.” It is:
 
-1. The default TypeScript runtime uses a real Linear tracker adapter instead of the in-memory test
-   tracker.
-2. The default TypeScript runtime launches real Codex app-server sessions instead of the stub
-   agent runtime.
-3. The TypeScript runtime honors the repo-owned workspace bootstrap, validation, and cleanup
-   scripts used by the current evaluation workflow.
-4. A local operator can stop `symphony/elixir`, start the TypeScript runtime/dashboard, and retain
-   the important day-one behaviors without silent regression.
-5. The parity evidence command stays green while the runtime-critical gates above are added.
+1. Keep the parity evidence command green while refactors land.
+2. Continue Elixir-to-TypeScript audit sweeps for regressions and edge cases.
+3. Finish module-boundary cleanup on the remaining oversized files.
+4. Build the frontend against the now-stable API and observability contracts.
 
-Until those statements are true, treat the current TypeScript control plane as
-**evaluation-ready for UI and transport parity, but not cutover-ready for real orchestration**.
+Until the UI and final cleanup pass are complete, keep using the Elixir codebase as the oracle for
+behavioral comparisons. The backend itself is no longer blocked on stubbed runtime seams.

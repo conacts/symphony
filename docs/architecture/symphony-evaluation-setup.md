@@ -13,9 +13,6 @@ For the TypeScript control-plane parity checklist and cutover gates, see
 ## Repo-Owned Files
 
 - `WORKFLOW.md`
-- `scripts/symphony/run-local.sh`
-- `scripts/symphony/run-typescript-local.sh`
-- `scripts/symphony/check-typescript-parity.sh`
 - `symphony/README.md`
 - `symphony/elixir/README.md`
 - `docs/adr/2026-03-20-symphony-local-evaluation-workflow.md`
@@ -57,14 +54,14 @@ Model pinning note:
 - If you explicitly pin Codex Spark in this workflow, use `gpt-5.3-codex-spark`.
 - `codex-5.3-spark` is not accepted by the local Codex CLI when authenticated through the current ChatGPT-account flow.
 
-## Launcher Defaults
+## Runtime Defaults
 
-`./scripts/symphony/run-local.sh` exports these defaults before starting Symphony:
+The current TypeScript runtime expects these defaults in local evaluation:
 
 - `SYMPHONY_SOURCE_REPO=$REPO_ROOT`
 - `SYMPHONY_WORKSPACE_ROOT=$HOME/code/workspaces/symphony`
-- `SYMPHONY_INSTALL_ROOT=$REPO_ROOT/symphony/elixir`
-- `SYMPHONY_PR_BASE_REF=<repo default branch unless overridden>`
+- `WORKFLOW_PATH=$REPO_ROOT/WORKFLOW.md`
+- `SYMPHONY_DB_FILE=$REPO_ROOT/symphony.db`
 
 Requirements:
 
@@ -76,16 +73,11 @@ Requirements:
 - `gh`
 - `~/.codex/auth.json` for the standard Codex CLI auth flow
 - GitHub CLI auth (`gh auth login`) or equivalent stored GitHub credentials
-- a built in-repo Symphony runtime at `$SYMPHONY_INSTALL_ROOT`
-
-The launcher also always passes:
-
-- `--i-understand-that-this-will-be-running-without-the-usual-guardrails`
 
 Observability and forensics defaults:
 
 - `--logs-root` now also controls the local SQLite forensic journal path
-- default journal path: `log/run-journal.sqlite3`
+- default journal path: `symphony.db`
 - default retention window: 90 days
 - default web surfaces when `server.port` is enabled:
   - runtime dashboard: `/`
@@ -218,12 +210,10 @@ Notes:
 If you want server behavior to mirror a developer machine closely, use this shape:
 
 - source repo: `/home/<user>/code/symphony`
-- Symphony runtime root: `/home/<user>/code/symphony/symphony/elixir`
 - workspace root: `/home/<user>/code/workspaces/symphony`
 
 Matching env values:
 
-- `SYMPHONY_INSTALL_ROOT=/home/<user>/code/symphony/symphony/elixir`
 - `SYMPHONY_SOURCE_REPO=/home/<user>/code/symphony`
 - `SYMPHONY_WORKSPACE_ROOT=/home/<user>/code/workspaces/symphony`
 - `SYMPHONY_GITHUB_STATE_PATH=/home/<user>/.symphony/state/github-review-events.ndjson`
@@ -272,10 +262,16 @@ Notes:
 From the repo root:
 
 ```bash
-./scripts/symphony/run-local.sh
+pnpm --filter @symphony/api dev
 ```
 
-The command fails fast if `LINEAR_API_KEY`, `mise`, `codex`, `WORKFLOW.md`, or the built Symphony binary are missing.
+Validation:
+
+```bash
+pnpm build
+pnpm test
+pnpm lint
+```
 
 If a target repository needs issue worktrees or custom workspace hooks, invoke that repository's
 own tooling instead of shelling back into this repo.

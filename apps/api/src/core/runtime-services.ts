@@ -8,11 +8,8 @@ import {
   SymphonyOrchestrator,
   type SymphonyForensicsReadModel,
   type SymphonyLoadedWorkflow,
-  type SymphonyOrchestratorObserver,
   type SymphonyOrchestratorSnapshot,
   type SymphonyResolvedWorkflowConfig,
-  type SymphonyJsonValue,
-  type SymphonyRunJournal,
   type SymphonyTracker
 } from "@symphony/core";
 import type {
@@ -29,8 +26,7 @@ import {
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
   createSqliteSymphonyRunJournal,
-  initializeSymphonyDb,
-  type SymphonyIssueTimelineStore
+  initializeSymphonyDb
 } from "@symphony/db";
 import {
   createSymphonyLogger,
@@ -40,6 +36,11 @@ import { createRuntimeHttpError } from "./errors.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 import { createLocalCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
+import { createDbBackedOrchestratorObserver } from "./runtime-db-observer.js";
+import {
+  publishRealtimeSnapshotDiff,
+  snapshotRequiresRealtimeInvalidation
+} from "./runtime-realtime-diff.js";
 import {
   createSymphonyRealtimeHub,
   type SymphonyRealtimeHub
@@ -214,7 +215,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     tracker,
     workspaceManager,
     observer,
-    agentRuntime
+    agentRuntime,
+    runnerEnv: environmentSource
   });
   orchestratorRef = orchestrator;
 
@@ -518,298 +520,6 @@ export function requireRuntimeIssue(
     running,
     retry
   };
-}
-
-function publishRealtimeSnapshotDiff(
-  realtime: SymphonyRealtimeHub,
-  before: SymphonyOrchestratorSnapshot,
-  after: SymphonyOrchestratorSnapshot,
-  logger: SymphonyLogger
-): void {
-  if (!snapshotRequiresRealtimeInvalidation(before, after)) {
-    logger.debug("Skipped realtime invalidation because snapshot did not change");
-    return;
-  }
-
-  logger.debug("Publishing realtime invalidation for snapshot change", {
-    beforeRunningCount: before.running.length,
-    afterRunningCount: after.running.length,
-    beforeRetryingCount: before.retrying.length,
-    afterRetryingCount: after.retrying.length
-  });
-  realtime.publishSnapshotUpdated();
-  realtime.publishProblemRunsUpdated();
-
-  const issueIdentifiers = new Set<string>();
-
-  for (const entry of before.running) {
-    issueIdentifiers.add(entry.issue.identifier);
-  }
-
-  for (const entry of before.retrying) {
-    issueIdentifiers.add(entry.identifier);
-  }
-
-  for (const entry of after.running) {
-    issueIdentifiers.add(entry.issue.identifier);
-  }
-
-  for (const entry of after.retrying) {
-    issueIdentifiers.add(entry.identifier);
-  }
-
-  for (const issueIdentifier of issueIdentifiers) {
-    realtime.publishIssueUpdated(issueIdentifier);
-  }
-}
-
-function snapshotRequiresRealtimeInvalidation(
-  before: SymphonyOrchestratorSnapshot,
-  after: SymphonyOrchestratorSnapshot
-): boolean {
-  return (
-    JSON.stringify(buildRealtimeComparableSnapshot(before)) !==
-    JSON.stringify(buildRealtimeComparableSnapshot(after))
-  );
-}
-
-function buildRealtimeComparableSnapshot(
-  snapshot: SymphonyOrchestratorSnapshot
-): Record<string, unknown> {
-  return {
-    running: snapshot.running.map((entry) => ({
-      issueId: entry.issueId,
-      issue: entry.issue,
-      runId: entry.runId,
-      sessionId: entry.sessionId,
-      workerHost: entry.workerHost,
-      workspacePath: entry.workspacePath,
-      retryAttempt: entry.retryAttempt,
-      turnCount: entry.turnCount,
-      lastCodexMessage: entry.lastCodexMessage,
-      lastCodexTimestamp: entry.lastCodexTimestamp,
-      lastCodexEvent: entry.lastCodexEvent,
-      codexInputTokens: entry.codexInputTokens,
-      codexOutputTokens: entry.codexOutputTokens,
-      codexTotalTokens: entry.codexTotalTokens,
-      codexLastReportedInputTokens: entry.codexLastReportedInputTokens,
-      codexLastReportedOutputTokens: entry.codexLastReportedOutputTokens,
-      codexLastReportedTotalTokens: entry.codexLastReportedTotalTokens,
-      lastRateLimits: entry.lastRateLimits,
-      codexAppServerPid: entry.codexAppServerPid,
-      startedAt: entry.startedAt
-    })),
-    retrying: snapshot.retrying.map((entry) => ({
-      issueId: entry.issueId,
-      attempt: entry.attempt,
-      dueAtMs: entry.dueAtMs,
-      retryToken: entry.retryToken,
-      identifier: entry.identifier,
-      error: entry.error,
-      workerHost: entry.workerHost,
-      workspacePath: entry.workspacePath,
-      delayType: entry.delayType
-    })),
-    codexTotals: snapshot.codexTotals,
-    rateLimits: snapshot.rateLimits
-  };
-}
-
-function createDbBackedOrchestratorObserver(input: {
-  runJournal: SymphonyRunJournal;
-  issueTimelineStore: SymphonyIssueTimelineStore;
-}): SymphonyOrchestratorObserver {
-  return {
-    async startRun({ issue, attempt, workspacePath, workerHost, startedAt }) {
-      return await input.runJournal.recordRunStarted({
-        issueId: issue.id,
-        issueIdentifier: issue.identifier,
-        attempt,
-        status: "dispatching",
-        workerHost,
-        workspacePath,
-        startedAt,
-        metadata: {
-          runtime: "typescript"
-        }
-      });
-    },
-
-    async recordLifecycleEvent({
-      issue,
-      runId,
-      source,
-      eventType,
-      message,
-      payload,
-      recordedAt
-    }) {
-      if (runId && source === "workspace") {
-        const workspacePayload = asRecord(payload);
-        await input.runJournal.updateRun(runId, {
-          workspacePath:
-            typeof workspacePayload?.workspacePath === "string"
-              ? workspacePayload.workspacePath
-              : null,
-          workerHost:
-            typeof workspacePayload?.workerHost === "string"
-              ? workspacePayload.workerHost
-              : null
-        });
-      }
-
-      if (runId && eventType === "run_launched") {
-        const launchPayload = asRecord(payload);
-        await input.runJournal.updateRun(runId, {
-          status: "running",
-          workspacePath:
-            typeof launchPayload?.workspacePath === "string"
-              ? launchPayload.workspacePath
-              : null,
-          workerHost:
-            typeof launchPayload?.workerHost === "string"
-              ? launchPayload.workerHost
-              : null,
-          metadata: {
-            sessionId:
-              typeof launchPayload?.sessionId === "string"
-                ? launchPayload.sessionId
-                : null
-          }
-        });
-      }
-
-      await input.issueTimelineStore.record({
-        issueId: issue.id,
-        issueIdentifier: issue.identifier,
-        runId,
-        source,
-        eventType,
-        message: message ?? null,
-        payload: normalizeJsonValue(payload),
-        recordedAt
-      });
-    },
-
-    async finalizeRun({
-      runId,
-      completion,
-      workerHost,
-      workspacePath,
-      endedAt,
-      turnCount,
-      inputTokens,
-      outputTokens,
-      totalTokens
-    }) {
-      if (!runId) {
-        return;
-      }
-
-      await input.runJournal.finalizeRun(runId, {
-        status: completionStatus(completion),
-        outcome: completionOutcome(completion),
-        endedAt,
-        metadata: {
-          turnCount,
-          workerHost,
-          workspacePath,
-          tokens: {
-            inputTokens,
-            outputTokens,
-            totalTokens
-          }
-        },
-        errorClass:
-          completion.kind === "normal" ? null : completionErrorClass(completion),
-        errorMessage:
-          completion.kind === "normal" ? null : completion.reason
-      });
-    }
-  };
-}
-
-function completionStatus(
-  completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
-): string {
-  switch (completion.kind) {
-    case "normal":
-      return "finished";
-    case "max_turns_reached":
-      return "paused";
-    case "startup_failure":
-      return "startup_failed";
-    case "rate_limited":
-      return "rate_limited";
-    case "stalled":
-      return "stalled";
-    case "failure":
-      return "failed";
-  }
-}
-
-function completionOutcome(
-  completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
-): string {
-  switch (completion.kind) {
-    case "normal":
-      return "completed_turn_batch";
-    case "max_turns_reached":
-      return "paused_max_turns";
-    case "startup_failure":
-      return "startup_failed";
-    case "rate_limited":
-      return "rate_limited";
-    case "stalled":
-      return "stalled";
-    case "failure":
-      return "failed";
-  }
-}
-
-function completionErrorClass(
-  completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
-): string {
-  switch (completion.kind) {
-    case "max_turns_reached":
-      return "max_turns_reached";
-    case "normal":
-      return "normal";
-    default:
-      return completion.kind;
-  }
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function normalizeJsonValue(value: unknown): SymphonyJsonValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((entry) => normalizeJsonValue(entry));
-  }
-
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
-        key,
-        normalizeJsonValue(nestedValue)
-      ])
-    ) as SymphonyJsonValue;
-  }
-
-  return String(value);
 }
 
 function buildIdlePollerSnapshot(

@@ -214,6 +214,7 @@ export class SymphonyOrchestrator {
   readonly #agentRuntime: SymphonyAgentRuntime;
   readonly #observer: SymphonyOrchestratorObserver | null;
   readonly #clock: SymphonyClock;
+  readonly #runnerEnv: Record<string, string | undefined> | undefined;
   #state: SymphonyOrchestratorState;
 
   constructor(input: {
@@ -223,6 +224,7 @@ export class SymphonyOrchestrator {
     agentRuntime: SymphonyAgentRuntime;
     observer?: SymphonyOrchestratorObserver;
     clock?: SymphonyClock;
+    runnerEnv?: Record<string, string | undefined>;
   }) {
     this.#workflowConfig = input.workflowConfig;
     this.#tracker = input.tracker;
@@ -230,6 +232,7 @@ export class SymphonyOrchestrator {
     this.#agentRuntime = input.agentRuntime;
     this.#observer = input.observer ?? null;
     this.#clock = input.clock ?? systemClock;
+    this.#runnerEnv = input.runnerEnv;
     this.#state = createSymphonyOrchestratorState(
       input.workflowConfig,
       this.#clock
@@ -444,9 +447,7 @@ export class SymphonyOrchestrator {
         workspaceContext,
         this.#workflowConfig.workspace,
         this.#workflowConfig.hooks,
-        {
-          workerHost: preferredWorkerHost
-        }
+        this.#workspaceRunnerOptions(preferredWorkerHost)
       );
 
       await this.#observer?.recordLifecycleEvent({
@@ -467,9 +468,7 @@ export class SymphonyOrchestrator {
         workspace.path,
         workspaceContext,
         this.#workflowConfig.hooks,
-        {
-          workerHost: preferredWorkerHost
-        }
+        this.#workspaceRunnerOptions(preferredWorkerHost)
       );
 
       await this.#observer?.recordLifecycleEvent({
@@ -639,9 +638,7 @@ export class SymphonyOrchestrator {
         issueIdentifier: runningEntry.issue.identifier
       },
       this.#workflowConfig.hooks,
-      {
-        workerHost: runningEntry.workerHost
-      }
+      this.#workspaceRunnerOptions(runningEntry.workerHost)
     );
 
     await this.#observer?.finalizeRun({
@@ -853,9 +850,7 @@ export class SymphonyOrchestrator {
         runningEntry.issue.identifier,
         this.#workflowConfig.workspace,
         this.#workflowConfig.hooks,
-        {
-          workerHost: runningEntry.workerHost
-        }
+        this.#workspaceRunnerOptions(runningEntry.workerHost)
       );
     }
 
@@ -889,6 +884,16 @@ export class SymphonyOrchestrator {
       secondsRunning:
         this.#state.codexTotals.secondsRunning +
         runtimeSeconds(runningEntry.startedAt, this.#clock.now())
+    };
+  }
+
+  #workspaceRunnerOptions(workerHost: string | null): {
+    env: Record<string, string | undefined> | undefined;
+    workerHost: string | null;
+  } {
+    return {
+      env: this.#runnerEnv,
+      workerHost
     };
   }
 
@@ -961,9 +966,7 @@ export class SymphonyOrchestrator {
       issue.identifier,
       this.#workflowConfig.workspace,
       this.#workflowConfig.hooks,
-      {
-        workerHost
-      }
+      this.#workspaceRunnerOptions(workerHost)
     );
 
     await this.#observer?.recordLifecycleEvent({

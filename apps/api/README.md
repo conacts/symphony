@@ -17,13 +17,7 @@ Thin runtime app boundary for the Symphony developer control plane.
 
 ## Local Evaluation
 
-The local evaluation launcher is:
-
-```bash
-./scripts/symphony/run-typescript-local.sh
-```
-
-Equivalent package command:
+Start the runtime directly with:
 
 ```bash
 pnpm --filter @symphony/api dev
@@ -40,17 +34,17 @@ Supported overrides:
 - `PORT`
 - `WORKFLOW_PATH`
 - `SYMPHONY_DB_FILE`
+- `SYMPHONY_SOURCE_REPO`
 
 ## Current State
 
 This app now owns the real TypeScript HTTP and websocket surfaces, DB-backed observability,
 autonomous polling, a real Linear tracker, and a local Codex app-server execution path.
 
-The remaining cutover work is backend hardening rather than basic runtime wiring:
+The remaining work is backend hardening and cleanup rather than basic runtime wiring:
 
-- live parity validation against the installed Codex binary
-- broader Elixir-to-TypeScript behavioral parity sweeps
+- continued Elixir-to-TypeScript behavioral parity sweeps
 - backend refactors to tighten module boundaries and split oversized files
-- frontend/dashboard work after backend parity is stable
+- frontend/dashboard work on top of the now-stable API and observability contracts
 
 See `docs/architecture/symphony-typescript-parity-readiness.md` for the explicit cutover gates.

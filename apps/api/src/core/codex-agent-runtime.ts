@@ -1,4 +1,3 @@
-import { execFile } from "node:child_process";
 import type {
   SymphonyAgentRuntime,
   SymphonyAgentRuntimeCompletion,
@@ -13,18 +12,19 @@ import type {
 import type { SymphonyRuntimeLogStore } from "@symphony/db";
 import type { SymphonyLogger } from "@symphony/logger";
 import {
-  CodexAppServerClient,
-  CodexAppServerError,
-  type CodexAppServerToolExecutor
+  CodexAppServerClient
 } from "./codex-app-server-client.js";
+import {
+  CodexAppServerError,
+  type CodexAppServerSessionClient,
+  type CodexAppServerToolExecutor
+} from "./codex-app-server-types.js";
+import { buildLinearGraphqlToolExecutor } from "./codex-linear-graphql-tool.js";
+import { captureRepoSnapshot } from "./codex-repo-snapshot.js";
 import {
   buildSymphonyContinuationPrompt,
   renderSymphonyPrompt
 } from "./symphony-prompt.js";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
-const defaultPatchMaxBytes = 64 * 1024;
 
 type RunCallbacks = {
   onUpdate(issueId: string, update: SymphonyAgentRuntimeUpdate): void | Promise<void>;
@@ -36,7 +36,7 @@ type RunCallbacks = {
 
 type ActiveRun = {
   stopped: boolean;
-  client: CodexAppServerClient | null;
+  client: CodexAppServerSessionClient | null;
 };
 
 export function createLocalCodexSymphonyAgentRuntime(input: {
@@ -373,265 +373,6 @@ function isActiveIssueState(
   );
 }
 
-function buildLinearGraphqlToolExecutor(
-  workflowConfig: SymphonyResolvedWorkflowConfig,
-  logger: SymphonyLogger
-): CodexAppServerToolExecutor {
-  return async (toolName, argumentsPayload) => {
-    if (toolName !== "linear_graphql") {
-      return {
-        success: false,
-        output: JSON.stringify(
-          {
-            error: {
-              message: `Unsupported dynamic tool: ${JSON.stringify(toolName)}.`,
-              supportedTools: ["linear_graphql"]
-            }
-          },
-          null,
-          2
-        ),
-        contentItems: [
-          {
-            type: "inputText",
-            text: JSON.stringify(
-              {
-                error: {
-                  message: `Unsupported dynamic tool: ${JSON.stringify(toolName)}.`,
-                  supportedTools: ["linear_graphql"]
-                }
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
-    }
-
-    const normalizedArguments = normalizeLinearGraphqlArguments(argumentsPayload);
-    if (!normalizedArguments.ok) {
-      return {
-        success: false,
-        output: JSON.stringify(
-          {
-            error: {
-              message: normalizedArguments.message
-            }
-          },
-          null,
-          2
-        ),
-        contentItems: [
-          {
-            type: "inputText",
-            text: JSON.stringify(
-              {
-                error: {
-                  message: normalizedArguments.message
-                }
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
-    }
-
-    if (!workflowConfig.tracker.apiKey) {
-      return {
-        success: false,
-        output: JSON.stringify(
-          {
-            error: {
-              message:
-                "Symphony is missing Linear auth. Set `linear.api_key` in `WORKFLOW.md` or export `LINEAR_API_KEY`."
-            }
-          },
-          null,
-          2
-        ),
-        contentItems: [
-          {
-            type: "inputText",
-            text: JSON.stringify(
-              {
-                error: {
-                  message:
-                    "Symphony is missing Linear auth. Set `linear.api_key` in `WORKFLOW.md` or export `LINEAR_API_KEY`."
-                }
-              },
-              null,
-              2
-            )
-          }
-        ]
-      };
-    }
-
-    try {
-      const response = await fetch(workflowConfig.tracker.endpoint, {
-        method: "POST",
-        headers: {
-          Authorization: workflowConfig.tracker.apiKey,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          query: normalizedArguments.query,
-          variables: normalizedArguments.variables
-        })
-      });
-      const body = (await response.json()) as Record<string, unknown>;
-      const output = JSON.stringify(body, null, 2);
-      const responseErrors = Array.isArray(body.errors) ? body.errors : null;
-
-      return {
-        success: response.ok && (!responseErrors || responseErrors.length === 0),
-        output,
-        contentItems: [
-          {
-            type: "inputText",
-            text: output
-          }
-        ]
-      };
-    } catch (error) {
-      logger.error("linear_graphql tool execution failed", {
-        error
-      });
-
-      const output = JSON.stringify(
-        {
-          error: {
-            message:
-              "Linear GraphQL request failed before receiving a successful response.",
-            reason: error instanceof Error ? error.message : String(error)
-          }
-        },
-        null,
-        2
-      );
-      return {
-        success: false,
-        output,
-        contentItems: [
-          {
-            type: "inputText",
-            text: output
-          }
-        ]
-      };
-    }
-  };
-}
-
-type RepoSnapshot = {
-  commitHash: string | null;
-  snapshot: SymphonyJsonObject;
-};
-
-async function captureRepoSnapshot(
-  workspacePath: string,
-  timeoutMs: number
-): Promise<RepoSnapshot> {
-  const capturedAt = new Date().toISOString();
-
-  try {
-    const head = await gitCapture(workspacePath, ["rev-parse", "HEAD"], timeoutMs);
-    const statusShort = await gitCapture(
-      workspacePath,
-      ["status", "--short"],
-      timeoutMs
-    );
-    const diffstat = await gitCapture(
-      workspacePath,
-      ["diff", "--stat", "--no-ext-diff", "HEAD"],
-      timeoutMs
-    );
-    const patchOutput = await gitCapture(
-      workspacePath,
-      ["diff", "--no-ext-diff", "HEAD"],
-      timeoutMs
-    );
-    const patch = truncateText(patchOutput, defaultPatchMaxBytes);
-
-    return {
-      commitHash: blankToNull(head),
-      snapshot: {
-        captured_at: capturedAt,
-        available: true,
-        worker_host: null,
-        commit_hash: blankToNull(head),
-        dirty: statusShort.trim() !== "",
-        status_short: blankToNull(statusShort),
-        diffstat: blankToNull(diffstat),
-        patch: patch.content,
-        patch_truncated: patch.truncated
-      }
-    };
-  } catch (error) {
-    return {
-      commitHash: null,
-      snapshot: {
-        captured_at: capturedAt,
-        available: false,
-        worker_host: null,
-        error: formatRepoSnapshotError(error)
-      }
-    };
-  }
-}
-
-async function gitCapture(
-  workspacePath: string,
-  args: string[],
-  timeoutMs: number
-): Promise<string> {
-  const { stdout, stderr } = await execFileAsync("git", args, {
-    cwd: workspacePath,
-    timeout: timeoutMs,
-    maxBuffer: 8 * 1024 * 1024
-  });
-
-  const output = `${stdout ?? ""}${stderr ?? ""}`.trimEnd();
-  return output;
-}
-
-function truncateText(
-  content: string,
-  maxBytes: number
-): {
-  content: string | null;
-  truncated: boolean;
-} {
-  const buffer = Buffer.from(content, "utf8");
-
-  if (buffer.byteLength <= maxBytes) {
-    return {
-      content: blankToNull(content),
-      truncated: false
-    };
-  }
-
-  return {
-    content: blankToNull(buffer.subarray(0, maxBytes).toString("utf8")),
-    truncated: true
-  };
-}
-
-function blankToNull(value: string): string | null {
-  return value.trim() === "" ? null : value;
-}
-
-function formatRepoSnapshotError(error: unknown): string {
-  if (error instanceof Error) {
-    return `git exception: ${error.message}`;
-  }
-
-  return String(error);
-}
-
 function isStartupFailure(error: unknown): boolean {
   if (error instanceof CodexAppServerError) {
     return [
@@ -669,72 +410,6 @@ function isRateLimitedError(error: unknown): boolean {
       normalized.includes("rate_limit_exceeded")
     );
   });
-}
-
-function normalizeLinearGraphqlArguments(
-  argumentsPayload: unknown
-):
-  | {
-      ok: true;
-      query: string;
-      variables: Record<string, unknown>;
-    }
-  | {
-      ok: false;
-      message: string;
-    } {
-  if (typeof argumentsPayload === "string") {
-    const query = argumentsPayload.trim();
-
-    return query === ""
-      ? {
-          ok: false,
-          message: "`linear_graphql` requires a non-empty `query` string."
-        }
-      : {
-          ok: true,
-          query,
-          variables: {}
-        };
-  }
-
-  if (!argumentsPayload || typeof argumentsPayload !== "object" || Array.isArray(argumentsPayload)) {
-    return {
-      ok: false,
-      message:
-        "`linear_graphql` expects either a GraphQL query string or an object with `query` and optional `variables`."
-    };
-  }
-
-  const record = argumentsPayload as Record<string, unknown>;
-  const query = getString(record, "query");
-  if (!query) {
-    return {
-      ok: false,
-      message: "`linear_graphql` requires a non-empty `query` string."
-    };
-  }
-
-  const rawVariables = record.variables;
-  if (
-    rawVariables !== undefined &&
-    rawVariables !== null &&
-    (typeof rawVariables !== "object" || Array.isArray(rawVariables))
-  ) {
-    return {
-      ok: false,
-      message: "`linear_graphql.variables` must be a JSON object when provided."
-    };
-  }
-
-  return {
-    ok: true,
-    query,
-    variables:
-      rawVariables && typeof rawVariables === "object"
-        ? (rawVariables as Record<string, unknown>)
-        : {}
-  };
 }
 
 function getRecord(
