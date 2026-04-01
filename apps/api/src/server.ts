@@ -11,7 +11,9 @@ export async function createSymphonyRuntimeServer(
   app: ReturnType<typeof createSymphonyRuntimeApplication>["app"];
   server: Server;
 }> {
-  const runtimeApplication = createSymphonyRuntimeApplication(services);
+  const runtimeApplication = createSymphonyRuntimeApplication(services, {
+    allowedOrigins: env.allowedOrigins
+  });
   const server = createAdaptorServer({
     fetch: runtimeApplication.app.fetch
   }) as Server;

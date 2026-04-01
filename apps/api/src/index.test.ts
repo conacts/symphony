@@ -17,6 +17,10 @@ describe("@symphony/api scaffold", () => {
     expect(runtime.env.workflowPath).toBe("/tmp/WORKFLOW.md");
     expect(runtime.env.dbFile).toBe("/tmp/symphony.db");
     expect(runtime.env.sourceRepo).toBe("/tmp/source-repo");
+    expect(runtime.env.allowedOrigins).toEqual([
+      "http://localhost:3000",
+      "http://127.0.0.1:3000"
+    ]);
     expect(runtime.env.linearApiKey).toBe("test-linear-api-key");
     expect(runtime.env.logLevel).toBe("debug");
     expect(runtime.dependsOn).toEqual([
@@ -40,5 +44,15 @@ describe("@symphony/api scaffold", () => {
       LINEAR_API_KEY: "test-linear-api-key",
       SYMPHONY_SOURCE_REPO: "/tmp/source-repo"
     });
+  });
+
+  it("supports disabling explicit cors origins and falling back to local-network defaults", () => {
+    const env = loadSymphonyRuntimeAppEnv(
+      buildSymphonyRuntimeEnv({
+        SYMPHONY_ALLOWED_ORIGINS: ""
+      })
+    );
+
+    expect(env.allowedOrigins).toEqual([]);
   });
 });

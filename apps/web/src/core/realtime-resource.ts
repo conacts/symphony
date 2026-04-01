@@ -20,9 +20,15 @@ export function shouldDegradeRealtimeState(input: {
 }
 
 export function shouldRefreshAfterConnectionAck(input: {
+  subscribedChannels: SymphonyRealtimeChannel[];
+  requestedChannels: SymphonyRealtimeChannel[];
   hasResource: boolean;
   error: string | null;
 }): boolean {
+  if (!hasSubscribedToRequestedChannels(input)) {
+    return false;
+  }
+
   return !input.hasResource || input.error !== null;
 }
 
@@ -56,44 +62,43 @@ export function useRealtimeResource<T>(input: {
           ? resourceError.message
           : "Failed to load the requested resource.";
 
-      if (
-        shouldDegradeRealtimeState({
-          hasResource: resource !== null,
-          hasConnectedOnce
-        })
-      ) {
-        startTransition(() => {
-          setLoading(false);
-          setError(nextError);
-          setStatus("degraded");
-        });
-        return;
-      }
-
       startTransition(() => {
-        setLoading(true);
-        setError(null);
-        setStatus("connecting");
+        setLoading(false);
+        setError(nextError);
+        setStatus("degraded");
       });
     }
   });
 
-  const handleConnectionAck = useEffectEvent(() => {
-    const shouldRefreshNow = shouldRefreshAfterConnectionAck({
-      hasResource: resource !== null,
-      error
-    });
+  const handleConnectionAck = useEffectEvent(
+    (message: Extract<SymphonyRealtimeServerMessage, { type: "connection.ack" }>) => {
+      const shouldRefreshNow = shouldRefreshAfterConnectionAck({
+        subscribedChannels: message.subscribedChannels,
+        requestedChannels: input.channels,
+        hasResource: resource !== null,
+        error
+      });
 
-    startTransition(() => {
-      setHasConnectedOnce(true);
-      setStatus("connected");
-      setError(null);
-    });
+      if (
+        !hasSubscribedToRequestedChannels({
+          subscribedChannels: message.subscribedChannels,
+          requestedChannels: input.channels
+        })
+      ) {
+        return;
+      }
 
-    if (shouldRefreshNow) {
-      void refresh();
+      startTransition(() => {
+        setHasConnectedOnce(true);
+        setStatus("connected");
+        setError(null);
+      });
+
+      if (shouldRefreshNow) {
+        void refresh();
+      }
     }
-  });
+  );
 
   const handleConnectionFailure = useEffectEvent((message: string) => {
     if (
@@ -121,7 +126,7 @@ export function useRealtimeResource<T>(input: {
       setError(null);
     });
     void refresh();
-  }, [input.refreshKey, refresh]);
+  }, [input.refreshKey]);
 
   useEffect(() => {
     let disposed = false;
@@ -156,7 +161,7 @@ export function useRealtimeResource<T>(input: {
         }
 
         if (message.type === "connection.ack") {
-          handleConnectionAck();
+          handleConnectionAck(message);
           return;
         }
 
@@ -191,15 +196,7 @@ export function useRealtimeResource<T>(input: {
 
       socket?.close();
     };
-  }, [
-    channelsKey,
-    handleConnectionAck,
-    handleConnectionFailure,
-    input.refreshKey,
-    input.websocketUrl,
-    refresh,
-    shouldRefresh
-  ]);
+  }, [channelsKey, input.websocketUrl]);
 
   return {
     resource,
@@ -208,4 +205,13 @@ export function useRealtimeResource<T>(input: {
     error,
     refresh
   };
+}
+
+export function hasSubscribedToRequestedChannels(input: {
+  subscribedChannels: SymphonyRealtimeChannel[];
+  requestedChannels: SymphonyRealtimeChannel[];
+}): boolean {
+  const subscribedChannels = new Set(input.subscribedChannels);
+
+  return input.requestedChannels.every((channel) => subscribedChannels.has(channel));
 }

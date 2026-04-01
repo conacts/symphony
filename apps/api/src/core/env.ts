@@ -17,6 +17,7 @@ export type SymphonyRuntimeAppEnv = {
   workflowPath: string;
   dbFile: string;
   sourceRepo: string | null;
+  allowedOrigins: string[];
   linearApiKey: string;
   logLevel: SymphonyLogLevel;
 };
@@ -33,6 +34,7 @@ export function loadSymphonyRuntimeAppEnv(
       WORKFLOW_PATH: z.string().min(1).optional(),
       SYMPHONY_DB_FILE: z.string().min(1).optional(),
       SYMPHONY_SOURCE_REPO: z.string().min(1).optional(),
+      SYMPHONY_ALLOWED_ORIGINS: z.string().min(1).optional(),
       LOG_LEVEL: z.string().min(1).optional(),
       LINEAR_API_KEY: z
         .string({
@@ -72,6 +74,7 @@ export function loadSymphonyRuntimeAppEnv(
     workflowPath: parsed.WORKFLOW_PATH ?? defaultSymphonyWorkflowPath(cwd),
     dbFile: parsed.SYMPHONY_DB_FILE ?? defaultSymphonyDbFile(cwd),
     sourceRepo: parsed.SYMPHONY_SOURCE_REPO ?? null,
+    allowedOrigins: parseAllowedOrigins(parsed.SYMPHONY_ALLOWED_ORIGINS),
     linearApiKey: parsed.LINEAR_API_KEY,
     logLevel: resolveSymphonyLogLevel(parsed.LOG_LEVEL, "debug")
   };
@@ -84,4 +87,15 @@ export function buildSymphonyRuntimeEnvironmentSource(
     LINEAR_API_KEY: env.linearApiKey,
     SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined
   };
+}
+
+function parseAllowedOrigins(value: string | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
 }

@@ -13,7 +13,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarSeparator,
   SidebarTrigger
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";

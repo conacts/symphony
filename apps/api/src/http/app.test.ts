@@ -234,4 +234,39 @@ describe("@symphony/api app", () => {
     expect(ingressResponse.status).toBe(202);
     expect(ingressPayload.data.accepted).toBe(true);
   });
+
+  it("allows local dashboard origins to read the runtime api", async () => {
+    const harness = await createSymphonyRuntimeTestHarness();
+    harnesses.push(harness);
+
+    const app = createSymphonyRuntimeApp(harness.services);
+    const response = await app.request("/api/v1/problem-runs", {
+      headers: {
+        origin: "http://localhost:3000"
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("access-control-allow-origin")).toBe(
+      "http://localhost:3000"
+    );
+    expect(response.headers.get("vary")).toBe("Origin");
+  });
+
+  it("rejects disallowed cors preflight requests", async () => {
+    const harness = await createSymphonyRuntimeTestHarness();
+    harnesses.push(harness);
+
+    const app = createSymphonyRuntimeApp(harness.services, {
+      allowedOrigins: ["http://localhost:3000"]
+    });
+    const response = await app.request("/api/v1/problem-runs", {
+      method: "OPTIONS",
+      headers: {
+        origin: "https://example.com"
+      }
+    });
+
+    expect(response.status).toBe(403);
+  });
 });

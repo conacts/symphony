@@ -42,7 +42,9 @@ export async function createDefaultSymphonyRuntimeApp(
   )
 ) {
   const services = await loadDefaultSymphonyRuntimeAppServices(env, environmentSource);
-  return createSymphonyRuntimeApp(services);
+  return createSymphonyRuntimeApp(services, {
+    allowedOrigins: env.allowedOrigins
+  });
 }
 
 export async function createDefaultSymphonyRuntimeApplication(
@@ -52,7 +54,9 @@ export async function createDefaultSymphonyRuntimeApplication(
   )
 ) {
   const services = await loadDefaultSymphonyRuntimeAppServices(env, environmentSource);
-  return createSymphonyRuntimeApplication(services);
+  return createSymphonyRuntimeApplication(services, {
+    allowedOrigins: env.allowedOrigins
+  });
 }
 
 export type { SymphonyRuntimeAppServices };

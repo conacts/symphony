@@ -11,10 +11,44 @@ import { createRealtimeRoutes } from "./routes/realtime-routes.js";
 import { createRuntimeRoutes } from "./routes/runtime-routes.js";
 
 export function createSymphonyRuntimeApplication(
-  services: SymphonyRuntimeAppServices
+  services: SymphonyRuntimeAppServices,
+  input: {
+    allowedOrigins?: string[];
+  } = {}
 ) {
   const app = new Hono<SymphonyRuntimeAppContextSchema>();
   const nodeWebSocket = createNodeWebSocket({ app });
+  const allowedOrigins = input.allowedOrigins ?? [];
+
+  app.use("/api/*", async (c, next) => {
+    const requestOrigin = c.req.header("origin");
+    const allowedOrigin = requestOrigin
+      ? getAllowedCorsOrigin(requestOrigin, allowedOrigins)
+      : null;
+
+    if (c.req.method === "OPTIONS") {
+      if (!allowedOrigin) {
+        return new Response(null, {
+          status: requestOrigin ? 403 : 204
+        });
+      }
+
+      return new Response(null, {
+        status: 204,
+        headers: buildCorsHeaders(allowedOrigin)
+      });
+    }
+
+    await next();
+
+    if (!allowedOrigin) {
+      return;
+    }
+
+    for (const [header, value] of Object.entries(buildCorsHeaders(allowedOrigin))) {
+      c.header(header, value);
+    }
+  });
 
   app.use("*", async (c, next) => {
     const requestStartedAt = Date.now();
@@ -77,6 +111,81 @@ export function createSymphonyRuntimeApplication(
   };
 }
 
-export function createSymphonyRuntimeApp(services: SymphonyRuntimeAppServices) {
-  return createSymphonyRuntimeApplication(services).app;
+export function createSymphonyRuntimeApp(
+  services: SymphonyRuntimeAppServices,
+  input: {
+    allowedOrigins?: string[];
+  } = {}
+) {
+  return createSymphonyRuntimeApplication(services, input).app;
+}
+
+export function getAllowedCorsOrigin(
+  requestOrigin: string,
+  configuredOrigins: string[]
+): string | null {
+  if (configuredOrigins.length > 0) {
+    return configuredOrigins.includes(requestOrigin) ? requestOrigin : null;
+  }
+
+  return isLocalNetworkOrigin(requestOrigin) ? requestOrigin : null;
+}
+
+function buildCorsHeaders(origin: string): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Accept, Content-Type",
+    "Access-Control-Max-Age": "600",
+    Vary: "Origin"
+  };
+}
+
+function isLocalNetworkOrigin(origin: string): boolean {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(origin);
+  } catch {
+    return false;
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return false;
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "[::1]" ||
+    hostname.endsWith(".local") ||
+    isPrivateIpv4Hostname(hostname)
+  );
+}
+
+function isPrivateIpv4Hostname(hostname: string): boolean {
+  const segments = hostname.split(".");
+
+  if (segments.length !== 4) {
+    return false;
+  }
+
+  const octets = segments.map((segment) => Number.parseInt(segment, 10));
+
+  if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return false;
+  }
+
+  if (octets[0] === 10 || octets[0] === 127) {
+    return true;
+  }
+
+  if (octets[0] === 192 && octets[1] === 168) {
+    return true;
+  }
+
+  return octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31;
 }
