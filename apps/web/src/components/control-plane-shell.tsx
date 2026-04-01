@@ -33,7 +33,7 @@ export function ControlPlaneShell(input: {
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <Sidebar>
+        <Sidebar collapsible="icon">
           <SidebarHeader className="relative">
             <div className="group-data-[collapsible=icon]:hidden">
               <SidebarMenu>
@@ -45,7 +45,9 @@ export function ControlPlaneShell(input: {
                       className="pr-10"
                     >
                       <div className="grid flex-1 text-left leading-tight">
-                        <span className="truncate font-semibold">Symphony</span>
+                        <span className="truncate text-lg font-semibold">
+                          Symphony
+                        </span>
                       </div>
                     </Link>
                   </SidebarMenuButton>

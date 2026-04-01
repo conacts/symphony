@@ -18,9 +18,10 @@ describe("run detail view", () => {
       />
     );
 
+    expect(html).toContain("COL-165");
     expect(html).toContain("Repo start");
     expect(html).toContain("Turns");
     expect(html).toContain("Solve the task");
-    expect(html).toContain("Show payload");
+    expect(html).toContain("View payload");
   });
 });

@@ -90,39 +90,27 @@ export function buildIssueDetailViewModel(
 
 export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult) {
   return {
+    issueIdentifier: input.issue.issueIdentifier,
+    startedAt: formatTimestamp(input.run.startedAt),
     metrics: [
       {
-        label: "Issue",
-        value: input.issue.issueIdentifier,
-        detail: input.run.runId
-      },
-      {
         label: "Status",
-        value: input.run.status ?? "n/a",
-        detail: input.run.outcome ?? "n/a"
-      },
-      {
-        label: "Started",
-        value: input.run.startedAt ?? "n/a",
-        detail: input.run.endedAt ?? "n/a"
+        value: input.run.status ?? "n/a"
       },
       {
         label: "Duration",
         value:
           input.run.durationSeconds === null
             ? "n/a"
-            : `${input.run.durationSeconds}s`,
-        detail: "Seconds elapsed for this run."
+            : `${input.run.durationSeconds}s`
       },
       {
         label: "Turns / events",
-        value: `${formatCount(input.run.turnCount)} / ${formatCount(input.run.eventCount)}`,
-        detail: `${input.run.lastEventType ?? "n/a"} · ${input.run.lastEventAt ?? "n/a"}`
+        value: `${formatCount(input.run.turnCount)} / ${formatCount(input.run.eventCount)}`
       },
       {
         label: "Commit",
-        value: input.run.commitHashEnd ?? input.run.commitHashStart ?? "n/a",
-        detail: `start ${input.run.commitHashStart ?? "n/a"}`
+        value: input.run.commitHashEnd ?? input.run.commitHashStart ?? "n/a"
       }
     ],
     repoStartText: prettyValue(input.run.repoStart),
@@ -134,16 +122,26 @@ export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult)
       status: turn.status ?? "n/a",
       eventCount: formatCount(turn.eventCount),
       promptText: turn.promptText,
-      events: turn.events.map((event) => ({
-        eventSequence: String(event.eventSequence),
-        eventType: event.eventType,
-        recordedAt: event.recordedAt ?? "n/a",
-        summary: event.summary ?? event.eventType ?? "n/a",
-        payloadLabel: event.payloadTruncated
-          ? "Show truncated payload"
-          : "Show payload",
-        payloadText: prettyValue(event.payload)
-      }))
+      events: [...turn.events]
+        .sort((left, right) => {
+          const sequenceDifference = right.eventSequence - left.eventSequence;
+
+          if (sequenceDifference !== 0) {
+            return sequenceDifference;
+          }
+
+          return compareTimestamps(right.recordedAt, left.recordedAt);
+        })
+        .map((event) => ({
+          eventSequence: String(event.eventSequence),
+          eventType: event.eventType,
+          recordedAt: formatTimestamp(event.recordedAt),
+          summary: event.summary ?? event.eventType ?? "n/a",
+          payloadLabel: event.payloadTruncated
+            ? "Show truncated payload"
+            : "Show payload",
+          payloadText: prettyValue(event.payload)
+        }))
     }))
   };
 }
@@ -200,4 +198,26 @@ function prettyValue(value: unknown): string {
   }
 
   return JSON.stringify(value, null, 2);
+}
+
+function compareTimestamps(
+  left: string | null | undefined,
+  right: string | null | undefined
+): number {
+  const leftTime = left ? Date.parse(left) : Number.NaN;
+  const rightTime = right ? Date.parse(right) : Number.NaN;
+
+  if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) {
+    return 0;
+  }
+
+  if (Number.isNaN(leftTime)) {
+    return -1;
+  }
+
+  if (Number.isNaN(rightTime)) {
+    return 1;
+  }
+
+  return leftTime - rightTime;
 }

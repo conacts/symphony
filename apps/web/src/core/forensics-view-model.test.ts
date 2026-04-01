@@ -205,7 +205,8 @@ describe("forensics view model", () => {
 
     expect(issueDetail.metrics[0]?.value).toBe("3");
     expect(issueDetail.rows[0]?.runHref).toBe("/runs/run_123");
-    expect(runDetail.metrics[0]?.value).toBe("COL-165");
+    expect(runDetail.issueIdentifier).toBe("COL-165");
+    expect(runDetail.startedAt).not.toBe("2026-03-31T18:00:00.000Z");
     expect(runDetail.turns[0]?.events[0]?.payloadText).toContain('"text": "done"');
   });
 });
