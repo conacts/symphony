@@ -15,12 +15,13 @@ describe("@symphony/api scaffold", () => {
     expect(runtime.packageName).toBe("@symphony/api");
     expect(runtime.env.port).toBe(4_500);
     expect(runtime.env.workflowPath).toBe("/tmp/WORKFLOW.md");
-    expect(runtime.env.runJournalFile).toBe("/tmp/run-journal.json");
+    expect(runtime.env.dbFile).toBe("/tmp/symphony.db");
     expect(runtime.env.linearApiKey).toBe("test-linear-api-key");
     expect(runtime.env.logLevel).toBe("debug");
     expect(runtime.dependsOn).toEqual([
       "@symphony/core",
       "@symphony/contracts",
+      "@symphony/db",
       "@symphony/logger"
     ]);
   });

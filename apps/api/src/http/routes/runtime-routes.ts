@@ -1,6 +1,9 @@
 import { Hono } from "hono";
 import {
+  symphonyRuntimeHealthResponseSchema,
   symphonyRuntimeIssuePathSchema,
+  symphonyRuntimeLogsQuerySchema,
+  symphonyRuntimeLogsResponseSchema,
   symphonyRuntimeRefreshRequestSchema,
   symphonyRuntimeIssueResponseSchema,
   symphonyRuntimeRefreshResponseSchema,
@@ -38,6 +41,55 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     });
 
     return jsonOk(c, result);
+  });
+
+  runtimeRoutes.get("/health", (c) => {
+    const result = services.health.snapshot();
+
+    c.get("logger").debug("Returning runtime health", {
+      healthy: result.healthy,
+      pollerRunning: result.poller.running,
+      pollerInFlight: result.poller.inFlight
+    });
+
+    symphonyRuntimeHealthResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      data: result,
+      meta: {
+        durationMs: 0,
+        generatedAt: new Date().toISOString()
+      }
+    });
+
+    return jsonOk(c, result);
+  });
+
+  runtimeRoutes.get("/runtime/logs", async (c) => {
+    const query = parseWithSchema(symphonyRuntimeLogsQuerySchema, c.req.query());
+    const result = await services.runtimeLogs.list({
+      limit: query.limit,
+      issueIdentifier: query.issueIdentifier
+    });
+
+    c.get("logger").debug("Returning runtime logs", {
+      count: result.logs.length,
+      issueIdentifier: query.issueIdentifier ?? null
+    });
+
+    symphonyRuntimeLogsResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      data: result,
+      meta: {
+        durationMs: 0,
+        generatedAt: new Date().toISOString()
+      }
+    });
+
+    return jsonOk(c, result, {
+      count: result.logs.length
+    });
   });
 
   runtimeRoutes.post("/refresh", async (c) => {

@@ -1,7 +1,7 @@
 import {
-  defaultSymphonyRunJournalFile,
   defaultSymphonyWorkflowPath
 } from "@symphony/core";
+import { defaultSymphonyDbFile } from "@symphony/db";
 import { createEnv, z } from "@symphony/env";
 import {
   resolveSymphonyLogLevel,
@@ -15,7 +15,7 @@ export type EnvironmentSource = Record<string, string | undefined>;
 export type SymphonyRuntimeAppEnv = {
   port: number;
   workflowPath: string;
-  runJournalFile: string;
+  dbFile: string;
   linearApiKey: string;
   logLevel: SymphonyLogLevel;
 };
@@ -30,6 +30,7 @@ export function loadSymphonyRuntimeAppEnv(
         DEFAULT_SYMPHONY_RUNTIME_PORT
       ),
       WORKFLOW_PATH: z.string().min(1).optional(),
+      SYMPHONY_DB_FILE: z.string().min(1).optional(),
       SYMPHONY_RUN_JOURNAL_FILE: z.string().min(1).optional(),
       LOG_LEVEL: z.string().min(1).optional(),
       LINEAR_API_KEY: z
@@ -62,8 +63,10 @@ export function loadSymphonyRuntimeAppEnv(
   return {
     port: parsed.PORT,
     workflowPath: parsed.WORKFLOW_PATH ?? defaultSymphonyWorkflowPath(cwd),
-    runJournalFile:
-      parsed.SYMPHONY_RUN_JOURNAL_FILE ?? defaultSymphonyRunJournalFile(cwd),
+    dbFile:
+      parsed.SYMPHONY_DB_FILE ??
+      parsed.SYMPHONY_RUN_JOURNAL_FILE ??
+      defaultSymphonyDbFile(cwd),
     linearApiKey: parsed.LINEAR_API_KEY,
     logLevel: resolveSymphonyLogLevel(parsed.LOG_LEVEL, "debug")
   };

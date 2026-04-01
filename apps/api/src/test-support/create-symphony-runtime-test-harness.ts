@@ -2,7 +2,6 @@ import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import {
-  createFileBackedSymphonyRunJournal,
   createMemorySymphonyTracker,
   createSymphonyForensicsReadModel,
   SymphonyGithubReviewProcessor,
@@ -16,6 +15,12 @@ import {
   type SymphonyTurnFinishAttrs,
   type SymphonyTurnStartAttrs
 } from "@symphony/core";
+import {
+  createSymphonyIssueTimelineStore,
+  createSymphonyRuntimeLogStore,
+  createSqliteSymphonyRunJournal,
+  initializeSymphonyDb
+} from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import { createSymphonyGitHubReviewIngressService } from "../core/github-review-ingress.js";
 import type { SymphonyRuntimeAppServices } from "../core/runtime-services.js";
@@ -184,8 +189,15 @@ export async function createSymphonyRuntimeTestHarness(input: {
   );
   const workflow = buildSymphonyLoadedWorkflow(workflowConfig);
   const tracker = createMemorySymphonyTracker([issue]);
-  const runJournal = createFileBackedSymphonyRunJournal({
-    dbFile: path.join(root, "run-journal.json")
+  const database = initializeSymphonyDb({
+    dbFile: path.join(root, "symphony.db")
+  });
+  const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+  const runtimeLogStore = createSymphonyRuntimeLogStore(database.db);
+  const runJournal = createSqliteSymphonyRunJournal({
+    db: database.db,
+    dbFile: path.join(root, "symphony.db"),
+    timelineStore: issueTimelineStore
   });
 
   const runId = await runJournal.recordRunStarted(
@@ -201,6 +213,27 @@ export async function createSymphonyRuntimeTestHarness(input: {
   await runJournal.recordEvent(runId, turnId, buildSymphonyEventAttrs());
   await runJournal.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
   await runJournal.finalizeRun(runId, buildSymphonyRunFinishAttrs());
+  await issueTimelineStore.record({
+    issueId: issue.id,
+    issueIdentifier: issue.identifier,
+    runId,
+    source: "orchestrator",
+    eventType: "retry_scheduled",
+    message: "Failure retry scheduled.",
+    payload: {
+      attempt: 1
+    }
+  });
+  await runtimeLogStore.record({
+    level: "info",
+    source: "runtime",
+    eventType: "db_initialized",
+    message: "Initialized Symphony DB.",
+    issueId: issue.id,
+    issueIdentifier: issue.identifier,
+    runId,
+    payload: null
+  });
 
   const snapshot = buildSymphonyOrchestratorSnapshot({
     running: [
@@ -210,6 +243,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
           ...issue,
           state: "In Progress"
         },
+        runId,
         sessionId: "thread-live",
         workerHost: null,
         workspacePath: path.join(root, `symphony-${issue.identifier}`),
@@ -247,11 +281,67 @@ export async function createSymphonyRuntimeTestHarness(input: {
       snapshot() {
         return snapshot;
       },
+      isPollCycleInFlight() {
+        return false;
+      },
       async runPollCycle() {
         return snapshot;
       }
     },
     forensics: createSymphonyForensicsReadModel(runJournal),
+    issueTimeline: {
+      async list({ issueIdentifier, limit }) {
+        const entries = await issueTimelineStore.listIssueTimeline(
+          issueIdentifier,
+          {
+            limit
+          }
+        );
+
+        return entries.length === 0
+          ? null
+          : {
+              issueIdentifier,
+              entries,
+              filters: {
+                limit: limit ?? null
+              }
+            };
+      }
+    },
+    runtimeLogs: {
+      async list(input = {}) {
+        const logs = await runtimeLogStore.list(input);
+
+        return {
+          logs,
+          filters: {
+            limit: input.limit ?? null,
+            issueIdentifier: input.issueIdentifier ?? null
+          }
+        };
+      }
+    },
+    health: {
+      snapshot() {
+        return {
+          healthy: true,
+          db: {
+            file: path.join(root, "symphony.db"),
+            ready: true
+          },
+          poller: {
+            running: true,
+            intervalMs: workflowConfig.polling.intervalMs,
+            inFlight: false,
+            lastStartedAt: null,
+            lastCompletedAt: null,
+            lastSucceededAt: null,
+            lastError: null
+          }
+        };
+      }
+    },
     githubReviewIngress: createSymphonyGitHubReviewIngressService({
       workflowConfig,
       reviewProcessor: new SymphonyGithubReviewProcessor({
@@ -269,12 +359,16 @@ export async function createSymphonyRuntimeTestHarness(input: {
     }),
     realtime: createSymphonyRealtimeHub(
       input.realtimeNow ? { now: input.realtimeNow } : undefined
-    )
+    ),
+    async shutdown() {
+      database.close();
+    }
   };
 
   return {
-    cleanup() {
-      return rm(root, {
+    async cleanup() {
+      database.close();
+      await rm(root, {
         recursive: true,
         force: true
       });
@@ -364,7 +458,11 @@ function buildSymphonyTurnFinishAttrs(
     codexThreadId: null,
     codexTurnId: null,
     codexSessionId: null,
-    tokens: null,
+    tokens: {
+      inputTokens: 12,
+      outputTokens: 4,
+      totalTokens: 16
+    },
     metadata: null,
     ...overrides
   };
@@ -375,13 +473,13 @@ function buildSymphonyRunFinishAttrs(
 ): SymphonyRunFinishAttrs {
   return {
     status: "finished",
-    outcome: "paused_max_turns",
+    outcome: "failed",
     endedAt: "2026-03-31T00:00:03.000Z",
     commitHashEnd: null,
     repoEnd: null,
     metadata: null,
-    errorClass: null,
-    errorMessage: null,
+    errorClass: "failure",
+    errorMessage: "Test failure",
     ...overrides
   };
 }

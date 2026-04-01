@@ -1,6 +1,7 @@
 export {
   symphonyRuntimeIssuePathSchema,
-  symphonyRuntimeRefreshRequestSchema
+  symphonyRuntimeRefreshRequestSchema,
+  symphonyRuntimeLogsQuerySchema
 } from "./requests.js";
 export {
   symphonyRuntimeTokenTotalsSchema,
@@ -12,14 +13,20 @@ export {
   symphonyRuntimeIssueOperatorSchema,
   symphonyRuntimeIssueResultSchema,
   symphonyRuntimeRefreshResultSchema,
+  symphonyRuntimeLogEntrySchema,
+  symphonyRuntimeLogsResultSchema,
+  symphonyRuntimeHealthResultSchema,
   symphonyRuntimeStateResponseSchema,
   symphonyRuntimeIssueResponseSchema,
-  symphonyRuntimeRefreshResponseSchema
+  symphonyRuntimeRefreshResponseSchema,
+  symphonyRuntimeLogsResponseSchema,
+  symphonyRuntimeHealthResponseSchema
 } from "./responses.js";
 
 export type {
   SymphonyRuntimeIssuePath,
-  SymphonyRuntimeRefreshRequest
+  SymphonyRuntimeRefreshRequest,
+  SymphonyRuntimeLogsQuery
 } from "./requests.js";
 export type {
   SymphonyRuntimeTokenTotals,
@@ -30,5 +37,8 @@ export type {
   SymphonyRuntimeTrackedIssue,
   SymphonyRuntimeIssueOperator,
   SymphonyRuntimeIssueResult,
-  SymphonyRuntimeRefreshResult
+  SymphonyRuntimeRefreshResult,
+  SymphonyRuntimeLogEntry,
+  SymphonyRuntimeLogsResult,
+  SymphonyRuntimeHealthResult
 } from "./responses.js";

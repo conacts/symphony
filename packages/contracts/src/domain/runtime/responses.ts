@@ -1,6 +1,6 @@
 import { createEnvelopeSchema } from "@symphony/errors";
 import { z } from "zod";
-import { jsonObjectSchema } from "../../core/json.js";
+import { jsonObjectSchema, jsonValueSchema } from "../../core/json.js";
 import {
   isoTimestampSchema,
   nonEmptyStringSchema,
@@ -98,6 +98,19 @@ export const symphonyRuntimeIssueRecentEventSchema = z.strictObject({
   message: nullableNonEmptyStringSchema
 });
 
+export const symphonyRuntimeLogEntrySchema = z.strictObject({
+  entryId: nonEmptyStringSchema,
+  level: z.enum(["debug", "info", "warn", "error"]),
+  source: nonEmptyStringSchema,
+  eventType: nonEmptyStringSchema,
+  message: nonEmptyStringSchema,
+  issueId: nullableNonEmptyStringSchema,
+  issueIdentifier: nullableNonEmptyStringSchema,
+  runId: nullableNonEmptyStringSchema,
+  payload: jsonValueSchema,
+  recordedAt: isoTimestampSchema
+});
+
 export const symphonyRuntimeTrackedIssueSchema = z.strictObject({
   title: nonEmptyStringSchema,
   state: nonEmptyStringSchema,
@@ -143,6 +156,31 @@ export const symphonyRuntimeRefreshResultSchema = z.strictObject({
   operations: z.tuple([z.literal("poll"), z.literal("reconcile")])
 });
 
+export const symphonyRuntimeLogsResultSchema = z.strictObject({
+  logs: z.array(symphonyRuntimeLogEntrySchema),
+  filters: z.strictObject({
+    limit: z.number().int().positive().nullable(),
+    issueIdentifier: nullableNonEmptyStringSchema
+  })
+});
+
+export const symphonyRuntimeHealthResultSchema = z.strictObject({
+  healthy: z.boolean(),
+  db: z.strictObject({
+    file: nonEmptyStringSchema,
+    ready: z.boolean()
+  }),
+  poller: z.strictObject({
+    running: z.boolean(),
+    intervalMs: z.number().int().positive(),
+    inFlight: z.boolean(),
+    lastStartedAt: isoTimestampSchema.nullable(),
+    lastCompletedAt: isoTimestampSchema.nullable(),
+    lastSucceededAt: isoTimestampSchema.nullable(),
+    lastError: nullableNonEmptyStringSchema
+  })
+});
+
 export const symphonyRuntimeStateResponseSchema = createEnvelopeSchema(
   symphonyRuntimeStateResultSchema
 );
@@ -151,6 +189,12 @@ export const symphonyRuntimeIssueResponseSchema = createEnvelopeSchema(
 );
 export const symphonyRuntimeRefreshResponseSchema = createEnvelopeSchema(
   symphonyRuntimeRefreshResultSchema
+);
+export const symphonyRuntimeLogsResponseSchema = createEnvelopeSchema(
+  symphonyRuntimeLogsResultSchema
+);
+export const symphonyRuntimeHealthResponseSchema = createEnvelopeSchema(
+  symphonyRuntimeHealthResultSchema
 );
 
 export type SymphonyRuntimeTokenTotals = z.infer<typeof symphonyRuntimeTokenTotalsSchema>;
@@ -162,3 +206,8 @@ export type SymphonyRuntimeTrackedIssue = z.infer<typeof symphonyRuntimeTrackedI
 export type SymphonyRuntimeIssueOperator = z.infer<typeof symphonyRuntimeIssueOperatorSchema>;
 export type SymphonyRuntimeIssueResult = z.infer<typeof symphonyRuntimeIssueResultSchema>;
 export type SymphonyRuntimeRefreshResult = z.infer<typeof symphonyRuntimeRefreshResultSchema>;
+export type SymphonyRuntimeLogEntry = z.infer<typeof symphonyRuntimeLogEntrySchema>;
+export type SymphonyRuntimeLogsResult = z.infer<typeof symphonyRuntimeLogsResultSchema>;
+export type SymphonyRuntimeHealthResult = z.infer<
+  typeof symphonyRuntimeHealthResultSchema
+>;

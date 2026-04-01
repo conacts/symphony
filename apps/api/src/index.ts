@@ -21,6 +21,7 @@ export const SYMPHONY_RUNTIME_APP_BOUNDARY = {
   dependsOn: [
     SYMPHONY_CORE_PACKAGE_NAME,
     SYMPHONY_CONTRACTS_PACKAGE_NAME,
+    "@symphony/db",
     SYMPHONY_LOGGER_PACKAGE_NAME
   ]
 } as const;

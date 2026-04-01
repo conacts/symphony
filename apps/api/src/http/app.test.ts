@@ -122,6 +122,53 @@ describe("@symphony/api app", () => {
     expect(runtimeIssuePayload.data.operator.requeueCommand).toBe("/rework");
   });
 
+  it("serves the new health, runtime logs, and issue timeline surfaces", async () => {
+    const harness = await createSymphonyRuntimeTestHarness({
+      issue: {
+        state: "In Review"
+      }
+    });
+    harnesses.push(harness);
+
+    const app = createSymphonyRuntimeApp(harness.services);
+    const healthResponse = await app.request("/api/v1/health");
+    const logsResponse = await app.request("/api/v1/runtime/logs");
+    const timelineResponse = await app.request("/api/v1/issues/COL-123/timeline");
+
+    const healthPayload = await responseJson<{
+      data: {
+        healthy: boolean;
+        db: {
+          ready: boolean;
+        };
+      };
+    }>(healthResponse);
+    const logsPayload = await responseJson<{
+      data: {
+        logs: Array<{
+          eventType: string;
+        }>;
+      };
+    }>(logsResponse);
+    const timelinePayload = await responseJson<{
+      data: {
+        entries: Array<{
+          eventType: string;
+        }>;
+      };
+    }>(timelineResponse);
+
+    expect(healthResponse.status).toBe(200);
+    expect(healthPayload.data.healthy).toBe(true);
+    expect(healthPayload.data.db.ready).toBe(true);
+
+    expect(logsResponse.status).toBe(200);
+    expect(logsPayload.data.logs[0]?.eventType).toBe("db_initialized");
+
+    expect(timelineResponse.status).toBe(200);
+    expect(timelinePayload.data.entries[0]?.eventType).toBe("retry_scheduled");
+  });
+
   it("fails closed on invalid params and ingests GitHub review events", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {

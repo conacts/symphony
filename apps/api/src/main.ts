@@ -28,7 +28,7 @@ async function main() {
   services.logger.info("Starting Symphony runtime server", {
     port: env.port,
     workflowPath: env.workflowPath,
-    runJournalFile: env.runJournalFile,
+    dbFile: env.dbFile,
     logLevel: env.logLevel
   });
   const { server } = await createSymphonyRuntimeServer(services, env);
@@ -37,6 +37,7 @@ async function main() {
     services.logger.info("Received shutdown signal", {
       signal
     });
+    void services.shutdown();
     server.close(() => {
       services.logger.info("Symphony runtime server stopped");
     });

@@ -10,7 +10,8 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "@swc/core",
-      "sharp"
+      "sharp",
+      "better-sqlite3"
     ],
     "ignoredBuiltDependencies": [
       "@nestjs/core",

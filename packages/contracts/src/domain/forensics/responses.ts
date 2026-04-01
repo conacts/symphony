@@ -60,6 +60,34 @@ export const symphonyForensicsIssueDetailResultSchema = z.strictObject({
   })
 });
 
+export const symphonyForensicsIssueTimelineEntrySchema = z.strictObject({
+  entryId: nonEmptyStringSchema,
+  issueId: nonEmptyStringSchema,
+  issueIdentifier: nonEmptyStringSchema,
+  runId: nullableNonEmptyStringSchema,
+  turnId: nullableNonEmptyStringSchema,
+  source: z.enum(["orchestrator", "codex", "tracker", "workspace", "runtime"]),
+  eventType: nonEmptyStringSchema,
+  message: nullableNonEmptyStringSchema,
+  payload: z.union([
+    jsonObjectSchema,
+    z.array(jsonValueSchema),
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null()
+  ]),
+  recordedAt: isoTimestampSchema
+});
+
+export const symphonyForensicsIssueTimelineResultSchema = z.strictObject({
+  issueIdentifier: nonEmptyStringSchema,
+  entries: z.array(symphonyForensicsIssueTimelineEntrySchema),
+  filters: z.strictObject({
+    limit: z.number().int().positive().nullable()
+  })
+});
+
 export const symphonyForensicsIssueExportSchema = z.strictObject({
   issueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
@@ -160,6 +188,9 @@ export const symphonyForensicsRunDetailResponseSchema = createEnvelopeSchema(
 export const symphonyForensicsProblemRunsResponseSchema = createEnvelopeSchema(
   symphonyForensicsProblemRunsResultSchema
 );
+export const symphonyForensicsIssueTimelineResponseSchema = createEnvelopeSchema(
+  symphonyForensicsIssueTimelineResultSchema
+);
 
 export type SymphonyForensicsIssueSummary = z.infer<typeof symphonyForensicsIssueSummarySchema>;
 export type SymphonyForensicsRunSummary = z.infer<typeof symphonyForensicsRunSummarySchema>;
@@ -168,6 +199,12 @@ export type SymphonyForensicsIssueListResult = z.infer<
 >;
 export type SymphonyForensicsIssueDetailResult = z.infer<
   typeof symphonyForensicsIssueDetailResultSchema
+>;
+export type SymphonyForensicsIssueTimelineEntry = z.infer<
+  typeof symphonyForensicsIssueTimelineEntrySchema
+>;
+export type SymphonyForensicsIssueTimelineResult = z.infer<
+  typeof symphonyForensicsIssueTimelineResultSchema
 >;
 export type SymphonyForensicsRunDetailResult = z.infer<
   typeof symphonyForensicsRunDetailResultSchema

@@ -4,6 +4,8 @@ import {
   symphonyForensicsIssueListResponseSchema,
   symphonyForensicsIssuePathSchema,
   symphonyForensicsIssueQuerySchema,
+  symphonyForensicsIssueTimelineQuerySchema,
+  symphonyForensicsIssueTimelineResponseSchema,
   symphonyForensicsIssuesQuerySchema,
   symphonyForensicsProblemRunsQuerySchema,
   symphonyForensicsProblemRunsResponseSchema,
@@ -50,6 +52,44 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
 
     return jsonOk(c, result, {
       count: result.issues.length
+    });
+  });
+
+  forensicsRoutes.get("/issues/:issueIdentifier/timeline", async (c) => {
+    const path = parseWithSchema(symphonyForensicsIssuePathSchema, c.req.param());
+    const query = parseWithSchema(
+      symphonyForensicsIssueTimelineQuerySchema,
+      c.req.query()
+    );
+    const result = await services.issueTimeline.list({
+      issueIdentifier: path.issueIdentifier,
+      limit: query.limit
+    });
+
+    if (!result) {
+      c.get("logger").warn("Forensics issue timeline not found", {
+        issueIdentifier: path.issueIdentifier
+      });
+      throw createHttpError("NOT_FOUND", "Issue not found.");
+    }
+
+    c.get("logger").debug("Returning forensics issue timeline", {
+      issueIdentifier: path.issueIdentifier,
+      count: result.entries.length
+    });
+
+    symphonyForensicsIssueTimelineResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      data: result,
+      meta: {
+        durationMs: 0,
+        generatedAt: new Date().toISOString()
+      }
+    });
+
+    return jsonOk(c, result, {
+      count: result.entries.length
     });
   });
 
