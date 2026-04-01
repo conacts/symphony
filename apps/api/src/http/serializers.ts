@@ -1,11 +1,9 @@
-import path from "node:path";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
 import type { SymphonyRunExport } from "@symphony/core/journal";
 import {
   issueBranchName,
   type SymphonyTrackerIssue
 } from "@symphony/core/tracker";
-import { symphonyWorkspaceDirectoryName } from "@symphony/core/workspace/local";
 import type {
   SymphonyForensicsIssueDetailResult,
   SymphonyForensicsIssueListResult,
@@ -100,23 +98,17 @@ export function serializeRuntimeIssue(
     workflowConfig.github.repo,
     branchName
   );
-
-  const workspacePath =
-    running?.workspacePath ??
-    retry?.workspacePath ??
-    path.join(
-      workflowConfig.workspace.root,
-      symphonyWorkspaceDirectoryName(issueIdentifier)
-    );
+  const workspace = running?.workspace ?? retry?.workspace ?? null;
 
   return {
     issueIdentifier,
     issueId: running?.issueId ?? retry?.issueId ?? tracked.id,
     status: running ? "running" : retry ? "retrying" : "tracked",
-    workspace: {
-      path: workspacePath,
-      host: running?.workerHost ?? retry?.workerHost ?? null
-    },
+    workspace: serializeRuntimeWorkspace(
+      workspace,
+      running?.workerHost ?? retry?.workerHost ?? null,
+      running?.workspacePath ?? retry?.workspacePath ?? null
+    ),
     attempts: {
       restartCount: Math.max((retry?.attempt ?? 0) - 1, 0),
       currentRetryAttempt: retry?.attempt ?? 0
@@ -166,6 +158,34 @@ export function serializeRuntimeIssue(
       requeueCommand: "/rework",
       requeueHelpText:
         "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow."
+    }
+  };
+}
+
+function serializeRuntimeWorkspace(
+  workspace: SymphonyOrchestratorSnapshot["running"][number]["workspace"] | null,
+  workerHost: string | null,
+  compatibilityPath: string | null
+): SymphonyRuntimeIssueResult["workspace"] {
+  if (!workspace) {
+    return {
+      backendKind: null,
+      path: compatibilityPath,
+      host: workerHost,
+      executionTarget: null,
+      materialization: null
+    };
+  }
+
+  return {
+    backendKind: workspace.backendKind,
+    path: workspace.path ?? compatibilityPath,
+    host: workerHost ?? workspace.workerHost,
+    executionTarget: {
+      ...workspace.executionTarget
+    },
+    materialization: {
+      ...workspace.materialization
     }
   };
 }

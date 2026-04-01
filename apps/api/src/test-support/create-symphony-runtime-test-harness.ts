@@ -45,6 +45,28 @@ export type SymphonyRuntimeTestHarness = {
 
 export { buildSymphonyOrchestratorSnapshot };
 
+export function buildLocalPreparedWorkspace(
+  issueIdentifier: string,
+  workspacePath: string
+) {
+  return {
+    issueIdentifier,
+    workspaceKey: issueIdentifier,
+    backendKind: "local" as const,
+    executionTarget: {
+      kind: "host_path" as const,
+      path: workspacePath
+    },
+    materialization: {
+      kind: "directory" as const,
+      hostPath: workspacePath
+    },
+    path: workspacePath,
+    created: false,
+    workerHost: null
+  };
+}
+
 export function buildSymphonyRuntimeWorkflowConfig(
   root: string,
   overrides: Partial<SymphonyResolvedWorkflowConfig> = {}
@@ -183,6 +205,10 @@ export async function createSymphonyRuntimeTestHarness(input: {
   const snapshot = buildSymphonyOrchestratorSnapshot({
     running: [
       {
+        workspace: buildLocalPreparedWorkspace(
+          issue.identifier,
+          path.join(root, `symphony-${issue.identifier}`)
+        ),
         issueId: issue.id,
         issue: {
           ...issue,

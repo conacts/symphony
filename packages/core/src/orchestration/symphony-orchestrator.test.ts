@@ -21,8 +21,7 @@ function createAgentRuntime(
     async startRun(): Promise<AgentRunLaunch> {
       return {
         sessionId: "thread-1",
-        workerHost: null,
-        workspacePath: "/tmp/symphony-workspaces/symphony-COL-123"
+        workerHost: null
       };
     },
     async stopRun() {
@@ -80,11 +79,10 @@ describe("symphony orchestrator", () => {
       })
     });
     const agentRuntime = createAgentRuntime({
-      async startRun(input): Promise<AgentRunLaunch> {
+      async startRun(): Promise<AgentRunLaunch> {
         return {
           sessionId: "thread-live",
-          workerHost: null,
-          workspacePath: input.workspace.path
+          workerHost: null
         };
       }
     });
@@ -137,6 +135,9 @@ describe("symphony orchestrator", () => {
 
     const runningSnapshot = orchestrator.snapshot();
     expect(runningSnapshot.running[0]?.sessionId).toBe("thread-live");
+    expect(runningSnapshot.running[0]?.workspace?.executionTarget.kind).toBe(
+      "host_path"
+    );
     expect(runningSnapshot.running[0]?.turnCount).toBe(1);
     expect(runningSnapshot.running[0]?.codexTotalTokens).toBe(16);
     expect(runningSnapshot.running[0]?.codexAppServerPid).toBe("4242");
@@ -337,11 +338,10 @@ describe("symphony orchestrator", () => {
       tracker,
       workspaceBackend: manager,
       agentRuntime: createAgentRuntime({
-        async startRun(input): Promise<AgentRunLaunch> {
+        async startRun(): Promise<AgentRunLaunch> {
           return {
             sessionId: "thread-live",
-            workerHost: null,
-            workspacePath: input.workspace.path
+            workerHost: null
           };
         }
       }),
@@ -413,11 +413,10 @@ describe("symphony orchestrator", () => {
         })
       }),
       agentRuntime: createAgentRuntime({
-        async startRun(input) {
+        async startRun() {
           return {
             sessionId: "thread-1",
-            workerHost: null,
-            workspacePath: input.workspace.path
+            workerHost: null
           };
         },
         async stopRun({ issue }) {

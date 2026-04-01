@@ -79,8 +79,17 @@ describe("symphony runtime contracts", () => {
         issueId: "issue-1",
         status: "running",
         workspace: {
+          backendKind: "local",
           path: "/tmp/COL-157",
-          host: "local"
+          host: "local",
+          executionTarget: {
+            kind: "host_path",
+            path: "/tmp/COL-157"
+          },
+          materialization: {
+            kind: "directory",
+            hostPath: "/tmp/COL-157"
+          }
         },
         attempts: {
           restartCount: 0,
@@ -142,8 +151,11 @@ describe("symphony runtime contracts", () => {
         issueId: "issue-106",
         status: "tracked",
         workspace: {
-          path: "/tmp/COL-106",
-          host: null
+          backendKind: null,
+          path: null,
+          host: null,
+          executionTarget: null,
+          materialization: null
         },
         attempts: {
           restartCount: 0,

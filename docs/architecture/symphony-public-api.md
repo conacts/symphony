@@ -19,10 +19,12 @@ import {
   createSymphonyRuntime,
   type PreparedWorkspace,
   type WorkspaceBackend,
+  type WorkspaceBackendKind,
   type WorkspaceCleanupInput,
   type WorkspaceContext,
+  type WorkspaceExecutionTarget,
   type WorkspaceHookInput,
-  type WorkspacePathInput,
+  type WorkspaceMaterializationMetadata,
   type WorkspacePrepareInput,
   type AgentRuntime,
   type ReviewProvider,
@@ -35,11 +37,15 @@ import {
 
 - `WorkspaceBackend`
   Stable issue-workspace port. This is now a real lifecycle contract with explicit prepare,
-  hook, cleanup, and path-resolution operations.
-- `WorkspacePrepareInput`, `PreparedWorkspace`, `WorkspaceHookInput`, `WorkspaceCleanupInput`,
-  `WorkspacePathInput`, `WorkspaceContext`
+  hook, and cleanup operations.
+- `WorkspaceBackendKind`, `WorkspaceExecutionTarget`, `WorkspaceMaterializationMetadata`
+  Stable execution-model DTOs that describe where the prepared workspace will execute and how the
+  workspace is materialized.
+- `WorkspacePrepareInput`, `PreparedWorkspace`, `WorkspaceHookInput`,
+  `WorkspaceCleanupInput`, `WorkspaceContext`
   Stable workspace-lifecycle DTOs that make the seam concrete for both callers and future
-  backend implementations.
+  backend implementations. `PreparedWorkspace.path` remains only as a compatibility alias for
+  local host-path workspaces; `executionTarget` is the intended contract.
 - `AgentRuntime`
   Stable agent-execution port with explicit lifecycle methods:
   `startRun(input: AgentRunInput): Promise<AgentRunLaunch>` and
@@ -84,10 +90,11 @@ import {
 ## Current Mapping
 
 - `WorkspaceBackend` -> explicit lifecycle interface:
-  `prepareWorkspace`, `runBeforeRun`, `runAfterRun`, `cleanupWorkspace`,
-  `getWorkspacePath`
+  `prepareWorkspace`, `runBeforeRun`, `runAfterRun`, `cleanupWorkspace`
 - `createLocalWorkspaceBackend` -> adapter over `createLocalSymphonyWorkspaceManager`
-- `PreparedWorkspace` -> stable workspace DTO returned from `WorkspaceBackend.prepareWorkspace()`
+- `PreparedWorkspace` -> stable workspace DTO returned from
+  `WorkspaceBackend.prepareWorkspace()` with explicit `backendKind`, `executionTarget`, and
+  `materialization`
 - `AgentRuntime` -> explicit lifecycle interface:
   `startRun`, `stopRun`
 - `createCodexAgentRuntime` -> adapter over the concrete Codex runtime implementation
@@ -130,8 +137,9 @@ reach it explicitly through `@symphony/core/workspace/local`.
 
 Keep at root:
 
-- `WorkspaceBackend`, `WorkspacePrepareInput`, `PreparedWorkspace`, `WorkspaceHookInput`,
-  `WorkspaceCleanupInput`, `WorkspacePathInput`, `WorkspaceContext`
+- `WorkspaceBackend`, `WorkspaceBackendKind`, `WorkspaceExecutionTarget`,
+  `WorkspaceMaterializationMetadata`, `WorkspacePrepareInput`, `PreparedWorkspace`,
+  `WorkspaceHookInput`, `WorkspaceCleanupInput`, `WorkspaceContext`
 - `AgentRuntime`, `AgentRunInput`, `AgentRunLaunch`, `AgentStopInput`
 - `ReviewProvider`, `ReviewRequest`, `ReviewFinding`, `ReviewResult`
 - `ReviewPublisher`, `PublishReviewInput`, `PublishReviewResult`, `SymphonyRuntime`

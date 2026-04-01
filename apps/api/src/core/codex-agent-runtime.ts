@@ -63,6 +63,7 @@ export function createLocalCodexSymphonyAgentRuntime(input: {
         client: null
       };
       activeRuns.set(runInput.issue.id, activeRun);
+      const workspacePath = resolveLocalExecutionPath(runInput.workspace);
 
       void executeRun({
         promptTemplate: input.promptTemplate,
@@ -79,7 +80,7 @@ export function createLocalCodexSymphonyAgentRuntime(input: {
         issue: runInput.issue,
         runId: runInput.runId,
         attempt: runInput.attempt,
-        workspacePath: runInput.workspace.path,
+        workspacePath,
         activeRun,
         toolExecutor: buildLinearGraphqlToolExecutor(
           runInput.workflowConfig,
@@ -91,8 +92,7 @@ export function createLocalCodexSymphonyAgentRuntime(input: {
 
       return {
         sessionId: null,
-        workerHost: null,
-        workspacePath: runInput.workspace.path
+        workerHost: null
       };
     },
 
@@ -106,6 +106,18 @@ export function createLocalCodexSymphonyAgentRuntime(input: {
       activeRun.client?.close();
     }
   };
+}
+
+function resolveLocalExecutionPath(
+  workspace: Parameters<AgentRuntime["startRun"]>[0]["workspace"]
+): string {
+  if (workspace.executionTarget.kind === "host_path") {
+    return workspace.executionTarget.path;
+  }
+
+  throw new TypeError(
+    "Local Codex runtime requires a host-path execution target."
+  );
 }
 
 async function executeRun(input: {

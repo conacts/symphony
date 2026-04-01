@@ -9,6 +9,7 @@ import type { AgentRuntime } from "../runtime/agent-runtime.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
 import type {
+  PreparedWorkspace,
   WorkspaceBackend,
   WorkspaceContext
 } from "../workspace/workspace-backend.js";
@@ -46,6 +47,7 @@ export type SymphonyRunningEntry = {
   runId: string | null;
   sessionId: string | null;
   workerHost: string | null;
+  workspace: PreparedWorkspace | null;
   workspacePath: string | null;
   retryAttempt: number;
   turnCount: number;
@@ -70,6 +72,7 @@ export type SymphonyRetryEntry = {
   identifier: string;
   error: string | null;
   workerHost: string | null;
+  workspace: PreparedWorkspace | null;
   workspacePath: string | null;
   delayType: "continuation" | "failure";
 };
@@ -107,7 +110,7 @@ export interface SymphonyOrchestratorObserver {
   startRun(input: {
     issue: SymphonyTrackerIssue;
     attempt: number;
-    workspacePath: string | null;
+    workspace: PreparedWorkspace | null;
     workerHost: string | null;
     startedAt: string;
   }): Promise<string | null> | string | null;
@@ -125,7 +128,7 @@ export interface SymphonyOrchestratorObserver {
     runId: string | null;
     completion: SymphonyAgentRuntimeCompletion;
     workerHost: string | null;
-    workspacePath: string | null;
+    workspace: PreparedWorkspace | null;
     startedAt: string;
     endedAt: string;
     turnCount: number;
@@ -375,15 +378,11 @@ export class SymphonyOrchestrator {
       issue
     );
     const startedAt = this.#clock.now().toISOString();
-    const predictedWorkspacePath = this.#workspaceBackend.getWorkspacePath({
-      issueIdentifier: preparedIssue.identifier,
-      config: this.#workflowConfig.workspace
-    });
     const runId =
       (await this.#observer?.startRun({
         issue: preparedIssue,
         attempt,
-        workspacePath: predictedWorkspacePath,
+        workspace: null,
         workerHost: preferredWorkerHost,
         startedAt
       })) ?? null;
@@ -416,14 +415,15 @@ export class SymphonyOrchestrator {
       message: "Dispatch started.",
       payload: {
         attempt,
-        workspacePath: predictedWorkspacePath,
         workerHost: preferredWorkerHost
       },
       recordedAt: startedAt
     });
 
+    let workspace: PreparedWorkspace | null = null;
+
     try {
-      const workspace = await this.#workspaceBackend.prepareWorkspace({
+      workspace = await this.#workspaceBackend.prepareWorkspace({
         context: workspaceContext,
         config: this.#workflowConfig.workspace,
         hooks: this.#workflowConfig.hooks,
@@ -438,14 +438,11 @@ export class SymphonyOrchestrator {
         message: workspace.created
           ? "Workspace created."
           : "Workspace reused.",
-        payload: {
-          workspacePath: workspace.path,
-          workerHost: workspace.workerHost
-        }
+        payload: buildWorkspaceLifecyclePayload(workspace)
       });
 
       await this.#workspaceBackend.runBeforeRun({
-        workspacePath: workspace.path,
+        workspace,
         context: workspaceContext,
         hooks: this.#workflowConfig.hooks,
         ...this.#workspaceRunnerOptions(preferredWorkerHost)
@@ -457,10 +454,7 @@ export class SymphonyOrchestrator {
         source: "workspace",
         eventType: "before_run_completed",
         message: "before_run hook completed.",
-        payload: {
-          workspacePath: workspace.path,
-          workerHost: preferredWorkerHost
-        }
+        payload: buildWorkspaceLifecyclePayload(workspace)
       });
 
       const launch = await this.#agentRuntime.startRun({
@@ -470,13 +464,15 @@ export class SymphonyOrchestrator {
         workflowConfig: this.#workflowConfig,
         workspace
       });
+      const workerHost = launch.workerHost ?? workspace.workerHost;
 
       this.#state.running[preparedIssue.id] = {
         issue: preparedIssue,
         runId,
         sessionId: launch.sessionId,
-        workerHost: launch.workerHost,
-        workspacePath: launch.workspacePath,
+        workerHost,
+        workspace,
+        workspacePath: workspaceHostPath(workspace),
         retryAttempt: attempt,
         turnCount: 0,
         lastCodexMessage: null,
@@ -501,8 +497,8 @@ export class SymphonyOrchestrator {
         message: "Agent runtime launched.",
         payload: {
           sessionId: launch.sessionId,
-          workspacePath: launch.workspacePath,
-          workerHost: launch.workerHost
+          workerHost,
+          workspace: buildWorkspaceLifecyclePayload(workspace)
         }
       });
 
@@ -535,7 +531,7 @@ export class SymphonyOrchestrator {
           reason
         },
         workerHost: preferredWorkerHost,
-        workspacePath: predictedWorkspacePath,
+        workspace,
         startedAt,
         endedAt: this.#clock.now().toISOString(),
         turnCount: 0,
@@ -547,7 +543,7 @@ export class SymphonyOrchestrator {
       await this.#handleStartupFailure(
         preparedIssue,
         preferredWorkerHost,
-        predictedWorkspacePath,
+        workspace,
         reason,
         runId
       );
@@ -608,29 +604,24 @@ export class SymphonyOrchestrator {
     delete this.#state.running[issueId];
     this.#state.claimed.delete(issueId);
 
-    const workspacePath =
-      runningEntry.workspacePath ??
-      this.#workspaceBackend.getWorkspacePath({
-        issueIdentifier: runningEntry.issue.identifier,
-        config: this.#workflowConfig.workspace
+    if (runningEntry.workspace) {
+      await this.#workspaceBackend.runAfterRun({
+        workspace: runningEntry.workspace,
+        context: {
+          issueId,
+          issueIdentifier: runningEntry.issue.identifier
+        },
+        hooks: this.#workflowConfig.hooks,
+        ...this.#workspaceRunnerOptions(runningEntry.workerHost)
       });
-
-    await this.#workspaceBackend.runAfterRun({
-      workspacePath,
-      context: {
-        issueId,
-        issueIdentifier: runningEntry.issue.identifier
-      },
-      hooks: this.#workflowConfig.hooks,
-      ...this.#workspaceRunnerOptions(runningEntry.workerHost)
-    });
+    }
 
     await this.#observer?.finalizeRun({
       issue: runningEntry.issue,
       runId: runningEntry.runId,
       completion,
       workerHost: runningEntry.workerHost,
-      workspacePath,
+      workspace: runningEntry.workspace,
       startedAt: runningEntry.startedAt,
       endedAt: this.#clock.now().toISOString(),
       turnCount: runningEntry.turnCount,
@@ -658,7 +649,7 @@ export class SymphonyOrchestrator {
         issue: runningEntry.issue,
         runId: runningEntry.runId,
         workerHost: runningEntry.workerHost,
-        workspacePath: runningEntry.workspacePath,
+        workspace: runningEntry.workspace,
         delayType: "continuation"
       });
       return;
@@ -668,7 +659,7 @@ export class SymphonyOrchestrator {
       await this.#handleStartupFailure(
         runningEntry.issue,
         runningEntry.workerHost,
-        runningEntry.workspacePath,
+        runningEntry.workspace,
         completion.reason,
         runningEntry.runId
       );
@@ -682,7 +673,7 @@ export class SymphonyOrchestrator {
         issue: runningEntry.issue,
         runId: runningEntry.runId,
         workerHost: runningEntry.workerHost,
-        workspacePath: runningEntry.workspacePath,
+        workspace: runningEntry.workspace,
         delayType: "failure"
       });
       return;
@@ -706,7 +697,7 @@ export class SymphonyOrchestrator {
       issue: runningEntry.issue,
       runId: runningEntry.runId,
       workerHost: runningEntry.workerHost,
-      workspacePath: runningEntry.workspacePath,
+      workspace: runningEntry.workspace,
       delayType: "failure"
     });
   }
@@ -720,7 +711,7 @@ export class SymphonyOrchestrator {
       issue?: SymphonyTrackerIssue;
       runId?: string | null;
       workerHost?: string | null;
-      workspacePath?: string | null;
+      workspace?: PreparedWorkspace | null;
       delayType: "continuation" | "failure";
     }
   ): Promise<void> {
@@ -736,7 +727,8 @@ export class SymphonyOrchestrator {
       identifier: metadata.identifier,
       error: metadata.error ?? null,
       workerHost: metadata.workerHost ?? null,
-      workspacePath: metadata.workspacePath ?? null,
+      workspace: metadata.workspace ?? null,
+      workspacePath: workspaceHostPath(metadata.workspace ?? null),
       delayType: metadata.delayType
     };
 
@@ -794,7 +786,7 @@ export class SymphonyOrchestrator {
           identifier: retry.identifier,
           error: retry.error ?? undefined,
           workerHost: retry.workerHost,
-          workspacePath: retry.workspacePath,
+          workspace: retry.workspace,
           delayType: retry.delayType
         });
         continue;
@@ -815,8 +807,7 @@ export class SymphonyOrchestrator {
 
     await this.#agentRuntime.stopRun({
       issue: runningEntry.issue,
-      workspacePath: runningEntry.workspacePath,
-      workerHost: runningEntry.workerHost,
+      workspace: runningEntry.workspace,
       cleanupWorkspace
     });
 
@@ -833,9 +824,10 @@ export class SymphonyOrchestrator {
       }
     });
 
-    if (cleanupWorkspace && runningEntry.workspacePath) {
+    if (cleanupWorkspace && runningEntry.workspace) {
       await this.#workspaceBackend.cleanupWorkspace({
         issueIdentifier: runningEntry.issue.identifier,
+        workspace: runningEntry.workspace,
         config: this.#workflowConfig.workspace,
         hooks: this.#workflowConfig.hooks,
         ...this.#workspaceRunnerOptions(runningEntry.workerHost)
@@ -888,7 +880,7 @@ export class SymphonyOrchestrator {
   async #handleStartupFailure(
     issue: SymphonyTrackerIssue,
     workerHost: string | null,
-    workspacePath: string | null,
+    workspace: PreparedWorkspace | null,
     reason: string,
     runId: string | null
   ): Promise<void> {
@@ -952,6 +944,7 @@ export class SymphonyOrchestrator {
 
     await this.#workspaceBackend.cleanupWorkspace({
       issueIdentifier: issue.identifier,
+      workspace,
       config: this.#workflowConfig.workspace,
       hooks: this.#workflowConfig.hooks,
       ...this.#workspaceRunnerOptions(workerHost)
@@ -964,7 +957,7 @@ export class SymphonyOrchestrator {
       eventType: "workspace_removed",
       message: "Workspace removed after startup failure.",
       payload: {
-        workspacePath
+        workspace: buildWorkspaceLifecyclePayload(workspace)
       }
     });
 
@@ -1027,8 +1020,7 @@ export class SymphonyOrchestrator {
 
       await this.#agentRuntime.stopRun({
         issue: runningEntry.issue,
-        workspacePath: runningEntry.workspacePath,
-        workerHost: runningEntry.workerHost,
+        workspace: runningEntry.workspace,
         cleanupWorkspace: false
       });
 
@@ -1038,6 +1030,52 @@ export class SymphonyOrchestrator {
       });
     }
   }
+}
+
+function workspaceHostPath(workspace: PreparedWorkspace | null): string | null {
+  if (!workspace) {
+    return null;
+  }
+
+  if (workspace.executionTarget.kind === "host_path") {
+    return workspace.executionTarget.path;
+  }
+
+  if (workspace.executionTarget.hostPath) {
+    return workspace.executionTarget.hostPath;
+  }
+
+  switch (workspace.materialization.kind) {
+    case "directory":
+      return workspace.materialization.hostPath;
+    case "bind_mount":
+      return workspace.materialization.hostPath;
+    case "volume":
+      return workspace.materialization.hostPath;
+  }
+}
+
+function buildWorkspaceLifecyclePayload(
+  workspace: PreparedWorkspace | null
+): SymphonyJsonObject | null {
+  if (!workspace) {
+    return null;
+  }
+
+  return {
+    issueIdentifier: workspace.issueIdentifier,
+    workspaceKey: workspace.workspaceKey,
+    backendKind: workspace.backendKind,
+    created: workspace.created,
+    workerHost: workspace.workerHost,
+    path: workspace.path,
+    executionTarget: {
+      ...workspace.executionTarget
+    },
+    materialization: {
+      ...workspace.materialization
+    }
+  };
 }
 
 export async function prepareIssueForDispatch(

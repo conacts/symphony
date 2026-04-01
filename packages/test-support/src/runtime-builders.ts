@@ -106,8 +106,17 @@ export function buildSymphonyRuntimeIssueResult(
     issueId: "issue-167",
     status: "running",
     workspace: {
+      backendKind: "local",
       path: "/tmp/symphony-COL-167",
-      host: "local"
+      host: "local",
+      executionTarget: {
+        kind: "host_path",
+        path: "/tmp/symphony-COL-167"
+      },
+      materialization: {
+        kind: "directory",
+        hostPath: "/tmp/symphony-COL-167"
+      }
     },
     attempts: {
       restartCount: 0,

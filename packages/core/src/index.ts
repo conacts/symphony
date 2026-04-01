@@ -19,10 +19,12 @@ export type {
   ReviewPublisher,
   SymphonyRuntime,
   WorkspaceBackend,
+  WorkspaceBackendKind,
   WorkspaceCleanupInput,
   WorkspaceContext,
+  WorkspaceExecutionTarget,
   WorkspaceHookInput,
-  WorkspacePathInput,
+  WorkspaceMaterializationMetadata,
   WorkspacePrepareInput
 } from "./public/index.js";
 export {

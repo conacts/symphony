@@ -161,6 +161,15 @@ describe("@symphony/api app", () => {
     const runtimeIssuePayload = await responseJson<{
       data: {
         issueIdentifier: string;
+        workspace: {
+          backendKind: string | null;
+          path: string | null;
+          executionTarget:
+            | {
+                kind: string;
+              }
+            | null;
+        };
         tracked: {
           url: string | null;
         };
@@ -190,6 +199,11 @@ describe("@symphony/api app", () => {
 
     expect(runtimeIssueResponse.status).toBe(200);
     expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");
+    expect(runtimeIssuePayload.data.workspace.backendKind).toBe("local");
+    expect(runtimeIssuePayload.data.workspace.path).toContain("/symphony-COL-123");
+    expect(runtimeIssuePayload.data.workspace.executionTarget?.kind).toBe(
+      "host_path"
+    );
     expect(runtimeIssuePayload.data.tracked.url).toBe(
       "https://linear.app/coldets/issue/col-123"
     );
@@ -217,6 +231,12 @@ describe("@symphony/api app", () => {
       data: {
         issueIdentifier: string;
         status: string;
+        workspace: {
+          backendKind: string | null;
+          path: string | null;
+          executionTarget: null;
+          materialization: null;
+        };
         tracked: {
           url: string | null;
         };
@@ -228,6 +248,10 @@ describe("@symphony/api app", () => {
     expect(runtimeIssueResponse.status).toBe(200);
     expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");
     expect(runtimeIssuePayload.data.status).toBe("tracked");
+    expect(runtimeIssuePayload.data.workspace.backendKind).toBeNull();
+    expect(runtimeIssuePayload.data.workspace.path).toBeNull();
+    expect(runtimeIssuePayload.data.workspace.executionTarget).toBeNull();
+    expect(runtimeIssuePayload.data.workspace.materialization).toBeNull();
     expect(runtimeIssuePayload.data.tracked.url).toBe(
       "https://linear.app/coldets/issue/col-123"
     );

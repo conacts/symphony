@@ -53,9 +53,50 @@ export const symphonyRuntimeStateResultSchema = z.strictObject({
   rateLimits: jsonObjectSchema.nullable()
 });
 
+export const symphonyRuntimeWorkspaceExecutionTargetSchema = z.discriminatedUnion(
+  "kind",
+  [
+    z.strictObject({
+      kind: z.literal("host_path"),
+      path: nonEmptyStringSchema
+    }),
+    z.strictObject({
+      kind: z.literal("container"),
+      workspacePath: nonEmptyStringSchema,
+      containerId: nullableNonEmptyStringSchema,
+      containerName: nullableNonEmptyStringSchema,
+      hostPath: nullableNonEmptyStringSchema
+    })
+  ]
+);
+
+export const symphonyRuntimeWorkspaceMaterializationSchema = z.discriminatedUnion(
+  "kind",
+  [
+    z.strictObject({
+      kind: z.literal("directory"),
+      hostPath: nonEmptyStringSchema
+    }),
+    z.strictObject({
+      kind: z.literal("bind_mount"),
+      hostPath: nonEmptyStringSchema,
+      containerPath: nonEmptyStringSchema
+    }),
+    z.strictObject({
+      kind: z.literal("volume"),
+      volumeName: nonEmptyStringSchema,
+      containerPath: nonEmptyStringSchema,
+      hostPath: nullableNonEmptyStringSchema
+    })
+  ]
+);
+
 export const symphonyRuntimeWorkspaceSchema = z.strictObject({
-  path: nonEmptyStringSchema,
-  host: nullableNonEmptyStringSchema
+  backendKind: z.enum(["local", "docker"]).nullable(),
+  path: nullableNonEmptyStringSchema,
+  host: nullableNonEmptyStringSchema,
+  executionTarget: symphonyRuntimeWorkspaceExecutionTargetSchema.nullable(),
+  materialization: symphonyRuntimeWorkspaceMaterializationSchema.nullable()
 });
 
 export const symphonyRuntimeAttemptsSchema = z.strictObject({
@@ -190,6 +231,13 @@ export type SymphonyRuntimeCodexTotals = z.infer<typeof symphonyRuntimeCodexTota
 export type SymphonyRuntimeRunningEntry = z.infer<typeof symphonyRuntimeRunningEntrySchema>;
 export type SymphonyRuntimeRetryEntry = z.infer<typeof symphonyRuntimeRetryEntrySchema>;
 export type SymphonyRuntimeStateResult = z.infer<typeof symphonyRuntimeStateResultSchema>;
+export type SymphonyRuntimeWorkspaceExecutionTarget = z.infer<
+  typeof symphonyRuntimeWorkspaceExecutionTargetSchema
+>;
+export type SymphonyRuntimeWorkspaceMaterialization = z.infer<
+  typeof symphonyRuntimeWorkspaceMaterializationSchema
+>;
+export type SymphonyRuntimeWorkspace = z.infer<typeof symphonyRuntimeWorkspaceSchema>;
 export type SymphonyRuntimeTrackedIssue = z.infer<typeof symphonyRuntimeTrackedIssueSchema>;
 export type SymphonyRuntimeIssueOperator = z.infer<typeof symphonyRuntimeIssueOperatorSchema>;
 export type SymphonyRuntimeIssueResult = z.infer<typeof symphonyRuntimeIssueResultSchema>;

@@ -23,9 +23,11 @@ export type { SymphonyRuntime } from "../runtime/symphony-runtime.js";
 export type {
   PreparedWorkspace,
   WorkspaceBackend,
+  WorkspaceBackendKind,
   WorkspaceCleanupInput,
   WorkspaceContext,
+  WorkspaceExecutionTarget,
   WorkspaceHookInput,
-  WorkspacePathInput,
+  WorkspaceMaterializationMetadata,
   WorkspacePrepareInput
 } from "../workspace/workspace-backend.js";

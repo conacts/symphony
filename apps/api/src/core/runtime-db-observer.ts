@@ -12,17 +12,18 @@ export function createDbBackedOrchestratorObserver(input: {
   issueTimelineStore: SymphonyIssueTimelineStore;
 }): SymphonyOrchestratorObserver {
   return {
-    async startRun({ issue, attempt, workspacePath, workerHost, startedAt }) {
+    async startRun({ issue, attempt, workspace, workerHost, startedAt }) {
       return await input.runJournal.recordRunStarted({
         issueId: issue.id,
         issueIdentifier: issue.identifier,
         attempt,
         status: "dispatching",
         workerHost,
-        workspacePath,
+        workspacePath: workspaceHostPath(workspace),
         startedAt,
         metadata: {
-          runtime: "typescript"
+          runtime: "typescript",
+          workspace: workspaceMetadata(workspace)
         }
       });
     },
@@ -37,32 +38,28 @@ export function createDbBackedOrchestratorObserver(input: {
       recordedAt
     }) {
       if (runId && source === "workspace") {
-        const workspacePayload = asRecord(payload);
+        const workspacePayload = extractWorkspaceMetadata(payload);
         await input.runJournal.updateRun(runId, {
-          workspacePath:
-            typeof workspacePayload?.workspacePath === "string"
-              ? workspacePayload.workspacePath
-              : null,
-          workerHost:
-            typeof workspacePayload?.workerHost === "string"
-              ? workspacePayload.workerHost
-              : null
+          workspacePath: workspaceHostPath(workspacePayload),
+          workerHost: workspaceWorkerHost(workspacePayload),
+          metadata: {
+            workspace: workspaceMetadata(workspacePayload)
+          }
         });
       }
 
       if (runId && eventType === "run_launched") {
         const launchPayload = asRecord(payload);
+        const workspacePayload = extractWorkspaceMetadata(payload);
         await input.runJournal.updateRun(runId, {
           status: "running",
-          workspacePath:
-            typeof launchPayload?.workspacePath === "string"
-              ? launchPayload.workspacePath
-              : null,
+          workspacePath: workspaceHostPath(workspacePayload),
           workerHost:
             typeof launchPayload?.workerHost === "string"
               ? launchPayload.workerHost
-              : null,
+              : workspaceWorkerHost(workspacePayload),
           metadata: {
+            workspace: workspaceMetadata(workspacePayload),
             sessionId:
               typeof launchPayload?.sessionId === "string"
                 ? launchPayload.sessionId
@@ -87,7 +84,7 @@ export function createDbBackedOrchestratorObserver(input: {
       runId,
       completion,
       workerHost,
-      workspacePath,
+      workspace,
       endedAt,
       turnCount,
       inputTokens,
@@ -105,7 +102,8 @@ export function createDbBackedOrchestratorObserver(input: {
         metadata: {
           turnCount,
           workerHost,
-          workspacePath,
+          workspacePath: workspaceHostPath(workspace),
+          workspace: workspaceMetadata(workspace),
           tokens: {
             inputTokens,
             outputTokens,
@@ -120,6 +118,8 @@ export function createDbBackedOrchestratorObserver(input: {
     }
   };
 }
+
+type ObserverWorkspace = Parameters<SymphonyOrchestratorObserver["startRun"]>[0]["workspace"];
 
 function completionStatus(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
@@ -176,6 +176,75 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+}
+
+function extractWorkspaceMetadata(payload: unknown): ObserverWorkspace {
+  const record = asRecord(payload);
+  const nestedWorkspace = asRecord(record?.workspace);
+  const workspaceRecord = nestedWorkspace ?? record;
+
+  return isWorkspaceRecord(workspaceRecord)
+    ? (workspaceRecord as NonNullable<ObserverWorkspace>)
+    : null;
+}
+
+function isWorkspaceRecord(value: Record<string, unknown> | null): boolean {
+  return (
+    value !== null &&
+    typeof value.issueIdentifier === "string" &&
+    typeof value.workspaceKey === "string" &&
+    typeof value.backendKind === "string"
+  );
+}
+
+function workspaceHostPath(workspace: ObserverWorkspace): string | null {
+  if (!workspace) {
+    return null;
+  }
+
+  if (workspace.executionTarget.kind === "host_path") {
+    return workspace.executionTarget.path;
+  }
+
+  if (workspace.executionTarget.hostPath) {
+    return workspace.executionTarget.hostPath;
+  }
+
+  switch (workspace.materialization.kind) {
+    case "directory":
+      return workspace.materialization.hostPath;
+    case "bind_mount":
+      return workspace.materialization.hostPath;
+    case "volume":
+      return workspace.materialization.hostPath;
+  }
+
+  return null;
+}
+
+function workspaceWorkerHost(workspace: ObserverWorkspace): string | null {
+  return workspace?.workerHost ?? null;
+}
+
+function workspaceMetadata(workspace: ObserverWorkspace): SymphonyJsonValue {
+  if (!workspace) {
+    return null;
+  }
+
+  return {
+    issueIdentifier: workspace.issueIdentifier,
+    workspaceKey: workspace.workspaceKey,
+    backendKind: workspace.backendKind,
+    created: workspace.created,
+    workerHost: workspace.workerHost,
+    path: workspace.path,
+    executionTarget: {
+      ...workspace.executionTarget
+    },
+    materialization: {
+      ...workspace.materialization
+    }
+  };
 }
 
 function normalizeJsonValue(value: unknown): SymphonyJsonValue {

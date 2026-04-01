@@ -110,13 +110,7 @@ describe("local codex symphony agent runtime", () => {
         runId,
         attempt: 1,
         workflowConfig,
-        workspace: {
-          issueIdentifier: issue.identifier,
-          workspaceKey: issue.identifier,
-          path: workspacePath,
-          created: false,
-          workerHost: null
-        }
+        workspace: buildLocalPreparedWorkspace(issue.identifier, workspacePath)
       });
     });
 
@@ -249,13 +243,7 @@ describe("local codex symphony agent runtime", () => {
         runId,
         attempt: 1,
         workflowConfig,
-        workspace: {
-          issueIdentifier: issue.identifier,
-          workspaceKey: issue.identifier,
-          path: workspacePath,
-          created: false,
-          workerHost: null
-        }
+        workspace: buildLocalPreparedWorkspace(issue.identifier, workspacePath)
       });
     });
 
@@ -362,13 +350,7 @@ done
         runId: null,
         attempt: 1,
         workflowConfig,
-        workspace: {
-          issueIdentifier: issue.identifier,
-          workspaceKey: issue.identifier,
-          path: workspacePath,
-          created: false,
-          workerHost: null
-        }
+        workspace: buildLocalPreparedWorkspace(issue.identifier, workspacePath)
       });
     });
 
@@ -460,4 +442,26 @@ async function initializeGitWorkspace(workspacePath: string): Promise<void> {
   await execFileAsync("git", ["commit", "-m", "init"], {
     cwd: workspacePath
   });
+}
+
+function buildLocalPreparedWorkspace(
+  issueIdentifier: string,
+  workspacePath: string
+) {
+  return {
+    issueIdentifier,
+    workspaceKey: issueIdentifier,
+    backendKind: "local" as const,
+    executionTarget: {
+      kind: "host_path" as const,
+      path: workspacePath
+    },
+    materialization: {
+      kind: "directory" as const,
+      hostPath: workspacePath
+    },
+    path: workspacePath,
+    created: false,
+    workerHost: null
+  };
 }

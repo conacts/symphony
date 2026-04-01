@@ -13,13 +13,11 @@ export type AgentRunInput = {
 export type AgentRunLaunch = {
   sessionId: string | null;
   workerHost: string | null;
-  workspacePath: string;
 };
 
 export type AgentStopInput = {
   issue: SymphonyTrackerIssue;
-  workspacePath: string | null;
-  workerHost: string | null;
+  workspace: PreparedWorkspace | null;
   cleanupWorkspace: boolean;
 };
 

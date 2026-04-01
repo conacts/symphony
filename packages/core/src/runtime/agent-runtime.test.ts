@@ -21,6 +21,15 @@ function buildAgentRunInput(): AgentRunInput {
     workspace: {
       issueIdentifier: issue.identifier,
       workspaceKey: issue.identifier,
+      backendKind: "local",
+      executionTarget: {
+        kind: "host_path",
+        path: "/tmp/symphony-runtime"
+      },
+      materialization: {
+        kind: "directory",
+        hostPath: "/tmp/symphony-runtime"
+      },
       path: "/tmp/symphony-runtime",
       created: false,
       workerHost: null
@@ -33,8 +42,7 @@ describe("agent runtime facade", () => {
     const runInput = buildAgentRunInput();
     const startRun = vi.fn(async () => ({
       sessionId: "thread-123",
-      workerHost: "worker-a",
-      workspacePath: runInput.workspace.path
+      workerHost: "worker-a"
     }));
     const stopRun = vi.fn(async () => undefined);
     const implementation = {
@@ -47,22 +55,19 @@ describe("agent runtime facade", () => {
     expect(runtime).not.toBe(implementation);
     await expect(runtime.startRun(runInput)).resolves.toEqual({
       sessionId: "thread-123",
-      workerHost: "worker-a",
-      workspacePath: runInput.workspace.path
+      workerHost: "worker-a"
     });
     await expect(
       runtime.stopRun({
         issue: runInput.issue,
-        workspacePath: runInput.workspace.path,
-        workerHost: "worker-a",
+        workspace: runInput.workspace,
         cleanupWorkspace: false
       })
     ).resolves.toBeUndefined();
     expect(startRun).toHaveBeenCalledWith(runInput);
     expect(stopRun).toHaveBeenCalledWith({
       issue: runInput.issue,
-      workspacePath: runInput.workspace.path,
-      workerHost: "worker-a",
+      workspace: runInput.workspace,
       cleanupWorkspace: false
     });
   });

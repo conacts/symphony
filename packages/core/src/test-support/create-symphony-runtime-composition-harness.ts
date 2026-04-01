@@ -66,13 +66,12 @@ export async function createSymphonyRuntimeCompositionHarness(input: {
       launchRecords.push({
         attempt: runInput.attempt,
         issueId: runInput.issue.id,
-        workspacePath: runInput.workspace.path
+        workspacePath: hostPathForWorkspace(runInput.workspace)
       });
 
       return {
         sessionId: "thread-live",
-        workerHost: null,
-        workspacePath: runInput.workspace.path
+        workerHost: null
       };
     },
     async stopRun(stopInput) {
@@ -115,4 +114,14 @@ export async function createSymphonyRuntimeCompositionHarness(input: {
     tracker,
     workflowConfig
   };
+}
+
+function hostPathForWorkspace(
+  workspace: Parameters<AgentRuntime["startRun"]>[0]["workspace"]
+): string {
+  if (workspace.executionTarget.kind === "host_path") {
+    return workspace.executionTarget.path;
+  }
+
+  throw new TypeError("Expected a local prepared workspace.");
 }

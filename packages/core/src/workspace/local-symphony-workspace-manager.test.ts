@@ -4,7 +4,10 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
-import { SymphonyWorkspaceError } from "./local-symphony-workspace-manager.js";
+import {
+  SymphonyWorkspaceError,
+  symphonyWorkspaceDirectoryName
+} from "./local-symphony-workspace-manager.js";
 import { createLocalWorkspaceBackend } from "./workspace-backend.js";
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
 
@@ -29,6 +32,14 @@ afterEach(async () => {
     )
   );
 });
+
+function requireWorkspacePath(workspace: { path: string | null }): string {
+  if (!workspace.path) {
+    throw new TypeError("Expected local workspace path to be available.");
+  }
+
+  return workspace.path;
+}
 
 describe("local workspace backend", () => {
   it("creates deterministic workspaces and only runs after_create on first creation", async () => {
@@ -76,7 +87,15 @@ describe("local workspace backend", () => {
     });
 
     expect(first.path).toBe(second.path);
-    expect(path.basename(first.path)).toBe("symphony-COL_200");
+    expect(first.executionTarget).toEqual({
+      kind: "host_path",
+      path: requireWorkspacePath(first)
+    });
+    expect(first.materialization).toEqual({
+      kind: "directory",
+      hostPath: requireWorkspacePath(first)
+    });
+    expect(path.basename(requireWorkspacePath(first))).toBe("symphony-COL_200");
     expect(first.created).toBe(true);
     expect(second.created).toBe(false);
     expect(hookCalls).toHaveLength(1);
@@ -115,11 +134,13 @@ describe("local workspace backend", () => {
       hooks: config.hooks
     });
 
-    expect(await readFile(path.join(workspace.path, "README.md"), "utf8")).toBe(
+    expect(
+      await readFile(path.join(requireWorkspacePath(workspace), "README.md"), "utf8")
+    ).toBe(
       "hook clone\n"
     );
     expect(
-      await readFile(path.join(workspace.path, "keep", "file.txt"), "utf8")
+      await readFile(path.join(requireWorkspacePath(workspace), "keep", "file.txt"), "utf8")
     ).toBe("keep me");
   });
 
@@ -131,10 +152,10 @@ describe("local workspace backend", () => {
       }
     });
     const backend = createLocalWorkspaceBackend();
-    const workspacePath = backend.getWorkspacePath({
-      issueIdentifier: "COL-300",
-      config: config.workspace
-    });
+    const workspacePath = path.join(
+      config.workspace.root,
+      symphonyWorkspaceDirectoryName("COL-300")
+    );
 
     await writeFile(workspacePath, "stale path");
 
@@ -202,8 +223,10 @@ describe("local workspace backend", () => {
     });
 
     expect(workspace.created).toBe(false);
-    expect(workspace.path).toBe(await realpath(workspacePath));
-    expect(await readFile(path.join(workspace.path, "README.md"), "utf8")).toBe(
+    expect(requireWorkspacePath(workspace)).toBe(await realpath(workspacePath));
+    expect(
+      await readFile(path.join(requireWorkspacePath(workspace), "README.md"), "utf8")
+    ).toBe(
       "existing\n"
     );
     expect(hookCalls).toHaveLength(0);
@@ -248,17 +271,19 @@ describe("local workspace backend", () => {
     });
 
     expect(workspace.created).toBe(true);
-    expect(await readFile(path.join(workspace.path, "README.md"), "utf8")).toBe(
+    expect(
+      await readFile(path.join(requireWorkspacePath(workspace), "README.md"), "utf8")
+    ).toBe(
       "bootstrapped\n"
     );
     await expect(
-      readFile(path.join(workspace.path, "local-progress.txt"), "utf8")
+      readFile(path.join(requireWorkspacePath(workspace), "local-progress.txt"), "utf8")
     ).rejects.toMatchObject({
       code: "ENOENT"
     });
     expect(
       await readFile(
-        path.join(workspace.path, ".symphony", "workspace.env"),
+        path.join(requireWorkspacePath(workspace), ".symphony", "workspace.env"),
         "utf8"
       )
     ).toContain("DATABASE_URL=postgres://example");
@@ -325,7 +350,7 @@ describe("local workspace backend", () => {
       hooks: config.hooks
     });
 
-    expect(workspace.path).toBe(
+    expect(requireWorkspacePath(workspace)).toBe(
       await realpath(path.join(actualRoot, "symphony-MT-LINK"))
     );
   });
@@ -367,7 +392,7 @@ describe("local workspace backend", () => {
 
     await expect(
       backend.runBeforeRun({
-        workspacePath: workspace.path,
+        workspace,
         context: {
           issueId: "issue-400",
           issueIdentifier: "COL-400"
@@ -378,7 +403,7 @@ describe("local workspace backend", () => {
 
     await expect(
       backend.runAfterRun({
-        workspacePath: workspace.path,
+        workspace,
         context: {
           issueId: "issue-400",
           issueIdentifier: "COL-400"

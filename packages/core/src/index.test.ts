@@ -1,4 +1,3 @@
-import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import * as core from "./index.js";
 import {
@@ -73,8 +72,7 @@ describe("@symphony/core scaffold", () => {
       async startRun() {
         return {
           sessionId: null,
-          workerHost: null,
-          workspacePath: "/tmp/symphony-runtime"
+          workerHost: null
         };
       },
       async stopRun() {}
@@ -107,14 +105,7 @@ describe("@symphony/core scaffold", () => {
       }
     });
 
-    expect(
-      workspaceBackend.getWorkspacePath({
-        issueIdentifier: "COL-123",
-        config: {
-          root: "/tmp/symphony-root"
-        }
-      })
-    ).toBe(path.join("/tmp/symphony-root", "symphony-COL-123"));
+    expect("getWorkspacePath" in workspaceBackend).toBe(false);
     expect(
       Object.prototype.hasOwnProperty.call(runtime, "orchestrator")
     ).toBe(false);
@@ -203,8 +194,7 @@ describe("@symphony/core scaffold", () => {
         async startRun() {
           return {
             sessionId: null,
-            workerHost: null,
-            workspacePath: "/tmp/symphony-runtime"
+            workerHost: null
           };
         },
         async stopRun() {}

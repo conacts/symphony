@@ -20,16 +20,51 @@ export type WorkspacePrepareInput = {
   hooks: SymphonyWorkflowHooksConfig;
 } & WorkspaceBackendRunnerOptions;
 
+export type WorkspaceBackendKind = "local" | "docker";
+
+export type WorkspaceExecutionTarget =
+  | {
+      kind: "host_path";
+      path: string;
+    }
+  | {
+      kind: "container";
+      workspacePath: string;
+      containerId: string | null;
+      containerName: string | null;
+      hostPath: string | null;
+    };
+
+export type WorkspaceMaterializationMetadata =
+  | {
+      kind: "directory";
+      hostPath: string;
+    }
+  | {
+      kind: "bind_mount";
+      hostPath: string;
+      containerPath: string;
+    }
+  | {
+      kind: "volume";
+      volumeName: string;
+      containerPath: string;
+      hostPath: string | null;
+    };
+
 export type PreparedWorkspace = {
   issueIdentifier: string;
   workspaceKey: string;
-  path: string;
+  backendKind: WorkspaceBackendKind;
+  executionTarget: WorkspaceExecutionTarget;
+  materialization: WorkspaceMaterializationMetadata;
+  path: string | null;
   created: boolean;
   workerHost: string | null;
 };
 
 export type WorkspaceHookInput = {
-  workspacePath: string;
+  workspace: PreparedWorkspace;
   context: WorkspaceContext;
   hooks: SymphonyWorkflowHooksConfig;
 } & WorkspaceBackendRunnerOptions;
@@ -38,19 +73,14 @@ export type WorkspaceCleanupInput = {
   issueIdentifier: string;
   config: SymphonyWorkflowWorkspaceConfig;
   hooks: SymphonyWorkflowHooksConfig;
+  workspace?: PreparedWorkspace | null;
 } & WorkspaceBackendRunnerOptions;
-
-export type WorkspacePathInput = {
-  issueIdentifier: string;
-  config: SymphonyWorkflowWorkspaceConfig;
-};
 
 export interface WorkspaceBackend {
   prepareWorkspace(input: WorkspacePrepareInput): Promise<PreparedWorkspace>;
   runBeforeRun(input: WorkspaceHookInput): Promise<void>;
   runAfterRun(input: WorkspaceHookInput): Promise<void>;
   cleanupWorkspace(input: WorkspaceCleanupInput): Promise<void>;
-  getWorkspacePath(input: WorkspacePathInput): string;
 }
 
 export function createLocalWorkspaceBackend(
@@ -73,6 +103,15 @@ export function createLocalWorkspaceBackend(
       return {
         issueIdentifier: workspace.issueIdentifier,
         workspaceKey: workspace.workspaceKey,
+        backendKind: "local",
+        executionTarget: {
+          kind: "host_path",
+          path: workspace.path
+        },
+        materialization: {
+          kind: "directory",
+          hostPath: workspace.path
+        },
         path: workspace.path,
         created: workspace.created,
         workerHost: workspace.workerHost
@@ -81,7 +120,7 @@ export function createLocalWorkspaceBackend(
 
     async runBeforeRun(input) {
       await manager.runBeforeRunHook(
-        input.workspacePath,
+        requireLocalWorkspacePath(input.workspace),
         input.context,
         input.hooks,
         {
@@ -93,7 +132,7 @@ export function createLocalWorkspaceBackend(
 
     async runAfterRun(input) {
       await manager.runAfterRunHook(
-        input.workspacePath,
+        requireLocalWorkspacePath(input.workspace),
         input.context,
         input.hooks,
         {
@@ -113,10 +152,16 @@ export function createLocalWorkspaceBackend(
           workerHost: input.workerHost
         }
       );
-    },
-
-    getWorkspacePath(input) {
-      return manager.workspacePathForIssue(input.issueIdentifier, input.config.root);
     }
   };
+}
+
+function requireLocalWorkspacePath(workspace: PreparedWorkspace): string {
+  if (workspace.executionTarget.kind === "host_path") {
+    return workspace.executionTarget.path;
+  }
+
+  throw new TypeError(
+    "Local workspace backends require a host-path execution target."
+  );
 }
