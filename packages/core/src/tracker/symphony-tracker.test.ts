@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createLinearSymphonyTracker } from "./linear-symphony-tracker.js";
 import {
   createMemorySymphonyTracker,
   isLinearIssueInScope,
@@ -73,4 +74,203 @@ describe("symphony tracker helpers", () => {
       }
     ]);
   });
+
+  it("normalizes Linear issues and filters by assigned worker", async () => {
+    const config = buildSymphonyWorkflowConfig({
+      tracker: {
+        ...buildSymphonyWorkflowConfig().tracker,
+        assignee: "worker-1"
+      }
+    }).tracker;
+
+    const tracker = createLinearSymphonyTracker({
+      config,
+      request: async (query) => {
+        if (query.includes("SymphonyLinearPollByProject")) {
+          return {
+            data: {
+              issues: {
+                nodes: [
+                  buildLinearIssueNode({
+                    id: "issue-123",
+                    identifier: "COL-123",
+                    assigneeId: "worker-1"
+                  }),
+                  buildLinearIssueNode({
+                    id: "issue-456",
+                    identifier: "COL-456",
+                    assigneeId: "someone-else"
+                  })
+                ],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null
+                }
+              }
+            }
+          };
+        }
+
+        if (query.includes("SymphonyLinearViewer")) {
+          return {
+            data: {
+              viewer: {
+                id: "worker-1"
+              }
+            }
+          };
+        }
+
+        throw new Error("Unexpected query");
+      }
+    });
+
+    const issues = await tracker.fetchCandidateIssues(config);
+
+    expect(issues).toHaveLength(2);
+    expect(issues[0]).toMatchObject({
+      id: "issue-123",
+      identifier: "COL-123",
+      blockedBy: ["issue-blocker"],
+      labels: ["symphony:no-auto-rework"],
+      assignedToWorker: true
+    });
+    expect(issues[1]).toMatchObject({
+      id: "issue-456",
+      identifier: "COL-456",
+      assignedToWorker: false
+    });
+  });
+
+  it("supports Linear issue lookup, comments, and state transitions", async () => {
+    const config = buildSymphonyWorkflowConfig().tracker;
+    const seenOperations: string[] = [];
+
+    const tracker = createLinearSymphonyTracker({
+      config,
+      request: async (query) => {
+        if (query.includes("SymphonyLinearIssueByIdentifier")) {
+          seenOperations.push("lookup");
+          return {
+            data: {
+              issue: buildLinearIssueNode({
+                id: "issue-123",
+                identifier: "COL-123"
+              })
+            }
+          };
+        }
+
+        if (query.includes("SymphonyResolveStateId")) {
+          seenOperations.push("resolve-state");
+          return {
+            data: {
+              issue: {
+                team: {
+                  states: {
+                    nodes: [
+                      {
+                        id: "state-123"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          };
+        }
+
+        if (query.includes("SymphonyUpdateIssueState")) {
+          seenOperations.push("update-state");
+          return {
+            data: {
+              issueUpdate: {
+                success: true
+              }
+            }
+          };
+        }
+
+        if (query.includes("SymphonyCreateComment")) {
+          seenOperations.push("comment");
+          return {
+            data: {
+              commentCreate: {
+                success: true
+              }
+            }
+          };
+        }
+
+        throw new Error("Unexpected query");
+      }
+    });
+
+    const issue = await tracker.fetchIssueByIdentifier(config, "COL-123");
+    await tracker.updateIssueState("issue-123", "In Progress");
+    await tracker.createComment("issue-123", "Symphony status update.");
+
+    expect(issue?.identifier).toBe("COL-123");
+    expect(seenOperations).toEqual([
+      "lookup",
+      "resolve-state",
+      "update-state",
+      "comment"
+    ]);
+  });
 });
+
+function buildLinearIssueNode(input: {
+  id: string;
+  identifier: string;
+  assigneeId?: string | null;
+}): Record<string, unknown> {
+  return {
+    id: input.id,
+    identifier: input.identifier,
+    title: "Issue title",
+    description: "Issue description",
+    priority: 2,
+    state: {
+      name: "Todo"
+    },
+    branchName: `symphony/${input.identifier}`,
+    url: `https://linear.app/coldets/issue/${input.identifier.toLowerCase()}`,
+    team: {
+      key: "COL"
+    },
+    project: {
+      id: "project-1",
+      name: "Project",
+      slugId: "coldets"
+    },
+    assignee: input.assigneeId
+      ? {
+          id: input.assigneeId
+        }
+      : null,
+    labels: {
+      nodes: [
+        {
+          name: "symphony:no-auto-rework"
+        }
+      ]
+    },
+    inverseRelations: {
+      nodes: [
+        {
+          type: "blocks",
+          issue: {
+            id: "issue-blocker",
+            identifier: "COL-999",
+            state: {
+              name: "In Review"
+            }
+          }
+        }
+      ]
+    },
+    createdAt: "2026-03-31T00:00:00.000Z",
+    updatedAt: "2026-03-31T00:00:00.000Z"
+  };
+}

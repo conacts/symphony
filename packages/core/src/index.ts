@@ -39,6 +39,7 @@ export {
   symphonyDisabledLabel,
   symphonyNoAutoReworkLabel
 } from "./tracker/symphony-tracker.js";
+export { createLinearSymphonyTracker } from "./tracker/linear-symphony-tracker.js";
 export type {
   MemorySymphonyTracker,
   SymphonyTracker,

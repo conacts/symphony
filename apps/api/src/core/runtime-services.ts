@@ -1,4 +1,5 @@
 import {
+  createLinearSymphonyTracker,
   createLocalSymphonyWorkspaceManager,
   createMemorySymphonyTracker,
   createSymphonyForensicsReadModel,
@@ -140,19 +141,33 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     }
   });
 
-  const tracker = createMemorySymphonyTracker([]);
-  logger.warn("Using in-memory tracker placeholder", {
-    linearGapTicket: "COL-161"
-  });
-  await runtimeLogStore.record({
-    level: "warn",
-    source: "runtime",
-    eventType: "tracker_placeholder_active",
-    message: "Using in-memory tracker placeholder.",
-    payload: {
-      linearGapTicket: "COL-161"
-    }
-  });
+  const tracker =
+    workflow.config.tracker.kind === "linear"
+      ? createLinearSymphonyTracker({
+          config: workflow.config.tracker
+        })
+      : createMemorySymphonyTracker([]);
+  if (workflow.config.tracker.kind === "memory") {
+    logger.warn("Using in-memory tracker placeholder");
+    await runtimeLogStore.record({
+      level: "warn",
+      source: "runtime",
+      eventType: "tracker_placeholder_active",
+      message: "Using in-memory tracker placeholder.",
+      payload: null
+    });
+  } else {
+    await runtimeLogStore.record({
+      level: "info",
+      source: "runtime",
+      eventType: "tracker_initialized",
+      message: "Initialized Linear-backed tracker.",
+      payload: {
+        teamKey: workflow.config.tracker.teamKey,
+        projectSlug: workflow.config.tracker.projectSlug
+      }
+    });
+  }
 
   const workspaceManager = createLocalSymphonyWorkspaceManager();
   logger.info("Initialized workspace manager", {
