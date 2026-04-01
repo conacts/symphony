@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Geist, IBM_Plex_Mono } from "next/font/google";
+import { Geist, IBM_Plex_Mono, Public_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({
-  subsets: ["latin"],
-  variable: "--font-sans"
-});
+const publicSans = Public_Sans({subsets:['latin'],variable:'--font-sans'});
 
 const ibmPlexMono = IBM_Plex_Mono({
   subsets: ["latin"],
@@ -27,7 +24,7 @@ export default function RootLayout(input: { children: ReactNode }) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("antialiased", ibmPlexMono.variable, "font-sans", geist.variable)}
+      className={cn("antialiased", ibmPlexMono.variable, "font-sans", publicSans.variable)}
     >
       <body>
         <ThemeProvider>{input.children}</ThemeProvider>

@@ -31,7 +31,7 @@ describe("runtime summary view model", () => {
         error: null,
         hasSnapshot: false
       }).label
-    ).toBe("Loading runtime snapshot");
+    ).toBe("not connected");
     expect(
       buildRuntimeSummaryConnectionState({
         status: "connected",

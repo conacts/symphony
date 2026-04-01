@@ -71,16 +71,15 @@ export function ControlPlaneShell(input: {
           <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4">
             <div className="flex min-w-0 items-center gap-2">
               <SidebarTrigger className="-ml-1" />
-              <span className="truncate text-sm text-muted-foreground">
-                {input.model.tagline}
-              </span>
             </div>
             <ConnectionStateBadge
               kind={connection.kind}
               label={connection.label}
             />
           </header>
-          <main className="flex flex-1 flex-col p-4 md:p-6">{input.children}</main>
+          <main className="mx-auto flex w-full max-w-7xl min-w-0 flex-1 flex-col p-4 md:p-6">
+            {input.children}
+          </main>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

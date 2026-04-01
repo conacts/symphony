@@ -2,15 +2,12 @@ import {
   symphonyForensicsIssueDetailResponseSchema,
   symphonyForensicsIssueForensicsBundleResponseSchema,
   symphonyForensicsIssueListResponseSchema,
-  symphonyForensicsProblemRunsResponseSchema,
   symphonyForensicsRunDetailResponseSchema,
   type SymphonyForensicsIssueDetailResult,
   type SymphonyForensicsIssueForensicsBundleQuery,
   type SymphonyForensicsIssueForensicsBundleResult,
   type SymphonyForensicsIssuesQuery,
   type SymphonyForensicsIssueListResult,
-  type SymphonyForensicsProblemRunsQuery,
-  type SymphonyForensicsProblemRunsResult,
   type SymphonyForensicsRunDetailResult,
   type SymphonyRealtimeServerMessage
 } from "@symphony/contracts";
@@ -159,36 +156,6 @@ export async function fetchRunDetail(
   return parsed.data;
 }
 
-export async function fetchProblemRuns(
-  runtimeBaseUrl: string,
-  query: SymphonyForensicsProblemRunsQuery,
-  fetchImpl: typeof fetch = fetch
-): Promise<SymphonyForensicsProblemRunsResult> {
-  const endpoint = createRuntimeUrl(runtimeBaseUrl, "/api/v1/problem-runs", {
-    limit: String(query.limit),
-    outcome: query.outcome,
-    issueIdentifier: query.issueIdentifier
-  });
-  const response = await fetchImpl(endpoint, {
-    headers: {
-      accept: "application/json"
-    },
-    cache: "no-store"
-  });
-
-  if (!response.ok) {
-    throw new Error(`Problem-runs request failed with ${response.status}.`);
-  }
-
-  const parsed = symphonyForensicsProblemRunsResponseSchema.parse(await response.json());
-
-  if (!parsed.ok) {
-    throw new Error(parsed.error.message);
-  }
-
-  return parsed.data;
-}
-
 export function shouldRefreshIssueIndex(
   message: SymphonyRealtimeServerMessage
 ): boolean {
@@ -216,12 +183,6 @@ export function shouldRefreshRunDetail(
   runId: string
 ): boolean {
   return messageInvalidatesPath(message, `/api/v1/runs/${runId}`);
-}
-
-export function shouldRefreshProblemRuns(
-  message: SymphonyRealtimeServerMessage
-): boolean {
-  return message.type === "problem-runs.updated";
 }
 
 function createRuntimeUrl(

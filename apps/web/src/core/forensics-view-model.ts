@@ -1,7 +1,6 @@
 import type {
   SymphonyForensicsIssueDetailResult,
   SymphonyForensicsIssueListResult,
-  SymphonyForensicsProblemRunsResult,
   SymphonyForensicsRunDetailResult
 } from "@symphony/contracts";
 
@@ -165,33 +164,6 @@ export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult)
           : "Show payload",
         payloadText: prettyValue(event.payload)
       }))
-    }))
-  };
-}
-
-export function buildProblemRunsViewModel(
-  input: SymphonyForensicsProblemRunsResult
-) {
-  return {
-    summaryCards: Object.entries(input.problemSummary).map(([outcome, count]) => ({
-      outcome,
-      count: formatCount(count)
-    })),
-    filters: {
-      outcome: input.filters.outcome ?? "",
-      issueIdentifier: input.filters.issueIdentifier ?? "",
-      limit: String(input.filters.limit ?? 200)
-    },
-    rows: input.problemRuns.map((run) => ({
-      issueIdentifier: run.issueIdentifier,
-      issueHref: `/issues/${run.issueIdentifier}`,
-      runId: run.runId,
-      runHref: `/runs/${run.runId}`,
-      startedAt: run.startedAt ?? "n/a",
-      durationSeconds: run.durationSeconds === null ? "n/a" : String(run.durationSeconds),
-      turnsAndEvents: `${formatCount(run.turnCount)} / ${formatCount(run.eventCount)}`,
-      status: run.status ?? "n/a",
-      outcome: run.outcome ?? "n/a"
     }))
   };
 }

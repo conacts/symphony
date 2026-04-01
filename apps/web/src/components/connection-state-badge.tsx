@@ -3,9 +3,9 @@ import type { SymphonyDashboardConnectionKind } from "@/core/dashboard-foundatio
 
 const variantByConnectionKind: Record<
   SymphonyDashboardConnectionKind,
-  "secondary" | "default" | "destructive"
+  "default" | "destructive"
 > = {
-  waiting: "secondary",
+  waiting: "destructive",
   connected: "default",
   degraded: "destructive"
 };
@@ -14,5 +14,7 @@ export function ConnectionStateBadge(input: {
   kind: SymphonyDashboardConnectionKind;
   label: string;
 }) {
-  return <Badge variant={variantByConnectionKind[input.kind]}>{input.label}</Badge>;
+  const label = input.kind === "connected" ? "Connected" : "Not Connected";
+
+  return <Badge variant={variantByConnectionKind[input.kind]}>{label}</Badge>;
 }

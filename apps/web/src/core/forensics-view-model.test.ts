@@ -2,12 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   buildIssueDetailViewModel,
   buildIssueIndexViewModel,
-  buildProblemRunsViewModel,
   buildRunDetailViewModel
 } from "./forensics-view-model.js";
 
 describe("forensics view model", () => {
-  it("formats the issue index and problem-runs summaries", () => {
+  it("formats the issue index summary", () => {
     const issueIndex = buildIssueIndexViewModel({
       issues: [
         {
@@ -70,49 +69,11 @@ describe("forensics view model", () => {
         errorClasses: ["max_turns"]
       }
     });
-    const problemRuns = buildProblemRunsViewModel({
-      problemRuns: [
-        {
-          runId: "run_123",
-          issueId: "issue_123",
-          issueIdentifier: "COL-165",
-          attempt: 1,
-          status: "finished",
-          outcome: "max_turns",
-          workerHost: "worker-a",
-          workspacePath: "/tmp/workspaces/col-165",
-          startedAt: "2026-03-31T18:00:00.000Z",
-          endedAt: "2026-03-31T18:02:00.000Z",
-          commitHashStart: "abc",
-          commitHashEnd: "def",
-          turnCount: 2,
-          eventCount: 4,
-          lastEventType: "message.output",
-          lastEventAt: "2026-03-31T18:02:00.000Z",
-          durationSeconds: 120,
-          errorClass: "max_turns",
-          errorMessage: "Reached max turns.",
-          inputTokens: 120,
-          outputTokens: 80,
-          totalTokens: 200
-        }
-      ],
-      problemSummary: {
-        max_turns: 2
-      },
-      filters: {
-        outcome: "max_turns",
-        issueIdentifier: null,
-        limit: 200
-      }
-    });
 
     expect(issueIndex.summaryCards[0]?.label).toBe("Total issues");
     expect(issueIndex.summaryCards[3]?.value).toBe("33.3%");
     expect(issueIndex.rows[0]?.issueHref).toBe("/issues/COL-165");
     expect(issueIndex.rows[0]?.problemRate).toBe("66.7%");
-    expect(problemRuns.filters.outcome).toBe("max_turns");
-    expect(problemRuns.rows[0]?.runHref).toBe("/runs/run_123");
   });
 
   it("formats the issue and run drilldown surfaces", () => {

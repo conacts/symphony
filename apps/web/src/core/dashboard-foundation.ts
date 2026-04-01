@@ -37,7 +37,6 @@ export type SymphonyDashboardFoundationModel = {
     stateUrl: string;
     refreshUrl: string;
     issuesUrl: string;
-    problemRunsUrl: string;
   };
   connection: {
     kind: SymphonyDashboardConnectionKind;
@@ -63,7 +62,6 @@ export function buildSymphonyRuntimeSurfaceUrls(runtimeBaseUrl: string) {
   const stateUrl = new URL("/api/v1/state", runtimeUrl);
   const refreshUrl = new URL("/api/v1/refresh", runtimeUrl);
   const issuesUrl = new URL("/api/v1/issues", runtimeUrl);
-  const problemRunsUrl = new URL("/api/v1/problem-runs", runtimeUrl);
   const websocketUrl = new URL("/api/v1/ws", runtimeUrl);
 
   websocketUrl.protocol =
@@ -73,7 +71,6 @@ export function buildSymphonyRuntimeSurfaceUrls(runtimeBaseUrl: string) {
     stateUrl: stateUrl.toString(),
     refreshUrl: refreshUrl.toString(),
     issuesUrl: issuesUrl.toString(),
-    problemRunsUrl: problemRunsUrl.toString(),
     websocketUrl: websocketUrl.toString()
   };
 }
@@ -94,12 +91,11 @@ export function buildSymphonyDashboardFoundation(
     runtimeSurface: {
       stateUrl: runtimeSurface.stateUrl,
       refreshUrl: runtimeSurface.refreshUrl,
-      issuesUrl: runtimeSurface.issuesUrl,
-      problemRunsUrl: runtimeSurface.problemRunsUrl
+      issuesUrl: runtimeSurface.issuesUrl
     },
     connection: {
       kind: "waiting",
-      label: "Awaiting runtime wiring",
+      label: "not connected",
       detail:
         "The dashboard is wired to the Hono runtime and typed websocket stream, with runtime summary, forensic drilldowns, and parity-safe operator actions available from the current shell."
     },
@@ -108,18 +104,6 @@ export function buildSymphonyDashboardFoundation(
         href: "/issues",
         label: "Issues",
         description: "Browse recorded issues and drill into the run history for each one.",
-        readiness: "available"
-      },
-      {
-        href: "/runs",
-        label: "Runs",
-        description: "Use issue history and problem runs to jump into run-level event timelines.",
-        readiness: "available"
-      },
-      {
-        href: "/problem-runs",
-        label: "Problem Runs",
-        description: "Focused failure surfacing for retries, stalls, and operator follow-up.",
         readiness: "available"
       }
     ],
@@ -131,10 +115,6 @@ export function buildSymphonyDashboardFoundation(
       {
         label: "Issue inventory",
         href: runtimeSurface.issuesUrl
-      },
-      {
-        label: "Problem runs",
-        href: runtimeSurface.problemRunsUrl
       }
     ],
     foundationTracks: [

@@ -37,7 +37,7 @@ export function buildRuntimeSummaryConnectionState(input: {
   if (input.status === "connected") {
     return {
       kind: "connected",
-      label: "Live updates connected",
+      label: "connected",
       detail: "Runtime snapshot and websocket updates are active."
     };
   }
@@ -45,7 +45,7 @@ export function buildRuntimeSummaryConnectionState(input: {
   if (input.status === "degraded") {
     return {
       kind: "degraded",
-      label: "Realtime degraded",
+      label: "not connected",
       detail:
         input.error ??
         "The dashboard is falling back to the last known runtime snapshot."
@@ -54,7 +54,7 @@ export function buildRuntimeSummaryConnectionState(input: {
 
   return {
     kind: "waiting",
-    label: input.hasSnapshot ? "Connecting realtime" : "Loading runtime snapshot",
+    label: "not connected",
     detail: input.hasSnapshot
       ? "Waiting for the runtime websocket acknowledgement."
       : "Fetching the first runtime summary snapshot."

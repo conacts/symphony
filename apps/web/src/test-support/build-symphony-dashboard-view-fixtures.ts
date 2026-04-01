@@ -15,7 +15,7 @@ export function buildSymphonyDashboardConnectionState(
 ): RuntimeSummaryConnectionState {
   return {
     kind: "connected",
-    label: "Live updates connected",
+    label: "connected",
     detail: "Runtime snapshot and websocket updates are active.",
     ...overrides
   };

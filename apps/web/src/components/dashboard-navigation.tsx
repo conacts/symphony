@@ -2,11 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  FolderKanbanIcon,
-  HistoryIcon,
-  TriangleAlertIcon
-} from "lucide-react";
+import { FolderKanbanIcon } from "lucide-react";
 import { IssueStateIcon } from "@/components/issue-state-icon";
 import {
   SidebarGroup,
@@ -22,9 +18,7 @@ import type {
 } from "@/core/dashboard-foundation";
 
 const navigationIcons = {
-  Issues: FolderKanbanIcon,
-  Runs: HistoryIcon,
-  "Problem Runs": TriangleAlertIcon
+  Issues: FolderKanbanIcon
 } as const;
 
 export function DashboardNavigation(input: {
@@ -39,7 +33,7 @@ export function DashboardNavigation(input: {
       <SidebarGroup>
         <SidebarGroupLabel>Pages</SidebarGroupLabel>
         <SidebarGroupContent>
-          <SidebarMenu>
+          <SidebarMenu className="gap-2">
             {input.items.map((item) => {
               const Icon = navigationIcons[item.label as keyof typeof navigationIcons];
 
@@ -67,7 +61,7 @@ export function DashboardNavigation(input: {
       <SidebarGroup>
         <SidebarGroupLabel>Active Tickets</SidebarGroupLabel>
         <SidebarGroupContent>
-          <SidebarMenu>
+          <SidebarMenu className="gap-2">
             {input.loadingActiveIssues && input.activeIssues.length === 0 ? (
               <SidebarMenuItem>
                 <SidebarMenuButton
