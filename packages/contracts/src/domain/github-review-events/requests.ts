@@ -13,69 +13,90 @@ export const symphonyGitHubWebhookHeadersSchema = z.strictObject({
   xHubSignature256: nonEmptyStringSchema
 });
 
-const repositorySchema = z.strictObject({
-  full_name: nonEmptyStringSchema
-});
+const repositorySchema = z
+  .object({
+    full_name: nonEmptyStringSchema
+  })
+  .passthrough();
 
-const pullRequestSchema = z.strictObject({
-  number: z.number().int().positive(),
-  head: z.strictObject({
-    sha: nonEmptyStringSchema,
-    ref: nonEmptyStringSchema.optional()
-  }),
-  url: z.string().url().optional(),
-  html_url: z.string().url().optional()
-});
+const pullRequestSchema = z
+  .object({
+    number: z.number().int().positive(),
+    head: z
+      .object({
+        sha: nonEmptyStringSchema,
+        ref: nonEmptyStringSchema.optional()
+      })
+      .passthrough(),
+    url: z.string().url().optional(),
+    html_url: z.string().url().optional()
+  })
+  .passthrough();
 
-const reviewSchema = z.strictObject({
-  id: z.number().int().positive(),
-  state: nonEmptyStringSchema,
-  user: z
-    .strictObject({
-      login: nonEmptyStringSchema.optional()
-    })
-    .optional()
-});
+const reviewSchema = z
+  .object({
+    id: z.number().int().positive(),
+    state: nonEmptyStringSchema,
+    user: z
+      .object({
+        login: nonEmptyStringSchema.optional()
+      })
+      .passthrough()
+      .optional()
+  })
+  .passthrough();
 
-const issueSchema = z.strictObject({
-  number: z.number().int().positive(),
-  pull_request: z
-    .strictObject({
-      url: z.string().url().optional()
-    })
-    .optional()
-});
+const issueSchema = z
+  .object({
+    number: z.number().int().positive(),
+    pull_request: z
+      .object({
+        url: z.string().url().optional()
+      })
+      .passthrough()
+      .optional()
+  })
+  .passthrough();
 
-const commentSchema = z.strictObject({
-  id: z.number().int().positive(),
-  body: z.string(),
-  user: z
-    .strictObject({
-      login: nonEmptyStringSchema.optional()
-    })
-    .optional()
-});
+const commentSchema = z
+  .object({
+    id: z.number().int().positive(),
+    body: z.string(),
+    user: z
+      .object({
+        login: nonEmptyStringSchema.optional()
+      })
+      .passthrough()
+      .optional()
+  })
+  .passthrough();
 
-export const symphonyGitHubPingPayloadSchema = z.strictObject({
-  repository: repositorySchema,
-  action: nonEmptyStringSchema.optional(),
-  zen: z.string().optional(),
-  hook_id: z.number().int().nonnegative().optional()
-});
+export const symphonyGitHubPingPayloadSchema = z
+  .object({
+    repository: repositorySchema,
+    action: nonEmptyStringSchema.optional(),
+    zen: z.string().optional(),
+    hook_id: z.number().int().nonnegative().optional()
+  })
+  .passthrough();
 
-export const symphonyGitHubPullRequestReviewPayloadSchema = z.strictObject({
-  repository: repositorySchema,
-  action: nonEmptyStringSchema.optional(),
-  pull_request: pullRequestSchema,
-  review: reviewSchema
-});
+export const symphonyGitHubPullRequestReviewPayloadSchema = z
+  .object({
+    repository: repositorySchema,
+    action: nonEmptyStringSchema.optional(),
+    pull_request: pullRequestSchema,
+    review: reviewSchema
+  })
+  .passthrough();
 
-export const symphonyGitHubIssueCommentPayloadSchema = z.strictObject({
-  repository: repositorySchema,
-  action: nonEmptyStringSchema.optional(),
-  issue: issueSchema,
-  comment: commentSchema
-});
+export const symphonyGitHubIssueCommentPayloadSchema = z
+  .object({
+    repository: repositorySchema,
+    action: nonEmptyStringSchema.optional(),
+    issue: issueSchema,
+    comment: commentSchema
+  })
+  .passthrough();
 
 export const symphonyGitHubWebhookBodySchema = z.union([
   symphonyGitHubPingPayloadSchema,
@@ -86,3 +107,10 @@ export const symphonyGitHubWebhookBodySchema = z.union([
 export type SymphonyGitHubWebhookEvent = z.infer<typeof symphonyGitHubWebhookEventSchema>;
 export type SymphonyGitHubWebhookHeaders = z.infer<typeof symphonyGitHubWebhookHeadersSchema>;
 export type SymphonyGitHubWebhookBody = z.infer<typeof symphonyGitHubWebhookBodySchema>;
+export type SymphonyGitHubPingPayload = z.infer<typeof symphonyGitHubPingPayloadSchema>;
+export type SymphonyGitHubPullRequestReviewPayload = z.infer<
+  typeof symphonyGitHubPullRequestReviewPayloadSchema
+>;
+export type SymphonyGitHubIssueCommentPayload = z.infer<
+  typeof symphonyGitHubIssueCommentPayloadSchema
+>;

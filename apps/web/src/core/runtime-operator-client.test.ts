@@ -56,6 +56,18 @@ describe("runtime operator client", () => {
     });
   });
 
+  it("treats missing runtime issue context as empty state", async () => {
+    const fetchIssue = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response("{}", {
+        status: 404
+      })
+    );
+
+    await expect(
+      fetchRuntimeIssue("https://runtime.symphony.local", "COL-106", fetchIssue)
+    ).resolves.toBeNull();
+  });
+
   it("fails closed when the runtime actions reject", async () => {
     const fetchFailure = vi.fn<typeof fetch>().mockResolvedValue(
       new Response("{}", {

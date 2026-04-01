@@ -12,7 +12,7 @@ export async function fetchRuntimeIssue(
   runtimeBaseUrl: string,
   issueIdentifier: string,
   fetchImpl: typeof fetch = fetch
-): Promise<SymphonyRuntimeIssueResult> {
+): Promise<SymphonyRuntimeIssueResult | null> {
   const endpoint = createRuntimeUrl(`/api/v1/${issueIdentifier}`, runtimeBaseUrl);
   const response = await fetchImpl(endpoint, {
     headers: {
@@ -20,6 +20,10 @@ export async function fetchRuntimeIssue(
     },
     cache: "no-store"
   });
+
+  if (response.status === 404) {
+    return null;
+  }
 
   if (!response.ok) {
     throw new Error(`Runtime issue request failed with ${response.status}.`);

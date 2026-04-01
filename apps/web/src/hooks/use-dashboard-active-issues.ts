@@ -50,6 +50,10 @@ export function useDashboardActiveIssues(input: {
               issueIdentifier
             );
 
+            if (!runtimeIssue) {
+              return null;
+            }
+
             if (!isActiveTicketState(runtimeIssue.tracked.state)) {
               return null;
             }

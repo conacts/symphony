@@ -63,7 +63,11 @@ export const symphonyRuntimeAttemptsSchema = z.strictObject({
   currentRetryAttempt: z.number().int().nonnegative()
 });
 
-export const symphonyRuntimeIssueStatusSchema = z.enum(["running", "retrying"]);
+export const symphonyRuntimeIssueStatusSchema = z.enum([
+  "running",
+  "retrying",
+  "tracked"
+]);
 
 export const symphonyRuntimeIssueRunningStateSchema = z.strictObject({
   workerHost: nullableNonEmptyStringSchema.optional(),

@@ -18,7 +18,9 @@ describe("@symphony/api app", () => {
   it("serves the runtime state and refresh surfaces", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {
-        state: "In Review"
+        state: "In Review",
+        projectSlug: "coldets",
+        projectId: "project-1"
       }
     });
     harnesses.push(harness);
@@ -145,6 +147,42 @@ describe("@symphony/api app", () => {
     expect(runtimeIssuePayload.data.operator.requeueCommand).toBe("/rework");
   });
 
+  it("serves tracker-only runtime issue context when no live runtime state exists", async () => {
+    const harness = await createSymphonyRuntimeTestHarness({
+      issue: {
+        state: "Done"
+      },
+      snapshot: {
+        running: [],
+        retrying: []
+      }
+    });
+    harnesses.push(harness);
+
+    const app = createSymphonyRuntimeApp(harness.services);
+    const runtimeIssueResponse = await app.request("/api/v1/COL-123");
+    const runtimeIssuePayload = await responseJson<{
+      data: {
+        issueIdentifier: string;
+        status: string;
+        tracked: {
+          url: string | null;
+        };
+        running: null;
+        retry: null;
+      };
+    }>(runtimeIssueResponse);
+
+    expect(runtimeIssueResponse.status).toBe(200);
+    expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");
+    expect(runtimeIssuePayload.data.status).toBe("tracked");
+    expect(runtimeIssuePayload.data.tracked.url).toBe(
+      "https://linear.app/coldets/issue/col-123"
+    );
+    expect(runtimeIssuePayload.data.running).toBeNull();
+    expect(runtimeIssuePayload.data.retry).toBeNull();
+  });
+
   it("serves the new health, runtime logs, and issue timeline surfaces", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {
@@ -252,6 +290,69 @@ describe("@symphony/api app", () => {
 
     expect(ingressResponse.status).toBe(202);
     expect(ingressPayload.data.accepted).toBe(true);
+  });
+
+  it("accepts raw GitHub issue_comment /rework webhooks", async () => {
+    const harness = await createSymphonyRuntimeTestHarness({
+      issue: {
+        state: "In Review"
+      }
+    });
+    harnesses.push(harness);
+
+    const app = createSymphonyRuntimeApp(harness.services);
+    const rawBody = JSON.stringify({
+      action: "created",
+      repository: {
+        full_name: "openai/symphony",
+        private: true,
+        default_branch: "main"
+      },
+      issue: {
+        number: 123,
+        title: "Requeue issue",
+        state: "open",
+        pull_request: {
+          url: "https://api.github.com/repos/openai/symphony/pulls/123",
+          html_url: "https://github.com/openai/symphony/pull/123"
+        }
+      },
+      comment: {
+        id: 456,
+        body: "/rework please retry",
+        created_at: "2026-04-01T07:41:59.000Z",
+        user: {
+          login: "reviewer",
+          id: 1
+        }
+      },
+      sender: {
+        login: "reviewer",
+        id: 1
+      }
+    });
+    const signature = `sha256=${createHmac("sha256", "secret").update(rawBody).digest("hex")}`;
+
+    const ingressResponse = await app.request("/api/v1/github/review-events", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-github-delivery": "delivery-issue-comment-1",
+        "x-github-event": "issue_comment",
+        "x-hub-signature-256": signature
+      },
+      body: rawBody
+    });
+    const ingressPayload = await responseJson<{
+      data: {
+        accepted: boolean;
+        event: string;
+      };
+    }>(ingressResponse);
+
+    expect(ingressResponse.status).toBe(202);
+    expect(ingressPayload.data.accepted).toBe(true);
+    expect(ingressPayload.data.event).toBe("issue_comment");
   });
 
   it("allows local dashboard origins to read the runtime api", async () => {

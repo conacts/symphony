@@ -2,6 +2,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type {
   SymphonyGitHubReviewIngressResult,
   SymphonyGitHubWebhookBody,
+  SymphonyGitHubIssueCommentPayload,
+  SymphonyGitHubPullRequestReviewPayload,
   SymphonyGitHubWebhookEvent,
   SymphonyGitHubWebhookHeaders
 } from "@symphony/contracts";
@@ -188,24 +190,28 @@ function normalizeReviewEvent(
         );
       }
 
-      return {
-        repository,
-        action,
-        semanticKey: `pull_request_review:${body.pull_request.number}:${body.pull_request.head.sha}:${body.review.id}:${body.review.state.toLowerCase()}`,
-        event: {
-          event: "pull_request_review",
+      {
+        const reviewBody = body as SymphonyGitHubPullRequestReviewPayload;
+
+        return {
           repository,
-          payload: {
-            reviewState: body.review.state,
-            authorLogin: body.review.user?.login ?? null,
-            headRef: body.pull_request.head.ref ?? null,
-            headSha: body.pull_request.head.sha,
-            reviewId: body.review.id,
-            pullRequestUrl: body.pull_request.url ?? null,
-            pullRequestHtmlUrl: body.pull_request.html_url ?? null
+          action,
+          semanticKey: `pull_request_review:${reviewBody.pull_request.number}:${reviewBody.pull_request.head.sha}:${reviewBody.review.id}:${reviewBody.review.state.toLowerCase()}`,
+          event: {
+            event: "pull_request_review",
+            repository,
+            payload: {
+              reviewState: reviewBody.review.state,
+              authorLogin: reviewBody.review.user?.login ?? null,
+              headRef: reviewBody.pull_request.head.ref ?? null,
+              headSha: reviewBody.pull_request.head.sha,
+              reviewId: reviewBody.review.id,
+              pullRequestUrl: reviewBody.pull_request.url ?? null,
+              pullRequestHtmlUrl: reviewBody.pull_request.html_url ?? null
+            }
           }
-        }
-      };
+        };
+      }
 
     case "issue_comment":
       if (!("issue" in body) || !("comment" in body)) {
@@ -216,22 +222,26 @@ function normalizeReviewEvent(
         );
       }
 
-      return {
-        repository,
-        action,
-        semanticKey: `issue_comment:${body.issue.number}:${body.comment.id}:${action ?? "none"}`,
-        event: {
-          event: "issue_comment",
+      {
+        const commentBody = body as SymphonyGitHubIssueCommentPayload;
+
+        return {
           repository,
-          payload: {
-            issueNumber: body.issue.number,
-            commentId: body.comment.id,
-            commentBody: body.comment.body,
-            authorLogin: body.comment.user?.login ?? null,
-            pullRequestUrl: body.issue.pull_request?.url ?? null
+          action,
+          semanticKey: `issue_comment:${commentBody.issue.number}:${commentBody.comment.id}:${action ?? "none"}`,
+          event: {
+            event: "issue_comment",
+            repository,
+            payload: {
+              issueNumber: commentBody.issue.number,
+              commentId: commentBody.comment.id,
+              commentBody: commentBody.comment.body,
+              authorLogin: commentBody.comment.user?.login ?? null,
+              pullRequestUrl: commentBody.issue.pull_request?.url ?? null
+            }
           }
-        }
-      };
+        };
+      }
   }
 }
 

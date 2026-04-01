@@ -129,6 +129,54 @@ describe("symphony runtime contracts", () => {
     expect(parsed.ok).toBe(true);
   });
 
+  it("parses tracker-only runtime issue context", () => {
+    const parsed = symphonyRuntimeIssueResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      meta: {
+        durationMs: 2,
+        generatedAt: "2026-03-31T00:00:00.000Z"
+      },
+      data: {
+        issueIdentifier: "COL-106",
+        issueId: "issue-106",
+        status: "tracked",
+        workspace: {
+          path: "/tmp/COL-106",
+          host: null
+        },
+        attempts: {
+          restartCount: 0,
+          currentRetryAttempt: 0
+        },
+        running: null,
+        retry: null,
+        lastError: null,
+        tracked: {
+          title: "Historical issue",
+          state: "Done",
+          branchName: "symphony/COL-106",
+          url: "https://linear.app/coldets/issue/COL-106/historical-issue",
+          projectName: "Symphony",
+          projectSlug: "symphony",
+          teamKey: "COL"
+        },
+        operator: {
+          refreshPath: "/api/v1/refresh",
+          refreshDelegatesTo: ["poll", "reconcile"],
+          githubPullRequestSearchUrl:
+            "https://github.com/openai/symphony/pulls?q=is%3Apr+head%3Asymphony%2FCOL-106",
+          requeueDelegatesTo: ["linear", "github_rework_comment"],
+          requeueCommand: "/rework",
+          requeueHelpText:
+            "Use /rework on the PR or move the Linear issue back into a dispatchable state."
+        }
+      }
+    });
+
+    expect(parsed.ok).toBe(true);
+  });
+
   it("parses refresh requests and responses", () => {
     const request = symphonyRuntimeRefreshRequestSchema.parse({});
     const response = symphonyRuntimeRefreshResponseSchema.parse({

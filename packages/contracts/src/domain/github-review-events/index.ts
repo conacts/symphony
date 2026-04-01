@@ -14,6 +14,9 @@ export {
 export type {
   SymphonyGitHubWebhookEvent,
   SymphonyGitHubWebhookHeaders,
-  SymphonyGitHubWebhookBody
+  SymphonyGitHubWebhookBody,
+  SymphonyGitHubPingPayload,
+  SymphonyGitHubPullRequestReviewPayload,
+  SymphonyGitHubIssueCommentPayload
 } from "./requests.js";
 export type { SymphonyGitHubReviewIngressResult } from "./responses.js";

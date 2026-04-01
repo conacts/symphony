@@ -12,7 +12,7 @@ export function useRuntimeIssue(input: {
   issueIdentifier: string;
 }) {
   return useRealtimeResource({
-    loadResource: () =>
+    loadResource: async () =>
       fetchRuntimeIssue(input.runtimeBaseUrl, input.issueIdentifier),
     websocketUrl: input.websocketUrl,
     channels: ["issues"],

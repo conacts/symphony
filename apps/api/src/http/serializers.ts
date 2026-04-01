@@ -69,7 +69,7 @@ export function serializeRuntimeIssue(
     (entry) => entry.identifier === issueIdentifier
   );
 
-  if (!running && !retry) {
+  if (!running && !retry && !trackedIssue) {
     return null;
   }
 
@@ -95,8 +95,8 @@ export function serializeRuntimeIssue(
 
   return {
     issueIdentifier,
-    issueId: running?.issueId ?? retry!.issueId,
-    status: running ? "running" : "retrying",
+    issueId: running?.issueId ?? retry?.issueId ?? resolvedTrackedIssue.id,
+    status: running ? "running" : retry ? "retrying" : "tracked",
     workspace: {
       path: workspacePath,
       host: running?.workerHost ?? retry?.workerHost ?? null
