@@ -10,6 +10,7 @@ import {
   type AgentRuntime
 } from "./index.js";
 import { buildSymphonyRepositoryTarget } from "./test-support/build-symphony-repository-target.js";
+import { createSymphonyRuntimeCompositionHarness } from "./test-support/create-symphony-runtime-composition-harness.js";
 import { buildSymphonyTrackerIssue } from "./test-support/build-symphony-tracker-issue.js";
 import { buildSymphonyRuntimeConfig } from "./test-support/build-symphony-runtime-config.js";
 import { buildSymphonyWorkflowConfig } from "./test-support/build-symphony-workflow-config.js";
@@ -92,6 +93,59 @@ describe("@symphony/core scaffold", () => {
     });
     expect(await runtime.ingestReview("skip")).toBeNull();
     expect(publish).toHaveBeenCalledTimes(2);
+  });
+
+  it("drives dispatch and completion through the public runtime facade", async () => {
+    const harness = await createSymphonyRuntimeCompositionHarness();
+
+    try {
+      await harness.runtime.runPollCycle();
+      harness.runtime.applyAgentUpdate("issue-123", {
+        event: "notification",
+        payload: {
+          method: "thread/tokenUsage/updated",
+          params: {
+            tokenUsage: {
+              total: {
+                inputTokens: 12,
+                outputTokens: 4,
+                totalTokens: 16
+              }
+            }
+          }
+        },
+        timestamp: "2026-03-31T00:00:02.000Z",
+        codexAppServerPid: "4242"
+      });
+      harness.runtime.applyAgentUpdate("issue-123", {
+        event: "turn_completed",
+        payload: {
+          usage: {
+            input_tokens: 12,
+            output_tokens: 4,
+            total_tokens: 16
+          }
+        },
+        timestamp: "2026-03-31T00:00:03.000Z"
+      });
+      await harness.runtime.handleRunCompletion("issue-123", {
+        kind: "normal"
+      });
+
+      expect(harness.launchRecords).toEqual([
+        expect.objectContaining({
+          attempt: 0,
+          issueId: "issue-123"
+        })
+      ]);
+      expect(harness.runtime.snapshot().running).toHaveLength(0);
+      expect(harness.runtime.snapshot().retrying[0]?.delayType).toBe(
+        "continuation"
+      );
+      expect(harness.runtime.snapshot().codexTotals.totalTokens).toBe(16);
+    } finally {
+      await harness.cleanup();
+    }
   });
 
   it("fails fast when review methods are called without review wiring", async () => {

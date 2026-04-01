@@ -24,6 +24,9 @@
       "path": "./packages/core"
     },
     {
+      "path": "./packages/test-support"
+    },
+    {
       "path": "./packages/vitest-configs"
     },
     {

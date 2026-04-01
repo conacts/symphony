@@ -87,6 +87,9 @@ importers:
       '@symphony/eslint-configs':
         specifier: workspace:*
         version: link:../../packages/eslint-configs
+      '@symphony/test-support':
+        specifier: workspace:*
+        version: link:../../packages/test-support
       '@symphony/vitest-configs':
         specifier: workspace:*
         version: link:../../packages/vitest-configs
@@ -178,6 +181,9 @@ importers:
       '@symphony/eslint-configs':
         specifier: workspace:*
         version: link:../../packages/eslint-configs
+      '@symphony/test-support':
+        specifier: workspace:*
+        version: link:../../packages/test-support
       '@symphony/typescript-configs':
         specifier: workspace:*
         version: link:../../packages/typescript-configs
@@ -327,6 +333,25 @@ importers:
       vitest:
         specifier: ^4.1.2
         version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+
+  packages/test-support:
+    dependencies:
+      '@symphony/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@symphony/core':
+        specifier: workspace:*
+        version: link:../core
+      '@symphony/db':
+        specifier: workspace:*
+        version: link:../db
+      yaml:
+        specifier: ^2.8.3
+        version: 2.8.3
+    devDependencies:
+      '@symphony/eslint-configs':
+        specifier: workspace:*
+        version: link:../eslint-configs
 
   packages/typescript-configs:
     devDependencies:

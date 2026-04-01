@@ -1,127 +1,59 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { tmpdir } from "node:os";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
-  createCodexAgentRuntime,
-  createLocalWorkspaceBackend,
-  createSymphonyRuntime
-} from "@symphony/core";
-import type { SymphonyRuntimeAppEnv } from "./env.js";
+  createSymphonyRuntimeAppServicesHarness,
+  type SymphonyRuntimeAppServicesHarness
+} from "../test-support/create-symphony-runtime-app-services-harness.js";
 
-vi.mock("@symphony/core", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@symphony/core")>();
-
-  return {
-    ...actual,
-    createLocalWorkspaceBackend: vi.fn(actual.createLocalWorkspaceBackend),
-    createCodexAgentRuntime: vi.fn(actual.createCodexAgentRuntime),
-    createSymphonyRuntime: vi.fn(actual.createSymphonyRuntime)
-  };
-});
-
-import { loadDefaultSymphonyRuntimeAppServices } from "./runtime-services.js";
-
-const tempRoots: string[] = [];
+const harnesses: SymphonyRuntimeAppServicesHarness[] = [];
 
 afterEach(async () => {
-  vi.clearAllMocks();
-  await Promise.all(
-    tempRoots.splice(0).map((root) =>
-      rm(root, {
-        recursive: true,
-        force: true
-      })
-    )
-  );
+  await Promise.all(harnesses.splice(0).map((harness) => harness.cleanup()));
 });
 
 describe("runtime services", () => {
-  it("loads the default app services through the public core facades", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-services-"));
-    tempRoots.push(root);
+  it("loads the default app services through real local composition", async () => {
+    const harness = await createSymphonyRuntimeAppServicesHarness();
+    harnesses.push(harness);
 
-    const workspaceRoot = path.join(root, "workspaces");
-    const sourceRepo = path.join(root, "source-repo");
-    const workflowPath = path.join(root, "WORKFLOW.md");
-    await mkdir(workspaceRoot, {
-      recursive: true
-    });
-    await mkdir(sourceRepo, {
-      recursive: true
-    });
-    await writeFile(
-      workflowPath,
-      `---
-tracker:
-  kind: memory
-polling:
-  interval_ms: 60000
-workspace:
-  root: ${workspaceRoot}
----
-Prompt body
-`
+    const { services, env } = harness;
+    const refresh = await services.orchestrator.requestRefresh();
+
+    expect(services.workflow.promptTemplate).toBe("Prompt body");
+    expect(services.workflowConfig.tracker.kind).toBe("memory");
+    expect(refresh).toEqual(
+      expect.objectContaining({
+        queued: true,
+        coalesced: false,
+        operations: ["poll", "reconcile"]
+      })
+    );
+    expect(services.health.snapshot()).toEqual(
+      expect.objectContaining({
+        healthy: true,
+        db: {
+          file: env.dbFile,
+          ready: true
+        }
+      })
     );
 
-    const env = {
-      port: 4_400,
-      workflowPath,
-      dbFile: path.join(root, "symphony.db"),
-      sourceRepo,
-      allowedOrigins: [],
-      linearApiKey: "test-linear-api-key",
-      logLevel: "error"
-    } satisfies SymphonyRuntimeAppEnv;
-    const environmentSource = {
-      LINEAR_API_KEY: env.linearApiKey,
-      SYMPHONY_SOURCE_REPO: env.sourceRepo
-    };
+    await waitFor(() => {
+      const poller = services.health.snapshot().poller;
+      return poller.lastCompletedAt !== null && poller.inFlight === false;
+    });
 
-    const services = await loadDefaultSymphonyRuntimeAppServices(env, environmentSource);
+    const runtimeLogs = await services.runtimeLogs.list();
 
-    try {
-      const createLocalWorkspaceBackendMock = vi.mocked(
-        createLocalWorkspaceBackend
-      );
-      const createCodexAgentRuntimeMock = vi.mocked(createCodexAgentRuntime);
-      const createSymphonyRuntimeMock = vi.mocked(createSymphonyRuntime);
-
-      expect(createLocalWorkspaceBackendMock).toHaveBeenCalledTimes(1);
-      expect(createLocalWorkspaceBackendMock).toHaveBeenCalledWith({
-        repoOwnedSourceRepo: sourceRepo
-      });
-      expect(createCodexAgentRuntimeMock).toHaveBeenCalledTimes(1);
-      expect(createSymphonyRuntimeMock).toHaveBeenCalledTimes(1);
-
-      expect(createSymphonyRuntimeMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          workflowConfig: services.workflowConfig,
-          tracker: services.tracker,
-          workspaceBackend:
-            createLocalWorkspaceBackendMock.mock.results[0]?.value,
-          agentRuntime: createCodexAgentRuntimeMock.mock.results[0]?.value,
-          runnerEnv: environmentSource,
-          observer: expect.any(Object)
-        })
-      );
-      expect(services.workflow.promptTemplate).toBe("Prompt body");
-      expect(services.health.snapshot()).toEqual(
-        expect.objectContaining({
-          healthy: true,
-          db: {
-            file: env.dbFile,
-            ready: true
-          }
-        })
-      );
-      await waitFor(() => {
-        const poller = services.health.snapshot().poller;
-        return poller.lastCompletedAt !== null && poller.inFlight === false;
-      });
-    } finally {
-      await services.shutdown();
-    }
+    expect(runtimeLogs.logs.map((entry) => entry.eventType)).toEqual(
+      expect.arrayContaining([
+        "db_initialized",
+        "tracker_placeholder_active",
+        "poller_started",
+        "manual_refresh_queued",
+        "poll_started",
+        "poll_completed"
+      ])
+    );
   });
 });
 

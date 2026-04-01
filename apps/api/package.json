@@ -26,6 +26,7 @@
   "devDependencies": {
     "@types/ws": "^8.18.1",
     "@symphony/eslint-configs": "workspace:*",
+    "@symphony/test-support": "workspace:*",
     "@symphony/vitest-configs": "workspace:*",
     "tsx": "^4.21.0",
     "vitest": "^4.1.2",

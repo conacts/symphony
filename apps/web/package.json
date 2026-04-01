@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@symphony/eslint-configs": "workspace:*",
+    "@symphony/test-support": "workspace:*",
     "@symphony/typescript-configs": "workspace:*",
     "@symphony/vitest-configs": "workspace:*",
     "@next/eslint-plugin-next": "^16.2.1",

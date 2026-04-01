@@ -1,0 +1,23 @@
+{
+  "name": "@symphony/test-support",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@symphony/contracts": "workspace:*",
+    "@symphony/core": "workspace:*",
+    "@symphony/db": "workspace:*",
+    "yaml": "^2.8.3"
+  },
+  "devDependencies": {
+    "@symphony/eslint-configs": "workspace:*"
+  }
+}

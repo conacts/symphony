@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { buildSymphonyRuntimeStateResult } from "@symphony/test-support";
 import {
   fetchRuntimeSummary,
   parseRealtimeServerMessage,
@@ -13,52 +14,7 @@ describe("runtime summary client", () => {
       json: async () => ({
         schemaVersion: "1",
         ok: true,
-        data: {
-          counts: {
-            running: 1,
-            retrying: 1
-          },
-          running: [
-            {
-              issueId: "issue_123",
-              issueIdentifier: "COL-165",
-              state: "In Progress",
-              workerHost: "worker-a",
-              workspacePath: "/tmp/workspaces/col-165",
-              sessionId: "session_123",
-              turnCount: 4,
-              lastEvent: "message.output",
-              lastMessage: "Runtime view updated",
-              startedAt: "2026-03-31T18:00:00.000Z",
-              lastEventAt: "2026-03-31T18:01:00.000Z",
-              tokens: {
-                inputTokens: 120,
-                outputTokens: 80,
-                totalTokens: 200
-              }
-            }
-          ],
-          retrying: [
-            {
-              issueId: "issue_456",
-              issueIdentifier: "COL-166",
-              attempt: 2,
-              dueAt: "2026-03-31T18:05:00.000Z",
-              error: "Worker disconnected",
-              workerHost: "worker-b",
-              workspacePath: "/tmp/workspaces/col-166"
-            }
-          ],
-          codexTotals: {
-            inputTokens: 200,
-            outputTokens: 120,
-            totalTokens: 320,
-            secondsRunning: 95
-          },
-          rateLimits: {
-            remaining: 3
-          }
-        },
+        data: buildSymphonyRuntimeStateResult(),
         meta: {
           durationMs: 2,
           generatedAt: "2026-03-31T18:01:00.000Z"

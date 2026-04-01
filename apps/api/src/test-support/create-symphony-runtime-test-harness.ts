@@ -5,16 +5,21 @@ import {
   createMemorySymphonyTracker,
   createSymphonyForensicsReadModel,
   SymphonyGithubReviewProcessor,
-  type SymphonyEventAttrs,
   type SymphonyLoadedWorkflow,
   type SymphonyOrchestratorSnapshot,
   type SymphonyResolvedWorkflowConfig,
-  type SymphonyRunFinishAttrs,
-  type SymphonyRunStartAttrs,
-  type SymphonyTrackerIssue,
-  type SymphonyTurnFinishAttrs,
-  type SymphonyTurnStartAttrs
+  type SymphonyTrackerIssue
 } from "@symphony/core";
+import {
+  buildSymphonyEventAttrs,
+  buildSymphonyOrchestratorSnapshot,
+  buildSymphonyRunFinishAttrs,
+  buildSymphonyRunStartAttrs,
+  buildSymphonyTrackerIssue,
+  buildSymphonyTurnFinishAttrs,
+  buildSymphonyTurnStartAttrs,
+  buildSymphonyWorkflowConfig
+} from "@symphony/test-support";
 import {
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
@@ -36,106 +41,57 @@ export type SymphonyRuntimeTestHarness = {
   workflowConfig: SymphonyResolvedWorkflowConfig;
 };
 
-export function buildSymphonyOrchestratorSnapshot(
-  overrides: Partial<SymphonyOrchestratorSnapshot> = {}
-): SymphonyOrchestratorSnapshot {
-  return {
-    running: [],
-    retrying: [],
-    claimedIssueIds: [],
-    completedIssueIds: [],
-    pollIntervalMs: 5_000,
-    maxConcurrentAgents: 10,
-    nextPollDueAtMs: null,
-    pollCheckInProgress: false,
-    codexTotals: {
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      secondsRunning: 0
-    },
-    rateLimits: null,
-    ...overrides
-  };
-}
+export { buildSymphonyOrchestratorSnapshot };
 
 export function buildSymphonyRuntimeWorkflowConfig(
   root: string,
   overrides: Partial<SymphonyResolvedWorkflowConfig> = {}
 ): SymphonyResolvedWorkflowConfig {
+  const baseConfig = buildSymphonyWorkflowConfig();
+
   return {
+    ...baseConfig,
     tracker: {
-      kind: "linear",
-      endpoint: "https://api.linear.app/graphql",
-      apiKey: "token",
-      projectSlug: "coldets",
-      teamKey: null,
-      excludedProjectIds: [],
-      assignee: null,
-      dispatchableStates: ["Todo", "In Progress", "Rework"],
-      terminalStates: ["Canceled", "Duplicate", "Done"],
-      claimTransitionToState: "In Progress",
-      claimTransitionFromStates: ["Todo", "Rework"],
-      startupFailureTransitionToState: "Backlog",
+      ...baseConfig.tracker,
       ...overrides.tracker
     },
     polling: {
-      intervalMs: 5_000,
+      ...baseConfig.polling,
       ...overrides.polling
     },
     workspace: {
+      ...baseConfig.workspace,
       root,
       ...overrides.workspace
     },
     worker: {
-      sshHosts: [],
-      maxConcurrentAgentsPerHost: null,
+      ...baseConfig.worker,
       ...overrides.worker
     },
     agent: {
-      maxConcurrentAgents: 10,
-      maxTurns: 20,
-      maxRetryBackoffMs: 300_000,
-      maxConcurrentAgentsByState: {},
+      ...baseConfig.agent,
       ...overrides.agent
     },
     codex: {
-      command: "codex app-server",
-      approvalPolicy: {
-        reject: {
-          sandbox_approval: true
-        }
-      },
-      threadSandbox: "workspace-write",
-      turnSandboxPolicy: null,
-      turnTimeoutMs: 3_600_000,
-      readTimeoutMs: 5_000,
-      stallTimeoutMs: 300_000,
+      ...baseConfig.codex,
       ...overrides.codex
     },
     hooks: {
-      afterCreate: null,
-      beforeRun: null,
-      afterRun: null,
-      beforeRemove: null,
-      timeoutMs: 60_000,
+      ...baseConfig.hooks,
       ...overrides.hooks
     },
     observability: {
-      dashboardEnabled: true,
-      refreshMs: 1_000,
-      renderIntervalMs: 16,
+      ...baseConfig.observability,
       ...overrides.observability
     },
     server: {
-      port: null,
-      host: "0.0.0.0",
+      ...baseConfig.server,
       ...overrides.server
     },
     github: {
+      ...baseConfig.github,
       repo: "openai/symphony",
       webhookSecret: "secret",
-      apiToken: null,
       statePath: path.join(root, "github-state.json"),
       allowedReviewLogins: ["reviewer"],
       allowedReworkCommentLogins: ["reviewer"],
@@ -147,30 +103,7 @@ export function buildSymphonyRuntimeWorkflowConfig(
 export function buildSymphonyRuntimeTrackerIssue(
   overrides: Partial<SymphonyTrackerIssue> = {}
 ): SymphonyTrackerIssue {
-  const identifier = overrides.identifier ?? "COL-123";
-
-  return {
-    id: overrides.id ?? "issue-123",
-    identifier,
-    title: overrides.title ?? "Test issue",
-    description: overrides.description ?? "Test description",
-    priority: overrides.priority ?? 2,
-    state: overrides.state ?? "Todo",
-    branchName: overrides.branchName ?? `symphony/${identifier}`,
-    url: overrides.url ?? "https://linear.app/coldets/issue/col-123",
-    projectId: overrides.projectId ?? "project-1",
-    projectName:
-      overrides.projectName ?? "Symphony Developer Control Plane Foundation",
-    projectSlug:
-      overrides.projectSlug ?? "symphony-developer-control-plane-foundation",
-    teamKey: overrides.teamKey ?? "COL",
-    assigneeId: overrides.assigneeId ?? "worker-1",
-    blockedBy: overrides.blockedBy ?? [],
-    labels: overrides.labels ?? [],
-    assignedToWorker: overrides.assignedToWorker ?? true,
-    createdAt: overrides.createdAt ?? "2026-03-31T00:00:00.000Z",
-    updatedAt: overrides.updatedAt ?? "2026-03-31T00:00:00.000Z"
-  };
+  return buildSymphonyTrackerIssue(overrides);
 }
 
 export async function createSymphonyRuntimeTestHarness(input: {
@@ -203,15 +136,24 @@ export async function createSymphonyRuntimeTestHarness(input: {
 
   const runId = await runJournal.recordRunStarted(
     buildSymphonyRunStartAttrs({
+      runId: "run-123",
       issueId: issue.id,
       issueIdentifier: issue.identifier
     })
   );
   const turnId = await runJournal.recordTurnStarted(
     runId,
-    buildSymphonyTurnStartAttrs()
+    buildSymphonyTurnStartAttrs({
+      turnId: "turn-123"
+    })
   );
-  await runJournal.recordEvent(runId, turnId, buildSymphonyEventAttrs());
+  await runJournal.recordEvent(
+    runId,
+    turnId,
+    buildSymphonyEventAttrs({
+      eventId: "event-123"
+    })
+  );
   await runJournal.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
   await runJournal.finalizeRun(runId, buildSymphonyRunFinishAttrs());
   await issueTimelineStore.record({
@@ -411,95 +353,5 @@ function buildSymphonyLoadedWorkflow(
     prompt: "Prompt",
     promptTemplate: "Prompt",
     sourcePath: null
-  };
-}
-
-function buildSymphonyRunStartAttrs(
-  overrides: Partial<SymphonyRunStartAttrs> = {}
-): SymphonyRunStartAttrs {
-  return {
-    issueId: "issue-123",
-    issueIdentifier: "COL-123",
-    runId: "run-123",
-    attempt: 1,
-    status: "running",
-    workerHost: null,
-    workspacePath: null,
-    startedAt: "2026-03-31T00:00:00.000Z",
-    commitHashStart: null,
-    repoStart: null,
-    metadata: null,
-    ...overrides
-  };
-}
-
-function buildSymphonyTurnStartAttrs(
-  overrides: Partial<SymphonyTurnStartAttrs> = {}
-): SymphonyTurnStartAttrs {
-  return {
-    turnId: "turn-123",
-    turnSequence: 1,
-    codexThreadId: null,
-    codexTurnId: null,
-    codexSessionId: null,
-    promptText: "Prompt",
-    status: "running",
-    startedAt: "2026-03-31T00:00:00.000Z",
-    metadata: null,
-    ...overrides
-  };
-}
-
-function buildSymphonyEventAttrs(
-  overrides: Partial<SymphonyEventAttrs> = {}
-): SymphonyEventAttrs {
-  return {
-    eventId: "event-123",
-    eventSequence: 1,
-    eventType: "notification",
-    recordedAt: "2026-03-31T00:00:01.000Z",
-    payload: {
-      method: "thread/tokenUsage/updated"
-    },
-    summary: "notification",
-    codexThreadId: null,
-    codexTurnId: null,
-    codexSessionId: null,
-    ...overrides
-  };
-}
-
-function buildSymphonyTurnFinishAttrs(
-  overrides: Partial<SymphonyTurnFinishAttrs> = {}
-): SymphonyTurnFinishAttrs {
-  return {
-    status: "completed",
-    endedAt: "2026-03-31T00:00:02.000Z",
-    codexThreadId: null,
-    codexTurnId: null,
-    codexSessionId: null,
-    tokens: {
-      inputTokens: 12,
-      outputTokens: 4,
-      totalTokens: 16
-    },
-    metadata: null,
-    ...overrides
-  };
-}
-
-function buildSymphonyRunFinishAttrs(
-  overrides: Partial<SymphonyRunFinishAttrs> = {}
-): SymphonyRunFinishAttrs {
-  return {
-    status: "finished",
-    outcome: "failed",
-    endedAt: "2026-03-31T00:00:03.000Z",
-    commitHashEnd: null,
-    repoEnd: null,
-    metadata: null,
-    errorClass: "failure",
-    errorMessage: "Test failure",
-    ...overrides
   };
 }
