@@ -286,6 +286,14 @@ export async function createSymphonyRuntimeTestHarness(input: {
       isPollCycleInFlight() {
         return false;
       },
+      async requestRefresh() {
+        return {
+          queued: true,
+          coalesced: false,
+          requestedAt: "2026-03-31T00:00:00.000Z",
+          operations: ["poll", "reconcile"] as const
+        };
+      },
       async runPollCycle() {
         return snapshot;
       }

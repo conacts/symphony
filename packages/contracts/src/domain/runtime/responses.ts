@@ -86,18 +86,6 @@ export const symphonyRuntimeIssueRetryStateSchema = z.strictObject({
   workspacePath: nullableNonEmptyStringSchema.optional()
 });
 
-export const symphonyRuntimeIssueLogSchema = z.strictObject({
-  label: nonEmptyStringSchema,
-  path: nonEmptyStringSchema,
-  url: z.string().url().nullable()
-});
-
-export const symphonyRuntimeIssueRecentEventSchema = z.strictObject({
-  at: isoTimestampSchema,
-  event: nullableNonEmptyStringSchema,
-  message: nullableNonEmptyStringSchema
-});
-
 export const symphonyRuntimeLogEntrySchema = z.strictObject({
   entryId: nonEmptyStringSchema,
   level: z.enum(["debug", "info", "warn", "error"]),
@@ -140,10 +128,6 @@ export const symphonyRuntimeIssueResultSchema = z.strictObject({
   attempts: symphonyRuntimeAttemptsSchema,
   running: symphonyRuntimeIssueRunningStateSchema.nullable(),
   retry: symphonyRuntimeIssueRetryStateSchema.nullable(),
-  logs: z.strictObject({
-    codexSessionLogs: z.array(symphonyRuntimeIssueLogSchema)
-  }),
-  recentEvents: z.array(symphonyRuntimeIssueRecentEventSchema),
   lastError: nullableNonEmptyStringSchema,
   tracked: symphonyRuntimeTrackedIssueSchema,
   operator: symphonyRuntimeIssueOperatorSchema

@@ -21,7 +21,8 @@ import type {
   SymphonyGitHubWebhookBody,
   SymphonyGitHubWebhookHeaders,
   SymphonyRuntimeHealthResult,
-  SymphonyRuntimeLogsResult
+  SymphonyRuntimeLogsResult,
+  SymphonyRuntimeRefreshResult
 } from "@symphony/contracts";
 import {
   createSymphonyGitHubIngressJournal,
@@ -52,6 +53,7 @@ export type SymphonyRuntimeOrchestratorPort = {
   snapshot(): SymphonyOrchestratorSnapshot;
   runPollCycle(): Promise<SymphonyOrchestratorSnapshot>;
   isPollCycleInFlight(): boolean;
+  requestRefresh(): Promise<SymphonyRuntimeRefreshResult>;
 };
 
 export type SymphonyGitHubReviewIngressPort = {
@@ -170,9 +172,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     });
   }
 
-  const workspaceManager = createLocalSymphonyWorkspaceManager();
+  const workspaceManager = createLocalSymphonyWorkspaceManager({
+    repoOwnedSourceRepo: env.sourceRepo
+  });
   logger.info("Initialized workspace manager", {
-    workspaceRoot: workflow.config.workspace.root
+    workspaceRoot: workflow.config.workspace.root,
+    sourceRepo: env.sourceRepo
   });
 
   const realtime = createSymphonyRealtimeHub(
@@ -214,13 +219,80 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   orchestratorRef = orchestrator;
 
   let inFlightPollCycle: Promise<SymphonyOrchestratorSnapshot> | null = null;
-  const orchestratorPort: SymphonyRuntimeOrchestratorPort = {
+  let manualRefreshQueued = false;
+  let manualRefreshDrainScheduled = false;
+  let orchestratorPort: SymphonyRuntimeOrchestratorPort;
+
+  const scheduleQueuedManualRefreshDrain = (): void => {
+    if (manualRefreshDrainScheduled) {
+      return;
+    }
+
+    manualRefreshDrainScheduled = true;
+    setImmediate(() => {
+      manualRefreshDrainScheduled = false;
+      void drainQueuedManualRefresh();
+    });
+  };
+
+  const drainQueuedManualRefresh = async (): Promise<void> => {
+    if (!manualRefreshQueued || inFlightPollCycle) {
+      return;
+    }
+
+    manualRefreshQueued = false;
+
+    try {
+      await orchestratorPort.runPollCycle();
+    } catch (error) {
+      logger.error("Queued manual refresh poll cycle failed", {
+        error
+      });
+    }
+  };
+
+  orchestratorPort = {
     snapshot() {
       return orchestrator.snapshot();
     },
 
     isPollCycleInFlight() {
       return inFlightPollCycle !== null;
+    },
+
+    async requestRefresh() {
+      const requestedAt = new Date().toISOString();
+      const coalesced = manualRefreshQueued;
+      manualRefreshQueued = true;
+
+      logger.info(
+        coalesced ? "Manual refresh request coalesced" : "Manual refresh queued",
+        {
+          coalesced
+        }
+      );
+      await runtimeLogStore.record({
+        level: "info",
+        source: "runtime",
+        eventType: coalesced
+          ? "manual_refresh_coalesced"
+          : "manual_refresh_queued",
+        message: coalesced
+          ? "Coalesced manual refresh request."
+          : "Queued manual refresh request.",
+        payload: {
+          coalesced
+        },
+        recordedAt: requestedAt
+      });
+      scheduleQueuedManualRefreshDrain();
+
+      return {
+        queued: true,
+        coalesced,
+        requestedAt,
+        operations: ["poll", "reconcile"]
+      };
     },
 
     async runPollCycle() {
@@ -237,7 +309,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
         try {
           const after = await orchestrator.runPollCycle();
-          const changed = JSON.stringify(before) !== JSON.stringify(after);
+          const changed = snapshotRequiresRealtimeInvalidation(before, after);
 
           logger.info("Finished orchestrator poll cycle", {
             runningCount: after.running.length,
@@ -254,6 +326,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           throw error;
         } finally {
           inFlightPollCycle = null;
+          if (manualRefreshQueued) {
+            scheduleQueuedManualRefreshDrain();
+          }
         }
       })();
 
@@ -451,7 +526,7 @@ function publishRealtimeSnapshotDiff(
   after: SymphonyOrchestratorSnapshot,
   logger: SymphonyLogger
 ): void {
-  if (JSON.stringify(before) === JSON.stringify(after)) {
+  if (!snapshotRequiresRealtimeInvalidation(before, after)) {
     logger.debug("Skipped realtime invalidation because snapshot did not change");
     return;
   }
@@ -486,6 +561,58 @@ function publishRealtimeSnapshotDiff(
   for (const issueIdentifier of issueIdentifiers) {
     realtime.publishIssueUpdated(issueIdentifier);
   }
+}
+
+function snapshotRequiresRealtimeInvalidation(
+  before: SymphonyOrchestratorSnapshot,
+  after: SymphonyOrchestratorSnapshot
+): boolean {
+  return (
+    JSON.stringify(buildRealtimeComparableSnapshot(before)) !==
+    JSON.stringify(buildRealtimeComparableSnapshot(after))
+  );
+}
+
+function buildRealtimeComparableSnapshot(
+  snapshot: SymphonyOrchestratorSnapshot
+): Record<string, unknown> {
+  return {
+    running: snapshot.running.map((entry) => ({
+      issueId: entry.issueId,
+      issue: entry.issue,
+      runId: entry.runId,
+      sessionId: entry.sessionId,
+      workerHost: entry.workerHost,
+      workspacePath: entry.workspacePath,
+      retryAttempt: entry.retryAttempt,
+      turnCount: entry.turnCount,
+      lastCodexMessage: entry.lastCodexMessage,
+      lastCodexTimestamp: entry.lastCodexTimestamp,
+      lastCodexEvent: entry.lastCodexEvent,
+      codexInputTokens: entry.codexInputTokens,
+      codexOutputTokens: entry.codexOutputTokens,
+      codexTotalTokens: entry.codexTotalTokens,
+      codexLastReportedInputTokens: entry.codexLastReportedInputTokens,
+      codexLastReportedOutputTokens: entry.codexLastReportedOutputTokens,
+      codexLastReportedTotalTokens: entry.codexLastReportedTotalTokens,
+      lastRateLimits: entry.lastRateLimits,
+      codexAppServerPid: entry.codexAppServerPid,
+      startedAt: entry.startedAt
+    })),
+    retrying: snapshot.retrying.map((entry) => ({
+      issueId: entry.issueId,
+      attempt: entry.attempt,
+      dueAtMs: entry.dueAtMs,
+      retryToken: entry.retryToken,
+      identifier: entry.identifier,
+      error: entry.error,
+      workerHost: entry.workerHost,
+      workspacePath: entry.workspacePath,
+      delayType: entry.delayType
+    })),
+    codexTotals: snapshot.codexTotals,
+    rateLimits: snapshot.rateLimits
+  };
 }
 
 function createDbBackedOrchestratorObserver(input: {

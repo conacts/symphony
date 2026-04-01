@@ -103,16 +103,6 @@ describe("symphony runtime contracts", () => {
           }
         },
         retry: null,
-        logs: {
-          codexSessionLogs: []
-        },
-        recentEvents: [
-          {
-            at: "2026-03-31T00:00:01.000Z",
-            event: "notification",
-            message: "Working on tests"
-          }
-        ],
         lastError: null,
         tracked: {
           title: "Rebuild the runtime summary",

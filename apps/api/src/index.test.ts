@@ -16,6 +16,7 @@ describe("@symphony/api scaffold", () => {
     expect(runtime.env.port).toBe(4_500);
     expect(runtime.env.workflowPath).toBe("/tmp/WORKFLOW.md");
     expect(runtime.env.dbFile).toBe("/tmp/symphony.db");
+    expect(runtime.env.sourceRepo).toBe("/tmp/source-repo");
     expect(runtime.env.linearApiKey).toBe("test-linear-api-key");
     expect(runtime.env.logLevel).toBe("debug");
     expect(runtime.dependsOn).toEqual([
@@ -36,7 +37,8 @@ describe("@symphony/api scaffold", () => {
     const env = loadSymphonyRuntimeAppEnv(buildSymphonyRuntimeEnv());
 
     expect(buildSymphonyRuntimeEnvironmentSource(env)).toEqual({
-      LINEAR_API_KEY: "test-linear-api-key"
+      LINEAR_API_KEY: "test-linear-api-key",
+      SYMPHONY_SOURCE_REPO: "/tmp/source-repo"
     });
   });
 });

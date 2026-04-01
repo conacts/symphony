@@ -14,7 +14,6 @@ import { createHttpError } from "../../core/errors.js";
 import { jsonOk } from "../../core/envelope.js";
 import { parseWithSchema } from "../../core/validation.js";
 import {
-  serializeRefreshResult,
   serializeRuntimeIssue,
   serializeRuntimeState
 } from "../serializers.js";
@@ -95,12 +94,10 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
   runtimeRoutes.post("/refresh", async (c) => {
     c.get("logger").info("Manual refresh requested");
     parseWithSchema(symphonyRuntimeRefreshRequestSchema, {});
-    const snapshot = await services.orchestrator.runPollCycle();
-    const result = serializeRefreshResult(new Date().toISOString());
+    const result = await services.orchestrator.requestRefresh();
 
-    c.get("logger").info("Manual refresh completed", {
-      runningCount: snapshot.running.length,
-      retryingCount: snapshot.retrying.length
+    c.get("logger").info("Manual refresh queued", {
+      coalesced: result.coalesced
     });
 
     symphonyRuntimeRefreshResponseSchema.parse({

@@ -16,6 +16,7 @@ export type SymphonyRuntimeAppEnv = {
   port: number;
   workflowPath: string;
   dbFile: string;
+  sourceRepo: string | null;
   linearApiKey: string;
   logLevel: SymphonyLogLevel;
 };
@@ -31,6 +32,7 @@ export function loadSymphonyRuntimeAppEnv(
       ),
       WORKFLOW_PATH: z.string().min(1).optional(),
       SYMPHONY_DB_FILE: z.string().min(1).optional(),
+      SYMPHONY_SOURCE_REPO: z.string().min(1).optional(),
       LOG_LEVEL: z.string().min(1).optional(),
       LINEAR_API_KEY: z
         .string({
@@ -69,6 +71,7 @@ export function loadSymphonyRuntimeAppEnv(
     port: parsed.PORT,
     workflowPath: parsed.WORKFLOW_PATH ?? defaultSymphonyWorkflowPath(cwd),
     dbFile: parsed.SYMPHONY_DB_FILE ?? defaultSymphonyDbFile(cwd),
+    sourceRepo: parsed.SYMPHONY_SOURCE_REPO ?? null,
     linearApiKey: parsed.LINEAR_API_KEY,
     logLevel: resolveSymphonyLogLevel(parsed.LOG_LEVEL, "debug")
   };
@@ -78,6 +81,7 @@ export function buildSymphonyRuntimeEnvironmentSource(
   env: SymphonyRuntimeAppEnv
 ): EnvironmentSource {
   return {
-    LINEAR_API_KEY: env.linearApiKey
+    LINEAR_API_KEY: env.linearApiKey,
+    SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined
   };
 }

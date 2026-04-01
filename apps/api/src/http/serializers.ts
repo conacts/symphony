@@ -12,7 +12,6 @@ import type {
   SymphonyForensicsProblemRunsResult,
   SymphonyForensicsRunDetailResult,
   SymphonyRuntimeIssueResult,
-  SymphonyRuntimeRefreshResult,
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
 import type { SymphonyResolvedWorkflowConfig } from "@symphony/core";
@@ -133,18 +132,6 @@ export function serializeRuntimeIssue(
           workspacePath: retry.workspacePath
         }
       : null,
-    logs: {
-      codexSessionLogs: []
-    },
-    recentEvents: running?.lastCodexTimestamp
-      ? [
-          {
-            at: running.lastCodexTimestamp,
-            event: running.lastCodexEvent ?? null,
-            message: summarizeMessage(running.lastCodexMessage?.message ?? null)
-          }
-        ]
-      : [],
     lastError: retry?.error ?? null,
     tracked: {
       title: resolvedTrackedIssue.title,
@@ -220,17 +207,6 @@ export function serializeForensicsRunDetail(
           : null
     },
     turns: result.turns
-  };
-}
-
-export function serializeRefreshResult(
-  requestedAt: string
-): SymphonyRuntimeRefreshResult {
-  return {
-    queued: true,
-    coalesced: false,
-    requestedAt,
-    operations: ["poll", "reconcile"]
   };
 }
 

@@ -202,7 +202,7 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
       turn.codexTurnId = attrs.codexTurnId ?? turn.codexTurnId;
       turn.codexSessionId = attrs.codexSessionId ?? turn.codexSessionId;
       turn.tokens = sanitizeJsonObject(attrs.tokens) ?? turn.tokens;
-      turn.metadata = sanitizeJsonObject(attrs.metadata) ?? turn.metadata;
+      turn.metadata = mergeSanitizedJsonObjects(turn.metadata, attrs.metadata);
       turn.updatedAt = isoNow();
     });
   }
@@ -236,7 +236,7 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
       run.commitHashEnd = attrs.commitHashEnd ?? run.commitHashEnd;
       run.repoStart = sanitizeJsonObject(attrs.repoStart) ?? run.repoStart;
       run.repoEnd = sanitizeJsonObject(attrs.repoEnd) ?? run.repoEnd;
-      run.metadata = sanitizeJsonObject(attrs.metadata) ?? run.metadata;
+      run.metadata = mergeSanitizedJsonObjects(run.metadata, attrs.metadata);
       run.errorClass = attrs.errorClass ? sanitizeText(attrs.errorClass) : run.errorClass;
       run.errorMessage = attrs.errorMessage
         ? sanitizeText(attrs.errorMessage)
@@ -418,6 +418,28 @@ function upsertIssueRecord(
       : existing.latestRunStartedAt;
   existing.updatedAt = issue.updatedAt;
   return issues;
+}
+
+function mergeSanitizedJsonObjects(
+  existing: SymphonyRunRecord["metadata"] | SymphonyTurnRecord["metadata"],
+  next: unknown
+): SymphonyRunRecord["metadata"] | SymphonyTurnRecord["metadata"] {
+  const sanitizedNext = sanitizeJsonObject(
+    next as SymphonyRunRecord["metadata"] | SymphonyTurnRecord["metadata"]
+  );
+
+  if (!sanitizedNext) {
+    return existing;
+  }
+
+  if (!existing) {
+    return sanitizedNext;
+  }
+
+  return {
+    ...existing,
+    ...sanitizedNext
+  };
 }
 
 function findRunRecord(runs: SymphonyRunRecord[], runId: string): SymphonyRunRecord | undefined {

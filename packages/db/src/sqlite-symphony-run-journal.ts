@@ -310,7 +310,7 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
         codexTurnId: attrs.codexTurnId ?? existing.codexTurnId,
         codexSessionId: attrs.codexSessionId ?? existing.codexSessionId,
         tokens: sanitizeJsonObject(attrs.tokens) ?? existing.tokens,
-        metadata: sanitizeJsonObject(attrs.metadata) ?? existing.metadata,
+        metadata: mergeSanitizedJsonObjects(existing.metadata, attrs.metadata),
         updatedAt: isoNow()
       })
       .where(eq(symphonyTurnsTable.turnId, turnId))
@@ -355,7 +355,7 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
           commitHashEnd: attrs.commitHashEnd ?? existing.commitHashEnd,
           repoStart: sanitizeJsonObject(attrs.repoStart) ?? existing.repoStart,
           repoEnd: sanitizeJsonObject(attrs.repoEnd) ?? existing.repoEnd,
-          metadata: sanitizeJsonObject(attrs.metadata) ?? existing.metadata,
+          metadata: mergeSanitizedJsonObjects(existing.metadata, attrs.metadata),
           errorClass: attrs.errorClass ? sanitizeText(attrs.errorClass) : existing.errorClass,
           errorMessage: attrs.errorMessage
             ? sanitizeText(attrs.errorMessage)
@@ -758,6 +758,26 @@ function sanitizeJsonObject(
   }
 
   return sanitizeJsonValue(value) as SymphonyJsonObject;
+}
+
+function mergeSanitizedJsonObjects(
+  existing: Record<string, unknown> | null,
+  next: SymphonyJsonObject | Record<string, unknown> | null | undefined
+): SymphonyJsonObject | null {
+  const sanitizedNext = sanitizeJsonObject(next);
+
+  if (!sanitizedNext) {
+    return (existing ?? null) as SymphonyJsonObject | null;
+  }
+
+  if (!existing) {
+    return sanitizedNext;
+  }
+
+  return {
+    ...(existing as SymphonyJsonObject),
+    ...sanitizedNext
+  };
 }
 
 function truncatePayload(

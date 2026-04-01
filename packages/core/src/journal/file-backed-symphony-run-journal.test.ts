@@ -180,4 +180,31 @@ describe("file-backed symphony run journal", () => {
     ).toBe("Bearer [REDACTED]");
     expect(exportPayload?.run.errorMessage).toContain("[REDACTED]");
   });
+
+  it("merges run metadata updates instead of overwriting earlier fields", async () => {
+    const journal = await createJournal();
+
+    const runId = await journal.recordRunStarted(
+      buildSymphonyRunStartAttrs({
+        issueId: "issue-metadata",
+        issueIdentifier: "COL-META",
+        metadata: {
+          runtime: "typescript"
+        }
+      })
+    );
+
+    await journal.updateRun(runId, {
+      metadata: {
+        sessionId: "session-123"
+      }
+    });
+
+    const exportPayload = await journal.fetchRunExport(runId);
+
+    expect(exportPayload?.run.metadata).toEqual({
+      runtime: "typescript",
+      sessionId: "session-123"
+    });
+  });
 });

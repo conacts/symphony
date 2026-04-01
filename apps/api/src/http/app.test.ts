@@ -37,6 +37,8 @@ describe("@symphony/api app", () => {
     }>(stateResponse);
     const refreshPayload = await responseJson<{
       data: {
+        queued: boolean;
+        coalesced: boolean;
         operations: [string, string];
       };
     }>(refreshResponse);
@@ -45,6 +47,8 @@ describe("@symphony/api app", () => {
     expect(statePayload.data.running[0]?.sessionId).toBe("thread-live");
 
     expect(refreshResponse.status).toBe(202);
+    expect(refreshPayload.data.queued).toBe(true);
+    expect(refreshPayload.data.coalesced).toBe(false);
     expect(refreshPayload.data.operations).toEqual(["poll", "reconcile"]);
   });
 
