@@ -23,8 +23,10 @@ import {
 } from "./codex-app-server-client.js";
 
 const tempRoots: string[] = [];
+const originalPath = process.env.PATH;
 
 afterEach(async () => {
+  process.env.PATH = originalPath;
   await Promise.all(
     tempRoots.splice(0).map((root) =>
       rm(root, {
@@ -64,7 +66,7 @@ describe("codex app server client", () => {
 
     await expect(
       CodexAppServerClient.startSession({
-        workspacePath: workspaceRoot,
+        launchTarget: buildHostLaunchTarget(workspaceRoot),
         workflowConfig,
         issue,
         logger: loggerSpy.logger
@@ -78,7 +80,7 @@ describe("codex app server client", () => {
 
     await expect(
       CodexAppServerClient.startSession({
-        workspacePath: outsideWorkspace,
+        launchTarget: buildHostLaunchTarget(outsideWorkspace),
         workflowConfig,
         issue,
         logger: loggerSpy.logger
@@ -95,7 +97,7 @@ describe("codex app server client", () => {
 
     await expect(
       CodexAppServerClient.startSession({
-        workspacePath: symlinkWorkspace,
+        launchTarget: buildHostLaunchTarget(symlinkWorkspace),
         workflowConfig,
         issue,
         logger: loggerSpy.logger
@@ -153,7 +155,7 @@ done
     };
 
     const session = await CodexAppServerClient.startSession({
-      workspacePath: scenario.workspacePath,
+      launchTarget: buildHostLaunchTarget(scenario.workspacePath),
       workflowConfig: scenario.workflowConfig,
       issue: scenario.issue,
       logger: scenario.loggerSpy.logger
@@ -178,6 +180,101 @@ done
         })
       })
     ]);
+  });
+
+  it("uses the host workspace as spawn cwd while sending container cwd to thread and turn start", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-app-server-container-"));
+    tempRoots.push(root);
+
+    const dockerTraceFile = path.join(root, "docker.trace");
+    const codexTraceFile = path.join(root, "codex.trace");
+    const scenario = await createScenario({
+      root,
+      script: `#!/bin/sh
+trace_file="${codexTraceFile}"
+count=0
+while IFS= read -r line; do
+  count=$((count + 1))
+  printf 'JSON:%s\\n' "$line" >> "$trace_file"
+  case "$count" in
+    1)
+      printf '%s\\n' '{"id":1,"result":{}}'
+      ;;
+    2)
+      ;;
+    3)
+      printf '%s\\n' '{"id":2,"result":{"thread":{"id":"thread-container"}}}'
+      ;;
+    4)
+      printf '%s\\n' '{"id":3,"result":{"turn":{"id":"turn-container"}}}'
+      printf '%s\\n' '{"method":"turn/completed"}'
+      exit 0
+      ;;
+    *)
+      exit 0
+      ;;
+  esac
+done
+`
+    });
+
+    const fakeDocker = path.join(root, "docker");
+    await writeExecutable(
+      fakeDocker,
+      `#!/bin/sh
+trace_file="${dockerTraceFile}"
+printf 'PWD:%s\\n' "$(pwd)" >> "$trace_file"
+printf 'ARGV:%s\\n' "$*" >> "$trace_file"
+if [ "$1" != "exec" ]; then
+  echo "unexpected docker command: $1" >&2
+  exit 99
+fi
+shift
+workdir=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -i)
+      shift
+      ;;
+    --workdir)
+      workdir="$2"
+      shift 2
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+container_name="$1"
+shift
+shell_bin="$1"
+shift
+printf 'WORKDIR:%s\\n' "$workdir" >> "$trace_file"
+printf 'CONTAINER:%s\\n' "$container_name" >> "$trace_file"
+exec "$shell_bin" -lc "$2"
+`
+    );
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const session = await CodexAppServerClient.startSession({
+      launchTarget: buildContainerLaunchTarget(scenario.workspacePath),
+      workflowConfig: scenario.workflowConfig,
+      issue: scenario.issue,
+      logger: scenario.loggerSpy.logger
+    });
+    const turn = runTurnForScenario(scenario, session);
+    await expect(turn.promise).resolves.toBeDefined();
+
+    const dockerTraceLines = await readTraceLines(dockerTraceFile);
+    expect(dockerTraceLines).toContain(`PWD:${session.hostWorkspacePath}`);
+    expect(dockerTraceLines).toContain("WORKDIR:/home/agent/workspace");
+    expect(dockerTraceLines).toContain("CONTAINER:symphony-col-123-container");
+
+    const tracePayloads = parseTraceJsonLines(await readTraceLines(codexTraceFile));
+    const threadStart = tracePayloads.find((payload) => payload.id === 2);
+    const turnStart = tracePayloads.find((payload) => payload.id === 3);
+    expect(getParams(threadStart)?.cwd).toBe("/home/agent/workspace");
+    expect(getParams(turnStart)?.cwd).toBe("/home/agent/workspace");
   });
 
   it("passes the configured turn sandbox policy unchanged", async () => {
@@ -809,7 +906,7 @@ async function startSessionForScenario(
   session: CodexAppServerSession;
 }> {
   const session = await CodexAppServerClient.startSession({
-    workspacePath: scenario.workspacePath,
+    launchTarget: buildHostLaunchTarget(scenario.workspacePath),
     workflowConfig: scenario.workflowConfig,
     issue: scenario.issue,
     logger: scenario.loggerSpy.logger
@@ -869,6 +966,25 @@ function runTurnForScenario(
   return {
     messages,
     promise
+  };
+}
+
+function buildHostLaunchTarget(workspacePath: string) {
+  return {
+    kind: "host_path" as const,
+    hostWorkspacePath: workspacePath,
+    runtimeWorkspacePath: workspacePath
+  };
+}
+
+function buildContainerLaunchTarget(workspacePath: string) {
+  return {
+    kind: "container" as const,
+    hostWorkspacePath: workspacePath,
+    runtimeWorkspacePath: "/home/agent/workspace",
+    containerId: "container-123",
+    containerName: "symphony-col-123-container",
+    shell: "sh"
   };
 }
 

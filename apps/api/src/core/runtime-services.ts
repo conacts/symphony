@@ -1,6 +1,5 @@
 import {
   createCodexAgentRuntime,
-  createLocalWorkspaceBackend,
   createSymphonyRuntime,
   loadSymphonyWorkflow,
   type SymphonyLoadedWorkflow,
@@ -40,7 +39,7 @@ import {
 import { createRuntimeHttpError } from "./errors.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
-import { createLocalCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
+import { createCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
 import { createDbBackedOrchestratorObserver } from "./runtime-db-observer.js";
 import {
   publishRealtimeSnapshotDiff,
@@ -54,6 +53,7 @@ import {
   SymphonyRuntimePollScheduler,
   type SymphonyRuntimePollSchedulerSnapshot
 } from "./poll-scheduler.js";
+import { createRuntimeWorkspaceBackend } from "./runtime-workspace-backend.js";
 
 export type SymphonyRuntimeOrchestratorPort = {
   snapshot(): SymphonyOrchestratorSnapshot;
@@ -317,12 +317,21 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     });
   }
 
-  const workspaceBackend = createLocalWorkspaceBackend({
-    repoOwnedSourceRepo: env.sourceRepo
-  });
-  logger.info("Initialized workspace manager", {
+  const workspaceBackendSelection = createRuntimeWorkspaceBackend(env);
+  const workspaceBackend = workspaceBackendSelection.backend;
+  logger.info("Initialized workspace backend", {
     workspaceRoot: workflow.config.workspace.root,
-    sourceRepo: env.sourceRepo
+    ...workspaceBackendSelection.metadata
+  });
+  await runtimeLogStore.record({
+    level: "info",
+    source: "runtime",
+    eventType: "workspace_backend_initialized",
+    message: "Initialized workspace backend.",
+    payload: {
+      workspaceRoot: workflow.config.workspace.root,
+      ...workspaceBackendSelection.metadata
+    }
   });
 
   const realtime = createSymphonyRealtimeHub(
@@ -340,13 +349,14 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     "applyAgentUpdate" | "handleRunCompletion"
   > | null = null;
   const agentRuntime = createCodexAgentRuntime(
-    createLocalCodexSymphonyAgentRuntime({
+    createCodexSymphonyAgentRuntime({
       promptTemplate: workflow.promptTemplate,
       tracker,
       runJournal,
       runtimeLogs: runtimeLogStore,
       workflowConfig: workflow.config,
       logger,
+      containerShell: env.dockerShell,
       callbacks: {
         async onUpdate(issueId, update) {
           runtimeRef?.applyAgentUpdate(issueId, update);

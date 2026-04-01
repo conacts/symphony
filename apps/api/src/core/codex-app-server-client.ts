@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type { SymphonyResolvedWorkflowConfig } from "@symphony/core";
 import type { SymphonyTrackerIssue } from "@symphony/core/tracker";
 import {
+  buildCodexAppServerSpawnSpec,
   buildDynamicToolSpecs,
   resolveCodexLaunchSettings,
   validateWorkspaceCwd,
@@ -55,15 +56,16 @@ export class CodexAppServerClient {
 
   constructor(input: {
     command: string;
-    workspacePath: string;
+    args: string[];
+    cwd: string;
     readTimeoutMs: number;
     logger: CodexAppServerLogger;
   }) {
     this.#requestTimeoutMs = input.readTimeoutMs;
     this.#logger = input.logger;
 
-    const child = spawn("bash", ["-lc", input.command], {
-      cwd: input.workspacePath,
+    const child = spawn(input.command, input.args, {
+      cwd: input.cwd,
       stdio: "pipe"
     });
     this.#child = child;
@@ -98,22 +100,27 @@ export class CodexAppServerClient {
   }
 
   static async startSession(input: {
-    workspacePath: string;
+    launchTarget: Parameters<typeof buildCodexAppServerSpawnSpec>[0]["launchTarget"];
     workflowConfig: SymphonyResolvedWorkflowConfig;
     issue: SymphonyTrackerIssue;
     logger: CodexAppServerLogger;
   }): Promise<CodexAppServerSession> {
-    const workspacePath = await validateWorkspaceCwd(
-      input.workspacePath,
+    const hostWorkspacePath = await validateWorkspaceCwd(
+      input.launchTarget.hostWorkspacePath,
       input.workflowConfig.workspace.root
     );
     const launchSettings = resolveCodexLaunchSettings(
       input.workflowConfig.codex.command,
       input.issue
     );
+    const spawnSpec = buildCodexAppServerSpawnSpec({
+      launchTarget: input.launchTarget,
+      command: launchSettings.command
+    });
     const client = new CodexAppServerClient({
-      command: launchSettings.command,
-      workspacePath,
+      command: spawnSpec.command,
+      args: spawnSpec.args,
+      cwd: hostWorkspacePath,
       readTimeoutMs: input.workflowConfig.codex.readTimeoutMs,
       logger: input.logger
     });
@@ -137,7 +144,7 @@ export class CodexAppServerClient {
         {
           approvalPolicy: input.workflowConfig.codex.approvalPolicy,
           sandbox: input.workflowConfig.codex.threadSandbox,
-          cwd: workspacePath,
+          cwd: spawnSpec.runtimeWorkspacePath,
           dynamicTools: buildDynamicToolSpecs()
         }
       );
@@ -156,7 +163,9 @@ export class CodexAppServerClient {
       return {
         client,
         threadId,
-        workspacePath,
+        workspacePath: spawnSpec.runtimeWorkspacePath,
+        hostWorkspacePath,
+        launchTarget: input.launchTarget,
         issue: input.issue,
         processId: client.processId,
         autoApproveRequests: input.workflowConfig.codex.approvalPolicy === "never",

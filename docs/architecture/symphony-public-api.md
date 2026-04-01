@@ -80,8 +80,9 @@ import {
 - `createDockerWorkspaceBackend()`
   Public factory for the experimental Docker-backed workspace implementation. It owns container
   prepare/reuse/hook/cleanup lifecycle and returns container-shaped `PreparedWorkspace` metadata,
-  but it does not make Docker the default backend and it does not yet imply container-native agent
-  execution.
+  but it does not make Docker the default backend. `apps/api` can now pair it with the
+  execution-target-aware Codex runtime to execute against
+  `PreparedWorkspace.executionTarget.kind === "container"` on an explicit opt-in path.
 - `createCodexAgentRuntime(runtime)`
   Public adapter for the concrete Codex runtime implementation. The concrete implementation still
   lives in `apps/api/src/core/codex-agent-runtime.ts`, but callers now depend on the real
@@ -106,7 +107,9 @@ import {
   `materialization`
 - `AgentRuntime` -> explicit lifecycle interface:
   `startRun`, `stopRun`
-- `createCodexAgentRuntime` -> adapter over the concrete Codex runtime implementation
+- `createCodexAgentRuntime` -> adapter over the concrete Codex runtime implementation. In
+  `apps/api`, the concrete Codex runtime now resolves a launch target from `PreparedWorkspace` and
+  supports both host-path execution and bind-mounted container execution through `docker exec`.
 - `ReviewProvider` -> explicit review-generation interface:
   `review`
 - `ReviewPublisher` -> explicit review-publication interface:
@@ -124,13 +127,31 @@ The local filesystem workspace manager still exists as the implementation behind
 it is no longer the root happy-path API for consumers of `@symphony/core`. Expert consumers can
 reach it explicitly through `@symphony/core/workspace/local`.
 
+## Runtime Selection For This Stage
+
+- Docker execution remains opt-in at the app boundary.
+- `apps/api` selects the workspace backend with `SYMPHONY_WORKSPACE_BACKEND`.
+  `local` stays the default.
+- `SYMPHONY_WORKSPACE_BACKEND=docker` requires
+  `SYMPHONY_DOCKER_WORKSPACE_IMAGE`.
+- Optional app-level Docker tuning for this stage:
+  `SYMPHONY_DOCKER_WORKSPACE_PATH`,
+  `SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX`,
+  `SYMPHONY_DOCKER_SHELL`
+- The Codex runtime reads only the prepared workspace contract at run time. When it sees
+  `executionTarget.kind === "container"`, it launches Codex through `docker exec`, uses the
+  container workspace path as the Codex thread cwd, and still uses the host bind-mounted path for
+  repo snapshots and cwd validation.
+
 ## Non-Goals
 
-- No runtime behavior changes
 - No movement of the current Codex runtime implementation into `@symphony/core`
 - No movement of the current GitHub webhook ingress implementation into `ReviewPublisher`
-- No change to `apps/api/src/core/runtime-services.ts`
+- No broad `apps/api/src/core/runtime-services.ts` redesign beyond explicit backend selection
 - No exposure of `SymphonyOrchestrator` on the public runtime facade
+- No default Docker cutover
+- No workflow-level backend selection yet
+- No support yet for volume-only container execution targets in the Codex runtime
 
 ## Runtime Wiring Rules
 

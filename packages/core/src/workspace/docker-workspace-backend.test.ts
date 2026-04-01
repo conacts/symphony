@@ -67,8 +67,8 @@ describe("docker workspace backend", () => {
             if (inspectCallCount === 1) {
               return {
                 exitCode: 1,
-                stdout: "",
-                stderr: `Error: No such object: ${input.args[3]}`
+                stdout: "[]\n",
+                stderr: `Error response from daemon: No such container: ${input.args[3]}`
               };
             }
 
@@ -415,6 +415,78 @@ describe("docker workspace backend", () => {
     );
     expect(inspectCount).toBe(2);
     expect(calls.map((call) => call[0])).toEqual(["inspect", "exec", "inspect", "rm"]);
+  });
+
+  it("swallows missing-container rm responses during cleanup", async () => {
+    const root = await createWorkspaceRoot();
+    const workspacePath = path.join(root, "symphony-COL-204");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      }
+    });
+    const calls: string[][] = [];
+    let inspectCount = 0;
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        switch (input.args[0]) {
+          case "inspect":
+            inspectCount += 1;
+            return {
+              exitCode: 0,
+              stdout: buildDockerInspectPayload({
+                id: "container-204",
+                image: "ghcr.io/openai/symphony-workspace:latest",
+                name: input.args[3] ?? "unknown",
+                issueIdentifier: "COL-204",
+                workspaceKey: "COL-204",
+                hostPath: workspacePath,
+                workspacePath: "/home/agent/workspace",
+                running: true
+              }),
+              stderr: ""
+            };
+          case "rm":
+            return {
+              exitCode: 1,
+              stdout: "",
+              stderr: `Error response from daemon: No such container: ${input.args[2]}`
+            };
+          default:
+            throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+        }
+      }
+    });
+
+    await expect(
+      backend.cleanupWorkspace({
+        issueIdentifier: "COL-204",
+        workspace: buildPreparedDockerWorkspace({
+          issueIdentifier: "COL-204",
+          workspaceKey: "COL-204",
+          containerId: "container-204",
+          containerName: "symphony-workspace-col-204-deadbeef",
+          hostPath: workspacePath
+        }),
+        config: config.workspace,
+        hooks: config.hooks
+      })
+    ).resolves.toBeUndefined();
+
+    await expect(rm(workspacePath, { recursive: true, force: false })).rejects.toMatchObject(
+      {
+        code: "ENOENT"
+      }
+    );
+    expect(inspectCount).toBe(2);
+    expect(calls.map((call) => call[0])).toEqual(["inspect", "inspect", "rm"]);
   });
 });
 

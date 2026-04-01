@@ -937,7 +937,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function isDockerMissingObject(stderr: string): boolean {
-  return /No such object/i.test(stderr);
+  return /No such (?:object|container)/i.test(stderr);
 }
 
 function isEnoent(error: unknown): boolean {

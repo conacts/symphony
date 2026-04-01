@@ -15,6 +15,11 @@ export function buildSymphonyRuntimeEnv(
       | "WORKFLOW_PATH"
       | "SYMPHONY_DB_FILE"
       | "SYMPHONY_SOURCE_REPO"
+      | "SYMPHONY_WORKSPACE_BACKEND"
+      | "SYMPHONY_DOCKER_WORKSPACE_IMAGE"
+      | "SYMPHONY_DOCKER_WORKSPACE_PATH"
+      | "SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX"
+      | "SYMPHONY_DOCKER_SHELL"
       | "SYMPHONY_ALLOWED_ORIGINS"
       | "LINEAR_API_KEY"
       | "LOG_LEVEL",
@@ -27,6 +32,11 @@ export function buildSymphonyRuntimeEnv(
     WORKFLOW_PATH: "/tmp/WORKFLOW.md",
     SYMPHONY_DB_FILE: "/tmp/symphony.db",
     SYMPHONY_SOURCE_REPO: "/tmp/source-repo",
+    SYMPHONY_WORKSPACE_BACKEND: "local",
+    SYMPHONY_DOCKER_WORKSPACE_IMAGE: undefined,
+    SYMPHONY_DOCKER_WORKSPACE_PATH: undefined,
+    SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX: undefined,
+    SYMPHONY_DOCKER_SHELL: undefined,
     SYMPHONY_ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000",
     LINEAR_API_KEY: "test-linear-api-key",
     LOG_LEVEL: "debug",

@@ -28,6 +28,10 @@ import {
 import { buildLinearGraphqlToolExecutor } from "./codex-linear-graphql-tool.js";
 import { captureRepoSnapshot } from "./codex-repo-snapshot.js";
 import {
+  resolveCodexRuntimeLaunchTarget,
+  type CodexRuntimeLaunchTarget
+} from "./codex-runtime-launch-target.js";
+import {
   buildSymphonyContinuationPrompt,
   renderSymphonyPrompt
 } from "./symphony-prompt.js";
@@ -45,7 +49,7 @@ type ActiveRun = {
   client: CodexAppServerSessionClient | null;
 };
 
-export function createLocalCodexSymphonyAgentRuntime(input: {
+export function createCodexSymphonyAgentRuntime(input: {
   promptTemplate: string;
   tracker: SymphonyTracker;
   runJournal: SymphonyRunJournal;
@@ -53,6 +57,7 @@ export function createLocalCodexSymphonyAgentRuntime(input: {
   workflowConfig: SymphonyResolvedWorkflowConfig;
   logger: SymphonyLogger;
   callbacks: RunCallbacks;
+  containerShell?: string | null;
 }): AgentRuntime {
   const activeRuns = new Map<string, ActiveRun>();
 
@@ -63,7 +68,9 @@ export function createLocalCodexSymphonyAgentRuntime(input: {
         client: null
       };
       activeRuns.set(runInput.issue.id, activeRun);
-      const workspacePath = resolveLocalExecutionPath(runInput.workspace);
+      const launchTarget = resolveCodexRuntimeLaunchTarget(runInput.workspace, {
+        containerShell: input.containerShell
+      });
 
       void executeRun({
         promptTemplate: input.promptTemplate,
@@ -80,7 +87,7 @@ export function createLocalCodexSymphonyAgentRuntime(input: {
         issue: runInput.issue,
         runId: runInput.runId,
         attempt: runInput.attempt,
-        workspacePath,
+        launchTarget,
         activeRun,
         toolExecutor: buildLinearGraphqlToolExecutor(
           runInput.workflowConfig,
@@ -108,17 +115,8 @@ export function createLocalCodexSymphonyAgentRuntime(input: {
   };
 }
 
-function resolveLocalExecutionPath(
-  workspace: Parameters<AgentRuntime["startRun"]>[0]["workspace"]
-): string {
-  if (workspace.executionTarget.kind === "host_path") {
-    return workspace.executionTarget.path;
-  }
-
-  throw new TypeError(
-    "Local Codex runtime requires a host-path execution target."
-  );
-}
+export const createLocalCodexSymphonyAgentRuntime =
+  createCodexSymphonyAgentRuntime;
 
 async function executeRun(input: {
   promptTemplate: string;
@@ -131,7 +129,7 @@ async function executeRun(input: {
   issue: SymphonyTrackerIssue;
   runId: string | null;
   attempt: number;
-  workspacePath: string;
+  launchTarget: CodexRuntimeLaunchTarget;
   activeRun: ActiveRun;
   toolExecutor: CodexAppServerToolExecutor;
 }): Promise<void> {
@@ -141,7 +139,7 @@ async function executeRun(input: {
   try {
     if (input.runId) {
       const repoStart = await captureRepoSnapshot(
-        input.workspacePath,
+        input.launchTarget.hostWorkspacePath,
         input.workflowConfig.hooks.timeoutMs
       );
       await input.runJournal.updateRun(input.runId, {
@@ -151,7 +149,7 @@ async function executeRun(input: {
     }
 
     const session = await CodexAppServerClient.startSession({
-      workspacePath: input.workspacePath,
+      launchTarget: input.launchTarget,
       workflowConfig: input.workflowConfig,
       issue: input.issue,
       logger: input.logger
@@ -170,7 +168,8 @@ async function executeRun(input: {
         threadId: session.threadId,
         processId: session.processId,
         model: session.model,
-        reasoningEffort: session.reasoningEffort
+        reasoningEffort: session.reasoningEffort,
+        launchTarget: describeLaunchTarget(session.launchTarget)
       }
     });
 
@@ -293,7 +292,7 @@ async function executeRun(input: {
     if (!input.activeRun.stopped) {
       if (input.runId) {
         const repoEnd = await captureRepoSnapshot(
-          input.workspacePath,
+          input.launchTarget.hostWorkspacePath,
           input.workflowConfig.hooks.timeoutMs
         );
         await input.runJournal.updateRun(input.runId, {
@@ -333,7 +332,7 @@ async function executeRun(input: {
 
     if (input.runId) {
       const repoEnd = await captureRepoSnapshot(
-        input.workspacePath,
+        input.launchTarget.hostWorkspacePath,
         input.workflowConfig.hooks.timeoutMs
       );
       await input.runJournal.updateRun(input.runId, {
@@ -351,7 +350,8 @@ async function executeRun(input: {
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {
-        reason
+        reason,
+        launchTarget: describeLaunchTarget(input.launchTarget)
       }
     });
 
@@ -366,6 +366,25 @@ async function executeRun(input: {
   } finally {
     input.activeRun.client?.close();
   }
+}
+
+function describeLaunchTarget(target: CodexRuntimeLaunchTarget): SymphonyJsonObject {
+  if (target.kind === "host_path") {
+    return {
+      kind: target.kind,
+      hostWorkspacePath: target.hostWorkspacePath,
+      runtimeWorkspacePath: target.runtimeWorkspacePath
+    };
+  }
+
+  return {
+    kind: target.kind,
+    hostWorkspacePath: target.hostWorkspacePath,
+    runtimeWorkspacePath: target.runtimeWorkspacePath,
+    containerId: target.containerId,
+    containerName: target.containerName,
+    shell: target.shell
+  };
 }
 
 async function refreshIssueState(

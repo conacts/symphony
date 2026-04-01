@@ -17,6 +17,11 @@ describe("@symphony/api scaffold", () => {
     expect(runtime.env.workflowPath).toBe("/tmp/WORKFLOW.md");
     expect(runtime.env.dbFile).toBe("/tmp/symphony.db");
     expect(runtime.env.sourceRepo).toBe("/tmp/source-repo");
+    expect(runtime.env.workspaceBackend).toBe("local");
+    expect(runtime.env.dockerWorkspaceImage).toBeNull();
+    expect(runtime.env.dockerWorkspacePath).toBeNull();
+    expect(runtime.env.dockerContainerNamePrefix).toBeNull();
+    expect(runtime.env.dockerShell).toBeNull();
     expect(runtime.env.allowedOrigins).toEqual([
       "http://localhost:3000",
       "http://127.0.0.1:3000"
@@ -54,5 +59,32 @@ describe("@symphony/api scaffold", () => {
     );
 
     expect(env.allowedOrigins).toEqual([]);
+  });
+
+  it("requires an explicit Docker image when Docker workspace execution is selected", () => {
+    expect(() =>
+      loadSymphonyRuntimeAppEnv(
+        buildSymphonyRuntimeEnv({
+          SYMPHONY_WORKSPACE_BACKEND: "docker",
+          SYMPHONY_DOCKER_WORKSPACE_IMAGE: undefined
+        })
+      )
+    ).toThrowError(/SYMPHONY_DOCKER_WORKSPACE_IMAGE/i);
+
+    const env = loadSymphonyRuntimeAppEnv(
+      buildSymphonyRuntimeEnv({
+        SYMPHONY_WORKSPACE_BACKEND: "docker",
+        SYMPHONY_DOCKER_WORKSPACE_IMAGE: "alpine:3.20",
+        SYMPHONY_DOCKER_WORKSPACE_PATH: "/home/agent/workspace",
+        SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX: "symphony-test",
+        SYMPHONY_DOCKER_SHELL: "sh"
+      })
+    );
+
+    expect(env.workspaceBackend).toBe("docker");
+    expect(env.dockerWorkspaceImage).toBe("alpine:3.20");
+    expect(env.dockerWorkspacePath).toBe("/home/agent/workspace");
+    expect(env.dockerContainerNamePrefix).toBe("symphony-test");
+    expect(env.dockerShell).toBe("sh");
   });
 });

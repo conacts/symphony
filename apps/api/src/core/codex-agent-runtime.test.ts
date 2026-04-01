@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { chmod, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
@@ -14,13 +14,16 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/core/tracker";
-import { createLocalCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
+import { createCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
 import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimeWorkflowConfig } from "../test-support/create-symphony-runtime-test-harness.js";
 
 const tempRoots: string[] = [];
 const execFileAsync = promisify(execFile);
+const originalPath = process.env.PATH;
 
 afterEach(async () => {
+  process.env.PATH = originalPath;
+  delete process.env.SYMPHONY_TEST_FAKE_DOCKER_LOG;
   await Promise.all(
     tempRoots.splice(0).map((root) =>
       rm(root, {
@@ -75,7 +78,7 @@ describe("local codex symphony agent runtime", () => {
     let completion: SymphonyAgentRuntimeCompletion | null = null;
 
     const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createLocalCodexSymphonyAgentRuntime({
+      const runtime = createCodexSymphonyAgentRuntime({
         promptTemplate: "You are working on {{ issue.identifier }}.",
         tracker,
         runJournal,
@@ -213,7 +216,7 @@ describe("local codex symphony agent runtime", () => {
     let completion: SymphonyAgentRuntimeCompletion | null = null;
 
     const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createLocalCodexSymphonyAgentRuntime({
+      const runtime = createCodexSymphonyAgentRuntime({
         promptTemplate: "You are working on {{ issue.identifier }}.",
         tracker,
         runJournal,
@@ -320,7 +323,7 @@ done
     let completion: SymphonyAgentRuntimeCompletion | null = null;
 
     const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createLocalCodexSymphonyAgentRuntime({
+      const runtime = createCodexSymphonyAgentRuntime({
         promptTemplate: "You are working on {{ issue.identifier }}.",
         tracker,
         runJournal,
@@ -360,6 +363,237 @@ done
       kind: "rate_limited",
       reason: "Codex turn failed."
     });
+
+    database.close();
+  });
+
+  it("launches container-backed workspaces through docker exec while snapshotting the host repo", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-runtime-container-"));
+    tempRoots.push(root);
+
+    const hostWorkspacePath = path.join(root, "workspace");
+    await mkdir(hostWorkspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(hostWorkspacePath);
+
+    const fakeCodex = path.join(root, "fake-codex.sh");
+    await writeFakeCodexBinary(fakeCodex);
+
+    const fakeDocker = path.join(root, "docker");
+    const fakeDockerLog = path.join(root, "fake-docker-log.json");
+    await writeFakeDockerBinary(fakeDocker);
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+    process.env.SYMPHONY_TEST_FAKE_DOCKER_LOG = fakeDockerLog;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createDoneTracker(issue);
+    const workflowConfig = buildSymphonyRuntimeWorkflowConfig(root, {
+      codex: {
+        ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+        command: `${fakeCodex} app-server`
+      }
+    });
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runJournal = createSqliteSymphonyRunJournal({
+      db: database.db,
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runId = await runJournal.recordRunStarted({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      status: "dispatching",
+      workspacePath: hostWorkspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    const runtimeLogPayloads: unknown[] = [];
+    let completion: SymphonyAgentRuntimeCompletion | null = null;
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createCodexSymphonyAgentRuntime({
+        promptTemplate: "You are working on {{ issue.identifier }}.",
+        tracker,
+        runJournal,
+        runtimeLogs: {
+          async record(input) {
+            runtimeLogPayloads.push(input.payload);
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        workflowConfig,
+        logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
+        callbacks: {
+          async onUpdate() {
+            return;
+          },
+          async onComplete(_issueId, result) {
+            completion = result;
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        workflowConfig,
+        workspace: buildContainerPreparedWorkspace(issue.identifier, hostWorkspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    expect(completion).toEqual({
+      kind: "normal"
+    });
+
+    const fakeDockerInvocation = JSON.parse(
+      await readFile(fakeDockerLog, "utf8")
+    ) as {
+      command: string;
+      containerName: string;
+      workdir: string;
+    };
+    expect(fakeDockerInvocation).toEqual({
+      command: "exec",
+      containerName: "symphony-col-123-container",
+      workdir: "/home/agent/workspace"
+    });
+    expect(runtimeLogPayloads).toContainEqual(
+      expect.objectContaining({
+        threadId: "thread-agent",
+        launchTarget: expect.objectContaining({
+          kind: "container",
+          containerName: "symphony-col-123-container",
+          hostWorkspacePath: hostWorkspacePath,
+          runtimeWorkspacePath: "/home/agent/workspace"
+        })
+      })
+    );
+
+    const exportPayload = await runJournal.fetchRunExport(runId);
+    expect(exportPayload?.run.commitHashStart).toMatch(/[0-9a-f]{40}/);
+    expect(exportPayload?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
+    expect(exportPayload?.run.repoStart).toMatchObject({
+      available: true,
+      dirty: false
+    });
+    expect(exportPayload?.run.repoEnd).toMatchObject({
+      available: true,
+      dirty: false
+    });
+
+    database.close();
+  });
+
+  it("reports container launch startup failures with launch-target metadata", async () => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), "symphony-codex-runtime-container-startup-failure-")
+    );
+    tempRoots.push(root);
+
+    const hostWorkspacePath = path.join(root, "workspace");
+    await mkdir(hostWorkspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(hostWorkspacePath);
+
+    const fakeCodex = path.join(root, "fake-codex.sh");
+    await writeFakeCodexBinary(fakeCodex);
+
+    const fakeDocker = path.join(root, "docker");
+    await writeFile(
+      fakeDocker,
+      `#!/bin/sh
+sleep 1
+`
+    );
+    await chmod(fakeDocker, 0o755);
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const workflowConfig = buildSymphonyRuntimeWorkflowConfig(root, {
+      codex: {
+        ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+        command: `${fakeCodex} app-server`,
+        readTimeoutMs: 25
+      }
+    });
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runJournal = createSqliteSymphonyRunJournal({
+      db: database.db,
+      dbFile: path.join(root, "symphony.db")
+    });
+
+    const runtimeLogPayloads: unknown[] = [];
+    let completion: SymphonyAgentRuntimeCompletion | null = null;
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createCodexSymphonyAgentRuntime({
+        promptTemplate: "You are working on {{ issue.identifier }}.",
+        tracker: createDoneTracker(issue),
+        runJournal,
+        runtimeLogs: {
+          async record(input) {
+            runtimeLogPayloads.push(input.payload);
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        workflowConfig,
+        logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
+        callbacks: {
+          async onUpdate() {
+            return;
+          },
+          async onComplete(_issueId, result) {
+            completion = result;
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId: null,
+        attempt: 1,
+        workflowConfig,
+        workspace: buildContainerPreparedWorkspace(issue.identifier, hostWorkspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    expect(completion).toEqual({
+      kind: "startup_failure",
+      reason: "Timed out waiting for Codex response 1."
+    });
+    expect(runtimeLogPayloads).toContainEqual(
+      expect.objectContaining({
+        reason: "Timed out waiting for Codex response 1.",
+        launchTarget: expect.objectContaining({
+          kind: "container",
+          containerName: "symphony-col-123-container",
+          hostWorkspacePath,
+          runtimeWorkspacePath: "/home/agent/workspace"
+        })
+      })
+    );
 
     database.close();
   });
@@ -425,6 +659,47 @@ done
   await chmod(codexBinary, 0o755);
 }
 
+async function writeFakeDockerBinary(dockerBinary: string): Promise<void> {
+  await writeFile(
+    dockerBinary,
+    `#!/bin/sh
+set -eu
+if [ "$1" != "exec" ]; then
+  echo "unexpected docker command: $1" >&2
+  exit 99
+fi
+shift
+workdir=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -i)
+      shift
+      ;;
+    --workdir)
+      workdir="$2"
+      shift 2
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+container_name="$1"
+shift
+shell_bin="$1"
+shift
+if [ "$1" != "-lc" ]; then
+  echo "unexpected docker shell args" >&2
+  exit 98
+fi
+shift
+printf '{"command":"exec","containerName":"%s","workdir":"%s"}\\n' "$container_name" "$workdir" > "$SYMPHONY_TEST_FAKE_DOCKER_LOG"
+exec "$shell_bin" -lc "$1"
+`
+  );
+  await chmod(dockerBinary, 0o755);
+}
+
 async function initializeGitWorkspace(workspacePath: string): Promise<void> {
   await execFileAsync("git", ["init"], {
     cwd: workspacePath
@@ -463,5 +738,31 @@ function buildLocalPreparedWorkspace(
     path: workspacePath,
     created: false,
     workerHost: null
+  };
+}
+
+function buildContainerPreparedWorkspace(
+  issueIdentifier: string,
+  hostWorkspacePath: string
+) {
+  return {
+    issueIdentifier,
+    workspaceKey: issueIdentifier,
+    backendKind: "docker" as const,
+    executionTarget: {
+      kind: "container" as const,
+      workspacePath: "/home/agent/workspace",
+      containerId: "container-123",
+      containerName: "symphony-col-123-container",
+      hostPath: hostWorkspacePath
+    },
+    materialization: {
+      kind: "bind_mount" as const,
+      hostPath: hostWorkspacePath,
+      containerPath: "/home/agent/workspace"
+    },
+    path: null,
+    created: false,
+    workerHost: "docker-host"
   };
 }

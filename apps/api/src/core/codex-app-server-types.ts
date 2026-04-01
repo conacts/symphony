@@ -2,6 +2,7 @@ import type {
   SymphonyResolvedWorkflowConfig
 } from "@symphony/core";
 import type { SymphonyTrackerIssue } from "@symphony/core/tracker";
+import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
 
 export type CodexAppServerLogger = {
   debug(message: string, context?: Record<string, unknown>): void;
@@ -51,6 +52,8 @@ export type CodexAppServerSession = {
   client: CodexAppServerSessionClient;
   threadId: string;
   workspacePath: string;
+  hostWorkspacePath: string;
+  launchTarget: CodexRuntimeLaunchTarget;
   issue: SymphonyTrackerIssue;
   processId: string | null;
   autoApproveRequests: boolean;
@@ -60,7 +63,7 @@ export type CodexAppServerSession = {
 };
 
 export type CodexLaunchSessionInput = {
-  workspacePath: string;
+  launchTarget: CodexRuntimeLaunchTarget;
   workflowConfig: SymphonyResolvedWorkflowConfig;
   issue: SymphonyTrackerIssue;
   logger: CodexAppServerLogger;

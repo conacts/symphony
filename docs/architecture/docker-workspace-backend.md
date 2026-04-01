@@ -4,17 +4,16 @@ Date: 2026-04-01
 
 ## Goal
 
-Add a real Docker-backed `WorkspaceBackend` behind the execution-target-aware workspace seam
-without changing the active Codex runtime path.
+Add a real Docker-backed `WorkspaceBackend` behind the execution-target-aware workspace seam and
+exercise it through one intentional Codex runtime path without making Docker the default runtime.
 
-This stage is intentionally about backend lifecycle only:
+This stage now covers:
 
 - prepare a deterministic container-backed workspace
 - expose explicit execution-target and materialization metadata
 - run workspace hooks through the backend
+- execute Codex against a prepared container target through `docker exec`
 - clean up Docker and host-side resources deterministically
-
-It is not a runtime cutover.
 
 ## Factory Shape
 
@@ -117,15 +116,66 @@ Notable details:
   where the workspace is materialized on the host.
 - container names are deterministic and stable across retries for the same workspace key.
 
+## Runtime Execution
+
+For this stage, `apps/api` keeps backend/runtime selection explicit:
+
+- `SYMPHONY_WORKSPACE_BACKEND=local`
+  Uses `createLocalWorkspaceBackend()` and the existing host-path runtime behavior.
+- `SYMPHONY_WORKSPACE_BACKEND=docker`
+  Uses `createDockerWorkspaceBackend()` plus the execution-target-aware Codex runtime path.
+  `SYMPHONY_DOCKER_WORKSPACE_IMAGE` is required.
+
+The Codex runtime consumes only `PreparedWorkspace` and resolves one launch target:
+
+- `executionTarget.kind === "host_path"`
+  Launch Codex locally exactly as before.
+- `executionTarget.kind === "container"`
+  Validate the bind-mounted host workspace path, then launch Codex with
+  `docker exec -i --workdir <container-workspace> <container-name> <shell> -lc "<codex command>"`.
+
+Operationally important details:
+
+- The Codex thread cwd is the container workspace path, not the host bind mount path.
+- Repo snapshots still run against the host bind-mounted path.
+- The runtime fails closed when a container target does not include the host path or container
+  name needed for this bridge.
+- The current runtime path intentionally supports bind-mounted Docker workspaces only. Volume-only
+  execution remains deferred.
+
+## Live Verification
+
+Normal `pnpm test` stays deterministic and does not require Docker.
+
+Explicit live verification command:
+
+```sh
+pnpm --filter @symphony/api test:docker-live
+```
+
+Optional environment overrides:
+
+```sh
+SYMPHONY_DOCKER_WORKSPACE_IMAGE=alpine:3.20 pnpm --filter @symphony/api test:docker-live
+```
+
+The live verification test:
+
+1. Prepares a real Docker-backed workspace
+2. Boots a fake app-server script inside the container through the real runtime path
+3. Waits for a real turn completion through the Codex runtime
+4. Cleans the container and bind-mounted host workspace up
+5. Asserts that the container and host workspace are gone
+
+The live test is gated by `SYMPHONY_LIVE_DOCKER_VERIFY=1`, and the package script sets that flag
+for you.
+
 ## Intentionally Deferred
 
 This stage does not:
 
-- run the Codex runtime inside the container
 - make Docker the default backend
-- change `apps/api` runtime selection
-- teach the agent runtime to consume `executionTarget.kind === "container"`
+- add workflow-front-matter backend selection
+- support volume-only runtime execution without a host bind mount
 - add broader app-level observability or cutover logic
-
-The next stage can focus on runtime execution support because the backend lifecycle and metadata
-contract now exist independently and are covered by backend tests.
+- add broader app-level observability or cutover logic beyond bounded launch-target metadata

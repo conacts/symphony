@@ -5,6 +5,7 @@ import {
   CodexAppServerError,
   type CodexLaunchSettings
 } from "./codex-app-server-types.js";
+import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
 
 const defaultCodexModel = "gpt-5.4";
 const defaultCodexReasoningEffort = "xhigh";
@@ -138,6 +139,41 @@ export function resolveCodexLaunchSettings(
       .join(" "),
     model,
     reasoningEffort
+  };
+}
+
+export function buildCodexAppServerSpawnSpec(input: {
+  launchTarget: CodexRuntimeLaunchTarget;
+  command: string;
+}): {
+  command: string;
+  args: string[];
+  cwd: string;
+  runtimeWorkspacePath: string;
+} {
+  if (input.launchTarget.kind === "host_path") {
+    return {
+      command: "bash",
+      args: ["-lc", input.command],
+      cwd: input.launchTarget.hostWorkspacePath,
+      runtimeWorkspacePath: input.launchTarget.runtimeWorkspacePath
+    };
+  }
+
+  return {
+    command: "docker",
+    args: [
+      "exec",
+      "-i",
+      "--workdir",
+      input.launchTarget.runtimeWorkspacePath,
+      input.launchTarget.containerName,
+      input.launchTarget.shell,
+      "-lc",
+      input.command
+    ],
+    cwd: input.launchTarget.hostWorkspacePath,
+    runtimeWorkspacePath: input.launchTarget.runtimeWorkspacePath
   };
 }
 

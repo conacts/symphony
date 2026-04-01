@@ -48,6 +48,7 @@ describe("runtime services", () => {
       expect.arrayContaining([
         "db_initialized",
         "tracker_placeholder_active",
+        "workspace_backend_initialized",
         "poller_started",
         "manual_refresh_queued",
         "poll_started",

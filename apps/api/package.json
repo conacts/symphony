@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "start": "node dist/main.js",
     "test": "vitest run",
+    "test:docker-live": "SYMPHONY_LIVE_DOCKER_VERIFY=1 vitest run src/core/codex-agent-runtime.live-docker.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
