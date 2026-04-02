@@ -43,7 +43,10 @@ export function hostUserFlags(): string[] {
 }
 
 export function isDockerMissingObject(stderr: string): boolean {
-  return /No such (?:object|container|network|volume)/i.test(stderr);
+  return (
+    /No such (?:object|container|network|volume)/i.test(stderr) ||
+    /(?:object|container|network|volume) .* not found/i.test(stderr)
+  );
 }
 
 export function resolveDockerTimeoutMs(
