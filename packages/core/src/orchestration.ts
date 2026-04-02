@@ -1,8 +1,8 @@
 export {
-  createSymphonyOrchestratorState,
   prepareIssueForDispatch,
   SymphonyOrchestrator
 } from "./orchestration/symphony-orchestrator.js";
+export { createSymphonyOrchestratorState } from "./orchestration/symphony-orchestrator-state.js";
 export type {
   SymphonyAgentRuntimeCompletion,
   SymphonyAgentRuntimeUpdate,
@@ -16,4 +16,4 @@ export type {
   SymphonyRunningEntry,
   SymphonyStartupFailureOrigin,
   SymphonyStartupFailureStage
-} from "./orchestration/symphony-orchestrator.js";
+} from "./orchestration/symphony-orchestrator-types.js";

@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import {
   issueMatchesDispatchableState,
   issueMatchesTerminalState,
@@ -11,216 +10,64 @@ import type {
 } from "../runtime/agent-runtime.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
-import { asJsonObject } from "../internal/json.js";
-import { asRecord, readString } from "../internal/records.js";
 import {
-  summarizePreparedWorkspace,
-  workspaceHostPath,
   type PreparedWorkspace,
   type WorkspaceBackend,
-  type WorkspaceContext,
-  type WorkspaceBackendKind,
-  type WorkspaceBackendEventRecorder,
-  type WorkspaceManifestLifecyclePhase,
-  WorkspaceLifecycleMetadata
+  type WorkspaceContext
 } from "../workspace/workspace-backend.js";
-import {
-  extractRateLimits,
-  extractTokenUsage,
-  isTerminalTurnEvent,
-  runtimeSeconds,
-  stallElapsedMs
-} from "./symphony-orchestrator-codex-state.js";
+import { stallElapsedMs } from "./symphony-orchestrator-codex-state.js";
 import {
   buildFailureCommentBody,
-  claimTransitionCommentBody,
   type SymphonyStartupFailureTransition
 } from "./symphony-orchestrator-comments.js";
+import {
+  accumulateCodexTotals,
+  createSymphonyOrchestratorSnapshot,
+  createSymphonyOrchestratorState,
+  systemClock
+} from "./symphony-orchestrator-state.js";
+import {
+  applyAgentRuntimeUpdateToEntry,
+  createRunningEntry,
+  prepareIssueForDispatch
+} from "./symphony-orchestrator-dispatch.js";
+import {
+  classifyStartupFailureOrigin,
+  extractWorkspaceManifestLifecycleFailure,
+  isFatalRuntimeError
+} from "./symphony-orchestrator-failures.js";
+import {
+  createRetryEntry,
+  stateSlotsAvailable
+} from "./symphony-orchestrator-retries.js";
+import {
+  buildWorkspaceLifecyclePayload,
+  createWorkspaceLifecycleRecorder,
+  createWorkspaceRunnerOptions,
+  recordDockerContainerCleanupEvent,
+  recordDockerContainerPrepareEvent
+} from "./symphony-orchestrator-workspace.js";
+import type {
+  SymphonyAgentRuntimeCompletion,
+  SymphonyAgentRuntimeUpdate,
+  SymphonyClock,
+  SymphonyOrchestratorObserver,
+  SymphonyOrchestratorSnapshot,
+  SymphonyOrchestratorState,
+  SymphonyStartupFailureStage
+} from "./symphony-orchestrator-types.js";
 
-const continuationRetryDelayMs = 1_000;
-const failureRetryBaseMs = 10_000;
-
-export type SymphonyCodexMessage = {
-  event: string;
-  message: unknown;
-  timestamp: string;
-};
-
-export type SymphonyCodexTotals = {
-  inputTokens: number;
-  outputTokens: number;
-  totalTokens: number;
-  secondsRunning: number;
-};
-
-export type SymphonyStartupFailureStage =
-  | "workspace_prepare"
-  | "workspace_before_run"
-  | "runtime_launch"
-  | "runtime_session_start";
-
-export type SymphonyStartupFailureOrigin =
-  | "workspace_lifecycle"
-  | "docker_lifecycle"
-  | "runtime_launch"
-  | "codex_startup";
-
-export type SymphonyRunningEntry = {
-  issue: SymphonyTrackerIssue;
-  runId: string | null;
-  sessionId: string | null;
-  workerHost: string | null;
-  workspace: PreparedWorkspace | null;
-  launchTarget: AgentRuntimeLaunchTarget | null;
-  workspacePath: string | null;
-  retryAttempt: number;
-  turnCount: number;
-  lastCodexMessage: SymphonyCodexMessage | null;
-  lastCodexTimestamp: string | null;
-  lastCodexEvent: string | null;
-  codexInputTokens: number;
-  codexOutputTokens: number;
-  codexTotalTokens: number;
-  codexLastReportedInputTokens: number;
-  codexLastReportedOutputTokens: number;
-  codexLastReportedTotalTokens: number;
-  lastRateLimits: SymphonyJsonObject | null;
-  codexAppServerPid: string | null;
-  startedAt: string;
-};
-
-export type SymphonyRetryEntry = {
-  attempt: number;
-  dueAtMs: number;
-  retryToken: string;
-  identifier: string;
-  error: string | null;
-  workerHost: string | null;
-  workspace: PreparedWorkspace | null;
-  launchTarget: AgentRuntimeLaunchTarget | null;
-  workspacePath: string | null;
-  delayType: "continuation" | "failure";
-};
-
-export type SymphonyOrchestratorState = {
-  pollIntervalMs: number;
-  maxConcurrentAgents: number;
-  nextPollDueAtMs: number | null;
-  pollCheckInProgress: boolean;
-  running: Record<string, SymphonyRunningEntry>;
-  completed: Set<string>;
-  claimed: Set<string>;
-  retryAttempts: Record<string, SymphonyRetryEntry>;
-  codexTotals: SymphonyCodexTotals;
-  rateLimits: SymphonyJsonObject | null;
-};
-
-export type SymphonyAgentRuntimeCompletion =
-  | { kind: "normal" }
-  | { kind: "max_turns_reached"; reason: string; maxTurns: number }
-  | {
-      kind: "startup_failure";
-      reason: string;
-      failureStage: SymphonyStartupFailureStage;
-      failureOrigin: SymphonyStartupFailureOrigin;
-      launchTarget?: AgentRuntimeLaunchTarget | null;
-      manifestLifecyclePhase?: WorkspaceManifestLifecyclePhase | null;
-      manifestLifecycleStepName?: string | null;
-      manifestLifecycle?: SymphonyJsonObject | null;
-    }
-  | { kind: "rate_limited"; reason: string }
-  | { kind: "stalled"; reason: string }
-  | { kind: "failure"; reason: string };
-
-export type SymphonyAgentRuntimeUpdate = {
-  event: string;
-  payload?: unknown;
-  timestamp: string;
-  sessionId?: string | null;
-  codexAppServerPid?: string | null;
-};
-
-export interface SymphonyOrchestratorObserver {
-  startRun(input: {
-    issue: SymphonyTrackerIssue;
-    attempt: number;
-    workspace: PreparedWorkspace | null;
-    workerHost: string | null;
-    startedAt: string;
-  }): Promise<string | null> | string | null;
-  recordLifecycleEvent(input: {
-    issue: SymphonyTrackerIssue;
-    runId: string | null;
-    source: "orchestrator" | "tracker" | "workspace" | "runtime";
-    eventType: string;
-    message?: string | null;
-    payload?: unknown;
-    recordedAt?: string;
-  }): Promise<void> | void;
-  finalizeRun(input: {
-    issue: SymphonyTrackerIssue;
-    runId: string | null;
-    completion: SymphonyAgentRuntimeCompletion;
-    workerHost: string | null;
-    workspace: PreparedWorkspace | null;
-    startedAt: string;
-    endedAt: string;
-    turnCount: number;
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-  }): Promise<void> | void;
-}
-
-export type SymphonyClock = {
-  now(): Date;
-  nowMs(): number;
-};
-
-export type SymphonyOrchestratorSnapshot = {
-  running: Array<
-    SymphonyRunningEntry & {
-      issueId: string;
-      runtimeSeconds: number;
-    }
-  >;
-  retrying: Array<
-    SymphonyRetryEntry & {
-      issueId: string;
-    }
-  >;
-  claimedIssueIds: string[];
-  completedIssueIds: string[];
-  pollIntervalMs: number;
-  maxConcurrentAgents: number;
-  nextPollDueAtMs: number | null;
-  pollCheckInProgress: boolean;
-  codexTotals: SymphonyCodexTotals;
-  rateLimits: SymphonyJsonObject | null;
-};
-
-export function createSymphonyOrchestratorState(
-  workflowConfig: SymphonyResolvedWorkflowConfig,
-  clock: SymphonyClock = systemClock
-): SymphonyOrchestratorState {
-  return {
-    pollIntervalMs: workflowConfig.polling.intervalMs,
-    maxConcurrentAgents: workflowConfig.agent.maxConcurrentAgents,
-    nextPollDueAtMs: clock.nowMs(),
-    pollCheckInProgress: false,
-    running: {},
-    completed: new Set<string>(),
-    claimed: new Set<string>(),
-    retryAttempts: {},
-    codexTotals: {
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      secondsRunning: 0
-    },
-    rateLimits: null
-  };
-}
+export { createSymphonyOrchestratorState } from "./symphony-orchestrator-state.js";
+export { prepareIssueForDispatch } from "./symphony-orchestrator-dispatch.js";
+export type {
+  SymphonyAgentRuntimeCompletion,
+  SymphonyAgentRuntimeUpdate,
+  SymphonyClock,
+  SymphonyOrchestratorObserver,
+  SymphonyOrchestratorSnapshot,
+  SymphonyOrchestratorState,
+  SymphonyRunningEntry
+} from "./symphony-orchestrator-types.js";
 
 export class SymphonyOrchestrator {
   readonly #workflowConfig: SymphonyResolvedWorkflowConfig;
@@ -259,31 +106,7 @@ export class SymphonyOrchestrator {
   }
 
   snapshot(): SymphonyOrchestratorSnapshot {
-    const now = this.#clock.now();
-
-    return {
-      running: Object.entries(this.#state.running)
-        .map(([issueId, entry]) => ({
-          issueId,
-          ...entry,
-          runtimeSeconds: runtimeSeconds(entry.startedAt, now)
-        }))
-        .sort((left, right) => right.startedAt.localeCompare(left.startedAt)),
-      retrying: Object.entries(this.#state.retryAttempts)
-        .map(([issueId, retry]) => ({
-          issueId,
-          ...retry
-        }))
-        .sort((left, right) => left.dueAtMs - right.dueAtMs),
-      claimedIssueIds: [...this.#state.claimed].sort(),
-      completedIssueIds: [...this.#state.completed].sort(),
-      pollIntervalMs: this.#state.pollIntervalMs,
-      maxConcurrentAgents: this.#state.maxConcurrentAgents,
-      nextPollDueAtMs: this.#state.nextPollDueAtMs,
-      pollCheckInProgress: this.#state.pollCheckInProgress,
-      codexTotals: this.#state.codexTotals,
-      rateLimits: this.#state.rateLimits
-    };
+    return createSymphonyOrchestratorSnapshot(this.#state, this.#clock);
   }
 
   async runPollCycle(): Promise<SymphonyOrchestratorSnapshot> {
@@ -390,7 +213,11 @@ export class SymphonyOrchestrator {
 
     return (
       this.availableSlots() > 0 &&
-      this.#stateSlotsAvailable(issue.state)
+      stateSlotsAvailable(
+        this.#state,
+        issue.state,
+        this.#workflowConfig.agent.maxConcurrentAgentsByState
+      )
     );
   }
 
@@ -464,8 +291,12 @@ export class SymphonyOrchestrator {
         runId,
         config: this.#workflowConfig.workspace,
         hooks: this.#workflowConfig.hooks,
-        lifecycleRecorder: this.#workspaceLifecycleRecorder(preparedIssue, runId),
-        ...this.#workspaceRunnerOptions(preferredWorkerHost)
+        lifecycleRecorder: createWorkspaceLifecycleRecorder(
+          this.#observer,
+          preparedIssue,
+          runId
+        ),
+        ...createWorkspaceRunnerOptions(this.#runnerEnv, preferredWorkerHost)
       });
 
       await this.#observer?.recordLifecycleEvent({
@@ -481,14 +312,19 @@ export class SymphonyOrchestrator {
           workspace: buildWorkspaceLifecyclePayload(workspace)
         }
       });
-      await this.#recordDockerContainerPrepareEvent(preparedIssue, runId, workspace);
+      await recordDockerContainerPrepareEvent({
+        observer: this.#observer,
+        issue: preparedIssue,
+        runId,
+        workspace
+      });
 
       startupFailureStage = "workspace_before_run";
       const beforeRunResult = await this.#workspaceBackend.runBeforeRun({
         workspace,
         context: workspaceContext,
         hooks: this.#workflowConfig.hooks,
-        ...this.#workspaceRunnerOptions(preferredWorkerHost)
+        ...createWorkspaceRunnerOptions(this.#runnerEnv, preferredWorkerHost)
       });
 
       await this.#observer?.recordLifecycleEvent({
@@ -515,29 +351,16 @@ export class SymphonyOrchestrator {
       const workerHost = launch.workerHost ?? workspace.workerHost;
       launchTarget = launch.launchTarget;
 
-      this.#state.running[preparedIssue.id] = {
+      this.#state.running[preparedIssue.id] = createRunningEntry({
         issue: preparedIssue,
         runId,
         sessionId: launch.sessionId,
         workerHost,
         workspace,
         launchTarget,
-        workspacePath: workspaceHostPath(workspace),
-        retryAttempt: attempt,
-        turnCount: 0,
-        lastCodexMessage: null,
-        lastCodexTimestamp: null,
-        lastCodexEvent: null,
-        codexInputTokens: 0,
-        codexOutputTokens: 0,
-        codexTotalTokens: 0,
-        codexLastReportedInputTokens: 0,
-        codexLastReportedOutputTokens: 0,
-        codexLastReportedTotalTokens: 0,
-        lastRateLimits: null,
-        codexAppServerPid: null,
+        attempt,
         startedAt
-      };
+      });
 
       await this.#observer?.recordLifecycleEvent({
         issue: preparedIssue,
@@ -639,39 +462,13 @@ export class SymphonyOrchestrator {
       return;
     }
 
-    const usage = extractTokenUsage(update);
-    const rateLimits = extractRateLimits(update);
-    const nextInput = usage?.inputTokens ?? runningEntry.codexInputTokens;
-    const nextOutput = usage?.outputTokens ?? runningEntry.codexOutputTokens;
-    const nextTotal = usage?.totalTokens ?? runningEntry.codexTotalTokens;
+    const next = applyAgentRuntimeUpdateToEntry(runningEntry, update);
 
-    if (rateLimits) {
-      this.#state.rateLimits = rateLimits;
+    if (next.rateLimits) {
+      this.#state.rateLimits = next.rateLimits;
     }
 
-    this.#state.running[issueId] = {
-      ...runningEntry,
-      sessionId: update.sessionId ?? runningEntry.sessionId,
-      turnCount:
-        isTerminalTurnEvent(update.event)
-          ? runningEntry.turnCount + 1
-          : runningEntry.turnCount,
-      lastCodexEvent: update.event,
-      lastCodexTimestamp: update.timestamp,
-      lastCodexMessage: {
-        event: update.event,
-        message: update.payload ?? null,
-        timestamp: update.timestamp
-      },
-      codexInputTokens: nextInput,
-      codexOutputTokens: nextOutput,
-      codexTotalTokens: nextTotal,
-      codexLastReportedInputTokens: nextInput,
-      codexLastReportedOutputTokens: nextOutput,
-      codexLastReportedTotalTokens: nextTotal,
-      lastRateLimits: rateLimits ?? runningEntry.lastRateLimits,
-      codexAppServerPid: update.codexAppServerPid ?? runningEntry.codexAppServerPid
-    };
+    this.#state.running[issueId] = next.entry;
   }
 
   async handleRunCompletion(
@@ -683,7 +480,7 @@ export class SymphonyOrchestrator {
       return;
     }
 
-    this.#accumulateCodexTotals(runningEntry);
+    this.#state = accumulateCodexTotals(this.#state, runningEntry, this.#clock);
     delete this.#state.running[issueId];
     this.#state.claimed.delete(issueId);
 
@@ -695,7 +492,7 @@ export class SymphonyOrchestrator {
           issueIdentifier: runningEntry.issue.identifier
         },
         hooks: this.#workflowConfig.hooks,
-        ...this.#workspaceRunnerOptions(runningEntry.workerHost)
+        ...createWorkspaceRunnerOptions(this.#runnerEnv, runningEntry.workerHost)
       });
       await this.#observer?.recordLifecycleEvent({
         issue: runningEntry.issue,
@@ -840,23 +637,17 @@ export class SymphonyOrchestrator {
       delayType: "continuation" | "failure";
     }
   ): Promise<void> {
-    const delayMs =
-      metadata.delayType === "continuation"
-        ? continuationRetryDelayMs
-        : failureRetryDelay(attempt, this.#workflowConfig.agent.maxRetryBackoffMs);
-
-    this.#state.retryAttempts[issueId] = {
+    this.#state.retryAttempts[issueId] = createRetryEntry({
       attempt,
-      dueAtMs: this.#clock.nowMs() + delayMs,
-      retryToken: randomUUID(),
+      nowMs: this.#clock.nowMs(),
       identifier: metadata.identifier,
-      error: metadata.error ?? null,
-      workerHost: metadata.workerHost ?? null,
-      workspace: metadata.workspace ?? null,
-      launchTarget: metadata.launchTarget ?? null,
-      workspacePath: workspaceHostPath(metadata.workspace ?? null),
-      delayType: metadata.delayType
-    };
+      error: metadata.error,
+      workerHost: metadata.workerHost,
+      workspace: metadata.workspace,
+      launchTarget: metadata.launchTarget,
+      delayType: metadata.delayType,
+      maxRetryBackoffMs: this.#workflowConfig.agent.maxRetryBackoffMs
+    });
 
     const issue = metadata.issue ?? this.#state.running[issueId]?.issue;
     const runId = metadata.runId ?? this.#state.running[issueId]?.runId ?? null;
@@ -970,61 +761,6 @@ export class SymphonyOrchestrator {
     this.#state.claimed.delete(issueId);
   }
 
-  #stateSlotsAvailable(issueState: string): boolean {
-    const normalizedState = issueState.trim().toLowerCase();
-    const configuredLimit =
-      this.#workflowConfig.agent.maxConcurrentAgentsByState[normalizedState];
-
-    if (!configuredLimit) {
-      return true;
-    }
-
-    const runningInState = Object.values(this.#state.running).filter(
-      (entry) => entry.issue.state.trim().toLowerCase() === normalizedState
-    ).length;
-
-    return runningInState < configuredLimit;
-  }
-
-  #accumulateCodexTotals(runningEntry: SymphonyRunningEntry): void {
-    this.#state.codexTotals = {
-      inputTokens: this.#state.codexTotals.inputTokens + runningEntry.codexInputTokens,
-      outputTokens:
-        this.#state.codexTotals.outputTokens + runningEntry.codexOutputTokens,
-      totalTokens: this.#state.codexTotals.totalTokens + runningEntry.codexTotalTokens,
-      secondsRunning:
-        this.#state.codexTotals.secondsRunning +
-        runtimeSeconds(runningEntry.startedAt, this.#clock.now())
-    };
-  }
-
-  #workspaceRunnerOptions(workerHost: string | null): {
-    env: Record<string, string | undefined> | undefined;
-    workerHost: string | null;
-  } {
-    return {
-      env: this.#runnerEnv,
-      workerHost
-    };
-  }
-
-  #workspaceLifecycleRecorder(
-    issue: SymphonyTrackerIssue,
-    runId: string | null
-  ): WorkspaceBackendEventRecorder {
-    return async (event) => {
-      await this.#observer?.recordLifecycleEvent({
-        issue,
-        runId,
-        source: "workspace",
-        eventType: event.eventType,
-        message: event.message,
-        payload: event.payload,
-        recordedAt: event.recordedAt
-      });
-    };
-  }
-
   async #handleStartupFailure(
     issue: SymphonyTrackerIssue,
     workerHost: string | null,
@@ -1119,11 +855,12 @@ export class SymphonyOrchestrator {
         workspace: input.workspace,
         config: this.#workflowConfig.workspace,
         hooks: this.#workflowConfig.hooks,
-        lifecycleRecorder: this.#workspaceLifecycleRecorder(
+        lifecycleRecorder: createWorkspaceLifecycleRecorder(
+          this.#observer,
           input.issue,
           input.runId
         ),
-        ...this.#workspaceRunnerOptions(input.workerHost)
+        ...createWorkspaceRunnerOptions(this.#runnerEnv, input.workerHost)
       });
 
       await this.#observer?.recordLifecycleEvent({
@@ -1140,7 +877,12 @@ export class SymphonyOrchestrator {
         }
       });
 
-      await this.#recordDockerContainerCleanupEvent(input.issue, input.runId, cleanup);
+      await recordDockerContainerCleanupEvent({
+        observer: this.#observer,
+        issue: input.issue,
+        runId: input.runId,
+        cleanup
+      });
     } catch (error) {
       await this.#observer?.recordLifecycleEvent({
         issue: input.issue,
@@ -1164,74 +906,6 @@ export class SymphonyOrchestrator {
       });
       throw error;
     }
-  }
-
-  async #recordDockerContainerPrepareEvent(
-    issue: SymphonyTrackerIssue,
-    runId: string | null,
-    workspace: PreparedWorkspace
-  ): Promise<void> {
-    if (workspace.backendKind !== "docker") {
-      return;
-    }
-
-    const eventType =
-      workspace.containerDisposition === "reused"
-        ? "docker_container_reused"
-        : workspace.containerDisposition === "recreated"
-          ? "docker_container_recreated"
-          : "docker_container_started";
-
-    await this.#observer?.recordLifecycleEvent({
-      issue,
-      runId,
-      source: "workspace",
-      eventType,
-      message:
-        workspace.containerDisposition === "reused"
-          ? "Docker container reused for the prepared workspace."
-          : workspace.containerDisposition === "recreated"
-            ? "Docker container recreated for the prepared workspace."
-            : "Docker container started for the prepared workspace.",
-      payload: {
-        workspace: buildWorkspaceLifecyclePayload(workspace)
-      }
-    });
-  }
-
-  async #recordDockerContainerCleanupEvent(
-    issue: SymphonyTrackerIssue,
-    runId: string | null,
-    cleanup: Awaited<ReturnType<WorkspaceBackend["cleanupWorkspace"]>>
-  ): Promise<void> {
-    if (cleanup.backendKind !== "docker") {
-      return;
-    }
-
-    const eventType =
-      cleanup.containerRemovalDisposition === "removed"
-        ? "docker_container_removed"
-        : cleanup.containerRemovalDisposition === "missing"
-          ? "docker_container_missing"
-          : null;
-
-    if (!eventType) {
-      return;
-    }
-
-    await this.#observer?.recordLifecycleEvent({
-      issue,
-      runId,
-      source: "workspace",
-      eventType,
-      message:
-        cleanup.containerRemovalDisposition === "removed"
-          ? "Docker container removed during workspace cleanup."
-          : "Docker container was already missing during workspace cleanup.",
-      payload: {
-        cleanup
-      }
-    });
   }
 
   async #leaveFailureComment(
@@ -1300,131 +974,3 @@ export class SymphonyOrchestrator {
     }
   }
 }
-
-function buildWorkspaceLifecyclePayload(
-  workspace: PreparedWorkspace | null
-): SymphonyJsonObject | null {
-  return normalizeWorkspaceLifecycleMetadata(summarizePreparedWorkspace(workspace));
-}
-
-export async function prepareIssueForDispatch(
-  workflowConfig: SymphonyResolvedWorkflowConfig,
-  tracker: SymphonyTracker,
-  issue: SymphonyTrackerIssue
-): Promise<SymphonyTrackerIssue> {
-  const targetState = workflowConfig.tracker.claimTransitionToState;
-  const sourceStates = workflowConfig.tracker.claimTransitionFromStates.map(
-    (stateName) => stateName.trim().toLowerCase()
-  );
-
-  if (
-    !targetState ||
-    !sourceStates.includes(issue.state.trim().toLowerCase())
-  ) {
-    return issue;
-  }
-
-  await tracker.updateIssueState(issue.id, targetState);
-  await tracker.createComment(issue.id, claimTransitionCommentBody(issue, targetState));
-
-  return {
-    ...issue,
-    state: targetState
-  };
-}
-
-function failureRetryDelay(attempt: number, maxRetryBackoffMs: number): number {
-  const exponent = Math.max(0, attempt - 1);
-  return Math.min(
-    failureRetryBaseMs * (1 << exponent),
-    maxRetryBackoffMs
-  );
-}
-
-function normalizeWorkspaceLifecycleMetadata(
-  workspace: WorkspaceLifecycleMetadata | null
-): SymphonyJsonObject | null {
-  if (!workspace) {
-    return null;
-  }
-
-  return {
-    issueIdentifier: workspace.issueIdentifier,
-    workspaceKey: workspace.workspaceKey,
-    backendKind: workspace.backendKind,
-    workerHost: workspace.workerHost,
-    executionTargetKind: workspace.executionTargetKind,
-    materializationKind: workspace.materializationKind,
-    prepareDisposition: workspace.prepareDisposition,
-    containerDisposition: workspace.containerDisposition,
-    networkDisposition: workspace.networkDisposition,
-    afterCreateHookOutcome: workspace.afterCreateHookOutcome,
-    hostPath: workspace.hostPath,
-    runtimePath: workspace.runtimePath,
-    containerId: workspace.containerId,
-    containerName: workspace.containerName,
-    networkName: workspace.networkName,
-    services: workspace.services,
-    envBundleSummary: workspace.envBundleSummary,
-    manifestLifecycle: workspace.manifestLifecycle,
-    path: workspace.path
-  };
-}
-
-function classifyStartupFailureOrigin(
-  stage: SymphonyStartupFailureStage,
-  backendKind: WorkspaceBackendKind
-): SymphonyStartupFailureOrigin {
-  if (stage === "runtime_session_start") {
-    return "codex_startup";
-  }
-
-  if (stage === "runtime_launch") {
-    return "runtime_launch";
-  }
-
-  if (backendKind === "docker") {
-    return "docker_lifecycle";
-  }
-
-  return "workspace_lifecycle";
-}
-
-function extractWorkspaceManifestLifecycleFailure(input: unknown): {
-  manifestLifecyclePhase: WorkspaceManifestLifecyclePhase;
-  manifestLifecycleStepName: string | null;
-  manifestLifecycle: SymphonyJsonObject | null;
-} | null {
-  if (!(input instanceof Error)) {
-    return null;
-  }
-
-  const candidate = asRecord(input);
-  const manifestLifecyclePhase = readString(
-    candidate?.manifestLifecyclePhase
-  );
-
-  return manifestLifecyclePhase
-    ? {
-        manifestLifecyclePhase:
-          manifestLifecyclePhase as WorkspaceManifestLifecyclePhase,
-        manifestLifecycleStepName: readString(
-          candidate?.manifestLifecycleStepName
-        ),
-        manifestLifecycle: asJsonObject(candidate?.manifestLifecycle) ?? null
-      }
-    : null;
-}
-
-function isFatalRuntimeError(error: unknown): boolean {
-  return error instanceof Error && asRecord(error)?.fatal === true;
-}
-
-const systemClock: SymphonyClock = {
-  now() {
-    return new Date();
-  },
-  nowMs() {
-    return Date.now();
-  }
-};
