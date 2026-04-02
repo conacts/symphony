@@ -25,8 +25,9 @@ export const lifecycleKeys = new Set([
   "cleanup"
 ]);
 export const stepKeys = new Set(["name", "run", "cwd", "timeoutMs"]);
-export const envKeys = new Set(["host", "inject"]);
+export const envKeys = new Set(["host", "repo", "inject"]);
 export const envHostKeys = new Set(["required", "optional"]);
+export const envRepoKeys = new Set(["path", "required", "optional"]);
 export const staticBindingKeys = new Set(["kind", "value"]);
 export const serviceBindingKeys = new Set(["kind", "service", "value"]);
 export const postgresServiceKeys = new Set([

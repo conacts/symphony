@@ -71,6 +71,7 @@ import {
   managedServiceHostnameLabelKey,
   managedServiceMemoryMbLabelKey,
   managedServicePortLabelKey,
+  managedHostFileMountsHashLabelKey,
   managedWorkspaceKeyLabelKey,
   managedWorkspaceServiceKind,
   normalizeContainerPrefix,
@@ -78,6 +79,7 @@ import {
   resolvePostgresResourceLimits,
   volumeMaterializationKind,
   type DockerContainerInspectState,
+  type DockerWorkspaceHostFileMount,
   type DockerManifestLifecyclePhasePlan,
   type DockerManifestLifecycleState,
   type DockerWorkspaceMaterializationDescriptor,
@@ -138,10 +140,13 @@ export function createDockerWorkspaceBackend(
   const containerNamePrefix = normalizeContainerPrefix(
     options.containerNamePrefix
   );
-  const shell = normalizeNonEmptyString(options.shell) ?? "sh";
+  const shell = normalizeNonEmptyString(options.shell) ?? "bash";
   const materializationMode =
     options.materializationMode ?? bindMaterializationKind;
   const runtimeManifest = options.runtimeManifest ?? null;
+  const hostFileMounts = normalizeDockerWorkspaceHostFileMounts(
+    options.hostFileMounts
+  );
   const commandRunner = options.commandRunner ?? defaultDockerWorkspaceCommandRunner;
   const configuredCommandTimeoutMs = options.commandTimeoutMs ?? null;
 
@@ -193,6 +198,7 @@ export function createDockerWorkspaceBackend(
         image,
         workspacePath,
         shell,
+        hostFileMounts,
         networkName: network?.network.name ?? null,
         commandRunner,
         timeoutMs
@@ -672,6 +678,7 @@ function resolveDockerWorkspaceEnvBundle(input: {
 
   return resolveSymphonyRuntimeEnvBundle({
     manifest: input.runtimeManifest.manifest,
+    repoRoot: input.runtimeManifest.repoRoot,
     environmentSource: input.environmentSource ?? {},
     runtime: {
       issueId: input.issueId,
@@ -703,6 +710,10 @@ function buildAmbientDockerWorkspaceEnvBundle(
       injectedKeys: Object.keys(values).sort(),
       requiredHostKeys: [],
       optionalHostKeys: [],
+      repoEnvPath: null,
+      projectedRepoKeys: [],
+      requiredRepoKeys: [],
+      optionalRepoKeys: [],
       staticBindingKeys: [],
       runtimeBindingKeys: [],
       serviceBindingKeys: []
@@ -1632,6 +1643,7 @@ async function ensureManagedContainer(input: {
   image: string;
   workspacePath: string;
   shell: string;
+  hostFileMounts: DockerWorkspaceHostFileMount[];
   networkName: string | null;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
@@ -1659,6 +1671,7 @@ async function ensureManagedContainer(input: {
       existing,
       input.image,
       input.workspacePath,
+      input.hostFileMounts,
       input.descriptor,
       input.networkName
     )
@@ -1687,15 +1700,28 @@ async function startManagedContainer(input: {
   image: string;
   workspacePath: string;
   shell: string;
+  hostFileMounts: DockerWorkspaceHostFileMount[];
   networkName: string | null;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
 }): Promise<DockerContainerInspectState> {
-  const labels = buildManagedContainerLabels(input.descriptor, input.networkName);
+  const hostFileMountsHash = buildHostFileMountsHash(input.hostFileMounts);
+  const labels = {
+    ...buildManagedContainerLabels(input.descriptor, input.networkName),
+    ...(input.hostFileMounts.length > 0
+      ? {
+          [managedHostFileMountsHashLabelKey]: hostFileMountsHash
+        }
+      : {})
+  };
   const workspaceMount =
     input.descriptor.materialization.kind === bindMaterializationKind
       ? `type=bind,src=${input.descriptor.materialization.hostPath},dst=${input.workspacePath}`
       : `type=volume,src=${input.descriptor.materialization.volumeName},dst=${input.workspacePath}`;
+  const hostFileMountArgs = input.hostFileMounts.flatMap((mount) => [
+    "--mount",
+    renderHostFileMount(mount)
+  ]);
   const userFlags =
     input.descriptor.materialization.kind === bindMaterializationKind
       ? hostUserFlags()
@@ -1711,6 +1737,7 @@ async function startManagedContainer(input: {
     input.workspacePath,
     "--env",
     `HOME=${defaultDockerHomePath}`,
+    ...hostFileMountArgs,
     ...(input.networkName ? ["--network", input.networkName] : []),
     ...userFlags,
     ...dockerLabelFlags(labels),
@@ -1718,7 +1745,7 @@ async function startManagedContainer(input: {
     input.shell,
     input.image,
     "-lc",
-    'mkdir -p "$HOME" && while :; do sleep 3600; done'
+    'mkdir -p "$HOME" "$HOME/.codex" && while :; do sleep 3600; done'
   ];
   const result = await input.commandRunner({
     args,
@@ -1755,7 +1782,13 @@ async function startManagedContainer(input: {
               source: input.descriptor.materialization.hostPath,
               destination: input.workspacePath,
               name: null
-            }
+            },
+            ...input.hostFileMounts.map((mount) => ({
+              type: "bind",
+              source: mount.sourcePath,
+              destination: mount.containerPath,
+              name: null
+            }))
           ]
         : [
             {
@@ -1763,7 +1796,13 @@ async function startManagedContainer(input: {
               source: null,
               destination: input.workspacePath,
               name: input.descriptor.materialization.volumeName
-            }
+            },
+            ...input.hostFileMounts.map((mount) => ({
+              type: "bind",
+              source: mount.sourcePath,
+              destination: mount.containerPath,
+              name: null
+            }))
           ],
     networks: input.networkName
       ? {
@@ -1989,12 +2028,16 @@ async function canReuseContainer(
   container: DockerContainerInspectState,
   image: string,
   workspacePath: string,
+  hostFileMounts: DockerWorkspaceHostFileMount[],
   descriptor: DockerWorkspaceDescriptor,
   networkName: string | null
 ): Promise<boolean> {
   return (
     container.running &&
     container.image === image &&
+    (hostFileMounts.length === 0 ||
+      container.labels[managedHostFileMountsHashLabelKey] ===
+        buildHostFileMountsHash(hostFileMounts)) &&
     (!networkName || containerAttachedToNetwork(container, networkName)) &&
     (descriptor.materialization.kind === bindMaterializationKind
       ? await containerHasExpectedBindMount(
@@ -2049,6 +2092,44 @@ function requireDockerExecutionTarget(
   throw new TypeError(
     "Docker workspace backends require a container execution target."
   );
+}
+
+function normalizeDockerWorkspaceHostFileMounts(
+  mounts: DockerWorkspaceBackendOptions["hostFileMounts"]
+): DockerWorkspaceHostFileMount[] {
+  return (mounts ?? [])
+    .map((mount) => {
+      const sourcePath = normalizeNonEmptyString(mount.sourcePath);
+      const containerPath = normalizeNonEmptyString(mount.containerPath);
+
+      if (!sourcePath || !containerPath) {
+        return null;
+      }
+
+      return {
+        sourcePath,
+        containerPath,
+        readOnly: mount.readOnly ?? true
+      };
+    })
+    .filter((mount): mount is DockerWorkspaceHostFileMount => mount !== null);
+}
+
+function buildHostFileMountsHash(
+  mounts: readonly DockerWorkspaceHostFileMount[]
+): string {
+  return createHash("sha256")
+    .update(JSON.stringify(mounts))
+    .digest("hex");
+}
+
+function renderHostFileMount(mount: DockerWorkspaceHostFileMount): string {
+  return [
+    "type=bind",
+    `src=${mount.sourcePath}`,
+    `dst=${mount.containerPath}`,
+    ...(mount.readOnly === false ? [] : ["readonly"])
+  ].join(",");
 }
 
 function requireDockerContainerName(workspace: PreparedWorkspace): string {

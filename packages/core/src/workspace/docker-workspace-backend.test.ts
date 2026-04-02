@@ -39,6 +39,66 @@ async function createWorkspaceRoot(): Promise<string> {
 }
 
 describe("docker workspace backend", () => {
+  it("mounts explicit host auth material into the container contract", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      }
+    });
+    const calls: string[][] = [];
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      hostFileMounts: [
+        {
+          sourcePath: "/Users/test/.codex/auth.json",
+          containerPath: "/tmp/symphony-home/.codex/auth.json",
+          readOnly: true
+        }
+      ],
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        if (input.args[0] === "inspect") {
+          return {
+            exitCode: 1,
+            stdout: "[]\n",
+            stderr: `Error response from daemon: No such container: ${input.args[3]}`
+          };
+        }
+
+        if (input.args[0] === "run") {
+          return {
+            exitCode: 0,
+            stdout: "container-auth-123\n",
+            stderr: ""
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    await backend.prepareWorkspace({
+      context: {
+        issueId: "issue-auth-200",
+        issueIdentifier: "COL/200"
+      },
+      config: config.workspace,
+      hooks: {
+        ...config.hooks,
+        afterCreate: null
+      }
+    });
+
+    expect(calls.find((call) => call[0] === "run")).toEqual(
+      expect.arrayContaining([
+        "--mount",
+        "type=bind,src=/Users/test/.codex/auth.json,dst=/tmp/symphony-home/.codex/auth.json,readonly"
+      ])
+    );
+  });
+
   it("creates deterministic container-backed workspaces and only runs after_create once", async () => {
     const root = await createWorkspaceRoot();
     const config = buildSymphonyWorkflowConfig({
@@ -292,7 +352,7 @@ describe("docker workspace backend", () => {
         /^symphony-workspace-col-207-[0-9a-f]{8}$/
       ),
       hostPath: null,
-      shell: "sh"
+      shell: "bash"
     });
     expect(workspace.materialization).toEqual({
       kind: "volume",
@@ -643,7 +703,7 @@ describe("docker workspace backend", () => {
             containerId: "container-203",
             containerName: "symphony-workspace-col-203-deadbeef",
             hostPath: workspacePath,
-            shell: "sh"
+            shell: "bash"
           },
           materialization: {
             kind: "bind_mount" as const,
@@ -3042,6 +3102,10 @@ function ambientEnvBundle() {
       injectedKeys: [],
       requiredHostKeys: [],
       optionalHostKeys: [],
+      repoEnvPath: null,
+      projectedRepoKeys: [],
+      requiredRepoKeys: [],
+      optionalRepoKeys: [],
       staticBindingKeys: [],
       runtimeBindingKeys: [],
       serviceBindingKeys: []
@@ -3058,6 +3122,7 @@ function buildManifestEnvBundle(input: {
 }) {
   return resolveSymphonyRuntimeEnvBundle({
     manifest: input.runtimeManifest.manifest,
+    repoRoot: input.runtimeManifest.repoRoot,
     environmentSource: {
       OPENAI_API_KEY: "test-openai-key"
     },

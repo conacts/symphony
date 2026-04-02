@@ -103,6 +103,10 @@ export type WorkspaceEnvBundleSummary = {
   injectedKeys: string[];
   requiredHostKeys: string[];
   optionalHostKeys: string[];
+  repoEnvPath: string | null;
+  projectedRepoKeys: string[];
+  requiredRepoKeys: string[];
+  optionalRepoKeys: string[];
   staticBindingKeys: string[];
   runtimeBindingKeys: string[];
   serviceBindingKeys: string[];

@@ -31,6 +31,7 @@ export const managedServiceHostnameLabelKey = "dev.symphony.service-hostname";
 export const managedServicePortLabelKey = "dev.symphony.service-port";
 export const managedServiceMemoryMbLabelKey = "dev.symphony.service-memory-mb";
 export const managedServiceCpuSharesLabelKey = "dev.symphony.service-cpu-shares";
+export const managedHostFileMountsHashLabelKey = "dev.symphony.host-file-mounts-hash";
 export const managedWorkspaceContainerKind = "workspace_container";
 export const managedWorkspaceNetworkKind = "workspace_network";
 export const managedWorkspaceServiceKind = "workspace_service";
@@ -63,6 +64,7 @@ export type DockerWorkspaceBackendOptions = {
   shell?: string;
   materializationMode?: DockerWorkspaceMaterializationMode;
   runtimeManifest?: SymphonyLoadedRuntimeManifest | null;
+  hostFileMounts?: DockerWorkspaceHostFileMount[];
   commandRunner?: DockerWorkspaceCommandRunner;
   commandTimeoutMs?: number;
 };
@@ -89,6 +91,12 @@ export type DockerWorkspaceDescriptor = {
   containerName: string;
   networkName: string;
   materialization: DockerWorkspaceMaterializationDescriptor;
+};
+
+export type DockerWorkspaceHostFileMount = {
+  sourcePath: string;
+  containerPath: string;
+  readOnly?: boolean;
 };
 
 export type DockerServiceDescriptor = {

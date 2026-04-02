@@ -392,6 +392,7 @@ export class SymphonyOrchestrator {
 
       const reason = String(error);
       const failureOrigin = classifyStartupFailureOrigin(
+        error,
         startupFailureStage,
         this.#workspaceBackend.kind
       );

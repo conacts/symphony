@@ -51,6 +51,10 @@ describe("runtime serializers", () => {
                 injectedKeys: [],
                 requiredHostKeys: [],
                 optionalHostKeys: [],
+                repoEnvPath: null,
+                projectedRepoKeys: [],
+                requiredRepoKeys: [],
+                optionalRepoKeys: [],
                 staticBindingKeys: [],
                 runtimeBindingKeys: [],
                 serviceBindingKeys: []
@@ -142,6 +146,10 @@ describe("runtime serializers", () => {
         injectedKeys: [],
         requiredHostKeys: [],
         optionalHostKeys: [],
+        repoEnvPath: null,
+        projectedRepoKeys: [],
+        requiredRepoKeys: [],
+        optionalRepoKeys: [],
         staticBindingKeys: [],
         runtimeBindingKeys: [],
         serviceBindingKeys: []

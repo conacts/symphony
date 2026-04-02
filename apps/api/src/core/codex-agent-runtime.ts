@@ -58,6 +58,7 @@ export function createCodexSymphonyAgentRuntime(input: {
   runtimeLogs: SymphonyRuntimeLogStore;
   workflowConfig: SymphonyResolvedWorkflowConfig;
   hostCommandEnvSource: Record<string, string | undefined>;
+  codexHostLaunchEnv?: Record<string, string>;
   logger: SymphonyLogger;
   callbacks: RunCallbacks;
 }): AgentRuntime {
@@ -87,6 +88,7 @@ export function createCodexSymphonyAgentRuntime(input: {
           issueIdentifier: runInput.issue.identifier
         }),
         hostCommandEnvSource: input.hostCommandEnvSource,
+        codexHostLaunchEnv: input.codexHostLaunchEnv ?? {},
         callbacks: input.callbacks,
         issue: runInput.issue,
         runId: runInput.runId,
@@ -132,6 +134,7 @@ async function executeRun(input: {
   workflowConfig: SymphonyResolvedWorkflowConfig;
   logger: SymphonyLogger;
   hostCommandEnvSource: Record<string, string | undefined>;
+  codexHostLaunchEnv: Record<string, string>;
   callbacks: RunCallbacks;
   issue: SymphonyTrackerIssue;
   runId: string | null;
@@ -171,7 +174,10 @@ async function executeRun(input: {
 
     const session = await CodexAppServerClient.startSession({
       launchTarget: input.launchTarget,
-      env: input.workspace.envBundle.values,
+      env: {
+        ...input.workspace.envBundle.values,
+        ...input.codexHostLaunchEnv
+      },
       hostCommandEnvSource: input.hostCommandEnvSource,
       workflowConfig: input.workflowConfig,
       issue: input.issue,

@@ -21,6 +21,7 @@ import {
 import {
   envHostKeys,
   envKeys,
+  envRepoKeys,
   environmentVariablePattern,
   runtimeBindingValues,
   serviceBindingKeys,
@@ -47,6 +48,10 @@ export function parseEnv(
   if (host) {
     validateHostEnvironmentLists(host, issues);
   }
+  const repo = parseEnvRepo(record.repo, issues);
+  if (repo) {
+    validateRepoEnvironmentLists(repo, issues);
+  }
 
   const inject = parseEnvInject(record.inject, issues);
 
@@ -56,6 +61,7 @@ export function parseEnv(
 
   return {
     host,
+    ...(repo ? { repo } : {}),
     inject
   };
 }
@@ -165,6 +171,54 @@ function parseEnvInject(
   }
 
   return hasIssuesSince(issues, checkpoint) ? undefined : inject;
+}
+
+function parseEnvRepo(
+  value: unknown,
+  issues: SymphonyRuntimeManifestIssue[]
+): SymphonyRuntimeEnv["repo"] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const checkpoint = startIssueCheckpoint(issues);
+  const record = readStrictRecord(value, ["env", "repo"], issues, "env.repo");
+
+  if (!record) {
+    return undefined;
+  }
+
+  rejectUnknownKeys(record, envRepoKeys, ["env", "repo"], issues);
+
+  const path = readRequiredString(
+    record,
+    "path",
+    ["env", "repo", "path"],
+    issues,
+    "env.repo.path"
+  );
+  const required = parseEnvironmentVariableArray(
+    record.required,
+    ["env", "repo", "required"],
+    issues,
+    "env.repo.required"
+  );
+  const optional = parseEnvironmentVariableArray(
+    record.optional,
+    ["env", "repo", "optional"],
+    issues,
+    "env.repo.optional"
+  );
+
+  if (!path || !required || !optional || hasIssuesSince(issues, checkpoint)) {
+    return undefined;
+  }
+
+  return {
+    path,
+    required,
+    optional
+  };
 }
 
 function parseEnvBinding(
@@ -298,6 +352,39 @@ function validateHostEnvironmentLists(
         issues,
         ["env", "host", "optional"],
         `${JSON.stringify(name)} cannot appear in both env.host.required and env.host.optional.`
+      );
+    }
+  }
+}
+
+function validateRepoEnvironmentLists(
+  repo: NonNullable<SymphonyRuntimeEnv["repo"]>,
+  issues: SymphonyRuntimeManifestIssue[]
+): void {
+  const required = new Set(repo.required);
+
+  for (const duplicate of collectDuplicates(repo.required)) {
+    pushIssue(
+      issues,
+      ["env", "repo", "required"],
+      `env.repo.required contains duplicate entry ${JSON.stringify(duplicate)}.`
+    );
+  }
+
+  for (const duplicate of collectDuplicates(repo.optional)) {
+    pushIssue(
+      issues,
+      ["env", "repo", "optional"],
+      `env.repo.optional contains duplicate entry ${JSON.stringify(duplicate)}.`
+    );
+  }
+
+  for (const name of repo.optional) {
+    if (required.has(name)) {
+      pushIssue(
+        issues,
+        ["env", "repo", "optional"],
+        `${JSON.stringify(name)} cannot appear in both env.repo.required and env.repo.optional.`
       );
     }
   }

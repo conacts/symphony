@@ -50,6 +50,11 @@ export function createRuntimeWorkspaceBackend(
   >,
   options: {
     runtimeManifest?: SymphonyLoadedRuntimeManifest | null;
+    dockerHostFileMounts?: Array<{
+      sourcePath: string;
+      containerPath: string;
+      readOnly?: boolean;
+    }>;
   } = {}
 ): SymphonyRuntimeWorkspaceBackendSelection {
   if (env.workspaceBackend === "docker") {
@@ -64,6 +69,7 @@ export function createRuntimeWorkspaceBackend(
         workspacePath: env.dockerWorkspacePath ?? undefined,
         containerNamePrefix: env.dockerContainerNamePrefix ?? undefined,
         shell: env.dockerShell ?? undefined,
+        hostFileMounts: options.dockerHostFileMounts,
         runtimeManifest: options.runtimeManifest ?? null
       }),
       metadata: {

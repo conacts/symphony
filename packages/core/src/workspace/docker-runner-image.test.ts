@@ -108,7 +108,7 @@ describe("docker runner image", () => {
           "run",
           "--rm",
           "--entrypoint",
-          "sh",
+          "bash",
           defaultSymphonyDockerWorkspaceImage,
           "-lc"
         ],
@@ -157,7 +157,7 @@ describe("docker runner image", () => {
           "run",
           "--rm",
           "--entrypoint",
-          "sh",
+          "bash",
           defaultSymphonyDockerWorkspaceImage,
           "-lc"
         ],
@@ -176,7 +176,7 @@ describe("docker runner image", () => {
       })
     ).resolves.toEqual({
       image: defaultSymphonyDockerWorkspaceImage,
-      shell: "sh",
+      shell: "bash",
       serverVersion: "27.0.1",
       imageId: "sha256:runner",
       requiredTools: [

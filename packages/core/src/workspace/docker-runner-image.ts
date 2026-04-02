@@ -63,7 +63,7 @@ export async function preflightSymphonyDockerWorkspaceImage(input: {
     throw new TypeError("Docker workspace preflight requires a non-empty image.");
   }
 
-  const shell = normalizeNonEmptyString(input.shell) ?? "sh";
+  const shell = normalizeNonEmptyString(input.shell) ?? "bash";
   const commandRunner = input.commandRunner ?? defaultDockerWorkspaceCommandRunner;
   const timeoutMs =
     input.timeoutMs ?? defaultSymphonyDockerWorkspacePreflightTimeoutMs;

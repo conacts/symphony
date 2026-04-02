@@ -20,12 +20,14 @@ export type SymphonyRuntimeAppServicesHarness = {
   workflowConfig: SymphonyResolvedWorkflowConfig;
   env: SymphonyRuntimeAppEnv;
   environmentSource: Record<string, string | undefined>;
+  hostCommandEnvSource: Record<string, string | undefined>;
   services: SymphonyRuntimeAppServices;
 };
 
 export async function createSymphonyRuntimeAppServicesHarness(input: {
   env?: Partial<SymphonyRuntimeAppEnv>;
   environmentSource?: Record<string, string | undefined>;
+  hostCommandEnvSource?: Record<string, string | undefined>;
   promptTemplate?: string;
   rootPrefix?: string;
   runtimeManifestSource?: string | null;
@@ -144,8 +146,11 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
       ...input.environmentSource
     };
+    const hostCommandEnvSource = input.hostCommandEnvSource ?? {};
 
-    services = await loadDefaultSymphonyRuntimeAppServices(env, environmentSource);
+    services = await loadDefaultSymphonyRuntimeAppServices(env, environmentSource, {
+      hostCommandEnvSource
+    });
 
     let cleaned = false;
 
@@ -155,6 +160,7 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       workflowConfig,
       env,
       environmentSource,
+      hostCommandEnvSource,
       services,
       async cleanup() {
         if (cleaned) {

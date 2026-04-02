@@ -101,6 +101,17 @@ describe("runtime services", () => {
       })
     ).rejects.toThrowError(/Required host environment variable OPENAI_API_KEY is missing/i);
   });
+
+  it("fails fast when docker-backed runs do not have host-owned Codex auth", async () => {
+    await expect(
+      createSymphonyRuntimeAppServicesHarness({
+        env: {
+          workspaceBackend: "docker"
+        },
+        hostCommandEnvSource: {}
+      })
+    ).rejects.toThrowError(/Docker-backed Symphony workspaces require host-owned Codex auth/i);
+  });
 });
 
 async function waitFor(

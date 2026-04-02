@@ -30,6 +30,11 @@ export type SymphonyStartupFailureStage =
 export type SymphonyStartupFailureOrigin =
   | "workspace_lifecycle"
   | "docker_lifecycle"
+  | "repo_env_contract"
+  | "host_auth_contract"
+  | "image_tooling_contract"
+  | "docker_backend_contract"
+  | "codex_auth_contract"
   | "runtime_launch"
   | "codex_startup";
 

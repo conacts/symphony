@@ -170,6 +170,10 @@ describe("runtime realtime diff", () => {
                 injectedKeys: [],
                 requiredHostKeys: [],
                 optionalHostKeys: [],
+                repoEnvPath: null,
+                projectedRepoKeys: [],
+                requiredRepoKeys: [],
+                optionalRepoKeys: [],
                 staticBindingKeys: [],
                 runtimeBindingKeys: [],
                 serviceBindingKeys: []

@@ -953,6 +953,10 @@ function ambientEnvBundle() {
       injectedKeys: [],
       requiredHostKeys: [],
       optionalHostKeys: [],
+      repoEnvPath: null,
+      projectedRepoKeys: [],
+      requiredRepoKeys: [],
+      optionalRepoKeys: [],
       staticBindingKeys: [],
       runtimeBindingKeys: [],
       serviceBindingKeys: []

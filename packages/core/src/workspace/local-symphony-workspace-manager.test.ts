@@ -222,6 +222,10 @@ describe("local workspace backend", () => {
         injectedKeys: ["OPENAI_API_KEY"],
         requiredHostKeys: [],
         optionalHostKeys: [],
+        repoEnvPath: null,
+        projectedRepoKeys: [],
+        requiredRepoKeys: [],
+        optionalRepoKeys: [],
         staticBindingKeys: [],
         runtimeBindingKeys: [],
         serviceBindingKeys: []

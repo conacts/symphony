@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadEnv } from "@symphony/env";
 import {
+  buildSymphonyHostCommandEnvironmentSource,
   buildSymphonyRuntimeEnvironmentSource,
   loadSymphonyRuntimeAppEnv
 } from "./core/env.js";
@@ -21,9 +22,13 @@ void loadEnv({
 async function main() {
   const env = loadSymphonyRuntimeAppEnv();
   const environmentSource = buildSymphonyRuntimeEnvironmentSource(env);
+  const hostCommandEnvSource = buildSymphonyHostCommandEnvironmentSource();
   const services = await loadDefaultSymphonyRuntimeAppServices(
     env,
-    environmentSource
+    environmentSource,
+    {
+      hostCommandEnvSource
+    }
   );
   services.logger.info("Starting Symphony runtime server", {
     port: env.port,

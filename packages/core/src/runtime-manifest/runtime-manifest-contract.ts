@@ -80,11 +80,18 @@ export type SymphonyRuntimeEnvBinding =
   | SymphonyRuntimeServiceEnvBinding
   | SymphonyRuntimeRuntimeEnvBinding;
 
+export type SymphonyRuntimeRepoEnv = {
+  path: string;
+  required: string[];
+  optional: string[];
+};
+
 export type SymphonyRuntimeEnv = {
   host: {
     required: string[];
     optional: string[];
   };
+  repo?: SymphonyRuntimeRepoEnv;
   inject: Record<string, SymphonyRuntimeEnvBinding>;
 };
 
@@ -115,6 +122,7 @@ export type SymphonyRuntimePostgresServiceInput = SymphonyRuntimePostgresService
 export type SymphonyRuntimeEnvInput = SymphonyRuntimeEnv;
 export type SymphonyRuntimeHostEnv = SymphonyRuntimeEnv["host"];
 export type SymphonyRuntimeHostEnvInput = SymphonyRuntimeHostEnv;
+export type SymphonyRuntimeRepoEnvInput = SymphonyRuntimeRepoEnv;
 export type SymphonyRuntimeEnvBindingInput = SymphonyRuntimeEnvBinding;
 export type SymphonyRuntimeLifecycleInput = SymphonyRuntimeLifecycle;
 export type SymphonyRuntimeLifecycleStep = SymphonyRuntimeStep;
@@ -179,6 +187,13 @@ export type SymphonyResolvedRuntimeHostEnv = {
   optional: Record<string, string>;
 };
 
+export type SymphonyResolvedRuntimeRepoEnv = {
+  path: string;
+  projected: Record<string, string>;
+  required: Record<string, string>;
+  optional: Record<string, string>;
+};
+
 export type SymphonyResolvedRuntimePostgresService = {
   type: "postgres";
   serviceKey: string;
@@ -197,6 +212,10 @@ export type SymphonyResolvedRuntimeEnvBundleSummary = {
   injectedKeys: string[];
   requiredHostKeys: string[];
   optionalHostKeys: string[];
+  repoEnvPath: string | null;
+  projectedRepoKeys: string[];
+  requiredRepoKeys: string[];
+  optionalRepoKeys: string[];
   staticBindingKeys: string[];
   runtimeBindingKeys: string[];
   serviceBindingKeys: string[];
@@ -214,8 +233,15 @@ export type SymphonyRuntimeHostEnvResolutionInput = {
   manifestPath?: string | null;
 };
 
+export type SymphonyRuntimeRepoEnvResolutionInput = {
+  manifest: SymphonyNormalizedRuntimeManifest;
+  repoRoot: string;
+  manifestPath?: string | null;
+};
+
 export type SymphonyRuntimeEnvResolutionInput = {
   manifest: SymphonyNormalizedRuntimeManifest;
+  repoRoot: string;
   environmentSource: SymphonyRuntimeEnvironmentSource;
   runtime: SymphonyRuntimeEnvironmentContext;
   services?: Record<string, SymphonyResolvedRuntimeService>;

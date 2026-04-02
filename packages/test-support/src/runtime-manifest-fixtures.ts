@@ -44,6 +44,7 @@ export function buildSymphonyRuntimeManifestInput(
         ...baseManifest.env.host,
         ...overrides.env?.host
       },
+      ...(overrides.env?.repo ? { repo: overrides.env.repo } : {}),
       inject: overrides.env?.inject ?? baseManifest.env.inject
     },
     lifecycle: {

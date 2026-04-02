@@ -1,6 +1,7 @@
 import { SYMPHONY_CONTRACTS_PACKAGE_NAME } from "@symphony/contracts";
 import { SYMPHONY_LOGGER_PACKAGE_NAME } from "@symphony/logger";
 import {
+  buildSymphonyHostCommandEnvironmentSource,
   buildSymphonyRuntimeEnvironmentSource,
   loadSymphonyRuntimeAppEnv,
   type SymphonyRuntimeAppEnv
@@ -38,9 +39,12 @@ export async function createDefaultSymphonyRuntimeApp(
   env: SymphonyRuntimeAppEnv = loadSymphonyRuntimeAppEnv(),
   environmentSource: Record<string, string | undefined> = buildSymphonyRuntimeEnvironmentSource(
     env
-  )
+  ),
+  hostCommandEnvSource: Record<string, string | undefined> = buildSymphonyHostCommandEnvironmentSource()
 ) {
-  const services = await loadDefaultSymphonyRuntimeAppServices(env, environmentSource);
+  const services = await loadDefaultSymphonyRuntimeAppServices(env, environmentSource, {
+    hostCommandEnvSource
+  });
   return createSymphonyRuntimeApp(services, {
     allowedOrigins: env.allowedOrigins
   });
@@ -50,9 +54,12 @@ export async function createDefaultSymphonyRuntimeApplication(
   env: SymphonyRuntimeAppEnv = loadSymphonyRuntimeAppEnv(),
   environmentSource: Record<string, string | undefined> = buildSymphonyRuntimeEnvironmentSource(
     env
-  )
+  ),
+  hostCommandEnvSource: Record<string, string | undefined> = buildSymphonyHostCommandEnvironmentSource()
 ) {
-  const services = await loadDefaultSymphonyRuntimeAppServices(env, environmentSource);
+  const services = await loadDefaultSymphonyRuntimeAppServices(env, environmentSource, {
+    hostCommandEnvSource
+  });
   return createSymphonyRuntimeApplication(services, {
     allowedOrigins: env.allowedOrigins
   });

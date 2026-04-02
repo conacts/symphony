@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defaultSymphonyDockerWorkspaceImage } from "@symphony/core";
 import {
+  buildSymphonyHostCommandEnvironmentSource,
   buildSymphonyRuntimeEnvironmentSource,
   loadSymphonyRuntimeAppEnv
 } from "./core/env.js";
@@ -38,7 +39,7 @@ describe("@symphony/api scaffold", () => {
     ]);
   });
 
-  it("requires LINEAR_API_KEY and preserves host env in the workflow env bridge", () => {
+  it("requires LINEAR_API_KEY and preserves host env for generic manifest resolution", () => {
     expect(() =>
       loadSymphonyRuntimeAppEnv(buildSymphonyRuntimeEnv({
         LINEAR_API_KEY: ""
@@ -47,7 +48,9 @@ describe("@symphony/api scaffold", () => {
 
     const environmentSource = {
       ...buildSymphonyRuntimeEnv(),
-      OPENAI_API_KEY: "test-openai-api-key"
+      OPENAI_API_KEY: "test-openai-api-key",
+      GITHUB_TOKEN: "test-github-token",
+      UNRELATED_ENV: "ignore-me"
     };
     const env = loadSymphonyRuntimeAppEnv(environmentSource);
 
@@ -55,8 +58,13 @@ describe("@symphony/api scaffold", () => {
       buildSymphonyRuntimeEnvironmentSource(env, environmentSource)
     ).toMatchObject({
       OPENAI_API_KEY: "test-openai-api-key",
+      GITHUB_TOKEN: "test-github-token",
+      UNRELATED_ENV: "ignore-me",
       LINEAR_API_KEY: "test-linear-api-key",
       SYMPHONY_SOURCE_REPO: "/tmp/source-repo"
+    });
+    expect(buildSymphonyHostCommandEnvironmentSource(environmentSource)).toEqual({
+      OPENAI_API_KEY: "test-openai-api-key"
     });
   });
 

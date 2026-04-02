@@ -108,15 +108,53 @@ export function buildSymphonyRuntimeEnvironmentSource(
   env: SymphonyRuntimeAppEnv,
   source: EnvironmentSource = process.env
 ): EnvironmentSource {
+  const selected = Object.fromEntries(
+    Object.entries(source).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string"
+    )
+  );
+
   return {
-    ...Object.fromEntries(
-      Object.entries(source).filter(
-        (entry): entry is [string, string] => typeof entry[1] === "string"
-      )
-    ),
+    ...selected,
     LINEAR_API_KEY: env.linearApiKey,
     SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined
   };
+}
+
+export function buildSymphonyHostCommandEnvironmentSource(
+  source: EnvironmentSource = process.env
+): EnvironmentSource {
+  const allowedKeys = new Set([
+    "PATH",
+    "HOME",
+    "USER",
+    "SHELL",
+    "TMPDIR",
+    "TMP",
+    "TEMP",
+    "TERM",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "CI",
+    "DOCKER_HOST",
+    "DOCKER_CONTEXT",
+    "DOCKER_CONFIG",
+    "XDG_CONFIG_HOME",
+    "SSH_AUTH_SOCK",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "CODEX_HOME",
+    "OPENAI_API_KEY"
+  ]);
+
+  return Object.fromEntries(
+    Object.entries(source).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === "string" && allowedKeys.has(entry[0])
+    )
+  );
 }
 
 function parseAllowedOrigins(value: string | undefined): string[] {

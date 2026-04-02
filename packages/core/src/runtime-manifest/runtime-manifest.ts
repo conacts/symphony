@@ -9,6 +9,7 @@ export type {
   SymphonyResolvedRuntimeEnvBundle,
   SymphonyResolvedRuntimeEnvBundleSummary,
   SymphonyResolvedRuntimeHostEnv,
+  SymphonyResolvedRuntimeRepoEnv,
   SymphonyResolvedRuntimePostgresService,
   SymphonyResolvedRuntimeService,
   SymphonyRuntimeEnvironmentBackendKind,
@@ -27,6 +28,9 @@ export type {
   SymphonyRuntimeHostEnv,
   SymphonyRuntimeHostEnvResolutionInput,
   SymphonyRuntimeHostEnvInput,
+  SymphonyRuntimeRepoEnv,
+  SymphonyRuntimeRepoEnvInput,
+  SymphonyRuntimeRepoEnvResolutionInput,
   SymphonyRuntimeLifecycle,
   SymphonyRuntimeLifecycleInput,
   SymphonyRuntimeLifecycleStep,
@@ -51,7 +55,8 @@ export type {
 export {
   buildSymphonyRuntimePostgresConnectionString,
   resolveSymphonyRuntimeEnvBundle,
-  resolveSymphonyRuntimeHostEnv
+  resolveSymphonyRuntimeHostEnv,
+  resolveSymphonyRuntimeRepoEnv
 } from "./runtime-manifest-env.js";
 export {
   SymphonyRuntimeManifestError,

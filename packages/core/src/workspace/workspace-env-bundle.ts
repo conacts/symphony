@@ -33,6 +33,7 @@ export function resolvePreparedWorkspaceEnvBundle(input: {
 
   return resolveSymphonyRuntimeEnvBundle({
     manifest: input.runtimeManifest.manifest,
+    repoRoot: input.runtimeManifest.repoRoot,
     environmentSource: input.environmentSource ?? {},
     runtime: {
       issueId: input.issueId,
@@ -64,6 +65,10 @@ export function buildAmbientWorkspaceEnvBundle(
       injectedKeys: Object.keys(values).sort(),
       requiredHostKeys: [],
       optionalHostKeys: [],
+      repoEnvPath: null,
+      projectedRepoKeys: [],
+      requiredRepoKeys: [],
+      optionalRepoKeys: [],
       staticBindingKeys: [],
       runtimeBindingKeys: [],
       serviceBindingKeys: []

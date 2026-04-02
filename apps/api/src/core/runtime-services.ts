@@ -40,6 +40,8 @@ import {
   createSymphonyLogger,
   type SymphonyLogger
 } from "@symphony/logger";
+import { CodexAppServerError } from "./codex-app-server-types.js";
+import { resolveDockerCodexAuthContract } from "./codex-auth-contract.js";
 import { createRuntimeHttpError } from "./errors.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
@@ -236,8 +238,12 @@ function createRuntimeOrchestratorPort(input: {
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
-  environmentSource: Record<string, string | undefined>
+  environmentSource: Record<string, string | undefined>,
+  options: {
+    hostCommandEnvSource?: Record<string, string | undefined>;
+  } = {}
 ): Promise<SymphonyRuntimeAppServices> {
+  const hostCommandEnvSource = options.hostCommandEnvSource ?? process.env;
   const logger = createSymphonyLogger({
     name: "@symphony/api",
     level: env.logLevel
@@ -260,7 +266,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
 
   const validatedRuntimeManifest = env.sourceRepo
-    ? await validateSourceRepoRuntimeManifest(env.sourceRepo, environmentSource)
+    ? await validateSourceRepoRuntimeManifest(env.sourceRepo, environmentSource, {
+        resolveRepoEnv: env.workspaceBackend === "docker"
+      })
     : null;
 
   if (validatedRuntimeManifest) {
@@ -333,12 +341,26 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     });
   }
 
+  const dockerCodexAuth =
+    env.workspaceBackend === "docker"
+      ? resolveDockerCodexAuthContract(hostCommandEnvSource)
+      : null;
+
+  if (env.workspaceBackend === "docker" && dockerCodexAuth?.mode === "unavailable") {
+    throw new CodexAppServerError(
+      "codex_auth_unavailable",
+      "Docker-backed Symphony workspaces require host-owned Codex auth. Provide ~/.codex/auth.json (or $CODEX_HOME/auth.json) for subscription auth, or set OPENAI_API_KEY as a host-only fallback."
+    );
+  }
+
   const workspaceBackendSelection = createRuntimeWorkspaceBackend(env, {
+    dockerHostFileMounts: dockerCodexAuth?.mount ? [dockerCodexAuth.mount] : [],
     runtimeManifest: validatedRuntimeManifest?.runtimeManifest ?? null
   });
   const workspaceBackendPayload = {
     workspaceRoot: workflow.config.workspace.root,
-    ...workspaceBackendSelection.metadata
+    ...workspaceBackendSelection.metadata,
+    dockerCodexAuthMode: dockerCodexAuth?.mode ?? null
   };
   let dockerPreflight: SymphonyDockerWorkspacePreflightResult | null = null;
   if (workspaceBackendSelection.metadata.backendKind === "docker") {
@@ -412,7 +434,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runJournal,
       runtimeLogs: runtimeLogStore,
       workflowConfig: workflow.config,
-      hostCommandEnvSource: environmentSource,
+      hostCommandEnvSource,
+      codexHostLaunchEnv: dockerCodexAuth?.launchEnv ?? {},
       logger,
       callbacks: {
         async onUpdate(issueId, update) {
