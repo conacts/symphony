@@ -1,10 +1,20 @@
 import type { SymphonyWorkflowTrackerConfig } from "../workflow/symphony-workflow.js";
 import {
   isLinearIssueInScope,
+  linearScope,
   type SymphonyTracker,
   type SymphonyTrackerIssue
 } from "./symphony-tracker.js";
 import { normalizeIssueState } from "../workflow/symphony-workflow.js";
+import {
+  asRecord,
+  getArrayPath,
+  getBooleanPath,
+  getRecord,
+  getRecordPath,
+  getString,
+  getStringPath
+} from "../internal/records.js";
 
 const issuePageSize = 50;
 
@@ -584,10 +594,14 @@ async function requestLinearGraphQL(
     })
   });
 
-  const body = (await response.json()) as Record<string, unknown>;
+  const body = asRecord(await response.json());
 
   if (!response.ok) {
     throw new Error(`Linear GraphQL request failed with ${response.status}.`);
+  }
+
+  if (!body) {
+    throw new Error("Linear GraphQL response must decode to an object.");
   }
 
   return body;
@@ -607,109 +621,9 @@ function ensureLinearTrackerConfig(config: SymphonyWorkflowTrackerConfig): void 
   }
 }
 
-function linearScope(
-  config: SymphonyWorkflowTrackerConfig
-): { kind: "project"; value: string } | { kind: "team"; value: string } | null {
-  if (config.teamKey) {
-    return {
-      kind: "team",
-      value: config.teamKey
-    };
-  }
-
-  if (config.projectSlug) {
-    return {
-      kind: "project",
-      value: config.projectSlug
-    };
-  }
-
-  return null;
-}
-
-function getRecord(
-  value: Record<string, unknown> | null | undefined,
-  key: string
-): Record<string, unknown> | null {
-  const nested = value?.[key];
-  return asRecord(nested);
-}
-
-function getRecordPath(
-  value: Record<string, unknown> | null | undefined,
-  path: Array<string | number>
-): Record<string, unknown> | null {
-  const nested = getPath(value, path);
-  return asRecord(nested);
-}
-
-function getArrayPath(
-  value: Record<string, unknown> | null | undefined,
-  path: Array<string | number>
-): unknown[] {
-  const nested = getPath(value, path);
-  return Array.isArray(nested) ? nested : [];
-}
-
-function getString(
-  value: Record<string, unknown> | null | undefined,
-  key: string
-): string | null {
-  const nested = value?.[key];
-  return typeof nested === "string" && nested.trim() !== "" ? nested : null;
-}
-
 function getNullableString(
   value: Record<string, unknown> | null | undefined,
   key: string
 ): string | null {
   return getString(value, key);
-}
-
-function getStringPath(
-  value: Record<string, unknown> | null | undefined,
-  path: Array<string | number>
-): string | null {
-  const nested = getPath(value, path);
-  return typeof nested === "string" && nested.trim() !== "" ? nested : null;
-}
-
-function getBooleanPath(
-  value: Record<string, unknown> | null | undefined,
-  path: Array<string | number>
-): boolean | null {
-  const nested = getPath(value, path);
-  return typeof nested === "boolean" ? nested : null;
-}
-
-function getPath(
-  value: Record<string, unknown> | null | undefined,
-  path: Array<string | number>
-): unknown {
-  let current: unknown = value;
-
-  for (const segment of path) {
-    if (typeof segment === "number") {
-      if (!Array.isArray(current)) {
-        return null;
-      }
-
-      current = current[segment];
-      continue;
-    }
-
-    if (!current || typeof current !== "object" || Array.isArray(current)) {
-      return null;
-    }
-
-    current = (current as Record<string, unknown>)[segment];
-  }
-
-  return current;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
 }

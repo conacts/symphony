@@ -1,4 +1,6 @@
 import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
+import { asJsonObject } from "../internal/json.js";
+import { asRecord, isRecord } from "../internal/records.js";
 
 export type SymphonyCodexStateUpdate = {
   event: string;
@@ -203,37 +205,12 @@ function mapAtPath(
     current = current[segment];
   }
 
-  return isRecord(current) ? current : null;
+  return asRecord(current);
 }
 
 function normalizeUnknownJsonObject(value: unknown): SymphonyJsonObject {
-  return normalizeUnknownJsonValue(value) as SymphonyJsonObject;
-}
-
-function normalizeUnknownJsonValue(value: unknown): unknown {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((entry) => normalizeUnknownJsonValue(entry));
-  }
-
-  if (isRecord(value)) {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, nested]) => [
-        key,
-        normalizeUnknownJsonValue(nested)
-      ])
-    );
-  }
-
-  return String(value);
+  const normalized = asJsonObject(value);
+  return normalized ?? {};
 }
 
 function toInteger(value: unknown): number {
@@ -247,10 +224,6 @@ function toInteger(value: unknown): number {
   }
 
   return 0;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function isNilish(value: unknown): boolean {

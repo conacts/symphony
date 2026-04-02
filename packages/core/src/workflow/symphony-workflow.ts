@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { parse as parseYaml } from "yaml";
+import { isRecord } from "../internal/records.js";
 
 export const defaultSymphonyWorkflowFileName = "WORKFLOW.md";
 
@@ -780,8 +781,4 @@ function normalizeObjectKey(key: string): string {
   return key.replace(/_([a-z])/g, (_match, letter: string) =>
     letter.toUpperCase()
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
 }

@@ -11,6 +11,8 @@ import type {
 } from "../runtime/agent-runtime.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
+import { asJsonObject } from "../internal/json.js";
+import { asRecord, readString } from "../internal/records.js";
 import {
   summarizePreparedWorkspace,
   workspaceHostPath,
@@ -1397,38 +1399,25 @@ function extractWorkspaceManifestLifecycleFailure(input: unknown): {
     return null;
   }
 
-  const candidate = input as Error & {
-    manifestLifecyclePhase?: unknown;
-    manifestLifecycleStepName?: unknown;
-    manifestLifecycle?: unknown;
-  };
+  const candidate = asRecord(input);
+  const manifestLifecyclePhase = readString(
+    candidate?.manifestLifecyclePhase
+  );
 
-  return typeof candidate.manifestLifecyclePhase === "string"
+  return manifestLifecyclePhase
     ? {
         manifestLifecyclePhase:
-          candidate.manifestLifecyclePhase as WorkspaceManifestLifecyclePhase,
-        manifestLifecycleStepName:
-          typeof candidate.manifestLifecycleStepName === "string"
-            ? candidate.manifestLifecycleStepName
-            : null,
-        manifestLifecycle:
-          normalizeJsonObject(candidate.manifestLifecycle) ?? null
+          manifestLifecyclePhase as WorkspaceManifestLifecyclePhase,
+        manifestLifecycleStepName: readString(
+          candidate?.manifestLifecycleStepName
+        ),
+        manifestLifecycle: asJsonObject(candidate?.manifestLifecycle) ?? null
       }
     : null;
 }
 
-function normalizeJsonObject(value: unknown): SymphonyJsonObject | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as SymphonyJsonObject)
-    : null;
-}
-
 function isFatalRuntimeError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    "fatal" in error &&
-    (error as Error & { fatal?: unknown }).fatal === true
-  );
+  return error instanceof Error && asRecord(error)?.fatal === true;
 }
 
 const systemClock: SymphonyClock = {

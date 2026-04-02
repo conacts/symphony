@@ -1,15 +1,28 @@
-import { access, mkdir, realpath, rm, stat } from "node:fs/promises";
+import { access, mkdir, rm, stat } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import type { SymphonyWorkflowHooksConfig, SymphonyWorkflowWorkspaceConfig } from "../workflow/symphony-workflow.js";
+import { isEnoent } from "../internal/errors.js";
+import {
+  SymphonyWorkspaceError,
+  sanitizeSymphonyIssueIdentifier,
+  type SymphonyWorkspaceContext
+} from "./workspace-identity.js";
+import {
+  buildWorkspacePath,
+  resolveManagedWorkspacePath,
+  workspaceExists
+} from "./workspace-paths.js";
 
 const workspaceMetadataRelativePath = path.join(".symphony", "workspace.env");
 const repoOwnedSourceRepoEnvName = "SYMPHONY_SOURCE_REPO";
 
-export type SymphonyWorkspaceContext = {
-  issueId: string | null;
-  issueIdentifier: string;
-};
+export {
+  SymphonyWorkspaceError,
+  sanitizeSymphonyIssueIdentifier,
+  symphonyWorkspaceDirectoryName,
+  type SymphonyWorkspaceContext
+} from "./workspace-identity.js";
 
 export type SymphonyWorkspace = {
   issueIdentifier: string;
@@ -77,24 +90,6 @@ export interface SymphonyWorkspaceManager {
     issueIdentifier: string,
     root: string
   ): string;
-}
-
-export class SymphonyWorkspaceError extends Error {
-  readonly code: string;
-
-  constructor(code: string, message: string) {
-    super(message);
-    this.name = "SymphonyWorkspaceError";
-    this.code = code;
-  }
-}
-
-export function sanitizeSymphonyIssueIdentifier(identifier: string): string {
-  return identifier.replace(/[^A-Za-z0-9._-]/g, "_");
-}
-
-export function symphonyWorkspaceDirectoryName(issueIdentifier: string): string {
-  return `symphony-${sanitizeSymphonyIssueIdentifier(issueIdentifier)}`;
 }
 
 export function createLocalSymphonyWorkspaceManager(options: {
@@ -272,92 +267,6 @@ async function removeManagedWorkspace(
   return existedBeforeDelete ? "removed" : "missing";
 }
 
-async function workspaceExists(workspacePath: string): Promise<boolean> {
-  try {
-    await stat(workspacePath);
-    return true;
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      error.code === "ENOENT"
-    ) {
-      return false;
-    }
-
-    throw error;
-  }
-}
-
-function buildWorkspacePath(issueIdentifier: string, root: string): string {
-  const resolvedRoot = path.resolve(root);
-  const workspacePath = path.resolve(
-    resolvedRoot,
-    symphonyWorkspaceDirectoryName(issueIdentifier)
-  );
-  const rootPrefix = `${resolvedRoot}${path.sep}`;
-
-  if (workspacePath === resolvedRoot) {
-    throw new SymphonyWorkspaceError(
-      "workspace_equals_root",
-      "Workspace path must not equal the workspace root."
-    );
-  }
-
-  if (!workspacePath.startsWith(rootPrefix)) {
-    throw new SymphonyWorkspaceError(
-      "workspace_outside_root",
-      `Workspace path escaped the root: ${workspacePath}`
-    );
-  }
-
-  return workspacePath;
-}
-
-async function resolveManagedWorkspacePath(
-  issueIdentifier: string,
-  root: string,
-  ensureRootExists: boolean
-): Promise<string> {
-  const resolvedRoot = path.resolve(root);
-
-  if (ensureRootExists) {
-    await mkdir(resolvedRoot, {
-      recursive: true
-    });
-  }
-
-  const canonicalRoot = await canonicalizePath(resolvedRoot);
-  const workspacePath = buildWorkspacePath(issueIdentifier, canonicalRoot);
-  const rootPrefix = `${canonicalRoot}${path.sep}`;
-
-  try {
-    const canonicalWorkspace = await canonicalizePath(workspacePath);
-
-    if (canonicalWorkspace === canonicalRoot) {
-      throw new SymphonyWorkspaceError(
-        "workspace_equals_root",
-        "Workspace path must not equal the workspace root."
-      );
-    }
-
-    if (!canonicalWorkspace.startsWith(rootPrefix)) {
-      throw new SymphonyWorkspaceError(
-        "workspace_outside_root",
-        `Workspace path escaped the root: ${canonicalWorkspace}`
-      );
-    }
-
-    return canonicalWorkspace;
-  } catch (error) {
-    if (isEnoent(error)) {
-      return workspacePath;
-    }
-
-    throw error;
-  }
-}
-
 async function classifyExistingWorkspace(
   workspacePath: string,
   repoOwnedSourceRepo: string | null
@@ -414,14 +323,6 @@ function resolveRepoOwnedSourceRepo(
   }
 
   return null;
-}
-
-async function canonicalizePath(targetPath: string): Promise<string> {
-  return await realpath(targetPath);
-}
-
-function isEnoent(error: unknown): boolean {
-  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 async function runWorkspaceHook(

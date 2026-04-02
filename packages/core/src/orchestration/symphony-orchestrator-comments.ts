@@ -1,4 +1,5 @@
 import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
+import { asJsonObject } from "../internal/json.js";
 import {
   issueBranchName,
   type SymphonyTrackerIssue
@@ -264,40 +265,6 @@ function formatRateLimitCreditsForComment(
   return fragments.length > 0 ? `credits: ${fragments.join(", ")}` : null;
 }
 
-function asJsonObject(value: unknown): SymphonyJsonObject | null {
-  return isRecord(value) ? (normalizeUnknownJsonObject(value) as SymphonyJsonObject) : null;
-}
-
-function normalizeUnknownJsonObject(value: unknown): SymphonyJsonObject {
-  return normalizeUnknownJsonValue(value) as SymphonyJsonObject;
-}
-
-function normalizeUnknownJsonValue(value: unknown): unknown {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((entry) => normalizeUnknownJsonValue(entry));
-  }
-
-  if (isRecord(value)) {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, nested]) => [
-        key,
-        normalizeUnknownJsonValue(nested)
-      ])
-    );
-  }
-
-  return String(value);
-}
-
 function stringOrNull(value: unknown): string | null {
   if (value === null || value === undefined) {
     return null;
@@ -325,8 +292,4 @@ function rateLimitReason(reason: string): boolean {
     normalized.includes("too many requests") ||
     normalized.includes("rate_limit_exceeded")
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
 }

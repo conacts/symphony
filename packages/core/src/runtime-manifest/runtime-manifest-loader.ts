@@ -3,6 +3,7 @@ import { build, type PluginBuild } from "esbuild";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { asRecord } from "../internal/records.js";
 import {
   defaultSymphonyRuntimeManifestPath,
   extractDefinedRuntimeManifest,
@@ -48,9 +49,12 @@ export async function loadSymphonyRuntimeManifest(
   try {
     await prepareRuntimeManifestLoaderDirectory(loaderDirectory, repoRoot);
     await createRuntimeManifestBundle(manifestPath, bundlePath);
-    const moduleNamespace = (await import(
-      `${pathToFileURL(bundlePath).href}?ts=${Date.now()}`
-    )) as Record<string, unknown>;
+    const moduleNamespace = asRecord(
+      await import(`${pathToFileURL(bundlePath).href}?ts=${Date.now()}`)
+    );
+    if (!moduleNamespace) {
+      throw new Error("Runtime manifest module did not resolve to an object.");
+    }
     const manifest = extractDefinedRuntimeManifest(moduleNamespace, manifestPath);
 
     return {

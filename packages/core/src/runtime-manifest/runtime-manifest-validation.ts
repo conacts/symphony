@@ -19,6 +19,7 @@ import {
   SymphonyRuntimeManifestError,
   type SymphonyRuntimeManifestIssue
 } from "./runtime-manifest-errors.js";
+import { isRecord } from "../internal/records.js";
 
 const symphonyRuntimeManifestBrand = Symbol.for(
   "@symphony/core/runtime-manifest/defined"
@@ -1303,10 +1304,6 @@ function isFreezable(value: unknown): value is Record<PropertyKey, unknown> {
     (typeof value === "object" && value !== null) ||
     typeof value === "function"
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function collectDuplicates(values: string[]): string[] {
