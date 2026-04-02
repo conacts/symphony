@@ -203,6 +203,229 @@ describe("docker workspace backend", () => {
     expect(calls.filter((call) => call.args[0] === "exec")).toHaveLength(1);
   });
 
+  it("prepares volume-backed workspaces without fabricating a host repo path", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      }
+    });
+    const calls: string[][] = [];
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      materializationMode: "volume",
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        if (
+          input.args[0] === "volume" &&
+          input.args[1] === "inspect"
+        ) {
+          return {
+            exitCode: 1,
+            stdout: "[]\n",
+            stderr: `Error response from daemon: No such volume: ${input.args[2]}`
+          };
+        }
+
+        if (input.args[0] === "volume" && input.args[1] === "create") {
+          return {
+            exitCode: 0,
+            stdout: `${input.args.at(-1) ?? "volume"}\n`,
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "inspect" && input.args[1] === "--type") {
+          if (input.args[3]?.includes("workspace")) {
+            return {
+              exitCode: 1,
+              stdout: "[]\n",
+              stderr: `Error response from daemon: No such container: ${input.args[3]}`
+            };
+          }
+
+          return {
+            exitCode: 0,
+            stdout: buildDockerInspectPayload({
+              id: "container-volume-123",
+              image: "ghcr.io/openai/symphony-workspace:latest",
+              name: input.args[3] ?? "unknown",
+              issueIdentifier: "COL-207",
+              workspaceKey: "COL-207",
+              hostPath: null,
+              volumeName: "symphony-workspace-col-207-deadbeef",
+              workspacePath: "/home/agent/workspace",
+              running: true,
+              materializationKind: "volume"
+            }),
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "run") {
+          return {
+            exitCode: 0,
+            stdout: "container-volume-123\n",
+            stderr: ""
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    const workspace = await backend.prepareWorkspace({
+      context: {
+        issueId: "issue-207",
+        issueIdentifier: "COL-207"
+      },
+      config: config.workspace,
+      hooks: config.hooks
+    });
+
+    expect(workspace.executionTarget).toEqual({
+      kind: "container",
+      workspacePath: "/home/agent/workspace",
+      containerId: "container-volume-123",
+      containerName: expect.stringMatching(
+        /^symphony-workspace-col-207-[0-9a-f]{8}$/
+      ),
+      hostPath: null,
+      shell: "sh"
+    });
+    expect(workspace.materialization).toEqual({
+      kind: "volume",
+      volumeName: expect.stringMatching(
+        /^symphony-workspace-volume-col-207-[0-9a-f]{8}$/
+      ),
+      containerPath: "/home/agent/workspace",
+      hostPath: null
+    });
+    expect(
+      calls.some((call) => {
+        if (call[0] !== "volume" || call[1] !== "create") {
+          return false;
+        }
+
+        const labels = new Set(call);
+        return (
+          labels.has("dev.symphony.workspace-backend=docker") &&
+          labels.has("dev.symphony.workspace-key=COL-207") &&
+          labels.has("dev.symphony.issue-identifier=COL-207") &&
+          labels.has("dev.symphony.materialization=volume") &&
+          labels.has("dev.symphony.managed-kind=workspace_volume")
+        );
+      })
+    ).toBe(true);
+    expect(
+      calls.some(
+        (call) =>
+          call[0] === "run" &&
+          call.includes("--mount") &&
+          call.some((arg) => arg.includes("type=volume"))
+      )
+    ).toBe(true);
+  });
+
+  it("cleans up volume-backed workspaces without a host repo path", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      }
+    });
+    const calls: string[][] = [];
+    const volumeName = "symphony-workspace-col-208-deadbeef";
+    const containerName = "symphony-workspace-col-208-deadbeef";
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      materializationMode: "volume",
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        if (input.args[0] === "inspect" && input.args[1] === "--type") {
+          return {
+            exitCode: 0,
+            stdout: buildDockerInspectPayload({
+              id: "container-volume-208",
+              image: "ghcr.io/openai/symphony-workspace:latest",
+              name: containerName,
+              issueIdentifier: "COL-208",
+              workspaceKey: "COL-208",
+              hostPath: null,
+              volumeName,
+              workspacePath: "/home/agent/workspace",
+              running: true,
+              materializationKind: "volume"
+            }),
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "rm") {
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+
+        if (
+          input.args[0] === "volume" &&
+          input.args[1] === "inspect"
+        ) {
+          return {
+            exitCode: 0,
+            stdout: buildDockerVolumeInspectPayload({
+              name: volumeName,
+              issueIdentifier: "COL-208",
+              workspaceKey: "COL-208",
+              materializationKind: "volume"
+            }),
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "volume" && input.args[1] === "rm") {
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    const workspace = buildPreparedDockerWorkspace({
+      issueIdentifier: "COL-208",
+      workspaceKey: "COL-208",
+      containerId: "container-volume-208",
+      containerName,
+      hostPath: null,
+      materializationKind: "volume",
+      volumeName
+    });
+
+    const cleanup = await backend.cleanupWorkspace({
+      issueIdentifier: "COL-208",
+      config: config.workspace,
+      hooks: config.hooks,
+      workspace
+    });
+
+    expect(cleanup.hostPath).toBeNull();
+    expect(cleanup.runtimePath).toBe("/home/agent/workspace");
+    expect(cleanup.workspaceRemovalDisposition).toBe("removed");
+    expect(
+      calls.some(
+        (call) => call[0] === "volume" && call[1] === "rm" && call[2] === volumeName
+      )
+    ).toBe(true);
+  });
+
   it("recreates stopped managed containers while reusing the bind-mounted workspace", async () => {
     const root = await createWorkspaceRoot();
     const workspacePath = path.join(root, "symphony-COL-201");
@@ -2464,7 +2687,9 @@ function buildPreparedDockerWorkspace(input: {
   workspaceKey: string;
   containerId: string;
   containerName: string;
-  hostPath: string;
+  hostPath: string | null;
+  materializationKind?: "bind_mount" | "volume";
+  volumeName?: string;
   networkDisposition?: "created" | "reused" | "not_applicable";
   networkName?: string | null;
   services?: Array<{
@@ -2478,6 +2703,8 @@ function buildPreparedDockerWorkspace(input: {
   }>;
   envBundle?: ReturnType<typeof ambientEnvBundle> | ReturnType<typeof buildManifestEnvBundle>;
 }) {
+  const materializationKind = input.materializationKind ?? "bind_mount";
+
   return {
     issueIdentifier: input.issueIdentifier,
     workspaceKey: input.workspaceKey,
@@ -2494,11 +2721,19 @@ function buildPreparedDockerWorkspace(input: {
       hostPath: input.hostPath,
       shell: "sh"
     },
-    materialization: {
-      kind: "bind_mount" as const,
-      hostPath: input.hostPath,
-      containerPath: "/home/agent/workspace"
-    },
+    materialization:
+      materializationKind === "volume"
+        ? {
+            kind: "volume" as const,
+            volumeName: input.volumeName ?? "workspace-volume",
+            containerPath: "/home/agent/workspace",
+            hostPath: null
+          }
+        : {
+            kind: "bind_mount" as const,
+            hostPath: input.hostPath ?? "/tmp/workspace",
+            containerPath: "/home/agent/workspace"
+          },
     networkName: input.networkName ?? null,
     services: input.services ?? [],
     envBundle: input.envBundle ?? ambientEnvBundle(),
@@ -2544,14 +2779,18 @@ function buildDockerInspectPayload(input: {
   name: string;
   issueIdentifier: string;
   workspaceKey: string;
-  hostPath: string;
+  hostPath: string | null;
+  volumeName?: string;
   workspacePath: string;
   running: boolean;
   status?: string;
+  materializationKind?: "bind_mount" | "volume";
   labels?: Record<string, string>;
   env?: Record<string, string>;
   networks?: Record<string, { aliases: string[] }>;
 }): string {
+  const materializationKind = input.materializationKind ?? "bind_mount";
+
   return JSON.stringify([
     {
       Id: input.id,
@@ -2568,7 +2807,7 @@ function buildDockerInspectPayload(input: {
             "dev.symphony.workspace-backend": "docker",
             "dev.symphony.workspace-key": input.workspaceKey,
             "dev.symphony.issue-identifier": input.issueIdentifier,
-            "dev.symphony.materialization": "bind_mount",
+            "dev.symphony.materialization": materializationKind,
             "dev.symphony.managed-kind": "workspace_container"
           }
       },
@@ -2582,14 +2821,24 @@ function buildDockerInspectPayload(input: {
           ])
         )
       },
-      Mounts: [
-        {
-          Type: "bind",
-          Source: input.hostPath,
-          Destination: input.workspacePath,
-          Name: null
-        }
-      ]
+      Mounts:
+        materializationKind === "volume"
+          ? [
+              {
+                Type: "volume",
+                Source: null,
+                Destination: input.workspacePath,
+                Name: input.volumeName ?? null
+              }
+            ]
+          : [
+              {
+                Type: "bind",
+                Source: input.hostPath,
+                Destination: input.workspacePath,
+                Name: null
+              }
+            ]
     }
   ]);
 }
@@ -2666,6 +2915,26 @@ function buildDockerNetworkInspectPayload(input: {
         "dev.symphony.workspace-key": input.workspaceKey,
         "dev.symphony.issue-identifier": input.issueIdentifier,
         "dev.symphony.managed-kind": "workspace_network"
+      }
+    }
+  ]);
+}
+
+function buildDockerVolumeInspectPayload(input: {
+  name: string;
+  issueIdentifier: string;
+  workspaceKey: string;
+  materializationKind: "bind_mount" | "volume";
+}): string {
+  return JSON.stringify([
+    {
+      Name: input.name,
+      Labels: {
+        "dev.symphony.workspace-backend": "docker",
+        "dev.symphony.workspace-key": input.workspaceKey,
+        "dev.symphony.issue-identifier": input.issueIdentifier,
+        "dev.symphony.materialization": input.materializationKind,
+        "dev.symphony.managed-kind": "workspace_volume"
       }
     }
   ]);

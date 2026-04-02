@@ -19,6 +19,7 @@ describe("@symphony/api scaffold", () => {
     expect(runtime.env.sourceRepo).toBe("/tmp/source-repo");
     expect(runtime.env.workspaceBackend).toBe("local");
     expect(runtime.env.dockerWorkspaceImage).toBeNull();
+    expect(runtime.env.dockerMaterializationMode).toBe("bind_mount");
     expect(runtime.env.dockerWorkspacePath).toBeNull();
     expect(runtime.env.dockerContainerNamePrefix).toBeNull();
     expect(runtime.env.dockerShell).toBeNull();
@@ -82,6 +83,7 @@ describe("@symphony/api scaffold", () => {
       buildSymphonyRuntimeEnv({
         SYMPHONY_WORKSPACE_BACKEND: "docker",
         SYMPHONY_DOCKER_WORKSPACE_IMAGE: "alpine:3.20",
+        SYMPHONY_DOCKER_MATERIALIZATION_MODE: "volume",
         SYMPHONY_DOCKER_WORKSPACE_PATH: "/home/agent/workspace",
         SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX: "symphony-test",
         SYMPHONY_DOCKER_SHELL: "sh"
@@ -90,6 +92,7 @@ describe("@symphony/api scaffold", () => {
 
     expect(env.workspaceBackend).toBe("docker");
     expect(env.dockerWorkspaceImage).toBe("alpine:3.20");
+    expect(env.dockerMaterializationMode).toBe("volume");
     expect(env.dockerWorkspacePath).toBe("/home/agent/workspace");
     expect(env.dockerContainerNamePrefix).toBe("symphony-test");
     expect(env.dockerShell).toBe("sh");

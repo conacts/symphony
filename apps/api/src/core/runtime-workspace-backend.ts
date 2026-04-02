@@ -8,7 +8,7 @@ import type { SymphonyRuntimeAppEnv } from "./env.js";
 
 export type SymphonyRuntimeWorkspaceBackendSelection = {
   backend: WorkspaceBackend;
-  metadata:
+      metadata:
     | {
         backendKind: "local";
         executionTargetKind: "host_path";
@@ -20,7 +20,7 @@ export type SymphonyRuntimeWorkspaceBackendSelection = {
     | {
         backendKind: "docker";
         executionTargetKind: "container";
-        materializationKind: "bind_mount";
+        materializationKind: "bind_mount" | "volume";
         selectionSource: "env";
         image: string;
         workspacePath: string | null;
@@ -36,6 +36,7 @@ export function createRuntimeWorkspaceBackend(
     | "sourceRepo"
     | "workspaceBackend"
     | "dockerWorkspaceImage"
+    | "dockerMaterializationMode"
     | "dockerWorkspacePath"
     | "dockerContainerNamePrefix"
     | "dockerShell"
@@ -50,6 +51,7 @@ export function createRuntimeWorkspaceBackend(
     return {
       backend: createDockerWorkspaceBackend({
         image,
+        materializationMode: env.dockerMaterializationMode,
         workspacePath: env.dockerWorkspacePath ?? undefined,
         containerNamePrefix: env.dockerContainerNamePrefix ?? undefined,
         shell: env.dockerShell ?? undefined,
@@ -58,7 +60,7 @@ export function createRuntimeWorkspaceBackend(
       metadata: {
         backendKind: "docker",
         executionTargetKind: "container",
-        materializationKind: "bind_mount",
+        materializationKind: env.dockerMaterializationMode,
         selectionSource: "env",
         image,
         workspacePath: env.dockerWorkspacePath,

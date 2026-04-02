@@ -88,6 +88,7 @@ describe("runtime serializers", () => {
           },
           launchTarget: {
             kind: "container",
+            hostLaunchPath: "/tmp/workspace",
             hostWorkspacePath: "/tmp/workspace",
             runtimeWorkspacePath: "/home/agent/workspace",
             containerId: "container-123",
@@ -127,6 +128,7 @@ describe("runtime serializers", () => {
       prepareDisposition: "reused",
       executionTargetKind: "container",
       materializationKind: "volume",
+      hostRepoMetadataAvailable: false,
       containerDisposition: "reused",
       networkDisposition: "reused",
       hostPath: null,
@@ -210,6 +212,7 @@ describe("runtime serializers", () => {
       materializationKind: null,
       containerDisposition: null,
       networkDisposition: null,
+      hostRepoMetadataAvailable: false,
       hostPath: null,
       runtimePath: null,
       containerId: null,

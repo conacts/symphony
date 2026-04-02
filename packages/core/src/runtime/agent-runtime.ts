@@ -5,12 +5,14 @@ import type { PreparedWorkspace } from "../workspace/workspace-backend.js";
 export type AgentRuntimeLaunchTarget =
   | {
       kind: "host_path";
+      hostLaunchPath: string;
       hostWorkspacePath: string;
       runtimeWorkspacePath: string;
     }
   | {
       kind: "container";
-      hostWorkspacePath: string;
+      hostLaunchPath: string;
+      hostWorkspacePath: string | null;
       runtimeWorkspacePath: string;
       containerId: string | null;
       containerName: string;

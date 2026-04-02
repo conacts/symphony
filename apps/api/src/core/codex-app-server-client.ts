@@ -4,8 +4,8 @@ import type { SymphonyTrackerIssue } from "@symphony/core/tracker";
 import {
   buildCodexAppServerSpawnSpec,
   buildDynamicToolSpecs,
+  ensureWorkspaceCwd,
   resolveCodexLaunchSettings,
-  validateWorkspaceCwd,
   wrapSessionError
 } from "./codex-app-server-launch.js";
 import {
@@ -109,8 +109,8 @@ export class CodexAppServerClient {
     issue: SymphonyTrackerIssue;
     logger: CodexAppServerLogger;
   }): Promise<CodexAppServerSession> {
-    const hostWorkspacePath = await validateWorkspaceCwd(
-      input.launchTarget.hostWorkspacePath,
+    const hostLaunchPath = await ensureWorkspaceCwd(
+      input.launchTarget.hostLaunchPath,
       input.workflowConfig.workspace.root
     );
     const launchSettings = resolveCodexLaunchSettings(
@@ -126,7 +126,7 @@ export class CodexAppServerClient {
     const client = new CodexAppServerClient({
       command: spawnSpec.command,
       args: spawnSpec.args,
-      cwd: hostWorkspacePath,
+      cwd: hostLaunchPath,
       env: spawnSpec.env,
       readTimeoutMs: input.workflowConfig.codex.readTimeoutMs,
       logger: input.logger
@@ -171,7 +171,8 @@ export class CodexAppServerClient {
         client,
         threadId,
         workspacePath: spawnSpec.runtimeWorkspacePath,
-        hostWorkspacePath,
+        hostLaunchPath,
+        hostWorkspacePath: input.launchTarget.hostWorkspacePath,
         launchTarget: input.launchTarget,
         issue: input.issue,
         processId: client.processId,

@@ -1,35 +1,44 @@
 import { describe, expect, it } from "vitest";
-import { resolveCodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
+import {
+  buildCodexContainerLaunchPath,
+  resolveCodexRuntimeLaunchTarget
+} from "./codex-runtime-launch-target.js";
+
+const workspaceRoot = "/tmp/workspaces";
 
 describe("codex runtime launch target", () => {
   it("maps host-path workspaces directly into host execution", () => {
     expect(
-      resolveCodexRuntimeLaunchTarget({
-        issueIdentifier: "COL-123",
-        workspaceKey: "COL-123",
-        backendKind: "local",
-        prepareDisposition: "reused",
-        containerDisposition: "not_applicable",
-        networkDisposition: "not_applicable",
-        afterCreateHookOutcome: "skipped",
-        executionTarget: {
-          kind: "host_path",
-          path: "/tmp/symphony-COL-123"
+      resolveCodexRuntimeLaunchTarget(
+        {
+          issueIdentifier: "COL-123",
+          workspaceKey: "COL-123",
+          backendKind: "local",
+          prepareDisposition: "reused",
+          containerDisposition: "not_applicable",
+          networkDisposition: "not_applicable",
+          afterCreateHookOutcome: "skipped",
+          executionTarget: {
+            kind: "host_path",
+            path: "/tmp/symphony-COL-123"
+          },
+          materialization: {
+            kind: "directory",
+            hostPath: "/tmp/symphony-COL-123"
+          },
+          networkName: null,
+          services: [],
+          envBundle: ambientEnvBundle(),
+          manifestLifecycle: null,
+          path: "/tmp/symphony-COL-123",
+          created: false,
+          workerHost: null
         },
-        materialization: {
-          kind: "directory",
-          hostPath: "/tmp/symphony-COL-123"
-        },
-        networkName: null,
-        services: [],
-        envBundle: ambientEnvBundle(),
-        manifestLifecycle: null,
-        path: "/tmp/symphony-COL-123",
-        created: false,
-        workerHost: null
-      })
+        workspaceRoot
+      )
     ).toEqual({
       kind: "host_path",
+      hostLaunchPath: "/tmp/symphony-COL-123",
       hostWorkspacePath: "/tmp/symphony-COL-123",
       runtimeWorkspacePath: "/tmp/symphony-COL-123"
     });
@@ -66,10 +75,12 @@ describe("codex runtime launch target", () => {
           path: null,
           created: false,
           workerHost: "docker-host"
-        }
+        },
+        workspaceRoot
       )
     ).toEqual({
       kind: "container",
+      hostLaunchPath: "/tmp/symphony-COL-123",
       hostWorkspacePath: "/tmp/symphony-COL-123",
       runtimeWorkspacePath: "/home/agent/workspace",
       containerId: "container-123",
@@ -78,39 +89,50 @@ describe("codex runtime launch target", () => {
     });
   });
 
-  it("fails closed on container targets without a host-backed materialization path", () => {
-    expect(() =>
-      resolveCodexRuntimeLaunchTarget({
-        issueIdentifier: "COL-123",
-        workspaceKey: "COL-123",
-        backendKind: "docker",
-        prepareDisposition: "reused",
-        containerDisposition: "reused",
-        networkDisposition: "reused",
-        afterCreateHookOutcome: "skipped",
-        executionTarget: {
-          kind: "container",
-          workspacePath: "/home/agent/workspace",
-          containerId: "container-123",
-          containerName: "symphony-col-123",
-          hostPath: null,
-          shell: "sh"
+  it("maps volume-backed container workspaces into docker exec launch targets", () => {
+    expect(
+      resolveCodexRuntimeLaunchTarget(
+        {
+          issueIdentifier: "COL-123",
+          workspaceKey: "COL-123",
+          backendKind: "docker",
+          prepareDisposition: "reused",
+          containerDisposition: "reused",
+          networkDisposition: "reused",
+          afterCreateHookOutcome: "skipped",
+          executionTarget: {
+            kind: "container",
+            workspacePath: "/home/agent/workspace",
+            containerId: "container-123",
+            containerName: "symphony-col-123",
+            hostPath: null,
+            shell: "sh"
+          },
+          materialization: {
+            kind: "volume",
+            volumeName: "symphony-col-123",
+            containerPath: "/home/agent/workspace",
+            hostPath: null
+          },
+          networkName: "symphony-network-col-123",
+          services: [],
+          envBundle: ambientEnvBundle(),
+          manifestLifecycle: null,
+          path: null,
+          created: false,
+          workerHost: "docker-host"
         },
-        materialization: {
-          kind: "volume",
-          volumeName: "symphony-col-123",
-          containerPath: "/home/agent/workspace",
-          hostPath: null
-        },
-        networkName: "symphony-network-col-123",
-        services: [],
-        envBundle: ambientEnvBundle(),
-        manifestLifecycle: null,
-        path: null,
-        created: false,
-        workerHost: "docker-host"
-      })
-    ).toThrowError(/host-backed workspace path/i);
+        workspaceRoot
+      )
+    ).toEqual({
+      kind: "container",
+      hostLaunchPath: buildCodexContainerLaunchPath(workspaceRoot, "COL-123"),
+      hostWorkspacePath: null,
+      runtimeWorkspacePath: "/home/agent/workspace",
+      containerId: "container-123",
+      containerName: "symphony-col-123",
+      shell: "sh"
+    });
   });
 
   it("fails closed on container targets without a container name", () => {
@@ -143,7 +165,7 @@ describe("codex runtime launch target", () => {
         path: null,
         created: false,
         workerHost: "docker-host"
-      })
+      }, workspaceRoot)
     ).toThrowError(/container name/i);
   });
 
@@ -177,7 +199,7 @@ describe("codex runtime launch target", () => {
         path: null,
         created: false,
         workerHost: "docker-host"
-      })
+      }, workspaceRoot)
     ).toThrowError(/container workspace path/i);
   });
 
@@ -211,7 +233,7 @@ describe("codex runtime launch target", () => {
         path: null,
         created: false,
         workerHost: "docker-host"
-      })
+      }, workspaceRoot)
     ).toThrowError(/container shell/i);
   });
 });

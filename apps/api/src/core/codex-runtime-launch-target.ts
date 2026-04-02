@@ -1,16 +1,20 @@
+import path from "node:path";
 import type {
   AgentRuntimeLaunchTarget,
   PreparedWorkspace
 } from "@symphony/core";
 
 export type CodexRuntimeLaunchTarget = AgentRuntimeLaunchTarget;
+export const codexContainerLaunchDirectoryName = "codex-launch";
 
 export function resolveCodexRuntimeLaunchTarget(
-  workspace: PreparedWorkspace
+  workspace: PreparedWorkspace,
+  workspaceRoot: string
 ): CodexRuntimeLaunchTarget {
   if (workspace.executionTarget.kind === "host_path") {
     return {
       kind: "host_path",
+      hostLaunchPath: workspace.executionTarget.path,
       hostWorkspacePath: workspace.executionTarget.path,
       runtimeWorkspacePath: workspace.executionTarget.path
     };
@@ -21,12 +25,6 @@ export function resolveCodexRuntimeLaunchTarget(
     (workspace.materialization.kind === "bind_mount"
       ? workspace.materialization.hostPath
       : null);
-
-  if (!hostWorkspacePath) {
-    throw new TypeError(
-      "Container Codex execution requires a host-backed workspace path. Volume-only execution targets remain deferred."
-    );
-  }
 
   const containerName = normalizeRequiredString(
     workspace.executionTarget.containerName,
@@ -43,12 +41,27 @@ export function resolveCodexRuntimeLaunchTarget(
 
   return {
     kind: "container",
+    hostLaunchPath:
+      hostWorkspacePath ??
+      buildCodexContainerLaunchPath(workspaceRoot, workspace.workspaceKey),
     hostWorkspacePath,
     runtimeWorkspacePath,
     containerId: workspace.executionTarget.containerId,
     containerName,
     shell
   };
+}
+
+export function buildCodexContainerLaunchPath(
+  workspaceRoot: string,
+  workspaceKey: string
+): string {
+  return path.join(
+    path.resolve(workspaceRoot),
+    ".symphony-runtime",
+    codexContainerLaunchDirectoryName,
+    workspaceKey
+  );
 }
 
 function normalizeRequiredString(

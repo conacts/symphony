@@ -32,6 +32,7 @@ describe("symphony runtime contracts", () => {
               prepareDisposition: "reused",
               executionTargetKind: "host_path",
               materializationKind: "directory",
+              hostRepoMetadataAvailable: true,
               containerDisposition: "not_applicable",
               networkDisposition: "not_applicable",
               hostPath: "/tmp/COL-157",
@@ -87,6 +88,7 @@ describe("symphony runtime contracts", () => {
             },
             launchTarget: {
               kind: "host_path",
+              hostLaunchPath: "/tmp/COL-157",
               hostWorkspacePath: "/tmp/COL-157",
               runtimeWorkspacePath: "/tmp/COL-157"
             },
@@ -150,6 +152,7 @@ describe("symphony runtime contracts", () => {
           prepareDisposition: "reused",
           executionTargetKind: "host_path",
           materializationKind: "directory",
+          hostRepoMetadataAvailable: true,
           containerDisposition: "not_applicable",
           networkDisposition: "not_applicable",
           hostPath: "/tmp/COL-157",
@@ -213,6 +216,7 @@ describe("symphony runtime contracts", () => {
           sessionId: "session-1",
           launchTarget: {
             kind: "host_path",
+            hostLaunchPath: "/tmp/COL-157",
             hostWorkspacePath: "/tmp/COL-157",
             runtimeWorkspacePath: "/tmp/COL-157"
           },
@@ -273,6 +277,7 @@ describe("symphony runtime contracts", () => {
           prepareDisposition: null,
           executionTargetKind: null,
           materializationKind: null,
+          hostRepoMetadataAvailable: false,
           containerDisposition: null,
           networkDisposition: null,
           hostPath: null,

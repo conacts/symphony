@@ -217,6 +217,7 @@ export const symphonyRuntimeWorkspaceSchema = z.strictObject({
   prepareDisposition: symphonyRuntimeWorkspacePrepareDispositionSchema.nullable(),
   executionTargetKind: symphonyRuntimeWorkspaceExecutionTargetKindSchema.nullable(),
   materializationKind: symphonyRuntimeWorkspaceMaterializationKindSchema.nullable(),
+  hostRepoMetadataAvailable: z.boolean(),
   containerDisposition: symphonyRuntimeWorkspaceContainerDispositionSchema.nullable(),
   networkDisposition: symphonyRuntimeWorkspaceNetworkDispositionSchema.nullable(),
   hostPath: nullableNonEmptyStringSchema,
@@ -235,12 +236,14 @@ export const symphonyRuntimeWorkspaceSchema = z.strictObject({
 export const symphonyRuntimeLaunchTargetSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("host_path"),
+    hostLaunchPath: nonEmptyStringSchema,
     hostWorkspacePath: nonEmptyStringSchema,
     runtimeWorkspacePath: nonEmptyStringSchema
   }),
   z.strictObject({
     kind: z.literal("container"),
-    hostWorkspacePath: nonEmptyStringSchema,
+    hostLaunchPath: nonEmptyStringSchema,
+    hostWorkspacePath: nullableNonEmptyStringSchema,
     runtimeWorkspacePath: nonEmptyStringSchema,
     containerId: nullableNonEmptyStringSchema,
     containerName: nonEmptyStringSchema,

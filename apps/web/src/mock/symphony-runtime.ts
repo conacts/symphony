@@ -353,6 +353,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
       workerHost: "worker-b",
       workspacePath: "/tmp/workspaces/col-166",
       launchTarget: buildContainerLaunchTarget({
+        hostLaunchPath: "/tmp/workspaces/col-166",
         hostWorkspacePath: "/tmp/workspaces/col-166",
         runtimeWorkspacePath: "/home/agent/workspace",
         containerId: "container-166",
@@ -414,6 +415,7 @@ function buildLocalRuntimeWorkspace(
     prepareDisposition: "reused",
     executionTargetKind: "host_path",
     materializationKind: "directory",
+    hostRepoMetadataAvailable: true,
     containerDisposition: "not_applicable",
     networkDisposition: "not_applicable",
     hostPath: path,
@@ -449,6 +451,7 @@ function buildDockerRuntimeWorkspace(input: {
     prepareDisposition: "reused",
     executionTargetKind: "container",
     materializationKind: "bind_mount",
+    hostRepoMetadataAvailable: true,
     containerDisposition: "reused",
     networkDisposition: "reused",
     hostPath: input.hostPath,
@@ -494,12 +497,14 @@ function buildHostPathLaunchTarget(
 ): NonNullable<SymphonyRuntimeIssueResult["running"]>["launchTarget"] {
   return {
     kind: "host_path",
+    hostLaunchPath: path,
     hostWorkspacePath: path,
     runtimeWorkspacePath: path
   };
 }
 
 function buildContainerLaunchTarget(input: {
+  hostLaunchPath: string;
   hostWorkspacePath: string;
   runtimeWorkspacePath: string;
   containerId: string;
@@ -508,6 +513,7 @@ function buildContainerLaunchTarget(input: {
 }): NonNullable<SymphonyRuntimeIssueResult["running"]>["launchTarget"] {
   return {
     kind: "container",
+    hostLaunchPath: input.hostLaunchPath,
     hostWorkspacePath: input.hostWorkspacePath,
     runtimeWorkspacePath: input.runtimeWorkspacePath,
     containerId: input.containerId,
@@ -727,6 +733,7 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
           containerName: "symphony-col-166"
         }),
         launchTarget: buildContainerLaunchTarget({
+          hostLaunchPath: "/tmp/workspaces/col-166",
           hostWorkspacePath: "/tmp/workspaces/col-166",
           runtimeWorkspacePath: "/home/agent/workspace",
           containerId: "container-166",

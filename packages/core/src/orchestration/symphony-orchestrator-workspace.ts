@@ -29,6 +29,7 @@ export function normalizeWorkspaceLifecycleMetadata(
     workerHost: workspace.workerHost,
     executionTargetKind: workspace.executionTargetKind,
     materializationKind: workspace.materializationKind,
+    hostRepoMetadataAvailable: workspace.hostRepoMetadataAvailable,
     prepareDisposition: workspace.prepareDisposition,
     containerDisposition: workspace.containerDisposition,
     networkDisposition: workspace.networkDisposition,

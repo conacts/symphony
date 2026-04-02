@@ -20,6 +20,7 @@ This stage also makes the frozen runtime manifest operational for Docker-backed 
 This stage now covers:
 
 - prepare a deterministic container-backed workspace
+- support both bind-mounted and container-owned Docker materialization modes
 - prepare a deterministic per-workspace Docker network when a runtime manifest is present
 - prepare a deterministic per-workspace Postgres sidecar when a runtime manifest is present
 - resolve an explicit env bundle for hooks and runtime execution
@@ -38,6 +39,7 @@ This stage now covers:
 ```ts
 createDockerWorkspaceBackend({
   image,
+  materializationMode?,
   workspacePath?,
   containerNamePrefix?,
   shell?,
@@ -59,7 +61,11 @@ orchestrator path.
 `prepareWorkspace()` does the following:
 
 1. Resolves a deterministic host workspace path under `workflow.workspace.root`
-2. Ensures the host workspace directory exists
+2. Materializes the workspace according to `materializationMode`:
+   - `bind_mount`
+     resolves and ensures a deterministic host workspace directory
+   - `volume`
+     resolves and ensures a deterministic managed Docker volume without inventing a host repo path
 3. When a runtime manifest is present, derives and ensures a deterministic per-workspace Docker
    network
 4. When a runtime manifest is present, derives and ensures a deterministic Postgres sidecar for
@@ -72,12 +78,12 @@ orchestrator path.
    - it belongs to the same issue/workspace key
    - it is running
    - it uses the expected image
-   - it has the expected bind mount for the workspace
+   - it has the expected workspace materialization mount for the workspace
    - when manifest-backed, it is attached to the expected workspace network
 9. Otherwise, removes the stale managed workspace container and starts a fresh one
 10. Resolves the explicit env bundle
-11. Runs `after_create` inside the container only when the materialized workspace directory was
-    newly created
+11. Runs `after_create` inside the container only when the chosen materialization was newly
+    created
 12. Executes manifest lifecycle phases inside the workspace container when a runtime manifest is
     present:
     - `bootstrap`
@@ -148,7 +154,7 @@ Behavior matches the local backend contract:
 4. Removes the managed workspace container
 5. Removes managed Postgres sidecars
 6. Removes the managed workspace network
-7. Removes the host bind-mounted workspace directory and the warm-lifetime cache entry
+7. Removes the selected workspace materialization and the warm-lifetime cache entry
 
 `before_remove` is best effort, matching the local backend semantics.
 
@@ -180,14 +186,21 @@ blobs:
     workspacePath: "/home/agent/workspace",
     containerId,
     containerName,
-    hostPath,
+    hostPath, // null for container-owned materialization
     shell
   },
-  materialization: {
-    kind: "bind_mount",
-    hostPath,
-    containerPath: "/home/agent/workspace"
-  },
+  materialization:
+    | {
+        kind: "bind_mount",
+        hostPath,
+        containerPath: "/home/agent/workspace"
+      }
+    | {
+        kind: "volume",
+        volumeName,
+        containerPath: "/home/agent/workspace",
+        hostPath: null
+      },
   networkName,
   services: [
     {
@@ -232,8 +245,11 @@ Notable details:
   reasons.
 - `path` stays `null` on purpose. The compatibility alias remains intended for local host-path
   execution, not container-target execution.
-- `hostPath` is still carried explicitly so observers, serializers, and operators can understand
-  where the workspace is materialized on the host.
+- `hostPath` is explicit and truthful:
+  bind-mounted workspaces expose the canonical host repo path; container-owned workspaces expose
+  `null`.
+- `hostRepoMetadataAvailable` is explicit in the normalized summary so operators can tell whether
+  host-side Git metadata should exist for the prepared workspace.
 - `shell` is part of the prepared container execution target. The launch-target resolver now uses
   that backend-authored value instead of synthesizing shell choice from parallel runtime config.
 - container names are deterministic and stable across retries for the same workspace key.
@@ -246,6 +262,7 @@ fields explicit for both local and Docker runs:
 - `prepareDisposition`
 - `executionTargetKind`
 - `materializationKind`
+- `hostRepoMetadataAvailable`
 - `containerDisposition`
 - `networkDisposition`
 - `hostPath`
@@ -267,32 +284,37 @@ For this stage, `apps/api` keeps backend/runtime selection explicit:
 - `SYMPHONY_WORKSPACE_BACKEND=docker`
   Uses `createDockerWorkspaceBackend()` plus the execution-target-aware Codex runtime path.
   `SYMPHONY_DOCKER_WORKSPACE_IMAGE` is required.
+- `SYMPHONY_DOCKER_MATERIALIZATION_MODE=bind_mount|volume`
+  Keeps `bind_mount` as the default and enables container-owned workspaces when set to `volume`.
 
 The Codex runtime consumes only `PreparedWorkspace` and resolves one launch target:
 
 - `executionTarget.kind === "host_path"`
   Launch Codex locally exactly as before.
 - `executionTarget.kind === "container"`
-  Validate the bind-mounted host workspace path, then launch Codex with
+  Launch Codex with
   `docker exec -i --workdir <container-workspace> <container-name> <shell> -lc "<codex command>"`.
+  When no host repo path exists, the runtime uses a dedicated host launch directory under
+  `workflow.workspace.root/.symphony-runtime/codex-launch/<workspaceKey>` as the safe app-server
+  cwd.
 
 Operationally important details:
 
 - The Codex thread cwd is the container workspace path, not the host bind mount path.
-- Repo snapshots still run against the host bind-mounted path.
-- The runtime fails closed when a container target does not include the host path or container
-  name needed for this bridge.
+- Repo snapshots run against the host repo path when one exists, otherwise they run through
+  `docker exec` inside the container and record that source explicitly in the journal payload.
+- The runtime still fails closed when the container name, runtime path, or shell needed for this
+  bridge are missing.
 - Host-path and container launch both receive the explicit env bundle rather than depending on
   ambient inheritance as the primary path.
-- The current runtime path intentionally supports bind-mounted Docker workspaces only. Volume-only
-  execution remains deferred.
 
 The runtime launch step now resolves and surfaces an explicit launch target:
 
 ```ts
 {
   kind: "container",
-  hostWorkspacePath: "/tmp/symphony/COL-123",
+  hostLaunchPath: "/tmp/symphony/.symphony-runtime/codex-launch/COL-123",
+  hostWorkspacePath: null,
   runtimeWorkspacePath: "/home/agent/workspace",
   containerId,
   containerName,
@@ -375,6 +397,7 @@ Workspace read-model fields:
 - `prepareDisposition`
 - `executionTargetKind`
 - `materializationKind`
+- `hostRepoMetadataAvailable`
 - `containerDisposition`
 - `networkDisposition`
 - `hostPath`
@@ -392,6 +415,7 @@ Workspace read-model fields:
 Launch-target read-model fields:
 
 - `kind`
+- `hostLaunchPath`
 - `hostWorkspacePath`
 - `runtimeWorkspacePath`
 - `containerId`
@@ -423,6 +447,7 @@ The live verification test:
 2. Boots a fake app-server script inside the container through the real runtime path
 3. Waits for a real turn completion through the Codex runtime
 4. Cleans the container and bind-mounted host workspace up
+4. Cleans the container and the selected workspace materialization up
 5. Asserts that the container and host workspace are gone
 
 The live test is gated by `SYMPHONY_LIVE_DOCKER_VERIFY=1`, and the package script sets that flag
@@ -437,6 +462,5 @@ This stage does not:
 - add service types beyond Postgres
 - add shared Postgres instances
 - add host port publishing for sidecars
-- support volume-only runtime execution without a host bind mount
 - redesign runtime execution behavior beyond metadata surfacing and event clarity
 - add broader cutover logic beyond bounded backend/launch-target observability

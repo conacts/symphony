@@ -19,6 +19,7 @@ export type SymphonyRuntimeAppEnv = {
   sourceRepo: string | null;
   workspaceBackend: "local" | "docker";
   dockerWorkspaceImage: string | null;
+  dockerMaterializationMode: "bind_mount" | "volume";
   dockerWorkspacePath: string | null;
   dockerContainerNamePrefix: string | null;
   dockerShell: string | null;
@@ -41,6 +42,9 @@ export function loadSymphonyRuntimeAppEnv(
       SYMPHONY_SOURCE_REPO: z.string().min(1).optional(),
       SYMPHONY_WORKSPACE_BACKEND: z.enum(["local", "docker"]).optional(),
       SYMPHONY_DOCKER_WORKSPACE_IMAGE: z.string().min(1).optional(),
+      SYMPHONY_DOCKER_MATERIALIZATION_MODE: z
+        .enum(["bind_mount", "volume"])
+        .optional(),
       SYMPHONY_DOCKER_WORKSPACE_PATH: z.string().min(1).optional(),
       SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX: z.string().min(1).optional(),
       SYMPHONY_DOCKER_SHELL: z.string().min(1).optional(),
@@ -96,6 +100,8 @@ export function loadSymphonyRuntimeAppEnv(
     sourceRepo: parsed.SYMPHONY_SOURCE_REPO ?? null,
     workspaceBackend,
     dockerWorkspaceImage: parsed.SYMPHONY_DOCKER_WORKSPACE_IMAGE ?? null,
+    dockerMaterializationMode:
+      parsed.SYMPHONY_DOCKER_MATERIALIZATION_MODE ?? "bind_mount",
     dockerWorkspacePath: parsed.SYMPHONY_DOCKER_WORKSPACE_PATH ?? null,
     dockerContainerNamePrefix:
       parsed.SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX ?? null,

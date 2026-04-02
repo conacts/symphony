@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { SymphonyJsonObject } from "@symphony/core/journal";
+import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
 
 const execFileAsync = promisify(execFile);
 const defaultPatchMaxBytes = 64 * 1024;
@@ -11,25 +12,26 @@ type RepoSnapshot = {
 };
 
 export async function captureRepoSnapshot(
-  workspacePath: string,
+  launchTarget: CodexRuntimeLaunchTarget,
   timeoutMs: number
 ): Promise<RepoSnapshot> {
   const capturedAt = new Date().toISOString();
+  const context = buildRepoSnapshotContext(launchTarget);
 
   try {
-    const head = await gitCapture(workspacePath, ["rev-parse", "HEAD"], timeoutMs);
+    const head = await gitCapture(launchTarget, ["rev-parse", "HEAD"], timeoutMs);
     const statusShort = await gitCapture(
-      workspacePath,
+      launchTarget,
       ["status", "--short"],
       timeoutMs
     );
     const diffstat = await gitCapture(
-      workspacePath,
+      launchTarget,
       ["diff", "--stat", "--no-ext-diff", "HEAD"],
       timeoutMs
     );
     const patchOutput = await gitCapture(
-      workspacePath,
+      launchTarget,
       ["diff", "--no-ext-diff", "HEAD"],
       timeoutMs
     );
@@ -41,6 +43,11 @@ export async function captureRepoSnapshot(
         captured_at: capturedAt,
         available: true,
         worker_host: null,
+        source: context.source,
+        workspace_path: context.workspacePath,
+        host_workspace_path: context.hostWorkspacePath,
+        host_launch_path: context.hostLaunchPath,
+        container_name: context.containerName,
         commit_hash: blankToNull(head),
         dirty: statusShort.trim() !== "",
         status_short: blankToNull(statusShort),
@@ -56,6 +63,11 @@ export async function captureRepoSnapshot(
         captured_at: capturedAt,
         available: false,
         worker_host: null,
+        source: context.source,
+        workspace_path: context.workspacePath,
+        host_workspace_path: context.hostWorkspacePath,
+        host_launch_path: context.hostLaunchPath,
+        container_name: context.containerName,
         error: formatRepoSnapshotError(error)
       }
     };
@@ -63,17 +75,59 @@ export async function captureRepoSnapshot(
 }
 
 async function gitCapture(
-  workspacePath: string,
+  launchTarget: CodexRuntimeLaunchTarget,
   args: string[],
   timeoutMs: number
 ): Promise<string> {
-  const { stdout, stderr } = await execFileAsync("git", args, {
-    cwd: workspacePath,
-    timeout: timeoutMs,
-    maxBuffer: 8 * 1024 * 1024
-  });
+  const command =
+    launchTarget.kind === "host_path"
+      ? {
+          file: "git",
+          args,
+          options: {
+            cwd: launchTarget.hostWorkspacePath,
+            timeout: timeoutMs,
+            maxBuffer: 8 * 1024 * 1024
+          }
+        }
+      : launchTarget.hostWorkspacePath !== null
+        ? {
+            file: "git",
+            args,
+            options: {
+              cwd: launchTarget.hostWorkspacePath,
+              timeout: timeoutMs,
+              maxBuffer: 8 * 1024 * 1024
+            }
+          }
+        : {
+            file: "docker",
+            args: [
+              "exec",
+              "--workdir",
+              launchTarget.runtimeWorkspacePath,
+              launchTarget.containerName,
+              launchTarget.shell,
+              "-lc",
+              buildGitShellCommand(args)
+            ],
+            options: {
+              cwd: launchTarget.hostLaunchPath,
+              timeout: timeoutMs,
+              maxBuffer: 8 * 1024 * 1024
+            }
+          };
+  const { stdout, stderr } = await execFileAsync(command.file, command.args, command.options);
 
   return `${stdout ?? ""}${stderr ?? ""}`.trimEnd();
+}
+
+function buildGitShellCommand(args: string[]): string {
+  return ["git", ...args.map((part) => shellEscape(part))].join(" ");
+}
+
+function shellEscape(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 function truncateText(
@@ -108,4 +162,32 @@ function formatRepoSnapshotError(error: unknown): string {
   }
 
   return String(error);
+}
+
+function buildRepoSnapshotContext(launchTarget: CodexRuntimeLaunchTarget): {
+  source: "host_path" | "container_exec";
+  workspacePath: string;
+  hostWorkspacePath: string | null;
+  hostLaunchPath: string;
+  containerName: string | null;
+} {
+  if (launchTarget.kind === "host_path") {
+    return {
+      source: "host_path",
+      workspacePath: launchTarget.hostWorkspacePath,
+      hostWorkspacePath: launchTarget.hostWorkspacePath,
+      hostLaunchPath: launchTarget.hostLaunchPath,
+      containerName: null
+    };
+  }
+
+  return {
+    source:
+      launchTarget.hostWorkspacePath === null ? "container_exec" : "host_path",
+    workspacePath:
+      launchTarget.hostWorkspacePath ?? launchTarget.runtimeWorkspacePath,
+    hostWorkspacePath: launchTarget.hostWorkspacePath,
+    hostLaunchPath: launchTarget.hostLaunchPath,
+    containerName: launchTarget.containerName
+  };
 }

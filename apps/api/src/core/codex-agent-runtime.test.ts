@@ -476,6 +476,7 @@ done
         threadId: "thread-agent",
         launchTarget: expect.objectContaining({
           kind: "container",
+          hostLaunchPath: hostWorkspacePath,
           containerName: "symphony-col-123-container",
           hostWorkspacePath: hostWorkspacePath,
           runtimeWorkspacePath: "/home/agent/workspace"
@@ -488,10 +489,12 @@ done
     expect(exportPayload?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
     expect(exportPayload?.run.repoStart).toMatchObject({
       available: true,
+      source: "host_path",
       dirty: false
     });
     expect(exportPayload?.run.repoEnd).toMatchObject({
       available: true,
+      source: "host_path",
       dirty: false
     });
 
@@ -590,6 +593,7 @@ sleep 1
       failureOrigin: "codex_startup",
       launchTarget: {
         kind: "container",
+        hostLaunchPath: hostWorkspacePath,
         hostWorkspacePath,
         runtimeWorkspacePath: "/home/agent/workspace",
         containerId: "container-123",
@@ -602,12 +606,138 @@ sleep 1
         reason: "Timed out waiting for Codex response 1.",
         launchTarget: expect.objectContaining({
           kind: "container",
+          hostLaunchPath: hostWorkspacePath,
           containerName: "symphony-col-123-container",
           hostWorkspacePath,
           runtimeWorkspacePath: "/home/agent/workspace"
         })
       })
     );
+
+    database.close();
+  });
+
+  it("launches container-owned workspaces without a host repo path and snapshots repo state through docker exec", async () => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), "symphony-codex-runtime-container-owned-")
+    );
+    tempRoots.push(root);
+
+    const containerRepoPath = path.join(root, "container-repo");
+    await mkdir(containerRepoPath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(containerRepoPath);
+
+    const fakeCodex = path.join(root, "fake-codex.sh");
+    await writeFakeCodexBinary(fakeCodex);
+
+    const fakeDocker = path.join(root, "docker");
+    const fakeDockerLog = path.join(root, "fake-docker-log.jsonl");
+    await writeFakeDockerBinary(fakeDocker, fakeDockerLog, containerRepoPath);
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createDoneTracker(issue);
+    const workflowConfig = buildSymphonyRuntimeWorkflowConfig(root, {
+      codex: {
+        ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+        command: `${fakeCodex} app-server`
+      }
+    });
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runJournal = createSqliteSymphonyRunJournal({
+      db: database.db,
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runId = await runJournal.recordRunStarted({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      status: "dispatching",
+      workspacePath: null,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    let completion: SymphonyAgentRuntimeCompletion | null = null;
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createCodexSymphonyAgentRuntime({
+        promptTemplate: "You are working on {{ issue.identifier }}.",
+        tracker,
+        runJournal,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        workflowConfig,
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
+        callbacks: {
+          async onUpdate() {
+            return;
+          },
+          async onComplete(_issueId, result) {
+            completion = result;
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        workflowConfig,
+        workspace: buildContainerPreparedWorkspace(issue.identifier, null)
+      });
+    });
+
+    await completionPromise;
+
+    expect(completion).toEqual({
+      kind: "normal"
+    });
+
+    const dockerInvocations = (await readFile(fakeDockerLog, "utf8"))
+      .trim()
+      .split("\n")
+      .filter((line) => line !== "")
+      .map((line) => JSON.parse(line) as {
+        command: string;
+        containerName: string;
+        workdir: string;
+      });
+    expect(dockerInvocations.some((entry) => entry.command === "exec")).toBe(true);
+    expect(dockerInvocations.some((entry) => entry.workdir === "/home/agent/workspace")).toBe(
+      true
+    );
+
+    const exportPayload = await runJournal.fetchRunExport(runId);
+    expect(exportPayload?.run.workspacePath).toBeNull();
+    expect(exportPayload?.run.commitHashStart).toBeNull();
+    expect(exportPayload?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
+    expect(exportPayload?.run.repoStart).toMatchObject({
+      available: false,
+      source: "container_exec",
+      host_workspace_path: null,
+      container_name: "symphony-col-123-container",
+      error: expect.stringContaining("spawn docker ENOENT")
+    });
+    expect(exportPayload?.run.repoEnd).toMatchObject({
+      available: true,
+      source: "container_exec",
+      host_workspace_path: null,
+      container_name: "symphony-col-123-container",
+      dirty: false
+    });
 
     database.close();
   });
@@ -675,7 +805,8 @@ done
 
 async function writeFakeDockerBinary(
   dockerBinary: string,
-  logPath: string
+  logPath: string,
+  repoPath?: string
 ): Promise<void> {
   await writeFile(
     dockerBinary,
@@ -713,7 +844,8 @@ if [ "$1" != "-lc" ]; then
   exit 98
 fi
 shift
-printf '{"command":"exec","containerName":"%s","workdir":"%s"}\\n' "$container_name" "$workdir" > "${logPath}"
+printf '{"command":"exec","containerName":"%s","workdir":"%s"}\\n' "$container_name" "$workdir" >> "${logPath}"
+${repoPath ? `cd '${repoPath.replaceAll("'", `'"'"'`)}'` : ""}
 exec "$shell_bin" -lc "$1"
 `
   );
@@ -771,7 +903,7 @@ function buildLocalPreparedWorkspace(
 
 function buildContainerPreparedWorkspace(
   issueIdentifier: string,
-  hostWorkspacePath: string
+  hostWorkspacePath: string | null
 ) {
   return {
     issueIdentifier,
@@ -789,11 +921,19 @@ function buildContainerPreparedWorkspace(
       hostPath: hostWorkspacePath,
       shell: "sh"
     },
-    materialization: {
-      kind: "bind_mount" as const,
-      hostPath: hostWorkspacePath,
-      containerPath: "/home/agent/workspace"
-    },
+    materialization:
+      hostWorkspacePath === null
+        ? {
+            kind: "volume" as const,
+            volumeName: "symphony-col-123-volume",
+            containerPath: "/home/agent/workspace",
+            hostPath: null
+          }
+        : {
+            kind: "bind_mount" as const,
+            hostPath: hostWorkspacePath,
+            containerPath: "/home/agent/workspace"
+          },
     networkName: "symphony-network-col-123",
     services: [],
     envBundle: ambientEnvBundle(),

@@ -17,6 +17,7 @@ export function summarizePreparedWorkspace(
     workerHost: workspace.workerHost,
     executionTargetKind: workspace.executionTarget.kind,
     materializationKind: workspace.materialization.kind,
+    hostRepoMetadataAvailable: workspaceHostPath(workspace) !== null,
     prepareDisposition: workspace.prepareDisposition,
     containerDisposition: workspace.containerDisposition,
     networkDisposition: workspace.networkDisposition,

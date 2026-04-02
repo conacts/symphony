@@ -52,7 +52,8 @@ export type CodexAppServerSession = {
   client: CodexAppServerSessionClient;
   threadId: string;
   workspacePath: string;
-  hostWorkspacePath: string;
+  hostLaunchPath: string;
+  hostWorkspacePath: string | null;
   launchTarget: CodexRuntimeLaunchTarget;
   issue: SymphonyTrackerIssue;
   processId: string | null;

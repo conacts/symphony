@@ -24,6 +24,7 @@ describe("runtime workspace backend selection", () => {
       sourceRepo: "/tmp/source-repo",
       workspaceBackend: "local",
       dockerWorkspaceImage: null,
+      dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: null,
       dockerContainerNamePrefix: null,
       dockerShell: null
@@ -45,6 +46,7 @@ describe("runtime workspace backend selection", () => {
       sourceRepo: "/tmp/source-repo",
       workspaceBackend: "docker",
       dockerWorkspaceImage: "alpine:3.20",
+      dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: "/home/agent/workspace",
       dockerContainerNamePrefix: "symphony-test",
       dockerShell: "sh"
@@ -71,11 +73,12 @@ describe("runtime workspace backend selection", () => {
     const selection = createRuntimeWorkspaceBackend(
       {
         sourceRepo: "/tmp/source-repo",
-        workspaceBackend: "local",
-        dockerWorkspaceImage: null,
-        dockerWorkspacePath: null,
-        dockerContainerNamePrefix: null,
-        dockerShell: null
+      workspaceBackend: "local",
+      dockerWorkspaceImage: null,
+      dockerMaterializationMode: "bind_mount",
+      dockerWorkspacePath: null,
+      dockerContainerNamePrefix: null,
+      dockerShell: null
       },
       {
         runtimeManifest: {
@@ -150,5 +153,30 @@ describe("runtime workspace backend selection", () => {
     expect(workspace.envBundle.values).toEqual({
       OPENAI_API_KEY: "test-openai-key"
     });
+  });
+
+  it("surfaces container-owned Docker selection without changing the default mode", () => {
+    const selection = createRuntimeWorkspaceBackend({
+      sourceRepo: "/tmp/source-repo",
+      workspaceBackend: "docker",
+      dockerWorkspaceImage: "alpine:3.20",
+      dockerMaterializationMode: "volume",
+      dockerWorkspacePath: "/home/agent/workspace",
+      dockerContainerNamePrefix: "symphony-test",
+      dockerShell: "sh"
+    });
+
+    expect(selection.metadata).toEqual({
+      backendKind: "docker",
+      executionTargetKind: "container",
+      materializationKind: "volume",
+      selectionSource: "env",
+      image: "alpine:3.20",
+      workspacePath: "/home/agent/workspace",
+      containerNamePrefix: "symphony-test",
+      shell: "sh",
+      manifestPath: null
+    });
+    expect(selection.backend.prepareWorkspace).toBeTypeOf("function");
   });
 });

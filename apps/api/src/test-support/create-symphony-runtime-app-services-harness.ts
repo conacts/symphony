@@ -116,6 +116,7 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       sourceRepo,
       workspaceBackend: "local" as const,
       dockerWorkspaceImage: null,
+      dockerMaterializationMode: "bind_mount" as const,
       dockerWorkspacePath: null,
       dockerContainerNamePrefix: null,
       dockerShell: null,

@@ -1,4 +1,4 @@
-import { realpath } from "node:fs/promises";
+import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import type { SymphonyTrackerIssue } from "@symphony/core/tracker";
 import {
@@ -89,6 +89,17 @@ export async function validateWorkspaceCwd(
   }
 }
 
+export async function ensureWorkspaceCwd(
+  workspacePath: string,
+  workspaceRoot: string
+): Promise<string> {
+  await mkdir(workspacePath, {
+    recursive: true
+  });
+
+  return await validateWorkspaceCwd(workspacePath, workspaceRoot);
+}
+
 export function resolveCodexLaunchSettings(
   baseCommand: string,
   issue: SymphonyTrackerIssue
@@ -151,6 +162,7 @@ export function buildCodexAppServerSpawnSpec(input: {
   command: string;
   args: string[];
   cwd: string;
+  hostLaunchPath: string;
   runtimeWorkspacePath: string;
   env: Record<string, string>;
 } {
@@ -158,7 +170,8 @@ export function buildCodexAppServerSpawnSpec(input: {
     return {
       command: "bash",
       args: ["-lc", input.command],
-      cwd: input.launchTarget.hostWorkspacePath,
+      cwd: input.launchTarget.hostLaunchPath,
+      hostLaunchPath: input.launchTarget.hostLaunchPath,
       runtimeWorkspacePath: input.launchTarget.runtimeWorkspacePath,
       env: buildHostLaunchEnv(input.env, input.hostCommandEnvSource)
     };
@@ -177,7 +190,8 @@ export function buildCodexAppServerSpawnSpec(input: {
       "-lc",
       input.command
     ],
-    cwd: input.launchTarget.hostWorkspacePath,
+    cwd: input.launchTarget.hostLaunchPath,
+    hostLaunchPath: input.launchTarget.hostLaunchPath,
     runtimeWorkspacePath: input.launchTarget.runtimeWorkspacePath,
     env: buildHostCommandEnv(input.hostCommandEnvSource)
   };

@@ -182,6 +182,7 @@ describe("runtime realtime diff", () => {
           },
           launchTarget: {
             kind: "container",
+            hostLaunchPath: workspacePath,
             hostWorkspacePath: workspacePath,
             runtimeWorkspacePath: "/home/agent/workspace",
             containerId: "container-123",

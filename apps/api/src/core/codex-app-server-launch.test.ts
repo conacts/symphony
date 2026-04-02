@@ -6,6 +6,7 @@ describe("codex app server launch", () => {
     const spec = buildCodexAppServerSpawnSpec({
       launchTarget: {
         kind: "host_path",
+        hostLaunchPath: "/tmp/workspace",
         hostWorkspacePath: "/tmp/workspace",
         runtimeWorkspacePath: "/tmp/workspace"
       },
@@ -31,6 +32,7 @@ describe("codex app server launch", () => {
     const spec = buildCodexAppServerSpawnSpec({
       launchTarget: {
         kind: "container",
+        hostLaunchPath: "/tmp/workspace",
         hostWorkspacePath: "/tmp/workspace",
         runtimeWorkspacePath: "/home/agent/workspace",
         containerId: "container-123",

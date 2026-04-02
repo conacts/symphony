@@ -282,7 +282,7 @@ exec "$shell_bin" -lc "$2"
     await expect(turn.promise).resolves.toBeDefined();
 
     const dockerTraceLines = await readTraceLines(dockerTraceFile);
-    expect(dockerTraceLines).toContain(`PWD:${session.hostWorkspacePath}`);
+    expect(dockerTraceLines).toContain(`PWD:${session.hostLaunchPath}`);
     expect(dockerTraceLines).toContain("WORKDIR:/home/agent/workspace");
     expect(dockerTraceLines).toContain("CONTAINER:symphony-col-123-container");
     expect(dockerTraceLines).toContain("ENV:OPENAI_API_KEY=test-openai-api-key");
@@ -991,6 +991,7 @@ function runTurnForScenario(
 function buildHostLaunchTarget(workspacePath: string) {
   return {
     kind: "host_path" as const,
+    hostLaunchPath: workspacePath,
     hostWorkspacePath: workspacePath,
     runtimeWorkspacePath: workspacePath
   };
@@ -999,6 +1000,7 @@ function buildHostLaunchTarget(workspacePath: string) {
 function buildContainerLaunchTarget(workspacePath: string) {
   return {
     kind: "container" as const,
+    hostLaunchPath: workspacePath,
     hostWorkspacePath: workspacePath,
     runtimeWorkspacePath: "/home/agent/workspace",
     containerId: "container-123",

@@ -17,6 +17,7 @@ export function buildSymphonyRuntimeEnv(
       | "SYMPHONY_SOURCE_REPO"
       | "SYMPHONY_WORKSPACE_BACKEND"
       | "SYMPHONY_DOCKER_WORKSPACE_IMAGE"
+      | "SYMPHONY_DOCKER_MATERIALIZATION_MODE"
       | "SYMPHONY_DOCKER_WORKSPACE_PATH"
       | "SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX"
       | "SYMPHONY_DOCKER_SHELL"
@@ -34,6 +35,7 @@ export function buildSymphonyRuntimeEnv(
     SYMPHONY_SOURCE_REPO: "/tmp/source-repo",
     SYMPHONY_WORKSPACE_BACKEND: "local",
     SYMPHONY_DOCKER_WORKSPACE_IMAGE: undefined,
+    SYMPHONY_DOCKER_MATERIALIZATION_MODE: undefined,
     SYMPHONY_DOCKER_WORKSPACE_PATH: undefined,
     SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX: undefined,
     SYMPHONY_DOCKER_SHELL: undefined,
@@ -62,6 +64,7 @@ export function buildSymphonyRuntimeStateResult(
     prepareDisposition: "reused",
     executionTargetKind: "host_path",
     materializationKind: "directory",
+    hostRepoMetadataAvailable: true,
     containerDisposition: "not_applicable",
     networkDisposition: "not_applicable",
     hostPath: "/tmp/workspaces/col-165",
@@ -93,6 +96,7 @@ export function buildSymphonyRuntimeStateResult(
 
   const defaultHostLaunchTarget: RuntimeLaunchTarget = {
     kind: "host_path",
+    hostLaunchPath: "/tmp/workspaces/col-165",
     hostWorkspacePath: "/tmp/workspaces/col-165",
     runtimeWorkspacePath: "/tmp/workspaces/col-165"
   };
@@ -103,6 +107,7 @@ export function buildSymphonyRuntimeStateResult(
     prepareDisposition: "reused",
     executionTargetKind: "container",
     materializationKind: "bind_mount",
+    hostRepoMetadataAvailable: true,
     containerDisposition: "reused",
     networkDisposition: "reused",
     hostPath: "/tmp/workspaces/col-166",
@@ -148,6 +153,7 @@ export function buildSymphonyRuntimeStateResult(
 
   const defaultContainerLaunchTarget: RetryLaunchTarget = {
     kind: "container",
+    hostLaunchPath: "/tmp/workspaces/col-166",
     hostWorkspacePath: "/tmp/workspaces/col-166",
     runtimeWorkspacePath: "/home/agent/workspace",
     containerId: "container-166",
@@ -285,6 +291,7 @@ export function buildSymphonyRuntimeIssueResult(
     prepareDisposition: "reused",
     executionTargetKind: "host_path",
     materializationKind: "directory",
+    hostRepoMetadataAvailable: true,
     containerDisposition: "not_applicable",
     networkDisposition: "not_applicable",
     hostPath: "/tmp/symphony-COL-167",
@@ -319,6 +326,7 @@ export function buildSymphonyRuntimeIssueResult(
     sessionId: "session-167",
     launchTarget: {
       kind: "host_path",
+      hostLaunchPath: "/tmp/symphony-COL-167",
       hostWorkspacePath: "/tmp/symphony-COL-167",
       runtimeWorkspacePath: "/tmp/symphony-COL-167"
     },

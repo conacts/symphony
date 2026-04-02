@@ -210,6 +210,7 @@ export type WorkspaceLifecycleMetadata = {
   workerHost: string | null;
   executionTargetKind: WorkspaceExecutionTarget["kind"];
   materializationKind: WorkspaceMaterializationMetadata["kind"];
+  hostRepoMetadataAvailable: boolean;
   prepareDisposition: WorkspacePrepareDisposition;
   containerDisposition: WorkspaceContainerDisposition;
   networkDisposition: WorkspaceNetworkDisposition;

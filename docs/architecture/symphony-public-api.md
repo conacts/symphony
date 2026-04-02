@@ -130,9 +130,9 @@ That subpath freezes the manifest authoring and loading contract without widenin
 - `WorkspaceBackend` -> explicit lifecycle interface:
   `prepareWorkspace`, `runBeforeRun`, `runAfterRun`, `cleanupWorkspace`
 - `createLocalWorkspaceBackend` -> adapter over `createLocalSymphonyWorkspaceManager`
-- `createDockerWorkspaceBackend` -> Docker-backed `WorkspaceBackend` that prepares a bind-mounted
-  host workspace, starts or reuses a deterministic container, runs hooks via `docker exec`, and
-  tears the container/workspace down during cleanup
+- `createDockerWorkspaceBackend` -> Docker-backed `WorkspaceBackend` that prepares either a
+  bind-mounted or container-owned workspace, starts or reuses a deterministic container, runs
+  hooks via `docker exec`, and tears the container/materialization down during cleanup
 - `PreparedWorkspace` -> stable workspace DTO returned from
   `WorkspaceBackend.prepareWorkspace()` with explicit `backendKind`,
   `prepareDisposition`, `containerDisposition`, `afterCreateHookOutcome`,
@@ -141,7 +141,7 @@ That subpath freezes the manifest authoring and loading contract without widenin
   `startRun`, `stopRun`
 - `createCodexAgentRuntime` -> adapter over the concrete Codex runtime implementation. In
   `apps/api`, the concrete Codex runtime now resolves a launch target from `PreparedWorkspace` and
-  supports both host-path execution and bind-mounted container execution through `docker exec`.
+  supports both host-path execution and container execution through `docker exec`.
 - `AgentRunLaunch.launchTarget` -> normalized runtime launch summary returned from
   `startRun()`
 - `summarizePreparedWorkspace` -> helper that collapses backend-specific `PreparedWorkspace`
@@ -177,8 +177,8 @@ reach it explicitly through `@symphony/core/workspace/local`.
   `SYMPHONY_DOCKER_SHELL`
 - The Codex runtime reads only the prepared workspace contract at run time. When it sees
   `executionTarget.kind === "container"`, it launches Codex through `docker exec`, uses the
-  container workspace path as the Codex thread cwd, and still uses the host bind-mounted path for
-  repo snapshots and cwd validation.
+  container workspace path as the Codex thread cwd, while separating the canonical host repo path
+  from the host launch cwd used to start the app-server bridge.
 
 ## Observability Contract
 
@@ -194,6 +194,7 @@ type WorkspaceLifecycleMetadata = {
   workerHost: string | null;
   executionTargetKind: "host_path" | "container";
   materializationKind: "directory" | "bind_mount" | "volume";
+  hostRepoMetadataAvailable: boolean;
   prepareDisposition: "created" | "reused";
   containerDisposition: "started" | "reused" | "recreated" | "not_applicable";
   afterCreateHookOutcome: "completed" | "skipped";
@@ -211,12 +212,14 @@ The normalized launch-target summary returned from `AgentRuntime.startRun()` is:
 type AgentRuntimeLaunchTarget =
   | {
       kind: "host_path";
+      hostLaunchPath: string;
       hostWorkspacePath: string;
       runtimeWorkspacePath: string;
     }
   | {
       kind: "container";
-      hostWorkspacePath: string;
+      hostLaunchPath: string;
+      hostWorkspacePath: string | null;
       runtimeWorkspacePath: string;
       containerId: string | null;
       containerName: string;
@@ -248,7 +251,6 @@ read models.
 - No exposure of `SymphonyOrchestrator` on the public runtime facade
 - No default Docker cutover
 - No workflow-level backend selection yet
-- No support yet for volume-only container execution targets in the Codex runtime
 
 ## Runtime Wiring Rules
 

@@ -70,7 +70,10 @@ export function createCodexSymphonyAgentRuntime(input: {
         client: null
       };
       activeRuns.set(runInput.issue.id, activeRun);
-      const launchTarget = resolveCodexRuntimeLaunchTarget(runInput.workspace);
+      const launchTarget = resolveCodexRuntimeLaunchTarget(
+        runInput.workspace,
+        runInput.workflowConfig.workspace.root
+      );
 
       void executeRun({
         promptTemplate: input.promptTemplate,
@@ -157,7 +160,7 @@ async function executeRun(input: {
 
     if (input.runId) {
       const repoStart = await captureRepoSnapshot(
-        input.launchTarget.hostWorkspacePath,
+        input.launchTarget,
         input.workflowConfig.hooks.timeoutMs
       );
       await input.runJournal.updateRun(input.runId, {
@@ -312,7 +315,7 @@ async function executeRun(input: {
     if (!input.activeRun.stopped) {
       if (input.runId) {
         const repoEnd = await captureRepoSnapshot(
-          input.launchTarget.hostWorkspacePath,
+          input.launchTarget,
           input.workflowConfig.hooks.timeoutMs
         );
         await input.runJournal.updateRun(input.runId, {
@@ -352,7 +355,7 @@ async function executeRun(input: {
 
     if (input.runId) {
       const repoEnd = await captureRepoSnapshot(
-        input.launchTarget.hostWorkspacePath,
+        input.launchTarget,
         input.workflowConfig.hooks.timeoutMs
       );
       await input.runJournal.updateRun(input.runId, {
@@ -410,6 +413,7 @@ function describeLaunchTarget(target: CodexRuntimeLaunchTarget): SymphonyJsonObj
   if (target.kind === "host_path") {
     return {
       kind: target.kind,
+      hostLaunchPath: target.hostLaunchPath,
       hostWorkspacePath: target.hostWorkspacePath,
       runtimeWorkspacePath: target.runtimeWorkspacePath
     };
@@ -417,6 +421,7 @@ function describeLaunchTarget(target: CodexRuntimeLaunchTarget): SymphonyJsonObj
 
   return {
     kind: target.kind,
+    hostLaunchPath: target.hostLaunchPath,
     hostWorkspacePath: target.hostWorkspacePath,
     runtimeWorkspacePath: target.runtimeWorkspacePath,
     containerId: target.containerId,
