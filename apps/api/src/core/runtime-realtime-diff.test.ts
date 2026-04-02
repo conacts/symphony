@@ -145,6 +145,7 @@ describe("runtime realtime diff", () => {
             backendKind: "docker",
             prepareDisposition: "reused",
             containerDisposition: "reused",
+            networkDisposition: "reused",
             afterCreateHookOutcome: "skipped",
             executionTarget: {
               kind: "container",
@@ -158,6 +159,21 @@ describe("runtime realtime diff", () => {
               kind: "bind_mount",
               hostPath: workspacePath,
               containerPath: "/home/agent/workspace"
+            },
+            networkName: "symphony-network-col-123",
+            services: [],
+            envBundle: {
+              source: "ambient",
+              values: {},
+              summary: {
+                source: "ambient",
+                injectedKeys: [],
+                requiredHostKeys: [],
+                optionalHostKeys: [],
+                staticBindingKeys: [],
+                runtimeBindingKeys: [],
+                serviceBindingKeys: []
+              }
             },
             path: workspacePath,
             created: false,

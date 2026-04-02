@@ -4,8 +4,8 @@ Date: 2026-04-01
 
 ## Goal
 
-Freeze the repo-local runtime manifest surface for Docker-first workspace orchestration without yet
-switching runtime behavior over to manifest-driven execution.
+Define and operationalize the repo-local runtime manifest surface for Docker-backed workspaces
+without making Docker the default backend and without broadening repo lifecycle execution.
 
 This pass covers:
 
@@ -14,13 +14,21 @@ This pass covers:
 - `defineSymphonyRuntime(...)`
 - strict manifest loading and validation
 - readable path-targeted validation errors
+- startup-time validation of required host env presence
+- explicit env bundle resolution from `env.host` and `env.inject`
+- per-workspace Docker network provisioning
+- per-workspace Postgres sidecar provisioning for manifest-declared services
+- Postgres readiness checks plus optional Postgres `init` steps
+- explicit env bundle injection into workspace hooks and Codex runtime launch paths
 
 This pass does not yet cover:
 
-- Postgres sidecar provisioning
-- env bundle generation or injection
-- manifest-driven bootstrap / migrate / verify / seed / cleanup execution
-- replacing the current Docker backend env-based selection or launch behavior
+- manifest lifecycle execution for `bootstrap`, `migrate`, `verify`, `seed`, or repo-level
+  `cleanup`
+- service types other than `postgres`
+- shared Postgres instances across workspaces
+- host port publishing for sidecars
+- making Docker the default backend
 
 ## Authoring
 
@@ -203,6 +211,67 @@ Inject binding kinds:
 - `{ name: string, run: string, cwd?: string, timeoutMs?: number }`
 - `cwd` must be workspace-relative and must stay within the repo root
 
+## Env Resolution Model
+
+Manifest env resolution is explicit.
+
+`env.host`:
+
+- `host.required` keys are read directly from the runtime environment source
+- missing required keys fail fast with readable, path-targeted errors such as
+  `env.host.required[0]`
+- `host.optional` keys are included only when present
+
+`env.inject`:
+
+- `static` injects the literal manifest value
+- `runtime` injects bounded runtime context:
+  `issueId`, `issueIdentifier`, `runId`, `workspaceKey`, `workspacePath`,
+  `backendKind`
+- `service` injects values from actual provisioned service metadata, not placeholders
+
+The resolved env bundle becomes the primary model passed into:
+
+- workspace hooks
+- local Codex launch
+- container Codex launch
+- Postgres `init` steps
+
+The bundle is surfaced with a bounded summary only:
+
+- source
+- injected key names
+- required and optional host key names that were resolved
+- binding-key buckets for `static`, `runtime`, and `service`
+
+Secret values are never logged in manifest env summaries or Docker command error surfaces.
+
+## Startup Validation
+
+Startup validation now does two bounded checks for repos that define `.symphony/runtime.ts`:
+
+1. load and validate the manifest shape
+2. resolve `env.host.required` and `env.host.optional` against the runtime environment source
+
+That means a repo with a valid manifest but missing required host env fails startup early and
+readably, before any workspace or runtime work begins.
+
+## Docker Service Provisioning Model
+
+For Docker-backed workspaces with a valid manifest:
+
+- one deterministic Docker network is created per workspace
+- one deterministic Postgres sidecar is created per workspace service key
+- the workspace container and sidecar share the same network
+- sidecars are reachable by stable hostname alias inside that network
+- sidecars never publish ports to the host
+- sidecars use manifest resource limits when provided
+- sidecars fall back to conservative defaults of `512 MB` memory and `512` CPU shares when the
+  manifest omits them
+- readiness must succeed before optional service `init` steps run
+- resources stay warm across retries while the workspace stays alive
+- teardown removes both the sidecar and the workspace network
+
 ## Loader
 
 The explicit subpath is `@symphony/core/runtime-manifest`.
@@ -211,6 +280,8 @@ It exposes:
 
 - `defineSymphonyRuntime(...)` for repo-local authoring
 - `loadSymphonyRuntimeManifest(...)` for bounded manifest loading
+- `resolveSymphonyRuntimeHostEnv(...)` for startup validation and required-host-env checks
+- `resolveSymphonyRuntimeEnvBundle(...)` for explicit env bundle resolution
 - manifest types and validation helpers for tests and internal composition
 
 Loader rules for `.symphony/runtime.ts`:

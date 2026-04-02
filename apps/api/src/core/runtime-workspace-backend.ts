@@ -3,6 +3,7 @@ import {
   createLocalWorkspaceBackend,
   type WorkspaceBackend
 } from "@symphony/core";
+import type { SymphonyLoadedRuntimeManifest } from "@symphony/core/runtime-manifest";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 
 export type SymphonyRuntimeWorkspaceBackendSelection = {
@@ -14,6 +15,7 @@ export type SymphonyRuntimeWorkspaceBackendSelection = {
         materializationKind: "directory";
         selectionSource: "env";
         sourceRepo: string | null;
+        manifestPath: string | null;
       }
     | {
         backendKind: "docker";
@@ -24,6 +26,7 @@ export type SymphonyRuntimeWorkspaceBackendSelection = {
         workspacePath: string | null;
         containerNamePrefix: string | null;
         shell: string | null;
+        manifestPath: string | null;
       };
 };
 
@@ -36,7 +39,10 @@ export function createRuntimeWorkspaceBackend(
     | "dockerWorkspacePath"
     | "dockerContainerNamePrefix"
     | "dockerShell"
-  >
+  >,
+  options: {
+    runtimeManifest?: SymphonyLoadedRuntimeManifest | null;
+  } = {}
 ): SymphonyRuntimeWorkspaceBackendSelection {
   if (env.workspaceBackend === "docker") {
     const image = requireDockerWorkspaceImage(env.dockerWorkspaceImage);
@@ -46,7 +52,8 @@ export function createRuntimeWorkspaceBackend(
         image,
         workspacePath: env.dockerWorkspacePath ?? undefined,
         containerNamePrefix: env.dockerContainerNamePrefix ?? undefined,
-        shell: env.dockerShell ?? undefined
+        shell: env.dockerShell ?? undefined,
+        runtimeManifest: options.runtimeManifest ?? null
       }),
       metadata: {
         backendKind: "docker",
@@ -56,7 +63,8 @@ export function createRuntimeWorkspaceBackend(
         image,
         workspacePath: env.dockerWorkspacePath,
         containerNamePrefix: env.dockerContainerNamePrefix,
-        shell: env.dockerShell
+        shell: env.dockerShell,
+        manifestPath: options.runtimeManifest?.manifestPath ?? null
       }
     };
   }
@@ -70,7 +78,8 @@ export function createRuntimeWorkspaceBackend(
       executionTargetKind: "host_path",
       materializationKind: "directory",
       selectionSource: "env",
-      sourceRepo: env.sourceRepo
+      sourceRepo: env.sourceRepo,
+      manifestPath: options.runtimeManifest?.manifestPath ?? null
     }
   };
 }

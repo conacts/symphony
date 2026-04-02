@@ -91,6 +91,7 @@ describe("local codex symphony agent runtime", () => {
           }
         },
         workflowConfig,
+        hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
         callbacks: {
           async onUpdate(_issueId, update) {
@@ -229,6 +230,7 @@ describe("local codex symphony agent runtime", () => {
           }
         },
         workflowConfig,
+        hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
         callbacks: {
           async onUpdate() {
@@ -336,6 +338,7 @@ done
           }
         },
         workflowConfig,
+        hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
         callbacks: {
           async onUpdate() {
@@ -382,9 +385,8 @@ done
 
     const fakeDocker = path.join(root, "docker");
     const fakeDockerLog = path.join(root, "fake-docker-log.json");
-    await writeFakeDockerBinary(fakeDocker);
+    await writeFakeDockerBinary(fakeDocker, fakeDockerLog);
     process.env.PATH = `${root}:${originalPath ?? ""}`;
-    process.env.SYMPHONY_TEST_FAKE_DOCKER_LOG = fakeDockerLog;
 
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
@@ -429,6 +431,7 @@ done
           }
         },
         workflowConfig,
+        hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
         callbacks: {
           async onUpdate() {
@@ -556,6 +559,7 @@ sleep 1
           }
         },
         workflowConfig,
+        hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
         callbacks: {
           async onUpdate() {
@@ -669,7 +673,10 @@ done
   await chmod(codexBinary, 0o755);
 }
 
-async function writeFakeDockerBinary(dockerBinary: string): Promise<void> {
+async function writeFakeDockerBinary(
+  dockerBinary: string,
+  logPath: string
+): Promise<void> {
   await writeFile(
     dockerBinary,
     `#!/bin/sh
@@ -684,6 +691,9 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     -i)
       shift
+      ;;
+    --env)
+      shift 2
       ;;
     --workdir)
       workdir="$2"
@@ -703,7 +713,7 @@ if [ "$1" != "-lc" ]; then
   exit 98
 fi
 shift
-printf '{"command":"exec","containerName":"%s","workdir":"%s"}\\n' "$container_name" "$workdir" > "$SYMPHONY_TEST_FAKE_DOCKER_LOG"
+printf '{"command":"exec","containerName":"%s","workdir":"%s"}\\n' "$container_name" "$workdir" > "${logPath}"
 exec "$shell_bin" -lc "$1"
 `
   );
@@ -739,6 +749,7 @@ function buildLocalPreparedWorkspace(
     backendKind: "local" as const,
     prepareDisposition: "reused" as const,
     containerDisposition: "not_applicable" as const,
+    networkDisposition: "not_applicable" as const,
     afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
       kind: "host_path" as const,
@@ -748,6 +759,9 @@ function buildLocalPreparedWorkspace(
       kind: "directory" as const,
       hostPath: workspacePath
     },
+    networkName: null,
+    services: [],
+    envBundle: ambientEnvBundle(),
     path: workspacePath,
     created: false,
     workerHost: null
@@ -764,6 +778,7 @@ function buildContainerPreparedWorkspace(
     backendKind: "docker" as const,
     prepareDisposition: "reused" as const,
     containerDisposition: "reused" as const,
+    networkDisposition: "reused" as const,
     afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
       kind: "container" as const,
@@ -778,8 +793,27 @@ function buildContainerPreparedWorkspace(
       hostPath: hostWorkspacePath,
       containerPath: "/home/agent/workspace"
     },
+    networkName: "symphony-network-col-123",
+    services: [],
+    envBundle: ambientEnvBundle(),
     path: null,
     created: false,
     workerHost: "docker-host"
+  };
+}
+
+function ambientEnvBundle() {
+  return {
+    source: "ambient" as const,
+    values: {},
+    summary: {
+      source: "ambient" as const,
+      injectedKeys: [],
+      requiredHostKeys: [],
+      optionalHostKeys: [],
+      staticBindingKeys: [],
+      runtimeBindingKeys: [],
+      serviceBindingKeys: []
+    }
   };
 }

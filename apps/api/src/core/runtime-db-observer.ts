@@ -263,11 +263,15 @@ function workspaceMetadata(workspace: ObserverWorkspaceMetadata): SymphonyJsonVa
     materializationKind: workspace.materializationKind,
     prepareDisposition: workspace.prepareDisposition,
     containerDisposition: workspace.containerDisposition,
+    networkDisposition: workspace.networkDisposition,
     afterCreateHookOutcome: workspace.afterCreateHookOutcome,
     hostPath: workspace.hostPath,
     runtimePath: workspace.runtimePath,
     containerId: workspace.containerId,
     containerName: workspace.containerName,
+    networkName: workspace.networkName,
+    services: workspace.services,
+    envBundleSummary: workspace.envBundleSummary,
     path: workspace.path,
   };
 }

@@ -145,18 +145,22 @@ export function resolveCodexLaunchSettings(
 export function buildCodexAppServerSpawnSpec(input: {
   launchTarget: CodexRuntimeLaunchTarget;
   command: string;
+  env: Record<string, string>;
+  hostCommandEnvSource: Record<string, string | undefined>;
 }): {
   command: string;
   args: string[];
   cwd: string;
   runtimeWorkspacePath: string;
+  env: Record<string, string>;
 } {
   if (input.launchTarget.kind === "host_path") {
     return {
       command: "bash",
       args: ["-lc", input.command],
       cwd: input.launchTarget.hostWorkspacePath,
-      runtimeWorkspacePath: input.launchTarget.runtimeWorkspacePath
+      runtimeWorkspacePath: input.launchTarget.runtimeWorkspacePath,
+      env: buildHostLaunchEnv(input.env, input.hostCommandEnvSource)
     };
   }
 
@@ -165,6 +169,7 @@ export function buildCodexAppServerSpawnSpec(input: {
     args: [
       "exec",
       "-i",
+      ...dockerEnvFlags(input.env),
       "--workdir",
       input.launchTarget.runtimeWorkspacePath,
       input.launchTarget.containerName,
@@ -173,8 +178,33 @@ export function buildCodexAppServerSpawnSpec(input: {
       input.command
     ],
     cwd: input.launchTarget.hostWorkspacePath,
-    runtimeWorkspacePath: input.launchTarget.runtimeWorkspacePath
+    runtimeWorkspacePath: input.launchTarget.runtimeWorkspacePath,
+    env: buildHostCommandEnv(input.hostCommandEnvSource)
   };
+}
+
+function buildHostLaunchEnv(
+  explicitEnv: Record<string, string>,
+  hostCommandEnvSource: Record<string, string | undefined>
+): Record<string, string> {
+  return {
+    ...buildHostCommandEnv(hostCommandEnvSource),
+    ...explicitEnv
+  };
+}
+
+function buildHostCommandEnv(
+  hostCommandEnvSource: Record<string, string | undefined>
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(hostCommandEnvSource).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string"
+    )
+  );
+}
+
+function dockerEnvFlags(env: Record<string, string>): string[] {
+  return Object.entries(env).flatMap(([key, value]) => ["--env", `${key}=${value}`]);
 }
 
 export function wrapSessionError(error: unknown): Error {

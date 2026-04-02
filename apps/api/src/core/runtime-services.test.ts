@@ -3,6 +3,7 @@ import {
   createSymphonyRuntimeAppServicesHarness,
   type SymphonyRuntimeAppServicesHarness
 } from "../test-support/create-symphony-runtime-app-services-harness.js";
+import { renderSymphonyRuntimeManifestSource } from "@symphony/test-support";
 
 const harnesses: SymphonyRuntimeAppServicesHarness[] = [];
 
@@ -63,6 +64,42 @@ describe("runtime services", () => {
         runtimeManifestSource: null
       })
     ).rejects.toThrowError(/Missing Symphony runtime manifest/i);
+  });
+
+  it("fails fast when required host env from the runtime manifest is missing", async () => {
+    await expect(
+      createSymphonyRuntimeAppServicesHarness({
+        runtimeManifestSource: renderSymphonyRuntimeManifestSource({
+          schemaVersion: 1,
+          workspace: {
+            packageManager: "pnpm",
+            workingDirectory: "."
+          },
+          env: {
+            host: {
+              required: ["OPENAI_API_KEY"],
+              optional: []
+            },
+            inject: {}
+          },
+          lifecycle: {
+            bootstrap: [],
+            migrate: [],
+            verify: [
+              {
+                name: "verify",
+                run: "pnpm test"
+              }
+            ],
+            seed: [],
+            cleanup: []
+          }
+        }),
+        environmentSource: {
+          LINEAR_API_KEY: "test-linear-api-key"
+        }
+      })
+    ).rejects.toThrowError(/Required host environment variable OPENAI_API_KEY is missing/i);
   });
 });
 

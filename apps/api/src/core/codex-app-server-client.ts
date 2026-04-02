@@ -58,6 +58,7 @@ export class CodexAppServerClient {
     command: string;
     args: string[];
     cwd: string;
+    env: Record<string, string>;
     readTimeoutMs: number;
     logger: CodexAppServerLogger;
   }) {
@@ -66,6 +67,7 @@ export class CodexAppServerClient {
 
     const child = spawn(input.command, input.args, {
       cwd: input.cwd,
+      env: input.env,
       stdio: "pipe"
     });
     this.#child = child;
@@ -101,6 +103,8 @@ export class CodexAppServerClient {
 
   static async startSession(input: {
     launchTarget: Parameters<typeof buildCodexAppServerSpawnSpec>[0]["launchTarget"];
+    env: Record<string, string>;
+    hostCommandEnvSource: Record<string, string | undefined>;
     workflowConfig: SymphonyResolvedWorkflowConfig;
     issue: SymphonyTrackerIssue;
     logger: CodexAppServerLogger;
@@ -115,12 +119,15 @@ export class CodexAppServerClient {
     );
     const spawnSpec = buildCodexAppServerSpawnSpec({
       launchTarget: input.launchTarget,
-      command: launchSettings.command
+      command: launchSettings.command,
+      env: input.env,
+      hostCommandEnvSource: input.hostCommandEnvSource
     });
     const client = new CodexAppServerClient({
       command: spawnSpec.command,
       args: spawnSpec.args,
       cwd: hostWorkspacePath,
+      env: spawnSpec.env,
       readTimeoutMs: input.workflowConfig.codex.readTimeoutMs,
       logger: input.logger
     });

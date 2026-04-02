@@ -7,7 +7,8 @@ export type SymphonyRuntimeManifestErrorCode =
   | "missing_runtime_manifest"
   | "invalid_runtime_manifest"
   | "invalid_runtime_manifest_export"
-  | "runtime_manifest_load_failed";
+  | "runtime_manifest_load_failed"
+  | "runtime_manifest_env_resolution_failed";
 
 export class SymphonyRuntimeManifestError extends Error {
   readonly code: SymphonyRuntimeManifestErrorCode;
@@ -61,6 +62,24 @@ export function createManifestValidationError(
   );
 }
 
+export function createManifestEnvResolutionError(
+  issues: SymphonyRuntimeManifestIssue[],
+  manifestPath: string | null
+): SymphonyRuntimeManifestError {
+  return new SymphonyRuntimeManifestError(
+    "runtime_manifest_env_resolution_failed",
+    rebuildManifestErrorMessage(
+      "runtime_manifest_env_resolution_failed",
+      manifestPath,
+      issues
+    ),
+    {
+      manifestPath,
+      issues
+    }
+  );
+}
+
 function rebuildManifestErrorMessage(
   code: SymphonyRuntimeManifestErrorCode,
   manifestPath: string | null,
@@ -80,6 +99,10 @@ function rebuildManifestErrorMessage(
       return `Missing Symphony runtime manifest${manifestPath ? `: ${manifestPath}` : "."}`;
     case "runtime_manifest_load_failed":
       return fallbackMessage ?? `Failed to load Symphony runtime manifest${manifestPath ? ` at ${manifestPath}` : ""}.`;
+    case "runtime_manifest_env_resolution_failed":
+      return `Failed to resolve Symphony runtime manifest environment${
+        manifestPath ? ` at ${manifestPath}` : ""
+      }: ${formatManifestIssues(issues)}.`;
     default:
       return fallbackMessage ?? "Invalid Symphony runtime manifest.";
   }

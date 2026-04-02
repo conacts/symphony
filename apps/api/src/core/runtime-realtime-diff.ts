@@ -1,4 +1,5 @@
 import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
+import { summarizePreparedWorkspace } from "@symphony/core";
 import type { SymphonyLogger } from "@symphony/logger";
 import type { SymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 
@@ -76,7 +77,7 @@ function buildRealtimeComparableSnapshot(
       runId: entry.runId,
       sessionId: entry.sessionId,
       workerHost: entry.workerHost,
-      workspace: entry.workspace,
+      workspace: summarizePreparedWorkspace(entry.workspace),
       launchTarget: entry.launchTarget,
       workspacePath: entry.workspacePath,
       retryAttempt: entry.retryAttempt,
@@ -102,7 +103,7 @@ function buildRealtimeComparableSnapshot(
       identifier: entry.identifier,
       error: entry.error,
       workerHost: entry.workerHost,
-      workspace: entry.workspace,
+      workspace: summarizePreparedWorkspace(entry.workspace),
       launchTarget: entry.launchTarget,
       workspacePath: entry.workspacePath,
       delayType: entry.delayType

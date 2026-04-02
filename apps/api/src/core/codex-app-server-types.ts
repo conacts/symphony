@@ -64,6 +64,7 @@ export type CodexAppServerSession = {
 
 export type CodexLaunchSessionInput = {
   launchTarget: CodexRuntimeLaunchTarget;
+  env: Record<string, string>;
   workflowConfig: SymphonyResolvedWorkflowConfig;
   issue: SymphonyTrackerIssue;
   logger: CodexAppServerLogger;

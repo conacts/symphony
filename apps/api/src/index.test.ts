@@ -36,16 +36,23 @@ describe("@symphony/api scaffold", () => {
     ]);
   });
 
-  it("requires LINEAR_API_KEY and exports it back to the workflow env bridge", () => {
+  it("requires LINEAR_API_KEY and preserves host env in the workflow env bridge", () => {
     expect(() =>
       loadSymphonyRuntimeAppEnv(buildSymphonyRuntimeEnv({
         LINEAR_API_KEY: ""
       }))
     ).toThrowError(/LINEAR_API_KEY/i);
 
-    const env = loadSymphonyRuntimeAppEnv(buildSymphonyRuntimeEnv());
+    const environmentSource = {
+      ...buildSymphonyRuntimeEnv(),
+      OPENAI_API_KEY: "test-openai-api-key"
+    };
+    const env = loadSymphonyRuntimeAppEnv(environmentSource);
 
-    expect(buildSymphonyRuntimeEnvironmentSource(env)).toEqual({
+    expect(
+      buildSymphonyRuntimeEnvironmentSource(env, environmentSource)
+    ).toMatchObject({
+      OPENAI_API_KEY: "test-openai-api-key",
       LINEAR_API_KEY: "test-linear-api-key",
       SYMPHONY_SOURCE_REPO: "/tmp/source-repo"
     });

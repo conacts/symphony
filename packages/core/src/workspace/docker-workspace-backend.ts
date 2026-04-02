@@ -3,6 +3,13 @@ import { createHash } from "node:crypto";
 import { mkdir, realpath, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import {
+  buildSymphonyRuntimePostgresConnectionString,
+  resolveSymphonyRuntimeEnvBundle,
+  type SymphonyLoadedRuntimeManifest,
+  type SymphonyNormalizedRuntimePostgresService,
+  type SymphonyResolvedRuntimeService
+} from "../runtime-manifest.js";
+import {
   SymphonyWorkspaceError,
   sanitizeSymphonyIssueIdentifier,
   symphonyWorkspaceDirectoryName,
@@ -10,9 +17,11 @@ import {
 } from "./local-symphony-workspace-manager.js";
 import type {
   PreparedWorkspace,
+  PreparedWorkspaceService,
   WorkspaceBackend,
   WorkspaceCleanupResult,
   WorkspaceCleanupInput,
+  WorkspaceCleanupService,
   WorkspacePrepareInput
 } from "./workspace-backend.js";
 
@@ -24,7 +33,23 @@ const managedBackendLabelValue = "docker";
 const managedWorkspaceKeyLabelKey = "dev.symphony.workspace-key";
 const managedIssueIdentifierLabelKey = "dev.symphony.issue-identifier";
 const managedMaterializationLabelKey = "dev.symphony.materialization";
+const managedKindLabelKey = "dev.symphony.managed-kind";
+const managedNetworkNameLabelKey = "dev.symphony.network-name";
+const managedServiceKeyLabelKey = "dev.symphony.service-key";
+const managedServiceTypeLabelKey = "dev.symphony.service-type";
+const managedServiceHostnameLabelKey = "dev.symphony.service-hostname";
+const managedServicePortLabelKey = "dev.symphony.service-port";
+const managedServiceMemoryMbLabelKey = "dev.symphony.service-memory-mb";
+const managedServiceCpuSharesLabelKey = "dev.symphony.service-cpu-shares";
+const managedWorkspaceContainerKind = "workspace_container";
+const managedWorkspaceNetworkKind = "workspace_network";
+const managedWorkspaceServiceKind = "workspace_service";
 const bindMaterializationKind = "bind_mount";
+const defaultPostgresMemoryMb = 512;
+const defaultPostgresCpuShares = 512;
+const defaultPostgresReadinessTimeoutMs = 15_000;
+const defaultPostgresReadinessIntervalMs = 500;
+const defaultPostgresReadinessRetries = 20;
 
 export type DockerWorkspaceCommandResult = {
   exitCode: number;
@@ -44,6 +69,7 @@ export type DockerWorkspaceBackendOptions = {
   workspacePath?: string;
   containerNamePrefix?: string;
   shell?: string;
+  runtimeManifest?: SymphonyLoadedRuntimeManifest | null;
   commandRunner?: DockerWorkspaceCommandRunner;
   commandTimeoutMs?: number;
 };
@@ -52,7 +78,16 @@ type DockerWorkspaceDescriptor = {
   issueIdentifier: string;
   workspaceKey: string;
   containerName: string;
+  networkName: string;
   hostPath: string;
+};
+
+type DockerServiceDescriptor = {
+  issueIdentifier: string;
+  workspaceKey: string;
+  key: string;
+  service: SymphonyNormalizedRuntimePostgresService;
+  containerName: string;
 };
 
 type DockerContainerInspectState = {
@@ -62,7 +97,9 @@ type DockerContainerInspectState = {
   running: boolean;
   status: string | null;
   labels: Record<string, string>;
+  env: Record<string, string>;
   mounts: DockerContainerMount[];
+  networks: Record<string, DockerContainerNetwork>;
 };
 
 type DockerContainerMount = {
@@ -70,6 +107,22 @@ type DockerContainerMount = {
   source: string | null;
   destination: string | null;
   name: string | null;
+};
+
+type DockerContainerNetwork = {
+  aliases: string[];
+};
+
+type DockerNetworkInspectState = {
+  id: string;
+  name: string;
+  labels: Record<string, string>;
+};
+
+type DockerPostgresProvision = {
+  summary: PreparedWorkspaceService;
+  connection: SymphonyResolvedRuntimeService;
+  initRequired: boolean;
 };
 
 export function createDockerWorkspaceBackend(
@@ -87,6 +140,7 @@ export function createDockerWorkspaceBackend(
     options.containerNamePrefix
   );
   const shell = normalizeNonEmptyString(options.shell) ?? "sh";
+  const runtimeManifest = options.runtimeManifest ?? null;
   const commandRunner = options.commandRunner ?? defaultDockerWorkspaceCommandRunner;
   const configuredCommandTimeoutMs = options.commandTimeoutMs ?? null;
 
@@ -98,18 +152,59 @@ export function createDockerWorkspaceBackend(
         input.config,
         containerNamePrefix
       );
+      const timeoutMs = resolveDockerTimeoutMs(
+        configuredCommandTimeoutMs,
+        input.hooks.timeoutMs
+      );
       const created = await ensureMaterializedWorkspace(descriptor.hostPath);
+      const network = runtimeManifest
+        ? await ensureManagedNetwork({
+            descriptor,
+            commandRunner,
+            timeoutMs
+          })
+        : null;
+      const services = runtimeManifest
+        ? await ensureManagedPostgresServices({
+            runtimeManifest,
+            descriptor,
+            commandRunner,
+            timeoutMs
+          })
+        : {
+            summaries: [],
+            connections: {},
+            initServices: []
+          };
       const container = await ensureManagedContainer({
         descriptor,
         image,
         workspacePath,
         shell,
+        networkName: network?.network.name ?? null,
         commandRunner,
-        timeoutMs: resolveDockerTimeoutMs(
-          configuredCommandTimeoutMs,
-          input.hooks.timeoutMs
-        )
+        timeoutMs
       });
+      const envBundle = resolveDockerWorkspaceEnvBundle({
+        runtimeManifest,
+        environmentSource: input.env,
+        issueIdentifier: input.context.issueIdentifier,
+        workspaceKey: descriptor.workspaceKey,
+        workspacePath,
+        runId: input.runId ?? null,
+        issueId: input.context.issueId,
+        services: services.connections
+      });
+
+      for (const service of services.initServices) {
+        await runManagedPostgresInitSteps({
+          service,
+          env: envBundle.values,
+          commandRunner,
+          timeoutMs: input.hooks.timeoutMs
+        });
+      }
+
       let afterCreateHookOutcome: "skipped" | "completed" = "skipped";
 
       const workspace = buildPreparedWorkspace({
@@ -120,6 +215,10 @@ export function createDockerWorkspaceBackend(
         shell,
         created,
         containerDisposition: container.disposition,
+        networkDisposition: network?.disposition ?? "not_applicable",
+        networkName: network?.network.name ?? null,
+        services: services.summaries,
+        envBundle,
         afterCreateHookOutcome:
           created && input.hooks.afterCreate ? "completed" : "skipped"
       });
@@ -134,7 +233,7 @@ export function createDockerWorkspaceBackend(
           command: input.hooks.afterCreate,
           context: input.context,
           workerHost: input.workerHost ?? null,
-          env: input.env
+          env: envBundle.values
         });
         afterCreateHookOutcome = "completed";
       }
@@ -163,7 +262,7 @@ export function createDockerWorkspaceBackend(
         command: input.hooks.beforeRun,
         context: input.context,
         workerHost: input.workerHost ?? null,
-        env: input.env
+        env: input.workspace.envBundle.values
       });
 
       return {
@@ -191,7 +290,7 @@ export function createDockerWorkspaceBackend(
           command: input.hooks.afterRun,
           context: input.context,
           workerHost: input.workerHost ?? null,
-          env: input.env
+          env: input.workspace.envBundle.values
         });
         return {
           hookKind: "after_run",
@@ -224,6 +323,12 @@ export function createDockerWorkspaceBackend(
       let containerRemovalDisposition: WorkspaceCleanupResult["containerRemovalDisposition"] =
         "missing";
       let containerId: string | null = null;
+      const serviceDescriptors = resolveCleanupServiceDescriptors(
+        runtimeManifest,
+        descriptor,
+        input.workspace
+      );
+      const networkName = input.workspace?.networkName ?? descriptor.networkName;
 
       if (container) {
         assertManagedContainer(container, descriptor);
@@ -247,7 +352,7 @@ export function createDockerWorkspaceBackend(
                 issueIdentifier: descriptor.issueIdentifier
               },
               workerHost: input.workerHost ?? null,
-              env: input.env
+              env: input.workspace?.envBundle.values ?? input.env
             });
             beforeRemoveHookOutcome = "completed";
           } catch {
@@ -265,6 +370,19 @@ export function createDockerWorkspaceBackend(
         beforeRemoveHookOutcome = "skipped";
       }
 
+      const serviceCleanup = await removeManagedServiceContainers(
+        commandRunner,
+        serviceDescriptors,
+        timeoutMs
+      );
+      const networkRemovalDisposition = runtimeManifest
+        ? await removeDockerNetwork(
+            commandRunner,
+            descriptor.networkName,
+            descriptor,
+            timeoutMs
+          )
+        : "not_applicable";
       const workspaceRemovalDisposition = await removeMaterializedWorkspace(
         descriptor.hostPath
       );
@@ -279,6 +397,9 @@ export function createDockerWorkspaceBackend(
             : workspacePath,
         containerId,
         containerName: descriptor.containerName,
+        networkName: runtimeManifest ? networkName : null,
+        networkRemovalDisposition,
+        serviceCleanup,
         beforeRemoveHookOutcome,
         workspaceRemovalDisposition,
         containerRemovalDisposition
@@ -303,6 +424,7 @@ async function createDockerWorkspaceDescriptor(
     issueIdentifier: context.issueIdentifier,
     workspaceKey,
     containerName: buildDockerContainerName(containerNamePrefix, workspaceKey),
+    networkName: buildDockerNetworkName(containerNamePrefix, workspaceKey),
     hostPath
   };
 }
@@ -338,6 +460,8 @@ async function resolveCleanupDescriptor(
     issueIdentifier: input.issueIdentifier,
     workspaceKey,
     containerName,
+    networkName:
+      workspace?.networkName ?? buildDockerNetworkName(containerNamePrefix, workspaceKey),
     hostPath
   };
 }
@@ -350,6 +474,10 @@ function buildPreparedWorkspace(input: {
   shell: string;
   created: boolean;
   containerDisposition: DockerContainerPrepareDisposition;
+  networkDisposition: PreparedWorkspace["networkDisposition"];
+  networkName: string | null;
+  services: PreparedWorkspaceService[];
+  envBundle: PreparedWorkspace["envBundle"];
   afterCreateHookOutcome: "skipped" | "completed";
 }): PreparedWorkspace {
   return {
@@ -358,6 +486,7 @@ function buildPreparedWorkspace(input: {
     backendKind: "docker",
     prepareDisposition: input.created ? "created" : "reused",
     containerDisposition: input.containerDisposition,
+    networkDisposition: input.networkDisposition,
     afterCreateHookOutcome: input.afterCreateHookOutcome,
     executionTarget: {
       kind: "container",
@@ -372,10 +501,348 @@ function buildPreparedWorkspace(input: {
       hostPath: input.descriptor.hostPath,
       containerPath: input.workspacePath
     },
+    networkName: input.networkName,
+    services: input.services,
+    envBundle: input.envBundle,
     path: null,
     created: input.created,
     workerHost: input.workerHost
   };
+}
+
+function resolveDockerWorkspaceEnvBundle(input: {
+  runtimeManifest: SymphonyLoadedRuntimeManifest | null;
+  environmentSource: Record<string, string | undefined> | undefined;
+  issueIdentifier: string;
+  workspaceKey: string;
+  workspacePath: string;
+  runId: string | null;
+  issueId: string | null;
+  services: Record<string, SymphonyResolvedRuntimeService>;
+}): PreparedWorkspace["envBundle"] {
+  if (!input.runtimeManifest) {
+    return buildAmbientDockerWorkspaceEnvBundle(input.environmentSource);
+  }
+
+  return resolveSymphonyRuntimeEnvBundle({
+    manifest: input.runtimeManifest.manifest,
+    environmentSource: input.environmentSource ?? {},
+    runtime: {
+      issueId: input.issueId,
+      issueIdentifier: input.issueIdentifier,
+      runId: input.runId,
+      workspaceKey: input.workspaceKey,
+      workspacePath: input.workspacePath,
+      backendKind: "docker"
+    },
+    services: input.services,
+    manifestPath: input.runtimeManifest.manifestPath
+  });
+}
+
+function buildAmbientDockerWorkspaceEnvBundle(
+  environmentSource: Record<string, string | undefined> | undefined
+): PreparedWorkspace["envBundle"] {
+  const values = Object.fromEntries(
+    Object.entries(environmentSource ?? {}).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string"
+    )
+  );
+
+  return {
+    source: "ambient",
+    values,
+    summary: {
+      source: "ambient",
+      injectedKeys: Object.keys(values).sort(),
+      requiredHostKeys: [],
+      optionalHostKeys: [],
+      staticBindingKeys: [],
+      runtimeBindingKeys: [],
+      serviceBindingKeys: []
+    }
+  };
+}
+
+async function ensureManagedNetwork(input: {
+  descriptor: DockerWorkspaceDescriptor;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<{
+  network: DockerNetworkInspectState;
+  disposition: PreparedWorkspace["networkDisposition"];
+}> {
+  const existing = await inspectDockerNetwork(
+    input.commandRunner,
+    input.descriptor.networkName,
+    input.timeoutMs
+  );
+
+  if (existing) {
+    assertManagedNetwork(existing, input.descriptor);
+    return {
+      network: existing,
+      disposition: "reused"
+    };
+  }
+
+  const labels = buildManagedNetworkLabels(input.descriptor);
+  const args = [
+    "network",
+    "create",
+    ...dockerLabelFlags(labels),
+    input.descriptor.networkName
+  ];
+  const result = await input.commandRunner({
+    args,
+    timeoutMs: input.timeoutMs
+  });
+
+  if (result.exitCode !== 0) {
+    throw dockerCommandError("network create", args, result);
+  }
+
+  return {
+    network: {
+      id: result.stdout.trim() || input.descriptor.networkName,
+      name: input.descriptor.networkName,
+      labels
+    },
+    disposition: "created"
+  };
+}
+
+async function ensureManagedPostgresServices(input: {
+  runtimeManifest: SymphonyLoadedRuntimeManifest;
+  descriptor: DockerWorkspaceDescriptor;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<{
+  summaries: PreparedWorkspaceService[];
+  connections: Record<string, SymphonyResolvedRuntimeService>;
+  initServices: DockerServiceDescriptor[];
+}> {
+  const descriptors = buildDockerServiceDescriptors(
+    input.runtimeManifest,
+    input.descriptor
+  );
+  const summaries: PreparedWorkspaceService[] = [];
+  const connections: Record<string, SymphonyResolvedRuntimeService> = {};
+  const initServices: DockerServiceDescriptor[] = [];
+
+  for (const descriptor of descriptors) {
+    const provision = await ensureManagedPostgresService({
+      descriptor,
+      networkName: input.descriptor.networkName,
+      commandRunner: input.commandRunner,
+      timeoutMs: input.timeoutMs
+    });
+
+    summaries.push(provision.summary);
+    connections[descriptor.key] = provision.connection;
+
+    if (provision.initRequired) {
+      initServices.push(descriptor);
+    }
+  }
+
+  return {
+    summaries,
+    connections,
+    initServices
+  };
+}
+
+function buildDockerServiceDescriptors(
+  runtimeManifest: SymphonyLoadedRuntimeManifest,
+  descriptor: DockerWorkspaceDescriptor
+): DockerServiceDescriptor[] {
+  return Object.entries(runtimeManifest.manifest.services).map(([key, service]) => {
+    if (service.type !== "postgres") {
+      throw new SymphonyWorkspaceError(
+        "workspace_docker_unsupported_service",
+        `Unsupported manifest service type ${service.type} for ${key}.`
+      );
+    }
+
+    return {
+      issueIdentifier: descriptor.issueIdentifier,
+      workspaceKey: descriptor.workspaceKey,
+      key,
+      service,
+      containerName: buildDockerServiceContainerName(descriptor.workspaceKey, key)
+    };
+  });
+}
+
+async function ensureManagedPostgresService(input: {
+  descriptor: DockerServiceDescriptor;
+  networkName: string;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<DockerPostgresProvision> {
+  const existing = await inspectDockerContainer(
+    input.commandRunner,
+    input.descriptor.containerName,
+    input.timeoutMs
+  );
+  let container: DockerContainerInspectState;
+  let disposition: PreparedWorkspaceService["disposition"];
+
+  if (!existing) {
+    container = await startManagedPostgresService(input);
+    disposition = "created";
+  } else {
+    assertManagedServiceContainer(existing, input.descriptor, input.networkName);
+
+    if (
+      canReusePostgresService(existing, input.descriptor, input.networkName)
+    ) {
+      container = existing;
+      disposition = "reused";
+    } else {
+      await removeDockerServiceContainer(
+        input.commandRunner,
+        input.descriptor,
+        input.timeoutMs
+      );
+      container = await startManagedPostgresService(input);
+      disposition = "recreated";
+    }
+  }
+
+  await waitForManagedPostgresReadiness({
+    commandRunner: input.commandRunner,
+    descriptor: input.descriptor,
+    timeoutMs: input.timeoutMs
+  });
+
+  return {
+    summary: {
+      key: input.descriptor.key,
+      type: "postgres",
+      hostname: input.descriptor.service.hostname,
+      port: input.descriptor.service.port,
+      containerId: container.id,
+      containerName: input.descriptor.containerName,
+      disposition
+    },
+    connection: {
+      type: "postgres",
+      serviceKey: input.descriptor.key,
+      host: input.descriptor.service.hostname,
+      port: input.descriptor.service.port,
+      database: input.descriptor.service.database,
+      username: input.descriptor.service.username,
+      password: input.descriptor.service.password,
+      connectionString: buildSymphonyRuntimePostgresConnectionString({
+        host: input.descriptor.service.hostname,
+        port: input.descriptor.service.port,
+        database: input.descriptor.service.database,
+        username: input.descriptor.service.username,
+        password: input.descriptor.service.password
+      })
+    },
+    initRequired: disposition !== "reused" && input.descriptor.service.init.length > 0
+  };
+}
+
+async function runManagedPostgresInitSteps(input: {
+  service: DockerServiceDescriptor;
+  env: Record<string, string>;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<void> {
+  for (const step of input.service.service.init) {
+    if (step.cwd) {
+      throw new SymphonyWorkspaceError(
+        "workspace_docker_service_init_invalid_cwd",
+        `Postgres init step ${step.name} for service ${input.service.key} cannot set cwd in this stage.`
+      );
+    }
+
+    const args = [
+      "exec",
+      ...dockerEnvFlags(input.env),
+      input.service.containerName,
+      "sh",
+      "-lc",
+      step.run
+    ];
+    const result = await input.commandRunner({
+      args,
+      timeoutMs: step.timeoutMs ?? input.timeoutMs
+    });
+
+    if (result.exitCode !== 0) {
+      throw new SymphonyWorkspaceError(
+        "workspace_docker_service_init_failed",
+        [
+          `Postgres init step ${step.name} failed for service ${input.service.key}.`,
+          result.stdout.trim(),
+          result.stderr.trim()
+        ]
+          .filter((line) => line !== "")
+          .join("\n")
+      );
+    }
+  }
+}
+
+function resolveCleanupServiceDescriptors(
+  runtimeManifest: SymphonyLoadedRuntimeManifest | null,
+  descriptor: DockerWorkspaceDescriptor,
+  workspace: PreparedWorkspace | null | undefined
+): DockerServiceDescriptor[] {
+  if (runtimeManifest) {
+    return buildDockerServiceDescriptors(runtimeManifest, descriptor);
+  }
+
+  return (workspace?.services ?? []).map((service) => ({
+    issueIdentifier: descriptor.issueIdentifier,
+    workspaceKey: descriptor.workspaceKey,
+    key: service.key,
+    service: {
+      type: "postgres",
+      image: "postgres",
+      hostname: service.hostname,
+      port: service.port,
+      database: "postgres",
+      username: "postgres",
+      password: "",
+      init: []
+    },
+    containerName: service.containerName
+  }));
+}
+
+async function removeManagedServiceContainers(
+  commandRunner: DockerWorkspaceCommandRunner,
+  descriptors: DockerServiceDescriptor[],
+  timeoutMs: number
+): Promise<WorkspaceCleanupService[]> {
+  const cleanup: WorkspaceCleanupService[] = [];
+
+  for (const descriptor of descriptors) {
+    const existing = await inspectDockerContainer(
+      commandRunner,
+      descriptor.containerName,
+      timeoutMs
+    );
+    const removalDisposition = existing
+      ? await removeDockerServiceContainer(commandRunner, descriptor, timeoutMs)
+      : "missing";
+
+    cleanup.push({
+      key: descriptor.key,
+      type: "postgres",
+      containerId: existing?.id ?? null,
+      containerName: descriptor.containerName,
+      removalDisposition
+    });
+  }
+
+  return cleanup;
 }
 
 async function ensureManagedContainer(input: {
@@ -383,6 +850,7 @@ async function ensureManagedContainer(input: {
   image: string;
   workspacePath: string;
   shell: string;
+  networkName: string | null;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
 }): Promise<{
@@ -409,7 +877,8 @@ async function ensureManagedContainer(input: {
       existing,
       input.image,
       input.workspacePath,
-      input.descriptor.hostPath
+      input.descriptor.hostPath,
+      input.networkName
     )
   ) {
     return {
@@ -436,10 +905,11 @@ async function startManagedContainer(input: {
   image: string;
   workspacePath: string;
   shell: string;
+  networkName: string | null;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
 }): Promise<DockerContainerInspectState> {
-  const labels = buildManagedContainerLabels(input.descriptor);
+  const labels = buildManagedContainerLabels(input.descriptor, input.networkName);
   const args = [
     "run",
     "-d",
@@ -451,6 +921,7 @@ async function startManagedContainer(input: {
     input.workspacePath,
     "--env",
     `HOME=${defaultDockerHomePath}`,
+    ...(input.networkName ? ["--network", input.networkName] : []),
     ...hostUserFlags(),
     ...dockerLabelFlags(labels),
     "--entrypoint",
@@ -483,6 +954,9 @@ async function startManagedContainer(input: {
     running: true,
     status: "running",
     labels,
+    env: {
+      HOME: defaultDockerHomePath
+    },
     mounts: [
       {
         type: "bind",
@@ -490,7 +964,14 @@ async function startManagedContainer(input: {
         destination: input.workspacePath,
         name: null
       }
-    ]
+    ],
+    networks: input.networkName
+      ? {
+          [input.networkName]: {
+            aliases: []
+          }
+        }
+      : {}
   };
 }
 
@@ -515,6 +996,181 @@ async function removeDockerContainer(
 
   if (result.exitCode !== 0 && !isDockerMissingObject(result.stderr)) {
     throw dockerCommandError("rm", args, result);
+  }
+
+  return isDockerMissingObject(result.stderr) ? "missing" : "removed";
+}
+
+async function startManagedPostgresService(input: {
+  descriptor: DockerServiceDescriptor;
+  networkName: string;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<DockerContainerInspectState> {
+  const labels = buildManagedServiceLabels(input.descriptor, input.networkName);
+  const postgresEnv = {
+    POSTGRES_DB: input.descriptor.service.database,
+    POSTGRES_USER: input.descriptor.service.username,
+    POSTGRES_PASSWORD: input.descriptor.service.password
+  };
+  const args = [
+    "run",
+    "-d",
+    "--name",
+    input.descriptor.containerName,
+    "--network",
+    input.networkName,
+    "--network-alias",
+    input.descriptor.service.hostname,
+    ...dockerPostgresResourceFlags(input.descriptor.service),
+    ...dockerLabelFlags(labels),
+    ...dockerEnvFlags(postgresEnv),
+    input.descriptor.service.image,
+    "postgres",
+    "-p",
+    String(input.descriptor.service.port)
+  ];
+  const result = await input.commandRunner({
+    args,
+    timeoutMs: input.timeoutMs
+  });
+
+  if (result.exitCode !== 0) {
+    throw dockerCommandError("run", args, result);
+  }
+
+  const containerId = result.stdout.trim();
+  if (containerId === "") {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_invalid_container_id",
+      `Docker run did not return a container id for ${input.descriptor.containerName}.`
+    );
+  }
+
+  return {
+    id: containerId,
+    name: input.descriptor.containerName,
+    image: input.descriptor.service.image,
+    running: true,
+    status: "running",
+    labels,
+    env: postgresEnv,
+    mounts: [],
+    networks: {
+      [input.networkName]: {
+        aliases: [input.descriptor.service.hostname]
+      }
+    }
+  };
+}
+
+async function removeDockerServiceContainer(
+  commandRunner: DockerWorkspaceCommandRunner,
+  descriptor: DockerServiceDescriptor,
+  timeoutMs: number
+): Promise<"removed" | "missing"> {
+  const existing = await inspectDockerContainer(
+    commandRunner,
+    descriptor.containerName,
+    timeoutMs
+  );
+  if (!existing) {
+    return "missing";
+  }
+
+  if (existing.labels[managedBackendLabelKey] !== managedBackendLabelValue) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} exists but is not managed by Symphony.`
+    );
+  }
+
+  if (existing.labels[managedKindLabelKey] !== managedWorkspaceServiceKind) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is not a managed Symphony service container.`
+    );
+  }
+
+  if (existing.labels[managedServiceKeyLabelKey] !== descriptor.key) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is already assigned to service ${existing.labels[managedServiceKeyLabelKey]}.`
+    );
+  }
+
+  if (existing.labels[managedWorkspaceKeyLabelKey] !== descriptor.workspaceKey) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is already assigned to workspace ${existing.labels[managedWorkspaceKeyLabelKey]}.`
+    );
+  }
+
+  if (
+    existing.labels[managedIssueIdentifierLabelKey] !== descriptor.issueIdentifier
+  ) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is already assigned to issue ${existing.labels[managedIssueIdentifierLabelKey]}.`
+    );
+  }
+
+  const args = ["rm", "-f", descriptor.containerName];
+  const result = await commandRunner({
+    args,
+    timeoutMs
+  });
+
+  if (result.exitCode !== 0 && !isDockerMissingObject(result.stderr)) {
+    throw dockerCommandError("rm", args, result);
+  }
+
+  return isDockerMissingObject(result.stderr) ? "missing" : "removed";
+}
+
+async function inspectDockerNetwork(
+  commandRunner: DockerWorkspaceCommandRunner,
+  networkName: string,
+  timeoutMs: number
+): Promise<DockerNetworkInspectState | null> {
+  const args = ["network", "inspect", networkName];
+  const result = await commandRunner({
+    args,
+    timeoutMs
+  });
+
+  if (result.exitCode !== 0) {
+    if (isDockerMissingObject(result.stderr)) {
+      return null;
+    }
+
+    throw dockerCommandError("network inspect", args, result);
+  }
+
+  return parseDockerNetworkInspectPayload(result.stdout, networkName);
+}
+
+async function removeDockerNetwork(
+  commandRunner: DockerWorkspaceCommandRunner,
+  networkName: string,
+  descriptor: DockerWorkspaceDescriptor,
+  timeoutMs: number
+): Promise<WorkspaceCleanupResult["networkRemovalDisposition"]> {
+  const existing = await inspectDockerNetwork(commandRunner, networkName, timeoutMs);
+  if (!existing) {
+    return "missing";
+  }
+
+  assertManagedNetwork(existing, descriptor);
+
+  const args = ["network", "rm", networkName];
+  const result = await commandRunner({
+    args,
+    timeoutMs
+  });
+
+  if (result.exitCode !== 0 && !isDockerMissingObject(result.stderr)) {
+    throw dockerCommandError("network rm", args, result);
   }
 
   return isDockerMissingObject(result.stderr) ? "missing" : "removed";
@@ -652,9 +1308,11 @@ function parseDockerInspectPayload(
   const state = asRecord(container.State);
   const config = asRecord(container.Config);
   const labels = stringRecord(config?.Labels);
+  const env = envRecord(config?.Env);
   const mounts = Array.isArray(container.Mounts)
     ? container.Mounts.map(parseDockerMount)
     : [];
+  const networks = parseDockerNetworks(asRecord(asRecord(container.NetworkSettings)?.Networks));
 
   return {
     id: stringOrFallback(container.Id, containerName),
@@ -665,7 +1323,48 @@ function parseDockerInspectPayload(
     running: state?.Running === true,
     status: stringOrNull(state?.Status),
     labels,
-    mounts
+    env,
+    mounts,
+    networks
+  };
+}
+
+function parseDockerNetworkInspectPayload(
+  payload: string,
+  networkName: string
+): DockerNetworkInspectState {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(payload);
+  } catch (error) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_invalid_network_payload",
+      `Failed to parse docker network inspect output for ${networkName}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_invalid_network_payload",
+      `Docker network inspect did not return metadata for ${networkName}.`
+    );
+  }
+
+  const network = asRecord(parsed[0]);
+  if (!network) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_invalid_network_payload",
+      `Docker network inspect returned a non-object payload for ${networkName}.`
+    );
+  }
+
+  return {
+    id: stringOrFallback(network.Id, networkName),
+    name: stringOrFallback(network.Name, networkName),
+    labels: stringRecord(network.Labels)
   };
 }
 
@@ -680,16 +1379,160 @@ function parseDockerMount(value: unknown): DockerContainerMount {
   };
 }
 
+function parseDockerNetworks(
+  networks: Record<string, unknown> | null
+): Record<string, DockerContainerNetwork> {
+  if (!networks) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(networks).map(([name, value]) => {
+      const record = asRecord(value);
+      const aliases = Array.isArray(record?.Aliases)
+        ? record.Aliases.filter((entry): entry is string => typeof entry === "string")
+        : [];
+
+      return [
+        name,
+        {
+          aliases
+        }
+      ];
+    })
+  );
+}
+
+function envRecord(value: unknown): Record<string, string> {
+  if (!Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    value
+      .filter((entry): entry is string => typeof entry === "string")
+      .map((entry) => {
+        const separator = entry.indexOf("=");
+        return separator === -1
+          ? [entry, ""]
+          : [entry.slice(0, separator), entry.slice(separator + 1)];
+      })
+  );
+}
+
+function containerAttachedToNetwork(
+  container: DockerContainerInspectState,
+  networkName: string
+): boolean {
+  return networkName in container.networks;
+}
+
+function containerHasNetworkAlias(
+  container: DockerContainerInspectState,
+  networkName: string,
+  alias: string
+): boolean {
+  return container.networks[networkName]?.aliases.includes(alias) ?? false;
+}
+
+async function waitForManagedPostgresReadiness(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  descriptor: DockerServiceDescriptor;
+  timeoutMs: number;
+}): Promise<void> {
+  const timeoutMs =
+    input.descriptor.service.readiness?.timeoutMs ?? defaultPostgresReadinessTimeoutMs;
+  const intervalMs =
+    input.descriptor.service.readiness?.intervalMs ??
+    defaultPostgresReadinessIntervalMs;
+  const retries =
+    input.descriptor.service.readiness?.retries ?? defaultPostgresReadinessRetries;
+  let attempts = 0;
+  let lastFailure = "Unknown readiness failure.";
+
+  while (attempts < retries) {
+    attempts += 1;
+
+    const args = [
+      "exec",
+      "--env",
+      `PGPASSWORD=${input.descriptor.service.password}`,
+      "--env",
+      `SYMPHONY_PG_PORT=${input.descriptor.service.port}`,
+      "--env",
+      `SYMPHONY_PG_USER=${input.descriptor.service.username}`,
+      "--env",
+      `SYMPHONY_PG_DATABASE=${input.descriptor.service.database}`,
+      input.descriptor.containerName,
+      "sh",
+      "-lc",
+      'pg_isready -h 127.0.0.1 -p "$SYMPHONY_PG_PORT" -U "$SYMPHONY_PG_USER" -d "$SYMPHONY_PG_DATABASE"'
+    ];
+    const result = await input.commandRunner({
+      args,
+      timeoutMs
+    });
+
+    if (result.exitCode === 0) {
+      return;
+    }
+
+    lastFailure = [result.stdout.trim(), result.stderr.trim()]
+      .filter((line) => line !== "")
+      .join("\n");
+
+    if (attempts < retries) {
+      await sleep(intervalMs);
+    }
+  }
+
+  throw new SymphonyWorkspaceError(
+    "workspace_docker_service_readiness_failed",
+    `Postgres service ${input.descriptor.key} failed readiness after ${retries} attempts: ${lastFailure}`
+  );
+}
+
 async function canReuseContainer(
   container: DockerContainerInspectState,
   image: string,
   workspacePath: string,
-  hostPath: string
+  hostPath: string,
+  networkName: string | null
 ): Promise<boolean> {
   return (
     container.running &&
     container.image === image &&
+    (!networkName || containerAttachedToNetwork(container, networkName)) &&
     (await containerHasExpectedBindMount(container, workspacePath, hostPath))
+  );
+}
+
+function canReusePostgresService(
+  container: DockerContainerInspectState,
+  descriptor: DockerServiceDescriptor,
+  networkName: string
+): boolean {
+  const resources = resolvePostgresResourceLimits(descriptor.service);
+
+  return (
+    container.running &&
+    container.image === descriptor.service.image &&
+    container.env.POSTGRES_DB === descriptor.service.database &&
+    container.env.POSTGRES_USER === descriptor.service.username &&
+    container.env.POSTGRES_PASSWORD === descriptor.service.password &&
+    container.labels[managedWorkspaceKeyLabelKey] === descriptor.workspaceKey &&
+    container.labels[managedIssueIdentifierLabelKey] ===
+      descriptor.issueIdentifier &&
+    container.labels[managedServiceHostnameLabelKey] ===
+      descriptor.service.hostname &&
+    container.labels[managedServicePortLabelKey] ===
+      String(descriptor.service.port) &&
+    container.labels[managedServiceMemoryMbLabelKey] ===
+      String(resources.memoryMb) &&
+    container.labels[managedServiceCpuSharesLabelKey] ===
+      String(resources.cpuShares) &&
+    containerAttachedToNetwork(container, networkName) &&
+    containerHasNetworkAlias(container, networkName, descriptor.service.hostname)
   );
 }
 
@@ -750,23 +1593,204 @@ function assertManagedContainer(
       `Docker container ${descriptor.containerName} uses unsupported materialization ${container.labels[managedMaterializationLabelKey]}.`
     );
   }
+
+  if (container.labels[managedKindLabelKey] !== managedWorkspaceContainerKind) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker container ${descriptor.containerName} is not a managed Symphony workspace container.`
+    );
+  }
+}
+
+function assertManagedServiceContainer(
+  container: DockerContainerInspectState,
+  descriptor: DockerServiceDescriptor,
+  networkName: string
+): void {
+  if (container.labels[managedBackendLabelKey] !== managedBackendLabelValue) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} exists but is not managed by Symphony.`
+    );
+  }
+
+  if (container.labels[managedKindLabelKey] !== managedWorkspaceServiceKind) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is not a managed Symphony service container.`
+    );
+  }
+
+  if (container.labels[managedServiceKeyLabelKey] !== descriptor.key) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is already assigned to service ${container.labels[managedServiceKeyLabelKey]}.`
+    );
+  }
+
+  if (container.labels[managedWorkspaceKeyLabelKey] !== descriptor.workspaceKey) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is already assigned to workspace ${container.labels[managedWorkspaceKeyLabelKey]}.`
+    );
+  }
+
+  if (
+    container.labels[managedIssueIdentifierLabelKey] !== descriptor.issueIdentifier
+  ) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is already assigned to issue ${container.labels[managedIssueIdentifierLabelKey]}.`
+    );
+  }
+
+  if (container.labels[managedServiceTypeLabelKey] !== "postgres") {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} uses unsupported service type ${container.labels[managedServiceTypeLabelKey]}.`
+    );
+  }
+
+  if (container.labels[managedNetworkNameLabelKey] !== networkName) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is attached to ${container.labels[managedNetworkNameLabelKey]} instead of ${networkName}.`
+    );
+  }
+}
+
+function assertManagedNetwork(
+  network: DockerNetworkInspectState,
+  descriptor: DockerWorkspaceDescriptor
+): void {
+  if (network.labels[managedBackendLabelKey] !== managedBackendLabelValue) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker network ${descriptor.networkName} exists but is not managed by Symphony.`
+    );
+  }
+
+  if (network.labels[managedKindLabelKey] !== managedWorkspaceNetworkKind) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker network ${descriptor.networkName} is not a managed Symphony workspace network.`
+    );
+  }
+
+  if (network.labels[managedWorkspaceKeyLabelKey] !== descriptor.workspaceKey) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker network ${descriptor.networkName} is already assigned to workspace ${network.labels[managedWorkspaceKeyLabelKey]}.`
+    );
+  }
+
+  if (
+    network.labels[managedIssueIdentifierLabelKey] !== descriptor.issueIdentifier
+  ) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker network ${descriptor.networkName} is already assigned to issue ${network.labels[managedIssueIdentifierLabelKey]}.`
+    );
+  }
 }
 
 function buildManagedContainerLabels(
+  descriptor: DockerWorkspaceDescriptor,
+  networkName: string | null
+): Record<string, string> {
+  return {
+    [managedBackendLabelKey]: managedBackendLabelValue,
+    [managedWorkspaceKeyLabelKey]: descriptor.workspaceKey,
+    [managedIssueIdentifierLabelKey]: descriptor.issueIdentifier,
+    [managedMaterializationLabelKey]: bindMaterializationKind,
+    [managedKindLabelKey]: managedWorkspaceContainerKind,
+    ...(networkName
+      ? {
+          [managedNetworkNameLabelKey]: networkName
+        }
+      : {})
+  };
+}
+
+function buildManagedNetworkLabels(
   descriptor: DockerWorkspaceDescriptor
 ): Record<string, string> {
   return {
     [managedBackendLabelKey]: managedBackendLabelValue,
     [managedWorkspaceKeyLabelKey]: descriptor.workspaceKey,
     [managedIssueIdentifierLabelKey]: descriptor.issueIdentifier,
-    [managedMaterializationLabelKey]: bindMaterializationKind
+    [managedKindLabelKey]: managedWorkspaceNetworkKind
   };
+}
+
+function buildManagedServiceLabels(
+  descriptor: DockerServiceDescriptor,
+  networkName: string
+): Record<string, string> {
+  const resources = resolvePostgresResourceLimits(descriptor.service);
+
+  return {
+    [managedBackendLabelKey]: managedBackendLabelValue,
+    [managedWorkspaceKeyLabelKey]: descriptor.workspaceKey,
+    [managedIssueIdentifierLabelKey]: descriptor.issueIdentifier,
+    [managedKindLabelKey]: managedWorkspaceServiceKind,
+    [managedServiceKeyLabelKey]: descriptor.key,
+    [managedServiceTypeLabelKey]: "postgres",
+    [managedServiceHostnameLabelKey]: descriptor.service.hostname,
+    [managedServicePortLabelKey]: String(descriptor.service.port),
+    [managedServiceMemoryMbLabelKey]: String(resources.memoryMb),
+    [managedServiceCpuSharesLabelKey]: String(resources.cpuShares),
+    [managedNetworkNameLabelKey]: networkName
+  };
+}
+
+function resolvePostgresResourceLimits(
+  service: SymphonyNormalizedRuntimePostgresService
+): {
+  memoryMb: number;
+  cpuShares: number;
+} {
+  return {
+    memoryMb: service.resources?.memoryMb ?? defaultPostgresMemoryMb,
+    cpuShares: service.resources?.cpuShares ?? defaultPostgresCpuShares
+  };
+}
+
+function dockerPostgresResourceFlags(
+  service: SymphonyNormalizedRuntimePostgresService
+): string[] {
+  const resources = resolvePostgresResourceLimits(service);
+
+  return [
+    "--memory",
+    `${resources.memoryMb}m`,
+    "--cpu-shares",
+    String(resources.cpuShares)
+  ];
 }
 
 function buildDockerContainerName(
   prefix: string,
   workspaceKey: string
 ): string {
+  return buildDockerManagedName(prefix, workspaceKey);
+}
+
+function buildDockerNetworkName(
+  prefix: string,
+  workspaceKey: string
+): string {
+  return buildDockerManagedName(`${prefix}-network`, workspaceKey);
+}
+
+function buildDockerServiceContainerName(
+  workspaceKey: string,
+  serviceKey: string
+): string {
+  return buildDockerManagedName(`symphony-service-${serviceKey}`, workspaceKey);
+}
+
+function buildDockerManagedName(prefix: string, workspaceKey: string): string {
   const readable =
     workspaceKey
       .toLowerCase()
@@ -945,7 +1969,7 @@ function dockerCommandError(
     "workspace_docker_command_failed",
     [
       `docker ${operation} failed.`,
-      `Command: docker ${args.join(" ")}`,
+      `Command: docker ${sanitizeDockerArgs(args).join(" ")}`,
       result.stdout.trim(),
       result.stderr.trim()
     ]
@@ -1046,11 +2070,46 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function isDockerMissingObject(stderr: string): boolean {
-  return /No such (?:object|container)/i.test(stderr);
+  return /No such (?:object|container|network)/i.test(stderr);
 }
 
 function isEnoent(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+function sanitizeDockerArgs(args: string[]): string[] {
+  const sanitized = [...args];
+
+  for (let index = 0; index < sanitized.length - 1; index += 1) {
+    if (sanitized[index] !== "--env") {
+      continue;
+    }
+
+    sanitized[index + 1] = redactDockerEnvAssignment(sanitized[index + 1] ?? "");
+  }
+
+  return sanitized;
+}
+
+function redactDockerEnvAssignment(assignment: string): string {
+  const separator = assignment.indexOf("=");
+  if (separator === -1) {
+    return assignment;
+  }
+
+  const key = assignment.slice(0, separator);
+  const value = assignment.slice(separator + 1);
+  return `${key}=${shouldRedactDockerEnvValue(key) ? "<redacted>" : value}`;
+}
+
+function shouldRedactDockerEnvValue(key: string): boolean {
+  return /(PASSWORD|TOKEN|SECRET|DATABASE_URL|API_KEY|PRIVATE_KEY)/i.test(key);
+}
+
+function sleep(timeoutMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, timeoutMs);
+  });
 }
 
 async function defaultDockerWorkspaceCommandRunner(input: {

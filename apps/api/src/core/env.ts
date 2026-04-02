@@ -107,9 +107,15 @@ export function loadSymphonyRuntimeAppEnv(
 }
 
 export function buildSymphonyRuntimeEnvironmentSource(
-  env: SymphonyRuntimeAppEnv
+  env: SymphonyRuntimeAppEnv,
+  source: EnvironmentSource = process.env
 ): EnvironmentSource {
   return {
+    ...Object.fromEntries(
+      Object.entries(source).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string"
+      )
+    ),
     LINEAR_API_KEY: env.linearApiKey,
     SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined
   };

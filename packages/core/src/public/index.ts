@@ -37,8 +37,11 @@ export type {
   WorkspaceCleanupResult,
   WorkspaceCleanupContainerDisposition,
   WorkspaceCleanupInput,
+  WorkspaceCleanupService,
   WorkspaceContext,
   WorkspaceContainerDisposition,
+  WorkspaceEnvBundle,
+  WorkspaceEnvBundleSummary,
   WorkspaceExecutionTarget,
   WorkspaceHookKind,
   WorkspaceHookOutcome,
@@ -46,6 +49,12 @@ export type {
   WorkspaceLifecycleMetadata,
   WorkspaceHookInput,
   WorkspaceMaterializationMetadata,
+  WorkspaceNetworkDisposition,
+  WorkspaceNetworkRemovalDisposition,
   WorkspacePrepareDisposition,
-  WorkspacePrepareInput
+  WorkspacePrepareInput,
+  PreparedWorkspaceService,
+  WorkspaceServiceDisposition,
+  WorkspaceServiceRemovalDisposition,
+  WorkspaceServiceType
 } from "../workspace/workspace-backend.js";

@@ -25,6 +25,7 @@ describe("runtime serializers", () => {
             backendKind: "docker",
             prepareDisposition: "reused",
             containerDisposition: "reused",
+            networkDisposition: "reused",
             afterCreateHookOutcome: "skipped",
             executionTarget: {
               kind: "container",
@@ -39,6 +40,21 @@ describe("runtime serializers", () => {
               volumeName: "symphony-col-123",
               containerPath: "/home/agent/workspace",
               hostPath: null
+            },
+            networkName: "symphony-network-col-123",
+            services: [],
+            envBundle: {
+              source: "ambient",
+              values: {},
+              summary: {
+                source: "ambient",
+                injectedKeys: [],
+                requiredHostKeys: [],
+                optionalHostKeys: [],
+                staticBindingKeys: [],
+                runtimeBindingKeys: [],
+                serviceBindingKeys: []
+              }
             },
             path: null,
             created: false,
@@ -86,10 +102,22 @@ describe("runtime serializers", () => {
       executionTargetKind: "container",
       materializationKind: "volume",
       containerDisposition: "reused",
+      networkDisposition: "reused",
       hostPath: null,
       runtimePath: "/home/agent/workspace",
       containerId: "container-123",
       containerName: "symphony-col-123",
+      networkName: "symphony-network-col-123",
+      services: [],
+      envBundleSummary: {
+        source: "ambient",
+        injectedKeys: [],
+        requiredHostKeys: [],
+        optionalHostKeys: [],
+        staticBindingKeys: [],
+        runtimeBindingKeys: [],
+        serviceBindingKeys: []
+      },
       path: null,
       executionTarget: {
         kind: "container",
@@ -129,10 +157,14 @@ describe("runtime serializers", () => {
       executionTargetKind: null,
       materializationKind: null,
       containerDisposition: null,
+      networkDisposition: null,
       hostPath: null,
       runtimePath: null,
       containerId: null,
       containerName: null,
+      networkName: null,
+      services: [],
+      envBundleSummary: null,
       path: null,
       executionTarget: null,
       materialization: null

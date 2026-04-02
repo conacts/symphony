@@ -7,13 +7,23 @@ Date: 2026-04-01
 Add a real Docker-backed `WorkspaceBackend` behind the execution-target-aware workspace seam and
 exercise it through one intentional Codex runtime path without making Docker the default runtime.
 
-The repo-local manifest foundation now exists in parallel as a validation-only contract. This
-document still describes the current backend/runtime execution path; manifest-driven lifecycle
-execution remains deferred. See `docs/architecture/runtime-manifest-contract.md`.
+This stage also makes the frozen runtime manifest operational for Docker-backed workspaces:
+
+- explicit env bundle resolution from manifest host/static/runtime/service bindings
+- one per-workspace Docker network
+- one per-workspace Postgres sidecar
+- Postgres readiness and optional service `init`
+- explicit env bundle injection into hooks and Codex launch
+
+Repo-level manifest lifecycle execution still remains deferred. See
+`docs/architecture/runtime-manifest-contract.md`.
 
 This stage now covers:
 
 - prepare a deterministic container-backed workspace
+- prepare a deterministic per-workspace Docker network when a runtime manifest is present
+- prepare a deterministic per-workspace Postgres sidecar when a runtime manifest is present
+- resolve an explicit env bundle for hooks and runtime execution
 - expose explicit workspace lifecycle metadata for prepare, launch, and cleanup
 - expose explicit execution-target and materialization metadata
 - run workspace hooks through the backend
@@ -29,6 +39,7 @@ createDockerWorkspaceBackend({
   workspacePath?,
   containerNamePrefix?,
   shell?,
+  runtimeManifest?,
   commandRunner?,
   commandTimeoutMs?
 })
@@ -47,33 +58,59 @@ orchestrator path.
 
 1. Resolves a deterministic host workspace path under `workflow.workspace.root`
 2. Ensures the host workspace directory exists
-3. Derives a deterministic container name from the workspace key
-4. Inspects any existing container with that name
-5. Reuses the container only when all of the following are true:
+3. When a runtime manifest is present, derives and ensures a deterministic per-workspace Docker
+   network
+4. When a runtime manifest is present, derives and ensures a deterministic Postgres sidecar for
+   each manifest service key
+5. Waits for Postgres readiness and then runs optional Postgres `init` steps
+6. Derives a deterministic workspace container name from the workspace key
+7. Inspects any existing workspace container with that name
+8. Reuses the workspace container only when all of the following are true:
    - it is labeled as Symphony-managed
    - it belongs to the same issue/workspace key
    - it is running
    - it uses the expected image
    - it has the expected bind mount for the workspace
-6. Otherwise, removes the stale managed container and starts a fresh one
-7. Runs `after_create` inside the container only when the materialized workspace directory was
-   newly created
+   - when manifest-backed, it is attached to the expected workspace network
+9. Otherwise, removes the stale managed workspace container and starts a fresh one
+10. Resolves the explicit env bundle
+11. Runs `after_create` inside the container only when the materialized workspace directory was
+    newly created
 
-The backend does not delete or mutate unrelated containers. A name collision with a non-Symphony
-container fails closed.
+The backend does not delete or mutate unrelated containers, networks, or service containers. A
+name collision with a non-Symphony managed resource fails closed.
+
+Manifest-backed Docker provisioning rules for this pass:
+
+- one network per workspace
+- one Postgres sidecar per workspace service key
+- no host port publishing for sidecars
+- stable hostnames via Docker network aliases
+- service reuse is allowed only when the managed identity, config, effective resource limits, and
+  network attachment all still match
+- default sidecar resource limits are `512 MB` memory and `512` CPU shares when the manifest omits
+  them
 
 ### Before Run / After Run
 
 `runBeforeRun()` and `runAfterRun()` execute hooks through `docker exec` using the prepared
 container execution target.
 
-Hook env is explicit and includes:
+Hook env now comes from the prepared workspace env bundle as the primary model.
+
+When no manifest is present, that bundle is an ambient snapshot of the runtime env source.
+
+When a manifest is present, the bundle explicitly includes:
 
 - `SYMPHONY_WORKSPACE_PATH`
 - `SYMPHONY_ISSUE_IDENTIFIER`
 - `SYMPHONY_ISSUE_ID` when available
 - `SYMPHONY_WORKER_HOST` when available
-- any caller-provided workspace env entries with string values
+- resolved `env.host.required`
+- resolved `env.host.optional`
+- `env.inject.static`
+- `env.inject.runtime`
+- `env.inject.service`
 
 Behavior matches the local backend contract:
 
@@ -86,10 +123,17 @@ Behavior matches the local backend contract:
 
 1. Re-derives the managed workspace/container identity when needed
 2. Runs `before_remove` inside the container when the managed container is still running
-3. Removes the managed container
-4. Removes the host bind-mounted workspace directory
+3. Removes the managed workspace container
+4. Removes managed Postgres sidecars
+5. Removes the managed workspace network
+6. Removes the host bind-mounted workspace directory
 
 `before_remove` is best effort, matching the local backend semantics.
+
+Cleanup is tolerant of partially missing managed resources:
+
+- missing service containers are reported as missing, not fatal
+- missing networks are reported as missing, not fatal
 
 ## Prepared Workspace Metadata
 
@@ -101,6 +145,7 @@ blobs:
   backendKind: "docker",
   prepareDisposition: "created" | "reused",
   containerDisposition: "started" | "reused" | "recreated",
+  networkDisposition: "created" | "reused" | "not_applicable",
   afterCreateHookOutcome: "completed" | "skipped",
   executionTarget: {
     kind: "container",
@@ -115,6 +160,23 @@ blobs:
     hostPath,
     containerPath: "/home/agent/workspace"
   },
+  networkName,
+  services: [
+    {
+      key,
+      type: "postgres",
+      hostname,
+      port,
+      containerId,
+      containerName,
+      disposition: "created" | "reused" | "recreated"
+    }
+  ],
+  envBundle: {
+    source: "ambient" | "manifest",
+    values,
+    summary
+  },
   workerHost,
   path: null
 }
@@ -126,8 +188,14 @@ Notable details:
   run or reused from a prior run.
 - `containerDisposition` tells observers whether Docker started, reused, or recreated the managed
   container.
+- `networkDisposition` tells observers whether the workspace-scoped Docker network was created,
+  reused, or not applicable.
 - `afterCreateHookOutcome` stays explicit so operators can distinguish "new workspace, hook ran"
   from "reused workspace, hook skipped".
+- `networkName` is explicit so operators can correlate the workspace container and sidecars.
+- `services` surfaces bounded service metadata only: key, type, hostname, port, container id/name,
+  and reuse vs creation.
+- `envBundle.summary` surfaces the explicit env model without leaking secret values.
 - `path` stays `null` on purpose. The compatibility alias remains intended for local host-path
   execution, not container-target execution.
 - `hostPath` is still carried explicitly so observers, serializers, and operators can understand
@@ -145,10 +213,14 @@ fields explicit for both local and Docker runs:
 - `executionTargetKind`
 - `materializationKind`
 - `containerDisposition`
+- `networkDisposition`
 - `hostPath`
 - `runtimePath`
 - `containerId`
 - `containerName`
+- `networkName`
+- `services`
+- `envBundleSummary`
 - `path`
 
 ## Runtime Execution
@@ -175,6 +247,8 @@ Operationally important details:
 - Repo snapshots still run against the host bind-mounted path.
 - The runtime fails closed when a container target does not include the host path or container
   name needed for this bridge.
+- Host-path and container launch both receive the explicit env bundle rather than depending on
+  ambient inheritance as the primary path.
 - The current runtime path intentionally supports bind-mounted Docker workspaces only. Volume-only
   execution remains deferred.
 
@@ -234,8 +308,8 @@ Event payload design rules for this stage:
 - Launch events carry an explicit `launchTarget`.
 - Startup failure events carry both `failureStage` and `failureOrigin`.
 - Cleanup events carry explicit cleanup outcomes:
-  `beforeRemoveHookOutcome`, `workspaceRemovalDisposition`, and
-  `containerRemovalDisposition`.
+  `beforeRemoveHookOutcome`, `workspaceRemovalDisposition`,
+  `containerRemovalDisposition`, `networkRemovalDisposition`, and `serviceCleanup`.
 
 Startup failure classification is intentionally narrow and operational:
 
@@ -257,10 +331,14 @@ Workspace read-model fields:
 - `executionTargetKind`
 - `materializationKind`
 - `containerDisposition`
+- `networkDisposition`
 - `hostPath`
 - `runtimePath`
 - `containerId`
 - `containerName`
+- `networkName`
+- `services`
+- `envBundleSummary`
 - `path`
 - `executionTarget`
 - `materialization`
@@ -310,6 +388,10 @@ This stage does not:
 
 - make Docker the default backend
 - add workflow-front-matter backend selection
+- execute manifest `bootstrap`, `migrate`, `verify`, `seed`, or repo-level `cleanup`
+- add service types beyond Postgres
+- add shared Postgres instances
+- add host port publishing for sidecars
 - support volume-only runtime execution without a host bind mount
 - redesign runtime execution behavior beyond metadata surfacing and event clarity
 - add broader cutover logic beyond bounded backend/launch-target observability

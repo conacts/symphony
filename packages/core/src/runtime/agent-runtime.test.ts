@@ -24,6 +24,7 @@ function buildAgentRunInput(): AgentRunInput {
       backendKind: "local",
       prepareDisposition: "reused",
       containerDisposition: "not_applicable",
+      networkDisposition: "not_applicable",
       afterCreateHookOutcome: "skipped",
       executionTarget: {
         kind: "host_path",
@@ -32,6 +33,21 @@ function buildAgentRunInput(): AgentRunInput {
       materialization: {
         kind: "directory",
         hostPath: "/tmp/symphony-runtime"
+      },
+      networkName: null,
+      services: [],
+      envBundle: {
+        source: "ambient",
+        values: {},
+        summary: {
+          source: "ambient",
+          injectedKeys: [],
+          requiredHostKeys: [],
+          optionalHostKeys: [],
+          staticBindingKeys: [],
+          runtimeBindingKeys: [],
+          serviceBindingKeys: []
+        }
       },
       path: "/tmp/symphony-runtime",
       created: false,

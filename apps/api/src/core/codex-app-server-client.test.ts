@@ -67,6 +67,8 @@ describe("codex app server client", () => {
     await expect(
       CodexAppServerClient.startSession({
         launchTarget: buildHostLaunchTarget(workspaceRoot),
+        env: defaultLaunchEnv(),
+        hostCommandEnvSource: defaultHostCommandEnvSource(),
         workflowConfig,
         issue,
         logger: loggerSpy.logger
@@ -81,6 +83,8 @@ describe("codex app server client", () => {
     await expect(
       CodexAppServerClient.startSession({
         launchTarget: buildHostLaunchTarget(outsideWorkspace),
+        env: defaultLaunchEnv(),
+        hostCommandEnvSource: defaultHostCommandEnvSource(),
         workflowConfig,
         issue,
         logger: loggerSpy.logger
@@ -98,6 +102,8 @@ describe("codex app server client", () => {
     await expect(
       CodexAppServerClient.startSession({
         launchTarget: buildHostLaunchTarget(symlinkWorkspace),
+        env: defaultLaunchEnv(),
+        hostCommandEnvSource: defaultHostCommandEnvSource(),
         workflowConfig,
         issue,
         logger: loggerSpy.logger
@@ -125,6 +131,7 @@ describe("codex app server client", () => {
 trace_file="${traceFile}"
 count=0
 printf 'ARGV:%s\\n' "$*" >> "$trace_file"
+printf 'ENV_OPENAI:%s\\n' "$OPENAI_API_KEY" >> "$trace_file"
 while IFS= read -r line; do
   count=$((count + 1))
   printf 'JSON:%s\\n' "$line" >> "$trace_file"
@@ -156,6 +163,8 @@ done
 
     const session = await CodexAppServerClient.startSession({
       launchTarget: buildHostLaunchTarget(scenario.workspacePath),
+      env: defaultLaunchEnv(),
+      hostCommandEnvSource: defaultHostCommandEnvSource(),
       workflowConfig: scenario.workflowConfig,
       issue: scenario.issue,
       logger: scenario.loggerSpy.logger
@@ -169,6 +178,7 @@ done
       "--model gpt-5.3-codex-spark --config model_reasoning_effort=high app-server"
     );
     expect(argvLine).not.toContain("--model gpt-5.4 app-server");
+    expect(lines).toContain("ENV_OPENAI:test-openai-api-key");
 
     const tracePayloads = parseTraceJsonLines(lines);
     const threadStart = tracePayloads.find((payload) => payload.id === 2);
@@ -236,6 +246,10 @@ while [ "$#" -gt 0 ]; do
     -i)
       shift
       ;;
+    --env)
+      printf 'ENV:%s\\n' "$2" >> "$trace_file"
+      shift 2
+      ;;
     --workdir)
       workdir="$2"
       shift 2
@@ -258,6 +272,8 @@ exec "$shell_bin" -lc "$2"
 
     const session = await CodexAppServerClient.startSession({
       launchTarget: buildContainerLaunchTarget(scenario.workspacePath),
+      env: defaultLaunchEnv(),
+      hostCommandEnvSource: defaultHostCommandEnvSource(),
       workflowConfig: scenario.workflowConfig,
       issue: scenario.issue,
       logger: scenario.loggerSpy.logger
@@ -269,6 +285,7 @@ exec "$shell_bin" -lc "$2"
     expect(dockerTraceLines).toContain(`PWD:${session.hostWorkspacePath}`);
     expect(dockerTraceLines).toContain("WORKDIR:/home/agent/workspace");
     expect(dockerTraceLines).toContain("CONTAINER:symphony-col-123-container");
+    expect(dockerTraceLines).toContain("ENV:OPENAI_API_KEY=test-openai-api-key");
 
     const tracePayloads = parseTraceJsonLines(await readTraceLines(codexTraceFile));
     const threadStart = tracePayloads.find((payload) => payload.id === 2);
@@ -907,6 +924,8 @@ async function startSessionForScenario(
 }> {
   const session = await CodexAppServerClient.startSession({
     launchTarget: buildHostLaunchTarget(scenario.workspacePath),
+    env: defaultLaunchEnv(),
+    hostCommandEnvSource: defaultHostCommandEnvSource(),
     workflowConfig: scenario.workflowConfig,
     issue: scenario.issue,
     logger: scenario.loggerSpy.logger
@@ -986,6 +1005,16 @@ function buildContainerLaunchTarget(workspacePath: string) {
     containerName: "symphony-col-123-container",
     shell: "sh"
   };
+}
+
+function defaultLaunchEnv(): Record<string, string> {
+  return {
+    OPENAI_API_KEY: "test-openai-api-key"
+  };
+}
+
+function defaultHostCommandEnvSource(): Record<string, string | undefined> {
+  return process.env;
 }
 
 async function writeExecutable(filePath: string, content: string): Promise<void> {

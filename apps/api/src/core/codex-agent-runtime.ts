@@ -57,6 +57,7 @@ export function createCodexSymphonyAgentRuntime(input: {
   runJournal: SymphonyRunJournal;
   runtimeLogs: SymphonyRuntimeLogStore;
   workflowConfig: SymphonyResolvedWorkflowConfig;
+  hostCommandEnvSource: Record<string, string | undefined>;
   logger: SymphonyLogger;
   callbacks: RunCallbacks;
 }): AgentRuntime {
@@ -82,10 +83,12 @@ export function createCodexSymphonyAgentRuntime(input: {
           issueId: runInput.issue.id,
           issueIdentifier: runInput.issue.identifier
         }),
+        hostCommandEnvSource: input.hostCommandEnvSource,
         callbacks: input.callbacks,
         issue: runInput.issue,
         runId: runInput.runId,
         attempt: runInput.attempt,
+        workspace: runInput.workspace,
         launchTarget,
         activeRun,
         toolExecutor: buildLinearGraphqlToolExecutor(
@@ -125,10 +128,12 @@ async function executeRun(input: {
   runtimeLogs: SymphonyRuntimeLogStore;
   workflowConfig: SymphonyResolvedWorkflowConfig;
   logger: SymphonyLogger;
+  hostCommandEnvSource: Record<string, string | undefined>;
   callbacks: RunCallbacks;
   issue: SymphonyTrackerIssue;
   runId: string | null;
   attempt: number;
+  workspace: Parameters<AgentRuntime["startRun"]>[0]["workspace"];
   launchTarget: CodexRuntimeLaunchTarget;
   activeRun: ActiveRun;
   toolExecutor: CodexAppServerToolExecutor;
@@ -163,6 +168,8 @@ async function executeRun(input: {
 
     const session = await CodexAppServerClient.startSession({
       launchTarget: input.launchTarget,
+      env: input.workspace.envBundle.values,
+      hostCommandEnvSource: input.hostCommandEnvSource,
       workflowConfig: input.workflowConfig,
       issue: input.issue,
       logger: input.logger

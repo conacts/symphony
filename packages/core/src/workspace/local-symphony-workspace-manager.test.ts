@@ -10,6 +10,7 @@ import {
 } from "./local-symphony-workspace-manager.js";
 import { createLocalWorkspaceBackend } from "./workspace-backend.js";
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
+import { normalizeSymphonyRuntimeManifest } from "../runtime-manifest.js";
 
 const tempDirectories: string[] = [];
 const execFileAsync = promisify(execFile);
@@ -142,6 +143,90 @@ describe("local workspace backend", () => {
     expect(
       await readFile(path.join(requireWorkspacePath(workspace), "keep", "file.txt"), "utf8")
     ).toBe("keep me");
+  });
+
+  it("keeps local workspaces on the ambient env model when manifest env depends on services", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      }
+    });
+    const backend = createLocalWorkspaceBackend({
+      runtimeManifest: {
+        repoRoot: "/repo",
+        manifestPath: "/repo/.symphony/runtime.ts",
+        manifest: normalizeSymphonyRuntimeManifest({
+          schemaVersion: 1,
+          workspace: {
+            packageManager: "pnpm"
+          },
+          services: {
+            postgres: {
+              type: "postgres",
+              image: "postgres:16",
+              database: "app",
+              username: "app",
+              password: "secret"
+            }
+          },
+          env: {
+            host: {
+              required: [],
+              optional: []
+            },
+            inject: {
+              DATABASE_URL: {
+                kind: "service",
+                service: "postgres",
+                value: "connectionString"
+              }
+            }
+          },
+          lifecycle: {
+            bootstrap: [],
+            migrate: [],
+            verify: [
+              {
+                name: "verify",
+                run: "pnpm test"
+              }
+            ],
+            seed: [],
+            cleanup: []
+          }
+        })
+      }
+    });
+
+    const workspace = await backend.prepareWorkspace({
+      context: {
+        issueId: "issue-local-manifest",
+        issueIdentifier: "COL-LOCAL"
+      },
+      runId: "run-local-manifest",
+      config: config.workspace,
+      hooks: config.hooks,
+      env: {
+        OPENAI_API_KEY: "test-openai-key"
+      }
+    });
+
+    expect(workspace.envBundle).toEqual({
+      source: "ambient",
+      values: {
+        OPENAI_API_KEY: "test-openai-key"
+      },
+      summary: {
+        source: "ambient",
+        injectedKeys: ["OPENAI_API_KEY"],
+        requiredHostKeys: [],
+        optionalHostKeys: [],
+        staticBindingKeys: [],
+        runtimeBindingKeys: [],
+        serviceBindingKeys: []
+      }
+    });
   });
 
   it("replaces stale non-directory workspace paths", async () => {
@@ -466,6 +551,9 @@ describe("local workspace backend", () => {
       runtimePath: canonicalWorkspacePath,
       containerId: null,
       containerName: null,
+      networkName: null,
+      networkRemovalDisposition: "not_applicable",
+      serviceCleanup: [],
       beforeRemoveHookOutcome: "completed",
       workspaceRemovalDisposition: "missing",
       containerRemovalDisposition: "not_applicable"

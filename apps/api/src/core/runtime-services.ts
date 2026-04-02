@@ -255,10 +255,14 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     maxConcurrentAgents: workflow.config.agent.maxConcurrentAgents
   });
 
-  if (env.sourceRepo) {
+  const validatedRuntimeManifest = env.sourceRepo
+    ? await validateSourceRepoRuntimeManifest(env.sourceRepo, environmentSource)
+    : null;
+
+  if (validatedRuntimeManifest) {
     logger.info(
       "Validated source-repo runtime manifest",
-      await validateSourceRepoRuntimeManifest(env.sourceRepo)
+      validatedRuntimeManifest.summary
     );
   }
 
@@ -325,7 +329,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     });
   }
 
-  const workspaceBackendSelection = createRuntimeWorkspaceBackend(env);
+  const workspaceBackendSelection = createRuntimeWorkspaceBackend(env, {
+    runtimeManifest: validatedRuntimeManifest?.runtimeManifest ?? null
+  });
   const workspaceBackend = workspaceBackendSelection.backend;
   logger.info("Initialized workspace backend", {
     workspaceRoot: workflow.config.workspace.root,
@@ -363,6 +369,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runJournal,
       runtimeLogs: runtimeLogStore,
       workflowConfig: workflow.config,
+      hostCommandEnvSource: environmentSource,
       logger,
       callbacks: {
         async onUpdate(issueId, update) {

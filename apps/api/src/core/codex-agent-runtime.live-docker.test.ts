@@ -113,6 +113,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
               }
             },
             workflowConfig,
+            hostCommandEnvSource: process.env,
             logger: createSilentSymphonyLogger("@symphony/api.live-docker"),
             callbacks: {
               async onUpdate() {
@@ -259,6 +260,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
               }
             },
             workflowConfig,
+            hostCommandEnvSource: process.env,
             logger: createSilentSymphonyLogger("@symphony/api.live-docker"),
             callbacks: {
               async onUpdate() {

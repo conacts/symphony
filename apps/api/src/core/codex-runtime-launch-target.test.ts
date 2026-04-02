@@ -10,6 +10,7 @@ describe("codex runtime launch target", () => {
         backendKind: "local",
         prepareDisposition: "reused",
         containerDisposition: "not_applicable",
+        networkDisposition: "not_applicable",
         afterCreateHookOutcome: "skipped",
         executionTarget: {
           kind: "host_path",
@@ -19,6 +20,9 @@ describe("codex runtime launch target", () => {
           kind: "directory",
           hostPath: "/tmp/symphony-COL-123"
         },
+        networkName: null,
+        services: [],
+        envBundle: ambientEnvBundle(),
         path: "/tmp/symphony-COL-123",
         created: false,
         workerHost: null
@@ -39,6 +43,7 @@ describe("codex runtime launch target", () => {
           backendKind: "docker",
           prepareDisposition: "reused",
           containerDisposition: "reused",
+          networkDisposition: "reused",
           afterCreateHookOutcome: "skipped",
           executionTarget: {
             kind: "container",
@@ -53,6 +58,9 @@ describe("codex runtime launch target", () => {
             hostPath: "/tmp/symphony-COL-123",
             containerPath: "/home/agent/workspace"
           },
+          networkName: "symphony-network-col-123",
+          services: [],
+          envBundle: ambientEnvBundle(),
           path: null,
           created: false,
           workerHost: "docker-host"
@@ -76,6 +84,7 @@ describe("codex runtime launch target", () => {
         backendKind: "docker",
         prepareDisposition: "reused",
         containerDisposition: "reused",
+        networkDisposition: "reused",
         afterCreateHookOutcome: "skipped",
         executionTarget: {
           kind: "container",
@@ -91,6 +100,9 @@ describe("codex runtime launch target", () => {
           containerPath: "/home/agent/workspace",
           hostPath: null
         },
+        networkName: "symphony-network-col-123",
+        services: [],
+        envBundle: ambientEnvBundle(),
         path: null,
         created: false,
         workerHost: "docker-host"
@@ -106,6 +118,7 @@ describe("codex runtime launch target", () => {
         backendKind: "docker",
         prepareDisposition: "reused",
         containerDisposition: "reused",
+        networkDisposition: "reused",
         afterCreateHookOutcome: "skipped",
         executionTarget: {
           kind: "container",
@@ -120,6 +133,9 @@ describe("codex runtime launch target", () => {
           hostPath: "/tmp/symphony-COL-123",
           containerPath: "/home/agent/workspace"
         },
+        networkName: "symphony-network-col-123",
+        services: [],
+        envBundle: ambientEnvBundle(),
         path: null,
         created: false,
         workerHost: "docker-host"
@@ -135,6 +151,7 @@ describe("codex runtime launch target", () => {
         backendKind: "docker",
         prepareDisposition: "reused",
         containerDisposition: "reused",
+        networkDisposition: "reused",
         afterCreateHookOutcome: "skipped",
         executionTarget: {
           kind: "container",
@@ -149,6 +166,9 @@ describe("codex runtime launch target", () => {
           hostPath: "/tmp/symphony-COL-123",
           containerPath: "/home/agent/workspace"
         },
+        networkName: "symphony-network-col-123",
+        services: [],
+        envBundle: ambientEnvBundle(),
         path: null,
         created: false,
         workerHost: "docker-host"
@@ -164,6 +184,7 @@ describe("codex runtime launch target", () => {
         backendKind: "docker",
         prepareDisposition: "reused",
         containerDisposition: "reused",
+        networkDisposition: "reused",
         afterCreateHookOutcome: "skipped",
         executionTarget: {
           kind: "container",
@@ -178,6 +199,9 @@ describe("codex runtime launch target", () => {
           hostPath: "/tmp/symphony-COL-123",
           containerPath: "/home/agent/workspace"
         },
+        networkName: "symphony-network-col-123",
+        services: [],
+        envBundle: ambientEnvBundle(),
         path: null,
         created: false,
         workerHost: "docker-host"
@@ -185,3 +209,19 @@ describe("codex runtime launch target", () => {
     ).toThrowError(/container shell/i);
   });
 });
+
+function ambientEnvBundle() {
+  return {
+    source: "ambient" as const,
+    values: {},
+    summary: {
+      source: "ambient" as const,
+      injectedKeys: [],
+      requiredHostKeys: [],
+      optionalHostKeys: [],
+      staticBindingKeys: [],
+      runtimeBindingKeys: [],
+      serviceBindingKeys: []
+    }
+  };
+}

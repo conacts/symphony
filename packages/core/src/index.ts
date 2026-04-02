@@ -16,6 +16,7 @@ export type {
   DockerWorkspaceCommandResult,
   DockerWorkspaceCommandRunner,
   PreparedWorkspace,
+  PreparedWorkspaceService,
   PublishReviewInput,
   PublishReviewResult,
   ReviewFinding,
@@ -28,8 +29,11 @@ export type {
   WorkspaceBackendKind,
   WorkspaceCleanupContainerDisposition,
   WorkspaceCleanupResult,
+  WorkspaceCleanupService,
   WorkspaceCleanupInput,
   WorkspaceContainerDisposition,
+  WorkspaceEnvBundle,
+  WorkspaceEnvBundleSummary,
   WorkspaceContext,
   WorkspaceExecutionTarget,
   WorkspaceHookKind,
@@ -38,8 +42,13 @@ export type {
   WorkspaceLifecycleMetadata,
   WorkspaceHookInput,
   WorkspaceMaterializationMetadata,
+  WorkspaceNetworkDisposition,
+  WorkspaceNetworkRemovalDisposition,
   WorkspacePrepareDisposition,
-  WorkspacePrepareInput
+  WorkspacePrepareInput,
+  WorkspaceServiceDisposition,
+  WorkspaceServiceRemovalDisposition,
+  WorkspaceServiceType
 } from "./public/index.js";
 export {
   defaultSymphonyWorkflowFileName,

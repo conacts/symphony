@@ -2,6 +2,11 @@ import {
   createLocalSymphonyWorkspaceManager,
   type SymphonyWorkspaceContext
 } from "./local-symphony-workspace-manager.js";
+import {
+  resolveSymphonyRuntimeEnvBundle,
+  type SymphonyLoadedRuntimeManifest,
+  type SymphonyResolvedRuntimeService
+} from "../runtime-manifest.js";
 export {
   createDockerWorkspaceBackend,
   type DockerWorkspaceBackendOptions,
@@ -22,6 +27,7 @@ export type WorkspaceBackendRunnerOptions = {
 
 export type WorkspacePrepareInput = {
   context: WorkspaceContext;
+  runId?: string | null;
   config: SymphonyWorkflowWorkspaceConfig;
   hooks: SymphonyWorkflowHooksConfig;
 } & WorkspaceBackendRunnerOptions;
@@ -33,6 +39,14 @@ export type WorkspaceContainerDisposition =
   | "reused"
   | "recreated"
   | "not_applicable";
+export type WorkspaceNetworkDisposition = "created" | "reused" | "not_applicable";
+export type WorkspaceNetworkRemovalDisposition =
+  | "removed"
+  | "missing"
+  | "not_applicable";
+export type WorkspaceServiceType = "postgres";
+export type WorkspaceServiceDisposition = "created" | "reused" | "recreated";
+export type WorkspaceServiceRemovalDisposition = "removed" | "missing";
 export type WorkspaceHookKind = "after_create" | "before_run" | "after_run" | "before_remove";
 export type WorkspaceHookOutcome = "skipped" | "completed" | "failed_ignored";
 export type WorkspaceCleanupContainerDisposition =
@@ -40,6 +54,40 @@ export type WorkspaceCleanupContainerDisposition =
   | "missing"
   | "not_applicable";
 export type WorkspaceRemovalDisposition = "removed" | "missing";
+
+export type WorkspaceEnvBundleSummary = {
+  source: "ambient" | "manifest";
+  injectedKeys: string[];
+  requiredHostKeys: string[];
+  optionalHostKeys: string[];
+  staticBindingKeys: string[];
+  runtimeBindingKeys: string[];
+  serviceBindingKeys: string[];
+};
+
+export type WorkspaceEnvBundle = {
+  source: WorkspaceEnvBundleSummary["source"];
+  values: Record<string, string>;
+  summary: WorkspaceEnvBundleSummary;
+};
+
+export type PreparedWorkspaceService = {
+  key: string;
+  type: WorkspaceServiceType;
+  hostname: string;
+  port: number;
+  containerId: string | null;
+  containerName: string;
+  disposition: WorkspaceServiceDisposition;
+};
+
+export type WorkspaceCleanupService = {
+  key: string;
+  type: WorkspaceServiceType;
+  containerId: string | null;
+  containerName: string;
+  removalDisposition: WorkspaceServiceRemovalDisposition;
+};
 
 export type WorkspaceExecutionTarget =
   | {
@@ -78,9 +126,13 @@ export type PreparedWorkspace = {
   backendKind: WorkspaceBackendKind;
   prepareDisposition: WorkspacePrepareDisposition;
   containerDisposition: WorkspaceContainerDisposition;
+  networkDisposition: WorkspaceNetworkDisposition;
   afterCreateHookOutcome: Extract<WorkspaceHookOutcome, "skipped" | "completed">;
   executionTarget: WorkspaceExecutionTarget;
   materialization: WorkspaceMaterializationMetadata;
+  networkName: string | null;
+  services: PreparedWorkspaceService[];
+  envBundle: WorkspaceEnvBundle;
   path: string | null;
   created: boolean;
   workerHost: string | null;
@@ -98,6 +150,9 @@ export type WorkspaceCleanupResult = {
   runtimePath: string | null;
   containerId: string | null;
   containerName: string | null;
+  networkName: string | null;
+  networkRemovalDisposition: WorkspaceNetworkRemovalDisposition;
+  serviceCleanup: WorkspaceCleanupService[];
   beforeRemoveHookOutcome: WorkspaceHookOutcome;
   workspaceRemovalDisposition: WorkspaceRemovalDisposition;
   containerRemovalDisposition: WorkspaceCleanupContainerDisposition;
@@ -112,11 +167,15 @@ export type WorkspaceLifecycleMetadata = {
   materializationKind: WorkspaceMaterializationMetadata["kind"];
   prepareDisposition: WorkspacePrepareDisposition;
   containerDisposition: WorkspaceContainerDisposition;
+  networkDisposition: WorkspaceNetworkDisposition;
   afterCreateHookOutcome: Extract<WorkspaceHookOutcome, "skipped" | "completed">;
   hostPath: string | null;
   runtimePath: string | null;
   containerId: string | null;
   containerName: string | null;
+  networkName: string | null;
+  services: PreparedWorkspaceService[];
+  envBundleSummary: WorkspaceEnvBundleSummary;
   path: string | null;
 };
 
@@ -142,7 +201,9 @@ export interface WorkspaceBackend {
 }
 
 export function createLocalWorkspaceBackend(
-  options: Parameters<typeof createLocalSymphonyWorkspaceManager>[0] = {}
+  options: (Parameters<typeof createLocalSymphonyWorkspaceManager>[0] & {
+    runtimeManifest?: SymphonyLoadedRuntimeManifest | null;
+  }) = {}
 ): WorkspaceBackend {
   const manager = createLocalSymphonyWorkspaceManager(options);
 
@@ -152,12 +213,41 @@ export function createLocalWorkspaceBackend(
       const workspace = await manager.createForIssue(
         input.context,
         input.config,
-        input.hooks,
+        {
+          ...input.hooks,
+          afterCreate: null
+        },
         {
           env: input.env,
           workerHost: input.workerHost
         }
       );
+      const envBundle = resolvePreparedWorkspaceEnvBundle({
+        runtimeManifest: options.runtimeManifest ?? null,
+        environmentSource: input.env,
+        issueIdentifier: workspace.issueIdentifier,
+        workspaceKey: workspace.workspaceKey,
+        backendKind: "local",
+        workspacePath: workspace.path,
+        issueId: input.context.issueId,
+        runId: input.runId ?? null,
+        services: {}
+      });
+
+      if (workspace.created && input.hooks.afterCreate) {
+        await manager.runBeforeRunHook(
+          workspace.path,
+          input.context,
+          {
+            ...input.hooks,
+            beforeRun: input.hooks.afterCreate
+          },
+          {
+            env: envBundle.values,
+            workerHost: input.workerHost
+          }
+        );
+      }
 
       return {
         issueIdentifier: workspace.issueIdentifier,
@@ -165,6 +255,7 @@ export function createLocalWorkspaceBackend(
         backendKind: "local",
         prepareDisposition: workspace.created ? "created" : "reused",
         containerDisposition: "not_applicable",
+        networkDisposition: "not_applicable",
         afterCreateHookOutcome:
           workspace.created && input.hooks.afterCreate ? "completed" : "skipped",
         executionTarget: {
@@ -175,6 +266,9 @@ export function createLocalWorkspaceBackend(
           kind: "directory",
           hostPath: workspace.path
         },
+        networkName: null,
+        services: [],
+        envBundle,
         path: workspace.path,
         created: workspace.created,
         workerHost: workspace.workerHost
@@ -187,7 +281,7 @@ export function createLocalWorkspaceBackend(
         input.context,
         input.hooks,
         {
-          env: input.env,
+          env: workspaceEnvForHooks(input.workspace, input.env),
           workerHost: input.workerHost
         }
       );
@@ -206,7 +300,7 @@ export function createLocalWorkspaceBackend(
           input.context,
           input.hooks,
           {
-            env: input.env,
+            env: workspaceEnvForHooks(input.workspace, input.env),
             workerHost: input.workerHost
           }
         )
@@ -219,7 +313,7 @@ export function createLocalWorkspaceBackend(
         input.config,
         input.hooks,
         {
-          env: input.env,
+          env: workspaceEnvForCleanup(input.workspace, input.env),
           workerHost: input.workerHost
         }
       );
@@ -231,6 +325,9 @@ export function createLocalWorkspaceBackend(
         runtimePath: cleanup.path,
         containerId: null,
         containerName: null,
+        networkName: null,
+        networkRemovalDisposition: "not_applicable",
+        serviceCleanup: [],
         beforeRemoveHookOutcome: cleanup.beforeRemoveHookOutcome,
         workspaceRemovalDisposition: cleanup.workspaceRemovalDisposition,
         containerRemovalDisposition: "not_applicable"
@@ -255,6 +352,7 @@ export function summarizePreparedWorkspace(
     materializationKind: workspace.materialization.kind,
     prepareDisposition: workspace.prepareDisposition,
     containerDisposition: workspace.containerDisposition,
+    networkDisposition: workspace.networkDisposition,
     afterCreateHookOutcome: workspace.afterCreateHookOutcome,
     hostPath: workspaceHostPath(workspace),
     runtimePath: workspaceRuntimePath(workspace),
@@ -266,6 +364,9 @@ export function summarizePreparedWorkspace(
       workspace.executionTarget.kind === "container"
         ? workspace.executionTarget.containerName
         : null,
+    networkName: workspace.networkName,
+    services: workspace.services,
+    envBundleSummary: workspace.envBundle.summary,
     path: workspace.path
   };
 }
@@ -313,4 +414,88 @@ function requireLocalWorkspacePath(workspace: PreparedWorkspace): string {
   throw new TypeError(
     "Local workspace backends require a host-path execution target."
   );
+}
+
+function resolvePreparedWorkspaceEnvBundle(input: {
+  runtimeManifest: SymphonyLoadedRuntimeManifest | null;
+  environmentSource: Record<string, string | undefined> | undefined;
+  issueIdentifier: string;
+  workspaceKey: string;
+  backendKind: WorkspaceBackendKind;
+  workspacePath: string;
+  issueId: string | null;
+  runId: string | null;
+  services: Record<string, SymphonyResolvedRuntimeService>;
+}): WorkspaceEnvBundle {
+  if (!input.runtimeManifest) {
+    return buildAmbientWorkspaceEnvBundle(input.environmentSource);
+  }
+
+  if (
+    input.backendKind === "local" &&
+    manifestInjectsProvisionedServiceBindings(input.runtimeManifest)
+  ) {
+    return buildAmbientWorkspaceEnvBundle(input.environmentSource);
+  }
+
+  return resolveSymphonyRuntimeEnvBundle({
+    manifest: input.runtimeManifest.manifest,
+    environmentSource: input.environmentSource ?? {},
+    runtime: {
+      issueId: input.issueId,
+      issueIdentifier: input.issueIdentifier,
+      runId: input.runId,
+      workspaceKey: input.workspaceKey,
+      workspacePath: input.workspacePath,
+      backendKind: input.backendKind
+    },
+    services: input.services,
+    manifestPath: input.runtimeManifest.manifestPath
+  });
+}
+
+function manifestInjectsProvisionedServiceBindings(
+  runtimeManifest: SymphonyLoadedRuntimeManifest
+): boolean {
+  return Object.values(runtimeManifest.manifest.env.inject).some(
+    (binding) => binding.kind === "service"
+  );
+}
+
+function buildAmbientWorkspaceEnvBundle(
+  environmentSource: Record<string, string | undefined> | undefined
+): WorkspaceEnvBundle {
+  const values = Object.fromEntries(
+    Object.entries(environmentSource ?? {}).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string"
+    )
+  );
+
+  return {
+    source: "ambient",
+    values,
+    summary: {
+      source: "ambient",
+      injectedKeys: Object.keys(values).sort(),
+      requiredHostKeys: [],
+      optionalHostKeys: [],
+      staticBindingKeys: [],
+      runtimeBindingKeys: [],
+      serviceBindingKeys: []
+    }
+  };
+}
+
+function workspaceEnvForHooks(
+  workspace: PreparedWorkspace,
+  fallbackEnv: Record<string, string | undefined> | undefined
+): Record<string, string | undefined> {
+  return workspace.envBundle.values ?? fallbackEnv;
+}
+
+function workspaceEnvForCleanup(
+  workspace: PreparedWorkspace | null | undefined,
+  fallbackEnv: Record<string, string | undefined> | undefined
+): Record<string, string | undefined> | undefined {
+  return workspace?.envBundle.values ?? fallbackEnv;
 }

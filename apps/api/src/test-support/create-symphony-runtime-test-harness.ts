@@ -55,6 +55,7 @@ export function buildLocalPreparedWorkspace(
     backendKind: "local" as const,
     prepareDisposition: "reused" as const,
     containerDisposition: "not_applicable" as const,
+    networkDisposition: "not_applicable" as const,
     afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
       kind: "host_path" as const,
@@ -63,6 +64,21 @@ export function buildLocalPreparedWorkspace(
     materialization: {
       kind: "directory" as const,
       hostPath: workspacePath
+    },
+    networkName: null,
+    services: [],
+    envBundle: {
+      source: "ambient" as const,
+      values: {},
+      summary: {
+        source: "ambient" as const,
+        injectedKeys: [],
+        requiredHostKeys: [],
+        optionalHostKeys: [],
+        staticBindingKeys: [],
+        runtimeBindingKeys: [],
+        serviceBindingKeys: []
+      }
     },
     path: workspacePath,
     created: false,

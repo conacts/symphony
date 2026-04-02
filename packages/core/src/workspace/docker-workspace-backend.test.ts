@@ -9,6 +9,13 @@ import {
   type DockerWorkspaceCommandRunner
 } from "./workspace-backend.js";
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
+import {
+  buildSymphonyRuntimePostgresConnectionString,
+  normalizeSymphonyRuntimeManifest,
+  resolveSymphonyRuntimeEnvBundle,
+  type SymphonyLoadedRuntimeManifest,
+  type SymphonyRuntimeStep
+} from "../runtime-manifest.js";
 
 const tempDirectories: string[] = [];
 
@@ -135,6 +142,7 @@ describe("docker workspace backend", () => {
       backendKind: "docker",
       prepareDisposition: "created",
       containerDisposition: "started",
+      networkDisposition: "not_applicable",
       afterCreateHookOutcome: "completed",
       executionTarget: {
         kind: "container",
@@ -149,6 +157,9 @@ describe("docker workspace backend", () => {
         hostPath: expectedHostPath,
         containerPath: "/home/agent/workspace"
       },
+      networkName: null,
+      services: [],
+      envBundle: ambientEnvBundle(),
       path: null,
       created: true,
       workerHost: null
@@ -421,6 +432,9 @@ describe("docker workspace backend", () => {
       runtimePath: "/custom/worktree",
       containerId: "container-203",
       containerName: "symphony-workspace-col-203-deadbeef",
+      networkName: null,
+      networkRemovalDisposition: "not_applicable",
+      serviceCleanup: [],
       beforeRemoveHookOutcome: "failed_ignored",
       workspaceRemovalDisposition: "removed",
       containerRemovalDisposition: "removed"
@@ -506,6 +520,9 @@ describe("docker workspace backend", () => {
       runtimePath: "/home/agent/workspace",
       containerId: "container-204",
       containerName: "symphony-workspace-col-204-deadbeef",
+      networkName: null,
+      networkRemovalDisposition: "not_applicable",
+      serviceCleanup: [],
       beforeRemoveHookOutcome: "skipped",
       workspaceRemovalDisposition: "removed",
       containerRemovalDisposition: "missing"
@@ -603,12 +620,727 @@ describe("docker workspace backend", () => {
       runtimePath: "/home/agent/workspace",
       containerId: "container-205",
       containerName: "symphony-workspace-col-205-deadbeef",
+      networkName: null,
+      networkRemovalDisposition: "not_applicable",
+      serviceCleanup: [],
       beforeRemoveHookOutcome: "completed",
       workspaceRemovalDisposition: "missing",
       containerRemovalDisposition: "removed"
     });
 
     expect(calls.map((call) => call[0])).toEqual(["inspect", "exec", "inspect", "rm"]);
+  });
+
+  it("provisions and reuses a per-workspace network and postgres sidecar with explicit env injection", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      },
+      hooks: {
+        afterCreate: "echo bootstrapped",
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: null,
+        timeoutMs: 1_000
+      }
+    });
+    const runtimeManifest = buildLoadedRuntimeManifest({
+      resources: {
+        memoryMb: 768,
+        cpuShares: 256
+      },
+      init: [
+        {
+          name: "extensions",
+          run: "psql \"$DATABASE_URL\" -c 'select 1'",
+          timeoutMs: 15_000
+        }
+      ]
+    });
+    const calls: string[][] = [];
+    let networkInspectCount = 0;
+    let serviceInspectCount = 0;
+    let workspaceInspectCount = 0;
+    let observedNetworkName: string | null = null;
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      runtimeManifest,
+      shell: "bash",
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        if (input.args[0] === "network" && input.args[1] === "inspect") {
+          observedNetworkName = input.args[2] ?? observedNetworkName;
+          networkInspectCount += 1;
+
+          if (networkInspectCount === 1) {
+            return {
+              exitCode: 1,
+              stdout: "[]\n",
+              stderr: `Error response from daemon: No such network: ${input.args[2]}`
+            };
+          }
+
+          return {
+            exitCode: 0,
+            stdout: buildDockerNetworkInspectPayload({
+              id: "network-301",
+              name: input.args[2] ?? "unknown",
+              issueIdentifier: "COL-301",
+              workspaceKey: "COL-301"
+            }),
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "network" && input.args[1] === "create") {
+          observedNetworkName = input.args.at(-1) ?? observedNetworkName;
+          return {
+            exitCode: 0,
+            stdout: "network-301\n",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "inspect") {
+          const name = input.args[3] ?? "";
+
+          if (name.startsWith("symphony-service-postgres-")) {
+            serviceInspectCount += 1;
+
+            if (serviceInspectCount === 1) {
+              return {
+                exitCode: 1,
+                stdout: "[]\n",
+                stderr: `Error response from daemon: No such container: ${name}`
+              };
+            }
+
+            return {
+              exitCode: 0,
+              stdout: buildDockerServiceInspectPayload({
+                id: "postgres-301",
+                name,
+                image: "postgres:16",
+                issueIdentifier: "COL-301",
+                workspaceKey: "COL-301",
+                serviceKey: "postgres",
+                hostname: "db",
+                port: 5433,
+                memoryMb: 768,
+                cpuShares: 256,
+                database: "app",
+                username: "app",
+                password: "secret",
+                networkName: observedNetworkName ?? "unknown"
+              }),
+              stderr: ""
+            };
+          }
+
+          workspaceInspectCount += 1;
+          if (workspaceInspectCount === 1) {
+            return {
+              exitCode: 1,
+              stdout: "[]\n",
+              stderr: `Error response from daemon: No such container: ${name}`
+            };
+          }
+
+          return {
+            exitCode: 0,
+            stdout: buildDockerInspectPayload({
+              id: "workspace-301",
+              image: "ghcr.io/openai/symphony-workspace:latest",
+              name,
+              issueIdentifier: "COL-301",
+              workspaceKey: "COL-301",
+              hostPath: path.join(root, "symphony-COL-301"),
+              workspacePath: "/home/agent/workspace",
+              running: true,
+              networks:
+                observedNetworkName === null
+                  ? {}
+                  : {
+                      [observedNetworkName]: {
+                        aliases: []
+                      }
+                    }
+            }),
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "run") {
+          const networkIndex = input.args.indexOf("--network");
+          if (networkIndex !== -1) {
+            observedNetworkName =
+              input.args[networkIndex + 1] ?? observedNetworkName;
+          }
+
+          if (input.args.includes("postgres:16")) {
+            return {
+              exitCode: 0,
+              stdout: "postgres-301\n",
+              stderr: ""
+            };
+          }
+
+          return {
+            exitCode: 0,
+            stdout: "workspace-301\n",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "exec") {
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    const first = await backend.prepareWorkspace({
+      context: {
+        issueId: "issue-301",
+        issueIdentifier: "COL-301"
+      },
+      runId: "run-301",
+      config: config.workspace,
+      hooks: config.hooks,
+      env: {
+        OPENAI_API_KEY: "test-openai-key",
+        GITHUB_TOKEN: "test-github-token"
+      }
+    });
+    const second = await backend.prepareWorkspace({
+      context: {
+        issueId: "issue-301",
+        issueIdentifier: "COL-301"
+      },
+      runId: "run-302",
+      config: config.workspace,
+      hooks: config.hooks,
+      env: {
+        OPENAI_API_KEY: "test-openai-key",
+        GITHUB_TOKEN: "test-github-token"
+      }
+    });
+
+    const postgresRunCall = calls.find(
+      (call) => call[0] === "run" && call.includes("postgres:16")
+    );
+    const workspaceRunCall = calls.find(
+      (call) =>
+        call[0] === "run" &&
+        call.includes("ghcr.io/openai/symphony-workspace:latest")
+    );
+    const initCall = calls.find(
+      (call) =>
+        call[0] === "exec" &&
+        call.at(-1) === "psql \"$DATABASE_URL\" -c 'select 1'"
+    );
+    const afterCreateCall = calls.find(
+      (call) => call[0] === "exec" && call.at(-1) === "echo bootstrapped"
+    );
+
+    expect(first.networkDisposition).toBe("created");
+    expect(first.networkName).toMatch(
+      /^symphony-workspace-network-col-301-[0-9a-f]{8}$/
+    );
+    expect(first.services).toEqual([
+      {
+        key: "postgres",
+        type: "postgres",
+        hostname: "db",
+        port: 5433,
+        containerId: "postgres-301",
+        containerName: expect.stringMatching(
+          /^symphony-service-postgres-col-301-[0-9a-f]{8}$/
+        ),
+        disposition: "created"
+      }
+    ]);
+    expect(first.envBundle.source).toBe("manifest");
+    expect(first.envBundle.values).toMatchObject({
+      OPENAI_API_KEY: "test-openai-key",
+      GITHUB_TOKEN: "test-github-token",
+      APP_ENV: "dev",
+      DATABASE_URL: "postgresql://app:secret@db:5433/app",
+      PGHOST: "db",
+      PGPORT: "5433",
+      SYMPHONY_WORKSPACE_KEY: "COL-301"
+    });
+    expect(second.networkDisposition).toBe("reused");
+    expect(second.containerDisposition).toBe("reused");
+    expect(second.services[0]?.disposition).toBe("reused");
+
+    expect(postgresRunCall).toEqual(
+      expect.arrayContaining([
+        "run",
+        "-d",
+        "--network",
+        first.networkName ?? "",
+        "--network-alias",
+        "db",
+        "--memory",
+        "768m",
+        "--cpu-shares",
+        "256",
+        "postgres:16",
+        "postgres",
+        "-p",
+        "5433"
+      ])
+    );
+    expect(postgresRunCall).not.toContain("--publish");
+    expect(workspaceRunCall).toEqual(
+      expect.arrayContaining([
+        "run",
+        "-d",
+        "--network",
+        first.networkName ?? "",
+        "--entrypoint",
+        "bash",
+        "ghcr.io/openai/symphony-workspace:latest"
+      ])
+    );
+    expect(initCall?.join(" ")).toContain(
+      "DATABASE_URL=postgresql://app:secret@db:5433/app"
+    );
+    expect(initCall?.join(" ")).toContain("PGHOST=db");
+    expect(initCall?.join(" ")).toContain("OPENAI_API_KEY=test-openai-key");
+    expect(afterCreateCall?.join(" ")).toContain(
+      "DATABASE_URL=postgresql://app:secret@db:5433/app"
+    );
+    expect(afterCreateCall?.join(" ")).toContain("SYMPHONY_WORKSPACE_KEY=COL-301");
+    expect(calls.filter((call) => call.at(-1) === "echo bootstrapped")).toHaveLength(1);
+    expect(calls.filter((call) => call.at(-1)?.includes("pg_isready"))).toHaveLength(2);
+  });
+
+  it("applies conservative default postgres resource limits when the manifest omits them", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      }
+    });
+    const runtimeManifest = buildLoadedRuntimeManifest();
+    const calls: string[][] = [];
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      runtimeManifest,
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        if (input.args[0] === "network" && input.args[1] === "inspect") {
+          return {
+            exitCode: 1,
+            stdout: "[]\n",
+            stderr: `Error response from daemon: No such network: ${input.args[2]}`
+          };
+        }
+
+        if (input.args[0] === "network" && input.args[1] === "create") {
+          return {
+            exitCode: 0,
+            stdout: "network-302\n",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "inspect") {
+          return {
+            exitCode: 1,
+            stdout: "[]\n",
+            stderr: `Error response from daemon: No such container: ${input.args[3]}`
+          };
+        }
+
+        if (input.args[0] === "run") {
+          return {
+            exitCode: 0,
+            stdout: input.args.includes("postgres:16")
+              ? "postgres-302\n"
+              : "workspace-302\n",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "exec") {
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    await backend.prepareWorkspace({
+      context: {
+        issueId: "issue-302",
+        issueIdentifier: "COL-302"
+      },
+      config: config.workspace,
+      hooks: config.hooks,
+      env: {
+        OPENAI_API_KEY: "test-openai-key"
+      }
+    });
+
+    const postgresRunCall = calls.find(
+      (call) => call[0] === "run" && call.includes("postgres:16")
+    );
+
+    expect(postgresRunCall).toEqual(
+      expect.arrayContaining([
+        "--memory",
+        "512m",
+        "--cpu-shares",
+        "512"
+      ])
+    );
+  });
+
+  it("fails closed when postgres readiness never succeeds", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      }
+    });
+    const runtimeManifest = buildLoadedRuntimeManifest({
+      readiness: {
+        timeoutMs: 250,
+        intervalMs: 1,
+        retries: 2
+      }
+    });
+    const calls: string[][] = [];
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      runtimeManifest,
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        if (input.args[0] === "network" && input.args[1] === "inspect") {
+          return {
+            exitCode: 1,
+            stdout: "[]\n",
+            stderr: `Error response from daemon: No such network: ${input.args[2]}`
+          };
+        }
+
+        if (input.args[0] === "network" && input.args[1] === "create") {
+          return {
+            exitCode: 0,
+            stdout: "network-303\n",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "inspect") {
+          return {
+            exitCode: 1,
+            stdout: "[]\n",
+            stderr: `Error response from daemon: No such container: ${input.args[3]}`
+          };
+        }
+
+        if (input.args[0] === "run") {
+          return {
+            exitCode: 0,
+            stdout: "postgres-303\n",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "exec") {
+          return {
+            exitCode: 1,
+            stdout: "pg_isready: no response\n",
+            stderr: "connection refused"
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    await expect(
+      backend.prepareWorkspace({
+        context: {
+          issueId: "issue-303",
+          issueIdentifier: "COL-303"
+        },
+        config: config.workspace,
+        hooks: config.hooks,
+        env: {
+          OPENAI_API_KEY: "test-openai-key"
+        }
+      })
+    ).rejects.toThrowError(
+      /Postgres service postgres failed readiness after 2 attempts/i
+    );
+
+    expect(calls.filter((call) => call[0] === "exec")).toHaveLength(2);
+    expect(
+      calls.some(
+        (call) =>
+          call[0] === "run" &&
+          call.includes("ghcr.io/openai/symphony-workspace:latest")
+      )
+    ).toBe(false);
+  });
+
+  it("fails closed when a postgres init step fails", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      },
+      hooks: {
+        afterCreate: "echo bootstrapped",
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: null,
+        timeoutMs: 1_000
+      }
+    });
+    const runtimeManifest = buildLoadedRuntimeManifest({
+      init: [
+        {
+          name: "extensions",
+          run: "psql \"$DATABASE_URL\" -c 'create extension if not exists pgcrypto'",
+          timeoutMs: 15_000
+        }
+      ]
+    });
+    const calls: string[][] = [];
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      runtimeManifest,
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        if (input.args[0] === "network" && input.args[1] === "inspect") {
+          return {
+            exitCode: 1,
+            stdout: "[]\n",
+            stderr: `Error response from daemon: No such network: ${input.args[2]}`
+          };
+        }
+
+        if (input.args[0] === "network" && input.args[1] === "create") {
+          return {
+            exitCode: 0,
+            stdout: "network-304\n",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "inspect") {
+          return {
+            exitCode: 1,
+            stdout: "[]\n",
+            stderr: `Error response from daemon: No such container: ${input.args[3]}`
+          };
+        }
+
+        if (input.args[0] === "run") {
+          return {
+            exitCode: 0,
+            stdout: input.args.includes("postgres:16")
+              ? "postgres-304\n"
+              : "workspace-304\n",
+            stderr: ""
+          };
+        }
+
+        if (
+          input.args[0] === "exec" &&
+          input.args.at(-1)?.includes("create extension if not exists pgcrypto")
+        ) {
+          return {
+            exitCode: 9,
+            stdout: "init failed\n",
+            stderr: "psql: could not connect"
+          };
+        }
+
+        if (input.args[0] === "exec") {
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    await expect(
+      backend.prepareWorkspace({
+        context: {
+          issueId: "issue-304",
+          issueIdentifier: "COL-304"
+        },
+        config: config.workspace,
+        hooks: config.hooks,
+        env: {
+          OPENAI_API_KEY: "test-openai-key"
+        }
+      })
+    ).rejects.toThrowError(
+      /Postgres init step extensions failed for service postgres/i
+    );
+
+    expect(
+      calls.some((call) => call[0] === "exec" && call.at(-1) === "echo bootstrapped")
+    ).toBe(false);
+  });
+
+  it("cleans up safely when sidecar containers or networks are already missing", async () => {
+    const root = await createWorkspaceRoot();
+    const workspacePath = path.join(root, "symphony-COL-305");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      }
+    });
+    const runtimeManifest = buildLoadedRuntimeManifest();
+    const calls: string[][] = [];
+    const workspace = buildPreparedDockerWorkspace({
+      issueIdentifier: "COL-305",
+      workspaceKey: "COL-305",
+      containerId: "workspace-305",
+      containerName: "symphony-workspace-col-305-deadbeef",
+      hostPath: workspacePath,
+      networkDisposition: "reused",
+      networkName: "symphony-workspace-network-col-305-deadbeef",
+      services: [
+        {
+          key: "postgres",
+          type: "postgres",
+          hostname: "db",
+          port: 5433,
+          containerId: "postgres-305",
+          containerName: "symphony-service-postgres-col-305-deadbeef",
+          disposition: "reused"
+        }
+      ],
+      envBundle: buildManifestEnvBundle({
+        runtimeManifest,
+        issueIdentifier: "COL-305",
+        issueId: "issue-305",
+        workspaceKey: "COL-305",
+        workspacePath: "/home/agent/workspace"
+      })
+    });
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      runtimeManifest,
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        if (input.args[0] === "inspect") {
+          if (input.args[3]?.startsWith("symphony-service-postgres-")) {
+            return {
+              exitCode: 1,
+              stdout: "[]\n",
+              stderr: `Error response from daemon: No such container: ${input.args[3]}`
+            };
+          }
+
+          return {
+            exitCode: 0,
+            stdout: buildDockerInspectPayload({
+              id: "workspace-305",
+              image: "ghcr.io/openai/symphony-workspace:latest",
+              name: input.args[3] ?? "unknown",
+              issueIdentifier: "COL-305",
+              workspaceKey: "COL-305",
+              hostPath: workspacePath,
+              workspacePath: "/home/agent/workspace",
+              running: true
+            }),
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "rm") {
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "network" && input.args[1] === "inspect") {
+          return {
+            exitCode: 1,
+            stdout: "[]\n",
+            stderr: `Error response from daemon: No such network: ${input.args[2]}`
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    await expect(
+      backend.cleanupWorkspace({
+        issueIdentifier: "COL-305",
+        workspace,
+        config: config.workspace,
+        hooks: config.hooks
+      })
+    ).resolves.toMatchObject({
+      backendKind: "docker",
+      workerHost: null,
+      hostPath: workspacePath,
+      runtimePath: "/home/agent/workspace",
+      containerId: "workspace-305",
+      containerName: "symphony-workspace-col-305-deadbeef",
+      networkName: "symphony-workspace-network-col-305-deadbeef",
+      networkRemovalDisposition: "missing",
+      serviceCleanup: [
+        {
+          key: "postgres",
+          type: "postgres",
+          containerId: null,
+          containerName: expect.stringMatching(
+            /^symphony-service-postgres-col-305-[0-9a-f]{8}$/
+          ),
+          removalDisposition: "missing"
+        }
+      ],
+      beforeRemoveHookOutcome: "skipped",
+      workspaceRemovalDisposition: "removed",
+      containerRemovalDisposition: "removed"
+    });
+
+    expect(calls.map((call) => call[0])).toEqual([
+      "inspect",
+      "inspect",
+      "rm",
+      "inspect",
+      "network"
+    ]);
   });
 });
 
@@ -618,6 +1350,18 @@ function buildPreparedDockerWorkspace(input: {
   containerId: string;
   containerName: string;
   hostPath: string;
+  networkDisposition?: "created" | "reused" | "not_applicable";
+  networkName?: string | null;
+  services?: Array<{
+    key: string;
+    type: "postgres";
+    hostname: string;
+    port: number;
+    containerId: string | null;
+    containerName: string;
+    disposition: "created" | "reused" | "recreated";
+  }>;
+  envBundle?: ReturnType<typeof ambientEnvBundle> | ReturnType<typeof buildManifestEnvBundle>;
 }) {
   return {
     issueIdentifier: input.issueIdentifier,
@@ -625,6 +1369,7 @@ function buildPreparedDockerWorkspace(input: {
     backendKind: "docker" as const,
     prepareDisposition: "reused" as const,
     containerDisposition: "reused" as const,
+    networkDisposition: input.networkDisposition ?? ("not_applicable" as const),
     afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
       kind: "container" as const,
@@ -639,6 +1384,9 @@ function buildPreparedDockerWorkspace(input: {
       hostPath: input.hostPath,
       containerPath: "/home/agent/workspace"
     },
+    networkName: input.networkName ?? null,
+    services: input.services ?? [],
+    envBundle: input.envBundle ?? ambientEnvBundle(),
     path: null,
     created: false,
     workerHost: null
@@ -684,6 +1432,9 @@ function buildDockerInspectPayload(input: {
   workspacePath: string;
   running: boolean;
   status?: string;
+  labels?: Record<string, string>;
+  env?: Record<string, string>;
+  networks?: Record<string, { aliases: string[] }>;
 }): string {
   return JSON.stringify([
     {
@@ -695,12 +1446,25 @@ function buildDockerInspectPayload(input: {
       },
       Config: {
         Image: input.image,
-        Labels: {
-          "dev.symphony.workspace-backend": "docker",
-          "dev.symphony.workspace-key": input.workspaceKey,
-          "dev.symphony.issue-identifier": input.issueIdentifier,
-          "dev.symphony.materialization": "bind_mount"
-        }
+        Env: Object.entries(input.env ?? {}).map(([key, value]) => `${key}=${value}`),
+        Labels:
+          input.labels ?? {
+            "dev.symphony.workspace-backend": "docker",
+            "dev.symphony.workspace-key": input.workspaceKey,
+            "dev.symphony.issue-identifier": input.issueIdentifier,
+            "dev.symphony.materialization": "bind_mount",
+            "dev.symphony.managed-kind": "workspace_container"
+          }
+      },
+      NetworkSettings: {
+        Networks: Object.fromEntries(
+          Object.entries(input.networks ?? {}).map(([name, network]) => [
+            name,
+            {
+              Aliases: network.aliases
+            }
+          ])
+        )
       },
       Mounts: [
         {
@@ -712,4 +1476,220 @@ function buildDockerInspectPayload(input: {
       ]
     }
   ]);
+}
+
+function buildDockerServiceInspectPayload(input: {
+  id: string;
+  name: string;
+  image: string;
+  issueIdentifier: string;
+  workspaceKey: string;
+  serviceKey: string;
+  hostname: string;
+  port: number;
+  memoryMb: number;
+  cpuShares: number;
+  database: string;
+  username: string;
+  password: string;
+  networkName: string;
+}): string {
+  return JSON.stringify([
+    {
+      Id: input.id,
+      Name: `/${input.name}`,
+      State: {
+        Running: true,
+        Status: "running"
+      },
+      Config: {
+        Image: input.image,
+        Env: [
+          `POSTGRES_DB=${input.database}`,
+          `POSTGRES_USER=${input.username}`,
+          `POSTGRES_PASSWORD=${input.password}`
+        ],
+        Labels: {
+          "dev.symphony.workspace-backend": "docker",
+          "dev.symphony.workspace-key": input.workspaceKey,
+          "dev.symphony.issue-identifier": input.issueIdentifier,
+          "dev.symphony.managed-kind": "workspace_service",
+          "dev.symphony.service-key": input.serviceKey,
+          "dev.symphony.service-type": "postgres",
+          "dev.symphony.service-hostname": input.hostname,
+          "dev.symphony.service-port": String(input.port),
+          "dev.symphony.service-memory-mb": String(input.memoryMb),
+          "dev.symphony.service-cpu-shares": String(input.cpuShares),
+          "dev.symphony.network-name": input.networkName
+        }
+      },
+      NetworkSettings: {
+        Networks: {
+          [input.networkName]: {
+            Aliases: [input.hostname]
+          }
+        }
+      },
+      Mounts: []
+    }
+  ]);
+}
+
+function buildDockerNetworkInspectPayload(input: {
+  id: string;
+  name: string;
+  issueIdentifier: string;
+  workspaceKey: string;
+}): string {
+  return JSON.stringify([
+    {
+      Id: input.id,
+      Name: input.name,
+      Labels: {
+        "dev.symphony.workspace-backend": "docker",
+        "dev.symphony.workspace-key": input.workspaceKey,
+        "dev.symphony.issue-identifier": input.issueIdentifier,
+        "dev.symphony.managed-kind": "workspace_network"
+      }
+    }
+  ]);
+}
+
+function buildLoadedRuntimeManifest(input?: {
+  resources?: {
+    memoryMb?: number;
+    cpuShares?: number;
+  };
+  readiness?: {
+    timeoutMs?: number;
+    intervalMs?: number;
+    retries?: number;
+  };
+  init?: SymphonyRuntimeStep[];
+}): SymphonyLoadedRuntimeManifest {
+  return {
+    repoRoot: "/repo",
+    manifestPath: "/repo/.symphony/runtime.ts",
+    manifest: normalizeSymphonyRuntimeManifest({
+      schemaVersion: 1,
+      workspace: {
+        packageManager: "pnpm"
+      },
+      services: {
+        postgres: {
+          type: "postgres",
+          image: "postgres:16",
+          hostname: "db",
+          port: 5433,
+          database: "app",
+          username: "app",
+          password: "secret",
+          ...(input?.resources ? { resources: input.resources } : {}),
+          ...(input?.readiness ? { readiness: input.readiness } : {}),
+          ...(input?.init ? { init: input.init } : {})
+        }
+      },
+      env: {
+        host: {
+          required: ["OPENAI_API_KEY"],
+          optional: ["GITHUB_TOKEN"]
+        },
+        inject: {
+          APP_ENV: {
+            kind: "static",
+            value: "dev"
+          },
+          DATABASE_URL: {
+            kind: "service",
+            service: "postgres",
+            value: "connectionString"
+          },
+          PGHOST: {
+            kind: "service",
+            service: "postgres",
+            value: "host"
+          },
+          PGPORT: {
+            kind: "service",
+            service: "postgres",
+            value: "port"
+          },
+          SYMPHONY_WORKSPACE_KEY: {
+            kind: "runtime",
+            value: "workspaceKey"
+          }
+        }
+      },
+      lifecycle: {
+        bootstrap: [],
+        migrate: [],
+        verify: [
+          {
+            name: "verify",
+            run: "pnpm test"
+          }
+        ],
+        seed: [],
+        cleanup: []
+      }
+    })
+  };
+}
+
+function ambientEnvBundle() {
+  return {
+    source: "ambient" as const,
+    values: {},
+    summary: {
+      source: "ambient" as const,
+      injectedKeys: [],
+      requiredHostKeys: [],
+      optionalHostKeys: [],
+      staticBindingKeys: [],
+      runtimeBindingKeys: [],
+      serviceBindingKeys: []
+    }
+  };
+}
+
+function buildManifestEnvBundle(input: {
+  runtimeManifest: SymphonyLoadedRuntimeManifest;
+  issueIdentifier: string;
+  issueId: string | null;
+  workspaceKey: string;
+  workspacePath: string;
+}) {
+  return resolveSymphonyRuntimeEnvBundle({
+    manifest: input.runtimeManifest.manifest,
+    environmentSource: {
+      OPENAI_API_KEY: "test-openai-key"
+    },
+    runtime: {
+      issueId: input.issueId,
+      issueIdentifier: input.issueIdentifier,
+      runId: "run-test",
+      workspaceKey: input.workspaceKey,
+      workspacePath: input.workspacePath,
+      backendKind: "docker"
+    },
+    services: {
+      postgres: {
+        type: "postgres",
+        serviceKey: "postgres",
+        host: "db",
+        port: 5433,
+        database: "app",
+        username: "app",
+        password: "secret",
+        connectionString: buildSymphonyRuntimePostgresConnectionString({
+          host: "db",
+          port: 5433,
+          database: "app",
+          username: "app",
+          password: "secret"
+        })
+      }
+    },
+    manifestPath: input.runtimeManifest.manifestPath
+  });
 }

@@ -415,10 +415,14 @@ function buildLocalRuntimeWorkspace(
     executionTargetKind: "host_path",
     materializationKind: "directory",
     containerDisposition: "not_applicable",
+    networkDisposition: "not_applicable",
     hostPath: path,
     runtimePath: path,
     containerId: null,
     containerName: null,
+    networkName: null,
+    services: [],
+    envBundleSummary: buildAmbientEnvBundleSummary(),
     path,
     executionTarget: {
       kind: "host_path",
@@ -445,10 +449,14 @@ function buildDockerRuntimeWorkspace(input: {
     executionTargetKind: "container",
     materializationKind: "bind_mount",
     containerDisposition: "reused",
+    networkDisposition: "reused",
     hostPath: input.hostPath,
     runtimePath: input.runtimePath,
     containerId: input.containerId,
     containerName: input.containerName,
+    networkName: `symphony-network-${input.containerName}`,
+    services: [],
+    envBundleSummary: buildAmbientEnvBundleSummary(),
     path: null,
     executionTarget: {
       kind: "container",
@@ -462,6 +470,20 @@ function buildDockerRuntimeWorkspace(input: {
       hostPath: input.hostPath,
       containerPath: input.runtimePath
     }
+  };
+}
+
+function buildAmbientEnvBundleSummary(): NonNullable<
+  SymphonyRuntimeIssueResult["workspace"]
+>["envBundleSummary"] {
+  return {
+    source: "ambient",
+    injectedKeys: [],
+    requiredHostKeys: [],
+    optionalHostKeys: [],
+    staticBindingKeys: [],
+    runtimeBindingKeys: [],
+    serviceBindingKeys: []
   };
 }
 

@@ -40,6 +40,40 @@ export const symphonyRuntimeWorkspaceContainerDispositionSchema = z.enum([
   "not_applicable"
 ]);
 
+export const symphonyRuntimeWorkspaceNetworkDispositionSchema = z.enum([
+  "created",
+  "reused",
+  "not_applicable"
+]);
+
+export const symphonyRuntimeWorkspaceServiceTypeSchema = z.enum(["postgres"]);
+
+export const symphonyRuntimeWorkspaceServiceDispositionSchema = z.enum([
+  "created",
+  "reused",
+  "recreated"
+]);
+
+export const symphonyRuntimeWorkspaceEnvBundleSummarySchema = z.strictObject({
+  source: z.enum(["ambient", "manifest"]),
+  injectedKeys: z.array(nonEmptyStringSchema),
+  requiredHostKeys: z.array(nonEmptyStringSchema),
+  optionalHostKeys: z.array(nonEmptyStringSchema),
+  staticBindingKeys: z.array(nonEmptyStringSchema),
+  runtimeBindingKeys: z.array(nonEmptyStringSchema),
+  serviceBindingKeys: z.array(nonEmptyStringSchema)
+});
+
+export const symphonyRuntimeWorkspaceServiceSchema = z.strictObject({
+  key: nonEmptyStringSchema,
+  type: symphonyRuntimeWorkspaceServiceTypeSchema,
+  hostname: nonEmptyStringSchema,
+  port: z.number().int().positive(),
+  containerId: nullableNonEmptyStringSchema,
+  containerName: nonEmptyStringSchema,
+  disposition: symphonyRuntimeWorkspaceServiceDispositionSchema
+});
+
 export const symphonyRuntimeRunningEntrySchema = z.strictObject({
   issueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
@@ -125,10 +159,14 @@ export const symphonyRuntimeWorkspaceSchema = z.strictObject({
   executionTargetKind: symphonyRuntimeWorkspaceExecutionTargetKindSchema.nullable(),
   materializationKind: symphonyRuntimeWorkspaceMaterializationKindSchema.nullable(),
   containerDisposition: symphonyRuntimeWorkspaceContainerDispositionSchema.nullable(),
+  networkDisposition: symphonyRuntimeWorkspaceNetworkDispositionSchema.nullable(),
   hostPath: nullableNonEmptyStringSchema,
   runtimePath: nullableNonEmptyStringSchema,
   containerId: nullableNonEmptyStringSchema,
   containerName: nullableNonEmptyStringSchema,
+  networkName: nullableNonEmptyStringSchema,
+  services: z.array(symphonyRuntimeWorkspaceServiceSchema),
+  envBundleSummary: symphonyRuntimeWorkspaceEnvBundleSummarySchema.nullable(),
   path: nullableNonEmptyStringSchema,
   executionTarget: symphonyRuntimeWorkspaceExecutionTargetSchema.nullable(),
   materialization: symphonyRuntimeWorkspaceMaterializationSchema.nullable()

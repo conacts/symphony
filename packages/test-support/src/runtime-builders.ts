@@ -63,10 +63,22 @@ export function buildSymphonyRuntimeStateResult(
     executionTargetKind: "host_path",
     materializationKind: "directory",
     containerDisposition: "not_applicable",
+    networkDisposition: "not_applicable",
     hostPath: "/tmp/workspaces/col-165",
     runtimePath: "/tmp/workspaces/col-165",
     containerId: null,
     containerName: null,
+    networkName: null,
+    services: [],
+    envBundleSummary: {
+      source: "ambient",
+      injectedKeys: ["LINEAR_API_KEY"],
+      requiredHostKeys: [],
+      optionalHostKeys: [],
+      staticBindingKeys: [],
+      runtimeBindingKeys: [],
+      serviceBindingKeys: []
+    },
     path: "/tmp/workspaces/col-165",
     executionTarget: {
       kind: "host_path",
@@ -91,10 +103,32 @@ export function buildSymphonyRuntimeStateResult(
     executionTargetKind: "container",
     materializationKind: "bind_mount",
     containerDisposition: "reused",
+    networkDisposition: "reused",
     hostPath: "/tmp/workspaces/col-166",
     runtimePath: "/home/agent/workspace",
     containerId: "container-166",
     containerName: "symphony-col-166",
+    networkName: "symphony-network-col-166",
+    services: [
+      {
+        key: "postgres",
+        type: "postgres",
+        hostname: "postgres",
+        port: 5432,
+        containerId: "postgres-166",
+        containerName: "symphony-service-postgres-col-166",
+        disposition: "reused"
+      }
+    ],
+    envBundleSummary: {
+      source: "manifest",
+      injectedKeys: ["DATABASE_URL", "OPENAI_API_KEY", "PGHOST"],
+      requiredHostKeys: ["OPENAI_API_KEY"],
+      optionalHostKeys: [],
+      staticBindingKeys: [],
+      runtimeBindingKeys: [],
+      serviceBindingKeys: ["DATABASE_URL", "PGHOST"]
+    },
     path: null,
     executionTarget: {
       kind: "container",
@@ -250,10 +284,22 @@ export function buildSymphonyRuntimeIssueResult(
     executionTargetKind: "host_path",
     materializationKind: "directory",
     containerDisposition: "not_applicable",
+    networkDisposition: "not_applicable",
     hostPath: "/tmp/symphony-COL-167",
     runtimePath: "/tmp/symphony-COL-167",
     containerId: null,
     containerName: null,
+    networkName: null,
+    services: [],
+    envBundleSummary: {
+      source: "ambient",
+      injectedKeys: ["LINEAR_API_KEY"],
+      requiredHostKeys: [],
+      optionalHostKeys: [],
+      staticBindingKeys: [],
+      runtimeBindingKeys: [],
+      serviceBindingKeys: []
+    },
     path: "/tmp/symphony-COL-167",
     executionTarget: {
       kind: "host_path",

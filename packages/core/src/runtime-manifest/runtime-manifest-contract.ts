@@ -161,6 +161,67 @@ export type SymphonyRuntimeManifestLoadOptions = {
   manifestPath?: string;
 };
 
+export type SymphonyRuntimeEnvironmentSource = Record<string, string | undefined>;
+
+export type SymphonyRuntimeEnvironmentBackendKind = "local" | "docker";
+
+export type SymphonyRuntimeEnvironmentContext = {
+  issueId: string | null;
+  issueIdentifier: string;
+  runId: string | null;
+  workspaceKey: string;
+  workspacePath: string;
+  backendKind: SymphonyRuntimeEnvironmentBackendKind;
+};
+
+export type SymphonyResolvedRuntimeHostEnv = {
+  required: Record<string, string>;
+  optional: Record<string, string>;
+};
+
+export type SymphonyResolvedRuntimePostgresService = {
+  type: "postgres";
+  serviceKey: string;
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+  connectionString: string;
+};
+
+export type SymphonyResolvedRuntimeService = SymphonyResolvedRuntimePostgresService;
+
+export type SymphonyResolvedRuntimeEnvBundleSummary = {
+  source: "manifest";
+  injectedKeys: string[];
+  requiredHostKeys: string[];
+  optionalHostKeys: string[];
+  staticBindingKeys: string[];
+  runtimeBindingKeys: string[];
+  serviceBindingKeys: string[];
+};
+
+export type SymphonyResolvedRuntimeEnvBundle = {
+  source: "manifest";
+  values: Record<string, string>;
+  summary: SymphonyResolvedRuntimeEnvBundleSummary;
+};
+
+export type SymphonyRuntimeHostEnvResolutionInput = {
+  manifest: SymphonyNormalizedRuntimeManifest;
+  environmentSource: SymphonyRuntimeEnvironmentSource;
+  manifestPath?: string | null;
+};
+
+export type SymphonyRuntimeEnvResolutionInput = {
+  manifest: SymphonyNormalizedRuntimeManifest;
+  environmentSource: SymphonyRuntimeEnvironmentSource;
+  runtime: SymphonyRuntimeEnvironmentContext;
+  services?: Record<string, SymphonyResolvedRuntimeService>;
+  manifestPath?: string | null;
+};
+
 export type SymphonyLoadedRuntimeManifest = {
   repoRoot: string;
   manifestPath: string;
