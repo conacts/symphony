@@ -27,6 +27,7 @@ describe("runtime realtime diff", () => {
           runId: "run-123",
           sessionId: "thread-live",
           workerHost: null,
+          launchTarget: null,
           workspacePath: `/tmp/symphony-${issue.identifier}`,
           retryAttempt: 0,
           turnCount: 1,
@@ -114,6 +115,7 @@ describe("runtime realtime diff", () => {
           runId: "run-123",
           sessionId: "thread-live",
           workerHost: null,
+          launchTarget: null,
           workspacePath,
           retryAttempt: 0,
           turnCount: 1,
@@ -141,12 +143,16 @@ describe("runtime realtime diff", () => {
             issueIdentifier: issue.identifier,
             workspaceKey: issue.identifier,
             backendKind: "docker",
+            prepareDisposition: "reused",
+            containerDisposition: "reused",
+            afterCreateHookOutcome: "skipped",
             executionTarget: {
               kind: "container",
               workspacePath: "/home/agent/workspace",
               containerId: "container-123",
               containerName: "symphony-col-123",
-              hostPath: workspacePath
+              hostPath: workspacePath,
+              shell: "sh"
             },
             materialization: {
               kind: "bind_mount",
@@ -156,6 +162,14 @@ describe("runtime realtime diff", () => {
             path: workspacePath,
             created: false,
             workerHost: "docker-host"
+          },
+          launchTarget: {
+            kind: "container",
+            hostWorkspacePath: workspacePath,
+            runtimeWorkspacePath: "/home/agent/workspace",
+            containerId: "container-123",
+            containerName: "symphony-col-123",
+            shell: "sh"
           },
           workerHost: "docker-host"
         }

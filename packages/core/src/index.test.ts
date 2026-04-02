@@ -74,7 +74,8 @@ describe("@symphony/core scaffold", () => {
       async startRun() {
         return {
           sessionId: null,
-          workerHost: null
+          workerHost: null,
+          launchTarget: null
         };
       },
       async stopRun() {}
@@ -196,7 +197,8 @@ describe("@symphony/core scaffold", () => {
         async startRun() {
           return {
             sessionId: null,
-            workerHost: null
+            workerHost: null,
+            launchTarget: null
           };
         },
         async stopRun() {}

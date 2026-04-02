@@ -59,7 +59,7 @@ export interface SymphonyWorkspaceManager {
       env?: Record<string, string | undefined>;
       workerHost?: string | null;
     }
-  ): Promise<void>;
+  ): Promise<"skipped" | "completed" | "failed_ignored">;
   removeIssueWorkspace(
     issueIdentifier: string,
     config: SymphonyWorkflowWorkspaceConfig,
@@ -68,7 +68,11 @@ export interface SymphonyWorkspaceManager {
       env?: Record<string, string | undefined>;
       workerHost?: string | null;
     }
-  ): Promise<void>;
+  ): Promise<{
+    path: string;
+    beforeRemoveHookOutcome: "skipped" | "completed" | "failed_ignored";
+    workspaceRemovalDisposition: "removed" | "missing";
+  }>;
   workspacePathForIssue(
     issueIdentifier: string,
     root: string
@@ -159,7 +163,7 @@ export function createLocalSymphonyWorkspaceManager(options: {
 
     async runAfterRunHook(workspacePath, context, hooks, runnerOptions = {}) {
       if (!hooks.afterRun) {
-        return;
+        return "skipped";
       }
 
       try {
@@ -172,8 +176,9 @@ export function createLocalSymphonyWorkspaceManager(options: {
           runnerOptions.workerHost ?? null,
           runnerOptions.env
         );
+        return "completed";
       } catch {
-        return;
+        return "failed_ignored";
       }
     },
 
@@ -183,6 +188,8 @@ export function createLocalSymphonyWorkspaceManager(options: {
         config.root,
         false
       );
+      let beforeRemoveHookOutcome: "skipped" | "completed" | "failed_ignored" =
+        "skipped";
 
       if (hooks.beforeRemove) {
         try {
@@ -198,15 +205,19 @@ export function createLocalSymphonyWorkspaceManager(options: {
             runnerOptions.workerHost ?? null,
             runnerOptions.env
           );
+          beforeRemoveHookOutcome = "completed";
         } catch {
-          // best effort
+          beforeRemoveHookOutcome = "failed_ignored";
         }
       }
 
-      await rm(workspacePath, {
-        recursive: true,
-        force: true
-      });
+      const workspaceRemovalDisposition = await removeManagedWorkspace(workspacePath);
+
+      return {
+        path: workspacePath,
+        beforeRemoveHookOutcome,
+        workspaceRemovalDisposition
+      };
     },
 
     workspacePathForIssue(issueIdentifier, root) {
@@ -238,6 +249,44 @@ async function ensureLocalWorkspace(workspacePath: string): Promise<boolean> {
     recursive: true
   });
   return true;
+}
+
+async function removeManagedWorkspace(
+  workspacePath: string
+): Promise<"removed" | "missing"> {
+  const existedBeforeDelete = await workspaceExists(workspacePath);
+
+  await rm(workspacePath, {
+    recursive: true,
+    force: true
+  });
+
+  const existsAfterDelete = await workspaceExists(workspacePath);
+  if (existsAfterDelete) {
+    throw new SymphonyWorkspaceError(
+      "workspace_remove_failed",
+      `Workspace cleanup did not remove ${workspacePath}.`
+    );
+  }
+
+  return existedBeforeDelete ? "removed" : "missing";
+}
+
+async function workspaceExists(workspacePath: string): Promise<boolean> {
+  try {
+    await stat(workspacePath);
+    return true;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return false;
+    }
+
+    throw error;
+  }
 }
 
 function buildWorkspacePath(issueIdentifier: string, root: string): string {

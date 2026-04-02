@@ -22,6 +22,9 @@ function buildAgentRunInput(): AgentRunInput {
       issueIdentifier: issue.identifier,
       workspaceKey: issue.identifier,
       backendKind: "local",
+      prepareDisposition: "reused",
+      containerDisposition: "not_applicable",
+      afterCreateHookOutcome: "skipped",
       executionTarget: {
         kind: "host_path",
         path: "/tmp/symphony-runtime"
@@ -42,7 +45,8 @@ describe("agent runtime facade", () => {
     const runInput = buildAgentRunInput();
     const startRun = vi.fn(async () => ({
       sessionId: "thread-123",
-      workerHost: "worker-a"
+      workerHost: "worker-a",
+      launchTarget: null
     }));
     const stopRun = vi.fn(async () => undefined);
     const implementation = {
@@ -55,7 +59,8 @@ describe("agent runtime facade", () => {
     expect(runtime).not.toBe(implementation);
     await expect(runtime.startRun(runInput)).resolves.toEqual({
       sessionId: "thread-123",
-      workerHost: "worker-a"
+      workerHost: "worker-a",
+      launchTarget: null
     });
     await expect(
       runtime.stopRun({

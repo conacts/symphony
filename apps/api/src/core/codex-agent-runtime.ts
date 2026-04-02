@@ -4,7 +4,9 @@ import type {
 } from "@symphony/core";
 import type {
   SymphonyAgentRuntimeCompletion,
-  SymphonyAgentRuntimeUpdate
+  SymphonyAgentRuntimeUpdate,
+  SymphonyStartupFailureOrigin,
+  SymphonyStartupFailureStage
 } from "@symphony/core/orchestration";
 import type {
   SymphonyJsonObject,
@@ -57,7 +59,6 @@ export function createCodexSymphonyAgentRuntime(input: {
   workflowConfig: SymphonyResolvedWorkflowConfig;
   logger: SymphonyLogger;
   callbacks: RunCallbacks;
-  containerShell?: string | null;
 }): AgentRuntime {
   const activeRuns = new Map<string, ActiveRun>();
 
@@ -68,9 +69,7 @@ export function createCodexSymphonyAgentRuntime(input: {
         client: null
       };
       activeRuns.set(runInput.issue.id, activeRun);
-      const launchTarget = resolveCodexRuntimeLaunchTarget(runInput.workspace, {
-        containerShell: input.containerShell
-      });
+      const launchTarget = resolveCodexRuntimeLaunchTarget(runInput.workspace);
 
       void executeRun({
         promptTemplate: input.promptTemplate,
@@ -99,7 +98,8 @@ export function createCodexSymphonyAgentRuntime(input: {
 
       return {
         sessionId: null,
-        workerHost: null
+        workerHost: runInput.workspace.workerHost ?? null,
+        launchTarget
       };
     },
 
@@ -137,6 +137,19 @@ async function executeRun(input: {
   let maxTurnsReached = false;
 
   try {
+    await input.runtimeLogs.record({
+      level: "info",
+      source: "codex_runtime",
+      eventType: "runtime_launch_target_resolved",
+      message: "Resolved the Codex runtime launch target.",
+      issueId: input.issue.id,
+      issueIdentifier: input.issue.identifier,
+      runId: input.runId,
+      payload: {
+        launchTarget: describeLaunchTarget(input.launchTarget)
+      }
+    });
+
     if (input.runId) {
       const repoStart = await captureRepoSnapshot(
         input.launchTarget.hostWorkspacePath,
@@ -159,8 +172,8 @@ async function executeRun(input: {
     await input.runtimeLogs.record({
       level: "info",
       source: "codex_runtime",
-      eventType: "session_initialized",
-      message: "Started Codex app-server session.",
+      eventType: "runtime_session_started",
+      message: "Started the Codex app-server session.",
       issueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
@@ -341,27 +354,45 @@ async function executeRun(input: {
       });
     }
 
+    const startupFailure = classifyStartupFailure(error);
     await input.runtimeLogs.record({
       level: "error",
       source: "codex_runtime",
-      eventType: "run_failed",
-      message: "Codex runtime execution failed.",
+      eventType: startupFailure
+        ? "runtime_startup_failed"
+        : "runtime_execution_failed",
+      message: startupFailure
+        ? "Codex runtime startup failed."
+        : "Codex runtime execution failed.",
       issueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {
         reason,
+        failureStage: startupFailure?.failureStage ?? null,
+        failureOrigin: startupFailure?.failureOrigin ?? null,
         launchTarget: describeLaunchTarget(input.launchTarget)
       }
     });
 
     await input.callbacks.onComplete(input.issue.id, {
-      kind: isStartupFailure(error)
-        ? "startup_failure"
+      ...(startupFailure
+        ? {
+            kind: "startup_failure" as const,
+            reason,
+            failureStage: startupFailure.failureStage,
+            failureOrigin: startupFailure.failureOrigin,
+            launchTarget: input.launchTarget
+          }
         : isRateLimitedError(error)
-          ? "rate_limited"
-          : "failure",
-      reason
+          ? {
+              kind: "rate_limited" as const,
+              reason
+            }
+          : {
+              kind: "failure" as const,
+              reason
+            })
     });
   } finally {
     input.activeRun.client?.close();
@@ -410,21 +441,38 @@ function isActiveIssueState(
   );
 }
 
-function isStartupFailure(error: unknown): boolean {
+function classifyStartupFailure(error: unknown): {
+  failureStage: SymphonyStartupFailureStage;
+  failureOrigin: SymphonyStartupFailureOrigin;
+} | null {
   if (error instanceof CodexAppServerError) {
-    return [
-      "initialize_failed",
-      "thread_start_failed",
-      "invalid_workspace_cwd",
-      "invalid_thread_payload",
-      "invalid_turn_payload",
-      "invalid_codex_command",
-      "invalid_issue_label_override"
-    ].includes(error.code);
+    if (
+      [
+        "initialize_failed",
+        "thread_start_failed",
+        "invalid_workspace_cwd",
+        "invalid_thread_payload",
+        "invalid_turn_payload",
+        "invalid_codex_command",
+        "invalid_issue_label_override"
+      ].includes(error.code)
+    ) {
+      return {
+        failureStage: "runtime_session_start",
+        failureOrigin: "codex_startup"
+      };
+    }
   }
 
   const message = error instanceof Error ? error.message : String(error);
-  return message.includes("thread/start") || message.includes("initialize");
+  if (message.includes("thread/start") || message.includes("initialize")) {
+    return {
+      failureStage: "runtime_session_start",
+      failureOrigin: "codex_startup"
+    };
+  }
+
+  return null;
 }
 
 function isRateLimitedError(error: unknown): boolean {

@@ -10,10 +10,16 @@ export type SymphonyRuntimeWorkspaceBackendSelection = {
   metadata:
     | {
         backendKind: "local";
+        executionTargetKind: "host_path";
+        materializationKind: "directory";
+        selectionSource: "env";
         sourceRepo: string | null;
       }
     | {
         backendKind: "docker";
+        executionTargetKind: "container";
+        materializationKind: "bind_mount";
+        selectionSource: "env";
         image: string;
         workspacePath: string | null;
         containerNamePrefix: string | null;
@@ -44,6 +50,9 @@ export function createRuntimeWorkspaceBackend(
       }),
       metadata: {
         backendKind: "docker",
+        executionTargetKind: "container",
+        materializationKind: "bind_mount",
+        selectionSource: "env",
         image,
         workspacePath: env.dockerWorkspacePath,
         containerNamePrefix: env.dockerContainerNamePrefix,
@@ -58,6 +67,9 @@ export function createRuntimeWorkspaceBackend(
     }),
     metadata: {
       backendKind: "local",
+      executionTargetKind: "host_path",
+      materializationKind: "directory",
+      selectionSource: "env",
       sourceRepo: env.sourceRepo
     }
   };

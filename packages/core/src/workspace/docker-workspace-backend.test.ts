@@ -133,12 +133,16 @@ describe("docker workspace backend", () => {
       issueIdentifier: "COL/200",
       workspaceKey: "COL_200",
       backendKind: "docker",
+      prepareDisposition: "created",
+      containerDisposition: "started",
+      afterCreateHookOutcome: "completed",
       executionTarget: {
         kind: "container",
         workspacePath: "/home/agent/workspace",
         containerId: "container-123",
         containerName: observedContainerName,
-        hostPath: expectedHostPath
+        hostPath: expectedHostPath,
+        shell: "bash"
       },
       materialization: {
         kind: "bind_mount",
@@ -151,6 +155,9 @@ describe("docker workspace backend", () => {
     });
     expect(second).toEqual({
       ...first,
+      prepareDisposition: "reused",
+      containerDisposition: "reused",
+      afterCreateHookOutcome: "skipped",
       created: false
     });
     expect(firstTarget.containerName).toMatch(
@@ -311,7 +318,10 @@ describe("docker workspace backend", () => {
         },
         workerHost: "docker-host-a"
       })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      hookKind: "after_run",
+      outcome: "failed_ignored"
+    });
   });
 
   it("runs before_remove best effort and removes the managed container and host workspace", async () => {
@@ -392,7 +402,8 @@ describe("docker workspace backend", () => {
             workspacePath: "/custom/worktree",
             containerId: "container-203",
             containerName: "symphony-workspace-col-203-deadbeef",
-            hostPath: workspacePath
+            hostPath: workspacePath,
+            shell: "sh"
           },
           materialization: {
             kind: "bind_mount" as const,
@@ -403,7 +414,17 @@ describe("docker workspace backend", () => {
         config: config.workspace,
         hooks: config.hooks
       })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      backendKind: "docker",
+      workerHost: null,
+      hostPath: workspacePath,
+      runtimePath: "/custom/worktree",
+      containerId: "container-203",
+      containerName: "symphony-workspace-col-203-deadbeef",
+      beforeRemoveHookOutcome: "failed_ignored",
+      workspaceRemovalDisposition: "removed",
+      containerRemovalDisposition: "removed"
+    });
 
     await expect(rm(workspacePath, { recursive: true, force: false })).rejects.toMatchObject(
       {
@@ -478,7 +499,17 @@ describe("docker workspace backend", () => {
         config: config.workspace,
         hooks: config.hooks
       })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      backendKind: "docker",
+      workerHost: null,
+      hostPath: workspacePath,
+      runtimePath: "/home/agent/workspace",
+      containerId: "container-204",
+      containerName: "symphony-workspace-col-204-deadbeef",
+      beforeRemoveHookOutcome: "skipped",
+      workspaceRemovalDisposition: "removed",
+      containerRemovalDisposition: "missing"
+    });
 
     await expect(rm(workspacePath, { recursive: true, force: false })).rejects.toMatchObject(
       {
@@ -487,6 +518,97 @@ describe("docker workspace backend", () => {
     );
     expect(inspectCount).toBe(2);
     expect(calls.map((call) => call[0])).toEqual(["inspect", "inspect", "rm"]);
+  });
+
+  it("reports missing workspace removal when before_remove already removed the host path", async () => {
+    const root = await createWorkspaceRoot();
+    const workspacePath = path.join(root, "symphony-COL-205");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      },
+      hooks: {
+        afterCreate: null,
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: "rm -rf /workspace",
+        timeoutMs: 1_000
+      }
+    });
+    const calls: string[][] = [];
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        switch (input.args[0]) {
+          case "inspect":
+            return {
+              exitCode: 0,
+              stdout: buildDockerInspectPayload({
+                id: "container-205",
+                image: "ghcr.io/openai/symphony-workspace:latest",
+                name: input.args[3] ?? "unknown",
+                issueIdentifier: "COL-205",
+                workspaceKey: "COL-205",
+                hostPath: workspacePath,
+                workspacePath: "/home/agent/workspace",
+                running: true
+              }),
+              stderr: ""
+            };
+          case "exec":
+            await rm(workspacePath, {
+              recursive: true,
+              force: true
+            });
+            return {
+              exitCode: 0,
+              stdout: "",
+              stderr: ""
+            };
+          case "rm":
+            return {
+              exitCode: 0,
+              stdout: "",
+              stderr: ""
+            };
+          default:
+            throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+        }
+      }
+    });
+
+    await expect(
+      backend.cleanupWorkspace({
+        issueIdentifier: "COL-205",
+        workspace: buildPreparedDockerWorkspace({
+          issueIdentifier: "COL-205",
+          workspaceKey: "COL-205",
+          containerId: "container-205",
+          containerName: "symphony-workspace-col-205-deadbeef",
+          hostPath: workspacePath
+        }),
+        config: config.workspace,
+        hooks: config.hooks
+      })
+    ).resolves.toEqual({
+      backendKind: "docker",
+      workerHost: null,
+      hostPath: workspacePath,
+      runtimePath: "/home/agent/workspace",
+      containerId: "container-205",
+      containerName: "symphony-workspace-col-205-deadbeef",
+      beforeRemoveHookOutcome: "completed",
+      workspaceRemovalDisposition: "missing",
+      containerRemovalDisposition: "removed"
+    });
+
+    expect(calls.map((call) => call[0])).toEqual(["inspect", "exec", "inspect", "rm"]);
   });
 });
 
@@ -501,12 +623,16 @@ function buildPreparedDockerWorkspace(input: {
     issueIdentifier: input.issueIdentifier,
     workspaceKey: input.workspaceKey,
     backendKind: "docker" as const,
+    prepareDisposition: "reused" as const,
+    containerDisposition: "reused" as const,
+    afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
       kind: "container" as const,
       workspacePath: "/home/agent/workspace",
       containerId: input.containerId,
       containerName: input.containerName,
-      hostPath: input.hostPath
+      hostPath: input.hostPath,
+      shell: "sh"
     },
     materialization: {
       kind: "bind_mount" as const,

@@ -1,27 +1,12 @@
-import type { PreparedWorkspace } from "@symphony/core";
+import type {
+  AgentRuntimeLaunchTarget,
+  PreparedWorkspace
+} from "@symphony/core";
 
-const defaultContainerShell = "sh";
-
-export type CodexRuntimeLaunchTarget =
-  | {
-      kind: "host_path";
-      hostWorkspacePath: string;
-      runtimeWorkspacePath: string;
-    }
-  | {
-      kind: "container";
-      hostWorkspacePath: string;
-      runtimeWorkspacePath: string;
-      containerId: string | null;
-      containerName: string;
-      shell: string;
-    };
+export type CodexRuntimeLaunchTarget = AgentRuntimeLaunchTarget;
 
 export function resolveCodexRuntimeLaunchTarget(
-  workspace: PreparedWorkspace,
-  options: {
-    containerShell?: string | null;
-  } = {}
+  workspace: PreparedWorkspace
 ): CodexRuntimeLaunchTarget {
   if (workspace.executionTarget.kind === "host_path") {
     return {
@@ -51,6 +36,10 @@ export function resolveCodexRuntimeLaunchTarget(
     workspace.executionTarget.workspacePath,
     "container workspace path"
   );
+  const shell = normalizeRequiredString(
+    workspace.executionTarget.shell,
+    "container shell"
+  );
 
   return {
     kind: "container",
@@ -58,12 +47,8 @@ export function resolveCodexRuntimeLaunchTarget(
     runtimeWorkspacePath,
     containerId: workspace.executionTarget.containerId,
     containerName,
-    shell: normalizeContainerShell(options.containerShell)
+    shell
   };
-}
-
-function normalizeContainerShell(shell: string | null | undefined): string {
-  return normalizeOptionalString(shell) ?? defaultContainerShell;
 }
 
 function normalizeRequiredString(

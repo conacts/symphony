@@ -14,6 +14,9 @@ describe("runtime workspace backend selection", () => {
 
     expect(selection.metadata).toEqual({
       backendKind: "local",
+      executionTargetKind: "host_path",
+      materializationKind: "directory",
+      selectionSource: "env",
       sourceRepo: "/tmp/source-repo"
     });
     expect(selection.backend.prepareWorkspace).toBeTypeOf("function");
@@ -31,6 +34,9 @@ describe("runtime workspace backend selection", () => {
 
     expect(selection.metadata).toEqual({
       backendKind: "docker",
+      executionTargetKind: "container",
+      materializationKind: "bind_mount",
+      selectionSource: "env",
       image: "alpine:3.20",
       workspacePath: "/home/agent/workspace",
       containerNamePrefix: "symphony-test",

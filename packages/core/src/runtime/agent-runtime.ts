@@ -2,6 +2,21 @@ import type { SymphonyTrackerIssue } from "../tracker/symphony-tracker.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type { PreparedWorkspace } from "../workspace/workspace-backend.js";
 
+export type AgentRuntimeLaunchTarget =
+  | {
+      kind: "host_path";
+      hostWorkspacePath: string;
+      runtimeWorkspacePath: string;
+    }
+  | {
+      kind: "container";
+      hostWorkspacePath: string;
+      runtimeWorkspacePath: string;
+      containerId: string | null;
+      containerName: string;
+      shell: string;
+    };
+
 export type AgentRunInput = {
   issue: SymphonyTrackerIssue;
   runId: string | null;
@@ -13,6 +28,7 @@ export type AgentRunInput = {
 export type AgentRunLaunch = {
   sessionId: string | null;
   workerHost: string | null;
+  launchTarget: AgentRuntimeLaunchTarget | null;
 };
 
 export type AgentStopInput = {

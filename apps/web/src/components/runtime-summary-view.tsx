@@ -70,6 +70,7 @@ export function RuntimeSummaryView(input: {
                         <TableHead>Issue</TableHead>
                         <TableHead>State</TableHead>
                         <TableHead>Session</TableHead>
+                        <TableHead>Execution</TableHead>
                         <TableHead>Runtime / turns</TableHead>
                         <TableHead>Codex update</TableHead>
                         <TableHead>Tokens</TableHead>
@@ -81,6 +82,7 @@ export function RuntimeSummaryView(input: {
                           <TableCell>{row.issueIdentifier}</TableCell>
                           <TableCell>{row.state}</TableCell>
                           <TableCell>{row.sessionId ?? "n/a"}</TableCell>
+                          <TableCell>{row.execution}</TableCell>
                           <TableCell>{row.runtimeAndTurns}</TableCell>
                           <TableCell>{row.codexUpdate}</TableCell>
                           <TableCell>{row.tokenSummary}</TableCell>
@@ -110,6 +112,7 @@ export function RuntimeSummaryView(input: {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Issue</TableHead>
+                          <TableHead>Execution</TableHead>
                           <TableHead>Attempt</TableHead>
                           <TableHead>Due at</TableHead>
                           <TableHead>Error</TableHead>
@@ -119,6 +122,7 @@ export function RuntimeSummaryView(input: {
                         {input.runtimeSummary.retryRows.map((row) => (
                           <TableRow key={`${row.issueIdentifier}:${row.attempt}`}>
                             <TableCell>{row.issueIdentifier}</TableCell>
+                            <TableCell>{row.execution}</TableCell>
                             <TableCell>{row.attempt}</TableCell>
                             <TableCell>{row.dueAt}</TableCell>
                             <TableCell>{row.error}</TableCell>

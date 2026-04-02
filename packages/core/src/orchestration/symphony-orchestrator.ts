@@ -5,13 +5,20 @@ import {
   type SymphonyTracker,
   type SymphonyTrackerIssue
 } from "../tracker/symphony-tracker.js";
-import type { AgentRuntime } from "../runtime/agent-runtime.js";
+import type {
+  AgentRuntime,
+  AgentRuntimeLaunchTarget
+} from "../runtime/agent-runtime.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
-import type {
-  PreparedWorkspace,
-  WorkspaceBackend,
-  WorkspaceContext
+import {
+  summarizePreparedWorkspace,
+  workspaceHostPath,
+  type PreparedWorkspace,
+  type WorkspaceBackend,
+  type WorkspaceContext,
+  type WorkspaceBackendKind,
+  WorkspaceLifecycleMetadata
 } from "../workspace/workspace-backend.js";
 import {
   extractRateLimits,
@@ -42,12 +49,25 @@ export type SymphonyCodexTotals = {
   secondsRunning: number;
 };
 
+export type SymphonyStartupFailureStage =
+  | "workspace_prepare"
+  | "workspace_before_run"
+  | "runtime_launch"
+  | "runtime_session_start";
+
+export type SymphonyStartupFailureOrigin =
+  | "workspace_lifecycle"
+  | "docker_lifecycle"
+  | "runtime_launch"
+  | "codex_startup";
+
 export type SymphonyRunningEntry = {
   issue: SymphonyTrackerIssue;
   runId: string | null;
   sessionId: string | null;
   workerHost: string | null;
   workspace: PreparedWorkspace | null;
+  launchTarget: AgentRuntimeLaunchTarget | null;
   workspacePath: string | null;
   retryAttempt: number;
   turnCount: number;
@@ -73,6 +93,7 @@ export type SymphonyRetryEntry = {
   error: string | null;
   workerHost: string | null;
   workspace: PreparedWorkspace | null;
+  launchTarget: AgentRuntimeLaunchTarget | null;
   workspacePath: string | null;
   delayType: "continuation" | "failure";
 };
@@ -93,7 +114,13 @@ export type SymphonyOrchestratorState = {
 export type SymphonyAgentRuntimeCompletion =
   | { kind: "normal" }
   | { kind: "max_turns_reached"; reason: string; maxTurns: number }
-  | { kind: "startup_failure"; reason: string }
+  | {
+      kind: "startup_failure";
+      reason: string;
+      failureStage: SymphonyStartupFailureStage;
+      failureOrigin: SymphonyStartupFailureOrigin;
+      launchTarget?: AgentRuntimeLaunchTarget | null;
+    }
   | { kind: "rate_limited"; reason: string }
   | { kind: "stalled"; reason: string }
   | { kind: "failure"; reason: string };
@@ -421,6 +448,8 @@ export class SymphonyOrchestrator {
     });
 
     let workspace: PreparedWorkspace | null = null;
+    let launchTarget: AgentRuntimeLaunchTarget | null = null;
+    let startupFailureStage: SymphonyStartupFailureStage = "workspace_prepare";
 
     try {
       workspace = await this.#workspaceBackend.prepareWorkspace({
@@ -434,14 +463,19 @@ export class SymphonyOrchestrator {
         issue: preparedIssue,
         runId,
         source: "workspace",
-        eventType: workspace.created ? "workspace_created" : "workspace_reused",
-        message: workspace.created
-          ? "Workspace created."
-          : "Workspace reused.",
-        payload: buildWorkspaceLifecyclePayload(workspace)
+        eventType: "workspace_prepare_completed",
+        message:
+          workspace.prepareDisposition === "created"
+            ? "Workspace prepare completed with a new workspace."
+            : "Workspace prepare completed with a reused workspace.",
+        payload: {
+          workspace: buildWorkspaceLifecyclePayload(workspace)
+        }
       });
+      await this.#recordDockerContainerPrepareEvent(preparedIssue, runId, workspace);
 
-      await this.#workspaceBackend.runBeforeRun({
+      startupFailureStage = "workspace_before_run";
+      const beforeRunResult = await this.#workspaceBackend.runBeforeRun({
         workspace,
         context: workspaceContext,
         hooks: this.#workflowConfig.hooks,
@@ -452,11 +486,16 @@ export class SymphonyOrchestrator {
         issue: preparedIssue,
         runId,
         source: "workspace",
-        eventType: "before_run_completed",
+        eventType: "workspace_before_run_completed",
         message: "before_run hook completed.",
-        payload: buildWorkspaceLifecyclePayload(workspace)
+        payload: {
+          hookKind: beforeRunResult.hookKind,
+          hookOutcome: beforeRunResult.outcome,
+          workspace: buildWorkspaceLifecyclePayload(workspace)
+        }
       });
 
+      startupFailureStage = "runtime_launch";
       const launch = await this.#agentRuntime.startRun({
         issue: preparedIssue,
         runId,
@@ -465,6 +504,7 @@ export class SymphonyOrchestrator {
         workspace
       });
       const workerHost = launch.workerHost ?? workspace.workerHost;
+      launchTarget = launch.launchTarget;
 
       this.#state.running[preparedIssue.id] = {
         issue: preparedIssue,
@@ -472,6 +512,7 @@ export class SymphonyOrchestrator {
         sessionId: launch.sessionId,
         workerHost,
         workspace,
+        launchTarget,
         workspacePath: workspaceHostPath(workspace),
         retryAttempt: attempt,
         turnCount: 0,
@@ -493,11 +534,12 @@ export class SymphonyOrchestrator {
         issue: preparedIssue,
         runId,
         source: "orchestrator",
-        eventType: "run_launched",
-        message: "Agent runtime launched.",
+        eventType: "runtime_launch_requested",
+        message: "Agent runtime launch requested.",
         payload: {
           sessionId: launch.sessionId,
           workerHost,
+          launchTarget,
           workspace: buildWorkspaceLifecyclePayload(workspace)
         }
       });
@@ -511,15 +553,23 @@ export class SymphonyOrchestrator {
       }
 
       const reason = String(error);
+      const failureOrigin = classifyStartupFailureOrigin(
+        startupFailureStage,
+        this.#workspaceBackend.kind
+      );
 
       await this.#observer?.recordLifecycleEvent({
         issue: preparedIssue,
         runId,
         source: "orchestrator",
-        eventType: "startup_failure",
+        eventType: "runtime_startup_failed",
         message: "Dispatch failed before the agent run became active.",
         payload: {
-          reason
+          reason,
+          failureStage: startupFailureStage,
+          failureOrigin,
+          launchTarget,
+          workspace: buildWorkspaceLifecyclePayload(workspace)
         }
       });
 
@@ -528,7 +578,10 @@ export class SymphonyOrchestrator {
         runId,
         completion: {
           kind: "startup_failure",
-          reason
+          reason,
+          failureStage: startupFailureStage,
+          failureOrigin,
+          launchTarget
         },
         workerHost: preferredWorkerHost,
         workspace,
@@ -545,7 +598,14 @@ export class SymphonyOrchestrator {
         preferredWorkerHost,
         workspace,
         reason,
-        runId
+        runId,
+        {
+          kind: "startup_failure",
+          reason,
+          failureStage: startupFailureStage,
+          failureOrigin,
+          launchTarget
+        }
       );
     }
   }
@@ -605,7 +665,7 @@ export class SymphonyOrchestrator {
     this.#state.claimed.delete(issueId);
 
     if (runningEntry.workspace) {
-      await this.#workspaceBackend.runAfterRun({
+      const afterRunResult = await this.#workspaceBackend.runAfterRun({
         workspace: runningEntry.workspace,
         context: {
           issueId,
@@ -613,6 +673,26 @@ export class SymphonyOrchestrator {
         },
         hooks: this.#workflowConfig.hooks,
         ...this.#workspaceRunnerOptions(runningEntry.workerHost)
+      });
+      await this.#observer?.recordLifecycleEvent({
+        issue: runningEntry.issue,
+        runId: runningEntry.runId,
+        source: "workspace",
+        eventType:
+          afterRunResult.outcome === "failed_ignored"
+            ? "workspace_after_run_failed_ignored"
+            : "workspace_after_run_completed",
+        message:
+          afterRunResult.outcome === "failed_ignored"
+            ? "after_run hook failed and was ignored."
+            : afterRunResult.outcome === "completed"
+              ? "after_run hook completed."
+              : "after_run hook was skipped.",
+        payload: {
+          hookKind: afterRunResult.hookKind,
+          hookOutcome: afterRunResult.outcome,
+          workspace: buildWorkspaceLifecyclePayload(runningEntry.workspace)
+        }
       });
     }
 
@@ -650,18 +730,34 @@ export class SymphonyOrchestrator {
         runId: runningEntry.runId,
         workerHost: runningEntry.workerHost,
         workspace: runningEntry.workspace,
+        launchTarget: runningEntry.launchTarget,
         delayType: "continuation"
       });
       return;
     }
 
     if (completion.kind === "startup_failure") {
+      await this.#observer?.recordLifecycleEvent({
+        issue: runningEntry.issue,
+        runId: runningEntry.runId,
+        source: "runtime",
+        eventType: "runtime_startup_failed",
+        message: "Agent runtime startup failed before the run became active.",
+        payload: {
+          reason: completion.reason,
+          failureStage: completion.failureStage,
+          failureOrigin: completion.failureOrigin,
+          launchTarget: completion.launchTarget ?? runningEntry.launchTarget ?? null,
+          workspace: buildWorkspaceLifecyclePayload(runningEntry.workspace)
+        }
+      });
       await this.#handleStartupFailure(
         runningEntry.issue,
         runningEntry.workerHost,
         runningEntry.workspace,
         completion.reason,
-        runningEntry.runId
+        runningEntry.runId,
+        completion
       );
       return;
     }
@@ -674,6 +770,7 @@ export class SymphonyOrchestrator {
         runId: runningEntry.runId,
         workerHost: runningEntry.workerHost,
         workspace: runningEntry.workspace,
+        launchTarget: runningEntry.launchTarget,
         delayType: "failure"
       });
       return;
@@ -698,6 +795,7 @@ export class SymphonyOrchestrator {
       runId: runningEntry.runId,
       workerHost: runningEntry.workerHost,
       workspace: runningEntry.workspace,
+      launchTarget: runningEntry.launchTarget,
       delayType: "failure"
     });
   }
@@ -712,6 +810,7 @@ export class SymphonyOrchestrator {
       runId?: string | null;
       workerHost?: string | null;
       workspace?: PreparedWorkspace | null;
+      launchTarget?: AgentRuntimeLaunchTarget | null;
       delayType: "continuation" | "failure";
     }
   ): Promise<void> {
@@ -728,6 +827,7 @@ export class SymphonyOrchestrator {
       error: metadata.error ?? null,
       workerHost: metadata.workerHost ?? null,
       workspace: metadata.workspace ?? null,
+      launchTarget: metadata.launchTarget ?? null,
       workspacePath: workspaceHostPath(metadata.workspace ?? null),
       delayType: metadata.delayType
     };
@@ -749,7 +849,11 @@ export class SymphonyOrchestrator {
           attempt,
           dueAtMs: this.#state.retryAttempts[issueId]?.dueAtMs ?? null,
           error: metadata.error ?? null,
-          delayType: metadata.delayType
+          delayType: metadata.delayType,
+          launchTarget: metadata.launchTarget ?? null,
+          workspace: metadata.workspace
+            ? buildWorkspaceLifecyclePayload(metadata.workspace)
+            : null
         }
       });
     }
@@ -787,6 +891,7 @@ export class SymphonyOrchestrator {
           error: retry.error ?? undefined,
           workerHost: retry.workerHost,
           workspace: retry.workspace,
+          launchTarget: retry.launchTarget,
           delayType: retry.delayType
         });
         continue;
@@ -825,12 +930,12 @@ export class SymphonyOrchestrator {
     });
 
     if (cleanupWorkspace && runningEntry.workspace) {
-      await this.#workspaceBackend.cleanupWorkspace({
-        issueIdentifier: runningEntry.issue.identifier,
+      await this.#cleanupWorkspaceAndRecordLifecycle({
+        issue: runningEntry.issue,
+        runId: runningEntry.runId,
         workspace: runningEntry.workspace,
-        config: this.#workflowConfig.workspace,
-        hooks: this.#workflowConfig.hooks,
-        ...this.#workspaceRunnerOptions(runningEntry.workerHost)
+        workerHost: runningEntry.workerHost,
+        reason: "issue_stopped"
       });
     }
 
@@ -882,7 +987,8 @@ export class SymphonyOrchestrator {
     workerHost: string | null,
     workspace: PreparedWorkspace | null,
     reason: string,
-    runId: string | null
+    runId: string | null,
+    completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>
   ): Promise<void> {
     const targetState =
       this.#workflowConfig.tracker.startupFailureTransitionToState;
@@ -942,27 +1048,142 @@ export class SymphonyOrchestrator {
       }
     );
 
-    await this.#workspaceBackend.cleanupWorkspace({
-      issueIdentifier: issue.identifier,
+    await this.#cleanupWorkspaceAndRecordLifecycle({
+      issue,
+      runId,
       workspace,
-      config: this.#workflowConfig.workspace,
-      hooks: this.#workflowConfig.hooks,
-      ...this.#workspaceRunnerOptions(workerHost)
+      workerHost,
+      reason: "startup_failure",
+      startupFailure: completion
     });
+
+    delete this.#state.retryAttempts[issue.id];
+    this.#state.claimed.delete(issue.id);
+  }
+
+  async #cleanupWorkspaceAndRecordLifecycle(input: {
+    issue: SymphonyTrackerIssue;
+    runId: string | null;
+    workspace: PreparedWorkspace | null;
+    workerHost: string | null;
+    reason: "startup_failure" | "issue_stopped";
+    startupFailure?: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
+  }): Promise<void> {
+    try {
+      const cleanup = await this.#workspaceBackend.cleanupWorkspace({
+        issueIdentifier: input.issue.identifier,
+        workspace: input.workspace,
+        config: this.#workflowConfig.workspace,
+        hooks: this.#workflowConfig.hooks,
+        ...this.#workspaceRunnerOptions(input.workerHost)
+      });
+
+      await this.#observer?.recordLifecycleEvent({
+        issue: input.issue,
+        runId: input.runId,
+        source: "workspace",
+        eventType: "workspace_cleanup_completed",
+        message:
+          input.reason === "startup_failure"
+            ? "Workspace cleanup completed after startup failure."
+            : "Workspace cleanup completed after the run stopped.",
+        payload: {
+          cleanup
+        }
+      });
+
+      await this.#recordDockerContainerCleanupEvent(input.issue, input.runId, cleanup);
+    } catch (error) {
+      await this.#observer?.recordLifecycleEvent({
+        issue: input.issue,
+        runId: input.runId,
+        source: "workspace",
+        eventType: "workspace_cleanup_failed",
+        message:
+          input.reason === "startup_failure"
+            ? "Workspace cleanup failed after startup failure."
+            : "Workspace cleanup failed after the run stopped.",
+        payload: {
+          reason: error instanceof Error ? error.message : String(error),
+          workspace: buildWorkspaceLifecyclePayload(input.workspace),
+          startupFailure: input.startupFailure
+            ? {
+                failureStage: input.startupFailure.failureStage,
+                failureOrigin: input.startupFailure.failureOrigin
+              }
+            : null
+        }
+      });
+      throw error;
+    }
+  }
+
+  async #recordDockerContainerPrepareEvent(
+    issue: SymphonyTrackerIssue,
+    runId: string | null,
+    workspace: PreparedWorkspace
+  ): Promise<void> {
+    if (workspace.backendKind !== "docker") {
+      return;
+    }
+
+    const eventType =
+      workspace.containerDisposition === "reused"
+        ? "docker_container_reused"
+        : workspace.containerDisposition === "recreated"
+          ? "docker_container_recreated"
+          : "docker_container_started";
 
     await this.#observer?.recordLifecycleEvent({
       issue,
       runId,
       source: "workspace",
-      eventType: "workspace_removed",
-      message: "Workspace removed after startup failure.",
+      eventType,
+      message:
+        workspace.containerDisposition === "reused"
+          ? "Docker container reused for the prepared workspace."
+          : workspace.containerDisposition === "recreated"
+            ? "Docker container recreated for the prepared workspace."
+            : "Docker container started for the prepared workspace.",
       payload: {
         workspace: buildWorkspaceLifecyclePayload(workspace)
       }
     });
+  }
 
-    delete this.#state.retryAttempts[issue.id];
-    this.#state.claimed.delete(issue.id);
+  async #recordDockerContainerCleanupEvent(
+    issue: SymphonyTrackerIssue,
+    runId: string | null,
+    cleanup: Awaited<ReturnType<WorkspaceBackend["cleanupWorkspace"]>>
+  ): Promise<void> {
+    if (cleanup.backendKind !== "docker") {
+      return;
+    }
+
+    const eventType =
+      cleanup.containerRemovalDisposition === "removed"
+        ? "docker_container_removed"
+        : cleanup.containerRemovalDisposition === "missing"
+          ? "docker_container_missing"
+          : null;
+
+    if (!eventType) {
+      return;
+    }
+
+    await this.#observer?.recordLifecycleEvent({
+      issue,
+      runId,
+      source: "workspace",
+      eventType,
+      message:
+        cleanup.containerRemovalDisposition === "removed"
+          ? "Docker container removed during workspace cleanup."
+          : "Docker container was already missing during workspace cleanup.",
+      payload: {
+        cleanup
+      }
+    });
   }
 
   async #leaveFailureComment(
@@ -1032,50 +1253,10 @@ export class SymphonyOrchestrator {
   }
 }
 
-function workspaceHostPath(workspace: PreparedWorkspace | null): string | null {
-  if (!workspace) {
-    return null;
-  }
-
-  if (workspace.executionTarget.kind === "host_path") {
-    return workspace.executionTarget.path;
-  }
-
-  if (workspace.executionTarget.hostPath) {
-    return workspace.executionTarget.hostPath;
-  }
-
-  switch (workspace.materialization.kind) {
-    case "directory":
-      return workspace.materialization.hostPath;
-    case "bind_mount":
-      return workspace.materialization.hostPath;
-    case "volume":
-      return workspace.materialization.hostPath;
-  }
-}
-
 function buildWorkspaceLifecyclePayload(
   workspace: PreparedWorkspace | null
 ): SymphonyJsonObject | null {
-  if (!workspace) {
-    return null;
-  }
-
-  return {
-    issueIdentifier: workspace.issueIdentifier,
-    workspaceKey: workspace.workspaceKey,
-    backendKind: workspace.backendKind,
-    created: workspace.created,
-    workerHost: workspace.workerHost,
-    path: workspace.path,
-    executionTarget: {
-      ...workspace.executionTarget
-    },
-    materialization: {
-      ...workspace.materialization
-    }
-  };
+  return normalizeWorkspaceLifecycleMetadata(summarizePreparedWorkspace(workspace));
 }
 
 export async function prepareIssueForDispatch(
@@ -1110,6 +1291,50 @@ function failureRetryDelay(attempt: number, maxRetryBackoffMs: number): number {
     failureRetryBaseMs * (1 << exponent),
     maxRetryBackoffMs
   );
+}
+
+function normalizeWorkspaceLifecycleMetadata(
+  workspace: WorkspaceLifecycleMetadata | null
+): SymphonyJsonObject | null {
+  if (!workspace) {
+    return null;
+  }
+
+  return {
+    issueIdentifier: workspace.issueIdentifier,
+    workspaceKey: workspace.workspaceKey,
+    backendKind: workspace.backendKind,
+    workerHost: workspace.workerHost,
+    executionTargetKind: workspace.executionTargetKind,
+    materializationKind: workspace.materializationKind,
+    prepareDisposition: workspace.prepareDisposition,
+    containerDisposition: workspace.containerDisposition,
+    afterCreateHookOutcome: workspace.afterCreateHookOutcome,
+    hostPath: workspace.hostPath,
+    runtimePath: workspace.runtimePath,
+    containerId: workspace.containerId,
+    containerName: workspace.containerName,
+    path: workspace.path
+  };
+}
+
+function classifyStartupFailureOrigin(
+  stage: SymphonyStartupFailureStage,
+  backendKind: WorkspaceBackendKind
+): SymphonyStartupFailureOrigin {
+  if (stage === "runtime_session_start") {
+    return "codex_startup";
+  }
+
+  if (stage === "runtime_launch") {
+    return "runtime_launch";
+  }
+
+  if (backendKind === "docker") {
+    return "docker_lifecycle";
+  }
+
+  return "workspace_lifecycle";
 }
 
 function isFatalRuntimeError(error: unknown): boolean {

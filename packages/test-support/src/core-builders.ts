@@ -189,11 +189,57 @@ export function buildSymphonyGithubIssueCommentEvent(
 }
 
 export function buildSymphonyOrchestratorSnapshot(
-  overrides: Partial<SymphonyOrchestratorSnapshot> = {}
+  overrides: Partial<
+    Omit<SymphonyOrchestratorSnapshot, "running" | "retrying">
+  > & {
+    running?: Array<Partial<SymphonyOrchestratorSnapshot["running"][number]>>;
+    retrying?: Array<Partial<SymphonyOrchestratorSnapshot["retrying"][number]>>;
+  } = {}
 ): SymphonyOrchestratorSnapshot {
+  const running = (overrides.running ?? []).map((entry) => ({
+    issueId: "issue-123",
+    issue: buildSymphonyTrackerIssue(),
+    runId: "run-123",
+    sessionId: null,
+    workerHost: null,
+    workspace: null,
+    launchTarget: null,
+    workspacePath: null,
+    retryAttempt: 0,
+    turnCount: 0,
+    lastCodexMessage: null,
+    lastCodexTimestamp: null,
+    lastCodexEvent: null,
+    codexInputTokens: 0,
+    codexOutputTokens: 0,
+    codexTotalTokens: 0,
+    codexLastReportedInputTokens: 0,
+    codexLastReportedOutputTokens: 0,
+    codexLastReportedTotalTokens: 0,
+    lastRateLimits: null,
+    codexAppServerPid: null,
+    startedAt: "2026-03-31T00:00:00.000Z",
+    runtimeSeconds: 0,
+    ...entry
+  }));
+  const retrying = (overrides.retrying ?? []).map((entry) => ({
+    issueId: "issue-123",
+    attempt: 1,
+    dueAtMs: Date.parse("2026-03-31T00:00:00.000Z"),
+    retryToken: "retry-token-123",
+    identifier: "COL-123",
+    error: null,
+    workerHost: null,
+    workspace: null,
+    launchTarget: null,
+    workspacePath: null,
+    delayType: "failure" as const,
+    ...entry
+  }));
+
   return {
-    running: [],
-    retrying: [],
+    running,
+    retrying,
     claimedIssueIds: [],
     completedIssueIds: [],
     pollIntervalMs: 5_000,
@@ -207,7 +253,11 @@ export function buildSymphonyOrchestratorSnapshot(
       secondsRunning: 0
     },
     rateLimits: null,
-    ...overrides
+    ...Object.fromEntries(
+      Object.entries(overrides).filter(
+        ([key]) => key !== "running" && key !== "retrying"
+      )
+    )
   };
 }
 

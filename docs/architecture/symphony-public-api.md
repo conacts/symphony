@@ -18,16 +18,23 @@ import {
   createCodexAgentRuntime,
   createGitHubReviewPublisher,
   createSymphonyRuntime,
+  summarizePreparedWorkspace,
   type PreparedWorkspace,
   type WorkspaceBackend,
   type WorkspaceBackendKind,
   type WorkspaceCleanupInput,
+  type WorkspaceCleanupResult,
+  type WorkspaceContainerDisposition,
   type WorkspaceContext,
   type WorkspaceExecutionTarget,
+  type WorkspaceLifecycleMetadata,
   type WorkspaceHookInput,
+  type WorkspaceHookResult,
   type WorkspaceMaterializationMetadata,
+  type WorkspacePrepareDisposition,
   type WorkspacePrepareInput,
   type AgentRuntime,
+  type AgentRuntimeLaunchTarget,
   type ReviewProvider,
   type ReviewPublisher,
   type SymphonyRuntime
@@ -42,18 +49,29 @@ import {
 - `WorkspaceBackendKind`, `WorkspaceExecutionTarget`, `WorkspaceMaterializationMetadata`
   Stable execution-model DTOs that describe where the prepared workspace will execute and how the
   workspace is materialized.
+- `WorkspacePrepareDisposition`, `WorkspaceContainerDisposition`,
+  `WorkspaceLifecycleMetadata`
+  Stable observability DTOs that describe whether a workspace was created or reused, whether a
+  managed container was started or reused, and the normalized host/runtime/container summary that
+  observers and serializers consume.
 - `WorkspacePrepareInput`, `PreparedWorkspace`, `WorkspaceHookInput`,
   `WorkspaceCleanupInput`, `WorkspaceContext`
   Stable workspace-lifecycle DTOs that make the seam concrete for both callers and future
   backend implementations. `PreparedWorkspace.path` remains only as a compatibility alias for
-  local host-path workspaces; `executionTarget` is the intended contract.
+  local host-path workspaces; `executionTarget` is the intended contract. `PreparedWorkspace`
+  also now carries explicit lifecycle metadata:
+  `prepareDisposition`, `containerDisposition`, and `afterCreateHookOutcome`.
+- `WorkspaceHookResult`, `WorkspaceCleanupResult`
+  Stable lifecycle-result DTOs that make before/after-run and cleanup outcomes explicit rather
+  than inferred from side effects.
 - `AgentRuntime`
   Stable agent-execution port with explicit lifecycle methods:
   `startRun(input: AgentRunInput): Promise<AgentRunLaunch>` and
   `stopRun(input: AgentStopInput): Promise<void>`.
-- `AgentRunInput`, `AgentRunLaunch`, `AgentStopInput`
+- `AgentRunInput`, `AgentRunLaunch`, `AgentStopInput`, `AgentRuntimeLaunchTarget`
   Stable runtime DTOs that make agent launch and shutdown behavior explicit without exposing
-  orchestration internals.
+  orchestration internals. `AgentRunLaunch.launchTarget` makes the actual Codex execution target
+  explicit for both local and Docker-backed runs.
 - `ReviewProvider`
   Optional adapter that turns provider-specific review input into a normalized runtime review via
   `review(request)`.
@@ -103,13 +121,19 @@ import {
   host workspace, starts or reuses a deterministic container, runs hooks via `docker exec`, and
   tears the container/workspace down during cleanup
 - `PreparedWorkspace` -> stable workspace DTO returned from
-  `WorkspaceBackend.prepareWorkspace()` with explicit `backendKind`, `executionTarget`, and
-  `materialization`
+  `WorkspaceBackend.prepareWorkspace()` with explicit `backendKind`,
+  `prepareDisposition`, `containerDisposition`, `afterCreateHookOutcome`,
+  `executionTarget`, and `materialization`
 - `AgentRuntime` -> explicit lifecycle interface:
   `startRun`, `stopRun`
 - `createCodexAgentRuntime` -> adapter over the concrete Codex runtime implementation. In
   `apps/api`, the concrete Codex runtime now resolves a launch target from `PreparedWorkspace` and
   supports both host-path execution and bind-mounted container execution through `docker exec`.
+- `AgentRunLaunch.launchTarget` -> normalized runtime launch summary returned from
+  `startRun()`
+- `summarizePreparedWorkspace` -> helper that collapses backend-specific `PreparedWorkspace`
+  detail into the normalized `WorkspaceLifecycleMetadata` shape used by observers, serializers,
+  and journal metadata
 - `ReviewProvider` -> explicit review-generation interface:
   `review`
 - `ReviewPublisher` -> explicit review-publication interface:
@@ -142,6 +166,66 @@ reach it explicitly through `@symphony/core/workspace/local`.
   `executionTarget.kind === "container"`, it launches Codex through `docker exec`, uses the
   container workspace path as the Codex thread cwd, and still uses the host bind-mounted path for
   repo snapshots and cwd validation.
+
+## Observability Contract
+
+This stage intentionally treats runtime/workspace visibility as part of the public seam.
+
+The normalized workspace summary that downstream code should consume is:
+
+```ts
+type WorkspaceLifecycleMetadata = {
+  issueIdentifier: string;
+  workspaceKey: string;
+  backendKind: "local" | "docker";
+  workerHost: string | null;
+  executionTargetKind: "host_path" | "container";
+  materializationKind: "directory" | "bind_mount" | "volume";
+  prepareDisposition: "created" | "reused";
+  containerDisposition: "started" | "reused" | "recreated" | "not_applicable";
+  afterCreateHookOutcome: "completed" | "skipped";
+  hostPath: string | null;
+  runtimePath: string | null;
+  containerId: string | null;
+  containerName: string | null;
+  path: string | null;
+};
+```
+
+The normalized launch-target summary returned from `AgentRuntime.startRun()` is:
+
+```ts
+type AgentRuntimeLaunchTarget =
+  | {
+      kind: "host_path";
+      hostWorkspacePath: string;
+      runtimeWorkspacePath: string;
+    }
+  | {
+      kind: "container";
+      hostWorkspacePath: string;
+      runtimeWorkspacePath: string;
+      containerId: string | null;
+      containerName: string;
+      shell: string;
+    };
+```
+
+For container-backed runs, `launchTarget.shell` is now derived from
+`PreparedWorkspace.executionTarget.shell`, which is authored by the workspace backend during
+prepare. That keeps the surfaced launch target tied to the actual backend/runtime contract rather
+than a parallel app-config value.
+
+Lifecycle outcomes are explicit rather than inferred:
+
+- Prepare: `prepareDisposition`, `containerDisposition`, `afterCreateHookOutcome`
+- Before/after run hooks: `WorkspaceHookResult`
+- Cleanup:
+  `beforeRemoveHookOutcome`, `workspaceRemovalDisposition`,
+  `containerRemovalDisposition`
+
+These shapes are what `apps/api` serializes into runtime state, runtime issue, and journal-backed
+read models.
 
 ## Non-Goals
 

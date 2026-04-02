@@ -11,6 +11,7 @@ import {
 import type {
   PreparedWorkspace,
   WorkspaceBackend,
+  WorkspaceCleanupResult,
   WorkspaceCleanupInput,
   WorkspacePrepareInput
 } from "./workspace-backend.js";
@@ -35,6 +36,8 @@ export type DockerWorkspaceCommandRunner = (input: {
   args: string[];
   timeoutMs: number;
 }) => Promise<DockerWorkspaceCommandResult>;
+
+type DockerContainerPrepareDisposition = "started" | "reused" | "recreated";
 
 export type DockerWorkspaceBackendOptions = {
   image: string;
@@ -88,6 +91,7 @@ export function createDockerWorkspaceBackend(
   const configuredCommandTimeoutMs = options.commandTimeoutMs ?? null;
 
   return {
+    kind: "docker",
     async prepareWorkspace(input) {
       const descriptor = await createDockerWorkspaceDescriptor(
         input.context,
@@ -106,13 +110,18 @@ export function createDockerWorkspaceBackend(
           input.hooks.timeoutMs
         )
       });
+      let afterCreateHookOutcome: "skipped" | "completed" = "skipped";
 
       const workspace = buildPreparedWorkspace({
         descriptor,
-        containerId: container.id,
+        containerId: container.container.id,
         workerHost: input.workerHost ?? null,
         workspacePath,
-        created
+        shell,
+        created,
+        containerDisposition: container.disposition,
+        afterCreateHookOutcome:
+          created && input.hooks.afterCreate ? "completed" : "skipped"
       });
 
       if (created && input.hooks.afterCreate) {
@@ -127,14 +136,21 @@ export function createDockerWorkspaceBackend(
           workerHost: input.workerHost ?? null,
           env: input.env
         });
+        afterCreateHookOutcome = "completed";
       }
 
-      return workspace;
+      return {
+        ...workspace,
+        afterCreateHookOutcome
+      };
     },
 
     async runBeforeRun(input) {
       if (!input.hooks.beforeRun) {
-        return;
+        return {
+          hookKind: "before_run",
+          outcome: "skipped"
+        };
       }
 
       const target = requireDockerExecutionTarget(input.workspace);
@@ -149,11 +165,19 @@ export function createDockerWorkspaceBackend(
         workerHost: input.workerHost ?? null,
         env: input.env
       });
+
+      return {
+        hookKind: "before_run",
+        outcome: "completed"
+      };
     },
 
     async runAfterRun(input) {
       if (!input.hooks.afterRun) {
-        return;
+        return {
+          hookKind: "after_run",
+          outcome: "skipped"
+        };
       }
 
       try {
@@ -169,8 +193,15 @@ export function createDockerWorkspaceBackend(
           workerHost: input.workerHost ?? null,
           env: input.env
         });
+        return {
+          hookKind: "after_run",
+          outcome: "completed"
+        };
       } catch {
-        return;
+        return {
+          hookKind: "after_run",
+          outcome: "failed_ignored"
+        };
       }
     },
 
@@ -188,9 +219,15 @@ export function createDockerWorkspaceBackend(
         descriptor.containerName,
         timeoutMs
       );
+      let beforeRemoveHookOutcome: WorkspaceCleanupResult["beforeRemoveHookOutcome"] =
+        "skipped";
+      let containerRemovalDisposition: WorkspaceCleanupResult["containerRemovalDisposition"] =
+        "missing";
+      let containerId: string | null = null;
 
       if (container) {
         assertManagedContainer(container, descriptor);
+        containerId = container.id;
         const cleanupWorkspacePath =
           input.workspace?.executionTarget.kind === "container"
             ? input.workspace.executionTarget.workspacePath
@@ -212,23 +249,40 @@ export function createDockerWorkspaceBackend(
               workerHost: input.workerHost ?? null,
               env: input.env
             });
+            beforeRemoveHookOutcome = "completed";
           } catch {
-            // best effort
+            beforeRemoveHookOutcome = "failed_ignored";
           }
         }
 
-        await removeDockerContainer(
+        containerRemovalDisposition = await removeDockerContainer(
           commandRunner,
           descriptor.containerName,
           descriptor,
           timeoutMs
         );
+      } else if (input.hooks.beforeRemove) {
+        beforeRemoveHookOutcome = "skipped";
       }
 
-      await rm(descriptor.hostPath, {
-        recursive: true,
-        force: true
-      });
+      const workspaceRemovalDisposition = await removeMaterializedWorkspace(
+        descriptor.hostPath
+      );
+
+      return {
+        backendKind: "docker",
+        workerHost: input.workerHost ?? null,
+        hostPath: descriptor.hostPath,
+        runtimePath:
+          input.workspace?.executionTarget.kind === "container"
+            ? input.workspace.executionTarget.workspacePath
+            : workspacePath,
+        containerId,
+        containerName: descriptor.containerName,
+        beforeRemoveHookOutcome,
+        workspaceRemovalDisposition,
+        containerRemovalDisposition
+      };
     }
   };
 }
@@ -293,18 +347,25 @@ function buildPreparedWorkspace(input: {
   containerId: string;
   workerHost: string | null;
   workspacePath: string;
+  shell: string;
   created: boolean;
+  containerDisposition: DockerContainerPrepareDisposition;
+  afterCreateHookOutcome: "skipped" | "completed";
 }): PreparedWorkspace {
   return {
     issueIdentifier: input.descriptor.issueIdentifier,
     workspaceKey: input.descriptor.workspaceKey,
     backendKind: "docker",
+    prepareDisposition: input.created ? "created" : "reused",
+    containerDisposition: input.containerDisposition,
+    afterCreateHookOutcome: input.afterCreateHookOutcome,
     executionTarget: {
       kind: "container",
       workspacePath: input.workspacePath,
       containerId: input.containerId,
       containerName: input.descriptor.containerName,
-      hostPath: input.descriptor.hostPath
+      hostPath: input.descriptor.hostPath,
+      shell: input.shell
     },
     materialization: {
       kind: "bind_mount",
@@ -324,7 +385,10 @@ async function ensureManagedContainer(input: {
   shell: string;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
-}): Promise<DockerContainerInspectState> {
+}): Promise<{
+  container: DockerContainerInspectState;
+  disposition: DockerContainerPrepareDisposition;
+}> {
   const existing = await inspectDockerContainer(
     input.commandRunner,
     input.descriptor.containerName,
@@ -332,7 +396,10 @@ async function ensureManagedContainer(input: {
   );
 
   if (!existing) {
-    return await startManagedContainer(input);
+    return {
+      container: await startManagedContainer(input),
+      disposition: "started"
+    };
   }
 
   assertManagedContainer(existing, input.descriptor);
@@ -345,7 +412,10 @@ async function ensureManagedContainer(input: {
       input.descriptor.hostPath
     )
   ) {
-    return existing;
+    return {
+      container: existing,
+      disposition: "reused"
+    };
   }
 
   await removeDockerContainer(
@@ -355,7 +425,10 @@ async function ensureManagedContainer(input: {
     input.timeoutMs
   );
 
-  return await startManagedContainer(input);
+  return {
+    container: await startManagedContainer(input),
+    disposition: "recreated"
+  };
 }
 
 async function startManagedContainer(input: {
@@ -426,10 +499,10 @@ async function removeDockerContainer(
   containerName: string,
   descriptor: DockerWorkspaceDescriptor,
   timeoutMs: number
-): Promise<void> {
+): Promise<"removed" | "missing"> {
   const existing = await inspectDockerContainer(commandRunner, containerName, timeoutMs);
   if (!existing) {
-    return;
+    return "missing";
   }
 
   assertManagedContainer(existing, descriptor);
@@ -443,6 +516,8 @@ async function removeDockerContainer(
   if (result.exitCode !== 0 && !isDockerMissingObject(result.stderr)) {
     throw dockerCommandError("rm", args, result);
   }
+
+  return isDockerMissingObject(result.stderr) ? "missing" : "removed";
 }
 
 async function inspectDockerContainer(
@@ -740,6 +815,40 @@ async function ensureMaterializedWorkspace(workspacePath: string): Promise<boole
   });
 
   return true;
+}
+
+async function removeMaterializedWorkspace(
+  workspacePath: string
+): Promise<"removed" | "missing"> {
+  const existedBeforeDelete = await workspaceExists(workspacePath);
+
+  await rm(workspacePath, {
+    recursive: true,
+    force: true
+  });
+
+  const existsAfterDelete = await workspaceExists(workspacePath);
+  if (existsAfterDelete) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_remove_failed",
+      `Docker workspace cleanup did not remove ${workspacePath}.`
+    );
+  }
+
+  return existedBeforeDelete ? "removed" : "missing";
+}
+
+async function workspaceExists(workspacePath: string): Promise<boolean> {
+  try {
+    await stat(workspacePath);
+    return true;
+  } catch (error) {
+    if (isEnoent(error)) {
+      return false;
+    }
+
+    throw error;
+  }
 }
 
 async function resolveManagedWorkspacePath(

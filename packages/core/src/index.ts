@@ -3,11 +3,13 @@ export {
   createDockerWorkspaceBackend,
   createGitHubReviewPublisher,
   createLocalWorkspaceBackend,
+  summarizePreparedWorkspace,
   createSymphonyRuntime
 } from "./public/index.js";
 export type {
   AgentRunInput,
   AgentRunLaunch,
+  AgentRuntimeLaunchTarget,
   AgentRuntime,
   AgentStopInput,
   DockerWorkspaceBackendOptions,
@@ -24,11 +26,19 @@ export type {
   SymphonyRuntime,
   WorkspaceBackend,
   WorkspaceBackendKind,
+  WorkspaceCleanupContainerDisposition,
+  WorkspaceCleanupResult,
   WorkspaceCleanupInput,
+  WorkspaceContainerDisposition,
   WorkspaceContext,
   WorkspaceExecutionTarget,
+  WorkspaceHookKind,
+  WorkspaceHookOutcome,
+  WorkspaceHookResult,
+  WorkspaceLifecycleMetadata,
   WorkspaceHookInput,
   WorkspaceMaterializationMetadata,
+  WorkspacePrepareDisposition,
   WorkspacePrepareInput
 } from "./public/index.js";
 export {

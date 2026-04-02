@@ -17,6 +17,29 @@ export const symphonyRuntimeCodexTotalsSchema = symphonyRuntimeTokenTotalsSchema
   secondsRunning: z.number().nonnegative()
 });
 
+export const symphonyRuntimeWorkspaceExecutionTargetKindSchema = z.enum([
+  "host_path",
+  "container"
+]);
+
+export const symphonyRuntimeWorkspaceMaterializationKindSchema = z.enum([
+  "directory",
+  "bind_mount",
+  "volume"
+]);
+
+export const symphonyRuntimeWorkspacePrepareDispositionSchema = z.enum([
+  "created",
+  "reused"
+]);
+
+export const symphonyRuntimeWorkspaceContainerDispositionSchema = z.enum([
+  "started",
+  "reused",
+  "recreated",
+  "not_applicable"
+]);
+
 export const symphonyRuntimeRunningEntrySchema = z.strictObject({
   issueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
@@ -24,6 +47,8 @@ export const symphonyRuntimeRunningEntrySchema = z.strictObject({
   workerHost: nullableNonEmptyStringSchema.optional(),
   workspacePath: nullableNonEmptyStringSchema.optional(),
   sessionId: nullableNonEmptyStringSchema.optional(),
+  workspace: z.lazy(() => symphonyRuntimeWorkspaceSchema).nullable(),
+  launchTarget: z.lazy(() => symphonyRuntimeLaunchTargetSchema).nullable(),
   turnCount: z.number().int().nonnegative(),
   lastEvent: nullableNonEmptyStringSchema.optional(),
   lastMessage: nullableNonEmptyStringSchema.optional(),
@@ -39,7 +64,9 @@ export const symphonyRuntimeRetryEntrySchema = z.strictObject({
   dueAt: isoTimestampSchema.nullable(),
   error: nullableNonEmptyStringSchema.optional(),
   workerHost: nullableNonEmptyStringSchema.optional(),
-  workspacePath: nullableNonEmptyStringSchema.optional()
+  workspacePath: nullableNonEmptyStringSchema.optional(),
+  workspace: z.lazy(() => symphonyRuntimeWorkspaceSchema).nullable(),
+  launchTarget: z.lazy(() => symphonyRuntimeLaunchTargetSchema).nullable()
 });
 
 export const symphonyRuntimeStateResultSchema = z.strictObject({
@@ -93,11 +120,35 @@ export const symphonyRuntimeWorkspaceMaterializationSchema = z.discriminatedUnio
 
 export const symphonyRuntimeWorkspaceSchema = z.strictObject({
   backendKind: z.enum(["local", "docker"]).nullable(),
+  workerHost: nullableNonEmptyStringSchema,
+  prepareDisposition: symphonyRuntimeWorkspacePrepareDispositionSchema.nullable(),
+  executionTargetKind: symphonyRuntimeWorkspaceExecutionTargetKindSchema.nullable(),
+  materializationKind: symphonyRuntimeWorkspaceMaterializationKindSchema.nullable(),
+  containerDisposition: symphonyRuntimeWorkspaceContainerDispositionSchema.nullable(),
+  hostPath: nullableNonEmptyStringSchema,
+  runtimePath: nullableNonEmptyStringSchema,
+  containerId: nullableNonEmptyStringSchema,
+  containerName: nullableNonEmptyStringSchema,
   path: nullableNonEmptyStringSchema,
-  host: nullableNonEmptyStringSchema,
   executionTarget: symphonyRuntimeWorkspaceExecutionTargetSchema.nullable(),
   materialization: symphonyRuntimeWorkspaceMaterializationSchema.nullable()
 });
+
+export const symphonyRuntimeLaunchTargetSchema = z.discriminatedUnion("kind", [
+  z.strictObject({
+    kind: z.literal("host_path"),
+    hostWorkspacePath: nonEmptyStringSchema,
+    runtimeWorkspacePath: nonEmptyStringSchema
+  }),
+  z.strictObject({
+    kind: z.literal("container"),
+    hostWorkspacePath: nonEmptyStringSchema,
+    runtimeWorkspacePath: nonEmptyStringSchema,
+    containerId: nullableNonEmptyStringSchema,
+    containerName: nonEmptyStringSchema,
+    shell: nonEmptyStringSchema
+  })
+]);
 
 export const symphonyRuntimeAttemptsSchema = z.strictObject({
   restartCount: z.number().int().nonnegative(),
@@ -114,6 +165,7 @@ export const symphonyRuntimeIssueRunningStateSchema = z.strictObject({
   workerHost: nullableNonEmptyStringSchema.optional(),
   workspacePath: nullableNonEmptyStringSchema.optional(),
   sessionId: nullableNonEmptyStringSchema.optional(),
+  launchTarget: symphonyRuntimeLaunchTargetSchema.nullable(),
   turnCount: z.number().int().nonnegative(),
   state: nonEmptyStringSchema,
   startedAt: isoTimestampSchema.nullable(),
@@ -128,7 +180,8 @@ export const symphonyRuntimeIssueRetryStateSchema = z.strictObject({
   dueAt: isoTimestampSchema.nullable(),
   error: nullableNonEmptyStringSchema.optional(),
   workerHost: nullableNonEmptyStringSchema.optional(),
-  workspacePath: nullableNonEmptyStringSchema.optional()
+  workspacePath: nullableNonEmptyStringSchema.optional(),
+  launchTarget: symphonyRuntimeLaunchTargetSchema.nullable()
 });
 
 export const symphonyRuntimeLogEntrySchema = z.strictObject({
@@ -231,6 +284,18 @@ export type SymphonyRuntimeCodexTotals = z.infer<typeof symphonyRuntimeCodexTota
 export type SymphonyRuntimeRunningEntry = z.infer<typeof symphonyRuntimeRunningEntrySchema>;
 export type SymphonyRuntimeRetryEntry = z.infer<typeof symphonyRuntimeRetryEntrySchema>;
 export type SymphonyRuntimeStateResult = z.infer<typeof symphonyRuntimeStateResultSchema>;
+export type SymphonyRuntimeWorkspaceExecutionTargetKind = z.infer<
+  typeof symphonyRuntimeWorkspaceExecutionTargetKindSchema
+>;
+export type SymphonyRuntimeWorkspaceMaterializationKind = z.infer<
+  typeof symphonyRuntimeWorkspaceMaterializationKindSchema
+>;
+export type SymphonyRuntimeWorkspacePrepareDisposition = z.infer<
+  typeof symphonyRuntimeWorkspacePrepareDispositionSchema
+>;
+export type SymphonyRuntimeWorkspaceContainerDisposition = z.infer<
+  typeof symphonyRuntimeWorkspaceContainerDispositionSchema
+>;
 export type SymphonyRuntimeWorkspaceExecutionTarget = z.infer<
   typeof symphonyRuntimeWorkspaceExecutionTargetSchema
 >;
@@ -238,6 +303,9 @@ export type SymphonyRuntimeWorkspaceMaterialization = z.infer<
   typeof symphonyRuntimeWorkspaceMaterializationSchema
 >;
 export type SymphonyRuntimeWorkspace = z.infer<typeof symphonyRuntimeWorkspaceSchema>;
+export type SymphonyRuntimeLaunchTarget = z.infer<
+  typeof symphonyRuntimeLaunchTargetSchema
+>;
 export type SymphonyRuntimeTrackedIssue = z.infer<typeof symphonyRuntimeTrackedIssueSchema>;
 export type SymphonyRuntimeIssueOperator = z.infer<typeof symphonyRuntimeIssueOperatorSchema>;
 export type SymphonyRuntimeIssueResult = z.infer<typeof symphonyRuntimeIssueResultSchema>;

@@ -410,7 +410,66 @@ describe("local workspace backend", () => {
         },
         hooks: config.hooks
       })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      hookKind: "after_run",
+      outcome: "failed_ignored"
+    });
+  });
+
+  it("reports missing workspace removal when before_remove already removed the workspace", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildSymphonyWorkflowConfig({
+      workspace: {
+        root
+      },
+      hooks: {
+        afterCreate: null,
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: "rm -rf .",
+        timeoutMs: 1_000
+      }
+    });
+    const workspacePath = path.join(root, symphonyWorkspaceDirectoryName("COL-401"));
+    const canonicalWorkspacePath = path.join(
+      await realpath(root),
+      symphonyWorkspaceDirectoryName("COL-401")
+    );
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+
+    const backend = createLocalWorkspaceBackend({
+      commandRunner: async ({ cwd }) => {
+        await rm(cwd, {
+          recursive: true,
+          force: true
+        });
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        };
+      }
+    });
+
+    await expect(
+      backend.cleanupWorkspace({
+        issueIdentifier: "COL-401",
+        config: config.workspace,
+        hooks: config.hooks
+      })
+    ).resolves.toEqual({
+      backendKind: "local",
+      workerHost: null,
+      hostPath: canonicalWorkspacePath,
+      runtimePath: canonicalWorkspacePath,
+      containerId: null,
+      containerName: null,
+      beforeRemoveHookOutcome: "completed",
+      workspaceRemovalDisposition: "missing",
+      containerRemovalDisposition: "not_applicable"
+    });
   });
 
   it("surfaces after_create hook failures and hook timeouts", async () => {

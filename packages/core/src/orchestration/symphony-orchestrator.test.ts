@@ -21,7 +21,8 @@ function createAgentRuntime(
     async startRun(): Promise<AgentRunLaunch> {
       return {
         sessionId: "thread-1",
-        workerHost: null
+        workerHost: null,
+        launchTarget: null
       };
     },
     async stopRun() {
@@ -82,7 +83,8 @@ describe("symphony orchestrator", () => {
       async startRun(): Promise<AgentRunLaunch> {
         return {
           sessionId: "thread-live",
-          workerHost: null
+          workerHost: null,
+          launchTarget: null
         };
       }
     });
@@ -308,7 +310,10 @@ describe("symphony orchestrator", () => {
     await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 0);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "startup_failure",
-      reason: "workspace hook failed"
+      reason: "workspace hook failed",
+      failureStage: "workspace_before_run",
+      failureOrigin: "workspace_lifecycle",
+      launchTarget: null
     });
 
     expect(hookEnvs).toHaveLength(4);
@@ -341,7 +346,8 @@ describe("symphony orchestrator", () => {
         async startRun(): Promise<AgentRunLaunch> {
           return {
             sessionId: "thread-live",
-            workerHost: null
+            workerHost: null,
+            launchTarget: null
           };
         }
       }),
@@ -416,7 +422,8 @@ describe("symphony orchestrator", () => {
         async startRun() {
           return {
             sessionId: "thread-1",
-            workerHost: null
+            workerHost: null,
+            launchTarget: null
           };
         },
         async stopRun({ issue }) {
@@ -639,7 +646,10 @@ describe("symphony orchestrator", () => {
     await orchestrator.dispatchIssue(issue, 0);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "startup_failure",
-      reason: "workspace hook `before_run` exited with status 1."
+      reason: "workspace hook `before_run` exited with status 1.",
+      failureStage: "workspace_before_run",
+      failureOrigin: "workspace_lifecycle",
+      launchTarget: null
     });
 
     expect(tracker.listOperations()).toContainEqual({
@@ -714,7 +724,10 @@ describe("symphony orchestrator", () => {
     await orchestrator.dispatchIssue(issue, 0);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "startup_failure",
-      reason: "workspace hook `before_run` exited with status 1."
+      reason: "workspace hook `before_run` exited with status 1.",
+      failureStage: "workspace_before_run",
+      failureOrigin: "workspace_lifecycle",
+      launchTarget: null
     });
 
     expect(comments[0]).toContain(

@@ -10,10 +10,12 @@ exercise it through one intentional Codex runtime path without making Docker the
 This stage now covers:
 
 - prepare a deterministic container-backed workspace
+- expose explicit workspace lifecycle metadata for prepare, launch, and cleanup
 - expose explicit execution-target and materialization metadata
 - run workspace hooks through the backend
 - execute Codex against a prepared container target through `docker exec`
 - clean up Docker and host-side resources deterministically
+- surface high-signal lifecycle events and API-ready read-model data for operators
 
 ## Factory Shape
 
@@ -87,34 +89,63 @@ Behavior matches the local backend contract:
 
 ## Prepared Workspace Metadata
 
-The Docker backend returns:
+The Docker backend now returns an explicit prepare summary rather than relying on vague payload
+blobs:
 
 ```ts
 {
   backendKind: "docker",
+  prepareDisposition: "created" | "reused",
+  containerDisposition: "started" | "reused" | "recreated",
+  afterCreateHookOutcome: "completed" | "skipped",
   executionTarget: {
     kind: "container",
     workspacePath: "/home/agent/workspace",
     containerId,
     containerName,
-    hostPath
+    hostPath,
+    shell
   },
   materialization: {
     kind: "bind_mount",
     hostPath,
     containerPath: "/home/agent/workspace"
   },
+  workerHost,
   path: null
 }
 ```
 
 Notable details:
 
+- `prepareDisposition` tells observers whether the host workspace directory was created for this
+  run or reused from a prior run.
+- `containerDisposition` tells observers whether Docker started, reused, or recreated the managed
+  container.
+- `afterCreateHookOutcome` stays explicit so operators can distinguish "new workspace, hook ran"
+  from "reused workspace, hook skipped".
 - `path` stays `null` on purpose. The compatibility alias remains intended for local host-path
   execution, not container-target execution.
 - `hostPath` is still carried explicitly so observers, serializers, and operators can understand
   where the workspace is materialized on the host.
+- `shell` is part of the prepared container execution target. The launch-target resolver now uses
+  that backend-authored value instead of synthesizing shell choice from parallel runtime config.
 - container names are deterministic and stable across retries for the same workspace key.
+
+The normalized workspace summary used by the journal and HTTP serializers keeps the following
+fields explicit for both local and Docker runs:
+
+- `backendKind`
+- `workerHost`
+- `prepareDisposition`
+- `executionTargetKind`
+- `materializationKind`
+- `containerDisposition`
+- `hostPath`
+- `runtimePath`
+- `containerId`
+- `containerName`
+- `path`
 
 ## Runtime Execution
 
@@ -142,6 +173,105 @@ Operationally important details:
   name needed for this bridge.
 - The current runtime path intentionally supports bind-mounted Docker workspaces only. Volume-only
   execution remains deferred.
+
+The runtime launch step now resolves and surfaces an explicit launch target:
+
+```ts
+{
+  kind: "container",
+  hostWorkspacePath: "/tmp/symphony/COL-123",
+  runtimeWorkspacePath: "/home/agent/workspace",
+  containerId,
+  containerName,
+  shell: "sh"
+}
+```
+
+That launch target is recorded in runtime logs, journal metadata, and the runtime HTTP read model
+so operators can distinguish "workspace prepared in Docker" from "Codex actually launched in this
+container target".
+
+## Lifecycle Event Surface
+
+The observability pass adds a small, explicit set of high-signal events.
+
+Runtime log events emitted from `apps/api`:
+
+- `workspace_backend_selected`
+  App startup log that records which backend was selected and why.
+- `runtime_launch_target_resolved`
+  Records the resolved launch target before Codex is started.
+- `runtime_session_started`
+  Records the session id plus the resolved launch target after Codex startup succeeds.
+- `runtime_startup_failed`
+  Records startup failures with `failureStage`, `failureOrigin`, and `launchTarget`.
+- `runtime_execution_failed`
+  Records failures after the session has already started.
+
+Run-journal / issue-timeline lifecycle events emitted by the orchestrator:
+
+- `workspace_prepare_completed`
+- `docker_container_started`
+- `docker_container_reused`
+- `docker_container_recreated`
+- `workspace_before_run_completed`
+- `runtime_launch_requested`
+- `runtime_startup_failed`
+- `workspace_after_run_completed`
+- `workspace_after_run_failed_ignored`
+- `workspace_cleanup_completed`
+- `workspace_cleanup_failed`
+- `docker_container_removed`
+- `docker_container_missing`
+
+Event payload design rules for this stage:
+
+- Workspace events carry the normalized workspace summary instead of raw backend-specific blobs.
+- Launch events carry an explicit `launchTarget`.
+- Startup failure events carry both `failureStage` and `failureOrigin`.
+- Cleanup events carry explicit cleanup outcomes:
+  `beforeRemoveHookOutcome`, `workspaceRemovalDisposition`, and
+  `containerRemovalDisposition`.
+
+Startup failure classification is intentionally narrow and operational:
+
+- `failureStage`: `workspace_prepare`, `workspace_before_run`, `runtime_launch`,
+  `runtime_session_start`
+- `failureOrigin`: `workspace_lifecycle`, `docker_lifecycle`, `runtime_launch`,
+  `codex_startup`
+
+## HTTP Read Model
+
+The runtime API now surfaces the normalized workspace and launch-target read model directly on
+running, retrying, and per-issue runtime responses.
+
+Workspace read-model fields:
+
+- `backendKind`
+- `workerHost`
+- `prepareDisposition`
+- `executionTargetKind`
+- `materializationKind`
+- `containerDisposition`
+- `hostPath`
+- `runtimePath`
+- `containerId`
+- `containerName`
+- `path`
+- `executionTarget`
+- `materialization`
+
+Launch-target read-model fields:
+
+- `kind`
+- `hostWorkspacePath`
+- `runtimeWorkspacePath`
+- `containerId`
+- `containerName`
+- `shell`
+
+This keeps the dashboard and future optimization work focused on a small number of explicit fields
+instead of a backend-specific nested dump.
 
 ## Live Verification
 
@@ -177,5 +307,5 @@ This stage does not:
 - make Docker the default backend
 - add workflow-front-matter backend selection
 - support volume-only runtime execution without a host bind mount
-- add broader app-level observability or cutover logic
-- add broader app-level observability or cutover logic beyond bounded launch-target metadata
+- redesign runtime execution behavior beyond metadata surfacing and event clarity
+- add broader cutover logic beyond bounded backend/launch-target observability

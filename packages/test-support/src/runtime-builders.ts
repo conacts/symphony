@@ -45,44 +45,166 @@ export function buildSymphonyRuntimeEnv(
 }
 
 export function buildSymphonyRuntimeStateResult(
-  overrides: Partial<SymphonyRuntimeStateResult> = {}
+  overrides: Partial<Omit<SymphonyRuntimeStateResult, "running" | "retrying">> & {
+    running?: Array<Partial<SymphonyRuntimeStateResult["running"][number]>>;
+    retrying?: Array<Partial<SymphonyRuntimeStateResult["retrying"][number]>>;
+  } = {}
 ): SymphonyRuntimeStateResult {
+  type RuntimeRunningEntry = SymphonyRuntimeStateResult["running"][number];
+  type RuntimeRetryEntry = SymphonyRuntimeStateResult["retrying"][number];
+  type RuntimeWorkspace = NonNullable<RuntimeRunningEntry["workspace"]>;
+  type RuntimeLaunchTarget = NonNullable<RuntimeRunningEntry["launchTarget"]>;
+  type RetryLaunchTarget = NonNullable<RuntimeRetryEntry["launchTarget"]>;
+
+  const defaultLocalWorkspace: RuntimeWorkspace = {
+    backendKind: "local",
+    workerHost: "worker-a",
+    prepareDisposition: "reused",
+    executionTargetKind: "host_path",
+    materializationKind: "directory",
+    containerDisposition: "not_applicable",
+    hostPath: "/tmp/workspaces/col-165",
+    runtimePath: "/tmp/workspaces/col-165",
+    containerId: null,
+    containerName: null,
+    path: "/tmp/workspaces/col-165",
+    executionTarget: {
+      kind: "host_path",
+      path: "/tmp/workspaces/col-165"
+    },
+    materialization: {
+      kind: "directory",
+      hostPath: "/tmp/workspaces/col-165"
+    }
+  };
+
+  const defaultHostLaunchTarget: RuntimeLaunchTarget = {
+    kind: "host_path",
+    hostWorkspacePath: "/tmp/workspaces/col-165",
+    runtimeWorkspacePath: "/tmp/workspaces/col-165"
+  };
+
+  const defaultDockerWorkspace: RuntimeWorkspace = {
+    backendKind: "docker",
+    workerHost: "worker-b",
+    prepareDisposition: "reused",
+    executionTargetKind: "container",
+    materializationKind: "bind_mount",
+    containerDisposition: "reused",
+    hostPath: "/tmp/workspaces/col-166",
+    runtimePath: "/home/agent/workspace",
+    containerId: "container-166",
+    containerName: "symphony-col-166",
+    path: null,
+    executionTarget: {
+      kind: "container",
+      workspacePath: "/home/agent/workspace",
+      containerId: "container-166",
+      containerName: "symphony-col-166",
+      hostPath: "/tmp/workspaces/col-166"
+    },
+    materialization: {
+      kind: "bind_mount",
+      hostPath: "/tmp/workspaces/col-166",
+      containerPath: "/home/agent/workspace"
+    }
+  };
+
+  const defaultContainerLaunchTarget: RetryLaunchTarget = {
+    kind: "container",
+    hostWorkspacePath: "/tmp/workspaces/col-166",
+    runtimeWorkspacePath: "/home/agent/workspace",
+    containerId: "container-166",
+    containerName: "symphony-col-166",
+    shell: "sh"
+  };
+
+  const running = (overrides.running ?? [
+    {
+      issueId: "issue_123",
+      issueIdentifier: "COL-165",
+      state: "In Progress",
+      workerHost: "worker-a",
+      workspacePath: "/tmp/workspaces/col-165",
+      sessionId: "session_123",
+      workspace: defaultLocalWorkspace,
+      launchTarget: defaultHostLaunchTarget,
+      turnCount: 4,
+      lastEvent: "message.output",
+      lastMessage: "Runtime view updated",
+      startedAt: "2026-03-31T18:00:00.000Z",
+      lastEventAt: "2026-03-31T18:01:00.000Z",
+      tokens: {
+        inputTokens: 120,
+        outputTokens: 80,
+        totalTokens: 200
+      }
+    }
+  ]).map((entry): RuntimeRunningEntry => ({
+    issueId: "issue_123",
+    issueIdentifier: "COL-165",
+    state: "In Progress",
+    workerHost: "worker-a",
+    workspacePath: "/tmp/workspaces/col-165",
+    sessionId: "session_123",
+    turnCount: 4,
+    lastEvent: "message.output",
+    lastMessage: "Runtime view updated",
+    startedAt: "2026-03-31T18:00:00.000Z",
+    lastEventAt: "2026-03-31T18:01:00.000Z",
+    tokens: {
+      inputTokens: 120,
+      outputTokens: 80,
+      totalTokens: 200
+    },
+    ...entry,
+    workspace:
+      entry.workspace === undefined
+        ? { ...defaultLocalWorkspace }
+        : entry.workspace,
+    launchTarget:
+      entry.launchTarget === undefined
+        ? { ...defaultHostLaunchTarget }
+        : entry.launchTarget
+  }));
+  const retrying = (overrides.retrying ?? [
+    {
+      issueId: "issue_456",
+      issueIdentifier: "COL-166",
+      attempt: 2,
+      dueAt: "2026-03-31T18:05:00.000Z",
+      error: "Worker disconnected",
+      workerHost: "worker-b",
+      workspacePath: "/tmp/workspaces/col-166",
+      workspace: defaultDockerWorkspace,
+      launchTarget: defaultContainerLaunchTarget
+    }
+  ]).map((entry): RuntimeRetryEntry => ({
+    issueId: "issue_456",
+    issueIdentifier: "COL-166",
+    attempt: 2,
+    dueAt: "2026-03-31T18:05:00.000Z",
+    error: "Worker disconnected",
+    workerHost: "worker-b",
+    workspacePath: "/tmp/workspaces/col-166",
+    ...entry,
+    workspace:
+      entry.workspace === undefined
+        ? { ...defaultDockerWorkspace }
+        : entry.workspace,
+    launchTarget:
+      entry.launchTarget === undefined
+        ? { ...defaultContainerLaunchTarget }
+        : entry.launchTarget
+  }));
+
   return {
     counts: {
       running: 1,
       retrying: 1
     },
-    running: [
-      {
-        issueId: "issue_123",
-        issueIdentifier: "COL-165",
-        state: "In Progress",
-        workerHost: "worker-a",
-        workspacePath: "/tmp/workspaces/col-165",
-        sessionId: "session_123",
-        turnCount: 4,
-        lastEvent: "message.output",
-        lastMessage: "Runtime view updated",
-        startedAt: "2026-03-31T18:00:00.000Z",
-        lastEventAt: "2026-03-31T18:01:00.000Z",
-        tokens: {
-          inputTokens: 120,
-          outputTokens: 80,
-          totalTokens: 200
-        }
-      }
-    ],
-    retrying: [
-      {
-        issueId: "issue_456",
-        issueIdentifier: "COL-166",
-        attempt: 2,
-        dueAt: "2026-03-31T18:05:00.000Z",
-        error: "Worker disconnected",
-        workerHost: "worker-b",
-        workspacePath: "/tmp/workspaces/col-166"
-      }
-    ],
+    running,
+    retrying,
     codexTotals: {
       inputTokens: 200,
       outputTokens: 120,
@@ -92,7 +214,11 @@ export function buildSymphonyRuntimeStateResult(
     rateLimits: {
       remaining: 3
     },
-    ...overrides
+    ...Object.fromEntries(
+      Object.entries(overrides).filter(
+        ([key]) => key !== "running" && key !== "retrying"
+      )
+    )
   };
 }
 
@@ -109,46 +235,90 @@ export function buildSymphonyRuntimeRefreshResult(
 }
 
 export function buildSymphonyRuntimeIssueResult(
-  overrides: Partial<SymphonyRuntimeIssueResult> = {}
+  overrides: Partial<
+    Omit<SymphonyRuntimeIssueResult, "workspace" | "running" | "retry">
+  > & {
+    workspace?: Partial<SymphonyRuntimeIssueResult["workspace"]>;
+    running?: Partial<NonNullable<SymphonyRuntimeIssueResult["running"]>> | null;
+    retry?: Partial<NonNullable<SymphonyRuntimeIssueResult["retry"]>> | null;
+  } = {}
 ): SymphonyRuntimeIssueResult {
+  const defaultWorkspace: SymphonyRuntimeIssueResult["workspace"] = {
+    backendKind: "local",
+    workerHost: "local",
+    prepareDisposition: "reused",
+    executionTargetKind: "host_path",
+    materializationKind: "directory",
+    containerDisposition: "not_applicable",
+    hostPath: "/tmp/symphony-COL-167",
+    runtimePath: "/tmp/symphony-COL-167",
+    containerId: null,
+    containerName: null,
+    path: "/tmp/symphony-COL-167",
+    executionTarget: {
+      kind: "host_path",
+      path: "/tmp/symphony-COL-167"
+    },
+    materialization: {
+      kind: "directory",
+      hostPath: "/tmp/symphony-COL-167"
+    }
+  };
+  const defaultRunning: NonNullable<SymphonyRuntimeIssueResult["running"]> = {
+    workerHost: "local",
+    workspacePath: "/tmp/symphony-COL-167",
+    sessionId: "session-167",
+    launchTarget: {
+      kind: "host_path",
+      hostWorkspacePath: "/tmp/symphony-COL-167",
+      runtimeWorkspacePath: "/tmp/symphony-COL-167"
+    },
+    turnCount: 3,
+    state: "In Progress",
+    startedAt: "2026-03-31T18:00:00.000Z",
+    lastEvent: "notification",
+    lastMessage: "Working on implementation",
+    lastEventAt: "2026-03-31T18:04:00.000Z",
+    tokens: {
+      inputTokens: 12,
+      outputTokens: 8,
+      totalTokens: 20
+    }
+  };
+
   return {
     issueIdentifier: "COL-167",
     issueId: "issue-167",
     status: "running",
     workspace: {
-      backendKind: "local",
-      path: "/tmp/symphony-COL-167",
-      host: "local",
-      executionTarget: {
-        kind: "host_path",
-        path: "/tmp/symphony-COL-167"
-      },
-      materialization: {
-        kind: "directory",
-        hostPath: "/tmp/symphony-COL-167"
-      }
+      ...defaultWorkspace,
+      ...overrides.workspace
     },
     attempts: {
       restartCount: 0,
       currentRetryAttempt: 0
     },
-    running: {
-      workerHost: "local",
-      workspacePath: "/tmp/symphony-COL-167",
-      sessionId: "session-167",
-      turnCount: 3,
-      state: "In Progress",
-      startedAt: "2026-03-31T18:00:00.000Z",
-      lastEvent: "notification",
-      lastMessage: "Working on implementation",
-      lastEventAt: "2026-03-31T18:04:00.000Z",
-      tokens: {
-        inputTokens: 12,
-        outputTokens: 8,
-        totalTokens: 20
-      }
-    },
-    retry: null,
+    running:
+      overrides.running === null
+        ? null
+        : {
+            ...defaultRunning,
+            ...overrides.running
+          },
+    retry:
+      overrides.retry === null
+        ? null
+        : overrides.retry === undefined
+          ? null
+          : {
+              attempt: 1,
+              dueAt: "2026-03-31T18:05:00.000Z",
+              error: null,
+              workerHost: "local",
+              workspacePath: "/tmp/symphony-COL-167",
+              launchTarget: null,
+              ...overrides.retry
+            },
     lastError: null,
     tracked: {
       title: "Preserve refresh and requeue parity",
@@ -169,7 +339,11 @@ export function buildSymphonyRuntimeIssueResult(
       requeueHelpText:
         "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow."
     },
-    ...overrides
+    ...Object.fromEntries(
+      Object.entries(overrides).filter(
+        ([key]) => key !== "workspace" && key !== "running" && key !== "retry"
+      )
+    )
   };
 }
 

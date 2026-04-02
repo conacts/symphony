@@ -26,6 +26,32 @@ describe("symphony runtime contracts", () => {
             workerHost: "local",
             workspacePath: "/tmp/COL-157",
             sessionId: "session-1",
+            workspace: {
+              backendKind: "local",
+              workerHost: "local",
+              prepareDisposition: "reused",
+              executionTargetKind: "host_path",
+              materializationKind: "directory",
+              containerDisposition: "not_applicable",
+              hostPath: "/tmp/COL-157",
+              runtimePath: "/tmp/COL-157",
+              containerId: null,
+              containerName: null,
+              path: "/tmp/COL-157",
+              executionTarget: {
+                kind: "host_path",
+                path: "/tmp/COL-157"
+              },
+              materialization: {
+                kind: "directory",
+                hostPath: "/tmp/COL-157"
+              }
+            },
+            launchTarget: {
+              kind: "host_path",
+              hostWorkspacePath: "/tmp/COL-157",
+              runtimeWorkspacePath: "/tmp/COL-157"
+            },
             turnCount: 3,
             lastEvent: "notification",
             lastMessage: "Working on tests",
@@ -46,7 +72,9 @@ describe("symphony runtime contracts", () => {
             dueAt: "2026-03-31T00:00:05.000Z",
             error: "no available orchestrator slots",
             workerHost: null,
-            workspacePath: null
+            workspacePath: null,
+            workspace: null,
+            launchTarget: null
           }
         ],
         codexTotals: {
@@ -80,8 +108,16 @@ describe("symphony runtime contracts", () => {
         status: "running",
         workspace: {
           backendKind: "local",
+          workerHost: "local",
+          prepareDisposition: "reused",
+          executionTargetKind: "host_path",
+          materializationKind: "directory",
+          containerDisposition: "not_applicable",
+          hostPath: "/tmp/COL-157",
+          runtimePath: "/tmp/COL-157",
+          containerId: null,
+          containerName: null,
           path: "/tmp/COL-157",
-          host: "local",
           executionTarget: {
             kind: "host_path",
             path: "/tmp/COL-157"
@@ -99,6 +135,11 @@ describe("symphony runtime contracts", () => {
           workerHost: "local",
           workspacePath: "/tmp/COL-157",
           sessionId: "session-1",
+          launchTarget: {
+            kind: "host_path",
+            hostWorkspacePath: "/tmp/COL-157",
+            runtimeWorkspacePath: "/tmp/COL-157"
+          },
           turnCount: 3,
           state: "In Progress",
           startedAt: "2026-03-31T00:00:00.000Z",
@@ -152,8 +193,16 @@ describe("symphony runtime contracts", () => {
         status: "tracked",
         workspace: {
           backendKind: null,
+          workerHost: null,
+          prepareDisposition: null,
+          executionTargetKind: null,
+          materializationKind: null,
+          containerDisposition: null,
+          hostPath: null,
+          runtimePath: null,
+          containerId: null,
+          containerName: null,
           path: null,
-          host: null,
           executionTarget: null,
           materialization: null
         },

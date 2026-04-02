@@ -8,6 +8,9 @@ describe("codex runtime launch target", () => {
         issueIdentifier: "COL-123",
         workspaceKey: "COL-123",
         backendKind: "local",
+        prepareDisposition: "reused",
+        containerDisposition: "not_applicable",
+        afterCreateHookOutcome: "skipped",
         executionTarget: {
           kind: "host_path",
           path: "/tmp/symphony-COL-123"
@@ -34,12 +37,16 @@ describe("codex runtime launch target", () => {
           issueIdentifier: "COL-123",
           workspaceKey: "COL-123",
           backendKind: "docker",
+          prepareDisposition: "reused",
+          containerDisposition: "reused",
+          afterCreateHookOutcome: "skipped",
           executionTarget: {
             kind: "container",
             workspacePath: "/home/agent/workspace",
             containerId: "container-123",
             containerName: "symphony-col-123",
-            hostPath: "/tmp/symphony-COL-123"
+            hostPath: "/tmp/symphony-COL-123",
+            shell: "bash"
           },
           materialization: {
             kind: "bind_mount",
@@ -49,9 +56,6 @@ describe("codex runtime launch target", () => {
           path: null,
           created: false,
           workerHost: "docker-host"
-        },
-        {
-          containerShell: "bash"
         }
       )
     ).toEqual({
@@ -70,12 +74,16 @@ describe("codex runtime launch target", () => {
         issueIdentifier: "COL-123",
         workspaceKey: "COL-123",
         backendKind: "docker",
+        prepareDisposition: "reused",
+        containerDisposition: "reused",
+        afterCreateHookOutcome: "skipped",
         executionTarget: {
           kind: "container",
           workspacePath: "/home/agent/workspace",
           containerId: "container-123",
           containerName: "symphony-col-123",
-          hostPath: null
+          hostPath: null,
+          shell: "sh"
         },
         materialization: {
           kind: "volume",
@@ -96,12 +104,16 @@ describe("codex runtime launch target", () => {
         issueIdentifier: "COL-123",
         workspaceKey: "COL-123",
         backendKind: "docker",
+        prepareDisposition: "reused",
+        containerDisposition: "reused",
+        afterCreateHookOutcome: "skipped",
         executionTarget: {
           kind: "container",
           workspacePath: "/home/agent/workspace",
           containerId: "container-123",
           containerName: null,
-          hostPath: "/tmp/symphony-COL-123"
+          hostPath: "/tmp/symphony-COL-123",
+          shell: "sh"
         },
         materialization: {
           kind: "bind_mount",
@@ -121,12 +133,16 @@ describe("codex runtime launch target", () => {
         issueIdentifier: "COL-123",
         workspaceKey: "COL-123",
         backendKind: "docker",
+        prepareDisposition: "reused",
+        containerDisposition: "reused",
+        afterCreateHookOutcome: "skipped",
         executionTarget: {
           kind: "container",
           workspacePath: "",
           containerId: "container-123",
           containerName: "symphony-col-123",
-          hostPath: "/tmp/symphony-COL-123"
+          hostPath: "/tmp/symphony-COL-123",
+          shell: "sh"
         },
         materialization: {
           kind: "bind_mount",
@@ -138,5 +154,34 @@ describe("codex runtime launch target", () => {
         workerHost: "docker-host"
       })
     ).toThrowError(/container workspace path/i);
+  });
+
+  it("fails closed on container targets without a container shell", () => {
+    expect(() =>
+      resolveCodexRuntimeLaunchTarget({
+        issueIdentifier: "COL-123",
+        workspaceKey: "COL-123",
+        backendKind: "docker",
+        prepareDisposition: "reused",
+        containerDisposition: "reused",
+        afterCreateHookOutcome: "skipped",
+        executionTarget: {
+          kind: "container",
+          workspacePath: "/home/agent/workspace",
+          containerId: "container-123",
+          containerName: "symphony-col-123",
+          hostPath: "/tmp/symphony-COL-123",
+          shell: ""
+        },
+        materialization: {
+          kind: "bind_mount",
+          hostPath: "/tmp/symphony-COL-123",
+          containerPath: "/home/agent/workspace"
+        },
+        path: null,
+        created: false,
+        workerHost: "docker-host"
+      })
+    ).toThrowError(/container shell/i);
   });
 });

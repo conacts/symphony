@@ -1,5 +1,6 @@
 import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
 import type { SymphonyRunExport } from "@symphony/core/journal";
+import { summarizePreparedWorkspace } from "@symphony/core";
 import {
   issueBranchName,
   type SymphonyTrackerIssue
@@ -10,6 +11,7 @@ import type {
   SymphonyForensicsProblemRunsResult,
   SymphonyForensicsRunDetailResult,
   SymphonyRuntimeIssueResult,
+  SymphonyRuntimeLaunchTarget,
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
 import type { SymphonyResolvedWorkflowConfig } from "@symphony/core";
@@ -29,6 +31,12 @@ export function serializeRuntimeState(
       workerHost: entry.workerHost,
       workspacePath: entry.workspacePath,
       sessionId: entry.sessionId,
+      workspace: serializeRuntimeWorkspace(
+        entry.workspace,
+        entry.workerHost,
+        entry.workspacePath
+      ),
+      launchTarget: serializeRuntimeLaunchTarget(entry.launchTarget),
       turnCount: entry.turnCount,
       lastEvent: entry.lastCodexEvent,
       lastMessage: summarizeMessage(entry.lastCodexMessage?.message ?? null),
@@ -47,7 +55,13 @@ export function serializeRuntimeState(
       dueAt: new Date(entry.dueAtMs).toISOString(),
       error: entry.error,
       workerHost: entry.workerHost,
-      workspacePath: entry.workspacePath
+      workspacePath: entry.workspacePath,
+      workspace: serializeRuntimeWorkspace(
+        entry.workspace,
+        entry.workerHost,
+        entry.workspacePath
+      ),
+      launchTarget: serializeRuntimeLaunchTarget(entry.launchTarget)
     })),
     codexTotals: snapshot.codexTotals,
     rateLimits: snapshot.rateLimits
@@ -118,6 +132,7 @@ export function serializeRuntimeIssue(
           workerHost: running.workerHost,
           workspacePath: running.workspacePath,
           sessionId: running.sessionId,
+          launchTarget: serializeRuntimeLaunchTarget(running.launchTarget),
           turnCount: running.turnCount,
           state: running.issue.state,
           startedAt: running.startedAt,
@@ -137,7 +152,8 @@ export function serializeRuntimeIssue(
           dueAt: new Date(retry.dueAtMs).toISOString(),
           error: retry.error,
           workerHost: retry.workerHost,
-          workspacePath: retry.workspacePath
+          workspacePath: retry.workspacePath,
+          launchTarget: serializeRuntimeLaunchTarget(retry.launchTarget)
         }
       : null,
     lastError: retry?.error ?? null,
@@ -170,23 +186,66 @@ function serializeRuntimeWorkspace(
   if (!workspace) {
     return {
       backendKind: null,
+      workerHost,
+      prepareDisposition: null,
+      executionTargetKind: null,
+      materializationKind: null,
+      containerDisposition: null,
+      hostPath: compatibilityPath,
+      runtimePath: compatibilityPath,
+      containerId: null,
+      containerName: null,
       path: compatibilityPath,
-      host: workerHost,
       executionTarget: null,
       materialization: null
     };
   }
 
+  const summary = summarizePreparedWorkspace(workspace);
+
   return {
     backendKind: workspace.backendKind,
+    workerHost: workerHost ?? workspace.workerHost,
+    prepareDisposition: summary?.prepareDisposition ?? null,
+    executionTargetKind: summary?.executionTargetKind ?? null,
+    materializationKind: summary?.materializationKind ?? null,
+    containerDisposition: summary?.containerDisposition ?? null,
+    hostPath: summary?.hostPath ?? compatibilityPath,
+    runtimePath: summary?.runtimePath ?? compatibilityPath,
+    containerId: summary?.containerId ?? null,
+    containerName: summary?.containerName ?? null,
     path: workspace.path ?? compatibilityPath,
-    host: workerHost ?? workspace.workerHost,
-    executionTarget: {
-      ...workspace.executionTarget
-    },
+    executionTarget:
+      workspace.executionTarget.kind === "host_path"
+        ? {
+            kind: "host_path",
+            path: workspace.executionTarget.path
+          }
+        : {
+            kind: "container",
+            workspacePath: workspace.executionTarget.workspacePath,
+            containerId: workspace.executionTarget.containerId,
+            containerName: workspace.executionTarget.containerName,
+            hostPath: workspace.executionTarget.hostPath
+          },
     materialization: {
       ...workspace.materialization
     }
+  };
+}
+
+function serializeRuntimeLaunchTarget(
+  launchTarget:
+    | SymphonyOrchestratorSnapshot["running"][number]["launchTarget"]
+    | SymphonyOrchestratorSnapshot["retrying"][number]["launchTarget"]
+    | null
+): SymphonyRuntimeLaunchTarget | null {
+  if (!launchTarget) {
+    return null;
+  }
+
+  return {
+    ...launchTarget
   };
 }
 

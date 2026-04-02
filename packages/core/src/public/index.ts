@@ -2,12 +2,16 @@ export { createCodexAgentRuntime } from "../runtime/agent-runtime.js";
 export { createGitHubReviewPublisher } from "../review/review-publisher.js";
 export {
   createDockerWorkspaceBackend,
-  createLocalWorkspaceBackend
+  createLocalWorkspaceBackend,
+  summarizePreparedWorkspace,
+  workspaceHostPath,
+  workspaceRuntimePath
 } from "../workspace/workspace-backend.js";
 export { createSymphonyRuntime } from "../runtime/symphony-runtime.js";
 export type {
   AgentRunInput,
   AgentRunLaunch,
+  AgentRuntimeLaunchTarget,
   AgentRuntime,
   AgentStopInput
 } from "../runtime/agent-runtime.js";
@@ -30,10 +34,18 @@ export type {
   PreparedWorkspace,
   WorkspaceBackend,
   WorkspaceBackendKind,
+  WorkspaceCleanupResult,
+  WorkspaceCleanupContainerDisposition,
   WorkspaceCleanupInput,
   WorkspaceContext,
+  WorkspaceContainerDisposition,
   WorkspaceExecutionTarget,
+  WorkspaceHookKind,
+  WorkspaceHookOutcome,
+  WorkspaceHookResult,
+  WorkspaceLifecycleMetadata,
   WorkspaceHookInput,
   WorkspaceMaterializationMetadata,
+  WorkspacePrepareDisposition,
   WorkspacePrepareInput
 } from "../workspace/workspace-backend.js";

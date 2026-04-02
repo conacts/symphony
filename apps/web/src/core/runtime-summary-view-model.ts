@@ -17,12 +17,14 @@ export type RuntimeSummaryViewModel = {
     issueIdentifier: string;
     state: string;
     sessionId: string | null;
+    execution: string;
     runtimeAndTurns: string;
     codexUpdate: string;
     tokenSummary: string;
   }>;
   retryRows: Array<{
     issueIdentifier: string;
+    execution: string;
     attempt: string;
     dueAt: string;
     error: string;
@@ -93,12 +95,14 @@ export function buildRuntimeSummaryViewModel(
       issueIdentifier: entry.issueIdentifier,
       state: entry.state,
       sessionId: entry.sessionId ?? null,
+      execution: formatExecution(entry.workspace, entry.launchTarget),
       runtimeAndTurns: formatRuntimeAndTurns(entry.startedAt, entry.turnCount, now),
       codexUpdate: formatCodexUpdate(entry.lastMessage, entry.lastEvent, entry.lastEventAt),
       tokenSummary: `Total ${formatCount(entry.tokens.totalTokens)} · In ${formatCount(entry.tokens.inputTokens)} / Out ${formatCount(entry.tokens.outputTokens)}`
     })),
     retryRows: runtimeSummary.retrying.map((entry) => ({
       issueIdentifier: entry.issueIdentifier,
+      execution: formatExecution(entry.workspace, entry.launchTarget),
       attempt: String(entry.attempt),
       dueAt: entry.dueAt ?? "n/a",
       error: entry.error ?? "n/a"
@@ -164,6 +168,28 @@ function prettyRateLimits(rateLimits: Record<string, unknown> | null): string {
   }
 
   return JSON.stringify(rateLimits, null, 2);
+}
+
+function formatExecution(
+  workspace: SymphonyRuntimeStateResult["running"][number]["workspace"] | null,
+  launchTarget:
+    | SymphonyRuntimeStateResult["running"][number]["launchTarget"]
+    | SymphonyRuntimeStateResult["retrying"][number]["launchTarget"]
+    | null
+): string {
+  if (!workspace && !launchTarget) {
+    return "n/a";
+  }
+
+  const parts = [
+    workspace?.backendKind ?? null,
+    workspace?.prepareDisposition ?? null,
+    workspace?.materializationKind ?? null,
+    launchTarget?.kind ?? workspace?.executionTargetKind ?? null,
+    workspace?.containerName ?? null
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.join(" / ");
 }
 
 export { formatRuntimeSeconds };

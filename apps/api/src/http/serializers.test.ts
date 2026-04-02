@@ -23,12 +23,16 @@ describe("runtime serializers", () => {
             issueIdentifier: issue.identifier,
             workspaceKey: issue.identifier,
             backendKind: "docker",
+            prepareDisposition: "reused",
+            containerDisposition: "reused",
+            afterCreateHookOutcome: "skipped",
             executionTarget: {
               kind: "container",
               workspacePath: "/home/agent/workspace",
               containerId: "container-123",
               containerName: "symphony-col-123",
-              hostPath: null
+              hostPath: null,
+              shell: "sh"
             },
             materialization: {
               kind: "volume",
@@ -39,6 +43,14 @@ describe("runtime serializers", () => {
             path: null,
             created: false,
             workerHost: "docker-host"
+          },
+          launchTarget: {
+            kind: "container",
+            hostWorkspacePath: "/tmp/workspace",
+            runtimeWorkspacePath: "/home/agent/workspace",
+            containerId: "container-123",
+            containerName: "symphony-col-123",
+            shell: "sh"
           },
           workspacePath: null,
           retryAttempt: 0,
@@ -69,8 +81,16 @@ describe("runtime serializers", () => {
 
     expect(serialized?.workspace).toEqual({
       backendKind: "docker",
+      workerHost: "docker-host",
+      prepareDisposition: "reused",
+      executionTargetKind: "container",
+      materializationKind: "volume",
+      containerDisposition: "reused",
+      hostPath: null,
+      runtimePath: "/home/agent/workspace",
+      containerId: "container-123",
+      containerName: "symphony-col-123",
       path: null,
-      host: "docker-host",
       executionTarget: {
         kind: "container",
         workspacePath: "/home/agent/workspace",
@@ -104,8 +124,16 @@ describe("runtime serializers", () => {
 
     expect(serialized?.workspace).toEqual({
       backendKind: null,
+      workerHost: null,
+      prepareDisposition: null,
+      executionTargetKind: null,
+      materializationKind: null,
+      containerDisposition: null,
+      hostPath: null,
+      runtimePath: null,
+      containerId: null,
+      containerName: null,
       path: null,
-      host: null,
       executionTarget: null,
       materialization: null
     });

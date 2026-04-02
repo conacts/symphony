@@ -581,7 +581,17 @@ sleep 1
 
     expect(completion).toEqual({
       kind: "startup_failure",
-      reason: "Timed out waiting for Codex response 1."
+      reason: "Timed out waiting for Codex response 1.",
+      failureStage: "runtime_session_start",
+      failureOrigin: "codex_startup",
+      launchTarget: {
+        kind: "container",
+        hostWorkspacePath,
+        runtimeWorkspacePath: "/home/agent/workspace",
+        containerId: "container-123",
+        containerName: "symphony-col-123-container",
+        shell: "sh"
+      }
     });
     expect(runtimeLogPayloads).toContainEqual(
       expect.objectContaining({
@@ -727,6 +737,9 @@ function buildLocalPreparedWorkspace(
     issueIdentifier,
     workspaceKey: issueIdentifier,
     backendKind: "local" as const,
+    prepareDisposition: "reused" as const,
+    containerDisposition: "not_applicable" as const,
+    afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
       kind: "host_path" as const,
       path: workspacePath
@@ -749,12 +762,16 @@ function buildContainerPreparedWorkspace(
     issueIdentifier,
     workspaceKey: issueIdentifier,
     backendKind: "docker" as const,
+    prepareDisposition: "reused" as const,
+    containerDisposition: "reused" as const,
+    afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
       kind: "container" as const,
       workspacePath: "/home/agent/workspace",
       containerId: "container-123",
       containerName: "symphony-col-123-container",
-      hostPath: hostWorkspacePath
+      hostPath: hostWorkspacePath,
+      shell: "sh"
     },
     materialization: {
       kind: "bind_mount" as const,

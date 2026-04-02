@@ -71,7 +71,8 @@ export async function createSymphonyRuntimeCompositionHarness(input: {
 
       return {
         sessionId: "thread-live",
-        workerHost: null
+        workerHost: null,
+        launchTarget: null
       };
     },
     async stopRun(stopInput) {

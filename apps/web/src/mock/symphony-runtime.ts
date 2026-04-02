@@ -302,6 +302,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
   "COL-165": buildSymphonyRuntimeIssueResult({
     issueIdentifier: "COL-165",
     issueId: "issue_123",
+    workspace: buildLocalRuntimeWorkspace("/tmp/workspaces/col-165", "worker-a"),
     tracked: {
       title: "Stabilize issue forensic drilldown",
       state: "In Progress",
@@ -315,6 +316,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
       workerHost: "worker-a",
       workspacePath: "/tmp/workspaces/col-165",
       sessionId: "session-165",
+      launchTarget: buildHostPathLaunchTarget("/tmp/workspaces/col-165"),
       turnCount: 6,
       state: "In Progress",
       startedAt: "2026-03-31T18:00:00.000Z",
@@ -332,6 +334,13 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
     issueIdentifier: "COL-166",
     issueId: "issue_456",
     status: "retrying",
+    workspace: buildDockerRuntimeWorkspace({
+      hostPath: "/tmp/workspaces/col-166",
+      runtimePath: "/home/agent/workspace",
+      workerHost: "worker-b",
+      containerId: "container-166",
+      containerName: "symphony-col-166"
+    }),
     attempts: {
       restartCount: 1,
       currentRetryAttempt: 2
@@ -342,7 +351,14 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
       dueAt: "2026-03-31T19:21:00.000Z",
       error: "Upstream rate limit reached.",
       workerHost: "worker-b",
-      workspacePath: "/tmp/workspaces/col-166"
+      workspacePath: "/tmp/workspaces/col-166",
+      launchTarget: buildContainerLaunchTarget({
+        hostWorkspacePath: "/tmp/workspaces/col-166",
+        runtimeWorkspacePath: "/home/agent/workspace",
+        containerId: "container-166",
+        containerName: "symphony-col-166",
+        shell: "sh"
+      })
     },
     lastError: "Upstream rate limit reached.",
     tracked: {
@@ -358,6 +374,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
   "COL-167": buildSymphonyRuntimeIssueResult({
     issueIdentifier: "COL-167",
     issueId: "issue_789",
+    workspace: buildLocalRuntimeWorkspace("/tmp/workspaces/col-167", "worker-c"),
     tracked: {
       title: "Repair workspace bootstrap flow",
       state: "Todo",
@@ -371,6 +388,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
       workerHost: "worker-c",
       workspacePath: "/tmp/workspaces/col-167",
       sessionId: "session-167",
+      launchTarget: buildHostPathLaunchTarget("/tmp/workspaces/col-167"),
       turnCount: 2,
       state: "Bootstrapping",
       startedAt: "2026-03-31T17:25:00.000Z",
@@ -385,6 +403,94 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
     }
   })
 };
+
+function buildLocalRuntimeWorkspace(
+  path: string,
+  workerHost: string
+): SymphonyRuntimeIssueResult["workspace"] {
+  return {
+    backendKind: "local",
+    workerHost,
+    prepareDisposition: "reused",
+    executionTargetKind: "host_path",
+    materializationKind: "directory",
+    containerDisposition: "not_applicable",
+    hostPath: path,
+    runtimePath: path,
+    containerId: null,
+    containerName: null,
+    path,
+    executionTarget: {
+      kind: "host_path",
+      path
+    },
+    materialization: {
+      kind: "directory",
+      hostPath: path
+    }
+  };
+}
+
+function buildDockerRuntimeWorkspace(input: {
+  hostPath: string;
+  runtimePath: string;
+  workerHost: string;
+  containerId: string;
+  containerName: string;
+}): SymphonyRuntimeIssueResult["workspace"] {
+  return {
+    backendKind: "docker",
+    workerHost: input.workerHost,
+    prepareDisposition: "reused",
+    executionTargetKind: "container",
+    materializationKind: "bind_mount",
+    containerDisposition: "reused",
+    hostPath: input.hostPath,
+    runtimePath: input.runtimePath,
+    containerId: input.containerId,
+    containerName: input.containerName,
+    path: null,
+    executionTarget: {
+      kind: "container",
+      workspacePath: input.runtimePath,
+      containerId: input.containerId,
+      containerName: input.containerName,
+      hostPath: input.hostPath
+    },
+    materialization: {
+      kind: "bind_mount",
+      hostPath: input.hostPath,
+      containerPath: input.runtimePath
+    }
+  };
+}
+
+function buildHostPathLaunchTarget(
+  path: string
+): NonNullable<SymphonyRuntimeIssueResult["running"]>["launchTarget"] {
+  return {
+    kind: "host_path",
+    hostWorkspacePath: path,
+    runtimeWorkspacePath: path
+  };
+}
+
+function buildContainerLaunchTarget(input: {
+  hostWorkspacePath: string;
+  runtimeWorkspacePath: string;
+  containerId: string;
+  containerName: string;
+  shell: string;
+}): NonNullable<SymphonyRuntimeIssueResult["running"]>["launchTarget"] {
+  return {
+    kind: "container",
+    hostWorkspacePath: input.hostWorkspacePath,
+    runtimeWorkspacePath: input.runtimeWorkspacePath,
+    containerId: input.containerId,
+    containerName: input.containerName,
+    shell: input.shell
+  };
+}
 
 function requireMockTimestamp(
   value: string | null,
@@ -546,6 +652,8 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
         workerHost: "worker-a",
         workspacePath: "/tmp/workspaces/col-165",
         sessionId: "session-165",
+        workspace: buildLocalRuntimeWorkspace("/tmp/workspaces/col-165", "worker-a"),
+        launchTarget: buildHostPathLaunchTarget("/tmp/workspaces/col-165"),
         turnCount: 6,
         lastEvent: "message.output",
         lastMessage: "Preparing final summary",
@@ -564,6 +672,8 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
         workerHost: "worker-c",
         workspacePath: "/tmp/workspaces/col-167",
         sessionId: "session-167",
+        workspace: buildLocalRuntimeWorkspace("/tmp/workspaces/col-167", "worker-c"),
+        launchTarget: buildHostPathLaunchTarget("/tmp/workspaces/col-167"),
         turnCount: 2,
         lastEvent: "workspace.bootstrap.failed",
         lastMessage: "Retrying workspace bootstrap",
@@ -584,7 +694,21 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
         dueAt: "2026-03-31T19:21:00.000Z",
         error: "Upstream rate limit reached.",
         workerHost: "worker-b",
-        workspacePath: "/tmp/workspaces/col-166"
+        workspacePath: "/tmp/workspaces/col-166",
+        workspace: buildDockerRuntimeWorkspace({
+          hostPath: "/tmp/workspaces/col-166",
+          runtimePath: "/home/agent/workspace",
+          workerHost: "worker-b",
+          containerId: "container-166",
+          containerName: "symphony-col-166"
+        }),
+        launchTarget: buildContainerLaunchTarget({
+          hostWorkspacePath: "/tmp/workspaces/col-166",
+          runtimeWorkspacePath: "/home/agent/workspace",
+          containerId: "container-166",
+          containerName: "symphony-col-166",
+          shell: "sh"
+        })
       }
     ],
     codexTotals: {

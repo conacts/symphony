@@ -51,7 +51,8 @@ describe("symphony runtime review seam", () => {
         async startRun() {
           return {
             sessionId: null,
-            workerHost: null
+            workerHost: null,
+            launchTarget: null
           };
         },
         async stopRun() {}
@@ -86,7 +87,8 @@ describe("symphony runtime review seam", () => {
         async startRun() {
           return {
             sessionId: null,
-            workerHost: null
+            workerHost: null,
+            launchTarget: null
           };
         },
         async stopRun() {}

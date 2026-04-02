@@ -53,6 +53,9 @@ export function buildLocalPreparedWorkspace(
     issueIdentifier,
     workspaceKey: issueIdentifier,
     backendKind: "local" as const,
+    prepareDisposition: "reused" as const,
+    containerDisposition: "not_applicable" as const,
+    afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
       kind: "host_path" as const,
       path: workspacePath
@@ -217,6 +220,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
         runId,
         sessionId: "thread-live",
         workerHost: null,
+        launchTarget: null,
         workspacePath: path.join(root, `symphony-${issue.identifier}`),
         retryAttempt: 0,
         turnCount: 1,

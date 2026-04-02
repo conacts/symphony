@@ -163,6 +163,15 @@ describe("@symphony/api app", () => {
         issueIdentifier: string;
         workspace: {
           backendKind: string | null;
+          workerHost: string | null;
+          prepareDisposition: string | null;
+          executionTargetKind: string | null;
+          materializationKind: string | null;
+          containerDisposition: string | null;
+          hostPath: string | null;
+          runtimePath: string | null;
+          containerId: string | null;
+          containerName: string | null;
           path: string | null;
           executionTarget:
             | {
@@ -200,6 +209,7 @@ describe("@symphony/api app", () => {
     expect(runtimeIssueResponse.status).toBe(200);
     expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");
     expect(runtimeIssuePayload.data.workspace.backendKind).toBe("local");
+    expect(runtimeIssuePayload.data.workspace.workerHost).toBeNull();
     expect(runtimeIssuePayload.data.workspace.path).toContain("/symphony-COL-123");
     expect(runtimeIssuePayload.data.workspace.executionTarget?.kind).toBe(
       "host_path"
@@ -233,6 +243,15 @@ describe("@symphony/api app", () => {
         status: string;
         workspace: {
           backendKind: string | null;
+          workerHost: string | null;
+          prepareDisposition: string | null;
+          executionTargetKind: string | null;
+          materializationKind: string | null;
+          containerDisposition: string | null;
+          hostPath: string | null;
+          runtimePath: string | null;
+          containerId: string | null;
+          containerName: string | null;
           path: string | null;
           executionTarget: null;
           materialization: null;
@@ -249,6 +268,7 @@ describe("@symphony/api app", () => {
     expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");
     expect(runtimeIssuePayload.data.status).toBe("tracked");
     expect(runtimeIssuePayload.data.workspace.backendKind).toBeNull();
+    expect(runtimeIssuePayload.data.workspace.workerHost).toBeNull();
     expect(runtimeIssuePayload.data.workspace.path).toBeNull();
     expect(runtimeIssuePayload.data.workspace.executionTarget).toBeNull();
     expect(runtimeIssuePayload.data.workspace.materialization).toBeNull();

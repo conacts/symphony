@@ -13,5 +13,7 @@ export type {
   SymphonyOrchestratorSnapshot,
   SymphonyOrchestratorState,
   SymphonyRetryEntry,
-  SymphonyRunningEntry
+  SymphonyRunningEntry,
+  SymphonyStartupFailureOrigin,
+  SymphonyStartupFailureStage
 } from "./orchestration/symphony-orchestrator.js";

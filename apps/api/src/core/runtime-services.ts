@@ -326,8 +326,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   await runtimeLogStore.record({
     level: "info",
     source: "runtime",
-    eventType: "workspace_backend_initialized",
-    message: "Initialized workspace backend.",
+    eventType: "workspace_backend_selected",
+    message: "Selected the runtime workspace backend.",
     payload: {
       workspaceRoot: workflow.config.workspace.root,
       ...workspaceBackendSelection.metadata
@@ -356,7 +356,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runtimeLogs: runtimeLogStore,
       workflowConfig: workflow.config,
       logger,
-      containerShell: env.dockerShell,
       callbacks: {
         async onUpdate(issueId, update) {
           runtimeRef?.applyAgentUpdate(issueId, update);

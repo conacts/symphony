@@ -77,6 +77,7 @@ function buildRealtimeComparableSnapshot(
       sessionId: entry.sessionId,
       workerHost: entry.workerHost,
       workspace: entry.workspace,
+      launchTarget: entry.launchTarget,
       workspacePath: entry.workspacePath,
       retryAttempt: entry.retryAttempt,
       turnCount: entry.turnCount,
@@ -102,6 +103,7 @@ function buildRealtimeComparableSnapshot(
       error: entry.error,
       workerHost: entry.workerHost,
       workspace: entry.workspace,
+      launchTarget: entry.launchTarget,
       workspacePath: entry.workspacePath,
       delayType: entry.delayType
     })),
