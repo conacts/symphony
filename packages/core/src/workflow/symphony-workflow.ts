@@ -1,8 +1,25 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { parse as parseYaml } from "yaml";
-import { isRecord } from "../internal/records.js";
+import { SymphonyWorkflowError } from "./symphony-workflow-errors.js";
+import {
+  parseWorkflowFrontMatter,
+  splitWorkflowFrontMatter
+} from "./symphony-workflow-frontmatter.js";
+import {
+  getNestedRecord,
+  normalizeApprovalPolicy,
+  normalizeIssueState,
+  normalizeNonNegativeInteger,
+  normalizeOptionalPositiveInteger,
+  normalizeOptionalRecord,
+  normalizeOptionalString,
+  normalizePositiveInteger,
+  normalizeStateLimits,
+  normalizeStringArray,
+  normalizeTrackerKind,
+  resolveEnvToken
+} from "./symphony-workflow-values.js";
 
 export const defaultSymphonyWorkflowFileName = "WORKFLOW.md";
 
@@ -116,15 +133,8 @@ export type SymphonyWorkflowLoadOptions = {
   tempDir?: string;
 };
 
-export class SymphonyWorkflowError extends Error {
-  readonly code: string;
-
-  constructor(code: string, message: string) {
-    super(message);
-    this.name = "SymphonyWorkflowError";
-    this.code = code;
-  }
-}
+export { SymphonyWorkflowError } from "./symphony-workflow-errors.js";
+export { normalizeIssueState } from "./symphony-workflow-values.js";
 
 export async function loadSymphonyWorkflow(
   workflowPath: string,
@@ -162,8 +172,8 @@ export function parseSymphonyWorkflow(
     sourcePath?: string | null;
   } = {}
 ): SymphonyLoadedWorkflow {
-  const { frontMatter, promptLines } = splitFrontMatter(content);
-  const rawConfig = parseFrontMatter(frontMatter);
+  const { frontMatter, promptLines } = splitWorkflowFrontMatter(content);
+  const rawConfig = parseWorkflowFrontMatter(frontMatter);
   const prompt = promptLines.join("\n").trim();
 
   return {
@@ -174,53 +184,6 @@ export function parseSymphonyWorkflow(
       prompt === "" ? defaultSymphonyPromptTemplate : prompt,
     sourcePath: options.sourcePath ?? null
   };
-}
-
-export function normalizeIssueState(stateName: string | null | undefined): string {
-  return typeof stateName === "string" ? stateName.trim().toLowerCase() : "";
-}
-
-function splitFrontMatter(content: string): {
-  frontMatter: string;
-  promptLines: string[];
-} {
-  const lines = content.split(/\r?\n/u);
-
-  if (lines[0] !== "---") {
-    return {
-      frontMatter: "",
-      promptLines: lines
-    };
-  }
-
-  const closingIndex = lines.findIndex((line, index) => index > 0 && line === "---");
-  if (closingIndex === -1) {
-    return {
-      frontMatter: lines.slice(1).join("\n"),
-      promptLines: []
-    };
-  }
-
-  return {
-    frontMatter: lines.slice(1, closingIndex).join("\n"),
-    promptLines: lines.slice(closingIndex + 1)
-  };
-}
-
-function parseFrontMatter(frontMatter: string): Record<string, unknown> {
-  if (frontMatter.trim() === "") {
-    return {};
-  }
-
-  const parsed = parseYaml(frontMatter);
-  if (!isRecord(parsed)) {
-    throw new SymphonyWorkflowError(
-      "workflow_front_matter_not_a_map",
-      "Workflow front matter must decode to a map."
-    );
-  }
-
-  return normalizeObjectKeys(parsed);
 }
 
 function resolveWorkflowConfig(
@@ -566,219 +529,4 @@ function validateSemanticConfig(
       "tracker.startupFailureTransitionToState must not be one of tracker.dispatchableStates."
     );
   }
-}
-
-function normalizeTrackerKind(value: unknown): "linear" | "memory" {
-  const normalized = normalizeOptionalString(value);
-  if (normalized === null) {
-    throw new SymphonyWorkflowError(
-      "missing_tracker_kind",
-      "tracker.kind is required."
-    );
-  }
-
-  if (normalized !== "linear" && normalized !== "memory") {
-    throw new SymphonyWorkflowError(
-      "unsupported_tracker_kind",
-      `Unsupported tracker kind: ${normalized}`
-    );
-  }
-
-  return normalized;
-}
-
-function normalizeStateLimits(value: unknown): Record<string, number> {
-  if (!isRecord(value)) {
-    return {};
-  }
-
-  const result: Record<string, number> = {};
-  for (const [stateName, rawLimit] of Object.entries(value)) {
-    const normalizedState = normalizeIssueState(stateName);
-    if (normalizedState === "") {
-      throw new SymphonyWorkflowError(
-        "invalid_workflow_config",
-        "agent.maxConcurrentAgentsByState state names must not be blank."
-      );
-    }
-
-    result[normalizedState] = normalizePositiveInteger(
-      rawLimit,
-      Number.NaN,
-      "agent.maxConcurrentAgentsByState"
-    );
-  }
-
-  return result;
-}
-
-function normalizeApprovalPolicy(
-  value: unknown
-): string | Record<string, unknown> {
-  if (value === undefined) {
-    return {
-      reject: {
-        sandbox_approval: true,
-        rules: true,
-        mcp_elicitations: true
-      }
-    };
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (isRecord(value)) {
-    return normalizeObjectKeys(value);
-  }
-
-  throw new SymphonyWorkflowError(
-    "invalid_workflow_config",
-    "codex.approvalPolicy must be a string or map."
-  );
-}
-
-function normalizeOptionalString(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
-}
-
-function normalizeStringArray(
-  value: unknown,
-  fallback: string[]
-): string[] {
-  if (value === undefined || value === null) {
-    return [...fallback];
-  }
-
-  if (!Array.isArray(value)) {
-    throw new SymphonyWorkflowError(
-      "invalid_workflow_config",
-      "Expected an array of strings."
-    );
-  }
-
-  return value.flatMap((entry) => {
-    if (typeof entry !== "string") {
-      throw new SymphonyWorkflowError(
-        "invalid_workflow_config",
-        "Expected an array of strings."
-      );
-    }
-
-    const trimmed = entry.trim();
-    return trimmed === "" ? [] : [trimmed];
-  });
-}
-
-function normalizePositiveInteger(
-  value: unknown,
-  fallback: number,
-  fieldName: string
-): number {
-  if (value === undefined || value === null) {
-    return fallback;
-  }
-
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    throw new SymphonyWorkflowError(
-      "invalid_workflow_config",
-      `${fieldName} must be a positive integer.`
-    );
-  }
-
-  return value;
-}
-
-function normalizeOptionalPositiveInteger(
-  value: unknown,
-  fieldName: string
-): number | null {
-  if (value === undefined || value === null) {
-    return null;
-  }
-
-  return normalizePositiveInteger(value, Number.NaN, fieldName);
-}
-
-function normalizeNonNegativeInteger(
-  value: unknown,
-  fallback: number,
-  fieldName: string
-): number {
-  if (value === undefined || value === null) {
-    return fallback;
-  }
-
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
-    throw new SymphonyWorkflowError(
-      "invalid_workflow_config",
-      `${fieldName} must be a non-negative integer.`
-    );
-  }
-
-  return value;
-}
-
-function normalizeOptionalRecord(
-  value: unknown
-): Record<string, unknown> | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  return normalizeObjectKeys(value);
-}
-
-function getNestedRecord(value: unknown): Record<string, unknown> {
-  return isRecord(value) ? normalizeObjectKeys(value) : {};
-}
-
-function resolveEnvToken(
-  value: unknown,
-  env: SymphonyWorkflowEnv
-): unknown {
-  if (typeof value !== "string") {
-    return value;
-  }
-
-  if (!value.startsWith("$")) {
-    return value;
-  }
-
-  return env[value.slice(1)];
-}
-
-function normalizeObjectKeys(value: Record<string, unknown>): Record<string, unknown> {
-  const normalized: Record<string, unknown> = {};
-
-  for (const [key, nestedValue] of Object.entries(value)) {
-    const normalizedKey = normalizeObjectKey(key);
-    normalized[normalizedKey] = normalizeNestedValue(nestedValue);
-  }
-
-  return normalized;
-}
-
-function normalizeNestedValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((entry) => normalizeNestedValue(entry));
-  }
-
-  if (isRecord(value)) {
-    return normalizeObjectKeys(value);
-  }
-
-  return value;
-}
-
-function normalizeObjectKey(key: string): string {
-  return key.replace(/_([a-z])/g, (_match, letter: string) =>
-    letter.toUpperCase()
-  );
 }
