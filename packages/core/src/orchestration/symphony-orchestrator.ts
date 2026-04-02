@@ -9,17 +9,11 @@ import type {
   AgentRuntimeLaunchTarget
 } from "../runtime/agent-runtime.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
-import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
 import {
   type PreparedWorkspace,
   type WorkspaceBackend,
   type WorkspaceContext
 } from "../workspace/workspace-backend.js";
-import { stallElapsedMs } from "./symphony-orchestrator-codex-state.js";
-import {
-  buildFailureCommentBody,
-  type SymphonyStartupFailureTransition
-} from "./symphony-orchestrator-comments.js";
 import {
   accumulateCodexTotals,
   createSymphonyOrchestratorSnapshot,
@@ -41,10 +35,15 @@ import {
   stateSlotsAvailable
 } from "./symphony-orchestrator-retries.js";
 import {
+  cleanupWorkspaceAndRecordLifecycle,
+  handleStartupFailure,
+  leaveFailureComment
+} from "./symphony-orchestrator-lifecycle.js";
+import { reconcileStalledRunningIssues } from "./symphony-orchestrator-monitoring.js";
+import {
   buildWorkspaceLifecyclePayload,
   createWorkspaceLifecycleRecorder,
   createWorkspaceRunnerOptions,
-  recordDockerContainerCleanupEvent,
   recordDockerContainerPrepareEvent
 } from "./symphony-orchestrator-workspace.js";
 import type {
@@ -143,7 +142,14 @@ export class SymphonyOrchestrator {
   }
 
   async reconcileRunningIssues(): Promise<void> {
-    await this.#reconcileStalledRunningIssues();
+    await reconcileStalledRunningIssues({
+      workflowConfig: this.#workflowConfig,
+      state: this.#state,
+      agentRuntime: this.#agentRuntime,
+      clock: this.#clock,
+      handleRunCompletion: (issueId, completion) =>
+        this.handleRunCompletion(issueId, completion)
+    });
     const runningIssueIds = Object.keys(this.#state.running);
     if (runningIssueIds.length === 0) {
       return;
@@ -439,20 +445,25 @@ export class SymphonyOrchestrator {
         totalTokens: 0
       });
 
-      await this.#handleStartupFailure(
-        preparedIssue,
-        preferredWorkerHost,
+      await handleStartupFailure({
+        workflowConfig: this.#workflowConfig,
+        tracker: this.#tracker,
+        workspaceBackend: this.#workspaceBackend,
+        observer: this.#observer,
+        runnerEnv: this.#runnerEnv,
+        issue: preparedIssue,
+        workerHost: preferredWorkerHost,
         workspace,
         reason,
         runId,
-        {
+        completion: {
           kind: "startup_failure",
           reason,
           failureStage: startupFailureStage,
           failureOrigin,
           launchTarget
         }
-      );
+      });
     }
   }
 
@@ -532,15 +543,17 @@ export class SymphonyOrchestrator {
 
     if (completion.kind === "normal" || completion.kind === "max_turns_reached") {
       if (completion.kind === "max_turns_reached") {
-        await this.#leaveFailureComment(
-          runningEntry.issue,
-          completion.reason,
-          "paused_max_turns",
-          runningEntry.runId,
-          {
+        await leaveFailureComment({
+          tracker: this.#tracker,
+          observer: this.#observer,
+          issue: runningEntry.issue,
+          reason: completion.reason,
+          outcome: "paused_max_turns",
+          runId: runningEntry.runId,
+          options: {
             rateLimits: runningEntry.lastRateLimits
           }
-        );
+        });
       }
 
       this.#state.completed.add(issueId);
@@ -574,14 +587,19 @@ export class SymphonyOrchestrator {
           workspace: buildWorkspaceLifecyclePayload(runningEntry.workspace)
         }
       });
-      await this.#handleStartupFailure(
-        runningEntry.issue,
-        runningEntry.workerHost,
-        runningEntry.workspace,
-        completion.reason,
-        runningEntry.runId,
+      await handleStartupFailure({
+        workflowConfig: this.#workflowConfig,
+        tracker: this.#tracker,
+        workspaceBackend: this.#workspaceBackend,
+        observer: this.#observer,
+        runnerEnv: this.#runnerEnv,
+        issue: runningEntry.issue,
+        workerHost: runningEntry.workerHost,
+        workspace: runningEntry.workspace,
+        reason: completion.reason,
+        runId: runningEntry.runId,
         completion
-      );
+      });
       return;
     }
 
@@ -599,17 +617,20 @@ export class SymphonyOrchestrator {
       return;
     }
 
-    await this.#leaveFailureComment(
-      runningEntry.issue,
-      completion.reason,
-      completion.kind === "rate_limited"
-        ? "rate_limited"
-        : "retry_scheduled",
-      runningEntry.runId,
-      {
+    await leaveFailureComment({
+      tracker: this.#tracker,
+      observer: this.#observer,
+      issue: runningEntry.issue,
+      reason: completion.reason,
+      outcome:
+        completion.kind === "rate_limited"
+          ? "rate_limited"
+          : "retry_scheduled",
+      runId: runningEntry.runId,
+      options: {
         rateLimits: runningEntry.lastRateLimits
       }
-    );
+    });
 
     await this.scheduleIssueRetry(issueId, runningEntry.retryAttempt + 1, {
       identifier: runningEntry.issue.identifier,
@@ -747,7 +768,11 @@ export class SymphonyOrchestrator {
     });
 
     if (cleanupWorkspace && runningEntry.workspace) {
-      await this.#cleanupWorkspaceAndRecordLifecycle({
+      await cleanupWorkspaceAndRecordLifecycle({
+        observer: this.#observer,
+        workspaceBackend: this.#workspaceBackend,
+        workflowConfig: this.#workflowConfig,
+        runnerEnv: this.#runnerEnv,
         issue: runningEntry.issue,
         runId: runningEntry.runId,
         workspace: runningEntry.workspace,
@@ -759,218 +784,5 @@ export class SymphonyOrchestrator {
     delete this.#state.running[issueId];
     delete this.#state.retryAttempts[issueId];
     this.#state.claimed.delete(issueId);
-  }
-
-  async #handleStartupFailure(
-    issue: SymphonyTrackerIssue,
-    workerHost: string | null,
-    workspace: PreparedWorkspace | null,
-    reason: string,
-    runId: string | null,
-    completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>
-  ): Promise<void> {
-    const targetState =
-      this.#workflowConfig.tracker.startupFailureTransitionToState;
-    let transition: SymphonyStartupFailureTransition = {
-      kind: "none"
-    };
-
-    if (targetState) {
-      try {
-        await this.#tracker.updateIssueState(issue.id, targetState);
-        transition = {
-          kind: "moved",
-          targetState
-        };
-        await this.#observer?.recordLifecycleEvent({
-          issue: {
-            ...issue,
-            state: targetState
-          },
-          runId,
-          source: "tracker",
-          eventType: "startup_failure_transition",
-          message: `Issue moved to ${targetState} after startup failure.`,
-          payload: {
-            fromState: issue.state,
-            toState: targetState
-          }
-        });
-      } catch (error) {
-        transition = {
-          kind: "failed",
-          targetState,
-          reason: error instanceof Error ? error.message : String(error)
-        };
-        await this.#observer?.recordLifecycleEvent({
-          issue,
-          runId,
-          source: "tracker",
-          eventType: "startup_failure_transition_failed",
-          message: `Issue could not be moved to ${targetState} after startup failure.`,
-          payload: {
-            fromState: issue.state,
-            toState: targetState,
-            reason: transition.reason
-          }
-        });
-      }
-    }
-
-    await this.#leaveFailureComment(
-      issue,
-      reason,
-      targetState ? "startup_failed_backlog" : "startup_failed",
-      runId,
-      {
-        startupFailureTransition: transition
-      }
-    );
-
-    await this.#cleanupWorkspaceAndRecordLifecycle({
-      issue,
-      runId,
-      workspace,
-      workerHost,
-      reason: "startup_failure",
-      startupFailure: completion
-    });
-
-    delete this.#state.retryAttempts[issue.id];
-    this.#state.claimed.delete(issue.id);
-  }
-
-  async #cleanupWorkspaceAndRecordLifecycle(input: {
-    issue: SymphonyTrackerIssue;
-    runId: string | null;
-    workspace: PreparedWorkspace | null;
-    workerHost: string | null;
-    reason: "startup_failure" | "issue_stopped";
-    startupFailure?: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
-  }): Promise<void> {
-    try {
-      const cleanup = await this.#workspaceBackend.cleanupWorkspace({
-        issueIdentifier: input.issue.identifier,
-        runId: input.runId,
-        workspace: input.workspace,
-        config: this.#workflowConfig.workspace,
-        hooks: this.#workflowConfig.hooks,
-        lifecycleRecorder: createWorkspaceLifecycleRecorder(
-          this.#observer,
-          input.issue,
-          input.runId
-        ),
-        ...createWorkspaceRunnerOptions(this.#runnerEnv, input.workerHost)
-      });
-
-      await this.#observer?.recordLifecycleEvent({
-        issue: input.issue,
-        runId: input.runId,
-        source: "workspace",
-        eventType: "workspace_cleanup_completed",
-        message:
-          input.reason === "startup_failure"
-            ? "Workspace cleanup completed after startup failure."
-            : "Workspace cleanup completed after the run stopped.",
-        payload: {
-          cleanup
-        }
-      });
-
-      await recordDockerContainerCleanupEvent({
-        observer: this.#observer,
-        issue: input.issue,
-        runId: input.runId,
-        cleanup
-      });
-    } catch (error) {
-      await this.#observer?.recordLifecycleEvent({
-        issue: input.issue,
-        runId: input.runId,
-        source: "workspace",
-        eventType: "workspace_cleanup_failed",
-        message:
-          input.reason === "startup_failure"
-            ? "Workspace cleanup failed after startup failure."
-            : "Workspace cleanup failed after the run stopped.",
-        payload: {
-          reason: error instanceof Error ? error.message : String(error),
-          workspace: buildWorkspaceLifecyclePayload(input.workspace),
-          startupFailure: input.startupFailure
-            ? {
-                failureStage: input.startupFailure.failureStage,
-                failureOrigin: input.startupFailure.failureOrigin
-              }
-            : null
-        }
-      });
-      throw error;
-    }
-  }
-
-  async #leaveFailureComment(
-    issue: SymphonyTrackerIssue,
-    reason: string,
-    outcome: string,
-    runId: string | null,
-    options: {
-      rateLimits?: SymphonyJsonObject | null;
-      startupFailureTransition?: SymphonyStartupFailureTransition;
-    } = {}
-  ): Promise<void> {
-    const comment = buildFailureCommentBody(issue, reason, outcome, options);
-
-    try {
-      await this.#tracker.createComment(issue.id, comment);
-      await this.#observer?.recordLifecycleEvent({
-        issue,
-        runId,
-        source: "tracker",
-        eventType: "tracker_comment_created",
-        message: "Failure comment posted to tracker.",
-        payload: {
-          outcome
-        }
-      });
-    } catch {
-      return;
-    }
-  }
-
-  async #reconcileStalledRunningIssues(): Promise<void> {
-    const timeoutMs = this.#workflowConfig.codex.stallTimeoutMs;
-    if (timeoutMs <= 0) {
-      return;
-    }
-
-    const runningIssueIds = Object.keys(this.#state.running);
-    if (runningIssueIds.length === 0) {
-      return;
-    }
-
-    for (const issueId of runningIssueIds) {
-      const runningEntry = this.#state.running[issueId];
-      if (!runningEntry) {
-        continue;
-      }
-
-      const elapsedMs = stallElapsedMs(runningEntry, this.#clock.now());
-      if (elapsedMs === null || elapsedMs <= timeoutMs) {
-        continue;
-      }
-
-      const reason = `stalled for ${elapsedMs}ms without codex activity`;
-
-      await this.#agentRuntime.stopRun({
-        issue: runningEntry.issue,
-        workspace: runningEntry.workspace,
-        cleanupWorkspace: false
-      });
-
-      await this.handleRunCompletion(issueId, {
-        kind: "stalled",
-        reason
-      });
-    }
   }
 }
