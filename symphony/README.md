@@ -41,6 +41,9 @@ For the repo-owned Elixir evaluation flow, start with [`elixir/README.md`](elixi
 For the TypeScript control-plane evaluation path and the explicit “not ready yet” cutover
 checklist, see `../docs/architecture/symphony-typescript-parity-readiness.md`.
 
+For the supported Docker-first local developer path, see
+`../docs/docker-workspace-local-development.md`.
+
 ### Requirements
 
 Symphony works best in codebases that have adopted

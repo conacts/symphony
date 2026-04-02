@@ -44,8 +44,8 @@ export function hostUserFlags(): string[] {
 
 export function isDockerMissingObject(stderr: string): boolean {
   return (
-    /No such (?:object|container|network|volume)/i.test(stderr) ||
-    /(?:object|container|network|volume) .* not found/i.test(stderr)
+    /No such (?:object|container|network|volume|image)/i.test(stderr) ||
+    /(?:object|container|network|volume|image) .* not found/i.test(stderr)
   );
 }
 
@@ -95,7 +95,7 @@ export async function defaultDockerWorkspaceCommandRunner(input: {
       reject(
         new SymphonyWorkspaceError(
           "workspace_docker_unavailable",
-          `Failed to start docker: ${error.message}`
+          `Failed to start docker. Install Docker and ensure the docker CLI is on PATH.\nOriginal error: ${error.message}`
         )
       );
     });

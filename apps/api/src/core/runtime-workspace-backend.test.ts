@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
+import { defaultSymphonyDockerWorkspaceImage } from "@symphony/core";
 import { normalizeSymphonyRuntimeManifest } from "@symphony/core/runtime-manifest";
 import { createRuntimeWorkspaceBackend } from "./runtime-workspace-backend.js";
 
@@ -45,7 +46,7 @@ describe("runtime workspace backend selection", () => {
     const selection = createRuntimeWorkspaceBackend({
       sourceRepo: "/tmp/source-repo",
       workspaceBackend: "docker",
-      dockerWorkspaceImage: "alpine:3.20",
+      dockerWorkspaceImage: "example.com/custom/symphony-runner:dev",
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: "/home/agent/workspace",
       dockerContainerNamePrefix: "symphony-test",
@@ -57,7 +58,19 @@ describe("runtime workspace backend selection", () => {
       executionTargetKind: "container",
       materializationKind: "bind_mount",
       selectionSource: "env",
-      image: "alpine:3.20",
+      image: "example.com/custom/symphony-runner:dev",
+      imageSelectionSource: "env",
+      buildCommand: "pnpm docker:workspace-image:build",
+      requiredTools: [
+        "bash",
+        "git",
+        "node",
+        "corepack",
+        "pnpm",
+        "python3",
+        "psql",
+        "rg"
+      ],
       workspacePath: "/home/agent/workspace",
       containerNamePrefix: "symphony-test",
       shell: "sh",
@@ -159,7 +172,7 @@ describe("runtime workspace backend selection", () => {
     const selection = createRuntimeWorkspaceBackend({
       sourceRepo: "/tmp/source-repo",
       workspaceBackend: "docker",
-      dockerWorkspaceImage: "alpine:3.20",
+      dockerWorkspaceImage: "example.com/custom/symphony-runner:dev",
       dockerMaterializationMode: "volume",
       dockerWorkspacePath: "/home/agent/workspace",
       dockerContainerNamePrefix: "symphony-test",
@@ -171,12 +184,60 @@ describe("runtime workspace backend selection", () => {
       executionTargetKind: "container",
       materializationKind: "volume",
       selectionSource: "env",
-      image: "alpine:3.20",
+      image: "example.com/custom/symphony-runner:dev",
+      imageSelectionSource: "env",
+      buildCommand: "pnpm docker:workspace-image:build",
+      requiredTools: [
+        "bash",
+        "git",
+        "node",
+        "corepack",
+        "pnpm",
+        "python3",
+        "psql",
+        "rg"
+      ],
       workspacePath: "/home/agent/workspace",
       containerNamePrefix: "symphony-test",
       shell: "sh",
       manifestPath: null
     });
     expect(selection.backend.prepareWorkspace).toBeTypeOf("function");
+  });
+
+  it("defaults Docker image selection to the supported local runner image", () => {
+    const selection = createRuntimeWorkspaceBackend({
+      sourceRepo: "/tmp/source-repo",
+      workspaceBackend: "docker",
+      dockerWorkspaceImage: null,
+      dockerMaterializationMode: "bind_mount",
+      dockerWorkspacePath: null,
+      dockerContainerNamePrefix: null,
+      dockerShell: null
+    });
+
+    expect(selection.metadata).toEqual({
+      backendKind: "docker",
+      executionTargetKind: "container",
+      materializationKind: "bind_mount",
+      selectionSource: "env",
+      image: defaultSymphonyDockerWorkspaceImage,
+      imageSelectionSource: "default",
+      buildCommand: "pnpm docker:workspace-image:build",
+      requiredTools: [
+        "bash",
+        "git",
+        "node",
+        "corepack",
+        "pnpm",
+        "python3",
+        "psql",
+        "rg"
+      ],
+      workspacePath: null,
+      containerNamePrefix: null,
+      shell: null,
+      manifestPath: null
+    });
   });
 });

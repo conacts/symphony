@@ -3,7 +3,13 @@ export {
   createDockerWorkspaceBackend,
   createGitHubReviewPublisher,
   createLocalWorkspaceBackend,
+  defaultSymphonyDockerWorkspaceImage,
+  defaultSymphonyDockerWorkspacePreflightTimeoutMs,
+  preflightSymphonyDockerWorkspaceImage,
+  resolveSymphonyDockerWorkspaceImage,
   summarizePreparedWorkspace,
+  symphonyDockerWorkspaceBuildCommand,
+  symphonyDockerWorkspaceRequiredTools,
   createSymphonyRuntime
 } from "./public/index.js";
 export type {
@@ -17,6 +23,8 @@ export type {
   WorkspaceBackendEventRecorder,
   DockerWorkspaceCommandResult,
   DockerWorkspaceCommandRunner,
+  SymphonyDockerWorkspaceImageSelectionSource,
+  SymphonyDockerWorkspacePreflightResult,
   PreparedWorkspace,
   PreparedWorkspaceService,
   PublishReviewInput,

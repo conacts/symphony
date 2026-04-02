@@ -48,6 +48,7 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "dev": "turbo run dev",
+    "docker:workspace-image:build": "./scripts/docker/build-workspace-runner.sh",
     "start": "pnpm build && pnpm -r --parallel --stream --filter @symphony/api --filter @symphony/web start",
     "lint": "turbo run lint",
     "test": "turbo run test",

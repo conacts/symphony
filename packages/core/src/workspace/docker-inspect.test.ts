@@ -15,6 +15,14 @@ describe("docker inspect helpers", () => {
     ).toBe(true);
   });
 
+  it("treats docker's image not found stderr variant as a missing object", () => {
+    expect(
+      isDockerMissingObject(
+        "Error response from daemon: No such image: symphony/workspace-runner:local"
+      )
+    ).toBe(true);
+  });
+
   it("returns null when network inspect reports docker's not found variant", async () => {
     const network = await inspectDockerNetwork(
       async () => ({

@@ -84,14 +84,6 @@ export function loadSymphonyRuntimeAppEnv(
   }
 
   const workspaceBackend = parsed.SYMPHONY_WORKSPACE_BACKEND ?? "local";
-  if (
-    workspaceBackend === "docker" &&
-    !parsed.SYMPHONY_DOCKER_WORKSPACE_IMAGE
-  ) {
-    throw new TypeError(
-      "Invalid Symphony runtime environment: SYMPHONY_DOCKER_WORKSPACE_IMAGE is required when SYMPHONY_WORKSPACE_BACKEND=docker."
-    );
-  }
 
   return {
     port: parsed.PORT,

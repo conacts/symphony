@@ -1,6 +1,10 @@
 import {
   createDockerWorkspaceBackend,
   createLocalWorkspaceBackend,
+  resolveSymphonyDockerWorkspaceImage,
+  symphonyDockerWorkspaceBuildCommand,
+  symphonyDockerWorkspaceRequiredTools,
+  type SymphonyDockerWorkspaceImageSelectionSource,
   type WorkspaceBackend
 } from "@symphony/core";
 import type { SymphonyLoadedRuntimeManifest } from "@symphony/core/runtime-manifest";
@@ -8,7 +12,7 @@ import type { SymphonyRuntimeAppEnv } from "./env.js";
 
 export type SymphonyRuntimeWorkspaceBackendSelection = {
   backend: WorkspaceBackend;
-      metadata:
+  metadata:
     | {
         backendKind: "local";
         executionTargetKind: "host_path";
@@ -23,6 +27,9 @@ export type SymphonyRuntimeWorkspaceBackendSelection = {
         materializationKind: "bind_mount" | "volume";
         selectionSource: "env";
         image: string;
+        imageSelectionSource: SymphonyDockerWorkspaceImageSelectionSource;
+        buildCommand: string;
+        requiredTools: readonly string[];
         workspacePath: string | null;
         containerNamePrefix: string | null;
         shell: string | null;
@@ -46,7 +53,9 @@ export function createRuntimeWorkspaceBackend(
   } = {}
 ): SymphonyRuntimeWorkspaceBackendSelection {
   if (env.workspaceBackend === "docker") {
-    const image = requireDockerWorkspaceImage(env.dockerWorkspaceImage);
+    const { image, imageSelectionSource } = resolveSymphonyDockerWorkspaceImage(
+      env.dockerWorkspaceImage
+    );
 
     return {
       backend: createDockerWorkspaceBackend({
@@ -63,6 +72,9 @@ export function createRuntimeWorkspaceBackend(
         materializationKind: env.dockerMaterializationMode,
         selectionSource: "env",
         image,
+        imageSelectionSource,
+        buildCommand: symphonyDockerWorkspaceBuildCommand,
+        requiredTools: symphonyDockerWorkspaceRequiredTools,
         workspacePath: env.dockerWorkspacePath,
         containerNamePrefix: env.dockerContainerNamePrefix,
         shell: env.dockerShell,
@@ -84,14 +96,4 @@ export function createRuntimeWorkspaceBackend(
       manifestPath: options.runtimeManifest?.manifestPath ?? null
     }
   };
-}
-
-function requireDockerWorkspaceImage(image: string | null): string {
-  if (typeof image === "string" && image.trim() !== "") {
-    return image.trim();
-  }
-
-  throw new TypeError(
-    "Docker workspace execution requires SYMPHONY_DOCKER_WORKSPACE_IMAGE."
-  );
 }

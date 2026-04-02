@@ -4,7 +4,10 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
-import { createDockerWorkspaceBackend } from "@symphony/core";
+import {
+  createDockerWorkspaceBackend,
+  defaultSymphonyDockerWorkspaceImage
+} from "@symphony/core";
 import {
   createSqliteSymphonyRunJournal,
   initializeSymphonyDb
@@ -67,7 +70,9 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
           }
         });
         const backend = createDockerWorkspaceBackend({
-          image: process.env.SYMPHONY_DOCKER_WORKSPACE_IMAGE ?? "alpine:3.20",
+          image:
+            process.env.SYMPHONY_DOCKER_WORKSPACE_IMAGE ??
+            defaultSymphonyDockerWorkspaceImage,
           shell: "sh",
           commandTimeoutMs: 30_000
         });
@@ -200,7 +205,9 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
           }
         });
         const backend = createDockerWorkspaceBackend({
-          image: process.env.SYMPHONY_DOCKER_WORKSPACE_IMAGE ?? "alpine:3.20",
+          image:
+            process.env.SYMPHONY_DOCKER_WORKSPACE_IMAGE ??
+            defaultSymphonyDockerWorkspaceImage,
           shell: "sh",
           commandTimeoutMs: 30_000
         });

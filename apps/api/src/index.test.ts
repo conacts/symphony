@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defaultSymphonyDockerWorkspaceImage } from "@symphony/core";
 import {
   buildSymphonyRuntimeEnvironmentSource,
   loadSymphonyRuntimeAppEnv
@@ -69,20 +70,21 @@ describe("@symphony/api scaffold", () => {
     expect(env.allowedOrigins).toEqual([]);
   });
 
-  it("requires an explicit Docker image when Docker workspace execution is selected", () => {
-    expect(() =>
-      loadSymphonyRuntimeAppEnv(
-        buildSymphonyRuntimeEnv({
-          SYMPHONY_WORKSPACE_BACKEND: "docker",
-          SYMPHONY_DOCKER_WORKSPACE_IMAGE: undefined
-        })
-      )
-    ).toThrowError(/SYMPHONY_DOCKER_WORKSPACE_IMAGE/i);
+  it("allows Docker workspace execution to fall back to the supported local image", () => {
+    const fallback = loadSymphonyRuntimeAppEnv(
+      buildSymphonyRuntimeEnv({
+        SYMPHONY_WORKSPACE_BACKEND: "docker",
+        SYMPHONY_DOCKER_WORKSPACE_IMAGE: undefined
+      })
+    );
+
+    expect(fallback.workspaceBackend).toBe("docker");
+    expect(fallback.dockerWorkspaceImage).toBeNull();
 
     const env = loadSymphonyRuntimeAppEnv(
       buildSymphonyRuntimeEnv({
         SYMPHONY_WORKSPACE_BACKEND: "docker",
-        SYMPHONY_DOCKER_WORKSPACE_IMAGE: "alpine:3.20",
+        SYMPHONY_DOCKER_WORKSPACE_IMAGE: defaultSymphonyDockerWorkspaceImage,
         SYMPHONY_DOCKER_MATERIALIZATION_MODE: "volume",
         SYMPHONY_DOCKER_WORKSPACE_PATH: "/home/agent/workspace",
         SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX: "symphony-test",
@@ -91,7 +93,7 @@ describe("@symphony/api scaffold", () => {
     );
 
     expect(env.workspaceBackend).toBe("docker");
-    expect(env.dockerWorkspaceImage).toBe("alpine:3.20");
+    expect(env.dockerWorkspaceImage).toBe(defaultSymphonyDockerWorkspaceImage);
     expect(env.dockerMaterializationMode).toBe("volume");
     expect(env.dockerWorkspacePath).toBe("/home/agent/workspace");
     expect(env.dockerContainerNamePrefix).toBe("symphony-test");

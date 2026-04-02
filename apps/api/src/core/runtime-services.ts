@@ -1,7 +1,10 @@
 import {
   createCodexAgentRuntime,
   createSymphonyRuntime,
+  defaultSymphonyDockerWorkspacePreflightTimeoutMs,
   loadSymphonyWorkflow,
+  preflightSymphonyDockerWorkspaceImage,
+  type SymphonyDockerWorkspacePreflightResult,
   type SymphonyLoadedWorkflow,
   type SymphonyResolvedWorkflowConfig,
   type SymphonyRuntime as CoreSymphonyRuntime
@@ -10,6 +13,7 @@ import { createSymphonyForensicsReadModel } from "@symphony/core/forensics";
 import type { SymphonyForensicsReadModel } from "@symphony/core/forensics";
 import { SymphonyGithubReviewProcessor } from "@symphony/core/github";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
+import type { SymphonyJsonValue } from "@symphony/core/journal";
 import {
   createLinearSymphonyTracker,
   createMemorySymphonyTracker,
@@ -332,20 +336,59 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const workspaceBackendSelection = createRuntimeWorkspaceBackend(env, {
     runtimeManifest: validatedRuntimeManifest?.runtimeManifest ?? null
   });
+  const workspaceBackendPayload = {
+    workspaceRoot: workflow.config.workspace.root,
+    ...workspaceBackendSelection.metadata
+  };
+  let dockerPreflight: SymphonyDockerWorkspacePreflightResult | null = null;
+  if (workspaceBackendSelection.metadata.backendKind === "docker") {
+    try {
+      dockerPreflight = await preflightDockerWorkspaceBackendSelection({
+        image: workspaceBackendSelection.metadata.image,
+        shell: workspaceBackendSelection.metadata.shell
+      });
+    } catch (error) {
+      logger.error("Docker workspace backend preflight failed", {
+        workspaceRoot: workflow.config.workspace.root,
+        ...workspaceBackendSelection.metadata,
+        error
+      });
+      await runtimeLogStore.record({
+        level: "error",
+        source: "runtime",
+        eventType: "workspace_backend_preflight_failed",
+        message: "Docker workspace backend preflight failed.",
+        payload: normalizeJsonValue({
+          ...workspaceBackendPayload,
+          error:
+            error instanceof Error
+              ? {
+                  name: error.name,
+                  message: error.message
+                }
+              : {
+                  message: String(error)
+                }
+        })
+      });
+      throw error;
+    }
+  }
   const workspaceBackend = workspaceBackendSelection.backend;
   logger.info("Initialized workspace backend", {
     workspaceRoot: workflow.config.workspace.root,
-    ...workspaceBackendSelection.metadata
+    ...workspaceBackendSelection.metadata,
+    dockerPreflight
   });
   await runtimeLogStore.record({
     level: "info",
     source: "runtime",
     eventType: "workspace_backend_selected",
     message: "Selected the runtime workspace backend.",
-    payload: {
-      workspaceRoot: workflow.config.workspace.root,
-      ...workspaceBackendSelection.metadata
-    }
+    payload: normalizeJsonValue({
+      ...workspaceBackendPayload,
+      dockerPreflight
+    })
   });
 
   const realtime = createSymphonyRealtimeHub(
@@ -563,6 +606,43 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       database.close();
     }
   };
+}
+
+async function preflightDockerWorkspaceBackendSelection(input: {
+  image: string;
+  shell: string | null;
+}) {
+  return await preflightSymphonyDockerWorkspaceImage({
+    image: input.image,
+    shell: input.shell,
+    timeoutMs: defaultSymphonyDockerWorkspacePreflightTimeoutMs
+  });
+}
+
+function normalizeJsonValue(value: unknown): SymphonyJsonValue {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeJsonValue(entry));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
+        key,
+        normalizeJsonValue(nestedValue)
+      ])
+    ) as SymphonyJsonValue;
+  }
+
+  return String(value);
 }
 
 async function fetchGitHubPullRequest(

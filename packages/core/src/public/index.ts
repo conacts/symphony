@@ -3,7 +3,13 @@ export { createGitHubReviewPublisher } from "../review/review-publisher.js";
 export {
   createDockerWorkspaceBackend,
   createLocalWorkspaceBackend,
+  defaultSymphonyDockerWorkspaceImage,
+  defaultSymphonyDockerWorkspacePreflightTimeoutMs,
+  preflightSymphonyDockerWorkspaceImage,
+  resolveSymphonyDockerWorkspaceImage,
   summarizePreparedWorkspace,
+  symphonyDockerWorkspaceBuildCommand,
+  symphonyDockerWorkspaceRequiredTools,
   workspaceHostPath,
   workspaceRuntimePath
 } from "../workspace/workspace-backend.js";
@@ -33,6 +39,8 @@ export type {
   WorkspaceBackendEventRecorder,
   DockerWorkspaceCommandResult,
   DockerWorkspaceCommandRunner,
+  SymphonyDockerWorkspaceImageSelectionSource,
+  SymphonyDockerWorkspacePreflightResult,
   PreparedWorkspace,
   WorkspaceBackend,
   WorkspaceBackendKind,

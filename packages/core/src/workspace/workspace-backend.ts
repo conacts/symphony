@@ -4,6 +4,16 @@ export {
   type DockerWorkspaceCommandResult,
   type DockerWorkspaceCommandRunner
 } from "./docker-workspace-backend.js";
+export {
+  defaultSymphonyDockerWorkspaceImage,
+  defaultSymphonyDockerWorkspacePreflightTimeoutMs,
+  preflightSymphonyDockerWorkspaceImage,
+  resolveSymphonyDockerWorkspaceImage,
+  symphonyDockerWorkspaceBuildCommand,
+  symphonyDockerWorkspaceRequiredTools,
+  type SymphonyDockerWorkspaceImageSelectionSource,
+  type SymphonyDockerWorkspacePreflightResult
+} from "./docker-runner-image.js";
 export { createLocalWorkspaceBackend } from "./local-workspace-backend.js";
 export {
   summarizePreparedWorkspace,

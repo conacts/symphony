@@ -34,6 +34,36 @@ This stage now covers:
 - clean up Docker and host-side resources deterministically
 - surface high-signal lifecycle events and API-ready read-model data for operators
 
+## Supported Generic Runner Image
+
+This stage now freezes one supported generic runner image for local Docker-backed development:
+
+- tag: `symphony/workspace-runner:local`
+- build command: `pnpm docker:workspace-image:build`
+- Dockerfile: `docker/workspace-runner/Dockerfile`
+- base image: `node:24-bookworm-slim`
+
+The generic runner image is intentionally limited to cross-repo execution essentials:
+
+- `bash`
+- `git`
+- `node`
+- `corepack`
+- `pnpm`
+- `python3`
+- `psql`
+- `rg`
+- transport support such as `curl`, `openssh-client`, and CA certificates
+
+This split stays intentional:
+
+- image = generic execution environment
+- manifest lifecycle = repo-specific bootstrap/migrate/seed/verify/cleanup
+- sidecars = services such as Postgres
+
+Repo-specific dependency setup, repo-specific env material, and repo-specific service state do not
+belong in the generic image.
+
 ## Factory Shape
 
 ```ts
@@ -283,9 +313,20 @@ For this stage, `apps/api` keeps backend/runtime selection explicit:
   Uses `createLocalWorkspaceBackend()` and the existing host-path runtime behavior.
 - `SYMPHONY_WORKSPACE_BACKEND=docker`
   Uses `createDockerWorkspaceBackend()` plus the execution-target-aware Codex runtime path.
-  `SYMPHONY_DOCKER_WORKSPACE_IMAGE` is required.
+  `SYMPHONY_DOCKER_WORKSPACE_IMAGE` overrides the supported local default image
+  `symphony/workspace-runner:local`.
 - `SYMPHONY_DOCKER_MATERIALIZATION_MODE=bind_mount|volume`
   Keeps `bind_mount` as the default and enables container-owned workspaces when set to `volume`.
+
+When Docker backend execution is selected, `apps/api` now preflights the selected image before the
+first workspace prepare:
+
+- verifies Docker CLI/daemon reachability
+- verifies the selected image exists locally
+- verifies the image provides the required Symphony runner tools
+- verifies the configured shell exists inside the image
+
+Default-image failures point directly at `pnpm docker:workspace-image:build`.
 
 The Codex runtime consumes only `PreparedWorkspace` and resolves one launch target:
 
@@ -438,7 +479,7 @@ pnpm --filter @symphony/api test:docker-live
 Optional environment overrides:
 
 ```sh
-SYMPHONY_DOCKER_WORKSPACE_IMAGE=alpine:3.20 pnpm --filter @symphony/api test:docker-live
+SYMPHONY_DOCKER_WORKSPACE_IMAGE=symphony/workspace-runner:local pnpm --filter @symphony/api test:docker-live
 ```
 
 The live verification test:
