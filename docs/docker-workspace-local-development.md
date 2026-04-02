@@ -1,101 +1,79 @@
 # Docker Workspace Local Development
 
-This is the supported local Docker-first path for Symphony right now.
+This is the supported local path for Symphony. There is no supported local/worktree backend.
+
+## Requirements
+
+- Docker daemon available locally
+- `codex` installed and authenticated
+- GitHub CLI auth when the agent needs `gh`
+- `LINEAR_API_KEY`
+- `GITHUB_TOKEN`
+- `SYMPHONY_SOURCE_REPO=/absolute/path/to/admitted-repo`
+
+The admitted source repository must contain:
+
+- `.symphony/runtime.ts`
+- `.symphony/prompt.md`
 
 ## Supported Runner Image
 
-Symphony now targets one generic workspace runner image first:
+The default runner image is:
 
 - image tag: `symphony/workspace-runner:local`
 - Dockerfile: `docker/workspace-runner/Dockerfile`
 - base image: `node:24-bookworm-slim`
 
-The image guarantees these cross-repo tools:
-
-- `bash`
-- `codex`
-- `git`
-- `node`
-- `corepack`
-- `pnpm`
-- `python3`
-- `psql`
-- `rg`
-
-It also includes the usual transport tooling needed for repo access and downloads:
-
-- `curl`
-- `openssh-client`
-- `ca-certificates`
-
-## Layering
-
-Keep the split strict:
-
-- image: generic execution environment and cross-repo CLI/tooling only
-- manifest lifecycle: repo-specific install, migrate, seed, verify, and cleanup steps
-- sidecars: runtime services such as Postgres
-
-What stays out of the image:
-
-- repo-specific dependency bootstrap
-- repo-specific env files
-- repo-specific databases or service containers
-- repo-specific hook logic
-
-## Bootstrap
-
-Build or refresh the supported image with:
+Build or refresh it with:
 
 ```bash
 pnpm docker:workspace-image:build
 ```
 
-That command builds `symphony/workspace-runner:local` by default. If you need a different local
-tag, export `SYMPHONY_DOCKER_WORKSPACE_IMAGE` before running the build.
+You only need `SYMPHONY_DOCKER_WORKSPACE_IMAGE` when overriding the default image.
 
-Run Symphony against Docker workspaces with:
+## Start The Runtime
 
 ```bash
-export SYMPHONY_WORKSPACE_BACKEND=docker
-export SYMPHONY_SOURCE_REPO=/absolute/path/to/source-repo
+export SYMPHONY_SOURCE_REPO=/absolute/path/to/admitted-repo
 export LINEAR_API_KEY=...
+export GITHUB_TOKEN=...
 pnpm --filter @symphony/api dev
 ```
 
-You do not need to set `SYMPHONY_DOCKER_WORKSPACE_IMAGE` for the supported local path. Symphony
-defaults to `symphony/workspace-runner:local` when Docker backend execution is selected.
+Optional runtime overrides:
 
-Optional overrides:
-
+- `PORT`
 - `SYMPHONY_DOCKER_WORKSPACE_IMAGE`
 - `SYMPHONY_DOCKER_MATERIALIZATION_MODE=bind_mount|volume`
 - `SYMPHONY_DOCKER_WORKSPACE_PATH`
 - `SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX`
 - `SYMPHONY_DOCKER_SHELL`
 
-## Preflight Behavior
+## Contract Expectations
 
-When `SYMPHONY_WORKSPACE_BACKEND=docker`, Symphony now fails before workspace prepare if:
+Symphony reads the repo contract from the admitted repository, not from this platform repo.
 
-- Docker is not installed or the daemon is not reachable
-- the selected image is not available locally
-- the selected image is missing the required Symphony runner tools
-- the configured shell does not exist inside the image
+- `.symphony/runtime.ts` declares env, services, and lifecycle steps
+- `.symphony/prompt.md` is a static prompt template rendered in memory
+- lifecycle commands consume injected process env only
+- required secret-bearing values are not written into repo files by default
 
-For the default local image, missing-image errors point directly at:
+## Preflight And Failure
 
-```bash
-pnpm docker:workspace-image:build
-```
+Symphony fails before dispatch when:
 
-## Intentionally Deferred
+- Docker is unavailable
+- the workspace image is missing
+- the configured shell does not exist in the image
+- required auth or env is missing
+- the repo contract is missing or invalid
+- prompt rendering cannot complete
 
-Still deferred in this pass:
+Platform-owned failures move the issue to `Failed` with a structured Linear comment. Repo-owned
+lifecycle failures move the issue to `Blocked`.
 
-- Docker as the default backend
-- repo-specific workspace images
-- moving repo lifecycle into the image
-- sidecars inside the main workspace image
-- service types beyond the current manifest contract
-- broader auth and subscription redesign
+## Scope
+
+This document covers the core runtime path only. The dashboard is optional and not part of the
+critical path for orchestration hardening.

@@ -34,8 +34,7 @@ The dashboard currently covers:
 - runtime summary
 - issue, run, and problem-run forensics
 - refresh now
-- parity-safe requeue affordances that point back to GitHub `/rework` and Linear
+- requeue affordances that point back to GitHub `/rework` and Linear
 
-The dashboard is evaluation-ready for the current TypeScript control-plane surface, but the actual
-cutover decision still depends on runtime-critical parity tracked in
-`docs/architecture/symphony-typescript-parity-readiness.md`.
+The dashboard is downstream of the core orchestration work. It is useful for observability, but it
+is not part of the critical path for the repo-contract and Docker-runtime replacement cut.
