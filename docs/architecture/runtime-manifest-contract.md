@@ -219,9 +219,9 @@ Loader rules for `.symphony/runtime.ts`:
 2. Support TypeScript source directly. The target repo does not need to be built first.
 3. Bundle only that manifest entry and its relative file graph with `esbuild`.
 4. Resolve `@symphony/core/runtime-manifest` through one explicit alias to a local authoring shim
-   that re-exports `defineSymphonyRuntime(...)`.
+   that re-exports `defineSymphonyRuntime(...)`, in both source and built-package mode.
 5. Leave other bare package imports external; they must resolve normally in the runtime
-   environment.
+   environment through the target repo's installed `node_modules`.
 6. Do not read or honor arbitrary target-repo `tsconfig` path aliases.
 7. Do not provide a general-purpose module runner. This is a bounded manifest loader.
 

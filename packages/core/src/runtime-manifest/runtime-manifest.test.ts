@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
@@ -12,6 +13,7 @@ import {
 } from "../runtime-manifest.js";
 
 const tempDirectories: string[] = [];
+const require = createRequire(import.meta.url);
 
 afterEach(async () => {
   await Promise.all(
@@ -153,6 +155,63 @@ export default defineSymphonyRuntime({
       }
     ]);
     expect(loaded.manifest.lifecycle.cleanup).toEqual([]);
+  });
+
+  it("loads bare package imports from the target repo runtime environment", async () => {
+    const repoRoot = await createTempRepo();
+    const nodeModulesDirectory = path.join(repoRoot, "node_modules");
+    const yamlPackageRoot = path.dirname(require.resolve("yaml/package.json"));
+
+    await mkdir(nodeModulesDirectory, {
+      recursive: true
+    });
+    await symlink(yamlPackageRoot, path.join(nodeModulesDirectory, "yaml"), "junction");
+    await writeRuntimeManifestSource(
+      repoRoot,
+      `import { defineSymphonyRuntime } from "@symphony/core/runtime-manifest";
+import YAML from "yaml";
+
+const serialized = YAML.stringify({ ok: true }).trim();
+
+export default defineSymphonyRuntime({
+  schemaVersion: 1,
+  workspace: {
+    packageManager: "pnpm"
+  },
+  env: {
+    host: {
+      required: [],
+      optional: []
+    },
+    inject: {
+      EXAMPLE: {
+        kind: "static",
+        value: serialized
+      }
+    }
+  },
+  lifecycle: {
+    bootstrap: [],
+    migrate: [],
+    verify: [
+      {
+        name: "smoke",
+        run: "echo ok"
+      }
+    ]
+  }
+});
+`
+    );
+
+    const loaded = await loadSymphonyRuntimeManifest({
+      repoRoot
+    });
+
+    expect(loaded.manifest.env.inject.EXAMPLE).toEqual({
+      kind: "static",
+      value: "ok: true"
+    });
   });
 
   it("fails fast when the repo-local manifest is missing", async () => {

@@ -1,4 +1,4 @@
-import { access, mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, rm, symlink } from "node:fs/promises";
 import { build, type PluginBuild } from "esbuild";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -46,6 +46,7 @@ export async function loadSymphonyRuntimeManifest(
   }
 
   try {
+    await prepareRuntimeManifestLoaderDirectory(loaderDirectory, repoRoot);
     await createRuntimeManifestBundle(manifestPath, bundlePath);
     const moduleNamespace = (await import(
       `${pathToFileURL(bundlePath).href}?ts=${Date.now()}`
@@ -100,6 +101,8 @@ async function createRuntimeManifestBundle(
   manifestPath: string,
   bundlePath: string
 ): Promise<void> {
+  const authoringShimPath = await resolveAuthoringShimPath();
+
   await build({
     entryPoints: [manifestPath],
     outfile: bundlePath,
@@ -119,15 +122,55 @@ async function createRuntimeManifestBundle(
               filter: /^@symphony\/core\/runtime-manifest$/
             },
             () => ({
-              path: fileURLToPath(
-                new URL("./authoring-shim.ts", import.meta.url)
-              )
+              path: authoringShimPath
             })
           );
         }
       }
     ]
   });
+}
+
+async function prepareRuntimeManifestLoaderDirectory(
+  loaderDirectory: string,
+  repoRoot: string
+): Promise<void> {
+  const repoNodeModules = path.join(repoRoot, "node_modules");
+
+  try {
+    await access(repoNodeModules);
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return;
+    }
+
+    throw error;
+  }
+
+  await symlink(
+    repoNodeModules,
+    path.join(loaderDirectory, "node_modules"),
+    "junction"
+  );
+}
+
+async function resolveAuthoringShimPath(): Promise<string> {
+  for (const relativePath of ["./authoring-shim.js", "./authoring-shim.ts"]) {
+    const candidatePath = fileURLToPath(new URL(relativePath, import.meta.url));
+
+    try {
+      await access(candidatePath);
+      return candidatePath;
+    } catch (error) {
+      if (isMissingFileError(error)) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error("Could not resolve the Symphony runtime manifest authoring shim.");
 }
 
 function isMissingFileError(
