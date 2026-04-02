@@ -1,84 +1,60 @@
-import path from "node:path";
 import {
   defaultSymphonyRuntimePostgresPort,
   defaultSymphonyRuntimeWorkingDirectory,
   type SymphonyNormalizedRuntimeManifest,
   type SymphonyNormalizedRuntimeService,
-  type SymphonyRuntimeBindingValue,
   type SymphonyRuntimeEnv,
   type SymphonyRuntimeEnvBinding,
   type SymphonyRuntimeManifest,
   type SymphonyRuntimeManifestValidationOptions,
   type SymphonyRuntimePostgresService,
-  type SymphonyRuntimeServiceBindingValue,
   type SymphonyRuntimeStep,
-  type SymphonyRuntimeWorkspacePackageManager
 } from "./runtime-manifest-contract.js";
 import {
   createManifestValidationError,
   SymphonyRuntimeManifestError,
   type SymphonyRuntimeManifestIssue
 } from "./runtime-manifest-errors.js";
+import {
+  collectDuplicates,
+  formatManifestPath,
+  hasIssuesSince,
+  pushIssue,
+  rejectUnknownKeys,
+  startIssueCheckpoint
+} from "./runtime-manifest-validation-issues.js";
+import {
+  parseEnvironmentVariableArray,
+  readOptionalHostname,
+  readOptionalNonNegativeInteger,
+  readOptionalPort,
+  readOptionalPositiveInteger,
+  readOptionalRelativePath,
+  readRequiredEnum,
+  readRequiredString,
+  readStrictRecord
+} from "./runtime-manifest-validation-readers.js";
+import {
+  envHostKeys,
+  envKeys,
+  environmentVariablePattern,
+  lifecycleKeys,
+  manifestTopLevelKeys,
+  postgresReadinessKeys,
+  postgresResourceKeys,
+  postgresServiceKeys,
+  runtimeBindingValues,
+  serviceBindingKeys,
+  serviceBindingValues,
+  serviceKeyPattern,
+  staticBindingKeys,
+  stepKeys,
+  symphonyRuntimeManifestBrand,
+  type ManifestPath,
+  workspaceKeys,
+  workspacePackageManagers
+} from "./runtime-manifest-validation-shared.js";
 import { isRecord } from "../internal/records.js";
-
-const symphonyRuntimeManifestBrand = Symbol.for(
-  "@symphony/core/runtime-manifest/defined"
-);
-const manifestTopLevelKeys = new Set([
-  "schemaVersion",
-  "workspace",
-  "services",
-  "env",
-  "lifecycle"
-]);
-const workspaceKeys = new Set(["packageManager", "workingDirectory"]);
-const lifecycleKeys = new Set(["bootstrap", "migrate", "verify", "seed", "cleanup"]);
-const stepKeys = new Set(["name", "run", "cwd", "timeoutMs"]);
-const envKeys = new Set(["host", "inject"]);
-const envHostKeys = new Set(["required", "optional"]);
-const staticBindingKeys = new Set(["kind", "value"]);
-const serviceBindingKeys = new Set(["kind", "service", "value"]);
-const postgresServiceKeys = new Set([
-  "type",
-  "image",
-  "hostname",
-  "port",
-  "database",
-  "username",
-  "password",
-  "resources",
-  "readiness",
-  "init"
-]);
-const postgresResourceKeys = new Set(["memoryMb", "cpuShares"]);
-const postgresReadinessKeys = new Set(["timeoutMs", "intervalMs", "retries"]);
-const serviceKeyPattern = /^[a-z][a-z0-9-]*$/u;
-const environmentVariablePattern = /^[A-Z][A-Z0-9_]*$/u;
-const workspacePackageManagers = new Set<SymphonyRuntimeWorkspacePackageManager>([
-  "pnpm",
-  "npm",
-  "yarn",
-  "bun"
-]);
-const serviceBindingValues = new Set<SymphonyRuntimeServiceBindingValue>([
-  "connectionString",
-  "host",
-  "port",
-  "database",
-  "username",
-  "password"
-]);
-const runtimeBindingValues = new Set<SymphonyRuntimeBindingValue>([
-  "issueId",
-  "issueIdentifier",
-  "runId",
-  "workspaceKey",
-  "workspacePath",
-  "backendKind"
-]);
-
-type ManifestPathSegment = string | number;
-type ManifestPath = ManifestPathSegment[];
 type BrandedSymphonyRuntimeManifest = SymphonyNormalizedRuntimeManifest & {
   readonly [symphonyRuntimeManifestBrand]: true;
 };
@@ -970,283 +946,6 @@ function validateUniqueServiceHostnames(
   }
 }
 
-function readStrictRecord(
-  value: unknown,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[],
-  label: string
-): Record<string, unknown> | undefined {
-  if (!isRecord(value)) {
-    pushIssue(issues, pathSegments, `${label} must be an object.`);
-    return undefined;
-  }
-
-  return value;
-}
-
-function readRequiredString(
-  record: Record<string, unknown>,
-  key: string,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[],
-  label: string
-): string | undefined {
-  if (!(key in record) || record[key] === undefined) {
-    pushIssue(issues, pathSegments, `${label} must be a non-empty string.`);
-    return undefined;
-  }
-
-  return normalizeNonEmptyString(record[key], pathSegments, issues, label);
-}
-
-function readOptionalString(
-  record: Record<string, unknown>,
-  key: string,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[],
-  label: string
-): string | undefined {
-  if (!(key in record) || record[key] === undefined) {
-    return undefined;
-  }
-
-  return normalizeNonEmptyString(record[key], pathSegments, issues, label);
-}
-
-function normalizeNonEmptyString(
-  value: unknown,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[],
-  label: string
-): string | undefined {
-  if (typeof value !== "string") {
-    pushIssue(issues, pathSegments, `${label} must be a non-empty string.`);
-    return undefined;
-  }
-
-  const normalized = value.trim();
-  if (normalized === "") {
-    pushIssue(issues, pathSegments, `${label} must be a non-empty string.`);
-    return undefined;
-  }
-
-  return normalized;
-}
-
-function readOptionalRelativePath(
-  record: Record<string, unknown>,
-  key: string,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[],
-  label: string
-): string | undefined {
-  const value = readOptionalString(record, key, pathSegments, issues, label);
-
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (path.posix.isAbsolute(value)) {
-    pushIssue(issues, pathSegments, `${label} must be a workspace-relative path.`);
-    return undefined;
-  }
-
-  const normalized = path.posix.normalize(value);
-  if (normalized === ".." || normalized.startsWith("../")) {
-    pushIssue(
-      issues,
-      pathSegments,
-      `${label} must stay within the workspace root.`
-    );
-    return undefined;
-  }
-
-  return normalized;
-}
-
-function readOptionalHostname(
-  record: Record<string, unknown>,
-  key: string,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[],
-  label: string
-): string | undefined {
-  const value = readOptionalString(record, key, pathSegments, issues, label);
-
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (!serviceKeyPattern.test(value)) {
-    pushIssue(issues, pathSegments, `${label} must match ^[a-z][a-z0-9-]*$.`);
-    return undefined;
-  }
-
-  return value;
-}
-
-function readRequiredEnum<T extends string>(
-  record: Record<string, unknown>,
-  key: string,
-  allowedValues: Set<T>,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[],
-  label: string
-): T | undefined {
-  if (!(key in record) || record[key] === undefined) {
-    pushIssue(issues, pathSegments, `${label} is required.`);
-    return undefined;
-  }
-
-  const value = record[key];
-  if (typeof value !== "string" || !allowedValues.has(value as T)) {
-    pushIssue(
-      issues,
-      pathSegments,
-      `${label} must be one of ${renderAllowedValues(allowedValues)}.`
-    );
-    return undefined;
-  }
-
-  return value as T;
-}
-
-function readOptionalPort(
-  record: Record<string, unknown>,
-  key: string,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[],
-  label: string
-): number | undefined {
-  if (!(key in record) || record[key] === undefined) {
-    return undefined;
-  }
-
-  const value = record[key];
-  if (
-    typeof value !== "number" ||
-    !Number.isInteger(value) ||
-    value < 1 ||
-    value > 65_535
-  ) {
-    pushIssue(
-      issues,
-      pathSegments,
-      `${label} must be an integer between 1 and 65535.`
-    );
-    return undefined;
-  }
-
-  return value;
-}
-
-function readOptionalPositiveInteger(
-  record: Record<string, unknown>,
-  key: string,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[],
-  label: string
-): number | undefined {
-  return readOptionalInteger(record, key, pathSegments, issues, {
-    message: `${label} must be a positive integer.`,
-    minimum: 1
-  });
-}
-
-function readOptionalNonNegativeInteger(
-  record: Record<string, unknown>,
-  key: string,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[],
-  label: string
-): number | undefined {
-  return readOptionalInteger(record, key, pathSegments, issues, {
-    message: `${label} must be a non-negative integer.`,
-    minimum: 0
-  });
-}
-
-function readOptionalInteger(
-  record: Record<string, unknown>,
-  key: string,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[],
-  options: {
-    message: string;
-    minimum: number;
-  }
-): number | undefined {
-  if (!(key in record) || record[key] === undefined) {
-    return undefined;
-  }
-
-  const value = record[key];
-  if (typeof value !== "number" || !Number.isInteger(value) || value < options.minimum) {
-    pushIssue(issues, pathSegments, options.message);
-    return undefined;
-  }
-
-  return value;
-}
-
-function parseEnvironmentVariableArray(
-  value: unknown,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[],
-  label: string
-): string[] | undefined {
-  if (value === undefined) {
-    pushIssue(issues, pathSegments, `${label} must be an array.`);
-    return undefined;
-  }
-
-  if (!Array.isArray(value)) {
-    pushIssue(issues, pathSegments, `${label} must be an array.`);
-    return undefined;
-  }
-
-  const checkpoint = startIssueCheckpoint(issues);
-  const normalizedValues: string[] = [];
-
-  for (const [index, entry] of value.entries()) {
-    if (typeof entry !== "string") {
-      pushIssue(
-        issues,
-        [...pathSegments, index],
-        `${label}[${index}] must be a non-empty environment variable name.`
-      );
-      continue;
-    }
-
-    const normalized = entry.trim();
-    if (normalized === "" || !environmentVariablePattern.test(normalized)) {
-      pushIssue(
-        issues,
-        [...pathSegments, index],
-        `${label}[${index}] must match ^[A-Z][A-Z0-9_]*$.`
-      );
-      continue;
-    }
-
-    normalizedValues.push(normalized);
-  }
-
-  return hasIssuesSince(issues, checkpoint) ? undefined : normalizedValues;
-}
-
-function rejectUnknownKeys(
-  record: Record<string, unknown>,
-  allowedKeys: Set<string>,
-  pathSegments: ManifestPath,
-  issues: SymphonyRuntimeManifestIssue[]
-): void {
-  for (const key of Object.keys(record)) {
-    if (!allowedKeys.has(key)) {
-      pushIssue(issues, [...pathSegments, key], "Unknown key.");
-    }
-  }
-}
-
 function toNonEmptyStepArray(
   steps: SymphonyRuntimeStep[]
 ): [SymphonyRuntimeStep, ...SymphonyRuntimeStep[]] {
@@ -1304,52 +1003,4 @@ function isFreezable(value: unknown): value is Record<PropertyKey, unknown> {
     (typeof value === "object" && value !== null) ||
     typeof value === "function"
   );
-}
-
-function collectDuplicates(values: string[]): string[] {
-  const seen = new Set<string>();
-  const duplicates = new Set<string>();
-
-  for (const value of values) {
-    if (seen.has(value)) {
-      duplicates.add(value);
-      continue;
-    }
-
-    seen.add(value);
-  }
-
-  return [...duplicates];
-}
-
-function renderAllowedValues(values: Iterable<string>): string {
-  return [...values].map((value) => JSON.stringify(value)).join(", ");
-}
-
-function formatManifestPath(pathSegments: ManifestPath): string {
-  return pathSegments.length === 0 ? "<root>" : pathSegments.join(".");
-}
-
-function pushIssue(
-  issues: SymphonyRuntimeManifestIssue[],
-  pathSegments: ManifestPath,
-  message: string
-): void {
-  issues.push({
-    path: formatManifestPath(pathSegments),
-    message
-  });
-}
-
-function startIssueCheckpoint(
-  issues: SymphonyRuntimeManifestIssue[]
-): number {
-  return issues.length;
-}
-
-function hasIssuesSince(
-  issues: SymphonyRuntimeManifestIssue[],
-  checkpoint: number
-): boolean {
-  return issues.length > checkpoint;
 }
