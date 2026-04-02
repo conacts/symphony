@@ -65,7 +65,6 @@
     "WORKFLOW_PATH"
   ],
   "globalDependencies": [
-    "WORKFLOW.md",
     "packages/typescript-configs/tsconfig.base.json",
     "packages/eslint-configs/eslint.config.ts",
     "packages/eslint-configs/src/**"
