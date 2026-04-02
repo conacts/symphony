@@ -42,9 +42,11 @@ export async function createDefaultSymphonyRuntimeApp(
   ),
   hostCommandEnvSource: Record<string, string | undefined> = buildSymphonyHostCommandEnvironmentSource()
 ) {
-  const services = await loadDefaultSymphonyRuntimeAppServices(env, environmentSource, {
+  const services = await loadDefaultSymphonyRuntimeAppServices(
+    env,
+    environmentSource,
     hostCommandEnvSource
-  });
+  );
   return createSymphonyRuntimeApp(services, {
     allowedOrigins: env.allowedOrigins
   });
@@ -57,9 +59,11 @@ export async function createDefaultSymphonyRuntimeApplication(
   ),
   hostCommandEnvSource: Record<string, string | undefined> = buildSymphonyHostCommandEnvironmentSource()
 ) {
-  const services = await loadDefaultSymphonyRuntimeAppServices(env, environmentSource, {
+  const services = await loadDefaultSymphonyRuntimeAppServices(
+    env,
+    environmentSource,
     hostCommandEnvSource
-  });
+  );
   return createSymphonyRuntimeApplication(services, {
     allowedOrigins: env.allowedOrigins
   });

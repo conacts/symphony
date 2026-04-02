@@ -48,7 +48,7 @@ export function resolvePreparedWorkspaceEnvBundle(input: {
   });
 }
 
-export function buildAmbientWorkspaceEnvBundle(
+function buildAmbientWorkspaceEnvBundle(
   environmentSource: Record<string, string | undefined> | undefined
 ): WorkspaceEnvBundle {
   const values = Object.fromEntries(
@@ -77,17 +77,16 @@ export function buildAmbientWorkspaceEnvBundle(
 }
 
 export function workspaceEnvForHooks(
-  workspace: PreparedWorkspace,
-  fallbackEnv: Record<string, string | undefined> | undefined
-): Record<string, string | undefined> {
-  return workspace.envBundle.values ?? fallbackEnv;
+  workspace: PreparedWorkspace
+): Record<string, string> {
+  return workspace.envBundle.values;
 }
 
 export function workspaceEnvForCleanup(
   workspace: PreparedWorkspace | null | undefined,
   fallbackEnv: Record<string, string | undefined> | undefined
 ): Record<string, string | undefined> | undefined {
-  return workspace?.envBundle.values ?? fallbackEnv;
+  return workspace ? workspace.envBundle.values : fallbackEnv;
 }
 
 function manifestInjectsProvisionedServiceBindings(

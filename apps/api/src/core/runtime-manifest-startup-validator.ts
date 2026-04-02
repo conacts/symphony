@@ -28,9 +28,7 @@ export type SymphonyValidatedSourceRepoRuntimeManifest = {
 export async function validateSourceRepoRuntimeManifest(
   sourceRepo: string,
   environmentSource: SymphonyRuntimeEnvironmentSource,
-  options: {
-    resolveRepoEnv?: boolean;
-  } = {}
+  resolveRepoEnv = false
 ): Promise<SymphonyValidatedSourceRepoRuntimeManifest> {
   const runtimeManifest = await loadSymphonyRuntimeManifest({
     repoRoot: sourceRepo
@@ -40,7 +38,7 @@ export async function validateSourceRepoRuntimeManifest(
     environmentSource,
     manifestPath: runtimeManifest.manifestPath
   });
-  const resolvedRepoEnv = options.resolveRepoEnv
+  const resolvedRepoEnv = resolveRepoEnv
     ? resolveSymphonyRuntimeRepoEnv({
         manifest: runtimeManifest.manifest,
         repoRoot: sourceRepo,

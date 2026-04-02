@@ -9,6 +9,30 @@ import {
 } from "@symphony/logger";
 
 export const DEFAULT_SYMPHONY_RUNTIME_PORT = 4_400;
+const hostCommandEnvironmentKeys = new Set([
+  "PATH",
+  "HOME",
+  "USER",
+  "SHELL",
+  "TMPDIR",
+  "TMP",
+  "TEMP",
+  "TERM",
+  "LANG",
+  "LC_ALL",
+  "LC_CTYPE",
+  "CI",
+  "DOCKER_HOST",
+  "DOCKER_CONTEXT",
+  "DOCKER_CONFIG",
+  "XDG_CONFIG_HOME",
+  "SSH_AUTH_SOCK",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "NO_PROXY",
+  "CODEX_HOME",
+  "OPENAI_API_KEY"
+]);
 
 export type EnvironmentSource = Record<string, string | undefined>;
 
@@ -108,14 +132,8 @@ export function buildSymphonyRuntimeEnvironmentSource(
   env: SymphonyRuntimeAppEnv,
   source: EnvironmentSource = process.env
 ): EnvironmentSource {
-  const selected = Object.fromEntries(
-    Object.entries(source).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string"
-    )
-  );
-
   return {
-    ...selected,
+    ...selectStringEnvironmentSource(source),
     LINEAR_API_KEY: env.linearApiKey,
     SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined
   };
@@ -124,37 +142,7 @@ export function buildSymphonyRuntimeEnvironmentSource(
 export function buildSymphonyHostCommandEnvironmentSource(
   source: EnvironmentSource = process.env
 ): EnvironmentSource {
-  const allowedKeys = new Set([
-    "PATH",
-    "HOME",
-    "USER",
-    "SHELL",
-    "TMPDIR",
-    "TMP",
-    "TEMP",
-    "TERM",
-    "LANG",
-    "LC_ALL",
-    "LC_CTYPE",
-    "CI",
-    "DOCKER_HOST",
-    "DOCKER_CONTEXT",
-    "DOCKER_CONFIG",
-    "XDG_CONFIG_HOME",
-    "SSH_AUTH_SOCK",
-    "HTTP_PROXY",
-    "HTTPS_PROXY",
-    "NO_PROXY",
-    "CODEX_HOME",
-    "OPENAI_API_KEY"
-  ]);
-
-  return Object.fromEntries(
-    Object.entries(source).filter(
-      (entry): entry is [string, string] =>
-        typeof entry[1] === "string" && allowedKeys.has(entry[0])
-    )
-  );
+  return selectStringEnvironmentSource(source, hostCommandEnvironmentKeys);
 }
 
 function parseAllowedOrigins(value: string | undefined): string[] {
@@ -166,4 +154,17 @@ function parseAllowedOrigins(value: string | undefined): string[] {
     .split(",")
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
+}
+
+function selectStringEnvironmentSource(
+  source: EnvironmentSource,
+  allowedKeys?: ReadonlySet<string>
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(source).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === "string" &&
+        (allowedKeys === undefined || allowedKeys.has(entry[0]))
+    )
+  );
 }

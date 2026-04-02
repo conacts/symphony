@@ -26,9 +26,7 @@ async function main() {
   const services = await loadDefaultSymphonyRuntimeAppServices(
     env,
     environmentSource,
-    {
-      hostCommandEnvSource
-    }
+    hostCommandEnvSource
   );
   services.logger.info("Starting Symphony runtime server", {
     port: env.port,

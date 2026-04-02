@@ -148,9 +148,11 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
     };
     const hostCommandEnvSource = input.hostCommandEnvSource ?? {};
 
-    services = await loadDefaultSymphonyRuntimeAppServices(env, environmentSource, {
+    services = await loadDefaultSymphonyRuntimeAppServices(
+      env,
+      environmentSource,
       hostCommandEnvSource
-    });
+    );
 
     let cleaned = false;
 

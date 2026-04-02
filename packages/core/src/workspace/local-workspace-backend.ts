@@ -89,7 +89,7 @@ export function createLocalWorkspaceBackend(
         input.context,
         input.hooks,
         {
-          env: workspaceEnvForHooks(input.workspace, input.env),
+          env: workspaceEnvForHooks(input.workspace),
           workerHost: input.workerHost
         }
       );
@@ -108,7 +108,7 @@ export function createLocalWorkspaceBackend(
           input.context,
           input.hooks,
           {
-            env: workspaceEnvForHooks(input.workspace, input.env),
+            env: workspaceEnvForHooks(input.workspace),
             workerHost: input.workerHost
           }
         )

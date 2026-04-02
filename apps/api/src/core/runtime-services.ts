@@ -239,11 +239,8 @@ function createRuntimeOrchestratorPort(input: {
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
   environmentSource: Record<string, string | undefined>,
-  options: {
-    hostCommandEnvSource: Record<string, string | undefined>;
-  }
+  hostCommandEnvSource: Record<string, string | undefined>
 ): Promise<SymphonyRuntimeAppServices> {
-  const { hostCommandEnvSource } = options;
   const logger = createSymphonyLogger({
     name: "@symphony/api",
     level: env.logLevel
@@ -266,9 +263,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
 
   const validatedRuntimeManifest = env.sourceRepo
-    ? await validateSourceRepoRuntimeManifest(env.sourceRepo, environmentSource, {
-        resolveRepoEnv: env.workspaceBackend === "docker"
-      })
+    ? await validateSourceRepoRuntimeManifest(
+        env.sourceRepo,
+        environmentSource,
+        env.workspaceBackend === "docker"
+      )
     : null;
 
   if (validatedRuntimeManifest) {
