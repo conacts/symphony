@@ -175,6 +175,7 @@ describe("runtime realtime diff", () => {
                 serviceBindingKeys: []
               }
             },
+            manifestLifecycle: null,
             path: workspacePath,
             created: false,
             workerHost: "docker-host"

@@ -49,6 +49,32 @@ describe("symphony runtime contracts", () => {
                 runtimeBindingKeys: [],
                 serviceBindingKeys: []
               },
+              manifestLifecycle: {
+                phases: [
+                  {
+                    phase: "verify",
+                    status: "completed",
+                    trigger: "readiness_lifetime",
+                    startedAt: "2026-03-31T00:00:00.000Z",
+                    endedAt: "2026-03-31T00:00:01.000Z",
+                    skipReason: null,
+                    failureReason: null,
+                    steps: [
+                      {
+                        phase: "verify",
+                        name: "verify",
+                        command: "pnpm test:smoke",
+                        cwd: "/tmp/COL-157",
+                        timeoutMs: 1_000,
+                        status: "completed",
+                        startedAt: "2026-03-31T00:00:00.000Z",
+                        endedAt: "2026-03-31T00:00:01.000Z",
+                        failureReason: null
+                      }
+                    ]
+                  }
+                ]
+              },
               path: "/tmp/COL-157",
               executionTarget: {
                 kind: "host_path",
@@ -141,6 +167,32 @@ describe("symphony runtime contracts", () => {
             runtimeBindingKeys: [],
             serviceBindingKeys: []
           },
+          manifestLifecycle: {
+            phases: [
+              {
+                phase: "verify",
+                status: "completed",
+                trigger: "readiness_lifetime",
+                startedAt: "2026-03-31T00:00:00.000Z",
+                endedAt: "2026-03-31T00:00:01.000Z",
+                skipReason: null,
+                failureReason: null,
+                steps: [
+                  {
+                    phase: "verify",
+                    name: "verify",
+                    command: "pnpm test:smoke",
+                    cwd: "/tmp/COL-157",
+                    timeoutMs: 1_000,
+                    status: "completed",
+                    startedAt: "2026-03-31T00:00:00.000Z",
+                    endedAt: "2026-03-31T00:00:01.000Z",
+                    failureReason: null
+                  }
+                ]
+              }
+            ]
+          },
           path: "/tmp/COL-157",
           executionTarget: {
             kind: "host_path",
@@ -230,6 +282,7 @@ describe("symphony runtime contracts", () => {
           networkName: null,
           services: [],
           envBundleSummary: null,
+          manifestLifecycle: null,
           path: null,
           executionTarget: null,
           materialization: null

@@ -423,6 +423,7 @@ function buildLocalRuntimeWorkspace(
     networkName: null,
     services: [],
     envBundleSummary: buildAmbientEnvBundleSummary(),
+    manifestLifecycle: null,
     path,
     executionTarget: {
       kind: "host_path",
@@ -457,6 +458,7 @@ function buildDockerRuntimeWorkspace(input: {
     networkName: `symphony-network-${input.containerName}`,
     services: [],
     envBundleSummary: buildAmbientEnvBundleSummary(),
+    manifestLifecycle: null,
     path: null,
     executionTarget: {
       kind: "container",

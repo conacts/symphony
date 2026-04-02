@@ -199,6 +199,7 @@ function serializeRuntimeWorkspace(
       networkName: null,
       services: [],
       envBundleSummary: null,
+      manifestLifecycle: null,
       path: compatibilityPath,
       executionTarget: null,
       materialization: null
@@ -222,6 +223,7 @@ function serializeRuntimeWorkspace(
     networkName: summary?.networkName ?? null,
     services: summary?.services ?? [],
     envBundleSummary: summary?.envBundleSummary ?? null,
+    manifestLifecycle: summary?.manifestLifecycle ?? null,
     path: workspace.path ?? compatibilityPath,
     executionTarget:
       workspace.executionTarget.kind === "host_path"

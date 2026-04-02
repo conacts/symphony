@@ -555,6 +555,7 @@ describe("local workspace backend", () => {
       networkRemovalDisposition: "not_applicable",
       serviceCleanup: [],
       beforeRemoveHookOutcome: "completed",
+      manifestLifecycleCleanup: null,
       workspaceRemovalDisposition: "missing",
       containerRemovalDisposition: "not_applicable"
     });

@@ -49,6 +49,7 @@ function buildAgentRunInput(): AgentRunInput {
           serviceBindingKeys: []
         }
       },
+      manifestLifecycle: null,
       path: "/tmp/symphony-runtime",
       created: false,
       workerHost: null

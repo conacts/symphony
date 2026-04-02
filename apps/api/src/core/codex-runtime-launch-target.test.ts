@@ -23,6 +23,7 @@ describe("codex runtime launch target", () => {
         networkName: null,
         services: [],
         envBundle: ambientEnvBundle(),
+        manifestLifecycle: null,
         path: "/tmp/symphony-COL-123",
         created: false,
         workerHost: null
@@ -61,6 +62,7 @@ describe("codex runtime launch target", () => {
           networkName: "symphony-network-col-123",
           services: [],
           envBundle: ambientEnvBundle(),
+          manifestLifecycle: null,
           path: null,
           created: false,
           workerHost: "docker-host"
@@ -103,6 +105,7 @@ describe("codex runtime launch target", () => {
         networkName: "symphony-network-col-123",
         services: [],
         envBundle: ambientEnvBundle(),
+        manifestLifecycle: null,
         path: null,
         created: false,
         workerHost: "docker-host"
@@ -136,6 +139,7 @@ describe("codex runtime launch target", () => {
         networkName: "symphony-network-col-123",
         services: [],
         envBundle: ambientEnvBundle(),
+        manifestLifecycle: null,
         path: null,
         created: false,
         workerHost: "docker-host"
@@ -169,6 +173,7 @@ describe("codex runtime launch target", () => {
         networkName: "symphony-network-col-123",
         services: [],
         envBundle: ambientEnvBundle(),
+        manifestLifecycle: null,
         path: null,
         created: false,
         workerHost: "docker-host"
@@ -202,6 +207,7 @@ describe("codex runtime launch target", () => {
         networkName: "symphony-network-col-123",
         services: [],
         envBundle: ambientEnvBundle(),
+        manifestLifecycle: null,
         path: null,
         created: false,
         workerHost: "docker-host"

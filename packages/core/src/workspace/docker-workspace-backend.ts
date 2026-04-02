@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
-import { mkdir, realpath, rm, stat } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   buildSymphonyRuntimePostgresConnectionString,
@@ -19,9 +19,16 @@ import type {
   PreparedWorkspace,
   PreparedWorkspaceService,
   WorkspaceBackend,
+  WorkspaceBackendEventRecorder,
   WorkspaceCleanupResult,
   WorkspaceCleanupInput,
   WorkspaceCleanupService,
+  WorkspaceManifestLifecyclePhase,
+  WorkspaceManifestLifecyclePhaseRecord,
+  WorkspaceManifestLifecyclePhaseSkipReason,
+  WorkspaceManifestLifecyclePhaseTrigger,
+  WorkspaceManifestLifecycleStepRecord,
+  WorkspaceManifestLifecycleSummary,
   WorkspacePrepareInput
 } from "./workspace-backend.js";
 
@@ -50,6 +57,8 @@ const defaultPostgresCpuShares = 512;
 const defaultPostgresReadinessTimeoutMs = 15_000;
 const defaultPostgresReadinessIntervalMs = 500;
 const defaultPostgresReadinessRetries = 20;
+const dockerManifestLifecycleStateDirectoryName = ".symphony-runtime";
+const dockerManifestLifecycleStateSuffix = ".docker-manifest-lifecycle.json";
 
 export type DockerWorkspaceCommandResult = {
   exitCode: number;
@@ -125,6 +134,44 @@ type DockerPostgresProvision = {
   initRequired: boolean;
 };
 
+type DockerManifestLifecyclePhaseRecord =
+  WorkspaceManifestLifecyclePhaseRecord;
+
+type DockerManifestLifecycleStepRecord =
+  WorkspaceManifestLifecycleStepRecord;
+
+type DockerManifestLifecycleSummary = WorkspaceManifestLifecycleSummary;
+
+type DockerManifestLifecycleState = {
+  schemaVersion: 1;
+  workspaceLifetimeId: string;
+  completedMarkers: Partial<Record<WorkspaceManifestLifecyclePhase, string>>;
+};
+
+type DockerManifestLifecyclePhasePlan = {
+  phase: WorkspaceManifestLifecyclePhase;
+  steps: SymphonyLoadedRuntimeManifest["manifest"]["lifecycle"][WorkspaceManifestLifecyclePhase];
+  trigger: WorkspaceManifestLifecyclePhaseTrigger;
+  marker: string | null;
+  skipReason: WorkspaceManifestLifecyclePhaseSkipReason | null;
+};
+
+type DockerPrepareManifestLifecycleInput = {
+  runtimeManifest: SymphonyLoadedRuntimeManifest;
+  descriptor: DockerWorkspaceDescriptor;
+  containerName: string;
+  containerId: string;
+  created: boolean;
+  workspacePath: string;
+  shell: string;
+  env: Record<string, string>;
+  services: PreparedWorkspaceService[];
+  statePath: string;
+  commandRunner: DockerWorkspaceCommandRunner;
+  defaultTimeoutMs: number;
+  lifecycleRecorder?: WorkspaceBackendEventRecorder;
+};
+
 export function createDockerWorkspaceBackend(
   options: DockerWorkspaceBackendOptions
 ): WorkspaceBackend {
@@ -152,6 +199,12 @@ export function createDockerWorkspaceBackend(
         input.config,
         containerNamePrefix
       );
+      const manifestLifecycleStatePath = runtimeManifest
+        ? buildDockerManifestLifecycleStatePath(
+            input.config.root,
+            descriptor.workspaceKey
+          )
+        : null;
       const timeoutMs = resolveDockerTimeoutMs(
         configuredCommandTimeoutMs,
         input.hooks.timeoutMs
@@ -207,22 +260,6 @@ export function createDockerWorkspaceBackend(
 
       let afterCreateHookOutcome: "skipped" | "completed" = "skipped";
 
-      const workspace = buildPreparedWorkspace({
-        descriptor,
-        containerId: container.container.id,
-        workerHost: input.workerHost ?? null,
-        workspacePath,
-        shell,
-        created,
-        containerDisposition: container.disposition,
-        networkDisposition: network?.disposition ?? "not_applicable",
-        networkName: network?.network.name ?? null,
-        services: services.summaries,
-        envBundle,
-        afterCreateHookOutcome:
-          created && input.hooks.afterCreate ? "completed" : "skipped"
-      });
-
       if (created && input.hooks.afterCreate) {
         await runWorkspaceHookInContainer({
           commandRunner,
@@ -237,6 +274,42 @@ export function createDockerWorkspaceBackend(
         });
         afterCreateHookOutcome = "completed";
       }
+
+      const manifestLifecycle =
+        runtimeManifest && manifestLifecycleStatePath
+          ? await runDockerPrepareManifestLifecycle({
+              runtimeManifest,
+              descriptor,
+              containerName: descriptor.containerName,
+              containerId: container.container.id,
+              created,
+              workspacePath,
+              shell,
+              env: envBundle.values,
+              services: services.summaries,
+              statePath: manifestLifecycleStatePath,
+              commandRunner,
+              defaultTimeoutMs: timeoutMs,
+              lifecycleRecorder: input.lifecycleRecorder
+            })
+          : null;
+
+      const workspace = buildPreparedWorkspace({
+        descriptor,
+        containerId: container.container.id,
+        workerHost: input.workerHost ?? null,
+        workspacePath,
+        shell,
+        created,
+        containerDisposition: container.disposition,
+        networkDisposition: network?.disposition ?? "not_applicable",
+        networkName: network?.network.name ?? null,
+        services: services.summaries,
+        envBundle,
+        manifestLifecycle,
+        afterCreateHookOutcome:
+          created && input.hooks.afterCreate ? "completed" : "skipped"
+      });
 
       return {
         ...workspace,
@@ -309,6 +382,12 @@ export function createDockerWorkspaceBackend(
         input,
         containerNamePrefix
       );
+      const manifestLifecycleStatePath = runtimeManifest
+        ? buildDockerManifestLifecycleStatePath(
+            input.config.root,
+            descriptor.workspaceKey
+          )
+        : null;
       const timeoutMs = resolveDockerTimeoutMs(
         configuredCommandTimeoutMs,
         input.hooks.timeoutMs
@@ -320,6 +399,8 @@ export function createDockerWorkspaceBackend(
       );
       let beforeRemoveHookOutcome: WorkspaceCleanupResult["beforeRemoveHookOutcome"] =
         "skipped";
+      let manifestLifecycleCleanup: WorkspaceCleanupResult["manifestLifecycleCleanup"] =
+        null;
       let containerRemovalDisposition: WorkspaceCleanupResult["containerRemovalDisposition"] =
         "missing";
       let containerId: string | null = null;
@@ -360,6 +441,33 @@ export function createDockerWorkspaceBackend(
           }
         }
 
+        if (runtimeManifest) {
+          manifestLifecycleCleanup = await runDockerCleanupManifestLifecycle({
+            runtimeManifest,
+            descriptor,
+            containerName: descriptor.containerName,
+            containerId: container.id,
+            workspacePath: cleanupWorkspacePath,
+            shell,
+            running: container.running,
+            env:
+              input.workspace?.envBundle.values ??
+              resolveDockerWorkspaceEnvBundle({
+                runtimeManifest,
+                environmentSource: input.env,
+                issueIdentifier: descriptor.issueIdentifier,
+                workspaceKey: descriptor.workspaceKey,
+                workspacePath: cleanupWorkspacePath,
+                runId: input.runId ?? null,
+                issueId: null,
+                services: buildResolvedCleanupServices(serviceDescriptors)
+              }).values,
+            commandRunner,
+            defaultTimeoutMs: timeoutMs,
+            lifecycleRecorder: input.lifecycleRecorder
+          });
+        }
+
         containerRemovalDisposition = await removeDockerContainer(
           commandRunner,
           descriptor.containerName,
@@ -368,6 +476,39 @@ export function createDockerWorkspaceBackend(
         );
       } else if (input.hooks.beforeRemove) {
         beforeRemoveHookOutcome = "skipped";
+      }
+
+      if (runtimeManifest && !container) {
+        manifestLifecycleCleanup = await runDockerCleanupManifestLifecycle({
+          runtimeManifest,
+          descriptor,
+          containerName: descriptor.containerName,
+          containerId: null,
+          workspacePath:
+            input.workspace?.executionTarget.kind === "container"
+              ? input.workspace.executionTarget.workspacePath
+              : workspacePath,
+          shell,
+          running: false,
+          env:
+            input.workspace?.envBundle.values ??
+            resolveDockerWorkspaceEnvBundle({
+              runtimeManifest,
+              environmentSource: input.env,
+              issueIdentifier: descriptor.issueIdentifier,
+              workspaceKey: descriptor.workspaceKey,
+              workspacePath:
+                input.workspace?.executionTarget.kind === "container"
+                  ? input.workspace.executionTarget.workspacePath
+                  : workspacePath,
+              runId: input.runId ?? null,
+              issueId: null,
+              services: buildResolvedCleanupServices(serviceDescriptors)
+            }).values,
+          commandRunner,
+          defaultTimeoutMs: timeoutMs,
+          lifecycleRecorder: input.lifecycleRecorder
+        });
       }
 
       const serviceCleanup = await removeManagedServiceContainers(
@@ -386,6 +527,9 @@ export function createDockerWorkspaceBackend(
       const workspaceRemovalDisposition = await removeMaterializedWorkspace(
         descriptor.hostPath
       );
+      if (manifestLifecycleStatePath) {
+        await removeDockerManifestLifecycleState(manifestLifecycleStatePath);
+      }
 
       return {
         backendKind: "docker",
@@ -401,6 +545,7 @@ export function createDockerWorkspaceBackend(
         networkRemovalDisposition,
         serviceCleanup,
         beforeRemoveHookOutcome,
+        manifestLifecycleCleanup,
         workspaceRemovalDisposition,
         containerRemovalDisposition
       };
@@ -478,6 +623,7 @@ function buildPreparedWorkspace(input: {
   networkName: string | null;
   services: PreparedWorkspaceService[];
   envBundle: PreparedWorkspace["envBundle"];
+  manifestLifecycle: PreparedWorkspace["manifestLifecycle"];
   afterCreateHookOutcome: "skipped" | "completed";
 }): PreparedWorkspace {
   return {
@@ -504,6 +650,7 @@ function buildPreparedWorkspace(input: {
     networkName: input.networkName,
     services: input.services,
     envBundle: input.envBundle,
+    manifestLifecycle: input.manifestLifecycle,
     path: null,
     created: input.created,
     workerHost: input.workerHost
@@ -562,6 +709,642 @@ function buildAmbientDockerWorkspaceEnvBundle(
       serviceBindingKeys: []
     }
   };
+}
+
+class DockerWorkspaceManifestLifecycleError extends SymphonyWorkspaceError {
+  readonly manifestLifecycle: DockerManifestLifecycleSummary;
+  readonly manifestLifecyclePhase: WorkspaceManifestLifecyclePhase;
+  readonly manifestLifecycleStepName: string | null;
+
+  constructor(input: {
+    phase: WorkspaceManifestLifecyclePhase;
+    stepName: string | null;
+    message: string;
+    manifestLifecycle: DockerManifestLifecycleSummary;
+  }) {
+    super("workspace_manifest_lifecycle_failed", input.message);
+    this.manifestLifecycle = input.manifestLifecycle;
+    this.manifestLifecyclePhase = input.phase;
+    this.manifestLifecycleStepName = input.stepName;
+  }
+}
+
+async function runDockerPrepareManifestLifecycle(
+  input: DockerPrepareManifestLifecycleInput
+): Promise<DockerManifestLifecycleSummary> {
+  const lifecycleState = await loadDockerManifestLifecycleState(
+    input.statePath,
+    input.created
+  );
+  const phasePlans = buildDockerPrepareManifestLifecyclePhasePlans({
+    runtimeManifest: input.runtimeManifest,
+    lifecycleState,
+    services: input.services,
+    containerId: input.containerId
+  });
+  const phases: DockerManifestLifecyclePhaseRecord[] = [];
+
+  for (const plan of phasePlans) {
+    const record = await executeDockerManifestLifecyclePhase({
+      phase: plan.phase,
+      steps: plan.steps,
+      trigger: plan.trigger,
+      marker: plan.marker,
+      skipReason: plan.skipReason,
+      runtimeManifest: input.runtimeManifest,
+      workspacePath: input.workspacePath,
+      shell: input.shell,
+      containerName: input.containerName,
+      env: input.env,
+      commandRunner: input.commandRunner,
+      defaultTimeoutMs: input.defaultTimeoutMs,
+      lifecycleRecorder: input.lifecycleRecorder
+    });
+    phases.push(record);
+
+    if (record.status === "completed" && plan.marker) {
+      lifecycleState.completedMarkers[plan.phase] = plan.marker;
+      await persistDockerManifestLifecycleState(input.statePath, lifecycleState);
+      continue;
+    }
+
+    if (record.status === "failed") {
+      throw new DockerWorkspaceManifestLifecycleError({
+        phase: record.phase,
+        stepName: record.steps.at(-1)?.name ?? null,
+        message: record.failureReason ?? `Manifest lifecycle phase ${record.phase} failed.`,
+        manifestLifecycle: {
+          phases
+        }
+      });
+    }
+  }
+
+  return {
+    phases
+  };
+}
+
+async function runDockerCleanupManifestLifecycle(input: {
+  runtimeManifest: SymphonyLoadedRuntimeManifest;
+  descriptor: DockerWorkspaceDescriptor;
+  containerName: string;
+  containerId: string | null;
+  workspacePath: string;
+  shell: string;
+  running: boolean;
+  env: Record<string, string>;
+  commandRunner: DockerWorkspaceCommandRunner;
+  defaultTimeoutMs: number;
+  lifecycleRecorder?: WorkspaceBackendEventRecorder;
+}): Promise<DockerManifestLifecyclePhaseRecord> {
+  return await executeDockerManifestLifecyclePhase({
+    phase: "cleanup",
+    steps: input.runtimeManifest.manifest.lifecycle.cleanup,
+    trigger: "teardown",
+    marker: null,
+    skipReason: input.running ? null : "container_not_running",
+    runtimeManifest: input.runtimeManifest,
+    workspacePath: input.workspacePath,
+    shell: input.shell,
+    containerName: input.containerName,
+    env: input.env,
+    commandRunner: input.commandRunner,
+    defaultTimeoutMs: input.defaultTimeoutMs,
+    lifecycleRecorder: input.lifecycleRecorder
+  });
+}
+
+function buildDockerPrepareManifestLifecyclePhasePlans(input: {
+  runtimeManifest: SymphonyLoadedRuntimeManifest;
+  lifecycleState: DockerManifestLifecycleState;
+  services: PreparedWorkspaceService[];
+  containerId: string;
+}): DockerManifestLifecyclePhasePlan[] {
+  const workspaceMarker = input.lifecycleState.workspaceLifetimeId;
+  const serviceMarker = buildDockerManifestServiceLifetimeMarker(
+    input.services,
+    workspaceMarker
+  );
+  const readinessMarker = buildDockerManifestReadinessLifetimeMarker({
+    workspaceLifetimeId: workspaceMarker,
+    serviceMarker,
+    containerId: input.containerId
+  });
+
+  return [
+    buildDockerManifestLifecyclePhasePlan({
+      phase: "bootstrap",
+      steps: input.runtimeManifest.manifest.lifecycle.bootstrap,
+      trigger: "workspace_lifetime",
+      marker: workspaceMarker,
+      lifecycleState: input.lifecycleState
+    }),
+    buildDockerManifestLifecyclePhasePlan({
+      phase: "migrate",
+      steps: input.runtimeManifest.manifest.lifecycle.migrate,
+      trigger: input.services.length > 0 ? "service_lifetime" : "workspace_lifetime",
+      marker: serviceMarker,
+      lifecycleState: input.lifecycleState
+    }),
+    buildDockerManifestLifecyclePhasePlan({
+      phase: "seed",
+      steps: input.runtimeManifest.manifest.lifecycle.seed,
+      trigger: input.services.length > 0 ? "service_lifetime" : "workspace_lifetime",
+      marker: serviceMarker,
+      lifecycleState: input.lifecycleState
+    }),
+    buildDockerManifestLifecyclePhasePlan({
+      phase: "verify",
+      steps: input.runtimeManifest.manifest.lifecycle.verify,
+      trigger: "readiness_lifetime",
+      marker: readinessMarker,
+      lifecycleState: input.lifecycleState
+    })
+  ];
+}
+
+function buildDockerManifestLifecyclePhasePlan(input: {
+  phase: WorkspaceManifestLifecyclePhase;
+  steps: SymphonyLoadedRuntimeManifest["manifest"]["lifecycle"][WorkspaceManifestLifecyclePhase];
+  trigger: WorkspaceManifestLifecyclePhaseTrigger;
+  marker: string;
+  lifecycleState: DockerManifestLifecycleState;
+}): DockerManifestLifecyclePhasePlan {
+  if (input.steps.length === 0) {
+    return {
+      phase: input.phase,
+      steps: input.steps,
+      trigger: input.trigger,
+      marker: input.marker,
+      skipReason: "no_steps"
+    };
+  }
+
+  return {
+    phase: input.phase,
+    steps: input.steps,
+    trigger: input.trigger,
+    marker: input.marker,
+    skipReason:
+      input.lifecycleState.completedMarkers[input.phase] === input.marker
+        ? "already_completed_for_current_lifetime"
+        : null
+  };
+}
+
+async function executeDockerManifestLifecyclePhase(input: {
+  phase: WorkspaceManifestLifecyclePhase;
+  steps: SymphonyLoadedRuntimeManifest["manifest"]["lifecycle"][WorkspaceManifestLifecyclePhase];
+  trigger: WorkspaceManifestLifecyclePhaseTrigger;
+  marker: string | null;
+  skipReason: WorkspaceManifestLifecyclePhaseSkipReason | null;
+  runtimeManifest: SymphonyLoadedRuntimeManifest;
+  workspacePath: string;
+  shell: string;
+  containerName: string;
+  env: Record<string, string>;
+  commandRunner: DockerWorkspaceCommandRunner;
+  defaultTimeoutMs: number;
+  lifecycleRecorder?: WorkspaceBackendEventRecorder;
+}): Promise<DockerManifestLifecyclePhaseRecord> {
+  const skippedAt = new Date().toISOString();
+
+  if (input.skipReason) {
+    const record: DockerManifestLifecyclePhaseRecord = {
+      phase: input.phase,
+      status: "skipped",
+      trigger: input.trigger,
+      startedAt: null,
+      endedAt: skippedAt,
+      skipReason: input.skipReason,
+      failureReason: null,
+      steps: []
+    };
+    await emitDockerManifestLifecyclePhaseEvent(
+      input.lifecycleRecorder,
+      "workspace_manifest_phase_skipped",
+      phaseSkippedMessage(record),
+      {
+        manifestLifecycle: record
+      },
+      skippedAt
+    );
+    return record;
+  }
+
+  const startedAt = new Date().toISOString();
+  await emitDockerManifestLifecyclePhaseEvent(
+    input.lifecycleRecorder,
+    "workspace_manifest_phase_started",
+    `Manifest lifecycle phase ${input.phase} started.`,
+    {
+      manifestLifecycle: {
+        phase: input.phase,
+        trigger: input.trigger,
+        stepCount: input.steps.length
+      }
+    },
+    startedAt
+  );
+
+  const steps: DockerManifestLifecycleStepRecord[] = [];
+
+  for (const step of input.steps) {
+    const stepRecord = await executeDockerManifestLifecycleStep({
+      phase: input.phase,
+      step,
+      runtimeManifest: input.runtimeManifest,
+      workspacePath: input.workspacePath,
+      shell: input.shell,
+      containerName: input.containerName,
+      env: input.env,
+      commandRunner: input.commandRunner,
+      defaultTimeoutMs: input.defaultTimeoutMs,
+      lifecycleRecorder: input.lifecycleRecorder
+    });
+    steps.push(stepRecord);
+
+    if (stepRecord.status === "failed") {
+      const phaseRecord: DockerManifestLifecyclePhaseRecord = {
+        phase: input.phase,
+        status: "failed",
+        trigger: input.trigger,
+        startedAt,
+        endedAt: stepRecord.endedAt,
+        skipReason: null,
+        failureReason: stepRecord.failureReason,
+        steps
+      };
+      await emitDockerManifestLifecyclePhaseEvent(
+        input.lifecycleRecorder,
+        "workspace_manifest_phase_failed",
+        `Manifest lifecycle phase ${input.phase} failed.`,
+        {
+          manifestLifecycle: phaseRecord
+        },
+        stepRecord.endedAt
+      );
+      return phaseRecord;
+    }
+  }
+
+  const completedAt = new Date().toISOString();
+  const completedRecord: DockerManifestLifecyclePhaseRecord = {
+    phase: input.phase,
+    status: "completed",
+    trigger: input.trigger,
+    startedAt,
+    endedAt: completedAt,
+    skipReason: null,
+    failureReason: null,
+    steps
+  };
+  await emitDockerManifestLifecyclePhaseEvent(
+    input.lifecycleRecorder,
+    "workspace_manifest_phase_completed",
+    `Manifest lifecycle phase ${input.phase} completed.`,
+    {
+      manifestLifecycle: completedRecord
+    },
+    completedAt
+  );
+
+  return completedRecord;
+}
+
+async function executeDockerManifestLifecycleStep(input: {
+  phase: WorkspaceManifestLifecyclePhase;
+  step: SymphonyLoadedRuntimeManifest["manifest"]["lifecycle"]["bootstrap"][number];
+  runtimeManifest: SymphonyLoadedRuntimeManifest;
+  workspacePath: string;
+  shell: string;
+  containerName: string;
+  env: Record<string, string>;
+  commandRunner: DockerWorkspaceCommandRunner;
+  defaultTimeoutMs: number;
+  lifecycleRecorder?: WorkspaceBackendEventRecorder;
+}): Promise<DockerManifestLifecycleStepRecord> {
+  const startedAt = new Date().toISOString();
+  const cwd = resolveDockerManifestLifecycleStepWorkingDirectory(
+    input.runtimeManifest,
+    input.workspacePath,
+    input.step.cwd
+  );
+  const timeoutMs = input.step.timeoutMs ?? input.defaultTimeoutMs;
+
+  await emitDockerManifestLifecyclePhaseEvent(
+    input.lifecycleRecorder,
+    "workspace_manifest_step_started",
+    `Manifest lifecycle step ${input.phase}/${input.step.name} started.`,
+    {
+      manifestLifecycle: {
+        phase: input.phase,
+        stepName: input.step.name,
+        command: input.step.run,
+        cwd,
+        timeoutMs
+      }
+    },
+    startedAt
+  );
+
+  const args = [
+    "exec",
+    ...dockerEnvFlags(input.env),
+    "--workdir",
+    cwd,
+    input.containerName,
+    input.shell,
+    "-lc",
+    input.step.run
+  ];
+  const result = await input.commandRunner({
+    args,
+    timeoutMs
+  });
+  const endedAt = new Date().toISOString();
+  const stepRecord: DockerManifestLifecycleStepRecord = {
+    phase: input.phase,
+    name: input.step.name,
+    command: input.step.run,
+    cwd,
+    timeoutMs,
+    status: result.exitCode === 0 ? "completed" : "failed",
+    startedAt,
+    endedAt,
+    failureReason:
+      result.exitCode === 0
+        ? null
+        : formatDockerManifestLifecycleStepFailureReason(
+            input.phase,
+            input.step.name,
+            result.exitCode,
+            result.stdout,
+            result.stderr,
+            input.env
+          )
+  };
+
+  await emitDockerManifestLifecyclePhaseEvent(
+    input.lifecycleRecorder,
+    "workspace_manifest_step_completed",
+    stepRecord.status === "completed"
+      ? `Manifest lifecycle step ${input.phase}/${input.step.name} completed.`
+      : `Manifest lifecycle step ${input.phase}/${input.step.name} failed.`,
+    {
+      manifestLifecycle: stepRecord
+    },
+    endedAt
+  );
+
+  return stepRecord;
+}
+
+async function emitDockerManifestLifecyclePhaseEvent(
+  lifecycleRecorder: WorkspaceBackendEventRecorder | undefined,
+  eventType: string,
+  message: string,
+  payload: unknown,
+  recordedAt: string
+): Promise<void> {
+  await lifecycleRecorder?.({
+    eventType,
+    message,
+    payload,
+    recordedAt
+  });
+}
+
+function phaseSkippedMessage(
+  record: DockerManifestLifecyclePhaseRecord
+): string {
+  switch (record.skipReason) {
+    case "no_steps":
+      return `Manifest lifecycle phase ${record.phase} skipped because it has no steps.`;
+    case "already_completed_for_current_lifetime":
+      return `Manifest lifecycle phase ${record.phase} skipped because it already completed for the current warm lifetime.`;
+    case "container_not_running":
+      return `Manifest lifecycle phase ${record.phase} skipped because the workspace container is not running.`;
+    default:
+      return `Manifest lifecycle phase ${record.phase} skipped.`;
+  }
+}
+
+function resolveDockerManifestLifecycleStepWorkingDirectory(
+  runtimeManifest: SymphonyLoadedRuntimeManifest,
+  workspacePath: string,
+  stepCwd: string | undefined
+): string {
+  const relativePath =
+    stepCwd ?? runtimeManifest.manifest.workspace.workingDirectory;
+  const normalizedRelativePath =
+    relativePath === "."
+      ? ""
+      : relativePath
+          .split(path.sep)
+          .filter((segment) => segment !== "")
+          .join("/");
+
+  return normalizedRelativePath === ""
+    ? workspacePath
+    : path.posix.join(workspacePath, normalizedRelativePath);
+}
+
+function buildDockerManifestServiceLifetimeMarker(
+  services: PreparedWorkspaceService[],
+  workspaceLifetimeId: string
+): string {
+  if (services.length === 0) {
+    return `workspace:${workspaceLifetimeId}`;
+  }
+
+  return createHash("sha256")
+    .update(
+      JSON.stringify(
+        services
+          .map((service) => ({
+            key: service.key,
+            containerId: service.containerId,
+            containerName: service.containerName,
+            hostname: service.hostname,
+            port: service.port
+          }))
+          .sort((left, right) => left.key.localeCompare(right.key))
+      )
+    )
+    .digest("hex");
+}
+
+function buildDockerManifestReadinessLifetimeMarker(input: {
+  workspaceLifetimeId: string;
+  serviceMarker: string;
+  containerId: string;
+}): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        workspaceLifetimeId: input.workspaceLifetimeId,
+        serviceMarker: input.serviceMarker,
+        containerId: input.containerId
+      })
+    )
+    .digest("hex");
+}
+
+function buildDockerManifestLifecycleStatePath(
+  root: string,
+  workspaceKey: string
+): string {
+  return path.join(
+    path.resolve(root),
+    dockerManifestLifecycleStateDirectoryName,
+    `${workspaceKey}${dockerManifestLifecycleStateSuffix}`
+  );
+}
+
+async function loadDockerManifestLifecycleState(
+  statePath: string,
+  reset: boolean
+): Promise<DockerManifestLifecycleState> {
+  if (reset) {
+    const nextState = createDockerManifestLifecycleState();
+    await persistDockerManifestLifecycleState(statePath, nextState);
+    return nextState;
+  }
+
+  const existingState = await readDockerManifestLifecycleState(statePath);
+  if (existingState) {
+    return existingState;
+  }
+
+  const nextState = createDockerManifestLifecycleState();
+  await persistDockerManifestLifecycleState(statePath, nextState);
+  return nextState;
+}
+
+function createDockerManifestLifecycleState(): DockerManifestLifecycleState {
+  return {
+    schemaVersion: 1,
+    workspaceLifetimeId: randomUUID(),
+    completedMarkers: {}
+  };
+}
+
+async function readDockerManifestLifecycleState(
+  statePath: string
+): Promise<DockerManifestLifecycleState | null> {
+  try {
+    const payload = await readFile(statePath, "utf8");
+    const parsed = JSON.parse(payload);
+
+    if (!isDockerManifestLifecycleState(parsed)) {
+      return null;
+    }
+
+    return parsed;
+  } catch (error) {
+    if (isEnoent(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+function isDockerManifestLifecycleState(
+  value: unknown
+): value is DockerManifestLifecycleState {
+  const record = asRecord(value);
+  const completedMarkers = asRecord(record?.completedMarkers);
+
+  return (
+    record?.schemaVersion === 1 &&
+    typeof record.workspaceLifetimeId === "string" &&
+    completedMarkers !== null &&
+    Object.values(completedMarkers).every((entry) => typeof entry === "string")
+  );
+}
+
+async function persistDockerManifestLifecycleState(
+  statePath: string,
+  state: DockerManifestLifecycleState
+): Promise<void> {
+  await mkdir(path.dirname(statePath), {
+    recursive: true
+  });
+  await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+}
+
+async function removeDockerManifestLifecycleState(
+  statePath: string
+): Promise<void> {
+  await rm(statePath, {
+    force: true
+  });
+}
+
+function formatDockerManifestLifecycleStepFailureReason(
+  phase: WorkspaceManifestLifecyclePhase,
+  stepName: string,
+  exitCode: number,
+  stdout: string,
+  stderr: string,
+  env: Record<string, string>
+): string {
+  return [
+    `Manifest lifecycle step ${phase}/${stepName} failed with exit code ${exitCode}.`,
+    sanitizeDockerManifestLifecycleOutput(stdout.trim(), env),
+    sanitizeDockerManifestLifecycleOutput(stderr.trim(), env)
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
+function sanitizeDockerManifestLifecycleOutput(
+  value: string,
+  env: Record<string, string>
+): string {
+  let sanitized = value;
+
+  for (const [key, rawValue] of Object.entries(env)) {
+    if (
+      rawValue === "" ||
+      !shouldRedactDockerEnvValue(key)
+    ) {
+      continue;
+    }
+
+    sanitized = sanitized.split(rawValue).join("<redacted>");
+  }
+
+  return sanitized;
+}
+
+function buildResolvedCleanupServices(
+  descriptors: DockerServiceDescriptor[]
+): Record<string, SymphonyResolvedRuntimeService> {
+  return Object.fromEntries(
+    descriptors.map((descriptor) => [
+      descriptor.key,
+      {
+        type: "postgres",
+        serviceKey: descriptor.key,
+        host: descriptor.service.hostname,
+        port: descriptor.service.port,
+        database: descriptor.service.database,
+        username: descriptor.service.username,
+        password: descriptor.service.password,
+        connectionString: buildSymphonyRuntimePostgresConnectionString({
+          host: descriptor.service.hostname,
+          port: descriptor.service.port,
+          database: descriptor.service.database,
+          username: descriptor.service.username,
+          password: descriptor.service.password
+        })
+      } satisfies SymphonyResolvedRuntimeService
+    ])
+  );
 }
 
 async function ensureManagedNetwork(input: {

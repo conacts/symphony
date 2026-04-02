@@ -74,6 +74,65 @@ export const symphonyRuntimeWorkspaceServiceSchema = z.strictObject({
   disposition: symphonyRuntimeWorkspaceServiceDispositionSchema
 });
 
+export const symphonyRuntimeWorkspaceManifestLifecyclePhaseSchema = z.enum([
+  "bootstrap",
+  "migrate",
+  "seed",
+  "verify",
+  "cleanup"
+]);
+
+export const symphonyRuntimeWorkspaceManifestLifecyclePhaseStatusSchema = z.enum([
+  "completed",
+  "skipped",
+  "failed"
+]);
+
+export const symphonyRuntimeWorkspaceManifestLifecyclePhaseTriggerSchema = z.enum([
+  "workspace_lifetime",
+  "service_lifetime",
+  "readiness_lifetime",
+  "teardown"
+]);
+
+export const symphonyRuntimeWorkspaceManifestLifecyclePhaseSkipReasonSchema = z.enum([
+  "no_steps",
+  "already_completed_for_current_lifetime",
+  "container_not_running"
+]);
+
+export const symphonyRuntimeWorkspaceManifestLifecycleStepStatusSchema = z.enum([
+  "completed",
+  "failed"
+]);
+
+export const symphonyRuntimeWorkspaceManifestLifecycleStepSchema = z.strictObject({
+  phase: symphonyRuntimeWorkspaceManifestLifecyclePhaseSchema,
+  name: nonEmptyStringSchema,
+  command: nonEmptyStringSchema,
+  cwd: nonEmptyStringSchema,
+  timeoutMs: z.number().int().positive().nullable(),
+  status: symphonyRuntimeWorkspaceManifestLifecycleStepStatusSchema,
+  startedAt: isoTimestampSchema,
+  endedAt: isoTimestampSchema,
+  failureReason: nullableNonEmptyStringSchema
+});
+
+export const symphonyRuntimeWorkspaceManifestLifecyclePhaseRecordSchema = z.strictObject({
+  phase: symphonyRuntimeWorkspaceManifestLifecyclePhaseSchema,
+  status: symphonyRuntimeWorkspaceManifestLifecyclePhaseStatusSchema,
+  trigger: symphonyRuntimeWorkspaceManifestLifecyclePhaseTriggerSchema,
+  startedAt: isoTimestampSchema.nullable(),
+  endedAt: isoTimestampSchema,
+  skipReason: symphonyRuntimeWorkspaceManifestLifecyclePhaseSkipReasonSchema.nullable(),
+  failureReason: nullableNonEmptyStringSchema,
+  steps: z.array(symphonyRuntimeWorkspaceManifestLifecycleStepSchema)
+});
+
+export const symphonyRuntimeWorkspaceManifestLifecycleSchema = z.strictObject({
+  phases: z.array(symphonyRuntimeWorkspaceManifestLifecyclePhaseRecordSchema)
+});
+
 export const symphonyRuntimeRunningEntrySchema = z.strictObject({
   issueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
@@ -167,6 +226,7 @@ export const symphonyRuntimeWorkspaceSchema = z.strictObject({
   networkName: nullableNonEmptyStringSchema,
   services: z.array(symphonyRuntimeWorkspaceServiceSchema),
   envBundleSummary: symphonyRuntimeWorkspaceEnvBundleSummarySchema.nullable(),
+  manifestLifecycle: symphonyRuntimeWorkspaceManifestLifecycleSchema.nullable(),
   path: nullableNonEmptyStringSchema,
   executionTarget: symphonyRuntimeWorkspaceExecutionTargetSchema.nullable(),
   materialization: symphonyRuntimeWorkspaceMaterializationSchema.nullable()
@@ -333,6 +393,30 @@ export type SymphonyRuntimeWorkspacePrepareDisposition = z.infer<
 >;
 export type SymphonyRuntimeWorkspaceContainerDisposition = z.infer<
   typeof symphonyRuntimeWorkspaceContainerDispositionSchema
+>;
+export type SymphonyRuntimeWorkspaceManifestLifecyclePhase = z.infer<
+  typeof symphonyRuntimeWorkspaceManifestLifecyclePhaseSchema
+>;
+export type SymphonyRuntimeWorkspaceManifestLifecyclePhaseStatus = z.infer<
+  typeof symphonyRuntimeWorkspaceManifestLifecyclePhaseStatusSchema
+>;
+export type SymphonyRuntimeWorkspaceManifestLifecyclePhaseTrigger = z.infer<
+  typeof symphonyRuntimeWorkspaceManifestLifecyclePhaseTriggerSchema
+>;
+export type SymphonyRuntimeWorkspaceManifestLifecyclePhaseSkipReason = z.infer<
+  typeof symphonyRuntimeWorkspaceManifestLifecyclePhaseSkipReasonSchema
+>;
+export type SymphonyRuntimeWorkspaceManifestLifecycleStepStatus = z.infer<
+  typeof symphonyRuntimeWorkspaceManifestLifecycleStepStatusSchema
+>;
+export type SymphonyRuntimeWorkspaceManifestLifecycleStep = z.infer<
+  typeof symphonyRuntimeWorkspaceManifestLifecycleStepSchema
+>;
+export type SymphonyRuntimeWorkspaceManifestLifecyclePhaseRecord = z.infer<
+  typeof symphonyRuntimeWorkspaceManifestLifecyclePhaseRecordSchema
+>;
+export type SymphonyRuntimeWorkspaceManifestLifecycle = z.infer<
+  typeof symphonyRuntimeWorkspaceManifestLifecycleSchema
 >;
 export type SymphonyRuntimeWorkspaceExecutionTarget = z.infer<
   typeof symphonyRuntimeWorkspaceExecutionTargetSchema

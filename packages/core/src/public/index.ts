@@ -29,6 +29,8 @@ export type {
 export type { SymphonyRuntime } from "../runtime/symphony-runtime.js";
 export type {
   DockerWorkspaceBackendOptions,
+  WorkspaceBackendEvent,
+  WorkspaceBackendEventRecorder,
   DockerWorkspaceCommandResult,
   DockerWorkspaceCommandRunner,
   PreparedWorkspace,
@@ -47,6 +49,14 @@ export type {
   WorkspaceHookOutcome,
   WorkspaceHookResult,
   WorkspaceLifecycleMetadata,
+  WorkspaceManifestLifecyclePhase,
+  WorkspaceManifestLifecyclePhaseRecord,
+  WorkspaceManifestLifecyclePhaseSkipReason,
+  WorkspaceManifestLifecyclePhaseStatus,
+  WorkspaceManifestLifecyclePhaseTrigger,
+  WorkspaceManifestLifecycleStepRecord,
+  WorkspaceManifestLifecycleStepStatus,
+  WorkspaceManifestLifecycleSummary,
   WorkspaceHookInput,
   WorkspaceMaterializationMetadata,
   WorkspaceNetworkDisposition,

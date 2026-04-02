@@ -14,9 +14,8 @@ This stage also makes the frozen runtime manifest operational for Docker-backed 
 - one per-workspace Postgres sidecar
 - Postgres readiness and optional service `init`
 - explicit env bundle injection into hooks and Codex launch
-
-Repo-level manifest lifecycle execution still remains deferred. See
-`docs/architecture/runtime-manifest-contract.md`.
+- ordered manifest lifecycle execution plus warm-reuse skip caching
+- teardown-time manifest cleanup before managed resources are removed
 
 This stage now covers:
 
@@ -24,6 +23,9 @@ This stage now covers:
 - prepare a deterministic per-workspace Docker network when a runtime manifest is present
 - prepare a deterministic per-workspace Postgres sidecar when a runtime manifest is present
 - resolve an explicit env bundle for hooks and runtime execution
+- execute manifest `bootstrap`, `migrate`, optional `seed`, and required `verify`
+- skip already-completed lifecycle phases for the current warm lifetime
+- rerun service-dependent phases when the service side is recreated
 - expose explicit workspace lifecycle metadata for prepare, launch, and cleanup
 - expose explicit execution-target and materialization metadata
 - run workspace hooks through the backend
@@ -76,6 +78,12 @@ orchestrator path.
 10. Resolves the explicit env bundle
 11. Runs `after_create` inside the container only when the materialized workspace directory was
     newly created
+12. Executes manifest lifecycle phases inside the workspace container when a runtime manifest is
+    present:
+    - `bootstrap`
+    - `migrate`
+    - optional `seed`
+    - `verify`
 
 The backend does not delete or mutate unrelated containers, networks, or service containers. A
 name collision with a non-Symphony managed resource fails closed.
@@ -90,6 +98,19 @@ Manifest-backed Docker provisioning rules for this pass:
   network attachment all still match
 - default sidecar resource limits are `512 MB` memory and `512` CPU shares when the manifest omits
   them
+
+Manifest lifecycle reuse rules for this stage:
+
+- a small workspace-root-adjacent cache tracks the latest successfully completed phase markers for
+  the current warm lifetime
+- `bootstrap` is keyed to the workspace filesystem lifetime
+- `migrate` and `seed` are keyed to the service lifetime
+- `verify` is keyed to the ready lifetime
+  ready lifetime = workspace lifetime + service lifetime + container identity
+- a fully reused warm workspace skips all setup phases
+- if prepare fails after some phases already completed, only the unfinished phase and later phases
+  rerun on the next attempt
+- when no manifest services exist, `migrate` and `seed` fall back to the workspace lifetime
 
 ### Before Run / After Run
 
@@ -123,12 +144,19 @@ Behavior matches the local backend contract:
 
 1. Re-derives the managed workspace/container identity when needed
 2. Runs `before_remove` inside the container when the managed container is still running
-3. Removes the managed workspace container
-4. Removes managed Postgres sidecars
-5. Removes the managed workspace network
-6. Removes the host bind-mounted workspace directory
+3. Runs manifest `cleanup` inside the workspace container before any managed resources are removed
+4. Removes the managed workspace container
+5. Removes managed Postgres sidecars
+6. Removes the managed workspace network
+7. Removes the host bind-mounted workspace directory and the warm-lifetime cache entry
 
 `before_remove` is best effort, matching the local backend semantics.
+
+Manifest `cleanup` is also best effort:
+
+- cleanup failure is recorded explicitly in lifecycle events and cleanup metadata
+- managed resource removal continues even when cleanup fails
+- missing or non-running containers produce an explicit skipped cleanup record
 
 Cleanup is tolerant of partially missing managed resources:
 
@@ -177,6 +205,9 @@ blobs:
     values,
     summary
   },
+  manifestLifecycle: {
+    phases
+  },
   workerHost,
   path: null
 }
@@ -196,6 +227,9 @@ Notable details:
 - `services` surfaces bounded service metadata only: key, type, hostname, port, container id/name,
   and reuse vs creation.
 - `envBundle.summary` surfaces the explicit env model without leaking secret values.
+- `manifestLifecycle` surfaces the current prepare attempt only:
+  completed phases, skipped phases, timestamps, step names, commands, cwd, and sanitized failure
+  reasons.
 - `path` stays `null` on purpose. The compatibility alias remains intended for local host-path
   execution, not container-target execution.
 - `hostPath` is still carried explicitly so observers, serializers, and operators can understand
@@ -221,6 +255,7 @@ fields explicit for both local and Docker runs:
 - `networkName`
 - `services`
 - `envBundleSummary`
+- `manifestLifecycle`
 - `path`
 
 ## Runtime Execution
@@ -289,6 +324,12 @@ Runtime log events emitted from `apps/api`:
 Run-journal / issue-timeline lifecycle events emitted by the orchestrator:
 
 - `workspace_prepare_completed`
+- `workspace_manifest_phase_started`
+- `workspace_manifest_step_started`
+- `workspace_manifest_step_completed`
+- `workspace_manifest_phase_completed`
+- `workspace_manifest_phase_skipped`
+- `workspace_manifest_phase_failed`
 - `docker_container_started`
 - `docker_container_reused`
 - `docker_container_recreated`
@@ -305,11 +346,15 @@ Run-journal / issue-timeline lifecycle events emitted by the orchestrator:
 Event payload design rules for this stage:
 
 - Workspace events carry the normalized workspace summary instead of raw backend-specific blobs.
+- Manifest lifecycle events carry explicit phase/step metadata with sanitized failure reasons.
 - Launch events carry an explicit `launchTarget`.
 - Startup failure events carry both `failureStage` and `failureOrigin`.
+- Startup failure events also carry manifest lifecycle context when prepare failed inside
+  `bootstrap`, `migrate`, `seed`, or `verify`.
 - Cleanup events carry explicit cleanup outcomes:
   `beforeRemoveHookOutcome`, `workspaceRemovalDisposition`,
-  `containerRemovalDisposition`, `networkRemovalDisposition`, and `serviceCleanup`.
+  `containerRemovalDisposition`, `networkRemovalDisposition`, `serviceCleanup`, and
+  `manifestLifecycleCleanup`.
 
 Startup failure classification is intentionally narrow and operational:
 
@@ -339,6 +384,7 @@ Workspace read-model fields:
 - `networkName`
 - `services`
 - `envBundleSummary`
+- `manifestLifecycle`
 - `path`
 - `executionTarget`
 - `materialization`
@@ -388,7 +434,6 @@ This stage does not:
 
 - make Docker the default backend
 - add workflow-front-matter backend selection
-- execute manifest `bootstrap`, `migrate`, `verify`, `seed`, or repo-level `cleanup`
 - add service types beyond Postgres
 - add shared Postgres instances
 - add host port publishing for sidecars

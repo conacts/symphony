@@ -762,6 +762,7 @@ function buildLocalPreparedWorkspace(
     networkName: null,
     services: [],
     envBundle: ambientEnvBundle(),
+    manifestLifecycle: null,
     path: workspacePath,
     created: false,
     workerHost: null
@@ -796,6 +797,7 @@ function buildContainerPreparedWorkspace(
     networkName: "symphony-network-col-123",
     services: [],
     envBundle: ambientEnvBundle(),
+    manifestLifecycle: null,
     path: null,
     created: false,
     workerHost: "docker-host"

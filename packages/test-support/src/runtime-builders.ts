@@ -79,6 +79,7 @@ export function buildSymphonyRuntimeStateResult(
       runtimeBindingKeys: [],
       serviceBindingKeys: []
     },
+    manifestLifecycle: null,
     path: "/tmp/workspaces/col-165",
     executionTarget: {
       kind: "host_path",
@@ -129,6 +130,7 @@ export function buildSymphonyRuntimeStateResult(
       runtimeBindingKeys: [],
       serviceBindingKeys: ["DATABASE_URL", "PGHOST"]
     },
+    manifestLifecycle: null,
     path: null,
     executionTarget: {
       kind: "container",
@@ -300,6 +302,7 @@ export function buildSymphonyRuntimeIssueResult(
       runtimeBindingKeys: [],
       serviceBindingKeys: []
     },
+    manifestLifecycle: null,
     path: "/tmp/symphony-COL-167",
     executionTarget: {
       kind: "host_path",

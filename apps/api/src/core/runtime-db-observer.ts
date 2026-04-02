@@ -82,6 +82,11 @@ export function createDbBackedOrchestratorObserver(input: {
             startupFailure: normalizeJsonValue({
               failureStage: failurePayload?.failureStage ?? null,
               failureOrigin: failurePayload?.failureOrigin ?? null,
+              manifestLifecyclePhase:
+                failurePayload?.manifestLifecyclePhase ?? null,
+              manifestLifecycleStepName:
+                failurePayload?.manifestLifecycleStepName ?? null,
+              manifestLifecycle: failurePayload?.manifestLifecycle ?? null,
               launchTarget: failurePayload?.launchTarget ?? null
             })
           }
@@ -141,7 +146,12 @@ export function createDbBackedOrchestratorObserver(input: {
             completion.kind === "startup_failure"
               ? {
                   failureStage: completion.failureStage,
-                  failureOrigin: completion.failureOrigin
+                  failureOrigin: completion.failureOrigin,
+                  manifestLifecyclePhase:
+                    completion.manifestLifecyclePhase ?? null,
+                  manifestLifecycleStepName:
+                    completion.manifestLifecycleStepName ?? null,
+                  manifestLifecycle: completion.manifestLifecycle ?? null
                 }
               : null,
           tokens: {
@@ -204,7 +214,9 @@ function completionErrorClass(
 ): string {
   switch (completion.kind) {
     case "startup_failure":
-      return `startup_failure_${completion.failureOrigin}_${completion.failureStage}`;
+      return completion.manifestLifecyclePhase
+        ? `startup_failure_${completion.failureOrigin}_${completion.failureStage}_${completion.manifestLifecyclePhase}`
+        : `startup_failure_${completion.failureOrigin}_${completion.failureStage}`;
     case "max_turns_reached":
       return "max_turns_reached";
     case "normal":
@@ -272,6 +284,7 @@ function workspaceMetadata(workspace: ObserverWorkspaceMetadata): SymphonyJsonVa
     networkName: workspace.networkName,
     services: workspace.services,
     envBundleSummary: workspace.envBundleSummary,
+    manifestLifecycle: workspace.manifestLifecycle,
     path: workspace.path,
   };
 }

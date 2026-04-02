@@ -56,6 +56,32 @@ describe("runtime serializers", () => {
                 serviceBindingKeys: []
               }
             },
+            manifestLifecycle: {
+              phases: [
+                {
+                  phase: "verify",
+                  status: "completed",
+                  trigger: "readiness_lifetime",
+                  startedAt: "2026-03-31T00:00:00.000Z",
+                  endedAt: "2026-03-31T00:00:01.000Z",
+                  skipReason: null,
+                  failureReason: null,
+                  steps: [
+                    {
+                      phase: "verify",
+                      name: "verify",
+                      command: "pnpm test:smoke",
+                      cwd: "/home/agent/workspace",
+                      timeoutMs: 1_000,
+                      status: "completed",
+                      startedAt: "2026-03-31T00:00:00.000Z",
+                      endedAt: "2026-03-31T00:00:01.000Z",
+                      failureReason: null
+                    }
+                  ]
+                }
+              ]
+            },
             path: null,
             created: false,
             workerHost: "docker-host"
@@ -118,6 +144,32 @@ describe("runtime serializers", () => {
         runtimeBindingKeys: [],
         serviceBindingKeys: []
       },
+      manifestLifecycle: {
+        phases: [
+          {
+            phase: "verify",
+            status: "completed",
+            trigger: "readiness_lifetime",
+            startedAt: "2026-03-31T00:00:00.000Z",
+            endedAt: "2026-03-31T00:00:01.000Z",
+            skipReason: null,
+            failureReason: null,
+            steps: [
+              {
+                phase: "verify",
+                name: "verify",
+                command: "pnpm test:smoke",
+                cwd: "/home/agent/workspace",
+                timeoutMs: 1_000,
+                status: "completed",
+                startedAt: "2026-03-31T00:00:00.000Z",
+                endedAt: "2026-03-31T00:00:01.000Z",
+                failureReason: null
+              }
+            ]
+          }
+        ]
+      },
       path: null,
       executionTarget: {
         kind: "container",
@@ -165,6 +217,7 @@ describe("runtime serializers", () => {
       networkName: null,
       services: [],
       envBundleSummary: null,
+      manifestLifecycle: null,
       path: null,
       executionTarget: null,
       materialization: null

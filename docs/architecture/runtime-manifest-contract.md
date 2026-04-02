@@ -20,11 +20,13 @@ This pass covers:
 - per-workspace Postgres sidecar provisioning for manifest-declared services
 - Postgres readiness checks plus optional Postgres `init` steps
 - explicit env bundle injection into workspace hooks and Codex runtime launch paths
+- ordered manifest lifecycle execution for `bootstrap`, `migrate`, optional `seed`, and
+  required `verify` inside Docker-backed workspaces
+- explicit warm-reuse skip semantics and teardown-time manifest `cleanup`
+- lifecycle phase/step observability without surfacing secret env values
 
 This pass does not yet cover:
 
-- manifest lifecycle execution for `bootstrap`, `migrate`, `verify`, `seed`, or repo-level
-  `cleanup`
 - service types other than `postgres`
 - shared Postgres instances across workspaces
 - host port publishing for sidecars
@@ -211,6 +213,49 @@ Inject binding kinds:
 - `{ name: string, run: string, cwd?: string, timeoutMs?: number }`
 - `cwd` must be workspace-relative and must stay within the repo root
 
+## Docker Lifecycle Semantics
+
+For Docker-backed workspaces with a valid manifest, Symphony executes manifest lifecycle phases in
+this order during prepare:
+
+1. `bootstrap`
+2. `migrate`
+3. optional `seed`
+4. `verify`
+
+`verify` is required and must succeed before the workspace is considered ready.
+
+Execution semantics:
+
+- each phase is an ordered array of steps
+- steps run inside the prepared workspace container with the resolved env bundle
+- step cwd resolves from `workspace.workingDirectory`, overridden by step `cwd`
+- step execution stops on the first non-zero exit code
+- later phases do not run after a failure
+
+Warm reuse semantics are explicit and cache-backed:
+
+- `bootstrap` runs once per warm workspace filesystem lifetime
+- `migrate` runs once per warm service lifetime
+- `seed` runs once per warm service lifetime
+- `verify` runs once per ready lifetime
+  ready lifetime = workspace lifetime + service lifetime + workspace container identity
+- fully reused warm workspaces skip all setup phases
+- if prepare fails mid-lifecycle, already-completed phases stay cached and the failed phase reruns
+  on the next prepare attempt
+- if the service side is recreated, `migrate`, `seed`, and `verify` rerun while `bootstrap`
+  remains cached
+
+When no manifest services are declared, `migrate` and `seed` fall back to the workspace lifetime
+so they still run once per warm workspace when configured.
+
+Teardown semantics:
+
+- `cleanup` runs during teardown before service, network, and workspace removal
+- `cleanup` is best effort, matching existing `before_remove` semantics
+- cleanup failure is surfaced explicitly in lifecycle events and cleanup metadata, but resource
+  removal still continues so teardown does not silently leak managed resources
+
 ## Env Resolution Model
 
 Manifest env resolution is explicit.
@@ -341,5 +386,5 @@ configured. That load is validation-only in this pass:
 - failure: startup fails before app service composition continues
 
 The current Docker backend still reads runtime selection from existing env config. The manifest is
-loaded and frozen now so later passes can move sidecars, env wiring, and lifecycle execution onto
-the repo-local contract without changing the contract shape again.
+loaded and frozen so later passes can extend runtime selection and materialization behavior without
+changing the repo-local contract shape again.

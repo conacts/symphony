@@ -80,6 +80,7 @@ export function buildLocalPreparedWorkspace(
         serviceBindingKeys: []
       }
     },
+    manifestLifecycle: null,
     path: workspacePath,
     created: false,
     workerHost: null

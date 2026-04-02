@@ -25,11 +25,71 @@ export type WorkspaceBackendRunnerOptions = {
   workerHost?: string | null;
 };
 
+export type WorkspaceManifestLifecyclePhase =
+  | "bootstrap"
+  | "migrate"
+  | "seed"
+  | "verify"
+  | "cleanup";
+export type WorkspaceManifestLifecyclePhaseStatus =
+  | "completed"
+  | "skipped"
+  | "failed";
+export type WorkspaceManifestLifecyclePhaseTrigger =
+  | "workspace_lifetime"
+  | "service_lifetime"
+  | "readiness_lifetime"
+  | "teardown";
+export type WorkspaceManifestLifecyclePhaseSkipReason =
+  | "no_steps"
+  | "already_completed_for_current_lifetime"
+  | "container_not_running";
+export type WorkspaceManifestLifecycleStepStatus = "completed" | "failed";
+
+export type WorkspaceManifestLifecycleStepRecord = {
+  phase: WorkspaceManifestLifecyclePhase;
+  name: string;
+  command: string;
+  cwd: string;
+  timeoutMs: number | null;
+  status: WorkspaceManifestLifecycleStepStatus;
+  startedAt: string;
+  endedAt: string;
+  failureReason: string | null;
+};
+
+export type WorkspaceManifestLifecyclePhaseRecord = {
+  phase: WorkspaceManifestLifecyclePhase;
+  status: WorkspaceManifestLifecyclePhaseStatus;
+  trigger: WorkspaceManifestLifecyclePhaseTrigger;
+  startedAt: string | null;
+  endedAt: string;
+  skipReason: WorkspaceManifestLifecyclePhaseSkipReason | null;
+  failureReason: string | null;
+  steps: WorkspaceManifestLifecycleStepRecord[];
+};
+
+export type WorkspaceManifestLifecycleSummary = {
+  phases: WorkspaceManifestLifecyclePhaseRecord[];
+};
+
+export type WorkspaceBackendEvent = {
+  eventType: string;
+  message: string;
+  payload?: unknown;
+  recordedAt?: string;
+};
+
+export type WorkspaceBackendEventRecorder = (
+  event: WorkspaceBackendEvent
+) => Promise<void> | void;
+
 export type WorkspacePrepareInput = {
   context: WorkspaceContext;
   runId?: string | null;
   config: SymphonyWorkflowWorkspaceConfig;
   hooks: SymphonyWorkflowHooksConfig;
+  lifecycleRecorder?: WorkspaceBackendEventRecorder;
 } & WorkspaceBackendRunnerOptions;
 
 export type WorkspaceBackendKind = "local" | "docker";
@@ -133,6 +193,7 @@ export type PreparedWorkspace = {
   networkName: string | null;
   services: PreparedWorkspaceService[];
   envBundle: WorkspaceEnvBundle;
+  manifestLifecycle: WorkspaceManifestLifecycleSummary | null;
   path: string | null;
   created: boolean;
   workerHost: string | null;
@@ -154,6 +215,7 @@ export type WorkspaceCleanupResult = {
   networkRemovalDisposition: WorkspaceNetworkRemovalDisposition;
   serviceCleanup: WorkspaceCleanupService[];
   beforeRemoveHookOutcome: WorkspaceHookOutcome;
+  manifestLifecycleCleanup: WorkspaceManifestLifecyclePhaseRecord | null;
   workspaceRemovalDisposition: WorkspaceRemovalDisposition;
   containerRemovalDisposition: WorkspaceCleanupContainerDisposition;
 };
@@ -176,6 +238,7 @@ export type WorkspaceLifecycleMetadata = {
   networkName: string | null;
   services: PreparedWorkspaceService[];
   envBundleSummary: WorkspaceEnvBundleSummary;
+  manifestLifecycle: WorkspaceManifestLifecycleSummary | null;
   path: string | null;
 };
 
@@ -187,8 +250,10 @@ export type WorkspaceHookInput = {
 
 export type WorkspaceCleanupInput = {
   issueIdentifier: string;
+  runId?: string | null;
   config: SymphonyWorkflowWorkspaceConfig;
   hooks: SymphonyWorkflowHooksConfig;
+  lifecycleRecorder?: WorkspaceBackendEventRecorder;
   workspace?: PreparedWorkspace | null;
 } & WorkspaceBackendRunnerOptions;
 
@@ -269,6 +334,7 @@ export function createLocalWorkspaceBackend(
         networkName: null,
         services: [],
         envBundle,
+        manifestLifecycle: null,
         path: workspace.path,
         created: workspace.created,
         workerHost: workspace.workerHost
@@ -329,6 +395,7 @@ export function createLocalWorkspaceBackend(
         networkRemovalDisposition: "not_applicable",
         serviceCleanup: [],
         beforeRemoveHookOutcome: cleanup.beforeRemoveHookOutcome,
+        manifestLifecycleCleanup: null,
         workspaceRemovalDisposition: cleanup.workspaceRemovalDisposition,
         containerRemovalDisposition: "not_applicable"
       };
@@ -367,6 +434,7 @@ export function summarizePreparedWorkspace(
     networkName: workspace.networkName,
     services: workspace.services,
     envBundleSummary: workspace.envBundle.summary,
+    manifestLifecycle: workspace.manifestLifecycle,
     path: workspace.path
   };
 }

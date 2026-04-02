@@ -18,6 +18,8 @@ import {
   type WorkspaceBackend,
   type WorkspaceContext,
   type WorkspaceBackendKind,
+  type WorkspaceBackendEventRecorder,
+  type WorkspaceManifestLifecyclePhase,
   WorkspaceLifecycleMetadata
 } from "../workspace/workspace-backend.js";
 import {
@@ -120,6 +122,9 @@ export type SymphonyAgentRuntimeCompletion =
       failureStage: SymphonyStartupFailureStage;
       failureOrigin: SymphonyStartupFailureOrigin;
       launchTarget?: AgentRuntimeLaunchTarget | null;
+      manifestLifecyclePhase?: WorkspaceManifestLifecyclePhase | null;
+      manifestLifecycleStepName?: string | null;
+      manifestLifecycle?: SymphonyJsonObject | null;
     }
   | { kind: "rate_limited"; reason: string }
   | { kind: "stalled"; reason: string }
@@ -457,6 +462,7 @@ export class SymphonyOrchestrator {
         runId,
         config: this.#workflowConfig.workspace,
         hooks: this.#workflowConfig.hooks,
+        lifecycleRecorder: this.#workspaceLifecycleRecorder(preparedIssue, runId),
         ...this.#workspaceRunnerOptions(preferredWorkerHost)
       });
 
@@ -558,6 +564,8 @@ export class SymphonyOrchestrator {
         startupFailureStage,
         this.#workspaceBackend.kind
       );
+      const manifestLifecycleFailure =
+        extractWorkspaceManifestLifecycleFailure(error);
 
       await this.#observer?.recordLifecycleEvent({
         issue: preparedIssue,
@@ -569,6 +577,12 @@ export class SymphonyOrchestrator {
           reason,
           failureStage: startupFailureStage,
           failureOrigin,
+          manifestLifecyclePhase:
+            manifestLifecycleFailure?.manifestLifecyclePhase ?? null,
+          manifestLifecycleStepName:
+            manifestLifecycleFailure?.manifestLifecycleStepName ?? null,
+          manifestLifecycle:
+            manifestLifecycleFailure?.manifestLifecycle ?? null,
           launchTarget,
           workspace: buildWorkspaceLifecyclePayload(workspace)
         }
@@ -582,7 +596,13 @@ export class SymphonyOrchestrator {
           reason,
           failureStage: startupFailureStage,
           failureOrigin,
-          launchTarget
+          launchTarget,
+          manifestLifecyclePhase:
+            manifestLifecycleFailure?.manifestLifecyclePhase ?? null,
+          manifestLifecycleStepName:
+            manifestLifecycleFailure?.manifestLifecycleStepName ?? null,
+          manifestLifecycle:
+            manifestLifecycleFailure?.manifestLifecycle ?? null
         },
         workerHost: preferredWorkerHost,
         workspace,
@@ -748,6 +768,9 @@ export class SymphonyOrchestrator {
           reason: completion.reason,
           failureStage: completion.failureStage,
           failureOrigin: completion.failureOrigin,
+          manifestLifecyclePhase: completion.manifestLifecyclePhase ?? null,
+          manifestLifecycleStepName: completion.manifestLifecycleStepName ?? null,
+          manifestLifecycle: completion.manifestLifecycle ?? null,
           launchTarget: completion.launchTarget ?? runningEntry.launchTarget ?? null,
           workspace: buildWorkspaceLifecyclePayload(runningEntry.workspace)
         }
@@ -983,6 +1006,23 @@ export class SymphonyOrchestrator {
     };
   }
 
+  #workspaceLifecycleRecorder(
+    issue: SymphonyTrackerIssue,
+    runId: string | null
+  ): WorkspaceBackendEventRecorder {
+    return async (event) => {
+      await this.#observer?.recordLifecycleEvent({
+        issue,
+        runId,
+        source: "workspace",
+        eventType: event.eventType,
+        message: event.message,
+        payload: event.payload,
+        recordedAt: event.recordedAt
+      });
+    };
+  }
+
   async #handleStartupFailure(
     issue: SymphonyTrackerIssue,
     workerHost: string | null,
@@ -1073,9 +1113,14 @@ export class SymphonyOrchestrator {
     try {
       const cleanup = await this.#workspaceBackend.cleanupWorkspace({
         issueIdentifier: input.issue.identifier,
+        runId: input.runId,
         workspace: input.workspace,
         config: this.#workflowConfig.workspace,
         hooks: this.#workflowConfig.hooks,
+        lifecycleRecorder: this.#workspaceLifecycleRecorder(
+          input.issue,
+          input.runId
+        ),
         ...this.#workspaceRunnerOptions(input.workerHost)
       });
 
@@ -1319,6 +1364,7 @@ function normalizeWorkspaceLifecycleMetadata(
     networkName: workspace.networkName,
     services: workspace.services,
     envBundleSummary: workspace.envBundleSummary,
+    manifestLifecycle: workspace.manifestLifecycle,
     path: workspace.path
   };
 }
@@ -1340,6 +1386,41 @@ function classifyStartupFailureOrigin(
   }
 
   return "workspace_lifecycle";
+}
+
+function extractWorkspaceManifestLifecycleFailure(input: unknown): {
+  manifestLifecyclePhase: WorkspaceManifestLifecyclePhase;
+  manifestLifecycleStepName: string | null;
+  manifestLifecycle: SymphonyJsonObject | null;
+} | null {
+  if (!(input instanceof Error)) {
+    return null;
+  }
+
+  const candidate = input as Error & {
+    manifestLifecyclePhase?: unknown;
+    manifestLifecycleStepName?: unknown;
+    manifestLifecycle?: unknown;
+  };
+
+  return typeof candidate.manifestLifecyclePhase === "string"
+    ? {
+        manifestLifecyclePhase:
+          candidate.manifestLifecyclePhase as WorkspaceManifestLifecyclePhase,
+        manifestLifecycleStepName:
+          typeof candidate.manifestLifecycleStepName === "string"
+            ? candidate.manifestLifecycleStepName
+            : null,
+        manifestLifecycle:
+          normalizeJsonObject(candidate.manifestLifecycle) ?? null
+      }
+    : null;
+}
+
+function normalizeJsonObject(value: unknown): SymphonyJsonObject | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as SymphonyJsonObject)
+    : null;
 }
 
 function isFatalRuntimeError(error: unknown): boolean {
