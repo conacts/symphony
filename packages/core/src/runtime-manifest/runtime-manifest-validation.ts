@@ -1,19 +1,13 @@
 import {
   defaultSymphonyRuntimeWorkingDirectory,
   type SymphonyNormalizedRuntimeManifest,
-  type SymphonyRuntimeManifest,
   type SymphonyRuntimeManifestValidationOptions
 } from "./runtime-manifest-contract.js";
 import {
   createManifestValidationError,
-  SymphonyRuntimeManifestError,
   type SymphonyRuntimeManifestIssue
 } from "./runtime-manifest-errors.js";
-import {
-  parseEnv,
-  validateServiceReferences,
-  validateUniqueServiceHostnames
-} from "./runtime-manifest-validation-env.js";
+import { parseEnv, validateServiceReferences, validateUniqueServiceHostnames } from "./runtime-manifest-validation-env.js";
 import {
   hasIssuesSince,
   pushIssue,
@@ -29,20 +23,11 @@ import {
 import { parseServices } from "./runtime-manifest-validation-services.js";
 import {
   manifestTopLevelKeys,
-  symphonyRuntimeManifestBrand,
   workspaceKeys,
   workspacePackageManagers
 } from "./runtime-manifest-validation-shared.js";
-import { isRecord } from "../internal/records.js";
-type BrandedSymphonyRuntimeManifest = SymphonyNormalizedRuntimeManifest & {
-  readonly [symphonyRuntimeManifestBrand]: true;
-};
-
-export function defineSymphonyRuntime(
-  input: SymphonyRuntimeManifest
-): SymphonyNormalizedRuntimeManifest {
-  return brandSymphonyRuntimeManifest(normalizeSymphonyRuntimeManifest(input));
-}
+export { defineSymphonyRuntime } from "./runtime-manifest-validation-branding.js";
+export { extractDefinedRuntimeManifest } from "./runtime-manifest-validation-export.js";
 
 export function normalizeSymphonyRuntimeManifest(
   input: unknown,
@@ -63,33 +48,6 @@ export function validateSymphonyRuntimeManifest(
   options: SymphonyRuntimeManifestValidationOptions = {}
 ): SymphonyNormalizedRuntimeManifest {
   return normalizeSymphonyRuntimeManifest(input, options);
-}
-
-export function extractDefinedRuntimeManifest(
-  moduleNamespace: Record<string, unknown>,
-  manifestPath: string
-): SymphonyNormalizedRuntimeManifest {
-  if (!("default" in moduleNamespace)) {
-    throw new SymphonyRuntimeManifestError(
-      "invalid_runtime_manifest_export",
-      `Invalid Symphony runtime manifest export at ${manifestPath}: the module must default export defineSymphonyRuntime(...).`,
-      {
-        manifestPath
-      }
-    );
-  }
-
-  if (!isDefinedSymphonyRuntimeManifest(moduleNamespace.default)) {
-    throw new SymphonyRuntimeManifestError(
-      "invalid_runtime_manifest_export",
-      `Invalid Symphony runtime manifest export at ${manifestPath}: the default export must be the result of defineSymphonyRuntime(...).`,
-      {
-        manifestPath
-      }
-    );
-  }
-
-  return moduleNamespace.default;
 }
 
 function parseRuntimeManifest(
@@ -182,51 +140,4 @@ function parseWorkspace(
     packageManager,
     workingDirectory
   };
-}
-
-function brandSymphonyRuntimeManifest(
-  manifest: SymphonyNormalizedRuntimeManifest
-): SymphonyNormalizedRuntimeManifest {
-  Object.defineProperty(manifest, symphonyRuntimeManifestBrand, {
-    value: true,
-    enumerable: false,
-    configurable: false,
-    writable: false
-  });
-
-  return deepFreeze(manifest);
-}
-
-function isDefinedSymphonyRuntimeManifest(
-  value: unknown
-): value is BrandedSymphonyRuntimeManifest {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  const brandedValue = value as Record<PropertyKey, unknown>;
-  return brandedValue[symphonyRuntimeManifestBrand] === true;
-}
-
-function deepFreeze<T>(value: T): T {
-  if (!isFreezable(value)) {
-    return value;
-  }
-
-  const record = value as Record<PropertyKey, unknown>;
-  for (const property of Reflect.ownKeys(value)) {
-    const nestedValue = record[property];
-    if (isFreezable(nestedValue)) {
-      deepFreeze(nestedValue);
-    }
-  }
-
-  return Object.freeze(value);
-}
-
-function isFreezable(value: unknown): value is Record<PropertyKey, unknown> {
-  return (
-    (typeof value === "object" && value !== null) ||
-    typeof value === "function"
-  );
 }

@@ -34,7 +34,9 @@ export const managedServiceCpuSharesLabelKey = "dev.symphony.service-cpu-shares"
 export const managedWorkspaceContainerKind = "workspace_container";
 export const managedWorkspaceNetworkKind = "workspace_network";
 export const managedWorkspaceServiceKind = "workspace_service";
+export const managedWorkspaceVolumeKind = "workspace_volume";
 export const bindMaterializationKind = "bind_mount";
+export const volumeMaterializationKind = "volume";
 export const defaultPostgresMemoryMb = 512;
 export const defaultPostgresCpuShares = 512;
 export const defaultPostgresReadinessTimeoutMs = 15_000;
@@ -59,17 +61,34 @@ export type DockerWorkspaceBackendOptions = {
   workspacePath?: string;
   containerNamePrefix?: string;
   shell?: string;
+  materializationMode?: DockerWorkspaceMaterializationMode;
   runtimeManifest?: SymphonyLoadedRuntimeManifest | null;
   commandRunner?: DockerWorkspaceCommandRunner;
   commandTimeoutMs?: number;
 };
+
+export type DockerWorkspaceMaterializationMode =
+  | typeof bindMaterializationKind
+  | typeof volumeMaterializationKind;
+
+export type DockerWorkspaceMaterializationDescriptor =
+  | {
+      kind: typeof bindMaterializationKind;
+      hostPath: string;
+      volumeName: null;
+    }
+  | {
+      kind: typeof volumeMaterializationKind;
+      hostPath: null;
+      volumeName: string;
+    };
 
 export type DockerWorkspaceDescriptor = {
   issueIdentifier: string;
   workspaceKey: string;
   containerName: string;
   networkName: string;
-  hostPath: string;
+  materialization: DockerWorkspaceMaterializationDescriptor;
 };
 
 export type DockerServiceDescriptor = {
@@ -105,6 +124,11 @@ export type DockerContainerInspectState = {
 
 export type DockerNetworkInspectState = {
   id: string;
+  name: string;
+  labels: Record<string, string>;
+};
+
+export type DockerVolumeInspectState = {
   name: string;
   labels: Record<string, string>;
 };
@@ -161,13 +185,25 @@ export function buildManagedContainerLabels(
     [managedBackendLabelKey]: managedBackendLabelValue,
     [managedWorkspaceKeyLabelKey]: descriptor.workspaceKey,
     [managedIssueIdentifierLabelKey]: descriptor.issueIdentifier,
-    [managedMaterializationLabelKey]: bindMaterializationKind,
+    [managedMaterializationLabelKey]: descriptor.materialization.kind,
     [managedKindLabelKey]: managedWorkspaceContainerKind,
     ...(networkName
       ? {
           [managedNetworkNameLabelKey]: networkName
         }
       : {})
+  };
+}
+
+export function buildManagedVolumeLabels(
+  descriptor: DockerWorkspaceDescriptor
+): Record<string, string> {
+  return {
+    [managedBackendLabelKey]: managedBackendLabelValue,
+    [managedWorkspaceKeyLabelKey]: descriptor.workspaceKey,
+    [managedIssueIdentifierLabelKey]: descriptor.issueIdentifier,
+    [managedMaterializationLabelKey]: descriptor.materialization.kind,
+    [managedKindLabelKey]: managedWorkspaceVolumeKind
   };
 }
 
@@ -249,6 +285,13 @@ export function buildDockerServiceContainerName(
   return buildDockerManagedName(`symphony-service-${serviceKey}`, workspaceKey);
 }
 
+export function buildDockerVolumeName(
+  prefix: string,
+  workspaceKey: string
+): string {
+  return buildDockerManagedName(`${prefix}-volume`, workspaceKey);
+}
+
 export function buildDockerManagedName(prefix: string, workspaceKey: string): string {
   const readable =
     workspaceKey
@@ -295,4 +338,20 @@ export function stringOrNull(value: unknown): string | null {
 
 export function stringOrFallback(value: unknown, fallback: string): string {
   return typeof value === "string" && value !== "" ? value : fallback;
+}
+
+export function workspaceDescriptorHostPath(
+  descriptor: DockerWorkspaceDescriptor
+): string | null {
+  return descriptor.materialization.kind === bindMaterializationKind
+    ? descriptor.materialization.hostPath
+    : null;
+}
+
+export function workspaceDescriptorVolumeName(
+  descriptor: DockerWorkspaceDescriptor
+): string | null {
+  return descriptor.materialization.kind === volumeMaterializationKind
+    ? descriptor.materialization.volumeName
+    : null;
 }
