@@ -114,7 +114,7 @@ describe("docker runner image", () => {
         ],
         result: {
           exitCode: 1,
-          stdout: "pnpm\npsql\n",
+          stdout: "codex\npnpm\npsql\n",
           stderr: ""
         }
       }
@@ -125,7 +125,58 @@ describe("docker runner image", () => {
         image: defaultSymphonyDockerWorkspaceImage,
         commandRunner: runner
       })
-    ).rejects.toThrowError(/missing required tools: pnpm, psql/i);
+    ).rejects.toThrowError(/missing required tools: codex, pnpm, psql/i);
+  });
+
+  it("fails clearly when the configured shell does not exist in the image", async () => {
+    const runner = createCommandRunner([
+      {
+        args: ["version", "--format", "{{.Server.Version}}"],
+        result: {
+          exitCode: 0,
+          stdout: "27.0.1\n",
+          stderr: ""
+        }
+      },
+      {
+        args: [
+          "image",
+          "inspect",
+          "--format",
+          "{{.Id}}",
+          defaultSymphonyDockerWorkspaceImage
+        ],
+        result: {
+          exitCode: 0,
+          stdout: "sha256:runner\n",
+          stderr: ""
+        }
+      },
+      {
+        argsPrefix: [
+          "run",
+          "--rm",
+          "--entrypoint",
+          "fish",
+          defaultSymphonyDockerWorkspaceImage,
+          "-lc"
+        ],
+        result: {
+          exitCode: 127,
+          stdout: "",
+          stderr:
+            'docker: Error response from daemon: failed to create task for container: exec: "fish": executable file not found in $PATH'
+        }
+      }
+    ]);
+
+    await expect(
+      preflightSymphonyDockerWorkspaceImage({
+        image: defaultSymphonyDockerWorkspaceImage,
+        shell: "fish",
+        commandRunner: runner
+      })
+    ).rejects.toThrowError(/does not provide the configured shell fish/i);
   });
 
   it("returns a usable preflight summary when docker and the image are ready", async () => {
@@ -181,6 +232,7 @@ describe("docker runner image", () => {
       imageId: "sha256:runner",
       requiredTools: [
         "bash",
+        "codex",
         "git",
         "node",
         "corepack",

@@ -3,6 +3,7 @@ export {
   createDockerWorkspaceBackend,
   createGitHubReviewPublisher,
   createLocalWorkspaceBackend,
+  defaultDockerHomePath,
   defaultSymphonyDockerWorkspaceImage,
   defaultSymphonyDockerWorkspacePreflightTimeoutMs,
   preflightSymphonyDockerWorkspaceImage,

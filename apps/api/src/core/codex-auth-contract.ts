@@ -1,6 +1,8 @@
 import fs from "node:fs";
 
-const defaultDockerCodexAuthPath = "/tmp/symphony-home/.codex/auth.json";
+const defaultDockerCodexAuthPath =
+  "/home/agent/auth.json";
+const defaultDockerCodexHomePath = "/home/agent";
 
 export type DockerCodexAuthContract =
   | {
@@ -39,7 +41,9 @@ export function resolveDockerCodexAuthContract(
         containerPath: defaultDockerCodexAuthPath,
         readOnly: true
       },
-      launchEnv: {},
+      launchEnv: {
+        CODEX_HOME: defaultDockerCodexHomePath
+      },
       authFilePath
     };
   }

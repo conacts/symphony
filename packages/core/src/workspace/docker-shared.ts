@@ -17,7 +17,7 @@ import type {
 
 export const defaultContainerWorkspacePath = "/home/agent/workspace";
 export const defaultContainerNamePrefix = "symphony-workspace";
-export const defaultDockerHomePath = "/tmp/symphony-home";
+export const defaultDockerHomePath = "/home/agent";
 export const managedBackendLabelKey = "dev.symphony.workspace-backend";
 export const managedBackendLabelValue = "docker";
 export const managedWorkspaceKeyLabelKey = "dev.symphony.workspace-key";

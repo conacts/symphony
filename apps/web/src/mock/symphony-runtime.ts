@@ -486,6 +486,10 @@ function buildAmbientEnvBundleSummary(): NonNullable<
     injectedKeys: [],
     requiredHostKeys: [],
     optionalHostKeys: [],
+    repoEnvPath: null,
+    projectedRepoKeys: [],
+    requiredRepoKeys: [],
+    optionalRepoKeys: [],
     staticBindingKeys: [],
     runtimeBindingKeys: [],
     serviceBindingKeys: []

@@ -5,6 +5,7 @@ import {
   SymphonyOrchestrator,
   type SymphonyAgentRuntimeCompletion
 } from "./symphony-orchestrator.js";
+import { SymphonyRuntimeManifestError } from "../runtime-manifest/runtime-manifest-errors.js";
 import type {
   AgentRunLaunch,
   AgentRuntime
@@ -13,6 +14,7 @@ import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-work
 import { buildSymphonyTrackerIssue } from "../test-support/build-symphony-tracker-issue.js";
 import { createMemorySymphonyTracker } from "../tracker/symphony-tracker.js";
 import { createLocalWorkspaceBackend } from "../workspace/workspace-backend.js";
+import { SymphonyWorkspaceError } from "../workspace/workspace-identity.js";
 
 function createAgentRuntime(
   overrides: Partial<AgentRuntime> = {}
@@ -154,6 +156,169 @@ describe("symphony orchestrator", () => {
     expect(completedSnapshot.retrying[0]?.delayType).toBe("continuation");
     expect(completedSnapshot.codexTotals.totalTokens).toBe(16);
   });
+
+  it.each([
+    {
+      name: "missing repo env snapshot",
+      error: new SymphonyRuntimeManifestError(
+        "runtime_manifest_env_resolution_failed",
+        "missing repo env",
+        {
+          issues: [
+            {
+              path: "env.repo.path",
+              message: "missing"
+            }
+          ]
+        }
+      ),
+      expectedOrigin: "repo_env_contract"
+    },
+    {
+      name: "missing required repo env key",
+      error: new SymphonyRuntimeManifestError(
+        "runtime_manifest_env_resolution_failed",
+        "missing repo env key",
+        {
+          issues: [
+            {
+              path: "env.repo.required[0]",
+              message: "missing"
+            }
+          ]
+        }
+      ),
+      expectedOrigin: "repo_env_contract"
+    },
+    {
+      name: "missing required host auth",
+      error: new SymphonyRuntimeManifestError(
+        "runtime_manifest_env_resolution_failed",
+        "missing host auth",
+        {
+          issues: [
+            {
+              path: "env.host.required[0]",
+              message: "missing"
+            }
+          ]
+        }
+      ),
+      expectedOrigin: "host_auth_contract"
+    },
+    {
+      name: "missing codex auth",
+      error: Object.assign(new Error("missing codex auth"), {
+        code: "codex_auth_unavailable"
+      }),
+      expectedOrigin: "codex_auth_contract"
+    },
+    {
+      name: "missing codex binary in the image",
+      error: new SymphonyWorkspaceError(
+        "workspace_docker_image_invalid",
+        "Docker workspace image is missing required tools: codex."
+      ),
+      expectedOrigin: "image_tooling_contract"
+    },
+    {
+      name: "docker daemon unavailable",
+      error: new SymphonyWorkspaceError(
+        "workspace_docker_unavailable",
+        "Docker daemon unavailable."
+      ),
+      expectedOrigin: "docker_backend_contract"
+    }
+  ])(
+    "does not queue retries for deterministic docker contract startup failures: $name",
+    async ({ error, expectedOrigin }) => {
+      const workflowConfig = buildSymphonyWorkflowConfig({
+        tracker: {
+          ...buildSymphonyWorkflowConfig().tracker,
+          claimTransitionToState: null,
+          claimTransitionFromStates: [],
+          startupFailureTransitionToState: "Backlog"
+        }
+      });
+      const issue = buildSymphonyTrackerIssue({
+        state: "In Progress"
+      });
+      const tracker = createMemorySymphonyTracker([issue]);
+      const finalized: SymphonyAgentRuntimeCompletion[] = [];
+      const workspaceBackend = {
+        kind: "docker" as const,
+        async prepareWorkspace() {
+          throw error;
+        },
+        async runBeforeRun() {
+          throw new Error("runBeforeRun should not be called");
+        },
+        async runAfterRun() {
+          return {
+            hookKind: "after_run" as const,
+            outcome: "skipped" as const
+          };
+        },
+        async cleanupWorkspace() {
+          return {
+            backendKind: "docker" as const,
+            workerHost: null,
+            hostPath: null,
+            runtimePath: null,
+            containerId: null,
+            containerName: null,
+            networkName: null,
+            networkRemovalDisposition: "not_applicable" as const,
+            serviceCleanup: [],
+            beforeRemoveHookOutcome: "skipped" as const,
+            manifestLifecycleCleanup: null,
+            workspaceRemovalDisposition: "missing" as const,
+            containerRemovalDisposition: "missing" as const
+          };
+        }
+      };
+
+      const orchestrator = new SymphonyOrchestrator({
+        workflowConfig,
+        tracker,
+        workspaceBackend,
+        agentRuntime: createAgentRuntime(),
+        observer: {
+          startRun() {
+            return "run-1";
+          },
+          recordLifecycleEvent() {
+            return;
+          },
+          finalizeRun(input) {
+            finalized.push(input.completion);
+            return;
+          }
+        },
+        clock: {
+          now: () => new Date("2026-04-02T00:00:00.000Z"),
+          nowMs: () => Date.parse("2026-04-02T00:00:00.000Z")
+        }
+      });
+
+      await orchestrator.dispatchIssue(issue, 0);
+
+      expect(finalized).toEqual([
+        expect.objectContaining({
+          kind: "startup_failure",
+          failureStage: "workspace_prepare",
+          failureOrigin: expectedOrigin
+        })
+      ]);
+      expect(orchestrator.snapshot().retrying).toEqual([]);
+      expect(orchestrator.snapshot().running).toEqual([]);
+      expect(tracker.listOperations()).toContainEqual({
+        kind: "update_state",
+        issueId: issue.id,
+        stateName: "Backlog"
+      });
+    }
+  );
 
   it("clears the poll-in-progress flag when a poll cycle fails", async () => {
     const workflowConfig = buildSymphonyWorkflowConfig();

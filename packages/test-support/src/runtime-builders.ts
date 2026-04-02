@@ -78,6 +78,10 @@ export function buildSymphonyRuntimeStateResult(
       injectedKeys: ["LINEAR_API_KEY"],
       requiredHostKeys: [],
       optionalHostKeys: [],
+      repoEnvPath: null,
+      projectedRepoKeys: [],
+      requiredRepoKeys: [],
+      optionalRepoKeys: [],
       staticBindingKeys: [],
       runtimeBindingKeys: [],
       serviceBindingKeys: []
@@ -131,6 +135,10 @@ export function buildSymphonyRuntimeStateResult(
       injectedKeys: ["DATABASE_URL", "OPENAI_API_KEY", "PGHOST"],
       requiredHostKeys: ["OPENAI_API_KEY"],
       optionalHostKeys: [],
+      repoEnvPath: null,
+      projectedRepoKeys: [],
+      requiredRepoKeys: [],
+      optionalRepoKeys: [],
       staticBindingKeys: [],
       runtimeBindingKeys: [],
       serviceBindingKeys: ["DATABASE_URL", "PGHOST"]
@@ -305,6 +313,10 @@ export function buildSymphonyRuntimeIssueResult(
       injectedKeys: ["LINEAR_API_KEY"],
       requiredHostKeys: [],
       optionalHostKeys: [],
+      repoEnvPath: null,
+      projectedRepoKeys: [],
+      requiredRepoKeys: [],
+      optionalRepoKeys: [],
       staticBindingKeys: [],
       runtimeBindingKeys: [],
       serviceBindingKeys: []

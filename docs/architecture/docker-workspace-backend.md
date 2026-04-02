@@ -46,6 +46,7 @@ This stage now freezes one supported generic runner image for local Docker-backe
 The generic runner image is intentionally limited to cross-repo execution essentials:
 
 - `bash`
+- `codex`
 - `git`
 - `node`
 - `corepack`

@@ -59,6 +59,10 @@ export const symphonyRuntimeWorkspaceEnvBundleSummarySchema = z.strictObject({
   injectedKeys: z.array(nonEmptyStringSchema),
   requiredHostKeys: z.array(nonEmptyStringSchema),
   optionalHostKeys: z.array(nonEmptyStringSchema),
+  repoEnvPath: nullableNonEmptyStringSchema,
+  projectedRepoKeys: z.array(nonEmptyStringSchema),
+  requiredRepoKeys: z.array(nonEmptyStringSchema),
+  optionalRepoKeys: z.array(nonEmptyStringSchema),
   staticBindingKeys: z.array(nonEmptyStringSchema),
   runtimeBindingKeys: z.array(nonEmptyStringSchema),
   serviceBindingKeys: z.array(nonEmptyStringSchema)

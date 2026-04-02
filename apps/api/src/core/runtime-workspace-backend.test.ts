@@ -63,6 +63,7 @@ describe("runtime workspace backend selection", () => {
       buildCommand: "pnpm docker:workspace-image:build",
       requiredTools: [
         "bash",
+        "codex",
         "git",
         "node",
         "corepack",
@@ -189,6 +190,7 @@ describe("runtime workspace backend selection", () => {
       buildCommand: "pnpm docker:workspace-image:build",
       requiredTools: [
         "bash",
+        "codex",
         "git",
         "node",
         "corepack",
@@ -226,6 +228,7 @@ describe("runtime workspace backend selection", () => {
       buildCommand: "pnpm docker:workspace-image:build",
       requiredTools: [
         "bash",
+        "codex",
         "git",
         "node",
         "corepack",

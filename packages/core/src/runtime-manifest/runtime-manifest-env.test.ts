@@ -240,6 +240,69 @@ describe("runtime manifest env resolution", () => {
       })
     ).toThrowError(/env\.repo\.path: Required repo runtime env snapshot is unavailable/i);
   });
+
+  it("fails fast with a path-targeted error when a required repo env key is missing", async () => {
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "symphony-runtime-env-required-"));
+    tempDirectories.push(repoRoot);
+    await mkdir(path.join(repoRoot, ".coldets", "local"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(repoRoot, ".coldets", "local", "resolved.env"),
+      "QSTASH_URL=http://localhost:8080\n",
+      "utf8"
+    );
+
+    const manifest = normalizeSymphonyRuntimeManifest({
+      schemaVersion: 1,
+      workspace: {
+        packageManager: "pnpm"
+      },
+      env: {
+        host: {
+          required: [],
+          optional: []
+        },
+        repo: {
+          path: ".coldets/local/resolved.env",
+          required: ["QSTASH_TOKEN"],
+          optional: ["QSTASH_URL"]
+        },
+        inject: {}
+      },
+      lifecycle: {
+        bootstrap: [],
+        migrate: [],
+        verify: [
+          {
+            name: "verify",
+            run: "pnpm test"
+          }
+        ],
+        seed: [],
+        cleanup: []
+      }
+    });
+
+    expect(() =>
+      resolveSymphonyRuntimeEnvBundle({
+        manifest,
+        repoRoot,
+        environmentSource: {},
+        runtime: {
+          issueId: "issue-123",
+          issueIdentifier: "COL-123",
+          runId: "run-123",
+          workspaceKey: "COL-123",
+          workspacePath: "/home/agent/workspace",
+          backendKind: "docker"
+        },
+        manifestPath: "/repo/.symphony/runtime.ts"
+      })
+    ).toThrowError(
+      /env\.repo\.required\[0\]: Required repo runtime environment variable QSTASH_TOKEN is missing/i
+    );
+  });
 });
 
 async function createTempRepoRoot(): Promise<string> {

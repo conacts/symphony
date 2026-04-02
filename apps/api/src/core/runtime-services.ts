@@ -240,10 +240,10 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
   environmentSource: Record<string, string | undefined>,
   options: {
-    hostCommandEnvSource?: Record<string, string | undefined>;
-  } = {}
+    hostCommandEnvSource: Record<string, string | undefined>;
+  }
 ): Promise<SymphonyRuntimeAppServices> {
-  const hostCommandEnvSource = options.hostCommandEnvSource ?? process.env;
+  const { hostCommandEnvSource } = options;
   const logger = createSymphonyLogger({
     name: "@symphony/api",
     level: env.logLevel

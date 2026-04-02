@@ -52,7 +52,7 @@ describe("docker workspace backend", () => {
       hostFileMounts: [
         {
           sourcePath: "/Users/test/.codex/auth.json",
-          containerPath: "/tmp/symphony-home/.codex/auth.json",
+          containerPath: "/home/agent/auth.json",
           readOnly: true
         }
       ],
@@ -94,7 +94,7 @@ describe("docker workspace backend", () => {
     expect(calls.find((call) => call[0] === "run")).toEqual(
       expect.arrayContaining([
         "--mount",
-        "type=bind,src=/Users/test/.codex/auth.json,dst=/tmp/symphony-home/.codex/auth.json,readonly"
+        "type=bind,src=/Users/test/.codex/auth.json,dst=/home/agent/auth.json,readonly"
       ])
     );
   });

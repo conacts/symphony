@@ -72,7 +72,7 @@ export function resolveSymphonyRuntimeRepoEnv(
   try {
     const content = fs.readFileSync(resolvedPath, "utf8");
     projected = parseEnvironmentFile(content);
-  } catch (error) {
+  } catch {
     issues.push({
       path: "env.repo.path",
       message: `Required repo runtime env snapshot is unavailable at ${resolvedPath}.`

@@ -15,6 +15,7 @@ export const symphonyDockerWorkspaceBuildCommand =
   "pnpm docker:workspace-image:build";
 export const symphonyDockerWorkspaceRequiredTools = [
   "bash",
+  "codex",
   "git",
   "node",
   "corepack",

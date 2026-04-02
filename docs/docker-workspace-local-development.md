@@ -13,6 +13,7 @@ Symphony now targets one generic workspace runner image first:
 The image guarantees these cross-repo tools:
 
 - `bash`
+- `codex`
 - `git`
 - `node`
 - `corepack`

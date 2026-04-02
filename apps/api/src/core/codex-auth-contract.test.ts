@@ -35,10 +35,12 @@ describe("codex auth contract", () => {
       mode: "auth_json",
       mount: {
         sourcePath: path.join(home, ".codex", "auth.json"),
-        containerPath: "/tmp/symphony-home/.codex/auth.json",
+        containerPath: "/home/agent/auth.json",
         readOnly: true
       },
-      launchEnv: {},
+      launchEnv: {
+        CODEX_HOME: "/home/agent"
+      },
       authFilePath: path.join(home, ".codex", "auth.json")
     });
   });

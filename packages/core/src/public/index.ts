@@ -3,6 +3,7 @@ export { createGitHubReviewPublisher } from "../review/review-publisher.js";
 export {
   createDockerWorkspaceBackend,
   createLocalWorkspaceBackend,
+  defaultDockerHomePath,
   defaultSymphonyDockerWorkspaceImage,
   defaultSymphonyDockerWorkspacePreflightTimeoutMs,
   preflightSymphonyDockerWorkspaceImage,

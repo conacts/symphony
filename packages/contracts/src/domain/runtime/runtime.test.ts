@@ -46,6 +46,10 @@ describe("symphony runtime contracts", () => {
                 injectedKeys: ["LINEAR_API_KEY"],
                 requiredHostKeys: [],
                 optionalHostKeys: [],
+                repoEnvPath: null,
+                projectedRepoKeys: [],
+                requiredRepoKeys: [],
+                optionalRepoKeys: [],
                 staticBindingKeys: [],
                 runtimeBindingKeys: [],
                 serviceBindingKeys: []
@@ -166,6 +170,10 @@ describe("symphony runtime contracts", () => {
             injectedKeys: ["LINEAR_API_KEY"],
             requiredHostKeys: [],
             optionalHostKeys: [],
+            repoEnvPath: null,
+            projectedRepoKeys: [],
+            requiredRepoKeys: [],
+            optionalRepoKeys: [],
             staticBindingKeys: [],
             runtimeBindingKeys: [],
             serviceBindingKeys: []

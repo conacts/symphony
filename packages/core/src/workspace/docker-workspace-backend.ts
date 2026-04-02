@@ -1731,6 +1731,8 @@ async function startManagedContainer(input: {
     "-d",
     "--name",
     input.descriptor.containerName,
+    "--tmpfs",
+    `${defaultDockerHomePath}:exec,mode=0777`,
     "--mount",
     workspaceMount,
     "--workdir",
@@ -2097,8 +2099,8 @@ function requireDockerExecutionTarget(
 function normalizeDockerWorkspaceHostFileMounts(
   mounts: DockerWorkspaceBackendOptions["hostFileMounts"]
 ): DockerWorkspaceHostFileMount[] {
-  return (mounts ?? [])
-    .map((mount) => {
+  const normalizedMounts: Array<DockerWorkspaceHostFileMount | null> = (mounts ?? []).map(
+    (mount) => {
       const sourcePath = normalizeNonEmptyString(mount.sourcePath);
       const containerPath = normalizeNonEmptyString(mount.containerPath);
 
@@ -2111,7 +2113,10 @@ function normalizeDockerWorkspaceHostFileMounts(
         containerPath,
         readOnly: mount.readOnly ?? true
       };
-    })
+    }
+  );
+
+  return normalizedMounts
     .filter((mount): mount is DockerWorkspaceHostFileMount => mount !== null);
 }
 
