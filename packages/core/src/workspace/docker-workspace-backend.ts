@@ -32,6 +32,7 @@ import {
   assertManagedServiceContainer,
   containerAttachedToNetwork,
   containerHasExpectedBindMount,
+  containerHasExpectedVolumeMount,
   containerHasNetworkAlias,
   inspectDockerContainer,
   inspectDockerNetwork,
@@ -48,9 +49,11 @@ import {
   buildDockerContainerName,
   buildDockerNetworkName,
   buildDockerServiceContainerName,
+  buildDockerVolumeName,
   buildManagedContainerLabels,
   buildManagedNetworkLabels,
   buildManagedServiceLabels,
+  bindMaterializationKind,
   defaultContainerWorkspacePath,
   defaultDockerHomePath,
   defaultPostgresReadinessIntervalMs,
@@ -73,16 +76,20 @@ import {
   normalizeContainerPrefix,
   normalizeNonEmptyString,
   resolvePostgresResourceLimits,
+  volumeMaterializationKind,
   type DockerContainerInspectState,
   type DockerManifestLifecyclePhasePlan,
   type DockerManifestLifecycleState,
+  type DockerWorkspaceMaterializationDescriptor,
+  type DockerWorkspaceMaterializationMode,
   type DockerNetworkInspectState,
   type DockerPostgresProvision,
   type DockerPrepareManifestLifecycleInput,
   type DockerServiceDescriptor,
   type DockerWorkspaceBackendOptions,
   type DockerWorkspaceCommandRunner,
-  type DockerWorkspaceDescriptor
+  type DockerWorkspaceDescriptor,
+  workspaceDescriptorHostPath
 } from "./docker-shared.js";
 import type {
   PreparedWorkspace,
@@ -132,6 +139,8 @@ export function createDockerWorkspaceBackend(
     options.containerNamePrefix
   );
   const shell = normalizeNonEmptyString(options.shell) ?? "sh";
+  const materializationMode =
+    options.materializationMode ?? bindMaterializationKind;
   const runtimeManifest = options.runtimeManifest ?? null;
   const commandRunner = options.commandRunner ?? defaultDockerWorkspaceCommandRunner;
   const configuredCommandTimeoutMs = options.commandTimeoutMs ?? null;
@@ -142,7 +151,8 @@ export function createDockerWorkspaceBackend(
       const descriptor = await createDockerWorkspaceDescriptor(
         input.context,
         input.config,
-        containerNamePrefix
+        containerNamePrefix,
+        materializationMode
       );
       const manifestLifecycleStatePath = runtimeManifest
         ? buildDockerManifestLifecycleStatePath(
@@ -154,7 +164,11 @@ export function createDockerWorkspaceBackend(
         configuredCommandTimeoutMs,
         input.hooks.timeoutMs
       );
-      const created = await ensureMaterializedWorkspace(descriptor.hostPath);
+      const created = await ensureMaterializedWorkspace({
+        descriptor,
+        commandRunner,
+        timeoutMs
+      });
       const network = runtimeManifest
         ? await ensureManagedNetwork({
             descriptor,
@@ -325,7 +339,8 @@ export function createDockerWorkspaceBackend(
     async cleanupWorkspace(input) {
       const descriptor = await resolveCleanupDescriptor(
         input,
-        containerNamePrefix
+        containerNamePrefix,
+        materializationMode
       );
       const manifestLifecycleStatePath = runtimeManifest
         ? buildDockerManifestLifecycleStatePath(
@@ -469,9 +484,11 @@ export function createDockerWorkspaceBackend(
             timeoutMs
           )
         : "not_applicable";
-      const workspaceRemovalDisposition = await removeMaterializedWorkspace(
-        descriptor.hostPath
-      );
+      const workspaceRemovalDisposition = await removeMaterializedWorkspace({
+        descriptor,
+        commandRunner,
+        timeoutMs
+      });
       if (manifestLifecycleStatePath) {
         await removeDockerManifestLifecycleState(manifestLifecycleStatePath);
       }
@@ -479,7 +496,7 @@ export function createDockerWorkspaceBackend(
       return {
         backendKind: "docker",
         workerHost: input.workerHost ?? null,
-        hostPath: descriptor.hostPath,
+        hostPath: workspaceDescriptorHostPath(descriptor),
         runtimePath:
           input.workspace?.executionTarget.kind === "container"
             ? input.workspace.executionTarget.workspacePath
@@ -501,44 +518,73 @@ export function createDockerWorkspaceBackend(
 async function createDockerWorkspaceDescriptor(
   context: SymphonyWorkspaceContext,
   config: WorkspacePrepareInput["config"],
-  containerNamePrefix: string
+  containerNamePrefix: string,
+  materializationMode: DockerWorkspaceMaterializationMode
 ): Promise<DockerWorkspaceDescriptor> {
   const workspaceKey = sanitizeSymphonyIssueIdentifier(context.issueIdentifier);
-  const hostPath = await resolveManagedWorkspacePath(
-    context.issueIdentifier,
-    config.root,
-    true
-  );
+  const materialization: DockerWorkspaceMaterializationDescriptor =
+    materializationMode === volumeMaterializationKind
+      ? {
+          kind: volumeMaterializationKind,
+          hostPath: null,
+          volumeName: buildDockerVolumeName(containerNamePrefix, workspaceKey)
+        }
+      : {
+          kind: bindMaterializationKind,
+          hostPath: await resolveManagedWorkspacePath(
+            context.issueIdentifier,
+            config.root,
+            true
+          ),
+          volumeName: null
+        };
 
   return {
     issueIdentifier: context.issueIdentifier,
     workspaceKey,
     containerName: buildDockerContainerName(containerNamePrefix, workspaceKey),
     networkName: buildDockerNetworkName(containerNamePrefix, workspaceKey),
-    hostPath
+    materialization
   };
 }
 
 async function resolveCleanupDescriptor(
   input: WorkspaceCleanupInput,
-  containerNamePrefix: string
+  containerNamePrefix: string,
+  materializationMode: DockerWorkspaceMaterializationMode
 ): Promise<DockerWorkspaceDescriptor> {
   const workspace = input.workspace;
   const workspaceKey =
     workspace?.workspaceKey ??
     sanitizeSymphonyIssueIdentifier(input.issueIdentifier);
-  const hostPath =
-    workspace &&
-    workspace.executionTarget.kind === "container" &&
-    workspace.executionTarget.hostPath
-      ? workspace.executionTarget.hostPath
-      : workspace?.materialization.kind === "bind_mount"
-        ? workspace.materialization.hostPath
-        : await resolveManagedWorkspacePath(
-            input.issueIdentifier,
-            input.config.root,
-            false
-          );
+  const materialization: DockerWorkspaceMaterializationDescriptor =
+    workspace?.materialization.kind === "bind_mount"
+      ? {
+          kind: bindMaterializationKind,
+          hostPath: workspace.materialization.hostPath,
+          volumeName: null
+        }
+      : workspace?.materialization.kind === "volume"
+        ? {
+            kind: volumeMaterializationKind,
+            hostPath: null,
+            volumeName: workspace.materialization.volumeName
+          }
+        : materializationMode === volumeMaterializationKind
+          ? {
+              kind: volumeMaterializationKind,
+              hostPath: null,
+              volumeName: buildDockerVolumeName(containerNamePrefix, workspaceKey)
+            }
+          : {
+              kind: bindMaterializationKind,
+              hostPath: await resolveManagedWorkspacePath(
+                input.issueIdentifier,
+                input.config.root,
+                false
+              ),
+              volumeName: null
+            };
   const containerName =
     workspace &&
     workspace.executionTarget.kind === "container" &&
@@ -552,7 +598,7 @@ async function resolveCleanupDescriptor(
     containerName,
     networkName:
       workspace?.networkName ?? buildDockerNetworkName(containerNamePrefix, workspaceKey),
-    hostPath
+    materialization
   };
 }
 
@@ -584,14 +630,22 @@ function buildPreparedWorkspace(input: {
       workspacePath: input.workspacePath,
       containerId: input.containerId,
       containerName: input.descriptor.containerName,
-      hostPath: input.descriptor.hostPath,
+      hostPath: workspaceDescriptorHostPath(input.descriptor),
       shell: input.shell
     },
-    materialization: {
-      kind: "bind_mount",
-      hostPath: input.descriptor.hostPath,
-      containerPath: input.workspacePath
-    },
+    materialization:
+      input.descriptor.materialization.kind === bindMaterializationKind
+        ? {
+            kind: bindMaterializationKind,
+            hostPath: input.descriptor.materialization.hostPath,
+            containerPath: input.workspacePath
+          }
+        : {
+            kind: volumeMaterializationKind,
+            volumeName: input.descriptor.materialization.volumeName,
+            containerPath: input.workspacePath,
+            hostPath: null
+          },
     networkName: input.networkName,
     services: input.services,
     envBundle: input.envBundle,
@@ -1605,7 +1659,7 @@ async function ensureManagedContainer(input: {
       existing,
       input.image,
       input.workspacePath,
-      input.descriptor.hostPath,
+      input.descriptor,
       input.networkName
     )
   ) {
@@ -1638,13 +1692,17 @@ async function startManagedContainer(input: {
   timeoutMs: number;
 }): Promise<DockerContainerInspectState> {
   const labels = buildManagedContainerLabels(input.descriptor, input.networkName);
+  const workspaceMount =
+    input.descriptor.materialization.kind === bindMaterializationKind
+      ? `type=bind,src=${input.descriptor.materialization.hostPath},dst=${input.workspacePath}`
+      : `type=volume,src=${input.descriptor.materialization.volumeName},dst=${input.workspacePath}`;
   const args = [
     "run",
     "-d",
     "--name",
     input.descriptor.containerName,
     "--mount",
-    `type=bind,src=${input.descriptor.hostPath},dst=${input.workspacePath}`,
+    workspaceMount,
     "--workdir",
     input.workspacePath,
     "--env",
@@ -1685,14 +1743,24 @@ async function startManagedContainer(input: {
     env: {
       HOME: defaultDockerHomePath
     },
-    mounts: [
-      {
-        type: "bind",
-        source: input.descriptor.hostPath,
-        destination: input.workspacePath,
-        name: null
-      }
-    ],
+    mounts:
+      input.descriptor.materialization.kind === bindMaterializationKind
+        ? [
+            {
+              type: "bind",
+              source: input.descriptor.materialization.hostPath,
+              destination: input.workspacePath,
+              name: null
+            }
+          ]
+        : [
+            {
+              type: "volume",
+              source: null,
+              destination: input.workspacePath,
+              name: input.descriptor.materialization.volumeName
+            }
+          ],
     networks: input.networkName
       ? {
           [input.networkName]: {
@@ -1917,14 +1985,24 @@ async function canReuseContainer(
   container: DockerContainerInspectState,
   image: string,
   workspacePath: string,
-  hostPath: string,
+  descriptor: DockerWorkspaceDescriptor,
   networkName: string | null
 ): Promise<boolean> {
   return (
     container.running &&
     container.image === image &&
     (!networkName || containerAttachedToNetwork(container, networkName)) &&
-    (await containerHasExpectedBindMount(container, workspacePath, hostPath))
+    (descriptor.materialization.kind === bindMaterializationKind
+      ? await containerHasExpectedBindMount(
+          container,
+          workspacePath,
+          descriptor.materialization.hostPath
+        )
+      : containerHasExpectedVolumeMount(
+          container,
+          workspacePath,
+          descriptor.materialization.volumeName
+        ))
   );
 }
 

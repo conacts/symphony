@@ -1,9 +1,53 @@
 import { mkdir, rm, stat } from "node:fs/promises";
 import { isEnoent } from "../internal/errors.js";
+import {
+  dockerCommandError,
+  dockerLabelFlags
+} from "./docker-client.js";
+import {
+  buildManagedVolumeLabels,
+  type DockerWorkspaceCommandRunner,
+  type DockerWorkspaceDescriptor,
+  workspaceDescriptorVolumeName
+} from "./docker-shared.js";
+import { inspectDockerVolume, removeDockerVolume, assertManagedVolume } from "./docker-inspect.js";
 import { workspaceExists } from "./workspace-paths.js";
 import { SymphonyWorkspaceError } from "./workspace-identity.js";
 
-export async function ensureMaterializedWorkspace(
+export async function ensureMaterializedWorkspace(input: {
+  descriptor: DockerWorkspaceDescriptor;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<boolean> {
+  if (input.descriptor.materialization.kind === "bind_mount") {
+    return await ensureBindMountedWorkspace(input.descriptor.materialization.hostPath);
+  }
+
+  return await ensureManagedVolume({
+    descriptor: input.descriptor,
+    commandRunner: input.commandRunner,
+    timeoutMs: input.timeoutMs
+  });
+}
+
+export async function removeMaterializedWorkspace(input: {
+  descriptor: DockerWorkspaceDescriptor;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<"removed" | "missing"> {
+  if (input.descriptor.materialization.kind === "bind_mount") {
+    return await removeBindMountedWorkspace(input.descriptor.materialization.hostPath);
+  }
+
+  return await removeDockerVolume(
+    input.commandRunner,
+    input.descriptor.materialization.volumeName,
+    input.descriptor,
+    input.timeoutMs
+  );
+}
+
+async function ensureBindMountedWorkspace(
   workspacePath: string
 ): Promise<boolean> {
   try {
@@ -29,7 +73,7 @@ export async function ensureMaterializedWorkspace(
   return true;
 }
 
-export async function removeMaterializedWorkspace(
+async function removeBindMountedWorkspace(
   workspacePath: string
 ): Promise<"removed" | "missing"> {
   const existedBeforeDelete = await workspaceExists(workspacePath);
@@ -48,4 +92,47 @@ export async function removeMaterializedWorkspace(
   }
 
   return existedBeforeDelete ? "removed" : "missing";
+}
+
+async function ensureManagedVolume(input: {
+  descriptor: DockerWorkspaceDescriptor;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<boolean> {
+  const volumeName = workspaceDescriptorVolumeName(input.descriptor);
+  if (!volumeName) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_invalid_volume_name",
+      `Workspace ${input.descriptor.workspaceKey} does not define a managed volume name.`
+    );
+  }
+
+  const existing = await inspectDockerVolume(
+    input.commandRunner,
+    volumeName,
+    input.timeoutMs
+  );
+
+  if (existing) {
+    assertManagedVolume(existing, input.descriptor);
+    return false;
+  }
+
+  const labels = buildManagedVolumeLabels(input.descriptor);
+  const args = [
+    "volume",
+    "create",
+    ...dockerLabelFlags(labels),
+    volumeName
+  ];
+  const result = await input.commandRunner({
+    args,
+    timeoutMs: input.timeoutMs
+  });
+
+  if (result.exitCode !== 0) {
+    throw dockerCommandError("volume create", args, result);
+  }
+
+  return true;
 }

@@ -8,10 +8,10 @@ import {
   type DockerContainerMount,
   type DockerContainerNetwork,
   type DockerNetworkInspectState,
+  type DockerVolumeInspectState,
   type DockerServiceDescriptor,
   type DockerWorkspaceCommandRunner,
   type DockerWorkspaceDescriptor,
-  bindMaterializationKind,
   managedBackendLabelKey,
   managedBackendLabelValue,
   managedIssueIdentifierLabelKey,
@@ -24,9 +24,11 @@ import {
   managedWorkspaceKeyLabelKey,
   managedWorkspaceNetworkKind,
   managedWorkspaceServiceKind,
+  managedWorkspaceVolumeKind,
   normalizeDockerContainerName,
   stringOrFallback,
-  stringOrNull
+  stringOrNull,
+  workspaceDescriptorVolumeName
 } from "./docker-shared.js";
 import {
   dockerCommandError,
@@ -77,6 +79,54 @@ export async function removeDockerNetwork(
 
   if (result.exitCode !== 0 && !isDockerMissingObject(result.stderr)) {
     throw dockerCommandError("network rm", args, result);
+  }
+
+  return isDockerMissingObject(result.stderr) ? "missing" : "removed";
+}
+
+export async function inspectDockerVolume(
+  commandRunner: DockerWorkspaceCommandRunner,
+  volumeName: string,
+  timeoutMs: number
+): Promise<DockerVolumeInspectState | null> {
+  const args = ["volume", "inspect", volumeName];
+  const result = await commandRunner({
+    args,
+    timeoutMs
+  });
+
+  if (result.exitCode !== 0) {
+    if (isDockerMissingObject(result.stderr)) {
+      return null;
+    }
+
+    throw dockerCommandError("volume inspect", args, result);
+  }
+
+  return parseDockerVolumeInspectPayload(result.stdout, volumeName);
+}
+
+export async function removeDockerVolume(
+  commandRunner: DockerWorkspaceCommandRunner,
+  volumeName: string,
+  descriptor: DockerWorkspaceDescriptor,
+  timeoutMs: number
+): Promise<WorkspaceCleanupResult["workspaceRemovalDisposition"]> {
+  const existing = await inspectDockerVolume(commandRunner, volumeName, timeoutMs);
+  if (!existing) {
+    return "missing";
+  }
+
+  assertManagedVolume(existing, descriptor);
+
+  const args = ["volume", "rm", volumeName];
+  const result = await commandRunner({
+    args,
+    timeoutMs
+  });
+
+  if (result.exitCode !== 0 && !isDockerMissingObject(result.stderr)) {
+    throw dockerCommandError("volume rm", args, result);
   }
 
   return isDockerMissingObject(result.stderr) ? "missing" : "removed";
@@ -141,6 +191,19 @@ export async function containerHasExpectedBindMount(
   return false;
 }
 
+export function containerHasExpectedVolumeMount(
+  container: DockerContainerInspectState,
+  workspacePath: string,
+  volumeName: string
+): boolean {
+  return container.mounts.some(
+    (mount) =>
+      mount.type === "volume" &&
+      mount.destination === workspacePath &&
+      mount.name === volumeName
+  );
+}
+
 export function assertManagedContainer(
   container: DockerContainerInspectState,
   descriptor: DockerWorkspaceDescriptor
@@ -169,7 +232,7 @@ export function assertManagedContainer(
   }
 
   if (
-    container.labels[managedMaterializationLabelKey] !== bindMaterializationKind
+    container.labels[managedMaterializationLabelKey] !== descriptor.materialization.kind
   ) {
     throw new SymphonyWorkspaceError(
       "workspace_docker_name_conflict",
@@ -181,6 +244,55 @@ export function assertManagedContainer(
     throw new SymphonyWorkspaceError(
       "workspace_docker_name_conflict",
       `Docker container ${descriptor.containerName} is not a managed Symphony workspace container.`
+    );
+  }
+}
+
+export function assertManagedVolume(
+  volume: DockerVolumeInspectState,
+  descriptor: DockerWorkspaceDescriptor
+): void {
+  const volumeName = workspaceDescriptorVolumeName(descriptor);
+
+  if (!volumeName) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker volume ${volume.name} does not match bind-mounted workspace ${descriptor.containerName}.`
+    );
+  }
+
+  if (volume.labels[managedBackendLabelKey] !== managedBackendLabelValue) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker volume ${volume.name} exists but is not managed by Symphony.`
+    );
+  }
+
+  if (volume.labels[managedKindLabelKey] !== managedWorkspaceVolumeKind) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker volume ${volume.name} is not a managed Symphony workspace volume.`
+    );
+  }
+
+  if (volume.labels[managedWorkspaceKeyLabelKey] !== descriptor.workspaceKey) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker volume ${volume.name} is already assigned to workspace ${volume.labels[managedWorkspaceKeyLabelKey]}.`
+    );
+  }
+
+  if (volume.labels[managedIssueIdentifierLabelKey] !== descriptor.issueIdentifier) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker volume ${volume.name} is already assigned to issue ${volume.labels[managedIssueIdentifierLabelKey]}.`
+    );
+  }
+
+  if (volume.labels[managedMaterializationLabelKey] !== descriptor.materialization.kind) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker volume ${volume.name} uses unsupported materialization ${volume.labels[managedMaterializationLabelKey]}.`
     );
   }
 }
@@ -369,6 +481,44 @@ function parseDockerNetworkInspectPayload(
     id: stringOrFallback(network.Id, networkName),
     name: stringOrFallback(network.Name, networkName),
     labels: stringRecord(network.Labels)
+  };
+}
+
+function parseDockerVolumeInspectPayload(
+  payload: string,
+  volumeName: string
+): DockerVolumeInspectState {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(payload);
+  } catch (error) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_invalid_volume_payload",
+      `Failed to parse docker volume inspect output for ${volumeName}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_invalid_volume_payload",
+      `Docker volume inspect did not return metadata for ${volumeName}.`
+    );
+  }
+
+  const volume = asRecord(parsed[0]);
+  if (!volume) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_invalid_volume_payload",
+      `Docker volume inspect returned a non-object payload for ${volumeName}.`
+    );
+  }
+
+  return {
+    name: stringOrFallback(volume.Name, volumeName),
+    labels: stringRecord(volume.Labels)
   };
 }
 
