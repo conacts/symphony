@@ -326,6 +326,11 @@ describe("docker workspace backend", () => {
           call.some((arg) => arg.includes("type=volume"))
       )
     ).toBe(true);
+    expect(
+      calls.some(
+        (call) => call[0] === "run" && call.includes("--user")
+      )
+    ).toBe(false);
   });
 
   it("cleans up volume-backed workspaces without a host repo path", async () => {

@@ -1696,6 +1696,10 @@ async function startManagedContainer(input: {
     input.descriptor.materialization.kind === bindMaterializationKind
       ? `type=bind,src=${input.descriptor.materialization.hostPath},dst=${input.workspacePath}`
       : `type=volume,src=${input.descriptor.materialization.volumeName},dst=${input.workspacePath}`;
+  const userFlags =
+    input.descriptor.materialization.kind === bindMaterializationKind
+      ? hostUserFlags()
+      : [];
   const args = [
     "run",
     "-d",
@@ -1708,7 +1712,7 @@ async function startManagedContainer(input: {
     "--env",
     `HOME=${defaultDockerHomePath}`,
     ...(input.networkName ? ["--network", input.networkName] : []),
-    ...hostUserFlags(),
+    ...userFlags,
     ...dockerLabelFlags(labels),
     "--entrypoint",
     input.shell,
