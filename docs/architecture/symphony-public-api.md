@@ -41,6 +41,19 @@ import {
 } from "@symphony/core";
 ```
 
+Repo-local runtime manifests now use a separate explicit authoring surface:
+
+```ts
+import {
+  defineSymphonyRuntime,
+  loadSymphonyRuntimeManifest
+} from "@symphony/core/runtime-manifest";
+```
+
+That subpath freezes the manifest authoring and loading contract without widening the default
+`@symphony/core` barrel. See
+`docs/architecture/runtime-manifest-contract.md` for the v1 manifest shape and loader rules.
+
 ## Frozen Concepts
 
 - `WorkspaceBackend`

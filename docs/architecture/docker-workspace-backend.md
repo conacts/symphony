@@ -7,6 +7,10 @@ Date: 2026-04-01
 Add a real Docker-backed `WorkspaceBackend` behind the execution-target-aware workspace seam and
 exercise it through one intentional Codex runtime path without making Docker the default runtime.
 
+The repo-local manifest foundation now exists in parallel as a validation-only contract. This
+document still describes the current backend/runtime execution path; manifest-driven lifecycle
+execution remains deferred. See `docs/architecture/runtime-manifest-contract.md`.
+
 This stage now covers:
 
 - prepare a deterministic container-backed workspace

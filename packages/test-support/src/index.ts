@@ -28,6 +28,10 @@ export {
   buildSymphonyRuntimeStateResult
 } from "./runtime-builders.js";
 export {
+  buildSymphonyRuntimeManifestInput,
+  renderSymphonyRuntimeManifestSource
+} from "./runtime-manifest-fixtures.js";
+export {
   createTempSymphonySqliteHarness,
   type SymphonyTempSqliteHarness
 } from "./temp-sqlite-harness.js";

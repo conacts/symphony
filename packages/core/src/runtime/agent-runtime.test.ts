@@ -93,6 +93,7 @@ describe("agent runtime facade", () => {
         "./orchestration",
         "./journal",
         "./forensics",
+        "./runtime-manifest",
         "./workspace/local"
       ])
     );

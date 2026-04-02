@@ -53,6 +53,7 @@ import {
   SymphonyRuntimePollScheduler,
   type SymphonyRuntimePollSchedulerSnapshot
 } from "./poll-scheduler.js";
+import { validateSourceRepoRuntimeManifest } from "./runtime-manifest-startup-validator.js";
 import { createRuntimeWorkspaceBackend } from "./runtime-workspace-backend.js";
 
 export type SymphonyRuntimeOrchestratorPort = {
@@ -253,6 +254,13 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     pollIntervalMs: workflow.config.polling.intervalMs,
     maxConcurrentAgents: workflow.config.agent.maxConcurrentAgents
   });
+
+  if (env.sourceRepo) {
+    logger.info(
+      "Validated source-repo runtime manifest",
+      await validateSourceRepoRuntimeManifest(env.sourceRepo)
+    );
+  }
 
   const database = initializeSymphonyDb({
     dbFile: env.dbFile

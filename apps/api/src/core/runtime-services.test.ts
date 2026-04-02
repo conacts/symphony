@@ -56,6 +56,14 @@ describe("runtime services", () => {
       ])
     );
   });
+
+  it("fails fast when the source repo runtime manifest is missing", async () => {
+    await expect(
+      createSymphonyRuntimeAppServicesHarness({
+        runtimeManifestSource: null
+      })
+    ).rejects.toThrowError(/Missing Symphony runtime manifest/i);
+  });
 });
 
 async function waitFor(

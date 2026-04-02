@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   buildSymphonyWorkflowConfig,
   createTempSymphonySqliteHarness,
+  renderSymphonyRuntimeManifestSource,
   renderSymphonyWorkflowMarkdown
 } from "@symphony/test-support";
 import type { SymphonyResolvedWorkflowConfig } from "@symphony/core";
@@ -27,6 +28,7 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
   environmentSource?: Record<string, string | undefined>;
   promptTemplate?: string;
   rootPrefix?: string;
+  runtimeManifestSource?: string | null;
   workflowConfig?: Partial<SymphonyResolvedWorkflowConfig>;
 } = {}): Promise<SymphonyRuntimeAppServicesHarness> {
   const sqlite = await createTempSymphonySqliteHarness({
@@ -40,9 +42,6 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
 
   try {
     await mkdir(workspaceRoot, {
-      recursive: true
-    });
-    await mkdir(sourceRepo, {
       recursive: true
     });
 
@@ -125,6 +124,20 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       logLevel: "error",
       ...input.env
     } satisfies SymphonyRuntimeAppEnv;
+
+    if (env.sourceRepo) {
+      await mkdir(path.join(env.sourceRepo, ".symphony"), {
+        recursive: true
+      });
+
+      if (input.runtimeManifestSource !== null) {
+        await writeFile(
+          path.join(env.sourceRepo, ".symphony", "runtime.ts"),
+          input.runtimeManifestSource ?? buildDefaultRuntimeManifestSource()
+        );
+      }
+    }
+
     const environmentSource = {
       LINEAR_API_KEY: env.linearApiKey,
       SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
@@ -167,4 +180,8 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
     }
     throw error;
   }
+}
+
+function buildDefaultRuntimeManifestSource(): string {
+  return renderSymphonyRuntimeManifestSource();
 }
