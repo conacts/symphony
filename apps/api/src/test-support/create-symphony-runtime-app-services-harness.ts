@@ -116,7 +116,7 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       workflowPath,
       dbFile: sqlite.dbFile,
       sourceRepo,
-      workspaceBackend: "local" as const,
+      workspaceBackend: "docker" as const,
       dockerWorkspaceImage: null,
       dockerMaterializationMode: "bind_mount" as const,
       dockerWorkspacePath: null,
@@ -146,7 +146,9 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
       ...input.environmentSource
     };
-    const hostCommandEnvSource = input.hostCommandEnvSource ?? {};
+    const hostCommandEnvSource = input.hostCommandEnvSource ?? {
+      OPENAI_API_KEY: "test-openai-api-key"
+    };
 
     services = await loadDefaultSymphonyRuntimeAppServices(
       env,

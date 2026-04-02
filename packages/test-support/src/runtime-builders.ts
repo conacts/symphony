@@ -33,7 +33,7 @@ export function buildSymphonyRuntimeEnv(
     WORKFLOW_PATH: "/tmp/WORKFLOW.md",
     SYMPHONY_DB_FILE: "/tmp/symphony.db",
     SYMPHONY_SOURCE_REPO: "/tmp/source-repo",
-    SYMPHONY_WORKSPACE_BACKEND: "local",
+    SYMPHONY_WORKSPACE_BACKEND: "docker",
     SYMPHONY_DOCKER_WORKSPACE_IMAGE: undefined,
     SYMPHONY_DOCKER_MATERIALIZATION_MODE: undefined,
     SYMPHONY_DOCKER_WORKSPACE_PATH: undefined,

@@ -41,7 +41,7 @@ export type SymphonyRuntimeAppEnv = {
   workflowPath: string;
   dbFile: string;
   sourceRepo: string | null;
-  workspaceBackend: "local" | "docker";
+  workspaceBackend: "docker";
   dockerWorkspaceImage: string | null;
   dockerMaterializationMode: "bind_mount" | "volume";
   dockerWorkspacePath: string | null;
@@ -64,7 +64,7 @@ export function loadSymphonyRuntimeAppEnv(
       WORKFLOW_PATH: z.string().min(1).optional(),
       SYMPHONY_DB_FILE: z.string().min(1).optional(),
       SYMPHONY_SOURCE_REPO: z.string().min(1).optional(),
-      SYMPHONY_WORKSPACE_BACKEND: z.enum(["local", "docker"]).optional(),
+      SYMPHONY_WORKSPACE_BACKEND: z.literal("docker").optional(),
       SYMPHONY_DOCKER_WORKSPACE_IMAGE: z.string().min(1).optional(),
       SYMPHONY_DOCKER_MATERIALIZATION_MODE: z
         .enum(["bind_mount", "volume"])
@@ -107,7 +107,7 @@ export function loadSymphonyRuntimeAppEnv(
     );
   }
 
-  const workspaceBackend = parsed.SYMPHONY_WORKSPACE_BACKEND ?? "local";
+  const workspaceBackend = parsed.SYMPHONY_WORKSPACE_BACKEND ?? "docker";
 
   return {
     port: parsed.PORT,

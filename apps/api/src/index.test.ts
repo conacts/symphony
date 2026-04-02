@@ -19,7 +19,7 @@ describe("@symphony/api scaffold", () => {
     expect(runtime.env.workflowPath).toBe("/tmp/WORKFLOW.md");
     expect(runtime.env.dbFile).toBe("/tmp/symphony.db");
     expect(runtime.env.sourceRepo).toBe("/tmp/source-repo");
-    expect(runtime.env.workspaceBackend).toBe("local");
+    expect(runtime.env.workspaceBackend).toBe("docker");
     expect(runtime.env.dockerWorkspaceImage).toBeNull();
     expect(runtime.env.dockerMaterializationMode).toBe("bind_mount");
     expect(runtime.env.dockerWorkspacePath).toBeNull();
@@ -81,7 +81,6 @@ describe("@symphony/api scaffold", () => {
   it("allows Docker workspace execution to fall back to the supported local image", () => {
     const fallback = loadSymphonyRuntimeAppEnv(
       buildSymphonyRuntimeEnv({
-        SYMPHONY_WORKSPACE_BACKEND: "docker",
         SYMPHONY_DOCKER_WORKSPACE_IMAGE: undefined
       })
     );
@@ -91,7 +90,6 @@ describe("@symphony/api scaffold", () => {
 
     const env = loadSymphonyRuntimeAppEnv(
       buildSymphonyRuntimeEnv({
-        SYMPHONY_WORKSPACE_BACKEND: "docker",
         SYMPHONY_DOCKER_WORKSPACE_IMAGE: defaultSymphonyDockerWorkspaceImage,
         SYMPHONY_DOCKER_MATERIALIZATION_MODE: "volume",
         SYMPHONY_DOCKER_WORKSPACE_PATH: "/home/agent/workspace",

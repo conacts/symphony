@@ -1,6 +1,5 @@
 import {
   createDockerWorkspaceBackend,
-  createLocalWorkspaceBackend,
   resolveSymphonyDockerWorkspaceImage,
   symphonyDockerWorkspaceBuildCommand,
   symphonyDockerWorkspaceRequiredTools,
@@ -12,29 +11,20 @@ import type { SymphonyRuntimeAppEnv } from "./env.js";
 
 export type SymphonyRuntimeWorkspaceBackendSelection = {
   backend: WorkspaceBackend;
-  metadata:
-    | {
-        backendKind: "local";
-        executionTargetKind: "host_path";
-        materializationKind: "directory";
-        selectionSource: "env";
-        sourceRepo: string | null;
-        manifestPath: string | null;
-      }
-    | {
-        backendKind: "docker";
-        executionTargetKind: "container";
-        materializationKind: "bind_mount" | "volume";
-        selectionSource: "env";
-        image: string;
-        imageSelectionSource: SymphonyDockerWorkspaceImageSelectionSource;
-        buildCommand: string;
-        requiredTools: readonly string[];
-        workspacePath: string | null;
-        containerNamePrefix: string | null;
-        shell: string | null;
-        manifestPath: string | null;
-      };
+  metadata: {
+    backendKind: "docker";
+    executionTargetKind: "container";
+    materializationKind: "bind_mount" | "volume";
+    selectionSource: "env";
+    image: string;
+    imageSelectionSource: SymphonyDockerWorkspaceImageSelectionSource;
+    buildCommand: string;
+    requiredTools: readonly string[];
+    workspacePath: string | null;
+    containerNamePrefix: string | null;
+    shell: string | null;
+    manifestPath: string | null;
+  };
 };
 
 export function createRuntimeWorkspaceBackend(
@@ -57,48 +47,32 @@ export function createRuntimeWorkspaceBackend(
     }>;
   } = {}
 ): SymphonyRuntimeWorkspaceBackendSelection {
-  if (env.workspaceBackend === "docker") {
-    const { image, imageSelectionSource } = resolveSymphonyDockerWorkspaceImage(
-      env.dockerWorkspaceImage
-    );
-
-    return {
-      backend: createDockerWorkspaceBackend({
-        image,
-        materializationMode: env.dockerMaterializationMode,
-        workspacePath: env.dockerWorkspacePath ?? undefined,
-        containerNamePrefix: env.dockerContainerNamePrefix ?? undefined,
-        shell: env.dockerShell ?? undefined,
-        hostFileMounts: options.dockerHostFileMounts,
-        runtimeManifest: options.runtimeManifest ?? null
-      }),
-      metadata: {
-        backendKind: "docker",
-        executionTargetKind: "container",
-        materializationKind: env.dockerMaterializationMode,
-        selectionSource: "env",
-        image,
-        imageSelectionSource,
-        buildCommand: symphonyDockerWorkspaceBuildCommand,
-        requiredTools: symphonyDockerWorkspaceRequiredTools,
-        workspacePath: env.dockerWorkspacePath,
-        containerNamePrefix: env.dockerContainerNamePrefix,
-        shell: env.dockerShell,
-        manifestPath: options.runtimeManifest?.manifestPath ?? null
-      }
-    };
-  }
+  const { image, imageSelectionSource } = resolveSymphonyDockerWorkspaceImage(
+    env.dockerWorkspaceImage
+  );
 
   return {
-    backend: createLocalWorkspaceBackend({
-      repoOwnedSourceRepo: env.sourceRepo
+    backend: createDockerWorkspaceBackend({
+      image,
+      materializationMode: env.dockerMaterializationMode,
+      workspacePath: env.dockerWorkspacePath ?? undefined,
+      containerNamePrefix: env.dockerContainerNamePrefix ?? undefined,
+      shell: env.dockerShell ?? undefined,
+      hostFileMounts: options.dockerHostFileMounts,
+      runtimeManifest: options.runtimeManifest ?? null
     }),
     metadata: {
-      backendKind: "local",
-      executionTargetKind: "host_path",
-      materializationKind: "directory",
+      backendKind: "docker",
+      executionTargetKind: "container",
+      materializationKind: env.dockerMaterializationMode,
       selectionSource: "env",
-      sourceRepo: env.sourceRepo,
+      image,
+      imageSelectionSource,
+      buildCommand: symphonyDockerWorkspaceBuildCommand,
+      requiredTools: symphonyDockerWorkspaceRequiredTools,
+      workspacePath: env.dockerWorkspacePath,
+      containerNamePrefix: env.dockerContainerNamePrefix,
+      shell: env.dockerShell,
       manifestPath: options.runtimeManifest?.manifestPath ?? null
     }
   };

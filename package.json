@@ -49,6 +49,8 @@
     "typecheck": "turbo run typecheck",
     "dev": "turbo run dev",
     "docker:workspace-image:build": "./scripts/docker/build-workspace-runner.sh",
+    "runtime:doctor": "pnpm --filter @symphony/runtime-contract build && tsx ./scripts/runtime/doctor.ts",
+    "verify:runtime": "pnpm --filter @symphony/runtime-contract test && pnpm runtime:doctor",
     "start": "pnpm build && pnpm -r --parallel --stream --filter @symphony/api --filter @symphony/web start",
     "lint": "turbo run lint",
     "test": "turbo run test",
@@ -57,6 +59,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@symphony/runtime-contract": "workspace:*",
     "@types/node": "^25.5.0",
     "@vitest/coverage-v8": "^4.1.2",
     "eslint": "^10.1.0",

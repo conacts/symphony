@@ -1,9 +1,6 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import path from "node:path";
-import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { defaultSymphonyDockerWorkspaceImage } from "@symphony/core";
-import { normalizeSymphonyRuntimeManifest } from "@symphony/core/runtime-manifest";
 import { createRuntimeWorkspaceBackend } from "./runtime-workspace-backend.js";
 
 const tempRoots: string[] = [];
@@ -20,10 +17,10 @@ afterEach(async () => {
 });
 
 describe("runtime workspace backend selection", () => {
-  it("defaults to the local workspace backend", () => {
+  it("defaults to the docker workspace backend", () => {
     const selection = createRuntimeWorkspaceBackend({
       sourceRepo: "/tmp/source-repo",
-      workspaceBackend: "local",
+      workspaceBackend: "docker",
       dockerWorkspaceImage: null,
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: null,
@@ -32,11 +29,27 @@ describe("runtime workspace backend selection", () => {
     });
 
     expect(selection.metadata).toEqual({
-      backendKind: "local",
-      executionTargetKind: "host_path",
-      materializationKind: "directory",
+      backendKind: "docker",
+      executionTargetKind: "container",
+      materializationKind: "bind_mount",
       selectionSource: "env",
-      sourceRepo: "/tmp/source-repo",
+      image: defaultSymphonyDockerWorkspaceImage,
+      imageSelectionSource: "default",
+      buildCommand: "pnpm docker:workspace-image:build",
+      requiredTools: [
+        "bash",
+        "codex",
+        "git",
+        "node",
+        "corepack",
+        "pnpm",
+        "python3",
+        "psql",
+        "rg"
+      ],
+      workspacePath: null,
+      containerNamePrefix: null,
+      shell: null,
       manifestPath: null
     });
     expect(selection.backend.prepareWorkspace).toBeTypeOf("function");
@@ -78,95 +91,6 @@ describe("runtime workspace backend selection", () => {
       manifestPath: null
     });
     expect(selection.backend.prepareWorkspace).toBeTypeOf("function");
-  });
-
-  it("keeps the local backend on ambient env when a manifest declares service bindings", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-backend-"));
-    tempRoots.push(root);
-
-    const selection = createRuntimeWorkspaceBackend(
-      {
-        sourceRepo: "/tmp/source-repo",
-      workspaceBackend: "local",
-      dockerWorkspaceImage: null,
-      dockerMaterializationMode: "bind_mount",
-      dockerWorkspacePath: null,
-      dockerContainerNamePrefix: null,
-      dockerShell: null
-      },
-      {
-        runtimeManifest: {
-          repoRoot: "/repo",
-          manifestPath: "/repo/.symphony/runtime.ts",
-          manifest: normalizeSymphonyRuntimeManifest({
-            schemaVersion: 1,
-            workspace: {
-              packageManager: "pnpm"
-            },
-            services: {
-              postgres: {
-                type: "postgres",
-                image: "postgres:16",
-                database: "app",
-                username: "app",
-                password: "secret"
-              }
-            },
-            env: {
-              host: {
-                required: [],
-                optional: []
-              },
-              inject: {
-                DATABASE_URL: {
-                  kind: "service",
-                  service: "postgres",
-                  value: "connectionString"
-                }
-              }
-            },
-            lifecycle: {
-              bootstrap: [],
-              migrate: [],
-              verify: [
-                {
-                  name: "verify",
-                  run: "pnpm test"
-                }
-              ],
-              seed: [],
-              cleanup: []
-            }
-          })
-        }
-      }
-    );
-
-    const workspace = await selection.backend.prepareWorkspace({
-      context: {
-        issueId: "issue-local-selector",
-        issueIdentifier: "COL-LOCAL"
-      },
-      runId: "run-local-selector",
-      config: {
-        root
-      },
-      hooks: {
-        afterCreate: null,
-        beforeRun: null,
-        afterRun: null,
-        beforeRemove: null,
-        timeoutMs: 1_000
-      },
-      env: {
-        OPENAI_API_KEY: "test-openai-key"
-      }
-    });
-
-    expect(workspace.envBundle.summary.source).toBe("ambient");
-    expect(workspace.envBundle.values).toEqual({
-      OPENAI_API_KEY: "test-openai-key"
-    });
   });
 
   it("surfaces container-owned Docker selection without changing the default mode", () => {

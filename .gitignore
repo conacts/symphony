@@ -29,8 +29,11 @@ packages/*/.env.local
 packages/*/.env.*.local
 
 # Runtime and logging artifacts
-.symphony/
+.symphony/*
 **/.symphony/
+!.symphony/
+!.symphony/runtime.ts
+!.symphony/prompt.md
 log/
 logs/
 *.log
