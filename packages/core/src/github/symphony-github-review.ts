@@ -2,133 +2,35 @@ import {
   isLinearIssueInScope,
   isSymphonyAutoReworkDisabled,
   isSymphonyWorkflowDisabled,
-  type SymphonyTracker,
-  type SymphonyTrackerIssue
+  type SymphonyTracker
 } from "../tracker/symphony-tracker.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
+import {
+  autoRequeueCommentBody,
+  notInReviewCommentBody
+} from "./symphony-github-review-comments.js";
+import {
+  extractSymphonyGithubReviewSignal,
+  issueIdentifierFromBranch
+} from "./symphony-github-review-signal.js";
+import type {
+  SymphonyGitHubPullRequestResolver,
+  SymphonyGitHubReviewEvent,
+  SymphonyGitHubReviewProcessResult,
+  SymphonyGitHubReviewSignal
+} from "./symphony-github-review-types.js";
 
-const reworkCommandPattern = /^\/rework(?:\s+(?<context>[\s\S]+))?$/u;
 const expectedSourceState = "In Review";
 const targetState = "Rework";
-
-export type SymphonyGitHubReviewEvent =
-  | {
-      event: "pull_request_review";
-      repository: string;
-      payload: {
-        reviewState: string;
-        authorLogin: string | null;
-        headRef: string | null;
-        headSha: string | null;
-        reviewId: number;
-        pullRequestUrl: string | null;
-        pullRequestHtmlUrl: string | null;
-      };
-    }
-  | {
-      event: "issue_comment";
-      repository: string;
-      payload: {
-        issueNumber: number;
-        commentId: number;
-        commentBody: string;
-        authorLogin: string | null;
-        pullRequestUrl: string | null;
-      };
-    };
-
-export type SymphonyGitHubReviewSignal =
-  | {
-      kind: "changes_requested_review";
-      issueIdentifier: string | null;
-      headSha: string | null;
-      authorLogin: string | null;
-      pullRequestUrl: string | null;
-      reviewId: number;
-    }
-  | {
-      kind: "manual_rework_comment";
-      issueIdentifier: string | null;
-      repository: string;
-      issueNumber: number;
-      pullRequestUrl: string | null;
-      headSha: null;
-      authorLogin: string | null;
-      commentId: number;
-      operatorContext: string | null;
-    };
-
-export type SymphonyGitHubPullRequestResolver = {
-  fetchPullRequest(
-    pullRequestUrl: string
-  ): Promise<{ headRef: string | null; htmlUrl: string | null } | null>;
-  createIssueComment?(
-    repository: string,
-    issueNumber: number,
-    body: string
-  ): Promise<void>;
-};
-
-export function extractSymphonyGithubReviewSignal(
-  workflowConfig: SymphonyResolvedWorkflowConfig,
-  event: SymphonyGitHubReviewEvent
-): SymphonyGitHubReviewSignal | null {
-  if (event.event === "pull_request_review") {
-    const allowedLogins = new Set(workflowConfig.github.allowedReviewLogins);
-
-    if (
-      event.payload.reviewState.toLowerCase() === "changes_requested" &&
-      event.payload.authorLogin &&
-      allowedLogins.has(event.payload.authorLogin)
-    ) {
-      return {
-        kind: "changes_requested_review",
-        issueIdentifier: issueIdentifierFromBranch(event.payload.headRef),
-        headSha: event.payload.headSha,
-        authorLogin: event.payload.authorLogin,
-        pullRequestUrl: event.payload.pullRequestHtmlUrl,
-        reviewId: event.payload.reviewId
-      };
-    }
-
-    return null;
-  }
-
-  const allowedLogins = new Set(
-    workflowConfig.github.allowedReworkCommentLogins
-  );
-  const parsed = parseReworkCommand(event.payload.commentBody);
-
-  if (
-    parsed &&
-    event.payload.authorLogin &&
-    allowedLogins.has(event.payload.authorLogin) &&
-    event.payload.pullRequestUrl
-  ) {
-    return {
-      kind: "manual_rework_comment",
-      issueIdentifier: null,
-      repository: event.repository,
-      issueNumber: event.payload.issueNumber,
-      pullRequestUrl: event.payload.pullRequestUrl,
-      headSha: null,
-      authorLogin: event.payload.authorLogin,
-      commentId: event.payload.commentId,
-      operatorContext: parsed
-    };
-  }
-
-  return null;
-}
-
-export function issueIdentifierFromBranch(branchName: string | null): string | null {
-  if (!branchName?.startsWith("symphony/")) {
-    return null;
-  }
-
-  const issueIdentifier = branchName.slice("symphony/".length).trim();
-  return issueIdentifier === "" ? null : issueIdentifier;
-}
+export {
+  extractSymphonyGithubReviewSignal,
+  issueIdentifierFromBranch
+} from "./symphony-github-review-signal.js";
+export type {
+  SymphonyGitHubPullRequestResolver,
+  SymphonyGitHubReviewEvent,
+  SymphonyGitHubReviewSignal
+} from "./symphony-github-review-types.js";
 
 export class SymphonyGithubReviewProcessor {
   readonly #workflowConfig: SymphonyResolvedWorkflowConfig;
@@ -147,11 +49,7 @@ export class SymphonyGithubReviewProcessor {
 
   async processEvent(
     event: SymphonyGitHubReviewEvent
-  ): Promise<
-    | { status: "ignored" }
-    | { status: "requeued"; issueIdentifier: string }
-    | { status: "skipped"; issueIdentifier: string | null; reason: string }
-  > {
+  ): Promise<SymphonyGitHubReviewProcessResult> {
     const signal = extractSymphonyGithubReviewSignal(this.#workflowConfig, event);
     if (!signal) {
       return {
@@ -168,10 +66,7 @@ export class SymphonyGithubReviewProcessor {
 
   async #processManualReworkComment(
     signal: Extract<SymphonyGitHubReviewSignal, { kind: "manual_rework_comment" }>
-  ): Promise<
-    | { status: "requeued"; issueIdentifier: string }
-    | { status: "skipped"; issueIdentifier: string | null; reason: string }
-  > {
+  ): Promise<Extract<SymphonyGitHubReviewProcessResult, { status: "requeued" | "skipped" }>> {
     if (!signal.pullRequestUrl) {
       return {
         status: "skipped",
@@ -227,10 +122,7 @@ export class SymphonyGithubReviewProcessor {
   async #processSignalWithIssueIdentifier(
     signal: SymphonyGitHubReviewSignal,
     issueIdentifier: string | null
-  ): Promise<
-    | { status: "requeued"; issueIdentifier: string }
-    | { status: "skipped"; issueIdentifier: string | null; reason: string }
-  > {
+  ): Promise<Extract<SymphonyGitHubReviewProcessResult, { status: "requeued" | "skipped" }>> {
     if (!issueIdentifier) {
       return {
         status: "skipped",
@@ -298,43 +190,4 @@ export class SymphonyGithubReviewProcessor {
       issueIdentifier
     };
   }
-}
-
-function parseReworkCommand(body: string): string | null {
-  const match = reworkCommandPattern.exec(body.trim());
-  if (!match) {
-    return null;
-  }
-
-  const context = match.groups?.context?.trim();
-  return context ? context : null;
-}
-
-function autoRequeueCommentBody(
-  issue: SymphonyTrackerIssue,
-  signal: SymphonyGitHubReviewSignal
-): string {
-  const lines = [
-    "Symphony status update.",
-    "",
-    `State: \`${targetState}\``,
-    `What changed: GitHub review automation moved the ticket from \`${issue.state}\` to \`${targetState}\`.`,
-    `Signal: ${signal.kind === "manual_rework_comment" ? "`/rework` comment" : "`changes_requested` review"}`,
-    `PR: ${signal.pullRequestUrl ?? "unknown"}`,
-    `Head SHA: ${signal.headSha ?? "unknown"}`,
-    `Actor: ${signal.authorLogin ?? "unknown"}`
-  ];
-
-  if (
-    signal.kind === "manual_rework_comment" &&
-    signal.operatorContext
-  ) {
-    lines.push("", "Operator context:", signal.operatorContext);
-  }
-
-  return lines.join("\n");
-}
-
-function notInReviewCommentBody(): string {
-  return "No action taken: matching Linear issue is not currently in `In Review`.";
 }
