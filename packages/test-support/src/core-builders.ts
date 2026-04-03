@@ -68,7 +68,7 @@ export function buildSymphonyRuntimePolicy(
       ...overrides.agent
     },
     codex: {
-      command: "codex app-server",
+      command: "codex",
       approvalPolicy: "never",
       threadSandbox: "danger-full-access",
       turnSandboxPolicy: null,

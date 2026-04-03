@@ -35,7 +35,7 @@ afterEach(async () => {
 });
 
 describe("docker codex symphony agent runtime", () => {
-  it("runs a real app-server turn and records turn events", async () => {
+  it("runs a real SDK turn and records typed turn events", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-runtime-"));
     tempRoots.push(root);
 
@@ -129,14 +129,21 @@ describe("docker codex symphony agent runtime", () => {
       kind: "normal"
     });
     expect(updates).toContain("session_started");
-    expect(updates).toContain("thread/tokenUsage/updated");
-    expect(updates).toContain("turn_completed");
+    expect(updates).toContain("thread.started");
+    expect(updates).toContain("item.completed");
+    expect(updates).toContain("turn.completed");
 
     const exportPayload = await runJournal.fetchRunExport(runId);
     expect(exportPayload?.turns).toHaveLength(1);
     expect(
       exportPayload?.turns[0]?.events.map((event: { eventType: string }) => event.eventType)
-    ).toEqual(["session_started", "thread/tokenUsage/updated", "turn_completed"]);
+    ).toEqual([
+      "session_started",
+      "thread.started",
+      "turn.started",
+      "item.completed",
+      "turn.completed"
+    ]);
     expect(exportPayload?.run.commitHashStart).toMatch(/[0-9a-f]{40}/);
     expect(exportPayload?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
     expect(exportPayload?.run.repoStart).toMatchObject({
@@ -288,28 +295,10 @@ describe("docker codex symphony agent runtime", () => {
     await writeFile(
       fakeCodex,
       `#!/bin/sh
-count=0
-while IFS= read -r _line; do
-  count=$((count + 1))
-  case "$count" in
-    1)
-      printf '%s\\n' '{"id":1,"result":{}}'
-      ;;
-    2)
-      ;;
-    3)
-      printf '%s\\n' '{"id":2,"result":{"thread":{"id":"thread-agent"}}}'
-      ;;
-    4)
-      printf '%s\\n' '{"id":3,"result":{"turn":{"id":"turn-agent"}}}'
-      printf '%s\\n' '{"method":"turn/failed","params":{"message":"rate_limit_exceeded","code":"rate_limit_exceeded"}}'
-      exit 0
-      ;;
-    *)
-      exit 0
-      ;;
-  esac
-done
+cat >/dev/null
+printf '%s\\n' '{"type":"thread.started","thread_id":"thread-agent"}'
+printf '%s\\n' '{"type":"turn.started"}'
+printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}'
 `
     );
     await chmod(fakeCodex, 0o755);
@@ -379,7 +368,7 @@ done
 
     expect(completion).toEqual({
       kind: "rate_limited",
-      reason: "Codex turn failed."
+      reason: "rate_limit_exceeded"
     });
 
     database.close();
@@ -487,7 +476,6 @@ done
     });
     expect(runtimeLogPayloads).toContainEqual(
       expect.objectContaining({
-        threadId: "thread-agent",
         launchTarget: expect.objectContaining({
           kind: "container",
           hostLaunchPath: hostWorkspacePath,
@@ -527,17 +515,8 @@ done
     });
     await initializeGitWorkspace(hostWorkspacePath);
 
-    const fakeCodex = path.join(root, "fake-codex.sh");
-    await writeFakeCodexBinary(fakeCodex);
-
     const fakeDocker = path.join(root, "docker");
-    await writeFile(
-      fakeDocker,
-      `#!/bin/sh
-sleep 1
-`
-    );
-    await chmod(fakeDocker, 0o755);
+    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
     process.env.PATH = `${root}:${originalPath ?? ""}`;
 
     const issue = buildSymphonyRuntimeTrackerIssue({
@@ -546,7 +525,7 @@ sleep 1
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
       codex: {
         ...buildSymphonyRuntimePolicyForRoot(root).codex,
-        command: `${fakeCodex} app-server`,
+        command: "missing-codex app-server",
         readTimeoutMs: 25
       }
     });
@@ -601,7 +580,7 @@ sleep 1
 
     expect(completion).toEqual({
       kind: "startup_failure",
-      reason: "Timed out waiting for Codex response 1.",
+      reason: expect.stringContaining("missing-codex"),
       failureStage: "runtime_session_start",
       failureOrigin: "codex_startup",
       launchTarget: {
@@ -616,7 +595,7 @@ sleep 1
     });
     expect(runtimeLogPayloads).toContainEqual(
       expect.objectContaining({
-        reason: "Timed out waiting for Codex response 1.",
+        reason: expect.stringContaining("missing-codex"),
         launchTarget: expect.objectContaining({
           kind: "container",
           hostLaunchPath: hostWorkspacePath,
@@ -787,29 +766,11 @@ async function writeFakeCodexBinary(codexBinary: string): Promise<void> {
   await writeFile(
     codexBinary,
     `#!/bin/sh
-count=0
-while IFS= read -r _line; do
-  count=$((count + 1))
-  case "$count" in
-    1)
-      printf '%s\\n' '{"id":1,"result":{}}'
-      ;;
-    2)
-      ;;
-    3)
-      printf '%s\\n' '{"id":2,"result":{"thread":{"id":"thread-agent"}}}'
-      ;;
-    4)
-      printf '%s\\n' '{"id":3,"result":{"turn":{"id":"turn-agent"}}}'
-      printf '%s\\n' '{"method":"thread/tokenUsage/updated","params":{"tokenUsage":{"total":{"inputTokens":5,"outputTokens":2,"totalTokens":7}}}}'
-      printf '%s\\n' '{"method":"turn/completed","params":{"result":"ok"}}'
-      exit 0
-      ;;
-    *)
-      exit 0
-      ;;
-  esac
-done
+cat >/dev/null
+printf '%s\\n' '{"type":"thread.started","thread_id":"thread-agent"}'
+printf '%s\\n' '{"type":"turn.started"}'
+printf '%s\\n' '{"type":"item.completed","item":{"id":"item-1","type":"command_execution","command":"pnpm test","aggregated_output":"ok","status":"completed","exit_code":0}}'
+printf '%s\\n' '{"type":"turn.completed","usage":{"input_tokens":5,"cached_input_tokens":0,"output_tokens":2}}'
 `
   );
   await chmod(codexBinary, 0o755);
@@ -858,7 +819,9 @@ fi
 shift
 printf '{"command":"exec","containerName":"%s","workdir":"%s"}\\n' "$container_name" "$workdir" >> "${logPath}"
 ${repoPath ? `cd '${repoPath.replaceAll("'", `'"'"'`)}'` : ""}
-exec "$shell_bin" -lc "$1"
+command="$1"
+shift
+exec "$shell_bin" -lc "$command" "$@"
 `
   );
   await chmod(dockerBinary, 0o755);

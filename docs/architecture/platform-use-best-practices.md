@@ -218,7 +218,9 @@ Use Linear for:
 Use the dashboard for:
 
 - prompts
+- typed reasoning and todo-list updates
 - visible agent messages
+- command executions
 - tool calls
 - terminal output
 - file changes and diffs

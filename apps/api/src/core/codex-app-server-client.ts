@@ -319,7 +319,7 @@ export class CodexAppServerClient {
 
         return {
           sessionId,
-          threadId: session.threadId,
+          threadId: session.threadId ?? "",
           turnId
         };
       }

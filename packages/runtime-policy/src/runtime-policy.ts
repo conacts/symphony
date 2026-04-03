@@ -305,7 +305,7 @@ function normalizeCodexConfig(value: unknown): SymphonyCodexRuntimePolicy {
   }
 
   return {
-    command: typeof rawCommand === "string" ? rawCommand : "codex app-server",
+    command: typeof rawCommand === "string" ? rawCommand : "codex",
     approvalPolicy: normalizeApprovalPolicy(codex.approvalPolicy),
     threadSandbox:
       normalizeOptionalString(codex.threadSandbox) ?? "danger-full-access",

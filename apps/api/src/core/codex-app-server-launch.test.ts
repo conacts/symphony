@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildCodexAppServerSpawnSpec } from "./codex-app-server-launch.js";
+import {
+  buildCodexAppServerSpawnSpec,
+  resolveCodexSdkLaunchSettings
+} from "./codex-app-server-launch.js";
 
 describe("codex app server launch", () => {
   it("preserves docker transport env for container launches", () => {
@@ -35,5 +38,37 @@ describe("codex app server launch", () => {
     });
     expect(spec.args).toContain("--env");
     expect(spec.args).toContain("OPENAI_API_KEY=explicit-openai-key");
+  });
+
+  it("extracts the SDK executable while preserving label-based model overrides", () => {
+    const settings = resolveCodexSdkLaunchSettings(
+      "/tmp/fake-codex app-server --model gpt-5.4",
+      {
+        id: "issue-1",
+        identifier: "COL-1",
+        title: "Test issue",
+        description: null,
+        priority: null,
+        url: null,
+        state: "Todo",
+        branchName: null,
+        labels: ["symphony:model:gpt-5.3-codex-spark", "symphony:reasoning:high"],
+        projectId: null,
+        projectName: null,
+        projectSlug: null,
+        teamKey: null,
+        assigneeId: null,
+        blockedBy: [],
+        assignedToWorker: false,
+        createdAt: null,
+        updatedAt: null
+      }
+    );
+
+    expect(settings).toMatchObject({
+      executable: "/tmp/fake-codex",
+      model: "gpt-5.3-codex-spark",
+      reasoningEffort: "high"
+    });
   });
 });

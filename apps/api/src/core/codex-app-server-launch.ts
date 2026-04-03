@@ -104,20 +104,7 @@ export function resolveCodexLaunchSettings(
   baseCommand: string,
   issue: SymphonyTrackerIssue
 ): CodexLaunchSettings {
-  const model = selectCodexIssueOverride(
-    issue,
-    codexModelLabelPrefix,
-    supportedCodexModels,
-    defaultCodexModel,
-    "model"
-  );
-  const reasoningEffort = selectCodexIssueOverride(
-    issue,
-    codexReasoningLabelPrefix,
-    supportedCodexReasoningEfforts,
-    defaultCodexReasoningEffort,
-    "reasoning_effort"
-  );
+  const { model, reasoningEffort } = resolveCodexModelSettings(issue);
   const cleanedCommand = stripCodexReasoningOverrides(
     stripCodexModelOverrides(baseCommand)
   ).trim();
@@ -148,6 +135,38 @@ export function resolveCodexLaunchSettings(
     ]
       .filter((segment) => segment !== "")
       .join(" "),
+    model,
+    reasoningEffort
+  };
+}
+
+export function resolveCodexSdkLaunchSettings(
+  baseCommand: string,
+  issue: SymphonyTrackerIssue
+): CodexLaunchSettings & {
+  executable: string;
+} {
+  const cleanedCommand = stripCodexReasoningOverrides(
+    stripCodexModelOverrides(baseCommand)
+  ).trim();
+  const executable = extractCodexExecutable(cleanedCommand);
+
+  if (executable === null) {
+    throw new CodexAppServerError(
+      "invalid_codex_command",
+      `Codex command must start with an executable: ${baseCommand}`,
+      {
+        reason: "missing_executable",
+        command: baseCommand
+      }
+    );
+  }
+
+  const { model, reasoningEffort } = resolveCodexModelSettings(issue);
+
+  return {
+    command: cleanedCommand,
+    executable,
     model,
     reasoningEffort
   };
@@ -290,6 +309,28 @@ function selectCodexIssueOverride(
   );
 }
 
+function resolveCodexModelSettings(issue: SymphonyTrackerIssue): {
+  model: string;
+  reasoningEffort: string;
+} {
+  return {
+    model: selectCodexIssueOverride(
+      issue,
+      codexModelLabelPrefix,
+      supportedCodexModels,
+      defaultCodexModel,
+      "model"
+    ),
+    reasoningEffort: selectCodexIssueOverride(
+      issue,
+      codexReasoningLabelPrefix,
+      supportedCodexReasoningEfforts,
+      defaultCodexReasoningEffort,
+      "reasoning_effort"
+    )
+  };
+}
+
 function normalizeCodexLabel(label: string): string {
   return label.trim().toLowerCase();
 }
@@ -307,4 +348,40 @@ function stripCodexReasoningOverrides(command: string): string {
     /\s+(?:--config|-c)\s+(?:["'])?model_reasoning_effort=[^"'\s]+(?:["'])?/g,
     ""
   );
+}
+
+function extractCodexExecutable(command: string): string | null {
+  const trimmed = command.trim();
+  if (trimmed === "") {
+    return null;
+  }
+
+  let quote: "'" | '"' | null = null;
+  let token = "";
+
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const character = trimmed[index]!;
+
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+      } else {
+        token += character;
+      }
+      continue;
+    }
+
+    if (character === "'" || character === '"') {
+      quote = character;
+      continue;
+    }
+
+    if (/\s/.test(character)) {
+      break;
+    }
+
+    token += character;
+  }
+
+  return token.trim() === "" ? null : token;
 }

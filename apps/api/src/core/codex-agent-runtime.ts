@@ -18,14 +18,12 @@ import type {
 import type { SymphonyRuntimeLogStore } from "@symphony/db";
 import type { SymphonyLogger } from "@symphony/logger";
 import {
-  CodexAppServerClient
-} from "./codex-app-server-client.js";
+  CodexSdkClient
+} from "./codex-sdk-client.js";
 import {
   CodexAppServerError,
-  type CodexAppServerSessionClient,
-  type CodexAppServerToolExecutor
+  type CodexAppServerSessionClient
 } from "./codex-app-server-types.js";
-import { buildLinearGraphqlToolExecutor } from "./codex-linear-graphql-tool.js";
 import { captureRepoSnapshot } from "./codex-repo-snapshot.js";
 import {
   resolveCodexRuntimeLaunchTarget,
@@ -93,10 +91,6 @@ export function createCodexSymphonyAgentRuntime(input: {
         workspace: runInput.workspace,
         launchTarget,
         activeRun,
-        toolExecutor: buildLinearGraphqlToolExecutor(
-          runInput.runtimePolicy,
-          input.logger
-        )
       }).finally(() => {
         activeRuns.delete(runInput.issue.id);
       });
@@ -139,7 +133,6 @@ async function executeRun(input: {
   workspace: Parameters<AgentRuntime["startRun"]>[0]["workspace"];
   launchTarget: CodexRuntimeLaunchTarget;
   activeRun: ActiveRun;
-  toolExecutor: CodexAppServerToolExecutor;
 }): Promise<void> {
   let turnJournalId: string | null = null;
   let maxTurnsReached = false;
@@ -169,7 +162,7 @@ async function executeRun(input: {
       });
     }
 
-    const session = await CodexAppServerClient.startSession({
+    const session = await CodexSdkClient.startSession({
       launchTarget: input.launchTarget,
       env: {
         ...input.workspace.envBundle.values,
@@ -186,7 +179,7 @@ async function executeRun(input: {
       level: "info",
       source: "codex_runtime",
       eventType: "runtime_session_started",
-      message: "Started the Codex app-server session.",
+      message: "Started the Codex SDK session.",
       issueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
@@ -233,7 +226,11 @@ async function executeRun(input: {
         prompt,
         title: `${currentIssue.identifier}: ${currentIssue.title}`,
         sandboxPolicy: input.runtimePolicy.codex.turnSandboxPolicy,
-        toolExecutor: input.toolExecutor,
+        toolExecutor: async () => ({
+          success: false,
+          output: "Dynamic tool execution is not enabled for the SDK transport.",
+          contentItems: []
+        }),
         turnTimeoutMs: input.runtimePolicy.codex.turnTimeoutMs,
         onMessage: async (message) => {
           const eventName =
@@ -267,13 +264,18 @@ async function executeRun(input: {
               summary:
                 eventName === "session_started"
                   ? "session started"
+                  : eventName === "thread.started"
+                  ? "session started"
                   : eventName === "turn_completed"
+                    ? "turn completed"
+                    : eventName === "turn.completed"
                     ? "turn completed"
                     : eventName === "approval_auto_approved"
                       ? "approval request auto-approved"
                     : null,
               codexThreadId:
                 getString(message, "thread_id") ??
+                getString(message, "threadId") ??
                 getStringPath(message, ["params", "threadId"]),
               codexTurnId:
                 getString(message, "turn_id") ??

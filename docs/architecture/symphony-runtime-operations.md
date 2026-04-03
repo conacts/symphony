@@ -15,6 +15,8 @@ This document replaces the older evaluation/parity setup story.
 - one active run per Linear issue
 - one durable workspace per Linear issue
 - prompt rendering happens in memory
+- agent turns run through the Codex TypeScript SDK over `codex exec --experimental-json`
+- typed turn artifacts are captured from the SDK stream instead of raw transport blobs
 - platform-owned pre-agent failures move issues to `Failed`
 - platform/provider interruptions move issues to `Paused`
 - there are no hidden retries
@@ -72,6 +74,22 @@ The repo contract must be explicit:
 
 The platform is not responsible for making repo-internal code quality perfect. It is responsible
 for making the isolated environment explicit, valid, and usable.
+
+## Codex Transport
+
+The control plane now treats the Codex CLI as the canonical execution surface.
+
+That means:
+
+- Codex runs inside the issue container, not on the host
+- Symphony uses the TypeScript SDK to drive turns and resume threads
+- event capture is based on typed SDK events such as `reasoning`, `todo_list`,
+  `command_execution`, `file_change`, `mcp_tool_call`, and `agent_message`
+- the dashboard should prefer these typed artifacts over raw line-oriented transport logs
+
+This is a better fit for the product because the SDK event model is closer to the actual user story
+we want to reconstruct: what the agent thought, what it executed, what files it touched, and why it
+stopped.
 
 For this repository, the durable orchestration rules are:
 

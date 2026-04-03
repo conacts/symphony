@@ -50,7 +50,7 @@ export type CodexAppServerSessionClient = {
 
 export type CodexAppServerSession = {
   client: CodexAppServerSessionClient;
-  threadId: string;
+  threadId: string | null;
   workspacePath: string;
   hostLaunchPath: string;
   hostWorkspacePath: string | null;
