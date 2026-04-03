@@ -1,9 +1,9 @@
-import { RuntimeSummaryLiveScreen } from "@/components/runtime-summary-live-screen";
+import { ProblemRunsLiveScreen } from "@/components/problem-runs-live-screen";
 import { buildSymphonyDashboardFoundation } from "@/core/dashboard-foundation";
 import { loadSymphonyDashboardEnv } from "@/core/env";
 
-export default function Page() {
+export default function ProblemRunsPage() {
   const model = buildSymphonyDashboardFoundation(loadSymphonyDashboardEnv());
 
-  return <RuntimeSummaryLiveScreen model={model} />;
+  return <ProblemRunsLiveScreen model={model} />;
 }

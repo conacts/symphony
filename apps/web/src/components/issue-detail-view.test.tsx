@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   buildSymphonyDashboardConnectionState,
-  buildSymphonyForensicsIssueDetailResult
+  buildSymphonyForensicsIssueForensicsBundleResult
 } from "../test-support/build-symphony-dashboard-view-fixtures.js";
 import { IssueDetailView } from "./issue-detail-view.js";
 
@@ -13,13 +13,14 @@ describe("issue detail view", () => {
       <IssueDetailView
         connection={buildSymphonyDashboardConnectionState()}
         error={null}
-        issueDetail={buildSymphonyForensicsIssueDetailResult()}
+        issueDetail={buildSymphonyForensicsIssueForensicsBundleResult()}
         loading={false}
       />
     );
 
     expect(html).toContain("Run history");
-    expect(html).toContain("run_1234");
-    expect(html).toContain("completed");
+    expect(html).toContain("Latest failure");
+    expect(html).toContain("Issue timeline");
+    expect(html).toContain("Runtime logs");
   });
 });

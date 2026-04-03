@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FolderKanbanIcon } from "lucide-react";
+import {
+  ActivityIcon,
+  FolderKanbanIcon,
+  LayoutDashboardIcon,
+  ScrollTextIcon,
+  TriangleAlertIcon
+} from "lucide-react";
 import { IssueStateIcon } from "@/components/issue-state-icon";
 import {
   SidebarGroup,
@@ -18,7 +24,11 @@ import type {
 } from "@/core/dashboard-foundation";
 
 const navigationIcons = {
-  Issues: FolderKanbanIcon
+  Overview: LayoutDashboardIcon,
+  Issues: FolderKanbanIcon,
+  "Problem runs": TriangleAlertIcon,
+  "Runtime health": ActivityIcon,
+  "Runtime logs": ScrollTextIcon
 } as const;
 
 export function DashboardNavigation(input: {

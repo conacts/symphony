@@ -5,9 +5,12 @@ import type {
 
 export {
   buildSymphonyForensicsIssueDetailResult,
+  buildSymphonyForensicsIssueForensicsBundleResult,
   buildSymphonyForensicsIssueListResult,
   buildSymphonyForensicsProblemRunsResult,
   buildSymphonyForensicsRunDetailResult,
+  buildSymphonyRuntimeHealthResult,
+  buildSymphonyRuntimeLogsResult,
   buildSymphonyRuntimeStateResult
 } from "./symphony-runtime-builders";
 

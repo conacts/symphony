@@ -1,6 +1,8 @@
 import type {
   SymphonyForensicsIssueDetailResult,
+  SymphonyForensicsIssueForensicsBundleResult,
   SymphonyForensicsIssueListResult,
+  SymphonyForensicsProblemRunsResult,
   SymphonyForensicsRunDetailResult
 } from "@symphony/contracts";
 
@@ -90,6 +92,115 @@ export function buildIssueDetailViewModel(
   };
 }
 
+export function buildIssueForensicsBundleViewModel(
+  input: SymphonyForensicsIssueForensicsBundleResult
+) {
+  return {
+    metrics: [
+      {
+        label: "Runs",
+        value: formatCount(input.issue.runCount),
+        detail: "Recorded attempts for this issue."
+      },
+      {
+        label: "Problem rate",
+        value: formatPercent(input.issue.problemRate),
+        detail: "Share of runs ending in a non-success outcome."
+      },
+      {
+        label: "Retries",
+        value: formatCount(input.issue.retryCount),
+        detail: "Observed retry attempts for this issue."
+      },
+      {
+        label: "Latest problem",
+        value: input.issue.latestProblemOutcome ?? "n/a",
+        detail: "Most recent non-success outcome."
+      },
+      {
+        label: "Last completed",
+        value: input.issue.lastCompletedOutcome ?? "n/a",
+        detail: "Most recent successful/completed outcome."
+      }
+    ],
+    rows: input.recentRuns.map((run) => ({
+      runId: run.runId,
+      runHref: `/runs/${run.runId}`,
+      startedAt: formatTimestamp(run.startedAt),
+      durationSeconds:
+        run.durationSeconds === null ? "n/a" : formatDuration(run.durationSeconds),
+      totalTokens: formatCount(run.totalTokens),
+      turnsAndEvents: `${formatCount(run.turnCount)} / ${formatCount(run.eventCount)}`,
+      status: run.status ?? "n/a",
+      outcome: run.outcome ?? "n/a"
+    })),
+    latestFailure:
+      input.latestFailure === null
+        ? null
+        : {
+            runId: input.latestFailure.runId,
+            startedAt: formatTimestamp(input.latestFailure.startedAt),
+            outcome: input.latestFailure.outcome ?? "n/a",
+            errorClass: input.latestFailure.errorClass ?? "n/a",
+            errorMessage: input.latestFailure.errorMessage ?? "n/a",
+            timelineCount: formatCount(input.latestFailure.timelineEntries.length),
+            runtimeLogCount: formatCount(input.latestFailure.runtimeLogs.length)
+          },
+    timelineRows: input.timeline.map((entry) => ({
+      entryId: entry.entryId,
+      recordedAt: formatTimestamp(entry.recordedAt),
+      source: entry.source,
+      eventType: entry.eventType,
+      message: entry.message ?? "n/a",
+      payloadText: prettyValue(entry.payload)
+    })),
+    runtimeLogRows: input.runtimeLogs.map((entry) => ({
+      entryId: entry.entryId,
+      recordedAt: formatTimestamp(entry.recordedAt),
+      level: entry.level,
+      source: entry.source,
+      eventType: entry.eventType,
+      message: entry.message,
+      issueIdentifier: entry.issueIdentifier ?? "n/a",
+      runId: entry.runId ?? "n/a",
+      payloadText: prettyValue(entry.payload)
+    }))
+  };
+}
+
+export function buildProblemRunsViewModel(
+  input: SymphonyForensicsProblemRunsResult
+) {
+  return {
+    summaryCards: [
+      {
+        label: "Problem runs",
+        value: formatCount(input.problemRuns.length)
+      },
+      {
+        label: "Distinct outcomes",
+        value: formatCount(Object.keys(input.problemSummary).length)
+      }
+    ],
+    rows: input.problemRuns.map((run) => ({
+      runId: run.runId,
+      runHref: `/runs/${run.runId}`,
+      issueIdentifier: run.issueIdentifier,
+      issueHref: `/issues/${run.issueIdentifier}`,
+      startedAt: formatTimestamp(run.startedAt),
+      outcome: run.outcome ?? "n/a",
+      errorClass: run.errorClass ?? "n/a",
+      durationSeconds:
+        run.durationSeconds === null ? "n/a" : formatDuration(run.durationSeconds),
+      totalTokens: formatCount(run.totalTokens)
+    })),
+    outcomeSummary: Object.entries(input.problemSummary).map(([outcome, count]) => ({
+      outcome,
+      count: formatCount(count)
+    }))
+  };
+}
+
 export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult) {
   const commitValue =
     input.run.commitHashEnd ??
@@ -168,18 +279,18 @@ export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult)
   };
 }
 
-function formatCount(value: number): string {
+export function formatCount(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
-function formatPercent(value: number): string {
+export function formatPercent(value: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "percent",
     maximumFractionDigits: 1
   }).format(value);
 }
 
-function formatDuration(value: number): string {
+export function formatDuration(value: number): string {
   const totalSeconds = Math.max(0, Math.floor(value));
   const hours = Math.floor(totalSeconds / 3_600);
   const minutes = Math.floor((totalSeconds % 3_600) / 60);
@@ -192,7 +303,7 @@ function formatDuration(value: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function formatTimestamp(value: string | null): string {
+export function formatTimestamp(value: string | null): string {
   if (!value) {
     return "n/a";
   }
@@ -211,7 +322,7 @@ function formatTimestamp(value: string | null): string {
   }).format(parsed);
 }
 
-function prettyValue(value: unknown): string {
+export function prettyValue(value: unknown): string {
   if (value === null || value === undefined) {
     return "n/a";
   }

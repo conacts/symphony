@@ -1,10 +1,14 @@
 import type {
   SymphonyForensicsIssueDetailResult,
+  SymphonyForensicsIssueForensicsBundleResult,
   SymphonyForensicsIssueListResult,
   SymphonyForensicsProblemRunsResult,
   SymphonyForensicsRunDetailResult,
+  SymphonyRuntimeHealthResult,
   SymphonyRuntimeIssueResult,
+  SymphonyRuntimeLogsResult,
   SymphonyRuntimeRefreshResult,
+  SymphonyRuntimeLogEntry,
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
 
@@ -482,6 +486,132 @@ export function buildSymphonyForensicsIssueDetailResult(
   };
 }
 
+export function buildSymphonyForensicsIssueForensicsBundleResult(
+  overrides: Partial<SymphonyForensicsIssueForensicsBundleResult> = {}
+): SymphonyForensicsIssueForensicsBundleResult {
+  const runtimeLogs = buildSymphonyRuntimeLogsResult({
+    logs: [
+      {
+        entryId: "runtime-log-1",
+        level: "info",
+        source: "runtime",
+        eventType: "manual_refresh_queued",
+        message: "Queued manual refresh request.",
+        issueId: "issue_123",
+        issueIdentifier: "COL-165",
+        runId: "run_12345678",
+        payload: {
+          queued: true
+        },
+        recordedAt: "2026-03-31T18:03:00.000Z"
+      },
+      {
+        entryId: "runtime-log-2",
+        level: "warn",
+        source: "workspace",
+        eventType: "rate_limit_warning",
+        message: "Approaching upstream rate limit.",
+        issueId: "issue_123",
+        issueIdentifier: "COL-165",
+        runId: "run_12345678",
+        payload: {
+          remaining: 3
+        },
+        recordedAt: "2026-03-31T18:04:00.000Z"
+      }
+    ]
+  }).logs;
+
+  return {
+    issue: buildSymphonyForensicsIssueListResult().issues[0]!,
+    recentRuns: buildSymphonyForensicsIssueDetailResult().runs,
+    distributions: {
+      outcomes: {
+        completed: 1,
+        max_turns: 2
+      },
+      errorClasses: {
+        max_turns: 2
+      },
+      timelineEvents: {
+        "runtime.refresh": 1,
+        "codex.message.output": 1
+      }
+    },
+    latestFailure: {
+      runId: "run_12345678",
+      startedAt: "2026-03-31T18:00:00.000Z",
+      outcome: "max_turns",
+      errorClass: "max_turns",
+      errorMessage: "Reached max turns before completion.",
+      timelineEntries: [
+        {
+          entryId: "timeline-1",
+          issueId: "issue_123",
+          issueIdentifier: "COL-165",
+          runId: "run_12345678",
+          turnId: "turn_123",
+          source: "runtime",
+          eventType: "runtime.refresh",
+          message: "Manual refresh requested.",
+          payload: {
+            queued: true
+          },
+          recordedAt: "2026-03-31T18:03:00.000Z"
+        },
+        {
+          entryId: "timeline-2",
+          issueId: "issue_123",
+          issueIdentifier: "COL-165",
+          runId: "run_12345678",
+          turnId: "turn_123",
+          source: "codex",
+          eventType: "codex.message.output",
+          message: "Assistant responded.",
+          payload: {
+            text: "Still working"
+          },
+          recordedAt: "2026-03-31T18:04:00.000Z"
+        }
+      ],
+      runtimeLogs
+    },
+    timeline: [
+      {
+        entryId: "timeline-1",
+        issueId: "issue_123",
+        issueIdentifier: "COL-165",
+        runId: "run_12345678",
+        turnId: "turn_123",
+        source: "runtime",
+        eventType: "runtime.refresh",
+        message: "Manual refresh requested.",
+        payload: {
+          queued: true
+        },
+        recordedAt: "2026-03-31T18:03:00.000Z"
+      },
+      {
+        entryId: "timeline-2",
+        issueId: "issue_123",
+        issueIdentifier: "COL-165",
+        runId: "run_12345678",
+        turnId: "turn_123",
+        source: "codex",
+        eventType: "codex.message.output",
+        message: "Assistant responded.",
+        payload: {
+          text: "Still working"
+        },
+        recordedAt: "2026-03-31T18:04:00.000Z"
+      }
+    ],
+    runtimeLogs,
+    filters: buildSymphonyForensicsIssueListResult().filters,
+    ...overrides
+  };
+}
+
 export function buildSymphonyForensicsProblemRunsResult(
   overrides: Partial<SymphonyForensicsProblemRunsResult> = {}
 ): SymphonyForensicsProblemRunsResult {
@@ -519,6 +649,72 @@ export function buildSymphonyForensicsProblemRunsResult(
       outcome: "max_turns",
       issueIdentifier: "",
       limit: 200
+    },
+    ...overrides
+  };
+}
+
+export function buildSymphonyRuntimeLogsResult(
+  overrides: Partial<SymphonyRuntimeLogsResult> & {
+    logs?: SymphonyRuntimeLogEntry[];
+  } = {}
+): SymphonyRuntimeLogsResult {
+  return {
+    logs: overrides.logs ?? [
+      {
+        entryId: "runtime-log-1",
+        level: "info",
+        source: "runtime",
+        eventType: "db_initialized",
+        message: "Initialized Symphony DB.",
+        issueId: null,
+        issueIdentifier: null,
+        runId: null,
+        payload: {
+          dbFile: "/tmp/symphony.db"
+        },
+        recordedAt: "2026-03-31T18:00:00.000Z"
+      },
+      {
+        entryId: "runtime-log-2",
+        level: "warn",
+        source: "tracker",
+        eventType: "tracker_placeholder_active",
+        message: "Using in-memory tracker placeholder.",
+        issueId: null,
+        issueIdentifier: null,
+        runId: null,
+        payload: null,
+        recordedAt: "2026-03-31T18:01:00.000Z"
+      }
+    ],
+    filters: {
+      limit: 200,
+      issueIdentifier: null
+    },
+    ...Object.fromEntries(
+      Object.entries(overrides).filter(([key]) => key !== "logs")
+    )
+  };
+}
+
+export function buildSymphonyRuntimeHealthResult(
+  overrides: Partial<SymphonyRuntimeHealthResult> = {}
+): SymphonyRuntimeHealthResult {
+  return {
+    healthy: true,
+    db: {
+      file: "/tmp/symphony.db",
+      ready: true
+    },
+    poller: {
+      running: true,
+      intervalMs: 1000,
+      inFlight: false,
+      lastStartedAt: "2026-03-31T18:04:00.000Z",
+      lastCompletedAt: "2026-03-31T18:04:01.000Z",
+      lastSucceededAt: "2026-03-31T18:04:01.000Z",
+      lastError: null
     },
     ...overrides
   };

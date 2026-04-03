@@ -3,17 +3,23 @@ import type {
   SymphonyForensicsIssueFilters,
   SymphonyForensicsIssueForensicsBundleResult,
   SymphonyForensicsIssueListResult,
+  SymphonyForensicsProblemRunsResult,
   SymphonyForensicsIssueSummary,
   SymphonyForensicsIssueTimelineEntry,
   SymphonyForensicsRunDetailResult,
   SymphonyForensicsRunSummary,
+  SymphonyRuntimeHealthResult,
   SymphonyRuntimeIssueResult,
   SymphonyRuntimeLogEntry,
+  SymphonyRuntimeLogsResult,
   SymphonyRuntimeRefreshResult,
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
 import {
+  buildSymphonyForensicsProblemRunsResult,
   buildSymphonyForensicsRunDetailResult,
+  buildSymphonyRuntimeHealthResult,
+  buildSymphonyRuntimeLogsResult,
   buildSymphonyRuntimeStateResult
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
 import {
@@ -774,6 +780,38 @@ export function buildMockRuntimeRefreshResult(): SymphonyRuntimeRefreshResult {
   });
 }
 
+export function buildMockRuntimeHealthResult(): SymphonyRuntimeHealthResult {
+  return buildSymphonyRuntimeHealthResult({
+    poller: {
+      ...buildSymphonyRuntimeHealthResult().poller,
+      lastStartedAt: new Date(Date.now() - 5_000).toISOString(),
+      lastCompletedAt: new Date(Date.now() - 4_000).toISOString(),
+      lastSucceededAt: new Date(Date.now() - 4_000).toISOString()
+    }
+  });
+}
+
+export function buildMockRuntimeLogsResult(
+  input: URLSearchParams
+): SymphonyRuntimeLogsResult {
+  const issueIdentifier = input.get("issueIdentifier");
+  const limit = parsePositiveInt(input.get("limit")) ?? 200;
+  const allLogs = issueIdentifier
+    ? (mockRuntimeLogsByIssueIdentifier[issueIdentifier] ?? [])
+    : Object.values(mockRuntimeLogsByIssueIdentifier).flat();
+
+  return buildSymphonyRuntimeLogsResult({
+    logs: allLogs
+      .slice()
+      .sort((left, right) => compareTimestamps(right.recordedAt, left.recordedAt))
+      .slice(0, limit),
+    filters: {
+      limit,
+      issueIdentifier
+    }
+  });
+}
+
 export function buildMockIssueListResult(
   input: URLSearchParams
 ): SymphonyForensicsIssueListResult {
@@ -872,6 +910,39 @@ export function buildMockIssueForensicsBundleResult(
     runtimeLogs: runtimeLogs.slice(0, parsePositiveInt(input.get("runtimeLogLimit")) ?? 10),
     filters
   };
+}
+
+export function buildMockProblemRunsResult(
+  input: URLSearchParams
+): SymphonyForensicsProblemRunsResult {
+  const limit = parsePositiveInt(input.get("limit")) ?? 200;
+  const issueIdentifier = input.get("issueIdentifier");
+  const outcome = input.get("outcome");
+  const runs = Object.values(mockRunsByIssueIdentifier)
+    .flat()
+    .filter((run) => run.outcome !== "completed")
+    .filter((run) =>
+      issueIdentifier ? run.issueIdentifier === issueIdentifier : true
+    )
+    .filter((run) => (outcome ? run.outcome === outcome : true))
+    .sort((left, right) => compareTimestamps(right.startedAt, left.startedAt))
+    .slice(0, limit);
+
+  const problemSummary = runs.reduce<Record<string, number>>((accumulator, run) => {
+    const key = run.outcome ?? "unknown";
+    accumulator[key] = (accumulator[key] ?? 0) + 1;
+    return accumulator;
+  }, {});
+
+  return buildSymphonyForensicsProblemRunsResult({
+    problemRuns: runs,
+    problemSummary,
+    filters: {
+      outcome,
+      issueIdentifier,
+      limit
+    }
+  });
 }
 
 export function buildMockRunDetailResult(
@@ -1069,6 +1140,28 @@ function sortIssues(
   });
 
   return sortDirection === "desc" ? sorted.reverse() : sorted;
+}
+
+function compareTimestamps(
+  left: string | null | undefined,
+  right: string | null | undefined
+): number {
+  const leftTime = left ? Date.parse(left) : Number.NaN;
+  const rightTime = right ? Date.parse(right) : Number.NaN;
+
+  if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) {
+    return 0;
+  }
+
+  if (Number.isNaN(leftTime)) {
+    return -1;
+  }
+
+  if (Number.isNaN(rightTime)) {
+    return 1;
+  }
+
+  return leftTime - rightTime;
 }
 
 function getSortValue(

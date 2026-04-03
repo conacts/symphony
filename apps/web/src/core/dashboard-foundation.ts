@@ -41,6 +41,9 @@ export type SymphonyDashboardFoundationModel = {
     stateUrl: string;
     refreshUrl: string;
     issuesUrl: string;
+    problemRunsUrl: string;
+    healthUrl: string;
+    runtimeLogsUrl: string;
   };
   connection: {
     kind: SymphonyDashboardConnectionKind;
@@ -64,6 +67,9 @@ export function buildSymphonyRuntimeSurfaceUrls(runtimeBaseUrl: string) {
     stateUrl: createRuntimeUrl("/api/v1/state", runtimeBaseUrl),
     refreshUrl: createRuntimeUrl("/api/v1/refresh", runtimeBaseUrl),
     issuesUrl: createRuntimeUrl("/api/v1/issues", runtimeBaseUrl),
+    problemRunsUrl: createRuntimeUrl("/api/v1/problem-runs", runtimeBaseUrl),
+    healthUrl: createRuntimeUrl("/api/v1/health", runtimeBaseUrl),
+    runtimeLogsUrl: createRuntimeUrl("/api/v1/runtime/logs", runtimeBaseUrl),
     websocketUrl: createRuntimeWebsocketUrl("/api/v1/ws", runtimeBaseUrl)
   };
 }
@@ -84,7 +90,10 @@ export function buildSymphonyDashboardFoundation(
     runtimeSurface: {
       stateUrl: runtimeSurface.stateUrl,
       refreshUrl: runtimeSurface.refreshUrl,
-      issuesUrl: runtimeSurface.issuesUrl
+      issuesUrl: runtimeSurface.issuesUrl,
+      problemRunsUrl: runtimeSurface.problemRunsUrl,
+      healthUrl: runtimeSurface.healthUrl,
+      runtimeLogsUrl: runtimeSurface.runtimeLogsUrl
     },
     connection: {
       kind: "waiting",
@@ -94,9 +103,33 @@ export function buildSymphonyDashboardFoundation(
     },
     navigation: [
       {
+        href: "/",
+        label: "Overview",
+        description: "Review the live runtime summary, retry queue, and operator refresh action.",
+        readiness: "available"
+      },
+      {
         href: "/issues",
         label: "Issues",
         description: "Browse recorded issues and drill into the run history for each one.",
+        readiness: "available"
+      },
+      {
+        href: "/problem-runs",
+        label: "Problem runs",
+        description: "Inspect the latest failed, rate-limited, and max-turn runs across issues.",
+        readiness: "available"
+      },
+      {
+        href: "/runtime/health",
+        label: "Runtime health",
+        description: "Check the runtime poller, DB readiness, and recent scheduler state.",
+        readiness: "available"
+      },
+      {
+        href: "/runtime/logs",
+        label: "Runtime logs",
+        description: "Tail the persisted runtime log stream for platform and issue activity.",
         readiness: "available"
       }
     ],
@@ -108,6 +141,18 @@ export function buildSymphonyDashboardFoundation(
       {
         label: "Issue inventory",
         href: runtimeSurface.issuesUrl
+      },
+      {
+        label: "Problem runs",
+        href: runtimeSurface.problemRunsUrl
+      },
+      {
+        label: "Runtime health",
+        href: runtimeSurface.healthUrl
+      },
+      {
+        label: "Runtime logs",
+        href: runtimeSurface.runtimeLogsUrl
       }
     ],
     foundationTracks: [
