@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
-import { createTestWorkspaceBackend } from "../test-support/create-test-workspace-backend.js";
-import { createCodexAgentRuntime } from "./agent-runtime.js";
+import {
+  buildSymphonyWorkflowConfig,
+  createTestWorkspaceBackend
+} from "@symphony/test-support";
+import { createCodexAgentRuntime } from "@symphony/orchestrator";
 import { createSymphonyRuntime } from "./symphony-runtime.js";
 
 const inertTracker = {

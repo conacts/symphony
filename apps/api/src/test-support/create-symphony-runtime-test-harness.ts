@@ -3,10 +3,10 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import {
   type SymphonyResolvedWorkflowConfig
-} from "@symphony/core";
+} from "@symphony/runtime-policy";
 import { createSymphonyForensicsReadModel } from "@symphony/forensics";
 import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
-import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
+import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import {
   createMemorySymphonyTracker,
   type SymphonyTrackerIssue

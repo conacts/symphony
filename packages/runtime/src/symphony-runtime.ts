@@ -1,5 +1,6 @@
 import {
   SymphonyOrchestrator,
+  type AgentRuntime,
   type SymphonyOrchestratorConfig,
   type SymphonyAgentRuntimeCompletion,
   type SymphonyAgentRuntimeUpdate,
@@ -7,6 +8,7 @@ import {
   type SymphonyOrchestratorObserver,
   type SymphonyOrchestratorSnapshot
 } from "@symphony/orchestrator";
+import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
 import type {
   PublishReviewInput,
   PublishReviewResult,
@@ -16,9 +18,7 @@ import type {
   ReviewResult
 } from "@symphony/review";
 import type { SymphonyTracker } from "@symphony/tracker";
-import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
-import type { WorkspaceBackend } from "../workspace/workspace-backend.js";
-import type { AgentRuntime } from "./agent-runtime.js";
+import type { WorkspaceBackend } from "@symphony/workspace";
 
 export interface SymphonyRuntime<
   Request = ReviewRequest,

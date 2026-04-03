@@ -1,6 +1,6 @@
 import type {
   SymphonyAgentRuntimeConfig
-} from "@symphony/core/orchestration";
+} from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
 

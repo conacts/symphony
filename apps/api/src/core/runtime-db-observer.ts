@@ -1,6 +1,6 @@
 import type {
   SymphonyOrchestratorObserver
-} from "@symphony/core/orchestration";
+} from "@symphony/orchestrator";
 import {
   summarizePreparedWorkspace,
   type WorkspaceLifecycleMetadata

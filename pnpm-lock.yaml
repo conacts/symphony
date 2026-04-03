@@ -68,9 +68,6 @@ importers:
       '@symphony/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@symphony/core':
-        specifier: workspace:*
-        version: link:../../packages/core
       '@symphony/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -89,12 +86,21 @@ importers:
       '@symphony/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@symphony/orchestrator':
+        specifier: workspace:*
+        version: link:../../packages/orchestrator
       '@symphony/run-journal':
         specifier: workspace:*
         version: link:../../packages/run-journal
+      '@symphony/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@symphony/runtime-contract':
         specifier: workspace:*
         version: link:../../packages/runtime-contract
+      '@symphony/runtime-policy':
+        specifier: workspace:*
+        version: link:../../packages/runtime-policy
       '@symphony/tracker':
         specifier: workspace:*
         version: link:../../packages/tracker
@@ -238,40 +244,6 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
-    devDependencies:
-      '@symphony/eslint-configs':
-        specifier: workspace:*
-        version: link:../eslint-configs
-      '@symphony/vitest-configs':
-        specifier: workspace:*
-        version: link:../vitest-configs
-      vitest:
-        specifier: ^4.1.2
-        version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
-
-  packages/core:
-    dependencies:
-      '@symphony/forensics':
-        specifier: workspace:*
-        version: link:../forensics
-      '@symphony/github-review':
-        specifier: workspace:*
-        version: link:../github-review
-      '@symphony/orchestrator':
-        specifier: workspace:*
-        version: link:../orchestrator
-      '@symphony/review':
-        specifier: workspace:*
-        version: link:../review
-      '@symphony/run-journal':
-        specifier: workspace:*
-        version: link:../run-journal
-      '@symphony/tracker':
-        specifier: workspace:*
-        version: link:../tracker
-      '@symphony/workspace':
-        specifier: workspace:*
-        version: link:../workspace
     devDependencies:
       '@symphony/eslint-configs':
         specifier: workspace:*
@@ -454,6 +426,37 @@ importers:
         specifier: ^4.1.2
         version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
 
+  packages/runtime:
+    dependencies:
+      '@symphony/orchestrator':
+        specifier: workspace:*
+        version: link:../orchestrator
+      '@symphony/review':
+        specifier: workspace:*
+        version: link:../review
+      '@symphony/runtime-policy':
+        specifier: workspace:*
+        version: link:../runtime-policy
+      '@symphony/tracker':
+        specifier: workspace:*
+        version: link:../tracker
+      '@symphony/workspace':
+        specifier: workspace:*
+        version: link:../workspace
+    devDependencies:
+      '@symphony/eslint-configs':
+        specifier: workspace:*
+        version: link:../eslint-configs
+      '@symphony/test-support':
+        specifier: workspace:*
+        version: link:../test-support
+      '@symphony/vitest-configs':
+        specifier: workspace:*
+        version: link:../vitest-configs
+      vitest:
+        specifier: ^4.1.2
+        version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+
   packages/runtime-contract:
     dependencies:
       esbuild:
@@ -473,29 +476,51 @@ importers:
         specifier: ^4.1.2
         version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
 
+  packages/runtime-policy:
+    dependencies:
+      '@symphony/tracker':
+        specifier: workspace:*
+        version: link:../tracker
+    devDependencies:
+      '@symphony/eslint-configs':
+        specifier: workspace:*
+        version: link:../eslint-configs
+      '@symphony/vitest-configs':
+        specifier: workspace:*
+        version: link:../vitest-configs
+      vitest:
+        specifier: ^4.1.2
+        version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+
   packages/test-support:
     dependencies:
       '@symphony/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@symphony/core':
-        specifier: workspace:*
-        version: link:../core
       '@symphony/db':
         specifier: workspace:*
         version: link:../db
       '@symphony/github-review':
         specifier: workspace:*
         version: link:../github-review
+      '@symphony/orchestrator':
+        specifier: workspace:*
+        version: link:../orchestrator
       '@symphony/run-journal':
         specifier: workspace:*
         version: link:../run-journal
       '@symphony/runtime-contract':
         specifier: workspace:*
         version: link:../runtime-contract
+      '@symphony/runtime-policy':
+        specifier: workspace:*
+        version: link:../runtime-policy
       '@symphony/tracker':
         specifier: workspace:*
         version: link:../tracker
+      '@symphony/workspace':
+        specifier: workspace:*
+        version: link:../workspace
       yaml:
         specifier: ^2.8.3
         version: 2.8.3

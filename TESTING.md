@@ -19,7 +19,7 @@ Symphony tests should exercise real package behavior by default.
 
 - Use small harnesses to boot real composition in critical-path tests.
 - `apps/api` should prefer the runtime app-services harness when verifying runtime boot, poll scheduling, DB-backed logs, and HTTP wiring.
-- `packages/core` should prefer runtime composition harnesses when verifying orchestrator behavior through the public runtime facade.
+- `packages/runtime` should prefer runtime composition seams when verifying orchestrator behavior through the public runtime facade.
 
 ## Mocks
 

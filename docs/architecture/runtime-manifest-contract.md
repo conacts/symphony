@@ -5,12 +5,12 @@ Date: 2026-04-01
 ## Goal
 
 Define and operationalize the repo-local runtime manifest surface for Docker-backed workspaces
-without making Docker the default backend and without broadening repo lifecycle execution.
+without broadening repo lifecycle execution.
 
 This pass covers:
 
 - a strict repo-local authoring location: `.symphony/runtime.ts`
-- an explicit authoring/export surface: `@symphony/core/runtime-manifest`
+- an explicit authoring/export surface: `@symphony/runtime-contract`
 - `defineSymphonyRuntime(...)`
 - strict manifest loading and validation
 - readable path-targeted validation errors
@@ -30,7 +30,7 @@ This pass does not yet cover:
 - service types other than `postgres`
 - shared Postgres instances across workspaces
 - host port publishing for sidecars
-- making Docker the default backend
+- service types other than `postgres`
 
 ## Authoring
 
@@ -38,7 +38,7 @@ Repo-local manifests live at `.symphony/runtime.ts` and must default export the 
 `defineSymphonyRuntime(...)`.
 
 ```ts
-import { defineSymphonyRuntime } from "@symphony/core/runtime-manifest";
+import { defineSymphonyRuntime } from "@symphony/runtime-contract";
 
 export default defineSymphonyRuntime({
   schemaVersion: 1,
@@ -319,7 +319,7 @@ For Docker-backed workspaces with a valid manifest:
 
 ## Loader
 
-The explicit subpath is `@symphony/core/runtime-manifest`.
+The explicit subpath is `@symphony/runtime-contract`.
 
 It exposes:
 
@@ -334,7 +334,7 @@ Loader rules for `.symphony/runtime.ts`:
 1. Load exactly one explicit entry file: `.symphony/runtime.ts`.
 2. Support TypeScript source directly. The target repo does not need to be built first.
 3. Bundle only that manifest entry and its relative file graph with `esbuild`.
-4. Resolve `@symphony/core/runtime-manifest` through one explicit alias to a local authoring shim
+4. Resolve `@symphony/runtime-contract` through one explicit alias to a local authoring shim
    that re-exports `defineSymphonyRuntime(...)`, in both source and built-package mode.
 5. Leave other bare package imports external; they must resolve normally in the runtime
    environment through the target repo's installed `node_modules`.

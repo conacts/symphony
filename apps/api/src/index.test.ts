@@ -30,11 +30,13 @@ describe("@symphony/api scaffold", () => {
     expect(runtime.env.linearApiKey).toBe("test-linear-api-key");
     expect(runtime.env.logLevel).toBe("debug");
     expect(runtime.dependsOn).toEqual([
-      "@symphony/core",
+      "@symphony/orchestrator",
       "@symphony/contracts",
       "@symphony/db",
       "@symphony/logger",
-      "@symphony/runtime-contract"
+      "@symphony/runtime",
+      "@symphony/runtime-contract",
+      "@symphony/runtime-policy"
     ]);
   });
 

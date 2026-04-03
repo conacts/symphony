@@ -1,7 +1,7 @@
 import path from "node:path";
 import type {
   AgentRuntimeLaunchTarget
-} from "@symphony/core";
+} from "@symphony/orchestrator";
 import type { PreparedWorkspace } from "@symphony/workspace";
 
 export type CodexRuntimeLaunchTarget = AgentRuntimeLaunchTarget;

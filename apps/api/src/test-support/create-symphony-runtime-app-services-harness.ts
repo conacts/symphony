@@ -4,7 +4,7 @@ import {
   createTempSymphonySqliteHarness,
   renderSymphonyRuntimeManifestSource
 } from "@symphony/test-support";
-import type { SymphonyResolvedWorkflowConfig } from "@symphony/core";
+import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
 import type { SymphonyRuntimeAppEnv } from "../core/env.js";
 import {
   loadDefaultSymphonyRuntimeAppServices,

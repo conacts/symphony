@@ -1,4 +1,4 @@
-import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
+import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import type { SymphonyRunExport } from "@symphony/run-journal";
 import {
   summarizePreparedWorkspace,
@@ -17,7 +17,7 @@ import type {
   SymphonyRuntimeLaunchTarget,
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
-import type { SymphonyResolvedWorkflowConfig } from "@symphony/core";
+import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
 
 export function serializeRuntimeState(
   snapshot: SymphonyOrchestratorSnapshot

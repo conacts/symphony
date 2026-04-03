@@ -31,8 +31,8 @@ The required repo artifacts are:
 
 ## Runtime Composition Boundary
 
-Runtime composition still lives in `@symphony/core` and the app boundary, but the supported
-workspace execution story is Docker-backed only.
+Runtime composition lives in `@symphony/runtime` and the app boundary, and the supported workspace
+execution story is Docker-backed only.
 
 The important runtime concepts remain:
 

@@ -11,13 +11,28 @@
       "path": "../contracts"
     },
     {
-      "path": "../core"
-    },
-    {
       "path": "../db"
     },
     {
+      "path": "../github-review"
+    },
+    {
+      "path": "../orchestrator"
+    },
+    {
+      "path": "../run-journal"
+    },
+    {
       "path": "../runtime-contract"
+    },
+    {
+      "path": "../runtime-policy"
+    },
+    {
+      "path": "../tracker"
+    },
+    {
+      "path": "../workspace"
     }
   ],
   "include": ["src/**/*.ts"]

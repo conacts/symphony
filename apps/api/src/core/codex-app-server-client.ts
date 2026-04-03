@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import type { SymphonyAgentRuntimeConfig } from "@symphony/core/orchestration";
+import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
   buildCodexAppServerSpawnSpec,

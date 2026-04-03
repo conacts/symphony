@@ -1,4 +1,4 @@
-import type { SymphonyAgentRuntimeConfig } from "@symphony/core/orchestration";
+import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyLogger } from "@symphony/logger";
 import type { CodexAppServerToolExecutor } from "./codex-app-server-types.js";
 

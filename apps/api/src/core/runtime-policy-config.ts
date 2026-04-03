@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { SymphonyResolvedWorkflowConfig } from "@symphony/core";
+import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
 import type { EnvironmentSource } from "./env.js";
 
 const defaultLinearEndpoint = "https://api.linear.app/graphql";

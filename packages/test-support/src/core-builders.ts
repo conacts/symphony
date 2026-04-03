@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import type {
   SymphonyGitHubReviewEvent
 } from "@symphony/github-review";
-import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
+import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import type {
   SymphonyEventAttrs,
   SymphonyRunFinishAttrs,
@@ -15,9 +15,7 @@ import {
   issueBranchName,
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
-import {
-  type SymphonyResolvedWorkflowConfig
-} from "@symphony/core";
+import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
 
 let fixtureCounter = 0;
 

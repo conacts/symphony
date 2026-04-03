@@ -10,6 +10,7 @@ export {
   buildSymphonyTurnStartAttrs,
   buildSymphonyWorkflowConfig
 } from "./core-builders.js";
+export { createTestWorkspaceBackend } from "./create-test-workspace-backend.js";
 export {
   buildSymphonyGitHubIssueCommentPayload,
   buildSymphonyGitHubPullRequestReviewPayload,

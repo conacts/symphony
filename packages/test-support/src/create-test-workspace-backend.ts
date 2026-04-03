@@ -1,12 +1,12 @@
 import { access, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
-import type {
-  PreparedWorkspace,
-  WorkspaceBackend,
-  WorkspaceContext,
-  WorkspaceHookKind
+import {
+  sanitizeSymphonyIssueIdentifier,
+  type PreparedWorkspace,
+  type WorkspaceBackend,
+  type WorkspaceContext,
+  type WorkspaceHookKind
 } from "@symphony/workspace";
-import { sanitizeSymphonyIssueIdentifier } from "@symphony/workspace";
 
 type TestWorkspaceCommandResult = {
   exitCode: number;
@@ -260,6 +260,14 @@ function buildPreparedWorkspace(input: {
     input.containerNamePrefix,
     input.workspaceKey
   );
+  const containerId = buildContainerId(
+    input.containerNamePrefix,
+    input.workspaceKey
+  );
+  const networkName = buildNetworkName(
+    input.containerNamePrefix,
+    input.workspaceKey
+  );
 
   return {
     issueIdentifier: input.issueIdentifier,
@@ -268,13 +276,13 @@ function buildPreparedWorkspace(input: {
     prepareDisposition: input.created ? "created" : "reused",
     containerDisposition: input.created ? "started" : "reused",
     networkDisposition: input.created ? "created" : "reused",
-    afterCreateHookOutcome: "skipped",
+    afterCreateHookOutcome: input.created ? "completed" : "skipped",
     executionTarget: {
       kind: "container",
       workspacePath: input.runtimeWorkspacePath,
-      containerId: buildContainerId(input.containerNamePrefix, input.workspaceKey),
-      containerName,
       hostPath: input.hostPath,
+      containerId,
+      containerName,
       shell: input.shell
     },
     materialization: {
@@ -282,59 +290,61 @@ function buildPreparedWorkspace(input: {
       hostPath: input.hostPath,
       containerPath: input.runtimeWorkspacePath
     },
-    networkName: buildNetworkName(input.containerNamePrefix, input.workspaceKey),
+    networkName,
     services: [],
-    envBundle: buildAmbientWorkspaceEnvBundle(input.environmentSource),
+    envBundle: {
+      source: "ambient",
+      values: normalizeEnvironmentSource(input.environmentSource),
+      summary: {
+        source: "ambient",
+        injectedKeys: [],
+        requiredHostKeys: [],
+        optionalHostKeys: [],
+        repoEnvPath: null,
+        projectedRepoKeys: [],
+        requiredRepoKeys: [],
+        optionalRepoKeys: [],
+        staticBindingKeys: [],
+        runtimeBindingKeys: [],
+        serviceBindingKeys: []
+      }
+    },
     manifestLifecycle: null,
-    path: null,
+    path: input.hostPath,
     created: input.created,
     workerHost: input.workerHost
   };
 }
 
-function buildAmbientWorkspaceEnvBundle(
+function normalizeEnvironmentSource(
   environmentSource: Record<string, string | undefined> | undefined
-): PreparedWorkspace["envBundle"] {
-  const values = Object.fromEntries(
-    Object.entries(environmentSource ?? {}).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string"
+): Record<string, string> {
+  if (!environmentSource) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(environmentSource).flatMap(([key, value]) =>
+      typeof value === "string" ? [[key, value]] : []
     )
   );
-
-  return {
-    source: "ambient",
-    values,
-    summary: {
-      source: "ambient",
-      injectedKeys: Object.keys(values).sort(),
-      requiredHostKeys: [],
-      optionalHostKeys: [],
-      repoEnvPath: null,
-      projectedRepoKeys: [],
-      requiredRepoKeys: [],
-      optionalRepoKeys: [],
-      staticBindingKeys: [],
-      runtimeBindingKeys: [],
-      serviceBindingKeys: []
-    }
-  };
-}
-
-function buildContainerId(prefix: string, workspaceKey: string): string {
-  return `${prefix}-${workspaceKey}-container`;
 }
 
 function buildContainerName(prefix: string, workspaceKey: string): string {
   return `${prefix}-${workspaceKey}`;
 }
 
-function buildNetworkName(prefix: string, workspaceKey: string): string {
-  return `${prefix}-network-${workspaceKey}`;
+function buildContainerId(prefix: string, workspaceKey: string): string {
+  return `${buildContainerName(prefix, workspaceKey)}-id`;
 }
 
-async function pathExists(value: string): Promise<boolean> {
+function buildNetworkName(prefix: string, workspaceKey: string): string {
+  return `${prefix}-${workspaceKey}-network`;
+}
+
+async function pathExists(candidatePath: string): Promise<boolean> {
   try {
-    await access(value);
+    await access(candidatePath);
     return true;
   } catch {
     return false;

@@ -1,9 +1,12 @@
 import {
   createCodexAgentRuntime,
+  type SymphonyOrchestratorSnapshot
+} from "@symphony/orchestrator";
+import {
   createSymphonyRuntime,
-  type SymphonyResolvedWorkflowConfig,
   type SymphonyRuntime as CoreSymphonyRuntime
-} from "@symphony/core";
+} from "@symphony/runtime";
+import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
 import {
   defaultSymphonyDockerWorkspacePreflightTimeoutMs,
   preflightSymphonyDockerWorkspaceImage,
@@ -14,7 +17,6 @@ import {
   type SymphonyForensicsReadModel
 } from "@symphony/forensics";
 import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
-import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
 import type { SymphonyJsonValue } from "@symphony/run-journal";
 import {
   createLinearSymphonyTracker,

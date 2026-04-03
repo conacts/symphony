@@ -19,11 +19,13 @@ import { createSymphonyRuntimeServer } from "./server.js";
 export const SYMPHONY_RUNTIME_APP_BOUNDARY = {
   packageName: "@symphony/api",
   dependsOn: [
-    "@symphony/core",
+    "@symphony/orchestrator",
     SYMPHONY_CONTRACTS_PACKAGE_NAME,
     "@symphony/db",
     SYMPHONY_LOGGER_PACKAGE_NAME,
-    "@symphony/runtime-contract"
+    "@symphony/runtime",
+    "@symphony/runtime-contract",
+    "@symphony/runtime-policy"
   ]
 } as const;
 

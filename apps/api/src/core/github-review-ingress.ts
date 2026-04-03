@@ -9,7 +9,7 @@ import type {
 } from "@symphony/contracts";
 import type {
   SymphonyResolvedWorkflowConfig
-} from "@symphony/core";
+} from "@symphony/runtime-policy";
 import type {
   SymphonyGitHubReviewEvent,
   SymphonyGithubReviewProcessor

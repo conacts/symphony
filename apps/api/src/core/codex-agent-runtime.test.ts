@@ -9,7 +9,7 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
-import type { SymphonyAgentRuntimeCompletion } from "@symphony/core/orchestration";
+import type { SymphonyAgentRuntimeCompletion } from "@symphony/orchestrator";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue

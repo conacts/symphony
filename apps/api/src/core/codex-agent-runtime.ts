@@ -1,14 +1,14 @@
 import type {
-  SymphonyResolvedWorkflowConfig,
-  AgentRuntime
-} from "@symphony/core";
-import type {
-  SymphonyAgentRuntimeConfig,
+  AgentRuntime,
   SymphonyAgentRuntimeCompletion,
+  SymphonyAgentRuntimeConfig,
   SymphonyAgentRuntimeUpdate,
   SymphonyStartupFailureOrigin,
   SymphonyStartupFailureStage
-} from "@symphony/core/orchestration";
+} from "@symphony/orchestrator";
+import type {
+  SymphonyResolvedWorkflowConfig
+} from "@symphony/runtime-policy";
 import type {
   SymphonyJsonObject,
   SymphonyJsonValue,

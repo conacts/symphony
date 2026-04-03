@@ -42,7 +42,10 @@
       "path": "./packages/orchestrator"
     },
     {
-      "path": "./packages/core"
+      "path": "./packages/runtime-policy"
+    },
+    {
+      "path": "./packages/runtime"
     },
     {
       "path": "./packages/test-support"
