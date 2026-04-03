@@ -8,7 +8,7 @@ import {
 import type {
   SymphonyJsonValue,
   SymphonyRunJournal
-} from "@symphony/core/journal";
+} from "@symphony/run-journal";
 import type { SymphonyIssueTimelineStore } from "@symphony/db";
 
 export function createDbBackedOrchestratorObserver(input: {

@@ -6,12 +6,12 @@ import { createSymphonyForensicsReadModel } from "./symphony-forensics-read-mode
 import {
   createFileBackedSymphonyRunJournal,
   defaultSymphonyRunJournalFile
-} from "../journal/file-backed-symphony-run-journal.js";
+} from "@symphony/run-journal";
 import type {
   SymphonyRunExport,
   SymphonyRunJournal,
   SymphonyRunSummary
-} from "../journal/symphony-run-journal-types.js";
+} from "@symphony/run-journal";
 import {
   buildSymphonyEventAttrs,
   buildSymphonyRunFinishAttrs,

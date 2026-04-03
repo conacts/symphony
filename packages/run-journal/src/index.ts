@@ -1,7 +1,7 @@
 export {
   createFileBackedSymphonyRunJournal,
   defaultSymphonyRunJournalFile
-} from "@symphony/run-journal";
+} from "./file-backed-symphony-run-journal.js";
 export type {
   SymphonyEventAttrs,
   SymphonyEventRecord,
@@ -27,4 +27,4 @@ export type {
   SymphonyTurnRecord,
   SymphonyTurnStartAttrs,
   SymphonyTurnUpdateAttrs
-} from "@symphony/run-journal";
+} from "./symphony-run-journal-types.js";

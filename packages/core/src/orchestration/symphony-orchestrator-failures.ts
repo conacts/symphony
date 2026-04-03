@@ -10,7 +10,7 @@ import type {
   WorkspaceBackendKind,
   WorkspaceManifestLifecyclePhase
 } from "../workspace/workspace-backend.js";
-import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
+import type { SymphonyJsonObject } from "@symphony/run-journal";
 
 const failureRetryBaseMs = 10_000;
 

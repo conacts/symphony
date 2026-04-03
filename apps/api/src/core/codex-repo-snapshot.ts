@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { SymphonyJsonObject } from "@symphony/core/journal";
+import type { SymphonyJsonObject } from "@symphony/run-journal";
 import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
 
 const execFileAsync = promisify(execFile);

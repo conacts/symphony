@@ -2,7 +2,7 @@ import {
   isCompletedOutcome,
   isProblemOutcome,
   problemSummary
-} from "../journal/symphony-run-journal-private.js";
+} from "@symphony/run-journal/internal";
 import type {
   SymphonyIssueSummary,
   SymphonyIsoTimestamp,
@@ -12,7 +12,7 @@ import type {
   SymphonyRunJournalListOptions,
   SymphonyRunJournalProblemRunsOptions,
   SymphonyRunSummary
-} from "../journal/symphony-run-journal-types.js";
+} from "@symphony/run-journal";
 import {
   buildIssueAggregate,
   buildIssueTotals,

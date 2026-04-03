@@ -12,7 +12,7 @@ import {
   buildSymphonyRunStartAttrs,
   buildSymphonyTurnFinishAttrs,
   buildSymphonyTurnStartAttrs
-} from "../test-support/build-symphony-run-journal-fixture.js";
+} from "./build-symphony-run-journal-fixture.js";
 
 const tempDirectories: string[] = [];
 

@@ -15,6 +15,7 @@
     "@symphony/contracts": "workspace:*",
     "@symphony/core": "workspace:*",
     "@symphony/db": "workspace:*",
+    "@symphony/run-journal": "workspace:*",
     "@symphony/runtime-contract": "workspace:*",
     "yaml": "^2.8.3"
   },

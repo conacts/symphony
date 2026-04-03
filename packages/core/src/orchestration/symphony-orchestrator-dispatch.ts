@@ -20,7 +20,7 @@ import {
   workspaceHostPath,
   type PreparedWorkspace
 } from "../workspace/workspace-backend.js";
-import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
+import type { SymphonyJsonObject } from "@symphony/run-journal";
 
 export async function prepareIssueForDispatch(
   workflowConfig: SymphonyResolvedWorkflowConfig,

@@ -11,7 +11,7 @@ import { createSymphonyForensicsReadModel } from "@symphony/core/forensics";
 import type { SymphonyForensicsReadModel } from "@symphony/core/forensics";
 import { SymphonyGithubReviewProcessor } from "@symphony/core/github";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
-import type { SymphonyJsonValue } from "@symphony/core/journal";
+import type { SymphonyJsonValue } from "@symphony/run-journal";
 import {
   createLinearSymphonyTracker,
   createMemorySymphonyTracker,

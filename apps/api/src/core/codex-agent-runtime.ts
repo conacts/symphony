@@ -12,7 +12,7 @@ import type {
   SymphonyJsonObject,
   SymphonyJsonValue,
   SymphonyRunJournal
-} from "@symphony/core/journal";
+} from "@symphony/run-journal";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue

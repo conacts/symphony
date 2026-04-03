@@ -1,11 +1,11 @@
 import {
   isCompletedOutcome,
   isProblemOutcome
-} from "../journal/symphony-run-journal-private.js";
+} from "@symphony/run-journal/internal";
 import type {
   SymphonyIssueSummary,
   SymphonyRunSummary
-} from "../journal/symphony-run-journal-types.js";
+} from "@symphony/run-journal";
 import type {
   SymphonyForensicsIssueAggregate,
   SymphonyForensicsIssueFilters,

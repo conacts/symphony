@@ -1,4 +1,4 @@
-import type { SymphonyJsonObject } from "../journal/symphony-run-journal-types.js";
+import type { SymphonyJsonObject } from "@symphony/run-journal";
 import { asJsonObject } from "../internal/json.js";
 import { asRecord, isRecord } from "../internal/records.js";
 

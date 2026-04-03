@@ -10,7 +10,7 @@ import type {
   SymphonyRunStartAttrs,
   SymphonyTurnFinishAttrs,
   SymphonyTurnStartAttrs
-} from "@symphony/core/journal";
+} from "@symphony/run-journal";
 import {
   issueBranchName,
   type SymphonyTrackerIssue

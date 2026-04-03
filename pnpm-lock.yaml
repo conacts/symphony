@@ -83,6 +83,9 @@ importers:
       '@symphony/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@symphony/run-journal':
+        specifier: workspace:*
+        version: link:../../packages/run-journal
       '@symphony/runtime-contract':
         specifier: workspace:*
         version: link:../../packages/runtime-contract
@@ -236,6 +239,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@symphony/run-journal':
+        specifier: workspace:*
+        version: link:../run-journal
       esbuild:
         specifier: ^0.27.4
         version: 0.27.4
@@ -255,9 +261,9 @@ importers:
 
   packages/db:
     dependencies:
-      '@symphony/core':
+      '@symphony/run-journal':
         specifier: workspace:*
-        version: link:../core
+        version: link:../run-journal
       better-sqlite3:
         specifier: ^12.4.1
         version: 12.8.0
@@ -343,6 +349,18 @@ importers:
         specifier: ^4.1.2
         version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
 
+  packages/run-journal:
+    devDependencies:
+      '@symphony/eslint-configs':
+        specifier: workspace:*
+        version: link:../eslint-configs
+      '@symphony/vitest-configs':
+        specifier: workspace:*
+        version: link:../vitest-configs
+      vitest:
+        specifier: ^4.1.2
+        version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+
   packages/runtime-contract:
     dependencies:
       esbuild:
@@ -373,6 +391,9 @@ importers:
       '@symphony/db':
         specifier: workspace:*
         version: link:../db
+      '@symphony/run-journal':
+        specifier: workspace:*
+        version: link:../run-journal
       '@symphony/runtime-contract':
         specifier: workspace:*
         version: link:../runtime-contract

@@ -1,5 +1,5 @@
 import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
-import type { SymphonyRunExport } from "@symphony/core/journal";
+import type { SymphonyRunExport } from "@symphony/run-journal";
 import { summarizePreparedWorkspace } from "@symphony/core";
 import {
   issueBranchName,

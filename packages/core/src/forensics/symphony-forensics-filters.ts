@@ -1,6 +1,6 @@
 import type {
   SymphonyRunJournal
-} from "../journal/symphony-run-journal-types.js";
+} from "@symphony/run-journal";
 import type {
   SymphonyForensicsIssueFilters,
   SymphonyForensicsIssuesQuery,

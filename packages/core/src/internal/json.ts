@@ -1,7 +1,7 @@
 import type {
   SymphonyJsonObject,
   SymphonyJsonValue
-} from "../journal/symphony-run-journal-types.js";
+} from "@symphony/run-journal";
 import { isRecord } from "./records.js";
 
 export function asJsonObject(value: unknown): SymphonyJsonObject | null {
