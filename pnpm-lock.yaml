@@ -248,6 +248,9 @@ importers:
       '@symphony/forensics':
         specifier: workspace:*
         version: link:../forensics
+      '@symphony/review':
+        specifier: workspace:*
+        version: link:../review
       '@symphony/run-journal':
         specifier: workspace:*
         version: link:../run-journal
@@ -366,6 +369,18 @@ importers:
         version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
 
   packages/logger:
+    devDependencies:
+      '@symphony/eslint-configs':
+        specifier: workspace:*
+        version: link:../eslint-configs
+      '@symphony/vitest-configs':
+        specifier: workspace:*
+        version: link:../vitest-configs
+      vitest:
+        specifier: ^4.1.2
+        version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+
+  packages/review:
     devDependencies:
       '@symphony/eslint-configs':
         specifier: workspace:*

@@ -1,5 +1,5 @@
 export { createCodexAgentRuntime } from "../runtime/agent-runtime.js";
-export { createGitHubReviewPublisher } from "../review/review-publisher.js";
+export { createGitHubReviewPublisher } from "@symphony/review";
 export {
   createDockerWorkspaceBackend,
   defaultDockerHomePath,
@@ -26,12 +26,12 @@ export type {
   ReviewProvider,
   ReviewRequest,
   ReviewResult
-} from "../review/review-provider.js";
+} from "@symphony/review";
 export type {
   PublishReviewInput,
   PublishReviewResult,
   ReviewPublisher
-} from "../review/review-publisher.js";
+} from "@symphony/review";
 export type { SymphonyRuntime } from "../runtime/symphony-runtime.js";
 export type {
   DockerWorkspaceBackendOptions,

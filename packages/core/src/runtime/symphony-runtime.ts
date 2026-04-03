@@ -7,15 +7,13 @@ import {
   type SymphonyOrchestratorSnapshot
 } from "../orchestration/symphony-orchestrator.js";
 import type {
-  ReviewProvider,
-  ReviewRequest,
-  ReviewResult
-} from "../review/review-provider.js";
-import type {
   PublishReviewInput,
   PublishReviewResult,
-  ReviewPublisher
-} from "../review/review-publisher.js";
+  ReviewProvider,
+  ReviewRequest,
+  ReviewPublisher,
+  ReviewResult
+} from "@symphony/review";
 import type { SymphonyTracker } from "@symphony/tracker";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type { WorkspaceBackend } from "../workspace/workspace-backend.js";
