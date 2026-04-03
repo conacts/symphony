@@ -9,7 +9,7 @@ export {
   buildSymphonyForensicsProblemRunsResult,
   buildSymphonyForensicsRunDetailResult,
   buildSymphonyRuntimeStateResult
-} from "@symphony/test-support";
+} from "./symphony-runtime-builders";
 
 export function buildSymphonyDashboardConnectionState(
   overrides: Partial<RuntimeSummaryConnectionState> = {}

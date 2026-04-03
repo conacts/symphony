@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildSymphonyRuntimeStateResult } from "@symphony/test-support";
+import { buildSymphonyRuntimeStateResult } from "../test-support/symphony-runtime-builders.js";
 import {
   fetchRuntimeSummary,
   parseRealtimeServerMessage,

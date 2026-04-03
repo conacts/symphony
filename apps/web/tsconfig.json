@@ -23,9 +23,6 @@
   "references": [
     {
       "path": "../../packages/contracts"
-    },
-    {
-      "path": "../../packages/test-support"
     }
   ],
   "exclude": ["node_modules"]

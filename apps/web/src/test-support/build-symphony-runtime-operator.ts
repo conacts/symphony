@@ -1,4 +1,4 @@
 export {
   buildSymphonyRuntimeIssueResult,
   buildSymphonyRuntimeRefreshResult
-} from "@symphony/test-support";
+} from "./symphony-runtime-builders";
