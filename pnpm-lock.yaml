@@ -208,9 +208,6 @@ importers:
       '@symphony/eslint-configs':
         specifier: workspace:*
         version: link:../../packages/eslint-configs
-      '@symphony/test-support':
-        specifier: workspace:*
-        version: link:../../packages/test-support
       '@symphony/typescript-configs':
         specifier: workspace:*
         version: link:../../packages/typescript-configs
