@@ -4,7 +4,7 @@ import type {
 import {
   summarizePreparedWorkspace,
   type WorkspaceLifecycleMetadata
-} from "@symphony/core";
+} from "@symphony/workspace";
 import type {
   SymphonyJsonValue,
   SymphonyRunJournal

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SymphonyRuntimeManifestError } from "../runtime-manifest/runtime-manifest-errors.js";
-import { SymphonyWorkspaceError } from "../workspace/workspace-identity.js";
+import { SymphonyWorkspaceError } from "@symphony/workspace";
 import { classifyStartupFailureOrigin } from "./symphony-orchestrator-failures.js";
 
 describe("startup failure classification", () => {

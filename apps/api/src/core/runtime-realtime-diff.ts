@@ -1,5 +1,5 @@
 import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
-import { summarizePreparedWorkspace } from "@symphony/core";
+import { summarizePreparedWorkspace } from "@symphony/workspace";
 import type { SymphonyLogger } from "@symphony/logger";
 import type { SymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 

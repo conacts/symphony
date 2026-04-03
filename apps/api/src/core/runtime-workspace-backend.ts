@@ -5,7 +5,7 @@ import {
   symphonyDockerWorkspaceRequiredTools,
   type SymphonyDockerWorkspaceImageSelectionSource,
   type WorkspaceBackend
-} from "@symphony/core";
+} from "@symphony/workspace";
 import type { SymphonyLoadedRuntimeManifest } from "@symphony/runtime-contract";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 

@@ -1,12 +1,14 @@
 import {
   createCodexAgentRuntime,
   createSymphonyRuntime,
-  defaultSymphonyDockerWorkspacePreflightTimeoutMs,
-  preflightSymphonyDockerWorkspaceImage,
-  type SymphonyDockerWorkspacePreflightResult,
   type SymphonyResolvedWorkflowConfig,
   type SymphonyRuntime as CoreSymphonyRuntime
 } from "@symphony/core";
+import {
+  defaultSymphonyDockerWorkspacePreflightTimeoutMs,
+  preflightSymphonyDockerWorkspaceImage,
+  type SymphonyDockerWorkspacePreflightResult
+} from "@symphony/workspace";
 import {
   createSymphonyForensicsReadModel,
   type SymphonyForensicsReadModel

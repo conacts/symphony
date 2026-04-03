@@ -1,7 +1,7 @@
 import { realpath } from "node:fs/promises";
 import path from "node:path";
-import { isEnoent } from "../internal/errors.js";
-import { asRecord } from "../internal/records.js";
+import { isEnoent } from "./internal/errors.js";
+import { asRecord } from "./internal/records.js";
 import type { WorkspaceCleanupResult } from "./workspace-contracts.js";
 import {
   type DockerContainerInspectState,

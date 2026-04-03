@@ -1,5 +1,5 @@
 import { mkdir, rm, stat } from "node:fs/promises";
-import { isEnoent } from "../internal/errors.js";
+import { isEnoent } from "./internal/errors.js";
 import {
   dockerCommandError,
   dockerLabelFlags

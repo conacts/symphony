@@ -1,5 +1,5 @@
 import { SymphonyRuntimeManifestError } from "../runtime-manifest/runtime-manifest-errors.js";
-import { SymphonyWorkspaceError } from "../workspace/workspace-identity.js";
+import { SymphonyWorkspaceError } from "@symphony/workspace";
 import { asJsonObject } from "../internal/json.js";
 import { asRecord, readString } from "../internal/records.js";
 import type {
@@ -9,7 +9,7 @@ import type {
 import type {
   WorkspaceBackendKind,
   WorkspaceManifestLifecyclePhase
-} from "../workspace/workspace-backend.js";
+} from "@symphony/workspace";
 import type { SymphonyJsonObject } from "@symphony/run-journal";
 
 const failureRetryBaseMs = 10_000;

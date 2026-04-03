@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultSymphonyDockerWorkspaceImage } from "@symphony/core";
+import { defaultSymphonyDockerWorkspaceImage } from "@symphony/workspace";
 import {
   buildSymphonyHostCommandEnvironmentSource,
   buildSymphonyRuntimeEnvironmentSource,

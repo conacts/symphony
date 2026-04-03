@@ -1,6 +1,6 @@
 import { mkdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
-import { isEnoent } from "../internal/errors.js";
+import { isEnoent } from "./internal/errors.js";
 import {
   SymphonyWorkspaceError,
   symphonyWorkspaceDirectoryName

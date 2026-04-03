@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
-import { defaultSymphonyDockerWorkspaceImage } from "@symphony/core";
+import { defaultSymphonyDockerWorkspaceImage } from "@symphony/workspace";
 import { createRuntimeWorkspaceBackend } from "./runtime-workspace-backend.js";
 
 const tempRoots: string[] = [];

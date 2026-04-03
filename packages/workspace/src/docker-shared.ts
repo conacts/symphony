@@ -3,7 +3,7 @@ import type {
   SymphonyLoadedRuntimeManifest,
   SymphonyNormalizedRuntimePostgresService,
   SymphonyResolvedRuntimeService
-} from "../runtime-manifest.js";
+} from "@symphony/runtime-contract";
 import type {
   PreparedWorkspaceService,
   WorkspaceBackendEventRecorder,

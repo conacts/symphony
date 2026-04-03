@@ -8,7 +8,7 @@ import {
   createDockerWorkspaceBackend,
   defaultSymphonyDockerWorkspaceImage,
   preflightSymphonyDockerWorkspaceImage
-} from "@symphony/core";
+} from "@symphony/workspace";
 import {
   normalizeSymphonyRuntimeManifest,
   type SymphonyLoadedRuntimeManifest

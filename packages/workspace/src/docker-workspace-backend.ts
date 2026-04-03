@@ -6,9 +6,9 @@ import {
   resolveSymphonyRuntimeEnvBundle,
   type SymphonyLoadedRuntimeManifest,
   type SymphonyResolvedRuntimeService
-} from "../runtime-manifest.js";
-import { isEnoent } from "../internal/errors.js";
-import { asRecord } from "../internal/records.js";
+} from "@symphony/runtime-contract";
+import { isEnoent } from "./internal/errors.js";
+import { asRecord } from "./internal/records.js";
 import {
   SymphonyWorkspaceError,
   sanitizeSymphonyIssueIdentifier,
@@ -108,7 +108,7 @@ import type {
   WorkspaceManifestLifecycleStepRecord,
   WorkspaceManifestLifecycleSummary,
   WorkspacePrepareInput
-} from "./workspace-backend.js";
+} from "./workspace-contracts.js";
 
 export type {
   DockerWorkspaceBackendOptions,
@@ -678,7 +678,6 @@ function resolveDockerWorkspaceEnvBundle(input: {
 
   return resolveSymphonyRuntimeEnvBundle({
     manifest: input.runtimeManifest.manifest,
-    repoRoot: input.runtimeManifest.repoRoot,
     environmentSource: input.environmentSource ?? {},
     runtime: {
       issueId: input.issueId,

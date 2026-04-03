@@ -5,8 +5,8 @@ import type {
   WorkspaceBackend,
   WorkspaceContext,
   WorkspaceHookKind
-} from "../workspace/workspace-backend.js";
-import { sanitizeSymphonyIssueIdentifier } from "../workspace/workspace-identity.js";
+} from "@symphony/workspace";
+import { sanitizeSymphonyIssueIdentifier } from "@symphony/workspace";
 
 type TestWorkspaceCommandResult = {
   exitCode: number;

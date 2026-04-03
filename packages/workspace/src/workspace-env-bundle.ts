@@ -2,7 +2,7 @@ import {
   resolveSymphonyRuntimeEnvBundle,
   type SymphonyLoadedRuntimeManifest,
   type SymphonyResolvedRuntimeService
-} from "../runtime-manifest.js";
+} from "@symphony/runtime-contract";
 import type {
   PreparedWorkspace,
   WorkspaceBackendKind,
@@ -26,7 +26,6 @@ export function resolvePreparedWorkspaceEnvBundle(input: {
 
   return resolveSymphonyRuntimeEnvBundle({
     manifest: input.runtimeManifest.manifest,
-    repoRoot: input.runtimeManifest.repoRoot,
     environmentSource: input.environmentSource ?? {},
     runtime: {
       issueId: input.issueId,

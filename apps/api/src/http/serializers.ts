@@ -1,6 +1,9 @@
 import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
 import type { SymphonyRunExport } from "@symphony/run-journal";
-import { summarizePreparedWorkspace } from "@symphony/core";
+import {
+  summarizePreparedWorkspace,
+  type WorkspaceEnvBundleSummary
+} from "@symphony/workspace";
 import {
   issueBranchName,
   type SymphonyTrackerIssue
@@ -224,7 +227,9 @@ function serializeRuntimeWorkspace(
     containerName: summary?.containerName ?? null,
     networkName: summary?.networkName ?? null,
     services: summary?.services ?? [],
-    envBundleSummary: summary?.envBundleSummary ?? null,
+    envBundleSummary: normalizeWorkspaceEnvBundleSummary(
+      summary?.envBundleSummary ?? null
+    ),
     manifestLifecycle: summary?.manifestLifecycle ?? null,
     path: workspace.path ?? compatibilityPath,
     executionTarget: {
@@ -237,6 +242,25 @@ function serializeRuntimeWorkspace(
     materialization: {
       ...workspace.materialization
     }
+  };
+}
+
+function normalizeWorkspaceEnvBundleSummary(
+  summary: WorkspaceEnvBundleSummary | null
+) {
+  if (!summary) {
+    return null;
+  }
+
+  return {
+    ...summary,
+    repoEnvPath: "repoEnvPath" in summary ? summary.repoEnvPath : null,
+    projectedRepoKeys:
+      "projectedRepoKeys" in summary ? summary.projectedRepoKeys : [],
+    requiredRepoKeys:
+      "requiredRepoKeys" in summary ? summary.requiredRepoKeys : [],
+    optionalRepoKeys:
+      "optionalRepoKeys" in summary ? summary.optionalRepoKeys : []
   };
 }
 

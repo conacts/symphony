@@ -1,7 +1,20 @@
-import type { SymphonyWorkflowHooksConfig, SymphonyWorkflowWorkspaceConfig } from "../workflow/symphony-workflow.js";
+import type {
+  SymphonyResolvedRuntimeEnvBundle,
+  SymphonyResolvedRuntimeEnvBundleSummary
+} from "@symphony/runtime-contract";
 import type { SymphonyWorkspaceContext } from "./workspace-identity.js";
 
 export type WorkspaceContext = SymphonyWorkspaceContext;
+export type WorkspaceConfig = {
+  root: string;
+};
+export type WorkspaceHooksConfig = {
+  afterCreate: string | null;
+  beforeRun: string | null;
+  afterRun: string | null;
+  beforeRemove: string | null;
+  timeoutMs: number;
+};
 
 export type WorkspaceBackendRunnerOptions = {
   env?: Record<string, string | undefined>;
@@ -70,8 +83,8 @@ export type WorkspaceBackendEventRecorder = (
 export type WorkspacePrepareInput = {
   context: WorkspaceContext;
   runId?: string | null;
-  config: SymphonyWorkflowWorkspaceConfig;
-  hooks: SymphonyWorkflowHooksConfig;
+  config: WorkspaceConfig;
+  hooks: WorkspaceHooksConfig;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
 } & WorkspaceBackendRunnerOptions;
 
@@ -97,8 +110,8 @@ export type WorkspaceHookOutcome = "skipped" | "completed" | "failed_ignored";
 export type WorkspaceCleanupContainerDisposition = "removed" | "missing";
 export type WorkspaceRemovalDisposition = "removed" | "missing";
 
-export type WorkspaceEnvBundleSummary = {
-  source: "ambient" | "manifest";
+export type WorkspaceAmbientEnvBundleSummary = {
+  source: "ambient";
   injectedKeys: string[];
   requiredHostKeys: string[];
   optionalHostKeys: string[];
@@ -111,11 +124,19 @@ export type WorkspaceEnvBundleSummary = {
   serviceBindingKeys: string[];
 };
 
-export type WorkspaceEnvBundle = {
-  source: WorkspaceEnvBundleSummary["source"];
+export type WorkspaceEnvBundleSummary =
+  | WorkspaceAmbientEnvBundleSummary
+  | SymphonyResolvedRuntimeEnvBundleSummary;
+
+export type WorkspaceAmbientEnvBundle = {
+  source: "ambient";
   values: Record<string, string>;
-  summary: WorkspaceEnvBundleSummary;
+  summary: WorkspaceAmbientEnvBundleSummary;
 };
+
+export type WorkspaceEnvBundle =
+  | WorkspaceAmbientEnvBundle
+  | SymphonyResolvedRuntimeEnvBundle;
 
 export type PreparedWorkspaceService = {
   key: string;
@@ -223,14 +244,14 @@ export type WorkspaceLifecycleMetadata = {
 export type WorkspaceHookInput = {
   workspace: PreparedWorkspace;
   context: WorkspaceContext;
-  hooks: SymphonyWorkflowHooksConfig;
+  hooks: WorkspaceHooksConfig;
 } & WorkspaceBackendRunnerOptions;
 
 export type WorkspaceCleanupInput = {
   issueIdentifier: string;
   runId?: string | null;
-  config: SymphonyWorkflowWorkspaceConfig;
-  hooks: SymphonyWorkflowHooksConfig;
+  config: WorkspaceConfig;
+  hooks: WorkspaceHooksConfig;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
   workspace?: PreparedWorkspace | null;
 } & WorkspaceBackendRunnerOptions;

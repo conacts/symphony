@@ -1,8 +1,8 @@
 import path from "node:path";
 import type {
-  AgentRuntimeLaunchTarget,
-  PreparedWorkspace
+  AgentRuntimeLaunchTarget
 } from "@symphony/core";
+import type { PreparedWorkspace } from "@symphony/workspace";
 
 export type CodexRuntimeLaunchTarget = AgentRuntimeLaunchTarget;
 export const codexContainerLaunchDirectoryName = "codex-launch";

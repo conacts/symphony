@@ -8,16 +8,43 @@ import {
   type PreparedWorkspace,
   type DockerWorkspaceCommandRunner
 } from "./workspace-backend.js";
-import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
 import {
   buildSymphonyRuntimePostgresConnectionString,
   normalizeSymphonyRuntimeManifest,
   resolveSymphonyRuntimeEnvBundle,
   type SymphonyLoadedRuntimeManifest,
   type SymphonyRuntimeStep
-} from "../runtime-manifest.js";
+} from "@symphony/runtime-contract";
+import type {
+  WorkspaceConfig,
+  WorkspaceHooksConfig
+} from "./workspace-contracts.js";
 
 const tempDirectories: string[] = [];
+
+function buildWorkspaceTestConfig(overrides: {
+  workspace?: Partial<WorkspaceConfig>;
+  hooks?: Partial<WorkspaceHooksConfig>;
+} = {}): {
+  workspace: WorkspaceConfig;
+  hooks: WorkspaceHooksConfig;
+} {
+  return {
+    workspace: {
+      root:
+        overrides.workspace?.root ??
+        path.join(tmpdir(), "symphony-test-workspaces")
+    },
+    hooks: {
+      afterCreate: null,
+      beforeRun: null,
+      afterRun: null,
+      beforeRemove: null,
+      timeoutMs: 1_000,
+      ...overrides.hooks
+    }
+  };
+}
 
 afterEach(async () => {
   await Promise.all(
@@ -41,7 +68,7 @@ async function createWorkspaceRoot(): Promise<string> {
 describe("docker workspace backend", () => {
   it("mounts explicit host auth material into the container contract", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -101,7 +128,7 @@ describe("docker workspace backend", () => {
 
   it("creates deterministic container-backed workspaces and only runs after_create once", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       },
@@ -265,7 +292,7 @@ describe("docker workspace backend", () => {
 
   it("prepares volume-backed workspaces without fabricating a host repo path", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -395,7 +422,7 @@ describe("docker workspace backend", () => {
 
   it("cleans up volume-backed workspaces without a host repo path", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -497,7 +524,7 @@ describe("docker workspace backend", () => {
     await mkdir(workspacePath, {
       recursive: true
     });
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -580,7 +607,7 @@ describe("docker workspace backend", () => {
       containerName: "symphony-workspace-col-202-deadbeef",
       hostPath: "/tmp/symphony-COL-202"
     });
-    const hooks = buildSymphonyWorkflowConfig({
+    const hooks = buildWorkspaceTestConfig({
       hooks: {
         afterCreate: null,
         beforeRun: "exit 17",
@@ -632,7 +659,7 @@ describe("docker workspace backend", () => {
     });
     await writeFile(path.join(workspacePath, "README.md"), "hello\n");
 
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       },
@@ -749,7 +776,7 @@ describe("docker workspace backend", () => {
       recursive: true
     });
 
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -835,7 +862,7 @@ describe("docker workspace backend", () => {
       recursive: true
     });
 
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       },
@@ -925,7 +952,7 @@ describe("docker workspace backend", () => {
 
   it("provisions and reuses a per-workspace network and postgres sidecar with explicit env injection", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       },
@@ -1218,7 +1245,7 @@ describe("docker workspace backend", () => {
 
   it("executes ordered manifest lifecycle phases with explicit env injection and skips them on warm reuse", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       },
@@ -1502,7 +1529,7 @@ describe("docker workspace backend", () => {
 
   it("reruns service-dependent phases when the service side is recreated", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -1734,7 +1761,7 @@ describe("docker workspace backend", () => {
 
   it("fails fast on bootstrap step failures and redacts secret values", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -1880,7 +1907,7 @@ describe("docker workspace backend", () => {
 
   it("fails fast on migrate step failures", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -2014,7 +2041,7 @@ describe("docker workspace backend", () => {
 
   it("fails fast on verify step failures", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -2156,7 +2183,7 @@ describe("docker workspace backend", () => {
     await mkdir(workspacePath, {
       recursive: true
     });
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -2329,7 +2356,7 @@ describe("docker workspace backend", () => {
 
   it("applies conservative default postgres resource limits when the manifest omits them", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -2416,7 +2443,7 @@ describe("docker workspace backend", () => {
 
   it("fails closed when postgres readiness never succeeds", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -2507,7 +2534,7 @@ describe("docker workspace backend", () => {
 
   it("fails closed when a postgres init step fails", async () => {
     const root = await createWorkspaceRoot();
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       },
@@ -2620,7 +2647,7 @@ describe("docker workspace backend", () => {
       recursive: true
     });
 
-    const config = buildSymphonyWorkflowConfig({
+    const config = buildWorkspaceTestConfig({
       workspace: {
         root
       }
@@ -3122,7 +3149,6 @@ function buildManifestEnvBundle(input: {
 }) {
   return resolveSymphonyRuntimeEnvBundle({
     manifest: input.runtimeManifest.manifest,
-    repoRoot: input.runtimeManifest.repoRoot,
     environmentSource: {
       OPENAI_API_KEY: "test-openai-key"
     },
