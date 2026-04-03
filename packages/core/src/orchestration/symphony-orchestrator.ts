@@ -3,7 +3,7 @@ import {
   issueMatchesTerminalState,
   type SymphonyTracker,
   type SymphonyTrackerIssue
-} from "../tracker/symphony-tracker.js";
+} from "@symphony/tracker";
 import type {
   AgentRuntime,
   AgentRuntimeLaunchTarget

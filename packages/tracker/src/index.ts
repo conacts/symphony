@@ -1,5 +1,5 @@
+export { createLinearSymphonyTracker } from "./linear-symphony-tracker.js";
 export {
-  createLinearSymphonyTracker,
   createMemorySymphonyTracker,
   hasSymphonyLabel,
   isLinearIssueInScope,
@@ -10,15 +10,19 @@ export {
   issueMatchesDispatchableState,
   issueMatchesTerminalState,
   linearScope,
-  normalizeIssueState,
   symphonyDisabledLabel,
   symphonyNoAutoReworkLabel
-} from "@symphony/tracker";
+} from "./symphony-tracker.js";
+export {
+  normalizeIssueState,
+  type SymphonyTrackerConfig,
+  type SymphonyWorkflowTrackerConfig
+} from "./tracker-config.js";
 export type {
   MemorySymphonyTracker,
   SymphonyTracker,
-  SymphonyTrackerConfig,
+  SymphonyTrackerCommentOperation,
   SymphonyTrackerIssue,
   SymphonyTrackerOperation,
-  SymphonyWorkflowTrackerConfig
-} from "@symphony/tracker";
+  SymphonyTrackerStateUpdateOperation
+} from "./symphony-tracker.js";

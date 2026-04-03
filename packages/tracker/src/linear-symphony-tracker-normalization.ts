@@ -1,4 +1,4 @@
-import { normalizeIssueState } from "../workflow/symphony-workflow.js";
+import { normalizeIssueState } from "./tracker-config.js";
 import {
   asRecord,
   getArrayPath,
@@ -6,7 +6,7 @@ import {
   getRecordPath,
   getString,
   getStringPath
-} from "../internal/records.js";
+} from "./internal-records.js";
 import type { SymphonyTrackerIssue } from "./symphony-tracker.js";
 
 export type LinearAssigneeFilter = {

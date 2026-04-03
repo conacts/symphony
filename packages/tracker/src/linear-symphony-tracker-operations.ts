@@ -1,11 +1,10 @@
-import type { SymphonyWorkflowTrackerConfig } from "../workflow/symphony-workflow.js";
 import {
   asRecord,
   getArrayPath,
   getBooleanPath,
   getRecordPath,
   getStringPath
-} from "../internal/records.js";
+} from "./internal-records.js";
 import {
   linearScope,
   type SymphonyTrackerIssue
@@ -25,16 +24,17 @@ import {
   normalizeLinearIssue,
   type LinearAssigneeFilter
 } from "./linear-symphony-tracker-normalization.js";
+import type { SymphonyTrackerConfig } from "./tracker-config.js";
 
 export type LinearRequest = (
   query: string,
   variables: Record<string, unknown>,
-  config: SymphonyWorkflowTrackerConfig
+  config: SymphonyTrackerConfig
 ) => Promise<Record<string, unknown>>;
 
 export async function fetchIssuesByStates(
   request: LinearRequest,
-  config: SymphonyWorkflowTrackerConfig,
+  config: SymphonyTrackerConfig,
   states: string[],
   assigneeFilter: LinearAssigneeFilter
 ): Promise<SymphonyTrackerIssue[]> {
@@ -97,7 +97,7 @@ export async function fetchIssuesByStates(
 
 export async function fetchIssuesByIds(
   request: LinearRequest,
-  config: SymphonyWorkflowTrackerConfig,
+  config: SymphonyTrackerConfig,
   issueIds: string[],
   assigneeFilter: LinearAssigneeFilter
 ): Promise<SymphonyTrackerIssue[]> {
@@ -138,7 +138,7 @@ export async function fetchIssuesByIds(
 
 export async function resolveAssigneeFilter(
   request: LinearRequest,
-  config: SymphonyWorkflowTrackerConfig
+  config: SymphonyTrackerConfig
 ): Promise<LinearAssigneeFilter> {
   const assignee = normalizeAssigneeMatchValue(config.assignee);
   if (!assignee) {
@@ -169,7 +169,7 @@ export async function resolveAssigneeFilter(
 
 export async function createLinearComment(
   request: LinearRequest,
-  config: SymphonyWorkflowTrackerConfig,
+  config: SymphonyTrackerConfig,
   issueId: string,
   body: string
 ): Promise<void> {
@@ -189,7 +189,7 @@ export async function createLinearComment(
 
 export async function updateLinearIssueState(
   request: LinearRequest,
-  config: SymphonyWorkflowTrackerConfig,
+  config: SymphonyTrackerConfig,
   issueId: string,
   stateName: string
 ): Promise<void> {
@@ -232,7 +232,7 @@ export async function updateLinearIssueState(
 export async function requestLinearGraphQL(
   query: string,
   variables: Record<string, unknown>,
-  config: SymphonyWorkflowTrackerConfig
+  config: SymphonyTrackerConfig
 ): Promise<Record<string, unknown>> {
   ensureLinearTrackerConfig(config);
 
@@ -262,7 +262,7 @@ export async function requestLinearGraphQL(
 }
 
 export function ensureLinearTrackerConfig(
-  config: SymphonyWorkflowTrackerConfig
+  config: SymphonyTrackerConfig
 ): void {
   if (config.kind !== "linear") {
     throw new Error(`Unsupported tracker kind: ${config.kind}`);

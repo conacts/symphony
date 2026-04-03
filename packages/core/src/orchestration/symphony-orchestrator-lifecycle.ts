@@ -1,5 +1,5 @@
 import type { SymphonyJsonObject } from "@symphony/run-journal";
-import type { SymphonyTracker, SymphonyTrackerIssue } from "../tracker/symphony-tracker.js";
+import type { SymphonyTracker, SymphonyTrackerIssue } from "@symphony/tracker";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type {
   PreparedWorkspace,

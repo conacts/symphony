@@ -1,10 +1,13 @@
 import path from "node:path";
 import { tmpdir } from "node:os";
+import {
+  normalizeIssueState,
+  type SymphonyTrackerConfig
+} from "@symphony/tracker";
 import { SymphonyWorkflowError } from "./symphony-workflow-errors.js";
 import {
   getNestedRecord,
   normalizeApprovalPolicy,
-  normalizeIssueState,
   normalizeNonNegativeInteger,
   normalizeOptionalPositiveInteger,
   normalizeOptionalRecord,
@@ -18,20 +21,7 @@ import {
 
 export type SymphonyWorkflowEnv = Record<string, string | undefined>;
 
-export type SymphonyWorkflowTrackerConfig = {
-  kind: "linear" | "memory";
-  endpoint: string;
-  apiKey: string | null;
-  projectSlug: string | null;
-  teamKey: string | null;
-  excludedProjectIds: string[];
-  assignee: string | null;
-  dispatchableStates: string[];
-  terminalStates: string[];
-  claimTransitionToState: string | null;
-  claimTransitionFromStates: string[];
-  startupFailureTransitionToState: string | null;
-};
+export type SymphonyWorkflowTrackerConfig = SymphonyTrackerConfig;
 
 export type SymphonyWorkflowPollingConfig = {
   intervalMs: number;
@@ -111,7 +101,7 @@ export type SymphonyWorkflowLoadOptions = {
 };
 
 export { SymphonyWorkflowError } from "./symphony-workflow-errors.js";
-export { normalizeIssueState } from "./symphony-workflow-values.js";
+export { normalizeIssueState } from "@symphony/tracker";
 export function resolveWorkflowConfig(
   rawConfig: Record<string, unknown>,
   options: SymphonyWorkflowLoadOptions

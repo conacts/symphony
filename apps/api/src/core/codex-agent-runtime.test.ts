@@ -13,7 +13,7 @@ import type { SymphonyAgentRuntimeCompletion } from "@symphony/core/orchestratio
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
-} from "@symphony/core/tracker";
+} from "@symphony/tracker";
 import { createCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
 import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimeWorkflowConfig } from "../test-support/create-symphony-runtime-test-harness.js";
 

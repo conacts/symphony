@@ -16,7 +16,7 @@ import type {
   PublishReviewResult,
   ReviewPublisher
 } from "../review/review-publisher.js";
-import type { SymphonyTracker } from "../tracker/symphony-tracker.js";
+import type { SymphonyTracker } from "@symphony/tracker";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type { WorkspaceBackend } from "../workspace/workspace-backend.js";
 import type { AgentRuntime } from "./agent-runtime.js";

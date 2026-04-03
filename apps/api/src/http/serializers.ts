@@ -4,7 +4,7 @@ import { summarizePreparedWorkspace } from "@symphony/core";
 import {
   issueBranchName,
   type SymphonyTrackerIssue
-} from "@symphony/core/tracker";
+} from "@symphony/tracker";
 import type {
   SymphonyForensicsIssueDetailResult,
   SymphonyForensicsIssueListResult,

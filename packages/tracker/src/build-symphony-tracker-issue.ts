@@ -1,4 +1,4 @@
-import { issueBranchName, type SymphonyTrackerIssue } from "@symphony/tracker";
+import { issueBranchName, type SymphonyTrackerIssue } from "./symphony-tracker.js";
 
 export function buildSymphonyTrackerIssue(
   overrides: Partial<SymphonyTrackerIssue> = {}

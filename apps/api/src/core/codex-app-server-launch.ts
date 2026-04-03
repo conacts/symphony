@@ -1,6 +1,6 @@
 import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
-import type { SymphonyTrackerIssue } from "@symphony/core/tracker";
+import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
   CodexAppServerError,
   type CodexLaunchSettings

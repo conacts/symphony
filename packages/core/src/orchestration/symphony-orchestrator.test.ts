@@ -10,10 +10,10 @@ import type {
   AgentRunLaunch,
   AgentRuntime
 } from "../runtime/agent-runtime.js";
+import { createMemorySymphonyTracker } from "@symphony/tracker";
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
 import { buildSymphonyTrackerIssue } from "../test-support/build-symphony-tracker-issue.js";
 import { createTestWorkspaceBackend } from "../test-support/create-test-workspace-backend.js";
-import { createMemorySymphonyTracker } from "../tracker/symphony-tracker.js";
 import { SymphonyWorkspaceError } from "../workspace/workspace-identity.js";
 
 function createAgentRuntime(

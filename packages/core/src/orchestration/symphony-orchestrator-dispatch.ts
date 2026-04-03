@@ -15,7 +15,7 @@ import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workfl
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
-} from "../tracker/symphony-tracker.js";
+} from "@symphony/tracker";
 import {
   workspaceHostPath,
   type PreparedWorkspace

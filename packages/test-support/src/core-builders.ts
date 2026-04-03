@@ -14,7 +14,7 @@ import type {
 import {
   issueBranchName,
   type SymphonyTrackerIssue
-} from "@symphony/core/tracker";
+} from "@symphony/tracker";
 import {
   type SymphonyResolvedWorkflowConfig
 } from "@symphony/core";

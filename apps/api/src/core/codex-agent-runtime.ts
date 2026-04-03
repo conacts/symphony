@@ -16,7 +16,7 @@ import type {
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
-} from "@symphony/core/tracker";
+} from "@symphony/tracker";
 import type { SymphonyRuntimeLogStore } from "@symphony/db";
 import type { SymphonyLogger } from "@symphony/logger";
 import {

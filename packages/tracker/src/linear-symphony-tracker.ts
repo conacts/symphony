@@ -1,10 +1,10 @@
-import type { SymphonyWorkflowTrackerConfig } from "../workflow/symphony-workflow.js";
 import {
   isLinearIssueInScope,
   type SymphonyTracker,
   type SymphonyTrackerIssue
 } from "./symphony-tracker.js";
-import { getRecord } from "../internal/records.js";
+import type { SymphonyTrackerConfig } from "./tracker-config.js";
+import { getRecord } from "./internal-records.js";
 import { queryByIdentifier, issuePageSize } from "./linear-symphony-tracker-queries.js";
 import {
   normalizeLinearIssue
@@ -22,7 +22,7 @@ import {
 
 export function createLinearSymphonyTracker(input: {
   request?: LinearRequest;
-  config?: SymphonyWorkflowTrackerConfig;
+  config?: SymphonyTrackerConfig;
 } = {}): SymphonyTracker {
   return new LinearSymphonyTracker(
     input.request ?? requestLinearGraphQL,
@@ -32,18 +32,18 @@ export function createLinearSymphonyTracker(input: {
 
 class LinearSymphonyTracker implements SymphonyTracker {
   readonly #request: LinearRequest;
-  readonly #config: SymphonyWorkflowTrackerConfig | null;
+  readonly #config: SymphonyTrackerConfig | null;
 
   constructor(
     request: LinearRequest,
-    config: SymphonyWorkflowTrackerConfig | null
+    config: SymphonyTrackerConfig | null
   ) {
     this.#request = request;
     this.#config = config;
   }
 
   async fetchCandidateIssues(
-    config: SymphonyWorkflowTrackerConfig
+    config: SymphonyTrackerConfig
   ): Promise<SymphonyTrackerIssue[]> {
     ensureLinearTrackerConfig(config);
     const assigneeFilter = await resolveAssigneeFilter(this.#request, config);
@@ -57,7 +57,7 @@ class LinearSymphonyTracker implements SymphonyTracker {
   }
 
   async fetchIssuesByStates(
-    config: SymphonyWorkflowTrackerConfig,
+    config: SymphonyTrackerConfig,
     states: string[]
   ): Promise<SymphonyTrackerIssue[]> {
     ensureLinearTrackerConfig(config);
@@ -75,7 +75,7 @@ class LinearSymphonyTracker implements SymphonyTracker {
   }
 
   async fetchIssueStatesByIds(
-    config: SymphonyWorkflowTrackerConfig,
+    config: SymphonyTrackerConfig,
     issueIds: string[]
   ): Promise<SymphonyTrackerIssue[]> {
     ensureLinearTrackerConfig(config);
@@ -95,7 +95,7 @@ class LinearSymphonyTracker implements SymphonyTracker {
   }
 
   async fetchIssueByIdentifier(
-    config: SymphonyWorkflowTrackerConfig,
+    config: SymphonyTrackerConfig,
     issueIdentifier: string
   ): Promise<SymphonyTrackerIssue | null> {
     ensureLinearTrackerConfig(config);
@@ -156,7 +156,7 @@ class LinearSymphonyTracker implements SymphonyTracker {
     );
   }
 
-  #requiredMutationConfig(): SymphonyWorkflowTrackerConfig {
+  #requiredMutationConfig(): SymphonyTrackerConfig {
     if (this.#config) {
       ensureLinearTrackerConfig(this.#config);
       return this.#config;

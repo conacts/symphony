@@ -17,6 +17,7 @@
     "@symphony/db": "workspace:*",
     "@symphony/run-journal": "workspace:*",
     "@symphony/runtime-contract": "workspace:*",
+    "@symphony/tracker": "workspace:*",
     "yaml": "^2.8.3"
   },
   "devDependencies": {

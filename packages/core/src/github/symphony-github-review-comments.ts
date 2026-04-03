@@ -1,4 +1,4 @@
-import type { SymphonyTrackerIssue } from "../tracker/symphony-tracker.js";
+import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type { SymphonyGitHubReviewSignal } from "./symphony-github-review-types.js";
 
 const targetState = "Rework";

@@ -1,4 +1,4 @@
-import type { SymphonyTrackerIssue } from "@symphony/core/tracker";
+import type { SymphonyTrackerIssue } from "@symphony/tracker";
 
 export function renderSymphonyPrompt(input: {
   template: string;

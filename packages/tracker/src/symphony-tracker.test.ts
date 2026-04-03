@@ -6,8 +6,8 @@ import {
   isSymphonyAutoReworkDisabled,
   isSymphonyWorkflowDisabled
 } from "./symphony-tracker.js";
-import { buildSymphonyTrackerIssue } from "../test-support/build-symphony-tracker-issue.js";
-import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
+import { buildSymphonyTrackerIssue } from "./build-symphony-tracker-issue.js";
+import { buildSymphonyTrackerConfig } from "./build-symphony-tracker-config.js";
 
 describe("symphony tracker helpers", () => {
   it("evaluates workflow and auto-rework labels", () => {
@@ -20,16 +20,12 @@ describe("symphony tracker helpers", () => {
   });
 
   it("evaluates linear project and team scope rules", () => {
-    const trackerProject = buildSymphonyWorkflowConfig().tracker;
-    const baseConfig = buildSymphonyWorkflowConfig();
-    const trackerTeam = buildSymphonyWorkflowConfig({
-      tracker: {
-        ...baseConfig.tracker,
-        projectSlug: null,
-        teamKey: "COL",
-        excludedProjectIds: ["project-2"]
-      }
-    }).tracker;
+    const trackerProject = buildSymphonyTrackerConfig();
+    const trackerTeam = buildSymphonyTrackerConfig({
+      projectSlug: null,
+      teamKey: "COL",
+      excludedProjectIds: ["project-2"]
+    });
 
     const issue = buildSymphonyTrackerIssue();
     const excluded = buildSymphonyTrackerIssue({
@@ -44,7 +40,7 @@ describe("symphony tracker helpers", () => {
   });
 
   it("provides a deterministic memory tracker seam for orchestration tests", async () => {
-    const config = buildSymphonyWorkflowConfig().tracker;
+    const config = buildSymphonyTrackerConfig();
     const todo = buildSymphonyTrackerIssue();
     const review = buildSymphonyTrackerIssue({
       id: "issue-2",
@@ -76,12 +72,9 @@ describe("symphony tracker helpers", () => {
   });
 
   it("normalizes Linear issues and filters by assigned worker", async () => {
-    const config = buildSymphonyWorkflowConfig({
-      tracker: {
-        ...buildSymphonyWorkflowConfig().tracker,
-        assignee: "worker-1"
-      }
-    }).tracker;
+    const config = buildSymphonyTrackerConfig({
+      assignee: "worker-1"
+    });
 
     const tracker = createLinearSymphonyTracker({
       config,
@@ -143,7 +136,7 @@ describe("symphony tracker helpers", () => {
   });
 
   it("supports Linear issue lookup, comments, and state transitions", async () => {
-    const config = buildSymphonyWorkflowConfig().tracker;
+    const config = buildSymphonyTrackerConfig();
     const seenOperations: string[] = [];
 
     const tracker = createLinearSymphonyTracker({

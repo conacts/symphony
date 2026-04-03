@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "@symphony/run-journal": "workspace:*",
+    "@symphony/tracker": "workspace:*",
     "esbuild": "^0.27.4",
     "yaml": "^2.8.3"
   },

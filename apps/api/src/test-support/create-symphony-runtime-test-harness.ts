@@ -10,7 +10,7 @@ import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration"
 import {
   createMemorySymphonyTracker,
   type SymphonyTrackerIssue
-} from "@symphony/core/tracker";
+} from "@symphony/tracker";
 import {
   buildSymphonyEventAttrs,
   buildSymphonyOrchestratorSnapshot,

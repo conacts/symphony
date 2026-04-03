@@ -14,7 +14,7 @@ import {
   createMemorySymphonyTracker,
   type MemorySymphonyTracker,
   type SymphonyTrackerIssue
-} from "../tracker/symphony-tracker.js";
+} from "@symphony/tracker";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import { buildSymphonyTrackerIssue } from "./build-symphony-tracker-issue.js";
 import { buildSymphonyWorkflowConfig } from "./build-symphony-workflow-config.js";

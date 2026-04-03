@@ -22,6 +22,7 @@
     "@symphony/core": "workspace:*",
     "@symphony/run-journal": "workspace:*",
     "@symphony/runtime-contract": "workspace:*",
+    "@symphony/tracker": "workspace:*",
     "@hono/node-server": "^1.19.12",
     "@hono/node-ws": "^1.3.0",
     "hono": "^4.11.4"

@@ -2,7 +2,7 @@ import type {
   AgentRuntimeLaunchTarget
 } from "../runtime/agent-runtime.js";
 import type { SymphonyJsonObject } from "@symphony/run-journal";
-import type { SymphonyTrackerIssue } from "../tracker/symphony-tracker.js";
+import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type {
   PreparedWorkspace,
   WorkspaceManifestLifecyclePhase

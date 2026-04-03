@@ -1,4 +1,4 @@
-import type { SymphonyTrackerIssue } from "../tracker/symphony-tracker.js";
+import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type { PreparedWorkspace } from "../workspace/workspace-backend.js";
 

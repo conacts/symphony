@@ -1,7 +1,7 @@
 import {
   normalizeIssueState,
-  type SymphonyWorkflowTrackerConfig
-} from "../workflow/symphony-workflow.js";
+  type SymphonyTrackerConfig
+} from "./tracker-config.js";
 
 export const symphonyDisabledLabel = "symphony:disabled";
 export const symphonyNoAutoReworkLabel = "symphony:no-auto-rework";
@@ -44,19 +44,17 @@ export type SymphonyTrackerOperation =
   | SymphonyTrackerStateUpdateOperation;
 
 export interface SymphonyTracker {
-  fetchCandidateIssues(
-    config: SymphonyWorkflowTrackerConfig
-  ): Promise<SymphonyTrackerIssue[]>;
+  fetchCandidateIssues(config: SymphonyTrackerConfig): Promise<SymphonyTrackerIssue[]>;
   fetchIssuesByStates(
-    config: SymphonyWorkflowTrackerConfig,
+    config: SymphonyTrackerConfig,
     states: string[]
   ): Promise<SymphonyTrackerIssue[]>;
   fetchIssueStatesByIds(
-    config: SymphonyWorkflowTrackerConfig,
+    config: SymphonyTrackerConfig,
     issueIds: string[]
   ): Promise<SymphonyTrackerIssue[]>;
   fetchIssueByIdentifier(
-    config: SymphonyWorkflowTrackerConfig,
+    config: SymphonyTrackerConfig,
     issueIdentifier: string
   ): Promise<SymphonyTrackerIssue | null>;
   createComment(issueId: string, body: string): Promise<void>;
@@ -94,7 +92,7 @@ export function isSymphonyProjectAssigned(
 }
 
 export function linearScope(
-  tracker: SymphonyWorkflowTrackerConfig
+  tracker: SymphonyTrackerConfig
 ): { kind: "project"; value: string } | { kind: "team"; value: string } | null {
   if (tracker.teamKey) {
     return {
@@ -114,7 +112,7 @@ export function linearScope(
 }
 
 export function isLinearIssueInScope(
-  tracker: SymphonyWorkflowTrackerConfig,
+  tracker: SymphonyTrackerConfig,
   issue: SymphonyTrackerIssue
 ): boolean {
   if (tracker.kind !== "linear") {
@@ -143,7 +141,7 @@ export function isLinearIssueInScope(
 
 export function issueMatchesDispatchableState(
   issue: SymphonyTrackerIssue,
-  tracker: SymphonyWorkflowTrackerConfig
+  tracker: SymphonyTrackerConfig
 ): boolean {
   const issueState = normalizeIssueState(issue.state);
   return tracker.dispatchableStates.some(
@@ -153,7 +151,7 @@ export function issueMatchesDispatchableState(
 
 export function issueMatchesTerminalState(
   issue: SymphonyTrackerIssue,
-  tracker: SymphonyWorkflowTrackerConfig
+  tracker: SymphonyTrackerConfig
 ): boolean {
   const issueState = normalizeIssueState(issue.state);
   return tracker.terminalStates.some(
@@ -194,13 +192,13 @@ export class MemorySymphonyTracker implements SymphonyTracker {
   }
 
   async fetchCandidateIssues(
-    config: SymphonyWorkflowTrackerConfig
+    config: SymphonyTrackerConfig
   ): Promise<SymphonyTrackerIssue[]> {
     return this.fetchIssuesByStates(config, config.dispatchableStates);
   }
 
   async fetchIssuesByStates(
-    config: SymphonyWorkflowTrackerConfig,
+    config: SymphonyTrackerConfig,
     states: string[]
   ): Promise<SymphonyTrackerIssue[]> {
     const normalizedStates = new Set(states.map((stateName) => normalizeIssueState(stateName)));
@@ -212,7 +210,7 @@ export class MemorySymphonyTracker implements SymphonyTracker {
   }
 
   async fetchIssueStatesByIds(
-    _config: SymphonyWorkflowTrackerConfig,
+    _config: SymphonyTrackerConfig,
     issueIds: string[]
   ): Promise<SymphonyTrackerIssue[]> {
     return issueIds.flatMap((issueId) => {
@@ -222,7 +220,7 @@ export class MemorySymphonyTracker implements SymphonyTracker {
   }
 
   async fetchIssueByIdentifier(
-    _config: SymphonyWorkflowTrackerConfig,
+    _config: SymphonyTrackerConfig,
     issueIdentifier: string
   ): Promise<SymphonyTrackerIssue | null> {
     const issue = [...this.#issues.values()].find(

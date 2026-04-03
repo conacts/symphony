@@ -1,7 +1,7 @@
 import type {
   SymphonyResolvedWorkflowConfig
 } from "@symphony/core";
-import type { SymphonyTrackerIssue } from "@symphony/core/tracker";
+import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
 
 export type CodexAppServerLogger = {

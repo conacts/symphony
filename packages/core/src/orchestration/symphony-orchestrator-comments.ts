@@ -3,7 +3,7 @@ import { asJsonObject } from "../internal/json.js";
 import {
   issueBranchName,
   type SymphonyTrackerIssue
-} from "../tracker/symphony-tracker.js";
+} from "@symphony/tracker";
 
 export type SymphonyStartupFailureTransition =
   | {

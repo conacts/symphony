@@ -3,7 +3,7 @@ import {
   isSymphonyAutoReworkDisabled,
   isSymphonyWorkflowDisabled,
   type SymphonyTracker
-} from "../tracker/symphony-tracker.js";
+} from "@symphony/tracker";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import {
   autoRequeueCommentBody,

@@ -1,10 +1,7 @@
 import { isRecord } from "../internal/records.js";
+import { normalizeIssueState } from "@symphony/tracker";
 import { SymphonyWorkflowError } from "./symphony-workflow-errors.js";
 import type { SymphonyWorkflowEnv } from "./symphony-workflow.js";
-
-export function normalizeIssueState(stateName: string | null | undefined): string {
-  return typeof stateName === "string" ? stateName.trim().toLowerCase() : "";
-}
 
 export function normalizeTrackerKind(value: unknown): "linear" | "memory" {
   const normalized = normalizeOptionalString(value);

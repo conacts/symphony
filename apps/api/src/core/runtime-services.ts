@@ -16,7 +16,7 @@ import {
   createLinearSymphonyTracker,
   createMemorySymphonyTracker,
   type SymphonyTracker
-} from "@symphony/core/tracker";
+} from "@symphony/tracker";
 import type {
   SymphonyForensicsIssueTimelineResult,
   SymphonyGitHubReviewIngressResult,
