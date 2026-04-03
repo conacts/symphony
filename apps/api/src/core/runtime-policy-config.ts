@@ -7,6 +7,19 @@ const defaultDispatchableStates = ["Todo", "Bootstrapping", "In Progress", "Rewo
 const defaultTerminalStates = ["Canceled", "Done"];
 const defaultClaimTransitionFromStates = ["Todo", "Rework"];
 const defaultAllowedOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
+const glm5TurboProfile = {
+  profile: "glm-5-turbo",
+  defaultModel: "z-ai/glm-5-turbo",
+  defaultReasoningEffort: "high",
+  provider: {
+    id: "openrouter",
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    envKey: "OPENROUTER_API_KEY",
+    supportsWebsockets: false,
+    wireApi: "responses"
+  }
+} as const;
 
 export function loadSymphonyRuntimePolicyConfig(input: {
   environmentSource: EnvironmentSource;
@@ -21,6 +34,8 @@ export function loadSymphonyRuntimePolicyConfig(input: {
     readOptionalString(environmentSource.SYMPHONY_GITHUB_STATE_PATH) ??
     path.join(workspaceRoot, ".symphony", "github-state.json");
   const trackerKind = readOptionalString(environmentSource.SYMPHONY_TRACKER_KIND) ?? "linear";
+  const codexProfile = readOptionalString(environmentSource.SYMPHONY_CODEX_PROFILE);
+  const codexProfileDefaults = resolveCodexProfileDefaults(codexProfile);
   const trackerProjectSlug = readOptionalString(
     environmentSource.SYMPHONY_LINEAR_PROJECT_SLUG
   );
@@ -94,6 +109,41 @@ export function loadSymphonyRuntimePolicyConfig(input: {
         readOptionalString(environmentSource.SYMPHONY_CODEX_THREAD_SANDBOX) ??
         "danger-full-access",
       turnSandboxPolicy: null,
+      profile: codexProfileDefaults?.profile ?? codexProfile,
+      defaultModel:
+        readOptionalString(environmentSource.SYMPHONY_CODEX_MODEL) ??
+        codexProfileDefaults?.defaultModel ??
+        null,
+      defaultReasoningEffort:
+        readOptionalString(environmentSource.SYMPHONY_CODEX_REASONING_EFFORT) ??
+        codexProfileDefaults?.defaultReasoningEffort ??
+        null,
+      provider: {
+        id:
+          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER) ??
+          codexProfileDefaults?.provider.id ??
+          null,
+        name:
+          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_NAME) ??
+          codexProfileDefaults?.provider.name ??
+          null,
+        baseUrl:
+          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_BASE_URL) ??
+          codexProfileDefaults?.provider.baseUrl ??
+          null,
+        envKey:
+          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_ENV_KEY) ??
+          codexProfileDefaults?.provider.envKey ??
+          null,
+        supportsWebsockets:
+          readOptionalBoolean(
+            environmentSource.SYMPHONY_CODEX_PROVIDER_SUPPORTS_WEBSOCKETS
+          ) ?? codexProfileDefaults?.provider.supportsWebsockets ?? null,
+        wireApi:
+          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_WIRE_API) ??
+          codexProfileDefaults?.provider.wireApi ??
+          null
+      },
       turnTimeoutMs: readPositiveInteger(
         environmentSource.SYMPHONY_CODEX_TURN_TIMEOUT_MS,
         3_600_000
@@ -178,4 +228,39 @@ function readStringList(value: string | undefined): string[] | null {
     .filter((entry) => entry.length > 0);
 
   return normalized.length > 0 ? normalized : null;
+}
+
+function readOptionalBoolean(value: string | undefined): boolean | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === "") {
+    return null;
+  }
+
+  if (trimmed === "true") {
+    return true;
+  }
+
+  if (trimmed === "false") {
+    return false;
+  }
+
+  throw new TypeError(
+    `Invalid Symphony runtime policy: expected a boolean, received ${JSON.stringify(value)}.`
+  );
+}
+
+function resolveCodexProfileDefaults(
+  profile: string | null
+): typeof glm5TurboProfile | null {
+  if (profile === null) {
+    return null;
+  }
+
+  return profile.trim().toLowerCase() === glm5TurboProfile.profile
+    ? glm5TurboProfile
+    : null;
 }

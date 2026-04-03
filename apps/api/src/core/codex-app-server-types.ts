@@ -61,6 +61,9 @@ export type CodexAppServerSession = {
   approvalPolicy: string | Record<string, unknown>;
   model: string;
   reasoningEffort: string;
+  profile: string | null;
+  providerId: string | null;
+  providerName: string | null;
 };
 
 export type CodexLaunchSessionInput = {
@@ -75,6 +78,9 @@ export type CodexLaunchSettings = {
   command: string;
   model: string;
   reasoningEffort: string;
+  profile: string | null;
+  providerId: string | null;
+  providerName: string | null;
 };
 
 export type ControlMessageResult =

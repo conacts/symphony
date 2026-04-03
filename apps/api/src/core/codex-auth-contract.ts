@@ -18,9 +18,10 @@ export type DockerCodexAuthContract =
       authFilePath: string;
     }
   | {
-      mode: "openai_api_key";
+      mode: "api_key_env";
       mount: null;
       launchEnv: Record<string, string>;
+      apiKeyEnvKey: string;
       authFilePath: null;
     }
   | {
@@ -40,7 +41,10 @@ export type DockerGitHubCliAuthContract = {
 };
 
 export function resolveDockerCodexAuthContract(
-  hostCommandEnvSource: Record<string, string | undefined>
+  hostCommandEnvSource: Record<string, string | undefined>,
+  options: {
+    preferredApiKeyEnvKey?: string | null;
+  } = {}
 ): DockerCodexAuthContract {
   const authFilePath = resolveCodexAuthFilePath(hostCommandEnvSource);
 
@@ -59,16 +63,26 @@ export function resolveDockerCodexAuthContract(
     };
   }
 
-  const openAiApiKey = hostCommandEnvSource.OPENAI_API_KEY;
-  if (typeof openAiApiKey === "string" && openAiApiKey.trim() !== "") {
-    return {
-      mode: "openai_api_key",
-      mount: null,
-      launchEnv: {
-        OPENAI_API_KEY: openAiApiKey
-      },
-      authFilePath: null
-    };
+  const preferredApiKeyEnvKeys = [
+    options.preferredApiKeyEnvKey,
+    "OPENAI_API_KEY"
+  ].filter((value, index, values): value is string =>
+    typeof value === "string" && value.trim() !== "" && values.indexOf(value) === index
+  );
+
+  for (const envKey of preferredApiKeyEnvKeys) {
+    const apiKey = hostCommandEnvSource[envKey];
+    if (typeof apiKey === "string" && apiKey.trim() !== "") {
+      return {
+        mode: "api_key_env",
+        mount: null,
+        launchEnv: {
+          [envKey]: apiKey
+        },
+        apiKeyEnvKey: envKey,
+        authFilePath: null
+      };
+    }
   }
 
   return {

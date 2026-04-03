@@ -1,7 +1,5 @@
 # Local agent and workspace metadata
 .agents/
-.codex/
-symphony/.codex/
 
 # Dependencies
 node_modules/

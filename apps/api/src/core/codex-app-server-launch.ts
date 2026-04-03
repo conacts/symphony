@@ -102,9 +102,16 @@ export async function ensureWorkspaceCwd(
 
 export function resolveCodexLaunchSettings(
   baseCommand: string,
-  issue: SymphonyTrackerIssue
+  issue: SymphonyTrackerIssue,
+  defaults?: {
+    model?: string | null;
+    reasoningEffort?: string | null;
+    profile?: string | null;
+    providerId?: string | null;
+    providerName?: string | null;
+  }
 ): CodexLaunchSettings {
-  const { model, reasoningEffort } = resolveCodexModelSettings(issue);
+  const { model, reasoningEffort } = resolveCodexModelSettings(issue, defaults);
   const cleanedCommand = stripCodexReasoningOverrides(
     stripCodexModelOverrides(baseCommand)
   ).trim();
@@ -136,13 +143,23 @@ export function resolveCodexLaunchSettings(
       .filter((segment) => segment !== "")
       .join(" "),
     model,
-    reasoningEffort
+    reasoningEffort,
+    profile: defaults?.profile ?? null,
+    providerId: defaults?.providerId ?? null,
+    providerName: defaults?.providerName ?? null
   };
 }
 
 export function resolveCodexSdkLaunchSettings(
   baseCommand: string,
-  issue: SymphonyTrackerIssue
+  issue: SymphonyTrackerIssue,
+  defaults?: {
+    model?: string | null;
+    reasoningEffort?: string | null;
+    profile?: string | null;
+    providerId?: string | null;
+    providerName?: string | null;
+  }
 ): CodexLaunchSettings & {
   executable: string;
 } {
@@ -162,13 +179,16 @@ export function resolveCodexSdkLaunchSettings(
     );
   }
 
-  const { model, reasoningEffort } = resolveCodexModelSettings(issue);
+  const { model, reasoningEffort } = resolveCodexModelSettings(issue, defaults);
 
   return {
     command: cleanedCommand,
     executable,
     model,
-    reasoningEffort
+    reasoningEffort,
+    profile: defaults?.profile ?? null,
+    providerId: defaults?.providerId ?? null,
+    providerName: defaults?.providerName ?? null
   };
 }
 
@@ -309,7 +329,13 @@ function selectCodexIssueOverride(
   );
 }
 
-function resolveCodexModelSettings(issue: SymphonyTrackerIssue): {
+function resolveCodexModelSettings(
+  issue: SymphonyTrackerIssue,
+  defaults?: {
+    model?: string | null;
+    reasoningEffort?: string | null;
+  }
+): {
   model: string;
   reasoningEffort: string;
 } {
@@ -318,14 +344,14 @@ function resolveCodexModelSettings(issue: SymphonyTrackerIssue): {
       issue,
       codexModelLabelPrefix,
       supportedCodexModels,
-      defaultCodexModel,
+      defaults?.model ?? defaultCodexModel,
       "model"
     ),
     reasoningEffort: selectCodexIssueOverride(
       issue,
       codexReasoningLabelPrefix,
       supportedCodexReasoningEfforts,
-      defaultCodexReasoningEffort,
+      defaults?.reasoningEffort ?? defaultCodexReasoningEffort,
       "reasoning_effort"
     )
   };

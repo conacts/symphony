@@ -231,6 +231,10 @@ function toSymphonyOrchestratorConfig(
         approvalPolicy: runtimePolicy.codex.approvalPolicy,
         threadSandbox: runtimePolicy.codex.threadSandbox,
         turnSandboxPolicy: runtimePolicy.codex.turnSandboxPolicy,
+        profile: runtimePolicy.codex.profile,
+        defaultModel: runtimePolicy.codex.defaultModel,
+        defaultReasoningEffort: runtimePolicy.codex.defaultReasoningEffort,
+        provider: runtimePolicy.codex.provider,
         turnTimeoutMs: runtimePolicy.codex.turnTimeoutMs,
         readTimeoutMs: runtimePolicy.codex.readTimeoutMs
       },

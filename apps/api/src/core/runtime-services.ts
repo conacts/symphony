@@ -161,7 +161,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     });
   }
 
-  const dockerCodexAuth = resolveDockerCodexAuthContract(hostCommandEnvSource);
+  const dockerCodexAuth = resolveDockerCodexAuthContract(hostCommandEnvSource, {
+    preferredApiKeyEnvKey: runtimePolicy.codex.provider?.envKey ?? null
+  });
   const dockerGitHubCliAuth = resolveDockerGitHubCliAuthContract(
     hostCommandEnvSource
   );
@@ -169,7 +171,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   if (dockerCodexAuth.mode === "unavailable") {
     throw new CodexAppServerError(
       "codex_auth_unavailable",
-      "Docker-backed Symphony workspaces require host-owned Codex auth. Provide ~/.codex/auth.json (or $CODEX_HOME/auth.json) for subscription auth, or set OPENAI_API_KEY as a host-only fallback."
+      "Docker-backed Symphony workspaces require host-owned Codex auth. Provide ~/.codex/auth.json (or $CODEX_HOME/auth.json) for subscription auth, or set the configured provider API key env as a host-only fallback."
     );
   }
 

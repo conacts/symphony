@@ -54,11 +54,34 @@ describe("codex auth contract", () => {
         OPENAI_API_KEY: "test-openai-api-key"
       })
     ).toEqual({
-      mode: "openai_api_key",
+      mode: "api_key_env",
       mount: null,
       launchEnv: {
         OPENAI_API_KEY: "test-openai-api-key"
       },
+      apiKeyEnvKey: "OPENAI_API_KEY",
+      authFilePath: null
+    });
+  });
+
+  it("prefers the configured provider api key env when requested", () => {
+    expect(
+      resolveDockerCodexAuthContract(
+        {
+          OPENAI_API_KEY: "test-openai-api-key",
+          OPENROUTER_API_KEY: "test-openrouter-api-key"
+        },
+        {
+          preferredApiKeyEnvKey: "OPENROUTER_API_KEY"
+        }
+      )
+    ).toEqual({
+      mode: "api_key_env",
+      mount: null,
+      launchEnv: {
+        OPENROUTER_API_KEY: "test-openrouter-api-key"
+      },
+      apiKeyEnvKey: "OPENROUTER_API_KEY",
       authFilePath: null
     });
   });

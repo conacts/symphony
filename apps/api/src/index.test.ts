@@ -50,6 +50,7 @@ describe("@symphony/api scaffold", () => {
     const environmentSource = {
       ...buildSymphonyRuntimeEnv(),
       OPENAI_API_KEY: "test-openai-api-key",
+      OPENROUTER_API_KEY: "test-openrouter-api-key",
       GITHUB_TOKEN: "test-github-token",
       UNRELATED_ENV: "ignore-me"
     };
@@ -66,6 +67,7 @@ describe("@symphony/api scaffold", () => {
     });
     expect(buildSymphonyHostCommandEnvironmentSource(environmentSource)).toEqual({
       OPENAI_API_KEY: "test-openai-api-key",
+      OPENROUTER_API_KEY: "test-openrouter-api-key",
       GITHUB_TOKEN: "test-github-token"
     });
   });

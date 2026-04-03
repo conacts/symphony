@@ -92,6 +92,10 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         approvalPolicy: "never",
         threadSandbox: "danger-full-access",
         turnSandboxPolicy: null,
+        profile: null,
+        defaultModel: null,
+        defaultReasoningEffort: null,
+        provider: null,
         turnTimeoutMs: 3_600_000,
         readTimeoutMs: 5_000,
         ...overrides.runtime?.codex

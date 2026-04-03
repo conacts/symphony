@@ -198,6 +198,9 @@ async function executeRun(input: {
         processId: session.processId,
         model: session.model,
         reasoningEffort: session.reasoningEffort,
+        profile: session.profile,
+        providerId: session.providerId,
+        providerName: session.providerName,
         launchTarget: describeLaunchTarget(session.launchTarget)
       }
     });

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import {
   Codex,
   type ApprovalMode,
+  type CodexOptions,
   type ModelReasoningEffort,
   type SandboxMode,
   type Thread,
@@ -53,11 +54,19 @@ export class CodexSdkClient implements CodexAppServerSessionClient {
     );
     const launchSettings = resolveCodexSdkLaunchSettings(
       input.runtimePolicy.codex.command,
-      input.issue
+      input.issue,
+      {
+        model: input.runtimePolicy.codex.defaultModel,
+        reasoningEffort: input.runtimePolicy.codex.defaultReasoningEffort,
+        profile: input.runtimePolicy.codex.profile,
+        providerId: input.runtimePolicy.codex.provider?.id ?? null,
+        providerName: input.runtimePolicy.codex.provider?.name ?? null
+      }
     );
     const wrapperPath = await ensureSdkWrapperScript();
     const codex = new Codex({
       codexPathOverride: wrapperPath,
+      config: buildCodexSdkConfig(input.runtimePolicy),
       env: {
         ...filterStringEnv(input.hostCommandEnvSource),
         ...input.env,
@@ -91,7 +100,10 @@ export class CodexSdkClient implements CodexAppServerSessionClient {
       runtimeWorkspacePath: input.launchTarget.runtimeWorkspacePath,
       executable: launchSettings.executable,
       model: launchSettings.model,
-      reasoningEffort: launchSettings.reasoningEffort
+      reasoningEffort: launchSettings.reasoningEffort,
+      profile: launchSettings.profile,
+      providerId: launchSettings.providerId,
+      providerName: launchSettings.providerName
     });
 
     return {
@@ -106,7 +118,10 @@ export class CodexSdkClient implements CodexAppServerSessionClient {
       autoApproveRequests: input.runtimePolicy.codex.approvalPolicy === "never",
       approvalPolicy: input.runtimePolicy.codex.approvalPolicy,
       model: launchSettings.model,
-      reasoningEffort: launchSettings.reasoningEffort
+      reasoningEffort: launchSettings.reasoningEffort,
+      profile: launchSettings.profile,
+      providerId: launchSettings.providerId,
+      providerName: launchSettings.providerName
     };
   }
 
@@ -229,6 +244,28 @@ export class CodexSdkClient implements CodexAppServerSessionClient {
       }
     }
   }
+}
+
+function buildCodexSdkConfig(
+  runtimePolicy: SymphonyAgentRuntimeConfig
+): CodexOptions["config"] {
+  const provider = runtimePolicy.codex.provider;
+  if (!provider?.id || !provider.baseUrl || !provider.envKey) {
+    return undefined;
+  }
+
+  return {
+    model_provider: provider.id,
+    model_providers: {
+      [provider.id]: {
+        name: provider.name ?? provider.id,
+        base_url: provider.baseUrl,
+        env_key: provider.envKey,
+        supports_websockets: provider.supportsWebsockets ?? true,
+        ...(provider.wireApi ? { wire_api: provider.wireApi } : {})
+      }
+    }
+  };
 }
 
 async function ensureSdkWrapperScript(): Promise<string> {

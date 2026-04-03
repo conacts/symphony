@@ -30,7 +30,8 @@ const hostCommandEnvironmentKeys = new Set([
   "NO_PROXY",
   "CODEX_HOME",
   "GITHUB_TOKEN",
-  "OPENAI_API_KEY"
+  "OPENAI_API_KEY",
+  "OPENROUTER_API_KEY"
 ]);
 
 export type EnvironmentSource = Record<string, string | undefined>;

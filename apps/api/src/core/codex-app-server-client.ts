@@ -115,7 +115,14 @@ export class CodexAppServerClient {
     );
     const launchSettings = resolveCodexLaunchSettings(
       input.runtimePolicy.codex.command,
-      input.issue
+      input.issue,
+      {
+        model: input.runtimePolicy.codex.defaultModel,
+        reasoningEffort: input.runtimePolicy.codex.defaultReasoningEffort,
+        profile: input.runtimePolicy.codex.profile,
+        providerId: input.runtimePolicy.codex.provider?.id ?? null,
+        providerName: input.runtimePolicy.codex.provider?.name ?? null
+      }
     );
     const spawnSpec = buildCodexAppServerSpawnSpec({
       launchTarget: input.launchTarget,
@@ -179,7 +186,10 @@ export class CodexAppServerClient {
         autoApproveRequests: input.runtimePolicy.codex.approvalPolicy === "never",
         approvalPolicy: input.runtimePolicy.codex.approvalPolicy,
         model: launchSettings.model,
-        reasoningEffort: launchSettings.reasoningEffort
+        reasoningEffort: launchSettings.reasoningEffort,
+        profile: launchSettings.profile,
+        providerId: launchSettings.providerId,
+        providerName: launchSettings.providerName
       };
     } catch (error) {
       client.close();
