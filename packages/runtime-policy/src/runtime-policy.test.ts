@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  resolveWorkflowConfig,
-  SymphonyWorkflowError
-} from "./symphony-workflow.js";
+  resolveRuntimePolicy,
+  SymphonyRuntimePolicyError
+} from "./runtime-policy.js";
 
-describe("resolveWorkflowConfig", () => {
+describe("resolveRuntimePolicy", () => {
   it("provides the strict default runtime policy shape", () => {
-    const config = resolveWorkflowConfig({}, {});
+    const config = resolveRuntimePolicy({}, {});
 
     expect(config.tracker.kind).toBe("memory");
     expect(config.tracker.dispatchableStates).toEqual([
@@ -19,7 +19,7 @@ describe("resolveWorkflowConfig", () => {
   });
 
   it("resolves env-backed tracker values explicitly", () => {
-    const config = resolveWorkflowConfig(
+    const config = resolveRuntimePolicy(
       {
         tracker: {
           kind: "linear",
@@ -42,7 +42,7 @@ describe("resolveWorkflowConfig", () => {
 
   it("fails fast on unsupported tracker kinds", () => {
     expect(() =>
-      resolveWorkflowConfig(
+      resolveRuntimePolicy(
         {
           tracker: {
             kind: "jira"
@@ -50,6 +50,6 @@ describe("resolveWorkflowConfig", () => {
         },
         {}
       )
-    ).toThrowError(SymphonyWorkflowError);
+    ).toThrowError(SymphonyRuntimePolicyError);
   });
 });

@@ -3,7 +3,7 @@ import type { SymphonyLogger } from "@symphony/logger";
 import type { CodexAppServerToolExecutor } from "./codex-app-server-types.js";
 
 export function buildLinearGraphqlToolExecutor(
-  workflowConfig: SymphonyAgentRuntimeConfig,
+  runtimePolicy: SymphonyAgentRuntimeConfig,
   logger: SymphonyLogger
 ): CodexAppServerToolExecutor {
   return async (toolName, argumentsPayload) => {
@@ -21,7 +21,7 @@ export function buildLinearGraphqlToolExecutor(
       });
     }
 
-    if (!workflowConfig.tracker.apiKey) {
+    if (!runtimePolicy.tracker.apiKey) {
       return buildToolErrorResult({
         message:
           "Symphony is missing Linear auth. Export `LINEAR_API_KEY` for the runtime policy config."
@@ -29,10 +29,10 @@ export function buildLinearGraphqlToolExecutor(
     }
 
     try {
-      const response = await fetch(workflowConfig.tracker.endpoint, {
+      const response = await fetch(runtimePolicy.tracker.endpoint, {
         method: "POST",
         headers: {
-          Authorization: workflowConfig.tracker.apiKey,
+          Authorization: runtimePolicy.tracker.apiKey,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({

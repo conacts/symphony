@@ -98,7 +98,7 @@ export function buildBindMountPreparedWorkspace(
   };
 }
 
-export function buildSymphonyRuntimeWorkflowConfig(
+export function buildSymphonyRuntimePolicyForRoot(
   root: string,
   overrides: Partial<SymphonyResolvedRuntimePolicy> = {}
 ): SymphonyResolvedRuntimePolicy {
@@ -172,7 +172,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
     path.join(tmpdir(), input.rootPrefix ?? "symphony-runtime-test-")
   );
   const issue = buildSymphonyRuntimeTrackerIssue(input.issue);
-  const runtimePolicy = buildSymphonyRuntimeWorkflowConfig(
+  const runtimePolicy = buildSymphonyRuntimePolicyForRoot(
     root,
     input.runtimePolicy
   );

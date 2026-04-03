@@ -16,7 +16,7 @@ export type AgentRunInput = {
   issue: SymphonyTrackerIssue;
   runId: string | null;
   attempt: number;
-  workflowConfig: SymphonyAgentRuntimeConfig;
+  runtimePolicy: SymphonyAgentRuntimeConfig;
   workspace: PreparedWorkspace;
 };
 

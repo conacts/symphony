@@ -15,7 +15,7 @@ import type {
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import { createCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
-import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimeWorkflowConfig } from "../test-support/create-symphony-runtime-test-harness.js";
+import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimePolicyForRoot } from "../test-support/create-symphony-runtime-test-harness.js";
 
 const tempRoots: string[] = [];
 const execFileAsync = promisify(execFile);
@@ -59,9 +59,9 @@ describe("docker codex symphony agent runtime", () => {
       state: "In Progress"
     });
     const tracker = createDoneTracker(issue);
-    const workflowConfig = buildSymphonyRuntimeWorkflowConfig(root, {
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
       codex: {
-        ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+        ...buildSymphonyRuntimePolicyForRoot(root).codex,
         command: `${fakeCodex} app-server`
       }
     });
@@ -118,7 +118,7 @@ describe("docker codex symphony agent runtime", () => {
         issue,
         runId,
         attempt: 1,
-        workflowConfig,
+        runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
     });
@@ -200,13 +200,13 @@ describe("docker codex symphony agent runtime", () => {
         return;
       }
     };
-    const workflowConfig = buildSymphonyRuntimeWorkflowConfig(root, {
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
       agent: {
-        ...buildSymphonyRuntimeWorkflowConfig(root).agent,
+        ...buildSymphonyRuntimePolicyForRoot(root).agent,
         maxTurns: 1
       },
       codex: {
-        ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+        ...buildSymphonyRuntimePolicyForRoot(root).codex,
         command: `${fakeCodex} app-server`
       }
     });
@@ -257,7 +257,7 @@ describe("docker codex symphony agent runtime", () => {
         issue,
         runId,
         attempt: 1,
-        workflowConfig,
+        runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
     });
@@ -324,9 +324,9 @@ done
       state: "In Progress"
     });
     const tracker = createDoneTracker(issue);
-    const workflowConfig = buildSymphonyRuntimeWorkflowConfig(root, {
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
       codex: {
-        ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+        ...buildSymphonyRuntimePolicyForRoot(root).codex,
         command: `${fakeCodex} app-server`
       }
     });
@@ -370,7 +370,7 @@ done
         issue,
         runId: null,
         attempt: 1,
-        workflowConfig,
+        runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
     });
@@ -407,9 +407,9 @@ done
       state: "In Progress"
     });
     const tracker = createDoneTracker(issue);
-    const workflowConfig = buildSymphonyRuntimeWorkflowConfig(root, {
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
       codex: {
-        ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+        ...buildSymphonyRuntimePolicyForRoot(root).codex,
         command: `${fakeCodex} app-server`
       }
     });
@@ -462,7 +462,7 @@ done
         issue,
         runId,
         attempt: 1,
-        workflowConfig,
+        runtimePolicy,
         workspace: buildContainerPreparedWorkspace(issue.identifier, hostWorkspacePath)
       });
     });
@@ -543,9 +543,9 @@ sleep 1
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const workflowConfig = buildSymphonyRuntimeWorkflowConfig(root, {
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
       codex: {
-        ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+        ...buildSymphonyRuntimePolicyForRoot(root).codex,
         command: `${fakeCodex} app-server`,
         readTimeoutMs: 25
       }
@@ -592,7 +592,7 @@ sleep 1
         issue,
         runId: null,
         attempt: 1,
-        workflowConfig,
+        runtimePolicy,
         workspace: buildContainerPreparedWorkspace(issue.identifier, hostWorkspacePath)
       });
     });
@@ -654,9 +654,9 @@ sleep 1
       state: "In Progress"
     });
     const tracker = createDoneTracker(issue);
-    const workflowConfig = buildSymphonyRuntimeWorkflowConfig(root, {
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
       codex: {
-        ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+        ...buildSymphonyRuntimePolicyForRoot(root).codex,
         command: `${fakeCodex} app-server`
       }
     });
@@ -707,7 +707,7 @@ sleep 1
         issue,
         runId,
         attempt: 1,
-        workflowConfig,
+        runtimePolicy,
         workspace: buildContainerPreparedWorkspace(issue.identifier, null)
       });
     });

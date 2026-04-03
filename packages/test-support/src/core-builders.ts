@@ -111,8 +111,6 @@ export function buildSymphonyRuntimePolicy(
   };
 }
 
-export const buildSymphonyWorkflowConfig = buildSymphonyRuntimePolicy;
-
 export function buildSymphonyGithubReviewEvent(
   overrides: Partial<
     Extract<SymphonyGitHubReviewEvent, { event: "pull_request_review" }>

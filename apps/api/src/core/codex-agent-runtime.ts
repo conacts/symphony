@@ -70,7 +70,7 @@ export function createCodexSymphonyAgentRuntime(input: {
       activeRuns.set(runInput.issue.id, activeRun);
       const launchTarget = resolveCodexRuntimeLaunchTarget(
         runInput.workspace,
-        runInput.workflowConfig.workspace.root
+        runInput.runtimePolicy.workspace.root
       );
 
       void executeRun({
@@ -78,7 +78,7 @@ export function createCodexSymphonyAgentRuntime(input: {
         tracker: input.tracker,
         runJournal: input.runJournal,
         runtimeLogs: input.runtimeLogs,
-        workflowConfig: runInput.workflowConfig,
+        runtimePolicy: runInput.runtimePolicy,
         logger: input.logger.child({
           component: "codex_runtime",
           issueId: runInput.issue.id,
@@ -94,7 +94,7 @@ export function createCodexSymphonyAgentRuntime(input: {
         launchTarget,
         activeRun,
         toolExecutor: buildLinearGraphqlToolExecutor(
-          runInput.workflowConfig,
+          runInput.runtimePolicy,
           input.logger
         )
       }).finally(() => {
@@ -128,7 +128,7 @@ async function executeRun(input: {
   tracker: SymphonyTracker;
   runJournal: SymphonyRunJournal;
   runtimeLogs: SymphonyRuntimeLogStore;
-  workflowConfig: SymphonyAgentRuntimeConfig;
+  runtimePolicy: SymphonyAgentRuntimeConfig;
   logger: SymphonyLogger;
   hostCommandEnvSource: Record<string, string | undefined>;
   codexHostLaunchEnv: Record<string, string>;
@@ -161,7 +161,7 @@ async function executeRun(input: {
     if (input.runId) {
       const repoStart = await captureRepoSnapshot(
         input.launchTarget,
-        input.workflowConfig.hooks.timeoutMs
+        input.runtimePolicy.hooks.timeoutMs
       );
       await input.runJournal.updateRun(input.runId, {
         commitHashStart: repoStart.commitHash,
@@ -176,7 +176,7 @@ async function executeRun(input: {
         ...input.codexHostLaunchEnv
       },
       hostCommandEnvSource: input.hostCommandEnvSource,
-      workflowConfig: input.workflowConfig,
+      runtimePolicy: input.runtimePolicy,
       issue: input.issue,
       logger: input.logger
     });
@@ -203,7 +203,7 @@ async function executeRun(input: {
 
     for (
       let turnNumber = 1;
-      turnNumber <= input.workflowConfig.agent.maxTurns;
+      turnNumber <= input.runtimePolicy.agent.maxTurns;
       turnNumber += 1
     ) {
       if (input.activeRun.stopped) {
@@ -219,7 +219,7 @@ async function executeRun(input: {
             })
           : buildSymphonyContinuationPrompt({
               turnNumber,
-              maxTurns: input.workflowConfig.agent.maxTurns
+              maxTurns: input.runtimePolicy.agent.maxTurns
             });
 
       turnJournalId = input.runId
@@ -232,9 +232,9 @@ async function executeRun(input: {
       const turnResult = await session.client.runTurn(session, {
         prompt,
         title: `${currentIssue.identifier}: ${currentIssue.title}`,
-        sandboxPolicy: input.workflowConfig.codex.turnSandboxPolicy,
+        sandboxPolicy: input.runtimePolicy.codex.turnSandboxPolicy,
         toolExecutor: input.toolExecutor,
-        turnTimeoutMs: input.workflowConfig.codex.turnTimeoutMs,
+        turnTimeoutMs: input.runtimePolicy.codex.turnTimeoutMs,
         onMessage: async (message) => {
           const eventName =
             typeof message.event === "string" ? message.event : "notification";
@@ -299,15 +299,15 @@ async function executeRun(input: {
 
       const refreshedIssue = await refreshIssueState(
         input.tracker,
-        input.workflowConfig,
+        input.runtimePolicy,
         currentIssue
       );
 
-      if (!refreshedIssue || !isActiveIssueState(input.workflowConfig, refreshedIssue.state)) {
+      if (!refreshedIssue || !isActiveIssueState(input.runtimePolicy, refreshedIssue.state)) {
         break;
       }
 
-      if (turnNumber >= input.workflowConfig.agent.maxTurns) {
+      if (turnNumber >= input.runtimePolicy.agent.maxTurns) {
         maxTurnsReached = true;
         break;
       }
@@ -319,7 +319,7 @@ async function executeRun(input: {
       if (input.runId) {
         const repoEnd = await captureRepoSnapshot(
           input.launchTarget,
-          input.workflowConfig.hooks.timeoutMs
+          input.runtimePolicy.hooks.timeoutMs
         );
         await input.runJournal.updateRun(input.runId, {
           commitHashEnd: repoEnd.commitHash,
@@ -330,8 +330,8 @@ async function executeRun(input: {
       if (maxTurnsReached) {
         await input.callbacks.onComplete(input.issue.id, {
           kind: "max_turns_reached",
-          reason: `Reached the configured ${input.workflowConfig.agent.maxTurns}-turn limit while the issue remained active.`,
-          maxTurns: input.workflowConfig.agent.maxTurns
+          reason: `Reached the configured ${input.runtimePolicy.agent.maxTurns}-turn limit while the issue remained active.`,
+          maxTurns: input.runtimePolicy.agent.maxTurns
         });
       } else {
         await input.callbacks.onComplete(input.issue.id, {
@@ -359,7 +359,7 @@ async function executeRun(input: {
     if (input.runId) {
       const repoEnd = await captureRepoSnapshot(
         input.launchTarget,
-        input.workflowConfig.hooks.timeoutMs
+        input.runtimePolicy.hooks.timeoutMs
       );
       await input.runJournal.updateRun(input.runId, {
         commitHashEnd: repoEnd.commitHash,
@@ -426,10 +426,10 @@ function describeLaunchTarget(target: CodexRuntimeLaunchTarget): SymphonyJsonObj
 
 async function refreshIssueState(
   tracker: SymphonyTracker,
-  workflowConfig: SymphonyAgentRuntimeConfig,
+  runtimePolicy: SymphonyAgentRuntimeConfig,
   issue: SymphonyTrackerIssue
 ): Promise<SymphonyTrackerIssue | null> {
-  const refreshed = await tracker.fetchIssueStatesByIds(workflowConfig.tracker, [
+  const refreshed = await tracker.fetchIssueStatesByIds(runtimePolicy.tracker, [
     issue.id
   ]);
 
@@ -437,12 +437,12 @@ async function refreshIssueState(
 }
 
 function isActiveIssueState(
-  workflowConfig: SymphonyAgentRuntimeConfig,
+  runtimePolicy: SymphonyAgentRuntimeConfig,
   state: string
 ): boolean {
   const normalizedState = state.trim().toLowerCase();
 
-  return workflowConfig.tracker.dispatchableStates.some(
+  return runtimePolicy.tracker.dispatchableStates.some(
     (activeState) => activeState.trim().toLowerCase() === normalizedState
   );
 }

@@ -105,16 +105,16 @@ export class CodexAppServerClient {
     launchTarget: Parameters<typeof buildCodexAppServerSpawnSpec>[0]["launchTarget"];
     env: Record<string, string>;
     hostCommandEnvSource: Record<string, string | undefined>;
-    workflowConfig: SymphonyAgentRuntimeConfig;
+    runtimePolicy: SymphonyAgentRuntimeConfig;
     issue: SymphonyTrackerIssue;
     logger: CodexAppServerLogger;
   }): Promise<CodexAppServerSession> {
     const hostLaunchPath = await ensureWorkspaceCwd(
       input.launchTarget.hostLaunchPath,
-      input.workflowConfig.workspace.root
+      input.runtimePolicy.workspace.root
     );
     const launchSettings = resolveCodexLaunchSettings(
-      input.workflowConfig.codex.command,
+      input.runtimePolicy.codex.command,
       input.issue
     );
     const spawnSpec = buildCodexAppServerSpawnSpec({
@@ -128,7 +128,7 @@ export class CodexAppServerClient {
       args: spawnSpec.args,
       cwd: hostLaunchPath,
       env: spawnSpec.env,
-      readTimeoutMs: input.workflowConfig.codex.readTimeoutMs,
+      readTimeoutMs: input.runtimePolicy.codex.readTimeoutMs,
       logger: input.logger
     });
 
@@ -149,8 +149,8 @@ export class CodexAppServerClient {
         threadStartRequestId,
         "thread/start",
         {
-          approvalPolicy: input.workflowConfig.codex.approvalPolicy,
-          sandbox: input.workflowConfig.codex.threadSandbox,
+          approvalPolicy: input.runtimePolicy.codex.approvalPolicy,
+          sandbox: input.runtimePolicy.codex.threadSandbox,
           cwd: spawnSpec.runtimeWorkspacePath,
           dynamicTools: buildDynamicToolSpecs()
         }
@@ -176,8 +176,8 @@ export class CodexAppServerClient {
         launchTarget: input.launchTarget,
         issue: input.issue,
         processId: client.processId,
-        autoApproveRequests: input.workflowConfig.codex.approvalPolicy === "never",
-        approvalPolicy: input.workflowConfig.codex.approvalPolicy,
+        autoApproveRequests: input.runtimePolicy.codex.approvalPolicy === "never",
+        approvalPolicy: input.runtimePolicy.codex.approvalPolicy,
         model: launchSettings.model,
         reasoningEffort: launchSettings.reasoningEffort
       };

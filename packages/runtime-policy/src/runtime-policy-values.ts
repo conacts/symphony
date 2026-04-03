@@ -1,7 +1,7 @@
 import { isRecord } from "./internal/records.js";
 import { normalizeIssueState } from "@symphony/tracker";
-import { SymphonyRuntimePolicyError } from "./symphony-workflow-errors.js";
-import type { SymphonyRuntimePolicyEnv } from "./symphony-workflow.js";
+import { SymphonyRuntimePolicyError } from "./runtime-policy-errors.js";
+import type { SymphonyRuntimePolicyEnv } from "./runtime-policy.js";
 
 export function normalizeTrackerKind(value: unknown): "linear" | "memory" {
   const normalized = normalizeOptionalString(value);

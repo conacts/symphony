@@ -4,7 +4,7 @@ import {
   normalizeIssueState,
   type SymphonyTrackerConfig
 } from "@symphony/tracker";
-import { SymphonyRuntimePolicyError } from "./symphony-workflow-errors.js";
+import { SymphonyRuntimePolicyError } from "./runtime-policy-errors.js";
 import {
   getNestedRecord,
   normalizeApprovalPolicy,
@@ -17,7 +17,7 @@ import {
   normalizeStringArray,
   normalizeTrackerKind,
   resolveEnvToken
-} from "./symphony-workflow-values.js";
+} from "./runtime-policy-values.js";
 
 export type SymphonyRuntimePolicyEnv = Record<string, string | undefined>;
 export type SymphonyWorkflowEnv = SymphonyRuntimePolicyEnv;
@@ -115,9 +115,8 @@ export type SymphonyRuntimePolicyLoadOptions = {
 export type SymphonyWorkflowLoadOptions = SymphonyRuntimePolicyLoadOptions;
 
 export {
-  SymphonyRuntimePolicyError,
-  SymphonyRuntimePolicyError as SymphonyWorkflowError
-} from "./symphony-workflow-errors.js";
+  SymphonyRuntimePolicyError
+} from "./runtime-policy-errors.js";
 export { normalizeIssueState } from "@symphony/tracker";
 export function resolveRuntimePolicy(
   rawConfig: Record<string, unknown>,

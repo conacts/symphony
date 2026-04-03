@@ -19,7 +19,7 @@ function buildAgentRunInput(): AgentRunInput {
     issue,
     runId: "run-123",
     attempt: 1,
-    workflowConfig: config.runtime,
+    runtimePolicy: config.runtime,
     workspace: {
       issueIdentifier: issue.identifier,
       workspaceKey: issue.identifier,

@@ -141,9 +141,6 @@ export function loadSymphonyRuntimePolicyConfig(input: {
     }
   };
 }
-
-export const loadSymphonyRuntimeWorkflowConfig = loadSymphonyRuntimePolicyConfig;
-
 export function defaultSymphonyAllowedOrigins(): string[] {
   return [...defaultAllowedOrigins];
 }

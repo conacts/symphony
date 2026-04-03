@@ -21,7 +21,7 @@ import { createSilentSymphonyLogger } from "@symphony/logger";
 import type { SymphonyAgentRuntimeCompletion } from "@symphony/orchestrator";
 import {
   buildSymphonyRuntimeTrackerIssue,
-  buildSymphonyRuntimeWorkflowConfig
+  buildSymphonyRuntimePolicyForRoot
 } from "../test-support/create-symphony-runtime-test-harness.js";
 import { resolveDockerCodexAuthContract } from "./codex-auth-contract.js";
 import { createCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
@@ -59,17 +59,17 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         const issue = buildSymphonyRuntimeTrackerIssue({
           state: "In Progress"
         });
-        const workflowConfig = buildSymphonyRuntimeWorkflowConfig(root, {
+        const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
           workspace: {
             root: workspaceRoot
           },
           hooks: {
-            ...buildSymphonyRuntimeWorkflowConfig(root).hooks,
+            ...buildSymphonyRuntimePolicyForRoot(root).hooks,
             afterCreate: null,
             timeoutMs: 30_000
           },
           codex: {
-            ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+            ...buildSymphonyRuntimePolicyForRoot(root).codex,
             command: "./.symphony/fake-codex.sh app-server",
             readTimeoutMs: 30_000,
             turnTimeoutMs: 30_000
@@ -87,8 +87,8 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
             issueId: issue.id,
             issueIdentifier: issue.identifier
           },
-          config: workflowConfig.workspace,
-          hooks: workflowConfig.hooks
+          config: runtimePolicy.workspace,
+          hooks: runtimePolicy.hooks
         });
         const hostWorkspacePath = requireContainerHostWorkspacePath(workspace);
         await writeFakeCodexBinary(hostWorkspacePath);
@@ -140,7 +140,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
             issue,
             runId,
             attempt: 1,
-            workflowConfig,
+            runtimePolicy,
             workspace
           });
         });
@@ -154,8 +154,8 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         await backend.cleanupWorkspace({
           issueIdentifier: issue.identifier,
           workspace,
-          config: workflowConfig.workspace,
-          hooks: workflowConfig.hooks
+          config: runtimePolicy.workspace,
+          hooks: runtimePolicy.hooks
         });
 
         await expect(
@@ -193,17 +193,17 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         const issue = buildSymphonyRuntimeTrackerIssue({
           state: "In Progress"
         });
-        const workflowConfig = buildSymphonyRuntimeWorkflowConfig(root, {
+        const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
           workspace: {
             root: workspaceRoot
           },
           hooks: {
-            ...buildSymphonyRuntimeWorkflowConfig(root).hooks,
+            ...buildSymphonyRuntimePolicyForRoot(root).hooks,
             afterCreate: null,
             timeoutMs: 30_000
           },
           codex: {
-            ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+            ...buildSymphonyRuntimePolicyForRoot(root).codex,
             command: "./.symphony/fake-codex.sh app-server",
             readTimeoutMs: 30_000,
             turnTimeoutMs: 30_000
@@ -222,8 +222,8 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
             issueId: issue.id,
             issueIdentifier: issue.identifier
           },
-          config: workflowConfig.workspace,
-          hooks: workflowConfig.hooks
+          config: runtimePolicy.workspace,
+          hooks: runtimePolicy.hooks
         });
         const hostWorkspacePath = requireContainerHostWorkspacePath(first);
         await writeFakeCodexBinary(hostWorkspacePath);
@@ -234,8 +234,8 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
             issueId: issue.id,
             issueIdentifier: issue.identifier
           },
-          config: workflowConfig.workspace,
-          hooks: workflowConfig.hooks
+          config: runtimePolicy.workspace,
+          hooks: runtimePolicy.hooks
         });
 
         expect(first.created).toBe(true);
@@ -288,7 +288,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
             issue,
             runId,
             attempt: 1,
-            workflowConfig,
+            runtimePolicy,
             workspace: second
           });
         });
@@ -302,8 +302,8 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         await backend.cleanupWorkspace({
           issueIdentifier: issue.identifier,
           workspace: second,
-          config: workflowConfig.workspace,
-          hooks: workflowConfig.hooks
+          config: runtimePolicy.workspace,
+          hooks: runtimePolicy.hooks
         });
 
         await expect(

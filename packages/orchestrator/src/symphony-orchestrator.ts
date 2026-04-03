@@ -356,7 +356,7 @@ export class SymphonyOrchestrator {
         issue: preparedIssue,
         runId,
         attempt,
-        workflowConfig: this.#config.runtime,
+        runtimePolicy: this.#config.runtime,
         workspace
       });
       const workerHost = launch.workerHost ?? workspace.workerHost;

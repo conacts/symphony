@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  buildSymphonyWorkflowConfig,
+  buildSymphonyRuntimePolicy,
   createTestWorkspaceBackend
 } from "@symphony/test-support";
 import { createCodexAgentRuntime } from "@symphony/orchestrator";
@@ -46,7 +46,7 @@ describe("symphony runtime review seam", () => {
       }))
     };
     const runtime = createSymphonyRuntime({
-      runtimePolicy: buildSymphonyWorkflowConfig(),
+      runtimePolicy: buildSymphonyRuntimePolicy(),
       tracker: inertTracker,
       workspaceBackend: createTestWorkspaceBackend(),
       agentRuntime: createCodexAgentRuntime({
@@ -82,7 +82,7 @@ describe("symphony runtime review seam", () => {
 
   it("adapts transitional resolve and publish callbacks behind the new runtime methods", async () => {
     const runtime = createSymphonyRuntime({
-      runtimePolicy: buildSymphonyWorkflowConfig(),
+      runtimePolicy: buildSymphonyRuntimePolicy(),
       tracker: inertTracker,
       workspaceBackend: createTestWorkspaceBackend(),
       agentRuntime: createCodexAgentRuntime({

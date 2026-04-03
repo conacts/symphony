@@ -10,11 +10,11 @@ import {
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
+import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
   buildSymphonyRuntimeTrackerIssue,
-  buildSymphonyRuntimeWorkflowConfig
+  buildSymphonyRuntimePolicyForRoot
 } from "../test-support/create-symphony-runtime-test-harness.js";
 import {
   CodexAppServerClient,
@@ -53,12 +53,12 @@ describe("codex app server client", () => {
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const workflowConfig = buildSymphonyRuntimeWorkflowConfig(root, {
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
       workspace: {
         root: workspaceRoot
       },
       codex: {
-        ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+        ...buildSymphonyRuntimePolicyForRoot(root).codex,
         command: `${fakeCodex} app-server`
       }
     });
@@ -69,7 +69,7 @@ describe("codex app server client", () => {
         launchTarget: buildContainerLaunchTarget(workspaceRoot),
         env: defaultLaunchEnv(),
         hostCommandEnvSource: defaultHostCommandEnvSource(),
-        workflowConfig,
+        runtimePolicy,
         issue,
         logger: loggerSpy.logger
       })
@@ -85,7 +85,7 @@ describe("codex app server client", () => {
         launchTarget: buildContainerLaunchTarget(outsideWorkspace),
         env: defaultLaunchEnv(),
         hostCommandEnvSource: defaultHostCommandEnvSource(),
-        workflowConfig,
+        runtimePolicy,
         issue,
         logger: loggerSpy.logger
       })
@@ -104,7 +104,7 @@ describe("codex app server client", () => {
         launchTarget: buildContainerLaunchTarget(symlinkWorkspace),
         env: defaultLaunchEnv(),
         hostCommandEnvSource: defaultHostCommandEnvSource(),
-        workflowConfig,
+        runtimePolicy,
         issue,
         logger: loggerSpy.logger
       })
@@ -153,10 +153,10 @@ done
 `
     });
 
-    scenario.workflowConfig = {
-      ...scenario.workflowConfig,
+    scenario.runtimePolicy = {
+      ...scenario.runtimePolicy,
       codex: {
-        ...scenario.workflowConfig.codex,
+        ...scenario.runtimePolicy.codex,
         command: `${scenario.fakeCodex} app-server --model gpt-5.4`
       }
     };
@@ -165,7 +165,7 @@ done
       launchTarget: buildContainerLaunchTarget(scenario.workspacePath),
       env: defaultLaunchEnv(),
       hostCommandEnvSource: defaultHostCommandEnvSource(),
-      workflowConfig: scenario.workflowConfig,
+      runtimePolicy: scenario.runtimePolicy,
       issue: scenario.issue,
       logger: scenario.loggerSpy.logger
     });
@@ -274,7 +274,7 @@ exec "$shell_bin" -lc "$2"
       launchTarget: buildContainerLaunchTarget(scenario.workspacePath),
       env: defaultLaunchEnv(),
       hostCommandEnvSource: defaultHostCommandEnvSource(),
-      workflowConfig: scenario.workflowConfig,
+      runtimePolicy: scenario.runtimePolicy,
       issue: scenario.issue,
       logger: scenario.loggerSpy.logger
     });
@@ -307,9 +307,9 @@ exec "$shell_bin" -lc "$2"
     };
     const scenario = await createScenario({
       root,
-      workflowOverrides: {
+      runtimePolicyOverrides: {
         codex: {
-          ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+          ...buildSymphonyRuntimePolicyForRoot(root).codex,
           turnSandboxPolicy: policy
         }
       },
@@ -446,9 +446,9 @@ done
     const traceFile = path.join(root, "auto-approve.trace");
     const scenario = await createScenario({
       root,
-      workflowOverrides: {
+      runtimePolicyOverrides: {
         codex: {
-          ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+          ...buildSymphonyRuntimePolicyForRoot(root).codex,
           approvalPolicy: "never"
         }
       },
@@ -511,9 +511,9 @@ done
     const traceFile = path.join(root, "tool-input.trace");
     const scenario = await createScenario({
       root,
-      workflowOverrides: {
+      runtimePolicyOverrides: {
         codex: {
-          ...buildSymphonyRuntimeWorkflowConfig(root).codex,
+          ...buildSymphonyRuntimePolicyForRoot(root).codex,
           approvalPolicy: "never"
         }
       },
@@ -834,7 +834,7 @@ type Scenario = {
   issue: SymphonyTrackerIssue;
   loggerSpy: ReturnType<typeof createLoggerSpy>;
   root: string;
-  workflowConfig: SymphonyResolvedWorkflowConfig;
+  runtimePolicy: SymphonyResolvedRuntimePolicy;
   workspacePath: string;
 };
 
@@ -843,7 +843,7 @@ async function createScenario(input: {
   script: string;
   command?: string;
   issueOverrides?: Partial<SymphonyTrackerIssue>;
-  workflowOverrides?: Partial<SymphonyResolvedWorkflowConfig>;
+  runtimePolicyOverrides?: Partial<SymphonyResolvedRuntimePolicy>;
 }): Promise<Scenario> {
   await mkdir(input.root, {
     recursive: true
@@ -896,8 +896,8 @@ exec "$shell_bin" -lc "$1"
 `
   );
   process.env.PATH = `${input.root}:${originalPath ?? ""}`;
-  const baseWorkflowConfig = buildSymphonyRuntimeWorkflowConfig(input.root);
-  const overrides = input.workflowOverrides ?? {};
+  const baseRuntimePolicy = buildSymphonyRuntimePolicyForRoot(input.root);
+  const overrides = input.runtimePolicyOverrides ?? {};
 
   return {
     root: input.root,
@@ -907,48 +907,48 @@ exec "$shell_bin" -lc "$1"
       ...input.issueOverrides
     }),
     loggerSpy: createLoggerSpy(),
-    workflowConfig: buildSymphonyRuntimeWorkflowConfig(input.root, {
+    runtimePolicy: buildSymphonyRuntimePolicyForRoot(input.root, {
       ...overrides,
       tracker: {
-        ...baseWorkflowConfig.tracker,
+        ...baseRuntimePolicy.tracker,
         ...overrides.tracker
       },
       polling: {
-        ...baseWorkflowConfig.polling,
+        ...baseRuntimePolicy.polling,
         ...overrides.polling
       },
       workspace: {
-        ...baseWorkflowConfig.workspace,
+        ...baseRuntimePolicy.workspace,
         root: workspaceRoot,
         ...overrides.workspace
       },
       worker: {
-        ...baseWorkflowConfig.worker,
+        ...baseRuntimePolicy.worker,
         ...overrides.worker
       },
       agent: {
-        ...baseWorkflowConfig.agent,
+        ...baseRuntimePolicy.agent,
         ...overrides.agent
       },
       codex: {
-        ...baseWorkflowConfig.codex,
+        ...baseRuntimePolicy.codex,
         ...overrides.codex,
         command: input.command ?? `${fakeCodex} app-server`
       },
       hooks: {
-        ...baseWorkflowConfig.hooks,
+        ...baseRuntimePolicy.hooks,
         ...overrides.hooks
       },
       observability: {
-        ...baseWorkflowConfig.observability,
+        ...baseRuntimePolicy.observability,
         ...overrides.observability
       },
       server: {
-        ...baseWorkflowConfig.server,
+        ...baseRuntimePolicy.server,
         ...overrides.server
       },
       github: {
-        ...baseWorkflowConfig.github,
+        ...baseRuntimePolicy.github,
         ...overrides.github
       }
     }),
@@ -965,7 +965,7 @@ async function startSessionForScenario(
     launchTarget: buildContainerLaunchTarget(scenario.workspacePath),
     env: defaultLaunchEnv(),
     hostCommandEnvSource: defaultHostCommandEnvSource(),
-    workflowConfig: scenario.workflowConfig,
+    runtimePolicy: scenario.runtimePolicy,
     issue: scenario.issue,
     logger: scenario.loggerSpy.logger
   });
@@ -993,7 +993,7 @@ function runTurnForScenario(
     .runTurn(session, {
       prompt: "Handle the issue.",
       title: `${scenario.issue.identifier}: ${scenario.issue.title}`,
-      sandboxPolicy: scenario.workflowConfig.codex.turnSandboxPolicy,
+      sandboxPolicy: scenario.runtimePolicy.codex.turnSandboxPolicy,
       turnTimeoutMs: 5_000,
       toolExecutor:
         input.toolExecutor ??

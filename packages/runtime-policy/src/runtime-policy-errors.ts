@@ -7,5 +7,3 @@ export class SymphonyRuntimePolicyError extends Error {
     this.code = code;
   }
 }
-
-export { SymphonyRuntimePolicyError as SymphonyWorkflowError };

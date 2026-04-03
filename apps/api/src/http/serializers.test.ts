@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSymphonyOrchestratorSnapshot,
   buildSymphonyTrackerIssue,
-  buildSymphonyWorkflowConfig
+  buildSymphonyRuntimePolicy
 } from "@symphony/test-support";
 import { serializeRuntimeIssue } from "./serializers.js";
 
@@ -121,7 +121,7 @@ describe("runtime serializers", () => {
 
     const serialized = serializeRuntimeIssue(
       snapshot,
-      buildSymphonyWorkflowConfig().github.repo,
+      buildSymphonyRuntimePolicy().github.repo,
       issue.identifier,
       issue
     );
@@ -207,7 +207,7 @@ describe("runtime serializers", () => {
         running: [],
         retrying: []
       }),
-      buildSymphonyWorkflowConfig().github.repo,
+      buildSymphonyRuntimePolicy().github.repo,
       issue.identifier,
       issue
     );
