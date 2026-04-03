@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "@symphony/forensics": "workspace:*",
+    "@symphony/github-review": "workspace:*",
     "@symphony/review": "workspace:*",
     "@symphony/run-journal": "workspace:*",
     "@symphony/tracker": "workspace:*",

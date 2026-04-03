@@ -1,8 +1,10 @@
 export {
-  extractSymphonyGithubReviewSignal,
-  issueIdentifierFromBranch,
   SymphonyGithubReviewProcessor
-} from "@symphony/github-review";
+} from "./symphony-github-review.js";
+export {
+  extractSymphonyGithubReviewSignal,
+  issueIdentifierFromBranch
+} from "./symphony-github-review-signal.js";
 export type {
   SymphonyGitHubPullRequestResolver,
   SymphonyGitHubReviewConfig,
@@ -10,4 +12,4 @@ export type {
   SymphonyGitHubReviewPolicyConfig,
   SymphonyGitHubReviewProcessResult,
   SymphonyGitHubReviewSignal
-} from "@symphony/github-review";
+} from "./symphony-github-review-types.js";

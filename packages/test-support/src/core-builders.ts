@@ -2,7 +2,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import type {
   SymphonyGitHubReviewEvent
-} from "@symphony/core/github";
+} from "@symphony/github-review";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
 import type {
   SymphonyEventAttrs,

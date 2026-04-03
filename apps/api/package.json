@@ -18,6 +18,7 @@
     "@symphony/db": "workspace:*",
     "@symphony/errors": "workspace:*",
     "@symphony/forensics": "workspace:*",
+    "@symphony/github-review": "workspace:*",
     "@symphony/logger": "workspace:*",
     "@symphony/contracts": "workspace:*",
     "@symphony/core": "workspace:*",

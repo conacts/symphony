@@ -5,7 +5,7 @@ import {
   type SymphonyResolvedWorkflowConfig
 } from "@symphony/core";
 import { createSymphonyForensicsReadModel } from "@symphony/forensics";
-import { SymphonyGithubReviewProcessor } from "@symphony/core/github";
+import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
 import {
   createMemorySymphonyTracker,
@@ -373,7 +373,10 @@ export async function createSymphonyRuntimeTestHarness(input: {
     githubReviewIngress: createSymphonyGitHubReviewIngressService({
       workflowConfig,
       reviewProcessor: new SymphonyGithubReviewProcessor({
-        workflowConfig,
+        policyConfig: {
+          tracker: workflowConfig.tracker,
+          github: workflowConfig.github
+        },
         tracker,
         pullRequestResolver: {
           async fetchPullRequest() {

@@ -4,7 +4,6 @@ import {
   isSymphonyWorkflowDisabled,
   type SymphonyTracker
 } from "@symphony/tracker";
-import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import {
   autoRequeueCommentBody,
   notInReviewCommentBody
@@ -15,6 +14,7 @@ import {
 } from "./symphony-github-review-signal.js";
 import type {
   SymphonyGitHubPullRequestResolver,
+  SymphonyGitHubReviewPolicyConfig,
   SymphonyGitHubReviewEvent,
   SymphonyGitHubReviewProcessResult,
   SymphonyGitHubReviewSignal
@@ -22,27 +22,18 @@ import type {
 
 const expectedSourceState = "In Review";
 const targetState = "Rework";
-export {
-  extractSymphonyGithubReviewSignal,
-  issueIdentifierFromBranch
-} from "./symphony-github-review-signal.js";
-export type {
-  SymphonyGitHubPullRequestResolver,
-  SymphonyGitHubReviewEvent,
-  SymphonyGitHubReviewSignal
-} from "./symphony-github-review-types.js";
 
 export class SymphonyGithubReviewProcessor {
-  readonly #workflowConfig: SymphonyResolvedWorkflowConfig;
+  readonly #policyConfig: SymphonyGitHubReviewPolicyConfig;
   readonly #tracker: SymphonyTracker;
   readonly #pullRequestResolver: SymphonyGitHubPullRequestResolver;
 
   constructor(input: {
-    workflowConfig: SymphonyResolvedWorkflowConfig;
+    policyConfig: SymphonyGitHubReviewPolicyConfig;
     tracker: SymphonyTracker;
     pullRequestResolver: SymphonyGitHubPullRequestResolver;
   }) {
-    this.#workflowConfig = input.workflowConfig;
+    this.#policyConfig = input.policyConfig;
     this.#tracker = input.tracker;
     this.#pullRequestResolver = input.pullRequestResolver;
   }
@@ -50,7 +41,7 @@ export class SymphonyGithubReviewProcessor {
   async processEvent(
     event: SymphonyGitHubReviewEvent
   ): Promise<SymphonyGitHubReviewProcessResult> {
-    const signal = extractSymphonyGithubReviewSignal(this.#workflowConfig, event);
+    const signal = extractSymphonyGithubReviewSignal(this.#policyConfig, event);
     if (!signal) {
       return {
         status: "ignored"
@@ -132,7 +123,7 @@ export class SymphonyGithubReviewProcessor {
     }
 
     const issue = await this.#tracker.fetchIssueByIdentifier(
-      this.#workflowConfig.tracker,
+      this.#policyConfig.tracker,
       issueIdentifier
     );
 
@@ -160,7 +151,7 @@ export class SymphonyGithubReviewProcessor {
       };
     }
 
-    if (!isLinearIssueInScope(this.#workflowConfig.tracker, issue)) {
+    if (!isLinearIssueInScope(this.#policyConfig.tracker, issue)) {
       return {
         status: "skipped",
         issueIdentifier,

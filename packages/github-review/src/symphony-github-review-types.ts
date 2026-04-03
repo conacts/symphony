@@ -1,3 +1,15 @@
+import type { SymphonyTrackerConfig } from "@symphony/tracker";
+
+export type SymphonyGitHubReviewConfig = {
+  allowedReviewLogins: string[];
+  allowedReworkCommentLogins: string[];
+};
+
+export type SymphonyGitHubReviewPolicyConfig = {
+  tracker: SymphonyTrackerConfig;
+  github: SymphonyGitHubReviewConfig;
+};
+
 export type SymphonyGitHubReviewEvent =
   | {
       event: "pull_request_review";

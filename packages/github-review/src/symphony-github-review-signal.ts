@@ -1,17 +1,17 @@
-import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type {
   SymphonyGitHubReviewEvent,
+  SymphonyGitHubReviewPolicyConfig,
   SymphonyGitHubReviewSignal
 } from "./symphony-github-review-types.js";
 
 const reworkCommandPattern = /^\/rework(?:\s+(?<context>[\s\S]+))?$/u;
 
 export function extractSymphonyGithubReviewSignal(
-  workflowConfig: SymphonyResolvedWorkflowConfig,
+  policyConfig: SymphonyGitHubReviewPolicyConfig,
   event: SymphonyGitHubReviewEvent
 ): SymphonyGitHubReviewSignal | null {
   if (event.event === "pull_request_review") {
-    const allowedLogins = new Set(workflowConfig.github.allowedReviewLogins);
+    const allowedLogins = new Set(policyConfig.github.allowedReviewLogins);
 
     if (
       event.payload.reviewState.toLowerCase() === "changes_requested" &&
@@ -32,7 +32,7 @@ export function extractSymphonyGithubReviewSignal(
   }
 
   const allowedLogins = new Set(
-    workflowConfig.github.allowedReworkCommentLogins
+    policyConfig.github.allowedReworkCommentLogins
   );
   const parsed = parseReworkCommand(event.payload.commentBody);
 

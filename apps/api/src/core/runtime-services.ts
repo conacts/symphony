@@ -11,7 +11,7 @@ import {
   createSymphonyForensicsReadModel,
   type SymphonyForensicsReadModel
 } from "@symphony/forensics";
-import { SymphonyGithubReviewProcessor } from "@symphony/core/github";
+import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
 import type { SymphonyJsonValue } from "@symphony/run-journal";
 import {
@@ -540,7 +540,10 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({
     workflowConfig,
     reviewProcessor: new SymphonyGithubReviewProcessor({
-      workflowConfig,
+      policyConfig: {
+        tracker: workflowConfig.tracker,
+        github: workflowConfig.github
+      },
       tracker,
       pullRequestResolver: {
         async fetchPullRequest(pullRequestUrl) {
