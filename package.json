@@ -45,9 +45,9 @@
     }
   },
   "scripts": {
-    "build": "turbo run build --filter=@symphony/api... --filter=@symphony/runtime-contract",
-    "typecheck": "turbo run typecheck --filter=@symphony/api... --filter=@symphony/runtime-contract",
-    "dev": "turbo run dev --filter=@symphony/api",
+    "build": "turbo run build --filter=@symphony/api... --filter=@symphony/runtime-contract --filter=@symphony/web",
+    "typecheck": "turbo run typecheck --filter=@symphony/api... --filter=@symphony/runtime-contract --filter=@symphony/web",
+    "dev": "turbo run dev --filter=@symphony/api --filter=@symphony/web",
     "dashboard:build": "pnpm --filter @symphony/web build",
     "dashboard:dev": "pnpm --filter @symphony/web dev",
     "dashboard:start": "pnpm --filter @symphony/web start",
@@ -56,9 +56,9 @@
     "runtime:doctor": "pnpm --filter @symphony/runtime-contract build && tsx ./scripts/runtime/doctor.ts",
     "verify:runtime": "pnpm --filter @symphony/runtime-contract test && pnpm runtime:doctor",
     "start": "pnpm build && pnpm --filter @symphony/api start",
-    "lint": "turbo run lint --filter=@symphony/api... --filter=@symphony/runtime-contract",
-    "test": "turbo run test --filter=@symphony/api... --filter=@symphony/runtime-contract",
-    "verify": "turbo run lint typecheck test --filter=@symphony/api... --filter=@symphony/runtime-contract",
+    "lint": "turbo run lint --filter=@symphony/api... --filter=@symphony/runtime-contract --filter=@symphony/web",
+    "test": "turbo run test --filter=@symphony/api... --filter=@symphony/runtime-contract --filter=@symphony/web",
+    "verify": "turbo run lint typecheck test --filter=@symphony/api... --filter=@symphony/runtime-contract --filter=@symphony/web",
     "clean": "turbo run clean && rm -rf node_modules",
     "prepare": "husky"
   },
