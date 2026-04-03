@@ -4,10 +4,12 @@ import {
   buildSymphonyRuntimeEnvironmentSource,
   loadSymphonyRuntimeAppEnv
 } from "./core/env.js";
+import { loadEnv } from "@symphony/env";
 import { loadDefaultSymphonyRuntimeAppServices } from "./core/runtime-services.js";
 import { createSymphonyRuntimeServer } from "./server.js";
 
 async function main() {
+  loadEnv({ cwd: process.cwd() });
   const env = loadSymphonyRuntimeAppEnv();
   const environmentSource = buildSymphonyRuntimeEnvironmentSource(env);
   const hostCommandEnvSource = buildSymphonyHostCommandEnvironmentSource();
