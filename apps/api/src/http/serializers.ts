@@ -227,19 +227,13 @@ function serializeRuntimeWorkspace(
     envBundleSummary: summary?.envBundleSummary ?? null,
     manifestLifecycle: summary?.manifestLifecycle ?? null,
     path: workspace.path ?? compatibilityPath,
-    executionTarget:
-      workspace.executionTarget.kind === "host_path"
-        ? {
-            kind: "host_path",
-            path: workspace.executionTarget.path
-          }
-        : {
-            kind: "container",
-            workspacePath: workspace.executionTarget.workspacePath,
-            containerId: workspace.executionTarget.containerId,
-            containerName: workspace.executionTarget.containerName,
-            hostPath: workspace.executionTarget.hostPath
-          },
+    executionTarget: {
+      kind: "container",
+      workspacePath: workspace.executionTarget.workspacePath,
+      containerId: workspace.executionTarget.containerId,
+      containerName: workspace.executionTarget.containerName,
+      hostPath: workspace.executionTarget.hostPath
+    },
     materialization: {
       ...workspace.materialization
     }

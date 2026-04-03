@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import { SymphonyWorkspaceError } from "./local-symphony-workspace-manager.js";
+import { SymphonyWorkspaceError } from "./workspace-identity.js";
 import {
   createDockerWorkspaceBackend,
   type PreparedWorkspace,

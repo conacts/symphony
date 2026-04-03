@@ -35,4 +35,3 @@ export {
   createTempSymphonySqliteHarness,
   type SymphonyTempSqliteHarness
 } from "./temp-sqlite-harness.js";
-export { renderSymphonyWorkflowMarkdown } from "./workflow-document.js";

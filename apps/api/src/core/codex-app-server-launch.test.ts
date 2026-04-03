@@ -2,32 +2,6 @@ import { describe, expect, it } from "vitest";
 import { buildCodexAppServerSpawnSpec } from "./codex-app-server-launch.js";
 
 describe("codex app server launch", () => {
-  it("preserves host-side runtime env for local launches while letting explicit bindings win", () => {
-    const spec = buildCodexAppServerSpawnSpec({
-      launchTarget: {
-        kind: "host_path",
-        hostLaunchPath: "/tmp/workspace",
-        hostWorkspacePath: "/tmp/workspace",
-        runtimeWorkspacePath: "/tmp/workspace"
-      },
-      command: "codex app-server",
-      env: {
-        OPENAI_API_KEY: "explicit-openai-key"
-      },
-      hostCommandEnvSource: {
-        PATH: "/usr/bin",
-        CODEX_HOME: "/tmp/codex-home",
-        OPENAI_API_KEY: "host-openai-key"
-      }
-    });
-
-    expect(spec.env).toMatchObject({
-      PATH: "/usr/bin",
-      CODEX_HOME: "/tmp/codex-home",
-      OPENAI_API_KEY: "explicit-openai-key"
-    });
-  });
-
   it("preserves docker transport env for container launches", () => {
     const spec = buildCodexAppServerSpawnSpec({
       launchTarget: {

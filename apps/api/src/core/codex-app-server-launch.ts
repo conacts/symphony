@@ -166,17 +166,6 @@ export function buildCodexAppServerSpawnSpec(input: {
   runtimeWorkspacePath: string;
   env: Record<string, string>;
 } {
-  if (input.launchTarget.kind === "host_path") {
-    return {
-      command: "bash",
-      args: ["-lc", input.command],
-      cwd: input.launchTarget.hostLaunchPath,
-      hostLaunchPath: input.launchTarget.hostLaunchPath,
-      runtimeWorkspacePath: input.launchTarget.runtimeWorkspacePath,
-      env: buildHostLaunchEnv(input.env, input.hostCommandEnvSource)
-    };
-  }
-
   return {
     command: "docker",
     args: [
@@ -194,16 +183,6 @@ export function buildCodexAppServerSpawnSpec(input: {
     hostLaunchPath: input.launchTarget.hostLaunchPath,
     runtimeWorkspacePath: input.launchTarget.runtimeWorkspacePath,
     env: buildHostCommandEnv(input.hostCommandEnvSource)
-  };
-}
-
-function buildHostLaunchEnv(
-  explicitEnv: Record<string, string>,
-  hostCommandEnvSource: Record<string, string | undefined>
-): Record<string, string> {
-  return {
-    ...buildHostCommandEnv(hostCommandEnvSource),
-    ...explicitEnv
   };
 }
 

@@ -15,7 +15,7 @@ export function buildSymphonyWorkflowConfig(
       excludedProjectIds: [],
       assignee: null,
       dispatchableStates: ["Todo", "In Progress", "Rework"],
-      terminalStates: ["Canceled", "Duplicate", "Done"],
+      terminalStates: ["Canceled", "Done"],
       claimTransitionToState: "In Progress",
       claimTransitionFromStates: ["Todo", "Rework"],
       startupFailureTransitionToState: "Backlog",

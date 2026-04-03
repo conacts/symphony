@@ -215,7 +215,7 @@ export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContract
       id: "issue-id",
       identifier: "ENG-123",
       title: "Ship runtime contract boundary",
-      description: "Replace WORKFLOW.md prompt coupling with .symphony/prompt.md.",
+      description: "Use the repo-owned .symphony/prompt.md template contract.",
       state: "In Progress",
       labels: ["runtime", "automation"],
       url: "https://linear.app/symphony/issue/ENG-123",

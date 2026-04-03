@@ -302,7 +302,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
   "COL-165": buildSymphonyRuntimeIssueResult({
     issueIdentifier: "COL-165",
     issueId: "issue_123",
-    workspace: buildLocalRuntimeWorkspace("/tmp/workspaces/col-165", "worker-a"),
+    workspace: buildRuntimeWorkspace("/tmp/workspaces/col-165", "worker-a"),
     tracked: {
       title: "Stabilize issue forensic drilldown",
       state: "In Progress",
@@ -316,7 +316,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
       workerHost: "worker-a",
       workspacePath: "/tmp/workspaces/col-165",
       sessionId: "session-165",
-      launchTarget: buildHostPathLaunchTarget("/tmp/workspaces/col-165"),
+      launchTarget: buildBindMountLaunchTarget("/tmp/workspaces/col-165"),
       turnCount: 6,
       state: "In Progress",
       startedAt: "2026-03-31T18:00:00.000Z",
@@ -375,7 +375,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
   "COL-167": buildSymphonyRuntimeIssueResult({
     issueIdentifier: "COL-167",
     issueId: "issue_789",
-    workspace: buildLocalRuntimeWorkspace("/tmp/workspaces/col-167", "worker-c"),
+    workspace: buildRuntimeWorkspace("/tmp/workspaces/col-167", "worker-c"),
     tracked: {
       title: "Repair workspace bootstrap flow",
       state: "Todo",
@@ -389,7 +389,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
       workerHost: "worker-c",
       workspacePath: "/tmp/workspaces/col-167",
       sessionId: "session-167",
-      launchTarget: buildHostPathLaunchTarget("/tmp/workspaces/col-167"),
+      launchTarget: buildBindMountLaunchTarget("/tmp/workspaces/col-167"),
       turnCount: 2,
       state: "Bootstrapping",
       startedAt: "2026-03-31T17:25:00.000Z",
@@ -405,35 +405,39 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
   })
 };
 
-function buildLocalRuntimeWorkspace(
+function buildRuntimeWorkspace(
   path: string,
   workerHost: string
 ): SymphonyRuntimeIssueResult["workspace"] {
   return {
-    backendKind: "local",
+    backendKind: "docker",
     workerHost,
     prepareDisposition: "reused",
-    executionTargetKind: "host_path",
-    materializationKind: "directory",
+    executionTargetKind: "container",
+    materializationKind: "bind_mount",
     hostRepoMetadataAvailable: true,
-    containerDisposition: "not_applicable",
-    networkDisposition: "not_applicable",
+    containerDisposition: "reused",
+    networkDisposition: "reused",
     hostPath: path,
-    runtimePath: path,
-    containerId: null,
-    containerName: null,
-    networkName: null,
+    runtimePath: "/home/agent/workspace",
+    containerId: "container-local",
+    containerName: "symphony-local",
+    networkName: "symphony-network-local",
     services: [],
     envBundleSummary: buildAmbientEnvBundleSummary(),
     manifestLifecycle: null,
-    path,
+    path: null,
     executionTarget: {
-      kind: "host_path",
-      path
+      kind: "container",
+      workspacePath: "/home/agent/workspace",
+      containerId: "container-local",
+      containerName: "symphony-local",
+      hostPath: path
     },
     materialization: {
-      kind: "directory",
-      hostPath: path
+      kind: "bind_mount",
+      hostPath: path,
+      containerPath: "/home/agent/workspace"
     }
   };
 }
@@ -496,14 +500,17 @@ function buildAmbientEnvBundleSummary(): NonNullable<
   };
 }
 
-function buildHostPathLaunchTarget(
+function buildBindMountLaunchTarget(
   path: string
 ): NonNullable<SymphonyRuntimeIssueResult["running"]>["launchTarget"] {
   return {
-    kind: "host_path",
+    kind: "container",
     hostLaunchPath: path,
     hostWorkspacePath: path,
-    runtimeWorkspacePath: path
+    runtimeWorkspacePath: "/home/agent/workspace",
+    containerId: "container-local",
+    containerName: "symphony-local",
+    shell: "sh"
   };
 }
 
@@ -686,8 +693,8 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
         workerHost: "worker-a",
         workspacePath: "/tmp/workspaces/col-165",
         sessionId: "session-165",
-        workspace: buildLocalRuntimeWorkspace("/tmp/workspaces/col-165", "worker-a"),
-        launchTarget: buildHostPathLaunchTarget("/tmp/workspaces/col-165"),
+        workspace: buildRuntimeWorkspace("/tmp/workspaces/col-165", "worker-a"),
+        launchTarget: buildBindMountLaunchTarget("/tmp/workspaces/col-165"),
         turnCount: 6,
         lastEvent: "message.output",
         lastMessage: "Preparing final summary",
@@ -706,8 +713,8 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
         workerHost: "worker-c",
         workspacePath: "/tmp/workspaces/col-167",
         sessionId: "session-167",
-        workspace: buildLocalRuntimeWorkspace("/tmp/workspaces/col-167", "worker-c"),
-        launchTarget: buildHostPathLaunchTarget("/tmp/workspaces/col-167"),
+        workspace: buildRuntimeWorkspace("/tmp/workspaces/col-167", "worker-c"),
+        launchTarget: buildBindMountLaunchTarget("/tmp/workspaces/col-167"),
         turnCount: 2,
         lastEvent: "workspace.bootstrap.failed",
         lastMessage: "Retrying workspace bootstrap",

@@ -80,7 +80,7 @@ async function gitCapture(
   timeoutMs: number
 ): Promise<string> {
   const command =
-    launchTarget.kind === "host_path"
+    launchTarget.hostWorkspacePath !== null
       ? {
           file: "git",
           args,
@@ -90,33 +90,23 @@ async function gitCapture(
             maxBuffer: 8 * 1024 * 1024
           }
         }
-      : launchTarget.hostWorkspacePath !== null
-        ? {
-            file: "git",
-            args,
-            options: {
-              cwd: launchTarget.hostWorkspacePath,
-              timeout: timeoutMs,
-              maxBuffer: 8 * 1024 * 1024
-            }
+      : {
+          file: "docker",
+          args: [
+            "exec",
+            "--workdir",
+            launchTarget.runtimeWorkspacePath,
+            launchTarget.containerName,
+            launchTarget.shell,
+            "-lc",
+            buildGitShellCommand(args)
+          ],
+          options: {
+            cwd: launchTarget.hostLaunchPath,
+            timeout: timeoutMs,
+            maxBuffer: 8 * 1024 * 1024
           }
-        : {
-            file: "docker",
-            args: [
-              "exec",
-              "--workdir",
-              launchTarget.runtimeWorkspacePath,
-              launchTarget.containerName,
-              launchTarget.shell,
-              "-lc",
-              buildGitShellCommand(args)
-            ],
-            options: {
-              cwd: launchTarget.hostLaunchPath,
-              timeout: timeoutMs,
-              maxBuffer: 8 * 1024 * 1024
-            }
-          };
+        };
   const { stdout, stderr } = await execFileAsync(command.file, command.args, command.options);
 
   return `${stdout ?? ""}${stderr ?? ""}`.trimEnd();
@@ -165,25 +155,15 @@ function formatRepoSnapshotError(error: unknown): string {
 }
 
 function buildRepoSnapshotContext(launchTarget: CodexRuntimeLaunchTarget): {
-  source: "host_path" | "container_exec";
+  source: "bind_mount" | "container_exec";
   workspacePath: string;
   hostWorkspacePath: string | null;
   hostLaunchPath: string;
   containerName: string | null;
 } {
-  if (launchTarget.kind === "host_path") {
-    return {
-      source: "host_path",
-      workspacePath: launchTarget.hostWorkspacePath,
-      hostWorkspacePath: launchTarget.hostWorkspacePath,
-      hostLaunchPath: launchTarget.hostLaunchPath,
-      containerName: null
-    };
-  }
-
   return {
     source:
-      launchTarget.hostWorkspacePath === null ? "container_exec" : "host_path",
+      launchTarget.hostWorkspacePath === null ? "container_exec" : "bind_mount",
     workspacePath:
       launchTarget.hostWorkspacePath ?? launchTarget.runtimeWorkspacePath,
     hostWorkspacePath: launchTarget.hostWorkspacePath,

@@ -19,8 +19,6 @@ The platform is intentionally strict:
 - one admitted repo contract
 - one fail-fast path when the contract is not met
 
-This specification replaces the older `WORKFLOW.md`, worktree, and Elixir-oracle stories.
-
 ## 2. Goals
 
 - fail closed when the repo contract, runtime setup, or platform prerequisites are invalid

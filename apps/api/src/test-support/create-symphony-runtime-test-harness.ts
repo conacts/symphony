@@ -47,27 +47,32 @@ export type SymphonyRuntimeTestHarness = {
 
 export { buildSymphonyOrchestratorSnapshot };
 
-export function buildLocalPreparedWorkspace(
+export function buildBindMountPreparedWorkspace(
   issueIdentifier: string,
   workspacePath: string
 ) {
   return {
     issueIdentifier,
     workspaceKey: issueIdentifier,
-    backendKind: "local" as const,
+    backendKind: "docker" as const,
     prepareDisposition: "reused" as const,
-    containerDisposition: "not_applicable" as const,
-    networkDisposition: "not_applicable" as const,
+    containerDisposition: "reused" as const,
+    networkDisposition: "reused" as const,
     afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
-      kind: "host_path" as const,
-      path: workspacePath
+      kind: "container" as const,
+      workspacePath: "/home/agent/workspace",
+      containerId: "container-123",
+      containerName: "symphony-col-123",
+      hostPath: workspacePath,
+      shell: "sh"
     },
     materialization: {
-      kind: "directory" as const,
-      hostPath: workspacePath
+      kind: "bind_mount" as const,
+      hostPath: workspacePath,
+      containerPath: "/home/agent/workspace"
     },
-    networkName: null,
+    networkName: "symphony-network-col-123",
     services: [],
     envBundle: {
       source: "ambient" as const,
@@ -87,7 +92,7 @@ export function buildLocalPreparedWorkspace(
       }
     },
     manifestLifecycle: null,
-    path: workspacePath,
+    path: null,
     created: false,
     workerHost: null
   };
@@ -231,7 +236,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
   const snapshot = buildSymphonyOrchestratorSnapshot({
     running: [
       {
-        workspace: buildLocalPreparedWorkspace(
+        workspace: buildBindMountPreparedWorkspace(
           issue.identifier,
           path.join(root, `symphony-${issue.identifier}`)
         ),

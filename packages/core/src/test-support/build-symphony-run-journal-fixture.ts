@@ -18,7 +18,7 @@ export function buildSymphonyRunStartAttrs(
     issueIdentifier: `COL-${fixtureCounter}`,
     attempt: 1,
     status: "running",
-    workerHost: "local",
+    workerHost: "docker-host",
     workspacePath: `/tmp/COL-${fixtureCounter}`,
     startedAt: new Date("2026-03-31T00:00:00.000Z"),
     commitHashStart: `commit-start-${fixtureCounter}`,

@@ -60,53 +60,6 @@ export function buildSymphonyRuntimeStateResult(
   type RuntimeLaunchTarget = NonNullable<RuntimeRunningEntry["launchTarget"]>;
   type RetryLaunchTarget = NonNullable<RuntimeRetryEntry["launchTarget"]>;
 
-  const defaultLocalWorkspace: RuntimeWorkspace = {
-    backendKind: "local",
-    workerHost: "worker-a",
-    prepareDisposition: "reused",
-    executionTargetKind: "host_path",
-    materializationKind: "directory",
-    hostRepoMetadataAvailable: true,
-    containerDisposition: "not_applicable",
-    networkDisposition: "not_applicable",
-    hostPath: "/tmp/workspaces/col-165",
-    runtimePath: "/tmp/workspaces/col-165",
-    containerId: null,
-    containerName: null,
-    networkName: null,
-    services: [],
-    envBundleSummary: {
-      source: "ambient",
-      injectedKeys: ["LINEAR_API_KEY"],
-      requiredHostKeys: [],
-      optionalHostKeys: [],
-      repoEnvPath: null,
-      projectedRepoKeys: [],
-      requiredRepoKeys: [],
-      optionalRepoKeys: [],
-      staticBindingKeys: [],
-      runtimeBindingKeys: [],
-      serviceBindingKeys: []
-    },
-    manifestLifecycle: null,
-    path: "/tmp/workspaces/col-165",
-    executionTarget: {
-      kind: "host_path",
-      path: "/tmp/workspaces/col-165"
-    },
-    materialization: {
-      kind: "directory",
-      hostPath: "/tmp/workspaces/col-165"
-    }
-  };
-
-  const defaultHostLaunchTarget: RuntimeLaunchTarget = {
-    kind: "host_path",
-    hostLaunchPath: "/tmp/workspaces/col-165",
-    hostWorkspacePath: "/tmp/workspaces/col-165",
-    runtimeWorkspacePath: "/tmp/workspaces/col-165"
-  };
-
   const defaultDockerWorkspace: RuntimeWorkspace = {
     backendKind: "docker",
     workerHost: "worker-b",
@@ -161,6 +114,37 @@ export function buildSymphonyRuntimeStateResult(
     }
   };
 
+  const defaultRunningWorkspace: RuntimeWorkspace = {
+    ...defaultDockerWorkspace,
+    hostPath: "/tmp/workspaces/col-165",
+    runtimePath: "/home/agent/workspace",
+    containerId: "container-165",
+    containerName: "symphony-col-165",
+    networkName: "symphony-network-col-165",
+    executionTarget: {
+      kind: "container",
+      workspacePath: "/home/agent/workspace",
+      containerId: "container-165",
+      containerName: "symphony-col-165",
+      hostPath: "/tmp/workspaces/col-165"
+    },
+    materialization: {
+      kind: "bind_mount",
+      hostPath: "/tmp/workspaces/col-165",
+      containerPath: "/home/agent/workspace"
+    }
+  };
+
+  const defaultRunningLaunchTarget: RuntimeLaunchTarget = {
+    kind: "container",
+    hostLaunchPath: "/tmp/workspaces/col-165",
+    hostWorkspacePath: "/tmp/workspaces/col-165",
+    runtimeWorkspacePath: "/home/agent/workspace",
+    containerId: "container-165",
+    containerName: "symphony-col-165",
+    shell: "sh"
+  };
+
   const defaultContainerLaunchTarget: RetryLaunchTarget = {
     kind: "container",
     hostLaunchPath: "/tmp/workspaces/col-166",
@@ -176,11 +160,11 @@ export function buildSymphonyRuntimeStateResult(
       issueId: "issue_123",
       issueIdentifier: "COL-165",
       state: "In Progress",
-      workerHost: "worker-a",
+      workerHost: "worker-b",
       workspacePath: "/tmp/workspaces/col-165",
       sessionId: "session_123",
-      workspace: defaultLocalWorkspace,
-      launchTarget: defaultHostLaunchTarget,
+      workspace: defaultRunningWorkspace,
+      launchTarget: defaultRunningLaunchTarget,
       turnCount: 4,
       lastEvent: "message.output",
       lastMessage: "Runtime view updated",
@@ -196,7 +180,7 @@ export function buildSymphonyRuntimeStateResult(
     issueId: "issue_123",
     issueIdentifier: "COL-165",
     state: "In Progress",
-    workerHost: "worker-a",
+    workerHost: "worker-b",
     workspacePath: "/tmp/workspaces/col-165",
     sessionId: "session_123",
     turnCount: 4,
@@ -212,11 +196,11 @@ export function buildSymphonyRuntimeStateResult(
     ...entry,
     workspace:
       entry.workspace === undefined
-        ? { ...defaultLocalWorkspace }
+        ? { ...defaultRunningWorkspace }
         : entry.workspace,
     launchTarget:
       entry.launchTarget === undefined
-        ? { ...defaultHostLaunchTarget }
+        ? { ...defaultRunningLaunchTarget }
         : entry.launchTarget
   }));
   const retrying = (overrides.retrying ?? [
@@ -296,19 +280,19 @@ export function buildSymphonyRuntimeIssueResult(
   } = {}
 ): SymphonyRuntimeIssueResult {
   const defaultWorkspace: SymphonyRuntimeIssueResult["workspace"] = {
-    backendKind: "local",
-    workerHost: "local",
+    backendKind: "docker",
+    workerHost: "worker-b",
     prepareDisposition: "reused",
-    executionTargetKind: "host_path",
-    materializationKind: "directory",
+    executionTargetKind: "container",
+    materializationKind: "bind_mount",
     hostRepoMetadataAvailable: true,
-    containerDisposition: "not_applicable",
-    networkDisposition: "not_applicable",
+    containerDisposition: "reused",
+    networkDisposition: "reused",
     hostPath: "/tmp/symphony-COL-167",
-    runtimePath: "/tmp/symphony-COL-167",
-    containerId: null,
-    containerName: null,
-    networkName: null,
+    runtimePath: "/home/agent/workspace",
+    containerId: "container-167",
+    containerName: "symphony-col-167",
+    networkName: "symphony-network-col-167",
     services: [],
     envBundleSummary: {
       source: "ambient",
@@ -324,25 +308,32 @@ export function buildSymphonyRuntimeIssueResult(
       serviceBindingKeys: []
     },
     manifestLifecycle: null,
-    path: "/tmp/symphony-COL-167",
+    path: null,
     executionTarget: {
-      kind: "host_path",
-      path: "/tmp/symphony-COL-167"
+      kind: "container",
+      workspacePath: "/home/agent/workspace",
+      containerId: "container-167",
+      containerName: "symphony-col-167",
+      hostPath: "/tmp/symphony-COL-167"
     },
     materialization: {
-      kind: "directory",
-      hostPath: "/tmp/symphony-COL-167"
+      kind: "bind_mount",
+      hostPath: "/tmp/symphony-COL-167",
+      containerPath: "/home/agent/workspace"
     }
   };
   const defaultRunning: NonNullable<SymphonyRuntimeIssueResult["running"]> = {
-    workerHost: "local",
+    workerHost: "worker-b",
     workspacePath: "/tmp/symphony-COL-167",
     sessionId: "session-167",
     launchTarget: {
-      kind: "host_path",
+      kind: "container",
       hostLaunchPath: "/tmp/symphony-COL-167",
       hostWorkspacePath: "/tmp/symphony-COL-167",
-      runtimeWorkspacePath: "/tmp/symphony-COL-167"
+      runtimeWorkspacePath: "/home/agent/workspace",
+      containerId: "container-167",
+      containerName: "symphony-col-167",
+      shell: "sh"
     },
     turnCount: 3,
     state: "In Progress",
@@ -385,7 +376,7 @@ export function buildSymphonyRuntimeIssueResult(
               attempt: 1,
               dueAt: "2026-03-31T18:05:00.000Z",
               error: null,
-              workerHost: "local",
+              workerHost: "worker-b",
               workspacePath: "/tmp/symphony-COL-167",
               launchTarget: null,
               ...overrides.retry

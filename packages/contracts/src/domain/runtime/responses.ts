@@ -18,12 +18,10 @@ export const symphonyRuntimeCodexTotalsSchema = symphonyRuntimeTokenTotalsSchema
 });
 
 export const symphonyRuntimeWorkspaceExecutionTargetKindSchema = z.enum([
-  "host_path",
   "container"
 ]);
 
 export const symphonyRuntimeWorkspaceMaterializationKindSchema = z.enum([
-  "directory",
   "bind_mount",
   "volume"
 ]);
@@ -36,8 +34,7 @@ export const symphonyRuntimeWorkspacePrepareDispositionSchema = z.enum([
 export const symphonyRuntimeWorkspaceContainerDispositionSchema = z.enum([
   "started",
   "reused",
-  "recreated",
-  "not_applicable"
+  "recreated"
 ]);
 
 export const symphonyRuntimeWorkspaceNetworkDispositionSchema = z.enum([
@@ -181,10 +178,6 @@ export const symphonyRuntimeWorkspaceExecutionTargetSchema = z.discriminatedUnio
   "kind",
   [
     z.strictObject({
-      kind: z.literal("host_path"),
-      path: nonEmptyStringSchema
-    }),
-    z.strictObject({
       kind: z.literal("container"),
       workspacePath: nonEmptyStringSchema,
       containerId: nullableNonEmptyStringSchema,
@@ -197,10 +190,6 @@ export const symphonyRuntimeWorkspaceExecutionTargetSchema = z.discriminatedUnio
 export const symphonyRuntimeWorkspaceMaterializationSchema = z.discriminatedUnion(
   "kind",
   [
-    z.strictObject({
-      kind: z.literal("directory"),
-      hostPath: nonEmptyStringSchema
-    }),
     z.strictObject({
       kind: z.literal("bind_mount"),
       hostPath: nonEmptyStringSchema,
@@ -216,7 +205,7 @@ export const symphonyRuntimeWorkspaceMaterializationSchema = z.discriminatedUnio
 );
 
 export const symphonyRuntimeWorkspaceSchema = z.strictObject({
-  backendKind: z.enum(["local", "docker"]).nullable(),
+  backendKind: z.enum(["docker"]).nullable(),
   workerHost: nullableNonEmptyStringSchema,
   prepareDisposition: symphonyRuntimeWorkspacePrepareDispositionSchema.nullable(),
   executionTargetKind: symphonyRuntimeWorkspaceExecutionTargetKindSchema.nullable(),
@@ -238,12 +227,6 @@ export const symphonyRuntimeWorkspaceSchema = z.strictObject({
 });
 
 export const symphonyRuntimeLaunchTargetSchema = z.discriminatedUnion("kind", [
-  z.strictObject({
-    kind: z.literal("host_path"),
-    hostLaunchPath: nonEmptyStringSchema,
-    hostWorkspacePath: nonEmptyStringSchema,
-    runtimeWorkspacePath: nonEmptyStringSchema
-  }),
   z.strictObject({
     kind: z.literal("container"),
     hostLaunchPath: nonEmptyStringSchema,

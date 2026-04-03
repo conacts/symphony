@@ -54,7 +54,7 @@ export function buildSymphonyRuntimeSummaryViewModel(
         issueIdentifier: "COL-165",
         state: "In Progress",
         sessionId: "session_123",
-        execution: "local / reused / directory / host_path",
+        execution: "docker / reused / bind_mount / container / symphony-col-165",
         runtimeAndTurns: "2m 0s / 4 turns",
         codexUpdate: "Runtime view updated · 2026-03-31T18:01:00.000Z",
         tokenSummary: "Total 200 · In 120 / Out 80"

@@ -6,7 +6,7 @@ import {
 } from "./runtime-realtime-diff.js";
 import {
   buildSymphonyOrchestratorSnapshot,
-  buildLocalPreparedWorkspace,
+  buildBindMountPreparedWorkspace,
   buildSymphonyRuntimeTrackerIssue
 } from "../test-support/create-symphony-runtime-test-harness.js";
 
@@ -18,7 +18,7 @@ describe("runtime realtime diff", () => {
     const before = buildSymphonyOrchestratorSnapshot({
       running: [
         {
-          workspace: buildLocalPreparedWorkspace(
+          workspace: buildBindMountPreparedWorkspace(
             issue.identifier,
             `/tmp/symphony-${issue.identifier}`
           ),
@@ -109,7 +109,10 @@ describe("runtime realtime diff", () => {
     const before = buildSymphonyOrchestratorSnapshot({
       running: [
         {
-          workspace: buildLocalPreparedWorkspace(issue.identifier, workspacePath),
+          workspace: buildBindMountPreparedWorkspace(
+            issue.identifier,
+            workspacePath
+          ),
           issueId: issue.id,
           issue,
           runId: "run-123",

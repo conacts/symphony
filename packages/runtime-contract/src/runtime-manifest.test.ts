@@ -401,7 +401,7 @@ export default defineSymphonyRuntime({
           env: {
             ...buildValidManifestInput().env,
             repo: {
-              path: ".coldets/local/resolved.env",
+              path: ".symphony/generated/runtime.env",
               required: [],
               optional: []
             }

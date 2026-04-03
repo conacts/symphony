@@ -416,15 +416,6 @@ async function executeRun(input: {
 }
 
 function describeLaunchTarget(target: CodexRuntimeLaunchTarget): SymphonyJsonObject {
-  if (target.kind === "host_path") {
-    return {
-      kind: target.kind,
-      hostLaunchPath: target.hostLaunchPath,
-      hostWorkspacePath: target.hostWorkspacePath,
-      runtimeWorkspacePath: target.runtimeWorkspacePath
-    };
-  }
-
   return {
     kind: target.kind,
     hostLaunchPath: target.hostLaunchPath,

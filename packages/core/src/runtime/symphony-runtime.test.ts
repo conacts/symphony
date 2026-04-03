@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createLocalWorkspaceBackend } from "../workspace/local-workspace-backend.js";
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
+import { createTestWorkspaceBackend } from "../test-support/create-test-workspace-backend.js";
 import { createCodexAgentRuntime } from "./agent-runtime.js";
 import { createSymphonyRuntime } from "./symphony-runtime.js";
 
@@ -46,7 +46,7 @@ describe("symphony runtime review seam", () => {
     const runtime = createSymphonyRuntime({
       workflowConfig: buildSymphonyWorkflowConfig(),
       tracker: inertTracker,
-      workspaceBackend: createLocalWorkspaceBackend(),
+      workspaceBackend: createTestWorkspaceBackend(),
       agentRuntime: createCodexAgentRuntime({
         async startRun() {
           return {
@@ -82,7 +82,7 @@ describe("symphony runtime review seam", () => {
     const runtime = createSymphonyRuntime({
       workflowConfig: buildSymphonyWorkflowConfig(),
       tracker: inertTracker,
-      workspaceBackend: createLocalWorkspaceBackend(),
+      workspaceBackend: createTestWorkspaceBackend(),
       agentRuntime: createCodexAgentRuntime({
         async startRun() {
           return {

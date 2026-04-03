@@ -9,10 +9,10 @@ import {
 } from "./index.js";
 import { buildSymphonyRepositoryTarget } from "./test-support/build-symphony-repository-target.js";
 import { createSymphonyRuntimeCompositionHarness } from "./test-support/create-symphony-runtime-composition-harness.js";
+import { createTestWorkspaceBackend } from "./test-support/create-test-workspace-backend.js";
 import { buildSymphonyTrackerIssue } from "./test-support/build-symphony-tracker-issue.js";
 import { buildSymphonyRuntimeConfig } from "./test-support/build-symphony-runtime-config.js";
 import { buildSymphonyWorkflowConfig } from "./test-support/build-symphony-workflow-config.js";
-import { createLocalWorkspaceBackend } from "./workspace/local-workspace-backend.js";
 
 const inertTracker = {
   async fetchCandidateIssues() {
@@ -68,7 +68,7 @@ describe("@symphony/core scaffold", () => {
   });
 
   it("ships the new public facade without changing orchestrator composition", async () => {
-    const workspaceBackend = createLocalWorkspaceBackend();
+    const workspaceBackend = createTestWorkspaceBackend();
     const agentRuntime: AgentRuntime = {
       async startRun() {
         return {
@@ -191,7 +191,7 @@ describe("@symphony/core scaffold", () => {
     const runtime = createSymphonyRuntime({
       workflowConfig: buildSymphonyWorkflowConfig(),
       tracker: inertTracker,
-      workspaceBackend: createLocalWorkspaceBackend(),
+      workspaceBackend: createTestWorkspaceBackend(),
       agentRuntime: createCodexAgentRuntime({
         async startRun() {
           return {

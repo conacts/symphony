@@ -21,20 +21,25 @@ function buildAgentRunInput(): AgentRunInput {
     workspace: {
       issueIdentifier: issue.identifier,
       workspaceKey: issue.identifier,
-      backendKind: "local",
+      backendKind: "docker",
       prepareDisposition: "reused",
-      containerDisposition: "not_applicable",
-      networkDisposition: "not_applicable",
+      containerDisposition: "reused",
+      networkDisposition: "reused",
       afterCreateHookOutcome: "skipped",
       executionTarget: {
-        kind: "host_path",
-        path: "/tmp/symphony-runtime"
+        kind: "container",
+        workspacePath: "/home/agent/workspace",
+        containerId: "container-123",
+        containerName: "symphony-col-123",
+        hostPath: "/tmp/symphony-runtime",
+        shell: "sh"
       },
       materialization: {
-        kind: "directory",
-        hostPath: "/tmp/symphony-runtime"
+        kind: "bind_mount",
+        hostPath: "/tmp/symphony-runtime",
+        containerPath: "/home/agent/workspace"
       },
-      networkName: null,
+      networkName: "symphony-network-col-123",
       services: [],
       envBundle: {
         source: "ambient",
@@ -54,7 +59,7 @@ function buildAgentRunInput(): AgentRunInput {
         }
       },
       manifestLifecycle: null,
-      path: "/tmp/symphony-runtime",
+      path: null,
       created: false,
       workerHost: null
     }

@@ -24,14 +24,8 @@ export function summarizePreparedWorkspace(
     afterCreateHookOutcome: workspace.afterCreateHookOutcome,
     hostPath: workspaceHostPath(workspace),
     runtimePath: workspaceRuntimePath(workspace),
-    containerId:
-      workspace.executionTarget.kind === "container"
-        ? workspace.executionTarget.containerId
-        : null,
-    containerName:
-      workspace.executionTarget.kind === "container"
-        ? workspace.executionTarget.containerName
-        : null,
+    containerId: workspace.executionTarget.containerId,
+    containerName: workspace.executionTarget.containerName,
     networkName: workspace.networkName,
     services: workspace.services,
     envBundleSummary: workspace.envBundle.summary,
@@ -47,17 +41,11 @@ export function workspaceHostPath(
     return null;
   }
 
-  if (workspace.executionTarget.kind === "host_path") {
-    return workspace.executionTarget.path;
-  }
-
   if (workspace.executionTarget.hostPath) {
     return workspace.executionTarget.hostPath;
   }
 
   switch (workspace.materialization.kind) {
-    case "directory":
-      return workspace.materialization.hostPath;
     case "bind_mount":
       return workspace.materialization.hostPath;
     case "volume":
@@ -70,10 +58,6 @@ export function workspaceRuntimePath(
 ): string | null {
   if (!workspace) {
     return null;
-  }
-
-  if (workspace.executionTarget.kind === "host_path") {
-    return workspace.executionTarget.path;
   }
 
   return workspace.executionTarget.workspacePath;

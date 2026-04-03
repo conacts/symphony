@@ -15,10 +15,10 @@ import {
   type MemorySymphonyTracker,
   type SymphonyTrackerIssue
 } from "../tracker/symphony-tracker.js";
-import { createLocalWorkspaceBackend } from "../workspace/local-workspace-backend.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import { buildSymphonyTrackerIssue } from "./build-symphony-tracker-issue.js";
 import { buildSymphonyWorkflowConfig } from "./build-symphony-workflow-config.js";
+import { createTestWorkspaceBackend } from "./create-test-workspace-backend.js";
 
 export type SymphonyRuntimeCompositionHarness = {
   cleanup(): Promise<void>;
@@ -86,7 +86,7 @@ export async function createSymphonyRuntimeCompositionHarness(input: {
   const runtime = createSymphonyRuntime({
     workflowConfig,
     tracker,
-    workspaceBackend: createLocalWorkspaceBackend({
+    workspaceBackend: createTestWorkspaceBackend({
       commandRunner: async () => ({
         exitCode: 0,
         stdout: "",
@@ -120,9 +120,5 @@ export async function createSymphonyRuntimeCompositionHarness(input: {
 function hostPathForWorkspace(
   workspace: Parameters<AgentRuntime["startRun"]>[0]["workspace"]
 ): string {
-  if (workspace.executionTarget.kind === "host_path") {
-    return workspace.executionTarget.path;
-  }
-
-  throw new TypeError("Expected a local prepared workspace.");
+  return workspace.executionTarget.hostPath ?? workspace.executionTarget.workspacePath;
 }

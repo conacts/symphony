@@ -23,23 +23,23 @@ describe("symphony runtime contracts", () => {
             issueId: "issue-1",
             issueIdentifier: "COL-157",
             state: "In Progress",
-            workerHost: "local",
+            workerHost: "docker-host",
             workspacePath: "/tmp/COL-157",
             sessionId: "session-1",
             workspace: {
-              backendKind: "local",
-              workerHost: "local",
+              backendKind: "docker",
+              workerHost: "docker-host",
               prepareDisposition: "reused",
-              executionTargetKind: "host_path",
-              materializationKind: "directory",
+              executionTargetKind: "container",
+              materializationKind: "bind_mount",
               hostRepoMetadataAvailable: true,
-              containerDisposition: "not_applicable",
-              networkDisposition: "not_applicable",
+              containerDisposition: "reused",
+              networkDisposition: "reused",
               hostPath: "/tmp/COL-157",
-              runtimePath: "/tmp/COL-157",
-              containerId: null,
-              containerName: null,
-              networkName: null,
+              runtimePath: "/home/agent/workspace",
+              containerId: "container-157",
+              containerName: "symphony-col-157",
+              networkName: "symphony-network-col-157",
               services: [],
               envBundleSummary: {
                 source: "ambient",
@@ -80,21 +80,28 @@ describe("symphony runtime contracts", () => {
                   }
                 ]
               },
-              path: "/tmp/COL-157",
+              path: null,
               executionTarget: {
-                kind: "host_path",
-                path: "/tmp/COL-157"
+                kind: "container",
+                workspacePath: "/home/agent/workspace",
+                containerId: "container-157",
+                containerName: "symphony-col-157",
+                hostPath: "/tmp/COL-157"
               },
               materialization: {
-                kind: "directory",
-                hostPath: "/tmp/COL-157"
+                kind: "bind_mount",
+                hostPath: "/tmp/COL-157",
+                containerPath: "/home/agent/workspace"
               }
             },
             launchTarget: {
-              kind: "host_path",
+              kind: "container",
               hostLaunchPath: "/tmp/COL-157",
               hostWorkspacePath: "/tmp/COL-157",
-              runtimeWorkspacePath: "/tmp/COL-157"
+              runtimeWorkspacePath: "/home/agent/workspace",
+              containerId: "container-157",
+              containerName: "symphony-col-157",
+              shell: "sh"
             },
             turnCount: 3,
             lastEvent: "notification",
@@ -151,19 +158,19 @@ describe("symphony runtime contracts", () => {
         issueId: "issue-1",
         status: "running",
         workspace: {
-          backendKind: "local",
-          workerHost: "local",
+          backendKind: "docker",
+          workerHost: "docker-host",
           prepareDisposition: "reused",
-          executionTargetKind: "host_path",
-          materializationKind: "directory",
+          executionTargetKind: "container",
+          materializationKind: "bind_mount",
           hostRepoMetadataAvailable: true,
-          containerDisposition: "not_applicable",
-          networkDisposition: "not_applicable",
+          containerDisposition: "reused",
+          networkDisposition: "reused",
           hostPath: "/tmp/COL-157",
-          runtimePath: "/tmp/COL-157",
-          containerId: null,
-          containerName: null,
-          networkName: null,
+          runtimePath: "/home/agent/workspace",
+          containerId: "container-157",
+          containerName: "symphony-col-157",
+          networkName: "symphony-network-col-157",
           services: [],
           envBundleSummary: {
             source: "ambient",
@@ -204,14 +211,18 @@ describe("symphony runtime contracts", () => {
               }
             ]
           },
-          path: "/tmp/COL-157",
+          path: null,
           executionTarget: {
-            kind: "host_path",
-            path: "/tmp/COL-157"
+            kind: "container",
+            workspacePath: "/home/agent/workspace",
+            containerId: "container-157",
+            containerName: "symphony-col-157",
+            hostPath: "/tmp/COL-157"
           },
           materialization: {
-            kind: "directory",
-            hostPath: "/tmp/COL-157"
+            kind: "bind_mount",
+            hostPath: "/tmp/COL-157",
+            containerPath: "/home/agent/workspace"
           }
         },
         attempts: {
@@ -219,14 +230,17 @@ describe("symphony runtime contracts", () => {
           currentRetryAttempt: 0
         },
         running: {
-          workerHost: "local",
+          workerHost: "docker-host",
           workspacePath: "/tmp/COL-157",
           sessionId: "session-1",
           launchTarget: {
-            kind: "host_path",
+            kind: "container",
             hostLaunchPath: "/tmp/COL-157",
             hostWorkspacePath: "/tmp/COL-157",
-            runtimeWorkspacePath: "/tmp/COL-157"
+            runtimeWorkspacePath: "/home/agent/workspace",
+            containerId: "container-157",
+            containerName: "symphony-col-157",
+            shell: "sh"
           },
           turnCount: 3,
           state: "In Progress",

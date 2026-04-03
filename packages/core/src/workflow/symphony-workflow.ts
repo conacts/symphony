@@ -1,11 +1,6 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { SymphonyWorkflowError } from "./symphony-workflow-errors.js";
-import {
-  parseWorkflowFrontMatter,
-  splitWorkflowFrontMatter
-} from "./symphony-workflow-frontmatter.js";
 import {
   getNestedRecord,
   normalizeApprovalPolicy,
@@ -20,16 +15,6 @@ import {
   normalizeTrackerKind,
   resolveEnvToken
 } from "./symphony-workflow-values.js";
-
-export const defaultSymphonyWorkflowFileName = "WORKFLOW.md";
-
-export const defaultSymphonyPromptTemplate = `You are working on a Linear issue.
-
-Identifier: {{ issue.identifier }}
-Title: {{ issue.title }}
-
-Body:
-{{ issue.description }}`;
 
 export type SymphonyWorkflowEnv = Record<string, string | undefined>;
 
@@ -119,14 +104,6 @@ export type SymphonyResolvedWorkflowConfig = {
   github: SymphonyWorkflowGitHubConfig;
 };
 
-export type SymphonyLoadedWorkflow = {
-  rawConfig: Record<string, unknown>;
-  config: SymphonyResolvedWorkflowConfig;
-  prompt: string;
-  promptTemplate: string;
-  sourcePath: string | null;
-};
-
 export type SymphonyWorkflowLoadOptions = {
   env?: SymphonyWorkflowEnv;
   cwd?: string;
@@ -135,58 +112,7 @@ export type SymphonyWorkflowLoadOptions = {
 
 export { SymphonyWorkflowError } from "./symphony-workflow-errors.js";
 export { normalizeIssueState } from "./symphony-workflow-values.js";
-
-export async function loadSymphonyWorkflow(
-  workflowPath: string,
-  options: SymphonyWorkflowLoadOptions = {}
-): Promise<SymphonyLoadedWorkflow> {
-  try {
-    const content = await readFile(workflowPath, "utf8");
-    return parseSymphonyWorkflow(content, {
-      ...options,
-      sourcePath: path.resolve(workflowPath)
-    });
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      error.code === "ENOENT"
-    ) {
-      throw new SymphonyWorkflowError(
-        "missing_workflow_file",
-        `Missing workflow file: ${workflowPath}`
-      );
-    }
-
-    throw error;
-  }
-}
-
-export function defaultSymphonyWorkflowPath(cwd = process.cwd()): string {
-  return path.join(cwd, defaultSymphonyWorkflowFileName);
-}
-
-export function parseSymphonyWorkflow(
-  content: string,
-  options: SymphonyWorkflowLoadOptions & {
-    sourcePath?: string | null;
-  } = {}
-): SymphonyLoadedWorkflow {
-  const { frontMatter, promptLines } = splitWorkflowFrontMatter(content);
-  const rawConfig = parseWorkflowFrontMatter(frontMatter);
-  const prompt = promptLines.join("\n").trim();
-
-  return {
-    rawConfig,
-    config: resolveWorkflowConfig(rawConfig, options),
-    prompt,
-    promptTemplate:
-      prompt === "" ? defaultSymphonyPromptTemplate : prompt,
-    sourcePath: options.sourcePath ?? null
-  };
-}
-
-function resolveWorkflowConfig(
+export function resolveWorkflowConfig(
   rawConfig: Record<string, unknown>,
   options: SymphonyWorkflowLoadOptions
 ): SymphonyResolvedWorkflowConfig {
@@ -277,9 +203,7 @@ function normalizeTrackerConfig(
       null,
     dispatchableStates,
     terminalStates: normalizeStringArray(tracker.terminalStates, [
-      "Closed",
       "Canceled",
-      "Duplicate",
       "Done"
     ]),
     claimTransitionToState: normalizeOptionalString(

@@ -12,8 +12,8 @@ import type {
 } from "../runtime/agent-runtime.js";
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
 import { buildSymphonyTrackerIssue } from "../test-support/build-symphony-tracker-issue.js";
+import { createTestWorkspaceBackend } from "../test-support/create-test-workspace-backend.js";
 import { createMemorySymphonyTracker } from "../tracker/symphony-tracker.js";
-import { createLocalWorkspaceBackend } from "../workspace/local-workspace-backend.js";
 import { SymphonyWorkspaceError } from "../workspace/workspace-identity.js";
 
 function createAgentRuntime(
@@ -74,7 +74,7 @@ describe("symphony orchestrator", () => {
   it("dispatches eligible issues, updates snapshots, and schedules continuation retries", async () => {
     const workflowConfig = buildSymphonyWorkflowConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
-    const manager = createLocalWorkspaceBackend({
+    const manager = createTestWorkspaceBackend({
       commandRunner: async () => ({
         exitCode: 0,
         stdout: "",
@@ -139,9 +139,7 @@ describe("symphony orchestrator", () => {
 
     const runningSnapshot = orchestrator.snapshot();
     expect(runningSnapshot.running[0]?.sessionId).toBe("thread-live");
-    expect(runningSnapshot.running[0]?.workspace?.executionTarget.kind).toBe(
-      "host_path"
-    );
+    expect(runningSnapshot.running[0]?.workspace?.executionTarget.kind).toBe("container");
     expect(runningSnapshot.running[0]?.turnCount).toBe(1);
     expect(runningSnapshot.running[0]?.codexTotalTokens).toBe(16);
     expect(runningSnapshot.running[0]?.codexAppServerPid).toBe("4242");
@@ -346,7 +344,7 @@ describe("symphony orchestrator", () => {
           return;
         }
       },
-      workspaceBackend: createLocalWorkspaceBackend({
+      workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -385,7 +383,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceBackend: createLocalWorkspaceBackend({
+      workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -446,7 +444,7 @@ describe("symphony orchestrator", () => {
     });
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
     const hookEnvs: Array<Record<string, string>> = [];
-    const manager = createLocalWorkspaceBackend({
+    const manager = createTestWorkspaceBackend({
       commandRunner: async ({ env }) => {
         hookEnvs.push(env);
         return {
@@ -481,7 +479,7 @@ describe("symphony orchestrator", () => {
       launchTarget: null
     });
 
-    expect(hookEnvs).toHaveLength(4);
+    expect(hookEnvs).toHaveLength(3);
     expect(hookEnvs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -495,7 +493,7 @@ describe("symphony orchestrator", () => {
   it("tracks rate-limit payloads in the runtime snapshot", async () => {
     const workflowConfig = buildSymphonyWorkflowConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
-    const manager = createLocalWorkspaceBackend({
+    const manager = createTestWorkspaceBackend({
       commandRunner: async () => ({
         exitCode: 0,
         stdout: "",
@@ -576,7 +574,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceBackend: createLocalWorkspaceBackend({
+      workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -611,7 +609,7 @@ describe("symphony orchestrator", () => {
   it("schedules backoff retries after failures", async () => {
     const workflowConfig = buildSymphonyWorkflowConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
-    const manager = createLocalWorkspaceBackend({
+    const manager = createTestWorkspaceBackend({
       commandRunner: async () => ({
         exitCode: 0,
         stdout: "",
@@ -655,7 +653,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceBackend: createLocalWorkspaceBackend({
+      workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -727,7 +725,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceBackend: createLocalWorkspaceBackend({
+      workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -794,7 +792,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceBackend: createLocalWorkspaceBackend({
+      workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -872,7 +870,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceBackend: createLocalWorkspaceBackend({
+      workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",
@@ -916,7 +914,7 @@ describe("symphony orchestrator", () => {
     const orchestrator = new SymphonyOrchestrator({
       workflowConfig,
       tracker,
-      workspaceBackend: createLocalWorkspaceBackend({
+      workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
           exitCode: 0,
           stdout: "",

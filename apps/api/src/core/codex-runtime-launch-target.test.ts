@@ -7,43 +7,6 @@ import {
 const workspaceRoot = "/tmp/workspaces";
 
 describe("codex runtime launch target", () => {
-  it("maps host-path workspaces directly into host execution", () => {
-    expect(
-      resolveCodexRuntimeLaunchTarget(
-        {
-          issueIdentifier: "COL-123",
-          workspaceKey: "COL-123",
-          backendKind: "local",
-          prepareDisposition: "reused",
-          containerDisposition: "not_applicable",
-          networkDisposition: "not_applicable",
-          afterCreateHookOutcome: "skipped",
-          executionTarget: {
-            kind: "host_path",
-            path: "/tmp/symphony-COL-123"
-          },
-          materialization: {
-            kind: "directory",
-            hostPath: "/tmp/symphony-COL-123"
-          },
-          networkName: null,
-          services: [],
-          envBundle: ambientEnvBundle(),
-          manifestLifecycle: null,
-          path: "/tmp/symphony-COL-123",
-          created: false,
-          workerHost: null
-        },
-        workspaceRoot
-      )
-    ).toEqual({
-      kind: "host_path",
-      hostLaunchPath: "/tmp/symphony-COL-123",
-      hostWorkspacePath: "/tmp/symphony-COL-123",
-      runtimeWorkspacePath: "/tmp/symphony-COL-123"
-    });
-  });
-
   it("maps container workspaces into docker exec launch targets", () => {
     expect(
       resolveCodexRuntimeLaunchTarget(

@@ -34,7 +34,7 @@ afterEach(async () => {
   );
 });
 
-describe("local codex symphony agent runtime", () => {
+describe("docker codex symphony agent runtime", () => {
   it("runs a real app-server turn and records turn events", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-runtime-"));
     tempRoots.push(root);
@@ -48,6 +48,12 @@ describe("local codex symphony agent runtime", () => {
 
     const fakeCodex = path.join(root, "fake-codex.sh");
     await writeFakeCodexBinary(fakeCodex);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(
+      fakeDocker,
+      path.join(root, "fake-docker-log.json")
+    );
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
 
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
@@ -114,7 +120,7 @@ describe("local codex symphony agent runtime", () => {
         runId,
         attempt: 1,
         workflowConfig,
-        workspace: buildLocalPreparedWorkspace(issue.identifier, workspacePath)
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
     });
 
@@ -158,6 +164,12 @@ describe("local codex symphony agent runtime", () => {
 
     const fakeCodex = path.join(root, "fake-codex.sh");
     await writeFakeCodexBinary(fakeCodex);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(
+      fakeDocker,
+      path.join(root, "fake-docker-log.json")
+    );
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
 
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
@@ -248,7 +260,7 @@ describe("local codex symphony agent runtime", () => {
         runId,
         attempt: 1,
         workflowConfig,
-        workspace: buildLocalPreparedWorkspace(issue.identifier, workspacePath)
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
     });
 
@@ -303,6 +315,12 @@ done
 `
     );
     await chmod(fakeCodex, 0o755);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(
+      fakeDocker,
+      path.join(root, "fake-docker-log.json")
+    );
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
 
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
@@ -356,7 +374,7 @@ done
         runId: null,
         attempt: 1,
         workflowConfig,
-        workspace: buildLocalPreparedWorkspace(issue.identifier, workspacePath)
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
     });
 
@@ -489,12 +507,12 @@ done
     expect(exportPayload?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
     expect(exportPayload?.run.repoStart).toMatchObject({
       available: true,
-      source: "host_path",
+      source: "bind_mount",
       dirty: false
     });
     expect(exportPayload?.run.repoEnd).toMatchObject({
       available: true,
-      source: "host_path",
+      source: "bind_mount",
       dirty: false
     });
 
@@ -871,31 +889,36 @@ async function initializeGitWorkspace(workspacePath: string): Promise<void> {
   });
 }
 
-function buildLocalPreparedWorkspace(
+function buildBindMountPreparedWorkspace(
   issueIdentifier: string,
   workspacePath: string
 ) {
   return {
     issueIdentifier,
     workspaceKey: issueIdentifier,
-    backendKind: "local" as const,
+    backendKind: "docker" as const,
     prepareDisposition: "reused" as const,
-    containerDisposition: "not_applicable" as const,
-    networkDisposition: "not_applicable" as const,
+    containerDisposition: "reused" as const,
+    networkDisposition: "reused" as const,
     afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
-      kind: "host_path" as const,
-      path: workspacePath
+      kind: "container" as const,
+      workspacePath: "/home/agent/workspace",
+      containerId: "container-123",
+      containerName: "symphony-col-123-container",
+      hostPath: workspacePath,
+      shell: "sh"
     },
     materialization: {
-      kind: "directory" as const,
-      hostPath: workspacePath
+      kind: "bind_mount" as const,
+      hostPath: workspacePath,
+      containerPath: "/home/agent/workspace"
     },
-    networkName: null,
+    networkName: "symphony-network-col-123",
     services: [],
     envBundle: ambientEnvBundle(),
     manifestLifecycle: null,
-    path: workspacePath,
+    path: null,
     created: false,
     workerHost: null
   };

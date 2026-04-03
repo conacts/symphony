@@ -66,7 +66,7 @@ describe("codex app server client", () => {
 
     await expect(
       CodexAppServerClient.startSession({
-        launchTarget: buildHostLaunchTarget(workspaceRoot),
+        launchTarget: buildContainerLaunchTarget(workspaceRoot),
         env: defaultLaunchEnv(),
         hostCommandEnvSource: defaultHostCommandEnvSource(),
         workflowConfig,
@@ -82,7 +82,7 @@ describe("codex app server client", () => {
 
     await expect(
       CodexAppServerClient.startSession({
-        launchTarget: buildHostLaunchTarget(outsideWorkspace),
+        launchTarget: buildContainerLaunchTarget(outsideWorkspace),
         env: defaultLaunchEnv(),
         hostCommandEnvSource: defaultHostCommandEnvSource(),
         workflowConfig,
@@ -101,7 +101,7 @@ describe("codex app server client", () => {
 
     await expect(
       CodexAppServerClient.startSession({
-        launchTarget: buildHostLaunchTarget(symlinkWorkspace),
+        launchTarget: buildContainerLaunchTarget(symlinkWorkspace),
         env: defaultLaunchEnv(),
         hostCommandEnvSource: defaultHostCommandEnvSource(),
         workflowConfig,
@@ -162,7 +162,7 @@ done
     };
 
     const session = await CodexAppServerClient.startSession({
-      launchTarget: buildHostLaunchTarget(scenario.workspacePath),
+      launchTarget: buildContainerLaunchTarget(scenario.workspacePath),
       env: defaultLaunchEnv(),
       hostCommandEnvSource: defaultHostCommandEnvSource(),
       workflowConfig: scenario.workflowConfig,
@@ -852,11 +852,50 @@ async function createScenario(input: {
   const workspaceRoot = path.join(input.root, "workspaces");
   const workspacePath = path.join(workspaceRoot, "COL-123");
   const fakeCodex = path.join(input.root, "fake-codex.sh");
+  const fakeDocker = path.join(input.root, "docker");
 
   await mkdir(workspacePath, {
     recursive: true
   });
   await writeExecutable(fakeCodex, input.script);
+  await writeExecutable(
+    fakeDocker,
+    `#!/bin/sh
+set -eu
+if [ "$1" != "exec" ]; then
+  echo "unexpected docker command: $1" >&2
+  exit 99
+fi
+shift
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -i)
+      shift
+      ;;
+    --env)
+      export "$2"
+      shift 2
+      ;;
+    --workdir)
+      shift 2
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+shift
+shell_bin="$1"
+shift
+if [ "$1" != "-lc" ]; then
+  echo "unexpected docker shell args" >&2
+  exit 98
+fi
+shift
+exec "$shell_bin" -lc "$1"
+`
+  );
+  process.env.PATH = `${input.root}:${originalPath ?? ""}`;
   const baseWorkflowConfig = buildSymphonyRuntimeWorkflowConfig(input.root);
   const overrides = input.workflowOverrides ?? {};
 
@@ -923,7 +962,7 @@ async function startSessionForScenario(
   session: CodexAppServerSession;
 }> {
   const session = await CodexAppServerClient.startSession({
-    launchTarget: buildHostLaunchTarget(scenario.workspacePath),
+    launchTarget: buildContainerLaunchTarget(scenario.workspacePath),
     env: defaultLaunchEnv(),
     hostCommandEnvSource: defaultHostCommandEnvSource(),
     workflowConfig: scenario.workflowConfig,
@@ -985,15 +1024,6 @@ function runTurnForScenario(
   return {
     messages,
     promise
-  };
-}
-
-function buildHostLaunchTarget(workspacePath: string) {
-  return {
-    kind: "host_path" as const,
-    hostLaunchPath: workspacePath,
-    hostWorkspacePath: workspacePath,
-    runtimeWorkspacePath: workspacePath
   };
 }
 

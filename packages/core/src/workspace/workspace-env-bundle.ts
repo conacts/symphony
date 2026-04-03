@@ -24,13 +24,6 @@ export function resolvePreparedWorkspaceEnvBundle(input: {
     return buildAmbientWorkspaceEnvBundle(input.environmentSource);
   }
 
-  if (
-    input.backendKind === "local" &&
-    manifestInjectsProvisionedServiceBindings(input.runtimeManifest)
-  ) {
-    return buildAmbientWorkspaceEnvBundle(input.environmentSource);
-  }
-
   return resolveSymphonyRuntimeEnvBundle({
     manifest: input.runtimeManifest.manifest,
     repoRoot: input.runtimeManifest.repoRoot,
@@ -87,12 +80,4 @@ export function workspaceEnvForCleanup(
   fallbackEnv: Record<string, string | undefined> | undefined
 ): Record<string, string | undefined> | undefined {
   return workspace ? workspace.envBundle.values : fallbackEnv;
-}
-
-function manifestInjectsProvisionedServiceBindings(
-  runtimeManifest: SymphonyLoadedRuntimeManifest
-): boolean {
-  return Object.values(runtimeManifest.manifest.env.inject).some(
-    (binding) => binding.kind === "service"
-  );
 }

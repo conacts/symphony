@@ -208,12 +208,10 @@ describe("@symphony/api app", () => {
 
     expect(runtimeIssueResponse.status).toBe(200);
     expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");
-    expect(runtimeIssuePayload.data.workspace.backendKind).toBe("local");
+    expect(runtimeIssuePayload.data.workspace.backendKind).toBe("docker");
     expect(runtimeIssuePayload.data.workspace.workerHost).toBeNull();
-    expect(runtimeIssuePayload.data.workspace.path).toContain("/symphony-COL-123");
-    expect(runtimeIssuePayload.data.workspace.executionTarget?.kind).toBe(
-      "host_path"
-    );
+    expect(runtimeIssuePayload.data.workspace.hostPath).toContain("/symphony-COL-123");
+    expect(runtimeIssuePayload.data.workspace.executionTarget?.kind).toBe("container");
     expect(runtimeIssuePayload.data.tracked.url).toBe(
       "https://linear.app/coldets/issue/col-123"
     );

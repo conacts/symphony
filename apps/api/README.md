@@ -4,7 +4,7 @@ Thin runtime app boundary for the Symphony developer control plane.
 
 ## Owns
 
-- App-boundary env loading for local runtime invocation.
+- App-boundary runtime env validation for direct runtime invocation.
 - Hono route composition, startup, websocket wiring, and runtime-specific adapters.
 - The Docker-backed runtime launcher for the Symphony control plane.
 
@@ -23,8 +23,8 @@ Start the runtime directly with:
 pnpm --filter @symphony/api dev
 ```
 
-For local invocation, the app boundary can still source env from `apps/api` through
-`@symphony/env`. That is a launcher convenience, not the admitted orchestration contract.
+Direct runtime invocation must provide explicit env. That is a launcher concern, not the admitted
+repo orchestration contract.
 
 Minimum env:
 
@@ -65,11 +65,7 @@ pnpm --filter @symphony/api dev
 This app owns the TypeScript HTTP and websocket surfaces, DB-backed observability, autonomous
 polling, real Linear integration, and the Docker-backed Codex execution path.
 
-The remaining work is contract hardening and cleanup rather than basic runtime wiring:
-
-- tightening the repo admission and prompt contract paths
-- removing remaining legacy local/worktree assumptions
-- keeping the dashboard off the critical path while the orchestration core hardens
+The remaining work is package separation and boundary hardening rather than basic runtime wiring.
 
 For the current operator/runtime story, see
 `../../docs/architecture/symphony-runtime-operations.md`.

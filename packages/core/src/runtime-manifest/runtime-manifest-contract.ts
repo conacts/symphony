@@ -171,7 +171,7 @@ export type SymphonyRuntimeManifestLoadOptions = {
 
 export type SymphonyRuntimeEnvironmentSource = Record<string, string | undefined>;
 
-export type SymphonyRuntimeEnvironmentBackendKind = "local" | "docker";
+export type SymphonyRuntimeEnvironmentBackendKind = "docker";
 
 export type SymphonyRuntimeEnvironmentContext = {
   issueId: string | null;

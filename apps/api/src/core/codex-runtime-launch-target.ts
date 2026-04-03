@@ -11,15 +11,6 @@ export function resolveCodexRuntimeLaunchTarget(
   workspace: PreparedWorkspace,
   workspaceRoot: string
 ): CodexRuntimeLaunchTarget {
-  if (workspace.executionTarget.kind === "host_path") {
-    return {
-      kind: "host_path",
-      hostLaunchPath: workspace.executionTarget.path,
-      hostWorkspacePath: workspace.executionTarget.path,
-      runtimeWorkspacePath: workspace.executionTarget.path
-    };
-  }
-
   const hostWorkspacePath =
     workspace.executionTarget.hostPath ??
     (workspace.materialization.kind === "bind_mount"

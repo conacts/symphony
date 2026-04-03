@@ -75,14 +75,16 @@ export type WorkspacePrepareInput = {
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
 } & WorkspaceBackendRunnerOptions;
 
-export type WorkspaceBackendKind = "local" | "docker";
+export type WorkspaceBackendKind = "docker";
 export type WorkspacePrepareDisposition = "created" | "reused";
 export type WorkspaceContainerDisposition =
   | "started"
   | "reused"
-  | "recreated"
+  | "recreated";
+export type WorkspaceNetworkDisposition =
+  | "created"
+  | "reused"
   | "not_applicable";
-export type WorkspaceNetworkDisposition = "created" | "reused" | "not_applicable";
 export type WorkspaceNetworkRemovalDisposition =
   | "removed"
   | "missing"
@@ -92,10 +94,7 @@ export type WorkspaceServiceDisposition = "created" | "reused" | "recreated";
 export type WorkspaceServiceRemovalDisposition = "removed" | "missing";
 export type WorkspaceHookKind = "after_create" | "before_run" | "after_run" | "before_remove";
 export type WorkspaceHookOutcome = "skipped" | "completed" | "failed_ignored";
-export type WorkspaceCleanupContainerDisposition =
-  | "removed"
-  | "missing"
-  | "not_applicable";
+export type WorkspaceCleanupContainerDisposition = "removed" | "missing";
 export type WorkspaceRemovalDisposition = "removed" | "missing";
 
 export type WorkspaceEnvBundleSummary = {
@@ -136,25 +135,16 @@ export type WorkspaceCleanupService = {
   removalDisposition: WorkspaceServiceRemovalDisposition;
 };
 
-export type WorkspaceExecutionTarget =
-  | {
-      kind: "host_path";
-      path: string;
-    }
-  | {
-      kind: "container";
-      workspacePath: string;
-      containerId: string | null;
-      containerName: string | null;
-      hostPath: string | null;
-      shell: string;
-    };
+export type WorkspaceExecutionTarget = {
+  kind: "container";
+  workspacePath: string;
+  containerId: string | null;
+  containerName: string | null;
+  hostPath: string | null;
+  shell: string;
+};
 
 export type WorkspaceMaterializationMetadata =
-  | {
-      kind: "directory";
-      hostPath: string;
-    }
   | {
       kind: "bind_mount";
       hostPath: string;

@@ -8,7 +8,7 @@ Accepted
 
 ## Context
 
-The previous `WORKFLOW.md` model mixed two unrelated responsibilities:
+The previous prompt contract model mixed two unrelated responsibilities:
 
 - platform/runtime configuration
 - agent prompt content

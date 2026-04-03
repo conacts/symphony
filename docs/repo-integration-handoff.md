@@ -44,11 +44,6 @@ resume work because of a mistaken human state transition.
 
 `Approved` remains an active state only for merge execution.
 
-### Duplicate
-
-`Duplicate` is not part of the desired product shape. The current direction is to avoid supporting
-it as a distinct product concept.
-
 ## Execution Model
 
 Docker-backed execution is mandatory.

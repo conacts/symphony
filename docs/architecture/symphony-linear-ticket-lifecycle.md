@@ -34,10 +34,6 @@ The goal is to keep execution boundaries explicit:
 - `Done`
 - `Canceled`
 
-The platform does not rely on `Duplicate` as part of the supported orchestration contract. If a
-team still carries `Duplicate` in Linear, treat it as human workflow outside the explicit Symphony
-state model until that workflow is cleaned up.
-
 ## State Meanings
 
 ### `Backlog`
