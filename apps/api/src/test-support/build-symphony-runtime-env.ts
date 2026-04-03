@@ -4,10 +4,11 @@ export function buildSymphonyRuntimeEnv(
   overrides: Partial<
     Record<
       | "PORT"
-      | "WORKFLOW_PATH"
       | "SYMPHONY_DB_FILE"
       | "SYMPHONY_SOURCE_REPO"
-      | "SYMPHONY_WORKSPACE_BACKEND"
+      | "SYMPHONY_TRACKER_KIND"
+      | "SYMPHONY_LINEAR_PROJECT_SLUG"
+      | "SYMPHONY_WORKSPACE_ROOT"
       | "SYMPHONY_DOCKER_WORKSPACE_IMAGE"
       | "SYMPHONY_DOCKER_MATERIALIZATION_MODE"
       | "SYMPHONY_DOCKER_WORKSPACE_PATH"

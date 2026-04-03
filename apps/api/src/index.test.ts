@@ -16,10 +16,8 @@ describe("@symphony/api scaffold", () => {
 
     expect(runtime.packageName).toBe("@symphony/api");
     expect(runtime.env.port).toBe(4_500);
-    expect(runtime.env.workflowPath).toBe("/tmp/WORKFLOW.md");
     expect(runtime.env.dbFile).toBe("/tmp/symphony.db");
     expect(runtime.env.sourceRepo).toBe("/tmp/source-repo");
-    expect(runtime.env.workspaceBackend).toBe("docker");
     expect(runtime.env.dockerWorkspaceImage).toBeNull();
     expect(runtime.env.dockerMaterializationMode).toBe("bind_mount");
     expect(runtime.env.dockerWorkspacePath).toBeNull();
@@ -35,7 +33,8 @@ describe("@symphony/api scaffold", () => {
       "@symphony/core",
       "@symphony/contracts",
       "@symphony/db",
-      "@symphony/logger"
+      "@symphony/logger",
+      "@symphony/runtime-contract"
     ]);
   });
 
@@ -64,11 +63,12 @@ describe("@symphony/api scaffold", () => {
       SYMPHONY_SOURCE_REPO: "/tmp/source-repo"
     });
     expect(buildSymphonyHostCommandEnvironmentSource(environmentSource)).toEqual({
-      OPENAI_API_KEY: "test-openai-api-key"
+      OPENAI_API_KEY: "test-openai-api-key",
+      GITHUB_TOKEN: "test-github-token"
     });
   });
 
-  it("supports disabling explicit cors origins and falling back to local-network defaults", () => {
+  it("supports disabling explicit cors origins while preserving an explicit empty list", () => {
     const env = loadSymphonyRuntimeAppEnv(
       buildSymphonyRuntimeEnv({
         SYMPHONY_ALLOWED_ORIGINS: ""
@@ -85,7 +85,6 @@ describe("@symphony/api scaffold", () => {
       })
     );
 
-    expect(fallback.workspaceBackend).toBe("docker");
     expect(fallback.dockerWorkspaceImage).toBeNull();
 
     const env = loadSymphonyRuntimeAppEnv(
@@ -98,7 +97,6 @@ describe("@symphony/api scaffold", () => {
       })
     );
 
-    expect(env.workspaceBackend).toBe("docker");
     expect(env.dockerWorkspaceImage).toBe(defaultSymphonyDockerWorkspaceImage);
     expect(env.dockerMaterializationMode).toBe("volume");
     expect(env.dockerWorkspacePath).toBe("/home/agent/workspace");

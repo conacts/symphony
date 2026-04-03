@@ -13,7 +13,7 @@ import type {
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
 import { buildSymphonyTrackerIssue } from "../test-support/build-symphony-tracker-issue.js";
 import { createMemorySymphonyTracker } from "../tracker/symphony-tracker.js";
-import { createLocalWorkspaceBackend } from "../workspace/workspace-backend.js";
+import { createLocalWorkspaceBackend } from "../workspace/local-workspace-backend.js";
 import { SymphonyWorkspaceError } from "../workspace/workspace-identity.js";
 
 function createAgentRuntime(

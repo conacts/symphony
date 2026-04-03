@@ -26,6 +26,9 @@
       "path": "../../packages/core"
     },
     {
+      "path": "../../packages/runtime-contract"
+    },
+    {
       "path": "../../packages/test-support"
     }
   ],

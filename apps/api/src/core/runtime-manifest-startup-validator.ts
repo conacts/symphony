@@ -1,10 +1,9 @@
 import {
   loadSymphonyRuntimeManifest,
   resolveSymphonyRuntimeHostEnv,
-  resolveSymphonyRuntimeRepoEnv,
   type SymphonyLoadedRuntimeManifest,
   type SymphonyRuntimeEnvironmentSource
-} from "@symphony/core/runtime-manifest";
+} from "@symphony/runtime-contract";
 
 export type SymphonySourceRepoRuntimeManifestSummary = {
   sourceRepo: string;
@@ -14,10 +13,6 @@ export type SymphonySourceRepoRuntimeManifestSummary = {
   injectedEnvCount: number;
   requiredHostEnv: string[];
   optionalHostEnv: string[];
-  repoEnvPath: string | null;
-  projectedRepoEnv: string[];
-  requiredRepoEnv: string[];
-  optionalRepoEnv: string[];
 };
 
 export type SymphonyValidatedSourceRepoRuntimeManifest = {
@@ -27,8 +22,7 @@ export type SymphonyValidatedSourceRepoRuntimeManifest = {
 
 export async function validateSourceRepoRuntimeManifest(
   sourceRepo: string,
-  environmentSource: SymphonyRuntimeEnvironmentSource,
-  resolveRepoEnv = false
+  environmentSource: SymphonyRuntimeEnvironmentSource
 ): Promise<SymphonyValidatedSourceRepoRuntimeManifest> {
   const runtimeManifest = await loadSymphonyRuntimeManifest({
     repoRoot: sourceRepo
@@ -38,13 +32,6 @@ export async function validateSourceRepoRuntimeManifest(
     environmentSource,
     manifestPath: runtimeManifest.manifestPath
   });
-  const resolvedRepoEnv = resolveRepoEnv
-    ? resolveSymphonyRuntimeRepoEnv({
-        manifest: runtimeManifest.manifest,
-        repoRoot: sourceRepo,
-        manifestPath: runtimeManifest.manifestPath
-      })
-    : null;
 
   return {
     runtimeManifest,
@@ -55,11 +42,7 @@ export async function validateSourceRepoRuntimeManifest(
       serviceCount: Object.keys(runtimeManifest.manifest.services).length,
       injectedEnvCount: Object.keys(runtimeManifest.manifest.env.inject).length,
       requiredHostEnv: Object.keys(resolvedHostEnv.required),
-      optionalHostEnv: Object.keys(resolvedHostEnv.optional),
-      repoEnvPath: resolvedRepoEnv?.path ?? null,
-      projectedRepoEnv: Object.keys(resolvedRepoEnv?.projected ?? {}),
-      requiredRepoEnv: Object.keys(resolvedRepoEnv?.required ?? {}),
-      optionalRepoEnv: Object.keys(resolvedRepoEnv?.optional ?? {})
+      optionalHostEnv: Object.keys(resolvedHostEnv.optional)
     }
   };
 }

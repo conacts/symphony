@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { loadEnv } from "@symphony/env";
 import {
   buildSymphonyHostCommandEnvironmentSource,
   buildSymphonyRuntimeEnvironmentSource,
@@ -9,15 +6,6 @@ import {
 } from "./core/env.js";
 import { loadDefaultSymphonyRuntimeAppServices } from "./core/runtime-services.js";
 import { createSymphonyRuntimeServer } from "./server.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const packageRoot = path.resolve(__dirname, "..");
-
-void loadEnv({
-  cwd: packageRoot,
-  quiet: true
-});
 
 async function main() {
   const env = loadSymphonyRuntimeAppEnv();
@@ -30,7 +18,7 @@ async function main() {
   );
   services.logger.info("Starting Symphony runtime server", {
     port: env.port,
-    workflowPath: env.workflowPath,
+    sourceRepo: env.sourceRepo,
     dbFile: env.dbFile,
     logLevel: env.logLevel
   });

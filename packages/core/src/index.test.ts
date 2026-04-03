@@ -4,7 +4,6 @@ import {
   createCodexAgentRuntime,
   createDockerWorkspaceBackend,
   createGitHubReviewPublisher,
-  createLocalWorkspaceBackend,
   createSymphonyRuntime,
   type AgentRuntime
 } from "./index.js";
@@ -13,6 +12,7 @@ import { createSymphonyRuntimeCompositionHarness } from "./test-support/create-s
 import { buildSymphonyTrackerIssue } from "./test-support/build-symphony-tracker-issue.js";
 import { buildSymphonyRuntimeConfig } from "./test-support/build-symphony-runtime-config.js";
 import { buildSymphonyWorkflowConfig } from "./test-support/build-symphony-workflow-config.js";
+import { createLocalWorkspaceBackend } from "./workspace/local-workspace-backend.js";
 
 const inertTracker = {
   async fetchCandidateIssues() {
@@ -41,7 +41,6 @@ describe("@symphony/core scaffold", () => {
       createCodexAgentRuntime,
       createDockerWorkspaceBackend,
       createGitHubReviewPublisher,
-      createLocalWorkspaceBackend,
       createSymphonyRuntime
     });
     expect("SYMPHONY_CORE_PACKAGE_NAME" in core).toBe(false);

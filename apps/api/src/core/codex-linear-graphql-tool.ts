@@ -24,7 +24,7 @@ export function buildLinearGraphqlToolExecutor(
     if (!workflowConfig.tracker.apiKey) {
       return buildToolErrorResult({
         message:
-          "Symphony is missing Linear auth. Set `linear.api_key` in `WORKFLOW.md` or export `LINEAR_API_KEY`."
+          "Symphony is missing Linear auth. Export `LINEAR_API_KEY` for the runtime policy config."
       });
     }
 

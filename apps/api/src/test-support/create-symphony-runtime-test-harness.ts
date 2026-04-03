@@ -2,7 +2,6 @@ import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import {
-  type SymphonyLoadedWorkflow,
   type SymphonyResolvedWorkflowConfig
 } from "@symphony/core";
 import { createSymphonyForensicsReadModel } from "@symphony/core/forensics";
@@ -30,7 +29,10 @@ import {
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import { createSymphonyGitHubReviewIngressService } from "../core/github-review-ingress.js";
-import type { SymphonyRuntimeAppServices } from "../core/runtime-services.js";
+import type {
+  SymphonyLoadedRuntimeWorkflow,
+  SymphonyRuntimeAppServices
+} from "../core/runtime-services.js";
 import { createSymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 
 export type SymphonyRuntimeTestHarness = {
@@ -39,7 +41,7 @@ export type SymphonyRuntimeTestHarness = {
   root: string;
   services: SymphonyRuntimeAppServices;
   snapshot: SymphonyOrchestratorSnapshot;
-  workflow: SymphonyLoadedWorkflow;
+  workflow: SymphonyLoadedRuntimeWorkflow;
   workflowConfig: SymphonyResolvedWorkflowConfig;
 };
 
@@ -272,6 +274,12 @@ export async function createSymphonyRuntimeTestHarness(input: {
   const services: SymphonyRuntimeAppServices = {
     logger: createSilentSymphonyLogger("@symphony/api.test"),
     workflow,
+    promptContract: {
+      repoRoot: root,
+      promptPath: path.join(root, ".symphony", "prompt.md"),
+      template: workflow.promptTemplate,
+      variables: []
+    },
     workflowConfig,
     tracker,
     orchestrator: {
@@ -399,12 +407,12 @@ export async function createSymphonyRuntimeTestHarness(input: {
 
 function buildSymphonyLoadedWorkflow(
   config: SymphonyResolvedWorkflowConfig
-): SymphonyLoadedWorkflow {
+): SymphonyLoadedRuntimeWorkflow {
   return {
     rawConfig: {},
     config,
     prompt: "Prompt",
     promptTemplate: "Prompt",
-    sourcePath: null
+    sourcePath: "/tmp/.symphony/prompt.md"
   };
 }

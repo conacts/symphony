@@ -1,10 +1,8 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
-  buildSymphonyWorkflowConfig,
   createTempSymphonySqliteHarness,
-  renderSymphonyRuntimeManifestSource,
-  renderSymphonyWorkflowMarkdown
+  renderSymphonyRuntimeManifestSource
 } from "@symphony/test-support";
 import type { SymphonyResolvedWorkflowConfig } from "@symphony/core";
 import type { SymphonyRuntimeAppEnv } from "../core/env.js";
@@ -12,11 +10,12 @@ import {
   loadDefaultSymphonyRuntimeAppServices,
   type SymphonyRuntimeAppServices
 } from "../core/runtime-services.js";
+import { loadSymphonyRuntimeWorkflowConfig } from "../core/runtime-policy-config.js";
 
 export type SymphonyRuntimeAppServicesHarness = {
   cleanup(): Promise<void>;
   root: string;
-  workflowPath: string;
+  promptPath: string;
   workflowConfig: SymphonyResolvedWorkflowConfig;
   env: SymphonyRuntimeAppEnv;
   environmentSource: Record<string, string | undefined>;
@@ -31,7 +30,6 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
   promptTemplate?: string;
   rootPrefix?: string;
   runtimeManifestSource?: string | null;
-  workflowConfig?: Partial<SymphonyResolvedWorkflowConfig>;
 } = {}): Promise<SymphonyRuntimeAppServicesHarness> {
   const sqlite = await createTempSymphonySqliteHarness({
     rootPrefix: input.rootPrefix ?? "symphony-runtime-services-"
@@ -39,7 +37,7 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
   const root = sqlite.root;
   const workspaceRoot = path.join(root, "workspaces");
   const sourceRepo = path.join(root, "source-repo");
-  const workflowPath = path.join(root, "WORKFLOW.md");
+  const promptPath = path.join(sourceRepo, ".symphony", "prompt.md");
   let services: SymphonyRuntimeAppServices | null = null;
 
   try {
@@ -47,76 +45,10 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       recursive: true
     });
 
-    const baseWorkflowConfig = buildSymphonyWorkflowConfig();
-    const workflowConfig = {
-      ...baseWorkflowConfig,
-      tracker: {
-        ...baseWorkflowConfig.tracker,
-        kind: "memory" as const,
-        apiKey: null,
-        projectSlug: null,
-        teamKey: null,
-        ...input.workflowConfig?.tracker
-      },
-      polling: {
-        ...baseWorkflowConfig.polling,
-        intervalMs: 50,
-        ...input.workflowConfig?.polling
-      },
-      workspace: {
-        ...baseWorkflowConfig.workspace,
-        root: workspaceRoot,
-        ...input.workflowConfig?.workspace
-      },
-      worker: {
-        ...baseWorkflowConfig.worker,
-        ...input.workflowConfig?.worker
-      },
-      agent: {
-        ...baseWorkflowConfig.agent,
-        ...input.workflowConfig?.agent
-      },
-      codex: {
-        ...baseWorkflowConfig.codex,
-        ...input.workflowConfig?.codex
-      },
-      hooks: {
-        ...baseWorkflowConfig.hooks,
-        ...input.workflowConfig?.hooks
-      },
-      observability: {
-        ...baseWorkflowConfig.observability,
-        ...input.workflowConfig?.observability
-      },
-      server: {
-        ...baseWorkflowConfig.server,
-        ...input.workflowConfig?.server
-      },
-      github: {
-        ...baseWorkflowConfig.github,
-        repo: "openai/symphony",
-        webhookSecret: "secret",
-        statePath: path.join(root, "github-state.json"),
-        allowedReviewLogins: ["reviewer"],
-        allowedReworkCommentLogins: ["reviewer"],
-        ...input.workflowConfig?.github
-      }
-    } satisfies SymphonyResolvedWorkflowConfig;
-
-    await writeFile(
-      workflowPath,
-      renderSymphonyWorkflowMarkdown({
-        config: workflowConfig,
-        promptTemplate: input.promptTemplate ?? "Prompt body"
-      })
-    );
-
     const env = {
       port: 4_400,
-      workflowPath,
       dbFile: sqlite.dbFile,
       sourceRepo,
-      workspaceBackend: "docker" as const,
       dockerWorkspaceImage: null,
       dockerMaterializationMode: "bind_mount" as const,
       dockerWorkspacePath: null,
@@ -132,6 +64,7 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       await mkdir(path.join(env.sourceRepo, ".symphony"), {
         recursive: true
       });
+      await writeFile(promptPath, `${input.promptTemplate ?? "Prompt body"}\n`);
 
       if (input.runtimeManifestSource !== null) {
         await writeFile(
@@ -144,8 +77,19 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
     const environmentSource = {
       LINEAR_API_KEY: env.linearApiKey,
       SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
+      SYMPHONY_TRACKER_KIND: "memory",
+      SYMPHONY_WORKSPACE_ROOT: workspaceRoot,
+      SYMPHONY_POLL_INTERVAL_MS: "50",
+      SYMPHONY_GITHUB_REPOSITORY: "openai/symphony",
+      SYMPHONY_GITHUB_WEBHOOK_SECRET: "secret",
+      SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS: "reviewer",
+      SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS: "reviewer",
       ...input.environmentSource
     };
+    const workflowConfig = loadSymphonyRuntimeWorkflowConfig({
+      environmentSource,
+      cwd: root
+    });
     const hostCommandEnvSource = input.hostCommandEnvSource ?? {
       OPENAI_API_KEY: "test-openai-api-key"
     };
@@ -160,7 +104,7 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
 
     return {
       root,
-      workflowPath,
+      promptPath,
       workflowConfig,
       env,
       environmentSource,

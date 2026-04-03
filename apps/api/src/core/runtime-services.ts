@@ -2,10 +2,8 @@ import {
   createCodexAgentRuntime,
   createSymphonyRuntime,
   defaultSymphonyDockerWorkspacePreflightTimeoutMs,
-  loadSymphonyWorkflow,
   preflightSymphonyDockerWorkspaceImage,
   type SymphonyDockerWorkspacePreflightResult,
-  type SymphonyLoadedWorkflow,
   type SymphonyResolvedWorkflowConfig,
   type SymphonyRuntime as CoreSymphonyRuntime
 } from "@symphony/core";
@@ -37,6 +35,10 @@ import {
   type SymphonyRuntimeLogStore
 } from "@symphony/db";
 import {
+  loadSymphonyPromptContract,
+  type SymphonyLoadedPromptContract
+} from "@symphony/runtime-contract";
+import {
   createSymphonyLogger,
   type SymphonyLogger
 } from "@symphony/logger";
@@ -60,6 +62,7 @@ import {
   type SymphonyRuntimePollSchedulerSnapshot
 } from "./poll-scheduler.js";
 import { validateSourceRepoRuntimeManifest } from "./runtime-manifest-startup-validator.js";
+import { loadSymphonyRuntimeWorkflowConfig } from "./runtime-policy-config.js";
 import { createRuntimeWorkspaceBackend } from "./runtime-workspace-backend.js";
 
 export type SymphonyRuntimeOrchestratorPort = {
@@ -95,9 +98,18 @@ export type SymphonyRuntimeHealthPort = {
   snapshot(): SymphonyRuntimeHealthResult;
 };
 
+export type SymphonyLoadedRuntimeWorkflow = {
+  rawConfig: Record<string, never>;
+  config: SymphonyResolvedWorkflowConfig;
+  prompt: string;
+  promptTemplate: string;
+  sourcePath: string;
+};
+
 export type SymphonyRuntimeAppServices = {
   logger: SymphonyLogger;
-  workflow: SymphonyLoadedWorkflow;
+  workflow: SymphonyLoadedRuntimeWorkflow;
+  promptContract: SymphonyLoadedPromptContract;
   workflowConfig: SymphonyResolvedWorkflowConfig;
   tracker: SymphonyTracker;
   orchestrator: SymphonyRuntimeOrchestratorPort;
@@ -247,26 +259,38 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
 
   logger.info("Loading Symphony runtime services", {
-    workflowPath: env.workflowPath,
+    sourceRepo: env.sourceRepo,
     dbFile: env.dbFile,
     logLevel: env.logLevel
   });
 
-  const workflow = await loadSymphonyWorkflow(env.workflowPath, {
-    env: environmentSource
+  const workflowConfig = loadSymphonyRuntimeWorkflowConfig({
+    environmentSource,
+    cwd: process.cwd()
   });
-  logger.info("Loaded workflow definition", {
-    trackerKind: workflow.config.tracker.kind,
-    workspaceRoot: workflow.config.workspace.root,
-    pollIntervalMs: workflow.config.polling.intervalMs,
-    maxConcurrentAgents: workflow.config.agent.maxConcurrentAgents
+  const promptContract = loadSymphonyPromptContract({
+    repoRoot: env.sourceRepo ?? process.cwd()
+  });
+  const workflow: SymphonyLoadedRuntimeWorkflow = {
+    rawConfig: {},
+    config: workflowConfig,
+    prompt: promptContract.template.trim(),
+    promptTemplate: promptContract.template,
+    sourcePath: promptContract.promptPath
+  };
+
+  logger.info("Loaded runtime prompt contract and platform policy", {
+    trackerKind: workflowConfig.tracker.kind,
+    promptPath: promptContract.promptPath,
+    workspaceRoot: workflowConfig.workspace.root,
+    pollIntervalMs: workflowConfig.polling.intervalMs,
+    maxConcurrentAgents: workflowConfig.agent.maxConcurrentAgents
   });
 
   const validatedRuntimeManifest = env.sourceRepo
     ? await validateSourceRepoRuntimeManifest(
         env.sourceRepo,
-        environmentSource,
-        env.workspaceBackend === "docker"
+        environmentSource
       )
     : null;
 
@@ -313,12 +337,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
 
   const tracker =
-    workflow.config.tracker.kind === "linear"
+    workflowConfig.tracker.kind === "linear"
       ? createLinearSymphonyTracker({
-          config: workflow.config.tracker
+          config: workflowConfig.tracker
         })
       : createMemorySymphonyTracker([]);
-  if (workflow.config.tracker.kind === "memory") {
+  if (workflowConfig.tracker.kind === "memory") {
     logger.warn("Using in-memory tracker placeholder");
     await runtimeLogStore.record({
       level: "warn",
@@ -334,18 +358,15 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       eventType: "tracker_initialized",
       message: "Initialized Linear-backed tracker.",
       payload: {
-        teamKey: workflow.config.tracker.teamKey,
-        projectSlug: workflow.config.tracker.projectSlug
+        teamKey: workflowConfig.tracker.teamKey,
+        projectSlug: workflowConfig.tracker.projectSlug
       }
     });
   }
 
-  const dockerCodexAuth =
-    env.workspaceBackend === "docker"
-      ? resolveDockerCodexAuthContract(hostCommandEnvSource)
-      : null;
+  const dockerCodexAuth = resolveDockerCodexAuthContract(hostCommandEnvSource);
 
-  if (env.workspaceBackend === "docker" && dockerCodexAuth?.mode === "unavailable") {
+  if (dockerCodexAuth.mode === "unavailable") {
     throw new CodexAppServerError(
       "codex_auth_unavailable",
       "Docker-backed Symphony workspaces require host-owned Codex auth. Provide ~/.codex/auth.json (or $CODEX_HOME/auth.json) for subscription auth, or set OPENAI_API_KEY as a host-only fallback."
@@ -357,7 +378,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runtimeManifest: validatedRuntimeManifest?.runtimeManifest ?? null
   });
   const workspaceBackendPayload = {
-    workspaceRoot: workflow.config.workspace.root,
+    workspaceRoot: workflowConfig.workspace.root,
     ...workspaceBackendSelection.metadata,
     dockerCodexAuthMode: dockerCodexAuth?.mode ?? null
   };
@@ -370,7 +391,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       });
     } catch (error) {
       logger.error("Docker workspace backend preflight failed", {
-        workspaceRoot: workflow.config.workspace.root,
+        workspaceRoot: workflowConfig.workspace.root,
         ...workspaceBackendSelection.metadata,
         error
       });
@@ -397,7 +418,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   }
   const workspaceBackend = workspaceBackendSelection.backend;
   logger.info("Initialized workspace backend", {
-    workspaceRoot: workflow.config.workspace.root,
+    workspaceRoot: workflowConfig.workspace.root,
     ...workspaceBackendSelection.metadata,
     dockerPreflight
   });
@@ -432,7 +453,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       tracker,
       runJournal,
       runtimeLogs: runtimeLogStore,
-      workflowConfig: workflow.config,
+      workflowConfig,
       hostCommandEnvSource,
       codexHostLaunchEnv: dockerCodexAuth?.launchEnv ?? {},
       logger,
@@ -449,7 +470,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     })
   );
   const runtime = createSymphonyRuntime({
-    workflowConfig: workflow.config,
+    workflowConfig,
     tracker,
     workspaceBackend,
     observer,
@@ -509,21 +530,21 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           ready: true
         },
         poller:
-          pollScheduler?.snapshot() ?? buildIdlePollerSnapshot(workflow.config.polling.intervalMs)
+          pollScheduler?.snapshot() ?? buildIdlePollerSnapshot(workflowConfig.polling.intervalMs)
       };
     }
   };
 
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({
-    workflowConfig: workflow.config,
+    workflowConfig,
     reviewProcessor: new SymphonyGithubReviewProcessor({
-      workflowConfig: workflow.config,
+      workflowConfig,
       tracker,
       pullRequestResolver: {
         async fetchPullRequest(pullRequestUrl) {
           return fetchGitHubPullRequest(
             pullRequestUrl,
-            workflow.config.github.apiToken,
+            workflowConfig.github.apiToken,
             logger
           );
         },
@@ -532,7 +553,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
             repository,
             issueNumber,
             body,
-            apiToken: workflow.config.github.apiToken,
+            apiToken: workflowConfig.github.apiToken,
             logger
           });
         }
@@ -562,7 +583,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
       if (result.status !== "ignored" && issueIdentifier) {
         const trackedIssue = await tracker.fetchIssueByIdentifier(
-          workflow.config.tracker,
+          workflowConfig.tracker,
           issueIdentifier
         );
 
@@ -583,7 +604,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
 
   pollScheduler = new SymphonyRuntimePollScheduler({
-    intervalMs: workflow.config.polling.intervalMs,
+    intervalMs: workflowConfig.polling.intervalMs,
     logger: logger.child({
       component: "poller"
     }),
@@ -607,14 +628,15 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     eventType: "poller_started",
     message: "Started autonomous poll scheduler.",
     payload: {
-      intervalMs: workflow.config.polling.intervalMs
+      intervalMs: workflowConfig.polling.intervalMs
     }
   });
 
   return {
     logger,
     workflow,
-    workflowConfig: workflow.config,
+    promptContract,
+    workflowConfig,
     tracker,
     orchestrator: orchestratorPort,
     forensics,

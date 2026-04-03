@@ -22,7 +22,8 @@ export const SYMPHONY_RUNTIME_APP_BOUNDARY = {
     "@symphony/core",
     SYMPHONY_CONTRACTS_PACKAGE_NAME,
     "@symphony/db",
-    SYMPHONY_LOGGER_PACKAGE_NAME
+    SYMPHONY_LOGGER_PACKAGE_NAME,
+    "@symphony/runtime-contract"
   ]
 } as const;
 

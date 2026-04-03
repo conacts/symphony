@@ -113,9 +113,7 @@ describe("agent runtime facade", () => {
         "./github",
         "./orchestration",
         "./journal",
-        "./forensics",
-        "./runtime-manifest",
-        "./workspace/local"
+        "./forensics"
       ])
     );
   });

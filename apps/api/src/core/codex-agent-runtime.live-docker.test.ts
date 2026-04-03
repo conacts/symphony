@@ -12,7 +12,7 @@ import {
 import {
   normalizeSymphonyRuntimeManifest,
   type SymphonyLoadedRuntimeManifest
-} from "@symphony/core/runtime-manifest";
+} from "@symphony/runtime-contract";
 import {
   createSqliteSymphonyRunJournal,
   initializeSymphonyDb
@@ -351,13 +351,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
 
         await mkdir(workspaceRoot, { recursive: true });
         await mkdir(path.join(repoRoot, ".symphony"), { recursive: true });
-        await mkdir(path.join(repoRoot, ".coldets", "local"), { recursive: true });
         await mkdir(authDir, { recursive: true });
-        await writeFile(
-          path.join(repoRoot, ".coldets", "local", "resolved.env"),
-          "REPO_ONLY_SECRET=repo-secret\nOPTIONAL_REPO_VALUE=repo-optional\n",
-          "utf8"
-        );
         await writeFile(
           path.join(authDir, "auth.json"),
           '{"account":"chatgpt"}\n',
@@ -396,6 +390,8 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
           },
           env: {
             GITHUB_TOKEN: "host-github-token",
+            REPO_ONLY_SECRET: "repo-secret",
+            OPTIONAL_REPO_VALUE: "repo-optional",
             ...(dockerCodexAuth.launchEnv ?? {})
           }
         });
@@ -409,13 +405,6 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         ) as Record<string, string | boolean | null>;
 
         expect(workspace.envBundle.source).toBe("manifest");
-        expect(workspace.envBundle.summary.repoEnvPath).toBe(
-          path.join(repoRoot, ".coldets", "local", "resolved.env")
-        );
-        expect(workspace.envBundle.summary.projectedRepoKeys).toEqual([
-          "OPTIONAL_REPO_VALUE",
-          "REPO_ONLY_SECRET"
-        ]);
         expect(workspace.envBundle.values).toMatchObject({
           GITHUB_TOKEN: "host-github-token",
           CODEX_HOME: "/home/agent",
@@ -528,17 +517,12 @@ function buildLiveDockerContractManifest(
       workspace: {
         packageManager: "pnpm"
       },
-      env: {
-        host: {
-          required: ["GITHUB_TOKEN"],
-          optional: ["CODEX_HOME"]
-        },
-        repo: {
-          path: ".coldets/local/resolved.env",
-          required: ["REPO_ONLY_SECRET"],
-          optional: ["OPTIONAL_REPO_VALUE"]
-        },
-        inject: {
+        env: {
+          host: {
+            required: ["GITHUB_TOKEN", "REPO_ONLY_SECRET"],
+            optional: ["CODEX_HOME", "OPTIONAL_REPO_VALUE"]
+          },
+          inject: {
           STATIC_MARKER: {
             kind: "static",
             value: "present"

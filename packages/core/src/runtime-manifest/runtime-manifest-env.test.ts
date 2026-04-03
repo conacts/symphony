@@ -1,7 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { tmpdir } from "node:os";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   buildSymphonyRuntimePostgresConnectionString,
   resolveSymphonyRuntimeEnvBundle,
@@ -9,22 +6,8 @@ import {
   normalizeSymphonyRuntimeManifest
 } from "../runtime-manifest.js";
 
-const tempDirectories: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(
-    tempDirectories.splice(0).map((directory) =>
-      rm(directory, {
-        recursive: true,
-        force: true
-      })
-    )
-  );
-});
-
 describe("runtime manifest env resolution", () => {
-  it("resolves required host env plus static, runtime, and service bindings explicitly", async () => {
-    const repoRoot = await createTempRepoRoot();
+  it("resolves required host env plus static, runtime, and service bindings explicitly", () => {
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
       workspace: {
@@ -45,11 +28,6 @@ describe("runtime manifest env resolution", () => {
         host: {
           required: ["GITHUB_TOKEN"],
           optional: ["MISSING_OPTIONAL"]
-        },
-        repo: {
-          path: ".coldets/local/resolved.env",
-          required: ["QSTASH_TOKEN"],
-          optional: ["QSTASH_URL"]
         },
         inject: {
           STATIC_VALUE: {
@@ -88,7 +66,7 @@ describe("runtime manifest env resolution", () => {
 
     const resolved = resolveSymphonyRuntimeEnvBundle({
       manifest,
-      repoRoot,
+      repoRoot: "/repo",
       environmentSource: {
         GITHUB_TOKEN: "github-token"
       },
@@ -122,8 +100,6 @@ describe("runtime manifest env resolution", () => {
 
     expect(resolved.values).toEqual({
       GITHUB_TOKEN: "github-token",
-      QSTASH_TOKEN: "qstash-token",
-      QSTASH_URL: "http://localhost:8080",
       STATIC_VALUE: "literal",
       DATABASE_URL: "postgresql://app:secret@db:5433/app",
       PGHOST: "db",
@@ -135,17 +111,15 @@ describe("runtime manifest env resolution", () => {
         "DATABASE_URL",
         "GITHUB_TOKEN",
         "PGHOST",
-        "QSTASH_TOKEN",
-        "QSTASH_URL",
         "STATIC_VALUE",
         "SYMPHONY_WORKSPACE_KEY"
       ],
       requiredHostKeys: ["GITHUB_TOKEN"],
       optionalHostKeys: [],
-      repoEnvPath: path.join(repoRoot, ".coldets", "local", "resolved.env"),
-      projectedRepoKeys: ["QSTASH_TOKEN", "QSTASH_URL"],
-      requiredRepoKeys: ["QSTASH_TOKEN"],
-      optionalRepoKeys: ["QSTASH_URL"],
+      repoEnvPath: null,
+      projectedRepoKeys: [],
+      requiredRepoKeys: [],
+      optionalRepoKeys: [],
       staticBindingKeys: ["STATIC_VALUE"],
       runtimeBindingKeys: ["SYMPHONY_WORKSPACE_KEY"],
       serviceBindingKeys: ["DATABASE_URL", "PGHOST"]
@@ -190,25 +164,33 @@ describe("runtime manifest env resolution", () => {
     );
   });
 
-  it("fails fast when the declared repo runtime bundle is missing", async () => {
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "symphony-runtime-env-missing-"));
-    tempDirectories.push(repoRoot);
+  it("fails fast when a declared service binding cannot be resolved", () => {
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
       workspace: {
         packageManager: "pnpm"
+      },
+      services: {
+        postgres: {
+          type: "postgres",
+          image: "postgres:16",
+          database: "app",
+          username: "app",
+          password: "secret"
+        }
       },
       env: {
         host: {
           required: [],
           optional: []
         },
-        repo: {
-          path: ".coldets/local/resolved.env",
-          required: ["QSTASH_TOKEN"],
-          optional: []
-        },
-        inject: {}
+        inject: {
+          DATABASE_URL: {
+            kind: "service",
+            service: "postgres",
+            value: "connectionString"
+          }
+        }
       },
       lifecycle: {
         bootstrap: [],
@@ -227,7 +209,7 @@ describe("runtime manifest env resolution", () => {
     expect(() =>
       resolveSymphonyRuntimeEnvBundle({
         manifest,
-        repoRoot,
+        repoRoot: "/repo",
         environmentSource: {},
         runtime: {
           issueId: "issue-123",
@@ -238,21 +220,12 @@ describe("runtime manifest env resolution", () => {
           backendKind: "docker"
         }
       })
-    ).toThrowError(/env\.repo\.path: Required repo runtime env snapshot is unavailable/i);
+    ).toThrowError(
+      /env\.inject\.DATABASE_URL: Service binding postgres\.connectionString could not be resolved/i
+    );
   });
 
-  it("fails fast with a path-targeted error when a required repo env key is missing", async () => {
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "symphony-runtime-env-required-"));
-    tempDirectories.push(repoRoot);
-    await mkdir(path.join(repoRoot, ".coldets", "local"), {
-      recursive: true
-    });
-    await writeFile(
-      path.join(repoRoot, ".coldets", "local", "resolved.env"),
-      "QSTASH_URL=http://localhost:8080\n",
-      "utf8"
-    );
-
+  it("fails fast when a runtime binding resolves to null", () => {
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
       workspace: {
@@ -263,12 +236,12 @@ describe("runtime manifest env resolution", () => {
           required: [],
           optional: []
         },
-        repo: {
-          path: ".coldets/local/resolved.env",
-          required: ["QSTASH_TOKEN"],
-          optional: ["QSTASH_URL"]
-        },
-        inject: {}
+        inject: {
+          SYMPHONY_RUN_ID: {
+            kind: "runtime",
+            value: "runId"
+          }
+        }
       },
       lifecycle: {
         bootstrap: [],
@@ -287,12 +260,12 @@ describe("runtime manifest env resolution", () => {
     expect(() =>
       resolveSymphonyRuntimeEnvBundle({
         manifest,
-        repoRoot,
+        repoRoot: "/repo",
         environmentSource: {},
         runtime: {
           issueId: "issue-123",
           issueIdentifier: "COL-123",
-          runId: "run-123",
+          runId: null,
           workspaceKey: "COL-123",
           workspacePath: "/home/agent/workspace",
           backendKind: "docker"
@@ -300,30 +273,7 @@ describe("runtime manifest env resolution", () => {
         manifestPath: "/repo/.symphony/runtime.ts"
       })
     ).toThrowError(
-      /env\.repo\.required\[0\]: Required repo runtime environment variable QSTASH_TOKEN is missing/i
+      /env\.inject\.SYMPHONY_RUN_ID: Runtime binding runId is unavailable/i
     );
   });
 });
-
-async function createTempRepoRoot(): Promise<string> {
-  const repoRoot = await mkdtemp(
-    path.join(tmpdir(), "symphony-runtime-env-")
-  );
-  tempDirectories.push(repoRoot);
-  await writeResolvedEnvFile(repoRoot);
-  return repoRoot;
-}
-
-async function writeResolvedEnvFile(repoRoot: string): Promise<void> {
-  await mkdir(path.join(repoRoot, ".coldets", "local"), {
-    recursive: true
-  });
-  await writeFile(
-    path.join(repoRoot, ".coldets", "local", "resolved.env"),
-    "QSTASH_TOKEN=qstash-token\nQSTASH_URL=http://localhost:8080\n",
-    {
-      encoding: "utf8",
-      flag: "w"
-    }
-  );
-}

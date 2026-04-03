@@ -83,6 +83,9 @@ importers:
       '@symphony/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@symphony/runtime-contract':
+        specifier: workspace:*
+        version: link:../../packages/runtime-contract
       hono:
         specifier: ^4.11.4
         version: 4.12.9
@@ -370,6 +373,9 @@ importers:
       '@symphony/db':
         specifier: workspace:*
         version: link:../db
+      '@symphony/runtime-contract':
+        specifier: workspace:*
+        version: link:../runtime-contract
       yaml:
         specifier: ^2.8.3
         version: 2.8.3

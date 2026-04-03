@@ -10,7 +10,7 @@ export function buildSymphonyRepositoryTarget(
   return {
     id: `repository-target-${repositoryTargetCounter}`,
     slug: `repository-target-${repositoryTargetCounter}`,
-    workflowPath: `/tmp/symphony/repository-target-${repositoryTargetCounter}/WORKFLOW.md`,
+    promptPath: `/tmp/symphony/repository-target-${repositoryTargetCounter}/.symphony/prompt.md`,
     ...overrides
   };
 }

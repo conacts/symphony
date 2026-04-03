@@ -19,8 +19,6 @@ afterEach(async () => {
 describe("runtime workspace backend selection", () => {
   it("defaults to the docker workspace backend", () => {
     const selection = createRuntimeWorkspaceBackend({
-      sourceRepo: "/tmp/source-repo",
-      workspaceBackend: "docker",
       dockerWorkspaceImage: null,
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: null,
@@ -55,10 +53,8 @@ describe("runtime workspace backend selection", () => {
     expect(selection.backend.prepareWorkspace).toBeTypeOf("function");
   });
 
-  it("creates a docker backend only when explicitly selected", () => {
+  it("creates a docker backend from the explicit Docker config surface", () => {
     const selection = createRuntimeWorkspaceBackend({
-      sourceRepo: "/tmp/source-repo",
-      workspaceBackend: "docker",
       dockerWorkspaceImage: "example.com/custom/symphony-runner:dev",
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: "/home/agent/workspace",
@@ -95,8 +91,6 @@ describe("runtime workspace backend selection", () => {
 
   it("surfaces container-owned Docker selection without changing the default mode", () => {
     const selection = createRuntimeWorkspaceBackend({
-      sourceRepo: "/tmp/source-repo",
-      workspaceBackend: "docker",
       dockerWorkspaceImage: "example.com/custom/symphony-runner:dev",
       dockerMaterializationMode: "volume",
       dockerWorkspacePath: "/home/agent/workspace",
@@ -133,8 +127,6 @@ describe("runtime workspace backend selection", () => {
 
   it("defaults Docker image selection to the supported local runner image", () => {
     const selection = createRuntimeWorkspaceBackend({
-      sourceRepo: "/tmp/source-repo",
-      workspaceBackend: "docker",
       dockerWorkspaceImage: null,
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: null,

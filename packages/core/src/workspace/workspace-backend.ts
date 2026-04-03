@@ -15,7 +15,6 @@ export {
   type SymphonyDockerWorkspacePreflightResult
 } from "./docker-runner-image.js";
 export { defaultDockerHomePath } from "./docker-shared.js";
-export { createLocalWorkspaceBackend } from "./local-workspace-backend.js";
 export {
   summarizePreparedWorkspace,
   workspaceHostPath,

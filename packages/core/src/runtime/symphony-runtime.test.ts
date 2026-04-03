@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createLocalWorkspaceBackend } from "../workspace/workspace-backend.js";
+import { createLocalWorkspaceBackend } from "../workspace/local-workspace-backend.js";
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
 import { createCodexAgentRuntime } from "./agent-runtime.js";
 import { createSymphonyRuntime } from "./symphony-runtime.js";

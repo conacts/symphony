@@ -8,7 +8,7 @@ import {
   SymphonyWorkspaceError,
   symphonyWorkspaceDirectoryName
 } from "./local-symphony-workspace-manager.js";
-import { createLocalWorkspaceBackend } from "./workspace-backend.js";
+import { createLocalWorkspaceBackend } from "./local-workspace-backend.js";
 import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
 import { normalizeSymphonyRuntimeManifest } from "../runtime-manifest.js";
 

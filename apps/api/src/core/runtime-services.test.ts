@@ -12,14 +12,15 @@ afterEach(async () => {
 });
 
 describe("runtime services", () => {
-  it("loads the default app services through real local composition", async () => {
+  it("loads the default app services through the explicit prompt and runtime contract", async () => {
     const harness = await createSymphonyRuntimeAppServicesHarness();
     harnesses.push(harness);
 
     const { services, env } = harness;
     const refresh = await services.orchestrator.requestRefresh();
 
-    expect(services.workflow.promptTemplate).toBe("Prompt body");
+    expect(services.workflow.promptTemplate).toBe("Prompt body\n");
+    expect(services.promptContract.promptPath).toContain(".symphony/prompt.md");
     expect(services.workflowConfig.tracker.kind).toBe("memory");
     expect(refresh).toEqual(
       expect.objectContaining({
@@ -105,9 +106,6 @@ describe("runtime services", () => {
   it("fails fast when docker-backed runs do not have host-owned Codex auth", async () => {
     await expect(
       createSymphonyRuntimeAppServicesHarness({
-        env: {
-          workspaceBackend: "docker"
-        },
         hostCommandEnvSource: {}
       })
     ).rejects.toThrowError(/Docker-backed Symphony workspaces require host-owned Codex auth/i);

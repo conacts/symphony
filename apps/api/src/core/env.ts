@@ -1,12 +1,10 @@
-import {
-  defaultSymphonyWorkflowPath
-} from "@symphony/core";
 import { defaultSymphonyDbFile } from "@symphony/db";
 import { createEnv, z } from "@symphony/env";
 import {
   resolveSymphonyLogLevel,
   type SymphonyLogLevel
 } from "@symphony/logger";
+import { defaultSymphonyAllowedOrigins } from "./runtime-policy-config.js";
 
 export const DEFAULT_SYMPHONY_RUNTIME_PORT = 4_400;
 const hostCommandEnvironmentKeys = new Set([
@@ -31,6 +29,7 @@ const hostCommandEnvironmentKeys = new Set([
   "HTTPS_PROXY",
   "NO_PROXY",
   "CODEX_HOME",
+  "GITHUB_TOKEN",
   "OPENAI_API_KEY"
 ]);
 
@@ -38,10 +37,8 @@ export type EnvironmentSource = Record<string, string | undefined>;
 
 export type SymphonyRuntimeAppEnv = {
   port: number;
-  workflowPath: string;
   dbFile: string;
   sourceRepo: string | null;
-  workspaceBackend: "docker";
   dockerWorkspaceImage: string | null;
   dockerMaterializationMode: "bind_mount" | "volume";
   dockerWorkspacePath: string | null;
@@ -56,15 +53,14 @@ export function loadSymphonyRuntimeAppEnv(
   env: EnvironmentSource = process.env,
   cwd = process.cwd()
 ): SymphonyRuntimeAppEnv {
+  const rawAllowedOrigins = env.SYMPHONY_ALLOWED_ORIGINS;
   const parsed = createEnv({
     server: {
       PORT: z.coerce.number().int().positive().max(65_535).default(
         DEFAULT_SYMPHONY_RUNTIME_PORT
       ),
-      WORKFLOW_PATH: z.string().min(1).optional(),
       SYMPHONY_DB_FILE: z.string().min(1).optional(),
       SYMPHONY_SOURCE_REPO: z.string().min(1).optional(),
-      SYMPHONY_WORKSPACE_BACKEND: z.literal("docker").optional(),
       SYMPHONY_DOCKER_WORKSPACE_IMAGE: z.string().min(1).optional(),
       SYMPHONY_DOCKER_MATERIALIZATION_MODE: z
         .enum(["bind_mount", "volume"])
@@ -107,14 +103,10 @@ export function loadSymphonyRuntimeAppEnv(
     );
   }
 
-  const workspaceBackend = parsed.SYMPHONY_WORKSPACE_BACKEND ?? "docker";
-
   return {
     port: parsed.PORT,
-    workflowPath: parsed.WORKFLOW_PATH ?? defaultSymphonyWorkflowPath(cwd),
     dbFile: parsed.SYMPHONY_DB_FILE ?? defaultSymphonyDbFile(cwd),
     sourceRepo: parsed.SYMPHONY_SOURCE_REPO ?? null,
-    workspaceBackend,
     dockerWorkspaceImage: parsed.SYMPHONY_DOCKER_WORKSPACE_IMAGE ?? null,
     dockerMaterializationMode:
       parsed.SYMPHONY_DOCKER_MATERIALIZATION_MODE ?? "bind_mount",
@@ -122,7 +114,10 @@ export function loadSymphonyRuntimeAppEnv(
     dockerContainerNamePrefix:
       parsed.SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX ?? null,
     dockerShell: parsed.SYMPHONY_DOCKER_SHELL ?? null,
-    allowedOrigins: parseAllowedOrigins(parsed.SYMPHONY_ALLOWED_ORIGINS),
+    allowedOrigins:
+      rawAllowedOrigins === ""
+        ? []
+        : parseAllowedOrigins(parsed.SYMPHONY_ALLOWED_ORIGINS),
     linearApiKey: parsed.LINEAR_API_KEY,
     logLevel: resolveSymphonyLogLevel(parsed.LOG_LEVEL, "debug")
   };
@@ -147,7 +142,7 @@ export function buildSymphonyHostCommandEnvironmentSource(
 
 function parseAllowedOrigins(value: string | undefined): string[] {
   if (!value) {
-    return [];
+    return defaultSymphonyAllowedOrigins();
   }
 
   return value

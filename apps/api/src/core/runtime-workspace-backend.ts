@@ -6,7 +6,7 @@ import {
   type SymphonyDockerWorkspaceImageSelectionSource,
   type WorkspaceBackend
 } from "@symphony/core";
-import type { SymphonyLoadedRuntimeManifest } from "@symphony/core/runtime-manifest";
+import type { SymphonyLoadedRuntimeManifest } from "@symphony/runtime-contract";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 
 export type SymphonyRuntimeWorkspaceBackendSelection = {
@@ -30,8 +30,6 @@ export type SymphonyRuntimeWorkspaceBackendSelection = {
 export function createRuntimeWorkspaceBackend(
   env: Pick<
     SymphonyRuntimeAppEnv,
-    | "sourceRepo"
-    | "workspaceBackend"
     | "dockerWorkspaceImage"
     | "dockerMaterializationMode"
     | "dockerWorkspacePath"

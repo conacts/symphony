@@ -2,7 +2,6 @@ export {
   createCodexAgentRuntime,
   createDockerWorkspaceBackend,
   createGitHubReviewPublisher,
-  createLocalWorkspaceBackend,
   defaultDockerHomePath,
   defaultSymphonyDockerWorkspaceImage,
   defaultSymphonyDockerWorkspacePreflightTimeoutMs,
@@ -69,17 +68,7 @@ export type {
   WorkspaceServiceRemovalDisposition,
   WorkspaceServiceType
 } from "./public/index.js";
-export {
-  defaultSymphonyWorkflowFileName,
-  defaultSymphonyPromptTemplate,
-  defaultSymphonyWorkflowPath,
-  normalizeIssueState,
-  parseSymphonyWorkflow,
-  loadSymphonyWorkflow,
-  SymphonyWorkflowError
-} from "./workflow/symphony-workflow.js";
 export type {
-  SymphonyLoadedWorkflow,
   SymphonyResolvedWorkflowConfig,
   SymphonyWorkflowAgentConfig,
   SymphonyWorkflowCodexConfig,

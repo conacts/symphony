@@ -41,16 +41,6 @@
       "import": "./dist/forensics.js",
       "default": "./dist/forensics.js"
     },
-    "./runtime-manifest": {
-      "types": "./dist/runtime-manifest.d.ts",
-      "import": "./dist/runtime-manifest.js",
-      "default": "./dist/runtime-manifest.js"
-    },
-    "./workspace/local": {
-      "types": "./dist/workspace/local.d.ts",
-      "import": "./dist/workspace/local.js",
-      "default": "./dist/workspace/local.js"
-    },
     "./package.json": "./package.json"
   },
   "scripts": {

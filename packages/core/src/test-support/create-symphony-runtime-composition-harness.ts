@@ -15,7 +15,7 @@ import {
   type MemorySymphonyTracker,
   type SymphonyTrackerIssue
 } from "../tracker/symphony-tracker.js";
-import { createLocalWorkspaceBackend } from "../workspace/workspace-backend.js";
+import { createLocalWorkspaceBackend } from "../workspace/local-workspace-backend.js";
 import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import { buildSymphonyTrackerIssue } from "./build-symphony-tracker-issue.js";
 import { buildSymphonyWorkflowConfig } from "./build-symphony-workflow-config.js";

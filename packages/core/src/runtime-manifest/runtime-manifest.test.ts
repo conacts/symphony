@@ -46,7 +46,7 @@ describe("runtime manifest", () => {
     );
     await writeFile(
       path.join(manifestDirectory, "runtime.ts"),
-      `import { defineSymphonyRuntime } from "@symphony/core/runtime-manifest";
+      `import { defineSymphonyRuntime } from "@symphony/runtime-contract";
 import { buildStep } from "./steps.ts";
 
 export default defineSymphonyRuntime({
@@ -168,7 +168,7 @@ export default defineSymphonyRuntime({
     await symlink(yamlPackageRoot, path.join(nodeModulesDirectory, "yaml"), "junction");
     await writeRuntimeManifestSource(
       repoRoot,
-      `import { defineSymphonyRuntime } from "@symphony/core/runtime-manifest";
+      `import { defineSymphonyRuntime } from "@symphony/runtime-contract";
 import YAML from "yaml";
 
 const serialized = YAML.stringify({ ok: true }).trim();
@@ -241,7 +241,7 @@ export default defineSymphonyRuntime({
     const repoRoot = await createTempRepo();
     await writeRuntimeManifestSource(
       repoRoot,
-      `import { defineSymphonyRuntime } from "@symphony/core/runtime-manifest";
+      `import { defineSymphonyRuntime } from "@symphony/runtime-contract";
 
 export default defineSymphonyRuntime({
   schemaVersion: 1,
@@ -286,7 +286,7 @@ export default defineSymphonyRuntime({
     const repoRoot = await createTempRepo();
     await writeRuntimeManifestSource(
       repoRoot,
-      `import { defineSymphonyRuntime } from "@symphony/core/runtime-manifest";
+      `import { defineSymphonyRuntime } from "@symphony/runtime-contract";
 import { runtimeStep } from "./missing-helper.ts";
 
 export default defineSymphonyRuntime({

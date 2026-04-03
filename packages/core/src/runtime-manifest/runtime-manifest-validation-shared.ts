@@ -5,7 +5,7 @@ import type {
 } from "./runtime-manifest-contract.js";
 
 export const symphonyRuntimeManifestBrand = Symbol.for(
-  "@symphony/core/runtime-manifest/defined"
+  "@symphony/runtime-contract/defined"
 );
 
 export const manifestTopLevelKeys = new Set([

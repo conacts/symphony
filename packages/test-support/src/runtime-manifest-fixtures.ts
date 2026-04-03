@@ -1,4 +1,4 @@
-import type { SymphonyRuntimeManifestInput } from "@symphony/core/runtime-manifest";
+import type { SymphonyRuntimeManifestInput } from "@symphony/runtime-contract";
 
 export function buildSymphonyRuntimeManifestInput(
   overrides: Partial<SymphonyRuntimeManifestInput> = {}
@@ -44,7 +44,6 @@ export function buildSymphonyRuntimeManifestInput(
         ...baseManifest.env.host,
         ...overrides.env?.host
       },
-      ...(overrides.env?.repo ? { repo: overrides.env.repo } : {}),
       inject: overrides.env?.inject ?? baseManifest.env.inject
     },
     lifecycle: {
@@ -58,7 +57,7 @@ export function buildSymphonyRuntimeManifestInput(
 export function renderSymphonyRuntimeManifestSource(
   manifest: SymphonyRuntimeManifestInput = buildSymphonyRuntimeManifestInput()
 ): string {
-  return `import { defineSymphonyRuntime } from "@symphony/core/runtime-manifest";
+  return `import { defineSymphonyRuntime } from "@symphony/runtime-contract";
 
 export default defineSymphonyRuntime(${JSON.stringify(manifest, null, 2)});
 `;
