@@ -17,6 +17,7 @@
     "@symphony/env": "workspace:*",
     "@symphony/db": "workspace:*",
     "@symphony/errors": "workspace:*",
+    "@symphony/forensics": "workspace:*",
     "@symphony/logger": "workspace:*",
     "@symphony/contracts": "workspace:*",
     "@symphony/core": "workspace:*",

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import {
   type SymphonyResolvedWorkflowConfig
 } from "@symphony/core";
-import { createSymphonyForensicsReadModel } from "@symphony/core/forensics";
+import { createSymphonyForensicsReadModel } from "@symphony/forensics";
 import { SymphonyGithubReviewProcessor } from "@symphony/core/github";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/core/orchestration";
 import {

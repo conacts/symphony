@@ -1,6 +1,4 @@
-export {
-  createSymphonyForensicsReadModel
-} from "@symphony/forensics";
+export { createSymphonyForensicsReadModel } from "./symphony-forensics-read-model.js";
 export type {
   SymphonyForensicsIssueAggregate,
   SymphonyForensicsIssueDetail,
@@ -18,4 +16,4 @@ export type {
   SymphonyForensicsReadModelDependencies,
   SymphonyForensicsRuntimeLogEntry,
   SymphonyForensicsTimelineEntry
-} from "@symphony/forensics";
+} from "./symphony-forensics-read-model.js";
