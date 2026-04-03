@@ -395,12 +395,24 @@ done
     );
   });
 
-  it("fails when command approval is required under safer defaults", async () => {
+  it("fails when command approval is required under restrictive approval policy", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-app-server-approval-"));
     tempRoots.push(root);
 
     const scenario = await createScenario({
       root,
+      runtimePolicyOverrides: {
+        codex: {
+          ...buildSymphonyRuntimePolicyForRoot(root).codex,
+          approvalPolicy: {
+            reject: {
+              sandboxApproval: true,
+              rules: true,
+              mcpElicitations: true
+            }
+          }
+        }
+      },
       script: `#!/bin/sh
 count=0
 while IFS= read -r _line; do
@@ -534,12 +546,15 @@ while IFS= read -r line; do
       ;;
     4)
       printf '%s\\n' '{"id":3,"result":{"turn":{"id":"turn-tool-input"}}}'
-      printf '%s\\n' '{"id":110,"method":"item/tool/requestUserInput","params":{"questions":[{"id":"approval","options":[{"label":"Approve Once"},{"label":"Approve this Session"},{"label":"Deny"}]}]}}'
+      printf '%s\\n' '{"id":109,"method":"mcpServer/elicitation/request","params":{"questions":[{"id":"mcp_approval","options":[{"label":"Approve Once"},{"label":"Approve this Session"},{"label":"Deny"}]}]}}'
       ;;
     5)
-      printf '%s\\n' '{"id":111,"method":"item/tool/requestUserInput","params":{"questions":[{"id":"freeform","question":"What should I do next?"}]}}'
+      printf '%s\\n' '{"id":110,"method":"item/tool/requestUserInput","params":{"questions":[{"id":"approval","options":[{"label":"Approve Once"},{"label":"Approve this Session"},{"label":"Deny"}]}]}}'
       ;;
     6)
+      printf '%s\\n' '{"id":111,"method":"item/tool/requestUserInput","params":{"questions":[{"id":"freeform","question":"What should I do next?"}]}}'
+      ;;
+    7)
       printf '%s\\n' '{"method":"turn/completed"}'
       exit 0
       ;;
@@ -556,6 +571,14 @@ done
     await expect(turn.promise).resolves.toBeDefined();
 
     const tracePayloads = parseTraceJsonLines(await readTraceLines(traceFile));
+    expect(
+      tracePayloads.some(
+        (payload) =>
+          payload.id === 109 &&
+          firstAnswer(getResult(payload), "mcp_approval") ===
+            "Approve this Session"
+      )
+    ).toBe(true);
     expect(
       tracePayloads.some(
         (payload) =>

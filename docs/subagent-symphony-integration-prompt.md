@@ -65,16 +65,21 @@ Environment and secrets rules:
 - human-local convenience wrappers are allowed only if they remain outside the required Symphony lifecycle contract
 
 State semantics:
-- platform-owned refusal/setup/render failures map to `Failed`
-- repo-owned lifecycle failures map to `Blocked`
+- platform-owned pre-agent refusal/setup/render failures map to `Failed`
+- platform/provider interruptions map to `Paused`
+- agent/repo-owned stops after work has begun map to `Blocked`
+- `Bootstrapping` is platform-owned and happens before the first real agent turn
 - `Blocked` is non-terminal and non-dispatch
+- `Paused` is non-terminal and non-dispatch
 - `Done` and `Canceled` are terminal
 - `Approved` is active only for merge execution
+- there are no hidden retries
 
 Execution model:
 - Docker-only
 - one Linear issue is the canonical execution unit
 - one issue may have only one active run across the system
+- one issue workspace persists across runs by default
 - PRs are artifacts of the issue, not the canonical execution unit
 
 What not to build:

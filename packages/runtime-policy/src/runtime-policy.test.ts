@@ -11,11 +11,14 @@ describe("resolveRuntimePolicy", () => {
     expect(config.tracker.kind).toBe("memory");
     expect(config.tracker.dispatchableStates).toEqual([
       "Todo",
+      "Bootstrapping",
       "In Progress"
     ]);
     expect(config.tracker.terminalStates).toEqual(["Canceled", "Done"]);
     expect(config.workspace.root).toContain("symphony_workspaces");
     expect(config.agent.maxConcurrentAgents).toBe(10);
+    expect(config.codex.approvalPolicy).toBe("never");
+    expect(config.codex.threadSandbox).toBe("danger-full-access");
   });
 
   it("resolves env-backed tracker values explicitly", () => {

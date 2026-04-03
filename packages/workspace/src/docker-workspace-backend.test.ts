@@ -518,7 +518,7 @@ describe("docker workspace backend", () => {
     ).toBe(true);
   });
 
-  it("recreates stopped managed containers while reusing the bind-mounted workspace", async () => {
+  it("restarts stopped managed containers while reusing the bind-mounted workspace", async () => {
     const root = await createWorkspaceRoot();
     const workspacePath = path.join(root, "symphony-COL-201");
     await mkdir(workspacePath, {
@@ -547,21 +547,15 @@ describe("docker workspace backend", () => {
                 workspaceKey: "COL-201",
                 hostPath: workspacePath,
                 workspacePath: "/home/agent/workspace",
-                running: false,
-                status: "exited"
+                running: calls.some((call) => call[0] === "start"),
+                status: calls.some((call) => call[0] === "start") ? "running" : "exited"
               }),
               stderr: ""
             };
-          case "rm":
+          case "start":
             return {
               exitCode: 0,
-              stdout: "",
-              stderr: ""
-            };
-          case "run":
-            return {
-              exitCode: 0,
-              stdout: "container-fresh\n",
+              stdout: "container-stale\n",
               stderr: ""
             };
           default:
@@ -580,8 +574,8 @@ describe("docker workspace backend", () => {
     });
 
     expect(workspace.created).toBe(false);
-    expect(requireContainerTarget(workspace).containerId).toBe("container-fresh");
-    expect(calls.map((call) => call[0])).toEqual(["inspect", "inspect", "rm", "run"]);
+    expect(requireContainerTarget(workspace).containerId).toBe("container-stale");
+    expect(calls.map((call) => call[0])).toEqual(["inspect", "start", "inspect"]);
   });
 
   it("fails closed on before_run hook errors and swallows after_run failures", async () => {
@@ -2439,6 +2433,127 @@ describe("docker workspace backend", () => {
         "512"
       ])
     );
+  });
+
+  it("preserves workspace state and stops containers in preserve cleanup mode", async () => {
+    const root = await createWorkspaceRoot();
+    const workspacePath = path.join(root, "symphony-COL-900");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    const config = buildWorkspaceTestConfig({
+      workspace: {
+        root
+      }
+    });
+    const workspace = buildPreparedDockerWorkspace({
+      issueIdentifier: "COL-900",
+      workspaceKey: "COL-900",
+      containerId: "workspace-900",
+      containerName: "symphony-workspace-col-900-deadbeef",
+      hostPath: workspacePath,
+      networkName: "symphony-workspace-network-col-900-deadbeef",
+      services: [
+        {
+          key: "postgres",
+          type: "postgres",
+          hostname: "db",
+          port: 5432,
+          containerId: "service-900",
+          containerName: "symphony-service-postgres-col-900-deadbeef",
+          disposition: "reused"
+        }
+      ]
+    });
+    const calls: string[][] = [];
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        if (
+          input.args[0] === "inspect" &&
+          input.args[1] === "--type" &&
+          input.args[2] === "container" &&
+          input.args[3] === "symphony-workspace-col-900-deadbeef"
+        ) {
+          return {
+            exitCode: 0,
+            stdout: buildDockerInspectPayload({
+              id: "workspace-900",
+              image: "ghcr.io/openai/symphony-workspace:latest",
+              name: "symphony-workspace-col-900-deadbeef",
+              issueIdentifier: "COL-900",
+              workspaceKey: "COL-900",
+              hostPath: workspacePath,
+              workspacePath: "/home/agent/workspace",
+              running: true
+            }),
+            stderr: ""
+          };
+        }
+
+        if (
+          input.args[0] === "inspect" &&
+          input.args[1] === "--type" &&
+          input.args[2] === "container" &&
+          input.args[3] === "symphony-service-postgres-col-900-deadbeef"
+        ) {
+          return {
+            exitCode: 0,
+            stdout: buildDockerServiceInspectPayload({
+              id: "service-900",
+              name: "symphony-service-postgres-col-900-deadbeef",
+              image: "postgres:16",
+              issueIdentifier: "COL-900",
+              workspaceKey: "COL-900",
+              serviceKey: "postgres",
+              hostname: "db",
+              port: 5432,
+              memoryMb: 512,
+              cpuShares: 512,
+              database: "postgres",
+              username: "postgres",
+              password: "",
+              networkName: "symphony-workspace-network-col-900-deadbeef"
+            }),
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "stop") {
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    const cleanup = await backend.cleanupWorkspace({
+      issueIdentifier: "COL-900",
+      workspace,
+      config: config.workspace,
+      hooks: config.hooks,
+      mode: "preserve"
+    });
+
+    expect(cleanup.networkRemovalDisposition).toBe("not_applicable");
+    expect(cleanup.workspaceRemovalDisposition).toBe("preserved");
+    expect(cleanup.containerRemovalDisposition).toBe("stopped");
+    expect(cleanup.beforeRemoveHookOutcome).toBe("skipped");
+    expect(cleanup.serviceCleanup[0]?.removalDisposition).toBe("stopped");
+    expect(calls.map((call) => call[0])).toEqual([
+      "inspect",
+      "inspect",
+      "stop",
+      "inspect",
+      "inspect",
+      "stop"
+    ]);
   });
 
   it("fails closed when postgres readiness never succeeds", async () => {

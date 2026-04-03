@@ -366,7 +366,13 @@ strategies are not part of the current v1 direction.
 
 ## Failure Semantics
 
-Symphony should use a dedicated Linear `Failed` state for platform-owned refusal/setup failures.
+Symphony should use explicit platform states rather than flattening every interruption into a retry.
+
+The intended split is:
+
+- `Failed` for pre-agent platform/bootstrap failures
+- `Paused` for provider/orchestration interruptions after or around runtime execution
+- `Blocked` for agent/repo-owned stops after work has started
 
 Examples:
 
@@ -377,14 +383,14 @@ Examples:
 - prompt render failure
 - missing required platform-owned auth/setup prerequisites
 
-For every platform-owned failure, Symphony should also leave a structured Linear comment that makes
-the failure obvious to the operator.
+For every `Paused` or `Failed` transition, Symphony should also leave a structured Linear comment
+that makes the failure obvious to the operator.
 
 That comment should include:
 
 - the failure class
 - the failed prerequisite or contract check
-- whether the failure is retryable
+- whether the workspace was preserved
 - the exact next operator action
 
 Repository-internal build/test/smoke failures are not platform failures. Those belong to the repo's
@@ -393,6 +399,9 @@ normal implementation workflow and should not be collapsed into the platform `Fa
 `Blocked` should be an explicit non-dispatch, non-terminal state for repo-internal failures that
 require human intervention. Symphony should not invent that state implicitly; it should be part of
 the declared workflow contract before repos build against it.
+
+There should be no hidden retries. Requeueing should happen only when an operator deliberately moves
+the ticket back to `Todo`.
 
 ## Migration Shape
 

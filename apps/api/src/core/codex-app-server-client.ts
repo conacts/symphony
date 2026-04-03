@@ -485,6 +485,41 @@ export class CodexAppServerClient {
       return "continue";
     }
 
+    if (method === "mcpServer/elicitation/request") {
+      const approvalAnswers = session.autoApproveRequests
+        ? buildApprovalAnswers(params)
+        : null;
+
+      if (approvalAnswers) {
+        this.sendResponse(id, {
+          answers: approvalAnswers.answers
+        });
+        await onMessage({
+          event: "approval_auto_approved",
+          payload: message,
+          raw,
+          decision: approvalAnswers.decision
+        });
+        return "continue";
+      }
+
+      const unavailableAnswers = buildUnavailableAnswers(params);
+      if (!unavailableAnswers) {
+        return "approval_required";
+      }
+
+      this.sendResponse(id, {
+        answers: unavailableAnswers
+      });
+      await onMessage({
+        event: "tool_input_auto_answered",
+        payload: message,
+        raw,
+        answer: nonInteractiveToolInputAnswer
+      });
+      return "continue";
+    }
+
     return "unhandled";
   }
 

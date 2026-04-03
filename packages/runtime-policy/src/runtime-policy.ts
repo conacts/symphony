@@ -195,7 +195,7 @@ function normalizeTrackerConfig(
   const tracker = getNestedRecord(value);
   const dispatchableStates = normalizeStringArray(
     tracker.dispatchableStates ?? tracker.activeStates,
-    ["Todo", "In Progress"]
+    ["Todo", "Bootstrapping", "In Progress"]
   );
 
   return {
@@ -228,6 +228,9 @@ function normalizeTrackerConfig(
     ),
     startupFailureTransitionToState: normalizeOptionalString(
       resolveEnvToken(tracker.startupFailureTransitionToState, env)
+    ),
+    pauseTransitionToState: normalizeOptionalString(
+      resolveEnvToken(tracker.pauseTransitionToState, env)
     )
   };
 }
@@ -305,7 +308,7 @@ function normalizeCodexConfig(value: unknown): SymphonyCodexRuntimePolicy {
     command: typeof rawCommand === "string" ? rawCommand : "codex app-server",
     approvalPolicy: normalizeApprovalPolicy(codex.approvalPolicy),
     threadSandbox:
-      normalizeOptionalString(codex.threadSandbox) ?? "workspace-write",
+      normalizeOptionalString(codex.threadSandbox) ?? "danger-full-access",
     turnSandboxPolicy: normalizeOptionalRecord(codex.turnSandboxPolicy),
     turnTimeoutMs: normalizePositiveInteger(
       codex.turnTimeoutMs,
@@ -452,6 +455,7 @@ function validateSemanticConfig(config: SymphonyResolvedRuntimePolicy): void {
   const startupFailureState = normalizeIssueState(
     tracker.startupFailureTransitionToState
   );
+  const pausedState = normalizeIssueState(tracker.pauseTransitionToState);
 
   if (
     startupFailureState !== "" &&
@@ -462,6 +466,18 @@ function validateSemanticConfig(config: SymphonyResolvedRuntimePolicy): void {
     throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
       "tracker.startupFailureTransitionToState must not be one of tracker.dispatchableStates."
+    );
+  }
+
+  if (
+    pausedState !== "" &&
+    tracker.dispatchableStates.some(
+      (stateName) => normalizeIssueState(stateName) === pausedState
+    )
+  ) {
+    throw new SymphonyRuntimePolicyError(
+      "invalid_workflow_config",
+      "tracker.pauseTransitionToState must not be one of tracker.dispatchableStates."
     );
   }
 }

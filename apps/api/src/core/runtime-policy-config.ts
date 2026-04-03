@@ -3,7 +3,7 @@ import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
 import type { EnvironmentSource } from "./env.js";
 
 const defaultLinearEndpoint = "https://api.linear.app/graphql";
-const defaultDispatchableStates = ["Todo", "In Progress", "Rework"];
+const defaultDispatchableStates = ["Todo", "Bootstrapping", "In Progress", "Rework"];
 const defaultTerminalStates = ["Canceled", "Done"];
 const defaultClaimTransitionFromStates = ["Todo", "Rework"];
 const defaultAllowedOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
@@ -55,12 +55,14 @@ export function loadSymphonyRuntimePolicyConfig(input: {
         defaultTerminalStates,
       claimTransitionToState:
         readOptionalString(environmentSource.SYMPHONY_CLAIM_TRANSITION_TO_STATE) ??
-        "In Progress",
+        "Bootstrapping",
       claimTransitionFromStates:
         readStringList(environmentSource.SYMPHONY_CLAIM_TRANSITION_FROM_STATES) ??
         defaultClaimTransitionFromStates,
       startupFailureTransitionToState:
-        readOptionalString(environmentSource.SYMPHONY_STARTUP_FAILURE_STATE) ?? "Failed"
+        readOptionalString(environmentSource.SYMPHONY_STARTUP_FAILURE_STATE) ?? "Failed",
+      pauseTransitionToState:
+        readOptionalString(environmentSource.SYMPHONY_PAUSE_STATE) ?? "Paused"
     },
     polling: {
       intervalMs: readPositiveInteger(environmentSource.SYMPHONY_POLL_INTERVAL_MS, 5_000)
@@ -87,14 +89,10 @@ export function loadSymphonyRuntimePolicyConfig(input: {
     codex: {
       command:
         readOptionalString(environmentSource.SYMPHONY_CODEX_COMMAND) ?? "codex app-server",
-      approvalPolicy: {
-        reject: {
-          sandbox_approval: true
-        }
-      },
+      approvalPolicy: "never",
       threadSandbox:
         readOptionalString(environmentSource.SYMPHONY_CODEX_THREAD_SANDBOX) ??
-        "workspace-write",
+        "danger-full-access",
       turnSandboxPolicy: null,
       turnTimeoutMs: readPositiveInteger(
         environmentSource.SYMPHONY_CODEX_TURN_TIMEOUT_MS,

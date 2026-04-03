@@ -101,14 +101,22 @@ export type WorkspaceNetworkDisposition =
 export type WorkspaceNetworkRemovalDisposition =
   | "removed"
   | "missing"
-  | "not_applicable";
+  | "not_applicable"
+  | "preserved";
 export type WorkspaceServiceType = "postgres";
 export type WorkspaceServiceDisposition = "created" | "reused" | "recreated";
-export type WorkspaceServiceRemovalDisposition = "removed" | "missing";
+export type WorkspaceServiceRemovalDisposition =
+  | "removed"
+  | "missing"
+  | "stopped";
 export type WorkspaceHookKind = "after_create" | "before_run" | "after_run" | "before_remove";
 export type WorkspaceHookOutcome = "skipped" | "completed" | "failed_ignored";
-export type WorkspaceCleanupContainerDisposition = "removed" | "missing";
-export type WorkspaceRemovalDisposition = "removed" | "missing";
+export type WorkspaceCleanupContainerDisposition =
+  | "removed"
+  | "missing"
+  | "stopped";
+export type WorkspaceRemovalDisposition = "removed" | "missing" | "preserved";
+export type WorkspaceCleanupMode = "destroy" | "preserve";
 
 export type WorkspaceAmbientEnvBundleSummary = {
   source: "ambient";
@@ -254,6 +262,7 @@ export type WorkspaceCleanupInput = {
   hooks: WorkspaceHooksConfig;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
   workspace?: PreparedWorkspace | null;
+  mode?: WorkspaceCleanupMode;
 } & WorkspaceBackendRunnerOptions;
 
 export interface WorkspaceBackend {

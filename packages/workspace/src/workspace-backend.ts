@@ -35,6 +35,7 @@ export type {
   WorkspaceBackendKind,
   WorkspaceBackendRunnerOptions,
   WorkspaceCleanupContainerDisposition,
+  WorkspaceCleanupMode,
   WorkspaceCleanupInput,
   WorkspaceCleanupResult,
   WorkspaceCleanupService,

@@ -73,6 +73,14 @@ function failureCommentTitle(outcome: string, reason: string): string {
     return "Symphony agent paused after reaching max turns.";
   }
 
+  if (outcome === "paused_stalled") {
+    return "Symphony agent paused after the run stalled.";
+  }
+
+  if (outcome === "paused_failure") {
+    return "Symphony agent paused after a runtime failure.";
+  }
+
   if (outcome === "rate_limited" || rateLimitReason(reason)) {
     return "Symphony agent paused after hitting a Codex rate limit.";
   }
@@ -83,6 +91,18 @@ function failureCommentTitle(outcome: string, reason: string): string {
 function failureCommentSummary(outcome: string, reason: string): string {
   if (outcome === "rate_limited" || rateLimitReason(reason)) {
     return "Codex hit a rate limit and ended the current run.";
+  }
+
+  if (outcome === "paused_max_turns") {
+    return "Codex stopped because the run reached the configured max-turn limit.";
+  }
+
+  if (outcome === "paused_stalled") {
+    return "Codex stopped because the run stalled without visible activity.";
+  }
+
+  if (outcome === "paused_failure") {
+    return "Codex stopped because the runtime failed during an active run.";
   }
 
   return truncateReason(reason);
@@ -138,21 +158,7 @@ function failureCommentFollowUpLines(
     return startupFailureFollowUpLines(transition);
   }
 
-  if (outcome === "paused_max_turns") {
-    return [
-      "Symphony will start a fresh run automatically while the issue remains in an active state."
-    ];
-  }
-
-  if (outcome === "rate_limited") {
-    return [
-      "Symphony will retry automatically after backoff while the issue remains in an active state."
-    ];
-  }
-
-  return [
-    "Symphony will retry automatically while the issue remains in an active state."
-  ];
+  return pausedFailureFollowUpLines(transition);
 }
 
 function startupFailureFollowUpLines(
@@ -161,7 +167,7 @@ function startupFailureFollowUpLines(
   if (transition?.kind === "moved") {
     return [
       "Symphony did not retry automatically.",
-      `Symphony moved the issue to \`${transition.targetState}\`. After fixing the startup problem, move it back into an active state to request another run.`
+      `Symphony moved the issue to \`${transition.targetState}\`. After fixing the startup problem, move it back to \`Todo\` to request another run.`
     ];
   }
 
@@ -174,7 +180,30 @@ function startupFailureFollowUpLines(
 
   return [
     "Symphony did not retry automatically.",
-    "After fixing the startup problem, move the issue back into an active state to request another run."
+    "After fixing the startup problem, move the issue back to `Todo` to request another run."
+  ];
+}
+
+function pausedFailureFollowUpLines(
+  transition: SymphonyStartupFailureTransition | undefined
+): string[] {
+  if (transition?.kind === "moved") {
+    return [
+      "Symphony did not retry automatically.",
+      `Symphony moved the issue to \`${transition.targetState}\`. After resolving the orchestration or provider problem, move it back to \`Todo\` to request another run.`
+    ];
+  }
+
+  if (transition?.kind === "failed") {
+    return [
+      "Symphony did not retry automatically.",
+      `Symphony could not move the issue to \`${transition.targetState}\`, so manual state cleanup is required before the ticket is requeued.`
+    ];
+  }
+
+  return [
+    "Symphony did not retry automatically.",
+    "After resolving the orchestration or provider problem, move the issue back to `Todo` to request another run."
   ];
 }
 

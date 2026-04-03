@@ -343,6 +343,8 @@ export function createDockerWorkspaceBackend(
     },
 
     async cleanupWorkspace(input) {
+      const mode = input.mode ?? "destroy";
+      const preserveWorkspace = mode === "preserve";
       const descriptor = await resolveCleanupDescriptor(
         input,
         containerNamePrefix,
@@ -385,7 +387,7 @@ export function createDockerWorkspaceBackend(
             ? input.workspace.executionTarget.workspacePath
             : workspacePath;
 
-        if (input.hooks.beforeRemove && container.running) {
+        if (!preserveWorkspace && input.hooks.beforeRemove && container.running) {
           try {
             await runWorkspaceHookInContainer({
               commandRunner,
@@ -407,7 +409,7 @@ export function createDockerWorkspaceBackend(
           }
         }
 
-        if (runtimeManifest) {
+        if (!preserveWorkspace && runtimeManifest) {
           manifestLifecycleCleanup = await runDockerCleanupManifestLifecycle({
             runtimeManifest,
             descriptor,
@@ -434,17 +436,24 @@ export function createDockerWorkspaceBackend(
           });
         }
 
-        containerRemovalDisposition = await removeDockerContainer(
-          commandRunner,
-          descriptor.containerName,
-          descriptor,
-          timeoutMs
-        );
+        containerRemovalDisposition = preserveWorkspace
+          ? await stopDockerContainer(
+              commandRunner,
+              descriptor.containerName,
+              descriptor,
+              timeoutMs
+            )
+          : await removeDockerContainer(
+              commandRunner,
+              descriptor.containerName,
+              descriptor,
+              timeoutMs
+            );
       } else if (input.hooks.beforeRemove) {
         beforeRemoveHookOutcome = "skipped";
       }
 
-      if (runtimeManifest && !container) {
+      if (!preserveWorkspace && runtimeManifest && !container) {
         manifestLifecycleCleanup = await runDockerCleanupManifestLifecycle({
           runtimeManifest,
           descriptor,
@@ -477,25 +486,35 @@ export function createDockerWorkspaceBackend(
         });
       }
 
-      const serviceCleanup = await removeManagedServiceContainers(
-        commandRunner,
-        serviceDescriptors,
-        timeoutMs
-      );
-      const networkRemovalDisposition = runtimeManifest
-        ? await removeDockerNetwork(
+      const serviceCleanup = preserveWorkspace
+        ? await stopManagedServiceContainers(
             commandRunner,
-            descriptor.networkName,
-            descriptor,
+            serviceDescriptors,
             timeoutMs
           )
+        : await removeManagedServiceContainers(
+            commandRunner,
+            serviceDescriptors,
+            timeoutMs
+          );
+      const networkRemovalDisposition = runtimeManifest
+        ? preserveWorkspace
+          ? "preserved"
+          : await removeDockerNetwork(
+              commandRunner,
+              descriptor.networkName,
+              descriptor,
+              timeoutMs
+            )
         : "not_applicable";
-      const workspaceRemovalDisposition = await removeMaterializedWorkspace({
-        descriptor,
-        commandRunner,
-        timeoutMs
-      });
-      if (manifestLifecycleStatePath) {
+      const workspaceRemovalDisposition = preserveWorkspace
+        ? "preserved"
+        : await removeMaterializedWorkspace({
+            descriptor,
+            commandRunner,
+            timeoutMs
+          });
+      if (!preserveWorkspace && manifestLifecycleStatePath) {
         await removeDockerManifestLifecycleState(manifestLifecycleStatePath);
       }
 
@@ -1487,10 +1506,14 @@ async function ensureManagedPostgresService(input: {
   } else {
     assertManagedServiceContainer(existing, input.descriptor, input.networkName);
 
-    if (
-      canReusePostgresService(existing, input.descriptor, input.networkName)
-    ) {
-      container = existing;
+    if (canReusePostgresService(existing, input.descriptor, input.networkName)) {
+      container = existing.running
+        ? existing
+        : await startExistingDockerContainer({
+            commandRunner: input.commandRunner,
+            containerName: input.descriptor.containerName,
+            timeoutMs: input.timeoutMs
+          });
       disposition = "reused";
     } else {
       await removeDockerServiceContainer(
@@ -1637,6 +1660,35 @@ async function removeManagedServiceContainers(
   return cleanup;
 }
 
+async function stopManagedServiceContainers(
+  commandRunner: DockerWorkspaceCommandRunner,
+  descriptors: DockerServiceDescriptor[],
+  timeoutMs: number
+): Promise<WorkspaceCleanupService[]> {
+  const cleanup: WorkspaceCleanupService[] = [];
+
+  for (const descriptor of descriptors) {
+    const existing = await inspectDockerContainer(
+      commandRunner,
+      descriptor.containerName,
+      timeoutMs
+    );
+    const removalDisposition = existing
+      ? await stopDockerServiceContainer(commandRunner, descriptor, timeoutMs)
+      : "missing";
+
+    cleanup.push({
+      key: descriptor.key,
+      type: "postgres",
+      containerId: existing?.id ?? null,
+      containerName: descriptor.containerName,
+      removalDisposition
+    });
+  }
+
+  return cleanup;
+}
+
 async function ensureManagedContainer(input: {
   descriptor: DockerWorkspaceDescriptor;
   image: string;
@@ -1676,7 +1728,13 @@ async function ensureManagedContainer(input: {
     )
   ) {
     return {
-      container: existing,
+      container: existing.running
+        ? existing
+        : await startExistingDockerContainer({
+            commandRunner: input.commandRunner,
+            containerName: input.descriptor.containerName,
+            timeoutMs: input.timeoutMs
+          }),
       disposition: "reused"
     };
   }
@@ -1841,6 +1899,65 @@ async function removeDockerContainer(
   return isDockerMissingObject(result.stderr) ? "missing" : "removed";
 }
 
+async function stopDockerContainer(
+  commandRunner: DockerWorkspaceCommandRunner,
+  containerName: string,
+  descriptor: DockerWorkspaceDescriptor,
+  timeoutMs: number
+): Promise<"missing" | "stopped"> {
+  const existing = await inspectDockerContainer(commandRunner, containerName, timeoutMs);
+  if (!existing) {
+    return "missing";
+  }
+
+  assertManagedContainer(existing, descriptor);
+  if (!existing.running) {
+    return "stopped";
+  }
+
+  const args = ["stop", containerName];
+  const result = await commandRunner({
+    args,
+    timeoutMs
+  });
+
+  if (result.exitCode !== 0 && !isDockerMissingObject(result.stderr)) {
+    throw dockerCommandError("stop", args, result);
+  }
+
+  return "stopped";
+}
+
+async function startExistingDockerContainer(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  containerName: string;
+  timeoutMs: number;
+}): Promise<DockerContainerInspectState> {
+  const args = ["start", input.containerName];
+  const result = await input.commandRunner({
+    args,
+    timeoutMs: input.timeoutMs
+  });
+
+  if (result.exitCode !== 0) {
+    throw dockerCommandError("start", args, result);
+  }
+
+  const started = await inspectDockerContainer(
+    input.commandRunner,
+    input.containerName,
+    input.timeoutMs
+  );
+  if (!started?.running) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_start_failed",
+      `Docker container ${input.containerName} did not start successfully.`
+    );
+  }
+
+  return started;
+}
+
 async function startManagedPostgresService(input: {
   descriptor: DockerServiceDescriptor;
   networkName: string;
@@ -1968,6 +2085,74 @@ async function removeDockerServiceContainer(
   return isDockerMissingObject(result.stderr) ? "missing" : "removed";
 }
 
+async function stopDockerServiceContainer(
+  commandRunner: DockerWorkspaceCommandRunner,
+  descriptor: DockerServiceDescriptor,
+  timeoutMs: number
+): Promise<"missing" | "stopped"> {
+  const existing = await inspectDockerContainer(
+    commandRunner,
+    descriptor.containerName,
+    timeoutMs
+  );
+  if (!existing) {
+    return "missing";
+  }
+
+  if (existing.labels[managedBackendLabelKey] !== managedBackendLabelValue) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} exists but is not managed by Symphony.`
+    );
+  }
+
+  if (existing.labels[managedKindLabelKey] !== managedWorkspaceServiceKind) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is not a managed Symphony service container.`
+    );
+  }
+
+  if (existing.labels[managedServiceKeyLabelKey] !== descriptor.key) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is already assigned to service ${existing.labels[managedServiceKeyLabelKey]}.`
+    );
+  }
+
+  if (existing.labels[managedWorkspaceKeyLabelKey] !== descriptor.workspaceKey) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is already assigned to workspace ${existing.labels[managedWorkspaceKeyLabelKey]}.`
+    );
+  }
+
+  if (
+    existing.labels[managedIssueIdentifierLabelKey] !== descriptor.issueIdentifier
+  ) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker service container ${descriptor.containerName} is already assigned to issue ${existing.labels[managedIssueIdentifierLabelKey]}.`
+    );
+  }
+
+  if (!existing.running) {
+    return "stopped";
+  }
+
+  const args = ["stop", descriptor.containerName];
+  const result = await commandRunner({
+    args,
+    timeoutMs
+  });
+
+  if (result.exitCode !== 0 && !isDockerMissingObject(result.stderr)) {
+    throw dockerCommandError("stop", args, result);
+  }
+
+  return "stopped";
+}
+
 async function waitForManagedPostgresReadiness(input: {
   commandRunner: DockerWorkspaceCommandRunner;
   descriptor: DockerServiceDescriptor;
@@ -2034,7 +2219,6 @@ async function canReuseContainer(
   networkName: string | null
 ): Promise<boolean> {
   return (
-    container.running &&
     container.image === image &&
     (hostFileMounts.length === 0 ||
       container.labels[managedHostFileMountsHashLabelKey] ===
@@ -2062,7 +2246,6 @@ function canReusePostgresService(
   const resources = resolvePostgresResourceLimits(descriptor.service);
 
   return (
-    container.running &&
     container.image === descriptor.service.image &&
     container.env.POSTGRES_DB === descriptor.service.database &&
     container.env.POSTGRES_USER === descriptor.service.username &&

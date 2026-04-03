@@ -30,7 +30,6 @@ import {
   isFatalRuntimeError
 } from "./symphony-orchestrator-failures.js";
 import {
-  createRetryEntry,
   stateSlotsAvailable
 } from "./symphony-orchestrator-retries.js";
 import {
@@ -117,7 +116,6 @@ export class SymphonyOrchestrator {
     this.#state.pollCheckInProgress = true;
     try {
       await this.reconcileRunningIssues();
-      await this.#processDueRetries();
 
       if (this.availableSlots() > 0) {
         const issues = await this.#tracker.fetchCandidateIssues(
@@ -205,8 +203,7 @@ export class SymphonyOrchestrator {
     if (
       this.#state.running[issue.id] ||
       this.#state.claimed.has(issue.id) ||
-      this.#state.completed.has(issue.id) ||
-      this.#state.retryAttempts[issue.id]
+      this.#state.completed.has(issue.id)
     ) {
       return false;
     }
@@ -351,9 +348,24 @@ export class SymphonyOrchestrator {
         }
       });
 
+      const activeIssue =
+        preparedIssue.state.trim().toLowerCase() === "bootstrapping"
+          ? await this.#transitionIssueState({
+              issue: preparedIssue,
+              targetState: "In Progress",
+              runId,
+              eventType: "bootstrap_transition",
+              message: "Issue moved from Bootstrapping to In Progress.",
+              payload: {
+                fromState: preparedIssue.state,
+                toState: "In Progress"
+              }
+            })
+          : preparedIssue;
+
       startupFailureStage = "runtime_launch";
       const launch = await this.#agentRuntime.startRun({
-        issue: preparedIssue,
+        issue: activeIssue,
         runId,
         attempt,
         runtimePolicy: this.#config.runtime,
@@ -363,7 +375,7 @@ export class SymphonyOrchestrator {
       launchTarget = launch.launchTarget;
 
       this.#state.running[preparedIssue.id] = createRunningEntry({
-        issue: preparedIssue,
+        issue: activeIssue,
         runId,
         sessionId: launch.sessionId,
         workerHost,
@@ -374,7 +386,7 @@ export class SymphonyOrchestrator {
       });
 
       await this.#observer?.recordLifecycleEvent({
-        issue: preparedIssue,
+        issue: activeIssue,
         runId,
         source: "orchestrator",
         eventType: "runtime_launch_requested",
@@ -387,8 +399,6 @@ export class SymphonyOrchestrator {
         }
       });
 
-      delete this.#state.retryAttempts[preparedIssue.id];
-      this.#state.completed.delete(preparedIssue.id);
       this.#state.claimed.add(preparedIssue.id);
     } catch (error) {
       if (isFatalRuntimeError(error)) {
@@ -547,12 +557,29 @@ export class SymphonyOrchestrator {
       totalTokens: runningEntry.codexTotalTokens
     });
 
+    let currentIssue = await this.#refreshIssue(runningEntry.issue);
+    const destroyWorkspace =
+      currentIssue !== null &&
+      issueMatchesTerminalState(currentIssue, this.#config.tracker);
+    const cleanupMode = destroyWorkspace ? "destroy" : "preserve";
+
     if (completion.kind === "normal" || completion.kind === "max_turns_reached") {
       if (completion.kind === "max_turns_reached") {
+        currentIssue = await this.#transitionIssueState({
+          issue: currentIssue ?? runningEntry.issue,
+          targetState: this.#config.tracker.pauseTransitionToState,
+          runId: runningEntry.runId,
+          eventType: "pause_transition",
+          message: "Issue moved to the paused state after hitting the max-turn limit.",
+          payload: {
+            reason: completion.reason
+          },
+          swallowErrors: true
+        });
         await leaveFailureComment({
           tracker: this.#tracker,
           observer: this.#observer,
-          issue: runningEntry.issue,
+          issue: currentIssue ?? runningEntry.issue,
           reason: completion.reason,
           outcome: "paused_max_turns",
           runId: runningEntry.runId,
@@ -562,15 +589,16 @@ export class SymphonyOrchestrator {
         });
       }
 
-      this.#state.completed.add(issueId);
-      await this.scheduleIssueRetry(issueId, 1, {
-        identifier: runningEntry.issue.identifier,
-        issue: runningEntry.issue,
+      await this.#cleanupStoppedRun({
+        issue: currentIssue ?? runningEntry.issue,
         runId: runningEntry.runId,
-        workerHost: runningEntry.workerHost,
         workspace: runningEntry.workspace,
-        launchTarget: runningEntry.launchTarget,
-        delayType: "continuation"
+        workerHost: runningEntry.workerHost,
+        completionKind: completion.kind,
+        mode:
+          completion.kind === "max_turns_reached"
+            ? "preserve"
+            : cleanupMode
       });
       return;
     }
@@ -609,140 +637,163 @@ export class SymphonyOrchestrator {
       return;
     }
 
-    if (completion.kind === "stalled") {
-      await this.scheduleIssueRetry(issueId, runningEntry.retryAttempt + 1, {
-        identifier: runningEntry.issue.identifier,
-        error: completion.reason,
-        issue: runningEntry.issue,
-        runId: runningEntry.runId,
-        workerHost: runningEntry.workerHost,
-        workspace: runningEntry.workspace,
-        launchTarget: runningEntry.launchTarget,
-        delayType: "failure"
-      });
-      return;
-    }
+    currentIssue = await this.#transitionIssueState({
+      issue: currentIssue ?? runningEntry.issue,
+      targetState: this.#config.tracker.pauseTransitionToState,
+      runId: runningEntry.runId,
+      eventType: "pause_transition",
+      message:
+        completion.kind === "rate_limited"
+          ? "Issue moved to the paused state after a provider rate limit."
+          : completion.kind === "stalled"
+            ? "Issue moved to the paused state after the run stalled."
+            : "Issue moved to the paused state after a runtime failure.",
+      payload: {
+        reason: completion.reason,
+        completionKind: completion.kind
+      },
+      swallowErrors: true
+    });
 
     await leaveFailureComment({
       tracker: this.#tracker,
       observer: this.#observer,
-      issue: runningEntry.issue,
+      issue: currentIssue ?? runningEntry.issue,
       reason: completion.reason,
       outcome:
         completion.kind === "rate_limited"
           ? "rate_limited"
-          : "retry_scheduled",
+          : completion.kind === "stalled"
+            ? "paused_stalled"
+            : "paused_failure",
       runId: runningEntry.runId,
       options: {
         rateLimits: runningEntry.lastRateLimits
       }
     });
 
-    await this.scheduleIssueRetry(issueId, runningEntry.retryAttempt + 1, {
-      identifier: runningEntry.issue.identifier,
-      error: completion.reason,
-      issue: runningEntry.issue,
+    await this.#cleanupStoppedRun({
+      issue: currentIssue ?? runningEntry.issue,
       runId: runningEntry.runId,
-      workerHost: runningEntry.workerHost,
       workspace: runningEntry.workspace,
-      launchTarget: runningEntry.launchTarget,
-      delayType: "failure"
+      workerHost: runningEntry.workerHost,
+      completionKind: completion.kind,
+      mode: "preserve"
     });
   }
 
-  async scheduleIssueRetry(
-    issueId: string,
-    attempt: number,
-    metadata: {
-      identifier: string;
-      error?: string;
-      issue?: SymphonyTrackerIssue;
-      runId?: string | null;
-      workerHost?: string | null;
-      workspace?: PreparedWorkspace | null;
-      launchTarget?: AgentRuntimeLaunchTarget | null;
-      delayType: "continuation" | "failure";
+  async #transitionIssueState(input: {
+    issue: SymphonyTrackerIssue;
+    targetState: string | null;
+    runId: string | null;
+    eventType: string;
+    message: string;
+    payload?: Record<string, unknown>;
+    swallowErrors?: boolean;
+  }): Promise<SymphonyTrackerIssue> {
+    if (
+      !input.targetState ||
+      input.issue.state.trim().toLowerCase() === input.targetState.trim().toLowerCase()
+    ) {
+      return input.issue;
     }
-  ): Promise<void> {
-    this.#state.retryAttempts[issueId] = createRetryEntry({
-      attempt,
-      nowMs: this.#clock.nowMs(),
-      identifier: metadata.identifier,
-      error: metadata.error,
-      workerHost: metadata.workerHost,
-      workspace: metadata.workspace,
-      launchTarget: metadata.launchTarget,
-      delayType: metadata.delayType,
-      maxRetryBackoffMs: this.#config.agent.maxRetryBackoffMs
-    });
 
-    const issue = metadata.issue ?? this.#state.running[issueId]?.issue;
-    const runId = metadata.runId ?? this.#state.running[issueId]?.runId ?? null;
-
-    if (issue) {
+    try {
+      await this.#tracker.updateIssueState(input.issue.id, input.targetState);
+      const nextIssue = {
+        ...input.issue,
+        state: input.targetState
+      };
       await this.#observer?.recordLifecycleEvent({
-        issue,
-        runId,
-        source: "orchestrator",
-        eventType: "retry_scheduled",
-        message:
-          metadata.delayType === "continuation"
-            ? "Continuation retry scheduled."
-            : "Failure retry scheduled.",
+        issue: nextIssue,
+        runId: input.runId,
+        source: "tracker",
+        eventType: input.eventType,
+        message: input.message,
         payload: {
-          attempt,
-          dueAtMs: this.#state.retryAttempts[issueId]?.dueAtMs ?? null,
-          error: metadata.error ?? null,
-          delayType: metadata.delayType,
-          launchTarget: metadata.launchTarget ?? null,
-          workspace: metadata.workspace
-            ? buildWorkspaceLifecyclePayload(metadata.workspace)
-            : null
+          fromState: input.issue.state,
+          toState: input.targetState,
+          ...(input.payload ?? {})
         }
       });
+      return nextIssue;
+    } catch (error) {
+      await this.#observer?.recordLifecycleEvent({
+        issue: input.issue,
+        runId: input.runId,
+        source: "tracker",
+        eventType: `${input.eventType}_failed`,
+        message: `Failed to move issue to ${input.targetState}.`,
+        payload: {
+          fromState: input.issue.state,
+          toState: input.targetState,
+          reason: error instanceof Error ? error.message : String(error),
+          ...(input.payload ?? {})
+        }
+      });
+
+      if (input.swallowErrors) {
+        return input.issue;
+      }
+
+      throw error;
     }
   }
 
-  async #processDueRetries(): Promise<void> {
-    const nowMs = this.#clock.nowMs();
-    const dueRetries = Object.entries(this.#state.retryAttempts)
-      .filter(([, retry]) => retry.dueAtMs <= nowMs)
-      .sort((left, right) => left[1].dueAtMs - right[1].dueAtMs);
+  async #refreshIssue(
+    issue: SymphonyTrackerIssue
+  ): Promise<SymphonyTrackerIssue | null> {
+    const refreshed = await this.#tracker.fetchIssueStatesByIds(
+      this.#config.tracker,
+      [issue.id]
+    );
 
-    for (const [issueId, retry] of dueRetries) {
-      delete this.#state.retryAttempts[issueId];
+    return refreshed[0] ?? null;
+  }
 
-      const issue = await this.#tracker.fetchIssueByIdentifier(
-        this.#config.tracker,
-        retry.identifier
-      );
-
-      if (!issue) {
-        continue;
-      }
-
-      if (!issueMatchesDispatchableState(issue, this.#config.tracker)) {
-        continue;
-      }
-
-      if (issueMatchesTerminalState(issue, this.#config.tracker)) {
-        continue;
-      }
-
-      if (!this.shouldDispatchIssue(issue)) {
-        await this.scheduleIssueRetry(issue.id, retry.attempt, {
-          identifier: retry.identifier,
-          error: retry.error ?? undefined,
-          workerHost: retry.workerHost,
-          workspace: retry.workspace,
-          launchTarget: retry.launchTarget,
-          delayType: retry.delayType
-        });
-        continue;
-      }
-
-      await this.dispatchIssue(issue, retry.attempt, retry.workerHost);
+  async #cleanupStoppedRun(input: {
+    issue: SymphonyTrackerIssue;
+    runId: string | null;
+    workspace: PreparedWorkspace | null;
+    workerHost: string | null;
+    completionKind: SymphonyAgentRuntimeCompletion["kind"];
+    mode: "destroy" | "preserve";
+  }): Promise<void> {
+    if (!input.workspace) {
+      return;
     }
+
+    await cleanupWorkspaceAndRecordLifecycle({
+      observer: this.#observer,
+      workspaceBackend: this.#workspaceBackend,
+      config: this.#config,
+      runnerEnv: this.#runnerEnv,
+      issue: input.issue,
+      runId: input.runId,
+      workspace: input.workspace,
+      workerHost: input.workerHost,
+      reason:
+        input.mode === "destroy" ? "issue_stopped" : "issue_suspended",
+      mode: input.mode
+    });
+
+    await this.#observer?.recordLifecycleEvent({
+      issue: input.issue,
+      runId: input.runId,
+      source: "orchestrator",
+      eventType:
+        input.mode === "destroy"
+          ? "workspace_destroyed_after_run"
+          : "workspace_preserved_after_run",
+      message:
+        input.mode === "destroy"
+          ? "Workspace destroyed after the run stopped."
+          : "Workspace preserved after the run stopped.",
+      payload: {
+        completionKind: input.completionKind,
+        workspace: buildWorkspaceLifecyclePayload(input.workspace)
+      }
+    });
   }
 
   async #terminateRunningIssue(
@@ -783,12 +834,25 @@ export class SymphonyOrchestrator {
         runId: runningEntry.runId,
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
-        reason: "issue_stopped"
+        reason: cleanupWorkspace ? "issue_stopped" : "issue_suspended",
+        mode: cleanupWorkspace ? "destroy" : "preserve"
+      });
+    } else if (runningEntry.workspace) {
+      await cleanupWorkspaceAndRecordLifecycle({
+        observer: this.#observer,
+        workspaceBackend: this.#workspaceBackend,
+        config: this.#config,
+        runnerEnv: this.#runnerEnv,
+        issue: runningEntry.issue,
+        runId: runningEntry.runId,
+        workspace: runningEntry.workspace,
+        workerHost: runningEntry.workerHost,
+        reason: "issue_suspended",
+        mode: "preserve"
       });
     }
 
     delete this.#state.running[issueId];
-    delete this.#state.retryAttempts[issueId];
     this.#state.claimed.delete(issueId);
   }
 }

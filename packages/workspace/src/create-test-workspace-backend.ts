@@ -113,28 +113,32 @@ export function createTestWorkspaceBackend(options: {
       }
     },
     async cleanupWorkspace(input) {
-      const beforeRemoveHookOutcome = await resolveBeforeRemoveHookOutcome({
-        workspace:
-          input.workspace ??
-          buildPreparedWorkspace({
-            issueIdentifier: input.issueIdentifier,
-            workspaceKey: sanitizeSymphonyIssueIdentifier(input.issueIdentifier),
-            hostPath: path.join(
-              input.config.root,
-              `symphony-${sanitizeSymphonyIssueIdentifier(input.issueIdentifier)}`
-            ),
-            runtimeWorkspacePath,
-            shell,
-            created: false,
-            containerNamePrefix,
-            environmentSource: input.env,
-            workerHost: input.workerHost ?? null
-          }),
-        hooks: input.hooks,
-        issueIdentifier: input.issueIdentifier,
-        workerHost: input.workerHost ?? null,
-        commandRunner: options.commandRunner
-      });
+      const mode = input.mode ?? "destroy";
+      const beforeRemoveHookOutcome =
+        mode === "destroy"
+          ? await resolveBeforeRemoveHookOutcome({
+              workspace:
+                input.workspace ??
+                buildPreparedWorkspace({
+                  issueIdentifier: input.issueIdentifier,
+                  workspaceKey: sanitizeSymphonyIssueIdentifier(input.issueIdentifier),
+                  hostPath: path.join(
+                    input.config.root,
+                    `symphony-${sanitizeSymphonyIssueIdentifier(input.issueIdentifier)}`
+                  ),
+                  runtimeWorkspacePath,
+                  shell,
+                  created: false,
+                  containerNamePrefix,
+                  environmentSource: input.env,
+                  workerHost: input.workerHost ?? null
+                }),
+              hooks: input.hooks,
+              issueIdentifier: input.issueIdentifier,
+              workerHost: input.workerHost ?? null,
+              commandRunner: options.commandRunner
+            })
+          : "skipped";
 
       const hostPath =
         input.workspace?.executionTarget.hostPath ??
@@ -142,7 +146,7 @@ export function createTestWorkspaceBackend(options: {
           input.config.root,
           `symphony-${sanitizeSymphonyIssueIdentifier(input.issueIdentifier)}`
         );
-      if (hostPath) {
+      if (mode === "destroy" && hostPath) {
         await rm(hostPath, {
           recursive: true,
           force: true
@@ -166,12 +170,20 @@ export function createTestWorkspaceBackend(options: {
           containerNamePrefix,
           sanitizeSymphonyIssueIdentifier(input.issueIdentifier)
         ),
-        networkRemovalDisposition: "removed",
+        networkRemovalDisposition:
+          mode === "destroy" ? "removed" : "preserved",
         serviceCleanup: [],
-        beforeRemoveHookOutcome,
+        beforeRemoveHookOutcome:
+          mode === "destroy" ? beforeRemoveHookOutcome : "skipped",
         manifestLifecycleCleanup: null,
-        workspaceRemovalDisposition: hostPath ? "removed" : "missing",
-        containerRemovalDisposition: "removed"
+        workspaceRemovalDisposition:
+          mode === "destroy"
+            ? hostPath
+              ? "removed"
+              : "missing"
+            : "preserved",
+        containerRemovalDisposition:
+          mode === "destroy" ? "removed" : "stopped"
       };
     }
   };

@@ -34,11 +34,12 @@ export function buildSymphonyOrchestratorConfig(overrides: {
     teamKey: null,
     excludedProjectIds: [],
     assignee: null,
-    dispatchableStates: ["Todo", "In Progress", "Rework"],
+    dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework"],
     terminalStates: ["Canceled", "Done"],
-    claimTransitionToState: "In Progress",
+    claimTransitionToState: "Bootstrapping",
     claimTransitionFromStates: ["Todo", "Rework"],
     startupFailureTransitionToState: "Backlog",
+    pauseTransitionToState: "Paused",
     ...overrides.tracker
   };
 
@@ -88,12 +89,8 @@ export function buildSymphonyOrchestratorConfig(overrides: {
       },
       codex: {
         command: "codex app-server",
-        approvalPolicy: {
-          reject: {
-            sandbox_approval: true
-          }
-        },
-        threadSandbox: "workspace-write",
+        approvalPolicy: "never",
+        threadSandbox: "danger-full-access",
         turnSandboxPolicy: null,
         turnTimeoutMs: 3_600_000,
         readTimeoutMs: 5_000,

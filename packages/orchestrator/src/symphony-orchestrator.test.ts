@@ -58,22 +58,22 @@ describe("symphony orchestrator", () => {
 
     const prepared = await prepareIssueForDispatch(config, tracker, issue);
 
-    expect(prepared.state).toBe("In Progress");
+    expect(prepared.state).toBe("Bootstrapping");
     expect(tracker.listOperations()).toEqual([
       {
         kind: "update_state",
         issueId: "issue-123",
-        stateName: "In Progress"
+        stateName: "Bootstrapping"
       },
       {
         kind: "comment",
         issueId: "issue-123",
-        body: expect.stringContaining("moved it from `Rework` to `In Progress`")
+        body: expect.stringContaining("moved it from `Rework` to `Bootstrapping`")
       }
     ]);
   });
 
-  it("dispatches eligible issues, updates snapshots, and schedules continuation retries", async () => {
+  it("dispatches eligible issues, updates snapshots, and preserves the workspace when a run stops", async () => {
     const config = buildSymphonyOrchestratorConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
     const manager = createTestWorkspaceBackend({
@@ -152,8 +152,7 @@ describe("symphony orchestrator", () => {
 
     const completedSnapshot = orchestrator.snapshot();
     expect(completedSnapshot.running).toHaveLength(0);
-    expect(completedSnapshot.retrying[0]?.attempt).toBe(1);
-    expect(completedSnapshot.retrying[0]?.delayType).toBe("continuation");
+    expect(completedSnapshot.retrying).toHaveLength(0);
     expect(completedSnapshot.codexTotals.totalTokens).toBe(16);
   });
 
@@ -364,7 +363,7 @@ describe("symphony orchestrator", () => {
     expect(orchestrator.snapshot().pollCheckInProgress).toBe(false);
   });
 
-  it("records retry scheduling after a run completes", async () => {
+  it("records pause and workspace preservation after a failed run completes", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
         ...buildSymphonyOrchestratorConfig().tracker,
@@ -422,7 +421,12 @@ describe("symphony orchestrator", () => {
     });
 
     expect(lifecycleEvents).toContainEqual({
-      eventType: "retry_scheduled",
+      eventType: "pause_transition",
+      runId: "run-1",
+      issueIdentifier: "COL-123"
+    });
+    expect(lifecycleEvents).toContainEqual({
+      eventType: "workspace_preserved_after_run",
       runId: "run-1",
       issueIdentifier: "COL-123"
     });
@@ -481,7 +485,7 @@ describe("symphony orchestrator", () => {
       launchTarget: null
     });
 
-    expect(hookEnvs).toHaveLength(3);
+    expect(hookEnvs).toHaveLength(2);
     expect(hookEnvs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -608,7 +612,7 @@ describe("symphony orchestrator", () => {
     expect(orchestrator.snapshot().running).toHaveLength(0);
   });
 
-  it("schedules backoff retries after failures", async () => {
+  it("pauses failed runs instead of scheduling hidden retries", async () => {
     const config = buildSymphonyOrchestratorConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
     const manager = createTestWorkspaceBackend({
@@ -636,12 +640,15 @@ describe("symphony orchestrator", () => {
       reason: "agent exited"
     });
 
-    expect(orchestrator.snapshot().retrying[0]?.dueAtMs).toBe(
-      Date.parse("2026-03-31T00:00:00.000Z") + 10_000
-    );
+    expect(orchestrator.snapshot().retrying).toHaveLength(0);
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "update_state",
+      issueId: "issue-123",
+      stateName: "Paused"
+    });
   });
 
-  it("treats max-turn pauses as continuation retries and journals a paused outcome", async () => {
+  it("moves max-turn pauses into the paused state without retrying", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
         ...buildSymphonyOrchestratorConfig().tracker,
@@ -688,7 +695,7 @@ describe("symphony orchestrator", () => {
       reason: "Reached the configured 2-turn limit while the issue remained active."
     });
 
-    expect(orchestrator.snapshot().retrying[0]?.delayType).toBe("continuation");
+    expect(orchestrator.snapshot().retrying).toHaveLength(0);
     expect(finalized).toEqual([
       {
         kind: "max_turns_reached",
@@ -705,12 +712,12 @@ describe("symphony orchestrator", () => {
       kind: "comment",
       issueId: "issue-123",
       body: expect.stringContaining(
-        "Symphony will start a fresh run automatically while the issue remains in an active state."
+        "Symphony did not retry automatically."
       )
     });
   });
 
-  it("restarts stalled runs with retry backoff instead of leaving them active", async () => {
+  it("pauses stalled runs instead of silently retrying them", async () => {
     const config = buildSymphonyOrchestratorConfig({
       codex: {
         ...buildSymphonyOrchestratorConfig().codex,
@@ -774,7 +781,12 @@ describe("symphony orchestrator", () => {
       }
     ]);
     expect(orchestrator.snapshot().running).toHaveLength(0);
-    expect(orchestrator.snapshot().retrying[0]?.delayType).toBe("failure");
+    expect(orchestrator.snapshot().retrying).toHaveLength(0);
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "update_state",
+      issueId: "issue-123",
+      stateName: "Paused"
+    });
   });
 
   it("formats startup-failure comments with moved-state guidance", async () => {
@@ -971,5 +983,11 @@ describe("symphony orchestrator", () => {
       issueId: "issue-123",
       body: expect.stringContaining("Latest rate limits: codex; primary: 90/100 remaining, reset 95s")
     });
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "update_state",
+      issueId: "issue-123",
+      stateName: "Paused"
+    });
+    expect(orchestrator.snapshot().retrying).toHaveLength(0);
   });
 });

@@ -11,6 +11,7 @@ export type SymphonyTrackerConfig = {
   claimTransitionToState: string | null;
   claimTransitionFromStates: string[];
   startupFailureTransitionToState: string | null;
+  pauseTransitionToState: string | null;
 };
 
 export type SymphonyWorkflowTrackerConfig = SymphonyTrackerConfig;

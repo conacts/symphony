@@ -1,6 +1,6 @@
 # Symphony Linear Ticket Lifecycle
 
-Date: 2026-04-02
+Date: 2026-04-03
 
 ## Purpose
 
@@ -8,8 +8,10 @@ Define the Linear workflow contract for Symphony-operated issues.
 
 The goal is to keep execution boundaries explicit:
 
+- `Bootstrapping` is platform-owned prepare/rehydrate work
+- `Paused` is platform/provider-owned
 - `Failed` is platform-owned
-- `Blocked` is repo-owned
+- `Blocked` is agent/repo-owned
 - `Done` and `Canceled` are terminal
 - `Approved` is active only for merge execution
 
@@ -18,6 +20,7 @@ The goal is to keep execution boundaries explicit:
 ### Dispatch States
 
 - `Todo`
+- `Bootstrapping`
 - `In Progress`
 - `Rework`
 - `Approved`
@@ -27,6 +30,7 @@ The goal is to keep execution boundaries explicit:
 - `Backlog`
 - `In Review`
 - `Blocked`
+- `Paused`
 - `Failed`
 
 ### Terminal States
@@ -48,11 +52,18 @@ Primary dispatch queue for admitted, agent-ready work.
 
 The ticket should already contain enough detail for the agent to work without hidden context.
 
+### `Bootstrapping`
+
+Platform-owned setup state.
+
+Use this while Symphony is attaching or provisioning the durable issue workspace, validating
+preconditions, and preparing the box for the first agent turn.
+
 ### `In Progress`
 
 Active implementation state.
 
-This means the issue is eligible for continued agent execution.
+This begins only when the agent is actually ready to start working.
 
 ### `In Review`
 
@@ -77,24 +88,38 @@ execution. `Approved` is active, but it is not a general implementation state.
 
 ### `Blocked`
 
-Repo-owned failure state.
+Agent/repo-owned stop state.
 
-Use this when the platform successfully prepared and dispatched the environment, but the repo's own
-lifecycle failed. Examples:
+Use this when the agent has already begun work but cannot continue because of repo-side or task-side
+reality. Examples:
 
-- `bootstrap` failed
-- `migrate` failed
-- `verify` failed
+- repo commands failed during active work
+- tests or verification exposed a repo issue the agent could not resolve
+- the agent intentionally hands the issue back for repo-side intervention
 
 `Blocked` is non-terminal and non-dispatch. A human must fix the repo-side issue and move the
-ticket back into an active state.
+ticket back into `Todo` to request another run.
+
+### `Paused`
+
+Platform/provider-owned stop state.
+
+Use this when the workspace exists but Symphony cannot keep the run going because the orchestration
+channel or provider failed. Examples:
+
+- provider rate limit or capacity failure
+- runtime stall without visible Codex activity
+- approval/orchestration interruption
+
+`Paused` is non-terminal and non-dispatch. There are no hidden retries. A human must move the
+ticket back into `Todo` to request another run.
 
 ### `Failed`
 
 Platform-owned failure state.
 
-Use this when Symphony refuses or cannot start the run because the platform contract failed before
-normal repo work could proceed. Examples:
+Use this when Symphony refuses or cannot start the run because the platform or bootstrap path failed
+before the agent began real work. Examples:
 
 - missing `.symphony/runtime.ts`
 - missing `.symphony/prompt.md`
@@ -102,6 +127,7 @@ normal repo work could proceed. Examples:
 - missing required auth/env
 - Docker preflight failure
 - repo admission failure
+- repo bootstrap/migrate/verify failed before the first real agent turn
 
 `Failed` is non-terminal and non-dispatch. The next move must be deliberate.
 
@@ -123,32 +149,40 @@ Symphony cleans up the issue workspace and does not recreate it after the issue 
 Human-owned transitions:
 
 - `Backlog -> Todo`
+- `Paused -> Todo`
+- `Failed -> Todo`
+- `Blocked -> Todo`
 - `In Review -> Rework`
 - `In Review -> Approved`
-- `Blocked -> Todo`
-- `Failed -> Todo`
 - any move to `Done`
 - any move to `Canceled`
 
 Symphony-owned transitions:
 
-- `Todo -> In Progress`
-- `Rework -> In Progress`
-- `In Progress -> In Review`
+- `Todo -> Bootstrapping`
+- `Rework -> Bootstrapping`
+- `Bootstrapping -> In Progress`
+- `Bootstrapping -> Failed`
+- `Bootstrapping -> Paused`
+- `In Progress -> Paused`
 - `Approved -> Done`
 - `Approved -> In Review`
 
+Agent-owned transitions:
+
+- `In Progress -> Blocked`
+- `In Progress -> In Review`
+
 ## Comment Policy
 
-Symphony should leave explicit Linear comments when it moves or refuses an issue because of a
-platform-owned failure.
+Symphony should leave explicit Linear comments when it moves an issue into `Paused` or `Failed`, and
+when an operator resumes from `Paused -> Todo`.
 
 Those comments should include:
 
-- failure class
-- failed check
-- whether retry is blocked
+- state transition
+- reason bucket
+- whether workspace was preserved
 - next operator action
 
-Repo-owned lifecycle failures should also leave a concise note, but they belong in `Blocked`, not
-`Failed`.
+There are no hidden retries for `Paused`, `Blocked`, or `Failed`.

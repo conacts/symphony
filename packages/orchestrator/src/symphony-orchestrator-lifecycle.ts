@@ -2,7 +2,8 @@ import type { SymphonyJsonObject } from "@symphony/run-journal";
 import type { SymphonyTracker, SymphonyTrackerIssue } from "@symphony/tracker";
 import type {
   PreparedWorkspace,
-  WorkspaceBackend
+  WorkspaceBackend,
+  WorkspaceCleanupMode
 } from "@symphony/workspace";
 import {
   buildFailureCommentBody,
@@ -65,7 +66,8 @@ export async function cleanupWorkspaceAndRecordLifecycle(input: {
   runId: string | null;
   workspace: PreparedWorkspace | null;
   workerHost: string | null;
-  reason: "startup_failure" | "issue_stopped";
+  reason: "startup_failure" | "issue_stopped" | "issue_suspended";
+  mode: WorkspaceCleanupMode;
   startupFailure?: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
 }): Promise<void> {
   try {
@@ -80,6 +82,7 @@ export async function cleanupWorkspaceAndRecordLifecycle(input: {
         input.issue,
         input.runId
       ),
+      mode: input.mode,
       ...createWorkspaceRunnerOptions(input.runnerEnv, input.workerHost)
     });
 
@@ -89,7 +92,9 @@ export async function cleanupWorkspaceAndRecordLifecycle(input: {
       source: "workspace",
       eventType: "workspace_cleanup_completed",
       message:
-        input.reason === "startup_failure"
+        input.mode === "preserve"
+          ? "Workspace cleanup completed in preserve mode."
+          : input.reason === "startup_failure"
           ? "Workspace cleanup completed after startup failure."
           : "Workspace cleanup completed after the run stopped.",
       payload: {
@@ -110,7 +115,9 @@ export async function cleanupWorkspaceAndRecordLifecycle(input: {
       source: "workspace",
       eventType: "workspace_cleanup_failed",
       message:
-        input.reason === "startup_failure"
+        input.mode === "preserve"
+          ? "Workspace cleanup failed in preserve mode."
+          : input.reason === "startup_failure"
           ? "Workspace cleanup failed after startup failure."
           : "Workspace cleanup failed after the run stopped.",
       payload: {
@@ -210,6 +217,7 @@ export async function handleStartupFailure(input: {
     workspace: input.workspace,
     workerHost: input.workerHost,
     reason: "startup_failure",
+    mode: "preserve",
     startupFailure: input.completion
   });
 }

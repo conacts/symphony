@@ -13,6 +13,7 @@ import {
 import { inspectDockerVolume, removeDockerVolume, assertManagedVolume } from "./docker-inspect.js";
 import { workspaceExists } from "./workspace-paths.js";
 import { SymphonyWorkspaceError } from "./workspace-identity.js";
+import type { WorkspaceRemovalDisposition } from "./workspace-contracts.js";
 
 export async function ensureMaterializedWorkspace(input: {
   descriptor: DockerWorkspaceDescriptor;
@@ -34,7 +35,7 @@ export async function removeMaterializedWorkspace(input: {
   descriptor: DockerWorkspaceDescriptor;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
-}): Promise<"removed" | "missing"> {
+}): Promise<WorkspaceRemovalDisposition> {
   if (input.descriptor.materialization.kind === "bind_mount") {
     return await removeBindMountedWorkspace(input.descriptor.materialization.hostPath);
   }
@@ -75,7 +76,7 @@ async function ensureBindMountedWorkspace(
 
 async function removeBindMountedWorkspace(
   workspacePath: string
-): Promise<"removed" | "missing"> {
+): Promise<WorkspaceRemovalDisposition> {
   const existedBeforeDelete = await workspaceExists(workspacePath);
 
   await rm(workspacePath, {
