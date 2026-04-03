@@ -5,15 +5,14 @@ import {
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type {
+  PreparedWorkspace,
+  WorkspaceBackend,
+  WorkspaceContext
+} from "@symphony/workspace";
+import type {
   AgentRuntime,
   AgentRuntimeLaunchTarget
-} from "../runtime/agent-runtime.js";
-import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
-import {
-  type PreparedWorkspace,
-  type WorkspaceBackend,
-  type WorkspaceContext
-} from "../workspace/workspace-backend.js";
+} from "./agent-runtime.js";
 import {
   accumulateCodexTotals,
   createSymphonyOrchestratorSnapshot,
@@ -46,6 +45,7 @@ import {
   createWorkspaceRunnerOptions,
   recordDockerContainerPrepareEvent
 } from "./symphony-orchestrator-workspace.js";
+import type { SymphonyOrchestratorConfig } from "./orchestrator-config.js";
 import type {
   SymphonyAgentRuntimeCompletion,
   SymphonyAgentRuntimeUpdate,
@@ -62,14 +62,19 @@ export type {
   SymphonyAgentRuntimeCompletion,
   SymphonyAgentRuntimeUpdate,
   SymphonyClock,
+  SymphonyCodexMessage,
+  SymphonyCodexTotals,
   SymphonyOrchestratorObserver,
   SymphonyOrchestratorSnapshot,
   SymphonyOrchestratorState,
-  SymphonyRunningEntry
+  SymphonyRetryEntry,
+  SymphonyRunningEntry,
+  SymphonyStartupFailureOrigin,
+  SymphonyStartupFailureStage
 } from "./symphony-orchestrator-types.js";
 
 export class SymphonyOrchestrator {
-  readonly #workflowConfig: SymphonyResolvedWorkflowConfig;
+  readonly #config: SymphonyOrchestratorConfig;
   readonly #tracker: SymphonyTracker;
   readonly #workspaceBackend: WorkspaceBackend;
   readonly #agentRuntime: AgentRuntime;
@@ -79,7 +84,7 @@ export class SymphonyOrchestrator {
   #state: SymphonyOrchestratorState;
 
   constructor(input: {
-    workflowConfig: SymphonyResolvedWorkflowConfig;
+    config: SymphonyOrchestratorConfig;
     tracker: SymphonyTracker;
     workspaceBackend: WorkspaceBackend;
     agentRuntime: AgentRuntime;
@@ -87,7 +92,7 @@ export class SymphonyOrchestrator {
     clock?: SymphonyClock;
     runnerEnv?: Record<string, string | undefined>;
   }) {
-    this.#workflowConfig = input.workflowConfig;
+    this.#config = input.config;
     this.#tracker = input.tracker;
     this.#workspaceBackend = input.workspaceBackend;
     this.#agentRuntime = input.agentRuntime;
@@ -95,7 +100,7 @@ export class SymphonyOrchestrator {
     this.#clock = input.clock ?? systemClock;
     this.#runnerEnv = input.runnerEnv;
     this.#state = createSymphonyOrchestratorState(
-      input.workflowConfig,
+      input.config,
       this.#clock
     );
   }
@@ -116,7 +121,7 @@ export class SymphonyOrchestrator {
 
       if (this.availableSlots() > 0) {
         const issues = await this.#tracker.fetchCandidateIssues(
-          this.#workflowConfig.tracker
+          this.#config.tracker
         );
 
         for (const issue of issues) {
@@ -133,7 +138,7 @@ export class SymphonyOrchestrator {
       }
 
       this.#state.nextPollDueAtMs =
-        this.#clock.nowMs() + this.#workflowConfig.polling.intervalMs;
+        this.#clock.nowMs() + this.#config.polling.intervalMs;
 
       return this.snapshot();
     } finally {
@@ -143,7 +148,7 @@ export class SymphonyOrchestrator {
 
   async reconcileRunningIssues(): Promise<void> {
     await reconcileStalledRunningIssues({
-      workflowConfig: this.#workflowConfig,
+      config: this.#config,
       state: this.#state,
       agentRuntime: this.#agentRuntime,
       clock: this.#clock,
@@ -156,7 +161,7 @@ export class SymphonyOrchestrator {
     }
 
     const refreshed = await this.#tracker.fetchIssueStatesByIds(
-      this.#workflowConfig.tracker,
+      this.#config.tracker,
       runningIssueIds
     );
     const refreshedById = new Map(refreshed.map((issue) => [issue.id, issue]));
@@ -173,7 +178,7 @@ export class SymphonyOrchestrator {
         continue;
       }
 
-      if (issueMatchesTerminalState(refreshedIssue, this.#workflowConfig.tracker)) {
+      if (issueMatchesTerminalState(refreshedIssue, this.#config.tracker)) {
         await this.#terminateRunningIssue(issueId, true);
         continue;
       }
@@ -182,7 +187,7 @@ export class SymphonyOrchestrator {
         !refreshedIssue.assignedToWorker ||
         !issueMatchesDispatchableState(
           refreshedIssue,
-          this.#workflowConfig.tracker
+          this.#config.tracker
         )
       ) {
         await this.#terminateRunningIssue(issueId, false);
@@ -211,8 +216,8 @@ export class SymphonyOrchestrator {
     }
 
     if (
-      !issueMatchesDispatchableState(issue, this.#workflowConfig.tracker) ||
-      issueMatchesTerminalState(issue, this.#workflowConfig.tracker)
+      !issueMatchesDispatchableState(issue, this.#config.tracker) ||
+      issueMatchesTerminalState(issue, this.#config.tracker)
     ) {
       return false;
     }
@@ -222,7 +227,7 @@ export class SymphonyOrchestrator {
       stateSlotsAvailable(
         this.#state,
         issue.state,
-        this.#workflowConfig.agent.maxConcurrentAgentsByState
+        this.#config.agent.maxConcurrentAgentsByState
       )
     );
   }
@@ -240,7 +245,7 @@ export class SymphonyOrchestrator {
     preferredWorkerHost: string | null = null
   ): Promise<void> {
     const preparedIssue = await prepareIssueForDispatch(
-      this.#workflowConfig,
+      this.#config,
       this.#tracker,
       issue
     );
@@ -295,8 +300,8 @@ export class SymphonyOrchestrator {
       workspace = await this.#workspaceBackend.prepareWorkspace({
         context: workspaceContext,
         runId,
-        config: this.#workflowConfig.workspace,
-        hooks: this.#workflowConfig.hooks,
+        config: this.#config.workspace,
+        hooks: this.#config.hooks,
         lifecycleRecorder: createWorkspaceLifecycleRecorder(
           this.#observer,
           preparedIssue,
@@ -329,7 +334,7 @@ export class SymphonyOrchestrator {
       const beforeRunResult = await this.#workspaceBackend.runBeforeRun({
         workspace,
         context: workspaceContext,
-        hooks: this.#workflowConfig.hooks,
+        hooks: this.#config.hooks,
         ...createWorkspaceRunnerOptions(this.#runnerEnv, preferredWorkerHost)
       });
 
@@ -351,7 +356,7 @@ export class SymphonyOrchestrator {
         issue: preparedIssue,
         runId,
         attempt,
-        workflowConfig: this.#workflowConfig,
+        workflowConfig: this.#config.runtime,
         workspace
       });
       const workerHost = launch.workerHost ?? workspace.workerHost;
@@ -447,7 +452,7 @@ export class SymphonyOrchestrator {
       });
 
       await handleStartupFailure({
-        workflowConfig: this.#workflowConfig,
+        config: this.#config,
         tracker: this.#tracker,
         workspaceBackend: this.#workspaceBackend,
         observer: this.#observer,
@@ -503,7 +508,7 @@ export class SymphonyOrchestrator {
           issueId,
           issueIdentifier: runningEntry.issue.identifier
         },
-        hooks: this.#workflowConfig.hooks,
+        hooks: this.#config.hooks,
         ...createWorkspaceRunnerOptions(this.#runnerEnv, runningEntry.workerHost)
       });
       await this.#observer?.recordLifecycleEvent({
@@ -589,7 +594,7 @@ export class SymphonyOrchestrator {
         }
       });
       await handleStartupFailure({
-        workflowConfig: this.#workflowConfig,
+        config: this.#config,
         tracker: this.#tracker,
         workspaceBackend: this.#workspaceBackend,
         observer: this.#observer,
@@ -668,7 +673,7 @@ export class SymphonyOrchestrator {
       workspace: metadata.workspace,
       launchTarget: metadata.launchTarget,
       delayType: metadata.delayType,
-      maxRetryBackoffMs: this.#workflowConfig.agent.maxRetryBackoffMs
+      maxRetryBackoffMs: this.#config.agent.maxRetryBackoffMs
     });
 
     const issue = metadata.issue ?? this.#state.running[issueId]?.issue;
@@ -708,7 +713,7 @@ export class SymphonyOrchestrator {
       delete this.#state.retryAttempts[issueId];
 
       const issue = await this.#tracker.fetchIssueByIdentifier(
-        this.#workflowConfig.tracker,
+        this.#config.tracker,
         retry.identifier
       );
 
@@ -716,11 +721,11 @@ export class SymphonyOrchestrator {
         continue;
       }
 
-      if (!issueMatchesDispatchableState(issue, this.#workflowConfig.tracker)) {
+      if (!issueMatchesDispatchableState(issue, this.#config.tracker)) {
         continue;
       }
 
-      if (issueMatchesTerminalState(issue, this.#workflowConfig.tracker)) {
+      if (issueMatchesTerminalState(issue, this.#config.tracker)) {
         continue;
       }
 
@@ -772,7 +777,7 @@ export class SymphonyOrchestrator {
       await cleanupWorkspaceAndRecordLifecycle({
         observer: this.#observer,
         workspaceBackend: this.#workspaceBackend,
-        workflowConfig: this.#workflowConfig,
+        config: this.#config,
         runnerEnv: this.#runnerEnv,
         issue: runningEntry.issue,
         runId: runningEntry.runId,

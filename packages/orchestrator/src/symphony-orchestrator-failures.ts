@@ -1,7 +1,7 @@
-import { SymphonyRuntimeManifestError } from "../runtime-manifest/runtime-manifest-errors.js";
+import { SymphonyRuntimeManifestError } from "@symphony/runtime-contract";
 import { SymphonyWorkspaceError } from "@symphony/workspace";
-import { asJsonObject } from "../internal/json.js";
-import { asRecord, readString } from "../internal/records.js";
+import { asJsonObject } from "./internal/json.js";
+import { asRecord, readString } from "./internal/records.js";
 import type {
   SymphonyStartupFailureOrigin,
   SymphonyStartupFailureStage

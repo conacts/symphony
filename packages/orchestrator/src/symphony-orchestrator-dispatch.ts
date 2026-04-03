@@ -10,8 +10,7 @@ import type {
 } from "./symphony-orchestrator-types.js";
 import type {
   AgentRuntimeLaunchTarget
-} from "../runtime/agent-runtime.js";
-import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
+} from "./agent-runtime.js";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
@@ -19,16 +18,17 @@ import type {
 import {
   workspaceHostPath,
   type PreparedWorkspace
-} from "../workspace/workspace-backend.js";
+} from "@symphony/workspace";
 import type { SymphonyJsonObject } from "@symphony/run-journal";
+import type { SymphonyOrchestratorConfig } from "./orchestrator-config.js";
 
 export async function prepareIssueForDispatch(
-  workflowConfig: SymphonyResolvedWorkflowConfig,
+  config: SymphonyOrchestratorConfig,
   tracker: SymphonyTracker,
   issue: SymphonyTrackerIssue
 ): Promise<SymphonyTrackerIssue> {
-  const targetState = workflowConfig.tracker.claimTransitionToState;
-  const sourceStates = workflowConfig.tracker.claimTransitionFromStates.map(
+  const targetState = config.tracker.claimTransitionToState;
+  const sourceStates = config.tracker.claimTransitionFromStates.map(
     (stateName) => stateName.trim().toLowerCase()
   );
 

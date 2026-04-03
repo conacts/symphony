@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SymphonyRuntimeManifestError } from "../runtime-manifest/runtime-manifest-errors.js";
+import { SymphonyRuntimeManifestError } from "@symphony/runtime-contract";
 import { SymphonyWorkspaceError } from "@symphony/workspace";
 import { classifyStartupFailureOrigin } from "./symphony-orchestrator-failures.js";
 

@@ -5,7 +5,7 @@ import {
   type WorkspaceBackend,
   type WorkspaceBackendEventRecorder,
   type WorkspaceLifecycleMetadata
-} from "../workspace/workspace-backend.js";
+} from "@symphony/workspace";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type { SymphonyOrchestratorObserver } from "./symphony-orchestrator-types.js";
 

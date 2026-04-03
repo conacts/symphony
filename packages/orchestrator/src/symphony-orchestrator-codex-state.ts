@@ -1,6 +1,6 @@
 import type { SymphonyJsonObject } from "@symphony/run-journal";
-import { asJsonObject } from "../internal/json.js";
-import { asRecord, isRecord } from "../internal/records.js";
+import { asJsonObject } from "./internal/json.js";
+import { asRecord, isRecord } from "./internal/records.js";
 
 export type SymphonyCodexStateUpdate = {
   event: string;

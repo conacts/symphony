@@ -3,6 +3,7 @@ import type {
   AgentRuntime
 } from "@symphony/core";
 import type {
+  SymphonyAgentRuntimeConfig,
   SymphonyAgentRuntimeCompletion,
   SymphonyAgentRuntimeUpdate,
   SymphonyStartupFailureOrigin,
@@ -131,7 +132,7 @@ async function executeRun(input: {
   tracker: SymphonyTracker;
   runJournal: SymphonyRunJournal;
   runtimeLogs: SymphonyRuntimeLogStore;
-  workflowConfig: SymphonyResolvedWorkflowConfig;
+  workflowConfig: SymphonyAgentRuntimeConfig;
   logger: SymphonyLogger;
   hostCommandEnvSource: Record<string, string | undefined>;
   codexHostLaunchEnv: Record<string, string>;
@@ -429,7 +430,7 @@ function describeLaunchTarget(target: CodexRuntimeLaunchTarget): SymphonyJsonObj
 
 async function refreshIssueState(
   tracker: SymphonyTracker,
-  workflowConfig: SymphonyResolvedWorkflowConfig,
+  workflowConfig: SymphonyAgentRuntimeConfig,
   issue: SymphonyTrackerIssue
 ): Promise<SymphonyTrackerIssue | null> {
   const refreshed = await tracker.fetchIssueStatesByIds(workflowConfig.tracker, [
@@ -440,7 +441,7 @@ async function refreshIssueState(
 }
 
 function isActiveIssueState(
-  workflowConfig: SymphonyResolvedWorkflowConfig,
+  workflowConfig: SymphonyAgentRuntimeConfig,
   state: string
 ): boolean {
   const normalizedState = state.trim().toLowerCase();

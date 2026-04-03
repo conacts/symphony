@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import type { SymphonyResolvedWorkflowConfig } from "@symphony/core";
+import type { SymphonyAgentRuntimeConfig } from "@symphony/core/orchestration";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
   buildCodexAppServerSpawnSpec,
@@ -105,7 +105,7 @@ export class CodexAppServerClient {
     launchTarget: Parameters<typeof buildCodexAppServerSpawnSpec>[0]["launchTarget"];
     env: Record<string, string>;
     hostCommandEnvSource: Record<string, string | undefined>;
-    workflowConfig: SymphonyResolvedWorkflowConfig;
+    workflowConfig: SymphonyAgentRuntimeConfig;
     issue: SymphonyTrackerIssue;
     logger: CodexAppServerLogger;
   }): Promise<CodexAppServerSession> {

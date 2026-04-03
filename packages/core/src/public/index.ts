@@ -1,4 +1,4 @@
-export { createCodexAgentRuntime } from "../runtime/agent-runtime.js";
+export { createCodexAgentRuntime } from "@symphony/orchestrator";
 export { createGitHubReviewPublisher } from "@symphony/review";
 export {
   createDockerWorkspaceBackend,
@@ -20,7 +20,7 @@ export type {
   AgentRuntimeLaunchTarget,
   AgentRuntime,
   AgentStopInput
-} from "../runtime/agent-runtime.js";
+} from "@symphony/orchestrator";
 export type {
   ReviewFinding,
   ReviewProvider,

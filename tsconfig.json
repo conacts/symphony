@@ -21,6 +21,27 @@
       "path": "./packages/contracts"
     },
     {
+      "path": "./packages/run-journal"
+    },
+    {
+      "path": "./packages/tracker"
+    },
+    {
+      "path": "./packages/forensics"
+    },
+    {
+      "path": "./packages/review"
+    },
+    {
+      "path": "./packages/github-review"
+    },
+    {
+      "path": "./packages/workspace"
+    },
+    {
+      "path": "./packages/orchestrator"
+    },
+    {
       "path": "./packages/core"
     },
     {

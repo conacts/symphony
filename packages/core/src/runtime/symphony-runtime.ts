@@ -1,11 +1,12 @@
 import {
   SymphonyOrchestrator,
+  type SymphonyOrchestratorConfig,
   type SymphonyAgentRuntimeCompletion,
   type SymphonyAgentRuntimeUpdate,
   type SymphonyClock,
   type SymphonyOrchestratorObserver,
   type SymphonyOrchestratorSnapshot
-} from "../orchestration/symphony-orchestrator.js";
+} from "@symphony/orchestrator";
 import type {
   PublishReviewInput,
   PublishReviewResult,
@@ -71,7 +72,7 @@ export function createSymphonyRuntime<
   const reviewProvider = normalizeReviewProvider(input.reviewProvider ?? null);
   const reviewPublisher = normalizeReviewPublisher(input.reviewPublisher ?? null);
   const orchestrator = new SymphonyOrchestrator({
-    workflowConfig: input.workflowConfig,
+    config: toSymphonyOrchestratorConfig(input.workflowConfig),
     tracker: input.tracker,
     workspaceBackend: input.workspaceBackend,
     agentRuntime: input.agentRuntime,
@@ -198,4 +199,44 @@ function requireReviewPublisher<Input extends ReviewResult, Published>(
   throw new TypeError(
     "Symphony runtime is not configured with a ReviewPublisher."
   );
+}
+
+function toSymphonyOrchestratorConfig(
+  workflowConfig: SymphonyResolvedWorkflowConfig
+): SymphonyOrchestratorConfig {
+  return {
+    tracker: workflowConfig.tracker,
+    polling: workflowConfig.polling,
+    workspace: workflowConfig.workspace,
+    hooks: workflowConfig.hooks,
+    agent: {
+      maxConcurrentAgents: workflowConfig.agent.maxConcurrentAgents,
+      maxRetryBackoffMs: workflowConfig.agent.maxRetryBackoffMs,
+      maxConcurrentAgentsByState:
+        workflowConfig.agent.maxConcurrentAgentsByState
+    },
+    codex: {
+      stallTimeoutMs: workflowConfig.codex.stallTimeoutMs
+    },
+    runtime: {
+      tracker: workflowConfig.tracker,
+      workspace: {
+        root: workflowConfig.workspace.root
+      },
+      agent: {
+        maxTurns: workflowConfig.agent.maxTurns
+      },
+      codex: {
+        command: workflowConfig.codex.command,
+        approvalPolicy: workflowConfig.codex.approvalPolicy,
+        threadSandbox: workflowConfig.codex.threadSandbox,
+        turnSandboxPolicy: workflowConfig.codex.turnSandboxPolicy,
+        turnTimeoutMs: workflowConfig.codex.turnTimeoutMs,
+        readTimeoutMs: workflowConfig.codex.readTimeoutMs
+      },
+      hooks: {
+        timeoutMs: workflowConfig.hooks.timeoutMs
+      }
+    }
+  };
 }

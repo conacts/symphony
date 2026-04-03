@@ -1,10 +1,9 @@
 import type { SymphonyJsonObject } from "@symphony/run-journal";
 import type { SymphonyTracker, SymphonyTrackerIssue } from "@symphony/tracker";
-import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
 import type {
   PreparedWorkspace,
   WorkspaceBackend
-} from "../workspace/workspace-backend.js";
+} from "@symphony/workspace";
 import {
   buildFailureCommentBody,
   type SymphonyStartupFailureTransition
@@ -19,6 +18,7 @@ import type {
   SymphonyAgentRuntimeCompletion,
   SymphonyOrchestratorObserver
 } from "./symphony-orchestrator-types.js";
+import type { SymphonyOrchestratorConfig } from "./orchestrator-config.js";
 
 export async function leaveFailureComment(input: {
   tracker: SymphonyTracker;
@@ -59,7 +59,7 @@ export async function leaveFailureComment(input: {
 export async function cleanupWorkspaceAndRecordLifecycle(input: {
   observer: SymphonyOrchestratorObserver | null;
   workspaceBackend: WorkspaceBackend;
-  workflowConfig: SymphonyResolvedWorkflowConfig;
+  config: SymphonyOrchestratorConfig;
   runnerEnv: Record<string, string | undefined> | undefined;
   issue: SymphonyTrackerIssue;
   runId: string | null;
@@ -73,8 +73,8 @@ export async function cleanupWorkspaceAndRecordLifecycle(input: {
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       workspace: input.workspace,
-      config: input.workflowConfig.workspace,
-      hooks: input.workflowConfig.hooks,
+      config: input.config.workspace,
+      hooks: input.config.hooks,
       lifecycleRecorder: createWorkspaceLifecycleRecorder(
         input.observer,
         input.issue,
@@ -129,7 +129,7 @@ export async function cleanupWorkspaceAndRecordLifecycle(input: {
 }
 
 export async function handleStartupFailure(input: {
-  workflowConfig: SymphonyResolvedWorkflowConfig;
+  config: SymphonyOrchestratorConfig;
   tracker: SymphonyTracker;
   workspaceBackend: WorkspaceBackend;
   observer: SymphonyOrchestratorObserver | null;
@@ -141,8 +141,7 @@ export async function handleStartupFailure(input: {
   runId: string | null;
   completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
 }): Promise<void> {
-  const targetState =
-    input.workflowConfig.tracker.startupFailureTransitionToState;
+  const targetState = input.config.tracker.startupFailureTransitionToState;
   let transition: SymphonyStartupFailureTransition = {
     kind: "none"
   };
@@ -204,7 +203,7 @@ export async function handleStartupFailure(input: {
   await cleanupWorkspaceAndRecordLifecycle({
     observer: input.observer,
     workspaceBackend: input.workspaceBackend,
-    workflowConfig: input.workflowConfig,
+    config: input.config,
     runnerEnv: input.runnerEnv,
     issue: input.issue,
     runId: input.runId,

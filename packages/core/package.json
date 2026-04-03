@@ -53,6 +53,7 @@
   "dependencies": {
     "@symphony/forensics": "workspace:*",
     "@symphony/github-review": "workspace:*",
+    "@symphony/orchestrator": "workspace:*",
     "@symphony/review": "workspace:*",
     "@symphony/run-journal": "workspace:*",
     "@symphony/tracker": "workspace:*",

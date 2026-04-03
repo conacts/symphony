@@ -1,9 +1,9 @@
-import type { SymphonyResolvedWorkflowConfig } from "@symphony/core";
+import type { SymphonyAgentRuntimeConfig } from "@symphony/core/orchestration";
 import type { SymphonyLogger } from "@symphony/logger";
 import type { CodexAppServerToolExecutor } from "./codex-app-server-types.js";
 
 export function buildLinearGraphqlToolExecutor(
-  workflowConfig: SymphonyResolvedWorkflowConfig,
+  workflowConfig: SymphonyAgentRuntimeConfig,
   logger: SymphonyLogger
 ): CodexAppServerToolExecutor {
   return async (toolName, argumentsPayload) => {

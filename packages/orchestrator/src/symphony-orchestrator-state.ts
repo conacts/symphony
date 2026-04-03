@@ -5,7 +5,7 @@ import type {
   SymphonyOrchestratorSnapshot,
   SymphonyOrchestratorState
 } from "./symphony-orchestrator-types.js";
-import type { SymphonyResolvedWorkflowConfig } from "../workflow/symphony-workflow.js";
+import type { SymphonyOrchestratorConfig } from "./orchestrator-config.js";
 
 export const systemClock: SymphonyClock = {
   now() {
@@ -17,12 +17,12 @@ export const systemClock: SymphonyClock = {
 };
 
 export function createSymphonyOrchestratorState(
-  workflowConfig: SymphonyResolvedWorkflowConfig,
+  config: SymphonyOrchestratorConfig,
   clock: SymphonyClock = systemClock
 ): SymphonyOrchestratorState {
   return {
-    pollIntervalMs: workflowConfig.polling.intervalMs,
-    maxConcurrentAgents: workflowConfig.agent.maxConcurrentAgents,
+    pollIntervalMs: config.polling.intervalMs,
+    maxConcurrentAgents: config.agent.maxConcurrentAgents,
     nextPollDueAtMs: clock.nowMs(),
     pollCheckInProgress: false,
     running: {},

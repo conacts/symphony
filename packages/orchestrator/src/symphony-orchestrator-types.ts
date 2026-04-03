@@ -1,12 +1,12 @@
 import type {
   AgentRuntimeLaunchTarget
-} from "../runtime/agent-runtime.js";
+} from "./agent-runtime.js";
 import type { SymphonyJsonObject } from "@symphony/run-journal";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type {
   PreparedWorkspace,
   WorkspaceManifestLifecyclePhase
-} from "../workspace/workspace-backend.js";
+} from "@symphony/workspace";
 
 export type SymphonyCodexMessage = {
   event: string;

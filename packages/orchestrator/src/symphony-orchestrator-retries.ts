@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { workspaceHostPath, type PreparedWorkspace } from "../workspace/workspace-backend.js";
-import type { AgentRuntimeLaunchTarget } from "../runtime/agent-runtime.js";
+import { workspaceHostPath, type PreparedWorkspace } from "@symphony/workspace";
+import type { AgentRuntimeLaunchTarget } from "./agent-runtime.js";
 import type {
   SymphonyOrchestratorState,
   SymphonyRetryEntry

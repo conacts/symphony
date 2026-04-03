@@ -1,6 +1,6 @@
 import type {
-  SymphonyResolvedWorkflowConfig
-} from "@symphony/core";
+  SymphonyAgentRuntimeConfig
+} from "@symphony/core/orchestration";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
 
@@ -66,7 +66,7 @@ export type CodexAppServerSession = {
 export type CodexLaunchSessionInput = {
   launchTarget: CodexRuntimeLaunchTarget;
   env: Record<string, string>;
-  workflowConfig: SymphonyResolvedWorkflowConfig;
+  workflowConfig: SymphonyAgentRuntimeConfig;
   issue: SymphonyTrackerIssue;
   logger: CodexAppServerLogger;
 };

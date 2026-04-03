@@ -1,5 +1,5 @@
 import type { SymphonyJsonObject } from "@symphony/run-journal";
-import { asJsonObject } from "../internal/json.js";
+import { asJsonObject } from "./internal/json.js";
 import {
   issueBranchName,
   type SymphonyTrackerIssue

@@ -4,20 +4,22 @@ import {
   createCodexAgentRuntime,
   type AgentRunInput
 } from "./agent-runtime.js";
-import { buildSymphonyTrackerIssue } from "../test-support/build-symphony-tracker-issue.js";
-import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
+import {
+  buildSymphonyOrchestratorConfig,
+  buildSymphonyTrackerIssue
+} from "./orchestrator-test-support.js";
 
 function buildAgentRunInput(): AgentRunInput {
   const issue = buildSymphonyTrackerIssue({
     state: "In Progress"
   });
-  const workflowConfig = buildSymphonyWorkflowConfig();
+  const config = buildSymphonyOrchestratorConfig();
 
   return {
     issue,
     runId: "run-123",
     attempt: 1,
-    workflowConfig,
+    workflowConfig: config.runtime,
     workspace: {
       issueIdentifier: issue.identifier,
       workspaceKey: issue.identifier,
@@ -105,7 +107,7 @@ describe("agent runtime facade", () => {
 
   it("publishes explicit expert subpaths for internal integrations", async () => {
     const packageJson = JSON.parse(
-      await readFile(new URL("../../package.json", import.meta.url), "utf8")
+      await readFile(new URL("../package.json", import.meta.url), "utf8")
     ) as {
       exports: Record<string, unknown>;
     };
@@ -113,12 +115,7 @@ describe("agent runtime facade", () => {
     expect(Object.keys(packageJson.exports)).toEqual(
       expect.arrayContaining([
         ".",
-        "./meta",
-        "./tracker",
-        "./github",
-        "./orchestration",
-        "./journal",
-        "./forensics"
+        "./package.json"
       ])
     );
   });

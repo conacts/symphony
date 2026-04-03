@@ -5,16 +5,18 @@ import {
   SymphonyOrchestrator,
   type SymphonyAgentRuntimeCompletion
 } from "./symphony-orchestrator.js";
-import { SymphonyRuntimeManifestError } from "../runtime-manifest/runtime-manifest-errors.js";
+import { SymphonyRuntimeManifestError } from "@symphony/runtime-contract";
 import type {
   AgentRunLaunch,
   AgentRuntime
-} from "../runtime/agent-runtime.js";
+} from "./agent-runtime.js";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
 import { SymphonyWorkspaceError } from "@symphony/workspace";
-import { buildSymphonyWorkflowConfig } from "../test-support/build-symphony-workflow-config.js";
-import { buildSymphonyTrackerIssue } from "../test-support/build-symphony-tracker-issue.js";
-import { createTestWorkspaceBackend } from "../test-support/create-test-workspace-backend.js";
+import {
+  buildSymphonyOrchestratorConfig,
+  buildSymphonyTrackerIssue,
+  createTestWorkspaceBackend
+} from "./orchestrator-test-support.js";
 
 function createAgentRuntime(
   overrides: Partial<AgentRuntime> = {}
@@ -35,8 +37,8 @@ function createAgentRuntime(
 }
 
 describe("symphony orchestrator", () => {
-  it("creates deterministic runtime state from workflow config", () => {
-    const config = buildSymphonyWorkflowConfig();
+  it("creates deterministic runtime state from orchestrator config", () => {
+    const config = buildSymphonyOrchestratorConfig();
     const state = createSymphonyOrchestratorState(config, {
       now: () => new Date("2026-03-31T00:00:00.000Z"),
       nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
@@ -48,13 +50,13 @@ describe("symphony orchestrator", () => {
   });
 
   it("transitions configured source states before dispatch and leaves a tracker comment", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig();
+    const config = buildSymphonyOrchestratorConfig();
     const issue = buildSymphonyTrackerIssue({
       state: "Rework"
     });
     const tracker = createMemorySymphonyTracker([issue]);
 
-    const prepared = await prepareIssueForDispatch(workflowConfig, tracker, issue);
+    const prepared = await prepareIssueForDispatch(config, tracker, issue);
 
     expect(prepared.state).toBe("In Progress");
     expect(tracker.listOperations()).toEqual([
@@ -72,7 +74,7 @@ describe("symphony orchestrator", () => {
   });
 
   it("dispatches eligible issues, updates snapshots, and schedules continuation retries", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig();
+    const config = buildSymphonyOrchestratorConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
     const manager = createTestWorkspaceBackend({
       commandRunner: async () => ({
@@ -92,7 +94,7 @@ describe("symphony orchestrator", () => {
     });
 
     const orchestrator = new SymphonyOrchestrator({
-      workflowConfig,
+      config,
       tracker,
       workspaceBackend: manager,
       agentRuntime,
@@ -230,9 +232,9 @@ describe("symphony orchestrator", () => {
   ])(
     "does not queue retries for deterministic docker contract startup failures: $name",
     async ({ error, expectedOrigin }) => {
-      const workflowConfig = buildSymphonyWorkflowConfig({
+      const config = buildSymphonyOrchestratorConfig({
         tracker: {
-          ...buildSymphonyWorkflowConfig().tracker,
+          ...buildSymphonyOrchestratorConfig().tracker,
           claimTransitionToState: null,
           claimTransitionFromStates: [],
           startupFailureTransitionToState: "Backlog"
@@ -277,7 +279,7 @@ describe("symphony orchestrator", () => {
       };
 
       const orchestrator = new SymphonyOrchestrator({
-        workflowConfig,
+        config,
         tracker,
         workspaceBackend,
         agentRuntime: createAgentRuntime(),
@@ -319,11 +321,11 @@ describe("symphony orchestrator", () => {
   );
 
   it("clears the poll-in-progress flag when a poll cycle fails", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig();
+    const config = buildSymphonyOrchestratorConfig();
     const issue = buildSymphonyTrackerIssue();
 
     const orchestrator = new SymphonyOrchestrator({
-      workflowConfig,
+      config,
       tracker: {
         async fetchCandidateIssues() {
           throw new Error("boom");
@@ -363,9 +365,9 @@ describe("symphony orchestrator", () => {
   });
 
   it("records retry scheduling after a run completes", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig({
+    const config = buildSymphonyOrchestratorConfig({
       tracker: {
-        ...buildSymphonyWorkflowConfig().tracker,
+        ...buildSymphonyOrchestratorConfig().tracker,
         claimTransitionToState: null,
         claimTransitionFromStates: []
       }
@@ -381,7 +383,7 @@ describe("symphony orchestrator", () => {
     }> = [];
 
     const orchestrator = new SymphonyOrchestrator({
-      workflowConfig,
+      config,
       tracker,
       workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
@@ -427,9 +429,9 @@ describe("symphony orchestrator", () => {
   });
 
   it("passes runner env through workspace lifecycle hooks", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig({
+    const config = buildSymphonyOrchestratorConfig({
       tracker: {
-        ...buildSymphonyWorkflowConfig().tracker,
+        ...buildSymphonyOrchestratorConfig().tracker,
         claimTransitionToState: null,
         claimTransitionFromStates: [],
         startupFailureTransitionToState: null
@@ -456,7 +458,7 @@ describe("symphony orchestrator", () => {
     });
 
     const orchestrator = new SymphonyOrchestrator({
-      workflowConfig,
+      config,
       tracker,
       workspaceBackend: manager,
       agentRuntime: createAgentRuntime(),
@@ -491,7 +493,7 @@ describe("symphony orchestrator", () => {
   });
 
   it("tracks rate-limit payloads in the runtime snapshot", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig();
+    const config = buildSymphonyOrchestratorConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
     const manager = createTestWorkspaceBackend({
       commandRunner: async () => ({
@@ -502,7 +504,7 @@ describe("symphony orchestrator", () => {
     });
 
     const orchestrator = new SymphonyOrchestrator({
-      workflowConfig,
+      config,
       tracker,
       workspaceBackend: manager,
       agentRuntime: createAgentRuntime({
@@ -554,9 +556,9 @@ describe("symphony orchestrator", () => {
   });
 
   it("reconciles terminal and non-dispatchable running issues by stopping them", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig({
+    const config = buildSymphonyOrchestratorConfig({
       tracker: {
-        ...buildSymphonyWorkflowConfig().tracker,
+        ...buildSymphonyOrchestratorConfig().tracker,
         claimTransitionToState: null,
         claimTransitionFromStates: []
       }
@@ -572,7 +574,7 @@ describe("symphony orchestrator", () => {
     const stopped: string[] = [];
 
     const orchestrator = new SymphonyOrchestrator({
-      workflowConfig,
+      config,
       tracker,
       workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
@@ -607,7 +609,7 @@ describe("symphony orchestrator", () => {
   });
 
   it("schedules backoff retries after failures", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig();
+    const config = buildSymphonyOrchestratorConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
     const manager = createTestWorkspaceBackend({
       commandRunner: async () => ({
@@ -618,7 +620,7 @@ describe("symphony orchestrator", () => {
     });
 
     const orchestrator = new SymphonyOrchestrator({
-      workflowConfig,
+      config,
       tracker,
       workspaceBackend: manager,
       agentRuntime: createAgentRuntime(),
@@ -640,9 +642,9 @@ describe("symphony orchestrator", () => {
   });
 
   it("treats max-turn pauses as continuation retries and journals a paused outcome", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig({
+    const config = buildSymphonyOrchestratorConfig({
       tracker: {
-        ...buildSymphonyWorkflowConfig().tracker,
+        ...buildSymphonyOrchestratorConfig().tracker,
         claimTransitionToState: null,
         claimTransitionFromStates: []
       }
@@ -651,7 +653,7 @@ describe("symphony orchestrator", () => {
     const finalized: SymphonyAgentRuntimeCompletion[] = [];
 
     const orchestrator = new SymphonyOrchestrator({
-      workflowConfig,
+      config,
       tracker,
       workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
@@ -709,9 +711,9 @@ describe("symphony orchestrator", () => {
   });
 
   it("restarts stalled runs with retry backoff instead of leaving them active", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig({
+    const config = buildSymphonyOrchestratorConfig({
       codex: {
-        ...buildSymphonyWorkflowConfig().codex,
+        ...buildSymphonyOrchestratorConfig().codex,
         stallTimeoutMs: 1_000
       }
     });
@@ -723,7 +725,7 @@ describe("symphony orchestrator", () => {
     const finalized: SymphonyAgentRuntimeCompletion[] = [];
 
     const orchestrator = new SymphonyOrchestrator({
-      workflowConfig,
+      config,
       tracker,
       workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
@@ -776,9 +778,9 @@ describe("symphony orchestrator", () => {
   });
 
   it("formats startup-failure comments with moved-state guidance", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig({
+    const config = buildSymphonyOrchestratorConfig({
       tracker: {
-        ...buildSymphonyWorkflowConfig().tracker,
+        ...buildSymphonyOrchestratorConfig().tracker,
         claimTransitionToState: null,
         claimTransitionFromStates: [],
         startupFailureTransitionToState: "Backlog"
@@ -790,7 +792,7 @@ describe("symphony orchestrator", () => {
     const tracker = createMemorySymphonyTracker([issue]);
 
     const orchestrator = new SymphonyOrchestrator({
-      workflowConfig,
+      config,
       tracker,
       workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
@@ -833,9 +835,9 @@ describe("symphony orchestrator", () => {
   });
 
   it("formats startup-failure comments with manual cleanup guidance when transition fails", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig({
+    const config = buildSymphonyOrchestratorConfig({
       tracker: {
-        ...buildSymphonyWorkflowConfig().tracker,
+        ...buildSymphonyOrchestratorConfig().tracker,
         claimTransitionToState: null,
         claimTransitionFromStates: [],
         startupFailureTransitionToState: "Backlog"
@@ -868,7 +870,7 @@ describe("symphony orchestrator", () => {
     };
 
     const orchestrator = new SymphonyOrchestrator({
-      workflowConfig,
+      config,
       tracker,
       workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
@@ -899,9 +901,9 @@ describe("symphony orchestrator", () => {
   });
 
   it("formats rate-limited comments with rate-limit detail", async () => {
-    const workflowConfig = buildSymphonyWorkflowConfig({
+    const config = buildSymphonyOrchestratorConfig({
       tracker: {
-        ...buildSymphonyWorkflowConfig().tracker,
+        ...buildSymphonyOrchestratorConfig().tracker,
         claimTransitionToState: null,
         claimTransitionFromStates: []
       }
@@ -912,7 +914,7 @@ describe("symphony orchestrator", () => {
     const tracker = createMemorySymphonyTracker([issue]);
 
     const orchestrator = new SymphonyOrchestrator({
-      workflowConfig,
+      config,
       tracker,
       workspaceBackend: createTestWorkspaceBackend({
         commandRunner: async () => ({
