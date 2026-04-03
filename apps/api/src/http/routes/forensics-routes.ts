@@ -15,7 +15,7 @@ import {
   symphonyForensicsRunPathSchema
 } from "@symphony/contracts";
 import type { SymphonyForensicsIssueFlag } from "@symphony/contracts";
-import type { SymphonyRuntimeAppServices } from "../../core/runtime-services.js";
+import type { SymphonyRuntimeAppServices } from "../../core/runtime-app-types.js";
 import { createHttpError } from "../../core/errors.js";
 import { jsonOk } from "../../core/envelope.js";
 import { parseWithSchema } from "../../core/validation.js";

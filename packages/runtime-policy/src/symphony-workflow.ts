@@ -4,7 +4,7 @@ import {
   normalizeIssueState,
   type SymphonyTrackerConfig
 } from "@symphony/tracker";
-import { SymphonyWorkflowError } from "./symphony-workflow-errors.js";
+import { SymphonyRuntimePolicyError } from "./symphony-workflow-errors.js";
 import {
   getNestedRecord,
   normalizeApprovalPolicy,
@@ -19,31 +19,37 @@ import {
   resolveEnvToken
 } from "./symphony-workflow-values.js";
 
-export type SymphonyWorkflowEnv = Record<string, string | undefined>;
+export type SymphonyRuntimePolicyEnv = Record<string, string | undefined>;
+export type SymphonyWorkflowEnv = SymphonyRuntimePolicyEnv;
 
-export type SymphonyWorkflowTrackerConfig = SymphonyTrackerConfig;
+export type SymphonyTrackerRuntimePolicy = SymphonyTrackerConfig;
+export type SymphonyWorkflowTrackerConfig = SymphonyTrackerRuntimePolicy;
 
-export type SymphonyWorkflowPollingConfig = {
+export type SymphonyPollingRuntimePolicy = {
   intervalMs: number;
 };
+export type SymphonyWorkflowPollingConfig = SymphonyPollingRuntimePolicy;
 
-export type SymphonyWorkflowWorkspaceConfig = {
+export type SymphonyWorkspaceRuntimePolicy = {
   root: string;
 };
+export type SymphonyWorkflowWorkspaceConfig = SymphonyWorkspaceRuntimePolicy;
 
-export type SymphonyWorkflowWorkerConfig = {
+export type SymphonyWorkerRuntimePolicy = {
   sshHosts: string[];
   maxConcurrentAgentsPerHost: number | null;
 };
+export type SymphonyWorkflowWorkerConfig = SymphonyWorkerRuntimePolicy;
 
-export type SymphonyWorkflowAgentConfig = {
+export type SymphonyAgentRuntimePolicy = {
   maxConcurrentAgents: number;
   maxTurns: number;
   maxRetryBackoffMs: number;
   maxConcurrentAgentsByState: Record<string, number>;
 };
+export type SymphonyWorkflowAgentConfig = SymphonyAgentRuntimePolicy;
 
-export type SymphonyWorkflowCodexConfig = {
+export type SymphonyCodexRuntimePolicy = {
   command: string;
   approvalPolicy: string | Record<string, unknown>;
   threadSandbox: string;
@@ -52,27 +58,32 @@ export type SymphonyWorkflowCodexConfig = {
   readTimeoutMs: number;
   stallTimeoutMs: number;
 };
+export type SymphonyWorkflowCodexConfig = SymphonyCodexRuntimePolicy;
 
-export type SymphonyWorkflowHooksConfig = {
+export type SymphonyHooksRuntimePolicy = {
   afterCreate: string | null;
   beforeRun: string | null;
   afterRun: string | null;
   beforeRemove: string | null;
   timeoutMs: number;
 };
+export type SymphonyWorkflowHooksConfig = SymphonyHooksRuntimePolicy;
 
-export type SymphonyWorkflowObservabilityConfig = {
+export type SymphonyObservabilityRuntimePolicy = {
   dashboardEnabled: boolean;
   refreshMs: number;
   renderIntervalMs: number;
 };
+export type SymphonyWorkflowObservabilityConfig =
+  SymphonyObservabilityRuntimePolicy;
 
-export type SymphonyWorkflowServerConfig = {
+export type SymphonyServerRuntimePolicy = {
   port: number | null;
   host: string;
 };
+export type SymphonyWorkflowServerConfig = SymphonyServerRuntimePolicy;
 
-export type SymphonyWorkflowGitHubConfig = {
+export type SymphonyGitHubRuntimePolicy = {
   repo: string | null;
   webhookSecret: string | null;
   apiToken: string | null;
@@ -80,32 +91,38 @@ export type SymphonyWorkflowGitHubConfig = {
   allowedReviewLogins: string[];
   allowedReworkCommentLogins: string[];
 };
+export type SymphonyWorkflowGitHubConfig = SymphonyGitHubRuntimePolicy;
 
-export type SymphonyResolvedWorkflowConfig = {
-  tracker: SymphonyWorkflowTrackerConfig;
-  polling: SymphonyWorkflowPollingConfig;
-  workspace: SymphonyWorkflowWorkspaceConfig;
-  worker: SymphonyWorkflowWorkerConfig;
-  agent: SymphonyWorkflowAgentConfig;
-  codex: SymphonyWorkflowCodexConfig;
-  hooks: SymphonyWorkflowHooksConfig;
-  observability: SymphonyWorkflowObservabilityConfig;
-  server: SymphonyWorkflowServerConfig;
-  github: SymphonyWorkflowGitHubConfig;
+export type SymphonyResolvedRuntimePolicy = {
+  tracker: SymphonyTrackerRuntimePolicy;
+  polling: SymphonyPollingRuntimePolicy;
+  workspace: SymphonyWorkspaceRuntimePolicy;
+  worker: SymphonyWorkerRuntimePolicy;
+  agent: SymphonyAgentRuntimePolicy;
+  codex: SymphonyCodexRuntimePolicy;
+  hooks: SymphonyHooksRuntimePolicy;
+  observability: SymphonyObservabilityRuntimePolicy;
+  server: SymphonyServerRuntimePolicy;
+  github: SymphonyGitHubRuntimePolicy;
 };
+export type SymphonyResolvedWorkflowConfig = SymphonyResolvedRuntimePolicy;
 
-export type SymphonyWorkflowLoadOptions = {
-  env?: SymphonyWorkflowEnv;
+export type SymphonyRuntimePolicyLoadOptions = {
+  env?: SymphonyRuntimePolicyEnv;
   cwd?: string;
   tempDir?: string;
 };
+export type SymphonyWorkflowLoadOptions = SymphonyRuntimePolicyLoadOptions;
 
-export { SymphonyWorkflowError } from "./symphony-workflow-errors.js";
+export {
+  SymphonyRuntimePolicyError,
+  SymphonyRuntimePolicyError as SymphonyWorkflowError
+} from "./symphony-workflow-errors.js";
 export { normalizeIssueState } from "@symphony/tracker";
-export function resolveWorkflowConfig(
+export function resolveRuntimePolicy(
   rawConfig: Record<string, unknown>,
-  options: SymphonyWorkflowLoadOptions
-): SymphonyResolvedWorkflowConfig {
+  options: SymphonyRuntimePolicyLoadOptions
+): SymphonyResolvedRuntimePolicy {
   const effectiveRawConfig =
     Object.keys(rawConfig).length === 0
       ? {
@@ -165,10 +182,17 @@ export function resolveWorkflowConfig(
   };
 }
 
+export function resolveWorkflowConfig(
+  rawConfig: Record<string, unknown>,
+  options: SymphonyWorkflowLoadOptions
+): SymphonyResolvedWorkflowConfig {
+  return resolveRuntimePolicy(rawConfig, options);
+}
+
 function normalizeTrackerConfig(
   value: unknown,
-  env: SymphonyWorkflowEnv
-): SymphonyWorkflowTrackerConfig {
+  env: SymphonyRuntimePolicyEnv
+): SymphonyTrackerRuntimePolicy {
   const tracker = getNestedRecord(value);
   const dispatchableStates = normalizeStringArray(
     tracker.dispatchableStates ?? tracker.activeStates,
@@ -209,7 +233,7 @@ function normalizeTrackerConfig(
   };
 }
 
-function normalizePollingConfig(value: unknown): SymphonyWorkflowPollingConfig {
+function normalizePollingConfig(value: unknown): SymphonyPollingRuntimePolicy {
   const polling = getNestedRecord(value);
   return {
     intervalMs: normalizePositiveInteger(polling.intervalMs, 30_000, "polling.intervalMs")
@@ -218,9 +242,9 @@ function normalizePollingConfig(value: unknown): SymphonyWorkflowPollingConfig {
 
 function normalizeWorkspaceConfig(
   value: unknown,
-  env: SymphonyWorkflowEnv,
+  env: SymphonyRuntimePolicyEnv,
   tempDir: string
-): SymphonyWorkflowWorkspaceConfig {
+): SymphonyWorkspaceRuntimePolicy {
   const workspace = getNestedRecord(value);
   return {
     root:
@@ -229,7 +253,7 @@ function normalizeWorkspaceConfig(
   };
 }
 
-function normalizeWorkerConfig(value: unknown): SymphonyWorkflowWorkerConfig {
+function normalizeWorkerConfig(value: unknown): SymphonyWorkerRuntimePolicy {
   const worker = getNestedRecord(value);
   return {
     sshHosts: normalizeStringArray(worker.sshHosts, []),
@@ -240,7 +264,7 @@ function normalizeWorkerConfig(value: unknown): SymphonyWorkflowWorkerConfig {
   };
 }
 
-function normalizeAgentConfig(value: unknown): SymphonyWorkflowAgentConfig {
+function normalizeAgentConfig(value: unknown): SymphonyAgentRuntimePolicy {
   const agent = getNestedRecord(value);
   return {
     maxConcurrentAgents: normalizePositiveInteger(
@@ -260,19 +284,19 @@ function normalizeAgentConfig(value: unknown): SymphonyWorkflowAgentConfig {
   };
 }
 
-function normalizeCodexConfig(value: unknown): SymphonyWorkflowCodexConfig {
+function normalizeCodexConfig(value: unknown): SymphonyCodexRuntimePolicy {
   const codex = getNestedRecord(value);
   const rawCommand = codex.command;
 
   if (rawCommand === "") {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
       "codex.command must not be blank."
     );
   }
 
   if (rawCommand !== undefined && typeof rawCommand !== "string") {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
       "codex.command must be a string."
     );
@@ -302,7 +326,7 @@ function normalizeCodexConfig(value: unknown): SymphonyWorkflowCodexConfig {
   };
 }
 
-function normalizeHooksConfig(value: unknown): SymphonyWorkflowHooksConfig {
+function normalizeHooksConfig(value: unknown): SymphonyHooksRuntimePolicy {
   const hooks = getNestedRecord(value);
   return {
     afterCreate: normalizeOptionalString(hooks.afterCreate),
@@ -315,7 +339,7 @@ function normalizeHooksConfig(value: unknown): SymphonyWorkflowHooksConfig {
 
 function normalizeObservabilityConfig(
   value: unknown
-): SymphonyWorkflowObservabilityConfig {
+): SymphonyObservabilityRuntimePolicy {
   const observability = getNestedRecord(value);
   return {
     dashboardEnabled:
@@ -335,7 +359,7 @@ function normalizeObservabilityConfig(
   };
 }
 
-function normalizeServerConfig(value: unknown): SymphonyWorkflowServerConfig {
+function normalizeServerConfig(value: unknown): SymphonyServerRuntimePolicy {
   const server = getNestedRecord(value);
   return {
     port:
@@ -348,9 +372,9 @@ function normalizeServerConfig(value: unknown): SymphonyWorkflowServerConfig {
 
 function normalizeGitHubConfig(
   value: unknown,
-  env: SymphonyWorkflowEnv,
+  env: SymphonyRuntimePolicyEnv,
   workspaceRoot: string
-): SymphonyWorkflowGitHubConfig {
+): SymphonyGitHubRuntimePolicy {
   const github = getNestedRecord(value);
   return {
     repo: normalizeOptionalString(resolveEnvToken(github.repo, env)),
@@ -373,13 +397,11 @@ function normalizeGitHubConfig(
   };
 }
 
-function validateSemanticConfig(
-  config: SymphonyResolvedWorkflowConfig
-): void {
+function validateSemanticConfig(config: SymphonyResolvedRuntimePolicy): void {
   const { tracker } = config;
 
   if (tracker.kind === "linear" && !tracker.apiKey) {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "missing_linear_api_token",
       "Linear tracker requires tracker.apiKey or LINEAR_API_KEY."
     );
@@ -390,7 +412,7 @@ function validateSemanticConfig(
     tracker.projectSlug &&
     tracker.teamKey
   ) {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
       "Set either tracker.projectSlug or tracker.teamKey, not both."
     );
@@ -401,7 +423,7 @@ function validateSemanticConfig(
     !tracker.projectSlug &&
     !tracker.teamKey
   ) {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "missing_linear_tracker_scope",
       "Linear tracker requires tracker.projectSlug or tracker.teamKey."
     );
@@ -412,7 +434,7 @@ function validateSemanticConfig(
     tracker.projectSlug &&
     tracker.excludedProjectIds.length > 0
   ) {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
       "tracker.excludedProjectIds requires tracker.teamKey and must not be used with tracker.projectSlug."
     );
@@ -422,7 +444,7 @@ function validateSemanticConfig(
     !tracker.claimTransitionToState &&
     tracker.claimTransitionFromStates.length > 0
   ) {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
       "tracker.claimTransitionToState is required when tracker.claimTransitionFromStates is set."
     );
@@ -438,7 +460,7 @@ function validateSemanticConfig(
       (stateName) => normalizeIssueState(stateName) === startupFailureState
     )
   ) {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
       "tracker.startupFailureTransitionToState must not be one of tracker.dispatchableStates."
     );

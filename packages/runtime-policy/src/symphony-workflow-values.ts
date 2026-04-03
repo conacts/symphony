@@ -1,19 +1,19 @@
 import { isRecord } from "./internal/records.js";
 import { normalizeIssueState } from "@symphony/tracker";
-import { SymphonyWorkflowError } from "./symphony-workflow-errors.js";
-import type { SymphonyWorkflowEnv } from "./symphony-workflow.js";
+import { SymphonyRuntimePolicyError } from "./symphony-workflow-errors.js";
+import type { SymphonyRuntimePolicyEnv } from "./symphony-workflow.js";
 
 export function normalizeTrackerKind(value: unknown): "linear" | "memory" {
   const normalized = normalizeOptionalString(value);
   if (normalized === null) {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "missing_tracker_kind",
       "tracker.kind is required."
     );
   }
 
   if (normalized !== "linear" && normalized !== "memory") {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "unsupported_tracker_kind",
       `Unsupported tracker kind: ${normalized}`
     );
@@ -31,7 +31,7 @@ export function normalizeStateLimits(value: unknown): Record<string, number> {
   for (const [stateName, rawLimit] of Object.entries(value)) {
     const normalizedState = normalizeIssueState(stateName);
     if (normalizedState === "") {
-      throw new SymphonyWorkflowError(
+      throw new SymphonyRuntimePolicyError(
         "invalid_workflow_config",
         "agent.maxConcurrentAgentsByState state names must not be blank."
       );
@@ -68,7 +68,7 @@ export function normalizeApprovalPolicy(
     return normalizeObjectKeys(value);
   }
 
-  throw new SymphonyWorkflowError(
+  throw new SymphonyRuntimePolicyError(
     "invalid_workflow_config",
     "codex.approvalPolicy must be a string or map."
   );
@@ -92,7 +92,7 @@ export function normalizeStringArray(
   }
 
   if (!Array.isArray(value)) {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
       "Expected an array of strings."
     );
@@ -100,7 +100,7 @@ export function normalizeStringArray(
 
   return value.flatMap((entry) => {
     if (typeof entry !== "string") {
-      throw new SymphonyWorkflowError(
+      throw new SymphonyRuntimePolicyError(
         "invalid_workflow_config",
         "Expected an array of strings."
       );
@@ -121,7 +121,7 @@ export function normalizePositiveInteger(
   }
 
   if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
       `${fieldName} must be a positive integer.`
     );
@@ -151,7 +151,7 @@ export function normalizeNonNegativeInteger(
   }
 
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
-    throw new SymphonyWorkflowError(
+    throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
       `${fieldName} must be a non-negative integer.`
     );
@@ -176,7 +176,7 @@ export function getNestedRecord(value: unknown): Record<string, unknown> {
 
 export function resolveEnvToken(
   value: unknown,
-  env: SymphonyWorkflowEnv
+  env: SymphonyRuntimePolicyEnv
 ): unknown {
   if (typeof value !== "string") {
     return value;

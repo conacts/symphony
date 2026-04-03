@@ -8,9 +8,10 @@ export {
   buildSymphonyTrackerIssue,
   buildSymphonyTurnFinishAttrs,
   buildSymphonyTurnStartAttrs,
+  buildSymphonyRuntimePolicy,
   buildSymphonyWorkflowConfig
 } from "./core-builders.js";
-export { createTestWorkspaceBackend } from "./create-test-workspace-backend.js";
+export { createTestWorkspaceBackend } from "@symphony/workspace/test-support";
 export {
   buildSymphonyGitHubIssueCommentPayload,
   buildSymphonyGitHubPullRequestReviewPayload,

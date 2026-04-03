@@ -12,16 +12,17 @@ import type {
   SymphonyTurnStartAttrs
 } from "@symphony/run-journal";
 import {
-  issueBranchName,
-  type SymphonyTrackerIssue
+  buildSymphonyTrackerIssue
 } from "@symphony/tracker";
-import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
+import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
+
+export { buildSymphonyTrackerIssue } from "@symphony/tracker";
 
 let fixtureCounter = 0;
 
-export function buildSymphonyWorkflowConfig(
-  overrides: Partial<SymphonyResolvedWorkflowConfig> = {}
-): SymphonyResolvedWorkflowConfig {
+export function buildSymphonyRuntimePolicy(
+  overrides: Partial<SymphonyResolvedRuntimePolicy> = {}
+): SymphonyResolvedRuntimePolicy {
   const workspaceRoot =
     overrides.workspace?.root ?? path.join(tmpdir(), "symphony-test-workspaces");
   const githubStatePath =
@@ -110,33 +111,7 @@ export function buildSymphonyWorkflowConfig(
   };
 }
 
-export function buildSymphonyTrackerIssue(
-  overrides: Partial<SymphonyTrackerIssue> = {}
-): SymphonyTrackerIssue {
-  const identifier = overrides.identifier ?? "COL-123";
-
-  return {
-    id: overrides.id ?? "issue-123",
-    identifier,
-    title: overrides.title ?? "Test issue",
-    description: overrides.description ?? "Test description",
-    priority: overrides.priority ?? 2,
-    state: overrides.state ?? "Todo",
-    branchName: overrides.branchName ?? issueBranchName(identifier),
-    url: overrides.url ?? `https://linear.app/coldets/issue/${identifier.toLowerCase()}`,
-    projectId: overrides.projectId ?? "project-1",
-    projectName:
-      overrides.projectName ?? "Symphony Developer Control Plane Foundation",
-    projectSlug: overrides.projectSlug ?? "coldets",
-    teamKey: overrides.teamKey ?? "COL",
-    assigneeId: overrides.assigneeId ?? "worker-1",
-    blockedBy: overrides.blockedBy ?? [],
-    labels: overrides.labels ?? [],
-    assignedToWorker: overrides.assignedToWorker ?? true,
-    createdAt: overrides.createdAt ?? "2026-03-31T00:00:00.000Z",
-    updatedAt: overrides.updatedAt ?? "2026-03-31T00:00:00.000Z"
-  };
-}
+export const buildSymphonyWorkflowConfig = buildSymphonyRuntimePolicy;
 
 export function buildSymphonyGithubReviewEvent(
   overrides: Partial<

@@ -1,6 +1,6 @@
 import { createAdaptorServer } from "@hono/node-server";
 import type { Server } from "node:http";
-import type { SymphonyRuntimeAppServices } from "./core/runtime-services.js";
+import type { SymphonyRuntimeAppServices } from "./core/runtime-app-types.js";
 import type { SymphonyRuntimeAppEnv } from "./core/env.js";
 import { createSymphonyRuntimeApplication } from "./http/app.js";
 

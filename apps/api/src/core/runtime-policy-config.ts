@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
+import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
 import type { EnvironmentSource } from "./env.js";
 
 const defaultLinearEndpoint = "https://api.linear.app/graphql";
@@ -8,10 +8,10 @@ const defaultTerminalStates = ["Canceled", "Done"];
 const defaultClaimTransitionFromStates = ["Todo", "Rework"];
 const defaultAllowedOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
 
-export function loadSymphonyRuntimeWorkflowConfig(input: {
+export function loadSymphonyRuntimePolicyConfig(input: {
   environmentSource: EnvironmentSource;
   cwd?: string;
-}): SymphonyResolvedWorkflowConfig {
+}): SymphonyResolvedRuntimePolicy {
   const environmentSource = input.environmentSource;
   const cwd = input.cwd ?? process.cwd();
   const workspaceRoot =
@@ -141,6 +141,8 @@ export function loadSymphonyRuntimeWorkflowConfig(input: {
     }
   };
 }
+
+export const loadSymphonyRuntimeWorkflowConfig = loadSymphonyRuntimePolicyConfig;
 
 export function defaultSymphonyAllowedOrigins(): string[] {
   return [...defaultAllowedOrigins];

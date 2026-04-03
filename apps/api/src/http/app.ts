@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { createNodeWebSocket } from "@hono/node-ws";
-import type { SymphonyRuntimeAppServices } from "../core/runtime-services.js";
+import type { SymphonyRuntimeAppServices } from "../core/runtime-app-types.js";
 import { jsonError } from "../core/envelope.js";
 import { normalizeRuntimeError } from "../core/errors.js";
 import type { SymphonyRuntimeAppContextSchema } from "./context.js";

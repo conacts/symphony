@@ -7,9 +7,6 @@ import type {
   SymphonyStartupFailureStage
 } from "@symphony/orchestrator";
 import type {
-  SymphonyResolvedWorkflowConfig
-} from "@symphony/runtime-policy";
-import type {
   SymphonyJsonObject,
   SymphonyJsonValue,
   SymphonyRunJournal
@@ -57,7 +54,6 @@ export function createCodexSymphonyAgentRuntime(input: {
   tracker: SymphonyTracker;
   runJournal: SymphonyRunJournal;
   runtimeLogs: SymphonyRuntimeLogStore;
-  workflowConfig: SymphonyResolvedWorkflowConfig;
   hostCommandEnvSource: Record<string, string | undefined>;
   codexHostLaunchEnv?: Record<string, string>;
   logger: SymphonyLogger;

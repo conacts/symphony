@@ -96,7 +96,6 @@ describe("docker codex symphony agent runtime", () => {
             return [];
           }
         },
-        workflowConfig,
         hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
         callbacks: {
@@ -241,7 +240,6 @@ describe("docker codex symphony agent runtime", () => {
             return [];
           }
         },
-        workflowConfig,
         hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
         callbacks: {
@@ -355,7 +353,6 @@ done
             return [];
           }
         },
-        workflowConfig,
         hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
         callbacks: {
@@ -448,7 +445,6 @@ done
             return [];
           }
         },
-        workflowConfig,
         hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
         callbacks: {
@@ -579,7 +575,6 @@ sleep 1
             return [];
           }
         },
-        workflowConfig,
         hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
         callbacks: {
@@ -695,7 +690,6 @@ sleep 1
             return [];
           }
         },
-        workflowConfig,
         hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
         callbacks: {

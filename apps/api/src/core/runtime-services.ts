@@ -1,258 +1,48 @@
-import {
-  createCodexAgentRuntime,
-  type SymphonyOrchestratorSnapshot
-} from "@symphony/orchestrator";
-import {
-  createSymphonyRuntime,
-  type SymphonyRuntime as CoreSymphonyRuntime
-} from "@symphony/runtime";
-import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
+import { createCodexAgentRuntime } from "@symphony/orchestrator";
+import { createSymphonyRuntime } from "@symphony/runtime";
 import {
   defaultSymphonyDockerWorkspacePreflightTimeoutMs,
   preflightSymphonyDockerWorkspaceImage,
   type SymphonyDockerWorkspacePreflightResult
 } from "@symphony/workspace";
-import {
-  createSymphonyForensicsReadModel,
-  type SymphonyForensicsReadModel
-} from "@symphony/forensics";
+import { createSymphonyForensicsReadModel } from "@symphony/forensics";
 import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
-import type { SymphonyJsonValue } from "@symphony/run-journal";
 import {
   createLinearSymphonyTracker,
-  createMemorySymphonyTracker,
-  type SymphonyTracker
+  createMemorySymphonyTracker
 } from "@symphony/tracker";
-import type {
-  SymphonyForensicsIssueTimelineResult,
-  SymphonyGitHubReviewIngressResult,
-  SymphonyGitHubWebhookBody,
-  SymphonyGitHubWebhookHeaders,
-  SymphonyRuntimeHealthResult,
-  SymphonyRuntimeLogsResult,
-  SymphonyRuntimeRefreshResult
-} from "@symphony/contracts";
 import {
   createSymphonyGitHubIngressJournal,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
   createSqliteSymphonyRunJournal,
-  initializeSymphonyDb,
-  type SymphonyRuntimeLogStore
+  initializeSymphonyDb
 } from "@symphony/db";
-import {
-  loadSymphonyPromptContract,
-  type SymphonyLoadedPromptContract
-} from "@symphony/runtime-contract";
-import {
-  createSymphonyLogger,
-  type SymphonyLogger
-} from "@symphony/logger";
+import { loadSymphonyPromptContract } from "@symphony/runtime-contract";
+import { createSymphonyLogger } from "@symphony/logger";
 import { CodexAppServerError } from "./codex-app-server-types.js";
 import { resolveDockerCodexAuthContract } from "./codex-auth-contract.js";
-import { createRuntimeHttpError } from "./errors.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 import { createCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
 import { createDbBackedOrchestratorObserver } from "./runtime-db-observer.js";
-import {
-  publishRealtimeSnapshotDiff,
-  snapshotRequiresRealtimeInvalidation
-} from "./runtime-realtime-diff.js";
-import {
-  createSymphonyRealtimeHub,
-  type SymphonyRealtimeHub
-} from "../realtime/symphony-realtime-hub.js";
-import {
-  SymphonyRuntimePollScheduler,
-  type SymphonyRuntimePollSchedulerSnapshot
-} from "./poll-scheduler.js";
+import { createSymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
+import { SymphonyRuntimePollScheduler } from "./poll-scheduler.js";
 import { validateSourceRepoRuntimeManifest } from "./runtime-manifest-startup-validator.js";
-import { loadSymphonyRuntimeWorkflowConfig } from "./runtime-policy-config.js";
+import { loadSymphonyRuntimePolicyConfig } from "./runtime-policy-config.js";
 import { createRuntimeWorkspaceBackend } from "./runtime-workspace-backend.js";
-
-export type SymphonyRuntimeOrchestratorPort = {
-  snapshot(): SymphonyOrchestratorSnapshot;
-  runPollCycle(): Promise<SymphonyOrchestratorSnapshot>;
-  isPollCycleInFlight(): boolean;
-  requestRefresh(): Promise<SymphonyRuntimeRefreshResult>;
-};
-
-export type SymphonyGitHubReviewIngressPort = {
-  ingest(input: {
-    headers: SymphonyGitHubWebhookHeaders;
-    body: SymphonyGitHubWebhookBody;
-    rawBody: string;
-  }): Promise<SymphonyGitHubReviewIngressResult>;
-};
-
-export type SymphonyIssueTimelinePort = {
-  list(input: {
-    issueIdentifier: string;
-    limit?: number;
-  }): Promise<SymphonyForensicsIssueTimelineResult | null>;
-};
-
-export type SymphonyRuntimeLogsPort = {
-  list(input?: {
-    limit?: number;
-    issueIdentifier?: string;
-  }): Promise<SymphonyRuntimeLogsResult>;
-};
-
-export type SymphonyRuntimeHealthPort = {
-  snapshot(): SymphonyRuntimeHealthResult;
-};
-
-export type SymphonyLoadedRuntimeWorkflow = {
-  rawConfig: Record<string, never>;
-  config: SymphonyResolvedWorkflowConfig;
-  prompt: string;
-  promptTemplate: string;
-  sourcePath: string;
-};
-
-export type SymphonyRuntimeAppServices = {
-  logger: SymphonyLogger;
-  workflow: SymphonyLoadedRuntimeWorkflow;
-  promptContract: SymphonyLoadedPromptContract;
-  workflowConfig: SymphonyResolvedWorkflowConfig;
-  tracker: SymphonyTracker;
-  orchestrator: SymphonyRuntimeOrchestratorPort;
-  forensics: SymphonyForensicsReadModel;
-  issueTimeline: SymphonyIssueTimelinePort;
-  runtimeLogs: SymphonyRuntimeLogsPort;
-  health: SymphonyRuntimeHealthPort;
-  githubReviewIngress: SymphonyGitHubReviewIngressPort;
-  realtime: SymphonyRealtimeHub;
-  shutdown(): Promise<void>;
-};
-
-function createRuntimeOrchestratorPort(input: {
-  runtime: Pick<CoreSymphonyRuntime, "snapshot" | "runPollCycle">;
-  logger: SymphonyLogger;
-  runtimeLogs: SymphonyRuntimeLogStore;
-  realtime: SymphonyRealtimeHub;
-}): SymphonyRuntimeOrchestratorPort {
-  let inFlightPollCycle: Promise<SymphonyOrchestratorSnapshot> | null = null;
-  let manualRefreshQueued = false;
-  let manualRefreshDrainScheduled = false;
-
-  const scheduleQueuedManualRefreshDrain = (): void => {
-    if (manualRefreshDrainScheduled) {
-      return;
-    }
-
-    manualRefreshDrainScheduled = true;
-    setImmediate(() => {
-      manualRefreshDrainScheduled = false;
-      void drainQueuedManualRefresh();
-    });
-  };
-
-  const drainQueuedManualRefresh = async (): Promise<void> => {
-    if (!manualRefreshQueued || inFlightPollCycle) {
-      return;
-    }
-
-    manualRefreshQueued = false;
-
-    try {
-      await port.runPollCycle();
-    } catch (error) {
-      input.logger.error("Queued manual refresh poll cycle failed", {
-        error
-      });
-    }
-  };
-
-  const port: SymphonyRuntimeOrchestratorPort = {
-    snapshot() {
-      return input.runtime.snapshot();
-    },
-
-    isPollCycleInFlight() {
-      return inFlightPollCycle !== null;
-    },
-
-    async requestRefresh() {
-      const requestedAt = new Date().toISOString();
-      const coalesced = manualRefreshQueued;
-      manualRefreshQueued = true;
-
-      input.logger.info(
-        coalesced ? "Manual refresh request coalesced" : "Manual refresh queued",
-        {
-          coalesced
-        }
-      );
-      await input.runtimeLogs.record({
-        level: "info",
-        source: "runtime",
-        eventType: coalesced
-          ? "manual_refresh_coalesced"
-          : "manual_refresh_queued",
-        message: coalesced
-          ? "Coalesced manual refresh request."
-          : "Queued manual refresh request.",
-        payload: {
-          coalesced
-        },
-        recordedAt: requestedAt
-      });
-      scheduleQueuedManualRefreshDrain();
-
-      return {
-        queued: true,
-        coalesced,
-        requestedAt,
-        operations: ["poll", "reconcile"]
-      };
-    },
-
-    async runPollCycle() {
-      if (inFlightPollCycle) {
-        return await inFlightPollCycle;
-      }
-
-      const before = input.runtime.snapshot();
-      inFlightPollCycle = (async () => {
-        input.logger.info("Starting orchestrator poll cycle", {
-          runningCount: before.running.length,
-          retryingCount: before.retrying.length
-        });
-
-        try {
-          const after = await input.runtime.runPollCycle();
-          const changed = snapshotRequiresRealtimeInvalidation(before, after);
-
-          input.logger.info("Finished orchestrator poll cycle", {
-            runningCount: after.running.length,
-            retryingCount: after.retrying.length,
-            changed
-          });
-
-          publishRealtimeSnapshotDiff(input.realtime, before, after, input.logger);
-          return after;
-        } catch (error) {
-          input.logger.error("Orchestrator poll cycle failed", {
-            error
-          });
-          throw error;
-        } finally {
-          inFlightPollCycle = null;
-          if (manualRefreshQueued) {
-            scheduleQueuedManualRefreshDrain();
-          }
-        }
-      })();
-
-      return await inFlightPollCycle;
-    }
-  };
-
-  return port;
-}
+import type { SymphonyRuntimeAppServices } from "./runtime-app-types.js";
+import { createRuntimeOrchestratorPort } from "./runtime-orchestrator-port.js";
+import {
+  createIssueTimelinePort,
+  createRuntimeHealthPort,
+  createRuntimeLogsPort
+} from "./runtime-observability-ports.js";
+import {
+  createGitHubIssueComment,
+  fetchGitHubPullRequestMetadata
+} from "./runtime-github-client.js";
+import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -270,27 +60,25 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     logLevel: env.logLevel
   });
 
-  const workflowConfig = loadSymphonyRuntimeWorkflowConfig({
+  const runtimePolicy = loadSymphonyRuntimePolicyConfig({
     environmentSource,
     cwd: process.cwd()
   });
   const promptContract = loadSymphonyPromptContract({
     repoRoot: env.sourceRepo ?? process.cwd()
   });
-  const workflow: SymphonyLoadedRuntimeWorkflow = {
-    rawConfig: {},
-    config: workflowConfig,
+  const promptTemplate = {
     prompt: promptContract.template.trim(),
     promptTemplate: promptContract.template,
     sourcePath: promptContract.promptPath
   };
 
   logger.info("Loaded runtime prompt contract and platform policy", {
-    trackerKind: workflowConfig.tracker.kind,
+    trackerKind: runtimePolicy.tracker.kind,
     promptPath: promptContract.promptPath,
-    workspaceRoot: workflowConfig.workspace.root,
-    pollIntervalMs: workflowConfig.polling.intervalMs,
-    maxConcurrentAgents: workflowConfig.agent.maxConcurrentAgents
+    workspaceRoot: runtimePolicy.workspace.root,
+    pollIntervalMs: runtimePolicy.polling.intervalMs,
+    maxConcurrentAgents: runtimePolicy.agent.maxConcurrentAgents
   });
 
   const validatedRuntimeManifest = env.sourceRepo
@@ -343,12 +131,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
 
   const tracker =
-    workflowConfig.tracker.kind === "linear"
+    runtimePolicy.tracker.kind === "linear"
       ? createLinearSymphonyTracker({
-          config: workflowConfig.tracker
+          config: runtimePolicy.tracker
         })
       : createMemorySymphonyTracker([]);
-  if (workflowConfig.tracker.kind === "memory") {
+  if (runtimePolicy.tracker.kind === "memory") {
     logger.warn("Using in-memory tracker placeholder");
     await runtimeLogStore.record({
       level: "warn",
@@ -364,8 +152,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       eventType: "tracker_initialized",
       message: "Initialized Linear-backed tracker.",
       payload: {
-        teamKey: workflowConfig.tracker.teamKey,
-        projectSlug: workflowConfig.tracker.projectSlug
+        teamKey: runtimePolicy.tracker.teamKey,
+        projectSlug: runtimePolicy.tracker.projectSlug
       }
     });
   }
@@ -384,7 +172,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runtimeManifest: validatedRuntimeManifest?.runtimeManifest ?? null
   });
   const workspaceBackendPayload = {
-    workspaceRoot: workflowConfig.workspace.root,
+    workspaceRoot: runtimePolicy.workspace.root,
     ...workspaceBackendSelection.metadata,
     dockerCodexAuthMode: dockerCodexAuth?.mode ?? null
   };
@@ -397,7 +185,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       });
     } catch (error) {
       logger.error("Docker workspace backend preflight failed", {
-        workspaceRoot: workflowConfig.workspace.root,
+        workspaceRoot: runtimePolicy.workspace.root,
         ...workspaceBackendSelection.metadata,
         error
       });
@@ -406,7 +194,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
         source: "runtime",
         eventType: "workspace_backend_preflight_failed",
         message: "Docker workspace backend preflight failed.",
-        payload: normalizeJsonValue({
+        payload: normalizeRuntimeJsonValue({
           ...workspaceBackendPayload,
           error:
             error instanceof Error
@@ -424,7 +212,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   }
   const workspaceBackend = workspaceBackendSelection.backend;
   logger.info("Initialized workspace backend", {
-    workspaceRoot: workflowConfig.workspace.root,
+    workspaceRoot: runtimePolicy.workspace.root,
     ...workspaceBackendSelection.metadata,
     dockerPreflight
   });
@@ -433,7 +221,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     source: "runtime",
     eventType: "workspace_backend_selected",
     message: "Selected the runtime workspace backend.",
-    payload: normalizeJsonValue({
+    payload: normalizeRuntimeJsonValue({
       ...workspaceBackendPayload,
       dockerPreflight
     })
@@ -450,16 +238,15 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     issueTimelineStore
   });
   let runtimeRef: Pick<
-    CoreSymphonyRuntime,
+    ReturnType<typeof createSymphonyRuntime>,
     "applyAgentUpdate" | "handleRunCompletion"
   > | null = null;
   const agentRuntime = createCodexAgentRuntime(
     createCodexSymphonyAgentRuntime({
-      promptTemplate: workflow.promptTemplate,
+      promptTemplate: promptTemplate.promptTemplate,
       tracker,
       runJournal,
       runtimeLogs: runtimeLogStore,
-      workflowConfig,
       hostCommandEnvSource,
       codexHostLaunchEnv: dockerCodexAuth?.launchEnv ?? {},
       logger,
@@ -476,7 +263,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     })
   );
   const runtime = createSymphonyRuntime({
-    workflowConfig,
+    runtimePolicy,
     tracker,
     workspaceBackend,
     observer,
@@ -492,68 +279,31 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
 
   let pollScheduler: SymphonyRuntimePollScheduler | null = null;
-  const issueTimeline: SymphonyIssueTimelinePort = {
-    async list(input) {
-      const entries = await issueTimelineStore.listIssueTimeline(
-        input.issueIdentifier,
-        {
-          limit: input.limit
-        }
-      );
-
-      if (entries.length === 0) {
-        return null;
-      }
-
-      return {
-        issueIdentifier: input.issueIdentifier,
-        entries,
-        filters: {
-          limit: input.limit ?? null
-        }
-      };
-    }
-  };
-  const runtimeLogs: SymphonyRuntimeLogsPort = {
-    async list(input = {}) {
-      const logs = await runtimeLogStore.list(input);
-
-      return {
-        logs,
-        filters: {
-          limit: input.limit ?? null,
-          issueIdentifier: input.issueIdentifier ?? null
-        }
-      };
-    }
-  };
-  const health: SymphonyRuntimeHealthPort = {
-    snapshot() {
-      return {
-        healthy: (pollScheduler?.snapshot().lastError ?? null) === null,
-        db: {
-          file: database.dbFile,
-          ready: true
-        },
-        poller:
-          pollScheduler?.snapshot() ?? buildIdlePollerSnapshot(workflowConfig.polling.intervalMs)
-      };
-    }
-  };
+  const issueTimeline = createIssueTimelinePort({
+    issueTimelineStore
+  });
+  const runtimeLogs = createRuntimeLogsPort({
+    runtimeLogStore
+  });
+  const health = createRuntimeHealthPort({
+    dbFile: database.dbFile,
+    runtimePolicy,
+    readPollSchedulerSnapshot: () => pollScheduler?.snapshot() ?? null
+  });
 
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({
-    workflowConfig,
+    githubPolicy: runtimePolicy.github,
     reviewProcessor: new SymphonyGithubReviewProcessor({
       policyConfig: {
-        tracker: workflowConfig.tracker,
-        github: workflowConfig.github
+        tracker: runtimePolicy.tracker,
+        github: runtimePolicy.github
       },
       tracker,
       pullRequestResolver: {
         async fetchPullRequest(pullRequestUrl) {
-          return fetchGitHubPullRequest(
+          return fetchGitHubPullRequestMetadata(
             pullRequestUrl,
-            workflowConfig.github.apiToken,
+            runtimePolicy.github.apiToken,
             logger
           );
         },
@@ -562,7 +312,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
             repository,
             issueNumber,
             body,
-            apiToken: workflowConfig.github.apiToken,
+            apiToken: runtimePolicy.github.apiToken,
             logger
           });
         }
@@ -592,7 +342,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
       if (result.status !== "ignored" && issueIdentifier) {
         const trackedIssue = await tracker.fetchIssueByIdentifier(
-          workflowConfig.tracker,
+          runtimePolicy.tracker,
           issueIdentifier
         );
 
@@ -613,7 +363,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
 
   pollScheduler = new SymphonyRuntimePollScheduler({
-    intervalMs: workflowConfig.polling.intervalMs,
+    intervalMs: runtimePolicy.polling.intervalMs,
     logger: logger.child({
       component: "poller"
     }),
@@ -637,15 +387,15 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     eventType: "poller_started",
     message: "Started autonomous poll scheduler.",
     payload: {
-      intervalMs: workflowConfig.polling.intervalMs
+      intervalMs: runtimePolicy.polling.intervalMs
     }
   });
 
   return {
     logger,
-    workflow,
+    promptTemplate,
     promptContract,
-    workflowConfig,
+    runtimePolicy,
     tracker,
     orchestrator: orchestratorPort,
     forensics,
@@ -670,162 +420,4 @@ async function preflightDockerWorkspaceBackendSelection(input: {
     shell: input.shell,
     timeoutMs: defaultSymphonyDockerWorkspacePreflightTimeoutMs
   });
-}
-
-function normalizeJsonValue(value: unknown): SymphonyJsonValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((entry) => normalizeJsonValue(entry));
-  }
-
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
-        key,
-        normalizeJsonValue(nestedValue)
-      ])
-    ) as SymphonyJsonValue;
-  }
-
-  return String(value);
-}
-
-async function fetchGitHubPullRequest(
-  pullRequestUrl: string,
-  apiToken: string | null,
-  logger: SymphonyLogger
-): Promise<{ headRef: string | null; htmlUrl: string | null } | null> {
-  try {
-    const response = await fetch(pullRequestUrl, {
-      headers: buildGitHubRequestHeaders(apiToken)
-    });
-
-    if (!response.ok) {
-      logger.warn("Failed to fetch GitHub pull request metadata", {
-        pullRequestUrl,
-        status: response.status
-      });
-      return null;
-    }
-
-    const payload = (await response.json()) as {
-      head?: { ref?: unknown };
-      html_url?: unknown;
-    };
-
-    return {
-      headRef: typeof payload.head?.ref === "string" ? payload.head.ref : null,
-      htmlUrl: typeof payload.html_url === "string" ? payload.html_url : null
-    };
-  } catch (error) {
-    logger.warn("GitHub pull request lookup failed", {
-      pullRequestUrl,
-      error: error instanceof Error ? error.message : String(error)
-    });
-    return null;
-  }
-}
-
-async function createGitHubIssueComment(input: {
-  repository: string;
-  issueNumber: number;
-  body: string;
-  apiToken: string | null;
-  logger: SymphonyLogger;
-}): Promise<void> {
-  if (!input.apiToken) {
-    return;
-  }
-
-  const endpoint = `https://api.github.com/repos/${input.repository}/issues/${input.issueNumber}/comments`;
-
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        ...buildGitHubRequestHeaders(input.apiToken),
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        body: input.body
-      })
-    });
-
-    if (!response.ok) {
-      input.logger.warn("Failed to create GitHub acknowledgement comment", {
-        repository: input.repository,
-        issueNumber: input.issueNumber,
-        status: response.status
-      });
-    }
-  } catch (error) {
-    input.logger.warn("GitHub acknowledgement comment failed", {
-      repository: input.repository,
-      issueNumber: input.issueNumber,
-      error: error instanceof Error ? error.message : String(error)
-    });
-  }
-}
-
-function buildGitHubRequestHeaders(
-  apiToken: string | null
-): Record<string, string> {
-  return {
-    accept: "application/vnd.github+json",
-    "user-agent": "symphony-runtime",
-    ...(apiToken ? { authorization: `Bearer ${apiToken}` } : {})
-  };
-}
-
-export function requireRuntimeIssue(
-  services: SymphonyRuntimeAppServices,
-  issueIdentifier: string
-): {
-  issueId: string;
-  running:
-    | SymphonyOrchestratorSnapshot["running"][number]
-    | undefined;
-  retry:
-    | SymphonyOrchestratorSnapshot["retrying"][number]
-    | undefined;
-} {
-  const snapshot = services.orchestrator.snapshot();
-  const running = snapshot.running.find(
-    (entry) => entry.issue.identifier === issueIdentifier
-  );
-  const retry = snapshot.retrying.find(
-    (entry) => entry.identifier === issueIdentifier
-  );
-
-  if (!running && !retry) {
-    throw createRuntimeHttpError(404, "NOT_FOUND", "Issue not found.");
-  }
-
-  return {
-    issueId: running?.issueId ?? retry!.issueId,
-    running,
-    retry
-  };
-}
-
-function buildIdlePollerSnapshot(
-  intervalMs: number
-): SymphonyRuntimePollSchedulerSnapshot {
-  return {
-    running: false,
-    intervalMs,
-    inFlight: false,
-    lastStartedAt: null,
-    lastCompletedAt: null,
-    lastSucceededAt: null,
-    lastError: null
-  };
 }

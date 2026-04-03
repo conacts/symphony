@@ -17,7 +17,6 @@ import type {
   SymphonyRuntimeLaunchTarget,
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
-import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
 
 export function serializeRuntimeState(
   snapshot: SymphonyOrchestratorSnapshot
@@ -73,7 +72,7 @@ export function serializeRuntimeState(
 
 export function serializeRuntimeIssue(
   snapshot: SymphonyOrchestratorSnapshot,
-  workflowConfig: SymphonyResolvedWorkflowConfig,
+  githubRepository: string | null,
   issueIdentifier: string,
   trackedIssue: SymphonyTrackerIssue | null
 ): SymphonyRuntimeIssueResult | null {
@@ -112,7 +111,7 @@ export function serializeRuntimeIssue(
     };
   const branchName = tracked.branchName ?? issueBranchName(issueIdentifier);
   const githubPullRequestSearchUrl = buildGitHubPullRequestSearchUrl(
-    workflowConfig.github.repo,
+    githubRepository,
     branchName
   );
   const workspace = running?.workspace ?? retry?.workspace ?? null;

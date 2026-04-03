@@ -11,5 +11,21 @@
     "dist",
     "node_modules"
   ],
-  "references": []
+  "references": [
+    {
+      "path": "../orchestrator"
+    },
+    {
+      "path": "../review"
+    },
+    {
+      "path": "../runtime-policy"
+    },
+    {
+      "path": "../tracker"
+    },
+    {
+      "path": "../workspace"
+    }
+  ]
 }

@@ -1,3 +1,4 @@
+export { buildSymphonyTrackerIssue } from "./build-symphony-tracker-issue.js";
 export { createLinearSymphonyTracker } from "./linear-symphony-tracker.js";
 export {
   createMemorySymphonyTracker,

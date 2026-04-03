@@ -6,15 +6,15 @@ import {
   type WorkspaceBackend,
   type WorkspaceContext,
   type WorkspaceHookKind
-} from "@symphony/workspace";
+} from "./workspace-backend.js";
 
-type TestWorkspaceCommandResult = {
+export type TestWorkspaceCommandResult = {
   exitCode: number;
   stdout: string;
   stderr: string;
 };
 
-type TestWorkspaceCommandRunner = (input: {
+export type TestWorkspaceCommandRunner = (input: {
   command: string;
   cwd: string;
   timeoutMs: number;

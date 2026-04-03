@@ -11,6 +11,11 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./test-support": {
+      "types": "./dist/test-support.d.ts",
+      "import": "./dist/test-support.js",
+      "default": "./dist/test-support.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

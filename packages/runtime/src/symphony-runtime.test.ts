@@ -46,7 +46,7 @@ describe("symphony runtime review seam", () => {
       }))
     };
     const runtime = createSymphonyRuntime({
-      workflowConfig: buildSymphonyWorkflowConfig(),
+      runtimePolicy: buildSymphonyWorkflowConfig(),
       tracker: inertTracker,
       workspaceBackend: createTestWorkspaceBackend(),
       agentRuntime: createCodexAgentRuntime({
@@ -82,7 +82,7 @@ describe("symphony runtime review seam", () => {
 
   it("adapts transitional resolve and publish callbacks behind the new runtime methods", async () => {
     const runtime = createSymphonyRuntime({
-      workflowConfig: buildSymphonyWorkflowConfig(),
+      runtimePolicy: buildSymphonyWorkflowConfig(),
       tracker: inertTracker,
       workspaceBackend: createTestWorkspaceBackend(),
       agentRuntime: createCodexAgentRuntime({

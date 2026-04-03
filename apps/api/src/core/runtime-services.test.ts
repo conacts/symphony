@@ -19,9 +19,9 @@ describe("runtime services", () => {
     const { services, env } = harness;
     const refresh = await services.orchestrator.requestRefresh();
 
-    expect(services.workflow.promptTemplate).toBe("Prompt body\n");
+    expect(services.promptTemplate.promptTemplate).toBe("Prompt body\n");
     expect(services.promptContract.promptPath).toContain(".symphony/prompt.md");
-    expect(services.workflowConfig.tracker.kind).toBe("memory");
+    expect(services.runtimePolicy.tracker.kind).toBe("memory");
     expect(refresh).toEqual(
       expect.objectContaining({
         queued: true,

@@ -11,5 +11,18 @@
     "dist",
     "node_modules"
   ],
-  "references": []
+  "references": [
+    {
+      "path": "../run-journal"
+    },
+    {
+      "path": "../runtime-contract"
+    },
+    {
+      "path": "../tracker"
+    },
+    {
+      "path": "../workspace"
+    }
+  ]
 }

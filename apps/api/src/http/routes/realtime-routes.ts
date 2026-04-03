@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { NodeWebSocket } from "@hono/node-ws";
-import type { SymphonyRuntimeAppServices } from "../../core/runtime-services.js";
+import type { SymphonyRuntimeAppServices } from "../../core/runtime-app-types.js";
 import type { SymphonyRuntimeAppContextSchema } from "../context.js";
 
 export function createRealtimeRoutes(

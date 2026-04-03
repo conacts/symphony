@@ -8,7 +8,7 @@ import {
   type SymphonyOrchestratorObserver,
   type SymphonyOrchestratorSnapshot
 } from "@symphony/orchestrator";
-import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
+import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
 import type {
   PublishReviewInput,
   PublishReviewResult,
@@ -25,7 +25,7 @@ export interface SymphonyRuntime<
   Reviewed extends ReviewResult = ReviewResult,
   Published = PublishReviewResult
 > {
-  readonly workflowConfig: SymphonyResolvedWorkflowConfig;
+  readonly runtimePolicy: SymphonyResolvedRuntimePolicy;
   readonly tracker: SymphonyTracker;
   readonly workspaceBackend: WorkspaceBackend;
   readonly agentRuntime: AgentRuntime;
@@ -53,7 +53,7 @@ export function createSymphonyRuntime<
   Reviewed extends ReviewResult = ReviewResult,
   Published = PublishReviewResult
 >(input: {
-  workflowConfig: SymphonyResolvedWorkflowConfig;
+  runtimePolicy: SymphonyResolvedRuntimePolicy;
   tracker: SymphonyTracker;
   workspaceBackend: WorkspaceBackend;
   agentRuntime: AgentRuntime;
@@ -72,7 +72,7 @@ export function createSymphonyRuntime<
   const reviewProvider = normalizeReviewProvider(input.reviewProvider ?? null);
   const reviewPublisher = normalizeReviewPublisher(input.reviewPublisher ?? null);
   const orchestrator = new SymphonyOrchestrator({
-    config: toSymphonyOrchestratorConfig(input.workflowConfig),
+    config: toSymphonyOrchestratorConfig(input.runtimePolicy),
     tracker: input.tracker,
     workspaceBackend: input.workspaceBackend,
     agentRuntime: input.agentRuntime,
@@ -97,7 +97,7 @@ export function createSymphonyRuntime<
   };
 
   return {
-    workflowConfig: input.workflowConfig,
+    runtimePolicy: input.runtimePolicy,
     tracker: input.tracker,
     workspaceBackend: input.workspaceBackend,
     agentRuntime: input.agentRuntime,
@@ -202,40 +202,40 @@ function requireReviewPublisher<Input extends ReviewResult, Published>(
 }
 
 function toSymphonyOrchestratorConfig(
-  workflowConfig: SymphonyResolvedWorkflowConfig
+  runtimePolicy: SymphonyResolvedRuntimePolicy
 ): SymphonyOrchestratorConfig {
   return {
-    tracker: workflowConfig.tracker,
-    polling: workflowConfig.polling,
-    workspace: workflowConfig.workspace,
-    hooks: workflowConfig.hooks,
+    tracker: runtimePolicy.tracker,
+    polling: runtimePolicy.polling,
+    workspace: runtimePolicy.workspace,
+    hooks: runtimePolicy.hooks,
     agent: {
-      maxConcurrentAgents: workflowConfig.agent.maxConcurrentAgents,
-      maxRetryBackoffMs: workflowConfig.agent.maxRetryBackoffMs,
+      maxConcurrentAgents: runtimePolicy.agent.maxConcurrentAgents,
+      maxRetryBackoffMs: runtimePolicy.agent.maxRetryBackoffMs,
       maxConcurrentAgentsByState:
-        workflowConfig.agent.maxConcurrentAgentsByState
+        runtimePolicy.agent.maxConcurrentAgentsByState
     },
     codex: {
-      stallTimeoutMs: workflowConfig.codex.stallTimeoutMs
+      stallTimeoutMs: runtimePolicy.codex.stallTimeoutMs
     },
     runtime: {
-      tracker: workflowConfig.tracker,
+      tracker: runtimePolicy.tracker,
       workspace: {
-        root: workflowConfig.workspace.root
+        root: runtimePolicy.workspace.root
       },
       agent: {
-        maxTurns: workflowConfig.agent.maxTurns
+        maxTurns: runtimePolicy.agent.maxTurns
       },
       codex: {
-        command: workflowConfig.codex.command,
-        approvalPolicy: workflowConfig.codex.approvalPolicy,
-        threadSandbox: workflowConfig.codex.threadSandbox,
-        turnSandboxPolicy: workflowConfig.codex.turnSandboxPolicy,
-        turnTimeoutMs: workflowConfig.codex.turnTimeoutMs,
-        readTimeoutMs: workflowConfig.codex.readTimeoutMs
+        command: runtimePolicy.codex.command,
+        approvalPolicy: runtimePolicy.codex.approvalPolicy,
+        threadSandbox: runtimePolicy.codex.threadSandbox,
+        turnSandboxPolicy: runtimePolicy.codex.turnSandboxPolicy,
+        turnTimeoutMs: runtimePolicy.codex.turnTimeoutMs,
+        readTimeoutMs: runtimePolicy.codex.readTimeoutMs
       },
       hooks: {
-        timeoutMs: workflowConfig.hooks.timeoutMs
+        timeoutMs: runtimePolicy.hooks.timeoutMs
       }
     }
   };

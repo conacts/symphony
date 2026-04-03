@@ -121,7 +121,7 @@ describe("runtime serializers", () => {
 
     const serialized = serializeRuntimeIssue(
       snapshot,
-      buildSymphonyWorkflowConfig(),
+      buildSymphonyWorkflowConfig().github.repo,
       issue.identifier,
       issue
     );
@@ -207,7 +207,7 @@ describe("runtime serializers", () => {
         running: [],
         retrying: []
       }),
-      buildSymphonyWorkflowConfig(),
+      buildSymphonyWorkflowConfig().github.repo,
       issue.identifier,
       issue
     );

@@ -4,19 +4,17 @@ import {
   createTempSymphonySqliteHarness,
   renderSymphonyRuntimeManifestSource
 } from "@symphony/test-support";
-import type { SymphonyResolvedWorkflowConfig } from "@symphony/runtime-policy";
+import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
 import type { SymphonyRuntimeAppEnv } from "../core/env.js";
-import {
-  loadDefaultSymphonyRuntimeAppServices,
-  type SymphonyRuntimeAppServices
-} from "../core/runtime-services.js";
-import { loadSymphonyRuntimeWorkflowConfig } from "../core/runtime-policy-config.js";
+import { loadDefaultSymphonyRuntimeAppServices } from "../core/runtime-services.js";
+import type { SymphonyRuntimeAppServices } from "../core/runtime-app-types.js";
+import { loadSymphonyRuntimePolicyConfig } from "../core/runtime-policy-config.js";
 
 export type SymphonyRuntimeAppServicesHarness = {
   cleanup(): Promise<void>;
   root: string;
   promptPath: string;
-  workflowConfig: SymphonyResolvedWorkflowConfig;
+  runtimePolicy: SymphonyResolvedRuntimePolicy;
   env: SymphonyRuntimeAppEnv;
   environmentSource: Record<string, string | undefined>;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -86,7 +84,7 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS: "reviewer",
       ...input.environmentSource
     };
-    const workflowConfig = loadSymphonyRuntimeWorkflowConfig({
+    const runtimePolicy = loadSymphonyRuntimePolicyConfig({
       environmentSource,
       cwd: root
     });
@@ -105,7 +103,7 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
     return {
       root,
       promptPath,
-      workflowConfig,
+      runtimePolicy,
       env,
       environmentSource,
       hostCommandEnvSource,

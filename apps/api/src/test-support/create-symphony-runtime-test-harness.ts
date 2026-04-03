@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import {
-  type SymphonyResolvedWorkflowConfig
+  type SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
 import { createSymphonyForensicsReadModel } from "@symphony/forensics";
 import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
@@ -14,12 +14,12 @@ import {
 import {
   buildSymphonyEventAttrs,
   buildSymphonyOrchestratorSnapshot,
+  buildSymphonyRuntimePolicy,
   buildSymphonyRunFinishAttrs,
   buildSymphonyRunStartAttrs,
   buildSymphonyTrackerIssue,
   buildSymphonyTurnFinishAttrs,
-  buildSymphonyTurnStartAttrs,
-  buildSymphonyWorkflowConfig
+  buildSymphonyTurnStartAttrs
 } from "@symphony/test-support";
 import {
   createSymphonyIssueTimelineStore,
@@ -30,9 +30,9 @@ import {
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import { createSymphonyGitHubReviewIngressService } from "../core/github-review-ingress.js";
 import type {
-  SymphonyLoadedRuntimeWorkflow,
+  SymphonyLoadedRuntimePromptTemplate,
   SymphonyRuntimeAppServices
-} from "../core/runtime-services.js";
+} from "../core/runtime-app-types.js";
 import { createSymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 
 export type SymphonyRuntimeTestHarness = {
@@ -41,8 +41,8 @@ export type SymphonyRuntimeTestHarness = {
   root: string;
   services: SymphonyRuntimeAppServices;
   snapshot: SymphonyOrchestratorSnapshot;
-  workflow: SymphonyLoadedRuntimeWorkflow;
-  workflowConfig: SymphonyResolvedWorkflowConfig;
+  promptTemplate: SymphonyLoadedRuntimePromptTemplate;
+  runtimePolicy: SymphonyResolvedRuntimePolicy;
 };
 
 export { buildSymphonyOrchestratorSnapshot };
@@ -100,9 +100,9 @@ export function buildBindMountPreparedWorkspace(
 
 export function buildSymphonyRuntimeWorkflowConfig(
   root: string,
-  overrides: Partial<SymphonyResolvedWorkflowConfig> = {}
-): SymphonyResolvedWorkflowConfig {
-  const baseConfig = buildSymphonyWorkflowConfig();
+  overrides: Partial<SymphonyResolvedRuntimePolicy> = {}
+): SymphonyResolvedRuntimePolicy {
+  const baseConfig = buildSymphonyRuntimePolicy();
 
   return {
     ...baseConfig,
@@ -166,17 +166,17 @@ export async function createSymphonyRuntimeTestHarness(input: {
   realtimeNow?: () => Date;
   rootPrefix?: string;
   snapshot?: Partial<SymphonyOrchestratorSnapshot>;
-  workflowConfig?: Partial<SymphonyResolvedWorkflowConfig>;
+  runtimePolicy?: Partial<SymphonyResolvedRuntimePolicy>;
 } = {}): Promise<SymphonyRuntimeTestHarness> {
   const root = await mkdtemp(
     path.join(tmpdir(), input.rootPrefix ?? "symphony-runtime-test-")
   );
   const issue = buildSymphonyRuntimeTrackerIssue(input.issue);
-  const workflowConfig = buildSymphonyRuntimeWorkflowConfig(
+  const runtimePolicy = buildSymphonyRuntimeWorkflowConfig(
     root,
-    input.workflowConfig
+    input.runtimePolicy
   );
-  const workflow = buildSymphonyLoadedWorkflow(workflowConfig);
+  const promptTemplate = buildSymphonyLoadedPromptTemplate();
   const tracker = createMemorySymphonyTracker([issue]);
   const database = initializeSymphonyDb({
     dbFile: path.join(root, "symphony.db")
@@ -278,14 +278,14 @@ export async function createSymphonyRuntimeTestHarness(input: {
 
   const services: SymphonyRuntimeAppServices = {
     logger: createSilentSymphonyLogger("@symphony/api.test"),
-    workflow,
+    promptTemplate,
     promptContract: {
       repoRoot: root,
       promptPath: path.join(root, ".symphony", "prompt.md"),
-      template: workflow.promptTemplate,
+      template: promptTemplate.promptTemplate,
       variables: []
     },
-    workflowConfig,
+    runtimePolicy,
     tracker,
     orchestrator: {
       snapshot() {
@@ -360,7 +360,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
           },
           poller: {
             running: true,
-            intervalMs: workflowConfig.polling.intervalMs,
+            intervalMs: runtimePolicy.polling.intervalMs,
             inFlight: false,
             lastStartedAt: null,
             lastCompletedAt: null,
@@ -371,11 +371,11 @@ export async function createSymphonyRuntimeTestHarness(input: {
       }
     },
     githubReviewIngress: createSymphonyGitHubReviewIngressService({
-      workflowConfig,
+      githubPolicy: runtimePolicy.github,
       reviewProcessor: new SymphonyGithubReviewProcessor({
         policyConfig: {
-          tracker: workflowConfig.tracker,
-          github: workflowConfig.github
+          tracker: runtimePolicy.tracker,
+          github: runtimePolicy.github
         },
         tracker,
         pullRequestResolver: {
@@ -408,17 +408,13 @@ export async function createSymphonyRuntimeTestHarness(input: {
     root,
     services,
     snapshot,
-    workflow,
-    workflowConfig
+    promptTemplate,
+    runtimePolicy
   };
 }
 
-function buildSymphonyLoadedWorkflow(
-  config: SymphonyResolvedWorkflowConfig
-): SymphonyLoadedRuntimeWorkflow {
+function buildSymphonyLoadedPromptTemplate(): SymphonyLoadedRuntimePromptTemplate {
   return {
-    rawConfig: {},
-    config,
     prompt: "Prompt",
     promptTemplate: "Prompt",
     sourcePath: "/tmp/.symphony/prompt.md"

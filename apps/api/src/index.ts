@@ -7,9 +7,9 @@ import {
   type SymphonyRuntimeAppEnv
 } from "./core/env.js";
 import {
-  loadDefaultSymphonyRuntimeAppServices,
-  type SymphonyRuntimeAppServices
+  loadDefaultSymphonyRuntimeAppServices
 } from "./core/runtime-services.js";
+import type { SymphonyRuntimeAppServices } from "./core/runtime-app-types.js";
 import {
   createSymphonyRuntimeApp,
   createSymphonyRuntimeApplication

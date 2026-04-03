@@ -23,6 +23,12 @@
       "path": "../../packages/db"
     },
     {
+      "path": "../../packages/forensics"
+    },
+    {
+      "path": "../../packages/github-review"
+    },
+    {
       "path": "../../packages/orchestrator"
     },
     {
@@ -36,6 +42,12 @@
     },
     {
       "path": "../../packages/test-support"
+    },
+    {
+      "path": "../../packages/tracker"
+    },
+    {
+      "path": "../../packages/workspace"
     }
   ],
   "include": ["src/**/*.ts"]

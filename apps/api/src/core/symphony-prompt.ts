@@ -16,7 +16,7 @@ export function renderSymphonyPrompt(input: {
     const value = resolveTemplatePath(context, expression.trim());
 
     if (value === undefined) {
-      throw new Error(`Unknown workflow template variable: ${expression.trim()}`);
+      throw new Error(`Unknown prompt template variable: ${expression.trim()}`);
     }
 
     if (value === null) {

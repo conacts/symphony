@@ -8,7 +8,7 @@ import type {
   SymphonyGitHubWebhookHeaders
 } from "@symphony/contracts";
 import type {
-  SymphonyResolvedWorkflowConfig
+  SymphonyGitHubRuntimePolicy
 } from "@symphony/runtime-policy";
 import type {
   SymphonyGitHubReviewEvent,
@@ -33,7 +33,7 @@ type EventJournal = {
 };
 
 export function createSymphonyGitHubReviewIngressService(input: {
-  workflowConfig: SymphonyResolvedWorkflowConfig;
+  githubPolicy: SymphonyGitHubRuntimePolicy;
   reviewProcessor: SymphonyGithubReviewProcessor;
   eventJournal?: EventJournal;
   logger?: SymphonyLogger;
@@ -52,8 +52,7 @@ export function createSymphonyGitHubReviewIngressService(input: {
       body: SymphonyGitHubWebhookBody;
       rawBody: string;
     }): Promise<SymphonyGitHubReviewIngressResult> {
-      const github = input.workflowConfig.github;
-      if (!github.repo || !github.webhookSecret) {
+      if (!input.githubPolicy.repo || !input.githubPolicy.webhookSecret) {
         logger.error("GitHub webhook ingress is not configured", {
           event: args.headers.xGitHubEvent,
           delivery: args.headers.xGitHubDelivery
@@ -69,7 +68,7 @@ export function createSymphonyGitHubReviewIngressService(input: {
         !validateGitHubWebhookSignature(
           args.rawBody,
           args.headers.xHubSignature256,
-          github.webhookSecret
+          input.githubPolicy.webhookSecret
         )
       ) {
         logger.warn("Rejected GitHub webhook due to invalid signature", {
@@ -84,7 +83,7 @@ export function createSymphonyGitHubReviewIngressService(input: {
       }
 
       const normalized = normalizeReviewEvent(args.headers.xGitHubEvent, args.body);
-      if (normalized.repository !== github.repo) {
+      if (normalized.repository !== input.githubPolicy.repo) {
         logger.warn("Rejected GitHub webhook for disallowed repository", {
           event: args.headers.xGitHubEvent,
           delivery: args.headers.xGitHubDelivery,
