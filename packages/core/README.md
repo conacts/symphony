@@ -1,17 +1,17 @@
 # @symphony/core
 
-Deep reusable Symphony orchestration modules for workflow, tracker, workspace, journal, and runtime behavior.
+Compatibility facade and transitional runtime wiring while the former core surface is split into focused packages.
 
 ## Owns
 
-- Symphony-owned runtime concepts and deep orchestration interfaces.
-- Extraction-ready repository target and runtime config seams.
-- Package-local deterministic builders and test-support for future boundary tests.
+- Thin compatibility re-exports over focused Symphony packages.
+- Transitional runtime composition seams until `@symphony/core` is deleted.
+- Small package-local metadata and test helpers that have not yet been relocated.
 
 ## Does not own
 
 - Hono or Next.js app wiring.
-- Transport schemas and response envelopes.
-- Legacy business-domain packages or product-specific behavior.
+- Runtime contract ownership.
+- Long-lived domain modules that already have their own top-level packages.
 
-This package is intentionally scaffolded before feature work so later tickets can deepen it without reorganizing the monorepo.
+This package is intentionally shrinking toward removal as the remaining facades and helpers are relocated.
