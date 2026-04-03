@@ -1,3 +1,6 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
 import { createCodexAgentRuntime } from "@symphony/orchestrator";
 import { createSymphonyRuntime } from "@symphony/runtime";
 import {
@@ -44,6 +47,8 @@ import {
 } from "./runtime-github-client.js";
 import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
 
+const execFileAsync = promisify(execFile);
+
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
   environmentSource: Record<string, string | undefined>,
@@ -72,6 +77,10 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     promptTemplate: promptContract.template,
     sourcePath: promptContract.promptPath
   };
+  const promptContext = await resolvePromptContext({
+    sourceRepo: env.sourceRepo,
+    configuredRepository: runtimePolicy.github.repo
+  });
 
   logger.info("Loaded runtime prompt contract and platform policy", {
     trackerKind: runtimePolicy.tracker.kind,
@@ -244,6 +253,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const agentRuntime = createCodexAgentRuntime(
     createCodexSymphonyAgentRuntime({
       promptTemplate: promptTemplate.promptTemplate,
+      promptContext,
       tracker,
       runJournal,
       runtimeLogs: runtimeLogStore,
@@ -420,4 +430,50 @@ async function preflightDockerWorkspaceBackendSelection(input: {
     shell: input.shell,
     timeoutMs: defaultSymphonyDockerWorkspacePreflightTimeoutMs
   });
+}
+
+async function resolvePromptContext(input: {
+  sourceRepo: string | null;
+  configuredRepository: string | null;
+}): Promise<{
+  repo: {
+    name: string;
+    defaultBranch: string;
+  };
+}> {
+  const repoName =
+    input.configuredRepository?.split("/").at(-1)?.trim() ||
+    (input.sourceRepo ? path.basename(input.sourceRepo) : "repo");
+  const defaultBranch = input.sourceRepo
+    ? ((await tryGit(input.sourceRepo, [
+        "symbolic-ref",
+        "--quiet",
+        "--short",
+        "refs/remotes/origin/HEAD"
+      ])) ?? "origin/main")
+    : "origin/main";
+
+  return {
+    repo: {
+      name: repoName,
+      defaultBranch: defaultBranch.startsWith("origin/")
+        ? defaultBranch.slice("origin/".length)
+        : defaultBranch
+    }
+  };
+}
+
+async function tryGit(
+  cwd: string,
+  args: string[]
+): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync("git", args, {
+      cwd,
+      encoding: "utf8"
+    });
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
 }

@@ -395,12 +395,18 @@ done
     );
   });
 
-  it("fails when command approval is required under safer defaults", async () => {
+  it("fails when command approval is required under on-request policy", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-app-server-approval-"));
     tempRoots.push(root);
 
     const scenario = await createScenario({
       root,
+      runtimePolicyOverrides: {
+        codex: {
+          ...buildSymphonyRuntimePolicyForRoot(root).codex,
+          approvalPolicy: "on-request"
+        }
+      },
       script: `#!/bin/sh
 count=0
 while IFS= read -r _line; do

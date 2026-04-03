@@ -43,6 +43,7 @@ import {
 } from "./docker-hooks.js";
 import {
   ensureMaterializedWorkspace,
+  hydrateBindMountedWorkspaceFromSourceRepo,
   removeMaterializedWorkspace
 } from "./docker-materialization.js";
 import {
@@ -137,6 +138,9 @@ export function createDockerWorkspaceBackend(
   const workspacePath = normalizeNonEmptyString(
     options.workspacePath
   ) ?? defaultContainerWorkspacePath;
+  const sourceRepoPath = normalizeNonEmptyString(
+    options.sourceRepoPath ?? undefined
+  );
   const containerNamePrefix = normalizeContainerPrefix(
     options.containerNamePrefix
   );
@@ -203,6 +207,21 @@ export function createDockerWorkspaceBackend(
         commandRunner,
         timeoutMs
       });
+      if (
+        sourceRepoPath &&
+        descriptor.materialization.kind === bindMaterializationKind
+      ) {
+        await hydrateBindMountedWorkspaceFromSourceRepo({
+          sourceRepoPath,
+          workspaceHostPath: descriptor.materialization.hostPath,
+          workspacePath,
+          containerName: descriptor.containerName,
+          shell,
+          commandRunner,
+          timeoutMs,
+          githubToken: normalizeNonEmptyString(input.env?.GITHUB_TOKEN)
+        });
+      }
       const envBundle = resolveDockerWorkspaceEnvBundle({
         runtimeManifest,
         environmentSource: input.env,

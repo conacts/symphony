@@ -87,11 +87,7 @@ export function loadSymphonyRuntimePolicyConfig(input: {
     codex: {
       command:
         readOptionalString(environmentSource.SYMPHONY_CODEX_COMMAND) ?? "codex app-server",
-      approvalPolicy: {
-        reject: {
-          sandbox_approval: true
-        }
-      },
+      approvalPolicy: "never",
       threadSandbox:
         readOptionalString(environmentSource.SYMPHONY_CODEX_THREAD_SANDBOX) ??
         "workspace-write",

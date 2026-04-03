@@ -16,6 +16,29 @@ describe("resolveRuntimePolicy", () => {
     expect(config.tracker.terminalStates).toEqual(["Canceled", "Done"]);
     expect(config.workspace.root).toContain("symphony_workspaces");
     expect(config.agent.maxConcurrentAgents).toBe(10);
+    expect(config.codex.approvalPolicy).toBe("never");
+  });
+
+  it("maps the legacy reject approval policy to never", () => {
+    const config = resolveRuntimePolicy(
+      {
+        tracker: {
+          kind: "memory"
+        },
+        codex: {
+          approvalPolicy: {
+            reject: {
+              sandbox_approval: true,
+              rules: true,
+              mcp_elicitations: true
+            }
+          }
+        }
+      },
+      {}
+    );
+
+    expect(config.codex.approvalPolicy).toBe("never");
   });
 
   it("resolves env-backed tracker values explicitly", () => {

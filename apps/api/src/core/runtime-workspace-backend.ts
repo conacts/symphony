@@ -33,6 +33,7 @@ export function createRuntimeWorkspaceBackend(
     | "dockerWorkspaceImage"
     | "dockerMaterializationMode"
     | "dockerWorkspacePath"
+    | "sourceRepo"
     | "dockerContainerNamePrefix"
     | "dockerShell"
   >,
@@ -54,6 +55,7 @@ export function createRuntimeWorkspaceBackend(
       image,
       materializationMode: env.dockerMaterializationMode,
       workspacePath: env.dockerWorkspacePath ?? undefined,
+      sourceRepoPath: env.sourceRepo,
       containerNamePrefix: env.dockerContainerNamePrefix ?? undefined,
       shell: env.dockerShell ?? undefined,
       hostFileMounts: options.dockerHostFileMounts,

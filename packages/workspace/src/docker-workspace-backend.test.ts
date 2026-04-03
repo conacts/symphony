@@ -1,6 +1,8 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { execFile, spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, realpath, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import { SymphonyWorkspaceError } from "./workspace-identity.js";
 import {
@@ -21,6 +23,7 @@ import type {
 } from "./workspace-contracts.js";
 
 const tempDirectories: string[] = [];
+const execFileAsync = promisify(execFile);
 
 function buildWorkspaceTestConfig(overrides: {
   workspace?: Partial<WorkspaceConfig>;
@@ -124,6 +127,139 @@ describe("docker workspace backend", () => {
         "type=bind,src=/Users/test/.codex/auth.json,dst=/home/agent/auth.json,readonly"
       ])
     );
+  });
+
+  it("clones a bind-mounted workspace from the source repo remote before lifecycle starts", async () => {
+    const root = await createWorkspaceRoot();
+    const sourceRepo = await mkdtemp(path.join(tmpdir(), "symphony-source-repo-"));
+    tempDirectories.push(sourceRepo);
+    await execFileAsync("git", ["init", "--initial-branch=main"], {
+      cwd: sourceRepo
+    });
+    await execFileAsync(
+      "git",
+      ["remote", "add", "origin", "git@github.com:example/private-repo.git"],
+      {
+        cwd: sourceRepo
+      }
+    );
+    await execFileAsync(
+      "git",
+      ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
+      {
+        cwd: sourceRepo
+      }
+    );
+
+    const config = buildWorkspaceTestConfig({
+      workspace: {
+        root
+      }
+    });
+    const calls: string[][] = [];
+    let cloneCount = 0;
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      sourceRepoPath: sourceRepo,
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+        if (input.args[0] === "inspect") {
+          return {
+            exitCode: 1,
+            stdout: "[]\n",
+            stderr: `Error response from daemon: No such container: ${input.args[3]}`
+          };
+        }
+
+        if (input.args[0] === "run") {
+          return {
+            exitCode: 0,
+            stdout: "container-hydrate-123\n",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "exec") {
+          cloneCount += 1;
+          const workdirFlag = input.args.indexOf("--workdir");
+          const hostPath = path.join(root, "symphony-COL_200");
+          expect(workdirFlag).toBeGreaterThanOrEqual(0);
+          expect(input.args).toEqual(
+            expect.arrayContaining([
+              "--env",
+              "SYMPHONY_SOURCE_REPO_URL=https://github.com/example/private-repo.git",
+              "--env",
+              "SYMPHONY_SOURCE_REPO_REF=main",
+              "--env",
+              "GITHUB_TOKEN=test-github-token"
+            ])
+          );
+          const cloneScript = input.args.at(-1);
+          expect(typeof cloneScript).toBe("string");
+          const syntaxCheck = spawnSync("bash", ["-n"], {
+            encoding: "utf8",
+            input: cloneScript
+          });
+          expect(syntaxCheck.status).toBe(0);
+          expect(syntaxCheck.stderr).toBe("");
+          await mkdir(path.join(hostPath, ".git"), { recursive: true });
+          await writeFile(path.join(hostPath, "README.md"), "hello\n", "utf8");
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    const workspace = await backend.prepareWorkspace({
+      context: {
+        issueId: "issue-hydrate-200",
+        issueIdentifier: "COL/200"
+      },
+      config: config.workspace,
+      hooks: {
+        ...config.hooks,
+        afterCreate: null
+      },
+      env: {
+        GITHUB_TOKEN: "test-github-token"
+      }
+    });
+
+    expect(workspace.executionTarget.kind).toBe("container");
+    const hostPath = workspace.executionTarget.hostPath;
+    expect(hostPath).toBe(path.join(root, "symphony-COL_200"));
+    if (hostPath === null) {
+      throw new Error("Expected a host path for the prepared workspace.");
+    }
+    expect(
+      await readFile(
+        path.join(hostPath, "README.md"),
+        "utf8"
+      )
+    ).toBe("hello\n");
+    expect(calls.some((call) => call[0] === "exec")).toBe(true);
+
+    await backend.prepareWorkspace({
+      context: {
+        issueId: "issue-hydrate-200",
+        issueIdentifier: "COL/200"
+      },
+      config: config.workspace,
+      hooks: {
+        ...config.hooks,
+        afterCreate: null
+      },
+      env: {
+        GITHUB_TOKEN: "test-github-token"
+      }
+    });
+
+    expect(cloneCount).toBe(1);
   });
 
   it("creates deterministic container-backed workspaces and only runs after_create once", async () => {

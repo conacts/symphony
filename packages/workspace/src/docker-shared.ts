@@ -60,6 +60,7 @@ export type DockerWorkspaceCommandRunner = (input: {
 export type DockerWorkspaceBackendOptions = {
   image: string;
   workspacePath?: string;
+  sourceRepoPath?: string | null;
   containerNamePrefix?: string;
   shell?: string;
   materializationMode?: DockerWorkspaceMaterializationMode;

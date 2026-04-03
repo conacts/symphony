@@ -22,6 +22,7 @@ describe("runtime workspace backend selection", () => {
       dockerWorkspaceImage: null,
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: null,
+      sourceRepo: null,
       dockerContainerNamePrefix: null,
       dockerShell: null
     });
@@ -58,6 +59,7 @@ describe("runtime workspace backend selection", () => {
       dockerWorkspaceImage: "example.com/custom/symphony-runner:dev",
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: "/home/agent/workspace",
+      sourceRepo: null,
       dockerContainerNamePrefix: "symphony-test",
       dockerShell: "sh"
     });
@@ -94,6 +96,7 @@ describe("runtime workspace backend selection", () => {
       dockerWorkspaceImage: "example.com/custom/symphony-runner:dev",
       dockerMaterializationMode: "volume",
       dockerWorkspacePath: "/home/agent/workspace",
+      sourceRepo: null,
       dockerContainerNamePrefix: "symphony-test",
       dockerShell: "sh"
     });
@@ -130,6 +133,7 @@ describe("runtime workspace backend selection", () => {
       dockerWorkspaceImage: null,
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: null,
+      sourceRepo: null,
       dockerContainerNamePrefix: null,
       dockerShell: null
     });

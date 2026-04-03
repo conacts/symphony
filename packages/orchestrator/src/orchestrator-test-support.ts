@@ -88,11 +88,7 @@ export function buildSymphonyOrchestratorConfig(overrides: {
       },
       codex: {
         command: "codex app-server",
-        approvalPolicy: {
-          reject: {
-            sandbox_approval: true
-          }
-        },
+        approvalPolicy: "never",
         threadSandbox: "workspace-write",
         turnSandboxPolicy: null,
         turnTimeoutMs: 3_600_000,

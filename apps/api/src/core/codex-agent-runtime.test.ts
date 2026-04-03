@@ -85,7 +85,7 @@ describe("docker codex symphony agent runtime", () => {
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createCodexSymphonyAgentRuntime({
-        promptTemplate: "You are working on {{ issue.identifier }}.",
+        promptTemplate: "You are working on {{ issue.identifier }} in {{ repo.name }}.",
         tracker,
         runJournal,
         runtimeLogs: {

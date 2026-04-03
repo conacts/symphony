@@ -17,6 +17,7 @@ import type {
 } from "@symphony/tracker";
 import type { SymphonyRuntimeLogStore } from "@symphony/db";
 import type { SymphonyLogger } from "@symphony/logger";
+import { renderSymphonyPromptContract } from "@symphony/runtime-contract";
 import {
   CodexAppServerClient
 } from "./codex-app-server-client.js";
@@ -32,8 +33,7 @@ import {
   type CodexRuntimeLaunchTarget
 } from "./codex-runtime-launch-target.js";
 import {
-  buildSymphonyContinuationPrompt,
-  renderSymphonyPrompt
+  buildSymphonyContinuationPrompt
 } from "./symphony-prompt.js";
 
 type RunCallbacks = {
@@ -51,6 +51,12 @@ type ActiveRun = {
 
 export function createCodexSymphonyAgentRuntime(input: {
   promptTemplate: string;
+  promptContext?: {
+    repo: {
+      name: string;
+      defaultBranch: string;
+    };
+  };
   tracker: SymphonyTracker;
   runJournal: SymphonyRunJournal;
   runtimeLogs: SymphonyRuntimeLogStore;
@@ -75,6 +81,7 @@ export function createCodexSymphonyAgentRuntime(input: {
 
       void executeRun({
         promptTemplate: input.promptTemplate,
+        promptContext: input.promptContext,
         tracker: input.tracker,
         runJournal: input.runJournal,
         runtimeLogs: input.runtimeLogs,
@@ -125,6 +132,12 @@ export const createLocalCodexSymphonyAgentRuntime =
 
 async function executeRun(input: {
   promptTemplate: string;
+  promptContext?: {
+    repo: {
+      name: string;
+      defaultBranch: string;
+    };
+  };
   tracker: SymphonyTracker;
   runJournal: SymphonyRunJournal;
   runtimeLogs: SymphonyRuntimeLogStore;
@@ -212,10 +225,33 @@ async function executeRun(input: {
 
       const prompt =
         turnNumber === 1
-          ? renderSymphonyPrompt({
+          ? renderSymphonyPromptContract({
               template: input.promptTemplate,
-              issue: currentIssue,
-              attempt: input.attempt
+              payload: {
+                issue: {
+                  id: currentIssue.id,
+                  identifier: currentIssue.identifier,
+                  title: currentIssue.title,
+                  description: currentIssue.description,
+                  state: currentIssue.state,
+                  labels: currentIssue.labels,
+                  url: currentIssue.url,
+                  branch_name: currentIssue.branchName ?? null
+                },
+                repo: {
+                  name: input.promptContext?.repo.name ?? "unknown",
+                  default_branch:
+                    input.promptContext?.repo.defaultBranch ?? "main"
+                },
+                run: {
+                  id: input.runId ?? currentIssue.id
+                },
+                workspace: {
+                  path: input.launchTarget.runtimeWorkspacePath,
+                  branch: currentIssue.branchName ?? null
+                },
+                attempt: input.attempt
+              }
             })
           : buildSymphonyContinuationPrompt({
               turnNumber,

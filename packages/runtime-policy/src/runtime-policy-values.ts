@@ -51,13 +51,7 @@ export function normalizeApprovalPolicy(
   value: unknown
 ): string | Record<string, unknown> {
   if (value === undefined) {
-    return {
-      reject: {
-        sandbox_approval: true,
-        rules: true,
-        mcp_elicitations: true
-      }
-    };
+    return "never";
   }
 
   if (typeof value === "string") {
@@ -65,6 +59,10 @@ export function normalizeApprovalPolicy(
   }
 
   if (isRecord(value)) {
+    if ("reject" in value) {
+      return "never";
+    }
+
     return normalizeObjectKeys(value);
   }
 
