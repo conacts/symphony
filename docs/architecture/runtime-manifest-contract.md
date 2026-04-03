@@ -4,10 +4,10 @@ Date: 2026-04-01
 
 ## Goal
 
-Define and operationalize the repo-local runtime manifest surface for Docker-backed workspaces
-without broadening repo lifecycle execution.
+Define and operationalize the live repo-local runtime manifest surface for Symphony's Docker-only
+execution contract.
 
-This pass covers:
+This contract covers:
 
 - a strict repo-local authoring location: `.symphony/runtime.ts`
 - an explicit authoring/export surface: `@symphony/runtime-contract`
@@ -25,12 +25,10 @@ This pass covers:
 - explicit warm-reuse skip semantics and teardown-time manifest `cleanup`
 - lifecycle phase/step observability without surfacing secret env values
 
-This pass does not yet cover:
+This contract does not yet cover:
 
-- service types other than `postgres`
 - shared Postgres instances across workspaces
 - host port publishing for sidecars
-- service types other than `postgres`
 
 ## Authoring
 
@@ -277,9 +275,8 @@ Manifest env resolution is explicit.
 
 The resolved env bundle becomes the primary model passed into:
 
-- workspace hooks
-- local Codex launch
-- container Codex launch
+- workspace lifecycle execution
+- runtime launch paths
 - Postgres `init` steps
 
 The bundle is surfaced with a bounded summary only:
@@ -377,14 +374,16 @@ The validator rejects:
 - malformed lifecycle step entries
 - lifecycle `cwd` paths that are absolute or escape the workspace root
 
-## Runtime Wiring In This Pass
+## Runtime Wiring
 
-`apps/api` now preflights `sourceRepo/.symphony/runtime.ts` during startup when `sourceRepo` is
-configured. That load is validation-only in this pass:
+`apps/api` validates the admitted repository manifest during startup when `sourceRepo` is
+configured.
 
-- success: runtime startup continues unchanged
-- failure: startup fails before app service composition continues
+The Docker-backed runtime then uses the admitted manifest during workspace preparation to:
 
-The current Docker backend still reads runtime selection from existing env config. The manifest is
-loaded and frozen so later passes can extend runtime selection and materialization behavior without
-changing the repo-local contract shape again.
+- resolve required host env
+- resolve runtime and service env bindings
+- provision declared services
+- execute declared lifecycle phases
+
+There is no supported parallel local-backend runtime path.

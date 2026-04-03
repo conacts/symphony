@@ -84,12 +84,8 @@ function classifyContractFailureOrigin(
   error: unknown
 ): SymphonyStartupFailureOrigin | null {
   if (error instanceof SymphonyRuntimeManifestError) {
-    if (error.issues.some((issue) => issue.path.startsWith("env.repo."))) {
-      return "repo_env_contract";
-    }
-
     if (error.issues.some((issue) => issue.path.startsWith("env.host."))) {
-      return "host_auth_contract";
+      return "repo_env_contract";
     }
   }
 

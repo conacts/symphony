@@ -159,42 +159,10 @@ describe("symphony orchestrator", () => {
 
   it.each([
     {
-      name: "missing repo env snapshot",
+      name: "missing required manifest env",
       error: new SymphonyRuntimeManifestError(
         "runtime_manifest_env_resolution_failed",
-        "missing repo env",
-        {
-          issues: [
-            {
-              path: "env.repo.path",
-              message: "missing"
-            }
-          ]
-        }
-      ),
-      expectedOrigin: "repo_env_contract"
-    },
-    {
-      name: "missing required repo env key",
-      error: new SymphonyRuntimeManifestError(
-        "runtime_manifest_env_resolution_failed",
-        "missing repo env key",
-        {
-          issues: [
-            {
-              path: "env.repo.required[0]",
-              message: "missing"
-            }
-          ]
-        }
-      ),
-      expectedOrigin: "repo_env_contract"
-    },
-    {
-      name: "missing required host auth",
-      error: new SymphonyRuntimeManifestError(
-        "runtime_manifest_env_resolution_failed",
-        "missing host auth",
+        "missing required manifest env",
         {
           issues: [
             {
@@ -204,7 +172,39 @@ describe("symphony orchestrator", () => {
           ]
         }
       ),
-      expectedOrigin: "host_auth_contract"
+      expectedOrigin: "repo_env_contract"
+    },
+    {
+      name: "invalid optional manifest env",
+      error: new SymphonyRuntimeManifestError(
+        "runtime_manifest_env_resolution_failed",
+        "invalid optional manifest env",
+        {
+          issues: [
+            {
+              path: "env.host.optional[0]",
+              message: "invalid"
+            }
+          ]
+        }
+      ),
+      expectedOrigin: "repo_env_contract"
+    },
+    {
+      name: "missing required manifest env key",
+      error: new SymphonyRuntimeManifestError(
+        "runtime_manifest_env_resolution_failed",
+        "missing required manifest env key",
+        {
+          issues: [
+            {
+              path: "env.host.required[0]",
+              message: "missing"
+            }
+          ]
+        }
+      ),
+      expectedOrigin: "repo_env_contract"
     },
     {
       name: "missing codex auth",

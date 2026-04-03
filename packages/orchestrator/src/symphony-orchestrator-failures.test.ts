@@ -4,29 +4,10 @@ import { SymphonyWorkspaceError } from "@symphony/workspace";
 import { classifyStartupFailureOrigin } from "./symphony-orchestrator-failures.js";
 
 describe("startup failure classification", () => {
-  it("classifies missing repo env as a repo contract failure", () => {
+  it("classifies missing required manifest env as a repo contract failure", () => {
     const error = new SymphonyRuntimeManifestError(
       "runtime_manifest_env_resolution_failed",
-      "missing repo env",
-      {
-        issues: [
-          {
-            path: "env.repo.required[0]",
-            message: "missing"
-          }
-        ]
-      }
-    );
-
-    expect(
-      classifyStartupFailureOrigin(error, "workspace_prepare", "docker")
-    ).toBe("repo_env_contract");
-  });
-
-  it("classifies missing host auth as a host auth contract failure", () => {
-    const error = new SymphonyRuntimeManifestError(
-      "runtime_manifest_env_resolution_failed",
-      "missing host env",
+      "missing required manifest env",
       {
         issues: [
           {
@@ -39,7 +20,26 @@ describe("startup failure classification", () => {
 
     expect(
       classifyStartupFailureOrigin(error, "workspace_prepare", "docker")
-    ).toBe("host_auth_contract");
+    ).toBe("repo_env_contract");
+  });
+
+  it("classifies optional manifest env validation failures as repo contract failures", () => {
+    const error = new SymphonyRuntimeManifestError(
+      "runtime_manifest_env_resolution_failed",
+      "invalid optional manifest env",
+      {
+        issues: [
+          {
+            path: "env.host.optional[0]",
+            message: "invalid"
+          }
+        ]
+      }
+    );
+
+    expect(
+      classifyStartupFailureOrigin(error, "workspace_prepare", "docker")
+    ).toBe("repo_env_contract");
   });
 
   it("classifies docker image issues separately from generic docker backend failures", () => {

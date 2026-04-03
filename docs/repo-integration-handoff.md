@@ -75,30 +75,26 @@ If the repository does not meet the contract, Symphony should fail immediately a
 
 No best-effort repo conventions should be inferred.
 
-## Shared Contract Logic
+## Platform-Owned Authoring Surface
 
-The visible repo contract should stay tiny at the root:
+The visible repo contract stays tiny at the root:
 
 - `.symphony/runtime.ts`
 - `.symphony/prompt.md`
 
-Reusable implementation should live behind a small neutral internal boundary rather than being
-spread across unrelated env helpers or repo-specific tooling.
+The integrating repository should not depend on Symphony's internal package layout.
 
-The current preferred placement is `packages/runtime-contract`.
+`.symphony/runtime.ts` must default export `defineSymphonyRuntime(...)` from
+`@symphony/runtime-contract`.
 
-That boundary should own:
+Do not build the contract edge around:
 
-- lifecycle/env/service validation
-- prompt renderability checks
-- schema-version compatibility checks
-- shared contract parsing and normalization
+- repo-local contract helper packages
+- copied Symphony internals such as `packages/runtime-contract`
+- alternate constructors such as `defineRuntimeContract(...)`
 
-It should not become a general-purpose environment package or a dumping ground for orchestration
-policy.
-
-`.symphony/runtime.ts` should import contract helpers and types from `packages/runtime-contract`
-rather than duplicating the contract surface locally.
+Symphony is currently strict about the live authoring API and live schema. Future contract
+evolution should happen in Symphony first, then in admitted repositories.
 
 ## `.symphony/runtime.ts`
 
@@ -131,6 +127,23 @@ Those commands should be runnable by both humans and Symphony with identical sem
 
 The contract should stay declarative. `.symphony/runtime.ts` should define lifecycle using stable
 repo commands, not large inline shell pipelines or orchestration logic.
+
+The current live authoring shape is:
+
+- `schemaVersion`
+- `workspace`
+- `services`
+- `env.host.required`
+- `env.host.optional`
+- `env.inject`
+- `lifecycle`
+
+Runtime context is expressed through `env.inject` using `kind: "runtime"` bindings.
+
+Do not export richer manifest buckets such as:
+
+- `env.repo`
+- `env.context`
 
 Current preferred command shape:
 
@@ -297,12 +310,12 @@ Lifecycle commands should consume only declared injected env.
 
 The contract surface is:
 
-- repo-owned required env declared in `.symphony/runtime.ts`
-- repo-owned optional env declared in `.symphony/runtime.ts`
-- service-injected env declared in `.symphony/runtime.ts`, such as `DATABASE_URL` and other
-  service connection fields when needed
-- runtime context bindings declared in `.symphony/runtime.ts`, such as issue/workspace/run
-  identifiers when needed
+- `env.host.required` for required repo env
+- `env.host.optional` for optional repo env
+- `env.inject` for service bindings, static bindings, and runtime bindings
+
+Runtime context bindings such as issue/workspace/run identifiers belong in `env.inject` with
+`kind: "runtime"`.
 
 Platform-owned env may exist for platform operation and auth, but the repository must not depend on
 undeclared platform env directly.
