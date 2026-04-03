@@ -85,7 +85,10 @@ describe("docker codex symphony agent runtime", () => {
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createCodexSymphonyAgentRuntime({
-        promptTemplate: "You are working on {{ issue.identifier }}.",
+        promptContract: buildPromptContract(
+          root,
+          "You are working on {{ issue.identifier }} in {{ repo.name }} on {{ repo.default_branch }}."
+        ),
         tracker,
         runJournal,
         runtimeLogs: {
@@ -135,6 +138,9 @@ describe("docker codex symphony agent runtime", () => {
 
     const exportPayload = await runJournal.fetchRunExport(runId);
     expect(exportPayload?.turns).toHaveLength(1);
+    expect(exportPayload?.turns[0]?.promptText).toBe(
+      "You are working on COL-123 in source-repo on main."
+    );
     expect(
       exportPayload?.turns[0]?.events.map((event: { eventType: string }) => event.eventType)
     ).toEqual([
@@ -236,7 +242,7 @@ describe("docker codex symphony agent runtime", () => {
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createCodexSymphonyAgentRuntime({
-        promptTemplate: "You are working on {{ issue.identifier }}.",
+        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runJournal,
         runtimeLogs: {
@@ -331,7 +337,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createCodexSymphonyAgentRuntime({
-        promptTemplate: "You are working on {{ issue.identifier }}.",
+        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runJournal,
         runtimeLogs: {
@@ -422,7 +428,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createCodexSymphonyAgentRuntime({
-        promptTemplate: "You are working on {{ issue.identifier }}.",
+        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runJournal,
         runtimeLogs: {
@@ -542,7 +548,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createCodexSymphonyAgentRuntime({
-        promptTemplate: "You are working on {{ issue.identifier }}.",
+        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker: createDoneTracker(issue),
         runJournal,
         runtimeLogs: {
@@ -658,7 +664,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createCodexSymphonyAgentRuntime({
-        promptTemplate: "You are working on {{ issue.identifier }}.",
+        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runJournal,
         runtimeLogs: {
@@ -941,5 +947,16 @@ function ambientEnvBundle() {
       runtimeBindingKeys: [],
       serviceBindingKeys: []
     }
+  };
+}
+
+function buildPromptContract(root: string, template: string) {
+  return {
+    repoRoot: path.join(root, "source-repo"),
+    promptPath: path.join(root, "source-repo", ".symphony", "prompt.md"),
+    template,
+    variables: [...template.matchAll(/\{\{\s*([^}]+)\s*\}\}/g)].map((match) =>
+      match[1]!.trim()
+    )
   };
 }

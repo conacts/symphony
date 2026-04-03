@@ -35,6 +35,7 @@ export function createRuntimeWorkspaceBackend(
     | "dockerWorkspacePath"
     | "dockerContainerNamePrefix"
     | "dockerShell"
+    | "sourceRepo"
   >,
   options: {
     runtimeManifest?: SymphonyLoadedRuntimeManifest | null;
@@ -54,6 +55,7 @@ export function createRuntimeWorkspaceBackend(
       image,
       materializationMode: env.dockerMaterializationMode,
       workspacePath: env.dockerWorkspacePath ?? undefined,
+      sourceRepoPath: env.sourceRepo ?? undefined,
       containerNamePrefix: env.dockerContainerNamePrefix ?? undefined,
       shell: env.dockerShell ?? undefined,
       hostFileMounts: options.dockerHostFileMounts,

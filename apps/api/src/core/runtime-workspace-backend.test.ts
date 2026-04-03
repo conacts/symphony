@@ -23,7 +23,8 @@ describe("runtime workspace backend selection", () => {
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: null,
       dockerContainerNamePrefix: null,
-      dockerShell: null
+      dockerShell: null,
+      sourceRepo: null
     });
 
     expect(selection.metadata).toEqual({
@@ -37,6 +38,7 @@ describe("runtime workspace backend selection", () => {
       requiredTools: [
         "bash",
         "codex",
+        "gh",
         "git",
         "node",
         "corepack",
@@ -59,7 +61,8 @@ describe("runtime workspace backend selection", () => {
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: "/home/agent/workspace",
       dockerContainerNamePrefix: "symphony-test",
-      dockerShell: "sh"
+      dockerShell: "sh",
+      sourceRepo: null
     });
 
     expect(selection.metadata).toEqual({
@@ -73,6 +76,7 @@ describe("runtime workspace backend selection", () => {
       requiredTools: [
         "bash",
         "codex",
+        "gh",
         "git",
         "node",
         "corepack",
@@ -95,7 +99,8 @@ describe("runtime workspace backend selection", () => {
       dockerMaterializationMode: "volume",
       dockerWorkspacePath: "/home/agent/workspace",
       dockerContainerNamePrefix: "symphony-test",
-      dockerShell: "sh"
+      dockerShell: "sh",
+      sourceRepo: null
     });
 
     expect(selection.metadata).toEqual({
@@ -109,6 +114,7 @@ describe("runtime workspace backend selection", () => {
       requiredTools: [
         "bash",
         "codex",
+        "gh",
         "git",
         "node",
         "corepack",
@@ -131,7 +137,8 @@ describe("runtime workspace backend selection", () => {
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: null,
       dockerContainerNamePrefix: null,
-      dockerShell: null
+      dockerShell: null,
+      sourceRepo: null
     });
 
     expect(selection.metadata).toEqual({
@@ -145,6 +152,7 @@ describe("runtime workspace backend selection", () => {
       requiredTools: [
         "bash",
         "codex",
+        "gh",
         "git",
         "node",
         "corepack",

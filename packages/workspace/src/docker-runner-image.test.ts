@@ -233,6 +233,7 @@ describe("docker runner image", () => {
       requiredTools: [
         "bash",
         "codex",
+        "gh",
         "git",
         "node",
         "corepack",

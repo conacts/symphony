@@ -1,6 +1,7 @@
 import {
   issueMatchesDispatchableState,
   issueMatchesTerminalState,
+  issueBranchName,
   type SymphonyTracker,
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
@@ -260,6 +261,12 @@ export class SymphonyOrchestrator {
       issueId: preparedIssue.id,
       issueIdentifier: preparedIssue.identifier
     };
+    (
+      workspaceContext as WorkspaceContext & {
+        branchName?: string | null;
+      }
+    ).branchName =
+      preparedIssue.branchName ?? issueBranchName(preparedIssue.identifier);
 
     if (issue.state !== preparedIssue.state) {
       await this.#observer?.recordLifecycleEvent({

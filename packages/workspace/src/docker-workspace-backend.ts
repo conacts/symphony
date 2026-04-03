@@ -54,6 +54,7 @@ import {
   buildManagedNetworkLabels,
   buildManagedServiceLabels,
   bindMaterializationKind,
+  defaultContainerSourceRepoPath,
   defaultContainerWorkspacePath,
   defaultDockerHomePath,
   defaultPostgresReadinessIntervalMs,
@@ -137,6 +138,7 @@ export function createDockerWorkspaceBackend(
   const workspacePath = normalizeNonEmptyString(
     options.workspacePath
   ) ?? defaultContainerWorkspacePath;
+  const sourceRepoPath = normalizeNonEmptyString(options.sourceRepoPath);
   const containerNamePrefix = normalizeContainerPrefix(
     options.containerNamePrefix
   );
@@ -144,9 +146,18 @@ export function createDockerWorkspaceBackend(
   const materializationMode =
     options.materializationMode ?? bindMaterializationKind;
   const runtimeManifest = options.runtimeManifest ?? null;
-  const hostFileMounts = normalizeDockerWorkspaceHostFileMounts(
-    options.hostFileMounts
-  );
+  const hostFileMounts = normalizeDockerWorkspaceHostFileMounts([
+    ...(options.hostFileMounts ?? []),
+    ...(sourceRepoPath
+      ? [
+          {
+            sourcePath: sourceRepoPath,
+            containerPath: defaultContainerSourceRepoPath,
+            readOnly: true
+          }
+        ]
+      : [])
+  ]);
   const commandRunner = options.commandRunner ?? defaultDockerWorkspaceCommandRunner;
   const configuredCommandTimeoutMs = options.commandTimeoutMs ?? null;
 
@@ -202,6 +213,18 @@ export function createDockerWorkspaceBackend(
         networkName: network?.network.name ?? null,
         commandRunner,
         timeoutMs
+      });
+      await hydrateWorkspaceFromMountedSourceRepo({
+        sourceRepoPath,
+        commandRunner,
+        timeoutMs,
+        shell,
+        containerName: descriptor.containerName,
+        workspacePath,
+        issueIdentifier: input.context.issueIdentifier,
+        branchName:
+          normalizeNonEmptyString(input.context.branchName ?? undefined) ?? null,
+        lifecycleRecorder: input.lifecycleRecorder
       });
       const envBundle = resolveDockerWorkspaceEnvBundle({
         runtimeManifest,
@@ -681,6 +704,114 @@ function buildPreparedWorkspace(input: {
   };
 }
 
+async function hydrateWorkspaceFromMountedSourceRepo(input: {
+  sourceRepoPath: string | null;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+  shell: string;
+  containerName: string;
+  workspacePath: string;
+  issueIdentifier: string;
+  branchName: string | null;
+  lifecycleRecorder?: WorkspaceBackendEventRecorder;
+}): Promise<void> {
+  if (!input.sourceRepoPath) {
+    return;
+  }
+
+  const branchName = input.branchName?.trim() || `symphony/${input.issueIdentifier}`;
+  const startedAt = new Date().toISOString();
+  await emitDockerManifestLifecyclePhaseEvent(
+    input.lifecycleRecorder,
+    "workspace_repo_hydration_started",
+    "Workspace repo hydration started.",
+    {
+      hydration: {
+        issueIdentifier: input.issueIdentifier,
+        branchName
+      }
+    },
+    startedAt
+  );
+
+  const hydrationScript = [
+    "set -euo pipefail",
+    `branch_name=${shellQuote(branchName)}`,
+    `source_repo=${shellQuote(defaultContainerSourceRepoPath)}`,
+    "if [ -d .git ]; then",
+    "  echo reused",
+    "  exit 0",
+    "fi",
+    "existing_entry=$(find . -mindepth 1 -maxdepth 1 ! -name '.symphony-runtime' -print -quit || true)",
+    "if [ -n \"$existing_entry\" ]; then",
+    "  echo \"Workspace is not empty but is missing .git; refusing implicit rehydration.\" >&2",
+    "  exit 1",
+    "fi",
+    "tmpdir=$(mktemp -d)",
+    "cleanup() { rm -rf \"$tmpdir\"; }",
+    "trap cleanup EXIT",
+    "git clone --no-local \"$source_repo\" \"$tmpdir/repo\"",
+    "origin_url=$(git -C \"$source_repo\" remote get-url origin 2>/dev/null || true)",
+    "if [ -n \"$origin_url\" ]; then",
+    "  git -C \"$tmpdir/repo\" remote set-url origin \"$origin_url\"",
+    "fi",
+    "if git -C \"$tmpdir/repo\" rev-parse --verify --quiet \"refs/heads/$branch_name\" >/dev/null; then",
+    "  git -C \"$tmpdir/repo\" checkout \"$branch_name\" >/dev/null 2>&1",
+    "elif git -C \"$tmpdir/repo\" rev-parse --verify --quiet \"refs/remotes/origin/$branch_name\" >/dev/null; then",
+    "  git -C \"$tmpdir/repo\" checkout -B \"$branch_name\" \"refs/remotes/origin/$branch_name\" >/dev/null 2>&1",
+    "else",
+    "  git -C \"$tmpdir/repo\" checkout -B \"$branch_name\" >/dev/null 2>&1",
+    "fi",
+    "cp -a \"$tmpdir/repo\"/. .",
+    "echo hydrated"
+  ].join("\n");
+
+  const result = await input.commandRunner({
+    args: [
+      "exec",
+      "--workdir",
+      input.workspacePath,
+      input.containerName,
+      input.shell,
+      "-lc",
+      hydrationScript
+    ],
+    timeoutMs: input.timeoutMs
+  });
+
+  const endedAt = new Date().toISOString();
+  if (result.exitCode !== 0) {
+    throw new SymphonyWorkspaceError(
+      "workspace_repo_hydration_failed",
+      [
+        `Workspace repo hydration failed for ${input.issueIdentifier}.`,
+        result.stdout.trim(),
+        result.stderr.trim()
+      ]
+        .filter((line) => line !== "")
+        .join("\n")
+    );
+  }
+
+  const outcome =
+    result.stdout.trim().split(/\s+/).includes("hydrated") ? "hydrated" : "reused";
+  await emitDockerManifestLifecyclePhaseEvent(
+    input.lifecycleRecorder,
+    "workspace_repo_hydration_completed",
+    outcome === "hydrated"
+      ? "Workspace repo hydration completed."
+      : "Workspace repo hydration skipped because the repo already existed.",
+    {
+      hydration: {
+        issueIdentifier: input.issueIdentifier,
+        branchName,
+        outcome
+      }
+    },
+    endedAt
+  );
+}
+
 function resolveDockerWorkspaceEnvBundle(input: {
   runtimeManifest: SymphonyLoadedRuntimeManifest | null;
   environmentSource: Record<string, string | undefined> | undefined;
@@ -692,23 +823,43 @@ function resolveDockerWorkspaceEnvBundle(input: {
   services: Record<string, SymphonyResolvedRuntimeService>;
 }): PreparedWorkspace["envBundle"] {
   if (!input.runtimeManifest) {
-    return buildAmbientDockerWorkspaceEnvBundle(input.environmentSource);
+    return applyDockerWorkspaceRuntimeEnvDefaults(
+      buildAmbientDockerWorkspaceEnvBundle(input.environmentSource)
+    );
   }
 
-  return resolveSymphonyRuntimeEnvBundle({
-    manifest: input.runtimeManifest.manifest,
-    environmentSource: input.environmentSource ?? {},
-    runtime: {
-      issueId: input.issueId,
-      issueIdentifier: input.issueIdentifier,
-      runId: input.runId,
-      workspaceKey: input.workspaceKey,
-      workspacePath: input.workspacePath,
-      backendKind: "docker"
-    },
-    services: input.services,
-    manifestPath: input.runtimeManifest.manifestPath
-  });
+  return applyDockerWorkspaceRuntimeEnvDefaults(
+    resolveSymphonyRuntimeEnvBundle({
+      manifest: input.runtimeManifest.manifest,
+      environmentSource: input.environmentSource ?? {},
+      runtime: {
+        issueId: input.issueId,
+        issueIdentifier: input.issueIdentifier,
+        runId: input.runId,
+        workspaceKey: input.workspaceKey,
+        workspacePath: input.workspacePath,
+        backendKind: "docker"
+      },
+      services: input.services,
+      manifestPath: input.runtimeManifest.manifestPath
+    })
+  );
+}
+
+function applyDockerWorkspaceRuntimeEnvDefaults(
+  envBundle: PreparedWorkspace["envBundle"]
+): PreparedWorkspace["envBundle"] {
+  if (envBundle.values.NODE_OPTIONS) {
+    return envBundle;
+  }
+
+  return {
+    ...envBundle,
+    values: {
+      ...envBundle.values,
+      NODE_OPTIONS: "--max-old-space-size=2048"
+    }
+  };
 }
 
 function buildAmbientDockerWorkspaceEnvBundle(
@@ -770,6 +921,17 @@ async function runDockerPrepareManifestLifecycle(
     services: input.services,
     containerId: input.containerId
   });
+  await ensureDockerWorkspaceDependenciesForBootstrap({
+    runtimeManifest: input.runtimeManifest,
+    phasePlans,
+    workspacePath: input.workspacePath,
+    shell: input.shell,
+    containerName: input.containerName,
+    env: input.env,
+    commandRunner: input.commandRunner,
+    defaultTimeoutMs: input.defaultTimeoutMs,
+    lifecycleRecorder: input.lifecycleRecorder
+  });
   const phases: DockerManifestLifecyclePhaseRecord[] = [];
 
   for (const plan of phasePlans) {
@@ -811,6 +973,122 @@ async function runDockerPrepareManifestLifecycle(
   return {
     phases
   };
+}
+
+async function ensureDockerWorkspaceDependenciesForBootstrap(input: {
+  runtimeManifest: SymphonyLoadedRuntimeManifest;
+  phasePlans: DockerManifestLifecyclePhasePlan[];
+  workspacePath: string;
+  shell: string;
+  containerName: string;
+  env: Record<string, string>;
+  commandRunner: DockerWorkspaceCommandRunner;
+  defaultTimeoutMs: number;
+  lifecycleRecorder?: WorkspaceBackendEventRecorder;
+}): Promise<void> {
+  const bootstrapPlan = input.phasePlans.find((plan) => plan.phase === "bootstrap");
+  if (!bootstrapPlan || bootstrapPlan.skipReason) {
+    return;
+  }
+
+  if (
+    bootstrapPlan.steps.some((step) =>
+      manifestStepIncludesDependencyInstall(
+        step.run,
+        input.runtimeManifest.manifest.workspace.packageManager
+      )
+    )
+  ) {
+    return;
+  }
+
+  const startedAt = new Date().toISOString();
+  const installCommand = buildDockerWorkspaceDependencyInstallCommand(
+    input.runtimeManifest.manifest.workspace.packageManager
+  );
+  const workingDirectory = resolveDockerManifestLifecycleStepWorkingDirectory(
+    input.runtimeManifest,
+    input.workspacePath,
+    undefined
+  );
+
+  await emitDockerManifestLifecyclePhaseEvent(
+    input.lifecycleRecorder,
+    "workspace_dependency_install_started",
+    "Workspace dependency install started.",
+    {
+      dependencyInstall: {
+        packageManager: input.runtimeManifest.manifest.workspace.packageManager,
+        workspacePath: input.workspacePath,
+        workingDirectory,
+        command: installCommand
+      }
+    },
+    startedAt
+  );
+
+  const result = await input.commandRunner({
+    args: [
+      "exec",
+      ...dockerEnvFlags(input.env),
+      "--workdir",
+      input.workspacePath,
+      input.containerName,
+      input.shell,
+      "-lc",
+      buildDockerWorkspaceDependencyInstallScript({
+        workspacePath: input.workspacePath,
+        workingDirectory,
+        installCommand
+      })
+    ],
+    timeoutMs: input.defaultTimeoutMs
+  });
+  const endedAt = new Date().toISOString();
+
+  if (result.exitCode !== 0) {
+    await emitDockerManifestLifecyclePhaseEvent(
+      input.lifecycleRecorder,
+      "workspace_dependency_install_failed",
+      "Workspace dependency install failed.",
+      {
+        dependencyInstall: {
+          packageManager: input.runtimeManifest.manifest.workspace.packageManager,
+          command: installCommand,
+          failureReason: formatDockerWorkspaceDependencyInstallFailureReason(
+            result.exitCode,
+            result.stdout,
+            result.stderr,
+            input.env
+          )
+        }
+      },
+      endedAt
+    );
+
+    throw new SymphonyWorkspaceError(
+      "workspace_dependency_install_failed",
+      formatDockerWorkspaceDependencyInstallFailureReason(
+        result.exitCode,
+        result.stdout,
+        result.stderr,
+        input.env
+      )
+    );
+  }
+
+  await emitDockerManifestLifecyclePhaseEvent(
+    input.lifecycleRecorder,
+    "workspace_dependency_install_completed",
+    "Workspace dependency install completed.",
+    {
+      dependencyInstall: {
+        packageManager: input.runtimeManifest.manifest.workspace.packageManager,
+        command: installCommand
+      }
+    },
+    endedAt
+  );
 }
 
 async function runDockerCleanupManifestLifecycle(input: {
@@ -1177,6 +1455,73 @@ function resolveDockerManifestLifecycleStepWorkingDirectory(
   return normalizedRelativePath === ""
     ? workspacePath
     : path.posix.join(workspacePath, normalizedRelativePath);
+}
+
+function manifestStepIncludesDependencyInstall(
+  command: string,
+  packageManager: SymphonyLoadedRuntimeManifest["manifest"]["workspace"]["packageManager"]
+): boolean {
+  switch (packageManager) {
+    case "pnpm":
+      return /\bpnpm\s+install\b/i.test(command);
+    case "npm":
+      return /\bnpm\s+(install|ci)\b/i.test(command);
+    case "yarn":
+      return /\byarn\s+install\b/i.test(command);
+    case "bun":
+      return /\bbun\s+install\b/i.test(command);
+  }
+}
+
+function buildDockerWorkspaceDependencyInstallCommand(
+  packageManager: SymphonyLoadedRuntimeManifest["manifest"]["workspace"]["packageManager"]
+): string {
+  switch (packageManager) {
+    case "pnpm":
+      return "corepack enable && pnpm install --frozen-lockfile";
+    case "npm":
+      return "npm install";
+    case "yarn":
+      return "corepack enable && yarn install --immutable";
+    case "bun":
+      return "bun install --frozen-lockfile";
+  }
+}
+
+function buildDockerWorkspaceDependencyInstallScript(input: {
+  workspacePath: string;
+  workingDirectory: string;
+  installCommand: string;
+}): string {
+  const quotedWorkspacePath = quoteDockerShellLiteral(input.workspacePath);
+  const quotedWorkingDirectory = quoteDockerShellLiteral(input.workingDirectory);
+
+  return [
+    `install_cwd=${quotedWorkspacePath}`,
+    `if [ ! -f "$install_cwd/package.json" ] && [ -f ${quotedWorkingDirectory}/package.json ]; then install_cwd=${quotedWorkingDirectory}; fi`,
+    `if [ ! -f "$install_cwd/package.json" ]; then echo "No package.json found for workspace dependency install." >&2; exit 1; fi`,
+    `cd "$install_cwd"`,
+    input.installCommand
+  ].join("; ");
+}
+
+function quoteDockerShellLiteral(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+function formatDockerWorkspaceDependencyInstallFailureReason(
+  exitCode: number,
+  stdout: string,
+  stderr: string,
+  env: Record<string, string>
+): string {
+  return [
+    `Workspace dependency install failed with exit code ${exitCode}.`,
+    sanitizeDockerManifestLifecycleOutput(stdout.trim(), env),
+    sanitizeDockerManifestLifecycleOutput(stderr.trim(), env)
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
 }
 
 function buildDockerManifestServiceLifetimeMarker(
@@ -1804,7 +2149,7 @@ async function startManagedContainer(input: {
     input.shell,
     input.image,
     "-lc",
-    'mkdir -p "$HOME" "$HOME/.codex" && while :; do sleep 3600; done'
+    'mkdir -p "$HOME" "$HOME/.codex" "$HOME/.config" && if command -v gh >/dev/null 2>&1; then gh auth setup-git >/dev/null 2>&1 || true; fi && while :; do sleep 3600; done'
   ];
   const result = await input.commandRunner({
     args,
@@ -2317,6 +2662,10 @@ function renderHostFileMount(mount: DockerWorkspaceHostFileMount): string {
     `dst=${mount.containerPath}`,
     ...(mount.readOnly === false ? [] : ["readonly"])
   ].join(",");
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 function requireDockerContainerName(workspace: PreparedWorkspace): string {

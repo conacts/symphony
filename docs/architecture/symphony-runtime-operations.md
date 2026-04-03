@@ -67,13 +67,18 @@ The repo contract must be explicit:
 
 ## Lifecycle Expectations
 
-- `bootstrap` installs dependencies and prepares repo-local runtime assumptions
+- Symphony installs repo dependencies before `bootstrap` when the manifest does not already do it
+- `bootstrap` prepares repo-local runtime assumptions
 - `migrate` applies deterministic repo-owned setup against declared services
 - `verify` proves the environment is usable with a narrow, deterministic proof
 - `runtime:doctor` validates the contract in redacted, non-dispatch form
 
 The platform is not responsible for making repo-internal code quality perfect. It is responsible
 for making the isolated environment explicit, valid, and usable.
+
+The Docker workspace runtime also applies a conservative default `NODE_OPTIONS` heap cap when the
+repo or operator does not provide one. This keeps bootstrap/build flows stable on resource-limited
+local Docker setups without forcing each admitted repo to rediscover the same memory ceiling.
 
 ## Codex Transport
 

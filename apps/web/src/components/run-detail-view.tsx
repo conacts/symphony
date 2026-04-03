@@ -37,6 +37,8 @@ const eventsPerPage = 25;
 type SelectedEvent = {
   eventSequence: string;
   eventType: string;
+  artifactKind: string;
+  artifactSummary: string;
   payloadText: string;
   promptText: string;
   recordedAt: string;
@@ -62,6 +64,8 @@ export function RunDetailView(input: {
         turn.events.map((event) => ({
           eventSequence: event.eventSequence,
           eventType: event.eventType,
+          artifactKind: event.artifactKind,
+          artifactSummary: event.artifactSummary,
           payloadText: event.payloadText,
           promptText: turn.promptText,
           recordedAt: event.recordedAt,
@@ -156,6 +160,7 @@ export function RunDetailView(input: {
                     <TableHead>Session</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Event</TableHead>
+                    <TableHead>Artifact</TableHead>
                     <TableHead>Summary</TableHead>
                     <TableHead>Payload</TableHead>
                   </TableRow>
@@ -170,6 +175,7 @@ export function RunDetailView(input: {
                       <TableCell>{event.sessionLabel}</TableCell>
                       <TableCell>{event.status}</TableCell>
                       <TableCell>{event.eventType}</TableCell>
+                      <TableCell>{event.artifactKind}</TableCell>
                       <TableCell>{event.summary}</TableCell>
                       <TableCell>
                         <Button
@@ -179,6 +185,8 @@ export function RunDetailView(input: {
                             setSelectedEvent({
                               eventSequence: event.eventSequence,
                               eventType: event.eventType,
+                              artifactKind: event.artifactKind,
+                              artifactSummary: event.artifactSummary,
                               payloadText: event.payloadText,
                               promptText: event.promptText,
                               recordedAt: event.recordedAt,
@@ -254,7 +262,10 @@ export function RunDetailView(input: {
                         </div>
                       </div>
                       <div className="rounded-xl border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
-                        Event {selectedEvent.eventSequence} · {selectedEvent.summary}
+                        Event {selectedEvent.eventSequence} · {selectedEvent.artifactKind}
+                      </div>
+                      <div className="rounded-xl border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
+                        {selectedEvent.artifactSummary}
                       </div>
                       <div className="rounded-xl border border-border/70 bg-background/70 p-4">
                         <pre className="overflow-x-auto text-xs leading-6 text-muted-foreground">

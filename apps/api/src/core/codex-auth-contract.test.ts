@@ -2,7 +2,10 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveDockerCodexAuthContract } from "./codex-auth-contract.js";
+import {
+  resolveDockerCodexAuthContract,
+  resolveDockerGitHubCliAuthContract
+} from "./codex-auth-contract.js";
 
 const tempDirectories: string[] = [];
 
@@ -57,6 +60,33 @@ describe("codex auth contract", () => {
         OPENAI_API_KEY: "test-openai-api-key"
       },
       authFilePath: null
+    });
+  });
+
+  it("mounts host gh config when present", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-gh-auth-"));
+    tempDirectories.push(root);
+    const home = path.join(root, "home");
+    await mkdir(path.join(home, ".config", "gh"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(home, ".config", "gh", "hosts.yml"),
+      "github.com:\n    oauth_token: test\n",
+      "utf8"
+    );
+
+    expect(
+      resolveDockerGitHubCliAuthContract({
+        HOME: home
+      })
+    ).toEqual({
+      mount: {
+        sourcePath: path.join(home, ".config", "gh"),
+        containerPath: "/home/agent/.config/gh",
+        readOnly: true
+      },
+      configDirectoryPath: path.join(home, ".config", "gh")
     });
   });
 });

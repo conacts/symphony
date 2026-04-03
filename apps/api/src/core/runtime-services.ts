@@ -21,7 +21,10 @@ import {
 import { loadSymphonyPromptContract } from "@symphony/runtime-contract";
 import { createSymphonyLogger } from "@symphony/logger";
 import { CodexAppServerError } from "./codex-app-server-types.js";
-import { resolveDockerCodexAuthContract } from "./codex-auth-contract.js";
+import {
+  resolveDockerCodexAuthContract,
+  resolveDockerGitHubCliAuthContract
+} from "./codex-auth-contract.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 import { createCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
@@ -159,6 +162,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   }
 
   const dockerCodexAuth = resolveDockerCodexAuthContract(hostCommandEnvSource);
+  const dockerGitHubCliAuth = resolveDockerGitHubCliAuthContract(
+    hostCommandEnvSource
+  );
 
   if (dockerCodexAuth.mode === "unavailable") {
     throw new CodexAppServerError(
@@ -168,7 +174,10 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   }
 
   const workspaceBackendSelection = createRuntimeWorkspaceBackend(env, {
-    dockerHostFileMounts: dockerCodexAuth?.mount ? [dockerCodexAuth.mount] : [],
+    dockerHostFileMounts: [
+      ...(dockerCodexAuth?.mount ? [dockerCodexAuth.mount] : []),
+      ...(dockerGitHubCliAuth.mount ? [dockerGitHubCliAuth.mount] : [])
+    ],
     runtimeManifest: validatedRuntimeManifest?.runtimeManifest ?? null
   });
   const workspaceBackendPayload = {
@@ -243,7 +252,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   > | null = null;
   const agentRuntime = createCodexAgentRuntime(
     createCodexSymphonyAgentRuntime({
-      promptTemplate: promptTemplate.promptTemplate,
+      promptContract,
+      githubRepository: runtimePolicy.github.repo,
       tracker,
       runJournal,
       runtimeLogs: runtimeLogStore,

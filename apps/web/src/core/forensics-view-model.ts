@@ -270,6 +270,8 @@ export function buildRunDetailViewModel(input: SymphonyForensicsRunDetailResult)
           eventType: event.eventType,
           recordedAt: formatTimestamp(event.recordedAt),
           summary: event.summary ?? event.eventType ?? "n/a",
+          artifactKind: deriveEventArtifactKind(event),
+          artifactSummary: deriveEventArtifactSummary(event),
           payloadLabel: event.payloadTruncated
             ? "Show truncated payload"
             : "Show payload",
@@ -376,4 +378,136 @@ function compareTimestamps(
   }
 
   return leftTime - rightTime;
+}
+
+function deriveEventArtifactKind(event: {
+  eventType: string;
+  payload: unknown;
+}): string {
+  const itemType = getPayloadItemType(event.payload);
+
+  switch (itemType) {
+    case "reasoning":
+      return "Reasoning";
+    case "todo_list":
+      return "Todo";
+    case "command_execution":
+      return "Command";
+    case "file_change":
+      return "File change";
+    case "mcp_tool_call":
+      return "Tool call";
+    case "agent_message":
+      return "Message";
+    case "web_search":
+      return "Web search";
+    case "error":
+      return "Error";
+    default:
+      return humanizeEventType(event.eventType);
+  }
+}
+
+function deriveEventArtifactSummary(event: {
+  eventType: string;
+  payload: unknown;
+  summary: string | null;
+}): string {
+  const payload = asRecord(event.payload);
+  const item = asRecord(payload?.item);
+  const itemType = getPayloadItemType(event.payload);
+
+  switch (itemType) {
+    case "reasoning":
+      return truncateText(getString(item, "text") ?? "Reasoning update");
+    case "todo_list": {
+      const items = Array.isArray(item?.items) ? item.items : [];
+      const completed = items.filter(
+        (entry) => asRecord(entry)?.completed === true
+      ).length;
+      const firstText = items
+        .map((entry) => getString(asRecord(entry), "text"))
+        .find((value): value is string => typeof value === "string");
+
+      return firstText
+        ? `${completed}/${items.length} complete · ${truncateText(firstText)}`
+        : `${completed}/${items.length} complete`;
+    }
+    case "command_execution": {
+      const command = getString(item, "command") ?? "Command execution";
+      const status = getString(item, "status");
+      const exitCode = item?.exit_code;
+
+      if (typeof exitCode === "number") {
+        return `${truncateText(command)} · ${status ?? "completed"} · exit ${exitCode}`;
+      }
+
+      return `${truncateText(command)}${status ? ` · ${status}` : ""}`;
+    }
+    case "file_change": {
+      const changes = Array.isArray(item?.changes) ? item.changes : [];
+      const firstChange = asRecord(changes[0]);
+      const firstPath = getString(firstChange, "path");
+      const count = changes.length;
+      const status = getString(item, "status");
+
+      if (firstPath) {
+        return `${count} file${count === 1 ? "" : "s"} · ${truncateText(firstPath)}${status ? ` · ${status}` : ""}`;
+      }
+
+      return `${count} file change${count === 1 ? "" : "s"}${status ? ` · ${status}` : ""}`;
+    }
+    case "mcp_tool_call": {
+      const server = getString(item, "server");
+      const tool = getString(item, "tool");
+      const status = getString(item, "status");
+      const error = getString(asRecord(item?.error), "message");
+
+      if (error) {
+        return `${server ?? "mcp"}/${tool ?? "tool"} · ${truncateText(error)}`;
+      }
+
+      return `${server ?? "mcp"}/${tool ?? "tool"}${status ? ` · ${status}` : ""}`;
+    }
+    case "agent_message":
+      return truncateText(getString(item, "text") ?? "Agent message");
+    case "web_search":
+      return truncateText(getString(item, "query") ?? "Web search");
+    case "error":
+      return truncateText(getString(item, "message") ?? "Error");
+    default:
+      return event.summary ?? humanizeEventType(event.eventType);
+  }
+}
+
+function getPayloadItemType(payload: unknown): string | null {
+  return getString(asRecord(asRecord(payload)?.item), "type");
+}
+
+function humanizeEventType(value: string): string {
+  return value
+    .replace(/[._]/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function truncateText(value: string, maxLength = 96): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getString(
+  value: Record<string, unknown> | null | undefined,
+  key: string
+): string | null {
+  const nested = value?.[key];
+  return typeof nested === "string" && nested.trim() !== "" ? nested : null;
 }

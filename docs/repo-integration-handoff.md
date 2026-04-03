@@ -109,7 +109,9 @@ including setup and verification expectations such as:
 
 The lifecycle should stay disciplined:
 
-- `bootstrap` prepares repo-local runtime assumptions and installs dependencies
+- Symphony installs repo dependencies from `workspace.packageManager` before `bootstrap` when the
+  manifest does not already make install explicit
+- `bootstrap` prepares repo-local runtime assumptions
 - lifecycle steps consume already-injected env/material
 - lifecycle steps fail fast when required inputs are missing
 - lifecycle steps do not fetch platform-owned secrets
@@ -164,7 +166,6 @@ for the quality of repo-internal application code.
 
 It should include:
 
-- installing locked dependencies
 - validating injected env needed at bootstrap time
 - preparing non-secret repo-local assumptions
 - generating non-secret derived artifacts the repo needs

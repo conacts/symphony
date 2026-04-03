@@ -112,7 +112,10 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         let completion: SymphonyAgentRuntimeCompletion | null = null;
         const completionPromise = new Promise<void>((resolve) => {
           const runtime = createCodexSymphonyAgentRuntime({
-            promptTemplate: "You are working on {{ issue.identifier }}.",
+            promptContract: buildPromptContract(
+              root,
+              "You are working on {{ issue.identifier }}."
+            ),
             tracker: createDoneTracker(issue),
             runJournal,
             runtimeLogs: {
@@ -260,7 +263,10 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         let completion: SymphonyAgentRuntimeCompletion | null = null;
         const completionPromise = new Promise<void>((resolve) => {
           const runtime = createCodexSymphonyAgentRuntime({
-            promptTemplate: "You are working on {{ issue.identifier }}.",
+            promptContract: buildPromptContract(
+              root,
+              "You are working on {{ issue.identifier }}."
+            ),
             tracker: createDoneTracker(issue),
             runJournal,
             runtimeLogs: {
@@ -409,7 +415,8 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
           REPO_ONLY_SECRET: "repo-secret",
           OPTIONAL_REPO_VALUE: "repo-optional",
           STATIC_MARKER: "present",
-          SYMPHONY_BACKEND_KIND: "docker"
+          SYMPHONY_BACKEND_KIND: "docker",
+          NODE_OPTIONS: "--max-old-space-size=2048"
         });
         expect(workspace.envBundle.values.OPENAI_API_KEY).toBeUndefined();
         expect(
@@ -664,5 +671,16 @@ function createDoneTracker(
     async updateIssueState() {
       return;
     }
+  };
+}
+
+function buildPromptContract(root: string, template: string) {
+  return {
+    repoRoot: path.join(root, "source-repo"),
+    promptPath: path.join(root, "source-repo", ".symphony", "prompt.md"),
+    template,
+    variables: [...template.matchAll(/\{\{\s*([^}]+)\s*\}\}/g)].map((match) =>
+      match[1]!.trim()
+    )
   };
 }

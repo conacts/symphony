@@ -246,7 +246,12 @@ describe("docker workspace backend", () => {
       },
       networkName: null,
       services: [],
-      envBundle: ambientEnvBundle(),
+      envBundle: {
+        ...ambientEnvBundle(),
+        values: {
+          NODE_OPTIONS: "--max-old-space-size=2048"
+        }
+      },
       manifestLifecycle: null,
       path: null,
       created: true,
@@ -288,6 +293,112 @@ describe("docker workspace backend", () => {
       ])
     );
     expect(calls.filter((call) => call.args[0] === "exec")).toHaveLength(1);
+  });
+
+  it("hydrates an empty workspace from the configured source repo before lifecycle runs", async () => {
+    const root = await createWorkspaceRoot();
+    const sourceRepoPath = path.join(root, "source-repo");
+    await mkdir(sourceRepoPath, {
+      recursive: true
+    });
+
+    const calls: string[][] = [];
+    const lifecycleEvents: string[] = [];
+    let inspectCallCount = 0;
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      shell: "bash",
+      sourceRepoPath,
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        switch (input.args[0]) {
+          case "inspect":
+            inspectCallCount += 1;
+            if (inspectCallCount === 1) {
+              return {
+                exitCode: 1,
+                stdout: "[]\n",
+                stderr: `Error response from daemon: No such container: ${input.args[3]}`
+              };
+            }
+
+            return {
+              exitCode: 0,
+              stdout: buildDockerInspectPayload({
+                id: "container-201",
+                image: "ghcr.io/openai/symphony-workspace:latest",
+                name: input.args[3] ?? "unknown",
+                issueIdentifier: "COL-201",
+                workspaceKey: "COL-201",
+                hostPath: path.join(root, "symphony-COL-201"),
+                workspacePath: "/home/agent/workspace",
+                running: true
+              }),
+              stderr: ""
+            };
+          case "run":
+            return {
+              exitCode: 0,
+              stdout: "container-201\n",
+              stderr: ""
+            };
+          case "exec":
+            return input.args.at(-1)?.includes("git clone --no-local")
+              ? {
+                  exitCode: 0,
+                  stdout: "hydrated\n",
+                  stderr: ""
+                }
+              : {
+                  exitCode: 0,
+                  stdout: "",
+                  stderr: ""
+                };
+          default:
+            throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+        }
+      }
+    });
+
+    await backend.prepareWorkspace({
+      context: {
+        issueId: "issue-201",
+        issueIdentifier: "COL-201",
+        branchName: "feature/demo"
+      },
+      config: buildWorkspaceTestConfig({
+        workspace: {
+          root
+        }
+      }).workspace,
+      hooks: {
+        afterCreate: null,
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: null,
+        timeoutMs: 1_000
+      },
+      lifecycleRecorder(event) {
+        lifecycleEvents.push(event.eventType);
+      }
+    });
+
+    expect(calls.find((call) => call[0] === "run")).toEqual(
+      expect.arrayContaining([
+        "--mount",
+        `type=bind,src=${sourceRepoPath},dst=/home/agent/source-repo,readonly`
+      ])
+    );
+    expect(
+      calls.find(
+        (call) => call[0] === "exec" && call.at(-1)?.includes("git clone --no-local")
+      )?.at(-1)
+    ).toContain("feature/demo");
+    expect(lifecycleEvents).toEqual([
+      "workspace_repo_hydration_started",
+      "workspace_repo_hydration_completed"
+    ]);
   });
 
   it("prepares volume-backed workspaces without fabricating a host repo path", async () => {
@@ -1188,7 +1299,8 @@ describe("docker workspace backend", () => {
       DATABASE_URL: "postgresql://app:secret@db:5433/app",
       PGHOST: "db",
       PGPORT: "5433",
-      SYMPHONY_WORKSPACE_KEY: "COL-301"
+      SYMPHONY_WORKSPACE_KEY: "COL-301",
+      NODE_OPTIONS: "--max-old-space-size=2048"
     });
     expect(second.networkDisposition).toBe("reused");
     expect(second.containerDisposition).toBe("reused");
@@ -1519,6 +1631,200 @@ describe("docker workspace backend", () => {
     ]);
     expect(JSON.stringify(lifecycleEvents)).not.toContain("test-openai-key");
     expect(JSON.stringify(lifecycleEvents)).not.toContain("test-github-token");
+  });
+
+  it("preinstalls workspace dependencies before bootstrap when bootstrap does not install them explicitly", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildWorkspaceTestConfig({
+      workspace: {
+        root
+      }
+    });
+    const runtimeManifest = buildLoadedRuntimeManifest({
+      init: [],
+      lifecycle: {
+        bootstrap: [
+          {
+            name: "bootstrap",
+            run: "pnpm bootstrap"
+          }
+        ],
+        migrate: [
+          {
+            name: "migrate",
+            run: "pnpm db:migrate"
+          }
+        ],
+        verify: [
+          {
+            name: "verify",
+            run: "pnpm test:smoke"
+          }
+        ]
+      }
+    });
+    const calls: string[][] = [];
+    const lifecycleEvents: string[] = [];
+    let networkInspectCount = 0;
+    let serviceInspectCount = 0;
+    let workspaceInspectCount = 0;
+    let networkName = "unknown-network";
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      runtimeManifest,
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        if (input.args[0] === "network" && input.args[1] === "inspect") {
+          networkInspectCount += 1;
+          networkName = input.args[2] ?? networkName;
+
+          return networkInspectCount === 1
+            ? {
+                exitCode: 1,
+                stdout: "[]\n",
+                stderr: `Error response from daemon: No such network: ${networkName}`
+              }
+            : {
+                exitCode: 0,
+                stdout: buildDockerNetworkInspectPayload({
+                  id: "network-501b",
+                  name: networkName,
+                  issueIdentifier: "COL-501B",
+                  workspaceKey: "COL-501B"
+                }),
+                stderr: ""
+              };
+        }
+
+        if (input.args[0] === "network" && input.args[1] === "create") {
+          networkName = input.args.at(-1) ?? networkName;
+          return {
+            exitCode: 0,
+            stdout: "network-501b\n",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "inspect") {
+          const name = input.args[3] ?? "";
+
+          if (name.startsWith("symphony-service-postgres-")) {
+            serviceInspectCount += 1;
+
+            return serviceInspectCount === 1
+              ? {
+                  exitCode: 1,
+                  stdout: "[]\n",
+                  stderr: `Error response from daemon: No such container: ${name}`
+                }
+              : {
+                  exitCode: 0,
+                  stdout: buildDockerServiceInspectPayload({
+                    id: "postgres-501b",
+                    name,
+                    image: "postgres:16",
+                    issueIdentifier: "COL-501B",
+                    workspaceKey: "COL-501B",
+                    serviceKey: "postgres",
+                    hostname: "db",
+                    port: 5433,
+                    memoryMb: 512,
+                    cpuShares: 512,
+                    database: "app",
+                    username: "app",
+                    password: "secret",
+                    networkName
+                  }),
+                  stderr: ""
+                };
+          }
+
+          workspaceInspectCount += 1;
+          return workspaceInspectCount === 1
+            ? {
+                exitCode: 1,
+                stdout: "[]\n",
+                stderr: `Error response from daemon: No such container: ${name}`
+              }
+            : {
+                exitCode: 0,
+                stdout: buildDockerInspectPayload({
+                  id: "workspace-501b",
+                  image: "ghcr.io/openai/symphony-workspace:latest",
+                  name,
+                  issueIdentifier: "COL-501B",
+                  workspaceKey: "COL-501B",
+                  hostPath: path.join(root, "symphony-COL-501B"),
+                  workspacePath: "/home/agent/workspace",
+                  running: true,
+                  networks: {
+                    [networkName]: {
+                      aliases: []
+                    }
+                  }
+                }),
+                stderr: ""
+              };
+        }
+
+        if (input.args[0] === "run") {
+          return {
+            exitCode: 0,
+            stdout: input.args.includes("postgres:16")
+              ? "postgres-501b\n"
+              : "workspace-501b\n",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "exec") {
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    await backend.prepareWorkspace({
+      context: {
+        issueId: "issue-501b",
+        issueIdentifier: "COL-501B"
+      },
+      runId: "run-501b",
+      config: config.workspace,
+      hooks: config.hooks,
+      env: {
+        OPENAI_API_KEY: "test-openai-key"
+      },
+      lifecycleRecorder(event) {
+        lifecycleEvents.push(event.eventType);
+      }
+    });
+
+    expect(
+      calls
+        .filter((call) => call[0] === "exec" && call.includes("--workdir"))
+        .map((call) => call.at(-1))
+    ).toHaveLength(4);
+    expect(
+      calls
+        .filter((call) => call[0] === "exec" && call.includes("--workdir"))
+        .map((call) => call.at(-1))
+        .at(0)
+    ).toContain("corepack enable && pnpm install --frozen-lockfile");
+    expect(
+      calls
+        .filter((call) => call[0] === "exec" && call.includes("--workdir"))
+        .slice(1)
+        .map((call) => call.at(-1))
+    ).toEqual(["pnpm bootstrap", "pnpm db:migrate", "pnpm test:smoke"]);
+    expect(lifecycleEvents).toContain("workspace_dependency_install_started");
+    expect(lifecycleEvents).toContain("workspace_dependency_install_completed");
   });
 
   it("reruns service-dependent phases when the service side is recreated", async () => {

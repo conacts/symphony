@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import path from "node:path";
 import type {
   AgentRuntime,
   SymphonyAgentRuntimeCompletion,
@@ -6,6 +8,10 @@ import type {
   SymphonyStartupFailureOrigin,
   SymphonyStartupFailureStage
 } from "@symphony/orchestrator";
+import {
+  renderSymphonyPromptContract,
+  type SymphonyLoadedPromptContract
+} from "@symphony/runtime-contract";
 import type {
   SymphonyJsonObject,
   SymphonyJsonValue,
@@ -30,8 +36,7 @@ import {
   type CodexRuntimeLaunchTarget
 } from "./codex-runtime-launch-target.js";
 import {
-  buildSymphonyContinuationPrompt,
-  renderSymphonyPrompt
+  buildSymphonyContinuationPrompt
 } from "./symphony-prompt.js";
 
 type RunCallbacks = {
@@ -48,7 +53,8 @@ type ActiveRun = {
 };
 
 export function createCodexSymphonyAgentRuntime(input: {
-  promptTemplate: string;
+  promptContract: SymphonyLoadedPromptContract;
+  githubRepository?: string | null;
   tracker: SymphonyTracker;
   runJournal: SymphonyRunJournal;
   runtimeLogs: SymphonyRuntimeLogStore;
@@ -72,7 +78,9 @@ export function createCodexSymphonyAgentRuntime(input: {
       );
 
       void executeRun({
-        promptTemplate: input.promptTemplate,
+        promptTemplate: input.promptContract.template,
+        promptContract: input.promptContract,
+        githubRepository: input.githubRepository ?? null,
         tracker: input.tracker,
         runJournal: input.runJournal,
         runtimeLogs: input.runtimeLogs,
@@ -119,6 +127,8 @@ export const createLocalCodexSymphonyAgentRuntime =
 
 async function executeRun(input: {
   promptTemplate: string;
+  promptContract: SymphonyLoadedPromptContract;
+  githubRepository: string | null;
   tracker: SymphonyTracker;
   runJournal: SymphonyRunJournal;
   runtimeLogs: SymphonyRuntimeLogStore;
@@ -193,6 +203,13 @@ async function executeRun(input: {
     });
 
     let currentIssue = input.issue;
+    const promptRepoName = resolvePromptRepoName(
+      input.githubRepository,
+      input.promptContract.repoRoot
+    );
+    const promptRepoDefaultBranch = resolvePromptRepoDefaultBranch(
+      input.promptContract.repoRoot
+    );
 
     for (
       let turnNumber = 1;
@@ -205,10 +222,33 @@ async function executeRun(input: {
 
       const prompt =
         turnNumber === 1
-          ? renderSymphonyPrompt({
+          ? renderSymphonyPromptContract({
               template: input.promptTemplate,
-              issue: currentIssue,
-              attempt: input.attempt
+              promptPath: input.promptContract.promptPath,
+              payload: {
+                issue: {
+                  id: currentIssue.id,
+                  identifier: currentIssue.identifier,
+                  title: currentIssue.title,
+                  description: currentIssue.description,
+                  state: currentIssue.state,
+                  labels: currentIssue.labels,
+                  url: currentIssue.url,
+                  branch_name: currentIssue.branchName
+                },
+                repo: {
+                  name: promptRepoName,
+                  default_branch: promptRepoDefaultBranch
+                },
+                run: {
+                  id: input.runId ?? `attempt-${input.attempt}`
+                },
+                workspace: {
+                  path: input.workspace.executionTarget.workspacePath,
+                  branch: currentIssue.branchName
+                },
+                attempt: input.attempt
+              }
             })
           : buildSymphonyContinuationPrompt({
               turnNumber,
@@ -412,6 +452,43 @@ async function executeRun(input: {
   } finally {
     input.activeRun.client?.close();
   }
+}
+
+function resolvePromptRepoName(
+  configuredGitHubRepo: string | null,
+  repoRoot: string
+): string {
+  const configuredName = configuredGitHubRepo?.split("/").pop()?.trim();
+
+  if (configuredName) {
+    return configuredName;
+  }
+
+  const basename = path.basename(repoRoot).trim();
+  return basename === "" ? "repository" : basename;
+}
+
+function resolvePromptRepoDefaultBranch(repoRoot: string): string {
+  try {
+    const ref = execFileSync(
+      "git",
+      ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+      {
+        cwd: repoRoot,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"]
+      }
+    ).trim();
+    const branch = ref.replace(/^origin\//, "").trim();
+
+    if (branch !== "") {
+      return branch;
+    }
+  } catch {
+    // Ignore missing/non-git repos and fall back to the conventional default.
+  }
+
+  return "main";
 }
 
 function describeLaunchTarget(target: CodexRuntimeLaunchTarget): SymphonyJsonObject {

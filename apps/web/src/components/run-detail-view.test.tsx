@@ -23,6 +23,7 @@ describe("run detail view", () => {
     expect(html).toContain("Turns");
     expect(html).toContain("Session");
     expect(html).toContain("Turn");
+    expect(html).toContain("Artifact");
     expect(html).toContain("View payload");
   });
 });

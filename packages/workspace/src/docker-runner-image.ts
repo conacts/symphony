@@ -16,6 +16,7 @@ export const symphonyDockerWorkspaceBuildCommand =
 export const symphonyDockerWorkspaceRequiredTools = [
   "bash",
   "codex",
+  "gh",
   "git",
   "node",
   "corepack",

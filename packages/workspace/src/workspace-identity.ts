@@ -1,6 +1,7 @@
 export type SymphonyWorkspaceContext = {
   issueId: string | null;
   issueIdentifier: string;
+  branchName?: string | null;
 };
 
 export class SymphonyWorkspaceError extends Error {

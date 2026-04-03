@@ -122,8 +122,8 @@ export default defineSymphonyRuntime({
   lifecycle: {
     bootstrap: [
       {
-        name: "install",
-        run: "corepack enable && pnpm install --frozen-lockfile",
+        name: "bootstrap",
+        run: "pnpm bootstrap",
         timeoutMs: 300_000
       }
     ],
@@ -225,6 +225,8 @@ this order during prepare:
 
 Execution semantics:
 
+- before `bootstrap`, Symphony uses `workspace.packageManager` to ensure repo dependencies are
+  installed unless the manifest already makes dependency install an explicit bootstrap step
 - each phase is an ordered array of steps
 - steps run inside the prepared workspace container with the resolved env bundle
 - step cwd resolves from `workspace.workingDirectory`, overridden by step `cwd`

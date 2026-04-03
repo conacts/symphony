@@ -1,8 +1,10 @@
 import fs from "node:fs";
+import path from "node:path";
 
 const defaultDockerCodexAuthPath =
   "/home/agent/auth.json";
 const defaultDockerCodexHomePath = "/home/agent";
+const defaultDockerGitHubConfigPath = "/home/agent/.config/gh";
 
 export type DockerCodexAuthContract =
   | {
@@ -25,8 +27,17 @@ export type DockerCodexAuthContract =
       mode: "unavailable";
       mount: null;
       launchEnv: Record<string, string>;
-      authFilePath: null;
+    authFilePath: null;
     };
+
+export type DockerGitHubCliAuthContract = {
+  mount: {
+    sourcePath: string;
+    containerPath: string;
+    readOnly: true;
+  } | null;
+  configDirectoryPath: string | null;
+};
 
 export function resolveDockerCodexAuthContract(
   hostCommandEnvSource: Record<string, string | undefined>
@@ -68,6 +79,28 @@ export function resolveDockerCodexAuthContract(
   };
 }
 
+export function resolveDockerGitHubCliAuthContract(
+  hostCommandEnvSource: Record<string, string | undefined>
+): DockerGitHubCliAuthContract {
+  const configDirectoryPath = resolveGitHubCliConfigDirectoryPath(hostCommandEnvSource);
+
+  if (!configDirectoryPath) {
+    return {
+      mount: null,
+      configDirectoryPath: null
+    };
+  }
+
+  return {
+    mount: {
+      sourcePath: configDirectoryPath,
+      containerPath: defaultDockerGitHubConfigPath,
+      readOnly: true
+    },
+    configDirectoryPath
+  };
+}
+
 function resolveCodexAuthFilePath(
   hostCommandEnvSource: Record<string, string | undefined>
 ): string | null {
@@ -86,6 +119,27 @@ function resolveCodexAuthFilePath(
 
   const authPath = `${home}/.codex/auth.json`;
   return fs.existsSync(authPath) ? authPath : null;
+}
+
+function resolveGitHubCliConfigDirectoryPath(
+  hostCommandEnvSource: Record<string, string | undefined>
+): string | null {
+  const explicitConfigHome = normalizeNonEmptyString(hostCommandEnvSource.XDG_CONFIG_HOME);
+
+  if (explicitConfigHome) {
+    const ghConfigPath = path.join(explicitConfigHome, "gh");
+    if (fs.existsSync(ghConfigPath)) {
+      return ghConfigPath;
+    }
+  }
+
+  const home = normalizeNonEmptyString(hostCommandEnvSource.HOME);
+  if (!home) {
+    return null;
+  }
+
+  const ghConfigPath = path.join(home, ".config", "gh");
+  return fs.existsSync(ghConfigPath) ? ghConfigPath : null;
 }
 
 function normalizeNonEmptyString(value: string | undefined): string | null {

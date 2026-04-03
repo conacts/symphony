@@ -1,32 +1,3 @@
-import type { SymphonyTrackerIssue } from "@symphony/tracker";
-
-export function renderSymphonyPrompt(input: {
-  template: string;
-  issue: SymphonyTrackerIssue;
-  attempt: number;
-}): string {
-  const context = {
-    issue: {
-      ...input.issue
-    },
-    attempt: input.attempt
-  } as const;
-
-  return input.template.replace(/\{\{\s*([^}]+)\s*\}\}/g, (_match, expression) => {
-    const value = resolveTemplatePath(context, expression.trim());
-
-    if (value === undefined) {
-      throw new Error(`Unknown prompt template variable: ${expression.trim()}`);
-    }
-
-    if (value === null) {
-      return "";
-    }
-
-    return String(value);
-  });
-}
-
 export function buildSymphonyContinuationPrompt(input: {
   turnNumber: number;
   maxTurns: number;
@@ -40,26 +11,4 @@ Continuation guidance:
 - The original task instructions and prior turn context are already present in this thread, so do not restate them before acting.
 - Focus on the remaining ticket work and do not end the turn while the issue stays active unless you are truly blocked.
 `.trim();
-}
-
-function resolveTemplatePath(
-  root: Record<string, unknown>,
-  expression: string
-): unknown {
-  const segments = expression
-    .split(".")
-    .map((segment) => segment.trim())
-    .filter((segment) => segment !== "");
-
-  let current: unknown = root;
-
-  for (const segment of segments) {
-    if (!current || typeof current !== "object" || Array.isArray(current)) {
-      return undefined;
-    }
-
-    current = (current as Record<string, unknown>)[segment];
-  }
-
-  return current;
 }

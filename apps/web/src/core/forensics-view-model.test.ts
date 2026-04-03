@@ -186,10 +186,17 @@ describe("forensics view model", () => {
               turnId: "turn_123",
               runId: "run_123",
               eventSequence: 1,
-              eventType: "message.output",
+              eventType: "item.completed",
               recordedAt: "2026-03-31T18:01:00.000Z",
               payload: {
-                text: "done"
+                item: {
+                  id: "item_1",
+                  type: "command_execution",
+                  command: "pnpm test",
+                  aggregated_output: "done",
+                  status: "completed",
+                  exit_code: 0
+                }
               },
               payloadTruncated: false,
               payloadBytes: 12,
@@ -212,7 +219,9 @@ describe("forensics view model", () => {
     expect(runDetail.startedAt).not.toBe("2026-03-31T18:00:00.000Z");
     expect(runDetail.metrics[1]?.value).toBe("2:00");
     expect(runDetail.metrics[3]?.value).toBe("200");
-    expect(runDetail.turns[0]?.events[0]?.payloadText).toContain('"text": "done"');
+    expect(runDetail.turns[0]?.events[0]?.artifactKind).toBe("Command");
+    expect(runDetail.turns[0]?.events[0]?.artifactSummary).toContain("pnpm test");
+    expect(runDetail.turns[0]?.events[0]?.payloadText).toContain('"command": "pnpm test"');
   });
 
   it("does not invent a latest turn event time when the turn has no events", () => {

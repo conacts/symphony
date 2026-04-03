@@ -18,6 +18,7 @@ import type {
 export const defaultContainerWorkspacePath = "/home/agent/workspace";
 export const defaultContainerNamePrefix = "symphony-workspace";
 export const defaultDockerHomePath = "/home/agent";
+export const defaultContainerSourceRepoPath = "/home/agent/source-repo";
 export const managedBackendLabelKey = "dev.symphony.workspace-backend";
 export const managedBackendLabelValue = "docker";
 export const managedWorkspaceKeyLabelKey = "dev.symphony.workspace-key";
@@ -60,6 +61,7 @@ export type DockerWorkspaceCommandRunner = (input: {
 export type DockerWorkspaceBackendOptions = {
   image: string;
   workspacePath?: string;
+  sourceRepoPath?: string;
   containerNamePrefix?: string;
   shell?: string;
   materializationMode?: DockerWorkspaceMaterializationMode;
