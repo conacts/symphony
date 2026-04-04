@@ -81,7 +81,7 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
           issueId: input.issueId,
           issueIdentifier: input.issueIdentifier,
           startedAt: existing.startedAt ?? input.startedAt,
-          status: input.status ?? existing.status,
+          status: input.status,
           threadId: input.threadId ?? existing.threadId,
           updatedAt: now
         })
@@ -94,12 +94,12 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
       .insert(codexRunsTable)
       .values({
         runId: input.runId,
-        threadId: input.threadId ?? null,
+        threadId: input.threadId,
         issueId: input.issueId,
         issueIdentifier: input.issueIdentifier,
         startedAt: input.startedAt,
         endedAt: null,
-        status: input.status ?? "running",
+        status: input.status,
         failureKind: null,
         failureOrigin: null,
         failureMessagePreview: null,
@@ -130,7 +130,7 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
     this.#db.transaction((tx) => {
       const now = isoNow();
 
-      const ensureRun = () => {
+      const ensureRunRecord = () => {
         let run = tx
           .select()
           .from(codexRunsTable)
@@ -203,7 +203,7 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
         return run;
       };
 
-      const upsertTurn = (patch: {
+      const upsertTurnRecord = (patch: {
         turnId: string;
         threadId?: string | null;
         startedAt?: string | null;
@@ -308,7 +308,7 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
         return overflowId;
       };
 
-      const ensureEventLog = (threadId: string | null) => {
+      const appendEventLogRow = (threadId: string | null) => {
         const latest = tx
           .select({
             sequence: codexEventLogTable.sequence
@@ -348,7 +348,11 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
           .run();
       };
 
-      const upsertItem = (item: ThreadItem, overflowId: string | null, latestPreview: string | null) => {
+      const upsertItem = (
+        item: ThreadItem,
+        overflowId: string | null,
+        latestPreview: string | null
+      ) => {
         if (!input.turnId) {
           return;
         }
@@ -364,11 +368,8 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
             )
           )
           .get();
-        const lifecycleEvent = extractItemEvent(input.payload);
         const itemStatus = extractItemStatus(input.payload);
-        const startedAt =
-          existing?.startedAt ??
-          (input.payload.type === "item.started" ? input.recordedAt : input.recordedAt);
+        const startedAt = existing?.startedAt ?? input.recordedAt;
         const completedAt =
           input.payload.type === "item.completed"
             ? input.recordedAt
@@ -384,7 +385,7 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
               startedAt,
               lastUpdatedAt: input.recordedAt,
               completedAt,
-              finalStatus: input.payload.type === "item.completed" ? itemStatus : itemStatus,
+              finalStatus: itemStatus,
               updateCount: 1,
               durationMs: computeDurationMs(startedAt, completedAt),
               latestPreview,
@@ -393,7 +394,7 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
               updatedAt: now
             })
             .run();
-          return lifecycleEvent;
+          return;
         }
 
         tx.update(codexItemsTable)
@@ -419,11 +420,9 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
             )
           )
           .run();
-
-        return lifecycleEvent;
       };
 
-      const projectItem = (item: ThreadItem) => {
+      const projectThreadItem = (item: ThreadItem) => {
         if (!input.turnId) {
           return;
         }
@@ -985,7 +984,7 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
           .run();
       };
 
-      const run = ensureRun();
+      const run = ensureRunRecord();
       const resolvedThreadId =
         input.threadId ?? extractThreadId(input.payload) ?? run.threadId ?? null;
 
@@ -999,18 +998,18 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
           .run();
       }
 
-      ensureEventLog(resolvedThreadId);
+      appendEventLogRow(resolvedThreadId);
 
       if (input.turnId) {
         if (input.payload.type === "turn.started") {
-          upsertTurn({
+          upsertTurnRecord({
             turnId: input.turnId,
             threadId: resolvedThreadId,
             startedAt: input.recordedAt,
             status: "running"
           });
         } else if (input.payload.type === "turn.completed") {
-          upsertTurn({
+          upsertTurnRecord({
             turnId: input.turnId,
             threadId: resolvedThreadId,
             endedAt: input.recordedAt,
@@ -1018,7 +1017,7 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
             usage: input.payload.usage
           });
         } else if (input.payload.type === "turn.failed") {
-          upsertTurn({
+          upsertTurnRecord({
             turnId: input.turnId,
             threadId: resolvedThreadId,
             endedAt: input.recordedAt,
@@ -1030,7 +1029,7 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
             )
           });
         } else {
-          upsertTurn({
+          upsertTurnRecord({
             turnId: input.turnId,
             threadId: resolvedThreadId
           });
@@ -1039,7 +1038,7 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
 
       const itemEvent = extractItemEvent(input.payload);
       if (itemEvent) {
-        projectItem(itemEvent.item);
+        projectThreadItem(itemEvent.item);
       }
 
       if (input.turnId) {
@@ -1060,15 +1059,15 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
     if (!existing) {
       this.#db
         .insert(codexTurnsTable)
-        .values({
-          turnId: input.turnId,
-          runId: input.runId,
-          threadId: input.threadId ?? null,
-          startedAt: null,
-          endedAt: input.endedAt,
-          status: input.status,
-          failureKind: input.failureKind ?? null,
-          failureMessagePreview: input.failureMessagePreview ?? null,
+          .values({
+            turnId: input.turnId,
+            runId: input.runId,
+            threadId: input.threadId,
+            startedAt: null,
+            endedAt: input.endedAt,
+            status: input.status,
+            failureKind: input.failureKind,
+            failureMessagePreview: input.failureMessagePreview,
           lastAgentMessageItemId: null,
           lastAgentMessagePreview: null,
           lastAgentMessageOverflowId: null,
@@ -1133,7 +1132,8 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
         issueId: symphonyRun.issueId,
         issueIdentifier: symphonyRun.issueIdentifier,
         startedAt: symphonyRun.startedAt,
-        threadId: input.threadId ?? null
+        status: "running",
+        threadId: input.threadId
       });
     }
 

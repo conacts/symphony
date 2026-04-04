@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   computeDurationMs,
   isThreadEvent,
-  previewItem
+  previewItem,
+  previewText
 } from "./events.js";
 import type { ThreadEvent, ThreadItem } from "./sdk-types.js";
 
@@ -36,5 +37,19 @@ describe("codex analytics events", () => {
       computeDurationMs("2026-04-03T20:37:38.000Z", "2026-04-03T20:37:39.500Z")
     ).toBe(1500);
     expect(computeDurationMs("2026-04-03T20:37:39.500Z", "2026-04-03T20:37:38.000Z")).toBeNull();
+  });
+
+  it("normalizes blank previews and rejects malformed item events", () => {
+    expect(previewText("   \n\t  ")).toBeNull();
+    expect(
+      isThreadEvent({
+        type: "item.completed",
+        item: {
+          id: "cmd-1",
+          type: "command_execution",
+          command: "pnpm test"
+        }
+      })
+    ).toBe(false);
   });
 });

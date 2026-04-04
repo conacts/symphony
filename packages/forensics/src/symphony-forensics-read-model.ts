@@ -111,7 +111,7 @@ export type SymphonyForensicsIssueForensicsBundleQuery =
   };
 
 export type SymphonyForensicsReadModelDependencies = {
-  journal: SymphonyForensicsRunStore;
+  runStore: SymphonyForensicsRunStore;
   listIssueTimeline?: (input: {
     issueIdentifier: string;
     limit?: number;
@@ -157,14 +157,14 @@ export function createSymphonyForensicsReadModel(
     async issues(opts = {}) {
       const filters = normalizeFilters(opts);
       const [scopedRuns, facetRuns] = await Promise.all([
-        deps.journal.listRuns({
+        deps.runStore.listRuns({
           limit: allRowsLimit,
           startedAfter: filters.startedAfter ?? undefined,
           startedBefore: filters.startedBefore ?? undefined,
           outcome: filters.outcome ?? undefined,
           errorClass: filters.errorClass ?? undefined
         }),
-        deps.journal.listRuns({
+        deps.runStore.listRuns({
           limit: allRowsLimit,
           startedAfter: filters.startedAfter ?? undefined,
           startedBefore: filters.startedBefore ?? undefined
@@ -190,7 +190,7 @@ export function createSymphonyForensicsReadModel(
     },
 
     async issueDetail(issueIdentifier, opts = {}) {
-      const runs = await deps.journal.listRunsForIssue(issueIdentifier, opts);
+      const runs = await deps.runStore.listRunsForIssue(issueIdentifier, opts);
       if (runs.length === 0) {
         return null;
       }
@@ -213,7 +213,7 @@ export function createSymphonyForensicsReadModel(
     async issueForensicsBundle(issueIdentifier, opts = {}) {
       const filters = normalizeFilters(opts);
       const [runs, timelineEntries, runtimeLogs] = await Promise.all([
-        deps.journal.listRuns({
+        deps.runStore.listRuns({
           limit: allRowsLimit,
           issueIdentifier,
           startedAfter: filters.startedAfter ?? undefined,
@@ -279,11 +279,11 @@ export function createSymphonyForensicsReadModel(
     },
 
     async runDetail(runId) {
-      return deps.journal.fetchRunDetail(runId);
+      return deps.runStore.fetchRunDetail(runId);
     },
 
     async problemRuns(opts = {}) {
-      const problemRuns = await deps.journal.listProblemRuns(opts);
+      const problemRuns = await deps.runStore.listProblemRuns(opts);
 
       return {
         problemRuns,

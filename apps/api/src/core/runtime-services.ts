@@ -116,7 +116,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     db: database.db
   });
   const forensics = createSymphonyForensicsReadModel({
-    journal: codexAnalyticsReadStore,
+    runStore: codexAnalyticsReadStore,
     async listIssueTimeline(input) {
       return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
         limit: input.limit

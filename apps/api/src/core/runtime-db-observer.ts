@@ -15,7 +15,7 @@ import type {
 export function createDbBackedOrchestratorObserver(input: {
   runStore: SymphonyRuntimeRunStore;
   issueTimelineStore: SymphonyIssueTimelineStore;
-  codexAnalytics?: CodexAnalyticsStore;
+  codexAnalytics: CodexAnalyticsStore;
 }): SymphonyOrchestratorObserver {
   return {
     async startRun({ issue, attempt, workspace, workerHost, startedAt }) {
@@ -33,12 +33,13 @@ export function createDbBackedOrchestratorObserver(input: {
         }
       });
 
-      await input.codexAnalytics?.startRun({
+      await input.codexAnalytics.startRun({
         runId,
         issueId: issue.id,
         issueIdentifier: issue.identifier,
         startedAt,
-        status: "dispatching"
+        status: "dispatching",
+        threadId: null
       });
 
       return runId;
@@ -124,13 +125,14 @@ export function createDbBackedOrchestratorObserver(input: {
             stopPayload: normalizeJsonValue(payload)
           }
         });
-        await input.codexAnalytics?.finalizeRun({
+        await input.codexAnalytics.finalizeRun({
           runId,
           status: "stopped",
           endedAt: recordedAt ?? new Date().toISOString(),
           failureKind: eventType,
           failureOrigin: "runtime",
-          failureMessagePreview: previewRuntimeFailure(eventType)
+          failureMessagePreview: previewRuntimeFailure(eventType),
+          threadId: null
         });
       }
 
@@ -199,14 +201,15 @@ export function createDbBackedOrchestratorObserver(input: {
           completion.kind === "normal" ? null : completion.reason
       });
 
-      await input.codexAnalytics?.finalizeRun({
+      await input.codexAnalytics.finalizeRun({
         runId,
         status: completionStatus(completion),
         endedAt,
         failureKind: completion.kind === "normal" ? null : completion.kind,
         failureOrigin: completion.kind === "startup_failure" ? "runtime" : "codex",
         failureMessagePreview:
-          completion.kind === "normal" ? null : previewRuntimeFailure(completion.reason)
+          completion.kind === "normal" ? null : previewRuntimeFailure(completion.reason),
+        threadId: null
       });
     }
   };

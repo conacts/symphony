@@ -67,7 +67,7 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   issueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   attempt: z.number().int().nonnegative().nullable(),
-  status: nullableNonEmptyStringSchema,
+  status: nonEmptyStringSchema,
   outcome: nullableNonEmptyStringSchema,
   workerHost: nullableNonEmptyStringSchema,
   workspacePath: nullableNonEmptyStringSchema,

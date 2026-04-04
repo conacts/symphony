@@ -47,18 +47,18 @@ export type CodexAnalyticsRunStart = {
   issueId: string;
   issueIdentifier: string;
   startedAt: string;
-  status?: string;
-  threadId?: string | null;
+  status: string;
+  threadId: string | null;
 };
 
 export type CodexAnalyticsRunFinalize = {
   runId: string;
   endedAt: string;
   status: string;
-  threadId?: string | null;
-  failureKind?: string | null;
-  failureOrigin?: string | null;
-  failureMessagePreview?: string | null;
+  threadId: string | null;
+  failureKind: string | null;
+  failureOrigin: string | null;
+  failureMessagePreview: string | null;
 };
 
 export type CodexAnalyticsTurnFinalize = {
@@ -66,9 +66,9 @@ export type CodexAnalyticsTurnFinalize = {
   turnId: string;
   endedAt: string;
   status: string;
-  threadId?: string | null;
-  failureKind?: string | null;
-  failureMessagePreview?: string | null;
+  threadId: string | null;
+  failureKind: string | null;
+  failureMessagePreview: string | null;
 };
 
 export interface CodexAnalyticsStore {

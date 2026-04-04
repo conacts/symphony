@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import {
   isThreadEvent,
@@ -92,7 +92,7 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
       .from(symphonyRunsTable)
       .orderBy(desc(symphonyRunsTable.startedAt))
       .all()
-      .map(castRunRecord)
+      .map(mapPersistedRunRecord)
       .filter((run) => matchesRunFilters(run, opts))
       .slice(0, limit);
 
@@ -120,7 +120,7 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
     const eventCountMap = new Map(eventCounts.map((row) => [row.runId, row.count] as const));
 
     return runs.map((run) =>
-      buildRunSummaryFromCodex(
+      buildForensicsRunSummary(
         run,
         codexRunMap.get(run.runId),
         eventCountMap.get(run.runId) ?? 0
@@ -173,8 +173,8 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
     return {
       issue: buildForensicsIssueExport(data.issue, data.issueRuns),
       run: {
-        ...buildRunSummaryFromCodex(
-          castRunRecord(data.run),
+        ...buildForensicsRunSummary(
+          mapPersistedRunRecord(data.run),
           data.codexRun,
           data.eventRows.length
         ),
@@ -229,13 +229,18 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
     const rows = await this.#db
       .select()
       .from(codexItemsTable)
-      .where(eq(codexItemsTable.runId, input.runId))
+      .where(
+        input.turnId
+          ? and(
+              eq(codexItemsTable.runId, input.runId),
+              eq(codexItemsTable.turnId, input.turnId)
+            )
+          : eq(codexItemsTable.runId, input.runId)
+      )
       .orderBy(asc(codexItemsTable.insertedAt))
       .all();
 
-    return rows
-      .filter((row) => (input.turnId ? row.turnId === input.turnId : true))
-      .map(mapCodexItemRecord);
+    return rows.map(mapCodexItemRecord);
   }
 
   async listCommandExecutions(
@@ -244,26 +249,36 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
     const rows = await this.#db
       .select()
       .from(codexCommandExecutionsTable)
-      .where(eq(codexCommandExecutionsTable.runId, input.runId))
+      .where(
+        input.turnId
+          ? and(
+              eq(codexCommandExecutionsTable.runId, input.runId),
+              eq(codexCommandExecutionsTable.turnId, input.turnId)
+            )
+          : eq(codexCommandExecutionsTable.runId, input.runId)
+      )
       .orderBy(asc(codexCommandExecutionsTable.insertedAt))
       .all();
 
-    return rows
-      .filter((row) => (input.turnId ? row.turnId === input.turnId : true))
-      .map(mapCodexCommandExecutionRecord);
+    return rows.map(mapCodexCommandExecutionRecord);
   }
 
   async listToolCalls(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexToolCallRecord[]> {
     const rows = await this.#db
       .select()
       .from(codexToolCallsTable)
-      .where(eq(codexToolCallsTable.runId, input.runId))
+      .where(
+        input.turnId
+          ? and(
+              eq(codexToolCallsTable.runId, input.runId),
+              eq(codexToolCallsTable.turnId, input.turnId)
+            )
+          : eq(codexToolCallsTable.runId, input.runId)
+      )
       .orderBy(asc(codexToolCallsTable.insertedAt))
       .all();
 
-    return rows
-      .filter((row) => (input.turnId ? row.turnId === input.turnId : true))
-      .map(mapCodexToolCallRecord);
+    return rows.map(mapCodexToolCallRecord);
   }
 
   async listAgentMessages(
@@ -272,26 +287,36 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
     const rows = await this.#db
       .select()
       .from(codexAgentMessagesTable)
-      .where(eq(codexAgentMessagesTable.runId, input.runId))
+      .where(
+        input.turnId
+          ? and(
+              eq(codexAgentMessagesTable.runId, input.runId),
+              eq(codexAgentMessagesTable.turnId, input.turnId)
+            )
+          : eq(codexAgentMessagesTable.runId, input.runId)
+      )
       .orderBy(asc(codexAgentMessagesTable.insertedAt))
       .all();
 
-    return rows
-      .filter((row) => (input.turnId ? row.turnId === input.turnId : true))
-      .map(mapCodexAgentMessageRecord);
+    return rows.map(mapCodexAgentMessageRecord);
   }
 
   async listReasoning(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexReasoningRecord[]> {
     const rows = await this.#db
       .select()
       .from(codexReasoningTable)
-      .where(eq(codexReasoningTable.runId, input.runId))
+      .where(
+        input.turnId
+          ? and(
+              eq(codexReasoningTable.runId, input.runId),
+              eq(codexReasoningTable.turnId, input.turnId)
+            )
+          : eq(codexReasoningTable.runId, input.runId)
+      )
       .orderBy(asc(codexReasoningTable.insertedAt))
       .all();
 
-    return rows
-      .filter((row) => (input.turnId ? row.turnId === input.turnId : true))
-      .map(mapCodexReasoningRecord);
+    return rows.map(mapCodexReasoningRecord);
   }
 
   async listFileChanges(
@@ -300,17 +325,22 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
     const rows = await this.#db
       .select()
       .from(codexFileChangesTable)
-      .where(eq(codexFileChangesTable.runId, input.runId))
+      .where(
+        input.turnId
+          ? and(
+              eq(codexFileChangesTable.runId, input.runId),
+              eq(codexFileChangesTable.turnId, input.turnId)
+            )
+          : eq(codexFileChangesTable.runId, input.runId)
+      )
       .orderBy(asc(codexFileChangesTable.recordedAt))
       .all();
 
-    return rows
-      .filter((row) => (input.turnId ? row.turnId === input.turnId : true))
-      .map(mapCodexFileChangeRecord);
+    return rows.map(mapCodexFileChangeRecord);
   }
 }
 
-type LegacyRunRecord = typeof symphonyRunsTable.$inferSelect & {
+type PersistedRunRecord = typeof symphonyRunsTable.$inferSelect & {
   repoStart: JsonObject | null;
   repoEnd: JsonObject | null;
   metadata: JsonObject | null;
@@ -337,9 +367,9 @@ function resolveEventPayload(
   return isThreadEvent(overflowRow?.contentJson) ? overflowRow.contentJson : null;
 }
 
-function castRunRecord(
+function mapPersistedRunRecord(
   run: typeof symphonyRunsTable.$inferSelect
-): LegacyRunRecord {
+): PersistedRunRecord {
   return {
     ...run,
     repoStart: castJsonObject(run.repoStart),
@@ -348,8 +378,8 @@ function castRunRecord(
   };
 }
 
-function buildRunSummaryFromCodex(
-  run: LegacyRunRecord,
+function buildForensicsRunSummary(
+  run: PersistedRunRecord,
   codexRun: typeof codexRunsTable.$inferSelect | undefined,
   eventCount: number
 ): SymphonyForensicsRunSummary {
@@ -535,7 +565,7 @@ function isProblemOutcome(outcome: string | null): boolean {
 }
 
 function matchesRunFilters(
-  run: LegacyRunRecord,
+  run: PersistedRunRecord,
   opts: SymphonyForensicsRunsQuery
 ): boolean {
   if (opts.issueIdentifier && run.issueIdentifier !== opts.issueIdentifier) {

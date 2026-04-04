@@ -55,13 +55,13 @@ describe("symphony forensics read model", () => {
     expect(await readModel.runDetail("run-missing")).toBeNull();
   });
 
-  it("uses any compatible read store boundary, not just a legacy journal", async () => {
+  it("uses any compatible run-store boundary", async () => {
     const run = createRunSummary({
       runId: "run-codex"
     });
     const expected = createRunDetail(run);
     const readModel = createSymphonyForensicsReadModel({
-      journal: createRunStore({
+      runStore: createRunStore({
         runs: [run],
         runDetails: [expected]
       })

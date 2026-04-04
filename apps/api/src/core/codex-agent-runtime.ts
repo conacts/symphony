@@ -63,7 +63,7 @@ export function createCodexSymphonyAgentRuntime(input: {
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
-  codexAnalytics?: CodexAnalyticsStore;
+  codexAnalytics: CodexAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
   codexHostLaunchEnv?: Record<string, string>;
@@ -139,7 +139,7 @@ async function executeRun(input: {
   githubRepository: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
-  codexAnalytics?: CodexAnalyticsStore;
+  codexAnalytics: CodexAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
   logger: SymphonyLogger;
@@ -153,7 +153,7 @@ async function executeRun(input: {
   launchTarget: CodexRuntimeLaunchTarget;
   activeRun: ActiveRun;
 }): Promise<void> {
-  let turnJournalId: string | null = null;
+  let turnRecordId: string | null = null;
   let maxTurnsReached = false;
 
   try {
@@ -233,7 +233,7 @@ async function executeRun(input: {
           input.runStore,
           input.codexAnalytics,
           input.runId,
-          turnJournalId
+          turnRecordId
         );
         return;
       }
@@ -273,7 +273,7 @@ async function executeRun(input: {
               maxTurns: input.runtimePolicy.agent.maxTurns
             });
 
-      turnJournalId = input.runId
+      turnRecordId = input.runId
         ? await input.runStore.recordTurnStarted(input.runId, {
             promptText: prompt,
             status: "running"
@@ -315,17 +315,17 @@ async function executeRun(input: {
               getString(message, "codex_app_server_pid") ?? session.processId
           });
 
-          if (input.runId && turnJournalId) {
+          if (input.runId && turnRecordId) {
             if (turnUsage) {
-              await input.runStore.updateTurn(turnJournalId, {
+              await input.runStore.updateTurn(turnRecordId, {
                 usage: turnUsage
               });
             }
 
             if (threadEvent) {
-              await input.codexAnalytics?.recordEvent({
+              await input.codexAnalytics.recordEvent({
                 runId: input.runId,
-                turnId: turnJournalId,
+                turnId: turnRecordId,
                 threadId: codexThreadId,
                 recordedAt: timestamp,
                 payload: threadEvent
@@ -335,15 +335,15 @@ async function executeRun(input: {
         }
       });
 
-      if (input.runId && turnJournalId) {
-        await input.runStore.finalizeTurn(turnJournalId, {
+      if (input.runId && turnRecordId) {
+        await input.runStore.finalizeTurn(turnRecordId, {
           status: "completed",
           endedAt: new Date().toISOString(),
           codexThreadId: turnResult.threadId,
           codexTurnId: turnResult.turnId,
           codexSessionId: turnResult.sessionId
         });
-        turnJournalId = null;
+        turnRecordId = null;
       }
 
       const refreshedIssue = await refreshIssueState(
@@ -394,28 +394,29 @@ async function executeRun(input: {
         input.runStore,
         input.codexAnalytics,
         input.runId,
-        turnJournalId
+        turnRecordId
       );
       return;
     }
 
     const reason = error instanceof Error ? error.message : String(error);
 
-    if (input.runId && turnJournalId) {
-      await input.runStore.finalizeTurn(turnJournalId, {
+    if (input.runId && turnRecordId) {
+      await input.runStore.finalizeTurn(turnRecordId, {
         status: "failed",
         endedAt: new Date().toISOString(),
         metadata: {
           reason
         }
       });
-      await input.codexAnalytics?.finalizeTurn({
+      await input.codexAnalytics.finalizeTurn({
         runId: input.runId,
-        turnId: turnJournalId,
+        turnId: turnRecordId,
         endedAt: new Date().toISOString(),
         status: "failed",
         failureKind: "runtime_failure",
-        failureMessagePreview: reason
+        failureMessagePreview: reason,
+        threadId: null
       });
     }
 
@@ -638,27 +639,28 @@ function normalizeRuntimeUpdateEventName(value: string | null): string | null {
 
 async function finalizeStoppedTurn(
   runStore: SymphonyRuntimeRunStore,
-  codexAnalytics: CodexAnalyticsStore | undefined,
+  codexAnalytics: CodexAnalyticsStore,
   runId: string | null,
-  turnJournalId: string | null
+  turnRecordId: string | null
 ): Promise<void> {
-  if (!runId || !turnJournalId) {
+  if (!runId || !turnRecordId) {
     return;
   }
 
-  await runStore.finalizeTurn(turnJournalId, {
+  await runStore.finalizeTurn(turnRecordId, {
     status: "stopped",
     endedAt: new Date().toISOString(),
     metadata: {
       stopReason: "runtime_stopped"
     }
   });
-  await codexAnalytics?.finalizeTurn({
+  await codexAnalytics.finalizeTurn({
     runId,
-    turnId: turnJournalId,
+    turnId: turnRecordId,
     endedAt: new Date().toISOString(),
     status: "stopped",
     failureKind: "runtime_stopped",
-    failureMessagePreview: "Turn stopped by runtime."
+    failureMessagePreview: "Turn stopped by runtime.",
+    threadId: null
   });
 }

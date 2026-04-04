@@ -120,13 +120,18 @@ describe("sqlite codex analytics read store", () => {
         turnId,
         endedAt: "2026-04-03T20:37:40.000Z",
         status: "completed",
-        threadId: "thread-1"
+        threadId: "thread-1",
+        failureKind: null,
+        failureMessagePreview: null
       });
       await analytics.finalizeRun({
         runId,
         endedAt: "2026-04-03T20:37:41.000Z",
         status: "completed",
-        threadId: "thread-1"
+        threadId: "thread-1",
+        failureKind: null,
+        failureOrigin: null,
+        failureMessagePreview: null
       });
       await runJournal.finalizeTurn(turnId, {
         status: "completed",
@@ -224,6 +229,211 @@ describe("sqlite codex analytics read store", () => {
       expect(tools).toHaveLength(0);
       expect(reasoning).toHaveLength(0);
       expect(fileChanges).toHaveLength(0);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("filters projected records by turn and preserves failed-run analytics details", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-read-failed-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runJournal = createSqliteSymphonyRunJournal({
+      db: database.db,
+      dbFile: path.join(root, "symphony.db"),
+      timelineStore: createSymphonyIssueTimelineStore(database.db)
+    });
+    const analytics = createSqliteCodexAnalyticsStore({
+      db: database.db,
+      payloadMaxBytes: 128
+    });
+    const readStore = createSqliteCodexAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runJournal.recordRunStarted({
+        runId: "run-problem",
+        issueId: "issue-2",
+        issueIdentifier: "COL-158",
+        startedAt: "2026-04-03T20:37:38.949Z",
+        status: "running",
+        workerHost: "worker-2",
+        workspacePath: "/tmp/workspaces/COL-158"
+      });
+      await analytics.startRun({
+        runId,
+        issueId: "issue-2",
+        issueIdentifier: "COL-158",
+        startedAt: "2026-04-03T20:37:38.949Z",
+        status: "running",
+        threadId: "thread-problem"
+      });
+
+      const firstTurnId = await runJournal.recordTurnStarted(runId, {
+        turnId: "turn-problem-1",
+        turnSequence: 1,
+        promptText: "Draft a response",
+        status: "running",
+        startedAt: "2026-04-03T20:37:39.000Z",
+        codexThreadId: "thread-problem",
+        codexTurnId: "turn-problem-1"
+      });
+      const secondTurnId = await runJournal.recordTurnStarted(runId, {
+        turnId: "turn-problem-2",
+        turnSequence: 2,
+        promptText: "Run a command",
+        status: "running",
+        startedAt: "2026-04-03T20:37:40.000Z",
+        codexThreadId: "thread-problem",
+        codexTurnId: "turn-problem-2"
+      });
+
+      await analytics.recordEvent({
+        runId,
+        turnId: firstTurnId,
+        threadId: "thread-problem",
+        recordedAt: "2026-04-03T20:37:39.100Z",
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "msg-1",
+            type: "agent_message",
+            text: "First turn message"
+          }
+        }
+      });
+      await analytics.recordEvent({
+        runId,
+        turnId: secondTurnId,
+        threadId: "thread-problem",
+        recordedAt: "2026-04-03T20:37:40.100Z",
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "cmd-problem-1",
+            type: "command_execution",
+            command: "pnpm lint",
+            aggregated_output: "lint failed",
+            exit_code: 1,
+            status: "failed"
+          }
+        }
+      });
+      await analytics.recordEvent({
+        runId,
+        turnId: secondTurnId,
+        threadId: "thread-problem",
+        recordedAt: "2026-04-03T20:37:40.200Z",
+        payload: {
+          type: "turn.failed",
+          error: {
+            message: "Command failed"
+          }
+        }
+      });
+
+      await analytics.finalizeTurn({
+        runId,
+        turnId: firstTurnId,
+        endedAt: "2026-04-03T20:37:39.500Z",
+        status: "completed",
+        threadId: "thread-problem",
+        failureKind: null,
+        failureMessagePreview: null
+      });
+      await analytics.finalizeTurn({
+        runId,
+        turnId: secondTurnId,
+        endedAt: "2026-04-03T20:37:40.500Z",
+        status: "failed",
+        threadId: "thread-problem",
+        failureKind: "turn_failed",
+        failureMessagePreview: "Command failed"
+      });
+      await analytics.finalizeRun({
+        runId,
+        endedAt: "2026-04-03T20:37:41.000Z",
+        status: "failed",
+        threadId: "thread-problem",
+        failureKind: "rate_limit",
+        failureOrigin: "codex",
+        failureMessagePreview: "Rate limited while retrying"
+      });
+
+      await runJournal.finalizeTurn(firstTurnId, {
+        status: "completed",
+        endedAt: "2026-04-03T20:37:39.500Z",
+        codexThreadId: "thread-problem",
+        codexTurnId: "turn-problem-1"
+      });
+      await runJournal.finalizeTurn(secondTurnId, {
+        status: "failed",
+        endedAt: "2026-04-03T20:37:40.500Z",
+        codexThreadId: "thread-problem",
+        codexTurnId: "turn-problem-2"
+      });
+      await runJournal.finalizeRun(runId, {
+        status: "finished",
+        outcome: "rate_limit",
+        endedAt: "2026-04-03T20:37:41.000Z",
+        errorClass: "rate_limit",
+        errorMessage: "Rate limited while retrying"
+      });
+
+      const problemRuns = await readStore.listProblemRuns({
+        limit: 10
+      });
+      const allAgentMessages = await readStore.listAgentMessages({
+        runId
+      });
+      const firstTurnMessages = await readStore.listAgentMessages({
+        runId,
+        turnId: firstTurnId
+      });
+      const secondTurnMessages = await readStore.listAgentMessages({
+        runId,
+        turnId: secondTurnId
+      });
+      const secondTurnCommands = await readStore.listCommandExecutions({
+        runId,
+        turnId: secondTurnId
+      });
+      const runArtifacts = await readStore.fetchRunArtifacts(runId);
+
+      expect(problemRuns).toHaveLength(1);
+      expect(problemRuns[0]).toMatchObject({
+        runId,
+        issueIdentifier: "COL-158",
+        outcome: "rate_limit",
+        status: "finished"
+      });
+      expect(allAgentMessages).toHaveLength(1);
+      expect(firstTurnMessages).toHaveLength(1);
+      expect(secondTurnMessages).toHaveLength(0);
+      expect(secondTurnCommands).toHaveLength(1);
+      expect(secondTurnCommands[0]).toMatchObject({
+        itemId: "cmd-problem-1",
+        command: "pnpm lint",
+        status: "failed",
+        exitCode: 1
+      });
+      expect(runArtifacts?.run).toMatchObject({
+        runId,
+        status: "failed",
+        failureKind: "rate_limit",
+        failureOrigin: "codex",
+        failureMessagePreview: "Rate limited while retrying"
+      });
+      expect(runArtifacts?.turns.find((turn) => turn.turnId === secondTurnId)).toMatchObject({
+        turnId: secondTurnId,
+        status: "failed",
+        failureKind: "turn_failed",
+        failureMessagePreview: "Command failed"
+      });
     } finally {
       database.close();
     }

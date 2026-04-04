@@ -259,13 +259,18 @@ export async function createSymphonyRuntimeTestHarness(input: {
     turnId,
     endedAt: "2026-03-31T00:01:00.000Z",
     status: "completed",
-    threadId: "thread-123"
+    threadId: "thread-123",
+    failureKind: null,
+    failureMessagePreview: null
   });
   await codexAnalyticsStore.finalizeRun({
     runId,
     endedAt: "2026-03-31T00:01:00.000Z",
     status: "completed",
-    threadId: "thread-123"
+    threadId: "thread-123",
+    failureKind: null,
+    failureOrigin: null,
+    failureMessagePreview: null
   });
   await runStore.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
   await runStore.finalizeRun(runId, buildSymphonyRunFinishAttrs());
@@ -365,7 +370,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
       }
     },
     forensics: createSymphonyForensicsReadModel({
-      journal: codexAnalyticsReadStore,
+      runStore: codexAnalyticsReadStore,
       async listIssueTimeline(input) {
         return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
           limit: input.limit
