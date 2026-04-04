@@ -6,13 +6,6 @@ import {
   previewText,
   type ThreadEvent
 } from "@symphony/codex-analytics";
-import {
-  buildIssueSummary,
-  buildRunExport,
-  durationSeconds,
-  matchesRunFilters,
-  normalizeLimit
-} from "@symphony/run-journal/internal";
 import type {
   SymphonyEventRecord,
   SymphonyIssueRecord,
@@ -354,7 +347,7 @@ function buildRunSummaryFromCodex(
     eventCount,
     lastEventType: codexRun?.latestEventType ?? null,
     lastEventAt: codexRun?.latestEventAt ?? null,
-    durationSeconds: durationSeconds(run.startedAt, run.endedAt),
+    durationSeconds: computeDurationSeconds(run.startedAt, run.endedAt),
     errorClass: run.errorClass ?? null,
     errorMessage: run.errorMessage ?? null,
     inputTokens,
@@ -510,4 +503,145 @@ function compareNullableIso(left: string | null, right: string | null): number {
 
 function byteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
+}
+
+function normalizeLimit(limit: number | undefined, fallback = 50): number {
+  if (typeof limit !== "number" || !Number.isFinite(limit)) {
+    return fallback;
+  }
+
+  return Math.max(1, Math.floor(limit));
+}
+
+function computeDurationSeconds(
+  startedAt: string | null,
+  endedAt: string | null
+): number | null {
+  if (!startedAt) {
+    return null;
+  }
+
+  const startedMs = Date.parse(startedAt);
+  if (Number.isNaN(startedMs)) {
+    return null;
+  }
+
+  const endedMs = endedAt ? Date.parse(endedAt) : Date.now();
+  if (Number.isNaN(endedMs)) {
+    return null;
+  }
+
+  return Math.max(0, Math.floor((endedMs - startedMs) / 1_000));
+}
+
+function isCompletedOutcome(outcome: string | null): boolean {
+  return (
+    outcome === "completed" ||
+    outcome === "completed_turn_batch"
+  );
+}
+
+function isProblemOutcome(outcome: string | null): boolean {
+  return typeof outcome === "string" && !isCompletedOutcome(outcome);
+}
+
+function matchesRunFilters(
+  run: SymphonyRunRecord,
+  opts: SymphonyRunJournalRunsOptions
+): boolean {
+  if (opts.issueIdentifier && run.issueIdentifier !== opts.issueIdentifier) {
+    return false;
+  }
+
+  if (opts.outcome && run.outcome !== opts.outcome) {
+    return false;
+  }
+
+  if (opts.errorClass && run.errorClass !== opts.errorClass) {
+    return false;
+  }
+
+  if (opts.problemOnly && !isProblemOutcome(run.outcome)) {
+    return false;
+  }
+
+  const startedAtMs = Date.parse(run.startedAt);
+
+  if (opts.startedAfter) {
+    const startedAfterMs = Date.parse(opts.startedAfter);
+    if (!Number.isNaN(startedAtMs) && !Number.isNaN(startedAfterMs) && startedAtMs < startedAfterMs) {
+      return false;
+    }
+  }
+
+  if (opts.startedBefore) {
+    const startedBeforeMs = Date.parse(opts.startedBefore);
+    if (!Number.isNaN(startedAtMs) && !Number.isNaN(startedBeforeMs) && startedAtMs > startedBeforeMs) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function buildIssueSummary(
+  issue: SymphonyIssueRecord,
+  runs: SymphonyRunRecord[]
+): SymphonyIssueSummary {
+  const issueRuns = runs
+    .filter((run) => run.issueId === issue.issueId)
+    .sort((left, right) => compareDescendingTimestamps(left.startedAt, right.startedAt));
+  const latestRun = issueRuns[0];
+  const latestProblemRun = issueRuns.find((run) => isProblemOutcome(run.outcome));
+  const lastCompletedRun = issueRuns.find((run) => isCompletedOutcome(run.outcome));
+
+  return {
+    issueId: issue.issueId,
+    issueIdentifier: issue.issueIdentifier,
+    latestRunStartedAt: issue.latestRunStartedAt ?? null,
+    latestRunId: latestRun?.runId ?? null,
+    latestRunStatus: latestRun?.status ?? null,
+    latestRunOutcome: latestRun?.outcome ?? null,
+    runCount: issueRuns.length,
+    latestProblemOutcome: latestProblemRun?.outcome ?? null,
+    lastCompletedOutcome: lastCompletedRun?.outcome ?? null,
+    insertedAt: issue.insertedAt ?? null,
+    updatedAt: issue.updatedAt ?? null
+  };
+}
+
+function buildRunExport(
+  issue: SymphonyIssueSummary,
+  run: SymphonyRunRecord,
+  turns: SymphonyTurnRecord[],
+  events: SymphonyEventRecord[]
+): SymphonyRunExport {
+  const runTurns = turns
+    .filter((turn) => turn.runId === run.runId)
+    .sort((left, right) => left.turnSequence - right.turnSequence);
+
+  return {
+    issue,
+    run,
+    turns: runTurns.map((turn) => {
+      const turnEvents = events
+        .filter((event) => event.turnId === turn.turnId)
+        .sort((left, right) => left.eventSequence - right.eventSequence);
+
+      return {
+        ...turn,
+        eventCount: turnEvents.length,
+        events: turnEvents
+      };
+    })
+  };
+}
+
+function compareDescendingTimestamps(
+  left: string | null | undefined,
+  right: string | null | undefined
+): number {
+  const leftTime = left ? Date.parse(left) : Number.NEGATIVE_INFINITY;
+  const rightTime = right ? Date.parse(right) : Number.NEGATIVE_INFINITY;
+  return rightTime - leftTime;
 }
