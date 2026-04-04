@@ -5,6 +5,101 @@
       "source": "vercel/ai",
       "sourceType": "github",
       "computedHash": "81af098a4ce6f0e323c1bd02b8e79df3bbaed57cbf1c4060f58ddc95de5545a1"
+    },
+    "authoring-skills": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "675405535387e709487b0a107a898ec4e16fdebec160c6dee339fe38b62f1443"
+    },
+    "dce-edge": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "b206f20c17065f4c16711f93e2cfc0bb768fd5765194723867d64aca2b3f78c9"
+    },
+    "flags": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "120d6db8ce786706c0844ca1558aa4796c808230a5c40bcb5382df7aa1c5043f"
+    },
+    "next-best-practices": {
+      "source": "vercel-labs/next-skills",
+      "sourceType": "github",
+      "computedHash": "db85045827ebeb83ac8dbc992b69188755eeb74dcf01cbf5e694d58aa494a106"
+    },
+    "next-cache-components": {
+      "source": "vercel-labs/next-skills",
+      "sourceType": "github",
+      "computedHash": "f835d8226c28abf012cc013928e2627c8a7a046de61127ef229be1711bd1f255"
+    },
+    "next-upgrade": {
+      "source": "vercel-labs/next-skills",
+      "sourceType": "github",
+      "computedHash": "e3aeb1f9e8a68d24df0c1c2e3c8ab97ede09a7251a2c76988318d02254346979"
+    },
+    "pr-status-triage": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "3202b52d66ade79b60dc637e3b2854c696e6397138d2cdfed9fee9703e38dbce"
+    },
+    "react-vendoring": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "2ed7b7d5b9d5291cff49f048f66cc845349bf3666eab57676283429cd7fddfb6"
+    },
+    "router-act": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "1d77280adc004cbb78169ee76bd92e74c440039062a322d2d337edf08c2530cf"
+    },
+    "runtime-debug": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "5b586e8253016599b85e96707fb84155b2909414ad554f4421b03111e744a124"
+    },
+    "turborepo": {
+      "source": "vercel/turborepo",
+      "sourceType": "github",
+      "computedHash": "524646a320fcbe220b1b18019403a036eceee66c4447b33103348dc3533283b9"
+    },
+    "update-docs": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "034e91004b30db6f2f432cecbc1fe09e8293a7baeaa2238eed25740bd3afb895"
+    },
+    "v8-jit": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "43bf16e47f484d26b667a3bf6d6d2e3869833df426db850089e2aafd2cab448e"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "575757e3e25761c8c562d6e395d29f0b76c98b1273c0bd72d88e6ab1bc9c7d42"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "43ca6c197f8ec13055079da7053232d477068b03ca443f9ac1bc819b95cdd432"
+    },
+    "vercel-react-view-transitions": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "c8952fc9127fa0564d0cb71dccb4215a5608ac933b5831104f09173a97a46f85"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "f3bc47f890f42a44db1007ab390709ec368e4b8c089baee6b0007182236ac474"
+    },
+    "write-api-reference": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "71ef0ce66be41d19902987bf9a259c081af4f52a7a8d93dde1a23c3bb07c5a4a"
+    },
+    "write-guide": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "1289e9fcff63d2f7342e50936809b2491446927b6ca403d98be414e522df6781"
     }
   }
 }
