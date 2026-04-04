@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildIssueDetailViewModel,
   buildIssueIndexViewModel
-} from "./forensics-view-model.js";
+} from "@/features/issues/model/issue-view-model";
 
 describe("forensics view model", () => {
   it("formats the issue index summary", () => {

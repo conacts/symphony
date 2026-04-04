@@ -5,7 +5,7 @@ import {
   buildSymphonyDashboardConnectionState,
   buildSymphonyForensicsIssueDetailResult
 } from "../test-support/build-symphony-dashboard-view-fixtures.js";
-import { IssueDetailView } from "./issue-detail-view.js";
+import { IssueDetailView } from "@/features/issues/components/issue-detail-view";
 
 describe("issue detail view", () => {
   it("renders the issue run history drilldown", () => {

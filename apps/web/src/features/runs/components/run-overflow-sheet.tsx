@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { RunTranscriptCopy } from "@/components/run-transcript-copy";
+import { RunTranscriptCopy } from "@/features/runs/components/run-transcript-copy";
 import {
   Sheet,
   SheetContent,

@@ -5,7 +5,7 @@ import {
   buildSymphonyDashboardConnectionState,
   buildSymphonyForensicsIssueForensicsBundleResult
 } from "../test-support/build-symphony-dashboard-view-fixtures.js";
-import { IssueActivityView } from "./issue-activity-view.js";
+import { IssueActivityView } from "@/features/issues/components/issue-activity-view";
 
 describe("issue activity view", () => {
   it("renders the unified issue activity stream", () => {

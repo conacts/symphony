@@ -11,7 +11,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { RuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
+import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import type { SymphonyForensicsIssueForensicsBundleResult } from "@symphony/contracts";
 import { IssueActivityFeed } from "@/features/issues/components/issue-activity-feed";
 import { buildIssueActivityViewModel } from "@/features/issues/model/issue-view-model";

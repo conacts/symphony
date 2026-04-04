@@ -5,7 +5,7 @@ import {
   Message,
   MessageContent
 } from "@/components/ai-elements/message";
-import { RunTranscriptCopy } from "@/components/run-transcript-copy";
+import { RunTranscriptCopy } from "@/features/runs/components/run-transcript-copy";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import type {
   CodexRunTranscriptEntry,
   CodexRunTranscriptTurn
-} from "@/core/codex-run-view-model";
+} from "@/features/runs/model/codex-run-view-model";
 
 export function RunTranscriptTurn(input: {
   turn: CodexRunTranscriptTurn;

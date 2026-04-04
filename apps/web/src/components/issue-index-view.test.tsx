@@ -5,7 +5,7 @@ import {
   buildSymphonyDashboardConnectionState,
   buildSymphonyForensicsIssueListResult
 } from "../test-support/build-symphony-dashboard-view-fixtures.js";
-import { IssueIndexView } from "./issue-index-view.js";
+import { IssueIndexView } from "@/features/issues/components/issue-index-view";
 
 describe("issue index view", () => {
   it("renders the issue drilldown table", () => {

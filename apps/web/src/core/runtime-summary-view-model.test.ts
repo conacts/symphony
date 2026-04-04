@@ -4,7 +4,7 @@ import {
   buildRuntimeSummaryConnectionState,
   buildRuntimeSummaryViewModel,
   formatRuntimeSeconds
-} from "./runtime-summary-view-model.js";
+} from "@/features/overview/model/overview-view-model";
 
 describe("runtime summary view model", () => {
   it("formats the operator-facing runtime metrics and rows", () => {

@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import type { RuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
+import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import type {
   SymphonyForensicsIssueListResult,
   SymphonyForensicsIssuesQuery

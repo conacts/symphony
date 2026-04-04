@@ -10,9 +10,9 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { fetchCodexOverflow } from "@/core/codex-analytics-client";
-import { RunDebugPanel } from "@/components/run-debug-panel";
-import { RunOverflowSheet } from "@/components/run-overflow-sheet";
-import { RunTranscriptTurn } from "@/components/run-transcript-turn";
+import { RunDebugPanel } from "@/features/runs/components/run-debug-panel";
+import { RunOverflowSheet } from "@/features/runs/components/run-overflow-sheet";
+import { RunTranscriptTurn } from "@/features/runs/components/run-transcript-turn";
 import {
   buildCodexRunViewModel,
   formatOverflowContent,

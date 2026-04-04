@@ -1,7 +1,7 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { IssueRequeuePanel } from "./issue-requeue-panel.js";
+import { IssueRequeuePanel } from "@/features/issues/components/issue-requeue-panel";
 import { buildSymphonyRuntimeIssueResult } from "../test-support/build-symphony-runtime-operator.js";
 
 describe("issue requeue panel", () => {
@@ -15,7 +15,7 @@ describe("issue requeue panel", () => {
       />
     );
 
-    expect(html).toContain("Preserve refresh and requeue parity");
+    expect(html).toContain("COL-167");
     expect(html).toContain("Linear");
     expect(html).toContain("GitHub");
   });
