@@ -120,20 +120,14 @@ export function IssueDetailView(input: {
                   </TableHeader>
                   <TableBody>
                     {viewModel.rows.map((row) => (
-                      <TableRow
-                        key={row.runId}
-                        tabIndex={0}
-                        className="cursor-pointer"
-                        onClick={() => window.location.assign(row.runHref)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            window.location.assign(row.runHref);
-                          }
-                        }}
-                      >
+                      <TableRow key={row.runId}>
                         <TableCell className="font-medium">
-                          {row.runId.slice(0, 8)}
+                          <Link
+                            href={row.runHref}
+                            className="underline-offset-4 hover:underline focus-visible:underline"
+                          >
+                            {row.runId.slice(0, 8)}
+                          </Link>
                         </TableCell>
                         <TableCell>{row.startedAt}</TableCell>
                         <TableCell>{row.durationSeconds}</TableCell>

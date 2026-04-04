@@ -1,21 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
-import { useRuntimeSummary } from "@/hooks/use-runtime-summary";
 import { OverviewView } from "@/features/overview/components/overview-view";
 import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
-import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
+import { useControlPlaneRuntime } from "@/features/shared/components/control-plane-runtime-context";
 import {
   buildRuntimeSummaryConnectionState,
   buildRuntimeSummaryViewModel
 } from "@/features/overview/model/overview-view-model";
 
 export function OverviewLiveScreen() {
-  const model = useControlPlaneModel();
-  const runtimeSummaryState = useRuntimeSummary({
-    stateUrl: model.runtimeSurface.stateUrl,
-    websocketUrl: model.websocketUrl
-  });
+  const runtimeSummaryState = useControlPlaneRuntime();
 
   const connection = buildRuntimeSummaryConnectionState({
     status: runtimeSummaryState.status,

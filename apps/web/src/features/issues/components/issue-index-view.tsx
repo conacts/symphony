@@ -60,7 +60,6 @@ export function IssueIndexView(input: {
   loading: boolean;
   onQueryChange: (query: SymphonyForensicsIssuesQuery) => void;
   query: SymphonyForensicsIssuesQuery;
-  runtimeBaseUrl: string;
 }) {
   const viewModel = input.issueIndex
     ? buildIssueIndexViewModel(input.issueIndex)
@@ -74,28 +73,11 @@ export function IssueIndexView(input: {
   }
 
   function updateTimeRange(value: "all" | "24h" | "7d" | "30d") {
-    const now = Date.now();
-    const lookbackMs =
-      value === "24h"
-        ? 24 * 60 * 60 * 1000
-        : value === "7d"
-          ? 7 * 24 * 60 * 60 * 1000
-          : value === "30d"
-            ? 30 * 24 * 60 * 60 * 1000
-            : null;
-
     updateQuery({
       timeRange: value,
-      startedAfter:
-        lookbackMs === null
-          ? undefined
-          : new Date(now - lookbackMs).toISOString(),
+      startedAfter: undefined,
       startedBefore: undefined
     });
-  }
-
-  function navigateToIssue(href: string) {
-    window.location.assign(href);
   }
 
   return (
@@ -255,21 +237,15 @@ export function IssueIndexView(input: {
                   </TableHeader>
                   <TableBody>
                     {viewModel.rows.map((row) => (
-                      <TableRow
-                        key={row.issueIdentifier}
-                        tabIndex={0}
-                        className="cursor-pointer"
-                        onClick={() => navigateToIssue(row.issueHref)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            navigateToIssue(row.issueHref);
-                          }
-                        }}
-                      >
+                      <TableRow key={row.issueIdentifier}>
                         <TableCell className="font-medium">
                           <div className="flex flex-col gap-1">
-                            <span>{row.issueIdentifier}</span>
+                            <Link
+                              href={row.issueHref}
+                              className="w-fit underline-offset-4 hover:underline focus-visible:underline"
+                            >
+                              {row.issueIdentifier}
+                            </Link>
                             <span className="text-xs text-muted-foreground">
                               {row.flags.length > 0
                                 ? row.flags.join(" · ")

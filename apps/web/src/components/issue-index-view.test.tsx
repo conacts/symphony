@@ -21,7 +21,6 @@ describe("issue index view", () => {
           sortBy: "lastActive",
           sortDirection: "desc"
         }}
-        runtimeBaseUrl="http://localhost:4100"
       />
     );
 
@@ -34,5 +33,6 @@ describe("issue index view", () => {
     expect(html).toContain("Issue inventory");
     expect(html).toContain("Reached max turns before completion.");
     expect(html).toContain("Total issues");
+    expect(html).toContain('href="/issues/COL-165"');
   });
 });
