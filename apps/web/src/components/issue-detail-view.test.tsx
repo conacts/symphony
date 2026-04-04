@@ -22,6 +22,7 @@ describe("issue detail view", () => {
     expect(html).toContain("Issue runs");
     expect(html).toContain("Run outcomes");
     expect(html).toContain("Recent run token load");
+    expect(html).toContain("Recent failure signals");
     expect(html).toContain("Run history");
     expect(html).toContain("Issue activity");
     expect(html).toContain("/issues/COL-165/timeline");

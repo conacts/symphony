@@ -1,4 +1,6 @@
 import React from "react";
+import Link from "next/link";
+import type { FailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
@@ -26,6 +28,8 @@ import { OverviewTokenChart } from "@/features/overview/components/overview-toke
 export function OverviewView(input: {
   connection: RuntimeSummaryConnectionState;
   error: string | null;
+  failureAnalysis: FailureAnalysisViewModel | null;
+  failureAnalysisError: string | null;
   loading: boolean;
   runtimeSummary: RuntimeSummaryViewModel | null;
 }) {
@@ -48,6 +52,13 @@ export function OverviewView(input: {
         <Alert variant="destructive">
           <AlertTitle>Runtime summary degraded</AlertTitle>
           <AlertDescription>{input.error}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {input.failureAnalysisError ? (
+        <Alert variant="destructive">
+          <AlertTitle>Failure analysis degraded</AlertTitle>
+          <AlertDescription>{input.failureAnalysisError}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -164,6 +175,121 @@ export function OverviewView(input: {
               </Card>
             ))}
           </section>
+
+          {input.failureAnalysis ? (
+            <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Failure analysis</CardTitle>
+                  <CardDescription>
+                    Cross-run failure patterns worth operator attention right now.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-border/70 p-4">
+                    <p className="text-sm text-muted-foreground">Dominant mode</p>
+                    <p className="mt-2 break-all text-xl font-semibold">
+                      {input.failureAnalysis.spotlight.dominantFailureMode}
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {input.failureAnalysis.spotlight.dominantFailureModeDetail}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 p-4">
+                    <p className="text-sm text-muted-foreground">Dominant error class</p>
+                    <p className="mt-2 break-all text-xl font-semibold">
+                      {input.failureAnalysis.spotlight.dominantErrorClass}
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {input.failureAnalysis.spotlight.dominantErrorClassDetail}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 p-4">
+                    <p className="text-sm text-muted-foreground">Issues with failures</p>
+                    <p className="mt-2 text-xl font-semibold">
+                      {input.failureAnalysis.summaryCards[0]?.value ?? "0"}
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {input.failureAnalysis.summaryCards[0]?.detail ?? "Failure coverage unavailable."}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 p-4">
+                    <p className="text-sm text-muted-foreground">Problem run share</p>
+                    <p className="mt-2 text-xl font-semibold">
+                      {input.failureAnalysis.summaryCards[1]?.value ?? "0%"}
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {input.failureAnalysis.summaryCards[1]?.detail ?? "Problem rate unavailable."}
+                    </p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Link
+                      href="/analysis/failures"
+                      className="text-sm font-medium text-foreground underline underline-offset-4"
+                    >
+                      Open failure analysis
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/70">
+                <CardHeader>
+                  <CardTitle>Top failure modes</CardTitle>
+                  <CardDescription>
+                    What is currently dominating failed work across issues.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  {input.failureAnalysis.failureModeRows.slice(0, 4).map((row) => (
+                    <div
+                      key={row.outcome}
+                      className="rounded-xl border border-border/70 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium">{row.outcome}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {row.issueCount} issues
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/70">
+                <CardHeader>
+                  <CardTitle>Hotspot issues</CardTitle>
+                  <CardDescription>
+                    Issues carrying the heaviest current failure pressure.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  {input.failureAnalysis.hotspotRows.slice(0, 3).map((row) => (
+                    <div
+                      key={row.issueIdentifier}
+                      className="rounded-xl border border-border/70 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <Link
+                          href={row.issueHref}
+                          className="font-medium underline-offset-4 hover:underline focus-visible:underline"
+                        >
+                          {row.issueIdentifier}
+                        </Link>
+                        <p className="text-sm text-muted-foreground">
+                          {row.problemRuns} problem runs
+                        </p>
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {row.latestProblemOutcome} · {row.latestErrorClass}
+                      </p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </section>
+          ) : null}
 
           <section className="grid gap-6 xl:grid-cols-2">
             <OverviewTokenChart rows={input.runtimeSummary.tokenChartRows} />

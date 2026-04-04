@@ -1,10 +1,12 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { buildFailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
 import { buildRuntimeSummaryViewModel } from "@/features/overview/model/overview-view-model";
 import { OverviewView } from "@/features/overview/components/overview-view";
 import {
   buildSymphonyDashboardConnectionState,
+  buildSymphonyForensicsIssueListResult,
   buildSymphonyRuntimeStateResult
 } from "../test-support/build-symphony-dashboard-view-fixtures.js";
 
@@ -18,6 +20,8 @@ describe("runtime summary view", () => {
           detail: "Fetching the first runtime summary snapshot."
         })}
         error={null}
+        failureAnalysis={null}
+        failureAnalysisError={null}
         loading
         runtimeSummary={null}
       />
@@ -31,6 +35,10 @@ describe("runtime summary view", () => {
       <OverviewView
         connection={buildSymphonyDashboardConnectionState()}
         error={null}
+        failureAnalysis={buildFailureAnalysisViewModel(
+          buildSymphonyForensicsIssueListResult()
+        )}
+        failureAnalysisError={null}
         loading={false}
         runtimeSummary={buildRuntimeSummaryViewModel(
           buildSymphonyRuntimeStateResult(),
@@ -44,6 +52,8 @@ describe("runtime summary view", () => {
     expect(html).toContain("Retry attempt queue");
     expect(html).toContain("Retry pressure");
     expect(html).toContain("Provider headroom");
+    expect(html).toContain("Failure analysis");
+    expect(html).toContain("Open failure analysis");
     expect(html).toContain("Active runs");
     expect(html).toContain("COL-165");
     expect(html).toContain("Worker disconnected");

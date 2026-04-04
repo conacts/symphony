@@ -144,6 +144,8 @@ describe("forensics view model", () => {
       inputTokens: 120,
       outputTokens: 80
     });
+    expect(issueDetail.failureCards[0]?.value).toBe("0");
+    expect(issueDetail.recentFailureRows).toEqual([]);
     expect(issueDetail.rows[0]?.runHref).toBe("/runs/run_123");
     expect(issueDetail.rows[0]?.durationSeconds).toBe("2:00");
     expect(issueDetail.rows[0]?.totalTokens).toBe("200");
@@ -232,5 +234,10 @@ describe("forensics view model", () => {
         outputTokens: 17501
       }
     ]);
+    expect(issueDetail.failureCards[0]?.value).toBe("2");
+    expect(issueDetail.failureCards[1]?.value).toBe("run_stopped_inactive");
+    expect(issueDetail.recentFailureRows[0]?.runHref).toBe(
+      "/runs/564d183f-24ed-4c4f-be2e-06b15d2782b0"
+    );
   });
 });

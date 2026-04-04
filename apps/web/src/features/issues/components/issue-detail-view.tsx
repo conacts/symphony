@@ -62,7 +62,7 @@ export function IssueDetailView(input: {
               <Card key={metric.label}>
                 <CardHeader>
                   <CardDescription>{metric.label}</CardDescription>
-                  <CardTitle className="text-3xl">{metric.value}</CardTitle>
+                  <CardTitle className="break-all text-3xl">{metric.value}</CardTitle>
                   {metric.detail ? (
                     <CardDescription>{metric.detail}</CardDescription>
                   ) : null}
@@ -74,6 +74,57 @@ export function IssueDetailView(input: {
           <section className="grid gap-6 xl:grid-cols-2">
             <IssueRunOutcomeChart rows={viewModel.outcomeChartRows} />
             <IssueRunTokenChart rows={viewModel.tokenChartRows} />
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+            <section className="grid gap-4 md:grid-cols-3">
+              {viewModel.failureCards.map((card) => (
+                <Card key={card.label}>
+                  <CardHeader>
+                    <CardDescription>{card.label}</CardDescription>
+                    <CardTitle className="break-all text-2xl">{card.value}</CardTitle>
+                    <CardDescription>{card.detail}</CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
+            </section>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent failure signals</CardTitle>
+                <CardDescription>
+                  The local failure pattern for this issue before you drill into a specific run transcript.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                {viewModel.recentFailureRows.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No non-success runs have been recorded for this issue.
+                  </p>
+                ) : (
+                  viewModel.recentFailureRows.map((row) => (
+                    <div
+                      key={row.runId}
+                      className="rounded-xl border border-border/70 p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <Link
+                          href={row.runHref}
+                          className="font-medium underline-offset-4 hover:underline focus-visible:underline"
+                        >
+                          {row.outcome}
+                        </Link>
+                        <p className="text-sm text-muted-foreground">{row.startedAt}</p>
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {row.errorClass}
+                      </p>
+                      <p className="mt-2 text-sm">{row.message}</p>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
           </section>
 
           <Card>

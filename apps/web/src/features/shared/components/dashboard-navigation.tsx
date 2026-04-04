@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ActivityIcon,
+  ChartColumnIncreasingIcon,
   FolderKanbanIcon,
   LayoutDashboardIcon
 } from "lucide-react";
@@ -23,6 +24,7 @@ import type {
 
 const navigationIcons = {
   Overview: LayoutDashboardIcon,
+  "Failure analysis": ChartColumnIncreasingIcon,
   Issues: FolderKanbanIcon,
   "Runtime health": ActivityIcon
 } as const;

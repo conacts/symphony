@@ -152,11 +152,35 @@ export function buildIssueDetailViewModel(
 ) {
   const outcomeCounts = new Map<string, number>();
   const recentRuns = [...input.runs].slice(0, 8).reverse();
+  const problemRuns = input.runs.filter(
+    (run) => run.outcome !== null && run.outcome !== "completed"
+  );
+  const problemOutcomeCounts = new Map<string, number>();
+  const errorClassCounts = new Map<string, number>();
+  const latestFailure = problemRuns[0] ?? null;
 
   for (const run of input.runs) {
     const outcome = run.outcome ?? "unknown";
     outcomeCounts.set(outcome, (outcomeCounts.get(outcome) ?? 0) + 1);
   }
+
+  for (const run of problemRuns) {
+    if (run.outcome) {
+      problemOutcomeCounts.set(
+        run.outcome,
+        (problemOutcomeCounts.get(run.outcome) ?? 0) + 1
+      );
+    }
+
+    if (run.errorClass) {
+      errorClassCounts.set(
+        run.errorClass,
+        (errorClassCounts.get(run.errorClass) ?? 0) + 1
+      );
+    }
+  }
+
+  const dominantProblemOutcome = sortCounts(problemOutcomeCounts)[0];
 
   return {
     metrics: [
@@ -181,10 +205,39 @@ export function buildIssueDetailViewModel(
       count
     })),
     tokenChartRows: recentRuns.map((run, index) => ({
-        runLabel: buildIssueRunLabel(run.attempt, run.runId, index, recentRuns.length),
-        inputTokens: run.inputTokens,
-        outputTokens: run.outputTokens
-      })),
+      runLabel: buildIssueRunLabel(run.attempt, run.runId, index, recentRuns.length),
+      inputTokens: run.inputTokens,
+      outputTokens: run.outputTokens
+    })),
+    failureCards: [
+      {
+        label: "Problem runs",
+        value: formatCount(problemRuns.length),
+        detail: "Non-success outcomes in this issue history."
+      },
+      {
+        label: "Dominant failure",
+        value: dominantProblemOutcome?.[0] ?? "n/a",
+        detail: dominantProblemOutcome
+          ? `${formatCount(dominantProblemOutcome[1])} runs currently cluster here.`
+          : "No failure mode is currently dominant."
+      },
+      {
+        label: "Latest error class",
+        value: latestFailure?.errorClass ?? "n/a",
+        detail:
+          latestFailure?.errorMessage ??
+          "No recent failure message has been recorded."
+      }
+    ],
+    recentFailureRows: problemRuns.slice(0, 3).map((run) => ({
+      runId: run.runId,
+      runHref: `/runs/${run.runId}`,
+      outcome: run.outcome ?? "n/a",
+      errorClass: run.errorClass ?? "n/a",
+      startedAt: formatTimestamp(run.startedAt),
+      message: run.errorMessage ?? "No error message recorded."
+    })),
     rows: input.runs.map((run) => ({
       runId: run.runId,
       runHref: `/runs/${run.runId}`,
@@ -211,6 +264,16 @@ function buildIssueRunLabel(
 
   const ordinal = totalRuns - index;
   return `Run ${ordinal} · ${runId.slice(0, 6)}`;
+}
+
+function sortCounts(counts: Map<string, number>) {
+  return Array.from(counts.entries()).sort((left, right) => {
+    if (right[1] !== left[1]) {
+      return right[1] - left[1];
+    }
+
+    return left[0].localeCompare(right[0]);
+  });
 }
 
 export function buildIssueActivityViewModel(
