@@ -6,6 +6,11 @@ import {
   MessageContent,
   MessageResponse
 } from "@/components/ai-elements/message";
+import {
+  Tool,
+  ToolContent,
+  ToolHeader
+} from "@/components/ai-elements/tool";
 import { RunTranscriptCopy } from "@/features/runs/components/run-transcript-copy";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -114,17 +119,19 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "command" ? (
-            <Card className="border-border/70">
-              <CardHeader className="pb-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle className="text-sm font-medium">Command</CardTitle>
+            <Tool className="border-border/70 bg-card">
+              <ToolHeader
+                type="dynamic-tool"
+                toolName="command"
+                title="Command"
+                state={mapCommandToolState(entry.status)}
+                className="items-start"
+              />
+              <ToolContent className="pt-0">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <Badge variant="outline">{entry.status}</Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {entry.recordedAt}
-                  </span>
+                  <span>{entry.recordedAt}</span>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
                 <pre className="overflow-x-auto rounded-md border border-border/70 bg-muted/40 p-3 text-xs">
                   <code>{entry.command}</code>
                 </pre>
@@ -143,8 +150,8 @@ export function RunTranscriptTurn(input: {
                     View full command output
                   </Button>
                 ) : null}
-              </CardContent>
-            </Card>
+              </ToolContent>
+            </Tool>
           ) : null}
 
           {entry.kind === "tool-call" ? (
@@ -222,6 +229,19 @@ export function RunTranscriptTurn(input: {
       <Separator />
     </section>
   );
+}
+
+function mapCommandToolState(status: string) {
+  switch (status) {
+    case "completed":
+      return "output-available";
+    case "failed":
+      return "output-error";
+    case "in_progress":
+      return "input-available";
+    default:
+      return "input-streaming";
+  }
 }
 
 function EntryFiles(input: {
