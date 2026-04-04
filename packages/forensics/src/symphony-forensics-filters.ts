@@ -12,6 +12,7 @@ export function normalizeDependencies(
 ): SymphonyForensicsReadModelDependencies {
   if ("journal" in input) {
     return {
+      fetchRunDetail: undefined,
       listIssueTimeline: async () => [],
       listRuntimeLogs: async () => [],
       ...input
@@ -20,6 +21,7 @@ export function normalizeDependencies(
 
   return {
     journal: input,
+    fetchRunDetail: undefined,
     listIssueTimeline: async () => [],
     listRuntimeLogs: async () => []
   };

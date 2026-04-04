@@ -12,6 +12,7 @@ import {
   createMemorySymphonyTracker
 } from "@symphony/tracker";
 import {
+  createSqliteCodexAnalyticsReadStore,
   createSqliteCodexAnalyticsStore,
   createSymphonyGitHubIngressJournal,
   createSymphonyIssueTimelineStore,
@@ -112,8 +113,14 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const codexAnalytics = createSqliteCodexAnalyticsStore({
     db: database.db
   });
+  const codexAnalyticsReadStore = createSqliteCodexAnalyticsReadStore({
+    db: database.db
+  });
   const forensics = createSymphonyForensicsReadModel({
     journal: runJournal,
+    fetchRunDetail(runId) {
+      return codexAnalyticsReadStore.fetchRunExport(runId);
+    },
     async listIssueTimeline(input) {
       return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
         limit: input.limit

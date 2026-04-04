@@ -12,6 +12,12 @@ export {
   createSqliteCodexAnalyticsStore
 } from "./codex-analytics-store.js";
 export {
+  createSqliteCodexAnalyticsReadStore
+} from "./codex-analytics-read-store.js";
+export type {
+  CodexAnalyticsReadStore
+} from "./codex-analytics-read-store.js";
+export {
   createSymphonyIssueTimelineStore
 } from "./issue-timeline.js";
 export type {

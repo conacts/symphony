@@ -205,6 +205,7 @@ export type SymphonyForensicsIssueForensicsBundleQuery =
 
 export type SymphonyForensicsReadModelDependencies = {
   journal: SymphonyRunJournal;
+  fetchRunDetail?: (runId: string) => Promise<SymphonyRunExport | null>;
   listIssueTimeline?: (input: {
     issueIdentifier: string;
     limit?: number;
@@ -378,7 +379,10 @@ export function createSymphonyForensicsReadModel(
     },
 
     async runDetail(runId) {
-      return deps.journal.fetchRunExport(runId);
+      const codexExport = deps.fetchRunDetail
+        ? await deps.fetchRunDetail(runId)
+        : null;
+      return codexExport ?? deps.journal.fetchRunExport(runId);
     },
 
     async problemRuns(opts = {}) {

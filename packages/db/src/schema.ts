@@ -12,6 +12,19 @@ import {
   codexTurnsTable
 } from "@symphony/codex-analytics";
 
+export {
+  codexAgentMessagesTable,
+  codexCommandExecutionsTable,
+  codexEventLogTable,
+  codexFileChangesTable,
+  codexItemsTable,
+  codexPayloadOverflowTable,
+  codexReasoningTable,
+  codexRunsTable,
+  codexToolCallsTable,
+  codexTurnsTable
+};
+
 export const symphonyIssuesTable = sqliteTable(
   "symphony_issues",
   {

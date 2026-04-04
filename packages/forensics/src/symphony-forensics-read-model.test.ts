@@ -85,6 +85,35 @@ describe("symphony forensics read model", () => {
     expect(await readModel.runDetail("run-missing")).toBeNull();
   });
 
+  it("prefers an injected Codex-backed run export before falling back to the journal", async () => {
+    const journal = await createJournal();
+    const runId = await journal.recordRunStarted(
+      buildSymphonyRunStartAttrs({
+        runId: "run-codex",
+        issueId: "issue-1",
+        issueIdentifier: "COL-157"
+      })
+    );
+    const turnId = await journal.recordTurnStarted(
+      runId,
+      buildSymphonyTurnStartAttrs({
+        turnId: "turn-codex"
+      })
+    );
+    await journal.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
+    await journal.finalizeRun(runId, buildSymphonyRunFinishAttrs());
+
+    const expected = await journal.fetchRunExport(runId);
+    const readModel = createSymphonyForensicsReadModel({
+      journal,
+      async fetchRunDetail(requestedRunId) {
+        return requestedRunId === runId && expected ? expected : null;
+      }
+    });
+
+    expect(await readModel.runDetail(runId)).toEqual(expected);
+  });
+
   it("fails fast when a run exists without a matching issue summary", async () => {
     const readModel = createSymphonyForensicsReadModel({
       journal: createIncompleteJournal()

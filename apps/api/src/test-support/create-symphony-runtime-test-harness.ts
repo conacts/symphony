@@ -22,6 +22,7 @@ import {
   buildSymphonyTurnStartAttrs
 } from "@symphony/test-support";
 import {
+  createSqliteCodexAnalyticsReadStore,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
   createSqliteSymphonyRunJournal,
@@ -188,6 +189,9 @@ export async function createSymphonyRuntimeTestHarness(input: {
     dbFile: path.join(root, "symphony.db"),
     timelineStore: issueTimelineStore
   });
+  const codexAnalyticsReadStore = createSqliteCodexAnalyticsReadStore({
+    db: database.db
+  });
 
   const runId = await runJournal.recordRunStarted(
     buildSymphonyRunStartAttrs({
@@ -308,6 +312,9 @@ export async function createSymphonyRuntimeTestHarness(input: {
     },
     forensics: createSymphonyForensicsReadModel({
       journal: runJournal,
+      fetchRunDetail(runId) {
+        return codexAnalyticsReadStore.fetchRunExport(runId);
+      },
       async listIssueTimeline(input) {
         return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
           limit: input.limit
