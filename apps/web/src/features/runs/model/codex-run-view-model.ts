@@ -82,6 +82,14 @@ export type CodexRunTranscriptEntry =
       files: CodexRunFileChip[];
     }
   | {
+      kind: "todo-list";
+      itemId: string;
+      recordedAt: string;
+      markdown: string;
+      overflowId: string | null;
+      files: CodexRunFileChip[];
+    }
+  | {
       kind: "generic";
       itemId: string;
       recordedAt: string;
@@ -646,6 +654,19 @@ function mapTranscriptEntry(input: {
     };
   }
 
+  if (input.item.itemType === "todo_list") {
+    return {
+      kind: "todo-list",
+      itemId: input.item.itemId,
+      recordedAt,
+      markdown: formatTodoListMarkdown(
+        input.item.latestPreview ?? "No todo items were captured."
+      ),
+      overflowId: input.item.latestOverflowId,
+      files
+    };
+  }
+
   return {
     kind: "generic",
     itemId: input.item.itemId,
@@ -691,6 +712,32 @@ function formatNullableDuration(durationMs: number | null): string {
 
 function formatRepoSnapshot(value: unknown): string {
   return JSON.stringify(value ?? null, null, 2);
+}
+
+function formatTodoListMarkdown(value: string): string {
+  const items = value
+    .split(/\s*;\s*/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (items.length === 0) {
+    return value;
+  }
+
+  return items
+    .map((item) => {
+      const normalized = item
+        .replace(/^\[(x|X)\]/, "[x]")
+        .replace(/^\[\s\]/, "[ ]")
+        .trim();
+
+      if (/^\[(?:x| )\]\s+/i.test(normalized)) {
+        return normalized;
+      }
+
+      return `- ${normalized}`;
+    })
+    .join("\n");
 }
 
 function compareAscending(left: string, right: string): number {

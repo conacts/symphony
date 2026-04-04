@@ -176,6 +176,30 @@ export function RunTranscriptTurn(input: {
             </Card>
           ) : null}
 
+          {entry.kind === "todo-list" ? (
+            <Message from="assistant">
+              <MessageContent className="gap-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Todo list</span>
+                  <span>{entry.recordedAt}</span>
+                </div>
+                <MessageResponse>{entry.markdown}</MessageResponse>
+                <EntryFiles files={entry.files} />
+                {entry.overflowId ? (
+                  <div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => input.onOpenOverflow(entry)}
+                    >
+                      View full todo list
+                    </Button>
+                  </div>
+                ) : null}
+              </MessageContent>
+            </Message>
+          ) : null}
+
           {entry.kind === "generic" ? (
             <Card className="border-border/70">
               <CardHeader className="pb-3">

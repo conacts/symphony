@@ -432,6 +432,8 @@ function buildOverflowTitle(entry: CodexRunTranscriptEntry): string {
       return "Command output";
     case "tool-call":
       return "Tool result";
+    case "todo-list":
+      return "Todo list";
     case "generic":
       return entry.itemType;
   }
