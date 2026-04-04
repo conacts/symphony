@@ -19,6 +19,8 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnalysisPageHeader } from "@/features/analysis/components/analysis-page-header";
+import { AnalysisSpotlightItem } from "@/features/analysis/components/analysis-spotlight-item";
 import { PerformanceCommandFamilyChart } from "@/features/analysis/components/performance-command-family-chart";
 import { PerformanceLatencyBreakdownChart } from "@/features/analysis/components/performance-latency-breakdown-chart";
 import { PerformanceToolChart } from "@/features/analysis/components/performance-tool-chart";
@@ -43,14 +45,22 @@ export function PerformanceAnalysisView(input: {
 
       {input.performanceAnalysis ? (
         <>
-          <div className="space-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight">Performance analysis</h1>
-            <p className="text-sm text-muted-foreground">
-              Cross-run command and tool performance patterns for deciding where orchestration improvements will reduce latency and flake.
-            </p>
-          </div>
+          <AnalysisPageHeader
+            eyebrow="Cross-run trends"
+            title="Performance analysis"
+            description="Cross-run command and tool performance patterns for deciding where orchestration improvements will reduce latency and flake."
+            focus="Use this page to see which execution paths are slow, flaky, or shaping the latency profile of the current run sample."
+          />
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Execution pressure</h2>
+              <p className="text-sm text-muted-foreground">
+                Broad command and tool activity before you drill into the specific hotspots.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {input.performanceAnalysis.summaryCards.map((card) => (
               <Card key={card.label}>
                 <CardHeader className="space-y-1 pb-2">
@@ -62,9 +72,18 @@ export function PerformanceAnalysisView(input: {
                 </CardContent>
               </Card>
             ))}
+            </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Latency profile</h2>
+              <p className="text-sm text-muted-foreground">
+                The current wall-clock shape of turns, commands, and tool calls across the sampled runs.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {input.performanceAnalysis.latencyCards.map((card) => (
               <Card key={card.label}>
                 <CardHeader className="space-y-1 pb-2">
@@ -76,62 +95,52 @@ export function PerformanceAnalysisView(input: {
                 </CardContent>
               </Card>
             ))}
+            </div>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Spotlight and hotspots</h2>
+              <p className="text-sm text-muted-foreground">
+                The single most actionable execution signals, followed by the families and tools that dominate the sample.
+              </p>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle>Performance spotlight</CardTitle>
                 <CardDescription>
                   The most actionable current command and tool performance signals.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Slowest command family</p>
-                  <p className="mt-2 break-all text-xl font-semibold">
-                    {input.performanceAnalysis.spotlight.slowestCommandFamily}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.performanceAnalysis.spotlight.slowestCommandFamilyDetail}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Flakiest command family</p>
-                  <p className="mt-2 break-all text-xl font-semibold">
-                    {input.performanceAnalysis.spotlight.flakiestCommandFamily}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.performanceAnalysis.spotlight.flakiestCommandFamilyDetail}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Slowest tool</p>
-                  <p className="mt-2 break-all text-xl font-semibold">
-                    {input.performanceAnalysis.spotlight.slowestTool}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.performanceAnalysis.spotlight.slowestToolDetail}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Flakiest tool</p>
-                  <p className="mt-2 break-all text-xl font-semibold">
-                    {input.performanceAnalysis.spotlight.flakiestTool}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.performanceAnalysis.spotlight.flakiestToolDetail}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/70 p-4 md:col-span-2">
-                  <p className="text-sm text-muted-foreground">Slowest turn</p>
-                  <p className="mt-2 break-all text-xl font-semibold">
-                    {input.performanceAnalysis.spotlight.slowestTurn}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.performanceAnalysis.spotlight.slowestTurnDetail}
-                  </p>
-                </div>
+                <AnalysisSpotlightItem
+                  label="Slowest command family"
+                  value={input.performanceAnalysis.spotlight.slowestCommandFamily}
+                  detail={input.performanceAnalysis.spotlight.slowestCommandFamilyDetail}
+                />
+                <AnalysisSpotlightItem
+                  label="Flakiest command family"
+                  value={input.performanceAnalysis.spotlight.flakiestCommandFamily}
+                  detail={input.performanceAnalysis.spotlight.flakiestCommandFamilyDetail}
+                />
+                <AnalysisSpotlightItem
+                  label="Slowest tool"
+                  value={input.performanceAnalysis.spotlight.slowestTool}
+                  detail={input.performanceAnalysis.spotlight.slowestToolDetail}
+                />
+                <AnalysisSpotlightItem
+                  label="Flakiest tool"
+                  value={input.performanceAnalysis.spotlight.flakiestTool}
+                  detail={input.performanceAnalysis.spotlight.flakiestToolDetail}
+                />
+                <AnalysisSpotlightItem
+                  label="Slowest turn"
+                  value={input.performanceAnalysis.spotlight.slowestTurn}
+                  detail={input.performanceAnalysis.spotlight.slowestTurnDetail}
+                  className="md:col-span-2"
+                />
               </CardContent>
             </Card>
 
@@ -139,19 +148,29 @@ export function PerformanceAnalysisView(input: {
               rows={input.performanceAnalysis.commandFamilyRows}
             />
             <PerformanceToolChart rows={input.performanceAnalysis.toolRows} />
+            </div>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-2">
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Latency composition</h2>
+              <p className="text-sm text-muted-foreground">
+                Where turn time is actually being spent, and which turns are setting the upper bound for operator wait time.
+              </p>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-2">
             <PerformanceLatencyBreakdownChart
               rows={input.performanceAnalysis.latencyBreakdownRows}
             />
             <PerformanceTurnLatencyChart
               rows={input.performanceAnalysis.slowTurnRows}
             />
+            </div>
           </section>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-4">
               <CardTitle>Execution hotspots</CardTitle>
               <CardDescription>
                 The raw commands and tools currently driving the most latency or failure pressure.
@@ -184,7 +203,7 @@ export function PerformanceAnalysisView(input: {
                           <div className="flex flex-col gap-1">
                             <Link
                               href={row.runHref}
-                              className="underline-offset-4 hover:underline focus-visible:underline"
+                              className="break-all underline-offset-4 hover:underline focus-visible:underline"
                             >
                               {row.label}
                             </Link>

@@ -19,6 +19,8 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnalysisPageHeader } from "@/features/analysis/components/analysis-page-header";
+import { AnalysisSpotlightItem } from "@/features/analysis/components/analysis-spotlight-item";
 import { TokenIssueChart } from "@/features/analysis/components/token-issue-chart";
 import { TokenRunChart } from "@/features/analysis/components/token-run-chart";
 import { TokenTurnChart } from "@/features/analysis/components/token-turn-chart";
@@ -42,14 +44,22 @@ export function TokenAnalysisView(input: {
 
       {input.tokenAnalysis ? (
         <>
-          <div className="space-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight">Token analysis</h1>
-            <p className="text-sm text-muted-foreground">
-              Cross-run token pressure across runs, turns, and issues so you can see where orchestration cost is concentrating.
-            </p>
-          </div>
+          <AnalysisPageHeader
+            eyebrow="Cross-run trends"
+            title="Token analysis"
+            description="Cross-run token pressure across runs, turns, and issues so you can see where orchestration cost is concentrating."
+            focus="Use this page to identify which runs, turns, and issues are driving the largest share of current token usage."
+          />
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Token coverage</h2>
+              <p className="text-sm text-muted-foreground">
+                High-level usage across the sampled runs before you drill into the biggest hotspots.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {input.tokenAnalysis.summaryCards.map((card) => (
               <Card key={card.label}>
                 <CardHeader className="space-y-1 pb-2">
@@ -61,9 +71,18 @@ export function TokenAnalysisView(input: {
                 </CardContent>
               </Card>
             ))}
+            </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Usage profile</h2>
+              <p className="text-sm text-muted-foreground">
+                Token concentration across runs, turns, and current issue load.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {input.tokenAnalysis.tokenCards.map((card) => (
               <Card key={card.label}>
                 <CardHeader className="space-y-1 pb-2">
@@ -75,56 +94,63 @@ export function TokenAnalysisView(input: {
                 </CardContent>
               </Card>
             ))}
+            </div>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Spotlight and charts</h2>
+              <p className="text-sm text-muted-foreground">
+                The heaviest run, turn, and issue first, followed by the charts that show how token pressure is spreading.
+              </p>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle>Token spotlight</CardTitle>
                 <CardDescription>
                   The strongest current token hotspots across runs, turns, and issues.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Heaviest run</p>
-                  <p className="mt-2 break-all text-xl font-semibold">
-                    {input.tokenAnalysis.spotlight.heaviestRun}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.tokenAnalysis.spotlight.heaviestRunDetail}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Heaviest turn</p>
-                  <p className="mt-2 break-all text-xl font-semibold">
-                    {input.tokenAnalysis.spotlight.heaviestTurn}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.tokenAnalysis.spotlight.heaviestTurnDetail}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/70 p-4 md:col-span-2">
-                  <p className="text-sm text-muted-foreground">Hottest issue</p>
-                  <p className="mt-2 break-all text-xl font-semibold">
-                    {input.tokenAnalysis.spotlight.hottestIssue}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.tokenAnalysis.spotlight.hottestIssueDetail}
-                  </p>
-                </div>
+                <AnalysisSpotlightItem
+                  label="Heaviest run"
+                  value={input.tokenAnalysis.spotlight.heaviestRun}
+                  detail={input.tokenAnalysis.spotlight.heaviestRunDetail}
+                />
+                <AnalysisSpotlightItem
+                  label="Heaviest turn"
+                  value={input.tokenAnalysis.spotlight.heaviestTurn}
+                  detail={input.tokenAnalysis.spotlight.heaviestTurnDetail}
+                />
+                <AnalysisSpotlightItem
+                  label="Hottest issue"
+                  value={input.tokenAnalysis.spotlight.hottestIssue}
+                  detail={input.tokenAnalysis.spotlight.hottestIssueDetail}
+                  className="md:col-span-2"
+                />
               </CardContent>
             </Card>
 
             <TokenRunChart rows={input.tokenAnalysis.runTokenRows} />
             <TokenTurnChart rows={input.tokenAnalysis.turnTokenRows} />
+            </div>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Issue concentration</h2>
+              <p className="text-sm text-muted-foreground">
+                Which issues and runs are carrying the biggest share of token load in the current sample.
+              </p>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
             <TokenIssueChart rows={input.tokenAnalysis.issueTokenRows} />
 
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle>Token hotspots</CardTitle>
                 <CardDescription>
                   The heaviest sampled runs and the issue contexts carrying them.
@@ -177,6 +203,7 @@ export function TokenAnalysisView(input: {
                 )}
               </CardContent>
             </Card>
+            </div>
           </section>
         </>
       ) : input.loading ? (

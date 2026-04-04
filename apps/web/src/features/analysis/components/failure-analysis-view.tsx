@@ -19,6 +19,8 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnalysisPageHeader } from "@/features/analysis/components/analysis-page-header";
+import { AnalysisSpotlightItem } from "@/features/analysis/components/analysis-spotlight-item";
 import { FailureErrorClassChart } from "@/features/analysis/components/failure-error-class-chart";
 import { FailureModeChart } from "@/features/analysis/components/failure-mode-chart";
 import type { FailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
@@ -41,14 +43,22 @@ export function FailureAnalysisView(input: {
 
       {input.failureAnalysis ? (
         <>
-          <div className="space-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight">Failure analysis</h1>
-            <p className="text-sm text-muted-foreground">
-              Cross-run failure patterns for deciding where orchestration improvements will matter most.
-            </p>
-          </div>
+          <AnalysisPageHeader
+            eyebrow="Cross-run trends"
+            title="Failure analysis"
+            description="Cross-run failure patterns for deciding where orchestration improvements will matter most."
+            focus="Use this page to identify which failure modes and error classes are currently creating the heaviest operator drag."
+          />
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Failure coverage</h2>
+              <p className="text-sm text-muted-foreground">
+                High-level pressure across the current issue set before you drill into specific patterns.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {input.failureAnalysis.summaryCards.map((card) => (
               <Card key={card.label}>
                 <CardHeader className="space-y-1 pb-2">
@@ -60,44 +70,46 @@ export function FailureAnalysisView(input: {
                 </CardContent>
               </Card>
             ))}
+            </div>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Spotlight and composition</h2>
+              <p className="text-sm text-muted-foreground">
+                The strongest failure signals first, then the charts that show how widely they are spreading.
+              </p>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle>Current failure landscape</CardTitle>
                 <CardDescription>
                   The strongest failure signals in the current issue set.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-border/70 p-4">
-                    <p className="text-sm text-muted-foreground">Dominant failure mode</p>
-                    <p className="mt-2 break-all text-xl font-semibold">
-                      {input.failureAnalysis.spotlight.dominantFailureMode}
-                    </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.failureAnalysis.spotlight.dominantFailureModeDetail}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/70 p-4">
-                    <p className="text-sm text-muted-foreground">Dominant error class</p>
-                    <p className="mt-2 break-all text-xl font-semibold">
-                      {input.failureAnalysis.spotlight.dominantErrorClass}
-                    </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.failureAnalysis.spotlight.dominantErrorClassDetail}
-                  </p>
-                </div>
+                <AnalysisSpotlightItem
+                  label="Dominant failure mode"
+                  value={input.failureAnalysis.spotlight.dominantFailureMode}
+                  detail={input.failureAnalysis.spotlight.dominantFailureModeDetail}
+                />
+                <AnalysisSpotlightItem
+                  label="Dominant error class"
+                  value={input.failureAnalysis.spotlight.dominantErrorClass}
+                  detail={input.failureAnalysis.spotlight.dominantErrorClassDetail}
+                />
               </CardContent>
             </Card>
 
             <FailureModeChart rows={input.failureAnalysis.failureModeRows} />
             <FailureErrorClassChart rows={input.failureAnalysis.errorClassRows} />
+            </div>
           </section>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-4">
               <CardTitle>Failure hotspots</CardTitle>
               <CardDescription>
                 The issues currently carrying the heaviest failure load.
@@ -137,7 +149,9 @@ export function FailureAnalysisView(input: {
                         <TableCell>{row.problemRuns}</TableCell>
                         <TableCell>{row.retries}</TableCell>
                         <TableCell>{row.lastActive}</TableCell>
-                        <TableCell>{row.latestErrorMessage}</TableCell>
+                        <TableCell className="max-w-sm text-sm text-muted-foreground">
+                          {row.latestErrorMessage}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
