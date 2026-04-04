@@ -121,6 +121,12 @@ export function buildSymphonyDashboardFoundation(
         readiness: "available"
       },
       {
+        href: "/analysis/tokens",
+        label: "Token analysis",
+        description: "Review token pressure across sampled runs, turns, and issues.",
+        readiness: "available"
+      },
+      {
         href: "/issues",
         label: "Issues",
         description: "Browse recorded issues, open run history, and drill into issue activity.",

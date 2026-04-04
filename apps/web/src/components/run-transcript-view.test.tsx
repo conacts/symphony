@@ -23,6 +23,8 @@ describe("run transcript view", () => {
     );
 
     expect(html).toContain("Structured run conversation");
+    expect(html).toContain("Turn tokens");
+    expect(html).toContain("Turn token breakdown");
     expect(html).toContain("Turn latency");
     expect(html).toContain("Turn latency breakdown");
     expect(html).toContain("Execution performance");

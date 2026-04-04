@@ -181,6 +181,13 @@ export function buildIssueDetailViewModel(
   }
 
   const dominantProblemOutcome = sortCounts(problemOutcomeCounts)[0];
+  const totalInputTokens = input.runs.reduce((total, run) => total + run.inputTokens, 0);
+  const totalOutputTokens = input.runs.reduce((total, run) => total + run.outputTokens, 0);
+  const averageTotalTokens =
+    input.runs.length === 0
+      ? 0
+      : input.runs.reduce((total, run) => total + run.totalTokens, 0) / input.runs.length;
+  const heaviestRun = [...input.runs].sort((left, right) => right.totalTokens - left.totalTokens)[0];
 
   return {
     metrics: [
@@ -209,6 +216,25 @@ export function buildIssueDetailViewModel(
       inputTokens: run.inputTokens,
       outputTokens: run.outputTokens
     })),
+    tokenCards: [
+      {
+        label: "Issue input tokens",
+        value: formatCount(totalInputTokens),
+        detail: `${formatCount(totalOutputTokens)} output tokens across recorded runs.`
+      },
+      {
+        label: "Average run tokens",
+        value: formatCount(Math.round(averageTotalTokens)),
+        detail: "Average total token load per recorded run."
+      },
+      {
+        label: "Heaviest run",
+        value: heaviestRun ? heaviestRun.runId.slice(0, 8) : "n/a",
+        detail: heaviestRun
+          ? `${formatCount(heaviestRun.totalTokens)} total tokens on the heaviest run.`
+          : "No token-heavy run is available yet."
+      }
+    ],
     failureCards: [
       {
         label: "Problem runs",

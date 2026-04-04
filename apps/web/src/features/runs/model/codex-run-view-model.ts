@@ -24,6 +24,10 @@ import {
   buildCodexTurnLatencyRows,
   sumTurnLatencyTotals
 } from "@/core/codex-latency";
+import {
+  buildCodexTurnTokenRows,
+  sumTurnTokenTotals
+} from "@/core/codex-token";
 
 export type CodexRunTranscriptEntry =
   | {
@@ -150,6 +154,20 @@ export type CodexRunViewModel = {
       wallClock: string;
     }>;
   };
+  turnTokens: {
+    cards: Array<{
+      label: string;
+      value: string;
+      detail: string;
+    }>;
+    rows: Array<{
+      turnLabel: string;
+      inputTokens: number;
+      cachedInputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    }>;
+  };
   transcriptTurns: CodexRunTranscriptTurn[];
   hasTranscript: boolean;
   repoStartText: string;
@@ -183,6 +201,7 @@ export function buildCodexRunViewModel(input: {
     null;
   const executionPerformance = buildExecutionPerformance(runArtifacts);
   const turnLatency = buildTurnLatency(runArtifacts, input.runDetail.turns);
+  const turnTokens = buildTurnTokens(runArtifacts, input.runDetail.turns);
 
   return {
     issueIdentifier: input.runDetail.issue.issueIdentifier,
@@ -260,6 +279,7 @@ export function buildCodexRunViewModel(input: {
     ],
     executionPerformance,
     turnLatency,
+    turnTokens,
     transcriptTurns,
     hasTranscript: transcriptTurns.length > 0,
     repoStartText: formatRepoSnapshot(run.repoStart),
@@ -474,6 +494,56 @@ function buildTurnLatency(
       messageMs: row.messageMs,
       unclassifiedMs: row.unclassifiedMs,
       wallClock: formatDurationMilliseconds(row.wallClockMs)
+    }))
+  };
+}
+
+function buildTurnTokens(
+  runArtifacts: SymphonyCodexRunArtifactsResult | null,
+  forensicsTurns: SymphonyForensicsRunDetailResult["turns"]
+): CodexRunViewModel["turnTokens"] {
+  const rows = runArtifacts
+    ? buildCodexTurnTokenRows({
+        runArtifacts,
+        forensicsTurns
+      })
+    : [];
+  const totals = sumTurnTokenTotals(rows);
+  const averageTurnTokens = rows.length === 0 ? 0 : totals.totalTokens / rows.length;
+  const heaviestTurn = [...rows].sort((left, right) => right.totalTokens - left.totalTokens)[0];
+  const cachedShare = totals.inputTokens === 0 ? 0 : totals.cachedInputTokens / totals.inputTokens;
+
+  return {
+    cards: [
+      {
+        label: "Turn input tokens",
+        value: formatCount(totals.inputTokens),
+        detail: `${formatCount(totals.cachedInputTokens)} cached input tokens across the run.`
+      },
+      {
+        label: "Turn output tokens",
+        value: formatCount(totals.outputTokens),
+        detail: `${formatCount(totals.totalTokens)} total turn tokens across the run.`
+      },
+      {
+        label: "Average turn tokens",
+        value: formatCount(Math.round(averageTurnTokens)),
+        detail: "Average total token load per recorded turn."
+      },
+      {
+        label: "Heaviest turn",
+        value: heaviestTurn?.turnLabel ?? "n/a",
+        detail: heaviestTurn
+          ? `${formatCount(heaviestTurn.totalTokens)} total tokens on this turn.`
+          : `${formatPercent(cachedShare)} cached-input share.`
+      }
+    ],
+    rows: rows.map((row) => ({
+      turnLabel: row.turnLabel,
+      inputTokens: row.inputTokens,
+      cachedInputTokens: row.cachedInputTokens,
+      outputTokens: row.outputTokens,
+      totalTokens: row.totalTokens
     }))
   };
 }

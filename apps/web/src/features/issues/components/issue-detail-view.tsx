@@ -78,6 +78,18 @@ export function IssueDetailView(input: {
 
           <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
             <section className="grid gap-4 md:grid-cols-3">
+              {viewModel.tokenCards.map((card) => (
+                <Card key={card.label}>
+                  <CardHeader>
+                    <CardDescription>{card.label}</CardDescription>
+                    <CardTitle className="break-all text-2xl">{card.value}</CardTitle>
+                    <CardDescription>{card.detail}</CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
+            </section>
+
+            <section className="grid gap-4 md:grid-cols-3">
               {viewModel.failureCards.map((card) => (
                 <Card key={card.label}>
                   <CardHeader>

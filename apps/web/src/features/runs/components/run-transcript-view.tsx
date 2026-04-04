@@ -13,6 +13,7 @@ import { fetchCodexOverflow } from "@/core/codex-analytics-client";
 import { RunDebugPanel } from "@/features/runs/components/run-debug-panel";
 import { RunOverflowSheet } from "@/features/runs/components/run-overflow-sheet";
 import { RunTurnLatencyChart } from "@/features/runs/components/run-turn-latency-chart";
+import { RunTurnTokenChart } from "@/features/runs/components/run-turn-token-chart";
 import { RunTranscriptTurn } from "@/features/runs/components/run-transcript-turn";
 import {
   buildCodexRunViewModel,
@@ -180,6 +181,31 @@ export function RunTranscriptView(input: {
               )}
             </CardContent>
           </Card>
+
+          <section className="flex flex-col gap-4">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Turn tokens
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Turn-level token load split across input, cached input, and output.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {viewModel.turnTokens.cards.map((card) => (
+                <Card key={card.label} className="border-border/70">
+                  <CardHeader className="space-y-1 pb-3">
+                    <CardDescription>{card.label}</CardDescription>
+                    <CardTitle className="text-lg break-all">{card.value}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 text-sm text-muted-foreground">
+                    {card.detail}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <RunTurnTokenChart rows={viewModel.turnTokens.rows} />
+          </section>
 
           <section className="flex flex-col gap-4">
             <div className="space-y-1">
