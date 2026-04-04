@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  symphonyCodexOverflowRecordSchema,
   symphonyCodexRunRecordSchema,
   symphonyCodexTurnRecordSchema,
   symphonyCodexToolCallRecordSchema
@@ -205,5 +206,28 @@ describe("codex analytics contracts", () => {
         updatedAt: "2026-04-03T20:37:38.000Z"
       })
     ).toThrow(/endedAt/i);
+  });
+
+  it("accepts overflow records with full stored content", () => {
+    expect(() =>
+      symphonyCodexOverflowRecordSchema.parse({
+        overflowId: "overflow-1",
+        runId: "run-1",
+        turnId: "turn-1",
+        itemId: "item-1",
+        kind: "tool_result",
+        contentJson: {
+          content: [
+            {
+              type: "text",
+              text: "Large MCP result"
+            }
+          ]
+        },
+        contentText: null,
+        byteCount: 42,
+        insertedAt: "2026-04-03T20:37:38.000Z"
+      })
+    ).not.toThrow();
   });
 });

@@ -4,6 +4,8 @@ import {
   symphonyCodexCommandExecutionListResponseSchema,
   symphonyCodexFileChangeListResponseSchema,
   symphonyCodexItemListResponseSchema,
+  symphonyCodexOverflowPathSchema,
+  symphonyCodexOverflowResponseSchema,
   symphonyCodexReasoningListResponseSchema,
   symphonyCodexRunArtifactsResponseSchema,
   symphonyCodexRunPathSchema,
@@ -40,6 +42,28 @@ export function createCodexAnalyticsRoutes(
     return validateAndSendCodexResponse(
       c,
       symphonyCodexRunArtifactsResponseSchema,
+      result
+    );
+  });
+
+  codexRoutes.get("/codex/runs/:runId/overflow/:overflowId", async (c) => {
+    const { runId, overflowId } = parseCodexOverflowPath(c);
+    const result = await services.codexAnalytics.fetchOverflow(runId, overflowId);
+
+    if (!result) {
+      logCodexRunNotFound(c, "Codex overflow not found", runId);
+      throw createHttpError("NOT_FOUND", "Overflow not found.");
+    }
+
+    c.get("logger").debug("Returning Codex overflow payload", {
+      runId,
+      overflowId,
+      kind: result.overflow.kind
+    });
+
+    return validateAndSendCodexResponse(
+      c,
+      symphonyCodexOverflowResponseSchema,
       result
     );
   });
@@ -181,6 +205,12 @@ function parseCodexRunTurnInput(
     runId,
     turnId: query.turnId ?? null
   };
+}
+
+function parseCodexOverflowPath(
+  c: CodexRouteContext
+): { runId: string; overflowId: string } {
+  return parseWithSchema(symphonyCodexOverflowPathSchema, c.req.param());
 }
 
 function toRunTurnQuery(runId: string, turnId: string | null) {

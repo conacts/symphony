@@ -176,6 +176,10 @@ describe("sqlite codex analytics read store", () => {
       const fileChanges = await readStore.listFileChanges({
         runId
       });
+      const agentMessageOverflow = await readStore.fetchOverflow(
+        runId,
+        agentMessages[0]?.textOverflowId ?? "missing"
+      );
 
       expect(runs[0]?.runId).toBe(runId);
       expect(runs[0]?.turnCount).toBe(1);
@@ -225,6 +229,13 @@ describe("sqlite codex analytics read store", () => {
       expect(agentMessages).toHaveLength(1);
       expect(agentMessages[0]?.textContent).toBeNull();
       expect(agentMessages[0]?.textPreview).toBe(longMessage.slice(0, 279) + "…");
+      expect(agentMessageOverflow).toMatchObject({
+        runId,
+        turnId,
+        itemId: "item-1",
+        kind: "agent_message",
+        contentText: longMessage
+      });
       expect(commands).toHaveLength(0);
       expect(tools).toHaveLength(0);
       expect(reasoning).toHaveLength(0);
@@ -434,6 +445,78 @@ describe("sqlite codex analytics read store", () => {
         failureKind: "turn_failed",
         failureMessagePreview: "Command failed"
       });
+    } finally {
+      database.close();
+    }
+  });
+
+  it("returns startup-failed runs even when no Codex turns or events were recorded", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-read-startup-failed-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runJournal = createSqliteSymphonyRunJournal({
+      db: database.db,
+      dbFile: path.join(root, "symphony.db"),
+      timelineStore: createSymphonyIssueTimelineStore(database.db)
+    });
+    const analytics = createSqliteCodexAnalyticsStore({
+      db: database.db
+    });
+    const readStore = createSqliteCodexAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runJournal.recordRunStarted({
+        runId: "run-startup-failed",
+        issueId: "issue-3",
+        issueIdentifier: "COL-500",
+        startedAt: "2026-04-03T20:37:38.000Z",
+        status: "dispatching"
+      });
+
+      await analytics.startRun({
+        runId,
+        issueId: "issue-3",
+        issueIdentifier: "COL-500",
+        startedAt: "2026-04-03T20:37:38.000Z",
+        status: "dispatching",
+        threadId: null
+      });
+      await analytics.finalizeRun({
+        runId,
+        endedAt: "2026-04-03T20:37:40.000Z",
+        status: "startup_failed",
+        threadId: null,
+        failureKind: "startup_failure",
+        failureOrigin: "runtime",
+        failureMessagePreview: "Workspace failed to start."
+      });
+      await runJournal.finalizeRun(runId, {
+        status: "startup_failed",
+        outcome: "startup_failed",
+        endedAt: "2026-04-03T20:37:40.000Z",
+        errorClass: "startup_failure_runtime_prepare",
+        errorMessage: "Workspace failed to start."
+      });
+
+      const runDetail = await readStore.fetchRunDetail(runId);
+      const artifacts = await readStore.fetchRunArtifacts(runId);
+
+      expect(runDetail?.run.runId).toBe(runId);
+      expect(runDetail?.run.status).toBe("startup_failed");
+      expect(runDetail?.run.outcome).toBe("startup_failed");
+      expect(runDetail?.run.turnCount).toBe(0);
+      expect(runDetail?.run.eventCount).toBe(0);
+      expect(runDetail?.turns).toEqual([]);
+
+      expect(artifacts?.run.runId).toBe(runId);
+      expect(artifacts?.run.status).toBe("startup_failed");
+      expect(artifacts?.turns).toEqual([]);
+      expect(artifacts?.events).toEqual([]);
     } finally {
       database.close();
     }

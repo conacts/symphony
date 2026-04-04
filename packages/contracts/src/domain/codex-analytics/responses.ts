@@ -236,6 +236,18 @@ export const symphonyCodexEventRecordSchema = z.strictObject({
   insertedAt: isoTimestampSchema
 });
 
+export const symphonyCodexOverflowRecordSchema = z.strictObject({
+  overflowId: nonEmptyStringSchema,
+  runId: nonEmptyStringSchema,
+  turnId: nullableNonEmptyStringSchema,
+  itemId: nullableNonEmptyStringSchema,
+  kind: nonEmptyStringSchema,
+  contentJson: jsonValueSchema,
+  contentText: z.string().nullable(),
+  byteCount: z.number().int().nonnegative(),
+  insertedAt: isoTimestampSchema
+});
+
 export const symphonyCodexRunArtifactsResultSchema = z.strictObject({
   run: symphonyCodexRunRecordSchema,
   turns: z.array(symphonyCodexTurnRecordSchema),
@@ -289,6 +301,11 @@ export const symphonyCodexFileChangeListResultSchema = z.strictObject({
   fileChanges: z.array(symphonyCodexFileChangeRecordSchema)
 });
 
+export const symphonyCodexOverflowResultSchema = z.strictObject({
+  runId: nonEmptyStringSchema,
+  overflow: symphonyCodexOverflowRecordSchema
+});
+
 export const symphonyCodexRunArtifactsResponseSchema = createEnvelopeSchema(
   symphonyCodexRunArtifactsResultSchema
 );
@@ -313,6 +330,9 @@ export const symphonyCodexReasoningListResponseSchema = createEnvelopeSchema(
 export const symphonyCodexFileChangeListResponseSchema = createEnvelopeSchema(
   symphonyCodexFileChangeListResultSchema
 );
+export const symphonyCodexOverflowResponseSchema = createEnvelopeSchema(
+  symphonyCodexOverflowResultSchema
+);
 
 export type SymphonyCodexRunRecord = z.infer<typeof symphonyCodexRunRecordSchema>;
 export type SymphonyCodexTurnRecord = z.infer<typeof symphonyCodexTurnRecordSchema>;
@@ -332,6 +352,7 @@ export type SymphonyCodexAgentMessageRecord = z.infer<
 export type SymphonyCodexReasoningRecord = z.infer<typeof symphonyCodexReasoningRecordSchema>;
 export type SymphonyCodexFileChangeRecord = z.infer<typeof symphonyCodexFileChangeRecordSchema>;
 export type SymphonyCodexEventRecord = z.infer<typeof symphonyCodexEventRecordSchema>;
+export type SymphonyCodexOverflowRecord = z.infer<typeof symphonyCodexOverflowRecordSchema>;
 export type SymphonyCodexRunArtifactsResult = z.infer<
   typeof symphonyCodexRunArtifactsResultSchema
 >;
@@ -355,4 +376,7 @@ export type SymphonyCodexReasoningListResult = z.infer<
 >;
 export type SymphonyCodexFileChangeListResult = z.infer<
   typeof symphonyCodexFileChangeListResultSchema
+>;
+export type SymphonyCodexOverflowResult = z.infer<
+  typeof symphonyCodexOverflowResultSchema
 >;

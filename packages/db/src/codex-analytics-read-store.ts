@@ -14,6 +14,7 @@ import type {
   SymphonyCodexFileChangeRecord,
   SymphonyCodexItemLifecycleStatus,
   SymphonyCodexItemRecord,
+  SymphonyCodexOverflowRecord,
   SymphonyCodexRunQuery,
   SymphonyCodexReasoningRecord,
   SymphonyCodexRunArtifactsResult,
@@ -60,6 +61,10 @@ export interface CodexAnalyticsReadStore {
   fetchRunArtifacts(
     runId: SymphonyCodexRunQuery["runId"]
   ): Promise<SymphonyCodexRunArtifactsResult | null>;
+  fetchOverflow(
+    runId: SymphonyCodexRunQuery["runId"],
+    overflowId: string
+  ): Promise<SymphonyCodexOverflowRecord | null>;
   listTurns(runId: SymphonyCodexRunQuery["runId"]): Promise<SymphonyCodexTurnRecord[]>;
   listItems(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexItemRecord[]>;
   listCommandExecutions(
@@ -215,6 +220,24 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
       fileChanges: data.fileChangeRows.map(mapCodexFileChangeRecord),
       events: mapCodexEventRecords(data.eventRows, data.overflowMap, data.codexTurnMap, data.codexRun)
     };
+  }
+
+  async fetchOverflow(
+    runId: SymphonyCodexRunQuery["runId"],
+    overflowId: string
+  ): Promise<SymphonyCodexOverflowRecord | null> {
+    const row = await this.#db
+      .select()
+      .from(codexPayloadOverflowTable)
+      .where(
+        and(
+          eq(codexPayloadOverflowTable.runId, runId),
+          eq(codexPayloadOverflowTable.id, overflowId)
+        )
+      )
+      .get();
+
+    return row ? mapCodexOverflowRecord(row) : null;
   }
 
   async listTurns(runId: SymphonyCodexRunQuery["runId"]): Promise<SymphonyCodexTurnRecord[]> {
@@ -796,6 +819,22 @@ function mapCodexEventRecords(
   });
 }
 
+function mapCodexOverflowRecord(
+  row: typeof codexPayloadOverflowTable.$inferSelect
+): SymphonyCodexOverflowRecord {
+  return {
+    overflowId: row.id,
+    runId: row.runId,
+    turnId: row.turnId,
+    itemId: row.itemId,
+    kind: row.kind,
+    contentJson: row.contentJson as SymphonyCodexOverflowRecord["contentJson"],
+    contentText: row.contentText,
+    byteCount: row.byteCount,
+    insertedAt: row.insertedAt
+  };
+}
+
 function buildForensicsTurns(input: RunData): ForensicsTurn[] {
   const knownTurnIds = new Set(input.symphonyTurns.map((turn) => turn.turnId));
   const baseTurns = input.symphonyTurns.map((turn) =>
@@ -944,10 +983,6 @@ async function loadRunData(
     ]);
 
   if (!codexRun || !issue) {
-    return null;
-  }
-
-  if (codexTurns.length === 0 && eventRows.length === 0) {
     return null;
   }
 

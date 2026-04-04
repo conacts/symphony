@@ -3,6 +3,7 @@ import type {
   SymphonyCodexCommandExecutionListResult,
   SymphonyCodexFileChangeListResult,
   SymphonyCodexItemListResult,
+  SymphonyCodexOverflowResult,
   SymphonyCodexReasoningListResult,
   SymphonyCodexRunTurnQuery,
   SymphonyCodexToolCallListResult,
@@ -17,6 +18,16 @@ export function createCodexAnalyticsReadPort(
   return {
     fetchRunArtifacts(runId) {
       return readStore.fetchRunArtifacts(runId);
+    },
+    async fetchOverflow(runId, overflowId) {
+      const overflow = await readStore.fetchOverflow(runId, overflowId);
+
+      return overflow
+        ? ({
+            runId,
+            overflow
+          } satisfies SymphonyCodexOverflowResult)
+        : null;
     },
     async listTurns(runId) {
       return {

@@ -125,6 +125,9 @@ describe("@symphony/api app", () => {
     const codexArtifactsResponse = await app.request(
       "/api/v1/codex/runs/run-123/artifacts"
     );
+    const codexOverflowResponse = await app.request(
+      "/api/v1/codex/runs/run-123/overflow/item-123-overflow"
+    );
     const codexTurnsResponse = await app.request("/api/v1/codex/runs/run-123/turns");
     const codexItemsResponse = await app.request(
       "/api/v1/codex/runs/run-123/items?turnId=turn-123"
@@ -140,6 +143,9 @@ describe("@symphony/api app", () => {
     );
     const missingCodexArtifactsResponse = await app.request(
       "/api/v1/codex/runs/run-missing/artifacts"
+    );
+    const missingCodexOverflowResponse = await app.request(
+      "/api/v1/codex/runs/run-123/overflow/overflow-missing"
     );
     const runtimeIssueResponse = await app.request("/api/v1/COL-123");
     const issuesPayload = await responseJson<{
@@ -239,11 +245,26 @@ describe("@symphony/api app", () => {
         commandExecutions: unknown[];
       };
     }>(codexCommandExecutionsResponse);
+    const codexOverflowPayload = await responseJson<{
+      data: {
+        runId: string;
+        overflow: {
+          overflowId: string;
+          kind: string;
+          contentText: string | null;
+        };
+      };
+    }>(codexOverflowResponse);
     const missingCodexArtifactsPayload = await responseJson<{
       error: {
         code: string;
       };
     }>(missingCodexArtifactsResponse);
+    const missingCodexOverflowPayload = await responseJson<{
+      error: {
+        code: string;
+      };
+    }>(missingCodexOverflowResponse);
     const runtimeIssuePayload = await responseJson<{
       data: {
         issueIdentifier: string;
@@ -297,6 +318,11 @@ describe("@symphony/api app", () => {
     expect(codexArtifactsPayload.data.turns[0]?.turnId).toBe("turn-123");
     expect(codexArtifactsPayload.data.items[0]?.itemId).toBe("item-123");
     expect(codexArtifactsPayload.data.events.length).toBeGreaterThanOrEqual(3);
+    expect(codexOverflowResponse.status).toBe(200);
+    expect(codexOverflowPayload.data.runId).toBe("run-123");
+    expect(codexOverflowPayload.data.overflow.overflowId).toBe("item-123-overflow");
+    expect(codexOverflowPayload.data.overflow.kind).toBe("agent_message");
+    expect(codexOverflowPayload.data.overflow.contentText).toBe("Initial agent message");
 
     expect(codexTurnsResponse.status).toBe(200);
     expect(codexTurnsPayload.data.runId).toBe("run-123");
@@ -326,6 +352,8 @@ describe("@symphony/api app", () => {
 
     expect(missingCodexArtifactsResponse.status).toBe(404);
     expect(missingCodexArtifactsPayload.error.code).toBe("NOT_FOUND");
+    expect(missingCodexOverflowResponse.status).toBe(404);
+    expect(missingCodexOverflowPayload.error.code).toBe("NOT_FOUND");
 
     expect(runtimeIssueResponse.status).toBe(200);
     expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");

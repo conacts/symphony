@@ -5,6 +5,7 @@ import type {
   SymphonyCodexCommandExecutionListResult,
   SymphonyCodexFileChangeListResult,
   SymphonyCodexItemListResult,
+  SymphonyCodexOverflowResult,
   SymphonyCodexReasoningListResult,
   SymphonyCodexRunArtifactsResult,
   SymphonyCodexRunQuery,
@@ -63,6 +64,10 @@ export type SymphonyCodexAnalyticsReadPort = {
   fetchRunArtifacts(
     runId: SymphonyCodexRunQuery["runId"]
   ): Promise<SymphonyCodexRunArtifactsResult | null>;
+  fetchOverflow(
+    runId: SymphonyCodexRunQuery["runId"],
+    overflowId: string
+  ): Promise<SymphonyCodexOverflowResult | null>;
   listTurns(
     runId: SymphonyCodexRunQuery["runId"]
   ): Promise<SymphonyCodexTurnListResult>;
