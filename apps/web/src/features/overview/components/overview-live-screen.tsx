@@ -1,21 +1,20 @@
 "use client";
 
 import { useMemo } from "react";
-import { ControlPlaneShell } from "@/components/control-plane-shell";
-import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
 import { useRuntimeSummary } from "@/hooks/use-runtime-summary";
 import { OverviewView } from "@/features/overview/components/overview-view";
+import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
+import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
 import {
   buildRuntimeSummaryConnectionState,
   buildRuntimeSummaryViewModel
 } from "@/features/overview/model/overview-view-model";
 
-export function OverviewLiveScreen(input: {
-  model: SymphonyDashboardFoundationModel;
-}) {
+export function OverviewLiveScreen() {
+  const model = useControlPlaneModel();
   const runtimeSummaryState = useRuntimeSummary({
-    stateUrl: input.model.runtimeSurface.stateUrl,
-    websocketUrl: input.model.websocketUrl
+    stateUrl: model.runtimeSurface.stateUrl,
+    websocketUrl: model.websocketUrl
   });
 
   const connection = buildRuntimeSummaryConnectionState({
@@ -35,18 +34,13 @@ export function OverviewLiveScreen(input: {
   );
 
   return (
-    <ControlPlaneShell
-      connection={connection}
-      model={input.model}
-      sidebarLoading={runtimeSummaryState.loading}
-      sidebarRuntimeSummary={runtimeSummaryState.runtimeSummary}
-    >
+    <ControlPlanePage connection={connection}>
       <OverviewView
         connection={connection}
         error={runtimeSummaryState.error}
         loading={runtimeSummaryState.loading}
         runtimeSummary={runtimeSummaryViewModel}
       />
-    </ControlPlaneShell>
+    </ControlPlanePage>
   );
 }

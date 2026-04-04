@@ -1,26 +1,24 @@
 "use client";
 
 import { useMemo } from "react";
-import { ControlPlaneShell } from "@/components/control-plane-shell";
-import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
 import { useRuntimeIssue } from "@/hooks/use-runtime-issue";
 import { IssueDetailView } from "@/features/issues/components/issue-detail-view";
 import { IssueRequeuePanel } from "@/features/issues/components/issue-requeue-panel";
 import { useIssueDetail } from "@/features/issues/hooks/use-issue-detail";
+import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
+import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 
-export function IssueDetailLiveScreen(input: {
-  issueIdentifier: string;
-  model: SymphonyDashboardFoundationModel;
-}) {
+export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
+  const model = useControlPlaneModel();
   const issueDetailState = useIssueDetail({
-    runtimeBaseUrl: input.model.runtimeBaseUrl,
-    websocketUrl: input.model.websocketUrl,
+    runtimeBaseUrl: model.runtimeBaseUrl,
+    websocketUrl: model.websocketUrl,
     issueIdentifier: input.issueIdentifier
   });
   const runtimeIssueState = useRuntimeIssue({
-    runtimeBaseUrl: input.model.runtimeBaseUrl,
-    websocketUrl: input.model.websocketUrl,
+    runtimeBaseUrl: model.runtimeBaseUrl,
+    websocketUrl: model.websocketUrl,
     issueIdentifier: input.issueIdentifier
   });
   const connection = useMemo(
@@ -34,7 +32,7 @@ export function IssueDetailLiveScreen(input: {
   );
 
   return (
-    <ControlPlaneShell connection={connection} model={input.model}>
+    <ControlPlanePage connection={connection}>
       <div className="flex flex-col gap-8">
         <IssueRequeuePanel
           error={runtimeIssueState.error}
@@ -50,6 +48,6 @@ export function IssueDetailLiveScreen(input: {
           loading={issueDetailState.loading}
         />
       </div>
-    </ControlPlaneShell>
+    </ControlPlanePage>
   );
 }

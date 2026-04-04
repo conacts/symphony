@@ -1,5 +1,3 @@
-import { buildSymphonyDashboardFoundation } from "@/core/dashboard-foundation";
-import { loadSymphonyDashboardEnv } from "@/core/env";
 import { IssueActivityLiveScreen } from "@/features/issues/components/issue-activity-live-screen";
 
 export default async function IssueActivityPage(input: {
@@ -8,9 +6,6 @@ export default async function IssueActivityPage(input: {
   }>;
 }) {
   const { issueIdentifier } = await input.params;
-  const model = buildSymphonyDashboardFoundation(loadSymphonyDashboardEnv());
 
-  return (
-    <IssueActivityLiveScreen issueIdentifier={issueIdentifier} model={model} />
-  );
+  return <IssueActivityLiveScreen issueIdentifier={issueIdentifier} />;
 }

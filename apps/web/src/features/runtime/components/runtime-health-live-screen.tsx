@@ -1,23 +1,22 @@
 "use client";
 
 import { useMemo } from "react";
-import { ControlPlaneShell } from "@/components/control-plane-shell";
-import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import { RuntimeHealthView } from "@/features/runtime/components/runtime-health-view";
 import { useRuntimeHealth } from "@/hooks/use-runtime-health";
 import { useRuntimeLogs } from "@/features/runtime/hooks/use-runtime-logs";
+import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
+import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
 
-export function RuntimeHealthLiveScreen(input: {
-  model: SymphonyDashboardFoundationModel;
-}) {
+export function RuntimeHealthLiveScreen() {
+  const model = useControlPlaneModel();
   const healthState = useRuntimeHealth({
-    runtimeBaseUrl: input.model.runtimeBaseUrl,
-    websocketUrl: input.model.websocketUrl
+    runtimeBaseUrl: model.runtimeBaseUrl,
+    websocketUrl: model.websocketUrl
   });
   const logsState = useRuntimeLogs({
-    runtimeBaseUrl: input.model.runtimeBaseUrl,
-    websocketUrl: input.model.websocketUrl,
+    runtimeBaseUrl: model.runtimeBaseUrl,
+    websocketUrl: model.websocketUrl,
     limit: 25
   });
 
@@ -39,7 +38,7 @@ export function RuntimeHealthLiveScreen(input: {
   );
 
   return (
-    <ControlPlaneShell connection={connection} model={input.model}>
+    <ControlPlanePage connection={connection}>
       <RuntimeHealthView
         connection={connection}
         error={healthState.error ?? logsState.error}
@@ -47,6 +46,6 @@ export function RuntimeHealthLiveScreen(input: {
         runtimeLogs={logsState.resource}
         loading={healthState.loading}
       />
-    </ControlPlaneShell>
+    </ControlPlanePage>
   );
 }

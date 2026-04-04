@@ -1,19 +1,17 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { ControlPlaneShell } from "@/components/control-plane-shell";
-import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import { useCodexRun } from "@/features/runs/hooks/use-codex-run";
 import { RunTranscriptView } from "@/features/runs/components/run-transcript-view";
+import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
+import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
 
-export function RunTranscriptLiveScreen(input: {
-  model: SymphonyDashboardFoundationModel;
-  runId: string;
-}) {
+export function RunTranscriptLiveScreen(input: { runId: string }) {
+  const model = useControlPlaneModel();
   const runState = useCodexRun({
-    runtimeBaseUrl: input.model.runtimeBaseUrl,
-    websocketUrl: input.model.websocketUrl,
+    runtimeBaseUrl: model.runtimeBaseUrl,
+    websocketUrl: model.websocketUrl,
     runId: input.runId
   });
   const connection = useMemo(
@@ -27,13 +25,13 @@ export function RunTranscriptLiveScreen(input: {
   );
 
   return (
-    <ControlPlaneShell connection={connection} model={input.model}>
+    <ControlPlanePage connection={connection}>
       <RunTranscriptView
-        runtimeBaseUrl={input.model.runtimeBaseUrl}
+        runtimeBaseUrl={model.runtimeBaseUrl}
         error={runState.error}
         loading={runState.loading}
         resource={runState.resource}
       />
-    </ControlPlaneShell>
+    </ControlPlanePage>
   );
 }
