@@ -1,7 +1,7 @@
 import type {
   AgentRuntimeLaunchTarget
 } from "./agent-runtime.js";
-import type { SymphonyJsonObject } from "@symphony/run-journal";
+import type { JsonObject } from "@symphony/contracts";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type {
   PreparedWorkspace,
@@ -56,7 +56,7 @@ export type SymphonyRunningEntry = {
   codexLastReportedInputTokens: number;
   codexLastReportedOutputTokens: number;
   codexLastReportedTotalTokens: number;
-  lastRateLimits: SymphonyJsonObject | null;
+  lastRateLimits: JsonObject | null;
   codexAppServerPid: string | null;
   startedAt: string;
 };
@@ -84,7 +84,7 @@ export type SymphonyOrchestratorState = {
   claimed: Set<string>;
   retryAttempts: Record<string, SymphonyRetryEntry>;
   codexTotals: SymphonyCodexTotals;
-  rateLimits: SymphonyJsonObject | null;
+  rateLimits: JsonObject | null;
 };
 
 export type SymphonyAgentRuntimeCompletion =
@@ -98,7 +98,7 @@ export type SymphonyAgentRuntimeCompletion =
       launchTarget?: AgentRuntimeLaunchTarget | null;
       manifestLifecyclePhase?: WorkspaceManifestLifecyclePhase | null;
       manifestLifecycleStepName?: string | null;
-      manifestLifecycle?: SymphonyJsonObject | null;
+      manifestLifecycle?: JsonObject | null;
     }
   | { kind: "rate_limited"; reason: string }
   | { kind: "stalled"; reason: string }
@@ -168,5 +168,5 @@ export type SymphonyOrchestratorSnapshot = {
   nextPollDueAtMs: number | null;
   pollCheckInProgress: boolean;
   codexTotals: SymphonyCodexTotals;
-  rateLimits: SymphonyJsonObject | null;
+  rateLimits: JsonObject | null;
 };

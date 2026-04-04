@@ -363,9 +363,6 @@ importers:
       '@symphony/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@symphony/run-journal':
-        specifier: workspace:*
-        version: link:../run-journal
     devDependencies:
       '@symphony/eslint-configs':
         specifier: workspace:*
@@ -407,9 +404,9 @@ importers:
 
   packages/orchestrator:
     dependencies:
-      '@symphony/run-journal':
+      '@symphony/contracts':
         specifier: workspace:*
-        version: link:../run-journal
+        version: link:../contracts
       '@symphony/runtime-contract':
         specifier: workspace:*
         version: link:../runtime-contract
@@ -534,9 +531,6 @@ importers:
       '@symphony/orchestrator':
         specifier: workspace:*
         version: link:../orchestrator
-      '@symphony/run-journal':
-        specifier: workspace:*
-        version: link:../run-journal
       '@symphony/runtime-contract':
         specifier: workspace:*
         version: link:../runtime-contract

@@ -1,5 +1,4 @@
 export {
-  buildSymphonyEventAttrs,
   buildSymphonyGithubIssueCommentEvent,
   buildSymphonyGithubReviewEvent,
   buildSymphonyOrchestratorSnapshot,

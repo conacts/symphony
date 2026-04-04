@@ -1,28 +1,28 @@
 import { randomUUID } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import type {
-  SymphonyRunFinishAttrs,
-  SymphonyRunStartAttrs,
-  SymphonyRunUpdateAttrs,
-  SymphonyTurnFinishAttrs,
-  SymphonyTurnStartAttrs,
-  SymphonyTurnUpdateAttrs
-} from "@symphony/run-journal";
 import { createSymphonyIssueTimelineStore, type SymphonyIssueTimelineStore } from "./issue-timeline.js";
 import {
   symphonyIssuesTable,
   symphonyRunsTable,
   symphonyTurnsTable
 } from "./schema.js";
+import type {
+  SymphonyRuntimeRunFinishAttrs,
+  SymphonyRuntimeRunStartAttrs,
+  SymphonyRuntimeRunUpdateAttrs,
+  SymphonyRuntimeTurnFinishAttrs,
+  SymphonyRuntimeTurnStartAttrs,
+  SymphonyRuntimeTurnUpdateAttrs
+} from "./runtime-run-types.js";
 
 export interface SymphonyRuntimeRunStore {
-  recordRunStarted(attrs: SymphonyRunStartAttrs): Promise<string>;
-  recordTurnStarted(runId: string, attrs: SymphonyTurnStartAttrs): Promise<string>;
-  updateTurn(turnId: string, attrs: SymphonyTurnUpdateAttrs): Promise<void>;
-  finalizeTurn(turnId: string, attrs: SymphonyTurnFinishAttrs): Promise<void>;
-  updateRun(runId: string, attrs: SymphonyRunUpdateAttrs): Promise<void>;
-  finalizeRun(runId: string, attrs: SymphonyRunFinishAttrs): Promise<void>;
+  recordRunStarted(attrs: SymphonyRuntimeRunStartAttrs): Promise<string>;
+  recordTurnStarted(runId: string, attrs: SymphonyRuntimeTurnStartAttrs): Promise<string>;
+  updateTurn(turnId: string, attrs: SymphonyRuntimeTurnUpdateAttrs): Promise<void>;
+  finalizeTurn(turnId: string, attrs: SymphonyRuntimeTurnFinishAttrs): Promise<void>;
+  updateRun(runId: string, attrs: SymphonyRuntimeRunUpdateAttrs): Promise<void>;
+  finalizeRun(runId: string, attrs: SymphonyRuntimeRunFinishAttrs): Promise<void>;
 }
 
 export function createSqliteSymphonyRuntimeRunStore(input: {
@@ -45,7 +45,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       input.timelineStore ?? createSymphonyIssueTimelineStore(input.db);
   }
 
-  async recordRunStarted(attrs: SymphonyRunStartAttrs): Promise<string> {
+  async recordRunStarted(attrs: SymphonyRuntimeRunStartAttrs): Promise<string> {
     const runId = attrs.runId ?? randomUUID();
     const now = isoNow();
     const startedAt = normalizeIsoTimestamp(attrs.startedAt) ?? now;
@@ -124,7 +124,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     return runId;
   }
 
-  async recordTurnStarted(runId: string, attrs: SymphonyTurnStartAttrs): Promise<string> {
+  async recordTurnStarted(runId: string, attrs: SymphonyRuntimeTurnStartAttrs): Promise<string> {
     const turnId = attrs.turnId ?? randomUUID();
     const now = isoNow();
     const run = this.#db
@@ -192,7 +192,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     return turnId;
   }
 
-  async updateTurn(turnId: string, attrs: SymphonyTurnUpdateAttrs): Promise<void> {
+  async updateTurn(turnId: string, attrs: SymphonyRuntimeTurnUpdateAttrs): Promise<void> {
     const existing = this.#db
       .select()
       .from(symphonyTurnsTable)
@@ -219,7 +219,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       .run();
   }
 
-  async finalizeTurn(turnId: string, attrs: SymphonyTurnFinishAttrs): Promise<void> {
+  async finalizeTurn(turnId: string, attrs: SymphonyRuntimeTurnFinishAttrs): Promise<void> {
     await this.updateTurn(turnId, {
       status: attrs.status ?? "completed",
       endedAt: attrs.endedAt,
@@ -231,7 +231,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     });
   }
 
-  async updateRun(runId: string, attrs: SymphonyRunUpdateAttrs): Promise<void> {
+  async updateRun(runId: string, attrs: SymphonyRuntimeRunUpdateAttrs): Promise<void> {
     const existing = this.#db
       .select()
       .from(symphonyRunsTable)
@@ -275,7 +275,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     });
   }
 
-  async finalizeRun(runId: string, attrs: SymphonyRunFinishAttrs): Promise<void> {
+  async finalizeRun(runId: string, attrs: SymphonyRuntimeRunFinishAttrs): Promise<void> {
     const existing = this.#db
       .select()
       .from(symphonyRunsTable)

@@ -1,16 +1,15 @@
 import path from "node:path";
 import { tmpdir } from "node:os";
 import type {
+  SymphonyRuntimeRunFinishAttrs,
+  SymphonyRuntimeRunStartAttrs,
+  SymphonyRuntimeTurnFinishAttrs,
+  SymphonyRuntimeTurnStartAttrs
+} from "@symphony/db";
+import type {
   SymphonyGitHubReviewEvent
 } from "@symphony/github-review";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
-import type {
-  SymphonyEventAttrs,
-  SymphonyRunFinishAttrs,
-  SymphonyRunStartAttrs,
-  SymphonyTurnFinishAttrs,
-  SymphonyTurnStartAttrs
-} from "@symphony/run-journal";
 import {
   buildSymphonyTrackerIssue
 } from "@symphony/tracker";
@@ -234,8 +233,8 @@ export function buildSymphonyOrchestratorSnapshot(
 }
 
 export function buildSymphonyRunStartAttrs(
-  overrides: Partial<SymphonyRunStartAttrs> = {}
-): SymphonyRunStartAttrs {
+  overrides: Partial<SymphonyRuntimeRunStartAttrs> = {}
+): SymphonyRuntimeRunStartAttrs {
   fixtureCounter += 1;
 
   return {
@@ -258,8 +257,8 @@ export function buildSymphonyRunStartAttrs(
 }
 
 export function buildSymphonyTurnStartAttrs(
-  overrides: Partial<SymphonyTurnStartAttrs> = {}
-): SymphonyTurnStartAttrs {
+  overrides: Partial<SymphonyRuntimeTurnStartAttrs> = {}
+): SymphonyRuntimeTurnStartAttrs {
   fixtureCounter += 1;
 
   return {
@@ -277,35 +276,9 @@ export function buildSymphonyTurnStartAttrs(
   };
 }
 
-export function buildSymphonyEventAttrs(
-  overrides: Partial<SymphonyEventAttrs> = {}
-): SymphonyEventAttrs {
-  fixtureCounter += 1;
-
-  return {
-    eventSequence: 1,
-    eventType: "session.started",
-    recordedAt: new Date("2026-03-31T00:00:01.000Z"),
-    payload: {
-      type: "session.started",
-      session_id: `session-${fixtureCounter}`,
-      thread_id: `thread-${fixtureCounter}`,
-      turn_id: `turn-${fixtureCounter}`,
-      codex_app_server_pid: null,
-      model: null,
-      reasoning_effort: null
-    },
-    summary: "session started",
-    codexThreadId: `thread-${fixtureCounter}`,
-    codexTurnId: `turn-${fixtureCounter}`,
-    codexSessionId: `session-${fixtureCounter}`,
-    ...overrides
-  };
-}
-
 export function buildSymphonyTurnFinishAttrs(
-  overrides: Partial<SymphonyTurnFinishAttrs> = {}
-): SymphonyTurnFinishAttrs {
+  overrides: Partial<SymphonyRuntimeTurnFinishAttrs> = {}
+): SymphonyRuntimeTurnFinishAttrs {
   return {
     status: "completed",
     endedAt: new Date("2026-03-31T00:00:10.000Z"),
@@ -319,8 +292,8 @@ export function buildSymphonyTurnFinishAttrs(
 }
 
 export function buildSymphonyRunFinishAttrs(
-  overrides: Partial<SymphonyRunFinishAttrs> = {}
-): SymphonyRunFinishAttrs {
+  overrides: Partial<SymphonyRuntimeRunFinishAttrs> = {}
+): SymphonyRuntimeRunFinishAttrs {
   return {
     status: "finished",
     outcome: "paused_max_turns",

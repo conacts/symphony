@@ -1,4 +1,4 @@
-import type { SymphonyRunSummary } from "@symphony/run-journal";
+import type { SymphonyForensicsRunSummary } from "@symphony/contracts";
 
 const symphonyCompletedRunOutcomes = new Set([
   "completed",
@@ -7,7 +7,7 @@ const symphonyCompletedRunOutcomes = new Set([
   "done"
 ]);
 
-export function problemSummary(runs: SymphonyRunSummary[]): Record<string, number> {
+export function problemSummary(runs: SymphonyForensicsRunSummary[]): Record<string, number> {
   return runs.reduce<Record<string, number>>((summary, run) => {
     if (!run.outcome) {
       return summary;

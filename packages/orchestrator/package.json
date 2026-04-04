@@ -21,7 +21,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@symphony/run-journal": "workspace:*",
+    "@symphony/contracts": "workspace:*",
     "@symphony/runtime-contract": "workspace:*",
     "@symphony/tracker": "workspace:*",
     "@symphony/workspace": "workspace:*"

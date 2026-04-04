@@ -21,8 +21,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@symphony/contracts": "workspace:*",
-    "@symphony/run-journal": "workspace:*"
+    "@symphony/contracts": "workspace:*"
   },
   "devDependencies": {
     "@symphony/eslint-configs": "workspace:*",

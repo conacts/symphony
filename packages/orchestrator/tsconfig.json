@@ -13,9 +13,6 @@
   ],
   "references": [
     {
-      "path": "../run-journal"
-    },
-    {
       "path": "../runtime-contract"
     },
     {

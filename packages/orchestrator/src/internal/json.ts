@@ -1,22 +1,19 @@
-import type {
-  SymphonyJsonObject,
-  SymphonyJsonValue
-} from "@symphony/run-journal";
+import type { JsonObject, JsonValue } from "@symphony/contracts";
 import { isRecord } from "./records.js";
 
-export function asJsonObject(value: unknown): SymphonyJsonObject | null {
+export function asJsonObject(value: unknown): JsonObject | null {
   return isRecord(value) ? normalizeUnknownJsonObject(value) : null;
 }
 
 export function normalizeUnknownJsonObject(
   value: unknown
-): SymphonyJsonObject {
-  return normalizeUnknownJsonValue(value) as SymphonyJsonObject;
+): JsonObject {
+  return normalizeUnknownJsonValue(value) as JsonObject;
 }
 
 export function normalizeUnknownJsonValue(
   value: unknown
-): SymphonyJsonValue {
+): JsonValue {
   if (
     value === null ||
     typeof value === "string" ||
