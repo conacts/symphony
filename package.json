@@ -55,6 +55,7 @@
     "docker:workspace-image:build": "./scripts/docker/build-workspace-runner.sh",
     "runtime:doctor": "pnpm --filter @symphony/runtime-contract build && tsx ./scripts/runtime/doctor.ts",
     "verify:runtime": "pnpm --filter @symphony/runtime-contract test && pnpm runtime:doctor",
+    "verify:precommit": "turbo run lint typecheck test --filter=!@symphony/web",
     "start": "node ./scripts/start-services.mjs",
     "lint": "turbo run lint",
     "test": "turbo run test",

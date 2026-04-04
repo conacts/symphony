@@ -131,7 +131,7 @@ describe("docker codex symphony agent runtime", () => {
     expect(completion).toEqual({
       kind: "normal"
     });
-    expect(updates).toContain("session_started");
+    expect(updates).toContain("session.started");
     expect(updates).toContain("thread.started");
     expect(updates).toContain("item.completed");
     expect(updates).toContain("turn.completed");
@@ -144,7 +144,7 @@ describe("docker codex symphony agent runtime", () => {
     expect(
       exportPayload?.turns[0]?.events.map((event: { eventType: string }) => event.eventType)
     ).toEqual([
-      "session_started",
+      "session.started",
       "thread.started",
       "turn.started",
       "item.completed",
