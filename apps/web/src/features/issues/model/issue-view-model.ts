@@ -150,6 +150,13 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
 export function buildIssueDetailViewModel(
   input: SymphonyForensicsIssueDetailResult
 ) {
+  const outcomeCounts = new Map<string, number>();
+
+  for (const run of input.runs) {
+    const outcome = run.outcome ?? "unknown";
+    outcomeCounts.set(outcome, (outcomeCounts.get(outcome) ?? 0) + 1);
+  }
+
   return {
     metrics: [
       {
@@ -168,6 +175,18 @@ export function buildIssueDetailViewModel(
         detail: "Most recent successful/completed outcome."
       }
     ],
+    outcomeChartRows: Array.from(outcomeCounts.entries()).map(([outcome, count]) => ({
+      outcome,
+      count
+    })),
+    tokenChartRows: [...input.runs]
+      .slice(0, 8)
+      .reverse()
+      .map((run) => ({
+        runLabel: `#${run.attempt}`,
+        inputTokens: run.inputTokens,
+        outputTokens: run.outputTokens
+      })),
     rows: input.runs.map((run) => ({
       runId: run.runId,
       runHref: `/runs/${run.runId}`,

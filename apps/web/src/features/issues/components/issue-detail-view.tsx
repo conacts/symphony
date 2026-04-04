@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/table";
 import type { RuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
 import type { SymphonyForensicsIssueDetailResult } from "@symphony/contracts";
+import { IssueRunOutcomeChart } from "@/features/issues/components/issue-run-outcome-chart";
+import { IssueRunTokenChart } from "@/features/issues/components/issue-run-token-chart";
 import { buildIssueDetailViewModel } from "@/features/issues/model/issue-view-model";
 
 export function IssueDetailView(input: {
@@ -67,6 +69,11 @@ export function IssueDetailView(input: {
                 </CardHeader>
               </Card>
             ))}
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-2">
+            <IssueRunOutcomeChart rows={viewModel.outcomeChartRows} />
+            <IssueRunTokenChart rows={viewModel.tokenChartRows} />
           </section>
 
           <Card>

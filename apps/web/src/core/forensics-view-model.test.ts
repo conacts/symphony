@@ -135,6 +135,15 @@ describe("forensics view model", () => {
     });
 
     expect(issueDetail.metrics[0]?.value).toBe("3");
+    expect(issueDetail.outcomeChartRows[0]).toEqual({
+      outcome: "completed",
+      count: 1
+    });
+    expect(issueDetail.tokenChartRows[0]).toEqual({
+      runLabel: "#1",
+      inputTokens: 120,
+      outputTokens: 80
+    });
     expect(issueDetail.rows[0]?.runHref).toBe("/runs/run_123");
     expect(issueDetail.rows[0]?.durationSeconds).toBe("2:00");
     expect(issueDetail.rows[0]?.totalTokens).toBe("200");
