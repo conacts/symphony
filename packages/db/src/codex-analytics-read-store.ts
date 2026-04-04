@@ -42,6 +42,7 @@ import {
   codexToolCallsTable,
   codexTurnsTable,
   symphonyIssuesTable,
+  symphonyRuntimeLogsTable,
   symphonyRunsTable,
   symphonyTurnsTable
 } from "./schema.js";
@@ -186,6 +187,15 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
           data.codexRun,
           data.eventRows.length
         ),
+        codexThreadId: data.codexRun.threadId ?? null,
+        codexProviderId: data.runtimeContext.providerId,
+        codexProviderName: data.runtimeContext.providerName,
+        codexAuthMode:
+          data.runtimeContext.authMode === "auth_json" ||
+          data.runtimeContext.authMode === "api_key_env"
+            ? data.runtimeContext.authMode
+            : null,
+        codexProviderEnvKey: data.runtimeContext.providerEnvKey,
         repoStart: castJsonObject(data.run.repoStart),
         repoEnd: castJsonObject(data.run.repoEnd),
         metadata: castJsonObject(data.run.metadata),
@@ -419,6 +429,10 @@ function buildForensicsRunSummary(
     attempt: run.attempt,
     status: run.status,
     outcome: run.outcome,
+    codexStatus: codexRun ? normalizeCodexRunStatus(codexRun.status) : null,
+    codexFailureKind: codexRun?.failureKind ?? null,
+    codexFailureOrigin: codexRun?.failureOrigin ?? null,
+    codexFailureMessagePreview: codexRun?.failureMessagePreview ?? null,
     workerHost: run.workerHost,
     workspacePath: run.workspacePath,
     startedAt: run.startedAt,
@@ -949,6 +963,12 @@ type RunData = {
   agentMessageRows: Array<typeof codexAgentMessagesTable.$inferSelect>;
   reasoningRows: Array<typeof codexReasoningTable.$inferSelect>;
   fileChangeRows: Array<typeof codexFileChangesTable.$inferSelect>;
+  runtimeContext: {
+    providerId: string | null;
+    providerName: string | null;
+    authMode: string | null;
+    providerEnvKey: string | null;
+  };
   events: ForensicsEvent[];
 };
 
@@ -966,7 +986,7 @@ async function loadRunData(
     return null;
   }
 
-  const [codexRun, issue, issueRuns, symphonyTurns, codexTurns, eventRows, itemRows, commandRows, toolRows, agentMessageRows, reasoningRows, fileChangeRows] =
+  const [codexRun, issue, issueRuns, symphonyTurns, codexTurns, eventRows, itemRows, commandRows, toolRows, agentMessageRows, reasoningRows, fileChangeRows, runtimeLogRows] =
     await Promise.all([
       db.select().from(codexRunsTable).where(eq(codexRunsTable.runId, runId)).get(),
       db.select().from(symphonyIssuesTable).where(eq(symphonyIssuesTable.issueId, run.issueId)).get(),
@@ -979,7 +999,8 @@ async function loadRunData(
       db.select().from(codexToolCallsTable).where(eq(codexToolCallsTable.runId, runId)).all(),
       db.select().from(codexAgentMessagesTable).where(eq(codexAgentMessagesTable.runId, runId)).all(),
       db.select().from(codexReasoningTable).where(eq(codexReasoningTable.runId, runId)).all(),
-      db.select().from(codexFileChangesTable).where(eq(codexFileChangesTable.runId, runId)).all()
+      db.select().from(codexFileChangesTable).where(eq(codexFileChangesTable.runId, runId)).all(),
+      db.select().from(symphonyRuntimeLogsTable).where(eq(symphonyRuntimeLogsTable.runId, runId)).orderBy(desc(symphonyRuntimeLogsTable.recordedAt)).all()
     ]);
 
   if (!codexRun || !issue) {
@@ -1005,6 +1026,7 @@ async function loadRunData(
     codexTurnMap,
     codexRun
   });
+  const runtimeContext = extractRuntimeContext(runtimeLogRows);
 
   return {
     run,
@@ -1022,7 +1044,57 @@ async function loadRunData(
     agentMessageRows,
     reasoningRows,
     fileChangeRows,
+    runtimeContext,
     events
+  };
+}
+
+function extractRuntimeContext(
+  rows: Array<typeof symphonyRuntimeLogsTable.$inferSelect>
+): {
+  providerId: string | null;
+  providerName: string | null;
+  authMode: string | null;
+  providerEnvKey: string | null;
+} {
+  let providerId: string | null = null;
+  let providerName: string | null = null;
+  let authMode: string | null = null;
+  let providerEnvKey: string | null = null;
+
+  for (const row of rows) {
+    const payload =
+      row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+        ? (row.payload as Record<string, unknown>)
+        : null;
+
+    if (!payload) {
+      continue;
+    }
+
+    providerId ??=
+      typeof payload.providerId === "string" && payload.providerId !== ""
+        ? payload.providerId
+        : null;
+    providerName ??=
+      typeof payload.providerName === "string" && payload.providerName !== ""
+        ? payload.providerName
+        : null;
+    authMode ??=
+      typeof payload.authMode === "string" && payload.authMode !== ""
+        ? payload.authMode
+        : null;
+    providerEnvKey ??=
+      typeof payload.providerEnvKey === "string" && payload.providerEnvKey !== ""
+        ? payload.providerEnvKey
+        : null;
+  }
+
+  return {
+    providerId,
+    providerName,
+    authMode,
+    providerEnvKey
   };
 }
 

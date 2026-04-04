@@ -272,6 +272,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runtimeLogs: runtimeLogStore,
       hostCommandEnvSource,
       codexHostLaunchEnv: dockerCodexAuth?.launchEnv ?? {},
+      codexAuthMode: dockerCodexAuth?.mode ?? null,
+      codexProviderEnvKey: runtimePolicy.codex.provider?.envKey ?? null,
       logger,
       callbacks: {
         async onUpdate(issueId, update) {

@@ -29,6 +29,18 @@ const terminalRunStatuses = new Set([
 ]);
 
 const terminalTurnStatuses = new Set(["completed", "failed"]);
+const codexRunStatuses = z.enum([
+  "dispatching",
+  "running",
+  "completed",
+  "paused",
+  "failed",
+  "startup_failed",
+  "rate_limited",
+  "stalled",
+  "stopped"
+]);
+const codexAuthModes = z.enum(["auth_json", "api_key_env"]);
 
 export const symphonyForensicsIssueSummarySchema = z.strictObject({
   issueId: nonEmptyStringSchema,
@@ -69,6 +81,10 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   attempt: z.number().int().nonnegative().nullable(),
   status: nonEmptyStringSchema,
   outcome: nullableNonEmptyStringSchema,
+  codexStatus: codexRunStatuses.nullable(),
+  codexFailureKind: nullableNonEmptyStringSchema,
+  codexFailureOrigin: nullableNonEmptyStringSchema,
+  codexFailureMessagePreview: nullableNonEmptyStringSchema,
   workerHost: nullableNonEmptyStringSchema,
   workspacePath: nullableNonEmptyStringSchema,
   startedAt: isoTimestampSchema,
@@ -216,6 +232,11 @@ export const symphonyForensicsIssueExportSchema = z.strictObject({
 });
 
 export const symphonyForensicsRunDetailSchema = symphonyForensicsRunSummarySchema.safeExtend({
+  codexThreadId: nullableNonEmptyStringSchema,
+  codexProviderId: nullableNonEmptyStringSchema,
+  codexProviderName: nullableNonEmptyStringSchema,
+  codexAuthMode: codexAuthModes.nullable(),
+  codexProviderEnvKey: nullableNonEmptyStringSchema,
   repoStart: jsonObjectSchema.nullable(),
   repoEnd: jsonObjectSchema.nullable(),
   metadata: jsonObjectSchema.nullable(),

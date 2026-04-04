@@ -11,9 +11,12 @@ RUN apt-get update \
     gh \
     git \
     g++ \
+    jq \
+    less \
     make \
     openssh-client \
     postgresql-client \
+    procps \
     python3 \
     ripgrep \
     tini \

@@ -67,6 +67,8 @@ export function createCodexSymphonyAgentRuntime(input: {
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
   codexHostLaunchEnv?: Record<string, string>;
+  codexAuthMode?: string | null;
+  codexProviderEnvKey?: string | null;
   logger: SymphonyLogger;
   callbacks: RunCallbacks;
 }): AgentRuntime {
@@ -100,6 +102,8 @@ export function createCodexSymphonyAgentRuntime(input: {
         }),
         hostCommandEnvSource: input.hostCommandEnvSource,
         codexHostLaunchEnv: input.codexHostLaunchEnv ?? {},
+        codexAuthMode: input.codexAuthMode ?? null,
+        codexProviderEnvKey: input.codexProviderEnvKey ?? null,
         callbacks: input.callbacks,
         issue: runInput.issue,
         runId: runInput.runId,
@@ -145,6 +149,8 @@ async function executeRun(input: {
   logger: SymphonyLogger;
   hostCommandEnvSource: Record<string, string | undefined>;
   codexHostLaunchEnv: Record<string, string>;
+  codexAuthMode: string | null;
+  codexProviderEnvKey: string | null;
   callbacks: RunCallbacks;
   issue: SymphonyTrackerIssue;
   runId: string | null;
@@ -155,6 +161,8 @@ async function executeRun(input: {
 }): Promise<void> {
   let persistedTurnId: string | null = null;
   let maxTurnsReached = false;
+  let sessionProviderId: string | null = null;
+  let sessionProviderName: string | null = null;
 
   try {
     await input.runtimeLogs.record({
@@ -193,6 +201,8 @@ async function executeRun(input: {
       logger: input.logger
     });
     input.activeRun.client = session.client;
+    sessionProviderId = session.providerId;
+    sessionProviderName = session.providerName;
 
     await input.runtimeLogs.record({
       level: "info",
@@ -210,6 +220,8 @@ async function executeRun(input: {
         profile: session.profile,
         providerId: session.providerId,
         providerName: session.providerName,
+        authMode: input.codexAuthMode,
+        providerEnvKey: input.codexProviderEnvKey,
         launchTarget: describeLaunchTarget(session.launchTarget)
       }
     });
@@ -448,6 +460,10 @@ async function executeRun(input: {
         reason,
         failureStage: startupFailure?.failureStage ?? null,
         failureOrigin: startupFailure?.failureOrigin ?? null,
+        providerId: sessionProviderId,
+        providerName: sessionProviderName,
+        authMode: input.codexAuthMode,
+        providerEnvKey: input.codexProviderEnvKey,
         launchTarget: describeLaunchTarget(input.launchTarget)
       }
     });

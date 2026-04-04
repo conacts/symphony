@@ -12,6 +12,9 @@ const symphonyRuntimeRestrictions =
 export default [
   ...base,
   {
+    ignores: [".symphony/workspaces/**"]
+  },
+  {
     files: [...runtimeSourceGlobs],
     ignores: [...runtimeTestGlobs, "src/core/env.ts"],
     rules: {

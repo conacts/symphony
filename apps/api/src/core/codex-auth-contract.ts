@@ -46,6 +46,10 @@ export function resolveDockerCodexAuthContract(
     preferredApiKeyEnvKey?: string | null;
   } = {}
 ): DockerCodexAuthContract {
+  const preferredProviderLaunchEnv = resolvePreferredApiKeyLaunchEnv(
+    hostCommandEnvSource,
+    options.preferredApiKeyEnvKey
+  );
   const authFilePath = resolveCodexAuthFilePath(hostCommandEnvSource);
 
   if (authFilePath) {
@@ -57,17 +61,15 @@ export function resolveDockerCodexAuthContract(
         readOnly: true
       },
       launchEnv: {
-        CODEX_HOME: defaultDockerCodexHomePath
+        CODEX_HOME: defaultDockerCodexHomePath,
+        ...preferredProviderLaunchEnv
       },
       authFilePath
     };
   }
 
-  const preferredApiKeyEnvKeys = [
-    options.preferredApiKeyEnvKey,
-    "OPENAI_API_KEY"
-  ].filter((value, index, values): value is string =>
-    typeof value === "string" && value.trim() !== "" && values.indexOf(value) === index
+  const preferredApiKeyEnvKeys = resolvePreferredApiKeyEnvKeys(
+    options.preferredApiKeyEnvKey
   );
 
   for (const envKey of preferredApiKeyEnvKeys) {
@@ -91,6 +93,31 @@ export function resolveDockerCodexAuthContract(
     launchEnv: {},
     authFilePath: null
   };
+}
+
+function resolvePreferredApiKeyLaunchEnv(
+  hostCommandEnvSource: Record<string, string | undefined>,
+  preferredApiKeyEnvKey: string | null | undefined
+): Record<string, string> {
+  for (const envKey of resolvePreferredApiKeyEnvKeys(preferredApiKeyEnvKey)) {
+    const apiKey = hostCommandEnvSource[envKey];
+    if (typeof apiKey === "string" && apiKey.trim() !== "") {
+      return {
+        [envKey]: apiKey
+      };
+    }
+  }
+
+  return {};
+}
+
+function resolvePreferredApiKeyEnvKeys(
+  preferredApiKeyEnvKey: string | null | undefined
+): string[] {
+  return [preferredApiKeyEnvKey, "OPENAI_API_KEY"].filter(
+    (value, index, values): value is string =>
+      typeof value === "string" && value.trim() !== "" && values.indexOf(value) === index
+  );
 }
 
 export function resolveDockerGitHubCliAuthContract(

@@ -180,6 +180,10 @@ function createRunSummary(
     attempt: 1,
     status: "finished",
     outcome: "paused_max_turns",
+    codexStatus: "paused",
+    codexFailureKind: "max_turns_reached",
+    codexFailureOrigin: "codex",
+    codexFailureMessagePreview: "Reached the configured max turns.",
     workerHost: "docker-host",
     workspacePath: "/tmp/COL-157",
     startedAt: "2026-03-31T00:00:00.000Z",
@@ -219,6 +223,11 @@ function createRunDetail(
     },
     run: {
       ...run,
+      codexThreadId: "thread-1",
+      codexProviderId: "openrouter",
+      codexProviderName: "OpenRouter",
+      codexAuthMode: "api_key_env",
+      codexProviderEnvKey: "OPENROUTER_API_KEY",
       repoStart: {
         dirty: true
       },

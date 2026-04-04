@@ -162,7 +162,7 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       beforeRun: null,
       afterRun: null,
       beforeRemove: null,
-      timeoutMs: readPositiveInteger(environmentSource.SYMPHONY_HOOK_TIMEOUT_MS, 60_000)
+      timeoutMs: readPositiveInteger(environmentSource.SYMPHONY_HOOK_TIMEOUT_MS, 150_000)
     },
     observability: {
       dashboardEnabled: false,

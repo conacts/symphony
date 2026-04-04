@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
 import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
+import { createSymphonyRuntimeLogStore } from "./runtime-logs.js";
 import { createSqliteCodexAnalyticsReadStore } from "./codex-analytics-read-store.js";
 import { createSqliteCodexAnalyticsStore } from "./codex-analytics-store.js";
 import { createSqliteSymphonyRunJournal } from "./sqlite-symphony-run-journal.js";
@@ -41,6 +42,7 @@ describe("sqlite codex analytics read store", () => {
     const readStore = createSqliteCodexAnalyticsReadStore({
       db: database.db
     });
+    const runtimeLogs = createSymphonyRuntimeLogStore(database.db);
 
     try {
       const runId = await runJournal.recordRunStarted({
@@ -133,6 +135,21 @@ describe("sqlite codex analytics read store", () => {
         failureOrigin: null,
         failureMessagePreview: null
       });
+      await runtimeLogs.record({
+        level: "info",
+        source: "codex_runtime",
+        eventType: "runtime_session_started",
+        issueId: "issue-1",
+        issueIdentifier: "COL-157",
+        runId,
+        message: "Started the Codex SDK session.",
+        payload: {
+          providerId: "openrouter",
+          providerName: "OpenRouter",
+          authMode: "api_key_env",
+          providerEnvKey: "OPENROUTER_API_KEY"
+        }
+      });
       await runJournal.finalizeTurn(turnId, {
         status: "completed",
         endedAt: "2026-04-03T20:37:40.000Z",
@@ -182,6 +199,7 @@ describe("sqlite codex analytics read store", () => {
       );
 
       expect(runs[0]?.runId).toBe(runId);
+      expect(runs[0]?.codexStatus).toBe("completed");
       expect(runs[0]?.turnCount).toBe(1);
       expect(runs[0]?.eventCount).toBe(3);
       expect(runs[0]?.inputTokens).toBe(11);
@@ -190,6 +208,12 @@ describe("sqlite codex analytics read store", () => {
       expect(problemRuns).toHaveLength(0);
       expect(runDetail?.issue.issueIdentifier).toBe("COL-157");
       expect(runDetail?.run.runId).toBe(runId);
+      expect(runDetail?.run.codexStatus).toBe("completed");
+      expect(runDetail?.run.codexThreadId).toBe("thread-1");
+      expect(runDetail?.run.codexProviderId).toBe("openrouter");
+      expect(runDetail?.run.codexProviderName).toBe("OpenRouter");
+      expect(runDetail?.run.codexAuthMode).toBe("api_key_env");
+      expect(runDetail?.run.codexProviderEnvKey).toBe("OPENROUTER_API_KEY");
       expect(runDetail?.turns).toHaveLength(1);
       expect(runDetail?.turns[0]?.usage).toEqual({
         input_tokens: 11,
