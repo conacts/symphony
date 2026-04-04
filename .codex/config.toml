@@ -1,3 +1,6 @@
+model = "xiaomi/mimo-v2-pro"
+model_provider = "openrouter"
+model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
 
@@ -7,6 +10,13 @@ base_url = "https://openrouter.ai/api/v1"
 env_key = "OPENROUTER_API_KEY"
 wire_api = "responses"
 supports_websockets = false
+
+[profiles.mimo-v2-pro]
+model = "xiaomi/mimo-v2-pro"
+model_provider = "openrouter"
+model_reasoning_effort = "high"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
 
 [profiles.glm-5-turbo]
 model = "z-ai/glm-5-turbo"
