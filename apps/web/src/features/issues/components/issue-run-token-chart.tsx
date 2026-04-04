@@ -14,9 +14,9 @@ import {
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
-  ChartTooltipContent,
   type ChartConfig
 } from "@/components/ui/chart";
+import { cn } from "@/lib/utils";
 
 const runTokenChartConfig = {
   inputTokens: {
@@ -61,25 +61,7 @@ export function IssueRunTokenChart(input: {
               />
               <ChartTooltip
                 cursor={false}
-                content={
-                  <ChartTooltipContent
-                    indicator="dashed"
-                    labelKey="runLabel"
-                    formatter={(_, name, item) => (
-                      <>
-                        <div className="grid gap-1.5">
-                          <span className="text-muted-foreground">
-                            {runTokenChartConfig[item.dataKey as keyof typeof runTokenChartConfig]
-                              ?.label ?? name}
-                          </span>
-                        </div>
-                        <span className="font-mono font-medium text-foreground tabular-nums">
-                          {formatTooltipValue(item)}
-                        </span>
-                      </>
-                    )}
-                  />
-                }
+                content={<IssueRunTokenTooltip />}
               />
               <ChartLegend content={<ChartLegendContent />} />
               <Bar
@@ -102,19 +84,43 @@ export function IssueRunTokenChart(input: {
   );
 }
 
-function formatTooltipValue(item: {
-  dataKey?: string | number | ((input: unknown) => unknown);
-  payload?: Record<string, unknown>;
-  value?: unknown;
+function IssueRunTokenTooltip(input: {
+  active?: boolean;
+  label?: string | number;
+  payload?: Array<{
+    dataKey?: string | number | ((value: unknown) => unknown);
+    payload?: {
+      runLabel?: string;
+      inputTokens?: number;
+      outputTokens?: number;
+    };
+  }>;
 }) {
-  const rawValue =
-    typeof item.dataKey === "string" &&
-    item.payload &&
-    typeof item.payload[item.dataKey] === "number"
-      ? item.payload[item.dataKey]
-      : item.value;
+  const row = input.payload?.[0]?.payload;
 
-  return typeof rawValue === "number"
-    ? rawValue.toLocaleString()
-    : String(rawValue ?? "n/a");
+  if (!input.active || !row) {
+    return null;
+  }
+
+  return (
+    <div
+      className={cn(
+        "grid min-w-40 gap-1.5 rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl"
+      )}
+    >
+      <div className="font-medium">{row.runLabel ?? input.label ?? "Run"}</div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-muted-foreground">Input tokens</span>
+        <span className="font-mono font-medium text-foreground tabular-nums">
+          {(row.inputTokens ?? 0).toLocaleString()}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-muted-foreground">Output tokens</span>
+        <span className="font-mono font-medium text-foreground tabular-nums">
+          {(row.outputTokens ?? 0).toLocaleString()}
+        </span>
+      </div>
+    </div>
+  );
 }

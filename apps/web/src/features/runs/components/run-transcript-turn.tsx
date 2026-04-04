@@ -3,7 +3,8 @@
 import React, { Fragment } from "react";
 import {
   Message,
-  MessageContent
+  MessageContent,
+  MessageResponse
 } from "@/components/ai-elements/message";
 import { RunTranscriptCopy } from "@/features/runs/components/run-transcript-copy";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +68,9 @@ export function RunTranscriptTurn(input: {
                   <span>{entry.recordedAt}</span>
                   <span>{entry.status}</span>
                 </div>
-                <RunTranscriptCopy>{entry.text ?? entry.preview}</RunTranscriptCopy>
+                <MessageResponse>
+                  {entry.text ?? entry.preview}
+                </MessageResponse>
                 <EntryFiles files={entry.files} />
                 {entry.overflowId ? (
                   <div>
