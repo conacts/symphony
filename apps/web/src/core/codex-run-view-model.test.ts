@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCodexRunViewModel,
   formatOverflowContent
-} from "./codex-run-view-model.js";
+} from "@/features/runs/model/codex-run-view-model";
 import {
   buildSymphonyCodexOverflowResult,
   buildSymphonyCodexRunArtifactsResult,

@@ -1,7 +1,7 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { RunTranscriptView } from "./run-transcript-view.js";
+import { RunTranscriptView } from "@/features/runs/components/run-transcript-view";
 import {
   buildSymphonyCodexRunArtifactsResult,
   buildSymphonyForensicsRunDetailResult

@@ -3,10 +3,10 @@
 import { useMemo, useState } from "react";
 import { ControlPlaneShell } from "@/components/control-plane-shell";
 import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
-import { buildRuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
 import type { SymphonyForensicsIssuesQuery } from "@symphony/contracts";
 import { IssueIndexView } from "@/features/issues/components/issue-index-view";
 import { useIssueIndex } from "@/features/issues/hooks/use-issue-index";
+import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 
 export function IssueIndexLiveScreen(input: {
   model: SymphonyDashboardFoundationModel;

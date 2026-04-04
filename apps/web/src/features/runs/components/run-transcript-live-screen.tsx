@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import { ControlPlaneShell } from "@/components/control-plane-shell";
 import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
-import { buildRuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
+import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import { useCodexRun } from "@/features/runs/hooks/use-codex-run";
 import { RunTranscriptView } from "@/features/runs/components/run-transcript-view";
 

@@ -4,10 +4,10 @@ import { useMemo } from "react";
 import { ControlPlaneShell } from "@/components/control-plane-shell";
 import { IssueRequeuePanel } from "@/components/issue-requeue-panel";
 import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
-import { buildRuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
 import { useRuntimeIssue } from "@/hooks/use-runtime-issue";
 import { IssueDetailView } from "@/features/issues/components/issue-detail-view";
 import { useIssueDetail } from "@/features/issues/hooks/use-issue-detail";
+import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 
 export function IssueDetailLiveScreen(input: {
   issueIdentifier: string;

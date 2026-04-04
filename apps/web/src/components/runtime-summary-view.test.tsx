@@ -1,17 +1,17 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { buildRuntimeSummaryViewModel } from "@/core/runtime-summary-view-model";
+import { buildRuntimeSummaryViewModel } from "@/features/overview/model/overview-view-model";
+import { OverviewView } from "@/features/overview/components/overview-view";
 import {
   buildSymphonyDashboardConnectionState,
   buildSymphonyRuntimeStateResult
 } from "../test-support/build-symphony-dashboard-view-fixtures.js";
-import { RuntimeSummaryView } from "./runtime-summary-view.js";
 
 describe("runtime summary view", () => {
   it("renders loading placeholders before the first snapshot arrives", () => {
     const html = renderToStaticMarkup(
-      <RuntimeSummaryView
+      <OverviewView
         connection={buildSymphonyDashboardConnectionState({
           kind: "waiting",
           label: "Loading runtime snapshot",
@@ -28,7 +28,7 @@ describe("runtime summary view", () => {
 
   it("renders the operator-visible summary sections for a loaded snapshot", () => {
     const html = renderToStaticMarkup(
-      <RuntimeSummaryView
+      <OverviewView
         connection={buildSymphonyDashboardConnectionState()}
         error={null}
         loading={false}

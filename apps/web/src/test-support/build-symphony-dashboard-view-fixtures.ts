@@ -1,7 +1,7 @@
 import type {
   RuntimeSummaryConnectionState,
   RuntimeSummaryViewModel
-} from "@/core/runtime-summary-view-model";
+} from "@/features/overview/model/overview-view-model";
 
 export {
   buildSymphonyCodexOverflowResult,

@@ -3,9 +3,9 @@
 import { useMemo } from "react";
 import { ControlPlaneShell } from "@/components/control-plane-shell";
 import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
-import { buildRuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
 import { useIssueForensicsBundle } from "@/hooks/use-issue-forensics-bundle";
 import { IssueActivityView } from "@/features/issues/components/issue-activity-view";
+import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 
 export function IssueActivityLiveScreen(input: {
   issueIdentifier: string;

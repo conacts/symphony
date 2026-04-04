@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { ControlPlaneShell } from "@/components/control-plane-shell";
 import { RuntimeHealthView } from "@/components/runtime-health-view";
 import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
-import { buildRuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
+import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import { useRuntimeHealth } from "@/hooks/use-runtime-health";
 
 export function RuntimeHealthLiveScreen(input: {
