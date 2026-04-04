@@ -102,6 +102,18 @@ export function createDbBackedOrchestratorObserver(input: {
         });
       }
 
+      if (runId && (eventType === "run_stopped_inactive" || eventType === "run_stopped_terminal")) {
+        await input.runJournal.finalizeRun(runId, {
+          status: "stopped",
+          outcome: eventType,
+          endedAt: recordedAt,
+          metadata: {
+            stopEventType: eventType,
+            stopPayload: normalizeJsonValue(payload)
+          }
+        });
+      }
+
       await input.issueTimelineStore.record({
         issueId: issue.id,
         issueIdentifier: issue.identifier,
@@ -154,10 +166,11 @@ export function createDbBackedOrchestratorObserver(input: {
                   manifestLifecycle: completion.manifestLifecycle ?? null
                 }
               : null,
-          tokens: {
-            inputTokens,
-            outputTokens,
-            totalTokens
+          usage: {
+            input_tokens: inputTokens,
+            cached_input_tokens: 0,
+            output_tokens: outputTokens,
+            total_tokens: totalTokens
           }
         },
         errorClass:

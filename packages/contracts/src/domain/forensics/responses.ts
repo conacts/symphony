@@ -1,5 +1,9 @@
 import { createEnvelopeSchema } from "@symphony/errors";
 import { z } from "zod";
+import {
+  symphonyCodexAnalyticsEventSchema,
+  symphonyCodexUsageSchema
+} from "../../core/codex-analytics.js";
 import { jsonObjectSchema, jsonValueSchema } from "../../core/json.js";
 import {
   isoTimestampSchema,
@@ -225,15 +229,21 @@ export const symphonyForensicsEventSchema = z.strictObject({
   runId: nonEmptyStringSchema,
   eventSequence: z.number().int().positive(),
   eventType: nonEmptyStringSchema,
+  itemType: z
+    .enum([
+      "agent_message",
+      "reasoning",
+      "command_execution",
+      "file_change",
+      "mcp_tool_call",
+      "web_search",
+      "todo_list",
+      "error"
+    ])
+    .nullable(),
+  itemStatus: z.enum(["in_progress", "completed", "failed"]).nullable(),
   recordedAt: isoTimestampSchema,
-  payload: z.union([
-    jsonObjectSchema,
-    z.array(jsonValueSchema),
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null()
-  ]),
+  payload: symphonyCodexAnalyticsEventSchema,
   payloadTruncated: z.boolean(),
   payloadBytes: z.number().int().nonnegative().nullable(),
   summary: nullableNonEmptyStringSchema,
@@ -254,7 +264,7 @@ export const symphonyForensicsTurnSchema = z.strictObject({
   status: nullableNonEmptyStringSchema,
   startedAt: isoTimestampSchema,
   endedAt: isoTimestampSchema.nullable(),
-  tokens: jsonObjectSchema.nullable(),
+  usage: symphonyCodexUsageSchema.nullable(),
   metadata: jsonObjectSchema.nullable(),
   insertedAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema,

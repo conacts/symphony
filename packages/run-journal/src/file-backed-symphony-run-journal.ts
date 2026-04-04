@@ -18,6 +18,11 @@ import {
   truncatePayload
 } from "./symphony-run-journal-private.js";
 import type {
+  SymphonyCodexAnalyticsEvent,
+  SymphonyCodexThreadItemStatus,
+  SymphonyCodexThreadItemType
+} from "./codex-analytics-types.js";
+import type {
   SymphonyEventAttrs,
   SymphonyFileBackedRunJournalOptions,
   SymphonyIssueRecord,
@@ -135,7 +140,7 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
         status: attrs.status ?? "running",
         startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? now,
         endedAt: null,
-        tokens: null,
+        usage: null,
         metadata: sanitizeJsonObject(attrs.metadata),
         insertedAt: now,
         updatedAt: now
@@ -167,7 +172,7 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
           .reduce((max, event) => Math.max(max, event.eventSequence), 0) +
           1;
 
-      const truncatedPayload = truncatePayload(attrs.payload ?? null, this.payloadMaxBytes);
+      const truncatedPayload = truncatePayload(attrs.payload, this.payloadMaxBytes);
 
       document.events.push({
         eventId,
@@ -175,6 +180,8 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
         runId,
         eventSequence: nextSequence,
         eventType: attrs.eventType,
+        itemType: deriveItemType(truncatedPayload.payload),
+        itemStatus: deriveItemStatus(truncatedPayload.payload),
         recordedAt: normalizeIsoTimestamp(attrs.recordedAt) ?? now,
         payload: truncatedPayload.payload,
         payloadTruncated: truncatedPayload.payloadTruncated,
@@ -203,7 +210,7 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
       turn.codexThreadId = attrs.codexThreadId ?? turn.codexThreadId;
       turn.codexTurnId = attrs.codexTurnId ?? turn.codexTurnId;
       turn.codexSessionId = attrs.codexSessionId ?? turn.codexSessionId;
-      turn.tokens = sanitizeJsonObject(attrs.tokens) ?? turn.tokens;
+      turn.usage = sanitizeUsage(attrs.usage) ?? turn.usage;
       turn.metadata = mergeSanitizedJsonObjects(turn.metadata, attrs.metadata);
       turn.updatedAt = isoNow();
     });
@@ -216,7 +223,7 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
       codexThreadId: attrs.codexThreadId,
       codexTurnId: attrs.codexTurnId,
       codexSessionId: attrs.codexSessionId,
-      tokens: attrs.tokens,
+      usage: attrs.usage,
       metadata: attrs.metadata
     });
   }
@@ -445,6 +452,56 @@ function mergeSanitizedJsonObjects(
     ...existing,
     ...sanitizedNext
   };
+}
+
+function sanitizeUsage(
+  value:
+    | {
+        input_tokens?: number;
+        cached_input_tokens?: number;
+        output_tokens?: number;
+      }
+    | null
+    | undefined
+): SymphonyTurnRecord["usage"] {
+  if (!value) {
+    return null;
+  }
+
+  return {
+    input_tokens: parseTokenCount(value.input_tokens),
+    cached_input_tokens: parseTokenCount(value.cached_input_tokens),
+    output_tokens: parseTokenCount(value.output_tokens)
+  };
+}
+
+function parseTokenCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : 0;
+}
+
+function deriveItemType(
+  payload: SymphonyCodexAnalyticsEvent
+): SymphonyCodexThreadItemType | null {
+  return "item" in payload ? payload.item.type : null;
+}
+
+function deriveItemStatus(
+  payload: SymphonyCodexAnalyticsEvent
+): SymphonyCodexThreadItemStatus {
+  if (!("item" in payload)) {
+    return null;
+  }
+
+  switch (payload.item.type) {
+    case "command_execution":
+    case "file_change":
+    case "mcp_tool_call":
+      return payload.item.status;
+    default:
+      return null;
+  }
 }
 
 function findRunRecord(runs: SymphonyRunRecord[], runId: string): SymphonyRunRecord | undefined {

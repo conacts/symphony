@@ -1031,7 +1031,11 @@ export function buildMockRunDetailResult(
         status: "completed",
         startedAt: run.startedAt,
         endedAt: runEndedAt,
-        tokens: {},
+        usage: {
+          input_tokens: run.inputTokens,
+          cached_input_tokens: 0,
+          output_tokens: run.outputTokens
+        },
         metadata: {
           mocked: true
         },
@@ -1044,10 +1048,13 @@ export function buildMockRunDetailResult(
             turnId: `turn_${run.runId}`,
             runId: run.runId,
             eventSequence: 1,
-            eventType: run.lastEventType ?? "message.output",
+            eventType: "error",
+            itemType: null,
+            itemStatus: null,
             recordedAt: runLastEventAt,
             payload: {
-              summary: run.errorMessage ?? "Mock event payload"
+              type: "error",
+              message: run.errorMessage ?? "Mock event payload"
             },
             payloadTruncated: false,
             payloadBytes: 64,

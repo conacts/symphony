@@ -778,7 +778,11 @@ export function buildSymphonyForensicsRunDetailResult(
         status: "completed",
         startedAt: "2026-03-31T18:00:00.000Z",
         endedAt: "2026-03-31T18:01:00.000Z",
-        tokens: {},
+        usage: {
+          input_tokens: 120,
+          cached_input_tokens: 0,
+          output_tokens: 80
+        },
         metadata: {},
         insertedAt: "2026-03-31T18:00:00.000Z",
         updatedAt: "2026-03-31T18:01:00.000Z",
@@ -789,10 +793,17 @@ export function buildSymphonyForensicsRunDetailResult(
             turnId: "turn_123",
             runId: "run_123",
             eventSequence: 1,
-            eventType: "message.output",
+            eventType: "item.completed",
+            itemType: "agent_message",
+            itemStatus: null,
             recordedAt: "2026-03-31T18:01:00.000Z",
             payload: {
-              text: "done"
+              type: "item.completed",
+              item: {
+                id: "message_123",
+                type: "agent_message",
+                text: "done"
+              }
             },
             payloadTruncated: false,
             payloadBytes: 12,

@@ -59,11 +59,16 @@ export function buildSymphonyEventAttrs(
 
   return {
     eventSequence: 1,
-    eventType: "session_started",
+    eventType: "session.started",
     recordedAt: new Date("2026-03-31T00:00:01.000Z"),
     payload: {
-      event: "session_started",
-      sessionId: `session-${fixtureCounter}`
+      type: "session.started",
+      session_id: `session-${fixtureCounter}`,
+      thread_id: `thread-${fixtureCounter}`,
+      turn_id: `turn-${fixtureCounter}`,
+      codex_app_server_pid: null,
+      model: null,
+      reasoning_effort: null
     },
     summary: "session started",
     codexThreadId: `thread-${fixtureCounter}`,
@@ -79,10 +84,10 @@ export function buildSymphonyTurnFinishAttrs(
   return {
     status: "completed",
     endedAt: new Date("2026-03-31T00:00:10.000Z"),
-    tokens: {
-      inputTokens: 11,
-      outputTokens: 7,
-      totalTokens: 18
+    usage: {
+      input_tokens: 11,
+      cached_input_tokens: 0,
+      output_tokens: 7
     },
     ...overrides
   };

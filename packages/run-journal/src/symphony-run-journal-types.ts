@@ -1,3 +1,11 @@
+import type {
+  SymphonyCodexAnalyticsEvent,
+  SymphonyCodexAnalyticsEventType,
+  SymphonyCodexThreadItemStatus,
+  SymphonyCodexThreadItemType,
+  SymphonyCodexUsage
+} from "./codex-analytics-types.js";
+
 export type SymphonyIsoTimestamp = string;
 
 export type SymphonyJsonValue =
@@ -51,7 +59,7 @@ export type SymphonyTurnRecord = {
   status: string;
   startedAt: SymphonyIsoTimestamp;
   endedAt: SymphonyIsoTimestamp | null;
-  tokens: SymphonyJsonObject | null;
+  usage: SymphonyCodexUsage | null;
   metadata: SymphonyJsonObject | null;
   insertedAt: SymphonyIsoTimestamp;
   updatedAt: SymphonyIsoTimestamp;
@@ -62,9 +70,11 @@ export type SymphonyEventRecord = {
   turnId: string;
   runId: string;
   eventSequence: number;
-  eventType: string;
+  eventType: SymphonyCodexAnalyticsEventType;
+  itemType: SymphonyCodexThreadItemType | null;
+  itemStatus: SymphonyCodexThreadItemStatus;
   recordedAt: SymphonyIsoTimestamp;
-  payload: SymphonyJsonValue;
+  payload: SymphonyCodexAnalyticsEvent;
   payloadTruncated: boolean;
   payloadBytes: number;
   summary: string | null;
@@ -111,9 +121,9 @@ export type SymphonyTurnStartAttrs = {
 export type SymphonyEventAttrs = {
   eventId?: string;
   eventSequence?: number;
-  eventType: string;
+  eventType: SymphonyCodexAnalyticsEventType;
   recordedAt?: Date | SymphonyIsoTimestamp;
-  payload?: SymphonyJsonValue;
+  payload: SymphonyCodexAnalyticsEvent;
   summary?: string | null;
   codexThreadId?: string | null;
   codexTurnId?: string | null;
@@ -127,7 +137,7 @@ export type SymphonyTurnUpdateAttrs = {
   codexThreadId?: string | null;
   codexTurnId?: string | null;
   codexSessionId?: string | null;
-  tokens?: SymphonyJsonObject | null;
+  usage?: SymphonyCodexUsage | null;
   metadata?: SymphonyJsonObject | null;
 };
 
@@ -137,7 +147,7 @@ export type SymphonyTurnFinishAttrs = {
   codexThreadId?: string | null;
   codexTurnId?: string | null;
   codexSessionId?: string | null;
-  tokens?: SymphonyJsonObject | null;
+  usage?: SymphonyCodexUsage | null;
   metadata?: SymphonyJsonObject | null;
 };
 

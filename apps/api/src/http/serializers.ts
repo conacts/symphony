@@ -302,14 +302,13 @@ export function serializeForensicsRunDetail(
   const allEvents = result.turns.flatMap((turn) => turn.events);
   const tokenTotals = result.turns.reduce(
     (totals, turn) => {
-      const inputTokens = parseTokenCount(turn.tokens?.inputTokens);
-      const outputTokens = parseTokenCount(turn.tokens?.outputTokens);
-      const totalTokens = parseTokenCount(turn.tokens?.totalTokens);
+      const inputTokens = parseTokenCount(turn.usage?.input_tokens);
+      const outputTokens = parseTokenCount(turn.usage?.output_tokens);
 
       return {
         inputTokens: totals.inputTokens + inputTokens,
         outputTokens: totals.outputTokens + outputTokens,
-        totalTokens: totals.totalTokens + (totalTokens || inputTokens + outputTokens)
+        totalTokens: totals.totalTokens + inputTokens + outputTokens
       };
     },
     {

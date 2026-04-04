@@ -175,7 +175,11 @@ describe("forensics view model", () => {
           status: "completed",
           startedAt: "2026-03-31T18:00:00.000Z",
           endedAt: "2026-03-31T18:01:00.000Z",
-          tokens: {},
+          usage: {
+            input_tokens: 120,
+            cached_input_tokens: 0,
+            output_tokens: 80
+          },
           metadata: {},
           insertedAt: "2026-03-31T18:00:00.000Z",
           updatedAt: "2026-03-31T18:01:00.000Z",
@@ -189,6 +193,7 @@ describe("forensics view model", () => {
               eventType: "item.completed",
               recordedAt: "2026-03-31T18:01:00.000Z",
               payload: {
+                type: "item.completed",
                 item: {
                   id: "item_1",
                   type: "command_execution",
@@ -198,6 +203,8 @@ describe("forensics view model", () => {
                   exit_code: 0
                 }
               },
+              itemType: "command_execution",
+              itemStatus: "completed",
               payloadTruncated: false,
               payloadBytes: 12,
               summary: "Produced output",
@@ -280,7 +287,11 @@ describe("forensics view model", () => {
           status: "completed",
           startedAt: "2026-03-31T18:00:00.000Z",
           endedAt: "2026-03-31T18:01:00.000Z",
-          tokens: {},
+          usage: {
+            input_tokens: 120,
+            cached_input_tokens: 0,
+            output_tokens: 80
+          },
           metadata: {},
           insertedAt: "2026-03-31T18:00:00.000Z",
           updatedAt: "2026-03-31T18:01:00.000Z",

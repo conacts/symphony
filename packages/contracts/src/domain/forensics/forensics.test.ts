@@ -147,7 +147,7 @@ describe("symphony forensics contracts", () => {
           commitHashEnd: null,
           turnCount: 1,
           eventCount: 1,
-          lastEventType: "turn_completed",
+          lastEventType: "turn.completed",
           lastEventAt: "2026-03-31T00:01:00.000Z",
           durationSeconds: 60,
           inputTokens: 10,
@@ -173,7 +173,11 @@ describe("symphony forensics contracts", () => {
             status: "completed",
             startedAt: "2026-03-31T00:00:00.000Z",
             endedAt: "2026-03-31T00:01:00.000Z",
-            tokens: {},
+            usage: {
+              input_tokens: 10,
+              cached_input_tokens: 0,
+              output_tokens: 20
+            },
             metadata: {},
             insertedAt: "2026-03-31T00:00:00.000Z",
             updatedAt: "2026-03-31T00:01:00.000Z",
@@ -184,9 +188,18 @@ describe("symphony forensics contracts", () => {
                 turnId: "turn-1",
                 runId: "run-1",
                 eventSequence: 1,
-                eventType: "turn_completed",
+                eventType: "turn.completed",
+                itemType: null,
+                itemStatus: null,
                 recordedAt: "2026-03-31T00:01:00.000Z",
-                payload: {},
+                payload: {
+                  type: "turn.completed",
+                  usage: {
+                    input_tokens: 10,
+                    cached_input_tokens: 0,
+                    output_tokens: 20
+                  }
+                },
                 payloadTruncated: false,
                 payloadBytes: 10,
                 summary: "turn completed",
@@ -242,7 +255,7 @@ describe("symphony forensics contracts", () => {
             commitHashEnd: null,
             turnCount: 1,
             eventCount: 1,
-            lastEventType: "turn_completed",
+            lastEventType: "turn.completed",
             lastEventAt: "2026-03-31T00:01:00.000Z",
             durationSeconds: null,
             inputTokens: 10,
