@@ -8,10 +8,6 @@ import {
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type {
-  SymphonyForensicsIssueDetailResult,
-  SymphonyForensicsIssueListResult,
-  SymphonyForensicsProblemRunsResult,
-  SymphonyForensicsRunDetailResult,
   SymphonyRuntimeIssueResult,
   SymphonyRuntimeLaunchTarget,
   SymphonyRuntimeStateResult
@@ -275,30 +271,6 @@ function serializeRuntimeLaunchTarget(
   return {
     ...launchTarget
   };
-}
-
-export function serializeForensicsIssueList(
-  result: SymphonyForensicsIssueListResult
-): SymphonyForensicsIssueListResult {
-  return result;
-}
-
-export function serializeForensicsIssueDetail(
-  result: SymphonyForensicsIssueDetailResult
-): SymphonyForensicsIssueDetailResult {
-  return result;
-}
-
-export function serializeForensicsProblemRuns(
-  result: SymphonyForensicsProblemRunsResult
-): SymphonyForensicsProblemRunsResult {
-  return result;
-}
-
-export function serializeForensicsRunDetail(
-  result: SymphonyForensicsRunDetailResult
-): SymphonyForensicsRunDetailResult {
-  return result;
 }
 
 function summarizeMessage(message: unknown): string | null {
