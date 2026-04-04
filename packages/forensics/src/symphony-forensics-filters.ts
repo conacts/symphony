@@ -1,18 +1,15 @@
 import type {
-  SymphonyRunJournal
-} from "@symphony/run-journal";
-import type {
   SymphonyForensicsIssueFilters,
   SymphonyForensicsIssuesQuery,
+  SymphonyForensicsRunStore,
   SymphonyForensicsReadModelDependencies
 } from "./symphony-forensics-read-model.js";
 
 export function normalizeDependencies(
-  input: SymphonyRunJournal | SymphonyForensicsReadModelDependencies
+  input: SymphonyForensicsRunStore | SymphonyForensicsReadModelDependencies
 ): SymphonyForensicsReadModelDependencies {
   if ("journal" in input) {
     return {
-      fetchRunDetail: undefined,
       listIssueTimeline: async () => [],
       listRuntimeLogs: async () => [],
       ...input
@@ -21,7 +18,6 @@ export function normalizeDependencies(
 
   return {
     journal: input,
-    fetchRunDetail: undefined,
     listIssueTimeline: async () => [],
     listRuntimeLogs: async () => []
   };

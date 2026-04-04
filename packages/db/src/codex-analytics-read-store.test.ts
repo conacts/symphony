@@ -140,8 +140,28 @@ describe("sqlite codex analytics read store", () => {
         endedAt: "2026-04-03T20:37:41.000Z"
       });
 
+      const issues = await readStore.listIssues({
+        limit: 10
+      });
+      const runs = await readStore.listRuns({
+        limit: 10
+      });
+      const issueRuns = await readStore.listRunsForIssue("COL-157", {
+        limit: 10
+      });
+      const problemRuns = await readStore.listProblemRuns({
+        limit: 10
+      });
       const exportPayload = await readStore.fetchRunExport(runId);
 
+      expect(issues[0]?.issueIdentifier).toBe("COL-157");
+      expect(runs[0]?.runId).toBe(runId);
+      expect(runs[0]?.turnCount).toBe(1);
+      expect(runs[0]?.eventCount).toBe(3);
+      expect(runs[0]?.inputTokens).toBe(11);
+      expect(runs[0]?.outputTokens).toBe(7);
+      expect(issueRuns).toHaveLength(1);
+      expect(problemRuns).toHaveLength(0);
       expect(exportPayload?.run.runId).toBe(runId);
       expect(exportPayload?.turns).toHaveLength(1);
       expect(exportPayload?.turns[0]?.usage).toEqual({

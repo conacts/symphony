@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import {
   isThreadEvent,
@@ -8,14 +8,22 @@ import {
 } from "@symphony/codex-analytics";
 import {
   buildIssueSummary,
-  buildRunExport
+  buildRunExport,
+  durationSeconds,
+  matchesRunFilters,
+  normalizeLimit
 } from "@symphony/run-journal/internal";
 import type {
   SymphonyEventRecord,
   SymphonyIssueRecord,
+  SymphonyIssueSummary,
   SymphonyJsonObject,
   SymphonyRunExport,
+  SymphonyRunJournalListOptions,
+  SymphonyRunJournalProblemRunsOptions,
+  SymphonyRunJournalRunsOptions,
   SymphonyRunRecord,
+  SymphonyRunSummary,
   SymphonyTurnRecord
 } from "@symphony/run-journal";
 import {
@@ -31,6 +39,15 @@ import {
 type SymphonyDbShape = typeof import("./schema.js").symphonySchema;
 
 export interface CodexAnalyticsReadStore {
+  listIssues(opts?: SymphonyRunJournalListOptions): Promise<SymphonyIssueSummary[]>;
+  listRuns(opts?: SymphonyRunJournalRunsOptions): Promise<SymphonyRunSummary[]>;
+  listRunsForIssue(
+    issueIdentifier: string,
+    opts?: SymphonyRunJournalListOptions
+  ): Promise<SymphonyRunSummary[]>;
+  listProblemRuns(
+    opts?: SymphonyRunJournalProblemRunsOptions
+  ): Promise<SymphonyRunSummary[]>;
   fetchRunExport(runId: string): Promise<SymphonyRunExport | null>;
 }
 
@@ -45,6 +62,87 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
 
   constructor(db: BetterSQLite3Database<SymphonyDbShape>) {
     this.#db = db;
+  }
+
+  async listIssues(
+    opts: SymphonyRunJournalListOptions = {}
+  ): Promise<SymphonyIssueSummary[]> {
+    const limit = normalizeLimit(opts.limit, 50);
+    const issues = this.#db
+      .select()
+      .from(symphonyIssuesTable)
+      .orderBy(desc(symphonyIssuesTable.latestRunStartedAt))
+      .limit(limit)
+      .all();
+    const runs = this.#db.select().from(symphonyRunsTable).all().map(castRunRecord);
+
+    return issues.map((issue) => buildIssueSummary(castIssueRecord(issue), runs));
+  }
+
+  async listRuns(
+    opts: SymphonyRunJournalRunsOptions = {}
+  ): Promise<SymphonyRunSummary[]> {
+    const limit = normalizeLimit(opts.limit, 200);
+    const runs = this.#db
+      .select()
+      .from(symphonyRunsTable)
+      .orderBy(desc(symphonyRunsTable.startedAt))
+      .all()
+      .map(castRunRecord)
+      .filter((run) => matchesRunFilters(run, opts))
+      .slice(0, limit);
+
+    if (runs.length === 0) {
+      return [];
+    }
+
+    const runIds = runs.map((run) => run.runId);
+    const codexRuns = this.#db
+      .select()
+      .from(codexRunsTable)
+      .where(inArray(codexRunsTable.runId, runIds))
+      .all();
+    const eventCounts = this.#db
+      .select({
+        runId: codexEventLogTable.runId,
+        count: sql<number>`count(*)`
+      })
+      .from(codexEventLogTable)
+      .where(inArray(codexEventLogTable.runId, runIds))
+      .groupBy(codexEventLogTable.runId)
+      .all();
+
+    const codexRunMap = new Map(codexRuns.map((run) => [run.runId, run] as const));
+    const eventCountMap = new Map(eventCounts.map((row) => [row.runId, row.count] as const));
+
+    return runs.map((run) =>
+      buildRunSummaryFromCodex(
+        run,
+        codexRunMap.get(run.runId),
+        eventCountMap.get(run.runId) ?? 0
+      )
+    );
+  }
+
+  async listRunsForIssue(
+    issueIdentifier: string,
+    opts: SymphonyRunJournalListOptions = {}
+  ): Promise<SymphonyRunSummary[]> {
+    return this.listRuns({
+      issueIdentifier,
+      limit: opts.limit
+    });
+  }
+
+  async listProblemRuns(
+    opts: SymphonyRunJournalProblemRunsOptions = {}
+  ): Promise<SymphonyRunSummary[]> {
+    return this.listRuns({
+      limit: opts.limit,
+      outcome: opts.outcome,
+      issueIdentifier: opts.issueIdentifier,
+      problemOnly: true
+    });
   }
 
   async fetchRunExport(runId: string): Promise<SymphonyRunExport | null> {
@@ -228,6 +326,40 @@ function castRunRecord(
     repoStart: castJsonObject(run.repoStart),
     repoEnd: castJsonObject(run.repoEnd),
     metadata: castJsonObject(run.metadata)
+  };
+}
+
+function buildRunSummaryFromCodex(
+  run: SymphonyRunRecord,
+  codexRun: typeof codexRunsTable.$inferSelect | undefined,
+  eventCount: number
+): SymphonyRunSummary {
+  const inputTokens = codexRun?.inputTokens ?? 0;
+  const outputTokens = codexRun?.outputTokens ?? 0;
+
+  return {
+    runId: run.runId,
+    issueId: run.issueId,
+    issueIdentifier: run.issueIdentifier,
+    attempt: run.attempt,
+    status: run.status,
+    outcome: run.outcome,
+    workerHost: run.workerHost,
+    workspacePath: run.workspacePath,
+    startedAt: run.startedAt,
+    endedAt: run.endedAt,
+    commitHashStart: run.commitHashStart,
+    commitHashEnd: run.commitHashEnd,
+    turnCount: codexRun?.turnCount ?? 0,
+    eventCount,
+    lastEventType: codexRun?.latestEventType ?? null,
+    lastEventAt: codexRun?.latestEventAt ?? null,
+    durationSeconds: durationSeconds(run.startedAt, run.endedAt),
+    errorClass: run.errorClass ?? null,
+    errorMessage: run.errorMessage ?? null,
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens
   };
 }
 

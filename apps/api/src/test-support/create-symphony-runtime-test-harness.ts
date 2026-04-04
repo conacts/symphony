@@ -22,6 +22,7 @@ import {
   buildSymphonyTurnStartAttrs
 } from "@symphony/test-support";
 import {
+  createSqliteCodexAnalyticsStore,
   createSqliteCodexAnalyticsReadStore,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
@@ -189,6 +190,9 @@ export async function createSymphonyRuntimeTestHarness(input: {
     dbFile: path.join(root, "symphony.db"),
     timelineStore: issueTimelineStore
   });
+  const codexAnalyticsStore = createSqliteCodexAnalyticsStore({
+    db: database.db
+  });
   const codexAnalyticsReadStore = createSqliteCodexAnalyticsReadStore({
     db: database.db
   });
@@ -213,6 +217,65 @@ export async function createSymphonyRuntimeTestHarness(input: {
       eventId: "event-123"
     })
   );
+  await codexAnalyticsStore.startRun({
+    runId,
+    issueId: issue.id,
+    issueIdentifier: issue.identifier,
+    startedAt: "2026-03-31T00:00:00.000Z",
+    status: "running",
+    threadId: "thread-123"
+  });
+  await codexAnalyticsStore.recordEvent({
+    runId,
+    turnId,
+    threadId: "thread-123",
+    recordedAt: "2026-03-31T00:00:00.000Z",
+    payload: {
+      type: "thread.started",
+      thread_id: "thread-123"
+    }
+  });
+  await codexAnalyticsStore.recordEvent({
+    runId,
+    turnId,
+    threadId: "thread-123",
+    recordedAt: "2026-03-31T00:00:01.000Z",
+    payload: {
+      type: "item.completed",
+      item: {
+        id: "item-123",
+        type: "agent_message",
+        text: "Initial agent message"
+      }
+    }
+  });
+  await codexAnalyticsStore.recordEvent({
+    runId,
+    turnId,
+    threadId: "thread-123",
+    recordedAt: "2026-03-31T00:00:02.000Z",
+    payload: {
+      type: "turn.completed",
+      usage: {
+        input_tokens: 10,
+        cached_input_tokens: 0,
+        output_tokens: 5
+      }
+    }
+  });
+  await codexAnalyticsStore.finalizeTurn({
+    runId,
+    turnId,
+    endedAt: "2026-03-31T00:01:00.000Z",
+    status: "completed",
+    threadId: "thread-123"
+  });
+  await codexAnalyticsStore.finalizeRun({
+    runId,
+    endedAt: "2026-03-31T00:01:00.000Z",
+    status: "completed",
+    threadId: "thread-123"
+  });
   await runJournal.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
   await runJournal.finalizeRun(runId, buildSymphonyRunFinishAttrs());
   await issueTimelineStore.record({
@@ -311,10 +374,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
       }
     },
     forensics: createSymphonyForensicsReadModel({
-      journal: runJournal,
-      fetchRunDetail(runId) {
-        return codexAnalyticsReadStore.fetchRunExport(runId);
-      },
+      journal: codexAnalyticsReadStore,
       async listIssueTimeline(input) {
         return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
           limit: input.limit

@@ -85,7 +85,7 @@ describe("symphony forensics read model", () => {
     expect(await readModel.runDetail("run-missing")).toBeNull();
   });
 
-  it("prefers an injected Codex-backed run export before falling back to the journal", async () => {
+  it("uses any compatible read store boundary, not just the full journal type", async () => {
     const journal = await createJournal();
     const runId = await journal.recordRunStarted(
       buildSymphonyRunStartAttrs({
@@ -105,9 +105,14 @@ describe("symphony forensics read model", () => {
 
     const expected = await journal.fetchRunExport(runId);
     const readModel = createSymphonyForensicsReadModel({
-      journal,
-      async fetchRunDetail(requestedRunId) {
-        return requestedRunId === runId && expected ? expected : null;
+      journal: {
+        listIssues: journal.listIssues.bind(journal),
+        listRuns: journal.listRuns.bind(journal),
+        listRunsForIssue: journal.listRunsForIssue.bind(journal),
+        listProblemRuns: journal.listProblemRuns.bind(journal),
+        async fetchRunExport(requestedRunId) {
+          return requestedRunId === runId && expected ? expected : null;
+        }
       }
     });
 

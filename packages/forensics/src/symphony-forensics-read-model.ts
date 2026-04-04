@@ -204,8 +204,7 @@ export type SymphonyForensicsIssueForensicsBundleQuery =
   };
 
 export type SymphonyForensicsReadModelDependencies = {
-  journal: SymphonyRunJournal;
-  fetchRunDetail?: (runId: string) => Promise<SymphonyRunExport | null>;
+  journal: SymphonyForensicsRunStore;
   listIssueTimeline?: (input: {
     issueIdentifier: string;
     limit?: number;
@@ -215,6 +214,11 @@ export type SymphonyForensicsReadModelDependencies = {
     limit?: number;
   }) => Promise<SymphonyForensicsRuntimeLogEntry[]>;
 };
+
+export type SymphonyForensicsRunStore = Pick<
+  SymphonyRunJournal,
+  "listIssues" | "listRuns" | "listRunsForIssue" | "listProblemRuns" | "fetchRunExport"
+>;
 
 export interface SymphonyForensicsReadModel {
   issues(opts?: SymphonyForensicsIssuesQuery): Promise<SymphonyForensicsIssueList>;
@@ -231,7 +235,7 @@ export interface SymphonyForensicsReadModel {
 }
 
 export function createSymphonyForensicsReadModel(
-  input: SymphonyRunJournal | SymphonyForensicsReadModelDependencies
+  input: SymphonyForensicsRunStore | SymphonyForensicsReadModelDependencies
 ): SymphonyForensicsReadModel {
   const deps = normalizeDependencies(input);
 
@@ -379,10 +383,7 @@ export function createSymphonyForensicsReadModel(
     },
 
     async runDetail(runId) {
-      const codexExport = deps.fetchRunDetail
-        ? await deps.fetchRunDetail(runId)
-        : null;
-      return codexExport ?? deps.journal.fetchRunExport(runId);
+      return deps.journal.fetchRunExport(runId);
     },
 
     async problemRuns(opts = {}) {
