@@ -17,6 +17,7 @@ describe("runtime health view", () => {
         health={buildSymphonyRuntimeHealthResult()}
         runtimeLogs={buildSymphonyRuntimeLogsResult()}
         loading={false}
+        now={new Date("2026-03-31T18:04:05.000Z")}
       />
     );
 

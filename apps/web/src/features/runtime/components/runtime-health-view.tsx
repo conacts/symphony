@@ -23,9 +23,10 @@ export function RuntimeHealthView(input: {
   health: SymphonyRuntimeHealthResult | null;
   runtimeLogs: SymphonyRuntimeLogsResult | null;
   loading: boolean;
+  now: Date;
 }) {
   const viewModel = input.health
-    ? buildRuntimeHealthViewModel(input.health, input.runtimeLogs)
+    ? buildRuntimeHealthViewModel(input.health, input.runtimeLogs, input.now)
     : null;
 
   return (

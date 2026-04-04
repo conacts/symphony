@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { OverviewView } from "@/features/overview/components/overview-view";
 import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
 import { useControlPlaneRuntime } from "@/features/shared/components/control-plane-runtime-context";
+import { useNow } from "@/hooks/use-now";
 import {
   buildRuntimeSummaryConnectionState,
   buildRuntimeSummaryViewModel
@@ -11,6 +12,7 @@ import {
 
 export function OverviewLiveScreen() {
   const runtimeSummaryState = useControlPlaneRuntime();
+  const now = useNow();
 
   const connection = buildRuntimeSummaryConnectionState({
     status: runtimeSummaryState.status,
@@ -22,10 +24,10 @@ export function OverviewLiveScreen() {
       runtimeSummaryState.runtimeSummary
         ? buildRuntimeSummaryViewModel(
             runtimeSummaryState.runtimeSummary,
-            runtimeSummaryState.now
+            now
           )
         : null,
-    [runtimeSummaryState.now, runtimeSummaryState.runtimeSummary]
+    [now, runtimeSummaryState.runtimeSummary]
   );
 
   return (

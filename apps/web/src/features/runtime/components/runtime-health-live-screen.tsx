@@ -5,11 +5,13 @@ import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/ov
 import { RuntimeHealthView } from "@/features/runtime/components/runtime-health-view";
 import { useRuntimeHealth } from "@/hooks/use-runtime-health";
 import { useRuntimeLogs } from "@/features/runtime/hooks/use-runtime-logs";
+import { useNow } from "@/hooks/use-now";
 import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
 import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
 
 export function RuntimeHealthLiveScreen() {
   const model = useControlPlaneModel();
+  const now = useNow();
   const healthState = useRuntimeHealth({
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl
@@ -45,6 +47,7 @@ export function RuntimeHealthLiveScreen() {
         health={healthState.resource}
         runtimeLogs={logsState.resource}
         loading={healthState.loading}
+        now={now}
       />
     </ControlPlanePage>
   );
