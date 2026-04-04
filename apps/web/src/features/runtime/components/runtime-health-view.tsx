@@ -9,16 +9,24 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
-import type { SymphonyRuntimeHealthResult } from "@symphony/contracts";
+import type {
+  SymphonyRuntimeHealthResult,
+  SymphonyRuntimeLogsResult
+} from "@symphony/contracts";
+import { RuntimeHealthEventFeed } from "@/features/runtime/components/runtime-health-event-feed";
+import { RuntimeHealthLogLevelChart } from "@/features/runtime/components/runtime-health-log-level-chart";
 import { buildRuntimeHealthViewModel } from "@/features/runtime/model/runtime-health-view-model";
 
 export function RuntimeHealthView(input: {
   connection: RuntimeSummaryConnectionState;
   error: string | null;
   health: SymphonyRuntimeHealthResult | null;
+  runtimeLogs: SymphonyRuntimeLogsResult | null;
   loading: boolean;
 }) {
-  const viewModel = input.health ? buildRuntimeHealthViewModel(input.health) : null;
+  const viewModel = input.health
+    ? buildRuntimeHealthViewModel(input.health, input.runtimeLogs)
+    : null;
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
@@ -34,7 +42,7 @@ export function RuntimeHealthView(input: {
           <section className="space-y-1">
             <h1 className="text-3xl font-semibold tracking-tight">Runtime health</h1>
             <p className="text-sm text-muted-foreground">
-              Operator diagnostics for scheduler heartbeat, runtime storage, and overall runtime readiness.
+              Operator diagnostics for scheduler heartbeat, runtime readiness, and recent runtime event pressure.
             </p>
           </section>
 
@@ -53,11 +61,33 @@ export function RuntimeHealthView(input: {
           </section>
 
           <section className="grid gap-6 xl:grid-cols-2">
+            <RuntimeHealthLogLevelChart rows={viewModel.logLevelChartRows} />
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Active incidents</CardTitle>
+                <CardDescription>
+                  The shortest path to understanding whether operator attention is needed.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                {viewModel.incidentCards.map((row) => (
+                  <div key={row.label} className="rounded-xl border border-border/70 p-4">
+                    <p className="text-sm text-muted-foreground">{row.label}</p>
+                    <p className="mt-2 text-lg font-medium">{row.value}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{row.detail}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>Health signals</CardTitle>
                 <CardDescription>
-                  High-signal status checks for the active runtime process.
+                  High-signal checks for the active runtime process.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
@@ -105,6 +135,8 @@ export function RuntimeHealthView(input: {
               ))}
             </CardContent>
           </Card>
+
+          <RuntimeHealthEventFeed rows={viewModel.recentEventRows} />
         </>
       ) : input.loading ? (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

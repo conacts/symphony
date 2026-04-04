@@ -1,8 +1,16 @@
-import type { SymphonyRuntimeHealthResult } from "@symphony/contracts";
-import { formatTimestamp } from "@/core/display-formatters";
+import type {
+  SymphonyRuntimeHealthResult,
+  SymphonyRuntimeLogsResult
+} from "@symphony/contracts";
+import { formatCount, formatTimestamp } from "@/core/display-formatters";
 
 export type RuntimeHealthViewModel = {
   summaryCards: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
+  incidentCards: Array<{
     label: string;
     value: string;
     detail: string;
@@ -20,10 +28,26 @@ export type RuntimeHealthViewModel = {
     label: string;
     value: string;
   }>;
+  logLevelChartRows: Array<{
+    label: "Errors" | "Warnings" | "Info" | "Debug";
+    count: number;
+    fill: string;
+  }>;
+  recentEventRows: Array<{
+    entryId: string;
+    level: "debug" | "info" | "warn" | "error";
+    source: string;
+    eventType: string;
+    recordedAt: string;
+    message: string;
+    scopeLabel: string;
+    detail: string;
+  }>;
 };
 
 export function buildRuntimeHealthViewModel(
   input: SymphonyRuntimeHealthResult,
+  runtimeLogs: SymphonyRuntimeLogsResult | null,
   now: Date = new Date()
 ): RuntimeHealthViewModel {
   const lastCycleMs = getLastCycleMs(
@@ -31,6 +55,11 @@ export function buildRuntimeHealthViewModel(
     input.poller.lastCompletedAt
   );
   const lastSuccessAgeMs = getAgeMs(input.poller.lastSucceededAt, now);
+  const recentLogs = sortLogs(runtimeLogs).slice(0, 12);
+  const recentWarnings = recentLogs.filter((entry) => entry.level === "warn");
+  const recentErrors = recentLogs.filter((entry) => entry.level === "error");
+  const latestAlert = recentErrors[0] ?? recentWarnings[0] ?? null;
+  const loudestSource = buildLoudestSourceLabel(recentLogs);
 
   return {
     summaryCards: [
@@ -40,9 +69,12 @@ export function buildRuntimeHealthViewModel(
         detail: "Combined database and scheduler health from the active runtime."
       },
       {
-        label: "Database",
-        value: input.db.ready ? "Ready" : "Down",
-        detail: input.db.file
+        label: "Recent alerts",
+        value: formatCount(recentWarnings.length + recentErrors.length),
+        detail:
+          recentLogs.length === 0
+            ? "No runtime events have been captured yet."
+            : `Warnings ${formatCount(recentWarnings.length)} · Errors ${formatCount(recentErrors.length)} from the latest ${formatCount(recentLogs.length)} events.`
       },
       {
         label: "Poller",
@@ -55,6 +87,30 @@ export function buildRuntimeHealthViewModel(
         detail: input.poller.inFlight
           ? "A scheduler cycle is currently in flight."
           : "Duration of the most recent scheduler cycle."
+      },
+      {
+        label: "Last success age",
+        value: formatElapsedMs(lastSuccessAgeMs),
+        detail: "Time since the last successful scheduler completion."
+      }
+    ],
+    incidentCards: [
+      {
+        label: "Poller error state",
+        value: input.poller.lastError ? "Active" : "Clear",
+        detail: input.poller.lastError ?? "No scheduler error is currently recorded."
+      },
+      {
+        label: "Latest alert",
+        value: latestAlert ? latestAlert.eventType : "Clear",
+        detail: latestAlert
+          ? `${latestAlert.source} · ${formatTimestamp(latestAlert.recordedAt)}`
+          : "No warning or error event is present in the recent runtime log sample."
+      },
+      {
+        label: "Loudest source",
+        value: loudestSource.label,
+        detail: loudestSource.detail
       }
     ],
     signalRows: [
@@ -105,19 +161,124 @@ export function buildRuntimeHealthViewModel(
         value: input.db.file
       },
       {
+        label: "Database readiness",
+        value: input.db.ready ? "ready" : "down"
+      },
+      {
         label: "Poll interval",
         value: `${input.poller.intervalMs}ms`
       },
       {
-        label: "In flight",
-        value: input.poller.inFlight ? "yes" : "no"
+        label: "Recent event sample",
+        value: formatCount(recentLogs.length)
+      }
+    ],
+    logLevelChartRows: [
+      {
+        label: "Errors",
+        count: recentErrors.length,
+        fill: "var(--chart-5)"
       },
       {
-        label: "Healthy",
-        value: input.healthy ? "yes" : "no"
+        label: "Warnings",
+        count: recentWarnings.length,
+        fill: "var(--chart-4)"
+      },
+      {
+        label: "Info",
+        count: recentLogs.filter((entry) => entry.level === "info").length,
+        fill: "var(--chart-2)"
+      },
+      {
+        label: "Debug",
+        count: recentLogs.filter((entry) => entry.level === "debug").length,
+        fill: "var(--chart-1)"
       }
-    ]
+    ],
+    recentEventRows: recentLogs.map((entry) => ({
+      entryId: entry.entryId,
+      level: entry.level,
+      source: entry.source,
+      eventType: entry.eventType,
+      recordedAt: formatTimestamp(entry.recordedAt),
+      message: entry.message,
+      scopeLabel: buildScopeLabel(entry),
+      detail: formatRuntimeEventPayload(entry.payload)
+    }))
   };
+}
+
+function sortLogs(runtimeLogs: SymphonyRuntimeLogsResult | null) {
+  return [...(runtimeLogs?.logs ?? [])].sort(
+    (left, right) =>
+      Date.parse(right.recordedAt) - Date.parse(left.recordedAt)
+  );
+}
+
+function buildLoudestSourceLabel(
+  logs: Array<SymphonyRuntimeLogsResult["logs"][number]>
+) {
+  if (logs.length === 0) {
+    return {
+      label: "n/a",
+      detail: "No runtime events are available yet."
+    };
+  }
+
+  const counts = new Map<string, number>();
+
+  for (const entry of logs) {
+    counts.set(entry.source, (counts.get(entry.source) ?? 0) + 1);
+  }
+
+  const [source, count] = [...counts.entries()].sort((left, right) => {
+    if (right[1] !== left[1]) {
+      return right[1] - left[1];
+    }
+
+    return left[0].localeCompare(right[0]);
+  })[0]!;
+
+  return {
+    label: source,
+    detail: `${formatCount(count)} events in the current runtime log sample.`
+  };
+}
+
+function buildScopeLabel(
+  entry: SymphonyRuntimeLogsResult["logs"][number]
+) {
+  if (entry.issueIdentifier && entry.runId) {
+    return `${entry.issueIdentifier} · Run ${entry.runId}`;
+  }
+
+  if (entry.issueIdentifier) {
+    return entry.issueIdentifier;
+  }
+
+  if (entry.runId) {
+    return `Run ${entry.runId}`;
+  }
+
+  return "Runtime-wide event";
+}
+
+function formatRuntimeEventPayload(
+  payload: SymphonyRuntimeLogsResult["logs"][number]["payload"]
+) {
+  if (payload === null) {
+    return "No structured payload.";
+  }
+
+  if (typeof payload === "string") {
+    return payload;
+  }
+
+  try {
+    return JSON.stringify(payload, null, 2);
+  } catch {
+    return String(payload);
+  }
 }
 
 function getLastCycleMs(
