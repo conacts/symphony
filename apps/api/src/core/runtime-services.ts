@@ -14,10 +14,10 @@ import {
 import {
   createSqliteCodexAnalyticsReadStore,
   createSqliteCodexAnalyticsStore,
+  createSqliteSymphonyRuntimeRunStore,
   createSymphonyGitHubIngressJournal,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
-  createSqliteSymphonyRunJournal,
   initializeSymphonyDb
 } from "@symphony/db";
 import { loadSymphonyPromptContract } from "@symphony/runtime-contract";
@@ -105,9 +105,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
   const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
   const runtimeLogStore = createSymphonyRuntimeLogStore(database.db);
-  const runJournal = createSqliteSymphonyRunJournal({
+  const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db,
-    dbFile: database.dbFile,
     timelineStore: issueTimelineStore
   });
   const codexAnalytics = createSqliteCodexAnalyticsStore({
@@ -253,7 +252,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     })
   );
   const observer = createDbBackedOrchestratorObserver({
-    runJournal,
+    runStore,
     issueTimelineStore,
     codexAnalytics
   });
@@ -266,7 +265,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       promptContract,
       githubRepository: runtimePolicy.github.repo,
       tracker,
-      runJournal,
+      runStore,
       codexAnalytics,
       runtimeLogs: runtimeLogStore,
       hostCommandEnvSource,

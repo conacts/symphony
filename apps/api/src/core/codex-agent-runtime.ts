@@ -12,10 +12,7 @@ import {
   renderSymphonyPromptContract,
   type SymphonyLoadedPromptContract
 } from "@symphony/runtime-contract";
-import type {
-  SymphonyJsonObject,
-  SymphonyRunJournal
-} from "@symphony/run-journal";
+import type { SymphonyJsonObject } from "@symphony/run-journal";
 import type {
   CodexAnalyticsStore
 } from "@symphony/codex-analytics";
@@ -27,7 +24,10 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
-import type { SymphonyRuntimeLogStore } from "@symphony/db";
+import type {
+  SymphonyRuntimeLogStore,
+  SymphonyRuntimeRunStore
+} from "@symphony/db";
 import type { SymphonyLogger } from "@symphony/logger";
 import {
   CodexSdkClient
@@ -62,7 +62,7 @@ export function createCodexSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
-  runJournal: SymphonyRunJournal;
+  runStore: SymphonyRuntimeRunStore;
   codexAnalytics?: CodexAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -89,7 +89,7 @@ export function createCodexSymphonyAgentRuntime(input: {
         promptContract: input.promptContract,
         githubRepository: input.githubRepository ?? null,
         tracker: input.tracker,
-        runJournal: input.runJournal,
+        runStore: input.runStore,
         codexAnalytics: input.codexAnalytics,
         runtimeLogs: input.runtimeLogs,
         runtimePolicy: runInput.runtimePolicy,
@@ -138,7 +138,7 @@ async function executeRun(input: {
   promptContract: SymphonyLoadedPromptContract;
   githubRepository: string | null;
   tracker: SymphonyTracker;
-  runJournal: SymphonyRunJournal;
+  runStore: SymphonyRuntimeRunStore;
   codexAnalytics?: CodexAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
@@ -175,7 +175,7 @@ async function executeRun(input: {
         input.launchTarget,
         input.runtimePolicy.hooks.timeoutMs
       );
-      await input.runJournal.updateRun(input.runId, {
+      await input.runStore.updateRun(input.runId, {
         commitHashStart: repoStart.commitHash,
         repoStart: repoStart.snapshot
       });
@@ -230,7 +230,7 @@ async function executeRun(input: {
     ) {
       if (input.activeRun.stopped) {
         await finalizeStoppedTurn(
-          input.runJournal,
+          input.runStore,
           input.codexAnalytics,
           input.runId,
           turnJournalId
@@ -274,7 +274,7 @@ async function executeRun(input: {
             });
 
       turnJournalId = input.runId
-        ? await input.runJournal.recordTurnStarted(input.runId, {
+        ? await input.runStore.recordTurnStarted(input.runId, {
             promptText: prompt,
             status: "running"
           })
@@ -302,11 +302,6 @@ async function executeRun(input: {
             getString(message, "thread_id") ??
             getString(message, "threadId") ??
             getStringPath(message, ["params", "threadId"]);
-          const codexTurnId =
-            getString(message, "turn_id") ??
-            getStringPath(message, ["params", "turnId"]);
-          const codexSessionId =
-            getString(message, "session_id") ?? getString(message, "sessionId");
 
           await input.callbacks.onUpdate(currentIssue.id, {
             event: eventName,
@@ -322,22 +317,12 @@ async function executeRun(input: {
 
           if (input.runId && turnJournalId) {
             if (turnUsage) {
-              await input.runJournal.updateTurn(turnJournalId, {
+              await input.runStore.updateTurn(turnJournalId, {
                 usage: turnUsage
               });
             }
 
             if (threadEvent) {
-              await input.runJournal.recordEvent(input.runId, turnJournalId, {
-                eventType: threadEvent.type,
-                recordedAt: timestamp,
-                payload: threadEvent as never,
-                summary: null,
-                codexThreadId,
-                codexTurnId,
-                codexSessionId
-              });
-
               await input.codexAnalytics?.recordEvent({
                 runId: input.runId,
                 turnId: turnJournalId,
@@ -351,7 +336,7 @@ async function executeRun(input: {
       });
 
       if (input.runId && turnJournalId) {
-        await input.runJournal.finalizeTurn(turnJournalId, {
+        await input.runStore.finalizeTurn(turnJournalId, {
           status: "completed",
           endedAt: new Date().toISOString(),
           codexThreadId: turnResult.threadId,
@@ -385,7 +370,7 @@ async function executeRun(input: {
           input.launchTarget,
           input.runtimePolicy.hooks.timeoutMs
         );
-        await input.runJournal.updateRun(input.runId, {
+        await input.runStore.updateRun(input.runId, {
           commitHashEnd: repoEnd.commitHash,
           repoEnd: repoEnd.snapshot
         });
@@ -406,7 +391,7 @@ async function executeRun(input: {
   } catch (error) {
     if (input.activeRun.stopped) {
       await finalizeStoppedTurn(
-        input.runJournal,
+        input.runStore,
         input.codexAnalytics,
         input.runId,
         turnJournalId
@@ -417,7 +402,7 @@ async function executeRun(input: {
     const reason = error instanceof Error ? error.message : String(error);
 
     if (input.runId && turnJournalId) {
-      await input.runJournal.finalizeTurn(turnJournalId, {
+      await input.runStore.finalizeTurn(turnJournalId, {
         status: "failed",
         endedAt: new Date().toISOString(),
         metadata: {
@@ -439,7 +424,7 @@ async function executeRun(input: {
         input.launchTarget,
         input.runtimePolicy.hooks.timeoutMs
       );
-      await input.runJournal.updateRun(input.runId, {
+      await input.runStore.updateRun(input.runId, {
         commitHashEnd: repoEnd.commitHash,
         repoEnd: repoEnd.snapshot
       });
@@ -652,7 +637,7 @@ function normalizeRuntimeUpdateEventName(value: string | null): string | null {
 }
 
 async function finalizeStoppedTurn(
-  runJournal: SymphonyRunJournal,
+  runStore: SymphonyRuntimeRunStore,
   codexAnalytics: CodexAnalyticsStore | undefined,
   runId: string | null,
   turnJournalId: string | null
@@ -661,7 +646,7 @@ async function finalizeStoppedTurn(
     return;
   }
 
-  await runJournal.finalizeTurn(turnJournalId, {
+  await runStore.finalizeTurn(turnJournalId, {
     status: "stopped",
     endedAt: new Date().toISOString(),
     metadata: {

@@ -12,7 +12,6 @@ import {
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
 import {
-  buildSymphonyEventAttrs,
   buildSymphonyOrchestratorSnapshot,
   buildSymphonyRuntimePolicy,
   buildSymphonyRunFinishAttrs,
@@ -24,9 +23,9 @@ import {
 import {
   createSqliteCodexAnalyticsStore,
   createSqliteCodexAnalyticsReadStore,
+  createSqliteSymphonyRuntimeRunStore,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
-  createSqliteSymphonyRunJournal,
   initializeSymphonyDb
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
@@ -185,9 +184,8 @@ export async function createSymphonyRuntimeTestHarness(input: {
   });
   const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
   const runtimeLogStore = createSymphonyRuntimeLogStore(database.db);
-  const runJournal = createSqliteSymphonyRunJournal({
+  const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db,
-    dbFile: path.join(root, "symphony.db"),
     timelineStore: issueTimelineStore
   });
   const codexAnalyticsStore = createSqliteCodexAnalyticsStore({
@@ -197,24 +195,17 @@ export async function createSymphonyRuntimeTestHarness(input: {
     db: database.db
   });
 
-  const runId = await runJournal.recordRunStarted(
+  const runId = await runStore.recordRunStarted(
     buildSymphonyRunStartAttrs({
       runId: "run-123",
       issueId: issue.id,
       issueIdentifier: issue.identifier
     })
   );
-  const turnId = await runJournal.recordTurnStarted(
+  const turnId = await runStore.recordTurnStarted(
     runId,
     buildSymphonyTurnStartAttrs({
       turnId: "turn-123"
-    })
-  );
-  await runJournal.recordEvent(
-    runId,
-    turnId,
-    buildSymphonyEventAttrs({
-      eventId: "event-123"
     })
   );
   await codexAnalyticsStore.startRun({
@@ -276,8 +267,8 @@ export async function createSymphonyRuntimeTestHarness(input: {
     status: "completed",
     threadId: "thread-123"
   });
-  await runJournal.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
-  await runJournal.finalizeRun(runId, buildSymphonyRunFinishAttrs());
+  await runStore.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
+  await runStore.finalizeRun(runId, buildSymphonyRunFinishAttrs());
   await issueTimelineStore.record({
     issueId: issue.id,
     issueIdentifier: issue.identifier,

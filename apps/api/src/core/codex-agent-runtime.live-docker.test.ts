@@ -14,7 +14,8 @@ import {
   type SymphonyLoadedRuntimeManifest
 } from "@symphony/runtime-contract";
 import {
-  createSqliteSymphonyRunJournal,
+  createSqliteCodexAnalyticsStore,
+  createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
@@ -97,11 +98,13 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         const database = initializeSymphonyDb({
           dbFile: path.join(root, "symphony.db")
         });
-        const runJournal = createSqliteSymphonyRunJournal({
-          db: database.db,
-          dbFile: path.join(root, "symphony.db")
+        const runStore = createSqliteSymphonyRuntimeRunStore({
+          db: database.db
         });
-        const runId = await runJournal.recordRunStarted({
+        const codexAnalytics = createSqliteCodexAnalyticsStore({
+          db: database.db
+        });
+        const runId = await runStore.recordRunStarted({
           issueId: issue.id,
           issueIdentifier: issue.identifier,
           status: "dispatching",
@@ -117,7 +120,8 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
               "You are working on {{ issue.identifier }}."
             ),
             tracker: createDoneTracker(issue),
-            runJournal,
+            runStore,
+            codexAnalytics,
             runtimeLogs: {
               async record() {
                 return "log-1";
@@ -248,11 +252,13 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         const database = initializeSymphonyDb({
           dbFile: path.join(root, "symphony.db")
         });
-        const runJournal = createSqliteSymphonyRunJournal({
-          db: database.db,
-          dbFile: path.join(root, "symphony.db")
+        const runStore = createSqliteSymphonyRuntimeRunStore({
+          db: database.db
         });
-        const runId = await runJournal.recordRunStarted({
+        const codexAnalytics = createSqliteCodexAnalyticsStore({
+          db: database.db
+        });
+        const runId = await runStore.recordRunStarted({
           issueId: issue.id,
           issueIdentifier: issue.identifier,
           status: "dispatching",
@@ -268,7 +274,8 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
               "You are working on {{ issue.identifier }}."
             ),
             tracker: createDoneTracker(issue),
-            runJournal,
+            runStore,
+            codexAnalytics,
             runtimeLogs: {
               async record() {
                 return "log-1";

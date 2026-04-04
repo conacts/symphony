@@ -9,6 +9,12 @@ export {
   createSqliteSymphonyRunJournal
 } from "./sqlite-symphony-run-journal.js";
 export {
+  createSqliteSymphonyRuntimeRunStore
+} from "./runtime-run-store.js";
+export type {
+  SymphonyRuntimeRunStore
+} from "./runtime-run-store.js";
+export {
   createSqliteCodexAnalyticsStore
 } from "./codex-analytics-store.js";
 export {
