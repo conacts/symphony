@@ -1,4 +1,16 @@
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  codexAgentMessagesTable,
+  codexCommandExecutionsTable,
+  codexEventLogTable,
+  codexFileChangesTable,
+  codexItemsTable,
+  codexPayloadOverflowTable,
+  codexReasoningTable,
+  codexRunsTable,
+  codexToolCallsTable,
+  codexTurnsTable
+} from "@symphony/codex-analytics";
 
 export const symphonyIssuesTable = sqliteTable(
   "symphony_issues",
@@ -189,6 +201,16 @@ export const symphonyMigrationStateTable = sqliteTable(
 );
 
 export const symphonySchema = {
+  codexEventLogTable,
+  codexPayloadOverflowTable,
+  codexRunsTable,
+  codexTurnsTable,
+  codexItemsTable,
+  codexCommandExecutionsTable,
+  codexToolCallsTable,
+  codexAgentMessagesTable,
+  codexReasoningTable,
+  codexFileChangesTable,
   symphonyIssuesTable,
   symphonyRunsTable,
   symphonyTurnsTable,

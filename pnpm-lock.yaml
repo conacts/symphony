@@ -68,6 +68,9 @@ importers:
       '@openai/codex-sdk':
         specifier: ^0.118.0
         version: 0.118.0
+      '@symphony/codex-analytics':
+        specifier: workspace:*
+        version: link:../../packages/codex-analytics
       '@symphony/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -236,6 +239,25 @@ importers:
         specifier: ^4.1.2
         version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.2)(msw@2.12.14(@types/node@25.5.2)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
 
+  packages/codex-analytics:
+    dependencies:
+      '@openai/codex-sdk':
+        specifier: ^0.118.0
+        version: 0.118.0
+      drizzle-orm:
+        specifier: ^0.44.5
+        version: 0.44.7(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.8.0)
+    devDependencies:
+      '@symphony/eslint-configs':
+        specifier: workspace:*
+        version: link:../eslint-configs
+      '@symphony/vitest-configs':
+        specifier: workspace:*
+        version: link:../vitest-configs
+      vitest:
+        specifier: ^4.1.2
+        version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.2)(msw@2.12.14(@types/node@25.5.2)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+
   packages/contracts:
     dependencies:
       '@symphony/errors':
@@ -257,6 +279,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@symphony/codex-analytics':
+        specifier: workspace:*
+        version: link:../codex-analytics
       '@symphony/run-journal':
         specifier: workspace:*
         version: link:../run-journal

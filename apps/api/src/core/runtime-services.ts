@@ -12,6 +12,7 @@ import {
   createMemorySymphonyTracker
 } from "@symphony/tracker";
 import {
+  createSqliteCodexAnalyticsStore,
   createSymphonyGitHubIngressJournal,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
@@ -107,6 +108,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     db: database.db,
     dbFile: database.dbFile,
     timelineStore: issueTimelineStore
+  });
+  const codexAnalytics = createSqliteCodexAnalyticsStore({
+    db: database.db
   });
   const forensics = createSymphonyForensicsReadModel({
     journal: runJournal,
@@ -246,7 +250,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   );
   const observer = createDbBackedOrchestratorObserver({
     runJournal,
-    issueTimelineStore
+    issueTimelineStore,
+    codexAnalytics
   });
   let runtimeRef: Pick<
     ReturnType<typeof createSymphonyRuntime>,
@@ -258,6 +263,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       githubRepository: runtimePolicy.github.repo,
       tracker,
       runJournal,
+      codexAnalytics,
       runtimeLogs: runtimeLogStore,
       hostCommandEnvSource,
       codexHostLaunchEnv: dockerCodexAuth?.launchEnv ?? {},

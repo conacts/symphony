@@ -13,13 +13,16 @@ import {
   type SymphonyLoadedPromptContract
 } from "@symphony/runtime-contract";
 import type {
-  SymphonyCodexAnalyticsEvent,
-  SymphonyCodexThreadItem,
-  SymphonyCodexUsage,
   SymphonyJsonObject,
-  SymphonyJsonValue,
   SymphonyRunJournal
 } from "@symphony/run-journal";
+import type {
+  CodexAnalyticsStore
+} from "@symphony/codex-analytics";
+import {
+  extractUsage,
+  isThreadEvent
+} from "@symphony/codex-analytics";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
@@ -60,6 +63,7 @@ export function createCodexSymphonyAgentRuntime(input: {
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runJournal: SymphonyRunJournal;
+  codexAnalytics?: CodexAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
   codexHostLaunchEnv?: Record<string, string>;
@@ -86,6 +90,7 @@ export function createCodexSymphonyAgentRuntime(input: {
         githubRepository: input.githubRepository ?? null,
         tracker: input.tracker,
         runJournal: input.runJournal,
+        codexAnalytics: input.codexAnalytics,
         runtimeLogs: input.runtimeLogs,
         runtimePolicy: runInput.runtimePolicy,
         logger: input.logger.child({
@@ -134,6 +139,7 @@ async function executeRun(input: {
   githubRepository: string | null;
   tracker: SymphonyTracker;
   runJournal: SymphonyRunJournal;
+  codexAnalytics?: CodexAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
   logger: SymphonyLogger;
@@ -223,7 +229,12 @@ async function executeRun(input: {
       turnNumber += 1
     ) {
       if (input.activeRun.stopped) {
-        await finalizeStoppedTurn(input.runJournal, input.runId, turnJournalId);
+        await finalizeStoppedTurn(
+          input.runJournal,
+          input.codexAnalytics,
+          input.runId,
+          turnJournalId
+        );
         return;
       }
 
@@ -280,10 +291,22 @@ async function executeRun(input: {
         }),
         turnTimeoutMs: input.runtimePolicy.codex.turnTimeoutMs,
         onMessage: async (message) => {
-          const analyticsEvent = normalizeCodexAnalyticsEvent(message);
-          const eventName = analyticsEvent?.type ?? "notification";
+          const threadEvent = isThreadEvent(message) ? message : null;
+          const eventName =
+            threadEvent?.type ??
+            normalizeRuntimeUpdateEventName(getString(message, "event")) ??
+            "notification";
           const timestamp = new Date().toISOString();
-          const turnUsage = extractTurnUsage(analyticsEvent, message);
+          const turnUsage = threadEvent ? extractUsage(threadEvent) : null;
+          const codexThreadId =
+            getString(message, "thread_id") ??
+            getString(message, "threadId") ??
+            getStringPath(message, ["params", "threadId"]);
+          const codexTurnId =
+            getString(message, "turn_id") ??
+            getStringPath(message, ["params", "turnId"]);
+          const codexSessionId =
+            getString(message, "session_id") ?? getString(message, "sessionId");
 
           await input.callbacks.onUpdate(currentIssue.id, {
             event: eventName,
@@ -304,22 +327,23 @@ async function executeRun(input: {
               });
             }
 
-            if (analyticsEvent) {
+            if (threadEvent) {
               await input.runJournal.recordEvent(input.runId, turnJournalId, {
-                eventType: analyticsEvent.type,
+                eventType: threadEvent.type,
                 recordedAt: timestamp,
-                payload: analyticsEvent,
-                summary: summarizeAnalyticsEvent(analyticsEvent),
-                codexThreadId:
-                  getString(message, "thread_id") ??
-                  getString(message, "threadId") ??
-                  getStringPath(message, ["params", "threadId"]),
-                codexTurnId:
-                  getString(message, "turn_id") ??
-                  getStringPath(message, ["params", "turnId"]),
-                codexSessionId:
-                  getString(message, "session_id") ??
-                  getString(message, "sessionId")
+                payload: threadEvent as never,
+                summary: null,
+                codexThreadId,
+                codexTurnId,
+                codexSessionId
+              });
+
+              await input.codexAnalytics?.recordEvent({
+                runId: input.runId,
+                turnId: turnJournalId,
+                threadId: codexThreadId,
+                recordedAt: timestamp,
+                payload: threadEvent
               });
             }
           }
@@ -381,7 +405,12 @@ async function executeRun(input: {
     }
   } catch (error) {
     if (input.activeRun.stopped) {
-      await finalizeStoppedTurn(input.runJournal, input.runId, turnJournalId);
+      await finalizeStoppedTurn(
+        input.runJournal,
+        input.codexAnalytics,
+        input.runId,
+        turnJournalId
+      );
       return;
     }
 
@@ -394,6 +423,14 @@ async function executeRun(input: {
         metadata: {
           reason
         }
+      });
+      await input.codexAnalytics?.finalizeTurn({
+        runId: input.runId,
+        turnId: turnJournalId,
+        endedAt: new Date().toISOString(),
+        status: "failed",
+        failureKind: "runtime_failure",
+        failureMessagePreview: reason
       });
     }
 
@@ -581,16 +618,6 @@ function isRateLimitedError(error: unknown): boolean {
   });
 }
 
-function getRecord(
-  value: Record<string, unknown> | null | undefined,
-  key: string
-): Record<string, unknown> | null {
-  const nested = value?.[key];
-  return nested !== null && typeof nested === "object" && !Array.isArray(nested)
-    ? (nested as Record<string, unknown>)
-    : null;
-}
-
 function getString(
   value: Record<string, unknown> | null | undefined,
   key: string
@@ -616,8 +643,17 @@ function getStringPath(
   return typeof current === "string" && current.trim() !== "" ? current : null;
 }
 
+function normalizeRuntimeUpdateEventName(value: string | null): string | null {
+  if (value === "session_started") {
+    return "session.started";
+  }
+
+  return value;
+}
+
 async function finalizeStoppedTurn(
   runJournal: SymphonyRunJournal,
+  codexAnalytics: CodexAnalyticsStore | undefined,
   runId: string | null,
   turnJournalId: string | null
 ): Promise<void> {
@@ -632,324 +668,12 @@ async function finalizeStoppedTurn(
       stopReason: "runtime_stopped"
     }
   });
-}
-
-function summarizeAnalyticsEvent(
-  event: SymphonyCodexAnalyticsEvent
-): string | null {
-  switch (event.type) {
-    case "session.started":
-      return "session started";
-    case "thread.started":
-      return "thread started";
-    case "turn.started":
-      return "turn started";
-    case "turn.completed":
-      return "turn completed";
-    case "turn.failed":
-      return event.error.message;
-    case "error":
-      return event.message;
-    case "item.started":
-    case "item.updated":
-    case "item.completed":
-      return null;
-  }
-
-  return null;
-}
-
-function extractTurnUsage(
-  event: SymphonyCodexAnalyticsEvent | null,
-  fallback: Record<string, unknown> | null | undefined
-): SymphonyCodexUsage | null {
-  if (event?.type === "turn.completed") {
-    return event.usage;
-  }
-
-  if (!fallback) {
-    return null;
-  }
-
-  const usage = getRecord(fallback, "usage");
-  if (!usage) {
-    return null;
-  }
-
-  return normalizeCodexUsage(usage);
-}
-
-function normalizeCodexAnalyticsEvent(
-  value: Record<string, unknown> | null | undefined
-): SymphonyCodexAnalyticsEvent | null {
-  if (!value) {
-    return null;
-  }
-
-  if (value.event === "session_started") {
-    return {
-      type: "session.started",
-      session_id: getString(value, "session_id") ?? "unknown-session",
-      thread_id: getString(value, "thread_id"),
-      turn_id: getString(value, "turn_id") ?? "unknown-turn",
-      codex_app_server_pid: getString(value, "codex_app_server_pid"),
-      model: getString(value, "model"),
-      reasoning_effort: getString(value, "reasoning_effort")
-    };
-  }
-
-  const type = getString(value, "type");
-  switch (type) {
-    case "thread.started":
-      return {
-        type,
-        thread_id: getString(value, "thread_id") ?? "unknown-thread"
-      };
-    case "turn.started":
-      return { type };
-    case "turn.completed": {
-      const usage = normalizeCodexUsage(getRecord(value, "usage"));
-      if (!usage) {
-        return null;
-      }
-
-      return {
-        type,
-        usage
-      };
-    }
-    case "turn.failed":
-      return {
-        type,
-        error: {
-          message: getString(getRecord(value, "error"), "message") ?? "Turn failed"
-        }
-      };
-    case "item.started":
-    case "item.updated":
-    case "item.completed": {
-      const item = normalizeCodexItem(getRecord(value, "item"));
-      if (!item) {
-        return null;
-      }
-
-      return {
-        type,
-        item
-      };
-    }
-    case "error":
-      return {
-        type,
-        message: getString(value, "message") ?? "Codex stream error"
-      };
-    default:
-      return null;
-  }
-}
-
-function normalizeCodexUsage(
-  value: Record<string, unknown> | null
-): SymphonyCodexUsage | null {
-  if (!value) {
-    return null;
-  }
-
-  return {
-    input_tokens: getFiniteNumber(value.input_tokens),
-    cached_input_tokens: getFiniteNumber(value.cached_input_tokens),
-    output_tokens: getFiniteNumber(value.output_tokens)
-  };
-}
-
-function normalizeCodexItem(
-  value: Record<string, unknown> | null
-): SymphonyCodexThreadItem | null {
-  const type = getString(value, "type");
-  const id = getString(value, "id");
-
-  if (!value || !type || !id) {
-    return null;
-  }
-
-  switch (type) {
-    case "agent_message":
-      return {
-        id,
-        type,
-        text: getString(value, "text") ?? ""
-      };
-    case "reasoning":
-      return {
-        id,
-        type,
-        text: getString(value, "text") ?? ""
-      };
-    case "command_execution":
-      return {
-        id,
-        type,
-        command: getString(value, "command") ?? "",
-        aggregated_output: getString(value, "aggregated_output") ?? "",
-        exit_code:
-          typeof value.exit_code === "number" ? Math.floor(value.exit_code) : undefined,
-        status: normalizeCommandExecutionStatus(getString(value, "status"))
-      };
-    case "file_change":
-      return {
-        id,
-        type,
-        changes: normalizeFileChanges(value.changes),
-        status: normalizePatchApplyStatus(getString(value, "status"))
-      };
-    case "mcp_tool_call":
-      return {
-        id,
-        type,
-        server: getString(value, "server") ?? "unknown",
-        tool: getString(value, "tool") ?? "unknown",
-        arguments: normalizeJsonValue(value.arguments),
-        result: normalizeMcpResult(getRecord(value, "result")) ?? undefined,
-        error: normalizeMcpError(getRecord(value, "error")) ?? undefined,
-        status: normalizeMcpToolCallStatus(getString(value, "status"))
-      };
-    case "web_search":
-      return {
-        id,
-        type,
-        query: getString(value, "query") ?? ""
-      };
-    case "todo_list":
-      return {
-        id,
-        type,
-        items: normalizeTodoItems(value.items)
-      };
-    case "error":
-      return {
-        id,
-        type,
-        message: getString(value, "message") ?? ""
-      };
-    default:
-      return null;
-  }
-}
-
-function normalizeFileChanges(value: unknown): Array<{ path: string; kind: "add" | "delete" | "update" }> {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap((entry) => {
-    const record = entry !== null && typeof entry === "object" && !Array.isArray(entry)
-      ? (entry as Record<string, unknown>)
-      : null;
-    const path = getString(record, "path");
-    const kind = getString(record, "kind");
-    if (!path || (kind !== "add" && kind !== "delete" && kind !== "update")) {
-      return [];
-    }
-
-    return [{ path, kind }];
+  await codexAnalytics?.finalizeTurn({
+    runId,
+    turnId: turnJournalId,
+    endedAt: new Date().toISOString(),
+    status: "stopped",
+    failureKind: "runtime_stopped",
+    failureMessagePreview: "Turn stopped by runtime."
   });
-}
-
-function normalizeTodoItems(value: unknown): Array<{ text: string; completed: boolean }> {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap((entry) => {
-    const record = entry !== null && typeof entry === "object" && !Array.isArray(entry)
-      ? (entry as Record<string, unknown>)
-      : null;
-    const text = getString(record, "text");
-    if (!text) {
-      return [];
-    }
-
-    return [{
-      text,
-      completed: record?.completed === true
-    }];
-  });
-}
-
-function normalizeMcpResult(
-  value: Record<string, unknown> | null
-): { content: SymphonyJsonValue[]; structured_content: SymphonyJsonValue } | null {
-  if (!value) {
-    return null;
-  }
-
-  return {
-    content: Array.isArray(value.content)
-      ? value.content.map((entry) => normalizeJsonValue(entry))
-      : [],
-    structured_content: normalizeJsonValue(value.structured_content)
-  };
-}
-
-function normalizeMcpError(
-  value: Record<string, unknown> | null
-): { message: string } | null {
-  const message = getString(value, "message");
-  return message ? { message } : null;
-}
-
-function normalizeCommandExecutionStatus(
-  value: string | null
-): "in_progress" | "completed" | "failed" {
-  if (value === "completed" || value === "failed" || value === "in_progress") {
-    return value;
-  }
-
-  return "in_progress";
-}
-
-function normalizePatchApplyStatus(
-  value: string | null
-): "completed" | "failed" {
-  return value === "failed" ? "failed" : "completed";
-}
-
-function normalizeMcpToolCallStatus(
-  value: string | null
-): "in_progress" | "completed" | "failed" {
-  if (value === "completed" || value === "failed" || value === "in_progress") {
-    return value;
-  }
-
-  return "in_progress";
-}
-
-function getFiniteNumber(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : 0;
-}
-
-function normalizeJsonValue(value: unknown): SymphonyJsonValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((entry) => normalizeJsonValue(entry));
-  }
-
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
-        key,
-        normalizeJsonValue(nestedValue)
-      ])
-    ) as SymphonyJsonValue;
-  }
-
-  return String(value);
 }

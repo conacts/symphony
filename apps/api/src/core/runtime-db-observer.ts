@@ -5,6 +5,7 @@ import {
   summarizePreparedWorkspace,
   type WorkspaceLifecycleMetadata
 } from "@symphony/workspace";
+import type { CodexAnalyticsStore } from "@symphony/codex-analytics";
 import type {
   SymphonyJsonValue,
   SymphonyRunJournal
@@ -14,10 +15,11 @@ import type { SymphonyIssueTimelineStore } from "@symphony/db";
 export function createDbBackedOrchestratorObserver(input: {
   runJournal: SymphonyRunJournal;
   issueTimelineStore: SymphonyIssueTimelineStore;
+  codexAnalytics?: CodexAnalyticsStore;
 }): SymphonyOrchestratorObserver {
   return {
     async startRun({ issue, attempt, workspace, workerHost, startedAt }) {
-      return await input.runJournal.recordRunStarted({
+      const runId = await input.runJournal.recordRunStarted({
         issueId: issue.id,
         issueIdentifier: issue.identifier,
         attempt,
@@ -30,6 +32,16 @@ export function createDbBackedOrchestratorObserver(input: {
           workspace: workspaceMetadata(summarizePreparedWorkspace(workspace))
         }
       });
+
+      await input.codexAnalytics?.startRun({
+        runId,
+        issueId: issue.id,
+        issueIdentifier: issue.identifier,
+        startedAt,
+        status: "dispatching"
+      });
+
+      return runId;
     },
 
     async recordLifecycleEvent({
@@ -112,6 +124,14 @@ export function createDbBackedOrchestratorObserver(input: {
             stopPayload: normalizeJsonValue(payload)
           }
         });
+        await input.codexAnalytics?.finalizeRun({
+          runId,
+          status: "stopped",
+          endedAt: recordedAt ?? new Date().toISOString(),
+          failureKind: eventType,
+          failureOrigin: "runtime",
+          failureMessagePreview: previewRuntimeFailure(eventType)
+        });
       }
 
       await input.issueTimelineStore.record({
@@ -178,8 +198,22 @@ export function createDbBackedOrchestratorObserver(input: {
         errorMessage:
           completion.kind === "normal" ? null : completion.reason
       });
+
+      await input.codexAnalytics?.finalizeRun({
+        runId,
+        status: completionStatus(completion),
+        endedAt,
+        failureKind: completion.kind === "normal" ? null : completion.kind,
+        failureOrigin: completion.kind === "startup_failure" ? "runtime" : "codex",
+        failureMessagePreview:
+          completion.kind === "normal" ? null : previewRuntimeFailure(completion.reason)
+      });
     }
   };
+}
+
+function previewRuntimeFailure(value: string): string {
+  return value.length <= 280 ? value : `${value.slice(0, 279)}…`;
 }
 
 type ObserverWorkspaceMetadata = WorkspaceLifecycleMetadata | null;

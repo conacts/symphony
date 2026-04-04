@@ -144,7 +144,6 @@ describe("docker codex symphony agent runtime", () => {
     expect(
       exportPayload?.turns[0]?.events.map((event: { eventType: string }) => event.eventType)
     ).toEqual([
-      "session.started",
       "thread.started",
       "turn.started",
       "item.completed",

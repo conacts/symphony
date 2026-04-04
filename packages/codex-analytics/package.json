@@ -1,5 +1,5 @@
 {
-  "name": "@symphony/db",
+  "name": "@symphony/codex-analytics",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -21,16 +21,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@symphony/codex-analytics": "workspace:*",
-    "@symphony/run-journal": "workspace:*",
-    "better-sqlite3": "^12.4.1",
+    "@openai/codex-sdk": "^0.118.0",
     "drizzle-orm": "^0.44.5"
   },
   "devDependencies": {
     "@symphony/eslint-configs": "workspace:*",
     "@symphony/vitest-configs": "workspace:*",
-    "@types/better-sqlite3": "^7.6.13",
-    "drizzle-kit": "^0.31.5",
     "vitest": "^4.1.2"
   }
 }

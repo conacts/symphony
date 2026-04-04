@@ -7,9 +7,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
-  "references": [
-    {
-      "path": "../codex-analytics"
-    }
-  ]
+  "references": []
 }
