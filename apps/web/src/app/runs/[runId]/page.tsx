@@ -1,6 +1,6 @@
 import { buildSymphonyDashboardFoundation } from "@/core/dashboard-foundation";
 import { loadSymphonyDashboardEnv } from "@/core/env";
-import { RunDetailLiveScreen } from "@/components/run-detail-live-screen";
+import { RunTranscriptLiveScreen } from "@/components/run-transcript-live-screen";
 
 export default async function RunDetailPage(input: {
   params: Promise<{
@@ -10,5 +10,5 @@ export default async function RunDetailPage(input: {
   const { runId } = await input.params;
   const model = buildSymphonyDashboardFoundation(loadSymphonyDashboardEnv());
 
-  return <RunDetailLiveScreen model={model} runId={runId} />;
+  return <RunTranscriptLiveScreen model={model} runId={runId} />;
 }

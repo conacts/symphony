@@ -1,17 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { ControlPlaneShell } from "@/components/control-plane-shell";
-import { RunDetailView } from "@/components/run-detail-view";
+import { RunTranscriptView } from "@/components/run-transcript-view";
 import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
 import { buildRuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
-import { useRunDetail } from "@/hooks/use-run-detail";
+import { useCodexRun } from "@/hooks/use-codex-run";
 
-export function RunDetailLiveScreen(input: {
+export function RunTranscriptLiveScreen(input: {
   model: SymphonyDashboardFoundationModel;
   runId: string;
 }) {
-  const runDetailState = useRunDetail({
+  const runState = useCodexRun({
     runtimeBaseUrl: input.model.runtimeBaseUrl,
     websocketUrl: input.model.websocketUrl,
     runId: input.runId
@@ -19,20 +19,20 @@ export function RunDetailLiveScreen(input: {
   const connection = useMemo(
     () =>
       buildRuntimeSummaryConnectionState({
-        status: runDetailState.status,
-        error: runDetailState.error,
-        hasSnapshot: runDetailState.resource !== null
+        status: runState.status,
+        error: runState.error,
+        hasSnapshot: runState.resource !== null
       }),
-    [runDetailState.error, runDetailState.resource, runDetailState.status]
+    [runState.error, runState.resource, runState.status]
   );
 
   return (
     <ControlPlaneShell connection={connection} model={input.model}>
-      <RunDetailView
-        connection={connection}
-        error={runDetailState.error}
-        loading={runDetailState.loading}
-        runDetail={runDetailState.resource}
+      <RunTranscriptView
+        runtimeBaseUrl={input.model.runtimeBaseUrl}
+        error={runState.error}
+        loading={runState.loading}
+        resource={runState.resource}
       />
     </ControlPlaneShell>
   );

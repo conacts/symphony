@@ -127,9 +127,33 @@ const mockIssues: SymphonyForensicsIssueSummary[] = [
   }
 ];
 
+function withMockCodexRunSummary(
+  run: Omit<
+    SymphonyForensicsRunSummary,
+    | "codexStatus"
+    | "codexFailureKind"
+    | "codexFailureOrigin"
+    | "codexFailureMessagePreview"
+  >
+): SymphonyForensicsRunSummary {
+  return {
+    ...run,
+    codexStatus:
+      run.status === "retrying"
+        ? "failed"
+        : run.outcome === "completed"
+          ? "completed"
+          : "failed",
+    codexFailureKind:
+      run.outcome === "completed" ? null : run.errorClass ?? run.outcome,
+    codexFailureOrigin: run.outcome === "completed" ? null : "runtime",
+    codexFailureMessagePreview: run.errorMessage
+  };
+}
+
 const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> = {
   "COL-165": [
-    {
+    withMockCodexRunSummary({
       runId: "run_123",
       issueId: "issue_123",
       issueIdentifier: "COL-165",
@@ -152,8 +176,8 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       inputTokens: 3000,
       outputTokens: 1300,
       totalTokens: 4300
-    },
-    {
+    }),
+    withMockCodexRunSummary({
       runId: "run_122",
       issueId: "issue_123",
       issueIdentifier: "COL-165",
@@ -176,8 +200,8 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       inputTokens: 2200,
       outputTokens: 900,
       totalTokens: 3100
-    },
-    {
+    }),
+    withMockCodexRunSummary({
       runId: "run_121",
       issueId: "issue_123",
       issueIdentifier: "COL-165",
@@ -200,10 +224,10 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       inputTokens: 800,
       outputTokens: 300,
       totalTokens: 1100
-    }
+    })
   ],
   "COL-166": [
-    {
+    withMockCodexRunSummary({
       runId: "run_456",
       issueId: "issue_456",
       issueIdentifier: "COL-166",
@@ -226,8 +250,8 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       inputTokens: 1400,
       outputTokens: 500,
       totalTokens: 1900
-    },
-    {
+    }),
+    withMockCodexRunSummary({
       runId: "run_455",
       issueId: "issue_456",
       issueIdentifier: "COL-166",
@@ -250,10 +274,10 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       inputTokens: 900,
       outputTokens: 400,
       totalTokens: 1300
-    }
+    })
   ],
   "COL-167": [
-    {
+    withMockCodexRunSummary({
       runId: "run_789",
       issueId: "issue_789",
       issueIdentifier: "COL-167",
@@ -276,8 +300,8 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       inputTokens: 500,
       outputTokens: 60,
       totalTokens: 560
-    },
-    {
+    }),
+    withMockCodexRunSummary({
       runId: "run_788",
       issueId: "issue_789",
       issueIdentifier: "COL-167",
@@ -300,7 +324,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       inputTokens: 400,
       outputTokens: 50,
       totalTokens: 450
-    }
+    })
   ]
 };
 
@@ -1007,6 +1031,11 @@ export function buildMockRunDetailResult(
     },
     run: {
       ...run,
+      codexThreadId: `thread_${run.runId}`,
+      codexProviderId: "openrouter",
+      codexProviderName: "OpenRouter",
+      codexAuthMode: "api_key_env",
+      codexProviderEnvKey: "OPENROUTER_API_KEY",
       repoStart: {
         branch: `symphony/${issue.issueIdentifier}`
       },
