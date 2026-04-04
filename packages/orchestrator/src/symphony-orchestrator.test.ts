@@ -648,6 +648,97 @@ describe("symphony orchestrator", () => {
     });
   });
 
+  it("schedules bounded retries for transient provider failures instead of pausing immediately", async () => {
+    const config = buildSymphonyOrchestratorConfig();
+    const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
+    let currentNowMs = Date.parse("2026-03-31T00:00:00.000Z");
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      clock: {
+        now: () => new Date(currentNowMs),
+        nowMs: () => currentNowMs
+      }
+    });
+
+    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 0);
+    await orchestrator.handleRunCompletion("issue-123", {
+      kind: "provider_transient",
+      reason: "unexpected status 502 Bad Gateway"
+    });
+
+    expect(orchestrator.snapshot().retrying).toHaveLength(1);
+    expect(orchestrator.snapshot().retrying[0]).toMatchObject({
+      attempt: 1,
+      delayType: "failure"
+    });
+    expect(tracker.listOperations()).not.toContainEqual({
+      kind: "update_state",
+      issueId: "issue-123",
+      stateName: "Paused"
+    });
+    expect(tracker.listOperations()).not.toContainEqual({
+      kind: "comment",
+      issueId: "issue-123",
+      body: expect.stringContaining("Automatic retries were exhausted.")
+    });
+
+    currentNowMs = orchestrator.snapshot().retrying[0]?.dueAtMs ?? currentNowMs;
+    await orchestrator.runPollCycle();
+
+    expect(orchestrator.snapshot().retrying).toHaveLength(0);
+    expect(orchestrator.snapshot().running[0]?.retryAttempt).toBe(1);
+  });
+
+  it("pauses after the transient provider retry budget is exhausted", async () => {
+    const config = buildSymphonyOrchestratorConfig();
+    const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 3);
+    await orchestrator.handleRunCompletion("issue-123", {
+      kind: "provider_transient",
+      reason: "unexpected status 502 Bad Gateway"
+    });
+
+    expect(orchestrator.snapshot().retrying).toHaveLength(0);
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "update_state",
+      issueId: "issue-123",
+      stateName: "Paused"
+    });
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "comment",
+      issueId: "issue-123",
+      body: expect.stringContaining("Automatic retries were exhausted.")
+    });
+  });
+
   it("moves max-turn pauses into the paused state without retrying", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {

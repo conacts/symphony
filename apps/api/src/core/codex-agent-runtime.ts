@@ -482,6 +482,11 @@ async function executeRun(input: {
               kind: "rate_limited" as const,
               reason
             }
+          : isTransientProviderError(error, sessionProviderId)
+            ? {
+                kind: "provider_transient" as const,
+                reason
+              }
           : {
               kind: "failure" as const,
               reason
@@ -616,6 +621,47 @@ function isRateLimitedError(error: unknown): boolean {
       normalized.includes("ratelimit") ||
       normalized.includes("too many requests") ||
       normalized.includes("rate_limit_exceeded")
+    );
+  });
+}
+
+export function isTransientProviderError(
+  error: unknown,
+  providerId: string | null
+): boolean {
+  if (!providerId) {
+    return false;
+  }
+
+  const messages = [
+    error instanceof Error ? error.message : String(error)
+  ];
+
+  if (error instanceof CodexAppServerError && error.detail) {
+    messages.push(JSON.stringify(error.detail));
+  }
+
+  return messages.some((message) => {
+    const normalized = message.toLowerCase();
+
+    return (
+      normalized.includes("502 bad gateway") ||
+      normalized.includes("503 service unavailable") ||
+      normalized.includes("504 gateway timeout") ||
+      normalized.includes("error code: 502") ||
+      normalized.includes("error code: 503") ||
+      normalized.includes("error code: 504") ||
+      normalized.includes("unexpected status 502") ||
+      normalized.includes("unexpected status 503") ||
+      normalized.includes("unexpected status 504") ||
+      normalized.includes("socket hang up") ||
+      normalized.includes("connection reset") ||
+      normalized.includes("econnreset") ||
+      normalized.includes("etimedout") ||
+      normalized.includes("eai_again") ||
+      normalized.includes("temporary failure in name resolution") ||
+      normalized.includes("upstream connect error") ||
+      normalized.includes("upstream request timeout")
     );
   });
 }

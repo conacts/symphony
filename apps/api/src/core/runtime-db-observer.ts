@@ -237,6 +237,8 @@ function completionStatus(
       return "startup_failed";
     case "rate_limited":
       return "rate_limited";
+    case "provider_transient":
+      return "failed";
     case "stalled":
       return "stalled";
     case "failure":
@@ -256,6 +258,8 @@ function codexRunStatus(
       return "startup_failed";
     case "rate_limited":
       return "rate_limited";
+    case "provider_transient":
+      return "failed";
     case "stalled":
       return "stalled";
     case "failure":
@@ -275,6 +279,8 @@ function completionOutcome(
       return "startup_failed";
     case "rate_limited":
       return "rate_limited";
+    case "provider_transient":
+      return "provider_transient";
     case "stalled":
       return "stalled";
     case "failure":

@@ -101,6 +101,7 @@ export type SymphonyAgentRuntimeCompletion =
       manifestLifecycle?: JsonObject | null;
     }
   | { kind: "rate_limited"; reason: string }
+  | { kind: "provider_transient"; reason: string }
   | { kind: "stalled"; reason: string }
   | { kind: "failure"; reason: string };
 

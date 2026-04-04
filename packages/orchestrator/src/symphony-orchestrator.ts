@@ -31,6 +31,7 @@ import {
   isFatalRuntimeError
 } from "./symphony-orchestrator-failures.js";
 import {
+  createRetryEntry,
   stateSlotsAvailable
 } from "./symphony-orchestrator-retries.js";
 import {
@@ -55,6 +56,8 @@ import type {
   SymphonyOrchestratorState,
   SymphonyStartupFailureStage
 } from "./symphony-orchestrator-types.js";
+
+const maxProviderTransientRetries = 3;
 
 export { createSymphonyOrchestratorState } from "./symphony-orchestrator-state.js";
 export { prepareIssueForDispatch } from "./symphony-orchestrator-dispatch.js";
@@ -117,6 +120,7 @@ export class SymphonyOrchestrator {
     this.#state.pollCheckInProgress = true;
     try {
       await this.reconcileRunningIssues();
+      await this.#dispatchDueRetries();
 
       if (this.availableSlots() > 0) {
         const issues = await this.#tracker.fetchCandidateIssues(
@@ -203,6 +207,7 @@ export class SymphonyOrchestrator {
   shouldDispatchIssue(issue: SymphonyTrackerIssue): boolean {
     if (
       this.#state.running[issue.id] ||
+      this.#state.retryAttempts[issue.id] ||
       this.#state.claimed.has(issue.id) ||
       this.#state.completed.has(issue.id)
     ) {
@@ -644,6 +649,22 @@ export class SymphonyOrchestrator {
       return;
     }
 
+    if (
+      completion.kind === "provider_transient" &&
+      runningEntry.retryAttempt < maxProviderTransientRetries
+    ) {
+      await this.#scheduleTransientProviderRetry(runningEntry, completion.reason);
+      await this.#cleanupStoppedRun({
+        issue: currentIssue ?? runningEntry.issue,
+        runId: runningEntry.runId,
+        workspace: runningEntry.workspace,
+        workerHost: runningEntry.workerHost,
+        completionKind: completion.kind,
+        mode: "preserve"
+      });
+      return;
+    }
+
     currentIssue = await this.#transitionIssueState({
       issue: currentIssue ?? runningEntry.issue,
       targetState: this.#config.tracker.pauseTransitionToState,
@@ -652,6 +673,8 @@ export class SymphonyOrchestrator {
       message:
         completion.kind === "rate_limited"
           ? "Issue moved to the paused state after a provider rate limit."
+          : completion.kind === "provider_transient"
+            ? "Issue moved to the paused state after transient provider failures exhausted the retry budget."
           : completion.kind === "stalled"
             ? "Issue moved to the paused state after the run stalled."
             : "Issue moved to the paused state after a runtime failure.",
@@ -670,6 +693,8 @@ export class SymphonyOrchestrator {
       outcome:
         completion.kind === "rate_limited"
           ? "rate_limited"
+          : completion.kind === "provider_transient"
+            ? "paused_provider_transient"
           : completion.kind === "stalled"
             ? "paused_stalled"
             : "paused_failure",
@@ -756,6 +781,70 @@ export class SymphonyOrchestrator {
     );
 
     return refreshed[0] ?? null;
+  }
+
+  async #dispatchDueRetries(): Promise<void> {
+    const dueRetries = Object.entries(this.#state.retryAttempts)
+      .sort(([, left], [, right]) => left.dueAtMs - right.dueAtMs)
+      .filter(([, entry]) => entry.dueAtMs <= this.#clock.nowMs());
+
+    for (const [issueId, retry] of dueRetries) {
+      if (this.availableSlots() <= 0) {
+        break;
+      }
+
+      const issue = await this.#tracker.fetchIssueByIdentifier(
+        this.#config.tracker,
+        retry.identifier
+      );
+
+      if (
+        !issue ||
+        !issue.assignedToWorker ||
+        !issueMatchesDispatchableState(issue, this.#config.tracker) ||
+        issueMatchesTerminalState(issue, this.#config.tracker)
+      ) {
+        delete this.#state.retryAttempts[issueId];
+        continue;
+      }
+
+      delete this.#state.retryAttempts[issueId];
+      await this.dispatchIssue(issue, retry.attempt, retry.workerHost);
+    }
+  }
+
+  async #scheduleTransientProviderRetry(
+    runningEntry: SymphonyOrchestratorState["running"][string],
+    reason: string
+  ): Promise<void> {
+    const nextAttempt = runningEntry.retryAttempt + 1;
+    const retry = createRetryEntry({
+      attempt: nextAttempt,
+      nowMs: this.#clock.nowMs(),
+      identifier: runningEntry.issue.identifier,
+      error: reason,
+      workerHost: runningEntry.workerHost,
+      workspace: runningEntry.workspace,
+      launchTarget: runningEntry.launchTarget,
+      delayType: "failure",
+      maxRetryBackoffMs: this.#config.agent.maxRetryBackoffMs
+    });
+
+    this.#state.retryAttempts[runningEntry.issue.id] = retry;
+
+    await this.#observer?.recordLifecycleEvent({
+      issue: runningEntry.issue,
+      runId: runningEntry.runId,
+      source: "orchestrator",
+      eventType: "retry_scheduled",
+      message: "Transient provider failure retry scheduled.",
+      payload: {
+        retryAttempt: retry.attempt,
+        retryDueAt: new Date(retry.dueAtMs).toISOString(),
+        delayType: retry.delayType,
+        reason
+      }
+    });
   }
 
   async #cleanupStoppedRun(input: {

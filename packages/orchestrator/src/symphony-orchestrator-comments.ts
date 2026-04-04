@@ -77,6 +77,10 @@ function failureCommentTitle(outcome: string, reason: string): string {
     return "Symphony agent paused after the run stalled.";
   }
 
+  if (outcome === "paused_provider_transient") {
+    return "Symphony agent paused after repeated transient provider failures.";
+  }
+
   if (outcome === "paused_failure") {
     return "Symphony agent paused after a runtime failure.";
   }
@@ -99,6 +103,10 @@ function failureCommentSummary(outcome: string, reason: string): string {
 
   if (outcome === "paused_stalled") {
     return "Codex stopped because the run stalled without visible activity.";
+  }
+
+  if (outcome === "paused_provider_transient") {
+    return "Codex stopped after transient provider failures exhausted the automatic retry budget.";
   }
 
   if (outcome === "paused_failure") {
@@ -158,7 +166,7 @@ function failureCommentFollowUpLines(
     return startupFailureFollowUpLines(transition);
   }
 
-  return pausedFailureFollowUpLines(transition);
+  return pausedFailureFollowUpLines(outcome, transition);
 }
 
 function startupFailureFollowUpLines(
@@ -185,8 +193,30 @@ function startupFailureFollowUpLines(
 }
 
 function pausedFailureFollowUpLines(
+  outcome: string,
   transition: SymphonyStartupFailureTransition | undefined
 ): string[] {
+  if (outcome === "paused_provider_transient" && transition?.kind === "moved") {
+    return [
+      "Automatic retries were exhausted.",
+      `Symphony moved the issue to \`${transition.targetState}\`. After resolving the orchestration or provider problem, move it back to \`Todo\` to request another run.`
+    ];
+  }
+
+  if (outcome === "paused_provider_transient" && transition?.kind === "failed") {
+    return [
+      "Automatic retries were exhausted.",
+      `Symphony could not move the issue to \`${transition.targetState}\`, so manual state cleanup is required before the ticket is requeued.`
+    ];
+  }
+
+  if (outcome === "paused_provider_transient") {
+    return [
+      "Automatic retries were exhausted.",
+      "After resolving the orchestration or provider problem, move the issue back to `Todo` to request another run."
+    ];
+  }
+
   if (transition?.kind === "moved") {
     return [
       "Symphony did not retry automatically.",

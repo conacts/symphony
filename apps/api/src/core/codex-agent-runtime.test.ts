@@ -16,7 +16,10 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
-import { createCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
+import {
+  createCodexSymphonyAgentRuntime,
+  isTransientProviderError
+} from "./codex-agent-runtime.js";
 import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimePolicyForRoot } from "../test-support/create-symphony-runtime-test-harness.js";
 
 const tempRoots: string[] = [];
@@ -391,6 +394,29 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     });
 
     database.close();
+  });
+
+  it("classifies transient provider gateway failures distinctly", () => {
+    expect(
+      isTransientProviderError(
+        new Error(
+          "unexpected status 502 Bad Gateway: error code: 502, url: https://openrouter.ai/api/v1/responses, cf-ray: test"
+        ),
+        "openrouter"
+      )
+    ).toBe(true);
+    expect(
+      isTransientProviderError(
+        new Error("Missing environment variable: OPENROUTER_API_KEY."),
+        "openrouter"
+      )
+    ).toBe(false);
+    expect(
+      isTransientProviderError(
+        new Error("unexpected status 502 Bad Gateway"),
+        null
+      )
+    ).toBe(false);
   });
 
   it("launches container-backed workspaces through docker exec while snapshotting the host repo", async () => {

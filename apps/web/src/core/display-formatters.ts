@@ -76,6 +76,8 @@ const labelOverrides = new Map<string, string>([
   ["max_turns", "Max turns reached"],
   ["max_turns_reached", "Max turns reached"],
   ["paused_max_turns", "Paused at max turns"],
+  ["paused_provider_transient", "Paused after provider retries"],
+  ["provider_transient", "Transient provider failure"],
   ["rate_limited", "Rate limited"],
   ["many_retries", "Many retries"],
   ["ready", "Ready"],
