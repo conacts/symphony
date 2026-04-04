@@ -13,6 +13,15 @@ export type RuntimeSummaryViewModel = {
     value: string;
     detail: string;
   }>;
+  tokenChartRows: Array<{
+    issueIdentifier: string;
+    inputTokens: number;
+    outputTokens: number;
+  }>;
+  retryChartRows: Array<{
+    issueIdentifier: string;
+    attempt: number;
+  }>;
   rateLimitRows: Array<{
     label: string;
     value: string;
@@ -94,6 +103,17 @@ export function buildRuntimeSummaryViewModel(
         detail: "Total Codex runtime reported by the current TypeScript runtime."
       }
     ],
+    tokenChartRows: runtimeSummary.running.map((entry) => ({
+      issueIdentifier: entry.issueIdentifier,
+      inputTokens: entry.tokens.inputTokens,
+      outputTokens: entry.tokens.outputTokens
+    })),
+    retryChartRows: runtimeSummary.retrying
+      .map((entry) => ({
+        issueIdentifier: entry.issueIdentifier,
+        attempt: entry.attempt
+      }))
+      .sort((left, right) => right.attempt - left.attempt),
     rateLimitRows: buildRateLimitRows(runtimeSummary.rateLimits),
     runningRows: runtimeSummary.running.map((entry) => ({
       issueIdentifier: entry.issueIdentifier,

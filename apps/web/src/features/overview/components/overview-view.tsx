@@ -20,6 +20,8 @@ import type {
   RuntimeSummaryConnectionState,
   RuntimeSummaryViewModel
 } from "@/features/overview/model/overview-view-model";
+import { OverviewRetryChart } from "@/features/overview/components/overview-retry-chart";
+import { OverviewTokenChart } from "@/features/overview/components/overview-token-chart";
 
 export function OverviewView(input: {
   connection: RuntimeSummaryConnectionState;
@@ -57,6 +59,11 @@ export function OverviewView(input: {
                 </CardContent>
               </Card>
             ))}
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-2">
+            <OverviewTokenChart rows={input.runtimeSummary.tokenChartRows} />
+            <OverviewRetryChart rows={input.runtimeSummary.retryChartRows} />
           </section>
 
           <section className="grid gap-6 xl:grid-cols-2">

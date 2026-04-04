@@ -73,6 +73,17 @@ describe("forensics view model", () => {
     expect(issueIndex.summaryCards[3]?.value).toBe("33.3%");
     expect(issueIndex.focusCards[0]?.label).toBe("Most active issue");
     expect(issueIndex.focusCards[0]?.href).toBe("/issues/COL-165");
+    expect(issueIndex.outcomeChartRows[0]).toEqual({
+      issueIdentifier: "COL-165",
+      completedRunCount: 1,
+      problemRunCount: 2
+    });
+    expect(issueIndex.pressureChartRows[0]).toEqual({
+      issueIdentifier: "COL-165",
+      retryCount: 2,
+      rateLimitedCount: 1,
+      maxTurnsCount: 1
+    });
     expect(issueIndex.rows[0]?.issueHref).toBe("/issues/COL-165");
     expect(issueIndex.rows[0]?.problemRate).toBe("66.7%");
     expect(issueIndex.rows[0]?.avgDuration).toBe("7:00");

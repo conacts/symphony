@@ -34,6 +34,8 @@ import type {
   SymphonyForensicsIssueListResult,
   SymphonyForensicsIssuesQuery
 } from "@symphony/contracts";
+import { IssueOutcomeChart } from "@/features/issues/components/issue-outcome-chart";
+import { IssuePressureChart } from "@/features/issues/components/issue-pressure-chart";
 import { buildIssueIndexViewModel } from "@/features/issues/model/issue-view-model";
 
 const timeRangeOptions = [
@@ -151,6 +153,11 @@ export function IssueIndexView(input: {
                 </CardHeader>
               </Card>
             ))}
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-2">
+            <IssueOutcomeChart rows={viewModel.outcomeChartRows} />
+            <IssuePressureChart rows={viewModel.pressureChartRows} />
           </section>
 
           <section className="grid gap-3 xl:grid-cols-2">

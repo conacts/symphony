@@ -53,6 +53,19 @@ export function buildSymphonyRuntimeSummaryViewModel(
         detail: "Total Codex runtime reported by the current TypeScript runtime."
       }
     ],
+    tokenChartRows: [
+      {
+        issueIdentifier: "COL-165",
+        inputTokens: 120,
+        outputTokens: 80
+      }
+    ],
+    retryChartRows: [
+      {
+        issueIdentifier: "COL-166",
+        attempt: 2
+      }
+    ],
     rateLimitRows: [
       {
         label: "remaining",

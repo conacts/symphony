@@ -33,6 +33,29 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
     .sort((left, right) =>
       (right.latestActivityAt ?? "").localeCompare(left.latestActivityAt ?? "")
     )[0];
+  const outcomeChartRows = [...input.issues]
+    .sort((left, right) => right.runCount - left.runCount)
+    .slice(0, 6)
+    .map((issue) => ({
+      issueIdentifier: issue.issueIdentifier,
+      completedRunCount: issue.completedRunCount,
+      problemRunCount: issue.problemRunCount
+    }));
+  const pressureChartRows = [...input.issues]
+    .sort(
+      (left, right) =>
+        right.retryCount +
+        right.rateLimitedCount +
+        right.maxTurnsCount -
+        (left.retryCount + left.rateLimitedCount + left.maxTurnsCount)
+    )
+    .slice(0, 6)
+    .map((issue) => ({
+      issueIdentifier: issue.issueIdentifier,
+      retryCount: issue.retryCount,
+      rateLimitedCount: issue.rateLimitedCount,
+      maxTurnsCount: issue.maxTurnsCount
+    }));
 
   return {
     summaryCards: [
@@ -103,6 +126,8 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
           : "The current issue set does not show a recent failure message."
       })
     ],
+    outcomeChartRows,
+    pressureChartRows,
     rows: input.issues.map((issue) => ({
       issueIdentifier: issue.issueIdentifier,
       issueHref: `/issues/${issue.issueIdentifier}`,

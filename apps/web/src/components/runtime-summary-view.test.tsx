@@ -40,6 +40,8 @@ describe("runtime summary view", () => {
     );
 
     expect(html).toContain("Overview");
+    expect(html).toContain("Active token footprint");
+    expect(html).toContain("Retry attempt queue");
     expect(html).toContain("Retry pressure");
     expect(html).toContain("Provider headroom");
     expect(html).toContain("Active runs");
