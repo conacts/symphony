@@ -39,9 +39,10 @@ describe("runtime summary view", () => {
       />
     );
 
-    expect(html).toContain("Running sessions");
-    expect(html).toContain("Retry queue");
-    expect(html).toContain("Rate limits");
+    expect(html).toContain("Overview");
+    expect(html).toContain("Retry pressure");
+    expect(html).toContain("Provider headroom");
+    expect(html).toContain("Active runs");
     expect(html).toContain("COL-165");
     expect(html).toContain("Worker disconnected");
   });

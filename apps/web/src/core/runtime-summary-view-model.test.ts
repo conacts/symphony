@@ -21,7 +21,10 @@ describe("runtime summary view model", () => {
     expect(runtimeSummary.metrics[3]?.value).toBe("1m 35s");
     expect(runtimeSummary.runningRows[0]?.runtimeAndTurns).toBe("2m 0s / 4 turns");
     expect(runtimeSummary.retryRows[0]?.error).toBe("Worker disconnected");
-    expect(runtimeSummary.rateLimitsText).toContain('"remaining": 3');
+    expect(runtimeSummary.rateLimitRows[0]).toEqual({
+      label: "remaining",
+      value: "3"
+    });
   });
 
   it("describes operator-visible connection states", () => {

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { ChevronDown, Columns3 } from "lucide-react";
+import React from "react";
+import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +14,6 @@ import {
 } from "@/components/ui/card";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -35,28 +35,6 @@ import type {
   SymphonyForensicsIssueListResult,
   SymphonyForensicsIssuesQuery
 } from "@symphony/contracts";
-
-const defaultColumns = [
-  "issue",
-  "runs",
-  "problemRate",
-  "latestProblem",
-  "lastCompleted",
-  "retries",
-  "avgDuration",
-  "lastActive"
-] as const;
-
-const columnLabels: Record<(typeof defaultColumns)[number], string> = {
-  issue: "Issue",
-  runs: "Runs",
-  problemRate: "Problem rate",
-  latestProblem: "Latest problem",
-  lastCompleted: "Last completed",
-  retries: "Retries",
-  avgDuration: "Avg duration",
-  lastActive: "Last active"
-};
 
 const timeRangeOptions = [
   { value: "all", label: "All time" },
@@ -82,8 +60,9 @@ export function IssueIndexView(input: {
   query: SymphonyForensicsIssuesQuery;
   runtimeBaseUrl: string;
 }) {
-  const [columns, setColumns] = useState<string[]>([...defaultColumns]);
-  const viewModel = input.issueIndex ? buildIssueIndexViewModel(input.issueIndex) : null;
+  const viewModel = input.issueIndex
+    ? buildIssueIndexViewModel(input.issueIndex)
+    : null;
 
   function updateQuery(next: Partial<SymphonyForensicsIssuesQuery>) {
     input.onQueryChange({
@@ -105,17 +84,12 @@ export function IssueIndexView(input: {
 
     updateQuery({
       timeRange: value,
-      startedAfter: lookbackMs === null ? undefined : new Date(now - lookbackMs).toISOString(),
+      startedAfter:
+        lookbackMs === null
+          ? undefined
+          : new Date(now - lookbackMs).toISOString(),
       startedBefore: undefined
     });
-  }
-
-  function toggleColumn(column: string) {
-    setColumns((current) =>
-      current.includes(column)
-        ? current.filter((currentColumn) => currentColumn !== column)
-        : [...current, column]
-    );
   }
 
   function navigateToIssue(href: string) {
@@ -137,7 +111,7 @@ export function IssueIndexView(input: {
             <div className="space-y-1">
               <h1 className="text-3xl font-semibold tracking-tight">Issues</h1>
               <p className="text-sm text-muted-foreground">
-                Historical process forensics for Symphony issue execution
+                Codex-native issue inventory for deciding what to inspect next.
               </p>
             </div>
 
@@ -168,7 +142,7 @@ export function IssueIndexView(input: {
             </div>
           </div>
 
-          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {viewModel.summaryCards.map((card) => (
               <Card key={card.label}>
                 <CardHeader className="space-y-1 pb-2">
@@ -179,12 +153,31 @@ export function IssueIndexView(input: {
             ))}
           </section>
 
+          <section className="grid gap-3 xl:grid-cols-2">
+            {viewModel.focusCards.map((card) => (
+              <Card key={card.label}>
+                <CardHeader className="space-y-2">
+                  <CardDescription>{card.label}</CardDescription>
+                  <CardTitle className="text-xl">{card.value}</CardTitle>
+                  <CardDescription>{card.detail}</CardDescription>
+                </CardHeader>
+                {card.href ? (
+                  <CardContent className="pt-0">
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={card.href}>Open issue</Link>
+                    </Button>
+                  </CardContent>
+                ) : null}
+              </Card>
+            ))}
+          </section>
+
           <Card>
             <CardHeader className="gap-4">
               <div className="flex flex-col gap-1">
-                <CardTitle>Issue table</CardTitle>
+                <CardTitle>Issue inventory</CardTitle>
                 <CardDescription>
-                  Recent issue activity and outcome trends.
+                  One row per issue, with enough context to decide where to drill in next.
                 </CardDescription>
               </div>
               <div className="flex flex-col gap-2 xl:flex-row xl:flex-wrap">
@@ -233,26 +226,6 @@ export function IssueIndexView(input: {
                     })
                   }
                 />
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="outline">
-                      <Columns3 className="mr-2 size-4" />
-                      Columns
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuLabel>Columns</DropdownMenuLabel>
-                    {defaultColumns.map((column) => (
-                      <DropdownMenuCheckboxItem
-                        key={column}
-                        checked={columns.includes(column)}
-                        onCheckedChange={() => toggleColumn(column)}
-                      >
-                        {columnLabels[column]}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </div>
             </CardHeader>
             <CardContent>
@@ -264,20 +237,13 @@ export function IssueIndexView(input: {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {columns.includes("issue") ? <TableHead>Issue</TableHead> : null}
-                      {columns.includes("runs") ? <TableHead>Runs</TableHead> : null}
-                      {columns.includes("problemRate") ? <TableHead>Problem rate</TableHead> : null}
-                      {columns.includes("latestProblem") ? (
-                        <TableHead>Latest problem</TableHead>
-                      ) : null}
-                      {columns.includes("lastCompleted") ? (
-                        <TableHead>Last completed</TableHead>
-                      ) : null}
-                      {columns.includes("retries") ? <TableHead>Retries</TableHead> : null}
-                      {columns.includes("avgDuration") ? (
-                        <TableHead>Avg duration</TableHead>
-                      ) : null}
-                      {columns.includes("lastActive") ? <TableHead>Last active</TableHead> : null}
+                      <TableHead>Issue</TableHead>
+                      <TableHead>Runs</TableHead>
+                      <TableHead>Problem rate</TableHead>
+                      <TableHead>Latest problem</TableHead>
+                      <TableHead>Retries</TableHead>
+                      <TableHead>Last active</TableHead>
+                      <TableHead>Latest error</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -294,28 +260,29 @@ export function IssueIndexView(input: {
                           }
                         }}
                       >
-                        {columns.includes("issue") ? (
-                          <TableCell className="font-medium">
-                            {row.issueIdentifier}
-                          </TableCell>
-                        ) : null}
-                        {columns.includes("runs") ? <TableCell>{row.runCount}</TableCell> : null}
-                        {columns.includes("problemRate") ? (
-                          <TableCell>{row.problemRate}</TableCell>
-                        ) : null}
-                        {columns.includes("latestProblem") ? (
-                          <TableCell>{row.latestProblemOutcome}</TableCell>
-                        ) : null}
-                        {columns.includes("lastCompleted") ? (
-                          <TableCell>{row.lastCompletedOutcome}</TableCell>
-                        ) : null}
-                        {columns.includes("retries") ? <TableCell>{row.retryCount}</TableCell> : null}
-                        {columns.includes("avgDuration") ? (
-                          <TableCell>{row.avgDuration}</TableCell>
-                        ) : null}
-                        {columns.includes("lastActive") ? (
-                          <TableCell>{row.lastActive}</TableCell>
-                        ) : null}
+                        <TableCell className="font-medium">
+                          <div className="flex flex-col gap-1">
+                            <span>{row.issueIdentifier}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {row.flags.length > 0
+                                ? row.flags.join(" · ")
+                                : "No active issue flags"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{row.runCount}</TableCell>
+                        <TableCell>{row.problemRate}</TableCell>
+                        <TableCell>{row.latestProblemOutcome}</TableCell>
+                        <TableCell>{row.retryCount}</TableCell>
+                        <TableCell>{row.lastActive}</TableCell>
+                        <TableCell className="max-w-sm">
+                          <div className="flex flex-col gap-1">
+                            <span>{row.latestErrorClass}</span>
+                            <span className="truncate text-xs text-muted-foreground">
+                              {row.latestErrorMessage}
+                            </span>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -325,8 +292,8 @@ export function IssueIndexView(input: {
           </Card>
         </>
       ) : input.loading ? (
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 8 }, (_, index) => (
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }, (_, index) => (
             <Card key={index}>
               <CardHeader>
                 <Skeleton className="h-4 w-24" />
@@ -354,13 +321,14 @@ function FilterDropdown(input: {
   label: string;
   onChange: (value: string) => void;
   options: Array<{
-    value: string;
     label: string;
+    value: string;
   }>;
   value: string;
 }) {
   const currentLabel =
-    input.options.find((option) => option.value === input.value)?.label ?? input.label;
+    input.options.find((option) => option.value === input.value)?.label ??
+    input.label;
 
   return (
     <DropdownMenu>
@@ -385,5 +353,8 @@ function FilterDropdown(input: {
 }
 
 function labelForTimeRange(value: string): string {
-  return timeRangeOptions.find((option) => option.value === value)?.label ?? "All time";
+  return (
+    timeRangeOptions.find((option) => option.value === value)?.label ??
+    "All time"
+  );
 }

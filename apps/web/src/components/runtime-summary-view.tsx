@@ -38,6 +38,13 @@ export function RuntimeSummaryView(input: {
 
       {input.runtimeSummary ? (
         <>
+          <div className="space-y-1">
+            <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
+            <p className="text-sm text-muted-foreground">
+              Active Codex operator view for runtime pressure, retries, and upstream headroom.
+            </p>
+          </div>
+
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {input.runtimeSummary.metrics.map((metric) => (
               <Card key={metric.label}>
@@ -52,12 +59,73 @@ export function RuntimeSummaryView(input: {
             ))}
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
+          <section className="grid gap-6 xl:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Running sessions</CardTitle>
+                <CardTitle>Retry pressure</CardTitle>
                 <CardDescription>
-                  Active issues, last known agent activity, and token usage.
+                  Issues currently waiting for the next retry window.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                {input.runtimeSummary.retryRows.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No issues are currently backing off.
+                  </p>
+                ) : (
+                  input.runtimeSummary.retryRows.map((row) => (
+                    <div
+                      key={`${row.issueIdentifier}:${row.attempt}`}
+                      className="rounded-xl border border-border/70 p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-medium">{row.issueIdentifier}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Attempt {row.attempt}
+                        </p>
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Due {row.dueAt}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {row.execution}
+                      </p>
+                      <p className="mt-3 text-sm">{row.error}</p>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Provider headroom</CardTitle>
+                <CardDescription>
+                  Latest upstream rate-limit snapshot from the runtime surface.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-2">
+                {input.runtimeSummary.rateLimitRows.map((row) => (
+                  <div
+                    key={row.label}
+                    className="rounded-xl border border-border/70 p-4"
+                  >
+                    <p className="text-sm text-muted-foreground">{row.label}</p>
+                    <p className="mt-2 text-lg font-medium break-words">
+                      {row.value}
+                    </p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </section>
+
+          <section>
+            <Card>
+              <CardHeader>
+                <CardTitle>Active runs</CardTitle>
+                <CardDescription>
+                  One table for the live work happening in this runtime right now.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -93,61 +161,6 @@ export function RuntimeSummaryView(input: {
                 )}
               </CardContent>
             </Card>
-
-            <div className="flex flex-col gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Retry queue</CardTitle>
-                  <CardDescription>
-                    Issues waiting for the next retry window.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {input.runtimeSummary.retryRows.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No issues are currently backing off.
-                    </p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Issue</TableHead>
-                          <TableHead>Execution</TableHead>
-                          <TableHead>Attempt</TableHead>
-                          <TableHead>Due at</TableHead>
-                          <TableHead>Error</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {input.runtimeSummary.retryRows.map((row) => (
-                          <TableRow key={`${row.issueIdentifier}:${row.attempt}`}>
-                            <TableCell>{row.issueIdentifier}</TableCell>
-                            <TableCell>{row.execution}</TableCell>
-                            <TableCell>{row.attempt}</TableCell>
-                            <TableCell>{row.dueAt}</TableCell>
-                            <TableCell>{row.error}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Rate limits</CardTitle>
-                  <CardDescription>
-                    Latest upstream rate-limit snapshot, when available.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <pre className="overflow-x-auto rounded-xl border border-border/70 bg-background/70 p-4 text-xs leading-6 text-muted-foreground">
-                    {input.runtimeSummary.rateLimitsText}
-                  </pre>
-                </CardContent>
-              </Card>
-            </div>
           </section>
         </>
       ) : input.loading ? (

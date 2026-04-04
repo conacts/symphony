@@ -53,7 +53,12 @@ export function buildSymphonyRuntimeSummaryViewModel(
         detail: "Total Codex runtime reported by the current TypeScript runtime."
       }
     ],
-    rateLimitsText: "{\n  \"remaining\": 3\n}",
+    rateLimitRows: [
+      {
+        label: "remaining",
+        value: "3"
+      }
+    ],
     runningRows: [
       {
         issueIdentifier: "COL-165",

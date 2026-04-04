@@ -12,7 +12,10 @@ export type RuntimeSummaryViewModel = {
     value: string;
     detail: string;
   }>;
-  rateLimitsText: string;
+  rateLimitRows: Array<{
+    label: string;
+    value: string;
+  }>;
   runningRows: Array<{
     issueIdentifier: string;
     state: string;
@@ -90,7 +93,7 @@ export function buildRuntimeSummaryViewModel(
         detail: "Total Codex runtime reported by the current TypeScript runtime."
       }
     ],
-    rateLimitsText: prettyRateLimits(runtimeSummary.rateLimits),
+    rateLimitRows: buildRateLimitRows(runtimeSummary.rateLimits),
     runningRows: runtimeSummary.running.map((entry) => ({
       issueIdentifier: entry.issueIdentifier,
       state: entry.state,
@@ -104,7 +107,7 @@ export function buildRuntimeSummaryViewModel(
       issueIdentifier: entry.issueIdentifier,
       execution: formatExecution(entry.workspace, entry.launchTarget),
       attempt: String(entry.attempt),
-      dueAt: entry.dueAt ?? "n/a",
+      dueAt: formatMaybeTimestamp(entry.dueAt),
       error: entry.error ?? "n/a"
     }))
   };
@@ -162,12 +165,25 @@ function formatCodexUpdate(
   return `${message} · ${lastEventAt}`;
 }
 
-function prettyRateLimits(rateLimits: Record<string, unknown> | null): string {
+function buildRateLimitRows(
+  rateLimits: Record<string, unknown> | null
+): Array<{
+  label: string;
+  value: string;
+}> {
   if (!rateLimits) {
-    return "No upstream rate-limit snapshot available yet.";
+    return [
+      {
+        label: "Status",
+        value: "No upstream rate-limit snapshot available yet."
+      }
+    ];
   }
 
-  return JSON.stringify(rateLimits, null, 2);
+  return Object.entries(rateLimits).map(([label, value]) => ({
+    label,
+    value: formatUnknownValue(value)
+  }));
 }
 
 function formatExecution(
@@ -190,6 +206,41 @@ function formatExecution(
   ].filter((part): part is string => Boolean(part));
 
   return parts.join(" / ");
+}
+
+function formatMaybeTimestamp(value: string | null | undefined): string {
+  if (!value) {
+    return "n/a";
+  }
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(parsed);
+}
+
+function formatUnknownValue(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    value === null
+  ) {
+    return String(value);
+  }
+
+  return JSON.stringify(value);
 }
 
 export { formatRuntimeSeconds };

@@ -71,9 +71,12 @@ describe("forensics view model", () => {
 
     expect(issueIndex.summaryCards[0]?.label).toBe("Total issues");
     expect(issueIndex.summaryCards[3]?.value).toBe("33.3%");
+    expect(issueIndex.focusCards[0]?.label).toBe("Most active issue");
+    expect(issueIndex.focusCards[0]?.href).toBe("/issues/COL-165");
     expect(issueIndex.rows[0]?.issueHref).toBe("/issues/COL-165");
     expect(issueIndex.rows[0]?.problemRate).toBe("66.7%");
     expect(issueIndex.rows[0]?.avgDuration).toBe("7:00");
+    expect(issueIndex.rows[0]?.flags).toEqual(["max_turns", "many_retries"]);
     expect(issueIndex.rows[0]?.lastActive).not.toBe("2026-03-31T18:05:00.000Z");
   });
 

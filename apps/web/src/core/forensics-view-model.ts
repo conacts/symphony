@@ -9,6 +9,24 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
     input.totals.runCount === 0
       ? 0
       : input.totals.completedRunCount / input.totals.runCount;
+  const mostActiveIssue = [...input.issues].sort(
+    (left, right) => right.runCount - left.runCount
+  )[0];
+  const highestProblemIssue = [...input.issues].sort(
+    (left, right) => right.problemRate - left.problemRate
+  )[0];
+  const mostRetriedIssue = [...input.issues].sort(
+    (left, right) => right.retryCount - left.retryCount
+  )[0];
+  const newestProblemIssue = [...input.issues]
+    .filter(
+      (issue) =>
+        issue.latestProblemOutcome !== null ||
+        issue.latestErrorMessage !== null
+    )
+    .sort((left, right) =>
+      (right.latestActivityAt ?? "").localeCompare(left.latestActivityAt ?? "")
+    )[0];
 
   return {
     summaryCards: [
@@ -37,6 +55,48 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
         value: formatCount(input.totals.maxTurnsCount)
       }
     ],
+    focusCards: [
+      buildIssueFocusCard({
+        label: "Most active issue",
+        issue: mostActiveIssue,
+        value: mostActiveIssue ? mostActiveIssue.issueIdentifier : "No issues",
+        detail: mostActiveIssue
+          ? `${formatCount(mostActiveIssue.runCount)} runs recorded.`
+          : "No issue activity has been recorded yet."
+      }),
+      buildIssueFocusCard({
+        label: "Highest problem rate",
+        issue: highestProblemIssue,
+        value: highestProblemIssue
+          ? `${highestProblemIssue.issueIdentifier} · ${formatPercent(highestProblemIssue.problemRate)}`
+          : "No issues",
+        detail: highestProblemIssue
+          ? `${highestProblemIssue.latestProblemOutcome ?? "No problem outcome"}`
+          : "No issue activity has been recorded yet."
+      }),
+      buildIssueFocusCard({
+        label: "Most retries",
+        issue: mostRetriedIssue,
+        value: mostRetriedIssue
+          ? `${mostRetriedIssue.issueIdentifier} · ${formatCount(mostRetriedIssue.retryCount)}`
+          : "No retries",
+        detail: mostRetriedIssue
+          ? `${mostRetriedIssue.latestErrorClass ?? "No retry error class"}`
+          : "No issues are currently retry-heavy."
+      }),
+      buildIssueFocusCard({
+        label: "Latest problem signal",
+        issue: newestProblemIssue,
+        value: newestProblemIssue
+          ? newestProblemIssue.issueIdentifier
+          : "No recent failures",
+        detail: newestProblemIssue
+          ? newestProblemIssue.latestErrorMessage ??
+            newestProblemIssue.latestProblemOutcome ??
+            "Problem outcome unavailable."
+          : "The current issue set does not show a recent failure message."
+      })
+    ],
     rows: input.issues.map((issue) => ({
       issueIdentifier: issue.issueIdentifier,
       issueHref: `/issues/${issue.issueIdentifier}`,
@@ -47,6 +107,7 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
       retryCount: formatCount(issue.retryCount),
       avgDuration: formatDuration(issue.avgDurationSeconds),
       lastActive: formatTimestamp(issue.latestActivityAt),
+      flags: issue.flags,
       latestErrorClass: issue.latestErrorClass ?? "n/a",
       latestErrorMessage: issue.latestErrorMessage ?? "n/a"
     })),
@@ -205,4 +266,20 @@ export function prettyValue(value: unknown): string {
   }
 
   return JSON.stringify(value, null, 2);
+}
+
+function buildIssueFocusCard(input: {
+  label: string;
+  issue:
+    | SymphonyForensicsIssueListResult["issues"][number]
+    | undefined;
+  value: string;
+  detail: string;
+}) {
+  return {
+    label: input.label,
+    href: input.issue ? `/issues/${input.issue.issueIdentifier}` : null,
+    value: input.value,
+    detail: input.detail
+  };
 }
