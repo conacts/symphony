@@ -11,16 +11,9 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
 import type { RuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
 import type { SymphonyForensicsIssueForensicsBundleResult } from "@symphony/contracts";
+import { IssueActivityFeed } from "@/features/issues/components/issue-activity-feed";
 import { buildIssueActivityViewModel } from "@/features/issues/model/issue-view-model";
 
 export function IssueActivityView(input: {
@@ -119,44 +112,7 @@ export function IssueActivityView(input: {
             </Card>
           ) : null}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Activity stream</CardTitle>
-              <CardDescription>
-                One chronological table for persisted timeline and runtime events.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {viewModel.activityRows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No activity has been recorded for this issue yet.
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Time</TableHead>
-                      <TableHead>Source</TableHead>
-                      <TableHead>Event</TableHead>
-                      <TableHead>Run</TableHead>
-                      <TableHead>Message</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {viewModel.activityRows.map((row) => (
-                      <TableRow key={row.entryId}>
-                        <TableCell>{row.recordedAt}</TableCell>
-                        <TableCell>{row.source}</TableCell>
-                        <TableCell>{row.eventType}</TableCell>
-                        <TableCell>{row.runId}</TableCell>
-                        <TableCell className="max-w-xl truncate">{row.message}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+          <IssueActivityFeed rows={viewModel.activityRows} />
         </>
       ) : input.loading ? (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
