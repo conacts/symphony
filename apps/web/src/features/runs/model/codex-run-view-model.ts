@@ -13,7 +13,7 @@ import {
   formatCount,
   formatDuration,
   formatTimestamp
-} from "@/core/forensics-view-model";
+} from "@/core/display-formatters";
 
 export type CodexRunTranscriptEntry =
   | {
