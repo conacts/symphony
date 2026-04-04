@@ -360,6 +360,9 @@ importers:
 
   packages/forensics:
     dependencies:
+      '@symphony/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@symphony/run-journal':
         specifier: workspace:*
         version: link:../run-journal

@@ -3,6 +3,7 @@ import {
   isProblemOutcome,
   problemSummary
 } from "@symphony/run-journal/internal";
+import type { SymphonyForensicsRunDetailResult } from "@symphony/contracts";
 import type {
   SymphonyIssueSummary,
   SymphonyIsoTimestamp,
@@ -230,7 +231,7 @@ export interface SymphonyForensicsReadModel {
     issueIdentifier: string,
     opts?: SymphonyForensicsIssueForensicsBundleQuery
   ): Promise<SymphonyForensicsIssueForensicsBundle | null>;
-  runDetail(runId: string): Promise<SymphonyRunExport | null>;
+  runDetail(runId: string): Promise<SymphonyForensicsRunDetailResult | null>;
   problemRuns(opts?: SymphonyRunJournalProblemRunsOptions): Promise<SymphonyForensicsProblemRuns>;
 }
 
@@ -383,7 +384,8 @@ export function createSymphonyForensicsReadModel(
     },
 
     async runDetail(runId) {
-      return deps.journal.fetchRunExport(runId);
+      const runExport = await deps.journal.fetchRunExport(runId);
+      return runExport ? toForensicsRunDetailResult(runExport) : null;
     },
 
     async problemRuns(opts = {}) {
@@ -400,4 +402,68 @@ export function createSymphonyForensicsReadModel(
       };
     }
   };
+}
+
+function toForensicsRunDetailResult(
+  result: SymphonyRunExport
+): SymphonyForensicsRunDetailResult {
+  const allEvents = result.turns.flatMap((turn) => turn.events);
+  const tokenTotals = result.turns.reduce(
+    (totals, turn) => {
+      const inputTokens = parseTokenCount(turn.usage?.input_tokens);
+      const outputTokens = parseTokenCount(turn.usage?.output_tokens);
+
+      return {
+        inputTokens: totals.inputTokens + inputTokens,
+        outputTokens: totals.outputTokens + outputTokens,
+        totalTokens: totals.totalTokens + inputTokens + outputTokens
+      };
+    },
+    {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0
+    }
+  );
+  const sortedEvents = [...allEvents].sort((left, right) => {
+    const recordedAtOrder = (right.recordedAt ?? "").localeCompare(left.recordedAt ?? "");
+
+    if (recordedAtOrder !== 0) {
+      return recordedAtOrder;
+    }
+
+    return right.eventSequence - left.eventSequence;
+  });
+  const lastEvent = sortedEvents[0];
+
+  return {
+    issue: result.issue,
+    run: {
+      ...result.run,
+      turnCount: result.turns.length,
+      eventCount: allEvents.length,
+      lastEventType: lastEvent?.eventType ?? null,
+      lastEventAt: lastEvent?.recordedAt ?? null,
+      inputTokens: tokenTotals.inputTokens,
+      outputTokens: tokenTotals.outputTokens,
+      totalTokens: tokenTotals.totalTokens,
+      durationSeconds:
+        result.run.startedAt && result.run.endedAt
+          ? Math.max(
+              0,
+              Math.floor(
+                (Date.parse(result.run.endedAt) - Date.parse(result.run.startedAt)) /
+                  1_000
+              )
+            )
+          : null
+    },
+    turns: result.turns
+  };
+}
+
+function parseTokenCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : 0;
 }

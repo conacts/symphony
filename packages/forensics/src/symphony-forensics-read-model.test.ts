@@ -3,6 +3,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { createSymphonyForensicsReadModel } from "./symphony-forensics-read-model.js";
+import type { SymphonyForensicsRunDetailResult } from "@symphony/contracts";
 import {
   createFileBackedSymphonyRunJournal,
   defaultSymphonyRunJournalFile
@@ -103,7 +104,8 @@ describe("symphony forensics read model", () => {
     await journal.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
     await journal.finalizeRun(runId, buildSymphonyRunFinishAttrs());
 
-    const expected = await journal.fetchRunExport(runId);
+    const expected = await readModelRunDetailFromJournal(journal, runId);
+    const rawExpected = await journal.fetchRunExport(runId);
     const readModel = createSymphonyForensicsReadModel({
       journal: {
         listIssues: journal.listIssues.bind(journal),
@@ -111,7 +113,7 @@ describe("symphony forensics read model", () => {
         listRunsForIssue: journal.listRunsForIssue.bind(journal),
         listProblemRuns: journal.listProblemRuns.bind(journal),
         async fetchRunExport(requestedRunId) {
-          return requestedRunId === runId && expected ? expected : null;
+          return requestedRunId === runId && rawExpected ? rawExpected : null;
         }
       }
     });
@@ -201,4 +203,12 @@ function createIncompleteJournal(): SymphonyRunJournal {
     },
     async pruneRetention() {}
   };
+}
+
+async function readModelRunDetailFromJournal(
+  journal: SymphonyRunJournal,
+  runId: string
+): Promise<SymphonyForensicsRunDetailResult | null> {
+  const result = await createSymphonyForensicsReadModel(journal).runDetail(runId);
+  return result;
 }
