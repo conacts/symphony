@@ -115,6 +115,12 @@ export function buildSymphonyDashboardFoundation(
         readiness: "available"
       },
       {
+        href: "/analysis/performance",
+        label: "Performance analysis",
+        description: "Review command and tool execution hotspots across recent sampled runs.",
+        readiness: "available"
+      },
+      {
         href: "/issues",
         label: "Issues",
         description: "Browse recorded issues, open run history, and drill into issue activity.",

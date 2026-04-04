@@ -25,6 +25,7 @@ import type {
 const navigationIcons = {
   Overview: LayoutDashboardIcon,
   "Failure analysis": ChartColumnIncreasingIcon,
+  "Performance analysis": ChartColumnIncreasingIcon,
   Issues: FolderKanbanIcon,
   "Runtime health": ActivityIcon
 } as const;

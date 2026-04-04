@@ -23,6 +23,8 @@ describe("run transcript view", () => {
     );
 
     expect(html).toContain("Structured run conversation");
+    expect(html).toContain("Execution performance");
+    expect(html).toContain("Slow command executions");
     expect(html).toContain("Turn 1");
     expect(html).toContain("Tool call");
     expect(html).toContain("Debug context");

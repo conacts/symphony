@@ -12,8 +12,13 @@ import type {
 import {
   formatCount,
   formatDuration,
+  formatDurationMilliseconds,
   formatTimestamp
 } from "@/core/display-formatters";
+import {
+  classifyCommand,
+  formatCommandFamilyLabel
+} from "@/core/command-family";
 
 export type CodexRunTranscriptEntry =
   | {
@@ -104,6 +109,24 @@ export type CodexRunViewModel = {
     label: string;
     value: string;
   }>;
+  executionPerformance: {
+    cards: Array<{
+      label: string;
+      value: string;
+      detail: string;
+    }>;
+    commandRows: Array<{
+      label: string;
+      family: string;
+      duration: string;
+      status: string;
+    }>;
+    toolRows: Array<{
+      label: string;
+      duration: string;
+      status: string;
+    }>;
+  };
   transcriptTurns: CodexRunTranscriptTurn[];
   hasTranscript: boolean;
   repoStartText: string;
@@ -135,6 +158,7 @@ export function buildCodexRunViewModel(input: {
     codexRun?.failureMessagePreview ??
     run.errorMessage ??
     null;
+  const executionPerformance = buildExecutionPerformance(runArtifacts);
 
   return {
     issueIdentifier: input.runDetail.issue.issueIdentifier,
@@ -210,6 +234,7 @@ export function buildCodexRunViewModel(input: {
         value: run.workerHost ?? "Unavailable"
       }
     ],
+    executionPerformance,
     transcriptTurns,
     hasTranscript: transcriptTurns.length > 0,
     repoStartText: formatRepoSnapshot(run.repoStart),
@@ -300,6 +325,77 @@ function buildTranscriptTurns(
           )
       };
     });
+}
+
+function buildExecutionPerformance(
+  runArtifacts: SymphonyCodexRunArtifactsResult | null
+): CodexRunViewModel["executionPerformance"] {
+  const commandExecutions = runArtifacts?.commandExecutions ?? [];
+  const toolCalls = runArtifacts?.toolCalls ?? [];
+  const failedCommands = commandExecutions.filter((command) => command.status !== "completed");
+  const failedTools = toolCalls.filter((tool) => tool.status !== "completed");
+  const slowestCommand = [...commandExecutions].sort(
+    (left, right) => safeDurationMs(right.durationMs) - safeDurationMs(left.durationMs)
+  )[0];
+  const slowestTool = [...toolCalls].sort(
+    (left, right) => safeDurationMs(right.durationMs) - safeDurationMs(left.durationMs)
+  )[0];
+
+  return {
+    cards: [
+      {
+        label: "Commands observed",
+        value: formatCount(commandExecutions.length),
+        detail: `${formatCount(failedCommands.length)} failed or degraded command executions.`
+      },
+      {
+        label: "Tool calls observed",
+        value: formatCount(toolCalls.length),
+        detail: `${formatCount(failedTools.length)} failed or degraded tool calls.`
+      },
+      {
+        label: "Slowest command",
+        value: slowestCommand
+          ? classifyCommand(slowestCommand.command).displayLabel
+          : "n/a",
+        detail: slowestCommand
+          ? `${formatDurationMilliseconds(safeDurationMs(slowestCommand.durationMs))} · ${formatCommandFamilyLabel(classifyCommand(slowestCommand.command).family)}`
+          : "No command executions were captured for this run."
+      },
+      {
+        label: "Slowest tool",
+        value: slowestTool ? `${slowestTool.server}.${slowestTool.tool}` : "n/a",
+        detail: slowestTool
+          ? `${formatDurationMilliseconds(safeDurationMs(slowestTool.durationMs))} · ${slowestTool.status}`
+          : "No tool calls were captured for this run."
+      }
+    ],
+    commandRows: [...commandExecutions]
+      .sort((left, right) => safeDurationMs(right.durationMs) - safeDurationMs(left.durationMs))
+      .slice(0, 4)
+      .map((command) => {
+        const classification = classifyCommand(command.command);
+
+        return {
+          label: command.command,
+          family: formatCommandFamilyLabel(classification.family),
+          duration: formatDurationMilliseconds(safeDurationMs(command.durationMs)),
+          status: command.status
+        };
+      }),
+    toolRows: [...toolCalls]
+      .sort((left, right) => safeDurationMs(right.durationMs) - safeDurationMs(left.durationMs))
+      .slice(0, 4)
+      .map((tool) => ({
+        label: `${tool.server}.${tool.tool}`,
+        duration: formatDurationMilliseconds(safeDurationMs(tool.durationMs)),
+        status: tool.status
+      }))
+  };
+}
+
+function safeDurationMs(value: number | null) {
+  return value ?? 0;
 }
 
 function mapTranscriptEntry(input: {

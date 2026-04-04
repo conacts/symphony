@@ -22,6 +22,22 @@ export function formatDuration(value: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+export function formatDurationMilliseconds(value: number | null): string {
+  if (value === null || value <= 0) {
+    return "0ms";
+  }
+
+  if (value < 1_000) {
+    return `${Math.round(value)}ms`;
+  }
+
+  if (value < 60_000) {
+    return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}s`;
+  }
+
+  return formatDuration(value / 1_000);
+}
+
 export function formatTimestamp(value: string | null): string {
   if (!value) {
     return "n/a";
