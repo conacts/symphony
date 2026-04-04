@@ -7,7 +7,10 @@ import {
   getString,
   getStringPath
 } from "./internal-records.js";
-import type { SymphonyTrackerIssue } from "./symphony-tracker.js";
+import {
+  issueBranchName,
+  type SymphonyTrackerIssue
+} from "./symphony-tracker.js";
 
 export type LinearAssigneeFilter = {
   configuredAssignee: string;
@@ -42,7 +45,7 @@ export function normalizeLinearIssue(
     description: getNullableString(issue, "description"),
     priority: parsePriority(issue.priority),
     state,
-    branchName: getNullableString(issue, "branchName"),
+    branchName: issueBranchName(identifier),
     url: getNullableString(issue, "url"),
     projectId: getNullableString(project, "id"),
     projectName: getNullableString(project, "name"),
