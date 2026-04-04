@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger
+} from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -167,13 +174,45 @@ export function RunTranscriptView(input: {
             </CardHeader>
             <CardContent className="flex flex-col gap-8">
               {viewModel.hasTranscript ? (
-                viewModel.transcriptTurns.map((turn) => (
-                  <RunTranscriptTurn
-                    key={turn.turnId}
-                    turn={turn}
-                    onOpenOverflow={openOverflow}
-                  />
-                ))
+                <Accordion
+                  type="multiple"
+                  defaultValue={viewModel.transcriptTurns
+                    .slice(-1)
+                    .map((turn) => turn.turnId)}
+                  className="gap-4"
+                >
+                  {viewModel.transcriptTurns.map((turn) => (
+                    <AccordionItem
+                      key={turn.turnId}
+                      value={turn.turnId}
+                      className="rounded-xl border border-border/70 bg-card px-4"
+                    >
+                      <AccordionTrigger className="py-4 hover:no-underline">
+                        <div className="flex min-w-0 flex-1 flex-col gap-2 pr-4 text-left">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-base font-semibold">
+                              Turn {turn.turnSequence}
+                            </h2>
+                            <Badge variant="outline">{turn.status}</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {turn.startedAt} → {turn.endedAt}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="secondary">{turn.tokenSummary}</Badge>
+                            <Badge variant="secondary">{turn.countsSummary}</Badge>
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-4">
+                        <RunTranscriptTurn
+                          turn={turn}
+                          onOpenOverflow={openOverflow}
+                        />
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
               ) : (
                 <p className="text-sm text-muted-foreground">
                   No Codex transcript items were captured for this run.

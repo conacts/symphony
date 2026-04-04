@@ -15,7 +15,6 @@ import { RunTranscriptCopy } from "@/features/runs/components/run-transcript-cop
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import type {
   CodexRunTranscriptEntry,
   CodexRunTranscriptTurn
@@ -26,25 +25,7 @@ export function RunTranscriptTurn(input: {
   onOpenOverflow: (entry: CodexRunTranscriptEntry) => void;
 }) {
   return (
-    <section className="flex flex-col gap-5">
-      <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-semibold">
-              Turn {input.turn.turnSequence}
-            </h2>
-            <Badge variant="outline">{input.turn.status}</Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {input.turn.startedAt} → {input.turn.endedAt}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">{input.turn.tokenSummary}</Badge>
-            <Badge variant="secondary">{input.turn.countsSummary}</Badge>
-          </div>
-        </div>
-      </div>
-
+    <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
           Operator prompt
@@ -225,9 +206,7 @@ export function RunTranscriptTurn(input: {
           ) : null}
         </Fragment>
       ))}
-
-      <Separator />
-    </section>
+    </div>
   );
 }
 
