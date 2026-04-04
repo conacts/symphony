@@ -11,6 +11,47 @@ import {
   nullableNonEmptyStringSchema
 } from "../../core/shared.js";
 
+const codexRunTerminalStatuses = new Set([
+  "completed",
+  "paused",
+  "failed",
+  "startup_failed",
+  "rate_limited",
+  "stalled",
+  "stopped"
+]);
+
+const codexTurnTerminalStatuses = new Set([
+  "completed",
+  "failed",
+  "stopped"
+]);
+
+export const symphonyCodexRunStatusSchema = z.enum([
+  "dispatching",
+  "running",
+  "completed",
+  "paused",
+  "failed",
+  "startup_failed",
+  "rate_limited",
+  "stalled",
+  "stopped"
+]);
+
+export const symphonyCodexTurnStatusSchema = z.enum([
+  "running",
+  "completed",
+  "failed",
+  "stopped"
+]);
+
+export const symphonyCodexItemLifecycleStatusSchema = z.enum([
+  "in_progress",
+  "completed",
+  "failed"
+]);
+
 export const symphonyCodexRunRecordSchema = z.strictObject({
   runId: nonEmptyStringSchema,
   threadId: nullableNonEmptyStringSchema,
@@ -18,7 +59,7 @@ export const symphonyCodexRunRecordSchema = z.strictObject({
   issueIdentifier: nonEmptyStringSchema,
   startedAt: isoTimestampSchema.nullable(),
   endedAt: isoTimestampSchema.nullable(),
-  status: nonEmptyStringSchema,
+  status: symphonyCodexRunStatusSchema,
   failureKind: nullableNonEmptyStringSchema,
   failureOrigin: nullableNonEmptyStringSchema,
   failureMessagePreview: nullableNonEmptyStringSchema,
@@ -42,6 +83,18 @@ export const symphonyCodexRunRecordSchema = z.strictObject({
   latestEventType: nullableNonEmptyStringSchema,
   insertedAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema
+}).superRefine((value, context) => {
+  if (!codexRunTerminalStatuses.has(value.status)) {
+    return;
+  }
+
+  if (!value.endedAt) {
+    context.addIssue({
+      code: "custom",
+      message: "Terminal Codex runs must include endedAt.",
+      path: ["endedAt"]
+    });
+  }
 });
 
 export const symphonyCodexTurnRecordSchema = z.strictObject({
@@ -50,7 +103,7 @@ export const symphonyCodexTurnRecordSchema = z.strictObject({
   threadId: nullableNonEmptyStringSchema,
   startedAt: isoTimestampSchema.nullable(),
   endedAt: isoTimestampSchema.nullable(),
-  status: nonEmptyStringSchema,
+  status: symphonyCodexTurnStatusSchema,
   failureKind: nullableNonEmptyStringSchema,
   failureMessagePreview: nullableNonEmptyStringSchema,
   lastAgentMessageItemId: nullableNonEmptyStringSchema,
@@ -72,6 +125,18 @@ export const symphonyCodexTurnRecordSchema = z.strictObject({
   latestEventType: nullableNonEmptyStringSchema,
   insertedAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema
+}).superRefine((value, context) => {
+  if (!codexTurnTerminalStatuses.has(value.status)) {
+    return;
+  }
+
+  if (!value.endedAt) {
+    context.addIssue({
+      code: "custom",
+      message: "Terminal Codex turns must include endedAt.",
+      path: ["endedAt"]
+    });
+  }
 });
 
 export const symphonyCodexItemRecordSchema = z.strictObject({
@@ -82,7 +147,7 @@ export const symphonyCodexItemRecordSchema = z.strictObject({
   startedAt: isoTimestampSchema.nullable(),
   lastUpdatedAt: isoTimestampSchema.nullable(),
   completedAt: isoTimestampSchema.nullable(),
-  finalStatus: nullableNonEmptyStringSchema,
+  finalStatus: symphonyCodexItemLifecycleStatusSchema.nullable(),
   updateCount: z.number().int().nonnegative(),
   durationMs: z.number().int().nonnegative().nullable(),
   latestPreview: nullableNonEmptyStringSchema,
@@ -96,7 +161,7 @@ export const symphonyCodexCommandExecutionRecordSchema = z.strictObject({
   turnId: nonEmptyStringSchema,
   itemId: nonEmptyStringSchema,
   command: z.string(),
-  status: nonEmptyStringSchema,
+  status: symphonyCodexItemLifecycleStatusSchema,
   exitCode: z.number().int().nullable(),
   startedAt: isoTimestampSchema.nullable(),
   completedAt: isoTimestampSchema.nullable(),
@@ -113,7 +178,7 @@ export const symphonyCodexToolCallRecordSchema = z.strictObject({
   itemId: nonEmptyStringSchema,
   server: nonEmptyStringSchema,
   tool: nonEmptyStringSchema,
-  status: nonEmptyStringSchema,
+  status: symphonyCodexItemLifecycleStatusSchema,
   errorMessage: nullableNonEmptyStringSchema,
   argumentsJson: jsonValueSchema,
   resultPreview: nullableNonEmptyStringSchema,
@@ -252,6 +317,11 @@ export const symphonyCodexFileChangeListResponseSchema = createEnvelopeSchema(
 export type SymphonyCodexRunRecord = z.infer<typeof symphonyCodexRunRecordSchema>;
 export type SymphonyCodexTurnRecord = z.infer<typeof symphonyCodexTurnRecordSchema>;
 export type SymphonyCodexItemRecord = z.infer<typeof symphonyCodexItemRecordSchema>;
+export type SymphonyCodexRunStatus = z.infer<typeof symphonyCodexRunStatusSchema>;
+export type SymphonyCodexTurnStatus = z.infer<typeof symphonyCodexTurnStatusSchema>;
+export type SymphonyCodexItemLifecycleStatus = z.infer<
+  typeof symphonyCodexItemLifecycleStatusSchema
+>;
 export type SymphonyCodexCommandExecutionRecord = z.infer<
   typeof symphonyCodexCommandExecutionRecordSchema
 >;

@@ -12,13 +12,16 @@ import type {
   SymphonyCodexCommandExecutionRecord,
   SymphonyCodexEventRecord,
   SymphonyCodexFileChangeRecord,
+  SymphonyCodexItemLifecycleStatus,
   SymphonyCodexItemRecord,
   SymphonyCodexRunQuery,
   SymphonyCodexReasoningRecord,
   SymphonyCodexRunArtifactsResult,
   SymphonyCodexRunRecord,
+  SymphonyCodexRunStatus,
   SymphonyCodexRunTurnQuery,
   SymphonyCodexToolCallRecord,
+  SymphonyCodexTurnStatus,
   SymphonyCodexTurnRecord,
   SymphonyForensicsIssueQuery,
   SymphonyForensicsProblemRunsQuery,
@@ -629,11 +632,62 @@ function buildForensicsIssueExport(
   };
 }
 
+function normalizeCodexRunStatus(status: string): SymphonyCodexRunStatus {
+  switch (status) {
+    case "dispatching":
+    case "running":
+    case "completed":
+    case "paused":
+    case "failed":
+    case "startup_failed":
+    case "rate_limited":
+    case "stalled":
+    case "stopped":
+      return status;
+    case "finished":
+      return "completed";
+    default:
+      return "running";
+  }
+}
+
+function normalizeCodexTurnStatus(status: string): SymphonyCodexTurnStatus {
+  switch (status) {
+    case "running":
+    case "completed":
+    case "failed":
+    case "stopped":
+      return status;
+    case "finished":
+      return "completed";
+    default:
+      return "running";
+  }
+}
+
+function normalizeItemLifecycleStatus(
+  status: string | null
+): SymphonyCodexItemLifecycleStatus | null {
+  switch (status) {
+    case "in_progress":
+    case "completed":
+    case "failed":
+      return status;
+    case "running":
+      return "in_progress";
+    case "finished":
+      return "completed";
+    default:
+      return null;
+  }
+}
+
 function mapCodexRunRecord(
   run: typeof codexRunsTable.$inferSelect
 ): SymphonyCodexRunRecord {
   return {
     ...run,
+    status: normalizeCodexRunStatus(run.status),
     totalTokens: run.inputTokens + run.outputTokens
   };
 }
@@ -643,6 +697,7 @@ function mapCodexTurnRecord(
 ): SymphonyCodexTurnRecord {
   return {
     ...turn,
+    status: normalizeCodexTurnStatus(turn.status),
     totalTokens: turn.inputTokens + turn.outputTokens,
     usage: buildUsage(turn, null)
   };
@@ -659,13 +714,19 @@ function mapCodexTurnRecords(
 function mapCodexItemRecord(
   row: typeof codexItemsTable.$inferSelect
 ): SymphonyCodexItemRecord {
-  return { ...row };
+  return {
+    ...row,
+    finalStatus: normalizeItemLifecycleStatus(row.finalStatus)
+  };
 }
 
 function mapCodexCommandExecutionRecord(
   row: typeof codexCommandExecutionsTable.$inferSelect
 ): SymphonyCodexCommandExecutionRecord {
-  return { ...row };
+  return {
+    ...row,
+    status: normalizeItemLifecycleStatus(row.status) ?? "in_progress"
+  };
 }
 
 function mapCodexToolCallRecord(
@@ -673,6 +734,7 @@ function mapCodexToolCallRecord(
 ): SymphonyCodexToolCallRecord {
   return {
     ...row,
+    status: normalizeItemLifecycleStatus(row.status) ?? "in_progress",
     argumentsJson: (row.argumentsJson ?? null) as SymphonyCodexToolCallRecord["argumentsJson"]
   };
 }
