@@ -369,6 +369,61 @@ export async function createSymphonyRuntimeTestHarness(input: {
         return snapshot;
       }
     },
+    codexAnalytics: {
+      fetchRunArtifacts(runId) {
+        return codexAnalyticsReadStore.fetchRunArtifacts(runId);
+      },
+      async listTurns(runId) {
+        return {
+          runId,
+          turns: await codexAnalyticsReadStore.listTurns(runId)
+        };
+      },
+      async listItems(input) {
+        return {
+          runId: input.runId,
+          turnId: input.turnId ?? null,
+          items: await codexAnalyticsReadStore.listItems(input)
+        };
+      },
+      async listCommandExecutions(input) {
+        return {
+          runId: input.runId,
+          turnId: input.turnId ?? null,
+          commandExecutions: await codexAnalyticsReadStore.listCommandExecutions(
+            input
+          )
+        };
+      },
+      async listToolCalls(input) {
+        return {
+          runId: input.runId,
+          turnId: input.turnId ?? null,
+          toolCalls: await codexAnalyticsReadStore.listToolCalls(input)
+        };
+      },
+      async listAgentMessages(input) {
+        return {
+          runId: input.runId,
+          turnId: input.turnId ?? null,
+          agentMessages: await codexAnalyticsReadStore.listAgentMessages(input)
+        };
+      },
+      async listReasoning(input) {
+        return {
+          runId: input.runId,
+          turnId: input.turnId ?? null,
+          reasoning: await codexAnalyticsReadStore.listReasoning(input)
+        };
+      },
+      async listFileChanges(input) {
+        return {
+          runId: input.runId,
+          turnId: input.turnId ?? null,
+          fileChanges: await codexAnalyticsReadStore.listFileChanges(input)
+        };
+      }
+    },
     forensics: createSymphonyForensicsReadModel({
       runStore: codexAnalyticsReadStore,
       async listIssueTimeline(input) {

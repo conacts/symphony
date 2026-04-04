@@ -1,6 +1,8 @@
 export {
   symphonyCodexRunQuerySchema,
-  symphonyCodexRunTurnQuerySchema
+  symphonyCodexRunPathSchema,
+  symphonyCodexRunTurnQuerySchema,
+  symphonyCodexRunTurnFilterSchema
 } from "./requests.js";
 export {
   symphonyCodexRunRecordSchema,
@@ -12,12 +14,29 @@ export {
   symphonyCodexReasoningRecordSchema,
   symphonyCodexFileChangeRecordSchema,
   symphonyCodexEventRecordSchema,
-  symphonyCodexRunArtifactsResultSchema
+  symphonyCodexRunArtifactsResultSchema,
+  symphonyCodexTurnListResultSchema,
+  symphonyCodexItemListResultSchema,
+  symphonyCodexCommandExecutionListResultSchema,
+  symphonyCodexToolCallListResultSchema,
+  symphonyCodexAgentMessageListResultSchema,
+  symphonyCodexReasoningListResultSchema,
+  symphonyCodexFileChangeListResultSchema,
+  symphonyCodexRunArtifactsResponseSchema,
+  symphonyCodexTurnListResponseSchema,
+  symphonyCodexItemListResponseSchema,
+  symphonyCodexCommandExecutionListResponseSchema,
+  symphonyCodexToolCallListResponseSchema,
+  symphonyCodexAgentMessageListResponseSchema,
+  symphonyCodexReasoningListResponseSchema,
+  symphonyCodexFileChangeListResponseSchema
 } from "./responses.js";
 
 export type {
   SymphonyCodexRunQuery,
-  SymphonyCodexRunTurnQuery
+  SymphonyCodexRunPath,
+  SymphonyCodexRunTurnQuery,
+  SymphonyCodexRunTurnFilter
 } from "./requests.js";
 export type {
   SymphonyCodexRunRecord,
@@ -29,5 +48,12 @@ export type {
   SymphonyCodexReasoningRecord,
   SymphonyCodexFileChangeRecord,
   SymphonyCodexEventRecord,
-  SymphonyCodexRunArtifactsResult
+  SymphonyCodexRunArtifactsResult,
+  SymphonyCodexTurnListResult,
+  SymphonyCodexItemListResult,
+  SymphonyCodexCommandExecutionListResult,
+  SymphonyCodexToolCallListResult,
+  SymphonyCodexAgentMessageListResult,
+  SymphonyCodexReasoningListResult,
+  SymphonyCodexFileChangeListResult
 } from "./responses.js";

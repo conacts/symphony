@@ -106,7 +106,7 @@ describe("@symphony/api app", () => {
     expect(refreshPayload.data.operations).toEqual(["poll", "reconcile"]);
   });
 
-  it("serves forensics routes and the runtime issue detail route", async () => {
+  it("serves forensics, Codex analytics, and runtime issue routes", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {
         state: "In Review"
@@ -122,6 +122,19 @@ describe("@symphony/api app", () => {
     );
     const runDetailResponse = await app.request("/api/v1/runs/run-123");
     const problemRunsResponse = await app.request("/api/v1/problem-runs");
+    const codexArtifactsResponse = await app.request(
+      "/api/v1/codex/runs/run-123/artifacts"
+    );
+    const codexTurnsResponse = await app.request("/api/v1/codex/runs/run-123/turns");
+    const codexItemsResponse = await app.request(
+      "/api/v1/codex/runs/run-123/items?turnId=turn-123"
+    );
+    const codexAgentMessagesResponse = await app.request(
+      "/api/v1/codex/runs/run-123/agent-messages?turnId=turn-123"
+    );
+    const codexCommandExecutionsResponse = await app.request(
+      "/api/v1/codex/runs/run-123/command-executions"
+    );
     const runtimeIssueResponse = await app.request("/api/v1/COL-123");
     const issuesPayload = await responseJson<{
       data: {
@@ -158,6 +171,59 @@ describe("@symphony/api app", () => {
         problemRuns: unknown[];
       };
     }>(problemRunsResponse);
+    const codexArtifactsPayload = await responseJson<{
+      data: {
+        run: {
+          runId: string;
+        };
+        turns: Array<{
+          turnId: string;
+        }>;
+        items: Array<{
+          itemId: string;
+        }>;
+        events: Array<{
+          eventType: string;
+        }>;
+      };
+    }>(codexArtifactsResponse);
+    const codexTurnsPayload = await responseJson<{
+      data: {
+        runId: string;
+        turns: Array<{
+          turnId: string;
+          usage: {
+            input_tokens: number;
+            output_tokens: number;
+          } | null;
+        }>;
+      };
+    }>(codexTurnsResponse);
+    const codexItemsPayload = await responseJson<{
+      data: {
+        runId: string;
+        turnId: string | null;
+        items: Array<{
+          itemId: string;
+          itemType: string;
+        }>;
+      };
+    }>(codexItemsResponse);
+    const codexAgentMessagesPayload = await responseJson<{
+      data: {
+        runId: string;
+        turnId: string | null;
+        agentMessages: Array<{
+          itemId: string;
+          textPreview: string | null;
+        }>;
+      };
+    }>(codexAgentMessagesResponse);
+    const codexCommandExecutionsPayload = await responseJson<{
+      data: {
+        commandExecutions: unknown[];
+      };
+    }>(codexCommandExecutionsResponse);
     const runtimeIssuePayload = await responseJson<{
       data: {
         issueIdentifier: string;
@@ -205,6 +271,33 @@ describe("@symphony/api app", () => {
 
     expect(problemRunsResponse.status).toBe(200);
     expect(Array.isArray(problemRunsPayload.data.problemRuns)).toBe(true);
+
+    expect(codexArtifactsResponse.status).toBe(200);
+    expect(codexArtifactsPayload.data.run.runId).toBe("run-123");
+    expect(codexArtifactsPayload.data.turns[0]?.turnId).toBe("turn-123");
+    expect(codexArtifactsPayload.data.items[0]?.itemId).toBe("item-123");
+    expect(codexArtifactsPayload.data.events.length).toBeGreaterThanOrEqual(3);
+
+    expect(codexTurnsResponse.status).toBe(200);
+    expect(codexTurnsPayload.data.runId).toBe("run-123");
+    expect(codexTurnsPayload.data.turns[0]?.turnId).toBe("turn-123");
+    expect(codexTurnsPayload.data.turns[0]?.usage?.input_tokens).toBe(10);
+
+    expect(codexItemsResponse.status).toBe(200);
+    expect(codexItemsPayload.data.runId).toBe("run-123");
+    expect(codexItemsPayload.data.turnId).toBe("turn-123");
+    expect(codexItemsPayload.data.items[0]?.itemType).toBe("agent_message");
+
+    expect(codexAgentMessagesResponse.status).toBe(200);
+    expect(codexAgentMessagesPayload.data.agentMessages[0]?.itemId).toBe(
+      "item-123"
+    );
+    expect(codexAgentMessagesPayload.data.agentMessages[0]?.textPreview).toContain(
+      "Initial agent message"
+    );
+
+    expect(codexCommandExecutionsResponse.status).toBe(200);
+    expect(codexCommandExecutionsPayload.data.commandExecutions).toEqual([]);
 
     expect(runtimeIssueResponse.status).toBe(200);
     expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");

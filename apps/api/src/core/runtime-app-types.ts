@@ -1,6 +1,16 @@
 import type { SymphonyForensicsReadModel } from "@symphony/forensics";
 import type { SymphonyLoadedPromptContract } from "@symphony/runtime-contract";
 import type {
+  SymphonyCodexAgentMessageListResult,
+  SymphonyCodexCommandExecutionListResult,
+  SymphonyCodexFileChangeListResult,
+  SymphonyCodexItemListResult,
+  SymphonyCodexReasoningListResult,
+  SymphonyCodexRunArtifactsResult,
+  SymphonyCodexRunQuery,
+  SymphonyCodexRunTurnQuery,
+  SymphonyCodexToolCallListResult,
+  SymphonyCodexTurnListResult,
   SymphonyGitHubReviewIngressResult,
   SymphonyGitHubWebhookBody,
   SymphonyGitHubWebhookHeaders,
@@ -49,6 +59,33 @@ export type SymphonyRuntimeHealthPort = {
   snapshot(): SymphonyRuntimeHealthResult;
 };
 
+export type SymphonyCodexAnalyticsReadPort = {
+  fetchRunArtifacts(
+    runId: SymphonyCodexRunQuery["runId"]
+  ): Promise<SymphonyCodexRunArtifactsResult | null>;
+  listTurns(
+    runId: SymphonyCodexRunQuery["runId"]
+  ): Promise<SymphonyCodexTurnListResult>;
+  listItems(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyCodexItemListResult>;
+  listCommandExecutions(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyCodexCommandExecutionListResult>;
+  listToolCalls(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyCodexToolCallListResult>;
+  listAgentMessages(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyCodexAgentMessageListResult>;
+  listReasoning(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyCodexReasoningListResult>;
+  listFileChanges(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyCodexFileChangeListResult>;
+};
+
 export type SymphonyLoadedRuntimePromptTemplate = {
   prompt: string;
   promptTemplate: string;
@@ -62,6 +99,7 @@ export type SymphonyRuntimeAppServices = {
   runtimePolicy: SymphonyResolvedRuntimePolicy;
   tracker: SymphonyTracker;
   orchestrator: SymphonyRuntimeOrchestratorPort;
+  codexAnalytics: SymphonyCodexAnalyticsReadPort;
   forensics: SymphonyForensicsReadModel;
   issueTimeline: SymphonyIssueTimelinePort;
   runtimeLogs: SymphonyRuntimeLogsPort;

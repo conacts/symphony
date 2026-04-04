@@ -1,3 +1,4 @@
+import { createEnvelopeSchema } from "@symphony/errors";
 import { z } from "zod";
 import {
   symphonyCodexAnalyticsEventSchema,
@@ -182,6 +183,72 @@ export const symphonyCodexRunArtifactsResultSchema = z.strictObject({
   events: z.array(symphonyCodexEventRecordSchema)
 });
 
+export const symphonyCodexTurnListResultSchema = z.strictObject({
+  runId: nonEmptyStringSchema,
+  turns: z.array(symphonyCodexTurnRecordSchema)
+});
+
+export const symphonyCodexItemListResultSchema = z.strictObject({
+  runId: nonEmptyStringSchema,
+  turnId: nullableNonEmptyStringSchema,
+  items: z.array(symphonyCodexItemRecordSchema)
+});
+
+export const symphonyCodexCommandExecutionListResultSchema = z.strictObject({
+  runId: nonEmptyStringSchema,
+  turnId: nullableNonEmptyStringSchema,
+  commandExecutions: z.array(symphonyCodexCommandExecutionRecordSchema)
+});
+
+export const symphonyCodexToolCallListResultSchema = z.strictObject({
+  runId: nonEmptyStringSchema,
+  turnId: nullableNonEmptyStringSchema,
+  toolCalls: z.array(symphonyCodexToolCallRecordSchema)
+});
+
+export const symphonyCodexAgentMessageListResultSchema = z.strictObject({
+  runId: nonEmptyStringSchema,
+  turnId: nullableNonEmptyStringSchema,
+  agentMessages: z.array(symphonyCodexAgentMessageRecordSchema)
+});
+
+export const symphonyCodexReasoningListResultSchema = z.strictObject({
+  runId: nonEmptyStringSchema,
+  turnId: nullableNonEmptyStringSchema,
+  reasoning: z.array(symphonyCodexReasoningRecordSchema)
+});
+
+export const symphonyCodexFileChangeListResultSchema = z.strictObject({
+  runId: nonEmptyStringSchema,
+  turnId: nullableNonEmptyStringSchema,
+  fileChanges: z.array(symphonyCodexFileChangeRecordSchema)
+});
+
+export const symphonyCodexRunArtifactsResponseSchema = createEnvelopeSchema(
+  symphonyCodexRunArtifactsResultSchema
+);
+export const symphonyCodexTurnListResponseSchema = createEnvelopeSchema(
+  symphonyCodexTurnListResultSchema
+);
+export const symphonyCodexItemListResponseSchema = createEnvelopeSchema(
+  symphonyCodexItemListResultSchema
+);
+export const symphonyCodexCommandExecutionListResponseSchema = createEnvelopeSchema(
+  symphonyCodexCommandExecutionListResultSchema
+);
+export const symphonyCodexToolCallListResponseSchema = createEnvelopeSchema(
+  symphonyCodexToolCallListResultSchema
+);
+export const symphonyCodexAgentMessageListResponseSchema = createEnvelopeSchema(
+  symphonyCodexAgentMessageListResultSchema
+);
+export const symphonyCodexReasoningListResponseSchema = createEnvelopeSchema(
+  symphonyCodexReasoningListResultSchema
+);
+export const symphonyCodexFileChangeListResponseSchema = createEnvelopeSchema(
+  symphonyCodexFileChangeListResultSchema
+);
+
 export type SymphonyCodexRunRecord = z.infer<typeof symphonyCodexRunRecordSchema>;
 export type SymphonyCodexTurnRecord = z.infer<typeof symphonyCodexTurnRecordSchema>;
 export type SymphonyCodexItemRecord = z.infer<typeof symphonyCodexItemRecordSchema>;
@@ -197,4 +264,25 @@ export type SymphonyCodexFileChangeRecord = z.infer<typeof symphonyCodexFileChan
 export type SymphonyCodexEventRecord = z.infer<typeof symphonyCodexEventRecordSchema>;
 export type SymphonyCodexRunArtifactsResult = z.infer<
   typeof symphonyCodexRunArtifactsResultSchema
+>;
+export type SymphonyCodexTurnListResult = z.infer<
+  typeof symphonyCodexTurnListResultSchema
+>;
+export type SymphonyCodexItemListResult = z.infer<
+  typeof symphonyCodexItemListResultSchema
+>;
+export type SymphonyCodexCommandExecutionListResult = z.infer<
+  typeof symphonyCodexCommandExecutionListResultSchema
+>;
+export type SymphonyCodexToolCallListResult = z.infer<
+  typeof symphonyCodexToolCallListResultSchema
+>;
+export type SymphonyCodexAgentMessageListResult = z.infer<
+  typeof symphonyCodexAgentMessageListResultSchema
+>;
+export type SymphonyCodexReasoningListResult = z.infer<
+  typeof symphonyCodexReasoningListResultSchema
+>;
+export type SymphonyCodexFileChangeListResult = z.infer<
+  typeof symphonyCodexFileChangeListResultSchema
 >;

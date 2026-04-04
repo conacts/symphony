@@ -5,10 +5,20 @@ export const symphonyCodexRunQuerySchema = z.strictObject({
   runId: nonEmptyStringSchema
 });
 
+export const symphonyCodexRunPathSchema = symphonyCodexRunQuerySchema;
+
 export const symphonyCodexRunTurnQuerySchema = z.strictObject({
   runId: nonEmptyStringSchema,
   turnId: nonEmptyStringSchema.optional()
 });
 
+export const symphonyCodexRunTurnFilterSchema = z.strictObject({
+  turnId: nonEmptyStringSchema.optional()
+});
+
 export type SymphonyCodexRunQuery = z.infer<typeof symphonyCodexRunQuerySchema>;
+export type SymphonyCodexRunPath = z.infer<typeof symphonyCodexRunPathSchema>;
 export type SymphonyCodexRunTurnQuery = z.infer<typeof symphonyCodexRunTurnQuerySchema>;
+export type SymphonyCodexRunTurnFilter = z.infer<
+  typeof symphonyCodexRunTurnFilterSchema
+>;
