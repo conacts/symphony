@@ -4,10 +4,12 @@ import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type {
   CodexAnalyticsEventInput,
   CodexAnalyticsRunFinalize,
+  CodexAnalyticsTurnFinalize,
   CodexAnalyticsRunStart,
   CodexAnalyticsStore,
-  CodexAnalyticsTurnFinalize,
   CodexPayloadOverflowKind,
+  CodexRunStatus,
+  CodexTurnStatus,
   FileChangeItem,
   ThreadItem
 } from "@symphony/codex-analytics";
@@ -49,7 +51,7 @@ type CodexTurnPatch = {
   threadId?: string | null;
   startedAt?: string | null;
   endedAt?: string | null;
-  status?: string;
+  status?: CodexTurnStatus;
   failureKind?: string | null;
   failureMessagePreview?: string | null;
   usage?: { input_tokens: number; cached_input_tokens: number; output_tokens: number } | null;
@@ -1338,12 +1340,21 @@ function maybeStoreTextOverflow(
   });
 }
 
-function mapLegacyRunStatus(status: string): string {
+function mapLegacyRunStatus(status: string): CodexRunStatus {
   switch (status) {
+    case "dispatching":
+    case "running":
+    case "paused":
+    case "failed":
+    case "startup_failed":
+    case "rate_limited":
+    case "stalled":
+    case "stopped":
+      return status;
     case "finished":
       return "completed";
     default:
-      return status;
+      return "running";
   }
 }
 

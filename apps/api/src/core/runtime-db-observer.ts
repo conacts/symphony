@@ -9,8 +9,10 @@ import type { CodexAnalyticsStore } from "@symphony/codex-analytics";
 import type { JsonValue } from "@symphony/contracts";
 import type {
   SymphonyIssueTimelineStore,
+  SymphonyRuntimeRunStatus,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
+import type { CodexRunStatus } from "@symphony/codex-analytics";
 
 export function createDbBackedOrchestratorObserver(input: {
   runStore: SymphonyRuntimeRunStore;
@@ -205,7 +207,7 @@ export function createDbBackedOrchestratorObserver(input: {
 
       await input.codexAnalytics.finalizeRun({
         runId,
-        status: completionStatus(completion),
+        status: codexRunStatus(completion),
         endedAt,
         failureKind: completion.kind === "normal" ? null : completion.kind,
         failureOrigin: completion.kind === "startup_failure" ? "runtime" : "codex",
@@ -225,10 +227,29 @@ type ObserverWorkspaceMetadata = WorkspaceLifecycleMetadata | null;
 
 function completionStatus(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
-): string {
+): SymphonyRuntimeRunStatus {
   switch (completion.kind) {
     case "normal":
       return "finished";
+    case "max_turns_reached":
+      return "paused";
+    case "startup_failure":
+      return "startup_failed";
+    case "rate_limited":
+      return "rate_limited";
+    case "stalled":
+      return "stalled";
+    case "failure":
+      return "failed";
+  }
+}
+
+function codexRunStatus(
+  completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
+): CodexRunStatus {
+  switch (completion.kind) {
+    case "normal":
+      return "completed";
     case "max_turns_reached":
       return "paused";
     case "startup_failure":

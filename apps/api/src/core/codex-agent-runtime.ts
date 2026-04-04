@@ -153,7 +153,7 @@ async function executeRun(input: {
   launchTarget: CodexRuntimeLaunchTarget;
   activeRun: ActiveRun;
 }): Promise<void> {
-  let turnRecordId: string | null = null;
+  let persistedTurnId: string | null = null;
   let maxTurnsReached = false;
 
   try {
@@ -233,7 +233,7 @@ async function executeRun(input: {
           input.runStore,
           input.codexAnalytics,
           input.runId,
-          turnRecordId
+          persistedTurnId
         );
         return;
       }
@@ -273,7 +273,7 @@ async function executeRun(input: {
               maxTurns: input.runtimePolicy.agent.maxTurns
             });
 
-      turnRecordId = input.runId
+      persistedTurnId = input.runId
         ? await input.runStore.recordTurnStarted(input.runId, {
             promptText: prompt,
             status: "running"
@@ -315,9 +315,9 @@ async function executeRun(input: {
               getString(message, "codex_app_server_pid") ?? session.processId
           });
 
-          if (input.runId && turnRecordId) {
+          if (input.runId && persistedTurnId) {
             if (turnUsage) {
-              await input.runStore.updateTurn(turnRecordId, {
+              await input.runStore.updateTurn(persistedTurnId, {
                 usage: turnUsage
               });
             }
@@ -325,7 +325,7 @@ async function executeRun(input: {
             if (threadEvent) {
               await input.codexAnalytics.recordEvent({
                 runId: input.runId,
-                turnId: turnRecordId,
+                turnId: persistedTurnId,
                 threadId: codexThreadId,
                 recordedAt: timestamp,
                 payload: threadEvent
@@ -335,15 +335,15 @@ async function executeRun(input: {
         }
       });
 
-      if (input.runId && turnRecordId) {
-        await input.runStore.finalizeTurn(turnRecordId, {
+      if (input.runId && persistedTurnId) {
+        await input.runStore.finalizeTurn(persistedTurnId, {
           status: "completed",
           endedAt: new Date().toISOString(),
           codexThreadId: turnResult.threadId,
           codexTurnId: turnResult.turnId,
           codexSessionId: turnResult.sessionId
         });
-        turnRecordId = null;
+        persistedTurnId = null;
       }
 
       const refreshedIssue = await refreshIssueState(
@@ -394,15 +394,15 @@ async function executeRun(input: {
         input.runStore,
         input.codexAnalytics,
         input.runId,
-        turnRecordId
+        persistedTurnId
       );
       return;
     }
 
     const reason = error instanceof Error ? error.message : String(error);
 
-    if (input.runId && turnRecordId) {
-      await input.runStore.finalizeTurn(turnRecordId, {
+    if (input.runId && persistedTurnId) {
+      await input.runStore.finalizeTurn(persistedTurnId, {
         status: "failed",
         endedAt: new Date().toISOString(),
         metadata: {
@@ -411,7 +411,7 @@ async function executeRun(input: {
       });
       await input.codexAnalytics.finalizeTurn({
         runId: input.runId,
-        turnId: turnRecordId,
+        turnId: persistedTurnId,
         endedAt: new Date().toISOString(),
         status: "failed",
         failureKind: "runtime_failure",
@@ -641,13 +641,13 @@ async function finalizeStoppedTurn(
   runStore: SymphonyRuntimeRunStore,
   codexAnalytics: CodexAnalyticsStore,
   runId: string | null,
-  turnRecordId: string | null
+  persistedTurnId: string | null
 ): Promise<void> {
-  if (!runId || !turnRecordId) {
+  if (!runId || !persistedTurnId) {
     return;
   }
 
-  await runStore.finalizeTurn(turnRecordId, {
+  await runStore.finalizeTurn(persistedTurnId, {
     status: "stopped",
     endedAt: new Date().toISOString(),
     metadata: {
@@ -656,7 +656,7 @@ async function finalizeStoppedTurn(
   });
   await codexAnalytics.finalizeTurn({
     runId,
-    turnId: turnRecordId,
+    turnId: persistedTurnId,
     endedAt: new Date().toISOString(),
     status: "stopped",
     failureKind: "runtime_stopped",

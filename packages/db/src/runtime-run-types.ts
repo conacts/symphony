@@ -6,12 +6,29 @@ export type SymphonyRuntimeCodexUsage = {
   output_tokens: number;
 };
 
+export type SymphonyRuntimeRunStatus =
+  | "dispatching"
+  | "running"
+  | "finished"
+  | "paused"
+  | "failed"
+  | "startup_failed"
+  | "rate_limited"
+  | "stalled"
+  | "stopped";
+
+export type SymphonyRuntimeTurnStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "stopped";
+
 export type SymphonyRuntimeRunStartAttrs = {
   issueId: string;
   issueIdentifier: string;
   runId?: string;
   attempt?: number | null;
-  status: string;
+  status: SymphonyRuntimeRunStatus;
   workerHost?: string | null;
   workspacePath?: string | null;
   startedAt?: Date | string;
@@ -27,13 +44,13 @@ export type SymphonyRuntimeTurnStartAttrs = {
   codexTurnId?: string | null;
   codexSessionId?: string | null;
   promptText: string;
-  status: string;
+  status: SymphonyRuntimeTurnStatus;
   startedAt?: Date | string;
   metadata?: JsonObject | null;
 };
 
 export type SymphonyRuntimeTurnUpdateAttrs = {
-  status?: string;
+  status?: SymphonyRuntimeTurnStatus;
   startedAt?: Date | string | null;
   endedAt?: Date | string | null;
   codexThreadId?: string | null;
@@ -44,7 +61,7 @@ export type SymphonyRuntimeTurnUpdateAttrs = {
 };
 
 export type SymphonyRuntimeTurnFinishAttrs = {
-  status: string;
+  status: SymphonyRuntimeTurnStatus;
   endedAt: Date | string;
   codexThreadId?: string | null;
   codexTurnId?: string | null;
@@ -54,7 +71,7 @@ export type SymphonyRuntimeTurnFinishAttrs = {
 };
 
 export type SymphonyRuntimeRunUpdateAttrs = {
-  status?: string;
+  status?: SymphonyRuntimeRunStatus;
   outcome?: string | null;
   workerHost?: string | null;
   workspacePath?: string | null;
@@ -70,7 +87,7 @@ export type SymphonyRuntimeRunUpdateAttrs = {
 };
 
 export type SymphonyRuntimeRunFinishAttrs = {
-  status: string;
+  status: SymphonyRuntimeRunStatus;
   outcome?: string | null;
   endedAt: Date | string;
   commitHashEnd?: string | null;

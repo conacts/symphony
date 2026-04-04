@@ -42,19 +42,36 @@ export type CodexAnalyticsEventInput = {
   payload: ThreadEvent;
 };
 
+export type CodexRunStatus =
+  | "dispatching"
+  | "running"
+  | "completed"
+  | "paused"
+  | "failed"
+  | "startup_failed"
+  | "rate_limited"
+  | "stalled"
+  | "stopped";
+
+export type CodexTurnStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "stopped";
+
 export type CodexAnalyticsRunStart = {
   runId: string;
   issueId: string;
   issueIdentifier: string;
   startedAt: string;
-  status: string;
+  status: CodexRunStatus;
   threadId: string | null;
 };
 
 export type CodexAnalyticsRunFinalize = {
   runId: string;
   endedAt: string;
-  status: string;
+  status: CodexRunStatus;
   threadId: string | null;
   failureKind: string | null;
   failureOrigin: string | null;
@@ -65,7 +82,7 @@ export type CodexAnalyticsTurnFinalize = {
   runId: string;
   turnId: string;
   endedAt: string;
-  status: string;
+  status: CodexTurnStatus;
   threadId: string | null;
   failureKind: string | null;
   failureMessagePreview: string | null;

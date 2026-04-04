@@ -16,9 +16,11 @@ export type {
 } from "./runtime-run-store.js";
 export type {
   SymphonyRuntimeRunFinishAttrs,
+  SymphonyRuntimeRunStatus,
   SymphonyRuntimeRunStartAttrs,
   SymphonyRuntimeRunUpdateAttrs,
   SymphonyRuntimeTurnFinishAttrs,
+  SymphonyRuntimeTurnStatus,
   SymphonyRuntimeTurnStartAttrs,
   SymphonyRuntimeTurnUpdateAttrs
 } from "./runtime-run-types.js";
