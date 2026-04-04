@@ -151,6 +151,7 @@ export function buildIssueDetailViewModel(
   input: SymphonyForensicsIssueDetailResult
 ) {
   const outcomeCounts = new Map<string, number>();
+  const recentRuns = [...input.runs].slice(0, 8).reverse();
 
   for (const run of input.runs) {
     const outcome = run.outcome ?? "unknown";
@@ -179,11 +180,8 @@ export function buildIssueDetailViewModel(
       outcome,
       count
     })),
-    tokenChartRows: [...input.runs]
-      .slice(0, 8)
-      .reverse()
-      .map((run) => ({
-        runLabel: `#${run.attempt}`,
+    tokenChartRows: recentRuns.map((run, index) => ({
+        runLabel: buildIssueRunLabel(run.attempt, run.runId, index, recentRuns.length),
         inputTokens: run.inputTokens,
         outputTokens: run.outputTokens
       })),
@@ -199,6 +197,20 @@ export function buildIssueDetailViewModel(
       outcome: run.outcome ?? "n/a"
     }))
   };
+}
+
+function buildIssueRunLabel(
+  attempt: number | null,
+  runId: string,
+  index: number,
+  totalRuns: number
+) {
+  if (typeof attempt === "number" && attempt > 0) {
+    return `#${attempt}`;
+  }
+
+  const ordinal = totalRuns - index;
+  return `Run ${ordinal} · ${runId.slice(0, 6)}`;
 }
 
 export function buildIssueActivityViewModel(

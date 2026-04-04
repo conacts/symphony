@@ -148,4 +148,89 @@ describe("forensics view model", () => {
     expect(issueDetail.rows[0]?.durationSeconds).toBe("2:00");
     expect(issueDetail.rows[0]?.totalTokens).toBe("200");
   });
+
+  it("falls back to unique run labels when attempts are missing", () => {
+    const issueDetail = buildIssueDetailViewModel({
+      issueIdentifier: "COL-165",
+      runs: [
+        {
+          runId: "564d183f-24ed-4c4f-be2e-06b15d2782b0",
+          issueId: "issue_123",
+          issueIdentifier: "COL-165",
+          attempt: 0,
+          status: "stopped",
+          outcome: "run_stopped_terminal",
+          codexStatus: "failed",
+          codexFailureKind: "run_stopped_terminal",
+          codexFailureOrigin: "runtime",
+          codexFailureMessagePreview: "Stopped by runtime.",
+          workerHost: "worker-a",
+          workspacePath: "/tmp/workspaces/col-165",
+          startedAt: "2026-04-04T06:07:00.000Z",
+          endedAt: "2026-04-04T06:19:00.000Z",
+          commitHashStart: "abc",
+          commitHashEnd: "def",
+          turnCount: 5,
+          eventCount: 147,
+          lastEventType: "message.output",
+          lastEventAt: "2026-04-04T06:19:00.000Z",
+          durationSeconds: 720,
+          errorClass: null,
+          errorMessage: null,
+          inputTokens: 10517907,
+          outputTokens: 17501,
+          totalTokens: 10535408
+        },
+        {
+          runId: "b2122cb9-5748-4d41-92b3-29eb082ce99b",
+          issueId: "issue_123",
+          issueIdentifier: "COL-165",
+          attempt: 0,
+          status: "stopped",
+          outcome: "run_stopped_inactive",
+          codexStatus: "failed",
+          codexFailureKind: "run_stopped_inactive",
+          codexFailureOrigin: "runtime",
+          codexFailureMessagePreview: "Stopped for inactivity.",
+          workerHost: "worker-a",
+          workspacePath: "/tmp/workspaces/col-165",
+          startedAt: "2026-04-04T05:53:00.000Z",
+          endedAt: "2026-04-04T06:07:27.000Z",
+          commitHashStart: "ghi",
+          commitHashEnd: "jkl",
+          turnCount: 1,
+          eventCount: 50,
+          lastEventType: "agent.stopped",
+          lastEventAt: "2026-04-04T06:07:27.000Z",
+          durationSeconds: 867,
+          errorClass: null,
+          errorMessage: null,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0
+        }
+      ],
+      summary: {
+        runCount: 2,
+        latestProblemOutcome: "run_stopped_terminal",
+        lastCompletedOutcome: null
+      },
+      filters: {
+        limit: 200
+      }
+    });
+
+    expect(issueDetail.tokenChartRows).toEqual([
+      {
+        runLabel: "Run 2 · b2122c",
+        inputTokens: 0,
+        outputTokens: 0
+      },
+      {
+        runLabel: "Run 1 · 564d18",
+        inputTokens: 10517907,
+        outputTokens: 17501
+      }
+    ]);
+  });
 });

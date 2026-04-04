@@ -89,6 +89,7 @@ function IssueRunTokenTooltip(input: {
   label?: string | number;
   payload?: Array<{
     dataKey?: string | number | ((value: unknown) => unknown);
+    value?: number | string;
     payload?: {
       runLabel?: string;
       inputTokens?: number;
@@ -97,6 +98,10 @@ function IssueRunTokenTooltip(input: {
   }>;
 }) {
   const row = input.payload?.[0]?.payload;
+  const inputTokens = input.payload?.find((entry) => entry.dataKey === "inputTokens")
+    ?.value;
+  const outputTokens = input.payload?.find((entry) => entry.dataKey === "outputTokens")
+    ?.value;
 
   if (!input.active || !row) {
     return null;
@@ -112,13 +117,17 @@ function IssueRunTokenTooltip(input: {
       <div className="flex items-center justify-between gap-4">
         <span className="text-muted-foreground">Input tokens</span>
         <span className="font-mono font-medium text-foreground tabular-nums">
-          {(row.inputTokens ?? 0).toLocaleString()}
+          {typeof inputTokens === "number"
+            ? inputTokens.toLocaleString()
+            : row.inputTokens?.toLocaleString() ?? "0"}
         </span>
       </div>
       <div className="flex items-center justify-between gap-4">
         <span className="text-muted-foreground">Output tokens</span>
         <span className="font-mono font-medium text-foreground tabular-nums">
-          {(row.outputTokens ?? 0).toLocaleString()}
+          {typeof outputTokens === "number"
+            ? outputTokens.toLocaleString()
+            : row.outputTokens?.toLocaleString() ?? "0"}
         </span>
       </div>
     </div>
