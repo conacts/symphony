@@ -1,6 +1,6 @@
-import type { SymphonyJsonValue } from "@symphony/run-journal";
+import type { JsonValue } from "@symphony/contracts";
 
-export function normalizeRuntimeJsonValue(value: unknown): SymphonyJsonValue {
+export function normalizeRuntimeJsonValue(value: unknown): JsonValue {
   if (
     value === null ||
     typeof value === "string" ||
@@ -20,7 +20,7 @@ export function normalizeRuntimeJsonValue(value: unknown): SymphonyJsonValue {
         key,
         normalizeRuntimeJsonValue(nestedValue)
       ])
-    ) as SymphonyJsonValue;
+    ) as JsonValue;
   }
 
   return String(value);

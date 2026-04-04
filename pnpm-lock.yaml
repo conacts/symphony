@@ -95,9 +95,6 @@ importers:
       '@symphony/orchestrator':
         specifier: workspace:*
         version: link:../../packages/orchestrator
-      '@symphony/run-journal':
-        specifier: workspace:*
-        version: link:../../packages/run-journal
       '@symphony/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -282,6 +279,9 @@ importers:
       '@symphony/codex-analytics':
         specifier: workspace:*
         version: link:../codex-analytics
+      '@symphony/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@symphony/run-journal':
         specifier: workspace:*
         version: link:../run-journal

@@ -6,9 +6,7 @@ import {
   type WorkspaceLifecycleMetadata
 } from "@symphony/workspace";
 import type { CodexAnalyticsStore } from "@symphony/codex-analytics";
-import type {
-  SymphonyJsonValue
-} from "@symphony/run-journal";
+import type { JsonValue } from "@symphony/contracts";
 import type {
   SymphonyIssueTimelineStore,
   SymphonyRuntimeRunStore
@@ -310,7 +308,7 @@ function workspaceWorkerHost(workspace: ObserverWorkspaceMetadata): string | nul
   return workspace?.workerHost ?? null;
 }
 
-function workspaceMetadata(workspace: ObserverWorkspaceMetadata): SymphonyJsonValue {
+function workspaceMetadata(workspace: ObserverWorkspaceMetadata): JsonValue {
   if (!workspace) {
     return null;
   }
@@ -339,7 +337,7 @@ function workspaceMetadata(workspace: ObserverWorkspaceMetadata): SymphonyJsonVa
   };
 }
 
-function normalizeJsonValue(value: unknown): SymphonyJsonValue {
+function normalizeJsonValue(value: unknown): JsonValue {
   if (
     value === null ||
     typeof value === "string" ||
@@ -359,7 +357,7 @@ function normalizeJsonValue(value: unknown): SymphonyJsonValue {
         key,
         normalizeJsonValue(nestedValue)
       ])
-    ) as SymphonyJsonValue;
+    ) as JsonValue;
   }
 
   return String(value);

@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@symphony/codex-analytics": "workspace:*",
+    "@symphony/contracts": "workspace:*",
     "@symphony/run-journal": "workspace:*",
     "better-sqlite3": "^12.4.1",
     "drizzle-orm": "^0.44.5"

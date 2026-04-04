@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { SymphonyJsonObject } from "@symphony/run-journal";
+import type { JsonObject } from "@symphony/contracts";
 import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
 
 const execFileAsync = promisify(execFile);
@@ -8,7 +8,7 @@ const defaultPatchMaxBytes = 64 * 1024;
 
 type RepoSnapshot = {
   commitHash: string | null;
-  snapshot: SymphonyJsonObject;
+  snapshot: JsonObject;
 };
 
 export async function captureRepoSnapshot(

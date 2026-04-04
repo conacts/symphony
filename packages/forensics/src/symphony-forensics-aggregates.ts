@@ -1,7 +1,3 @@
-import {
-  isCompletedOutcome,
-  isProblemOutcome
-} from "@symphony/run-journal/internal";
 import type {
   SymphonyIssueSummary,
   SymphonyRunSummary
@@ -12,6 +8,10 @@ import type {
   SymphonyForensicsIssueFlag,
   SymphonyForensicsIssueTotals
 } from "./symphony-forensics-read-model.js";
+import {
+  isCompletedOutcome,
+  isProblemOutcome
+} from "./symphony-forensics-run-classification.js";
 
 const defaultHighTokenBurnThreshold = 50_000;
 const defaultLongDurationThresholdSeconds = 1_800;

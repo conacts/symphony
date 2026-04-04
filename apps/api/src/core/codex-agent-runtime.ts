@@ -12,7 +12,7 @@ import {
   renderSymphonyPromptContract,
   type SymphonyLoadedPromptContract
 } from "@symphony/runtime-contract";
-import type { SymphonyJsonObject } from "@symphony/run-journal";
+import type { JsonObject } from "@symphony/contracts";
 import type {
   CodexAnalyticsStore
 } from "@symphony/codex-analytics";
@@ -512,7 +512,7 @@ function resolvePromptRepoDefaultBranch(repoRoot: string): string {
   return "main";
 }
 
-function describeLaunchTarget(target: CodexRuntimeLaunchTarget): SymphonyJsonObject {
+function describeLaunchTarget(target: CodexRuntimeLaunchTarget): JsonObject {
   return {
     kind: target.kind,
     hostLaunchPath: target.hostLaunchPath,

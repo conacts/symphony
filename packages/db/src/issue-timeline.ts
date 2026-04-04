@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
-import type { SymphonyJsonValue } from "@symphony/run-journal";
+import type { JsonValue } from "@symphony/contracts";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { symphonyIssueTimelineTable } from "./schema.js";
 
@@ -20,7 +20,7 @@ export type SymphonyIssueTimelineEntry = {
   source: SymphonyIssueTimelineSource;
   eventType: string;
   message: string | null;
-  payload: SymphonyJsonValue;
+  payload: JsonValue;
   recordedAt: string;
 };
 
@@ -33,7 +33,7 @@ export interface SymphonyIssueTimelineStore {
     source: SymphonyIssueTimelineSource;
     eventType: string;
     message?: string | null;
-    payload?: SymphonyJsonValue;
+    payload?: JsonValue;
     recordedAt?: string;
   }): Promise<string>;
   listIssueTimeline(
@@ -89,7 +89,7 @@ export function createSymphonyIssueTimelineStore(
         source: normalizeSource(row.source),
         eventType: row.eventType,
         message: row.message ?? null,
-        payload: (row.payload ?? null) as SymphonyJsonValue,
+        payload: (row.payload ?? null) as JsonValue,
         recordedAt: row.recordedAt
       }));
     }

@@ -1,17 +1,14 @@
-import {
-  isCompletedOutcome,
-  isProblemOutcome,
-  problemSummary
-} from "@symphony/run-journal/internal";
-import type { SymphonyForensicsRunDetailResult } from "@symphony/contracts";
+import type {
+  JsonValue,
+  SymphonyForensicsRunDetailResult
+} from "@symphony/contracts";
 import type {
   SymphonyIssueSummary,
   SymphonyIsoTimestamp,
-  SymphonyJsonValue,
   SymphonyRunExport,
-  SymphonyRunJournal,
   SymphonyRunJournalListOptions,
   SymphonyRunJournalProblemRunsOptions,
+  SymphonyRunJournalRunsOptions,
   SymphonyRunSummary
 } from "@symphony/run-journal";
 import {
@@ -29,6 +26,11 @@ import {
   normalizeDependencies,
   normalizeFilters
 } from "./symphony-forensics-filters.js";
+import {
+  isCompletedOutcome,
+  isProblemOutcome,
+  problemSummary
+} from "./symphony-forensics-run-classification.js";
 
 const allRowsLimit = 100_000;
 
@@ -146,7 +148,7 @@ export type SymphonyForensicsTimelineEntry = {
   source: "orchestrator" | "codex" | "tracker" | "workspace" | "runtime";
   eventType: string;
   message: string | null;
-  payload: SymphonyJsonValue;
+  payload: JsonValue;
   recordedAt: string;
 };
 
@@ -159,7 +161,7 @@ export type SymphonyForensicsRuntimeLogEntry = {
   issueId: string | null;
   issueIdentifier: string | null;
   runId: string | null;
-  payload: SymphonyJsonValue;
+  payload: JsonValue;
   recordedAt: string;
 };
 
@@ -216,10 +218,18 @@ export type SymphonyForensicsReadModelDependencies = {
   }) => Promise<SymphonyForensicsRuntimeLogEntry[]>;
 };
 
-export type SymphonyForensicsRunStore = Pick<
-  SymphonyRunJournal,
-  "listIssues" | "listRuns" | "listRunsForIssue" | "listProblemRuns" | "fetchRunExport"
->;
+export interface SymphonyForensicsRunStore {
+  listIssues(opts?: SymphonyRunJournalListOptions): Promise<SymphonyIssueSummary[]>;
+  listRuns(opts?: SymphonyRunJournalRunsOptions): Promise<SymphonyRunSummary[]>;
+  listRunsForIssue(
+    issueIdentifier: string,
+    opts?: SymphonyRunJournalListOptions
+  ): Promise<SymphonyRunSummary[]>;
+  listProblemRuns(
+    opts?: SymphonyRunJournalProblemRunsOptions
+  ): Promise<SymphonyRunSummary[]>;
+  fetchRunExport(runId: string): Promise<SymphonyRunExport | null>;
+}
 
 export interface SymphonyForensicsReadModel {
   issues(opts?: SymphonyForensicsIssuesQuery): Promise<SymphonyForensicsIssueList>;

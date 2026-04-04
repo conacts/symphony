@@ -6,11 +6,11 @@ import {
   previewText,
   type ThreadEvent
 } from "@symphony/codex-analytics";
+import type { JsonObject } from "@symphony/contracts";
 import type {
   SymphonyEventRecord,
   SymphonyIssueRecord,
   SymphonyIssueSummary,
-  SymphonyJsonObject,
   SymphonyRunExport,
   SymphonyRunJournalListOptions,
   SymphonyRunJournalProblemRunsOptions,
@@ -430,9 +430,9 @@ function buildUsage(
     : null;
 }
 
-function castJsonObject(value: unknown): SymphonyJsonObject | null {
+function castJsonObject(value: unknown): JsonObject | null {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as SymphonyJsonObject)
+    ? (value as JsonObject)
     : null;
 }
 
