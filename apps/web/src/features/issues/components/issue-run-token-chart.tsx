@@ -61,7 +61,25 @@ export function IssueRunTokenChart(input: {
               />
               <ChartTooltip
                 cursor={false}
-                content={<ChartTooltipContent indicator="dashed" />}
+                content={
+                  <ChartTooltipContent
+                    indicator="dashed"
+                    labelKey="runLabel"
+                    formatter={(_, name, item) => (
+                      <>
+                        <div className="grid gap-1.5">
+                          <span className="text-muted-foreground">
+                            {runTokenChartConfig[item.dataKey as keyof typeof runTokenChartConfig]
+                              ?.label ?? name}
+                          </span>
+                        </div>
+                        <span className="font-mono font-medium text-foreground tabular-nums">
+                          {formatTooltipValue(item)}
+                        </span>
+                      </>
+                    )}
+                  />
+                }
               />
               <ChartLegend content={<ChartLegendContent />} />
               <Bar
@@ -82,4 +100,21 @@ export function IssueRunTokenChart(input: {
       </CardContent>
     </Card>
   );
+}
+
+function formatTooltipValue(item: {
+  dataKey?: string | number | ((input: unknown) => unknown);
+  payload?: Record<string, unknown>;
+  value?: unknown;
+}) {
+  const rawValue =
+    typeof item.dataKey === "string" &&
+    item.payload &&
+    typeof item.payload[item.dataKey] === "number"
+      ? item.payload[item.dataKey]
+      : item.value;
+
+  return typeof rawValue === "number"
+    ? rawValue.toLocaleString()
+    : String(rawValue ?? "n/a");
 }
