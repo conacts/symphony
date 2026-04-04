@@ -20,26 +20,35 @@ export function RunTranscriptTurn(input: {
   onOpenOverflow: (entry: CodexRunTranscriptEntry) => void;
 }) {
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-semibold">
-            Turn {input.turn.turnSequence}
-          </h2>
-          <Badge variant="outline">{input.turn.status}</Badge>
+    <section className="flex flex-col gap-5">
+      <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold">
+              Turn {input.turn.turnSequence}
+            </h2>
+            <Badge variant="outline">{input.turn.status}</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {input.turn.startedAt} → {input.turn.endedAt}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary">{input.turn.tokenSummary}</Badge>
+            <Badge variant="secondary">{input.turn.countsSummary}</Badge>
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          {input.turn.startedAt} → {input.turn.endedAt}
-        </p>
-        <p className="text-sm text-muted-foreground">{input.turn.tokenSummary}</p>
-        <p className="text-sm text-muted-foreground">{input.turn.countsSummary}</p>
       </div>
 
-      <Message from="user">
-        <MessageContent>
-          <RunTranscriptCopy>{input.turn.promptText}</RunTranscriptCopy>
-        </MessageContent>
-      </Message>
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+          Operator prompt
+        </p>
+        <Message from="user">
+          <MessageContent>
+            <RunTranscriptCopy>{input.turn.promptText}</RunTranscriptCopy>
+          </MessageContent>
+        </Message>
+      </div>
 
       {input.turn.entries.length === 0 ? (
         <Card>
@@ -76,7 +85,7 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "reasoning" ? (
-            <Card>
+            <Card className="border-dashed">
               <CardHeader className="pb-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <CardTitle className="text-sm font-medium">Reasoning</CardTitle>
@@ -102,7 +111,7 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "command" ? (
-            <Card>
+            <Card className="border-border/70">
               <CardHeader className="pb-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <CardTitle className="text-sm font-medium">Command</CardTitle>
@@ -136,7 +145,7 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "tool-call" ? (
-            <Card>
+            <Card className="border-border/70">
               <CardHeader className="pb-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <CardTitle className="text-sm font-medium">
@@ -177,7 +186,7 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "generic" ? (
-            <Card>
+            <Card className="border-border/70">
               <CardHeader className="pb-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <CardTitle className="text-sm font-medium">

@@ -121,53 +121,46 @@ export function RunTranscriptView(input: {
 
       {viewModel ? (
         <>
-          <section className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-muted-foreground">
-              {viewModel.issueIdentifier}
-            </p>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              {viewModel.runTitle}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {viewModel.statusSummary}
-            </p>
-            {viewModel.failureSummary ? (
-              <p className="text-sm text-destructive">{viewModel.failureSummary}</p>
-            ) : null}
-          </section>
+          <section className="flex flex-col gap-5">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">
+                {viewModel.issueIdentifier}
+              </p>
+              <h1 className="text-3xl font-semibold tracking-tight">
+                {viewModel.runTitle}
+              </h1>
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                {viewModel.statusSummary}
+              </p>
+              {viewModel.failureSummary ? (
+                <p className="max-w-3xl text-sm text-destructive">
+                  {viewModel.failureSummary}
+                </p>
+              ) : null}
+            </div>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {viewModel.metrics.map((metric) => (
-              <Card key={metric.label}>
-                <CardHeader>
-                  <CardDescription>{metric.label}</CardDescription>
-                  <CardTitle className="text-2xl">{metric.value}</CardTitle>
-                </CardHeader>
-                {metric.detail ? (
-                  <CardContent className="pt-0 text-sm text-muted-foreground">
-                    {metric.detail}
-                  </CardContent>
-                ) : null}
-              </Card>
-            ))}
-          </section>
-
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {viewModel.metadata.map((row) => (
-              <Card key={row.label}>
-                <CardHeader className="space-y-1 pb-2">
-                  <CardDescription>{row.label}</CardDescription>
-                  <CardTitle className="text-lg">{row.value}</CardTitle>
-                </CardHeader>
-              </Card>
-            ))}
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {viewModel.metrics.slice(0, 4).map((metric) => (
+                <Card key={metric.label} className="border-border/70">
+                  <CardHeader className="space-y-1 pb-3">
+                    <CardDescription>{metric.label}</CardDescription>
+                    <CardTitle className="text-xl">{metric.value}</CardTitle>
+                  </CardHeader>
+                  {metric.detail ? (
+                    <CardContent className="pt-0 text-sm text-muted-foreground">
+                      {metric.detail}
+                    </CardContent>
+                  ) : null}
+                </Card>
+              ))}
+            </div>
           </section>
 
           <Card>
             <CardHeader>
               <CardTitle>Structured run conversation</CardTitle>
               <CardDescription>
-                Codex turns, assistant messages, commands, tools, reasoning, and file changes in chronological order.
+                The run rendered as a chronological conversation between the operator prompt, Codex, commands, tools, and file changes.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-8">
@@ -186,6 +179,38 @@ export function RunTranscriptView(input: {
               )}
             </CardContent>
           </Card>
+
+          <section className="flex flex-col gap-4">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Run context</h2>
+              <p className="text-sm text-muted-foreground">
+                Supporting runtime, provider, and workspace details for the conversation above.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {viewModel.metrics.slice(4).map((metric) => (
+                <Card key={metric.label} className="border-border/70">
+                  <CardHeader className="space-y-1 pb-3">
+                    <CardDescription>{metric.label}</CardDescription>
+                    <CardTitle className="text-lg">{metric.value}</CardTitle>
+                  </CardHeader>
+                  {metric.detail ? (
+                    <CardContent className="pt-0 text-sm text-muted-foreground">
+                      {metric.detail}
+                    </CardContent>
+                  ) : null}
+                </Card>
+              ))}
+              {viewModel.metadata.map((row) => (
+                <Card key={row.label} className="border-border/70">
+                  <CardHeader className="space-y-1 pb-3">
+                    <CardDescription>{row.label}</CardDescription>
+                    <CardTitle className="text-lg break-all">{row.value}</CardTitle>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          </section>
 
           <section className="flex flex-col gap-4">
             <div className="space-y-1">
