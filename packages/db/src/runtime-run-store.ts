@@ -87,7 +87,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
           issueId: attrs.issueId,
           issueIdentifier: attrs.issueIdentifier,
           attempt: attrs.attempt ?? null,
-          status: attrs.status ?? "running",
+          status: attrs.status,
           outcome: null,
           workerHost: attrs.workerHost ?? null,
           workspacePath: attrs.workspacePath ?? null,
@@ -164,7 +164,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         codexTurnId: attrs.codexTurnId ?? null,
         codexSessionId: attrs.codexSessionId ?? null,
         promptText,
-        status: attrs.status ?? "running",
+        status: attrs.status,
         startedAt,
         endedAt: null,
         usage: null,
@@ -221,7 +221,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
 
   async finalizeTurn(turnId: string, attrs: SymphonyRuntimeTurnFinishAttrs): Promise<void> {
     await this.updateTurn(turnId, {
-      status: attrs.status ?? "completed",
+      status: attrs.status,
       endedAt: attrs.endedAt,
       codexThreadId: attrs.codexThreadId,
       codexTurnId: attrs.codexTurnId,
@@ -287,7 +287,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     }
 
     await this.updateRun(runId, {
-      status: attrs.status ?? "finished",
+      status: attrs.status,
       outcome: attrs.outcome ?? null,
       endedAt: attrs.endedAt,
       commitHashEnd: attrs.commitHashEnd,
@@ -308,7 +308,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         : "Run finished.",
       payload: {
         outcome: attrs.outcome ?? null,
-        status: attrs.status ?? "finished",
+        status: attrs.status,
         errorClass: attrs.errorClass ?? null,
         errorMessage: attrs.errorMessage ?? null
       },

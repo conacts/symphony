@@ -116,10 +116,12 @@ export function createDbBackedOrchestratorObserver(input: {
       }
 
       if (runId && (eventType === "run_stopped_inactive" || eventType === "run_stopped_terminal")) {
+        const stoppedAt = recordedAt ?? new Date().toISOString();
+
         await input.runStore.finalizeRun(runId, {
           status: "stopped",
           outcome: eventType,
-          endedAt: recordedAt,
+          endedAt: stoppedAt,
           metadata: {
             stopEventType: eventType,
             stopPayload: normalizeJsonValue(payload)
@@ -128,7 +130,7 @@ export function createDbBackedOrchestratorObserver(input: {
         await input.codexAnalytics.finalizeRun({
           runId,
           status: "stopped",
-          endedAt: recordedAt ?? new Date().toISOString(),
+          endedAt: stoppedAt,
           failureKind: eventType,
           failureOrigin: "runtime",
           failureMessagePreview: previewRuntimeFailure(eventType),

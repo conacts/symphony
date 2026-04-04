@@ -11,7 +11,7 @@ export type SymphonyRuntimeRunStartAttrs = {
   issueIdentifier: string;
   runId?: string;
   attempt?: number | null;
-  status?: string;
+  status: string;
   workerHost?: string | null;
   workspacePath?: string | null;
   startedAt?: Date | string;
@@ -27,7 +27,7 @@ export type SymphonyRuntimeTurnStartAttrs = {
   codexTurnId?: string | null;
   codexSessionId?: string | null;
   promptText: string;
-  status?: string;
+  status: string;
   startedAt?: Date | string;
   metadata?: JsonObject | null;
 };
@@ -44,8 +44,8 @@ export type SymphonyRuntimeTurnUpdateAttrs = {
 };
 
 export type SymphonyRuntimeTurnFinishAttrs = {
-  status?: string;
-  endedAt?: Date | string;
+  status: string;
+  endedAt: Date | string;
   codexThreadId?: string | null;
   codexTurnId?: string | null;
   codexSessionId?: string | null;
@@ -70,9 +70,9 @@ export type SymphonyRuntimeRunUpdateAttrs = {
 };
 
 export type SymphonyRuntimeRunFinishAttrs = {
-  status?: string;
+  status: string;
   outcome?: string | null;
-  endedAt?: Date | string;
+  endedAt: Date | string;
   commitHashEnd?: string | null;
   repoEnd?: JsonObject | null;
   metadata?: JsonObject | null;

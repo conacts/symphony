@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  isThreadEvent,
+  type ThreadEvent
+} from "@symphony/codex-analytics";
 import { nonEmptyStringSchema } from "./shared.js";
 
 export const symphonyCodexUsageSchema = z.strictObject({
@@ -141,13 +145,9 @@ export const symphonyCodexStreamErrorEventSchema = z.strictObject({
   message: nonEmptyStringSchema
 });
 
-export const symphonyCodexAnalyticsEventSchema = z.discriminatedUnion("type", [
-  symphonyCodexThreadStartedEventSchema,
-  symphonyCodexTurnStartedEventSchema,
-  symphonyCodexTurnCompletedEventSchema,
-  symphonyCodexTurnFailedEventSchema,
-  symphonyCodexItemStartedEventSchema,
-  symphonyCodexItemUpdatedEventSchema,
-  symphonyCodexItemCompletedEventSchema,
-  symphonyCodexStreamErrorEventSchema
-]);
+export const symphonyCodexAnalyticsEventSchema = z.custom<ThreadEvent>(
+  (value) => isThreadEvent(value),
+  {
+    message: "Invalid Codex ThreadEvent payload."
+  }
+);

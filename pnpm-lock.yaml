@@ -257,6 +257,9 @@ importers:
 
   packages/contracts:
     dependencies:
+      '@symphony/codex-analytics':
+        specifier: workspace:*
+        version: link:../codex-analytics
       '@symphony/errors':
         specifier: workspace:*
         version: link:../errors
