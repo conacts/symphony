@@ -119,7 +119,7 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "command" ? (
-            <Tool className="border-border/70 bg-card">
+            <Tool className="mb-0 border-border/70 bg-card">
               <ToolHeader
                 type="dynamic-tool"
                 toolName="command"
@@ -127,7 +127,7 @@ export function RunTranscriptTurn(input: {
                 state={mapCommandToolState(entry.status)}
                 className="items-start"
               />
-              <ToolContent className="pt-0">
+              <ToolContent className="space-y-3 px-4 pb-4 pt-0">
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <Badge variant="outline">{entry.status}</Badge>
                   <span>{entry.recordedAt}</span>
