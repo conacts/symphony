@@ -292,6 +292,10 @@ describe("@symphony/api app", () => {
         operator: {
           githubPullRequestSearchUrl: string | null;
           requeueCommand: string;
+          codex: {
+            defaultModel: string | null;
+            selectedModel: string | null;
+          };
         };
       };
     }>(runtimeIssueResponse);
@@ -368,6 +372,12 @@ describe("@symphony/api app", () => {
       "github.com/openai/symphony/pulls"
     );
     expect(runtimeIssuePayload.data.operator.requeueCommand).toBe("/rework");
+    expect(runtimeIssuePayload.data.operator.codex.defaultModel).toBe(
+      "xiaomi/mimo-v2-pro"
+    );
+    expect(runtimeIssuePayload.data.operator.codex.selectedModel).toBe(
+      "xiaomi/mimo-v2-pro"
+    );
   });
 
   it("serves tracker-only runtime issue context when no live runtime state exists", async () => {

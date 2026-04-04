@@ -111,11 +111,11 @@ describe("runtime services", () => {
     ).rejects.toThrowError(/Docker-backed Symphony workspaces require host-owned Codex auth/i);
   });
 
-  it("accepts an OpenRouter api key when the glm-5-turbo profile is selected", async () => {
+  it("accepts an OpenRouter api key when the mimo-v2-pro profile is selected", async () => {
     const harness = await createSymphonyRuntimeAppServicesHarness({
       environmentSource: {
         LINEAR_API_KEY: "test-linear-api-key",
-        SYMPHONY_CODEX_PROFILE: "glm-5-turbo"
+        SYMPHONY_CODEX_PROFILE: "mimo-v2-pro"
       },
       hostCommandEnvSource: {
         OPENROUTER_API_KEY: "test-openrouter-api-key"
@@ -123,9 +123,9 @@ describe("runtime services", () => {
     });
     harnesses.push(harness);
 
-    expect(harness.services.runtimePolicy.codex.profile).toBe("glm-5-turbo");
+    expect(harness.services.runtimePolicy.codex.profile).toBe("mimo-v2-pro");
     expect(harness.services.runtimePolicy.codex.defaultModel).toBe(
-      "z-ai/glm-5-turbo"
+      "xiaomi/mimo-v2-pro"
     );
     expect(harness.services.runtimePolicy.codex.defaultReasoningEffort).toBe(
       "high"

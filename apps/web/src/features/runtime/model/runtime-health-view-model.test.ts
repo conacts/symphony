@@ -20,12 +20,12 @@ describe("runtime health view model", () => {
     });
     expect(viewModel.summaryCards[3]?.value).toBe("1s");
     expect(viewModel.summaryCards[4]?.value).toBe("4s");
-    expect(viewModel.incidentCards[2]?.value).toBe("runtime");
+    expect(viewModel.incidentCards[2]?.value).toBe("Runtime");
     expect(viewModel.signalRows[2]?.value).toBe("4s");
     expect(viewModel.storageRows[0]?.value).toBe("/tmp/symphony.db");
     expect(viewModel.logLevelChartRows[1]?.count).toBe(1);
     expect(viewModel.recentEventRows[0]?.eventType).toBe(
-      "tracker_placeholder_active"
+      "Tracker Placeholder Active"
     );
   });
 });

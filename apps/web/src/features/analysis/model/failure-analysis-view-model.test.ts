@@ -57,16 +57,18 @@ describe("failure analysis view model", () => {
     expect(viewModel.summaryCards[0]?.value).toBe("3");
     expect(viewModel.summaryCards[1]?.value).toBe("75%");
     expect(viewModel.summaryCards[2]?.value).toBe("2");
-    expect(viewModel.summaryCards[3]?.value).toBe("startup_failure");
+    expect(viewModel.summaryCards[3]?.value).toBe("Startup Failure");
     expect(viewModel.failureModeRows[0]).toEqual({
-      outcome: "startup_failure",
+      outcome: "Startup Failure",
       issueCount: 2
     });
     expect(viewModel.errorClassRows[0]).toEqual({
-      errorClass: "workspace_boot_failure",
+      errorClass: "Workspace boot failure",
       issueCount: 2
     });
     expect(viewModel.hotspotRows[0]?.issueIdentifier).toBe("COL-166");
+    expect(viewModel.hotspotRows[0]?.latestProblemOutcome).toBe("Startup Failure");
+    expect(viewModel.hotspotRows[0]?.latestErrorClass).toBe("Workspace boot failure");
     expect(viewModel.hotspotRows[0]?.problemRuns).toBe("3");
   });
 });

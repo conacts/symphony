@@ -87,7 +87,7 @@ describe("forensics view model", () => {
     expect(issueIndex.rows[0]?.issueHref).toBe("/issues/COL-165");
     expect(issueIndex.rows[0]?.problemRate).toBe("66.7%");
     expect(issueIndex.rows[0]?.avgDuration).toBe("7:00");
-    expect(issueIndex.rows[0]?.flags).toEqual(["max_turns", "many_retries"]);
+    expect(issueIndex.rows[0]?.flags).toEqual(["Max turns reached", "Many retries"]);
     expect(issueIndex.rows[0]?.lastActive).not.toBe("2026-03-31T18:05:00.000Z");
   });
 
@@ -106,6 +106,7 @@ describe("forensics view model", () => {
           codexFailureKind: null,
           codexFailureOrigin: null,
           codexFailureMessagePreview: null,
+          codexModel: "xiaomi/mimo-v2-pro",
           workerHost: "worker-a",
           workspacePath: "/tmp/workspaces/col-165",
           startedAt: "2026-03-31T18:00:00.000Z",
@@ -136,7 +137,7 @@ describe("forensics view model", () => {
 
     expect(issueDetail.metrics[0]?.value).toBe("3");
     expect(issueDetail.outcomeChartRows[0]).toEqual({
-      outcome: "completed",
+      outcome: "Completed",
       count: 1
     });
     expect(issueDetail.tokenChartRows[0]).toEqual({
@@ -166,6 +167,7 @@ describe("forensics view model", () => {
           codexFailureKind: "run_stopped_terminal",
           codexFailureOrigin: "runtime",
           codexFailureMessagePreview: "Stopped by runtime.",
+          codexModel: "xiaomi/mimo-v2-pro",
           workerHost: "worker-a",
           workspacePath: "/tmp/workspaces/col-165",
           startedAt: "2026-04-04T06:07:00.000Z",
@@ -194,6 +196,7 @@ describe("forensics view model", () => {
           codexFailureKind: "run_stopped_inactive",
           codexFailureOrigin: "runtime",
           codexFailureMessagePreview: "Stopped for inactivity.",
+          codexModel: "xiaomi/mimo-v2-pro",
           workerHost: "worker-a",
           workspacePath: "/tmp/workspaces/col-165",
           startedAt: "2026-04-04T05:53:00.000Z",
@@ -235,7 +238,7 @@ describe("forensics view model", () => {
       }
     ]);
     expect(issueDetail.failureCards[0]?.value).toBe("2");
-    expect(issueDetail.failureCards[1]?.value).toBe("run_stopped_inactive");
+    expect(issueDetail.failureCards[1]?.value).toBe("Stopped after inactivity");
     expect(issueDetail.recentFailureRows[0]?.runHref).toBe(
       "/runs/564d183f-24ed-4c4f-be2e-06b15d2782b0"
     );

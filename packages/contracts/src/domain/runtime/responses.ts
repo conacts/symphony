@@ -303,7 +303,14 @@ export const symphonyRuntimeIssueOperatorSchema = z.strictObject({
     .array(z.enum(["linear", "github_rework_comment"]))
     .nonempty(),
   requeueCommand: nonEmptyStringSchema,
-  requeueHelpText: nonEmptyStringSchema
+  requeueHelpText: nonEmptyStringSchema,
+  codex: z.strictObject({
+    defaultModel: nullableNonEmptyStringSchema,
+    selectedModel: nullableNonEmptyStringSchema,
+    availableModels: z.array(nonEmptyStringSchema),
+    modelOverrideLabelPrefix: nonEmptyStringSchema,
+    selectionHelpText: nonEmptyStringSchema
+  })
 });
 
 export const symphonyRuntimeIssueResultSchema = z.strictObject({

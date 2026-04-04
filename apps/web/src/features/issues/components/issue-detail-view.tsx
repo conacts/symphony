@@ -177,6 +177,7 @@ export function IssueDetailView(input: {
                       <TableHead>Duration</TableHead>
                       <TableHead>Total tokens</TableHead>
                       <TableHead>Turns / events</TableHead>
+                      <TableHead>Model</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Outcome</TableHead>
                     </TableRow>
@@ -196,6 +197,7 @@ export function IssueDetailView(input: {
                         <TableCell>{row.durationSeconds}</TableCell>
                         <TableCell>{row.totalTokens}</TableCell>
                         <TableCell>{row.turnsAndEvents}</TableCell>
+                        <TableCell>{row.model}</TableCell>
                         <TableCell>{row.status}</TableCell>
                         <TableCell>{row.outcome}</TableCell>
                       </TableRow>

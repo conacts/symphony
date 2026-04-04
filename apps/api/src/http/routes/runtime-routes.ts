@@ -125,7 +125,10 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       services.orchestrator.snapshot(),
       services.runtimePolicy.github.repo,
       path.issueIdentifier,
-      trackedIssue
+      trackedIssue,
+      {
+        defaultModel: services.runtimePolicy.codex.defaultModel
+      }
     );
 
     if (!result) {

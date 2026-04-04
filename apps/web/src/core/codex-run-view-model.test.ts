@@ -17,10 +17,11 @@ describe("codex run view model", () => {
     });
 
     expect(viewModel.issueIdentifier).toBe("COL-165");
-    expect(viewModel.metrics[0]?.value).toBe("finished");
-    expect(viewModel.metrics[1]?.value).toBe("completed");
-    expect(viewModel.metadata[0]?.value).toBe("OpenRouter");
-    expect(viewModel.metadata[1]?.value).toBe("api_key_env");
+    expect(viewModel.metrics[0]?.value).toBe("Finished");
+    expect(viewModel.metrics[1]?.value).toBe("Completed");
+    expect(viewModel.metadata[0]?.value).toBe("xiaomi/mimo-v2-pro");
+    expect(viewModel.metadata[1]?.value).toBe("OpenRouter");
+    expect(viewModel.metadata[2]?.value).toBe("Provider API key");
     expect(viewModel.turnTokens.cards[0]?.value).toBe("120");
     expect(viewModel.turnTokens.rows[0]?.turnLabel).toBe("Turn 1");
     expect(viewModel.turnLatency.cards[0]?.value).toBe("1");

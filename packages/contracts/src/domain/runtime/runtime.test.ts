@@ -273,7 +273,20 @@ describe("symphony runtime contracts", () => {
           requeueDelegatesTo: ["linear", "github_rework_comment"],
           requeueCommand: "/rework",
           requeueHelpText:
-            "Use /rework on the PR or move the Linear issue back into a dispatchable state."
+            "Use /rework on the PR or move the Linear issue back into a dispatchable state.",
+          codex: {
+            defaultModel: "xiaomi/mimo-v2-pro",
+            selectedModel: "xiaomi/mimo-v2-pro",
+            availableModels: [
+              "xiaomi/mimo-v2-pro",
+              "gpt-5.4",
+              "gpt-5.4-mini",
+              "gpt-5.3-codex-spark"
+            ],
+            modelOverrideLabelPrefix: "symphony:model:",
+            selectionHelpText:
+              "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
+          }
         }
       }
     });
@@ -338,7 +351,20 @@ describe("symphony runtime contracts", () => {
           requeueDelegatesTo: ["linear", "github_rework_comment"],
           requeueCommand: "/rework",
           requeueHelpText:
-            "Use /rework on the PR or move the Linear issue back into a dispatchable state."
+            "Use /rework on the PR or move the Linear issue back into a dispatchable state.",
+          codex: {
+            defaultModel: "xiaomi/mimo-v2-pro",
+            selectedModel: "xiaomi/mimo-v2-pro",
+            availableModels: [
+              "xiaomi/mimo-v2-pro",
+              "gpt-5.4",
+              "gpt-5.4-mini",
+              "gpt-5.3-codex-spark"
+            ],
+            modelOverrideLabelPrefix: "symphony:model:",
+            selectionHelpText:
+              "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
+          }
         }
       }
     });

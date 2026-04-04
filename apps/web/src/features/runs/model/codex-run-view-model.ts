@@ -10,10 +10,16 @@ import type {
   SymphonyForensicsRunDetailResult
 } from "@symphony/contracts";
 import {
+  formatAuthModeLabel,
   formatCount,
   formatDuration,
   formatDurationMilliseconds,
+  formatEventTypeLabel,
+  formatLabel,
+  formatOutcomeLabel,
   formatPercent,
+  formatProviderEnvKeyLabel,
+  formatStatusLabel,
   formatTimestamp
 } from "@/core/display-formatters";
 import {
@@ -207,18 +213,18 @@ export function buildCodexRunViewModel(input: {
     issueIdentifier: input.runDetail.issue.issueIdentifier,
     runId: run.runId,
     runTitle: `${input.runDetail.issue.issueIdentifier} · ${run.runId}`,
-    statusSummary: `${workflowStatus} / ${workflowOutcome} · Codex ${codexStatus}`,
+    statusSummary: `${formatStatusLabel(workflowStatus)} / ${formatOutcomeLabel(workflowOutcome)} · Codex ${formatStatusLabel(codexStatus)}`,
     failureSummary: codexFailureSummary,
     metrics: [
       {
         label: "Workflow",
-        value: workflowStatus,
-        detail: workflowOutcome
+        value: formatStatusLabel(workflowStatus),
+        detail: formatOutcomeLabel(workflowOutcome)
       },
       {
         label: "Codex",
-        value: codexStatus,
-        detail: run.codexFailureKind ?? codexRun?.failureKind ?? "healthy"
+        value: formatStatusLabel(codexStatus),
+        detail: formatLabel(run.codexFailureKind ?? codexRun?.failureKind ?? "healthy")
       },
       {
         label: "Duration",
@@ -250,16 +256,22 @@ export function buildCodexRunViewModel(input: {
     ],
     metadata: [
       {
+        label: "Model",
+        value: input.runDetail.run.codexModel ?? "Unavailable"
+      },
+      {
         label: "Provider",
         value: input.runDetail.run.codexProviderName ?? "Unavailable"
       },
       {
         label: "Auth",
-        value: input.runDetail.run.codexAuthMode ?? "Unavailable"
+        value: formatAuthModeLabel(input.runDetail.run.codexAuthMode ?? "Unavailable")
       },
       {
         label: "Provider env",
-        value: input.runDetail.run.codexProviderEnvKey ?? "Unavailable"
+        value: formatProviderEnvKeyLabel(
+          input.runDetail.run.codexProviderEnvKey ?? "Unavailable"
+        )
       },
       {
         label: "Thread",
@@ -290,7 +302,7 @@ export function buildCodexRunViewModel(input: {
         .sort((left, right) => compareDescending(left.recordedAt, right.recordedAt))
         .map((event) => ({
           eventId: event.eventId,
-          eventType: event.eventType,
+          eventType: formatEventTypeLabel(event.eventType),
           recordedAt: formatTimestamp(event.recordedAt),
           itemId: event.itemId ?? "n/a",
           payloadText: JSON.stringify(event.payload, null, 2)
@@ -344,7 +356,7 @@ function buildTranscriptTurns(
         promptText: forensicsTurn?.promptText ?? `Turn ${index + 1}`,
         startedAt: formatTimestamp(turn.startedAt),
         endedAt: formatTimestamp(turn.endedAt),
-        status: turn.status,
+        status: formatStatusLabel(turn.status),
         tokenSummary:
           turn.usage === null
             ? "Usage unavailable"
@@ -411,7 +423,7 @@ function buildExecutionPerformance(
         label: "Slowest tool",
         value: slowestTool ? `${slowestTool.server}.${slowestTool.tool}` : "n/a",
         detail: slowestTool
-          ? `${formatDurationMilliseconds(safeDurationMs(slowestTool.durationMs))} · ${slowestTool.status}`
+          ? `${formatDurationMilliseconds(safeDurationMs(slowestTool.durationMs))} · ${formatStatusLabel(slowestTool.status)}`
           : "No tool calls were captured for this run."
       }
     ],
@@ -425,7 +437,7 @@ function buildExecutionPerformance(
           label: command.command,
           family: formatCommandFamilyLabel(classification.family),
           duration: formatDurationMilliseconds(safeDurationMs(command.durationMs)),
-          status: command.status
+          status: formatStatusLabel(command.status)
         };
       }),
     toolRows: [...toolCalls]
@@ -434,7 +446,7 @@ function buildExecutionPerformance(
       .map((tool) => ({
         label: `${tool.server}.${tool.tool}`,
         duration: formatDurationMilliseconds(safeDurationMs(tool.durationMs)),
-        status: tool.status
+        status: formatStatusLabel(tool.status)
       }))
   };
 }
@@ -557,10 +569,10 @@ function mapTranscriptEntry(input: {
   fileChanges: SymphonyCodexFileChangeRecord[];
 }): CodexRunTranscriptEntry {
   const recordedAt = formatTimestamp(itemRecordedAt(input.item));
-  const status = input.item.finalStatus ?? "in_progress";
+  const status = formatStatusLabel(input.item.finalStatus ?? "in_progress");
   const files = input.fileChanges.map((fileChange) => ({
     path: fileChange.path,
-    changeKind: fileChange.changeKind
+    changeKind: formatLabel(fileChange.changeKind)
   }));
 
   if (input.agentMessage) {
@@ -639,8 +651,8 @@ function mapTranscriptEntry(input: {
     itemId: input.item.itemId,
     recordedAt,
     status,
-    itemType: input.item.itemType,
-    preview: input.item.latestPreview ?? input.item.itemType,
+    itemType: formatLabel(input.item.itemType),
+    preview: input.item.latestPreview ?? formatLabel(input.item.itemType),
     overflowId: input.item.latestOverflowId,
     files
   };

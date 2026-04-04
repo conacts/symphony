@@ -43,7 +43,10 @@ describe("runtime operator client", () => {
     ).resolves.toMatchObject({
       issueIdentifier: "COL-167",
       operator: {
-        requeueCommand: "/rework"
+        requeueCommand: "/rework",
+        codex: {
+          selectedModel: "xiaomi/mimo-v2-pro"
+        }
       }
     });
     await expect(

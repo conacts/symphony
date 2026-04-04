@@ -37,6 +37,10 @@ import type {
 import { IssueOutcomeChart } from "@/features/issues/components/issue-outcome-chart";
 import { IssuePressureChart } from "@/features/issues/components/issue-pressure-chart";
 import { buildIssueIndexViewModel } from "@/features/issues/model/issue-view-model";
+import {
+  formatErrorClassLabel,
+  formatOutcomeLabel
+} from "@/core/display-formatters";
 
 const timeRangeOptions = [
   { value: "all", label: "All time" },
@@ -177,7 +181,7 @@ export function IssueIndexView(input: {
                     { value: "", label: "All outcomes" },
                     ...viewModel.facets.outcomes.map((outcome) => ({
                       value: outcome,
-                      label: outcome
+                      label: formatOutcomeLabel(outcome)
                     }))
                   ]}
                   onChange={(value) =>
@@ -193,7 +197,7 @@ export function IssueIndexView(input: {
                     { value: "", label: "All error classes" },
                     ...viewModel.facets.errorClasses.map((errorClass) => ({
                       value: errorClass,
-                      label: errorClass
+                      label: formatErrorClassLabel(errorClass)
                     }))
                   ]}
                   onChange={(value) =>

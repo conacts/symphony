@@ -144,6 +144,7 @@ describe("sqlite codex analytics read store", () => {
         runId,
         message: "Started the Codex SDK session.",
         payload: {
+          model: "xiaomi/mimo-v2-pro",
           providerId: "openrouter",
           providerName: "OpenRouter",
           authMode: "api_key_env",
@@ -200,6 +201,7 @@ describe("sqlite codex analytics read store", () => {
 
       expect(runs[0]?.runId).toBe(runId);
       expect(runs[0]?.codexStatus).toBe("completed");
+      expect(runs[0]?.codexModel).toBe("xiaomi/mimo-v2-pro");
       expect(runs[0]?.turnCount).toBe(1);
       expect(runs[0]?.eventCount).toBe(3);
       expect(runs[0]?.inputTokens).toBe(11);
@@ -214,6 +216,7 @@ describe("sqlite codex analytics read store", () => {
       expect(runDetail?.run.codexProviderName).toBe("OpenRouter");
       expect(runDetail?.run.codexAuthMode).toBe("api_key_env");
       expect(runDetail?.run.codexProviderEnvKey).toBe("OPENROUTER_API_KEY");
+      expect(runDetail?.run.codexModel).toBe("xiaomi/mimo-v2-pro");
       expect(runDetail?.turns).toHaveLength(1);
       expect(runDetail?.turns[0]?.usage).toEqual({
         input_tokens: 11,

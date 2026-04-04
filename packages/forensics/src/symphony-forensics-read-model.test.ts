@@ -181,6 +181,7 @@ function createRunSummary(
     status: "finished",
     outcome: "paused_max_turns",
     codexStatus: "paused",
+    codexModel: "xiaomi/mimo-v2-pro",
     codexFailureKind: "max_turns_reached",
     codexFailureOrigin: "codex",
     codexFailureMessagePreview: "Reached the configured max turns.",

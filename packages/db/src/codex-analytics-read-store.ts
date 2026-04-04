@@ -124,15 +124,23 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
       .where(inArray(codexEventLogTable.runId, runIds))
       .groupBy(codexEventLogTable.runId)
       .all();
+    const runtimeLogRows = this.#db
+      .select()
+      .from(symphonyRuntimeLogsTable)
+      .where(inArray(symphonyRuntimeLogsTable.runId, runIds))
+      .orderBy(desc(symphonyRuntimeLogsTable.recordedAt))
+      .all();
 
     const codexRunMap = new Map(codexRuns.map((run) => [run.runId, run] as const));
     const eventCountMap = new Map(eventCounts.map((row) => [row.runId, row.count] as const));
+    const runtimeContextMap = buildRuntimeContextMap(runtimeLogRows);
 
     return runs.map((run) =>
       buildForensicsRunSummary(
         run,
         codexRunMap.get(run.runId),
-        eventCountMap.get(run.runId) ?? 0
+        eventCountMap.get(run.runId) ?? 0,
+        runtimeContextMap.get(run.runId)
       )
     );
   }
@@ -185,7 +193,8 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
         ...buildForensicsRunSummary(
           mapPersistedRunRecord(data.run),
           data.codexRun,
-          data.eventRows.length
+          data.eventRows.length,
+          data.runtimeContext
         ),
         codexThreadId: data.codexRun.threadId ?? null,
         codexProviderId: data.runtimeContext.providerId,
@@ -417,7 +426,10 @@ function mapPersistedRunRecord(
 function buildForensicsRunSummary(
   run: PersistedRunRecord,
   codexRun: typeof codexRunsTable.$inferSelect | undefined,
-  eventCount: number
+  eventCount: number,
+  runtimeContext?: {
+    model: string | null;
+  }
 ): SymphonyForensicsRunSummary {
   const inputTokens = codexRun?.inputTokens ?? 0;
   const outputTokens = codexRun?.outputTokens ?? 0;
@@ -433,6 +445,7 @@ function buildForensicsRunSummary(
     codexFailureKind: codexRun?.failureKind ?? null,
     codexFailureOrigin: codexRun?.failureOrigin ?? null,
     codexFailureMessagePreview: codexRun?.failureMessagePreview ?? null,
+    codexModel: runtimeContext?.model ?? null,
     workerHost: run.workerHost,
     workspacePath: run.workspacePath,
     startedAt: run.startedAt,
@@ -450,6 +463,34 @@ function buildForensicsRunSummary(
     outputTokens,
     totalTokens: inputTokens + outputTokens
   };
+}
+
+function buildRuntimeContextMap(
+  rows: Array<typeof symphonyRuntimeLogsTable.$inferSelect>
+): Map<string, ReturnType<typeof extractRuntimeContext>> {
+  const rowsByRunId = new Map<string, Array<typeof symphonyRuntimeLogsTable.$inferSelect>>();
+
+  for (const row of rows) {
+    if (!row.runId) {
+      continue;
+    }
+
+    const existing = rowsByRunId.get(row.runId);
+
+    if (existing) {
+      existing.push(row);
+      continue;
+    }
+
+    rowsByRunId.set(row.runId, [row]);
+  }
+
+  return new Map(
+    Array.from(rowsByRunId.entries()).map(([runId, runRows]) => [
+      runId,
+      extractRuntimeContext(runRows)
+    ])
+  );
 }
 
 function buildUsage(
@@ -964,6 +1005,7 @@ type RunData = {
   reasoningRows: Array<typeof codexReasoningTable.$inferSelect>;
   fileChangeRows: Array<typeof codexFileChangesTable.$inferSelect>;
   runtimeContext: {
+    model: string | null;
     providerId: string | null;
     providerName: string | null;
     authMode: string | null;
@@ -1052,11 +1094,13 @@ async function loadRunData(
 function extractRuntimeContext(
   rows: Array<typeof symphonyRuntimeLogsTable.$inferSelect>
 ): {
+  model: string | null;
   providerId: string | null;
   providerName: string | null;
   authMode: string | null;
   providerEnvKey: string | null;
 } {
+  let model: string | null = null;
   let providerId: string | null = null;
   let providerName: string | null = null;
   let authMode: string | null = null;
@@ -1072,6 +1116,10 @@ function extractRuntimeContext(
       continue;
     }
 
+    model ??=
+      typeof payload.model === "string" && payload.model !== ""
+        ? payload.model
+        : null;
     providerId ??=
       typeof payload.providerId === "string" && payload.providerId !== ""
         ? payload.providerId
@@ -1091,6 +1139,7 @@ function extractRuntimeContext(
   }
 
   return {
+    model,
     providerId,
     providerName,
     authMode,

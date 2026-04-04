@@ -12,6 +12,11 @@ import type {
   SymphonyRuntimeLaunchTarget,
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
+import {
+  codexModelLabelPrefix,
+  listSupportedCodexModels,
+  resolveCodexIssueModel
+} from "../core/codex-app-server-launch.js";
 
 export function serializeRuntimeState(
   snapshot: SymphonyOrchestratorSnapshot
@@ -69,7 +74,10 @@ export function serializeRuntimeIssue(
   snapshot: SymphonyOrchestratorSnapshot,
   githubRepository: string | null,
   issueIdentifier: string,
-  trackedIssue: SymphonyTrackerIssue | null
+  trackedIssue: SymphonyTrackerIssue | null,
+  runtimePolicyDefaults?: {
+    defaultModel: string | null;
+  }
 ): SymphonyRuntimeIssueResult | null {
   const running = snapshot.running.find(
     (entry) => entry.issue.identifier === issueIdentifier
@@ -110,6 +118,12 @@ export function serializeRuntimeIssue(
     branchName
   );
   const workspace = running?.workspace ?? retry?.workspace ?? null;
+  const defaultModel =
+    runtimePolicyDefaults?.defaultModel ?? listSupportedCodexModels()[0] ?? null;
+  const selectedModel = resolveCodexIssueModel(
+    tracked,
+    defaultModel ?? undefined
+  );
 
   return {
     issueIdentifier,
@@ -170,7 +184,15 @@ export function serializeRuntimeIssue(
       requeueDelegatesTo: ["linear", "github_rework_comment"],
       requeueCommand: "/rework",
       requeueHelpText:
-        "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow."
+        "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
+      codex: {
+        defaultModel,
+        selectedModel,
+        availableModels: listSupportedCodexModels(),
+        modelOverrideLabelPrefix: codexModelLabelPrefix,
+        selectionHelpText:
+          "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
+      }
     }
   };
 }

@@ -1,5 +1,10 @@
 import type { SymphonyRuntimeStateResult } from "@symphony/contracts";
-import { formatCount, formatTimestamp } from "@/core/display-formatters";
+import {
+  formatCount,
+  formatEventTypeLabel,
+  formatStatusLabel,
+  formatTimestamp
+} from "@/core/display-formatters";
 
 export type RuntimeSummaryConnectionState = {
   kind: "waiting" | "connected" | "degraded";
@@ -117,7 +122,7 @@ export function buildRuntimeSummaryViewModel(
     rateLimitRows: buildRateLimitRows(runtimeSummary.rateLimits),
     runningRows: runtimeSummary.running.map((entry) => ({
       issueIdentifier: entry.issueIdentifier,
-      state: entry.state,
+      state: formatStatusLabel(entry.state),
       sessionId: entry.sessionId ?? null,
       execution: formatExecution(entry.workspace, entry.launchTarget),
       runtimeAndTurns: formatRuntimeAndTurns(entry.startedAt, entry.turnCount, now),
@@ -177,13 +182,13 @@ function formatCodexUpdate(
   lastEvent: string | null | undefined,
   lastEventAt: string | null | undefined
 ): string {
-  const message = lastMessage ?? lastEvent ?? "n/a";
+  const formattedMessage = lastMessage ?? formatEventTypeLabel(lastEvent) ?? "n/a";
 
   if (!lastEventAt) {
-    return message;
+    return formattedMessage;
   }
 
-  return `${message} · ${lastEventAt}`;
+  return `${formattedMessage} · ${lastEventAt}`;
 }
 
 function buildRateLimitRows(

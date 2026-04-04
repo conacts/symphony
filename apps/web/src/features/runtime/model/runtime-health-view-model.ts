@@ -2,7 +2,13 @@ import type {
   SymphonyRuntimeHealthResult,
   SymphonyRuntimeLogsResult
 } from "@symphony/contracts";
-import { formatCount, formatTimestamp } from "@/core/display-formatters";
+import {
+  formatCount,
+  formatEventTypeLabel,
+  formatSourceLabel,
+  formatStatusLabel,
+  formatTimestamp
+} from "@/core/display-formatters";
 
 export type RuntimeHealthViewModel = {
   summaryCards: Array<{
@@ -102,9 +108,9 @@ export function buildRuntimeHealthViewModel(
       },
       {
         label: "Latest alert",
-        value: latestAlert ? latestAlert.eventType : "Clear",
+        value: latestAlert ? formatEventTypeLabel(latestAlert.eventType) : "Clear",
         detail: latestAlert
-          ? `${latestAlert.source} · ${formatTimestamp(latestAlert.recordedAt)}`
+          ? `${formatSourceLabel(latestAlert.source)} · ${formatTimestamp(latestAlert.recordedAt)}`
           : "No warning or error event is present in the recent runtime log sample."
       },
       {
@@ -162,7 +168,7 @@ export function buildRuntimeHealthViewModel(
       },
       {
         label: "Database readiness",
-        value: input.db.ready ? "ready" : "down"
+        value: formatStatusLabel(input.db.ready ? "ready" : "down")
       },
       {
         label: "Poll interval",
@@ -198,8 +204,8 @@ export function buildRuntimeHealthViewModel(
     recentEventRows: recentLogs.map((entry) => ({
       entryId: entry.entryId,
       level: entry.level,
-      source: entry.source,
-      eventType: entry.eventType,
+      source: formatSourceLabel(entry.source),
+      eventType: formatEventTypeLabel(entry.eventType),
       recordedAt: formatTimestamp(entry.recordedAt),
       message: entry.message,
       scopeLabel: buildScopeLabel(entry),
@@ -240,7 +246,7 @@ function buildLoudestSourceLabel(
   })[0]!;
 
   return {
-    label: source,
+    label: formatSourceLabel(source),
     detail: `${formatCount(count)} events in the current runtime log sample.`
   };
 }

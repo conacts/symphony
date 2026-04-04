@@ -1,6 +1,8 @@
 import type { SymphonyForensicsIssueListResult } from "@symphony/contracts";
 import {
   formatCount,
+  formatErrorClassLabel,
+  formatOutcomeLabel,
   formatPercent,
   formatTimestamp
 } from "@/core/display-formatters";
@@ -51,7 +53,7 @@ export function buildFailureAnalysisViewModel(
     (issue) => issue.latestProblemOutcome
   )
     .map(([outcome, issueCount]) => ({
-      outcome,
+      outcome: formatOutcomeLabel(outcome),
       issueCount
     }))
     .slice(0, 6);
@@ -60,7 +62,7 @@ export function buildFailureAnalysisViewModel(
     (issue) => issue.latestErrorClass
   )
     .map(([errorClass, issueCount]) => ({
-      errorClass,
+      errorClass: formatErrorClassLabel(errorClass),
       issueCount
     }))
     .slice(0, 6);
@@ -90,7 +92,7 @@ export function buildFailureAnalysisViewModel(
       },
       {
         label: "Dominant failure mode",
-        value: dominantFailureMode?.outcome ?? "n/a",
+        value: formatOutcomeLabel(dominantFailureMode?.outcome ?? null),
         detail: dominantFailureMode
           ? `${formatCount(dominantFailureMode.issueCount)} impacted issues right now.`
           : "No cross-issue failure mode is currently dominant."
@@ -109,19 +111,25 @@ export function buildFailureAnalysisViewModel(
       .map((issue) => ({
         issueIdentifier: issue.issueIdentifier,
         issueHref: `/issues/${issue.issueIdentifier}`,
-        latestProblemOutcome: issue.latestProblemOutcome ?? "n/a",
-        latestErrorClass: issue.latestErrorClass ?? "n/a",
+        latestProblemOutcome: formatOutcomeLabel(issue.latestProblemOutcome),
+        latestErrorClass: formatErrorClassLabel(issue.latestErrorClass),
         problemRuns: formatCount(issue.problemRunCount),
         retries: formatCount(issue.retryCount),
         lastActive: formatTimestamp(issue.latestActivityAt),
         latestErrorMessage: issue.latestErrorMessage ?? "No error message recorded."
       })),
     spotlight: {
-      dominantFailureMode: dominantFailureMode?.outcome ?? "No current failure mode",
+      dominantFailureMode:
+        dominantFailureMode?.outcome === undefined
+          ? "No current failure mode"
+          : formatOutcomeLabel(dominantFailureMode.outcome),
       dominantFailureModeDetail: dominantFailureMode
         ? `${formatCount(dominantFailureMode.issueCount)} issues are currently led by this outcome.`
         : "The current issue set does not show a dominant failure outcome.",
-      dominantErrorClass: dominantErrorClass?.errorClass ?? "No current error class",
+      dominantErrorClass:
+        dominantErrorClass?.errorClass === undefined
+          ? "No current error class"
+          : formatErrorClassLabel(dominantErrorClass.errorClass),
       dominantErrorClassDetail: dominantErrorClass
         ? `${formatCount(dominantErrorClass.issueCount)} issues currently report this class.`
         : "The current issue set does not show a dominant error class."

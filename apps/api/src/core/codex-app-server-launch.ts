@@ -7,9 +7,10 @@ import {
 } from "./codex-app-server-types.js";
 import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
 
-const defaultCodexModel = "gpt-5.4";
+const defaultCodexModel = "xiaomi/mimo-v2-pro";
 const defaultCodexReasoningEffort = "xhigh";
 const supportedCodexModels = new Set([
+  "xiaomi/mimo-v2-pro",
   "gpt-5.4",
   "gpt-5.4-mini",
   "gpt-5.3-codex-spark"
@@ -20,8 +21,25 @@ const supportedCodexReasoningEfforts = new Set([
   "high",
   "xhigh"
 ]);
-const codexModelLabelPrefix = "symphony:model:";
+export const codexModelLabelPrefix = "symphony:model:";
 const codexReasoningLabelPrefix = "symphony:reasoning:";
+
+export function listSupportedCodexModels(): string[] {
+  return [...supportedCodexModels];
+}
+
+export function resolveCodexIssueModel(
+  issue: SymphonyTrackerIssue,
+  defaultModel = defaultCodexModel
+): string {
+  return selectCodexIssueOverride(
+    issue,
+    codexModelLabelPrefix,
+    supportedCodexModels,
+    defaultModel,
+    "model"
+  );
+}
 
 export async function validateWorkspaceCwd(
   workspacePath: string,

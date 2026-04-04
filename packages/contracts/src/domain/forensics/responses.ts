@@ -85,6 +85,7 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   codexFailureKind: nullableNonEmptyStringSchema,
   codexFailureOrigin: nullableNonEmptyStringSchema,
   codexFailureMessagePreview: nullableNonEmptyStringSchema,
+  codexModel: nullableNonEmptyStringSchema,
   workerHost: nullableNonEmptyStringSchema,
   workspacePath: nullableNonEmptyStringSchema,
   startedAt: isoTimestampSchema,

@@ -89,7 +89,8 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       cwd: root
     });
     const hostCommandEnvSource = input.hostCommandEnvSource ?? {
-      OPENAI_API_KEY: "test-openai-api-key"
+      OPENAI_API_KEY: "test-openai-api-key",
+      OPENROUTER_API_KEY: "test-openrouter-api-key"
     };
 
     services = await loadDefaultSymphonyRuntimeAppServices(

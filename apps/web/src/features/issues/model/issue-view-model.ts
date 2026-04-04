@@ -6,6 +6,12 @@ import type {
 import {
   formatCount,
   formatDuration,
+  formatErrorClassLabel,
+  formatEventTypeLabel,
+  formatFlagLabel,
+  formatOutcomeLabel,
+  formatSourceLabel,
+  formatStatusLabel,
   formatPercent,
   formatTimestamp,
   prettyValue
@@ -100,7 +106,7 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
           ? `${highestProblemIssue.issueIdentifier} · ${formatPercent(highestProblemIssue.problemRate)}`
           : "No issues",
         detail: highestProblemIssue
-          ? `${highestProblemIssue.latestProblemOutcome ?? "No problem outcome"}`
+          ? formatOutcomeLabel(highestProblemIssue.latestProblemOutcome)
           : "No issue activity has been recorded yet."
       }),
       buildIssueFocusCard({
@@ -110,7 +116,7 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
           ? `${mostRetriedIssue.issueIdentifier} · ${formatCount(mostRetriedIssue.retryCount)}`
           : "No retries",
         detail: mostRetriedIssue
-          ? `${mostRetriedIssue.latestErrorClass ?? "No retry error class"}`
+          ? formatErrorClassLabel(mostRetriedIssue.latestErrorClass)
           : "No issues are currently retry-heavy."
       }),
       buildIssueFocusCard({
@@ -121,7 +127,7 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
           : "No recent failures",
         detail: newestProblemIssue
           ? newestProblemIssue.latestErrorMessage ??
-            newestProblemIssue.latestProblemOutcome ??
+            formatOutcomeLabel(newestProblemIssue.latestProblemOutcome) ??
             "Problem outcome unavailable."
           : "The current issue set does not show a recent failure message."
       })
@@ -133,13 +139,13 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
       issueHref: `/issues/${issue.issueIdentifier}`,
       runCount: formatCount(issue.runCount),
       problemRate: formatPercent(issue.problemRate),
-      latestProblemOutcome: issue.latestProblemOutcome ?? "n/a",
-      lastCompletedOutcome: issue.lastCompletedOutcome ?? "n/a",
+      latestProblemOutcome: formatOutcomeLabel(issue.latestProblemOutcome),
+      lastCompletedOutcome: formatOutcomeLabel(issue.lastCompletedOutcome),
       retryCount: formatCount(issue.retryCount),
       avgDuration: formatDuration(issue.avgDurationSeconds),
       lastActive: formatTimestamp(issue.latestActivityAt),
-      flags: issue.flags,
-      latestErrorClass: issue.latestErrorClass ?? "n/a",
+      flags: issue.flags.map((flag) => formatFlagLabel(flag)),
+      latestErrorClass: formatErrorClassLabel(issue.latestErrorClass),
       latestErrorMessage: issue.latestErrorMessage ?? "n/a"
     })),
     filters: input.filters,
@@ -198,17 +204,17 @@ export function buildIssueDetailViewModel(
       },
       {
         label: "Latest problem",
-        value: input.summary.latestProblemOutcome ?? "n/a",
+        value: formatOutcomeLabel(input.summary.latestProblemOutcome),
         detail: "Most recent non-success outcome."
       },
       {
         label: "Last completed",
-        value: input.summary.lastCompletedOutcome ?? "n/a",
+        value: formatOutcomeLabel(input.summary.lastCompletedOutcome),
         detail: "Most recent successful/completed outcome."
       }
     ],
     outcomeChartRows: Array.from(outcomeCounts.entries()).map(([outcome, count]) => ({
-      outcome,
+      outcome: formatOutcomeLabel(outcome),
       count
     })),
     tokenChartRows: recentRuns.map((run, index) => ({
@@ -243,14 +249,14 @@ export function buildIssueDetailViewModel(
       },
       {
         label: "Dominant failure",
-        value: dominantProblemOutcome?.[0] ?? "n/a",
+        value: formatOutcomeLabel(dominantProblemOutcome?.[0] ?? null),
         detail: dominantProblemOutcome
           ? `${formatCount(dominantProblemOutcome[1])} runs currently cluster here.`
           : "No failure mode is currently dominant."
       },
       {
         label: "Latest error class",
-        value: latestFailure?.errorClass ?? "n/a",
+        value: formatErrorClassLabel(latestFailure?.errorClass),
         detail:
           latestFailure?.errorMessage ??
           "No recent failure message has been recorded."
@@ -259,8 +265,8 @@ export function buildIssueDetailViewModel(
     recentFailureRows: problemRuns.slice(0, 3).map((run) => ({
       runId: run.runId,
       runHref: `/runs/${run.runId}`,
-      outcome: run.outcome ?? "n/a",
-      errorClass: run.errorClass ?? "n/a",
+      outcome: formatOutcomeLabel(run.outcome),
+      errorClass: formatErrorClassLabel(run.errorClass),
       startedAt: formatTimestamp(run.startedAt),
       message: run.errorMessage ?? "No error message recorded."
     })),
@@ -272,8 +278,9 @@ export function buildIssueDetailViewModel(
         run.durationSeconds === null ? "n/a" : formatDuration(run.durationSeconds),
       totalTokens: formatCount(run.totalTokens),
       turnsAndEvents: `${formatCount(run.turnCount)} / ${formatCount(run.eventCount)}`,
-      status: run.status ?? "n/a",
-      outcome: run.outcome ?? "n/a"
+      status: formatStatusLabel(run.status),
+      outcome: formatOutcomeLabel(run.outcome),
+      model: run.codexModel ?? "n/a"
     }))
   };
 }
@@ -309,8 +316,8 @@ export function buildIssueActivityViewModel(
     ...input.timeline.map((entry) => ({
       entryId: `timeline:${entry.entryId}`,
       recordedAt: entry.recordedAt,
-      source: entry.source,
-      eventType: entry.eventType,
+      source: formatSourceLabel(entry.source),
+      eventType: formatEventTypeLabel(entry.eventType),
       runId: entry.runId ?? "n/a",
       message: entry.message ?? "n/a",
       detail: prettyValue(entry.payload)
@@ -318,8 +325,8 @@ export function buildIssueActivityViewModel(
     ...input.runtimeLogs.map((entry) => ({
       entryId: `runtime:${entry.entryId}`,
       recordedAt: entry.recordedAt,
-      source: `runtime:${entry.source}`,
-      eventType: entry.eventType,
+      source: formatSourceLabel(`runtime:${entry.source}`),
+      eventType: formatEventTypeLabel(entry.eventType),
       runId: entry.runId ?? "n/a",
       message: entry.message,
       detail: prettyValue(entry.payload)
@@ -360,8 +367,8 @@ export function buildIssueActivityViewModel(
         : {
             runId: input.latestFailure.runId,
             startedAt: formatTimestamp(input.latestFailure.startedAt),
-            outcome: input.latestFailure.outcome ?? "n/a",
-            errorClass: input.latestFailure.errorClass ?? "n/a",
+            outcome: formatOutcomeLabel(input.latestFailure.outcome),
+            errorClass: formatErrorClassLabel(input.latestFailure.errorClass),
             errorMessage: input.latestFailure.errorMessage ?? "n/a"
           },
     activityRows

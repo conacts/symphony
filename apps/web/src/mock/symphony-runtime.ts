@@ -131,6 +131,7 @@ function withMockCodexRunSummary(
   run: Omit<
     SymphonyForensicsRunSummary,
     | "codexStatus"
+    | "codexModel"
     | "codexFailureKind"
     | "codexFailureOrigin"
     | "codexFailureMessagePreview"
@@ -138,6 +139,7 @@ function withMockCodexRunSummary(
 ): SymphonyForensicsRunSummary {
   return {
     ...run,
+    codexModel: "xiaomi/mimo-v2-pro",
     codexStatus:
       run.status === "retrying"
         ? "failed"

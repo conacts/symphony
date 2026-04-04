@@ -22,7 +22,7 @@ describe("issue activity view", () => {
     expect(html).toContain("Issue activity");
     expect(html).toContain("Chronological event feed");
     expect(html).toContain("Latest failure");
-    expect(html).toContain("runtime:workspace");
+    expect(html).toContain("Runtime / Workspace");
     expect(html).toContain("Approaching upstream rate limit.");
     expect(html).toContain("/issues/COL-165");
   });

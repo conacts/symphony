@@ -7,19 +7,25 @@ const defaultDispatchableStates = ["Todo", "Bootstrapping", "In Progress", "Rewo
 const defaultTerminalStates = ["Canceled", "Done"];
 const defaultClaimTransitionFromStates = ["Todo", "Rework"];
 const defaultAllowedOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
-const glm5TurboProfile = {
-  profile: "glm-5-turbo",
-  defaultModel: "z-ai/glm-5-turbo",
-  defaultReasoningEffort: "high",
-  provider: {
-    id: "openrouter",
-    name: "OpenRouter",
-    baseUrl: "https://openrouter.ai/api/v1",
-    envKey: "OPENROUTER_API_KEY",
-    supportsWebsockets: false,
-    wireApi: "responses"
-  }
-} as const;
+function createOpenRouterProfile(profile: string) {
+  return {
+    profile,
+    defaultModel: "xiaomi/mimo-v2-pro",
+    defaultReasoningEffort: "high",
+    provider: {
+      id: "openrouter",
+      name: "OpenRouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      envKey: "OPENROUTER_API_KEY",
+      supportsWebsockets: false,
+      wireApi: "responses"
+    }
+  } as const;
+}
+
+const mimoV2ProProfile = createOpenRouterProfile("mimo-v2-pro");
+const glm5TurboProfile = createOpenRouterProfile("glm-5-turbo");
+const defaultOpenRouterProfile = mimoV2ProProfile;
 
 export function loadSymphonyRuntimePolicyConfig(input: {
   environmentSource: EnvironmentSource;
@@ -113,36 +119,38 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       defaultModel:
         readOptionalString(environmentSource.SYMPHONY_CODEX_MODEL) ??
         codexProfileDefaults?.defaultModel ??
-        null,
+        defaultOpenRouterProfile.defaultModel,
       defaultReasoningEffort:
         readOptionalString(environmentSource.SYMPHONY_CODEX_REASONING_EFFORT) ??
         codexProfileDefaults?.defaultReasoningEffort ??
-        null,
+        defaultOpenRouterProfile.defaultReasoningEffort,
       provider: {
         id:
           readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER) ??
           codexProfileDefaults?.provider.id ??
-          null,
+          defaultOpenRouterProfile.provider.id,
         name:
           readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_NAME) ??
           codexProfileDefaults?.provider.name ??
-          null,
+          defaultOpenRouterProfile.provider.name,
         baseUrl:
           readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_BASE_URL) ??
           codexProfileDefaults?.provider.baseUrl ??
-          null,
+          defaultOpenRouterProfile.provider.baseUrl,
         envKey:
           readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_ENV_KEY) ??
           codexProfileDefaults?.provider.envKey ??
-          null,
+          defaultOpenRouterProfile.provider.envKey,
         supportsWebsockets:
           readOptionalBoolean(
             environmentSource.SYMPHONY_CODEX_PROVIDER_SUPPORTS_WEBSOCKETS
-          ) ?? codexProfileDefaults?.provider.supportsWebsockets ?? null,
+          ) ??
+          codexProfileDefaults?.provider.supportsWebsockets ??
+          defaultOpenRouterProfile.provider.supportsWebsockets,
         wireApi:
           readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_WIRE_API) ??
           codexProfileDefaults?.provider.wireApi ??
-          null
+          defaultOpenRouterProfile.provider.wireApi
       },
       turnTimeoutMs: readPositiveInteger(
         environmentSource.SYMPHONY_CODEX_TURN_TIMEOUT_MS,
@@ -255,12 +263,17 @@ function readOptionalBoolean(value: string | undefined): boolean | null {
 
 function resolveCodexProfileDefaults(
   profile: string | null
-): typeof glm5TurboProfile | null {
+): typeof glm5TurboProfile | typeof mimoV2ProProfile | null {
   if (profile === null) {
-    return null;
+    return defaultOpenRouterProfile;
   }
 
-  return profile.trim().toLowerCase() === glm5TurboProfile.profile
-    ? glm5TurboProfile
-    : null;
+  switch (profile.trim().toLowerCase()) {
+    case mimoV2ProProfile.profile:
+      return mimoV2ProProfile;
+    case glm5TurboProfile.profile:
+      return glm5TurboProfile;
+    default:
+      return null;
+  }
 }

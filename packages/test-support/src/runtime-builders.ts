@@ -399,7 +399,20 @@ export function buildSymphonyRuntimeIssueResult(
       requeueDelegatesTo: ["linear", "github_rework_comment"],
       requeueCommand: "/rework",
       requeueHelpText:
-        "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow."
+        "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
+      codex: {
+        defaultModel: "xiaomi/mimo-v2-pro",
+        selectedModel: "xiaomi/mimo-v2-pro",
+        availableModels: [
+          "xiaomi/mimo-v2-pro",
+          "gpt-5.4",
+          "gpt-5.4-mini",
+          "gpt-5.3-codex-spark"
+        ],
+        modelOverrideLabelPrefix: "symphony:model:",
+        selectionHelpText:
+          "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
+      }
     },
     ...Object.fromEntries(
       Object.entries(overrides).filter(
@@ -494,6 +507,7 @@ export function buildSymphonyForensicsIssueDetailResult(
         codexFailureKind: null,
         codexFailureOrigin: null,
         codexFailureMessagePreview: null,
+        codexModel: "xiaomi/mimo-v2-pro",
         workerHost: "worker-a",
         workspacePath: "/tmp/workspaces/col-165",
         startedAt: "2026-03-31T18:00:00.000Z",
@@ -540,6 +554,7 @@ export function buildSymphonyForensicsProblemRunsResult(
         codexFailureKind: "max_turns_reached",
         codexFailureOrigin: "codex",
         codexFailureMessagePreview: "Reached max turns.",
+        codexModel: "xiaomi/mimo-v2-pro",
         workerHost: "worker-a",
         workspacePath: "/tmp/workspaces/col-165",
         startedAt: "2026-03-31T18:00:00.000Z",
@@ -598,6 +613,7 @@ export function buildSymphonyForensicsRunDetailResult(
       codexFailureKind: null,
       codexFailureOrigin: null,
       codexFailureMessagePreview: null,
+      codexModel: "xiaomi/mimo-v2-pro",
       workerHost: "worker-a",
       workspacePath: "/tmp/workspaces/col-165",
       startedAt: "2026-03-31T18:00:00.000Z",

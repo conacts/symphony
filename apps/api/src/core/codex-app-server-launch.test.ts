@@ -75,7 +75,7 @@ describe("codex app server launch", () => {
     });
   });
 
-  it("applies the glm-5-turbo profile defaults to SDK launches", () => {
+  it("applies the mimo-v2-pro profile defaults to SDK launches", () => {
     const settings = resolveCodexSdkLaunchSettings(
       "codex",
       {
@@ -99,9 +99,9 @@ describe("codex app server launch", () => {
         updatedAt: null
       },
       {
-        model: "z-ai/glm-5-turbo",
+        model: "xiaomi/mimo-v2-pro",
         reasoningEffort: "high",
-        profile: "glm-5-turbo",
+        profile: "mimo-v2-pro",
         providerId: "openrouter",
         providerName: "OpenRouter"
       }
@@ -109,9 +109,9 @@ describe("codex app server launch", () => {
 
     expect(settings).toMatchObject({
       executable: "codex",
-      model: "z-ai/glm-5-turbo",
+      model: "xiaomi/mimo-v2-pro",
       reasoningEffort: "high",
-      profile: "glm-5-turbo",
+      profile: "mimo-v2-pro",
       providerId: "openrouter",
       providerName: "OpenRouter"
     });
