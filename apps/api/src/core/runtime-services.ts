@@ -36,10 +36,7 @@ import { SymphonyRuntimePollScheduler } from "./poll-scheduler.js";
 import { validateSourceRepoRuntimeManifest } from "./runtime-manifest-startup-validator.js";
 import { loadSymphonyRuntimePolicyConfig } from "./runtime-policy-config.js";
 import { createRuntimeWorkspaceBackend } from "./runtime-workspace-backend.js";
-import type {
-  SymphonyCodexAnalyticsReadPort,
-  SymphonyRuntimeAppServices
-} from "./runtime-app-types.js";
+import type { SymphonyRuntimeAppServices } from "./runtime-app-types.js";
 import { createRuntimeOrchestratorPort } from "./runtime-orchestrator-port.js";
 import {
   createIssueTimelinePort,
@@ -51,6 +48,7 @@ import {
   fetchGitHubPullRequestMetadata
 } from "./runtime-github-client.js";
 import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
+import { createCodexAnalyticsReadPort } from "./codex-analytics-read-port.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -433,64 +431,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     async shutdown() {
       pollScheduler?.stop();
       database.close();
-    }
-  };
-}
-
-function createCodexAnalyticsReadPort(
-  readStore: ReturnType<typeof createSqliteCodexAnalyticsReadStore>
-): SymphonyCodexAnalyticsReadPort {
-  return {
-    fetchRunArtifacts(runId) {
-      return readStore.fetchRunArtifacts(runId);
-    },
-    async listTurns(runId) {
-      return {
-        runId,
-        turns: await readStore.listTurns(runId)
-      };
-    },
-    async listItems(input) {
-      return {
-        runId: input.runId,
-        turnId: input.turnId ?? null,
-        items: await readStore.listItems(input)
-      };
-    },
-    async listCommandExecutions(input) {
-      return {
-        runId: input.runId,
-        turnId: input.turnId ?? null,
-        commandExecutions: await readStore.listCommandExecutions(input)
-      };
-    },
-    async listToolCalls(input) {
-      return {
-        runId: input.runId,
-        turnId: input.turnId ?? null,
-        toolCalls: await readStore.listToolCalls(input)
-      };
-    },
-    async listAgentMessages(input) {
-      return {
-        runId: input.runId,
-        turnId: input.turnId ?? null,
-        agentMessages: await readStore.listAgentMessages(input)
-      };
-    },
-    async listReasoning(input) {
-      return {
-        runId: input.runId,
-        turnId: input.turnId ?? null,
-        reasoning: await readStore.listReasoning(input)
-      };
-    },
-    async listFileChanges(input) {
-      return {
-        runId: input.runId,
-        turnId: input.turnId ?? null,
-        fileChanges: await readStore.listFileChanges(input)
-      };
     }
   };
 }

@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import {
   symphonyCodexAgentMessageListResponseSchema,
   symphonyCodexCommandExecutionListResponseSchema,
@@ -23,232 +23,195 @@ export function createCodexAnalyticsRoutes(
   const codexRoutes = new Hono<SymphonyRuntimeAppContextSchema>();
 
   codexRoutes.get("/codex/runs/:runId/artifacts", async (c) => {
-    const path = parseWithSchema(symphonyCodexRunPathSchema, c.req.param());
-    const result = await services.codexAnalytics.fetchRunArtifacts(path.runId);
+    const runId = parseCodexRunId(c);
+    const result = await services.codexAnalytics.fetchRunArtifacts(runId);
 
     if (!result) {
-      c.get("logger").warn("Codex run artifacts not found", {
-        runId: path.runId
-      });
+      logCodexRunNotFound(c, "Codex run artifacts not found", runId);
       throw createHttpError("NOT_FOUND", "Run not found.");
     }
 
     c.get("logger").debug("Returning Codex run artifacts", {
-      runId: path.runId,
+      runId,
       turnCount: result.turns.length,
       eventCount: result.events.length
     });
 
-    symphonyCodexRunArtifactsResponseSchema.parse({
-      schemaVersion: "1",
-      ok: true,
-      data: result,
-      meta: {
-        durationMs: 0,
-        generatedAt: new Date().toISOString()
-      }
-    });
-
-    return jsonOk(c, result);
+    return validateAndSendCodexResponse(
+      c,
+      symphonyCodexRunArtifactsResponseSchema,
+      result
+    );
   });
 
   codexRoutes.get("/codex/runs/:runId/turns", async (c) => {
-    const path = parseWithSchema(symphonyCodexRunPathSchema, c.req.param());
-    const result = await services.codexAnalytics.listTurns(path.runId);
+    const runId = parseCodexRunId(c);
+    const result = await services.codexAnalytics.listTurns(runId);
 
     c.get("logger").debug("Returning Codex turns", {
-      runId: path.runId,
+      runId,
       count: result.turns.length
     });
 
-    symphonyCodexTurnListResponseSchema.parse({
-      schemaVersion: "1",
-      ok: true,
-      data: result,
-      meta: {
-        durationMs: 0,
-        generatedAt: new Date().toISOString()
-      }
-    });
-
-    return jsonOk(c, result, {
+    return validateAndSendCodexResponse(c, symphonyCodexTurnListResponseSchema, result, {
       count: result.turns.length
     });
   });
 
   codexRoutes.get("/codex/runs/:runId/items", async (c) => {
-    const path = parseWithSchema(symphonyCodexRunPathSchema, c.req.param());
-    const query = parseWithSchema(symphonyCodexRunTurnFilterSchema, c.req.query());
-    const result = await services.codexAnalytics.listItems({
-      runId: path.runId,
-      turnId: query.turnId
-    });
+    const { runId, turnId } = parseCodexRunTurnInput(c);
+    const result = await services.codexAnalytics.listItems(toRunTurnQuery(runId, turnId));
 
     c.get("logger").debug("Returning Codex items", {
-      runId: path.runId,
-      turnId: query.turnId ?? null,
+      runId,
+      turnId,
       count: result.items.length
     });
 
-    symphonyCodexItemListResponseSchema.parse({
-      schemaVersion: "1",
-      ok: true,
-      data: result,
-      meta: {
-        durationMs: 0,
-        generatedAt: new Date().toISOString()
-      }
-    });
-
-    return jsonOk(c, result, {
+    return validateAndSendCodexResponse(c, symphonyCodexItemListResponseSchema, result, {
       count: result.items.length
     });
   });
 
   codexRoutes.get("/codex/runs/:runId/command-executions", async (c) => {
-    const path = parseWithSchema(symphonyCodexRunPathSchema, c.req.param());
-    const query = parseWithSchema(symphonyCodexRunTurnFilterSchema, c.req.query());
-    const result = await services.codexAnalytics.listCommandExecutions({
-      runId: path.runId,
-      turnId: query.turnId
-    });
+    const { runId, turnId } = parseCodexRunTurnInput(c);
+    const result = await services.codexAnalytics.listCommandExecutions(
+      toRunTurnQuery(runId, turnId)
+    );
 
     c.get("logger").debug("Returning Codex command executions", {
-      runId: path.runId,
-      turnId: query.turnId ?? null,
+      runId,
+      turnId,
       count: result.commandExecutions.length
     });
 
-    symphonyCodexCommandExecutionListResponseSchema.parse({
-      schemaVersion: "1",
-      ok: true,
-      data: result,
-      meta: {
-        durationMs: 0,
-        generatedAt: new Date().toISOString()
+    return validateAndSendCodexResponse(
+      c,
+      symphonyCodexCommandExecutionListResponseSchema,
+      result,
+      {
+        count: result.commandExecutions.length
       }
-    });
-
-    return jsonOk(c, result, {
-      count: result.commandExecutions.length
-    });
+    );
   });
 
   codexRoutes.get("/codex/runs/:runId/tool-calls", async (c) => {
-    const path = parseWithSchema(symphonyCodexRunPathSchema, c.req.param());
-    const query = parseWithSchema(symphonyCodexRunTurnFilterSchema, c.req.query());
-    const result = await services.codexAnalytics.listToolCalls({
-      runId: path.runId,
-      turnId: query.turnId
-    });
+    const { runId, turnId } = parseCodexRunTurnInput(c);
+    const result = await services.codexAnalytics.listToolCalls(toRunTurnQuery(runId, turnId));
 
     c.get("logger").debug("Returning Codex tool calls", {
-      runId: path.runId,
-      turnId: query.turnId ?? null,
+      runId,
+      turnId,
       count: result.toolCalls.length
     });
 
-    symphonyCodexToolCallListResponseSchema.parse({
-      schemaVersion: "1",
-      ok: true,
-      data: result,
-      meta: {
-        durationMs: 0,
-        generatedAt: new Date().toISOString()
-      }
-    });
-
-    return jsonOk(c, result, {
+    return validateAndSendCodexResponse(c, symphonyCodexToolCallListResponseSchema, result, {
       count: result.toolCalls.length
     });
   });
 
   codexRoutes.get("/codex/runs/:runId/agent-messages", async (c) => {
-    const path = parseWithSchema(symphonyCodexRunPathSchema, c.req.param());
-    const query = parseWithSchema(symphonyCodexRunTurnFilterSchema, c.req.query());
-    const result = await services.codexAnalytics.listAgentMessages({
-      runId: path.runId,
-      turnId: query.turnId
-    });
+    const { runId, turnId } = parseCodexRunTurnInput(c);
+    const result = await services.codexAnalytics.listAgentMessages(
+      toRunTurnQuery(runId, turnId)
+    );
 
     c.get("logger").debug("Returning Codex agent messages", {
-      runId: path.runId,
-      turnId: query.turnId ?? null,
+      runId,
+      turnId,
       count: result.agentMessages.length
     });
 
-    symphonyCodexAgentMessageListResponseSchema.parse({
-      schemaVersion: "1",
-      ok: true,
-      data: result,
-      meta: {
-        durationMs: 0,
-        generatedAt: new Date().toISOString()
+    return validateAndSendCodexResponse(
+      c,
+      symphonyCodexAgentMessageListResponseSchema,
+      result,
+      {
+        count: result.agentMessages.length
       }
-    });
-
-    return jsonOk(c, result, {
-      count: result.agentMessages.length
-    });
+    );
   });
 
   codexRoutes.get("/codex/runs/:runId/reasoning", async (c) => {
-    const path = parseWithSchema(symphonyCodexRunPathSchema, c.req.param());
-    const query = parseWithSchema(symphonyCodexRunTurnFilterSchema, c.req.query());
-    const result = await services.codexAnalytics.listReasoning({
-      runId: path.runId,
-      turnId: query.turnId
-    });
+    const { runId, turnId } = parseCodexRunTurnInput(c);
+    const result = await services.codexAnalytics.listReasoning(toRunTurnQuery(runId, turnId));
 
     c.get("logger").debug("Returning Codex reasoning rows", {
-      runId: path.runId,
-      turnId: query.turnId ?? null,
+      runId,
+      turnId,
       count: result.reasoning.length
     });
 
-    symphonyCodexReasoningListResponseSchema.parse({
-      schemaVersion: "1",
-      ok: true,
-      data: result,
-      meta: {
-        durationMs: 0,
-        generatedAt: new Date().toISOString()
-      }
-    });
-
-    return jsonOk(c, result, {
+    return validateAndSendCodexResponse(c, symphonyCodexReasoningListResponseSchema, result, {
       count: result.reasoning.length
     });
   });
 
   codexRoutes.get("/codex/runs/:runId/file-changes", async (c) => {
-    const path = parseWithSchema(symphonyCodexRunPathSchema, c.req.param());
-    const query = parseWithSchema(symphonyCodexRunTurnFilterSchema, c.req.query());
-    const result = await services.codexAnalytics.listFileChanges({
-      runId: path.runId,
-      turnId: query.turnId
-    });
+    const { runId, turnId } = parseCodexRunTurnInput(c);
+    const result = await services.codexAnalytics.listFileChanges(toRunTurnQuery(runId, turnId));
 
     c.get("logger").debug("Returning Codex file changes", {
-      runId: path.runId,
-      turnId: query.turnId ?? null,
+      runId,
+      turnId,
       count: result.fileChanges.length
     });
 
-    symphonyCodexFileChangeListResponseSchema.parse({
-      schemaVersion: "1",
-      ok: true,
-      data: result,
-      meta: {
-        durationMs: 0,
-        generatedAt: new Date().toISOString()
-      }
-    });
-
-    return jsonOk(c, result, {
+    return validateAndSendCodexResponse(c, symphonyCodexFileChangeListResponseSchema, result, {
       count: result.fileChanges.length
     });
   });
 
   return codexRoutes;
+}
+
+type CodexRouteContext = Context<SymphonyRuntimeAppContextSchema>;
+
+function parseCodexRunId(c: CodexRouteContext): string {
+  return parseWithSchema(symphonyCodexRunPathSchema, c.req.param()).runId;
+}
+
+function parseCodexRunTurnInput(
+  c: CodexRouteContext
+): { runId: string; turnId: string | null } {
+  const runId = parseCodexRunId(c);
+  const query = parseWithSchema(symphonyCodexRunTurnFilterSchema, c.req.query());
+
+  return {
+    runId,
+    turnId: query.turnId ?? null
+  };
+}
+
+function toRunTurnQuery(runId: string, turnId: string | null) {
+  return turnId ? { runId, turnId } : { runId };
+}
+
+function logCodexRunNotFound(c: CodexRouteContext, message: string, runId: string) {
+  c.get("logger").warn(message, {
+    runId
+  });
+}
+
+function validateAndSendCodexResponse<T>(
+  c: CodexRouteContext,
+  responseSchema: {
+    parse(input: unknown): unknown;
+  },
+  data: T,
+  meta: {
+    count?: number;
+  } = {}
+) {
+  responseSchema.parse({
+    schemaVersion: "1",
+    ok: true,
+    data,
+    meta: {
+      durationMs: 0,
+      generatedAt: new Date().toISOString()
+    }
+  });
+
+  return jsonOk(c, data, meta.count === undefined ? undefined : { count: meta.count });
 }
