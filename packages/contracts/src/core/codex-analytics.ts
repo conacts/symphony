@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { jsonValueSchema } from "./json.js";
-import { nullableNonEmptyStringSchema, nonEmptyStringSchema } from "./shared.js";
+import { nonEmptyStringSchema } from "./shared.js";
 
 export const symphonyCodexUsageSchema = z.strictObject({
   input_tokens: z.number().int().nonnegative(),
@@ -40,11 +39,11 @@ export const symphonyCodexMcpToolCallItemSchema = z.strictObject({
   type: z.literal("mcp_tool_call"),
   server: nonEmptyStringSchema,
   tool: nonEmptyStringSchema,
-  arguments: jsonValueSchema,
+  arguments: z.unknown(),
   result: z
     .strictObject({
-      content: z.array(jsonValueSchema),
-      structured_content: jsonValueSchema
+      content: z.array(z.unknown()),
+      structured_content: z.unknown().optional()
     })
     .optional(),
   error: z
@@ -142,18 +141,7 @@ export const symphonyCodexStreamErrorEventSchema = z.strictObject({
   message: nonEmptyStringSchema
 });
 
-export const symphonyCodexSessionStartedEventSchema = z.strictObject({
-  type: z.literal("session.started"),
-  session_id: nonEmptyStringSchema,
-  thread_id: nullableNonEmptyStringSchema,
-  turn_id: nonEmptyStringSchema,
-  codex_app_server_pid: nullableNonEmptyStringSchema,
-  model: nullableNonEmptyStringSchema,
-  reasoning_effort: nullableNonEmptyStringSchema
-});
-
 export const symphonyCodexAnalyticsEventSchema = z.discriminatedUnion("type", [
-  symphonyCodexSessionStartedEventSchema,
   symphonyCodexThreadStartedEventSchema,
   symphonyCodexTurnStartedEventSchema,
   symphonyCodexTurnCompletedEventSchema,

@@ -22,7 +22,7 @@ afterEach(async () => {
 });
 
 describe("sqlite codex analytics read store", () => {
-  it("reconstructs a run export from Codex tables and resolves overflowed event payloads", async () => {
+  it("returns contract-native run detail and Codex projection artifacts from analytics tables", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-read-"));
     tempDirectories.push(root);
 
@@ -140,9 +140,6 @@ describe("sqlite codex analytics read store", () => {
         endedAt: "2026-04-03T20:37:41.000Z"
       });
 
-      const issues = await readStore.listIssues({
-        limit: 10
-      });
       const runs = await readStore.listRuns({
         limit: 10
       });
@@ -152,9 +149,29 @@ describe("sqlite codex analytics read store", () => {
       const problemRuns = await readStore.listProblemRuns({
         limit: 10
       });
-      const exportPayload = await readStore.fetchRunExport(runId);
+      const runDetail = await readStore.fetchRunDetail(runId);
+      const artifacts = await readStore.fetchRunArtifacts(runId);
+      const turns = await readStore.listTurns(runId);
+      const items = await readStore.listItems({
+        runId
+      });
+      const agentMessages = await readStore.listAgentMessages({
+        runId,
+        turnId
+      });
+      const commands = await readStore.listCommandExecutions({
+        runId
+      });
+      const tools = await readStore.listToolCalls({
+        runId
+      });
+      const reasoning = await readStore.listReasoning({
+        runId
+      });
+      const fileChanges = await readStore.listFileChanges({
+        runId
+      });
 
-      expect(issues[0]?.issueIdentifier).toBe("COL-157");
       expect(runs[0]?.runId).toBe(runId);
       expect(runs[0]?.turnCount).toBe(1);
       expect(runs[0]?.eventCount).toBe(3);
@@ -162,19 +179,20 @@ describe("sqlite codex analytics read store", () => {
       expect(runs[0]?.outputTokens).toBe(7);
       expect(issueRuns).toHaveLength(1);
       expect(problemRuns).toHaveLength(0);
-      expect(exportPayload?.run.runId).toBe(runId);
-      expect(exportPayload?.turns).toHaveLength(1);
-      expect(exportPayload?.turns[0]?.usage).toEqual({
+      expect(runDetail?.issue.issueIdentifier).toBe("COL-157");
+      expect(runDetail?.run.runId).toBe(runId);
+      expect(runDetail?.turns).toHaveLength(1);
+      expect(runDetail?.turns[0]?.usage).toEqual({
         input_tokens: 11,
         cached_input_tokens: 2,
         output_tokens: 7
       });
-      expect(exportPayload?.turns[0]?.events.map((event) => event.eventType)).toEqual([
+      expect(runDetail?.turns[0]?.events.map((event) => event.eventType)).toEqual([
         "thread.started",
         "item.completed",
         "turn.completed"
       ]);
-      expect(exportPayload?.turns[0]?.events[1]?.payload).toEqual({
+      expect(runDetail?.turns[0]?.events[1]?.payload).toEqual({
         type: "item.completed",
         item: {
           id: "item-1",
@@ -182,8 +200,30 @@ describe("sqlite codex analytics read store", () => {
           text: longMessage
         }
       });
-      expect(exportPayload?.turns[0]?.events[1]?.payloadBytes).toBeGreaterThan(64);
-      expect(exportPayload?.turns[0]?.events[1]?.summary).toBe(longMessage.slice(0, 279) + "…");
+      expect(runDetail?.turns[0]?.events[1]?.payloadBytes).toBeGreaterThan(64);
+      expect(runDetail?.turns[0]?.events[1]?.summary).toBe(longMessage.slice(0, 279) + "…");
+      expect(artifacts?.run.runId).toBe(runId);
+      expect(artifacts?.turns).toHaveLength(1);
+      expect(artifacts?.events.map((event) => event.eventType)).toEqual([
+        "thread.started",
+        "item.completed",
+        "turn.completed"
+      ]);
+      expect(turns).toHaveLength(1);
+      expect(turns[0]?.usage).toEqual({
+        input_tokens: 11,
+        cached_input_tokens: 2,
+        output_tokens: 7
+      });
+      expect(items).toHaveLength(1);
+      expect(items[0]?.itemType).toBe("agent_message");
+      expect(agentMessages).toHaveLength(1);
+      expect(agentMessages[0]?.textContent).toBeNull();
+      expect(agentMessages[0]?.textPreview).toBe(longMessage.slice(0, 279) + "…");
+      expect(commands).toHaveLength(0);
+      expect(tools).toHaveLength(0);
+      expect(reasoning).toHaveLength(0);
+      expect(fileChanges).toHaveLength(0);
     } finally {
       database.close();
     }

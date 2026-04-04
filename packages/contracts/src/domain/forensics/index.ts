@@ -12,6 +12,9 @@ export {
   symphonyForensicsIssueFlagSchema
 } from "./requests.js";
 export {
+  symphonyForensicsRunsQuerySchema
+} from "./run-queries.js";
+export {
   symphonyForensicsIssueSummarySchema,
   symphonyForensicsRunSummarySchema,
   symphonyForensicsIssueFiltersSchema,
@@ -32,6 +35,9 @@ export {
   symphonyForensicsProblemRunsResponseSchema
 } from "./responses.js";
 
+export type {
+  SymphonyForensicsRunsQuery
+} from "./run-queries.js";
 export type {
   SymphonyForensicsIssuesQuery,
   SymphonyForensicsIssueTimeRange,

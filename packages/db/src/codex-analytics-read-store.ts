@@ -6,23 +6,36 @@ import {
   previewText,
   type ThreadEvent
 } from "@symphony/codex-analytics";
-import type { JsonObject } from "@symphony/contracts";
 import type {
-  SymphonyEventRecord,
-  SymphonyIssueRecord,
-  SymphonyIssueSummary,
-  SymphonyRunExport,
-  SymphonyRunJournalListOptions,
-  SymphonyRunJournalProblemRunsOptions,
-  SymphonyRunJournalRunsOptions,
-  SymphonyRunRecord,
-  SymphonyRunSummary,
-  SymphonyTurnRecord
-} from "@symphony/run-journal";
+  JsonObject,
+  SymphonyCodexAgentMessageRecord,
+  SymphonyCodexCommandExecutionRecord,
+  SymphonyCodexEventRecord,
+  SymphonyCodexFileChangeRecord,
+  SymphonyCodexItemRecord,
+  SymphonyCodexRunQuery,
+  SymphonyCodexReasoningRecord,
+  SymphonyCodexRunArtifactsResult,
+  SymphonyCodexRunRecord,
+  SymphonyCodexRunTurnQuery,
+  SymphonyCodexToolCallRecord,
+  SymphonyCodexTurnRecord,
+  SymphonyForensicsIssueQuery,
+  SymphonyForensicsProblemRunsQuery,
+  SymphonyForensicsRunDetailResult,
+  SymphonyForensicsRunsQuery,
+  SymphonyForensicsRunSummary,
+} from "@symphony/contracts";
 import {
   codexEventLogTable,
+  codexAgentMessagesTable,
+  codexCommandExecutionsTable,
+  codexFileChangesTable,
+  codexItemsTable,
   codexPayloadOverflowTable,
+  codexReasoningTable,
   codexRunsTable,
+  codexToolCallsTable,
   codexTurnsTable,
   symphonyIssuesTable,
   symphonyRunsTable,
@@ -32,16 +45,29 @@ import {
 type SymphonyDbShape = typeof import("./schema.js").symphonySchema;
 
 export interface CodexAnalyticsReadStore {
-  listIssues(opts?: SymphonyRunJournalListOptions): Promise<SymphonyIssueSummary[]>;
-  listRuns(opts?: SymphonyRunJournalRunsOptions): Promise<SymphonyRunSummary[]>;
+  listRuns(opts?: SymphonyForensicsRunsQuery): Promise<SymphonyForensicsRunSummary[]>;
   listRunsForIssue(
     issueIdentifier: string,
-    opts?: SymphonyRunJournalListOptions
-  ): Promise<SymphonyRunSummary[]>;
+    opts?: Partial<SymphonyForensicsIssueQuery>
+  ): Promise<SymphonyForensicsRunSummary[]>;
   listProblemRuns(
-    opts?: SymphonyRunJournalProblemRunsOptions
-  ): Promise<SymphonyRunSummary[]>;
-  fetchRunExport(runId: string): Promise<SymphonyRunExport | null>;
+    opts?: Partial<SymphonyForensicsProblemRunsQuery>
+  ): Promise<SymphonyForensicsRunSummary[]>;
+  fetchRunDetail(runId: SymphonyCodexRunQuery["runId"]): Promise<SymphonyForensicsRunDetailResult | null>;
+  fetchRunArtifacts(
+    runId: SymphonyCodexRunQuery["runId"]
+  ): Promise<SymphonyCodexRunArtifactsResult | null>;
+  listTurns(runId: SymphonyCodexRunQuery["runId"]): Promise<SymphonyCodexTurnRecord[]>;
+  listItems(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexItemRecord[]>;
+  listCommandExecutions(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyCodexCommandExecutionRecord[]>;
+  listToolCalls(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexToolCallRecord[]>;
+  listAgentMessages(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyCodexAgentMessageRecord[]>;
+  listReasoning(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexReasoningRecord[]>;
+  listFileChanges(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexFileChangeRecord[]>;
 }
 
 export function createSqliteCodexAnalyticsReadStore(input: {
@@ -57,24 +83,9 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
     this.#db = db;
   }
 
-  async listIssues(
-    opts: SymphonyRunJournalListOptions = {}
-  ): Promise<SymphonyIssueSummary[]> {
-    const limit = normalizeLimit(opts.limit, 50);
-    const issues = this.#db
-      .select()
-      .from(symphonyIssuesTable)
-      .orderBy(desc(symphonyIssuesTable.latestRunStartedAt))
-      .limit(limit)
-      .all();
-    const runs = this.#db.select().from(symphonyRunsTable).all().map(castRunRecord);
-
-    return issues.map((issue) => buildIssueSummary(castIssueRecord(issue), runs));
-  }
-
   async listRuns(
-    opts: SymphonyRunJournalRunsOptions = {}
-  ): Promise<SymphonyRunSummary[]> {
+    opts: SymphonyForensicsRunsQuery = {}
+  ): Promise<SymphonyForensicsRunSummary[]> {
     const limit = normalizeLimit(opts.limit, 200);
     const runs = this.#db
       .select()
@@ -119,8 +130,8 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
 
   async listRunsForIssue(
     issueIdentifier: string,
-    opts: SymphonyRunJournalListOptions = {}
-  ): Promise<SymphonyRunSummary[]> {
+    opts: Partial<SymphonyForensicsIssueQuery> = {}
+  ): Promise<SymphonyForensicsRunSummary[]> {
     return this.listRuns({
       issueIdentifier,
       limit: opts.limit
@@ -128,8 +139,8 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
   }
 
   async listProblemRuns(
-    opts: SymphonyRunJournalProblemRunsOptions = {}
-  ): Promise<SymphonyRunSummary[]> {
+    opts: Partial<SymphonyForensicsProblemRunsQuery> = {}
+  ): Promise<SymphonyForensicsRunSummary[]> {
     return this.listRuns({
       limit: opts.limit,
       outcome: opts.outcome,
@@ -138,148 +149,175 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
     });
   }
 
-  async fetchRunExport(runId: string): Promise<SymphonyRunExport | null> {
-    const run = this.#db
-      .select()
-      .from(symphonyRunsTable)
-      .where(eq(symphonyRunsTable.runId, runId))
-      .get();
+  async fetchRunDetail(
+    runId: SymphonyCodexRunQuery["runId"]
+  ): Promise<SymphonyForensicsRunDetailResult | null> {
+    const data = await loadRunData(this.#db, runId);
 
-    if (!run) {
+    if (!data) {
       return null;
     }
 
-    const codexRun = this.#db
-      .select()
-      .from(codexRunsTable)
-      .where(eq(codexRunsTable.runId, runId))
-      .get();
+    const turns = buildForensicsTurns(data);
+    const allEvents = turns.flatMap((turn) => turn.events);
+    const lastEvent = [...allEvents].sort((left, right) => {
+      const recordedAtOrder = (right.recordedAt ?? "").localeCompare(left.recordedAt ?? "");
 
-    if (!codexRun) {
-      return null;
-    }
-
-    const issue = this.#db
-      .select()
-      .from(symphonyIssuesTable)
-      .where(eq(symphonyIssuesTable.issueId, run.issueId))
-      .get();
-
-    if (!issue) {
-      return null;
-    }
-
-    const [symphonyTurns, codexTurns, eventRows] = await Promise.all([
-      this.#db
-        .select()
-        .from(symphonyTurnsTable)
-        .where(eq(symphonyTurnsTable.runId, runId))
-        .orderBy(asc(symphonyTurnsTable.turnSequence))
-        .all(),
-      this.#db
-        .select()
-        .from(codexTurnsTable)
-        .where(eq(codexTurnsTable.runId, runId))
-        .all(),
-      this.#db
-        .select()
-        .from(codexEventLogTable)
-        .where(eq(codexEventLogTable.runId, runId))
-        .orderBy(asc(codexEventLogTable.sequence))
-        .all()
-    ]);
-
-    if (codexTurns.length === 0 && eventRows.length === 0) {
-      return null;
-    }
-
-    const overflowIds = eventRows
-      .map((row) => row.payloadOverflowId)
-      .filter((value): value is string => typeof value === "string");
-    const overflowRows =
-      overflowIds.length === 0
-        ? []
-        : this.#db
-            .select()
-            .from(codexPayloadOverflowTable)
-            .where(inArray(codexPayloadOverflowTable.id, overflowIds))
-            .all();
-    const overflowMap = new Map(overflowRows.map((row) => [row.id, row] as const));
-    const codexTurnMap = new Map(codexTurns.map((turn) => [turn.turnId, turn] as const));
-
-    const events: SymphonyEventRecord[] = eventRows.flatMap((row) => {
-      const payload = resolveEventPayload(row, overflowMap);
-
-      if (!row.turnId || !payload) {
-        return [];
+      if (recordedAtOrder !== 0) {
+        return recordedAtOrder;
       }
 
-      return [
-        {
-          eventId: row.id,
-          turnId: row.turnId,
-          runId: row.runId,
-          eventSequence: row.sequence,
-          eventType: row.eventType as SymphonyEventRecord["eventType"],
-          itemType: deriveItemType(payload),
-          itemStatus: deriveItemStatus(payload),
-          recordedAt: row.recordedAt,
-          payload: payload as SymphonyEventRecord["payload"],
-          payloadTruncated: row.payloadTruncated,
-          payloadBytes: byteLength(JSON.stringify(payload)),
-          summary: summarizeEvent(payload),
-          codexThreadId:
-            row.threadId ??
-            codexTurnMap.get(row.turnId)?.threadId ??
-            codexRun.threadId ??
-            null,
-          codexTurnId: row.turnId,
-          codexSessionId: null,
-          insertedAt: row.insertedAt
-        }
-      ];
-    });
+      return right.eventSequence - left.eventSequence;
+    })[0];
 
-    const turns = buildTurnRecords({
-      run,
-      symphonyTurns,
-      codexTurns,
-      codexRunThreadId: codexRun.threadId ?? null
-    });
+    return {
+      issue: buildForensicsIssueExport(data.issue, data.issueRuns),
+      run: {
+        ...buildRunSummaryFromCodex(
+          castRunRecord(data.run),
+          data.codexRun,
+          data.eventRows.length
+        ),
+        repoStart: castJsonObject(data.run.repoStart),
+        repoEnd: castJsonObject(data.run.repoEnd),
+        metadata: castJsonObject(data.run.metadata),
+        insertedAt: data.run.insertedAt,
+        updatedAt: data.run.updatedAt,
+        turnCount: turns.length,
+        eventCount: allEvents.length,
+        lastEventType: lastEvent?.eventType ?? null,
+        lastEventAt: lastEvent?.recordedAt ?? null
+      },
+      turns
+    };
+  }
 
-    return buildRunExport(
-      buildIssueSummary(castIssueRecord(issue), [castRunRecord(run)]),
-      castRunRecord(run),
-      turns,
-      events
-    );
+  async fetchRunArtifacts(
+    runId: SymphonyCodexRunQuery["runId"]
+  ): Promise<SymphonyCodexRunArtifactsResult | null> {
+    const data = await loadRunData(this.#db, runId);
+
+    if (!data) {
+      return null;
+    }
+
+    return {
+      run: mapCodexRunRecord(data.codexRun),
+      turns: mapCodexTurnRecords(data.codexTurns),
+      items: data.itemRows.map(mapCodexItemRecord),
+      commandExecutions: data.commandRows.map(mapCodexCommandExecutionRecord),
+      toolCalls: data.toolRows.map(mapCodexToolCallRecord),
+      agentMessages: data.agentMessageRows.map(mapCodexAgentMessageRecord),
+      reasoning: data.reasoningRows.map(mapCodexReasoningRecord),
+      fileChanges: data.fileChangeRows.map(mapCodexFileChangeRecord),
+      events: mapCodexEventRecords(data.eventRows, data.overflowMap, data.codexTurnMap, data.codexRun)
+    };
+  }
+
+  async listTurns(runId: SymphonyCodexRunQuery["runId"]): Promise<SymphonyCodexTurnRecord[]> {
+    const rows = await this.#db
+      .select()
+      .from(codexTurnsTable)
+      .where(eq(codexTurnsTable.runId, runId))
+      .orderBy(asc(codexTurnsTable.startedAt))
+      .all();
+
+    return mapCodexTurnRecords(rows);
+  }
+
+  async listItems(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexItemRecord[]> {
+    const rows = await this.#db
+      .select()
+      .from(codexItemsTable)
+      .where(eq(codexItemsTable.runId, input.runId))
+      .orderBy(asc(codexItemsTable.insertedAt))
+      .all();
+
+    return rows
+      .filter((row) => (input.turnId ? row.turnId === input.turnId : true))
+      .map(mapCodexItemRecord);
+  }
+
+  async listCommandExecutions(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyCodexCommandExecutionRecord[]> {
+    const rows = await this.#db
+      .select()
+      .from(codexCommandExecutionsTable)
+      .where(eq(codexCommandExecutionsTable.runId, input.runId))
+      .orderBy(asc(codexCommandExecutionsTable.insertedAt))
+      .all();
+
+    return rows
+      .filter((row) => (input.turnId ? row.turnId === input.turnId : true))
+      .map(mapCodexCommandExecutionRecord);
+  }
+
+  async listToolCalls(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexToolCallRecord[]> {
+    const rows = await this.#db
+      .select()
+      .from(codexToolCallsTable)
+      .where(eq(codexToolCallsTable.runId, input.runId))
+      .orderBy(asc(codexToolCallsTable.insertedAt))
+      .all();
+
+    return rows
+      .filter((row) => (input.turnId ? row.turnId === input.turnId : true))
+      .map(mapCodexToolCallRecord);
+  }
+
+  async listAgentMessages(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyCodexAgentMessageRecord[]> {
+    const rows = await this.#db
+      .select()
+      .from(codexAgentMessagesTable)
+      .where(eq(codexAgentMessagesTable.runId, input.runId))
+      .orderBy(asc(codexAgentMessagesTable.insertedAt))
+      .all();
+
+    return rows
+      .filter((row) => (input.turnId ? row.turnId === input.turnId : true))
+      .map(mapCodexAgentMessageRecord);
+  }
+
+  async listReasoning(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexReasoningRecord[]> {
+    const rows = await this.#db
+      .select()
+      .from(codexReasoningTable)
+      .where(eq(codexReasoningTable.runId, input.runId))
+      .orderBy(asc(codexReasoningTable.insertedAt))
+      .all();
+
+    return rows
+      .filter((row) => (input.turnId ? row.turnId === input.turnId : true))
+      .map(mapCodexReasoningRecord);
+  }
+
+  async listFileChanges(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyCodexFileChangeRecord[]> {
+    const rows = await this.#db
+      .select()
+      .from(codexFileChangesTable)
+      .where(eq(codexFileChangesTable.runId, input.runId))
+      .orderBy(asc(codexFileChangesTable.recordedAt))
+      .all();
+
+    return rows
+      .filter((row) => (input.turnId ? row.turnId === input.turnId : true))
+      .map(mapCodexFileChangeRecord);
   }
 }
 
-function buildTurnRecords(input: {
-  run: typeof symphonyRunsTable.$inferSelect;
-  symphonyTurns: Array<typeof symphonyTurnsTable.$inferSelect>;
-  codexTurns: Array<typeof codexTurnsTable.$inferSelect>;
-  codexRunThreadId: string | null;
-}): SymphonyTurnRecord[] {
-  const codexTurnMap = new Map(
-    input.codexTurns.map((turn) => [turn.turnId, turn] as const)
-  );
-  const knownTurnIds = new Set(input.symphonyTurns.map((turn) => turn.turnId));
-  const baseTurns = input.symphonyTurns.map((turn) =>
-    castTurnRecord(turn, codexTurnMap.get(turn.turnId), input.codexRunThreadId)
-  );
-  const maxTurnSequence = baseTurns.reduce(
-    (max, turn) => Math.max(max, turn.turnSequence),
-    0
-  );
-  const syntheticTurns = input.codexTurns
-    .filter((turn) => !knownTurnIds.has(turn.turnId))
-    .sort((left, right) => compareNullableIso(left.startedAt, right.startedAt))
-    .map((turn, index) => synthesizeTurnRecord(input.run, turn, maxTurnSequence + index + 1));
+type LegacyRunRecord = typeof symphonyRunsTable.$inferSelect & {
+  repoStart: JsonObject | null;
+  repoEnd: JsonObject | null;
+  metadata: JsonObject | null;
+};
 
-  return [...baseTurns, ...syntheticTurns];
-}
+type ForensicsTurn = SymphonyForensicsRunDetailResult["turns"][number];
+type ForensicsEvent = ForensicsTurn["events"][number];
 
 function resolveEventPayload(
   row: typeof codexEventLogTable.$inferSelect,
@@ -299,21 +337,9 @@ function resolveEventPayload(
   return isThreadEvent(overflowRow?.contentJson) ? overflowRow.contentJson : null;
 }
 
-function castIssueRecord(
-  issue: typeof symphonyIssuesTable.$inferSelect
-): SymphonyIssueRecord {
-  return {
-    issueId: issue.issueId,
-    issueIdentifier: issue.issueIdentifier,
-    latestRunStartedAt: issue.latestRunStartedAt,
-    insertedAt: issue.insertedAt,
-    updatedAt: issue.updatedAt
-  };
-}
-
 function castRunRecord(
   run: typeof symphonyRunsTable.$inferSelect
-): SymphonyRunRecord {
+): LegacyRunRecord {
   return {
     ...run,
     repoStart: castJsonObject(run.repoStart),
@@ -323,10 +349,10 @@ function castRunRecord(
 }
 
 function buildRunSummaryFromCodex(
-  run: SymphonyRunRecord,
+  run: LegacyRunRecord,
   codexRun: typeof codexRunsTable.$inferSelect | undefined,
   eventCount: number
-): SymphonyRunSummary {
+): SymphonyForensicsRunSummary {
   const inputTokens = codexRun?.inputTokens ?? 0;
   const outputTokens = codexRun?.outputTokens ?? 0;
 
@@ -356,47 +382,10 @@ function buildRunSummaryFromCodex(
   };
 }
 
-function castTurnRecord(
-  turn: typeof symphonyTurnsTable.$inferSelect,
-  codexTurn: typeof codexTurnsTable.$inferSelect | undefined,
-  codexRunThreadId: string | null
-): SymphonyTurnRecord {
-  return {
-    ...turn,
-    codexThreadId: codexTurn?.threadId ?? turn.codexThreadId ?? codexRunThreadId,
-    usage: buildUsage(codexTurn, turn.usage),
-    metadata: castJsonObject(turn.metadata)
-  };
-}
-
-function synthesizeTurnRecord(
-  run: typeof symphonyRunsTable.$inferSelect,
-  codexTurn: typeof codexTurnsTable.$inferSelect,
-  turnSequence: number
-): SymphonyTurnRecord {
-  return {
-    turnId: codexTurn.turnId,
-    runId: codexTurn.runId,
-    turnSequence,
-    codexThreadId: codexTurn.threadId ?? null,
-    codexTurnId: codexTurn.turnId,
-    codexSessionId: null,
-    // Keep the transcript readable if a legacy prompt row is absent.
-    promptText: "[codex prompt unavailable]",
-    status: codexTurn.status,
-    startedAt: codexTurn.startedAt ?? run.startedAt,
-    endedAt: codexTurn.endedAt ?? null,
-    usage: buildUsage(codexTurn, null),
-    metadata: null,
-    insertedAt: codexTurn.insertedAt,
-    updatedAt: codexTurn.updatedAt
-  };
-}
-
 function buildUsage(
   codexTurn: typeof codexTurnsTable.$inferSelect | undefined,
   legacyUsage: unknown
-): SymphonyTurnRecord["usage"] {
+): SymphonyCodexTurnRecord["usage"] {
   if (codexTurn) {
     const usage = {
       input_tokens: codexTurn.inputTokens,
@@ -438,12 +427,12 @@ function castJsonObject(value: unknown): JsonObject | null {
 
 function deriveItemType(
   payload: ThreadEvent
-): SymphonyEventRecord["itemType"] {
+): ForensicsEvent["itemType"] {
   switch (payload.type) {
     case "item.started":
     case "item.updated":
     case "item.completed":
-      return payload.item.type as SymphonyEventRecord["itemType"];
+      return payload.item.type as ForensicsEvent["itemType"];
     default:
       return null;
   }
@@ -451,7 +440,7 @@ function deriveItemType(
 
 function deriveItemStatus(
   payload: ThreadEvent
-): SymphonyEventRecord["itemStatus"] {
+): ForensicsEvent["itemStatus"] {
   switch (payload.type) {
     case "item.started":
     case "item.updated":
@@ -460,7 +449,7 @@ function deriveItemStatus(
         case "command_execution":
         case "file_change":
         case "mcp_tool_call":
-          return payload.item.status as SymphonyEventRecord["itemStatus"];
+          return payload.item.status as ForensicsEvent["itemStatus"];
         default:
           return null;
       }
@@ -546,8 +535,8 @@ function isProblemOutcome(outcome: string | null): boolean {
 }
 
 function matchesRunFilters(
-  run: SymphonyRunRecord,
-  opts: SymphonyRunJournalRunsOptions
+  run: LegacyRunRecord,
+  opts: SymphonyForensicsRunsQuery
 ): boolean {
   if (opts.issueIdentifier && run.issueIdentifier !== opts.issueIdentifier) {
     return false;
@@ -584,10 +573,10 @@ function matchesRunFilters(
   return true;
 }
 
-function buildIssueSummary(
-  issue: SymphonyIssueRecord,
-  runs: SymphonyRunRecord[]
-): SymphonyIssueSummary {
+function buildForensicsIssueExport(
+  issue: typeof symphonyIssuesTable.$inferSelect,
+  runs: Array<typeof symphonyRunsTable.$inferSelect>
+): SymphonyForensicsRunDetailResult["issue"] {
   const issueRuns = runs
     .filter((run) => run.issueId === issue.issueId)
     .sort((left, right) => compareDescendingTimestamps(left.startedAt, right.startedAt));
@@ -610,30 +599,303 @@ function buildIssueSummary(
   };
 }
 
-function buildRunExport(
-  issue: SymphonyIssueSummary,
-  run: SymphonyRunRecord,
-  turns: SymphonyTurnRecord[],
-  events: SymphonyEventRecord[]
-): SymphonyRunExport {
-  const runTurns = turns
-    .filter((turn) => turn.runId === run.runId)
-    .sort((left, right) => left.turnSequence - right.turnSequence);
+function mapCodexRunRecord(
+  run: typeof codexRunsTable.$inferSelect
+): SymphonyCodexRunRecord {
+  return {
+    ...run,
+    totalTokens: run.inputTokens + run.outputTokens
+  };
+}
+
+function mapCodexTurnRecord(
+  turn: typeof codexTurnsTable.$inferSelect
+): SymphonyCodexTurnRecord {
+  return {
+    ...turn,
+    totalTokens: turn.inputTokens + turn.outputTokens,
+    usage: buildUsage(turn, null)
+  };
+}
+
+function mapCodexTurnRecords(
+  turns: Array<typeof codexTurnsTable.$inferSelect>
+): SymphonyCodexTurnRecord[] {
+  return [...turns]
+    .sort((left, right) => compareNullableIso(left.startedAt, right.startedAt))
+    .map(mapCodexTurnRecord);
+}
+
+function mapCodexItemRecord(
+  row: typeof codexItemsTable.$inferSelect
+): SymphonyCodexItemRecord {
+  return { ...row };
+}
+
+function mapCodexCommandExecutionRecord(
+  row: typeof codexCommandExecutionsTable.$inferSelect
+): SymphonyCodexCommandExecutionRecord {
+  return { ...row };
+}
+
+function mapCodexToolCallRecord(
+  row: typeof codexToolCallsTable.$inferSelect
+): SymphonyCodexToolCallRecord {
+  return {
+    ...row,
+    argumentsJson: (row.argumentsJson ?? null) as SymphonyCodexToolCallRecord["argumentsJson"]
+  };
+}
+
+function mapCodexAgentMessageRecord(
+  row: typeof codexAgentMessagesTable.$inferSelect
+): SymphonyCodexAgentMessageRecord {
+  return { ...row };
+}
+
+function mapCodexReasoningRecord(
+  row: typeof codexReasoningTable.$inferSelect
+): SymphonyCodexReasoningRecord {
+  return { ...row };
+}
+
+function mapCodexFileChangeRecord(
+  row: typeof codexFileChangesTable.$inferSelect
+): SymphonyCodexFileChangeRecord {
+  return { ...row };
+}
+
+function mapCodexEventRecords(
+  eventRows: Array<typeof codexEventLogTable.$inferSelect>,
+  overflowMap: Map<string, typeof codexPayloadOverflowTable.$inferSelect>,
+  codexTurnMap: Map<string, typeof codexTurnsTable.$inferSelect>,
+  codexRun: typeof codexRunsTable.$inferSelect
+): SymphonyCodexEventRecord[] {
+  return eventRows.flatMap((row) => {
+    const payload = resolveEventPayload(row, overflowMap);
+
+    if (!payload) {
+      return [];
+    }
+
+    let inferredThreadId: string | null = row.threadId;
+
+    if (inferredThreadId === null && row.turnId) {
+      inferredThreadId = codexTurnMap.get(row.turnId)?.threadId ?? null;
+    }
+
+    if (inferredThreadId === null) {
+      inferredThreadId = codexRun.threadId;
+    }
+
+    return [{
+      eventId: row.id,
+      turnId: row.turnId ?? null,
+      runId: row.runId,
+      threadId: inferredThreadId,
+      itemId: row.itemId ?? null,
+      eventSequence: row.sequence,
+      eventType: row.eventType,
+      recordedAt: row.recordedAt,
+      payload,
+      payloadTruncated: row.payloadTruncated,
+      insertedAt: row.insertedAt
+    }];
+  });
+}
+
+function buildForensicsTurns(input: RunData): ForensicsTurn[] {
+  const knownTurnIds = new Set(input.symphonyTurns.map((turn) => turn.turnId));
+  const baseTurns = input.symphonyTurns.map((turn) =>
+    mapForensicsTurnRecord(turn, input.codexTurnMap.get(turn.turnId), input.codexRun.threadId ?? null)
+  );
+  const maxTurnSequence = baseTurns.reduce(
+    (max, turn) => Math.max(max, turn.turnSequence),
+    0
+  );
+  const syntheticTurns = input.codexTurns
+    .filter((turn) => !knownTurnIds.has(turn.turnId))
+    .sort((left, right) => compareNullableIso(left.startedAt, right.startedAt))
+    .map((turn, index) =>
+      synthesizeForensicsTurnRecord(input.run, turn, maxTurnSequence + index + 1)
+    );
+  const turns = [...baseTurns, ...syntheticTurns];
+
+  return turns.map((turn) => ({
+    ...turn,
+    eventCount: input.events.filter((event) => event.turnId === turn.turnId).length,
+    events: input.events.filter((event) => event.turnId === turn.turnId)
+  }));
+}
+
+function mapForensicsTurnRecord(
+  turn: typeof symphonyTurnsTable.$inferSelect,
+  codexTurn: typeof codexTurnsTable.$inferSelect | undefined,
+  codexRunThreadId: string | null
+): Omit<ForensicsTurn, "eventCount" | "events"> {
+  return {
+    ...turn,
+    codexThreadId: codexTurn?.threadId ?? turn.codexThreadId ?? codexRunThreadId,
+    usage: buildUsage(codexTurn, turn.usage),
+    metadata: castJsonObject(turn.metadata)
+  };
+}
+
+function synthesizeForensicsTurnRecord(
+  run: typeof symphonyRunsTable.$inferSelect,
+  codexTurn: typeof codexTurnsTable.$inferSelect,
+  turnSequence: number
+): Omit<ForensicsTurn, "eventCount" | "events"> {
+  return {
+    turnId: codexTurn.turnId,
+    runId: codexTurn.runId,
+    turnSequence,
+    codexThreadId: codexTurn.threadId ?? null,
+    codexTurnId: codexTurn.turnId,
+    codexSessionId: null,
+    promptText: "[codex prompt unavailable]",
+    status: codexTurn.status,
+    startedAt: codexTurn.startedAt ?? run.startedAt,
+    endedAt: codexTurn.endedAt ?? null,
+    usage: buildUsage(codexTurn, null),
+    metadata: null,
+    insertedAt: codexTurn.insertedAt,
+    updatedAt: codexTurn.updatedAt
+  };
+}
+
+function buildForensicsEvents(input: {
+  eventRows: Array<typeof codexEventLogTable.$inferSelect>;
+  overflowMap: Map<string, typeof codexPayloadOverflowTable.$inferSelect>;
+  codexTurnMap: Map<string, typeof codexTurnsTable.$inferSelect>;
+  codexRun: typeof codexRunsTable.$inferSelect;
+}): ForensicsEvent[] {
+  return input.eventRows.flatMap((row) => {
+    const payload = resolveEventPayload(row, input.overflowMap);
+
+    if (!row.turnId || !payload) {
+      return [];
+    }
+
+    return [{
+      eventId: row.id,
+      turnId: row.turnId,
+      runId: row.runId,
+      eventSequence: row.sequence,
+      eventType: row.eventType,
+      itemType: deriveItemType(payload),
+      itemStatus: deriveItemStatus(payload),
+      recordedAt: row.recordedAt,
+      payload,
+      payloadTruncated: row.payloadTruncated,
+      payloadBytes: byteLength(JSON.stringify(payload)),
+      summary: summarizeEvent(payload),
+      codexThreadId:
+        row.threadId ??
+        input.codexTurnMap.get(row.turnId)?.threadId ??
+        input.codexRun.threadId ??
+        null,
+      codexTurnId: row.turnId,
+      codexSessionId: null,
+      insertedAt: row.insertedAt
+    }];
+  });
+}
+
+type RunData = {
+  run: typeof symphonyRunsTable.$inferSelect;
+  codexRun: typeof codexRunsTable.$inferSelect;
+  issue: typeof symphonyIssuesTable.$inferSelect;
+  issueRuns: Array<typeof symphonyRunsTable.$inferSelect>;
+  symphonyTurns: Array<typeof symphonyTurnsTable.$inferSelect>;
+  codexTurns: Array<typeof codexTurnsTable.$inferSelect>;
+  eventRows: Array<typeof codexEventLogTable.$inferSelect>;
+  overflowMap: Map<string, typeof codexPayloadOverflowTable.$inferSelect>;
+  codexTurnMap: Map<string, typeof codexTurnsTable.$inferSelect>;
+  itemRows: Array<typeof codexItemsTable.$inferSelect>;
+  commandRows: Array<typeof codexCommandExecutionsTable.$inferSelect>;
+  toolRows: Array<typeof codexToolCallsTable.$inferSelect>;
+  agentMessageRows: Array<typeof codexAgentMessagesTable.$inferSelect>;
+  reasoningRows: Array<typeof codexReasoningTable.$inferSelect>;
+  fileChangeRows: Array<typeof codexFileChangesTable.$inferSelect>;
+  events: ForensicsEvent[];
+};
+
+async function loadRunData(
+  db: BetterSQLite3Database<SymphonyDbShape>,
+  runId: string
+): Promise<RunData | null> {
+  const run = db
+    .select()
+    .from(symphonyRunsTable)
+    .where(eq(symphonyRunsTable.runId, runId))
+    .get();
+
+  if (!run) {
+    return null;
+  }
+
+  const [codexRun, issue, issueRuns, symphonyTurns, codexTurns, eventRows, itemRows, commandRows, toolRows, agentMessageRows, reasoningRows, fileChangeRows] =
+    await Promise.all([
+      db.select().from(codexRunsTable).where(eq(codexRunsTable.runId, runId)).get(),
+      db.select().from(symphonyIssuesTable).where(eq(symphonyIssuesTable.issueId, run.issueId)).get(),
+      db.select().from(symphonyRunsTable).where(eq(symphonyRunsTable.issueId, run.issueId)).all(),
+      db.select().from(symphonyTurnsTable).where(eq(symphonyTurnsTable.runId, runId)).orderBy(asc(symphonyTurnsTable.turnSequence)).all(),
+      db.select().from(codexTurnsTable).where(eq(codexTurnsTable.runId, runId)).all(),
+      db.select().from(codexEventLogTable).where(eq(codexEventLogTable.runId, runId)).orderBy(asc(codexEventLogTable.sequence)).all(),
+      db.select().from(codexItemsTable).where(eq(codexItemsTable.runId, runId)).all(),
+      db.select().from(codexCommandExecutionsTable).where(eq(codexCommandExecutionsTable.runId, runId)).all(),
+      db.select().from(codexToolCallsTable).where(eq(codexToolCallsTable.runId, runId)).all(),
+      db.select().from(codexAgentMessagesTable).where(eq(codexAgentMessagesTable.runId, runId)).all(),
+      db.select().from(codexReasoningTable).where(eq(codexReasoningTable.runId, runId)).all(),
+      db.select().from(codexFileChangesTable).where(eq(codexFileChangesTable.runId, runId)).all()
+    ]);
+
+  if (!codexRun || !issue) {
+    return null;
+  }
+
+  if (codexTurns.length === 0 && eventRows.length === 0) {
+    return null;
+  }
+
+  const overflowIds = eventRows
+    .map((row) => row.payloadOverflowId)
+    .filter((value): value is string => typeof value === "string");
+  const overflowRows =
+    overflowIds.length === 0
+      ? []
+      : db
+          .select()
+          .from(codexPayloadOverflowTable)
+          .where(inArray(codexPayloadOverflowTable.id, overflowIds))
+          .all();
+  const overflowMap = new Map(overflowRows.map((row) => [row.id, row] as const));
+  const codexTurnMap = new Map(codexTurns.map((turn) => [turn.turnId, turn] as const));
+  const events = buildForensicsEvents({
+    eventRows,
+    overflowMap,
+    codexTurnMap,
+    codexRun
+  });
 
   return {
-    issue,
     run,
-    turns: runTurns.map((turn) => {
-      const turnEvents = events
-        .filter((event) => event.turnId === turn.turnId)
-        .sort((left, right) => left.eventSequence - right.eventSequence);
-
-      return {
-        ...turn,
-        eventCount: turnEvents.length,
-        events: turnEvents
-      };
-    })
+    codexRun,
+    issue,
+    issueRuns,
+    symphonyTurns,
+    codexTurns,
+    eventRows,
+    overflowMap,
+    codexTurnMap,
+    itemRows,
+    commandRows,
+    toolRows,
+    agentMessageRows,
+    reasoningRows,
+    fileChangeRows,
+    events
   };
 }
 
