@@ -109,6 +109,12 @@ export function buildSymphonyDashboardFoundation(
         readiness: "available"
       },
       {
+        href: "/analysis",
+        label: "Analysis",
+        description: "Start with the cross-run operator view before drilling into a specific analysis dimension.",
+        readiness: "available"
+      },
+      {
         href: "/analysis/failures",
         label: "Failure analysis",
         description: "Review cross-run failure patterns and the issues carrying the highest failure load.",

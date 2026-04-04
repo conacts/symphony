@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisPageHeader } from "@/features/analysis/components/analysis-page-header";
+import { AnalysisPageNav } from "@/features/analysis/components/analysis-page-nav";
 import { AnalysisSpotlightItem } from "@/features/analysis/components/analysis-spotlight-item";
 import { TokenIssueChart } from "@/features/analysis/components/token-issue-chart";
 import { TokenRunChart } from "@/features/analysis/components/token-run-chart";
@@ -50,6 +51,7 @@ export function TokenAnalysisView(input: {
             description="Cross-run token pressure across runs, turns, and issues so you can see where orchestration cost is concentrating."
             focus="Use this page to identify which runs, turns, and issues are driving the largest share of current token usage."
           />
+          <AnalysisPageNav />
 
           <section className="space-y-3">
             <div className="space-y-1">

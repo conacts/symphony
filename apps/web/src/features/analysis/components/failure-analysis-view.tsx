@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisPageHeader } from "@/features/analysis/components/analysis-page-header";
+import { AnalysisPageNav } from "@/features/analysis/components/analysis-page-nav";
 import { AnalysisSpotlightItem } from "@/features/analysis/components/analysis-spotlight-item";
 import { FailureErrorClassChart } from "@/features/analysis/components/failure-error-class-chart";
 import { FailureModeChart } from "@/features/analysis/components/failure-mode-chart";
@@ -49,6 +50,7 @@ export function FailureAnalysisView(input: {
             description="Cross-run failure patterns for deciding where orchestration improvements will matter most."
             focus="Use this page to identify which failure modes and error classes are currently creating the heaviest operator drag."
           />
+          <AnalysisPageNav />
 
           <section className="space-y-3">
             <div className="space-y-1">

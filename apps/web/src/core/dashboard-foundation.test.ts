@@ -41,9 +41,10 @@ describe("dashboard foundation", () => {
 
     expect(foundation.contractsPackageName).toBe("@symphony/contracts");
     expect(foundation.schemaVersion).toBe("1");
-    expect(foundation.navigation).toHaveLength(6);
+    expect(foundation.navigation).toHaveLength(7);
     expect(foundation.navigation.map((item) => item.href)).toEqual([
       "/",
+      "/analysis",
       "/analysis/failures",
       "/analysis/performance",
       "/analysis/tokens",

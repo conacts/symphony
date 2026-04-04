@@ -24,6 +24,7 @@ import type {
 
 const navigationIcons = {
   Overview: LayoutDashboardIcon,
+  Analysis: ChartColumnIncreasingIcon,
   "Failure analysis": ChartColumnIncreasingIcon,
   "Performance analysis": ChartColumnIncreasingIcon,
   "Token analysis": ChartColumnIncreasingIcon,
