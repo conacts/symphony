@@ -261,7 +261,7 @@ export const symphonyForensicsTurnSchema = z.strictObject({
   codexTurnId: nullableNonEmptyStringSchema,
   codexSessionId: nullableNonEmptyStringSchema,
   promptText: nonEmptyStringSchema,
-  status: nullableNonEmptyStringSchema,
+  status: nonEmptyStringSchema,
   startedAt: isoTimestampSchema,
   endedAt: isoTimestampSchema.nullable(),
   usage: symphonyCodexUsageSchema.nullable(),

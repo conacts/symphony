@@ -346,6 +346,47 @@ describe("symphony runtime contracts", () => {
     expect(parsed.ok).toBe(true);
   });
 
+  it("rejects runtime entries that omit nullable state fields", () => {
+    expect(() =>
+      symphonyRuntimeStateResponseSchema.parse({
+        schemaVersion: "1",
+        ok: true,
+        meta: {
+          durationMs: 1,
+          generatedAt: "2026-03-31T00:00:00.000Z"
+        },
+        data: {
+          counts: { running: 1, retrying: 0 },
+          running: [
+            {
+              issueId: "issue-1",
+              issueIdentifier: "COL-157",
+              state: "In Progress",
+              workspace: null,
+              launchTarget: null,
+              turnCount: 0,
+              startedAt: "2026-03-31T00:00:00.000Z",
+              lastEventAt: null,
+              tokens: {
+                inputTokens: 0,
+                outputTokens: 0,
+                totalTokens: 0
+              }
+            }
+          ],
+          retrying: [],
+          codexTotals: {
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            secondsRunning: 0
+          },
+          rateLimits: null
+        }
+      })
+    ).toThrow();
+  });
+
   it("parses refresh requests and responses", () => {
     const request = symphonyRuntimeRefreshRequestSchema.parse({});
     const response = symphonyRuntimeRefreshResponseSchema.parse({

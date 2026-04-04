@@ -138,14 +138,14 @@ export const symphonyRuntimeRunningEntrySchema = z.strictObject({
   issueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   state: nonEmptyStringSchema,
-  workerHost: nullableNonEmptyStringSchema.optional(),
-  workspacePath: nullableNonEmptyStringSchema.optional(),
-  sessionId: nullableNonEmptyStringSchema.optional(),
+  workerHost: nullableNonEmptyStringSchema,
+  workspacePath: nullableNonEmptyStringSchema,
+  sessionId: nullableNonEmptyStringSchema,
   workspace: z.lazy(() => symphonyRuntimeWorkspaceSchema).nullable(),
   launchTarget: z.lazy(() => symphonyRuntimeLaunchTargetSchema).nullable(),
   turnCount: z.number().int().nonnegative(),
-  lastEvent: nullableNonEmptyStringSchema.optional(),
-  lastMessage: nullableNonEmptyStringSchema.optional(),
+  lastEvent: nullableNonEmptyStringSchema,
+  lastMessage: nullableNonEmptyStringSchema,
   startedAt: isoTimestampSchema.nullable(),
   lastEventAt: isoTimestampSchema.nullable(),
   tokens: symphonyRuntimeTokenTotalsSchema
@@ -156,9 +156,9 @@ export const symphonyRuntimeRetryEntrySchema = z.strictObject({
   issueIdentifier: nonEmptyStringSchema,
   attempt: z.number().int().positive(),
   dueAt: isoTimestampSchema.nullable(),
-  error: nullableNonEmptyStringSchema.optional(),
-  workerHost: nullableNonEmptyStringSchema.optional(),
-  workspacePath: nullableNonEmptyStringSchema.optional(),
+  error: nullableNonEmptyStringSchema,
+  workerHost: nullableNonEmptyStringSchema,
+  workspacePath: nullableNonEmptyStringSchema,
   workspace: z.lazy(() => symphonyRuntimeWorkspaceSchema).nullable(),
   launchTarget: z.lazy(() => symphonyRuntimeLaunchTargetSchema).nullable()
 });
@@ -250,15 +250,15 @@ export const symphonyRuntimeIssueStatusSchema = z.enum([
 ]);
 
 export const symphonyRuntimeIssueRunningStateSchema = z.strictObject({
-  workerHost: nullableNonEmptyStringSchema.optional(),
-  workspacePath: nullableNonEmptyStringSchema.optional(),
-  sessionId: nullableNonEmptyStringSchema.optional(),
+  workerHost: nullableNonEmptyStringSchema,
+  workspacePath: nullableNonEmptyStringSchema,
+  sessionId: nullableNonEmptyStringSchema,
   launchTarget: symphonyRuntimeLaunchTargetSchema.nullable(),
   turnCount: z.number().int().nonnegative(),
   state: nonEmptyStringSchema,
   startedAt: isoTimestampSchema.nullable(),
-  lastEvent: nullableNonEmptyStringSchema.optional(),
-  lastMessage: nullableNonEmptyStringSchema.optional(),
+  lastEvent: nullableNonEmptyStringSchema,
+  lastMessage: nullableNonEmptyStringSchema,
   lastEventAt: isoTimestampSchema.nullable(),
   tokens: symphonyRuntimeTokenTotalsSchema
 });
@@ -266,9 +266,9 @@ export const symphonyRuntimeIssueRunningStateSchema = z.strictObject({
 export const symphonyRuntimeIssueRetryStateSchema = z.strictObject({
   attempt: z.number().int().positive(),
   dueAt: isoTimestampSchema.nullable(),
-  error: nullableNonEmptyStringSchema.optional(),
-  workerHost: nullableNonEmptyStringSchema.optional(),
-  workspacePath: nullableNonEmptyStringSchema.optional(),
+  error: nullableNonEmptyStringSchema,
+  workerHost: nullableNonEmptyStringSchema,
+  workspacePath: nullableNonEmptyStringSchema,
   launchTarget: symphonyRuntimeLaunchTargetSchema.nullable()
 });
 
