@@ -1,0 +1,40 @@
+"use client";
+
+import { useMemo } from "react";
+import { ControlPlaneShell } from "@/components/control-plane-shell";
+import { IssueActivityView } from "@/components/issue-activity-view";
+import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
+import { buildRuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
+import { useIssueForensicsBundle } from "@/hooks/use-issue-forensics-bundle";
+
+export function IssueActivityLiveScreen(input: {
+  issueIdentifier: string;
+  model: SymphonyDashboardFoundationModel;
+}) {
+  const issueActivityState = useIssueForensicsBundle({
+    runtimeBaseUrl: input.model.runtimeBaseUrl,
+    websocketUrl: input.model.websocketUrl,
+    issueIdentifier: input.issueIdentifier
+  });
+  const connection = useMemo(
+    () =>
+      buildRuntimeSummaryConnectionState({
+        status: issueActivityState.status,
+        error: issueActivityState.error,
+        hasSnapshot: issueActivityState.resource !== null
+      }),
+    [issueActivityState.error, issueActivityState.resource, issueActivityState.status]
+  );
+
+  return (
+    <ControlPlaneShell connection={connection} model={input.model}>
+      <IssueActivityView
+        connection={connection}
+        error={issueActivityState.error}
+        issueActivity={issueActivityState.resource}
+        issueIdentifier={input.issueIdentifier}
+        loading={issueActivityState.loading}
+      />
+    </ControlPlaneShell>
+  );
+}

@@ -198,9 +198,7 @@ export async function fetchProblemRuns(
 export function shouldRefreshIssueIndex(
   message: SymphonyRealtimeServerMessage
 ): boolean {
-  return (
-    message.type === "issue.updated" || message.type === "problem-runs.updated"
-  );
+  return message.type === "issue.updated" || message.type === "run.updated";
 }
 
 export function shouldRefreshIssueDetail(

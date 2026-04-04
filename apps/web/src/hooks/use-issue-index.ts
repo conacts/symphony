@@ -15,7 +15,7 @@ export function useIssueIndex(input: {
   return useRealtimeResource({
     loadResource: () => fetchIssueIndex(input.runtimeBaseUrl, input.query),
     websocketUrl: input.websocketUrl,
-    channels: ["issues", "problem-runs"],
+    channels: ["issues", "runs"],
     shouldRefresh: shouldRefreshIssueIndex,
     refreshKey: `${input.runtimeBaseUrl}:issues:${JSON.stringify(input.query)}`
   });

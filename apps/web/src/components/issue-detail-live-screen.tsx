@@ -6,14 +6,14 @@ import { IssueDetailView } from "@/components/issue-detail-view";
 import { IssueRequeuePanel } from "@/components/issue-requeue-panel";
 import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
 import { buildRuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
-import { useIssueForensicsBundle } from "@/hooks/use-issue-forensics-bundle";
+import { useIssueDetail } from "@/hooks/use-issue-detail";
 import { useRuntimeIssue } from "@/hooks/use-runtime-issue";
 
 export function IssueDetailLiveScreen(input: {
   issueIdentifier: string;
   model: SymphonyDashboardFoundationModel;
 }) {
-  const issueDetailState = useIssueForensicsBundle({
+  const issueDetailState = useIssueDetail({
     runtimeBaseUrl: input.model.runtimeBaseUrl,
     websocketUrl: input.model.websocketUrl,
     issueIdentifier: input.issueIdentifier
@@ -46,6 +46,7 @@ export function IssueDetailLiveScreen(input: {
           connection={connection}
           error={issueDetailState.error}
           issueDetail={issueDetailState.resource}
+          issueIdentifier={input.issueIdentifier}
           loading={issueDetailState.loading}
         />
       </div>

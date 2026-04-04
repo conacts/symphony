@@ -111,25 +111,13 @@ export function buildSymphonyDashboardFoundation(
       {
         href: "/issues",
         label: "Issues",
-        description: "Browse recorded issues and drill into the run history for each one.",
-        readiness: "available"
-      },
-      {
-        href: "/problem-runs",
-        label: "Problem runs",
-        description: "Inspect the latest failed, rate-limited, and max-turn runs across issues.",
+        description: "Browse recorded issues, open run history, and drill into issue activity.",
         readiness: "available"
       },
       {
         href: "/runtime/health",
         label: "Runtime health",
         description: "Check the runtime poller, DB readiness, and recent scheduler state.",
-        readiness: "available"
-      },
-      {
-        href: "/runtime/logs",
-        label: "Runtime logs",
-        description: "Tail the persisted runtime log stream for platform and issue activity.",
         readiness: "available"
       }
     ],

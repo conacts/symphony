@@ -25,7 +25,7 @@ describe("run transcript view", () => {
     expect(html).toContain("Structured run conversation");
     expect(html).toContain("Turn 1");
     expect(html).toContain("Tool call");
-    expect(html).toContain("Run metadata");
+    expect(html).toContain("Debug context");
     expect(html).toContain("View full message");
   });
 });

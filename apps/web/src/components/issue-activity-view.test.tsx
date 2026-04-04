@@ -3,25 +3,25 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   buildSymphonyDashboardConnectionState,
-  buildSymphonyForensicsIssueDetailResult
+  buildSymphonyForensicsIssueForensicsBundleResult
 } from "../test-support/build-symphony-dashboard-view-fixtures.js";
-import { IssueDetailView } from "./issue-detail-view.js";
+import { IssueActivityView } from "./issue-activity-view.js";
 
-describe("issue detail view", () => {
-  it("renders the issue run history drilldown", () => {
+describe("issue activity view", () => {
+  it("renders the unified issue activity stream", () => {
     const html = renderToStaticMarkup(
-      <IssueDetailView
+      <IssueActivityView
         connection={buildSymphonyDashboardConnectionState()}
         error={null}
-        issueDetail={buildSymphonyForensicsIssueDetailResult()}
+        issueActivity={buildSymphonyForensicsIssueForensicsBundleResult()}
         issueIdentifier="COL-165"
         loading={false}
       />
     );
 
-    expect(html).toContain("Issue runs");
-    expect(html).toContain("Run history");
     expect(html).toContain("Issue activity");
-    expect(html).toContain("/issues/COL-165/timeline");
+    expect(html).toContain("Activity stream");
+    expect(html).toContain("Latest failure");
+    expect(html).toContain("/issues/COL-165");
   });
 });

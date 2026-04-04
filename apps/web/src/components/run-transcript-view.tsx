@@ -144,33 +144,48 @@ export function RunTranscriptView(input: {
             ))}
           </section>
 
-          <section className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="flex min-w-0 flex-col gap-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Structured run conversation</CardTitle>
-                  <CardDescription>
-                    Codex turns, assistant messages, commands, tools, reasoning, and file changes in chronological order.
-                  </CardDescription>
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {viewModel.metadata.map((row) => (
+              <Card key={row.label}>
+                <CardHeader className="space-y-1 pb-2">
+                  <CardDescription>{row.label}</CardDescription>
+                  <CardTitle className="text-lg">{row.value}</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-8">
-                  {viewModel.hasTranscript ? (
-                    viewModel.transcriptTurns.map((turn) => (
-                      <RunTranscriptTurn
-                        key={turn.turnId}
-                        turn={turn}
-                        onOpenOverflow={openOverflow}
-                      />
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No Codex transcript items were captured for this run.
-                    </p>
-                  )}
-                </CardContent>
               </Card>
-            </div>
+            ))}
+          </section>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Structured run conversation</CardTitle>
+              <CardDescription>
+                Codex turns, assistant messages, commands, tools, reasoning, and file changes in chronological order.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-8">
+              {viewModel.hasTranscript ? (
+                viewModel.transcriptTurns.map((turn) => (
+                  <RunTranscriptTurn
+                    key={turn.turnId}
+                    turn={turn}
+                    onOpenOverflow={openOverflow}
+                  />
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No Codex transcript items were captured for this run.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <section className="flex flex-col gap-4">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Debug context</h2>
+              <p className="text-sm text-muted-foreground">
+                Repository snapshots and raw Codex events for deeper debugging.
+              </p>
+            </div>
             <RunDebugPanel viewModel={viewModel} />
           </section>
         </>

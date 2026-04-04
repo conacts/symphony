@@ -2,29 +2,13 @@
 
 import React from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CodexRunViewModel } from "@/core/codex-run-view-model";
 
 export function RunDebugPanel(input: {
   viewModel: CodexRunViewModel;
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Run metadata</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {input.viewModel.metadata.map((row) => (
-            <div key={row.label} className="flex flex-col gap-1">
-              <p className="text-xs font-medium text-muted-foreground">{row.label}</p>
-              <p className="text-sm">{row.value}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Accordion type="multiple" className="w-full space-y-4">
+    <Accordion type="multiple" className="w-full space-y-4">
         <AccordionItem value="repo-start" className="rounded-lg border px-4">
           <AccordionTrigger>Repo start snapshot</AccordionTrigger>
           <AccordionContent>
@@ -59,6 +43,5 @@ export function RunDebugPanel(input: {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-    </div>
   );
 }

@@ -5,9 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   ActivityIcon,
   FolderKanbanIcon,
-  LayoutDashboardIcon,
-  ScrollTextIcon,
-  TriangleAlertIcon
+  LayoutDashboardIcon
 } from "lucide-react";
 import { IssueStateIcon } from "@/components/issue-state-icon";
 import {
@@ -26,9 +24,7 @@ import type {
 const navigationIcons = {
   Overview: LayoutDashboardIcon,
   Issues: FolderKanbanIcon,
-  "Problem runs": TriangleAlertIcon,
-  "Runtime health": ActivityIcon,
-  "Runtime logs": ScrollTextIcon
+  "Runtime health": ActivityIcon
 } as const;
 
 export function DashboardNavigation(input: {

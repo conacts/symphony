@@ -1,8 +1,7 @@
 import type {
   SymphonyForensicsIssueDetailResult,
   SymphonyForensicsIssueForensicsBundleResult,
-  SymphonyForensicsIssueListResult,
-  SymphonyForensicsProblemRunsResult
+  SymphonyForensicsIssueListResult
 } from "@symphony/contracts";
 
 export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult) {
@@ -91,9 +90,35 @@ export function buildIssueDetailViewModel(
   };
 }
 
-export function buildIssueForensicsBundleViewModel(
+export function buildIssueActivityViewModel(
   input: SymphonyForensicsIssueForensicsBundleResult
 ) {
+  const activityRows = [
+    ...input.timeline.map((entry) => ({
+      entryId: `timeline:${entry.entryId}`,
+      recordedAt: entry.recordedAt,
+      source: entry.source,
+      eventType: entry.eventType,
+      runId: entry.runId ?? "n/a",
+      message: entry.message ?? "n/a",
+      detail: prettyValue(entry.payload)
+    })),
+    ...input.runtimeLogs.map((entry) => ({
+      entryId: `runtime:${entry.entryId}`,
+      recordedAt: entry.recordedAt,
+      source: `runtime:${entry.source}`,
+      eventType: entry.eventType,
+      runId: entry.runId ?? "n/a",
+      message: entry.message,
+      detail: prettyValue(entry.payload)
+    }))
+  ]
+    .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt))
+    .map((row) => ({
+      ...row,
+      recordedAt: formatTimestamp(row.recordedAt)
+    }));
+
   return {
     metrics: [
       {
@@ -107,32 +132,16 @@ export function buildIssueForensicsBundleViewModel(
         detail: "Share of runs ending in a non-success outcome."
       },
       {
-        label: "Retries",
-        value: formatCount(input.issue.retryCount),
-        detail: "Observed retry attempts for this issue."
+        label: "Timeline entries",
+        value: formatCount(input.timeline.length),
+        detail: "Persisted issue-level timeline events."
       },
       {
-        label: "Latest problem",
-        value: input.issue.latestProblemOutcome ?? "n/a",
-        detail: "Most recent non-success outcome."
-      },
-      {
-        label: "Last completed",
-        value: input.issue.lastCompletedOutcome ?? "n/a",
-        detail: "Most recent successful/completed outcome."
+        label: "Runtime logs",
+        value: formatCount(input.runtimeLogs.length),
+        detail: "Persisted runtime-side logs for this issue."
       }
     ],
-    rows: input.recentRuns.map((run) => ({
-      runId: run.runId,
-      runHref: `/runs/${run.runId}`,
-      startedAt: formatTimestamp(run.startedAt),
-      durationSeconds:
-        run.durationSeconds === null ? "n/a" : formatDuration(run.durationSeconds),
-      totalTokens: formatCount(run.totalTokens),
-      turnsAndEvents: `${formatCount(run.turnCount)} / ${formatCount(run.eventCount)}`,
-      status: run.status ?? "n/a",
-      outcome: run.outcome ?? "n/a"
-    })),
     latestFailure:
       input.latestFailure === null
         ? null
@@ -141,62 +150,9 @@ export function buildIssueForensicsBundleViewModel(
             startedAt: formatTimestamp(input.latestFailure.startedAt),
             outcome: input.latestFailure.outcome ?? "n/a",
             errorClass: input.latestFailure.errorClass ?? "n/a",
-            errorMessage: input.latestFailure.errorMessage ?? "n/a",
-            timelineCount: formatCount(input.latestFailure.timelineEntries.length),
-            runtimeLogCount: formatCount(input.latestFailure.runtimeLogs.length)
+            errorMessage: input.latestFailure.errorMessage ?? "n/a"
           },
-    timelineRows: input.timeline.map((entry) => ({
-      entryId: entry.entryId,
-      recordedAt: formatTimestamp(entry.recordedAt),
-      source: entry.source,
-      eventType: entry.eventType,
-      message: entry.message ?? "n/a",
-      payloadText: prettyValue(entry.payload)
-    })),
-    runtimeLogRows: input.runtimeLogs.map((entry) => ({
-      entryId: entry.entryId,
-      recordedAt: formatTimestamp(entry.recordedAt),
-      level: entry.level,
-      source: entry.source,
-      eventType: entry.eventType,
-      message: entry.message,
-      issueIdentifier: entry.issueIdentifier ?? "n/a",
-      runId: entry.runId ?? "n/a",
-      payloadText: prettyValue(entry.payload)
-    }))
-  };
-}
-
-export function buildProblemRunsViewModel(
-  input: SymphonyForensicsProblemRunsResult
-) {
-  return {
-    summaryCards: [
-      {
-        label: "Problem runs",
-        value: formatCount(input.problemRuns.length)
-      },
-      {
-        label: "Distinct outcomes",
-        value: formatCount(Object.keys(input.problemSummary).length)
-      }
-    ],
-    rows: input.problemRuns.map((run) => ({
-      runId: run.runId,
-      runHref: `/runs/${run.runId}`,
-      issueIdentifier: run.issueIdentifier,
-      issueHref: `/issues/${run.issueIdentifier}`,
-      startedAt: formatTimestamp(run.startedAt),
-      outcome: run.outcome ?? "n/a",
-      errorClass: run.errorClass ?? "n/a",
-      durationSeconds:
-        run.durationSeconds === null ? "n/a" : formatDuration(run.durationSeconds),
-      totalTokens: formatCount(run.totalTokens)
-    })),
-    outcomeSummary: Object.entries(input.problemSummary).map(([outcome, count]) => ({
-      outcome,
-      count: formatCount(count)
-    }))
+    activityRows
   };
 }
 

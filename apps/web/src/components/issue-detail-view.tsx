@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
@@ -17,17 +18,18 @@ import {
   TableRow
 } from "@/components/ui/table";
 import type { RuntimeSummaryConnectionState } from "@/core/runtime-summary-view-model";
-import { buildIssueForensicsBundleViewModel } from "@/core/forensics-view-model";
-import type { SymphonyForensicsIssueForensicsBundleResult } from "@symphony/contracts";
+import { buildIssueDetailViewModel } from "@/core/forensics-view-model";
+import type { SymphonyForensicsIssueDetailResult } from "@symphony/contracts";
 
 export function IssueDetailView(input: {
   connection: RuntimeSummaryConnectionState;
   error: string | null;
-  issueDetail: SymphonyForensicsIssueForensicsBundleResult | null;
+  issueDetail: SymphonyForensicsIssueDetailResult | null;
   loading: boolean;
+  issueIdentifier: string;
 }) {
   const viewModel = input.issueDetail
-    ? buildIssueForensicsBundleViewModel(input.issueDetail)
+    ? buildIssueDetailViewModel(input.issueDetail)
     : null;
 
   return (
@@ -41,16 +43,46 @@ export function IssueDetailView(input: {
 
       {viewModel ? (
         <>
+          <section className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-muted-foreground">
+              {input.issueIdentifier}
+            </p>
+            <h1 className="text-3xl font-semibold tracking-tight">Issue runs</h1>
+            <p className="text-sm text-muted-foreground">
+              Run history is the primary surface here. Timeline and runtime debugging move to the dedicated activity page.
+            </p>
+          </section>
+
           <section className="grid gap-5 md:grid-cols-3">
             {viewModel.metrics.map((metric) => (
               <Card key={metric.label}>
                 <CardHeader>
                   <CardDescription>{metric.label}</CardDescription>
                   <CardTitle className="text-3xl">{metric.value}</CardTitle>
+                  {metric.detail ? (
+                    <CardDescription>{metric.detail}</CardDescription>
+                  ) : null}
                 </CardHeader>
               </Card>
             ))}
           </section>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Issue activity</CardTitle>
+              <CardDescription>
+                Tracker events, runtime logs, and deep debugging now live on a separate page so this screen can stay focused on run history.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link
+                href={`/issues/${input.issueIdentifier}/timeline`}
+                className="text-sm font-medium text-foreground underline underline-offset-4"
+              >
+                Open issue activity
+              </Link>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
@@ -107,125 +139,6 @@ export function IssueDetailView(input: {
               )}
             </CardContent>
           </Card>
-
-          {viewModel.latestFailure ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Latest failure</CardTitle>
-                <CardDescription>
-                  Most recent failing or degraded execution captured for this issue.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
-                <div>
-                  <p className="font-medium text-foreground">Run</p>
-                  <p>{viewModel.latestFailure.runId}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Started</p>
-                  <p>{viewModel.latestFailure.startedAt}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Outcome</p>
-                  <p>{viewModel.latestFailure.outcome}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Error class</p>
-                  <p>{viewModel.latestFailure.errorClass}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Timeline entries</p>
-                  <p>{viewModel.latestFailure.timelineCount}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Runtime logs</p>
-                  <p>{viewModel.latestFailure.runtimeLogCount}</p>
-                </div>
-                <div className="md:col-span-3">
-                  <p className="font-medium text-foreground">Message</p>
-                  <p>{viewModel.latestFailure.errorMessage}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          <section className="grid gap-6 xl:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Issue timeline</CardTitle>
-                <CardDescription>
-                  Persisted tracker, runtime, workspace, and Codex events for this issue.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {viewModel.timelineRows.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No timeline entries have been recorded yet.
-                  </p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Time</TableHead>
-                        <TableHead>Source</TableHead>
-                        <TableHead>Event</TableHead>
-                        <TableHead>Message</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {viewModel.timelineRows.map((row) => (
-                        <TableRow key={row.entryId}>
-                          <TableCell>{row.recordedAt}</TableCell>
-                          <TableCell>{row.source}</TableCell>
-                          <TableCell>{row.eventType}</TableCell>
-                          <TableCell className="max-w-sm truncate">{row.message}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Runtime logs</CardTitle>
-                <CardDescription>
-                  Persisted runtime-side logs associated with this issue.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {viewModel.runtimeLogRows.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No runtime logs have been recorded for this issue yet.
-                  </p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Time</TableHead>
-                        <TableHead>Level</TableHead>
-                        <TableHead>Source</TableHead>
-                        <TableHead>Event</TableHead>
-                        <TableHead>Message</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {viewModel.runtimeLogRows.map((row) => (
-                        <TableRow key={row.entryId}>
-                          <TableCell>{row.recordedAt}</TableCell>
-                          <TableCell>{row.level}</TableCell>
-                          <TableCell>{row.source}</TableCell>
-                          <TableCell>{row.eventType}</TableCell>
-                          <TableCell className="max-w-sm truncate">{row.message}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </section>
         </>
       ) : input.loading ? (
         <section className="grid gap-4 md:grid-cols-3">

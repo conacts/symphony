@@ -41,13 +41,11 @@ describe("dashboard foundation", () => {
 
     expect(foundation.contractsPackageName).toBe("@symphony/contracts");
     expect(foundation.schemaVersion).toBe("1");
-    expect(foundation.navigation).toHaveLength(5);
+    expect(foundation.navigation).toHaveLength(3);
     expect(foundation.navigation.map((item) => item.href)).toEqual([
       "/",
       "/issues",
-      "/problem-runs",
-      "/runtime/health",
-      "/runtime/logs"
+      "/runtime/health"
     ]);
     expect(foundation.websocketUrl).toBe("ws://127.0.0.1:4500/api/v1/ws");
     expect(foundation.runtimeSurface.stateUrl).toBe(
