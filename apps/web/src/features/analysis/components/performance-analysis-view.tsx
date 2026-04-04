@@ -20,7 +20,9 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PerformanceCommandFamilyChart } from "@/features/analysis/components/performance-command-family-chart";
+import { PerformanceLatencyBreakdownChart } from "@/features/analysis/components/performance-latency-breakdown-chart";
 import { PerformanceToolChart } from "@/features/analysis/components/performance-tool-chart";
+import { PerformanceTurnLatencyChart } from "@/features/analysis/components/performance-turn-latency-chart";
 import type { PerformanceAnalysisViewModel } from "@/features/analysis/model/performance-analysis-view-model";
 import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 
@@ -50,6 +52,20 @@ export function PerformanceAnalysisView(input: {
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {input.performanceAnalysis.summaryCards.map((card) => (
+              <Card key={card.label}>
+                <CardHeader className="space-y-1 pb-2">
+                  <CardDescription>{card.label}</CardDescription>
+                  <CardTitle className="break-all text-2xl">{card.value}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  {card.detail}
+                </CardContent>
+              </Card>
+            ))}
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {input.performanceAnalysis.latencyCards.map((card) => (
               <Card key={card.label}>
                 <CardHeader className="space-y-1 pb-2">
                   <CardDescription>{card.label}</CardDescription>
@@ -107,6 +123,15 @@ export function PerformanceAnalysisView(input: {
                     {input.performanceAnalysis.spotlight.flakiestToolDetail}
                   </p>
                 </div>
+                <div className="rounded-xl border border-border/70 p-4 md:col-span-2">
+                  <p className="text-sm text-muted-foreground">Slowest turn</p>
+                  <p className="mt-2 break-all text-xl font-semibold">
+                    {input.performanceAnalysis.spotlight.slowestTurn}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {input.performanceAnalysis.spotlight.slowestTurnDetail}
+                  </p>
+                </div>
               </CardContent>
             </Card>
 
@@ -114,6 +139,15 @@ export function PerformanceAnalysisView(input: {
               rows={input.performanceAnalysis.commandFamilyRows}
             />
             <PerformanceToolChart rows={input.performanceAnalysis.toolRows} />
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-2">
+            <PerformanceLatencyBreakdownChart
+              rows={input.performanceAnalysis.latencyBreakdownRows}
+            />
+            <PerformanceTurnLatencyChart
+              rows={input.performanceAnalysis.slowTurnRows}
+            />
           </section>
 
           <Card>

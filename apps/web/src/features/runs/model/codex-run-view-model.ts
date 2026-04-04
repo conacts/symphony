@@ -13,12 +13,17 @@ import {
   formatCount,
   formatDuration,
   formatDurationMilliseconds,
+  formatPercent,
   formatTimestamp
 } from "@/core/display-formatters";
 import {
   classifyCommand,
   formatCommandFamilyLabel
 } from "@/core/command-family";
+import {
+  buildCodexTurnLatencyRows,
+  sumTurnLatencyTotals
+} from "@/core/codex-latency";
 
 export type CodexRunTranscriptEntry =
   | {
@@ -127,6 +132,24 @@ export type CodexRunViewModel = {
       status: string;
     }>;
   };
+  turnLatency: {
+    cards: Array<{
+      label: string;
+      value: string;
+      detail: string;
+    }>;
+    rows: Array<{
+      turnLabel: string;
+      status: string;
+      wallClockMs: number;
+      reasoningMs: number;
+      commandMs: number;
+      toolMs: number;
+      messageMs: number;
+      unclassifiedMs: number;
+      wallClock: string;
+    }>;
+  };
   transcriptTurns: CodexRunTranscriptTurn[];
   hasTranscript: boolean;
   repoStartText: string;
@@ -159,6 +182,7 @@ export function buildCodexRunViewModel(input: {
     run.errorMessage ??
     null;
   const executionPerformance = buildExecutionPerformance(runArtifacts);
+  const turnLatency = buildTurnLatency(runArtifacts, input.runDetail.turns);
 
   return {
     issueIdentifier: input.runDetail.issue.issueIdentifier,
@@ -235,6 +259,7 @@ export function buildCodexRunViewModel(input: {
       }
     ],
     executionPerformance,
+    turnLatency,
     transcriptTurns,
     hasTranscript: transcriptTurns.length > 0,
     repoStartText: formatRepoSnapshot(run.repoStart),
@@ -396,6 +421,61 @@ function buildExecutionPerformance(
 
 function safeDurationMs(value: number | null) {
   return value ?? 0;
+}
+
+function buildTurnLatency(
+  runArtifacts: SymphonyCodexRunArtifactsResult | null,
+  forensicsTurns: SymphonyForensicsRunDetailResult["turns"]
+): CodexRunViewModel["turnLatency"] {
+  const rows = runArtifacts
+    ? buildCodexTurnLatencyRows({
+        runArtifacts,
+        forensicsTurns
+      })
+    : [];
+  const totals = sumTurnLatencyTotals(rows);
+  const averageWallClockMs = rows.length === 0 ? 0 : totals.wallClockMs / rows.length;
+  const slowestTurn = [...rows].sort((left, right) => right.wallClockMs - left.wallClockMs)[0];
+  const executionDurationMs = totals.commandMs + totals.toolMs;
+  const executionShare = totals.wallClockMs === 0 ? 0 : executionDurationMs / totals.wallClockMs;
+
+  return {
+    cards: [
+      {
+        label: "Recorded turns",
+        value: formatCount(rows.length),
+        detail: "Turns with readable Codex timing data."
+      },
+      {
+        label: "Average turn wall time",
+        value: formatDurationMilliseconds(averageWallClockMs),
+        detail: "Average wall-clock time across all recorded turns."
+      },
+      {
+        label: "Slowest turn",
+        value: slowestTurn?.turnLabel ?? "n/a",
+        detail: slowestTurn
+          ? `${formatDurationMilliseconds(slowestTurn.wallClockMs)} wall-clock time.`
+          : "No turn latency data is available for this run."
+      },
+      {
+        label: "Execution share",
+        value: formatPercent(executionShare),
+        detail: `${formatDurationMilliseconds(executionDurationMs)} command + tool time across the run.`
+      }
+    ],
+    rows: rows.map((row) => ({
+      turnLabel: row.turnLabel,
+      status: row.status,
+      wallClockMs: row.wallClockMs,
+      reasoningMs: row.reasoningMs,
+      commandMs: row.commandMs,
+      toolMs: row.toolMs,
+      messageMs: row.messageMs,
+      unclassifiedMs: row.unclassifiedMs,
+      wallClock: formatDurationMilliseconds(row.wallClockMs)
+    }))
+  };
 }
 
 function mapTranscriptEntry(input: {

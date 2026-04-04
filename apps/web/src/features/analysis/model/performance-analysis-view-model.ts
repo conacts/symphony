@@ -5,6 +5,10 @@ import type {
 } from "@symphony/contracts";
 import { classifyCommand, formatCommandFamilyLabel } from "@/core/command-family";
 import {
+  buildCodexTurnLatencyRows,
+  sumTurnLatencyTotals
+} from "@/core/codex-latency";
+import {
   formatCount,
   formatDurationMilliseconds,
   formatPercent,
@@ -26,6 +30,11 @@ export type PerformanceAnalysisViewModel = {
     value: string;
     detail: string;
   }>;
+  latencyCards: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
   commandFamilyRows: Array<{
     family: string;
     avgDurationMs: number;
@@ -37,6 +46,24 @@ export type PerformanceAnalysisViewModel = {
     avgDurationMs: number;
     sampleCount: number;
     failureCount: number;
+  }>;
+  latencyBreakdownRows: Array<{
+    phase: string;
+    durationMs: number;
+  }>;
+  slowTurnRows: Array<{
+    turnLabel: string;
+    issueIdentifier: string;
+    runHref: string;
+    issueHref: string;
+    wallClock: string;
+    wallClockMs: number;
+    reasoningMs: number;
+    commandMs: number;
+    toolMs: number;
+    messageMs: number;
+    unclassifiedMs: number;
+    status: string;
   }>;
   hotspotRows: Array<{
     kind: string;
@@ -59,6 +86,8 @@ export type PerformanceAnalysisViewModel = {
     slowestToolDetail: string;
     flakiestTool: string;
     flakiestToolDetail: string;
+    slowestTurn: string;
+    slowestTurnDetail: string;
   };
 };
 
@@ -81,6 +110,11 @@ export function buildPerformanceAnalysisViewModel(
   const commandFamilyMap = new Map<string, OperationAggregate>();
   const toolMap = new Map<string, OperationAggregate>();
   const hotspotMap = new Map<string, OperationAggregate>();
+  const turnLatencyRows = input.sampledRuns.flatMap((sampledRun) =>
+    buildCodexTurnLatencyRows({
+      runArtifacts: sampledRun.artifacts
+    })
+  );
 
   for (const sampledRun of input.sampledRuns) {
     for (const command of sampledRun.artifacts.commandExecutions) {
@@ -184,6 +218,55 @@ export function buildPerformanceAnalysisViewModel(
   const flakiestCommandFamily = sortByFailureRate(commandFamilyMap)[0];
   const slowestTool = sortByAverageDuration(toolMap)[0];
   const flakiestTool = sortByFailureRate(toolMap)[0];
+  const latencyTotals = sumTurnLatencyTotals(turnLatencyRows);
+  const averageTurnWallClockMs =
+    turnLatencyRows.length === 0 ? 0 : latencyTotals.wallClockMs / turnLatencyRows.length;
+  const executionShare =
+    latencyTotals.wallClockMs === 0
+      ? 0
+      : (latencyTotals.commandMs + latencyTotals.toolMs) / latencyTotals.wallClockMs;
+  const slowestTurn = [...turnLatencyRows].sort(
+    (left, right) => right.wallClockMs - left.wallClockMs
+  )[0];
+  const latencyBreakdownRows = [
+    {
+      phase: "Reasoning",
+      durationMs: latencyTotals.reasoningMs
+    },
+    {
+      phase: "Commands",
+      durationMs: latencyTotals.commandMs
+    },
+    {
+      phase: "Tools",
+      durationMs: latencyTotals.toolMs
+    },
+    {
+      phase: "Messages",
+      durationMs: latencyTotals.messageMs
+    },
+    {
+      phase: "Other",
+      durationMs: latencyTotals.unclassifiedMs
+    }
+  ].filter((row) => row.durationMs > 0);
+  const slowTurnRows = [...turnLatencyRows]
+    .sort((left, right) => right.wallClockMs - left.wallClockMs)
+    .slice(0, 8)
+    .map((row) => ({
+      turnLabel: row.turnLabel,
+      issueIdentifier: row.issueIdentifier,
+      runHref: `/runs/${row.runId}`,
+      issueHref: `/issues/${row.issueIdentifier}`,
+      wallClock: formatDurationMilliseconds(row.wallClockMs),
+      wallClockMs: row.wallClockMs,
+      reasoningMs: row.reasoningMs,
+      commandMs: row.commandMs,
+      toolMs: row.toolMs,
+      messageMs: row.messageMs,
+      unclassifiedMs: row.unclassifiedMs,
+      status: row.status
+    }));
 
   return {
     summaryCards: [
@@ -208,8 +291,34 @@ export function buildPerformanceAnalysisViewModel(
         detail: "Share of command executions that did not complete cleanly."
       }
     ],
+    latencyCards: [
+      {
+        label: "Sampled turns",
+        value: formatCount(turnLatencyRows.length),
+        detail: "Turns with readable latency data in the current sample."
+      },
+      {
+        label: "Average turn wall time",
+        value: formatDurationMilliseconds(averageTurnWallClockMs),
+        detail: "Average wall-clock time across the sampled turns."
+      },
+      {
+        label: "Execution share",
+        value: formatPercent(executionShare),
+        detail: "Share of wall-clock time spent in commands and tools."
+      },
+      {
+        label: "Slowest turn",
+        value: slowestTurn ? `${slowestTurn.issueIdentifier} · ${slowestTurn.turnLabel}` : "n/a",
+        detail: slowestTurn
+          ? `${formatDurationMilliseconds(slowestTurn.wallClockMs)} wall-clock time.`
+          : "No slow-turn signal is available yet."
+      }
+    ],
     commandFamilyRows,
     toolRows,
+    latencyBreakdownRows,
+    slowTurnRows,
     hotspotRows,
     spotlight: {
       slowestCommandFamily: slowestCommandFamily?.label ?? "n/a",
@@ -228,6 +337,15 @@ export function buildPerformanceAnalysisViewModel(
       flakiestToolDetail: flakiestTool
         ? `${formatPercent(flakiestTool.failureCount / flakiestTool.sampleCount)} of sampled calls degraded.`
         : "No tool failure data is available yet."
+      ,
+      slowestTurn: slowestTurn
+        ? `${slowestTurn.issueIdentifier} · ${slowestTurn.turnLabel}`
+        : "n/a",
+      slowestTurnDetail: slowestTurn
+        ? `${formatDurationMilliseconds(slowestTurn.wallClockMs)} wall-clock time with ${formatDurationMilliseconds(
+            slowestTurn.commandMs + slowestTurn.toolMs
+          )} execution time.`
+        : "No slow-turn data is available yet."
     }
   };
 }

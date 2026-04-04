@@ -33,6 +33,8 @@ describe("performance analysis view", () => {
     );
 
     expect(html).toContain("Performance analysis");
+    expect(html).toContain("Latency composition");
+    expect(html).toContain("Slow turns");
     expect(html).toContain("Command family hotspots");
     expect(html).toContain("Tool call hotspots");
     expect(html).toContain("Execution hotspots");

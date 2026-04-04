@@ -58,8 +58,10 @@ describe("performance analysis view model", () => {
 
     expect(viewModel.summaryCards[0]?.value).toBe("1");
     expect(viewModel.summaryCards[1]?.value).toBe("2");
+    expect(viewModel.latencyCards[0]?.value).toBe("1");
     expect(viewModel.commandFamilyRows[0]?.family).toBe("python");
     expect(viewModel.toolRows[0]?.toolLabel).toBe("linear.search_documentation");
+    expect(viewModel.slowTurnRows[0]?.turnLabel).toBe("Turn 1");
     expect(viewModel.hotspotRows[0]?.label).toContain("search_documentation");
     expect(viewModel.spotlight.flakiestCommandFamily).toBe("python");
   });
