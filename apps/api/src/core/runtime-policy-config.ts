@@ -26,7 +26,7 @@ function createOpenRouterProfile(profile: string, defaultModel: string) {
 const gpt54Profile = createOpenRouterProfile("gpt-5.4", "gpt-5.4");
 const mimoV2ProProfile = createOpenRouterProfile("mimo-v2-pro", "xiaomi/mimo-v2-pro");
 const glm5TurboProfile = createOpenRouterProfile("glm-5-turbo", "z-ai/glm-5-turbo");
-const defaultOpenRouterProfile = gpt54Profile;
+const defaultOpenRouterProfile = mimoV2ProProfile;
 
 export function loadSymphonyRuntimePolicyConfig(input: {
   environmentSource: EnvironmentSource;
