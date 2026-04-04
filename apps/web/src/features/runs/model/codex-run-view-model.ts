@@ -85,6 +85,7 @@ export type CodexRunTranscriptEntry =
       kind: "todo-list";
       itemId: string;
       recordedAt: string;
+      status: string;
       markdown: string;
       overflowId: string | null;
       files: CodexRunFileChip[];
@@ -659,6 +660,7 @@ function mapTranscriptEntry(input: {
       kind: "todo-list",
       itemId: input.item.itemId,
       recordedAt,
+      status,
       markdown: formatTodoListMarkdown(
         input.item.latestPreview ?? "No todo items were captured."
       ),
