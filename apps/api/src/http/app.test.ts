@@ -106,7 +106,7 @@ describe("@symphony/api app", () => {
     expect(refreshPayload.data.operations).toEqual(["poll", "reconcile"]);
   });
 
-  it("serves forensics routes and the runtime issue detail route", async () => {
+  it("serves forensics, Codex analytics, and runtime issue routes", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {
         state: "In Review"
@@ -122,6 +122,31 @@ describe("@symphony/api app", () => {
     );
     const runDetailResponse = await app.request("/api/v1/runs/run-123");
     const problemRunsResponse = await app.request("/api/v1/problem-runs");
+    const codexArtifactsResponse = await app.request(
+      "/api/v1/codex/runs/run-123/artifacts"
+    );
+    const codexOverflowResponse = await app.request(
+      "/api/v1/codex/runs/run-123/overflow/item-123-overflow"
+    );
+    const codexTurnsResponse = await app.request("/api/v1/codex/runs/run-123/turns");
+    const codexItemsResponse = await app.request(
+      "/api/v1/codex/runs/run-123/items?turnId=turn-123"
+    );
+    const codexItemsAllTurnsResponse = await app.request(
+      "/api/v1/codex/runs/run-123/items"
+    );
+    const codexAgentMessagesResponse = await app.request(
+      "/api/v1/codex/runs/run-123/agent-messages?turnId=turn-123"
+    );
+    const codexCommandExecutionsResponse = await app.request(
+      "/api/v1/codex/runs/run-123/command-executions"
+    );
+    const missingCodexArtifactsResponse = await app.request(
+      "/api/v1/codex/runs/run-missing/artifacts"
+    );
+    const missingCodexOverflowResponse = await app.request(
+      "/api/v1/codex/runs/run-123/overflow/overflow-missing"
+    );
     const runtimeIssueResponse = await app.request("/api/v1/COL-123");
     const issuesPayload = await responseJson<{
       data: {
@@ -158,6 +183,88 @@ describe("@symphony/api app", () => {
         problemRuns: unknown[];
       };
     }>(problemRunsResponse);
+    const codexArtifactsPayload = await responseJson<{
+      data: {
+        run: {
+          runId: string;
+        };
+        turns: Array<{
+          turnId: string;
+        }>;
+        items: Array<{
+          itemId: string;
+        }>;
+        events: Array<{
+          eventType: string;
+        }>;
+      };
+    }>(codexArtifactsResponse);
+    const codexTurnsPayload = await responseJson<{
+      data: {
+        runId: string;
+        turns: Array<{
+          turnId: string;
+          usage: {
+            input_tokens: number;
+            output_tokens: number;
+          } | null;
+        }>;
+      };
+    }>(codexTurnsResponse);
+    const codexItemsPayload = await responseJson<{
+      data: {
+        runId: string;
+        turnId: string | null;
+        items: Array<{
+          itemId: string;
+          itemType: string;
+        }>;
+      };
+    }>(codexItemsResponse);
+    const codexItemsAllTurnsPayload = await responseJson<{
+      data: {
+        runId: string;
+        turnId: string | null;
+        items: Array<{
+          itemId: string;
+        }>;
+      };
+    }>(codexItemsAllTurnsResponse);
+    const codexAgentMessagesPayload = await responseJson<{
+      data: {
+        runId: string;
+        turnId: string | null;
+        agentMessages: Array<{
+          itemId: string;
+          textPreview: string | null;
+        }>;
+      };
+    }>(codexAgentMessagesResponse);
+    const codexCommandExecutionsPayload = await responseJson<{
+      data: {
+        commandExecutions: unknown[];
+      };
+    }>(codexCommandExecutionsResponse);
+    const codexOverflowPayload = await responseJson<{
+      data: {
+        runId: string;
+        overflow: {
+          overflowId: string;
+          kind: string;
+          contentText: string | null;
+        };
+      };
+    }>(codexOverflowResponse);
+    const missingCodexArtifactsPayload = await responseJson<{
+      error: {
+        code: string;
+      };
+    }>(missingCodexArtifactsResponse);
+    const missingCodexOverflowPayload = await responseJson<{
+      error: {
+        code: string;
+      };
+    }>(missingCodexOverflowResponse);
     const runtimeIssuePayload = await responseJson<{
       data: {
         issueIdentifier: string;
@@ -185,6 +292,10 @@ describe("@symphony/api app", () => {
         operator: {
           githubPullRequestSearchUrl: string | null;
           requeueCommand: string;
+          codex: {
+            defaultModel: string | null;
+            selectedModel: string | null;
+          };
         };
       };
     }>(runtimeIssueResponse);
@@ -206,6 +317,48 @@ describe("@symphony/api app", () => {
     expect(problemRunsResponse.status).toBe(200);
     expect(Array.isArray(problemRunsPayload.data.problemRuns)).toBe(true);
 
+    expect(codexArtifactsResponse.status).toBe(200);
+    expect(codexArtifactsPayload.data.run.runId).toBe("run-123");
+    expect(codexArtifactsPayload.data.turns[0]?.turnId).toBe("turn-123");
+    expect(codexArtifactsPayload.data.items[0]?.itemId).toBe("item-123");
+    expect(codexArtifactsPayload.data.events.length).toBeGreaterThanOrEqual(3);
+    expect(codexOverflowResponse.status).toBe(200);
+    expect(codexOverflowPayload.data.runId).toBe("run-123");
+    expect(codexOverflowPayload.data.overflow.overflowId).toBe("item-123-overflow");
+    expect(codexOverflowPayload.data.overflow.kind).toBe("agent_message");
+    expect(codexOverflowPayload.data.overflow.contentText).toBe("Initial agent message");
+
+    expect(codexTurnsResponse.status).toBe(200);
+    expect(codexTurnsPayload.data.runId).toBe("run-123");
+    expect(codexTurnsPayload.data.turns[0]?.turnId).toBe("turn-123");
+    expect(codexTurnsPayload.data.turns[0]?.usage?.input_tokens).toBe(10);
+
+    expect(codexItemsResponse.status).toBe(200);
+    expect(codexItemsPayload.data.runId).toBe("run-123");
+    expect(codexItemsPayload.data.turnId).toBe("turn-123");
+    expect(codexItemsPayload.data.items[0]?.itemType).toBe("agent_message");
+
+    expect(codexItemsAllTurnsResponse.status).toBe(200);
+    expect(codexItemsAllTurnsPayload.data.runId).toBe("run-123");
+    expect(codexItemsAllTurnsPayload.data.turnId).toBeNull();
+    expect(codexItemsAllTurnsPayload.data.items[0]?.itemId).toBe("item-123");
+
+    expect(codexAgentMessagesResponse.status).toBe(200);
+    expect(codexAgentMessagesPayload.data.agentMessages[0]?.itemId).toBe(
+      "item-123"
+    );
+    expect(codexAgentMessagesPayload.data.agentMessages[0]?.textPreview).toContain(
+      "Initial agent message"
+    );
+
+    expect(codexCommandExecutionsResponse.status).toBe(200);
+    expect(codexCommandExecutionsPayload.data.commandExecutions).toEqual([]);
+
+    expect(missingCodexArtifactsResponse.status).toBe(404);
+    expect(missingCodexArtifactsPayload.error.code).toBe("NOT_FOUND");
+    expect(missingCodexOverflowResponse.status).toBe(404);
+    expect(missingCodexOverflowPayload.error.code).toBe("NOT_FOUND");
+
     expect(runtimeIssueResponse.status).toBe(200);
     expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");
     expect(runtimeIssuePayload.data.workspace.backendKind).toBe("docker");
@@ -219,6 +372,12 @@ describe("@symphony/api app", () => {
       "github.com/openai/symphony/pulls"
     );
     expect(runtimeIssuePayload.data.operator.requeueCommand).toBe("/rework");
+    expect(runtimeIssuePayload.data.operator.codex.defaultModel).toBe(
+      "xiaomi/mimo-v2-pro"
+    );
+    expect(runtimeIssuePayload.data.operator.codex.selectedModel).toBe(
+      "xiaomi/mimo-v2-pro"
+    );
   });
 
   it("serves tracker-only runtime issue context when no live runtime state exists", async () => {
@@ -363,6 +522,28 @@ describe("@symphony/api app", () => {
 
     expect(ingressResponse.status).toBe(202);
     expect(ingressPayload.data.accepted).toBe(true);
+  });
+
+  it("fails closed on invalid Codex analytics query params", async () => {
+    const harness = await createSymphonyRuntimeTestHarness({
+      issue: {
+        state: "In Review"
+      }
+    });
+    harnesses.push(harness);
+
+    const app = createSymphonyRuntimeApp(harness.services);
+    const invalidItemsResponse = await app.request(
+      "/api/v1/codex/runs/run-123/items?turnId=%20"
+    );
+    const invalidItemsPayload = await responseJson<{
+      error: {
+        code: string;
+      };
+    }>(invalidItemsResponse);
+
+    expect(invalidItemsResponse.status).toBe(400);
+    expect(invalidItemsPayload.error.code).toBe("VALIDATION_FAILED");
   });
 
   it("accepts raw GitHub issue_comment /rework webhooks", async () => {

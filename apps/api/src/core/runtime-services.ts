@@ -12,10 +12,12 @@ import {
   createMemorySymphonyTracker
 } from "@symphony/tracker";
 import {
+  createSqliteCodexAnalyticsReadStore,
+  createSqliteCodexAnalyticsStore,
+  createSqliteSymphonyRuntimeRunStore,
   createSymphonyGitHubIngressJournal,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
-  createSqliteSymphonyRunJournal,
   initializeSymphonyDb
 } from "@symphony/db";
 import { loadSymphonyPromptContract } from "@symphony/runtime-contract";
@@ -46,6 +48,7 @@ import {
   fetchGitHubPullRequestMetadata
 } from "./runtime-github-client.js";
 import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
+import { createCodexAnalyticsReadPort } from "./codex-analytics-read-port.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -103,13 +106,19 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
   const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
   const runtimeLogStore = createSymphonyRuntimeLogStore(database.db);
-  const runJournal = createSqliteSymphonyRunJournal({
+  const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db,
-    dbFile: database.dbFile,
     timelineStore: issueTimelineStore
   });
+  const codexAnalytics = createSqliteCodexAnalyticsStore({
+    db: database.db
+  });
+  const codexAnalyticsReadStore = createSqliteCodexAnalyticsReadStore({
+    db: database.db
+  });
+  const codexAnalyticsRead = createCodexAnalyticsReadPort(codexAnalyticsReadStore);
   const forensics = createSymphonyForensicsReadModel({
-    journal: runJournal,
+    runStore: codexAnalyticsReadStore,
     async listIssueTimeline(input) {
       return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
         limit: input.limit
@@ -161,7 +170,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     });
   }
 
-  const dockerCodexAuth = resolveDockerCodexAuthContract(hostCommandEnvSource);
+  const dockerCodexAuth = resolveDockerCodexAuthContract(hostCommandEnvSource, {
+    preferredApiKeyEnvKey: runtimePolicy.codex.provider?.envKey ?? null
+  });
   const dockerGitHubCliAuth = resolveDockerGitHubCliAuthContract(
     hostCommandEnvSource
   );
@@ -169,7 +180,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   if (dockerCodexAuth.mode === "unavailable") {
     throw new CodexAppServerError(
       "codex_auth_unavailable",
-      "Docker-backed Symphony workspaces require host-owned Codex auth. Provide ~/.codex/auth.json (or $CODEX_HOME/auth.json) for subscription auth, or set OPENAI_API_KEY as a host-only fallback."
+      "Docker-backed Symphony workspaces require host-owned Codex auth. Provide ~/.codex/auth.json (or $CODEX_HOME/auth.json) for subscription auth, or set the configured provider API key env as a host-only fallback."
     );
   }
 
@@ -243,8 +254,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     })
   );
   const observer = createDbBackedOrchestratorObserver({
-    runJournal,
-    issueTimelineStore
+    runStore,
+    issueTimelineStore,
+    codexAnalytics
   });
   let runtimeRef: Pick<
     ReturnType<typeof createSymphonyRuntime>,
@@ -255,10 +267,13 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       promptContract,
       githubRepository: runtimePolicy.github.repo,
       tracker,
-      runJournal,
+      runStore,
+      codexAnalytics,
       runtimeLogs: runtimeLogStore,
       hostCommandEnvSource,
       codexHostLaunchEnv: dockerCodexAuth?.launchEnv ?? {},
+      codexAuthMode: dockerCodexAuth?.mode ?? null,
+      codexProviderEnvKey: runtimePolicy.codex.provider?.envKey ?? null,
       logger,
       callbacks: {
         async onUpdate(issueId, update) {
@@ -408,6 +423,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runtimePolicy,
     tracker,
     orchestrator: orchestratorPort,
+    codexAnalytics: codexAnalyticsRead,
     forensics,
     issueTimeline,
     runtimeLogs,

@@ -399,7 +399,20 @@ export function buildSymphonyRuntimeIssueResult(
       requeueDelegatesTo: ["linear", "github_rework_comment"],
       requeueCommand: "/rework",
       requeueHelpText:
-        "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow."
+        "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
+      codex: {
+        defaultModel: "xiaomi/mimo-v2-pro",
+        selectedModel: "xiaomi/mimo-v2-pro",
+        availableModels: [
+          "xiaomi/mimo-v2-pro",
+          "gpt-5.4",
+          "gpt-5.4-mini",
+          "gpt-5.3-codex-spark"
+        ],
+        modelOverrideLabelPrefix: "symphony:model:",
+        selectionHelpText:
+          "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
+      }
     },
     ...Object.fromEntries(
       Object.entries(overrides).filter(
@@ -490,6 +503,11 @@ export function buildSymphonyForensicsIssueDetailResult(
         attempt: 1,
         status: "finished",
         outcome: "completed",
+        codexStatus: "completed",
+        codexFailureKind: null,
+        codexFailureOrigin: null,
+        codexFailureMessagePreview: null,
+        codexModel: "xiaomi/mimo-v2-pro",
         workerHost: "worker-a",
         workspacePath: "/tmp/workspaces/col-165",
         startedAt: "2026-03-31T18:00:00.000Z",
@@ -532,6 +550,11 @@ export function buildSymphonyForensicsProblemRunsResult(
         attempt: 1,
         status: "finished",
         outcome: "max_turns",
+        codexStatus: "paused",
+        codexFailureKind: "max_turns_reached",
+        codexFailureOrigin: "codex",
+        codexFailureMessagePreview: "Reached max turns.",
+        codexModel: "xiaomi/mimo-v2-pro",
         workerHost: "worker-a",
         workspacePath: "/tmp/workspaces/col-165",
         startedAt: "2026-03-31T18:00:00.000Z",
@@ -586,6 +609,11 @@ export function buildSymphonyForensicsRunDetailResult(
       attempt: 1,
       status: "finished",
       outcome: "completed",
+      codexStatus: "completed",
+      codexFailureKind: null,
+      codexFailureOrigin: null,
+      codexFailureMessagePreview: null,
+      codexModel: "xiaomi/mimo-v2-pro",
       workerHost: "worker-a",
       workspacePath: "/tmp/workspaces/col-165",
       startedAt: "2026-03-31T18:00:00.000Z",
@@ -600,6 +628,11 @@ export function buildSymphonyForensicsRunDetailResult(
       inputTokens: 120,
       outputTokens: 80,
       totalTokens: 200,
+      codexThreadId: null,
+      codexProviderId: null,
+      codexProviderName: null,
+      codexAuthMode: null,
+      codexProviderEnvKey: null,
       repoStart: {},
       repoEnd: {},
       metadata: {},
@@ -612,32 +645,43 @@ export function buildSymphonyForensicsRunDetailResult(
       {
         turnId: "turn_123",
         runId: "run_123",
-        turnSequence: 1,
-        codexThreadId: null,
-        codexTurnId: null,
-        codexSessionId: "session_123",
-        promptText: "Solve the task",
-        status: "completed",
-        startedAt: "2026-03-31T18:00:00.000Z",
-        endedAt: "2026-03-31T18:01:00.000Z",
-        tokens: {},
-        metadata: {},
-        insertedAt: "2026-03-31T18:00:00.000Z",
-        updatedAt: "2026-03-31T18:01:00.000Z",
-        eventCount: 1,
-        events: [
-          {
-            eventId: "event_123",
-            turnId: "turn_123",
-            runId: "run_123",
-            eventSequence: 1,
-            eventType: "message.output",
-            recordedAt: "2026-03-31T18:01:00.000Z",
-            payload: {
+      turnSequence: 1,
+      codexThreadId: null,
+      codexTurnId: null,
+      codexSessionId: "session_123",
+      promptText: "Solve the task",
+      status: "completed",
+      startedAt: "2026-03-31T18:00:00.000Z",
+      endedAt: "2026-03-31T18:01:00.000Z",
+      usage: {
+        input_tokens: 120,
+        cached_input_tokens: 0,
+        output_tokens: 80
+      },
+      metadata: {},
+      insertedAt: "2026-03-31T18:00:00.000Z",
+      updatedAt: "2026-03-31T18:01:00.000Z",
+      eventCount: 1,
+      events: [
+        {
+          eventId: "event_123",
+          turnId: "turn_123",
+          runId: "run_123",
+          eventSequence: 1,
+          eventType: "item.completed",
+          itemType: "agent_message",
+          itemStatus: null,
+          recordedAt: "2026-03-31T18:01:00.000Z",
+          payload: {
+            type: "item.completed",
+            item: {
+              id: "message_123",
+              type: "agent_message",
               text: "done"
-            },
-            payloadTruncated: false,
-            payloadBytes: 12,
+            }
+          },
+          payloadTruncated: false,
+          payloadBytes: 12,
             summary: "Produced output",
             codexThreadId: null,
             codexTurnId: null,

@@ -12,6 +12,17 @@ export type SymphonyAgentRuntimeConfig = {
     approvalPolicy: string | Record<string, unknown>;
     threadSandbox: string;
     turnSandboxPolicy: Record<string, unknown> | null;
+    profile: string | null;
+    defaultModel: string | null;
+    defaultReasoningEffort: string | null;
+    provider: {
+      id: string | null;
+      name: string | null;
+      baseUrl: string | null;
+      envKey: string | null;
+      supportsWebsockets: boolean | null;
+      wireApi: string | null;
+    } | null;
     turnTimeoutMs: number;
     readTimeoutMs: number;
   };

@@ -19,12 +19,6 @@ import type { SymphonyRuntimeAppServices } from "../../core/runtime-app-types.js
 import { createHttpError } from "../../core/errors.js";
 import { jsonOk } from "../../core/envelope.js";
 import { parseWithSchema } from "../../core/validation.js";
-import {
-  serializeForensicsIssueDetail,
-  serializeForensicsIssueList,
-  serializeForensicsProblemRuns,
-  serializeForensicsRunDetail
-} from "../serializers.js";
 import type { SymphonyRuntimeAppContextSchema } from "../context.js";
 
 export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
@@ -32,19 +26,17 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
 
   forensicsRoutes.get("/issues", async (c) => {
     const query = parseWithSchema(symphonyForensicsIssuesQuerySchema, c.req.query());
-    const result = serializeForensicsIssueList(
-      await services.forensics.issues({
-        limit: query.limit,
-        timeRange: query.timeRange,
-        startedAfter: query.startedAfter,
-        startedBefore: query.startedBefore,
-        outcome: query.outcome,
-        errorClass: query.errorClass,
-        hasFlags: parseFlags(query.hasFlag),
-        sortBy: query.sortBy,
-        sortDirection: query.sortDirection
-      })
-    );
+    const result = await services.forensics.issues({
+      limit: query.limit,
+      timeRange: query.timeRange,
+      startedAfter: query.startedAfter,
+      startedBefore: query.startedBefore,
+      outcome: query.outcome,
+      errorClass: query.errorClass,
+      hasFlags: parseFlags(query.hasFlag),
+      sortBy: query.sortBy,
+      sortDirection: query.sortDirection
+    });
 
     c.get("logger").debug("Returning forensics issue list", {
       limit: query.limit,
@@ -171,24 +163,23 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
       throw createHttpError("NOT_FOUND", "Issue not found.");
     }
 
-    const serialized = serializeForensicsIssueDetail(result);
     c.get("logger").debug("Returning forensics issue detail", {
       issueIdentifier: path.issueIdentifier,
-      runCount: serialized.runs.length
+      runCount: result.runs.length
     });
 
     symphonyForensicsIssueDetailResponseSchema.parse({
       schemaVersion: "1",
       ok: true,
-      data: serialized,
+      data: result,
       meta: {
         durationMs: 0,
         generatedAt: new Date().toISOString()
       }
     });
 
-    return jsonOk(c, serialized, {
-      count: serialized.runs.length
+    return jsonOk(c, result, {
+      count: result.runs.length
     });
   });
 
@@ -203,24 +194,23 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
       throw createHttpError("NOT_FOUND", "Run not found.");
     }
 
-    const serialized = serializeForensicsRunDetail(result);
     c.get("logger").debug("Returning forensics run detail", {
       runId: path.runId,
-      turnCount: serialized.turns.length,
-      eventCount: serialized.run.eventCount
+      turnCount: result.turns.length,
+      eventCount: result.run.eventCount
     });
 
     symphonyForensicsRunDetailResponseSchema.parse({
       schemaVersion: "1",
       ok: true,
-      data: serialized,
+      data: result,
       meta: {
         durationMs: 0,
         generatedAt: new Date().toISOString()
       }
     });
 
-    return jsonOk(c, serialized);
+    return jsonOk(c, result);
   });
 
   forensicsRoutes.get("/problem-runs", async (c) => {
@@ -228,13 +218,11 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
       symphonyForensicsProblemRunsQuerySchema,
       c.req.query()
     );
-    const result = serializeForensicsProblemRuns(
-      await services.forensics.problemRuns({
-        limit: query.limit,
-        outcome: query.outcome,
-        issueIdentifier: query.issueIdentifier
-      })
-    );
+    const result = await services.forensics.problemRuns({
+      limit: query.limit,
+      outcome: query.outcome,
+      issueIdentifier: query.issueIdentifier
+    });
 
     c.get("logger").debug("Returning problem runs", {
       count: result.problemRuns.length,

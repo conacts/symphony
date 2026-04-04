@@ -1,16 +1,14 @@
 import type {
-  SymphonyRunJournal
-} from "@symphony/run-journal";
-import type {
   SymphonyForensicsIssueFilters,
   SymphonyForensicsIssuesQuery,
+  SymphonyForensicsRunStore,
   SymphonyForensicsReadModelDependencies
 } from "./symphony-forensics-read-model.js";
 
 export function normalizeDependencies(
-  input: SymphonyRunJournal | SymphonyForensicsReadModelDependencies
+  input: SymphonyForensicsRunStore | SymphonyForensicsReadModelDependencies
 ): SymphonyForensicsReadModelDependencies {
-  if ("journal" in input) {
+  if ("runStore" in input) {
     return {
       listIssueTimeline: async () => [],
       listRuntimeLogs: async () => [],
@@ -19,7 +17,7 @@ export function normalizeDependencies(
   }
 
   return {
-    journal: input,
+    runStore: input,
     listIssueTimeline: async () => [],
     listRuntimeLogs: async () => []
   };

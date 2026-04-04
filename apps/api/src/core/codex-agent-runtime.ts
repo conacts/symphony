@@ -12,16 +12,22 @@ import {
   renderSymphonyPromptContract,
   type SymphonyLoadedPromptContract
 } from "@symphony/runtime-contract";
+import type { JsonObject } from "@symphony/contracts";
 import type {
-  SymphonyJsonObject,
-  SymphonyJsonValue,
-  SymphonyRunJournal
-} from "@symphony/run-journal";
+  CodexAnalyticsStore
+} from "@symphony/codex-analytics";
+import {
+  extractUsage,
+  isThreadEvent
+} from "@symphony/codex-analytics";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
-import type { SymphonyRuntimeLogStore } from "@symphony/db";
+import type {
+  SymphonyRuntimeLogStore,
+  SymphonyRuntimeRunStore
+} from "@symphony/db";
 import type { SymphonyLogger } from "@symphony/logger";
 import {
   CodexSdkClient
@@ -56,10 +62,13 @@ export function createCodexSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
-  runJournal: SymphonyRunJournal;
+  runStore: SymphonyRuntimeRunStore;
+  codexAnalytics: CodexAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
   codexHostLaunchEnv?: Record<string, string>;
+  codexAuthMode?: string | null;
+  codexProviderEnvKey?: string | null;
   logger: SymphonyLogger;
   callbacks: RunCallbacks;
 }): AgentRuntime {
@@ -82,7 +91,8 @@ export function createCodexSymphonyAgentRuntime(input: {
         promptContract: input.promptContract,
         githubRepository: input.githubRepository ?? null,
         tracker: input.tracker,
-        runJournal: input.runJournal,
+        runStore: input.runStore,
+        codexAnalytics: input.codexAnalytics,
         runtimeLogs: input.runtimeLogs,
         runtimePolicy: runInput.runtimePolicy,
         logger: input.logger.child({
@@ -92,6 +102,8 @@ export function createCodexSymphonyAgentRuntime(input: {
         }),
         hostCommandEnvSource: input.hostCommandEnvSource,
         codexHostLaunchEnv: input.codexHostLaunchEnv ?? {},
+        codexAuthMode: input.codexAuthMode ?? null,
+        codexProviderEnvKey: input.codexProviderEnvKey ?? null,
         callbacks: input.callbacks,
         issue: runInput.issue,
         runId: runInput.runId,
@@ -130,12 +142,15 @@ async function executeRun(input: {
   promptContract: SymphonyLoadedPromptContract;
   githubRepository: string | null;
   tracker: SymphonyTracker;
-  runJournal: SymphonyRunJournal;
+  runStore: SymphonyRuntimeRunStore;
+  codexAnalytics: CodexAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
   logger: SymphonyLogger;
   hostCommandEnvSource: Record<string, string | undefined>;
   codexHostLaunchEnv: Record<string, string>;
+  codexAuthMode: string | null;
+  codexProviderEnvKey: string | null;
   callbacks: RunCallbacks;
   issue: SymphonyTrackerIssue;
   runId: string | null;
@@ -144,8 +159,10 @@ async function executeRun(input: {
   launchTarget: CodexRuntimeLaunchTarget;
   activeRun: ActiveRun;
 }): Promise<void> {
-  let turnJournalId: string | null = null;
+  let persistedTurnId: string | null = null;
   let maxTurnsReached = false;
+  let sessionProviderId: string | null = null;
+  let sessionProviderName: string | null = null;
 
   try {
     await input.runtimeLogs.record({
@@ -166,7 +183,7 @@ async function executeRun(input: {
         input.launchTarget,
         input.runtimePolicy.hooks.timeoutMs
       );
-      await input.runJournal.updateRun(input.runId, {
+      await input.runStore.updateRun(input.runId, {
         commitHashStart: repoStart.commitHash,
         repoStart: repoStart.snapshot
       });
@@ -184,6 +201,8 @@ async function executeRun(input: {
       logger: input.logger
     });
     input.activeRun.client = session.client;
+    sessionProviderId = session.providerId;
+    sessionProviderName = session.providerName;
 
     await input.runtimeLogs.record({
       level: "info",
@@ -198,6 +217,11 @@ async function executeRun(input: {
         processId: session.processId,
         model: session.model,
         reasoningEffort: session.reasoningEffort,
+        profile: session.profile,
+        providerId: session.providerId,
+        providerName: session.providerName,
+        authMode: input.codexAuthMode,
+        providerEnvKey: input.codexProviderEnvKey,
         launchTarget: describeLaunchTarget(session.launchTarget)
       }
     });
@@ -217,6 +241,12 @@ async function executeRun(input: {
       turnNumber += 1
     ) {
       if (input.activeRun.stopped) {
+        await finalizeStoppedTurn(
+          input.runStore,
+          input.codexAnalytics,
+          input.runId,
+          persistedTurnId
+        );
         return;
       }
 
@@ -255,8 +285,8 @@ async function executeRun(input: {
               maxTurns: input.runtimePolicy.agent.maxTurns
             });
 
-      turnJournalId = input.runId
-        ? await input.runJournal.recordTurnStarted(input.runId, {
+      persistedTurnId = input.runId
+        ? await input.runStore.recordTurnStarted(input.runId, {
             promptText: prompt,
             status: "running"
           })
@@ -273,10 +303,17 @@ async function executeRun(input: {
         }),
         turnTimeoutMs: input.runtimePolicy.codex.turnTimeoutMs,
         onMessage: async (message) => {
+          const threadEvent = isThreadEvent(message) ? message : null;
           const eventName =
-            typeof message.event === "string" ? message.event : "notification";
+            threadEvent?.type ??
+            normalizeRuntimeUpdateEventName(getString(message, "event")) ??
+            "notification";
           const timestamp = new Date().toISOString();
-          const turnTokens = extractTurnTokens(message);
+          const turnUsage = threadEvent ? extractUsage(threadEvent) : null;
+          const codexThreadId =
+            getString(message, "thread_id") ??
+            getString(message, "threadId") ??
+            getStringPath(message, ["params", "threadId"]);
 
           await input.callbacks.onUpdate(currentIssue.id, {
             event: eventName,
@@ -290,53 +327,35 @@ async function executeRun(input: {
               getString(message, "codex_app_server_pid") ?? session.processId
           });
 
-          if (input.runId && turnJournalId) {
-            if (turnTokens) {
-              await input.runJournal.updateTurn(turnJournalId, {
-                tokens: turnTokens
+          if (input.runId && persistedTurnId) {
+            if (turnUsage) {
+              await input.runStore.updateTurn(persistedTurnId, {
+                usage: turnUsage
               });
             }
 
-            await input.runJournal.recordEvent(input.runId, turnJournalId, {
-              eventType: eventName,
-              recordedAt: timestamp,
-              payload: normalizeJsonValue(message),
-              summary:
-                eventName === "session_started"
-                  ? "session started"
-                  : eventName === "thread.started"
-                  ? "session started"
-                  : eventName === "turn_completed"
-                    ? "turn completed"
-                    : eventName === "turn.completed"
-                    ? "turn completed"
-                    : eventName === "approval_auto_approved"
-                      ? "approval request auto-approved"
-                    : null,
-              codexThreadId:
-                getString(message, "thread_id") ??
-                getString(message, "threadId") ??
-                getStringPath(message, ["params", "threadId"]),
-              codexTurnId:
-                getString(message, "turn_id") ??
-                getStringPath(message, ["params", "turnId"]),
-              codexSessionId:
-                getString(message, "session_id") ??
-                getString(message, "sessionId")
-            });
+            if (threadEvent) {
+              await input.codexAnalytics.recordEvent({
+                runId: input.runId,
+                turnId: persistedTurnId,
+                threadId: codexThreadId,
+                recordedAt: timestamp,
+                payload: threadEvent
+              });
+            }
           }
         }
       });
 
-      if (input.runId && turnJournalId) {
-        await input.runJournal.finalizeTurn(turnJournalId, {
+      if (input.runId && persistedTurnId) {
+        await input.runStore.finalizeTurn(persistedTurnId, {
           status: "completed",
           endedAt: new Date().toISOString(),
           codexThreadId: turnResult.threadId,
           codexTurnId: turnResult.turnId,
           codexSessionId: turnResult.sessionId
         });
-        turnJournalId = null;
+        persistedTurnId = null;
       }
 
       const refreshedIssue = await refreshIssueState(
@@ -363,7 +382,7 @@ async function executeRun(input: {
           input.launchTarget,
           input.runtimePolicy.hooks.timeoutMs
         );
-        await input.runJournal.updateRun(input.runId, {
+        await input.runStore.updateRun(input.runId, {
           commitHashEnd: repoEnd.commitHash,
           repoEnd: repoEnd.snapshot
         });
@@ -383,18 +402,33 @@ async function executeRun(input: {
     }
   } catch (error) {
     if (input.activeRun.stopped) {
+      await finalizeStoppedTurn(
+        input.runStore,
+        input.codexAnalytics,
+        input.runId,
+        persistedTurnId
+      );
       return;
     }
 
     const reason = error instanceof Error ? error.message : String(error);
 
-    if (input.runId && turnJournalId) {
-      await input.runJournal.finalizeTurn(turnJournalId, {
+    if (input.runId && persistedTurnId) {
+      await input.runStore.finalizeTurn(persistedTurnId, {
         status: "failed",
         endedAt: new Date().toISOString(),
         metadata: {
           reason
         }
+      });
+      await input.codexAnalytics.finalizeTurn({
+        runId: input.runId,
+        turnId: persistedTurnId,
+        endedAt: new Date().toISOString(),
+        status: "failed",
+        failureKind: "runtime_failure",
+        failureMessagePreview: reason,
+        threadId: null
       });
     }
 
@@ -403,7 +437,7 @@ async function executeRun(input: {
         input.launchTarget,
         input.runtimePolicy.hooks.timeoutMs
       );
-      await input.runJournal.updateRun(input.runId, {
+      await input.runStore.updateRun(input.runId, {
         commitHashEnd: repoEnd.commitHash,
         repoEnd: repoEnd.snapshot
       });
@@ -426,6 +460,10 @@ async function executeRun(input: {
         reason,
         failureStage: startupFailure?.failureStage ?? null,
         failureOrigin: startupFailure?.failureOrigin ?? null,
+        providerId: sessionProviderId,
+        providerName: sessionProviderName,
+        authMode: input.codexAuthMode,
+        providerEnvKey: input.codexProviderEnvKey,
         launchTarget: describeLaunchTarget(input.launchTarget)
       }
     });
@@ -491,7 +529,7 @@ function resolvePromptRepoDefaultBranch(repoRoot: string): string {
   return "main";
 }
 
-function describeLaunchTarget(target: CodexRuntimeLaunchTarget): SymphonyJsonObject {
+function describeLaunchTarget(target: CodexRuntimeLaunchTarget): JsonObject {
   return {
     kind: target.kind,
     hostLaunchPath: target.hostLaunchPath,
@@ -582,16 +620,6 @@ function isRateLimitedError(error: unknown): boolean {
   });
 }
 
-function getRecord(
-  value: Record<string, unknown> | null | undefined,
-  key: string
-): Record<string, unknown> | null {
-  const nested = value?.[key];
-  return nested !== null && typeof nested === "object" && !Array.isArray(nested)
-    ? (nested as Record<string, unknown>)
-    : null;
-}
-
 function getString(
   value: Record<string, unknown> | null | undefined,
   key: string
@@ -617,48 +645,38 @@ function getStringPath(
   return typeof current === "string" && current.trim() !== "" ? current : null;
 }
 
-function extractTurnTokens(
-  value: Record<string, unknown> | null | undefined
-): SymphonyJsonObject | null {
-  if (!value) {
-    return null;
+function normalizeRuntimeUpdateEventName(value: string | null): string | null {
+  if (value === "session_started") {
+    return "session.started";
   }
 
-  const usage = getRecord(value, "usage");
-  if (usage) {
-    return normalizeJsonValue(usage) as SymphonyJsonObject;
-  }
-
-  const tokenUsage = getRecord(getRecord(value, "params"), "tokenUsage");
-  if (tokenUsage) {
-    return normalizeJsonValue(tokenUsage) as SymphonyJsonObject;
-  }
-
-  return null;
+  return value;
 }
 
-function normalizeJsonValue(value: unknown): SymphonyJsonValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return value;
+async function finalizeStoppedTurn(
+  runStore: SymphonyRuntimeRunStore,
+  codexAnalytics: CodexAnalyticsStore,
+  runId: string | null,
+  persistedTurnId: string | null
+): Promise<void> {
+  if (!runId || !persistedTurnId) {
+    return;
   }
 
-  if (Array.isArray(value)) {
-    return value.map((entry) => normalizeJsonValue(entry));
-  }
-
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
-        key,
-        normalizeJsonValue(nestedValue)
-      ])
-    ) as SymphonyJsonValue;
-  }
-
-  return String(value);
+  await runStore.finalizeTurn(persistedTurnId, {
+    status: "stopped",
+    endedAt: new Date().toISOString(),
+    metadata: {
+      stopReason: "runtime_stopped"
+    }
+  });
+  await codexAnalytics.finalizeTurn({
+    runId,
+    turnId: persistedTurnId,
+    endedAt: new Date().toISOString(),
+    status: "stopped",
+    failureKind: "runtime_stopped",
+    failureMessagePreview: "Turn stopped by runtime.",
+    threadId: null
+  });
 }

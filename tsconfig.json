@@ -15,6 +15,9 @@
       "path": "./packages/logger"
     },
     {
+      "path": "./packages/codex-analytics"
+    },
+    {
       "path": "./packages/db"
     },
     {

@@ -10,7 +10,7 @@ import type {
   WorkspaceBackendKind,
   WorkspaceManifestLifecyclePhase
 } from "@symphony/workspace";
-import type { SymphonyJsonObject } from "@symphony/run-journal";
+import type { JsonObject } from "@symphony/contracts";
 
 const failureRetryBaseMs = 10_000;
 
@@ -53,7 +53,7 @@ export function classifyStartupFailureOrigin(
 export function extractWorkspaceManifestLifecycleFailure(input: unknown): {
   manifestLifecyclePhase: WorkspaceManifestLifecyclePhase;
   manifestLifecycleStepName: string | null;
-  manifestLifecycle: SymphonyJsonObject | null;
+  manifestLifecycle: JsonObject | null;
 } | null {
   if (!(input instanceof Error)) {
     return null;

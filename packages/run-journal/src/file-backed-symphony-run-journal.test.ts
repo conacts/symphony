@@ -91,9 +91,14 @@ describe("file-backed symphony run journal", () => {
       runId,
       turnId,
       buildSymphonyEventAttrs({
-        eventType: "stream_chunk",
+        eventType: "item.completed",
         payload: {
-          message: "payload-".repeat(40)
+          type: "item.completed",
+          item: {
+            id: "message-1",
+            type: "agent_message",
+            text: "payload-".repeat(40)
+          }
         }
       })
     );
@@ -103,7 +108,10 @@ describe("file-backed symphony run journal", () => {
 
     expect(event?.payloadTruncated).toBe(true);
     expect(event?.payloadBytes).toBeGreaterThan(48);
-    expect((event?.payload as { truncated: boolean }).truncated).toBe(true);
+    expect("item" in (event?.payload ?? {})).toBe(true);
+    if (event?.payload && "item" in event.payload && event.payload.item.type === "agent_message") {
+      expect(event.payload.item.text).toContain("[TRUNCATED");
+    }
   });
 
   it("prunes runs older than the retention window and removes orphaned issues", async () => {
@@ -150,12 +158,14 @@ describe("file-backed symphony run journal", () => {
       runId,
       turnId,
       buildSymphonyEventAttrs({
-        eventType: "tool_call",
+        eventType: "item.completed",
         summary: "cookie=session=abc123",
         payload: {
-          headers: {
-            Authorization: "Bearer top-secret-token",
-            Cookie: "session=abc123"
+          type: "item.completed",
+          item: {
+            id: "message-2",
+            type: "agent_message",
+            text: "Authorization: Bearer top-secret-token\nCookie: session=abc123"
           }
         }
       })
@@ -174,10 +184,15 @@ describe("file-backed symphony run journal", () => {
     expect(exportPayload?.run.repoStart?.patch).toContain("[REDACTED]");
     expect(exportPayload?.turns[0]?.promptText).toContain("[REDACTED]");
     expect(exportPayload?.turns[0]?.events[0]?.summary).toContain("[REDACTED]");
-    expect(
-      (exportPayload?.turns[0]?.events[0]?.payload as { headers: { Authorization: string } }).headers
-        .Authorization
-    ).toBe("Bearer [REDACTED]");
+    if (
+      exportPayload?.turns[0]?.events[0]?.payload &&
+      "item" in exportPayload.turns[0].events[0].payload &&
+      exportPayload.turns[0].events[0].payload.item.type === "agent_message"
+    ) {
+      expect(exportPayload.turns[0].events[0].payload.item.text).toContain(
+        "Bearer [REDACTED]"
+      );
+    }
     expect(exportPayload?.run.errorMessage).toContain("[REDACTED]");
   });
 

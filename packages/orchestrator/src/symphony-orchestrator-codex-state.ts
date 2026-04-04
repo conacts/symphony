@@ -1,4 +1,4 @@
-import type { SymphonyJsonObject } from "@symphony/run-journal";
+import type { JsonObject } from "@symphony/contracts";
 import { asJsonObject } from "./internal/json.js";
 import { asRecord, isRecord } from "./internal/records.js";
 
@@ -48,7 +48,7 @@ export function extractTokenUsage(
 
 export function extractRateLimits(
   update: SymphonyCodexStateUpdate
-): SymphonyJsonObject | null {
+): JsonObject | null {
   if (!update.payload || typeof update.payload !== "object") {
     return null;
   }
@@ -123,7 +123,7 @@ function extractTokenCountRecord(
   };
 }
 
-function rateLimitsFromPayload(payload: unknown): SymphonyJsonObject | null {
+function rateLimitsFromPayload(payload: unknown): JsonObject | null {
   if (!payload) {
     return null;
   }
@@ -208,7 +208,7 @@ function mapAtPath(
   return asRecord(current);
 }
 
-function normalizeUnknownJsonObject(value: unknown): SymphonyJsonObject {
+function normalizeUnknownJsonObject(value: unknown): JsonObject {
   const normalized = asJsonObject(value);
   return normalized ?? {};
 }

@@ -12,7 +12,9 @@ import {
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
 import {
-  buildSymphonyEventAttrs,
+  codexPayloadOverflowTable
+} from "@symphony/codex-analytics";
+import {
   buildSymphonyOrchestratorSnapshot,
   buildSymphonyRuntimePolicy,
   buildSymphonyRunFinishAttrs,
@@ -22,12 +24,15 @@ import {
   buildSymphonyTurnStartAttrs
 } from "@symphony/test-support";
 import {
+  createSqliteCodexAnalyticsStore,
+  createSqliteCodexAnalyticsReadStore,
+  createSqliteSymphonyRuntimeRunStore,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
-  createSqliteSymphonyRunJournal,
   initializeSymphonyDb
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
+import { createCodexAnalyticsReadPort } from "../core/codex-analytics-read-port.js";
 import { createSymphonyGitHubReviewIngressService } from "../core/github-review-ingress.js";
 import type {
   SymphonyLoadedRuntimePromptTemplate,
@@ -183,34 +188,109 @@ export async function createSymphonyRuntimeTestHarness(input: {
   });
   const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
   const runtimeLogStore = createSymphonyRuntimeLogStore(database.db);
-  const runJournal = createSqliteSymphonyRunJournal({
+  const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db,
-    dbFile: path.join(root, "symphony.db"),
     timelineStore: issueTimelineStore
   });
+  const codexAnalyticsStore = createSqliteCodexAnalyticsStore({
+    db: database.db
+  });
+  const codexAnalyticsReadStore = createSqliteCodexAnalyticsReadStore({
+    db: database.db
+  });
 
-  const runId = await runJournal.recordRunStarted(
+  const runId = await runStore.recordRunStarted(
     buildSymphonyRunStartAttrs({
       runId: "run-123",
       issueId: issue.id,
       issueIdentifier: issue.identifier
     })
   );
-  const turnId = await runJournal.recordTurnStarted(
+  const turnId = await runStore.recordTurnStarted(
     runId,
     buildSymphonyTurnStartAttrs({
       turnId: "turn-123"
     })
   );
-  await runJournal.recordEvent(
+  await codexAnalyticsStore.startRun({
+    runId,
+    issueId: issue.id,
+    issueIdentifier: issue.identifier,
+    startedAt: "2026-03-31T00:00:00.000Z",
+    status: "running",
+    threadId: "thread-123"
+  });
+  await codexAnalyticsStore.recordEvent({
     runId,
     turnId,
-    buildSymphonyEventAttrs({
-      eventId: "event-123"
+    threadId: "thread-123",
+    recordedAt: "2026-03-31T00:00:00.000Z",
+    payload: {
+      type: "thread.started",
+      thread_id: "thread-123"
+    }
+  });
+  await codexAnalyticsStore.recordEvent({
+    runId,
+    turnId,
+    threadId: "thread-123",
+    recordedAt: "2026-03-31T00:00:01.000Z",
+    payload: {
+      type: "item.completed",
+      item: {
+        id: "item-123",
+        type: "agent_message",
+        text: "Initial agent message"
+      }
+    }
+  });
+  await codexAnalyticsStore.recordEvent({
+    runId,
+    turnId,
+    threadId: "thread-123",
+    recordedAt: "2026-03-31T00:00:02.000Z",
+    payload: {
+      type: "turn.completed",
+      usage: {
+        input_tokens: 10,
+        cached_input_tokens: 0,
+        output_tokens: 5
+      }
+    }
+  });
+  database.db.insert(codexPayloadOverflowTable)
+    .values({
+      id: "item-123-overflow",
+      runId,
+      turnId,
+      itemId: "item-123",
+      kind: "agent_message",
+      contentJson: null,
+      contentText: "Initial agent message",
+      byteCount: Buffer.byteLength("Initial agent message"),
+      insertedAt: "2026-03-31T00:00:01.000Z"
     })
-  );
-  await runJournal.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
-  await runJournal.finalizeRun(runId, buildSymphonyRunFinishAttrs());
+    .run();
+  await codexAnalyticsStore.finalizeTurn({
+    runId,
+    turnId,
+    endedAt: "2026-03-31T00:01:00.000Z",
+    status: "completed",
+    threadId: "thread-123",
+    failureKind: null,
+    failureMessagePreview: null
+  });
+  await codexAnalyticsStore.finalizeRun({
+    runId,
+    endedAt: "2026-03-31T00:01:00.000Z",
+    status: "completed",
+    threadId: "thread-123",
+    failureKind: null,
+    failureOrigin: null,
+    failureMessagePreview: null
+  });
+  await runStore.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
+  await runStore.finalizeRun(runId, buildSymphonyRunFinishAttrs());
   await issueTimelineStore.record({
     issueId: issue.id,
     issueIdentifier: issue.identifier,
@@ -306,8 +386,9 @@ export async function createSymphonyRuntimeTestHarness(input: {
         return snapshot;
       }
     },
+    codexAnalytics: createCodexAnalyticsReadPort(codexAnalyticsReadStore),
     forensics: createSymphonyForensicsReadModel({
-      journal: runJournal,
+      runStore: codexAnalyticsReadStore,
       async listIssueTimeline(input) {
         return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
           limit: input.limit

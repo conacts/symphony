@@ -19,7 +19,7 @@ import {
   workspaceHostPath,
   type PreparedWorkspace
 } from "@symphony/workspace";
-import type { SymphonyJsonObject } from "@symphony/run-journal";
+import type { JsonObject } from "@symphony/contracts";
 import type { SymphonyOrchestratorConfig } from "./orchestrator-config.js";
 
 export async function prepareIssueForDispatch(
@@ -88,7 +88,7 @@ export function applyAgentRuntimeUpdateToEntry(
   update: SymphonyAgentRuntimeUpdate
 ): {
   entry: SymphonyRunningEntry;
-  rateLimits: SymphonyJsonObject | null;
+  rateLimits: JsonObject | null;
 } {
   const usage = extractTokenUsage(update);
   const rateLimits = extractRateLimits(update);

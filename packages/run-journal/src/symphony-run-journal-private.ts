@@ -12,6 +12,7 @@ import type {
   SymphonyTurnExport,
   SymphonyTurnRecord
 } from "./symphony-run-journal-types.js";
+import type { SymphonyCodexAnalyticsEvent } from "./codex-analytics-types.js";
 
 export const symphonyCompletedRunOutcomes = new Set([
   "completed",
@@ -113,7 +114,7 @@ export function buildRunSummary(
   const lastEvent = sortedEvents[0];
   const tokenTotals = runTurns.reduce(
     (totals, turn) => {
-      const turnTokens = parseTokenTotals(turn.tokens);
+      const turnTokens = parseTokenTotals(turn.usage);
 
       return {
         inputTokens: totals.inputTokens + turnTokens.inputTokens,
@@ -323,19 +324,21 @@ export function sanitizeJsonObject(
   return sanitizeJsonValue(value) as SymphonyJsonObject;
 }
 
-function parseTokenTotals(tokens: SymphonyJsonObject | null): {
+function parseTokenTotals(tokens: { input_tokens?: number; cached_input_tokens?: number; output_tokens?: number } | null): {
   inputTokens: number;
+  cachedInputTokens: number;
   outputTokens: number;
   totalTokens: number;
 } {
-  const inputTokens = parseTokenCount(tokens?.inputTokens);
-  const outputTokens = parseTokenCount(tokens?.outputTokens);
-  const totalTokens = parseTokenCount(tokens?.totalTokens);
+  const inputTokens = parseTokenCount(tokens?.input_tokens);
+  const cachedInputTokens = parseTokenCount(tokens?.cached_input_tokens);
+  const outputTokens = parseTokenCount(tokens?.output_tokens);
 
   return {
     inputTokens,
+    cachedInputTokens,
     outputTokens,
-    totalTokens: totalTokens || inputTokens + outputTokens
+    totalTokens: inputTokens + outputTokens
   };
 }
 
@@ -346,14 +349,14 @@ function parseTokenCount(value: SymphonyJsonValue | undefined): number {
 }
 
 export function truncatePayload(
-  payload: SymphonyJsonValue,
+  payload: SymphonyCodexAnalyticsEvent,
   payloadMaxBytes: number
 ): {
-  payload: SymphonyJsonValue;
+  payload: SymphonyCodexAnalyticsEvent;
   payloadBytes: number;
   payloadTruncated: boolean;
 } {
-  const sanitizedPayload = sanitizeJsonValue(payload);
+  const sanitizedPayload = sanitizeJsonValue(payload) as SymphonyCodexAnalyticsEvent;
   const encoded = JSON.stringify(sanitizedPayload);
   const payloadBytes = Buffer.byteLength(encoded, "utf8");
 
@@ -365,13 +368,88 @@ export function truncatePayload(
     };
   }
 
+  for (const maxLength of [8192, 2048, 512, 128, 32, 0]) {
+    const compactPayload = compactAnalyticsPayload(sanitizedPayload, maxLength);
+    const compactEncoded = JSON.stringify(compactPayload);
+    if (Buffer.byteLength(compactEncoded, "utf8") <= payloadMaxBytes) {
+      return {
+        payload: compactPayload,
+        payloadBytes,
+        payloadTruncated: true
+      };
+    }
+  }
+
   return {
-    payload: {
-      truncated: true,
-      preview: encoded.slice(0, payloadMaxBytes),
-      originalBytes: payloadBytes
-    },
+    payload: compactAnalyticsPayload(sanitizedPayload, 0),
     payloadBytes,
     payloadTruncated: true
   };
+}
+
+function compactAnalyticsPayload(
+  payload: SymphonyCodexAnalyticsEvent,
+  maxLength: number
+): SymphonyCodexAnalyticsEvent {
+  if (payload.type === "session.started") {
+    return payload;
+  }
+
+  if (payload.type === "turn.completed" || payload.type === "turn.started") {
+    return payload;
+  }
+
+  if (payload.type === "thread.started" || payload.type === "turn.failed" || payload.type === "error") {
+    return payload;
+  }
+
+  const item = payload.item;
+  switch (item.type) {
+    case "command_execution":
+      return {
+        ...payload,
+        item: {
+          ...item,
+          aggregated_output: compactString(item.aggregated_output, maxLength)
+        }
+      };
+    case "agent_message":
+      return {
+        ...payload,
+        item: {
+          ...item,
+          text: compactString(item.text, maxLength)
+        }
+      };
+    case "reasoning":
+      return {
+        ...payload,
+        item: {
+          ...item,
+          text: compactString(item.text, maxLength)
+        }
+      };
+    case "error":
+      return {
+        ...payload,
+        item: {
+          ...item,
+          message: compactString(item.message, maxLength)
+        }
+      };
+    default:
+      return payload;
+  }
+}
+
+function compactString(value: string, maxLength = 8192): string {
+  if (maxLength <= 0) {
+    return `[TRUNCATED ${value.length} chars]`;
+  }
+
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength)}\n...[TRUNCATED ${value.length - maxLength} chars]`;
 }

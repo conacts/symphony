@@ -1,4 +1,29 @@
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  codexAgentMessagesTable,
+  codexCommandExecutionsTable,
+  codexEventLogTable,
+  codexFileChangesTable,
+  codexItemsTable,
+  codexPayloadOverflowTable,
+  codexReasoningTable,
+  codexRunsTable,
+  codexToolCallsTable,
+  codexTurnsTable
+} from "@symphony/codex-analytics";
+
+export {
+  codexAgentMessagesTable,
+  codexCommandExecutionsTable,
+  codexEventLogTable,
+  codexFileChangesTable,
+  codexItemsTable,
+  codexPayloadOverflowTable,
+  codexReasoningTable,
+  codexRunsTable,
+  codexToolCallsTable,
+  codexTurnsTable
+};
 
 export const symphonyIssuesTable = sqliteTable(
   "symphony_issues",
@@ -64,7 +89,7 @@ export const symphonyTurnsTable = sqliteTable(
     status: text("status").notNull(),
     startedAt: text("started_at").notNull(),
     endedAt: text("ended_at"),
-    tokens: text("tokens", { mode: "json" }).$type<Record<string, unknown> | null>(),
+    usage: text("usage", { mode: "json" }).$type<Record<string, unknown> | null>(),
     metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown> | null>(),
     insertedAt: text("inserted_at").notNull(),
     updatedAt: text("updated_at").notNull()
@@ -86,6 +111,8 @@ export const symphonyEventsTable = sqliteTable(
     runId: text("run_id").notNull(),
     eventSequence: integer("event_sequence").notNull(),
     eventType: text("event_type").notNull(),
+    itemType: text("item_type"),
+    itemStatus: text("item_status"),
     recordedAt: text("recorded_at").notNull(),
     payload: text("payload", { mode: "json" }).$type<unknown>(),
     payloadTruncated: integer("payload_truncated", { mode: "boolean" }).notNull(),
@@ -187,6 +214,16 @@ export const symphonyMigrationStateTable = sqliteTable(
 );
 
 export const symphonySchema = {
+  codexEventLogTable,
+  codexPayloadOverflowTable,
+  codexRunsTable,
+  codexTurnsTable,
+  codexItemsTable,
+  codexCommandExecutionsTable,
+  codexToolCallsTable,
+  codexAgentMessagesTable,
+  codexReasoningTable,
+  codexFileChangesTable,
   symphonyIssuesTable,
   symphonyRunsTable,
   symphonyTurnsTable,

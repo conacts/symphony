@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { buildSymphonyForensicsRunDetailResult } from "@/test-support/build-symphony-dashboard-view-fixtures";
 import {
   fetchIssueDetail,
   fetchIssueForensicsBundle,
@@ -126,51 +127,9 @@ describe("forensics client", () => {
         json: async () => ({
           schemaVersion: "1",
           ok: true,
-          data: {
-            issue: {
-              issueId: "issue_123",
-              issueIdentifier: "COL-165",
-              latestRunStartedAt: "2026-03-31T18:00:00.000Z",
-              latestRunId: "run_123",
-              latestRunStatus: "finished",
-              latestRunOutcome: "completed",
-              runCount: 3,
-              latestProblemOutcome: "max_turns",
-              lastCompletedOutcome: "completed",
-              insertedAt: "2026-03-31T18:00:00.000Z",
-              updatedAt: "2026-03-31T18:05:00.000Z"
-            },
-            run: {
-              runId: "run_123",
-              issueId: "issue_123",
-              issueIdentifier: "COL-165",
-              attempt: 1,
-              status: "finished",
-              outcome: "completed",
-              workerHost: "worker-a",
-              workspacePath: "/tmp/workspaces/col-165",
-              startedAt: "2026-03-31T18:00:00.000Z",
-              endedAt: "2026-03-31T18:02:00.000Z",
-              commitHashStart: "abc",
-              commitHashEnd: "def",
-              turnCount: 2,
-              eventCount: 4,
-              lastEventType: "message.output",
-              lastEventAt: "2026-03-31T18:02:00.000Z",
-              durationSeconds: 120,
-              inputTokens: 120,
-              outputTokens: 80,
-              totalTokens: 200,
-              repoStart: {},
-              repoEnd: {},
-              metadata: {},
-              errorClass: null,
-              errorMessage: null,
-              insertedAt: "2026-03-31T18:00:00.000Z",
-              updatedAt: "2026-03-31T18:02:00.000Z"
-            },
+          data: buildSymphonyForensicsRunDetailResult({
             turns: []
-          },
+          }),
           meta: {
             durationMs: 1,
             generatedAt: "2026-03-31T18:05:00.000Z"

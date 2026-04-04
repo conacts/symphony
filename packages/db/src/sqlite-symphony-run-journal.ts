@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import type {
+  SymphonyCodexAnalyticsEvent,
+  SymphonyCodexThreadItemStatus,
+  SymphonyCodexThreadItemType,
   SymphonyEventAttrs,
   SymphonyIssueSummary,
   SymphonyJsonObject,
-  SymphonyJsonValue,
   SymphonyRunExport,
   SymphonyRunFinishAttrs,
   SymphonyRunJournal,
@@ -191,7 +193,7 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
         status: attrs.status ?? "running",
         startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? now,
         endedAt: null,
-        tokens: null,
+        usage: null,
         metadata: sanitizeJsonObject(attrs.metadata),
         insertedAt: now,
         updatedAt: now
@@ -254,7 +256,7 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
       .get();
 
     const eventSequence = attrs.eventSequence ?? (lastEvent?.eventSequence ?? 0) + 1;
-    const truncatedPayload = truncatePayload(attrs.payload ?? null, this.payloadMaxBytes);
+    const truncatedPayload = truncatePayload(attrs.payload, this.payloadMaxBytes);
     const recordedAt = normalizeIsoTimestamp(attrs.recordedAt) ?? isoNow();
 
     this.#db.insert(symphonyEventsTable)
@@ -264,6 +266,8 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
         runId,
         eventSequence,
         eventType: attrs.eventType,
+        itemType: deriveItemType(truncatedPayload.payload),
+        itemStatus: deriveItemStatus(truncatedPayload.payload),
         recordedAt,
         payload: truncatedPayload.payload,
         payloadTruncated: truncatedPayload.payloadTruncated,
@@ -310,7 +314,7 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
         codexThreadId: attrs.codexThreadId ?? existing.codexThreadId,
         codexTurnId: attrs.codexTurnId ?? existing.codexTurnId,
         codexSessionId: attrs.codexSessionId ?? existing.codexSessionId,
-        tokens: sanitizeJsonObject(attrs.tokens) ?? existing.tokens,
+        usage: sanitizeUsage(attrs.usage) ?? existing.usage,
         metadata: mergeSanitizedJsonObjects(existing.metadata, attrs.metadata),
         updatedAt: isoNow()
       })
@@ -325,7 +329,7 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
       codexThreadId: attrs.codexThreadId,
       codexTurnId: attrs.codexTurnId,
       codexSessionId: attrs.codexSessionId,
-      tokens: attrs.tokens,
+      usage: attrs.usage,
       metadata: attrs.metadata
     });
   }
@@ -638,7 +642,7 @@ function buildRunSummary(
 
   const tokenTotals = runTurns.reduce(
     (totals, turn) => {
-      const turnTokens = parseTokenTotals(turn.tokens);
+      const turnTokens = parseTokenTotals(turn.usage);
 
       return {
         inputTokens: totals.inputTokens + turnTokens.inputTokens,
@@ -754,19 +758,21 @@ function isCompletedOutcome(outcome: string | null): boolean {
   return typeof outcome === "string" && completedOutcomes.has(outcome);
 }
 
-function parseTokenTotals(tokens: SymphonyJsonObject | Record<string, unknown> | null): {
+function parseTokenTotals(tokens: { input_tokens?: number; cached_input_tokens?: number; output_tokens?: number } | null): {
   inputTokens: number;
+  cachedInputTokens: number;
   outputTokens: number;
   totalTokens: number;
 } {
-  const inputTokens = parseTokenCount(tokens?.inputTokens);
-  const outputTokens = parseTokenCount(tokens?.outputTokens);
-  const totalTokens = parseTokenCount(tokens?.totalTokens);
+  const inputTokens = parseTokenCount(tokens?.input_tokens);
+  const cachedInputTokens = parseTokenCount(tokens?.cached_input_tokens);
+  const outputTokens = parseTokenCount(tokens?.output_tokens);
 
   return {
     inputTokens,
+    cachedInputTokens,
     outputTokens,
-    totalTokens: totalTokens || inputTokens + outputTokens
+    totalTokens: inputTokens + outputTokens
   };
 }
 
@@ -847,15 +853,40 @@ function mergeSanitizedJsonObjects(
   };
 }
 
+function sanitizeUsage(
+  value:
+    | {
+        input_tokens?: number;
+        cached_input_tokens?: number;
+        output_tokens?: number;
+      }
+    | null
+    | undefined
+): {
+  input_tokens: number;
+  cached_input_tokens: number;
+  output_tokens: number;
+} | null {
+  if (!value) {
+    return null;
+  }
+
+  return {
+    input_tokens: parseTokenCount(value.input_tokens),
+    cached_input_tokens: parseTokenCount(value.cached_input_tokens),
+    output_tokens: parseTokenCount(value.output_tokens)
+  };
+}
+
 function truncatePayload(
-  payload: unknown,
+  payload: SymphonyCodexAnalyticsEvent,
   payloadMaxBytes: number
 ): {
-  payload: SymphonyJsonValue;
+  payload: SymphonyCodexAnalyticsEvent;
   payloadBytes: number;
   payloadTruncated: boolean;
 } {
-  const sanitizedPayload = sanitizeJsonValue(payload) as SymphonyJsonValue;
+  const sanitizedPayload = sanitizeJsonValue(payload) as SymphonyCodexAnalyticsEvent;
   const encoded = JSON.stringify(sanitizedPayload);
   const payloadBytes = Buffer.byteLength(encoded, "utf8");
 
@@ -867,15 +898,114 @@ function truncatePayload(
     };
   }
 
+  for (const maxLength of [8192, 2048, 512, 128, 32, 0]) {
+    const compactPayload = compactAnalyticsPayload(sanitizedPayload, maxLength);
+    const compactEncoded = JSON.stringify(compactPayload);
+    if (Buffer.byteLength(compactEncoded, "utf8") <= payloadMaxBytes) {
+      return {
+        payload: compactPayload,
+        payloadBytes,
+        payloadTruncated: true
+      };
+    }
+  }
+
   return {
-    payload: {
-      truncated: true,
-      preview: encoded.slice(0, payloadMaxBytes),
-      originalBytes: payloadBytes
-    } as SymphonyJsonObject,
+    payload: compactAnalyticsPayload(sanitizedPayload, 0),
     payloadBytes,
     payloadTruncated: true
   };
+}
+
+function compactAnalyticsPayload(
+  payload: SymphonyCodexAnalyticsEvent,
+  maxLength: number
+): SymphonyCodexAnalyticsEvent {
+  if (payload.type === "session.started") {
+    return payload;
+  }
+
+  if (
+    payload.type === "thread.started" ||
+    payload.type === "turn.started" ||
+    payload.type === "turn.completed" ||
+    payload.type === "turn.failed" ||
+    payload.type === "error"
+  ) {
+    return payload;
+  }
+
+  switch (payload.item.type) {
+    case "command_execution":
+      return {
+        ...payload,
+        item: {
+          ...payload.item,
+          aggregated_output: compactString(payload.item.aggregated_output, maxLength)
+        }
+      };
+    case "agent_message":
+      return {
+        ...payload,
+        item: {
+          ...payload.item,
+          text: compactString(payload.item.text, maxLength)
+        }
+      };
+    case "reasoning":
+      return {
+        ...payload,
+        item: {
+          ...payload.item,
+          text: compactString(payload.item.text, maxLength)
+        }
+      };
+    case "error":
+      return {
+        ...payload,
+        item: {
+          ...payload.item,
+          message: compactString(payload.item.message, maxLength)
+        }
+      };
+    default:
+      return payload;
+  }
+}
+
+function compactString(value: string, maxLength = 8192): string {
+  if (maxLength <= 0) {
+    return `[TRUNCATED ${value.length} chars]`;
+  }
+
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength)}\n...[TRUNCATED ${value.length - maxLength} chars]`;
+}
+
+function deriveItemType(
+  payload: SymphonyCodexAnalyticsEvent
+): SymphonyCodexThreadItemType | null {
+  return "item" in payload ? payload.item.type : null;
+}
+
+function deriveItemStatus(
+  payload: SymphonyCodexAnalyticsEvent
+): SymphonyCodexThreadItemStatus {
+  if (!("item" in payload)) {
+    return null;
+  }
+
+  switch (payload.item.type) {
+    case "command_execution":
+    case "file_change":
+    case "mcp_tool_call":
+      return payload.item.status;
+    default:
+      return null;
+  }
 }
 
 function castRunRecord(
@@ -897,11 +1027,18 @@ function castTurnExport(
 ): SymphonyRunExport["turns"][number] {
   return {
     ...turn,
-    tokens: (turn.tokens ?? null) as SymphonyJsonObject | null,
+    usage: (turn.usage ?? null) as {
+      input_tokens: number;
+      cached_input_tokens: number;
+      output_tokens: number;
+    } | null,
     metadata: (turn.metadata ?? null) as SymphonyJsonObject | null,
     events: turn.events.map((event) => ({
       ...event,
-      payload: event.payload as SymphonyJsonValue
+      eventType: event.eventType as SymphonyRunExport["turns"][number]["events"][number]["eventType"],
+      itemType: (event.itemType ?? null) as SymphonyRunExport["turns"][number]["events"][number]["itemType"],
+      itemStatus: (event.itemStatus ?? null) as SymphonyRunExport["turns"][number]["events"][number]["itemStatus"],
+      payload: event.payload as SymphonyRunExport["turns"][number]["events"][number]["payload"]
     }))
   };
 }

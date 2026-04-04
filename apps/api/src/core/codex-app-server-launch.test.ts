@@ -68,7 +68,52 @@ describe("codex app server launch", () => {
     expect(settings).toMatchObject({
       executable: "/tmp/fake-codex",
       model: "gpt-5.3-codex-spark",
-      reasoningEffort: "high"
+      reasoningEffort: "high",
+      profile: null,
+      providerId: null,
+      providerName: null
+    });
+  });
+
+  it("applies the mimo-v2-pro profile defaults to SDK launches", () => {
+    const settings = resolveCodexSdkLaunchSettings(
+      "codex",
+      {
+        id: "issue-1",
+        identifier: "COL-1",
+        title: "Test issue",
+        description: null,
+        priority: null,
+        url: null,
+        state: "Todo",
+        branchName: null,
+        labels: [],
+        projectId: null,
+        projectName: null,
+        projectSlug: null,
+        teamKey: null,
+        assigneeId: null,
+        blockedBy: [],
+        assignedToWorker: false,
+        createdAt: null,
+        updatedAt: null
+      },
+      {
+        model: "xiaomi/mimo-v2-pro",
+        reasoningEffort: "high",
+        profile: "mimo-v2-pro",
+        providerId: "openrouter",
+        providerName: "OpenRouter"
+      }
+    );
+
+    expect(settings).toMatchObject({
+      executable: "codex",
+      model: "xiaomi/mimo-v2-pro",
+      reasoningEffort: "high",
+      profile: "mimo-v2-pro",
+      providerId: "openrouter",
+      providerName: "OpenRouter"
     });
   });
 });

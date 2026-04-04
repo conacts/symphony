@@ -109,27 +109,39 @@ export function buildSymphonyDashboardFoundation(
         readiness: "available"
       },
       {
-        href: "/issues",
-        label: "Issues",
-        description: "Browse recorded issues and drill into the run history for each one.",
+        href: "/analysis",
+        label: "Analysis",
+        description: "Start with the cross-run operator view before drilling into a specific analysis dimension.",
         readiness: "available"
       },
       {
-        href: "/problem-runs",
-        label: "Problem runs",
-        description: "Inspect the latest failed, rate-limited, and max-turn runs across issues.",
+        href: "/analysis/failures",
+        label: "Failure analysis",
+        description: "Review cross-run failure patterns and the issues carrying the highest failure load.",
+        readiness: "available"
+      },
+      {
+        href: "/analysis/performance",
+        label: "Performance analysis",
+        description: "Review command and tool execution hotspots across recent sampled runs.",
+        readiness: "available"
+      },
+      {
+        href: "/analysis/tokens",
+        label: "Token analysis",
+        description: "Review token pressure across sampled runs, turns, and issues.",
+        readiness: "available"
+      },
+      {
+        href: "/issues",
+        label: "Issues",
+        description: "Browse recorded issues, open run history, and drill into issue activity.",
         readiness: "available"
       },
       {
         href: "/runtime/health",
         label: "Runtime health",
         description: "Check the runtime poller, DB readiness, and recent scheduler state.",
-        readiness: "available"
-      },
-      {
-        href: "/runtime/logs",
-        label: "Runtime logs",
-        description: "Tail the persisted runtime log stream for platform and issue activity.",
         readiness: "available"
       }
     ],

@@ -1,9 +1,11 @@
 import type {
   RuntimeSummaryConnectionState,
   RuntimeSummaryViewModel
-} from "@/core/runtime-summary-view-model";
+} from "@/features/overview/model/overview-view-model";
 
 export {
+  buildSymphonyCodexOverflowResult,
+  buildSymphonyCodexRunArtifactsResult,
   buildSymphonyForensicsIssueDetailResult,
   buildSymphonyForensicsIssueForensicsBundleResult,
   buildSymphonyForensicsIssueListResult,
@@ -51,7 +53,25 @@ export function buildSymphonyRuntimeSummaryViewModel(
         detail: "Total Codex runtime reported by the current TypeScript runtime."
       }
     ],
-    rateLimitsText: "{\n  \"remaining\": 3\n}",
+    tokenChartRows: [
+      {
+        issueIdentifier: "COL-165",
+        inputTokens: 120,
+        outputTokens: 80
+      }
+    ],
+    retryChartRows: [
+      {
+        issueIdentifier: "COL-166",
+        attempt: 2
+      }
+    ],
+    rateLimitRows: [
+      {
+        label: "remaining",
+        value: "3"
+      }
+    ],
     runningRows: [
       {
         issueIdentifier: "COL-165",

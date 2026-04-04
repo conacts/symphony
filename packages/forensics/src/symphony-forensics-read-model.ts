@@ -1,18 +1,21 @@
-import {
-  isCompletedOutcome,
-  isProblemOutcome,
-  problemSummary
-} from "@symphony/run-journal/internal";
 import type {
-  SymphonyIssueSummary,
-  SymphonyIsoTimestamp,
-  SymphonyJsonValue,
-  SymphonyRunExport,
-  SymphonyRunJournal,
-  SymphonyRunJournalListOptions,
-  SymphonyRunJournalProblemRunsOptions,
-  SymphonyRunSummary
-} from "@symphony/run-journal";
+  JsonValue,
+  SymphonyForensicsIssueQuery as ContractSymphonyForensicsIssueQuery,
+  SymphonyForensicsIssueDetailResult as ContractSymphonyForensicsIssueDetail,
+  SymphonyForensicsIssueFlag as ContractSymphonyForensicsIssueFlag,
+  SymphonyForensicsIssueForensicsBundleResult as ContractSymphonyForensicsIssueForensicsBundle,
+  SymphonyForensicsIssueListResult as ContractSymphonyForensicsIssueList,
+  SymphonyForensicsProblemRunsQuery as ContractSymphonyForensicsProblemRunsQuery,
+  SymphonyForensicsIssueSortBy as ContractSymphonyForensicsIssueSortBy,
+  SymphonyForensicsIssueSortDirection as ContractSymphonyForensicsIssueSortDirection,
+  SymphonyForensicsIssueSummary as ContractSymphonyForensicsIssueSummary,
+  SymphonyForensicsIssueTimeRange as ContractSymphonyForensicsIssueTimeRange,
+  SymphonyForensicsIssueTimelineEntry as ContractSymphonyForensicsTimelineEntry,
+  SymphonyForensicsIssuesQuery as ContractSymphonyForensicsIssuesQuery,
+  SymphonyForensicsRunsQuery as ContractSymphonyForensicsRunsQuery,
+  SymphonyForensicsProblemRunsResult as ContractSymphonyForensicsProblemRuns,
+  SymphonyForensicsRunDetailResult
+} from "@symphony/contracts";
 import {
   buildIssueAggregate,
   buildIssueTotals,
@@ -20,48 +23,36 @@ import {
   compareIssueAggregates,
   countBy,
   groupRunsByIssue,
-  matchesIssueFlags,
-  requireIssueSummary
+  matchesIssueFlags
 } from "./symphony-forensics-aggregates.js";
 import {
   filterRecordedEntries,
   normalizeDependencies,
   normalizeFilters
 } from "./symphony-forensics-filters.js";
+import {
+  isCompletedOutcome,
+  isProblemOutcome,
+  problemSummary
+} from "./symphony-forensics-run-classification.js";
 
 const allRowsLimit = 100_000;
 
-export type SymphonyForensicsIssueFlag =
-  | "rate_limited"
-  | "max_turns"
-  | "startup_failure"
-  | "no_success"
-  | "high_token_burn"
-  | "long_duration"
-  | "many_retries";
-
-export type SymphonyForensicsIssueSortBy =
-  | "lastActive"
-  | "problemRate"
-  | "totalTokens"
-  | "retries"
-  | "runCount"
-  | "avgDuration";
-
-export type SymphonyForensicsIssueSortDirection = "asc" | "desc";
-
-export type SymphonyForensicsIssueTimeRange =
-  | "all"
-  | "24h"
-  | "7d"
-  | "30d"
-  | "custom";
+export type SymphonyForensicsIssueFlag = ContractSymphonyForensicsIssueFlag;
+export type SymphonyForensicsIssueSortBy = ContractSymphonyForensicsIssueSortBy;
+export type SymphonyForensicsIssueSortDirection = ContractSymphonyForensicsIssueSortDirection;
+export type SymphonyForensicsIssueTimeRange = ContractSymphonyForensicsIssueTimeRange;
+export type SymphonyForensicsIssuesQuery = Partial<
+  Omit<ContractSymphonyForensicsIssuesQuery, "hasFlag">
+> & {
+  hasFlags?: SymphonyForensicsIssueFlag[];
+};
 
 export type SymphonyForensicsIssueFilters = {
   limit: number | null;
   timeRange: SymphonyForensicsIssueTimeRange;
-  startedAfter: SymphonyIsoTimestamp | null;
-  startedBefore: SymphonyIsoTimestamp | null;
+  startedAfter: string | null;
+  startedBefore: string | null;
   outcome: string | null;
   errorClass: string | null;
   hasFlags: SymphonyForensicsIssueFlag[];
@@ -69,26 +60,7 @@ export type SymphonyForensicsIssueFilters = {
   sortDirection: SymphonyForensicsIssueSortDirection;
 };
 
-export type SymphonyForensicsIssueAggregate = SymphonyIssueSummary & {
-  completedRunCount: number;
-  problemRunCount: number;
-  problemRate: number;
-  retryCount: number;
-  latestRetryAttempt: number;
-  rateLimitedCount: number;
-  maxTurnsCount: number;
-  startupFailureCount: number;
-  totalInputTokens: number;
-  totalOutputTokens: number;
-  totalTokens: number;
-  avgDurationSeconds: number;
-  avgTurns: number;
-  avgEvents: number;
-  latestErrorClass: string | null;
-  latestErrorMessage: string | null;
-  latestActivityAt: SymphonyIsoTimestamp | null;
-  flags: SymphonyForensicsIssueFlag[];
-};
+export type SymphonyForensicsIssueAggregate = ContractSymphonyForensicsIssueSummary;
 
 export type SymphonyForensicsIssueTotals = {
   issueCount: number;
@@ -103,51 +75,20 @@ export type SymphonyForensicsIssueTotals = {
   totalTokens: number;
 };
 
-export type SymphonyForensicsIssueList = {
-  issues: SymphonyForensicsIssueAggregate[];
-  totals: SymphonyForensicsIssueTotals;
-  filters: SymphonyForensicsIssueFilters;
-  facets: {
-    outcomes: string[];
-    errorClasses: string[];
-  };
-};
+export type SymphonyForensicsIssueList = ContractSymphonyForensicsIssueList;
 
-export type SymphonyForensicsIssueDetail = {
-  issueIdentifier: string;
-  runs: SymphonyRunSummary[];
-  summary: {
-    runCount: number;
-    latestProblemOutcome: string | null;
-    lastCompletedOutcome: string | null;
-  };
-  filters: {
-    limit: number | null;
-  };
-};
+export type SymphonyForensicsRunSummary = ContractSymphonyForensicsIssueDetail["runs"][number];
+export type SymphonyForensicsIssueDetail = ContractSymphonyForensicsIssueDetail;
 
-export type SymphonyForensicsProblemRuns = {
-  problemRuns: SymphonyRunSummary[];
-  problemSummary: Record<string, number>;
-  filters: {
-    outcome: string | null;
-    issueIdentifier: string | null;
-    limit: number | null;
-  };
-};
+export type SymphonyForensicsProblemRuns = ContractSymphonyForensicsProblemRuns;
 
-export type SymphonyForensicsTimelineEntry = {
-  entryId: string;
-  issueId: string;
-  issueIdentifier: string;
-  runId: string | null;
-  turnId: string | null;
-  source: "orchestrator" | "codex" | "tracker" | "workspace" | "runtime";
-  eventType: string;
-  message: string | null;
-  payload: SymphonyJsonValue;
-  recordedAt: string;
-};
+export type SymphonyForensicsTimelineEntry = ContractSymphonyForensicsTimelineEntry;
+export type SymphonyForensicsRunsQuery = Partial<ContractSymphonyForensicsRunsQuery>;
+export type SymphonyForensicsIssueDetailQuery = Partial<ContractSymphonyForensicsIssueQuery>;
+export type SymphonyForensicsProblemRunsQuery =
+  Partial<ContractSymphonyForensicsProblemRunsQuery>;
+export type SymphonyForensicsIssueForensicsBundle =
+  ContractSymphonyForensicsIssueForensicsBundle;
 
 export type SymphonyForensicsRuntimeLogEntry = {
   entryId: string;
@@ -158,42 +99,8 @@ export type SymphonyForensicsRuntimeLogEntry = {
   issueId: string | null;
   issueIdentifier: string | null;
   runId: string | null;
-  payload: SymphonyJsonValue;
+  payload: JsonValue;
   recordedAt: string;
-};
-
-export type SymphonyForensicsIssueForensicsBundle = {
-  issue: SymphonyForensicsIssueAggregate;
-  recentRuns: SymphonyRunSummary[];
-  distributions: {
-    outcomes: Record<string, number>;
-    errorClasses: Record<string, number>;
-    timelineEvents: Record<string, number>;
-  };
-  latestFailure: {
-    runId: string;
-    startedAt: string | null;
-    outcome: string | null;
-    errorClass: string | null;
-    errorMessage: string | null;
-    timelineEntries: SymphonyForensicsTimelineEntry[];
-    runtimeLogs: SymphonyForensicsRuntimeLogEntry[];
-  } | null;
-  timeline: SymphonyForensicsTimelineEntry[];
-  runtimeLogs: SymphonyForensicsRuntimeLogEntry[];
-  filters: SymphonyForensicsIssueFilters;
-};
-
-export type SymphonyForensicsIssuesQuery = {
-  limit?: number;
-  timeRange?: SymphonyForensicsIssueTimeRange;
-  startedAfter?: string;
-  startedBefore?: string;
-  outcome?: string;
-  errorClass?: string;
-  hasFlags?: SymphonyForensicsIssueFlag[];
-  sortBy?: SymphonyForensicsIssueSortBy;
-  sortDirection?: SymphonyForensicsIssueSortDirection;
 };
 
 export type SymphonyForensicsIssueForensicsBundleQuery =
@@ -204,7 +111,7 @@ export type SymphonyForensicsIssueForensicsBundleQuery =
   };
 
 export type SymphonyForensicsReadModelDependencies = {
-  journal: SymphonyRunJournal;
+  runStore: SymphonyForensicsRunStore;
   listIssueTimeline?: (input: {
     issueIdentifier: string;
     limit?: number;
@@ -215,56 +122,57 @@ export type SymphonyForensicsReadModelDependencies = {
   }) => Promise<SymphonyForensicsRuntimeLogEntry[]>;
 };
 
+export interface SymphonyForensicsRunStore {
+  listRuns(opts?: SymphonyForensicsRunsQuery): Promise<SymphonyForensicsRunSummary[]>;
+  listRunsForIssue(
+    issueIdentifier: string,
+    opts?: SymphonyForensicsIssueDetailQuery
+  ): Promise<SymphonyForensicsRunSummary[]>;
+  listProblemRuns(
+    opts?: SymphonyForensicsProblemRunsQuery
+  ): Promise<SymphonyForensicsRunSummary[]>;
+  fetchRunDetail(runId: string): Promise<SymphonyForensicsRunDetailResult | null>;
+}
+
 export interface SymphonyForensicsReadModel {
   issues(opts?: SymphonyForensicsIssuesQuery): Promise<SymphonyForensicsIssueList>;
   issueDetail(
     issueIdentifier: string,
-    opts?: SymphonyRunJournalListOptions
+    opts?: SymphonyForensicsIssueDetailQuery
   ): Promise<SymphonyForensicsIssueDetail | null>;
   issueForensicsBundle(
     issueIdentifier: string,
     opts?: SymphonyForensicsIssueForensicsBundleQuery
   ): Promise<SymphonyForensicsIssueForensicsBundle | null>;
-  runDetail(runId: string): Promise<SymphonyRunExport | null>;
-  problemRuns(opts?: SymphonyRunJournalProblemRunsOptions): Promise<SymphonyForensicsProblemRuns>;
+  runDetail(runId: string): Promise<SymphonyForensicsRunDetailResult | null>;
+  problemRuns(opts?: SymphonyForensicsProblemRunsQuery): Promise<SymphonyForensicsProblemRuns>;
 }
 
 export function createSymphonyForensicsReadModel(
-  input: SymphonyRunJournal | SymphonyForensicsReadModelDependencies
+  input: SymphonyForensicsRunStore | SymphonyForensicsReadModelDependencies
 ): SymphonyForensicsReadModel {
   const deps = normalizeDependencies(input);
 
   return {
     async issues(opts = {}) {
       const filters = normalizeFilters(opts);
-      const [issueRecords, scopedRuns, facetRuns] = await Promise.all([
-        deps.journal.listIssues({
-          limit: allRowsLimit
-        }),
-        deps.journal.listRuns({
+      const [scopedRuns, facetRuns] = await Promise.all([
+        deps.runStore.listRuns({
           limit: allRowsLimit,
           startedAfter: filters.startedAfter ?? undefined,
           startedBefore: filters.startedBefore ?? undefined,
           outcome: filters.outcome ?? undefined,
           errorClass: filters.errorClass ?? undefined
         }),
-        deps.journal.listRuns({
+        deps.runStore.listRuns({
           limit: allRowsLimit,
           startedAfter: filters.startedAfter ?? undefined,
           startedBefore: filters.startedBefore ?? undefined
         })
       ]);
 
-      const issueRecordMap = new Map(
-        issueRecords.map((issue) => [issue.issueIdentifier, issue] as const)
-      );
       const issues = Array.from(groupRunsByIssue(scopedRuns).entries())
-        .map(([issueIdentifier, runs]) =>
-          buildIssueAggregate(
-            requireIssueSummary(issueRecordMap, issueIdentifier),
-            runs
-          )
-        )
+        .map(([, runs]) => buildIssueAggregate(runs))
         .filter((issue) => matchesIssueFlags(issue, filters.hasFlags))
         .sort((left, right) => compareIssueAggregates(left, right, filters));
 
@@ -282,7 +190,7 @@ export function createSymphonyForensicsReadModel(
     },
 
     async issueDetail(issueIdentifier, opts = {}) {
-      const runs = await deps.journal.listRunsForIssue(issueIdentifier, opts);
+      const runs = await deps.runStore.listRunsForIssue(issueIdentifier, opts);
       if (runs.length === 0) {
         return null;
       }
@@ -304,11 +212,8 @@ export function createSymphonyForensicsReadModel(
 
     async issueForensicsBundle(issueIdentifier, opts = {}) {
       const filters = normalizeFilters(opts);
-      const [issueRecords, runs, timelineEntries, runtimeLogs] = await Promise.all([
-        deps.journal.listIssues({
-          limit: allRowsLimit
-        }),
-        deps.journal.listRuns({
+      const [runs, timelineEntries, runtimeLogs] = await Promise.all([
+        deps.runStore.listRuns({
           limit: allRowsLimit,
           issueIdentifier,
           startedAfter: filters.startedAfter ?? undefined,
@@ -334,11 +239,7 @@ export function createSymphonyForensicsReadModel(
         return null;
       }
 
-      const issueRecordMap = new Map(
-        issueRecords.map((issue) => [issue.issueIdentifier, issue] as const)
-      );
-      const issueRecord = requireIssueSummary(issueRecordMap, issueIdentifier);
-      const issue = buildIssueAggregate(issueRecord, runs);
+      const issue = buildIssueAggregate(runs);
 
       if (!matchesIssueFlags(issue, filters.hasFlags)) {
         return null;
@@ -378,11 +279,11 @@ export function createSymphonyForensicsReadModel(
     },
 
     async runDetail(runId) {
-      return deps.journal.fetchRunExport(runId);
+      return deps.runStore.fetchRunDetail(runId);
     },
 
     async problemRuns(opts = {}) {
-      const problemRuns = await deps.journal.listProblemRuns(opts);
+      const problemRuns = await deps.runStore.listProblemRuns(opts);
 
       return {
         problemRuns,

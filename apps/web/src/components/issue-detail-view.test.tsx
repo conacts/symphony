@@ -3,9 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   buildSymphonyDashboardConnectionState,
-  buildSymphonyForensicsIssueForensicsBundleResult
+  buildSymphonyForensicsIssueDetailResult
 } from "../test-support/build-symphony-dashboard-view-fixtures.js";
-import { IssueDetailView } from "./issue-detail-view.js";
+import { IssueDetailView } from "@/features/issues/components/issue-detail-view";
 
 describe("issue detail view", () => {
   it("renders the issue run history drilldown", () => {
@@ -13,14 +13,20 @@ describe("issue detail view", () => {
       <IssueDetailView
         connection={buildSymphonyDashboardConnectionState()}
         error={null}
-        issueDetail={buildSymphonyForensicsIssueForensicsBundleResult()}
+        issueDetail={buildSymphonyForensicsIssueDetailResult()}
+        issueIdentifier="COL-165"
         loading={false}
       />
     );
 
+    expect(html).toContain("Issue runs");
+    expect(html).toContain("Run outcomes");
+    expect(html).toContain("Recent run token load");
+    expect(html).toContain("Average run tokens");
+    expect(html).toContain("Recent failure signals");
     expect(html).toContain("Run history");
-    expect(html).toContain("Latest failure");
-    expect(html).toContain("Issue timeline");
-    expect(html).toContain("Runtime logs");
+    expect(html).toContain("Issue activity");
+    expect(html).toContain("/issues/COL-165/timeline");
+    expect(html).toContain('href="/runs/');
   });
 });

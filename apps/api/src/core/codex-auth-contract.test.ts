@@ -48,17 +48,74 @@ describe("codex auth contract", () => {
     });
   });
 
+  it("passes the configured provider api key env alongside auth.json when present", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-auth-"));
+    tempDirectories.push(root);
+    const home = path.join(root, "home");
+    await mkdir(path.join(home, ".codex"), {
+      recursive: true
+    });
+    await writeFile(path.join(home, ".codex", "auth.json"), '{"ok":true}\n');
+
+    expect(
+      resolveDockerCodexAuthContract(
+        {
+          HOME: home,
+          OPENROUTER_API_KEY: "test-openrouter-api-key"
+        },
+        {
+          preferredApiKeyEnvKey: "OPENROUTER_API_KEY"
+        }
+      )
+    ).toEqual({
+      mode: "auth_json",
+      mount: {
+        sourcePath: path.join(home, ".codex", "auth.json"),
+        containerPath: "/home/agent/auth.json",
+        readOnly: true
+      },
+      launchEnv: {
+        CODEX_HOME: "/home/agent",
+        OPENROUTER_API_KEY: "test-openrouter-api-key"
+      },
+      authFilePath: path.join(home, ".codex", "auth.json")
+    });
+  });
+
   it("falls back to host OPENAI_API_KEY when no auth.json is available", () => {
     expect(
       resolveDockerCodexAuthContract({
         OPENAI_API_KEY: "test-openai-api-key"
       })
     ).toEqual({
-      mode: "openai_api_key",
+      mode: "api_key_env",
       mount: null,
       launchEnv: {
         OPENAI_API_KEY: "test-openai-api-key"
       },
+      apiKeyEnvKey: "OPENAI_API_KEY",
+      authFilePath: null
+    });
+  });
+
+  it("prefers the configured provider api key env when requested", () => {
+    expect(
+      resolveDockerCodexAuthContract(
+        {
+          OPENAI_API_KEY: "test-openai-api-key",
+          OPENROUTER_API_KEY: "test-openrouter-api-key"
+        },
+        {
+          preferredApiKeyEnvKey: "OPENROUTER_API_KEY"
+        }
+      )
+    ).toEqual({
+      mode: "api_key_env",
+      mount: null,
+      launchEnv: {
+        OPENROUTER_API_KEY: "test-openrouter-api-key"
+      },
+      apiKeyEnvKey: "OPENROUTER_API_KEY",
       authFilePath: null
     });
   });

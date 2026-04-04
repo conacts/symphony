@@ -14,7 +14,11 @@ const symphonyDashboardRestrictions =
 export default [
   ...base,
   {
-    ignores: ["**/.next/**"]
+    ignores: [
+      "**/.next/**",
+      "src/components/ai-elements/**",
+      "src/components/ui/**"
+    ]
   },
   {
     files: [...runtimeSourceGlobs],

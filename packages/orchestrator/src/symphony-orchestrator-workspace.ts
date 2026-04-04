@@ -1,4 +1,4 @@
-import type { SymphonyJsonObject } from "@symphony/run-journal";
+import type { JsonObject } from "@symphony/contracts";
 import {
   summarizePreparedWorkspace,
   type PreparedWorkspace,
@@ -11,13 +11,13 @@ import type { SymphonyOrchestratorObserver } from "./symphony-orchestrator-types
 
 export function buildWorkspaceLifecyclePayload(
   workspace: PreparedWorkspace | null
-): SymphonyJsonObject | null {
+): JsonObject | null {
   return normalizeWorkspaceLifecycleMetadata(summarizePreparedWorkspace(workspace));
 }
 
 export function normalizeWorkspaceLifecycleMetadata(
   workspace: WorkspaceLifecycleMetadata | null
-): SymphonyJsonObject | null {
+): JsonObject | null {
   if (!workspace) {
     return null;
   }

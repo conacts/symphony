@@ -1,4 +1,4 @@
-import type { SymphonyJsonObject } from "@symphony/run-journal";
+import type { JsonObject } from "@symphony/contracts";
 import type { SymphonyTracker, SymphonyTrackerIssue } from "@symphony/tracker";
 import type {
   PreparedWorkspace,
@@ -29,7 +29,7 @@ export async function leaveFailureComment(input: {
   outcome: string;
   runId: string | null;
   options?: {
-    rateLimits?: SymphonyJsonObject | null;
+    rateLimits?: JsonObject | null;
     startupFailureTransition?: SymphonyStartupFailureTransition;
   };
 }): Promise<void> {

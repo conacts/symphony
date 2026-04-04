@@ -273,7 +273,20 @@ describe("symphony runtime contracts", () => {
           requeueDelegatesTo: ["linear", "github_rework_comment"],
           requeueCommand: "/rework",
           requeueHelpText:
-            "Use /rework on the PR or move the Linear issue back into a dispatchable state."
+            "Use /rework on the PR or move the Linear issue back into a dispatchable state.",
+          codex: {
+            defaultModel: "xiaomi/mimo-v2-pro",
+            selectedModel: "xiaomi/mimo-v2-pro",
+            availableModels: [
+              "xiaomi/mimo-v2-pro",
+              "gpt-5.4",
+              "gpt-5.4-mini",
+              "gpt-5.3-codex-spark"
+            ],
+            modelOverrideLabelPrefix: "symphony:model:",
+            selectionHelpText:
+              "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
+          }
         }
       }
     });
@@ -338,12 +351,66 @@ describe("symphony runtime contracts", () => {
           requeueDelegatesTo: ["linear", "github_rework_comment"],
           requeueCommand: "/rework",
           requeueHelpText:
-            "Use /rework on the PR or move the Linear issue back into a dispatchable state."
+            "Use /rework on the PR or move the Linear issue back into a dispatchable state.",
+          codex: {
+            defaultModel: "xiaomi/mimo-v2-pro",
+            selectedModel: "xiaomi/mimo-v2-pro",
+            availableModels: [
+              "xiaomi/mimo-v2-pro",
+              "gpt-5.4",
+              "gpt-5.4-mini",
+              "gpt-5.3-codex-spark"
+            ],
+            modelOverrideLabelPrefix: "symphony:model:",
+            selectionHelpText:
+              "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
+          }
         }
       }
     });
 
     expect(parsed.ok).toBe(true);
+  });
+
+  it("rejects runtime entries that omit nullable state fields", () => {
+    expect(() =>
+      symphonyRuntimeStateResponseSchema.parse({
+        schemaVersion: "1",
+        ok: true,
+        meta: {
+          durationMs: 1,
+          generatedAt: "2026-03-31T00:00:00.000Z"
+        },
+        data: {
+          counts: { running: 1, retrying: 0 },
+          running: [
+            {
+              issueId: "issue-1",
+              issueIdentifier: "COL-157",
+              state: "In Progress",
+              workspace: null,
+              launchTarget: null,
+              turnCount: 0,
+              startedAt: "2026-03-31T00:00:00.000Z",
+              lastEventAt: null,
+              tokens: {
+                inputTokens: 0,
+                outputTokens: 0,
+                totalTokens: 0
+              }
+            }
+          ],
+          retrying: [],
+          codexTotals: {
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            secondsRunning: 0
+          },
+          rateLimits: null
+        }
+      })
+    ).toThrow();
   });
 
   it("parses refresh requests and responses", () => {

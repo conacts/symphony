@@ -1,27 +1,24 @@
-import {
-  isCompletedOutcome,
-  isProblemOutcome
-} from "@symphony/run-journal/internal";
-import type {
-  SymphonyIssueSummary,
-  SymphonyRunSummary
-} from "@symphony/run-journal";
 import type {
   SymphonyForensicsIssueAggregate,
   SymphonyForensicsIssueFilters,
   SymphonyForensicsIssueFlag,
-  SymphonyForensicsIssueTotals
+  SymphonyForensicsIssueTotals,
+  SymphonyForensicsRunSummary
 } from "./symphony-forensics-read-model.js";
+import {
+  isCompletedOutcome,
+  isProblemOutcome
+} from "./symphony-forensics-run-classification.js";
 
 const defaultHighTokenBurnThreshold = 50_000;
 const defaultLongDurationThresholdSeconds = 1_800;
 const defaultManyRetriesThreshold = 2;
 
 export function buildIssueAggregate(
-  issue: SymphonyIssueSummary,
-  runs: SymphonyRunSummary[]
+  runs: SymphonyForensicsRunSummary[]
 ): SymphonyForensicsIssueAggregate {
   const latestRun = runs[0] ?? null;
+  const firstRun = runs[0] ?? null;
   const latestProblemRun = runs.find((run) => isProblemOutcome(run.outcome)) ?? null;
   const latestCompletedRun = runs.find((run) => isCompletedOutcome(run.outcome)) ?? null;
   const latestErrorRun =
@@ -83,17 +80,18 @@ export function buildIssueAggregate(
   }
 
   return {
-    ...issue,
-    latestRunStartedAt: latestRun?.startedAt ?? issue.latestRunStartedAt,
-    latestRunId: latestRun?.runId ?? issue.latestRunId,
-    latestRunStatus: latestRun?.status ?? issue.latestRunStatus,
-    latestRunOutcome: latestRun?.outcome ?? issue.latestRunOutcome,
+    issueId: firstRun?.issueId ?? "[missing-issue-id]",
+    issueIdentifier: firstRun?.issueIdentifier ?? "[missing-issue-identifier]",
+    latestRunStartedAt: latestRun?.startedAt ?? null,
+    latestRunId: latestRun?.runId ?? null,
+    latestRunStatus: latestRun?.status ?? null,
+    latestRunOutcome: latestRun?.outcome ?? null,
     runCount: runs.length,
     completedRunCount,
     problemRunCount,
     problemRate: runs.length === 0 ? 0 : problemRunCount / runs.length,
-    latestProblemOutcome: latestProblemRun?.outcome ?? issue.latestProblemOutcome,
-    lastCompletedOutcome: latestCompletedRun?.outcome ?? issue.lastCompletedOutcome,
+    latestProblemOutcome: latestProblemRun?.outcome ?? null,
+    lastCompletedOutcome: latestCompletedRun?.outcome ?? null,
     retryCount,
     latestRetryAttempt,
     rateLimitedCount,
@@ -108,7 +106,9 @@ export function buildIssueAggregate(
     latestErrorClass: latestErrorRun?.errorClass ?? null,
     latestErrorMessage: latestErrorRun?.errorMessage ?? null,
     latestActivityAt,
-    flags
+    flags,
+    insertedAt: null,
+    updatedAt: null
   };
 }
 
@@ -144,9 +144,9 @@ export function buildIssueTotals(
 }
 
 export function groupRunsByIssue(
-  runs: SymphonyRunSummary[]
-): Map<string, SymphonyRunSummary[]> {
-  const grouped = new Map<string, SymphonyRunSummary[]>();
+  runs: SymphonyForensicsRunSummary[]
+): Map<string, SymphonyForensicsRunSummary[]> {
+  const grouped = new Map<string, SymphonyForensicsRunSummary[]>();
 
   for (const run of runs) {
     const existingRuns = grouped.get(run.issueIdentifier);
@@ -163,21 +163,6 @@ export function groupRunsByIssue(
   }
 
   return grouped;
-}
-
-export function requireIssueSummary(
-  issues: ReadonlyMap<string, SymphonyIssueSummary>,
-  issueIdentifier: string
-): SymphonyIssueSummary {
-  const issue = issues.get(issueIdentifier);
-
-  if (issue) {
-    return issue;
-  }
-
-  throw new TypeError(
-    `Missing issue summary for ${issueIdentifier}. Issue records must exist before forensics queries run.`
-  );
 }
 
 export function matchesIssueFlags(

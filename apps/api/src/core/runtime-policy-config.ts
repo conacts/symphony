@@ -7,6 +7,25 @@ const defaultDispatchableStates = ["Todo", "Bootstrapping", "In Progress", "Rewo
 const defaultTerminalStates = ["Canceled", "Done"];
 const defaultClaimTransitionFromStates = ["Todo", "Rework"];
 const defaultAllowedOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
+function createOpenRouterProfile(profile: string) {
+  return {
+    profile,
+    defaultModel: "xiaomi/mimo-v2-pro",
+    defaultReasoningEffort: "high",
+    provider: {
+      id: "openrouter",
+      name: "OpenRouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      envKey: "OPENROUTER_API_KEY",
+      supportsWebsockets: false,
+      wireApi: "responses"
+    }
+  } as const;
+}
+
+const mimoV2ProProfile = createOpenRouterProfile("mimo-v2-pro");
+const glm5TurboProfile = createOpenRouterProfile("glm-5-turbo");
+const defaultOpenRouterProfile = mimoV2ProProfile;
 
 export function loadSymphonyRuntimePolicyConfig(input: {
   environmentSource: EnvironmentSource;
@@ -21,6 +40,8 @@ export function loadSymphonyRuntimePolicyConfig(input: {
     readOptionalString(environmentSource.SYMPHONY_GITHUB_STATE_PATH) ??
     path.join(workspaceRoot, ".symphony", "github-state.json");
   const trackerKind = readOptionalString(environmentSource.SYMPHONY_TRACKER_KIND) ?? "linear";
+  const codexProfile = readOptionalString(environmentSource.SYMPHONY_CODEX_PROFILE);
+  const codexProfileDefaults = resolveCodexProfileDefaults(codexProfile);
   const trackerProjectSlug = readOptionalString(
     environmentSource.SYMPHONY_LINEAR_PROJECT_SLUG
   );
@@ -94,6 +115,43 @@ export function loadSymphonyRuntimePolicyConfig(input: {
         readOptionalString(environmentSource.SYMPHONY_CODEX_THREAD_SANDBOX) ??
         "danger-full-access",
       turnSandboxPolicy: null,
+      profile: codexProfileDefaults?.profile ?? codexProfile,
+      defaultModel:
+        readOptionalString(environmentSource.SYMPHONY_CODEX_MODEL) ??
+        codexProfileDefaults?.defaultModel ??
+        defaultOpenRouterProfile.defaultModel,
+      defaultReasoningEffort:
+        readOptionalString(environmentSource.SYMPHONY_CODEX_REASONING_EFFORT) ??
+        codexProfileDefaults?.defaultReasoningEffort ??
+        defaultOpenRouterProfile.defaultReasoningEffort,
+      provider: {
+        id:
+          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER) ??
+          codexProfileDefaults?.provider.id ??
+          defaultOpenRouterProfile.provider.id,
+        name:
+          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_NAME) ??
+          codexProfileDefaults?.provider.name ??
+          defaultOpenRouterProfile.provider.name,
+        baseUrl:
+          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_BASE_URL) ??
+          codexProfileDefaults?.provider.baseUrl ??
+          defaultOpenRouterProfile.provider.baseUrl,
+        envKey:
+          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_ENV_KEY) ??
+          codexProfileDefaults?.provider.envKey ??
+          defaultOpenRouterProfile.provider.envKey,
+        supportsWebsockets:
+          readOptionalBoolean(
+            environmentSource.SYMPHONY_CODEX_PROVIDER_SUPPORTS_WEBSOCKETS
+          ) ??
+          codexProfileDefaults?.provider.supportsWebsockets ??
+          defaultOpenRouterProfile.provider.supportsWebsockets,
+        wireApi:
+          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_WIRE_API) ??
+          codexProfileDefaults?.provider.wireApi ??
+          defaultOpenRouterProfile.provider.wireApi
+      },
       turnTimeoutMs: readPositiveInteger(
         environmentSource.SYMPHONY_CODEX_TURN_TIMEOUT_MS,
         3_600_000
@@ -112,7 +170,7 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       beforeRun: null,
       afterRun: null,
       beforeRemove: null,
-      timeoutMs: readPositiveInteger(environmentSource.SYMPHONY_HOOK_TIMEOUT_MS, 60_000)
+      timeoutMs: readPositiveInteger(environmentSource.SYMPHONY_HOOK_TIMEOUT_MS, 150_000)
     },
     observability: {
       dashboardEnabled: false,
@@ -178,4 +236,44 @@ function readStringList(value: string | undefined): string[] | null {
     .filter((entry) => entry.length > 0);
 
   return normalized.length > 0 ? normalized : null;
+}
+
+function readOptionalBoolean(value: string | undefined): boolean | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === "") {
+    return null;
+  }
+
+  if (trimmed === "true") {
+    return true;
+  }
+
+  if (trimmed === "false") {
+    return false;
+  }
+
+  throw new TypeError(
+    `Invalid Symphony runtime policy: expected a boolean, received ${JSON.stringify(value)}.`
+  );
+}
+
+function resolveCodexProfileDefaults(
+  profile: string | null
+): typeof glm5TurboProfile | typeof mimoV2ProProfile | null {
+  if (profile === null) {
+    return defaultOpenRouterProfile;
+  }
+
+  switch (profile.trim().toLowerCase()) {
+    case mimoV2ProProfile.profile:
+      return mimoV2ProProfile;
+    case glm5TurboProfile.profile:
+      return glm5TurboProfile;
+    default:
+      return null;
+  }
 }

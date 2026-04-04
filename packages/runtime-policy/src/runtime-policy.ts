@@ -54,6 +54,17 @@ export type SymphonyCodexRuntimePolicy = {
   approvalPolicy: string | Record<string, unknown>;
   threadSandbox: string;
   turnSandboxPolicy: Record<string, unknown> | null;
+  profile: string | null;
+  defaultModel: string | null;
+  defaultReasoningEffort: string | null;
+  provider: {
+    id: string | null;
+    name: string | null;
+    baseUrl: string | null;
+    envKey: string | null;
+    supportsWebsockets: boolean | null;
+    wireApi: string | null;
+  } | null;
   turnTimeoutMs: number;
   readTimeoutMs: number;
   stallTimeoutMs: number;
@@ -289,6 +300,7 @@ function normalizeAgentConfig(value: unknown): SymphonyAgentRuntimePolicy {
 function normalizeCodexConfig(value: unknown): SymphonyCodexRuntimePolicy {
   const codex = getNestedRecord(value);
   const rawCommand = codex.command;
+  const provider = getNestedRecord(codex.provider);
 
   if (rawCommand === "") {
     throw new SymphonyRuntimePolicyError(
@@ -310,6 +322,23 @@ function normalizeCodexConfig(value: unknown): SymphonyCodexRuntimePolicy {
     threadSandbox:
       normalizeOptionalString(codex.threadSandbox) ?? "danger-full-access",
     turnSandboxPolicy: normalizeOptionalRecord(codex.turnSandboxPolicy),
+    profile: normalizeOptionalString(codex.profile),
+    defaultModel: normalizeOptionalString(codex.defaultModel),
+    defaultReasoningEffort: normalizeOptionalString(codex.defaultReasoningEffort),
+    provider:
+      Object.keys(provider).length === 0
+        ? null
+        : {
+            id: normalizeOptionalString(provider.id),
+            name: normalizeOptionalString(provider.name),
+            baseUrl: normalizeOptionalString(provider.baseUrl),
+            envKey: normalizeOptionalString(provider.envKey),
+            supportsWebsockets:
+              typeof provider.supportsWebsockets === "boolean"
+                ? provider.supportsWebsockets
+                : null,
+            wireApi: normalizeOptionalString(provider.wireApi)
+          },
     turnTimeoutMs: normalizePositiveInteger(
       codex.turnTimeoutMs,
       3_600_000,

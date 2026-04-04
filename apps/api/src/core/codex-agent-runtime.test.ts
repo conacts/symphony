@@ -5,7 +5,9 @@ import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  createSqliteSymphonyRunJournal,
+  createSqliteCodexAnalyticsReadStore,
+  createSqliteCodexAnalyticsStore,
+  createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
@@ -68,11 +70,16 @@ describe("docker codex symphony agent runtime", () => {
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const runJournal = createSqliteSymphonyRunJournal({
-      db: database.db,
-      dbFile: path.join(root, "symphony.db")
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
     });
-    const runId = await runJournal.recordRunStarted({
+    const codexAnalytics = createSqliteCodexAnalyticsStore({
+      db: database.db
+    });
+    const codexReadStore = createSqliteCodexAnalyticsReadStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       status: "dispatching",
@@ -90,7 +97,8 @@ describe("docker codex symphony agent runtime", () => {
           "You are working on {{ issue.identifier }} in {{ repo.name }} on {{ repo.default_branch }}."
         ),
         tracker,
-        runJournal,
+        runStore,
+        codexAnalytics,
         runtimeLogs: {
           async record() {
             return "log-1";
@@ -107,7 +115,7 @@ describe("docker codex symphony agent runtime", () => {
           },
           async onComplete(_issueId, result) {
             completion = result;
-            await runJournal.finalizeRun(runId, {
+            await runStore.finalizeRun(runId, {
               status: "finished",
               outcome: result.kind === "normal" ? "completed_turn_batch" : "failed",
               endedAt: new Date().toISOString()
@@ -131,32 +139,31 @@ describe("docker codex symphony agent runtime", () => {
     expect(completion).toEqual({
       kind: "normal"
     });
-    expect(updates).toContain("session_started");
+    expect(updates).toContain("session.started");
     expect(updates).toContain("thread.started");
     expect(updates).toContain("item.completed");
     expect(updates).toContain("turn.completed");
 
-    const exportPayload = await runJournal.fetchRunExport(runId);
-    expect(exportPayload?.turns).toHaveLength(1);
-    expect(exportPayload?.turns[0]?.promptText).toBe(
+    const runDetail = await codexReadStore.fetchRunDetail(runId);
+    expect(runDetail?.turns).toHaveLength(1);
+    expect(runDetail?.turns[0]?.promptText).toBe(
       "You are working on COL-123 in source-repo on main."
     );
     expect(
-      exportPayload?.turns[0]?.events.map((event: { eventType: string }) => event.eventType)
+      runDetail?.turns[0]?.events.map((event: { eventType: string }) => event.eventType)
     ).toEqual([
-      "session_started",
       "thread.started",
       "turn.started",
       "item.completed",
       "turn.completed"
     ]);
-    expect(exportPayload?.run.commitHashStart).toMatch(/[0-9a-f]{40}/);
-    expect(exportPayload?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
-    expect(exportPayload?.run.repoStart).toMatchObject({
+    expect(runDetail?.run.commitHashStart).toMatch(/[0-9a-f]{40}/);
+    expect(runDetail?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
+    expect(runDetail?.run.repoStart).toMatchObject({
       available: true,
       dirty: true
     });
-    expect(exportPayload?.run.repoEnd).toMatchObject({
+    expect(runDetail?.run.repoEnd).toMatchObject({
       available: true,
       dirty: true
     });
@@ -226,11 +233,13 @@ describe("docker codex symphony agent runtime", () => {
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const runJournal = createSqliteSymphonyRunJournal({
-      db: database.db,
-      dbFile: path.join(root, "symphony.db")
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
     });
-    const runId = await runJournal.recordRunStarted({
+    const codexAnalytics = createSqliteCodexAnalyticsStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       status: "dispatching",
@@ -244,7 +253,8 @@ describe("docker codex symphony agent runtime", () => {
       const runtime = createCodexSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
-        runJournal,
+        runStore,
+        codexAnalytics,
         runtimeLogs: {
           async record() {
             return "log-1";
@@ -328,9 +338,11 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const runJournal = createSqliteSymphonyRunJournal({
-      db: database.db,
-      dbFile: path.join(root, "symphony.db")
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const codexAnalytics = createSqliteCodexAnalyticsStore({
+      db: database.db
     });
 
     let completion: SymphonyAgentRuntimeCompletion | null = null;
@@ -339,7 +351,8 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
       const runtime = createCodexSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
-        runJournal,
+        runStore,
+        codexAnalytics,
         runtimeLogs: {
           async record() {
             return "log-1";
@@ -411,11 +424,16 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const runJournal = createSqliteSymphonyRunJournal({
-      db: database.db,
-      dbFile: path.join(root, "symphony.db")
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
     });
-    const runId = await runJournal.recordRunStarted({
+    const codexAnalytics = createSqliteCodexAnalyticsStore({
+      db: database.db
+    });
+    const codexReadStore = createSqliteCodexAnalyticsReadStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       status: "dispatching",
@@ -430,7 +448,8 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
       const runtime = createCodexSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
-        runJournal,
+        runStore,
+        codexAnalytics,
         runtimeLogs: {
           async record(input) {
             runtimeLogPayloads.push(input.payload);
@@ -492,15 +511,15 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
       })
     );
 
-    const exportPayload = await runJournal.fetchRunExport(runId);
-    expect(exportPayload?.run.commitHashStart).toMatch(/[0-9a-f]{40}/);
-    expect(exportPayload?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
-    expect(exportPayload?.run.repoStart).toMatchObject({
+    const runDetail = await codexReadStore.fetchRunDetail(runId);
+    expect(runDetail?.run.commitHashStart).toMatch(/[0-9a-f]{40}/);
+    expect(runDetail?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
+    expect(runDetail?.run.repoStart).toMatchObject({
       available: true,
       source: "bind_mount",
       dirty: false
     });
-    expect(exportPayload?.run.repoEnd).toMatchObject({
+    expect(runDetail?.run.repoEnd).toMatchObject({
       available: true,
       source: "bind_mount",
       dirty: false
@@ -538,9 +557,11 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const runJournal = createSqliteSymphonyRunJournal({
-      db: database.db,
-      dbFile: path.join(root, "symphony.db")
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const codexAnalytics = createSqliteCodexAnalyticsStore({
+      db: database.db
     });
 
     const runtimeLogPayloads: unknown[] = [];
@@ -550,7 +571,8 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
       const runtime = createCodexSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker: createDoneTracker(issue),
-        runJournal,
+        runStore,
+        codexAnalytics,
         runtimeLogs: {
           async record(input) {
             runtimeLogPayloads.push(input.payload);
@@ -648,11 +670,16 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const runJournal = createSqliteSymphonyRunJournal({
-      db: database.db,
-      dbFile: path.join(root, "symphony.db")
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
     });
-    const runId = await runJournal.recordRunStarted({
+    const codexAnalytics = createSqliteCodexAnalyticsStore({
+      db: database.db
+    });
+    const codexReadStore = createSqliteCodexAnalyticsReadStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       status: "dispatching",
@@ -666,7 +693,8 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
       const runtime = createCodexSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
-        runJournal,
+        runStore,
+        codexAnalytics,
         runtimeLogs: {
           async record() {
             return "log-1";
@@ -717,18 +745,18 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
       true
     );
 
-    const exportPayload = await runJournal.fetchRunExport(runId);
-    expect(exportPayload?.run.workspacePath).toBeNull();
-    expect(exportPayload?.run.commitHashStart).toBeNull();
-    expect(exportPayload?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
-    expect(exportPayload?.run.repoStart).toMatchObject({
+    const runDetail = await codexReadStore.fetchRunDetail(runId);
+    expect(runDetail?.run.workspacePath).toBeNull();
+    expect(runDetail?.run.commitHashStart).toBeNull();
+    expect(runDetail?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
+    expect(runDetail?.run.repoStart).toMatchObject({
       available: false,
       source: "container_exec",
       host_workspace_path: null,
       container_name: "symphony-col-123-container",
       error: expect.stringContaining("spawn docker ENOENT")
     });
-    expect(exportPayload?.run.repoEnd).toMatchObject({
+    expect(runDetail?.run.repoEnd).toMatchObject({
       available: true,
       source: "container_exec",
       host_workspace_path: null,

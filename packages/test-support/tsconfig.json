@@ -20,9 +20,6 @@
       "path": "../orchestrator"
     },
     {
-      "path": "../run-journal"
-    },
-    {
       "path": "../runtime-contract"
     },
     {

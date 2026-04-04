@@ -7,9 +7,10 @@ import {
 } from "./codex-app-server-types.js";
 import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
 
-const defaultCodexModel = "gpt-5.4";
+const defaultCodexModel = "xiaomi/mimo-v2-pro";
 const defaultCodexReasoningEffort = "xhigh";
 const supportedCodexModels = new Set([
+  "xiaomi/mimo-v2-pro",
   "gpt-5.4",
   "gpt-5.4-mini",
   "gpt-5.3-codex-spark"
@@ -20,8 +21,25 @@ const supportedCodexReasoningEfforts = new Set([
   "high",
   "xhigh"
 ]);
-const codexModelLabelPrefix = "symphony:model:";
+export const codexModelLabelPrefix = "symphony:model:";
 const codexReasoningLabelPrefix = "symphony:reasoning:";
+
+export function listSupportedCodexModels(): string[] {
+  return [...supportedCodexModels];
+}
+
+export function resolveCodexIssueModel(
+  issue: SymphonyTrackerIssue,
+  defaultModel = defaultCodexModel
+): string {
+  return selectCodexIssueOverride(
+    issue,
+    codexModelLabelPrefix,
+    supportedCodexModels,
+    defaultModel,
+    "model"
+  );
+}
 
 export async function validateWorkspaceCwd(
   workspacePath: string,
@@ -102,9 +120,16 @@ export async function ensureWorkspaceCwd(
 
 export function resolveCodexLaunchSettings(
   baseCommand: string,
-  issue: SymphonyTrackerIssue
+  issue: SymphonyTrackerIssue,
+  defaults?: {
+    model?: string | null;
+    reasoningEffort?: string | null;
+    profile?: string | null;
+    providerId?: string | null;
+    providerName?: string | null;
+  }
 ): CodexLaunchSettings {
-  const { model, reasoningEffort } = resolveCodexModelSettings(issue);
+  const { model, reasoningEffort } = resolveCodexModelSettings(issue, defaults);
   const cleanedCommand = stripCodexReasoningOverrides(
     stripCodexModelOverrides(baseCommand)
   ).trim();
@@ -136,13 +161,23 @@ export function resolveCodexLaunchSettings(
       .filter((segment) => segment !== "")
       .join(" "),
     model,
-    reasoningEffort
+    reasoningEffort,
+    profile: defaults?.profile ?? null,
+    providerId: defaults?.providerId ?? null,
+    providerName: defaults?.providerName ?? null
   };
 }
 
 export function resolveCodexSdkLaunchSettings(
   baseCommand: string,
-  issue: SymphonyTrackerIssue
+  issue: SymphonyTrackerIssue,
+  defaults?: {
+    model?: string | null;
+    reasoningEffort?: string | null;
+    profile?: string | null;
+    providerId?: string | null;
+    providerName?: string | null;
+  }
 ): CodexLaunchSettings & {
   executable: string;
 } {
@@ -162,13 +197,16 @@ export function resolveCodexSdkLaunchSettings(
     );
   }
 
-  const { model, reasoningEffort } = resolveCodexModelSettings(issue);
+  const { model, reasoningEffort } = resolveCodexModelSettings(issue, defaults);
 
   return {
     command: cleanedCommand,
     executable,
     model,
-    reasoningEffort
+    reasoningEffort,
+    profile: defaults?.profile ?? null,
+    providerId: defaults?.providerId ?? null,
+    providerName: defaults?.providerName ?? null
   };
 }
 
@@ -309,7 +347,13 @@ function selectCodexIssueOverride(
   );
 }
 
-function resolveCodexModelSettings(issue: SymphonyTrackerIssue): {
+function resolveCodexModelSettings(
+  issue: SymphonyTrackerIssue,
+  defaults?: {
+    model?: string | null;
+    reasoningEffort?: string | null;
+  }
+): {
   model: string;
   reasoningEffort: string;
 } {
@@ -318,14 +362,14 @@ function resolveCodexModelSettings(issue: SymphonyTrackerIssue): {
       issue,
       codexModelLabelPrefix,
       supportedCodexModels,
-      defaultCodexModel,
+      defaults?.model ?? defaultCodexModel,
       "model"
     ),
     reasoningEffort: selectCodexIssueOverride(
       issue,
       codexReasoningLabelPrefix,
       supportedCodexReasoningEfforts,
-      defaultCodexReasoningEffort,
+      defaults?.reasoningEffort ?? defaultCodexReasoningEffort,
       "reasoning_effort"
     )
   };

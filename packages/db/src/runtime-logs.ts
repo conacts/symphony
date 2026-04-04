@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
-import type { SymphonyJsonValue } from "@symphony/run-journal";
+import type { JsonValue } from "@symphony/contracts";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { symphonyRuntimeLogsTable } from "./schema.js";
 
@@ -15,7 +15,7 @@ export type SymphonyRuntimeLogEntry = {
   issueId: string | null;
   issueIdentifier: string | null;
   runId: string | null;
-  payload: SymphonyJsonValue;
+  payload: JsonValue;
   recordedAt: string;
 };
 
@@ -28,7 +28,7 @@ export interface SymphonyRuntimeLogStore {
     issueId?: string | null;
     issueIdentifier?: string | null;
     runId?: string | null;
-    payload?: SymphonyJsonValue;
+    payload?: JsonValue;
     recordedAt?: string;
   }): Promise<string>;
   list(input?: {
@@ -85,7 +85,7 @@ export function createSymphonyRuntimeLogStore(
         issueId: row.issueId ?? null,
         issueIdentifier: row.issueIdentifier ?? null,
         runId: row.runId ?? null,
-        payload: (row.payload ?? null) as SymphonyJsonValue,
+        payload: (row.payload ?? null) as JsonValue,
         recordedAt: row.recordedAt
       }));
     }

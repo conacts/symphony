@@ -1,4 +1,4 @@
-import type { SymphonyJsonObject } from "@symphony/run-journal";
+import type { JsonObject } from "@symphony/contracts";
 import { asJsonObject } from "./internal/json.js";
 import {
   issueBranchName,
@@ -20,7 +20,7 @@ export type SymphonyStartupFailureTransition =
     };
 
 export type SymphonyFailureCommentOptions = {
-  rateLimits?: SymphonyJsonObject | null;
+  rateLimits?: JsonObject | null;
   startupFailureTransition?: SymphonyStartupFailureTransition;
 };
 
@@ -222,7 +222,7 @@ function startupFailureTransitionDetail(
 function formatRateLimitDetail(
   reason: string,
   outcome: string,
-  rateLimits: SymphonyJsonObject | null | undefined
+  rateLimits: JsonObject | null | undefined
 ): string | null {
   if (
     !rateLimits ||
@@ -238,7 +238,7 @@ function formatRateLimitDetail(
   return `Latest rate limits: ${formatRateLimitsForComment(rateLimits)}`;
 }
 
-function formatRateLimitsForComment(rateLimits: SymphonyJsonObject): string {
+function formatRateLimitsForComment(rateLimits: JsonObject): string {
   const parts = [
     stringOrNull(
       rateLimits.limit_id ??
@@ -256,7 +256,7 @@ function formatRateLimitsForComment(rateLimits: SymphonyJsonObject): string {
 
 function formatRateLimitBucketForComment(
   label: string,
-  bucket: SymphonyJsonObject | null
+  bucket: JsonObject | null
 ): string | null {
   if (!bucket) {
     return null;
@@ -276,7 +276,7 @@ function formatRateLimitBucketForComment(
 }
 
 function formatRateLimitCreditsForComment(
-  credits: SymphonyJsonObject | null
+  credits: JsonObject | null
 ): string | null {
   if (!credits) {
     return null;

@@ -1,0 +1,32 @@
+{
+  "name": "@symphony/codex-analytics",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@openai/codex-sdk": "^0.118.0",
+    "drizzle-orm": "^0.44.5"
+  },
+  "devDependencies": {
+    "@symphony/eslint-configs": "workspace:*",
+    "@symphony/vitest-configs": "workspace:*",
+    "vitest": "^4.1.2"
+  }
+}

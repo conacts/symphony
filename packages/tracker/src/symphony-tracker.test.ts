@@ -133,6 +133,34 @@ describe("symphony tracker helpers", () => {
       identifier: "COL-456",
       assignedToWorker: false
     });
+    expect(issues[0]?.branchName).toBe("symphony/COL-123");
+    expect(issues[1]?.branchName).toBe("symphony/COL-456");
+  });
+
+  it("canonicalizes tracker branch names even when Linear returns a user-scoped branch", async () => {
+    const config = buildSymphonyTrackerConfig();
+    const tracker = createLinearSymphonyTracker({
+      config,
+      request: async (query) => {
+        if (query.includes("SymphonyLinearIssueByIdentifier")) {
+          return {
+            data: {
+              issue: buildLinearIssueNode({
+                id: "issue-630",
+                identifier: "COL-630",
+                branchName: "csheehan630/COL-630-something"
+              })
+            }
+          };
+        }
+
+        throw new Error("Unexpected query");
+      }
+    });
+
+    const issue = await tracker.fetchIssueByIdentifier(config, "COL-630");
+
+    expect(issue?.branchName).toBe("symphony/COL-630");
   });
 
   it("supports Linear issue lookup, comments, and state transitions", async () => {
@@ -217,6 +245,7 @@ function buildLinearIssueNode(input: {
   id: string;
   identifier: string;
   assigneeId?: string | null;
+  branchName?: string | null;
 }): Record<string, unknown> {
   return {
     id: input.id,
@@ -227,7 +256,7 @@ function buildLinearIssueNode(input: {
     state: {
       name: "Todo"
     },
-    branchName: `symphony/${input.identifier}`,
+    branchName: input.branchName ?? `symphony/${input.identifier}`,
     url: `https://linear.app/coldets/issue/${input.identifier.toLowerCase()}`,
     team: {
       key: "COL"

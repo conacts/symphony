@@ -1,5 +1,4 @@
 import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
-import type { SymphonyRunExport } from "@symphony/run-journal";
 import {
   summarizePreparedWorkspace,
   type WorkspaceEnvBundleSummary
@@ -9,14 +8,15 @@ import {
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type {
-  SymphonyForensicsIssueDetailResult,
-  SymphonyForensicsIssueListResult,
-  SymphonyForensicsProblemRunsResult,
-  SymphonyForensicsRunDetailResult,
   SymphonyRuntimeIssueResult,
   SymphonyRuntimeLaunchTarget,
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
+import {
+  codexModelLabelPrefix,
+  listSupportedCodexModels,
+  resolveCodexIssueModel
+} from "../core/codex-app-server-launch.js";
 
 export function serializeRuntimeState(
   snapshot: SymphonyOrchestratorSnapshot
@@ -74,7 +74,10 @@ export function serializeRuntimeIssue(
   snapshot: SymphonyOrchestratorSnapshot,
   githubRepository: string | null,
   issueIdentifier: string,
-  trackedIssue: SymphonyTrackerIssue | null
+  trackedIssue: SymphonyTrackerIssue | null,
+  runtimePolicyDefaults?: {
+    defaultModel: string | null;
+  }
 ): SymphonyRuntimeIssueResult | null {
   const running = snapshot.running.find(
     (entry) => entry.issue.identifier === issueIdentifier
@@ -115,6 +118,12 @@ export function serializeRuntimeIssue(
     branchName
   );
   const workspace = running?.workspace ?? retry?.workspace ?? null;
+  const defaultModel =
+    runtimePolicyDefaults?.defaultModel ?? listSupportedCodexModels()[0] ?? null;
+  const selectedModel = resolveCodexIssueModel(
+    tracked,
+    defaultModel ?? undefined
+  );
 
   return {
     issueIdentifier,
@@ -175,7 +184,15 @@ export function serializeRuntimeIssue(
       requeueDelegatesTo: ["linear", "github_rework_comment"],
       requeueCommand: "/rework",
       requeueHelpText:
-        "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow."
+        "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
+      codex: {
+        defaultModel,
+        selectedModel,
+        availableModels: listSupportedCodexModels(),
+        modelOverrideLabelPrefix: codexModelLabelPrefix,
+        selectionHelpText:
+          "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
+      }
     }
   };
 }
@@ -278,83 +295,6 @@ function serializeRuntimeLaunchTarget(
   };
 }
 
-export function serializeForensicsIssueList(
-  result: SymphonyForensicsIssueListResult
-): SymphonyForensicsIssueListResult {
-  return result;
-}
-
-export function serializeForensicsIssueDetail(
-  result: SymphonyForensicsIssueDetailResult
-): SymphonyForensicsIssueDetailResult {
-  return result;
-}
-
-export function serializeForensicsProblemRuns(
-  result: SymphonyForensicsProblemRunsResult
-): SymphonyForensicsProblemRunsResult {
-  return result;
-}
-
-export function serializeForensicsRunDetail(
-  result: SymphonyRunExport
-): SymphonyForensicsRunDetailResult {
-  const allEvents = result.turns.flatMap((turn) => turn.events);
-  const tokenTotals = result.turns.reduce(
-    (totals, turn) => {
-      const inputTokens = parseTokenCount(turn.tokens?.inputTokens);
-      const outputTokens = parseTokenCount(turn.tokens?.outputTokens);
-      const totalTokens = parseTokenCount(turn.tokens?.totalTokens);
-
-      return {
-        inputTokens: totals.inputTokens + inputTokens,
-        outputTokens: totals.outputTokens + outputTokens,
-        totalTokens: totals.totalTokens + (totalTokens || inputTokens + outputTokens)
-      };
-    },
-    {
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0
-    }
-  );
-  const sortedEvents = [...allEvents].sort((left, right) => {
-    const recordedAtOrder = (right.recordedAt ?? "").localeCompare(left.recordedAt ?? "");
-
-    if (recordedAtOrder !== 0) {
-      return recordedAtOrder;
-    }
-
-    return right.eventSequence - left.eventSequence;
-  });
-  const lastEvent = sortedEvents[0];
-
-  return {
-    issue: result.issue,
-    run: {
-      ...result.run,
-      turnCount: result.turns.length,
-      eventCount: allEvents.length,
-      lastEventType: lastEvent?.eventType ?? null,
-      lastEventAt: lastEvent?.recordedAt ?? null,
-      inputTokens: tokenTotals.inputTokens,
-      outputTokens: tokenTotals.outputTokens,
-      totalTokens: tokenTotals.totalTokens,
-      durationSeconds:
-        result.run.startedAt && result.run.endedAt
-          ? Math.max(
-              0,
-              Math.floor(
-                (Date.parse(result.run.endedAt) - Date.parse(result.run.startedAt)) /
-                  1_000
-              )
-            )
-          : null
-    },
-    turns: result.turns
-  };
-}
-
 function summarizeMessage(message: unknown): string | null {
   if (typeof message === "string") {
     return message;
@@ -377,12 +317,6 @@ function summarizeMessage(message: unknown): string | null {
   } catch {
     return String(message);
   }
-}
-
-function parseTokenCount(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0
-    ? Math.floor(value)
-    : 0;
 }
 
 function buildGitHubPullRequestSearchUrl(

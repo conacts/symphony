@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS symphony_turns (
   status TEXT NOT NULL,
   started_at TEXT NOT NULL,
   ended_at TEXT,
-  tokens TEXT,
+  usage TEXT,
   metadata TEXT,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -72,6 +72,8 @@ CREATE TABLE IF NOT EXISTS symphony_events (
   run_id TEXT NOT NULL,
   event_sequence INTEGER NOT NULL,
   event_type TEXT NOT NULL,
+  item_type TEXT,
+  item_status TEXT,
   recorded_at TEXT NOT NULL,
   payload TEXT,
   payload_truncated INTEGER NOT NULL,

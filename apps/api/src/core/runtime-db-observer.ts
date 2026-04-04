@@ -5,19 +5,23 @@ import {
   summarizePreparedWorkspace,
   type WorkspaceLifecycleMetadata
 } from "@symphony/workspace";
+import type { CodexAnalyticsStore } from "@symphony/codex-analytics";
+import type { JsonValue } from "@symphony/contracts";
 import type {
-  SymphonyJsonValue,
-  SymphonyRunJournal
-} from "@symphony/run-journal";
-import type { SymphonyIssueTimelineStore } from "@symphony/db";
+  SymphonyIssueTimelineStore,
+  SymphonyRuntimeRunStatus,
+  SymphonyRuntimeRunStore
+} from "@symphony/db";
+import type { CodexRunStatus } from "@symphony/codex-analytics";
 
 export function createDbBackedOrchestratorObserver(input: {
-  runJournal: SymphonyRunJournal;
+  runStore: SymphonyRuntimeRunStore;
   issueTimelineStore: SymphonyIssueTimelineStore;
+  codexAnalytics: CodexAnalyticsStore;
 }): SymphonyOrchestratorObserver {
   return {
     async startRun({ issue, attempt, workspace, workerHost, startedAt }) {
-      return await input.runJournal.recordRunStarted({
+      const runId = await input.runStore.recordRunStarted({
         issueId: issue.id,
         issueIdentifier: issue.identifier,
         attempt,
@@ -30,6 +34,17 @@ export function createDbBackedOrchestratorObserver(input: {
           workspace: workspaceMetadata(summarizePreparedWorkspace(workspace))
         }
       });
+
+      await input.codexAnalytics.startRun({
+        runId,
+        issueId: issue.id,
+        issueIdentifier: issue.identifier,
+        startedAt,
+        status: "dispatching",
+        threadId: null
+      });
+
+      return runId;
     },
 
     async recordLifecycleEvent({
@@ -44,7 +59,7 @@ export function createDbBackedOrchestratorObserver(input: {
       if (runId && source === "workspace") {
         const workspacePayload = extractWorkspaceMetadata(payload);
         if (workspacePayload) {
-          await input.runJournal.updateRun(runId, {
+          await input.runStore.updateRun(runId, {
             workspacePath: workspaceHostPath(workspacePayload),
             workerHost: workspaceWorkerHost(workspacePayload),
             metadata: {
@@ -57,7 +72,7 @@ export function createDbBackedOrchestratorObserver(input: {
       if (runId && eventType === "runtime_launch_requested") {
         const launchPayload = asRecord(payload);
         const workspacePayload = extractWorkspaceMetadata(payload);
-        await input.runJournal.updateRun(runId, {
+        await input.runStore.updateRun(runId, {
           status: "running",
           workspacePath: workspaceHostPath(workspacePayload),
           workerHost:
@@ -77,7 +92,7 @@ export function createDbBackedOrchestratorObserver(input: {
 
       if (runId && eventType === "runtime_startup_failed") {
         const failurePayload = asRecord(payload);
-        await input.runJournal.updateRun(runId, {
+        await input.runStore.updateRun(runId, {
           metadata: {
             startupFailure: normalizeJsonValue({
               failureStage: failurePayload?.failureStage ?? null,
@@ -95,10 +110,33 @@ export function createDbBackedOrchestratorObserver(input: {
 
       if (runId && eventType === "workspace_cleanup_completed") {
         const cleanupPayload = asRecord(payload);
-        await input.runJournal.updateRun(runId, {
+        await input.runStore.updateRun(runId, {
           metadata: {
             cleanup: normalizeJsonValue(cleanupPayload?.cleanup ?? null)
           }
+        });
+      }
+
+      if (runId && (eventType === "run_stopped_inactive" || eventType === "run_stopped_terminal")) {
+        const stoppedAt = recordedAt ?? new Date().toISOString();
+
+        await input.runStore.finalizeRun(runId, {
+          status: "stopped",
+          outcome: eventType,
+          endedAt: stoppedAt,
+          metadata: {
+            stopEventType: eventType,
+            stopPayload: normalizeJsonValue(payload)
+          }
+        });
+        await input.codexAnalytics.finalizeRun({
+          runId,
+          status: "stopped",
+          endedAt: stoppedAt,
+          failureKind: eventType,
+          failureOrigin: "runtime",
+          failureMessagePreview: previewRuntimeFailure(eventType),
+          threadId: null
         });
       }
 
@@ -129,7 +167,7 @@ export function createDbBackedOrchestratorObserver(input: {
         return;
       }
 
-      await input.runJournal.finalizeRun(runId, {
+      await input.runStore.finalizeRun(runId, {
         status: completionStatus(completion),
         outcome: completionOutcome(completion),
         endedAt,
@@ -154,10 +192,11 @@ export function createDbBackedOrchestratorObserver(input: {
                   manifestLifecycle: completion.manifestLifecycle ?? null
                 }
               : null,
-          tokens: {
-            inputTokens,
-            outputTokens,
-            totalTokens
+          usage: {
+            input_tokens: inputTokens,
+            cached_input_tokens: 0,
+            output_tokens: outputTokens,
+            total_tokens: totalTokens
           }
         },
         errorClass:
@@ -165,18 +204,52 @@ export function createDbBackedOrchestratorObserver(input: {
         errorMessage:
           completion.kind === "normal" ? null : completion.reason
       });
+
+      await input.codexAnalytics.finalizeRun({
+        runId,
+        status: codexRunStatus(completion),
+        endedAt,
+        failureKind: completion.kind === "normal" ? null : completion.kind,
+        failureOrigin: completion.kind === "startup_failure" ? "runtime" : "codex",
+        failureMessagePreview:
+          completion.kind === "normal" ? null : previewRuntimeFailure(completion.reason),
+        threadId: null
+      });
     }
   };
+}
+
+function previewRuntimeFailure(value: string): string {
+  return value.length <= 280 ? value : `${value.slice(0, 279)}…`;
 }
 
 type ObserverWorkspaceMetadata = WorkspaceLifecycleMetadata | null;
 
 function completionStatus(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
-): string {
+): SymphonyRuntimeRunStatus {
   switch (completion.kind) {
     case "normal":
       return "finished";
+    case "max_turns_reached":
+      return "paused";
+    case "startup_failure":
+      return "startup_failed";
+    case "rate_limited":
+      return "rate_limited";
+    case "stalled":
+      return "stalled";
+    case "failure":
+      return "failed";
+  }
+}
+
+function codexRunStatus(
+  completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
+): CodexRunStatus {
+  switch (completion.kind) {
+    case "normal":
+      return "completed";
     case "max_turns_reached":
       return "paused";
     case "startup_failure":
@@ -261,7 +334,7 @@ function workspaceWorkerHost(workspace: ObserverWorkspaceMetadata): string | nul
   return workspace?.workerHost ?? null;
 }
 
-function workspaceMetadata(workspace: ObserverWorkspaceMetadata): SymphonyJsonValue {
+function workspaceMetadata(workspace: ObserverWorkspaceMetadata): JsonValue {
   if (!workspace) {
     return null;
   }
@@ -290,7 +363,7 @@ function workspaceMetadata(workspace: ObserverWorkspaceMetadata): SymphonyJsonVa
   };
 }
 
-function normalizeJsonValue(value: unknown): SymphonyJsonValue {
+function normalizeJsonValue(value: unknown): JsonValue {
   if (
     value === null ||
     typeof value === "string" ||
@@ -310,7 +383,7 @@ function normalizeJsonValue(value: unknown): SymphonyJsonValue {
         key,
         normalizeJsonValue(nestedValue)
       ])
-    ) as SymphonyJsonValue;
+    ) as JsonValue;
   }
 
   return String(value);
