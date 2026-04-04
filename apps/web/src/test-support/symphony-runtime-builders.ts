@@ -369,11 +369,11 @@ export function buildSymphonyRuntimeIssueResult(
       requeueHelpText:
         "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
       codex: {
-        defaultModel: "xiaomi/mimo-v2-pro",
-        selectedModel: "xiaomi/mimo-v2-pro",
+        defaultModel: "gpt-5.4",
+        selectedModel: "gpt-5.4",
         availableModels: [
-          "xiaomi/mimo-v2-pro",
           "gpt-5.4",
+          "xiaomi/mimo-v2-pro",
           "gpt-5.4-mini",
           "gpt-5.3-codex-spark"
         ],

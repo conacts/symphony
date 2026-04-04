@@ -275,11 +275,11 @@ describe("symphony runtime contracts", () => {
           requeueHelpText:
             "Use /rework on the PR or move the Linear issue back into a dispatchable state.",
           codex: {
-            defaultModel: "xiaomi/mimo-v2-pro",
-            selectedModel: "xiaomi/mimo-v2-pro",
+            defaultModel: "gpt-5.4",
+            selectedModel: "gpt-5.4",
             availableModels: [
-              "xiaomi/mimo-v2-pro",
               "gpt-5.4",
+              "xiaomi/mimo-v2-pro",
               "gpt-5.4-mini",
               "gpt-5.3-codex-spark"
             ],
@@ -353,11 +353,11 @@ describe("symphony runtime contracts", () => {
           requeueHelpText:
             "Use /rework on the PR or move the Linear issue back into a dispatchable state.",
           codex: {
-            defaultModel: "xiaomi/mimo-v2-pro",
-            selectedModel: "xiaomi/mimo-v2-pro",
+            defaultModel: "gpt-5.4",
+            selectedModel: "gpt-5.4",
             availableModels: [
-              "xiaomi/mimo-v2-pro",
               "gpt-5.4",
+              "xiaomi/mimo-v2-pro",
               "gpt-5.4-mini",
               "gpt-5.3-codex-spark"
             ],

@@ -45,7 +45,7 @@ describe("runtime operator client", () => {
       operator: {
         requeueCommand: "/rework",
         codex: {
-          selectedModel: "xiaomi/mimo-v2-pro"
+          selectedModel: "gpt-5.4"
         }
       }
     });

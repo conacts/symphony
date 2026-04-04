@@ -18,7 +18,7 @@ describe("issue requeue panel", () => {
     expect(html).toContain("COL-167");
     expect(html).toContain("Linear");
     expect(html).toContain("GitHub");
-    expect(html).toContain("xiaomi/mimo-v2-pro");
+    expect(html).toContain("gpt-5.4");
     expect(html).toContain("Model override helper");
     expect(html).toContain("No label required");
   });

@@ -7,10 +7,10 @@ const defaultDispatchableStates = ["Todo", "Bootstrapping", "In Progress", "Rewo
 const defaultTerminalStates = ["Canceled", "Done"];
 const defaultClaimTransitionFromStates = ["Todo", "Rework"];
 const defaultAllowedOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
-function createOpenRouterProfile(profile: string) {
+function createOpenRouterProfile(profile: string, defaultModel: string) {
   return {
     profile,
-    defaultModel: "xiaomi/mimo-v2-pro",
+    defaultModel,
     defaultReasoningEffort: "high",
     provider: {
       id: "openrouter",
@@ -23,9 +23,10 @@ function createOpenRouterProfile(profile: string) {
   } as const;
 }
 
-const mimoV2ProProfile = createOpenRouterProfile("mimo-v2-pro");
-const glm5TurboProfile = createOpenRouterProfile("glm-5-turbo");
-const defaultOpenRouterProfile = mimoV2ProProfile;
+const gpt54Profile = createOpenRouterProfile("gpt-5.4", "gpt-5.4");
+const mimoV2ProProfile = createOpenRouterProfile("mimo-v2-pro", "xiaomi/mimo-v2-pro");
+const glm5TurboProfile = createOpenRouterProfile("glm-5-turbo", "z-ai/glm-5-turbo");
+const defaultOpenRouterProfile = gpt54Profile;
 
 export function loadSymphonyRuntimePolicyConfig(input: {
   environmentSource: EnvironmentSource;
@@ -263,12 +264,14 @@ function readOptionalBoolean(value: string | undefined): boolean | null {
 
 function resolveCodexProfileDefaults(
   profile: string | null
-): typeof glm5TurboProfile | typeof mimoV2ProProfile | null {
+): typeof gpt54Profile | typeof glm5TurboProfile | typeof mimoV2ProProfile | null {
   if (profile === null) {
     return defaultOpenRouterProfile;
   }
 
   switch (profile.trim().toLowerCase()) {
+    case gpt54Profile.profile:
+      return gpt54Profile;
     case mimoV2ProProfile.profile:
       return mimoV2ProProfile;
     case glm5TurboProfile.profile:

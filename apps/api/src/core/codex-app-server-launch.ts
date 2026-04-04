@@ -7,7 +7,7 @@ import {
 } from "./codex-app-server-types.js";
 import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
 
-const defaultCodexModel = "xiaomi/mimo-v2-pro";
+const defaultCodexModel = "gpt-5.4";
 const defaultCodexReasoningEffort = "xhigh";
 const supportedCodexModels = new Set([
   "xiaomi/mimo-v2-pro",
