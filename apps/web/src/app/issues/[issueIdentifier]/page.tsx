@@ -1,6 +1,6 @@
 import { buildSymphonyDashboardFoundation } from "@/core/dashboard-foundation";
 import { loadSymphonyDashboardEnv } from "@/core/env";
-import { IssueDetailLiveScreen } from "@/components/issue-detail-live-screen";
+import { IssueDetailLiveScreen } from "@/features/issues/components/issue-detail-live-screen";
 
 export default async function IssueDetailPage(input: {
   params: Promise<{
