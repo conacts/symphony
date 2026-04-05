@@ -140,7 +140,7 @@ function withMockCodexRunSummary(
 ): SymphonyForensicsRunSummary {
   return {
     ...run,
-    agentHarness: "codex",
+    agentHarness: "pi",
     codexModel: "xiaomi/mimo-v2-pro",
     codexStatus:
       run.status === "retrying"
@@ -598,7 +598,7 @@ const mockRuntimeLogsByIssueIdentifier: Record<string, SymphonyRuntimeLogEntry[]
     {
       entryId: "log_165_2",
       level: "warn",
-      source: "codex",
+      source: "agent",
       eventType: "retry.recovered",
       message: "Recovered from prior max-turns failure.",
       issueId: "issue_123",
@@ -664,7 +664,7 @@ const mockTimelineByIssueIdentifier: Record<string, SymphonyForensicsIssueTimeli
       issueIdentifier: "COL-165",
       runId: "run_123",
       turnId: "turn_123",
-      source: "codex",
+      source: "agent",
       eventType: "message.output",
       message: "Prepared the final patch summary.",
       payload: {

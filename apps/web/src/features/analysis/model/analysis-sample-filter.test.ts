@@ -28,7 +28,7 @@ describe("analysis sample filter", () => {
             runId: "run_456",
             issueId: "issue_456",
             issueIdentifier: "COL-166",
-            agentHarness: "opencode",
+            agentHarness: "pi",
             codexModel: "gpt-5.4"
           },
           artifacts: buildSymphonyCodexRunArtifactsResult({
@@ -37,7 +37,7 @@ describe("analysis sample filter", () => {
               runId: "run_456",
               issueId: "issue_456",
               issueIdentifier: "COL-166",
-              harnessKind: "opencode",
+              harnessKind: "pi",
               providerId: "openai",
               providerName: "OpenAI",
               model: "gpt-5.4"
@@ -50,7 +50,7 @@ describe("analysis sample filter", () => {
     resource.sampledRuns[0]!.artifacts.run.harnessKind = "pi";
 
     const filtered = filterAgentAnalysisSample(resource, {
-      harness: "opencode",
+      harness: "pi",
       provider: "openai",
       model: "gpt-5.4"
     });

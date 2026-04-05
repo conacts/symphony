@@ -1,7 +1,7 @@
 "use client";
 
 export type AnalysisQuery = {
-  harness?: "codex" | "opencode" | "pi";
+  harness?: "pi";
   provider?: string;
   model?: string;
 };
@@ -43,8 +43,8 @@ export function hasActiveAnalysisFilters(query: AnalysisQuery): boolean {
 }
 
 function parseHarness(value: string | null): AnalysisQuery["harness"] {
-  if (value === "codex" || value === "opencode" || value === "pi") {
-    return value;
+  if (value === "pi") {
+    return "pi";
   }
 
   return undefined;
