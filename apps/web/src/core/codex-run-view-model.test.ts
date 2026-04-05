@@ -79,6 +79,41 @@ describe("codex run view model", () => {
       insertedAt: "2026-03-31T18:00:42.000Z",
       updatedAt: "2026-03-31T18:00:42.000Z"
     });
+    runArtifacts.taskSnapshots.push({
+      snapshotId: "snapshot_123",
+      runId: "run_123",
+      turnId: "turn_123",
+      itemId: "todo_123",
+      sourceKind: "pi_queue_update",
+      recordedAt: "2026-03-31T18:00:42.000Z",
+      insertedAt: "2026-03-31T18:00:42.000Z",
+      items: [
+        {
+          snapshotId: "snapshot_123",
+          position: 0,
+          label: "Keep the patch scoped",
+          state: "pending",
+          section: "steering",
+          insertedAt: "2026-03-31T18:00:42.000Z"
+        },
+        {
+          snapshotId: "snapshot_123",
+          position: 1,
+          label: "Create internal billing summaries DB action",
+          state: "in_progress",
+          section: "follow_up",
+          insertedAt: "2026-03-31T18:00:42.000Z"
+        },
+        {
+          snapshotId: "snapshot_123",
+          position: 2,
+          label: "Run verification flows",
+          state: "completed",
+          section: null,
+          insertedAt: "2026-03-31T18:00:42.000Z"
+        }
+      ]
+    });
     runArtifacts.run.itemCount = 7;
     if (runArtifacts.turns[0]) {
       runArtifacts.turns[0].itemCount = 7;
@@ -123,7 +158,13 @@ describe("codex run view model", () => {
       "Checking the pending task queue before continuing."
     );
     expect(todoEntry?.kind).toBe("todo-list");
-    expect(todoEntry?.markdown).toContain("\n[x] Create internal billing summaries DB action");
+    expect(todoEntry?.markdown).toContain("**Steering**");
+    expect(todoEntry?.markdown).toContain("- [ ] Keep the patch scoped");
+    expect(todoEntry?.markdown).toContain("**Follow-up**");
+    expect(todoEntry?.markdown).toContain(
+      "- In progress: Create internal billing summaries DB action"
+    );
+    expect(todoEntry?.markdown).toContain("- [x] Run verification flows");
   });
 
   it("formats overflow payloads as readable text", () => {

@@ -6,6 +6,7 @@ import type {
   SymphonyCodexOverflowResult,
   SymphonyCodexReasoningRecord,
   SymphonyCodexRunArtifactsResult,
+  SymphonyCodexTaskSnapshotRecord,
   SymphonyCodexToolCallRecord,
   SymphonyForensicsRunDetailResult
 } from "@symphony/contracts";
@@ -354,6 +355,7 @@ function buildTranscriptTurns(
     runArtifacts.toolCalls.map((tool) => [tool.itemId, tool] as const)
   );
   const fileChangeMap = groupFileChangesByItem(runArtifacts.fileChanges);
+  const taskSnapshotMap = groupTaskSnapshotsByItem(runArtifacts.taskSnapshots);
 
   const forensicsTurnMap = new Map(
     forensicsTurns.map((turn) => [turn.turnId, turn] as const)
@@ -395,6 +397,7 @@ function buildTranscriptTurns(
                 reasoning: reasoningMap.get(item.itemId) ?? null,
                 command: commandMap.get(item.itemId) ?? null,
                 toolCall: toolMap.get(item.itemId) ?? null,
+                taskSnapshot: taskSnapshotMap.get(item.itemId) ?? null,
                 fileChanges: fileChangeMap.get(item.itemId) ?? []
               })
             )
@@ -601,6 +604,7 @@ function mapTranscriptEntry(input: {
   reasoning: SymphonyCodexReasoningRecord | null;
   command: SymphonyCodexCommandExecutionRecord | null;
   toolCall: SymphonyCodexToolCallRecord | null;
+  taskSnapshot: SymphonyCodexTaskSnapshotRecord | null;
   fileChanges: SymphonyCodexFileChangeRecord[];
 }): CodexRunTranscriptEntry {
   const recordedAt = formatTimestamp(itemRecordedAt(input.item));
@@ -688,9 +692,12 @@ function mapTranscriptEntry(input: {
       itemId: input.item.itemId,
       recordedAt,
       status,
-      markdown: formatTodoListMarkdown(
-        input.item.latestPreview ?? "No todo items were captured."
-      ),
+      markdown:
+        input.taskSnapshot !== null
+          ? formatTaskSnapshotMarkdown(input.taskSnapshot)
+          : formatTodoListMarkdown(
+              input.item.latestPreview ?? "No todo items were captured."
+            ),
       overflowId: input.item.latestOverflowId,
       files
     };
@@ -720,6 +727,25 @@ function groupFileChangesByItem(fileChanges: SymphonyCodexFileChangeRecord[]) {
     }
 
     map.set(fileChange.itemId, [fileChange]);
+  }
+
+  return map;
+}
+
+function groupTaskSnapshotsByItem(taskSnapshots: SymphonyCodexTaskSnapshotRecord[]) {
+  const map = new Map<string, SymphonyCodexTaskSnapshotRecord>();
+
+  for (const snapshot of taskSnapshots) {
+    const previous = map.get(snapshot.itemId);
+
+    if (!previous) {
+      map.set(snapshot.itemId, snapshot);
+      continue;
+    }
+
+    if (compareAscending(previous.recordedAt, snapshot.recordedAt) <= 0) {
+      map.set(snapshot.itemId, snapshot);
+    }
   }
 
   return map;
@@ -767,6 +793,71 @@ function formatTodoListMarkdown(value: string): string {
       return `- ${normalized}`;
     })
     .join("\n");
+}
+
+function formatTaskSnapshotMarkdown(snapshot: SymphonyCodexTaskSnapshotRecord): string {
+  if (snapshot.items.length === 0) {
+    return "No task items were captured.";
+  }
+
+  const sections = new Map<string, Array<SymphonyCodexTaskSnapshotRecord["items"][number]>>();
+  const unsectioned: Array<SymphonyCodexTaskSnapshotRecord["items"][number]> = [];
+
+  for (const item of snapshot.items) {
+    if (!item.section) {
+      unsectioned.push(item);
+      continue;
+    }
+
+    const group = sections.get(item.section);
+    if (group) {
+      group.push(item);
+      continue;
+    }
+
+    sections.set(item.section, [item]);
+  }
+
+  const lines: string[] = [];
+
+  for (const [section, items] of sections.entries()) {
+    lines.push(`**${formatTaskSectionLabel(section)}**`);
+    lines.push(...items.map(formatTaskSnapshotItemMarkdown));
+    lines.push("");
+  }
+
+  if (unsectioned.length > 0) {
+    lines.push(...unsectioned.map(formatTaskSnapshotItemMarkdown));
+  }
+
+  return lines.join("\n").trim();
+}
+
+function formatTaskSectionLabel(section: string): string {
+  switch (section) {
+    case "follow_up":
+      return "Follow-up";
+    case "steering":
+      return "Steering";
+    default:
+      return formatLabel(section);
+  }
+}
+
+function formatTaskSnapshotItemMarkdown(
+  item: SymphonyCodexTaskSnapshotRecord["items"][number]
+): string {
+  switch (item.state) {
+    case "completed":
+      return `- [x] ${item.label}`;
+    case "in_progress":
+      return `- In progress: ${item.label}`;
+    case "cancelled":
+      return `- Cancelled: ${item.label}`;
+    case "pending":
+    default:
+      return `- [ ] ${item.label}`;
+  }
 }
 
 function compareAscending(left: string, right: string): number {
