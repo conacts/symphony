@@ -134,6 +134,13 @@ export class PiRpcClient implements HarnessSessionClient {
               }
             : usage;
         }
+
+        await input.onMessage({
+          message: {
+            event: "turn_end"
+          },
+          rawPayload: event
+        });
       }
 
       if (eventType === "process_exit") {

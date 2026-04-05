@@ -347,24 +347,33 @@ async function executeRun(input: {
         onMessage: async (update) => {
           const { message, projectionLosses, rawPayload } = update;
           const threadEvent = isThreadEvent(message) ? message : null;
+          const runtimePayload = rawPayload ?? message;
+          const runtimePayloadRecord = asRecord(runtimePayload);
           const eventName =
             threadEvent?.type ??
-            normalizeRuntimeUpdateEventName(getString(message, "event")) ??
+            normalizeRuntimeUpdateEventName(
+              getString(message, "event") ?? getString(runtimePayloadRecord, "type")
+            ) ??
             "notification";
           const timestamp = new Date().toISOString();
-          const turnUsage = threadEvent ? extractUsage(threadEvent) : null;
+          const turnUsage = extractRuntimeUsage(threadEvent, runtimePayloadRecord);
           const threadId =
             getString(message, "thread_id") ??
             getString(message, "threadId") ??
-            getStringPath(message, ["params", "threadId"]);
+            getStringPath(message, ["params", "threadId"]) ??
+            getString(runtimePayloadRecord, "thread_id") ??
+            getString(runtimePayloadRecord, "threadId") ??
+            getStringPath(runtimePayloadRecord, ["params", "threadId"]);
 
           await input.callbacks.onUpdate(currentIssue.id, {
             event: eventName,
-            payload: message,
+            payload: runtimePayload,
             timestamp,
             sessionId:
               getString(message, "session_id") ??
               getString(message, "sessionId") ??
+              getString(runtimePayloadRecord, "session_id") ??
+              getString(runtimePayloadRecord, "sessionId") ??
               null,
             agentRuntimeProcessId:
               getString(message, "agent_app_server_pid") ?? session.processId
@@ -760,6 +769,57 @@ function getStringPath(
   }
 
   return typeof current === "string" && current.trim() !== "" ? current : null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function extractRuntimeUsage(
+  threadEvent: Parameters<typeof extractUsage>[0] | null,
+  payload: Record<string, unknown> | null
+): {
+  input_tokens: number;
+  cached_input_tokens: number;
+  output_tokens: number;
+} | null {
+  const eventUsage = threadEvent ? extractUsage(threadEvent) : null;
+  if (eventUsage) {
+    return eventUsage;
+  }
+
+  const directUsage =
+    asRecord(payload?.usage) ??
+    asRecord(asRecord(payload?.message)?.usage) ??
+    asRecord(asRecord(asRecord(payload?.params)?.msg)?.usage);
+
+  if (!directUsage) {
+    return null;
+  }
+
+  const inputTokens = getNumber(directUsage, "input_tokens") ?? getNumber(directUsage, "input");
+  const cachedInputTokens =
+    getNumber(directUsage, "cached_input_tokens") ?? getNumber(directUsage, "cacheRead");
+  const outputTokens =
+    getNumber(directUsage, "output_tokens") ?? getNumber(directUsage, "output");
+
+  return inputTokens !== null || cachedInputTokens !== null || outputTokens !== null
+    ? {
+        input_tokens: inputTokens ?? 0,
+        cached_input_tokens: cachedInputTokens ?? 0,
+        output_tokens: outputTokens ?? 0
+      }
+    : null;
+}
+
+function getNumber(
+  value: Record<string, unknown> | null | undefined,
+  key: string
+): number | null {
+  const nested = value?.[key];
+  return typeof nested === "number" && Number.isFinite(nested) ? nested : null;
 }
 
 function normalizeRuntimeUpdateEventName(value: string | null): string | null {

@@ -319,6 +319,75 @@ describe("symphony orchestrator", () => {
     }
   );
 
+  it("accumulates token usage from raw pi message_end and turn_end payloads", async () => {
+    const agentRuntime: AgentRuntime = {
+      async startRun() {
+        return {
+          sessionId: null,
+          workerHost: null,
+          launchTarget: null
+        };
+      },
+      async stopRun() {
+        return;
+      }
+    };
+
+    const issue = buildSymphonyTrackerIssue();
+    const orchestrator = new SymphonyOrchestrator({
+      config: buildSymphonyOrchestratorConfig(),
+      tracker: createMemorySymphonyTracker([issue]),
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime,
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.runPollCycle();
+    orchestrator.applyAgentUpdate(issue.id, {
+      event: "item.completed",
+      payload: {
+        type: "message_end",
+        message: {
+          usage: {
+            input: 5,
+            cacheRead: 0,
+            output: 2
+          }
+        }
+      },
+      timestamp: "2026-03-31T00:00:01.000Z"
+    });
+    orchestrator.applyAgentUpdate(issue.id, {
+      event: "turn_end",
+      payload: {
+        type: "turn_end",
+        message: {
+          usage: {
+            input: 5,
+            cacheRead: 0,
+            output: 2
+          }
+        }
+      },
+      timestamp: "2026-03-31T00:00:02.000Z"
+    });
+
+    const snapshot = orchestrator.snapshot();
+    expect(snapshot.running[0]?.turnCount).toBe(1);
+    expect(snapshot.running[0]?.agentInputTokens).toBe(5);
+    expect(snapshot.running[0]?.agentOutputTokens).toBe(2);
+    expect(snapshot.running[0]?.agentTotalTokens).toBe(7);
+  });
+
   it("clears the poll-in-progress flag when a poll cycle fails", async () => {
     const config = buildSymphonyOrchestratorConfig();
     const issue = buildSymphonyTrackerIssue();

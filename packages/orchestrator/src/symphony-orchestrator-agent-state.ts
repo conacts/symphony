@@ -73,6 +73,7 @@ export function stallElapsedMs(
 export function isTerminalTurnEvent(event: string): boolean {
   return (
     event === "turn_completed" ||
+    event === "turn_end" ||
     event === "turn_failed" ||
     event === "turn_cancelled"
   );
@@ -82,6 +83,9 @@ function absoluteTokenUsageFromPayload(
   payload: Record<string, unknown>
 ): Record<string, unknown> | null {
   const candidates = [
+    mapAtPath(payload, ["message", "usage"]),
+    mapAtPath(payload, ["params", "msg", "payload", "message", "usage"]),
+    mapAtPath(payload, ["params", "msg", "message", "usage"]),
     mapAtPath(payload, ["params", "msg", "payload", "info", "total_token_usage"]),
     mapAtPath(payload, ["params", "msg", "info", "total_token_usage"]),
     mapAtPath(payload, ["params", "tokenUsage", "total"]),
@@ -95,12 +99,14 @@ function turnCompletedUsageFromPayload(
   update: SymphonyAgentStateUpdate,
   payload: Record<string, unknown>
 ): Record<string, unknown> | null {
-  if (update.event !== "turn_completed") {
+  if (update.event !== "turn_completed" && update.event !== "turn_end") {
     return null;
   }
 
   const directUsage =
-    mapAtPath(payload, ["usage"]) ?? mapAtPath(payload, ["params", "usage"]);
+    mapAtPath(payload, ["usage"]) ??
+    mapAtPath(payload, ["message", "usage"]) ??
+    mapAtPath(payload, ["params", "usage"]);
 
   return directUsage && integerTokenMap(directUsage) ? directUsage : null;
 }
@@ -112,14 +118,18 @@ function extractTokenCountRecord(
   outputTokens: number;
   totalTokens: number;
 } {
+  const inputTokens = toInteger(
+    total.inputTokens ?? total.input_tokens ?? total.prompt_tokens ?? total.input
+  );
+  const outputTokens = toInteger(
+    total.outputTokens ?? total.output_tokens ?? total.completion_tokens ?? total.output
+  );
+  const totalTokens = toInteger(total.totalTokens ?? total.total_tokens);
+
   return {
-    inputTokens: toInteger(
-      total.inputTokens ?? total.input_tokens ?? total.prompt_tokens
-    ),
-    outputTokens: toInteger(
-      total.outputTokens ?? total.output_tokens ?? total.completion_tokens
-    ),
-    totalTokens: toInteger(total.totalTokens ?? total.total_tokens)
+    inputTokens,
+    outputTokens,
+    totalTokens: totalTokens > 0 ? totalTokens : inputTokens + outputTokens
   };
 }
 
@@ -184,9 +194,11 @@ function integerTokenMap(value: Record<string, unknown>): boolean {
     "total_tokens" in value ||
     "inputTokens" in value ||
     "input_tokens" in value ||
+    "input" in value ||
     "prompt_tokens" in value ||
     "outputTokens" in value ||
     "output_tokens" in value ||
+    "output" in value ||
     "completion_tokens" in value
   );
 }

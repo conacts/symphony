@@ -172,6 +172,135 @@ describe("docker pi symphony agent runtime", () => {
     database.close();
   });
 
+  it("forwards raw pi usage payloads through runtime updates", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-usage-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(
+      fakePi,
+      `#!/bin/sh
+session_id="pi-session-1"
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  id="$(printf '%s\\n' "$line" | sed -E 's/.*"id":"([^"]+)".*/\\1/')"
+  command="$(printf '%s\\n' "$line" | sed -E 's/.*"type":"([^"]+)".*/\\1/')"
+
+  if [ "$command" = "get_state" ]; then
+    printf '%s\\n' '{"id":"'"$id"'","type":"response","success":true,"data":{"sessionId":"'"$session_id"'","model":{"id":"x","provider":"openrouter"}}}'
+    continue
+  fi
+
+  if [ "$command" = "prompt" ]; then
+    printf '%s\\n' '{"id":"'"$id"'","type":"response","success":true}'
+    printf '%s\\n' '{"type":"message_end","message":{"responseId":"msg-1","role":"assistant","content":[{"type":"text","text":"ok"}],"usage":{"input":5,"cacheRead":0,"output":2}}}'
+    printf '%s\\n' '{"type":"turn_end","message":{"usage":{"input":5,"cacheRead":0,"output":2}}}'
+    printf '%s\\n' '{"type":"agent_end"}'
+    continue
+  fi
+done
+`
+    );
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(
+      fakeDocker,
+      path.join(root, "fake-docker-log.json")
+    );
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createDoneTracker(issue);
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    const payloads: unknown[] = [];
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
+        tracker,
+        runStore,
+        agentAnalytics,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate(_issueId, update) {
+            payloads.push(update.payload ?? null);
+          },
+          async onComplete() {
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    expect(payloads).toContainEqual(
+      expect.objectContaining({
+        type: "message_end",
+        message: expect.objectContaining({
+          usage: expect.objectContaining({
+            input: 5,
+            output: 2
+          })
+        })
+      })
+    );
+    expect(payloads).toContainEqual(
+      expect.objectContaining({
+        type: "turn_end",
+        message: expect.objectContaining({
+          usage: expect.objectContaining({
+            input: 5,
+            output: 2
+          })
+        })
+      })
+    );
+
+    database.close();
+  });
+
   it("reports max-turn pauses as a first-class completion", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-runtime-max-turns-"));
     tempRoots.push(root);
