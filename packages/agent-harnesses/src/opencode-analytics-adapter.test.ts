@@ -1,0 +1,220 @@
+import { describe, expect, it } from "vitest";
+import {
+  projectOpenCodeCommandExecutedEvent,
+  projectOpenCodePromptResponse,
+  projectOpenCodeTodoUpdatedEvent
+} from "./opencode-analytics-adapter.js";
+
+describe("opencode analytics adapter", () => {
+  it("projects assistant parts into codex-like thread events with explicit losses", () => {
+    const projection = projectOpenCodePromptResponse({
+      response: {
+        info: {
+          id: "msg-1",
+          sessionID: "session-1",
+          role: "assistant",
+          time: {
+            created: 1_000,
+            completed: 2_000
+          },
+          parentID: "parent-1",
+          modelID: "xiaomi/mimo-v2-pro",
+          providerID: "openrouter",
+          mode: "chat",
+          agent: "build",
+          path: {
+            cwd: "/workspace",
+            root: "/workspace"
+          },
+          cost: 0,
+          tokens: {
+            input: 120,
+            output: 30,
+            reasoning: 10,
+            cache: {
+              read: 15,
+              write: 0
+            }
+          }
+        },
+        parts: [
+          {
+            id: "text-1",
+            sessionID: "session-1",
+            messageID: "msg-1",
+            type: "text",
+            text: "Finished the change."
+          },
+          {
+            id: "reasoning-1",
+            sessionID: "session-1",
+            messageID: "msg-1",
+            type: "reasoning",
+            text: "Need to update the schema.",
+            time: {
+              start: 1_100,
+              end: 1_200
+            }
+          },
+          {
+            id: "tool-1",
+            sessionID: "session-1",
+            messageID: "msg-1",
+            type: "tool",
+            callID: "call-1",
+            tool: "bash",
+            state: {
+              status: "completed",
+              input: {
+                command: "pnpm test"
+              },
+              output: "ok",
+              title: "pnpm test",
+              metadata: {
+                exitCode: 0
+              },
+              time: {
+                start: 1_300,
+                end: 1_600
+              }
+            }
+          },
+          {
+            id: "patch-1",
+            sessionID: "session-1",
+            messageID: "msg-1",
+            type: "patch",
+            hash: "hash-1",
+            files: ["apps/api/src/main.ts"]
+          }
+        ]
+      }
+    });
+
+    expect(projection.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "item.completed",
+          item: expect.objectContaining({
+            id: "text-1",
+            type: "agent_message"
+          })
+        }),
+        expect.objectContaining({
+          type: "item.completed",
+          item: expect.objectContaining({
+            id: "reasoning-1",
+            type: "reasoning"
+          })
+        }),
+        expect.objectContaining({
+          type: "item.completed",
+          item: expect.objectContaining({
+            id: "tool-1",
+            type: "mcp_tool_call",
+            server: "opencode",
+            tool: "bash",
+            status: "completed"
+          })
+        }),
+        expect.objectContaining({
+          type: "item.completed",
+          item: expect.objectContaining({
+            id: "patch-1",
+            type: "file_change",
+            status: "completed"
+          })
+        }),
+        {
+          type: "turn.completed",
+          usage: {
+            input_tokens: 120,
+            cached_input_tokens: 15,
+            output_tokens: 40
+          }
+        }
+      ])
+    );
+    expect(projection.losses).toEqual(
+      expect.arrayContaining([
+        {
+          kind: "patch_change_kind_unknown",
+          files: ["apps/api/src/main.ts"]
+        },
+        {
+          kind: "reasoning_tokens_folded_into_output",
+          messageId: "msg-1",
+          reasoningTokens: 10
+        }
+      ])
+    );
+  });
+
+  it("projects todo updates as codex-like todo list updates", () => {
+    const projection = projectOpenCodeTodoUpdatedEvent({
+      event: {
+        type: "todo.updated",
+        properties: {
+          sessionID: "session-1",
+          todos: [
+            {
+              content: "Ship the change",
+              status: "in_progress",
+              priority: "medium"
+            }
+          ]
+        }
+      }
+    });
+
+    expect(projection.events).toEqual([
+      {
+        type: "item.updated",
+        item: {
+          id: "opencode-todo:session-1",
+          type: "todo_list",
+          items: [
+            {
+              text: "Ship the change",
+              completed: false
+            }
+          ]
+        }
+      }
+    ]);
+    expect(projection.losses).toEqual([]);
+  });
+
+  it("projects command executions while flagging missing output parity", () => {
+    const projection = projectOpenCodeCommandExecutedEvent({
+      event: {
+        type: "command.executed",
+        properties: {
+          name: "rg",
+          arguments: "--files",
+          messageID: "msg-1",
+          sessionID: "session-1"
+        }
+      }
+    });
+
+    expect(projection.events).toEqual([
+      {
+        type: "item.completed",
+        item: {
+          id: "opencode-command:msg-1:rg",
+          type: "command_execution",
+          command: "rg --files",
+          aggregated_output: "",
+          status: "completed"
+        }
+      }
+    ]);
+    expect(projection.losses).toEqual([
+      {
+        kind: "command_output_unavailable",
+        command: "rg --files"
+      }
+    ]);
+  });
+});

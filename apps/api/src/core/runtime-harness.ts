@@ -1,3 +1,8 @@
+import {
+  createCodexHarnessDefinition,
+  createUnsupportedHarnessError,
+  type SymphonyAgentHarnessKind
+} from "@symphony/agent-harnesses";
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
@@ -8,7 +13,7 @@ import type {
   CodexAppServerSession
 } from "./codex-app-server-types.js";
 
-export type SymphonyRuntimeHarnessKind = SymphonyAgentRuntimeConfig["agent"]["harness"];
+export type SymphonyRuntimeHarnessKind = SymphonyAgentHarnessKind;
 
 export type SymphonyRuntimeHarness = {
   kind: SymphonyRuntimeHarnessKind;
@@ -24,7 +29,7 @@ export type SymphonyRuntimeHarness = {
 
 export function createCodexRuntimeHarness(): SymphonyRuntimeHarness {
   return {
-    kind: "codex",
+    kind: createCodexHarnessDefinition().kind,
     startSession(input) {
       return CodexSdkClient.startSession(input);
     }
@@ -39,9 +44,7 @@ export function resolveRuntimeHarness(
       return createCodexRuntimeHarness();
     case "opencode":
     case "pi":
-      throw new TypeError(
-        `Symphony runtime harness "${harness}" is configured but not implemented yet. Codex is currently the only supported harness.`
-      );
+      throw createUnsupportedHarnessError(harness);
     default: {
       const exhaustiveCheck: never = harness;
       throw new TypeError(`Unsupported Symphony runtime harness: ${exhaustiveCheck}`);
