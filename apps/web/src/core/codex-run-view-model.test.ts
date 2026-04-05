@@ -176,6 +176,19 @@ describe("codex run view model", () => {
     expect(viewModel.executionPerformance.cards[0]?.value).toBe("1");
     expect(viewModel.executionPerformance.cards[2]?.value).toBe("pnpm");
     expect(viewModel.transcriptTurns).toHaveLength(1);
+    expect(viewModel.transcriptTurns[0]?.countsSummary).toContain("1 task updates");
+    expect(viewModel.transcriptTurns[0]?.activitySummary).toEqual([
+      {
+        label: "Task queue",
+        value: "3 tasks",
+        detail: "1 updates · 1 in progress · 1 completed · 1 pending"
+      },
+      {
+        label: "Files touched",
+        value: "4 files",
+        detail: "apps/api/src/main.ts · packages/db/src/index.ts · README.md · +1 more"
+      }
+    ]);
     expect(viewModel.transcriptTurns[0]?.entries.map((entry) => entry.kind)).toEqual([
       "reasoning",
       "command",

@@ -37,6 +37,22 @@ export function RunTranscriptTurn(input: {
         </Message>
       </div>
 
+      {input.turn.activitySummary.length > 0 ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {input.turn.activitySummary.map((card) => (
+            <Card key={card.label} className="border-border/70">
+              <CardHeader className="space-y-1 pb-3">
+                <CardTitle className="text-sm font-medium">{card.label}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1 pt-0">
+                <p className="text-base font-semibold">{card.value}</p>
+                <p className="text-sm text-muted-foreground">{card.detail}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : null}
+
       {input.turn.entries.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">

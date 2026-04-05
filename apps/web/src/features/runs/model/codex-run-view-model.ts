@@ -126,6 +126,11 @@ export type CodexRunTranscriptTurn = {
   status: string;
   tokenSummary: string;
   countsSummary: string;
+  activitySummary: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
   entries: CodexRunTranscriptEntry[];
 };
 
@@ -364,7 +369,9 @@ function buildTranscriptTurns(
     runArtifacts.toolCalls.map((tool) => [tool.itemId, tool] as const)
   );
   const fileChangeMap = groupFileChangesByItem(runArtifacts.fileChanges);
+  const fileChangesByTurn = groupFileChangesByTurn(runArtifacts.fileChanges);
   const taskSnapshotMap = groupTaskSnapshotsByItem(runArtifacts.taskSnapshots);
+  const taskSnapshotsByTurn = groupTaskSnapshotsByTurn(runArtifacts.taskSnapshots);
 
   const forensicsTurnMap = new Map(
     forensicsTurns.map((turn) => [turn.turnId, turn] as const)
@@ -379,6 +386,8 @@ function buildTranscriptTurns(
     )
     .map((turn, index) => {
       const forensicsTurn = forensicsTurnMap.get(turn.turnId);
+      const turnTaskSnapshots = taskSnapshotsByTurn.get(turn.turnId) ?? [];
+      const turnFileChanges = fileChangesByTurn.get(turn.turnId) ?? [];
 
       return {
         turnId: turn.turnId,
@@ -393,7 +402,8 @@ function buildTranscriptTurns(
             : `In ${formatCount(turn.usage.input_tokens)} / Cached ${formatCount(
                 turn.usage.cached_input_tokens
               )} / Out ${formatCount(turn.usage.output_tokens)}`,
-        countsSummary: buildTurnCountsSummary(turn),
+        countsSummary: buildTurnCountsSummary(turn, turnTaskSnapshots.length),
+        activitySummary: buildTurnActivitySummary(turnTaskSnapshots, turnFileChanges),
         entries: compactTranscriptEntries(
           runArtifacts.items
             .filter((item) => item.turnId === turn.turnId)
@@ -416,7 +426,8 @@ function buildTranscriptTurns(
 }
 
 function buildTurnCountsSummary(
-  turn: SymphonyCodexRunArtifactsResult["turns"][number]
+  turn: SymphonyCodexRunArtifactsResult["turns"][number],
+  taskSnapshotCount: number
 ): string {
   const parts = [
     `${formatCount(turn.commandCount)} commands`,
@@ -428,7 +439,62 @@ function buildTurnCountsSummary(
     parts.push(`${formatCount(turn.reasoningCount)} reasoning`);
   }
 
+  if (taskSnapshotCount > 0) {
+    parts.push(`${formatCount(taskSnapshotCount)} task updates`);
+  }
+
   return parts.join(" · ");
+}
+
+function buildTurnActivitySummary(
+  taskSnapshots: SymphonyCodexTaskSnapshotRecord[],
+  fileChanges: SymphonyCodexFileChangeRecord[]
+): CodexRunTranscriptTurn["activitySummary"] {
+  const cards: CodexRunTranscriptTurn["activitySummary"] = [];
+
+  if (taskSnapshots.length > 0) {
+    const latestSnapshot = [...taskSnapshots].sort((left, right) =>
+      compareAscending(left.recordedAt, right.recordedAt)
+    )[taskSnapshots.length - 1];
+
+    if (latestSnapshot) {
+      const stateCounts = countTaskStates(latestSnapshot);
+      const detailParts = [`${formatCount(taskSnapshots.length)} updates`];
+
+      if (stateCounts.in_progress > 0) {
+        detailParts.push(`${formatCount(stateCounts.in_progress)} in progress`);
+      }
+
+      if (stateCounts.completed > 0) {
+        detailParts.push(`${formatCount(stateCounts.completed)} completed`);
+      }
+
+      if (stateCounts.pending > 0) {
+        detailParts.push(`${formatCount(stateCounts.pending)} pending`);
+      }
+
+      if (stateCounts.cancelled > 0) {
+        detailParts.push(`${formatCount(stateCounts.cancelled)} cancelled`);
+      }
+
+      cards.push({
+        label: "Task queue",
+        value: `${formatCount(latestSnapshot.items.length)} tasks`,
+        detail: detailParts.join(" · ")
+      });
+    }
+  }
+
+  const uniqueFiles = uniqueTurnFileChanges(fileChanges);
+  if (uniqueFiles.length > 0) {
+    cards.push({
+      label: "Files touched",
+      value: `${formatCount(uniqueFiles.length)} files`,
+      detail: formatTurnFileChangeDetail(uniqueFiles)
+    });
+  }
+
+  return cards;
 }
 
 function buildExecutionPerformance(
@@ -753,6 +819,23 @@ function groupFileChangesByItem(fileChanges: SymphonyCodexFileChangeRecord[]) {
   return map;
 }
 
+function groupFileChangesByTurn(fileChanges: SymphonyCodexFileChangeRecord[]) {
+  const map = new Map<string, SymphonyCodexFileChangeRecord[]>();
+
+  for (const fileChange of fileChanges) {
+    const group = map.get(fileChange.turnId);
+
+    if (group) {
+      group.push(fileChange);
+      continue;
+    }
+
+    map.set(fileChange.turnId, [fileChange]);
+  }
+
+  return map;
+}
+
 function formatFileChangeSummary(fileChanges: SymphonyCodexFileChangeRecord[]): string {
   if (fileChanges.length === 0) {
     return "File changes captured.";
@@ -779,6 +862,23 @@ function groupTaskSnapshotsByItem(taskSnapshots: SymphonyCodexTaskSnapshotRecord
     if (compareAscending(previous.recordedAt, snapshot.recordedAt) <= 0) {
       map.set(snapshot.itemId, snapshot);
     }
+  }
+
+  return map;
+}
+
+function groupTaskSnapshotsByTurn(taskSnapshots: SymphonyCodexTaskSnapshotRecord[]) {
+  const map = new Map<string, SymphonyCodexTaskSnapshotRecord[]>();
+
+  for (const snapshot of taskSnapshots) {
+    const group = map.get(snapshot.turnId);
+
+    if (group) {
+      group.push(snapshot);
+      continue;
+    }
+
+    map.set(snapshot.turnId, [snapshot]);
   }
 
   return map;
@@ -893,8 +993,70 @@ function formatTaskSnapshotItemMarkdown(
   }
 }
 
+function countTaskStates(snapshot: SymphonyCodexTaskSnapshotRecord) {
+  const counts = {
+    pending: 0,
+    in_progress: 0,
+    completed: 0,
+    cancelled: 0
+  };
+
+  for (const item of snapshot.items) {
+    switch (item.state) {
+      case "in_progress":
+        counts.in_progress += 1;
+        break;
+      case "completed":
+        counts.completed += 1;
+        break;
+      case "cancelled":
+        counts.cancelled += 1;
+        break;
+      case "pending":
+      default:
+        counts.pending += 1;
+        break;
+    }
+  }
+
+  return counts;
+}
+
+function uniqueTurnFileChanges(fileChanges: SymphonyCodexFileChangeRecord[]) {
+  const map = new Map<string, SymphonyCodexFileChangeRecord>();
+
+  for (const fileChange of fileChanges) {
+    const previous = map.get(fileChange.path);
+
+    if (!previous || compareAscending(previous.recordedAt, fileChange.recordedAt) <= 0) {
+      map.set(fileChange.path, fileChange);
+    }
+  }
+
+  return [...map.values()].sort((left, right) =>
+    compareTextAscending(left.path, right.path)
+  );
+}
+
+function formatTurnFileChangeDetail(
+  fileChanges: SymphonyCodexFileChangeRecord[]
+): string {
+  const preview = fileChanges.slice(0, 3).map((fileChange) => fileChange.path);
+  const remaining = fileChanges.length - preview.length;
+
+  if (remaining > 0) {
+    return `${preview.join(" · ")} · +${formatCount(remaining)} more`;
+  }
+
+  return preview.join(" · ");
+}
+
 function compareAscending(left: string, right: string): number {
   return new Date(left).getTime() - new Date(right).getTime();
+}
+
+function compareTextAscending(left: string, right: string): number {
+  return left.localeCompare(right);
 }
 
 function compareDescending(left: string | null, right: string | null): number {
