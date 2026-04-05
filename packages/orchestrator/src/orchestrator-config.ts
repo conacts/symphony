@@ -5,6 +5,9 @@ export type SymphonyAgentRuntimeConfig = {
   tracker: SymphonyTrackerConfig;
   workspace: Pick<WorkspaceConfig, "root">;
   agent: {
+    // "pi" is the active runtime harness. "codex" and "opencode" are
+    // accepted here only for backward-compatible parsing and should fail-fast
+    // before active execution.
     harness: "codex" | "opencode" | "pi";
     maxTurns: number;
   };

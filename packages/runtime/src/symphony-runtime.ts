@@ -8,7 +8,10 @@ import {
   type SymphonyOrchestratorObserver,
   type SymphonyOrchestratorSnapshot
 } from "@symphony/orchestrator";
-import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
+import {
+  type SymphonyResolvedRuntimePolicy,
+  SymphonyRuntimePolicyError
+} from "@symphony/runtime-policy";
 import type {
   PublishReviewInput,
   PublishReviewResult,
@@ -204,6 +207,8 @@ function requireReviewPublisher<Input extends ReviewResult, Published>(
 function toSymphonyOrchestratorConfig(
   runtimePolicy: SymphonyResolvedRuntimePolicy
 ): SymphonyOrchestratorConfig {
+  assertPiRuntimeHarness(runtimePolicy.agent.harness);
+
   return {
     tracker: runtimePolicy.tracker,
     polling: runtimePolicy.polling,
@@ -260,4 +265,17 @@ function toSymphonyOrchestratorConfig(
       }
     }
   };
+}
+
+function assertPiRuntimeHarness(
+  harness: "pi" | "codex" | "opencode"
+): void {
+  if (harness === "pi") {
+    return;
+  }
+
+  throw new SymphonyRuntimePolicyError(
+    "invalid_workflow_config",
+    `Runtime execution rejects legacy harness '${harness}' for launch/execute. Use agent.harness: "pi".`
+  );
 }

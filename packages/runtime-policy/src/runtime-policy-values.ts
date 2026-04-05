@@ -3,6 +3,8 @@ import { normalizeIssueState } from "@symphony/tracker";
 import { SymphonyRuntimePolicyError } from "./runtime-policy-errors.js";
 import type { SymphonyRuntimePolicyEnv } from "./runtime-policy.js";
 
+const emittedDeprecatedHarnessWarnings = new Set<string>();
+
 export function normalizeTrackerKind(value: unknown): "linear" | "memory" {
   const normalized = normalizeOptionalString(value);
   if (normalized === null) {
@@ -65,6 +67,43 @@ export function normalizeApprovalPolicy(
   throw new SymphonyRuntimePolicyError(
     "invalid_workflow_config",
     "codex.approvalPolicy must be a string or map."
+  );
+}
+
+export function normalizeAgentHarness(
+  value: unknown
+): "pi" | "codex" | "opencode" {
+  const normalized = normalizeOptionalString(value) ?? "pi";
+
+  if (
+    normalized !== "pi" &&
+    normalized !== "codex" &&
+    normalized !== "opencode"
+  ) {
+    throw new SymphonyRuntimePolicyError(
+      "invalid_workflow_config",
+      "agent.harness must be one of: pi, codex, opencode."
+    );
+  }
+
+  if (normalized !== "pi") {
+    emitDeprecatedHarnessWarning(normalized);
+  }
+
+  return normalized;
+}
+
+function emitDeprecatedHarnessWarning(harness: string): void {
+  if (emittedDeprecatedHarnessWarnings.has(harness)) {
+    return;
+  }
+
+  emittedDeprecatedHarnessWarnings.add(harness);
+  process.emitWarning(
+    `Runtime policy uses deprecated harness '${harness}' for launch/execute. Pi is now the only active harness; this input is retained for read compatibility only.`,
+    {
+      code: "SYMPHONY_DEPRECATED_HARNESS"
+    }
   );
 }
 

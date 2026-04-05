@@ -6,6 +6,7 @@ import {
 } from "@symphony/tracker";
 import { SymphonyRuntimePolicyError } from "./runtime-policy-errors.js";
 import {
+  normalizeAgentHarness,
   getNestedRecord,
   normalizeApprovalPolicy,
   normalizeNonNegativeInteger,
@@ -42,7 +43,7 @@ export type SymphonyWorkerRuntimePolicy = {
 export type SymphonyWorkflowWorkerConfig = SymphonyWorkerRuntimePolicy;
 
 export type SymphonyAgentRuntimePolicy = {
-  harness: "pi";
+  harness: "pi" | "codex" | "opencode";
   maxConcurrentAgents: number;
   maxTurns: number;
   maxRetryBackoffMs: number;
@@ -299,17 +300,10 @@ function normalizeWorkerConfig(value: unknown): SymphonyWorkerRuntimePolicy {
 
 function normalizeAgentConfig(value: unknown): SymphonyAgentRuntimePolicy {
   const agent = getNestedRecord(value);
-  const normalizedHarness = normalizeOptionalString(agent.harness) ?? "pi";
-
-  if (normalizedHarness !== "pi") {
-    throw new SymphonyRuntimePolicyError(
-      "invalid_workflow_config",
-      "agent.harness must be pi."
-    );
-  }
+  const normalizedHarness = normalizeAgentHarness(agent.harness);
 
   return {
-    harness: "pi",
+    harness: normalizedHarness,
     maxConcurrentAgents: normalizePositiveInteger(
       agent.maxConcurrentAgents,
       10,
