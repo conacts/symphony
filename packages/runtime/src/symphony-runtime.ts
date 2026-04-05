@@ -224,6 +224,7 @@ function toSymphonyOrchestratorConfig(
         root: runtimePolicy.workspace.root
       },
       agent: {
+        harness: runtimePolicy.agent.harness,
         maxTurns: runtimePolicy.agent.maxTurns
       },
       codex: {

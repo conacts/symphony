@@ -84,6 +84,7 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         ...overrides.runtime?.workspace
       },
       agent: {
+        harness: "codex",
         maxTurns: 20,
         ...overrides.runtime?.agent
       },

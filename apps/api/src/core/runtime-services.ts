@@ -30,7 +30,7 @@ import {
 } from "./codex-auth-contract.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
-import { createCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
+import { createSymphonyHarnessAgentRuntime } from "./codex-agent-runtime.js";
 import { createDbBackedOrchestratorObserver } from "./runtime-db-observer.js";
 import { createSymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 import { SymphonyRuntimePollScheduler } from "./poll-scheduler.js";
@@ -50,6 +50,7 @@ import {
 } from "./runtime-github-client.js";
 import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
 import { createCodexAnalyticsReadPort } from "./codex-analytics-read-port.js";
+import { resolveRuntimeHarness } from "./runtime-harness.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -71,6 +72,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     environmentSource,
     cwd: process.cwd()
   });
+  const runtimeHarness = resolveRuntimeHarness(runtimePolicy.agent.harness);
   const promptContract = loadSymphonyPromptContract({
     repoRoot: env.sourceRepo ?? process.cwd()
   });
@@ -181,7 +183,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     hostCommandEnvSource
   );
 
-  if (dockerCodexAuth.mode === "unavailable") {
+  if (runtimeHarness.kind === "codex" && dockerCodexAuth.mode === "unavailable") {
     throw new CodexAppServerError(
       "codex_auth_unavailable",
       "Docker-backed Symphony workspaces require host-owned Codex auth. Provide ~/.codex/auth.json (or $CODEX_HOME/auth.json) for subscription auth, or set the configured provider API key env as a host-only fallback."
@@ -269,7 +271,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     "applyAgentUpdate" | "handleRunCompletion"
   > | null = null;
   const agentRuntime = createCodexAgentRuntime(
-    createCodexSymphonyAgentRuntime({
+    createSymphonyHarnessAgentRuntime({
+      harness: runtimeHarness,
       promptContract,
       githubRepository: runtimePolicy.github.repo,
       tracker,

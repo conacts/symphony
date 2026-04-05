@@ -16,6 +16,7 @@ describe("resolveRuntimePolicy", () => {
     ]);
     expect(config.tracker.terminalStates).toEqual(["Canceled", "Done"]);
     expect(config.workspace.root).toContain("symphony_workspaces");
+    expect(config.agent.harness).toBe("codex");
     expect(config.agent.maxConcurrentAgents).toBe(10);
     expect(config.codex.approvalPolicy).toBe("never");
     expect(config.codex.threadSandbox).toBe("danger-full-access");
@@ -54,5 +55,21 @@ describe("resolveRuntimePolicy", () => {
         {}
       )
     ).toThrowError(SymphonyRuntimePolicyError);
+  });
+
+  it("accepts explicit harness selection", () => {
+    const config = resolveRuntimePolicy(
+      {
+        tracker: {
+          kind: "memory"
+        },
+        agent: {
+          harness: "opencode"
+        }
+      },
+      {}
+    );
+
+    expect(config.agent.harness).toBe("opencode");
   });
 });

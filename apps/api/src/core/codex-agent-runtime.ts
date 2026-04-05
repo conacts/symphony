@@ -44,6 +44,7 @@ import {
 import {
   buildSymphonyContinuationPrompt
 } from "./symphony-prompt.js";
+import type { SymphonyRuntimeHarness } from "./runtime-harness.js";
 
 type RunCallbacks = {
   onUpdate(issueId: string, update: SymphonyAgentRuntimeUpdate): void | Promise<void>;
@@ -59,6 +60,36 @@ type ActiveRun = {
 };
 
 export function createCodexSymphonyAgentRuntime(input: {
+  promptContract: SymphonyLoadedPromptContract;
+  githubRepository?: string | null;
+  tracker: SymphonyTracker;
+  runStore: SymphonyRuntimeRunStore;
+  codexAnalytics: CodexAnalyticsStore;
+  runtimeLogs: SymphonyRuntimeLogStore;
+  hostCommandEnvSource: Record<string, string | undefined>;
+  codexHostLaunchEnv?: Record<string, string>;
+  codexAuthMode?: string | null;
+  codexProviderEnvKey?: string | null;
+  logger: SymphonyLogger;
+  callbacks: RunCallbacks;
+}): AgentRuntime {
+  return createSymphonyHarnessAgentRuntime({
+    ...input,
+    harness: inputHarnessCodex()
+  });
+}
+
+function inputHarnessCodex(): SymphonyRuntimeHarness {
+  return {
+    kind: "codex",
+    startSession(startInput) {
+      return CodexSdkClient.startSession(startInput);
+    }
+  };
+}
+
+export function createSymphonyHarnessAgentRuntime(input: {
+  harness: SymphonyRuntimeHarness;
   promptContract: SymphonyLoadedPromptContract;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
@@ -88,6 +119,7 @@ export function createCodexSymphonyAgentRuntime(input: {
 
       void executeRun({
         promptTemplate: input.promptContract.template,
+        harness: input.harness,
         promptContract: input.promptContract,
         githubRepository: input.githubRepository ?? null,
         tracker: input.tracker,
@@ -139,6 +171,7 @@ export const createLocalCodexSymphonyAgentRuntime =
 
 async function executeRun(input: {
   promptTemplate: string;
+  harness: SymphonyRuntimeHarness;
   promptContract: SymphonyLoadedPromptContract;
   githubRepository: string | null;
   tracker: SymphonyTracker;
@@ -174,6 +207,7 @@ async function executeRun(input: {
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {
+        harness: input.harness.kind,
         launchTarget: describeLaunchTarget(input.launchTarget)
       }
     });
@@ -189,7 +223,7 @@ async function executeRun(input: {
       });
     }
 
-    const session = await CodexSdkClient.startSession({
+    const session = await input.harness.startSession({
       launchTarget: input.launchTarget,
       env: {
         ...input.workspace.envBundle.values,
@@ -222,6 +256,7 @@ async function executeRun(input: {
         providerName: session.providerName,
         authMode: input.codexAuthMode,
         providerEnvKey: input.codexProviderEnvKey,
+        harness: input.harness.kind,
         launchTarget: describeLaunchTarget(session.launchTarget)
       }
     });
@@ -464,6 +499,7 @@ async function executeRun(input: {
         providerName: sessionProviderName,
         authMode: input.codexAuthMode,
         providerEnvKey: input.codexProviderEnvKey,
+        harness: input.harness.kind,
         launchTarget: describeLaunchTarget(input.launchTarget)
       }
     });

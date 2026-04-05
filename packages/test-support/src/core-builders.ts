@@ -60,6 +60,7 @@ export function buildSymphonyRuntimePolicy(
       ...overrides.worker
     },
     agent: {
+      harness: "codex",
       maxConcurrentAgents: 10,
       maxTurns: 20,
       maxRetryBackoffMs: 300_000,

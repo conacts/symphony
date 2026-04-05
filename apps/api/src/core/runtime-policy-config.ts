@@ -97,6 +97,8 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       maxConcurrentAgentsPerHost: null
     },
     agent: {
+      harness:
+        readAgentHarness(environmentSource.SYMPHONY_AGENT_HARNESS) ?? "codex",
       maxConcurrentAgents: readPositiveInteger(
         environmentSource.SYMPHONY_AGENT_MAX_CONCURRENT,
         10
@@ -259,6 +261,23 @@ function readOptionalBoolean(value: string | undefined): boolean | null {
 
   throw new TypeError(
     `Invalid Symphony runtime policy: expected a boolean, received ${JSON.stringify(value)}.`
+  );
+}
+
+function readAgentHarness(
+  value: string | undefined
+): "codex" | "opencode" | "pi" | null {
+  const normalized = readOptionalString(value);
+  if (normalized === null) {
+    return null;
+  }
+
+  if (normalized === "codex" || normalized === "opencode" || normalized === "pi") {
+    return normalized;
+  }
+
+  throw new TypeError(
+    `Invalid Symphony runtime policy: expected SYMPHONY_AGENT_HARNESS to be one of codex, opencode, pi, received ${JSON.stringify(value)}.`
   );
 }
 

@@ -5,6 +5,7 @@ export type SymphonyAgentRuntimeConfig = {
   tracker: SymphonyTrackerConfig;
   workspace: Pick<WorkspaceConfig, "root">;
   agent: {
+    harness: "codex" | "opencode" | "pi";
     maxTurns: number;
   };
   codex: {

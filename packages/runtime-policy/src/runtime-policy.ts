@@ -42,6 +42,7 @@ export type SymphonyWorkerRuntimePolicy = {
 export type SymphonyWorkflowWorkerConfig = SymphonyWorkerRuntimePolicy;
 
 export type SymphonyAgentRuntimePolicy = {
+  harness: "codex" | "opencode" | "pi";
   maxConcurrentAgents: number;
   maxTurns: number;
   maxRetryBackoffMs: number;
@@ -279,7 +280,19 @@ function normalizeWorkerConfig(value: unknown): SymphonyWorkerRuntimePolicy {
 
 function normalizeAgentConfig(value: unknown): SymphonyAgentRuntimePolicy {
   const agent = getNestedRecord(value);
+  const normalizedHarness = normalizeOptionalString(agent.harness) ?? "codex";
+
+  if (!["codex", "opencode", "pi"].includes(normalizedHarness)) {
+    throw new SymphonyRuntimePolicyError(
+      "invalid_workflow_config",
+      "agent.harness must be one of: codex, opencode, pi."
+    );
+  }
+
+  const harness = normalizedHarness as SymphonyAgentRuntimePolicy["harness"];
+
   return {
+    harness,
     maxConcurrentAgents: normalizePositiveInteger(
       agent.maxConcurrentAgents,
       10,
