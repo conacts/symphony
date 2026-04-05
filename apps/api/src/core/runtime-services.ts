@@ -26,6 +26,7 @@ import {
   HarnessSessionError,
   resolveHarnessProviderEnvKey
 } from "@symphony/agent-harnesses";
+import { SymphonyRuntimePolicyError } from "@symphony/runtime-policy";
 import {
   resolveDockerWorkspaceAuthContracts
 } from "./codex-auth-contract.js";
@@ -73,6 +74,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     environmentSource,
     cwd: process.cwd()
   });
+  if (runtimePolicy.agent.harness !== "pi") {
+    throw new SymphonyRuntimePolicyError(
+      "invalid_workflow_config",
+      `Runtime execution rejects legacy harness '${runtimePolicy.agent.harness}' for launch/execute. Use agent.harness: "pi".`
+    );
+  }
   const harnessProviderEnvKey = resolveHarnessProviderEnvKey(runtimePolicy);
   const runtimeHarness = resolveRuntimeHarness(runtimePolicy.agent.harness);
   const promptContract = loadSymphonyPromptContract({
