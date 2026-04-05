@@ -230,6 +230,33 @@ export const symphonyCodexFileChangeRecordSchema = z.strictObject({
   insertedAt: isoTimestampSchema
 });
 
+export const symphonyCodexTaskSnapshotStateSchema = z.enum([
+  "pending",
+  "in_progress",
+  "completed",
+  "cancelled"
+]);
+
+export const symphonyCodexTaskSnapshotItemRecordSchema = z.strictObject({
+  snapshotId: nonEmptyStringSchema,
+  position: z.number().int().nonnegative(),
+  label: nonEmptyStringSchema,
+  state: symphonyCodexTaskSnapshotStateSchema,
+  section: nullableNonEmptyStringSchema,
+  insertedAt: isoTimestampSchema
+});
+
+export const symphonyCodexTaskSnapshotRecordSchema = z.strictObject({
+  snapshotId: nonEmptyStringSchema,
+  runId: nonEmptyStringSchema,
+  turnId: nonEmptyStringSchema,
+  itemId: nonEmptyStringSchema,
+  sourceKind: nonEmptyStringSchema,
+  recordedAt: isoTimestampSchema,
+  insertedAt: isoTimestampSchema,
+  items: z.array(symphonyCodexTaskSnapshotItemRecordSchema)
+});
+
 export const symphonyCodexEventRecordSchema = z.strictObject({
   eventId: nonEmptyStringSchema,
   turnId: nullableNonEmptyStringSchema,
@@ -268,6 +295,7 @@ export const symphonyCodexRunArtifactsResultSchema = z.strictObject({
   agentMessages: z.array(symphonyCodexAgentMessageRecordSchema),
   reasoning: z.array(symphonyCodexReasoningRecordSchema),
   fileChanges: z.array(symphonyCodexFileChangeRecordSchema),
+  taskSnapshots: z.array(symphonyCodexTaskSnapshotRecordSchema),
   events: z.array(symphonyCodexEventRecordSchema)
 });
 
@@ -362,6 +390,15 @@ export type SymphonyCodexAgentMessageRecord = z.infer<
 >;
 export type SymphonyCodexReasoningRecord = z.infer<typeof symphonyCodexReasoningRecordSchema>;
 export type SymphonyCodexFileChangeRecord = z.infer<typeof symphonyCodexFileChangeRecordSchema>;
+export type SymphonyCodexTaskSnapshotState = z.infer<
+  typeof symphonyCodexTaskSnapshotStateSchema
+>;
+export type SymphonyCodexTaskSnapshotItemRecord = z.infer<
+  typeof symphonyCodexTaskSnapshotItemRecordSchema
+>;
+export type SymphonyCodexTaskSnapshotRecord = z.infer<
+  typeof symphonyCodexTaskSnapshotRecordSchema
+>;
 export type SymphonyCodexEventRecord = z.infer<typeof symphonyCodexEventRecordSchema>;
 export type SymphonyCodexOverflowRecord = z.infer<typeof symphonyCodexOverflowRecordSchema>;
 export type SymphonyCodexRunArtifactsResult = z.infer<

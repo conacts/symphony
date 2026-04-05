@@ -596,4 +596,120 @@ describe("sqlite codex analytics read store", () => {
       database.close();
     }
   });
+
+  it("returns structured task snapshots for Pi queue updates in run artifacts", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-read-task-snapshots-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runJournal = createSqliteSymphonyRunJournal({
+      db: database.db,
+      dbFile: path.join(root, "symphony.db"),
+      timelineStore: createSymphonyIssueTimelineStore(database.db)
+    });
+    const analytics = createSqliteCodexAnalyticsStore({
+      db: database.db
+    });
+    const readStore = createSqliteCodexAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runJournal.recordRunStarted({
+        runId: "run-task-snapshots",
+        issueId: "issue-10",
+        issueIdentifier: "COL-910",
+        startedAt: "2026-04-05T09:00:00.000Z",
+        status: "running"
+      });
+      await analytics.startRun({
+        runId,
+        issueId: "issue-10",
+        issueIdentifier: "COL-910",
+        startedAt: "2026-04-05T09:00:00.000Z",
+        status: "running",
+        threadId: "thread-task-snapshots"
+      });
+
+      const turnId = await runJournal.recordTurnStarted(runId, {
+        turnId: "turn-task-snapshots",
+        turnSequence: 1,
+        promptText: "Track the queue",
+        status: "running",
+        startedAt: "2026-04-05T09:00:01.000Z",
+        codexThreadId: "thread-task-snapshots",
+        codexTurnId: "turn-task-snapshots"
+      });
+
+      await analytics.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-task-snapshots",
+        recordedAt: "2026-04-05T09:00:01.200Z",
+        rawPayload: {
+          type: "queue_update",
+          steering: ["Keep the patch scoped"],
+          followUp: ["Summarize the changes"]
+        },
+        payload: {
+          type: "item.updated",
+          item: {
+            id: "pi-todo-queue",
+            type: "todo_list",
+            items: [
+              {
+                text: "[Steering] Keep the patch scoped",
+                completed: false
+              },
+              {
+                text: "[Follow-up] Summarize the changes",
+                completed: false
+              }
+            ]
+          }
+        }
+      });
+
+      const artifacts = await readStore.fetchRunArtifacts(runId);
+      const taskSnapshots = await readStore.listTaskSnapshots({
+        runId,
+        turnId
+      });
+
+      expect(artifacts?.taskSnapshots).toEqual([
+        {
+          snapshotId: expect.any(String),
+          runId,
+          turnId,
+          itemId: "pi-todo-queue",
+          sourceKind: "pi_queue_update",
+          recordedAt: "2026-04-05T09:00:01.200Z",
+          insertedAt: expect.any(String),
+          items: [
+            {
+              snapshotId: expect.any(String),
+              position: 0,
+              label: "Keep the patch scoped",
+              state: "pending",
+              section: "steering",
+              insertedAt: expect.any(String)
+            },
+            {
+              snapshotId: expect.any(String),
+              position: 1,
+              label: "Summarize the changes",
+              state: "pending",
+              section: "follow_up",
+              insertedAt: expect.any(String)
+            }
+          ]
+        }
+      ]);
+      expect(taskSnapshots).toEqual(artifacts?.taskSnapshots ?? []);
+    } finally {
+      database.close();
+    }
+  });
 });

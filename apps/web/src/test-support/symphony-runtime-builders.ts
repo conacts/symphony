@@ -1085,6 +1085,7 @@ export function buildSymphonyCodexRunArtifactsResult(
         insertedAt: "2026-03-31T18:00:30.000Z"
       }
     ],
+    taskSnapshots: [],
     events: [
       {
         eventId: "event_1",

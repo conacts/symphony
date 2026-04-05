@@ -35,7 +35,11 @@ import {
   previewText,
   toolResultContent
 } from "@symphony/codex-analytics";
-import { symphonyRunsTable } from "./schema.js";
+import {
+  codexTaskSnapshotItemsTable,
+  codexTaskSnapshotsTable,
+  symphonyRunsTable
+} from "./schema.js";
 
 const defaultPayloadMaxBytes = 64 * 1024;
 const defaultPreviewMaxChars = 280;
@@ -756,8 +760,10 @@ function projectThreadItem(
     case "file_change":
       projectFileChangeItem(context, item);
       break;
-    case "web_search":
     case "todo_list":
+      projectTaskSnapshotItem(context, item);
+      break;
+    case "web_search":
     case "error":
       break;
   }
@@ -1021,6 +1027,238 @@ function projectFileChangeItem(
       }))
     )
     .run();
+}
+
+function projectTaskSnapshotItem(
+  context: CodexEventMutationContext,
+  item: Extract<ThreadItem, { type: "todo_list" }>
+): void {
+  if (!context.input.turnId) {
+    return;
+  }
+
+  const snapshot = buildTaskSnapshotProjection(context.input, item);
+  if (!snapshot) {
+    return;
+  }
+
+  const snapshotId = randomUUID();
+
+  context.tx
+    .insert(codexTaskSnapshotsTable)
+    .values({
+      snapshotId,
+      runId: context.input.runId,
+      turnId: context.input.turnId,
+      itemId: item.id,
+      sourceKind: snapshot.sourceKind,
+      recordedAt: context.input.recordedAt,
+      insertedAt: context.now
+    })
+    .run();
+
+  if (snapshot.items.length === 0) {
+    return;
+  }
+
+  context.tx
+    .insert(codexTaskSnapshotItemsTable)
+    .values(
+      snapshot.items.map((task, index) => ({
+        snapshotId,
+        position: index,
+        label: task.label,
+        state: task.state,
+        section: task.section,
+        insertedAt: context.now
+      }))
+    )
+    .run();
+}
+
+function buildTaskSnapshotProjection(
+  input: CodexAnalyticsEventInput,
+  item: Extract<ThreadItem, { type: "todo_list" }>
+): {
+  sourceKind: string;
+  items: Array<{
+    label: string;
+    state: "pending" | "in_progress" | "completed" | "cancelled";
+    section: string | null;
+  }>;
+} | null {
+  const rawPayload = asRecord(input.rawPayload);
+  const rawPayloadType = getString(rawPayload, "type");
+
+  if (rawPayloadType === "queue_update") {
+    const structuredItems = extractStructuredPiQueueItems(rawPayload);
+    if (structuredItems.length > 0) {
+      return {
+        sourceKind: "pi_queue_update",
+        items: structuredItems
+      };
+    }
+  }
+
+  return {
+    sourceKind: "todo_list_projection",
+    items: item.items.map((task) => {
+      const parsed = parseTaskLabel(task.text);
+      return {
+        label: parsed.label,
+        section: parsed.section,
+        state: task.completed ? "completed" : "pending"
+      };
+    })
+  };
+}
+
+function extractStructuredPiQueueItems(
+  rawPayload: Record<string, unknown> | null
+): Array<{
+  label: string;
+  state: "pending" | "in_progress" | "completed" | "cancelled";
+  section: string | null;
+}> {
+  if (!rawPayload) {
+    return [];
+  }
+
+  const explicitTasks = getArray(rawPayload, "tasks")
+    .flatMap((entry) => normalizeTaskDescriptor(asRecord(entry)))
+    .filter(isTaskSnapshotEntry);
+  if (explicitTasks.length > 0) {
+    return explicitTasks;
+  }
+
+  return [
+    ...getStringArray(rawPayload.steering).map((label) => ({
+      label,
+      state: "pending" as const,
+      section: "steering"
+    })),
+    ...getStringArray(rawPayload.followUp).map((label) => ({
+      label,
+      state: "pending" as const,
+      section: "follow_up"
+    })),
+    ...getStringArray(rawPayload.inProgress).map((label) => ({
+      label,
+      state: "in_progress" as const,
+      section: null
+    })),
+    ...getStringArray(rawPayload.completed).map((label) => ({
+      label,
+      state: "completed" as const,
+      section: null
+    })),
+    ...getStringArray(rawPayload.cancelled).map((label) => ({
+      label,
+      state: "cancelled" as const,
+      section: null
+    }))
+  ];
+}
+
+function normalizeTaskDescriptor(value: Record<string, unknown> | null): {
+  label: string;
+  state: "pending" | "in_progress" | "completed" | "cancelled";
+  section: string | null;
+} | null {
+  if (!value) {
+    return null;
+  }
+
+  const label = getString(value, "label") ?? getString(value, "text");
+  if (!label) {
+    return null;
+  }
+
+  const state = normalizeTaskState(getString(value, "state") ?? getString(value, "status"));
+
+  return {
+    label,
+    state,
+    section: getString(value, "section")
+  };
+}
+
+function normalizeTaskState(
+  value: string | null
+): "pending" | "in_progress" | "completed" | "cancelled" {
+  switch (value) {
+    case "in_progress":
+      return "in_progress";
+    case "completed":
+      return "completed";
+    case "cancelled":
+      return "cancelled";
+    default:
+      return "pending";
+  }
+}
+
+function parseTaskLabel(input: string): {
+  label: string;
+  section: string | null;
+} {
+  const steeringPrefix = "[Steering] ";
+  const followUpPrefix = "[Follow-up] ";
+
+  if (input.startsWith(steeringPrefix)) {
+    return {
+      label: input.slice(steeringPrefix.length),
+      section: "steering"
+    };
+  }
+
+  if (input.startsWith(followUpPrefix)) {
+    return {
+      label: input.slice(followUpPrefix.length),
+      section: "follow_up"
+    };
+  }
+
+  return {
+    label: input,
+    section: null
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getString(value: Record<string, unknown> | null, key: string): string | null {
+  const nested = value?.[key];
+  return typeof nested === "string" && nested.trim() !== "" ? nested : null;
+}
+
+function getArray(value: Record<string, unknown> | null, key: string): unknown[] {
+  const nested = value?.[key];
+  return Array.isArray(nested) ? nested : [];
+}
+
+function getStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string" && entry.trim() !== "")
+    : [];
+}
+
+function isTaskSnapshotEntry(
+  value: {
+    label: string;
+    state: "pending" | "in_progress" | "completed" | "cancelled";
+    section: string | null;
+  } | null
+): value is {
+  label: string;
+  state: "pending" | "in_progress" | "completed" | "cancelled";
+  section: string | null;
+} {
+  return value !== null;
 }
 
 function refreshTurnRollups(

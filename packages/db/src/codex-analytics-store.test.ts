@@ -14,6 +14,8 @@ import {
   codexItemsTable,
   codexPayloadOverflowTable,
   codexRunsTable,
+  codexTaskSnapshotItemsTable,
+  codexTaskSnapshotsTable,
   codexToolCallsTable,
   codexTurnsTable
 } from "./schema.js";
@@ -380,6 +382,11 @@ describe("sqlite codex analytics store", () => {
         turnId,
         threadId: "thread-pi-native",
         recordedAt: "2026-04-05T08:00:01.100Z",
+        rawPayload: {
+          type: "queue_update",
+          steering: ["Keep the patch scoped"],
+          followUp: ["Summarize the changes"]
+        },
         payload: {
           type: "item.updated",
           item: {
@@ -425,11 +432,23 @@ describe("sqlite codex analytics store", () => {
         .from(codexItemsTable)
         .where(eq(codexItemsTable.itemId, "pi-todo-queue"))
         .get();
+      const taskSnapshot = database.db
+        .select()
+        .from(codexTaskSnapshotsTable)
+        .where(eq(codexTaskSnapshotsTable.itemId, "pi-todo-queue"))
+        .get();
       const fileChangeItem = database.db
         .select()
         .from(codexItemsTable)
         .where(eq(codexItemsTable.itemId, "pi-file-change:call-2"))
         .get();
+      const taskSnapshotItems = taskSnapshot
+        ? database.db
+            .select()
+            .from(codexTaskSnapshotItemsTable)
+            .where(eq(codexTaskSnapshotItemsTable.snapshotId, taskSnapshot.snapshotId))
+            .all()
+        : [];
       const fileChange = database.db
         .select()
         .from(codexFileChangesTable)
@@ -454,6 +473,27 @@ describe("sqlite codex analytics store", () => {
         latestPreview:
           "[ ] [Steering] Keep the patch scoped; [ ] [Follow-up] Summarize the changes"
       });
+      expect(taskSnapshot).toMatchObject({
+        runId,
+        turnId,
+        itemId: "pi-todo-queue",
+        sourceKind: "pi_queue_update",
+        recordedAt: "2026-04-05T08:00:01.100Z"
+      });
+      expect(taskSnapshotItems).toEqual([
+        expect.objectContaining({
+          position: 0,
+          label: "Keep the patch scoped",
+          section: "steering",
+          state: "pending"
+        }),
+        expect.objectContaining({
+          position: 1,
+          label: "Summarize the changes",
+          section: "follow_up",
+          state: "pending"
+        })
+      ]);
       expect(fileChangeItem).toMatchObject({
         runId,
         turnId,

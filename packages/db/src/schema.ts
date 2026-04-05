@@ -213,6 +213,45 @@ export const symphonyMigrationStateTable = sqliteTable(
   }
 );
 
+export const codexTaskSnapshotsTable = sqliteTable(
+  "codex_task_snapshots",
+  {
+    snapshotId: text("snapshot_id").primaryKey(),
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    sourceKind: text("source_kind").notNull(),
+    recordedAt: text("recorded_at").notNull(),
+    insertedAt: text("inserted_at").notNull()
+  },
+  (table) => ({
+    runIdIdx: index("codex_task_snapshots_run_id_idx").on(table.runId),
+    turnIdIdx: index("codex_task_snapshots_turn_id_idx").on(table.turnId),
+    itemIdIdx: index("codex_task_snapshots_item_id_idx").on(table.itemId),
+    recordedAtIdx: index("codex_task_snapshots_recorded_at_idx").on(table.recordedAt)
+  })
+);
+
+export const codexTaskSnapshotItemsTable = sqliteTable(
+  "codex_task_snapshot_items",
+  {
+    snapshotId: text("snapshot_id").notNull(),
+    position: integer("position").notNull(),
+    label: text("label").notNull(),
+    state: text("state").notNull(),
+    section: text("section"),
+    insertedAt: text("inserted_at").notNull()
+  },
+  (table) => ({
+    pk: uniqueIndex("codex_task_snapshot_items_pk").on(
+      table.snapshotId,
+      table.position
+    ),
+    snapshotIdIdx: index("codex_task_snapshot_items_snapshot_id_idx").on(table.snapshotId),
+    stateIdx: index("codex_task_snapshot_items_state_idx").on(table.state)
+  })
+);
+
 export const symphonySchema = {
   codexEventLogTable,
   codexPayloadOverflowTable,
@@ -224,6 +263,8 @@ export const symphonySchema = {
   codexAgentMessagesTable,
   codexReasoningTable,
   codexFileChangesTable,
+  codexTaskSnapshotsTable,
+  codexTaskSnapshotItemsTable,
   symphonyIssuesTable,
   symphonyRunsTable,
   symphonyTurnsTable,

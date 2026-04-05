@@ -19,6 +19,7 @@ import type {
   SymphonyCodexReasoningRecord,
   SymphonyCodexRunArtifactsResult,
   SymphonyCodexRunRecord,
+  SymphonyCodexTaskSnapshotRecord,
   SymphonyCodexRunStatus,
   SymphonyCodexRunTurnQuery,
   SymphonyCodexToolCallRecord,
@@ -39,6 +40,8 @@ import {
   codexPayloadOverflowTable,
   codexReasoningTable,
   codexRunsTable,
+  codexTaskSnapshotItemsTable,
+  codexTaskSnapshotsTable,
   codexToolCallsTable,
   codexTurnsTable,
   symphonyIssuesTable,
@@ -77,6 +80,7 @@ export interface CodexAnalyticsReadStore {
   ): Promise<SymphonyCodexAgentMessageRecord[]>;
   listReasoning(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexReasoningRecord[]>;
   listFileChanges(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexFileChangeRecord[]>;
+  listTaskSnapshots(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexTaskSnapshotRecord[]>;
 }
 
 export function createSqliteCodexAnalyticsReadStore(input: {
@@ -237,6 +241,10 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
       agentMessages: data.agentMessageRows.map(mapCodexAgentMessageRecord),
       reasoning: data.reasoningRows.map(mapCodexReasoningRecord),
       fileChanges: data.fileChangeRows.map(mapCodexFileChangeRecord),
+      taskSnapshots: mapCodexTaskSnapshotRecords(
+        data.taskSnapshotRows,
+        data.taskSnapshotItemRows
+      ),
       events: mapCodexEventRecords(data.eventRows, data.overflowMap, data.codexTurnMap, data.codexRun)
     };
   }
@@ -382,6 +390,41 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
       .all();
 
     return rows.map(mapCodexFileChangeRecord);
+  }
+
+  async listTaskSnapshots(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyCodexTaskSnapshotRecord[]> {
+    const snapshotRows = await this.#db
+      .select()
+      .from(codexTaskSnapshotsTable)
+      .where(
+        input.turnId
+          ? and(
+              eq(codexTaskSnapshotsTable.runId, input.runId),
+              eq(codexTaskSnapshotsTable.turnId, input.turnId)
+            )
+          : eq(codexTaskSnapshotsTable.runId, input.runId)
+      )
+      .orderBy(asc(codexTaskSnapshotsTable.recordedAt), asc(codexTaskSnapshotsTable.insertedAt))
+      .all();
+
+    if (snapshotRows.length === 0) {
+      return [];
+    }
+
+    const snapshotIds = snapshotRows.map((row) => row.snapshotId);
+    const itemRows = await this.#db
+      .select()
+      .from(codexTaskSnapshotItemsTable)
+      .where(inArray(codexTaskSnapshotItemsTable.snapshotId, snapshotIds))
+      .orderBy(
+        asc(codexTaskSnapshotItemsTable.snapshotId),
+        asc(codexTaskSnapshotItemsTable.position)
+      )
+      .all();
+
+    return mapCodexTaskSnapshotRecords(snapshotRows, itemRows);
   }
 }
 
@@ -854,6 +897,45 @@ function mapCodexFileChangeRecord(
   return { ...row };
 }
 
+function mapCodexTaskSnapshotRecords(
+  snapshotRows: Array<typeof codexTaskSnapshotsTable.$inferSelect>,
+  itemRows: Array<typeof codexTaskSnapshotItemsTable.$inferSelect>
+): SymphonyCodexTaskSnapshotRecord[] {
+  const itemsBySnapshotId = new Map<string, Array<typeof codexTaskSnapshotItemsTable.$inferSelect>>();
+
+  for (const row of itemRows) {
+    const items = itemsBySnapshotId.get(row.snapshotId);
+    if (items) {
+      items.push(row);
+      continue;
+    }
+
+    itemsBySnapshotId.set(row.snapshotId, [row]);
+  }
+
+  return [...snapshotRows]
+    .sort((left, right) => compareNullableIso(left.recordedAt, right.recordedAt))
+    .map((row) => ({
+      snapshotId: row.snapshotId,
+      runId: row.runId,
+      turnId: row.turnId,
+      itemId: row.itemId,
+      sourceKind: row.sourceKind,
+      recordedAt: row.recordedAt,
+      insertedAt: row.insertedAt,
+      items: (itemsBySnapshotId.get(row.snapshotId) ?? [])
+        .sort((left, right) => left.position - right.position)
+        .map((item) => ({
+          snapshotId: item.snapshotId,
+          position: item.position,
+          label: item.label,
+          state: item.state as SymphonyCodexTaskSnapshotRecord["items"][number]["state"],
+          section: item.section,
+          insertedAt: item.insertedAt
+        }))
+    }));
+}
+
 function mapCodexEventRecords(
   eventRows: Array<typeof codexEventLogTable.$inferSelect>,
   overflowMap: Map<string, typeof codexPayloadOverflowTable.$inferSelect>,
@@ -1026,6 +1108,8 @@ type RunData = {
   agentMessageRows: Array<typeof codexAgentMessagesTable.$inferSelect>;
   reasoningRows: Array<typeof codexReasoningTable.$inferSelect>;
   fileChangeRows: Array<typeof codexFileChangesTable.$inferSelect>;
+  taskSnapshotRows: Array<typeof codexTaskSnapshotsTable.$inferSelect>;
+  taskSnapshotItemRows: Array<typeof codexTaskSnapshotItemsTable.$inferSelect>;
   runtimeContext: {
     harness: "codex" | "opencode" | "pi" | null;
     model: string | null;
@@ -1051,7 +1135,7 @@ async function loadRunData(
     return null;
   }
 
-  const [codexRun, issue, issueRuns, symphonyTurns, codexTurns, eventRows, itemRows, commandRows, toolRows, agentMessageRows, reasoningRows, fileChangeRows, runtimeLogRows] =
+  const [codexRun, issue, issueRuns, symphonyTurns, codexTurns, eventRows, itemRows, commandRows, toolRows, agentMessageRows, reasoningRows, fileChangeRows, taskSnapshotRows, runtimeLogRows] =
     await Promise.all([
       db.select().from(codexRunsTable).where(eq(codexRunsTable.runId, runId)).get(),
       db.select().from(symphonyIssuesTable).where(eq(symphonyIssuesTable.issueId, run.issueId)).get(),
@@ -1065,6 +1149,7 @@ async function loadRunData(
       db.select().from(codexAgentMessagesTable).where(eq(codexAgentMessagesTable.runId, runId)).all(),
       db.select().from(codexReasoningTable).where(eq(codexReasoningTable.runId, runId)).all(),
       db.select().from(codexFileChangesTable).where(eq(codexFileChangesTable.runId, runId)).all(),
+      db.select().from(codexTaskSnapshotsTable).where(eq(codexTaskSnapshotsTable.runId, runId)).all(),
       db.select().from(symphonyRuntimeLogsTable).where(eq(symphonyRuntimeLogsTable.runId, runId)).orderBy(desc(symphonyRuntimeLogsTable.recordedAt)).all()
     ]);
 
@@ -1091,6 +1176,19 @@ async function loadRunData(
           .all();
   const overflowMap = new Map(overflowRows.map((row) => [row.id, row] as const));
   const codexTurnMap = new Map(codexTurns.map((turn) => [turn.turnId, turn] as const));
+  const snapshotIds = taskSnapshotRows.map((row) => row.snapshotId);
+  const taskSnapshotItemRows =
+    snapshotIds.length === 0
+      ? []
+      : db
+          .select()
+          .from(codexTaskSnapshotItemsTable)
+          .where(inArray(codexTaskSnapshotItemsTable.snapshotId, snapshotIds))
+          .orderBy(
+            asc(codexTaskSnapshotItemsTable.snapshotId),
+            asc(codexTaskSnapshotItemsTable.position)
+          )
+          .all();
   const events = buildForensicsEvents({
     eventRows,
     overflowMap,
@@ -1115,6 +1213,8 @@ async function loadRunData(
     agentMessageRows,
     reasoningRows,
     fileChangeRows,
+    taskSnapshotRows,
+    taskSnapshotItemRows,
     runtimeContext,
     events
   };
