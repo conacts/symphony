@@ -24,6 +24,6 @@ describe("issue activity view", () => {
     expect(html).toContain("Latest failure");
     expect(html).toContain("Runtime / Workspace");
     expect(html).toContain("Approaching upstream rate limit.");
-    expect(html).toContain("/issues/COL-165");
+    expect(html).not.toContain("Open issue runs");
   });
 });

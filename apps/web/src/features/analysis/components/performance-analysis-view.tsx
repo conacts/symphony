@@ -21,7 +21,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisFilterBar } from "@/features/analysis/components/analysis-filter-bar";
 import { AnalysisPageHeader } from "@/features/analysis/components/analysis-page-header";
-import { AnalysisPageNav } from "@/features/analysis/components/analysis-page-nav";
 import { AnalysisSpotlightItem } from "@/features/analysis/components/analysis-spotlight-item";
 import { PerformanceCommandFamilyChart } from "@/features/analysis/components/performance-command-family-chart";
 import { PerformanceLatencyBreakdownChart } from "@/features/analysis/components/performance-latency-breakdown-chart";
@@ -73,7 +72,6 @@ export function PerformanceAnalysisView(input: {
             description="Cross-run command and tool performance patterns for deciding where orchestration improvements will reduce latency and flake."
             focus="Use this page to see which execution paths are slow, flaky, or shaping the latency profile of the current run sample."
           />
-          <AnalysisPageNav />
           <AnalysisFilterBar
             query={query}
             options={filterOptions}

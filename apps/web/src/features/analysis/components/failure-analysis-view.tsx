@@ -21,7 +21,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisFilterBar } from "@/features/analysis/components/analysis-filter-bar";
 import { AnalysisPageHeader } from "@/features/analysis/components/analysis-page-header";
-import { AnalysisPageNav } from "@/features/analysis/components/analysis-page-nav";
 import { AnalysisSpotlightItem } from "@/features/analysis/components/analysis-spotlight-item";
 import type { AnalysisQuery } from "@/features/analysis/model/analysis-query-state";
 import type { AnalysisFilterOptions } from "@/features/analysis/model/analysis-sample-filter";
@@ -71,7 +70,6 @@ export function FailureAnalysisView(input: {
             description="Cross-run failure patterns for deciding where orchestration improvements will matter most."
             focus="Use this page to identify which failure modes and error classes are currently creating the heaviest operator drag."
           />
-          <AnalysisPageNav />
           <AnalysisFilterBar
             query={query}
             options={filterOptions}

@@ -14,7 +14,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisFilterBar } from "@/features/analysis/components/analysis-filter-bar";
 import { AnalysisPageHeader } from "@/features/analysis/components/analysis-page-header";
-import { AnalysisPageNav } from "@/features/analysis/components/analysis-page-nav";
 import { AnalysisSpotlightItem } from "@/features/analysis/components/analysis-spotlight-item";
 import type { AnalysisQuery } from "@/features/analysis/model/analysis-query-state";
 import type { AnalysisFilterOptions } from "@/features/analysis/model/analysis-sample-filter";
@@ -65,7 +64,6 @@ export function AnalysisOverviewView(input: {
             focus="Start here to decide which investigation path matters most, then drill into the dedicated page for that dimension."
           />
 
-          <AnalysisPageNav />
           <AnalysisFilterBar
             query={query}
             options={filterOptions}

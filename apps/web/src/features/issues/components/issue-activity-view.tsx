@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
@@ -58,23 +57,6 @@ export function IssueActivityView(input: {
               </Card>
             ))}
           </section>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Back to issue runs</CardTitle>
-              <CardDescription>
-                Return to the issue run history surface.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link
-                href={`/issues/${input.issueIdentifier}`}
-                className="text-sm font-medium text-foreground underline underline-offset-4"
-              >
-                Open issue runs
-              </Link>
-            </CardContent>
-          </Card>
 
           {viewModel.latestFailure ? (
             <Card>
