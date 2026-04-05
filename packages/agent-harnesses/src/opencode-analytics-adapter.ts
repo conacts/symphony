@@ -1,5 +1,6 @@
 import type {
   CommandExecutionItem,
+  FileChangeItem,
   McpToolCallItem,
   ThreadEvent,
   TodoListItem,
@@ -7,6 +8,7 @@ import type {
 } from "@symphony/codex-analytics";
 import type {
   AssistantMessage,
+  FileDiff,
   EventCommandExecuted,
   EventTodoUpdated,
   Part
@@ -30,6 +32,10 @@ export type OpenCodeAnalyticsLoss =
       kind: "unsupported_part";
       partId: string;
       partType: string;
+    }
+  | {
+      kind: "missing_diff_status";
+      files: string[];
     };
 
 export type OpenCodeAnalyticsProjection = {
@@ -133,23 +139,31 @@ export function projectOpenCodePromptResponse(input: {
 export function projectOpenCodeTodoUpdatedEvent(input: {
   event: EventTodoUpdated;
 }): OpenCodeAnalyticsProjection {
+  return {
+    events: [projectOpenCodeTodoListEvent({
+      sessionId: input.event.properties.sessionID,
+      todos: input.event.properties.todos
+    })],
+    losses: []
+  };
+}
+
+export function projectOpenCodeTodoListEvent(input: {
+  sessionId: string;
+  todos: EventTodoUpdated["properties"]["todos"];
+}): ThreadEvent {
   const item: TodoListItem = {
-    id: `opencode-todo:${input.event.properties.sessionID}`,
+    id: `opencode-todo:${input.sessionId}`,
     type: "todo_list",
-    items: input.event.properties.todos.map((todo) => ({
+    items: input.todos.map((todo) => ({
       text: todo.content,
       completed: todo.status === "completed"
     }))
   };
 
   return {
-    events: [
-      {
-        type: "item.updated",
-        item
-      }
-    ],
-    losses: []
+    type: "item.updated",
+    item
   };
 }
 
@@ -178,6 +192,47 @@ export function projectOpenCodeCommandExecutedEvent(input: {
         command
       }
     ]
+  };
+}
+
+export function projectOpenCodeSessionDiff(input: {
+  sessionId: string;
+  diffs: FileDiff[];
+}): OpenCodeAnalyticsProjection {
+  const missingStatusFiles = input.diffs
+    .filter((diff) => !diff.status)
+    .map((diff) => diff.file);
+  const item: FileChangeItem = {
+    id: `opencode-diff:${input.sessionId}`,
+    type: "file_change",
+    changes: input.diffs.map((diff) => ({
+      path: diff.file,
+      kind:
+        diff.status === "added"
+          ? "add"
+          : diff.status === "deleted"
+            ? "delete"
+            : "update"
+    })),
+    status: "completed"
+  };
+
+  return {
+    events: [
+      {
+        type: "item.completed",
+        item
+      }
+    ],
+    losses:
+      missingStatusFiles.length === 0
+        ? []
+        : [
+            {
+              kind: "missing_diff_status",
+              files: missingStatusFiles
+            }
+          ]
   };
 }
 

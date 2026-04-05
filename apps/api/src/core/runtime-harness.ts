@@ -8,6 +8,9 @@ import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
   CodexSdkClient
 } from "./codex-sdk-client.js";
+import {
+  OpenCodeSdkClient
+} from "./opencode-sdk-client.js";
 import type {
   CodexAppServerLogger,
   CodexAppServerSession
@@ -36,6 +39,15 @@ export function createCodexRuntimeHarness(): SymphonyRuntimeHarness {
   };
 }
 
+export function createOpenCodeRuntimeHarness(): SymphonyRuntimeHarness {
+  return {
+    kind: "opencode",
+    startSession(input) {
+      return OpenCodeSdkClient.startSession(input);
+    }
+  };
+}
+
 export function resolveRuntimeHarness(
   harness: SymphonyRuntimeHarnessKind
 ): SymphonyRuntimeHarness {
@@ -43,6 +55,7 @@ export function resolveRuntimeHarness(
     case "codex":
       return createCodexRuntimeHarness();
     case "opencode":
+      return createOpenCodeRuntimeHarness();
     case "pi":
       throw createUnsupportedHarnessError(harness);
     default: {

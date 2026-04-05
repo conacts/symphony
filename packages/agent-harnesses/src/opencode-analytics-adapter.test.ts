@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   projectOpenCodeCommandExecutedEvent,
   projectOpenCodePromptResponse,
+  projectOpenCodeSessionDiff,
+  projectOpenCodeTodoListEvent,
   projectOpenCodeTodoUpdatedEvent
 } from "./opencode-analytics-adapter.js";
 
@@ -214,6 +216,83 @@ describe("opencode analytics adapter", () => {
       {
         kind: "command_output_unavailable",
         command: "rg --files"
+      }
+    ]);
+  });
+
+  it("projects todo snapshots into codex-like todo list updates", () => {
+    expect(
+      projectOpenCodeTodoListEvent({
+        sessionId: "session-1",
+        todos: [
+          {
+            content: "Ship the change",
+            status: "completed",
+            priority: "medium"
+          }
+        ]
+      })
+    ).toEqual({
+      type: "item.updated",
+      item: {
+        id: "opencode-todo:session-1",
+        type: "todo_list",
+        items: [
+          {
+            text: "Ship the change",
+            completed: true
+          }
+        ]
+      }
+    });
+  });
+
+  it("projects session diffs into codex-like file changes", () => {
+    const projection = projectOpenCodeSessionDiff({
+      sessionId: "session-1",
+      diffs: [
+        {
+          file: "apps/api/src/main.ts",
+          before: "",
+          after: "",
+          additions: 10,
+          deletions: 2,
+          status: "modified"
+        },
+        {
+          file: "README.md",
+          before: "",
+          after: "",
+          additions: 1,
+          deletions: 0
+        }
+      ]
+    });
+
+    expect(projection.events).toEqual([
+      {
+        type: "item.completed",
+        item: {
+          id: "opencode-diff:session-1",
+          type: "file_change",
+          changes: [
+            {
+              path: "apps/api/src/main.ts",
+              kind: "update"
+            },
+            {
+              path: "README.md",
+              kind: "update"
+            }
+          ],
+          status: "completed"
+        }
+      }
+    ]);
+    expect(projection.losses).toEqual([
+      {
+        kind: "missing_diff_status",
+        files: ["README.md"]
       }
     ]);
   });

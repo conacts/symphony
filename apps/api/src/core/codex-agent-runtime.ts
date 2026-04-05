@@ -309,7 +309,7 @@ async function executeRun(input: {
                   id: input.runId ?? `attempt-${input.attempt}`
                 },
                 workspace: {
-                  path: input.workspace.executionTarget.workspacePath,
+                  path: session.workspacePath,
                   branch: currentIssue.branchName
                 },
                 attempt: input.attempt
@@ -618,7 +618,11 @@ function classifyStartupFailure(error: unknown): {
         "invalid_thread_payload",
         "invalid_turn_payload",
         "invalid_codex_command",
-        "invalid_issue_label_override"
+        "invalid_issue_label_override",
+        "opencode_launch_unsupported",
+        "opencode_server_start_failed",
+        "opencode_container_ip_missing",
+        "opencode_session_start_failed"
       ].includes(error.code)
     ) {
       return {
@@ -629,7 +633,12 @@ function classifyStartupFailure(error: unknown): {
   }
 
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("thread/start") || message.includes("initialize")) {
+  if (
+    message.includes("thread/start") ||
+    message.includes("initialize") ||
+    message.includes("OpenCode server") ||
+    message.includes("Timed out waiting for OpenCode server health")
+  ) {
     return {
       failureStage: "runtime_session_start",
       failureOrigin: "codex_startup"

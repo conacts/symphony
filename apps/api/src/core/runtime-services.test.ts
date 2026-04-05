@@ -140,14 +140,15 @@ describe("runtime services", () => {
     });
   });
 
-  it("fails fast when an unimplemented harness is configured", async () => {
-    await expect(
-      createSymphonyRuntimeAppServicesHarness({
-        environmentSource: {
-          SYMPHONY_AGENT_HARNESS: "opencode"
-        }
-      })
-    ).rejects.toThrowError(/configured but not implemented yet/i);
+  it("loads runtime services when the opencode harness is configured", async () => {
+    const harness = await createSymphonyRuntimeAppServicesHarness({
+      environmentSource: {
+        SYMPHONY_AGENT_HARNESS: "opencode"
+      }
+    });
+    harnesses.push(harness);
+
+    expect(harness.services.runtimePolicy.agent.harness).toBe("opencode");
   });
 });
 
