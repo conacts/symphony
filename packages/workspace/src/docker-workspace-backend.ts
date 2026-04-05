@@ -5,6 +5,7 @@ import {
   buildSymphonyRuntimePostgresConnectionString,
   resolveSymphonyRuntimeEnvBundle,
   type SymphonyLoadedRuntimeManifest,
+  type SymphonyNormalizedRuntimePostgresService,
   type SymphonyResolvedRuntimeService
 } from "@symphony/runtime-contract";
 import { isEnoent } from "./internal/errors.js";
@@ -1749,6 +1750,7 @@ async function ensureManagedPostgresServices(input: {
 
   await waitForSharedPostgresReadiness({
     sharedPostgres: input.sharedPostgres,
+    readinessService: descriptors[0]?.service ?? null,
     commandRunner: input.commandRunner,
     timeoutMs: input.timeoutMs
   });
@@ -2004,6 +2006,7 @@ async function ensureSharedPostgresDatabase(input: {
 
 async function waitForSharedPostgresReadiness(input: {
   sharedPostgres: DockerSharedPostgresOptions;
+  readinessService: SymphonyNormalizedRuntimePostgresService | null;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
 }): Promise<void> {
@@ -2020,7 +2023,8 @@ async function waitForSharedPostgresReadiness(input: {
       database: input.sharedPostgres.adminDatabase,
       username: input.sharedPostgres.adminUsername,
       password: input.sharedPostgres.adminPassword,
-      init: []
+      init: [],
+      readiness: input.readinessService?.readiness
     }
   };
 
