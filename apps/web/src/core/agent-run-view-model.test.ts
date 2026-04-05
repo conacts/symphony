@@ -227,32 +227,17 @@ describe("agent run view model", () => {
           path: "packages/db/src/index.ts",
           edits: [
             {
-              oldText: "const oldValue = 1;",
-              newText: "const newValue = 2;"
+              old_string: "const oldValue = 1;",
+              new_text: "const newValue = 2;"
             },
             {
-              oldText: "return oldValue;",
-              newText: "return newValue;"
+              old_text: "return oldValue;",
+              new_string: "return newValue;"
             }
           ]
         },
         resultPreview: "Updated packages/db/src/index.ts",
         resultOverflowId: null,
-        piEdit: {
-          path: "packages/db/src/index.ts",
-          editCount: 2,
-          lineCount: 2,
-          edits: [
-            {
-              oldText: "const oldValue = 1;",
-              newText: "const newValue = 2;"
-            },
-            {
-              oldText: "return oldValue;",
-              newText: "return newValue;"
-            }
-          ]
-        },
         startedAt: "2026-03-31T18:00:24.000Z",
         completedAt: "2026-03-31T18:00:24.500Z",
         durationMs: 500,
@@ -269,14 +254,10 @@ describe("agent run view model", () => {
         errorMessage: null,
         argumentsJson: {
           path: "packages/db/src/index.ts",
-          content: "export const first = 1;\nexport const second = 2;"
+          file_text: "export const first = 1;\nexport const second = 2;"
         },
         resultPreview: "File updated",
         resultOverflowId: null,
-        piWrite: {
-          path: "packages/db/src/index.ts",
-          lineCount: 2
-        },
         startedAt: "2026-03-31T18:00:24.000Z",
         completedAt: "2026-03-31T18:00:25.000Z",
         durationMs: 1_000,
@@ -402,14 +383,24 @@ describe("agent run view model", () => {
     expect(metadata.get("PI thread")).toBe("thread_123");
     expect(metadata.get("PI process")).toBe("pi-process-123");
     expect(metadata.get("Launch target")).toBe(
-      "container / symphony-col-165 / /home/agent/workspace"
+      "container / symphony-col-165 / /workspace"
     );
     expect(viewModel.turnTokens.cards[0]?.value).toBe("120");
     expect(viewModel.turnTokens.rows[0]?.turnLabel).toBe("Turn 1");
     expect(viewModel.turnLatency.cards[0]?.value).toBe("1");
     expect(viewModel.turnLatency.rows[0]?.turnLabel).toBe("Turn 1");
-    expect(viewModel.executionPerformance.cards[0]?.value).toBe("1");
-    expect(viewModel.executionPerformance.cards[2]?.value).toBe("pnpm");
+    expect(viewModel.executionPerformance.commandSummary).toBe(
+      "1 executions · 0 failed or degraded"
+    );
+    expect(viewModel.executionPerformance.toolSummary).toBe(
+      "7 calls · 0 failed or degraded"
+    );
+    expect(viewModel.executionPerformance.commandRows[0]?.label).toBe(
+      "pnpm lint && pnpm test"
+    );
+    expect(viewModel.executionPerformance.toolRows.map((row) => row.label)).toContain(
+      "pi.read"
+    );
     expect(viewModel.transcriptTurns).toHaveLength(1);
     expect(viewModel.transcriptTurns[0]?.countsSummary).toContain("1 task updates");
     expect(viewModel.transcriptTurns[0]?.activitySummary).toEqual([

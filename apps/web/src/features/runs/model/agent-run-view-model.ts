@@ -204,20 +204,19 @@ export type AgentRunViewModel = {
     value: string;
   }>;
   executionPerformance: {
-    cards: Array<{
-      label: string;
-      value: string;
-      detail: string;
-    }>;
+    commandSummary: string;
+    toolSummary: string;
     commandRows: Array<{
       label: string;
       family: string;
       duration: string;
+      durationMs: number;
       status: string;
     }>;
     toolRows: Array<{
       label: string;
       duration: string;
+      durationMs: number;
       status: string;
     }>;
   };
@@ -601,63 +600,40 @@ function buildExecutionPerformance(
   const toolCalls = runArtifacts?.toolCalls ?? [];
   const failedCommands = commandExecutions.filter((command) => command.status !== "completed");
   const failedTools = toolCalls.filter((tool) => tool.status !== "completed");
-  const slowestCommand = [...commandExecutions].sort(
-    (left, right) => safeDurationMs(right.durationMs) - safeDurationMs(left.durationMs)
-  )[0];
-  const slowestTool = [...toolCalls].sort(
-    (left, right) => safeDurationMs(right.durationMs) - safeDurationMs(left.durationMs)
-  )[0];
 
   return {
-    cards: [
-      {
-        label: "Commands observed",
-        value: formatCount(commandExecutions.length),
-        detail: `${formatCount(failedCommands.length)} failed or degraded command executions.`
-      },
-      {
-        label: "Tool calls observed",
-        value: formatCount(toolCalls.length),
-        detail: `${formatCount(failedTools.length)} failed or degraded tool calls.`
-      },
-      {
-        label: "Slowest command",
-        value: slowestCommand
-          ? classifyCommand(slowestCommand.command).displayLabel
-          : "n/a",
-        detail: slowestCommand
-          ? `${formatDurationMilliseconds(safeDurationMs(slowestCommand.durationMs))} · ${formatCommandFamilyLabel(classifyCommand(slowestCommand.command).family)}`
-          : "No command executions were captured for this run."
-      },
-      {
-        label: "Slowest tool",
-        value: slowestTool ? `${slowestTool.server}.${slowestTool.tool}` : "n/a",
-        detail: slowestTool
-          ? `${formatDurationMilliseconds(safeDurationMs(slowestTool.durationMs))} · ${formatStatusLabel(slowestTool.status)}`
-          : "No tool calls were captured for this run."
-      }
-    ],
+    commandSummary: `${formatCount(commandExecutions.length)} executions · ${formatCount(
+      failedCommands.length
+    )} failed or degraded`,
+    toolSummary: `${formatCount(toolCalls.length)} calls · ${formatCount(
+      failedTools.length
+    )} failed or degraded`,
     commandRows: [...commandExecutions]
       .sort((left, right) => safeDurationMs(right.durationMs) - safeDurationMs(left.durationMs))
-      .slice(0, 4)
       .map((command) => {
         const classification = classifyCommand(command.command);
+        const durationMs = safeDurationMs(command.durationMs);
 
         return {
           label: command.command,
           family: formatCommandFamilyLabel(classification.family),
-          duration: formatDurationMilliseconds(safeDurationMs(command.durationMs)),
+          duration: formatDurationMilliseconds(durationMs),
+          durationMs,
           status: formatStatusLabel(command.status)
         };
       }),
     toolRows: [...toolCalls]
       .sort((left, right) => safeDurationMs(right.durationMs) - safeDurationMs(left.durationMs))
-      .slice(0, 4)
-      .map((tool) => ({
-        label: `${tool.server}.${tool.tool}`,
-        duration: formatDurationMilliseconds(safeDurationMs(tool.durationMs)),
-        status: formatStatusLabel(tool.status)
-      }))
+      .map((tool) => {
+        const durationMs = safeDurationMs(tool.durationMs);
+
+        return {
+          label: `${tool.server}.${tool.tool}`,
+          duration: formatDurationMilliseconds(durationMs),
+          durationMs,
+          status: formatStatusLabel(tool.status)
+        };
+      })
   };
 }
 
@@ -1361,8 +1337,18 @@ function extractPiEditBlocks(value: unknown): PiEditBlock[] {
     }
 
     const record = edit as Record<string, unknown>;
-    const oldText = getStringValue(record.oldText);
-    const newText = getStringValue(record.newText);
+    const oldText = getAliasedStringValue(record, [
+      "oldText",
+      "old_text",
+      "oldString",
+      "old_string"
+    ]);
+    const newText = getAliasedStringValue(record, [
+      "newText",
+      "new_text",
+      "newString",
+      "new_string"
+    ]);
 
     if (oldText === null || newText === null) {
       return [];
@@ -1377,7 +1363,12 @@ function extractPiWriteLineCount(value: unknown): number {
     return 1;
   }
 
-  const content = getStringValue((value as Record<string, unknown>).content);
+  const content = getAliasedStringValue(value as Record<string, unknown>, [
+    "content",
+    "text",
+    "fileText",
+    "file_text"
+  ]);
   return content === null ? 1 : countTextLines(content);
 }
 
@@ -1491,6 +1482,20 @@ function extractPiReadPaths(value: unknown): string[] {
 
 function getStringValue(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+function getAliasedStringValue(
+  record: Record<string, unknown>,
+  keys: string[]
+): string | null {
+  for (const key of keys) {
+    const value = getStringValue(record[key]);
+    if (value !== null) {
+      return value;
+    }
+  }
+
+  return null;
 }
 
 function getBooleanValue(value: unknown): boolean | null {

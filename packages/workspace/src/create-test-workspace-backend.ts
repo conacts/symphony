@@ -31,7 +31,7 @@ export function createTestWorkspaceBackend(options: {
   shell?: string;
 } = {}): WorkspaceBackend {
   const runtimeWorkspacePath =
-    options.runtimeWorkspacePath ?? "/home/agent/workspace";
+    options.runtimeWorkspacePath ?? "/workspace";
   const shell = options.shell ?? "sh";
   const containerNamePrefix = options.containerNamePrefix ?? "symphony";
 

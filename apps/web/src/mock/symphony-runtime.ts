@@ -370,7 +370,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
     status: "retrying",
     workspace: buildDockerRuntimeWorkspace({
       hostPath: "/tmp/workspaces/col-166",
-      runtimePath: "/home/agent/workspace",
+      runtimePath: "/workspace",
       workerHost: "worker-b",
       containerId: "container-166",
       containerName: "symphony-col-166"
@@ -389,7 +389,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
       launchTarget: buildContainerLaunchTarget({
         hostLaunchPath: "/tmp/workspaces/col-166",
         hostWorkspacePath: "/tmp/workspaces/col-166",
-        runtimeWorkspacePath: "/home/agent/workspace",
+        runtimeWorkspacePath: "/workspace",
         containerId: "container-166",
         containerName: "symphony-col-166",
         shell: "sh"
@@ -453,7 +453,7 @@ function buildRuntimeWorkspace(
     containerDisposition: "reused",
     networkDisposition: "reused",
     hostPath: path,
-    runtimePath: "/home/agent/workspace",
+    runtimePath: "/workspace",
     containerId: "container-local",
     containerName: "symphony-local",
     networkName: "symphony-network-local",
@@ -463,7 +463,7 @@ function buildRuntimeWorkspace(
     path: null,
     executionTarget: {
       kind: "container",
-      workspacePath: "/home/agent/workspace",
+      workspacePath: "/workspace",
       containerId: "container-local",
       containerName: "symphony-local",
       hostPath: path
@@ -471,7 +471,7 @@ function buildRuntimeWorkspace(
     materialization: {
       kind: "bind_mount",
       hostPath: path,
-      containerPath: "/home/agent/workspace"
+      containerPath: "/workspace"
     }
   };
 }
@@ -541,7 +541,7 @@ function buildBindMountLaunchTarget(
     kind: "container",
     hostLaunchPath: path,
     hostWorkspacePath: path,
-    runtimeWorkspacePath: "/home/agent/workspace",
+    runtimeWorkspacePath: "/workspace",
     containerId: "container-local",
     containerName: "symphony-local",
     shell: "sh"
@@ -772,7 +772,7 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
         workspacePath: "/tmp/workspaces/col-166",
         workspace: buildDockerRuntimeWorkspace({
           hostPath: "/tmp/workspaces/col-166",
-          runtimePath: "/home/agent/workspace",
+          runtimePath: "/workspace",
           workerHost: "worker-b",
           containerId: "container-166",
           containerName: "symphony-col-166"
@@ -780,7 +780,7 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
         launchTarget: buildContainerLaunchTarget({
           hostLaunchPath: "/tmp/workspaces/col-166",
           hostWorkspacePath: "/tmp/workspaces/col-166",
-          runtimeWorkspacePath: "/home/agent/workspace",
+          runtimeWorkspacePath: "/workspace",
           containerId: "container-166",
           containerName: "symphony-col-166",
           shell: "sh"
@@ -1047,7 +1047,7 @@ export function buildMockRunDetailResult(
         kind: "container",
         hostLaunchPath: `/tmp/workspaces/${issue.issueIdentifier.toLowerCase()}`,
         hostWorkspacePath: `/tmp/workspaces/${issue.issueIdentifier.toLowerCase()}`,
-        runtimeWorkspacePath: "/home/agent/workspace",
+        runtimeWorkspacePath: "/workspace",
         containerId: `container_${run.runId}`,
         containerName: `symphony-${issue.issueIdentifier.toLowerCase()}`,
         shell: "sh"

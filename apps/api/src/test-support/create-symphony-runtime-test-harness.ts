@@ -64,7 +64,7 @@ export function buildBindMountPreparedWorkspace(
     afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
       kind: "container" as const,
-      workspacePath: "/home/agent/workspace",
+      workspacePath: "/workspace",
       containerId: "container-123",
       containerName: "symphony-col-123",
       hostPath: workspacePath,
@@ -73,7 +73,7 @@ export function buildBindMountPreparedWorkspace(
     materialization: {
       kind: "bind_mount" as const,
       hostPath: workspacePath,
-      containerPath: "/home/agent/workspace"
+      containerPath: "/workspace"
     },
     networkName: "symphony-network-col-123",
     services: [],

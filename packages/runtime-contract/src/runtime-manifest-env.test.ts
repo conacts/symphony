@@ -74,7 +74,7 @@ describe("runtime manifest env resolution", () => {
         issueIdentifier: "COL-123",
         runId: "run-123",
         workspaceKey: "COL-123",
-        workspacePath: "/home/agent/workspace",
+        workspacePath: "/workspace",
         backendKind: "docker"
       },
       services: {
@@ -210,7 +210,7 @@ describe("runtime manifest env resolution", () => {
           issueIdentifier: "COL-123",
           runId: "run-123",
           workspaceKey: "COL-123",
-          workspacePath: "/home/agent/workspace",
+          workspacePath: "/workspace",
           backendKind: "docker"
         }
       })
@@ -260,7 +260,7 @@ describe("runtime manifest env resolution", () => {
           issueIdentifier: "COL-123",
           runId: null,
           workspaceKey: "COL-123",
-          workspacePath: "/home/agent/workspace",
+          workspacePath: "/workspace",
           backendKind: "docker"
         },
         manifestPath: "/repo/.symphony/runtime.ts"

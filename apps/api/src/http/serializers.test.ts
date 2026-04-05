@@ -29,7 +29,7 @@ describe("runtime serializers", () => {
             afterCreateHookOutcome: "skipped",
             executionTarget: {
               kind: "container",
-              workspacePath: "/home/agent/workspace",
+              workspacePath: "/workspace",
               containerId: "container-123",
               containerName: "symphony-col-123",
               hostPath: null,
@@ -38,7 +38,7 @@ describe("runtime serializers", () => {
             materialization: {
               kind: "volume",
               volumeName: "symphony-col-123",
-              containerPath: "/home/agent/workspace",
+              containerPath: "/workspace",
               hostPath: null
             },
             networkName: "symphony-network-col-123",
@@ -75,7 +75,7 @@ describe("runtime serializers", () => {
                       phase: "verify",
                       name: "verify",
                       command: "pnpm test:smoke",
-                      cwd: "/home/agent/workspace",
+                      cwd: "/workspace",
                       timeoutMs: 1_000,
                       status: "completed",
                       startedAt: "2026-03-31T00:00:00.000Z",
@@ -94,7 +94,7 @@ describe("runtime serializers", () => {
             kind: "container",
             hostLaunchPath: "/tmp/workspace",
             hostWorkspacePath: "/tmp/workspace",
-            runtimeWorkspacePath: "/home/agent/workspace",
+            runtimeWorkspacePath: "/workspace",
             containerId: "container-123",
             containerName: "symphony-col-123",
             shell: "sh"
@@ -136,7 +136,7 @@ describe("runtime serializers", () => {
       containerDisposition: "reused",
       networkDisposition: "reused",
       hostPath: null,
-      runtimePath: "/home/agent/workspace",
+      runtimePath: "/workspace",
       containerId: "container-123",
       containerName: "symphony-col-123",
       networkName: "symphony-network-col-123",
@@ -169,7 +169,7 @@ describe("runtime serializers", () => {
                 phase: "verify",
                 name: "verify",
                 command: "pnpm test:smoke",
-                cwd: "/home/agent/workspace",
+                cwd: "/workspace",
                 timeoutMs: 1_000,
                 status: "completed",
                 startedAt: "2026-03-31T00:00:00.000Z",
@@ -183,7 +183,7 @@ describe("runtime serializers", () => {
       path: null,
       executionTarget: {
         kind: "container",
-        workspacePath: "/home/agent/workspace",
+        workspacePath: "/workspace",
         containerId: "container-123",
         containerName: "symphony-col-123",
         hostPath: null
@@ -191,7 +191,7 @@ describe("runtime serializers", () => {
       materialization: {
         kind: "volume",
         volumeName: "symphony-col-123",
-        containerPath: "/home/agent/workspace",
+        containerPath: "/workspace",
         hostPath: null
       }
     });

@@ -95,7 +95,7 @@ describe("@symphony/api scaffold", () => {
       buildSymphonyRuntimeEnv({
         SYMPHONY_DOCKER_WORKSPACE_IMAGE: defaultSymphonyDockerWorkspaceImage,
         SYMPHONY_DOCKER_MATERIALIZATION_MODE: "volume",
-        SYMPHONY_DOCKER_WORKSPACE_PATH: "/home/agent/workspace",
+        SYMPHONY_DOCKER_WORKSPACE_PATH: "/workspace",
         SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX: "symphony-test",
         SYMPHONY_DOCKER_SHELL: "sh"
       })
@@ -103,7 +103,7 @@ describe("@symphony/api scaffold", () => {
 
     expect(env.dockerWorkspaceImage).toBe(defaultSymphonyDockerWorkspaceImage);
     expect(env.dockerMaterializationMode).toBe("volume");
-    expect(env.dockerWorkspacePath).toBe("/home/agent/workspace");
+    expect(env.dockerWorkspacePath).toBe("/workspace");
     expect(env.dockerContainerNamePrefix).toBe("symphony-test");
     expect(env.dockerShell).toBe("sh");
   });

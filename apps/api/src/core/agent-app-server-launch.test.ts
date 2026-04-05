@@ -11,7 +11,7 @@ describe("agent app server launch", () => {
         kind: "container",
         hostLaunchPath: "/tmp/workspace",
         hostWorkspacePath: "/tmp/workspace",
-        runtimeWorkspacePath: "/home/agent/workspace",
+        runtimeWorkspacePath: "/workspace",
         containerId: "container-123",
         containerName: "symphony-col-123",
         shell: "sh"

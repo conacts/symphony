@@ -30,7 +30,7 @@ function buildAgentRunInput(): AgentRunInput {
       afterCreateHookOutcome: "skipped",
       executionTarget: {
         kind: "container",
-        workspacePath: "/home/agent/workspace",
+        workspacePath: "/workspace",
         containerId: "container-123",
         containerName: "symphony-col-123",
         hostPath: "/tmp/symphony-runtime",
@@ -39,7 +39,7 @@ function buildAgentRunInput(): AgentRunInput {
       materialization: {
         kind: "bind_mount",
         hostPath: "/tmp/symphony-runtime",
-        containerPath: "/home/agent/workspace"
+        containerPath: "/workspace"
       },
       networkName: "symphony-network-col-123",
       services: [],

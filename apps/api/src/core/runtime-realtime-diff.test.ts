@@ -152,7 +152,7 @@ describe("runtime realtime diff", () => {
             afterCreateHookOutcome: "skipped",
             executionTarget: {
               kind: "container",
-              workspacePath: "/home/agent/workspace",
+              workspacePath: "/workspace",
               containerId: "container-123",
               containerName: "symphony-col-123",
               hostPath: workspacePath,
@@ -161,7 +161,7 @@ describe("runtime realtime diff", () => {
             materialization: {
               kind: "bind_mount",
               hostPath: workspacePath,
-              containerPath: "/home/agent/workspace"
+              containerPath: "/workspace"
             },
             networkName: "symphony-network-col-123",
             services: [],
@@ -191,7 +191,7 @@ describe("runtime realtime diff", () => {
             kind: "container",
             hostLaunchPath: workspacePath,
             hostWorkspacePath: workspacePath,
-            runtimeWorkspacePath: "/home/agent/workspace",
+            runtimeWorkspacePath: "/workspace",
             containerId: "container-123",
             containerName: "symphony-col-123",
             shell: "sh"

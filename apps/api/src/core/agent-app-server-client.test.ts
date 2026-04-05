@@ -285,15 +285,15 @@ exec "$shell_bin" -lc "$2"
 
     const dockerTraceLines = await readTraceLines(dockerTraceFile);
     expect(dockerTraceLines).toContain(`PWD:${session.hostLaunchPath}`);
-    expect(dockerTraceLines).toContain("WORKDIR:/home/agent/workspace");
+    expect(dockerTraceLines).toContain("WORKDIR:/workspace");
     expect(dockerTraceLines).toContain("CONTAINER:symphony-col-123-container");
     expect(dockerTraceLines).toContain("ENV:OPENAI_API_KEY=test-openai-api-key");
 
     const tracePayloads = parseTraceJsonLines(await readTraceLines(piTraceFile));
     const threadStart = tracePayloads.find((payload) => payload.id === 2);
     const turnStart = tracePayloads.find((payload) => payload.id === 3);
-    expect(getParams(threadStart)?.cwd).toBe("/home/agent/workspace");
-    expect(getParams(turnStart)?.cwd).toBe("/home/agent/workspace");
+    expect(getParams(threadStart)?.cwd).toBe("/workspace");
+    expect(getParams(turnStart)?.cwd).toBe("/workspace");
   });
 
   it("passes the configured turn sandbox policy unchanged", async () => {
@@ -1057,7 +1057,7 @@ function buildContainerLaunchTarget(workspacePath: string) {
     kind: "container" as const,
     hostLaunchPath: workspacePath,
     hostWorkspacePath: workspacePath,
-    runtimeWorkspacePath: "/home/agent/workspace",
+    runtimeWorkspacePath: "/workspace",
     containerId: "container-123",
     containerName: "symphony-col-123-container",
     shell: "sh"

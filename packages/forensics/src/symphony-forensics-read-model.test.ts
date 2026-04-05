@@ -237,7 +237,7 @@ function createRunDetail(
         kind: "container",
         hostLaunchPath: "/tmp/COL-157",
         hostWorkspacePath: "/tmp/COL-157",
-        runtimeWorkspacePath: "/home/agent/workspace",
+        runtimeWorkspacePath: "/workspace",
         containerId: "container-1",
         containerName: "symphony-col-157",
         shell: "sh"

@@ -523,7 +523,7 @@ done
     expect(fakeDockerInvocation).toEqual({
       command: "exec",
       containerName: "symphony-col-123-container",
-      workdir: "/home/agent/workspace"
+      workdir: "/workspace"
     });
     expect(runtimeLogPayloads).toContainEqual(
       expect.objectContaining({
@@ -532,7 +532,7 @@ done
           hostLaunchPath: hostWorkspacePath,
           containerName: "symphony-col-123-container",
           hostWorkspacePath: hostWorkspacePath,
-          runtimeWorkspacePath: "/home/agent/workspace"
+          runtimeWorkspacePath: "/workspace"
         })
       })
     );
@@ -649,7 +649,7 @@ exit 1
         kind: "container",
         hostLaunchPath: hostWorkspacePath,
         hostWorkspacePath,
-        runtimeWorkspacePath: "/home/agent/workspace",
+        runtimeWorkspacePath: "/workspace",
         containerId: "container-123",
         containerName: "symphony-col-123-container",
         shell: "sh"
@@ -663,7 +663,7 @@ exit 1
           hostLaunchPath: hostWorkspacePath,
           containerName: "symphony-col-123-container",
           hostWorkspacePath,
-          runtimeWorkspacePath: "/home/agent/workspace"
+          runtimeWorkspacePath: "/workspace"
         })
       })
     );
@@ -770,7 +770,7 @@ exit 1
         workdir: string;
       });
     expect(dockerInvocations.some((entry) => entry.command === "exec")).toBe(true);
-    expect(dockerInvocations.some((entry) => entry.workdir === "/home/agent/workspace")).toBe(
+    expect(dockerInvocations.some((entry) => entry.workdir === "/workspace")).toBe(
       true
     );
 
@@ -944,7 +944,7 @@ function buildBindMountPreparedWorkspace(
     afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
       kind: "container" as const,
-      workspacePath: "/home/agent/workspace",
+      workspacePath: "/workspace",
       containerId: "container-123",
       containerName: "symphony-col-123-container",
       hostPath: workspacePath,
@@ -953,7 +953,7 @@ function buildBindMountPreparedWorkspace(
     materialization: {
       kind: "bind_mount" as const,
       hostPath: workspacePath,
-      containerPath: "/home/agent/workspace"
+      containerPath: "/workspace"
     },
     networkName: "symphony-network-col-123",
     services: [],
@@ -979,7 +979,7 @@ function buildContainerPreparedWorkspace(
     afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
       kind: "container" as const,
-      workspacePath: "/home/agent/workspace",
+      workspacePath: "/workspace",
       containerId: "container-123",
       containerName: "symphony-col-123-container",
       hostPath: hostWorkspacePath,
@@ -990,13 +990,13 @@ function buildContainerPreparedWorkspace(
         ? {
             kind: "volume" as const,
             volumeName: "symphony-col-123-volume",
-            containerPath: "/home/agent/workspace",
+            containerPath: "/workspace",
             hostPath: null
           }
         : {
             kind: "bind_mount" as const,
             hostPath: hostWorkspacePath,
-            containerPath: "/home/agent/workspace"
+            containerPath: "/workspace"
           },
     networkName: "symphony-network-col-123",
     services: [],

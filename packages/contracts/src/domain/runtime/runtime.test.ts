@@ -36,7 +36,7 @@ describe("symphony runtime contracts", () => {
               containerDisposition: "reused",
               networkDisposition: "reused",
               hostPath: "/tmp/COL-157",
-              runtimePath: "/home/agent/workspace",
+              runtimePath: "/workspace",
               containerId: "container-157",
               containerName: "symphony-col-157",
               networkName: "symphony-network-col-157",
@@ -83,7 +83,7 @@ describe("symphony runtime contracts", () => {
               path: null,
               executionTarget: {
                 kind: "container",
-                workspacePath: "/home/agent/workspace",
+                workspacePath: "/workspace",
                 containerId: "container-157",
                 containerName: "symphony-col-157",
                 hostPath: "/tmp/COL-157"
@@ -91,14 +91,14 @@ describe("symphony runtime contracts", () => {
               materialization: {
                 kind: "bind_mount",
                 hostPath: "/tmp/COL-157",
-                containerPath: "/home/agent/workspace"
+                containerPath: "/workspace"
               }
             },
             launchTarget: {
               kind: "container",
               hostLaunchPath: "/tmp/COL-157",
               hostWorkspacePath: "/tmp/COL-157",
-              runtimeWorkspacePath: "/home/agent/workspace",
+              runtimeWorkspacePath: "/workspace",
               containerId: "container-157",
               containerName: "symphony-col-157",
               shell: "sh"
@@ -167,7 +167,7 @@ describe("symphony runtime contracts", () => {
           containerDisposition: "reused",
           networkDisposition: "reused",
           hostPath: "/tmp/COL-157",
-          runtimePath: "/home/agent/workspace",
+          runtimePath: "/workspace",
           containerId: "container-157",
           containerName: "symphony-col-157",
           networkName: "symphony-network-col-157",
@@ -214,7 +214,7 @@ describe("symphony runtime contracts", () => {
           path: null,
           executionTarget: {
             kind: "container",
-            workspacePath: "/home/agent/workspace",
+            workspacePath: "/workspace",
             containerId: "container-157",
             containerName: "symphony-col-157",
             hostPath: "/tmp/COL-157"
@@ -222,7 +222,7 @@ describe("symphony runtime contracts", () => {
           materialization: {
             kind: "bind_mount",
             hostPath: "/tmp/COL-157",
-            containerPath: "/home/agent/workspace"
+            containerPath: "/workspace"
           }
         },
         attempts: {
@@ -237,7 +237,7 @@ describe("symphony runtime contracts", () => {
             kind: "container",
             hostLaunchPath: "/tmp/COL-157",
             hostWorkspacePath: "/tmp/COL-157",
-            runtimeWorkspacePath: "/home/agent/workspace",
+            runtimeWorkspacePath: "/workspace",
             containerId: "container-157",
             containerName: "symphony-col-157",
             shell: "sh"

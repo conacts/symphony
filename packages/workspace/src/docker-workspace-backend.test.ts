@@ -175,7 +175,7 @@ describe("docker workspace backend", () => {
                 issueIdentifier: "COL/200",
                 workspaceKey: "COL_200",
                 hostPath: path.join(root, "symphony-COL_200"),
-                workspacePath: "/home/agent/workspace",
+                workspacePath: "/workspace",
                 running: true
               }),
               stderr: ""
@@ -231,7 +231,7 @@ describe("docker workspace backend", () => {
       afterCreateHookOutcome: "completed",
       executionTarget: {
         kind: "container",
-        workspacePath: "/home/agent/workspace",
+        workspacePath: "/workspace",
         containerId: "container-123",
         containerName: observedContainerName,
         hostPath: expectedHostPath,
@@ -240,7 +240,7 @@ describe("docker workspace backend", () => {
       materialization: {
         kind: "bind_mount",
         hostPath: expectedHostPath,
-        containerPath: "/home/agent/workspace"
+        containerPath: "/workspace"
       },
       networkName: null,
       services: [],
@@ -269,13 +269,13 @@ describe("docker workspace backend", () => {
       expect.arrayContaining([
         "exec",
         "--env",
-        "SYMPHONY_WORKSPACE_PATH=/home/agent/workspace",
+        "SYMPHONY_WORKSPACE_PATH=/workspace",
         "--env",
         "SYMPHONY_ISSUE_IDENTIFIER=COL/200",
         "--env",
         "SYMPHONY_ISSUE_ID=issue-200",
         "--workdir",
-        "/home/agent/workspace",
+        "/workspace",
         firstTarget.containerName ?? "",
         "bash",
         "-lc",
@@ -330,7 +330,7 @@ describe("docker workspace backend", () => {
                 issueIdentifier: "COL-201",
                 workspaceKey: "COL-201",
                 hostPath: path.join(root, "symphony-COL-201"),
-                workspacePath: "/home/agent/workspace",
+                workspacePath: "/workspace",
                 running: true
               }),
               stderr: ""
@@ -451,7 +451,7 @@ describe("docker workspace backend", () => {
               workspaceKey: "COL-207",
               hostPath: null,
               volumeName: "symphony-workspace-col-207-deadbeef",
-              workspacePath: "/home/agent/workspace",
+              workspacePath: "/workspace",
               running: true,
               materializationKind: "volume"
             }),
@@ -482,7 +482,7 @@ describe("docker workspace backend", () => {
 
     expect(workspace.executionTarget).toEqual({
       kind: "container",
-      workspacePath: "/home/agent/workspace",
+      workspacePath: "/workspace",
       containerId: "container-volume-123",
       containerName: expect.stringMatching(
         /^symphony-workspace-col-207-[0-9a-f]{8}$/
@@ -495,7 +495,7 @@ describe("docker workspace backend", () => {
       volumeName: expect.stringMatching(
         /^symphony-workspace-volume-col-207-[0-9a-f]{8}$/
       ),
-      containerPath: "/home/agent/workspace",
+      containerPath: "/workspace",
       hostPath: null
     });
     expect(
@@ -556,7 +556,7 @@ describe("docker workspace backend", () => {
               workspaceKey: "COL-208",
               hostPath: null,
               volumeName,
-              workspacePath: "/home/agent/workspace",
+              workspacePath: "/workspace",
               running: true,
               materializationKind: "volume"
             }),
@@ -618,7 +618,7 @@ describe("docker workspace backend", () => {
     });
 
     expect(cleanup.hostPath).toBeNull();
-    expect(cleanup.runtimePath).toBe("/home/agent/workspace");
+    expect(cleanup.runtimePath).toBe("/workspace");
     expect(cleanup.workspaceRemovalDisposition).toBe("removed");
     expect(
       calls.some(
@@ -655,7 +655,7 @@ describe("docker workspace backend", () => {
                 issueIdentifier: "COL-201",
                 workspaceKey: "COL-201",
                 hostPath: workspacePath,
-                workspacePath: "/home/agent/workspace",
+                workspacePath: "/workspace",
                 running: calls.some((call) => call[0] === "start"),
                 status: calls.some((call) => call[0] === "start") ? "running" : "exited"
               }),
@@ -793,7 +793,7 @@ describe("docker workspace backend", () => {
                 issueIdentifier: "COL-203",
                 workspaceKey: "COL-203",
                 hostPath: workspacePath,
-                workspacePath: "/home/agent/workspace",
+                workspacePath: "/workspace",
                 running: true
               }),
               stderr: ""
@@ -903,7 +903,7 @@ describe("docker workspace backend", () => {
                 issueIdentifier: "COL-204",
                 workspaceKey: "COL-204",
                 hostPath: workspacePath,
-                workspacePath: "/home/agent/workspace",
+                workspacePath: "/workspace",
                 running: true
               }),
               stderr: ""
@@ -937,7 +937,7 @@ describe("docker workspace backend", () => {
       backendKind: "docker",
       workerHost: null,
       hostPath: workspacePath,
-      runtimePath: "/home/agent/workspace",
+      runtimePath: "/workspace",
       containerId: "container-204",
       containerName: "symphony-workspace-col-204-deadbeef",
       networkName: null,
@@ -994,7 +994,7 @@ describe("docker workspace backend", () => {
                 issueIdentifier: "COL-205",
                 workspaceKey: "COL-205",
                 hostPath: workspacePath,
-                workspacePath: "/home/agent/workspace",
+                workspacePath: "/workspace",
                 running: true
               }),
               stderr: ""
@@ -1038,7 +1038,7 @@ describe("docker workspace backend", () => {
       backendKind: "docker",
       workerHost: null,
       hostPath: workspacePath,
-      runtimePath: "/home/agent/workspace",
+      runtimePath: "/workspace",
       containerId: "container-205",
       containerName: "symphony-workspace-col-205-deadbeef",
       networkName: null,
@@ -1127,7 +1127,7 @@ describe("docker workspace backend", () => {
               issueIdentifier: "COL-401",
               workspaceKey: "COL-401",
               hostPath: path.join(root, "symphony-COL-401"),
-              workspacePath: "/home/agent/workspace",
+              workspacePath: "/workspace",
               running: true
             }),
             stderr: ""
@@ -1657,7 +1657,7 @@ describe("docker workspace backend", () => {
                   issueIdentifier: "COL-501B",
                   workspaceKey: "COL-501B",
                   hostPath: path.join(root, "symphony-COL-501B"),
-                  workspacePath: "/home/agent/workspace",
+                  workspacePath: "/workspace",
                   running: true,
                   networks: {
                     [networkName]: {
@@ -2148,7 +2148,7 @@ function buildPreparedDockerWorkspace(input: {
     afterCreateHookOutcome: "skipped" as const,
     executionTarget: {
       kind: "container" as const,
-      workspacePath: "/home/agent/workspace",
+      workspacePath: "/workspace",
       containerId: input.containerId,
       containerName: input.containerName,
       hostPath: input.hostPath,
@@ -2159,13 +2159,13 @@ function buildPreparedDockerWorkspace(input: {
         ? {
             kind: "volume" as const,
             volumeName: input.volumeName ?? "workspace-volume",
-            containerPath: "/home/agent/workspace",
+            containerPath: "/workspace",
             hostPath: null
           }
         : {
             kind: "bind_mount" as const,
             hostPath: input.hostPath ?? "/tmp/workspace",
-            containerPath: "/home/agent/workspace"
+            containerPath: "/workspace"
           },
     networkName: input.networkName ?? null,
     services: input.services ?? [],
@@ -2603,7 +2603,7 @@ function createSharedPostgresMock(input: {
             issueIdentifier: input.issueIdentifier,
             workspaceKey,
             hostPath: path.join(input.root, `symphony-${workspaceKey}`),
-            workspacePath: "/home/agent/workspace",
+            workspacePath: "/workspace",
             running: true
           }),
           stderr: ""

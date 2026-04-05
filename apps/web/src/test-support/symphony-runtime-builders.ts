@@ -36,7 +36,7 @@ export function buildSymphonyRuntimeStateResult(
     containerDisposition: "reused",
     networkDisposition: "reused",
     hostPath: "/tmp/workspaces/col-166",
-    runtimePath: "/home/agent/workspace",
+    runtimePath: "/workspace",
     containerId: "container-166",
     containerName: "symphony-col-166",
     networkName: "symphony-network-col-166",
@@ -68,7 +68,7 @@ export function buildSymphonyRuntimeStateResult(
     path: null,
     executionTarget: {
       kind: "container",
-      workspacePath: "/home/agent/workspace",
+      workspacePath: "/workspace",
       containerId: "container-166",
       containerName: "symphony-col-166",
       hostPath: "/tmp/workspaces/col-166"
@@ -76,20 +76,20 @@ export function buildSymphonyRuntimeStateResult(
     materialization: {
       kind: "bind_mount",
       hostPath: "/tmp/workspaces/col-166",
-      containerPath: "/home/agent/workspace"
+      containerPath: "/workspace"
     }
   };
 
   const defaultRunningWorkspace: RuntimeWorkspace = {
     ...defaultDockerWorkspace,
     hostPath: "/tmp/workspaces/col-165",
-    runtimePath: "/home/agent/workspace",
+    runtimePath: "/workspace",
     containerId: "container-165",
     containerName: "symphony-col-165",
     networkName: "symphony-network-col-165",
     executionTarget: {
       kind: "container",
-      workspacePath: "/home/agent/workspace",
+      workspacePath: "/workspace",
       containerId: "container-165",
       containerName: "symphony-col-165",
       hostPath: "/tmp/workspaces/col-165"
@@ -97,7 +97,7 @@ export function buildSymphonyRuntimeStateResult(
     materialization: {
       kind: "bind_mount",
       hostPath: "/tmp/workspaces/col-165",
-      containerPath: "/home/agent/workspace"
+      containerPath: "/workspace"
     }
   };
 
@@ -105,7 +105,7 @@ export function buildSymphonyRuntimeStateResult(
     kind: "container",
     hostLaunchPath: "/tmp/workspaces/col-165",
     hostWorkspacePath: "/tmp/workspaces/col-165",
-    runtimeWorkspacePath: "/home/agent/workspace",
+    runtimeWorkspacePath: "/workspace",
     containerId: "container-165",
     containerName: "symphony-col-165",
     shell: "sh"
@@ -115,7 +115,7 @@ export function buildSymphonyRuntimeStateResult(
     kind: "container",
     hostLaunchPath: "/tmp/workspaces/col-166",
     hostWorkspacePath: "/tmp/workspaces/col-166",
-    runtimeWorkspacePath: "/home/agent/workspace",
+    runtimeWorkspacePath: "/workspace",
     containerId: "container-166",
     containerName: "symphony-col-166",
     shell: "sh"
@@ -256,7 +256,7 @@ export function buildSymphonyRuntimeIssueResult(
     containerDisposition: "reused",
     networkDisposition: "reused",
     hostPath: "/tmp/symphony-COL-167",
-    runtimePath: "/home/agent/workspace",
+    runtimePath: "/workspace",
     containerId: "container-167",
     containerName: "symphony-col-167",
     networkName: "symphony-network-col-167",
@@ -278,7 +278,7 @@ export function buildSymphonyRuntimeIssueResult(
     path: null,
     executionTarget: {
       kind: "container",
-      workspacePath: "/home/agent/workspace",
+      workspacePath: "/workspace",
       containerId: "container-167",
       containerName: "symphony-col-167",
       hostPath: "/tmp/symphony-COL-167"
@@ -286,7 +286,7 @@ export function buildSymphonyRuntimeIssueResult(
     materialization: {
       kind: "bind_mount",
       hostPath: "/tmp/symphony-COL-167",
-      containerPath: "/home/agent/workspace"
+      containerPath: "/workspace"
     }
   };
 
@@ -298,7 +298,7 @@ export function buildSymphonyRuntimeIssueResult(
       kind: "container",
       hostLaunchPath: "/tmp/symphony-COL-167",
       hostWorkspacePath: "/tmp/symphony-COL-167",
-      runtimeWorkspacePath: "/home/agent/workspace",
+      runtimeWorkspacePath: "/workspace",
       containerId: "container-167",
       containerName: "symphony-col-167",
       shell: "sh"
@@ -802,7 +802,7 @@ export function buildSymphonyForensicsRunDetailResult(
         kind: "container",
         hostLaunchPath: "/tmp/workspaces/col-165",
         hostWorkspacePath: "/tmp/workspaces/col-165",
-        runtimeWorkspacePath: "/home/agent/workspace",
+        runtimeWorkspacePath: "/workspace",
         containerId: "container-165",
         containerName: "symphony-col-165",
         shell: "sh"

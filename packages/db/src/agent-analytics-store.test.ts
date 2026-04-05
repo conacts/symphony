@@ -838,7 +838,7 @@ describe("sqlite agent analytics store", () => {
           item: {
             id: "cmd-bash-merge",
             type: "command_execution",
-            command: "ls /home/agent/workspace",
+            command: "ls /workspace",
             aggregated_output: "",
             status: "in_progress"
           }
@@ -870,7 +870,7 @@ describe("sqlite agent analytics store", () => {
 
       expect(command).toMatchObject({
         itemId: "cmd-bash-merge",
-        command: "ls /home/agent/workspace",
+        command: "ls /workspace",
         status: "completed",
         outputPreview: "apps packages"
       });

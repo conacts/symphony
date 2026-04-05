@@ -85,10 +85,13 @@ export type KnownPiToolName =
 // Zod schemas — used at the analytics ingestion boundary to validate raw args
 // ---------------------------------------------------------------------------
 
-export const piEditBlockSchema = z.strictObject({
-  oldText: z.string(),
-  newText: z.string()
-});
+export const piEditBlockSchema = z.preprocess(
+  normalizePiEditBlock,
+  z.strictObject({
+    oldText: z.string(),
+    newText: z.string()
+  })
+);
 
 export const piReadArgumentsSchema = z.strictObject({
   path: nonEmptyStringSchema,
@@ -96,15 +99,21 @@ export const piReadArgumentsSchema = z.strictObject({
   limit: z.number().int().nonnegative().optional()
 });
 
-export const piEditArgumentsSchema = z.strictObject({
-  path: nonEmptyStringSchema,
-  edits: z.array(piEditBlockSchema).min(1)
-});
+export const piEditArgumentsSchema = z.preprocess(
+  normalizePiEditArguments,
+  z.strictObject({
+    path: nonEmptyStringSchema,
+    edits: z.array(piEditBlockSchema).min(1)
+  })
+);
 
-export const piWriteArgumentsSchema = z.strictObject({
-  path: nonEmptyStringSchema,
-  content: z.string()
-});
+export const piWriteArgumentsSchema = z.preprocess(
+  normalizePiWriteArguments,
+  z.strictObject({
+    path: nonEmptyStringSchema,
+    content: z.string()
+  })
+);
 
 export const piBashArgumentsSchema = z.strictObject({
   command: z.string(),
@@ -170,3 +179,53 @@ const piToolSchemaByTool: Record<KnownPiToolName, z.ZodType<unknown>> = {
   find: piFindArgumentsSchema,
   ls: piLsArgumentsSchema
 };
+
+function normalizePiEditArguments(value: unknown): unknown {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    path: record.path,
+    edits: Array.isArray(record.edits) ? record.edits.map(normalizePiEditBlock) : record.edits
+  };
+}
+
+function normalizePiEditBlock(value: unknown): unknown {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    oldText: getAliasString(record, ["oldText", "old_text", "oldString", "old_string"]),
+    newText: getAliasString(record, ["newText", "new_text", "newString", "new_string"])
+  };
+}
+
+function normalizePiWriteArguments(value: unknown): unknown {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    path: record.path,
+    content: getAliasString(record, ["content", "text", "fileText", "file_text"])
+  };
+}
+
+function getAliasString(
+  record: Record<string, unknown>,
+  keys: string[]
+): unknown {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string") {
+      return value;
+    }
+  }
+
+  return record[keys[0] ?? ""];
+}

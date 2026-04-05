@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { fetchAgentOverflow } from "@/core/agent-analytics-client";
 import { RunDebugPanel } from "@/features/runs/components/run-debug-panel";
+import { RunExecutionDurationChart } from "@/features/runs/components/run-execution-duration-chart";
 import { RunOverflowSheet } from "@/features/runs/components/run-overflow-sheet";
 import { RunTurnLatencyChart } from "@/features/runs/components/run-turn-latency-chart";
 import { RunTurnTokenChart } from "@/features/runs/components/run-turn-token-chart";
@@ -280,81 +281,19 @@ export function RunTranscriptView(input: {
                 Local command and tool execution hotspots for this run before you read the full conversation.
               </p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {viewModel.executionPerformance.cards.map((card) => (
-                <Card key={card.label} className="border-border/70">
-                  <CardHeader className="space-y-1 pb-3">
-                    <CardDescription>{card.label}</CardDescription>
-                    <CardTitle className="text-lg break-all">{card.value}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0 text-sm text-muted-foreground">
-                    {card.detail}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
             <div className="grid gap-4 xl:grid-cols-2">
-              <Card className="border-border/70">
-                <CardHeader>
-                  <CardTitle>Slow command executions</CardTitle>
-                  <CardDescription>
-                    The longest command steps captured in this run.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  {viewModel.executionPerformance.commandRows.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No command executions were captured for this run.
-                    </p>
-                  ) : (
-                    viewModel.executionPerformance.commandRows.map((row) => (
-                      <div
-                        key={`${row.label}:${row.duration}`}
-                        className="rounded-xl border border-border/70 p-4"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <p className="font-medium break-all">{row.label}</p>
-                          <p className="text-sm text-muted-foreground">{row.duration}</p>
-                        </div>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {row.family} · {row.status}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/70">
-                <CardHeader>
-                  <CardTitle>Slow tool calls</CardTitle>
-                  <CardDescription>
-                    The longest tool interactions captured in this run.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  {viewModel.executionPerformance.toolRows.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No tool calls were captured for this run.
-                    </p>
-                  ) : (
-                    viewModel.executionPerformance.toolRows.map((row) => (
-                      <div
-                        key={`${row.label}:${row.duration}`}
-                        className="rounded-xl border border-border/70 p-4"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <p className="font-medium break-all">{row.label}</p>
-                          <p className="text-sm text-muted-foreground">{row.duration}</p>
-                        </div>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {row.status}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
+              <RunExecutionDurationChart
+                title="Command executions"
+                description={viewModel.executionPerformance.commandSummary}
+                emptyText="No command executions were captured for this run."
+                rows={viewModel.executionPerformance.commandRows}
+              />
+              <RunExecutionDurationChart
+                title="Tool calls"
+                description={viewModel.executionPerformance.toolSummary}
+                emptyText="No tool calls were captured for this run."
+                rows={viewModel.executionPerformance.toolRows}
+              />
             </div>
           </section>
 

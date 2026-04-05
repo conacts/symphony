@@ -251,7 +251,7 @@ describe("PiRpcClient", () => {
         kind: "container",
         hostLaunchPath: "/tmp/symphony-pi-test/workspace",
         hostWorkspacePath: "/tmp/symphony-pi-test/workspace",
-        runtimeWorkspacePath: "/home/agent/workspace",
+        runtimeWorkspacePath: "/workspace",
         containerId: "container-1",
         containerName: "symphony-workspace",
         shell: "/bin/bash"

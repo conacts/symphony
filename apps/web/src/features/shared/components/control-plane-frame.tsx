@@ -86,8 +86,8 @@ function ThemeToggleButton() {
     <Button
       type="button"
       variant="outline"
-      size="sm"
-      className="w-full justify-start gap-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+      size="lg"
+      className="w-full justify-start gap-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 cursor-pointer"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}

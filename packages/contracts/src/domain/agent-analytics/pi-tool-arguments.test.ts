@@ -50,6 +50,18 @@ describe("pi tool argument schemas", () => {
       const result = piEditArgumentsSchema.safeParse({ path: "src/index.ts" });
       expect(result.success).toBe(false);
     });
+
+    it("accepts aliased edit text fields", () => {
+      const result = piEditArgumentsSchema.safeParse({
+        path: "src/index.ts",
+        edits: [{ old_text: "before", new_string: "after" }]
+      });
+      expect(result.success).toBe(true);
+      if (!result.success) {
+        throw new Error("Expected aliased edit arguments to parse");
+      }
+      expect(result.data.edits).toEqual([{ oldText: "before", newText: "after" }]);
+    });
   });
 
   describe("piWriteArgumentsSchema", () => {
@@ -64,6 +76,18 @@ describe("pi tool argument schemas", () => {
     it("rejects missing content", () => {
       const result = piWriteArgumentsSchema.safeParse({ path: "output.md" });
       expect(result.success).toBe(false);
+    });
+
+    it("accepts aliased write content fields", () => {
+      const result = piWriteArgumentsSchema.safeParse({
+        path: "output.md",
+        file_text: "hello\nworld"
+      });
+      expect(result.success).toBe(true);
+      if (!result.success) {
+        throw new Error("Expected aliased write arguments to parse");
+      }
+      expect(result.data.content).toBe("hello\nworld");
     });
   });
 
@@ -123,6 +147,37 @@ describe("parseKnownPiToolArguments", () => {
       expect(result.content).toBe("hello");
     } else {
       throw new Error("Expected write arguments");
+    }
+  });
+
+  it("normalizes aliased pi.edit arguments", () => {
+    const result = parseKnownPiToolArguments("edit", {
+      path: "src/app.tsx",
+      edits: [{ old_string: "const a = 1;", new_text: "const a = 2;" }]
+    });
+    expect(result).not.toBeNull();
+    if (result && "edits" in result) {
+      expect(result.edits).toEqual([
+        {
+          oldText: "const a = 1;",
+          newText: "const a = 2;"
+        }
+      ]);
+    } else {
+      throw new Error("Expected normalized edit arguments");
+    }
+  });
+
+  it("normalizes aliased pi.write arguments", () => {
+    const result = parseKnownPiToolArguments("write", {
+      path: "output.md",
+      fileText: "hello\nworld"
+    });
+    expect(result).not.toBeNull();
+    if (result && "content" in result) {
+      expect(result.content).toBe("hello\nworld");
+    } else {
+      throw new Error("Expected normalized write arguments");
     }
   });
 

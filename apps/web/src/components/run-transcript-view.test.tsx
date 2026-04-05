@@ -28,7 +28,8 @@ describe("run transcript view", () => {
     expect(html).toContain("Turn latency");
     expect(html).toContain("Turn latency breakdown");
     expect(html).toContain("Execution performance");
-    expect(html).toContain("Slow command executions");
+    expect(html).toContain("Command executions");
+    expect(html).toContain("Tool calls");
     expect(html).toContain("Turn 1");
     expect(html).toContain("data-slot=\"accordion-trigger\"");
     expect(html).toContain("Tool call");

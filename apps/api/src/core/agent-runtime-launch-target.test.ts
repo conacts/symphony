@@ -20,7 +20,7 @@ describe("agent runtime launch target", () => {
           afterCreateHookOutcome: "skipped",
           executionTarget: {
             kind: "container",
-            workspacePath: "/home/agent/workspace",
+            workspacePath: "/workspace",
             containerId: "container-123",
             containerName: "symphony-col-123",
             hostPath: "/tmp/symphony-COL-123",
@@ -29,7 +29,7 @@ describe("agent runtime launch target", () => {
           materialization: {
             kind: "bind_mount",
             hostPath: "/tmp/symphony-COL-123",
-            containerPath: "/home/agent/workspace"
+            containerPath: "/workspace"
           },
           networkName: "symphony-network-col-123",
           services: [],
@@ -45,7 +45,7 @@ describe("agent runtime launch target", () => {
       kind: "container",
       hostLaunchPath: "/tmp/symphony-COL-123",
       hostWorkspacePath: "/tmp/symphony-COL-123",
-      runtimeWorkspacePath: "/home/agent/workspace",
+      runtimeWorkspacePath: "/workspace",
       containerId: "container-123",
       containerName: "symphony-col-123",
       shell: "bash"
@@ -65,7 +65,7 @@ describe("agent runtime launch target", () => {
           afterCreateHookOutcome: "skipped",
           executionTarget: {
             kind: "container",
-            workspacePath: "/home/agent/workspace",
+            workspacePath: "/workspace",
             containerId: "container-123",
             containerName: "symphony-col-123",
             hostPath: null,
@@ -74,7 +74,7 @@ describe("agent runtime launch target", () => {
           materialization: {
             kind: "volume",
             volumeName: "symphony-col-123",
-            containerPath: "/home/agent/workspace",
+            containerPath: "/workspace",
             hostPath: null
           },
           networkName: "symphony-network-col-123",
@@ -91,7 +91,7 @@ describe("agent runtime launch target", () => {
       kind: "container",
       hostLaunchPath: buildRuntimeContainerLaunchPath(workspaceRoot, "COL-123"),
       hostWorkspacePath: null,
-      runtimeWorkspacePath: "/home/agent/workspace",
+      runtimeWorkspacePath: "/workspace",
       containerId: "container-123",
       containerName: "symphony-col-123",
       shell: "sh"
@@ -110,7 +110,7 @@ describe("agent runtime launch target", () => {
         afterCreateHookOutcome: "skipped",
         executionTarget: {
           kind: "container",
-          workspacePath: "/home/agent/workspace",
+          workspacePath: "/workspace",
           containerId: "container-123",
           containerName: null,
           hostPath: "/tmp/symphony-COL-123",
@@ -119,7 +119,7 @@ describe("agent runtime launch target", () => {
         materialization: {
           kind: "bind_mount",
           hostPath: "/tmp/symphony-COL-123",
-          containerPath: "/home/agent/workspace"
+          containerPath: "/workspace"
         },
         networkName: "symphony-network-col-123",
         services: [],
@@ -153,7 +153,7 @@ describe("agent runtime launch target", () => {
         materialization: {
           kind: "bind_mount",
           hostPath: "/tmp/symphony-COL-123",
-          containerPath: "/home/agent/workspace"
+          containerPath: "/workspace"
         },
         networkName: "symphony-network-col-123",
         services: [],
@@ -178,7 +178,7 @@ describe("agent runtime launch target", () => {
         afterCreateHookOutcome: "skipped",
         executionTarget: {
           kind: "container",
-          workspacePath: "/home/agent/workspace",
+          workspacePath: "/workspace",
           containerId: "container-123",
           containerName: "symphony-col-123",
           hostPath: "/tmp/symphony-COL-123",
@@ -187,7 +187,7 @@ describe("agent runtime launch target", () => {
         materialization: {
           kind: "bind_mount",
           hostPath: "/tmp/symphony-COL-123",
-          containerPath: "/home/agent/workspace"
+          containerPath: "/workspace"
         },
         networkName: "symphony-network-col-123",
         services: [],

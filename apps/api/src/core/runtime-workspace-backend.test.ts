@@ -59,7 +59,7 @@ describe("runtime workspace backend selection", () => {
     const selection = createRuntimeWorkspaceBackend(buildRuntimeEnv({
       dockerWorkspaceImage: "example.com/custom/symphony-runner:dev",
       dockerMaterializationMode: "bind_mount",
-      dockerWorkspacePath: "/home/agent/workspace",
+      dockerWorkspacePath: "/workspace",
       dockerContainerNamePrefix: "symphony-test",
       dockerShell: "sh",
       sourceRepo: null
@@ -85,7 +85,7 @@ describe("runtime workspace backend selection", () => {
         "psql",
         "rg"
       ],
-      workspacePath: "/home/agent/workspace",
+      workspacePath: "/workspace",
       containerNamePrefix: "symphony-test",
       shell: "sh",
       manifestPath: null
@@ -97,7 +97,7 @@ describe("runtime workspace backend selection", () => {
     const selection = createRuntimeWorkspaceBackend(buildRuntimeEnv({
       dockerWorkspaceImage: "example.com/custom/symphony-runner:dev",
       dockerMaterializationMode: "volume",
-      dockerWorkspacePath: "/home/agent/workspace",
+      dockerWorkspacePath: "/workspace",
       dockerContainerNamePrefix: "symphony-test",
       dockerShell: "sh",
       sourceRepo: null
@@ -123,7 +123,7 @@ describe("runtime workspace backend selection", () => {
         "psql",
         "rg"
       ],
-      workspacePath: "/home/agent/workspace",
+      workspacePath: "/workspace",
       containerNamePrefix: "symphony-test",
       shell: "sh",
       manifestPath: null

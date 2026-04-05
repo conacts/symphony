@@ -167,7 +167,7 @@ describe("sqlite agent analytics read store", () => {
             kind: "container",
             hostLaunchPath: "/tmp/workspaces/col-157",
             hostWorkspacePath: "/tmp/workspaces/col-157",
-            runtimeWorkspacePath: "/home/agent/workspace",
+            runtimeWorkspacePath: "/workspace",
             containerId: "container-157",
             containerName: "symphony-col-157",
             shell: "sh"
@@ -257,7 +257,7 @@ describe("sqlite agent analytics read store", () => {
         kind: "container",
         hostLaunchPath: "/tmp/workspaces/col-157",
         hostWorkspacePath: "/tmp/workspaces/col-157",
-        runtimeWorkspacePath: "/home/agent/workspace",
+        runtimeWorkspacePath: "/workspace",
         containerId: "container-157",
         containerName: "symphony-col-157",
         shell: "sh"

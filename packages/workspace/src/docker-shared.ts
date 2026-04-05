@@ -15,7 +15,7 @@ import type {
   WorkspaceManifestLifecycleSummary
 } from "./workspace-contracts.js";
 
-export const defaultContainerWorkspacePath = "/home/agent/workspace";
+export const defaultContainerWorkspacePath = "/workspace";
 export const defaultContainerNamePrefix = "symphony-workspace";
 export const defaultDockerHomePath = "/home/agent";
 export const defaultContainerSourceRepoPath = "/home/agent/source-repo";
