@@ -11,7 +11,6 @@ describe("run transcript view", () => {
   it("renders the run-level turn table instead of the full transcript", () => {
     const html = renderToStaticMarkup(
       <RunTranscriptView
-        runtimeBaseUrl="http://127.0.0.1:4400"
         error={null}
         loading={false}
         resource={{
@@ -41,5 +40,18 @@ describe("run transcript view", () => {
     expect(html).not.toContain("<p class=\"text-sm font-medium text-muted-foreground\">COL-165</p>");
     expect(html).not.toContain("Structured run conversation");
     expect(html).toContain("Debug context");
+  });
+
+  it("renders degraded and empty states for missing run data", () => {
+    const html = renderToStaticMarkup(
+      <RunTranscriptView
+        error="runtime unavailable"
+        loading={false}
+        resource={null}
+      />
+    );
+
+    expect(html).toContain("Run transcript degraded");
+    expect(html).toContain("runtime unavailable");
   });
 });

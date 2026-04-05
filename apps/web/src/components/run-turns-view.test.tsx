@@ -31,4 +31,22 @@ describe("run turns view", () => {
     expect(html).not.toContain("Back to run transcript");
     expect(html).not.toContain("Prompt");
   });
+
+  it("renders the empty turn state", () => {
+    const artifacts = buildSymphonyAgentRunArtifactsResult();
+    artifacts.turns = [];
+    const html = renderToStaticMarkup(
+      <RunTurnsView
+        error={null}
+        loading={false}
+        resource={{
+          runDetail: buildSymphonyForensicsRunDetailResult(),
+          runArtifacts: artifacts,
+          agentError: null
+        }}
+      />
+    );
+
+    expect(html).toContain("No turns were recorded for this run.");
+  });
 });

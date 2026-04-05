@@ -2,9 +2,7 @@
 
 import React, { useMemo } from "react";
 import {
-  buildIssueHref,
-  buildIssueRunHref,
-  buildIssuesHref
+  buildIssueRunBreadcrumbRoutes
 } from "@/core/control-plane-routes";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import { useAgentRun } from "@/features/runs/hooks/use-agent-run";
@@ -34,25 +32,14 @@ export function RunTranscriptLiveScreen(input: { runId: string }) {
       connection={connection}
       breadcrumbs={
         runState.resource
-          ? [
-              { label: "Issues", href: buildIssuesHref() },
-              {
-                label: runState.resource.runDetail.issue.issueIdentifier,
-                href: buildIssueHref(runState.resource.runDetail.issue.issueIdentifier)
-              },
-              {
-                label: runState.resource.runDetail.run.runId,
-                href: buildIssueRunHref(
-                  runState.resource.runDetail.issue.issueIdentifier,
-                  runState.resource.runDetail.run.runId
-                )
-              }
-            ]
+          ? buildIssueRunBreadcrumbRoutes(
+              runState.resource.runDetail.issue.issueIdentifier,
+              runState.resource.runDetail.run.runId
+            )
           : []
       }
     >
       <RunTranscriptView
-        runtimeBaseUrl={model.runtimeBaseUrl}
         error={runState.error}
         loading={runState.loading}
         resource={runState.resource}

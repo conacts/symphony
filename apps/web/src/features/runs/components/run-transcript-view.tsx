@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
@@ -10,23 +9,15 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
 import { RunDebugPanel } from "@/features/runs/components/run-debug-panel";
 import { RunExecutionDurationChart } from "@/features/runs/components/run-execution-duration-chart";
 import { RunTurnLatencyChart } from "@/features/runs/components/run-turn-latency-chart";
 import { RunTurnTokenChart } from "@/features/runs/components/run-turn-token-chart";
+import { RunTurnsCard } from "@/features/runs/components/run-turns-card";
 import { buildAgentRunViewModel } from "@/features/runs/model/agent-run-view-model";
 import type { AgentRunResource } from "@/features/runs/hooks/use-agent-run";
 
 export function RunTranscriptView(input: {
-  runtimeBaseUrl: string;
   error: string | null;
   loading: boolean;
   resource: AgentRunResource | null;
@@ -96,57 +87,11 @@ export function RunTranscriptView(input: {
             </div>
           </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Turns</CardTitle>
-              <CardDescription>
-                Runs aggregate into turns here. Open an individual turn to inspect its full transcript, commands, tools, reasoning, and task updates.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {viewModel.turnRows.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Turn</TableHead>
-                      <TableHead>Started</TableHead>
-                      <TableHead>Ended</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Tokens</TableHead>
-                      <TableHead>Commands</TableHead>
-                      <TableHead>Tools</TableHead>
-                      <TableHead>Reasoning</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {viewModel.turnRows.map((turn) => (
-                      <TableRow key={turn.turnId}>
-                        <TableCell className="font-medium">
-                          <Link
-                            href={turn.href}
-                            className="underline-offset-4 hover:underline focus-visible:underline"
-                          >
-                            Turn {turn.turnSequence}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{turn.startedAt}</TableCell>
-                        <TableCell>{turn.endedAt}</TableCell>
-                        <TableCell>{turn.status}</TableCell>
-                        <TableCell>{turn.tokenSummary}</TableCell>
-                        <TableCell>{turn.commandCount}</TableCell>
-                        <TableCell>{turn.toolCount}</TableCell>
-                        <TableCell>{turn.reasoningCount}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No turns were recorded for this run.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          <RunTurnsCard
+            title="Turns"
+            description="Runs aggregate into turns here. Open an individual turn to inspect its full transcript, commands, tools, reasoning, and task updates."
+            rows={viewModel.turnRows}
+          />
 
           <section className="flex flex-col gap-4">
             <div className="space-y-1">
@@ -268,7 +213,6 @@ export function RunTranscriptView(input: {
           </section>
         </>
       ) : null}
-
     </div>
   );
 }

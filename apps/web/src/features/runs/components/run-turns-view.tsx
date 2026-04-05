@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
@@ -10,16 +9,9 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
 import { buildAgentRunViewModel } from "@/features/runs/model/agent-run-view-model";
 import type { AgentRunResource } from "@/features/runs/hooks/use-agent-run";
+import { RunTurnsCard } from "@/features/runs/components/run-turns-card";
 
 export function RunTurnsView(input: {
   error: string | null;
@@ -96,47 +88,11 @@ export function RunTurnsView(input: {
                 Runs aggregate into turns here before you drill all the way down to item-level transcript detail.
               </p>
             </div>
-            {viewModel.turnRows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No turns were recorded for this run.
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Turn</TableHead>
-                    <TableHead>Started</TableHead>
-                    <TableHead>Ended</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Tokens</TableHead>
-                    <TableHead>Commands</TableHead>
-                    <TableHead>Tools</TableHead>
-                    <TableHead>Reasoning</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {viewModel.turnRows.map((turn) => (
-                    <TableRow key={turn.turnId}>
-                      <TableCell className="font-medium">
-                        <Link
-                          href={turn.href}
-                          className="underline-offset-4 hover:underline focus-visible:underline"
-                        >
-                          Turn {turn.turnSequence}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{turn.startedAt}</TableCell>
-                      <TableCell>{turn.endedAt}</TableCell>
-                      <TableCell>{turn.status}</TableCell>
-                      <TableCell>{turn.tokenSummary}</TableCell>
-                      <TableCell>{turn.commandCount}</TableCell>
-                      <TableCell>{turn.toolCount}</TableCell>
-                      <TableCell>{turn.reasoningCount}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <RunTurnsCard
+              title="Turn table"
+              description="Runs aggregate into turns here before you drill all the way down to item-level transcript detail."
+              rows={viewModel.turnRows}
+            />
           </section>
         </>
       ) : input.loading ? (

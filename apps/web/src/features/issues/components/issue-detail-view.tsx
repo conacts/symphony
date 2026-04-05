@@ -11,17 +11,11 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
 import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import type { SymphonyForensicsIssueDetailResult } from "@symphony/contracts";
 import { buildIssueTimelineHref } from "@/core/control-plane-routes";
+import { IssueFailureSignalsCard } from "@/features/issues/components/issue-failure-signals-card";
+import { IssueRunHistoryCard } from "@/features/issues/components/issue-run-history-card";
 import { IssueRunTokenChart } from "@/features/issues/components/issue-run-token-chart";
 import { buildIssueDetailViewModel } from "@/features/issues/model/issue-view-model";
 
@@ -68,57 +62,7 @@ export function IssueDetailView(input: {
             ))}
           </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Run history</CardTitle>
-              <CardDescription>
-                Browse recorded attempts for this issue.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {viewModel.rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No recorded runs for this issue yet.
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Run</TableHead>
-                      <TableHead>Started</TableHead>
-                      <TableHead>Duration</TableHead>
-                      <TableHead>Total tokens</TableHead>
-                      <TableHead>Turns / events</TableHead>
-                      <TableHead>Model</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Outcome</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {viewModel.rows.map((row) => (
-                      <TableRow key={row.runId}>
-                        <TableCell className="font-medium">
-                          <Link
-                            href={row.runHref}
-                            className="underline-offset-4 hover:underline focus-visible:underline"
-                          >
-                            {row.runId.slice(0, 8)}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{row.startedAt}</TableCell>
-                        <TableCell>{row.durationSeconds}</TableCell>
-                        <TableCell>{row.totalTokens}</TableCell>
-                        <TableCell>{row.turnsAndEvents}</TableCell>
-                        <TableCell>{row.model}</TableCell>
-                        <TableCell>{row.status}</TableCell>
-                        <TableCell>{row.outcome}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+          <IssueRunHistoryCard rows={viewModel.rows} />
 
           <section>
             <IssueRunTokenChart rows={viewModel.tokenChartRows} />
@@ -149,42 +93,7 @@ export function IssueDetailView(input: {
               ))}
             </section>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent failure signals</CardTitle>
-                <CardDescription>
-                  The local failure pattern for this issue before you drill into a specific run transcript.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                {viewModel.recentFailureRows.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No non-success runs have been recorded for this issue.
-                  </p>
-                ) : (
-                  viewModel.recentFailureRows.map((row) => (
-                    <div
-                      key={row.runId}
-                      className="rounded-xl border border-border/70 p-4"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <Link
-                          href={row.runHref}
-                          className="font-medium underline-offset-4 hover:underline focus-visible:underline"
-                        >
-                          {row.outcome}
-                        </Link>
-                        <p className="text-sm text-muted-foreground">{row.startedAt}</p>
-                      </div>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {row.errorClass}
-                      </p>
-                      <p className="mt-2 text-sm">{row.message}</p>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+            <IssueFailureSignalsCard rows={viewModel.recentFailureRows} />
           </section>
 
           <Card>

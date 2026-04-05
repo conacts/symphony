@@ -2,9 +2,7 @@
 
 import { useMemo } from "react";
 import {
-  buildIssueHref,
-  buildIssueTimelineHref,
-  buildIssuesHref
+  buildIssueTimelineBreadcrumbRoutes
 } from "@/core/control-plane-routes";
 import { useIssueForensicsBundle } from "@/hooks/use-issue-forensics-bundle";
 import { IssueActivityView } from "@/features/issues/components/issue-activity-view";
@@ -32,11 +30,7 @@ export function IssueActivityLiveScreen(input: { issueIdentifier: string }) {
   return (
     <ControlPlanePage
       connection={connection}
-      breadcrumbs={[
-        { label: "Issues", href: buildIssuesHref() },
-        { label: input.issueIdentifier, href: buildIssueHref(input.issueIdentifier) },
-        { label: "Timeline", href: buildIssueTimelineHref(input.issueIdentifier) }
-      ]}
+      breadcrumbs={buildIssueTimelineBreadcrumbRoutes(input.issueIdentifier)}
     >
       <IssueActivityView
         connection={connection}

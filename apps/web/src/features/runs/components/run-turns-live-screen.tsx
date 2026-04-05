@@ -2,10 +2,7 @@
 
 import React, { useMemo } from "react";
 import {
-  buildIssueHref,
-  buildIssueRunHref,
-  buildIssueRunTurnsHref,
-  buildIssuesHref
+  buildIssueRunTurnsBreadcrumbRoutes
 } from "@/core/control-plane-routes";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import { useAgentRun } from "@/features/runs/hooks/use-agent-run";
@@ -35,27 +32,10 @@ export function RunTurnsLiveScreen(input: { runId: string }) {
       connection={connection}
       breadcrumbs={
         runState.resource
-          ? [
-              { label: "Issues", href: buildIssuesHref() },
-              {
-                label: runState.resource.runDetail.issue.issueIdentifier,
-                href: buildIssueHref(runState.resource.runDetail.issue.issueIdentifier)
-              },
-              {
-                label: runState.resource.runDetail.run.runId,
-                href: buildIssueRunHref(
-                  runState.resource.runDetail.issue.issueIdentifier,
-                  runState.resource.runDetail.run.runId
-                )
-              },
-              {
-                label: "Turns",
-                href: buildIssueRunTurnsHref(
-                  runState.resource.runDetail.issue.issueIdentifier,
-                  runState.resource.runDetail.run.runId
-                )
-              }
-            ]
+          ? buildIssueRunTurnsBreadcrumbRoutes(
+              runState.resource.runDetail.issue.issueIdentifier,
+              runState.resource.runDetail.run.runId
+            )
           : []
       }
     >

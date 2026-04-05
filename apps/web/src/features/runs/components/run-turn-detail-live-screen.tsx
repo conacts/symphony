@@ -3,11 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { fetchAgentOverflow } from "@/core/agent-analytics-client";
 import {
-  buildIssueHref,
-  buildIssueRunHref,
-  buildIssueRunTurnHref,
-  buildIssueRunTurnsHref,
-  buildIssuesHref
+  buildIssueRunTurnBreadcrumbRoutes
 } from "@/core/control-plane-routes";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import { RunOverflowSheet } from "@/features/runs/components/run-overflow-sheet";
@@ -104,35 +100,11 @@ export function RunTurnDetailLiveScreen(input: {
       connection={connection}
       breadcrumbs={
         runState.resource
-          ? [
-              { label: "Issues", href: buildIssuesHref() },
-              {
-                label: runState.resource.runDetail.issue.issueIdentifier,
-                href: buildIssueHref(runState.resource.runDetail.issue.issueIdentifier)
-              },
-              {
-                label: runState.resource.runDetail.run.runId,
-                href: buildIssueRunHref(
-                  runState.resource.runDetail.issue.issueIdentifier,
-                  runState.resource.runDetail.run.runId
-                )
-              },
-              {
-                label: "Turns",
-                href: buildIssueRunTurnsHref(
-                  runState.resource.runDetail.issue.issueIdentifier,
-                  runState.resource.runDetail.run.runId
-                )
-              },
-              {
-                label: input.turnId,
-                href: buildIssueRunTurnHref(
-                  runState.resource.runDetail.issue.issueIdentifier,
-                  runState.resource.runDetail.run.runId,
-                  input.turnId
-                )
-              }
-            ]
+          ? buildIssueRunTurnBreadcrumbRoutes(
+              runState.resource.runDetail.issue.issueIdentifier,
+              runState.resource.runDetail.run.runId,
+              input.turnId
+            )
           : []
       }
     >

@@ -29,4 +29,19 @@ describe("issue detail view", () => {
     expect(html).toContain('href="/issues/COL-165/runs/');
     expect(html.indexOf("Run history")).toBeLessThan(html.indexOf("Recent run token load"));
   });
+
+  it("renders the degraded state when the issue request fails", () => {
+    const html = renderToStaticMarkup(
+      <IssueDetailView
+        connection={buildSymphonyDashboardConnectionState()}
+        error="issue unavailable"
+        issueDetail={null}
+        issueIdentifier="COL-165"
+        loading={false}
+      />
+    );
+
+    expect(html).toContain("Issue detail degraded");
+    expect(html).toContain("issue unavailable");
+  });
 });
