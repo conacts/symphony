@@ -6,12 +6,12 @@ import {
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
-  CodexAppServerError,
-  type CodexAppServerLogger,
-  type CodexAppServerSession,
-  type CodexAppServerSessionClient,
-  type CodexAppServerTurnResult
-} from "./codex-app-server-types.js";
+  HarnessSessionError,
+  type HarnessSession,
+  type HarnessSessionClient,
+  type HarnessSessionLogger,
+  type HarnessTurnResult
+} from "./agent-session-types.js";
 import {
   buildOpenCodePromptModel,
   fetchOpenCodeSessionDiff,
@@ -30,7 +30,7 @@ type OpenCodeSessionState = {
   activeAbortController: AbortController | null;
 };
 
-export class OpenCodeSdkClient implements CodexAppServerSessionClient {
+export class OpenCodeSdkClient implements HarnessSessionClient {
   readonly #state: OpenCodeSessionState;
 
   constructor(state: OpenCodeSessionState) {
@@ -38,14 +38,14 @@ export class OpenCodeSdkClient implements CodexAppServerSessionClient {
   }
 
   static async startSession(input: {
-    launchTarget: CodexAppServerSession["launchTarget"];
+    launchTarget: HarnessSession["launchTarget"];
     env: Record<string, string>;
     runtimePolicy: SymphonyAgentRuntimeConfig;
     issue: SymphonyTrackerIssue;
-    logger: CodexAppServerLogger;
-  }): Promise<CodexAppServerSession> {
+    logger: HarnessSessionLogger;
+  }): Promise<HarnessSession> {
     if (input.launchTarget.kind !== "container") {
-      throw new CodexAppServerError(
+      throw new HarnessSessionError(
         "opencode_launch_unsupported",
         "OpenCode runtime currently requires a container-backed launch target."
       );
@@ -102,7 +102,7 @@ export class OpenCodeSdkClient implements CodexAppServerSessionClient {
       };
     } catch (error) {
       server.process.kill("SIGTERM");
-      throw new CodexAppServerError(
+      throw new HarnessSessionError(
         "opencode_session_start_failed",
         error instanceof Error ? error.message : String(error),
         error
@@ -117,9 +117,9 @@ export class OpenCodeSdkClient implements CodexAppServerSessionClient {
   }
 
   async runTurn(
-    session: CodexAppServerSession,
-    input: Parameters<CodexAppServerSessionClient["runTurn"]>[1]
-  ): Promise<CodexAppServerTurnResult> {
+    session: HarnessSession,
+    input: Parameters<HarnessSessionClient["runTurn"]>[1]
+  ): Promise<HarnessTurnResult> {
     const turnSequence = this.#state.turnSequence + 1;
     this.#state.turnSequence = turnSequence;
 
@@ -204,7 +204,7 @@ export class OpenCodeSdkClient implements CodexAppServerSessionClient {
       }
 
       if (promptResponse.info.error) {
-        throw new CodexAppServerError(
+        throw new HarnessSessionError(
           "opencode_turn_failed",
           formatOpenCodeMessageError(promptResponse.info.error),
           promptResponse.info.error
@@ -232,14 +232,14 @@ export class OpenCodeSdkClient implements CodexAppServerSessionClient {
           // Ignore abort follow-up failures; the original timeout error is primary.
         }
 
-        throw new CodexAppServerError("turn_aborted", error.message, error);
+        throw new HarnessSessionError("turn_aborted", error.message, error);
       }
 
-      if (error instanceof CodexAppServerError) {
+      if (error instanceof HarnessSessionError) {
         throw error;
       }
 
-      throw new CodexAppServerError(
+      throw new HarnessSessionError(
         "opencode_turn_failed",
         error instanceof Error ? error.message : String(error),
         error

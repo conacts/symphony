@@ -13,22 +13,22 @@ import {
   OpenCodeSdkClient
 } from "./opencode-sdk-client.js";
 import type {
-  CodexAppServerLogger,
-  CodexAppServerSession
-} from "./codex-app-server-types.js";
+  HarnessSession,
+  HarnessSessionLogger
+} from "./agent-session-types.js";
 
 export type SymphonyRuntimeHarnessKind = SymphonyAgentHarnessKind;
 
 export type SymphonyRuntimeHarness = {
   kind: SymphonyRuntimeHarnessKind;
   startSession(input: {
-    launchTarget: CodexAppServerSession["launchTarget"];
+    launchTarget: HarnessSession["launchTarget"];
     env: Record<string, string>;
     hostCommandEnvSource: Record<string, string | undefined>;
     runtimePolicy: SymphonyAgentRuntimeConfig;
     issue: SymphonyTrackerIssue;
-    logger: CodexAppServerLogger;
-  }): Promise<CodexAppServerSession>;
+    logger: HarnessSessionLogger;
+  }): Promise<HarnessSession>;
 };
 
 export function createCodexRuntimeHarness(): SymphonyRuntimeHarness {

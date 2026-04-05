@@ -1,12 +1,12 @@
 import type { OpencodeClient } from "@opencode-ai/sdk/v2";
 import { projectOpenCodeSessionDiff } from "@symphony/agent-harnesses";
 import {
-  CodexAppServerError,
-  type CodexAppServerSession
-} from "./codex-app-server-types.js";
+  HarnessSessionError,
+  type HarnessSession
+} from "./agent-session-types.js";
 
 export function buildOpenCodePromptModel(
-  session: CodexAppServerSession
+  session: HarnessSession
 ): {
   providerID: string;
   modelID: string;
@@ -105,7 +105,7 @@ export function unwrapOpenCodeData<T>(
   }
 
   if (value === undefined) {
-    throw new CodexAppServerError(
+    throw new HarnessSessionError(
       "opencode_invalid_response",
       `${label} did not return data.`
     );

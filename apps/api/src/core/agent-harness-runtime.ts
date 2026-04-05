@@ -33,14 +33,14 @@ import {
   CodexSdkClient
 } from "./codex-sdk-client.js";
 import {
-  CodexAppServerError,
-  type CodexAppServerSessionClient
-} from "./codex-app-server-types.js";
+  HarnessSessionError,
+  type HarnessSessionClient
+} from "./agent-session-types.js";
 import { captureRepoSnapshot } from "./codex-repo-snapshot.js";
 import {
-  resolveCodexRuntimeLaunchTarget,
-  type CodexRuntimeLaunchTarget
-} from "./codex-runtime-launch-target.js";
+  resolveRuntimeLaunchTarget,
+  type SymphonyRuntimeLaunchTarget
+} from "./agent-runtime-launch-target.js";
 import {
   buildSymphonyContinuationPrompt
 } from "./symphony-prompt.js";
@@ -56,7 +56,7 @@ type RunCallbacks = {
 
 type ActiveRun = {
   stopped: boolean;
-  client: CodexAppServerSessionClient | null;
+  client: HarnessSessionClient | null;
 };
 
 export function createSymphonyAgentRuntime(input: {
@@ -112,7 +112,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
         client: null
       };
       activeRuns.set(runInput.issue.id, activeRun);
-      const launchTarget = resolveCodexRuntimeLaunchTarget(
+      const launchTarget = resolveRuntimeLaunchTarget(
         runInput.workspace,
         runInput.runtimePolicy.workspace.root
       );
@@ -191,7 +191,7 @@ async function executeRun(input: {
   runId: string | null;
   attempt: number;
   workspace: Parameters<AgentRuntime["startRun"]>[0]["workspace"];
-  launchTarget: CodexRuntimeLaunchTarget;
+  launchTarget: SymphonyRuntimeLaunchTarget;
   activeRun: ActiveRun;
 }): Promise<void> {
   let persistedTurnId: string | null = null;
@@ -607,7 +607,7 @@ function resolvePromptRepoDefaultBranch(repoRoot: string): string {
   return "main";
 }
 
-function describeLaunchTarget(target: CodexRuntimeLaunchTarget): JsonObject {
+function describeLaunchTarget(target: SymphonyRuntimeLaunchTarget): JsonObject {
   return {
     kind: target.kind,
     hostLaunchPath: target.hostLaunchPath,
@@ -646,7 +646,7 @@ function classifyStartupFailure(error: unknown): {
   failureStage: SymphonyStartupFailureStage;
   failureOrigin: SymphonyStartupFailureOrigin;
 } | null {
-  if (error instanceof CodexAppServerError) {
+  if (error instanceof HarnessSessionError) {
     if (
       [
         "initialize_failed",
@@ -690,7 +690,7 @@ function isRateLimitedError(error: unknown): boolean {
     error instanceof Error ? error.message : String(error)
   ];
 
-  if (error instanceof CodexAppServerError && error.detail) {
+  if (error instanceof HarnessSessionError && error.detail) {
     messages.push(JSON.stringify(error.detail));
   }
 
@@ -719,7 +719,7 @@ export function isTransientProviderError(
     error instanceof Error ? error.message : String(error)
   ];
 
-  if (error instanceof CodexAppServerError && error.detail) {
+  if (error instanceof HarnessSessionError && error.detail) {
     messages.push(JSON.stringify(error.detail));
   }
 

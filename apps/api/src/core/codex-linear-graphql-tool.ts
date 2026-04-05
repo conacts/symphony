@@ -1,11 +1,11 @@
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyLogger } from "@symphony/logger";
-import type { CodexAppServerToolExecutor } from "./codex-app-server-types.js";
+import type { HarnessToolExecutor } from "./agent-session-types.js";
 
 export function buildLinearGraphqlToolExecutor(
   runtimePolicy: SymphonyAgentRuntimeConfig,
   logger: SymphonyLogger
-): CodexAppServerToolExecutor {
+): HarnessToolExecutor {
   return async (toolName, argumentsPayload) => {
     if (toolName !== "linear_graphql") {
       return buildToolErrorResult({

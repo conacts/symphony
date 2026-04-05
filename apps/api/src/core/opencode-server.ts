@@ -5,10 +5,10 @@ import {
   logNonJsonStreamLine
 } from "./codex-app-server-protocol.js";
 import {
-  CodexAppServerError,
-  type CodexAppServerLogger,
-  type CodexAppServerSession
-} from "./codex-app-server-types.js";
+  HarnessSessionError,
+  type HarnessSession,
+  type HarnessSessionLogger
+} from "./agent-session-types.js";
 
 const execFileAsync = promisify(execFile);
 const openCodeServerPort = 4096;
@@ -21,9 +21,9 @@ export type OpenCodeServerProcess = {
 };
 
 export async function startOpenCodeServer(input: {
-  launchTarget: CodexAppServerSession["launchTarget"];
+  launchTarget: HarnessSession["launchTarget"];
   env: Record<string, string>;
-  logger: CodexAppServerLogger;
+  logger: HarnessSessionLogger;
 }): Promise<OpenCodeServerProcess> {
   const containerIp = await inspectContainerIp(input.launchTarget.containerName);
   const baseUrl = `http://${containerIp}:${openCodeServerPort}`;
@@ -74,7 +74,7 @@ async function waitForOpenCodeHealth(input: {
 
   while (Date.now() - startedAt < input.timeoutMs) {
     if (input.process.exitCode !== null) {
-      throw new CodexAppServerError(
+      throw new HarnessSessionError(
         "opencode_server_start_failed",
         `OpenCode server exited before becoming healthy (code ${input.process.exitCode}).`
       );
@@ -95,7 +95,7 @@ async function waitForOpenCodeHealth(input: {
   }
 
   input.process.kill("SIGTERM");
-  throw new CodexAppServerError(
+  throw new HarnessSessionError(
     "opencode_server_start_failed",
     `Timed out waiting for OpenCode server health at ${input.baseUrl}.`
   );
@@ -117,7 +117,7 @@ async function inspectContainerIp(containerName: string): Promise<string> {
   const ip = stdout.trim();
 
   if (ip === "") {
-    throw new CodexAppServerError(
+    throw new HarnessSessionError(
       "opencode_container_ip_missing",
       `Could not resolve a Docker IP address for container ${containerName}.`
     );

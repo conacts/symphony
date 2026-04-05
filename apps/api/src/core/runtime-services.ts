@@ -22,7 +22,7 @@ import {
 } from "@symphony/db";
 import { loadSymphonyPromptContract } from "@symphony/runtime-contract";
 import { createSymphonyLogger } from "@symphony/logger";
-import { CodexAppServerError } from "./codex-app-server-types.js";
+import { HarnessSessionError } from "./agent-session-types.js";
 import {
   resolveDockerCodexAuthContract,
   resolveDockerGitHubCliAuthContract,
@@ -184,7 +184,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   );
 
   if (runtimeHarness.kind === "codex" && dockerCodexAuth.mode === "unavailable") {
-    throw new CodexAppServerError(
+    throw new HarnessSessionError(
       "codex_auth_unavailable",
       "Docker-backed Symphony workspaces require host-owned Codex auth. Provide ~/.codex/auth.json (or $CODEX_HOME/auth.json) for subscription auth, or set the configured provider API key env as a host-only fallback."
     );

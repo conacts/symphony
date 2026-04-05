@@ -2,10 +2,10 @@ import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
-  CodexAppServerError,
-  type CodexLaunchSettings
-} from "./codex-app-server-types.js";
-import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
+  HarnessSessionError,
+  type HarnessLaunchSettings
+} from "./agent-session-types.js";
+import type { SymphonyRuntimeLaunchTarget } from "./agent-runtime-launch-target.js";
 
 const defaultCodexModel = "xiaomi/mimo-v2-pro";
 const defaultCodexReasoningEffort = "xhigh";
@@ -55,7 +55,7 @@ export async function validateWorkspaceCwd(
     const canonicalRootPrefix = `${canonicalRoot}${path.sep}`;
 
     if (canonicalWorkspace === canonicalRoot) {
-      throw new CodexAppServerError(
+      throw new HarnessSessionError(
         "invalid_workspace_cwd",
         `Workspace path must not equal the workspace root: ${canonicalWorkspace}`,
         {
@@ -70,7 +70,7 @@ export async function validateWorkspaceCwd(
     }
 
     if (expandedWorkspace.startsWith(expandedRootPrefix)) {
-      throw new CodexAppServerError(
+      throw new HarnessSessionError(
         "invalid_workspace_cwd",
         `Workspace path escaped the workspace root via symlink: ${expandedWorkspace}`,
         {
@@ -81,7 +81,7 @@ export async function validateWorkspaceCwd(
       );
     }
 
-    throw new CodexAppServerError(
+    throw new HarnessSessionError(
       "invalid_workspace_cwd",
       `Workspace path is outside the workspace root: ${canonicalWorkspace}`,
       {
@@ -91,11 +91,11 @@ export async function validateWorkspaceCwd(
       }
     );
   } catch (error) {
-    if (error instanceof CodexAppServerError) {
+    if (error instanceof HarnessSessionError) {
       throw error;
     }
 
-    throw new CodexAppServerError(
+    throw new HarnessSessionError(
       "invalid_workspace_cwd",
       `Workspace path could not be resolved: ${expandedWorkspace}`,
       {
@@ -128,7 +128,7 @@ export function resolveCodexLaunchSettings(
     providerId?: string | null;
     providerName?: string | null;
   }
-): CodexLaunchSettings {
+): HarnessLaunchSettings {
   const { model, reasoningEffort } = resolveCodexModelSettings(issue, defaults);
   const cleanedCommand = stripCodexReasoningOverrides(
     stripCodexModelOverrides(baseCommand)
@@ -136,7 +136,7 @@ export function resolveCodexLaunchSettings(
   const appServerMatch = /(?:^|\s)(app-server)(?=\s|$)/.exec(cleanedCommand);
 
   if (!appServerMatch || appServerMatch.index === undefined) {
-    throw new CodexAppServerError(
+    throw new HarnessSessionError(
       "invalid_codex_command",
       `Codex command must include app-server: ${baseCommand}`,
       {
@@ -178,7 +178,7 @@ export function resolveCodexSdkLaunchSettings(
     providerId?: string | null;
     providerName?: string | null;
   }
-): CodexLaunchSettings & {
+): HarnessLaunchSettings & {
   executable: string;
 } {
   const cleanedCommand = stripCodexReasoningOverrides(
@@ -187,7 +187,7 @@ export function resolveCodexSdkLaunchSettings(
   const executable = extractCodexExecutable(cleanedCommand);
 
   if (executable === null) {
-    throw new CodexAppServerError(
+    throw new HarnessSessionError(
       "invalid_codex_command",
       `Codex command must start with an executable: ${baseCommand}`,
       {
@@ -211,7 +211,7 @@ export function resolveCodexSdkLaunchSettings(
 }
 
 export function buildCodexAppServerSpawnSpec(input: {
-  launchTarget: CodexRuntimeLaunchTarget;
+  launchTarget: SymphonyRuntimeLaunchTarget;
   command: string;
   env: Record<string, string>;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -258,17 +258,17 @@ function dockerEnvFlags(env: Record<string, string>): string[] {
 }
 
 export function wrapSessionError(error: unknown): Error {
-  if (error instanceof CodexAppServerError) {
+  if (error instanceof HarnessSessionError) {
     return error;
   }
 
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("Timed out waiting for Codex response 1")) {
-    return new CodexAppServerError("initialize_failed", message, error);
+    return new HarnessSessionError("initialize_failed", message, error);
   }
 
   if (message.includes("Timed out waiting for Codex response 2")) {
-    return new CodexAppServerError("thread_start_failed", message, error);
+    return new HarnessSessionError("thread_start_failed", message, error);
   }
 
   return error instanceof Error ? error : new Error(message);
@@ -321,7 +321,7 @@ function selectCodexIssueOverride(
   }
 
   if (uniqueValues.length > 1) {
-    throw new CodexAppServerError(
+    throw new HarnessSessionError(
       "invalid_issue_label_override",
       `Conflicting Codex ${kind} labels: ${uniqueValues.join(", ")}`,
       {
@@ -336,7 +336,7 @@ function selectCodexIssueOverride(
     return value;
   }
 
-  throw new CodexAppServerError(
+  throw new HarnessSessionError(
     "invalid_issue_label_override",
     `Unsupported Codex ${kind} label override: ${value}`,
     {

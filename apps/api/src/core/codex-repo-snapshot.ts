@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { JsonObject } from "@symphony/contracts";
-import type { CodexRuntimeLaunchTarget } from "./codex-runtime-launch-target.js";
+import type { SymphonyRuntimeLaunchTarget } from "./agent-runtime-launch-target.js";
 
 const execFileAsync = promisify(execFile);
 const defaultPatchMaxBytes = 64 * 1024;
@@ -12,7 +12,7 @@ type RepoSnapshot = {
 };
 
 export async function captureRepoSnapshot(
-  launchTarget: CodexRuntimeLaunchTarget,
+  launchTarget: SymphonyRuntimeLaunchTarget,
   timeoutMs: number
 ): Promise<RepoSnapshot> {
   const capturedAt = new Date().toISOString();
@@ -75,7 +75,7 @@ export async function captureRepoSnapshot(
 }
 
 async function gitCapture(
-  launchTarget: CodexRuntimeLaunchTarget,
+  launchTarget: SymphonyRuntimeLaunchTarget,
   args: string[],
   timeoutMs: number
 ): Promise<string> {
@@ -154,7 +154,7 @@ function formatRepoSnapshotError(error: unknown): string {
   return String(error);
 }
 
-function buildRepoSnapshotContext(launchTarget: CodexRuntimeLaunchTarget): {
+function buildRepoSnapshotContext(launchTarget: SymphonyRuntimeLaunchTarget): {
   source: "bind_mount" | "container_exec";
   workspacePath: string;
   hostWorkspacePath: string | null;

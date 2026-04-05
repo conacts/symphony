@@ -17,12 +17,12 @@ import {
   resolveCodexSdkLaunchSettings
 } from "./codex-app-server-launch.js";
 import {
-  CodexAppServerError,
-  type CodexAppServerLogger,
-  type CodexAppServerSession,
-  type CodexAppServerSessionClient,
-  type CodexAppServerTurnResult
-} from "./codex-app-server-types.js";
+  HarnessSessionError,
+  type HarnessSession,
+  type HarnessSessionClient,
+  type HarnessSessionLogger,
+  type HarnessTurnResult
+} from "./agent-session-types.js";
 
 const sdkWrapperPath = path.join(tmpdir(), "symphony-codex-sdk-wrapper.sh");
 
@@ -33,7 +33,7 @@ type SdkSessionState = {
   activeAbortController: AbortController | null;
 };
 
-export class CodexSdkClient implements CodexAppServerSessionClient {
+export class CodexSdkClient implements HarnessSessionClient {
   readonly #state: SdkSessionState;
 
   constructor(state: SdkSessionState) {
@@ -41,13 +41,13 @@ export class CodexSdkClient implements CodexAppServerSessionClient {
   }
 
   static async startSession(input: {
-    launchTarget: CodexAppServerSession["launchTarget"];
+    launchTarget: HarnessSession["launchTarget"];
     env: Record<string, string>;
     hostCommandEnvSource: Record<string, string | undefined>;
     runtimePolicy: SymphonyAgentRuntimeConfig;
     issue: SymphonyTrackerIssue;
-    logger: CodexAppServerLogger;
-  }): Promise<CodexAppServerSession> {
+    logger: HarnessSessionLogger;
+  }): Promise<HarnessSession> {
     const hostLaunchPath = await ensureWorkspaceCwd(
       input.launchTarget.hostLaunchPath,
       input.runtimePolicy.workspace.root
@@ -131,9 +131,9 @@ export class CodexSdkClient implements CodexAppServerSessionClient {
   }
 
   async runTurn(
-    session: CodexAppServerSession,
-    input: Parameters<CodexAppServerSessionClient["runTurn"]>[1]
-  ): Promise<CodexAppServerTurnResult> {
+    session: HarnessSession,
+    input: Parameters<HarnessSessionClient["runTurn"]>[1]
+  ): Promise<HarnessTurnResult> {
     const turnSequence = this.#state.turnSequence + 1;
     this.#state.turnSequence = turnSequence;
 
@@ -191,18 +191,18 @@ export class CodexSdkClient implements CodexAppServerSessionClient {
         if (event.type === "turn.completed") {
           sawCompletion = true;
         } else if (event.type === "turn.failed") {
-          throw new CodexAppServerError(
+          throw new HarnessSessionError(
             "turn_failed",
             event.error.message,
             event
           );
         } else if (event.type === "error") {
-          throw new CodexAppServerError("stream_error", event.message, event);
+          throw new HarnessSessionError("stream_error", event.message, event);
         }
       }
 
       if (!sawCompletion) {
-        throw new CodexAppServerError(
+        throw new HarnessSessionError(
           "turn_failed",
           "Codex turn exited without a completed event."
         );
@@ -211,7 +211,7 @@ export class CodexSdkClient implements CodexAppServerSessionClient {
       const resolvedThreadId =
         threadId ?? this.#state.thread.id ?? this.#state.threadId;
       if (!resolvedThreadId) {
-        throw new CodexAppServerError(
+        throw new HarnessSessionError(
           "invalid_thread_payload",
           "Codex SDK turn completed without a thread id."
         );
@@ -226,15 +226,15 @@ export class CodexSdkClient implements CodexAppServerSessionClient {
       };
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
-        throw new CodexAppServerError("turn_aborted", error.message, error);
+        throw new HarnessSessionError("turn_aborted", error.message, error);
       }
 
       if (
         !sessionStarted &&
         error instanceof Error &&
-        !(error instanceof CodexAppServerError)
+        !(error instanceof HarnessSessionError)
       ) {
-        throw new CodexAppServerError("thread_start_failed", error.message, error);
+        throw new HarnessSessionError("thread_start_failed", error.message, error);
       }
 
       throw error;

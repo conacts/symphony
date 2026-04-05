@@ -1,7 +1,7 @@
 import type { Readable } from "node:stream";
 import type {
-  CodexAppServerLogger
-} from "./codex-app-server-types.js";
+  HarnessSessionLogger
+} from "./agent-session-types.js";
 
 const streamLogWarningPattern = /\b(error|warn|warning|failed|fatal|panic|exception)\b/i;
 
@@ -145,7 +145,7 @@ export function needsInput(
 }
 
 export function logNonJsonStreamLine(
-  logger: CodexAppServerLogger,
+  logger: HarnessSessionLogger,
   line: string,
   stream: "stdout" | "stderr"
 ): void {
