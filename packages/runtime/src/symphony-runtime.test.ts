@@ -4,6 +4,7 @@ import {
   createTestWorkspaceBackend
 } from "@symphony/test-support";
 import { createCodexAgentRuntime } from "@symphony/orchestrator";
+import { SymphonyRuntimePolicyError } from "@symphony/runtime-policy";
 import { createSymphonyRuntime } from "./symphony-runtime.js";
 
 const inertTracker = {
@@ -122,5 +123,33 @@ describe("symphony runtime review seam", () => {
       delivered: 1
     });
     await expect(runtime.ingestReview("skip")).resolves.toBeNull();
+  });
+
+  it("rejects non-pi harness configuration before runtime execution", () => {
+    expect(() =>
+      createSymphonyRuntime({
+        runtimePolicy: buildSymphonyRuntimePolicy({
+          agent: {
+            harness: "codex",
+            maxConcurrentAgents: 10,
+            maxTurns: 20,
+            maxRetryBackoffMs: 300_000,
+            maxConcurrentAgentsByState: {}
+          }
+        }),
+        tracker: inertTracker,
+        workspaceBackend: createTestWorkspaceBackend(),
+        agentRuntime: createCodexAgentRuntime({
+          async startRun() {
+            return {
+              sessionId: null,
+              workerHost: null,
+              launchTarget: null
+            };
+          },
+          async stopRun() {}
+        })
+      })
+    ).toThrowError(SymphonyRuntimePolicyError);
   });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   resolveRuntimePolicy,
   SymphonyRuntimePolicyError
@@ -59,7 +59,7 @@ describe("resolveRuntimePolicy", () => {
     ).toThrowError(SymphonyRuntimePolicyError);
   });
 
-  it("rejects non-pi harness selections", () => {
+  it("accepts legacy harnesses with deprecation warning and retains value", () => {
     expect(() =>
       resolveRuntimePolicy(
         {
@@ -72,6 +72,82 @@ describe("resolveRuntimePolicy", () => {
         },
         {}
       )
-    ).toThrowError(/agent\.harness must be pi/i);
+    ).not.toThrow();
+
+    const codexConfig = resolveRuntimePolicy(
+      {
+        tracker: {
+          kind: "memory"
+        },
+        agent: {
+          harness: "codex"
+        }
+      },
+      {}
+    );
+    expect(codexConfig.agent.harness).toBe("codex");
+  });
+
+  it("warns at most once per deprecated harness kind", () => {
+    const emitWarning = vi
+      .spyOn(process, "emitWarning")
+      .mockImplementation(() => {});
+    const beforeWarningCount = emitWarning.mock.calls.length;
+
+    resolveRuntimePolicy(
+      {
+        tracker: {
+          kind: "memory"
+        },
+        agent: {
+          harness: "codex"
+        }
+      },
+      {}
+    );
+    const afterFirstCodex = emitWarning.mock.calls.length;
+    resolveRuntimePolicy(
+      {
+        tracker: {
+          kind: "memory"
+        },
+        agent: {
+          harness: "codex"
+        }
+      },
+      {}
+    );
+    const afterSecondCodex = emitWarning.mock.calls.length;
+
+    resolveRuntimePolicy(
+      {
+        tracker: {
+          kind: "memory"
+        },
+        agent: {
+          harness: "opencode"
+        }
+      },
+      {}
+    );
+    const afterFirstOpencode = emitWarning.mock.calls.length;
+    resolveRuntimePolicy(
+      {
+        tracker: {
+          kind: "memory"
+        },
+        agent: {
+          harness: "opencode"
+        }
+      },
+      {}
+    );
+    const afterSecondOpencode = emitWarning.mock.calls.length;
+
+    expect(afterSecondCodex).toBe(afterFirstCodex);
+    expect(afterSecondOpencode).toBe(afterFirstOpencode);
+    expect(afterSecondOpencode - beforeWarningCount).toBeLessThanOrEqual(2);
+
+    emitWarning.mockRestore();
   });
 });
