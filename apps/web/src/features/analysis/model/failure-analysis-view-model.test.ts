@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildFailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
-import { buildSymphonyForensicsIssueListResult } from "@/test-support/build-symphony-dashboard-view-fixtures";
+import {
+  buildFailureAnalysisViewModel,
+  buildFailureAnalysisViewModelFromSample
+} from "@/features/analysis/model/failure-analysis-view-model";
+import {
+  buildSymphonyCodexRunArtifactsResult,
+  buildSymphonyForensicsIssueDetailResult,
+  buildSymphonyForensicsIssueListResult
+} from "@/test-support/build-symphony-dashboard-view-fixtures";
 
 describe("failure analysis view model", () => {
   it("formats the current failure landscape from the issue inventory", () => {
@@ -70,5 +77,71 @@ describe("failure analysis view model", () => {
     expect(viewModel.hotspotRows[0]?.latestProblemOutcome).toBe("Startup Failure");
     expect(viewModel.hotspotRows[0]?.latestErrorClass).toBe("Workspace boot failure");
     expect(viewModel.hotspotRows[0]?.problemRuns).toBe("3");
+  });
+
+  it("builds a filtered failure landscape from sampled runs", () => {
+    const viewModel = buildFailureAnalysisViewModelFromSample({
+      issueIndex: buildSymphonyForensicsIssueListResult(),
+      sampledRuns: [
+        {
+          issueIdentifier: "COL-165",
+          run: {
+            ...buildSymphonyForensicsIssueDetailResult().runs[0]!,
+            runId: "run_a",
+            outcome: "completed",
+            errorClass: null,
+            errorMessage: null
+          },
+          artifacts: buildSymphonyCodexRunArtifactsResult()
+        },
+        {
+          issueIdentifier: "COL-165",
+          run: {
+            ...buildSymphonyForensicsIssueDetailResult().runs[0]!,
+            runId: "run_b",
+            outcome: "max_turns",
+            errorClass: "max_turns",
+            errorMessage: "Reached max turns before completion.",
+            startedAt: "2026-03-31T19:00:00.000Z"
+          },
+          artifacts: buildSymphonyCodexRunArtifactsResult({
+            run: {
+              ...buildSymphonyCodexRunArtifactsResult().run,
+              runId: "run_b"
+            }
+          })
+        },
+        {
+          issueIdentifier: "COL-166",
+          run: {
+            ...buildSymphonyForensicsIssueDetailResult().runs[0]!,
+            runId: "run_c",
+            issueId: "issue_456",
+            issueIdentifier: "COL-166",
+            outcome: "startup_failed",
+            errorClass: "startup_failure_runtime_prepare",
+            errorMessage: "Workspace failed to boot.",
+            startedAt: "2026-03-31T20:00:00.000Z"
+          },
+          artifacts: buildSymphonyCodexRunArtifactsResult({
+            run: {
+              ...buildSymphonyCodexRunArtifactsResult().run,
+              runId: "run_c",
+              issueId: "issue_456",
+              issueIdentifier: "COL-166"
+            }
+          })
+        }
+      ]
+    });
+
+    expect(viewModel.summaryCards[0]?.value).toBe("2");
+    expect(viewModel.summaryCards[1]?.value).toBe("66.7%");
+    expect(viewModel.failureModeRows.map((row) => row.outcome)).toEqual([
+      "Max turns reached",
+      "Startup failed"
+    ]);
+    expect(viewModel.hotspotRows[0]?.issueIdentifier).toBe("COL-165");
+    expect(viewModel.hotspotRows[0]?.retries).toBe("1");
   });
 });

@@ -19,20 +19,41 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnalysisFilterBar } from "@/features/analysis/components/analysis-filter-bar";
 import { AnalysisPageHeader } from "@/features/analysis/components/analysis-page-header";
 import { AnalysisPageNav } from "@/features/analysis/components/analysis-page-nav";
 import { AnalysisSpotlightItem } from "@/features/analysis/components/analysis-spotlight-item";
+import type { AnalysisQuery } from "@/features/analysis/model/analysis-query-state";
+import type { AnalysisFilterOptions } from "@/features/analysis/model/analysis-sample-filter";
 import { FailureErrorClassChart } from "@/features/analysis/components/failure-error-class-chart";
 import { FailureModeChart } from "@/features/analysis/components/failure-mode-chart";
 import type { FailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
 import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
+
+const emptyAnalysisQuery: AnalysisQuery = {};
+const emptyAnalysisFilterOptions: AnalysisFilterOptions = {
+  harnesses: [],
+  providers: [],
+  models: []
+};
 
 export function FailureAnalysisView(input: {
   connection: RuntimeSummaryConnectionState;
   error: string | null;
   loading: boolean;
   failureAnalysis: FailureAnalysisViewModel | null;
+  query?: AnalysisQuery;
+  filterOptions?: AnalysisFilterOptions;
+  sampledRunCount?: number;
+  sampledIssueCount?: number;
+  onQueryChange?(query: AnalysisQuery): void;
 }) {
+  const query = input.query ?? emptyAnalysisQuery;
+  const filterOptions = input.filterOptions ?? emptyAnalysisFilterOptions;
+  const sampledRunCount = input.sampledRunCount ?? 0;
+  const sampledIssueCount = input.sampledIssueCount ?? 0;
+  const onQueryChange = input.onQueryChange ?? (() => {});
+
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {input.error ? (
@@ -51,6 +72,13 @@ export function FailureAnalysisView(input: {
             focus="Use this page to identify which failure modes and error classes are currently creating the heaviest operator drag."
           />
           <AnalysisPageNav />
+          <AnalysisFilterBar
+            query={query}
+            options={filterOptions}
+            sampledRunCount={sampledRunCount}
+            sampledIssueCount={sampledIssueCount}
+            onQueryChange={onQueryChange}
+          />
 
           <section className="space-y-3">
             <div className="space-y-1">

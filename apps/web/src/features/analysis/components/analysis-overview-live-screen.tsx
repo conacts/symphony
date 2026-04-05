@@ -1,11 +1,24 @@
 "use client";
 
 import { useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnalysisOverviewView } from "@/features/analysis/components/analysis-overview-view";
-import { usePerformanceAnalysis } from "@/features/analysis/hooks/use-performance-analysis";
-import { useTokenAnalysis } from "@/features/analysis/hooks/use-token-analysis";
+import { useAnalysisSample } from "@/features/analysis/hooks/use-analysis-sample";
 import { buildAnalysisOverviewViewModel } from "@/features/analysis/model/analysis-overview-view-model";
-import { buildFailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
+import {
+  buildAnalysisSearchParams,
+  buildAnalysisQueryFromSearchParams,
+  hasActiveAnalysisFilters
+} from "@/features/analysis/model/analysis-query-state";
+import {
+  buildAnalysisFilterOptions,
+  countSampledIssues,
+  filterCodexAnalysisSample
+} from "@/features/analysis/model/analysis-sample-filter";
+import {
+  buildFailureAnalysisViewModel,
+  buildFailureAnalysisViewModelFromSample
+} from "@/features/analysis/model/failure-analysis-view-model";
 import { buildPerformanceAnalysisViewModel } from "@/features/analysis/model/performance-analysis-view-model";
 import { buildTokenAnalysisViewModel } from "@/features/analysis/model/token-analysis-view-model";
 import { useIssueIndex } from "@/features/issues/hooks/use-issue-index";
@@ -15,6 +28,13 @@ import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/ov
 
 export function AnalysisOverviewLiveScreen() {
   const model = useControlPlaneModel();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const query = useMemo(
+    () => buildAnalysisQueryFromSearchParams(searchParams),
+    [searchParams]
+  );
   const issueIndexState = useIssueIndex({
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl,
@@ -24,11 +44,7 @@ export function AnalysisOverviewLiveScreen() {
       sortDirection: "desc"
     }
   });
-  const performanceState = usePerformanceAnalysis({
-    runtimeBaseUrl: model.runtimeBaseUrl,
-    websocketUrl: model.websocketUrl
-  });
-  const tokenState = useTokenAnalysis({
+  const analysisSampleState = useAnalysisSample({
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl
   });
@@ -38,43 +54,57 @@ export function AnalysisOverviewLiveScreen() {
       buildRuntimeSummaryConnectionState({
         status:
           issueIndexState.status === "connected" &&
-          performanceState.status === "connected" &&
-          tokenState.status === "connected"
+          analysisSampleState.status === "connected"
             ? "connected"
-            : issueIndexState.status === "degraded" ||
-                performanceState.status === "degraded" ||
-                tokenState.status === "degraded"
+            : issueIndexState.status === "degraded" || analysisSampleState.status === "degraded"
               ? "degraded"
               : "connecting",
-        error:
-          issueIndexState.error ?? performanceState.error ?? tokenState.error ?? null,
+        error: issueIndexState.error ?? analysisSampleState.error ?? null,
         hasSnapshot:
           issueIndexState.resource !== null &&
-          performanceState.resource !== null &&
-          tokenState.resource !== null
+          analysisSampleState.resource !== null
       }),
     [
+      analysisSampleState.error,
+      analysisSampleState.resource,
+      analysisSampleState.status,
       issueIndexState.error,
       issueIndexState.resource,
-      issueIndexState.status,
-      performanceState.error,
-      performanceState.resource,
-      performanceState.status,
-      tokenState.error,
-      tokenState.resource,
-      tokenState.status
+      issueIndexState.status
     ]
+  );
+  const filterOptions = useMemo(
+    () =>
+      analysisSampleState.resource
+        ? buildAnalysisFilterOptions(analysisSampleState.resource)
+        : {
+            harnesses: [],
+            providers: [],
+            models: []
+          },
+    [analysisSampleState.resource]
+  );
+  const filteredSample = useMemo(
+    () =>
+      analysisSampleState.resource
+        ? filterCodexAnalysisSample(analysisSampleState.resource, query)
+        : null,
+    [analysisSampleState.resource, query]
   );
 
   const overview = useMemo(() => {
-    const failureAnalysis = issueIndexState.resource
-      ? buildFailureAnalysisViewModel(issueIndexState.resource)
+    const failureAnalysis = hasActiveAnalysisFilters(query)
+      ? filteredSample
+        ? buildFailureAnalysisViewModelFromSample(filteredSample)
+        : null
+      : issueIndexState.resource
+        ? buildFailureAnalysisViewModel(issueIndexState.resource)
+        : null;
+    const performanceAnalysis = filteredSample
+      ? buildPerformanceAnalysisViewModel(filteredSample)
       : null;
-    const performanceAnalysis = performanceState.resource
-      ? buildPerformanceAnalysisViewModel(performanceState.resource)
-      : null;
-    const tokenAnalysis = tokenState.resource
-      ? buildTokenAnalysisViewModel(tokenState.resource)
+    const tokenAnalysis = filteredSample
+      ? buildTokenAnalysisViewModel(filteredSample)
       : null;
 
     if (!failureAnalysis && !performanceAnalysis && !tokenAnalysis) {
@@ -86,17 +116,25 @@ export function AnalysisOverviewLiveScreen() {
       performanceAnalysis,
       tokenAnalysis
     });
-  }, [issueIndexState.resource, performanceState.resource, tokenState.resource]);
+  }, [filteredSample, issueIndexState.resource, query]);
 
   return (
     <ControlPlanePage connection={connection}>
       <AnalysisOverviewView
         connection={connection}
-        error={issueIndexState.error ?? performanceState.error ?? tokenState.error}
-        loading={
-          issueIndexState.loading || performanceState.loading || tokenState.loading
-        }
+        error={issueIndexState.error ?? analysisSampleState.error}
+        loading={issueIndexState.loading || analysisSampleState.loading}
         overview={overview}
+        query={query}
+        filterOptions={filterOptions}
+        sampledRunCount={filteredSample?.sampledRuns.length ?? 0}
+        sampledIssueCount={filteredSample ? countSampledIssues(filteredSample) : 0}
+        onQueryChange={(nextQuery) => {
+          const nextSearch = buildAnalysisSearchParams(nextQuery).toString();
+          router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname, {
+            scroll: false
+          });
+        }}
       />
     </ControlPlanePage>
   );

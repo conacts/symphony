@@ -1,8 +1,18 @@
 "use client";
 
 import { useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PerformanceAnalysisView } from "@/features/analysis/components/performance-analysis-view";
-import { usePerformanceAnalysis } from "@/features/analysis/hooks/use-performance-analysis";
+import { useAnalysisSample } from "@/features/analysis/hooks/use-analysis-sample";
+import {
+  buildAnalysisSearchParams,
+  buildAnalysisQueryFromSearchParams
+} from "@/features/analysis/model/analysis-query-state";
+import {
+  buildAnalysisFilterOptions,
+  countSampledIssues,
+  filterCodexAnalysisSample
+} from "@/features/analysis/model/analysis-sample-filter";
 import { buildPerformanceAnalysisViewModel } from "@/features/analysis/model/performance-analysis-view-model";
 import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
 import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
@@ -10,38 +20,73 @@ import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/ov
 
 export function PerformanceAnalysisLiveScreen() {
   const model = useControlPlaneModel();
-  const performanceAnalysisState = usePerformanceAnalysis({
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const query = useMemo(
+    () => buildAnalysisQueryFromSearchParams(searchParams),
+    [searchParams]
+  );
+  const analysisSampleState = useAnalysisSample({
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl
   });
   const connection = useMemo(
     () =>
       buildRuntimeSummaryConnectionState({
-        status: performanceAnalysisState.status,
-        error: performanceAnalysisState.error,
-        hasSnapshot: performanceAnalysisState.resource !== null
+        status: analysisSampleState.status,
+        error: analysisSampleState.error,
+        hasSnapshot: analysisSampleState.resource !== null
       }),
     [
-      performanceAnalysisState.error,
-      performanceAnalysisState.resource,
-      performanceAnalysisState.status
+      analysisSampleState.error,
+      analysisSampleState.resource,
+      analysisSampleState.status
     ]
+  );
+  const filterOptions = useMemo(
+    () =>
+      analysisSampleState.resource
+        ? buildAnalysisFilterOptions(analysisSampleState.resource)
+        : {
+            harnesses: [],
+            providers: [],
+            models: []
+          },
+    [analysisSampleState.resource]
+  );
+  const filteredSample = useMemo(
+    () =>
+      analysisSampleState.resource
+        ? filterCodexAnalysisSample(analysisSampleState.resource, query)
+        : null,
+    [analysisSampleState.resource, query]
   );
   const performanceAnalysis = useMemo(
     () =>
-      performanceAnalysisState.resource
-        ? buildPerformanceAnalysisViewModel(performanceAnalysisState.resource)
+      filteredSample
+        ? buildPerformanceAnalysisViewModel(filteredSample)
         : null,
-    [performanceAnalysisState.resource]
+    [filteredSample]
   );
 
   return (
     <ControlPlanePage connection={connection}>
       <PerformanceAnalysisView
         connection={connection}
-        error={performanceAnalysisState.error}
-        loading={performanceAnalysisState.loading}
+        error={analysisSampleState.error}
+        loading={analysisSampleState.loading}
         performanceAnalysis={performanceAnalysis}
+        query={query}
+        filterOptions={filterOptions}
+        sampledRunCount={filteredSample?.sampledRuns.length ?? 0}
+        sampledIssueCount={filteredSample ? countSampledIssues(filteredSample) : 0}
+        onQueryChange={(nextQuery) => {
+          const nextSearch = buildAnalysisSearchParams(nextQuery).toString();
+          router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname, {
+            scroll: false
+          });
+        }}
       />
     </ControlPlanePage>
   );

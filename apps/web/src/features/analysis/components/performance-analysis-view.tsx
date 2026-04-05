@@ -19,6 +19,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnalysisFilterBar } from "@/features/analysis/components/analysis-filter-bar";
 import { AnalysisPageHeader } from "@/features/analysis/components/analysis-page-header";
 import { AnalysisPageNav } from "@/features/analysis/components/analysis-page-nav";
 import { AnalysisSpotlightItem } from "@/features/analysis/components/analysis-spotlight-item";
@@ -26,15 +27,35 @@ import { PerformanceCommandFamilyChart } from "@/features/analysis/components/pe
 import { PerformanceLatencyBreakdownChart } from "@/features/analysis/components/performance-latency-breakdown-chart";
 import { PerformanceToolChart } from "@/features/analysis/components/performance-tool-chart";
 import { PerformanceTurnLatencyChart } from "@/features/analysis/components/performance-turn-latency-chart";
+import type { AnalysisQuery } from "@/features/analysis/model/analysis-query-state";
+import type { AnalysisFilterOptions } from "@/features/analysis/model/analysis-sample-filter";
 import type { PerformanceAnalysisViewModel } from "@/features/analysis/model/performance-analysis-view-model";
 import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
+
+const emptyAnalysisQuery: AnalysisQuery = {};
+const emptyAnalysisFilterOptions: AnalysisFilterOptions = {
+  harnesses: [],
+  providers: [],
+  models: []
+};
 
 export function PerformanceAnalysisView(input: {
   connection: RuntimeSummaryConnectionState;
   error: string | null;
   loading: boolean;
   performanceAnalysis: PerformanceAnalysisViewModel | null;
+  query?: AnalysisQuery;
+  filterOptions?: AnalysisFilterOptions;
+  sampledRunCount?: number;
+  sampledIssueCount?: number;
+  onQueryChange?(query: AnalysisQuery): void;
 }) {
+  const query = input.query ?? emptyAnalysisQuery;
+  const filterOptions = input.filterOptions ?? emptyAnalysisFilterOptions;
+  const sampledRunCount = input.sampledRunCount ?? 0;
+  const sampledIssueCount = input.sampledIssueCount ?? 0;
+  const onQueryChange = input.onQueryChange ?? (() => {});
+
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {input.error ? (
@@ -53,6 +74,13 @@ export function PerformanceAnalysisView(input: {
             focus="Use this page to see which execution paths are slow, flaky, or shaping the latency profile of the current run sample."
           />
           <AnalysisPageNav />
+          <AnalysisFilterBar
+            query={query}
+            options={filterOptions}
+            sampledRunCount={sampledRunCount}
+            sampledIssueCount={sampledIssueCount}
+            onQueryChange={onQueryChange}
+          />
 
           <section className="space-y-3">
             <div className="space-y-1">

@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const analysisLinks = [
@@ -30,6 +30,8 @@ const analysisLinks = [
 
 export function AnalysisPageNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams?.toString() ?? "";
 
   return (
     <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -39,7 +41,7 @@ export function AnalysisPageNav() {
         return (
           <Link
             key={link.href}
-            href={link.href}
+            href={search ? `${link.href}?${search}` : link.href}
             className={cn(
               "rounded-xl border border-border/70 p-4 transition-colors",
               isActive ? "bg-accent/40" : "bg-background/40 hover:bg-accent/20"
