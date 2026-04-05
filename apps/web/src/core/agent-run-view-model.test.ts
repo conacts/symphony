@@ -409,7 +409,10 @@ describe("agent run view model", () => {
     expect(viewModel.turnRows[0]).toMatchObject({
       turnId: "turn_123",
       turnSequence: 1,
-      href: "/issues/COL-165/runs/run_123/turns/turn_123"
+      href: "/issues/COL-165/runs/run_123/turns/turn_123",
+      commandCount: "1",
+      toolCount: "1",
+      reasoningCount: "2"
     });
     expect(viewModel.transcriptTurns[0]?.countsSummary).toContain("1 task updates");
     expect(viewModel.transcriptTurns[0]?.activitySummary).toEqual([

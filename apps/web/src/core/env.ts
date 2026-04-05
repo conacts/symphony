@@ -26,3 +26,9 @@ export function loadSymphonyDashboardEnv(
     useMockRuntime
   };
 }
+
+export function isSymphonyDashboardDevelopmentEnvironment(
+  env: EnvironmentSource = process.env
+): boolean {
+  return env.NODE_ENV === "development";
+}

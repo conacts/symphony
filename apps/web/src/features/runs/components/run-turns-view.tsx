@@ -58,24 +58,13 @@ export function RunTurnsView(input: {
               runId={viewModel.runId}
               current="turns"
             />
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">
-                  {viewModel.issueIdentifier}
-                </p>
+            <div className="space-y-2">
                 <h1 className="text-3xl font-semibold tracking-tight">
                   {viewModel.runId} turns
                 </h1>
                 <p className="max-w-3xl text-sm text-muted-foreground">
                   Turn-level drilldown for this run. Open an individual turn to inspect the prompt, transcript, tools, commands, and task state in isolation.
                 </p>
-              </div>
-              <Link
-                href={viewModel.routes.transcriptHref}
-                className="text-sm font-medium text-foreground underline underline-offset-4"
-              >
-                Back to run transcript
-              </Link>
             </div>
           </section>
 
@@ -106,57 +95,55 @@ export function RunTurnsView(input: {
             />
           </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Turn table</CardTitle>
-              <CardDescription>
+          <section className="flex flex-col gap-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Turn table</h2>
+              <p className="text-sm text-muted-foreground">
                 Runs aggregate into turns here before you drill all the way down to item-level transcript detail.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {viewModel.turnRows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No turns were recorded for this run.
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Turn</TableHead>
-                      <TableHead>Prompt</TableHead>
-                      <TableHead>Started</TableHead>
-                      <TableHead>Ended</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Tokens</TableHead>
-                      <TableHead>Activity</TableHead>
+              </p>
+            </div>
+            {viewModel.turnRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No turns were recorded for this run.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Turn</TableHead>
+                    <TableHead>Started</TableHead>
+                    <TableHead>Ended</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Tokens</TableHead>
+                    <TableHead>Commands</TableHead>
+                    <TableHead>Tools</TableHead>
+                    <TableHead>Reasoning</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {viewModel.turnRows.map((turn) => (
+                    <TableRow key={turn.turnId}>
+                      <TableCell className="font-medium">
+                        <Link
+                          href={turn.href}
+                          className="underline-offset-4 hover:underline focus-visible:underline"
+                        >
+                          Turn {turn.turnSequence}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{turn.startedAt}</TableCell>
+                      <TableCell>{turn.endedAt}</TableCell>
+                      <TableCell>{turn.status}</TableCell>
+                      <TableCell>{turn.tokenSummary}</TableCell>
+                      <TableCell>{turn.commandCount}</TableCell>
+                      <TableCell>{turn.toolCount}</TableCell>
+                      <TableCell>{turn.reasoningCount}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {viewModel.turnRows.map((turn) => (
-                      <TableRow key={turn.turnId}>
-                        <TableCell className="font-medium">
-                          <Link
-                            href={turn.href}
-                            className="underline-offset-4 hover:underline focus-visible:underline"
-                          >
-                            Turn {turn.turnSequence}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="max-w-[24rem] truncate">
-                          {turn.promptPreview}
-                        </TableCell>
-                        <TableCell>{turn.startedAt}</TableCell>
-                        <TableCell>{turn.endedAt}</TableCell>
-                        <TableCell>{turn.status}</TableCell>
-                        <TableCell>{turn.tokenSummary}</TableCell>
-                        <TableCell>{turn.countsSummary}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </section>
         </>
       ) : input.loading ? (
         <Card>

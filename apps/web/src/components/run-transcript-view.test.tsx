@@ -33,7 +33,10 @@ describe("run transcript view", () => {
     expect(html).toContain("/issues/COL-165/runs/run_123/turns");
     expect(html).toContain("/issues/COL-165/runs/run_123/turns/turn_123");
     expect(html).toContain("Turn 1");
-    expect(html).toContain("Solve the task");
+    expect(html).toContain("Commands");
+    expect(html).toContain("Tools");
+    expect(html).toContain("Reasoning");
+    expect(html).not.toContain("Prompt");
     expect(html).not.toContain("Browse turns");
     expect(html).not.toContain("<p class=\"text-sm font-medium text-muted-foreground\">COL-165</p>");
     expect(html).not.toContain("Structured run conversation");

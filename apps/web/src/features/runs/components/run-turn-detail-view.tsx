@@ -33,7 +33,6 @@ export function RunTurnDetailView(input: {
   const turn = viewModel?.transcriptTurns.find(
     (candidate) => candidate.turnId === input.turnId
   );
-  const turnRow = viewModel?.turnRows.find((candidate) => candidate.turnId === input.turnId);
 
   return (
     <div className="flex flex-col gap-8">
@@ -79,21 +78,19 @@ export function RunTurnDetailView(input: {
             <MetricCard
               label="Activity"
               value={turn.countsSummary}
-              detail={turnRow?.promptPreview ?? "Prompt preview unavailable."}
+              detail={turn.promptText}
             />
           </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Turn transcript</CardTitle>
-              <CardDescription>
+          <section className="flex flex-col gap-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Turn transcript</h2>
+              <p className="text-sm text-muted-foreground">
                 The full transcript for this turn, including reasoning, commands, tools, tasks, and assistant output.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RunTranscriptTurn turn={turn} onOpenOverflow={input.onOpenOverflow} />
-            </CardContent>
-          </Card>
+              </p>
+            </div>
+            <RunTranscriptTurn turn={turn} onOpenOverflow={input.onOpenOverflow} />
+          </section>
         </>
       ) : input.loading ? (
         <Card>

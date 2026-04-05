@@ -4,7 +4,10 @@ import type { ReactNode } from "react";
 import { IBM_Plex_Mono, Public_Sans } from "next/font/google";
 import "./globals.css";
 import { buildSymphonyDashboardFoundation } from "@/core/dashboard-foundation";
-import { loadSymphonyDashboardEnv } from "@/core/env";
+import {
+  isSymphonyDashboardDevelopmentEnvironment,
+  loadSymphonyDashboardEnv
+} from "@/core/env";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ControlPlaneFrame } from "@/features/shared/components/control-plane-frame";
 import { ControlPlaneModelProvider } from "@/features/shared/components/control-plane-model-context";
@@ -26,6 +29,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout(input: { children: ReactNode }) {
   const model = buildSymphonyDashboardFoundation(loadSymphonyDashboardEnv());
+  const isDevelopment = isSymphonyDashboardDevelopmentEnvironment();
 
   return (
     <html
@@ -34,7 +38,7 @@ export default function RootLayout(input: { children: ReactNode }) {
       className={cn("antialiased", ibmPlexMono.variable, "font-sans", publicSans.variable)}
     >
       <head>
-        {process.env.NODE_ENV === "development" && (
+        {isDevelopment && (
           <Script
             src="//unpkg.com/react-grab/dist/index.global.js"
             crossOrigin="anonymous"

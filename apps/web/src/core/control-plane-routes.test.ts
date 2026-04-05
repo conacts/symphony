@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildIssuesHref,
   buildIssueHref,
   buildIssueRunHref,
   buildIssueRunTurnHref,
@@ -10,6 +11,7 @@ import {
 
 describe("control plane routes", () => {
   it("builds nested issue, run, and turn routes", () => {
+    expect(buildIssuesHref()).toBe("/issues");
     expect(buildIssueHref("COL-165")).toBe("/issues/COL-165");
     expect(buildIssueTimelineHref("COL-165")).toBe("/issues/COL-165/timeline");
     expect(buildIssueRunHref("COL-165", "run_123")).toBe(

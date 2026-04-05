@@ -1,5 +1,9 @@
+export function buildIssuesHref(): string {
+  return "/issues";
+}
+
 export function buildIssueHref(issueIdentifier: string): string {
-  return `/issues/${encodeURIComponent(issueIdentifier)}`;
+  return `${buildIssuesHref()}/${encodeURIComponent(issueIdentifier)}`;
 }
 
 export function buildIssueTimelineHref(issueIdentifier: string): string {

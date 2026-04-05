@@ -4,6 +4,14 @@ import React from "react";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator
+} from "@/components/ui/breadcrumb";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -21,7 +29,10 @@ import {
 } from "@/components/ui/table";
 import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import type { SymphonyForensicsIssueDetailResult } from "@symphony/contracts";
-import { buildIssueTimelineHref } from "@/core/control-plane-routes";
+import {
+  buildIssueTimelineHref,
+  buildIssuesHref
+} from "@/core/control-plane-routes";
 import { IssueRunTokenChart } from "@/features/issues/components/issue-run-token-chart";
 import { buildIssueDetailViewModel } from "@/features/issues/model/issue-view-model";
 
@@ -48,9 +59,19 @@ export function IssueDetailView(input: {
       {viewModel ? (
         <>
           <section className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-muted-foreground">
-              {input.issueIdentifier}
-            </p>
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link href={buildIssuesHref()}>Issues</Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{input.issueIdentifier}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
             <h1 className="text-3xl font-semibold tracking-tight">Issue runs</h1>
             <p className="text-sm text-muted-foreground">
               Run history is the primary surface here. Timeline and runtime debugging move to the dedicated activity page.

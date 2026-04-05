@@ -22,10 +22,14 @@ describe("run turns view", () => {
     );
 
     expect(html).toContain("Turn table");
-    expect(html).toContain("Back to run transcript");
-    expect(html).toContain("/runs/run_123");
+    expect(html).toContain("Issues");
     expect(html).toContain("Turn 1");
     expect(html).toContain("/issues/COL-165/runs/run_123");
     expect(html).toContain("/issues/COL-165/runs/run_123/turns/turn_123");
+    expect(html).toContain("Commands");
+    expect(html).toContain("Tools");
+    expect(html).toContain("Reasoning");
+    expect(html).not.toContain("Back to run transcript");
+    expect(html).not.toContain("Prompt");
   });
 });

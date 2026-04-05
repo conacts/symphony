@@ -184,6 +184,9 @@ export type AgentRunTranscriptTurn = {
   status: string;
   tokenSummary: string;
   countsSummary: string;
+  commandCount: number;
+  toolCount: number;
+  reasoningCount: number;
   activitySummary: Array<{
     label: string;
     value: string;
@@ -270,12 +273,13 @@ export type AgentRunViewModel = {
     turnId: string;
     turnSequence: number;
     href: string;
-    promptPreview: string;
     startedAt: string;
     endedAt: string;
     status: string;
     tokenSummary: string;
-    countsSummary: string;
+    commandCount: string;
+    toolCount: string;
+    reasoningCount: string;
   }>;
   hasTranscript: boolean;
   repoStartText: string;
@@ -469,12 +473,13 @@ export function buildAgentRunViewModel(input: {
       turnId: turn.turnId,
       turnSequence: turn.turnSequence,
       href: buildIssueRunTurnHref(issueIdentifier, run.runId, turn.turnId),
-      promptPreview: summarizePrompt(turn.promptText),
       startedAt: turn.startedAt,
       endedAt: turn.endedAt,
       status: turn.status,
       tokenSummary: turn.tokenSummary,
-      countsSummary: turn.countsSummary
+      commandCount: formatCount(turn.commandCount),
+      toolCount: formatCount(turn.toolCount),
+      reasoningCount: formatCount(turn.reasoningCount)
     })),
     hasTranscript: transcriptTurns.length > 0,
     repoStartText: formatRepoSnapshot(run.repoStart),
@@ -499,15 +504,6 @@ export function formatOverflowContent(overflow: SymphonyAgentOverflowResult): st
   }
 
   return JSON.stringify(overflow.overflow.contentJson, null, 2);
-}
-
-function summarizePrompt(value: string): string {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 96) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, 93)}...`;
 }
 
 function buildTranscriptTurns(
@@ -554,6 +550,9 @@ function buildTranscriptTurns(
         startedAt: formatTimestamp(turn.startedAt),
         endedAt: formatTimestamp(turn.endedAt),
         status: formatStatusLabel(turn.status),
+        commandCount: turn.commandCount,
+        toolCount: turn.toolCallCount,
+        reasoningCount: turn.reasoningCount,
         tokenSummary:
           turn.usage === null
             ? "Usage unavailable"

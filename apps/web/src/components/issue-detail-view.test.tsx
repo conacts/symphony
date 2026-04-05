@@ -19,6 +19,8 @@ describe("issue detail view", () => {
       />
     );
 
+    expect(html).toContain("Issues");
+    expect(html).toContain('href="/issues"');
     expect(html).toContain("Issue runs");
     expect(html).toContain("Recent run token load");
     expect(html).toContain("Average run tokens");

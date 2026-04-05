@@ -115,12 +115,13 @@ export function RunTranscriptView(input: {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Turn</TableHead>
-                      <TableHead>Prompt</TableHead>
                       <TableHead>Started</TableHead>
                       <TableHead>Ended</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Tokens</TableHead>
-                      <TableHead>Activity</TableHead>
+                      <TableHead>Commands</TableHead>
+                      <TableHead>Tools</TableHead>
+                      <TableHead>Reasoning</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -134,14 +135,13 @@ export function RunTranscriptView(input: {
                             Turn {turn.turnSequence}
                           </Link>
                         </TableCell>
-                        <TableCell className="max-w-[24rem] truncate">
-                          {turn.promptPreview}
-                        </TableCell>
                         <TableCell>{turn.startedAt}</TableCell>
                         <TableCell>{turn.endedAt}</TableCell>
                         <TableCell>{turn.status}</TableCell>
                         <TableCell>{turn.tokenSummary}</TableCell>
-                        <TableCell>{turn.countsSummary}</TableCell>
+                        <TableCell>{turn.commandCount}</TableCell>
+                        <TableCell>{turn.toolCount}</TableCell>
+                        <TableCell>{turn.reasoningCount}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
