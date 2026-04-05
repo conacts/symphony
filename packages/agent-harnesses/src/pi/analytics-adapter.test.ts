@@ -367,4 +367,67 @@ describe("pi analytics adapter", () => {
       }
     ]);
   });
+
+  it("preserves assistant message/reasoning part order while preserving unsupported-part losses", () => {
+    const projection = projectPiMessageEndEvent({
+      event: {
+        type: "message_end",
+        message: {
+          role: "assistant",
+          responseId: "resp-2",
+          content: [
+            {
+              type: "text",
+              text: "First text"
+            },
+            {
+              type: "thinking",
+              thinking: "First reasoning"
+            },
+            {
+              type: "unknown",
+              data: "ignored"
+            },
+            {
+              type: "text",
+              text: "Second text"
+            }
+          ]
+        }
+      }
+    });
+
+    expect(projection.events).toEqual([
+      {
+        type: "item.completed",
+        item: {
+          id: "resp-2:text:0",
+          type: "agent_message",
+          text: "First text"
+        }
+      },
+      {
+        type: "item.completed",
+        item: {
+          id: "resp-2:reasoning:1",
+          type: "reasoning",
+          text: "First reasoning"
+        }
+      },
+      {
+        type: "item.completed",
+        item: {
+          id: "resp-2:text:2",
+          type: "agent_message",
+          text: "Second text"
+        }
+      }
+    ]);
+    expect(projection.losses).toEqual([
+      {
+        kind: "unsupported_message_part",
+        partType: "unknown"
+      }
+    ]);
+  });
 });

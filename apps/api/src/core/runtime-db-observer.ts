@@ -5,19 +5,19 @@ import {
   summarizePreparedWorkspace,
   type WorkspaceLifecycleMetadata
 } from "@symphony/workspace";
-import type { CodexAnalyticsStore } from "@symphony/codex-analytics";
 import type { JsonValue } from "@symphony/contracts";
 import type {
+  AgentAnalyticsStore,
   SymphonyIssueTimelineStore,
   SymphonyRuntimeRunStatus,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
-import type { CodexRunStatus } from "@symphony/codex-analytics";
+import type { SymphonyAgentRunStatus } from "@symphony/contracts";
 
 export function createDbBackedOrchestratorObserver(input: {
   runStore: SymphonyRuntimeRunStore;
   issueTimelineStore: SymphonyIssueTimelineStore;
-  codexAnalytics: CodexAnalyticsStore;
+  agentAnalytics: AgentAnalyticsStore;
 }): SymphonyOrchestratorObserver {
   return {
     async startRun({ issue, attempt, harness, workspace, workerHost, startedAt }) {
@@ -35,7 +35,7 @@ export function createDbBackedOrchestratorObserver(input: {
         }
       });
 
-      await input.codexAnalytics.startRun({
+      await input.agentAnalytics.startRun({
         runId,
         issueId: issue.id,
         issueIdentifier: issue.identifier,
@@ -130,7 +130,7 @@ export function createDbBackedOrchestratorObserver(input: {
             stopPayload: normalizeJsonValue(payload)
           }
         });
-        await input.codexAnalytics.finalizeRun({
+        await input.agentAnalytics.finalizeRun({
           runId,
           status: "stopped",
           endedAt: stoppedAt,
@@ -206,7 +206,7 @@ export function createDbBackedOrchestratorObserver(input: {
           completion.kind === "normal" ? null : completion.reason
       });
 
-      await input.codexAnalytics.finalizeRun({
+      await input.agentAnalytics.finalizeRun({
         runId,
         status: codexRunStatus(completion),
         endedAt,
@@ -249,7 +249,7 @@ function completionStatus(
 
 function codexRunStatus(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
-): CodexRunStatus {
+): SymphonyAgentRunStatus {
   switch (completion.kind) {
     case "normal":
       return "completed";

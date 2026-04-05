@@ -25,7 +25,12 @@ export type {
   SymphonyRuntimeTurnUpdateAttrs
 } from "./runtime-run-types.js";
 export {
+  createSqliteAgentAnalyticsStore,
   createSqliteCodexAnalyticsStore
+} from "./codex-analytics-store.js";
+export type {
+  AgentAnalyticsStore,
+  CodexAnalyticsStore
 } from "./codex-analytics-store.js";
 export {
   createSqliteAgentAnalyticsReadStore,

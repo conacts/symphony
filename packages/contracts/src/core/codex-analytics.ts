@@ -1,44 +1,45 @@
 import { z } from "zod";
 import {
   isThreadEvent,
+  extractUsage,
   type ThreadEvent
 } from "@symphony/codex-analytics";
 import { nonEmptyStringSchema } from "./shared.js";
 
-export const symphonyCodexUsageSchema = z.strictObject({
+export const symphonyAgentUsageSchema = z.strictObject({
   input_tokens: z.number().int().nonnegative(),
   cached_input_tokens: z.number().int().nonnegative(),
   output_tokens: z.number().int().nonnegative()
 });
 
-export const symphonyCodexCommandExecutionStatusSchema = z.enum([
+export const symphonyAgentCommandExecutionStatusSchema = z.enum([
   "in_progress",
   "completed",
   "failed"
 ]);
 
-export const symphonyCodexCommandExecutionItemSchema = z.strictObject({
+export const symphonyAgentCommandExecutionItemSchema = z.strictObject({
   id: nonEmptyStringSchema,
   type: z.literal("command_execution"),
   command: z.string(),
   aggregated_output: z.string(),
   exit_code: z.number().int().optional(),
-  status: symphonyCodexCommandExecutionStatusSchema
+  status: symphonyAgentCommandExecutionStatusSchema
 });
 
-export const symphonyCodexFileUpdateChangeSchema = z.strictObject({
+export const symphonyAgentFileUpdateChangeSchema = z.strictObject({
   path: nonEmptyStringSchema,
   kind: z.enum(["add", "delete", "update"])
 });
 
-export const symphonyCodexFileChangeItemSchema = z.strictObject({
+export const symphonyAgentFileChangeItemSchema = z.strictObject({
   id: nonEmptyStringSchema,
   type: z.literal("file_change"),
-  changes: z.array(symphonyCodexFileUpdateChangeSchema),
+  changes: z.array(symphonyAgentFileUpdateChangeSchema),
   status: z.enum(["completed", "failed"])
 });
 
-export const symphonyCodexMcpToolCallItemSchema = z.strictObject({
+export const symphonyAgentMcpToolCallItemSchema = z.strictObject({
   id: nonEmptyStringSchema,
   type: z.literal("mcp_tool_call"),
   server: nonEmptyStringSchema,
@@ -58,96 +59,138 @@ export const symphonyCodexMcpToolCallItemSchema = z.strictObject({
   status: z.enum(["in_progress", "completed", "failed"])
 });
 
-export const symphonyCodexAgentMessageItemSchema = z.strictObject({
+export const symphonyAgentAgentMessageItemSchema = z.strictObject({
   id: nonEmptyStringSchema,
   type: z.literal("agent_message"),
   text: z.string()
 });
 
-export const symphonyCodexReasoningItemSchema = z.strictObject({
+export const symphonyAgentReasoningItemSchema = z.strictObject({
   id: nonEmptyStringSchema,
   type: z.literal("reasoning"),
   text: z.string()
 });
 
-export const symphonyCodexWebSearchItemSchema = z.strictObject({
+export const symphonyAgentWebSearchItemSchema = z.strictObject({
   id: nonEmptyStringSchema,
   type: z.literal("web_search"),
   query: z.string()
 });
 
-export const symphonyCodexErrorItemSchema = z.strictObject({
+export const symphonyAgentErrorItemSchema = z.strictObject({
   id: nonEmptyStringSchema,
   type: z.literal("error"),
   message: z.string()
 });
 
-export const symphonyCodexTodoItemSchema = z.strictObject({
+export const symphonyAgentTodoItemSchema = z.strictObject({
   text: z.string(),
   completed: z.boolean()
 });
 
-export const symphonyCodexTodoListItemSchema = z.strictObject({
+export const symphonyAgentTodoListItemSchema = z.strictObject({
   id: nonEmptyStringSchema,
   type: z.literal("todo_list"),
-  items: z.array(symphonyCodexTodoItemSchema)
+  items: z.array(symphonyAgentTodoItemSchema)
 });
 
-export const symphonyCodexThreadItemSchema = z.discriminatedUnion("type", [
-  symphonyCodexAgentMessageItemSchema,
-  symphonyCodexReasoningItemSchema,
-  symphonyCodexCommandExecutionItemSchema,
-  symphonyCodexFileChangeItemSchema,
-  symphonyCodexMcpToolCallItemSchema,
-  symphonyCodexWebSearchItemSchema,
-  symphonyCodexTodoListItemSchema,
-  symphonyCodexErrorItemSchema
+export const symphonyAgentThreadItemSchema = z.discriminatedUnion("type", [
+  symphonyAgentAgentMessageItemSchema,
+  symphonyAgentReasoningItemSchema,
+  symphonyAgentCommandExecutionItemSchema,
+  symphonyAgentFileChangeItemSchema,
+  symphonyAgentMcpToolCallItemSchema,
+  symphonyAgentWebSearchItemSchema,
+  symphonyAgentTodoListItemSchema,
+  symphonyAgentErrorItemSchema
 ]);
 
-export const symphonyCodexThreadStartedEventSchema = z.strictObject({
+export const symphonyAgentThreadStartedEventSchema = z.strictObject({
   type: z.literal("thread.started"),
   thread_id: nonEmptyStringSchema
 });
 
-export const symphonyCodexTurnStartedEventSchema = z.strictObject({
+export const symphonyAgentTurnStartedEventSchema = z.strictObject({
   type: z.literal("turn.started")
 });
 
-export const symphonyCodexTurnCompletedEventSchema = z.strictObject({
+export const symphonyAgentTurnCompletedEventSchema = z.strictObject({
   type: z.literal("turn.completed"),
-  usage: symphonyCodexUsageSchema
+  usage: symphonyAgentUsageSchema
 });
 
-export const symphonyCodexTurnFailedEventSchema = z.strictObject({
+export const symphonyAgentTurnFailedEventSchema = z.strictObject({
   type: z.literal("turn.failed"),
   error: z.strictObject({
     message: nonEmptyStringSchema
   })
 });
 
-export const symphonyCodexItemStartedEventSchema = z.strictObject({
+export const symphonyAgentItemStartedEventSchema = z.strictObject({
   type: z.literal("item.started"),
-  item: symphonyCodexThreadItemSchema
+  item: symphonyAgentThreadItemSchema
 });
 
-export const symphonyCodexItemUpdatedEventSchema = z.strictObject({
+export const symphonyAgentItemUpdatedEventSchema = z.strictObject({
   type: z.literal("item.updated"),
-  item: symphonyCodexThreadItemSchema
+  item: symphonyAgentThreadItemSchema
 });
 
-export const symphonyCodexItemCompletedEventSchema = z.strictObject({
+export const symphonyAgentItemCompletedEventSchema = z.strictObject({
   type: z.literal("item.completed"),
-  item: symphonyCodexThreadItemSchema
+  item: symphonyAgentThreadItemSchema
 });
 
-export const symphonyCodexStreamErrorEventSchema = z.strictObject({
+export const symphonyAgentStreamErrorEventSchema = z.strictObject({
   type: z.literal("error"),
   message: nonEmptyStringSchema
 });
 
-export const symphonyCodexAnalyticsEventSchema = z.custom<ThreadEvent>(
+export const symphonyAgentAnalyticsEventSchema = z.custom<ThreadEvent>(
   (value) => isThreadEvent(value),
   {
-    message: "Invalid Codex ThreadEvent payload."
+    message: "Invalid Agent ThreadEvent payload."
   }
 );
+
+export const symphonyCodexUsageSchema = symphonyAgentUsageSchema;
+export const symphonyCodexCommandExecutionStatusSchema =
+  symphonyAgentCommandExecutionStatusSchema;
+export const symphonyCodexCommandExecutionItemSchema =
+  symphonyAgentCommandExecutionItemSchema;
+export const symphonyCodexFileUpdateChangeSchema =
+  symphonyAgentFileUpdateChangeSchema;
+export const symphonyCodexFileChangeItemSchema =
+  symphonyAgentFileChangeItemSchema;
+export const symphonyCodexMcpToolCallItemSchema =
+  symphonyAgentMcpToolCallItemSchema;
+export const symphonyCodexAgentMessageItemSchema =
+  symphonyAgentAgentMessageItemSchema;
+export const symphonyCodexReasoningItemSchema =
+  symphonyAgentReasoningItemSchema;
+export const symphonyCodexWebSearchItemSchema = symphonyAgentWebSearchItemSchema;
+export const symphonyCodexErrorItemSchema = symphonyAgentErrorItemSchema;
+export const symphonyCodexTodoItemSchema = symphonyAgentTodoItemSchema;
+export const symphonyCodexTodoListItemSchema =
+  symphonyAgentTodoListItemSchema;
+export const symphonyCodexThreadItemSchema = symphonyAgentThreadItemSchema;
+export const symphonyCodexThreadStartedEventSchema =
+  symphonyAgentThreadStartedEventSchema;
+export const symphonyCodexTurnStartedEventSchema =
+  symphonyAgentTurnStartedEventSchema;
+export const symphonyCodexTurnCompletedEventSchema =
+  symphonyAgentTurnCompletedEventSchema;
+export const symphonyCodexTurnFailedEventSchema =
+  symphonyAgentTurnFailedEventSchema;
+export const symphonyCodexItemStartedEventSchema =
+  symphonyAgentItemStartedEventSchema;
+export const symphonyCodexItemUpdatedEventSchema =
+  symphonyAgentItemUpdatedEventSchema;
+export const symphonyCodexItemCompletedEventSchema =
+  symphonyAgentItemCompletedEventSchema;
+export const symphonyCodexStreamErrorEventSchema =
+  symphonyAgentStreamErrorEventSchema;
+export const symphonyCodexAnalyticsEventSchema =
+  symphonyAgentAnalyticsEventSchema;
+
+export { isThreadEvent, extractUsage };

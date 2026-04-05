@@ -1049,6 +1049,7 @@ export function buildSymphonyCodexRunArtifactsResult(
         textContent: null,
         textPreview: "Task complete.",
         textOverflowId: "overflow_message_123",
+        recordedAt: "2026-03-31T18:01:00.000Z",
         insertedAt: "2026-03-31T18:00:42.000Z",
         updatedAt: "2026-03-31T18:01:00.000Z"
       }
@@ -1061,6 +1062,7 @@ export function buildSymphonyCodexRunArtifactsResult(
         textContent: "Inspecting the repository structure before making changes.",
         textPreview: "Inspecting the repository structure before making changes.",
         textOverflowId: null,
+        recordedAt: "2026-03-31T18:00:05.000Z",
         insertedAt: "2026-03-31T18:00:05.000Z",
         updatedAt: "2026-03-31T18:00:10.000Z"
       }
@@ -1101,6 +1103,7 @@ export function buildSymphonyCodexRunArtifactsResult(
             textContent: null,
             textPreview: "Task complete.",
             textOverflowId: "overflow_message_123",
+            recordedAt: "2026-03-31T18:01:00.000Z",
             insertedAt: "2026-03-31T18:00:42.000Z",
             updatedAt: "2026-03-31T18:01:00.000Z"
           }
@@ -1113,6 +1116,7 @@ export function buildSymphonyCodexRunArtifactsResult(
             textContent: "Inspecting the repository structure before making changes.",
             textPreview: "Inspecting the repository structure before making changes.",
             textOverflowId: null,
+            recordedAt: "2026-03-31T18:00:05.000Z",
             insertedAt: "2026-03-31T18:00:05.000Z",
             updatedAt: "2026-03-31T18:00:10.000Z"
           }

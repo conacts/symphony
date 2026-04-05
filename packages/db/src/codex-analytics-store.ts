@@ -6,7 +6,7 @@ import type {
   CodexAnalyticsRunFinalize,
   CodexAnalyticsTurnFinalize,
   CodexAnalyticsRunStart,
-  CodexAnalyticsStore,
+  CodexAnalyticsStore as LegacyCodexAnalyticsStore,
   CodexPayloadOverflowKind,
   CodexRunStatus,
   CodexTurnStatus,
@@ -40,6 +40,9 @@ import {
   codexTaskSnapshotsTable,
   symphonyRunsTable
 } from "./schema.js";
+
+export type AgentAnalyticsStore = LegacyCodexAnalyticsStore;
+export type CodexAnalyticsStore = LegacyCodexAnalyticsStore;
 
 const defaultPayloadMaxBytes = 64 * 1024;
 const defaultPreviewMaxChars = 280;
@@ -75,15 +78,17 @@ type CodexEventMutationContext = {
   previewMaxChars: number;
 };
 
-export function createSqliteCodexAnalyticsStore(input: {
+export function createSqliteAgentAnalyticsStore(input: {
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   payloadMaxBytes?: number;
   previewMaxChars?: number;
-}): CodexAnalyticsStore {
-  return new SqliteCodexAnalyticsStore(input);
+}): AgentAnalyticsStore {
+  return new SqliteAgentAnalyticsStore(input);
 }
 
-class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
+export const createSqliteCodexAnalyticsStore = createSqliteAgentAnalyticsStore;
+
+class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
   readonly #db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   readonly #payloadMaxBytes: number;
   readonly #previewMaxChars: number;
@@ -983,6 +988,7 @@ function projectTextItem(
     itemId,
     textContent,
     textOverflowId,
+    context.input.recordedAt,
     context.now,
     context.previewMaxChars
   );
@@ -1605,6 +1611,7 @@ function upsertTextItemRow(
   itemId: string,
   textContent: string | null,
   overflowId: string | null,
+  recordedAt: string,
   now: string,
   previewMaxChars: number
 ): void {
@@ -1627,6 +1634,7 @@ function upsertTextItemRow(
         textContent: inlineText,
         textPreview,
         textOverflowId: overflowId,
+        recordedAt,
         insertedAt: now,
         updatedAt: now
       })
@@ -1639,6 +1647,7 @@ function upsertTextItemRow(
       textContent: inlineText,
       textPreview,
       textOverflowId: overflowId ?? existing.textOverflowId,
+      recordedAt,
       updatedAt: now
     })
     .where(and(eq(table.runId, runId), eq(table.turnId, turnId), eq(table.itemId, itemId)))

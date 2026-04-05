@@ -101,7 +101,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         const runStore = createSqliteSymphonyRuntimeRunStore({
           db: database.db
         });
-        const codexAnalytics = createSqliteCodexAnalyticsStore({
+        const agentAnalytics = createSqliteCodexAnalyticsStore({
           db: database.db
         });
         const runId = await runStore.recordRunStarted({
@@ -121,7 +121,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
             ),
             tracker: createDoneTracker(issue),
             runStore,
-            codexAnalytics,
+            agentAnalytics,
             runtimeLogs: {
               async record() {
                 return "log-1";
@@ -255,7 +255,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         const runStore = createSqliteSymphonyRuntimeRunStore({
           db: database.db
         });
-        const codexAnalytics = createSqliteCodexAnalyticsStore({
+        const agentAnalytics = createSqliteCodexAnalyticsStore({
           db: database.db
         });
         const runId = await runStore.recordRunStarted({
@@ -275,7 +275,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
             ),
             tracker: createDoneTracker(issue),
             runStore,
-            codexAnalytics,
+            agentAnalytics,
             runtimeLogs: {
               async record() {
                 return "log-1";

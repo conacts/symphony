@@ -264,6 +264,7 @@ export const codexAgentMessagesTable = sqliteTable(
     textContent: text("text_content"),
     textPreview: text("text_preview"),
     textOverflowId: text("text_overflow_id"),
+    recordedAt: text("recorded_at").notNull(),
     insertedAt: text("inserted_at").notNull(),
     updatedAt: text("updated_at").notNull()
   },
@@ -272,7 +273,11 @@ export const codexAgentMessagesTable = sqliteTable(
       columns: [table.runId, table.turnId, table.itemId],
       name: "codex_agent_messages_pk"
     }),
-    runIdIdx: index("codex_agent_messages_run_id_idx").on(table.runId)
+    runIdIdx: index("codex_agent_messages_run_id_idx").on(table.runId),
+    runRecordedAtIdx: index("codex_agent_messages_run_recorded_at_idx").on(
+      table.runId,
+      table.recordedAt
+    )
   })
 );
 
@@ -285,6 +290,7 @@ export const codexReasoningTable = sqliteTable(
     textContent: text("text_content"),
     textPreview: text("text_preview"),
     textOverflowId: text("text_overflow_id"),
+    recordedAt: text("recorded_at").notNull(),
     insertedAt: text("inserted_at").notNull(),
     updatedAt: text("updated_at").notNull()
   },
@@ -293,7 +299,11 @@ export const codexReasoningTable = sqliteTable(
       columns: [table.runId, table.turnId, table.itemId],
       name: "codex_reasoning_pk"
     }),
-    runIdIdx: index("codex_reasoning_run_id_idx").on(table.runId)
+    runIdIdx: index("codex_reasoning_run_id_idx").on(table.runId),
+    runRecordedAtIdx: index("codex_reasoning_run_recorded_at_idx").on(
+      table.runId,
+      table.recordedAt
+    )
   })
 );
 

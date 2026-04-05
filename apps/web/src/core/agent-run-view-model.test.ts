@@ -75,6 +75,7 @@ describe("agent run view model", () => {
       textContent: "Checking the pending task queue before continuing.",
       textPreview: "Checking the pending task queue before continuing.",
       textOverflowId: null,
+      recordedAt: "2026-03-31T18:00:11.000Z",
       insertedAt: "2026-03-31T18:00:11.000Z",
       updatedAt: "2026-03-31T18:00:11.000Z"
     });

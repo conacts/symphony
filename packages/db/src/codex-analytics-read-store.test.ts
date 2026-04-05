@@ -320,6 +320,142 @@ describe("sqlite codex analytics read store", () => {
     }
   });
 
+  it("orders persisted messages and reasoning by recordedAt for deterministic turn activities", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-read-ordering-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runJournal = createSqliteSymphonyRunJournal({
+      db: database.db,
+      dbFile: path.join(root, "symphony.db"),
+      timelineStore: createSymphonyIssueTimelineStore(database.db)
+    });
+    const analytics = createSqliteCodexAnalyticsStore({
+      db: database.db,
+      payloadMaxBytes: 64
+    });
+    const readStore = createSqliteCodexAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runJournal.recordRunStarted({
+        runId: "run-ordering",
+        issueId: "issue-4",
+        issueIdentifier: "COL-204",
+        startedAt: "2026-04-03T20:39:00.000Z",
+        status: "running"
+      });
+      const turnId = await runJournal.recordTurnStarted(runId, {
+        turnId: "turn-ordering",
+        turnSequence: 1,
+        promptText: "Check ordering",
+        status: "running",
+        startedAt: "2026-04-03T20:39:01.000Z",
+        codexThreadId: "thread-ordering",
+        codexTurnId: "turn-ordering"
+      });
+
+      await analytics.startRun({
+        runId,
+        issueId: "issue-4",
+        issueIdentifier: "COL-204",
+        startedAt: "2026-04-03T20:39:00.000Z",
+        status: "running",
+        threadId: "thread-ordering"
+      });
+
+      await analytics.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-ordering",
+        recordedAt: "2026-04-03T20:39:01.300Z",
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "message-late",
+            type: "agent_message",
+            text: "Later"
+          }
+        }
+      });
+      await analytics.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-ordering",
+        recordedAt: "2026-04-03T20:39:01.100Z",
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "message-early",
+            type: "agent_message",
+            text: "Earlier"
+          }
+        }
+      });
+      await analytics.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-ordering",
+        recordedAt: "2026-04-03T20:39:01.250Z",
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "reasoning-late",
+            type: "reasoning",
+            text: "Late reasoning"
+          }
+        }
+      });
+      await analytics.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-ordering",
+        recordedAt: "2026-04-03T20:39:01.050Z",
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "reasoning-early",
+            type: "reasoning",
+            text: "Early reasoning"
+          }
+        }
+      });
+
+      const messages = await readStore.listAgentMessages({
+        runId,
+        turnId
+      });
+      const reasoning = await readStore.listReasoning({
+        runId,
+        turnId
+      });
+      const artifacts = await readStore.fetchRunArtifacts(runId);
+      const turnActivities = artifacts?.turnActivities ?? [];
+
+      expect(messages.map((message) => message.itemId)).toEqual([
+        "message-early",
+        "message-late"
+      ]);
+      expect(reasoning.map((entry) => entry.itemId)).toEqual([
+        "reasoning-early",
+        "reasoning-late"
+      ]);
+      expect(turnActivities[0]?.messages.map((entry) => entry.itemId)).toEqual([
+        "message-early",
+        "message-late"
+      ]);
+      expect(turnActivities[0]?.reasoningBlocks.map((entry) => entry.itemId)).toEqual([
+        "reasoning-early",
+        "reasoning-late"
+      ]);
+    } finally {
+      database.close();
+    }
+  });
+
   it("filters projected records by turn and preserves failed-run analytics details", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-read-failed-"));
     tempDirectories.push(root);

@@ -13,7 +13,7 @@ import {
 } from "@symphony/tracker";
 import {
   createSqliteAgentAnalyticsReadStore,
-  createSqliteCodexAnalyticsStore,
+  createSqliteAgentAnalyticsStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyGitHubIngressJournal,
   createSymphonyIssueTimelineStore,
@@ -115,7 +115,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     db: database.db,
     timelineStore: issueTimelineStore
   });
-  const codexAnalytics = createSqliteCodexAnalyticsStore({
+  const agentAnalyticsStore = createSqliteAgentAnalyticsStore({
     db: database.db
   });
   const agentAnalyticsReadStore = createSqliteAgentAnalyticsReadStore({
@@ -261,7 +261,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const observer = createDbBackedOrchestratorObserver({
     runStore,
     issueTimelineStore,
-    codexAnalytics
+    agentAnalytics: agentAnalyticsStore
   });
   let runtimeRef: Pick<
     ReturnType<typeof createSymphonyRuntime>,
@@ -274,7 +274,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       githubRepository: runtimePolicy.github.repo,
       tracker,
       runStore,
-      codexAnalytics,
+      agentAnalytics: agentAnalyticsStore,
       runtimeLogs: runtimeLogStore,
       hostCommandEnvSource,
       harnessLaunchEnv,

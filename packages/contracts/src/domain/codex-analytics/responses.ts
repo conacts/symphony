@@ -205,6 +205,7 @@ export const symphonyCodexAgentMessageRecordSchema = z.strictObject({
   textContent: z.string().nullable(),
   textPreview: nullableNonEmptyStringSchema,
   textOverflowId: nullableNonEmptyStringSchema,
+  recordedAt: isoTimestampSchema,
   insertedAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema
 });
@@ -216,6 +217,7 @@ export const symphonyCodexReasoningRecordSchema = z.strictObject({
   textContent: z.string().nullable(),
   textPreview: nullableNonEmptyStringSchema,
   textOverflowId: nullableNonEmptyStringSchema,
+  recordedAt: isoTimestampSchema,
   insertedAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema
 });

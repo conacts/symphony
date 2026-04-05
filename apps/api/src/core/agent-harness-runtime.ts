@@ -13,18 +13,16 @@ import {
   type SymphonyLoadedPromptContract
 } from "@symphony/runtime-contract";
 import type { JsonObject } from "@symphony/contracts";
-import type {
-  CodexAnalyticsStore
-} from "@symphony/codex-analytics";
 import {
   extractUsage,
   isThreadEvent
-} from "@symphony/codex-analytics";
+} from "@symphony/contracts";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type {
+  AgentAnalyticsStore,
   SymphonyRuntimeLogStore,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
@@ -65,7 +63,7 @@ export function createSymphonyAgentRuntime(input: {
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
-  codexAnalytics: CodexAnalyticsStore;
+  agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
   harnessLaunchEnv?: Record<string, string>;
@@ -90,7 +88,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
-  codexAnalytics: CodexAnalyticsStore;
+  agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
   harnessLaunchEnv?: Record<string, string>;
@@ -120,7 +118,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
         githubRepository: input.githubRepository ?? null,
         tracker: input.tracker,
         runStore: input.runStore,
-        codexAnalytics: input.codexAnalytics,
+        agentAnalytics: input.agentAnalytics,
         runtimeLogs: input.runtimeLogs,
         runtimePolicy: runInput.runtimePolicy,
         logger: input.logger.child({
@@ -169,7 +167,7 @@ async function executeRun(input: {
   githubRepository: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
-  codexAnalytics: CodexAnalyticsStore;
+  agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
   logger: SymphonyLogger;
@@ -238,7 +236,7 @@ async function executeRun(input: {
     sessionProviderName = session.providerName;
 
     if (input.runId) {
-      await input.codexAnalytics.startRun({
+      await input.agentAnalytics.startRun({
         runId: input.runId,
         issueId: input.issue.id,
         issueIdentifier: input.issue.identifier,
@@ -291,7 +289,7 @@ async function executeRun(input: {
       if (input.activeRun.stopped) {
         await finalizeStoppedTurn(
           input.runStore,
-          input.codexAnalytics,
+          input.agentAnalytics,
           input.runId,
           persistedTurnId
         );
@@ -384,7 +382,7 @@ async function executeRun(input: {
             }
 
             if (threadEvent) {
-              await input.codexAnalytics.recordEvent({
+              await input.agentAnalytics.recordEvent({
                 runId: input.runId,
                 turnId: persistedTurnId,
                 threadId: codexThreadId,
@@ -408,7 +406,7 @@ async function executeRun(input: {
           codexSessionId: turnResult.sessionId,
           usage: turnResult.usage ?? null
         });
-        await input.codexAnalytics.finalizeTurn({
+        await input.agentAnalytics.finalizeTurn({
           runId: input.runId,
           turnId: persistedTurnId,
           endedAt,
@@ -471,7 +469,7 @@ async function executeRun(input: {
     if (input.activeRun.stopped) {
       await finalizeStoppedTurn(
         input.runStore,
-        input.codexAnalytics,
+        input.agentAnalytics,
         input.runId,
         persistedTurnId
       );
@@ -488,7 +486,7 @@ async function executeRun(input: {
           reason
         }
       });
-      await input.codexAnalytics.finalizeTurn({
+      await input.agentAnalytics.finalizeTurn({
         runId: input.runId,
         turnId: persistedTurnId,
         endedAt: new Date().toISOString(),
@@ -778,7 +776,7 @@ function normalizeRuntimeUpdateEventName(value: string | null): string | null {
 
 async function finalizeStoppedTurn(
   runStore: SymphonyRuntimeRunStore,
-  codexAnalytics: CodexAnalyticsStore,
+  agentAnalytics: AgentAnalyticsStore,
   runId: string | null,
   persistedTurnId: string | null
 ): Promise<void> {
@@ -793,7 +791,7 @@ async function finalizeStoppedTurn(
       stopReason: "runtime_stopped"
     }
   });
-  await codexAnalytics.finalizeTurn({
+  await agentAnalytics.finalizeTurn({
     runId,
     turnId: persistedTurnId,
     endedAt: new Date().toISOString(),

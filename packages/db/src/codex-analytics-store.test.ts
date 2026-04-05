@@ -1,16 +1,18 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
 import { createSqliteCodexAnalyticsReadStore } from "./codex-analytics-read-store.js";
 import { createSqliteCodexAnalyticsStore } from "./codex-analytics-store.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
 import {
+  codexAgentMessagesTable,
   codexCommandExecutionsTable,
   codexEventLogTable,
   codexFileChangesTable,
+  codexReasoningTable,
   codexItemsTable,
   codexPayloadOverflowTable,
   codexRunsTable,
@@ -214,6 +216,113 @@ describe("sqlite codex analytics store", () => {
         itemCount: 1,
         commandCount: 1
       });
+    } finally {
+      database.close();
+    }
+  });
+
+  it("persists agent message and reasoning text with recordedAt and overflow boundaries", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-message-reasoning-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const analyticsStore = createSqliteCodexAnalyticsStore({
+      db: database.db,
+      payloadMaxBytes: 128
+    });
+
+    try {
+      const runId = await runStore.recordRunStarted({
+        runId: "run-message-reasoning",
+        issueId: "issue-4",
+        issueIdentifier: "COL-204",
+        startedAt: "2026-04-03T20:38:00.000Z",
+        status: "running"
+      });
+      const turnId = await runStore.recordTurnStarted(runId, {
+        turnId: "turn-message-reasoning",
+        promptText: "Write a response with reasoning",
+        startedAt: "2026-04-03T20:38:01.000Z",
+        status: "running"
+      });
+
+      const reasoningText = "B".repeat(420);
+      const agentMessageText = "A".repeat(420);
+
+      await analyticsStore.startRun({
+        runId,
+        issueId: "issue-4",
+        issueIdentifier: "COL-204",
+        startedAt: "2026-04-03T20:38:00.000Z",
+        status: "running",
+        threadId: "thread-message-reasoning"
+      });
+
+      await analyticsStore.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-message-reasoning",
+        recordedAt: "2026-04-03T20:38:01.200Z",
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "reasoning-1",
+            type: "reasoning",
+            text: reasoningText
+          }
+        }
+      });
+      await analyticsStore.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-message-reasoning",
+        recordedAt: "2026-04-03T20:38:01.300Z",
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "message-1",
+            type: "agent_message",
+            text: agentMessageText
+          }
+        }
+      });
+
+      const reason = database.db
+        .select()
+        .from(codexReasoningTable)
+        .where(eq(codexReasoningTable.itemId, "reasoning-1"))
+        .get();
+      const message = database.db
+        .select()
+        .from(codexAgentMessagesTable)
+        .where(eq(codexAgentMessagesTable.itemId, "message-1"))
+        .get();
+      const overflowEntries = database.db
+        .select()
+        .from(codexPayloadOverflowTable)
+        .where(
+          or(
+            eq(codexPayloadOverflowTable.id, reason?.textOverflowId ?? ""),
+            eq(codexPayloadOverflowTable.id, message?.textOverflowId ?? "")
+          )
+        )
+        .all();
+
+      expect(reason?.recordedAt).toBe("2026-04-03T20:38:01.200Z");
+      expect(message?.recordedAt).toBe("2026-04-03T20:38:01.300Z");
+      expect(reason?.textContent).toBeNull();
+      expect(message?.textContent).toBeNull();
+      expect(reason?.textOverflowId).toBeTypeOf("string");
+      expect(message?.textOverflowId).toBeTypeOf("string");
+      expect(reason?.textPreview).toBeDefined();
+      expect(message?.textPreview).toBeDefined();
+      expect(overflowEntries.length).toBe(2);
+      expect(reason?.textOverflowId).not.toBe(message?.textOverflowId);
     } finally {
       database.close();
     }

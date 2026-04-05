@@ -76,7 +76,7 @@ describe("docker codex symphony agent runtime", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const codexAnalytics = createSqliteCodexAnalyticsStore({
+    const agentAnalytics = createSqliteCodexAnalyticsStore({
       db: database.db
     });
     const codexReadStore = createSqliteCodexAnalyticsReadStore({
@@ -101,7 +101,7 @@ describe("docker codex symphony agent runtime", () => {
         ),
         tracker,
         runStore,
-        codexAnalytics,
+        agentAnalytics,
         runtimeLogs: {
           async record() {
             return "log-1";
@@ -239,7 +239,7 @@ describe("docker codex symphony agent runtime", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const codexAnalytics = createSqliteCodexAnalyticsStore({
+    const agentAnalytics = createSqliteCodexAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
@@ -257,7 +257,7 @@ describe("docker codex symphony agent runtime", () => {
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
-        codexAnalytics,
+        agentAnalytics,
         runtimeLogs: {
           async record() {
             return "log-1";
@@ -344,7 +344,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const codexAnalytics = createSqliteCodexAnalyticsStore({
+    const agentAnalytics = createSqliteCodexAnalyticsStore({
       db: database.db
     });
 
@@ -355,7 +355,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
-        codexAnalytics,
+        agentAnalytics,
         runtimeLogs: {
           async record() {
             return "log-1";
@@ -453,7 +453,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const codexAnalytics = createSqliteCodexAnalyticsStore({
+    const agentAnalytics = createSqliteCodexAnalyticsStore({
       db: database.db
     });
     const codexReadStore = createSqliteCodexAnalyticsReadStore({
@@ -475,7 +475,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
-        codexAnalytics,
+        agentAnalytics,
         runtimeLogs: {
           async record(input) {
             runtimeLogPayloads.push(input.payload);
@@ -586,7 +586,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const codexAnalytics = createSqliteCodexAnalyticsStore({
+    const agentAnalytics = createSqliteCodexAnalyticsStore({
       db: database.db
     });
 
@@ -598,7 +598,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker: createDoneTracker(issue),
         runStore,
-        codexAnalytics,
+        agentAnalytics,
         runtimeLogs: {
           async record(input) {
             runtimeLogPayloads.push(input.payload);
@@ -699,7 +699,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const codexAnalytics = createSqliteCodexAnalyticsStore({
+    const agentAnalytics = createSqliteCodexAnalyticsStore({
       db: database.db
     });
     const codexReadStore = createSqliteCodexAnalyticsReadStore({
@@ -720,7 +720,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
-        codexAnalytics,
+        agentAnalytics,
         runtimeLogs: {
           async record() {
             return "log-1";
