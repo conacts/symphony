@@ -491,7 +491,19 @@ export function buildSymphonyForensicsIssueDetailResult(
         errorMessage: null,
         inputTokens: 120,
         outputTokens: 80,
-        totalTokens: 200
+        totalTokens: 200,
+        machineLoad: {
+          sampleCount: 6,
+          maxCpuPercent: 71,
+          avgCpuPercent: 52,
+          maxMemoryPercent: 64,
+          avgMemoryPercent: 58,
+          maxDiskPercent: 47,
+          avgDiskPercent: 47,
+          hadHighCpu: false,
+          hadHighMemory: false,
+          hadHighDisk: false
+        }
       }
     ],
     summary: {
@@ -665,7 +677,19 @@ export function buildSymphonyForensicsProblemRunsResult(
         errorMessage: "Reached max turns.",
         inputTokens: 120,
         outputTokens: 80,
-        totalTokens: 200
+        totalTokens: 200,
+        machineLoad: {
+          sampleCount: 6,
+          maxCpuPercent: 89,
+          avgCpuPercent: 66,
+          maxMemoryPercent: 81,
+          avgMemoryPercent: 73,
+          maxDiskPercent: 47,
+          avgDiskPercent: 47,
+          hadHighCpu: true,
+          hadHighMemory: true,
+          hadHighDisk: false
+        }
       }
     ],
     problemSummary: {
@@ -742,6 +766,17 @@ export function buildSymphonyRuntimeHealthResult(
       lastSucceededAt: "2026-03-31T18:04:01.000Z",
       lastError: null
     },
+    machineLoad: {
+      capturedAt: "2026-03-31T18:04:05.000Z",
+      cpuPercent: 61,
+      memoryUsedBytes: 8 * 1024 * 1024 * 1024,
+      memoryTotalBytes: 16 * 1024 * 1024 * 1024,
+      memoryPercent: 50,
+      diskUsedBytes: 120 * 1024 * 1024 * 1024,
+      diskTotalBytes: 256 * 1024 * 1024 * 1024,
+      diskPercent: 47,
+      samplePath: "/tmp/workspaces"
+    },
     ...overrides
   };
 }
@@ -790,6 +825,18 @@ export function buildSymphonyForensicsRunDetailResult(
       inputTokens: 120,
       outputTokens: 80,
       totalTokens: 200,
+      machineLoad: {
+        sampleCount: 6,
+        maxCpuPercent: 71,
+        avgCpuPercent: 52,
+        maxMemoryPercent: 64,
+        avgMemoryPercent: 58,
+        maxDiskPercent: 47,
+        avgDiskPercent: 47,
+        hadHighCpu: false,
+        hadHighMemory: false,
+        hadHighDisk: false
+      },
       threadId: "thread_123",
       processId: "pi-process-123",
       providerId: "openrouter",

@@ -523,7 +523,19 @@ export function buildSymphonyForensicsIssueDetailResult(
         errorMessage: null,
         inputTokens: 120,
         outputTokens: 80,
-        totalTokens: 200
+        totalTokens: 200,
+        machineLoad: {
+          sampleCount: 6,
+          maxCpuPercent: 71,
+          avgCpuPercent: 52,
+          maxMemoryPercent: 64,
+          avgMemoryPercent: 58,
+          maxDiskPercent: 47,
+          avgDiskPercent: 47,
+          hadHighCpu: false,
+          hadHighMemory: false,
+          hadHighDisk: false
+        }
       }
     ],
     summary: {
@@ -571,7 +583,19 @@ export function buildSymphonyForensicsProblemRunsResult(
         errorMessage: "Reached max turns.",
         inputTokens: 120,
         outputTokens: 80,
-        totalTokens: 200
+        totalTokens: 200,
+        machineLoad: {
+          sampleCount: 6,
+          maxCpuPercent: 89,
+          avgCpuPercent: 66,
+          maxMemoryPercent: 81,
+          avgMemoryPercent: 73,
+          maxDiskPercent: 47,
+          avgDiskPercent: 47,
+          hadHighCpu: true,
+          hadHighMemory: true,
+          hadHighDisk: false
+        }
       }
     ],
     problemSummary: {
@@ -630,6 +654,18 @@ export function buildSymphonyForensicsRunDetailResult(
       inputTokens: 120,
       outputTokens: 80,
       totalTokens: 200,
+      machineLoad: {
+        sampleCount: 6,
+        maxCpuPercent: 71,
+        avgCpuPercent: 52,
+        maxMemoryPercent: 64,
+        avgMemoryPercent: 58,
+        maxDiskPercent: 47,
+        avgDiskPercent: 47,
+        hadHighCpu: false,
+        hadHighMemory: false,
+        hadHighDisk: false
+      },
       threadId: null,
       processId: null,
       providerId: null,

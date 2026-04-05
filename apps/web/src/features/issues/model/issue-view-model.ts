@@ -14,6 +14,7 @@ import {
   formatStatusLabel,
   formatPercent,
   formatTimestamp,
+  formatWholePercent,
   prettyValue
 } from "@/core/display-formatters";
 import {
@@ -224,6 +225,38 @@ export function buildIssueDetailViewModel(
       ? 0
       : input.runs.reduce((total, run) => total + run.totalTokens, 0) / input.runs.length;
   const heaviestRun = [...input.runs].sort((left, right) => right.totalTokens - left.totalTokens)[0];
+  const runMachineLoads = input.runs
+    .map((run) => run.machineLoad)
+    .filter(
+      (
+        machineLoad
+      ): machineLoad is NonNullable<SymphonyForensicsIssueDetailResult["runs"][number]["machineLoad"]> =>
+        machineLoad !== null
+    );
+  const pressuredRunCount = input.runs.filter(
+    (run) =>
+      run.machineLoad?.hadHighCpu ||
+      run.machineLoad?.hadHighMemory ||
+      run.machineLoad?.hadHighDisk
+  ).length;
+  const peakCpuPercent = runMachineLoads.reduce<number | null>(
+    (max, machineLoad) =>
+      typeof machineLoad.maxCpuPercent === "number"
+        ? Math.max(max ?? 0, machineLoad.maxCpuPercent)
+        : max,
+    null
+  );
+  const peakMemoryPercent = runMachineLoads.reduce<number | null>(
+    (max, machineLoad) => Math.max(max ?? 0, machineLoad.maxMemoryPercent),
+    null
+  );
+  const peakDiskPercent = runMachineLoads.reduce<number | null>(
+    (max, machineLoad) =>
+      typeof machineLoad.maxDiskPercent === "number"
+        ? Math.max(max ?? 0, machineLoad.maxDiskPercent)
+        : max,
+    null
+  );
 
   return {
     metrics: [
@@ -269,6 +302,28 @@ export function buildIssueDetailViewModel(
         detail: heaviestRun
           ? `${formatCount(heaviestRun.totalTokens)} total tokens on the heaviest run.`
           : "No token-heavy run is available yet."
+      }
+    ],
+    machineLoadCards: [
+      {
+        label: "Runs under pressure",
+        value: `${formatCount(pressuredRunCount)} / ${formatCount(input.runs.length)}`,
+        detail: "Runs that crossed CPU, memory, or disk high-pressure thresholds."
+      },
+      {
+        label: "Peak CPU load",
+        value: formatWholePercent(peakCpuPercent),
+        detail: "Highest sampled CPU pressure across this issue's runs."
+      },
+      {
+        label: "Peak memory load",
+        value: formatWholePercent(peakMemoryPercent),
+        detail: "Highest sampled memory pressure across this issue's runs."
+      },
+      {
+        label: "Peak disk load",
+        value: formatWholePercent(peakDiskPercent),
+        detail: "Highest sampled disk pressure across this issue's runs."
       }
     ],
     failureCards: [

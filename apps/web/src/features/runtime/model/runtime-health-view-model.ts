@@ -3,11 +3,13 @@ import type {
   SymphonyRuntimeLogsResult
 } from "@symphony/contracts";
 import {
+  formatBytes,
   formatCount,
   formatEventTypeLabel,
   formatSourceLabel,
   formatStatusLabel,
-  formatTimestamp
+  formatTimestamp,
+  formatWholePercent
 } from "@/core/display-formatters";
 
 export type RuntimeHealthViewModel = {
@@ -17,6 +19,11 @@ export type RuntimeHealthViewModel = {
     detail: string;
   }>;
   incidentCards: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
+  machineLoadCards: Array<{
     label: string;
     value: string;
     detail: string;
@@ -66,6 +73,7 @@ export function buildRuntimeHealthViewModel(
   const recentErrors = recentLogs.filter((entry) => entry.level === "error");
   const latestAlert = recentErrors[0] ?? recentWarnings[0] ?? null;
   const loudestSource = buildLoudestSourceLabel(recentLogs);
+  const machineLoad = input.machineLoad;
 
   return {
     summaryCards: [
@@ -119,6 +127,33 @@ export function buildRuntimeHealthViewModel(
         detail: loudestSource.detail
       }
     ],
+    machineLoadCards: [
+      {
+        label: "CPU load",
+        value: formatWholePercent(machineLoad?.cpuPercent),
+        detail: machineLoad
+          ? `Host sample from ${formatTimestamp(machineLoad.capturedAt)}.`
+          : "Machine load sampling has not produced a host snapshot yet."
+      },
+      {
+        label: "Memory load",
+        value: machineLoad ? formatWholePercent(machineLoad.memoryPercent) : "n/a",
+        detail: machineLoad
+          ? `${formatBytes(machineLoad.memoryUsedBytes)} used of ${formatBytes(
+              machineLoad.memoryTotalBytes
+            )}.`
+          : "Machine load sampling has not produced a host snapshot yet."
+      },
+      {
+        label: "Disk load",
+        value: formatWholePercent(machineLoad?.diskPercent),
+        detail: machineLoad
+          ? `${formatBytes(machineLoad.diskUsedBytes)} used of ${formatBytes(
+              machineLoad.diskTotalBytes
+            )}.`
+          : "Machine load sampling has not produced a host snapshot yet."
+      }
+    ],
     signalRows: [
       {
         label: "Database readiness",
@@ -141,6 +176,25 @@ export function buildRuntimeHealthViewModel(
         label: "Last error",
         value: input.poller.lastError ? "Present" : "Clear",
         detail: input.poller.lastError ?? "No poller error recorded."
+      },
+      {
+        label: "CPU load",
+        value: formatWholePercent(machineLoad?.cpuPercent),
+        detail: "Current sampled host CPU utilization."
+      },
+      {
+        label: "Memory load",
+        value: machineLoad ? formatWholePercent(machineLoad.memoryPercent) : "n/a",
+        detail: machineLoad
+          ? `${formatBytes(machineLoad.memoryUsedBytes)} in use.`
+          : "Current sampled host memory utilization."
+      },
+      {
+        label: "Disk load",
+        value: formatWholePercent(machineLoad?.diskPercent),
+        detail: machineLoad?.samplePath
+          ? `Filesystem pressure for ${machineLoad.samplePath}.`
+          : "Current sampled workspace filesystem utilization."
       }
     ],
     heartbeatRows: [
@@ -177,6 +231,10 @@ export function buildRuntimeHealthViewModel(
       {
         label: "Recent event sample",
         value: formatCount(recentLogs.length)
+      },
+      {
+        label: "Load sample path",
+        value: machineLoad?.samplePath ?? "n/a"
       }
     ],
     logLevelChartRows: [

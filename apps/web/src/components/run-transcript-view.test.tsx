@@ -29,6 +29,8 @@ describe("run transcript view", () => {
     expect(html).toContain("Execution performance");
     expect(html).toContain("Command executions");
     expect(html).toContain("Tool calls");
+    expect(html).toContain("Machine load");
+    expect(html).toContain("Peak CPU load");
     expect(html).toContain("/issues/COL-165/runs/run_123/turns");
     expect(html).toContain("/issues/COL-165/runs/run_123/turns/turn_123");
     expect(html).toContain("Turn 1");

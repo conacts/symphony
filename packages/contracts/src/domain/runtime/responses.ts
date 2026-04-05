@@ -348,6 +348,18 @@ export const symphonyRuntimeLogsResultSchema = z.strictObject({
   })
 });
 
+export const symphonyRuntimeMachineLoadSnapshotSchema = z.strictObject({
+  capturedAt: isoTimestampSchema,
+  cpuPercent: z.number().int().min(0).max(100).nullable(),
+  memoryUsedBytes: z.number().int().nonnegative(),
+  memoryTotalBytes: z.number().int().positive(),
+  memoryPercent: z.number().int().min(0).max(100),
+  diskUsedBytes: z.number().int().nonnegative().nullable(),
+  diskTotalBytes: z.number().int().positive().nullable(),
+  diskPercent: z.number().int().min(0).max(100).nullable(),
+  samplePath: nullableNonEmptyStringSchema
+});
+
 export const symphonyRuntimeHealthResultSchema = z.strictObject({
   healthy: z.boolean(),
   db: z.strictObject({
@@ -362,7 +374,8 @@ export const symphonyRuntimeHealthResultSchema = z.strictObject({
     lastCompletedAt: isoTimestampSchema.nullable(),
     lastSucceededAt: isoTimestampSchema.nullable(),
     lastError: nullableNonEmptyStringSchema
-  })
+  }),
+  machineLoad: symphonyRuntimeMachineLoadSnapshotSchema.nullable()
 });
 
 export const symphonyRuntimeStateResponseSchema = createEnvelopeSchema(
@@ -438,6 +451,9 @@ export type SymphonyRuntimeIssueResult = z.infer<typeof symphonyRuntimeIssueResu
 export type SymphonyRuntimeRefreshResult = z.infer<typeof symphonyRuntimeRefreshResultSchema>;
 export type SymphonyRuntimeLogEntry = z.infer<typeof symphonyRuntimeLogEntrySchema>;
 export type SymphonyRuntimeLogsResult = z.infer<typeof symphonyRuntimeLogsResultSchema>;
+export type SymphonyRuntimeMachineLoadSnapshot = z.infer<
+  typeof symphonyRuntimeMachineLoadSnapshotSchema
+>;
 export type SymphonyRuntimeHealthResult = z.infer<
   typeof symphonyRuntimeHealthResultSchema
 >;

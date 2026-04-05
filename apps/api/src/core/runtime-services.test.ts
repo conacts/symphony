@@ -47,7 +47,10 @@ describe("runtime services", () => {
         db: {
           file: env.dbFile,
           ready: true
-        }
+        },
+        machineLoad: expect.objectContaining({
+          memoryPercent: expect.any(Number)
+        })
       })
     );
 

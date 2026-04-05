@@ -31,6 +31,7 @@ export {
   symphonyRuntimeRefreshResultSchema,
   symphonyRuntimeLogEntrySchema,
   symphonyRuntimeLogsResultSchema,
+  symphonyRuntimeMachineLoadSnapshotSchema,
   symphonyRuntimeHealthResultSchema,
   symphonyRuntimeStateResponseSchema,
   symphonyRuntimeIssueResponseSchema,
@@ -72,5 +73,6 @@ export type {
   SymphonyRuntimeRefreshResult,
   SymphonyRuntimeLogEntry,
   SymphonyRuntimeLogsResult,
+  SymphonyRuntimeMachineLoadSnapshot,
   SymphonyRuntimeHealthResult
 } from "./responses.js";

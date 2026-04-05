@@ -202,6 +202,7 @@ function createRunSummary(
     inputTokens: 10,
     outputTokens: 20,
     totalTokens: 30,
+    machineLoad: null,
     ...overrides
   };
 }

@@ -67,7 +67,8 @@ export function createRuntimeHealthPort(
         },
         poller:
           pollSchedulerSnapshot ??
-          buildIdlePollerSnapshot(input.runtimePolicy.polling.intervalMs)
+          buildIdlePollerSnapshot(input.runtimePolicy.polling.intervalMs),
+        machineLoad: input.readMachineLoadSnapshot()
       };
     }
   };

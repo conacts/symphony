@@ -41,6 +41,7 @@ import { loadSymphonyRuntimePolicyConfig } from "./runtime-policy-config.js";
 import { createRuntimeWorkspaceBackend } from "./runtime-workspace-backend.js";
 import type { SymphonyRuntimeAppServices } from "./runtime-app-types.js";
 import { createRuntimeOrchestratorPort } from "./runtime-orchestrator-port.js";
+import { createRuntimeMachineLoadMonitor } from "./runtime-machine-load.js";
 import {
   createIssueTimelinePort,
   createRuntimeHealthPort,
@@ -263,10 +264,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       component: "realtime"
     })
   );
+  const machineLoad = createRuntimeMachineLoadMonitor({
+    samplePath: runtimePolicy.workspace.root,
+    intervalMs: Math.max(5_000, runtimePolicy.polling.intervalMs)
+  });
+  machineLoad.start();
   const observer = createDbBackedOrchestratorObserver({
     runStore,
     issueTimelineStore,
-    agentAnalytics: agentAnalyticsStore
+    agentAnalytics: agentAnalyticsStore,
+    machineLoad
   });
   let runtimeRef: Pick<
     ReturnType<typeof createSymphonyRuntime>,
@@ -323,7 +330,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const health = createRuntimeHealthPort({
     dbFile: database.dbFile,
     runtimePolicy,
-    readPollSchedulerSnapshot: () => pollScheduler?.snapshot() ?? null
+    readPollSchedulerSnapshot: () => pollScheduler?.snapshot() ?? null,
+    readMachineLoadSnapshot: () => machineLoad.snapshot()
   });
 
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({
@@ -442,6 +450,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     realtime,
     async shutdown() {
       pollScheduler?.stop();
+      machineLoad.stop();
       database.close();
     }
   };

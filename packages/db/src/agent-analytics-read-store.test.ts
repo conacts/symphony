@@ -7,6 +7,7 @@ import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
 import { createSymphonyRuntimeLogStore } from "./runtime-logs.js";
 import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-store.js";
 import { createSqliteAgentAnalyticsStore } from "./agent-analytics-store.js";
+import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
 import { createSqliteSymphonyRunJournal } from "./sqlite-symphony-run-journal.js";
 
 const tempDirectories: string[] = [];
@@ -339,6 +340,91 @@ describe("sqlite agent analytics read store", () => {
       expect(tools).toHaveLength(0);
       expect(reasoning).toHaveLength(0);
       expect(fileChanges).toHaveLength(0);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("surfaces compact machine-load summaries on run summaries and run detail", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-machine-load-read-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const timelineStore = createSymphonyIssueTimelineStore(database.db);
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db,
+      timelineStore
+    });
+    const analytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const readStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runStore.recordRunStarted({
+        runId: "run-machine-load",
+        issueId: "issue-2",
+        issueIdentifier: "COL-200",
+        startedAt: "2026-04-05T00:00:00.000Z",
+        status: "running"
+      });
+      await analytics.startRun({
+        runId,
+        issueId: "issue-2",
+        issueIdentifier: "COL-200",
+        startedAt: "2026-04-05T00:00:00.000Z",
+        status: "running",
+        threadId: "thread-200"
+      });
+      await analytics.finalizeRun({
+        runId,
+        endedAt: "2026-04-05T00:03:00.000Z",
+        status: "completed",
+        threadId: "thread-200",
+        failureKind: null,
+        failureOrigin: null,
+        failureMessagePreview: null
+      });
+      await runStore.finalizeRun(runId, {
+        status: "finished",
+        outcome: "completed",
+        endedAt: "2026-04-05T00:03:00.000Z",
+        machineLoadSummary: {
+          sampleCount: 6,
+          maxCpuPercent: 88,
+          avgCpuPercent: 64,
+          maxMemoryPercent: 79,
+          avgMemoryPercent: 70,
+          maxDiskPercent: 47,
+          avgDiskPercent: 47,
+          hadHighCpu: true,
+          hadHighMemory: false,
+          hadHighDisk: false
+        }
+      });
+
+      const runs = await readStore.listRuns({
+        limit: 10
+      });
+      const runDetail = await readStore.fetchRunDetail(runId);
+
+      expect(runs[0]?.machineLoad).toEqual({
+        sampleCount: 6,
+        maxCpuPercent: 88,
+        avgCpuPercent: 64,
+        maxMemoryPercent: 79,
+        avgMemoryPercent: 70,
+        maxDiskPercent: 47,
+        avgDiskPercent: 47,
+        hadHighCpu: true,
+        hadHighMemory: false,
+        hadHighDisk: false
+      });
+      expect(runDetail?.run.machineLoad).toEqual(runs[0]?.machineLoad);
     } finally {
       database.close();
     }

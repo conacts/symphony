@@ -64,6 +64,18 @@ export function IssueDetailView(input: {
 
           <IssueRunHistoryCard rows={viewModel.rows} />
 
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {viewModel.machineLoadCards.map((card) => (
+              <Card key={card.label}>
+                <CardHeader>
+                  <CardDescription>{card.label}</CardDescription>
+                  <CardTitle className="break-all text-2xl">{card.value}</CardTitle>
+                  <CardDescription>{card.detail}</CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+          </section>
+
           <section>
             <IssueRunTokenChart rows={viewModel.tokenChartRows} />
           </section>

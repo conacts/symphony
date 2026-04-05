@@ -123,7 +123,8 @@ describe("forensics view model", () => {
           errorMessage: null,
           inputTokens: 120,
           outputTokens: 80,
-          totalTokens: 200
+          totalTokens: 200,
+          machineLoad: null
         }
       ],
       summary: {
@@ -151,6 +152,131 @@ describe("forensics view model", () => {
     expect(issueDetail.rows[0]?.runHref).toBe("/issues/COL-165/runs/run_123");
     expect(issueDetail.rows[0]?.durationSeconds).toBe("2:00");
     expect(issueDetail.rows[0]?.totalTokens).toBe("200");
+    expect(issueDetail.machineLoadCards[0]?.value).toBe("0 / 1");
+    expect(issueDetail.machineLoadCards[1]?.value).toBe("n/a");
+  });
+
+  it("rolls run machine-load summaries up into issue machine-load cards", () => {
+    const issueDetail = buildIssueDetailViewModel({
+      issueIdentifier: "COL-165",
+      runs: [
+        {
+          runId: "run_123",
+          issueId: "issue_123",
+          issueIdentifier: "COL-165",
+          attempt: 1,
+          status: "finished",
+          outcome: "completed",
+          agentHarness: "pi",
+          agentStatus: "completed",
+          agentFailureKind: null,
+          agentFailureOrigin: null,
+          agentFailureMessagePreview: null,
+          model: "xiaomi/mimo-v2-pro",
+          workerHost: "worker-a",
+          workspacePath: "/tmp/workspaces/col-165",
+          startedAt: "2026-03-31T18:00:00.000Z",
+          endedAt: "2026-03-31T18:02:00.000Z",
+          commitHashStart: "abc",
+          commitHashEnd: "def",
+          turnCount: 2,
+          eventCount: 4,
+          lastEventType: "message.output",
+          lastEventAt: "2026-03-31T18:02:00.000Z",
+          durationSeconds: 120,
+          errorClass: null,
+          errorMessage: null,
+          inputTokens: 120,
+          outputTokens: 80,
+          totalTokens: 200,
+          machineLoad: {
+            sampleCount: 4,
+            maxCpuPercent: 84,
+            avgCpuPercent: 61,
+            maxMemoryPercent: 72,
+            avgMemoryPercent: 66,
+            maxDiskPercent: 47,
+            avgDiskPercent: 47,
+            hadHighCpu: false,
+            hadHighMemory: false,
+            hadHighDisk: false
+          }
+        },
+        {
+          runId: "run_124",
+          issueId: "issue_123",
+          issueIdentifier: "COL-165",
+          attempt: 2,
+          status: "failed",
+          outcome: "failed",
+          agentHarness: "pi",
+          agentStatus: "failed",
+          agentFailureKind: "failed",
+          agentFailureOrigin: "runtime",
+          agentFailureMessagePreview: "Runtime failed.",
+          model: "xiaomi/mimo-v2-pro",
+          workerHost: "worker-a",
+          workspacePath: "/tmp/workspaces/col-165",
+          startedAt: "2026-03-31T19:00:00.000Z",
+          endedAt: "2026-03-31T19:03:00.000Z",
+          commitHashStart: "ghi",
+          commitHashEnd: "jkl",
+          turnCount: 3,
+          eventCount: 8,
+          lastEventType: "turn.failed",
+          lastEventAt: "2026-03-31T19:03:00.000Z",
+          durationSeconds: 180,
+          errorClass: "failed",
+          errorMessage: "Runtime failed.",
+          inputTokens: 220,
+          outputTokens: 90,
+          totalTokens: 310,
+          machineLoad: {
+            sampleCount: 6,
+            maxCpuPercent: 91,
+            avgCpuPercent: 74,
+            maxMemoryPercent: 85,
+            avgMemoryPercent: 79,
+            maxDiskPercent: 48,
+            avgDiskPercent: 47,
+            hadHighCpu: true,
+            hadHighMemory: true,
+            hadHighDisk: false
+          }
+        }
+      ],
+      summary: {
+        runCount: 2,
+        latestProblemOutcome: "failed",
+        lastCompletedOutcome: "completed"
+      },
+      filters: {
+        limit: 200
+      }
+    });
+
+    expect(issueDetail.machineLoadCards).toEqual([
+      {
+        label: "Runs under pressure",
+        value: "1 / 2",
+        detail: "Runs that crossed CPU, memory, or disk high-pressure thresholds."
+      },
+      {
+        label: "Peak CPU load",
+        value: "91%",
+        detail: "Highest sampled CPU pressure across this issue's runs."
+      },
+      {
+        label: "Peak memory load",
+        value: "85%",
+        detail: "Highest sampled memory pressure across this issue's runs."
+      },
+      {
+        label: "Peak disk load",
+        value: "48%",
+        detail: "Highest sampled disk pressure across this issue's runs."
+      }
+    ]);
   });
 
   it("falls back to unique run labels when attempts are missing", () => {
@@ -185,7 +311,8 @@ describe("forensics view model", () => {
           errorMessage: null,
           inputTokens: 10517907,
           outputTokens: 17501,
-          totalTokens: 10535408
+          totalTokens: 10535408,
+          machineLoad: null
         },
         {
           runId: "b2122cb9-5748-4d41-92b3-29eb082ce99b",
@@ -215,7 +342,8 @@ describe("forensics view model", () => {
           errorMessage: null,
           inputTokens: 0,
           outputTokens: 0,
-          totalTokens: 0
+          totalTokens: 0,
+          machineLoad: null
         }
       ],
       summary: {

@@ -24,6 +24,8 @@ describe("issue detail view", () => {
     expect(html).toContain("Average run tokens");
     expect(html).toContain("Recent failure signals");
     expect(html).toContain("Run history");
+    expect(html).toContain("Runs under pressure");
+    expect(html).toContain("Peak CPU load");
     expect(html).toContain("Issue activity");
     expect(html).toContain("/issues/COL-165/timeline");
     expect(html).toContain('href="/issues/COL-165/runs/');

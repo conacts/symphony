@@ -17,6 +17,19 @@ export type SymphonyRuntimeRunStatus =
   | "stalled"
   | "stopped";
 
+export type SymphonyRuntimeMachineLoadSummary = {
+  sampleCount: number;
+  maxCpuPercent: number | null;
+  avgCpuPercent: number | null;
+  maxMemoryPercent: number;
+  avgMemoryPercent: number;
+  maxDiskPercent: number | null;
+  avgDiskPercent: number | null;
+  hadHighCpu: boolean;
+  hadHighMemory: boolean;
+  hadHighDisk: boolean;
+};
+
 export type SymphonyRuntimeTurnStatus =
   | "running"
   | "completed"
@@ -84,6 +97,7 @@ export type SymphonyRuntimeRunUpdateAttrs = {
   metadata?: JsonObject | null;
   errorClass?: string | null;
   errorMessage?: string | null;
+  machineLoadSummary?: SymphonyRuntimeMachineLoadSummary | null;
 };
 
 export type SymphonyRuntimeRunFinishAttrs = {
@@ -95,4 +109,5 @@ export type SymphonyRuntimeRunFinishAttrs = {
   metadata?: JsonObject | null;
   errorClass?: string | null;
   errorMessage?: string | null;
+  machineLoadSummary?: SymphonyRuntimeMachineLoadSummary | null;
 };

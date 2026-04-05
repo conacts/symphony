@@ -15,6 +15,7 @@ export type {
   SymphonyRuntimeRunStore
 } from "./runtime-run-store.js";
 export type {
+  SymphonyRuntimeMachineLoadSummary,
   SymphonyRuntimeRunFinishAttrs,
   SymphonyRuntimeRunStatus,
   SymphonyRuntimeRunStartAttrs,

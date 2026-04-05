@@ -22,7 +22,8 @@ import {
   formatPercent,
   formatProviderEnvKeyLabel,
   formatStatusLabel,
-  formatTimestamp
+  formatTimestamp,
+  formatWholePercent
 } from "@/core/display-formatters";
 import {
   classifyCommand,
@@ -218,6 +219,11 @@ export type AgentRunViewModel = {
   metadata: Array<{
     label: string;
     value: string;
+  }>;
+  machineLoadCards: Array<{
+    label: string;
+    value: string;
+    detail: string;
   }>;
   executionPerformance: {
     commandSummary: string;
@@ -465,6 +471,7 @@ export function buildAgentRunViewModel(input: {
         value: run.workerHost ?? "Unavailable"
       }
     ],
+    machineLoadCards: buildRunMachineLoadCards(run.machineLoad),
     executionPerformance,
     turnLatency,
     turnTokens,
@@ -496,6 +503,54 @@ export function buildAgentRunViewModel(input: {
           payloadText: JSON.stringify(event.payload, null, 2)
         })) ?? []
   };
+}
+
+function buildRunMachineLoadCards(
+  machineLoad: SymphonyForensicsRunDetailResult["run"]["machineLoad"]
+): AgentRunViewModel["machineLoadCards"] {
+  if (!machineLoad) {
+    return [
+      {
+        label: "Peak CPU load",
+        value: "n/a",
+        detail: "Machine load was not sampled for this run."
+      },
+      {
+        label: "Peak memory load",
+        value: "n/a",
+        detail: "Machine load was not sampled for this run."
+      },
+      {
+        label: "Peak disk load",
+        value: "n/a",
+        detail: "Machine load was not sampled for this run."
+      }
+    ];
+  }
+
+  return [
+    {
+      label: "Peak CPU load",
+      value: formatWholePercent(machineLoad.maxCpuPercent),
+      detail: `Average ${formatWholePercent(machineLoad.avgCpuPercent)} across ${formatCount(
+        machineLoad.sampleCount
+      )} samples.`
+    },
+    {
+      label: "Peak memory load",
+      value: formatWholePercent(machineLoad.maxMemoryPercent),
+      detail: `Average ${formatWholePercent(
+        machineLoad.avgMemoryPercent
+      )}${machineLoad.hadHighMemory ? " · High-pressure threshold crossed" : ""}.`
+    },
+    {
+      label: "Peak disk load",
+      value: formatWholePercent(machineLoad.maxDiskPercent),
+      detail: `Average ${formatWholePercent(
+        machineLoad.avgDiskPercent
+      )}${machineLoad.hadHighDisk ? " · High-pressure threshold crossed" : ""}.`
+    }
+  ];
 }
 
 export function formatOverflowContent(overflow: SymphonyAgentOverflowResult): string {

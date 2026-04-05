@@ -24,10 +24,15 @@ describe("runtime health view", () => {
     expect(html).toContain("Runtime health");
     expect(html).toContain("Recent event pressure");
     expect(html).toContain("Active incidents");
+    expect(html).toContain("Machine load");
+    expect(html).toContain("CPU load");
+    expect(html).toContain("Memory load");
+    expect(html).toContain("Disk load");
     expect(html).toContain("Health signals");
     expect(html).toContain("Scheduler heartbeat");
     expect(html).toContain("Runtime storage and cadence");
     expect(html).toContain("Recent runtime events");
     expect(html).toContain("/tmp/symphony.db");
+    expect(html).toContain("/tmp/workspaces");
   });
 });

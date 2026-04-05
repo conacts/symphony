@@ -83,6 +83,24 @@ export function RuntimeHealthView(input: {
             </Card>
           </section>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Machine load</CardTitle>
+              <CardDescription>
+                Current host pressure sampled for the active runtime process.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-3">
+              {viewModel.machineLoadCards.map((row) => (
+                <div key={row.label} className="rounded-xl border border-border/70 p-4">
+                  <p className="text-sm text-muted-foreground">{row.label}</p>
+                  <p className="mt-2 text-lg font-medium">{row.value}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{row.detail}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
           <section className="grid gap-6 xl:grid-cols-2">
             <Card>
               <CardHeader>

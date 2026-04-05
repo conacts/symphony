@@ -449,6 +449,17 @@ export async function createSymphonyRuntimeTestHarness(input: {
             lastCompletedAt: null,
             lastSucceededAt: null,
             lastError: null
+          },
+          machineLoad: {
+            capturedAt: "2026-03-31T00:00:00.000Z",
+            cpuPercent: 61,
+            memoryUsedBytes: 8 * 1024 * 1024 * 1024,
+            memoryTotalBytes: 16 * 1024 * 1024 * 1024,
+            memoryPercent: 50,
+            diskUsedBytes: 120 * 1024 * 1024 * 1024,
+            diskTotalBytes: 256 * 1024 * 1024 * 1024,
+            diskPercent: 47,
+            samplePath: root
           }
         };
       }

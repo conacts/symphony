@@ -613,7 +613,34 @@ function buildForensicsRunSummary(
     errorMessage: run.errorMessage ?? null,
     inputTokens,
     outputTokens,
-    totalTokens: inputTokens + outputTokens
+    totalTokens: inputTokens + outputTokens,
+    machineLoad: buildRunMachineLoadSummary(run)
+  };
+}
+
+function buildRunMachineLoadSummary(
+  run: typeof symphonyRunsTable.$inferSelect
+): SymphonyForensicsRunSummary["machineLoad"] {
+  if (
+    typeof run.machineLoadSampleCount !== "number" ||
+    run.machineLoadSampleCount <= 0 ||
+    typeof run.machineLoadMaxMemoryPercent !== "number" ||
+    typeof run.machineLoadAvgMemoryPercent !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    sampleCount: run.machineLoadSampleCount,
+    maxCpuPercent: run.machineLoadMaxCpuPercent ?? null,
+    avgCpuPercent: run.machineLoadAvgCpuPercent ?? null,
+    maxMemoryPercent: run.machineLoadMaxMemoryPercent,
+    avgMemoryPercent: run.machineLoadAvgMemoryPercent,
+    maxDiskPercent: run.machineLoadMaxDiskPercent ?? null,
+    avgDiskPercent: run.machineLoadAvgDiskPercent ?? null,
+    hadHighCpu: run.machineLoadHadHighCpu ?? false,
+    hadHighMemory: run.machineLoadHadHighMemory ?? false,
+    hadHighDisk: run.machineLoadHadHighDisk ?? false
   };
 }
 

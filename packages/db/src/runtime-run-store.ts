@@ -8,6 +8,7 @@ import {
   symphonyTurnsTable
 } from "./schema.js";
 import type {
+  SymphonyRuntimeMachineLoadSummary,
   SymphonyRuntimeRunFinishAttrs,
   SymphonyRuntimeRunStartAttrs,
   SymphonyRuntimeRunUpdateAttrs,
@@ -100,6 +101,16 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
           metadata: sanitizeJsonObject(attrs.metadata),
           errorClass: null,
           errorMessage: null,
+          machineLoadSampleCount: null,
+          machineLoadMaxCpuPercent: null,
+          machineLoadAvgCpuPercent: null,
+          machineLoadMaxMemoryPercent: null,
+          machineLoadAvgMemoryPercent: null,
+          machineLoadMaxDiskPercent: null,
+          machineLoadAvgDiskPercent: null,
+          machineLoadHadHighCpu: null,
+          machineLoadHadHighMemory: null,
+          machineLoadHadHighDisk: null,
           insertedAt: now,
           updatedAt: now
         })
@@ -243,6 +254,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     }
 
     const updatedAt = isoNow();
+    const machineLoadSummary = sanitizeMachineLoadSummary(attrs.machineLoadSummary);
 
     this.#db.transaction((tx) => {
       tx.update(symphonyRunsTable)
@@ -261,6 +273,26 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
           errorClass: attrs.errorClass ? sanitizeText(attrs.errorClass) : existing.errorClass,
           errorMessage:
             attrs.errorMessage ? sanitizeText(attrs.errorMessage) : existing.errorMessage,
+          machineLoadSampleCount:
+            machineLoadSummary?.sampleCount ?? existing.machineLoadSampleCount,
+          machineLoadMaxCpuPercent:
+            machineLoadSummary?.maxCpuPercent ?? existing.machineLoadMaxCpuPercent,
+          machineLoadAvgCpuPercent:
+            machineLoadSummary?.avgCpuPercent ?? existing.machineLoadAvgCpuPercent,
+          machineLoadMaxMemoryPercent:
+            machineLoadSummary?.maxMemoryPercent ?? existing.machineLoadMaxMemoryPercent,
+          machineLoadAvgMemoryPercent:
+            machineLoadSummary?.avgMemoryPercent ?? existing.machineLoadAvgMemoryPercent,
+          machineLoadMaxDiskPercent:
+            machineLoadSummary?.maxDiskPercent ?? existing.machineLoadMaxDiskPercent,
+          machineLoadAvgDiskPercent:
+            machineLoadSummary?.avgDiskPercent ?? existing.machineLoadAvgDiskPercent,
+          machineLoadHadHighCpu:
+            machineLoadSummary?.hadHighCpu ?? existing.machineLoadHadHighCpu,
+          machineLoadHadHighMemory:
+            machineLoadSummary?.hadHighMemory ?? existing.machineLoadHadHighMemory,
+          machineLoadHadHighDisk:
+            machineLoadSummary?.hadHighDisk ?? existing.machineLoadHadHighDisk,
           updatedAt
         })
         .where(eq(symphonyRunsTable.runId, runId))
@@ -294,7 +326,8 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       repoEnd: attrs.repoEnd,
       metadata: attrs.metadata,
       errorClass: attrs.errorClass,
-      errorMessage: attrs.errorMessage
+      errorMessage: attrs.errorMessage,
+      machineLoadSummary: attrs.machineLoadSummary
     });
 
     await this.#timelineStore.record({
@@ -364,6 +397,39 @@ function sanitizeJsonObject(
       return normalized === undefined ? [] : [[key, normalized] as const];
     })
   );
+}
+
+function sanitizeMachineLoadSummary(
+  value: SymphonyRuntimeMachineLoadSummary | null | undefined
+): SymphonyRuntimeMachineLoadSummary | null {
+  if (!value || value.sampleCount <= 0) {
+    return null;
+  }
+
+  return {
+    sampleCount: Math.max(1, Math.floor(value.sampleCount)),
+    maxCpuPercent: normalizePercent(value.maxCpuPercent),
+    avgCpuPercent: normalizePercent(value.avgCpuPercent),
+    maxMemoryPercent: normalizeRequiredPercent(value.maxMemoryPercent),
+    avgMemoryPercent: normalizeRequiredPercent(value.avgMemoryPercent),
+    maxDiskPercent: normalizePercent(value.maxDiskPercent),
+    avgDiskPercent: normalizePercent(value.avgDiskPercent),
+    hadHighCpu: Boolean(value.hadHighCpu),
+    hadHighMemory: Boolean(value.hadHighMemory),
+    hadHighDisk: Boolean(value.hadHighDisk)
+  };
+}
+
+function normalizePercent(value: number | null | undefined): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function normalizeRequiredPercent(value: number): number {
+  return normalizePercent(value) ?? 0;
 }
 
 function sanitizeUsage(

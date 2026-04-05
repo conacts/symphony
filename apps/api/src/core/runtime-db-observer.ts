@@ -13,11 +13,13 @@ import type {
   SymphonyRuntimeRunStore
 } from "@symphony/db";
 import type { SymphonyAgentRunStatus } from "@symphony/contracts";
+import type { RuntimeMachineLoadMonitor } from "./runtime-machine-load.js";
 
 export function createDbBackedOrchestratorObserver(input: {
   runStore: SymphonyRuntimeRunStore;
   issueTimelineStore: SymphonyIssueTimelineStore;
   agentAnalytics: AgentAnalyticsStore;
+  machineLoad?: RuntimeMachineLoadMonitor;
 }): SymphonyOrchestratorObserver {
   return {
     async startRun({ issue, attempt, harness, workspace, workerHost, startedAt }) {
@@ -44,6 +46,8 @@ export function createDbBackedOrchestratorObserver(input: {
         threadId: null,
         harnessKind: harness
       });
+
+      input.machineLoad?.startRun(runId);
 
       return runId;
     },
@@ -125,6 +129,7 @@ export function createDbBackedOrchestratorObserver(input: {
           status: "stopped",
           outcome: eventType,
           endedAt: stoppedAt,
+          machineLoadSummary: input.machineLoad?.finalizeRun(runId) ?? null,
           metadata: {
             stopEventType: eventType,
             stopPayload: normalizeJsonValue(payload)
@@ -172,6 +177,7 @@ export function createDbBackedOrchestratorObserver(input: {
         status: completionStatus(completion),
         outcome: completionOutcome(completion),
         endedAt,
+        machineLoadSummary: input.machineLoad?.finalizeRun(runId) ?? null,
         metadata: {
           turnCount,
           workerHost,

@@ -21,8 +21,11 @@ describe("runtime health view model", () => {
     expect(viewModel.summaryCards[3]?.value).toBe("1s");
     expect(viewModel.summaryCards[4]?.value).toBe("4s");
     expect(viewModel.incidentCards[2]?.value).toBe("Runtime");
+    expect(viewModel.machineLoadCards[0]?.value).toBe("61%");
+    expect(viewModel.machineLoadCards[1]?.value).toBe("50%");
     expect(viewModel.signalRows[2]?.value).toBe("4s");
     expect(viewModel.storageRows[0]?.value).toBe("/tmp/symphony.db");
+    expect(viewModel.storageRows[4]?.value).toBe("/tmp/workspaces");
     expect(viewModel.logLevelChartRows[1]?.count).toBe(1);
     expect(viewModel.recentEventRows[0]?.eventType).toBe(
       "Tracker Placeholder Active"

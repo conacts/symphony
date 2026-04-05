@@ -175,6 +175,7 @@ describe("symphony forensics contracts", () => {
           inputTokens: 10,
           outputTokens: 20,
           totalTokens: 30,
+          machineLoad: null,
           repoStart: {},
           repoEnd: {},
           metadata: {},

@@ -136,6 +136,7 @@ function withMockAgentRunSummary(
     | "agentFailureKind"
     | "agentFailureOrigin"
     | "agentFailureMessagePreview"
+    | "machineLoad"
   >
 ): SymphonyForensicsRunSummary {
   return {
@@ -151,7 +152,19 @@ function withMockAgentRunSummary(
     agentFailureKind:
       run.outcome === "completed" ? null : run.errorClass ?? run.outcome,
     agentFailureOrigin: run.outcome === "completed" ? null : "runtime",
-    agentFailureMessagePreview: run.errorMessage
+    agentFailureMessagePreview: run.errorMessage,
+    machineLoad: {
+      sampleCount: 6,
+      maxCpuPercent: run.outcome === "completed" ? 67 : 88,
+      avgCpuPercent: run.outcome === "completed" ? 52 : 69,
+      maxMemoryPercent: run.outcome === "completed" ? 64 : 82,
+      avgMemoryPercent: run.outcome === "completed" ? 58 : 75,
+      maxDiskPercent: 47,
+      avgDiskPercent: 47,
+      hadHighCpu: run.outcome !== "completed",
+      hadHighMemory: run.outcome !== "completed",
+      hadHighDisk: false
+    }
   };
 }
 

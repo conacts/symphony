@@ -116,7 +116,19 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   errorMessage: nullableNonEmptyStringSchema,
   inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
-  totalTokens: z.number().int().nonnegative()
+  totalTokens: z.number().int().nonnegative(),
+  machineLoad: z.strictObject({
+    sampleCount: z.number().int().positive(),
+    maxCpuPercent: z.number().int().min(0).max(100).nullable(),
+    avgCpuPercent: z.number().int().min(0).max(100).nullable(),
+    maxMemoryPercent: z.number().int().min(0).max(100),
+    avgMemoryPercent: z.number().int().min(0).max(100),
+    maxDiskPercent: z.number().int().min(0).max(100).nullable(),
+    avgDiskPercent: z.number().int().min(0).max(100).nullable(),
+    hadHighCpu: z.boolean(),
+    hadHighMemory: z.boolean(),
+    hadHighDisk: z.boolean()
+  }).nullable()
 }).superRefine((value, context) => {
   if (value.eventCount > 0 && !value.lastEventAt) {
     context.addIssue({

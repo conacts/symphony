@@ -10,6 +10,55 @@ import {
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
 
 describe("agent run view model", () => {
+  it("builds machine-load cards from run summaries and falls back when unavailable", () => {
+    const populated = buildAgentRunViewModel({
+      runDetail: buildSymphonyForensicsRunDetailResult(),
+      runArtifacts: buildSymphonyAgentRunArtifactsResult()
+    });
+    const unavailableRunDetail = buildSymphonyForensicsRunDetailResult();
+    unavailableRunDetail.run.machineLoad = null;
+
+    const unavailable = buildAgentRunViewModel({
+      runDetail: unavailableRunDetail,
+      runArtifacts: buildSymphonyAgentRunArtifactsResult()
+    });
+
+    expect(populated.machineLoadCards).toEqual([
+      {
+        label: "Peak CPU load",
+        value: "71%",
+        detail: "Average 52% across 6 samples."
+      },
+      {
+        label: "Peak memory load",
+        value: "64%",
+        detail: "Average 58%."
+      },
+      {
+        label: "Peak disk load",
+        value: "47%",
+        detail: "Average 47%."
+      }
+    ]);
+    expect(unavailable.machineLoadCards).toEqual([
+      {
+        label: "Peak CPU load",
+        value: "n/a",
+        detail: "Machine load was not sampled for this run."
+      },
+      {
+        label: "Peak memory load",
+        value: "n/a",
+        detail: "Machine load was not sampled for this run."
+      },
+      {
+        label: "Peak disk load",
+        value: "n/a",
+        detail: "Machine load was not sampled for this run."
+      }
+    ]);
+  });
+
   it("builds a structured transcript from agent artifacts", () => {
     const runArtifacts = buildSymphonyAgentRunArtifactsResult();
     const runDetail = buildSymphonyForensicsRunDetailResult();

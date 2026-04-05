@@ -9,6 +9,36 @@ export function formatPercent(value: number): string {
   }).format(value);
 }
 
+export function formatWholePercent(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "n/a";
+  }
+
+  return `${Math.max(0, Math.min(100, Math.round(value)))}%`;
+}
+
+export function formatBytes(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return "n/a";
+  }
+
+  if (value < 1024) {
+    return `${Math.round(value)} B`;
+  }
+
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = value / 1024;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  const digits = size >= 100 ? 0 : size >= 10 ? 1 : 2;
+  return `${size.toFixed(digits)} ${units[unitIndex]}`;
+}
+
 export function formatDuration(value: number): string {
   const totalSeconds = Math.max(0, Math.floor(value));
   const hours = Math.floor(totalSeconds / 3_600);

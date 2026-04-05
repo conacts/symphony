@@ -17,6 +17,7 @@ import type {
   SymphonyGitHubWebhookHeaders,
   SymphonyForensicsIssueTimelineResult,
   SymphonyRuntimeHealthResult,
+  SymphonyRuntimeMachineLoadSnapshot,
   SymphonyRuntimeLogsResult,
   SymphonyRuntimeRefreshResult
 } from "@symphony/contracts";
@@ -120,4 +121,5 @@ export type RuntimeHealthPortInput = {
   readPollSchedulerSnapshot():
     | SymphonyRuntimePollSchedulerSnapshot
     | null;
+  readMachineLoadSnapshot(): SymphonyRuntimeMachineLoadSnapshot | null;
 };

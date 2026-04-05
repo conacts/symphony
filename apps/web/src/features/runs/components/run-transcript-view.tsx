@@ -203,6 +203,30 @@ export function RunTranscriptView(input: {
           <section className="flex flex-col gap-4">
             <div className="space-y-1">
               <h2 className="text-lg font-semibold tracking-tight">
+                Machine load
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Peak and average host pressure captured while this run was active.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {viewModel.machineLoadCards.map((card) => (
+                <Card key={card.label} className="border-border/70">
+                  <CardHeader className="space-y-1 pb-3">
+                    <CardDescription>{card.label}</CardDescription>
+                    <CardTitle className="text-lg">{card.value}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 text-sm text-muted-foreground">
+                    {card.detail}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-4">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">
                 Debug context
               </h2>
               <p className="text-sm text-muted-foreground">
