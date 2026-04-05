@@ -404,6 +404,7 @@ describe("agent run view model", () => {
     expect(viewModel.routes.issueHref).toBe("/issues/COL-165");
     expect(viewModel.routes.runHref).toBe("/issues/COL-165/runs/run_123");
     expect(viewModel.routes.turnsHref).toBe("/issues/COL-165/runs/run_123/turns");
+    expect(viewModel.routes.transcriptHref).toBe("/runs/run_123");
     expect(viewModel.transcriptTurns).toHaveLength(1);
     expect(viewModel.turnRows[0]).toMatchObject({
       turnId: "turn_123",

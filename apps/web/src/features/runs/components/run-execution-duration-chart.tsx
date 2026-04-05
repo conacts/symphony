@@ -70,8 +70,11 @@ export function RunExecutionDurationChart(input: {
                 />
                 <ChartTooltip cursor={false} content={<ExecutionDurationTooltip />} />
                 <Bar dataKey="durationMs" radius={4}>
-                  {input.rows.map((row) => (
-                    <Cell key={`${row.label}:${row.durationMs}`} fill={barColorForStatus(row.status)} />
+                  {input.rows.map((row, index) => (
+                    <Cell
+                      key={`${row.label}:${row.durationMs}:${index}`}
+                      fill={barColorForStatus(row.status)}
+                    />
                   ))}
                 </Bar>
               </BarChart>

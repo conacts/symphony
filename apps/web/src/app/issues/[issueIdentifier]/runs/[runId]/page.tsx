@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { RunTranscriptLiveScreen } from "@/features/runs/components/run-transcript-live-screen";
+import { RunTurnsLiveScreen } from "@/features/runs/components/run-turns-live-screen";
 
 export default async function IssueRunDetailPage(input: {
   params: Promise<{
@@ -9,5 +9,5 @@ export default async function IssueRunDetailPage(input: {
 }): Promise<ReactElement> {
   const { runId } = await input.params;
 
-  return <RunTranscriptLiveScreen runId={runId} />;
+  return <RunTurnsLiveScreen runId={runId} />;
 }

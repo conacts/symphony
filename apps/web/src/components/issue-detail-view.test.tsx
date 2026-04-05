@@ -20,7 +20,6 @@ describe("issue detail view", () => {
     );
 
     expect(html).toContain("Issue runs");
-    expect(html).toContain("Run outcomes");
     expect(html).toContain("Recent run token load");
     expect(html).toContain("Average run tokens");
     expect(html).toContain("Recent failure signals");

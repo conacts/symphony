@@ -71,7 +71,7 @@ export function RunTurnsView(input: {
                 </p>
               </div>
               <Link
-                href={viewModel.routes.runHref}
+                href={viewModel.routes.transcriptHref}
                 className="text-sm font-medium text-foreground underline underline-offset-4"
               >
                 Back to run transcript

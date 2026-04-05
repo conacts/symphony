@@ -38,6 +38,7 @@ import {
 } from "@/core/agent-token";
 import {
   buildIssueHref,
+  buildLegacyRunHref,
   buildIssueRunHref,
   buildIssueRunTurnHref,
   buildIssueRunTurnsHref
@@ -202,6 +203,7 @@ export type AgentRunViewModel = {
     issueHref: string;
     runHref: string;
     turnsHref: string;
+    transcriptHref: string;
   };
   statusSummary: string;
   failureSummary: string | null;
@@ -350,6 +352,7 @@ export function buildAgentRunViewModel(input: {
   const issueIdentifier = input.runDetail.issue.issueIdentifier;
   const runHref = buildIssueRunHref(issueIdentifier, run.runId);
   const turnsHref = buildIssueRunTurnsHref(issueIdentifier, run.runId);
+  const transcriptHref = buildLegacyRunHref(run.runId);
 
   return {
     harnessLabel,
@@ -359,7 +362,8 @@ export function buildAgentRunViewModel(input: {
     routes: {
       issueHref: buildIssueHref(issueIdentifier),
       runHref,
-      turnsHref
+      turnsHref,
+      transcriptHref
     },
     statusSummary: `${formatStatusLabel(workflowStatus)} / ${formatOutcomeLabel(workflowOutcome)} · ${harnessLabel} ${formatStatusLabel(agentStatus)}`,
     failureSummary: agentFailureSummary,

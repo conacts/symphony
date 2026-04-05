@@ -11,7 +11,7 @@ export function ControlPlanePage(input: {
 }) {
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <header className="fixed top-0 left-0 right-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:left-(--sidebar-width) group-data-[collapsible=icon]:md:left-(--sidebar-width-icon)">
         <div className="flex min-w-0 items-center gap-2">
           <SidebarTrigger className="-ml-1" />
         </div>
@@ -20,7 +20,7 @@ export function ControlPlanePage(input: {
           label={input.connection.label}
         />
       </header>
-      <main className="mx-auto flex w-full max-w-7xl min-w-0 flex-1 flex-col p-4 md:p-6">
+      <main className="mx-auto flex w-full max-w-7xl min-w-0 flex-1 flex-col p-4 pt-20 md:p-6 md:pt-20">
         {input.children}
       </main>
     </>
