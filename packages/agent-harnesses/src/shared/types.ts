@@ -19,6 +19,9 @@ export type SymphonyAgentHarnessDefinition = {
 export type SymphonyAgentHarnessTransportContract = {
   status: "implemented" | "planned";
   integration: "runtime" | "unknown";
+  startSession?: (
+    input: import("./session-types.js").HarnessLaunchSessionInput
+  ) => Promise<import("./session-types.js").HarnessSession>;
   notes: string[];
 };
 

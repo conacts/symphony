@@ -1,4 +1,5 @@
 import type { SymphonyAgentHarnessModule } from "../shared/types.js";
+import { CodexSdkClient } from "./sdk-client.js";
 
 export const codexHarnessModule: SymphonyAgentHarnessModule = {
   definition: {
@@ -21,6 +22,9 @@ export const codexHarnessModule: SymphonyAgentHarnessModule = {
   transport: {
     status: "implemented",
     integration: "runtime",
+    startSession(input) {
+      return CodexSdkClient.startSession(input);
+    },
     notes: [
       "Codex is launched directly through the Symphony runtime."
     ]

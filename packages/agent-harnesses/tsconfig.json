@@ -11,6 +11,12 @@
   "references": [
     {
       "path": "../codex-analytics"
+    },
+    {
+      "path": "../orchestrator"
+    },
+    {
+      "path": "../tracker"
     }
   ]
 }

@@ -3,6 +3,7 @@ import {
   openCodeAnalyticsAdapter,
   type OpenCodeAnalyticsAdapter
 } from "./analytics-adapter.js";
+import { OpenCodeSdkClient } from "./sdk-client.js";
 
 export const opencodeHarnessModule: SymphonyAgentHarnessModule<OpenCodeAnalyticsAdapter> = {
   definition: {
@@ -25,6 +26,9 @@ export const opencodeHarnessModule: SymphonyAgentHarnessModule<OpenCodeAnalytics
   transport: {
     status: "implemented",
     integration: "runtime",
+    startSession(input) {
+      return OpenCodeSdkClient.startSession(input);
+    },
     notes: [
       "OpenCode sessions are launched through the Symphony runtime.",
       "OpenCode currently requires a container-backed launch target."
