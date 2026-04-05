@@ -31,7 +31,7 @@ export function RunDebugPanel(input: {
         </AccordionContent>
       </AccordionItem>
       <AccordionItem value="events" className="rounded-lg border px-4">
-        <AccordionTrigger>Raw Codex events</AccordionTrigger>
+        <AccordionTrigger>Raw runtime events</AccordionTrigger>
         <AccordionContent>
           <div className="flex flex-col gap-4">
             {input.viewModel.debugEvents.map((event) => (

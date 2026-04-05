@@ -40,7 +40,7 @@ export function RunTranscriptTurn(input: {
       {input.turn.entries.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            No Codex items were captured for this turn.
+            No runtime items were captured for this turn.
           </CardContent>
         </Card>
       ) : null}
@@ -77,7 +77,11 @@ export function RunTranscriptTurn(input: {
             <Card className="border-dashed">
               <CardHeader className="pb-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle className="text-sm font-medium">Reasoning</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    {entry.segmentCount > 1
+                      ? `Reasoning · ${entry.segmentCount} blocks`
+                      : "Reasoning"}
+                  </CardTitle>
                   <Badge variant="outline">{entry.status}</Badge>
                   <span className="text-xs text-muted-foreground">
                     {entry.recordedAt}

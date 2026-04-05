@@ -115,7 +115,7 @@ export function RunTranscriptView(input: {
 
       {input.resource?.codexError ? (
         <Alert>
-          <AlertTitle>Codex transcript unavailable</AlertTitle>
+          <AlertTitle>Transcript unavailable</AlertTitle>
           <AlertDescription>{input.resource.codexError}</AlertDescription>
         </Alert>
       ) : null}
@@ -169,7 +169,7 @@ export function RunTranscriptView(input: {
             <CardHeader>
               <CardTitle>Structured run conversation</CardTitle>
               <CardDescription>
-                The run rendered as a chronological conversation between the operator prompt, Codex, commands, tools, and file changes.
+                The run rendered as a chronological conversation between the operator prompt, {viewModel.harnessLabel}, commands, tools, tasks, and file changes.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-8">
@@ -215,7 +215,7 @@ export function RunTranscriptView(input: {
                 </Accordion>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No Codex transcript items were captured for this run.
+                  No transcript items were captured for this run.
                 </p>
               )}
             </CardContent>
@@ -396,7 +396,7 @@ export function RunTranscriptView(input: {
                 Debug context
               </h2>
               <p className="text-sm text-muted-foreground">
-                Repository snapshots and raw Codex events for deeper debugging.
+                Repository snapshots and raw runtime events for deeper debugging.
               </p>
             </div>
             <RunDebugPanel viewModel={viewModel} />

@@ -54,6 +54,7 @@ export type CodexRunTranscriptEntry =
       text: string | null;
       preview: string;
       overflowId: string | null;
+      segmentCount: number;
     }
   | {
       kind: "command";
@@ -119,6 +120,7 @@ export type CodexRunTranscriptTurn = {
 };
 
 export type CodexRunViewModel = {
+  harnessLabel: string;
   issueIdentifier: string;
   runId: string;
   runTitle: string;
@@ -203,6 +205,9 @@ export function buildCodexRunViewModel(input: {
   const runArtifacts = input.runArtifacts;
   const run = input.runDetail.run;
   const codexRun = runArtifacts?.run ?? null;
+  const harnessLabel = formatLabel(
+    input.runDetail.run.agentHarness ?? codexRun?.harnessKind ?? "agent"
+  );
   const transcriptTurns = runArtifacts
     ? buildTranscriptTurns(runArtifacts, input.runDetail.turns)
     : [];
@@ -219,10 +224,11 @@ export function buildCodexRunViewModel(input: {
   const turnTokens = buildTurnTokens(runArtifacts, input.runDetail.turns);
 
   return {
+    harnessLabel,
     issueIdentifier: input.runDetail.issue.issueIdentifier,
     runId: run.runId,
     runTitle: `${input.runDetail.issue.issueIdentifier} · ${run.runId}`,
-    statusSummary: `${formatStatusLabel(workflowStatus)} / ${formatOutcomeLabel(workflowOutcome)} · Codex ${formatStatusLabel(codexStatus)}`,
+    statusSummary: `${formatStatusLabel(workflowStatus)} / ${formatOutcomeLabel(workflowOutcome)} · ${harnessLabel} ${formatStatusLabel(codexStatus)}`,
     failureSummary: codexFailureSummary,
     metrics: [
       {
@@ -231,7 +237,7 @@ export function buildCodexRunViewModel(input: {
         detail: formatOutcomeLabel(workflowOutcome)
       },
       {
-        label: "Codex",
+        label: harnessLabel,
         value: formatStatusLabel(codexStatus),
         detail: formatLabel(run.codexFailureKind ?? codexRun?.failureKind ?? "healthy")
       },
@@ -376,25 +382,41 @@ function buildTranscriptTurns(
             : `In ${formatCount(turn.usage.input_tokens)} / Cached ${formatCount(
                 turn.usage.cached_input_tokens
               )} / Out ${formatCount(turn.usage.output_tokens)}`,
-        countsSummary: `${formatCount(turn.commandCount)} commands · ${formatCount(
-          turn.toolCallCount
-        )} tools · ${formatCount(turn.fileChangeCount)} file changes`,
-        entries: runArtifacts.items
-          .filter((item) => item.turnId === turn.turnId)
-          .slice()
-          .sort((left, right) => compareAscending(itemRecordedAt(left), itemRecordedAt(right)))
-          .map((item) =>
-            mapTranscriptEntry({
-              item,
-              agentMessage: agentMessageMap.get(item.itemId) ?? null,
-              reasoning: reasoningMap.get(item.itemId) ?? null,
-              command: commandMap.get(item.itemId) ?? null,
-              toolCall: toolMap.get(item.itemId) ?? null,
-              fileChanges: fileChangeMap.get(item.itemId) ?? []
-            })
-          )
+        countsSummary: buildTurnCountsSummary(turn),
+        entries: compactTranscriptEntries(
+          runArtifacts.items
+            .filter((item) => item.turnId === turn.turnId)
+            .slice()
+            .sort((left, right) => compareAscending(itemRecordedAt(left), itemRecordedAt(right)))
+            .map((item) =>
+              mapTranscriptEntry({
+                item,
+                agentMessage: agentMessageMap.get(item.itemId) ?? null,
+                reasoning: reasoningMap.get(item.itemId) ?? null,
+                command: commandMap.get(item.itemId) ?? null,
+                toolCall: toolMap.get(item.itemId) ?? null,
+                fileChanges: fileChangeMap.get(item.itemId) ?? []
+              })
+            )
+        )
       };
     });
+}
+
+function buildTurnCountsSummary(
+  turn: SymphonyCodexRunArtifactsResult["turns"][number]
+): string {
+  const parts = [
+    `${formatCount(turn.commandCount)} commands`,
+    `${formatCount(turn.toolCallCount)} tools`,
+    `${formatCount(turn.fileChangeCount)} file changes`
+  ];
+
+  if (turn.reasoningCount > 0) {
+    parts.push(`${formatCount(turn.reasoningCount)} reasoning`);
+  }
+
+  return parts.join(" · ");
 }
 
 function buildExecutionPerformance(
@@ -489,7 +511,7 @@ function buildTurnLatency(
       {
         label: "Recorded turns",
         value: formatCount(rows.length),
-        detail: "Turns with readable Codex timing data."
+        detail: "Turns with readable runtime timing data."
       },
       {
         label: "Average turn wall time",
@@ -617,7 +639,8 @@ function mapTranscriptEntry(input: {
         input.reasoning.textPreview ??
         input.item.latestPreview ??
         "Reasoning trace",
-      overflowId: input.reasoning.textOverflowId
+      overflowId: input.reasoning.textOverflowId,
+      segmentCount: 1
     };
   }
 
@@ -752,4 +775,50 @@ function compareAscending(left: string, right: string): number {
 
 function compareDescending(left: string | null, right: string | null): number {
   return new Date(right ?? 0).getTime() - new Date(left ?? 0).getTime();
+}
+
+function compactTranscriptEntries(
+  entries: CodexRunTranscriptEntry[]
+): CodexRunTranscriptEntry[] {
+  const compacted: CodexRunTranscriptEntry[] = [];
+
+  for (const entry of entries) {
+    const previous = compacted[compacted.length - 1];
+
+    if (previous?.kind === "reasoning" && entry.kind === "reasoning") {
+      compacted[compacted.length - 1] = {
+        ...previous,
+        recordedAt: entry.recordedAt,
+        status: entry.status,
+        text: joinTranscriptText(previous.text, entry.text),
+        preview: joinTranscriptText(previous.preview, entry.preview) ?? previous.preview,
+        overflowId:
+          previous.overflowId !== null && previous.overflowId === entry.overflowId
+            ? previous.overflowId
+            : null,
+        segmentCount: previous.segmentCount + entry.segmentCount
+      };
+      continue;
+    }
+
+    if (previous?.kind === "todo-list" && entry.kind === "todo-list") {
+      compacted[compacted.length - 1] = entry;
+      continue;
+    }
+
+    compacted.push(entry);
+  }
+
+  return compacted;
+}
+
+function joinTranscriptText(
+  left: string | null,
+  right: string | null
+): string | null {
+  if (left && right) {
+    return `${left}\n\n${right}`;
+  }
+
+  return left ?? right;
 }
