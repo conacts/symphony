@@ -11,6 +11,7 @@ import {
   type HarnessLaunchSessionInput,
   HarnessSessionError
 } from "../shared/session-types.js";
+import { resolveHarnessModelRuntimePolicy } from "../shared/runtime-policy.js";
 
 type PendingResponse = {
   resolve: (value: Record<string, unknown>) => void;
@@ -217,13 +218,14 @@ export class PiRpcProcess {
 export function resolvePiLaunchSettings(
   input: HarnessLaunchSessionInput
 ): PiLaunchSettings {
+  const modelPolicy = resolveHarnessModelRuntimePolicy(input.runtimePolicy, "pi");
   return {
-    model: input.runtimePolicy.codex.defaultModel ?? "xiaomi/mimo-v2-pro",
+    model: modelPolicy.defaultModel ?? "xiaomi/mimo-v2-pro",
     reasoningEffort: normalizePiThinkingLevel(
-      input.runtimePolicy.codex.defaultReasoningEffort ?? "medium"
+      modelPolicy.defaultReasoningEffort ?? "medium"
     ),
-    providerId: input.runtimePolicy.codex.provider?.id ?? null,
-    providerName: input.runtimePolicy.codex.provider?.name ?? null
+    providerId: modelPolicy.provider?.id ?? null,
+    providerName: modelPolicy.provider?.name ?? null
   };
 }
 

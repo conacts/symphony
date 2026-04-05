@@ -22,7 +22,10 @@ import {
 } from "@symphony/db";
 import { loadSymphonyPromptContract } from "@symphony/runtime-contract";
 import { createSymphonyLogger } from "@symphony/logger";
-import { HarnessSessionError } from "@symphony/agent-harnesses";
+import {
+  HarnessSessionError,
+  resolveHarnessProviderEnvKey
+} from "@symphony/agent-harnesses";
 import {
   resolveDockerWorkspaceAuthContracts
 } from "./codex-auth-contract.js";
@@ -70,6 +73,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     environmentSource,
     cwd: process.cwd()
   });
+  const harnessProviderEnvKey = resolveHarnessProviderEnvKey(runtimePolicy);
   const runtimeHarness = resolveRuntimeHarness(runtimePolicy.agent.harness);
   const promptContract = loadSymphonyPromptContract({
     repoRoot: env.sourceRepo ?? process.cwd()
@@ -172,7 +176,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   }
 
   const dockerAuth = resolveDockerWorkspaceAuthContracts(hostCommandEnvSource, {
-    preferredApiKeyEnvKey: runtimePolicy.codex.provider?.envKey ?? null
+    preferredApiKeyEnvKey: harnessProviderEnvKey
   });
   const dockerCodexAuth = dockerAuth.codex;
   const dockerOpenCodeAuth = dockerAuth.opencode;
@@ -278,7 +282,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       hostCommandEnvSource,
       codexHostLaunchEnv: harnessLaunchEnv,
       codexAuthMode: dockerCodexAuth?.mode ?? null,
-      codexProviderEnvKey: runtimePolicy.codex.provider?.envKey ?? null,
+      codexProviderEnvKey: harnessProviderEnvKey,
       logger,
       callbacks: {
         async onUpdate(issueId, update) {

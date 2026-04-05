@@ -1,5 +1,6 @@
 export * from "./shared/types.js";
 export * from "./shared/session-types.js";
+export * from "./shared/runtime-policy.js";
 export * from "./shared/protocol.js";
 export * from "./shared/registry.js";
 export * from "./codex/definition.js";

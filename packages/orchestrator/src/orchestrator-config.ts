@@ -8,6 +8,32 @@ export type SymphonyAgentRuntimeConfig = {
     harness: "codex" | "opencode" | "pi";
     maxTurns: number;
   };
+  opencode: {
+    profile: string | null;
+    defaultModel: string | null;
+    defaultReasoningEffort: string | null;
+    provider: {
+      id: string | null;
+      name: string | null;
+      baseUrl: string | null;
+      envKey: string | null;
+      supportsWebsockets: boolean | null;
+      wireApi: string | null;
+    } | null;
+  };
+  pi: {
+    profile: string | null;
+    defaultModel: string | null;
+    defaultReasoningEffort: string | null;
+    provider: {
+      id: string | null;
+      name: string | null;
+      baseUrl: string | null;
+      envKey: string | null;
+      supportsWebsockets: boolean | null;
+      wireApi: string | null;
+    } | null;
+  };
   codex: {
     command: string;
     approvalPolicy: string | Record<string, unknown>;

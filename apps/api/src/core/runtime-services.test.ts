@@ -143,12 +143,44 @@ describe("runtime services", () => {
   it("loads runtime services when the opencode harness is configured", async () => {
     const harness = await createSymphonyRuntimeAppServicesHarness({
       environmentSource: {
-        SYMPHONY_AGENT_HARNESS: "opencode"
+        SYMPHONY_AGENT_HARNESS: "opencode",
+        SYMPHONY_OPENCODE_PROFILE: "glm-5-turbo"
       }
     });
     harnesses.push(harness);
 
     expect(harness.services.runtimePolicy.agent.harness).toBe("opencode");
+    expect(harness.services.runtimePolicy.opencode.profile).toBe("glm-5-turbo");
+    expect(harness.services.runtimePolicy.opencode.defaultModel).toBe(
+      "z-ai/glm-5-turbo"
+    );
+  });
+
+  it("loads runtime services when the pi harness is configured", async () => {
+    const harness = await createSymphonyRuntimeAppServicesHarness({
+      environmentSource: {
+        SYMPHONY_AGENT_HARNESS: "pi",
+        SYMPHONY_PI_PROFILE: "mimo-v2-pro"
+      },
+      hostCommandEnvSource: {
+        OPENROUTER_API_KEY: "test-openrouter-api-key"
+      }
+    });
+    harnesses.push(harness);
+
+    expect(harness.services.runtimePolicy.agent.harness).toBe("pi");
+    expect(harness.services.runtimePolicy.pi.profile).toBe("mimo-v2-pro");
+    expect(harness.services.runtimePolicy.pi.defaultModel).toBe(
+      "xiaomi/mimo-v2-pro"
+    );
+    expect(harness.services.runtimePolicy.pi.provider).toEqual({
+      id: "openrouter",
+      name: "OpenRouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      envKey: "OPENROUTER_API_KEY",
+      supportsWebsockets: false,
+      wireApi: "responses"
+    });
   });
 });
 

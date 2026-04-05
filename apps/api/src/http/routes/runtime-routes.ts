@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { resolveHarnessModelRuntimePolicy } from "@symphony/agent-harnesses";
 import {
   symphonyRuntimeHealthResponseSchema,
   symphonyRuntimeIssuePathSchema,
@@ -127,7 +128,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       path.issueIdentifier,
       trackedIssue,
       {
-        defaultModel: services.runtimePolicy.codex.defaultModel
+        defaultModel: resolveHarnessModelRuntimePolicy(services.runtimePolicy).defaultModel
       }
     );
 

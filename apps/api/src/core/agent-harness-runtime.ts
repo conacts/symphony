@@ -31,6 +31,7 @@ import type {
 import type { SymphonyLogger } from "@symphony/logger";
 import {
   HarnessSessionError,
+  resolveHarnessModelRuntimePolicy,
   type HarnessSessionClient
 } from "@symphony/agent-harnesses";
 import { captureRepoSnapshot } from "./codex-repo-snapshot.js";
@@ -184,6 +185,10 @@ async function executeRun(input: {
   launchTarget: SymphonyRuntimeLaunchTarget;
   activeRun: ActiveRun;
 }): Promise<void> {
+  const harnessModelPolicy = resolveHarnessModelRuntimePolicy(
+    input.runtimePolicy,
+    input.harness.kind
+  );
   let persistedTurnId: string | null = null;
   let maxTurnsReached = false;
   let sessionModel: string | null = null;
@@ -490,7 +495,7 @@ async function executeRun(input: {
         failureMessagePreview: reason,
         threadId: null,
         harnessKind: input.harness.kind,
-        model: sessionModel ?? input.runtimePolicy.codex.defaultModel,
+        model: sessionModel ?? harnessModelPolicy.defaultModel,
         providerId: sessionProviderId,
         providerName: sessionProviderName
       });
@@ -524,7 +529,7 @@ async function executeRun(input: {
         reason,
         failureStage: startupFailure?.failureStage ?? null,
         failureOrigin: startupFailure?.failureOrigin ?? null,
-        model: input.runtimePolicy.codex.defaultModel,
+        model: harnessModelPolicy.defaultModel,
         providerId: sessionProviderId,
         providerName: sessionProviderName,
         authMode: input.codexAuthMode,

@@ -18,6 +18,8 @@ describe("resolveRuntimePolicy", () => {
     expect(config.workspace.root).toContain("symphony_workspaces");
     expect(config.agent.harness).toBe("codex");
     expect(config.agent.maxConcurrentAgents).toBe(10);
+    expect(config.opencode.defaultModel).toBeNull();
+    expect(config.pi.defaultModel).toBeNull();
     expect(config.codex.approvalPolicy).toBe("never");
     expect(config.codex.threadSandbox).toBe("danger-full-access");
   });

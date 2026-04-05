@@ -124,8 +124,8 @@ describe("OpenCodeSdkClient", () => {
     createOpencodeClientMock.mockReturnValue(sdkClient);
 
     const runtimePolicy = buildSymphonyRuntimePolicy({
-      codex: {
-        ...buildSymphonyRuntimePolicy().codex,
+      opencode: {
+        ...buildSymphonyRuntimePolicy().opencode,
         defaultModel: "xiaomi/mimo-v2-pro",
         defaultReasoningEffort: "high",
         provider: {

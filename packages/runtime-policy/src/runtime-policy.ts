@@ -50,27 +50,33 @@ export type SymphonyAgentRuntimePolicy = {
 };
 export type SymphonyWorkflowAgentConfig = SymphonyAgentRuntimePolicy;
 
-export type SymphonyCodexRuntimePolicy = {
+export type SymphonyHarnessProviderRuntimePolicy = {
+  id: string | null;
+  name: string | null;
+  baseUrl: string | null;
+  envKey: string | null;
+  supportsWebsockets: boolean | null;
+  wireApi: string | null;
+} | null;
+
+export type SymphonyHarnessModelRuntimePolicy = {
+  profile: string | null;
+  defaultModel: string | null;
+  defaultReasoningEffort: string | null;
+  provider: SymphonyHarnessProviderRuntimePolicy;
+};
+
+export type SymphonyCodexRuntimePolicy = SymphonyHarnessModelRuntimePolicy & {
   command: string;
   approvalPolicy: string | Record<string, unknown>;
   threadSandbox: string;
   turnSandboxPolicy: Record<string, unknown> | null;
-  profile: string | null;
-  defaultModel: string | null;
-  defaultReasoningEffort: string | null;
-  provider: {
-    id: string | null;
-    name: string | null;
-    baseUrl: string | null;
-    envKey: string | null;
-    supportsWebsockets: boolean | null;
-    wireApi: string | null;
-  } | null;
   turnTimeoutMs: number;
   readTimeoutMs: number;
   stallTimeoutMs: number;
 };
 export type SymphonyWorkflowCodexConfig = SymphonyCodexRuntimePolicy;
+export type SymphonyWorkflowHarnessModelConfig = SymphonyHarnessModelRuntimePolicy;
 
 export type SymphonyHooksRuntimePolicy = {
   afterCreate: string | null;
@@ -112,6 +118,8 @@ export type SymphonyResolvedRuntimePolicy = {
   worker: SymphonyWorkerRuntimePolicy;
   agent: SymphonyAgentRuntimePolicy;
   codex: SymphonyCodexRuntimePolicy;
+  opencode: SymphonyHarnessModelRuntimePolicy;
+  pi: SymphonyHarnessModelRuntimePolicy;
   hooks: SymphonyHooksRuntimePolicy;
   observability: SymphonyObservabilityRuntimePolicy;
   server: SymphonyServerRuntimePolicy;
@@ -155,6 +163,8 @@ export function resolveRuntimePolicy(
   const worker = normalizeWorkerConfig(effectiveRawConfig.worker);
   const agent = normalizeAgentConfig(effectiveRawConfig.agent);
   const codex = normalizeCodexConfig(effectiveRawConfig.codex);
+  const opencode = normalizeHarnessModelConfig(effectiveRawConfig.opencode);
+  const pi = normalizeHarnessModelConfig(effectiveRawConfig.pi);
   const hooks = normalizeHooksConfig(effectiveRawConfig.hooks);
   const observability = normalizeObservabilityConfig(
     effectiveRawConfig.observability
@@ -173,6 +183,8 @@ export function resolveRuntimePolicy(
     worker,
     agent,
     codex,
+    opencode,
+    pi,
     hooks,
     observability,
     server,
@@ -186,6 +198,8 @@ export function resolveRuntimePolicy(
     worker,
     agent,
     codex,
+    opencode,
+    pi,
     hooks,
     observability,
     server,
@@ -310,10 +324,21 @@ function normalizeAgentConfig(value: unknown): SymphonyAgentRuntimePolicy {
   };
 }
 
+function normalizeHarnessModelConfig(
+  value: unknown
+): SymphonyHarnessModelRuntimePolicy {
+  const config = getNestedRecord(value);
+  return {
+    profile: normalizeOptionalString(config.profile),
+    defaultModel: normalizeOptionalString(config.defaultModel),
+    defaultReasoningEffort: normalizeOptionalString(config.defaultReasoningEffort),
+    provider: normalizeHarnessProviderConfig(config.provider)
+  };
+}
+
 function normalizeCodexConfig(value: unknown): SymphonyCodexRuntimePolicy {
   const codex = getNestedRecord(value);
   const rawCommand = codex.command;
-  const provider = getNestedRecord(codex.provider);
 
   if (rawCommand === "") {
     throw new SymphonyRuntimePolicyError(
@@ -335,23 +360,7 @@ function normalizeCodexConfig(value: unknown): SymphonyCodexRuntimePolicy {
     threadSandbox:
       normalizeOptionalString(codex.threadSandbox) ?? "danger-full-access",
     turnSandboxPolicy: normalizeOptionalRecord(codex.turnSandboxPolicy),
-    profile: normalizeOptionalString(codex.profile),
-    defaultModel: normalizeOptionalString(codex.defaultModel),
-    defaultReasoningEffort: normalizeOptionalString(codex.defaultReasoningEffort),
-    provider:
-      Object.keys(provider).length === 0
-        ? null
-        : {
-            id: normalizeOptionalString(provider.id),
-            name: normalizeOptionalString(provider.name),
-            baseUrl: normalizeOptionalString(provider.baseUrl),
-            envKey: normalizeOptionalString(provider.envKey),
-            supportsWebsockets:
-              typeof provider.supportsWebsockets === "boolean"
-                ? provider.supportsWebsockets
-                : null,
-            wireApi: normalizeOptionalString(provider.wireApi)
-          },
+    ...normalizeHarnessModelConfig(codex),
     turnTimeoutMs: normalizePositiveInteger(
       codex.turnTimeoutMs,
       3_600_000,
@@ -368,6 +377,25 @@ function normalizeCodexConfig(value: unknown): SymphonyCodexRuntimePolicy {
       "codex.stallTimeoutMs"
     )
   };
+}
+
+function normalizeHarnessProviderConfig(
+  value: unknown
+): SymphonyHarnessProviderRuntimePolicy {
+  const provider = getNestedRecord(value);
+  return Object.keys(provider).length === 0
+    ? null
+    : {
+        id: normalizeOptionalString(provider.id),
+        name: normalizeOptionalString(provider.name),
+        baseUrl: normalizeOptionalString(provider.baseUrl),
+        envKey: normalizeOptionalString(provider.envKey),
+        supportsWebsockets:
+          typeof provider.supportsWebsockets === "boolean"
+            ? provider.supportsWebsockets
+            : null,
+        wireApi: normalizeOptionalString(provider.wireApi)
+      };
 }
 
 function normalizeHooksConfig(value: unknown): SymphonyHooksRuntimePolicy {

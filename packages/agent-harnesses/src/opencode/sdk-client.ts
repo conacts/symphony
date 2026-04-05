@@ -15,6 +15,7 @@ import {
   type HarnessSessionClient,
   type HarnessTurnResult
 } from "../shared/session-types.js";
+import { resolveHarnessModelRuntimePolicy } from "../shared/runtime-policy.js";
 
 type OpenCodeSessionState = {
   sdkClient: OpencodeClient;
@@ -62,8 +63,10 @@ export class OpenCodeSdkClient implements HarnessSessionClient {
         }
       );
       const createdSession = unwrapOpenCodeData(created, "OpenCode session.create");
-
-      const provider = input.runtimePolicy.codex.provider;
+      const modelPolicy = resolveHarnessModelRuntimePolicy(
+        input.runtimePolicy,
+        "opencode"
+      );
 
       return {
         client: new OpenCodeSdkClient({
@@ -83,11 +86,11 @@ export class OpenCodeSdkClient implements HarnessSessionClient {
         processId: server.process.pid ? String(server.process.pid) : null,
         autoApproveRequests: true,
         approvalPolicy: "never",
-        model: input.runtimePolicy.codex.defaultModel ?? "unknown",
-        reasoningEffort: input.runtimePolicy.codex.defaultReasoningEffort ?? "medium",
-        profile: input.runtimePolicy.codex.profile,
-        providerId: provider?.id ?? null,
-        providerName: provider?.name ?? null
+        model: modelPolicy.defaultModel ?? "unknown",
+        reasoningEffort: modelPolicy.defaultReasoningEffort ?? "medium",
+        profile: modelPolicy.profile,
+        providerId: modelPolicy.provider?.id ?? null,
+        providerName: modelPolicy.provider?.name ?? null
       };
     } catch (error) {
       server.process.kill("SIGTERM");

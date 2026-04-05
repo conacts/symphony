@@ -195,8 +195,8 @@ describe("PiRpcClient", () => {
         ...buildSymphonyRuntimePolicy().workspace,
         root: "/tmp/symphony-pi-test"
       },
-      codex: {
-        ...buildSymphonyRuntimePolicy().codex,
+      pi: {
+        ...buildSymphonyRuntimePolicy().pi,
         defaultModel: "xiaomi/mimo-v2-pro",
         defaultReasoningEffort: "medium",
         provider: {

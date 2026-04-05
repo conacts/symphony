@@ -227,6 +227,18 @@ function toSymphonyOrchestratorConfig(
         harness: runtimePolicy.agent.harness,
         maxTurns: runtimePolicy.agent.maxTurns
       },
+      opencode: {
+        profile: runtimePolicy.opencode.profile,
+        defaultModel: runtimePolicy.opencode.defaultModel,
+        defaultReasoningEffort: runtimePolicy.opencode.defaultReasoningEffort,
+        provider: runtimePolicy.opencode.provider
+      },
+      pi: {
+        profile: runtimePolicy.pi.profile,
+        defaultModel: runtimePolicy.pi.defaultModel,
+        defaultReasoningEffort: runtimePolicy.pi.defaultReasoningEffort,
+        provider: runtimePolicy.pi.provider
+      },
       codex: {
         command: runtimePolicy.codex.command,
         approvalPolicy: runtimePolicy.codex.approvalPolicy,

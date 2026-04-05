@@ -1,5 +1,8 @@
 import path from "node:path";
-import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
+import type {
+  SymphonyHarnessModelRuntimePolicy,
+  SymphonyResolvedRuntimePolicy
+} from "@symphony/runtime-policy";
 import type { EnvironmentSource } from "./env.js";
 
 const defaultLinearEndpoint = "https://api.linear.app/graphql";
@@ -43,6 +46,10 @@ export function loadSymphonyRuntimePolicyConfig(input: {
   const trackerKind = readOptionalString(environmentSource.SYMPHONY_TRACKER_KIND) ?? "linear";
   const codexProfile = readOptionalString(environmentSource.SYMPHONY_CODEX_PROFILE);
   const codexProfileDefaults = resolveCodexProfileDefaults(codexProfile);
+  const opencodeProfile = readOptionalString(environmentSource.SYMPHONY_OPENCODE_PROFILE);
+  const opencodeProfileDefaults = resolveCodexProfileDefaults(opencodeProfile);
+  const piProfile = readOptionalString(environmentSource.SYMPHONY_PI_PROFILE);
+  const piProfileDefaults = resolveCodexProfileDefaults(piProfile);
   const trackerProjectSlug = readOptionalString(
     environmentSource.SYMPHONY_LINEAR_PROJECT_SLUG
   );
@@ -110,6 +117,18 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       ),
       maxConcurrentAgentsByState: {}
     },
+    opencode: readHarnessModelPolicy({
+      environmentSource,
+      prefix: "SYMPHONY_OPENCODE",
+      profile: opencodeProfile,
+      profileDefaults: opencodeProfileDefaults
+    }),
+    pi: readHarnessModelPolicy({
+      environmentSource,
+      prefix: "SYMPHONY_PI",
+      profile: piProfile,
+      profileDefaults: piProfileDefaults
+    }),
     codex: {
       command:
         readOptionalString(environmentSource.SYMPHONY_CODEX_COMMAND) ?? "codex",
@@ -262,6 +281,55 @@ function readOptionalBoolean(value: string | undefined): boolean | null {
   throw new TypeError(
     `Invalid Symphony runtime policy: expected a boolean, received ${JSON.stringify(value)}.`
   );
+}
+
+function readHarnessModelPolicy(input: {
+  environmentSource: EnvironmentSource;
+  prefix: "SYMPHONY_OPENCODE" | "SYMPHONY_PI";
+  profile: string | null;
+  profileDefaults: ReturnType<typeof resolveCodexProfileDefaults>;
+}): SymphonyHarnessModelRuntimePolicy {
+  const { environmentSource, prefix, profile, profileDefaults } = input;
+
+  return {
+    profile: profileDefaults?.profile ?? profile,
+    defaultModel:
+      readOptionalString(environmentSource[`${prefix}_MODEL`]) ??
+      profileDefaults?.defaultModel ??
+      defaultOpenRouterProfile.defaultModel,
+    defaultReasoningEffort:
+      readOptionalString(environmentSource[`${prefix}_REASONING_EFFORT`]) ??
+      profileDefaults?.defaultReasoningEffort ??
+      defaultOpenRouterProfile.defaultReasoningEffort,
+    provider: {
+      id:
+        readOptionalString(environmentSource[`${prefix}_PROVIDER`]) ??
+        profileDefaults?.provider.id ??
+        defaultOpenRouterProfile.provider.id,
+      name:
+        readOptionalString(environmentSource[`${prefix}_PROVIDER_NAME`]) ??
+        profileDefaults?.provider.name ??
+        defaultOpenRouterProfile.provider.name,
+      baseUrl:
+        readOptionalString(environmentSource[`${prefix}_PROVIDER_BASE_URL`]) ??
+        profileDefaults?.provider.baseUrl ??
+        defaultOpenRouterProfile.provider.baseUrl,
+      envKey:
+        readOptionalString(environmentSource[`${prefix}_PROVIDER_ENV_KEY`]) ??
+        profileDefaults?.provider.envKey ??
+        defaultOpenRouterProfile.provider.envKey,
+      supportsWebsockets:
+        readOptionalBoolean(
+          environmentSource[`${prefix}_PROVIDER_SUPPORTS_WEBSOCKETS`]
+        ) ??
+        profileDefaults?.provider.supportsWebsockets ??
+        defaultOpenRouterProfile.provider.supportsWebsockets,
+      wireApi:
+        readOptionalString(environmentSource[`${prefix}_PROVIDER_WIRE_API`]) ??
+        profileDefaults?.provider.wireApi ??
+        defaultOpenRouterProfile.provider.wireApi
+    }
+  };
 }
 
 function readAgentHarness(

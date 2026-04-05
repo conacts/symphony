@@ -1,6 +1,6 @@
 import {
   getRecord,
-  getString,
+  getString
 } from "../shared/protocol.js";
 import {
   type HarnessLaunchSessionInput,
@@ -9,6 +9,7 @@ import {
   type HarnessSessionClient,
   type HarnessTurnResult
 } from "../shared/session-types.js";
+import { resolveHarnessModelRuntimePolicy } from "../shared/runtime-policy.js";
 import {
   piAnalyticsAdapter,
   type PiAnalyticsProjection
@@ -28,6 +29,7 @@ export class PiRpcClient implements HarnessSessionClient {
     const { process, hostLaunchPath, launchSettings } =
       await PiRpcProcess.start(input);
     const client = new PiRpcClient(process);
+    const modelPolicy = resolveHarnessModelRuntimePolicy(input.runtimePolicy, "pi");
 
     try {
       const stateResponse = await process.sendCommand({
@@ -61,7 +63,7 @@ export class PiRpcClient implements HarnessSessionClient {
         profile: null,
         providerId: getString(modelRecord, "provider") ?? launchSettings.providerId,
         providerName:
-          input.runtimePolicy.codex.provider?.name ??
+          modelPolicy.provider?.name ??
           getString(modelRecord, "provider") ??
           launchSettings.providerName
       };
