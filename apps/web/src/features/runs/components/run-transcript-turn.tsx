@@ -21,13 +21,10 @@ import {
   MessageResponse
 } from "@/components/ai-elements/message";
 import {
-  Tool,
-  ToolContent,
-  ToolHeader
-} from "@/components/ai-elements/tool";
-import { RunTranscriptCopy } from "@/features/runs/components/run-transcript-copy";
-import { Badge } from "@/components/ui/badge";
+  RunTranscriptCopy
+} from "@/features/runs/components/run-transcript-copy";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type {
   AgentRunTranscriptEntry,
@@ -164,6 +161,9 @@ export function RunTranscriptTurn(input: {
                   </div>
                 </TaskTrigger>
                 <TaskContent>
+                  <TaskItem>
+                    {formatPiEditLineCount(entry.lineCount)}
+                  </TaskItem>
                   {entry.paths.length > 0 ? (
                     entry.paths.map((path) => (
                       <TaskItem key={`${entry.itemId}:${path}`}>
@@ -173,6 +173,11 @@ export function RunTranscriptTurn(input: {
                   ) : (
                     <TaskItem>No file paths were captured for this edit.</TaskItem>
                   )}
+                  {entry.diffText ? (
+                    <div className="pt-1">
+                      <CodeBlock code={entry.diffText} language="diff" />
+                    </div>
+                  ) : null}
                 </TaskContent>
               </Task>
             </div>
@@ -260,39 +265,38 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "command" ? (
-            <Tool className="mb-0 border-border/70 bg-card">
-              <ToolHeader
-                type="dynamic-tool"
-                toolName="command"
-                title="Command"
-                state={mapCommandToolState(entry.status)}
-                className="items-start"
-              />
-              <ToolContent className="space-y-3 px-4 pb-4 pt-0">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <Badge variant="outline">{entry.status}</Badge>
-                  <span>{entry.recordedAt}</span>
-                </div>
-                <pre className="overflow-x-auto rounded-md border border-border/70 bg-muted/40 p-3 text-xs">
-                  <code>{entry.command}</code>
-                </pre>
-                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <span>{entry.duration}</span>
-                  <span>exit {entry.exitCode ?? "n/a"}</span>
-                </div>
-                <CodeBlock code={entry.outputPreview} language="bash" />
-                <EntryFiles files={entry.files} />
-                {entry.overflowId ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => input.onOpenOverflow(entry)}
-                  >
-                    View full command output
-                  </Button>
-                ) : null}
-              </ToolContent>
-            </Tool>
+            <div>
+              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+              <Task className="mb-0" defaultOpen={false}>
+                <TaskTrigger title={entry.command}>
+                  <div className="flex w-full cursor-pointer items-start gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+                    <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap group-data-[state=open]:overflow-visible group-data-[state=open]:whitespace-normal">
+                      {entry.command}
+                    </span>
+                    <ChevronDownIcon className="mt-0.5 size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+                  </div>
+                </TaskTrigger>
+                <TaskContent>
+                  <TaskItem>{formatCommandOutcome(entry.status, entry.exitCode)}</TaskItem>
+                  <TaskItem>
+                    {entry.duration} · exit {entry.exitCode ?? "n/a"}
+                  </TaskItem>
+                  <CodeBlock code={entry.outputPreview} language="bash" />
+                  <EntryFiles files={entry.files} />
+                  {entry.overflowId ? (
+                    <div className="pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => input.onOpenOverflow(entry)}
+                      >
+                        View full command output
+                      </Button>
+                    </div>
+                  ) : null}
+                </TaskContent>
+              </Task>
+            </div>
           ) : null}
 
           {entry.kind === "tool-call" ? (
@@ -330,35 +334,6 @@ export function RunTranscriptTurn(input: {
                     onClick={() => input.onOpenOverflow(entry)}
                   >
                     View full tool result
-                  </Button>
-                ) : null}
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {entry.kind === "file-change" ? (
-            <Card className="border-border/70">
-              <CardHeader className="pb-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle className="text-sm font-medium">
-                    File changes
-                  </CardTitle>
-                  <Badge variant="outline">{entry.status}</Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {entry.recordedAt}
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <RunTranscriptCopy>{entry.summary}</RunTranscriptCopy>
-                <EntryFiles files={entry.changes} />
-                {entry.overflowId ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => input.onOpenOverflow(entry)}
-                  >
-                    View full file payload
                   </Button>
                 ) : null}
               </CardContent>
@@ -423,19 +398,6 @@ export function RunTranscriptTurn(input: {
   );
 }
 
-function mapCommandToolState(status: string) {
-  switch (status) {
-    case "completed":
-      return "output-available";
-    case "failed":
-      return "output-error";
-    case "in_progress":
-      return "input-available";
-    default:
-      return "input-streaming";
-  }
-}
-
 function EntryFiles(input: {
   files: Array<{
     path: string;
@@ -476,6 +438,26 @@ function buildPiEditTaskTitle(entry: PiEditTaskEntry): string {
   return entry.editCount > 1
     ? `pi.edit · ${entry.editCount} files`
     : "pi.edit · 1 file";
+}
+
+function formatPiEditLineCount(lineCount: number): string {
+  return lineCount === 1 ? "1 line edited" : `${lineCount} lines edited`;
+}
+
+function formatCommandOutcome(status: string, exitCode: number | null): string {
+  if (status === "completed") {
+    return exitCode === null || exitCode === 0
+      ? "Command succeeded"
+      : `Command completed with exit code ${exitCode}`;
+  }
+
+  if (status === "failed") {
+    return exitCode === null
+      ? "Command failed"
+      : `Command failed with exit code ${exitCode}`;
+  }
+
+  return "Command in progress";
 }
 
 function buildPiWriteTaskTitle(entry: PiWriteTaskEntry): string {

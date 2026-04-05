@@ -280,8 +280,7 @@ describe("symphony runtime contracts", () => {
             availableModels: [
               "xiaomi/mimo-v2-pro",
               "gpt-5.4",
-              "gpt-5.4-mini",
-              "gpt-5.3-codex-spark"
+              "gpt-5.4-mini"
             ],
             modelOverrideLabelPrefix: "symphony:model:",
             selectionHelpText:
@@ -358,8 +357,7 @@ describe("symphony runtime contracts", () => {
             availableModels: [
               "xiaomi/mimo-v2-pro",
               "gpt-5.4",
-              "gpt-5.4-mini",
-              "gpt-5.3-codex-spark"
+              "gpt-5.4-mini"
             ],
             modelOverrideLabelPrefix: "symphony:model:",
             selectionHelpText:

@@ -775,7 +775,14 @@ describe("sqlite agent analytics store", () => {
       expect(editTool).toMatchObject({
         piEdit: {
           path: "src/index.ts",
-          editCount: 1
+          editCount: 1,
+          lineCount: 1,
+          edits: [
+            {
+              oldText: "const x = 1;",
+              newText: "const x = 2;"
+            }
+          ]
         }
       });
     } finally {

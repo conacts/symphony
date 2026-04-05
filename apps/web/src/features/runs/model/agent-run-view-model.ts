@@ -74,6 +74,8 @@ export type AgentRunTranscriptEntry =
       status: string;
       paths: string[];
       editCount: number;
+      lineCount: number;
+      diffText: string | null;
       overflowId: string | null;
     }
   | {
@@ -114,15 +116,6 @@ export type AgentRunTranscriptEntry =
       outputPreview: string;
       overflowId: string | null;
       files: AgentRunFileChip[];
-    }
-  | {
-      kind: "file-change";
-      itemId: string;
-      recordedAt: string;
-      status: string;
-      summary: string;
-      changes: AgentRunFileChip[];
-      overflowId: string | null;
     }
   | {
       kind: "tool-call";
@@ -167,6 +160,11 @@ export type PiPatternTaskQuery = {
   pattern: string;
   path: string | null;
   ignoreCase?: boolean | null;
+};
+
+type PiEditBlock = {
+  oldText: string;
+  newText: string;
 };
 
 export type AgentRunTranscriptTurn = {
@@ -291,6 +289,42 @@ export function buildAgentRunViewModel(input: {
   const executionPerformance = buildExecutionPerformance(runArtifacts);
   const turnLatency = buildTurnLatency(runArtifacts, input.runDetail.turns);
   const turnTokens = buildTurnTokens(runArtifacts, input.runDetail.turns);
+  const fallbackTokenTotals = turnTokens.rows.reduce(
+    (totals, row) => ({
+      inputTokens: totals.inputTokens + row.inputTokens,
+      cachedInputTokens: totals.cachedInputTokens + row.cachedInputTokens,
+      outputTokens: totals.outputTokens + row.outputTokens,
+      totalTokens: totals.totalTokens + row.totalTokens
+    }),
+    {
+      inputTokens: 0,
+      cachedInputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0
+    }
+  );
+  const effectiveInputTokens =
+    (agentRun?.inputTokens ?? 0) > 0
+      ? (agentRun?.inputTokens ?? 0)
+      : run.inputTokens > 0
+        ? run.inputTokens
+        : fallbackTokenTotals.inputTokens;
+  const effectiveCachedInputTokens =
+    (agentRun?.cachedInputTokens ?? 0) > 0
+      ? (agentRun?.cachedInputTokens ?? 0)
+      : fallbackTokenTotals.cachedInputTokens;
+  const effectiveOutputTokens =
+    (agentRun?.outputTokens ?? 0) > 0
+      ? (agentRun?.outputTokens ?? 0)
+      : run.outputTokens > 0
+        ? run.outputTokens
+        : fallbackTokenTotals.outputTokens;
+  const effectiveTotalTokens =
+    (agentRun?.totalTokens ?? 0) > 0
+      ? (agentRun?.totalTokens ?? 0)
+      : run.totalTokens > 0
+        ? run.totalTokens
+        : fallbackTokenTotals.totalTokens;
 
   return {
     harnessLabel,
@@ -320,10 +354,10 @@ export function buildAgentRunViewModel(input: {
       },
       {
         label: "Tokens",
-        value: formatCount(agentRun?.totalTokens ?? run.totalTokens),
-        detail: `In ${formatCount(agentRun?.inputTokens ?? run.inputTokens)} / Out ${formatCount(
-          agentRun?.outputTokens ?? run.outputTokens
-        )}`
+        value: formatCount(effectiveTotalTokens),
+        detail: `In ${formatCount(effectiveInputTokens)} / Cached ${formatCount(
+          effectiveCachedInputTokens
+        )} / Out ${formatCount(effectiveOutputTokens)}`
       },
       {
         label: "Turns",
@@ -504,8 +538,7 @@ function buildTurnCountsSummary(
 ): string {
   const parts = [
     `${formatCount(turn.commandCount)} commands`,
-    `${formatCount(turn.toolCallCount)} tools`,
-    `${formatCount(turn.fileChangeCount)} file changes`
+    `${formatCount(turn.toolCallCount)} tools`
   ];
 
   if (turn.reasoningCount > 0) {
@@ -555,15 +588,6 @@ function buildTurnActivitySummary(
         detail: detailParts.join(" · ")
       });
     }
-  }
-
-  const uniqueFiles = uniqueTurnFileChanges(turnActivity?.fileChanges ?? []);
-  if (uniqueFiles.length > 0) {
-    cards.push({
-      label: "Files touched",
-      value: `${formatCount(uniqueFiles.length)} files`,
-      detail: formatTurnFileChangeDetail(uniqueFiles)
-    });
   }
 
   return cards;
@@ -753,7 +777,7 @@ function mapTranscriptEntry(input: {
   toolCall: SymphonyAgentToolCallRecord | null;
   taskSnapshot: SymphonyAgentTaskSnapshotRecord | null;
   fileChanges: SymphonyAgentFileChangeRecord[];
-}): AgentRunTranscriptEntry {
+}): AgentRunTranscriptEntry | null {
   const recordedAt = formatTimestamp(itemRecordedAt(input.item));
   const status = formatTranscriptEntryStatus(input.item, input.taskSnapshot);
   const files = input.fileChanges.map((fileChange) => ({
@@ -830,6 +854,10 @@ function mapTranscriptEntry(input: {
     }
 
     if (input.toolCall.server === "pi" && input.toolCall.tool === "edit") {
+      const typedEdits = input.toolCall.piEdit?.edits ?? extractPiEditBlocks(
+        input.toolCall.argumentsJson
+      );
+
       return {
         kind: "pi-edit-task",
         itemId: input.item.itemId,
@@ -840,6 +868,9 @@ function mapTranscriptEntry(input: {
             ? [input.toolCall.piEdit.path]
             : extractPiEditPaths(input.toolCall.argumentsJson),
         editCount: 1,
+        lineCount:
+          input.toolCall.piEdit?.lineCount ?? countPiEditLines(typedEdits),
+        diffText: buildPiEditDiff(typedEdits),
         overflowId: input.toolCall.resultOverflowId
       };
     }
@@ -919,18 +950,6 @@ function mapTranscriptEntry(input: {
     };
   }
 
-  if (input.item.itemType === "file_change") {
-    return {
-      kind: "file-change",
-      itemId: input.item.itemId,
-      recordedAt,
-      status,
-      summary: formatFileChangeSummary(input.fileChanges),
-      changes: files,
-      overflowId: input.item.latestOverflowId
-    };
-  }
-
   if (input.item.itemType === "todo_list") {
     return {
       kind: "todo-list",
@@ -946,6 +965,10 @@ function mapTranscriptEntry(input: {
       overflowId: input.item.latestOverflowId,
       files
     };
+  }
+
+  if (input.item.itemType === "file_change") {
+    return null;
   }
 
   return {
@@ -975,18 +998,6 @@ function groupFileChangesByItem(fileChanges: SymphonyAgentFileChangeRecord[]) {
   }
 
   return map;
-}
-
-function formatFileChangeSummary(fileChanges: SymphonyAgentFileChangeRecord[]): string {
-  if (fileChanges.length === 0) {
-    return "File changes captured.";
-  }
-
-  if (fileChanges.length === 1) {
-    return fileChanges[0]?.path ?? "1 file changed";
-  }
-
-  return `${formatCount(fileChanges.length)} files changed`;
 }
 
 function groupTaskSnapshotsByItem(taskSnapshots: SymphonyAgentTaskSnapshotRecord[]) {
@@ -1179,41 +1190,8 @@ function countTaskStates(snapshot: SymphonyAgentTaskSnapshotRecord) {
   return counts;
 }
 
-function uniqueTurnFileChanges(fileChanges: SymphonyAgentFileChangeRecord[]) {
-  const map = new Map<string, SymphonyAgentFileChangeRecord>();
-
-  for (const fileChange of fileChanges) {
-    const previous = map.get(fileChange.path);
-
-    if (!previous || compareAscending(previous.recordedAt, fileChange.recordedAt) <= 0) {
-      map.set(fileChange.path, fileChange);
-    }
-  }
-
-  return [...map.values()].sort((left, right) =>
-    compareTextAscending(left.path, right.path)
-  );
-}
-
-function formatTurnFileChangeDetail(
-  fileChanges: SymphonyAgentFileChangeRecord[]
-): string {
-  const preview = fileChanges.slice(0, 3).map((fileChange) => fileChange.path);
-  const remaining = fileChanges.length - preview.length;
-
-  if (remaining > 0) {
-    return `${preview.join(" · ")} · +${formatCount(remaining)} more`;
-  }
-
-  return preview.join(" · ");
-}
-
 function compareAscending(left: string, right: string): number {
   return new Date(left).getTime() - new Date(right).getTime();
-}
-
-function compareTextAscending(left: string, right: string): number {
-  return left.localeCompare(right);
 }
 
 function compareDescending(left: string | null, right: string | null): number {
@@ -1221,11 +1199,15 @@ function compareDescending(left: string | null, right: string | null): number {
 }
 
 function compactTranscriptEntries(
-  entries: AgentRunTranscriptEntry[]
+  entries: Array<AgentRunTranscriptEntry | null>
 ): AgentRunTranscriptEntry[] {
   const compacted: AgentRunTranscriptEntry[] = [];
 
   for (const entry of entries) {
+    if (entry === null) {
+      continue;
+    }
+
     const previous = compacted[compacted.length - 1];
 
     if (previous?.kind === "pi-read-task" && entry.kind === "pi-read-task") {
@@ -1250,6 +1232,8 @@ function compactTranscriptEntries(
         status: entry.status,
         paths: uniquePaths([...previous.paths, ...entry.paths]),
         editCount: previous.editCount + entry.editCount,
+        lineCount: previous.lineCount + entry.lineCount,
+        diffText: joinTranscriptText(previous.diffText, entry.diffText),
         overflowId:
           previous.overflowId !== null && previous.overflowId === entry.overflowId
             ? previous.overflowId
@@ -1354,6 +1338,70 @@ function extractPiEditPaths(value: unknown): string[] {
   }
 
   return [];
+}
+
+function extractPiEditBlocks(value: unknown): PiEditBlock[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+
+  const edits = (value as Record<string, unknown>).edits;
+
+  if (!Array.isArray(edits)) {
+    return [];
+  }
+
+  return edits.flatMap((edit) => {
+    if (!edit || typeof edit !== "object" || Array.isArray(edit)) {
+      return [];
+    }
+
+    const record = edit as Record<string, unknown>;
+    const oldText = getStringValue(record.oldText);
+    const newText = getStringValue(record.newText);
+
+    if (oldText === null || newText === null) {
+      return [];
+    }
+
+    return [{ oldText, newText }];
+  });
+}
+
+function countPiEditLines(edits: PiEditBlock[]): number {
+  return edits.reduce((total, edit) => {
+    const oldLineCount = countTextLines(edit.oldText);
+    const newLineCount = countTextLines(edit.newText);
+
+    return total + Math.max(oldLineCount, newLineCount, 1);
+  }, 0);
+}
+
+function countTextLines(value: string): number {
+  if (value === "") {
+    return 0;
+  }
+
+  return value.split("\n").length;
+}
+
+function buildPiEditDiff(edits: PiEditBlock[]): string | null {
+  if (edits.length === 0) {
+    return null;
+  }
+
+  return edits
+    .map((edit, index) => {
+      const oldLines = edit.oldText === "" ? [] : edit.oldText.split("\n");
+      const newLines = edit.newText === "" ? [] : edit.newText.split("\n");
+
+      return [
+        `@@ edit ${index + 1} @@`,
+        ...oldLines.map((line) => `-${line}`),
+        ...newLines.map((line) => `+${line}`)
+      ].join("\n");
+    })
+    .join("\n\n");
 }
 
 function extractPiWritePaths(value: unknown): string[] {

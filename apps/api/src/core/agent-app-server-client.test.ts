@@ -126,7 +126,7 @@ describe("pi app server client", () => {
     const scenario = await createScenario({
       root,
       issueOverrides: {
-        labels: ["symphony:model:gpt-5.3-codex-spark", "symphony:reasoning:high"]
+        labels: ["symphony:model:gpt-5.4-mini", "symphony:reasoning:high"]
       },
       command: undefined,
       script: `#!/bin/sh
@@ -177,7 +177,7 @@ done
     const argvLine = lines.find((line) => line.startsWith("ARGV:")) ?? "";
     expect(argvLine).not.toBe("");
     expect(argvLine).toContain(
-      "--model gpt-5.3-codex-spark --config model_reasoning_effort=high app-server"
+      "--model gpt-5.4-mini --config model_reasoning_effort=high app-server"
     );
     expect(argvLine).not.toContain("--model gpt-5.4 app-server");
     expect(lines).toContain("ENV_OPENAI:test-openai-api-key");

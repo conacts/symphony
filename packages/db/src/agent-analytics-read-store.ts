@@ -33,6 +33,7 @@ import type {
   SymphonyForensicsRunSummary,
   SymphonyRuntimeLaunchTarget
 } from "@symphony/contracts";
+import { parseKnownPiToolArguments, type PiEditArguments } from "@symphony/contracts";
 import {
   symphonyAgentCommandExecutionsTable,
   symphonyAgentEventLogTable,
@@ -1016,6 +1017,11 @@ function mapAgentToolCallRecords(
     const piGrep = piGrepByKey.get(key);
     const piFind = piFindByKey.get(key);
 
+    const parsedPiEdit = parseKnownPiToolArguments(
+      row.tool,
+      row.argumentsJson
+    ) as PiEditArguments | null;
+
     return {
       ...row,
       status: normalizeItemLifecycleStatus(row.status) ?? "in_progress",
@@ -1033,7 +1039,9 @@ function mapAgentToolCallRecords(
           ? undefined
           : {
               path: piEdit.path,
-              editCount: piEdit.editCount
+              editCount: piEdit.editCount,
+              lineCount: parsedPiEdit ? countPiEditLines(parsedPiEdit) : piEdit.editCount,
+              edits: parsedPiEdit?.edits ?? []
             },
       piWrite:
         piWrite === undefined
@@ -1058,6 +1066,23 @@ function mapAgentToolCallRecords(
             }
     };
   });
+}
+
+function countPiEditLines(value: PiEditArguments): number {
+  return value.edits.reduce((total, edit) => {
+    const oldLineCount = countNonEmptyLines(edit.oldText);
+    const newLineCount = countNonEmptyLines(edit.newText);
+
+    return total + Math.max(oldLineCount, newLineCount, 1);
+  }, 0);
+}
+
+function countNonEmptyLines(value: string): number {
+  if (value === "") {
+    return 0;
+  }
+
+  return value.split("\n").length;
 }
 
 function toolRowKey(runId: string, turnId: string, itemId: string): string {

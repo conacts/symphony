@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -80,7 +81,7 @@ export const TaskContent = ({
     )}
     {...props}
   >
-    <div className="mt-2 space-y-1.5 border-muted border-l-2 pl-4">
+    <div className="mt-2 flex flex-col gap-1.5 border-muted border-l-2 pl-4">
       {children}
     </div>
   </CollapsibleContent>

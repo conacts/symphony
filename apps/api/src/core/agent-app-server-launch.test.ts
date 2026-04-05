@@ -50,7 +50,7 @@ describe("agent app server launch", () => {
         url: null,
         state: "Todo",
         branchName: null,
-        labels: ["symphony:model:gpt-5.3-codex-spark", "symphony:reasoning:high"],
+        labels: ["symphony:model:gpt-5.4-mini", "symphony:reasoning:high"],
         projectId: null,
         projectName: null,
         projectSlug: null,
@@ -65,7 +65,7 @@ describe("agent app server launch", () => {
 
     expect(settings).toMatchObject({
       executable: "/tmp/fake-agent-runtime",
-      model: "gpt-5.3-codex-spark",
+      model: "gpt-5.4-mini",
       reasoningEffort: "high",
       profile: null,
       providerId: null,

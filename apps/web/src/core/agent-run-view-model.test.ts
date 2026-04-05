@@ -19,22 +19,6 @@ describe("agent run view model", () => {
       runArtifacts.turns[0].reasoningCount = 2;
     }
     runDetail.run.agentHarness = "pi";
-    runArtifacts.items.splice(3, 0, {
-      runId: "run_123",
-      turnId: "turn_123",
-      itemId: "file_123",
-      itemType: "file_change",
-      startedAt: "2026-03-31T18:00:31.000Z",
-      lastUpdatedAt: "2026-03-31T18:00:31.000Z",
-      completedAt: "2026-03-31T18:00:31.000Z",
-      finalStatus: "completed",
-      updateCount: 1,
-      durationMs: 1_000,
-      latestPreview: "README.md, src/index.ts",
-      latestOverflowId: null,
-      insertedAt: "2026-03-31T18:00:31.000Z",
-      updatedAt: "2026-03-31T18:00:31.000Z"
-    });
     runArtifacts.items.splice(4, 0, {
       runId: "run_123",
       turnId: "turn_123",
@@ -131,6 +115,22 @@ describe("agent run view model", () => {
     runArtifacts.items.splice(4, 0, {
       runId: "run_123",
       turnId: "turn_123",
+      itemId: "tool_edit_1",
+      itemType: "mcp_tool_call",
+      startedAt: "2026-03-31T18:00:24.000Z",
+      lastUpdatedAt: "2026-03-31T18:00:24.500Z",
+      completedAt: "2026-03-31T18:00:24.500Z",
+      finalStatus: "completed",
+      updateCount: 1,
+      durationMs: 500,
+      latestPreview: "Edited packages/db/src/index.ts",
+      latestOverflowId: null,
+      insertedAt: "2026-03-31T18:00:24.000Z",
+      updatedAt: "2026-03-31T18:00:24.500Z"
+    });
+    runArtifacts.items.splice(5, 0, {
+      runId: "run_123",
+      turnId: "turn_123",
       itemId: "tool_write_1",
       itemType: "mcp_tool_call",
       startedAt: "2026-03-31T18:00:24.000Z",
@@ -144,7 +144,7 @@ describe("agent run view model", () => {
       insertedAt: "2026-03-31T18:00:24.000Z",
       updatedAt: "2026-03-31T18:00:25.000Z"
     });
-    runArtifacts.items.splice(5, 0, {
+    runArtifacts.items.splice(6, 0, {
       runId: "run_123",
       turnId: "turn_123",
       itemId: "tool_grep_1",
@@ -160,7 +160,7 @@ describe("agent run view model", () => {
       insertedAt: "2026-03-31T18:00:26.000Z",
       updatedAt: "2026-03-31T18:00:27.000Z"
     });
-    runArtifacts.items.splice(6, 0, {
+    runArtifacts.items.splice(7, 0, {
       runId: "run_123",
       turnId: "turn_123",
       itemId: "tool_find_1",
@@ -176,26 +176,6 @@ describe("agent run view model", () => {
       insertedAt: "2026-03-31T18:00:28.000Z",
       updatedAt: "2026-03-31T18:00:29.000Z"
     });
-    runArtifacts.fileChanges.push(
-      {
-        runId: "run_123",
-        turnId: "turn_123",
-        itemId: "file_123",
-        path: "packages/db/src/index.ts",
-        changeKind: "modified",
-        recordedAt: "2026-03-31T18:00:31.000Z",
-        insertedAt: "2026-03-31T18:00:31.000Z"
-      },
-      {
-        runId: "run_123",
-        turnId: "turn_123",
-        itemId: "file_123",
-        path: "apps/api/src/main.ts",
-        changeKind: "modified",
-        recordedAt: "2026-03-31T18:00:31.000Z",
-        insertedAt: "2026-03-31T18:00:31.000Z"
-      }
-    );
     runArtifacts.toolCalls.unshift(
       {
         runId: "run_123",
@@ -234,6 +214,50 @@ describe("agent run view model", () => {
         durationMs: 1_000,
         insertedAt: "2026-03-31T18:00:22.000Z",
         updatedAt: "2026-03-31T18:00:23.000Z"
+      },
+      {
+        runId: "run_123",
+        turnId: "turn_123",
+        itemId: "tool_edit_1",
+        server: "pi",
+        tool: "edit",
+        status: "completed",
+        errorMessage: null,
+        argumentsJson: {
+          path: "packages/db/src/index.ts",
+          edits: [
+            {
+              oldText: "const oldValue = 1;",
+              newText: "const newValue = 2;"
+            },
+            {
+              oldText: "return oldValue;",
+              newText: "return newValue;"
+            }
+          ]
+        },
+        resultPreview: "Updated packages/db/src/index.ts",
+        resultOverflowId: null,
+        piEdit: {
+          path: "packages/db/src/index.ts",
+          editCount: 2,
+          lineCount: 2,
+          edits: [
+            {
+              oldText: "const oldValue = 1;",
+              newText: "const newValue = 2;"
+            },
+            {
+              oldText: "return oldValue;",
+              newText: "return newValue;"
+            }
+          ]
+        },
+        startedAt: "2026-03-31T18:00:24.000Z",
+        completedAt: "2026-03-31T18:00:24.500Z",
+        durationMs: 500,
+        insertedAt: "2026-03-31T18:00:24.000Z",
+        updatedAt: "2026-03-31T18:00:24.500Z"
       },
       {
         runId: "run_123",
@@ -346,51 +370,14 @@ describe("agent run view model", () => {
     if (runArtifacts.turnActivities[0]) {
       runArtifacts.turnActivities[0] = {
         ...runArtifacts.turnActivities[0],
-        fileChanges: [
-          {
-            runId: "run_123",
-            turnId: "turn_123",
-            itemId: "file_123",
-            path: "packages/db/src/index.ts",
-            changeKind: "modified",
-            recordedAt: "2026-03-31T18:00:31.000Z",
-            insertedAt: "2026-03-31T18:00:31.000Z"
-          },
-          {
-            runId: "run_123",
-            turnId: "turn_123",
-            itemId: "file_123",
-            path: "apps/api/src/main.ts",
-            changeKind: "modified",
-            recordedAt: "2026-03-31T18:00:31.000Z",
-            insertedAt: "2026-03-31T18:00:31.000Z"
-          },
-          {
-            runId: "run_123",
-            turnId: "turn_123",
-            itemId: "cmd_123",
-            path: "README.md",
-            changeKind: "modified",
-            recordedAt: "2026-03-31T18:00:30.000Z",
-            insertedAt: "2026-03-31T18:00:30.000Z"
-          },
-          {
-            runId: "run_123",
-            turnId: "turn_123",
-            itemId: "cmd_123",
-            path: "src/index.ts",
-            changeKind: "modified",
-            recordedAt: "2026-03-31T18:00:30.000Z",
-            insertedAt: "2026-03-31T18:00:30.000Z"
-          }
-        ],
+        fileChanges: [],
         taskSnapshots: [runArtifacts.taskSnapshots[0]!]
       };
     }
     runArtifacts.run.itemCount = 11;
     if (runArtifacts.turns[0]) {
       runArtifacts.turns[0].itemCount = 11;
-      runArtifacts.turns[0].fileChangeCount = 3;
+      runArtifacts.turns[0].fileChangeCount = 0;
     }
 
     const viewModel = buildAgentRunViewModel({
@@ -428,28 +415,21 @@ describe("agent run view model", () => {
         label: "Task queue",
         value: "3 tasks",
         detail: "1 updates · 1 in progress · 1 completed · 1 pending"
-      },
-      {
-        label: "Files touched",
-        value: "4 files",
-        detail: "apps/api/src/main.ts · packages/db/src/index.ts · README.md · +1 more"
       }
     ]);
     expect(viewModel.transcriptTurns[0]?.entries.map((entry) => entry.kind)).toEqual([
       "reasoning",
       "command",
       "pi-read-task",
+      "pi-edit-task",
       "pi-write-task",
       "pi-grep-task",
       "pi-find-task",
-      "file-change",
       "tool-call",
       "todo-list",
-      "agent-message"
+      "agent-message",
+      "todo-list"
     ]);
-    const fileChangeEntry = viewModel.transcriptTurns[0]?.entries.find(
-      (entry) => entry.kind === "file-change"
-    );
     const todoEntry = viewModel.transcriptTurns[0]?.entries.find(
       (entry) => entry.kind === "todo-list"
     );
@@ -458,6 +438,9 @@ describe("agent run view model", () => {
     );
     const piReadEntry = viewModel.transcriptTurns[0]?.entries.find(
       (entry) => entry.kind === "pi-read-task"
+    );
+    const piEditEntry = viewModel.transcriptTurns[0]?.entries.find(
+      (entry) => entry.kind === "pi-edit-task"
     );
     const piWriteEntry = viewModel.transcriptTurns[0]?.entries.find(
       (entry) => entry.kind === "pi-write-task"
@@ -476,6 +459,13 @@ describe("agent run view model", () => {
     expect(piReadEntry?.kind).toBe("pi-read-task");
     expect(piReadEntry?.readCount).toBe(2);
     expect(piReadEntry?.paths).toEqual(["README.md", "src/index.ts"]);
+    expect(piEditEntry?.kind).toBe("pi-edit-task");
+    expect(piEditEntry?.editCount).toBe(1);
+    expect(piEditEntry?.paths).toEqual(["packages/db/src/index.ts"]);
+    expect(piEditEntry?.lineCount).toBe(2);
+    expect(piEditEntry?.diffText).toContain("@@ edit 1 @@");
+    expect(piEditEntry?.diffText).toContain("-const oldValue = 1;");
+    expect(piEditEntry?.diffText).toContain("+const newValue = 2;");
     expect(piWriteEntry?.kind).toBe("pi-write-task");
     expect(piWriteEntry?.writeCount).toBe(1);
     expect(piWriteEntry?.paths).toEqual(["packages/db/src/index.ts"]);
@@ -496,18 +486,6 @@ describe("agent run view model", () => {
         path: "packages"
       }
     ]);
-    expect(fileChangeEntry?.kind).toBe("file-change");
-    expect(fileChangeEntry?.summary).toBe("2 files changed");
-    expect(fileChangeEntry?.changes).toEqual([
-      {
-        path: "packages/db/src/index.ts",
-        changeKind: "Modified"
-      },
-      {
-        path: "apps/api/src/main.ts",
-        changeKind: "Modified"
-      }
-    ]);
     expect(todoEntry?.kind).toBe("todo-list");
     expect(todoEntry?.markdown).toContain("**Steering**");
     expect(todoEntry?.markdown).toContain("- [ ] Keep the patch scoped");
@@ -522,5 +500,29 @@ describe("agent run view model", () => {
     expect(formatOverflowContent(buildSymphonyAgentOverflowResult())).toContain(
       "Task complete."
     );
+  });
+
+  it("falls back to turn token totals when run-level token rollups are zero", () => {
+    const runArtifacts = buildSymphonyAgentRunArtifactsResult();
+    const runDetail = buildSymphonyForensicsRunDetailResult();
+
+    runArtifacts.run.inputTokens = 0;
+    runArtifacts.run.cachedInputTokens = 0;
+    runArtifacts.run.outputTokens = 0;
+    runArtifacts.run.totalTokens = 0;
+    runDetail.run.inputTokens = 0;
+    runDetail.run.outputTokens = 0;
+    runDetail.run.totalTokens = 0;
+
+    const viewModel = buildAgentRunViewModel({
+      runDetail,
+      runArtifacts
+    });
+
+    expect(viewModel.metrics[3]).toEqual({
+      label: "Tokens",
+      value: "200",
+      detail: "In 120 / Cached 0 / Out 80"
+    });
   });
 });

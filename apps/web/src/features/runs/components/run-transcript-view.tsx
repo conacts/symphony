@@ -169,7 +169,7 @@ export function RunTranscriptView(input: {
             <CardHeader>
               <CardTitle>Structured run conversation</CardTitle>
               <CardDescription>
-                The run rendered as a chronological conversation between the operator prompt, {viewModel.harnessLabel}, commands, tools, tasks, and file changes.
+                The run rendered as a chronological conversation between the operator prompt, {viewModel.harnessLabel}, commands, tools, and tasks.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-8">
@@ -442,8 +442,6 @@ function buildOverflowTitle(entry: AgentRunTranscriptEntry): string {
       return "Command output";
     case "tool-call":
       return "Tool result";
-    case "file-change":
-      return "File changes";
     case "todo-list":
       return "Todo list";
     case "generic":
