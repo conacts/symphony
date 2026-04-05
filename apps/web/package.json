@@ -56,6 +56,7 @@
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^16.2.1",
+    "@react-grab/mcp": "^0.1.29",
     "@symphony/eslint-configs": "workspace:*",
     "@symphony/typescript-configs": "workspace:*",
     "@symphony/vitest-configs": "workspace:*",
@@ -63,6 +64,7 @@
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "globals": "^16.4.0",
+    "react-grab": "^0.1.29",
     "tailwindcss": "^4.2.2",
     "vitest": "^4.1.2"
   }

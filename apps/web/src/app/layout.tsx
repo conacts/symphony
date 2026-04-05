@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import type { ReactNode } from "react";
 import { IBM_Plex_Mono, Public_Sans } from "next/font/google";
 import "./globals.css";
@@ -32,6 +33,15 @@ export default function RootLayout(input: { children: ReactNode }) {
       suppressHydrationWarning
       className={cn("antialiased", ibmPlexMono.variable, "font-sans", publicSans.variable)}
     >
+      <head>
+        {process.env.NODE_ENV === "development" && (
+          <Script
+            src="//unpkg.com/react-grab/dist/index.global.js"
+            crossOrigin="anonymous"
+            strategy="beforeInteractive"
+          />
+        )}
+      </head>
       <body>
         <ThemeProvider>
           <ControlPlaneModelProvider model={model}>
