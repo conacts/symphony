@@ -17,9 +17,9 @@ import type {
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import {
-  createCodexSymphonyAgentRuntime,
+  createSymphonyAgentRuntime,
   isTransientProviderError
-} from "./codex-agent-runtime.js";
+} from "./agent-harness-runtime.js";
 import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimePolicyForRoot } from "../test-support/create-symphony-runtime-test-harness.js";
 
 const tempRoots: string[] = [];
@@ -94,7 +94,7 @@ describe("docker codex symphony agent runtime", () => {
     let completion: SymphonyAgentRuntimeCompletion | null = null;
 
     const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createCodexSymphonyAgentRuntime({
+      const runtime = createSymphonyAgentRuntime({
         promptContract: buildPromptContract(
           root,
           "You are working on {{ issue.identifier }} in {{ repo.name }} on {{ repo.default_branch }}."
@@ -253,7 +253,7 @@ describe("docker codex symphony agent runtime", () => {
     let completion: SymphonyAgentRuntimeCompletion | null = null;
 
     const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createCodexSymphonyAgentRuntime({
+      const runtime = createSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
@@ -351,7 +351,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     let completion: SymphonyAgentRuntimeCompletion | null = null;
 
     const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createCodexSymphonyAgentRuntime({
+      const runtime = createSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
@@ -471,7 +471,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     let completion: SymphonyAgentRuntimeCompletion | null = null;
 
     const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createCodexSymphonyAgentRuntime({
+      const runtime = createSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
@@ -594,7 +594,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     let completion: SymphonyAgentRuntimeCompletion | null = null;
 
     const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createCodexSymphonyAgentRuntime({
+      const runtime = createSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker: createDoneTracker(issue),
         runStore,
@@ -716,7 +716,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     let completion: SymphonyAgentRuntimeCompletion | null = null;
 
     const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createCodexSymphonyAgentRuntime({
+      const runtime = createSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,

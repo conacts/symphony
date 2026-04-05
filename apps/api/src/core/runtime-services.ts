@@ -30,7 +30,7 @@ import {
 } from "./codex-auth-contract.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
-import { createSymphonyHarnessAgentRuntime } from "./codex-agent-runtime.js";
+import { createHarnessBackedSymphonyAgentRuntime } from "./agent-harness-runtime.js";
 import { createDbBackedOrchestratorObserver } from "./runtime-db-observer.js";
 import { createSymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 import { SymphonyRuntimePollScheduler } from "./poll-scheduler.js";
@@ -271,7 +271,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     "applyAgentUpdate" | "handleRunCompletion"
   > | null = null;
   const agentRuntime = createCodexAgentRuntime(
-    createSymphonyHarnessAgentRuntime({
+    createHarnessBackedSymphonyAgentRuntime({
       harness: runtimeHarness,
       promptContract,
       githubRepository: runtimePolicy.github.repo,

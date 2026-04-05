@@ -12,7 +12,7 @@ export default mergeConfig(
       exclude:
         process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1"
           ? []
-          : ["src/core/codex-agent-runtime.live-docker.test.ts"]
+          : ["src/core/agent-harness-runtime.live-docker.test.ts"]
     },
     resolve: {
       alias: {

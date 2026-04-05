@@ -17,6 +17,9 @@
       "path": "../../packages/logger"
     },
     {
+      "path": "../../packages/agent-harnesses"
+    },
+    {
       "path": "../../packages/contracts"
     },
     {

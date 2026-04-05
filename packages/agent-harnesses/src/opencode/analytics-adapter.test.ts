@@ -5,7 +5,7 @@ import {
   projectOpenCodeSessionDiff,
   projectOpenCodeTodoListEvent,
   projectOpenCodeTodoUpdatedEvent
-} from "./opencode-analytics-adapter.js";
+} from "./analytics-adapter.js";
 
 describe("opencode analytics adapter", () => {
   it("projects assistant parts into codex-like thread events with explicit losses", () => {

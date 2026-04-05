@@ -13,6 +13,7 @@ import type {
   EventTodoUpdated,
   Part
 } from "@opencode-ai/sdk/v2";
+import type { SymphonyAgentHarnessAnalyticsProjection } from "../shared/types.js";
 
 export type OpenCodeAnalyticsLoss =
   | {
@@ -38,10 +39,10 @@ export type OpenCodeAnalyticsLoss =
       files: string[];
     };
 
-export type OpenCodeAnalyticsProjection = {
-  events: ThreadEvent[];
-  losses: OpenCodeAnalyticsLoss[];
-};
+export type OpenCodeAnalyticsProjection = SymphonyAgentHarnessAnalyticsProjection<
+  ThreadEvent,
+  OpenCodeAnalyticsLoss
+>;
 
 export function projectOpenCodePromptResponse(input: {
   response: {

@@ -137,12 +137,12 @@ describe("sqlite codex analytics read store", () => {
       });
       await runtimeLogs.record({
         level: "info",
-        source: "codex_runtime",
+        source: "agent_runtime",
         eventType: "runtime_session_started",
         issueId: "issue-1",
         issueIdentifier: "COL-157",
         runId,
-        message: "Started the Codex SDK session.",
+        message: "Started the agent harness session.",
         payload: {
           model: "xiaomi/mimo-v2-pro",
           providerId: "openrouter",

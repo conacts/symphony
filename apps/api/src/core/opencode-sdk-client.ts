@@ -1,17 +1,10 @@
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { promisify } from "node:util";
 import { createOpencodeClient, type OpencodeClient } from "@opencode-ai/sdk/v2";
 import {
   projectOpenCodePromptResponse,
-  projectOpenCodeSessionDiff,
   projectOpenCodeTodoListEvent
 } from "@symphony/agent-harnesses";
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
-import {
-  attachLineBuffer,
-  logNonJsonStreamLine
-} from "./codex-app-server-protocol.js";
 import {
   CodexAppServerError,
   type CodexAppServerLogger,
@@ -19,19 +12,19 @@ import {
   type CodexAppServerSessionClient,
   type CodexAppServerTurnResult
 } from "./codex-app-server-types.js";
-
-const execFileAsync = promisify(execFile);
-const openCodeServerPort = 4096;
-const openCodeServerTimeoutMs = 5_000;
-const openCodeServerHome = "/home/agent";
+import {
+  buildOpenCodePromptModel,
+  fetchOpenCodeSessionDiff,
+  fetchOpenCodeTodoSnapshot,
+  formatOpenCodeMessageError,
+  unwrapOpenCodeData
+} from "./opencode-session-data.js";
+import { startOpenCodeServer, type OpenCodeServerProcess } from "./opencode-server.js";
 
 type OpenCodeSessionState = {
   sdkClient: OpencodeClient;
   sessionId: string;
-  server: {
-    process: ChildProcessWithoutNullStreams;
-    baseUrl: string;
-  };
+  server: OpenCodeServerProcess;
   threadStarted: boolean;
   turnSequence: number;
   activeAbortController: AbortController | null;
@@ -79,7 +72,7 @@ export class OpenCodeSdkClient implements CodexAppServerSessionClient {
           responseStyle: "data"
         }
       );
-      const createdSession = unwrapData(created, "OpenCode session.create");
+      const createdSession = unwrapOpenCodeData(created, "OpenCode session.create");
 
       const provider = input.runtimePolicy.codex.provider;
 
@@ -163,7 +156,7 @@ export class OpenCodeSdkClient implements CodexAppServerSessionClient {
           responseStyle: "data"
         }
       );
-      const promptResponse = unwrapData(response, "OpenCode session.prompt");
+      const promptResponse = unwrapOpenCodeData(response, "OpenCode session.prompt");
 
       const promptProjection = projectOpenCodePromptResponse({
         response: promptResponse
@@ -258,232 +251,4 @@ export class OpenCodeSdkClient implements CodexAppServerSessionClient {
       }
     }
   }
-}
-
-async function startOpenCodeServer(input: {
-  launchTarget: CodexAppServerSession["launchTarget"];
-  env: Record<string, string>;
-  logger: CodexAppServerLogger;
-}): Promise<{
-  process: ChildProcessWithoutNullStreams;
-  baseUrl: string;
-}> {
-  const containerIp = await inspectContainerIp(input.launchTarget.containerName);
-  const baseUrl = `http://${containerIp}:${openCodeServerPort}`;
-  const process = spawn("docker", [
-    "exec",
-    "--workdir",
-    input.launchTarget.runtimeWorkspacePath,
-    "-e",
-    `HOME=${openCodeServerHome}`,
-    "-e",
-    `XDG_DATA_HOME=${openCodeServerHome}/.local/share`,
-    ...dockerExecEnvArgs(input.env),
-    input.launchTarget.containerName,
-    "opencode",
-    "serve",
-    "--hostname=0.0.0.0",
-    `--port=${openCodeServerPort}`
-  ], {
-    cwd: input.launchTarget.hostLaunchPath,
-    stdio: "pipe"
-  });
-
-  attachLineBuffer(process.stdout, (line) => {
-    logNonJsonStreamLine(input.logger, line, "stdout");
-  });
-  attachLineBuffer(process.stderr, (line) => {
-    logNonJsonStreamLine(input.logger, line, "stderr");
-  });
-
-  await waitForOpenCodeHealth({
-    baseUrl,
-    timeoutMs: openCodeServerTimeoutMs,
-    process
-  });
-
-  return {
-    process,
-    baseUrl
-  };
-}
-
-async function waitForOpenCodeHealth(input: {
-  baseUrl: string;
-  timeoutMs: number;
-  process: ChildProcessWithoutNullStreams;
-}): Promise<void> {
-  const startedAt = Date.now();
-
-  while (Date.now() - startedAt < input.timeoutMs) {
-    if (input.process.exitCode !== null) {
-      throw new CodexAppServerError(
-        "opencode_server_start_failed",
-        `OpenCode server exited before becoming healthy (code ${input.process.exitCode}).`
-      );
-    }
-
-    try {
-      const response = await fetch(`${input.baseUrl}/global/health`);
-      if (response.ok) {
-        return;
-      }
-    } catch {
-      // Keep polling until timeout.
-    }
-
-    await new Promise((resolve) => {
-      setTimeout(resolve, 100);
-    });
-  }
-
-  input.process.kill("SIGTERM");
-  throw new CodexAppServerError(
-    "opencode_server_start_failed",
-    `Timed out waiting for OpenCode server health at ${input.baseUrl}.`
-  );
-}
-
-async function inspectContainerIp(containerName: string): Promise<string> {
-  const result = await execFileAsync("docker", [
-    "inspect",
-    "--format",
-    "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
-    containerName
-  ]);
-  const stdout =
-    typeof result === "string"
-      ? result
-      : "stdout" in result && typeof result.stdout === "string"
-        ? result.stdout
-        : "";
-  const ip = stdout.trim();
-
-  if (ip === "") {
-    throw new CodexAppServerError(
-      "opencode_container_ip_missing",
-      `Could not resolve a Docker IP address for container ${containerName}.`
-    );
-  }
-
-  return ip;
-}
-
-function dockerExecEnvArgs(env: Record<string, string>): string[] {
-  const args: string[] = [];
-
-  for (const [key, value] of Object.entries(env)) {
-    args.push("-e", `${key}=${value}`);
-  }
-
-  return args;
-}
-
-function buildOpenCodePromptModel(
-  session: CodexAppServerSession
-): {
-  providerID: string;
-  modelID: string;
-} | undefined {
-  if (!session.providerId) {
-    return undefined;
-  }
-
-  return {
-    providerID: session.providerId,
-    modelID: session.model
-  };
-}
-
-async function fetchOpenCodeTodoSnapshot(input: {
-  sdkClient: OpencodeClient;
-  sessionId: string;
-  signal: AbortSignal;
-}) {
-  const response = await input.sdkClient.session.todo(
-    {
-      sessionID: input.sessionId
-    },
-    {
-      signal: input.signal,
-      throwOnError: true,
-      responseStyle: "data"
-    }
-  );
-
-  return unwrapData(response, "OpenCode session.todo");
-}
-
-async function fetchOpenCodeSessionDiff(input: {
-  sdkClient: OpencodeClient;
-  sessionId: string;
-  messageId: string;
-  signal: AbortSignal;
-}) {
-  try {
-    const diff = await input.sdkClient.session.diff(
-      {
-        sessionID: input.sessionId,
-        messageID: input.messageId
-      },
-      {
-        signal: input.signal,
-        throwOnError: true,
-        responseStyle: "data"
-      }
-    );
-    const diffData = unwrapData(diff, "OpenCode session.diff");
-
-    return projectOpenCodeSessionDiff({
-      sessionId: input.sessionId,
-      diffs: diffData
-    });
-  } catch {
-    return {
-      events: [],
-      losses: []
-    };
-  }
-}
-
-function formatOpenCodeMessageError(error: unknown): string {
-  if (!error || typeof error !== "object" || Array.isArray(error)) {
-    return "OpenCode assistant response failed.";
-  }
-
-  const record = error as Record<string, unknown>;
-  const name =
-    typeof record.name === "string" && record.name.trim() !== ""
-      ? record.name
-      : "OpenCodeError";
-  const data =
-    record.data && typeof record.data === "object" && !Array.isArray(record.data)
-      ? (record.data as Record<string, unknown>)
-      : null;
-  const message =
-    data && typeof data.message === "string" && data.message.trim() !== ""
-      ? data.message
-      : null;
-
-  return message ? `${name}: ${message}` : `${name}: assistant response failed.`;
-}
-
-function unwrapData<T>(
-  value: T | {
-    data: T;
-  },
-  label: string
-): T {
-  if (value && typeof value === "object" && "data" in value) {
-    return value.data;
-  }
-
-  if (value === undefined) {
-    throw new CodexAppServerError(
-      "opencode_invalid_response",
-      `${label} did not return data.`
-    );
-  }
-
-  return value;
 }

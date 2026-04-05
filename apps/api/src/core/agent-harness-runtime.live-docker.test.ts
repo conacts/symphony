@@ -25,7 +25,7 @@ import {
   buildSymphonyRuntimePolicyForRoot
 } from "../test-support/create-symphony-runtime-test-harness.js";
 import { resolveDockerCodexAuthContract } from "./codex-auth-contract.js";
-import { createCodexSymphonyAgentRuntime } from "./codex-agent-runtime.js";
+import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
 
 const execFileAsync = promisify(execFile);
 const tempRoots: string[] = [];
@@ -114,7 +114,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
 
         let completion: SymphonyAgentRuntimeCompletion | null = null;
         const completionPromise = new Promise<void>((resolve) => {
-          const runtime = createCodexSymphonyAgentRuntime({
+          const runtime = createSymphonyAgentRuntime({
             promptContract: buildPromptContract(
               root,
               "You are working on {{ issue.identifier }}."
@@ -268,7 +268,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
 
         let completion: SymphonyAgentRuntimeCompletion | null = null;
         const completionPromise = new Promise<void>((resolve) => {
-          const runtime = createCodexSymphonyAgentRuntime({
+          const runtime = createSymphonyAgentRuntime({
             promptContract: buildPromptContract(
               root,
               "You are working on {{ issue.identifier }}."

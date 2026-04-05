@@ -1,5 +1,6 @@
 import {
   createCodexHarnessDefinition,
+  createOpenCodeHarnessDefinition,
   createUnsupportedHarnessError,
   type SymphonyAgentHarnessKind
 } from "@symphony/agent-harnesses";
@@ -41,7 +42,7 @@ export function createCodexRuntimeHarness(): SymphonyRuntimeHarness {
 
 export function createOpenCodeRuntimeHarness(): SymphonyRuntimeHarness {
   return {
-    kind: "opencode",
+    kind: createOpenCodeHarnessDefinition().kind,
     startSession(input) {
       return OpenCodeSdkClient.startSession(input);
     }

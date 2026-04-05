@@ -83,7 +83,7 @@ const labelOverrides = new Map<string, string>([
   ["ready", "Ready"],
   ["down", "Down"],
   ["in_progress", "In progress"],
-  ["codex_runtime", "Codex runtime"],
+  ["agent_runtime", "Agent runtime"],
   ["workspace_boot_failure", "Workspace boot failure"],
   ["rate_limit_exceeded", "Rate limit exceeded"],
   ["agent_message", "Agent message"],

@@ -15,3 +15,12 @@ export type SymphonyAgentHarnessDefinition = {
   capabilities: SymphonyAgentHarnessCapability[];
   notes: string[];
 };
+
+export type SymphonyAgentHarnessModule = {
+  definition: SymphonyAgentHarnessDefinition;
+};
+
+export type SymphonyAgentHarnessAnalyticsProjection<TEvent, TLoss> = {
+  events: TEvent[];
+  losses: TLoss[];
+};
