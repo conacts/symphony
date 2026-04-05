@@ -585,6 +585,24 @@ function appendEventLogRow(
           itemId: extractItemId(context.input.payload)
         })
       : null;
+  const projectionLossOverflowId =
+    context.input.projectionLosses && context.input.projectionLosses.length > 0
+      ? storeOverflowRecord(context, {
+          kind: "projection_losses",
+          contentJson: context.input.projectionLosses,
+          turnId: context.input.turnId,
+          itemId: extractItemId(context.input.payload)
+        })
+      : null;
+  const rawPayloadOverflowId =
+    context.input.rawPayload === undefined
+      ? null
+      : storeOverflowRecord(context, {
+          kind: "raw_harness_payload",
+          contentJson: context.input.rawPayload,
+          turnId: context.input.turnId,
+          itemId: extractItemId(context.input.payload)
+        });
 
   context.tx
     .insert(codexEventLogTable)
@@ -599,6 +617,8 @@ function appendEventLogRow(
       recordedAt: context.input.recordedAt,
       payloadJson: payloadOverflowId ? null : context.input.payload,
       payloadOverflowId,
+      projectionLossOverflowId,
+      rawPayloadOverflowId,
       payloadTruncated: false,
       insertedAt: context.now
     })

@@ -350,7 +350,8 @@ async function executeRun(input: {
           contentItems: []
         }),
         turnTimeoutMs: input.runtimePolicy.codex.turnTimeoutMs,
-        onMessage: async (message) => {
+        onMessage: async (update) => {
+          const { message, projectionLosses, rawPayload } = update;
           const threadEvent = isThreadEvent(message) ? message : null;
           const eventName =
             threadEvent?.type ??
@@ -388,7 +389,9 @@ async function executeRun(input: {
                 turnId: persistedTurnId,
                 threadId: codexThreadId,
                 recordedAt: timestamp,
-                payload: threadEvent
+                payload: threadEvent,
+                projectionLosses,
+                rawPayload
               });
             }
           }

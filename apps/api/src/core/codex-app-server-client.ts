@@ -204,7 +204,11 @@ export class CodexAppServerClient {
       title: string;
       sandboxPolicy: Record<string, unknown> | null;
       toolExecutor: CodexAppServerToolExecutor;
-      onMessage: (message: Record<string, unknown>) => Promise<void> | void;
+      onMessage: (update: {
+        message: Record<string, unknown>;
+        rawPayload?: unknown;
+        projectionLosses?: unknown[] | null;
+      }) => Promise<void> | void;
       turnTimeoutMs: number;
     }
   ): Promise<CodexAppServerTurnResult> {
@@ -237,13 +241,15 @@ export class CodexAppServerClient {
     const sessionId = `${session.threadId}-${turnId}`;
 
     await input.onMessage({
-      event: "session_started",
-      session_id: sessionId,
-      thread_id: session.threadId,
-      turn_id: turnId,
-      codex_app_server_pid: session.processId,
-      model: session.model,
-      reasoning_effort: session.reasoningEffort
+      message: {
+        event: "session_started",
+        session_id: sessionId,
+        thread_id: session.threadId,
+        turn_id: turnId,
+        codex_app_server_pid: session.processId,
+        model: session.model,
+        reasoning_effort: session.reasoningEffort
+      }
     });
 
     while (true) {
@@ -252,7 +258,9 @@ export class CodexAppServerClient {
       const method = getString(message, "method");
 
       if (explicitEvent && !method) {
-        await input.onMessage(message);
+        await input.onMessage({
+          message
+        });
         continue;
       }
 
@@ -273,9 +281,11 @@ export class CodexAppServerClient {
 
       if (handled === "approval_required") {
         await input.onMessage({
-          event: "approval_required",
-          payload: message,
-          raw: getString(message, "raw")
+          message: {
+            event: "approval_required",
+            payload: message,
+            raw: getString(message, "raw")
+          }
         });
 
         throw new CodexAppServerError(
@@ -287,9 +297,11 @@ export class CodexAppServerClient {
 
       if (handled === "input_required") {
         await input.onMessage({
-          event: "turn_input_required",
-          payload: message,
-          raw: getString(message, "raw")
+          message: {
+            event: "turn_input_required",
+            payload: message,
+            raw: getString(message, "raw")
+          }
         });
 
         throw new CodexAppServerError(
@@ -309,9 +321,11 @@ export class CodexAppServerClient {
 
       if (needsInput(method, message)) {
         await input.onMessage({
-          event: "turn_input_required",
-          payload: message,
-          raw: getString(message, "raw")
+          message: {
+            event: "turn_input_required",
+            payload: message,
+            raw: getString(message, "raw")
+          }
         });
 
         throw new CodexAppServerError(
@@ -323,8 +337,10 @@ export class CodexAppServerClient {
 
       if (method === "turn/completed") {
         await input.onMessage({
-          event: "turn_completed",
-          ...message
+          message: {
+            event: "turn_completed",
+            ...message
+          }
         });
 
         return {
@@ -336,16 +352,20 @@ export class CodexAppServerClient {
 
       if (method === "turn/failed") {
         await input.onMessage({
-          event: "turn_failed",
-          ...message
+          message: {
+            event: "turn_failed",
+            ...message
+          }
         });
         throw new CodexAppServerError("turn_failed", "Codex turn failed.", message);
       }
 
       if (method === "turn/cancelled") {
         await input.onMessage({
-          event: "turn_cancelled",
-          ...message
+          message: {
+            event: "turn_cancelled",
+            ...message
+          }
         });
         throw new CodexAppServerError(
           "turn_cancelled",
@@ -355,8 +375,10 @@ export class CodexAppServerClient {
       }
 
       await input.onMessage({
-        event: method,
-        ...message
+        message: {
+          event: method,
+          ...message
+        }
       });
     }
   }
@@ -374,7 +396,11 @@ export class CodexAppServerClient {
     session: CodexAppServerSession,
     message: Record<string, unknown>,
     toolExecutor: CodexAppServerToolExecutor,
-    onMessage: (message: Record<string, unknown>) => Promise<void> | void
+    onMessage: (update: {
+      message: Record<string, unknown>;
+      rawPayload?: unknown;
+      projectionLosses?: unknown[] | null;
+    }) => Promise<void> | void
   ): Promise<ControlMessageResult> {
     const method = getString(message, "method");
     const id = getNumber(message, "id");
@@ -397,14 +423,16 @@ export class CodexAppServerClient {
         this.sendResponse(id, result);
 
         await onMessage({
-          event:
-            result.success === true
-              ? "tool_call_completed"
-              : toolName === null
-                ? "unsupported_tool_call"
-                : "tool_call_failed",
-          payload: message,
-          raw
+          message: {
+            event:
+              result.success === true
+                ? "tool_call_completed"
+                : toolName === null
+                  ? "unsupported_tool_call"
+                  : "tool_call_failed",
+            payload: message,
+            raw
+          }
         });
       } catch (error) {
         const result = normalizeToolResult({
@@ -414,9 +442,11 @@ export class CodexAppServerClient {
 
         this.sendResponse(id, result);
         await onMessage({
-          event: toolName === null ? "unsupported_tool_call" : "tool_call_failed",
-          payload: message,
-          raw
+          message: {
+            event: toolName === null ? "unsupported_tool_call" : "tool_call_failed",
+            payload: message,
+            raw
+          }
         });
       }
 
@@ -435,10 +465,12 @@ export class CodexAppServerClient {
         decision: "acceptForSession"
       });
       await onMessage({
-        event: "approval_auto_approved",
-        payload: message,
-        raw,
-        decision: "acceptForSession"
+        message: {
+          event: "approval_auto_approved",
+          payload: message,
+          raw,
+          decision: "acceptForSession"
+        }
       });
       return "continue";
     }
@@ -452,10 +484,12 @@ export class CodexAppServerClient {
         decision: "approved_for_session"
       });
       await onMessage({
-        event: "approval_auto_approved",
-        payload: message,
-        raw,
-        decision: "approved_for_session"
+        message: {
+          event: "approval_auto_approved",
+          payload: message,
+          raw,
+          decision: "approved_for_session"
+        }
       });
       return "continue";
     }
@@ -470,10 +504,12 @@ export class CodexAppServerClient {
           answers: approvalAnswers.answers
         });
         await onMessage({
-          event: "approval_auto_approved",
-          payload: message,
-          raw,
-          decision: approvalAnswers.decision
+          message: {
+            event: "approval_auto_approved",
+            payload: message,
+            raw,
+            decision: approvalAnswers.decision
+          }
         });
         return "continue";
       }
@@ -487,10 +523,12 @@ export class CodexAppServerClient {
         answers: unavailableAnswers
       });
       await onMessage({
-        event: "tool_input_auto_answered",
-        payload: message,
-        raw,
-        answer: nonInteractiveToolInputAnswer
+        message: {
+          event: "tool_input_auto_answered",
+          payload: message,
+          raw,
+          answer: nonInteractiveToolInputAnswer
+        }
       });
       return "continue";
     }
@@ -505,10 +543,12 @@ export class CodexAppServerClient {
           answers: approvalAnswers.answers
         });
         await onMessage({
-          event: "approval_auto_approved",
-          payload: message,
-          raw,
-          decision: approvalAnswers.decision
+          message: {
+            event: "approval_auto_approved",
+            payload: message,
+            raw,
+            decision: approvalAnswers.decision
+          }
         });
         return "continue";
       }
@@ -522,10 +562,12 @@ export class CodexAppServerClient {
         answers: unavailableAnswers
       });
       await onMessage({
-        event: "tool_input_auto_answered",
-        payload: message,
-        raw,
-        answer: nonInteractiveToolInputAnswer
+        message: {
+          event: "tool_input_auto_answered",
+          payload: message,
+          raw,
+          answer: nonInteractiveToolInputAnswer
+        }
       });
       return "continue";
     }

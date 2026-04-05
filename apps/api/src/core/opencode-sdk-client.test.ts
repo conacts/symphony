@@ -161,14 +161,18 @@ describe("OpenCodeSdkClient", () => {
       }
     });
 
-    const events: Record<string, unknown>[] = [];
+    const events: Array<{
+      message: Record<string, unknown>;
+      rawPayload?: unknown;
+      projectionLosses?: unknown[] | null;
+    }> = [];
     const turn = await session.client.runTurn(session, {
       prompt: "Implement the fix",
       title: "Fix",
       sandboxPolicy: null,
       toolExecutor: vi.fn(),
-      onMessage(message) {
-        events.push(message);
+      onMessage(update) {
+        events.push(update);
       },
       turnTimeoutMs: 1_000
     });
@@ -179,7 +183,7 @@ describe("OpenCodeSdkClient", () => {
       threadId: "session-1",
       turnId: "opencode-turn-1"
     });
-    expect(events).toEqual(
+    expect(events.map((event) => event.message)).toEqual(
       expect.arrayContaining([
         {
           type: "thread.started",
@@ -222,5 +226,32 @@ describe("OpenCodeSdkClient", () => {
         }
       ])
     );
+    expect(events.find((event) => event.message.type === "turn.completed")).toMatchObject({
+      rawPayload: {
+        info: expect.objectContaining({
+          id: "assistant-1"
+        })
+      },
+      projectionLosses: [
+        {
+          kind: "reasoning_tokens_folded_into_output",
+          messageId: "assistant-1",
+          reasoningTokens: 2
+        }
+      ]
+    });
+    expect(
+      events.find(
+        (event) =>
+          event.message.type === "item.completed" &&
+          (event.message.item as { id?: string }).id === "opencode-diff:session-1"
+      )
+    ).toMatchObject({
+      rawPayload: [
+        expect.objectContaining({
+          file: "apps/api/src/main.ts"
+        })
+      ]
+    });
   });
 });

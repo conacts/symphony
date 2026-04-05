@@ -107,6 +107,17 @@ describe("sqlite codex analytics read store", () => {
         turnId,
         threadId: "thread-1",
         recordedAt: "2026-04-03T20:37:39.300Z",
+        rawPayload: {
+          source: "opencode",
+          responseId: "assistant-1"
+        },
+        projectionLosses: [
+          {
+            kind: "reasoning_tokens_folded_into_output",
+            messageId: "assistant-1",
+            reasoningTokens: 2
+          }
+        ],
         payload: {
           type: "turn.completed",
           usage: {
@@ -198,6 +209,17 @@ describe("sqlite codex analytics read store", () => {
         runId,
         agentMessages[0]?.textOverflowId ?? "missing"
       );
+      const turnCompletedEvent = artifacts?.events.find(
+        (event) => event.eventType === "turn.completed"
+      );
+      const projectionLossOverflow = await readStore.fetchOverflow(
+        runId,
+        turnCompletedEvent?.projectionLossOverflowId ?? "missing"
+      );
+      const rawPayloadOverflow = await readStore.fetchOverflow(
+        runId,
+        turnCompletedEvent?.rawPayloadOverflowId ?? "missing"
+      );
 
       expect(runs[0]?.runId).toBe(runId);
       expect(runs[0]?.codexStatus).toBe("completed");
@@ -245,6 +267,11 @@ describe("sqlite codex analytics read store", () => {
         "item.completed",
         "turn.completed"
       ]);
+      expect(turnCompletedEvent).toMatchObject({
+        payloadOverflowId: expect.any(String),
+        projectionLossOverflowId: expect.any(String),
+        rawPayloadOverflowId: expect.any(String)
+      });
       expect(turns).toHaveLength(1);
       expect(turns[0]?.usage).toEqual({
         input_tokens: 11,
@@ -262,6 +289,27 @@ describe("sqlite codex analytics read store", () => {
         itemId: "item-1",
         kind: "agent_message",
         contentText: longMessage
+      });
+      expect(projectionLossOverflow).toMatchObject({
+        runId,
+        turnId,
+        kind: "projection_losses",
+        contentJson: [
+          {
+            kind: "reasoning_tokens_folded_into_output",
+            messageId: "assistant-1",
+            reasoningTokens: 2
+          }
+        ]
+      });
+      expect(rawPayloadOverflow).toMatchObject({
+        runId,
+        turnId,
+        kind: "raw_harness_payload",
+        contentJson: {
+          source: "opencode",
+          responseId: "assistant-1"
+        }
       });
       expect(commands).toHaveLength(0);
       expect(tools).toHaveLength(0);

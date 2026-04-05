@@ -1103,6 +1103,9 @@ export function buildSymphonyCodexRunArtifactsResult(
             text: "Inspecting the repository structure before making changes."
           }
         },
+        payloadOverflowId: null,
+        projectionLossOverflowId: null,
+        rawPayloadOverflowId: null,
         payloadTruncated: false,
         insertedAt: "2026-03-31T18:00:10.000Z"
       },
@@ -1126,6 +1129,9 @@ export function buildSymphonyCodexRunArtifactsResult(
             status: "completed"
           }
         },
+        payloadOverflowId: null,
+        projectionLossOverflowId: null,
+        rawPayloadOverflowId: null,
         payloadTruncated: false,
         insertedAt: "2026-03-31T18:00:30.000Z"
       },
@@ -1157,6 +1163,9 @@ export function buildSymphonyCodexRunArtifactsResult(
             status: "completed"
           }
         },
+        payloadOverflowId: null,
+        projectionLossOverflowId: null,
+        rawPayloadOverflowId: null,
         payloadTruncated: false,
         insertedAt: "2026-03-31T18:00:40.000Z"
       },
@@ -1177,6 +1186,9 @@ export function buildSymphonyCodexRunArtifactsResult(
             text: "Task complete."
           }
         },
+        payloadOverflowId: null,
+        projectionLossOverflowId: null,
+        rawPayloadOverflowId: null,
         payloadTruncated: false,
         insertedAt: "2026-03-31T18:01:00.000Z"
       }

@@ -30,6 +30,12 @@ export type HarnessTurnResult = {
   turnId: string;
 };
 
+export type HarnessRuntimeUpdate = {
+  message: Record<string, unknown>;
+  rawPayload?: unknown;
+  projectionLosses?: unknown[] | null;
+};
+
 export type HarnessSessionClient = {
   close(): void;
   runTurn(
@@ -39,7 +45,7 @@ export type HarnessSessionClient = {
       title: string;
       sandboxPolicy: Record<string, unknown> | null;
       toolExecutor: HarnessToolExecutor;
-      onMessage: (message: Record<string, unknown>) => Promise<void> | void;
+      onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void;
       turnTimeoutMs: number;
     }
   ): Promise<HarnessTurnResult>;

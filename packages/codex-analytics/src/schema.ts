@@ -20,6 +20,8 @@ export const codexEventLogTable = sqliteTable(
     recordedAt: text("recorded_at").notNull(),
     payloadJson: text("payload_json", { mode: "json" }).$type<ThreadEvent | null>(),
     payloadOverflowId: text("payload_overflow_id"),
+    projectionLossOverflowId: text("projection_loss_overflow_id"),
+    rawPayloadOverflowId: text("raw_payload_overflow_id"),
     payloadTruncated: integer("payload_truncated", { mode: "boolean" }).notNull(),
     insertedAt: text("inserted_at").notNull()
   },

@@ -887,6 +887,9 @@ function mapCodexEventRecords(
       eventType: row.eventType,
       recordedAt: row.recordedAt,
       payload,
+      payloadOverflowId: row.payloadOverflowId ?? null,
+      projectionLossOverflowId: row.projectionLossOverflowId ?? null,
+      rawPayloadOverflowId: row.rawPayloadOverflowId ?? null,
       payloadTruncated: row.payloadTruncated,
       insertedAt: row.insertedAt
     }];
@@ -1069,9 +1072,15 @@ async function loadRunData(
     return null;
   }
 
-  const overflowIds = eventRows
-    .map((row) => row.payloadOverflowId)
-    .filter((value): value is string => typeof value === "string");
+  const overflowIds = [...new Set(
+    eventRows
+      .flatMap((row) => [
+        row.payloadOverflowId,
+        row.projectionLossOverflowId,
+        row.rawPayloadOverflowId
+      ])
+      .filter((value): value is string => typeof value === "string")
+  )];
   const overflowRows =
     overflowIds.length === 0
       ? []

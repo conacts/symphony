@@ -240,6 +240,9 @@ export const symphonyCodexEventRecordSchema = z.strictObject({
   eventType: nonEmptyStringSchema,
   recordedAt: isoTimestampSchema,
   payload: symphonyCodexAnalyticsEventSchema,
+  payloadOverflowId: nullableNonEmptyStringSchema,
+  projectionLossOverflowId: nullableNonEmptyStringSchema,
+  rawPayloadOverflowId: nullableNonEmptyStringSchema,
   payloadTruncated: z.boolean(),
   insertedAt: isoTimestampSchema
 });

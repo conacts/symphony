@@ -16,6 +16,8 @@ export type CodexPayloadOverflowKind =
   | "agent_message"
   | "command_output"
   | "event_payload"
+  | "projection_losses"
+  | "raw_harness_payload"
   | "reasoning"
   | "tool_result";
 
@@ -30,6 +32,8 @@ export type CodexEventEnvelope = {
   recorded_at: string;
   payload: ThreadEvent;
   payload_overflow_id: string | null;
+  projection_loss_overflow_id: string | null;
+  raw_payload_overflow_id: string | null;
   payload_truncated: boolean;
   inserted_at: string;
 };
@@ -40,6 +44,8 @@ export type CodexAnalyticsEventInput = {
   threadId: string | null;
   recordedAt: string;
   payload: ThreadEvent;
+  projectionLosses?: unknown[] | null;
+  rawPayload?: unknown;
 };
 
 export type CodexRunStatus =

@@ -37,7 +37,10 @@ export async function fetchOpenCodeTodoSnapshot(input: {
     }
   );
 
-  return unwrapOpenCodeData(response, "OpenCode session.todo");
+  return {
+    rawPayload: response,
+    todos: unwrapOpenCodeData(response, "OpenCode session.todo")
+  };
 }
 
 export async function fetchOpenCodeSessionDiff(input: {
@@ -60,14 +63,20 @@ export async function fetchOpenCodeSessionDiff(input: {
     );
     const diffData = unwrapOpenCodeData(diff, "OpenCode session.diff");
 
-    return openCodeAnalyticsAdapter.projectSessionDiff({
-      sessionId: input.sessionId,
-      diffs: diffData
-    });
+    return {
+      rawPayload: diff,
+      projection: openCodeAnalyticsAdapter.projectSessionDiff({
+        sessionId: input.sessionId,
+        diffs: diffData
+      })
+    };
   } catch {
     return {
-      events: [],
-      losses: []
+      rawPayload: null,
+      projection: {
+        events: [],
+        losses: []
+      }
     };
   }
 }

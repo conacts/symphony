@@ -1036,8 +1036,8 @@ function runTurnForScenario(
             }
           ]
         })),
-      onMessage(message) {
-        messages.push(message);
+      onMessage(update) {
+        messages.push(update.message);
       }
     })
     .finally(() => {

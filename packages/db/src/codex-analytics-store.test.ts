@@ -494,6 +494,16 @@ describe("sqlite codex analytics store", () => {
         turnId,
         threadId: "thread-tool",
         recordedAt: "2026-04-03T20:37:39.100Z",
+        rawPayload: {
+          source: "opencode",
+          item: "tool-1"
+        },
+        projectionLosses: [
+          {
+            kind: "command_output_unavailable",
+            command: "linear research"
+          }
+        ],
         payload: {
           type: "item.completed",
           item: {
@@ -535,8 +545,12 @@ describe("sqlite codex analytics store", () => {
       expect(toolCall?.resultOverflowId).not.toBeNull();
       expect(eventLogRow?.payloadJson).toBeNull();
       expect(eventLogRow?.payloadOverflowId).not.toBeNull();
+      expect(eventLogRow?.rawPayloadOverflowId).not.toBeNull();
+      expect(eventLogRow?.projectionLossOverflowId).not.toBeNull();
       expect(overflowRows.map((row) => row.kind).sort()).toEqual([
         "event_payload",
+        "projection_losses",
+        "raw_harness_payload",
         "tool_result"
       ]);
       expect(artifacts?.events[0]?.payload).toEqual({
@@ -561,6 +575,12 @@ describe("sqlite codex analytics store", () => {
           status: "completed"
         }
       });
+      expect(artifacts?.events[0]?.projectionLossOverflowId).toBe(
+        eventLogRow?.projectionLossOverflowId ?? null
+      );
+      expect(artifacts?.events[0]?.rawPayloadOverflowId).toBe(
+        eventLogRow?.rawPayloadOverflowId ?? null
+      );
     } finally {
       database.close();
     }

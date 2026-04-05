@@ -145,13 +145,15 @@ export class CodexSdkClient implements HarnessSessionClient {
       sessionStarted = true;
       this.#state.threadId = threadId;
       await input.onMessage({
-        event: "session_started",
-        session_id: `${threadId}-${turnId}`,
-        thread_id: threadId,
-        turn_id: turnId,
-        codex_app_server_pid: null,
-        model: session.model,
-        reasoning_effort: session.reasoningEffort
+        message: {
+          event: "session_started",
+          session_id: `${threadId}-${turnId}`,
+          thread_id: threadId,
+          turn_id: turnId,
+          codex_app_server_pid: null,
+          model: session.model,
+          reasoning_effort: session.reasoningEffort
+        }
       });
     };
 
@@ -170,15 +172,15 @@ export class CodexSdkClient implements HarnessSessionClient {
           await emitSessionStarted();
         }
 
-        await input.onMessage(
-          buildSdkEventPayload({
+        await input.onMessage({
+          message: buildSdkEventPayload({
             event,
             threadId,
             turnId,
             sessionId:
               threadId === null ? `pending-${turnId}` : `${threadId}-${turnId}`
           })
-        );
+        });
 
         if (event.type === "turn.completed") {
           sawCompletion = true;

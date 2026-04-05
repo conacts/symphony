@@ -123,8 +123,10 @@ export class OpenCodeSdkClient implements HarnessSessionClient {
       if (!this.#state.threadStarted) {
         this.#state.threadStarted = true;
         await input.onMessage({
-          type: "thread.started",
-          thread_id: this.#state.sessionId
+          message: {
+            type: "thread.started",
+            thread_id: this.#state.sessionId
+          }
         });
       }
 
@@ -161,7 +163,9 @@ export class OpenCodeSdkClient implements HarnessSessionClient {
           : promptProjection.events.slice(0, -1);
 
       for (const event of itemEvents) {
-        await input.onMessage(event);
+        await input.onMessage({
+          message: event
+        });
       }
 
       const diffProjection = await fetchOpenCodeSessionDiff({
@@ -170,26 +174,39 @@ export class OpenCodeSdkClient implements HarnessSessionClient {
         messageId: promptResponse.info.parentID,
         signal: abortController.signal
       });
-      for (const event of diffProjection.events) {
-        await input.onMessage(event);
+      const diffEvents = diffProjection.projection.events;
+      for (const [index, event] of diffEvents.entries()) {
+        await input.onMessage({
+          message: event,
+          rawPayload: index === diffEvents.length - 1 ? diffProjection.rawPayload : undefined,
+          projectionLosses:
+            index === diffEvents.length - 1 ? diffProjection.projection.losses : undefined
+        });
       }
 
-      const todos = await fetchOpenCodeTodoSnapshot({
+      const todoSnapshot = await fetchOpenCodeTodoSnapshot({
         sdkClient: this.#state.sdkClient,
         sessionId: this.#state.sessionId,
         signal: abortController.signal
       });
-      if (todos.length > 0) {
+      if (todoSnapshot.todos.length > 0) {
         await input.onMessage(
-          openCodeAnalyticsAdapter.projectTodoListEvent({
-            sessionId: this.#state.sessionId,
-            todos
-          })
+          {
+            message: openCodeAnalyticsAdapter.projectTodoListEvent({
+              sessionId: this.#state.sessionId,
+              todos: todoSnapshot.todos
+            }),
+            rawPayload: todoSnapshot.rawPayload
+          }
         );
       }
 
       if (completionEvent) {
-        await input.onMessage(completionEvent);
+        await input.onMessage({
+          message: completionEvent,
+          rawPayload: response,
+          projectionLosses: promptProjection.losses
+        });
       }
 
       if (promptResponse.info.error) {
