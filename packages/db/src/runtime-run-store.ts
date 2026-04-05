@@ -179,7 +179,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       issueIdentifier: run.issueIdentifier,
       runId,
       turnId,
-      source: "codex",
+      source: "agent",
       eventType: "turn_started",
       message: `Turn ${turnSequence} started.`,
       payload: {

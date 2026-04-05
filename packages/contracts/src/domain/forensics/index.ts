@@ -15,6 +15,10 @@ export {
   symphonyForensicsRunsQuerySchema
 } from "./run-queries.js";
 export {
+  symphonyForensicsActiveHarnessSchema,
+  symphonyForensicsCompatHarnessSchema,
+  symphonyForensicsTimelineSourceSchema,
+  symphonyForensicsCompatTimelineSourceSchema,
   symphonyForensicsIssueSummarySchema,
   symphonyForensicsRunSummarySchema,
   symphonyForensicsIssueFiltersSchema,

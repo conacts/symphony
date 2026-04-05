@@ -6,7 +6,7 @@ import { symphonyIssueTimelineTable } from "./schema.js";
 
 export type SymphonyIssueTimelineSource =
   | "orchestrator"
-  | "codex"
+  | "agent"
   | "tracker"
   | "workspace"
   | "runtime";
@@ -105,11 +105,13 @@ function normalizeLimit(limit: number | undefined, fallback: number): number {
 function normalizeSource(value: string): SymphonyIssueTimelineSource {
   switch (value) {
     case "orchestrator":
-    case "codex":
+    case "agent":
     case "tracker":
     case "workspace":
     case "runtime":
       return value;
+    case "codex":
+      return "agent";
     default:
       return "runtime";
   }

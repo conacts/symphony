@@ -205,7 +205,7 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
       issueIdentifier: run.issueIdentifier,
       runId,
       turnId,
-      source: "codex",
+      source: "agent",
       eventType: "turn_started",
       message: `Turn ${turnSequence} started.`,
       payload: {
@@ -285,7 +285,7 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
       issueIdentifier: run.issueIdentifier,
       runId,
       turnId,
-      source: "codex",
+      source: "agent",
       eventType: attrs.eventType,
       message: attrs.summary ? sanitizeText(attrs.summary) : null,
       payload: truncatedPayload.payload,

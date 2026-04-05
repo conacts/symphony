@@ -27,6 +27,13 @@ const codexTurnTerminalStatuses = new Set([
   "stopped"
 ]);
 
+export const symphonyAgentActiveHarnessKindSchema = z.literal("pi");
+export const symphonyAgentCompatHarnessKindSchema = z.enum([
+  "codex",
+  "opencode",
+  "pi"
+]);
+
 export const symphonyCodexRunStatusSchema = z.enum([
   "dispatching",
   "running",
@@ -55,7 +62,7 @@ export const symphonyCodexItemLifecycleStatusSchema = z.enum([
 export const symphonyCodexRunRecordSchema = z.strictObject({
   runId: nonEmptyStringSchema,
   threadId: nullableNonEmptyStringSchema,
-  harnessKind: z.enum(["codex", "opencode", "pi"]).nullable().default(null),
+  harnessKind: symphonyAgentCompatHarnessKindSchema.nullable().default(null),
   model: nullableNonEmptyStringSchema.default(null),
   providerId: nullableNonEmptyStringSchema.default(null),
   providerName: nullableNonEmptyStringSchema.default(null),
@@ -105,7 +112,7 @@ export const symphonyCodexTurnRecordSchema = z.strictObject({
   turnId: nonEmptyStringSchema,
   runId: nonEmptyStringSchema,
   threadId: nullableNonEmptyStringSchema,
-  harnessKind: z.enum(["codex", "opencode", "pi"]).nullable().default(null),
+  harnessKind: symphonyAgentCompatHarnessKindSchema.nullable().default(null),
   model: nullableNonEmptyStringSchema.default(null),
   providerId: nullableNonEmptyStringSchema.default(null),
   providerName: nullableNonEmptyStringSchema.default(null),

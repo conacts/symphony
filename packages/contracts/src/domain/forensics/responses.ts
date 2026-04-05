@@ -41,6 +41,27 @@ const codexRunStatuses = z.enum([
   "stopped"
 ]);
 const codexAuthModes = z.enum(["auth_json", "api_key_env"]);
+export const symphonyForensicsActiveHarnessSchema = z.literal("pi");
+export const symphonyForensicsCompatHarnessSchema = z.enum([
+  "codex",
+  "opencode",
+  "pi"
+]);
+export const symphonyForensicsTimelineSourceSchema = z.enum([
+  "orchestrator",
+  "agent",
+  "tracker",
+  "workspace",
+  "runtime"
+]);
+export const symphonyForensicsCompatTimelineSourceSchema = z.enum([
+  "orchestrator",
+  "agent",
+  "codex",
+  "tracker",
+  "workspace",
+  "runtime"
+]);
 
 export const symphonyForensicsIssueSummarySchema = z.strictObject({
   issueId: nonEmptyStringSchema,
@@ -81,7 +102,7 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   attempt: z.number().int().nonnegative().nullable(),
   status: nonEmptyStringSchema,
   outcome: nullableNonEmptyStringSchema,
-  agentHarness: z.enum(["codex", "opencode", "pi"]).nullable().default(null),
+  agentHarness: symphonyForensicsCompatHarnessSchema.nullable().default(null),
   codexStatus: codexRunStatuses.nullable(),
   codexFailureKind: nullableNonEmptyStringSchema,
   codexFailureOrigin: nullableNonEmptyStringSchema,
@@ -197,7 +218,7 @@ export const symphonyForensicsIssueTimelineEntrySchema = z.strictObject({
   issueIdentifier: nonEmptyStringSchema,
   runId: nullableNonEmptyStringSchema,
   turnId: nullableNonEmptyStringSchema,
-  source: z.enum(["orchestrator", "codex", "tracker", "workspace", "runtime"]),
+  source: symphonyForensicsTimelineSourceSchema,
   eventType: nonEmptyStringSchema,
   message: nullableNonEmptyStringSchema,
   payload: z.union([

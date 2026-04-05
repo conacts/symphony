@@ -11,6 +11,8 @@ export {
   symphonyCodexRunTurnFilterSchema
 } from "./requests.js";
 export {
+  symphonyAgentActiveHarnessKindSchema,
+  symphonyAgentCompatHarnessKindSchema,
   symphonyAgentRunStatusSchema,
   symphonyAgentTurnStatusSchema,
   symphonyAgentItemLifecycleStatusSchema,
