@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { buildIssueHref, buildIssuesHref } from "@/core/control-plane-routes";
 import { useRuntimeIssue } from "@/hooks/use-runtime-issue";
 import { IssueDetailView } from "@/features/issues/components/issue-detail-view";
 import { IssueRequeuePanel } from "@/features/issues/components/issue-requeue-panel";
@@ -32,7 +33,13 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
   );
 
   return (
-    <ControlPlanePage connection={connection}>
+    <ControlPlanePage
+      connection={connection}
+      breadcrumbs={[
+        { label: "Issues", href: buildIssuesHref() },
+        { label: input.issueIdentifier, href: buildIssueHref(input.issueIdentifier) }
+      ]}
+    >
       <div className="flex flex-col gap-8">
         <IssueRequeuePanel
           error={runtimeIssueState.error}

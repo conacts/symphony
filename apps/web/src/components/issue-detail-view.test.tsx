@@ -19,8 +19,6 @@ describe("issue detail view", () => {
       />
     );
 
-    expect(html).toContain("Issues");
-    expect(html).toContain('href="/issues"');
     expect(html).toContain("Issue runs");
     expect(html).toContain("Recent run token load");
     expect(html).toContain("Average run tokens");
@@ -29,5 +27,6 @@ describe("issue detail view", () => {
     expect(html).toContain("Issue activity");
     expect(html).toContain("/issues/COL-165/timeline");
     expect(html).toContain('href="/issues/COL-165/runs/');
+    expect(html.indexOf("Run history")).toBeLessThan(html.indexOf("Recent run token load"));
   });
 });

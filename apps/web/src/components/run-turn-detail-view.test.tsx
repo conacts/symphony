@@ -25,8 +25,8 @@ describe("run turn detail view", () => {
 
     expect(html).toContain("Turn transcript");
     expect(html).toContain("Single-turn drilldown");
-    expect(html).toContain("/issues/COL-165/runs/run_123/turns");
     expect(html).not.toContain("Back to turns table");
+    expect(html).toContain("Turn 1");
     expect(html).toContain("Operator prompt");
   });
 });

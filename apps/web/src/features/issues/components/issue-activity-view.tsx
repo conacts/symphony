@@ -39,9 +39,6 @@ export function IssueActivityView(input: {
       {viewModel ? (
         <>
           <section className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-muted-foreground">
-              {input.issueIdentifier}
-            </p>
             <h1 className="text-3xl font-semibold tracking-tight">Issue activity</h1>
             <p className="text-sm text-muted-foreground">
               Unified tracker, workspace, runtime, and agent activity for this issue.

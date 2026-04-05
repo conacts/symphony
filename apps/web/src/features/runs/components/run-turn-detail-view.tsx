@@ -9,7 +9,6 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { RunContextBreadcrumb } from "@/features/runs/components/run-context-breadcrumb";
 import { RunTranscriptTurn } from "@/features/runs/components/run-transcript-turn";
 import {
   buildAgentRunViewModel,
@@ -46,12 +45,6 @@ export function RunTurnDetailView(input: {
       {viewModel && turn ? (
         <>
           <section className="flex flex-col gap-2">
-            <RunContextBreadcrumb
-              issueIdentifier={viewModel.issueIdentifier}
-              runId={viewModel.runId}
-              current="turn"
-              turnLabel={`Turn ${turn.turnSequence}`}
-            />
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="space-y-2">
                 <h1 className="text-3xl font-semibold tracking-tight">

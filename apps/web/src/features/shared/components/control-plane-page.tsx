@@ -3,24 +3,30 @@
 import type { ReactNode } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { SymphonyDashboardFoundationModel } from "@/core/dashboard-foundation";
+import {
+  ControlPlaneBreadcrumbs,
+  type ControlPlaneBreadcrumbItem
+} from "@/features/shared/components/control-plane-breadcrumbs";
 import { ConnectionStateBadge } from "@/features/shared/components/connection-state-badge";
 
 export function ControlPlanePage(input: {
   connection: SymphonyDashboardFoundationModel["connection"];
+  breadcrumbs?: ControlPlaneBreadcrumbItem[];
   children: ReactNode;
 }) {
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:left-(--sidebar-width) group-data-[collapsible=icon]:md:left-(--sidebar-width-icon)">
-        <div className="flex min-w-0 items-center gap-2">
+      <header className="fixed top-0 left-0 right-0 z-30 flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:left-(--sidebar-width) group-data-[collapsible=icon]:md:left-(--sidebar-width-icon)">
+        <div className="flex min-w-0 items-center gap-3">
           <SidebarTrigger className="-ml-1" />
+          <ControlPlaneBreadcrumbs items={input.breadcrumbs ?? []} />
         </div>
         <ConnectionStateBadge
           kind={input.connection.kind}
           label={input.connection.label}
         />
       </header>
-      <main className="mx-auto flex w-full max-w-7xl min-w-0 flex-1 flex-col p-4 pt-20 md:p-6 md:pt-20">
+      <main className="mx-auto flex w-full max-w-7xl min-w-0 flex-1 flex-col p-4 pt-24 md:p-6 md:pt-24">
         {input.children}
       </main>
     </>

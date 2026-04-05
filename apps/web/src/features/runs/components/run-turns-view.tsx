@@ -18,7 +18,6 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import { RunContextBreadcrumb } from "@/features/runs/components/run-context-breadcrumb";
 import { buildAgentRunViewModel } from "@/features/runs/model/agent-run-view-model";
 import type { AgentRunResource } from "@/features/runs/hooks/use-agent-run";
 
@@ -53,18 +52,13 @@ export function RunTurnsView(input: {
       {viewModel ? (
         <>
           <section className="flex flex-col gap-2">
-            <RunContextBreadcrumb
-              issueIdentifier={viewModel.issueIdentifier}
-              runId={viewModel.runId}
-              current="turns"
-            />
             <div className="space-y-2">
-                <h1 className="text-3xl font-semibold tracking-tight">
-                  {viewModel.runId} turns
-                </h1>
-                <p className="max-w-3xl text-sm text-muted-foreground">
-                  Turn-level drilldown for this run. Open an individual turn to inspect the prompt, transcript, tools, commands, and task state in isolation.
-                </p>
+              <h1 className="text-3xl font-semibold tracking-tight">
+                {viewModel.runId} turns
+              </h1>
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                Turn-level drilldown for this run. Open an individual turn to inspect the prompt, transcript, tools, commands, and task state in isolation.
+              </p>
             </div>
           </section>
 

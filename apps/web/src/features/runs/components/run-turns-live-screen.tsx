@@ -1,6 +1,12 @@
 "use client";
 
 import React, { useMemo } from "react";
+import {
+  buildIssueHref,
+  buildIssueRunHref,
+  buildIssueRunTurnsHref,
+  buildIssuesHref
+} from "@/core/control-plane-routes";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import { useAgentRun } from "@/features/runs/hooks/use-agent-run";
 import { RunTurnsView } from "@/features/runs/components/run-turns-view";
@@ -25,7 +31,34 @@ export function RunTurnsLiveScreen(input: { runId: string }) {
   );
 
   return (
-    <ControlPlanePage connection={connection}>
+    <ControlPlanePage
+      connection={connection}
+      breadcrumbs={
+        runState.resource
+          ? [
+              { label: "Issues", href: buildIssuesHref() },
+              {
+                label: runState.resource.runDetail.issue.issueIdentifier,
+                href: buildIssueHref(runState.resource.runDetail.issue.issueIdentifier)
+              },
+              {
+                label: runState.resource.runDetail.run.runId,
+                href: buildIssueRunHref(
+                  runState.resource.runDetail.issue.issueIdentifier,
+                  runState.resource.runDetail.run.runId
+                )
+              },
+              {
+                label: "Turns",
+                href: buildIssueRunTurnsHref(
+                  runState.resource.runDetail.issue.issueIdentifier,
+                  runState.resource.runDetail.run.runId
+                )
+              }
+            ]
+          : []
+      }
+    >
       <RunTurnsView
         error={runState.error}
         loading={runState.loading}

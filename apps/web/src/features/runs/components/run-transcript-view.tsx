@@ -19,7 +19,6 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { RunDebugPanel } from "@/features/runs/components/run-debug-panel";
-import { RunContextBreadcrumb } from "@/features/runs/components/run-context-breadcrumb";
 import { RunExecutionDurationChart } from "@/features/runs/components/run-execution-duration-chart";
 import { RunTurnLatencyChart } from "@/features/runs/components/run-turn-latency-chart";
 import { RunTurnTokenChart } from "@/features/runs/components/run-turn-token-chart";
@@ -67,11 +66,6 @@ export function RunTranscriptView(input: {
         <>
           <section className="flex flex-col gap-5">
             <div className="space-y-2">
-              <RunContextBreadcrumb
-                issueIdentifier={viewModel.issueIdentifier}
-                runId={viewModel.runId}
-                current="run"
-              />
               <h1 className="text-3xl font-semibold tracking-tight">
                 {viewModel.runTitle}
               </h1>

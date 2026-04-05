@@ -4,14 +4,6 @@ import React from "react";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator
-} from "@/components/ui/breadcrumb";
-import {
   Card,
   CardContent,
   CardDescription,
@@ -29,10 +21,7 @@ import {
 } from "@/components/ui/table";
 import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import type { SymphonyForensicsIssueDetailResult } from "@symphony/contracts";
-import {
-  buildIssueTimelineHref,
-  buildIssuesHref
-} from "@/core/control-plane-routes";
+import { buildIssueTimelineHref } from "@/core/control-plane-routes";
 import { IssueRunTokenChart } from "@/features/issues/components/issue-run-token-chart";
 import { buildIssueDetailViewModel } from "@/features/issues/model/issue-view-model";
 
@@ -59,19 +48,6 @@ export function IssueDetailView(input: {
       {viewModel ? (
         <>
           <section className="flex flex-col gap-2">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link href={buildIssuesHref()}>Issues</Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{input.issueIdentifier}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
             <h1 className="text-3xl font-semibold tracking-tight">Issue runs</h1>
             <p className="text-sm text-muted-foreground">
               Run history is the primary surface here. Timeline and runtime debugging move to the dedicated activity page.
@@ -91,6 +67,58 @@ export function IssueDetailView(input: {
               </Card>
             ))}
           </section>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Run history</CardTitle>
+              <CardDescription>
+                Browse recorded attempts for this issue.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {viewModel.rows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No recorded runs for this issue yet.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Run</TableHead>
+                      <TableHead>Started</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Total tokens</TableHead>
+                      <TableHead>Turns / events</TableHead>
+                      <TableHead>Model</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Outcome</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {viewModel.rows.map((row) => (
+                      <TableRow key={row.runId}>
+                        <TableCell className="font-medium">
+                          <Link
+                            href={row.runHref}
+                            className="underline-offset-4 hover:underline focus-visible:underline"
+                          >
+                            {row.runId.slice(0, 8)}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{row.startedAt}</TableCell>
+                        <TableCell>{row.durationSeconds}</TableCell>
+                        <TableCell>{row.totalTokens}</TableCell>
+                        <TableCell>{row.turnsAndEvents}</TableCell>
+                        <TableCell>{row.model}</TableCell>
+                        <TableCell>{row.status}</TableCell>
+                        <TableCell>{row.outcome}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
 
           <section>
             <IssueRunTokenChart rows={viewModel.tokenChartRows} />
@@ -176,57 +204,6 @@ export function IssueDetailView(input: {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Run history</CardTitle>
-              <CardDescription>
-                Browse recorded attempts for this issue.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {viewModel.rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No recorded runs for this issue yet.
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Run</TableHead>
-                      <TableHead>Started</TableHead>
-                      <TableHead>Duration</TableHead>
-                      <TableHead>Total tokens</TableHead>
-                      <TableHead>Turns / events</TableHead>
-                      <TableHead>Model</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Outcome</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {viewModel.rows.map((row) => (
-                      <TableRow key={row.runId}>
-                        <TableCell className="font-medium">
-                          <Link
-                            href={row.runHref}
-                            className="underline-offset-4 hover:underline focus-visible:underline"
-                          >
-                            {row.runId.slice(0, 8)}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{row.startedAt}</TableCell>
-                        <TableCell>{row.durationSeconds}</TableCell>
-                        <TableCell>{row.totalTokens}</TableCell>
-                        <TableCell>{row.turnsAndEvents}</TableCell>
-                        <TableCell>{row.model}</TableCell>
-                        <TableCell>{row.status}</TableCell>
-                        <TableCell>{row.outcome}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
         </>
       ) : input.loading ? (
         <section className="grid gap-4 md:grid-cols-3">

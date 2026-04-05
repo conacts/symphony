@@ -22,7 +22,6 @@ describe("run turns view", () => {
     );
 
     expect(html).toContain("Turn table");
-    expect(html).toContain("Issues");
     expect(html).toContain("Turn 1");
     expect(html).toContain("/issues/COL-165/runs/run_123");
     expect(html).toContain("/issues/COL-165/runs/run_123/turns/turn_123");
