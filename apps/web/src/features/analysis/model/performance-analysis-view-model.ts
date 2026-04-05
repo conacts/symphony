@@ -14,6 +14,10 @@ import {
   formatPercent,
   formatTimestamp
 } from "@/core/display-formatters";
+import {
+  buildIssueHref,
+  buildIssueRunHref
+} from "@/core/control-plane-routes";
 
 export type PerformanceAnalysisResource = {
   issueIndex: SymphonyForensicsIssueListResult;
@@ -194,8 +198,8 @@ export function buildPerformanceAnalysisViewModel(
       avgDuration: formatDurationMilliseconds(averageDuration(entry)),
       maxDuration: formatDurationMilliseconds(entry.maxDurationMs),
       lastSeen: formatTimestamp(entry.latestRecordedAt),
-      runHref: `/runs/${entry.latestRunId}`,
-      issueHref: `/issues/${entry.latestIssueIdentifier}`
+      runHref: buildIssueRunHref(entry.latestIssueIdentifier, entry.latestRunId),
+      issueHref: buildIssueHref(entry.latestIssueIdentifier)
     }));
 
   const commandCount = input.sampledRuns.reduce(
@@ -256,8 +260,8 @@ export function buildPerformanceAnalysisViewModel(
     .map((row) => ({
       turnLabel: row.turnLabel,
       issueIdentifier: row.issueIdentifier,
-      runHref: `/runs/${row.runId}`,
-      issueHref: `/issues/${row.issueIdentifier}`,
+      runHref: buildIssueRunHref(row.issueIdentifier, row.runId),
+      issueHref: buildIssueHref(row.issueIdentifier),
       wallClock: formatDurationMilliseconds(row.wallClockMs),
       wallClockMs: row.wallClockMs,
       reasoningMs: row.reasoningMs,

@@ -401,7 +401,15 @@ describe("agent run view model", () => {
     expect(viewModel.executionPerformance.toolRows.map((row) => row.label)).toContain(
       "pi.read"
     );
+    expect(viewModel.routes.issueHref).toBe("/issues/COL-165");
+    expect(viewModel.routes.runHref).toBe("/issues/COL-165/runs/run_123");
+    expect(viewModel.routes.turnsHref).toBe("/issues/COL-165/runs/run_123/turns");
     expect(viewModel.transcriptTurns).toHaveLength(1);
+    expect(viewModel.turnRows[0]).toMatchObject({
+      turnId: "turn_123",
+      turnSequence: 1,
+      href: "/issues/COL-165/runs/run_123/turns/turn_123"
+    });
     expect(viewModel.transcriptTurns[0]?.countsSummary).toContain("1 task updates");
     expect(viewModel.transcriptTurns[0]?.activitySummary).toEqual([
       {

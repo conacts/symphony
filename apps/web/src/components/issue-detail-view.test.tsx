@@ -27,6 +27,6 @@ describe("issue detail view", () => {
     expect(html).toContain("Run history");
     expect(html).toContain("Issue activity");
     expect(html).toContain("/issues/COL-165/timeline");
-    expect(html).toContain('href="/runs/');
+    expect(html).toContain('href="/issues/COL-165/runs/');
   });
 });

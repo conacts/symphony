@@ -36,6 +36,12 @@ import {
   buildAgentTurnTokenRows,
   sumTurnTokenTotals
 } from "@/core/agent-token";
+import {
+  buildIssueHref,
+  buildIssueRunHref,
+  buildIssueRunTurnHref,
+  buildIssueRunTurnsHref
+} from "@/core/control-plane-routes";
 
 export type AgentRunTranscriptEntry =
   | {
@@ -192,6 +198,11 @@ export type AgentRunViewModel = {
   issueIdentifier: string;
   runId: string;
   runTitle: string;
+  routes: {
+    issueHref: string;
+    runHref: string;
+    turnsHref: string;
+  };
   statusSummary: string;
   failureSummary: string | null;
   metrics: Array<{
@@ -253,6 +264,17 @@ export type AgentRunViewModel = {
     }>;
   };
   transcriptTurns: AgentRunTranscriptTurn[];
+  turnRows: Array<{
+    turnId: string;
+    turnSequence: number;
+    href: string;
+    promptPreview: string;
+    startedAt: string;
+    endedAt: string;
+    status: string;
+    tokenSummary: string;
+    countsSummary: string;
+  }>;
   hasTranscript: boolean;
   repoStartText: string;
   repoEndText: string;
@@ -325,12 +347,20 @@ export function buildAgentRunViewModel(input: {
       : run.totalTokens > 0
         ? run.totalTokens
         : fallbackTokenTotals.totalTokens;
+  const issueIdentifier = input.runDetail.issue.issueIdentifier;
+  const runHref = buildIssueRunHref(issueIdentifier, run.runId);
+  const turnsHref = buildIssueRunTurnsHref(issueIdentifier, run.runId);
 
   return {
     harnessLabel,
-    issueIdentifier: input.runDetail.issue.issueIdentifier,
+    issueIdentifier,
     runId: run.runId,
-    runTitle: `${input.runDetail.issue.issueIdentifier} · ${run.runId}`,
+    runTitle: `${issueIdentifier} · ${run.runId}`,
+    routes: {
+      issueHref: buildIssueHref(issueIdentifier),
+      runHref,
+      turnsHref
+    },
     statusSummary: `${formatStatusLabel(workflowStatus)} / ${formatOutcomeLabel(workflowOutcome)} · ${harnessLabel} ${formatStatusLabel(agentStatus)}`,
     failureSummary: agentFailureSummary,
     metrics: [
@@ -431,6 +461,17 @@ export function buildAgentRunViewModel(input: {
     turnLatency,
     turnTokens,
     transcriptTurns,
+    turnRows: transcriptTurns.map((turn) => ({
+      turnId: turn.turnId,
+      turnSequence: turn.turnSequence,
+      href: buildIssueRunTurnHref(issueIdentifier, run.runId, turn.turnId),
+      promptPreview: summarizePrompt(turn.promptText),
+      startedAt: turn.startedAt,
+      endedAt: turn.endedAt,
+      status: turn.status,
+      tokenSummary: turn.tokenSummary,
+      countsSummary: turn.countsSummary
+    })),
     hasTranscript: transcriptTurns.length > 0,
     repoStartText: formatRepoSnapshot(run.repoStart),
     repoEndText: formatRepoSnapshot(run.repoEnd),
@@ -454,6 +495,15 @@ export function formatOverflowContent(overflow: SymphonyAgentOverflowResult): st
   }
 
   return JSON.stringify(overflow.overflow.contentJson, null, 2);
+}
+
+function summarizePrompt(value: string): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 96) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, 93)}...`;
 }
 
 function buildTranscriptTurns(

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   Accordion,
   AccordionContent,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { fetchAgentOverflow } from "@/core/agent-analytics-client";
 import { RunDebugPanel } from "@/features/runs/components/run-debug-panel";
+import { RunContextBreadcrumb } from "@/features/runs/components/run-context-breadcrumb";
 import { RunExecutionDurationChart } from "@/features/runs/components/run-execution-duration-chart";
 import { RunOverflowSheet } from "@/features/runs/components/run-overflow-sheet";
 import { RunTurnLatencyChart } from "@/features/runs/components/run-turn-latency-chart";
@@ -133,12 +135,25 @@ export function RunTranscriptView(input: {
         <>
           <section className="flex flex-col gap-5">
             <div className="space-y-2">
+              <RunContextBreadcrumb
+                issueIdentifier={viewModel.issueIdentifier}
+                runId={viewModel.runId}
+                current="run"
+              />
               <p className="text-sm font-medium text-muted-foreground">
                 {viewModel.issueIdentifier}
               </p>
-              <h1 className="text-3xl font-semibold tracking-tight">
-                {viewModel.runTitle}
-              </h1>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-3xl font-semibold tracking-tight">
+                  {viewModel.runTitle}
+                </h1>
+                <Link
+                  href={viewModel.routes.turnsHref}
+                  className="text-sm font-medium text-foreground underline underline-offset-4"
+                >
+                  Browse turns
+                </Link>
+              </div>
               <p className="max-w-3xl text-sm text-muted-foreground">
                 {viewModel.statusSummary}
               </p>

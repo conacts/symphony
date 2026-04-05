@@ -7,6 +7,7 @@ import {
   formatPercent,
   formatTimestamp
 } from "@/core/display-formatters";
+import { buildIssueHref } from "@/core/control-plane-routes";
 
 export type FailureAnalysisViewModel = {
   summaryCards: Array<{
@@ -111,7 +112,7 @@ export function buildFailureAnalysisViewModel(
       .slice(0, 8)
       .map((issue) => ({
         issueIdentifier: issue.issueIdentifier,
-        issueHref: `/issues/${issue.issueIdentifier}`,
+        issueHref: buildIssueHref(issue.issueIdentifier),
         latestProblemOutcome: formatOutcomeLabel(issue.latestProblemOutcome),
         latestErrorClass: formatErrorClassLabel(issue.latestErrorClass),
         problemRuns: formatCount(issue.problemRunCount),
@@ -222,7 +223,7 @@ export function buildFailureAnalysisViewModelFromSample(
       .slice(0, 8)
       .map((issue) => ({
         issueIdentifier: issue.issueIdentifier,
-        issueHref: `/issues/${issue.issueIdentifier}`,
+        issueHref: buildIssueHref(issue.issueIdentifier),
         latestProblemOutcome: formatOutcomeLabel(issue.latestProblemOutcome),
         latestErrorClass: formatErrorClassLabel(issue.latestErrorClass),
         problemRuns: formatCount(issue.problemRunCount),

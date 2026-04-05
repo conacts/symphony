@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import type { SymphonyForensicsIssueDetailResult } from "@symphony/contracts";
+import { buildIssueTimelineHref } from "@/core/control-plane-routes";
 import { IssueRunOutcomeChart } from "@/features/issues/components/issue-run-outcome-chart";
 import { IssueRunTokenChart } from "@/features/issues/components/issue-run-token-chart";
 import { buildIssueDetailViewModel } from "@/features/issues/model/issue-view-model";
@@ -148,7 +149,7 @@ export function IssueDetailView(input: {
             </CardHeader>
             <CardContent>
               <Link
-                href={`/issues/${input.issueIdentifier}/timeline`}
+                href={buildIssueTimelineHref(input.issueIdentifier)}
                 className="text-sm font-medium text-foreground underline underline-offset-4"
               >
                 Open issue activity

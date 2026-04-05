@@ -5,6 +5,10 @@ import {
   formatPercent,
   formatTimestamp
 } from "@/core/display-formatters";
+import {
+  buildIssueHref,
+  buildIssueRunHref
+} from "@/core/control-plane-routes";
 
 export type TokenAnalysisViewModel = {
   summaryCards: Array<{
@@ -190,8 +194,8 @@ export function buildTokenAnalysisViewModel(
       inputTokens: formatCount(row.inputTokens),
       outputTokens: formatCount(row.outputTokens),
       startedAt: formatTimestamp(row.startedAt),
-      runHref: `/runs/${row.runId}`,
-      issueHref: `/issues/${row.issueIdentifier}`
+      runHref: buildIssueRunHref(row.issueIdentifier, row.runId),
+      issueHref: buildIssueHref(row.issueIdentifier)
     })),
     spotlight: {
       heaviestRun: heaviestRun ? `${heaviestRun.issueIdentifier} · ${heaviestRun.runLabel}` : "n/a",

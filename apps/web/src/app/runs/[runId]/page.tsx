@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 
-import { RunTranscriptLiveScreen } from "@/features/runs/components/run-transcript-live-screen";
+import { LegacyRunRedirectLiveScreen } from "@/features/runs/components/legacy-run-redirect-live-screen";
 
 export default async function RunDetailPage(input: {
   params: Promise<{
@@ -9,5 +9,5 @@ export default async function RunDetailPage(input: {
 }): Promise<ReactElement> {
   const { runId } = await input.params;
 
-  return <RunTranscriptLiveScreen runId={runId} />;
+  return <LegacyRunRedirectLiveScreen runId={runId} />;
 }

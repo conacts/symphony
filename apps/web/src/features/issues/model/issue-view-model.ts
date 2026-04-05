@@ -16,6 +16,10 @@ import {
   formatTimestamp,
   prettyValue
 } from "@/core/display-formatters";
+import {
+  buildIssueHref,
+  buildIssueRunHref
+} from "@/core/control-plane-routes";
 
 export type IssueActivityRow = {
   entryId: string;
@@ -162,7 +166,7 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
     pressureChartRows,
     rows: input.issues.map((issue) => ({
       issueIdentifier: issue.issueIdentifier,
-      issueHref: `/issues/${issue.issueIdentifier}`,
+      issueHref: buildIssueHref(issue.issueIdentifier),
       runCount: formatCount(issue.runCount),
       problemRate: formatPercent(issue.problemRate),
       latestProblemOutcome: formatOutcomeLabel(issue.latestProblemOutcome),
@@ -290,7 +294,7 @@ export function buildIssueDetailViewModel(
     ],
     recentFailureRows: problemRuns.slice(0, 3).map((run) => ({
       runId: run.runId,
-      runHref: `/runs/${run.runId}`,
+      runHref: buildIssueRunHref(input.issueIdentifier, run.runId),
       outcome: formatOutcomeLabel(run.outcome),
       errorClass: formatErrorClassLabel(run.errorClass),
       startedAt: formatTimestamp(run.startedAt),
@@ -298,7 +302,7 @@ export function buildIssueDetailViewModel(
     })),
     rows: input.runs.map((run) => ({
       runId: run.runId,
-      runHref: `/runs/${run.runId}`,
+      runHref: buildIssueRunHref(input.issueIdentifier, run.runId),
       startedAt: formatTimestamp(run.startedAt),
       durationSeconds:
         run.durationSeconds === null ? "n/a" : formatDuration(run.durationSeconds),
