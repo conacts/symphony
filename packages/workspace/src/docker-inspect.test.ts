@@ -58,7 +58,7 @@ describe("docker inspect helpers", () => {
         stderr:
           "Error response from daemon: network symphony-workspace-network-col-123 not found"
       }),
-      descriptor.networkName,
+      descriptor.networkName ?? "",
       descriptor,
       1_000
     );

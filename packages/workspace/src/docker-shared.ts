@@ -104,7 +104,7 @@ export type DockerWorkspaceDescriptor = {
   issueIdentifier: string;
   workspaceKey: string;
   containerName: string;
-  networkName: string;
+  networkName: string | null;
   materialization: DockerWorkspaceMaterializationDescriptor;
 };
 
