@@ -180,6 +180,35 @@ export function RunTranscriptTurn(input: {
             </Card>
           ) : null}
 
+          {entry.kind === "file-change" ? (
+            <Card className="border-border/70">
+              <CardHeader className="pb-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <CardTitle className="text-sm font-medium">
+                    File changes
+                  </CardTitle>
+                  <Badge variant="outline">{entry.status}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {entry.recordedAt}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <RunTranscriptCopy>{entry.summary}</RunTranscriptCopy>
+                <EntryFiles files={entry.changes} />
+                {entry.overflowId ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => input.onOpenOverflow(entry)}
+                  >
+                    View full file payload
+                  </Button>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
           {entry.kind === "todo-list" ? (
             <Message from="assistant">
               <MessageContent className="gap-3">

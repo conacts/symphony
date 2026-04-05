@@ -70,6 +70,15 @@ export type CodexRunTranscriptEntry =
       files: CodexRunFileChip[];
     }
   | {
+      kind: "file-change";
+      itemId: string;
+      recordedAt: string;
+      status: string;
+      summary: string;
+      changes: CodexRunFileChip[];
+      overflowId: string | null;
+    }
+  | {
       kind: "tool-call";
       itemId: string;
       recordedAt: string;
@@ -686,6 +695,18 @@ function mapTranscriptEntry(input: {
     };
   }
 
+  if (input.item.itemType === "file_change") {
+    return {
+      kind: "file-change",
+      itemId: input.item.itemId,
+      recordedAt,
+      status,
+      summary: formatFileChangeSummary(input.fileChanges),
+      changes: files,
+      overflowId: input.item.latestOverflowId
+    };
+  }
+
   if (input.item.itemType === "todo_list") {
     return {
       kind: "todo-list",
@@ -730,6 +751,18 @@ function groupFileChangesByItem(fileChanges: SymphonyCodexFileChangeRecord[]) {
   }
 
   return map;
+}
+
+function formatFileChangeSummary(fileChanges: SymphonyCodexFileChangeRecord[]): string {
+  if (fileChanges.length === 0) {
+    return "File changes captured.";
+  }
+
+  if (fileChanges.length === 1) {
+    return fileChanges[0]?.path ?? "1 file changed";
+  }
+
+  return `${formatCount(fileChanges.length)} files changed`;
 }
 
 function groupTaskSnapshotsByItem(taskSnapshots: SymphonyCodexTaskSnapshotRecord[]) {

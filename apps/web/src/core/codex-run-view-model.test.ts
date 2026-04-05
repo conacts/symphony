@@ -22,6 +22,22 @@ describe("codex run view model", () => {
     runArtifacts.items.splice(3, 0, {
       runId: "run_123",
       turnId: "turn_123",
+      itemId: "file_123",
+      itemType: "file_change",
+      startedAt: "2026-03-31T18:00:31.000Z",
+      lastUpdatedAt: "2026-03-31T18:00:31.000Z",
+      completedAt: "2026-03-31T18:00:31.000Z",
+      finalStatus: "completed",
+      updateCount: 1,
+      durationMs: 1_000,
+      latestPreview: "README.md, src/index.ts",
+      latestOverflowId: null,
+      insertedAt: "2026-03-31T18:00:31.000Z",
+      updatedAt: "2026-03-31T18:00:31.000Z"
+    });
+    runArtifacts.items.splice(4, 0, {
+      runId: "run_123",
+      turnId: "turn_123",
       itemId: "todo_123",
       itemType: "todo_list",
       startedAt: "2026-03-31T18:00:41.000Z",
@@ -62,7 +78,7 @@ describe("codex run view model", () => {
       insertedAt: "2026-03-31T18:00:11.000Z",
       updatedAt: "2026-03-31T18:00:11.000Z"
     });
-    runArtifacts.items.splice(4, 0, {
+    runArtifacts.items.splice(5, 0, {
       runId: "run_123",
       turnId: "turn_123",
       itemId: "todo_123",
@@ -79,6 +95,26 @@ describe("codex run view model", () => {
       insertedAt: "2026-03-31T18:00:42.000Z",
       updatedAt: "2026-03-31T18:00:42.000Z"
     });
+    runArtifacts.fileChanges.push(
+      {
+        runId: "run_123",
+        turnId: "turn_123",
+        itemId: "file_123",
+        path: "packages/db/src/index.ts",
+        changeKind: "modified",
+        recordedAt: "2026-03-31T18:00:31.000Z",
+        insertedAt: "2026-03-31T18:00:31.000Z"
+      },
+      {
+        runId: "run_123",
+        turnId: "turn_123",
+        itemId: "file_123",
+        path: "apps/api/src/main.ts",
+        changeKind: "modified",
+        recordedAt: "2026-03-31T18:00:31.000Z",
+        insertedAt: "2026-03-31T18:00:31.000Z"
+      }
+    );
     runArtifacts.taskSnapshots.push({
       snapshotId: "snapshot_123",
       runId: "run_123",
@@ -114,9 +150,10 @@ describe("codex run view model", () => {
         }
       ]
     });
-    runArtifacts.run.itemCount = 7;
+    runArtifacts.run.itemCount = 8;
     if (runArtifacts.turns[0]) {
-      runArtifacts.turns[0].itemCount = 7;
+      runArtifacts.turns[0].itemCount = 8;
+      runArtifacts.turns[0].fileChangeCount = 3;
     }
 
     const viewModel = buildCodexRunViewModel({
@@ -142,10 +179,14 @@ describe("codex run view model", () => {
     expect(viewModel.transcriptTurns[0]?.entries.map((entry) => entry.kind)).toEqual([
       "reasoning",
       "command",
+      "file-change",
       "tool-call",
       "todo-list",
       "agent-message"
     ]);
+    const fileChangeEntry = viewModel.transcriptTurns[0]?.entries.find(
+      (entry) => entry.kind === "file-change"
+    );
     const todoEntry = viewModel.transcriptTurns[0]?.entries.find(
       (entry) => entry.kind === "todo-list"
     );
@@ -157,6 +198,18 @@ describe("codex run view model", () => {
     expect(reasoningEntry?.preview).toContain(
       "Checking the pending task queue before continuing."
     );
+    expect(fileChangeEntry?.kind).toBe("file-change");
+    expect(fileChangeEntry?.summary).toBe("2 files changed");
+    expect(fileChangeEntry?.changes).toEqual([
+      {
+        path: "packages/db/src/index.ts",
+        changeKind: "Modified"
+      },
+      {
+        path: "apps/api/src/main.ts",
+        changeKind: "Modified"
+      }
+    ]);
     expect(todoEntry?.kind).toBe("todo-list");
     expect(todoEntry?.markdown).toContain("**Steering**");
     expect(todoEntry?.markdown).toContain("- [ ] Keep the patch scoped");
