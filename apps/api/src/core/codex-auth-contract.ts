@@ -34,7 +34,7 @@ export type DockerCodexAuthContract =
       mode: "unavailable";
       mount: null;
       launchEnv: Record<string, string>;
-    authFilePath: null;
+      authFilePath: null;
     };
 
 export type DockerGitHubCliAuthContract = {
@@ -269,16 +269,6 @@ function resolveOpenCodeAuthFilePath(
 function resolvePiAuthFilePath(
   hostCommandEnvSource: Record<string, string | undefined>
 ): string | null {
-  const explicitAgentDir = normalizeNonEmptyString(
-    hostCommandEnvSource.PI_AGENT_DIR
-  );
-  if (explicitAgentDir) {
-    const authPath = path.join(explicitAgentDir, "auth.json");
-    if (fs.existsSync(authPath)) {
-      return authPath;
-    }
-  }
-
   const home = normalizeNonEmptyString(hostCommandEnvSource.HOME);
   if (!home) {
     return null;

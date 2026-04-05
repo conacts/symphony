@@ -1,3 +1,6 @@
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   createSymphonyRuntimeAppServicesHarness,
@@ -6,9 +9,18 @@ import {
 import { renderSymphonyRuntimeManifestSource } from "@symphony/test-support";
 
 const harnesses: SymphonyRuntimeAppServicesHarness[] = [];
+const tempDirectories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(harnesses.splice(0).map((harness) => harness.cleanup()));
+  await Promise.all(
+    tempDirectories.splice(0).map((directory) =>
+      rm(directory, {
+        recursive: true,
+        force: true
+      })
+    )
+  );
 });
 
 describe("runtime services", () => {
@@ -181,6 +193,42 @@ describe("runtime services", () => {
       supportsWebsockets: false,
       wireApi: "responses"
     });
+  });
+
+  it("mounts standard Pi auth alongside the configured provider env for docker runs", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-pi-auth-"));
+    tempDirectories.push(root);
+    const home = path.join(root, "home");
+    await mkdir(path.join(home, ".pi", "agent"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(home, ".pi", "agent", "auth.json"),
+      '{"ok":true}\n'
+    );
+
+    const harness = await createSymphonyRuntimeAppServicesHarness({
+      environmentSource: {
+        SYMPHONY_AGENT_HARNESS: "pi",
+        SYMPHONY_PI_PROFILE: "mimo-v2-pro"
+      },
+      hostCommandEnvSource: {
+        HOME: home,
+        OPENROUTER_API_KEY: "test-openrouter-api-key"
+      }
+    });
+    harnesses.push(harness);
+
+    const selectedBackendLog = (await harness.services.runtimeLogs.list()).logs.find(
+      (entry) => entry.eventType === "workspace_backend_selected"
+    );
+
+    expect(selectedBackendLog?.payload).toEqual(
+      expect.objectContaining({
+        dockerPiAuthMounted: true,
+        dockerCodexAuthMode: "api_key_env"
+      })
+    );
   });
 });
 

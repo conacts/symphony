@@ -229,7 +229,7 @@ describe("codex auth contract", () => {
     });
   });
 
-  it("prefers PI_AGENT_DIR for Pi auth when present", async () => {
+  it("does not mount Pi auth from non-standard locations", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-pi-auth-"));
     tempDirectories.push(root);
     const agentDir = path.join(root, "pi-agent");
@@ -243,13 +243,9 @@ describe("codex auth contract", () => {
         PI_AGENT_DIR: agentDir
       })
     ).toEqual({
-      mount: {
-        sourcePath: path.join(agentDir, "auth.json"),
-        containerPath: "/home/agent/.pi/agent/auth.json",
-        readOnly: true
-      },
+      mount: null,
       launchEnv: {},
-      authFilePath: path.join(agentDir, "auth.json")
+      authFilePath: null
     });
   });
 
@@ -302,5 +298,27 @@ describe("codex auth contract", () => {
       contracts.opencode.mount
     ]);
     expect(contracts.pi.mount).toBeNull();
+  });
+
+  it("aggregates the Pi auth mount when the standard host auth file exists", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-auth-aggregate-"));
+    tempDirectories.push(root);
+    const home = path.join(root, "home");
+    await mkdir(path.join(home, ".pi", "agent"), { recursive: true });
+    await writeFile(
+      path.join(home, ".pi", "agent", "auth.json"),
+      '{"ok":true}\n'
+    );
+
+    const contracts = resolveDockerWorkspaceAuthContracts({
+      HOME: home
+    });
+
+    expect(contracts.mounts).toEqual([contracts.pi.mount]);
+    expect(contracts.pi.mount).toEqual({
+      sourcePath: path.join(home, ".pi", "agent", "auth.json"),
+      containerPath: "/home/agent/.pi/agent/auth.json",
+      readOnly: true
+    });
   });
 });
