@@ -2,6 +2,7 @@ FROM node:24-bookworm-slim
 
 ARG CODEX_VERSION=0.117.0
 ARG OPENCODE_VERSION=1.3.15
+ARG PI_VERSION=0.65.0
 ARG PNPM_VERSION=10.32.1
 
 RUN apt-get update \
@@ -28,6 +29,7 @@ RUN corepack enable \
 
 RUN npm install -g "@openai/codex@${CODEX_VERSION}" \
   && npm install -g "opencode-ai@${OPENCODE_VERSION}" \
+  && npm install -g "@mariozechner/pi-coding-agent@${PI_VERSION}" \
   && npm cache clean --force
 
 ENV SYMPHONY_CONTAINER=1

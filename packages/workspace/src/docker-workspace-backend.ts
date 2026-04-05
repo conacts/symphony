@@ -2149,7 +2149,7 @@ async function startManagedContainer(input: {
     input.shell,
     input.image,
     "-lc",
-    'mkdir -p "$HOME" "$HOME/.codex" "$HOME/.config" "$HOME/.local/share/opencode" && if command -v gh >/dev/null 2>&1; then gh auth setup-git >/dev/null 2>&1 || true; fi && while :; do sleep 3600; done'
+    'mkdir -p "$HOME" "$HOME/.codex" "$HOME/.config" "$HOME/.local/share/opencode" "$HOME/.pi/agent" && if command -v gh >/dev/null 2>&1; then gh auth setup-git >/dev/null 2>&1 || true; fi && while :; do sleep 3600; done'
   ];
   const result = await input.commandRunner({
     args,

@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   resolveDockerCodexAuthContract,
   resolveDockerGitHubCliAuthContract,
-  resolveDockerOpenCodeAuthContract
+  resolveDockerOpenCodeAuthContract,
+  resolveDockerPiAuthContract
 } from "./codex-auth-contract.js";
 
 const tempDirectories: string[] = [];
@@ -197,6 +198,76 @@ describe("codex auth contract", () => {
         readOnly: true
       },
       authFilePath: path.join(dataHome, "opencode", "auth.json")
+    });
+  });
+
+  it("mounts host Pi auth when present under the default path", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-pi-auth-"));
+    tempDirectories.push(root);
+    const home = path.join(root, "home");
+    await mkdir(path.join(home, ".pi", "agent"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(home, ".pi", "agent", "auth.json"),
+      '{"ok":true}\n'
+    );
+
+    expect(
+      resolveDockerPiAuthContract({
+        HOME: home
+      })
+    ).toEqual({
+      mount: {
+        sourcePath: path.join(home, ".pi", "agent", "auth.json"),
+        containerPath: "/home/agent/.pi/agent/auth.json",
+        readOnly: true
+      },
+      launchEnv: {},
+      authFilePath: path.join(home, ".pi", "agent", "auth.json")
+    });
+  });
+
+  it("prefers PI_AGENT_DIR for Pi auth when present", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-pi-auth-"));
+    tempDirectories.push(root);
+    const agentDir = path.join(root, "pi-agent");
+    await mkdir(agentDir, {
+      recursive: true
+    });
+    await writeFile(path.join(agentDir, "auth.json"), '{"ok":true}\n');
+
+    expect(
+      resolveDockerPiAuthContract({
+        PI_AGENT_DIR: agentDir
+      })
+    ).toEqual({
+      mount: {
+        sourcePath: path.join(agentDir, "auth.json"),
+        containerPath: "/home/agent/.pi/agent/auth.json",
+        readOnly: true
+      },
+      launchEnv: {},
+      authFilePath: path.join(agentDir, "auth.json")
+    });
+  });
+
+  it("passes the configured provider api key env through for Pi", () => {
+    expect(
+      resolveDockerPiAuthContract(
+        {
+          OPENROUTER_API_KEY: "test-openrouter-api-key"
+        },
+        {
+          preferredApiKeyEnvKey: "OPENROUTER_API_KEY"
+        }
+      )
+    ).toEqual({
+      mount: null,
+      launchEnv: {
+        OPENROUTER_API_KEY: "test-openrouter-api-key"
+      },
+      authFilePath: null
     });
   });
 });

@@ -652,7 +652,10 @@ function classifyStartupFailure(error: unknown): {
         "opencode_launch_unsupported",
         "opencode_server_start_failed",
         "opencode_container_ip_missing",
-        "opencode_session_start_failed"
+        "opencode_session_start_failed",
+        "pi_launch_unsupported",
+        "pi_session_start_failed",
+        "pi_turn_start_failed"
       ].includes(error.code)
     ) {
       return {

@@ -26,7 +26,8 @@ import { HarnessSessionError } from "./agent-session-types.js";
 import {
   resolveDockerCodexAuthContract,
   resolveDockerGitHubCliAuthContract,
-  resolveDockerOpenCodeAuthContract
+  resolveDockerOpenCodeAuthContract,
+  resolveDockerPiAuthContract
 } from "./codex-auth-contract.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
@@ -182,6 +183,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const dockerOpenCodeAuth = resolveDockerOpenCodeAuthContract(
     hostCommandEnvSource
   );
+  const dockerPiAuth = resolveDockerPiAuthContract(hostCommandEnvSource, {
+    preferredApiKeyEnvKey: runtimePolicy.codex.provider?.envKey ?? null
+  });
 
   if (runtimeHarness.kind === "codex" && dockerCodexAuth.mode === "unavailable") {
     throw new HarnessSessionError(
@@ -194,7 +198,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     dockerHostFileMounts: [
       ...(dockerCodexAuth?.mount ? [dockerCodexAuth.mount] : []),
       ...(dockerGitHubCliAuth.mount ? [dockerGitHubCliAuth.mount] : []),
-      ...(dockerOpenCodeAuth.mount ? [dockerOpenCodeAuth.mount] : [])
+      ...(dockerOpenCodeAuth.mount ? [dockerOpenCodeAuth.mount] : []),
+      ...(dockerPiAuth.mount ? [dockerPiAuth.mount] : [])
     ],
     runtimeManifest: validatedRuntimeManifest?.runtimeManifest ?? null
   });
@@ -202,8 +207,13 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     workspaceRoot: runtimePolicy.workspace.root,
     ...workspaceBackendSelection.metadata,
     dockerCodexAuthMode: dockerCodexAuth?.mode ?? null,
-    dockerOpenCodeAuthMounted: dockerOpenCodeAuth.mount !== null
+    dockerOpenCodeAuthMounted: dockerOpenCodeAuth.mount !== null,
+    dockerPiAuthMounted: dockerPiAuth.mount !== null
   };
+  const harnessLaunchEnv =
+    runtimeHarness.kind === "pi"
+      ? dockerPiAuth.launchEnv
+      : dockerCodexAuth?.launchEnv ?? {};
   let dockerPreflight: SymphonyDockerWorkspacePreflightResult | null = null;
   if (workspaceBackendSelection.metadata.backendKind === "docker") {
     try {
@@ -280,7 +290,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       codexAnalytics,
       runtimeLogs: runtimeLogStore,
       hostCommandEnvSource,
-      codexHostLaunchEnv: dockerCodexAuth?.launchEnv ?? {},
+      codexHostLaunchEnv: harnessLaunchEnv,
       codexAuthMode: dockerCodexAuth?.mode ?? null,
       codexProviderEnvKey: runtimePolicy.codex.provider?.envKey ?? null,
       logger,

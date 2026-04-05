@@ -11,3 +11,5 @@ export * from "./opencode/server.js";
 export * from "./opencode/session-data.js";
 export * from "./opencode/sdk-client.js";
 export * from "./pi/definition.js";
+export * from "./pi/analytics-adapter.js";
+export * from "./pi/rpc-client.js";

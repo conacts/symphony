@@ -7,6 +7,8 @@ const defaultDockerCodexHomePath = "/home/agent";
 const defaultDockerGitHubConfigPath = "/home/agent/.config/gh";
 const defaultDockerOpenCodeAuthPath =
   "/home/agent/.local/share/opencode/auth.json";
+const defaultDockerPiAuthPath =
+  "/home/agent/.pi/agent/auth.json";
 
 export type DockerCodexAuthContract =
   | {
@@ -48,6 +50,16 @@ export type DockerOpenCodeAuthContract = {
     containerPath: string;
     readOnly: true;
   } | null;
+  authFilePath: string | null;
+};
+
+export type DockerPiAuthContract = {
+  mount: {
+    sourcePath: string;
+    containerPath: string;
+    readOnly: true;
+  } | null;
+  launchEnv: Record<string, string>;
   authFilePath: string | null;
 };
 
@@ -175,6 +187,32 @@ export function resolveDockerOpenCodeAuthContract(
   };
 }
 
+export function resolveDockerPiAuthContract(
+  hostCommandEnvSource: Record<string, string | undefined>,
+  options: {
+    preferredApiKeyEnvKey?: string | null;
+  } = {}
+): DockerPiAuthContract {
+  const authFilePath = resolvePiAuthFilePath(hostCommandEnvSource);
+  const launchEnv = resolvePreferredApiKeyLaunchEnv(
+    hostCommandEnvSource,
+    options.preferredApiKeyEnvKey
+  );
+
+  return {
+    mount:
+      authFilePath === null
+        ? null
+        : {
+            sourcePath: authFilePath,
+            containerPath: defaultDockerPiAuthPath,
+            readOnly: true
+          },
+    launchEnv,
+    authFilePath
+  };
+}
+
 function resolveCodexAuthFilePath(
   hostCommandEnvSource: Record<string, string | undefined>
 ): string | null {
@@ -236,6 +274,28 @@ function resolveOpenCodeAuthFilePath(
   }
 
   const authPath = path.join(home, ".local", "share", "opencode", "auth.json");
+  return fs.existsSync(authPath) ? authPath : null;
+}
+
+function resolvePiAuthFilePath(
+  hostCommandEnvSource: Record<string, string | undefined>
+): string | null {
+  const explicitAgentDir = normalizeNonEmptyString(
+    hostCommandEnvSource.PI_AGENT_DIR
+  );
+  if (explicitAgentDir) {
+    const authPath = path.join(explicitAgentDir, "auth.json");
+    if (fs.existsSync(authPath)) {
+      return authPath;
+    }
+  }
+
+  const home = normalizeNonEmptyString(hostCommandEnvSource.HOME);
+  if (!home) {
+    return null;
+  }
+
+  const authPath = path.join(home, ".pi", "agent", "auth.json");
   return fs.existsSync(authPath) ? authPath : null;
 }
 
