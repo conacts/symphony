@@ -197,8 +197,8 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
           data.runtimeContext
         ),
         codexThreadId: data.codexRun.threadId ?? null,
-        codexProviderId: data.runtimeContext.providerId,
-        codexProviderName: data.runtimeContext.providerName,
+        codexProviderId: data.codexRun.providerId ?? data.runtimeContext.providerId,
+        codexProviderName: data.codexRun.providerName ?? data.runtimeContext.providerName,
         codexAuthMode:
           data.runtimeContext.authMode === "auth_json" ||
           data.runtimeContext.authMode === "api_key_env"
@@ -428,7 +428,10 @@ function buildForensicsRunSummary(
   codexRun: typeof codexRunsTable.$inferSelect | undefined,
   eventCount: number,
   runtimeContext?: {
+    harness: "codex" | "opencode" | "pi" | null;
     model: string | null;
+    providerId: string | null;
+    providerName: string | null;
   }
 ): SymphonyForensicsRunSummary {
   const inputTokens = codexRun?.inputTokens ?? 0;
@@ -441,11 +444,12 @@ function buildForensicsRunSummary(
     attempt: run.attempt,
     status: run.status,
     outcome: run.outcome,
+    agentHarness: normalizeHarnessKind(codexRun?.harnessKind ?? null) ?? runtimeContext?.harness ?? null,
     codexStatus: codexRun ? normalizeCodexRunStatus(codexRun.status) : null,
     codexFailureKind: codexRun?.failureKind ?? null,
     codexFailureOrigin: codexRun?.failureOrigin ?? null,
     codexFailureMessagePreview: codexRun?.failureMessagePreview ?? null,
-    codexModel: runtimeContext?.model ?? null,
+    codexModel: codexRun?.model ?? runtimeContext?.model ?? null,
     workerHost: run.workerHost,
     workspacePath: run.workspacePath,
     startedAt: run.startedAt,
@@ -760,11 +764,25 @@ function normalizeItemLifecycleStatus(
   }
 }
 
+function normalizeHarnessKind(
+  harness: string | null
+): "codex" | "opencode" | "pi" | null {
+  switch (harness) {
+    case "codex":
+    case "opencode":
+    case "pi":
+      return harness;
+    default:
+      return null;
+  }
+}
+
 function mapCodexRunRecord(
   run: typeof codexRunsTable.$inferSelect
 ): SymphonyCodexRunRecord {
   return {
     ...run,
+    harnessKind: normalizeHarnessKind(run.harnessKind),
     status: normalizeCodexRunStatus(run.status),
     totalTokens: run.inputTokens + run.outputTokens
   };
@@ -775,6 +793,7 @@ function mapCodexTurnRecord(
 ): SymphonyCodexTurnRecord {
   return {
     ...turn,
+    harnessKind: normalizeHarnessKind(turn.harnessKind),
     status: normalizeCodexTurnStatus(turn.status),
     totalTokens: turn.inputTokens + turn.outputTokens,
     usage: buildUsage(turn, null)
@@ -1005,6 +1024,7 @@ type RunData = {
   reasoningRows: Array<typeof codexReasoningTable.$inferSelect>;
   fileChangeRows: Array<typeof codexFileChangesTable.$inferSelect>;
   runtimeContext: {
+    harness: "codex" | "opencode" | "pi" | null;
     model: string | null;
     providerId: string | null;
     providerName: string | null;
@@ -1094,12 +1114,14 @@ async function loadRunData(
 function extractRuntimeContext(
   rows: Array<typeof symphonyRuntimeLogsTable.$inferSelect>
 ): {
+  harness: "codex" | "opencode" | "pi" | null;
   model: string | null;
   providerId: string | null;
   providerName: string | null;
   authMode: string | null;
   providerEnvKey: string | null;
 } {
+  let harness: "codex" | "opencode" | "pi" | null = null;
   let model: string | null = null;
   let providerId: string | null = null;
   let providerName: string | null = null;
@@ -1114,6 +1136,17 @@ function extractRuntimeContext(
 
     if (!payload) {
       continue;
+    }
+
+    if (harness === null) {
+      const payloadHarness = payload.harness;
+      if (
+        payloadHarness === "codex" ||
+        payloadHarness === "opencode" ||
+        payloadHarness === "pi"
+      ) {
+        harness = payloadHarness;
+      }
     }
 
     model ??=
@@ -1139,6 +1172,7 @@ function extractRuntimeContext(
   }
 
   return {
+    harness,
     model,
     providerId,
     providerName,

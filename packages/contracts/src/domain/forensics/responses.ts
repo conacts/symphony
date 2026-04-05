@@ -81,6 +81,7 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   attempt: z.number().int().nonnegative().nullable(),
   status: nonEmptyStringSchema,
   outcome: nullableNonEmptyStringSchema,
+  agentHarness: z.enum(["codex", "opencode", "pi"]).nullable().default(null),
   codexStatus: codexRunStatuses.nullable(),
   codexFailureKind: nullableNonEmptyStringSchema,
   codexFailureOrigin: nullableNonEmptyStringSchema,

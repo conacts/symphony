@@ -130,6 +130,7 @@ const mockIssues: SymphonyForensicsIssueSummary[] = [
 function withMockCodexRunSummary(
   run: Omit<
     SymphonyForensicsRunSummary,
+    | "agentHarness"
     | "codexStatus"
     | "codexModel"
     | "codexFailureKind"
@@ -139,6 +140,7 @@ function withMockCodexRunSummary(
 ): SymphonyForensicsRunSummary {
   return {
     ...run,
+    agentHarness: "codex",
     codexModel: "xiaomi/mimo-v2-pro",
     codexStatus:
       run.status === "retrying"

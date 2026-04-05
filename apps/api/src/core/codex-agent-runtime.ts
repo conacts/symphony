@@ -194,6 +194,7 @@ async function executeRun(input: {
 }): Promise<void> {
   let persistedTurnId: string | null = null;
   let maxTurnsReached = false;
+  let sessionModel: string | null = null;
   let sessionProviderId: string | null = null;
   let sessionProviderName: string | null = null;
 
@@ -235,8 +236,23 @@ async function executeRun(input: {
       logger: input.logger
     });
     input.activeRun.client = session.client;
+    sessionModel = session.model;
     sessionProviderId = session.providerId;
     sessionProviderName = session.providerName;
+
+    if (input.runId) {
+      await input.codexAnalytics.startRun({
+        runId: input.runId,
+        issueId: input.issue.id,
+        issueIdentifier: input.issue.identifier,
+        status: "running",
+        threadId: session.threadId,
+        harnessKind: input.harness.kind,
+        model: sessionModel,
+        providerId: session.providerId,
+        providerName: session.providerName
+      });
+    }
 
     await input.runtimeLogs.record({
       level: "info",
@@ -383,12 +399,26 @@ async function executeRun(input: {
       });
 
       if (input.runId && persistedTurnId) {
+        const endedAt = new Date().toISOString();
         await input.runStore.finalizeTurn(persistedTurnId, {
           status: "completed",
-          endedAt: new Date().toISOString(),
+          endedAt,
           codexThreadId: turnResult.threadId,
           codexTurnId: turnResult.turnId,
           codexSessionId: turnResult.sessionId
+        });
+        await input.codexAnalytics.finalizeTurn({
+          runId: input.runId,
+          turnId: persistedTurnId,
+          endedAt,
+          status: "completed",
+          failureKind: null,
+          failureMessagePreview: null,
+          threadId: turnResult.threadId,
+          harnessKind: input.harness.kind,
+          model: sessionModel,
+          providerId: sessionProviderId,
+          providerName: sessionProviderName
         });
         persistedTurnId = null;
       }
@@ -463,7 +493,11 @@ async function executeRun(input: {
         status: "failed",
         failureKind: "runtime_failure",
         failureMessagePreview: reason,
-        threadId: null
+        threadId: null,
+        harnessKind: input.harness.kind,
+        model: sessionModel ?? input.runtimePolicy.codex.defaultModel,
+        providerId: sessionProviderId,
+        providerName: sessionProviderName
       });
     }
 
@@ -495,6 +529,7 @@ async function executeRun(input: {
         reason,
         failureStage: startupFailure?.failureStage ?? null,
         failureOrigin: startupFailure?.failureOrigin ?? null,
+        model: input.runtimePolicy.codex.defaultModel,
         providerId: sessionProviderId,
         providerName: sessionProviderName,
         authMode: input.codexAuthMode,

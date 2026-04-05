@@ -63,9 +63,13 @@ export type CodexAnalyticsRunStart = {
   runId: string;
   issueId: string;
   issueIdentifier: string;
-  startedAt: string;
+  startedAt?: string | null;
   status: CodexRunStatus;
   threadId: string | null;
+  harnessKind?: "codex" | "opencode" | "pi" | null;
+  model?: string | null;
+  providerId?: string | null;
+  providerName?: string | null;
 };
 
 export type CodexAnalyticsRunFinalize = {
@@ -76,6 +80,10 @@ export type CodexAnalyticsRunFinalize = {
   failureKind: string | null;
   failureOrigin: string | null;
   failureMessagePreview: string | null;
+  harnessKind?: "codex" | "opencode" | "pi" | null;
+  model?: string | null;
+  providerId?: string | null;
+  providerName?: string | null;
 };
 
 export type CodexAnalyticsTurnFinalize = {
@@ -86,6 +94,10 @@ export type CodexAnalyticsTurnFinalize = {
   threadId: string | null;
   failureKind: string | null;
   failureMessagePreview: string | null;
+  harnessKind?: "codex" | "opencode" | "pi" | null;
+  model?: string | null;
+  providerId?: string | null;
+  providerName?: string | null;
 };
 
 export interface CodexAnalyticsStore {

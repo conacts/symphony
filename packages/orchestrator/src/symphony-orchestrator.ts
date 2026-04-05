@@ -257,6 +257,7 @@ export class SymphonyOrchestrator {
       (await this.#observer?.startRun({
         issue: preparedIssue,
         attempt,
+        harness: this.#config.runtime.agent.harness,
         workspace: null,
         workerHost: preferredWorkerHost,
         startedAt

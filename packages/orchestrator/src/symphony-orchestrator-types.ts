@@ -117,6 +117,7 @@ export interface SymphonyOrchestratorObserver {
   startRun(input: {
     issue: SymphonyTrackerIssue;
     attempt: number;
+    harness: "codex" | "opencode" | "pi";
     workspace: PreparedWorkspace | null;
     workerHost: string | null;
     startedAt: string;

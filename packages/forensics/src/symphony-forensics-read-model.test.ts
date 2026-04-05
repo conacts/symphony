@@ -180,6 +180,7 @@ function createRunSummary(
     attempt: 1,
     status: "finished",
     outcome: "paused_max_turns",
+    agentHarness: "codex",
     codexStatus: "paused",
     codexModel: "xiaomi/mimo-v2-pro",
     codexFailureKind: "max_turns_reached",

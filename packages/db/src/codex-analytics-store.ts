@@ -108,9 +108,13 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
         .set({
           issueId: input.issueId,
           issueIdentifier: input.issueIdentifier,
-          startedAt: existing.startedAt ?? input.startedAt,
+          startedAt: existing.startedAt ?? input.startedAt ?? null,
           status: input.status,
           threadId: input.threadId ?? existing.threadId,
+          harnessKind: input.harnessKind ?? existing.harnessKind,
+          model: input.model ?? existing.model,
+          providerId: input.providerId ?? existing.providerId,
+          providerName: input.providerName ?? existing.providerName,
           updatedAt: now
         })
         .where(eq(codexRunsTable.runId, input.runId))
@@ -123,9 +127,13 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
       .values({
         runId: input.runId,
         threadId: input.threadId,
+        harnessKind: input.harnessKind ?? null,
+        model: input.model ?? null,
+        providerId: input.providerId ?? null,
+        providerName: input.providerName ?? null,
         issueId: input.issueId,
         issueIdentifier: input.issueIdentifier,
-        startedAt: input.startedAt,
+        startedAt: input.startedAt ?? null,
         endedAt: null,
         status: input.status,
         failureKind: null,
@@ -195,15 +203,19 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
     if (!existing) {
       this.#db
         .insert(codexTurnsTable)
-          .values({
-            turnId: input.turnId,
-            runId: input.runId,
-            threadId: input.threadId,
-            startedAt: null,
-            endedAt: input.endedAt,
-            status: input.status,
-            failureKind: input.failureKind,
-            failureMessagePreview: input.failureMessagePreview,
+        .values({
+          turnId: input.turnId,
+          runId: input.runId,
+          threadId: input.threadId,
+          harnessKind: input.harnessKind ?? null,
+          model: input.model ?? null,
+          providerId: input.providerId ?? null,
+          providerName: input.providerName ?? null,
+          startedAt: null,
+          endedAt: input.endedAt,
+          status: input.status,
+          failureKind: input.failureKind,
+          failureMessagePreview: input.failureMessagePreview,
           lastAgentMessageItemId: null,
           lastAgentMessagePreview: null,
           lastAgentMessageOverflowId: null,
@@ -228,6 +240,10 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
         .update(codexTurnsTable)
         .set({
           threadId: input.threadId ?? existing.threadId,
+          harnessKind: input.harnessKind ?? existing.harnessKind,
+          model: input.model ?? existing.model,
+          providerId: input.providerId ?? existing.providerId,
+          providerName: input.providerName ?? existing.providerName,
           endedAt: input.endedAt,
           status: input.status,
           failureKind: input.failureKind ?? existing.failureKind,
@@ -269,7 +285,11 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
         issueIdentifier: symphonyRun.issueIdentifier,
         startedAt: symphonyRun.startedAt,
         status: "running",
-        threadId: input.threadId
+        threadId: input.threadId,
+        harnessKind: input.harnessKind ?? null,
+        model: input.model ?? null,
+        providerId: input.providerId ?? null,
+        providerName: input.providerName ?? null
       });
     }
 
@@ -277,6 +297,10 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
       .update(codexRunsTable)
       .set({
         threadId: input.threadId ?? existing?.threadId ?? null,
+        harnessKind: input.harnessKind ?? existing?.harnessKind ?? null,
+        model: input.model ?? existing?.model ?? null,
+        providerId: input.providerId ?? existing?.providerId ?? null,
+        providerName: input.providerName ?? existing?.providerName ?? null,
         endedAt: input.endedAt,
         status: input.status,
         failureKind:
@@ -327,6 +351,10 @@ function ensureCodexRunRecord(context: CodexEventMutationContext): CodexRunRow {
     .values({
       runId: context.input.runId,
       threadId: context.input.threadId ?? extractThreadId(context.input.payload),
+      harnessKind: null,
+      model: null,
+      providerId: null,
+      providerName: null,
       issueId: symphonyRun.issueId,
       issueIdentifier: symphonyRun.issueIdentifier,
       startedAt: symphonyRun.startedAt,

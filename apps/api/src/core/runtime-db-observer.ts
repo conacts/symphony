@@ -20,7 +20,7 @@ export function createDbBackedOrchestratorObserver(input: {
   codexAnalytics: CodexAnalyticsStore;
 }): SymphonyOrchestratorObserver {
   return {
-    async startRun({ issue, attempt, workspace, workerHost, startedAt }) {
+    async startRun({ issue, attempt, harness, workspace, workerHost, startedAt }) {
       const runId = await input.runStore.recordRunStarted({
         issueId: issue.id,
         issueIdentifier: issue.identifier,
@@ -41,7 +41,8 @@ export function createDbBackedOrchestratorObserver(input: {
         issueIdentifier: issue.identifier,
         startedAt,
         status: "dispatching",
-        threadId: null
+        threadId: null,
+        harnessKind: harness
       });
 
       return runId;

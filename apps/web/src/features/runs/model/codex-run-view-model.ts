@@ -265,6 +265,10 @@ export function buildCodexRunViewModel(input: {
     ],
     metadata: [
       {
+        label: "Harness",
+        value: formatLabel(input.runDetail.run.agentHarness ?? "Unavailable")
+      },
+      {
         label: "Model",
         value: input.runDetail.run.codexModel ?? "Unavailable"
       },
