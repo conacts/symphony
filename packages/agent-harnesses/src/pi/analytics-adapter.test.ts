@@ -220,21 +220,12 @@ describe("pi analytics adapter", () => {
     expect(projection.losses).toEqual([]);
   });
 
-  it("projects edit tool executions into file changes", () => {
+  it("projects edit tool executions into file changes, extracting path from result when args are absent", () => {
     const projection = projectPiToolExecutionEndEvent({
       event: {
         type: "tool_execution_end",
         toolCallId: "call-3",
         toolName: "edit",
-        args: {
-          path: "apps/api/src/main.ts",
-          edits: [
-            {
-              oldText: "before",
-              newText: "after"
-            }
-          ]
-        },
         result: {
           content: [
             {
@@ -259,13 +250,7 @@ describe("pi analytics adapter", () => {
           server: "pi",
           tool: "edit",
           arguments: {
-            path: "apps/api/src/main.ts",
-            edits: [
-              {
-                oldText: "before",
-                newText: "after"
-              }
-            ]
+            path: "apps/api/src/main.ts"
           },
           result: {
             content: [
@@ -295,6 +280,66 @@ describe("pi analytics adapter", () => {
       }
     ]);
     expect(projection.losses).toEqual([]);
+  });
+
+  it("preserves args from tool_execution_end when they are present", () => {
+    const projection = projectPiToolExecutionEndEvent({
+      event: {
+        type: "tool_execution_end",
+        toolCallId: "call-3b",
+        toolName: "edit",
+        args: {
+          path: "apps/api/src/main.ts",
+          edits: [
+            {
+              oldText: "before",
+              newText: "after"
+            }
+          ]
+        },
+        result: {
+          content: [
+            {
+              type: "text",
+              text: "Successfully replaced 1 block(s) in apps/api/src/main.ts."
+            }
+          ],
+          details: {
+            diff: "@@"
+          }
+        },
+        isError: false
+      }
+    });
+
+    expect(projection.events[0]).toEqual({
+      type: "item.completed",
+      item: {
+        id: "call-3b",
+        type: "mcp_tool_call",
+        server: "pi",
+        tool: "edit",
+        arguments: {
+          path: "apps/api/src/main.ts",
+          edits: [
+            {
+              oldText: "before",
+              newText: "after"
+            }
+          ]
+        },
+        result: {
+          content: [
+            {
+              type: "text",
+              text: "Successfully replaced 1 block(s) in apps/api/src/main.ts."
+            }
+          ],
+          structured_content: null
+        },
+        status: "completed"
+      }
+    });
   });
 
   it("projects write tool executions into file changes while flagging ambiguous create-vs-update semantics", () => {

@@ -39,18 +39,18 @@ afterEach(async () => {
   );
 });
 
-describe("codex app server client", () => {
+describe("pi app server client", () => {
   it("rejects the workspace root, outside-root paths, and symlink escapes", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-app-server-guard-"));
     tempRoots.push(root);
 
     const workspaceRoot = path.join(root, "workspaces");
     const outsideWorkspace = path.join(root, "outside");
-    const fakeCodex = path.join(root, "fake-agent-runtime.sh");
+    const fakePi = path.join(root, "fake-agent-runtime.sh");
 
     await mkdir(workspaceRoot, { recursive: true });
     await mkdir(outsideWorkspace, { recursive: true });
-    await writeExecutable(fakeCodex, "#!/bin/sh\nexit 0\n");
+    await writeExecutable(fakePi, "#!/bin/sh\nexit 0\n");
 
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
@@ -61,7 +61,7 @@ describe("codex app server client", () => {
       },
       agentRuntime: {
         ...buildSymphonyRuntimePolicyForRoot(root).agentRuntime,
-        command: `${fakeCodex} app-server`
+        command: `${fakePi} app-server`
       }
     });
     const loggerSpy = createLoggerSpy();
@@ -159,7 +159,7 @@ done
       ...scenario.runtimePolicy,
       agentRuntime: {
         ...scenario.runtimePolicy.agentRuntime,
-        command: `${scenario.fakeCodex} app-server --model gpt-5.4`
+        command: `${scenario.fakePi} app-server --model gpt-5.4`
       }
     };
 
@@ -199,11 +199,11 @@ done
     tempRoots.push(root);
 
     const dockerTraceFile = path.join(root, "docker.trace");
-    const codexTraceFile = path.join(root, "agent-runtime.trace");
+    const piTraceFile = path.join(root, "agent-runtime.trace");
     const scenario = await createScenario({
       root,
       script: `#!/bin/sh
-trace_file="${codexTraceFile}"
+trace_file="${piTraceFile}"
 count=0
 while IFS= read -r line; do
   count=$((count + 1))
@@ -289,7 +289,7 @@ exec "$shell_bin" -lc "$2"
     expect(dockerTraceLines).toContain("CONTAINER:symphony-col-123-container");
     expect(dockerTraceLines).toContain("ENV:OPENAI_API_KEY=test-openai-api-key");
 
-    const tracePayloads = parseTraceJsonLines(await readTraceLines(codexTraceFile));
+    const tracePayloads = parseTraceJsonLines(await readTraceLines(piTraceFile));
     const threadStart = tracePayloads.find((payload) => payload.id === 2);
     const turnStart = tracePayloads.find((payload) => payload.id === 3);
     expect(getParams(threadStart)?.cwd).toBe("/home/agent/workspace");
@@ -855,7 +855,7 @@ type TracePayload = Record<string, unknown> & {
 };
 
 type Scenario = {
-  fakeCodex: string;
+  fakePi: string;
   issue: SymphonyTrackerIssue;
   loggerSpy: ReturnType<typeof createLoggerSpy>;
   root: string;
@@ -876,13 +876,13 @@ async function createScenario(input: {
 
   const workspaceRoot = path.join(input.root, "workspaces");
   const workspacePath = path.join(workspaceRoot, "COL-123");
-  const fakeCodex = path.join(input.root, "fake-agent-runtime.sh");
+  const fakePi = path.join(input.root, "fake-agent-runtime.sh");
   const fakeDocker = path.join(input.root, "docker");
 
   await mkdir(workspacePath, {
     recursive: true
   });
-  await writeExecutable(fakeCodex, input.script);
+  await writeExecutable(fakePi, input.script);
   await writeExecutable(
     fakeDocker,
     `#!/bin/sh
@@ -926,7 +926,7 @@ exec "$shell_bin" -lc "$1"
 
   return {
     root: input.root,
-    fakeCodex,
+    fakePi,
     issue: buildSymphonyRuntimeTrackerIssue({
       state: "In Progress",
       ...input.issueOverrides
@@ -958,7 +958,7 @@ exec "$shell_bin" -lc "$1"
       agentRuntime: {
         ...baseRuntimePolicy.agentRuntime,
         ...overrides.agentRuntime,
-        command: input.command ?? `${fakeCodex} app-server`
+        command: input.command ?? `${fakePi} app-server`
       },
       hooks: {
         ...baseRuntimePolicy.hooks,

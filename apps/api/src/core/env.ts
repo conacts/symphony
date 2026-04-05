@@ -28,7 +28,6 @@ const hostCommandEnvironmentKeys = new Set([
   "HTTP_PROXY",
   "HTTPS_PROXY",
   "NO_PROXY",
-  "CODEX_HOME",
   "GITHUB_TOKEN",
   "OPENAI_API_KEY",
   "OPENROUTER_API_KEY"

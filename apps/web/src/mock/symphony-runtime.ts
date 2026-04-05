@@ -127,7 +127,7 @@ const mockIssues: SymphonyForensicsIssueSummary[] = [
   }
 ];
 
-function withMockCodexRunSummary(
+function withMockAgentRunSummary(
   run: Omit<
     SymphonyForensicsRunSummary,
     | "agentHarness"
@@ -157,7 +157,7 @@ function withMockCodexRunSummary(
 
 const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> = {
   "COL-165": [
-    withMockCodexRunSummary({
+    withMockAgentRunSummary({
       runId: "run_123",
       issueId: "issue_123",
       issueIdentifier: "COL-165",
@@ -181,7 +181,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       outputTokens: 1300,
       totalTokens: 4300
     }),
-    withMockCodexRunSummary({
+    withMockAgentRunSummary({
       runId: "run_122",
       issueId: "issue_123",
       issueIdentifier: "COL-165",
@@ -205,7 +205,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       outputTokens: 900,
       totalTokens: 3100
     }),
-    withMockCodexRunSummary({
+    withMockAgentRunSummary({
       runId: "run_121",
       issueId: "issue_123",
       issueIdentifier: "COL-165",
@@ -231,7 +231,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     })
   ],
   "COL-166": [
-    withMockCodexRunSummary({
+    withMockAgentRunSummary({
       runId: "run_456",
       issueId: "issue_456",
       issueIdentifier: "COL-166",
@@ -255,7 +255,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       outputTokens: 500,
       totalTokens: 1900
     }),
-    withMockCodexRunSummary({
+    withMockAgentRunSummary({
       runId: "run_455",
       issueId: "issue_456",
       issueIdentifier: "COL-166",
@@ -281,7 +281,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     })
   ],
   "COL-167": [
-    withMockCodexRunSummary({
+    withMockAgentRunSummary({
       runId: "run_789",
       issueId: "issue_789",
       issueIdentifier: "COL-167",
@@ -305,7 +305,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       outputTokens: 60,
       totalTokens: 560
     }),
-    withMockCodexRunSummary({
+    withMockAgentRunSummary({
       runId: "run_788",
       issueId: "issue_789",
       issueIdentifier: "COL-167",
@@ -1036,10 +1036,22 @@ export function buildMockRunDetailResult(
     run: {
       ...run,
       threadId: `thread_${run.runId}`,
+      processId: `process_${run.runId}`,
       providerId: "openrouter",
       providerName: "OpenRouter",
+      reasoningEffort: "high",
+      profile: "mimo-v2-pro",
       authMode: "api_key_env",
       providerEnvKey: "OPENROUTER_API_KEY",
+      launchTarget: {
+        kind: "container",
+        hostLaunchPath: `/tmp/workspaces/${issue.issueIdentifier.toLowerCase()}`,
+        hostWorkspacePath: `/tmp/workspaces/${issue.issueIdentifier.toLowerCase()}`,
+        runtimeWorkspacePath: "/home/agent/workspace",
+        containerId: `container_${run.runId}`,
+        containerName: `symphony-${issue.issueIdentifier.toLowerCase()}`,
+        shell: "sh"
+      },
       repoStart: {
         branch: `symphony/${issue.issueIdentifier}`
       },

@@ -6,8 +6,8 @@ import {
   symphonyAgentToolCallRecordSchema
 } from "./responses.js";
 
-describe("codex analytics contracts", () => {
-  it("accepts valid Codex run and turn statuses", () => {
+describe("agent analytics contracts", () => {
+  it("accepts valid agent run and turn statuses", () => {
     expect(() =>
       symphonyAgentRunRecordSchema.parse({
         runId: "run-1",
@@ -80,7 +80,7 @@ describe("codex analytics contracts", () => {
     ).not.toThrow();
   });
 
-  it("rejects invalid Codex analytics statuses", () => {
+  it("rejects invalid agent analytics statuses", () => {
     expect(() =>
       symphonyAgentRunRecordSchema.parse({
         runId: "run-1",
@@ -139,7 +139,7 @@ describe("codex analytics contracts", () => {
     ).toThrow(/Invalid option/i);
   });
 
-  it("requires endedAt for terminal Codex runs and turns", () => {
+  it("requires endedAt for terminal agent runs and turns", () => {
     expect(() =>
       symphonyAgentRunRecordSchema.parse({
         runId: "run-1",

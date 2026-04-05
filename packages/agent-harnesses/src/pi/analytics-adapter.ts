@@ -257,10 +257,11 @@ export function projectPiToolExecutionEndEvent(input: {
         ]
       : [];
 
+  const resolvedArgs = input.event.args ?? extractToolResultPath(input.event.result);
   const item = projectToolItem(
     toolCallId,
     toolName,
-    input.event.args,
+    resolvedArgs,
     output,
     isError
   );
@@ -273,7 +274,7 @@ export function projectPiToolExecutionEndEvent(input: {
   const fileChangeProjection = projectPiFileChangeItem({
     toolCallId,
     toolName,
-    argsValue: input.event.args,
+    argsValue: resolvedArgs,
     isError
   });
 
@@ -455,6 +456,41 @@ function projectPiFileChangeItem(input: {
   }
 
   return null;
+}
+
+function extractToolResultPath(value: unknown): PiJsonRecord | null {
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const content = getArray(record, "content");
+  const text = content
+    .map((entry) => {
+      const part = asRecord(entry);
+      return getString(part, "text");
+    })
+    .find((text): text is string => typeof text === "string" && text.length > 0);
+
+  if (!text) {
+    return null;
+  }
+
+  const match = text.match(/(?:\bin\b|\bto\b)\s+(.+)$/);
+  if (!match) {
+    return null;
+  }
+
+  let candidate = match[1].trim();
+  if (candidate.endsWith(".")) {
+    candidate = candidate.slice(0, -1).trim();
+  }
+
+  if (!candidate || candidate.includes(" ") || !/[\\/.]/.test(candidate)) {
+    return null;
+  }
+
+  return { path: candidate };
 }
 
 function projectUsage(message: PiJsonRecord | null): Usage {

@@ -9,8 +9,7 @@ import {
   type SymphonyOrchestratorSnapshot
 } from "@symphony/orchestrator";
 import {
-  type SymphonyResolvedRuntimePolicy,
-  SymphonyRuntimePolicyError
+  type SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
 import type {
   PublishReviewInput,
@@ -262,14 +261,7 @@ function toSymphonyOrchestratorConfig(
 }
 
 function assertPiRuntimeHarness(
-  harness: "pi" | "codex"
+  harness: "pi"
 ): asserts harness is "pi" {
-  if (harness === "pi") {
-    return;
-  }
-
-  throw new SymphonyRuntimePolicyError(
-    "invalid_workflow_config",
-    `Runtime execution rejects legacy harness '${harness}' for launch/execute. Use agent.harness: "pi".`
-  );
+  void harness;
 }

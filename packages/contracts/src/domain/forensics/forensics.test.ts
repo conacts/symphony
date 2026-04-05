@@ -151,10 +151,22 @@ describe("symphony forensics contracts", () => {
           commitHashStart: null,
           commitHashEnd: null,
           threadId: "thread-1",
+          processId: "pi-process-1",
           providerId: "openrouter",
           providerName: "OpenRouter",
+          reasoningEffort: "high",
+          profile: "mimo-v2-pro",
           authMode: "api_key_env",
           providerEnvKey: "OPENROUTER_API_KEY",
+          launchTarget: {
+            kind: "container",
+            hostLaunchPath: "/tmp/COL-157",
+            hostWorkspacePath: "/tmp/COL-157",
+            runtimeWorkspacePath: "/home/agent/workspace",
+            containerId: "container-1",
+            containerName: "symphony-col-157",
+            shell: "sh"
+          },
           turnCount: 1,
           eventCount: 1,
           lastEventType: "turn.completed",
@@ -227,7 +239,7 @@ describe("symphony forensics contracts", () => {
     expect(parsed.ok).toBe(true);
   });
 
-  it("rejects malformed Codex event payloads inside run detail responses", () => {
+  it("rejects malformed agent event payloads inside run detail responses", () => {
     expect(() =>
       symphonyForensicsRunDetailResponseSchema.parse({
         schemaVersion: "1",

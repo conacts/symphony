@@ -22,9 +22,9 @@ afterEach(async () => {
   );
 });
 
-describe("sqlite codex analytics read store", () => {
-  it("returns contract-native run detail and Codex projection artifacts from analytics tables", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-read-"));
+describe("sqlite agent analytics read store", () => {
+  it("returns contract-native run detail and agent projection artifacts from analytics tables", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-"));
     tempDirectories.push(root);
 
     const database = initializeSymphonyDb({
@@ -46,7 +46,7 @@ describe("sqlite codex analytics read store", () => {
 
     try {
       const runId = await runJournal.recordRunStarted({
-        runId: "run-codex",
+        runId: "run-agent",
         issueId: "issue-1",
         issueIdentifier: "COL-157",
         startedAt: "2026-04-03T20:37:38.949Z",
@@ -155,11 +155,23 @@ describe("sqlite codex analytics read store", () => {
         runId,
         message: "Started the agent harness session.",
         payload: {
+          processId: "pi-process-123",
           model: "xiaomi/mimo-v2-pro",
+          reasoningEffort: "high",
+          profile: "mimo-v2-pro",
           providerId: "openrouter",
           providerName: "OpenRouter",
           authMode: "api_key_env",
-          providerEnvKey: "OPENROUTER_API_KEY"
+          providerEnvKey: "OPENROUTER_API_KEY",
+          launchTarget: {
+            kind: "container",
+            hostLaunchPath: "/tmp/workspaces/col-157",
+            hostWorkspacePath: "/tmp/workspaces/col-157",
+            runtimeWorkspacePath: "/home/agent/workspace",
+            containerId: "container-157",
+            containerName: "symphony-col-157",
+            shell: "sh"
+          }
         }
       });
       await runJournal.finalizeTurn(turnId, {
@@ -234,10 +246,22 @@ describe("sqlite codex analytics read store", () => {
       expect(runDetail?.run.runId).toBe(runId);
       expect(runDetail?.run.agentStatus).toBe("completed");
       expect(runDetail?.run.threadId).toBe("thread-1");
+      expect(runDetail?.run.processId).toBe("pi-process-123");
       expect(runDetail?.run.providerId).toBe("openrouter");
       expect(runDetail?.run.providerName).toBe("OpenRouter");
+      expect(runDetail?.run.reasoningEffort).toBe("high");
+      expect(runDetail?.run.profile).toBe("mimo-v2-pro");
       expect(runDetail?.run.authMode).toBe("api_key_env");
       expect(runDetail?.run.providerEnvKey).toBe("OPENROUTER_API_KEY");
+      expect(runDetail?.run.launchTarget).toEqual({
+        kind: "container",
+        hostLaunchPath: "/tmp/workspaces/col-157",
+        hostWorkspacePath: "/tmp/workspaces/col-157",
+        runtimeWorkspacePath: "/home/agent/workspace",
+        containerId: "container-157",
+        containerName: "symphony-col-157",
+        shell: "sh"
+      });
       expect(runDetail?.run.model).toBe("xiaomi/mimo-v2-pro");
       expect(runDetail?.turns).toHaveLength(1);
       expect(runDetail?.turns[0]?.usage).toEqual({
@@ -321,7 +345,7 @@ describe("sqlite codex analytics read store", () => {
   });
 
   it("orders persisted messages and reasoning by recordedAt for deterministic turn activities", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-read-ordering-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-ordering-"));
     tempDirectories.push(root);
 
     const database = initializeSymphonyDb({
@@ -457,7 +481,7 @@ describe("sqlite codex analytics read store", () => {
   });
 
   it("filters projected records by turn and preserves failed-run analytics details", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-read-failed-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-failed-"));
     tempDirectories.push(root);
 
     const database = initializeSymphonyDb({
@@ -582,7 +606,7 @@ describe("sqlite codex analytics read store", () => {
         status: "failed",
         threadId: "thread-problem",
         failureKind: "rate_limit",
-        failureOrigin: "codex",
+        failureOrigin: "agent",
         failureMessagePreview: "Rate limited while retrying"
       });
 
@@ -647,7 +671,7 @@ describe("sqlite codex analytics read store", () => {
         runId,
         status: "failed",
         failureKind: "rate_limit",
-        failureOrigin: "codex",
+        failureOrigin: "agent",
         failureMessagePreview: "Rate limited while retrying"
       });
       expect(runArtifacts?.turns.find((turn) => turn.turnId === secondTurnId)).toMatchObject({
@@ -661,8 +685,8 @@ describe("sqlite codex analytics read store", () => {
     }
   });
 
-  it("returns startup-failed runs even when no Codex turns or events were recorded", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-read-startup-failed-"));
+  it("returns startup-failed runs even when no agent turns or events were recorded", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-startup-failed-"));
     tempDirectories.push(root);
 
     const database = initializeSymphonyDb({
@@ -734,7 +758,7 @@ describe("sqlite codex analytics read store", () => {
   });
 
   it("returns structured task snapshots for Pi queue updates in run artifacts", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-read-task-snapshots-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-task-snapshots-"));
     tempDirectories.push(root);
 
     const database = initializeSymphonyDb({

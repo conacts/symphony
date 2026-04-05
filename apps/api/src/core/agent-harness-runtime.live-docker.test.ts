@@ -42,7 +42,7 @@ afterEach(async () => {
 });
 
 describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
-  "live docker codex runtime verification",
+  "live docker pi runtime verification",
   () => {
     it(
       "exercises prepare, runtime execution, and cleanup against a real Docker daemon",
@@ -92,7 +92,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
           hooks: runtimePolicy.hooks
         });
         const hostWorkspacePath = requireContainerHostWorkspacePath(workspace);
-        await writeFakeCodexBinary(hostWorkspacePath);
+        await writeFakePiBinary(hostWorkspacePath);
         await initializeGitWorkspace(hostWorkspacePath);
 
         const database = initializeSymphonyDb({
@@ -233,7 +233,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
           hooks: runtimePolicy.hooks
         });
         const hostWorkspacePath = requireContainerHostWorkspacePath(first);
-        await writeFakeCodexBinary(hostWorkspacePath);
+        await writeFakePiBinary(hostWorkspacePath);
         await initializeGitWorkspace(hostWorkspacePath);
 
         const second = await backend.prepareWorkspace({
@@ -468,7 +468,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
       async () => {
         await assertDockerAvailable();
         const root = await mkdtemp(
-          path.join(tmpdir(), "symphony-live-docker-no-codex-")
+          path.join(tmpdir(), "symphony-live-docker-no-pi-")
         );
         tempRoots.push(root);
 
@@ -595,7 +595,7 @@ async function initializeGitWorkspace(workspacePath: string): Promise<void> {
   });
 }
 
-async function writeFakeCodexBinary(workspacePath: string): Promise<void> {
+async function writeFakePiBinary(workspacePath: string): Promise<void> {
   const scriptPath = path.join(workspacePath, ".symphony", "fake-agent-runtime.sh");
   await mkdir(path.dirname(scriptPath), {
     recursive: true

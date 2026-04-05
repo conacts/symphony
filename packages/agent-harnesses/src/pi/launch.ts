@@ -2,46 +2,46 @@ import type { AgentRuntimeLaunchTarget } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { HarnessSessionError, type HarnessLaunchSettings } from "../shared/session-types.js";
 
-const defaultCodexModel = "xiaomi/mimo-v2-pro";
-const defaultCodexReasoningEffort = "xhigh";
-const supportedCodexModels = new Set([
+const defaultPiModel = "xiaomi/mimo-v2-pro";
+const defaultPiReasoningEffort = "xhigh";
+const supportedPiModels = new Set([
   "xiaomi/mimo-v2-pro",
   "gpt-5.4",
   "gpt-5.4-mini",
   "gpt-5.3-codex-spark"
 ]);
-const supportedCodexReasoningEfforts = new Set([
+const supportedPiReasoningEfforts = new Set([
   "low",
   "medium",
   "high",
   "xhigh"
 ]);
-export const codexModelLabelPrefix = "symphony:model:";
-export const agentModelLabelPrefix = codexModelLabelPrefix;
-const codexReasoningLabelPrefix = "symphony:reasoning:";
+export const piModelLabelPrefix = "symphony:model:";
+export const agentModelLabelPrefix = piModelLabelPrefix;
+const piReasoningLabelPrefix = "symphony:reasoning:";
 
-export function listSupportedCodexModels(): string[] {
-  return [...supportedCodexModels];
+export function listSupportedPiModels(): string[] {
+  return [...supportedPiModels];
 }
 
-export const listSupportedAgentModels = listSupportedCodexModels;
+export const listSupportedAgentModels = listSupportedPiModels;
 
-export function resolveCodexIssueModel(
+export function resolvePiIssueModel(
   issue: SymphonyTrackerIssue,
-  defaultModel = defaultCodexModel
+  defaultModel = defaultPiModel
 ): string {
-  return selectCodexIssueOverride(
+  return selectPiIssueOverride(
     issue,
-    codexModelLabelPrefix,
-    supportedCodexModels,
+    piModelLabelPrefix,
+    supportedPiModels,
     defaultModel,
     "model"
   );
 }
 
-export const resolveAgentIssueModel = resolveCodexIssueModel;
+export const resolveAgentIssueModel = resolvePiIssueModel;
 
-export function resolveCodexLaunchSettings(
+export function resolvePiLaunchSettings(
   baseCommand: string,
   issue: SymphonyTrackerIssue,
   defaults?: {
@@ -52,16 +52,16 @@ export function resolveCodexLaunchSettings(
     providerName?: string | null;
   }
 ): HarnessLaunchSettings {
-  const { model, reasoningEffort } = resolveCodexModelSettings(issue, defaults);
-  const cleanedCommand = stripCodexReasoningOverrides(
-    stripCodexModelOverrides(baseCommand)
+  const { model, reasoningEffort } = resolvePiModelSettings(issue, defaults);
+  const cleanedCommand = stripPiReasoningOverrides(
+    stripPiModelOverrides(baseCommand)
   ).trim();
   const appServerMatch = /(?:^|\s)(app-server)(?=\s|$)/.exec(cleanedCommand);
 
   if (!appServerMatch || appServerMatch.index === undefined) {
     throw new HarnessSessionError(
-      "invalid_codex_command",
-      `Codex command must include app-server: ${baseCommand}`,
+      "invalid_pi_command",
+      `Pi command must include app-server: ${baseCommand}`,
       {
         reason: "missing_app_server",
         command: baseCommand
@@ -91,9 +91,9 @@ export function resolveCodexLaunchSettings(
   };
 }
 
-export const resolveAgentLaunchSettings = resolveCodexLaunchSettings;
+export const resolveAgentLaunchSettings = resolvePiLaunchSettings;
 
-export function resolveCodexSdkLaunchSettings(
+export function resolvePiSdkLaunchSettings(
   baseCommand: string,
   issue: SymphonyTrackerIssue,
   defaults?: {
@@ -106,15 +106,15 @@ export function resolveCodexSdkLaunchSettings(
 ): HarnessLaunchSettings & {
   executable: string;
 } {
-  const cleanedCommand = stripCodexReasoningOverrides(
-    stripCodexModelOverrides(baseCommand)
+  const cleanedCommand = stripPiReasoningOverrides(
+    stripPiModelOverrides(baseCommand)
   ).trim();
-  const executable = extractCodexExecutable(cleanedCommand);
+  const executable = extractPiExecutable(cleanedCommand);
 
   if (executable === null) {
     throw new HarnessSessionError(
-      "invalid_codex_command",
-      `Codex command must start with an executable: ${baseCommand}`,
+      "invalid_pi_command",
+      `Pi command must start with an executable: ${baseCommand}`,
       {
         reason: "missing_executable",
         command: baseCommand
@@ -122,7 +122,7 @@ export function resolveCodexSdkLaunchSettings(
     );
   }
 
-  const { model, reasoningEffort } = resolveCodexModelSettings(issue, defaults);
+  const { model, reasoningEffort } = resolvePiModelSettings(issue, defaults);
 
   return {
     command: cleanedCommand,
@@ -135,9 +135,9 @@ export function resolveCodexSdkLaunchSettings(
   };
 }
 
-export const resolveAgentSdkLaunchSettings = resolveCodexSdkLaunchSettings;
+export const resolveAgentSdkLaunchSettings = resolvePiSdkLaunchSettings;
 
-export function buildCodexAppServerSpawnSpec(input: {
+export function buildPiAppServerSpawnSpec(input: {
   launchTarget: AgentRuntimeLaunchTarget;
   command: string;
   env: Record<string, string>;
@@ -170,7 +170,7 @@ export function buildCodexAppServerSpawnSpec(input: {
   };
 }
 
-export const buildAgentAppServerSpawnSpec = buildCodexAppServerSpawnSpec;
+export const buildAgentAppServerSpawnSpec = buildPiAppServerSpawnSpec;
 
 export function wrapSessionError(error: unknown): Error {
   if (error instanceof HarnessSessionError) {
@@ -178,11 +178,11 @@ export function wrapSessionError(error: unknown): Error {
   }
 
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("Timed out waiting for Codex response 1")) {
+  if (message.includes("Timed out waiting for Agent response 1")) {
     return new HarnessSessionError("initialize_failed", message, error);
   }
 
-  if (message.includes("Timed out waiting for Codex response 2")) {
+  if (message.includes("Timed out waiting for Agent response 2")) {
     return new HarnessSessionError("thread_start_failed", message, error);
   }
 
@@ -230,7 +230,7 @@ function dockerEnvFlags(env: Record<string, string>): string[] {
   return Object.entries(env).flatMap(([key, value]) => ["--env", `${key}=${value}`]);
 }
 
-function resolveCodexModelSettings(
+function resolvePiModelSettings(
   issue: SymphonyTrackerIssue,
   defaults?: {
     model?: string | null;
@@ -240,18 +240,18 @@ function resolveCodexModelSettings(
   model: string;
   reasoningEffort: string;
 } {
-  const model = selectCodexIssueOverride(
+  const model = selectPiIssueOverride(
     issue,
-    codexModelLabelPrefix,
-    supportedCodexModels,
-    defaults?.model ?? defaultCodexModel,
+    piModelLabelPrefix,
+    supportedPiModels,
+    defaults?.model ?? defaultPiModel,
     "model"
   );
-  const reasoningEffort = selectCodexIssueOverride(
+  const reasoningEffort = selectPiIssueOverride(
     issue,
-    codexReasoningLabelPrefix,
-    supportedCodexReasoningEfforts,
-    defaults?.reasoningEffort ?? defaultCodexReasoningEffort,
+    piReasoningLabelPrefix,
+    supportedPiReasoningEfforts,
+    defaults?.reasoningEffort ?? defaultPiReasoningEffort,
     "reasoning effort"
   );
 
@@ -261,7 +261,7 @@ function resolveCodexModelSettings(
   };
 }
 
-function selectCodexIssueOverride(
+function selectPiIssueOverride(
   issue: SymphonyTrackerIssue,
   prefix: string,
   supported: Set<string>,
@@ -279,7 +279,7 @@ function selectCodexIssueOverride(
     }
 
     throw new HarnessSessionError(
-      "invalid_codex_label_override",
+      "invalid_pi_label_override",
       `Unsupported ${label} override label on ${issue.identifier}: ${issueLabel}`,
       {
         issueLabel,
@@ -291,18 +291,18 @@ function selectCodexIssueOverride(
   return fallback;
 }
 
-function stripCodexModelOverrides(command: string): string {
+function stripPiModelOverrides(command: string): string {
   return command.replace(/(?:^|\s)--model\s+\S+/gu, "").trim();
 }
 
-function stripCodexReasoningOverrides(command: string): string {
+function stripPiReasoningOverrides(command: string): string {
   return command.replace(
     /(?:^|\s)--config\s+model_reasoning_effort=\S+/gu,
     ""
   ).trim();
 }
 
-function extractCodexExecutable(command: string): string | null {
+function extractPiExecutable(command: string): string | null {
   const [executable] = command.trim().split(/\s+/u);
   return executable ? executable : null;
 }

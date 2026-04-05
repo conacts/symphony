@@ -5,7 +5,7 @@ import type {
 import type { PreparedWorkspace } from "@symphony/workspace";
 
 export type SymphonyRuntimeLaunchTarget = AgentRuntimeLaunchTarget;
-export const runtimeContainerLaunchDirectoryName = "codex-launch";
+export const runtimeContainerLaunchDirectoryName = "pi-launch";
 
 export function resolveRuntimeLaunchTarget(
   workspace: PreparedWorkspace,
@@ -64,7 +64,7 @@ function normalizeRequiredString(
     return normalized;
   }
 
-  throw new TypeError(`Container Codex execution requires a ${label}.`);
+  throw new TypeError(`Container Pi execution requires a ${label}.`);
 }
 
 function normalizeOptionalString(value: string | null | undefined): string | null {

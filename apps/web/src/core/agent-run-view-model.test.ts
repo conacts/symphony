@@ -128,6 +128,54 @@ describe("agent run view model", () => {
       insertedAt: "2026-03-31T18:00:22.000Z",
       updatedAt: "2026-03-31T18:00:23.000Z"
     });
+    runArtifacts.items.splice(4, 0, {
+      runId: "run_123",
+      turnId: "turn_123",
+      itemId: "tool_write_1",
+      itemType: "mcp_tool_call",
+      startedAt: "2026-03-31T18:00:24.000Z",
+      lastUpdatedAt: "2026-03-31T18:00:25.000Z",
+      completedAt: "2026-03-31T18:00:25.000Z",
+      finalStatus: "completed",
+      updateCount: 1,
+      durationMs: 1_000,
+      latestPreview: "Wrote packages/db/src/index.ts",
+      latestOverflowId: null,
+      insertedAt: "2026-03-31T18:00:24.000Z",
+      updatedAt: "2026-03-31T18:00:25.000Z"
+    });
+    runArtifacts.items.splice(5, 0, {
+      runId: "run_123",
+      turnId: "turn_123",
+      itemId: "tool_grep_1",
+      itemType: "mcp_tool_call",
+      startedAt: "2026-03-31T18:00:26.000Z",
+      lastUpdatedAt: "2026-03-31T18:00:27.000Z",
+      completedAt: "2026-03-31T18:00:27.000Z",
+      finalStatus: "completed",
+      updateCount: 1,
+      durationMs: 1_000,
+      latestPreview: "Searched for agent naming references",
+      latestOverflowId: null,
+      insertedAt: "2026-03-31T18:00:26.000Z",
+      updatedAt: "2026-03-31T18:00:27.000Z"
+    });
+    runArtifacts.items.splice(6, 0, {
+      runId: "run_123",
+      turnId: "turn_123",
+      itemId: "tool_find_1",
+      itemType: "mcp_tool_call",
+      startedAt: "2026-03-31T18:00:28.000Z",
+      lastUpdatedAt: "2026-03-31T18:00:29.000Z",
+      completedAt: "2026-03-31T18:00:29.000Z",
+      finalStatus: "completed",
+      updateCount: 1,
+      durationMs: 1_000,
+      latestPreview: "Found analytics store files",
+      latestOverflowId: null,
+      insertedAt: "2026-03-31T18:00:28.000Z",
+      updatedAt: "2026-03-31T18:00:29.000Z"
+    });
     runArtifacts.fileChanges.push(
       {
         runId: "run_123",
@@ -186,6 +234,78 @@ describe("agent run view model", () => {
         durationMs: 1_000,
         insertedAt: "2026-03-31T18:00:22.000Z",
         updatedAt: "2026-03-31T18:00:23.000Z"
+      },
+      {
+        runId: "run_123",
+        turnId: "turn_123",
+        itemId: "tool_write_1",
+        server: "pi",
+        tool: "write",
+        status: "completed",
+        errorMessage: null,
+        argumentsJson: {
+          path: "packages/db/src/index.ts"
+        },
+        resultPreview: "File updated",
+        resultOverflowId: null,
+        piWrite: {
+          path: "packages/db/src/index.ts"
+        },
+        startedAt: "2026-03-31T18:00:24.000Z",
+        completedAt: "2026-03-31T18:00:25.000Z",
+        durationMs: 1_000,
+        insertedAt: "2026-03-31T18:00:24.000Z",
+        updatedAt: "2026-03-31T18:00:25.000Z"
+      },
+      {
+        runId: "run_123",
+        turnId: "turn_123",
+        itemId: "tool_grep_1",
+        server: "pi",
+        tool: "grep",
+        status: "completed",
+        errorMessage: null,
+        argumentsJson: {
+          pattern: "agentRun",
+          path: "packages/db/src",
+          ignoreCase: true
+        },
+        resultPreview: "Found 4 matches",
+        resultOverflowId: null,
+        piGrep: {
+          pattern: "agentRun",
+          path: "packages/db/src",
+          ignoreCase: true
+        },
+        startedAt: "2026-03-31T18:00:26.000Z",
+        completedAt: "2026-03-31T18:00:27.000Z",
+        durationMs: 1_000,
+        insertedAt: "2026-03-31T18:00:26.000Z",
+        updatedAt: "2026-03-31T18:00:27.000Z"
+      },
+      {
+        runId: "run_123",
+        turnId: "turn_123",
+        itemId: "tool_find_1",
+        server: "pi",
+        tool: "find",
+        status: "completed",
+        errorMessage: null,
+        argumentsJson: {
+          pattern: "agent-analytics-read-store.ts",
+          path: "packages"
+        },
+        resultPreview: "Found matching file",
+        resultOverflowId: null,
+        piFind: {
+          pattern: "agent-analytics-read-store.ts",
+          path: "packages"
+        },
+        startedAt: "2026-03-31T18:00:28.000Z",
+        completedAt: "2026-03-31T18:00:29.000Z",
+        durationMs: 1_000,
+        insertedAt: "2026-03-31T18:00:28.000Z",
+        updatedAt: "2026-03-31T18:00:29.000Z"
       }
     );
     runArtifacts.taskSnapshots.push({
@@ -267,9 +387,9 @@ describe("agent run view model", () => {
         taskSnapshots: [runArtifacts.taskSnapshots[0]!]
       };
     }
-    runArtifacts.run.itemCount = 8;
+    runArtifacts.run.itemCount = 11;
     if (runArtifacts.turns[0]) {
-      runArtifacts.turns[0].itemCount = 8;
+      runArtifacts.turns[0].itemCount = 11;
       runArtifacts.turns[0].fileChangeCount = 3;
     }
 
@@ -282,10 +402,19 @@ describe("agent run view model", () => {
     expect(viewModel.metrics[0]?.value).toBe("Finished");
     expect(viewModel.metrics[1]?.value).toBe("Completed");
     expect(viewModel.harnessLabel).toBe("Pi");
-    expect(viewModel.metadata[0]?.value).toBe("Pi");
-    expect(viewModel.metadata[1]?.value).toBe("xiaomi/mimo-v2-pro");
-    expect(viewModel.metadata[2]?.value).toBe("OpenRouter");
-    expect(viewModel.metadata[3]?.value).toBe("Provider API key");
+    const metadata = new Map(viewModel.metadata.map((entry) => [entry.label, entry.value] as const));
+    expect(metadata.get("Harness")).toBe("Pi");
+    expect(metadata.get("Model")).toBe("xiaomi/mimo-v2-pro");
+    expect(metadata.get("Provider")).toBe("OpenRouter");
+    expect(metadata.get("Auth")).toBe("Provider API key");
+    expect(metadata.get("Provider env")).toBe("OpenRouter API key");
+    expect(metadata.get("PI profile")).toBe("mimo-v2-pro");
+    expect(metadata.get("Reasoning")).toBe("High");
+    expect(metadata.get("PI thread")).toBe("thread_123");
+    expect(metadata.get("PI process")).toBe("pi-process-123");
+    expect(metadata.get("Launch target")).toBe(
+      "container / symphony-col-165 / /home/agent/workspace"
+    );
     expect(viewModel.turnTokens.cards[0]?.value).toBe("120");
     expect(viewModel.turnTokens.rows[0]?.turnLabel).toBe("Turn 1");
     expect(viewModel.turnLatency.cards[0]?.value).toBe("1");
@@ -310,6 +439,9 @@ describe("agent run view model", () => {
       "reasoning",
       "command",
       "pi-read-task",
+      "pi-write-task",
+      "pi-grep-task",
+      "pi-find-task",
       "file-change",
       "tool-call",
       "todo-list",
@@ -327,6 +459,15 @@ describe("agent run view model", () => {
     const piReadEntry = viewModel.transcriptTurns[0]?.entries.find(
       (entry) => entry.kind === "pi-read-task"
     );
+    const piWriteEntry = viewModel.transcriptTurns[0]?.entries.find(
+      (entry) => entry.kind === "pi-write-task"
+    );
+    const piGrepEntry = viewModel.transcriptTurns[0]?.entries.find(
+      (entry) => entry.kind === "pi-grep-task"
+    );
+    const piFindEntry = viewModel.transcriptTurns[0]?.entries.find(
+      (entry) => entry.kind === "pi-find-task"
+    );
     expect(reasoningEntry?.kind).toBe("reasoning");
     expect(reasoningEntry?.segmentCount).toBe(2);
     expect(reasoningEntry?.preview).toContain(
@@ -335,6 +476,26 @@ describe("agent run view model", () => {
     expect(piReadEntry?.kind).toBe("pi-read-task");
     expect(piReadEntry?.readCount).toBe(2);
     expect(piReadEntry?.paths).toEqual(["README.md", "src/index.ts"]);
+    expect(piWriteEntry?.kind).toBe("pi-write-task");
+    expect(piWriteEntry?.writeCount).toBe(1);
+    expect(piWriteEntry?.paths).toEqual(["packages/db/src/index.ts"]);
+    expect(piGrepEntry?.kind).toBe("pi-grep-task");
+    expect(piGrepEntry?.grepCount).toBe(1);
+    expect(piGrepEntry?.queries).toEqual([
+      {
+        pattern: "agentRun",
+        path: "packages/db/src",
+        ignoreCase: true
+      }
+    ]);
+    expect(piFindEntry?.kind).toBe("pi-find-task");
+    expect(piFindEntry?.findCount).toBe(1);
+    expect(piFindEntry?.queries).toEqual([
+      {
+        pattern: "agent-analytics-read-store.ts",
+        path: "packages"
+      }
+    ]);
     expect(fileChangeEntry?.kind).toBe("file-change");
     expect(fileChangeEntry?.summary).toBe("2 files changed");
     expect(fileChangeEntry?.changes).toEqual([

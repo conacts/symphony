@@ -16,7 +16,10 @@ import {
   symphonyForensicsIssueSortDirectionSchema,
   symphonyForensicsIssueTimeRangeSchema
 } from "./requests.js";
-import { symphonyRuntimeLogEntrySchema } from "../runtime/responses.js";
+import {
+  symphonyRuntimeLaunchTargetSchema,
+  symphonyRuntimeLogEntrySchema
+} from "../runtime/responses.js";
 
 const terminalRunStatuses = new Set([
   "finished",
@@ -42,10 +45,7 @@ const symphonyAgentRunStatusSchema = z.enum([
 ]);
 const authModes = z.enum(["auth_json", "api_key_env"]);
 export const symphonyForensicsActiveHarnessSchema = z.literal("pi");
-export const symphonyForensicsCompatHarnessSchema = z.enum([
-  "codex",
-  "pi"
-]);
+export const symphonyForensicsCompatHarnessSchema = symphonyForensicsActiveHarnessSchema;
 export const symphonyForensicsTimelineSourceSchema = z.enum([
   "orchestrator",
   "agent",
@@ -53,14 +53,8 @@ export const symphonyForensicsTimelineSourceSchema = z.enum([
   "workspace",
   "runtime"
 ]);
-export const symphonyForensicsCompatTimelineSourceSchema = z.enum([
-  "orchestrator",
-  "agent",
-  "codex",
-  "tracker",
-  "workspace",
-  "runtime"
-]);
+export const symphonyForensicsCompatTimelineSourceSchema =
+  symphonyForensicsTimelineSourceSchema;
 
 export const symphonyForensicsIssueSummarySchema = z.strictObject({
   issueId: nonEmptyStringSchema,
@@ -255,10 +249,14 @@ export const symphonyForensicsIssueExportSchema = z.strictObject({
 
 export const symphonyForensicsRunDetailSchema = symphonyForensicsRunSummarySchema.safeExtend({
   threadId: nullableNonEmptyStringSchema,
+  processId: nullableNonEmptyStringSchema,
   providerId: nullableNonEmptyStringSchema,
   providerName: nullableNonEmptyStringSchema,
+  reasoningEffort: nullableNonEmptyStringSchema,
+  profile: nullableNonEmptyStringSchema,
   authMode: authModes.nullable(),
   providerEnvKey: nullableNonEmptyStringSchema,
+  launchTarget: symphonyRuntimeLaunchTargetSchema.nullable(),
   repoStart: jsonObjectSchema.nullable(),
   repoEnd: jsonObjectSchema.nullable(),
   metadata: jsonObjectSchema.nullable(),

@@ -68,6 +68,42 @@ export type AgentRunTranscriptEntry =
       overflowId: string | null;
     }
   | {
+      kind: "pi-edit-task";
+      itemId: string;
+      recordedAt: string;
+      status: string;
+      paths: string[];
+      editCount: number;
+      overflowId: string | null;
+    }
+  | {
+      kind: "pi-write-task";
+      itemId: string;
+      recordedAt: string;
+      status: string;
+      paths: string[];
+      writeCount: number;
+      overflowId: string | null;
+    }
+  | {
+      kind: "pi-grep-task";
+      itemId: string;
+      recordedAt: string;
+      status: string;
+      queries: PiPatternTaskQuery[];
+      grepCount: number;
+      overflowId: string | null;
+    }
+  | {
+      kind: "pi-find-task";
+      itemId: string;
+      recordedAt: string;
+      status: string;
+      queries: PiPatternTaskQuery[];
+      findCount: number;
+      overflowId: string | null;
+    }
+  | {
       kind: "command";
       itemId: string;
       recordedAt: string;
@@ -125,6 +161,12 @@ export type AgentRunTranscriptEntry =
 export type AgentRunFileChip = {
   path: string;
   changeKind: string;
+};
+
+export type PiPatternTaskQuery = {
+  pattern: string;
+  path: string | null;
+  ignoreCase?: boolean | null;
 };
 
 export type AgentRunTranscriptTurn = {
@@ -320,11 +362,27 @@ export function buildAgentRunViewModel(input: {
         )
       },
       {
+        label: "PI profile",
+        value: input.runDetail.run.profile ?? "Unavailable"
+      },
+      {
+        label: "Reasoning",
+        value: formatLabel(input.runDetail.run.reasoningEffort ?? "Unavailable")
+      },
+      {
         label: "PI thread",
         value:
           input.runDetail.run.threadId ??
           agentRun?.threadId ??
           "Unavailable"
+      },
+      {
+        label: "PI process",
+        value: input.runDetail.run.processId ?? "Unavailable"
+      },
+      {
+        label: "Launch target",
+        value: formatLaunchTargetLabel(input.runDetail.run.launchTarget)
       },
       {
         label: "Workspace",
@@ -762,8 +820,82 @@ function mapTranscriptEntry(input: {
         itemId: input.item.itemId,
         recordedAt,
         status,
-        paths: extractPiReadPaths(input.toolCall.argumentsJson),
+        paths:
+          input.toolCall.piRead?.path !== undefined
+            ? [input.toolCall.piRead.path]
+            : extractPiReadPaths(input.toolCall.argumentsJson),
         readCount: 1,
+        overflowId: input.toolCall.resultOverflowId
+      };
+    }
+
+    if (input.toolCall.server === "pi" && input.toolCall.tool === "edit") {
+      return {
+        kind: "pi-edit-task",
+        itemId: input.item.itemId,
+        recordedAt,
+        status,
+        paths:
+          input.toolCall.piEdit?.path !== undefined
+            ? [input.toolCall.piEdit.path]
+            : extractPiEditPaths(input.toolCall.argumentsJson),
+        editCount: 1,
+        overflowId: input.toolCall.resultOverflowId
+      };
+    }
+
+    if (input.toolCall.server === "pi" && input.toolCall.tool === "write") {
+      return {
+        kind: "pi-write-task",
+        itemId: input.item.itemId,
+        recordedAt,
+        status,
+        paths:
+          input.toolCall.piWrite?.path !== undefined
+            ? [input.toolCall.piWrite.path]
+            : extractPiWritePaths(input.toolCall.argumentsJson),
+        writeCount: 1,
+        overflowId: input.toolCall.resultOverflowId
+      };
+    }
+
+    if (input.toolCall.server === "pi" && input.toolCall.tool === "grep") {
+      return {
+        kind: "pi-grep-task",
+        itemId: input.item.itemId,
+        recordedAt,
+        status,
+        queries:
+          input.toolCall.piGrep !== undefined
+            ? [
+                {
+                  pattern: input.toolCall.piGrep.pattern,
+                  path: input.toolCall.piGrep.path,
+                  ignoreCase: input.toolCall.piGrep.ignoreCase
+                }
+              ]
+            : extractPiGrepQueries(input.toolCall.argumentsJson),
+        grepCount: 1,
+        overflowId: input.toolCall.resultOverflowId
+      };
+    }
+
+    if (input.toolCall.server === "pi" && input.toolCall.tool === "find") {
+      return {
+        kind: "pi-find-task",
+        itemId: input.item.itemId,
+        recordedAt,
+        status,
+        queries:
+          input.toolCall.piFind !== undefined
+            ? [
+                {
+                  pattern: input.toolCall.piFind.pattern,
+                  path: input.toolCall.piFind.path
+                }
+              ]
+            : extractPiFindQueries(input.toolCall.argumentsJson),
+        findCount: 1,
         overflowId: input.toolCall.resultOverflowId
       };
     }
@@ -888,6 +1020,16 @@ function itemRecordedAt(item: SymphonyAgentItemRecord): string {
 
 function formatNullableDuration(durationMs: number | null): string {
   return durationMs === null ? "In progress" : formatDuration(durationMs / 1000);
+}
+
+function formatLaunchTargetLabel(
+  value: SymphonyForensicsRunDetailResult["run"]["launchTarget"]
+): string {
+  if (!value) {
+    return "Unavailable";
+  }
+
+  return [value.kind, value.containerName, value.runtimeWorkspacePath].join(" / ");
 }
 
 function formatTranscriptEntryStatus(
@@ -1101,6 +1243,66 @@ function compactTranscriptEntries(
       continue;
     }
 
+    if (previous?.kind === "pi-edit-task" && entry.kind === "pi-edit-task") {
+      compacted[compacted.length - 1] = {
+        ...previous,
+        recordedAt: entry.recordedAt,
+        status: entry.status,
+        paths: uniquePaths([...previous.paths, ...entry.paths]),
+        editCount: previous.editCount + entry.editCount,
+        overflowId:
+          previous.overflowId !== null && previous.overflowId === entry.overflowId
+            ? previous.overflowId
+            : null
+      };
+      continue;
+    }
+
+    if (previous?.kind === "pi-write-task" && entry.kind === "pi-write-task") {
+      compacted[compacted.length - 1] = {
+        ...previous,
+        recordedAt: entry.recordedAt,
+        status: entry.status,
+        paths: uniquePaths([...previous.paths, ...entry.paths]),
+        writeCount: previous.writeCount + entry.writeCount,
+        overflowId:
+          previous.overflowId !== null && previous.overflowId === entry.overflowId
+            ? previous.overflowId
+            : null
+      };
+      continue;
+    }
+
+    if (previous?.kind === "pi-grep-task" && entry.kind === "pi-grep-task") {
+      compacted[compacted.length - 1] = {
+        ...previous,
+        recordedAt: entry.recordedAt,
+        status: entry.status,
+        queries: uniquePiPatternQueries([...previous.queries, ...entry.queries]),
+        grepCount: previous.grepCount + entry.grepCount,
+        overflowId:
+          previous.overflowId !== null && previous.overflowId === entry.overflowId
+            ? previous.overflowId
+            : null
+      };
+      continue;
+    }
+
+    if (previous?.kind === "pi-find-task" && entry.kind === "pi-find-task") {
+      compacted[compacted.length - 1] = {
+        ...previous,
+        recordedAt: entry.recordedAt,
+        status: entry.status,
+        queries: uniquePiPatternQueries([...previous.queries, ...entry.queries]),
+        findCount: previous.findCount + entry.findCount,
+        overflowId:
+          previous.overflowId !== null && previous.overflowId === entry.overflowId
+            ? previous.overflowId
+            : null
+      };
+      continue;
+    }
+
     if (previous?.kind === "reasoning" && entry.kind === "reasoning") {
       compacted[compacted.length - 1] = {
         ...previous,
@@ -1139,6 +1341,69 @@ function joinTranscriptText(
   return left ?? right;
 }
 
+function extractPiEditPaths(value: unknown): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+
+  const record = value as Record<string, unknown>;
+  const scalarPath = getStringValue(record.path) ?? getStringValue(record.file_path);
+
+  if (scalarPath) {
+    return [scalarPath];
+  }
+
+  return [];
+}
+
+function extractPiWritePaths(value: unknown): string[] {
+  return extractPiEditPaths(value);
+}
+
+function extractPiGrepQueries(value: unknown): PiPatternTaskQuery[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+
+  const record = value as Record<string, unknown>;
+  const pattern = getStringValue(record.pattern);
+
+  if (!pattern) {
+    return [];
+  }
+
+  return [
+    {
+      pattern,
+      path: getStringValue(record.path) ?? getStringValue(record.search_path),
+      ignoreCase: getBooleanValue(record.ignoreCase) ?? getBooleanValue(record.ignore_case)
+    }
+  ];
+}
+
+function extractPiFindQueries(value: unknown): PiPatternTaskQuery[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+
+  const record = value as Record<string, unknown>;
+  const pattern =
+    getStringValue(record.pattern) ??
+    getStringValue(record.name) ??
+    getStringValue(record.glob);
+
+  if (!pattern) {
+    return [];
+  }
+
+  return [
+    {
+      pattern,
+      path: getStringValue(record.path) ?? getStringValue(record.search_path)
+    }
+  ];
+}
+
 function extractPiReadPaths(value: unknown): string[] {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return [];
@@ -1167,6 +1432,30 @@ function getStringValue(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value : null;
 }
 
+function getBooleanValue(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
 function uniquePaths(paths: string[]): string[] {
   return [...new Set(paths)].sort((left, right) => left.localeCompare(right));
+}
+
+function uniquePiPatternQueries(queries: PiPatternTaskQuery[]): PiPatternTaskQuery[] {
+  const seen = new Set<string>();
+  const deduped: PiPatternTaskQuery[] = [];
+
+  for (const query of queries) {
+    const key = `${query.pattern}\u0000${query.path ?? ""}\u0000${query.ignoreCase ?? ""}`;
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    deduped.push(query);
+  }
+
+  return deduped.sort((left, right) =>
+    `${left.pattern}:${left.path ?? ""}`.localeCompare(`${right.pattern}:${right.path ?? ""}`)
+  );
 }

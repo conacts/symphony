@@ -46,7 +46,7 @@ function createRuntimePolicy(
       ...agent
     },
     agentRuntime: {
-      command: "codex",
+      command: "pi",
       approvalPolicy: "never",
       threadSandbox: "danger-full-access",
       turnSandboxPolicy: null,

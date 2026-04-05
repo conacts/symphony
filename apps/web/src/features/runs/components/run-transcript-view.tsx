@@ -70,7 +70,7 @@ export function RunTranscriptView(input: {
     setOverflowOpen(true);
     setOverflowState({
       title: buildOverflowTitle(entry),
-      description: `${entry.recordedAt} · ${entry.status}`,
+      description: entry.recordedAt,
       content: null,
       loading: true,
       error: null
@@ -430,6 +430,14 @@ function buildOverflowTitle(entry: AgentRunTranscriptEntry): string {
       return "Reasoning";
     case "pi-read-task":
       return "PI read result";
+    case "pi-edit-task":
+      return "PI edit result";
+    case "pi-write-task":
+      return "PI write result";
+    case "pi-grep-task":
+      return "PI grep result";
+    case "pi-find-task":
+      return "PI find result";
     case "command":
       return "Command output";
     case "tool-call":

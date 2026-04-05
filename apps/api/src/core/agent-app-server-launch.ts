@@ -9,4 +9,4 @@ export {
   resolveAgentSdkLaunchSettings,
   validateWorkspaceCwd,
   wrapSessionError
-} from "@symphony/agent-harnesses/compat";
+} from "@symphony/agent-harnesses";

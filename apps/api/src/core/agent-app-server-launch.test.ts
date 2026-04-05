@@ -16,7 +16,7 @@ describe("agent app server launch", () => {
         containerName: "symphony-col-123",
         shell: "sh"
       },
-      command: "codex app-server",
+      command: "pi app-server",
       env: {
         OPENAI_API_KEY: "explicit-openai-key"
       },
@@ -24,8 +24,7 @@ describe("agent app server launch", () => {
         PATH: "/usr/bin",
         HOME: "/tmp/home",
         DOCKER_HOST: "unix:///tmp/docker.sock",
-        DOCKER_CONTEXT: "colima",
-        CODEX_HOME: "/tmp/codex-home"
+        DOCKER_CONTEXT: "colima"
       }
     });
 
@@ -33,8 +32,7 @@ describe("agent app server launch", () => {
       PATH: "/usr/bin",
       HOME: "/tmp/home",
       DOCKER_HOST: "unix:///tmp/docker.sock",
-      DOCKER_CONTEXT: "colima",
-      CODEX_HOME: "/tmp/codex-home"
+      DOCKER_CONTEXT: "colima"
     });
     expect(spec.args).toContain("--env");
     expect(spec.args).toContain("OPENAI_API_KEY=explicit-openai-key");
@@ -77,7 +75,7 @@ describe("agent app server launch", () => {
 
   it("applies the mimo-v2-pro profile defaults to SDK launches", () => {
     const settings = resolveAgentSdkLaunchSettings(
-      "codex",
+      "pi",
       {
         id: "issue-1",
         identifier: "COL-1",
@@ -108,7 +106,7 @@ describe("agent app server launch", () => {
     );
 
     expect(settings).toMatchObject({
-      executable: "codex",
+      executable: "pi",
       model: "xiaomi/mimo-v2-pro",
       reasoningEffort: "high",
       profile: "mimo-v2-pro",

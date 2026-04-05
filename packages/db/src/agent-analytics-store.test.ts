@@ -8,18 +8,20 @@ import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-stor
 import { createSqliteAgentAnalyticsStore } from "./agent-analytics-store.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
 import {
-  codexAgentMessagesTable,
-  codexCommandExecutionsTable,
-  codexEventLogTable,
-  codexFileChangesTable,
-  codexReasoningTable,
-  codexItemsTable,
-  codexPayloadOverflowTable,
-  codexRunsTable,
-  codexTaskSnapshotItemsTable,
-  codexTaskSnapshotsTable,
-  codexToolCallsTable,
-  codexTurnsTable
+  symphonyAgentCommandExecutionsTable,
+  symphonyAgentEventLogTable,
+  symphonyAgentFileChangesTable,
+  symphonyAgentItemsTable,
+  symphonyAgentMessagesTable,
+  symphonyAgentPayloadOverflowTable,
+  symphonyAgentReasoningTable,
+  symphonyAgentRunsTable,
+  symphonyAgentTaskSnapshotItemsTable,
+  symphonyAgentTaskSnapshotsTable,
+  symphonyAgentToolCallsTable,
+  symphonyAgentTurnsTable,
+  piEditsTable,
+  piReadsTable
 } from "./schema.js";
 
 const tempDirectories: string[] = [];
@@ -35,9 +37,9 @@ afterEach(async () => {
   );
 });
 
-describe("sqlite codex analytics store", () => {
+describe("sqlite agent analytics store", () => {
   it("projects command execution lifecycle updates into item, command, turn, and run records", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-store-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-store-"));
     tempDirectories.push(root);
 
     const database = initializeSymphonyDb({
@@ -160,19 +162,19 @@ describe("sqlite codex analytics store", () => {
 
       const command = database.db
         .select()
-        .from(codexCommandExecutionsTable)
+        .from(symphonyAgentCommandExecutionsTable)
         .get();
       const item = database.db
         .select()
-        .from(codexItemsTable)
+        .from(symphonyAgentItemsTable)
         .get();
       const turn = database.db
         .select()
-        .from(codexTurnsTable)
+        .from(symphonyAgentTurnsTable)
         .get();
       const run = database.db
         .select()
-        .from(codexRunsTable)
+        .from(symphonyAgentRunsTable)
         .get();
 
       expect(command).toMatchObject({
@@ -222,7 +224,7 @@ describe("sqlite codex analytics store", () => {
   });
 
   it("persists agent message and reasoning text with recordedAt and overflow boundaries", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-message-reasoning-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-message-reasoning-"));
     tempDirectories.push(root);
 
     const database = initializeSymphonyDb({
@@ -294,21 +296,21 @@ describe("sqlite codex analytics store", () => {
 
       const reason = database.db
         .select()
-        .from(codexReasoningTable)
-        .where(eq(codexReasoningTable.itemId, "reasoning-1"))
+        .from(symphonyAgentReasoningTable)
+        .where(eq(symphonyAgentReasoningTable.itemId, "reasoning-1"))
         .get();
       const message = database.db
         .select()
-        .from(codexAgentMessagesTable)
-        .where(eq(codexAgentMessagesTable.itemId, "message-1"))
+        .from(symphonyAgentMessagesTable)
+        .where(eq(symphonyAgentMessagesTable.itemId, "message-1"))
         .get();
       const overflowEntries = database.db
         .select()
-        .from(codexPayloadOverflowTable)
+        .from(symphonyAgentPayloadOverflowTable)
         .where(
           or(
-            eq(codexPayloadOverflowTable.id, reason?.textOverflowId ?? ""),
-            eq(codexPayloadOverflowTable.id, message?.textOverflowId ?? "")
+            eq(symphonyAgentPayloadOverflowTable.id, reason?.textOverflowId ?? ""),
+            eq(symphonyAgentPayloadOverflowTable.id, message?.textOverflowId ?? "")
           )
         )
         .all();
@@ -329,7 +331,7 @@ describe("sqlite codex analytics store", () => {
   });
 
   it("keeps in-progress command items non-terminal until completion arrives", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-in-progress-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-in-progress-"));
     tempDirectories.push(root);
 
     const database = initializeSymphonyDb({
@@ -401,18 +403,18 @@ describe("sqlite codex analytics store", () => {
 
       const command = database.db
         .select()
-        .from(codexCommandExecutionsTable)
-        .where(eq(codexCommandExecutionsTable.itemId, "cmd-2"))
+        .from(symphonyAgentCommandExecutionsTable)
+        .where(eq(symphonyAgentCommandExecutionsTable.itemId, "cmd-2"))
         .get();
       const item = database.db
         .select()
-        .from(codexItemsTable)
-        .where(eq(codexItemsTable.itemId, "cmd-2"))
+        .from(symphonyAgentItemsTable)
+        .where(eq(symphonyAgentItemsTable.itemId, "cmd-2"))
         .get();
       const turn = database.db
         .select()
-        .from(codexTurnsTable)
-        .where(eq(codexTurnsTable.turnId, turnId))
+        .from(symphonyAgentTurnsTable)
+        .where(eq(symphonyAgentTurnsTable.turnId, turnId))
         .get();
 
       expect(command).toMatchObject({
@@ -449,7 +451,7 @@ describe("sqlite codex analytics store", () => {
   });
 
   it("persists todo snapshots and native file change items into lifecycle and rollup records", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-pi-native-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-pi-native-"));
     tempDirectories.push(root);
 
     const database = initializeSymphonyDb({
@@ -538,39 +540,39 @@ describe("sqlite codex analytics store", () => {
 
       const todoItem = database.db
         .select()
-        .from(codexItemsTable)
-        .where(eq(codexItemsTable.itemId, "pi-todo-queue"))
+        .from(symphonyAgentItemsTable)
+        .where(eq(symphonyAgentItemsTable.itemId, "pi-todo-queue"))
         .get();
       const taskSnapshot = database.db
         .select()
-        .from(codexTaskSnapshotsTable)
-        .where(eq(codexTaskSnapshotsTable.itemId, "pi-todo-queue"))
+        .from(symphonyAgentTaskSnapshotsTable)
+        .where(eq(symphonyAgentTaskSnapshotsTable.itemId, "pi-todo-queue"))
         .get();
       const fileChangeItem = database.db
         .select()
-        .from(codexItemsTable)
-        .where(eq(codexItemsTable.itemId, "pi-file-change:call-2"))
+        .from(symphonyAgentItemsTable)
+        .where(eq(symphonyAgentItemsTable.itemId, "pi-file-change:call-2"))
         .get();
       const taskSnapshotItems = taskSnapshot
         ? database.db
             .select()
-            .from(codexTaskSnapshotItemsTable)
-            .where(eq(codexTaskSnapshotItemsTable.snapshotId, taskSnapshot.snapshotId))
+            .from(symphonyAgentTaskSnapshotItemsTable)
+            .where(eq(symphonyAgentTaskSnapshotItemsTable.snapshotId, taskSnapshot.snapshotId))
             .all()
         : [];
       const fileChange = database.db
         .select()
-        .from(codexFileChangesTable)
+        .from(symphonyAgentFileChangesTable)
         .get();
       const turn = database.db
         .select()
-        .from(codexTurnsTable)
-        .where(eq(codexTurnsTable.turnId, turnId))
+        .from(symphonyAgentTurnsTable)
+        .where(eq(symphonyAgentTurnsTable.turnId, turnId))
         .get();
       const run = database.db
         .select()
-        .from(codexRunsTable)
-        .where(eq(codexRunsTable.runId, runId))
+        .from(symphonyAgentRunsTable)
+        .where(eq(symphonyAgentRunsTable.runId, runId))
         .get();
 
       expect(todoItem).toMatchObject({
@@ -633,8 +635,156 @@ describe("sqlite codex analytics store", () => {
     }
   });
 
+  it("surfaces structured pi tool rows through persisted analytics artifacts", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-pi-structured-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const analyticsStore = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const readStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runStore.recordRunStarted({
+        runId: "run-pi-structured",
+        issueId: "issue-10",
+        issueIdentifier: "COL-910",
+        startedAt: "2026-04-05T08:00:00.000Z",
+        status: "running"
+      });
+      const turnId = await runStore.recordTurnStarted(runId, {
+        turnId: "turn-pi-structured",
+        promptText: "Inspect and patch the file",
+        startedAt: "2026-04-05T08:00:01.000Z",
+        status: "running"
+      });
+
+      await analyticsStore.startRun({
+        runId,
+        issueId: "issue-10",
+        issueIdentifier: "COL-910",
+        startedAt: "2026-04-05T08:00:00.000Z",
+        status: "running",
+        threadId: "thread-pi-structured"
+      });
+
+      await analyticsStore.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-pi-structured",
+        recordedAt: "2026-04-05T08:00:02.000Z",
+        rawPayload: null,
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "tool-read-1",
+            type: "mcp_tool_call",
+            server: "pi",
+            tool: "read",
+            arguments: {
+              path: "src/index.ts",
+              offset: 10,
+              limit: 25
+            },
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: "const x = 1;"
+                }
+              ],
+              structured_content: null
+            },
+            status: "completed"
+          }
+        }
+      });
+
+      await analyticsStore.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-pi-structured",
+        recordedAt: "2026-04-05T08:00:03.000Z",
+        rawPayload: null,
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "tool-edit-1",
+            type: "mcp_tool_call",
+            server: "pi",
+            tool: "edit",
+            arguments: {
+              path: "src/index.ts",
+              edits: [
+                {
+                  oldText: "const x = 1;",
+                  newText: "const x = 2;"
+                }
+              ]
+            },
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: "Successfully replaced 1 block in src/index.ts."
+                }
+              ],
+              structured_content: null
+            },
+            status: "completed"
+          }
+        }
+      });
+
+      const piReadRow = database.db.select().from(piReadsTable).get();
+      const piEditRow = database.db.select().from(piEditsTable).get();
+      const artifacts = await readStore.fetchRunArtifacts(runId);
+      const readTool = artifacts?.toolCalls.find((entry) => entry.itemId === "tool-read-1");
+      const editTool = artifacts?.toolCalls.find((entry) => entry.itemId === "tool-edit-1");
+
+      expect(piReadRow).toMatchObject({
+        runId,
+        turnId,
+        itemId: "tool-read-1",
+        path: "src/index.ts",
+        readOffset: 10,
+        readLimit: 25
+      });
+      expect(piEditRow).toMatchObject({
+        runId,
+        turnId,
+        itemId: "tool-edit-1",
+        path: "src/index.ts",
+        editCount: 1
+      });
+      expect(readTool).toMatchObject({
+        piRead: {
+          path: "src/index.ts",
+          offset: 10,
+          limit: 25
+        }
+      });
+      expect(editTool).toMatchObject({
+        piEdit: {
+          path: "src/index.ts",
+          editCount: 1
+        }
+      });
+    } finally {
+      database.close();
+    }
+  });
+
   it("preserves the original shell command when completion falls back to bash", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-bash-merge-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-bash-merge-"));
     tempDirectories.push(root);
 
     const database = initializeSymphonyDb({
@@ -707,8 +857,8 @@ describe("sqlite codex analytics store", () => {
 
       const command = database.db
         .select()
-        .from(codexCommandExecutionsTable)
-        .where(eq(codexCommandExecutionsTable.itemId, "cmd-bash-merge"))
+        .from(symphonyAgentCommandExecutionsTable)
+        .where(eq(symphonyAgentCommandExecutionsTable.itemId, "cmd-bash-merge"))
         .get();
 
       expect(command).toMatchObject({
@@ -723,7 +873,7 @@ describe("sqlite codex analytics store", () => {
   });
 
   it("projects failed MCP tool calls with explicit failure metadata", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-tool-failure-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-tool-failure-"));
     tempDirectories.push(root);
 
     const database = initializeSymphonyDb({
@@ -785,18 +935,18 @@ describe("sqlite codex analytics store", () => {
 
       const toolCall = database.db
         .select()
-        .from(codexToolCallsTable)
-        .where(eq(codexToolCallsTable.itemId, "tool-2"))
+        .from(symphonyAgentToolCallsTable)
+        .where(eq(symphonyAgentToolCallsTable.itemId, "tool-2"))
         .get();
       const item = database.db
         .select()
-        .from(codexItemsTable)
-        .where(eq(codexItemsTable.itemId, "tool-2"))
+        .from(symphonyAgentItemsTable)
+        .where(eq(symphonyAgentItemsTable.itemId, "tool-2"))
         .get();
       const turn = database.db
         .select()
-        .from(codexTurnsTable)
-        .where(eq(codexTurnsTable.turnId, turnId))
+        .from(symphonyAgentTurnsTable)
+        .where(eq(symphonyAgentTurnsTable.turnId, turnId))
         .get();
 
       expect(toolCall).toMatchObject({
@@ -832,7 +982,7 @@ describe("sqlite codex analytics store", () => {
   });
 
   it("stores oversized tool results in overflow while keeping the canonical event payload readable", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-overflow-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-overflow-"));
     tempDirectories.push(root);
 
     const database = initializeSymphonyDb({
@@ -916,15 +1066,15 @@ describe("sqlite codex analytics store", () => {
 
       const toolCall = database.db
         .select()
-        .from(codexToolCallsTable)
+        .from(symphonyAgentToolCallsTable)
         .get();
       const eventLogRow = database.db
         .select()
-        .from(codexEventLogTable)
+        .from(symphonyAgentEventLogTable)
         .get();
       const overflowRows = database.db
         .select()
-        .from(codexPayloadOverflowTable)
+        .from(symphonyAgentPayloadOverflowTable)
         .all();
       const artifacts = await readStore.fetchRunArtifacts(runId);
 

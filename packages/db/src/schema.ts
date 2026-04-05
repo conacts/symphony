@@ -248,6 +248,124 @@ export const symphonyAgentToolCallsTable = sqliteTable(
   })
 );
 
+// ---------------------------------------------------------------------------
+// pi tool tables
+// ---------------------------------------------------------------------------
+//
+// These tables store structured data for known pi tool calls.
+// They share the same primary key as symphony_agent_tool_calls
+// (run_id, turn_id, item_id) so rows are 1:1 with their parent tool-call row.
+//
+// The analytics adapter validates raw arguments through Zod schemas
+// derived from the real pi tool definitions (TypeBox schemas in
+// pi-coding-agent).  Only rows that pass validation get inserted, so
+// these tables are always correctly typed — no ad-hoc JSON parsing
+// required downstream.
+
+export const piReadsTable = sqliteTable(
+  "pi_reads",
+  {
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    path: text("path").notNull(),
+    readOffset: integer("read_offset"),
+    readLimit: integer("read_limit"),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      name: "pi_reads_pk"
+    }),
+    runIdIdx: index("pi_reads_run_id_idx").on(table.runId),
+    pathIdx: index("pi_reads_path_idx").on(table.path)
+  })
+);
+
+export const piEditsTable = sqliteTable(
+  "pi_edits",
+  {
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    path: text("path").notNull(),
+    editCount: integer("edit_count").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      name: "pi_edits_pk"
+    }),
+    runIdIdx: index("pi_edits_run_id_idx").on(table.runId),
+    pathIdx: index("pi_edits_path_idx").on(table.path)
+  })
+);
+
+export const piWritesTable = sqliteTable(
+  "pi_writes",
+  {
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    path: text("path").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      name: "pi_writes_pk"
+    }),
+    runIdIdx: index("pi_writes_run_id_idx").on(table.runId),
+    pathIdx: index("pi_writes_path_idx").on(table.path)
+  })
+);
+
+export const piGrepsTable = sqliteTable(
+  "pi_greps",
+  {
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    pattern: text("pattern").notNull(),
+    searchPath: text("search_path"),
+    ignoreCase: integer("ignore_case", { mode: "boolean" }),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      name: "pi_greps_pk"
+    }),
+    runIdIdx: index("pi_greps_run_id_idx").on(table.runId)
+  })
+);
+
+export const piFindsTable = sqliteTable(
+  "pi_finds",
+  {
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    pattern: text("pattern").notNull(),
+    searchPath: text("search_path"),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      name: "pi_finds_pk"
+    }),
+    runIdIdx: index("pi_finds_run_id_idx").on(table.runId)
+  })
+);
+
 export const symphonyAgentMessagesTable = sqliteTable(
   "symphony_agent_messages",
   {
@@ -321,16 +439,6 @@ export const symphonyAgentFileChangesTable = sqliteTable(
   })
 );
 
-export const codexEventLogTable = symphonyAgentEventLogTable;
-export const codexPayloadOverflowTable = symphonyAgentPayloadOverflowTable;
-export const codexRunsTable = symphonyAgentRunsTable;
-export const codexTurnsTable = symphonyAgentTurnsTable;
-export const codexItemsTable = symphonyAgentItemsTable;
-export const codexCommandExecutionsTable = symphonyAgentCommandExecutionsTable;
-export const codexToolCallsTable = symphonyAgentToolCallsTable;
-export const codexAgentMessagesTable = symphonyAgentMessagesTable;
-export const codexReasoningTable = symphonyAgentReasoningTable;
-export const codexFileChangesTable = symphonyAgentFileChangesTable;
 export const symphonyIssuesTable = sqliteTable(
   "symphony_issues",
   {
@@ -558,9 +666,6 @@ export const symphonyAgentTaskSnapshotItemsTable = sqliteTable(
   })
 );
 
-export const codexTaskSnapshotsTable = symphonyAgentTaskSnapshotsTable;
-export const codexTaskSnapshotItemsTable = symphonyAgentTaskSnapshotItemsTable;
-
 export const symphonySchema = {
   symphonyAgentEventLogTable,
   symphonyAgentPayloadOverflowTable,
@@ -569,6 +674,11 @@ export const symphonySchema = {
   symphonyAgentItemsTable,
   symphonyAgentCommandExecutionsTable,
   symphonyAgentToolCallsTable,
+  piReadsTable,
+  piEditsTable,
+  piWritesTable,
+  piGrepsTable,
+  piFindsTable,
   symphonyAgentMessagesTable,
   symphonyAgentReasoningTable,
   symphonyAgentFileChangesTable,

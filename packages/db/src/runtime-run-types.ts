@@ -1,6 +1,6 @@
 import type { JsonObject } from "@symphony/contracts";
 
-export type SymphonyRuntimeCodexUsage = {
+export type SymphonyRuntimeAgentUsage = {
   input_tokens: number;
   cached_input_tokens: number;
   output_tokens: number;
@@ -56,7 +56,7 @@ export type SymphonyRuntimeTurnUpdateAttrs = {
   threadId?: string | null;
   agentTurnId?: string | null;
   sessionId?: string | null;
-  usage?: SymphonyRuntimeCodexUsage | null;
+  usage?: SymphonyRuntimeAgentUsage | null;
   metadata?: JsonObject | null;
 };
 
@@ -66,7 +66,7 @@ export type SymphonyRuntimeTurnFinishAttrs = {
   threadId?: string | null;
   agentTurnId?: string | null;
   sessionId?: string | null;
-  usage?: SymphonyRuntimeCodexUsage | null;
+  usage?: SymphonyRuntimeAgentUsage | null;
   metadata?: JsonObject | null;
 };
 

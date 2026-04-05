@@ -8,3 +8,13 @@ export * from "./pi/definition.js";
 export * from "./pi/analytics-adapter.js";
 export * from "./pi/rpc-process.js";
 export * from "./pi/rpc-client.js";
+export {
+  agentModelLabelPrefix,
+  buildAgentAppServerSpawnSpec,
+  buildDynamicToolSpecs,
+  listSupportedAgentModels,
+  resolveAgentIssueModel,
+  resolveAgentLaunchSettings,
+  resolveAgentSdkLaunchSettings,
+  wrapSessionError
+} from "./pi/launch.js";

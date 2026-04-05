@@ -11,7 +11,7 @@ import {
   nullableNonEmptyStringSchema
 } from "../../core/shared.js";
 
-const codexRunTerminalStatuses = new Set([
+const agentRunTerminalStatuses = new Set([
   "completed",
   "paused",
   "failed",
@@ -21,17 +21,14 @@ const codexRunTerminalStatuses = new Set([
   "stopped"
 ]);
 
-const codexTurnTerminalStatuses = new Set([
+const agentTurnTerminalStatuses = new Set([
   "completed",
   "failed",
   "stopped"
 ]);
 
 export const symphonyAgentActiveHarnessKindSchema = z.literal("pi");
-export const symphonyAgentCompatHarnessKindSchema = z.enum([
-  "codex",
-  "pi"
-]);
+export const symphonyAgentCompatHarnessKindSchema = symphonyAgentActiveHarnessKindSchema;
 
 export const symphonyAgentRunStatusSchema = z.enum([
   "dispatching",
@@ -94,14 +91,14 @@ export const symphonyAgentRunRecordSchema = z.strictObject({
   insertedAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema
 }).superRefine((value, context) => {
-  if (!codexRunTerminalStatuses.has(value.status)) {
+  if (!agentRunTerminalStatuses.has(value.status)) {
     return;
   }
 
   if (!value.endedAt) {
     context.addIssue({
       code: "custom",
-      message: "Terminal Codex runs must include endedAt.",
+      message: "Terminal agent runs must include endedAt.",
       path: ["endedAt"]
     });
   }
@@ -140,14 +137,14 @@ export const symphonyAgentTurnRecordSchema = z.strictObject({
   insertedAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema
 }).superRefine((value, context) => {
-  if (!codexTurnTerminalStatuses.has(value.status)) {
+  if (!agentTurnTerminalStatuses.has(value.status)) {
     return;
   }
 
   if (!value.endedAt) {
     context.addIssue({
       code: "custom",
-      message: "Terminal Codex turns must include endedAt.",
+      message: "Terminal agent turns must include endedAt.",
       path: ["endedAt"]
     });
   }
@@ -200,6 +197,37 @@ export const symphonyAgentToolCallRecordSchema = z.strictObject({
   startedAt: isoTimestampSchema.nullable(),
   completedAt: isoTimestampSchema.nullable(),
   durationMs: z.number().int().nonnegative().nullable(),
+  piRead: z
+    .strictObject({
+      path: nonEmptyStringSchema,
+      offset: z.number().int().nonnegative().nullable(),
+      limit: z.number().int().nonnegative().nullable()
+    })
+    .optional(),
+  piEdit: z
+    .strictObject({
+      path: nonEmptyStringSchema,
+      editCount: z.number().int().positive()
+    })
+    .optional(),
+  piWrite: z
+    .strictObject({
+      path: nonEmptyStringSchema
+    })
+    .optional(),
+  piGrep: z
+    .strictObject({
+      pattern: z.string(),
+      path: nullableNonEmptyStringSchema,
+      ignoreCase: z.boolean().nullable()
+    })
+    .optional(),
+  piFind: z
+    .strictObject({
+      pattern: z.string(),
+      path: nullableNonEmptyStringSchema
+    })
+    .optional(),
   insertedAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema
 });

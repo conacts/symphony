@@ -26,9 +26,15 @@ import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimePolicyForRoot } f
 const tempRoots: string[] = [];
 const execFileAsync = promisify(execFile);
 const originalPath = process.env.PATH;
+const originalOpenRouterKey = process.env.OPENROUTER_API_KEY;
 
 afterEach(async () => {
   process.env.PATH = originalPath;
+  if (originalOpenRouterKey === undefined) {
+    delete process.env.OPENROUTER_API_KEY;
+  } else {
+    process.env.OPENROUTER_API_KEY = originalOpenRouterKey;
+  }
   delete process.env.SYMPHONY_TEST_FAKE_DOCKER_LOG;
   await Promise.all(
     tempRoots.splice(0).map((root) =>
@@ -560,6 +566,15 @@ done
     });
     await initializeGitWorkspace(hostWorkspacePath);
 
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(
+      fakePi,
+      `#!/bin/sh
+echo "pi startup failed" >&2
+exit 1
+`
+    );
+
     const fakeDocker = path.join(root, "docker");
     await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
     process.env.PATH = `${root}:${originalPath ?? ""}`;
@@ -654,7 +669,7 @@ done
     );
 
     database.close();
-  });
+  }, 15_000);
 
   it("launches container-owned workspaces without a host repo path and snapshots repo state through docker exec", async () => {
     const root = await mkdtemp(

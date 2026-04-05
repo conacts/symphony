@@ -86,7 +86,7 @@ function failureCommentTitle(outcome: string, reason: string): string {
   }
 
   if (outcome === "rate_limited" || rateLimitReason(reason)) {
-    return "Symphony agent paused after hitting a Codex rate limit.";
+    return "Symphony agent paused after hitting a Pi rate limit.";
   }
 
   return "Symphony agent run failed.";
@@ -94,23 +94,23 @@ function failureCommentTitle(outcome: string, reason: string): string {
 
 function failureCommentSummary(outcome: string, reason: string): string {
   if (outcome === "rate_limited" || rateLimitReason(reason)) {
-    return "Codex hit a rate limit and ended the current run.";
+    return "Pi hit a rate limit and ended the current run.";
   }
 
   if (outcome === "paused_max_turns") {
-    return "Codex stopped because the run reached the configured max-turn limit.";
+    return "Pi stopped because the run reached the configured max-turn limit.";
   }
 
   if (outcome === "paused_stalled") {
-    return "Codex stopped because the run stalled without visible activity.";
+    return "Pi stopped because the run stalled without visible activity.";
   }
 
   if (outcome === "paused_provider_transient") {
-    return "Codex stopped after transient provider failures exhausted the automatic retry budget.";
+    return "Pi stopped after transient provider failures exhausted the automatic retry budget.";
   }
 
   if (outcome === "paused_failure") {
-    return "Codex stopped because the runtime failed during an active run.";
+    return "Pi stopped because the runtime failed during an active run.";
   }
 
   return truncateReason(reason);

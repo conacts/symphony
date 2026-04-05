@@ -38,8 +38,21 @@ import {
   symphonyAgentTaskSnapshotsTable,
   symphonyAgentToolCallsTable,
   symphonyAgentTurnsTable,
+  piReadsTable,
+  piEditsTable,
+  piWritesTable,
+  piGrepsTable,
+  piFindsTable,
   symphonyRunsTable
 } from "./schema.js";
+import {
+  parseKnownPiToolArguments,
+  type PiReadArguments,
+  type PiEditArguments,
+  type PiWriteArguments,
+  type PiGrepArguments,
+  type PiFindArguments
+} from "@symphony/contracts";
 
 export type AgentAnalyticsStore = LegacyAgentAnalyticsStore;
 
@@ -52,7 +65,7 @@ type AgentAnalyticsMutationTx = Pick<
 >;
 
 type AgentRunRow = typeof symphonyAgentRunsTable.$inferSelect;
-type CodexTurnPatch = {
+type AgentTurnPatch = {
   turnId: string;
   threadId?: string | null;
   startedAt?: string | null;
@@ -62,14 +75,14 @@ type CodexTurnPatch = {
   failureMessagePreview?: string | null;
   usage?: { input_tokens: number; cached_input_tokens: number; output_tokens: number } | null;
 };
-type CodexOverflowInput = {
+type AgentOverflowInput = {
   kind: AgentPayloadOverflowKind;
   contentJson?: unknown;
   contentText?: string | null;
   turnId?: string | null;
   itemId?: string | null;
 };
-type CodexEventMutationContext = {
+type AgentEventMutationContext = {
   tx: AgentAnalyticsMutationTx;
   input: AgentAnalyticsEventInput;
   now: string;
@@ -170,7 +183,7 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
 
   async recordEvent(input: AgentAnalyticsEventInput): Promise<void> {
     this.#db.transaction((tx) => {
-      const context: CodexEventMutationContext = {
+      const context: AgentEventMutationContext = {
         tx,
         input,
         now: isoNow(),
@@ -353,7 +366,7 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
   }
 }
 
-function ensureAgentRunRecord(context: CodexEventMutationContext): AgentRunRow {
+function ensureAgentRunRecord(context: AgentEventMutationContext): AgentRunRow {
   const existingRun = context.tx
     .select()
     .from(symphonyAgentRunsTable)
@@ -376,7 +389,7 @@ function ensureAgentRunRecord(context: CodexEventMutationContext): AgentRunRow {
     .get();
 
   if (!symphonyRun) {
-    throw new TypeError(`Codex analytics run not found: ${context.input.runId}`);
+    throw new TypeError(`Agent analytics run not found: ${context.input.runId}`);
   }
 
   context.tx
@@ -425,14 +438,14 @@ function ensureAgentRunRecord(context: CodexEventMutationContext): AgentRunRow {
     .get();
 
   if (!initializedRun) {
-    throw new TypeError(`Failed to initialize codex run ${context.input.runId}`);
+    throw new TypeError(`Failed to initialize agent run ${context.input.runId}`);
   }
 
   return initializedRun;
 }
 
 function syncRunThreadId(
-  context: CodexEventMutationContext,
+  context: AgentEventMutationContext,
   existingThreadId: string | null,
   resolvedThreadId: string | null
 ): void {
@@ -451,8 +464,8 @@ function syncRunThreadId(
 }
 
 function upsertTurnRecord(
-  context: CodexEventMutationContext,
-  patch: CodexTurnPatch
+  context: AgentEventMutationContext,
+  patch: AgentTurnPatch
 ): void {
   const existingTurn = context.tx
     .select()
@@ -520,7 +533,7 @@ function upsertTurnRecord(
 }
 
 function applyTurnEventProjection(
-  context: CodexEventMutationContext,
+  context: AgentEventMutationContext,
   resolvedThreadId: string | null
 ): void {
   if (!context.input.turnId) {
@@ -567,8 +580,8 @@ function applyTurnEventProjection(
 }
 
 function storeOverflowRecord(
-  context: CodexEventMutationContext,
-  overflow: CodexOverflowInput
+  context: AgentEventMutationContext,
+  overflow: AgentOverflowInput
 ): string {
   const overflowId = randomUUID();
   const byteCount = byteLength(
@@ -595,7 +608,7 @@ function storeOverflowRecord(
 }
 
 function appendEventLogRow(
-  context: CodexEventMutationContext,
+  context: AgentEventMutationContext,
   threadId: string | null
 ): void {
   const latestEventRow = context.tx
@@ -659,7 +672,7 @@ function appendEventLogRow(
 }
 
 function upsertItemLifecycleRecord(
-  context: CodexEventMutationContext,
+  context: AgentEventMutationContext,
   item: ThreadItem,
   latestOverflowId: string | null,
   latestPreview: string | null
@@ -761,7 +774,7 @@ function deriveItemLifecycleStatus(
 }
 
 function projectThreadItem(
-  context: CodexEventMutationContext,
+  context: AgentEventMutationContext,
   item: ThreadItem
 ): void {
   if (!context.input.turnId) {
@@ -799,7 +812,7 @@ function projectThreadItem(
 }
 
 function projectCommandExecutionItem(
-  context: CodexEventMutationContext,
+  context: AgentEventMutationContext,
   item: Extract<ThreadItem, { type: "command_execution" }>
 ): string | null {
   if (!context.input.turnId) {
@@ -898,7 +911,7 @@ function chooseCanonicalCommand(
 }
 
 function projectToolCallItem(
-  context: CodexEventMutationContext,
+  context: AgentEventMutationContext,
   item: Extract<ThreadItem, { type: "mcp_tool_call" }>
 ): string | null {
   if (!context.input.turnId) {
@@ -949,6 +962,7 @@ function projectToolCallItem(
         updatedAt: context.now
       })
       .run();
+    upsertPiToolRows(context, item);
     return resultOverflowId;
   }
 
@@ -980,11 +994,87 @@ function projectToolCallItem(
     )
     .run();
 
+  if (item.arguments != null && typeof item.arguments === "object" && !Array.isArray(item.arguments)) {
+    upsertPiToolRows(context, item);
+  }
+
   return resultOverflowId;
 }
 
+/**
+ * Upsert into the dedicated pi tool tables (pi_reads, pi_edits, etc.).
+ *
+ * Validates raw arguments through the Zod schemas derived from the real
+ * pi tool definitions and inserts a row only when validation succeeds.
+ * This keeps the dedicated tables always correctly typed.
+ */
+function upsertPiToolRows(
+  context: AgentEventMutationContext,
+  item: Extract<ThreadItem, { type: "mcp_tool_call" }>
+): void {
+  if (!context.input.turnId) {
+    return;
+  }
+
+  const runId = context.input.runId;
+  const turnId = context.input.turnId;
+  const itemId = item.id;
+  const now = context.now;
+
+  if (item.server !== "pi") {
+    return;
+  }
+
+  const rawArgs = item.arguments;
+  if (rawArgs == null || typeof rawArgs !== "object" || Array.isArray(rawArgs)) {
+    return;
+  }
+
+  const pk = { runId, turnId, itemId };
+
+  switch (item.tool) {
+    case "read": {
+      const parsed = parseKnownPiToolArguments("read", rawArgs) as PiReadArguments | null;
+      if (!parsed) return;
+      context.tx.delete(piReadsTable).where(and(eq(piReadsTable.runId, runId), eq(piReadsTable.turnId, turnId), eq(piReadsTable.itemId, itemId))).run();
+      context.tx.insert(piReadsTable).values({ ...pk, path: parsed.path, readOffset: parsed.offset ?? null, readLimit: parsed.limit ?? null, insertedAt: now, updatedAt: now }).run();
+      break;
+    }
+    case "edit": {
+      const parsed = parseKnownPiToolArguments("edit", rawArgs) as PiEditArguments | null;
+      if (!parsed) return;
+      context.tx.delete(piEditsTable).where(and(eq(piEditsTable.runId, runId), eq(piEditsTable.turnId, turnId), eq(piEditsTable.itemId, itemId))).run();
+      context.tx.insert(piEditsTable).values({ ...pk, path: parsed.path, editCount: parsed.edits.length, insertedAt: now, updatedAt: now }).run();
+      break;
+    }
+    case "write": {
+      const parsed = parseKnownPiToolArguments("write", rawArgs) as PiWriteArguments | null;
+      if (!parsed) return;
+      context.tx.delete(piWritesTable).where(and(eq(piWritesTable.runId, runId), eq(piWritesTable.turnId, turnId), eq(piWritesTable.itemId, itemId))).run();
+      context.tx.insert(piWritesTable).values({ ...pk, path: parsed.path, insertedAt: now, updatedAt: now }).run();
+      break;
+    }
+    case "grep": {
+      const parsed = parseKnownPiToolArguments("grep", rawArgs) as PiGrepArguments | null;
+      if (!parsed) return;
+      context.tx.delete(piGrepsTable).where(and(eq(piGrepsTable.runId, runId), eq(piGrepsTable.turnId, turnId), eq(piGrepsTable.itemId, itemId))).run();
+      context.tx.insert(piGrepsTable).values({ ...pk, pattern: parsed.pattern, searchPath: parsed.path ?? null, ignoreCase: parsed.ignoreCase ?? null, insertedAt: now, updatedAt: now }).run();
+      break;
+    }
+    case "find": {
+      const parsed = parseKnownPiToolArguments("find", rawArgs) as PiFindArguments | null;
+      if (!parsed) return;
+      context.tx.delete(piFindsTable).where(and(eq(piFindsTable.runId, runId), eq(piFindsTable.turnId, turnId), eq(piFindsTable.itemId, itemId))).run();
+      context.tx.insert(piFindsTable).values({ ...pk, pattern: parsed.pattern, searchPath: parsed.path ?? null, insertedAt: now, updatedAt: now }).run();
+      break;
+    }
+    default:
+      break;
+  }
+}
+
 function projectTextItem(
-  context: CodexEventMutationContext,
+  context: AgentEventMutationContext,
   kind: "agent_message" | "reasoning",
   itemId: string,
   textContent: string | null
@@ -1019,7 +1109,7 @@ function projectTextItem(
 }
 
 function projectFileChangeItem(
-  context: CodexEventMutationContext,
+  context: AgentEventMutationContext,
   item: Extract<ThreadItem, { type: "file_change" }>
 ): void {
   if (!context.input.turnId) {
@@ -1058,7 +1148,7 @@ function projectFileChangeItem(
 }
 
 function projectTaskSnapshotItem(
-  context: CodexEventMutationContext,
+  context: AgentEventMutationContext,
   item: Extract<ThreadItem, { type: "todo_list" }>
 ): void {
   if (!context.input.turnId) {
@@ -1290,7 +1380,7 @@ function isTaskSnapshotEntry(
 }
 
 function refreshTurnRollups(
-  context: CodexEventMutationContext,
+  context: AgentEventMutationContext,
   turnId: string
 ): void {
   const latestEvent = context.tx
@@ -1454,7 +1544,7 @@ function refreshTurnRollups(
 }
 
 function refreshRunRollups(
-  context: CodexEventMutationContext,
+  context: AgentEventMutationContext,
   resolvedThreadId: string | null
 ): void {
   const latestEvent = context.tx

@@ -213,10 +213,10 @@ describe("symphony orchestrator", () => {
       expectedOrigin: "pi_auth_contract"
     },
     {
-      name: "missing codex binary in the image",
+      name: "missing pi binary in the image",
       error: new SymphonyWorkspaceError(
         "workspace_docker_image_invalid",
-        "Docker workspace image is missing required tools: codex."
+        "Docker workspace image is missing required tools: pi."
       ),
       expectedOrigin: "image_tooling_contract"
     },
@@ -530,14 +530,14 @@ describe("symphony orchestrator", () => {
     orchestrator.applyAgentUpdate("issue-123", {
       event: "notification",
       payload: {
-        method: "codex/event/token_count",
+        method: "pi/event/token_count",
         params: {
           msg: {
             type: "event_msg",
             payload: {
               type: "token_count",
               rate_limits: {
-                limit_id: "codex",
+                limit_id: "pi",
                 primary: {
                   remaining: 90,
                   limit: 100
@@ -551,7 +551,7 @@ describe("symphony orchestrator", () => {
     });
 
     expect(orchestrator.snapshot().rateLimits).toEqual({
-      limit_id: "codex",
+      limit_id: "pi",
       primary: {
         remaining: 90,
         limit: 100
@@ -1037,14 +1037,14 @@ describe("symphony orchestrator", () => {
     orchestrator.applyAgentUpdate("issue-123", {
       event: "notification",
       payload: {
-        method: "codex/event/token_count",
+        method: "pi/event/token_count",
         params: {
           msg: {
             type: "event_msg",
             payload: {
               type: "token_count",
               rate_limits: {
-                limit_id: "codex",
+                limit_id: "pi",
                 primary: {
                   remaining: 90,
                   limit: 100,
@@ -1066,13 +1066,13 @@ describe("symphony orchestrator", () => {
       kind: "comment",
       issueId: "issue-123",
       body: expect.stringContaining(
-        "Symphony agent paused after hitting a Codex rate limit."
+        "Symphony agent paused after hitting a Pi rate limit."
       )
     });
     expect(tracker.listOperations()).toContainEqual({
       kind: "comment",
       issueId: "issue-123",
-      body: expect.stringContaining("Latest rate limits: codex; primary: 90/100 remaining, reset 95s")
+      body: expect.stringContaining("Latest rate limits: pi; primary: 90/100 remaining, reset 95s")
     });
     expect(tracker.listOperations()).toContainEqual({
       kind: "update_state",

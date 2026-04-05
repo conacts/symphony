@@ -583,7 +583,7 @@ export class AgentAppServerClient {
     return await new Promise<Record<string, unknown>>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.#pendingResponses.delete(id);
-        reject(new Error(`Timed out waiting for Codex response ${id}.`));
+        reject(new Error(`Timed out waiting for Agent response ${id}.`));
       }, this.#requestTimeoutMs);
 
       this.#pendingResponses.set(id, {

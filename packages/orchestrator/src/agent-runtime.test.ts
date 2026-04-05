@@ -69,7 +69,7 @@ function buildAgentRunInput(): AgentRunInput {
 }
 
 describe("agent runtime facade", () => {
-  it("adapts codex runtime implementations behind the stable contract", async () => {
+  it("adapts pi runtime implementations behind the stable contract", async () => {
     const runInput = buildAgentRunInput();
     const startRun = vi.fn(async () => ({
       sessionId: "thread-123",

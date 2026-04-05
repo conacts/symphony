@@ -14,6 +14,7 @@ import {
   TaskItemFile,
   TaskTrigger
 } from "@/components/ai-elements/task";
+import { ChevronDownIcon, PencilIcon, SearchIcon, UploadIcon } from "lucide-react";
 import {
   Message,
   MessageContent,
@@ -35,6 +36,10 @@ import type {
 
 type ReasoningEntry = Extract<AgentRunTranscriptEntry, { kind: "reasoning" }>;
 type PiReadTaskEntry = Extract<AgentRunTranscriptEntry, { kind: "pi-read-task" }>;
+type PiEditTaskEntry = Extract<AgentRunTranscriptEntry, { kind: "pi-edit-task" }>;
+type PiWriteTaskEntry = Extract<AgentRunTranscriptEntry, { kind: "pi-write-task" }>;
+type PiGrepTaskEntry = Extract<AgentRunTranscriptEntry, { kind: "pi-grep-task" }>;
+type PiFindTaskEntry = Extract<AgentRunTranscriptEntry, { kind: "pi-find-task" }>;
 
 export function RunTranscriptTurn(input: {
   turn: AgentRunTranscriptTurn;
@@ -81,10 +86,9 @@ export function RunTranscriptTurn(input: {
         <Fragment key={entry.itemId}>
           {entry.kind === "agent-message" ? (
             <Message from="assistant">
-              <MessageContent className="gap-3">
+              <MessageContent className="gap-2">
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span>{entry.recordedAt}</span>
-                  <span>{entry.status}</span>
                 </div>
                 <MessageResponse>
                   {entry.text ?? entry.preview}
@@ -106,13 +110,14 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "reasoning" ? (
-            <div className="space-y-2">
+            <div>
               <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
               <Reasoning className="mb-0" defaultOpen={false}>
-                <ReasoningTrigger className="items-center gap-3 hover:text-foreground">
+                <ReasoningTrigger className="items-center gap-2 hover:text-foreground">
                   <span className="text-sm font-medium">
                     {buildReasoningLabel(entry)}
                   </span>
+                  <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
                 </ReasoningTrigger>
                 <ReasoningContent>
                   {entry.text ?? entry.preview}
@@ -122,10 +127,16 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "pi-read-task" ? (
-            <div className="space-y-2">
+            <div>
               <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
               <Task className="mb-0" defaultOpen={false}>
-                <TaskTrigger title={buildPiReadTaskTitle(entry)} />
+                <TaskTrigger title={buildPiReadTaskTitle(entry)}>
+                  <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+                    <SearchIcon className="size-4" />
+                    <span>{buildPiReadTaskTitle(entry)}</span>
+                    <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                  </div>
+                </TaskTrigger>
                 <TaskContent>
                   {entry.paths.length > 0 ? (
                     entry.paths.map((path) => (
@@ -135,6 +146,113 @@ export function RunTranscriptTurn(input: {
                     ))
                   ) : (
                     <TaskItem>No file paths were captured for this read.</TaskItem>
+                  )}
+                </TaskContent>
+              </Task>
+            </div>
+          ) : null}
+
+          {entry.kind === "pi-edit-task" ? (
+            <div>
+              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+              <Task className="mb-0" defaultOpen={false}>
+                <TaskTrigger title={buildPiEditTaskTitle(entry)}>
+                  <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+                    <PencilIcon className="size-4" />
+                    <span>{buildPiEditTaskTitle(entry)}</span>
+                    <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                  </div>
+                </TaskTrigger>
+                <TaskContent>
+                  {entry.paths.length > 0 ? (
+                    entry.paths.map((path) => (
+                      <TaskItem key={`${entry.itemId}:${path}`}>
+                        <TaskItemFile>{path}</TaskItemFile>
+                      </TaskItem>
+                    ))
+                  ) : (
+                    <TaskItem>No file paths were captured for this edit.</TaskItem>
+                  )}
+                </TaskContent>
+              </Task>
+            </div>
+          ) : null}
+
+          {entry.kind === "pi-write-task" ? (
+            <div>
+              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+              <Task className="mb-0" defaultOpen={false}>
+                <TaskTrigger title={buildPiWriteTaskTitle(entry)}>
+                  <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+                    <UploadIcon className="size-4" />
+                    <span>{buildPiWriteTaskTitle(entry)}</span>
+                    <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                  </div>
+                </TaskTrigger>
+                <TaskContent>
+                  {entry.paths.length > 0 ? (
+                    entry.paths.map((path) => (
+                      <TaskItem key={`${entry.itemId}:${path}`}>
+                        <TaskItemFile>{path}</TaskItemFile>
+                      </TaskItem>
+                    ))
+                  ) : (
+                    <TaskItem>No file paths were captured for this write.</TaskItem>
+                  )}
+                </TaskContent>
+              </Task>
+            </div>
+          ) : null}
+
+          {entry.kind === "pi-grep-task" ? (
+            <div>
+              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+              <Task className="mb-0" defaultOpen={false}>
+                <TaskTrigger title={buildPiGrepTaskTitle(entry)}>
+                  <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+                    <SearchIcon className="size-4" />
+                    <span>{buildPiGrepTaskTitle(entry)}</span>
+                    <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                  </div>
+                </TaskTrigger>
+                <TaskContent>
+                  {entry.queries.length > 0 ? (
+                    entry.queries.map((query, index) => (
+                      <TaskItem key={`${entry.itemId}:${query.pattern}:${query.path ?? index}`}>
+                        <span className="font-medium text-foreground">{query.pattern}</span>
+                        {query.path ? ` in ${query.path}` : " in workspace"}
+                        {query.ignoreCase ? " (ignore case)" : ""}
+                      </TaskItem>
+                    ))
+                  ) : (
+                    <TaskItem>No search pattern was captured for this grep.</TaskItem>
+                  )}
+                </TaskContent>
+              </Task>
+            </div>
+          ) : null}
+
+          {entry.kind === "pi-find-task" ? (
+            <div>
+              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+              <Task className="mb-0" defaultOpen={false}>
+                <TaskTrigger title={buildPiFindTaskTitle(entry)}>
+                  <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+                    <SearchIcon className="size-4" />
+                    <span>{buildPiFindTaskTitle(entry)}</span>
+                    <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                  </div>
+                </TaskTrigger>
+                <TaskContent>
+                  {entry.queries.length > 0 ? (
+                    entry.queries.map((query, index) => (
+                      <TaskItem key={`${entry.itemId}:${query.pattern}:${query.path ?? index}`}>
+                        <span className="font-medium text-foreground">{query.pattern}</span>
+                        {query.path ? ` in ${query.path}` : " in workspace"}
+                      </TaskItem>
+                    ))
+                  ) : (
+                    <TaskItem>No search target was captured for this find.</TaskItem>
                   )}
                 </TaskContent>
               </Task>
@@ -352,4 +470,28 @@ function buildPiReadTaskTitle(entry: PiReadTaskEntry): string {
   return entry.readCount > 1
     ? `pi.read · ${entry.readCount} files`
     : "pi.read · 1 file";
+}
+
+function buildPiEditTaskTitle(entry: PiEditTaskEntry): string {
+  return entry.editCount > 1
+    ? `pi.edit · ${entry.editCount} files`
+    : "pi.edit · 1 file";
+}
+
+function buildPiWriteTaskTitle(entry: PiWriteTaskEntry): string {
+  return entry.writeCount > 1
+    ? `pi.write · ${entry.writeCount} files`
+    : "pi.write · 1 file";
+}
+
+function buildPiGrepTaskTitle(entry: PiGrepTaskEntry): string {
+  return entry.grepCount > 1
+    ? `pi.grep · ${entry.grepCount} searches`
+    : "pi.grep · 1 search";
+}
+
+function buildPiFindTaskTitle(entry: PiFindTaskEntry): string {
+  return entry.findCount > 1
+    ? `pi.find · ${entry.findCount} searches`
+    : "pi.find · 1 search";
 }
