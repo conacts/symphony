@@ -16,13 +16,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type {
-  CodexRunTranscriptEntry,
-  CodexRunTranscriptTurn
-} from "@/features/runs/model/codex-run-view-model";
+  AgentRunTranscriptEntry,
+  AgentRunTranscriptTurn
+} from "@/features/runs/model/agent-run-view-model";
 
 export function RunTranscriptTurn(input: {
-  turn: CodexRunTranscriptTurn;
-  onOpenOverflow: (entry: CodexRunTranscriptEntry) => void;
+  turn: AgentRunTranscriptTurn;
+  onOpenOverflow: (entry: AgentRunTranscriptEntry) => void;
 }) {
   return (
     <div className="flex flex-col gap-5">

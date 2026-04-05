@@ -50,7 +50,7 @@ export function buildSymphonyRuntimeSummaryViewModel(
       {
         label: "Runtime",
         value: "1m 35s",
-        detail: "Total Codex runtime reported by the current TypeScript runtime."
+        detail: "Total agent runtime reported by the current TypeScript runtime."
       }
     ],
     tokenChartRows: [

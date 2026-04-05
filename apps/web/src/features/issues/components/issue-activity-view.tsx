@@ -44,7 +44,7 @@ export function IssueActivityView(input: {
             </p>
             <h1 className="text-3xl font-semibold tracking-tight">Issue activity</h1>
             <p className="text-sm text-muted-foreground">
-              Unified tracker, workspace, runtime, and Codex activity for this issue.
+              Unified tracker, workspace, runtime, and agent activity for this issue.
             </p>
           </section>
 

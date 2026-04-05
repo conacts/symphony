@@ -105,7 +105,7 @@ export function buildRuntimeSummaryViewModel(
       {
         label: "Runtime",
         value: formatRuntimeSeconds(runtimeSummary.codexTotals.secondsRunning),
-        detail: "Total Codex runtime reported by the current TypeScript runtime."
+        detail: "Total agent runtime reported by the current TypeScript runtime."
       }
     ],
     tokenChartRows: runtimeSummary.running.map((entry) => ({

@@ -13,7 +13,7 @@ import {
 import {
   buildAnalysisFilterOptions,
   countSampledIssues,
-  filterCodexAnalysisSample
+  filterAgentAnalysisSample
 } from "@/features/analysis/model/analysis-sample-filter";
 import {
   buildFailureAnalysisViewModel,
@@ -87,7 +87,7 @@ export function AnalysisOverviewLiveScreen() {
   const filteredSample = useMemo(
     () =>
       analysisSampleState.resource
-        ? filterCodexAnalysisSample(analysisSampleState.resource, query)
+        ? filterAgentAnalysisSample(analysisSampleState.resource, query)
         : null,
     [analysisSampleState.resource, query]
   );

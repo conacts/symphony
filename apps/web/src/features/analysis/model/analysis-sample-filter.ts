@@ -1,5 +1,5 @@
 import type { SymphonyForensicsRunSummary } from "@symphony/contracts";
-import type { CodexAnalysisSampleResource } from "@/features/analysis/hooks/load-codex-analysis-sample";
+import type { AgentAnalysisSampleResource } from "@/features/analysis/hooks/load-agent-analysis-sample";
 import type { AnalysisQuery } from "@/features/analysis/model/analysis-query-state";
 
 export type AnalysisFilterOption = {
@@ -13,10 +13,10 @@ export type AnalysisFilterOptions = {
   models: AnalysisFilterOption[];
 };
 
-export function filterCodexAnalysisSample(
-  input: CodexAnalysisSampleResource,
+export function filterAgentAnalysisSample(
+  input: AgentAnalysisSampleResource,
   query: AnalysisQuery
-): CodexAnalysisSampleResource {
+): AgentAnalysisSampleResource {
   return {
     ...input,
     sampledRuns: input.sampledRuns.filter((sampledRun) =>
@@ -26,7 +26,7 @@ export function filterCodexAnalysisSample(
 }
 
 export function buildAnalysisFilterOptions(
-  input: CodexAnalysisSampleResource
+  input: AgentAnalysisSampleResource
 ): AnalysisFilterOptions {
   const harnesses = new Map<string, AnalysisFilterOption>();
   const providers = new Map<string, AnalysisFilterOption>();
@@ -65,7 +65,7 @@ export function buildAnalysisFilterOptions(
   };
 }
 
-export function countSampledIssues(input: CodexAnalysisSampleResource): number {
+export function countSampledIssues(input: AgentAnalysisSampleResource): number {
   return new Set(input.sampledRuns.map((sampledRun) => sampledRun.issueIdentifier)).size
 }
 
@@ -87,7 +87,7 @@ export function formatHarnessLabel(harness: string): string {
 
 function matchesAnalysisQuery(
   run: SymphonyForensicsRunSummary,
-  artifactsRun: CodexAnalysisSampleResource["sampledRuns"][number]["artifacts"]["run"],
+  artifactsRun: AgentAnalysisSampleResource["sampledRuns"][number]["artifacts"]["run"],
   query: AnalysisQuery
 ): boolean {
   if (query.harness) {

@@ -67,7 +67,7 @@ export function OverviewView(input: {
           <div className="space-y-1">
             <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
             <p className="text-sm text-muted-foreground">
-              Operator landing page for live pressure, active Codex work, and what needs intervention next.
+              Operator landing page for live pressure, active agent work, and what needs intervention next.
             </p>
           </div>
 
@@ -103,7 +103,7 @@ export function OverviewView(input: {
                   </p>
                 </div>
                 <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Codex load</p>
+                  <p className="text-sm text-muted-foreground">Agent load</p>
                   <p className="mt-2 text-2xl font-semibold">
                     {tokenMetric?.value ?? "0"}
                   </p>
@@ -127,7 +127,7 @@ export function OverviewView(input: {
               <CardHeader>
                 <CardTitle>Latest pressure</CardTitle>
                 <CardDescription>
-                  The most recent retry, headroom, and Codex update signals from the runtime.
+                  The most recent retry, headroom, and agent update signals from the runtime.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
@@ -152,10 +152,10 @@ export function OverviewView(input: {
                   </p>
                 </div>
                 <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Latest Codex update</p>
+                  <p className="text-sm text-muted-foreground">Latest agent update</p>
                   <p className="mt-2 text-sm">
                     {input.runtimeSummary.runningRows[0]?.codexUpdate ??
-                      "No live Codex session is reporting updates right now."}
+                      "No live agent session is reporting updates right now."}
                   </p>
                 </div>
               </CardContent>
@@ -316,7 +316,7 @@ export function OverviewView(input: {
                         <TableHead>Session</TableHead>
                         <TableHead>Execution</TableHead>
                         <TableHead>Runtime / turns</TableHead>
-                        <TableHead>Codex update</TableHead>
+                        <TableHead>Agent update</TableHead>
                         <TableHead>Tokens</TableHead>
                       </TableRow>
                     </TableHeader>

@@ -108,7 +108,7 @@ export function IssueRequeuePanel(input: {
       {input.issue ? (
         <Card>
           <CardHeader className="space-y-1">
-            <CardTitle className="text-base">Codex model</CardTitle>
+            <CardTitle className="text-base">Pi model</CardTitle>
             <CardDescription>
               The runtime default and the resolved model Symphony will use for future runs.
             </CardDescription>

@@ -1,9 +1,9 @@
 import type {
-  SymphonyCodexRunArtifactsResult,
+  SymphonyAgentRunArtifactsResult,
   SymphonyForensicsRunDetailResult
 } from "@symphony/contracts";
 
-export type CodexTurnTokenRow = {
+export type AgentTurnTokenRow = {
   turnId: string;
   turnSequence: number;
   turnLabel: string;
@@ -15,10 +15,10 @@ export type CodexTurnTokenRow = {
   totalTokens: number;
 };
 
-export function buildCodexTurnTokenRows(input: {
-  runArtifacts: SymphonyCodexRunArtifactsResult;
+export function buildAgentTurnTokenRows(input: {
+  runArtifacts: SymphonyAgentRunArtifactsResult;
   forensicsTurns?: SymphonyForensicsRunDetailResult["turns"];
-}): CodexTurnTokenRow[] {
+}): AgentTurnTokenRow[] {
   const turnSequenceMap = new Map(
     (input.forensicsTurns ?? []).map((turn) => [
       turn.turnId,
@@ -53,7 +53,7 @@ export function buildCodexTurnTokenRows(input: {
     });
 }
 
-export function sumTurnTokenTotals(rows: CodexTurnTokenRow[]) {
+export function sumTurnTokenTotals(rows: AgentTurnTokenRow[]) {
   return rows.reduce(
     (totals, row) => ({
       inputTokens: totals.inputTokens + row.inputTokens,

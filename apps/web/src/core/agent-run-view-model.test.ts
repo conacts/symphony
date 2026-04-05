@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildCodexRunViewModel,
+  buildAgentRunViewModel,
   formatOverflowContent
-} from "@/features/runs/model/codex-run-view-model";
+} from "@/features/runs/model/agent-run-view-model";
 import {
   buildSymphonyCodexOverflowResult,
   buildSymphonyCodexRunArtifactsResult,
   buildSymphonyForensicsRunDetailResult
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
 
-describe("codex run view model", () => {
-  it("builds a structured transcript from Codex artifacts", () => {
+describe("agent run view model", () => {
+  it("builds a structured transcript from agent artifacts", () => {
     const runArtifacts = buildSymphonyCodexRunArtifactsResult();
     const runDetail = buildSymphonyForensicsRunDetailResult();
     runArtifacts.run.harnessKind = "pi";
@@ -200,7 +200,7 @@ describe("codex run view model", () => {
       runArtifacts.turns[0].fileChangeCount = 3;
     }
 
-    const viewModel = buildCodexRunViewModel({
+    const viewModel = buildAgentRunViewModel({
       runDetail,
       runArtifacts
     });

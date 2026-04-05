@@ -26,7 +26,7 @@ describe("issue index view", () => {
 
     expect(html).toContain("Issues");
     expect(html).toContain("COL-165");
-    expect(html).toContain("Codex-native issue inventory");
+    expect(html).toContain("Pi-first issue inventory");
     expect(html).toContain("Most active issue");
     expect(html).toContain("Issue outcome pressure");
     expect(html).toContain("Retry and failure pressure");

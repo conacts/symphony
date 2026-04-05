@@ -11,7 +11,7 @@ import {
 import {
   buildAnalysisFilterOptions,
   countSampledIssues,
-  filterCodexAnalysisSample
+  filterAgentAnalysisSample
 } from "@/features/analysis/model/analysis-sample-filter";
 import { buildPerformanceAnalysisViewModel } from "@/features/analysis/model/performance-analysis-view-model";
 import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
@@ -58,7 +58,7 @@ export function PerformanceAnalysisLiveScreen() {
   const filteredSample = useMemo(
     () =>
       analysisSampleState.resource
-        ? filterCodexAnalysisSample(analysisSampleState.resource, query)
+        ? filterAgentAnalysisSample(analysisSampleState.resource, query)
         : null,
     [analysisSampleState.resource, query]
   );

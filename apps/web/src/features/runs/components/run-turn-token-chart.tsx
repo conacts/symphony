@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/chart";
 import { formatCount } from "@/core/display-formatters";
 import { cn } from "@/lib/utils";
-import type { CodexRunViewModel } from "@/features/runs/model/codex-run-view-model";
+import type { AgentRunViewModel } from "@/features/runs/model/agent-run-view-model";
 
 const chartConfig = {
   inputTokens: {
@@ -36,7 +36,7 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function RunTurnTokenChart(input: {
-  rows: CodexRunViewModel["turnTokens"]["rows"];
+  rows: AgentRunViewModel["turnTokens"]["rows"];
 }) {
   return (
     <Card className="border-border/70">
@@ -72,7 +72,7 @@ export function RunTurnTokenChart(input: {
 function RunTurnTokenTooltip(input: {
   active?: boolean;
   payload?: Array<{
-    payload?: CodexRunViewModel["turnTokens"]["rows"][number];
+    payload?: AgentRunViewModel["turnTokens"]["rows"][number];
   }>;
 }) {
   const row = input.payload?.[0]?.payload;

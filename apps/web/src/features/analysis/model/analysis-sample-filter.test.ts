@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAnalysisFilterOptions,
   countSampledIssues,
-  filterCodexAnalysisSample
+  filterAgentAnalysisSample
 } from "@/features/analysis/model/analysis-sample-filter";
 import {
   buildSymphonyCodexRunArtifactsResult,
@@ -46,7 +46,7 @@ describe("analysis sample filter", () => {
       ]
     };
 
-    const filtered = filterCodexAnalysisSample(resource, {
+    const filtered = filterAgentAnalysisSample(resource, {
       harness: "opencode",
       provider: "openai",
       model: "gpt-5.4"

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/chart";
 import { formatDurationMilliseconds } from "@/core/display-formatters";
 import { cn } from "@/lib/utils";
-import type { CodexRunViewModel } from "@/features/runs/model/codex-run-view-model";
+import type { AgentRunViewModel } from "@/features/runs/model/agent-run-view-model";
 
 const chartConfig = {
   reasoningMs: {
@@ -44,7 +44,7 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function RunTurnLatencyChart(input: {
-  rows: CodexRunViewModel["turnLatency"]["rows"];
+  rows: AgentRunViewModel["turnLatency"]["rows"];
 }) {
   return (
     <Card className="border-border/70">
@@ -82,7 +82,7 @@ export function RunTurnLatencyChart(input: {
 function RunTurnLatencyTooltip(input: {
   active?: boolean;
   payload?: Array<{
-    payload?: CodexRunViewModel["turnLatency"]["rows"][number];
+    payload?: AgentRunViewModel["turnLatency"]["rows"][number];
   }>;
 }) {
   const row = input.payload?.[0]?.payload;

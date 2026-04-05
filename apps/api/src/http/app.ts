@@ -5,7 +5,7 @@ import type { SymphonyRuntimeAppServices } from "../core/runtime-app-types.js";
 import { jsonError } from "../core/envelope.js";
 import { normalizeRuntimeError } from "../core/errors.js";
 import type { SymphonyRuntimeAppContextSchema } from "./context.js";
-import { createAgentAnalyticsRoutes } from "./routes/codex-analytics-routes.js";
+import { createAgentAnalyticsRoutes } from "./routes/agent-analytics-routes.js";
 import { createForensicsRoutes } from "./routes/forensics-routes.js";
 import { createGitHubReviewEventsRoutes } from "./routes/github-review-events-routes.js";
 import { createRealtimeRoutes } from "./routes/realtime-routes.js";

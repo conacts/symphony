@@ -1,9 +1,9 @@
 import type {
-  SymphonyCodexRunArtifactsResult,
+  SymphonyAgentRunArtifactsResult,
   SymphonyForensicsRunDetailResult
 } from "@symphony/contracts";
 
-export type CodexTurnLatencyRow = {
+export type AgentTurnLatencyRow = {
   turnId: string;
   turnSequence: number;
   turnLabel: string;
@@ -18,10 +18,10 @@ export type CodexTurnLatencyRow = {
   unclassifiedMs: number;
 };
 
-export function buildCodexTurnLatencyRows(input: {
-  runArtifacts: SymphonyCodexRunArtifactsResult;
+export function buildAgentTurnLatencyRows(input: {
+  runArtifacts: SymphonyAgentRunArtifactsResult;
   forensicsTurns?: SymphonyForensicsRunDetailResult["turns"];
-}): CodexTurnLatencyRow[] {
+}): AgentTurnLatencyRow[] {
   const turnSequenceMap = new Map(
     (input.forensicsTurns ?? []).map((turn) => [
       turn.turnId,
@@ -67,7 +67,7 @@ export function buildCodexTurnLatencyRows(input: {
     });
 }
 
-export function sumTurnLatencyTotals(rows: CodexTurnLatencyRow[]) {
+export function sumTurnLatencyTotals(rows: AgentTurnLatencyRow[]) {
   return rows.reduce(
     (totals, row) => ({
       wallClockMs: totals.wallClockMs + row.wallClockMs,
@@ -89,8 +89,8 @@ export function sumTurnLatencyTotals(rows: CodexTurnLatencyRow[]) {
 }
 
 function sumItemDurations(
-  items: SymphonyCodexRunArtifactsResult["items"],
-  itemType: SymphonyCodexRunArtifactsResult["items"][number]["itemType"]
+  items: SymphonyAgentRunArtifactsResult["items"],
+  itemType: SymphonyAgentRunArtifactsResult["items"][number]["itemType"]
 ) {
   return items
     .filter((item) => item.itemType === itemType)

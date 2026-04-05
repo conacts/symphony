@@ -7,10 +7,10 @@ import {
   AccordionItem,
   AccordionTrigger
 } from "@/components/ui/accordion";
-import type { CodexRunViewModel } from "@/features/runs/model/codex-run-view-model";
+import type { AgentRunViewModel } from "@/features/runs/model/agent-run-view-model";
 
 export function RunDebugPanel(input: {
-  viewModel: CodexRunViewModel;
+  viewModel: AgentRunViewModel;
 }) {
   return (
     <Accordion type="multiple" className="w-full space-y-4">

@@ -16,18 +16,18 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { fetchAgentOverflow } from "@/core/codex-analytics-client";
+import { fetchAgentOverflow } from "@/core/agent-analytics-client";
 import { RunDebugPanel } from "@/features/runs/components/run-debug-panel";
 import { RunOverflowSheet } from "@/features/runs/components/run-overflow-sheet";
 import { RunTurnLatencyChart } from "@/features/runs/components/run-turn-latency-chart";
 import { RunTurnTokenChart } from "@/features/runs/components/run-turn-token-chart";
 import { RunTranscriptTurn } from "@/features/runs/components/run-transcript-turn";
 import {
-  buildCodexRunViewModel,
+  buildAgentRunViewModel,
   formatOverflowContent,
-  type CodexRunTranscriptEntry
-} from "@/features/runs/model/codex-run-view-model";
-import type { CodexRunResource } from "@/features/runs/hooks/use-codex-run";
+  type AgentRunTranscriptEntry
+} from "@/features/runs/model/agent-run-view-model";
+import type { AgentRunResource } from "@/features/runs/hooks/use-agent-run";
 
 type OverflowState = {
   title: string;
@@ -49,20 +49,20 @@ export function RunTranscriptView(input: {
   runtimeBaseUrl: string;
   error: string | null;
   loading: boolean;
-  resource: CodexRunResource | null;
+  resource: AgentRunResource | null;
 }) {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [overflowState, setOverflowState] = useState<OverflowState>(
     closedOverflowState
   );
   const viewModel = input.resource
-    ? buildCodexRunViewModel({
+    ? buildAgentRunViewModel({
         runDetail: input.resource.runDetail,
         runArtifacts: input.resource.runArtifacts
       })
     : null;
 
-  const openOverflow = async (entry: CodexRunTranscriptEntry) => {
+  const openOverflow = async (entry: AgentRunTranscriptEntry) => {
     if (!input.resource || !entry.overflowId) {
       return;
     }
@@ -113,10 +113,10 @@ export function RunTranscriptView(input: {
         </Alert>
       ) : null}
 
-      {input.resource?.codexError ? (
+      {input.resource?.agentError ? (
         <Alert>
           <AlertTitle>Transcript unavailable</AlertTitle>
-          <AlertDescription>{input.resource.codexError}</AlertDescription>
+          <AlertDescription>{input.resource.agentError}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -422,7 +422,7 @@ export function RunTranscriptView(input: {
   );
 }
 
-function buildOverflowTitle(entry: CodexRunTranscriptEntry): string {
+function buildOverflowTitle(entry: AgentRunTranscriptEntry): string {
   switch (entry.kind) {
     case "agent-message":
       return "Assistant message";

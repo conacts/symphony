@@ -1,5 +1,5 @@
-import type { CodexAnalysisSampleResource } from "@/features/analysis/hooks/load-codex-analysis-sample";
-import { buildCodexTurnTokenRows, sumTurnTokenTotals } from "@/core/codex-token";
+import type { AgentAnalysisSampleResource } from "@/features/analysis/hooks/load-agent-analysis-sample";
+import { buildAgentTurnTokenRows, sumTurnTokenTotals } from "@/core/agent-token";
 import {
   formatCount,
   formatPercent,
@@ -57,7 +57,7 @@ export type TokenAnalysisViewModel = {
 };
 
 export function buildTokenAnalysisViewModel(
-  input: CodexAnalysisSampleResource
+  input: AgentAnalysisSampleResource
 ): TokenAnalysisViewModel {
   const issueTotals = new Map<
     string,
@@ -69,7 +69,7 @@ export function buildTokenAnalysisViewModel(
     }
   >();
   const turnRows = input.sampledRuns.flatMap((sampledRun) =>
-    buildCodexTurnTokenRows({
+    buildAgentTurnTokenRows({
       runArtifacts: sampledRun.artifacts
     })
   );

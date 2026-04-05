@@ -2,14 +2,14 @@
 
 import React, { useMemo } from "react";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
-import { useCodexRun } from "@/features/runs/hooks/use-codex-run";
+import { useAgentRun } from "@/features/runs/hooks/use-agent-run";
 import { RunTranscriptView } from "@/features/runs/components/run-transcript-view";
 import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
 import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
 
 export function RunTranscriptLiveScreen(input: { runId: string }) {
   const model = useControlPlaneModel();
-  const runState = useCodexRun({
+  const runState = useAgentRun({
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl,
     runId: input.runId

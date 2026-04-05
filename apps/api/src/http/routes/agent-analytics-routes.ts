@@ -189,14 +189,14 @@ export function createAgentAnalyticsRoutes(
   return agentRoutes;
 }
 
-type CodexRouteContext = Context<SymphonyRuntimeAppContextSchema>;
+type AgentRouteContext = Context<SymphonyRuntimeAppContextSchema>;
 
-function parseAgentRunId(c: CodexRouteContext): string {
+function parseAgentRunId(c: AgentRouteContext): string {
   return parseWithSchema(symphonyAgentRunPathSchema, c.req.param()).runId;
 }
 
 function parseAgentRunTurnInput(
-  c: CodexRouteContext
+  c: AgentRouteContext
 ): { runId: string; turnId: string | null } {
   const runId = parseAgentRunId(c);
   const query = parseWithSchema(symphonyAgentRunTurnFilterSchema, c.req.query());
@@ -208,7 +208,7 @@ function parseAgentRunTurnInput(
 }
 
 function parseAgentOverflowPath(
-  c: CodexRouteContext
+  c: AgentRouteContext
 ): { runId: string; overflowId: string } {
   return parseWithSchema(symphonyAgentOverflowPathSchema, c.req.param());
 }
@@ -217,14 +217,14 @@ function toRunTurnQuery(runId: string, turnId: string | null) {
   return turnId ? { runId, turnId } : { runId };
 }
 
-function logAgentRunNotFound(c: CodexRouteContext, message: string, runId: string) {
+function logAgentRunNotFound(c: AgentRouteContext, message: string, runId: string) {
   c.get("logger").warn(message, {
     runId
   });
 }
 
 function validateAndSendAgentResponse<T>(
-  c: CodexRouteContext,
+  c: AgentRouteContext,
   responseSchema: {
     parse(input: unknown): unknown;
   },

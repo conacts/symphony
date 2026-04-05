@@ -32,7 +32,7 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
-import { createAgentAnalyticsReadPort } from "../core/codex-analytics-read-port.js";
+import { createAgentAnalyticsReadPort } from "../core/agent-analytics-read-port.js";
 import { createSymphonyGitHubReviewIngressService } from "../core/github-review-ingress.js";
 import type {
   SymphonyLoadedRuntimePromptTemplate,

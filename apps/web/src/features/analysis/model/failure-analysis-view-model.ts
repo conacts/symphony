@@ -1,5 +1,5 @@
 import type { SymphonyForensicsIssueListResult } from "@symphony/contracts";
-import type { CodexAnalysisSampleResource } from "@/features/analysis/hooks/load-codex-analysis-sample";
+import type { AgentAnalysisSampleResource } from "@/features/analysis/hooks/load-agent-analysis-sample";
 import {
   formatCount,
   formatErrorClassLabel,
@@ -89,7 +89,7 @@ export function buildFailureAnalysisViewModel(
       {
         label: "Startup failures",
         value: formatCount(input.totals.startupFailureCount),
-        detail: "Runs that failed before the active Codex session really began."
+        detail: "Runs that failed before the active agent session really began."
       },
       {
         label: "Dominant failure mode",
@@ -139,11 +139,11 @@ export function buildFailureAnalysisViewModel(
 }
 
 export function buildFailureAnalysisViewModelFromSample(
-  input: CodexAnalysisSampleResource
+  input: AgentAnalysisSampleResource
 ): FailureAnalysisViewModel {
   const issueRuns = new Map<
     string,
-    CodexAnalysisSampleResource["sampledRuns"]
+    AgentAnalysisSampleResource["sampledRuns"]
   >();
 
   for (const sampledRun of input.sampledRuns) {
@@ -283,7 +283,7 @@ function countIssueFrequency<T>(
 
 function buildFailureIssueRow(
   issueIdentifier: string,
-  sampledRuns: CodexAnalysisSampleResource["sampledRuns"]
+  sampledRuns: AgentAnalysisSampleResource["sampledRuns"]
 ): {
   issueIdentifier: string;
   latestProblemOutcome: string | null;
@@ -319,7 +319,7 @@ function buildFailureIssueRow(
 }
 
 function isProblemRun(
-  run: CodexAnalysisSampleResource["sampledRuns"][number]["run"]
+  run: AgentAnalysisSampleResource["sampledRuns"][number]["run"]
 ): boolean {
   return run.outcome !== "completed" && run.outcome !== null;
 }

@@ -1,13 +1,13 @@
 import type {
-  SymphonyCodexRunArtifactsResult,
+  SymphonyAgentRunArtifactsResult,
   SymphonyForensicsIssueDetailResult,
   SymphonyForensicsIssueListResult
 } from "@symphony/contracts";
 import { classifyCommand, formatCommandFamilyLabel } from "@/core/command-family";
 import {
-  buildCodexTurnLatencyRows,
+  buildAgentTurnLatencyRows,
   sumTurnLatencyTotals
-} from "@/core/codex-latency";
+} from "@/core/agent-latency";
 import {
   formatCount,
   formatDurationMilliseconds,
@@ -20,7 +20,7 @@ export type PerformanceAnalysisResource = {
   sampledRuns: Array<{
     issueIdentifier: string;
     run: SymphonyForensicsIssueDetailResult["runs"][number];
-    artifacts: SymphonyCodexRunArtifactsResult;
+    artifacts: SymphonyAgentRunArtifactsResult;
   }>;
 };
 
@@ -111,7 +111,7 @@ export function buildPerformanceAnalysisViewModel(
   const toolMap = new Map<string, OperationAggregate>();
   const hotspotMap = new Map<string, OperationAggregate>();
   const turnLatencyRows = input.sampledRuns.flatMap((sampledRun) =>
-    buildCodexTurnLatencyRows({
+    buildAgentTurnLatencyRows({
       runArtifacts: sampledRun.artifacts
     })
   );
@@ -273,7 +273,7 @@ export function buildPerformanceAnalysisViewModel(
       {
         label: "Sampled runs",
         value: formatCount(input.sampledRuns.length),
-        detail: "Recent runs with readable Codex command and tool artifacts."
+        detail: "Recent runs with readable agent command and tool artifacts."
       },
       {
         label: "Command executions",

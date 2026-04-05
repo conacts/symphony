@@ -1,4 +1,4 @@
-import { fetchAgentRunArtifacts } from "@/core/codex-analytics-client";
+import { fetchAgentRunArtifacts } from "@/core/agent-analytics-client";
 import { fetchIssueDetail, fetchIssueIndex } from "@/core/forensics-client";
 import type {
   SymphonyAgentRunArtifactsResult,
@@ -10,7 +10,7 @@ const ISSUE_SAMPLE_LIMIT = 6;
 const RUNS_PER_ISSUE = 2;
 const MAX_SAMPLED_RUNS = 12;
 
-export type CodexAnalysisSampleResource = {
+export type AgentAnalysisSampleResource = {
   issueIndex: SymphonyForensicsIssueListResult;
   sampledRuns: Array<{
     issueIdentifier: string;
@@ -19,9 +19,9 @@ export type CodexAnalysisSampleResource = {
   }>;
 };
 
-export async function loadCodexAnalysisSample(
+export async function loadAgentAnalysisSample(
   runtimeBaseUrl: string
-): Promise<CodexAnalysisSampleResource> {
+): Promise<AgentAnalysisSampleResource> {
   const issueIndex = await fetchIssueIndex(runtimeBaseUrl, {
     timeRange: "all",
     sortBy: "lastActive",

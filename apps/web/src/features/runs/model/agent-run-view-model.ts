@@ -1,14 +1,14 @@
 import type {
   SymphonyAgentTurnActivityRecord,
-  SymphonyCodexAgentMessageRecord,
-  SymphonyCodexCommandExecutionRecord,
-  SymphonyCodexFileChangeRecord,
-  SymphonyCodexItemRecord,
-  SymphonyCodexOverflowResult,
-  SymphonyCodexReasoningRecord,
-  SymphonyCodexRunArtifactsResult,
-  SymphonyCodexTaskSnapshotRecord,
-  SymphonyCodexToolCallRecord,
+  SymphonyAgentMessageRecord,
+  SymphonyAgentCommandExecutionRecord,
+  SymphonyAgentFileChangeRecord,
+  SymphonyAgentItemRecord,
+  SymphonyAgentOverflowResult,
+  SymphonyAgentReasoningBlockRecord,
+  SymphonyAgentRunArtifactsResult,
+  SymphonyAgentTaskSnapshotRecord,
+  SymphonyAgentToolCallRecord,
   SymphonyForensicsRunDetailResult
 } from "@symphony/contracts";
 import {
@@ -29,15 +29,15 @@ import {
   formatCommandFamilyLabel
 } from "@/core/command-family";
 import {
-  buildCodexTurnLatencyRows,
+  buildAgentTurnLatencyRows,
   sumTurnLatencyTotals
-} from "@/core/codex-latency";
+} from "@/core/agent-latency";
 import {
-  buildCodexTurnTokenRows,
+  buildAgentTurnTokenRows,
   sumTurnTokenTotals
-} from "@/core/codex-token";
+} from "@/core/agent-token";
 
-export type CodexRunTranscriptEntry =
+export type AgentRunTranscriptEntry =
   | {
       kind: "agent-message";
       itemId: string;
@@ -46,7 +46,7 @@ export type CodexRunTranscriptEntry =
       text: string | null;
       preview: string;
       overflowId: string | null;
-      files: CodexRunFileChip[];
+      files: AgentRunFileChip[];
     }
   | {
       kind: "reasoning";
@@ -68,7 +68,7 @@ export type CodexRunTranscriptEntry =
       duration: string;
       outputPreview: string;
       overflowId: string | null;
-      files: CodexRunFileChip[];
+      files: AgentRunFileChip[];
     }
   | {
       kind: "file-change";
@@ -76,7 +76,7 @@ export type CodexRunTranscriptEntry =
       recordedAt: string;
       status: string;
       summary: string;
-      changes: CodexRunFileChip[];
+      changes: AgentRunFileChip[];
       overflowId: string | null;
     }
   | {
@@ -91,7 +91,7 @@ export type CodexRunTranscriptEntry =
       overflowId: string | null;
       errorMessage: string | null;
       duration: string;
-      files: CodexRunFileChip[];
+      files: AgentRunFileChip[];
     }
   | {
       kind: "todo-list";
@@ -100,7 +100,7 @@ export type CodexRunTranscriptEntry =
       status: string;
       markdown: string;
       overflowId: string | null;
-      files: CodexRunFileChip[];
+      files: AgentRunFileChip[];
     }
   | {
       kind: "generic";
@@ -110,15 +110,15 @@ export type CodexRunTranscriptEntry =
       itemType: string;
       preview: string;
       overflowId: string | null;
-      files: CodexRunFileChip[];
+      files: AgentRunFileChip[];
     };
 
-export type CodexRunFileChip = {
+export type AgentRunFileChip = {
   path: string;
   changeKind: string;
 };
 
-export type CodexRunTranscriptTurn = {
+export type AgentRunTranscriptTurn = {
   turnId: string;
   turnSequence: number;
   promptText: string;
@@ -132,10 +132,10 @@ export type CodexRunTranscriptTurn = {
     value: string;
     detail: string;
   }>;
-  entries: CodexRunTranscriptEntry[];
+  entries: AgentRunTranscriptEntry[];
 };
 
-export type CodexRunViewModel = {
+export type AgentRunViewModel = {
   harnessLabel: string;
   issueIdentifier: string;
   runId: string;
@@ -201,7 +201,7 @@ export type CodexRunViewModel = {
       totalTokens: number;
     }>;
   };
-  transcriptTurns: CodexRunTranscriptTurn[];
+  transcriptTurns: AgentRunTranscriptTurn[];
   hasTranscript: boolean;
   repoStartText: string;
   repoEndText: string;
@@ -214,25 +214,25 @@ export type CodexRunViewModel = {
   }>;
 };
 
-export function buildCodexRunViewModel(input: {
+export function buildAgentRunViewModel(input: {
   runDetail: SymphonyForensicsRunDetailResult;
-  runArtifacts: SymphonyCodexRunArtifactsResult | null;
-}): CodexRunViewModel {
+  runArtifacts: SymphonyAgentRunArtifactsResult | null;
+}): AgentRunViewModel {
   const runArtifacts = input.runArtifacts;
   const run = input.runDetail.run;
-  const codexRun = runArtifacts?.run ?? null;
+  const agentRun = runArtifacts?.run ?? null;
   const harnessLabel = formatLabel(
-    input.runDetail.run.agentHarness ?? codexRun?.harnessKind ?? "agent"
+    input.runDetail.run.agentHarness ?? agentRun?.harnessKind ?? "agent"
   );
   const transcriptTurns = runArtifacts
     ? buildTranscriptTurns(runArtifacts, input.runDetail.turns)
     : [];
-  const codexStatus = run.codexStatus ?? codexRun?.status ?? "Unavailable";
+  const agentStatus = run.codexStatus ?? agentRun?.status ?? "Unavailable";
   const workflowStatus = run.status;
   const workflowOutcome = run.outcome ?? "n/a";
-  const codexFailureSummary =
+  const agentFailureSummary =
     run.codexFailureMessagePreview ??
-    codexRun?.failureMessagePreview ??
+    agentRun?.failureMessagePreview ??
     run.errorMessage ??
     null;
   const executionPerformance = buildExecutionPerformance(runArtifacts);
@@ -244,8 +244,8 @@ export function buildCodexRunViewModel(input: {
     issueIdentifier: input.runDetail.issue.issueIdentifier,
     runId: run.runId,
     runTitle: `${input.runDetail.issue.issueIdentifier} · ${run.runId}`,
-    statusSummary: `${formatStatusLabel(workflowStatus)} / ${formatOutcomeLabel(workflowOutcome)} · ${harnessLabel} ${formatStatusLabel(codexStatus)}`,
-    failureSummary: codexFailureSummary,
+    statusSummary: `${formatStatusLabel(workflowStatus)} / ${formatOutcomeLabel(workflowOutcome)} · ${harnessLabel} ${formatStatusLabel(agentStatus)}`,
+    failureSummary: agentFailureSummary,
     metrics: [
       {
         label: "Workflow",
@@ -254,8 +254,8 @@ export function buildCodexRunViewModel(input: {
       },
       {
         label: harnessLabel,
-        value: formatStatusLabel(codexStatus),
-        detail: formatLabel(run.codexFailureKind ?? codexRun?.failureKind ?? "healthy")
+        value: formatStatusLabel(agentStatus),
+        detail: formatLabel(run.codexFailureKind ?? agentRun?.failureKind ?? "healthy")
       },
       {
         label: "Duration",
@@ -267,22 +267,22 @@ export function buildCodexRunViewModel(input: {
       },
       {
         label: "Tokens",
-        value: formatCount(codexRun?.totalTokens ?? run.totalTokens),
-        detail: `In ${formatCount(codexRun?.inputTokens ?? run.inputTokens)} / Out ${formatCount(
-          codexRun?.outputTokens ?? run.outputTokens
+        value: formatCount(agentRun?.totalTokens ?? run.totalTokens),
+        detail: `In ${formatCount(agentRun?.inputTokens ?? run.inputTokens)} / Out ${formatCount(
+          agentRun?.outputTokens ?? run.outputTokens
         )}`
       },
       {
         label: "Turns",
-        value: formatCount(codexRun?.turnCount ?? run.turnCount),
-        detail: `${formatCount(codexRun?.commandCount ?? 0)} commands / ${formatCount(
-          codexRun?.toolCallCount ?? 0
+        value: formatCount(agentRun?.turnCount ?? run.turnCount),
+        detail: `${formatCount(agentRun?.commandCount ?? 0)} commands / ${formatCount(
+          agentRun?.toolCallCount ?? 0
         )} tools`
       },
       {
         label: "Messages",
-        value: formatCount(codexRun?.agentMessageCount ?? 0),
-        detail: `${formatCount(codexRun?.reasoningCount ?? 0)} reasoning blocks`
+        value: formatCount(agentRun?.agentMessageCount ?? 0),
+        detail: `${formatCount(agentRun?.reasoningCount ?? 0)} reasoning blocks`
       }
     ],
     metadata: [
@@ -312,7 +312,7 @@ export function buildCodexRunViewModel(input: {
         label: "Thread",
         value:
           input.runDetail.run.codexThreadId ??
-          codexRun?.threadId ??
+          agentRun?.threadId ??
           "Unavailable"
       },
       {
@@ -345,7 +345,7 @@ export function buildCodexRunViewModel(input: {
   };
 }
 
-export function formatOverflowContent(overflow: SymphonyCodexOverflowResult): string {
+export function formatOverflowContent(overflow: SymphonyAgentOverflowResult): string {
   if (overflow.overflow.contentText) {
     return overflow.overflow.contentText;
   }
@@ -354,9 +354,9 @@ export function formatOverflowContent(overflow: SymphonyCodexOverflowResult): st
 }
 
 function buildTranscriptTurns(
-  runArtifacts: SymphonyCodexRunArtifactsResult,
+  runArtifacts: SymphonyAgentRunArtifactsResult,
   forensicsTurns: SymphonyForensicsRunDetailResult["turns"]
-): CodexRunTranscriptTurn[] {
+): AgentRunTranscriptTurn[] {
   const agentMessageMap = new Map(
     runArtifacts.agentMessages.map((message) => [message.itemId, message] as const)
   );
@@ -430,7 +430,7 @@ function buildTranscriptTurns(
 }
 
 function buildTurnCountsSummary(
-  turn: SymphonyCodexRunArtifactsResult["turns"][number],
+  turn: SymphonyAgentRunArtifactsResult["turns"][number],
   taskSnapshotCount: number
 ): string {
   const parts = [
@@ -452,8 +452,8 @@ function buildTurnCountsSummary(
 
 function buildTurnActivitySummary(
   turnActivity: SymphonyAgentTurnActivityRecord | null
-): CodexRunTranscriptTurn["activitySummary"] {
-  const cards: CodexRunTranscriptTurn["activitySummary"] = [];
+): AgentRunTranscriptTurn["activitySummary"] {
+  const cards: AgentRunTranscriptTurn["activitySummary"] = [];
 
   if (turnActivity?.taskSnapshots.length) {
     const latestSnapshot = [...turnActivity.taskSnapshots].sort((left, right) =>
@@ -501,8 +501,8 @@ function buildTurnActivitySummary(
 }
 
 function buildExecutionPerformance(
-  runArtifacts: SymphonyCodexRunArtifactsResult | null
-): CodexRunViewModel["executionPerformance"] {
+  runArtifacts: SymphonyAgentRunArtifactsResult | null
+): AgentRunViewModel["executionPerformance"] {
   const commandExecutions = runArtifacts?.commandExecutions ?? [];
   const toolCalls = runArtifacts?.toolCalls ?? [];
   const failedCommands = commandExecutions.filter((command) => command.status !== "completed");
@@ -572,11 +572,11 @@ function safeDurationMs(value: number | null) {
 }
 
 function buildTurnLatency(
-  runArtifacts: SymphonyCodexRunArtifactsResult | null,
+  runArtifacts: SymphonyAgentRunArtifactsResult | null,
   forensicsTurns: SymphonyForensicsRunDetailResult["turns"]
-): CodexRunViewModel["turnLatency"] {
+): AgentRunViewModel["turnLatency"] {
   const rows = runArtifacts
-    ? buildCodexTurnLatencyRows({
+    ? buildAgentTurnLatencyRows({
         runArtifacts,
         forensicsTurns
       })
@@ -627,11 +627,11 @@ function buildTurnLatency(
 }
 
 function buildTurnTokens(
-  runArtifacts: SymphonyCodexRunArtifactsResult | null,
+  runArtifacts: SymphonyAgentRunArtifactsResult | null,
   forensicsTurns: SymphonyForensicsRunDetailResult["turns"]
-): CodexRunViewModel["turnTokens"] {
+): AgentRunViewModel["turnTokens"] {
   const rows = runArtifacts
-    ? buildCodexTurnTokenRows({
+    ? buildAgentTurnTokenRows({
         runArtifacts,
         forensicsTurns
       })
@@ -677,14 +677,14 @@ function buildTurnTokens(
 }
 
 function mapTranscriptEntry(input: {
-  item: SymphonyCodexItemRecord;
-  agentMessage: SymphonyCodexAgentMessageRecord | null;
-  reasoning: SymphonyCodexReasoningRecord | null;
-  command: SymphonyCodexCommandExecutionRecord | null;
-  toolCall: SymphonyCodexToolCallRecord | null;
-  taskSnapshot: SymphonyCodexTaskSnapshotRecord | null;
-  fileChanges: SymphonyCodexFileChangeRecord[];
-}): CodexRunTranscriptEntry {
+  item: SymphonyAgentItemRecord;
+  agentMessage: SymphonyAgentMessageRecord | null;
+  reasoning: SymphonyAgentReasoningBlockRecord | null;
+  command: SymphonyAgentCommandExecutionRecord | null;
+  toolCall: SymphonyAgentToolCallRecord | null;
+  taskSnapshot: SymphonyAgentTaskSnapshotRecord | null;
+  fileChanges: SymphonyAgentFileChangeRecord[];
+}): AgentRunTranscriptEntry {
   const recordedAt = formatTimestamp(itemRecordedAt(input.item));
   const status = formatStatusLabel(input.item.finalStatus ?? "in_progress");
   const files = input.fileChanges.map((fileChange) => ({
@@ -805,8 +805,8 @@ function mapTranscriptEntry(input: {
   };
 }
 
-function groupFileChangesByItem(fileChanges: SymphonyCodexFileChangeRecord[]) {
-  const map = new Map<string, SymphonyCodexFileChangeRecord[]>();
+function groupFileChangesByItem(fileChanges: SymphonyAgentFileChangeRecord[]) {
+  const map = new Map<string, SymphonyAgentFileChangeRecord[]>();
 
   for (const fileChange of fileChanges) {
     const group = map.get(fileChange.itemId);
@@ -822,7 +822,7 @@ function groupFileChangesByItem(fileChanges: SymphonyCodexFileChangeRecord[]) {
   return map;
 }
 
-function formatFileChangeSummary(fileChanges: SymphonyCodexFileChangeRecord[]): string {
+function formatFileChangeSummary(fileChanges: SymphonyAgentFileChangeRecord[]): string {
   if (fileChanges.length === 0) {
     return "File changes captured.";
   }
@@ -834,8 +834,8 @@ function formatFileChangeSummary(fileChanges: SymphonyCodexFileChangeRecord[]): 
   return `${formatCount(fileChanges.length)} files changed`;
 }
 
-function groupTaskSnapshotsByItem(taskSnapshots: SymphonyCodexTaskSnapshotRecord[]) {
-  const map = new Map<string, SymphonyCodexTaskSnapshotRecord>();
+function groupTaskSnapshotsByItem(taskSnapshots: SymphonyAgentTaskSnapshotRecord[]) {
+  const map = new Map<string, SymphonyAgentTaskSnapshotRecord>();
 
   for (const snapshot of taskSnapshots) {
     const previous = map.get(snapshot.itemId);
@@ -853,7 +853,7 @@ function groupTaskSnapshotsByItem(taskSnapshots: SymphonyCodexTaskSnapshotRecord
   return map;
 }
 
-function itemRecordedAt(item: SymphonyCodexItemRecord): string {
+function itemRecordedAt(item: SymphonyAgentItemRecord): string {
   return (
     item.startedAt ??
     item.completedAt ??
@@ -897,13 +897,13 @@ function formatTodoListMarkdown(value: string): string {
     .join("\n");
 }
 
-function formatTaskSnapshotMarkdown(snapshot: SymphonyCodexTaskSnapshotRecord): string {
+function formatTaskSnapshotMarkdown(snapshot: SymphonyAgentTaskSnapshotRecord): string {
   if (snapshot.items.length === 0) {
     return "No task items were captured.";
   }
 
-  const sections = new Map<string, Array<SymphonyCodexTaskSnapshotRecord["items"][number]>>();
-  const unsectioned: Array<SymphonyCodexTaskSnapshotRecord["items"][number]> = [];
+  const sections = new Map<string, Array<SymphonyAgentTaskSnapshotRecord["items"][number]>>();
+  const unsectioned: Array<SymphonyAgentTaskSnapshotRecord["items"][number]> = [];
 
   for (const item of snapshot.items) {
     if (!item.section) {
@@ -947,7 +947,7 @@ function formatTaskSectionLabel(section: string): string {
 }
 
 function formatTaskSnapshotItemMarkdown(
-  item: SymphonyCodexTaskSnapshotRecord["items"][number]
+  item: SymphonyAgentTaskSnapshotRecord["items"][number]
 ): string {
   switch (item.state) {
     case "completed":
@@ -962,7 +962,7 @@ function formatTaskSnapshotItemMarkdown(
   }
 }
 
-function countTaskStates(snapshot: SymphonyCodexTaskSnapshotRecord) {
+function countTaskStates(snapshot: SymphonyAgentTaskSnapshotRecord) {
   const counts = {
     pending: 0,
     in_progress: 0,
@@ -991,8 +991,8 @@ function countTaskStates(snapshot: SymphonyCodexTaskSnapshotRecord) {
   return counts;
 }
 
-function uniqueTurnFileChanges(fileChanges: SymphonyCodexFileChangeRecord[]) {
-  const map = new Map<string, SymphonyCodexFileChangeRecord>();
+function uniqueTurnFileChanges(fileChanges: SymphonyAgentFileChangeRecord[]) {
+  const map = new Map<string, SymphonyAgentFileChangeRecord>();
 
   for (const fileChange of fileChanges) {
     const previous = map.get(fileChange.path);
@@ -1008,7 +1008,7 @@ function uniqueTurnFileChanges(fileChanges: SymphonyCodexFileChangeRecord[]) {
 }
 
 function formatTurnFileChangeDetail(
-  fileChanges: SymphonyCodexFileChangeRecord[]
+  fileChanges: SymphonyAgentFileChangeRecord[]
 ): string {
   const preview = fileChanges.slice(0, 3).map((fileChange) => fileChange.path);
   const remaining = fileChanges.length - preview.length;
@@ -1033,9 +1033,9 @@ function compareDescending(left: string | null, right: string | null): number {
 }
 
 function compactTranscriptEntries(
-  entries: CodexRunTranscriptEntry[]
-): CodexRunTranscriptEntry[] {
-  const compacted: CodexRunTranscriptEntry[] = [];
+  entries: AgentRunTranscriptEntry[]
+): AgentRunTranscriptEntry[] {
+  const compacted: AgentRunTranscriptEntry[] = [];
 
   for (const entry of entries) {
     const previous = compacted[compacted.length - 1];

@@ -99,7 +99,7 @@ export function IssueIndexView(input: {
             <div className="space-y-1">
               <h1 className="text-3xl font-semibold tracking-tight">Issues</h1>
               <p className="text-sm text-muted-foreground">
-                Codex-native issue inventory for deciding what to inspect next.
+                Pi-first issue inventory for deciding what to inspect next.
               </p>
             </div>
 

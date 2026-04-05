@@ -8,21 +8,21 @@ import { useRealtimeResource } from "@/core/realtime-resource";
 import {
   fetchAgentRunArtifacts,
   shouldRefreshAgentRun
-} from "@/core/codex-analytics-client";
+} from "@/core/agent-analytics-client";
 import { fetchRunDetail } from "@/core/forensics-client";
 
-export type CodexRunResource = {
+export type AgentRunResource = {
   runDetail: SymphonyForensicsRunDetailResult;
   runArtifacts: SymphonyAgentRunArtifactsResult | null;
-  codexError: string | null;
+  agentError: string | null;
 };
 
-export function useCodexRun(input: {
+export function useAgentRun(input: {
   runtimeBaseUrl: string;
   websocketUrl: string;
   runId: string;
 }) {
-  return useRealtimeResource<CodexRunResource>({
+  return useRealtimeResource<AgentRunResource>({
     loadResource: async () => {
       const [runDetailResult, runArtifactsResult] = await Promise.allSettled([
         fetchRunDetail(input.runtimeBaseUrl, input.runId),
@@ -39,12 +39,12 @@ export function useCodexRun(input: {
           runArtifactsResult.status === "fulfilled"
             ? runArtifactsResult.value
             : null,
-        codexError:
+        agentError:
           runArtifactsResult.status === "fulfilled"
             ? null
             : runArtifactsResult.reason instanceof Error
               ? runArtifactsResult.reason.message
-              : "Failed to load Codex run artifacts."
+              : "Failed to load agent run artifacts."
       };
     },
     websocketUrl: input.websocketUrl,

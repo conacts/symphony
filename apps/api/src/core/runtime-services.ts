@@ -50,7 +50,7 @@ import {
   fetchGitHubPullRequestMetadata
 } from "./runtime-github-client.js";
 import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
-import { createAgentAnalyticsReadPort } from "./codex-analytics-read-port.js";
+import { createAgentAnalyticsReadPort } from "./agent-analytics-read-port.js";
 import { resolveRuntimeHarness } from "./runtime-harness.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(

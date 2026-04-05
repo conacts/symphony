@@ -8,7 +8,7 @@ import {
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
 
 describe("run transcript view", () => {
-  it("renders the structured Codex transcript", () => {
+  it("renders the structured agent transcript", () => {
     const html = renderToStaticMarkup(
       <RunTranscriptView
         runtimeBaseUrl="http://127.0.0.1:4400"
@@ -17,7 +17,7 @@ describe("run transcript view", () => {
         resource={{
           runDetail: buildSymphonyForensicsRunDetailResult(),
           runArtifacts: buildSymphonyCodexRunArtifactsResult(),
-          codexError: null
+          agentError: null
         }}
       />
     );
