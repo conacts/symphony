@@ -1086,6 +1086,60 @@ export function buildSymphonyCodexRunArtifactsResult(
       }
     ],
     taskSnapshots: [],
+    turnActivities: [
+      {
+        runId: "run_123",
+        turnId: "turn_123",
+        status: "completed",
+        startedAt: "2026-03-31T18:00:00.000Z",
+        endedAt: "2026-03-31T18:01:00.000Z",
+        messages: [
+          {
+            runId: "run_123",
+            turnId: "turn_123",
+            itemId: "message_123",
+            textContent: null,
+            textPreview: "Task complete.",
+            textOverflowId: "overflow_message_123",
+            insertedAt: "2026-03-31T18:00:42.000Z",
+            updatedAt: "2026-03-31T18:01:00.000Z"
+          }
+        ],
+        reasoningBlocks: [
+          {
+            runId: "run_123",
+            turnId: "turn_123",
+            itemId: "reasoning_123",
+            textContent: "Inspecting the repository structure before making changes.",
+            textPreview: "Inspecting the repository structure before making changes.",
+            textOverflowId: null,
+            insertedAt: "2026-03-31T18:00:05.000Z",
+            updatedAt: "2026-03-31T18:00:10.000Z"
+          }
+        ],
+        fileChanges: [
+          {
+            runId: "run_123",
+            turnId: "turn_123",
+            itemId: "cmd_123",
+            path: "README.md",
+            changeKind: "modified",
+            recordedAt: "2026-03-31T18:00:30.000Z",
+            insertedAt: "2026-03-31T18:00:30.000Z"
+          },
+          {
+            runId: "run_123",
+            turnId: "turn_123",
+            itemId: "cmd_123",
+            path: "src/index.ts",
+            changeKind: "modified",
+            recordedAt: "2026-03-31T18:00:30.000Z",
+            insertedAt: "2026-03-31T18:00:30.000Z"
+          }
+        ],
+        taskSnapshots: []
+      }
+    ],
     events: [
       {
         eventId: "event_1",

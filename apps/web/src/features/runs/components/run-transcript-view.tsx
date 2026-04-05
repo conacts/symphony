@@ -16,7 +16,7 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { fetchCodexOverflow } from "@/core/codex-analytics-client";
+import { fetchAgentOverflow } from "@/core/codex-analytics-client";
 import { RunDebugPanel } from "@/features/runs/components/run-debug-panel";
 import { RunOverflowSheet } from "@/features/runs/components/run-overflow-sheet";
 import { RunTurnLatencyChart } from "@/features/runs/components/run-turn-latency-chart";
@@ -77,7 +77,7 @@ export function RunTranscriptView(input: {
     });
 
     try {
-      const overflow = await fetchCodexOverflow(
+      const overflow = await fetchAgentOverflow(
         input.runtimeBaseUrl,
         input.resource.runDetail.run.runId,
         entry.overflowId

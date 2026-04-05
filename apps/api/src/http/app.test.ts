@@ -123,29 +123,29 @@ describe("@symphony/api app", () => {
     const runDetailResponse = await app.request("/api/v1/runs/run-123");
     const problemRunsResponse = await app.request("/api/v1/problem-runs");
     const codexArtifactsResponse = await app.request(
-      "/api/v1/codex/runs/run-123/artifacts"
+      "/api/v1/agent/runs/run-123/artifacts"
     );
     const codexOverflowResponse = await app.request(
-      "/api/v1/codex/runs/run-123/overflow/item-123-overflow"
+      "/api/v1/agent/runs/run-123/overflow/item-123-overflow"
     );
-    const codexTurnsResponse = await app.request("/api/v1/codex/runs/run-123/turns");
+    const codexTurnsResponse = await app.request("/api/v1/agent/runs/run-123/turns");
     const codexItemsResponse = await app.request(
-      "/api/v1/codex/runs/run-123/items?turnId=turn-123"
+      "/api/v1/agent/runs/run-123/items?turnId=turn-123"
     );
     const codexItemsAllTurnsResponse = await app.request(
-      "/api/v1/codex/runs/run-123/items"
+      "/api/v1/agent/runs/run-123/items"
     );
     const codexAgentMessagesResponse = await app.request(
-      "/api/v1/codex/runs/run-123/agent-messages?turnId=turn-123"
+      "/api/v1/agent/runs/run-123/agent-messages?turnId=turn-123"
     );
     const codexCommandExecutionsResponse = await app.request(
-      "/api/v1/codex/runs/run-123/command-executions"
+      "/api/v1/agent/runs/run-123/command-executions"
     );
     const missingCodexArtifactsResponse = await app.request(
-      "/api/v1/codex/runs/run-missing/artifacts"
+      "/api/v1/agent/runs/run-missing/artifacts"
     );
     const missingCodexOverflowResponse = await app.request(
-      "/api/v1/codex/runs/run-123/overflow/overflow-missing"
+      "/api/v1/agent/runs/run-123/overflow/overflow-missing"
     );
     const runtimeIssueResponse = await app.request("/api/v1/COL-123");
     const issuesPayload = await responseJson<{
@@ -524,7 +524,7 @@ describe("@symphony/api app", () => {
     expect(ingressPayload.data.accepted).toBe(true);
   });
 
-  it("fails closed on invalid Codex analytics query params", async () => {
+  it("fails closed on invalid agent analytics query params", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {
         state: "In Review"
@@ -534,7 +534,7 @@ describe("@symphony/api app", () => {
 
     const app = createSymphonyRuntimeApp(harness.services);
     const invalidItemsResponse = await app.request(
-      "/api/v1/codex/runs/run-123/items?turnId=%20"
+      "/api/v1/agent/runs/run-123/items?turnId=%20"
     );
     const invalidItemsPayload = await responseJson<{
       error: {

@@ -7,6 +7,8 @@ import {
   type ThreadEvent
 } from "@symphony/codex-analytics";
 import type {
+  SymphonyAgentRunArtifactsResult,
+  SymphonyAgentTurnActivityRecord,
   JsonObject,
   SymphonyCodexAgentMessageRecord,
   SymphonyCodexCommandExecutionRecord,
@@ -17,7 +19,6 @@ import type {
   SymphonyCodexOverflowRecord,
   SymphonyCodexRunQuery,
   SymphonyCodexReasoningRecord,
-  SymphonyCodexRunArtifactsResult,
   SymphonyCodexRunRecord,
   SymphonyCodexTaskSnapshotRecord,
   SymphonyCodexRunStatus,
@@ -52,7 +53,7 @@ import {
 
 type SymphonyDbShape = typeof import("./schema.js").symphonySchema;
 
-export interface CodexAnalyticsReadStore {
+export interface AgentAnalyticsReadStore {
   listRuns(opts?: SymphonyForensicsRunsQuery): Promise<SymphonyForensicsRunSummary[]>;
   listRunsForIssue(
     issueIdentifier: string,
@@ -64,7 +65,7 @@ export interface CodexAnalyticsReadStore {
   fetchRunDetail(runId: SymphonyCodexRunQuery["runId"]): Promise<SymphonyForensicsRunDetailResult | null>;
   fetchRunArtifacts(
     runId: SymphonyCodexRunQuery["runId"]
-  ): Promise<SymphonyCodexRunArtifactsResult | null>;
+  ): Promise<SymphonyAgentRunArtifactsResult | null>;
   fetchOverflow(
     runId: SymphonyCodexRunQuery["runId"],
     overflowId: string
@@ -81,15 +82,22 @@ export interface CodexAnalyticsReadStore {
   listReasoning(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexReasoningRecord[]>;
   listFileChanges(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexFileChangeRecord[]>;
   listTaskSnapshots(input: SymphonyCodexRunTurnQuery): Promise<SymphonyCodexTaskSnapshotRecord[]>;
+  listTurnActivities(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyAgentTurnActivityRecord[]>;
 }
 
-export function createSqliteCodexAnalyticsReadStore(input: {
+export function createSqliteAgentAnalyticsReadStore(input: {
   db: BetterSQLite3Database<SymphonyDbShape>;
-}): CodexAnalyticsReadStore {
+}): AgentAnalyticsReadStore {
   return new SqliteCodexAnalyticsReadStore(input.db);
 }
 
-class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
+export const createSqliteCodexAnalyticsReadStore =
+  createSqliteAgentAnalyticsReadStore;
+export type CodexAnalyticsReadStore = AgentAnalyticsReadStore;
+
+class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
   readonly #db: BetterSQLite3Database<SymphonyDbShape>;
 
   constructor(db: BetterSQLite3Database<SymphonyDbShape>) {
@@ -225,7 +233,7 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
 
   async fetchRunArtifacts(
     runId: SymphonyCodexRunQuery["runId"]
-  ): Promise<SymphonyCodexRunArtifactsResult | null> {
+  ): Promise<SymphonyAgentRunArtifactsResult | null> {
     const data = await loadRunData(this.#db, runId);
 
     if (!data) {
@@ -245,6 +253,14 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
         data.taskSnapshotRows,
         data.taskSnapshotItemRows
       ),
+      turnActivities: mapAgentTurnActivityRecords({
+        turnRows: data.codexTurns,
+        agentMessageRows: data.agentMessageRows,
+        reasoningRows: data.reasoningRows,
+        fileChangeRows: data.fileChangeRows,
+        taskSnapshotRows: data.taskSnapshotRows,
+        taskSnapshotItemRows: data.taskSnapshotItemRows
+      }),
       events: mapCodexEventRecords(data.eventRows, data.overflowMap, data.codexTurnMap, data.codexRun)
     };
   }
@@ -425,6 +441,29 @@ class SqliteCodexAnalyticsReadStore implements CodexAnalyticsReadStore {
       .all();
 
     return mapCodexTaskSnapshotRecords(snapshotRows, itemRows);
+  }
+
+  async listTurnActivities(
+    input: SymphonyCodexRunTurnQuery
+  ): Promise<SymphonyAgentTurnActivityRecord[]> {
+    const data = await loadRunData(this.#db, input.runId);
+
+    if (!data) {
+      return [];
+    }
+
+    const activities = mapAgentTurnActivityRecords({
+      turnRows: data.codexTurns,
+      agentMessageRows: data.agentMessageRows,
+      reasoningRows: data.reasoningRows,
+      fileChangeRows: data.fileChangeRows,
+      taskSnapshotRows: data.taskSnapshotRows,
+      taskSnapshotItemRows: data.taskSnapshotItemRows
+    });
+
+    return input.turnId
+      ? activities.filter((activity) => activity.turnId === input.turnId)
+      : activities;
   }
 }
 
@@ -646,6 +685,23 @@ function compareNullableIso(left: string | null, right: string | null): number {
   }
 
   return (left ?? "").localeCompare(right ?? "");
+}
+
+function groupRowsByTurnId<T extends { turnId: string }>(rows: T[]) {
+  const groups = new Map<string, T[]>();
+
+  for (const row of rows) {
+    const group = groups.get(row.turnId);
+
+    if (group) {
+      group.push(row);
+      continue;
+    }
+
+    groups.set(row.turnId, [row]);
+  }
+
+  return groups;
 }
 
 function byteLength(value: string): number {
@@ -933,6 +989,42 @@ function mapCodexTaskSnapshotRecords(
           section: item.section,
           insertedAt: item.insertedAt
         }))
+    }));
+}
+
+function mapAgentTurnActivityRecords(input: {
+  turnRows: Array<typeof codexTurnsTable.$inferSelect>;
+  agentMessageRows: Array<typeof codexAgentMessagesTable.$inferSelect>;
+  reasoningRows: Array<typeof codexReasoningTable.$inferSelect>;
+  fileChangeRows: Array<typeof codexFileChangesTable.$inferSelect>;
+  taskSnapshotRows: Array<typeof codexTaskSnapshotsTable.$inferSelect>;
+  taskSnapshotItemRows: Array<typeof codexTaskSnapshotItemsTable.$inferSelect>;
+}): SymphonyAgentTurnActivityRecord[] {
+  const messagesByTurn = groupRowsByTurnId(input.agentMessageRows);
+  const reasoningByTurn = groupRowsByTurnId(input.reasoningRows);
+  const fileChangesByTurn = groupRowsByTurnId(input.fileChangeRows);
+  const taskSnapshots = mapCodexTaskSnapshotRecords(
+    input.taskSnapshotRows,
+    input.taskSnapshotItemRows
+  );
+  const taskSnapshotsByTurn = groupRowsByTurnId(taskSnapshots);
+
+  return [...input.turnRows]
+    .sort((left, right) => compareNullableIso(left.startedAt, right.startedAt))
+    .map((turn) => ({
+      runId: turn.runId,
+      turnId: turn.turnId,
+      status: normalizeCodexTurnStatus(turn.status),
+      startedAt: turn.startedAt,
+      endedAt: turn.endedAt,
+      messages: (messagesByTurn.get(turn.turnId) ?? []).map(mapCodexAgentMessageRecord),
+      reasoningBlocks: (reasoningByTurn.get(turn.turnId) ?? []).map(
+        mapCodexReasoningRecord
+      ),
+      fileChanges: (fileChangesByTurn.get(turn.turnId) ?? []).map(
+        mapCodexFileChangeRecord
+      ),
+      taskSnapshots: taskSnapshotsByTurn.get(turn.turnId) ?? []
     }));
 }
 

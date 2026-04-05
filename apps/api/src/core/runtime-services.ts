@@ -12,7 +12,7 @@ import {
   createMemorySymphonyTracker
 } from "@symphony/tracker";
 import {
-  createSqliteCodexAnalyticsReadStore,
+  createSqliteAgentAnalyticsReadStore,
   createSqliteCodexAnalyticsStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyGitHubIngressJournal,
@@ -50,7 +50,7 @@ import {
   fetchGitHubPullRequestMetadata
 } from "./runtime-github-client.js";
 import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
-import { createCodexAnalyticsReadPort } from "./codex-analytics-read-port.js";
+import { createAgentAnalyticsReadPort } from "./codex-analytics-read-port.js";
 import { resolveRuntimeHarness } from "./runtime-harness.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
@@ -118,12 +118,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const codexAnalytics = createSqliteCodexAnalyticsStore({
     db: database.db
   });
-  const codexAnalyticsReadStore = createSqliteCodexAnalyticsReadStore({
+  const agentAnalyticsReadStore = createSqliteAgentAnalyticsReadStore({
     db: database.db
   });
-  const codexAnalyticsRead = createCodexAnalyticsReadPort(codexAnalyticsReadStore);
+  const agentAnalyticsRead = createAgentAnalyticsReadPort(agentAnalyticsReadStore);
   const forensics = createSymphonyForensicsReadModel({
-    runStore: codexAnalyticsReadStore,
+    runStore: agentAnalyticsReadStore,
     async listIssueTimeline(input) {
       return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
         limit: input.limit
@@ -429,7 +429,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runtimePolicy,
     tracker,
     orchestrator: orchestratorPort,
-    codexAnalytics: codexAnalyticsRead,
+    agentAnalytics: agentAnalyticsRead,
     forensics,
     issueTimeline,
     runtimeLogs,

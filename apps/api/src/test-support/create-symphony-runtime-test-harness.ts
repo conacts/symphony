@@ -24,15 +24,15 @@ import {
   buildSymphonyTurnStartAttrs
 } from "@symphony/test-support";
 import {
+  createSqliteAgentAnalyticsReadStore,
   createSqliteCodexAnalyticsStore,
-  createSqliteCodexAnalyticsReadStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
   initializeSymphonyDb
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
-import { createCodexAnalyticsReadPort } from "../core/codex-analytics-read-port.js";
+import { createAgentAnalyticsReadPort } from "../core/codex-analytics-read-port.js";
 import { createSymphonyGitHubReviewIngressService } from "../core/github-review-ingress.js";
 import type {
   SymphonyLoadedRuntimePromptTemplate,
@@ -203,7 +203,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
   const codexAnalyticsStore = createSqliteCodexAnalyticsStore({
     db: database.db
   });
-  const codexAnalyticsReadStore = createSqliteCodexAnalyticsReadStore({
+  const agentAnalyticsReadStore = createSqliteAgentAnalyticsReadStore({
     db: database.db
   });
 
@@ -394,9 +394,9 @@ export async function createSymphonyRuntimeTestHarness(input: {
         return snapshot;
       }
     },
-    codexAnalytics: createCodexAnalyticsReadPort(codexAnalyticsReadStore),
+    agentAnalytics: createAgentAnalyticsReadPort(agentAnalyticsReadStore),
     forensics: createSymphonyForensicsReadModel({
-      runStore: codexAnalyticsReadStore,
+      runStore: agentAnalyticsReadStore,
       async listIssueTimeline(input) {
         return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
           limit: input.limit

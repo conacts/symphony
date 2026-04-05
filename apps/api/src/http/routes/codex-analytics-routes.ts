@@ -1,17 +1,17 @@
 import { Hono, type Context } from "hono";
 import {
-  symphonyCodexAgentMessageListResponseSchema,
-  symphonyCodexCommandExecutionListResponseSchema,
-  symphonyCodexFileChangeListResponseSchema,
-  symphonyCodexItemListResponseSchema,
-  symphonyCodexOverflowPathSchema,
-  symphonyCodexOverflowResponseSchema,
-  symphonyCodexReasoningListResponseSchema,
-  symphonyCodexRunArtifactsResponseSchema,
-  symphonyCodexRunPathSchema,
-  symphonyCodexRunTurnFilterSchema,
-  symphonyCodexToolCallListResponseSchema,
-  symphonyCodexTurnListResponseSchema
+  symphonyAgentCommandExecutionListResponseSchema,
+  symphonyAgentFileChangeListResponseSchema,
+  symphonyAgentItemListResponseSchema,
+  symphonyAgentMessageListResponseSchema,
+  symphonyAgentOverflowPathSchema,
+  symphonyAgentOverflowResponseSchema,
+  symphonyAgentReasoningBlockListResponseSchema,
+  symphonyAgentRunArtifactsResponseSchema,
+  symphonyAgentRunPathSchema,
+  symphonyAgentRunTurnFilterSchema,
+  symphonyAgentToolCallListResponseSchema,
+  symphonyAgentTurnListResponseSchema
 } from "@symphony/contracts";
 import type { SymphonyRuntimeAppServices } from "../../core/runtime-app-types.js";
 import { createHttpError } from "../../core/errors.js";
@@ -19,99 +19,99 @@ import { jsonOk } from "../../core/envelope.js";
 import { parseWithSchema } from "../../core/validation.js";
 import type { SymphonyRuntimeAppContextSchema } from "../context.js";
 
-export function createCodexAnalyticsRoutes(
+export function createAgentAnalyticsRoutes(
   services: SymphonyRuntimeAppServices
 ) {
-  const codexRoutes = new Hono<SymphonyRuntimeAppContextSchema>();
+  const agentRoutes = new Hono<SymphonyRuntimeAppContextSchema>();
 
-  codexRoutes.get("/codex/runs/:runId/artifacts", async (c) => {
-    const runId = parseCodexRunId(c);
-    const result = await services.codexAnalytics.fetchRunArtifacts(runId);
+  agentRoutes.get("/agent/runs/:runId/artifacts", async (c) => {
+    const runId = parseAgentRunId(c);
+    const result = await services.agentAnalytics.fetchRunArtifacts(runId);
 
     if (!result) {
-      logCodexRunNotFound(c, "Codex run artifacts not found", runId);
+      logAgentRunNotFound(c, "Agent run artifacts not found", runId);
       throw createHttpError("NOT_FOUND", "Run not found.");
     }
 
-    c.get("logger").debug("Returning Codex run artifacts", {
+    c.get("logger").debug("Returning agent run artifacts", {
       runId,
       turnCount: result.turns.length,
       eventCount: result.events.length
     });
 
-    return validateAndSendCodexResponse(
+    return validateAndSendAgentResponse(
       c,
-      symphonyCodexRunArtifactsResponseSchema,
+      symphonyAgentRunArtifactsResponseSchema,
       result
     );
   });
 
-  codexRoutes.get("/codex/runs/:runId/overflow/:overflowId", async (c) => {
-    const { runId, overflowId } = parseCodexOverflowPath(c);
-    const result = await services.codexAnalytics.fetchOverflow(runId, overflowId);
+  agentRoutes.get("/agent/runs/:runId/overflow/:overflowId", async (c) => {
+    const { runId, overflowId } = parseAgentOverflowPath(c);
+    const result = await services.agentAnalytics.fetchOverflow(runId, overflowId);
 
     if (!result) {
-      logCodexRunNotFound(c, "Codex overflow not found", runId);
+      logAgentRunNotFound(c, "Agent overflow not found", runId);
       throw createHttpError("NOT_FOUND", "Overflow not found.");
     }
 
-    c.get("logger").debug("Returning Codex overflow payload", {
+    c.get("logger").debug("Returning agent overflow payload", {
       runId,
       overflowId,
       kind: result.overflow.kind
     });
 
-    return validateAndSendCodexResponse(
+    return validateAndSendAgentResponse(
       c,
-      symphonyCodexOverflowResponseSchema,
+      symphonyAgentOverflowResponseSchema,
       result
     );
   });
 
-  codexRoutes.get("/codex/runs/:runId/turns", async (c) => {
-    const runId = parseCodexRunId(c);
-    const result = await services.codexAnalytics.listTurns(runId);
+  agentRoutes.get("/agent/runs/:runId/turns", async (c) => {
+    const runId = parseAgentRunId(c);
+    const result = await services.agentAnalytics.listTurns(runId);
 
-    c.get("logger").debug("Returning Codex turns", {
+    c.get("logger").debug("Returning agent turns", {
       runId,
       count: result.turns.length
     });
 
-    return validateAndSendCodexResponse(c, symphonyCodexTurnListResponseSchema, result, {
+    return validateAndSendAgentResponse(c, symphonyAgentTurnListResponseSchema, result, {
       count: result.turns.length
     });
   });
 
-  codexRoutes.get("/codex/runs/:runId/items", async (c) => {
-    const { runId, turnId } = parseCodexRunTurnInput(c);
-    const result = await services.codexAnalytics.listItems(toRunTurnQuery(runId, turnId));
+  agentRoutes.get("/agent/runs/:runId/items", async (c) => {
+    const { runId, turnId } = parseAgentRunTurnInput(c);
+    const result = await services.agentAnalytics.listItems(toRunTurnQuery(runId, turnId));
 
-    c.get("logger").debug("Returning Codex items", {
+    c.get("logger").debug("Returning agent items", {
       runId,
       turnId,
       count: result.items.length
     });
 
-    return validateAndSendCodexResponse(c, symphonyCodexItemListResponseSchema, result, {
+    return validateAndSendAgentResponse(c, symphonyAgentItemListResponseSchema, result, {
       count: result.items.length
     });
   });
 
-  codexRoutes.get("/codex/runs/:runId/command-executions", async (c) => {
-    const { runId, turnId } = parseCodexRunTurnInput(c);
-    const result = await services.codexAnalytics.listCommandExecutions(
+  agentRoutes.get("/agent/runs/:runId/command-executions", async (c) => {
+    const { runId, turnId } = parseAgentRunTurnInput(c);
+    const result = await services.agentAnalytics.listCommandExecutions(
       toRunTurnQuery(runId, turnId)
     );
 
-    c.get("logger").debug("Returning Codex command executions", {
+    c.get("logger").debug("Returning agent command executions", {
       runId,
       turnId,
       count: result.commandExecutions.length
     });
 
-    return validateAndSendCodexResponse(
+    return validateAndSendAgentResponse(
       c,
-      symphonyCodexCommandExecutionListResponseSchema,
+      symphonyAgentCommandExecutionListResponseSchema,
       result,
       {
         count: result.commandExecutions.length
@@ -119,36 +119,36 @@ export function createCodexAnalyticsRoutes(
     );
   });
 
-  codexRoutes.get("/codex/runs/:runId/tool-calls", async (c) => {
-    const { runId, turnId } = parseCodexRunTurnInput(c);
-    const result = await services.codexAnalytics.listToolCalls(toRunTurnQuery(runId, turnId));
+  agentRoutes.get("/agent/runs/:runId/tool-calls", async (c) => {
+    const { runId, turnId } = parseAgentRunTurnInput(c);
+    const result = await services.agentAnalytics.listToolCalls(toRunTurnQuery(runId, turnId));
 
-    c.get("logger").debug("Returning Codex tool calls", {
+    c.get("logger").debug("Returning agent tool calls", {
       runId,
       turnId,
       count: result.toolCalls.length
     });
 
-    return validateAndSendCodexResponse(c, symphonyCodexToolCallListResponseSchema, result, {
+    return validateAndSendAgentResponse(c, symphonyAgentToolCallListResponseSchema, result, {
       count: result.toolCalls.length
     });
   });
 
-  codexRoutes.get("/codex/runs/:runId/agent-messages", async (c) => {
-    const { runId, turnId } = parseCodexRunTurnInput(c);
-    const result = await services.codexAnalytics.listAgentMessages(
+  agentRoutes.get("/agent/runs/:runId/agent-messages", async (c) => {
+    const { runId, turnId } = parseAgentRunTurnInput(c);
+    const result = await services.agentAnalytics.listAgentMessages(
       toRunTurnQuery(runId, turnId)
     );
 
-    c.get("logger").debug("Returning Codex agent messages", {
+    c.get("logger").debug("Returning agent messages", {
       runId,
       turnId,
       count: result.agentMessages.length
     });
 
-    return validateAndSendCodexResponse(
+    return validateAndSendAgentResponse(
       c,
-      symphonyCodexAgentMessageListResponseSchema,
+      symphonyAgentMessageListResponseSchema,
       result,
       {
         count: result.agentMessages.length
@@ -156,50 +156,50 @@ export function createCodexAnalyticsRoutes(
     );
   });
 
-  codexRoutes.get("/codex/runs/:runId/reasoning", async (c) => {
-    const { runId, turnId } = parseCodexRunTurnInput(c);
-    const result = await services.codexAnalytics.listReasoning(toRunTurnQuery(runId, turnId));
+  agentRoutes.get("/agent/runs/:runId/reasoning", async (c) => {
+    const { runId, turnId } = parseAgentRunTurnInput(c);
+    const result = await services.agentAnalytics.listReasoning(toRunTurnQuery(runId, turnId));
 
-    c.get("logger").debug("Returning Codex reasoning rows", {
+    c.get("logger").debug("Returning agent reasoning rows", {
       runId,
       turnId,
       count: result.reasoning.length
     });
 
-    return validateAndSendCodexResponse(c, symphonyCodexReasoningListResponseSchema, result, {
+    return validateAndSendAgentResponse(c, symphonyAgentReasoningBlockListResponseSchema, result, {
       count: result.reasoning.length
     });
   });
 
-  codexRoutes.get("/codex/runs/:runId/file-changes", async (c) => {
-    const { runId, turnId } = parseCodexRunTurnInput(c);
-    const result = await services.codexAnalytics.listFileChanges(toRunTurnQuery(runId, turnId));
+  agentRoutes.get("/agent/runs/:runId/file-changes", async (c) => {
+    const { runId, turnId } = parseAgentRunTurnInput(c);
+    const result = await services.agentAnalytics.listFileChanges(toRunTurnQuery(runId, turnId));
 
-    c.get("logger").debug("Returning Codex file changes", {
+    c.get("logger").debug("Returning agent file changes", {
       runId,
       turnId,
       count: result.fileChanges.length
     });
 
-    return validateAndSendCodexResponse(c, symphonyCodexFileChangeListResponseSchema, result, {
+    return validateAndSendAgentResponse(c, symphonyAgentFileChangeListResponseSchema, result, {
       count: result.fileChanges.length
     });
   });
 
-  return codexRoutes;
+  return agentRoutes;
 }
 
 type CodexRouteContext = Context<SymphonyRuntimeAppContextSchema>;
 
-function parseCodexRunId(c: CodexRouteContext): string {
-  return parseWithSchema(symphonyCodexRunPathSchema, c.req.param()).runId;
+function parseAgentRunId(c: CodexRouteContext): string {
+  return parseWithSchema(symphonyAgentRunPathSchema, c.req.param()).runId;
 }
 
-function parseCodexRunTurnInput(
+function parseAgentRunTurnInput(
   c: CodexRouteContext
 ): { runId: string; turnId: string | null } {
-  const runId = parseCodexRunId(c);
-  const query = parseWithSchema(symphonyCodexRunTurnFilterSchema, c.req.query());
+  const runId = parseAgentRunId(c);
+  const query = parseWithSchema(symphonyAgentRunTurnFilterSchema, c.req.query());
 
   return {
     runId,
@@ -207,23 +207,23 @@ function parseCodexRunTurnInput(
   };
 }
 
-function parseCodexOverflowPath(
+function parseAgentOverflowPath(
   c: CodexRouteContext
 ): { runId: string; overflowId: string } {
-  return parseWithSchema(symphonyCodexOverflowPathSchema, c.req.param());
+  return parseWithSchema(symphonyAgentOverflowPathSchema, c.req.param());
 }
 
 function toRunTurnQuery(runId: string, turnId: string | null) {
   return turnId ? { runId, turnId } : { runId };
 }
 
-function logCodexRunNotFound(c: CodexRouteContext, message: string, runId: string) {
+function logAgentRunNotFound(c: CodexRouteContext, message: string, runId: string) {
   c.get("logger").warn(message, {
     runId
   });
 }
 
-function validateAndSendCodexResponse<T>(
+function validateAndSendAgentResponse<T>(
   c: CodexRouteContext,
   responseSchema: {
     parse(input: unknown): unknown;

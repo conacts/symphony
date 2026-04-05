@@ -21,6 +21,12 @@ export const symphonyCodexRunTurnFilterSchema = z.strictObject({
   turnId: nonEmptyStringSchema.optional()
 });
 
+export const symphonyAgentRunQuerySchema = symphonyCodexRunQuerySchema;
+export const symphonyAgentRunPathSchema = symphonyCodexRunPathSchema;
+export const symphonyAgentOverflowPathSchema = symphonyCodexOverflowPathSchema;
+export const symphonyAgentRunTurnQuerySchema = symphonyCodexRunTurnQuerySchema;
+export const symphonyAgentRunTurnFilterSchema = symphonyCodexRunTurnFilterSchema;
+
 export type SymphonyCodexRunQuery = z.infer<typeof symphonyCodexRunQuerySchema>;
 export type SymphonyCodexRunPath = z.infer<typeof symphonyCodexRunPathSchema>;
 export type SymphonyCodexOverflowPath = z.infer<typeof symphonyCodexOverflowPathSchema>;
@@ -28,3 +34,8 @@ export type SymphonyCodexRunTurnQuery = z.infer<typeof symphonyCodexRunTurnQuery
 export type SymphonyCodexRunTurnFilter = z.infer<
   typeof symphonyCodexRunTurnFilterSchema
 >;
+export type SymphonyAgentRunQuery = SymphonyCodexRunQuery;
+export type SymphonyAgentRunPath = SymphonyCodexRunPath;
+export type SymphonyAgentOverflowPath = SymphonyCodexOverflowPath;
+export type SymphonyAgentRunTurnQuery = SymphonyCodexRunTurnQuery;
+export type SymphonyAgentRunTurnFilter = SymphonyCodexRunTurnFilter;

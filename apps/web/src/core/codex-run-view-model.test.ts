@@ -150,6 +150,50 @@ describe("codex run view model", () => {
         }
       ]
     });
+    if (runArtifacts.turnActivities[0]) {
+      runArtifacts.turnActivities[0] = {
+        ...runArtifacts.turnActivities[0],
+        fileChanges: [
+          {
+            runId: "run_123",
+            turnId: "turn_123",
+            itemId: "file_123",
+            path: "packages/db/src/index.ts",
+            changeKind: "modified",
+            recordedAt: "2026-03-31T18:00:31.000Z",
+            insertedAt: "2026-03-31T18:00:31.000Z"
+          },
+          {
+            runId: "run_123",
+            turnId: "turn_123",
+            itemId: "file_123",
+            path: "apps/api/src/main.ts",
+            changeKind: "modified",
+            recordedAt: "2026-03-31T18:00:31.000Z",
+            insertedAt: "2026-03-31T18:00:31.000Z"
+          },
+          {
+            runId: "run_123",
+            turnId: "turn_123",
+            itemId: "cmd_123",
+            path: "README.md",
+            changeKind: "modified",
+            recordedAt: "2026-03-31T18:00:30.000Z",
+            insertedAt: "2026-03-31T18:00:30.000Z"
+          },
+          {
+            runId: "run_123",
+            turnId: "turn_123",
+            itemId: "cmd_123",
+            path: "src/index.ts",
+            changeKind: "modified",
+            recordedAt: "2026-03-31T18:00:30.000Z",
+            insertedAt: "2026-03-31T18:00:30.000Z"
+          }
+        ],
+        taskSnapshots: [runArtifacts.taskSnapshots[0]!]
+      };
+    }
     runArtifacts.run.itemCount = 8;
     if (runArtifacts.turns[0]) {
       runArtifacts.turns[0].itemCount = 8;

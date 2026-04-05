@@ -1,21 +1,21 @@
 "use client";
 
 import {
-  symphonyCodexOverflowResponseSchema,
-  symphonyCodexRunArtifactsResponseSchema,
-  type SymphonyCodexOverflowResult,
-  type SymphonyCodexRunArtifactsResult,
+  symphonyAgentOverflowResponseSchema,
+  symphonyAgentRunArtifactsResponseSchema,
+  type SymphonyAgentOverflowResult,
+  type SymphonyAgentRunArtifactsResult,
   type SymphonyRealtimeServerMessage
 } from "@symphony/contracts";
 import { createRuntimeUrl } from "@/core/runtime-url";
 import { messageInvalidatesPath } from "@/core/runtime-summary-client";
 
-export async function fetchCodexRunArtifacts(
+export async function fetchAgentRunArtifacts(
   runtimeBaseUrl: string,
   runId: string,
   fetchImpl: typeof fetch = fetch
-): Promise<SymphonyCodexRunArtifactsResult> {
-  const endpoint = createRuntimeUrl(`/api/v1/codex/runs/${runId}/artifacts`, runtimeBaseUrl);
+): Promise<SymphonyAgentRunArtifactsResult> {
+  const endpoint = createRuntimeUrl(`/api/v1/agent/runs/${runId}/artifacts`, runtimeBaseUrl);
   const response = await fetchImpl(endpoint, {
     headers: {
       accept: "application/json"
@@ -24,10 +24,10 @@ export async function fetchCodexRunArtifacts(
   });
 
   if (!response.ok) {
-    throw new Error(`Codex run artifacts request failed with ${response.status}.`);
+    throw new Error(`Agent run artifacts request failed with ${response.status}.`);
   }
 
-  const parsed = symphonyCodexRunArtifactsResponseSchema.parse(await response.json());
+  const parsed = symphonyAgentRunArtifactsResponseSchema.parse(await response.json());
 
   if (!parsed.ok) {
     throw new Error(parsed.error.message);
@@ -36,14 +36,14 @@ export async function fetchCodexRunArtifacts(
   return parsed.data;
 }
 
-export async function fetchCodexOverflow(
+export async function fetchAgentOverflow(
   runtimeBaseUrl: string,
   runId: string,
   overflowId: string,
   fetchImpl: typeof fetch = fetch
-): Promise<SymphonyCodexOverflowResult> {
+): Promise<SymphonyAgentOverflowResult> {
   const endpoint = createRuntimeUrl(
-    `/api/v1/codex/runs/${runId}/overflow/${overflowId}`,
+    `/api/v1/agent/runs/${runId}/overflow/${overflowId}`,
     runtimeBaseUrl
   );
   const response = await fetchImpl(endpoint, {
@@ -54,10 +54,10 @@ export async function fetchCodexOverflow(
   });
 
   if (!response.ok) {
-    throw new Error(`Codex overflow request failed with ${response.status}.`);
+    throw new Error(`Agent overflow request failed with ${response.status}.`);
   }
 
-  const parsed = symphonyCodexOverflowResponseSchema.parse(await response.json());
+  const parsed = symphonyAgentOverflowResponseSchema.parse(await response.json());
 
   if (!parsed.ok) {
     throw new Error(parsed.error.message);
@@ -66,7 +66,7 @@ export async function fetchCodexOverflow(
   return parsed.data;
 }
 
-export function shouldRefreshCodexRun(
+export function shouldRefreshAgentRun(
   message: SymphonyRealtimeServerMessage,
   runId: string
 ): boolean {
@@ -76,6 +76,6 @@ export function shouldRefreshCodexRun(
 
   return (
     messageInvalidatesPath(message, `/api/v1/runs/${runId}`) ||
-    messageInvalidatesPath(message, `/api/v1/codex/runs/${runId}/artifacts`)
+    messageInvalidatesPath(message, `/api/v1/agent/runs/${runId}/artifacts`)
   );
 }

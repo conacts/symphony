@@ -1,7 +1,7 @@
-import { fetchCodexRunArtifacts } from "@/core/codex-analytics-client";
+import { fetchAgentRunArtifacts } from "@/core/codex-analytics-client";
 import { fetchIssueDetail, fetchIssueIndex } from "@/core/forensics-client";
 import type {
-  SymphonyCodexRunArtifactsResult,
+  SymphonyAgentRunArtifactsResult,
   SymphonyForensicsIssueDetailResult,
   SymphonyForensicsIssueListResult
 } from "@symphony/contracts";
@@ -15,7 +15,7 @@ export type CodexAnalysisSampleResource = {
   sampledRuns: Array<{
     issueIdentifier: string;
     run: SymphonyForensicsIssueDetailResult["runs"][number];
-    artifacts: SymphonyCodexRunArtifactsResult;
+    artifacts: SymphonyAgentRunArtifactsResult;
   }>;
 };
 
@@ -53,7 +53,7 @@ export async function loadCodexAnalysisSample(
   const artifactResults = await Promise.all(
     sampledRuns.map(async (sampledRun) => {
       try {
-        const artifacts = await fetchCodexRunArtifacts(
+        const artifacts = await fetchAgentRunArtifacts(
           runtimeBaseUrl,
           sampledRun.run.runId
         );

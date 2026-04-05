@@ -28,9 +28,11 @@ export {
   createSqliteCodexAnalyticsStore
 } from "./codex-analytics-store.js";
 export {
+  createSqliteAgentAnalyticsReadStore,
   createSqliteCodexAnalyticsReadStore
 } from "./codex-analytics-read-store.js";
 export type {
+  AgentAnalyticsReadStore,
   CodexAnalyticsReadStore
 } from "./codex-analytics-read-store.js";
 export {

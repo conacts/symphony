@@ -1,20 +1,20 @@
 import type {
-  SymphonyCodexAgentMessageListResult,
-  SymphonyCodexCommandExecutionListResult,
-  SymphonyCodexFileChangeListResult,
-  SymphonyCodexItemListResult,
-  SymphonyCodexOverflowResult,
-  SymphonyCodexReasoningListResult,
-  SymphonyCodexRunTurnQuery,
-  SymphonyCodexToolCallListResult,
-  SymphonyCodexTurnListResult
+  SymphonyAgentCommandExecutionListResult,
+  SymphonyAgentFileChangeListResult,
+  SymphonyAgentItemListResult,
+  SymphonyAgentMessageListResult,
+  SymphonyAgentOverflowResult,
+  SymphonyAgentReasoningBlockListResult,
+  SymphonyAgentRunTurnQuery,
+  SymphonyAgentToolCallListResult,
+  SymphonyAgentTurnListResult
 } from "@symphony/contracts";
-import type { CodexAnalyticsReadStore } from "@symphony/db";
-import type { SymphonyCodexAnalyticsReadPort } from "./runtime-app-types.js";
+import type { AgentAnalyticsReadStore } from "@symphony/db";
+import type { SymphonyAgentAnalyticsReadPort } from "./runtime-app-types.js";
 
-export function createCodexAnalyticsReadPort(
-  readStore: CodexAnalyticsReadStore
-): SymphonyCodexAnalyticsReadPort {
+export function createAgentAnalyticsReadPort(
+  readStore: AgentAnalyticsReadStore
+): SymphonyAgentAnalyticsReadPort {
   return {
     fetchRunArtifacts(runId) {
       return readStore.fetchRunArtifacts(runId);
@@ -26,56 +26,56 @@ export function createCodexAnalyticsReadPort(
         ? ({
             runId,
             overflow
-          } satisfies SymphonyCodexOverflowResult)
+          } satisfies SymphonyAgentOverflowResult)
         : null;
     },
     async listTurns(runId) {
       return {
         runId,
         turns: await readStore.listTurns(runId)
-      } satisfies SymphonyCodexTurnListResult;
+      } satisfies SymphonyAgentTurnListResult;
     },
     async listItems(input) {
       return buildRunTurnListResult(
         input,
         await readStore.listItems(input),
         "items"
-      ) satisfies SymphonyCodexItemListResult;
+      ) satisfies SymphonyAgentItemListResult;
     },
     async listCommandExecutions(input) {
       return buildRunTurnListResult(
         input,
         await readStore.listCommandExecutions(input),
         "commandExecutions"
-      ) satisfies SymphonyCodexCommandExecutionListResult;
+      ) satisfies SymphonyAgentCommandExecutionListResult;
     },
     async listToolCalls(input) {
       return buildRunTurnListResult(
         input,
         await readStore.listToolCalls(input),
         "toolCalls"
-      ) satisfies SymphonyCodexToolCallListResult;
+      ) satisfies SymphonyAgentToolCallListResult;
     },
     async listAgentMessages(input) {
       return buildRunTurnListResult(
         input,
         await readStore.listAgentMessages(input),
         "agentMessages"
-      ) satisfies SymphonyCodexAgentMessageListResult;
+      ) satisfies SymphonyAgentMessageListResult;
     },
     async listReasoning(input) {
       return buildRunTurnListResult(
         input,
         await readStore.listReasoning(input),
         "reasoning"
-      ) satisfies SymphonyCodexReasoningListResult;
+      ) satisfies SymphonyAgentReasoningBlockListResult;
     },
     async listFileChanges(input) {
       return buildRunTurnListResult(
         input,
         await readStore.listFileChanges(input),
         "fileChanges"
-      ) satisfies SymphonyCodexFileChangeListResult;
+      ) satisfies SymphonyAgentFileChangeListResult;
     }
   };
 }
@@ -89,7 +89,7 @@ type RunTurnCollectionKey =
   | "fileChanges";
 
 function buildRunTurnListResult<K extends RunTurnCollectionKey, V>(
-  input: SymphonyCodexRunTurnQuery,
+  input: SymphonyAgentRunTurnQuery,
   items: V,
   key: K
 ): {
@@ -105,3 +105,5 @@ function buildRunTurnListResult<K extends RunTurnCollectionKey, V>(
     turnId: string | null;
   } & Record<K, V>;
 }
+
+export const createCodexAnalyticsReadPort = createAgentAnalyticsReadPort;

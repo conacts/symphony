@@ -257,6 +257,18 @@ export const symphonyCodexTaskSnapshotRecordSchema = z.strictObject({
   items: z.array(symphonyCodexTaskSnapshotItemRecordSchema)
 });
 
+export const symphonyAgentTurnActivityRecordSchema = z.strictObject({
+  runId: nonEmptyStringSchema,
+  turnId: nonEmptyStringSchema,
+  status: symphonyCodexTurnStatusSchema,
+  startedAt: isoTimestampSchema.nullable(),
+  endedAt: isoTimestampSchema.nullable(),
+  messages: z.array(symphonyCodexAgentMessageRecordSchema),
+  reasoningBlocks: z.array(symphonyCodexReasoningRecordSchema),
+  fileChanges: z.array(symphonyCodexFileChangeRecordSchema),
+  taskSnapshots: z.array(symphonyCodexTaskSnapshotRecordSchema)
+});
+
 export const symphonyCodexEventRecordSchema = z.strictObject({
   eventId: nonEmptyStringSchema,
   turnId: nullableNonEmptyStringSchema,
@@ -296,6 +308,7 @@ export const symphonyCodexRunArtifactsResultSchema = z.strictObject({
   reasoning: z.array(symphonyCodexReasoningRecordSchema),
   fileChanges: z.array(symphonyCodexFileChangeRecordSchema),
   taskSnapshots: z.array(symphonyCodexTaskSnapshotRecordSchema),
+  turnActivities: z.array(symphonyAgentTurnActivityRecordSchema),
   events: z.array(symphonyCodexEventRecordSchema)
 });
 
@@ -345,6 +358,43 @@ export const symphonyCodexOverflowResultSchema = z.strictObject({
   overflow: symphonyCodexOverflowRecordSchema
 });
 
+export const symphonyAgentRunStatusSchema = symphonyCodexRunStatusSchema;
+export const symphonyAgentTurnStatusSchema = symphonyCodexTurnStatusSchema;
+export const symphonyAgentItemLifecycleStatusSchema =
+  symphonyCodexItemLifecycleStatusSchema;
+export const symphonyAgentRunRecordSchema = symphonyCodexRunRecordSchema;
+export const symphonyAgentTurnRecordSchema = symphonyCodexTurnRecordSchema;
+export const symphonyAgentItemRecordSchema = symphonyCodexItemRecordSchema;
+export const symphonyAgentCommandExecutionRecordSchema =
+  symphonyCodexCommandExecutionRecordSchema;
+export const symphonyAgentToolCallRecordSchema = symphonyCodexToolCallRecordSchema;
+export const symphonyAgentMessageRecordSchema = symphonyCodexAgentMessageRecordSchema;
+export const symphonyAgentReasoningBlockRecordSchema = symphonyCodexReasoningRecordSchema;
+export const symphonyAgentFileChangeRecordSchema = symphonyCodexFileChangeRecordSchema;
+export const symphonyAgentTaskSnapshotStateSchema =
+  symphonyCodexTaskSnapshotStateSchema;
+export const symphonyAgentTaskSnapshotItemRecordSchema =
+  symphonyCodexTaskSnapshotItemRecordSchema;
+export const symphonyAgentTaskSnapshotRecordSchema =
+  symphonyCodexTaskSnapshotRecordSchema;
+export const symphonyAgentEventRecordSchema = symphonyCodexEventRecordSchema;
+export const symphonyAgentOverflowRecordSchema = symphonyCodexOverflowRecordSchema;
+export const symphonyAgentRunArtifactsResultSchema =
+  symphonyCodexRunArtifactsResultSchema;
+export const symphonyAgentTurnListResultSchema = symphonyCodexTurnListResultSchema;
+export const symphonyAgentItemListResultSchema = symphonyCodexItemListResultSchema;
+export const symphonyAgentCommandExecutionListResultSchema =
+  symphonyCodexCommandExecutionListResultSchema;
+export const symphonyAgentToolCallListResultSchema =
+  symphonyCodexToolCallListResultSchema;
+export const symphonyAgentMessageListResultSchema =
+  symphonyCodexAgentMessageListResultSchema;
+export const symphonyAgentReasoningBlockListResultSchema =
+  symphonyCodexReasoningListResultSchema;
+export const symphonyAgentFileChangeListResultSchema =
+  symphonyCodexFileChangeListResultSchema;
+export const symphonyAgentOverflowResultSchema = symphonyCodexOverflowResultSchema;
+
 export const symphonyCodexRunArtifactsResponseSchema = createEnvelopeSchema(
   symphonyCodexRunArtifactsResultSchema
 );
@@ -372,6 +422,33 @@ export const symphonyCodexFileChangeListResponseSchema = createEnvelopeSchema(
 export const symphonyCodexOverflowResponseSchema = createEnvelopeSchema(
   symphonyCodexOverflowResultSchema
 );
+export const symphonyAgentRunArtifactsResponseSchema = createEnvelopeSchema(
+  symphonyAgentRunArtifactsResultSchema
+);
+export const symphonyAgentTurnListResponseSchema = createEnvelopeSchema(
+  symphonyAgentTurnListResultSchema
+);
+export const symphonyAgentItemListResponseSchema = createEnvelopeSchema(
+  symphonyAgentItemListResultSchema
+);
+export const symphonyAgentCommandExecutionListResponseSchema = createEnvelopeSchema(
+  symphonyAgentCommandExecutionListResultSchema
+);
+export const symphonyAgentToolCallListResponseSchema = createEnvelopeSchema(
+  symphonyAgentToolCallListResultSchema
+);
+export const symphonyAgentMessageListResponseSchema = createEnvelopeSchema(
+  symphonyAgentMessageListResultSchema
+);
+export const symphonyAgentReasoningBlockListResponseSchema = createEnvelopeSchema(
+  symphonyAgentReasoningBlockListResultSchema
+);
+export const symphonyAgentFileChangeListResponseSchema = createEnvelopeSchema(
+  symphonyAgentFileChangeListResultSchema
+);
+export const symphonyAgentOverflowResponseSchema = createEnvelopeSchema(
+  symphonyAgentOverflowResultSchema
+);
 
 export type SymphonyCodexRunRecord = z.infer<typeof symphonyCodexRunRecordSchema>;
 export type SymphonyCodexTurnRecord = z.infer<typeof symphonyCodexTurnRecordSchema>;
@@ -398,6 +475,9 @@ export type SymphonyCodexTaskSnapshotItemRecord = z.infer<
 >;
 export type SymphonyCodexTaskSnapshotRecord = z.infer<
   typeof symphonyCodexTaskSnapshotRecordSchema
+>;
+export type SymphonyAgentTurnActivityRecord = z.infer<
+  typeof symphonyAgentTurnActivityRecordSchema
 >;
 export type SymphonyCodexEventRecord = z.infer<typeof symphonyCodexEventRecordSchema>;
 export type SymphonyCodexOverflowRecord = z.infer<typeof symphonyCodexOverflowRecordSchema>;
@@ -428,3 +508,31 @@ export type SymphonyCodexFileChangeListResult = z.infer<
 export type SymphonyCodexOverflowResult = z.infer<
   typeof symphonyCodexOverflowResultSchema
 >;
+export type SymphonyAgentRunStatus = SymphonyCodexRunStatus;
+export type SymphonyAgentTurnStatus = SymphonyCodexTurnStatus;
+export type SymphonyAgentItemLifecycleStatus = SymphonyCodexItemLifecycleStatus;
+export type SymphonyAgentRunRecord = SymphonyCodexRunRecord;
+export type SymphonyAgentTurnRecord = SymphonyCodexTurnRecord;
+export type SymphonyAgentItemRecord = SymphonyCodexItemRecord;
+export type SymphonyAgentCommandExecutionRecord = SymphonyCodexCommandExecutionRecord;
+export type SymphonyAgentToolCallRecord = SymphonyCodexToolCallRecord;
+export type SymphonyAgentMessageRecord = SymphonyCodexAgentMessageRecord;
+export type SymphonyAgentReasoningBlockRecord = SymphonyCodexReasoningRecord;
+export type SymphonyAgentFileChangeRecord = SymphonyCodexFileChangeRecord;
+export type SymphonyAgentTaskSnapshotState = SymphonyCodexTaskSnapshotState;
+export type SymphonyAgentTaskSnapshotItemRecord =
+  SymphonyCodexTaskSnapshotItemRecord;
+export type SymphonyAgentTaskSnapshotRecord = SymphonyCodexTaskSnapshotRecord;
+export type SymphonyAgentEventRecord = SymphonyCodexEventRecord;
+export type SymphonyAgentOverflowRecord = SymphonyCodexOverflowRecord;
+export type SymphonyAgentRunArtifactsResult = SymphonyCodexRunArtifactsResult;
+export type SymphonyAgentTurnListResult = SymphonyCodexTurnListResult;
+export type SymphonyAgentItemListResult = SymphonyCodexItemListResult;
+export type SymphonyAgentCommandExecutionListResult =
+  SymphonyCodexCommandExecutionListResult;
+export type SymphonyAgentToolCallListResult = SymphonyCodexToolCallListResult;
+export type SymphonyAgentMessageListResult = SymphonyCodexAgentMessageListResult;
+export type SymphonyAgentReasoningBlockListResult =
+  SymphonyCodexReasoningListResult;
+export type SymphonyAgentFileChangeListResult = SymphonyCodexFileChangeListResult;
+export type SymphonyAgentOverflowResult = SymphonyCodexOverflowResult;

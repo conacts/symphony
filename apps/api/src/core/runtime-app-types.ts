@@ -1,17 +1,17 @@
 import type { SymphonyForensicsReadModel } from "@symphony/forensics";
 import type { SymphonyLoadedPromptContract } from "@symphony/runtime-contract";
 import type {
-  SymphonyCodexAgentMessageListResult,
-  SymphonyCodexCommandExecutionListResult,
-  SymphonyCodexFileChangeListResult,
-  SymphonyCodexItemListResult,
-  SymphonyCodexOverflowResult,
-  SymphonyCodexReasoningListResult,
-  SymphonyCodexRunArtifactsResult,
-  SymphonyCodexRunQuery,
-  SymphonyCodexRunTurnQuery,
-  SymphonyCodexToolCallListResult,
-  SymphonyCodexTurnListResult,
+  SymphonyAgentCommandExecutionListResult,
+  SymphonyAgentFileChangeListResult,
+  SymphonyAgentItemListResult,
+  SymphonyAgentMessageListResult,
+  SymphonyAgentOverflowResult,
+  SymphonyAgentReasoningBlockListResult,
+  SymphonyAgentRunArtifactsResult,
+  SymphonyAgentRunQuery,
+  SymphonyAgentRunTurnQuery,
+  SymphonyAgentToolCallListResult,
+  SymphonyAgentTurnListResult,
   SymphonyGitHubReviewIngressResult,
   SymphonyGitHubWebhookBody,
   SymphonyGitHubWebhookHeaders,
@@ -60,35 +60,35 @@ export type SymphonyRuntimeHealthPort = {
   snapshot(): SymphonyRuntimeHealthResult;
 };
 
-export type SymphonyCodexAnalyticsReadPort = {
+export type SymphonyAgentAnalyticsReadPort = {
   fetchRunArtifacts(
-    runId: SymphonyCodexRunQuery["runId"]
-  ): Promise<SymphonyCodexRunArtifactsResult | null>;
+    runId: SymphonyAgentRunQuery["runId"]
+  ): Promise<SymphonyAgentRunArtifactsResult | null>;
   fetchOverflow(
-    runId: SymphonyCodexRunQuery["runId"],
+    runId: SymphonyAgentRunQuery["runId"],
     overflowId: string
-  ): Promise<SymphonyCodexOverflowResult | null>;
+  ): Promise<SymphonyAgentOverflowResult | null>;
   listTurns(
-    runId: SymphonyCodexRunQuery["runId"]
-  ): Promise<SymphonyCodexTurnListResult>;
+    runId: SymphonyAgentRunQuery["runId"]
+  ): Promise<SymphonyAgentTurnListResult>;
   listItems(
-    input: SymphonyCodexRunTurnQuery
-  ): Promise<SymphonyCodexItemListResult>;
+    input: SymphonyAgentRunTurnQuery
+  ): Promise<SymphonyAgentItemListResult>;
   listCommandExecutions(
-    input: SymphonyCodexRunTurnQuery
-  ): Promise<SymphonyCodexCommandExecutionListResult>;
+    input: SymphonyAgentRunTurnQuery
+  ): Promise<SymphonyAgentCommandExecutionListResult>;
   listToolCalls(
-    input: SymphonyCodexRunTurnQuery
-  ): Promise<SymphonyCodexToolCallListResult>;
+    input: SymphonyAgentRunTurnQuery
+  ): Promise<SymphonyAgentToolCallListResult>;
   listAgentMessages(
-    input: SymphonyCodexRunTurnQuery
-  ): Promise<SymphonyCodexAgentMessageListResult>;
+    input: SymphonyAgentRunTurnQuery
+  ): Promise<SymphonyAgentMessageListResult>;
   listReasoning(
-    input: SymphonyCodexRunTurnQuery
-  ): Promise<SymphonyCodexReasoningListResult>;
+    input: SymphonyAgentRunTurnQuery
+  ): Promise<SymphonyAgentReasoningBlockListResult>;
   listFileChanges(
-    input: SymphonyCodexRunTurnQuery
-  ): Promise<SymphonyCodexFileChangeListResult>;
+    input: SymphonyAgentRunTurnQuery
+  ): Promise<SymphonyAgentFileChangeListResult>;
 };
 
 export type SymphonyLoadedRuntimePromptTemplate = {
@@ -104,7 +104,7 @@ export type SymphonyRuntimeAppServices = {
   runtimePolicy: SymphonyResolvedRuntimePolicy;
   tracker: SymphonyTracker;
   orchestrator: SymphonyRuntimeOrchestratorPort;
-  codexAnalytics: SymphonyCodexAnalyticsReadPort;
+  agentAnalytics: SymphonyAgentAnalyticsReadPort;
   forensics: SymphonyForensicsReadModel;
   issueTimeline: SymphonyIssueTimelinePort;
   runtimeLogs: SymphonyRuntimeLogsPort;

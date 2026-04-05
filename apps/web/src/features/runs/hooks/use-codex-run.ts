@@ -1,19 +1,19 @@
 "use client";
 
 import type {
-  SymphonyCodexRunArtifactsResult,
+  SymphonyAgentRunArtifactsResult,
   SymphonyForensicsRunDetailResult
 } from "@symphony/contracts";
 import { useRealtimeResource } from "@/core/realtime-resource";
 import {
-  fetchCodexRunArtifacts,
-  shouldRefreshCodexRun
+  fetchAgentRunArtifacts,
+  shouldRefreshAgentRun
 } from "@/core/codex-analytics-client";
 import { fetchRunDetail } from "@/core/forensics-client";
 
 export type CodexRunResource = {
   runDetail: SymphonyForensicsRunDetailResult;
-  runArtifacts: SymphonyCodexRunArtifactsResult | null;
+  runArtifacts: SymphonyAgentRunArtifactsResult | null;
   codexError: string | null;
 };
 
@@ -26,7 +26,7 @@ export function useCodexRun(input: {
     loadResource: async () => {
       const [runDetailResult, runArtifactsResult] = await Promise.allSettled([
         fetchRunDetail(input.runtimeBaseUrl, input.runId),
-        fetchCodexRunArtifacts(input.runtimeBaseUrl, input.runId)
+        fetchAgentRunArtifacts(input.runtimeBaseUrl, input.runId)
       ]);
 
       if (runDetailResult.status === "rejected") {
@@ -49,7 +49,7 @@ export function useCodexRun(input: {
     },
     websocketUrl: input.websocketUrl,
     channels: ["runs"],
-    shouldRefresh: (message) => shouldRefreshCodexRun(message, input.runId),
-    refreshKey: `${input.runtimeBaseUrl}:codex:runs:${input.runId}`
+    shouldRefresh: (message) => shouldRefreshAgentRun(message, input.runId),
+    refreshKey: `${input.runtimeBaseUrl}:agent:runs:${input.runId}`
   });
 }
