@@ -216,7 +216,8 @@ export class CodexSdkClient implements HarnessSessionClient {
       return {
         sessionId: `${resolvedThreadId}-${turnId}`,
         threadId: resolvedThreadId,
-        turnId
+        turnId,
+        usage: null
       };
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {

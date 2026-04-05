@@ -223,7 +223,8 @@ export class OpenCodeSdkClient implements HarnessSessionClient {
       return {
         sessionId: this.#state.sessionId,
         threadId: this.#state.sessionId,
-        turnId
+        turnId,
+        usage: null
       };
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {

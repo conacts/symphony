@@ -40,6 +40,7 @@ export type PiAnalyticsAdapter = {
   projectToolExecutionUpdateEvent: typeof projectPiToolExecutionUpdateEvent;
   projectToolExecutionEndEvent: typeof projectPiToolExecutionEndEvent;
   projectTurnEndEvent: typeof projectPiTurnEndEvent;
+  extractTurnUsage: typeof extractPiTurnUsage;
 };
 
 export function projectPiRuntimeEvent(input: {
@@ -49,7 +50,7 @@ export function projectPiRuntimeEvent(input: {
 
   switch (type) {
     case "turn_start":
-      return projectPiTurnStartEvent();
+      return null;
     case "message_end":
       return projectPiMessageEndEvent(input);
     case "tool_execution_start":
@@ -59,7 +60,7 @@ export function projectPiRuntimeEvent(input: {
     case "tool_execution_end":
       return projectPiToolExecutionEndEvent(input);
     case "turn_end":
-      return projectPiTurnEndEvent(input);
+      return null;
     default:
       return null;
   }
@@ -87,11 +88,7 @@ export function projectPiSessionHeaderEvent(input: {
 
 export function projectPiTurnStartEvent(): PiAnalyticsProjection {
   return {
-    events: [
-      {
-        type: "turn.started"
-      }
-    ],
+    events: [],
     losses: []
   };
 }
@@ -276,18 +273,22 @@ export function projectPiToolExecutionEndEvent(input: {
   };
 }
 
-export function projectPiTurnEndEvent(input: {
-  event: PiJsonRecord;
-}): PiAnalyticsProjection {
+export function projectPiTurnEndEvent(): PiAnalyticsProjection {
   return {
-    events: [
-      {
-        type: "turn.completed",
-        usage: projectUsage(asRecord(input.event.message))
-      }
-    ],
+    events: [],
     losses: []
   };
+}
+
+export function extractPiTurnUsage(input: {
+  event: PiJsonRecord;
+}): Usage | null {
+  const usage = projectUsage(asRecord(input.event.message));
+  return usage.input_tokens > 0 ||
+    usage.cached_input_tokens > 0 ||
+    usage.output_tokens > 0
+    ? usage
+    : null;
 }
 
 function projectToolItem(
@@ -409,5 +410,6 @@ export const piAnalyticsAdapter: PiAnalyticsAdapter = {
   projectToolExecutionStartEvent: projectPiToolExecutionStartEvent,
   projectToolExecutionUpdateEvent: projectPiToolExecutionUpdateEvent,
   projectToolExecutionEndEvent: projectPiToolExecutionEndEvent,
-  projectTurnEndEvent: projectPiTurnEndEvent
+  projectTurnEndEvent: projectPiTurnEndEvent,
+  extractTurnUsage: extractPiTurnUsage
 };

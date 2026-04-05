@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractPiTurnUsage,
   projectPiMessageEndEvent,
   projectPiToolExecutionEndEvent,
   projectPiToolExecutionStartEvent,
@@ -114,8 +115,13 @@ describe("pi analytics adapter", () => {
     ]);
   });
 
-  it("projects turn end usage", () => {
-    const projection = projectPiTurnEndEvent({
+  it("extracts turn-end usage without projecting fake canonical turns", () => {
+    expect(projectPiTurnEndEvent()).toEqual({
+      events: [],
+      losses: []
+    });
+
+    const usage = extractPiTurnUsage({
       event: {
         type: "turn_end",
         message: {
@@ -128,18 +134,10 @@ describe("pi analytics adapter", () => {
       }
     });
 
-    expect(projection).toEqual({
-      events: [
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 12,
-            cached_input_tokens: 3,
-            output_tokens: 8
-          }
-        }
-      ],
-      losses: []
+    expect(usage).toEqual({
+      input_tokens: 12,
+      cached_input_tokens: 3,
+      output_tokens: 8
     });
   });
 

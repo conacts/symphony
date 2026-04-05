@@ -263,16 +263,18 @@ describe("PiRpcClient", () => {
     expect(result).toEqual({
       sessionId: "pi-session-1",
       threadId: "pi-session-1",
-      turnId: "pi-turn-1"
+      turnId: "pi-turn-1",
+      usage: {
+        input_tokens: 25,
+        cached_input_tokens: 4,
+        output_tokens: 10
+      }
     });
     expect(updates.map((update) => update.message)).toEqual(
       expect.arrayContaining([
         {
           type: "thread.started",
           thread_id: "pi-session-1"
-        },
-        {
-          type: "turn.started"
         },
         expect.objectContaining({
           type: "item.started",
@@ -303,16 +305,14 @@ describe("PiRpcClient", () => {
             type: "agent_message",
             text: "2"
           })
-        }),
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 15,
-            cached_input_tokens: 2,
-            output_tokens: 6
-          }
-        }
+        })
       ])
     );
+    expect(
+      updates.some((update) => update.message.type === "turn.started")
+    ).toBe(false);
+    expect(
+      updates.some((update) => update.message.type === "turn.completed")
+    ).toBe(false);
   });
 });

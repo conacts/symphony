@@ -1,4 +1,5 @@
 import type { AgentRuntimeLaunchTarget, SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
+import type { Usage } from "@symphony/codex-analytics";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 
 export type HarnessSessionLogger = {
@@ -28,6 +29,7 @@ export type HarnessTurnResult = {
   sessionId: string;
   threadId: string;
   turnId: string;
+  usage?: Usage | null;
 };
 
 export type HarnessRuntimeUpdate = {

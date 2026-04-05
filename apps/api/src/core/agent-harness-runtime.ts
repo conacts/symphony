@@ -405,7 +405,8 @@ async function executeRun(input: {
           endedAt,
           codexThreadId: turnResult.threadId,
           codexTurnId: turnResult.turnId,
-          codexSessionId: turnResult.sessionId
+          codexSessionId: turnResult.sessionId,
+          usage: turnResult.usage ?? null
         });
         await input.codexAnalytics.finalizeTurn({
           runId: input.runId,
@@ -415,6 +416,7 @@ async function executeRun(input: {
           failureKind: null,
           failureMessagePreview: null,
           threadId: turnResult.threadId,
+          usage: turnResult.usage ?? null,
           harnessKind: input.harness.kind,
           model: sessionModel,
           providerId: sessionProviderId,

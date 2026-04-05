@@ -336,6 +336,95 @@ describe("sqlite codex analytics store", () => {
     }
   });
 
+  it("preserves the original shell command when completion falls back to bash", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-bash-merge-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const analyticsStore = createSqliteCodexAnalyticsStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runStore.recordRunStarted({
+        runId: "run-bash-merge",
+        issueId: "issue-merge",
+        issueIdentifier: "COL-299",
+        startedAt: "2026-04-05T00:00:00.000Z",
+        status: "running"
+      });
+      const turnId = await runStore.recordTurnStarted(runId, {
+        turnId: "turn-bash-merge",
+        promptText: "List files",
+        startedAt: "2026-04-05T00:00:01.000Z",
+        status: "running"
+      });
+
+      await analyticsStore.startRun({
+        runId,
+        issueId: "issue-merge",
+        issueIdentifier: "COL-299",
+        startedAt: "2026-04-05T00:00:00.000Z",
+        status: "running",
+        threadId: "thread-bash-merge"
+      });
+
+      await analyticsStore.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-bash-merge",
+        recordedAt: "2026-04-05T00:00:01.100Z",
+        payload: {
+          type: "item.started",
+          item: {
+            id: "cmd-bash-merge",
+            type: "command_execution",
+            command: "ls /home/agent/workspace",
+            aggregated_output: "",
+            status: "in_progress"
+          }
+        }
+      });
+
+      await analyticsStore.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-bash-merge",
+        recordedAt: "2026-04-05T00:00:01.200Z",
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "cmd-bash-merge",
+            type: "command_execution",
+            command: "bash",
+            aggregated_output: "apps\npackages\n",
+            status: "completed"
+          }
+        }
+      });
+
+      const command = database.db
+        .select()
+        .from(codexCommandExecutionsTable)
+        .where(eq(codexCommandExecutionsTable.itemId, "cmd-bash-merge"))
+        .get();
+
+      expect(command).toMatchObject({
+        itemId: "cmd-bash-merge",
+        command: "ls /home/agent/workspace",
+        status: "completed",
+        outputPreview: "apps packages"
+      });
+    } finally {
+      database.close();
+    }
+  });
+
   it("projects failed MCP tool calls with explicit failure metadata", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-tool-failure-"));
     tempDirectories.push(root);

@@ -100,6 +100,7 @@ export type CodexAnalyticsTurnFinalize = {
   threadId: string | null;
   failureKind: string | null;
   failureMessagePreview: string | null;
+  usage?: Usage | null;
   harnessKind?: "codex" | "opencode" | "pi" | null;
   model?: string | null;
   providerId?: string | null;

@@ -181,7 +181,8 @@ describe("OpenCodeSdkClient", () => {
     expect(turn).toEqual({
       sessionId: "session-1",
       threadId: "session-1",
-      turnId: "opencode-turn-1"
+      turnId: "opencode-turn-1",
+      usage: null
     });
     expect(events.map((event) => event.message)).toEqual(
       expect.arrayContaining([

@@ -194,66 +194,93 @@ class SqliteCodexAnalyticsStore implements CodexAnalyticsStore {
 
   async finalizeTurn(input: CodexAnalyticsTurnFinalize): Promise<void> {
     const now = isoNow();
-    const existing = this.#db
-      .select()
-      .from(codexTurnsTable)
-      .where(eq(codexTurnsTable.turnId, input.turnId))
-      .get();
-
-    if (!existing) {
-      this.#db
-        .insert(codexTurnsTable)
-        .values({
-          turnId: input.turnId,
-          runId: input.runId,
-          threadId: input.threadId,
-          harnessKind: input.harnessKind ?? null,
-          model: input.model ?? null,
-          providerId: input.providerId ?? null,
-          providerName: input.providerName ?? null,
-          startedAt: null,
-          endedAt: input.endedAt,
-          status: input.status,
-          failureKind: input.failureKind,
-          failureMessagePreview: input.failureMessagePreview,
-          lastAgentMessageItemId: null,
-          lastAgentMessagePreview: null,
-          lastAgentMessageOverflowId: null,
-          inputTokens: 0,
-          cachedInputTokens: 0,
-          outputTokens: 0,
-          itemCount: 0,
-          commandCount: 0,
-          toolCallCount: 0,
-          fileChangeCount: 0,
-          agentMessageCount: 0,
-          reasoningCount: 0,
-          errorCount: 0,
-          latestEventAt: input.endedAt,
-          latestEventType: null,
-          insertedAt: now,
-          updatedAt: now
-        })
-        .run();
-    } else {
-      this.#db
-        .update(codexTurnsTable)
-        .set({
-          threadId: input.threadId ?? existing.threadId,
-          harnessKind: input.harnessKind ?? existing.harnessKind,
-          model: input.model ?? existing.model,
-          providerId: input.providerId ?? existing.providerId,
-          providerName: input.providerName ?? existing.providerName,
-          endedAt: input.endedAt,
-          status: input.status,
-          failureKind: input.failureKind ?? existing.failureKind,
-          failureMessagePreview:
-            input.failureMessagePreview ?? existing.failureMessagePreview,
-          updatedAt: now
-        })
+    this.#db.transaction((tx) => {
+      const existing = tx
+        .select()
+        .from(codexTurnsTable)
         .where(eq(codexTurnsTable.turnId, input.turnId))
+        .get();
+
+      if (!existing) {
+        tx
+          .insert(codexTurnsTable)
+          .values({
+            turnId: input.turnId,
+            runId: input.runId,
+            threadId: input.threadId,
+            harnessKind: input.harnessKind ?? null,
+            model: input.model ?? null,
+            providerId: input.providerId ?? null,
+            providerName: input.providerName ?? null,
+            startedAt: null,
+            endedAt: input.endedAt,
+            status: input.status,
+            failureKind: input.failureKind,
+            failureMessagePreview: input.failureMessagePreview,
+            lastAgentMessageItemId: null,
+            lastAgentMessagePreview: null,
+            lastAgentMessageOverflowId: null,
+            inputTokens: input.usage?.input_tokens ?? 0,
+            cachedInputTokens: input.usage?.cached_input_tokens ?? 0,
+            outputTokens: input.usage?.output_tokens ?? 0,
+            itemCount: 0,
+            commandCount: 0,
+            toolCallCount: 0,
+            fileChangeCount: 0,
+            agentMessageCount: 0,
+            reasoningCount: 0,
+            errorCount: 0,
+            latestEventAt: input.endedAt,
+            latestEventType: null,
+            insertedAt: now,
+            updatedAt: now
+          })
+          .run();
+      } else {
+        tx
+          .update(codexTurnsTable)
+          .set({
+            threadId: input.threadId ?? existing.threadId,
+            harnessKind: input.harnessKind ?? existing.harnessKind,
+            model: input.model ?? existing.model,
+            providerId: input.providerId ?? existing.providerId,
+            providerName: input.providerName ?? existing.providerName,
+            endedAt: input.endedAt,
+            status: input.status,
+            failureKind: input.failureKind ?? existing.failureKind,
+            failureMessagePreview:
+              input.failureMessagePreview ?? existing.failureMessagePreview,
+            inputTokens: input.usage?.input_tokens ?? existing.inputTokens,
+            cachedInputTokens:
+              input.usage?.cached_input_tokens ?? existing.cachedInputTokens,
+            outputTokens: input.usage?.output_tokens ?? existing.outputTokens,
+            updatedAt: now
+          })
+          .where(eq(codexTurnsTable.turnId, input.turnId))
+          .run();
+      }
+
+      const usageTotals = tx
+        .select({
+          inputTokens: sql<number>`coalesce(sum(${codexTurnsTable.inputTokens}), 0)`,
+          cachedInputTokens: sql<number>`coalesce(sum(${codexTurnsTable.cachedInputTokens}), 0)`,
+          outputTokens: sql<number>`coalesce(sum(${codexTurnsTable.outputTokens}), 0)`
+        })
+        .from(codexTurnsTable)
+        .where(eq(codexTurnsTable.runId, input.runId))
+        .get();
+
+      tx
+        .update(codexRunsTable)
+        .set({
+          inputTokens: usageTotals?.inputTokens ?? 0,
+          cachedInputTokens: usageTotals?.cachedInputTokens ?? 0,
+          outputTokens: usageTotals?.outputTokens ?? 0,
+          updatedAt: now
+        })
+        .where(eq(codexRunsTable.runId, input.runId))
         .run();
-    }
+    });
   }
 
   async finalizeRun(input: CodexAnalyticsRunFinalize): Promise<void> {
@@ -798,7 +825,7 @@ function projectCommandExecutionItem(
   context.tx
     .update(codexCommandExecutionsTable)
     .set({
-      command: item.command,
+      command: chooseCanonicalCommand(existingCommand.command, item.command),
       status: item.status,
       exitCode: item.exit_code ?? existingCommand.exitCode,
       completedAt,
@@ -817,6 +844,24 @@ function projectCommandExecutionItem(
     .run();
 
   return outputOverflowId;
+}
+
+function chooseCanonicalCommand(
+  existingCommand: string,
+  nextCommand: string
+): string {
+  const normalizedExisting = existingCommand.trim();
+  const normalizedNext = nextCommand.trim();
+
+  if (normalizedNext === "") {
+    return normalizedExisting;
+  }
+
+  if (normalizedExisting !== "" && normalizedNext === "bash") {
+    return normalizedExisting;
+  }
+
+  return normalizedNext;
 }
 
 function projectToolCallItem(

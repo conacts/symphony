@@ -91,6 +91,7 @@ export class PiRpcClient implements HarnessSessionClient {
     const turnSequence = this.#turnSequence + 1;
     this.#turnSequence = turnSequence;
     const turnId = `pi-turn-${turnSequence}`;
+    let accumulatedUsage: HarnessTurnResult["usage"] = null;
 
     if (!this.#threadStartedEmitted && session.threadId) {
       this.#threadStartedEmitted = true;
@@ -118,6 +119,22 @@ export class PiRpcClient implements HarnessSessionClient {
     while (true) {
       const event = await this.#process.awaitEvent(input.turnTimeoutMs);
       const eventType = getString(event, "type");
+
+      if (eventType === "turn_end") {
+        const usage = piAnalyticsAdapter.extractTurnUsage({
+          event
+        });
+        if (usage) {
+          accumulatedUsage = accumulatedUsage
+            ? {
+                input_tokens: accumulatedUsage.input_tokens + usage.input_tokens,
+                cached_input_tokens:
+                  accumulatedUsage.cached_input_tokens + usage.cached_input_tokens,
+                output_tokens: accumulatedUsage.output_tokens + usage.output_tokens
+              }
+            : usage;
+        }
+      }
 
       if (eventType === "process_exit") {
         throw new HarnessSessionError(
@@ -160,7 +177,8 @@ export class PiRpcClient implements HarnessSessionClient {
         return {
           sessionId: threadId,
           threadId,
-          turnId
+          turnId,
+          usage: accumulatedUsage
         };
       }
     }
