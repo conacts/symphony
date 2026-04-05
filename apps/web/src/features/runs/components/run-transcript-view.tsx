@@ -1,15 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger
-} from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -17,36 +10,21 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { fetchAgentOverflow } from "@/core/agent-analytics-client";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
 import { RunDebugPanel } from "@/features/runs/components/run-debug-panel";
 import { RunContextBreadcrumb } from "@/features/runs/components/run-context-breadcrumb";
 import { RunExecutionDurationChart } from "@/features/runs/components/run-execution-duration-chart";
-import { RunOverflowSheet } from "@/features/runs/components/run-overflow-sheet";
 import { RunTurnLatencyChart } from "@/features/runs/components/run-turn-latency-chart";
 import { RunTurnTokenChart } from "@/features/runs/components/run-turn-token-chart";
-import { RunTranscriptTurn } from "@/features/runs/components/run-transcript-turn";
-import {
-  buildAgentRunViewModel,
-  formatOverflowContent,
-  type AgentRunTranscriptEntry
-} from "@/features/runs/model/agent-run-view-model";
+import { buildAgentRunViewModel } from "@/features/runs/model/agent-run-view-model";
 import type { AgentRunResource } from "@/features/runs/hooks/use-agent-run";
-
-type OverflowState = {
-  title: string;
-  description: string;
-  content: string | null;
-  loading: boolean;
-  error: string | null;
-};
-
-const closedOverflowState: OverflowState = {
-  title: "",
-  description: "",
-  content: null,
-  loading: false,
-  error: null
-};
 
 export function RunTranscriptView(input: {
   runtimeBaseUrl: string;
@@ -54,58 +32,12 @@ export function RunTranscriptView(input: {
   loading: boolean;
   resource: AgentRunResource | null;
 }) {
-  const [overflowOpen, setOverflowOpen] = useState(false);
-  const [overflowState, setOverflowState] = useState<OverflowState>(
-    closedOverflowState
-  );
   const viewModel = input.resource
     ? buildAgentRunViewModel({
         runDetail: input.resource.runDetail,
         runArtifacts: input.resource.runArtifacts
       })
     : null;
-
-  const openOverflow = async (entry: AgentRunTranscriptEntry) => {
-    if (!input.resource || !entry.overflowId) {
-      return;
-    }
-
-    setOverflowOpen(true);
-    setOverflowState({
-      title: buildOverflowTitle(entry),
-      description: entry.recordedAt,
-      content: null,
-      loading: true,
-      error: null
-    });
-
-    try {
-      const overflow = await fetchAgentOverflow(
-        input.runtimeBaseUrl,
-        input.resource.runDetail.run.runId,
-        entry.overflowId
-      );
-
-      setOverflowState({
-        title: buildOverflowTitle(entry),
-        description: `${entry.recordedAt} · ${overflow.overflow.kind}`,
-        content: formatOverflowContent(overflow),
-        loading: false,
-        error: null
-      });
-    } catch (error) {
-      setOverflowState({
-        title: buildOverflowTitle(entry),
-        description: `${entry.recordedAt} · overflow`,
-        content: null,
-        loading: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to load the overflow payload."
-      });
-    }
-  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -140,20 +72,9 @@ export function RunTranscriptView(input: {
                 runId={viewModel.runId}
                 current="run"
               />
-              <p className="text-sm font-medium text-muted-foreground">
-                {viewModel.issueIdentifier}
-              </p>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h1 className="text-3xl font-semibold tracking-tight">
-                  {viewModel.runTitle}
-                </h1>
-                <Link
-                  href={viewModel.routes.turnsHref}
-                  className="text-sm font-medium text-foreground underline underline-offset-4"
-                >
-                  Browse turns
-                </Link>
-              </div>
+              <h1 className="text-3xl font-semibold tracking-tight">
+                {viewModel.runTitle}
+              </h1>
               <p className="max-w-3xl text-sm text-muted-foreground">
                 {viewModel.statusSummary}
               </p>
@@ -183,55 +104,51 @@ export function RunTranscriptView(input: {
 
           <Card>
             <CardHeader>
-              <CardTitle>Structured run conversation</CardTitle>
+              <CardTitle>Turns</CardTitle>
               <CardDescription>
-                The run rendered as a chronological conversation between the operator prompt, {viewModel.harnessLabel}, commands, tools, and tasks.
+                Runs aggregate into turns here. Open an individual turn to inspect its full transcript, commands, tools, reasoning, and task updates.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-8">
-              {viewModel.hasTranscript ? (
-                <Accordion
-                  type="multiple"
-                  defaultValue={viewModel.transcriptTurns
-                    .slice(-1)
-                    .map((turn) => turn.turnId)}
-                  className="gap-4"
-                >
-                  {viewModel.transcriptTurns.map((turn) => (
-                    <AccordionItem
-                      key={turn.turnId}
-                      value={turn.turnId}
-                      className="rounded-xl border border-border/70 bg-card px-4"
-                    >
-                      <AccordionTrigger className="py-4 hover:no-underline">
-                        <div className="flex min-w-0 flex-1 flex-col gap-2 pr-4 text-left">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-base font-semibold">
-                              Turn {turn.turnSequence}
-                            </h2>
-                            <Badge variant="outline">{turn.status}</Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {turn.startedAt} → {turn.endedAt}
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            <Badge variant="secondary">{turn.tokenSummary}</Badge>
-                            <Badge variant="secondary">{turn.countsSummary}</Badge>
-                          </div>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-4">
-                        <RunTranscriptTurn
-                          turn={turn}
-                          onOpenOverflow={openOverflow}
-                        />
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
+            <CardContent>
+              {viewModel.turnRows.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Turn</TableHead>
+                      <TableHead>Prompt</TableHead>
+                      <TableHead>Started</TableHead>
+                      <TableHead>Ended</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Tokens</TableHead>
+                      <TableHead>Activity</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {viewModel.turnRows.map((turn) => (
+                      <TableRow key={turn.turnId}>
+                        <TableCell className="font-medium">
+                          <Link
+                            href={turn.href}
+                            className="underline-offset-4 hover:underline focus-visible:underline"
+                          >
+                            Turn {turn.turnSequence}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="max-w-[24rem] truncate">
+                          {turn.promptPreview}
+                        </TableCell>
+                        <TableCell>{turn.startedAt}</TableCell>
+                        <TableCell>{turn.endedAt}</TableCell>
+                        <TableCell>{turn.status}</TableCell>
+                        <TableCell>{turn.tokenSummary}</TableCell>
+                        <TableCell>{turn.countsSummary}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No transcript items were captured for this run.
+                  No turns were recorded for this run.
                 </p>
               )}
             </CardContent>
@@ -358,47 +275,6 @@ export function RunTranscriptView(input: {
         </>
       ) : null}
 
-      <RunOverflowSheet
-        open={overflowOpen}
-        onOpenChange={(open) => {
-          setOverflowOpen(open);
-          if (!open) {
-            setOverflowState(closedOverflowState);
-          }
-        }}
-        title={overflowState.title}
-        description={overflowState.description}
-        content={overflowState.content}
-        loading={overflowState.loading}
-        error={overflowState.error}
-      />
     </div>
   );
-}
-
-function buildOverflowTitle(entry: AgentRunTranscriptEntry): string {
-  switch (entry.kind) {
-    case "agent-message":
-      return "Assistant message";
-    case "reasoning":
-      return "Reasoning";
-    case "pi-read-task":
-      return "PI read result";
-    case "pi-edit-task":
-      return "PI edit result";
-    case "pi-write-task":
-      return "PI write result";
-    case "pi-grep-task":
-      return "PI grep result";
-    case "pi-find-task":
-      return "PI find result";
-    case "command":
-      return "Command output";
-    case "tool-call":
-      return "Tool result";
-    case "todo-list":
-      return "Todo list";
-    case "generic":
-      return entry.itemType;
-  }
 }

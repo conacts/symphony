@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
@@ -56,9 +55,6 @@ export function RunTurnDetailView(input: {
             />
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">
-                  {viewModel.issueIdentifier}
-                </p>
                 <h1 className="text-3xl font-semibold tracking-tight">
                   Turn {turn.turnSequence}
                 </h1>
@@ -66,12 +62,6 @@ export function RunTurnDetailView(input: {
                   Single-turn drilldown across prompt, transcript, tools, commands, and task state.
                 </p>
               </div>
-              <Link
-                href={viewModel.routes.turnsHref}
-                className="text-sm font-medium text-foreground underline underline-offset-4"
-              >
-                Back to turns table
-              </Link>
             </div>
           </section>
 

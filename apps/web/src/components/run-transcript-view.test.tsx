@@ -8,7 +8,7 @@ import {
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
 
 describe("run transcript view", () => {
-  it("renders the structured agent transcript", () => {
+  it("renders the run-level turn table instead of the full transcript", () => {
     const html = renderToStaticMarkup(
       <RunTranscriptView
         runtimeBaseUrl="http://127.0.0.1:4400"
@@ -22,7 +22,7 @@ describe("run transcript view", () => {
       />
     );
 
-    expect(html).toContain("Structured run conversation");
+    expect(html).toContain("Turns");
     expect(html).toContain("Turn tokens");
     expect(html).toContain("Turn token breakdown");
     expect(html).toContain("Turn latency");
@@ -30,13 +30,13 @@ describe("run transcript view", () => {
     expect(html).toContain("Execution performance");
     expect(html).toContain("Command executions");
     expect(html).toContain("Tool calls");
-    expect(html).toContain("Browse turns");
     expect(html).toContain("/issues/COL-165/runs/run_123/turns");
+    expect(html).toContain("/issues/COL-165/runs/run_123/turns/turn_123");
     expect(html).toContain("Turn 1");
-    expect(html).toContain("data-slot=\"accordion-trigger\"");
-    expect(html).toContain("Tool call");
-    expect(html).toContain("Reasoning");
+    expect(html).toContain("Solve the task");
+    expect(html).not.toContain("Browse turns");
+    expect(html).not.toContain("<p class=\"text-sm font-medium text-muted-foreground\">COL-165</p>");
+    expect(html).not.toContain("Structured run conversation");
     expect(html).toContain("Debug context");
-    expect(html).toContain("View full message");
   });
 });
