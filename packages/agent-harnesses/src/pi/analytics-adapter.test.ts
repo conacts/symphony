@@ -142,4 +142,51 @@ describe("pi analytics adapter", () => {
       losses: []
     });
   });
+
+  it("flags non-text tool results instead of pretending to preserve them", () => {
+    const projection = projectPiToolExecutionEndEvent({
+      event: {
+        type: "tool_execution_end",
+        toolCallId: "call-2",
+        toolName: "web_fetch",
+        args: {
+          url: "https://example.com"
+        },
+        result: {
+          content: [
+            {
+              type: "json",
+              value: {
+                ok: true
+              }
+            }
+          ]
+        },
+        isError: false
+      }
+    });
+
+    expect(projection.events).toEqual([
+      {
+        type: "item.completed",
+        item: {
+          id: "call-2",
+          type: "mcp_tool_call",
+          server: "pi",
+          tool: "web_fetch",
+          arguments: {
+            url: "https://example.com"
+          },
+          status: "in_progress"
+        }
+      }
+    ]);
+    expect(projection.losses).toEqual([
+      {
+        kind: "non_text_tool_result",
+        toolCallId: "call-2",
+        toolName: "web_fetch"
+      }
+    ]);
+  });
 });

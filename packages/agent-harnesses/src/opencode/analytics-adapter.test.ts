@@ -296,4 +296,68 @@ describe("opencode analytics adapter", () => {
       }
     ]);
   });
+
+  it("records unsupported response parts instead of dropping them silently", () => {
+    const projection = projectOpenCodePromptResponse({
+      response: {
+        info: {
+          id: "msg-2",
+          sessionID: "session-1",
+          role: "assistant",
+          time: {
+            created: 1_000,
+            completed: 2_000
+          },
+          parentID: "parent-2",
+          modelID: "xiaomi/mimo-v2-pro",
+          providerID: "openrouter",
+          mode: "chat",
+          agent: "build",
+          path: {
+            cwd: "/workspace",
+            root: "/workspace"
+          },
+          cost: 0,
+          tokens: {
+            input: 10,
+            output: 4,
+            reasoning: 0,
+            cache: {
+              read: 0,
+              write: 0
+            }
+          }
+        },
+        parts: [
+          {
+            id: "step-1",
+            sessionID: "session-1",
+            messageID: "msg-2",
+            type: "step-start",
+            snapshot: "snap-1"
+          }
+        ]
+      }
+    });
+
+    expect(projection.events).toEqual([
+      {
+        type: "turn.completed",
+        usage: {
+          input_tokens: 10,
+          cached_input_tokens: 0,
+          output_tokens: 4
+        }
+      }
+    ]);
+    expect(projection.losses).toEqual(
+      expect.arrayContaining([
+        {
+          kind: "unsupported_part",
+          partId: "step-1",
+          partType: "step-start"
+        }
+      ])
+    );
+  });
 });
