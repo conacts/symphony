@@ -206,11 +206,11 @@ describe("symphony orchestrator", () => {
       expectedOrigin: "repo_env_contract"
     },
     {
-      name: "missing codex auth",
-      error: Object.assign(new Error("missing codex auth"), {
-        code: "codex_auth_unavailable"
+      name: "missing pi auth",
+      error: Object.assign(new Error("missing pi auth"), {
+        code: "pi_auth_unavailable"
       }),
-      expectedOrigin: "codex_auth_contract"
+      expectedOrigin: "pi_auth_contract"
     },
     {
       name: "missing codex binary in the image",

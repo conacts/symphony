@@ -68,9 +68,9 @@ export function createSymphonyAgentRuntime(input: {
   codexAnalytics: CodexAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
-  codexHostLaunchEnv?: Record<string, string>;
-  codexAuthMode?: string | null;
-  codexProviderEnvKey?: string | null;
+  harnessLaunchEnv?: Record<string, string>;
+  harnessAuthMode?: string | null;
+  harnessProviderEnvKey?: string | null;
   logger: SymphonyLogger;
   callbacks: RunCallbacks;
 }): AgentRuntime {
@@ -93,9 +93,9 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
   codexAnalytics: CodexAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
-  codexHostLaunchEnv?: Record<string, string>;
-  codexAuthMode?: string | null;
-  codexProviderEnvKey?: string | null;
+  harnessLaunchEnv?: Record<string, string>;
+  harnessAuthMode?: string | null;
+  harnessProviderEnvKey?: string | null;
   logger: SymphonyLogger;
   callbacks: RunCallbacks;
 }): AgentRuntime {
@@ -129,9 +129,9 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
           issueIdentifier: runInput.issue.identifier
         }),
         hostCommandEnvSource: input.hostCommandEnvSource,
-        codexHostLaunchEnv: input.codexHostLaunchEnv ?? {},
-        codexAuthMode: input.codexAuthMode ?? null,
-        codexProviderEnvKey: input.codexProviderEnvKey ?? null,
+        harnessLaunchEnv: input.harnessLaunchEnv ?? {},
+        harnessAuthMode: input.harnessAuthMode ?? null,
+        harnessProviderEnvKey: input.harnessProviderEnvKey ?? null,
         callbacks: input.callbacks,
         issue: runInput.issue,
         runId: runInput.runId,
@@ -174,9 +174,9 @@ async function executeRun(input: {
   runtimePolicy: SymphonyAgentRuntimeConfig;
   logger: SymphonyLogger;
   hostCommandEnvSource: Record<string, string | undefined>;
-  codexHostLaunchEnv: Record<string, string>;
-  codexAuthMode: string | null;
-  codexProviderEnvKey: string | null;
+  harnessLaunchEnv: Record<string, string>;
+  harnessAuthMode: string | null;
+  harnessProviderEnvKey: string | null;
   callbacks: RunCallbacks;
   issue: SymphonyTrackerIssue;
   runId: string | null;
@@ -225,7 +225,7 @@ async function executeRun(input: {
       launchTarget: input.launchTarget,
       env: {
         ...input.workspace.envBundle.values,
-        ...input.codexHostLaunchEnv
+        ...input.harnessLaunchEnv
       },
       hostCommandEnvSource: input.hostCommandEnvSource,
       runtimePolicy: input.runtimePolicy,
@@ -267,8 +267,8 @@ async function executeRun(input: {
         profile: session.profile,
         providerId: session.providerId,
         providerName: session.providerName,
-        authMode: input.codexAuthMode,
-        providerEnvKey: input.codexProviderEnvKey,
+        authMode: input.harnessAuthMode,
+        providerEnvKey: input.harnessProviderEnvKey,
         harness: input.harness.kind,
         launchTarget: describeLaunchTarget(session.launchTarget)
       }
@@ -343,13 +343,13 @@ async function executeRun(input: {
       const turnResult = await session.client.runTurn(session, {
         prompt,
         title: `${currentIssue.identifier}: ${currentIssue.title}`,
-        sandboxPolicy: input.runtimePolicy.codex.turnSandboxPolicy,
+        sandboxPolicy: null,
         toolExecutor: async () => ({
           success: false,
           output: "Dynamic tool execution is not enabled for the SDK transport.",
           contentItems: []
         }),
-        turnTimeoutMs: input.runtimePolicy.codex.turnTimeoutMs,
+        turnTimeoutMs: input.runtimePolicy.pi.turnTimeoutMs,
         onMessage: async (update) => {
           const { message, projectionLosses, rawPayload } = update;
           const threadEvent = isThreadEvent(message) ? message : null;
@@ -534,8 +534,8 @@ async function executeRun(input: {
         model: harnessModelPolicy.defaultModel,
         providerId: sessionProviderId,
         providerName: sessionProviderName,
-        authMode: input.codexAuthMode,
-        providerEnvKey: input.codexProviderEnvKey,
+        authMode: input.harnessAuthMode,
+        providerEnvKey: input.harnessProviderEnvKey,
         harness: input.harness.kind,
         launchTarget: describeLaunchTarget(input.launchTarget)
       }
@@ -654,12 +654,7 @@ function classifyStartupFailure(error: unknown): {
         "invalid_workspace_cwd",
         "invalid_thread_payload",
         "invalid_turn_payload",
-        "invalid_codex_command",
         "invalid_issue_label_override",
-        "opencode_launch_unsupported",
-        "opencode_server_start_failed",
-        "opencode_container_ip_missing",
-        "opencode_session_start_failed",
         "pi_launch_unsupported",
         "pi_session_start_failed",
         "pi_turn_start_failed"
@@ -667,21 +662,18 @@ function classifyStartupFailure(error: unknown): {
     ) {
       return {
         failureStage: "runtime_session_start",
-        failureOrigin: "codex_startup"
+        failureOrigin: "pi_startup"
       };
     }
   }
 
   const message = error instanceof Error ? error.message : String(error);
   if (
-    message.includes("thread/start") ||
-    message.includes("initialize") ||
-    message.includes("OpenCode server") ||
-    message.includes("Timed out waiting for OpenCode server health")
+    message.includes("Pi RPC")
   ) {
     return {
       failureStage: "runtime_session_start",
-      failureOrigin: "codex_startup"
+      failureOrigin: "pi_startup"
     };
   }
 

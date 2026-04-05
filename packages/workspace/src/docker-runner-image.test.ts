@@ -114,7 +114,7 @@ describe("docker runner image", () => {
         ],
         result: {
           exitCode: 1,
-          stdout: "codex\npnpm\npsql\n",
+          stdout: "pi\npnpm\npsql\n",
           stderr: ""
         }
       }
@@ -125,7 +125,7 @@ describe("docker runner image", () => {
         image: defaultSymphonyDockerWorkspaceImage,
         commandRunner: runner
       })
-    ).rejects.toThrowError(/missing required tools: codex, pnpm, psql/i);
+    ).rejects.toThrowError(/missing required tools: pi, pnpm, psql/i);
   });
 
   it("fails clearly when the configured shell does not exist in the image", async () => {
@@ -232,11 +232,11 @@ describe("docker runner image", () => {
       imageId: "sha256:runner",
       requiredTools: [
         "bash",
-        "codex",
         "gh",
         "git",
         "node",
         "corepack",
+        "pi",
         "pnpm",
         "python3",
         "psql",

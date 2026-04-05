@@ -636,7 +636,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
       kind: "startup_failure",
       reason: expect.stringContaining("missing-codex"),
       failureStage: "runtime_session_start",
-      failureOrigin: "codex_startup",
+      failureOrigin: "pi_startup",
       launchTarget: {
         kind: "container",
         hostLaunchPath: hostWorkspacePath,

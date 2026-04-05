@@ -60,13 +60,13 @@ describe("startup failure classification", () => {
     ).toBe("docker_backend_contract");
   });
 
-  it("classifies codex auth availability errors explicitly", () => {
-    const error = Object.assign(new Error("missing codex auth"), {
-      code: "codex_auth_unavailable"
+  it("classifies pi auth availability errors explicitly", () => {
+    const error = Object.assign(new Error("missing pi auth"), {
+      code: "pi_auth_unavailable"
     });
 
     expect(
       classifyStartupFailureOrigin(error, "runtime_session_start", "docker")
-    ).toBe("codex_auth_contract");
+    ).toBe("pi_auth_contract");
   });
 });

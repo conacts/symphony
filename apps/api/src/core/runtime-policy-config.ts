@@ -1,9 +1,18 @@
 import path from "node:path";
 import type {
-  SymphonyHarnessModelRuntimePolicy,
   SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
 import type { EnvironmentSource } from "./env.js";
+
+type SymphonyPiRuntimePolicy = {
+  profile: string | null;
+  defaultModel: string | null;
+  defaultReasoningEffort: string | null;
+  provider: SymphonyResolvedRuntimePolicy["pi"]["provider"];
+  turnTimeoutMs: number;
+  readTimeoutMs: number;
+  stallTimeoutMs: number;
+};
 
 const defaultLinearEndpoint = "https://api.linear.app/graphql";
 const defaultDispatchableStates = ["Todo", "Bootstrapping", "In Progress", "Rework"];
@@ -26,7 +35,6 @@ function createOpenRouterProfile(profile: string, defaultModel: string) {
   } as const;
 }
 
-const gpt54Profile = createOpenRouterProfile("gpt-5.4", "gpt-5.4");
 const mimoV2ProProfile = createOpenRouterProfile("mimo-v2-pro", "xiaomi/mimo-v2-pro");
 const glm5TurboProfile = createOpenRouterProfile("glm-5-turbo", "z-ai/glm-5-turbo");
 const defaultOpenRouterProfile = mimoV2ProProfile;
@@ -44,12 +52,8 @@ export function loadSymphonyRuntimePolicyConfig(input: {
     readOptionalString(environmentSource.SYMPHONY_GITHUB_STATE_PATH) ??
     path.join(workspaceRoot, ".symphony", "github-state.json");
   const trackerKind = readOptionalString(environmentSource.SYMPHONY_TRACKER_KIND) ?? "linear";
-  const codexProfile = readOptionalString(environmentSource.SYMPHONY_CODEX_PROFILE);
-  const codexProfileDefaults = resolveCodexProfileDefaults(codexProfile);
-  const opencodeProfile = readOptionalString(environmentSource.SYMPHONY_OPENCODE_PROFILE);
-  const opencodeProfileDefaults = resolveCodexProfileDefaults(opencodeProfile);
   const piProfile = readOptionalString(environmentSource.SYMPHONY_PI_PROFILE);
-  const piProfileDefaults = resolveCodexProfileDefaults(piProfile);
+  const piProfileDefaults = resolvePiProfileDefaults(piProfile);
   const trackerProjectSlug = readOptionalString(
     environmentSource.SYMPHONY_LINEAR_PROJECT_SLUG
   );
@@ -104,8 +108,7 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       maxConcurrentAgentsPerHost: null
     },
     agent: {
-      harness:
-        readAgentHarness(environmentSource.SYMPHONY_AGENT_HARNESS) ?? "codex",
+      harness: "pi",
       maxConcurrentAgents: readPositiveInteger(
         environmentSource.SYMPHONY_AGENT_MAX_CONCURRENT,
         10
@@ -117,75 +120,29 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       ),
       maxConcurrentAgentsByState: {}
     },
-    opencode: readHarnessModelPolicy({
+    pi: readPiPolicy({
       environmentSource,
-      prefix: "SYMPHONY_OPENCODE",
-      profile: opencodeProfile,
-      profileDefaults: opencodeProfileDefaults
-    }),
-    pi: readHarnessModelPolicy({
-      environmentSource,
-      prefix: "SYMPHONY_PI",
       profile: piProfile,
       profileDefaults: piProfileDefaults
     }),
     codex: {
-      command:
-        readOptionalString(environmentSource.SYMPHONY_CODEX_COMMAND) ?? "codex",
+      command: "codex",
       approvalPolicy: "never",
-      threadSandbox:
-        readOptionalString(environmentSource.SYMPHONY_CODEX_THREAD_SANDBOX) ??
-        "danger-full-access",
+      threadSandbox: "danger-full-access",
       turnSandboxPolicy: null,
-      profile: codexProfileDefaults?.profile ?? codexProfile,
-      defaultModel:
-        readOptionalString(environmentSource.SYMPHONY_CODEX_MODEL) ??
-        codexProfileDefaults?.defaultModel ??
-        defaultOpenRouterProfile.defaultModel,
-      defaultReasoningEffort:
-        readOptionalString(environmentSource.SYMPHONY_CODEX_REASONING_EFFORT) ??
-        codexProfileDefaults?.defaultReasoningEffort ??
-        defaultOpenRouterProfile.defaultReasoningEffort,
-      provider: {
-        id:
-          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER) ??
-          codexProfileDefaults?.provider.id ??
-          defaultOpenRouterProfile.provider.id,
-        name:
-          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_NAME) ??
-          codexProfileDefaults?.provider.name ??
-          defaultOpenRouterProfile.provider.name,
-        baseUrl:
-          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_BASE_URL) ??
-          codexProfileDefaults?.provider.baseUrl ??
-          defaultOpenRouterProfile.provider.baseUrl,
-        envKey:
-          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_ENV_KEY) ??
-          codexProfileDefaults?.provider.envKey ??
-          defaultOpenRouterProfile.provider.envKey,
-        supportsWebsockets:
-          readOptionalBoolean(
-            environmentSource.SYMPHONY_CODEX_PROVIDER_SUPPORTS_WEBSOCKETS
-          ) ??
-          codexProfileDefaults?.provider.supportsWebsockets ??
-          defaultOpenRouterProfile.provider.supportsWebsockets,
-        wireApi:
-          readOptionalString(environmentSource.SYMPHONY_CODEX_PROVIDER_WIRE_API) ??
-          codexProfileDefaults?.provider.wireApi ??
-          defaultOpenRouterProfile.provider.wireApi
-      },
-      turnTimeoutMs: readPositiveInteger(
-        environmentSource.SYMPHONY_CODEX_TURN_TIMEOUT_MS,
-        3_600_000
-      ),
-      readTimeoutMs: readPositiveInteger(
-        environmentSource.SYMPHONY_CODEX_READ_TIMEOUT_MS,
-        5_000
-      ),
-      stallTimeoutMs: readPositiveInteger(
-        environmentSource.SYMPHONY_CODEX_STALL_TIMEOUT_MS,
-        300_000
-      )
+      profile: null,
+      defaultModel: null,
+      defaultReasoningEffort: null,
+      provider: null,
+      turnTimeoutMs: 3_600_000,
+      readTimeoutMs: 5_000,
+      stallTimeoutMs: 300_000
+    },
+    opencode: {
+      profile: null,
+      defaultModel: null,
+      defaultReasoningEffort: null,
+      provider: null
     },
     hooks: {
       afterCreate: null,
@@ -283,82 +240,72 @@ function readOptionalBoolean(value: string | undefined): boolean | null {
   );
 }
 
-function readHarnessModelPolicy(input: {
+function readPiPolicy(input: {
   environmentSource: EnvironmentSource;
-  prefix: "SYMPHONY_OPENCODE" | "SYMPHONY_PI";
   profile: string | null;
-  profileDefaults: ReturnType<typeof resolveCodexProfileDefaults>;
-}): SymphonyHarnessModelRuntimePolicy {
-  const { environmentSource, prefix, profile, profileDefaults } = input;
+  profileDefaults: ReturnType<typeof resolvePiProfileDefaults>;
+}): SymphonyPiRuntimePolicy {
+  const { environmentSource, profile, profileDefaults } = input;
 
   return {
     profile: profileDefaults?.profile ?? profile,
     defaultModel:
-      readOptionalString(environmentSource[`${prefix}_MODEL`]) ??
+      readOptionalString(environmentSource.SYMPHONY_PI_MODEL) ??
       profileDefaults?.defaultModel ??
       defaultOpenRouterProfile.defaultModel,
     defaultReasoningEffort:
-      readOptionalString(environmentSource[`${prefix}_REASONING_EFFORT`]) ??
+      readOptionalString(environmentSource.SYMPHONY_PI_REASONING_EFFORT) ??
       profileDefaults?.defaultReasoningEffort ??
       defaultOpenRouterProfile.defaultReasoningEffort,
     provider: {
       id:
-        readOptionalString(environmentSource[`${prefix}_PROVIDER`]) ??
+        readOptionalString(environmentSource.SYMPHONY_PI_PROVIDER) ??
         profileDefaults?.provider.id ??
         defaultOpenRouterProfile.provider.id,
       name:
-        readOptionalString(environmentSource[`${prefix}_PROVIDER_NAME`]) ??
+        readOptionalString(environmentSource.SYMPHONY_PI_PROVIDER_NAME) ??
         profileDefaults?.provider.name ??
         defaultOpenRouterProfile.provider.name,
       baseUrl:
-        readOptionalString(environmentSource[`${prefix}_PROVIDER_BASE_URL`]) ??
+        readOptionalString(environmentSource.SYMPHONY_PI_PROVIDER_BASE_URL) ??
         profileDefaults?.provider.baseUrl ??
         defaultOpenRouterProfile.provider.baseUrl,
       envKey:
-        readOptionalString(environmentSource[`${prefix}_PROVIDER_ENV_KEY`]) ??
+        readOptionalString(environmentSource.SYMPHONY_PI_PROVIDER_ENV_KEY) ??
         profileDefaults?.provider.envKey ??
         defaultOpenRouterProfile.provider.envKey,
       supportsWebsockets:
-        readOptionalBoolean(
-          environmentSource[`${prefix}_PROVIDER_SUPPORTS_WEBSOCKETS`]
-        ) ??
+        readOptionalBoolean(environmentSource.SYMPHONY_PI_PROVIDER_SUPPORTS_WEBSOCKETS) ??
         profileDefaults?.provider.supportsWebsockets ??
         defaultOpenRouterProfile.provider.supportsWebsockets,
       wireApi:
-        readOptionalString(environmentSource[`${prefix}_PROVIDER_WIRE_API`]) ??
+        readOptionalString(environmentSource.SYMPHONY_PI_PROVIDER_WIRE_API) ??
         profileDefaults?.provider.wireApi ??
         defaultOpenRouterProfile.provider.wireApi
-    }
+    },
+    turnTimeoutMs: readPositiveInteger(
+      environmentSource.SYMPHONY_PI_TURN_TIMEOUT_MS,
+      3_600_000
+    ),
+    readTimeoutMs: readPositiveInteger(
+      environmentSource.SYMPHONY_PI_READ_TIMEOUT_MS,
+      5_000
+    ),
+    stallTimeoutMs: readPositiveInteger(
+      environmentSource.SYMPHONY_PI_STALL_TIMEOUT_MS,
+      300_000
+    )
   };
 }
 
-function readAgentHarness(
-  value: string | undefined
-): "codex" | "opencode" | "pi" | null {
-  const normalized = readOptionalString(value);
-  if (normalized === null) {
-    return null;
-  }
-
-  if (normalized === "codex" || normalized === "opencode" || normalized === "pi") {
-    return normalized;
-  }
-
-  throw new TypeError(
-    `Invalid Symphony runtime policy: expected SYMPHONY_AGENT_HARNESS to be one of codex, opencode, pi, received ${JSON.stringify(value)}.`
-  );
-}
-
-function resolveCodexProfileDefaults(
+function resolvePiProfileDefaults(
   profile: string | null
-): typeof gpt54Profile | typeof glm5TurboProfile | typeof mimoV2ProProfile | null {
+): typeof glm5TurboProfile | typeof mimoV2ProProfile | null {
   if (profile === null) {
     return defaultOpenRouterProfile;
   }
 
   switch (profile.trim().toLowerCase()) {
-    case gpt54Profile.profile:
-      return gpt54Profile;
     case mimoV2ProProfile.profile:
       return mimoV2ProProfile;
     case glm5TurboProfile.profile:

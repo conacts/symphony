@@ -76,13 +76,8 @@ describe("docker workspace backend", () => {
       image: "ghcr.io/openai/symphony-workspace:latest",
       hostFileMounts: [
         {
-          sourcePath: "/Users/test/.codex/auth.json",
-          containerPath: "/home/agent/auth.json",
-          readOnly: true
-        },
-        {
-          sourcePath: "/Users/test/.local/share/opencode/auth.json",
-          containerPath: "/home/agent/.local/share/opencode/auth.json",
+          sourcePath: "/Users/test/.pi/agent/auth.json",
+          containerPath: "/home/agent/.pi/agent/auth.json",
           readOnly: true
         }
       ],
@@ -124,9 +119,7 @@ describe("docker workspace backend", () => {
     expect(calls.find((call) => call[0] === "run")).toEqual(
       expect.arrayContaining([
         "--mount",
-        "type=bind,src=/Users/test/.codex/auth.json,dst=/home/agent/auth.json,readonly",
-        "--mount",
-        "type=bind,src=/Users/test/.local/share/opencode/auth.json,dst=/home/agent/.local/share/opencode/auth.json,readonly"
+        "type=bind,src=/Users/test/.pi/agent/auth.json,dst=/home/agent/.pi/agent/auth.json,readonly"
       ])
     );
   });

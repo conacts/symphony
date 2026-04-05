@@ -4,35 +4,14 @@ import type {
   SymphonyAgentHarnessModule
 } from "./types.js";
 
-export type HarnessModelRuntimePolicy =
-  SymphonyAgentRuntimeConfig["codex"] extends infer TCodex
-    ? TCodex extends {
-        profile: infer TProfile;
-        defaultModel: infer TModel;
-        defaultReasoningEffort: infer TReasoning;
-        provider: infer TProvider;
-      }
-      ? {
-          profile: TProfile;
-          defaultModel: TModel;
-          defaultReasoningEffort: TReasoning;
-          provider: TProvider;
-        }
-      : never
-    : never;
+export type HarnessModelRuntimePolicy = SymphonyAgentRuntimeConfig["pi"];
 
 export function resolveHarnessModelRuntimePolicy(
   runtimePolicy: SymphonyAgentRuntimeConfig,
   harnessKind: SymphonyAgentHarnessKind = runtimePolicy.agent.harness
 ): HarnessModelRuntimePolicy {
-  switch (harnessKind) {
-    case "codex":
-      return runtimePolicy.codex;
-    case "opencode":
-      return runtimePolicy.opencode;
-    case "pi":
-      return runtimePolicy.pi;
-  }
+  void harnessKind;
+  return runtimePolicy.pi;
 }
 
 export function resolveHarnessProviderEnvKey(
@@ -46,5 +25,6 @@ export function resolveHarnessModuleModelRuntimePolicy(
   runtimePolicy: SymphonyAgentRuntimeConfig,
   harness: Pick<SymphonyAgentHarnessModule, "definition">
 ): HarnessModelRuntimePolicy {
-  return resolveHarnessModelRuntimePolicy(runtimePolicy, harness.definition.kind);
+  void harness;
+  return runtimePolicy.pi;
 }

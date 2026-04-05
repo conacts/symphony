@@ -10,6 +10,16 @@ import {
 function createRuntimePolicy(
   overrides: Partial<SymphonyAgentRuntimeConfig> = {}
 ): SymphonyAgentRuntimeConfig {
+  const {
+    tracker,
+    workspace,
+    agent,
+    codex,
+    opencode,
+    pi,
+    hooks
+  } = overrides;
+
   return {
     tracker: {
       kind: "linear",
@@ -24,14 +34,17 @@ function createRuntimePolicy(
       claimTransitionToState: "Bootstrapping",
       claimTransitionFromStates: ["Todo", "Rework"],
       startupFailureTransitionToState: "Failed",
-      pauseTransitionToState: "Paused"
+      pauseTransitionToState: "Paused",
+      ...tracker
     },
     workspace: {
-      root: "/workspace"
+      root: "/workspace",
+      ...workspace
     },
     agent: {
-      harness: "codex",
-      maxTurns: 20
+      harness: "pi",
+      maxTurns: 20,
+      ...agent
     },
     codex: {
       command: "codex",
@@ -50,20 +63,9 @@ function createRuntimePolicy(
         wireApi: "responses"
       },
       turnTimeoutMs: 3_600_000,
-      readTimeoutMs: 5_000
-    },
-    opencode: {
-      profile: "glm-5-turbo",
-      defaultModel: "z-ai/glm-5-turbo",
-      defaultReasoningEffort: "high",
-      provider: {
-        id: "openrouter",
-        name: "OpenRouter",
-        baseUrl: "https://openrouter.ai/api/v1",
-        envKey: "OPENROUTER_API_KEY",
-        supportsWebsockets: false,
-        wireApi: "responses"
-      }
+      readTimeoutMs: 5_000,
+      stallTimeoutMs: 300_000,
+      ...codex
     },
     pi: {
       profile: "mimo-v2-pro",
@@ -76,17 +78,28 @@ function createRuntimePolicy(
         envKey: "OPENROUTER_API_KEY",
         supportsWebsockets: false,
         wireApi: "responses"
-      }
+      },
+      turnTimeoutMs: 3_600_000,
+      readTimeoutMs: 5_000,
+      stallTimeoutMs: 300_000,
+      ...pi
+    },
+    opencode: {
+      profile: null,
+      defaultModel: null,
+      defaultReasoningEffort: null,
+      provider: null,
+      ...opencode
     },
     hooks: {
-      timeoutMs: 150_000
-    },
-    ...overrides
+      timeoutMs: 150_000,
+      ...hooks
+    }
   };
 }
 
 describe("harness runtime policy helpers", () => {
-  it("resolves the active harness model policy without falling back to codex defaults", () => {
+  it("resolves the active harness model policy from the Pi runtime block", () => {
     const config = createRuntimePolicy({
       agent: {
         harness: "pi",
@@ -98,21 +111,12 @@ describe("harness runtime policy helpers", () => {
     expect(resolveHarnessProviderEnvKey(config)).toBe("OPENROUTER_API_KEY");
   });
 
-  it("resolves module-scoped policy for non-active harnesses", () => {
-    const config = createRuntimePolicy({
-      agent: {
-        harness: "pi",
-        maxTurns: 20
-      }
-    });
-    const opencode = resolveAgentHarnessModule("opencode");
+  it("resolves module-scoped policy for the Pi harness", () => {
+    const config = createRuntimePolicy();
+    const pi = resolveAgentHarnessModule("pi");
 
-    expect(resolveHarnessModuleModelRuntimePolicy(config, opencode)).toEqual(
-      config.opencode
-    );
-    expect(resolveHarnessProviderEnvKey(config, "opencode")).toBe(
-      "OPENROUTER_API_KEY"
-    );
+    expect(resolveHarnessModuleModelRuntimePolicy(config, pi)).toEqual(config.pi);
+    expect(resolveHarnessProviderEnvKey(config, "pi")).toBe("OPENROUTER_API_KEY");
   });
 
   it("returns null when the selected harness does not require a provider env key", () => {
@@ -125,7 +129,10 @@ describe("harness runtime policy helpers", () => {
         profile: "mimo-v2-pro",
         defaultModel: "xiaomi/mimo-v2-pro",
         defaultReasoningEffort: "high",
-        provider: null
+        provider: null,
+        turnTimeoutMs: 3_600_000,
+        readTimeoutMs: 5_000,
+        stallTimeoutMs: 300_000
       }
     });
 

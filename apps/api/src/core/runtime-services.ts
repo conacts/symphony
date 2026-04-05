@@ -178,14 +178,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const dockerAuth = resolveDockerWorkspaceAuthContracts(hostCommandEnvSource, {
     preferredApiKeyEnvKey: harnessProviderEnvKey
   });
-  const dockerCodexAuth = dockerAuth.codex;
-  const dockerOpenCodeAuth = dockerAuth.opencode;
   const dockerPiAuth = dockerAuth.pi;
 
-  if (runtimeHarness.kind === "codex" && dockerCodexAuth.mode === "unavailable") {
+  if (dockerPiAuth.mount === null && Object.keys(dockerPiAuth.launchEnv).length === 0) {
     throw new HarnessSessionError(
-      "codex_auth_unavailable",
-      "Docker-backed Symphony workspaces require host-owned Codex auth. Provide ~/.codex/auth.json (or $CODEX_HOME/auth.json) for subscription auth, or set the configured provider API key env as a host-only fallback."
+      "pi_auth_unavailable",
+      "Docker-backed Symphony workspaces require Pi auth. Provide ~/.pi/agent/auth.json for subscription auth, or set the configured provider API key env on the host."
     );
   }
 
@@ -196,14 +194,13 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const workspaceBackendPayload = {
     workspaceRoot: runtimePolicy.workspace.root,
     ...workspaceBackendSelection.metadata,
-    dockerCodexAuthMode: dockerCodexAuth?.mode ?? null,
-    dockerOpenCodeAuthMounted: dockerOpenCodeAuth.mount !== null,
-    dockerPiAuthMounted: dockerPiAuth.mount !== null
+    dockerPiAuthMounted: dockerPiAuth.mount !== null,
+    dockerPiProviderEnvKey: dockerPiAuth.providerEnvKey,
+    dockerPiProviderEnvMounted:
+      dockerPiAuth.providerEnvKey !== null &&
+      Object.prototype.hasOwnProperty.call(dockerPiAuth.launchEnv, dockerPiAuth.providerEnvKey)
   };
-  const harnessLaunchEnv =
-    runtimeHarness.kind === "pi"
-      ? dockerPiAuth.launchEnv
-      : dockerCodexAuth?.launchEnv ?? {};
+  const harnessLaunchEnv = dockerPiAuth.launchEnv;
   let dockerPreflight: SymphonyDockerWorkspacePreflightResult | null = null;
   if (workspaceBackendSelection.metadata.backendKind === "docker") {
     try {
@@ -280,9 +277,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       codexAnalytics,
       runtimeLogs: runtimeLogStore,
       hostCommandEnvSource,
-      codexHostLaunchEnv: harnessLaunchEnv,
-      codexAuthMode: dockerCodexAuth?.mode ?? null,
-      codexProviderEnvKey: harnessProviderEnvKey,
+      harnessLaunchEnv,
+      harnessAuthMode: dockerPiAuth.mount ? "auth_json" : "api_key_env",
+      harnessProviderEnvKey: harnessProviderEnvKey,
       logger,
       callbacks: {
         async onUpdate(issueId, update) {

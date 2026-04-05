@@ -33,6 +33,9 @@ export type SymphonyAgentRuntimeConfig = {
       supportsWebsockets: boolean | null;
       wireApi: string | null;
     } | null;
+    turnTimeoutMs: number;
+    readTimeoutMs: number;
+    stallTimeoutMs: number;
   };
   codex: {
     command: string;
@@ -52,6 +55,7 @@ export type SymphonyAgentRuntimeConfig = {
     } | null;
     turnTimeoutMs: number;
     readTimeoutMs: number;
+    stallTimeoutMs: number;
   };
   hooks: Pick<WorkspaceHooksConfig, "timeoutMs">;
 };

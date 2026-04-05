@@ -115,19 +115,19 @@ describe("runtime services", () => {
     ).rejects.toThrowError(/Required host environment variable OPENAI_API_KEY is missing/i);
   });
 
-  it("fails fast when docker-backed runs do not have host-owned Codex auth", async () => {
+  it("fails fast when docker-backed runs do not have Pi auth or a provider api key", async () => {
     await expect(
       createSymphonyRuntimeAppServicesHarness({
         hostCommandEnvSource: {}
       })
-    ).rejects.toThrowError(/Docker-backed Symphony workspaces require host-owned Codex auth/i);
+    ).rejects.toThrowError(/Docker-backed Symphony workspaces require Pi auth/i);
   });
 
-  it("accepts an OpenRouter api key when the mimo-v2-pro profile is selected", async () => {
+  it("accepts an OpenRouter api key for the Pi default profile", async () => {
     const harness = await createSymphonyRuntimeAppServicesHarness({
       environmentSource: {
         LINEAR_API_KEY: "test-linear-api-key",
-        SYMPHONY_CODEX_PROFILE: "mimo-v2-pro"
+        SYMPHONY_PI_PROFILE: "mimo-v2-pro"
       },
       hostCommandEnvSource: {
         OPENROUTER_API_KEY: "test-openrouter-api-key"
@@ -135,14 +135,15 @@ describe("runtime services", () => {
     });
     harnesses.push(harness);
 
-    expect(harness.services.runtimePolicy.codex.profile).toBe("mimo-v2-pro");
-    expect(harness.services.runtimePolicy.codex.defaultModel).toBe(
+    expect(harness.services.runtimePolicy.agent.harness).toBe("pi");
+    expect(harness.services.runtimePolicy.pi.profile).toBe("mimo-v2-pro");
+    expect(harness.services.runtimePolicy.pi.defaultModel).toBe(
       "xiaomi/mimo-v2-pro"
     );
-    expect(harness.services.runtimePolicy.codex.defaultReasoningEffort).toBe(
+    expect(harness.services.runtimePolicy.pi.defaultReasoningEffort).toBe(
       "high"
     );
-    expect(harness.services.runtimePolicy.codex.provider).toEqual({
+    expect(harness.services.runtimePolicy.pi.provider).toEqual({
       id: "openrouter",
       name: "OpenRouter",
       baseUrl: "https://openrouter.ai/api/v1",
@@ -152,26 +153,9 @@ describe("runtime services", () => {
     });
   });
 
-  it("loads runtime services when the opencode harness is configured", async () => {
+  it("loads runtime services with the Pi harness by default", async () => {
     const harness = await createSymphonyRuntimeAppServicesHarness({
       environmentSource: {
-        SYMPHONY_AGENT_HARNESS: "opencode",
-        SYMPHONY_OPENCODE_PROFILE: "glm-5-turbo"
-      }
-    });
-    harnesses.push(harness);
-
-    expect(harness.services.runtimePolicy.agent.harness).toBe("opencode");
-    expect(harness.services.runtimePolicy.opencode.profile).toBe("glm-5-turbo");
-    expect(harness.services.runtimePolicy.opencode.defaultModel).toBe(
-      "z-ai/glm-5-turbo"
-    );
-  });
-
-  it("loads runtime services when the pi harness is configured", async () => {
-    const harness = await createSymphonyRuntimeAppServicesHarness({
-      environmentSource: {
-        SYMPHONY_AGENT_HARNESS: "pi",
         SYMPHONY_PI_PROFILE: "mimo-v2-pro"
       },
       hostCommandEnvSource: {
@@ -226,7 +210,8 @@ describe("runtime services", () => {
     expect(selectedBackendLog?.payload).toEqual(
       expect.objectContaining({
         dockerPiAuthMounted: true,
-        dockerCodexAuthMode: "api_key_env"
+        dockerPiProviderEnvKey: "OPENROUTER_API_KEY",
+        dockerPiProviderEnvMounted: true
       })
     );
   });

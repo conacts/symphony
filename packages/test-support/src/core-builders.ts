@@ -60,7 +60,7 @@ export function buildSymphonyRuntimePolicy(
       ...overrides.worker
     },
     agent: {
-      harness: "codex",
+      harness: "pi",
       maxConcurrentAgents: 10,
       maxTurns: 20,
       maxRetryBackoffMs: 300_000,
@@ -79,6 +79,9 @@ export function buildSymphonyRuntimePolicy(
       defaultModel: null,
       defaultReasoningEffort: null,
       provider: null,
+      turnTimeoutMs: 3_600_000,
+      readTimeoutMs: 5_000,
+      stallTimeoutMs: 300_000,
       ...overrides.pi
     },
     codex: {

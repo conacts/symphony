@@ -36,7 +36,7 @@ export function classifyStartupFailureOrigin(
   }
 
   if (stage === "runtime_session_start") {
-    return "codex_startup";
+    return "pi_startup";
   }
 
   if (stage === "runtime_launch") {
@@ -89,8 +89,8 @@ function classifyContractFailureOrigin(
     }
   }
 
-  if (readString(asRecord(error)?.code) === "codex_auth_unavailable") {
-    return "codex_auth_contract";
+  if (readString(asRecord(error)?.code) === "pi_auth_unavailable") {
+    return "pi_auth_contract";
   }
 
   if (error instanceof SymphonyWorkspaceError) {

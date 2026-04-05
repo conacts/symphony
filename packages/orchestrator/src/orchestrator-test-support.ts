@@ -102,6 +102,9 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         defaultModel: null,
         defaultReasoningEffort: null,
         provider: null,
+        turnTimeoutMs: 3_600_000,
+        readTimeoutMs: 5_000,
+        stallTimeoutMs: 300_000,
         ...overrides.runtime?.pi
       },
       codex: {
@@ -115,6 +118,7 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         provider: null,
         turnTimeoutMs: 3_600_000,
         readTimeoutMs: 5_000,
+        stallTimeoutMs: 300_000,
         ...overrides.runtime?.codex
       },
       hooks: {

@@ -42,7 +42,7 @@ export type SymphonyWorkerRuntimePolicy = {
 export type SymphonyWorkflowWorkerConfig = SymphonyWorkerRuntimePolicy;
 
 export type SymphonyAgentRuntimePolicy = {
-  harness: "codex" | "opencode" | "pi";
+  harness: "pi";
   maxConcurrentAgents: number;
   maxTurns: number;
   maxRetryBackoffMs: number;
@@ -77,6 +77,11 @@ export type SymphonyCodexRuntimePolicy = SymphonyHarnessModelRuntimePolicy & {
 };
 export type SymphonyWorkflowCodexConfig = SymphonyCodexRuntimePolicy;
 export type SymphonyWorkflowHarnessModelConfig = SymphonyHarnessModelRuntimePolicy;
+export type SymphonyPiRuntimePolicy = SymphonyHarnessModelRuntimePolicy & {
+  turnTimeoutMs: number;
+  readTimeoutMs: number;
+  stallTimeoutMs: number;
+};
 
 export type SymphonyHooksRuntimePolicy = {
   afterCreate: string | null;
@@ -119,7 +124,7 @@ export type SymphonyResolvedRuntimePolicy = {
   agent: SymphonyAgentRuntimePolicy;
   codex: SymphonyCodexRuntimePolicy;
   opencode: SymphonyHarnessModelRuntimePolicy;
-  pi: SymphonyHarnessModelRuntimePolicy;
+  pi: SymphonyPiRuntimePolicy;
   hooks: SymphonyHooksRuntimePolicy;
   observability: SymphonyObservabilityRuntimePolicy;
   server: SymphonyServerRuntimePolicy;
@@ -164,7 +169,7 @@ export function resolveRuntimePolicy(
   const agent = normalizeAgentConfig(effectiveRawConfig.agent);
   const codex = normalizeCodexConfig(effectiveRawConfig.codex);
   const opencode = normalizeHarnessModelConfig(effectiveRawConfig.opencode);
-  const pi = normalizeHarnessModelConfig(effectiveRawConfig.pi);
+  const pi = normalizePiConfig(effectiveRawConfig.pi);
   const hooks = normalizeHooksConfig(effectiveRawConfig.hooks);
   const observability = normalizeObservabilityConfig(
     effectiveRawConfig.observability
@@ -294,19 +299,17 @@ function normalizeWorkerConfig(value: unknown): SymphonyWorkerRuntimePolicy {
 
 function normalizeAgentConfig(value: unknown): SymphonyAgentRuntimePolicy {
   const agent = getNestedRecord(value);
-  const normalizedHarness = normalizeOptionalString(agent.harness) ?? "codex";
+  const normalizedHarness = normalizeOptionalString(agent.harness) ?? "pi";
 
-  if (!["codex", "opencode", "pi"].includes(normalizedHarness)) {
+  if (normalizedHarness !== "pi") {
     throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
-      "agent.harness must be one of: codex, opencode, pi."
+      "agent.harness must be pi."
     );
   }
 
-  const harness = normalizedHarness as SymphonyAgentRuntimePolicy["harness"];
-
   return {
-    harness,
+    harness: "pi",
     maxConcurrentAgents: normalizePositiveInteger(
       agent.maxConcurrentAgents,
       10,
@@ -333,6 +336,29 @@ function normalizeHarnessModelConfig(
     defaultModel: normalizeOptionalString(config.defaultModel),
     defaultReasoningEffort: normalizeOptionalString(config.defaultReasoningEffort),
     provider: normalizeHarnessProviderConfig(config.provider)
+  };
+}
+
+function normalizePiConfig(value: unknown): SymphonyPiRuntimePolicy {
+  const pi = getNestedRecord(value);
+
+  return {
+    ...normalizeHarnessModelConfig(pi),
+    turnTimeoutMs: normalizePositiveInteger(
+      pi.turnTimeoutMs,
+      3_600_000,
+      "pi.turnTimeoutMs"
+    ),
+    readTimeoutMs: normalizePositiveInteger(
+      pi.readTimeoutMs,
+      5_000,
+      "pi.readTimeoutMs"
+    ),
+    stallTimeoutMs: normalizeNonNegativeInteger(
+      pi.stallTimeoutMs,
+      300_000,
+      "pi.stallTimeoutMs"
+    )
   };
 }
 

@@ -24,7 +24,7 @@ import {
   buildSymphonyRuntimeTrackerIssue,
   buildSymphonyRuntimePolicyForRoot
 } from "../test-support/create-symphony-runtime-test-harness.js";
-import { resolveDockerCodexAuthContract } from "./codex-auth-contract.js";
+import { resolveDockerPiAuthContract } from "./codex-auth-contract.js";
 import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
 
 const execFileAsync = promisify(execFile);
@@ -358,7 +358,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         const workspaceRoot = path.join(root, "workspaces");
         const repoRoot = path.join(root, "repo");
         const home = path.join(root, "home");
-        const authDir = path.join(home, ".codex");
+        const authDir = path.join(home, ".pi", "agent");
 
         await mkdir(workspaceRoot, { recursive: true });
         await mkdir(path.join(repoRoot, ".symphony"), { recursive: true });
@@ -370,16 +370,16 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         );
 
         const runtimeManifest = buildLiveDockerContractManifest(repoRoot);
-        const dockerCodexAuth = resolveDockerCodexAuthContract({
+        const dockerPiAuth = resolveDockerPiAuthContract({
           HOME: home
         });
-        expect(dockerCodexAuth.mode).toBe("auth_json");
+        expect(dockerPiAuth.authFilePath).toBe(path.join(authDir, "auth.json"));
 
         const backend = createDockerWorkspaceBackend({
           image,
           runtimeManifest,
           hostFileMounts:
-            dockerCodexAuth.mount === null ? [] : [dockerCodexAuth.mount],
+            dockerPiAuth.mount === null ? [] : [dockerPiAuth.mount],
           commandTimeoutMs: 30_000
         });
 
@@ -403,7 +403,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
             GITHUB_TOKEN: "host-github-token",
             REPO_ONLY_SECRET: "repo-secret",
             OPTIONAL_REPO_VALUE: "repo-optional",
-            ...(dockerCodexAuth.launchEnv ?? {})
+            ...dockerPiAuth.launchEnv
           }
         });
 
@@ -418,7 +418,6 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         expect(workspace.envBundle.source).toBe("manifest");
         expect(workspace.envBundle.values).toMatchObject({
           GITHUB_TOKEN: "host-github-token",
-          CODEX_HOME: "/home/agent",
           REPO_ONLY_SECRET: "repo-secret",
           OPTIONAL_REPO_VALUE: "repo-optional",
           STATIC_MARKER: "present",
@@ -441,8 +440,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
           optionalRepoValue: "repo-optional",
           staticMarker: "present",
           backendKind: "docker",
-          codexHome: "/home/agent",
-          openAiApiKey: null,
+          piAuthPath: "/home/agent/.pi/agent/auth.json",
           authExists: true,
           authStatusCode: 0
         });
@@ -466,7 +464,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
     );
 
     it(
-      "fails preflight against the real image when the codex binary is missing",
+      "fails preflight against the real image when the pi binary is missing",
       async () => {
         await assertDockerAvailable();
         const root = await mkdtemp(
@@ -476,10 +474,10 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
 
         await expect(
           preflightSymphonyDockerWorkspaceImage({
-            image: await buildLocalImageWithoutCodex(root),
+            image: await buildLocalImageWithoutPi(root),
             timeoutMs: 30_000
           })
-        ).rejects.toThrowError(/missing required tools: .*codex/i);
+        ).rejects.toThrowError(/missing required tools: .*pi/i);
       },
       120_000
     );
@@ -504,20 +502,15 @@ function buildLiveDockerContractManifest(
 ): SymphonyLoadedRuntimeManifest {
   const contractReportScript =
     'const fs=require("node:fs");' +
-    'const {spawnSync}=require("node:child_process");' +
-    'const authStatusResult=spawnSync("codex",["login","status"],{encoding:"utf8"});' +
     'const report={' +
     'githubToken:process.env.GITHUB_TOKEN??null,' +
     'repoOnlySecret:process.env.REPO_ONLY_SECRET??null,' +
     'optionalRepoValue:process.env.OPTIONAL_REPO_VALUE??null,' +
     'staticMarker:process.env.STATIC_MARKER??null,' +
     'backendKind:process.env.SYMPHONY_BACKEND_KIND??null,' +
-    'codexHome:process.env.CODEX_HOME??null,' +
-    'openAiApiKey:process.env.OPENAI_API_KEY??null,' +
-    'authExists:fs.existsSync(((process.env.CODEX_HOME??process.env.HOME??""))+"/auth.json"),' +
-    'authStatusCode:authStatusResult.status,' +
-    'authStatus:authStatusResult.stdout.trim(),' +
-    'authStatusError:authStatusResult.stderr.trim()' +
+    'piAuthPath:(process.env.HOME??"")+"/.pi/agent/auth.json",' +
+    'authExists:fs.existsSync(((process.env.HOME??""))+"/.pi/agent/auth.json"),' +
+    'authStatusCode:fs.existsSync(((process.env.HOME??""))+"/.pi/agent/auth.json")?0:1' +
     '};' +
     'fs.writeFileSync(".symphony-contract-report.json",JSON.stringify(report));';
 
@@ -532,7 +525,7 @@ function buildLiveDockerContractManifest(
         env: {
           host: {
             required: ["GITHUB_TOKEN", "REPO_ONLY_SECRET"],
-            optional: ["CODEX_HOME", "OPTIONAL_REPO_VALUE"]
+            optional: ["OPTIONAL_REPO_VALUE"]
           },
           inject: {
           STATIC_MARKER: {
@@ -561,9 +554,9 @@ function buildLiveDockerContractManifest(
   };
 }
 
-async function buildLocalImageWithoutCodex(root: string): Promise<string> {
-  const imageTag = `symphony/workspace-runner:no-codex-${Date.now()}`;
-  const dockerfileDir = path.join(root, "no-codex-image");
+async function buildLocalImageWithoutPi(root: string): Promise<string> {
+  const imageTag = `symphony/workspace-runner:no-pi-${Date.now()}`;
+  const dockerfileDir = path.join(root, "no-pi-image");
 
   await mkdir(dockerfileDir, {
     recursive: true
@@ -572,7 +565,7 @@ async function buildLocalImageWithoutCodex(root: string): Promise<string> {
     path.join(dockerfileDir, "Dockerfile"),
     [
       "FROM symphony/workspace-runner:local",
-      "RUN rm -f /usr/local/bin/codex"
+      "RUN rm -f /usr/local/bin/pi"
     ].join("\n"),
     "utf8"
   );

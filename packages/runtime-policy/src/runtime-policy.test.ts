@@ -16,12 +16,12 @@ describe("resolveRuntimePolicy", () => {
     ]);
     expect(config.tracker.terminalStates).toEqual(["Canceled", "Done"]);
     expect(config.workspace.root).toContain("symphony_workspaces");
-    expect(config.agent.harness).toBe("codex");
+    expect(config.agent.harness).toBe("pi");
     expect(config.agent.maxConcurrentAgents).toBe(10);
     expect(config.opencode.defaultModel).toBeNull();
     expect(config.pi.defaultModel).toBeNull();
-    expect(config.codex.approvalPolicy).toBe("never");
-    expect(config.codex.threadSandbox).toBe("danger-full-access");
+    expect(config.pi.turnTimeoutMs).toBe(3_600_000);
+    expect(config.pi.stallTimeoutMs).toBe(300_000);
   });
 
   it("resolves env-backed tracker values explicitly", () => {
@@ -59,19 +59,19 @@ describe("resolveRuntimePolicy", () => {
     ).toThrowError(SymphonyRuntimePolicyError);
   });
 
-  it("accepts explicit harness selection", () => {
-    const config = resolveRuntimePolicy(
-      {
-        tracker: {
-          kind: "memory"
+  it("rejects non-pi harness selections", () => {
+    expect(() =>
+      resolveRuntimePolicy(
+        {
+          tracker: {
+            kind: "memory"
+          },
+          agent: {
+            harness: "opencode"
+          }
         },
-        agent: {
-          harness: "opencode"
-        }
-      },
-      {}
-    );
-
-    expect(config.agent.harness).toBe("opencode");
+        {}
+      )
+    ).toThrowError(/agent\.harness must be pi/i);
   });
 });

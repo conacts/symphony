@@ -33,9 +33,9 @@ export type SymphonyStartupFailureOrigin =
   | "repo_env_contract"
   | "image_tooling_contract"
   | "docker_backend_contract"
-  | "codex_auth_contract"
+  | "pi_auth_contract"
   | "runtime_launch"
-  | "codex_startup";
+  | "pi_startup";
 
 export type SymphonyRunningEntry = {
   issue: SymphonyTrackerIssue;

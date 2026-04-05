@@ -237,7 +237,10 @@ function toSymphonyOrchestratorConfig(
         profile: runtimePolicy.pi.profile,
         defaultModel: runtimePolicy.pi.defaultModel,
         defaultReasoningEffort: runtimePolicy.pi.defaultReasoningEffort,
-        provider: runtimePolicy.pi.provider
+        provider: runtimePolicy.pi.provider,
+        turnTimeoutMs: runtimePolicy.pi.turnTimeoutMs,
+        readTimeoutMs: runtimePolicy.pi.readTimeoutMs,
+        stallTimeoutMs: runtimePolicy.pi.stallTimeoutMs
       },
       codex: {
         command: runtimePolicy.codex.command,
@@ -249,7 +252,8 @@ function toSymphonyOrchestratorConfig(
         defaultReasoningEffort: runtimePolicy.codex.defaultReasoningEffort,
         provider: runtimePolicy.codex.provider,
         turnTimeoutMs: runtimePolicy.codex.turnTimeoutMs,
-        readTimeoutMs: runtimePolicy.codex.readTimeoutMs
+        readTimeoutMs: runtimePolicy.codex.readTimeoutMs,
+        stallTimeoutMs: runtimePolicy.codex.stallTimeoutMs
       },
       hooks: {
         timeoutMs: runtimePolicy.hooks.timeoutMs
