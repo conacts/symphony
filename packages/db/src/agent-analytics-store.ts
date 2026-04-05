@@ -679,7 +679,7 @@ function upsertItemLifecycleRecord(
       )
     )
     .get();
-  const itemStatus = extractItemStatus(context.input.payload);
+  const itemStatus = deriveItemLifecycleStatus(context.input, item);
   const startedAt = existingItem?.startedAt ?? context.input.recordedAt;
   const completedAt =
     context.input.payload.type === "item.completed"
@@ -733,6 +733,31 @@ function upsertItemLifecycleRecord(
       )
     )
     .run();
+}
+
+function deriveItemLifecycleStatus(
+  input: AgentAnalyticsEventInput,
+  item: ThreadItem
+): string | null {
+  const directStatus = extractItemStatus(input.payload);
+  if (directStatus) {
+    return directStatus;
+  }
+
+  if (item.type !== "todo_list") {
+    return null;
+  }
+
+  const snapshot = buildTaskSnapshotProjection(input, item);
+  if (!snapshot || snapshot.items.length === 0) {
+    return "in_progress";
+  }
+
+  return snapshot.items.every(
+    (task) => task.state === "completed" || task.state === "cancelled"
+  )
+    ? "completed"
+    : "in_progress";
 }
 
 function projectThreadItem(

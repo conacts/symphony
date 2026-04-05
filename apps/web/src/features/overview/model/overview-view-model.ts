@@ -314,7 +314,7 @@ function buildPiTelemetryCards(
       detail: `${formatCount(totals.commandExecutions)} commands observed across the sampled runs.`
     },
     {
-      label: "Reasoning blocks",
+      label: "Reasoning",
       value: formatCount(totals.reasoningBlocks),
       detail: `${formatCount(totals.fileChanges)} file changes were recorded in the same sampled runs.`
     },

@@ -578,7 +578,7 @@ describe("sqlite codex analytics store", () => {
         turnId,
         itemId: "pi-todo-queue",
         itemType: "todo_list",
-        finalStatus: null,
+        finalStatus: "in_progress",
         latestPreview:
           "[ ] [Steering] Keep the patch scoped; [ ] [Follow-up] Summarize the changes"
       });

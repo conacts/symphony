@@ -104,7 +104,7 @@ export function buildSymphonyRuntimeSummaryViewModel(
         detail: "1 commands observed across the sampled runs."
       },
       {
-        label: "Reasoning blocks",
+        label: "Reasoning",
         value: "1",
         detail: "2 file changes were recorded in the same sampled runs."
       },

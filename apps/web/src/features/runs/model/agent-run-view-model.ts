@@ -293,7 +293,7 @@ export function buildAgentRunViewModel(input: {
       {
         label: "Messages",
         value: formatCount(agentRun?.agentMessageCount ?? 0),
-        detail: `${formatCount(agentRun?.reasoningCount ?? 0)} reasoning blocks`
+        detail: `${formatCount(agentRun?.reasoningCount ?? 0)} reasoning`
       }
     ],
     metadata: [
@@ -697,7 +697,7 @@ function mapTranscriptEntry(input: {
   fileChanges: SymphonyAgentFileChangeRecord[];
 }): AgentRunTranscriptEntry {
   const recordedAt = formatTimestamp(itemRecordedAt(input.item));
-  const status = formatStatusLabel(input.item.finalStatus ?? "in_progress");
+  const status = formatTranscriptEntryStatus(input.item, input.taskSnapshot);
   const files = input.fileChanges.map((fileChange) => ({
     path: fileChange.path,
     changeKind: formatLabel(fileChange.changeKind)
@@ -888,6 +888,29 @@ function itemRecordedAt(item: SymphonyAgentItemRecord): string {
 
 function formatNullableDuration(durationMs: number | null): string {
   return durationMs === null ? "In progress" : formatDuration(durationMs / 1000);
+}
+
+function formatTranscriptEntryStatus(
+  item: SymphonyAgentItemRecord,
+  taskSnapshot: SymphonyAgentTaskSnapshotRecord | null
+): string {
+  return formatStatusLabel(
+    deriveTaskSnapshotLifecycleStatus(taskSnapshot) ?? item.finalStatus ?? "in_progress"
+  );
+}
+
+function deriveTaskSnapshotLifecycleStatus(
+  taskSnapshot: SymphonyAgentTaskSnapshotRecord | null
+): "completed" | "in_progress" | null {
+  if (!taskSnapshot || taskSnapshot.items.length === 0) {
+    return null;
+  }
+
+  return taskSnapshot.items.every(
+    (item) => item.state === "completed" || item.state === "cancelled"
+  )
+    ? "completed"
+    : "in_progress";
 }
 
 function formatRepoSnapshot(value: unknown): string {

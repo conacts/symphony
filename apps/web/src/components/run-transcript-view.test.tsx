@@ -32,7 +32,7 @@ describe("run transcript view", () => {
     expect(html).toContain("Turn 1");
     expect(html).toContain("data-slot=\"accordion-trigger\"");
     expect(html).toContain("Tool call");
-    expect(html).toContain("PI reasoning");
+    expect(html).toContain("Reasoning");
     expect(html).toContain("Debug context");
     expect(html).toContain("View full message");
   });

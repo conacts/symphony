@@ -106,75 +106,39 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "reasoning" ? (
-            <Card className="border-dashed">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">PI reasoning</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Reasoning className="mb-0" defaultOpen>
-                  <ReasoningTrigger className="items-center gap-3 hover:text-foreground">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium">
-                        {buildReasoningLabel(entry)}
-                      </span>
-                      <Badge variant="outline">{entry.status}</Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {entry.recordedAt}
-                      </span>
-                    </div>
-                  </ReasoningTrigger>
-                  <ReasoningContent>
-                    {entry.text ?? entry.preview}
-                  </ReasoningContent>
-                </Reasoning>
-                {entry.overflowId ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => input.onOpenOverflow(entry)}
-                  >
-                    View full reasoning
-                  </Button>
-                ) : null}
-              </CardContent>
-            </Card>
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+              <Reasoning className="mb-0" defaultOpen={false}>
+                <ReasoningTrigger className="items-center gap-3 hover:text-foreground">
+                  <span className="text-sm font-medium">
+                    {buildReasoningLabel(entry)}
+                  </span>
+                </ReasoningTrigger>
+                <ReasoningContent>
+                  {entry.text ?? entry.preview}
+                </ReasoningContent>
+              </Reasoning>
+            </div>
           ) : null}
 
           {entry.kind === "pi-read-task" ? (
-            <Card className="border-border/70">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">PI reads</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Task className="mb-0" defaultOpen>
-                  <TaskTrigger title={buildPiReadTaskTitle(entry)} />
-                  <TaskContent>
-                    {entry.paths.length > 0 ? (
-                      entry.paths.map((path) => (
-                        <TaskItem key={`${entry.itemId}:${path}`}>
-                          <TaskItemFile>{path}</TaskItemFile>
-                        </TaskItem>
-                      ))
-                    ) : (
-                      <TaskItem>No file paths were captured for this read.</TaskItem>
-                    )}
-                  </TaskContent>
-                </Task>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <Badge variant="outline">{entry.status}</Badge>
-                  <span>{entry.recordedAt}</span>
-                </div>
-                {entry.overflowId ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => input.onOpenOverflow(entry)}
-                  >
-                    View full read result
-                  </Button>
-                ) : null}
-              </CardContent>
-            </Card>
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+              <Task className="mb-0" defaultOpen={false}>
+                <TaskTrigger title={buildPiReadTaskTitle(entry)} />
+                <TaskContent>
+                  {entry.paths.length > 0 ? (
+                    entry.paths.map((path) => (
+                      <TaskItem key={`${entry.itemId}:${path}`}>
+                        <TaskItemFile>{path}</TaskItemFile>
+                      </TaskItem>
+                    ))
+                  ) : (
+                    <TaskItem>No file paths were captured for this read.</TaskItem>
+                  )}
+                </TaskContent>
+              </Task>
+            </div>
           ) : null}
 
           {entry.kind === "command" ? (
@@ -380,8 +344,8 @@ function EntryFiles(input: {
 
 function buildReasoningLabel(entry: ReasoningEntry): string {
   return entry.segmentCount > 1
-    ? `${entry.segmentCount} reasoning blocks`
-    : "1 reasoning block";
+    ? `${entry.segmentCount} reasoning`
+    : "Reasoning";
 }
 
 function buildPiReadTaskTitle(entry: PiReadTaskEntry): string {
