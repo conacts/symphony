@@ -19,7 +19,7 @@ import {
 import {
   HarnessSessionError,
   type HarnessSession
-} from "./agent-session-types.js";
+} from "@symphony/agent-harnesses";
 import {
   CodexAppServerClient
 } from "./codex-app-server-client.js";

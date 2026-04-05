@@ -32,7 +32,7 @@ import type { SymphonyLogger } from "@symphony/logger";
 import {
   HarnessSessionError,
   type HarnessSessionClient
-} from "./agent-session-types.js";
+} from "@symphony/agent-harnesses";
 import { captureRepoSnapshot } from "./codex-repo-snapshot.js";
 import {
   resolveRuntimeLaunchTarget,

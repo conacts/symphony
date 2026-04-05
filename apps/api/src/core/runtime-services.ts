@@ -22,12 +22,9 @@ import {
 } from "@symphony/db";
 import { loadSymphonyPromptContract } from "@symphony/runtime-contract";
 import { createSymphonyLogger } from "@symphony/logger";
-import { HarnessSessionError } from "./agent-session-types.js";
+import { HarnessSessionError } from "@symphony/agent-harnesses";
 import {
-  resolveDockerCodexAuthContract,
-  resolveDockerGitHubCliAuthContract,
-  resolveDockerOpenCodeAuthContract,
-  resolveDockerPiAuthContract
+  resolveDockerWorkspaceAuthContracts
 } from "./codex-auth-contract.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
@@ -174,18 +171,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     });
   }
 
-  const dockerCodexAuth = resolveDockerCodexAuthContract(hostCommandEnvSource, {
+  const dockerAuth = resolveDockerWorkspaceAuthContracts(hostCommandEnvSource, {
     preferredApiKeyEnvKey: runtimePolicy.codex.provider?.envKey ?? null
   });
-  const dockerGitHubCliAuth = resolveDockerGitHubCliAuthContract(
-    hostCommandEnvSource
-  );
-  const dockerOpenCodeAuth = resolveDockerOpenCodeAuthContract(
-    hostCommandEnvSource
-  );
-  const dockerPiAuth = resolveDockerPiAuthContract(hostCommandEnvSource, {
-    preferredApiKeyEnvKey: runtimePolicy.codex.provider?.envKey ?? null
-  });
+  const dockerCodexAuth = dockerAuth.codex;
+  const dockerOpenCodeAuth = dockerAuth.opencode;
+  const dockerPiAuth = dockerAuth.pi;
 
   if (runtimeHarness.kind === "codex" && dockerCodexAuth.mode === "unavailable") {
     throw new HarnessSessionError(
@@ -195,12 +186,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   }
 
   const workspaceBackendSelection = createRuntimeWorkspaceBackend(env, {
-    dockerHostFileMounts: [
-      ...(dockerCodexAuth?.mount ? [dockerCodexAuth.mount] : []),
-      ...(dockerGitHubCliAuth.mount ? [dockerGitHubCliAuth.mount] : []),
-      ...(dockerOpenCodeAuth.mount ? [dockerOpenCodeAuth.mount] : []),
-      ...(dockerPiAuth.mount ? [dockerPiAuth.mount] : [])
-    ],
+    dockerHostFileMounts: dockerAuth.mounts,
     runtimeManifest: validatedRuntimeManifest?.runtimeManifest ?? null
   });
   const workspaceBackendPayload = {

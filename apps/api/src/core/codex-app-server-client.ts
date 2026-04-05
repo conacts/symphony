@@ -32,7 +32,7 @@ import {
   type HarnessSessionLogger as AppServerLogger,
   type HarnessToolExecutor as AppServerToolExecutor,
   type HarnessTurnResult as AppServerTurnResult
-} from "./agent-session-types.js";
+} from "@symphony/agent-harnesses";
 
 const initializeRequestId = 1;
 const threadStartRequestId = 2;

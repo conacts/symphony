@@ -1,6 +1,6 @@
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyLogger } from "@symphony/logger";
-import type { HarnessToolExecutor } from "./agent-session-types.js";
+import type { HarnessToolExecutor } from "@symphony/agent-harnesses";
 
 export function buildLinearGraphqlToolExecutor(
   runtimePolicy: SymphonyAgentRuntimeConfig,

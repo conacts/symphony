@@ -32,6 +32,7 @@ export type PiAnalyticsProjection = SymphonyAgentHarnessAnalyticsProjection<
 >;
 
 export type PiAnalyticsAdapter = {
+  projectRuntimeEvent: typeof projectPiRuntimeEvent;
   projectSessionHeaderEvent: typeof projectPiSessionHeaderEvent;
   projectTurnStartEvent: typeof projectPiTurnStartEvent;
   projectMessageEndEvent: typeof projectPiMessageEndEvent;
@@ -40,6 +41,29 @@ export type PiAnalyticsAdapter = {
   projectToolExecutionEndEvent: typeof projectPiToolExecutionEndEvent;
   projectTurnEndEvent: typeof projectPiTurnEndEvent;
 };
+
+export function projectPiRuntimeEvent(input: {
+  event: PiJsonRecord;
+}): PiAnalyticsProjection | null {
+  const type = getString(input.event, "type");
+
+  switch (type) {
+    case "turn_start":
+      return projectPiTurnStartEvent();
+    case "message_end":
+      return projectPiMessageEndEvent(input);
+    case "tool_execution_start":
+      return projectPiToolExecutionStartEvent(input);
+    case "tool_execution_update":
+      return projectPiToolExecutionUpdateEvent(input);
+    case "tool_execution_end":
+      return projectPiToolExecutionEndEvent(input);
+    case "turn_end":
+      return projectPiTurnEndEvent(input);
+    default:
+      return null;
+  }
+}
 
 export function projectPiSessionHeaderEvent(input: {
   event: PiJsonRecord;
@@ -378,6 +402,7 @@ function getNumber(
 }
 
 export const piAnalyticsAdapter: PiAnalyticsAdapter = {
+  projectRuntimeEvent: projectPiRuntimeEvent,
   projectSessionHeaderEvent: projectPiSessionHeaderEvent,
   projectTurnStartEvent: projectPiTurnStartEvent,
   projectMessageEndEvent: projectPiMessageEndEvent,

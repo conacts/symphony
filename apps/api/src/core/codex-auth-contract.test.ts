@@ -6,7 +6,8 @@ import {
   resolveDockerCodexAuthContract,
   resolveDockerGitHubCliAuthContract,
   resolveDockerOpenCodeAuthContract,
-  resolveDockerPiAuthContract
+  resolveDockerPiAuthContract,
+  resolveDockerWorkspaceAuthContracts
 } from "./codex-auth-contract.js";
 
 const tempDirectories: string[] = [];
@@ -269,5 +270,37 @@ describe("codex auth contract", () => {
       },
       authFilePath: null
     });
+  });
+
+  it("aggregates docker workspace auth mounts without leaking null entries", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-auth-aggregate-"));
+    tempDirectories.push(root);
+    const home = path.join(root, "home");
+    await mkdir(path.join(home, ".codex"), { recursive: true });
+    await mkdir(path.join(home, ".config", "gh"), { recursive: true });
+    await mkdir(path.join(home, ".local", "share", "opencode"), {
+      recursive: true
+    });
+    await writeFile(path.join(home, ".codex", "auth.json"), '{"ok":true}\n');
+    await writeFile(
+      path.join(home, ".config", "gh", "hosts.yml"),
+      "github.com:\n  oauth_token: test\n",
+      "utf8"
+    );
+    await writeFile(
+      path.join(home, ".local", "share", "opencode", "auth.json"),
+      '{"ok":true}\n'
+    );
+
+    const contracts = resolveDockerWorkspaceAuthContracts({
+      HOME: home
+    });
+
+    expect(contracts.mounts).toEqual([
+      contracts.codex.mount,
+      contracts.githubCli.mount,
+      contracts.opencode.mount
+    ]);
+    expect(contracts.pi.mount).toBeNull();
   });
 });

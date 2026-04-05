@@ -10,14 +10,16 @@ const defaultDockerOpenCodeAuthPath =
 const defaultDockerPiAuthPath =
   "/home/agent/.pi/agent/auth.json";
 
+type DockerReadOnlyMount = {
+  sourcePath: string;
+  containerPath: string;
+  readOnly: true;
+};
+
 export type DockerCodexAuthContract =
   | {
       mode: "auth_json";
-      mount: {
-        sourcePath: string;
-        containerPath: string;
-        readOnly: true;
-      };
+      mount: DockerReadOnlyMount;
       launchEnv: Record<string, string>;
       authFilePath: string;
     }
@@ -36,31 +38,27 @@ export type DockerCodexAuthContract =
     };
 
 export type DockerGitHubCliAuthContract = {
-  mount: {
-    sourcePath: string;
-    containerPath: string;
-    readOnly: true;
-  } | null;
+  mount: DockerReadOnlyMount | null;
   configDirectoryPath: string | null;
 };
 
 export type DockerOpenCodeAuthContract = {
-  mount: {
-    sourcePath: string;
-    containerPath: string;
-    readOnly: true;
-  } | null;
+  mount: DockerReadOnlyMount | null;
   authFilePath: string | null;
 };
 
 export type DockerPiAuthContract = {
-  mount: {
-    sourcePath: string;
-    containerPath: string;
-    readOnly: true;
-  } | null;
+  mount: DockerReadOnlyMount | null;
   launchEnv: Record<string, string>;
   authFilePath: string | null;
+};
+
+export type DockerWorkspaceAuthContracts = {
+  codex: DockerCodexAuthContract;
+  githubCli: DockerGitHubCliAuthContract;
+  opencode: DockerOpenCodeAuthContract;
+  pi: DockerPiAuthContract;
+  mounts: DockerReadOnlyMount[];
 };
 
 export function resolveDockerCodexAuthContract(
@@ -147,20 +145,8 @@ export function resolveDockerGitHubCliAuthContract(
   hostCommandEnvSource: Record<string, string | undefined>
 ): DockerGitHubCliAuthContract {
   const configDirectoryPath = resolveGitHubCliConfigDirectoryPath(hostCommandEnvSource);
-
-  if (!configDirectoryPath) {
-    return {
-      mount: null,
-      configDirectoryPath: null
-    };
-  }
-
   return {
-    mount: {
-      sourcePath: configDirectoryPath,
-      containerPath: defaultDockerGitHubConfigPath,
-      readOnly: true
-    },
+    mount: createReadOnlyMount(configDirectoryPath, defaultDockerGitHubConfigPath),
     configDirectoryPath
   };
 }
@@ -169,20 +155,8 @@ export function resolveDockerOpenCodeAuthContract(
   hostCommandEnvSource: Record<string, string | undefined>
 ): DockerOpenCodeAuthContract {
   const authFilePath = resolveOpenCodeAuthFilePath(hostCommandEnvSource);
-
-  if (!authFilePath) {
-    return {
-      mount: null,
-      authFilePath: null
-    };
-  }
-
   return {
-    mount: {
-      sourcePath: authFilePath,
-      containerPath: defaultDockerOpenCodeAuthPath,
-      readOnly: true
-    },
+    mount: createReadOnlyMount(authFilePath, defaultDockerOpenCodeAuthPath),
     authFilePath
   };
 }
@@ -200,16 +174,31 @@ export function resolveDockerPiAuthContract(
   );
 
   return {
-    mount:
-      authFilePath === null
-        ? null
-        : {
-            sourcePath: authFilePath,
-            containerPath: defaultDockerPiAuthPath,
-            readOnly: true
-          },
+    mount: createReadOnlyMount(authFilePath, defaultDockerPiAuthPath),
     launchEnv,
     authFilePath
+  };
+}
+
+export function resolveDockerWorkspaceAuthContracts(
+  hostCommandEnvSource: Record<string, string | undefined>,
+  options: {
+    preferredApiKeyEnvKey?: string | null;
+  } = {}
+): DockerWorkspaceAuthContracts {
+  const codex = resolveDockerCodexAuthContract(hostCommandEnvSource, options);
+  const githubCli = resolveDockerGitHubCliAuthContract(hostCommandEnvSource);
+  const opencode = resolveDockerOpenCodeAuthContract(hostCommandEnvSource);
+  const pi = resolveDockerPiAuthContract(hostCommandEnvSource, options);
+
+  return {
+    codex,
+    githubCli,
+    opencode,
+    pi,
+    mounts: [codex.mount, githubCli.mount, opencode.mount, pi.mount].filter(
+      (mount): mount is DockerReadOnlyMount => mount !== null
+    )
   };
 }
 
@@ -306,4 +295,19 @@ function normalizeNonEmptyString(value: string | undefined): string | null {
 
   const trimmed = value.trim();
   return trimmed === "" ? null : trimmed;
+}
+
+function createReadOnlyMount(
+  sourcePath: string | null,
+  containerPath: string
+): DockerReadOnlyMount | null {
+  if (!sourcePath) {
+    return null;
+  }
+
+  return {
+    sourcePath,
+    containerPath,
+    readOnly: true
+  };
 }
