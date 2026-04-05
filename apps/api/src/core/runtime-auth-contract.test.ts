@@ -6,7 +6,7 @@ import {
   resolveDockerGitHubCliAuthContract,
   resolveDockerPiAuthContract,
   resolveDockerWorkspaceAuthContracts
-} from "./codex-auth-contract.js";
+} from "./runtime-auth-contract.js";
 
 const tempDirectories: string[] = [];
 

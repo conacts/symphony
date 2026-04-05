@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { eq, or } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
-import { createSqliteCodexAnalyticsReadStore } from "./codex-analytics-read-store.js";
-import { createSqliteCodexAnalyticsStore } from "./codex-analytics-store.js";
+import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-store.js";
+import { createSqliteAgentAnalyticsStore } from "./agent-analytics-store.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
 import {
   codexAgentMessagesTable,
@@ -46,7 +46,7 @@ describe("sqlite codex analytics store", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const analyticsStore = createSqliteCodexAnalyticsStore({
+    const analyticsStore = createSqliteAgentAnalyticsStore({
       db: database.db,
       payloadMaxBytes: 128
     });
@@ -231,7 +231,7 @@ describe("sqlite codex analytics store", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const analyticsStore = createSqliteCodexAnalyticsStore({
+    const analyticsStore = createSqliteAgentAnalyticsStore({
       db: database.db,
       payloadMaxBytes: 128
     });
@@ -338,7 +338,7 @@ describe("sqlite codex analytics store", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const analyticsStore = createSqliteCodexAnalyticsStore({
+    const analyticsStore = createSqliteAgentAnalyticsStore({
       db: database.db
     });
 
@@ -458,7 +458,7 @@ describe("sqlite codex analytics store", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const analyticsStore = createSqliteCodexAnalyticsStore({
+    const analyticsStore = createSqliteAgentAnalyticsStore({
       db: database.db
     });
 
@@ -643,7 +643,7 @@ describe("sqlite codex analytics store", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const analyticsStore = createSqliteCodexAnalyticsStore({
+    const analyticsStore = createSqliteAgentAnalyticsStore({
       db: database.db
     });
 
@@ -732,7 +732,7 @@ describe("sqlite codex analytics store", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const analyticsStore = createSqliteCodexAnalyticsStore({
+    const analyticsStore = createSqliteAgentAnalyticsStore({
       db: database.db
     });
 
@@ -841,11 +841,11 @@ describe("sqlite codex analytics store", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const analyticsStore = createSqliteCodexAnalyticsStore({
+    const analyticsStore = createSqliteAgentAnalyticsStore({
       db: database.db,
       payloadMaxBytes: 96
     });
-    const readStore = createSqliteCodexAnalyticsReadStore({
+    const readStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
 

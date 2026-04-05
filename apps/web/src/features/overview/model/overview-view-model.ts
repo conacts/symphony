@@ -1,4 +1,5 @@
 import type { SymphonyRuntimeStateResult } from "@symphony/contracts";
+import type { AgentAnalysisSampleResource } from "@/features/analysis/hooks/load-agent-analysis-sample";
 import {
   formatCount,
   formatEventTypeLabel,
@@ -47,6 +48,11 @@ export type RuntimeSummaryViewModel = {
     dueAt: string;
     error: string;
   }>;
+  piTelemetryCards: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
 };
 
 export function buildRuntimeSummaryConnectionState(input: {
@@ -83,7 +89,8 @@ export function buildRuntimeSummaryConnectionState(input: {
 
 export function buildRuntimeSummaryViewModel(
   runtimeSummary: SymphonyRuntimeStateResult,
-  now: Date = new Date()
+  now: Date = new Date(),
+  analysisSample: AgentAnalysisSampleResource | null = null
 ): RuntimeSummaryViewModel {
   return {
     metrics: [
@@ -139,7 +146,8 @@ export function buildRuntimeSummaryViewModel(
       attempt: String(entry.attempt),
       dueAt: formatTimestamp(entry.dueAt),
       error: entry.error ?? "n/a"
-    }))
+    })),
+    piTelemetryCards: buildPiTelemetryCards(analysisSample)
   };
 }
 
@@ -248,4 +256,72 @@ function formatUnknownValue(value: unknown): string {
   }
 
   return JSON.stringify(value);
+}
+
+function buildPiTelemetryCards(
+  analysisSample: AgentAnalysisSampleResource | null
+): RuntimeSummaryViewModel["piTelemetryCards"] {
+  if (!analysisSample || analysisSample.sampledRuns.length === 0) {
+    return [
+      {
+        label: "PI telemetry sample",
+        value: "Unavailable",
+        detail: "No sampled PI run artifacts are available yet."
+      }
+    ];
+  }
+
+  const sampledIssueCount = new Set(
+    analysisSample.sampledRuns.map((sampledRun) => sampledRun.issueIdentifier)
+  ).size;
+  const totals = analysisSample.sampledRuns.reduce(
+    (aggregate, sampledRun) => {
+      aggregate.toolCalls += sampledRun.artifacts.toolCalls.length;
+      aggregate.reasoningBlocks += sampledRun.artifacts.reasoning.length;
+      aggregate.fileChanges += sampledRun.artifacts.fileChanges.length;
+      aggregate.taskSnapshots += sampledRun.artifacts.taskSnapshots.length;
+      aggregate.commandExecutions += sampledRun.artifacts.commandExecutions.length;
+      aggregate.overflowRecords +=
+        sampledRun.artifacts.agentMessages.filter((message) => message.textOverflowId !== null)
+          .length +
+        sampledRun.artifacts.reasoning.filter((reasoning) => reasoning.textOverflowId !== null)
+          .length +
+        sampledRun.artifacts.commandExecutions.filter((command) => command.outputOverflowId !== null)
+          .length +
+        sampledRun.artifacts.toolCalls.filter((toolCall) => toolCall.resultOverflowId !== null)
+          .length;
+      return aggregate;
+    },
+    {
+      toolCalls: 0,
+      reasoningBlocks: 0,
+      fileChanges: 0,
+      taskSnapshots: 0,
+      commandExecutions: 0,
+      overflowRecords: 0
+    }
+  );
+
+  return [
+    {
+      label: "Sampled PI runs",
+      value: formatCount(analysisSample.sampledRuns.length),
+      detail: `${formatCount(sampledIssueCount)} issues currently contribute PI artifact telemetry to the dashboard sample.`
+    },
+    {
+      label: "Tool calls",
+      value: formatCount(totals.toolCalls),
+      detail: `${formatCount(totals.commandExecutions)} commands observed across the sampled runs.`
+    },
+    {
+      label: "Reasoning blocks",
+      value: formatCount(totals.reasoningBlocks),
+      detail: `${formatCount(totals.fileChanges)} file changes were recorded in the same sampled runs.`
+    },
+    {
+      label: "Overflow + task signals",
+      value: formatCount(totals.overflowRecords + totals.taskSnapshots),
+      detail: `${formatCount(totals.overflowRecords)} overflow payloads and ${formatCount(totals.taskSnapshots)} task snapshots are currently available.`
+    }
+  ];
 }

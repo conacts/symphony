@@ -1,9 +1,9 @@
 import { createEnvelopeSchema } from "@symphony/errors";
 import { z } from "zod";
 import {
-  symphonyCodexAnalyticsEventSchema,
-  symphonyCodexUsageSchema
-} from "../../core/codex-analytics.js";
+  symphonyAgentAnalyticsEventSchema,
+  symphonyAgentUsageSchema
+} from "../../core/agent-analytics.js";
 import { jsonObjectSchema, jsonValueSchema } from "../../core/json.js";
 import {
   isoTimestampSchema,
@@ -29,7 +29,7 @@ const terminalRunStatuses = new Set([
 ]);
 
 const terminalTurnStatuses = new Set(["completed", "failed"]);
-const codexRunStatuses = z.enum([
+const symphonyAgentRunStatusSchema = z.enum([
   "dispatching",
   "running",
   "completed",
@@ -44,7 +44,6 @@ const authModes = z.enum(["auth_json", "api_key_env"]);
 export const symphonyForensicsActiveHarnessSchema = z.literal("pi");
 export const symphonyForensicsCompatHarnessSchema = z.enum([
   "codex",
-  "opencode",
   "pi"
 ]);
 export const symphonyForensicsTimelineSourceSchema = z.enum([
@@ -103,7 +102,7 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   status: nonEmptyStringSchema,
   outcome: nullableNonEmptyStringSchema,
   agentHarness: symphonyForensicsCompatHarnessSchema.nullable().default(null),
-  agentStatus: codexRunStatuses.nullable(),
+  agentStatus: symphonyAgentRunStatusSchema.nullable(),
   agentFailureKind: nullableNonEmptyStringSchema,
   agentFailureOrigin: nullableNonEmptyStringSchema,
   agentFailureMessagePreview: nullableNonEmptyStringSchema,
@@ -287,7 +286,7 @@ export const symphonyForensicsEventSchema = z.strictObject({
     .nullable(),
   itemStatus: z.enum(["in_progress", "completed", "failed"]).nullable(),
   recordedAt: isoTimestampSchema,
-  payload: symphonyCodexAnalyticsEventSchema,
+  payload: symphonyAgentAnalyticsEventSchema,
   payloadTruncated: z.boolean(),
   payloadBytes: z.number().int().nonnegative().nullable(),
   summary: nullableNonEmptyStringSchema,
@@ -308,7 +307,7 @@ export const symphonyForensicsTurnSchema = z.strictObject({
   status: nonEmptyStringSchema,
   startedAt: isoTimestampSchema,
   endedAt: isoTimestampSchema.nullable(),
-  usage: symphonyCodexUsageSchema.nullable(),
+  usage: symphonyAgentUsageSchema.nullable(),
   metadata: jsonObjectSchema.nullable(),
   insertedAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema,

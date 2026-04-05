@@ -38,6 +38,7 @@ export function buildAgentTurnTokenRows(input: {
       const cachedInputTokens =
         turn.usage?.cached_input_tokens ?? turn.cachedInputTokens ?? 0;
       const outputTokens = turn.usage?.output_tokens ?? turn.outputTokens ?? 0;
+      const totalTokens = turn.totalTokens ?? inputTokens + outputTokens;
 
       return {
         turnId: turn.turnId,
@@ -48,7 +49,7 @@ export function buildAgentTurnTokenRows(input: {
         inputTokens,
         cachedInputTokens,
         outputTokens,
-        totalTokens: inputTokens + outputTokens
+        totalTokens
       };
     });
 }

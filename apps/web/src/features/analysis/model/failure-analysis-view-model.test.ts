@@ -4,7 +4,7 @@ import {
   buildFailureAnalysisViewModelFromSample
 } from "@/features/analysis/model/failure-analysis-view-model";
 import {
-  buildSymphonyCodexRunArtifactsResult,
+  buildSymphonyAgentRunArtifactsResult,
   buildSymphonyForensicsIssueDetailResult,
   buildSymphonyForensicsIssueListResult
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
@@ -92,7 +92,7 @@ describe("failure analysis view model", () => {
             errorClass: null,
             errorMessage: null
           },
-          artifacts: buildSymphonyCodexRunArtifactsResult()
+          artifacts: buildSymphonyAgentRunArtifactsResult()
         },
         {
           issueIdentifier: "COL-165",
@@ -104,9 +104,9 @@ describe("failure analysis view model", () => {
             errorMessage: "Reached max turns before completion.",
             startedAt: "2026-03-31T19:00:00.000Z"
           },
-          artifacts: buildSymphonyCodexRunArtifactsResult({
+          artifacts: buildSymphonyAgentRunArtifactsResult({
             run: {
-              ...buildSymphonyCodexRunArtifactsResult().run,
+              ...buildSymphonyAgentRunArtifactsResult().run,
               runId: "run_b"
             }
           })
@@ -123,9 +123,9 @@ describe("failure analysis view model", () => {
             errorMessage: "Workspace failed to boot.",
             startedAt: "2026-03-31T20:00:00.000Z"
           },
-          artifacts: buildSymphonyCodexRunArtifactsResult({
+          artifacts: buildSymphonyAgentRunArtifactsResult({
             run: {
-              ...buildSymphonyCodexRunArtifactsResult().run,
+              ...buildSymphonyAgentRunArtifactsResult().run,
               runId: "run_c",
               issueId: "issue_456",
               issueIdentifier: "COL-166"

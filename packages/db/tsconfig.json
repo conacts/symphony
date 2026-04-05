@@ -12,7 +12,7 @@
       "path": "../contracts"
     },
     {
-      "path": "../codex-analytics"
+      "path": "../agent-analytics"
     }
   ]
 }

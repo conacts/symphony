@@ -2,6 +2,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 export const defaultSymphonyPromptContractRelativePath = ".symphony/prompt.md";
+export const symphonyHarnessPromptAppendix = [
+  "## Symphony harness guidance",
+  "- Prefer PI-native harness tools over shelling out for equivalent file work.",
+  "- Use `pi.read` for file reads and structured inspection whenever possible.",
+  "- Use `pi.edit` for scoped file edits whenever possible.",
+  "- Use shell commands for project execution, verification, and operations that are not exposed through PI-native tools.",
+  "- Keep file operations targeted and avoid broad recursive shell reads when PI-native tool calls can provide the same information."
+].join("\n");
 
 export type SymphonyPromptContractIssue = {
   id: string;
@@ -206,7 +214,7 @@ export function renderSymphonyPromptContract(input: {
     );
   }
 
-  return rendered;
+  return appendSymphonyHarnessPromptAppendix(rendered);
 }
 
 export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContractPayload {
@@ -250,6 +258,14 @@ function buildPromptContractScope(
       defaultBranch: payload.repo.default_branch
     }
   };
+}
+
+function appendSymphonyHarnessPromptAppendix(rendered: string): string {
+  if (rendered.includes(symphonyHarnessPromptAppendix)) {
+    return rendered;
+  }
+
+  return `${rendered.trimEnd()}\n\n${symphonyHarnessPromptAppendix}\n`;
 }
 
 function resolvePromptContractPath(

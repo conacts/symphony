@@ -15,17 +15,10 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
+import type { IssueActivityViewModel } from "@/features/issues/model/issue-view-model";
 
 export function IssueActivityFeed(input: {
-  rows: Array<{
-    entryId: string;
-    recordedAt: string;
-    source: string;
-    eventType: string;
-    runId: string;
-    message: string;
-    detail: string;
-  }>;
+  rows: IssueActivityViewModel["activityRows"];
 }) {
   return (
     <Card>
@@ -63,7 +56,9 @@ export function IssueActivityFeed(input: {
                       <p className="text-sm font-medium text-foreground">
                         {row.message}
                       </p>
-                      <p className="text-xs text-muted-foreground">Run {row.runId}</p>
+                      {row.runId ? (
+                        <p className="text-xs text-muted-foreground">Run {row.runId}</p>
+                      ) : null}
                     </div>
                   </div>
                 </AccordionTrigger>

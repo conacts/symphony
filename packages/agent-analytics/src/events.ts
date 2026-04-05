@@ -12,7 +12,7 @@ import type {
   Usage
 } from "./sdk-types.js";
 
-export type CodexPayloadOverflowKind =
+export type AgentPayloadOverflowKind =
   | "agent_message"
   | "command_output"
   | "event_payload"
@@ -21,7 +21,7 @@ export type CodexPayloadOverflowKind =
   | "reasoning"
   | "tool_result";
 
-export type CodexEventEnvelope = {
+export type AgentEventEnvelope = {
   id: string;
   run_id: string;
   turn_id: string | null;
@@ -38,7 +38,7 @@ export type CodexEventEnvelope = {
   inserted_at: string;
 };
 
-export type CodexAnalyticsEventInput = {
+export type AgentAnalyticsEventInput = {
   runId: string;
   turnId: string | null;
   threadId: string | null;
@@ -48,7 +48,7 @@ export type CodexAnalyticsEventInput = {
   rawPayload?: unknown;
 };
 
-export type CodexRunStatus =
+export type AgentRunStatus =
   | "dispatching"
   | "running"
   | "completed"
@@ -59,59 +59,59 @@ export type CodexRunStatus =
   | "stalled"
   | "stopped";
 
-export type CodexTurnStatus =
+export type AgentTurnStatus =
   | "running"
   | "completed"
   | "failed"
   | "stopped";
 
-export type CodexAnalyticsRunStart = {
+export type AgentAnalyticsRunStart = {
   runId: string;
   issueId: string;
   issueIdentifier: string;
   startedAt?: string | null;
-  status: CodexRunStatus;
+  status: AgentRunStatus;
   threadId: string | null;
-  harnessKind?: "codex" | "opencode" | "pi" | null;
+  harnessKind?: "pi" | null;
   model?: string | null;
   providerId?: string | null;
   providerName?: string | null;
 };
 
-export type CodexAnalyticsRunFinalize = {
+export type AgentAnalyticsRunFinalize = {
   runId: string;
   endedAt: string;
-  status: CodexRunStatus;
+  status: AgentRunStatus;
   threadId: string | null;
   failureKind: string | null;
   failureOrigin: string | null;
   failureMessagePreview: string | null;
-  harnessKind?: "codex" | "opencode" | "pi" | null;
+  harnessKind?: "pi" | null;
   model?: string | null;
   providerId?: string | null;
   providerName?: string | null;
 };
 
-export type CodexAnalyticsTurnFinalize = {
+export type AgentAnalyticsTurnFinalize = {
   runId: string;
   turnId: string;
   endedAt: string;
-  status: CodexTurnStatus;
+  status: AgentTurnStatus;
   threadId: string | null;
   failureKind: string | null;
   failureMessagePreview: string | null;
   usage?: Usage | null;
-  harnessKind?: "codex" | "opencode" | "pi" | null;
+  harnessKind?: "pi" | null;
   model?: string | null;
   providerId?: string | null;
   providerName?: string | null;
 };
 
-export interface CodexAnalyticsStore {
-  startRun(input: CodexAnalyticsRunStart): Promise<void>;
-  recordEvent(input: CodexAnalyticsEventInput): Promise<void>;
-  finalizeTurn(input: CodexAnalyticsTurnFinalize): Promise<void>;
-  finalizeRun(input: CodexAnalyticsRunFinalize): Promise<void>;
+export interface AgentAnalyticsStore {
+  startRun(input: AgentAnalyticsRunStart): Promise<void>;
+  recordEvent(input: AgentAnalyticsEventInput): Promise<void>;
+  finalizeTurn(input: AgentAnalyticsTurnFinalize): Promise<void>;
+  finalizeRun(input: AgentAnalyticsRunFinalize): Promise<void>;
 }
 
 export function isThreadEvent(value: unknown): value is ThreadEvent {

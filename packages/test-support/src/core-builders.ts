@@ -77,7 +77,7 @@ export function buildSymphonyRuntimePolicy(
       stallTimeoutMs: 300_000,
       ...overrides.pi
     },
-    codex: {
+    agentRuntime: {
       command: "codex",
       approvalPolicy: "never",
       threadSandbox: "danger-full-access",
@@ -89,7 +89,7 @@ export function buildSymphonyRuntimePolicy(
       turnTimeoutMs: 3_600_000,
       readTimeoutMs: 5_000,
       stallTimeoutMs: 300_000,
-      ...overrides.codex
+      ...overrides.agentRuntime
     },
     hooks: {
       afterCreate: null,
@@ -189,17 +189,17 @@ export function buildSymphonyOrchestratorSnapshot(
     workspacePath: null,
     retryAttempt: 0,
     turnCount: 0,
-    lastCodexMessage: null,
-    lastCodexTimestamp: null,
-    lastCodexEvent: null,
-    codexInputTokens: 0,
-    codexOutputTokens: 0,
-    codexTotalTokens: 0,
-    codexLastReportedInputTokens: 0,
-    codexLastReportedOutputTokens: 0,
-    codexLastReportedTotalTokens: 0,
+    lastAgentMessage: null,
+    lastAgentTimestamp: null,
+    lastAgentEvent: null,
+    agentInputTokens: 0,
+    agentOutputTokens: 0,
+    agentTotalTokens: 0,
+    agentLastReportedInputTokens: 0,
+    agentLastReportedOutputTokens: 0,
+    agentLastReportedTotalTokens: 0,
     lastRateLimits: null,
-    codexAppServerPid: null,
+    agentRuntimeProcessId: null,
     startedAt: "2026-03-31T00:00:00.000Z",
     runtimeSeconds: 0,
     ...entry
@@ -228,7 +228,7 @@ export function buildSymphonyOrchestratorSnapshot(
     maxConcurrentAgents: 10,
     nextPollDueAtMs: null,
     pollCheckInProgress: false,
-    codexTotals: {
+    agentTotals: {
       inputTokens: 0,
       outputTokens: 0,
       totalTokens: 0,

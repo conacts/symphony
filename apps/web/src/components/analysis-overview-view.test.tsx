@@ -7,7 +7,7 @@ import { buildFailureAnalysisViewModel } from "@/features/analysis/model/failure
 import { buildPerformanceAnalysisViewModel } from "@/features/analysis/model/performance-analysis-view-model";
 import { buildTokenAnalysisViewModel } from "@/features/analysis/model/token-analysis-view-model";
 import {
-  buildSymphonyCodexRunArtifactsResult,
+  buildSymphonyAgentRunArtifactsResult,
   buildSymphonyDashboardConnectionState,
   buildSymphonyForensicsIssueListResult
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
@@ -28,7 +28,7 @@ describe("analysis overview view", () => {
             totalTokens: 200,
             startedAt: "2026-03-31T18:00:00.000Z"
           } as never,
-          artifacts: buildSymphonyCodexRunArtifactsResult()
+          artifacts: buildSymphonyAgentRunArtifactsResult()
         }
       ]
     };

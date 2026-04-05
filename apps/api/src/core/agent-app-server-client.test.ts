@@ -21,8 +21,8 @@ import {
   type HarnessSession
 } from "@symphony/agent-harnesses";
 import {
-  CodexAppServerClient
-} from "./codex-app-server-client.js";
+  AgentAppServerClient
+} from "./agent-app-server-client.js";
 
 const tempRoots: string[] = [];
 const originalPath = process.env.PATH;
@@ -46,7 +46,7 @@ describe("codex app server client", () => {
 
     const workspaceRoot = path.join(root, "workspaces");
     const outsideWorkspace = path.join(root, "outside");
-    const fakeCodex = path.join(root, "fake-codex.sh");
+    const fakeCodex = path.join(root, "fake-agent-runtime.sh");
 
     await mkdir(workspaceRoot, { recursive: true });
     await mkdir(outsideWorkspace, { recursive: true });
@@ -59,15 +59,15 @@ describe("codex app server client", () => {
       workspace: {
         root: workspaceRoot
       },
-      codex: {
-        ...buildSymphonyRuntimePolicyForRoot(root).codex,
+      agentRuntime: {
+        ...buildSymphonyRuntimePolicyForRoot(root).agentRuntime,
         command: `${fakeCodex} app-server`
       }
     });
     const loggerSpy = createLoggerSpy();
 
     await expect(
-      CodexAppServerClient.startSession({
+      AgentAppServerClient.startSession({
         launchTarget: buildContainerLaunchTarget(workspaceRoot),
         env: defaultLaunchEnv(),
         hostCommandEnvSource: defaultHostCommandEnvSource(),
@@ -83,7 +83,7 @@ describe("codex app server client", () => {
     );
 
     await expect(
-      CodexAppServerClient.startSession({
+      AgentAppServerClient.startSession({
         launchTarget: buildContainerLaunchTarget(outsideWorkspace),
         env: defaultLaunchEnv(),
         hostCommandEnvSource: defaultHostCommandEnvSource(),
@@ -102,7 +102,7 @@ describe("codex app server client", () => {
     await symlink(outsideWorkspace, symlinkWorkspace);
 
     await expect(
-      CodexAppServerClient.startSession({
+      AgentAppServerClient.startSession({
         launchTarget: buildContainerLaunchTarget(symlinkWorkspace),
         env: defaultLaunchEnv(),
         hostCommandEnvSource: defaultHostCommandEnvSource(),
@@ -157,13 +157,13 @@ done
 
     scenario.runtimePolicy = {
       ...scenario.runtimePolicy,
-      codex: {
-        ...scenario.runtimePolicy.codex,
+      agentRuntime: {
+        ...scenario.runtimePolicy.agentRuntime,
         command: `${scenario.fakeCodex} app-server --model gpt-5.4`
       }
     };
 
-    const session = await CodexAppServerClient.startSession({
+    const session = await AgentAppServerClient.startSession({
       launchTarget: buildContainerLaunchTarget(scenario.workspacePath),
       env: defaultLaunchEnv(),
       hostCommandEnvSource: defaultHostCommandEnvSource(),
@@ -199,7 +199,7 @@ done
     tempRoots.push(root);
 
     const dockerTraceFile = path.join(root, "docker.trace");
-    const codexTraceFile = path.join(root, "codex.trace");
+    const codexTraceFile = path.join(root, "agent-runtime.trace");
     const scenario = await createScenario({
       root,
       script: `#!/bin/sh
@@ -272,7 +272,7 @@ exec "$shell_bin" -lc "$2"
     );
     process.env.PATH = `${root}:${originalPath ?? ""}`;
 
-    const session = await CodexAppServerClient.startSession({
+    const session = await AgentAppServerClient.startSession({
       launchTarget: buildContainerLaunchTarget(scenario.workspacePath),
       env: defaultLaunchEnv(),
       hostCommandEnvSource: defaultHostCommandEnvSource(),
@@ -310,8 +310,8 @@ exec "$shell_bin" -lc "$2"
     const scenario = await createScenario({
       root,
       runtimePolicyOverrides: {
-        codex: {
-          ...buildSymphonyRuntimePolicyForRoot(root).codex,
+        agentRuntime: {
+          ...buildSymphonyRuntimePolicyForRoot(root).agentRuntime,
           turnSandboxPolicy: policy
         }
       },
@@ -404,8 +404,8 @@ done
     const scenario = await createScenario({
       root,
       runtimePolicyOverrides: {
-        codex: {
-          ...buildSymphonyRuntimePolicyForRoot(root).codex,
+        agentRuntime: {
+          ...buildSymphonyRuntimePolicyForRoot(root).agentRuntime,
           approvalPolicy: {
             reject: {
               sandboxApproval: true,
@@ -461,8 +461,8 @@ done
     const scenario = await createScenario({
       root,
       runtimePolicyOverrides: {
-        codex: {
-          ...buildSymphonyRuntimePolicyForRoot(root).codex,
+        agentRuntime: {
+          ...buildSymphonyRuntimePolicyForRoot(root).agentRuntime,
           approvalPolicy: "never"
         }
       },
@@ -526,8 +526,8 @@ done
     const scenario = await createScenario({
       root,
       runtimePolicyOverrides: {
-        codex: {
-          ...buildSymphonyRuntimePolicyForRoot(root).codex,
+        agentRuntime: {
+          ...buildSymphonyRuntimePolicyForRoot(root).agentRuntime,
           approvalPolicy: "never"
         }
       },
@@ -802,7 +802,7 @@ done
     );
     expect(
       stderrScenario.loggerSpy.warns.some((entry) =>
-        entry.message.includes("Codex app-server stderr output") &&
+        entry.message.includes("Agent app-server stderr output") &&
         String(entry.context?.line).includes("warning: this is stderr noise")
       )
     ).toBe(true);
@@ -876,7 +876,7 @@ async function createScenario(input: {
 
   const workspaceRoot = path.join(input.root, "workspaces");
   const workspacePath = path.join(workspaceRoot, "COL-123");
-  const fakeCodex = path.join(input.root, "fake-codex.sh");
+  const fakeCodex = path.join(input.root, "fake-agent-runtime.sh");
   const fakeDocker = path.join(input.root, "docker");
 
   await mkdir(workspacePath, {
@@ -955,9 +955,9 @@ exec "$shell_bin" -lc "$1"
         ...baseRuntimePolicy.agent,
         ...overrides.agent
       },
-      codex: {
-        ...baseRuntimePolicy.codex,
-        ...overrides.codex,
+      agentRuntime: {
+        ...baseRuntimePolicy.agentRuntime,
+        ...overrides.agentRuntime,
         command: input.command ?? `${fakeCodex} app-server`
       },
       hooks: {
@@ -986,7 +986,7 @@ async function startSessionForScenario(
 ): Promise<{
   session: HarnessSession;
 }> {
-  const session = await CodexAppServerClient.startSession({
+  const session = await AgentAppServerClient.startSession({
     launchTarget: buildContainerLaunchTarget(scenario.workspacePath),
     env: defaultLaunchEnv(),
     hostCommandEnvSource: defaultHostCommandEnvSource(),
@@ -1018,7 +1018,7 @@ function runTurnForScenario(
     .runTurn(session, {
       prompt: "Handle the issue.",
       title: `${scenario.issue.identifier}: ${scenario.issue.title}`,
-      sandboxPolicy: scenario.runtimePolicy.codex.turnSandboxPolicy,
+      sandboxPolicy: scenario.runtimePolicy.agentRuntime.turnSandboxPolicy,
       turnTimeoutMs: 5_000,
       toolExecutor:
         input.toolExecutor ??

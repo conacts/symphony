@@ -16,7 +16,7 @@ import {
   agentModelLabelPrefix,
   listSupportedAgentModels,
   resolveAgentIssueModel
-} from "../core/codex-app-server-launch.js";
+} from "../core/agent-app-server-launch.js";
 
 export function serializeRuntimeState(
   snapshot: SymphonyOrchestratorSnapshot
@@ -40,14 +40,14 @@ export function serializeRuntimeState(
       ),
       launchTarget: serializeRuntimeLaunchTarget(entry.launchTarget),
       turnCount: entry.turnCount,
-      lastEvent: entry.lastCodexEvent,
-      lastMessage: summarizeMessage(entry.lastCodexMessage?.message ?? null),
+      lastEvent: entry.lastAgentEvent,
+      lastMessage: summarizeMessage(entry.lastAgentMessage?.message ?? null),
       startedAt: entry.startedAt,
-      lastEventAt: entry.lastCodexTimestamp,
+      lastEventAt: entry.lastAgentTimestamp,
       tokens: {
-        inputTokens: entry.codexInputTokens,
-        outputTokens: entry.codexOutputTokens,
-        totalTokens: entry.codexTotalTokens
+        inputTokens: entry.agentInputTokens,
+        outputTokens: entry.agentOutputTokens,
+        totalTokens: entry.agentTotalTokens
       }
     })),
     retrying: snapshot.retrying.map((entry) => ({
@@ -65,7 +65,7 @@ export function serializeRuntimeState(
       ),
       launchTarget: serializeRuntimeLaunchTarget(entry.launchTarget)
     })),
-    agentTotals: snapshot.codexTotals,
+    agentTotals: snapshot.agentTotals,
     rateLimits: snapshot.rateLimits
   };
 }
@@ -147,13 +147,13 @@ export function serializeRuntimeIssue(
           turnCount: running.turnCount,
           state: running.issue.state,
           startedAt: running.startedAt,
-          lastEvent: running.lastCodexEvent,
-          lastMessage: summarizeMessage(running.lastCodexMessage?.message ?? null),
-          lastEventAt: running.lastCodexTimestamp,
+          lastEvent: running.lastAgentEvent,
+          lastMessage: summarizeMessage(running.lastAgentMessage?.message ?? null),
+          lastEventAt: running.lastAgentTimestamp,
           tokens: {
-            inputTokens: running.codexInputTokens,
-            outputTokens: running.codexOutputTokens,
-            totalTokens: running.codexTotalTokens
+            inputTokens: running.agentInputTokens,
+            outputTokens: running.agentOutputTokens,
+            totalTokens: running.agentTotalTokens
           }
         }
       : null,

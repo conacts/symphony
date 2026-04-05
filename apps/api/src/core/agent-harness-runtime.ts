@@ -32,7 +32,7 @@ import {
   resolveHarnessModelRuntimePolicy,
   type HarnessSessionClient
 } from "@symphony/agent-harnesses";
-import { captureRepoSnapshot } from "./codex-repo-snapshot.js";
+import { captureRepoSnapshot } from "./agent-repo-snapshot.js";
 import {
   resolveRuntimeLaunchTarget,
   type SymphonyRuntimeLaunchTarget
@@ -366,8 +366,8 @@ async function executeRun(input: {
               getString(message, "session_id") ??
               getString(message, "sessionId") ??
               null,
-            codexAppServerPid:
-              getString(message, "codex_app_server_pid") ?? session.processId
+            agentRuntimeProcessId:
+              getString(message, "agent_app_server_pid") ?? session.processId
           });
 
           if (input.runId && persistedTurnId) {

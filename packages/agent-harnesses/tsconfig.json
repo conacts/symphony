@@ -10,7 +10,7 @@
   "exclude": ["dist", "node_modules"],
   "references": [
     {
-      "path": "../codex-analytics"
+      "path": "../agent-analytics"
     },
     {
       "path": "../orchestrator"

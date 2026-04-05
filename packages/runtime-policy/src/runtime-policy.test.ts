@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   resolveRuntimePolicy,
   SymphonyRuntimePolicyError
@@ -58,55 +58,19 @@ describe("resolveRuntimePolicy", () => {
     ).toThrowError(SymphonyRuntimePolicyError);
   });
 
-  it("accepts codex with deprecation warning and retains value", () => {
-    const codexConfig = resolveRuntimePolicy(
-      {
-        tracker: {
-          kind: "memory"
+  it("rejects non-pi harness values", () => {
+    expect(() =>
+      resolveRuntimePolicy(
+        {
+          tracker: {
+            kind: "memory"
+          },
+          agent: {
+            harness: "codex"
+          }
         },
-        agent: {
-          harness: "codex"
-        }
-      },
-      {}
-    );
-    expect(codexConfig.agent.harness).toBe("codex");
-  });
-
-  it("warns at most once per deprecated harness kind", () => {
-    const emitWarning = vi
-      .spyOn(process, "emitWarning")
-      .mockImplementation(() => {});
-    const beforeWarningCount = emitWarning.mock.calls.length;
-
-    resolveRuntimePolicy(
-      {
-        tracker: {
-          kind: "memory"
-        },
-        agent: {
-          harness: "codex"
-        }
-      },
-      {}
-    );
-    const afterFirstCodex = emitWarning.mock.calls.length;
-    resolveRuntimePolicy(
-      {
-        tracker: {
-          kind: "memory"
-        },
-        agent: {
-          harness: "codex"
-        }
-      },
-      {}
-    );
-    const afterSecondCodex = emitWarning.mock.calls.length;
-
-    expect(afterSecondCodex).toBe(afterFirstCodex);
-    expect(afterSecondCodex - beforeWarningCount).toBeLessThanOrEqual(1);
-
-    emitWarning.mockRestore();
+        {}
+      )
+    ).toThrowError(SymphonyRuntimePolicyError);
   });
 });

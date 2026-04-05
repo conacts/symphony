@@ -5,7 +5,7 @@ import {
   filterAgentAnalysisSample
 } from "@/features/analysis/model/analysis-sample-filter";
 import {
-  buildSymphonyCodexRunArtifactsResult,
+  buildSymphonyAgentRunArtifactsResult,
   buildSymphonyForensicsIssueDetailResult,
   buildSymphonyForensicsIssueListResult
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
@@ -19,7 +19,7 @@ describe("analysis sample filter", () => {
         {
           issueIdentifier: "COL-165",
           run: buildSymphonyForensicsIssueDetailResult().runs[0]!,
-          artifacts: buildSymphonyCodexRunArtifactsResult()
+          artifacts: buildSymphonyAgentRunArtifactsResult()
         },
         {
           issueIdentifier: "COL-166",
@@ -31,9 +31,9 @@ describe("analysis sample filter", () => {
             agentHarness: "pi",
             model: "gpt-5.4"
           },
-          artifacts: buildSymphonyCodexRunArtifactsResult({
+          artifacts: buildSymphonyAgentRunArtifactsResult({
             run: {
-              ...buildSymphonyCodexRunArtifactsResult().run,
+              ...buildSymphonyAgentRunArtifactsResult().run,
               runId: "run_456",
               issueId: "issue_456",
               issueIdentifier: "COL-166",

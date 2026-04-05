@@ -14,7 +14,7 @@ function createRuntimePolicy(
     tracker,
     workspace,
     agent,
-    codex,
+    agentRuntime,
     pi,
     hooks
   } = overrides;
@@ -45,7 +45,7 @@ function createRuntimePolicy(
       maxTurns: 20,
       ...agent
     },
-    codex: {
+    agentRuntime: {
       command: "codex",
       approvalPolicy: "never",
       threadSandbox: "danger-full-access",
@@ -64,7 +64,7 @@ function createRuntimePolicy(
       turnTimeoutMs: 3_600_000,
       readTimeoutMs: 5_000,
       stallTimeoutMs: 300_000,
-      ...codex
+      ...agentRuntime
     },
     pi: {
       profile: "mimo-v2-pro",

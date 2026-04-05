@@ -5,10 +5,7 @@ export type SymphonyAgentRuntimeConfig = {
   tracker: SymphonyTrackerConfig;
   workspace: Pick<WorkspaceConfig, "root">;
   agent: {
-    // "pi" is the active runtime harness. "codex" is
-    // accepted here only for backward-compatible parsing and should fail-fast
-    // before active execution.
-    harness: "codex" | "pi";
+    harness: "pi";
     maxTurns: number;
   };
   pi: {
@@ -27,7 +24,7 @@ export type SymphonyAgentRuntimeConfig = {
     readTimeoutMs: number;
     stallTimeoutMs: number;
   };
-  codex: {
+  agentRuntime: {
     command: string;
     approvalPolicy: string | Record<string, unknown>;
     threadSandbox: string;
@@ -62,7 +59,7 @@ export type SymphonyOrchestratorConfig = {
     maxRetryBackoffMs: number;
     maxConcurrentAgentsByState: Record<string, number>;
   };
-  codex: {
+  agentRuntime: {
     stallTimeoutMs: number;
   };
   runtime: SymphonyAgentRuntimeConfig;

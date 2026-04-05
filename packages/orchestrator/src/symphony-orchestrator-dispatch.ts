@@ -2,7 +2,7 @@ import {
   extractRateLimits,
   extractTokenUsage,
   isTerminalTurnEvent
-} from "./symphony-orchestrator-codex-state.js";
+} from "./symphony-orchestrator-agent-state.js";
 import { claimTransitionCommentBody } from "./symphony-orchestrator-comments.js";
 import type {
   SymphonyAgentRuntimeUpdate,
@@ -68,17 +68,17 @@ export function createRunningEntry(input: {
     workspacePath: workspaceHostPath(input.workspace),
     retryAttempt: input.attempt,
     turnCount: 0,
-    lastCodexMessage: null,
-    lastCodexTimestamp: null,
-    lastCodexEvent: null,
-    codexInputTokens: 0,
-    codexOutputTokens: 0,
-    codexTotalTokens: 0,
-    codexLastReportedInputTokens: 0,
-    codexLastReportedOutputTokens: 0,
-    codexLastReportedTotalTokens: 0,
+    lastAgentMessage: null,
+    lastAgentTimestamp: null,
+    lastAgentEvent: null,
+    agentInputTokens: 0,
+    agentOutputTokens: 0,
+    agentTotalTokens: 0,
+    agentLastReportedInputTokens: 0,
+    agentLastReportedOutputTokens: 0,
+    agentLastReportedTotalTokens: 0,
     lastRateLimits: null,
-    codexAppServerPid: null,
+    agentRuntimeProcessId: null,
     startedAt: input.startedAt
   };
 }
@@ -92,9 +92,9 @@ export function applyAgentRuntimeUpdateToEntry(
 } {
   const usage = extractTokenUsage(update);
   const rateLimits = extractRateLimits(update);
-  const nextInput = usage?.inputTokens ?? runningEntry.codexInputTokens;
-  const nextOutput = usage?.outputTokens ?? runningEntry.codexOutputTokens;
-  const nextTotal = usage?.totalTokens ?? runningEntry.codexTotalTokens;
+  const nextInput = usage?.inputTokens ?? runningEntry.agentInputTokens;
+  const nextOutput = usage?.outputTokens ?? runningEntry.agentOutputTokens;
+  const nextTotal = usage?.totalTokens ?? runningEntry.agentTotalTokens;
 
   return {
     entry: {
@@ -104,21 +104,21 @@ export function applyAgentRuntimeUpdateToEntry(
         isTerminalTurnEvent(update.event)
           ? runningEntry.turnCount + 1
           : runningEntry.turnCount,
-      lastCodexEvent: update.event,
-      lastCodexTimestamp: update.timestamp,
-      lastCodexMessage: {
+      lastAgentEvent: update.event,
+      lastAgentTimestamp: update.timestamp,
+      lastAgentMessage: {
         event: update.event,
         message: update.payload ?? null,
         timestamp: update.timestamp
       },
-      codexInputTokens: nextInput,
-      codexOutputTokens: nextOutput,
-      codexTotalTokens: nextTotal,
-      codexLastReportedInputTokens: nextInput,
-      codexLastReportedOutputTokens: nextOutput,
-      codexLastReportedTotalTokens: nextTotal,
+      agentInputTokens: nextInput,
+      agentOutputTokens: nextOutput,
+      agentTotalTokens: nextTotal,
+      agentLastReportedInputTokens: nextInput,
+      agentLastReportedOutputTokens: nextOutput,
+      agentLastReportedTotalTokens: nextTotal,
       lastRateLimits: rateLimits ?? runningEntry.lastRateLimits,
-      codexAppServerPid: update.codexAppServerPid ?? runningEntry.codexAppServerPid
+      agentRuntimeProcessId: update.agentRuntimeProcessId ?? runningEntry.agentRuntimeProcessId
     },
     rateLimits
   };

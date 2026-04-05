@@ -2042,17 +2042,15 @@ async function ensureSharedPostgresRole(input: {
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
 }): Promise<void> {
-  const quotedRole = quoteSqlIdentifier(input.username);
-  const quotedPassword = quoteSqlLiteral(input.password);
   await runSharedPostgresAdminCommand({
     sharedPostgres: input.sharedPostgres,
     sql: [
       `DO $$`,
       `BEGIN`,
       `  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = ${quoteSqlLiteral(input.username)}) THEN`,
-      `    EXECUTE 'CREATE ROLE ${quotedRole} LOGIN PASSWORD ${quotedPassword}';`,
+      `    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', ${quoteSqlLiteral(input.username)}, ${quoteSqlLiteral(input.password)});`,
       `  ELSE`,
-      `    EXECUTE 'ALTER ROLE ${quotedRole} WITH LOGIN PASSWORD ${quotedPassword}';`,
+      `    EXECUTE format('ALTER ROLE %I WITH LOGIN PASSWORD %L', ${quoteSqlLiteral(input.username)}, ${quoteSqlLiteral(input.password)});`,
       `  END IF;`,
       `END`,
       `$$;`

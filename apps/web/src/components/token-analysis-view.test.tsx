@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { TokenAnalysisView } from "@/features/analysis/components/token-analysis-view";
 import { buildTokenAnalysisViewModel } from "@/features/analysis/model/token-analysis-view-model";
 import {
-  buildSymphonyCodexRunArtifactsResult,
+  buildSymphonyAgentRunArtifactsResult,
   buildSymphonyDashboardConnectionState,
   buildSymphonyForensicsIssueListResult
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
@@ -29,7 +29,7 @@ describe("token analysis view", () => {
                 totalTokens: 200,
                 startedAt: "2026-03-31T18:00:00.000Z"
               } as never,
-              artifacts: buildSymphonyCodexRunArtifactsResult()
+              artifacts: buildSymphonyAgentRunArtifactsResult()
             }
           ]
         })}

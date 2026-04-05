@@ -43,7 +43,7 @@ export type SymphonyWorkerRuntimePolicy = {
 export type SymphonyWorkflowWorkerConfig = SymphonyWorkerRuntimePolicy;
 
 export type SymphonyAgentRuntimePolicy = {
-  harness: "pi" | "codex";
+  harness: "pi";
   maxConcurrentAgents: number;
   maxTurns: number;
   maxRetryBackoffMs: number;
@@ -67,7 +67,7 @@ export type SymphonyHarnessModelRuntimePolicy = {
   provider: SymphonyHarnessProviderRuntimePolicy;
 };
 
-export type SymphonyCodexRuntimePolicy = SymphonyHarnessModelRuntimePolicy & {
+export type SymphonyAgentRuntimeExecutionPolicy = SymphonyHarnessModelRuntimePolicy & {
   command: string;
   approvalPolicy: string | Record<string, unknown>;
   threadSandbox: string;
@@ -76,7 +76,7 @@ export type SymphonyCodexRuntimePolicy = SymphonyHarnessModelRuntimePolicy & {
   readTimeoutMs: number;
   stallTimeoutMs: number;
 };
-export type SymphonyWorkflowCodexConfig = SymphonyCodexRuntimePolicy;
+export type SymphonyWorkflowAgentRuntimeExecutionConfig = SymphonyAgentRuntimeExecutionPolicy;
 export type SymphonyWorkflowHarnessModelConfig = SymphonyHarnessModelRuntimePolicy;
 export type SymphonyPiRuntimePolicy = SymphonyHarnessModelRuntimePolicy & {
   turnTimeoutMs: number;
@@ -123,7 +123,7 @@ export type SymphonyResolvedRuntimePolicy = {
   workspace: SymphonyWorkspaceRuntimePolicy;
   worker: SymphonyWorkerRuntimePolicy;
   agent: SymphonyAgentRuntimePolicy;
-  codex: SymphonyCodexRuntimePolicy;
+  agentRuntime: SymphonyAgentRuntimeExecutionPolicy;
   pi: SymphonyPiRuntimePolicy;
   hooks: SymphonyHooksRuntimePolicy;
   observability: SymphonyObservabilityRuntimePolicy;
@@ -167,7 +167,9 @@ export function resolveRuntimePolicy(
   );
   const worker = normalizeWorkerConfig(effectiveRawConfig.worker);
   const agent = normalizeAgentConfig(effectiveRawConfig.agent);
-  const codex = normalizeCodexConfig(effectiveRawConfig.codex);
+  const agentRuntime = normalizeAgentRuntimeConfig(
+    effectiveRawConfig.agentRuntime
+  );
   const pi = normalizePiConfig(effectiveRawConfig.pi);
   const hooks = normalizeHooksConfig(effectiveRawConfig.hooks);
   const observability = normalizeObservabilityConfig(
@@ -186,7 +188,7 @@ export function resolveRuntimePolicy(
     workspace,
     worker,
     agent,
-    codex,
+    agentRuntime,
     pi,
     hooks,
     observability,
@@ -200,7 +202,7 @@ export function resolveRuntimePolicy(
     workspace,
     worker,
     agent,
-    codex,
+    agentRuntime,
     pi,
     hooks,
     observability,
@@ -352,45 +354,47 @@ function normalizePiConfig(value: unknown): SymphonyPiRuntimePolicy {
   };
 }
 
-function normalizeCodexConfig(value: unknown): SymphonyCodexRuntimePolicy {
-  const codex = getNestedRecord(value);
-  const rawCommand = codex.command;
+function normalizeAgentRuntimeConfig(
+  value: unknown
+): SymphonyAgentRuntimeExecutionPolicy {
+  const agentRuntime = getNestedRecord(value);
+  const rawCommand = agentRuntime.command;
 
   if (rawCommand === "") {
     throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
-      "codex.command must not be blank."
+      "agentRuntime.command must not be blank."
     );
   }
 
   if (rawCommand !== undefined && typeof rawCommand !== "string") {
     throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
-      "codex.command must be a string."
+      "agentRuntime.command must be a string."
     );
   }
 
   return {
-    command: typeof rawCommand === "string" ? rawCommand : "codex",
-    approvalPolicy: normalizeApprovalPolicy(codex.approvalPolicy),
+    command: typeof rawCommand === "string" ? rawCommand : "pi",
+    approvalPolicy: normalizeApprovalPolicy(agentRuntime.approvalPolicy),
     threadSandbox:
-      normalizeOptionalString(codex.threadSandbox) ?? "danger-full-access",
-    turnSandboxPolicy: normalizeOptionalRecord(codex.turnSandboxPolicy),
-    ...normalizeHarnessModelConfig(codex),
+      normalizeOptionalString(agentRuntime.threadSandbox) ?? "danger-full-access",
+    turnSandboxPolicy: normalizeOptionalRecord(agentRuntime.turnSandboxPolicy),
+    ...normalizeHarnessModelConfig(agentRuntime),
     turnTimeoutMs: normalizePositiveInteger(
-      codex.turnTimeoutMs,
+      agentRuntime.turnTimeoutMs,
       3_600_000,
-      "codex.turnTimeoutMs"
+      "agentRuntime.turnTimeoutMs"
     ),
     readTimeoutMs: normalizePositiveInteger(
-      codex.readTimeoutMs,
+      agentRuntime.readTimeoutMs,
       5_000,
-      "codex.readTimeoutMs"
+      "agentRuntime.readTimeoutMs"
     ),
     stallTimeoutMs: normalizeNonNegativeInteger(
-      codex.stallTimeoutMs,
+      agentRuntime.stallTimeoutMs,
       300_000,
-      "codex.stallTimeoutMs"
+      "agentRuntime.stallTimeoutMs"
     )
   };
 }

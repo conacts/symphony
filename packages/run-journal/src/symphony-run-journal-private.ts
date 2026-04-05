@@ -12,7 +12,7 @@ import type {
   SymphonyTurnExport,
   SymphonyTurnRecord
 } from "./symphony-run-journal-types.js";
-import type { SymphonyCodexAnalyticsEvent } from "./codex-analytics-types.js";
+import type { SymphonyAgentAnalyticsEvent } from "./agent-analytics-types.js";
 
 export const symphonyCompletedRunOutcomes = new Set([
   "completed",
@@ -349,14 +349,14 @@ function parseTokenCount(value: SymphonyJsonValue | undefined): number {
 }
 
 export function truncatePayload(
-  payload: SymphonyCodexAnalyticsEvent,
+  payload: SymphonyAgentAnalyticsEvent,
   payloadMaxBytes: number
 ): {
-  payload: SymphonyCodexAnalyticsEvent;
+  payload: SymphonyAgentAnalyticsEvent;
   payloadBytes: number;
   payloadTruncated: boolean;
 } {
-  const sanitizedPayload = sanitizeJsonValue(payload) as SymphonyCodexAnalyticsEvent;
+  const sanitizedPayload = sanitizeJsonValue(payload) as SymphonyAgentAnalyticsEvent;
   const encoded = JSON.stringify(sanitizedPayload);
   const payloadBytes = Buffer.byteLength(encoded, "utf8");
 
@@ -388,9 +388,9 @@ export function truncatePayload(
 }
 
 function compactAnalyticsPayload(
-  payload: SymphonyCodexAnalyticsEvent,
+  payload: SymphonyAgentAnalyticsEvent,
   maxLength: number
-): SymphonyCodexAnalyticsEvent {
+): SymphonyAgentAnalyticsEvent {
   if (payload.type === "session.started") {
     return payload;
   }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildSymphonyRuntimeStateResult } from "../test-support/build-symphony-dashboard-view-fixtures.js";
+import { buildSymphonyAgentRunArtifactsResult } from "@/test-support/build-symphony-dashboard-view-fixtures";
 import {
   buildRuntimeSummaryConnectionState,
   buildRuntimeSummaryViewModel,
@@ -10,7 +11,20 @@ describe("runtime summary view model", () => {
   it("formats the operator-facing runtime metrics and rows", () => {
     const runtimeSummary = buildRuntimeSummaryViewModel(
       buildSymphonyRuntimeStateResult(),
-      new Date("2026-03-31T18:02:00.000Z")
+      new Date("2026-03-31T18:02:00.000Z"),
+      {
+        issueIndex: { issues: [], totals: {} as never, filters: {} as never, facets: {} as never },
+        sampledRuns: [
+          {
+            issueIdentifier: "COL-165",
+            run: {
+              issueIdentifier: "COL-165",
+              runId: "run_123"
+            } as never,
+            artifacts: buildSymphonyAgentRunArtifactsResult()
+          }
+        ]
+      }
     );
 
     expect(runtimeSummary.metrics[0]).toEqual({
@@ -34,6 +48,8 @@ describe("runtime summary view model", () => {
       label: "remaining",
       value: "3"
     });
+    expect(runtimeSummary.piTelemetryCards[0]?.label).toBe("Sampled PI runs");
+    expect(runtimeSummary.piTelemetryCards[1]?.value).toBe("1");
   });
 
   it("describes operator-visible connection states", () => {

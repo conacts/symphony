@@ -4,14 +4,14 @@ import {
   formatOverflowContent
 } from "@/features/runs/model/agent-run-view-model";
 import {
-  buildSymphonyCodexOverflowResult,
-  buildSymphonyCodexRunArtifactsResult,
+  buildSymphonyAgentOverflowResult,
+  buildSymphonyAgentRunArtifactsResult,
   buildSymphonyForensicsRunDetailResult
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
 
 describe("agent run view model", () => {
   it("builds a structured transcript from agent artifacts", () => {
-    const runArtifacts = buildSymphonyCodexRunArtifactsResult();
+    const runArtifacts = buildSymphonyAgentRunArtifactsResult();
     const runDetail = buildSymphonyForensicsRunDetailResult();
     runArtifacts.run.harnessKind = "pi";
     if (runArtifacts.turns[0]) {
@@ -96,6 +96,38 @@ describe("agent run view model", () => {
       insertedAt: "2026-03-31T18:00:42.000Z",
       updatedAt: "2026-03-31T18:00:42.000Z"
     });
+    runArtifacts.items.splice(2, 0, {
+      runId: "run_123",
+      turnId: "turn_123",
+      itemId: "tool_read_1",
+      itemType: "mcp_tool_call",
+      startedAt: "2026-03-31T18:00:20.000Z",
+      lastUpdatedAt: "2026-03-31T18:00:21.000Z",
+      completedAt: "2026-03-31T18:00:21.000Z",
+      finalStatus: "completed",
+      updateCount: 1,
+      durationMs: 1_000,
+      latestPreview: "Read README.md",
+      latestOverflowId: null,
+      insertedAt: "2026-03-31T18:00:20.000Z",
+      updatedAt: "2026-03-31T18:00:21.000Z"
+    });
+    runArtifacts.items.splice(3, 0, {
+      runId: "run_123",
+      turnId: "turn_123",
+      itemId: "tool_read_2",
+      itemType: "mcp_tool_call",
+      startedAt: "2026-03-31T18:00:22.000Z",
+      lastUpdatedAt: "2026-03-31T18:00:23.000Z",
+      completedAt: "2026-03-31T18:00:23.000Z",
+      finalStatus: "completed",
+      updateCount: 1,
+      durationMs: 1_000,
+      latestPreview: "Read src/index.ts",
+      latestOverflowId: null,
+      insertedAt: "2026-03-31T18:00:22.000Z",
+      updatedAt: "2026-03-31T18:00:23.000Z"
+    });
     runArtifacts.fileChanges.push(
       {
         runId: "run_123",
@@ -114,6 +146,46 @@ describe("agent run view model", () => {
         changeKind: "modified",
         recordedAt: "2026-03-31T18:00:31.000Z",
         insertedAt: "2026-03-31T18:00:31.000Z"
+      }
+    );
+    runArtifacts.toolCalls.unshift(
+      {
+        runId: "run_123",
+        turnId: "turn_123",
+        itemId: "tool_read_1",
+        server: "pi",
+        tool: "read",
+        status: "completed",
+        errorMessage: null,
+        argumentsJson: {
+          path: "README.md"
+        },
+        resultPreview: "README contents",
+        resultOverflowId: null,
+        startedAt: "2026-03-31T18:00:20.000Z",
+        completedAt: "2026-03-31T18:00:21.000Z",
+        durationMs: 1_000,
+        insertedAt: "2026-03-31T18:00:20.000Z",
+        updatedAt: "2026-03-31T18:00:21.000Z"
+      },
+      {
+        runId: "run_123",
+        turnId: "turn_123",
+        itemId: "tool_read_2",
+        server: "pi",
+        tool: "read",
+        status: "completed",
+        errorMessage: null,
+        argumentsJson: {
+          path: "src/index.ts"
+        },
+        resultPreview: "index contents",
+        resultOverflowId: null,
+        startedAt: "2026-03-31T18:00:22.000Z",
+        completedAt: "2026-03-31T18:00:23.000Z",
+        durationMs: 1_000,
+        insertedAt: "2026-03-31T18:00:22.000Z",
+        updatedAt: "2026-03-31T18:00:23.000Z"
       }
     );
     runArtifacts.taskSnapshots.push({
@@ -237,6 +309,7 @@ describe("agent run view model", () => {
     expect(viewModel.transcriptTurns[0]?.entries.map((entry) => entry.kind)).toEqual([
       "reasoning",
       "command",
+      "pi-read-task",
       "file-change",
       "tool-call",
       "todo-list",
@@ -251,11 +324,17 @@ describe("agent run view model", () => {
     const reasoningEntry = viewModel.transcriptTurns[0]?.entries.find(
       (entry) => entry.kind === "reasoning"
     );
+    const piReadEntry = viewModel.transcriptTurns[0]?.entries.find(
+      (entry) => entry.kind === "pi-read-task"
+    );
     expect(reasoningEntry?.kind).toBe("reasoning");
     expect(reasoningEntry?.segmentCount).toBe(2);
     expect(reasoningEntry?.preview).toContain(
       "Checking the pending task queue before continuing."
     );
+    expect(piReadEntry?.kind).toBe("pi-read-task");
+    expect(piReadEntry?.readCount).toBe(2);
+    expect(piReadEntry?.paths).toEqual(["README.md", "src/index.ts"]);
     expect(fileChangeEntry?.kind).toBe("file-change");
     expect(fileChangeEntry?.summary).toBe("2 files changed");
     expect(fileChangeEntry?.changes).toEqual([
@@ -279,7 +358,7 @@ describe("agent run view model", () => {
   });
 
   it("formats overflow payloads as readable text", () => {
-    expect(formatOverflowContent(buildSymphonyCodexOverflowResult())).toContain(
+    expect(formatOverflowContent(buildSymphonyAgentOverflowResult())).toContain(
       "Task complete."
     );
   });

@@ -1346,6 +1346,52 @@ describe("docker workspace backend", () => {
     ]);
   });
 
+  it("uses format-based quoting for shared-postgres role bootstrap SQL", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildWorkspaceTestConfig({
+      workspace: {
+        root
+      }
+    });
+    const runtimeManifest = buildLoadedRuntimeManifest({ init: [] });
+    const mock = createSharedPostgresMock({
+      root,
+      issueIdentifier: "COL-512",
+      runtimeManifest
+    });
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      runtimeManifest,
+      sharedPostgres: buildSharedPostgresConfig(),
+      commandRunner: mock.runner
+    });
+
+    await backend.prepareWorkspace({
+      context: { issueId: "issue-512", issueIdentifier: "COL-512" },
+      runId: "run-512",
+      config: config.workspace,
+      hooks: config.hooks,
+      env: {
+        OPENAI_API_KEY: "test-openai-key"
+      },
+    });
+
+    const roleCommand = mock.calls.find(
+      (call) => call[0] === "exec" && (call.at(-1) ?? "").includes("CREATE ROLE %I LOGIN PASSWORD %L")
+    );
+
+    expect(roleCommand).toBeDefined();
+    expect(roleCommand?.at(-1)).toContain(
+      `EXECUTE format('"'"'CREATE ROLE %I LOGIN PASSWORD %L'"'"'`
+    );
+    expect(roleCommand?.at(-1)).toContain(
+      `EXECUTE format('"'"'ALTER ROLE %I WITH LOGIN PASSWORD %L'"'"'`
+    );
+    expect(roleCommand?.at(-1)).not.toContain(
+      `EXECUTE 'CREATE ROLE`
+    );
+  });
+
   it("fails fast on shared-postgres bootstrap step failures and redacts injected secrets", async () => {
     const root = await createWorkspaceRoot();
     const runtimeManifest = buildLoadedRuntimeManifest({

@@ -44,7 +44,7 @@ describe("runtime operator client", () => {
       issueIdentifier: "COL-167",
       operator: {
         requeueCommand: "/rework",
-        codex: {
+        pi: {
           selectedModel: "xiaomi/mimo-v2-pro"
         }
       }

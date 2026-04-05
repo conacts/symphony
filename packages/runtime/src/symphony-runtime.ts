@@ -220,8 +220,8 @@ function toSymphonyOrchestratorConfig(
       maxConcurrentAgentsByState:
         runtimePolicy.agent.maxConcurrentAgentsByState
     },
-    codex: {
-      stallTimeoutMs: runtimePolicy.codex.stallTimeoutMs
+    agentRuntime: {
+      stallTimeoutMs: runtimePolicy.agentRuntime.stallTimeoutMs
     },
     runtime: {
       tracker: runtimePolicy.tracker,
@@ -241,18 +241,18 @@ function toSymphonyOrchestratorConfig(
         readTimeoutMs: runtimePolicy.pi.readTimeoutMs,
         stallTimeoutMs: runtimePolicy.pi.stallTimeoutMs
       },
-      codex: {
-        command: runtimePolicy.codex.command,
-        approvalPolicy: runtimePolicy.codex.approvalPolicy,
-        threadSandbox: runtimePolicy.codex.threadSandbox,
-        turnSandboxPolicy: runtimePolicy.codex.turnSandboxPolicy,
-        profile: runtimePolicy.codex.profile,
-        defaultModel: runtimePolicy.codex.defaultModel,
-        defaultReasoningEffort: runtimePolicy.codex.defaultReasoningEffort,
-        provider: runtimePolicy.codex.provider,
-        turnTimeoutMs: runtimePolicy.codex.turnTimeoutMs,
-        readTimeoutMs: runtimePolicy.codex.readTimeoutMs,
-        stallTimeoutMs: runtimePolicy.codex.stallTimeoutMs
+      agentRuntime: {
+        command: runtimePolicy.agentRuntime.command,
+        approvalPolicy: runtimePolicy.agentRuntime.approvalPolicy,
+        threadSandbox: runtimePolicy.agentRuntime.threadSandbox,
+        turnSandboxPolicy: runtimePolicy.agentRuntime.turnSandboxPolicy,
+        profile: runtimePolicy.agentRuntime.profile,
+        defaultModel: runtimePolicy.agentRuntime.defaultModel,
+        defaultReasoningEffort: runtimePolicy.agentRuntime.defaultReasoningEffort,
+        provider: runtimePolicy.agentRuntime.provider,
+        turnTimeoutMs: runtimePolicy.agentRuntime.turnTimeoutMs,
+        readTimeoutMs: runtimePolicy.agentRuntime.readTimeoutMs,
+        stallTimeoutMs: runtimePolicy.agentRuntime.stallTimeoutMs
       },
       hooks: {
         timeoutMs: runtimePolicy.hooks.timeoutMs

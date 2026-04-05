@@ -59,6 +59,15 @@ export type AgentRunTranscriptEntry =
       segmentCount: number;
     }
   | {
+      kind: "pi-read-task";
+      itemId: string;
+      recordedAt: string;
+      status: string;
+      paths: string[];
+      readCount: number;
+      overflowId: string | null;
+    }
+  | {
       kind: "command";
       itemId: string;
       recordedAt: string;
@@ -134,6 +143,8 @@ export type AgentRunTranscriptTurn = {
   }>;
   entries: AgentRunTranscriptEntry[];
 };
+
+export type AgentRunResourceViewModel = AgentRunViewModel;
 
 export type AgentRunViewModel = {
   harnessLabel: string;
@@ -745,6 +756,18 @@ function mapTranscriptEntry(input: {
   }
 
   if (input.toolCall) {
+    if (input.toolCall.server === "pi" && input.toolCall.tool === "read") {
+      return {
+        kind: "pi-read-task",
+        itemId: input.item.itemId,
+        recordedAt,
+        status,
+        paths: extractPiReadPaths(input.toolCall.argumentsJson),
+        readCount: 1,
+        overflowId: input.toolCall.resultOverflowId
+      };
+    }
+
     return {
       kind: "tool-call",
       itemId: input.item.itemId,
@@ -1040,6 +1063,21 @@ function compactTranscriptEntries(
   for (const entry of entries) {
     const previous = compacted[compacted.length - 1];
 
+    if (previous?.kind === "pi-read-task" && entry.kind === "pi-read-task") {
+      compacted[compacted.length - 1] = {
+        ...previous,
+        recordedAt: entry.recordedAt,
+        status: entry.status,
+        paths: uniquePaths([...previous.paths, ...entry.paths]),
+        readCount: previous.readCount + entry.readCount,
+        overflowId:
+          previous.overflowId !== null && previous.overflowId === entry.overflowId
+            ? previous.overflowId
+            : null
+      };
+      continue;
+    }
+
     if (previous?.kind === "reasoning" && entry.kind === "reasoning") {
       compacted[compacted.length - 1] = {
         ...previous,
@@ -1076,4 +1114,36 @@ function joinTranscriptText(
   }
 
   return left ?? right;
+}
+
+function extractPiReadPaths(value: unknown): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+
+  const record = value as Record<string, unknown>;
+  const scalarPath = getStringValue(record.path) ?? getStringValue(record.file_path);
+
+  if (scalarPath) {
+    return [scalarPath];
+  }
+
+  const paths = record.paths;
+  if (Array.isArray(paths)) {
+    return uniquePaths(
+      paths
+        .map((entry) => (typeof entry === "string" ? entry : null))
+        .filter((entry): entry is string => entry !== null)
+    );
+  }
+
+  return [];
+}
+
+function getStringValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+function uniquePaths(paths: string[]): string[] {
+  return [...new Set(paths)].sort((left, right) => left.localeCompare(right));
 }

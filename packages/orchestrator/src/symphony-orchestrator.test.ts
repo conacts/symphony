@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   createSymphonyOrchestratorState,
   prepareIssueForDispatch,
@@ -73,72 +73,6 @@ describe("symphony orchestrator", () => {
     ]);
   });
 
-  it("rejects non-pi harnesses before workspace preparation", async () => {
-    const config = buildSymphonyOrchestratorConfig({
-      runtime: {
-        agent: {
-          harness: "codex"
-        }
-      }
-    });
-    const issue = buildSymphonyTrackerIssue({
-      state: "Rework"
-    });
-    const tracker = createMemorySymphonyTracker([issue]);
-    const prepareWorkspace = vi.fn(async () => {
-      throw new Error("prepareWorkspace should not be called");
-    });
-    const runBeforeRun = vi.fn(async () => {
-      throw new Error("runBeforeRun should not be called");
-    });
-    const runAfterRun = vi.fn(async () => {
-      throw new Error("runAfterRun should not be called");
-    });
-    const cleanupWorkspace = vi.fn(async () => {
-      return {
-        backendKind: "docker" as const,
-        workerHost: null,
-        hostPath: null,
-        runtimePath: null,
-        containerId: null,
-        containerName: null,
-        networkName: null,
-        networkRemovalDisposition: "not_applicable" as const,
-        serviceCleanup: [],
-        beforeRemoveHookOutcome: "skipped" as const,
-        manifestLifecycleCleanup: null,
-        workspaceRemovalDisposition: "preserved" as const,
-        containerRemovalDisposition: "stopped" as const
-      };
-    });
-    const startRun = vi.fn(async () => {
-      throw new Error("startRun should not be called");
-    });
-    const agentRuntime = createAgentRuntime({
-      startRun
-    });
-    const orchestrator = new SymphonyOrchestrator({
-      config,
-      tracker,
-      workspaceBackend: {
-        kind: "docker",
-        prepareWorkspace,
-        runBeforeRun,
-        runAfterRun,
-        cleanupWorkspace
-      },
-      agentRuntime
-    });
-
-    await orchestrator.dispatchIssue(issue, 0);
-
-    expect(prepareWorkspace).not.toHaveBeenCalled();
-    expect(runBeforeRun).not.toHaveBeenCalled();
-    expect(runAfterRun).not.toHaveBeenCalled();
-    expect(startRun).not.toHaveBeenCalled();
-    expect(orchestrator.snapshot().running).toHaveLength(0);
-  });
-
   it("dispatches eligible issues, updates snapshots, and preserves the workspace when a run stops", async () => {
     const config = buildSymphonyOrchestratorConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
@@ -191,7 +125,7 @@ describe("symphony orchestrator", () => {
         }
       },
       timestamp: "2026-03-31T00:00:02.000Z",
-      codexAppServerPid: "4242"
+      agentRuntimeProcessId: "4242"
     });
     orchestrator.applyAgentUpdate("issue-123", {
       event: "turn_completed",
@@ -209,8 +143,8 @@ describe("symphony orchestrator", () => {
     expect(runningSnapshot.running[0]?.sessionId).toBe("thread-live");
     expect(runningSnapshot.running[0]?.workspace?.executionTarget.kind).toBe("container");
     expect(runningSnapshot.running[0]?.turnCount).toBe(1);
-    expect(runningSnapshot.running[0]?.codexTotalTokens).toBe(16);
-    expect(runningSnapshot.running[0]?.codexAppServerPid).toBe("4242");
+    expect(runningSnapshot.running[0]?.agentTotalTokens).toBe(16);
+    expect(runningSnapshot.running[0]?.agentRuntimeProcessId).toBe("4242");
 
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "normal"
@@ -219,7 +153,7 @@ describe("symphony orchestrator", () => {
     const completedSnapshot = orchestrator.snapshot();
     expect(completedSnapshot.running).toHaveLength(0);
     expect(completedSnapshot.retrying).toHaveLength(0);
-    expect(completedSnapshot.codexTotals.totalTokens).toBe(16);
+    expect(completedSnapshot.agentTotals.totalTokens).toBe(16);
   });
 
   it.each([
@@ -876,8 +810,8 @@ describe("symphony orchestrator", () => {
 
   it("pauses stalled runs instead of silently retrying them", async () => {
     const config = buildSymphonyOrchestratorConfig({
-      codex: {
-        ...buildSymphonyOrchestratorConfig().codex,
+      agentRuntime: {
+        ...buildSymphonyOrchestratorConfig().agentRuntime,
         stallTimeoutMs: 1_000
       }
     });
@@ -934,7 +868,7 @@ describe("symphony orchestrator", () => {
     expect(finalized).toEqual([
       {
         kind: "stalled",
-        reason: "stalled for 5000ms without codex activity"
+        reason: "stalled for 5000ms without agent activity"
       }
     ]);
     expect(orchestrator.snapshot().running).toHaveLength(0);

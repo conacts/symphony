@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import type {
-  SymphonyCodexAnalyticsEvent,
-  SymphonyCodexThreadItemStatus,
-  SymphonyCodexThreadItemType,
+  SymphonyAgentAnalyticsEvent,
+  SymphonyAgentThreadItemStatus,
+  SymphonyAgentThreadItemType,
   SymphonyEventAttrs,
   SymphonyIssueSummary,
   SymphonyJsonObject,
@@ -186,9 +186,9 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
         turnId,
         runId,
         turnSequence,
-        threadId: attrs.codexThreadId ?? attrs.threadId ?? null,
-        agentTurnId: attrs.codexTurnId ?? attrs.agentTurnId ?? null,
-        sessionId: attrs.codexSessionId ?? attrs.sessionId ?? null,
+        threadId: attrs.threadId ?? attrs.threadId ?? null,
+        agentTurnId: attrs.agentTurnId ?? attrs.agentTurnId ?? null,
+        sessionId: attrs.sessionId ?? attrs.sessionId ?? null,
         promptText: sanitizeText(attrs.promptText),
         status: attrs.status ?? "running",
         startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? now,
@@ -210,7 +210,7 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
       message: `Turn ${turnSequence} started.`,
       payload: {
         turnSequence,
-        sessionId: attrs.codexSessionId ?? attrs.sessionId ?? null
+        sessionId: attrs.sessionId ?? attrs.sessionId ?? null
       },
       recordedAt: normalizeIsoTimestamp(attrs.startedAt) ?? now
     });
@@ -273,9 +273,9 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
         payloadTruncated: truncatedPayload.payloadTruncated,
         payloadBytes: truncatedPayload.payloadBytes,
         summary: attrs.summary ? sanitizeText(attrs.summary) : null,
-        threadId: attrs.codexThreadId ?? attrs.threadId ?? null,
-        agentTurnId: attrs.codexTurnId ?? attrs.agentTurnId ?? null,
-        sessionId: attrs.codexSessionId ?? attrs.sessionId ?? null,
+        threadId: attrs.threadId ?? attrs.threadId ?? null,
+        agentTurnId: attrs.agentTurnId ?? attrs.agentTurnId ?? null,
+        sessionId: attrs.sessionId ?? attrs.sessionId ?? null,
         insertedAt: isoNow()
       })
       .run();
@@ -311,9 +311,9 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
         status: attrs.status ?? existing.status,
         startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? existing.startedAt,
         endedAt: normalizeIsoTimestamp(attrs.endedAt) ?? existing.endedAt,
-        threadId: attrs.codexThreadId ?? attrs.threadId ?? existing.threadId,
-        agentTurnId: attrs.codexTurnId ?? attrs.agentTurnId ?? existing.agentTurnId,
-        sessionId: attrs.codexSessionId ?? attrs.sessionId ?? existing.sessionId,
+        threadId: attrs.threadId ?? attrs.threadId ?? existing.threadId,
+        agentTurnId: attrs.agentTurnId ?? attrs.agentTurnId ?? existing.agentTurnId,
+        sessionId: attrs.sessionId ?? attrs.sessionId ?? existing.sessionId,
         usage: sanitizeUsage(attrs.usage) ?? existing.usage,
         metadata: mergeSanitizedJsonObjects(existing.metadata, attrs.metadata),
         updatedAt: isoNow()
@@ -326,9 +326,9 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
     await this.updateTurn(turnId, {
       status: attrs.status ?? "completed",
       endedAt: attrs.endedAt,
-      codexThreadId: attrs.codexThreadId ?? attrs.threadId,
-      codexTurnId: attrs.codexTurnId ?? attrs.agentTurnId,
-      codexSessionId: attrs.codexSessionId ?? attrs.sessionId,
+      threadId: attrs.threadId ?? attrs.threadId,
+      agentTurnId: attrs.agentTurnId ?? attrs.agentTurnId,
+      sessionId: attrs.sessionId ?? attrs.sessionId,
       usage: attrs.usage,
       metadata: attrs.metadata
     });
@@ -879,14 +879,14 @@ function sanitizeUsage(
 }
 
 function truncatePayload(
-  payload: SymphonyCodexAnalyticsEvent,
+  payload: SymphonyAgentAnalyticsEvent,
   payloadMaxBytes: number
 ): {
-  payload: SymphonyCodexAnalyticsEvent;
+  payload: SymphonyAgentAnalyticsEvent;
   payloadBytes: number;
   payloadTruncated: boolean;
 } {
-  const sanitizedPayload = sanitizeJsonValue(payload) as SymphonyCodexAnalyticsEvent;
+  const sanitizedPayload = sanitizeJsonValue(payload) as SymphonyAgentAnalyticsEvent;
   const encoded = JSON.stringify(sanitizedPayload);
   const payloadBytes = Buffer.byteLength(encoded, "utf8");
 
@@ -918,9 +918,9 @@ function truncatePayload(
 }
 
 function compactAnalyticsPayload(
-  payload: SymphonyCodexAnalyticsEvent,
+  payload: SymphonyAgentAnalyticsEvent,
   maxLength: number
-): SymphonyCodexAnalyticsEvent {
+): SymphonyAgentAnalyticsEvent {
   if (payload.type === "session.started") {
     return payload;
   }
@@ -986,14 +986,14 @@ function compactString(value: string, maxLength = 8192): string {
 }
 
 function deriveItemType(
-  payload: SymphonyCodexAnalyticsEvent
-): SymphonyCodexThreadItemType | null {
+  payload: SymphonyAgentAnalyticsEvent
+): SymphonyAgentThreadItemType | null {
   return "item" in payload ? payload.item.type : null;
 }
 
 function deriveItemStatus(
-  payload: SymphonyCodexAnalyticsEvent
-): SymphonyCodexThreadItemStatus {
+  payload: SymphonyAgentAnalyticsEvent
+): SymphonyAgentThreadItemStatus {
   if (!("item" in payload)) {
     return null;
   }
@@ -1027,9 +1027,9 @@ function castTurnExport(
 ): SymphonyRunExport["turns"][number] {
   return {
     ...turn,
-    codexThreadId: turn.threadId ?? null,
-    codexTurnId: turn.agentTurnId ?? null,
-    codexSessionId: turn.sessionId ?? null,
+    threadId: turn.threadId ?? null,
+    agentTurnId: turn.agentTurnId ?? null,
+    sessionId: turn.sessionId ?? null,
     usage: (turn.usage ?? null) as {
       input_tokens: number;
       cached_input_tokens: number;
@@ -1038,9 +1038,9 @@ function castTurnExport(
     metadata: (turn.metadata ?? null) as SymphonyJsonObject | null,
     events: turn.events.map((event) => ({
       ...event,
-      codexThreadId: event.threadId ?? null,
-      codexTurnId: event.agentTurnId ?? null,
-      codexSessionId: event.sessionId ?? null,
+      threadId: event.threadId ?? null,
+      agentTurnId: event.agentTurnId ?? null,
+      sessionId: event.sessionId ?? null,
       eventType: event.eventType as SymphonyRunExport["turns"][number]["events"][number]["eventType"],
       itemType: (event.itemType ?? null) as SymphonyRunExport["turns"][number]["events"][number]["itemType"],
       itemStatus: (event.itemStatus ?? null) as SymphonyRunExport["turns"][number]["events"][number]["itemStatus"],

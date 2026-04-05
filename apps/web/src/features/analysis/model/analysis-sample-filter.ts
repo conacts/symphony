@@ -78,14 +78,6 @@ export function formatHarnessLabel(harness: string): string {
     return "PI";
   }
 
-  if (harness === "codex") {
-    return "Codex";
-  }
-
-  if (harness === "opencode") {
-    return "OpenCode";
-  }
-
   return harness;
 }
 

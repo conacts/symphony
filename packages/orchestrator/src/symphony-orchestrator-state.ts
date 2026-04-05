@@ -1,4 +1,4 @@
-import { runtimeSeconds } from "./symphony-orchestrator-codex-state.js";
+import { runtimeSeconds } from "./symphony-orchestrator-agent-state.js";
 import type {
   SymphonyClock,
   SymphonyRunningEntry,
@@ -29,7 +29,7 @@ export function createSymphonyOrchestratorState(
     completed: new Set<string>(),
     claimed: new Set<string>(),
     retryAttempts: {},
-    codexTotals: {
+    agentTotals: {
       inputTokens: 0,
       outputTokens: 0,
       totalTokens: 0,
@@ -65,24 +65,24 @@ export function createSymphonyOrchestratorSnapshot(
     maxConcurrentAgents: state.maxConcurrentAgents,
     nextPollDueAtMs: state.nextPollDueAtMs,
     pollCheckInProgress: state.pollCheckInProgress,
-    codexTotals: state.codexTotals,
+    agentTotals: state.agentTotals,
     rateLimits: state.rateLimits
   };
 }
 
-export function accumulateCodexTotals(
+export function accumulateAgentTotals(
   state: SymphonyOrchestratorState,
   runningEntry: SymphonyRunningEntry,
   clock: SymphonyClock
 ): SymphonyOrchestratorState {
   return {
     ...state,
-    codexTotals: {
-      inputTokens: state.codexTotals.inputTokens + runningEntry.codexInputTokens,
-      outputTokens: state.codexTotals.outputTokens + runningEntry.codexOutputTokens,
-      totalTokens: state.codexTotals.totalTokens + runningEntry.codexTotalTokens,
+    agentTotals: {
+      inputTokens: state.agentTotals.inputTokens + runningEntry.agentInputTokens,
+      outputTokens: state.agentTotals.outputTokens + runningEntry.agentOutputTokens,
+      totalTokens: state.agentTotals.totalTokens + runningEntry.agentTotalTokens,
       secondsRunning:
-        state.codexTotals.secondsRunning +
+        state.agentTotals.secondsRunning +
         runtimeSeconds(runningEntry.startedAt, clock.now())
     }
   };

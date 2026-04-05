@@ -23,7 +23,7 @@ import {
 import {
   createSqliteAgentAnalyticsReadStore,
   symphonyAgentPayloadOverflowTable,
-  createSqliteCodexAnalyticsStore,
+  createSqliteAgentAnalyticsStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
@@ -134,9 +134,9 @@ export function buildSymphonyRuntimePolicyForRoot(
       ...baseConfig.pi,
       ...overrides.pi
     },
-    codex: {
-      ...baseConfig.codex,
-      ...overrides.codex
+    agentRuntime: {
+      ...baseConfig.agentRuntime,
+      ...overrides.agentRuntime
     },
     hooks: {
       ...baseConfig.hooks,
@@ -194,7 +194,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
     db: database.db,
     timelineStore: issueTimelineStore
   });
-  const codexAnalyticsStore = createSqliteCodexAnalyticsStore({
+  const agentAnalyticsStore = createSqliteAgentAnalyticsStore({
     db: database.db
   });
   const agentAnalyticsReadStore = createSqliteAgentAnalyticsReadStore({
@@ -214,7 +214,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
       turnId: "turn-123"
     })
   );
-  await codexAnalyticsStore.startRun({
+  await agentAnalyticsStore.startRun({
     runId,
     issueId: issue.id,
     issueIdentifier: issue.identifier,
@@ -222,7 +222,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
     status: "running",
     threadId: "thread-123"
   });
-  await codexAnalyticsStore.recordEvent({
+  await agentAnalyticsStore.recordEvent({
     runId,
     turnId,
     threadId: "thread-123",
@@ -232,7 +232,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
       thread_id: "thread-123"
     }
   });
-  await codexAnalyticsStore.recordEvent({
+  await agentAnalyticsStore.recordEvent({
     runId,
     turnId,
     threadId: "thread-123",
@@ -246,7 +246,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
       }
     }
   });
-  await codexAnalyticsStore.recordEvent({
+  await agentAnalyticsStore.recordEvent({
     runId,
     turnId,
     threadId: "thread-123",
@@ -273,7 +273,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
       insertedAt: "2026-03-31T00:00:01.000Z"
     })
     .run();
-  await codexAnalyticsStore.finalizeTurn({
+  await agentAnalyticsStore.finalizeTurn({
     runId,
     turnId,
     endedAt: "2026-03-31T00:01:00.000Z",
@@ -282,7 +282,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
     failureKind: null,
     failureMessagePreview: null
   });
-  await codexAnalyticsStore.finalizeRun({
+  await agentAnalyticsStore.finalizeRun({
     runId,
     endedAt: "2026-03-31T00:01:00.000Z",
     status: "completed",
@@ -334,23 +334,23 @@ export async function createSymphonyRuntimeTestHarness(input: {
         workspacePath: path.join(root, `symphony-${issue.identifier}`),
         retryAttempt: 0,
         turnCount: 1,
-        lastCodexMessage: {
+        lastAgentMessage: {
           event: "notification",
           message: {
             method: "thread/tokenUsage/updated"
           },
           timestamp: "2026-03-31T00:00:00.000Z"
         },
-        lastCodexTimestamp: "2026-03-31T00:00:00.000Z",
-        lastCodexEvent: "notification",
-        codexInputTokens: 12,
-        codexOutputTokens: 4,
-        codexTotalTokens: 16,
-        codexLastReportedInputTokens: 12,
-        codexLastReportedOutputTokens: 4,
-        codexLastReportedTotalTokens: 16,
+        lastAgentTimestamp: "2026-03-31T00:00:00.000Z",
+        lastAgentEvent: "notification",
+        agentInputTokens: 12,
+        agentOutputTokens: 4,
+        agentTotalTokens: 16,
+        agentLastReportedInputTokens: 12,
+        agentLastReportedOutputTokens: 4,
+        agentLastReportedTotalTokens: 16,
         lastRateLimits: null,
-        codexAppServerPid: "4242",
+        agentRuntimeProcessId: "4242",
         startedAt: "2026-03-31T00:00:00.000Z",
         runtimeSeconds: 12
       }

@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
-  symphonyCodexOverflowRecordSchema,
-  symphonyCodexRunRecordSchema,
-  symphonyCodexTurnRecordSchema,
-  symphonyCodexToolCallRecordSchema
+  symphonyAgentOverflowRecordSchema,
+  symphonyAgentRunRecordSchema,
+  symphonyAgentTurnRecordSchema,
+  symphonyAgentToolCallRecordSchema
 } from "./responses.js";
 
 describe("codex analytics contracts", () => {
   it("accepts valid Codex run and turn statuses", () => {
     expect(() =>
-      symphonyCodexRunRecordSchema.parse({
+      symphonyAgentRunRecordSchema.parse({
         runId: "run-1",
         threadId: "thread-1",
         issueId: "issue-1",
@@ -44,7 +44,7 @@ describe("codex analytics contracts", () => {
     ).not.toThrow();
 
     expect(() =>
-      symphonyCodexTurnRecordSchema.parse({
+      symphonyAgentTurnRecordSchema.parse({
         turnId: "turn-1",
         runId: "run-1",
         threadId: "thread-1",
@@ -82,7 +82,7 @@ describe("codex analytics contracts", () => {
 
   it("rejects invalid Codex analytics statuses", () => {
     expect(() =>
-      symphonyCodexRunRecordSchema.parse({
+      symphonyAgentRunRecordSchema.parse({
         runId: "run-1",
         threadId: null,
         issueId: "issue-1",
@@ -117,7 +117,7 @@ describe("codex analytics contracts", () => {
     ).toThrow(/Invalid option/i);
 
     expect(() =>
-      symphonyCodexToolCallRecordSchema.parse({
+      symphonyAgentToolCallRecordSchema.parse({
         runId: "run-1",
         turnId: "turn-1",
         itemId: "tool-1",
@@ -141,7 +141,7 @@ describe("codex analytics contracts", () => {
 
   it("requires endedAt for terminal Codex runs and turns", () => {
     expect(() =>
-      symphonyCodexRunRecordSchema.parse({
+      symphonyAgentRunRecordSchema.parse({
         runId: "run-1",
         threadId: null,
         issueId: "issue-1",
@@ -176,7 +176,7 @@ describe("codex analytics contracts", () => {
     ).toThrow(/endedAt/i);
 
     expect(() =>
-      symphonyCodexTurnRecordSchema.parse({
+      symphonyAgentTurnRecordSchema.parse({
         turnId: "turn-1",
         runId: "run-1",
         threadId: null,
@@ -210,7 +210,7 @@ describe("codex analytics contracts", () => {
 
   it("accepts overflow records with full stored content", () => {
     expect(() =>
-      symphonyCodexOverflowRecordSchema.parse({
+      symphonyAgentOverflowRecordSchema.parse({
         overflowId: "overflow-1",
         runId: "run-1",
         turnId: "turn-1",

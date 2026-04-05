@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { PerformanceAnalysisView } from "@/features/analysis/components/performance-analysis-view";
 import { buildPerformanceAnalysisViewModel } from "@/features/analysis/model/performance-analysis-view-model";
 import {
-  buildSymphonyCodexRunArtifactsResult,
+  buildSymphonyAgentRunArtifactsResult,
   buildSymphonyDashboardConnectionState,
   buildSymphonyForensicsIssueListResult
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
@@ -25,7 +25,7 @@ describe("performance analysis view", () => {
                 ...buildSymphonyForensicsIssueListResult().issues[0]!,
                 runId: "run_123"
               } as never,
-              artifacts: buildSymphonyCodexRunArtifactsResult()
+              artifacts: buildSymphonyAgentRunArtifactsResult()
             }
           ]
         })}

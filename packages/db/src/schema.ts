@@ -1,5 +1,5 @@
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import type { ThreadEvent } from "@symphony/codex-analytics";
+import type { ThreadEvent } from "@symphony/agent-analytics";
 export const symphonyAgentEventLogTable = sqliteTable(
   "symphony_agent_event_log",
   {

@@ -2,13 +2,13 @@ import type { JsonObject } from "@symphony/contracts";
 import { asJsonObject } from "./internal/json.js";
 import { asRecord, isRecord } from "./internal/records.js";
 
-export type SymphonyCodexStateUpdate = {
+export type SymphonyAgentStateUpdate = {
   event: string;
   payload?: unknown;
 };
 
 export type SymphonyStallTrackedEntry = {
-  lastCodexTimestamp: string | null;
+  lastAgentTimestamp: string | null;
   startedAt: string;
 };
 
@@ -22,7 +22,7 @@ export function runtimeSeconds(startedAt: string, now: Date): number {
 }
 
 export function extractTokenUsage(
-  update: SymphonyCodexStateUpdate
+  update: SymphonyAgentStateUpdate
 ):
   | {
       inputTokens: number;
@@ -47,7 +47,7 @@ export function extractTokenUsage(
 }
 
 export function extractRateLimits(
-  update: SymphonyCodexStateUpdate
+  update: SymphonyAgentStateUpdate
 ): JsonObject | null {
   if (!update.payload || typeof update.payload !== "object") {
     return null;
@@ -60,7 +60,7 @@ export function stallElapsedMs(
   runningEntry: SymphonyStallTrackedEntry,
   now: Date
 ): number | null {
-  const lastActivity = runningEntry.lastCodexTimestamp ?? runningEntry.startedAt;
+  const lastActivity = runningEntry.lastAgentTimestamp ?? runningEntry.startedAt;
   const lastActivityMs = Date.parse(lastActivity);
 
   if (Number.isNaN(lastActivityMs)) {
@@ -92,7 +92,7 @@ function absoluteTokenUsageFromPayload(
 }
 
 function turnCompletedUsageFromPayload(
-  update: SymphonyCodexStateUpdate,
+  update: SymphonyAgentStateUpdate,
   payload: Record<string, unknown>
 ): Record<string, unknown> | null {
   if (update.event !== "turn_completed") {

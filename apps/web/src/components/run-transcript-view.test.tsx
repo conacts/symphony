@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { RunTranscriptView } from "@/features/runs/components/run-transcript-view";
 import {
-  buildSymphonyCodexRunArtifactsResult,
+  buildSymphonyAgentRunArtifactsResult,
   buildSymphonyForensicsRunDetailResult
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
 
@@ -16,7 +16,7 @@ describe("run transcript view", () => {
         loading={false}
         resource={{
           runDetail: buildSymphonyForensicsRunDetailResult(),
-          runArtifacts: buildSymphonyCodexRunArtifactsResult(),
+          runArtifacts: buildSymphonyAgentRunArtifactsResult(),
           agentError: null
         }}
       />
@@ -32,6 +32,7 @@ describe("run transcript view", () => {
     expect(html).toContain("Turn 1");
     expect(html).toContain("data-slot=\"accordion-trigger\"");
     expect(html).toContain("Tool call");
+    expect(html).toContain("PI reasoning");
     expect(html).toContain("Debug context");
     expect(html).toContain("View full message");
   });

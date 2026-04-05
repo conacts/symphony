@@ -1,6 +1,6 @@
 import type {
-  SymphonyCodexOverflowResult,
-  SymphonyCodexRunArtifactsResult,
+  SymphonyAgentOverflowResult,
+  SymphonyAgentRunArtifactsResult,
   SymphonyForensicsIssueDetailResult,
   SymphonyForensicsIssueForensicsBundleResult,
   SymphonyForensicsIssueListResult,
@@ -858,9 +858,9 @@ export function buildSymphonyForensicsRunDetailResult(
   };
 }
 
-export function buildSymphonyCodexRunArtifactsResult(
-  overrides: Partial<SymphonyCodexRunArtifactsResult> = {}
-): SymphonyCodexRunArtifactsResult {
+export function buildSymphonyAgentRunArtifactsResult(
+  overrides: Partial<SymphonyAgentRunArtifactsResult> = {}
+): SymphonyAgentRunArtifactsResult {
   return {
     run: {
       runId: "run_123",
@@ -1256,9 +1256,9 @@ export function buildSymphonyCodexRunArtifactsResult(
   };
 }
 
-export function buildSymphonyCodexOverflowResult(
-  overrides: Partial<SymphonyCodexOverflowResult> = {}
-): SymphonyCodexOverflowResult {
+export function buildSymphonyAgentOverflowResult(
+  overrides: Partial<SymphonyAgentOverflowResult> = {}
+): SymphonyAgentOverflowResult {
   return {
     runId: "run_123",
     overflow: {

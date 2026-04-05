@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
 import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
 import { createSymphonyRuntimeLogStore } from "./runtime-logs.js";
-import { createSqliteCodexAnalyticsReadStore } from "./codex-analytics-read-store.js";
-import { createSqliteCodexAnalyticsStore } from "./codex-analytics-store.js";
+import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-store.js";
+import { createSqliteAgentAnalyticsStore } from "./agent-analytics-store.js";
 import { createSqliteSymphonyRunJournal } from "./sqlite-symphony-run-journal.js";
 
 const tempDirectories: string[] = [];
@@ -35,11 +35,11 @@ describe("sqlite codex analytics read store", () => {
       dbFile: path.join(root, "symphony.db"),
       timelineStore: createSymphonyIssueTimelineStore(database.db)
     });
-    const analytics = createSqliteCodexAnalyticsStore({
+    const analytics = createSqliteAgentAnalyticsStore({
       db: database.db,
       payloadMaxBytes: 64
     });
-    const readStore = createSqliteCodexAnalyticsReadStore({
+    const readStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
     const runtimeLogs = createSymphonyRuntimeLogStore(database.db);
@@ -72,8 +72,8 @@ describe("sqlite codex analytics read store", () => {
         promptText: "Inspect the workspace",
         status: "running",
         startedAt: "2026-04-03T20:37:39.000Z",
-        codexThreadId: "thread-1",
-        codexTurnId: "turn-1"
+        threadId: "thread-1",
+        agentTurnId: "turn-1"
       });
 
       const longMessage = "A".repeat(400);
@@ -332,11 +332,11 @@ describe("sqlite codex analytics read store", () => {
       dbFile: path.join(root, "symphony.db"),
       timelineStore: createSymphonyIssueTimelineStore(database.db)
     });
-    const analytics = createSqliteCodexAnalyticsStore({
+    const analytics = createSqliteAgentAnalyticsStore({
       db: database.db,
       payloadMaxBytes: 64
     });
-    const readStore = createSqliteCodexAnalyticsReadStore({
+    const readStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
 
@@ -468,11 +468,11 @@ describe("sqlite codex analytics read store", () => {
       dbFile: path.join(root, "symphony.db"),
       timelineStore: createSymphonyIssueTimelineStore(database.db)
     });
-    const analytics = createSqliteCodexAnalyticsStore({
+    const analytics = createSqliteAgentAnalyticsStore({
       db: database.db,
       payloadMaxBytes: 128
     });
-    const readStore = createSqliteCodexAnalyticsReadStore({
+    const readStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
 
@@ -673,10 +673,10 @@ describe("sqlite codex analytics read store", () => {
       dbFile: path.join(root, "symphony.db"),
       timelineStore: createSymphonyIssueTimelineStore(database.db)
     });
-    const analytics = createSqliteCodexAnalyticsStore({
+    const analytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
-    const readStore = createSqliteCodexAnalyticsReadStore({
+    const readStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
 
@@ -745,10 +745,10 @@ describe("sqlite codex analytics read store", () => {
       dbFile: path.join(root, "symphony.db"),
       timelineStore: createSymphonyIssueTimelineStore(database.db)
     });
-    const analytics = createSqliteCodexAnalyticsStore({
+    const analytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
-    const readStore = createSqliteCodexAnalyticsReadStore({
+    const readStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
 

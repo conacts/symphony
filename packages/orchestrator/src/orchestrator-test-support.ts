@@ -14,13 +14,13 @@ export function buildSymphonyOrchestratorConfig(overrides: {
   workspace?: Partial<SymphonyOrchestratorConfig["workspace"]>;
   hooks?: Partial<SymphonyOrchestratorConfig["hooks"]>;
   agent?: Partial<SymphonyOrchestratorConfig["agent"]>;
-  codex?: Partial<SymphonyOrchestratorConfig["codex"]>;
+  agentRuntime?: Partial<SymphonyOrchestratorConfig["agentRuntime"]>;
   runtime?: {
     tracker?: Partial<SymphonyAgentRuntimeConfig["tracker"]>;
     workspace?: Partial<SymphonyAgentRuntimeConfig["workspace"]>;
     agent?: Partial<SymphonyAgentRuntimeConfig["agent"]>;
     pi?: Partial<SymphonyAgentRuntimeConfig["pi"]>;
-    codex?: Partial<SymphonyAgentRuntimeConfig["codex"]>;
+    agentRuntime?: Partial<SymphonyAgentRuntimeConfig["agentRuntime"]>;
     hooks?: Partial<SymphonyAgentRuntimeConfig["hooks"]>;
   };
 } = {}): SymphonyOrchestratorConfig {
@@ -71,9 +71,9 @@ export function buildSymphonyOrchestratorConfig(overrides: {
       maxConcurrentAgentsByState: {},
       ...overrides.agent
     },
-    codex: {
+    agentRuntime: {
       stallTimeoutMs: 300_000,
-      ...overrides.codex
+      ...overrides.agentRuntime
     },
     runtime: {
       tracker: {
@@ -99,7 +99,7 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         stallTimeoutMs: 300_000,
         ...overrides.runtime?.pi
       },
-      codex: {
+      agentRuntime: {
         command: "codex",
         approvalPolicy: "never",
         threadSandbox: "danger-full-access",
@@ -111,7 +111,7 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         turnTimeoutMs: 3_600_000,
         readTimeoutMs: 5_000,
         stallTimeoutMs: 300_000,
-        ...overrides.runtime?.codex
+        ...overrides.runtime?.agentRuntime
       },
       hooks: {
         timeoutMs: hooks.timeoutMs,

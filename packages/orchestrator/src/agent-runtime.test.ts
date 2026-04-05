@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
 import {
-  createCodexAgentRuntime,
+  createAgentRuntime,
   type AgentRunInput
 } from "./agent-runtime.js";
 import {
@@ -82,7 +82,7 @@ describe("agent runtime facade", () => {
       stopRun
     };
 
-    const runtime = createCodexAgentRuntime(implementation);
+    const runtime = createAgentRuntime(implementation);
 
     expect(runtime).not.toBe(implementation);
     await expect(runtime.startRun(runInput)).resolves.toEqual({

@@ -15,7 +15,7 @@ import type {
   AgentRuntimeLaunchTarget
 } from "./agent-runtime.js";
 import {
-  accumulateCodexTotals,
+  accumulateAgentTotals,
   createSymphonyOrchestratorSnapshot,
   createSymphonyOrchestratorState,
   systemClock
@@ -65,8 +65,8 @@ export type {
   SymphonyAgentRuntimeCompletion,
   SymphonyAgentRuntimeUpdate,
   SymphonyClock,
-  SymphonyCodexMessage,
-  SymphonyCodexTotals,
+  SymphonyAgentMessage,
+  SymphonyAgentTotals,
   SymphonyOrchestratorObserver,
   SymphonyOrchestratorSnapshot,
   SymphonyOrchestratorState,
@@ -523,7 +523,7 @@ export class SymphonyOrchestrator {
       return;
     }
 
-    this.#state = accumulateCodexTotals(this.#state, runningEntry, this.#clock);
+    this.#state = accumulateAgentTotals(this.#state, runningEntry, this.#clock);
     delete this.#state.running[issueId];
     this.#state.claimed.delete(issueId);
 
@@ -568,9 +568,9 @@ export class SymphonyOrchestrator {
       startedAt: runningEntry.startedAt,
       endedAt: this.#clock.now().toISOString(),
       turnCount: runningEntry.turnCount,
-      inputTokens: runningEntry.codexInputTokens,
-      outputTokens: runningEntry.codexOutputTokens,
-      totalTokens: runningEntry.codexTotalTokens
+      inputTokens: runningEntry.agentInputTokens,
+      outputTokens: runningEntry.agentOutputTokens,
+      totalTokens: runningEntry.agentTotalTokens
     });
 
     let currentIssue = await this.#refreshIssue(runningEntry.issue);
@@ -958,7 +958,7 @@ export class SymphonyOrchestrator {
 }
 
 function assertPiRuntimeHarness(
-  harness: "pi" | "codex" | "opencode"
+  harness: "pi"
 ): asserts harness is "pi" {
   if (harness === "pi") {
     return;

@@ -1,10 +1,10 @@
 import type {
-  SymphonyCodexAnalyticsEvent,
-  SymphonyCodexAnalyticsEventType,
-  SymphonyCodexThreadItemStatus,
-  SymphonyCodexThreadItemType,
-  SymphonyCodexUsage
-} from "./codex-analytics-types.js";
+  SymphonyAgentAnalyticsEvent,
+  SymphonyAgentAnalyticsEventType,
+  SymphonyAgentThreadItemStatus,
+  SymphonyAgentThreadItemType,
+  SymphonyAgentUsage
+} from "./agent-analytics-types.js";
 
 export type SymphonyIsoTimestamp = string;
 
@@ -52,14 +52,14 @@ export type SymphonyTurnRecord = {
   turnId: string;
   runId: string;
   turnSequence: number;
-  codexThreadId: string | null;
-  codexTurnId: string | null;
-  codexSessionId: string | null;
+  threadId: string | null;
+  agentTurnId: string | null;
+  sessionId: string | null;
   promptText: string;
   status: string;
   startedAt: SymphonyIsoTimestamp;
   endedAt: SymphonyIsoTimestamp | null;
-  usage: SymphonyCodexUsage | null;
+  usage: SymphonyAgentUsage | null;
   metadata: SymphonyJsonObject | null;
   insertedAt: SymphonyIsoTimestamp;
   updatedAt: SymphonyIsoTimestamp;
@@ -70,17 +70,17 @@ export type SymphonyEventRecord = {
   turnId: string;
   runId: string;
   eventSequence: number;
-  eventType: SymphonyCodexAnalyticsEventType;
-  itemType: SymphonyCodexThreadItemType | null;
-  itemStatus: SymphonyCodexThreadItemStatus;
+  eventType: SymphonyAgentAnalyticsEventType;
+  itemType: SymphonyAgentThreadItemType | null;
+  itemStatus: SymphonyAgentThreadItemStatus;
   recordedAt: SymphonyIsoTimestamp;
-  payload: SymphonyCodexAnalyticsEvent;
+  payload: SymphonyAgentAnalyticsEvent;
   payloadTruncated: boolean;
   payloadBytes: number;
   summary: string | null;
-  codexThreadId: string | null;
-  codexTurnId: string | null;
-  codexSessionId: string | null;
+  threadId: string | null;
+  agentTurnId: string | null;
+  sessionId: string | null;
   insertedAt: SymphonyIsoTimestamp;
 };
 
@@ -109,9 +109,6 @@ export type SymphonyRunStartAttrs = {
 export type SymphonyTurnStartAttrs = {
   turnId?: string;
   turnSequence?: number;
-  codexThreadId?: string | null;
-  codexTurnId?: string | null;
-  codexSessionId?: string | null;
   threadId?: string | null;
   agentTurnId?: string | null;
   sessionId?: string | null;
@@ -124,13 +121,10 @@ export type SymphonyTurnStartAttrs = {
 export type SymphonyEventAttrs = {
   eventId?: string;
   eventSequence?: number;
-  eventType: SymphonyCodexAnalyticsEventType;
+  eventType: SymphonyAgentAnalyticsEventType;
   recordedAt?: Date | SymphonyIsoTimestamp;
-  payload: SymphonyCodexAnalyticsEvent;
+  payload: SymphonyAgentAnalyticsEvent;
   summary?: string | null;
-  codexThreadId?: string | null;
-  codexTurnId?: string | null;
-  codexSessionId?: string | null;
   threadId?: string | null;
   agentTurnId?: string | null;
   sessionId?: string | null;
@@ -140,26 +134,20 @@ export type SymphonyTurnUpdateAttrs = {
   status?: string;
   startedAt?: Date | SymphonyIsoTimestamp | null;
   endedAt?: Date | SymphonyIsoTimestamp | null;
-  codexThreadId?: string | null;
-  codexTurnId?: string | null;
-  codexSessionId?: string | null;
   threadId?: string | null;
   agentTurnId?: string | null;
   sessionId?: string | null;
-  usage?: SymphonyCodexUsage | null;
+  usage?: SymphonyAgentUsage | null;
   metadata?: SymphonyJsonObject | null;
 };
 
 export type SymphonyTurnFinishAttrs = {
   status?: string;
   endedAt?: Date | SymphonyIsoTimestamp;
-  codexThreadId?: string | null;
-  codexTurnId?: string | null;
-  codexSessionId?: string | null;
   threadId?: string | null;
   agentTurnId?: string | null;
   sessionId?: string | null;
-  usage?: SymphonyCodexUsage | null;
+  usage?: SymphonyAgentUsage | null;
   metadata?: SymphonyJsonObject | null;
 };
 

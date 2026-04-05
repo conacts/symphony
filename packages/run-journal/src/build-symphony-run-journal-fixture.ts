@@ -39,9 +39,9 @@ export function buildSymphonyTurnStartAttrs(
 
   return {
     turnSequence: 1,
-    codexThreadId: `thread-${fixtureCounter}`,
-    codexTurnId: `turn-${fixtureCounter}`,
-    codexSessionId: `session-${fixtureCounter}`,
+    threadId: `thread-${fixtureCounter}`,
+    agentTurnId: `turn-${fixtureCounter}`,
+    sessionId: `session-${fixtureCounter}`,
     promptText: "Implement the requested change.",
     status: "running",
     startedAt: new Date("2026-03-31T00:00:00.000Z"),
@@ -66,14 +66,14 @@ export function buildSymphonyEventAttrs(
       session_id: `session-${fixtureCounter}`,
       thread_id: `thread-${fixtureCounter}`,
       turn_id: `turn-${fixtureCounter}`,
-      codex_app_server_pid: null,
+      agent_app_server_pid: null,
       model: "gpt-5.4",
       reasoning_effort: "xhigh"
     },
     summary: "session started",
-    codexThreadId: `thread-${fixtureCounter}`,
-    codexTurnId: `turn-${fixtureCounter}`,
-    codexSessionId: `session-${fixtureCounter}`,
+    threadId: `thread-${fixtureCounter}`,
+    agentTurnId: `turn-${fixtureCounter}`,
+    sessionId: `session-${fixtureCounter}`,
     ...overrides
   };
 }

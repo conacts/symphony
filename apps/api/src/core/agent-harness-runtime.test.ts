@@ -5,13 +5,14 @@ import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  createSqliteCodexAnalyticsReadStore,
-  createSqliteCodexAnalyticsStore,
+  createSqliteAgentAnalyticsReadStore,
+  createSqliteAgentAnalyticsStore,
   createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import type { SymphonyAgentRuntimeCompletion } from "@symphony/orchestrator";
+import { symphonyHarnessPromptAppendix } from "@symphony/runtime-contract";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
@@ -41,7 +42,7 @@ afterEach(async () => {
 
 describe("docker pi symphony agent runtime", () => {
   it("runs a real SDK turn and records typed turn events", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-runtime-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-runtime-"));
     tempRoots.push(root);
 
     const workspacePath = path.join(root, "workspace");
@@ -71,10 +72,10 @@ describe("docker pi symphony agent runtime", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const agentAnalytics = createSqliteCodexAnalyticsStore({
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
-    const codexReadStore = createSqliteCodexAnalyticsReadStore({
+    const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
@@ -140,10 +141,10 @@ describe("docker pi symphony agent runtime", () => {
     expect(updates).toContain("thread.started");
     expect(updates).toContain("item.completed");
 
-    const runDetail = await codexReadStore.fetchRunDetail(runId);
+    const runDetail = await agentReadStore.fetchRunDetail(runId);
     expect(runDetail?.turns).toHaveLength(1);
     expect(runDetail?.turns[0]?.promptText).toBe(
-      "You are working on COL-123 in source-repo on main."
+      `You are working on COL-123 in source-repo on main.\n\n${symphonyHarnessPromptAppendix}`
     );
     expect(
       runDetail?.turns[0]?.events.map((event: { eventType: string }) => event.eventType)
@@ -166,7 +167,7 @@ describe("docker pi symphony agent runtime", () => {
   });
 
   it("reports max-turn pauses as a first-class completion", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-runtime-max-turns-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-runtime-max-turns-"));
     tempRoots.push(root);
 
     const workspacePath = path.join(root, "workspace");
@@ -219,8 +220,8 @@ describe("docker pi symphony agent runtime", () => {
         ...buildSymphonyRuntimePolicyForRoot(root).agent,
         maxTurns: 1
       },
-      codex: {
-        ...buildSymphonyRuntimePolicyForRoot(root).codex,
+      agentRuntime: {
+        ...buildSymphonyRuntimePolicyForRoot(root).agentRuntime,
         command: `${fakePi} app-server`
       }
     });
@@ -230,7 +231,7 @@ describe("docker pi symphony agent runtime", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const agentAnalytics = createSqliteCodexAnalyticsStore({
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
@@ -292,7 +293,7 @@ describe("docker pi symphony agent runtime", () => {
   });
 
   it("classifies rate-limit failures distinctly", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-runtime-rate-limit-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-runtime-rate-limit-"));
     tempRoots.push(root);
 
     const workspacePath = path.join(root, "workspace");
@@ -342,7 +343,7 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const agentAnalytics = createSqliteCodexAnalyticsStore({
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
 
@@ -418,7 +419,7 @@ done
   });
 
   it("launches container-backed workspaces through docker exec while snapshotting the host repo", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-runtime-container-"));
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-runtime-container-"));
     tempRoots.push(root);
 
     const hostWorkspacePath = path.join(root, "workspace");
@@ -446,10 +447,10 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const agentAnalytics = createSqliteCodexAnalyticsStore({
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
-    const codexReadStore = createSqliteCodexAnalyticsReadStore({
+    const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
@@ -530,7 +531,7 @@ done
       })
     );
 
-    const runDetail = await codexReadStore.fetchRunDetail(runId);
+    const runDetail = await agentReadStore.fetchRunDetail(runId);
     expect(runDetail?.run.commitHashStart).toMatch(/[0-9a-f]{40}/);
     expect(runDetail?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
     expect(runDetail?.run.repoStart).toMatchObject({
@@ -549,7 +550,7 @@ done
 
   it("reports container launch startup failures with launch-target metadata", async () => {
     const root = await mkdtemp(
-      path.join(tmpdir(), "symphony-codex-runtime-container-startup-failure-")
+      path.join(tmpdir(), "symphony-agent-runtime-runtime-container-startup-failure-")
     );
     tempRoots.push(root);
 
@@ -578,7 +579,7 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const agentAnalytics = createSqliteCodexAnalyticsStore({
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
 
@@ -657,7 +658,7 @@ done
 
   it("launches container-owned workspaces without a host repo path and snapshots repo state through docker exec", async () => {
     const root = await mkdtemp(
-      path.join(tmpdir(), "symphony-codex-runtime-container-owned-")
+      path.join(tmpdir(), "symphony-agent-runtime-runtime-container-owned-")
     );
     tempRoots.push(root);
 
@@ -686,10 +687,10 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const agentAnalytics = createSqliteCodexAnalyticsStore({
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
-    const codexReadStore = createSqliteCodexAnalyticsReadStore({
+    const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
@@ -758,7 +759,7 @@ done
       true
     );
 
-    const runDetail = await codexReadStore.fetchRunDetail(runId);
+    const runDetail = await agentReadStore.fetchRunDetail(runId);
     expect(runDetail?.run.workspacePath).toBeNull();
     expect(runDetail?.run.commitHashStart).toBeNull();
     expect(runDetail?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);

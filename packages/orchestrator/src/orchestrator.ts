@@ -1,5 +1,5 @@
 export {
-  createCodexAgentRuntime
+  createAgentRuntime
 } from "./agent-runtime.js";
 export {
   prepareIssueForDispatch,
@@ -16,9 +16,9 @@ export type {
 export type {
   SymphonyAgentRuntimeCompletion,
   SymphonyAgentRuntimeUpdate,
+  SymphonyAgentMessage,
+  SymphonyAgentTotals,
   SymphonyClock,
-  SymphonyCodexMessage,
-  SymphonyCodexTotals,
   SymphonyOrchestratorObserver,
   SymphonyOrchestratorSnapshot,
   SymphonyOrchestratorState,

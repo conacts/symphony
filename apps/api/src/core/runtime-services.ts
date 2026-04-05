@@ -1,4 +1,4 @@
-import { createCodexAgentRuntime } from "@symphony/orchestrator";
+import { createAgentRuntime } from "@symphony/orchestrator";
 import { createSymphonyRuntime } from "@symphony/runtime";
 import {
   defaultSymphonyDockerWorkspacePreflightTimeoutMs,
@@ -29,7 +29,7 @@ import {
 import { SymphonyRuntimePolicyError } from "@symphony/runtime-policy";
 import {
   resolveDockerWorkspaceAuthContracts
-} from "./codex-auth-contract.js";
+} from "./runtime-auth-contract.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
@@ -272,7 +272,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     ReturnType<typeof createSymphonyRuntime>,
     "applyAgentUpdate" | "handleRunCompletion"
   > | null = null;
-  const agentRuntime = createCodexAgentRuntime(
+  const agentRuntime = createAgentRuntime(
     createSymphonyAgentRuntime({
       promptContract,
       githubRepository: runtimePolicy.github.repo,

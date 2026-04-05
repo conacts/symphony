@@ -8,13 +8,13 @@ import type {
   WorkspaceManifestLifecyclePhase
 } from "@symphony/workspace";
 
-export type SymphonyCodexMessage = {
+export type SymphonyAgentMessage = {
   event: string;
   message: unknown;
   timestamp: string;
 };
 
-export type SymphonyCodexTotals = {
+export type SymphonyAgentTotals = {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
@@ -47,17 +47,17 @@ export type SymphonyRunningEntry = {
   workspacePath: string | null;
   retryAttempt: number;
   turnCount: number;
-  lastCodexMessage: SymphonyCodexMessage | null;
-  lastCodexTimestamp: string | null;
-  lastCodexEvent: string | null;
-  codexInputTokens: number;
-  codexOutputTokens: number;
-  codexTotalTokens: number;
-  codexLastReportedInputTokens: number;
-  codexLastReportedOutputTokens: number;
-  codexLastReportedTotalTokens: number;
+  lastAgentMessage: SymphonyAgentMessage | null;
+  lastAgentTimestamp: string | null;
+  lastAgentEvent: string | null;
+  agentInputTokens: number;
+  agentOutputTokens: number;
+  agentTotalTokens: number;
+  agentLastReportedInputTokens: number;
+  agentLastReportedOutputTokens: number;
+  agentLastReportedTotalTokens: number;
   lastRateLimits: JsonObject | null;
-  codexAppServerPid: string | null;
+  agentRuntimeProcessId: string | null;
   startedAt: string;
 };
 
@@ -83,7 +83,7 @@ export type SymphonyOrchestratorState = {
   completed: Set<string>;
   claimed: Set<string>;
   retryAttempts: Record<string, SymphonyRetryEntry>;
-  codexTotals: SymphonyCodexTotals;
+  agentTotals: SymphonyAgentTotals;
   rateLimits: JsonObject | null;
 };
 
@@ -110,14 +110,14 @@ export type SymphonyAgentRuntimeUpdate = {
   payload?: unknown;
   timestamp: string;
   sessionId?: string | null;
-  codexAppServerPid?: string | null;
+  agentRuntimeProcessId?: string | null;
 };
 
 export interface SymphonyOrchestratorObserver {
   startRun(input: {
     issue: SymphonyTrackerIssue;
     attempt: number;
-    harness: "codex" | "opencode" | "pi";
+    harness: "pi";
     workspace: PreparedWorkspace | null;
     workerHost: string | null;
     startedAt: string;
@@ -169,6 +169,6 @@ export type SymphonyOrchestratorSnapshot = {
   maxConcurrentAgents: number;
   nextPollDueAtMs: number | null;
   pollCheckInProgress: boolean;
-  codexTotals: SymphonyCodexTotals;
+  agentTotals: SymphonyAgentTotals;
   rateLimits: JsonObject | null;
 };

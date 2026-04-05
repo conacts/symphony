@@ -18,10 +18,10 @@ import {
   truncatePayload
 } from "./symphony-run-journal-private.js";
 import type {
-  SymphonyCodexAnalyticsEvent,
-  SymphonyCodexThreadItemStatus,
-  SymphonyCodexThreadItemType
-} from "./codex-analytics-types.js";
+  SymphonyAgentAnalyticsEvent,
+  SymphonyAgentThreadItemStatus,
+  SymphonyAgentThreadItemType
+} from "./agent-analytics-types.js";
 import type {
   SymphonyEventAttrs,
   SymphonyFileBackedRunJournalOptions,
@@ -133,9 +133,9 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
         turnId,
         runId,
         turnSequence: nextSequence,
-        codexThreadId: attrs.codexThreadId ?? null,
-        codexTurnId: attrs.codexTurnId ?? null,
-        codexSessionId: attrs.codexSessionId ?? null,
+        threadId: attrs.threadId ?? null,
+        agentTurnId: attrs.agentTurnId ?? null,
+        sessionId: attrs.sessionId ?? null,
         promptText: sanitizeText(attrs.promptText),
         status: attrs.status ?? "running",
         startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? now,
@@ -187,9 +187,9 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
         payloadTruncated: truncatedPayload.payloadTruncated,
         payloadBytes: truncatedPayload.payloadBytes,
         summary: attrs.summary ? sanitizeText(attrs.summary) : null,
-        codexThreadId: attrs.codexThreadId ?? null,
-        codexTurnId: attrs.codexTurnId ?? null,
-        codexSessionId: attrs.codexSessionId ?? null,
+        threadId: attrs.threadId ?? null,
+        agentTurnId: attrs.agentTurnId ?? null,
+        sessionId: attrs.sessionId ?? null,
         insertedAt: now
       });
     });
@@ -207,9 +207,9 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
       turn.status = attrs.status ?? turn.status;
       turn.startedAt = normalizeIsoTimestamp(attrs.startedAt) ?? turn.startedAt;
       turn.endedAt = normalizeIsoTimestamp(attrs.endedAt) ?? turn.endedAt;
-      turn.codexThreadId = attrs.codexThreadId ?? turn.codexThreadId;
-      turn.codexTurnId = attrs.codexTurnId ?? turn.codexTurnId;
-      turn.codexSessionId = attrs.codexSessionId ?? turn.codexSessionId;
+      turn.threadId = attrs.threadId ?? turn.threadId;
+      turn.agentTurnId = attrs.agentTurnId ?? turn.agentTurnId;
+      turn.sessionId = attrs.sessionId ?? turn.sessionId;
       turn.usage = sanitizeUsage(attrs.usage) ?? turn.usage;
       turn.metadata = mergeSanitizedJsonObjects(turn.metadata, attrs.metadata);
       turn.updatedAt = isoNow();
@@ -220,9 +220,9 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
     await this.updateTurn(turnId, {
       status: attrs.status ?? "completed",
       endedAt: attrs.endedAt,
-      codexThreadId: attrs.codexThreadId,
-      codexTurnId: attrs.codexTurnId,
-      codexSessionId: attrs.codexSessionId,
+      threadId: attrs.threadId,
+      agentTurnId: attrs.agentTurnId,
+      sessionId: attrs.sessionId,
       usage: attrs.usage,
       metadata: attrs.metadata
     });
@@ -482,14 +482,14 @@ function parseTokenCount(value: unknown): number {
 }
 
 function deriveItemType(
-  payload: SymphonyCodexAnalyticsEvent
-): SymphonyCodexThreadItemType | null {
+  payload: SymphonyAgentAnalyticsEvent
+): SymphonyAgentThreadItemType | null {
   return "item" in payload ? payload.item.type : null;
 }
 
 function deriveItemStatus(
-  payload: SymphonyCodexAnalyticsEvent
-): SymphonyCodexThreadItemStatus {
+  payload: SymphonyAgentAnalyticsEvent
+): SymphonyAgentThreadItemStatus {
   if (!("item" in payload)) {
     return null;
   }

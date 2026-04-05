@@ -2,12 +2,12 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
-  buildCodexAppServerSpawnSpec,
+  buildAgentAppServerSpawnSpec,
   buildDynamicToolSpecs,
   ensureWorkspaceCwd,
-  resolveCodexLaunchSettings,
+  resolveAgentLaunchSettings,
   wrapSessionError
-} from "./codex-app-server-launch.js";
+} from "./agent-app-server-launch.js";
 import {
   attachLineBuffer,
   buildApprovalAnswers,
@@ -24,7 +24,7 @@ import {
   safeJsonParse,
   toolCallArguments,
   toolCallName
-} from "./codex-app-server-protocol.js";
+} from "./agent-app-server-protocol.js";
 import {
   HarnessSessionError,
   type HarnessControlMessageResult as ControlMessageResult,
@@ -38,7 +38,7 @@ const initializeRequestId = 1;
 const threadStartRequestId = 2;
 const turnStartRequestId = 3;
 
-export class CodexAppServerClient {
+export class AgentAppServerClient {
   readonly #child: ChildProcessWithoutNullStreams;
   readonly #pendingResponses = new Map<
     number,
@@ -85,7 +85,7 @@ export class CodexAppServerClient {
       this.#closed = true;
 
       for (const [, pending] of this.#pendingResponses) {
-        pending.reject(new Error(`Codex app-server exited (${reason}).`));
+        pending.reject(new Error(`Agent app-server exited (${reason}).`));
       }
       this.#pendingResponses.clear();
 
@@ -102,7 +102,7 @@ export class CodexAppServerClient {
   }
 
   static async startSession(input: {
-    launchTarget: Parameters<typeof buildCodexAppServerSpawnSpec>[0]["launchTarget"];
+    launchTarget: Parameters<typeof buildAgentAppServerSpawnSpec>[0]["launchTarget"];
     env: Record<string, string>;
     hostCommandEnvSource: Record<string, string | undefined>;
     runtimePolicy: SymphonyAgentRuntimeConfig;
@@ -113,29 +113,29 @@ export class CodexAppServerClient {
       input.launchTarget.hostLaunchPath,
       input.runtimePolicy.workspace.root
     );
-    const launchSettings = resolveCodexLaunchSettings(
-      input.runtimePolicy.codex.command,
+    const launchSettings = resolveAgentLaunchSettings(
+      input.runtimePolicy.agentRuntime.command,
       input.issue,
       {
-        model: input.runtimePolicy.codex.defaultModel,
-        reasoningEffort: input.runtimePolicy.codex.defaultReasoningEffort,
-        profile: input.runtimePolicy.codex.profile,
-        providerId: input.runtimePolicy.codex.provider?.id ?? null,
-        providerName: input.runtimePolicy.codex.provider?.name ?? null
+        model: input.runtimePolicy.agentRuntime.defaultModel,
+        reasoningEffort: input.runtimePolicy.agentRuntime.defaultReasoningEffort,
+        profile: input.runtimePolicy.agentRuntime.profile,
+        providerId: input.runtimePolicy.agentRuntime.provider?.id ?? null,
+        providerName: input.runtimePolicy.agentRuntime.provider?.name ?? null
       }
     );
-    const spawnSpec = buildCodexAppServerSpawnSpec({
+    const spawnSpec = buildAgentAppServerSpawnSpec({
       launchTarget: input.launchTarget,
       command: launchSettings.command,
       env: input.env,
       hostCommandEnvSource: input.hostCommandEnvSource
     });
-    const client = new CodexAppServerClient({
+    const client = new AgentAppServerClient({
       command: spawnSpec.command,
       args: spawnSpec.args,
       cwd: hostLaunchPath,
       env: spawnSpec.env,
-      readTimeoutMs: input.runtimePolicy.codex.readTimeoutMs,
+      readTimeoutMs: input.runtimePolicy.agentRuntime.readTimeoutMs,
       logger: input.logger
     });
 
@@ -156,8 +156,8 @@ export class CodexAppServerClient {
         threadStartRequestId,
         "thread/start",
         {
-          approvalPolicy: input.runtimePolicy.codex.approvalPolicy,
-          sandbox: input.runtimePolicy.codex.threadSandbox,
+          approvalPolicy: input.runtimePolicy.agentRuntime.approvalPolicy,
+          sandbox: input.runtimePolicy.agentRuntime.threadSandbox,
           cwd: spawnSpec.runtimeWorkspacePath,
           dynamicTools: buildDynamicToolSpecs()
         }
@@ -169,7 +169,7 @@ export class CodexAppServerClient {
       if (!threadId) {
         throw new HarnessSessionError(
           "invalid_thread_payload",
-          "Codex thread/start response did not include a thread id.",
+          "Agent thread/start response did not include a thread id.",
           threadResponse
         );
       }
@@ -183,8 +183,8 @@ export class CodexAppServerClient {
         launchTarget: input.launchTarget,
         issue: input.issue,
         processId: client.processId,
-        autoApproveRequests: input.runtimePolicy.codex.approvalPolicy === "never",
-        approvalPolicy: input.runtimePolicy.codex.approvalPolicy,
+        autoApproveRequests: input.runtimePolicy.agentRuntime.approvalPolicy === "never",
+        approvalPolicy: input.runtimePolicy.agentRuntime.approvalPolicy,
         model: launchSettings.model,
         reasoningEffort: launchSettings.reasoningEffort,
         profile: launchSettings.profile,
@@ -233,7 +233,7 @@ export class CodexAppServerClient {
     if (!turnId) {
       throw new HarnessSessionError(
         "invalid_turn_payload",
-        "Codex turn/start response did not include a turn id.",
+        "Agent turn/start response did not include a turn id.",
         turnResponse
       );
     }
@@ -246,7 +246,7 @@ export class CodexAppServerClient {
         session_id: sessionId,
         thread_id: session.threadId,
         turn_id: turnId,
-        codex_app_server_pid: session.processId,
+        agent_app_server_pid: session.processId,
         model: session.model,
         reasoning_effort: session.reasoningEffort
       }
@@ -290,7 +290,7 @@ export class CodexAppServerClient {
 
         throw new HarnessSessionError(
           "approval_required",
-          "Codex approval request requires operator input.",
+          "Agent approval request requires operator input.",
           message
         );
       }
@@ -306,7 +306,7 @@ export class CodexAppServerClient {
 
         throw new HarnessSessionError(
           "turn_input_required",
-          "Codex turn requires operator input.",
+          "Agent turn requires operator input.",
           message
         );
       }
@@ -314,7 +314,7 @@ export class CodexAppServerClient {
       if (method === "port/exited") {
         throw new HarnessSessionError(
           "port_exited",
-          `Codex app-server exited (${JSON.stringify(getRecord(message, "params") ?? {})}).`,
+          `Agent app-server exited (${JSON.stringify(getRecord(message, "params") ?? {})}).`,
           message
         );
       }
@@ -330,7 +330,7 @@ export class CodexAppServerClient {
 
         throw new HarnessSessionError(
           "turn_input_required",
-          "Codex turn requires operator input.",
+          "Agent turn requires operator input.",
           message
         );
       }
@@ -357,7 +357,7 @@ export class CodexAppServerClient {
             ...message
           }
         });
-        throw new HarnessSessionError("turn_failed", "Codex turn failed.", message);
+        throw new HarnessSessionError("turn_failed", "Agent turn failed.", message);
       }
 
       if (method === "turn/cancelled") {
@@ -369,7 +369,7 @@ export class CodexAppServerClient {
         });
         throw new HarnessSessionError(
           "turn_cancelled",
-          "Codex turn was cancelled.",
+          "Agent turn was cancelled.",
           message
         );
       }
@@ -626,7 +626,7 @@ export class CodexAppServerClient {
         if (index >= 0) {
           this.#messageWaiters.splice(index, 1);
         }
-        reject(new Error("Timed out waiting for Codex app-server message."));
+        reject(new Error("Timed out waiting for Agent app-server message."));
       }, timeoutMs);
 
       const waiter = (message: Record<string, unknown>) => {

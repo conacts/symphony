@@ -6,6 +6,7 @@ import {
   buildMockSymphonyPromptContractPayload,
   loadSymphonyPromptContract,
   renderSymphonyPromptContract,
+  symphonyHarnessPromptAppendix,
   SymphonyPromptContractError
 } from "./prompt-contract.js";
 import {
@@ -65,7 +66,10 @@ describe("prompt contract", () => {
         "Repo symphony",
         "Default branch main",
         "Run run-123",
-        "Workspace /workspace/symphony on codex/runtime-contract-boundary"
+        "Workspace /workspace/symphony on codex/runtime-contract-boundary",
+        "",
+        symphonyHarnessPromptAppendix,
+        ""
       ].join("\n")
     );
   });
@@ -144,7 +148,7 @@ describe("prompt contract", () => {
         template: "{{ issue.branchName }}",
         payload
       })
-    ).toBe("codex/runtime-contract-boundary");
+    ).toBe(`codex/runtime-contract-boundary\n\n${symphonyHarnessPromptAppendix}\n`);
 
     expect(SymphonyRuntimePromptError).toBe(SymphonyPromptContractError);
   });

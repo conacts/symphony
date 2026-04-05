@@ -2,6 +2,19 @@
 
 import React, { Fragment } from "react";
 import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger
+} from "@/components/ai-elements/reasoning";
+import { CodeBlock } from "@/components/ai-elements/code-block";
+import {
+  Task,
+  TaskContent,
+  TaskItem,
+  TaskItemFile,
+  TaskTrigger
+} from "@/components/ai-elements/task";
+import {
   Message,
   MessageContent,
   MessageResponse
@@ -19,6 +32,9 @@ import type {
   AgentRunTranscriptEntry,
   AgentRunTranscriptTurn
 } from "@/features/runs/model/agent-run-view-model";
+
+type ReasoningEntry = Extract<AgentRunTranscriptEntry, { kind: "reasoning" }>;
+type PiReadTaskEntry = Extract<AgentRunTranscriptEntry, { kind: "pi-read-task" }>;
 
 export function RunTranscriptTurn(input: {
   turn: AgentRunTranscriptTurn;
@@ -92,20 +108,25 @@ export function RunTranscriptTurn(input: {
           {entry.kind === "reasoning" ? (
             <Card className="border-dashed">
               <CardHeader className="pb-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle className="text-sm font-medium">
-                    {entry.segmentCount > 1
-                      ? `Reasoning · ${entry.segmentCount} blocks`
-                      : "Reasoning"}
-                  </CardTitle>
-                  <Badge variant="outline">{entry.status}</Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {entry.recordedAt}
-                  </span>
-                </div>
+                <CardTitle className="text-sm font-medium">PI reasoning</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <RunTranscriptCopy>{entry.text ?? entry.preview}</RunTranscriptCopy>
+                <Reasoning className="mb-0" defaultOpen>
+                  <ReasoningTrigger className="items-center gap-3 hover:text-foreground">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium">
+                        {buildReasoningLabel(entry)}
+                      </span>
+                      <Badge variant="outline">{entry.status}</Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {entry.recordedAt}
+                      </span>
+                    </div>
+                  </ReasoningTrigger>
+                  <ReasoningContent>
+                    {entry.text ?? entry.preview}
+                  </ReasoningContent>
+                </Reasoning>
                 {entry.overflowId ? (
                   <Button
                     size="sm"
@@ -113,6 +134,43 @@ export function RunTranscriptTurn(input: {
                     onClick={() => input.onOpenOverflow(entry)}
                   >
                     View full reasoning
+                  </Button>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {entry.kind === "pi-read-task" ? (
+            <Card className="border-border/70">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">PI reads</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Task className="mb-0" defaultOpen>
+                  <TaskTrigger title={buildPiReadTaskTitle(entry)} />
+                  <TaskContent>
+                    {entry.paths.length > 0 ? (
+                      entry.paths.map((path) => (
+                        <TaskItem key={`${entry.itemId}:${path}`}>
+                          <TaskItemFile>{path}</TaskItemFile>
+                        </TaskItem>
+                      ))
+                    ) : (
+                      <TaskItem>No file paths were captured for this read.</TaskItem>
+                    )}
+                  </TaskContent>
+                </Task>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <Badge variant="outline">{entry.status}</Badge>
+                  <span>{entry.recordedAt}</span>
+                </div>
+                {entry.overflowId ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => input.onOpenOverflow(entry)}
+                  >
+                    View full read result
                   </Button>
                 ) : null}
               </CardContent>
@@ -140,7 +198,7 @@ export function RunTranscriptTurn(input: {
                   <span>{entry.duration}</span>
                   <span>exit {entry.exitCode ?? "n/a"}</span>
                 </div>
-                <RunTranscriptCopy>{entry.outputPreview}</RunTranscriptCopy>
+                <CodeBlock code={entry.outputPreview} language="bash" />
                 <EntryFiles files={entry.files} />
                 {entry.overflowId ? (
                   <Button
@@ -318,4 +376,16 @@ function EntryFiles(input: {
       </div>
     </div>
   );
+}
+
+function buildReasoningLabel(entry: ReasoningEntry): string {
+  return entry.segmentCount > 1
+    ? `${entry.segmentCount} reasoning blocks`
+    : "1 reasoning block";
+}
+
+function buildPiReadTaskTitle(entry: PiReadTaskEntry): string {
+  return entry.readCount > 1
+    ? `pi.read · ${entry.readCount} files`
+    : "pi.read · 1 file";
 }

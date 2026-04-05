@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildPerformanceAnalysisViewModel } from "@/features/analysis/model/performance-analysis-view-model";
 import {
-  buildSymphonyCodexRunArtifactsResult,
+  buildSymphonyAgentRunArtifactsResult,
   buildSymphonyForensicsIssueListResult
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
 
@@ -16,16 +16,16 @@ describe("performance analysis view model", () => {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
             runId: "run_a"
           } as never,
-          artifacts: buildSymphonyCodexRunArtifactsResult({
+          artifacts: buildSymphonyAgentRunArtifactsResult({
             commandExecutions: [
               {
-                ...buildSymphonyCodexRunArtifactsResult().commandExecutions[0]!,
+                ...buildSymphonyAgentRunArtifactsResult().commandExecutions[0]!,
                 command: "sh -lc 'pnpm lint'",
                 durationMs: 18_000,
                 status: "completed"
               },
               {
-                ...buildSymphonyCodexRunArtifactsResult().commandExecutions[0]!,
+                ...buildSymphonyAgentRunArtifactsResult().commandExecutions[0]!,
                 itemId: "cmd_456",
                 command: "python3 scripts/check.py",
                 durationMs: 9_000,
@@ -36,13 +36,13 @@ describe("performance analysis view model", () => {
             ],
             toolCalls: [
               {
-                ...buildSymphonyCodexRunArtifactsResult().toolCalls[0]!,
+                ...buildSymphonyAgentRunArtifactsResult().toolCalls[0]!,
                 tool: "get_issue",
                 durationMs: 8_000,
                 status: "completed"
               },
               {
-                ...buildSymphonyCodexRunArtifactsResult().toolCalls[0]!,
+                ...buildSymphonyAgentRunArtifactsResult().toolCalls[0]!,
                 itemId: "tool_456",
                 tool: "search_documentation",
                 durationMs: 12_000,

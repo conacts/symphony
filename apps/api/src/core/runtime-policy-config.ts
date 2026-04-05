@@ -125,7 +125,7 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       profile: piProfile,
       profileDefaults: piProfileDefaults
     }),
-    codex: {
+    agentRuntime: {
       command: "codex",
       approvalPolicy: "never",
       threadSandbox: "danger-full-access",

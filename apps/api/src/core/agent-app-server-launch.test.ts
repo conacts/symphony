@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildCodexAppServerSpawnSpec,
-  resolveCodexSdkLaunchSettings
-} from "./codex-app-server-launch.js";
+  buildAgentAppServerSpawnSpec,
+  resolveAgentSdkLaunchSettings
+} from "./agent-app-server-launch.js";
 
-describe("codex app server launch", () => {
+describe("agent app server launch", () => {
   it("preserves docker transport env for container launches", () => {
-    const spec = buildCodexAppServerSpawnSpec({
+    const spec = buildAgentAppServerSpawnSpec({
       launchTarget: {
         kind: "container",
         hostLaunchPath: "/tmp/workspace",
@@ -41,8 +41,8 @@ describe("codex app server launch", () => {
   });
 
   it("extracts the SDK executable while preserving label-based model overrides", () => {
-    const settings = resolveCodexSdkLaunchSettings(
-      "/tmp/fake-codex app-server --model gpt-5.4",
+    const settings = resolveAgentSdkLaunchSettings(
+      "/tmp/fake-agent-runtime app-server --model gpt-5.4",
       {
         id: "issue-1",
         identifier: "COL-1",
@@ -66,7 +66,7 @@ describe("codex app server launch", () => {
     );
 
     expect(settings).toMatchObject({
-      executable: "/tmp/fake-codex",
+      executable: "/tmp/fake-agent-runtime",
       model: "gpt-5.3-codex-spark",
       reasoningEffort: "high",
       profile: null,
@@ -76,7 +76,7 @@ describe("codex app server launch", () => {
   });
 
   it("applies the mimo-v2-pro profile defaults to SDK launches", () => {
-    const settings = resolveCodexSdkLaunchSettings(
+    const settings = resolveAgentSdkLaunchSettings(
       "codex",
       {
         id: "issue-1",

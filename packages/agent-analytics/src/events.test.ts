@@ -7,7 +7,7 @@ import {
 } from "./events.js";
 import type { ThreadEvent, ThreadItem } from "./sdk-types.js";
 
-describe("codex analytics events", () => {
+describe("agent analytics events", () => {
   it("recognizes valid sdk thread events", () => {
     const event: ThreadEvent = {
       type: "turn.completed",
@@ -26,10 +26,10 @@ describe("codex analytics events", () => {
     const item: ThreadItem = {
       id: "msg-1",
       type: "agent_message",
-      text: "hello from codex"
+      text: "hello from agent runtime"
     };
 
-    expect(previewItem(item)).toBe("hello from codex");
+    expect(previewItem(item)).toBe("hello from agent runtime");
   });
 
   it("computes durations only for valid timestamps", () => {

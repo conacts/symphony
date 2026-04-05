@@ -82,17 +82,17 @@ function buildRealtimeComparableSnapshot(
       workspacePath: entry.workspacePath,
       retryAttempt: entry.retryAttempt,
       turnCount: entry.turnCount,
-      lastCodexMessage: entry.lastCodexMessage,
-      lastCodexTimestamp: entry.lastCodexTimestamp,
-      lastCodexEvent: entry.lastCodexEvent,
-      codexInputTokens: entry.codexInputTokens,
-      codexOutputTokens: entry.codexOutputTokens,
-      codexTotalTokens: entry.codexTotalTokens,
-      codexLastReportedInputTokens: entry.codexLastReportedInputTokens,
-      codexLastReportedOutputTokens: entry.codexLastReportedOutputTokens,
-      codexLastReportedTotalTokens: entry.codexLastReportedTotalTokens,
+      lastAgentMessage: entry.lastAgentMessage,
+      lastAgentTimestamp: entry.lastAgentTimestamp,
+      lastAgentEvent: entry.lastAgentEvent,
+      agentInputTokens: entry.agentInputTokens,
+      agentOutputTokens: entry.agentOutputTokens,
+      agentTotalTokens: entry.agentTotalTokens,
+      agentLastReportedInputTokens: entry.agentLastReportedInputTokens,
+      agentLastReportedOutputTokens: entry.agentLastReportedOutputTokens,
+      agentLastReportedTotalTokens: entry.agentLastReportedTotalTokens,
       lastRateLimits: entry.lastRateLimits,
-      codexAppServerPid: entry.codexAppServerPid,
+      agentRuntimeProcessId: entry.agentRuntimeProcessId,
       startedAt: entry.startedAt
     })),
     retrying: snapshot.retrying.map((entry) => ({
@@ -108,7 +108,7 @@ function buildRealtimeComparableSnapshot(
       workspacePath: entry.workspacePath,
       delayType: entry.delayType
     })),
-    agentTotals: snapshot.codexTotals,
+    agentTotals: snapshot.agentTotals,
     rateLimits: snapshot.rateLimits
   };
 }

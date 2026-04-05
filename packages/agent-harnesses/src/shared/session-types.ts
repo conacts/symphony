@@ -1,5 +1,5 @@
 import type { AgentRuntimeLaunchTarget, SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
-import type { Usage } from "@symphony/codex-analytics";
+import type { Usage } from "@symphony/agent-analytics";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 
 export type HarnessSessionLogger = {

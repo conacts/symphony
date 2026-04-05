@@ -3,8 +3,7 @@ import {
   buildSymphonyRuntimePolicy,
   createTestWorkspaceBackend
 } from "@symphony/test-support";
-import { createCodexAgentRuntime } from "@symphony/orchestrator";
-import { SymphonyRuntimePolicyError } from "@symphony/runtime-policy";
+import { createAgentRuntime } from "@symphony/orchestrator";
 import { createSymphonyRuntime } from "./symphony-runtime.js";
 
 const inertTracker = {
@@ -50,7 +49,7 @@ describe("symphony runtime review seam", () => {
       runtimePolicy: buildSymphonyRuntimePolicy(),
       tracker: inertTracker,
       workspaceBackend: createTestWorkspaceBackend(),
-      agentRuntime: createCodexAgentRuntime({
+      agentRuntime: createAgentRuntime({
         async startRun() {
           return {
             sessionId: null,
@@ -86,7 +85,7 @@ describe("symphony runtime review seam", () => {
       runtimePolicy: buildSymphonyRuntimePolicy(),
       tracker: inertTracker,
       workspaceBackend: createTestWorkspaceBackend(),
-      agentRuntime: createCodexAgentRuntime({
+      agentRuntime: createAgentRuntime({
         async startRun() {
           return {
             sessionId: null,
@@ -125,31 +124,4 @@ describe("symphony runtime review seam", () => {
     await expect(runtime.ingestReview("skip")).resolves.toBeNull();
   });
 
-  it("rejects non-pi harness configuration before runtime execution", () => {
-    expect(() =>
-      createSymphonyRuntime({
-        runtimePolicy: buildSymphonyRuntimePolicy({
-          agent: {
-            harness: "codex",
-            maxConcurrentAgents: 10,
-            maxTurns: 20,
-            maxRetryBackoffMs: 300_000,
-            maxConcurrentAgentsByState: {}
-          }
-        }),
-        tracker: inertTracker,
-        workspaceBackend: createTestWorkspaceBackend(),
-        agentRuntime: createCodexAgentRuntime({
-          async startRun() {
-            return {
-              sessionId: null,
-              workerHost: null,
-              launchTarget: null
-            };
-          },
-          async stopRun() {}
-        })
-      })
-    ).toThrowError(SymphonyRuntimePolicyError);
-  });
 });

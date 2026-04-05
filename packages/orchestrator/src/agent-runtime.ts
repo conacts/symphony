@@ -37,7 +37,7 @@ export interface AgentRuntime {
   stopRun(input: AgentStopInput): Promise<void>;
 }
 
-export function createCodexAgentRuntime(input: {
+export function createAgentRuntime(input: {
   startRun(input: AgentRunInput): Promise<AgentRunLaunch> | AgentRunLaunch;
   stopRun(input: AgentStopInput): Promise<void> | void;
 }): AgentRuntime {

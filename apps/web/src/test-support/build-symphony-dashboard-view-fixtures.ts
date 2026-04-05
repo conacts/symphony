@@ -4,8 +4,8 @@ import type {
 } from "@/features/overview/model/overview-view-model";
 
 export {
-  buildSymphonyCodexOverflowResult,
-  buildSymphonyCodexRunArtifactsResult,
+  buildSymphonyAgentOverflowResult,
+  buildSymphonyAgentRunArtifactsResult,
   buildSymphonyForensicsIssueDetailResult,
   buildSymphonyForensicsIssueForensicsBundleResult,
   buildSymphonyForensicsIssueListResult,
@@ -90,6 +90,28 @@ export function buildSymphonyRuntimeSummaryViewModel(
         attempt: "2",
         dueAt: "2026-03-31T18:05:00.000Z",
         error: "Worker disconnected"
+      }
+    ],
+    piTelemetryCards: [
+      {
+        label: "Sampled PI runs",
+        value: "1",
+        detail: "1 issues currently contribute PI artifact telemetry to the dashboard sample."
+      },
+      {
+        label: "Tool calls",
+        value: "1",
+        detail: "1 commands observed across the sampled runs."
+      },
+      {
+        label: "Reasoning blocks",
+        value: "1",
+        detail: "2 file changes were recorded in the same sampled runs."
+      },
+      {
+        label: "Overflow + task signals",
+        value: "1",
+        detail: "1 overflow payloads and 0 task snapshots are currently available."
       }
     ],
     ...overrides

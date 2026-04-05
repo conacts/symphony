@@ -17,6 +17,32 @@ import {
   prettyValue
 } from "@/core/display-formatters";
 
+export type IssueActivityRow = {
+  entryId: string;
+  recordedAt: string;
+  source: string;
+  eventType: string;
+  runId: string | null;
+  message: string;
+  detail: string;
+};
+
+export type IssueActivityViewModel = {
+  metrics: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
+  latestFailure: {
+    runId: string;
+    startedAt: string;
+    outcome: string;
+    errorClass: string;
+    errorMessage: string;
+  } | null;
+  activityRows: IssueActivityRow[];
+};
+
 export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult) {
   const successRate =
     input.totals.runCount === 0
@@ -311,15 +337,15 @@ function sortCounts(counts: Map<string, number>) {
 
 export function buildIssueActivityViewModel(
   input: SymphonyForensicsIssueForensicsBundleResult
-) {
+): IssueActivityViewModel {
   const activityRows = [
     ...input.timeline.map((entry) => ({
       entryId: `timeline:${entry.entryId}`,
       recordedAt: entry.recordedAt,
       source: formatSourceLabel(entry.source),
       eventType: formatEventTypeLabel(entry.eventType),
-      runId: entry.runId ?? "n/a",
-      message: entry.message ?? "n/a",
+      runId: entry.runId,
+      message: entry.message ?? formatEventTypeLabel(entry.eventType) ?? "No message",
       detail: prettyValue(entry.payload)
     })),
     ...input.runtimeLogs.map((entry) => ({
@@ -327,8 +353,8 @@ export function buildIssueActivityViewModel(
       recordedAt: entry.recordedAt,
       source: formatSourceLabel(`runtime:${entry.source}`),
       eventType: formatEventTypeLabel(entry.eventType),
-      runId: entry.runId ?? "n/a",
-      message: entry.message,
+      runId: entry.runId,
+      message: entry.message ?? formatEventTypeLabel(entry.eventType) ?? "No message",
       detail: prettyValue(entry.payload)
     }))
   ]

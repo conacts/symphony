@@ -14,7 +14,7 @@ import {
   type SymphonyLoadedRuntimeManifest
 } from "@symphony/runtime-contract";
 import {
-  createSqliteCodexAnalyticsStore,
+  createSqliteAgentAnalyticsStore,
   createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
@@ -24,7 +24,7 @@ import {
   buildSymphonyRuntimeTrackerIssue,
   buildSymphonyRuntimePolicyForRoot
 } from "../test-support/create-symphony-runtime-test-harness.js";
-import { resolveDockerPiAuthContract } from "./codex-auth-contract.js";
+import { resolveDockerPiAuthContract } from "./runtime-auth-contract.js";
 import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
 
 const execFileAsync = promisify(execFile);
@@ -69,9 +69,9 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
             afterCreate: null,
             timeoutMs: 30_000
           },
-          codex: {
-            ...buildSymphonyRuntimePolicyForRoot(root).codex,
-            command: "./.symphony/fake-codex.sh app-server",
+          agentRuntime: {
+            ...buildSymphonyRuntimePolicyForRoot(root).agentRuntime,
+            command: "./.symphony/fake-agent-runtime.sh app-server",
             readTimeoutMs: 30_000,
             turnTimeoutMs: 30_000
           }
@@ -101,7 +101,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         const runStore = createSqliteSymphonyRuntimeRunStore({
           db: database.db
         });
-        const agentAnalytics = createSqliteCodexAnalyticsStore({
+        const agentAnalytics = createSqliteAgentAnalyticsStore({
           db: database.db
         });
         const runId = await runStore.recordRunStarted({
@@ -209,9 +209,9 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
             afterCreate: null,
             timeoutMs: 30_000
           },
-          codex: {
-            ...buildSymphonyRuntimePolicyForRoot(root).codex,
-            command: "./.symphony/fake-codex.sh app-server",
+          agentRuntime: {
+            ...buildSymphonyRuntimePolicyForRoot(root).agentRuntime,
+            command: "./.symphony/fake-agent-runtime.sh app-server",
             readTimeoutMs: 30_000,
             turnTimeoutMs: 30_000
           }
@@ -255,7 +255,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         const runStore = createSqliteSymphonyRuntimeRunStore({
           db: database.db
         });
-        const agentAnalytics = createSqliteCodexAnalyticsStore({
+        const agentAnalytics = createSqliteAgentAnalyticsStore({
           db: database.db
         });
         const runId = await runStore.recordRunStarted({
@@ -587,7 +587,7 @@ async function initializeGitWorkspace(workspacePath: string): Promise<void> {
   await execFileAsync("git", ["config", "user.email", "test@example.com"], {
     cwd: workspacePath
   });
-  await execFileAsync("git", ["add", ".symphony/fake-codex.sh"], {
+  await execFileAsync("git", ["add", ".symphony/fake-agent-runtime.sh"], {
     cwd: workspacePath
   });
   await execFileAsync("git", ["commit", "-m", "init"], {
@@ -596,7 +596,7 @@ async function initializeGitWorkspace(workspacePath: string): Promise<void> {
 }
 
 async function writeFakeCodexBinary(workspacePath: string): Promise<void> {
-  const scriptPath = path.join(workspacePath, ".symphony", "fake-codex.sh");
+  const scriptPath = path.join(workspacePath, ".symphony", "fake-agent-runtime.sh");
   await mkdir(path.dirname(scriptPath), {
     recursive: true
   });

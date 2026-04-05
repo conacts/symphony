@@ -7,7 +7,7 @@ import type {
   ThreadEvent,
   TodoListItem,
   Usage
-} from "@symphony/codex-analytics";
+} from "@symphony/agent-analytics";
 import type { SymphonyAgentHarnessAnalyticsProjection } from "../shared/types.js";
 
 type PiJsonRecord = Record<string, unknown>;

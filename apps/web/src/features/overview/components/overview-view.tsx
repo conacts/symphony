@@ -176,6 +176,20 @@ export function OverviewView(input: {
             ))}
           </section>
 
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {input.runtimeSummary.piTelemetryCards.map((card) => (
+              <Card key={card.label}>
+                <CardHeader>
+                  <CardDescription>{card.label}</CardDescription>
+                  <CardTitle className="text-3xl">{card.value}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  {card.detail}
+                </CardContent>
+              </Card>
+            ))}
+          </section>
+
           {input.failureAnalysis ? (
             <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
               <Card>

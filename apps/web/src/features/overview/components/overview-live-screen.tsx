@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { buildFailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
+import { useAnalysisSample } from "@/features/analysis/hooks/use-analysis-sample";
 import { useIssueIndex } from "@/features/issues/hooks/use-issue-index";
 import { OverviewView } from "@/features/overview/components/overview-view";
 import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
@@ -25,6 +26,10 @@ export function OverviewLiveScreen() {
       sortDirection: "desc"
     }
   });
+  const analysisSampleState = useAnalysisSample({
+    runtimeBaseUrl: model.runtimeBaseUrl,
+    websocketUrl: model.websocketUrl
+  });
   const now = useNow();
 
   const connection = buildRuntimeSummaryConnectionState({
@@ -37,10 +42,11 @@ export function OverviewLiveScreen() {
       runtimeSummaryState.runtimeSummary
         ? buildRuntimeSummaryViewModel(
             runtimeSummaryState.runtimeSummary,
-            now
+            now,
+            analysisSampleState.resource
           )
         : null,
-    [now, runtimeSummaryState.runtimeSummary]
+    [analysisSampleState.resource, now, runtimeSummaryState.runtimeSummary]
   );
   const failureAnalysis = useMemo(
     () =>
@@ -54,7 +60,11 @@ export function OverviewLiveScreen() {
     <ControlPlanePage connection={connection}>
       <OverviewView
         connection={connection}
-        error={runtimeSummaryState.error}
+        error={
+          runtimeSummaryState.error ??
+          issueIndexState.error ??
+          analysisSampleState.error
+        }
         failureAnalysis={failureAnalysis}
         failureAnalysisError={issueIndexState.error}
         loading={runtimeSummaryState.loading}

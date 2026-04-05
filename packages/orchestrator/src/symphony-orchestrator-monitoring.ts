@@ -1,5 +1,5 @@
 import type { AgentRuntime } from "./agent-runtime.js";
-import { stallElapsedMs } from "./symphony-orchestrator-codex-state.js";
+import { stallElapsedMs } from "./symphony-orchestrator-agent-state.js";
 import type {
   SymphonyAgentRuntimeCompletion,
   SymphonyClock,
@@ -8,7 +8,7 @@ import type {
 
 export async function reconcileStalledRunningIssues(input: {
   config: {
-    codex: {
+    agentRuntime: {
       stallTimeoutMs: number;
     };
   };
@@ -20,7 +20,7 @@ export async function reconcileStalledRunningIssues(input: {
     completion: SymphonyAgentRuntimeCompletion
   ) => Promise<void>;
 }): Promise<void> {
-  const timeoutMs = input.config.codex.stallTimeoutMs;
+  const timeoutMs = input.config.agentRuntime.stallTimeoutMs;
   if (timeoutMs <= 0) {
     return;
   }
@@ -41,7 +41,7 @@ export async function reconcileStalledRunningIssues(input: {
       continue;
     }
 
-    const reason = `stalled for ${elapsedMs}ms without codex activity`;
+    const reason = `stalled for ${elapsedMs}ms without agent activity`;
 
     await input.agentRuntime.stopRun({
       issue: runningEntry.issue,

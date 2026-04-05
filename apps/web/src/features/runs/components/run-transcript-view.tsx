@@ -428,6 +428,8 @@ function buildOverflowTitle(entry: AgentRunTranscriptEntry): string {
       return "Assistant message";
     case "reasoning":
       return "Reasoning";
+    case "pi-read-task":
+      return "PI read result";
     case "command":
       return "Command output";
     case "tool-call":
