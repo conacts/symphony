@@ -2603,9 +2603,9 @@ function canReusePostgresService(
     container.labels[managedServicePortLabelKey] ===
       String(descriptor.service.port) &&
     container.labels[managedServiceMemoryMbLabelKey] ===
-      String(resources.memoryMb) &&
+      (resources?.memoryMb === undefined ? undefined : String(resources.memoryMb)) &&
     container.labels[managedServiceCpuSharesLabelKey] ===
-      String(resources.cpuShares) &&
+      (resources?.cpuShares === undefined ? undefined : String(resources.cpuShares)) &&
     containerAttachedToNetwork(container, networkName) &&
     containerHasNetworkAlias(container, networkName, descriptor.service.hostname)
   );

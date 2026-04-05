@@ -1468,8 +1468,6 @@ describe("docker workspace backend", () => {
                     serviceKey: "postgres",
                     hostname: "db",
                     port: 5433,
-                    memoryMb: 512,
-                    cpuShares: 512,
                     database: "app",
                     username: "app",
                     password: "secret",
@@ -2739,7 +2737,7 @@ describe("docker workspace backend", () => {
     );
 
     expect(postgresRunCall).toEqual(
-      expect.arrayContaining([
+      expect.not.arrayContaining([
         "--memory",
         "512m",
         "--cpu-shares",
@@ -3372,8 +3370,8 @@ function buildDockerServiceInspectPayload(input: {
   serviceKey: string;
   hostname: string;
   port: number;
-  memoryMb: number;
-  cpuShares: number;
+  memoryMb?: number;
+  cpuShares?: number;
   database: string;
   username: string;
   password: string;
@@ -3403,8 +3401,12 @@ function buildDockerServiceInspectPayload(input: {
           "dev.symphony.service-type": "postgres",
           "dev.symphony.service-hostname": input.hostname,
           "dev.symphony.service-port": String(input.port),
-          "dev.symphony.service-memory-mb": String(input.memoryMb),
-          "dev.symphony.service-cpu-shares": String(input.cpuShares),
+          ...(input.memoryMb === undefined
+            ? {}
+            : { "dev.symphony.service-memory-mb": String(input.memoryMb) }),
+          ...(input.cpuShares === undefined
+            ? {}
+            : { "dev.symphony.service-cpu-shares": String(input.cpuShares) }),
           "dev.symphony.network-name": input.networkName
         }
       },

@@ -180,6 +180,7 @@ Top level:
   - `username: string`
   - `password: string`
   - `resources?: { memoryMb?: number; cpuShares?: number }`
+    - when omitted, Symphony does not pass Docker CPU or memory resource flags for the service
   - `readiness?: { timeoutMs?: number; intervalMs?: number; retries?: number }`
   - `init?: Step[]`
 

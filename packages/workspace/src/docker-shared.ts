@@ -39,8 +39,6 @@ export const managedWorkspaceServiceKind = "workspace_service";
 export const managedWorkspaceVolumeKind = "workspace_volume";
 export const bindMaterializationKind = "bind_mount";
 export const volumeMaterializationKind = "volume";
-export const defaultPostgresMemoryMb = 512;
-export const defaultPostgresCpuShares = 512;
 export const defaultPostgresReadinessTimeoutMs = 15_000;
 export const defaultPostgresReadinessIntervalMs = 500;
 export const defaultPostgresReadinessRetries = 20;
@@ -243,8 +241,12 @@ export function buildManagedServiceLabels(
     [managedServiceTypeLabelKey]: "postgres",
     [managedServiceHostnameLabelKey]: descriptor.service.hostname,
     [managedServicePortLabelKey]: String(descriptor.service.port),
-    [managedServiceMemoryMbLabelKey]: String(resources.memoryMb),
-    [managedServiceCpuSharesLabelKey]: String(resources.cpuShares),
+    ...(resources?.memoryMb === undefined
+      ? {}
+      : { [managedServiceMemoryMbLabelKey]: String(resources.memoryMb) }),
+    ...(resources?.cpuShares === undefined
+      ? {}
+      : { [managedServiceCpuSharesLabelKey]: String(resources.cpuShares) }),
     [managedNetworkNameLabelKey]: networkName
   };
 }
@@ -252,12 +254,20 @@ export function buildManagedServiceLabels(
 export function resolvePostgresResourceLimits(
   service: SymphonyNormalizedRuntimePostgresService
 ): {
-  memoryMb: number;
-  cpuShares: number;
-} {
+  memoryMb?: number;
+  cpuShares?: number;
+} | null {
+  if (!service.resources) {
+    return null;
+  }
+
   return {
-    memoryMb: service.resources?.memoryMb ?? defaultPostgresMemoryMb,
-    cpuShares: service.resources?.cpuShares ?? defaultPostgresCpuShares
+    ...(service.resources.memoryMb === undefined
+      ? {}
+      : { memoryMb: service.resources.memoryMb }),
+    ...(service.resources.cpuShares === undefined
+      ? {}
+      : { cpuShares: service.resources.cpuShares })
   };
 }
 
@@ -266,11 +276,15 @@ export function dockerPostgresResourceFlags(
 ): string[] {
   const resources = resolvePostgresResourceLimits(service);
 
+  if (!resources) {
+    return [];
+  }
+
   return [
-    "--memory",
-    `${resources.memoryMb}m`,
-    "--cpu-shares",
-    String(resources.cpuShares)
+    ...(resources.memoryMb === undefined ? [] : ["--memory", `${resources.memoryMb}m`]),
+    ...(resources.cpuShares === undefined
+      ? []
+      : ["--cpu-shares", String(resources.cpuShares)])
   ];
 }
 
