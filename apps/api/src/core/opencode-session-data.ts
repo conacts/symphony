@@ -1,5 +1,5 @@
 import type { OpencodeClient } from "@opencode-ai/sdk/v2";
-import { projectOpenCodeSessionDiff } from "@symphony/agent-harnesses";
+import { opencodeHarnessModule } from "@symphony/agent-harnesses";
 import {
   HarnessSessionError,
   type HarnessSession
@@ -46,6 +46,15 @@ export async function fetchOpenCodeSessionDiff(input: {
   messageId: string;
   signal: AbortSignal;
 }) {
+  const analyticsAdapter = opencodeHarnessModule.analytics.adapter;
+
+  if (!analyticsAdapter) {
+    throw new HarnessSessionError(
+      "opencode_analytics_unavailable",
+      "OpenCode analytics adapter is not configured."
+    );
+  }
+
   try {
     const diff = await input.sdkClient.session.diff(
       {
@@ -60,7 +69,7 @@ export async function fetchOpenCodeSessionDiff(input: {
     );
     const diffData = unwrapOpenCodeData(diff, "OpenCode session.diff");
 
-    return projectOpenCodeSessionDiff({
+    return analyticsAdapter.projectSessionDiff({
       sessionId: input.sessionId,
       diffs: diffData
     });

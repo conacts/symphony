@@ -30,9 +30,6 @@ import type {
 } from "@symphony/db";
 import type { SymphonyLogger } from "@symphony/logger";
 import {
-  CodexSdkClient
-} from "./codex-sdk-client.js";
-import {
   HarnessSessionError,
   type HarnessSessionClient
 } from "./agent-session-types.js";
@@ -44,7 +41,10 @@ import {
 import {
   buildSymphonyContinuationPrompt
 } from "./symphony-prompt.js";
-import type { SymphonyRuntimeHarness } from "./runtime-harness.js";
+import {
+  createRuntimeHarness,
+  type SymphonyRuntimeHarness
+} from "./runtime-harness.js";
 
 type RunCallbacks = {
   onUpdate(issueId: string, update: SymphonyAgentRuntimeUpdate): void | Promise<void>;
@@ -80,12 +80,7 @@ export function createSymphonyAgentRuntime(input: {
 }
 
 function createDefaultCodexHarness(): SymphonyRuntimeHarness {
-  return {
-    kind: "codex",
-    startSession(startInput) {
-      return CodexSdkClient.startSession(startInput);
-    }
-  };
+  return createRuntimeHarness("codex");
 }
 
 export function createHarnessBackedSymphonyAgentRuntime(input: {

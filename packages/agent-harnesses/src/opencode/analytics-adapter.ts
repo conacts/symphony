@@ -44,6 +44,14 @@ export type OpenCodeAnalyticsProjection = SymphonyAgentHarnessAnalyticsProjectio
   OpenCodeAnalyticsLoss
 >;
 
+export type OpenCodeAnalyticsAdapter = {
+  projectPromptResponse: typeof projectOpenCodePromptResponse;
+  projectTodoUpdatedEvent: typeof projectOpenCodeTodoUpdatedEvent;
+  projectTodoListEvent: typeof projectOpenCodeTodoListEvent;
+  projectCommandExecutedEvent: typeof projectOpenCodeCommandExecutedEvent;
+  projectSessionDiff: typeof projectOpenCodeSessionDiff;
+};
+
 export function projectOpenCodePromptResponse(input: {
   response: {
     info: AssistantMessage;
@@ -282,3 +290,11 @@ function projectUsage(info: AssistantMessage): Usage {
     output_tokens: info.tokens.output + info.tokens.reasoning
   };
 }
+
+export const openCodeAnalyticsAdapter: OpenCodeAnalyticsAdapter = {
+  projectPromptResponse: projectOpenCodePromptResponse,
+  projectTodoUpdatedEvent: projectOpenCodeTodoUpdatedEvent,
+  projectTodoListEvent: projectOpenCodeTodoListEvent,
+  projectCommandExecutedEvent: projectOpenCodeCommandExecutedEvent,
+  projectSessionDiff: projectOpenCodeSessionDiff
+};

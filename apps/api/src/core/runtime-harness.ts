@@ -1,7 +1,6 @@
 import {
-  createCodexHarnessDefinition,
-  createOpenCodeHarnessDefinition,
   createUnsupportedHarnessError,
+  resolveAgentHarnessModule,
   type SymphonyAgentHarnessKind
 } from "@symphony/agent-harnesses";
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
@@ -21,6 +20,7 @@ export type SymphonyRuntimeHarnessKind = SymphonyAgentHarnessKind;
 
 export type SymphonyRuntimeHarness = {
   kind: SymphonyRuntimeHarnessKind;
+  definition: ReturnType<typeof resolveAgentHarnessModule>["definition"];
   startSession(input: {
     launchTarget: HarnessSession["launchTarget"];
     env: Record<string, string>;
@@ -31,21 +31,31 @@ export type SymphonyRuntimeHarness = {
   }): Promise<HarnessSession>;
 };
 
-export function createCodexRuntimeHarness(): SymphonyRuntimeHarness {
-  return {
-    kind: createCodexHarnessDefinition().kind,
-    startSession(input) {
-      return CodexSdkClient.startSession(input);
-    }
-  };
-}
+const runtimeHarnessStartSession: Partial<
+  Record<SymphonyRuntimeHarnessKind, SymphonyRuntimeHarness["startSession"]>
+> = {
+  codex(input) {
+    return CodexSdkClient.startSession(input);
+  },
+  opencode(input) {
+    return OpenCodeSdkClient.startSession(input);
+  }
+};
 
-export function createOpenCodeRuntimeHarness(): SymphonyRuntimeHarness {
+export function createRuntimeHarness(
+  kind: SymphonyRuntimeHarnessKind
+): SymphonyRuntimeHarness {
+  const module = resolveAgentHarnessModule(kind);
+  const startSession = runtimeHarnessStartSession[kind];
+
+  if (!startSession || module.transport.status !== "implemented") {
+    throw createUnsupportedHarnessError(kind);
+  }
+
   return {
-    kind: createOpenCodeHarnessDefinition().kind,
-    startSession(input) {
-      return OpenCodeSdkClient.startSession(input);
-    }
+    kind: module.definition.kind,
+    definition: module.definition,
+    startSession
   };
 }
 
@@ -54,9 +64,9 @@ export function resolveRuntimeHarness(
 ): SymphonyRuntimeHarness {
   switch (harness) {
     case "codex":
-      return createCodexRuntimeHarness();
+      return createRuntimeHarness(harness);
     case "opencode":
-      return createOpenCodeRuntimeHarness();
+      return createRuntimeHarness(harness);
     case "pi":
       throw createUnsupportedHarnessError(harness);
     default: {

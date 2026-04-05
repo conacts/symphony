@@ -1,7 +1,6 @@
 import { createOpencodeClient, type OpencodeClient } from "@opencode-ai/sdk/v2";
 import {
-  projectOpenCodePromptResponse,
-  projectOpenCodeTodoListEvent
+  opencodeHarnessModule
 } from "@symphony/agent-harnesses";
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
@@ -120,6 +119,15 @@ export class OpenCodeSdkClient implements HarnessSessionClient {
     session: HarnessSession,
     input: Parameters<HarnessSessionClient["runTurn"]>[1]
   ): Promise<HarnessTurnResult> {
+    const analyticsAdapter = opencodeHarnessModule.analytics.adapter;
+
+    if (!analyticsAdapter) {
+      throw new HarnessSessionError(
+        "opencode_analytics_unavailable",
+        "OpenCode analytics adapter is not configured."
+      );
+    }
+
     const turnSequence = this.#state.turnSequence + 1;
     this.#state.turnSequence = turnSequence;
 
@@ -158,7 +166,7 @@ export class OpenCodeSdkClient implements HarnessSessionClient {
       );
       const promptResponse = unwrapOpenCodeData(response, "OpenCode session.prompt");
 
-      const promptProjection = projectOpenCodePromptResponse({
+      const promptProjection = analyticsAdapter.projectPromptResponse({
         response: promptResponse
       });
       const completionEvent =
@@ -192,7 +200,7 @@ export class OpenCodeSdkClient implements HarnessSessionClient {
       });
       if (todos.length > 0) {
         await input.onMessage(
-          projectOpenCodeTodoListEvent({
+          analyticsAdapter.projectTodoListEvent({
             sessionId: this.#state.sessionId,
             todos
           })

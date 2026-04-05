@@ -10,5 +10,21 @@ export const piHarnessModule: SymphonyAgentHarnessModule = {
       "Pi is not integrated yet.",
       "Telemetry parity is unknown until we inspect its session and event model."
     ]
+  },
+  transport: {
+    status: "planned",
+    integration: "unknown",
+    notes: [
+      "Pi transport is not integrated yet."
+    ]
+  },
+  analytics: {
+    status: "planned",
+    mode: "unknown",
+    lossiness: "unknown",
+    adapter: null,
+    notes: [
+      "Pi analytics mapping is unproven until we inspect its telemetry surface."
+    ]
   }
 };

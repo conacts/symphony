@@ -17,12 +17,14 @@ export function listAgentHarnessDefinitions(): SymphonyAgentHarnessDefinition[] 
   return harnessModules.map((module) => module.definition);
 }
 
-export function resolveAgentHarnessDefinition(
+export function listAgentHarnessModules(): SymphonyAgentHarnessModule[] {
+  return [...harnessModules];
+}
+
+export function resolveAgentHarnessModule(
   kind: SymphonyAgentHarnessKind
-): SymphonyAgentHarnessDefinition {
-  const match = listAgentHarnessDefinitions().find(
-    (definition) => definition.kind === kind
-  );
+): SymphonyAgentHarnessModule {
+  const match = harnessModules.find((module) => module.definition.kind === kind);
 
   if (!match) {
     throw new TypeError(`Unsupported Symphony harness kind: ${kind}`);
@@ -31,11 +33,18 @@ export function resolveAgentHarnessDefinition(
   return match;
 }
 
+export function resolveAgentHarnessDefinition(
+  kind: SymphonyAgentHarnessKind
+): SymphonyAgentHarnessDefinition {
+  return resolveAgentHarnessModule(kind).definition;
+}
+
 export function createUnsupportedHarnessError(
   kind: SymphonyAgentHarnessKind
 ): TypeError {
-  const definition = resolveAgentHarnessDefinition(kind);
+  const module = resolveAgentHarnessModule(kind);
+  const definition = module.definition;
   return new TypeError(
-    `Symphony runtime harness "${kind}" is configured but not implemented yet. ${definition.displayName} is modeled in @symphony/agent-harnesses, but its runtime transport has not been wired into Symphony yet.`
+    `Symphony runtime harness "${kind}" is configured but not implemented yet. ${definition.displayName} is modeled in @symphony/agent-harnesses, but its transport contract is still ${module.transport.status}.`
   );
 }
