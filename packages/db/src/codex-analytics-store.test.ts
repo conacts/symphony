@@ -10,6 +10,7 @@ import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
 import {
   codexCommandExecutionsTable,
   codexEventLogTable,
+  codexFileChangesTable,
   codexItemsTable,
   codexPayloadOverflowTable,
   codexRunsTable,
@@ -330,6 +331,153 @@ describe("sqlite codex analytics store", () => {
         status: "running",
         itemCount: 1,
         commandCount: 1
+      });
+    } finally {
+      database.close();
+    }
+  });
+
+  it("persists todo snapshots and native file change items into lifecycle and rollup records", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-pi-native-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const analyticsStore = createSqliteCodexAnalyticsStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runStore.recordRunStarted({
+        runId: "run-pi-native",
+        issueId: "issue-9",
+        issueIdentifier: "COL-909",
+        startedAt: "2026-04-05T08:00:00.000Z",
+        status: "running"
+      });
+      const turnId = await runStore.recordTurnStarted(runId, {
+        turnId: "turn-pi-native",
+        promptText: "Apply the patch",
+        startedAt: "2026-04-05T08:00:01.000Z",
+        status: "running"
+      });
+
+      await analyticsStore.startRun({
+        runId,
+        issueId: "issue-9",
+        issueIdentifier: "COL-909",
+        startedAt: "2026-04-05T08:00:00.000Z",
+        status: "running",
+        threadId: "thread-pi-native"
+      });
+
+      await analyticsStore.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-pi-native",
+        recordedAt: "2026-04-05T08:00:01.100Z",
+        payload: {
+          type: "item.updated",
+          item: {
+            id: "pi-todo-queue",
+            type: "todo_list",
+            items: [
+              {
+                text: "[Steering] Keep the patch scoped",
+                completed: false
+              },
+              {
+                text: "[Follow-up] Summarize the changes",
+                completed: false
+              }
+            ]
+          }
+        }
+      });
+
+      await analyticsStore.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-pi-native",
+        recordedAt: "2026-04-05T08:00:01.200Z",
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "pi-file-change:call-2",
+            type: "file_change",
+            changes: [
+              {
+                path: "apps/api/src/main.ts",
+                kind: "update"
+              }
+            ],
+            status: "completed"
+          }
+        }
+      });
+
+      const todoItem = database.db
+        .select()
+        .from(codexItemsTable)
+        .where(eq(codexItemsTable.itemId, "pi-todo-queue"))
+        .get();
+      const fileChangeItem = database.db
+        .select()
+        .from(codexItemsTable)
+        .where(eq(codexItemsTable.itemId, "pi-file-change:call-2"))
+        .get();
+      const fileChange = database.db
+        .select()
+        .from(codexFileChangesTable)
+        .get();
+      const turn = database.db
+        .select()
+        .from(codexTurnsTable)
+        .where(eq(codexTurnsTable.turnId, turnId))
+        .get();
+      const run = database.db
+        .select()
+        .from(codexRunsTable)
+        .where(eq(codexRunsTable.runId, runId))
+        .get();
+
+      expect(todoItem).toMatchObject({
+        runId,
+        turnId,
+        itemId: "pi-todo-queue",
+        itemType: "todo_list",
+        finalStatus: null,
+        latestPreview:
+          "[ ] [Steering] Keep the patch scoped; [ ] [Follow-up] Summarize the changes"
+      });
+      expect(fileChangeItem).toMatchObject({
+        runId,
+        turnId,
+        itemId: "pi-file-change:call-2",
+        itemType: "file_change",
+        finalStatus: "completed",
+        latestPreview: "apps/api/src/main.ts"
+      });
+      expect(fileChange).toMatchObject({
+        runId,
+        turnId,
+        itemId: "pi-file-change:call-2",
+        path: "apps/api/src/main.ts",
+        changeKind: "update"
+      });
+      expect(turn).toMatchObject({
+        turnId,
+        itemCount: 2,
+        fileChangeCount: 1
+      });
+      expect(run).toMatchObject({
+        runId,
+        itemCount: 2,
+        fileChangeCount: 1
       });
     } finally {
       database.close();

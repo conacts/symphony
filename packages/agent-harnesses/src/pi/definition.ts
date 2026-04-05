@@ -12,13 +12,15 @@ export const piHarnessModule: SymphonyAgentHarnessModule<PiAnalyticsAdapter> = {
     implemented: true,
     capabilities: [
       "session_transport",
+      "todo_tracking",
       "token_usage",
       "tool_calls",
-      "command_tracking"
+      "command_tracking",
+      "file_changes"
     ],
     notes: [
       "Pi transport is wired through the Symphony runtime via Pi RPC mode.",
-      "Analytics parity is promising: Pi exposes turn lifecycle, tool execution events, and token usage in its JSON/RPC stream."
+      "Analytics parity is promising: Pi exposes turn lifecycle, queue updates, tool execution events, and token usage in its JSON/RPC stream."
     ]
   },
   transport: {
@@ -39,6 +41,7 @@ export const piHarnessModule: SymphonyAgentHarnessModule<PiAnalyticsAdapter> = {
     adapter: piAnalyticsAdapter,
     notes: [
       "Pi analytics are projected from the RPC event stream into Symphony's canonical event model.",
+      "Queue updates are mapped into todo tracking, and edit/write tool executions project native file changes.",
       "Exit codes and some non-text tool payload details are not exposed directly."
     ]
   }

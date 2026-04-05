@@ -1,9 +1,11 @@
 import type {
   AgentMessageItem,
   CommandExecutionItem,
+  FileChangeItem,
   McpToolCallItem,
   ReasoningItem,
   ThreadEvent,
+  TodoListItem,
   Usage
 } from "@symphony/codex-analytics";
 import type { SymphonyAgentHarnessAnalyticsProjection } from "../shared/types.js";
@@ -24,6 +26,12 @@ export type PiAnalyticsLoss =
       kind: "non_text_tool_result";
       toolCallId: string;
       toolName: string;
+    }
+  | {
+      kind: "file_change_kind_ambiguous";
+      toolCallId: string;
+      toolName: string;
+      path: string;
     };
 
 export type PiAnalyticsProjection = SymphonyAgentHarnessAnalyticsProjection<
@@ -39,6 +47,7 @@ export type PiAnalyticsAdapter = {
   projectToolExecutionStartEvent: typeof projectPiToolExecutionStartEvent;
   projectToolExecutionUpdateEvent: typeof projectPiToolExecutionUpdateEvent;
   projectToolExecutionEndEvent: typeof projectPiToolExecutionEndEvent;
+  projectQueueUpdateEvent: typeof projectPiQueueUpdateEvent;
   projectTurnEndEvent: typeof projectPiTurnEndEvent;
   extractTurnUsage: typeof extractPiTurnUsage;
 };
@@ -59,6 +68,8 @@ export function projectPiRuntimeEvent(input: {
       return projectPiToolExecutionUpdateEvent(input);
     case "tool_execution_end":
       return projectPiToolExecutionEndEvent(input);
+    case "queue_update":
+      return projectPiQueueUpdateEvent(input);
     case "turn_end":
       return null;
     default:
@@ -253,6 +264,28 @@ export function projectPiToolExecutionEndEvent(input: {
     output,
     isError
   );
+  const events: ThreadEvent[] = [
+    {
+      type: "item.completed",
+      item
+    }
+  ];
+  const fileChangeProjection = projectPiFileChangeItem({
+    toolCallId,
+    toolName,
+    argsValue: input.event.args,
+    isError
+  });
+
+  if (fileChangeProjection) {
+    events.push({
+      type: "item.completed",
+      item: fileChangeProjection.item
+    });
+    if (fileChangeProjection.loss) {
+      losses.push(fileChangeProjection.loss);
+    }
+  }
 
   if (item.type === "command_execution") {
     losses.push({
@@ -263,13 +296,37 @@ export function projectPiToolExecutionEndEvent(input: {
   }
 
   return {
+    events,
+    losses
+  };
+}
+
+export function projectPiQueueUpdateEvent(input: {
+  event: PiJsonRecord;
+}): PiAnalyticsProjection {
+  const item: TodoListItem = {
+    id: "pi-todo-queue",
+    type: "todo_list",
+    items: [
+      ...getStringArray(input.event.steering).map((text) => ({
+        text: `[Steering] ${text}`,
+        completed: false
+      })),
+      ...getStringArray(input.event.followUp).map((text) => ({
+        text: `[Follow-up] ${text}`,
+        completed: false
+      }))
+    ]
+  };
+
+  return {
     events: [
       {
-        type: "item.completed",
+        type: "item.updated",
         item
       }
     ],
-    losses
+    losses: []
   };
 }
 
@@ -340,6 +397,66 @@ function projectToolItem(
   return item;
 }
 
+function projectPiFileChangeItem(input: {
+  toolCallId: string;
+  toolName: string;
+  argsValue: unknown;
+  isError: boolean;
+}): {
+  item: FileChangeItem;
+  loss: PiAnalyticsLoss | null;
+} | null {
+  if (input.isError) {
+    return null;
+  }
+
+  const path = extractFilePath(input.argsValue);
+  if (!path) {
+    return null;
+  }
+
+  if (input.toolName === "edit") {
+    return {
+      item: {
+        id: `pi-file-change:${input.toolCallId}`,
+        type: "file_change",
+        changes: [
+          {
+            path,
+            kind: "update"
+          }
+        ],
+        status: "completed"
+      },
+      loss: null
+    };
+  }
+
+  if (input.toolName === "write") {
+    return {
+      item: {
+        id: `pi-file-change:${input.toolCallId}`,
+        type: "file_change",
+        changes: [
+          {
+            path,
+            kind: "update"
+          }
+        ],
+        status: "completed"
+      },
+      loss: {
+        kind: "file_change_kind_ambiguous",
+        toolCallId: input.toolCallId,
+        toolName: input.toolName,
+        path
+      }
+    };
+  }
+
+  return null;
+}
+
 function projectUsage(message: PiJsonRecord | null): Usage {
   const usage = asRecord(message?.usage);
   return {
@@ -352,6 +469,11 @@ function projectUsage(message: PiJsonRecord | null): Usage {
 function extractBashCommand(argsValue: unknown): string {
   const args = asRecord(argsValue);
   return getString(args, "command") ?? "bash";
+}
+
+function extractFilePath(argsValue: unknown): string | null {
+  const args = asRecord(argsValue);
+  return getString(args, "path") ?? getString(args, "file_path");
 }
 
 function extractToolContentText(value: unknown): string | null {
@@ -386,6 +508,12 @@ function getArray(value: PiJsonRecord | null | undefined, key: string): unknown[
   return Array.isArray(nested) ? nested : [];
 }
 
+function getStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string" && entry.trim() !== "")
+    : [];
+}
+
 function getString(
   value: PiJsonRecord | null | undefined,
   key: string
@@ -410,6 +538,7 @@ export const piAnalyticsAdapter: PiAnalyticsAdapter = {
   projectToolExecutionStartEvent: projectPiToolExecutionStartEvent,
   projectToolExecutionUpdateEvent: projectPiToolExecutionUpdateEvent,
   projectToolExecutionEndEvent: projectPiToolExecutionEndEvent,
+  projectQueueUpdateEvent: projectPiQueueUpdateEvent,
   projectTurnEndEvent: projectPiTurnEndEvent,
   extractTurnUsage: extractPiTurnUsage
 };

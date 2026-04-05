@@ -95,6 +95,13 @@ describe("PiRpcClient", () => {
           );
           stdout.write(
             `${JSON.stringify({
+              type: "queue_update",
+              steering: ["Keep the patch scoped"],
+              followUp: ["Summarize the changes"]
+            })}\n`
+          );
+          stdout.write(
+            `${JSON.stringify({
               type: "tool_execution_start",
               toolCallId: "call-1",
               toolName: "bash",
@@ -118,6 +125,34 @@ describe("PiRpcClient", () => {
                     text: "a\nb\n"
                   }
                 ]
+              },
+              isError: false
+            })}\n`
+          );
+          stdout.write(
+            `${JSON.stringify({
+              type: "tool_execution_end",
+              toolCallId: "call-2",
+              toolName: "edit",
+              args: {
+                path: "apps/api/src/main.ts",
+                edits: [
+                  {
+                    oldText: "before",
+                    newText: "after"
+                  }
+                ]
+              },
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: "Successfully replaced 1 block(s) in apps/api/src/main.ts."
+                  }
+                ],
+                details: {
+                  diff: "@@"
+                }
               },
               isError: false
             })}\n`
@@ -291,6 +326,37 @@ describe("PiRpcClient", () => {
             type: "command_execution",
             aggregated_output: "a\nb\n"
           })
+        }),
+        expect.objectContaining({
+          type: "item.updated",
+          item: {
+            id: "pi-todo-queue",
+            type: "todo_list",
+            items: [
+              {
+                text: "[Steering] Keep the patch scoped",
+                completed: false
+              },
+              {
+                text: "[Follow-up] Summarize the changes",
+                completed: false
+              }
+            ]
+          }
+        }),
+        expect.objectContaining({
+          type: "item.completed",
+          item: {
+            id: "pi-file-change:call-2",
+            type: "file_change",
+            changes: [
+              {
+                path: "apps/api/src/main.ts",
+                kind: "update"
+              }
+            ],
+            status: "completed"
+          }
         }),
         expect.objectContaining({
           type: "item.completed",

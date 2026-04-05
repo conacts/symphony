@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractPiTurnUsage,
   projectPiMessageEndEvent,
+  projectPiQueueUpdateEvent,
   projectPiToolExecutionEndEvent,
   projectPiToolExecutionStartEvent,
   projectPiTurnEndEvent
@@ -184,6 +185,185 @@ describe("pi analytics adapter", () => {
         kind: "non_text_tool_result",
         toolCallId: "call-2",
         toolName: "web_fetch"
+      }
+    ]);
+  });
+
+  it("projects queue updates into pi-native todo list items", () => {
+    const projection = projectPiQueueUpdateEvent({
+      event: {
+        type: "queue_update",
+        steering: ["Focus on error handling"],
+        followUp: ["Summarize the result"]
+      }
+    });
+
+    expect(projection.events).toEqual([
+      {
+        type: "item.updated",
+        item: {
+          id: "pi-todo-queue",
+          type: "todo_list",
+          items: [
+            {
+              text: "[Steering] Focus on error handling",
+              completed: false
+            },
+            {
+              text: "[Follow-up] Summarize the result",
+              completed: false
+            }
+          ]
+        }
+      }
+    ]);
+    expect(projection.losses).toEqual([]);
+  });
+
+  it("projects edit tool executions into file changes", () => {
+    const projection = projectPiToolExecutionEndEvent({
+      event: {
+        type: "tool_execution_end",
+        toolCallId: "call-3",
+        toolName: "edit",
+        args: {
+          path: "apps/api/src/main.ts",
+          edits: [
+            {
+              oldText: "before",
+              newText: "after"
+            }
+          ]
+        },
+        result: {
+          content: [
+            {
+              type: "text",
+              text: "Successfully replaced 1 block(s) in apps/api/src/main.ts."
+            }
+          ],
+          details: {
+            diff: "@@"
+          }
+        },
+        isError: false
+      }
+    });
+
+    expect(projection.events).toEqual([
+      {
+        type: "item.completed",
+        item: {
+          id: "call-3",
+          type: "mcp_tool_call",
+          server: "pi",
+          tool: "edit",
+          arguments: {
+            path: "apps/api/src/main.ts",
+            edits: [
+              {
+                oldText: "before",
+                newText: "after"
+              }
+            ]
+          },
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "Successfully replaced 1 block(s) in apps/api/src/main.ts."
+              }
+            ],
+            structured_content: null
+          },
+          status: "completed"
+        }
+      },
+      {
+        type: "item.completed",
+        item: {
+          id: "pi-file-change:call-3",
+          type: "file_change",
+          changes: [
+            {
+              path: "apps/api/src/main.ts",
+              kind: "update"
+            }
+          ],
+          status: "completed"
+        }
+      }
+    ]);
+    expect(projection.losses).toEqual([]);
+  });
+
+  it("projects write tool executions into file changes while flagging ambiguous create-vs-update semantics", () => {
+    const projection = projectPiToolExecutionEndEvent({
+      event: {
+        type: "tool_execution_end",
+        toolCallId: "call-4",
+        toolName: "write",
+        args: {
+          path: "docs/notes.md",
+          content: "hello"
+        },
+        result: {
+          content: [
+            {
+              type: "text",
+              text: "Successfully wrote 5 bytes to docs/notes.md"
+            }
+          ]
+        },
+        isError: false
+      }
+    });
+
+    expect(projection.events).toEqual([
+      {
+        type: "item.completed",
+        item: {
+          id: "call-4",
+          type: "mcp_tool_call",
+          server: "pi",
+          tool: "write",
+          arguments: {
+            path: "docs/notes.md",
+            content: "hello"
+          },
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "Successfully wrote 5 bytes to docs/notes.md"
+              }
+            ],
+            structured_content: null
+          },
+          status: "completed"
+        }
+      },
+      {
+        type: "item.completed",
+        item: {
+          id: "pi-file-change:call-4",
+          type: "file_change",
+          changes: [
+            {
+              path: "docs/notes.md",
+              kind: "update"
+            }
+          ],
+          status: "completed"
+        }
+      }
+    ]);
+    expect(projection.losses).toEqual([
+      {
+        kind: "file_change_kind_ambiguous",
+        toolCallId: "call-4",
+        toolName: "write",
+        path: "docs/notes.md"
       }
     ]);
   });
