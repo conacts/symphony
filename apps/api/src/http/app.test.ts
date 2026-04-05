@@ -292,7 +292,7 @@ describe("@symphony/api app", () => {
         operator: {
           githubPullRequestSearchUrl: string | null;
           requeueCommand: string;
-          codex: {
+          pi: {
             defaultModel: string | null;
             selectedModel: string | null;
           };
@@ -372,10 +372,10 @@ describe("@symphony/api app", () => {
       "github.com/openai/symphony/pulls"
     );
     expect(runtimeIssuePayload.data.operator.requeueCommand).toBe("/rework");
-    expect(runtimeIssuePayload.data.operator.codex.defaultModel).toBe(
+    expect(runtimeIssuePayload.data.operator.pi.defaultModel).toBe(
       "xiaomi/mimo-v2-pro"
     );
-    expect(runtimeIssuePayload.data.operator.codex.selectedModel).toBe(
+    expect(runtimeIssuePayload.data.operator.pi.selectedModel).toBe(
       "xiaomi/mimo-v2-pro"
     );
   });

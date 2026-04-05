@@ -40,9 +40,9 @@ export type SymphonyRuntimeRunStartAttrs = {
 export type SymphonyRuntimeTurnStartAttrs = {
   turnId?: string;
   turnSequence?: number;
-  codexThreadId?: string | null;
-  codexTurnId?: string | null;
-  codexSessionId?: string | null;
+  threadId?: string | null;
+  agentTurnId?: string | null;
+  sessionId?: string | null;
   promptText: string;
   status: SymphonyRuntimeTurnStatus;
   startedAt?: Date | string;
@@ -53,9 +53,9 @@ export type SymphonyRuntimeTurnUpdateAttrs = {
   status?: SymphonyRuntimeTurnStatus;
   startedAt?: Date | string | null;
   endedAt?: Date | string | null;
-  codexThreadId?: string | null;
-  codexTurnId?: string | null;
-  codexSessionId?: string | null;
+  threadId?: string | null;
+  agentTurnId?: string | null;
+  sessionId?: string | null;
   usage?: SymphonyRuntimeCodexUsage | null;
   metadata?: JsonObject | null;
 };
@@ -63,9 +63,9 @@ export type SymphonyRuntimeTurnUpdateAttrs = {
 export type SymphonyRuntimeTurnFinishAttrs = {
   status: SymphonyRuntimeTurnStatus;
   endedAt: Date | string;
-  codexThreadId?: string | null;
-  codexTurnId?: string | null;
-  codexSessionId?: string | null;
+  threadId?: string | null;
+  agentTurnId?: string | null;
+  sessionId?: string | null;
   usage?: SymphonyRuntimeCodexUsage | null;
   metadata?: JsonObject | null;
 };

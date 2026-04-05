@@ -49,7 +49,7 @@ export function buildAnalysisFilterOptions(
       });
     }
 
-    const model = sampledRun.artifacts.run.model ?? sampledRun.run.codexModel;
+    const model = sampledRun.artifacts.run.model ?? sampledRun.run.model;
     if (model) {
       models.set(model, {
         value: model,
@@ -108,7 +108,7 @@ function matchesAnalysisQuery(
   }
 
   if (query.model) {
-    const model = artifactsRun.model ?? run.codexModel;
+    const model = artifactsRun.model ?? run.model;
     if (model !== query.model) {
       return false;
     }

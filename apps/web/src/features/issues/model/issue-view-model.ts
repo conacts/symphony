@@ -280,7 +280,7 @@ export function buildIssueDetailViewModel(
       turnsAndEvents: `${formatCount(run.turnCount)} / ${formatCount(run.eventCount)}`,
       status: formatStatusLabel(run.status),
       outcome: formatOutcomeLabel(run.outcome),
-      model: run.codexModel ?? "n/a"
+      model: run.model ?? "n/a"
     }))
   };
 }
