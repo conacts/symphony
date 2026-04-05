@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildCodexContainerLaunchPath,
-  resolveCodexRuntimeLaunchTarget
-} from "./codex-runtime-launch-target.js";
+  buildRuntimeContainerLaunchPath,
+  resolveRuntimeLaunchTarget
+} from "./agent-runtime-launch-target.js";
 
 const workspaceRoot = "/tmp/workspaces";
 
-describe("codex runtime launch target", () => {
+describe("agent runtime launch target", () => {
   it("maps container workspaces into docker exec launch targets", () => {
     expect(
-      resolveCodexRuntimeLaunchTarget(
+      resolveRuntimeLaunchTarget(
         {
           issueIdentifier: "COL-123",
           workspaceKey: "COL-123",
@@ -54,7 +54,7 @@ describe("codex runtime launch target", () => {
 
   it("maps volume-backed container workspaces into docker exec launch targets", () => {
     expect(
-      resolveCodexRuntimeLaunchTarget(
+      resolveRuntimeLaunchTarget(
         {
           issueIdentifier: "COL-123",
           workspaceKey: "COL-123",
@@ -89,7 +89,7 @@ describe("codex runtime launch target", () => {
       )
     ).toEqual({
       kind: "container",
-      hostLaunchPath: buildCodexContainerLaunchPath(workspaceRoot, "COL-123"),
+      hostLaunchPath: buildRuntimeContainerLaunchPath(workspaceRoot, "COL-123"),
       hostWorkspacePath: null,
       runtimeWorkspacePath: "/home/agent/workspace",
       containerId: "container-123",
@@ -100,7 +100,7 @@ describe("codex runtime launch target", () => {
 
   it("fails closed on container targets without a container name", () => {
     expect(() =>
-      resolveCodexRuntimeLaunchTarget({
+      resolveRuntimeLaunchTarget({
         issueIdentifier: "COL-123",
         workspaceKey: "COL-123",
         backendKind: "docker",
@@ -134,7 +134,7 @@ describe("codex runtime launch target", () => {
 
   it("fails closed on container targets without a runtime workspace path", () => {
     expect(() =>
-      resolveCodexRuntimeLaunchTarget({
+      resolveRuntimeLaunchTarget({
         issueIdentifier: "COL-123",
         workspaceKey: "COL-123",
         backendKind: "docker",
@@ -168,7 +168,7 @@ describe("codex runtime launch target", () => {
 
   it("fails closed on container targets without a container shell", () => {
     expect(() =>
-      resolveCodexRuntimeLaunchTarget({
+      resolveRuntimeLaunchTarget({
         issueIdentifier: "COL-123",
         workspaceKey: "COL-123",
         backendKind: "docker",

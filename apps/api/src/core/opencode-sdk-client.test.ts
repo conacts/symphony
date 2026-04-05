@@ -1,10 +1,10 @@
 import { PassThrough } from "node:stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { OpenCodeSdkClient } from "@symphony/agent-harnesses";
 import {
   buildSymphonyRuntimePolicy,
   buildSymphonyTrackerIssue
 } from "@symphony/test-support";
-import { OpenCodeSdkClient } from "./opencode-sdk-client.js";
 
 const {
   execFileMock,

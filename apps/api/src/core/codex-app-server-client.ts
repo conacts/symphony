@@ -26,13 +26,13 @@ import {
   toolCallName
 } from "./codex-app-server-protocol.js";
 import {
-  CodexAppServerError,
-  type CodexAppServerLogger,
-  type CodexAppServerSession,
-  type CodexAppServerToolExecutor,
-  type CodexAppServerTurnResult,
-  type ControlMessageResult
-} from "./codex-app-server-types.js";
+  HarnessSessionError,
+  type HarnessControlMessageResult as ControlMessageResult,
+  type HarnessSession as AppServerSession,
+  type HarnessSessionLogger as AppServerLogger,
+  type HarnessToolExecutor as AppServerToolExecutor,
+  type HarnessTurnResult as AppServerTurnResult
+} from "./agent-session-types.js";
 
 const initializeRequestId = 1;
 const threadStartRequestId = 2;
@@ -50,7 +50,7 @@ export class CodexAppServerClient {
   readonly #queuedMessages: Record<string, unknown>[] = [];
   readonly #messageWaiters: Array<(message: Record<string, unknown>) => void> = [];
   readonly #requestTimeoutMs: number;
-  readonly #logger: CodexAppServerLogger;
+  readonly #logger: AppServerLogger;
   readonly processId: string | null;
   #closed = false;
 
@@ -60,7 +60,7 @@ export class CodexAppServerClient {
     cwd: string;
     env: Record<string, string>;
     readTimeoutMs: number;
-    logger: CodexAppServerLogger;
+    logger: AppServerLogger;
   }) {
     this.#requestTimeoutMs = input.readTimeoutMs;
     this.#logger = input.logger;
@@ -107,8 +107,8 @@ export class CodexAppServerClient {
     hostCommandEnvSource: Record<string, string | undefined>;
     runtimePolicy: SymphonyAgentRuntimeConfig;
     issue: SymphonyTrackerIssue;
-    logger: CodexAppServerLogger;
-  }): Promise<CodexAppServerSession> {
+    logger: AppServerLogger;
+  }): Promise<AppServerSession> {
     const hostLaunchPath = await ensureWorkspaceCwd(
       input.launchTarget.hostLaunchPath,
       input.runtimePolicy.workspace.root
@@ -167,7 +167,7 @@ export class CodexAppServerClient {
         getStringPath(threadResponse, ["id"]);
 
       if (!threadId) {
-        throw new CodexAppServerError(
+        throw new HarnessSessionError(
           "invalid_thread_payload",
           "Codex thread/start response did not include a thread id.",
           threadResponse
@@ -198,12 +198,12 @@ export class CodexAppServerClient {
   }
 
   async runTurn(
-    session: CodexAppServerSession,
+    session: AppServerSession,
     input: {
       prompt: string;
       title: string;
       sandboxPolicy: Record<string, unknown> | null;
-      toolExecutor: CodexAppServerToolExecutor;
+      toolExecutor: AppServerToolExecutor;
       onMessage: (update: {
         message: Record<string, unknown>;
         rawPayload?: unknown;
@@ -211,7 +211,7 @@ export class CodexAppServerClient {
       }) => Promise<void> | void;
       turnTimeoutMs: number;
     }
-  ): Promise<CodexAppServerTurnResult> {
+  ): Promise<AppServerTurnResult> {
     const turnResponse = await this.sendRequest(turnStartRequestId, "turn/start", {
       threadId: session.threadId,
       input: [
@@ -231,7 +231,7 @@ export class CodexAppServerClient {
       getStringPath(turnResponse, ["id"]);
 
     if (!turnId) {
-      throw new CodexAppServerError(
+      throw new HarnessSessionError(
         "invalid_turn_payload",
         "Codex turn/start response did not include a turn id.",
         turnResponse
@@ -288,7 +288,7 @@ export class CodexAppServerClient {
           }
         });
 
-        throw new CodexAppServerError(
+        throw new HarnessSessionError(
           "approval_required",
           "Codex approval request requires operator input.",
           message
@@ -304,7 +304,7 @@ export class CodexAppServerClient {
           }
         });
 
-        throw new CodexAppServerError(
+        throw new HarnessSessionError(
           "turn_input_required",
           "Codex turn requires operator input.",
           message
@@ -312,7 +312,7 @@ export class CodexAppServerClient {
       }
 
       if (method === "port/exited") {
-        throw new CodexAppServerError(
+        throw new HarnessSessionError(
           "port_exited",
           `Codex app-server exited (${JSON.stringify(getRecord(message, "params") ?? {})}).`,
           message
@@ -328,7 +328,7 @@ export class CodexAppServerClient {
           }
         });
 
-        throw new CodexAppServerError(
+        throw new HarnessSessionError(
           "turn_input_required",
           "Codex turn requires operator input.",
           message
@@ -357,7 +357,7 @@ export class CodexAppServerClient {
             ...message
           }
         });
-        throw new CodexAppServerError("turn_failed", "Codex turn failed.", message);
+        throw new HarnessSessionError("turn_failed", "Codex turn failed.", message);
       }
 
       if (method === "turn/cancelled") {
@@ -367,7 +367,7 @@ export class CodexAppServerClient {
             ...message
           }
         });
-        throw new CodexAppServerError(
+        throw new HarnessSessionError(
           "turn_cancelled",
           "Codex turn was cancelled.",
           message
@@ -393,9 +393,9 @@ export class CodexAppServerClient {
   }
 
   async #maybeHandleControlRequest(
-    session: CodexAppServerSession,
+    session: AppServerSession,
     message: Record<string, unknown>,
-    toolExecutor: CodexAppServerToolExecutor,
+    toolExecutor: AppServerToolExecutor,
     onMessage: (update: {
       message: Record<string, unknown>;
       rawPayload?: unknown;
@@ -695,13 +695,3 @@ export class CodexAppServerClient {
     this.#queuedMessages.push(message);
   }
 }
-
-export {
-  CodexAppServerError
-} from "./codex-app-server-types.js";
-export type {
-  CodexAppServerLogger,
-  CodexAppServerSession,
-  CodexAppServerToolExecutor,
-  CodexAppServerTurnResult
-} from "./codex-app-server-types.js";

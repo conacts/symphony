@@ -161,11 +161,6 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
   };
 }
 
-export const createCodexSymphonyAgentRuntime = createSymphonyAgentRuntime;
-export const createSymphonyHarnessAgentRuntime =
-  createHarnessBackedSymphonyAgentRuntime;
-export const createLocalCodexSymphonyAgentRuntime = createSymphonyAgentRuntime;
-
 async function executeRun(input: {
   promptTemplate: string;
   harness: SymphonyRuntimeHarness;

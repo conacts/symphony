@@ -17,9 +17,11 @@ import {
   buildSymphonyRuntimePolicyForRoot
 } from "../test-support/create-symphony-runtime-test-harness.js";
 import {
-  CodexAppServerClient,
-  CodexAppServerError,
-  type CodexAppServerSession
+  HarnessSessionError,
+  type HarnessSession
+} from "./agent-session-types.js";
+import {
+  CodexAppServerClient
 } from "./codex-app-server-client.js";
 
 const tempRoots: string[] = [];
@@ -75,7 +77,7 @@ describe("codex app server client", () => {
       })
     ).rejects.toSatisfy(
       (error) =>
-        error instanceof CodexAppServerError &&
+        error instanceof HarnessSessionError &&
         error.code === "invalid_workspace_cwd" &&
         asRecord(error.detail)?.reason === "workspace_root"
     );
@@ -91,7 +93,7 @@ describe("codex app server client", () => {
       })
     ).rejects.toSatisfy(
       (error) =>
-        error instanceof CodexAppServerError &&
+        error instanceof HarnessSessionError &&
         error.code === "invalid_workspace_cwd" &&
         asRecord(error.detail)?.reason === "outside_workspace_root"
     );
@@ -110,7 +112,7 @@ describe("codex app server client", () => {
       })
     ).rejects.toSatisfy(
       (error) =>
-        error instanceof CodexAppServerError &&
+        error instanceof HarnessSessionError &&
         error.code === "invalid_workspace_cwd" &&
         asRecord(error.detail)?.reason === "symlink_escape"
     );
@@ -387,7 +389,7 @@ done
 
     await expect(turn.promise).rejects.toSatisfy(
       (error) =>
-        error instanceof CodexAppServerError &&
+        error instanceof HarnessSessionError &&
         error.code === "turn_input_required"
     );
     expect(turn.messages.map((message) => message.event)).toContain(
@@ -443,7 +445,7 @@ done
 
     await expect(turn.promise).rejects.toSatisfy(
       (error) =>
-        error instanceof CodexAppServerError &&
+        error instanceof HarnessSessionError &&
         error.code === "approval_required"
     );
     expect(turn.messages.map((message) => message.event)).toContain(
@@ -982,7 +984,7 @@ exec "$shell_bin" -lc "$1"
 async function startSessionForScenario(
   scenario: Scenario
 ): Promise<{
-  session: CodexAppServerSession;
+  session: HarnessSession;
 }> {
   const session = await CodexAppServerClient.startSession({
     launchTarget: buildContainerLaunchTarget(scenario.workspacePath),
@@ -1000,7 +1002,7 @@ async function startSessionForScenario(
 
 function runTurnForScenario(
   scenario: Scenario,
-  session: CodexAppServerSession,
+  session: HarnessSession,
   input: {
     toolExecutor?: (
       toolName: string | null,
