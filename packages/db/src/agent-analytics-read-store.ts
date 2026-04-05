@@ -33,7 +33,11 @@ import type {
   SymphonyForensicsRunSummary,
   SymphonyRuntimeLaunchTarget
 } from "@symphony/contracts";
-import { parseKnownPiToolArguments, type PiEditArguments } from "@symphony/contracts";
+import {
+  parseKnownPiToolArguments,
+  type PiEditArguments,
+  type PiWriteArguments
+} from "@symphony/contracts";
 import {
   symphonyAgentCommandExecutionsTable,
   symphonyAgentEventLogTable,
@@ -1021,6 +1025,10 @@ function mapAgentToolCallRecords(
       row.tool,
       row.argumentsJson
     ) as PiEditArguments | null;
+    const parsedPiWrite = parseKnownPiToolArguments(
+      row.tool,
+      row.argumentsJson
+    ) as PiWriteArguments | null;
 
     return {
       ...row,
@@ -1047,7 +1055,8 @@ function mapAgentToolCallRecords(
         piWrite === undefined
           ? undefined
           : {
-              path: piWrite.path
+              path: piWrite.path,
+              lineCount: parsedPiWrite ? countNonEmptyLines(parsedPiWrite.content) : 1
             },
       piGrep:
         piGrep === undefined

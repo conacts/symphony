@@ -219,7 +219,8 @@ export const symphonyAgentToolCallRecordSchema = z.strictObject({
     .optional(),
   piWrite: z
     .strictObject({
-      path: nonEmptyStringSchema
+      path: nonEmptyStringSchema,
+      lineCount: z.number().int().positive()
     })
     .optional(),
   piGrep: z

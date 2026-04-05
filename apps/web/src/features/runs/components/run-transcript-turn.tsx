@@ -14,7 +14,13 @@ import {
   TaskItemFile,
   TaskTrigger
 } from "@/components/ai-elements/task";
-import { ChevronDownIcon, PencilIcon, SearchIcon, UploadIcon } from "lucide-react";
+import {
+  BrainIcon,
+  ChevronDownIcon,
+  PencilIcon,
+  SearchIcon,
+  UploadIcon
+} from "lucide-react";
 import {
   Message,
   MessageContent,
@@ -111,6 +117,7 @@ export function RunTranscriptTurn(input: {
               <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
               <Reasoning className="mb-0" defaultOpen={false}>
                 <ReasoningTrigger className="items-center gap-2 hover:text-foreground">
+                  <BrainIcon className="size-4" />
                   <span className="text-sm font-medium">
                     {buildReasoningLabel(entry)}
                   </span>
@@ -195,6 +202,9 @@ export function RunTranscriptTurn(input: {
                   </div>
                 </TaskTrigger>
                 <TaskContent>
+                  <TaskItem>
+                    {formatPiWriteLineCount(entry.lineCount)}
+                  </TaskItem>
                   {entry.paths.length > 0 ? (
                     entry.paths.map((path) => (
                       <TaskItem key={`${entry.itemId}:${path}`}>
@@ -281,7 +291,7 @@ export function RunTranscriptTurn(input: {
                   <TaskItem>
                     {entry.duration} · exit {entry.exitCode ?? "n/a"}
                   </TaskItem>
-                  <CodeBlock code={entry.outputPreview} language="bash" />
+                  <CodeBlock code={entry.outputPreview} language="bash" wrapLongLines />
                   <EntryFiles files={entry.files} />
                   {entry.overflowId ? (
                     <div className="pt-1">
@@ -442,6 +452,10 @@ function buildPiEditTaskTitle(entry: PiEditTaskEntry): string {
 
 function formatPiEditLineCount(lineCount: number): string {
   return lineCount === 1 ? "1 line edited" : `${lineCount} lines edited`;
+}
+
+function formatPiWriteLineCount(lineCount: number): string {
+  return lineCount === 1 ? "1 line written" : `${lineCount} lines written`;
 }
 
 function formatCommandOutcome(status: string, exitCode: number | null): string {

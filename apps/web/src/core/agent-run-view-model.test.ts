@@ -268,12 +268,14 @@ describe("agent run view model", () => {
         status: "completed",
         errorMessage: null,
         argumentsJson: {
-          path: "packages/db/src/index.ts"
+          path: "packages/db/src/index.ts",
+          content: "export const first = 1;\nexport const second = 2;"
         },
         resultPreview: "File updated",
         resultOverflowId: null,
         piWrite: {
-          path: "packages/db/src/index.ts"
+          path: "packages/db/src/index.ts",
+          lineCount: 2
         },
         startedAt: "2026-03-31T18:00:24.000Z",
         completedAt: "2026-03-31T18:00:25.000Z",
@@ -468,6 +470,7 @@ describe("agent run view model", () => {
     expect(piEditEntry?.diffText).toContain("+const newValue = 2;");
     expect(piWriteEntry?.kind).toBe("pi-write-task");
     expect(piWriteEntry?.writeCount).toBe(1);
+    expect(piWriteEntry?.lineCount).toBe(2);
     expect(piWriteEntry?.paths).toEqual(["packages/db/src/index.ts"]);
     expect(piGrepEntry?.kind).toBe("pi-grep-task");
     expect(piGrepEntry?.grepCount).toBe(1);
@@ -510,6 +513,7 @@ describe("agent run view model", () => {
     runArtifacts.run.cachedInputTokens = 0;
     runArtifacts.run.outputTokens = 0;
     runArtifacts.run.totalTokens = 0;
+    runArtifacts.turns[0]!.totalTokens = 0;
     runDetail.run.inputTokens = 0;
     runDetail.run.outputTokens = 0;
     runDetail.run.totalTokens = 0;
@@ -524,5 +528,11 @@ describe("agent run view model", () => {
       value: "200",
       detail: "In 120 / Cached 0 / Out 80"
     });
+    expect(viewModel.turnTokens.cards[1]).toEqual({
+      label: "Turn output tokens",
+      value: "80",
+      detail: "200 total turn tokens across the run."
+    });
+    expect(viewModel.turnTokens.rows[0]?.totalTokens).toBe(200);
   });
 });

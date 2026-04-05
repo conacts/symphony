@@ -85,6 +85,7 @@ export type AgentRunTranscriptEntry =
       status: string;
       paths: string[];
       writeCount: number;
+      lineCount: number;
       overflowId: string | null;
     }
   | {
@@ -886,6 +887,8 @@ function mapTranscriptEntry(input: {
             ? [input.toolCall.piWrite.path]
             : extractPiWritePaths(input.toolCall.argumentsJson),
         writeCount: 1,
+        lineCount:
+          input.toolCall.piWrite?.lineCount ?? extractPiWriteLineCount(input.toolCall.argumentsJson),
         overflowId: input.toolCall.resultOverflowId
       };
     }
@@ -1249,6 +1252,7 @@ function compactTranscriptEntries(
         status: entry.status,
         paths: uniquePaths([...previous.paths, ...entry.paths]),
         writeCount: previous.writeCount + entry.writeCount,
+        lineCount: previous.lineCount + entry.lineCount,
         overflowId:
           previous.overflowId !== null && previous.overflowId === entry.overflowId
             ? previous.overflowId
@@ -1366,6 +1370,15 @@ function extractPiEditBlocks(value: unknown): PiEditBlock[] {
 
     return [{ oldText, newText }];
   });
+}
+
+function extractPiWriteLineCount(value: unknown): number {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return 1;
+  }
+
+  const content = getStringValue((value as Record<string, unknown>).content);
+  return content === null ? 1 : countTextLines(content);
 }
 
 function countPiEditLines(edits: PiEditBlock[]): number {
