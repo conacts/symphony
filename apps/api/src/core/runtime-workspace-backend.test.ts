@@ -18,14 +18,14 @@ afterEach(async () => {
 
 describe("runtime workspace backend selection", () => {
   it("defaults to the docker workspace backend", () => {
-    const selection = createRuntimeWorkspaceBackend({
+    const selection = createRuntimeWorkspaceBackend(buildRuntimeEnv({
       dockerWorkspaceImage: null,
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: null,
       dockerContainerNamePrefix: null,
       dockerShell: null,
       sourceRepo: null
-    });
+    }));
 
     expect(selection.metadata).toEqual({
       backendKind: "docker",
@@ -56,14 +56,14 @@ describe("runtime workspace backend selection", () => {
   });
 
   it("creates a docker backend from the explicit Docker config surface", () => {
-    const selection = createRuntimeWorkspaceBackend({
+    const selection = createRuntimeWorkspaceBackend(buildRuntimeEnv({
       dockerWorkspaceImage: "example.com/custom/symphony-runner:dev",
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: "/home/agent/workspace",
       dockerContainerNamePrefix: "symphony-test",
       dockerShell: "sh",
       sourceRepo: null
-    });
+    }));
 
     expect(selection.metadata).toEqual({
       backendKind: "docker",
@@ -94,14 +94,14 @@ describe("runtime workspace backend selection", () => {
   });
 
   it("surfaces container-owned Docker selection without changing the default mode", () => {
-    const selection = createRuntimeWorkspaceBackend({
+    const selection = createRuntimeWorkspaceBackend(buildRuntimeEnv({
       dockerWorkspaceImage: "example.com/custom/symphony-runner:dev",
       dockerMaterializationMode: "volume",
       dockerWorkspacePath: "/home/agent/workspace",
       dockerContainerNamePrefix: "symphony-test",
       dockerShell: "sh",
       sourceRepo: null
-    });
+    }));
 
     expect(selection.metadata).toEqual({
       backendKind: "docker",
@@ -132,14 +132,14 @@ describe("runtime workspace backend selection", () => {
   });
 
   it("defaults Docker image selection to the supported local runner image", () => {
-    const selection = createRuntimeWorkspaceBackend({
+    const selection = createRuntimeWorkspaceBackend(buildRuntimeEnv({
       dockerWorkspaceImage: null,
       dockerMaterializationMode: "bind_mount",
       dockerWorkspacePath: null,
       dockerContainerNamePrefix: null,
       dockerShell: null,
       sourceRepo: null
-    });
+    }));
 
     expect(selection.metadata).toEqual({
       backendKind: "docker",
@@ -168,3 +168,27 @@ describe("runtime workspace backend selection", () => {
     });
   });
 });
+
+function buildRuntimeEnv(
+  overrides: Partial<Parameters<typeof createRuntimeWorkspaceBackend>[0]>
+): Parameters<typeof createRuntimeWorkspaceBackend>[0] {
+  return {
+    dockerWorkspaceImage: null,
+    dockerMaterializationMode: "bind_mount",
+    dockerWorkspacePath: null,
+    dockerContainerNamePrefix: null,
+    dockerShell: null,
+    dockerSharedPostgresContainerName: "symphony-shared-postgres",
+    dockerSharedPostgresImage: "postgres:16",
+    dockerSharedPostgresHost: "host.docker.internal",
+    dockerSharedPostgresHostPort: 55_432,
+    dockerSharedPostgresContainerPort: 5_432,
+    dockerSharedPostgresAdminDatabase: "postgres",
+    dockerSharedPostgresAdminUsername: "postgres",
+    dockerSharedPostgresAdminPassword: "postgres",
+    dockerSharedPostgresDatabasePrefix: "symphony",
+    dockerSharedPostgresRolePrefix: "symphony",
+    sourceRepo: null,
+    ...overrides
+  };
+}

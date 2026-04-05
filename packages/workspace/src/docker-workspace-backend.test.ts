@@ -1062,6 +1062,241 @@ describe("docker workspace backend", () => {
     expect(calls.map((call) => call[0])).toEqual(["inspect", "exec", "inspect", "rm"]);
   });
 
+  it("resolves shared postgres through a derived workspace database and drops it on cleanup", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildWorkspaceTestConfig({
+      workspace: {
+        root
+      }
+    });
+    const runtimeManifest = buildLoadedRuntimeManifest({
+      init: [
+        {
+          name: "extensions",
+          run: "psql \"$DATABASE_URL\" -c 'select 1'",
+          timeoutMs: 15_000
+        }
+      ]
+    });
+    const sharedPostgres = buildSharedPostgresConfig();
+    const calls: string[][] = [];
+    let sharedContainerExists = false;
+    let workspaceContainerExists = false;
+    let databaseExists = false;
+
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      runtimeManifest,
+      sharedPostgres,
+      shell: "bash",
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        if (input.args[0] === "inspect") {
+          const name = input.args[3] ?? "";
+
+          if (name === sharedPostgres.containerName) {
+            if (!sharedContainerExists) {
+              return {
+                exitCode: 1,
+                stdout: "[]\n",
+                stderr: `Error response from daemon: No such container: ${name}`
+              };
+            }
+
+            return {
+              exitCode: 0,
+              stdout: buildDockerSharedServiceInspectPayload({
+                id: "shared-postgres-401",
+                name,
+                image: sharedPostgres.image,
+                adminDatabase: sharedPostgres.adminDatabase,
+                adminUsername: sharedPostgres.adminUsername,
+                adminPassword: sharedPostgres.adminPassword,
+                containerPort: sharedPostgres.containerPort
+              }),
+              stderr: ""
+            };
+          }
+
+          if (!workspaceContainerExists) {
+            return {
+              exitCode: 1,
+              stdout: "[]\n",
+              stderr: `Error response from daemon: No such container: ${name}`
+            };
+          }
+
+          return {
+            exitCode: 0,
+            stdout: buildDockerInspectPayload({
+              id: "workspace-401",
+              image: "ghcr.io/openai/symphony-workspace:latest",
+              name,
+              issueIdentifier: "COL-401",
+              workspaceKey: "COL-401",
+              hostPath: path.join(root, "symphony-COL-401"),
+              workspacePath: "/home/agent/workspace",
+              running: true
+            }),
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "run") {
+          if (input.args.includes("postgres:16")) {
+            sharedContainerExists = true;
+            return {
+              exitCode: 0,
+              stdout: "shared-postgres-401\n",
+              stderr: ""
+            };
+          }
+
+          workspaceContainerExists = true;
+          return {
+            exitCode: 0,
+            stdout: "workspace-401\n",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "exec") {
+          const script = input.args.at(-1) ?? "";
+
+          if (script.includes("pg_isready")) {
+            return {
+              exitCode: 0,
+              stdout: "",
+              stderr: ""
+            };
+          }
+
+          if (script.includes("SELECT 1 FROM pg_database")) {
+            return {
+              exitCode: 0,
+              stdout: databaseExists ? "1\n" : "",
+              stderr: ""
+            };
+          }
+
+          if (script.includes("CREATE DATABASE")) {
+            databaseExists = true;
+            return {
+              exitCode: 0,
+              stdout: "",
+              stderr: ""
+            };
+          }
+
+          if (script.includes("DROP DATABASE")) {
+            databaseExists = false;
+            return {
+              exitCode: 0,
+              stdout: "",
+              stderr: ""
+            };
+          }
+
+          if (script.includes("DO $$")) {
+            return {
+              exitCode: 0,
+              stdout: "",
+              stderr: ""
+            };
+          }
+
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "rm") {
+          workspaceContainerExists = false;
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    const workspace = await backend.prepareWorkspace({
+      context: {
+        issueId: "issue-401",
+        issueIdentifier: "COL-401"
+      },
+      runId: "run-401",
+      config: config.workspace,
+      hooks: config.hooks,
+      env: {
+        OPENAI_API_KEY: "test-openai-key"
+      }
+    });
+
+    const databaseUrl = workspace.envBundle.values.DATABASE_URL;
+    expect(workspace.networkDisposition).toBe("not_applicable");
+    expect(workspace.networkName).toBeNull();
+    expect(workspace.services).toEqual([
+      {
+        key: "postgres",
+        type: "postgres",
+        hostname: "host.docker.internal",
+        port: 55_432,
+        containerId: "shared-postgres-401",
+        containerName: "symphony-shared-postgres",
+        disposition: "created"
+      }
+    ]);
+    expect(databaseUrl).toMatch(
+      /^postgresql:\/\/app:secret@host\.docker\.internal:55432\/symphony_postgres_col_401_[a-f0-9]{10}$/
+    );
+    expect(
+      calls.some(
+        (call) =>
+          call[0] === "run" &&
+          call.includes("--add-host") &&
+          call.includes("host.docker.internal:host-gateway") &&
+          !call.includes("--network")
+      )
+    ).toBe(true);
+    expect(
+      calls.some(
+        (call) =>
+          call[0] === "exec" &&
+          call.includes("symphony-shared-postgres") &&
+          call.includes(`DATABASE_URL=${databaseUrl?.replace("host.docker.internal:55432", "127.0.0.1:5432")}`)
+      )
+    ).toBe(true);
+
+    const cleanup = await backend.cleanupWorkspace({
+      issueIdentifier: "COL-401",
+      runId: "run-401",
+      workspace,
+      config: config.workspace,
+      hooks: config.hooks,
+      env: {
+        OPENAI_API_KEY: "test-openai-key"
+      }
+    });
+
+    expect(cleanup.networkRemovalDisposition).toBe("not_applicable");
+    expect(cleanup.serviceCleanup).toEqual([
+      {
+        key: "postgres",
+        type: "postgres",
+        containerId: "shared-postgres-401",
+        containerName: "symphony-shared-postgres",
+        removalDisposition: "removed"
+      }
+    ]);
+  });
+
   it("provisions and reuses a per-workspace network and postgres sidecar with explicit env injection", async () => {
     const root = await createWorkspaceRoot();
     const config = buildWorkspaceTestConfig({
@@ -3422,6 +3657,45 @@ function buildDockerServiceInspectPayload(input: {
   ]);
 }
 
+function buildDockerSharedServiceInspectPayload(input: {
+  id: string;
+  name: string;
+  image: string;
+  adminDatabase: string;
+  adminUsername: string;
+  adminPassword: string;
+  containerPort: number;
+}): string {
+  return JSON.stringify([
+    {
+      Id: input.id,
+      Name: `/${input.name}`,
+      State: {
+        Running: true,
+        Status: "running"
+      },
+      Config: {
+        Image: input.image,
+        Env: [
+          `POSTGRES_DB=${input.adminDatabase}`,
+          `POSTGRES_USER=${input.adminUsername}`,
+          `POSTGRES_PASSWORD=${input.adminPassword}`
+        ],
+        Labels: {
+          "dev.symphony.workspace-backend": "docker",
+          "dev.symphony.managed-kind": "shared_service",
+          "dev.symphony.service-type": "postgres",
+          "dev.symphony.service-port": String(input.containerPort)
+        }
+      },
+      NetworkSettings: {
+        Networks: {}
+      },
+      Mounts: []
+    }
+  ]);
+}
+
 function buildDockerNetworkInspectPayload(input: {
   id: string;
   name: string;
@@ -3547,6 +3821,21 @@ function buildLoadedRuntimeManifest(input?: {
         cleanup: input?.lifecycle?.cleanup ?? []
       }
     })
+  };
+}
+
+function buildSharedPostgresConfig() {
+  return {
+    containerName: "symphony-shared-postgres",
+    image: "postgres:16",
+    host: "host.docker.internal",
+    hostPort: 55_432,
+    containerPort: 5_432,
+    adminDatabase: "postgres",
+    adminUsername: "postgres",
+    adminPassword: "postgres",
+    databasePrefix: "symphony",
+    rolePrefix: "symphony"
   };
 }
 

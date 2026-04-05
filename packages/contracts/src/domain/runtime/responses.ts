@@ -51,6 +51,13 @@ export const symphonyRuntimeWorkspaceServiceDispositionSchema = z.enum([
   "recreated"
 ]);
 
+export const symphonyRuntimeWorkspaceServiceRemovalDispositionSchema = z.enum([
+  "removed",
+  "missing",
+  "stopped",
+  "preserved"
+]);
+
 export const symphonyRuntimeWorkspaceEnvBundleSummarySchema = z.strictObject({
   source: z.enum(["ambient", "manifest"]),
   injectedKeys: z.array(nonEmptyStringSchema),

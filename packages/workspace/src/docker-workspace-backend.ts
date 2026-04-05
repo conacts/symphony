@@ -68,10 +68,12 @@ import {
   managedIssueIdentifierLabelKey,
   managedKindLabelKey,
   managedServiceKeyLabelKey,
+  managedServiceTypeLabelKey,
   managedServiceCpuSharesLabelKey,
   managedServiceHostnameLabelKey,
   managedServiceMemoryMbLabelKey,
   managedServicePortLabelKey,
+  managedSharedServiceKind,
   managedHostFileMountsHashLabelKey,
   managedWorkspaceKeyLabelKey,
   managedWorkspaceServiceKind,
@@ -87,6 +89,7 @@ import {
   type DockerWorkspaceMaterializationMode,
   type DockerNetworkInspectState,
   type DockerPostgresProvision,
+  type DockerSharedPostgresOptions,
   type DockerPrepareManifestLifecycleInput,
   type DockerServiceDescriptor,
   type DockerWorkspaceBackendOptions,
@@ -146,6 +149,7 @@ export function createDockerWorkspaceBackend(
   const materializationMode =
     options.materializationMode ?? bindMaterializationKind;
   const runtimeManifest = options.runtimeManifest ?? null;
+  const sharedPostgres = options.sharedPostgres ?? null;
   const hostFileMounts = normalizeDockerWorkspaceHostFileMounts([
     ...(options.hostFileMounts ?? []),
     ...(sourceRepoPath
@@ -185,7 +189,7 @@ export function createDockerWorkspaceBackend(
         commandRunner,
         timeoutMs
       });
-      const network = runtimeManifest
+      const network = runtimeManifest && !usesSharedPostgres(runtimeManifest, sharedPostgres)
         ? await ensureManagedNetwork({
             descriptor,
             commandRunner,
@@ -196,13 +200,15 @@ export function createDockerWorkspaceBackend(
         ? await ensureManagedPostgresServices({
             runtimeManifest,
             descriptor,
+            sharedPostgres,
             commandRunner,
             timeoutMs
           })
         : {
             summaries: [],
             connections: {},
-            initServices: []
+            initServices: [],
+            requiresHostGateway: false
           };
       const container = await ensureManagedContainer({
         descriptor,
@@ -210,6 +216,7 @@ export function createDockerWorkspaceBackend(
         workspacePath,
         shell,
         hostFileMounts,
+        addHostGateway: services.requiresHostGateway,
         networkName: network?.network.name ?? null,
         commandRunner,
         timeoutMs
@@ -239,7 +246,8 @@ export function createDockerWorkspaceBackend(
 
       for (const service of services.initServices) {
         await runManagedPostgresInitSteps({
-          service,
+          service: service.descriptor,
+          localConnection: service.localConnection,
           env: envBundle.values,
           commandRunner,
           timeoutMs: input.hooks.timeoutMs
@@ -398,7 +406,8 @@ export function createDockerWorkspaceBackend(
       const serviceDescriptors = resolveCleanupServiceDescriptors(
         runtimeManifest,
         descriptor,
-        input.workspace
+        input.workspace,
+        sharedPostgres
       );
       const networkName = input.workspace?.networkName ?? descriptor.networkName;
 
@@ -513,14 +522,17 @@ export function createDockerWorkspaceBackend(
         ? await stopManagedServiceContainers(
             commandRunner,
             serviceDescriptors,
-            timeoutMs
+            timeoutMs,
+            sharedPostgres
           )
         : await removeManagedServiceContainers(
             commandRunner,
             serviceDescriptors,
-            timeoutMs
+            timeoutMs,
+            sharedPostgres
           );
-      const networkRemovalDisposition = runtimeManifest
+      const networkRemovalDisposition =
+        runtimeManifest && !usesSharedPostgres(runtimeManifest, sharedPostgres)
         ? preserveWorkspace
           ? "preserved"
           : await removeDockerNetwork(
@@ -1771,20 +1783,80 @@ async function ensureManagedNetwork(input: {
 async function ensureManagedPostgresServices(input: {
   runtimeManifest: SymphonyLoadedRuntimeManifest;
   descriptor: DockerWorkspaceDescriptor;
+  sharedPostgres: DockerSharedPostgresOptions | null;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
 }): Promise<{
   summaries: PreparedWorkspaceService[];
   connections: Record<string, SymphonyResolvedRuntimeService>;
-  initServices: DockerServiceDescriptor[];
+  initServices: Array<{
+    descriptor: DockerServiceDescriptor;
+    localConnection: {
+      host: string;
+      port: number;
+    } | null;
+  }>;
+  requiresHostGateway: boolean;
 }> {
   const descriptors = buildDockerServiceDescriptors(
     input.runtimeManifest,
-    input.descriptor
+    input.descriptor,
+    input.sharedPostgres
   );
   const summaries: PreparedWorkspaceService[] = [];
   const connections: Record<string, SymphonyResolvedRuntimeService> = {};
-  const initServices: DockerServiceDescriptor[] = [];
+  const initServices: Array<{
+    descriptor: DockerServiceDescriptor;
+    localConnection: {
+      host: string;
+      port: number;
+    } | null;
+  }> = [];
+
+  if (input.sharedPostgres && descriptors.length > 0) {
+    const container = await ensureSharedPostgresContainer({
+      sharedPostgres: input.sharedPostgres,
+      commandRunner: input.commandRunner,
+      timeoutMs: input.timeoutMs
+    });
+
+    await waitForSharedPostgresReadiness({
+      sharedPostgres: input.sharedPostgres,
+      commandRunner: input.commandRunner,
+      timeoutMs: input.timeoutMs
+    });
+
+    for (const descriptor of descriptors) {
+      const provision = await ensureSharedPostgresDatabase({
+        runtimeManifest: input.runtimeManifest,
+        descriptor,
+        sharedPostgres: input.sharedPostgres,
+        sharedContainerId: container.id,
+        commandRunner: input.commandRunner,
+        timeoutMs: input.timeoutMs
+      });
+
+      summaries.push(provision.summary);
+      connections[descriptor.key] = provision.connection;
+
+      if (provision.initRequired) {
+        initServices.push({
+          descriptor,
+          localConnection: {
+            host: "127.0.0.1",
+            port: input.sharedPostgres.containerPort
+          }
+        });
+      }
+    }
+
+    return {
+      summaries,
+      connections,
+      initServices,
+      requiresHostGateway: true
+    };
+  }
 
   for (const descriptor of descriptors) {
     const provision = await ensureManagedPostgresService({
@@ -1798,20 +1870,25 @@ async function ensureManagedPostgresServices(input: {
     connections[descriptor.key] = provision.connection;
 
     if (provision.initRequired) {
-      initServices.push(descriptor);
+      initServices.push({
+        descriptor,
+        localConnection: null
+      });
     }
   }
 
   return {
     summaries,
     connections,
-    initServices
+    initServices,
+    requiresHostGateway: false
   };
 }
 
 function buildDockerServiceDescriptors(
   runtimeManifest: SymphonyLoadedRuntimeManifest,
-  descriptor: DockerWorkspaceDescriptor
+  descriptor: DockerWorkspaceDescriptor,
+  sharedPostgres: DockerSharedPostgresOptions | null = null
 ): DockerServiceDescriptor[] {
   return Object.entries(runtimeManifest.manifest.services).map(([key, service]) => {
     if (service.type !== "postgres") {
@@ -1819,6 +1896,27 @@ function buildDockerServiceDescriptors(
         "workspace_docker_unsupported_service",
         `Unsupported manifest service type ${service.type} for ${key}.`
       );
+    }
+
+    if (sharedPostgres) {
+      return {
+        issueIdentifier: descriptor.issueIdentifier,
+        workspaceKey: descriptor.workspaceKey,
+        key,
+        service: {
+          ...service,
+          image: sharedPostgres.image,
+          hostname: sharedPostgres.host,
+          port: sharedPostgres.hostPort,
+          database: deriveSharedPostgresDatabaseName({
+            runtimeManifest,
+            serviceKey: key,
+            workspaceKey: descriptor.workspaceKey,
+            prefix: sharedPostgres.databasePrefix
+          })
+        },
+        containerName: sharedPostgres.containerName
+      };
     }
 
     return {
@@ -1829,6 +1927,278 @@ function buildDockerServiceDescriptors(
       containerName: buildDockerServiceContainerName(descriptor.workspaceKey, key)
     };
   });
+}
+
+function usesSharedPostgres(
+  runtimeManifest: SymphonyLoadedRuntimeManifest | null,
+  sharedPostgres: DockerSharedPostgresOptions | null
+): boolean {
+  return runtimeManifest !== null && sharedPostgres !== null;
+}
+
+async function ensureSharedPostgresContainer(input: {
+  sharedPostgres: DockerSharedPostgresOptions;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<DockerContainerInspectState> {
+  const existing = await inspectDockerContainer(
+    input.commandRunner,
+    input.sharedPostgres.containerName,
+    input.timeoutMs
+  );
+
+  if (existing) {
+    assertManagedSharedPostgresContainer(existing, input.sharedPostgres);
+
+    if (canReuseSharedPostgresContainer(existing, input.sharedPostgres)) {
+      return existing.running
+        ? existing
+        : await startExistingDockerContainer({
+            commandRunner: input.commandRunner,
+            containerName: input.sharedPostgres.containerName,
+            timeoutMs: input.timeoutMs
+          });
+    }
+
+    const removeResult = await input.commandRunner({
+      args: ["rm", "-f", input.sharedPostgres.containerName],
+      timeoutMs: input.timeoutMs
+    });
+    if (removeResult.exitCode !== 0 && !isDockerMissingObject(removeResult.stderr)) {
+      throw dockerCommandError("rm", ["rm", "-f", input.sharedPostgres.containerName], removeResult);
+    }
+  }
+
+  const labels = buildManagedSharedPostgresLabels(input.sharedPostgres);
+  const adminEnv = {
+    POSTGRES_DB: input.sharedPostgres.adminDatabase,
+    POSTGRES_USER: input.sharedPostgres.adminUsername,
+    POSTGRES_PASSWORD: input.sharedPostgres.adminPassword
+  };
+  const args = [
+    "run",
+    "-d",
+    "--name",
+    input.sharedPostgres.containerName,
+    "--publish",
+    `${input.sharedPostgres.hostPort}:${input.sharedPostgres.containerPort}`,
+    ...dockerLabelFlags(labels),
+    ...dockerEnvFlags(adminEnv),
+    input.sharedPostgres.image,
+    "postgres",
+    "-p",
+    String(input.sharedPostgres.containerPort)
+  ];
+  const result = await input.commandRunner({
+    args,
+    timeoutMs: input.timeoutMs
+  });
+
+  if (result.exitCode !== 0) {
+    throw dockerCommandError("run", args, result);
+  }
+
+  const containerId = result.stdout.trim();
+  if (containerId === "") {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_invalid_container_id",
+      `Docker run did not return a container id for ${input.sharedPostgres.containerName}.`
+    );
+  }
+
+  return {
+    id: containerId,
+    name: input.sharedPostgres.containerName,
+    image: input.sharedPostgres.image,
+    running: true,
+    status: "running",
+    labels,
+    env: adminEnv,
+    mounts: [],
+    networks: {}
+  };
+}
+
+function buildManagedSharedPostgresLabels(
+  sharedPostgres: DockerSharedPostgresOptions
+): Record<string, string> {
+  return {
+    [managedBackendLabelKey]: managedBackendLabelValue,
+    [managedKindLabelKey]: managedSharedServiceKind,
+    [managedServiceTypeLabelKey]: "postgres",
+    [managedServicePortLabelKey]: String(sharedPostgres.containerPort)
+  };
+}
+
+function assertManagedSharedPostgresContainer(
+  container: DockerContainerInspectState,
+  sharedPostgres: DockerSharedPostgresOptions
+): void {
+  if (container.labels[managedBackendLabelKey] !== managedBackendLabelValue) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker container ${sharedPostgres.containerName} exists but is not managed by Symphony.`
+    );
+  }
+
+  if (container.labels[managedKindLabelKey] !== managedSharedServiceKind) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_name_conflict",
+      `Docker container ${sharedPostgres.containerName} is not a managed shared Symphony Postgres container.`
+    );
+  }
+}
+
+function canReuseSharedPostgresContainer(
+  container: DockerContainerInspectState,
+  sharedPostgres: DockerSharedPostgresOptions
+): boolean {
+  return (
+    container.image === sharedPostgres.image &&
+    container.env.POSTGRES_DB === sharedPostgres.adminDatabase &&
+    container.env.POSTGRES_USER === sharedPostgres.adminUsername &&
+    container.env.POSTGRES_PASSWORD === sharedPostgres.adminPassword &&
+    container.labels[managedServicePortLabelKey] ===
+      String(sharedPostgres.containerPort)
+  );
+}
+
+async function ensureSharedPostgresDatabase(input: {
+  runtimeManifest: SymphonyLoadedRuntimeManifest;
+  descriptor: DockerServiceDescriptor;
+  sharedPostgres: DockerSharedPostgresOptions;
+  sharedContainerId: string;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<DockerPostgresProvision> {
+  await ensureSharedPostgresRole({
+    sharedPostgres: input.sharedPostgres,
+    username: input.descriptor.service.username,
+    password: input.descriptor.service.password,
+    commandRunner: input.commandRunner,
+    timeoutMs: input.timeoutMs
+  });
+
+  const created = await ensureSharedPostgresDatabaseExists({
+    sharedPostgres: input.sharedPostgres,
+    database: input.descriptor.service.database,
+    owner: input.descriptor.service.username,
+    commandRunner: input.commandRunner,
+    timeoutMs: input.timeoutMs
+  });
+
+  return {
+    summary: {
+      key: input.descriptor.key,
+      type: "postgres",
+      hostname: input.descriptor.service.hostname,
+      port: input.descriptor.service.port,
+      containerId: input.sharedContainerId,
+      containerName: input.sharedPostgres.containerName,
+      disposition: created ? "created" : "reused"
+    },
+    connection: {
+      type: "postgres",
+      serviceKey: input.descriptor.key,
+      host: input.descriptor.service.hostname,
+      port: input.descriptor.service.port,
+      database: input.descriptor.service.database,
+      username: input.descriptor.service.username,
+      password: input.descriptor.service.password,
+      connectionString: buildSymphonyRuntimePostgresConnectionString({
+        host: input.descriptor.service.hostname,
+        port: input.descriptor.service.port,
+        database: input.descriptor.service.database,
+        username: input.descriptor.service.username,
+        password: input.descriptor.service.password
+      })
+    },
+    initRequired: created && input.descriptor.service.init.length > 0
+  };
+}
+
+async function waitForSharedPostgresReadiness(input: {
+  sharedPostgres: DockerSharedPostgresOptions;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<void> {
+  const descriptor: DockerServiceDescriptor = {
+    issueIdentifier: "shared",
+    workspaceKey: "shared",
+    key: "postgres",
+    containerName: input.sharedPostgres.containerName,
+    service: {
+      type: "postgres",
+      image: input.sharedPostgres.image,
+      hostname: "127.0.0.1",
+      port: input.sharedPostgres.containerPort,
+      database: input.sharedPostgres.adminDatabase,
+      username: input.sharedPostgres.adminUsername,
+      password: input.sharedPostgres.adminPassword,
+      init: []
+    }
+  };
+
+  await waitForManagedPostgresReadiness({
+    commandRunner: input.commandRunner,
+    descriptor,
+    timeoutMs: input.timeoutMs
+  });
+}
+
+async function ensureSharedPostgresRole(input: {
+  sharedPostgres: DockerSharedPostgresOptions;
+  username: string;
+  password: string;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<void> {
+  const quotedRole = quoteSqlIdentifier(input.username);
+  const quotedPassword = quoteSqlLiteral(input.password);
+  await runSharedPostgresAdminCommand({
+    sharedPostgres: input.sharedPostgres,
+    sql: [
+      `DO $$`,
+      `BEGIN`,
+      `  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = ${quoteSqlLiteral(input.username)}) THEN`,
+      `    EXECUTE 'CREATE ROLE ${quotedRole} LOGIN PASSWORD ${quotedPassword}';`,
+      `  ELSE`,
+      `    EXECUTE 'ALTER ROLE ${quotedRole} WITH LOGIN PASSWORD ${quotedPassword}';`,
+      `  END IF;`,
+      `END`,
+      `$$;`
+    ].join("\n"),
+    commandRunner: input.commandRunner,
+    timeoutMs: input.timeoutMs
+  });
+}
+
+async function ensureSharedPostgresDatabaseExists(input: {
+  sharedPostgres: DockerSharedPostgresOptions;
+  database: string;
+  owner: string;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<boolean> {
+  const exists = await runSharedPostgresAdminQuery({
+    sharedPostgres: input.sharedPostgres,
+    sql: `SELECT 1 FROM pg_database WHERE datname = ${quoteSqlLiteral(input.database)};`,
+    commandRunner: input.commandRunner,
+    timeoutMs: input.timeoutMs
+  });
+
+  if (exists.trim() === "1") {
+    return false;
+  }
+
+  await runSharedPostgresAdminCommand({
+    sharedPostgres: input.sharedPostgres,
+    sql: `CREATE DATABASE ${quoteSqlIdentifier(input.database)} OWNER ${quoteSqlIdentifier(input.owner)};`,
+    commandRunner: input.commandRunner,
+    timeoutMs: input.timeoutMs
+  });
+
+  return true;
 }
 
 async function ensureManagedPostgresService(input: {
@@ -1909,6 +2279,10 @@ async function ensureManagedPostgresService(input: {
 
 async function runManagedPostgresInitSteps(input: {
   service: DockerServiceDescriptor;
+  localConnection: {
+    host: string;
+    port: number;
+  } | null;
   env: Record<string, string>;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
@@ -1921,9 +2295,26 @@ async function runManagedPostgresInitSteps(input: {
       );
     }
 
+    const execEnv = input.localConnection
+      ? {
+          ...input.env,
+          DATABASE_URL: buildSymphonyRuntimePostgresConnectionString({
+            host: input.localConnection.host,
+            port: input.localConnection.port,
+            database: input.service.service.database,
+            username: input.service.service.username,
+            password: input.service.service.password
+          }),
+          PGHOST: input.localConnection.host,
+          PGPORT: String(input.localConnection.port),
+          PGDATABASE: input.service.service.database,
+          PGUSER: input.service.service.username,
+          PGPASSWORD: input.service.service.password
+        }
+      : input.env;
     const args = [
       "exec",
-      ...dockerEnvFlags(input.env),
+      ...dockerEnvFlags(execEnv),
       input.service.containerName,
       "sh",
       "-lc",
@@ -1952,10 +2343,11 @@ async function runManagedPostgresInitSteps(input: {
 function resolveCleanupServiceDescriptors(
   runtimeManifest: SymphonyLoadedRuntimeManifest | null,
   descriptor: DockerWorkspaceDescriptor,
-  workspace: PreparedWorkspace | null | undefined
+  workspace: PreparedWorkspace | null | undefined,
+  sharedPostgres: DockerSharedPostgresOptions | null
 ): DockerServiceDescriptor[] {
   if (runtimeManifest) {
-    return buildDockerServiceDescriptors(runtimeManifest, descriptor);
+    return buildDockerServiceDescriptors(runtimeManifest, descriptor, sharedPostgres);
   }
 
   return (workspace?.services ?? []).map((service) => ({
@@ -1979,11 +2371,35 @@ function resolveCleanupServiceDescriptors(
 async function removeManagedServiceContainers(
   commandRunner: DockerWorkspaceCommandRunner,
   descriptors: DockerServiceDescriptor[],
-  timeoutMs: number
+  timeoutMs: number,
+  sharedPostgres: DockerSharedPostgresOptions | null
 ): Promise<WorkspaceCleanupService[]> {
   const cleanup: WorkspaceCleanupService[] = [];
 
   for (const descriptor of descriptors) {
+    if (sharedPostgres) {
+      const existing = await inspectDockerContainer(
+        commandRunner,
+        descriptor.containerName,
+        timeoutMs
+      );
+      const removalDisposition = await dropSharedPostgresDatabase({
+        sharedPostgres,
+        database: descriptor.service.database,
+        commandRunner,
+        timeoutMs
+      });
+
+      cleanup.push({
+        key: descriptor.key,
+        type: "postgres",
+        containerId: existing?.id ?? null,
+        containerName: descriptor.containerName,
+        removalDisposition
+      });
+      continue;
+    }
+
     const existing = await inspectDockerContainer(
       commandRunner,
       descriptor.containerName,
@@ -2008,11 +2424,28 @@ async function removeManagedServiceContainers(
 async function stopManagedServiceContainers(
   commandRunner: DockerWorkspaceCommandRunner,
   descriptors: DockerServiceDescriptor[],
-  timeoutMs: number
+  timeoutMs: number,
+  sharedPostgres: DockerSharedPostgresOptions | null
 ): Promise<WorkspaceCleanupService[]> {
   const cleanup: WorkspaceCleanupService[] = [];
 
   for (const descriptor of descriptors) {
+    if (sharedPostgres) {
+      const existing = await inspectDockerContainer(
+        commandRunner,
+        descriptor.containerName,
+        timeoutMs
+      );
+      cleanup.push({
+        key: descriptor.key,
+        type: "postgres",
+        containerId: existing?.id ?? null,
+        containerName: descriptor.containerName,
+        removalDisposition: "preserved"
+      });
+      continue;
+    }
+
     const existing = await inspectDockerContainer(
       commandRunner,
       descriptor.containerName,
@@ -2040,6 +2473,7 @@ async function ensureManagedContainer(input: {
   workspacePath: string;
   shell: string;
   hostFileMounts: DockerWorkspaceHostFileMount[];
+  addHostGateway: boolean;
   networkName: string | null;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
@@ -2103,6 +2537,7 @@ async function startManagedContainer(input: {
   workspacePath: string;
   shell: string;
   hostFileMounts: DockerWorkspaceHostFileMount[];
+  addHostGateway: boolean;
   networkName: string | null;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
@@ -2141,6 +2576,9 @@ async function startManagedContainer(input: {
     input.workspacePath,
     "--env",
     `HOME=${defaultDockerHomePath}`,
+    ...(input.addHostGateway
+      ? ["--add-host", "host.docker.internal:host-gateway"]
+      : []),
     ...hostFileMountArgs,
     ...(input.networkName ? ["--network", input.networkName] : []),
     ...userFlags,
@@ -2609,6 +3047,183 @@ function canReusePostgresService(
     containerAttachedToNetwork(container, networkName) &&
     containerHasNetworkAlias(container, networkName, descriptor.service.hostname)
   );
+}
+
+async function dropSharedPostgresDatabase(input: {
+  sharedPostgres: DockerSharedPostgresOptions;
+  database: string;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<"removed" | "missing"> {
+  const exists = await runSharedPostgresAdminQuery({
+    sharedPostgres: input.sharedPostgres,
+    sql: `SELECT 1 FROM pg_database WHERE datname = ${quoteSqlLiteral(input.database)};`,
+    commandRunner: input.commandRunner,
+    timeoutMs: input.timeoutMs
+  });
+
+  if (exists.trim() !== "1") {
+    return "missing";
+  }
+
+  await runSharedPostgresAdminCommand({
+    sharedPostgres: input.sharedPostgres,
+    sql: [
+      `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ${quoteSqlLiteral(input.database)} AND pid <> pg_backend_pid();`,
+      `DROP DATABASE ${quoteSqlIdentifier(input.database)};`
+    ].join("\n"),
+    commandRunner: input.commandRunner,
+    timeoutMs: input.timeoutMs
+  });
+
+  return "removed";
+}
+
+async function runSharedPostgresAdminQuery(input: {
+  sharedPostgres: DockerSharedPostgresOptions;
+  sql: string;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<string> {
+  const result = await input.commandRunner({
+    args: [
+      "exec",
+      "--env",
+      `PGPASSWORD=${input.sharedPostgres.adminPassword}`,
+      input.sharedPostgres.containerName,
+      "sh",
+      "-lc",
+      buildSharedPostgresAdminPsqlCommand(input.sharedPostgres, input.sql, true)
+    ],
+    timeoutMs: input.timeoutMs
+  });
+
+  if (result.exitCode !== 0) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_shared_postgres_query_failed",
+      [
+        `Shared Postgres query failed for ${input.sharedPostgres.containerName}.`,
+        result.stdout.trim(),
+        result.stderr.trim()
+      ]
+        .filter((line) => line !== "")
+        .join("\n")
+    );
+  }
+
+  return result.stdout.trim();
+}
+
+async function runSharedPostgresAdminCommand(input: {
+  sharedPostgres: DockerSharedPostgresOptions;
+  sql: string;
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<void> {
+  const result = await input.commandRunner({
+    args: [
+      "exec",
+      "--env",
+      `PGPASSWORD=${input.sharedPostgres.adminPassword}`,
+      input.sharedPostgres.containerName,
+      "sh",
+      "-lc",
+      buildSharedPostgresAdminPsqlCommand(input.sharedPostgres, input.sql, false)
+    ],
+    timeoutMs: input.timeoutMs
+  });
+
+  if (result.exitCode !== 0) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_shared_postgres_command_failed",
+      [
+        `Shared Postgres command failed for ${input.sharedPostgres.containerName}.`,
+        result.stdout.trim(),
+        result.stderr.trim()
+      ]
+        .filter((line) => line !== "")
+        .join("\n")
+    );
+  }
+}
+
+function buildSharedPostgresAdminPsqlCommand(
+  sharedPostgres: DockerSharedPostgresOptions,
+  sql: string,
+  tuplesOnly: boolean
+): string {
+  const flags = tuplesOnly ? "-tA" : "";
+  return [
+    "psql",
+    "-v",
+    "ON_ERROR_STOP=1",
+    flags,
+    "-h",
+    "127.0.0.1",
+    "-p",
+    String(sharedPostgres.containerPort),
+    "-U",
+    shellQuote(sharedPostgres.adminUsername),
+    "-d",
+    shellQuote(sharedPostgres.adminDatabase),
+    "-c",
+    shellQuote(sql)
+  ]
+    .filter((part) => part !== "")
+    .join(" ");
+}
+
+function deriveSharedPostgresDatabaseName(input: {
+  runtimeManifest: SymphonyLoadedRuntimeManifest;
+  serviceKey: string;
+  workspaceKey: string;
+  prefix: string | undefined;
+}): string {
+  return buildSharedPostgresIdentifier({
+    prefix: input.prefix ?? "symphony",
+    readableParts: [input.serviceKey, input.workspaceKey],
+    uniquenessParts: [
+      input.runtimeManifest.repoRoot,
+      input.serviceKey,
+      input.workspaceKey
+    ],
+    maxLength: 63
+  });
+}
+
+function buildSharedPostgresIdentifier(input: {
+  prefix: string;
+  readableParts: string[];
+  uniquenessParts: string[];
+  maxLength: number;
+}): string {
+  const readable = input.readableParts
+    .join("-")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const prefix = input.prefix
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const suffix = createHash("sha256")
+    .update(JSON.stringify(input.uniquenessParts))
+    .digest("hex")
+    .slice(0, 10);
+  const reserved = suffix.length + 2;
+  const baseLength = Math.max(1, input.maxLength - reserved);
+  const base = `${prefix}_${readable || "db"}`.slice(0, baseLength).replace(/_+$/g, "");
+  return `${base}_${suffix}`;
+}
+
+function quoteSqlLiteral(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+function quoteSqlIdentifier(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
 }
 
 function requireDockerExecutionTarget(

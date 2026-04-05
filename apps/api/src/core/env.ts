@@ -45,6 +45,16 @@ export type SymphonyRuntimeAppEnv = {
   dockerWorkspacePath: string | null;
   dockerContainerNamePrefix: string | null;
   dockerShell: string | null;
+  dockerSharedPostgresContainerName: string;
+  dockerSharedPostgresImage: string;
+  dockerSharedPostgresHost: string;
+  dockerSharedPostgresHostPort: number;
+  dockerSharedPostgresContainerPort: number;
+  dockerSharedPostgresAdminDatabase: string;
+  dockerSharedPostgresAdminUsername: string;
+  dockerSharedPostgresAdminPassword: string;
+  dockerSharedPostgresDatabasePrefix: string;
+  dockerSharedPostgresRolePrefix: string;
   allowedOrigins: string[];
   linearApiKey: string;
   logLevel: SymphonyLogLevel;
@@ -69,6 +79,16 @@ export function loadSymphonyRuntimeAppEnv(
       SYMPHONY_DOCKER_WORKSPACE_PATH: z.string().min(1).optional(),
       SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX: z.string().min(1).optional(),
       SYMPHONY_DOCKER_SHELL: z.string().min(1).optional(),
+      SYMPHONY_DOCKER_SHARED_POSTGRES_CONTAINER_NAME: z.string().min(1).optional(),
+      SYMPHONY_DOCKER_SHARED_POSTGRES_IMAGE: z.string().min(1).optional(),
+      SYMPHONY_DOCKER_SHARED_POSTGRES_HOST: z.string().min(1).optional(),
+      SYMPHONY_DOCKER_SHARED_POSTGRES_HOST_PORT: z.coerce.number().int().positive().max(65_535).optional(),
+      SYMPHONY_DOCKER_SHARED_POSTGRES_CONTAINER_PORT: z.coerce.number().int().positive().max(65_535).optional(),
+      SYMPHONY_DOCKER_SHARED_POSTGRES_ADMIN_DATABASE: z.string().min(1).optional(),
+      SYMPHONY_DOCKER_SHARED_POSTGRES_ADMIN_USERNAME: z.string().min(1).optional(),
+      SYMPHONY_DOCKER_SHARED_POSTGRES_ADMIN_PASSWORD: z.string().min(1).optional(),
+      SYMPHONY_DOCKER_SHARED_POSTGRES_DATABASE_PREFIX: z.string().min(1).optional(),
+      SYMPHONY_DOCKER_SHARED_POSTGRES_ROLE_PREFIX: z.string().min(1).optional(),
       SYMPHONY_ALLOWED_ORIGINS: z.string().min(1).optional(),
       LOG_LEVEL: z.string().min(1).optional(),
       LINEAR_API_KEY: z
@@ -115,6 +135,27 @@ export function loadSymphonyRuntimeAppEnv(
     dockerContainerNamePrefix:
       parsed.SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX ?? null,
     dockerShell: parsed.SYMPHONY_DOCKER_SHELL ?? null,
+    dockerSharedPostgresContainerName:
+      parsed.SYMPHONY_DOCKER_SHARED_POSTGRES_CONTAINER_NAME ??
+      "symphony-shared-postgres",
+    dockerSharedPostgresImage:
+      parsed.SYMPHONY_DOCKER_SHARED_POSTGRES_IMAGE ?? "postgres:16",
+    dockerSharedPostgresHost:
+      parsed.SYMPHONY_DOCKER_SHARED_POSTGRES_HOST ?? "host.docker.internal",
+    dockerSharedPostgresHostPort:
+      parsed.SYMPHONY_DOCKER_SHARED_POSTGRES_HOST_PORT ?? 55_432,
+    dockerSharedPostgresContainerPort:
+      parsed.SYMPHONY_DOCKER_SHARED_POSTGRES_CONTAINER_PORT ?? 5_432,
+    dockerSharedPostgresAdminDatabase:
+      parsed.SYMPHONY_DOCKER_SHARED_POSTGRES_ADMIN_DATABASE ?? "postgres",
+    dockerSharedPostgresAdminUsername:
+      parsed.SYMPHONY_DOCKER_SHARED_POSTGRES_ADMIN_USERNAME ?? "postgres",
+    dockerSharedPostgresAdminPassword:
+      parsed.SYMPHONY_DOCKER_SHARED_POSTGRES_ADMIN_PASSWORD ?? "postgres",
+    dockerSharedPostgresDatabasePrefix:
+      parsed.SYMPHONY_DOCKER_SHARED_POSTGRES_DATABASE_PREFIX ?? "symphony",
+    dockerSharedPostgresRolePrefix:
+      parsed.SYMPHONY_DOCKER_SHARED_POSTGRES_ROLE_PREFIX ?? "symphony",
     allowedOrigins:
       rawAllowedOrigins === ""
         ? []

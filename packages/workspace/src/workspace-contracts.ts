@@ -108,7 +108,8 @@ export type WorkspaceServiceDisposition = "created" | "reused" | "recreated";
 export type WorkspaceServiceRemovalDisposition =
   | "removed"
   | "missing"
-  | "stopped";
+  | "stopped"
+  | "preserved";
 export type WorkspaceHookKind = "after_create" | "before_run" | "after_run" | "before_remove";
 export type WorkspaceHookOutcome = "skipped" | "completed" | "failed_ignored";
 export type WorkspaceCleanupContainerDisposition =

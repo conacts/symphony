@@ -35,6 +35,16 @@ export function createRuntimeWorkspaceBackend(
     | "dockerWorkspacePath"
     | "dockerContainerNamePrefix"
     | "dockerShell"
+    | "dockerSharedPostgresContainerName"
+    | "dockerSharedPostgresImage"
+    | "dockerSharedPostgresHost"
+    | "dockerSharedPostgresHostPort"
+    | "dockerSharedPostgresContainerPort"
+    | "dockerSharedPostgresAdminDatabase"
+    | "dockerSharedPostgresAdminUsername"
+    | "dockerSharedPostgresAdminPassword"
+    | "dockerSharedPostgresDatabasePrefix"
+    | "dockerSharedPostgresRolePrefix"
     | "sourceRepo"
   >,
   options: {
@@ -59,7 +69,19 @@ export function createRuntimeWorkspaceBackend(
       containerNamePrefix: env.dockerContainerNamePrefix ?? undefined,
       shell: env.dockerShell ?? undefined,
       hostFileMounts: options.dockerHostFileMounts,
-      runtimeManifest: options.runtimeManifest ?? null
+      runtimeManifest: options.runtimeManifest ?? null,
+      sharedPostgres: {
+        containerName: env.dockerSharedPostgresContainerName,
+        image: env.dockerSharedPostgresImage,
+        host: env.dockerSharedPostgresHost,
+        hostPort: env.dockerSharedPostgresHostPort,
+        containerPort: env.dockerSharedPostgresContainerPort,
+        adminDatabase: env.dockerSharedPostgresAdminDatabase,
+        adminUsername: env.dockerSharedPostgresAdminUsername,
+        adminPassword: env.dockerSharedPostgresAdminPassword,
+        databasePrefix: env.dockerSharedPostgresDatabasePrefix,
+        rolePrefix: env.dockerSharedPostgresRolePrefix
+      }
     }),
     metadata: {
       backendKind: "docker",

@@ -36,6 +36,7 @@ export const managedHostFileMountsHashLabelKey = "dev.symphony.host-file-mounts-
 export const managedWorkspaceContainerKind = "workspace_container";
 export const managedWorkspaceNetworkKind = "workspace_network";
 export const managedWorkspaceServiceKind = "workspace_service";
+export const managedSharedServiceKind = "shared_service";
 export const managedWorkspaceVolumeKind = "workspace_volume";
 export const bindMaterializationKind = "bind_mount";
 export const volumeMaterializationKind = "volume";
@@ -64,9 +65,23 @@ export type DockerWorkspaceBackendOptions = {
   shell?: string;
   materializationMode?: DockerWorkspaceMaterializationMode;
   runtimeManifest?: SymphonyLoadedRuntimeManifest | null;
+  sharedPostgres?: DockerSharedPostgresOptions | null;
   hostFileMounts?: DockerWorkspaceHostFileMount[];
   commandRunner?: DockerWorkspaceCommandRunner;
   commandTimeoutMs?: number;
+};
+
+export type DockerSharedPostgresOptions = {
+  containerName: string;
+  image: string;
+  host: string;
+  hostPort: number;
+  containerPort: number;
+  adminDatabase: string;
+  adminUsername: string;
+  adminPassword: string;
+  databasePrefix?: string;
+  rolePrefix?: string;
 };
 
 export type DockerWorkspaceMaterializationMode =
