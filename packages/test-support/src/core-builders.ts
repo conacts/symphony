@@ -67,13 +67,6 @@ export function buildSymphonyRuntimePolicy(
       maxConcurrentAgentsByState: {},
       ...overrides.agent
     },
-    opencode: {
-      profile: null,
-      defaultModel: null,
-      defaultReasoningEffort: null,
-      provider: null,
-      ...overrides.opencode
-    },
     pi: {
       profile: null,
       defaultModel: null,

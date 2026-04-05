@@ -205,7 +205,7 @@ CREATE INDEX IF NOT EXISTS symphony_agent_payload_overflow_turn_inserted_at_idx
 CREATE INDEX IF NOT EXISTS symphony_agent_payload_overflow_item_inserted_at_idx
   ON symphony_agent_payload_overflow (item_id, inserted_at);
 
-CREATE INDEX IF NOT EXISTS symphony_agent_payload_overflow_kind_insertedAt_idx
+CREATE INDEX IF NOT EXISTS symphony_agent_payload_overflow_kind_inserted_at_idx
   ON symphony_agent_payload_overflow (kind, inserted_at);
 
 CREATE TABLE IF NOT EXISTS symphony_agent_runs (

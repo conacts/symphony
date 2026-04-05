@@ -43,7 +43,7 @@ export type SymphonyWorkerRuntimePolicy = {
 export type SymphonyWorkflowWorkerConfig = SymphonyWorkerRuntimePolicy;
 
 export type SymphonyAgentRuntimePolicy = {
-  harness: "pi" | "codex" | "opencode";
+  harness: "pi" | "codex";
   maxConcurrentAgents: number;
   maxTurns: number;
   maxRetryBackoffMs: number;
@@ -124,7 +124,6 @@ export type SymphonyResolvedRuntimePolicy = {
   worker: SymphonyWorkerRuntimePolicy;
   agent: SymphonyAgentRuntimePolicy;
   codex: SymphonyCodexRuntimePolicy;
-  opencode: SymphonyHarnessModelRuntimePolicy;
   pi: SymphonyPiRuntimePolicy;
   hooks: SymphonyHooksRuntimePolicy;
   observability: SymphonyObservabilityRuntimePolicy;
@@ -169,7 +168,6 @@ export function resolveRuntimePolicy(
   const worker = normalizeWorkerConfig(effectiveRawConfig.worker);
   const agent = normalizeAgentConfig(effectiveRawConfig.agent);
   const codex = normalizeCodexConfig(effectiveRawConfig.codex);
-  const opencode = normalizeHarnessModelConfig(effectiveRawConfig.opencode);
   const pi = normalizePiConfig(effectiveRawConfig.pi);
   const hooks = normalizeHooksConfig(effectiveRawConfig.hooks);
   const observability = normalizeObservabilityConfig(
@@ -189,7 +187,6 @@ export function resolveRuntimePolicy(
     worker,
     agent,
     codex,
-    opencode,
     pi,
     hooks,
     observability,
@@ -204,7 +201,6 @@ export function resolveRuntimePolicy(
     worker,
     agent,
     codex,
-    opencode,
     pi,
     hooks,
     observability,

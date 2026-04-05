@@ -13,9 +13,9 @@ import type {
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
 import {
-  codexModelLabelPrefix,
-  listSupportedCodexModels,
-  resolveCodexIssueModel
+  agentModelLabelPrefix,
+  listSupportedAgentModels,
+  resolveAgentIssueModel
 } from "../core/codex-app-server-launch.js";
 
 export function serializeRuntimeState(
@@ -119,8 +119,8 @@ export function serializeRuntimeIssue(
   );
   const workspace = running?.workspace ?? retry?.workspace ?? null;
   const defaultModel =
-    runtimePolicyDefaults?.defaultModel ?? listSupportedCodexModels()[0] ?? null;
-  const selectedModel = resolveCodexIssueModel(
+    runtimePolicyDefaults?.defaultModel ?? listSupportedAgentModels()[0] ?? null;
+  const selectedModel = resolveAgentIssueModel(
     tracked,
     defaultModel ?? undefined
   );
@@ -188,8 +188,8 @@ export function serializeRuntimeIssue(
       pi: {
         defaultModel,
         selectedModel,
-        availableModels: listSupportedCodexModels(),
-        modelOverrideLabelPrefix: codexModelLabelPrefix,
+        availableModels: listSupportedAgentModels(),
+        modelOverrideLabelPrefix: agentModelLabelPrefix,
         selectionHelpText:
           "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
       }

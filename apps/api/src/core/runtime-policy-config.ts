@@ -138,12 +138,6 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       readTimeoutMs: 5_000,
       stallTimeoutMs: 300_000
     },
-    opencode: {
-      profile: null,
-      defaultModel: null,
-      defaultReasoningEffort: null,
-      provider: null
-    },
     hooks: {
       afterCreate: null,
       beforeRun: null,

@@ -18,7 +18,6 @@ describe("resolveRuntimePolicy", () => {
     expect(config.workspace.root).toContain("symphony_workspaces");
     expect(config.agent.harness).toBe("pi");
     expect(config.agent.maxConcurrentAgents).toBe(10);
-    expect(config.opencode.defaultModel).toBeNull();
     expect(config.pi.defaultModel).toBeNull();
     expect(config.pi.turnTimeoutMs).toBe(3_600_000);
     expect(config.pi.stallTimeoutMs).toBe(300_000);
@@ -59,21 +58,7 @@ describe("resolveRuntimePolicy", () => {
     ).toThrowError(SymphonyRuntimePolicyError);
   });
 
-  it("accepts legacy harnesses with deprecation warning and retains value", () => {
-    expect(() =>
-      resolveRuntimePolicy(
-        {
-          tracker: {
-            kind: "memory"
-          },
-          agent: {
-            harness: "opencode"
-          }
-        },
-        {}
-      )
-    ).not.toThrow();
-
+  it("accepts codex with deprecation warning and retains value", () => {
     const codexConfig = resolveRuntimePolicy(
       {
         tracker: {
@@ -119,34 +104,8 @@ describe("resolveRuntimePolicy", () => {
     );
     const afterSecondCodex = emitWarning.mock.calls.length;
 
-    resolveRuntimePolicy(
-      {
-        tracker: {
-          kind: "memory"
-        },
-        agent: {
-          harness: "opencode"
-        }
-      },
-      {}
-    );
-    const afterFirstOpencode = emitWarning.mock.calls.length;
-    resolveRuntimePolicy(
-      {
-        tracker: {
-          kind: "memory"
-        },
-        agent: {
-          harness: "opencode"
-        }
-      },
-      {}
-    );
-    const afterSecondOpencode = emitWarning.mock.calls.length;
-
     expect(afterSecondCodex).toBe(afterFirstCodex);
-    expect(afterSecondOpencode).toBe(afterFirstOpencode);
-    expect(afterSecondOpencode - beforeWarningCount).toBeLessThanOrEqual(2);
+    expect(afterSecondCodex - beforeWarningCount).toBeLessThanOrEqual(1);
 
     emitWarning.mockRestore();
   });

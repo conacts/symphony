@@ -15,7 +15,6 @@ function createRuntimePolicy(
     workspace,
     agent,
     codex,
-    opencode,
     pi,
     hooks
   } = overrides;
@@ -83,13 +82,6 @@ function createRuntimePolicy(
       readTimeoutMs: 5_000,
       stallTimeoutMs: 300_000,
       ...pi
-    },
-    opencode: {
-      profile: null,
-      defaultModel: null,
-      defaultReasoningEffort: null,
-      provider: null,
-      ...opencode
     },
     hooks: {
       timeoutMs: 150_000,

@@ -130,10 +130,6 @@ export function buildSymphonyRuntimePolicyForRoot(
       ...baseConfig.agent,
       ...overrides.agent
     },
-    opencode: {
-      ...baseConfig.opencode,
-      ...overrides.opencode
-    },
     pi: {
       ...baseConfig.pi,
       ...overrides.pi

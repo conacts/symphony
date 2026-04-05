@@ -72,17 +72,13 @@ export function normalizeApprovalPolicy(
 
 export function normalizeAgentHarness(
   value: unknown
-): "pi" | "codex" | "opencode" {
+): "pi" | "codex" {
   const normalized = normalizeOptionalString(value) ?? "pi";
 
-  if (
-    normalized !== "pi" &&
-    normalized !== "codex" &&
-    normalized !== "opencode"
-  ) {
+  if (normalized !== "pi" && normalized !== "codex") {
     throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
-      "agent.harness must be one of: pi, codex, opencode."
+      "agent.harness must be one of: pi, codex."
     );
   }
 

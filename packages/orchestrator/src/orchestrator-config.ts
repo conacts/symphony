@@ -5,24 +5,11 @@ export type SymphonyAgentRuntimeConfig = {
   tracker: SymphonyTrackerConfig;
   workspace: Pick<WorkspaceConfig, "root">;
   agent: {
-    // "pi" is the active runtime harness. "codex" and "opencode" are
+    // "pi" is the active runtime harness. "codex" is
     // accepted here only for backward-compatible parsing and should fail-fast
     // before active execution.
-    harness: "codex" | "opencode" | "pi";
+    harness: "codex" | "pi";
     maxTurns: number;
-  };
-  opencode: {
-    profile: string | null;
-    defaultModel: string | null;
-    defaultReasoningEffort: string | null;
-    provider: {
-      id: string | null;
-      name: string | null;
-      baseUrl: string | null;
-      envKey: string | null;
-      supportsWebsockets: boolean | null;
-      wireApi: string | null;
-    } | null;
   };
   pi: {
     profile: string | null;

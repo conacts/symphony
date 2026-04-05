@@ -19,7 +19,6 @@ export function buildSymphonyOrchestratorConfig(overrides: {
     tracker?: Partial<SymphonyAgentRuntimeConfig["tracker"]>;
     workspace?: Partial<SymphonyAgentRuntimeConfig["workspace"]>;
     agent?: Partial<SymphonyAgentRuntimeConfig["agent"]>;
-    opencode?: Partial<SymphonyAgentRuntimeConfig["opencode"]>;
     pi?: Partial<SymphonyAgentRuntimeConfig["pi"]>;
     codex?: Partial<SymphonyAgentRuntimeConfig["codex"]>;
     hooks?: Partial<SymphonyAgentRuntimeConfig["hooks"]>;
@@ -89,13 +88,6 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         harness: "pi",
         maxTurns: 20,
         ...overrides.runtime?.agent
-      },
-      opencode: {
-        profile: null,
-        defaultModel: null,
-        defaultReasoningEffort: null,
-        provider: null,
-        ...overrides.runtime?.opencode
       },
       pi: {
         profile: null,

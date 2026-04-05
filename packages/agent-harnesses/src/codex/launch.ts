@@ -17,11 +17,14 @@ const supportedCodexReasoningEfforts = new Set([
   "xhigh"
 ]);
 export const codexModelLabelPrefix = "symphony:model:";
+export const agentModelLabelPrefix = codexModelLabelPrefix;
 const codexReasoningLabelPrefix = "symphony:reasoning:";
 
 export function listSupportedCodexModels(): string[] {
   return [...supportedCodexModels];
 }
+
+export const listSupportedAgentModels = listSupportedCodexModels;
 
 export function resolveCodexIssueModel(
   issue: SymphonyTrackerIssue,
@@ -35,6 +38,8 @@ export function resolveCodexIssueModel(
     "model"
   );
 }
+
+export const resolveAgentIssueModel = resolveCodexIssueModel;
 
 export function resolveCodexLaunchSettings(
   baseCommand: string,
@@ -86,6 +91,8 @@ export function resolveCodexLaunchSettings(
   };
 }
 
+export const resolveAgentLaunchSettings = resolveCodexLaunchSettings;
+
 export function resolveCodexSdkLaunchSettings(
   baseCommand: string,
   issue: SymphonyTrackerIssue,
@@ -128,6 +135,8 @@ export function resolveCodexSdkLaunchSettings(
   };
 }
 
+export const resolveAgentSdkLaunchSettings = resolveCodexSdkLaunchSettings;
+
 export function buildCodexAppServerSpawnSpec(input: {
   launchTarget: AgentRuntimeLaunchTarget;
   command: string;
@@ -160,6 +169,8 @@ export function buildCodexAppServerSpawnSpec(input: {
     env: buildHostCommandEnv(input.hostCommandEnvSource)
   };
 }
+
+export const buildAgentAppServerSpawnSpec = buildCodexAppServerSpawnSpec;
 
 export function wrapSessionError(error: unknown): Error {
   if (error instanceof HarnessSessionError) {

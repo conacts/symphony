@@ -1,4 +1,4 @@
-export type SymphonyAgentHarnessKind = "codex" | "opencode" | "pi";
+export type SymphonyAgentHarnessKind = "codex" | "pi";
 export type ActiveSymphonyAgentHarnessKind = Extract<
   SymphonyAgentHarnessKind,
   "pi"

@@ -232,12 +232,6 @@ function toSymphonyOrchestratorConfig(
         harness: runtimePolicy.agent.harness,
         maxTurns: runtimePolicy.agent.maxTurns
       },
-      opencode: {
-        profile: runtimePolicy.opencode.profile,
-        defaultModel: runtimePolicy.opencode.defaultModel,
-        defaultReasoningEffort: runtimePolicy.opencode.defaultReasoningEffort,
-        provider: runtimePolicy.opencode.provider
-      },
       pi: {
         profile: runtimePolicy.pi.profile,
         defaultModel: runtimePolicy.pi.defaultModel,
@@ -268,7 +262,7 @@ function toSymphonyOrchestratorConfig(
 }
 
 function assertPiRuntimeHarness(
-  harness: "pi" | "codex" | "opencode"
+  harness: "pi" | "codex"
 ): asserts harness is "pi" {
   if (harness === "pi") {
     return;
