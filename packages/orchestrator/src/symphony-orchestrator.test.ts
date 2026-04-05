@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createSymphonyOrchestratorState,
   prepareIssueForDispatch,
@@ -71,6 +71,72 @@ describe("symphony orchestrator", () => {
         body: expect.stringContaining("moved it from `Rework` to `Bootstrapping`")
       }
     ]);
+  });
+
+  it("rejects non-pi harnesses before workspace preparation", async () => {
+    const config = buildSymphonyOrchestratorConfig({
+      runtime: {
+        agent: {
+          harness: "codex"
+        }
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "Rework"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const prepareWorkspace = vi.fn(async () => {
+      throw new Error("prepareWorkspace should not be called");
+    });
+    const runBeforeRun = vi.fn(async () => {
+      throw new Error("runBeforeRun should not be called");
+    });
+    const runAfterRun = vi.fn(async () => {
+      throw new Error("runAfterRun should not be called");
+    });
+    const cleanupWorkspace = vi.fn(async () => {
+      return {
+        backendKind: "docker" as const,
+        workerHost: null,
+        hostPath: null,
+        runtimePath: null,
+        containerId: null,
+        containerName: null,
+        networkName: null,
+        networkRemovalDisposition: "not_applicable" as const,
+        serviceCleanup: [],
+        beforeRemoveHookOutcome: "skipped" as const,
+        manifestLifecycleCleanup: null,
+        workspaceRemovalDisposition: "preserved" as const,
+        containerRemovalDisposition: "stopped" as const
+      };
+    });
+    const startRun = vi.fn(async () => {
+      throw new Error("startRun should not be called");
+    });
+    const agentRuntime = createAgentRuntime({
+      startRun
+    });
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: {
+        kind: "docker",
+        prepareWorkspace,
+        runBeforeRun,
+        runAfterRun,
+        cleanupWorkspace
+      },
+      agentRuntime
+    });
+
+    await orchestrator.dispatchIssue(issue, 0);
+
+    expect(prepareWorkspace).not.toHaveBeenCalled();
+    expect(runBeforeRun).not.toHaveBeenCalled();
+    expect(runAfterRun).not.toHaveBeenCalled();
+    expect(startRun).not.toHaveBeenCalled();
+    expect(orchestrator.snapshot().running).toHaveLength(0);
   });
 
   it("dispatches eligible issues, updates snapshots, and preserves the workspace when a run stops", async () => {

@@ -307,6 +307,9 @@ export class SymphonyOrchestrator {
     let startupFailureStage: SymphonyStartupFailureStage = "workspace_prepare";
 
     try {
+      startupFailureStage = "runtime_launch";
+      assertPiRuntimeHarness(this.#config.runtime.agent.harness);
+      startupFailureStage = "workspace_prepare";
       workspace = await this.#workspaceBackend.prepareWorkspace({
         context: workspaceContext,
         runId,
@@ -952,4 +955,19 @@ export class SymphonyOrchestrator {
     delete this.#state.running[issueId];
     this.#state.claimed.delete(issueId);
   }
+}
+
+function assertPiRuntimeHarness(harness: "pi" | "codex" | "opencode"): void {
+  if (harness === "pi") {
+    return;
+  }
+
+  const error = new Error(
+    `Runtime execution rejects legacy harness '${harness}' for launch/execute. Use agent.harness: "pi".`
+  );
+  Object.assign(error, {
+    name: "SymphonyRuntimePolicyError",
+    code: "invalid_workflow_config"
+  });
+  throw error;
 }
