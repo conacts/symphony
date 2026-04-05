@@ -39,7 +39,7 @@ afterEach(async () => {
   );
 });
 
-describe("docker codex symphony agent runtime", () => {
+describe("docker pi symphony agent runtime", () => {
   it("runs a real SDK turn and records typed turn events", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-codex-runtime-"));
     tempRoots.push(root);
@@ -51,8 +51,8 @@ describe("docker codex symphony agent runtime", () => {
     await initializeGitWorkspace(workspacePath);
     await writeFile(path.join(workspacePath, "tracked.txt"), "hello world\nchanged\n");
 
-    const fakeCodex = path.join(root, "fake-codex.sh");
-    await writeFakeCodexBinary(fakeCodex);
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
     const fakeDocker = path.join(root, "docker");
     await writeFakeDockerBinary(
       fakeDocker,
@@ -64,12 +64,7 @@ describe("docker codex symphony agent runtime", () => {
       state: "In Progress"
     });
     const tracker = createDoneTracker(issue);
-    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
-      codex: {
-        ...buildSymphonyRuntimePolicyForRoot(root).codex,
-        command: `${fakeCodex} app-server`
-      }
-    });
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
@@ -111,7 +106,7 @@ describe("docker codex symphony agent runtime", () => {
           }
         },
         hostCommandEnvSource: process.env,
-        logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
         callbacks: {
           async onUpdate(_issueId, update) {
             updates.push(update.event);
@@ -142,10 +137,8 @@ describe("docker codex symphony agent runtime", () => {
     expect(completion).toEqual({
       kind: "normal"
     });
-    expect(updates).toContain("session.started");
     expect(updates).toContain("thread.started");
     expect(updates).toContain("item.completed");
-    expect(updates).toContain("turn.completed");
 
     const runDetail = await codexReadStore.fetchRunDetail(runId);
     expect(runDetail?.turns).toHaveLength(1);
@@ -156,9 +149,7 @@ describe("docker codex symphony agent runtime", () => {
       runDetail?.turns[0]?.events.map((event: { eventType: string }) => event.eventType)
     ).toEqual([
       "thread.started",
-      "turn.started",
-      "item.completed",
-      "turn.completed"
+      "item.completed"
     ]);
     expect(runDetail?.run.commitHashStart).toMatch(/[0-9a-f]{40}/);
     expect(runDetail?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
@@ -184,8 +175,8 @@ describe("docker codex symphony agent runtime", () => {
     });
     await initializeGitWorkspace(workspacePath);
 
-    const fakeCodex = path.join(root, "fake-codex.sh");
-    await writeFakeCodexBinary(fakeCodex);
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
     const fakeDocker = path.join(root, "docker");
     await writeFakeDockerBinary(
       fakeDocker,
@@ -230,7 +221,7 @@ describe("docker codex symphony agent runtime", () => {
       },
       codex: {
         ...buildSymphonyRuntimePolicyForRoot(root).codex,
-        command: `${fakeCodex} app-server`
+        command: `${fakePi} app-server`
       }
     });
     const database = initializeSymphonyDb({
@@ -267,7 +258,7 @@ describe("docker codex symphony agent runtime", () => {
           }
         },
         hostCommandEnvSource: process.env,
-        logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
         callbacks: {
           async onUpdate() {
             return;
@@ -310,17 +301,29 @@ describe("docker codex symphony agent runtime", () => {
     });
     await initializeGitWorkspace(workspacePath);
 
-    const fakeCodex = path.join(root, "fake-codex-rate-limit.sh");
-    await writeFile(
-      fakeCodex,
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(
+      fakePi,
       `#!/bin/sh
-cat >/dev/null
-printf '%s\\n' '{"type":"thread.started","thread_id":"thread-agent"}'
-printf '%s\\n' '{"type":"turn.started"}'
-printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}'
+process_id="pi-session-1"
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  id="$(printf '%s\\n' "$line" | sed -E 's/.*"id":"([^"]+)".*/\\1/')"
+  command="$(printf '%s\\n' "$line" | sed -E 's/.*"type":"([^"]+)".*/\\1/')"
+
+    if [ "$command" = "get_state" ]; then
+    printf '%s\\n' '{"id":"'"$id"'","type":"response","success":true,"data":{"sessionId":"'"$process_id"'","model":{"id":"x","provider":"openrouter"}}}'
+    continue
+  fi
+
+  if [ "$command" = "prompt" ]; then
+    printf '%s\\n' '{"id":"'"$id"'","type":"response","success":true}'
+    printf '%s\\n' '{"type":"process_exit","reason":"rate_limit_exceeded"}'
+    exit 0
+  fi
+done
 `
     );
-    await chmod(fakeCodex, 0o755);
     const fakeDocker = path.join(root, "docker");
     await writeFakeDockerBinary(
       fakeDocker,
@@ -332,12 +335,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
       state: "In Progress"
     });
     const tracker = createDoneTracker(issue);
-    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
-      codex: {
-        ...buildSymphonyRuntimePolicyForRoot(root).codex,
-        command: `${fakeCodex} app-server`
-      }
-    });
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
@@ -365,7 +363,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
           }
         },
         hostCommandEnvSource: process.env,
-        logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
         callbacks: {
           async onUpdate() {
             return;
@@ -429,8 +427,8 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     });
     await initializeGitWorkspace(hostWorkspacePath);
 
-    const fakeCodex = path.join(root, "fake-codex.sh");
-    await writeFakeCodexBinary(fakeCodex);
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
 
     const fakeDocker = path.join(root, "docker");
     const fakeDockerLog = path.join(root, "fake-docker-log.json");
@@ -441,12 +439,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
       state: "In Progress"
     });
     const tracker = createDoneTracker(issue);
-    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
-      codex: {
-        ...buildSymphonyRuntimePolicyForRoot(root).codex,
-        command: `${fakeCodex} app-server`
-      }
-    });
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
@@ -486,7 +479,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
           }
         },
         hostCommandEnvSource: process.env,
-        logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
         callbacks: {
           async onUpdate() {
             return;
@@ -574,9 +567,8 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
       state: "In Progress"
     });
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
-      codex: {
-        ...buildSymphonyRuntimePolicyForRoot(root).codex,
-        command: "missing-codex app-server",
+      pi: {
+        ...buildSymphonyRuntimePolicyForRoot(root).pi,
         readTimeoutMs: 25
       }
     });
@@ -609,7 +601,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
           }
         },
         hostCommandEnvSource: process.env,
-        logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
         callbacks: {
           async onUpdate() {
             return;
@@ -634,7 +626,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
 
     expect(completion).toEqual({
       kind: "startup_failure",
-      reason: expect.stringContaining("missing-codex"),
+      reason: expect.stringContaining("Pi RPC process exited"),
       failureStage: "runtime_session_start",
       failureOrigin: "pi_startup",
       launchTarget: {
@@ -649,7 +641,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     });
     expect(runtimeLogPayloads).toContainEqual(
       expect.objectContaining({
-        reason: expect.stringContaining("missing-codex"),
+        reason: expect.stringContaining("Pi RPC process exited"),
         launchTarget: expect.objectContaining({
           kind: "container",
           hostLaunchPath: hostWorkspacePath,
@@ -675,8 +667,8 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
     });
     await initializeGitWorkspace(containerRepoPath);
 
-    const fakeCodex = path.join(root, "fake-codex.sh");
-    await writeFakeCodexBinary(fakeCodex);
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
 
     const fakeDocker = path.join(root, "docker");
     const fakeDockerLog = path.join(root, "fake-docker-log.jsonl");
@@ -687,12 +679,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
       state: "In Progress"
     });
     const tracker = createDoneTracker(issue);
-    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
-      codex: {
-        ...buildSymphonyRuntimePolicyForRoot(root).codex,
-        command: `${fakeCodex} app-server`
-      }
-    });
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
@@ -730,7 +717,7 @@ printf '%s\\n' '{"type":"turn.failed","error":{"message":"rate_limit_exceeded"}}
           }
         },
         hostCommandEnvSource: process.env,
-        logger: createSilentSymphonyLogger("@symphony/api.test.codex-runtime"),
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
         callbacks: {
           async onUpdate() {
             return;
@@ -822,18 +809,32 @@ function createDoneTracker(issue: SymphonyTrackerIssue): SymphonyTracker {
   };
 }
 
-async function writeFakeCodexBinary(codexBinary: string): Promise<void> {
+async function writeFakePiBinary(piBinary: string, script?: string): Promise<void> {
   await writeFile(
-    codexBinary,
-    `#!/bin/sh
-cat >/dev/null
-printf '%s\\n' '{"type":"thread.started","thread_id":"thread-agent"}'
-printf '%s\\n' '{"type":"turn.started"}'
-printf '%s\\n' '{"type":"item.completed","item":{"id":"item-1","type":"command_execution","command":"pnpm test","aggregated_output":"ok","status":"completed","exit_code":0}}'
-printf '%s\\n' '{"type":"turn.completed","usage":{"input_tokens":5,"cached_input_tokens":0,"output_tokens":2}}'
+    piBinary,
+    script ??
+      `#!/bin/sh
+session_id="pi-session-1"
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  id="$(printf '%s\\n' "$line" | sed -E 's/.*"id":"([^"]+)".*/\\1/')"
+  command="$(printf '%s\\n' "$line" | sed -E 's/.*"type":"([^"]+)".*/\\1/')"
+
+  if [ "$command" = "get_state" ]; then
+    printf '%s\\n' '{"id":"'"$id"'","type":"response","success":true,"data":{"sessionId":"'"$session_id"'","model":{"id":"x","provider":"openrouter"}}}'
+    continue
+  fi
+
+  if [ "$command" = "prompt" ]; then
+    printf '%s\\n' '{"id":"'"$id"'","type":"response","success":true}'
+    printf '%s\\n' '{"type":"message_end","message":{"responseId":"msg-1","role":"assistant","content":[{"type":"text","text":"ok"}],"usage":{"input":5,"cacheRead":0,"output":2}}}'
+    printf '%s\\n' '{"type":"agent_end"}'
+    continue
+  fi
+done
 `
-  );
-  await chmod(codexBinary, 0o755);
+    );
+  await chmod(piBinary, 0o755);
 }
 
 async function writeFakeDockerBinary(
@@ -845,6 +846,8 @@ async function writeFakeDockerBinary(
     dockerBinary,
     `#!/bin/sh
 set -eu
+repo_path=""
+${repoPath ? `repo_path='${repoPath.replaceAll("'", `'"'"'`) }'` : ""}
 if [ "$1" != "exec" ]; then
   echo "unexpected docker command: $1" >&2
   exit 99
@@ -870,18 +873,23 @@ while [ "$#" -gt 0 ]; do
 done
 container_name="$1"
 shift
-shell_bin="$1"
+launcher="$1"
 shift
-if [ "$1" != "-lc" ]; then
+if [ "$launcher" = "sh" ] || [ "$launcher" = "/bin/sh" ]; then
+  if [ "$1" != "-lc" ]; then
   echo "unexpected docker shell args" >&2
   exit 98
+  fi
+  shift
+  shell_command="$1"
+  if [ -n "$repo_path" ] && printf '%s\n' "$shell_command" | grep -q '^git '; then
+    (cd "$repo_path" && sh -c "$shell_command")
+    exit $?
+  fi
 fi
-shift
 printf '{"command":"exec","containerName":"%s","workdir":"%s"}\\n' "$container_name" "$workdir" >> "${logPath}"
-${repoPath ? `cd '${repoPath.replaceAll("'", `'"'"'`)}'` : ""}
-command="$1"
-shift
-exec "$shell_bin" -lc "$command" "$@"
+${repoPath ? `cd "$repo_path"` : ""}
+exec "$launcher" "$@"
 `
   );
   await chmod(dockerBinary, 0o755);

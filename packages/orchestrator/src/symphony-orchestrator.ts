@@ -957,7 +957,9 @@ export class SymphonyOrchestrator {
   }
 }
 
-function assertPiRuntimeHarness(harness: "pi" | "codex" | "opencode"): void {
+function assertPiRuntimeHarness(
+  harness: "pi" | "codex" | "opencode"
+): asserts harness is "pi" {
   if (harness === "pi") {
     return;
   }

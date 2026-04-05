@@ -1,5 +1,3 @@
-import { codexHarnessModule } from "../codex/definition.js";
-import { opencodeHarnessModule } from "../opencode/definition.js";
 import { piHarnessModule } from "../pi/definition.js";
 import type {
   SymphonyAgentHarnessDefinition,
@@ -8,8 +6,6 @@ import type {
 } from "./types.js";
 
 const harnessModules: SymphonyAgentHarnessModule[] = [
-  codexHarnessModule,
-  opencodeHarnessModule,
   piHarnessModule
 ];
 

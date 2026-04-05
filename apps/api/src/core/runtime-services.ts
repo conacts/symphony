@@ -32,7 +32,7 @@ import {
 } from "./codex-auth-contract.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
-import { createHarnessBackedSymphonyAgentRuntime } from "./agent-harness-runtime.js";
+import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
 import { createDbBackedOrchestratorObserver } from "./runtime-db-observer.js";
 import { createSymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 import { SymphonyRuntimePollScheduler } from "./poll-scheduler.js";
@@ -52,7 +52,6 @@ import {
 } from "./runtime-github-client.js";
 import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
 import { createAgentAnalyticsReadPort } from "./agent-analytics-read-port.js";
-import { resolveRuntimeHarness } from "./runtime-harness.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -81,7 +80,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     );
   }
   const harnessProviderEnvKey = resolveHarnessProviderEnvKey(runtimePolicy);
-  const runtimeHarness = resolveRuntimeHarness(runtimePolicy.agent.harness);
   const promptContract = loadSymphonyPromptContract({
     repoRoot: env.sourceRepo ?? process.cwd()
   });
@@ -275,8 +273,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     "applyAgentUpdate" | "handleRunCompletion"
   > | null = null;
   const agentRuntime = createCodexAgentRuntime(
-    createHarnessBackedSymphonyAgentRuntime({
-      harness: runtimeHarness,
+    createSymphonyAgentRuntime({
       promptContract,
       githubRepository: runtimePolicy.github.repo,
       tracker,

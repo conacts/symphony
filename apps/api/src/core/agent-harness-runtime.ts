@@ -41,7 +41,7 @@ import {
   buildSymphonyContinuationPrompt
 } from "./symphony-prompt.js";
 import {
-  createRuntimeHarness,
+  createPiRuntimeHarness,
   type SymphonyRuntimeHarness
 } from "./runtime-harness.js";
 
@@ -74,12 +74,8 @@ export function createSymphonyAgentRuntime(input: {
 }): AgentRuntime {
   return createHarnessBackedSymphonyAgentRuntime({
     ...input,
-    harness: createDefaultCodexHarness()
+    harness: createPiRuntimeHarness()
   });
-}
-
-function createDefaultCodexHarness(): SymphonyRuntimeHarness {
-  return createRuntimeHarness("codex");
 }
 
 export function createHarnessBackedSymphonyAgentRuntime(input: {

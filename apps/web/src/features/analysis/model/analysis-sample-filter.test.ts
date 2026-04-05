@@ -9,10 +9,11 @@ import {
   buildSymphonyForensicsIssueDetailResult,
   buildSymphonyForensicsIssueListResult
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
+import type { AgentAnalysisSampleResource } from "@/features/analysis/hooks/load-agent-analysis-sample";
 
 describe("analysis sample filter", () => {
   it("filters sampled runs by harness, provider, and model while exposing option facets", () => {
-    const resource = {
+    const resource: AgentAnalysisSampleResource = {
       issueIndex: buildSymphonyForensicsIssueListResult(),
       sampledRuns: [
         {
@@ -45,6 +46,8 @@ describe("analysis sample filter", () => {
         }
       ]
     };
+    resource.sampledRuns[0]!.run.agentHarness = "pi";
+    resource.sampledRuns[0]!.artifacts.run.harnessKind = "pi";
 
     const filtered = filterAgentAnalysisSample(resource, {
       harness: "opencode",
@@ -57,8 +60,7 @@ describe("analysis sample filter", () => {
     expect(filtered.sampledRuns[0]?.issueIdentifier).toBe("COL-166");
     expect(countSampledIssues(filtered)).toBe(1);
     expect(options.harnesses.map((option) => option.label)).toEqual([
-      "Codex",
-      "OpenCode"
+      "PI"
     ]);
     expect(options.providers.map((option) => option.label)).toEqual([
       "OpenAI",

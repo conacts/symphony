@@ -1,4 +1,8 @@
 export type SymphonyAgentHarnessKind = "codex" | "opencode" | "pi";
+export type ActiveSymphonyAgentHarnessKind = Extract<
+  SymphonyAgentHarnessKind,
+  "pi"
+>;
 
 export type SymphonyAgentHarnessCapability =
   | "session_transport"

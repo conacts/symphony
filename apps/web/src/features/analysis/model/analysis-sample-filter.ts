@@ -34,7 +34,7 @@ export function buildAnalysisFilterOptions(
 
   for (const sampledRun of input.sampledRuns) {
     const harness = sampledRun.artifacts.run.harnessKind ?? sampledRun.run.agentHarness;
-    if (harness) {
+    if (harness && isActiveHarness(harness)) {
       harnesses.set(harness, {
         value: harness,
         label: formatHarnessLabel(harness)
@@ -69,17 +69,21 @@ export function countSampledIssues(input: AgentAnalysisSampleResource): number {
   return new Set(input.sampledRuns.map((sampledRun) => sampledRun.issueIdentifier)).size
 }
 
+function isActiveHarness(harness: string): boolean {
+  return harness === "pi";
+}
+
 export function formatHarnessLabel(harness: string): string {
+  if (harness === "pi") {
+    return "PI";
+  }
+
   if (harness === "codex") {
     return "Codex";
   }
 
   if (harness === "opencode") {
     return "OpenCode";
-  }
-
-  if (harness === "pi") {
-    return "Pi";
   }
 
   return harness;

@@ -269,7 +269,7 @@ function toSymphonyOrchestratorConfig(
 
 function assertPiRuntimeHarness(
   harness: "pi" | "codex" | "opencode"
-): void {
+): asserts harness is "pi" {
   if (harness === "pi") {
     return;
   }

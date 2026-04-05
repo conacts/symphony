@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { ensureWorkspaceCwd } from "../codex/launch.js";
+import { ensureWorkspaceCwd } from "../shared/workspace-cwd.js";
 import {
   attachLineBuffer,
   getString,
