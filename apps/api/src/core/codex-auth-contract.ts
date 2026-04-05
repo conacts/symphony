@@ -5,6 +5,8 @@ const defaultDockerCodexAuthPath =
   "/home/agent/auth.json";
 const defaultDockerCodexHomePath = "/home/agent";
 const defaultDockerGitHubConfigPath = "/home/agent/.config/gh";
+const defaultDockerOpenCodeAuthPath =
+  "/home/agent/.local/share/opencode/auth.json";
 
 export type DockerCodexAuthContract =
   | {
@@ -38,6 +40,15 @@ export type DockerGitHubCliAuthContract = {
     readOnly: true;
   } | null;
   configDirectoryPath: string | null;
+};
+
+export type DockerOpenCodeAuthContract = {
+  mount: {
+    sourcePath: string;
+    containerPath: string;
+    readOnly: true;
+  } | null;
+  authFilePath: string | null;
 };
 
 export function resolveDockerCodexAuthContract(
@@ -142,6 +153,28 @@ export function resolveDockerGitHubCliAuthContract(
   };
 }
 
+export function resolveDockerOpenCodeAuthContract(
+  hostCommandEnvSource: Record<string, string | undefined>
+): DockerOpenCodeAuthContract {
+  const authFilePath = resolveOpenCodeAuthFilePath(hostCommandEnvSource);
+
+  if (!authFilePath) {
+    return {
+      mount: null,
+      authFilePath: null
+    };
+  }
+
+  return {
+    mount: {
+      sourcePath: authFilePath,
+      containerPath: defaultDockerOpenCodeAuthPath,
+      readOnly: true
+    },
+    authFilePath
+  };
+}
+
 function resolveCodexAuthFilePath(
   hostCommandEnvSource: Record<string, string | undefined>
 ): string | null {
@@ -181,6 +214,29 @@ function resolveGitHubCliConfigDirectoryPath(
 
   const ghConfigPath = path.join(home, ".config", "gh");
   return fs.existsSync(ghConfigPath) ? ghConfigPath : null;
+}
+
+function resolveOpenCodeAuthFilePath(
+  hostCommandEnvSource: Record<string, string | undefined>
+): string | null {
+  const explicitDataHome = normalizeNonEmptyString(
+    hostCommandEnvSource.XDG_DATA_HOME
+  );
+
+  if (explicitDataHome) {
+    const authPath = path.join(explicitDataHome, "opencode", "auth.json");
+    if (fs.existsSync(authPath)) {
+      return authPath;
+    }
+  }
+
+  const home = normalizeNonEmptyString(hostCommandEnvSource.HOME);
+  if (!home) {
+    return null;
+  }
+
+  const authPath = path.join(home, ".local", "share", "opencode", "auth.json");
+  return fs.existsSync(authPath) ? authPath : null;
 }
 
 function normalizeNonEmptyString(value: string | undefined): string | null {

@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   resolveDockerCodexAuthContract,
-  resolveDockerGitHubCliAuthContract
+  resolveDockerGitHubCliAuthContract,
+  resolveDockerOpenCodeAuthContract
 } from "./codex-auth-contract.js";
 
 const tempDirectories: string[] = [];
@@ -144,6 +145,58 @@ describe("codex auth contract", () => {
         readOnly: true
       },
       configDirectoryPath: path.join(home, ".config", "gh")
+    });
+  });
+
+  it("mounts host OpenCode auth when present under the default data path", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-opencode-auth-"));
+    tempDirectories.push(root);
+    const home = path.join(root, "home");
+    await mkdir(path.join(home, ".local", "share", "opencode"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(home, ".local", "share", "opencode", "auth.json"),
+      '{"ok":true}\n'
+    );
+
+    expect(
+      resolveDockerOpenCodeAuthContract({
+        HOME: home
+      })
+    ).toEqual({
+      mount: {
+        sourcePath: path.join(home, ".local", "share", "opencode", "auth.json"),
+        containerPath: "/home/agent/.local/share/opencode/auth.json",
+        readOnly: true
+      },
+      authFilePath: path.join(home, ".local", "share", "opencode", "auth.json")
+    });
+  });
+
+  it("prefers XDG_DATA_HOME for OpenCode auth when present", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-opencode-auth-"));
+    tempDirectories.push(root);
+    const dataHome = path.join(root, "data-home");
+    await mkdir(path.join(dataHome, "opencode"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(dataHome, "opencode", "auth.json"),
+      '{"ok":true}\n'
+    );
+
+    expect(
+      resolveDockerOpenCodeAuthContract({
+        XDG_DATA_HOME: dataHome
+      })
+    ).toEqual({
+      mount: {
+        sourcePath: path.join(dataHome, "opencode", "auth.json"),
+        containerPath: "/home/agent/.local/share/opencode/auth.json",
+        readOnly: true
+      },
+      authFilePath: path.join(dataHome, "opencode", "auth.json")
     });
   });
 });

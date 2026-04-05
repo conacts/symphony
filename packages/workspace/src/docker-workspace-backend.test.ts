@@ -81,6 +81,11 @@ describe("docker workspace backend", () => {
           sourcePath: "/Users/test/.codex/auth.json",
           containerPath: "/home/agent/auth.json",
           readOnly: true
+        },
+        {
+          sourcePath: "/Users/test/.local/share/opencode/auth.json",
+          containerPath: "/home/agent/.local/share/opencode/auth.json",
+          readOnly: true
         }
       ],
       commandRunner: async (input) => {
@@ -121,7 +126,9 @@ describe("docker workspace backend", () => {
     expect(calls.find((call) => call[0] === "run")).toEqual(
       expect.arrayContaining([
         "--mount",
-        "type=bind,src=/Users/test/.codex/auth.json,dst=/home/agent/auth.json,readonly"
+        "type=bind,src=/Users/test/.codex/auth.json,dst=/home/agent/auth.json,readonly",
+        "--mount",
+        "type=bind,src=/Users/test/.local/share/opencode/auth.json,dst=/home/agent/.local/share/opencode/auth.json,readonly"
       ])
     );
   });

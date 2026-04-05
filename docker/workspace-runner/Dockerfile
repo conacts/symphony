@@ -1,6 +1,7 @@
 FROM node:24-bookworm-slim
 
 ARG CODEX_VERSION=0.117.0
+ARG OPENCODE_VERSION=1.3.15
 ARG PNPM_VERSION=10.32.1
 
 RUN apt-get update \
@@ -26,6 +27,7 @@ RUN corepack enable \
   && corepack prepare "pnpm@${PNPM_VERSION}" --activate
 
 RUN npm install -g "@openai/codex@${CODEX_VERSION}" \
+  && npm install -g "opencode-ai@${OPENCODE_VERSION}" \
   && npm cache clean --force
 
 ENV SYMPHONY_CONTAINER=1
