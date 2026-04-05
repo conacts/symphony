@@ -12,9 +12,6 @@ import {
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
 import {
-  codexPayloadOverflowTable
-} from "@symphony/codex-analytics";
-import {
   buildSymphonyOrchestratorSnapshot,
   buildSymphonyRuntimePolicy,
   buildSymphonyRunFinishAttrs,
@@ -25,6 +22,7 @@ import {
 } from "@symphony/test-support";
 import {
   createSqliteAgentAnalyticsReadStore,
+  symphonyAgentPayloadOverflowTable,
   createSqliteCodexAnalyticsStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyIssueTimelineStore,
@@ -266,7 +264,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
       }
     }
   });
-  database.db.insert(codexPayloadOverflowTable)
+  database.db.insert(symphonyAgentPayloadOverflowTable)
     .values({
       id: "item-123-overflow",
       runId,

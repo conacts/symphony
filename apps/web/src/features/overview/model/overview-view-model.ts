@@ -37,7 +37,7 @@ export type RuntimeSummaryViewModel = {
     sessionId: string | null;
     execution: string;
     runtimeAndTurns: string;
-    codexUpdate: string;
+    agentUpdate: string;
     tokenSummary: string;
   }>;
   retryRows: Array<{
@@ -99,12 +99,12 @@ export function buildRuntimeSummaryViewModel(
       },
       {
         label: "Total tokens",
-        value: formatCount(runtimeSummary.codexTotals.totalTokens),
-        detail: `In ${formatCount(runtimeSummary.codexTotals.inputTokens)} / Out ${formatCount(runtimeSummary.codexTotals.outputTokens)}`
+        value: formatCount(runtimeSummary.agentTotals.totalTokens),
+        detail: `In ${formatCount(runtimeSummary.agentTotals.inputTokens)} / Out ${formatCount(runtimeSummary.agentTotals.outputTokens)}`
       },
       {
         label: "Runtime",
-        value: formatRuntimeSeconds(runtimeSummary.codexTotals.secondsRunning),
+        value: formatRuntimeSeconds(runtimeSummary.agentTotals.secondsRunning),
         detail: "Total agent runtime reported by the current TypeScript runtime."
       }
     ],
@@ -126,7 +126,7 @@ export function buildRuntimeSummaryViewModel(
       sessionId: entry.sessionId ?? null,
       execution: formatExecution(entry.workspace, entry.launchTarget),
       runtimeAndTurns: formatRuntimeAndTurns(entry.startedAt, entry.turnCount, now),
-      codexUpdate: formatCodexUpdate(
+      agentUpdate: formatAgentUpdate(
         entry.lastMessage,
         entry.lastEvent,
         entry.lastEventAt
@@ -177,7 +177,7 @@ function formatRuntimeAndTurns(
   return `${formatRuntimeSeconds(runtimeSeconds)} / ${turnCount} turns`;
 }
 
-function formatCodexUpdate(
+function formatAgentUpdate(
   lastMessage: string | null | undefined,
   lastEvent: string | null | undefined,
   lastEventAt: string | null | undefined

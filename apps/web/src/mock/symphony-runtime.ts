@@ -131,27 +131,27 @@ function withMockCodexRunSummary(
   run: Omit<
     SymphonyForensicsRunSummary,
     | "agentHarness"
-    | "codexStatus"
-    | "codexModel"
-    | "codexFailureKind"
-    | "codexFailureOrigin"
-    | "codexFailureMessagePreview"
+    | "agentStatus"
+    | "model"
+    | "agentFailureKind"
+    | "agentFailureOrigin"
+    | "agentFailureMessagePreview"
   >
 ): SymphonyForensicsRunSummary {
   return {
     ...run,
     agentHarness: "pi",
-    codexModel: "xiaomi/mimo-v2-pro",
-    codexStatus:
+    model: "xiaomi/mimo-v2-pro",
+    agentStatus:
       run.status === "retrying"
         ? "failed"
         : run.outcome === "completed"
           ? "completed"
           : "failed",
-    codexFailureKind:
+    agentFailureKind:
       run.outcome === "completed" ? null : run.errorClass ?? run.outcome,
-    codexFailureOrigin: run.outcome === "completed" ? null : "runtime",
-    codexFailureMessagePreview: run.errorMessage
+    agentFailureOrigin: run.outcome === "completed" ? null : "runtime",
+    agentFailureMessagePreview: run.errorMessage
   };
 }
 
@@ -787,7 +787,7 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
         })
       }
     ],
-    codexTotals: {
+    agentTotals: {
       inputTokens: 5270,
       outputTokens: 2970,
       totalTokens: 8240,
@@ -1035,11 +1035,11 @@ export function buildMockRunDetailResult(
     },
     run: {
       ...run,
-      codexThreadId: `thread_${run.runId}`,
-      codexProviderId: "openrouter",
-      codexProviderName: "OpenRouter",
-      codexAuthMode: "api_key_env",
-      codexProviderEnvKey: "OPENROUTER_API_KEY",
+      threadId: `thread_${run.runId}`,
+      providerId: "openrouter",
+      providerName: "OpenRouter",
+      authMode: "api_key_env",
+      providerEnvKey: "OPENROUTER_API_KEY",
       repoStart: {
         branch: `symphony/${issue.issueIdentifier}`
       },
@@ -1057,9 +1057,9 @@ export function buildMockRunDetailResult(
         turnId: `turn_${run.runId}`,
         runId: run.runId,
         turnSequence: 1,
-        codexThreadId: null,
-        codexTurnId: null,
-        codexSessionId: `session_${run.runId}`,
+        threadId: null,
+        agentTurnId: null,
+        sessionId: `session_${run.runId}`,
         promptText: `Investigate ${issue.issueIdentifier}`,
         status: "completed",
         startedAt: run.startedAt,
@@ -1092,9 +1092,9 @@ export function buildMockRunDetailResult(
             payloadTruncated: false,
             payloadBytes: 64,
             summary: run.errorMessage ?? "Mock event payload",
-            codexThreadId: null,
-            codexTurnId: null,
-            codexSessionId: `session_${run.runId}`,
+            threadId: null,
+            agentTurnId: null,
+            sessionId: `session_${run.runId}`,
             insertedAt: runLastEventAt
           }
         ]

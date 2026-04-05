@@ -186,9 +186,9 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
         turnId,
         runId,
         turnSequence,
-        codexThreadId: attrs.codexThreadId ?? null,
-        codexTurnId: attrs.codexTurnId ?? null,
-        codexSessionId: attrs.codexSessionId ?? null,
+        threadId: attrs.codexThreadId ?? attrs.threadId ?? null,
+        agentTurnId: attrs.codexTurnId ?? attrs.agentTurnId ?? null,
+        sessionId: attrs.codexSessionId ?? attrs.sessionId ?? null,
         promptText: sanitizeText(attrs.promptText),
         status: attrs.status ?? "running",
         startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? now,
@@ -210,7 +210,7 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
       message: `Turn ${turnSequence} started.`,
       payload: {
         turnSequence,
-        codexSessionId: attrs.codexSessionId ?? null
+        sessionId: attrs.codexSessionId ?? attrs.sessionId ?? null
       },
       recordedAt: normalizeIsoTimestamp(attrs.startedAt) ?? now
     });
@@ -273,9 +273,9 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
         payloadTruncated: truncatedPayload.payloadTruncated,
         payloadBytes: truncatedPayload.payloadBytes,
         summary: attrs.summary ? sanitizeText(attrs.summary) : null,
-        codexThreadId: attrs.codexThreadId ?? null,
-        codexTurnId: attrs.codexTurnId ?? null,
-        codexSessionId: attrs.codexSessionId ?? null,
+        threadId: attrs.codexThreadId ?? attrs.threadId ?? null,
+        agentTurnId: attrs.codexTurnId ?? attrs.agentTurnId ?? null,
+        sessionId: attrs.codexSessionId ?? attrs.sessionId ?? null,
         insertedAt: isoNow()
       })
       .run();
@@ -311,9 +311,9 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
         status: attrs.status ?? existing.status,
         startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? existing.startedAt,
         endedAt: normalizeIsoTimestamp(attrs.endedAt) ?? existing.endedAt,
-        codexThreadId: attrs.codexThreadId ?? existing.codexThreadId,
-        codexTurnId: attrs.codexTurnId ?? existing.codexTurnId,
-        codexSessionId: attrs.codexSessionId ?? existing.codexSessionId,
+        threadId: attrs.codexThreadId ?? attrs.threadId ?? existing.threadId,
+        agentTurnId: attrs.codexTurnId ?? attrs.agentTurnId ?? existing.agentTurnId,
+        sessionId: attrs.codexSessionId ?? attrs.sessionId ?? existing.sessionId,
         usage: sanitizeUsage(attrs.usage) ?? existing.usage,
         metadata: mergeSanitizedJsonObjects(existing.metadata, attrs.metadata),
         updatedAt: isoNow()
@@ -326,9 +326,9 @@ class SqliteSymphonyRunJournal implements SymphonyRunJournal {
     await this.updateTurn(turnId, {
       status: attrs.status ?? "completed",
       endedAt: attrs.endedAt,
-      codexThreadId: attrs.codexThreadId,
-      codexTurnId: attrs.codexTurnId,
-      codexSessionId: attrs.codexSessionId,
+      codexThreadId: attrs.codexThreadId ?? attrs.threadId,
+      codexTurnId: attrs.codexTurnId ?? attrs.agentTurnId,
+      codexSessionId: attrs.codexSessionId ?? attrs.sessionId,
       usage: attrs.usage,
       metadata: attrs.metadata
     });
@@ -1027,6 +1027,9 @@ function castTurnExport(
 ): SymphonyRunExport["turns"][number] {
   return {
     ...turn,
+    codexThreadId: turn.threadId ?? null,
+    codexTurnId: turn.agentTurnId ?? null,
+    codexSessionId: turn.sessionId ?? null,
     usage: (turn.usage ?? null) as {
       input_tokens: number;
       cached_input_tokens: number;
@@ -1035,6 +1038,9 @@ function castTurnExport(
     metadata: (turn.metadata ?? null) as SymphonyJsonObject | null,
     events: turn.events.map((event) => ({
       ...event,
+      codexThreadId: event.threadId ?? null,
+      codexTurnId: event.agentTurnId ?? null,
+      codexSessionId: event.sessionId ?? null,
       eventType: event.eventType as SymphonyRunExport["turns"][number]["events"][number]["eventType"],
       itemType: (event.itemType ?? null) as SymphonyRunExport["turns"][number]["events"][number]["itemType"],
       itemStatus: (event.itemStatus ?? null) as SymphonyRunExport["turns"][number]["events"][number]["itemStatus"],

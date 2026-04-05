@@ -14,16 +14,6 @@ import type {
   ThreadItem
 } from "@symphony/codex-analytics";
 import {
-  codexAgentMessagesTable,
-  codexCommandExecutionsTable,
-  codexEventLogTable,
-  codexFileChangesTable,
-  codexItemsTable,
-  codexPayloadOverflowTable,
-  codexReasoningTable,
-  codexRunsTable,
-  codexToolCallsTable,
-  codexTurnsTable,
   commandOutput,
   computeDurationMs,
   extractItemEvent,
@@ -36,8 +26,18 @@ import {
   toolResultContent
 } from "@symphony/codex-analytics";
 import {
-  codexTaskSnapshotItemsTable,
-  codexTaskSnapshotsTable,
+  symphonyAgentCommandExecutionsTable,
+  symphonyAgentEventLogTable,
+  symphonyAgentFileChangesTable,
+  symphonyAgentItemsTable,
+  symphonyAgentMessagesTable,
+  symphonyAgentPayloadOverflowTable,
+  symphonyAgentReasoningTable,
+  symphonyAgentRunsTable,
+  symphonyAgentTaskSnapshotItemsTable,
+  symphonyAgentTaskSnapshotsTable,
+  symphonyAgentToolCallsTable,
+  symphonyAgentTurnsTable,
   symphonyRunsTable
 } from "./schema.js";
 
@@ -52,7 +52,7 @@ type CodexAnalyticsMutationTx = Pick<
   "delete" | "insert" | "select" | "update"
 >;
 
-type CodexRunRow = typeof codexRunsTable.$inferSelect;
+type AgentRunRow = typeof symphonyAgentRunsTable.$inferSelect;
 type CodexTurnPatch = {
   turnId: string;
   threadId?: string | null;
@@ -107,13 +107,13 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
     const now = isoNow();
     const existing = this.#db
       .select()
-      .from(codexRunsTable)
-      .where(eq(codexRunsTable.runId, input.runId))
+      .from(symphonyAgentRunsTable)
+      .where(eq(symphonyAgentRunsTable.runId, input.runId))
       .get();
 
     if (existing) {
       this.#db
-        .update(codexRunsTable)
+        .update(symphonyAgentRunsTable)
         .set({
           issueId: input.issueId,
           issueIdentifier: input.issueIdentifier,
@@ -126,13 +126,13 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
           providerName: input.providerName ?? existing.providerName,
           updatedAt: now
         })
-        .where(eq(codexRunsTable.runId, input.runId))
+        .where(eq(symphonyAgentRunsTable.runId, input.runId))
         .run();
       return;
     }
 
     this.#db
-      .insert(codexRunsTable)
+      .insert(symphonyAgentRunsTable)
       .values({
         runId: input.runId,
         threadId: input.threadId,
@@ -181,7 +181,7 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
         previewMaxChars: this.#previewMaxChars
       };
 
-      const run = ensureCodexRunRecord(context);
+      const run = ensureAgentRunRecord(context);
       const resolvedThreadId =
         input.threadId ?? extractThreadId(input.payload) ?? run.threadId ?? null;
 
@@ -206,13 +206,13 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
     this.#db.transaction((tx) => {
       const existing = tx
         .select()
-        .from(codexTurnsTable)
-        .where(eq(codexTurnsTable.turnId, input.turnId))
+        .from(symphonyAgentTurnsTable)
+        .where(eq(symphonyAgentTurnsTable.turnId, input.turnId))
         .get();
 
       if (!existing) {
         tx
-          .insert(codexTurnsTable)
+          .insert(symphonyAgentTurnsTable)
           .values({
             turnId: input.turnId,
             runId: input.runId,
@@ -247,7 +247,7 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
           .run();
       } else {
         tx
-          .update(codexTurnsTable)
+          .update(symphonyAgentTurnsTable)
           .set({
             threadId: input.threadId ?? existing.threadId,
             harnessKind: input.harnessKind ?? existing.harnessKind,
@@ -265,29 +265,29 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
             outputTokens: input.usage?.output_tokens ?? existing.outputTokens,
             updatedAt: now
           })
-          .where(eq(codexTurnsTable.turnId, input.turnId))
+          .where(eq(symphonyAgentTurnsTable.turnId, input.turnId))
           .run();
       }
 
       const usageTotals = tx
         .select({
-          inputTokens: sql<number>`coalesce(sum(${codexTurnsTable.inputTokens}), 0)`,
-          cachedInputTokens: sql<number>`coalesce(sum(${codexTurnsTable.cachedInputTokens}), 0)`,
-          outputTokens: sql<number>`coalesce(sum(${codexTurnsTable.outputTokens}), 0)`
+          inputTokens: sql<number>`coalesce(sum(${symphonyAgentTurnsTable.inputTokens}), 0)`,
+          cachedInputTokens: sql<number>`coalesce(sum(${symphonyAgentTurnsTable.cachedInputTokens}), 0)`,
+          outputTokens: sql<number>`coalesce(sum(${symphonyAgentTurnsTable.outputTokens}), 0)`
         })
-        .from(codexTurnsTable)
-        .where(eq(codexTurnsTable.runId, input.runId))
+        .from(symphonyAgentTurnsTable)
+        .where(eq(symphonyAgentTurnsTable.runId, input.runId))
         .get();
 
       tx
-        .update(codexRunsTable)
+        .update(symphonyAgentRunsTable)
         .set({
           inputTokens: usageTotals?.inputTokens ?? 0,
           cachedInputTokens: usageTotals?.cachedInputTokens ?? 0,
           outputTokens: usageTotals?.outputTokens ?? 0,
           updatedAt: now
         })
-        .where(eq(codexRunsTable.runId, input.runId))
+        .where(eq(symphonyAgentRunsTable.runId, input.runId))
         .run();
     });
   }
@@ -296,8 +296,8 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
     const now = isoNow();
     const existing = this.#db
       .select()
-      .from(codexRunsTable)
-      .where(eq(codexRunsTable.runId, input.runId))
+      .from(symphonyAgentRunsTable)
+      .where(eq(symphonyAgentRunsTable.runId, input.runId))
       .get();
 
     if (!existing) {
@@ -330,7 +330,7 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
     }
 
     this.#db
-      .update(codexRunsTable)
+      .update(symphonyAgentRunsTable)
       .set({
         threadId: input.threadId ?? existing?.threadId ?? null,
         harnessKind: input.harnessKind ?? existing?.harnessKind ?? null,
@@ -351,16 +351,16 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
             : input.failureMessagePreview,
         updatedAt: now
       })
-      .where(eq(codexRunsTable.runId, input.runId))
+      .where(eq(symphonyAgentRunsTable.runId, input.runId))
       .run();
   }
 }
 
-function ensureCodexRunRecord(context: CodexEventMutationContext): CodexRunRow {
+function ensureAgentRunRecord(context: CodexEventMutationContext): AgentRunRow {
   const existingRun = context.tx
     .select()
-    .from(codexRunsTable)
-    .where(eq(codexRunsTable.runId, context.input.runId))
+    .from(symphonyAgentRunsTable)
+    .where(eq(symphonyAgentRunsTable.runId, context.input.runId))
     .get();
 
   if (existingRun) {
@@ -383,7 +383,7 @@ function ensureCodexRunRecord(context: CodexEventMutationContext): CodexRunRow {
   }
 
   context.tx
-    .insert(codexRunsTable)
+    .insert(symphonyAgentRunsTable)
     .values({
       runId: context.input.runId,
       threadId: context.input.threadId ?? extractThreadId(context.input.payload),
@@ -423,8 +423,8 @@ function ensureCodexRunRecord(context: CodexEventMutationContext): CodexRunRow {
 
   const initializedRun = context.tx
     .select()
-    .from(codexRunsTable)
-    .where(eq(codexRunsTable.runId, context.input.runId))
+    .from(symphonyAgentRunsTable)
+    .where(eq(symphonyAgentRunsTable.runId, context.input.runId))
     .get();
 
   if (!initializedRun) {
@@ -444,12 +444,12 @@ function syncRunThreadId(
   }
 
   context.tx
-    .update(codexRunsTable)
+    .update(symphonyAgentRunsTable)
     .set({
       threadId: resolvedThreadId,
       updatedAt: context.now
     })
-    .where(eq(codexRunsTable.runId, context.input.runId))
+    .where(eq(symphonyAgentRunsTable.runId, context.input.runId))
     .run();
 }
 
@@ -459,13 +459,13 @@ function upsertTurnRecord(
 ): void {
   const existingTurn = context.tx
     .select()
-    .from(codexTurnsTable)
-    .where(eq(codexTurnsTable.turnId, patch.turnId))
+    .from(symphonyAgentTurnsTable)
+    .where(eq(symphonyAgentTurnsTable.turnId, patch.turnId))
     .get();
 
   if (!existingTurn) {
     context.tx
-      .insert(codexTurnsTable)
+      .insert(symphonyAgentTurnsTable)
       .values({
         turnId: patch.turnId,
         runId: context.input.runId,
@@ -498,7 +498,7 @@ function upsertTurnRecord(
   }
 
   context.tx
-    .update(codexTurnsTable)
+    .update(symphonyAgentTurnsTable)
     .set({
       threadId: patch.threadId ?? existingTurn.threadId,
       startedAt: existingTurn.startedAt ?? patch.startedAt ?? null,
@@ -518,7 +518,7 @@ function upsertTurnRecord(
       latestEventType: context.input.payload.type,
       updatedAt: context.now
     })
-    .where(eq(codexTurnsTable.turnId, patch.turnId))
+    .where(eq(symphonyAgentTurnsTable.turnId, patch.turnId))
     .run();
 }
 
@@ -580,7 +580,7 @@ function storeOverflowRecord(
   );
 
   context.tx
-    .insert(codexPayloadOverflowTable)
+    .insert(symphonyAgentPayloadOverflowTable)
     .values({
       id: overflowId,
       kind: overflow.kind,
@@ -603,11 +603,11 @@ function appendEventLogRow(
 ): void {
   const latestEventRow = context.tx
     .select({
-      sequence: codexEventLogTable.sequence
+      sequence: symphonyAgentEventLogTable.sequence
     })
-    .from(codexEventLogTable)
-    .where(eq(codexEventLogTable.runId, context.input.runId))
-    .orderBy(desc(codexEventLogTable.sequence))
+    .from(symphonyAgentEventLogTable)
+    .where(eq(symphonyAgentEventLogTable.runId, context.input.runId))
+    .orderBy(desc(symphonyAgentEventLogTable.sequence))
     .limit(1)
     .get();
   const sequence = (latestEventRow?.sequence ?? 0) + 1;
@@ -641,7 +641,7 @@ function appendEventLogRow(
         });
 
   context.tx
-    .insert(codexEventLogTable)
+    .insert(symphonyAgentEventLogTable)
     .values({
       id: randomUUID(),
       runId: context.input.runId,
@@ -673,12 +673,12 @@ function upsertItemLifecycleRecord(
 
   const existingItem = context.tx
     .select()
-    .from(codexItemsTable)
+    .from(symphonyAgentItemsTable)
     .where(
       and(
-        eq(codexItemsTable.runId, context.input.runId),
-        eq(codexItemsTable.turnId, context.input.turnId),
-        eq(codexItemsTable.itemId, item.id)
+        eq(symphonyAgentItemsTable.runId, context.input.runId),
+        eq(symphonyAgentItemsTable.turnId, context.input.turnId),
+        eq(symphonyAgentItemsTable.itemId, item.id)
       )
     )
     .get();
@@ -691,7 +691,7 @@ function upsertItemLifecycleRecord(
 
   if (!existingItem) {
     context.tx
-      .insert(codexItemsTable)
+      .insert(symphonyAgentItemsTable)
       .values({
         runId: context.input.runId,
         turnId: context.input.turnId,
@@ -713,7 +713,7 @@ function upsertItemLifecycleRecord(
   }
 
   context.tx
-    .update(codexItemsTable)
+    .update(symphonyAgentItemsTable)
     .set({
       itemType: item.type,
       lastUpdatedAt: context.input.recordedAt,
@@ -730,9 +730,9 @@ function upsertItemLifecycleRecord(
     })
     .where(
       and(
-        eq(codexItemsTable.runId, context.input.runId),
-        eq(codexItemsTable.turnId, context.input.turnId),
-        eq(codexItemsTable.itemId, item.id)
+        eq(symphonyAgentItemsTable.runId, context.input.runId),
+        eq(symphonyAgentItemsTable.turnId, context.input.turnId),
+        eq(symphonyAgentItemsTable.itemId, item.id)
       )
     )
     .run();
@@ -795,19 +795,19 @@ function projectCommandExecutionItem(
   );
   const existingCommand = context.tx
     .select()
-    .from(codexCommandExecutionsTable)
+    .from(symphonyAgentCommandExecutionsTable)
     .where(
       and(
-        eq(codexCommandExecutionsTable.runId, context.input.runId),
-        eq(codexCommandExecutionsTable.turnId, context.input.turnId),
-        eq(codexCommandExecutionsTable.itemId, item.id)
+        eq(symphonyAgentCommandExecutionsTable.runId, context.input.runId),
+        eq(symphonyAgentCommandExecutionsTable.turnId, context.input.turnId),
+        eq(symphonyAgentCommandExecutionsTable.itemId, item.id)
       )
     )
     .get();
 
   if (!existingCommand) {
     context.tx
-      .insert(codexCommandExecutionsTable)
+      .insert(symphonyAgentCommandExecutionsTable)
       .values({
         runId: context.input.runId,
         turnId: context.input.turnId,
@@ -834,7 +834,7 @@ function projectCommandExecutionItem(
       : existingCommand.completedAt;
 
   context.tx
-    .update(codexCommandExecutionsTable)
+    .update(symphonyAgentCommandExecutionsTable)
     .set({
       command: chooseCanonicalCommand(existingCommand.command, item.command),
       status: item.status,
@@ -847,9 +847,9 @@ function projectCommandExecutionItem(
     })
     .where(
       and(
-        eq(codexCommandExecutionsTable.runId, context.input.runId),
-        eq(codexCommandExecutionsTable.turnId, context.input.turnId),
-        eq(codexCommandExecutionsTable.itemId, item.id)
+        eq(symphonyAgentCommandExecutionsTable.runId, context.input.runId),
+        eq(symphonyAgentCommandExecutionsTable.turnId, context.input.turnId),
+        eq(symphonyAgentCommandExecutionsTable.itemId, item.id)
       )
     )
     .run();
@@ -895,19 +895,19 @@ function projectToolCallItem(
       : null;
   const existingToolCall = context.tx
     .select()
-    .from(codexToolCallsTable)
+    .from(symphonyAgentToolCallsTable)
     .where(
       and(
-        eq(codexToolCallsTable.runId, context.input.runId),
-        eq(codexToolCallsTable.turnId, context.input.turnId),
-        eq(codexToolCallsTable.itemId, item.id)
+        eq(symphonyAgentToolCallsTable.runId, context.input.runId),
+        eq(symphonyAgentToolCallsTable.turnId, context.input.turnId),
+        eq(symphonyAgentToolCallsTable.itemId, item.id)
       )
     )
     .get();
 
   if (!existingToolCall) {
     context.tx
-      .insert(codexToolCallsTable)
+      .insert(symphonyAgentToolCallsTable)
       .values({
         runId: context.input.runId,
         turnId: context.input.turnId,
@@ -936,7 +936,7 @@ function projectToolCallItem(
       : existingToolCall.completedAt;
 
   context.tx
-    .update(codexToolCallsTable)
+    .update(symphonyAgentToolCallsTable)
     .set({
       server: item.server,
       tool: item.tool,
@@ -951,9 +951,9 @@ function projectToolCallItem(
     })
     .where(
       and(
-        eq(codexToolCallsTable.runId, context.input.runId),
-        eq(codexToolCallsTable.turnId, context.input.turnId),
-        eq(codexToolCallsTable.itemId, item.id)
+        eq(symphonyAgentToolCallsTable.runId, context.input.runId),
+        eq(symphonyAgentToolCallsTable.turnId, context.input.turnId),
+        eq(symphonyAgentToolCallsTable.itemId, item.id)
       )
     )
     .run();
@@ -1005,12 +1005,12 @@ function projectFileChangeItem(
   }
 
   context.tx
-    .delete(codexFileChangesTable)
+    .delete(symphonyAgentFileChangesTable)
     .where(
       and(
-        eq(codexFileChangesTable.runId, context.input.runId),
-        eq(codexFileChangesTable.turnId, context.input.turnId),
-        eq(codexFileChangesTable.itemId, item.id)
+        eq(symphonyAgentFileChangesTable.runId, context.input.runId),
+        eq(symphonyAgentFileChangesTable.turnId, context.input.turnId),
+        eq(symphonyAgentFileChangesTable.itemId, item.id)
       )
     )
     .run();
@@ -1020,7 +1020,7 @@ function projectFileChangeItem(
   }
 
   context.tx
-    .insert(codexFileChangesTable)
+    .insert(symphonyAgentFileChangesTable)
     .values(
       item.changes.map((change: FileChangeItem["changes"][number]) => ({
         runId: context.input.runId,
@@ -1051,7 +1051,7 @@ function projectTaskSnapshotItem(
   const snapshotId = randomUUID();
 
   context.tx
-    .insert(codexTaskSnapshotsTable)
+    .insert(symphonyAgentTaskSnapshotsTable)
     .values({
       snapshotId,
       runId: context.input.runId,
@@ -1068,7 +1068,7 @@ function projectTaskSnapshotItem(
   }
 
   context.tx
-    .insert(codexTaskSnapshotItemsTable)
+    .insert(symphonyAgentTaskSnapshotItemsTable)
     .values(
       snapshot.items.map((task, index) => ({
         snapshotId,
@@ -1273,62 +1273,62 @@ function refreshTurnRollups(
 ): void {
   const latestEvent = context.tx
     .select({
-      recordedAt: codexEventLogTable.recordedAt,
-      eventType: codexEventLogTable.eventType
+      recordedAt: symphonyAgentEventLogTable.recordedAt,
+      eventType: symphonyAgentEventLogTable.eventType
     })
-    .from(codexEventLogTable)
+    .from(symphonyAgentEventLogTable)
     .where(
       and(
-        eq(codexEventLogTable.runId, context.input.runId),
-        eq(codexEventLogTable.turnId, turnId)
+        eq(symphonyAgentEventLogTable.runId, context.input.runId),
+        eq(symphonyAgentEventLogTable.turnId, turnId)
       )
     )
-    .orderBy(desc(codexEventLogTable.sequence))
+    .orderBy(desc(symphonyAgentEventLogTable.sequence))
     .limit(1)
     .get();
   const latestAgentItem = context.tx
     .select({
-      itemId: codexItemsTable.itemId
+      itemId: symphonyAgentItemsTable.itemId
     })
-    .from(codexItemsTable)
+    .from(symphonyAgentItemsTable)
     .where(
       and(
-        eq(codexItemsTable.runId, context.input.runId),
-        eq(codexItemsTable.turnId, turnId),
-        eq(codexItemsTable.itemType, "agent_message")
+        eq(symphonyAgentItemsTable.runId, context.input.runId),
+        eq(symphonyAgentItemsTable.turnId, turnId),
+        eq(symphonyAgentItemsTable.itemType, "agent_message")
       )
     )
-    .orderBy(desc(codexItemsTable.updatedAt))
+    .orderBy(desc(symphonyAgentItemsTable.updatedAt))
     .limit(1)
     .get();
   const latestAgentMessage = latestAgentItem
     ? context.tx
         .select({
-          textPreview: codexAgentMessagesTable.textPreview,
-          textOverflowId: codexAgentMessagesTable.textOverflowId
+          textPreview: symphonyAgentMessagesTable.textPreview,
+          textOverflowId: symphonyAgentMessagesTable.textOverflowId
         })
-        .from(codexAgentMessagesTable)
+        .from(symphonyAgentMessagesTable)
         .where(
           and(
-            eq(codexAgentMessagesTable.runId, context.input.runId),
-            eq(codexAgentMessagesTable.turnId, turnId),
-            eq(codexAgentMessagesTable.itemId, latestAgentItem.itemId)
+            eq(symphonyAgentMessagesTable.runId, context.input.runId),
+            eq(symphonyAgentMessagesTable.turnId, turnId),
+            eq(symphonyAgentMessagesTable.itemId, latestAgentItem.itemId)
           )
         )
         .get()
     : null;
 
   context.tx
-    .update(codexTurnsTable)
+    .update(symphonyAgentTurnsTable)
     .set({
       itemCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexItemsTable)
+          .from(symphonyAgentItemsTable)
           .where(
             and(
-              eq(codexItemsTable.runId, context.input.runId),
-              eq(codexItemsTable.turnId, turnId)
+              eq(symphonyAgentItemsTable.runId, context.input.runId),
+              eq(symphonyAgentItemsTable.turnId, turnId)
             )
           )
           .get()
@@ -1336,11 +1336,11 @@ function refreshTurnRollups(
       commandCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexCommandExecutionsTable)
+          .from(symphonyAgentCommandExecutionsTable)
           .where(
             and(
-              eq(codexCommandExecutionsTable.runId, context.input.runId),
-              eq(codexCommandExecutionsTable.turnId, turnId)
+              eq(symphonyAgentCommandExecutionsTable.runId, context.input.runId),
+              eq(symphonyAgentCommandExecutionsTable.turnId, turnId)
             )
           )
           .get()
@@ -1348,11 +1348,11 @@ function refreshTurnRollups(
       toolCallCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexToolCallsTable)
+          .from(symphonyAgentToolCallsTable)
           .where(
             and(
-              eq(codexToolCallsTable.runId, context.input.runId),
-              eq(codexToolCallsTable.turnId, turnId)
+              eq(symphonyAgentToolCallsTable.runId, context.input.runId),
+              eq(symphonyAgentToolCallsTable.turnId, turnId)
             )
           )
           .get()
@@ -1360,11 +1360,11 @@ function refreshTurnRollups(
       fileChangeCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexFileChangesTable)
+          .from(symphonyAgentFileChangesTable)
           .where(
             and(
-              eq(codexFileChangesTable.runId, context.input.runId),
-              eq(codexFileChangesTable.turnId, turnId)
+              eq(symphonyAgentFileChangesTable.runId, context.input.runId),
+              eq(symphonyAgentFileChangesTable.turnId, turnId)
             )
           )
           .get()
@@ -1372,11 +1372,11 @@ function refreshTurnRollups(
       agentMessageCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexAgentMessagesTable)
+          .from(symphonyAgentMessagesTable)
           .where(
             and(
-              eq(codexAgentMessagesTable.runId, context.input.runId),
-              eq(codexAgentMessagesTable.turnId, turnId)
+              eq(symphonyAgentMessagesTable.runId, context.input.runId),
+              eq(symphonyAgentMessagesTable.turnId, turnId)
             )
           )
           .get()
@@ -1384,11 +1384,11 @@ function refreshTurnRollups(
       reasoningCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexReasoningTable)
+          .from(symphonyAgentReasoningTable)
           .where(
             and(
-              eq(codexReasoningTable.runId, context.input.runId),
-              eq(codexReasoningTable.turnId, turnId)
+              eq(symphonyAgentReasoningTable.runId, context.input.runId),
+              eq(symphonyAgentReasoningTable.turnId, turnId)
             )
           )
           .get()
@@ -1397,12 +1397,12 @@ function refreshTurnRollups(
         countRows(
           context.tx
             .select({ count: sql<number>`count(*)` })
-            .from(codexItemsTable)
+            .from(symphonyAgentItemsTable)
             .where(
               and(
-                eq(codexItemsTable.runId, context.input.runId),
-                eq(codexItemsTable.turnId, turnId),
-                eq(codexItemsTable.itemType, "error")
+                eq(symphonyAgentItemsTable.runId, context.input.runId),
+                eq(symphonyAgentItemsTable.turnId, turnId),
+                eq(symphonyAgentItemsTable.itemType, "error")
               )
             )
             .get()
@@ -1410,12 +1410,12 @@ function refreshTurnRollups(
         countRows(
           context.tx
             .select({ count: sql<number>`count(*)` })
-            .from(codexEventLogTable)
+            .from(symphonyAgentEventLogTable)
             .where(
               and(
-                eq(codexEventLogTable.runId, context.input.runId),
-                eq(codexEventLogTable.turnId, turnId),
-                eq(codexEventLogTable.eventType, "error")
+                eq(symphonyAgentEventLogTable.runId, context.input.runId),
+                eq(symphonyAgentEventLogTable.turnId, turnId),
+                eq(symphonyAgentEventLogTable.eventType, "error")
               )
             )
             .get()
@@ -1427,7 +1427,7 @@ function refreshTurnRollups(
       latestEventType: latestEvent?.eventType ?? null,
       updatedAt: context.now
     })
-    .where(eq(codexTurnsTable.turnId, turnId))
+    .where(eq(symphonyAgentTurnsTable.turnId, turnId))
     .run();
 }
 
@@ -1437,76 +1437,76 @@ function refreshRunRollups(
 ): void {
   const latestEvent = context.tx
     .select({
-      recordedAt: codexEventLogTable.recordedAt,
-      eventType: codexEventLogTable.eventType
+      recordedAt: symphonyAgentEventLogTable.recordedAt,
+      eventType: symphonyAgentEventLogTable.eventType
     })
-    .from(codexEventLogTable)
-    .where(eq(codexEventLogTable.runId, context.input.runId))
-    .orderBy(desc(codexEventLogTable.sequence))
+    .from(symphonyAgentEventLogTable)
+    .where(eq(symphonyAgentEventLogTable.runId, context.input.runId))
+    .orderBy(desc(symphonyAgentEventLogTable.sequence))
     .limit(1)
     .get();
   const latestAgentItem = context.tx
     .select({
-      turnId: codexItemsTable.turnId,
-      itemId: codexItemsTable.itemId
+      turnId: symphonyAgentItemsTable.turnId,
+      itemId: symphonyAgentItemsTable.itemId
     })
-    .from(codexItemsTable)
+    .from(symphonyAgentItemsTable)
     .where(
       and(
-        eq(codexItemsTable.runId, context.input.runId),
-        eq(codexItemsTable.itemType, "agent_message")
+        eq(symphonyAgentItemsTable.runId, context.input.runId),
+        eq(symphonyAgentItemsTable.itemType, "agent_message")
       )
     )
-    .orderBy(desc(codexItemsTable.updatedAt))
+    .orderBy(desc(symphonyAgentItemsTable.updatedAt))
     .limit(1)
     .get();
   const latestAgentMessage = latestAgentItem
     ? context.tx
         .select({
-          textPreview: codexAgentMessagesTable.textPreview,
-          textOverflowId: codexAgentMessagesTable.textOverflowId
+          textPreview: symphonyAgentMessagesTable.textPreview,
+          textOverflowId: symphonyAgentMessagesTable.textOverflowId
         })
-        .from(codexAgentMessagesTable)
+        .from(symphonyAgentMessagesTable)
         .where(
           and(
-            eq(codexAgentMessagesTable.runId, context.input.runId),
-            eq(codexAgentMessagesTable.turnId, latestAgentItem.turnId),
-            eq(codexAgentMessagesTable.itemId, latestAgentItem.itemId)
+            eq(symphonyAgentMessagesTable.runId, context.input.runId),
+            eq(symphonyAgentMessagesTable.turnId, latestAgentItem.turnId),
+            eq(symphonyAgentMessagesTable.itemId, latestAgentItem.itemId)
           )
         )
         .get()
     : null;
   const finalTurn = context.tx
     .select({
-      turnId: codexTurnsTable.turnId
+      turnId: symphonyAgentTurnsTable.turnId
     })
-    .from(codexTurnsTable)
+    .from(symphonyAgentTurnsTable)
     .where(
       and(
-        eq(codexTurnsTable.runId, context.input.runId),
-        sql`${codexTurnsTable.status} <> 'running'`
+        eq(symphonyAgentTurnsTable.runId, context.input.runId),
+        sql`${symphonyAgentTurnsTable.status} <> 'running'`
       )
     )
-    .orderBy(desc(codexTurnsTable.updatedAt))
+    .orderBy(desc(symphonyAgentTurnsTable.updatedAt))
     .limit(1)
     .get();
   const usageTotals = context.tx
     .select({
-      inputTokens: sql<number>`coalesce(sum(${codexTurnsTable.inputTokens}), 0)`,
-      cachedInputTokens: sql<number>`coalesce(sum(${codexTurnsTable.cachedInputTokens}), 0)`,
-      outputTokens: sql<number>`coalesce(sum(${codexTurnsTable.outputTokens}), 0)`
+      inputTokens: sql<number>`coalesce(sum(${symphonyAgentTurnsTable.inputTokens}), 0)`,
+      cachedInputTokens: sql<number>`coalesce(sum(${symphonyAgentTurnsTable.cachedInputTokens}), 0)`,
+      outputTokens: sql<number>`coalesce(sum(${symphonyAgentTurnsTable.outputTokens}), 0)`
     })
-    .from(codexTurnsTable)
-    .where(eq(codexTurnsTable.runId, context.input.runId))
+    .from(symphonyAgentTurnsTable)
+    .where(eq(symphonyAgentTurnsTable.runId, context.input.runId))
     .get();
   const currentRunThreadId = context.tx
-    .select({ threadId: codexRunsTable.threadId })
-    .from(codexRunsTable)
-    .where(eq(codexRunsTable.runId, context.input.runId))
+    .select({ threadId: symphonyAgentRunsTable.threadId })
+    .from(symphonyAgentRunsTable)
+    .where(eq(symphonyAgentRunsTable.runId, context.input.runId))
     .get()?.threadId;
 
   context.tx
-    .update(codexRunsTable)
+    .update(symphonyAgentRunsTable)
     .set({
       threadId:
         resolvedThreadId ??
@@ -1524,61 +1524,61 @@ function refreshRunRollups(
       turnCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexTurnsTable)
-          .where(eq(codexTurnsTable.runId, context.input.runId))
+          .from(symphonyAgentTurnsTable)
+          .where(eq(symphonyAgentTurnsTable.runId, context.input.runId))
           .get()
       ),
       itemCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexItemsTable)
-          .where(eq(codexItemsTable.runId, context.input.runId))
+          .from(symphonyAgentItemsTable)
+          .where(eq(symphonyAgentItemsTable.runId, context.input.runId))
           .get()
       ),
       commandCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexCommandExecutionsTable)
-          .where(eq(codexCommandExecutionsTable.runId, context.input.runId))
+          .from(symphonyAgentCommandExecutionsTable)
+          .where(eq(symphonyAgentCommandExecutionsTable.runId, context.input.runId))
           .get()
       ),
       toolCallCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexToolCallsTable)
-          .where(eq(codexToolCallsTable.runId, context.input.runId))
+          .from(symphonyAgentToolCallsTable)
+          .where(eq(symphonyAgentToolCallsTable.runId, context.input.runId))
           .get()
       ),
       fileChangeCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexFileChangesTable)
-          .where(eq(codexFileChangesTable.runId, context.input.runId))
+          .from(symphonyAgentFileChangesTable)
+          .where(eq(symphonyAgentFileChangesTable.runId, context.input.runId))
           .get()
       ),
       agentMessageCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexAgentMessagesTable)
-          .where(eq(codexAgentMessagesTable.runId, context.input.runId))
+          .from(symphonyAgentMessagesTable)
+          .where(eq(symphonyAgentMessagesTable.runId, context.input.runId))
           .get()
       ),
       reasoningCount: countRows(
         context.tx
           .select({ count: sql<number>`count(*)` })
-          .from(codexReasoningTable)
-          .where(eq(codexReasoningTable.runId, context.input.runId))
+          .from(symphonyAgentReasoningTable)
+          .where(eq(symphonyAgentReasoningTable.runId, context.input.runId))
           .get()
       ),
       errorCount:
         countRows(
           context.tx
             .select({ count: sql<number>`count(*)` })
-            .from(codexItemsTable)
+            .from(symphonyAgentItemsTable)
             .where(
               and(
-                eq(codexItemsTable.runId, context.input.runId),
-                eq(codexItemsTable.itemType, "error")
+                eq(symphonyAgentItemsTable.runId, context.input.runId),
+                eq(symphonyAgentItemsTable.itemType, "error")
               )
             )
             .get()
@@ -1586,11 +1586,11 @@ function refreshRunRollups(
         countRows(
           context.tx
             .select({ count: sql<number>`count(*)` })
-            .from(codexEventLogTable)
+            .from(symphonyAgentEventLogTable)
             .where(
               and(
-                eq(codexEventLogTable.runId, context.input.runId),
-                eq(codexEventLogTable.eventType, "error")
+                eq(symphonyAgentEventLogTable.runId, context.input.runId),
+                eq(symphonyAgentEventLogTable.eventType, "error")
               )
             )
             .get()
@@ -1599,7 +1599,7 @@ function refreshRunRollups(
       latestEventType: latestEvent?.eventType ?? null,
       updatedAt: context.now
     })
-    .where(eq(codexRunsTable.runId, context.input.runId))
+    .where(eq(symphonyAgentRunsTable.runId, context.input.runId))
     .run();
 }
 
@@ -1616,7 +1616,7 @@ function upsertTextItemRow(
   previewMaxChars: number
 ): void {
   const table =
-    kind === "agent_message" ? codexAgentMessagesTable : codexReasoningTable;
+    kind === "agent_message" ? symphonyAgentMessagesTable : symphonyAgentReasoningTable;
   const existing = tx
     .select()
     .from(table)

@@ -281,9 +281,9 @@ export function buildSymphonyTurnStartAttrs(
 
   return {
     turnSequence: 1,
-    codexThreadId: `thread-${fixtureCounter}`,
-    codexTurnId: `turn-${fixtureCounter}`,
-    codexSessionId: `session-${fixtureCounter}`,
+    threadId: `thread-${fixtureCounter}`,
+    agentTurnId: `turn-${fixtureCounter}`,
+    sessionId: `session-${fixtureCounter}`,
     promptText: "Implement the requested change.",
     status: "running",
     startedAt: new Date("2026-03-31T00:00:00.000Z"),

@@ -353,7 +353,7 @@ async function executeRun(input: {
             "notification";
           const timestamp = new Date().toISOString();
           const turnUsage = threadEvent ? extractUsage(threadEvent) : null;
-          const codexThreadId =
+          const threadId =
             getString(message, "thread_id") ??
             getString(message, "threadId") ??
             getStringPath(message, ["params", "threadId"]);
@@ -381,7 +381,7 @@ async function executeRun(input: {
               await input.agentAnalytics.recordEvent({
                 runId: input.runId,
                 turnId: persistedTurnId,
-                threadId: codexThreadId,
+                threadId,
                 recordedAt: timestamp,
                 payload: threadEvent,
                 projectionLosses,
@@ -397,9 +397,9 @@ async function executeRun(input: {
         await input.runStore.finalizeTurn(persistedTurnId, {
           status: "completed",
           endedAt,
-          codexThreadId: turnResult.threadId,
-          codexTurnId: turnResult.turnId,
-          codexSessionId: turnResult.sessionId,
+          threadId: turnResult.threadId,
+          agentTurnId: turnResult.turnId,
+          sessionId: turnResult.sessionId,
           usage: turnResult.usage ?? null
         });
         await input.agentAnalytics.finalizeTurn({

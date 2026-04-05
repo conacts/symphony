@@ -40,7 +40,7 @@ const codexRunStatuses = z.enum([
   "stalled",
   "stopped"
 ]);
-const codexAuthModes = z.enum(["auth_json", "api_key_env"]);
+const authModes = z.enum(["auth_json", "api_key_env"]);
 export const symphonyForensicsActiveHarnessSchema = z.literal("pi");
 export const symphonyForensicsCompatHarnessSchema = z.enum([
   "codex",
@@ -103,11 +103,11 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   status: nonEmptyStringSchema,
   outcome: nullableNonEmptyStringSchema,
   agentHarness: symphonyForensicsCompatHarnessSchema.nullable().default(null),
-  codexStatus: codexRunStatuses.nullable(),
-  codexFailureKind: nullableNonEmptyStringSchema,
-  codexFailureOrigin: nullableNonEmptyStringSchema,
-  codexFailureMessagePreview: nullableNonEmptyStringSchema,
-  codexModel: nullableNonEmptyStringSchema,
+  agentStatus: codexRunStatuses.nullable(),
+  agentFailureKind: nullableNonEmptyStringSchema,
+  agentFailureOrigin: nullableNonEmptyStringSchema,
+  agentFailureMessagePreview: nullableNonEmptyStringSchema,
+  model: nullableNonEmptyStringSchema,
   workerHost: nullableNonEmptyStringSchema,
   workspacePath: nullableNonEmptyStringSchema,
   startedAt: isoTimestampSchema,
@@ -255,11 +255,11 @@ export const symphonyForensicsIssueExportSchema = z.strictObject({
 });
 
 export const symphonyForensicsRunDetailSchema = symphonyForensicsRunSummarySchema.safeExtend({
-  codexThreadId: nullableNonEmptyStringSchema,
-  codexProviderId: nullableNonEmptyStringSchema,
-  codexProviderName: nullableNonEmptyStringSchema,
-  codexAuthMode: codexAuthModes.nullable(),
-  codexProviderEnvKey: nullableNonEmptyStringSchema,
+  threadId: nullableNonEmptyStringSchema,
+  providerId: nullableNonEmptyStringSchema,
+  providerName: nullableNonEmptyStringSchema,
+  authMode: authModes.nullable(),
+  providerEnvKey: nullableNonEmptyStringSchema,
   repoStart: jsonObjectSchema.nullable(),
   repoEnd: jsonObjectSchema.nullable(),
   metadata: jsonObjectSchema.nullable(),
@@ -291,9 +291,9 @@ export const symphonyForensicsEventSchema = z.strictObject({
   payloadTruncated: z.boolean(),
   payloadBytes: z.number().int().nonnegative().nullable(),
   summary: nullableNonEmptyStringSchema,
-  codexThreadId: nullableNonEmptyStringSchema,
-  codexTurnId: nullableNonEmptyStringSchema,
-  codexSessionId: nullableNonEmptyStringSchema,
+  threadId: nullableNonEmptyStringSchema,
+  agentTurnId: nullableNonEmptyStringSchema,
+  sessionId: nullableNonEmptyStringSchema,
   insertedAt: isoTimestampSchema
 });
 
@@ -301,9 +301,9 @@ export const symphonyForensicsTurnSchema = z.strictObject({
   turnId: nonEmptyStringSchema,
   runId: nonEmptyStringSchema,
   turnSequence: z.number().int().positive(),
-  codexThreadId: nullableNonEmptyStringSchema,
-  codexTurnId: nullableNonEmptyStringSchema,
-  codexSessionId: nullableNonEmptyStringSchema,
+  threadId: nullableNonEmptyStringSchema,
+  agentTurnId: nullableNonEmptyStringSchema,
+  sessionId: nullableNonEmptyStringSchema,
   promptText: nonEmptyStringSchema,
   status: nonEmptyStringSchema,
   startedAt: isoTimestampSchema,

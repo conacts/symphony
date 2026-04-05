@@ -79,7 +79,7 @@ export function buildSymphonyRuntimeSummaryViewModel(
         sessionId: "session_123",
         execution: "docker / reused / bind_mount / container / symphony-col-165",
         runtimeAndTurns: "2m 0s / 4 turns",
-        codexUpdate: "Runtime view updated · 2026-03-31T18:01:00.000Z",
+        agentUpdate: "Runtime view updated · 2026-03-31T18:01:00.000Z",
         tokenSummary: "Total 200 · In 120 / Out 80"
       }
     ],

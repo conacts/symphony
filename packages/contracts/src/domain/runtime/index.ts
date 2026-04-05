@@ -5,7 +5,7 @@ export {
 } from "./requests.js";
 export {
   symphonyRuntimeTokenTotalsSchema,
-  symphonyRuntimeCodexTotalsSchema,
+  symphonyRuntimeAgentTotalsSchema,
   symphonyRuntimeRunningEntrySchema,
   symphonyRuntimeRetryEntrySchema,
   symphonyRuntimeStateResultSchema,
@@ -46,7 +46,7 @@ export type {
 } from "./requests.js";
 export type {
   SymphonyRuntimeTokenTotals,
-  SymphonyRuntimeCodexTotals,
+  SymphonyRuntimeAgentTotals,
   SymphonyRuntimeRunningEntry,
   SymphonyRuntimeRetryEntry,
   SymphonyRuntimeStateResult,

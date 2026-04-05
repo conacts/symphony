@@ -8,11 +8,11 @@ import {
 describe("analysis query state", () => {
   it("parses harness, provider, and model filters from search params", () => {
     const searchParams = new URLSearchParams(
-      "harness=opencode&provider=openrouter&model=xiaomi%2Fmimo-v2-pro"
+      "harness=pi&provider=openrouter&model=xiaomi%2Fmimo-v2-pro"
     );
 
     expect(buildAnalysisQueryFromSearchParams(searchParams)).toEqual({
-      harness: "opencode",
+      harness: "pi",
       provider: "openrouter",
       model: "xiaomi/mimo-v2-pro"
     });
@@ -29,6 +29,6 @@ describe("analysis query state", () => {
 
   it("tracks whether any analysis filter is active", () => {
     expect(hasActiveAnalysisFilters({})).toBe(false);
-    expect(hasActiveAnalysisFilters({ harness: "codex" })).toBe(true);
+    expect(hasActiveAnalysisFilters({ harness: "pi" })).toBe(true);
   });
 });

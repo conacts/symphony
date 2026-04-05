@@ -112,6 +112,9 @@ export type SymphonyTurnStartAttrs = {
   codexThreadId?: string | null;
   codexTurnId?: string | null;
   codexSessionId?: string | null;
+  threadId?: string | null;
+  agentTurnId?: string | null;
+  sessionId?: string | null;
   promptText: string;
   status?: string;
   startedAt?: Date | SymphonyIsoTimestamp;
@@ -128,6 +131,9 @@ export type SymphonyEventAttrs = {
   codexThreadId?: string | null;
   codexTurnId?: string | null;
   codexSessionId?: string | null;
+  threadId?: string | null;
+  agentTurnId?: string | null;
+  sessionId?: string | null;
 };
 
 export type SymphonyTurnUpdateAttrs = {
@@ -137,6 +143,9 @@ export type SymphonyTurnUpdateAttrs = {
   codexThreadId?: string | null;
   codexTurnId?: string | null;
   codexSessionId?: string | null;
+  threadId?: string | null;
+  agentTurnId?: string | null;
+  sessionId?: string | null;
   usage?: SymphonyCodexUsage | null;
   metadata?: SymphonyJsonObject | null;
 };
@@ -147,6 +156,9 @@ export type SymphonyTurnFinishAttrs = {
   codexThreadId?: string | null;
   codexTurnId?: string | null;
   codexSessionId?: string | null;
+  threadId?: string | null;
+  agentTurnId?: string | null;
+  sessionId?: string | null;
   usage?: SymphonyCodexUsage | null;
   metadata?: SymphonyJsonObject | null;
 };

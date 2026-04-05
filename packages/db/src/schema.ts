@@ -1,30 +1,336 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import {
-  codexAgentMessagesTable,
-  codexCommandExecutionsTable,
-  codexEventLogTable,
-  codexFileChangesTable,
-  codexItemsTable,
-  codexPayloadOverflowTable,
-  codexReasoningTable,
-  codexRunsTable,
-  codexToolCallsTable,
-  codexTurnsTable
-} from "@symphony/codex-analytics";
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import type { ThreadEvent } from "@symphony/codex-analytics";
+export const symphonyAgentEventLogTable = sqliteTable(
+  "symphony_agent_event_log",
+  {
+    id: text("id").primaryKey(),
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id"),
+    threadId: text("thread_id"),
+    itemId: text("item_id"),
+    eventType: text("event_type").notNull().$type<ThreadEvent["type"]>(),
+    sequence: integer("sequence").notNull(),
+    recordedAt: text("recorded_at").notNull(),
+    payloadJson: text("payload_json", { mode: "json" }).$type<ThreadEvent | null>(),
+    payloadOverflowId: text("payload_overflow_id"),
+    projectionLossOverflowId: text("projection_loss_overflow_id"),
+    rawPayloadOverflowId: text("raw_payload_overflow_id"),
+    payloadTruncated: integer("payload_truncated", { mode: "boolean" }).notNull(),
+    insertedAt: text("inserted_at").notNull()
+  },
+  (table) => ({
+    runSequenceIdx: index("symphony_agent_event_log_run_sequence_idx").on(
+      table.runId,
+      table.sequence
+    ),
+    runTurnSequenceIdx: index("symphony_agent_event_log_run_turn_sequence_idx").on(
+      table.runId,
+      table.turnId,
+      table.sequence
+    ),
+    runItemSequenceIdx: index("symphony_agent_event_log_run_item_sequence_idx").on(
+      table.runId,
+      table.itemId,
+      table.sequence
+    ),
+    threadSequenceIdx: index("symphony_agent_event_log_thread_sequence_idx").on(
+      table.threadId,
+      table.sequence
+    ),
+    eventRecordedAtIdx: index("symphony_agent_event_log_event_recorded_at_idx").on(
+      table.eventType,
+      table.recordedAt
+    )
+  })
+);
 
-export {
-  codexAgentMessagesTable,
-  codexCommandExecutionsTable,
-  codexEventLogTable,
-  codexFileChangesTable,
-  codexItemsTable,
-  codexPayloadOverflowTable,
-  codexReasoningTable,
-  codexRunsTable,
-  codexToolCallsTable,
-  codexTurnsTable
-};
+export const symphonyAgentPayloadOverflowTable = sqliteTable(
+  "symphony_agent_payload_overflow",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id"),
+    itemId: text("item_id"),
+    contentJson: text("content_json", { mode: "json" }).$type<unknown>(),
+    contentText: text("content_text"),
+    byteCount: integer("byte_count").notNull(),
+    insertedAt: text("inserted_at").notNull()
+  },
+  (table) => ({
+    runInsertedAtIdx: index("symphony_agent_payload_overflow_run_inserted_at_idx").on(
+      table.runId,
+      table.insertedAt
+    ),
+    turnInsertedAtIdx: index("symphony_agent_payload_overflow_turn_inserted_at_idx").on(
+      table.turnId,
+      table.insertedAt
+    ),
+    itemInsertedAtIdx: index("symphony_agent_payload_overflow_item_inserted_at_idx").on(
+      table.itemId,
+      table.insertedAt
+    ),
+    kindInsertedAtIdx: index("symphony_agent_payload_overflow_kind_inserted_at_idx").on(
+      table.kind,
+      table.insertedAt
+    )
+  })
+);
 
+export const symphonyAgentRunsTable = sqliteTable(
+  "symphony_agent_runs",
+  {
+    runId: text("run_id").primaryKey(),
+    threadId: text("thread_id"),
+    harnessKind: text("harness_kind"),
+    model: text("model"),
+    providerId: text("provider_id"),
+    providerName: text("provider_name"),
+    issueId: text("issue_id").notNull(),
+    issueIdentifier: text("issue_identifier").notNull(),
+    startedAt: text("started_at"),
+    endedAt: text("ended_at"),
+    status: text("status").notNull(),
+    failureKind: text("failure_kind"),
+    failureOrigin: text("failure_origin"),
+    failureMessagePreview: text("failure_message_preview"),
+    finalTurnId: text("final_turn_id"),
+    lastAgentMessageItemId: text("last_agent_message_item_id"),
+    lastAgentMessagePreview: text("last_agent_message_preview"),
+    lastAgentMessageOverflowId: text("last_agent_message_overflow_id"),
+    inputTokens: integer("input_tokens").notNull(),
+    cachedInputTokens: integer("cached_input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    turnCount: integer("turn_count").notNull(),
+    itemCount: integer("item_count").notNull(),
+    commandCount: integer("command_count").notNull(),
+    toolCallCount: integer("tool_call_count").notNull(),
+    fileChangeCount: integer("file_change_count").notNull(),
+    agentMessageCount: integer("agent_message_count").notNull(),
+    reasoningCount: integer("reasoning_count").notNull(),
+    errorCount: integer("error_count").notNull(),
+    latestEventAt: text("latest_event_at"),
+    latestEventType: text("latest_event_type"),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    issueIdIdx: index("symphony_agent_runs_issue_id_idx").on(table.issueId),
+    issueIdentifierIdx: index("symphony_agent_runs_issue_identifier_idx").on(
+      table.issueIdentifier
+    ),
+    startedAtIdx: index("symphony_agent_runs_started_at_idx").on(table.startedAt),
+    threadIdIdx: index("symphony_agent_runs_thread_id_idx").on(table.threadId)
+  })
+);
+
+export const symphonyAgentTurnsTable = sqliteTable(
+  "symphony_agent_turns",
+  {
+    turnId: text("turn_id").primaryKey(),
+    runId: text("run_id").notNull(),
+    threadId: text("thread_id"),
+    harnessKind: text("harness_kind"),
+    model: text("model"),
+    providerId: text("provider_id"),
+    providerName: text("provider_name"),
+    startedAt: text("started_at"),
+    endedAt: text("ended_at"),
+    status: text("status").notNull(),
+    failureKind: text("failure_kind"),
+    failureMessagePreview: text("failure_message_preview"),
+    lastAgentMessageItemId: text("last_agent_message_item_id"),
+    lastAgentMessagePreview: text("last_agent_message_preview"),
+    lastAgentMessageOverflowId: text("last_agent_message_overflow_id"),
+    inputTokens: integer("input_tokens").notNull(),
+    cachedInputTokens: integer("cached_input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    itemCount: integer("item_count").notNull(),
+    commandCount: integer("command_count").notNull(),
+    toolCallCount: integer("tool_call_count").notNull(),
+    fileChangeCount: integer("file_change_count").notNull(),
+    agentMessageCount: integer("agent_message_count").notNull(),
+    reasoningCount: integer("reasoning_count").notNull(),
+    errorCount: integer("error_count").notNull(),
+    latestEventAt: text("latest_event_at"),
+    latestEventType: text("latest_event_type"),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    runIdIdx: index("symphony_agent_turns_run_id_idx").on(table.runId),
+    startedAtIdx: index("symphony_agent_turns_started_at_idx").on(table.startedAt)
+  })
+);
+
+export const symphonyAgentItemsTable = sqliteTable(
+  "symphony_agent_items",
+  {
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    itemType: text("item_type").notNull(),
+    startedAt: text("started_at"),
+    lastUpdatedAt: text("last_updated_at"),
+    completedAt: text("completed_at"),
+    finalStatus: text("final_status"),
+    updateCount: integer("update_count").notNull(),
+    durationMs: integer("duration_ms"),
+    latestPreview: text("latest_preview"),
+    latestOverflowId: text("latest_overflow_id"),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      name: "symphony_agent_items_pk"
+    }),
+    runIdIdx: index("symphony_agent_items_run_id_idx").on(table.runId),
+    turnIdIdx: index("symphony_agent_items_turn_id_idx").on(table.turnId),
+    itemTypeIdx: index("symphony_agent_items_item_type_idx").on(table.itemType)
+  })
+);
+
+export const symphonyAgentCommandExecutionsTable = sqliteTable(
+  "symphony_agent_command_executions",
+  {
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    command: text("command").notNull(),
+    status: text("status").notNull(),
+    exitCode: integer("exit_code"),
+    startedAt: text("started_at"),
+    completedAt: text("completed_at"),
+    durationMs: integer("duration_ms"),
+    outputPreview: text("output_preview"),
+    outputOverflowId: text("output_overflow_id"),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      name: "symphony_agent_command_executions_pk"
+    }),
+    runIdIdx: index("symphony_agent_command_executions_run_id_idx").on(table.runId),
+    statusIdx: index("symphony_agent_command_executions_status_idx").on(table.status)
+  })
+);
+
+export const symphonyAgentToolCallsTable = sqliteTable(
+  "symphony_agent_tool_calls",
+  {
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    server: text("server").notNull(),
+    tool: text("tool").notNull(),
+    status: text("status").notNull(),
+    errorMessage: text("error_message"),
+    argumentsJson: text("arguments_json", { mode: "json" }).$type<unknown>(),
+    resultPreview: text("result_preview"),
+    resultOverflowId: text("result_overflow_id"),
+    startedAt: text("started_at"),
+    completedAt: text("completed_at"),
+    durationMs: integer("duration_ms"),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      name: "symphony_agent_tool_calls_pk"
+    }),
+    runIdIdx: index("symphony_agent_tool_calls_run_id_idx").on(table.runId),
+    toolIdx: index("symphony_agent_tool_calls_tool_idx").on(table.server, table.tool)
+  })
+);
+
+export const symphonyAgentMessagesTable = sqliteTable(
+  "symphony_agent_messages",
+  {
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    textContent: text("text_content"),
+    textPreview: text("text_preview"),
+    textOverflowId: text("text_overflow_id"),
+    recordedAt: text("recorded_at").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      name: "symphony_agent_messages_pk"
+    }),
+    runIdIdx: index("symphony_agent_messages_run_id_idx").on(table.runId),
+    runRecordedAtIdx: index("symphony_agent_messages_run_recorded_at_idx").on(
+      table.runId,
+      table.recordedAt
+    )
+  })
+);
+
+export const symphonyAgentReasoningTable = sqliteTable(
+  "symphony_agent_reasoning",
+  {
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    textContent: text("text_content"),
+    textPreview: text("text_preview"),
+    textOverflowId: text("text_overflow_id"),
+    recordedAt: text("recorded_at").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      name: "symphony_agent_reasoning_pk"
+    }),
+    runIdIdx: index("symphony_agent_reasoning_run_id_idx").on(table.runId),
+    runRecordedAtIdx: index("symphony_agent_reasoning_run_recorded_at_idx").on(
+      table.runId,
+      table.recordedAt
+    )
+  })
+);
+
+export const symphonyAgentFileChangesTable = sqliteTable(
+  "symphony_agent_file_changes",
+  {
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    path: text("path").notNull(),
+    changeKind: text("change_kind").notNull(),
+    recordedAt: text("recorded_at").notNull(),
+    insertedAt: text("inserted_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.runId, table.turnId, table.itemId, table.path],
+      name: "symphony_agent_file_changes_pk"
+    }),
+    runIdIdx: index("symphony_agent_file_changes_run_id_idx").on(table.runId),
+    pathIdx: index("symphony_agent_file_changes_path_idx").on(table.path)
+  })
+);
+
+export const codexEventLogTable = symphonyAgentEventLogTable;
+export const codexPayloadOverflowTable = symphonyAgentPayloadOverflowTable;
+export const codexRunsTable = symphonyAgentRunsTable;
+export const codexTurnsTable = symphonyAgentTurnsTable;
+export const codexItemsTable = symphonyAgentItemsTable;
+export const codexCommandExecutionsTable = symphonyAgentCommandExecutionsTable;
+export const codexToolCallsTable = symphonyAgentToolCallsTable;
+export const codexAgentMessagesTable = symphonyAgentMessagesTable;
+export const codexReasoningTable = symphonyAgentReasoningTable;
+export const codexFileChangesTable = symphonyAgentFileChangesTable;
 export const symphonyIssuesTable = sqliteTable(
   "symphony_issues",
   {
@@ -82,9 +388,9 @@ export const symphonyTurnsTable = sqliteTable(
     turnId: text("turn_id").primaryKey(),
     runId: text("run_id").notNull(),
     turnSequence: integer("turn_sequence").notNull(),
-    codexThreadId: text("codex_thread_id"),
-    codexTurnId: text("codex_turn_id"),
-    codexSessionId: text("codex_session_id"),
+    threadId: text("thread_id"),
+    agentTurnId: text("agent_turn_id"),
+    sessionId: text("session_id"),
     promptText: text("prompt_text").notNull(),
     status: text("status").notNull(),
     startedAt: text("started_at").notNull(),
@@ -118,9 +424,9 @@ export const symphonyEventsTable = sqliteTable(
     payloadTruncated: integer("payload_truncated", { mode: "boolean" }).notNull(),
     payloadBytes: integer("payload_bytes").notNull(),
     summary: text("summary"),
-    codexThreadId: text("codex_thread_id"),
-    codexTurnId: text("codex_turn_id"),
-    codexSessionId: text("codex_session_id"),
+    threadId: text("thread_id"),
+    agentTurnId: text("agent_turn_id"),
+    sessionId: text("session_id"),
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
@@ -213,8 +519,8 @@ export const symphonyMigrationStateTable = sqliteTable(
   }
 );
 
-export const codexTaskSnapshotsTable = sqliteTable(
-  "codex_task_snapshots",
+export const symphonyAgentTaskSnapshotsTable = sqliteTable(
+  "symphony_agent_task_snapshots",
   {
     snapshotId: text("snapshot_id").primaryKey(),
     runId: text("run_id").notNull(),
@@ -225,15 +531,15 @@ export const codexTaskSnapshotsTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
-    runIdIdx: index("codex_task_snapshots_run_id_idx").on(table.runId),
-    turnIdIdx: index("codex_task_snapshots_turn_id_idx").on(table.turnId),
-    itemIdIdx: index("codex_task_snapshots_item_id_idx").on(table.itemId),
-    recordedAtIdx: index("codex_task_snapshots_recorded_at_idx").on(table.recordedAt)
+    runIdIdx: index("symphony_agent_task_snapshots_run_id_idx").on(table.runId),
+    turnIdIdx: index("symphony_agent_task_snapshots_turn_id_idx").on(table.turnId),
+    itemIdIdx: index("symphony_agent_task_snapshots_item_id_idx").on(table.itemId),
+    recordedAtIdx: index("symphony_agent_task_snapshots_recorded_at_idx").on(table.recordedAt)
   })
 );
 
-export const codexTaskSnapshotItemsTable = sqliteTable(
-  "codex_task_snapshot_items",
+export const symphonyAgentTaskSnapshotItemsTable = sqliteTable(
+  "symphony_agent_task_snapshot_items",
   {
     snapshotId: text("snapshot_id").notNull(),
     position: integer("position").notNull(),
@@ -243,28 +549,31 @@ export const codexTaskSnapshotItemsTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
-    pk: uniqueIndex("codex_task_snapshot_items_pk").on(
+    pk: uniqueIndex("symphony_agent_task_snapshot_items_pk").on(
       table.snapshotId,
       table.position
     ),
-    snapshotIdIdx: index("codex_task_snapshot_items_snapshot_id_idx").on(table.snapshotId),
-    stateIdx: index("codex_task_snapshot_items_state_idx").on(table.state)
+    snapshotIdIdx: index("symphony_agent_task_snapshot_items_snapshot_id_idx").on(table.snapshotId),
+    stateIdx: index("symphony_agent_task_snapshot_items_state_idx").on(table.state)
   })
 );
 
+export const codexTaskSnapshotsTable = symphonyAgentTaskSnapshotsTable;
+export const codexTaskSnapshotItemsTable = symphonyAgentTaskSnapshotItemsTable;
+
 export const symphonySchema = {
-  codexEventLogTable,
-  codexPayloadOverflowTable,
-  codexRunsTable,
-  codexTurnsTable,
-  codexItemsTable,
-  codexCommandExecutionsTable,
-  codexToolCallsTable,
-  codexAgentMessagesTable,
-  codexReasoningTable,
-  codexFileChangesTable,
-  codexTaskSnapshotsTable,
-  codexTaskSnapshotItemsTable,
+  symphonyAgentEventLogTable,
+  symphonyAgentPayloadOverflowTable,
+  symphonyAgentRunsTable,
+  symphonyAgentTurnsTable,
+  symphonyAgentItemsTable,
+  symphonyAgentCommandExecutionsTable,
+  symphonyAgentToolCallsTable,
+  symphonyAgentMessagesTable,
+  symphonyAgentReasoningTable,
+  symphonyAgentFileChangesTable,
+  symphonyAgentTaskSnapshotsTable,
+  symphonyAgentTaskSnapshotItemsTable,
   symphonyIssuesTable,
   symphonyRunsTable,
   symphonyTurnsTable,

@@ -27,19 +27,19 @@ export function IssueRequeuePanel(input: {
   loading: boolean;
 }) {
   const [modelPreview, setModelPreview] = React.useState<string | null>(null);
-  const codexConfig = input.issue?.operator.codex ?? null;
+  const piConfig = input.issue?.operator.pi ?? null;
 
   React.useEffect(() => {
     setModelPreview(null);
-  }, [input.issue?.issueId, codexConfig?.selectedModel]);
+  }, [input.issue?.issueId, piConfig?.selectedModel]);
 
   const selectedModel =
-    modelPreview ?? codexConfig?.selectedModel ?? codexConfig?.defaultModel ?? null;
+    modelPreview ?? piConfig?.selectedModel ?? piConfig?.defaultModel ?? null;
   const overrideLabel =
     selectedModel &&
-    codexConfig &&
-    selectedModel !== codexConfig.defaultModel
-      ? `${codexConfig.modelOverrideLabelPrefix}${selectedModel}`
+    piConfig &&
+    selectedModel !== piConfig.defaultModel
+      ? `${piConfig.modelOverrideLabelPrefix}${selectedModel}`
       : null;
 
   if (input.loading && !input.issue) {
@@ -122,7 +122,7 @@ export function IssueRequeuePanel(input: {
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Default model</p>
                 <p className="font-medium">
-                  {codexConfig?.defaultModel ?? "Unavailable"}
+                  {piConfig?.defaultModel ?? "Unavailable"}
                 </p>
               </div>
             </div>
@@ -139,7 +139,7 @@ export function IssueRequeuePanel(input: {
                   <SelectValue placeholder="Choose a model" />
                 </SelectTrigger>
                 <SelectContent>
-                  {codexConfig?.availableModels.map((model) => (
+                  {piConfig?.availableModels.map((model) => (
                     <SelectItem key={model} value={model}>
                       {model}
                     </SelectItem>
@@ -149,14 +149,14 @@ export function IssueRequeuePanel(input: {
               <p className="text-sm text-muted-foreground">
                 {overrideLabel
                   ? `Apply the Linear label ${overrideLabel} to use this model for future runs.`
-                  : "No label required. The current selection already matches the runtime default."}
+                  : "No label required. The current selection already matches the PI runtime default."}
               </p>
             </div>
 
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Supported overrides</p>
               <div className="flex flex-wrap gap-2">
-                {codexConfig?.availableModels.map((model) => (
+                {piConfig?.availableModels.map((model) => (
                   <Badge key={model} variant="secondary">
                     {model}
                   </Badge>
@@ -165,7 +165,7 @@ export function IssueRequeuePanel(input: {
             </div>
 
             <p className="text-sm text-muted-foreground">
-              {codexConfig?.selectionHelpText}
+              {piConfig?.selectionHelpText}
             </p>
           </CardContent>
         </Card>

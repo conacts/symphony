@@ -27,19 +27,19 @@ export type {
 export {
   createSqliteAgentAnalyticsStore,
   createSqliteCodexAnalyticsStore
-} from "./codex-analytics-store.js";
+} from "./agent-analytics-store.js";
 export type {
   AgentAnalyticsStore,
   CodexAnalyticsStore
-} from "./codex-analytics-store.js";
+} from "./agent-analytics-store.js";
 export {
   createSqliteAgentAnalyticsReadStore,
   createSqliteCodexAnalyticsReadStore
-} from "./codex-analytics-read-store.js";
+} from "./agent-analytics-read-store.js";
 export type {
   AgentAnalyticsReadStore,
   CodexAnalyticsReadStore
-} from "./codex-analytics-read-store.js";
+} from "./agent-analytics-read-store.js";
 export {
   createSymphonyIssueTimelineStore
 } from "./issue-timeline.js";
@@ -63,4 +63,4 @@ export type {
   SymphonyGitHubIngressJournal,
   SymphonyGitHubIngressRecordStatus
 } from "./github-ingress-journal.js";
-export { symphonySchema } from "./schema.js";
+export { symphonySchema, symphonyAgentPayloadOverflowTable } from "./schema.js";

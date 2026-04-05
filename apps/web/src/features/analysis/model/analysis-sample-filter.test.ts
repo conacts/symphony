@@ -29,7 +29,7 @@ describe("analysis sample filter", () => {
             issueId: "issue_456",
             issueIdentifier: "COL-166",
             agentHarness: "pi",
-            codexModel: "gpt-5.4"
+            model: "gpt-5.4"
           },
           artifacts: buildSymphonyCodexRunArtifactsResult({
             run: {

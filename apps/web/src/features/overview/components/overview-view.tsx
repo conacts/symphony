@@ -154,7 +154,7 @@ export function OverviewView(input: {
                 <div className="rounded-xl border border-border/70 p-4">
                   <p className="text-sm text-muted-foreground">Latest agent update</p>
                   <p className="mt-2 text-sm">
-                    {input.runtimeSummary.runningRows[0]?.codexUpdate ??
+                    {input.runtimeSummary.runningRows[0]?.agentUpdate ??
                       "No live agent session is reporting updates right now."}
                   </p>
                 </div>
@@ -328,7 +328,7 @@ export function OverviewView(input: {
                           <TableCell>{row.sessionId ?? "n/a"}</TableCell>
                           <TableCell>{row.execution}</TableCell>
                           <TableCell>{row.runtimeAndTurns}</TableCell>
-                          <TableCell>{row.codexUpdate}</TableCell>
+                          <TableCell>{row.agentUpdate}</TableCell>
                           <TableCell>{row.tokenSummary}</TableCell>
                         </TableRow>
                       ))}

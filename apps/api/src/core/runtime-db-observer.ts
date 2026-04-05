@@ -208,10 +208,10 @@ export function createDbBackedOrchestratorObserver(input: {
 
       await input.agentAnalytics.finalizeRun({
         runId,
-        status: codexRunStatus(completion),
+        status: agentRunStatus(completion),
         endedAt,
         failureKind: completion.kind === "normal" ? null : completion.kind,
-        failureOrigin: completion.kind === "startup_failure" ? "runtime" : "codex",
+        failureOrigin: completion.kind === "startup_failure" ? "runtime" : "agent",
         failureMessagePreview:
           completion.kind === "normal" ? null : previewRuntimeFailure(completion.reason),
         threadId: null
@@ -247,7 +247,7 @@ function completionStatus(
   }
 }
 
-function codexRunStatus(
+function agentRunStatus(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
 ): SymphonyAgentRunStatus {
   switch (completion.kind) {

@@ -160,9 +160,9 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         turnId,
         runId,
         turnSequence,
-        codexThreadId: attrs.codexThreadId ?? null,
-        codexTurnId: attrs.codexTurnId ?? null,
-        codexSessionId: attrs.codexSessionId ?? null,
+        threadId: attrs.threadId ?? null,
+        agentTurnId: attrs.agentTurnId ?? null,
+        sessionId: attrs.sessionId ?? null,
         promptText,
         status: attrs.status,
         startedAt,
@@ -184,7 +184,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       message: `Turn ${turnSequence} started.`,
       payload: {
         turnSequence,
-        codexSessionId: attrs.codexSessionId ?? null
+        sessionId: attrs.sessionId ?? null
       },
       recordedAt: startedAt
     });
@@ -208,9 +208,9 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         status: attrs.status ?? existing.status,
         startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? existing.startedAt,
         endedAt: normalizeIsoTimestamp(attrs.endedAt) ?? existing.endedAt,
-        codexThreadId: attrs.codexThreadId ?? existing.codexThreadId,
-        codexTurnId: attrs.codexTurnId ?? existing.codexTurnId,
-        codexSessionId: attrs.codexSessionId ?? existing.codexSessionId,
+        threadId: attrs.threadId ?? existing.threadId,
+        agentTurnId: attrs.agentTurnId ?? existing.agentTurnId,
+        sessionId: attrs.sessionId ?? existing.sessionId,
         usage: sanitizeUsage(attrs.usage) ?? existing.usage,
         metadata: mergeSanitizedJsonObjects(existing.metadata, attrs.metadata),
         updatedAt: isoNow()
@@ -223,9 +223,9 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     await this.updateTurn(turnId, {
       status: attrs.status,
       endedAt: attrs.endedAt,
-      codexThreadId: attrs.codexThreadId,
-      codexTurnId: attrs.codexTurnId,
-      codexSessionId: attrs.codexSessionId,
+      threadId: attrs.threadId,
+      agentTurnId: attrs.agentTurnId,
+      sessionId: attrs.sessionId,
       usage: attrs.usage,
       metadata: attrs.metadata
     });

@@ -227,11 +227,11 @@ export function buildAgentRunViewModel(input: {
   const transcriptTurns = runArtifacts
     ? buildTranscriptTurns(runArtifacts, input.runDetail.turns)
     : [];
-  const agentStatus = run.codexStatus ?? agentRun?.status ?? "Unavailable";
+  const agentStatus = run.agentStatus ?? agentRun?.status ?? "Unavailable";
   const workflowStatus = run.status;
   const workflowOutcome = run.outcome ?? "n/a";
   const agentFailureSummary =
-    run.codexFailureMessagePreview ??
+    run.agentFailureMessagePreview ??
     agentRun?.failureMessagePreview ??
     run.errorMessage ??
     null;
@@ -253,9 +253,9 @@ export function buildAgentRunViewModel(input: {
         detail: formatOutcomeLabel(workflowOutcome)
       },
       {
-        label: harnessLabel,
+        label: "PI runtime",
         value: formatStatusLabel(agentStatus),
-        detail: formatLabel(run.codexFailureKind ?? agentRun?.failureKind ?? "healthy")
+        detail: formatLabel(run.agentFailureKind ?? agentRun?.failureKind ?? "healthy")
       },
       {
         label: "Duration",
@@ -292,26 +292,26 @@ export function buildAgentRunViewModel(input: {
       },
       {
         label: "Model",
-        value: input.runDetail.run.codexModel ?? "Unavailable"
+        value: input.runDetail.run.model ?? "Unavailable"
       },
       {
         label: "Provider",
-        value: input.runDetail.run.codexProviderName ?? "Unavailable"
+        value: input.runDetail.run.providerName ?? "Unavailable"
       },
       {
         label: "Auth",
-        value: formatAuthModeLabel(input.runDetail.run.codexAuthMode ?? "Unavailable")
+        value: formatAuthModeLabel(input.runDetail.run.authMode ?? "Unavailable")
       },
       {
         label: "Provider env",
         value: formatProviderEnvKeyLabel(
-          input.runDetail.run.codexProviderEnvKey ?? "Unavailable"
+          input.runDetail.run.providerEnvKey ?? "Unavailable"
         )
       },
       {
-        label: "Thread",
+        label: "PI thread",
         value:
-          input.runDetail.run.codexThreadId ??
+          input.runDetail.run.threadId ??
           agentRun?.threadId ??
           "Unavailable"
       },

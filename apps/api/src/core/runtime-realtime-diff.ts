@@ -108,7 +108,7 @@ function buildRealtimeComparableSnapshot(
       workspacePath: entry.workspacePath,
       delayType: entry.delayType
     })),
-    codexTotals: snapshot.codexTotals,
+    agentTotals: snapshot.codexTotals,
     rateLimits: snapshot.rateLimits
   };
 }

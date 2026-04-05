@@ -305,13 +305,14 @@ function buildFailureIssueRow(
   const latestProblemRun = [...problemRuns].sort((left, right) =>
     (right.run.startedAt ?? "").localeCompare(left.run.startedAt ?? "")
   )[0]?.run;
+  const latestFailureKind = latestProblemRun?.agentFailureKind ?? null;
+  const latestFailureMessage = latestProblemRun?.agentFailureMessagePreview ?? null;
 
   return {
     issueIdentifier,
-    latestProblemOutcome: latestProblemRun?.outcome ?? latestProblemRun?.codexFailureKind ?? null,
-    latestErrorClass: latestProblemRun?.errorClass ?? latestProblemRun?.codexFailureKind ?? null,
-    latestErrorMessage:
-      latestProblemRun?.errorMessage ?? latestProblemRun?.codexFailureMessagePreview ?? null,
+    latestProblemOutcome: latestProblemRun?.outcome ?? latestFailureKind,
+    latestErrorClass: latestProblemRun?.errorClass ?? latestFailureKind,
+    latestErrorMessage: latestProblemRun?.errorMessage ?? latestFailureMessage,
     latestActivityAt: latestRun?.lastEventAt ?? latestRun?.startedAt ?? null,
     problemRunCount: problemRuns.length,
     retryCount: Math.max(sampledRuns.length - 1, 0)

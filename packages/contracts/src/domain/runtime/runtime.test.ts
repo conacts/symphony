@@ -128,7 +128,7 @@ describe("symphony runtime contracts", () => {
             launchTarget: null
           }
         ],
-        codexTotals: {
+        agentTotals: {
           inputTokens: 10,
           outputTokens: 20,
           totalTokens: 30,
@@ -274,7 +274,7 @@ describe("symphony runtime contracts", () => {
           requeueCommand: "/rework",
           requeueHelpText:
             "Use /rework on the PR or move the Linear issue back into a dispatchable state.",
-          codex: {
+          pi: {
             defaultModel: "xiaomi/mimo-v2-pro",
             selectedModel: "xiaomi/mimo-v2-pro",
             availableModels: [
@@ -352,7 +352,7 @@ describe("symphony runtime contracts", () => {
           requeueCommand: "/rework",
           requeueHelpText:
             "Use /rework on the PR or move the Linear issue back into a dispatchable state.",
-          codex: {
+          pi: {
             defaultModel: "xiaomi/mimo-v2-pro",
             selectedModel: "xiaomi/mimo-v2-pro",
             availableModels: [
@@ -401,7 +401,7 @@ describe("symphony runtime contracts", () => {
             }
           ],
           retrying: [],
-          codexTotals: {
+          agentTotals: {
             inputTokens: 0,
             outputTokens: 0,
             totalTokens: 0,

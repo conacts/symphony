@@ -65,7 +65,7 @@ export function serializeRuntimeState(
       ),
       launchTarget: serializeRuntimeLaunchTarget(entry.launchTarget)
     })),
-    codexTotals: snapshot.codexTotals,
+    agentTotals: snapshot.codexTotals,
     rateLimits: snapshot.rateLimits
   };
 }
@@ -185,7 +185,7 @@ export function serializeRuntimeIssue(
       requeueCommand: "/rework",
       requeueHelpText:
         "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
-      codex: {
+      pi: {
         defaultModel,
         selectedModel,
         availableModels: listSupportedCodexModels(),

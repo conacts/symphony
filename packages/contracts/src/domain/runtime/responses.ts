@@ -13,7 +13,7 @@ export const symphonyRuntimeTokenTotalsSchema = z.strictObject({
   totalTokens: z.number().int().nonnegative()
 });
 
-export const symphonyRuntimeCodexTotalsSchema = symphonyRuntimeTokenTotalsSchema.extend({
+export const symphonyRuntimeAgentTotalsSchema = symphonyRuntimeTokenTotalsSchema.extend({
   secondsRunning: z.number().nonnegative()
 });
 
@@ -177,7 +177,7 @@ export const symphonyRuntimeStateResultSchema = z.strictObject({
   }),
   running: z.array(symphonyRuntimeRunningEntrySchema),
   retrying: z.array(symphonyRuntimeRetryEntrySchema),
-  codexTotals: symphonyRuntimeCodexTotalsSchema,
+  agentTotals: symphonyRuntimeAgentTotalsSchema,
   rateLimits: jsonObjectSchema.nullable()
 });
 
@@ -311,7 +311,7 @@ export const symphonyRuntimeIssueOperatorSchema = z.strictObject({
     .nonempty(),
   requeueCommand: nonEmptyStringSchema,
   requeueHelpText: nonEmptyStringSchema,
-  codex: z.strictObject({
+  pi: z.strictObject({
     defaultModel: nullableNonEmptyStringSchema,
     selectedModel: nullableNonEmptyStringSchema,
     availableModels: z.array(nonEmptyStringSchema),
@@ -382,7 +382,7 @@ export const symphonyRuntimeHealthResponseSchema = createEnvelopeSchema(
 );
 
 export type SymphonyRuntimeTokenTotals = z.infer<typeof symphonyRuntimeTokenTotalsSchema>;
-export type SymphonyRuntimeCodexTotals = z.infer<typeof symphonyRuntimeCodexTotalsSchema>;
+export type SymphonyRuntimeAgentTotals = z.infer<typeof symphonyRuntimeAgentTotalsSchema>;
 export type SymphonyRuntimeRunningEntry = z.infer<typeof symphonyRuntimeRunningEntrySchema>;
 export type SymphonyRuntimeRetryEntry = z.infer<typeof symphonyRuntimeRetryEntrySchema>;
 export type SymphonyRuntimeStateResult = z.infer<typeof symphonyRuntimeStateResultSchema>;

@@ -33,18 +33,18 @@ import type {
   SymphonyForensicsRunSummary,
 } from "@symphony/contracts";
 import {
-  codexEventLogTable,
-  codexAgentMessagesTable,
-  codexCommandExecutionsTable,
-  codexFileChangesTable,
-  codexItemsTable,
-  codexPayloadOverflowTable,
-  codexReasoningTable,
-  codexRunsTable,
-  codexTaskSnapshotItemsTable,
-  codexTaskSnapshotsTable,
-  codexToolCallsTable,
-  codexTurnsTable,
+  symphonyAgentCommandExecutionsTable,
+  symphonyAgentEventLogTable,
+  symphonyAgentFileChangesTable,
+  symphonyAgentItemsTable,
+  symphonyAgentMessagesTable,
+  symphonyAgentPayloadOverflowTable,
+  symphonyAgentReasoningTable,
+  symphonyAgentRunsTable,
+  symphonyAgentTaskSnapshotItemsTable,
+  symphonyAgentTaskSnapshotsTable,
+  symphonyAgentToolCallsTable,
+  symphonyAgentTurnsTable,
   symphonyIssuesTable,
   symphonyRuntimeLogsTable,
   symphonyRunsTable,
@@ -90,14 +90,14 @@ export interface AgentAnalyticsReadStore {
 export function createSqliteAgentAnalyticsReadStore(input: {
   db: BetterSQLite3Database<SymphonyDbShape>;
 }): AgentAnalyticsReadStore {
-  return new SqliteCodexAnalyticsReadStore(input.db);
+  return new SqliteAgentAnalyticsReadStore(input.db);
 }
 
 export const createSqliteCodexAnalyticsReadStore =
   createSqliteAgentAnalyticsReadStore;
 export type CodexAnalyticsReadStore = AgentAnalyticsReadStore;
 
-class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
+class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
   readonly #db: BetterSQLite3Database<SymphonyDbShape>;
 
   constructor(db: BetterSQLite3Database<SymphonyDbShape>) {
@@ -124,17 +124,17 @@ class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
     const runIds = runs.map((run) => run.runId);
     const codexRuns = this.#db
       .select()
-      .from(codexRunsTable)
-      .where(inArray(codexRunsTable.runId, runIds))
+      .from(symphonyAgentRunsTable)
+      .where(inArray(symphonyAgentRunsTable.runId, runIds))
       .all();
     const eventCounts = this.#db
       .select({
-        runId: codexEventLogTable.runId,
+        runId: symphonyAgentEventLogTable.runId,
         count: sql<number>`count(*)`
       })
-      .from(codexEventLogTable)
-      .where(inArray(codexEventLogTable.runId, runIds))
-      .groupBy(codexEventLogTable.runId)
+      .from(symphonyAgentEventLogTable)
+      .where(inArray(symphonyAgentEventLogTable.runId, runIds))
+      .groupBy(symphonyAgentEventLogTable.runId)
       .all();
     const runtimeLogRows = this.#db
       .select()
@@ -208,15 +208,15 @@ class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
           data.eventRows.length,
           data.runtimeContext
         ),
-        codexThreadId: data.codexRun.threadId ?? null,
-        codexProviderId: data.codexRun.providerId ?? data.runtimeContext.providerId,
-        codexProviderName: data.codexRun.providerName ?? data.runtimeContext.providerName,
-        codexAuthMode:
+        threadId: data.codexRun.threadId ?? null,
+        providerId: data.codexRun.providerId ?? data.runtimeContext.providerId,
+        providerName: data.codexRun.providerName ?? data.runtimeContext.providerName,
+        authMode:
           data.runtimeContext.authMode === "auth_json" ||
           data.runtimeContext.authMode === "api_key_env"
             ? data.runtimeContext.authMode
             : null,
-        codexProviderEnvKey: data.runtimeContext.providerEnvKey,
+        providerEnvKey: data.runtimeContext.providerEnvKey,
         repoStart: castJsonObject(data.run.repoStart),
         repoEnd: castJsonObject(data.run.repoEnd),
         metadata: castJsonObject(data.run.metadata),
@@ -271,11 +271,11 @@ class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
   ): Promise<SymphonyAgentOverflowRecord | null> {
     const row = await this.#db
       .select()
-      .from(codexPayloadOverflowTable)
+      .from(symphonyAgentPayloadOverflowTable)
       .where(
         and(
-          eq(codexPayloadOverflowTable.runId, runId),
-          eq(codexPayloadOverflowTable.id, overflowId)
+          eq(symphonyAgentPayloadOverflowTable.runId, runId),
+          eq(symphonyAgentPayloadOverflowTable.id, overflowId)
         )
       )
       .get();
@@ -286,9 +286,9 @@ class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
   async listTurns(runId: SymphonyAgentRunQuery["runId"]): Promise<SymphonyAgentTurnRecord[]> {
     const rows = await this.#db
       .select()
-      .from(codexTurnsTable)
-      .where(eq(codexTurnsTable.runId, runId))
-      .orderBy(asc(codexTurnsTable.startedAt))
+      .from(symphonyAgentTurnsTable)
+      .where(eq(symphonyAgentTurnsTable.runId, runId))
+      .orderBy(asc(symphonyAgentTurnsTable.startedAt))
       .all();
 
     return mapCodexTurnRecords(rows);
@@ -297,16 +297,16 @@ class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
   async listItems(input: SymphonyAgentRunTurnQuery): Promise<SymphonyAgentItemRecord[]> {
     const rows = await this.#db
       .select()
-      .from(codexItemsTable)
+      .from(symphonyAgentItemsTable)
       .where(
         input.turnId
           ? and(
-              eq(codexItemsTable.runId, input.runId),
-              eq(codexItemsTable.turnId, input.turnId)
+              eq(symphonyAgentItemsTable.runId, input.runId),
+              eq(symphonyAgentItemsTable.turnId, input.turnId)
             )
-          : eq(codexItemsTable.runId, input.runId)
+          : eq(symphonyAgentItemsTable.runId, input.runId)
       )
-      .orderBy(asc(codexItemsTable.insertedAt))
+      .orderBy(asc(symphonyAgentItemsTable.insertedAt))
       .all();
 
     return rows.map(mapCodexItemRecord);
@@ -317,16 +317,16 @@ class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
   ): Promise<SymphonyAgentCommandExecutionRecord[]> {
     const rows = await this.#db
       .select()
-      .from(codexCommandExecutionsTable)
+      .from(symphonyAgentCommandExecutionsTable)
       .where(
         input.turnId
           ? and(
-              eq(codexCommandExecutionsTable.runId, input.runId),
-              eq(codexCommandExecutionsTable.turnId, input.turnId)
+              eq(symphonyAgentCommandExecutionsTable.runId, input.runId),
+              eq(symphonyAgentCommandExecutionsTable.turnId, input.turnId)
             )
-          : eq(codexCommandExecutionsTable.runId, input.runId)
+          : eq(symphonyAgentCommandExecutionsTable.runId, input.runId)
       )
-      .orderBy(asc(codexCommandExecutionsTable.insertedAt))
+      .orderBy(asc(symphonyAgentCommandExecutionsTable.insertedAt))
       .all();
 
     return rows.map(mapCodexCommandExecutionRecord);
@@ -335,16 +335,16 @@ class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
   async listToolCalls(input: SymphonyAgentRunTurnQuery): Promise<SymphonyAgentToolCallRecord[]> {
     const rows = await this.#db
       .select()
-      .from(codexToolCallsTable)
+      .from(symphonyAgentToolCallsTable)
       .where(
         input.turnId
           ? and(
-              eq(codexToolCallsTable.runId, input.runId),
-              eq(codexToolCallsTable.turnId, input.turnId)
+              eq(symphonyAgentToolCallsTable.runId, input.runId),
+              eq(symphonyAgentToolCallsTable.turnId, input.turnId)
             )
-          : eq(codexToolCallsTable.runId, input.runId)
+          : eq(symphonyAgentToolCallsTable.runId, input.runId)
       )
-      .orderBy(asc(codexToolCallsTable.insertedAt))
+      .orderBy(asc(symphonyAgentToolCallsTable.insertedAt))
       .all();
 
     return rows.map(mapCodexToolCallRecord);
@@ -355,16 +355,16 @@ class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
   ): Promise<SymphonyAgentMessageRecord[]> {
     const rows = await this.#db
       .select()
-      .from(codexAgentMessagesTable)
+      .from(symphonyAgentMessagesTable)
       .where(
         input.turnId
           ? and(
-              eq(codexAgentMessagesTable.runId, input.runId),
-              eq(codexAgentMessagesTable.turnId, input.turnId)
+              eq(symphonyAgentMessagesTable.runId, input.runId),
+              eq(symphonyAgentMessagesTable.turnId, input.turnId)
             )
-          : eq(codexAgentMessagesTable.runId, input.runId)
+          : eq(symphonyAgentMessagesTable.runId, input.runId)
       )
-      .orderBy(asc(codexAgentMessagesTable.recordedAt), asc(codexAgentMessagesTable.insertedAt))
+      .orderBy(asc(symphonyAgentMessagesTable.recordedAt), asc(symphonyAgentMessagesTable.insertedAt))
       .all();
 
     return rows.map(mapCodexAgentMessageRecord);
@@ -373,16 +373,16 @@ class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
   async listReasoning(input: SymphonyAgentRunTurnQuery): Promise<SymphonyAgentReasoningBlockRecord[]> {
     const rows = await this.#db
       .select()
-      .from(codexReasoningTable)
+      .from(symphonyAgentReasoningTable)
       .where(
         input.turnId
           ? and(
-              eq(codexReasoningTable.runId, input.runId),
-              eq(codexReasoningTable.turnId, input.turnId)
+              eq(symphonyAgentReasoningTable.runId, input.runId),
+              eq(symphonyAgentReasoningTable.turnId, input.turnId)
             )
-          : eq(codexReasoningTable.runId, input.runId)
+          : eq(symphonyAgentReasoningTable.runId, input.runId)
       )
-      .orderBy(asc(codexReasoningTable.recordedAt), asc(codexReasoningTable.insertedAt))
+      .orderBy(asc(symphonyAgentReasoningTable.recordedAt), asc(symphonyAgentReasoningTable.insertedAt))
       .all();
 
     return rows.map(mapCodexReasoningRecord);
@@ -393,16 +393,16 @@ class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
   ): Promise<SymphonyAgentFileChangeRecord[]> {
     const rows = await this.#db
       .select()
-      .from(codexFileChangesTable)
+      .from(symphonyAgentFileChangesTable)
       .where(
         input.turnId
           ? and(
-              eq(codexFileChangesTable.runId, input.runId),
-              eq(codexFileChangesTable.turnId, input.turnId)
+              eq(symphonyAgentFileChangesTable.runId, input.runId),
+              eq(symphonyAgentFileChangesTable.turnId, input.turnId)
             )
-          : eq(codexFileChangesTable.runId, input.runId)
+          : eq(symphonyAgentFileChangesTable.runId, input.runId)
       )
-      .orderBy(asc(codexFileChangesTable.recordedAt))
+      .orderBy(asc(symphonyAgentFileChangesTable.recordedAt))
       .all();
 
     return rows.map(mapCodexFileChangeRecord);
@@ -413,16 +413,16 @@ class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
   ): Promise<SymphonyAgentTaskSnapshotRecord[]> {
     const snapshotRows = await this.#db
       .select()
-      .from(codexTaskSnapshotsTable)
+      .from(symphonyAgentTaskSnapshotsTable)
       .where(
         input.turnId
           ? and(
-              eq(codexTaskSnapshotsTable.runId, input.runId),
-              eq(codexTaskSnapshotsTable.turnId, input.turnId)
+              eq(symphonyAgentTaskSnapshotsTable.runId, input.runId),
+              eq(symphonyAgentTaskSnapshotsTable.turnId, input.turnId)
             )
-          : eq(codexTaskSnapshotsTable.runId, input.runId)
+          : eq(symphonyAgentTaskSnapshotsTable.runId, input.runId)
       )
-      .orderBy(asc(codexTaskSnapshotsTable.recordedAt), asc(codexTaskSnapshotsTable.insertedAt))
+      .orderBy(asc(symphonyAgentTaskSnapshotsTable.recordedAt), asc(symphonyAgentTaskSnapshotsTable.insertedAt))
       .all();
 
     if (snapshotRows.length === 0) {
@@ -432,11 +432,11 @@ class SqliteCodexAnalyticsReadStore implements AgentAnalyticsReadStore {
     const snapshotIds = snapshotRows.map((row) => row.snapshotId);
     const itemRows = await this.#db
       .select()
-      .from(codexTaskSnapshotItemsTable)
-      .where(inArray(codexTaskSnapshotItemsTable.snapshotId, snapshotIds))
+      .from(symphonyAgentTaskSnapshotItemsTable)
+      .where(inArray(symphonyAgentTaskSnapshotItemsTable.snapshotId, snapshotIds))
       .orderBy(
-        asc(codexTaskSnapshotItemsTable.snapshotId),
-        asc(codexTaskSnapshotItemsTable.position)
+        asc(symphonyAgentTaskSnapshotItemsTable.snapshotId),
+        asc(symphonyAgentTaskSnapshotItemsTable.position)
       )
       .all();
 
@@ -477,8 +477,8 @@ type ForensicsTurn = SymphonyForensicsRunDetailResult["turns"][number];
 type ForensicsEvent = ForensicsTurn["events"][number];
 
 function resolveEventPayload(
-  row: typeof codexEventLogTable.$inferSelect,
-  overflowMap: Map<string, typeof codexPayloadOverflowTable.$inferSelect>
+  row: typeof symphonyAgentEventLogTable.$inferSelect,
+  overflowMap: Map<string, typeof symphonyAgentPayloadOverflowTable.$inferSelect>
 ): ThreadEvent | null {
   const inlinePayload = row.payloadJson;
 
@@ -507,7 +507,7 @@ function mapPersistedRunRecord(
 
 function buildForensicsRunSummary(
   run: PersistedRunRecord,
-  codexRun: typeof codexRunsTable.$inferSelect | undefined,
+  codexRun: typeof symphonyAgentRunsTable.$inferSelect | undefined,
   eventCount: number,
   runtimeContext?: {
     harness: "codex" | "opencode" | "pi" | null;
@@ -527,11 +527,11 @@ function buildForensicsRunSummary(
     status: run.status,
     outcome: run.outcome,
     agentHarness: normalizeHarnessKind(codexRun?.harnessKind ?? null) ?? runtimeContext?.harness ?? null,
-    codexStatus: codexRun ? normalizeCodexRunStatus(codexRun.status) : null,
-    codexFailureKind: codexRun?.failureKind ?? null,
-    codexFailureOrigin: codexRun?.failureOrigin ?? null,
-    codexFailureMessagePreview: codexRun?.failureMessagePreview ?? null,
-    codexModel: codexRun?.model ?? runtimeContext?.model ?? null,
+    agentStatus: codexRun ? normalizeCodexRunStatus(codexRun.status) : null,
+    agentFailureKind: codexRun?.failureKind ?? null,
+    agentFailureOrigin: codexRun?.failureOrigin ?? null,
+    agentFailureMessagePreview: codexRun?.failureMessagePreview ?? null,
+    model: codexRun?.model ?? runtimeContext?.model ?? null,
     workerHost: run.workerHost,
     workspacePath: run.workspacePath,
     startedAt: run.startedAt,
@@ -580,7 +580,7 @@ function buildRuntimeContextMap(
 }
 
 function buildUsage(
-  codexTurn: typeof codexTurnsTable.$inferSelect | undefined,
+  codexTurn: typeof symphonyAgentTurnsTable.$inferSelect | undefined,
   legacyUsage: unknown
 ): SymphonyAgentTurnRecord["usage"] {
   if (codexTurn) {
@@ -877,7 +877,7 @@ function normalizeHarnessKind(
 }
 
 function mapCodexRunRecord(
-  run: typeof codexRunsTable.$inferSelect
+  run: typeof symphonyAgentRunsTable.$inferSelect
 ): SymphonyAgentRunRecord {
   return {
     ...run,
@@ -888,7 +888,7 @@ function mapCodexRunRecord(
 }
 
 function mapCodexTurnRecord(
-  turn: typeof codexTurnsTable.$inferSelect
+  turn: typeof symphonyAgentTurnsTable.$inferSelect
 ): SymphonyAgentTurnRecord {
   return {
     ...turn,
@@ -900,7 +900,7 @@ function mapCodexTurnRecord(
 }
 
 function mapCodexTurnRecords(
-  turns: Array<typeof codexTurnsTable.$inferSelect>
+  turns: Array<typeof symphonyAgentTurnsTable.$inferSelect>
 ): SymphonyAgentTurnRecord[] {
   return [...turns]
     .sort((left, right) => compareNullableIso(left.startedAt, right.startedAt))
@@ -908,7 +908,7 @@ function mapCodexTurnRecords(
 }
 
 function mapCodexItemRecord(
-  row: typeof codexItemsTable.$inferSelect
+  row: typeof symphonyAgentItemsTable.$inferSelect
 ): SymphonyAgentItemRecord {
   return {
     ...row,
@@ -917,7 +917,7 @@ function mapCodexItemRecord(
 }
 
 function mapCodexCommandExecutionRecord(
-  row: typeof codexCommandExecutionsTable.$inferSelect
+  row: typeof symphonyAgentCommandExecutionsTable.$inferSelect
 ): SymphonyAgentCommandExecutionRecord {
   return {
     ...row,
@@ -926,7 +926,7 @@ function mapCodexCommandExecutionRecord(
 }
 
 function mapCodexToolCallRecord(
-  row: typeof codexToolCallsTable.$inferSelect
+  row: typeof symphonyAgentToolCallsTable.$inferSelect
 ): SymphonyAgentToolCallRecord {
   return {
     ...row,
@@ -936,28 +936,28 @@ function mapCodexToolCallRecord(
 }
 
 function mapCodexAgentMessageRecord(
-  row: typeof codexAgentMessagesTable.$inferSelect
+  row: typeof symphonyAgentMessagesTable.$inferSelect
 ): SymphonyAgentMessageRecord {
   return { ...row };
 }
 
 function mapCodexReasoningRecord(
-  row: typeof codexReasoningTable.$inferSelect
+  row: typeof symphonyAgentReasoningTable.$inferSelect
 ): SymphonyAgentReasoningBlockRecord {
   return { ...row };
 }
 
 function mapCodexFileChangeRecord(
-  row: typeof codexFileChangesTable.$inferSelect
+  row: typeof symphonyAgentFileChangesTable.$inferSelect
 ): SymphonyAgentFileChangeRecord {
   return { ...row };
 }
 
 function mapCodexTaskSnapshotRecords(
-  snapshotRows: Array<typeof codexTaskSnapshotsTable.$inferSelect>,
-  itemRows: Array<typeof codexTaskSnapshotItemsTable.$inferSelect>
+  snapshotRows: Array<typeof symphonyAgentTaskSnapshotsTable.$inferSelect>,
+  itemRows: Array<typeof symphonyAgentTaskSnapshotItemsTable.$inferSelect>
 ): SymphonyAgentTaskSnapshotRecord[] {
-  const itemsBySnapshotId = new Map<string, Array<typeof codexTaskSnapshotItemsTable.$inferSelect>>();
+  const itemsBySnapshotId = new Map<string, Array<typeof symphonyAgentTaskSnapshotItemsTable.$inferSelect>>();
 
   for (const row of itemRows) {
     const items = itemsBySnapshotId.get(row.snapshotId);
@@ -993,12 +993,12 @@ function mapCodexTaskSnapshotRecords(
 }
 
 function mapAgentTurnActivityRecords(input: {
-  turnRows: Array<typeof codexTurnsTable.$inferSelect>;
-  agentMessageRows: Array<typeof codexAgentMessagesTable.$inferSelect>;
-  reasoningRows: Array<typeof codexReasoningTable.$inferSelect>;
-  fileChangeRows: Array<typeof codexFileChangesTable.$inferSelect>;
-  taskSnapshotRows: Array<typeof codexTaskSnapshotsTable.$inferSelect>;
-  taskSnapshotItemRows: Array<typeof codexTaskSnapshotItemsTable.$inferSelect>;
+  turnRows: Array<typeof symphonyAgentTurnsTable.$inferSelect>;
+  agentMessageRows: Array<typeof symphonyAgentMessagesTable.$inferSelect>;
+  reasoningRows: Array<typeof symphonyAgentReasoningTable.$inferSelect>;
+  fileChangeRows: Array<typeof symphonyAgentFileChangesTable.$inferSelect>;
+  taskSnapshotRows: Array<typeof symphonyAgentTaskSnapshotsTable.$inferSelect>;
+  taskSnapshotItemRows: Array<typeof symphonyAgentTaskSnapshotItemsTable.$inferSelect>;
 }): SymphonyAgentTurnActivityRecord[] {
   const messagesByTurn = groupRowsByTurnId(input.agentMessageRows);
   const reasoningByTurn = groupRowsByTurnId(input.reasoningRows);
@@ -1045,10 +1045,10 @@ function mapAgentTurnActivityRecords(input: {
 }
 
 function mapCodexEventRecords(
-  eventRows: Array<typeof codexEventLogTable.$inferSelect>,
-  overflowMap: Map<string, typeof codexPayloadOverflowTable.$inferSelect>,
-  codexTurnMap: Map<string, typeof codexTurnsTable.$inferSelect>,
-  codexRun: typeof codexRunsTable.$inferSelect
+  eventRows: Array<typeof symphonyAgentEventLogTable.$inferSelect>,
+  overflowMap: Map<string, typeof symphonyAgentPayloadOverflowTable.$inferSelect>,
+  codexTurnMap: Map<string, typeof symphonyAgentTurnsTable.$inferSelect>,
+  codexRun: typeof symphonyAgentRunsTable.$inferSelect
 ): SymphonyAgentEventRecord[] {
   return eventRows.flatMap((row) => {
     const payload = resolveEventPayload(row, overflowMap);
@@ -1087,7 +1087,7 @@ function mapCodexEventRecords(
 }
 
 function mapCodexOverflowRecord(
-  row: typeof codexPayloadOverflowTable.$inferSelect
+  row: typeof symphonyAgentPayloadOverflowTable.$inferSelect
 ): SymphonyAgentOverflowRecord {
   return {
     overflowId: row.id,
@@ -1128,12 +1128,12 @@ function buildForensicsTurns(input: RunData): ForensicsTurn[] {
 
 function mapForensicsTurnRecord(
   turn: typeof symphonyTurnsTable.$inferSelect,
-  codexTurn: typeof codexTurnsTable.$inferSelect | undefined,
+  codexTurn: typeof symphonyAgentTurnsTable.$inferSelect | undefined,
   codexRunThreadId: string | null
 ): Omit<ForensicsTurn, "eventCount" | "events"> {
   return {
     ...turn,
-    codexThreadId: codexTurn?.threadId ?? turn.codexThreadId ?? codexRunThreadId,
+    threadId: codexTurn?.threadId ?? turn.threadId ?? codexRunThreadId,
     usage: buildUsage(codexTurn, turn.usage),
     metadata: castJsonObject(turn.metadata)
   };
@@ -1141,16 +1141,16 @@ function mapForensicsTurnRecord(
 
 function synthesizeForensicsTurnRecord(
   run: typeof symphonyRunsTable.$inferSelect,
-  codexTurn: typeof codexTurnsTable.$inferSelect,
+  codexTurn: typeof symphonyAgentTurnsTable.$inferSelect,
   turnSequence: number
 ): Omit<ForensicsTurn, "eventCount" | "events"> {
   return {
     turnId: codexTurn.turnId,
     runId: codexTurn.runId,
     turnSequence,
-    codexThreadId: codexTurn.threadId ?? null,
-    codexTurnId: codexTurn.turnId,
-    codexSessionId: null,
+    threadId: codexTurn.threadId ?? null,
+    agentTurnId: codexTurn.turnId,
+    sessionId: null,
     promptText: "[codex prompt unavailable]",
     status: codexTurn.status,
     startedAt: codexTurn.startedAt ?? run.startedAt,
@@ -1163,10 +1163,10 @@ function synthesizeForensicsTurnRecord(
 }
 
 function buildForensicsEvents(input: {
-  eventRows: Array<typeof codexEventLogTable.$inferSelect>;
-  overflowMap: Map<string, typeof codexPayloadOverflowTable.$inferSelect>;
-  codexTurnMap: Map<string, typeof codexTurnsTable.$inferSelect>;
-  codexRun: typeof codexRunsTable.$inferSelect;
+  eventRows: Array<typeof symphonyAgentEventLogTable.$inferSelect>;
+  overflowMap: Map<string, typeof symphonyAgentPayloadOverflowTable.$inferSelect>;
+  codexTurnMap: Map<string, typeof symphonyAgentTurnsTable.$inferSelect>;
+  codexRun: typeof symphonyAgentRunsTable.$inferSelect;
 }): ForensicsEvent[] {
   return input.eventRows.flatMap((row) => {
     const payload = resolveEventPayload(row, input.overflowMap);
@@ -1188,13 +1188,13 @@ function buildForensicsEvents(input: {
       payloadTruncated: row.payloadTruncated,
       payloadBytes: byteLength(JSON.stringify(payload)),
       summary: summarizeEvent(payload),
-      codexThreadId:
+      threadId:
         row.threadId ??
         input.codexTurnMap.get(row.turnId)?.threadId ??
         input.codexRun.threadId ??
         null,
-      codexTurnId: row.turnId,
-      codexSessionId: null,
+      agentTurnId: row.turnId,
+      sessionId: null,
       insertedAt: row.insertedAt
     }];
   });
@@ -1202,22 +1202,22 @@ function buildForensicsEvents(input: {
 
 type RunData = {
   run: typeof symphonyRunsTable.$inferSelect;
-  codexRun: typeof codexRunsTable.$inferSelect;
+  codexRun: typeof symphonyAgentRunsTable.$inferSelect;
   issue: typeof symphonyIssuesTable.$inferSelect;
   issueRuns: Array<typeof symphonyRunsTable.$inferSelect>;
   symphonyTurns: Array<typeof symphonyTurnsTable.$inferSelect>;
-  codexTurns: Array<typeof codexTurnsTable.$inferSelect>;
-  eventRows: Array<typeof codexEventLogTable.$inferSelect>;
-  overflowMap: Map<string, typeof codexPayloadOverflowTable.$inferSelect>;
-  codexTurnMap: Map<string, typeof codexTurnsTable.$inferSelect>;
-  itemRows: Array<typeof codexItemsTable.$inferSelect>;
-  commandRows: Array<typeof codexCommandExecutionsTable.$inferSelect>;
-  toolRows: Array<typeof codexToolCallsTable.$inferSelect>;
-  agentMessageRows: Array<typeof codexAgentMessagesTable.$inferSelect>;
-  reasoningRows: Array<typeof codexReasoningTable.$inferSelect>;
-  fileChangeRows: Array<typeof codexFileChangesTable.$inferSelect>;
-  taskSnapshotRows: Array<typeof codexTaskSnapshotsTable.$inferSelect>;
-  taskSnapshotItemRows: Array<typeof codexTaskSnapshotItemsTable.$inferSelect>;
+  codexTurns: Array<typeof symphonyAgentTurnsTable.$inferSelect>;
+  eventRows: Array<typeof symphonyAgentEventLogTable.$inferSelect>;
+  overflowMap: Map<string, typeof symphonyAgentPayloadOverflowTable.$inferSelect>;
+  codexTurnMap: Map<string, typeof symphonyAgentTurnsTable.$inferSelect>;
+  itemRows: Array<typeof symphonyAgentItemsTable.$inferSelect>;
+  commandRows: Array<typeof symphonyAgentCommandExecutionsTable.$inferSelect>;
+  toolRows: Array<typeof symphonyAgentToolCallsTable.$inferSelect>;
+  agentMessageRows: Array<typeof symphonyAgentMessagesTable.$inferSelect>;
+  reasoningRows: Array<typeof symphonyAgentReasoningTable.$inferSelect>;
+  fileChangeRows: Array<typeof symphonyAgentFileChangesTable.$inferSelect>;
+  taskSnapshotRows: Array<typeof symphonyAgentTaskSnapshotsTable.$inferSelect>;
+  taskSnapshotItemRows: Array<typeof symphonyAgentTaskSnapshotItemsTable.$inferSelect>;
   runtimeContext: {
     harness: "codex" | "opencode" | "pi" | null;
     model: string | null;
@@ -1245,28 +1245,28 @@ async function loadRunData(
 
   const [codexRun, issue, issueRuns, symphonyTurns, codexTurns, eventRows, itemRows, commandRows, toolRows, agentMessageRows, reasoningRows, fileChangeRows, taskSnapshotRows, runtimeLogRows] =
     await Promise.all([
-      db.select().from(codexRunsTable).where(eq(codexRunsTable.runId, runId)).get(),
+      db.select().from(symphonyAgentRunsTable).where(eq(symphonyAgentRunsTable.runId, runId)).get(),
       db.select().from(symphonyIssuesTable).where(eq(symphonyIssuesTable.issueId, run.issueId)).get(),
       db.select().from(symphonyRunsTable).where(eq(symphonyRunsTable.issueId, run.issueId)).all(),
       db.select().from(symphonyTurnsTable).where(eq(symphonyTurnsTable.runId, runId)).orderBy(asc(symphonyTurnsTable.turnSequence)).all(),
-      db.select().from(codexTurnsTable).where(eq(codexTurnsTable.runId, runId)).all(),
-      db.select().from(codexEventLogTable).where(eq(codexEventLogTable.runId, runId)).orderBy(asc(codexEventLogTable.sequence)).all(),
-      db.select().from(codexItemsTable).where(eq(codexItemsTable.runId, runId)).all(),
-      db.select().from(codexCommandExecutionsTable).where(eq(codexCommandExecutionsTable.runId, runId)).all(),
-      db.select().from(codexToolCallsTable).where(eq(codexToolCallsTable.runId, runId)).all(),
+      db.select().from(symphonyAgentTurnsTable).where(eq(symphonyAgentTurnsTable.runId, runId)).all(),
+      db.select().from(symphonyAgentEventLogTable).where(eq(symphonyAgentEventLogTable.runId, runId)).orderBy(asc(symphonyAgentEventLogTable.sequence)).all(),
+      db.select().from(symphonyAgentItemsTable).where(eq(symphonyAgentItemsTable.runId, runId)).all(),
+      db.select().from(symphonyAgentCommandExecutionsTable).where(eq(symphonyAgentCommandExecutionsTable.runId, runId)).all(),
+      db.select().from(symphonyAgentToolCallsTable).where(eq(symphonyAgentToolCallsTable.runId, runId)).all(),
       db
         .select()
-        .from(codexAgentMessagesTable)
-        .where(eq(codexAgentMessagesTable.runId, runId))
-        .orderBy(asc(codexAgentMessagesTable.recordedAt), asc(codexAgentMessagesTable.insertedAt))
+        .from(symphonyAgentMessagesTable)
+        .where(eq(symphonyAgentMessagesTable.runId, runId))
+        .orderBy(asc(symphonyAgentMessagesTable.recordedAt), asc(symphonyAgentMessagesTable.insertedAt))
         .all(),
       db.select()
-        .from(codexReasoningTable)
-        .where(eq(codexReasoningTable.runId, runId))
-        .orderBy(asc(codexReasoningTable.recordedAt), asc(codexReasoningTable.insertedAt))
+        .from(symphonyAgentReasoningTable)
+        .where(eq(symphonyAgentReasoningTable.runId, runId))
+        .orderBy(asc(symphonyAgentReasoningTable.recordedAt), asc(symphonyAgentReasoningTable.insertedAt))
         .all(),
-      db.select().from(codexFileChangesTable).where(eq(codexFileChangesTable.runId, runId)).all(),
-      db.select().from(codexTaskSnapshotsTable).where(eq(codexTaskSnapshotsTable.runId, runId)).all(),
+      db.select().from(symphonyAgentFileChangesTable).where(eq(symphonyAgentFileChangesTable.runId, runId)).all(),
+      db.select().from(symphonyAgentTaskSnapshotsTable).where(eq(symphonyAgentTaskSnapshotsTable.runId, runId)).all(),
       db.select().from(symphonyRuntimeLogsTable).where(eq(symphonyRuntimeLogsTable.runId, runId)).orderBy(desc(symphonyRuntimeLogsTable.recordedAt)).all()
     ]);
 
@@ -1288,8 +1288,8 @@ async function loadRunData(
       ? []
       : db
           .select()
-          .from(codexPayloadOverflowTable)
-          .where(inArray(codexPayloadOverflowTable.id, overflowIds))
+          .from(symphonyAgentPayloadOverflowTable)
+          .where(inArray(symphonyAgentPayloadOverflowTable.id, overflowIds))
           .all();
   const overflowMap = new Map(overflowRows.map((row) => [row.id, row] as const));
   const codexTurnMap = new Map(codexTurns.map((turn) => [turn.turnId, turn] as const));
@@ -1299,11 +1299,11 @@ async function loadRunData(
       ? []
       : db
           .select()
-          .from(codexTaskSnapshotItemsTable)
-          .where(inArray(codexTaskSnapshotItemsTable.snapshotId, snapshotIds))
+          .from(symphonyAgentTaskSnapshotItemsTable)
+          .where(inArray(symphonyAgentTaskSnapshotItemsTable.snapshotId, snapshotIds))
           .orderBy(
-            asc(codexTaskSnapshotItemsTable.snapshotId),
-            asc(codexTaskSnapshotItemsTable.position)
+            asc(symphonyAgentTaskSnapshotItemsTable.snapshotId),
+            asc(symphonyAgentTaskSnapshotItemsTable.position)
           )
           .all();
   const events = buildForensicsEvents({

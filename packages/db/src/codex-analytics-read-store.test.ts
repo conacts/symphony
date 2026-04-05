@@ -165,8 +165,8 @@ describe("sqlite codex analytics read store", () => {
       await runJournal.finalizeTurn(turnId, {
         status: "completed",
         endedAt: "2026-04-03T20:37:40.000Z",
-        codexThreadId: "thread-1",
-        codexTurnId: "turn-1"
+        threadId: "thread-1",
+        agentTurnId: "turn-1"
       });
       await runJournal.finalizeRun(runId, {
         status: "finished",
@@ -222,8 +222,8 @@ describe("sqlite codex analytics read store", () => {
       );
 
       expect(runs[0]?.runId).toBe(runId);
-      expect(runs[0]?.codexStatus).toBe("completed");
-      expect(runs[0]?.codexModel).toBe("xiaomi/mimo-v2-pro");
+      expect(runs[0]?.agentStatus).toBe("completed");
+      expect(runs[0]?.model).toBe("xiaomi/mimo-v2-pro");
       expect(runs[0]?.turnCount).toBe(1);
       expect(runs[0]?.eventCount).toBe(3);
       expect(runs[0]?.inputTokens).toBe(11);
@@ -232,13 +232,13 @@ describe("sqlite codex analytics read store", () => {
       expect(problemRuns).toHaveLength(0);
       expect(runDetail?.issue.issueIdentifier).toBe("COL-157");
       expect(runDetail?.run.runId).toBe(runId);
-      expect(runDetail?.run.codexStatus).toBe("completed");
-      expect(runDetail?.run.codexThreadId).toBe("thread-1");
-      expect(runDetail?.run.codexProviderId).toBe("openrouter");
-      expect(runDetail?.run.codexProviderName).toBe("OpenRouter");
-      expect(runDetail?.run.codexAuthMode).toBe("api_key_env");
-      expect(runDetail?.run.codexProviderEnvKey).toBe("OPENROUTER_API_KEY");
-      expect(runDetail?.run.codexModel).toBe("xiaomi/mimo-v2-pro");
+      expect(runDetail?.run.agentStatus).toBe("completed");
+      expect(runDetail?.run.threadId).toBe("thread-1");
+      expect(runDetail?.run.providerId).toBe("openrouter");
+      expect(runDetail?.run.providerName).toBe("OpenRouter");
+      expect(runDetail?.run.authMode).toBe("api_key_env");
+      expect(runDetail?.run.providerEnvKey).toBe("OPENROUTER_API_KEY");
+      expect(runDetail?.run.model).toBe("xiaomi/mimo-v2-pro");
       expect(runDetail?.turns).toHaveLength(1);
       expect(runDetail?.turns[0]?.usage).toEqual({
         input_tokens: 11,
@@ -354,8 +354,8 @@ describe("sqlite codex analytics read store", () => {
         promptText: "Check ordering",
         status: "running",
         startedAt: "2026-04-03T20:39:01.000Z",
-        codexThreadId: "thread-ordering",
-        codexTurnId: "turn-ordering"
+        threadId: "thread-ordering",
+        agentTurnId: "turn-ordering"
       });
 
       await analytics.startRun({
@@ -501,8 +501,8 @@ describe("sqlite codex analytics read store", () => {
         promptText: "Draft a response",
         status: "running",
         startedAt: "2026-04-03T20:37:39.000Z",
-        codexThreadId: "thread-problem",
-        codexTurnId: "turn-problem-1"
+        threadId: "thread-problem",
+        agentTurnId: "turn-problem-1"
       });
       const secondTurnId = await runJournal.recordTurnStarted(runId, {
         turnId: "turn-problem-2",
@@ -510,8 +510,8 @@ describe("sqlite codex analytics read store", () => {
         promptText: "Run a command",
         status: "running",
         startedAt: "2026-04-03T20:37:40.000Z",
-        codexThreadId: "thread-problem",
-        codexTurnId: "turn-problem-2"
+        threadId: "thread-problem",
+        agentTurnId: "turn-problem-2"
       });
 
       await analytics.recordEvent({
@@ -589,14 +589,14 @@ describe("sqlite codex analytics read store", () => {
       await runJournal.finalizeTurn(firstTurnId, {
         status: "completed",
         endedAt: "2026-04-03T20:37:39.500Z",
-        codexThreadId: "thread-problem",
-        codexTurnId: "turn-problem-1"
+        threadId: "thread-problem",
+        agentTurnId: "turn-problem-1"
       });
       await runJournal.finalizeTurn(secondTurnId, {
         status: "failed",
         endedAt: "2026-04-03T20:37:40.500Z",
-        codexThreadId: "thread-problem",
-        codexTurnId: "turn-problem-2"
+        threadId: "thread-problem",
+        agentTurnId: "turn-problem-2"
       });
       await runJournal.finalizeRun(runId, {
         status: "finished",
@@ -775,8 +775,8 @@ describe("sqlite codex analytics read store", () => {
         promptText: "Track the queue",
         status: "running",
         startedAt: "2026-04-05T09:00:01.000Z",
-        codexThreadId: "thread-task-snapshots",
-        codexTurnId: "turn-task-snapshots"
+        threadId: "thread-task-snapshots",
+        agentTurnId: "turn-task-snapshots"
       });
 
       await analytics.recordEvent({
