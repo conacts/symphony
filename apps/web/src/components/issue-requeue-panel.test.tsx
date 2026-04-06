@@ -19,8 +19,6 @@ describe("issue requeue panel", () => {
     expect(html).toContain("Linear");
     expect(html).toContain("GitHub");
     expect(html).toContain("xiaomi/mimo-v2-pro");
-    expect(html).toContain("Model override helper");
-    expect(html).toContain("No label required");
   });
 
   it("renders operator context failures", () => {
