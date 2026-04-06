@@ -61,9 +61,12 @@ export function extractSymphonyGithubReviewSignal(
   }
 
   if (
-    event.payload.authorLogin &&
-    allowedReviewCommentLogins.has(event.payload.authorLogin) &&
-    event.payload.pullRequestUrl
+    shouldAcceptReviewComment(
+      allowedReviewCommentLogins,
+      event.payload.authorLogin
+    ) &&
+    event.payload.pullRequestUrl &&
+    event.payload.commentBody.trim() !== ""
   ) {
       return {
         kind: "review_comment",
@@ -99,4 +102,15 @@ function parseReworkCommand(body: string): string | null {
 
   const context = match.groups?.context?.trim();
   return context ? context : null;
+}
+
+function shouldAcceptReviewComment(
+  allowedReviewCommentLogins: ReadonlySet<string>,
+  authorLogin: string | null
+): boolean {
+  if (allowedReviewCommentLogins.size === 0) {
+    return true;
+  }
+
+  return authorLogin ? allowedReviewCommentLogins.has(authorLogin) : false;
 }

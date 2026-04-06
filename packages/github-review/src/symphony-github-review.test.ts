@@ -193,6 +193,25 @@ describe("symphony github review policy", () => {
     expect(signal?.kind).toBe("review_comment");
   });
 
+  it("accepts plain PR comments as review comments when no review-comment allowlist is configured", () => {
+    const policyConfig = buildSymphonyGitHubReviewPolicyConfig();
+
+    const signal = extractSymphonyGithubReviewSignal(
+      policyConfig,
+      buildSymphonyGithubIssueCommentEvent({
+        payload: {
+          issueNumber: 123,
+          commentId: 790,
+          commentBody: "Please address this before merge.",
+          authorLogin: "some-private-repo-reviewer",
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
+        }
+      })
+    );
+
+    expect(signal?.kind).toBe("review_comment");
+  });
+
   it("requeues issues in review through tracker state transitions and comments", async () => {
     const baseConfig = buildSymphonyGitHubReviewPolicyConfig();
     const policyConfig = buildSymphonyGitHubReviewPolicyConfig({
@@ -412,6 +431,66 @@ describe("symphony github review policy", () => {
         kind: "comment",
         issueId: "issue-123",
         body: expect.stringContaining("issuecomment-789")
+      }
+    ]);
+  });
+
+  it("requeues issues in review from generic PR comments when no review-comment allowlist is configured", async () => {
+    const policyConfig = buildSymphonyGitHubReviewPolicyConfig();
+
+    const tracker = createMemorySymphonyTracker([
+      buildSymphonyTrackerIssue({
+        state: "In Review"
+      })
+    ]);
+
+    const processor = new SymphonyGithubReviewProcessor({
+      policyConfig,
+      tracker,
+      pullRequestResolver: {
+        async fetchPullRequest() {
+          return {
+            headRef: "symphony/COL-123",
+            htmlUrl: "https://github.com/openai/symphony/pull/123"
+          };
+        }
+      }
+    });
+
+    const result = await processor.processEvent(
+      buildSymphonyGithubIssueCommentEvent({
+        payload: {
+          issueNumber: 123,
+          commentId: 790,
+          commentBody: "Please tighten the validation logic before merge.",
+          authorLogin: "some-private-repo-reviewer",
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
+        }
+      })
+    );
+
+    expect(result).toMatchObject({
+      status: "requeued",
+      issueIdentifier: "COL-123",
+      handoff: {
+        triggerKind: "review_comment",
+        actorLogin: "some-private-repo-reviewer",
+        reviewContextUrl:
+          "https://github.com/openai/symphony/pull/123#issuecomment-790",
+        feedbackBody: "Please tighten the validation logic before merge."
+      }
+    });
+
+    expect(tracker.listOperations()).toEqual([
+      {
+        kind: "update_state",
+        issueId: "issue-123",
+        stateName: "Rework"
+      },
+      {
+        kind: "comment",
+        issueId: "issue-123",
+        body: expect.stringContaining("issuecomment-790")
       }
     ]);
   });
