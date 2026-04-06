@@ -379,7 +379,7 @@ describe("forensics view model", () => {
       }
     ]);
     expect(issueDetail.failureCards[0]?.value).toBe("2");
-    expect(issueDetail.failureCards[1]?.value).toBe("Stopped after inactivity");
+    expect(issueDetail.failureCards[1]?.value).toBe("Stopped by operator");
     expect(issueDetail.recentFailureRows[0]?.runHref).toBe(
       "/issues/COL-165/runs/564d183f-24ed-4c4f-be2e-06b15d2782b0"
     );

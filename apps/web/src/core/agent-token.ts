@@ -41,7 +41,7 @@ export function buildAgentTurnTokenRows(input: {
       const totalTokens =
         turn.totalTokens !== null && turn.totalTokens > 0
           ? turn.totalTokens
-          : inputTokens + outputTokens;
+          : inputTokens + cachedInputTokens + outputTokens;
 
       return {
         turnId: turn.turnId,

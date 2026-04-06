@@ -44,6 +44,10 @@ import {
   buildIssueRunTurnHref,
   buildIssueRunTurnsHref
 } from "@/core/control-plane-routes";
+import {
+  buildPiResponseCards,
+  mapPiResponseMetadata
+} from "@/features/runs/model/agent-run-pi-response";
 
 export type AgentRunTranscriptEntry =
   | {
@@ -348,7 +352,7 @@ export function buildAgentRunViewModel(input: {
   const executionPerformance = buildExecutionPerformance(runArtifacts);
   const turnLatency = buildTurnLatency(runArtifacts, input.runDetail.turns);
   const turnTokens = buildTurnTokens(runArtifacts, input.runDetail.turns);
-  const piResponseCards = buildPiResponseCards(runArtifacts);
+  const piResponseCards = buildPiResponseCards(runArtifacts, compareDescending);
   const fallbackTokenTotals = turnTokens.rows.reduce(
     (totals, row) => ({
       inputTokens: totals.inputTokens + row.inputTokens,
@@ -881,108 +885,6 @@ function buildTurnTokens(
   };
 }
 
-function buildPiResponseCards(
-  runArtifacts: SymphonyAgentRunArtifactsResult | null
-): AgentRunViewModel["piResponseCards"] {
-  const responses = collectPiResponses(runArtifacts);
-
-  if (responses.length === 0) {
-    return [
-      {
-        label: "Pi responses",
-        value: "n/a",
-        detail: "No typed Pi response metadata was captured for this run."
-      },
-      {
-        label: "Dominant model",
-        value: "n/a",
-        detail: "No Pi response model metadata was captured for this run."
-      },
-      {
-        label: "Top stop reason",
-        value: "n/a",
-        detail: "No Pi stop-reason metadata was captured for this run."
-      }
-    ];
-  }
-
-  const totalTokens = responses.reduce((sum, response) => sum + response.totalTokens, 0);
-  const cachedInputTokens = responses.reduce(
-    (sum, response) => sum + response.cachedInputTokens,
-    0
-  );
-  const dominantModel = sortCounts(
-    countResponseField(responses, (response) => response.model ?? "Unknown model")
-  )[0];
-  const dominantStopReason = sortCounts(
-    countResponseField(
-      responses,
-      (response) => response.stopReason ?? "No stop reason"
-    )
-  )[0];
-  const latestResponse = [...responses].sort((left, right) =>
-    compareDescending(
-      left.responseTimestamp ?? left.recordedAt,
-      right.responseTimestamp ?? right.recordedAt
-    )
-  )[0];
-
-  return [
-    {
-      label: "Pi responses",
-      value: formatCount(responses.length),
-      detail: `${formatCount(totalTokens)} total tokens · ${formatCount(
-        cachedInputTokens
-      )} cached input.`
-    },
-    {
-      label: "Dominant model",
-      value: dominantModel?.[0] ?? "n/a",
-      detail: dominantModel
-        ? `${formatCount(dominantModel[1])} response items used this model.`
-        : "No Pi response model metadata was captured for this run."
-    },
-    {
-      label: "Top stop reason",
-      value: formatLabel(dominantStopReason?.[0] ?? "n/a"),
-      detail: latestResponse
-        ? `Latest ${formatLabel(latestResponse.provider ?? "provider")} / ${formatLabel(
-            latestResponse.api ?? "api"
-          )} at ${formatTimestamp(latestResponse.responseTimestamp ?? latestResponse.recordedAt)}.`
-        : "No Pi stop-reason metadata was captured for this run."
-    }
-  ];
-}
-
-function collectPiResponses(runArtifacts: SymphonyAgentRunArtifactsResult | null) {
-  const messages = runArtifacts?.agentMessages ?? [];
-  const reasoning = runArtifacts?.reasoning ?? [];
-
-  return [...messages, ...reasoning].flatMap((record) =>
-    record.piMessage
-      ? [
-          {
-            ...record.piMessage,
-            recordedAt: record.recordedAt
-          }
-        ]
-      : []
-  );
-}
-
-function countResponseField(
-  responses: Array<ReturnType<typeof collectPiResponses>[number]>,
-  getValue: (response: ReturnType<typeof collectPiResponses>[number]) => string
-) {
-  const counts = new Map<string, number>();
-
-  for (const response of responses) {
-    const value = getValue(response);
-    counts.set(value, (counts.get(value) ?? 0) + 1);
-  }
-
-  return counts;
-}
 
 function mapTranscriptEntry(input: {
   item: SymphonyAgentItemRecord;
@@ -1297,31 +1199,6 @@ function formatRepoSnapshot(value: unknown): string {
   return JSON.stringify(value ?? null, null, 2);
 }
 
-function mapPiResponseMetadata(
-  value:
-    | SymphonyAgentMessageRecord["piMessage"]
-    | SymphonyAgentReasoningBlockRecord["piMessage"]
-    | undefined
-): PiResponseMetadata | null {
-  if (!value) {
-    return null;
-  }
-
-  return {
-    responseId: value.responseId,
-    api: value.api,
-    provider: value.provider,
-    model: value.model,
-    stopReason: value.stopReason,
-    responseTimestamp: value.responseTimestamp,
-    inputTokens: value.inputTokens,
-    cachedInputTokens: value.cachedInputTokens,
-    cacheWriteTokens: value.cacheWriteTokens,
-    outputTokens: value.outputTokens,
-    totalTokens: value.totalTokens
-  };
-}
-
 function formatTodoListMarkdown(value: string): string {
   const items = value
     .split(/\s*;\s*/g)
@@ -1346,16 +1223,6 @@ function formatTodoListMarkdown(value: string): string {
       return `- ${normalized}`;
     })
     .join("\n");
-}
-
-function sortCounts(counts: Map<string, number>) {
-  return Array.from(counts.entries()).sort((left, right) => {
-    if (right[1] !== left[1]) {
-      return right[1] - left[1];
-    }
-
-    return 0;
-  });
 }
 
 function formatTaskSnapshotMarkdown(snapshot: SymphonyAgentTaskSnapshotRecord): string {
