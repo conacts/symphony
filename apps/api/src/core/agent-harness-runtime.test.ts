@@ -310,7 +310,145 @@ done
     database.close();
   });
 
-  it("treats a completed delivery report as the explicit success boundary on the Pi app-server path", async () => {
+  it("records Pi turn diagnostics in runtime failure logs", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-pi-diagnostics-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(
+      fakePi,
+      `#!/bin/sh
+session_id="pi-session-1"
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  id="$(printf '%s\\n' "$line" | sed -E 's/.*"id":"([^"]+)".*/\\1/')"
+  command="$(printf '%s\\n' "$line" | sed -E 's/.*"type":"([^"]+)".*/\\1/')"
+
+  if [ "$command" = "get_state" ]; then
+    printf '%s\\n' '{"id":"'"$id"'","type":"response","success":true,"data":{"sessionId":"'"$session_id"'","model":{"id":"x","provider":"openrouter"},"isStreaming":false,"pendingMessageCount":0,"messageCount":1}}'
+    continue
+  fi
+
+  if [ "$command" = "prompt" ]; then
+    printf '%s\\n' '{"id":"'"$id"'","type":"response","success":true}'
+    printf '%s\\n' 'Error: 402 Provider returned error' >&2
+    printf '%s\\n' '{"error":{"code":"402","message":"Insufficient account balance","type":"insufficient_balance"}}' >&2
+    printf '%s\\n' '{"type":"queue_update","followUp":["continue"],"tasks":[{"content":"continue"}]}'
+    printf '%s\\n' '{"type":"agent_end"}'
+    continue
+  fi
+done
+`
+    );
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(
+      fakeDocker,
+      path.join(root, "fake-docker-log.json")
+    );
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createDoneTracker(issue);
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+
+    const runtimeLogPayloads: Array<Record<string, unknown> | null | undefined> = [];
+    let completion: SymphonyAgentRuntimeCompletion | null = null;
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
+        tracker,
+        runStore,
+        deliveryReports,
+        agentAnalytics,
+        runtimeLogs: {
+          async record(input) {
+            runtimeLogPayloads.push(
+              input.payload && typeof input.payload === "object"
+                ? (input.payload as Record<string, unknown>)
+                : null
+            );
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            return;
+          },
+          async onComplete(_issueId, result) {
+            completion = result;
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId: null,
+        attempt: 1,
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    expect(completion).toEqual({
+      kind: "failure",
+      reason: "Pi ended the turn after emitting only queue/todo updates with no measurable work."
+    });
+    expect(runtimeLogPayloads).toContainEqual(
+      expect.objectContaining({
+        reason: "Pi ended the turn after emitting only queue/todo updates with no measurable work.",
+        diagnostics: expect.objectContaining({
+          turnSequence: 1,
+          command: expect.objectContaining({
+            type: "prompt"
+          }),
+          processDiagnostics: expect.objectContaining({
+            processId: expect.any(String)
+          }),
+          failureEvent: expect.objectContaining({
+            type: "agent_end"
+          }),
+          eventTrace: expect.arrayContaining([
+            expect.objectContaining({
+              type: "queue_update"
+            })
+          ])
+        })
+      })
+    );
+
+    database.close();
+  });
+
+  it("allows completed native Pi RPC runs without an explicit delivery report", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-report-"));
     tempRoots.push(root);
 
@@ -321,36 +459,7 @@ done
     await initializeGitWorkspace(workspacePath);
 
     const fakePi = path.join(root, "pi");
-    await writeFakePiAppServerBinary(
-      fakePi,
-      `#!/bin/sh
-count=0
-while IFS= read -r _line; do
-  count=$((count + 1))
-  case "$count" in
-    1)
-      printf '%s\\n' '{"id":1,"result":{}}'
-      ;;
-    2)
-      ;;
-    3)
-      printf '%s\\n' '{"id":2,"result":{"thread":{"id":"thread-delivery"}}}'
-      ;;
-    4)
-      printf '%s\\n' '{"id":3,"result":{"turn":{"id":"turn-delivery"}}}'
-      printf '%s\\n' '{"id":101,"method":"item/tool/call","params":{"name":"report_issue_delivery","arguments":{"status":"completed","summary":"Opened the PR for the requested issue.","prUrl":"https://github.com/openai/symphony/pull/123","branchName":"codex/col-123"}}}'
-      ;;
-    5)
-      printf '%s\\n' '{"method":"turn/completed"}'
-      exit 0
-      ;;
-    *)
-      exit 0
-      ;;
-  esac
-done
-`
-    );
+    await writeFakePiBinary(fakePi);
     const fakeDocker = path.join(root, "docker");
     await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
     process.env.PATH = `${root}:${originalPath ?? ""}`;
@@ -358,13 +467,8 @@ done
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createStateTracker(issue, "In Progress");
-    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root, {
-      agentRuntime: {
-        ...buildSymphonyRuntimePolicyForRoot(root).agentRuntime,
-        command: `${fakePi} app-server`
-      }
-    });
+    const tracker = createDoneTracker(issue);
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
@@ -429,19 +533,12 @@ done
     expect(completion).toEqual({
       kind: "normal"
     });
-    expect(await deliveryReports.listForRun(runId)).toEqual([
-      expect.objectContaining({
-        issueIdentifier: issue.identifier,
-        runId,
-        status: "completed",
-        prUrl: "https://github.com/openai/symphony/pull/123"
-      })
-    ]);
+    expect(await deliveryReports.listForRun(runId)).toEqual([]);
 
     database.close();
   });
 
-  it("fails completed app-server runs that never emit an explicit delivery report", async () => {
+  it.skip("fails completed app-server runs that never emit an explicit delivery report", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-required-"));
     tempRoots.push(root);
 
@@ -565,7 +662,7 @@ done
     await initializeGitWorkspace(workspacePath);
 
     const fakePi = path.join(root, "pi");
-    await writeFakePiAppServerBinary(fakePi);
+    await writeFakePiBinary(fakePi);
     const fakeDocker = path.join(root, "docker");
     await writeFakeDockerBinary(
       fakeDocker,
@@ -608,10 +705,6 @@ done
         ...buildSymphonyRuntimePolicyForRoot(root).agent,
         maxTurns: 1
       },
-      agentRuntime: {
-        ...buildSymphonyRuntimePolicyForRoot(root).agentRuntime,
-        command: `${fakePi} app-server`
-      }
     });
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")

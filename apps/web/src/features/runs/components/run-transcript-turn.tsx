@@ -120,7 +120,7 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "reasoning" ? (
-            <div>
+            <div className="space-y-1">
               <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
               <Reasoning className="mb-0" defaultOpen={false}>
                 <ReasoningTrigger className="items-center gap-2 hover:text-foreground">
@@ -139,9 +139,9 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "pi-read-task" ? (
-            <div>
+            <div className="space-y-1">
               <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
-              <Task className="mb-0" defaultOpen={false}>
+              <Task defaultOpen={false}>
                 <TaskTrigger title={buildPiReadTaskTitle(entry)}>
                   <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
                     <SearchIcon className="size-4" />
@@ -165,7 +165,7 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "pi-edit-task" ? (
-            <div>
+            <div className="space-y-1">
               <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
               <Task className="mb-0" defaultOpen={false}>
                 <TaskTrigger title={buildPiEditTaskTitle(entry)}>
@@ -204,7 +204,7 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "pi-write-task" ? (
-            <div>
+            <div className="space-y-1">
               <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
               <Task className="mb-0" defaultOpen={false}>
                 <TaskTrigger title={buildPiWriteTaskTitle(entry)}>
@@ -241,7 +241,7 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "pi-grep-task" ? (
-            <div>
+            <div className="space-y-1">
               <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
               <Task className="mb-0" defaultOpen={false}>
                 <TaskTrigger title={buildPiGrepTaskTitle(entry)}>
@@ -269,7 +269,7 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "pi-find-task" ? (
-            <div>
+            <div className="space-y-1">
               <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
               <Task className="mb-0" defaultOpen={false}>
                 <TaskTrigger title={buildPiFindTaskTitle(entry)}>
@@ -296,12 +296,12 @@ export function RunTranscriptTurn(input: {
           ) : null}
 
           {entry.kind === "command" ? (
-            <div>
+            <div className="space-y-1">
               <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
               <Task className="mb-0" defaultOpen={false}>
                 <TaskTrigger title={entry.command}>
                   <div className="flex w-full cursor-pointer items-start gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
-                    <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap group-data-[state=open]:overflow-visible group-data-[state=open]:whitespace-normal">
+                    <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap group-data-[state=open]:overflow-visible group-data-[state=open]:whitespace-normal">
                       {entry.command}
                     </span>
                     <ChevronDownIcon className="mt-0.5 size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />

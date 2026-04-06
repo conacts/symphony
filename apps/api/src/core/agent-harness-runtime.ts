@@ -12,7 +12,7 @@ import {
   renderSymphonyPromptContract,
   type SymphonyLoadedPromptContract
 } from "@symphony/runtime-contract";
-import type { JsonObject } from "@symphony/contracts";
+import type { JsonObject, JsonValue } from "@symphony/contracts";
 import {
   extractUsage,
   isThreadEvent
@@ -516,6 +516,7 @@ async function executeRun(input: {
     }
 
     const reason = error instanceof Error ? error.message : String(error);
+    const harnessError = error instanceof HarnessSessionError ? error : null;
 
     if (input.runId && persistedTurnId) {
       await input.runStore.finalizeTurn(persistedTurnId, {
@@ -574,7 +575,8 @@ async function executeRun(input: {
         authMode: input.harnessAuthMode,
         providerEnvKey: input.harnessProviderEnvKey,
         harness: input.harness.kind,
-        launchTarget: describeLaunchTarget(input.launchTarget)
+        launchTarget: describeLaunchTarget(input.launchTarget),
+        diagnostics: harnessError ? toJsonValue(harnessError.detail) : null
       }
     });
 
@@ -715,7 +717,8 @@ function classifyStartupFailure(error: unknown): {
   failureStage: SymphonyStartupFailureStage;
   failureOrigin: SymphonyStartupFailureOrigin;
 } | null {
-  if (error instanceof HarnessSessionError) {
+  const harnessError = error instanceof HarnessSessionError ? error : null;
+  if (harnessError) {
     if (
       [
         "initialize_failed",
@@ -727,7 +730,7 @@ function classifyStartupFailure(error: unknown): {
         "pi_launch_unsupported",
         "pi_session_start_failed",
         "pi_turn_start_failed"
-      ].includes(error.code)
+      ].includes(harnessError.code)
     ) {
       return {
         failureStage: "runtime_session_start",
@@ -750,12 +753,13 @@ function classifyStartupFailure(error: unknown): {
 }
 
 function isRateLimitedError(error: unknown): boolean {
+  const harnessError = error instanceof HarnessSessionError ? error : null;
   const messages = [
     error instanceof Error ? error.message : String(error)
   ];
 
-  if (error instanceof HarnessSessionError && error.detail) {
-    messages.push(JSON.stringify(error.detail));
+  if (harnessError?.detail) {
+    messages.push(JSON.stringify(harnessError.detail));
   }
 
   return messages.some((message) => {
@@ -779,12 +783,13 @@ export function isTransientProviderError(
     return false;
   }
 
+  const harnessError = error instanceof HarnessSessionError ? error : null;
   const messages = [
     error instanceof Error ? error.message : String(error)
   ];
 
-  if (error instanceof HarnessSessionError && error.detail) {
-    messages.push(JSON.stringify(error.detail));
+  if (harnessError?.detail) {
+    messages.push(JSON.stringify(harnessError.detail));
   }
 
   return messages.some((message) => {
@@ -841,6 +846,18 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+}
+
+function toJsonValue(value: unknown): JsonValue | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value)) as JsonValue;
+  } catch {
+    return null;
+  }
 }
 
 function extractRuntimeUsage(

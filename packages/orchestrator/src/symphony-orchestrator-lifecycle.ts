@@ -217,7 +217,7 @@ export async function handleStartupFailure(input: {
     workspace: input.workspace,
     workerHost: input.workerHost,
     reason: "startup_failure",
-    mode: "preserve",
+    mode: "destroy",
     startupFailure: input.completion
   });
 }

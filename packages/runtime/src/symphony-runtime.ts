@@ -43,6 +43,7 @@ export interface SymphonyRuntime<
     issueId: string,
     completion: SymphonyAgentRuntimeCompletion
   ): Promise<void>;
+  shutdownActiveRuns(reason: string): Promise<number>;
   publishReview(
     review: PublishReviewInput<Reviewed>
   ): Promise<PublishReviewResult<Published>>;
@@ -116,6 +117,9 @@ export function createSymphonyRuntime<
     },
     async handleRunCompletion(issueId, completion) {
       await orchestrator.handleRunCompletion(issueId, completion);
+    },
+    async shutdownActiveRuns(reason) {
+      return await orchestrator.shutdownActiveRuns(reason);
     },
     async publishReview(review) {
       return await publishReview(review);

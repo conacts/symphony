@@ -116,6 +116,29 @@ export class SymphonyOrchestrator {
     return createSymphonyOrchestratorSnapshot(this.#state, this.#clock);
   }
 
+  async shutdownActiveRuns(reason: string): Promise<number> {
+    const runningIssueIds = Object.keys(this.#state.running);
+
+    for (const issueId of runningIssueIds) {
+      const runningEntry = this.#state.running[issueId];
+      if (!runningEntry) {
+        continue;
+      }
+
+      await this.#agentRuntime.stopRun({
+        issue: runningEntry.issue,
+        workspace: runningEntry.workspace,
+        cleanupWorkspace: false
+      });
+      await this.handleRunCompletion(issueId, {
+        kind: "failure",
+        reason
+      });
+    }
+
+    return runningIssueIds.length;
+  }
+
   async runPollCycle(): Promise<SymphonyOrchestratorSnapshot> {
     this.#state.pollCheckInProgress = true;
     try {
@@ -716,7 +739,9 @@ export class SymphonyOrchestrator {
       workspace: runningEntry.workspace,
       workerHost: runningEntry.workerHost,
       completionKind: completion.kind,
-      mode: "preserve"
+      mode: shouldDestroyWorkspaceAfterCompletion(completion)
+        ? "destroy"
+        : "preserve"
     });
   }
 
@@ -957,6 +982,25 @@ export class SymphonyOrchestrator {
     delete this.#state.running[issueId];
     this.#state.claimed.delete(issueId);
   }
+}
+
+function shouldDestroyWorkspaceAfterCompletion(
+  completion: SymphonyAgentRuntimeCompletion
+): boolean {
+  if (completion.kind === "startup_failure") {
+    return true;
+  }
+
+  if (completion.kind !== "failure") {
+    return false;
+  }
+
+  return (
+    completion.reason.includes("Pi ended the turn without usage or meaningful projected work.") ||
+    completion.reason.includes(
+      "Pi ended the turn after emitting only queue/todo updates with no measurable work."
+    )
+  );
 }
 
 function assertPiRuntimeHarness(

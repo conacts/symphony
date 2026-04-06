@@ -9,7 +9,7 @@ describe("symphony continuation prompt", () => {
     });
 
     expect(prompt).toContain("This is the same PI thread.");
-    expect(prompt).toContain("Do not search for `LINEAR_API_KEY`");
+    expect(prompt).toContain("use them instead of searching for `LINEAR_API_KEY`");
     expect(prompt).toContain("Never move the issue to `Done`");
     expect(prompt).toContain("move the issue to `In Review`");
   });

@@ -25,6 +25,9 @@ type PiRpcState = {
   eventWaiters: Array<(event: Record<string, unknown>) => void>;
   nextRequestId: number;
   closed: boolean;
+  recentStdoutLines: string[];
+  recentStderrLines: string[];
+  recentProtocolMessages: Array<Record<string, unknown>>;
 };
 
 export type PiLaunchSettings = {
@@ -45,7 +48,10 @@ export class PiRpcProcess {
       queuedEvents: [],
       eventWaiters: [],
       nextRequestId: 1,
-      closed: false
+      closed: false,
+      recentStdoutLines: [],
+      recentStderrLines: [],
+      recentProtocolMessages: []
     };
     this.processId = child.pid ? String(child.pid) : null;
   }
@@ -67,7 +73,16 @@ export class PiRpcProcess {
       input.runtimePolicy.workspace.root
     );
     const launchSettings = resolvePiLaunchSettings(input);
-    const child = spawn("docker", buildPiRpcSpawnArgs(input, launchSettings), {
+    const args = buildPiRpcSpawnArgs(input, launchSettings);
+    input.logger.debug("Starting Pi RPC process", {
+      containerName: input.launchTarget.containerName,
+      runtimeWorkspacePath: input.launchTarget.runtimeWorkspacePath,
+      model: launchSettings.model,
+      reasoningEffort: launchSettings.reasoningEffort,
+      command: "docker",
+      args
+    });
+    const child = spawn("docker", args, {
       cwd: hostLaunchPath,
       env: filterStringEnv(input.hostCommandEnvSource ?? {}),
       stdio: "pipe"
@@ -92,7 +107,8 @@ export class PiRpcProcess {
   }
 
   async sendCommand(
-    command: Record<string, unknown>
+    command: Record<string, unknown>,
+    timeoutMs = 30_000
   ): Promise<Record<string, unknown>> {
     const id = String(this.#state.nextRequestId++);
     const payload = {
@@ -101,12 +117,28 @@ export class PiRpcProcess {
     };
 
     return await new Promise<Record<string, unknown>>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.#state.pendingResponses.delete(id);
+        reject(
+          new HarnessSessionError(
+            "pi_rpc_command_timeout",
+            `Timed out waiting for Pi RPC response to ${JSON.stringify(command.type ?? "unknown")} after ${timeoutMs}ms.`
+          )
+        );
+      }, timeoutMs);
       this.#state.pendingResponses.set(id, {
-        resolve,
-        reject
+        resolve: (value) => {
+          clearTimeout(timeout);
+          resolve(value);
+        },
+        reject: (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        }
       });
       this.#state.child.stdin.write(`${JSON.stringify(payload)}\n`, (error) => {
         if (error) {
+          clearTimeout(timeout);
           this.#state.pendingResponses.delete(id);
           reject(error);
         }
@@ -141,6 +173,17 @@ export class PiRpcProcess {
     });
   }
 
+  diagnosticsSnapshot(): Record<string, unknown> {
+    return {
+      processId: this.processId,
+      recentStdoutLines: [...this.#state.recentStdoutLines],
+      recentStderrLines: [...this.#state.recentStderrLines],
+      recentProtocolMessages: this.#state.recentProtocolMessages.map((message) =>
+        JSON.parse(JSON.stringify(message)) as Record<string, unknown>
+      )
+    };
+  }
+
   private attachProcessHandlers(
     logger: HarnessLaunchSessionInput["logger"]
   ): void {
@@ -156,7 +199,13 @@ export class PiRpcProcess {
       const reason = signal ? `signal:${signal}` : `code:${code ?? "unknown"}`;
 
       for (const [, pending] of this.#state.pendingResponses) {
-        pending.reject(new Error(`Pi RPC process exited (${reason}).`));
+        pending.reject(
+          new HarnessSessionError(
+            "pi_rpc_process_exit",
+            `Pi RPC process exited (${reason}).`,
+            this.diagnosticsSnapshot()
+          )
+        );
       }
       this.#state.pendingResponses.clear();
 
@@ -172,6 +221,8 @@ export class PiRpcProcess {
     logger: HarnessLaunchSessionInput["logger"],
     stream: "stdout" | "stderr"
   ): void {
+    this.recordLine(stream, line);
+
     if (!protocolMessageCandidate(line)) {
       logNonJsonStreamLine(logger, line, stream);
       return;
@@ -183,6 +234,8 @@ export class PiRpcProcess {
       return;
     }
 
+    this.recordProtocolMessage(record);
+
     if (getString(record, "type") === "response") {
       const responseId = getString(record, "id");
       if (responseId) {
@@ -191,7 +244,14 @@ export class PiRpcProcess {
           this.#state.pendingResponses.delete(responseId);
           if (record.success === false) {
             pending.reject(
-              new Error(getString(record, "error") ?? "Pi RPC command failed.")
+              new HarnessSessionError(
+                "pi_rpc_command_failed",
+                getString(record, "error") ?? "Pi RPC command failed.",
+                {
+                  response: record,
+                  processDiagnostics: this.diagnosticsSnapshot()
+                }
+              )
             );
           } else {
             pending.resolve(record);
@@ -213,6 +273,27 @@ export class PiRpcProcess {
 
     this.#state.queuedEvents.push(event);
   }
+
+  private recordLine(stream: "stdout" | "stderr", line: string): void {
+    const target =
+      stream === "stdout"
+        ? this.#state.recentStdoutLines
+        : this.#state.recentStderrLines;
+    target.push(line);
+    if (target.length > 50) {
+      target.splice(0, target.length - 50);
+    }
+  }
+
+  private recordProtocolMessage(message: Record<string, unknown>): void {
+    this.#state.recentProtocolMessages.push(message);
+    if (this.#state.recentProtocolMessages.length > 25) {
+      this.#state.recentProtocolMessages.splice(
+        0,
+        this.#state.recentProtocolMessages.length - 25
+      );
+    }
+  }
 }
 
 export function resolvePiLaunchSettings(
@@ -233,24 +314,36 @@ function buildPiRpcSpawnArgs(
   input: HarnessLaunchSessionInput,
   launchSettings: PiLaunchSettings
 ): string[] {
+  const piAgentDir = "/tmp/symphony-pi-agent";
+  const mountedPiAuthPath = "/home/agent/.pi/agent/auth.json";
+
   return [
     "exec",
     "-i",
-    ...Object.entries(input.env).flatMap(([key, value]) => ["--env", `${key}=${value}`]),
+    ...Object.entries({
+      ...input.env,
+      PI_CODING_AGENT_DIR: piAgentDir
+    }).flatMap(([key, value]) => ["--env", `${key}=${value}`]),
     "--workdir",
     input.launchTarget.runtimeWorkspacePath,
     input.launchTarget.containerName,
-    "pi",
-    "--mode",
-    "rpc",
-    ...(launchSettings.providerId && !launchSettings.model.includes("/")
-      ? ["--provider", launchSettings.providerId]
-      : []),
-    "--model",
-    launchSettings.model,
-    "--thinking",
-    launchSettings.reasoningEffort,
-    "--no-session"
+    input.launchTarget.shell,
+    "-lc",
+    [
+      `mkdir -p ${shellQuote(piAgentDir)}`,
+      `if [ -f ${shellQuote(mountedPiAuthPath)} ] && [ ! -f ${shellQuote(`${piAgentDir}/auth.json`)} ]; then cp ${shellQuote(mountedPiAuthPath)} ${shellQuote(`${piAgentDir}/auth.json`)}; fi`,
+      [
+        "exec pi --mode rpc",
+        launchSettings.providerId && !launchSettings.model.includes("/")
+          ? `--provider ${shellQuote(launchSettings.providerId)}`
+          : null,
+        `--model ${shellQuote(launchSettings.model)}`,
+        `--thinking ${shellQuote(launchSettings.reasoningEffort)}`,
+        "--no-session"
+      ]
+        .filter((segment) => segment !== null)
+        .join(" ")
+    ].join(" && ")
   ];
 }
 
@@ -260,6 +353,10 @@ function normalizePiThinkingLevel(value: string): string {
   }
 
   return "medium";
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\"'"'\"'`)}'`;
 }
 
 function filterStringEnv(

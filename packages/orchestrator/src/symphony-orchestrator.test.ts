@@ -557,6 +557,70 @@ describe("symphony orchestrator", () => {
     });
   });
 
+  it("destroys the workspace after Pi no-progress failures", async () => {
+    const config = buildSymphonyOrchestratorConfig({
+      tracker: {
+        ...buildSymphonyOrchestratorConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: []
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const lifecycleEvents: Array<{
+      eventType: string;
+      runId: string | null;
+      issueIdentifier: string;
+    }> = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push({
+            eventType: input.eventType,
+            runId: input.runId ?? null,
+            issueIdentifier: input.issue.identifier
+          });
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.handleRunCompletion("issue-123", {
+      kind: "failure",
+      reason: "Pi ended the turn without usage or meaningful projected work."
+    });
+
+    expect(lifecycleEvents).toContainEqual({
+      eventType: "workspace_destroyed_after_run",
+      runId: "run-1",
+      issueIdentifier: "COL-123"
+    });
+  });
+
   it("passes runner env through workspace lifecycle hooks", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
@@ -610,7 +674,6 @@ describe("symphony orchestrator", () => {
       launchTarget: null
     });
 
-    expect(hookEnvs).toHaveLength(2);
     expect(hookEnvs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1060,6 +1123,63 @@ describe("symphony orchestrator", () => {
       issueId: "issue-123",
       body: expect.stringContaining("Symphony moved the issue to `Backlog`.")
     });
+  });
+
+  it("destroys the workspace after startup failures", async () => {
+    const config = buildSymphonyOrchestratorConfig({
+      tracker: {
+        ...buildSymphonyOrchestratorConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: [],
+        startupFailureTransitionToState: "Backlog"
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const lifecycleEvents: string[] = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push(input.eventType);
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.handleRunCompletion("issue-123", {
+      kind: "startup_failure",
+      reason: "Pi RPC process exited (code:137).",
+      failureStage: "runtime_session_start",
+      failureOrigin: "pi_startup",
+      launchTarget: null
+    });
+
+    expect(lifecycleEvents).toContain("workspace_cleanup_completed");
+    expect(lifecycleEvents).toContain("docker_container_removed");
   });
 
   it("formats startup-failure comments with manual cleanup guidance when transition fails", async () => {

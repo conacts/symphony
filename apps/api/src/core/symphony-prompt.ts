@@ -10,10 +10,10 @@ Continuation guidance:
 - This is the same PI thread. Resume from the current workspace and thread context instead of restarting from scratch.
 - The original task instructions and prior turn context are already present in this thread, so do not restate them before acting.
 - Focus on the remaining ticket work immediately.
-- For Linear access, use Symphony's built-in dynamic tools. Do not search for \`LINEAR_API_KEY\` in shell startup files, the workspace, or git history.
-- If you need direct Linear reads or writes outside delivery reporting, use \`linear_graphql\`; Symphony provides the auth server-side.
+- If Symphony exposes built-in Linear tools in this runtime, use them instead of searching for \`LINEAR_API_KEY\` in shell startup files, the workspace, or git history.
+- If Symphony exposes \`linear_graphql\`, use it for direct Linear reads or writes outside delivery reporting; Symphony provides the auth server-side.
 - Never move the issue to \`Done\` from the agent runtime.
-- When the work is delivered, call \`report_issue_delivery\` with \`status: "completed"\` and the opened PR URL. Symphony will record delivery and move the issue to \`In Review\`.
+- If Symphony exposes \`report_issue_delivery\`, call it with \`status: "completed"\` and the opened PR URL when the work is delivered. Symphony will record delivery and move the issue to \`In Review\`.
 - Do not end the turn with a completion-style summary while the issue stays active unless the requested work is actually finished and validated.
 - Do not stop for partial progress, a likely fix, or a request for human follow-up.
 - Only stop early for a true external blocker: missing required permissions, missing required secrets/auth, or a hard platform/runtime failure that prevents further progress.
