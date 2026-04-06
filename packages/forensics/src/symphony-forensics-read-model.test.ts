@@ -113,6 +113,59 @@ describe("symphony forensics read model", () => {
     expect(bundle?.issue.runCount).toBe(2);
     expect(bundle?.recentRuns).toHaveLength(2);
   });
+
+  it("builds exact success metrics from the run-store boundary", async () => {
+    const deliveredRun = createRunSummary({
+      runId: "run-success",
+      outcome: "completed",
+      errorClass: null,
+      errorMessage: null,
+      totalTokens: 70,
+      cachedInputTokens: 20,
+      deliveryStatus: "completed",
+      deliveryReportedAt: "2026-03-31T00:05:00.000Z",
+      deliveryPrUrl: "https://github.com/example/repo/pull/157"
+    });
+    const failedRun = createRunSummary({
+      runId: "run-failure",
+      issueId: "issue-2",
+      issueIdentifier: "COL-158",
+      outcome: "startup_failure",
+      errorClass: "startup_failure",
+      errorMessage: "Missing report_issue_delivery call.",
+      deliveryStatus: null,
+      deliveryReportedAt: null,
+      deliveryPrUrl: null,
+      machineLoad: {
+        maxCpuPercent: 95,
+        avgCpuPercent: 80,
+        maxMemoryPercent: 92,
+        avgMemoryPercent: 81,
+        maxDiskPercent: 61,
+        avgDiskPercent: 55,
+        sampleCount: 3,
+        hadHighCpu: true,
+        hadHighMemory: true,
+        hadHighDisk: false
+      }
+    });
+    const readModel = createSymphonyForensicsReadModel(
+      createRunStore({
+        runs: [deliveredRun, failedRun]
+      })
+    );
+
+    const metrics = await readModel.successMetrics({
+      timeRange: "30d"
+    });
+
+    expect(metrics.executive.startedIssueCount).toBe(2);
+    expect(metrics.executive.deliveredIssueCount).toBe(1);
+    expect(metrics.executive.issueDeliveryRate).toBe(0.5);
+    expect(metrics.diagnostics.startupFailureRate).toBe(0.5);
+    expect(metrics.diagnostics.highMachinePressureRunRate).toBe(0.5);
+    expect(metrics.diagnostics.missingDeliveryReportFailureCount).toBe(1);
+  });
 });
 
 function createRunStore(input: {
@@ -217,7 +270,7 @@ function createRunSummary(
     deliveryPrUrl: "https://github.com/example/repo/pull/157",
     machineLoad: null,
     ...overrides
-  };
+  } as SymphonyForensicsRunSummary;
 }
 
 function createRunDetail(

@@ -120,6 +120,7 @@ describe("@symphony/api app", () => {
     const issueBundleResponse = await app.request(
       "/api/v1/issues/COL-123/forensics-bundle"
     );
+    const successMetricsResponse = await app.request("/api/v1/success-metrics");
     const runDetailResponse = await app.request("/api/v1/runs/run-123");
     const problemRunsResponse = await app.request("/api/v1/problem-runs");
     const codexArtifactsResponse = await app.request(
@@ -171,6 +172,17 @@ describe("@symphony/api app", () => {
         recentRuns: unknown[];
       };
     }>(issueBundleResponse);
+    const successMetricsPayload = await responseJson<{
+      data: {
+        executive: {
+          startedIssueCount: number;
+          deliveredIssueCount: number;
+        };
+        daily: Array<{
+          date: string;
+        }>;
+      };
+    }>(successMetricsResponse);
     const runDetailPayload = await responseJson<{
       data: {
         run: {
@@ -310,6 +322,11 @@ describe("@symphony/api app", () => {
     expect(issueBundleResponse.status).toBe(200);
     expect(issueBundlePayload.data.issue.issueIdentifier).toBe("COL-123");
     expect(Array.isArray(issueBundlePayload.data.recentRuns)).toBe(true);
+
+    expect(successMetricsResponse.status).toBe(200);
+    expect(successMetricsPayload.data.executive.startedIssueCount).toBeGreaterThan(0);
+    expect(successMetricsPayload.data.executive.deliveredIssueCount).toBeGreaterThanOrEqual(0);
+    expect(Array.isArray(successMetricsPayload.data.daily)).toBe(true);
 
     expect(runDetailResponse.status).toBe(200);
     expect(runDetailPayload.data.run.runId).toBe("run-123");

@@ -14,7 +14,9 @@ import type {
   SymphonyForensicsIssuesQuery as ContractSymphonyForensicsIssuesQuery,
   SymphonyForensicsRunsQuery as ContractSymphonyForensicsRunsQuery,
   SymphonyForensicsProblemRunsResult as ContractSymphonyForensicsProblemRuns,
-  SymphonyForensicsRunDetailResult
+  SymphonyForensicsRunDetailResult,
+  SymphonyForensicsSuccessMetricsQuery as ContractSymphonyForensicsSuccessMetricsQuery,
+  SymphonyForensicsSuccessMetricsResult as ContractSymphonyForensicsSuccessMetricsResult
 } from "@symphony/contracts";
 import {
   buildIssueAggregate,
@@ -35,6 +37,10 @@ import {
   isProblemOutcome,
   problemSummary
 } from "./symphony-forensics-run-classification.js";
+import {
+  buildSuccessMetrics,
+  buildSuccessMetricWindow
+} from "./symphony-forensics-success-metrics.js";
 
 const allRowsLimit = 100_000;
 
@@ -82,6 +88,10 @@ export type SymphonyForensicsRunSummary = ContractSymphonyForensicsIssueDetail["
 export type SymphonyForensicsIssueDetail = ContractSymphonyForensicsIssueDetail;
 
 export type SymphonyForensicsProblemRuns = ContractSymphonyForensicsProblemRuns;
+export type SymphonyForensicsSuccessMetricsQuery =
+  Partial<ContractSymphonyForensicsSuccessMetricsQuery>;
+export type SymphonyForensicsSuccessMetricsResult =
+  ContractSymphonyForensicsSuccessMetricsResult;
 
 export type SymphonyForensicsTimelineEntry = ContractSymphonyForensicsTimelineEntry;
 export type SymphonyForensicsRunsQuery = Partial<ContractSymphonyForensicsRunsQuery>;
@@ -145,6 +155,9 @@ export interface SymphonyForensicsReadModel {
     issueIdentifier: string,
     opts?: SymphonyForensicsIssueForensicsBundleQuery
   ): Promise<SymphonyForensicsIssueForensicsBundle | null>;
+  successMetrics(
+    opts?: SymphonyForensicsSuccessMetricsQuery
+  ): Promise<SymphonyForensicsSuccessMetricsResult>;
   runDetail(runId: string): Promise<SymphonyForensicsRunDetailResult | null>;
   problemRuns(opts?: SymphonyForensicsProblemRunsQuery): Promise<SymphonyForensicsProblemRuns>;
 }
@@ -290,6 +303,23 @@ export function createSymphonyForensicsReadModel(
         runtimeLogs: scopedRuntimeLogs,
         filters
       };
+    },
+
+    async successMetrics(opts = {}) {
+      const runs = await deps.runStore.listRuns({
+        limit: allRowsLimit,
+        startedAfter: opts.startedAfter ?? undefined,
+        startedBefore: opts.startedBefore ?? undefined
+      });
+
+      return buildSuccessMetrics({
+        runs,
+        window: buildSuccessMetricWindow({
+          timeRange: opts.timeRange ?? "all",
+          startedAfter: opts.startedAfter ?? null,
+          startedBefore: opts.startedBefore ?? null
+        })
+      });
     },
 
     async runDetail(runId) {

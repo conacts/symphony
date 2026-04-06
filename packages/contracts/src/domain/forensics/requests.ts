@@ -84,6 +84,12 @@ export const symphonyForensicsProblemRunsQuerySchema = z.strictObject({
   issueIdentifier: optionalFilterSchema
 });
 
+export const symphonyForensicsSuccessMetricsQuerySchema = z.strictObject({
+  timeRange: symphonyForensicsIssueTimeRangeSchema.default("all"),
+  startedAfter: isoTimestampSchema.optional(),
+  startedBefore: isoTimestampSchema.optional()
+});
+
 export type SymphonyForensicsIssuesQuery = z.infer<typeof symphonyForensicsIssuesQuerySchema>;
 export type SymphonyForensicsIssueTimeRange = z.infer<
   typeof symphonyForensicsIssueTimeRangeSchema
@@ -106,4 +112,7 @@ export type SymphonyForensicsIssueTimelineQuery = z.infer<
 export type SymphonyForensicsRunPath = z.infer<typeof symphonyForensicsRunPathSchema>;
 export type SymphonyForensicsProblemRunsQuery = z.infer<
   typeof symphonyForensicsProblemRunsQuerySchema
+>;
+export type SymphonyForensicsSuccessMetricsQuery = z.infer<
+  typeof symphonyForensicsSuccessMetricsQuerySchema
 >;

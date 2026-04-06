@@ -5,7 +5,8 @@ import {
   symphonyForensicsIssueForensicsBundleResponseSchema,
   symphonyForensicsRunDetailResponseSchema,
   symphonyForensicsProblemRunsQuerySchema,
-  symphonyForensicsProblemRunsResponseSchema
+  symphonyForensicsProblemRunsResponseSchema,
+  symphonyForensicsSuccessMetricsResponseSchema
 } from "./index.js";
 
 describe("symphony forensics contracts", () => {
@@ -115,6 +116,71 @@ describe("symphony forensics contracts", () => {
         filters: {
           limit: 200
         }
+      }
+    });
+
+    expect(parsed.ok).toBe(true);
+  });
+
+  it("parses the success metrics envelope", () => {
+    const parsed = symphonyForensicsSuccessMetricsResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      meta: {
+        durationMs: 1,
+        generatedAt: "2026-03-31T00:00:00.000Z",
+        count: 2
+      },
+      data: {
+        window: {
+          timeRange: "30d",
+          startedAfter: "2026-03-01T00:00:00.000Z",
+          startedBefore: "2026-03-31T23:59:59.999Z"
+        },
+        executive: {
+          startedIssueCount: 10,
+          deliveredIssueCount: 6,
+          issueDeliveryRate: 0.6,
+          medianTokensPerDeliveredIssue: 1234,
+          medianTimeToDeliveredIssueSeconds: 7200,
+          deliveryRetryRate: 0.5,
+          maxTurnFailureRate: 0.1
+        },
+        diagnostics: {
+          startedRunCount: 12,
+          deliveredRunCount: 6,
+          blockedIssueCount: 1,
+          partialIssueCount: 2,
+          missingDeliveryReportFailureCount: 1,
+          startupFailureRate: 0.05,
+          rateLimitedRunRate: 0.08,
+          highMachinePressureRunRate: 0.12,
+          medianCachedInputShareDeliveredIssues: 0.45
+        },
+        daily: [
+          {
+            date: "2026-03-30",
+            startedIssueCount: 2,
+            deliveredIssueCount: 1,
+            startedRunCount: 3,
+            deliveredRunCount: 1,
+            maxTurnFailureCount: 0,
+            startupFailureCount: 0,
+            rateLimitedRunCount: 1,
+            totalTokens: 900
+          },
+          {
+            date: "2026-03-31",
+            startedIssueCount: 4,
+            deliveredIssueCount: 3,
+            startedRunCount: 5,
+            deliveredRunCount: 3,
+            maxTurnFailureCount: 1,
+            startupFailureCount: 0,
+            rateLimitedRunCount: 0,
+            totalTokens: 1200
+          }
+        ]
       }
     });
 

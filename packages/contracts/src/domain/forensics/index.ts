@@ -6,6 +6,7 @@ export {
   symphonyForensicsIssueTimelineQuerySchema,
   symphonyForensicsRunPathSchema,
   symphonyForensicsProblemRunsQuerySchema,
+  symphonyForensicsSuccessMetricsQuerySchema,
   symphonyForensicsIssueTimeRangeSchema,
   symphonyForensicsIssueSortBySchema,
   symphonyForensicsIssueSortDirectionSchema,
@@ -38,7 +39,13 @@ export {
   symphonyForensicsIssueForensicsBundleResponseSchema,
   symphonyForensicsIssueTimelineResponseSchema,
   symphonyForensicsRunDetailResponseSchema,
-  symphonyForensicsProblemRunsResponseSchema
+  symphonyForensicsProblemRunsResponseSchema,
+  symphonyForensicsSuccessMetricWindowSchema,
+  symphonyForensicsExecutiveSuccessMetricsSchema,
+  symphonyForensicsDiagnosticSuccessMetricsSchema,
+  symphonyForensicsSuccessMetricsDaySchema,
+  symphonyForensicsSuccessMetricsResultSchema,
+  symphonyForensicsSuccessMetricsResponseSchema
 } from "./responses.js";
 
 export type {
@@ -55,7 +62,8 @@ export type {
   SymphonyForensicsIssueForensicsBundleQuery,
   SymphonyForensicsIssueTimelineQuery,
   SymphonyForensicsRunPath,
-  SymphonyForensicsProblemRunsQuery
+  SymphonyForensicsProblemRunsQuery,
+  SymphonyForensicsSuccessMetricsQuery
 } from "./requests.js";
 export type {
   SymphonyForensicsDeliveryStatus,
@@ -71,5 +79,10 @@ export type {
   SymphonyForensicsIssueTimelineEntry,
   SymphonyForensicsIssueTimelineResult,
   SymphonyForensicsRunDetailResult,
-  SymphonyForensicsProblemRunsResult
+  SymphonyForensicsProblemRunsResult,
+  SymphonyForensicsSuccessMetricWindow,
+  SymphonyForensicsExecutiveSuccessMetrics,
+  SymphonyForensicsDiagnosticSuccessMetrics,
+  SymphonyForensicsSuccessMetricsDay,
+  SymphonyForensicsSuccessMetricsResult
 } from "./responses.js";

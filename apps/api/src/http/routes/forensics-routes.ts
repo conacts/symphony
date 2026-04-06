@@ -12,7 +12,9 @@ import {
   symphonyForensicsProblemRunsQuerySchema,
   symphonyForensicsProblemRunsResponseSchema,
   symphonyForensicsRunDetailResponseSchema,
-  symphonyForensicsRunPathSchema
+  symphonyForensicsRunPathSchema,
+  symphonyForensicsSuccessMetricsQuerySchema,
+  symphonyForensicsSuccessMetricsResponseSchema
 } from "@symphony/contracts";
 import type { SymphonyForensicsIssueFlag } from "@symphony/contracts";
 import type { SymphonyRuntimeAppServices } from "../../core/runtime-app-types.js";
@@ -57,6 +59,40 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
 
     return jsonOk(c, result, {
       count: result.issues.length
+    });
+  });
+
+  forensicsRoutes.get("/success-metrics", async (c) => {
+    const query = parseWithSchema(
+      symphonyForensicsSuccessMetricsQuerySchema,
+      c.req.query()
+    );
+    const result = await services.forensics.successMetrics({
+      timeRange: query.timeRange,
+      startedAfter: query.startedAfter,
+      startedBefore: query.startedBefore
+    });
+
+    c.get("logger").debug("Returning forensics success metrics", {
+      timeRange: query.timeRange,
+      startedAfter: query.startedAfter ?? null,
+      startedBefore: query.startedBefore ?? null,
+      startedIssueCount: result.executive.startedIssueCount,
+      deliveredIssueCount: result.executive.deliveredIssueCount
+    });
+
+    symphonyForensicsSuccessMetricsResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      data: result,
+      meta: {
+        durationMs: 0,
+        generatedAt: new Date().toISOString()
+      }
+    });
+
+    return jsonOk(c, result, {
+      count: result.daily.length
     });
   });
 

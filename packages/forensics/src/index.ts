@@ -15,5 +15,7 @@ export type {
   SymphonyForensicsReadModel,
   SymphonyForensicsReadModelDependencies,
   SymphonyForensicsRuntimeLogEntry,
+  SymphonyForensicsSuccessMetricsQuery,
+  SymphonyForensicsSuccessMetricsResult,
   SymphonyForensicsTimelineEntry
 } from "./symphony-forensics-read-model.js";

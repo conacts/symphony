@@ -401,6 +401,53 @@ export const symphonyForensicsProblemRunsResultSchema = z.strictObject({
   })
 });
 
+export const symphonyForensicsSuccessMetricWindowSchema = z.strictObject({
+  timeRange: symphonyForensicsIssueTimeRangeSchema,
+  startedAfter: isoTimestampSchema.nullable(),
+  startedBefore: isoTimestampSchema.nullable()
+});
+
+export const symphonyForensicsExecutiveSuccessMetricsSchema = z.strictObject({
+  startedIssueCount: z.number().int().nonnegative(),
+  deliveredIssueCount: z.number().int().nonnegative(),
+  issueDeliveryRate: z.number().min(0).max(1),
+  medianTokensPerDeliveredIssue: z.number().int().nonnegative().nullable(),
+  medianTimeToDeliveredIssueSeconds: z.number().int().nonnegative().nullable(),
+  deliveryRetryRate: z.number().min(0).max(1),
+  maxTurnFailureRate: z.number().min(0).max(1)
+});
+
+export const symphonyForensicsDiagnosticSuccessMetricsSchema = z.strictObject({
+  startedRunCount: z.number().int().nonnegative(),
+  deliveredRunCount: z.number().int().nonnegative(),
+  blockedIssueCount: z.number().int().nonnegative(),
+  partialIssueCount: z.number().int().nonnegative(),
+  missingDeliveryReportFailureCount: z.number().int().nonnegative(),
+  startupFailureRate: z.number().min(0).max(1),
+  rateLimitedRunRate: z.number().min(0).max(1),
+  highMachinePressureRunRate: z.number().min(0).max(1),
+  medianCachedInputShareDeliveredIssues: z.number().min(0).max(1).nullable()
+});
+
+export const symphonyForensicsSuccessMetricsDaySchema = z.strictObject({
+  date: nonEmptyStringSchema,
+  startedIssueCount: z.number().int().nonnegative(),
+  deliveredIssueCount: z.number().int().nonnegative(),
+  startedRunCount: z.number().int().nonnegative(),
+  deliveredRunCount: z.number().int().nonnegative(),
+  maxTurnFailureCount: z.number().int().nonnegative(),
+  startupFailureCount: z.number().int().nonnegative(),
+  rateLimitedRunCount: z.number().int().nonnegative(),
+  totalTokens: z.number().int().nonnegative()
+});
+
+export const symphonyForensicsSuccessMetricsResultSchema = z.strictObject({
+  window: symphonyForensicsSuccessMetricWindowSchema,
+  executive: symphonyForensicsExecutiveSuccessMetricsSchema,
+  diagnostics: symphonyForensicsDiagnosticSuccessMetricsSchema,
+  daily: z.array(symphonyForensicsSuccessMetricsDaySchema)
+});
+
 export const symphonyForensicsIssueForensicsBundleResultSchema = z.strictObject({
   issue: symphonyForensicsIssueSummarySchema,
   recentRuns: z.array(symphonyForensicsRunSummarySchema),
@@ -443,6 +490,9 @@ export const symphonyForensicsProblemRunsResponseSchema = createEnvelopeSchema(
 export const symphonyForensicsIssueTimelineResponseSchema = createEnvelopeSchema(
   symphonyForensicsIssueTimelineResultSchema
 );
+export const symphonyForensicsSuccessMetricsResponseSchema = createEnvelopeSchema(
+  symphonyForensicsSuccessMetricsResultSchema
+);
 
 export type SymphonyForensicsIssueSummary = z.infer<typeof symphonyForensicsIssueSummarySchema>;
 export type SymphonyForensicsRunSummary = z.infer<typeof symphonyForensicsRunSummarySchema>;
@@ -475,4 +525,19 @@ export type SymphonyForensicsProblemRunsResult = z.infer<
 >;
 export type SymphonyForensicsIssueForensicsBundleResult = z.infer<
   typeof symphonyForensicsIssueForensicsBundleResultSchema
+>;
+export type SymphonyForensicsSuccessMetricWindow = z.infer<
+  typeof symphonyForensicsSuccessMetricWindowSchema
+>;
+export type SymphonyForensicsExecutiveSuccessMetrics = z.infer<
+  typeof symphonyForensicsExecutiveSuccessMetricsSchema
+>;
+export type SymphonyForensicsDiagnosticSuccessMetrics = z.infer<
+  typeof symphonyForensicsDiagnosticSuccessMetricsSchema
+>;
+export type SymphonyForensicsSuccessMetricsDay = z.infer<
+  typeof symphonyForensicsSuccessMetricsDaySchema
+>;
+export type SymphonyForensicsSuccessMetricsResult = z.infer<
+  typeof symphonyForensicsSuccessMetricsResultSchema
 >;
