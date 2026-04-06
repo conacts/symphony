@@ -172,11 +172,12 @@ export function decodePiRuntimeEvent(value: unknown): PiRuntimeEvent | null {
         type,
         message: decodePiMessageEnvelope(raw.message),
         usage: decodePiUsage(raw.usage) ?? decodePiUsage(asRecord(raw.message)?.usage),
-        api: getString(raw, "api"),
-        provider: getString(raw, "provider"),
-        model: getString(raw, "model"),
-        stopReason: getString(raw, "stopReason"),
-        timestamp: getString(raw, "timestamp"),
+        api: getString(raw, "api") ?? getString(asRecord(raw.message), "api"),
+        provider: getString(raw, "provider") ?? getString(asRecord(raw.message), "provider"),
+        model: getString(raw, "model") ?? getString(asRecord(raw.message), "model"),
+        stopReason:
+          getString(raw, "stopReason") ?? getString(asRecord(raw.message), "stopReason"),
+        timestamp: normalizePiTimestamp(raw.timestamp ?? asRecord(raw.message)?.timestamp),
         raw
       };
     case "tool_execution_start":
@@ -340,4 +341,22 @@ function getStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((entry): entry is string => typeof entry === "string" && entry.trim() !== "")
     : [];
+}
+
+function normalizePiTimestamp(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return new Date(value).toISOString();
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && /^\d+$/.test(value.trim())) {
+      return new Date(numeric).toISOString();
+    }
+
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : new Date(parsed).toISOString();
+  }
+
+  return null;
 }

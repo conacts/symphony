@@ -851,6 +851,7 @@ function projectCommandExecutionItem(
         command: item.command,
         status: item.status,
         exitCode: item.exit_code ?? null,
+        timeoutSeconds: extractPiCommandTimeoutSeconds(context.input.rawPayload),
         startedAt: context.input.recordedAt,
         completedAt:
           context.input.payload.type === "item.completed" ? context.input.recordedAt : null,
@@ -875,6 +876,8 @@ function projectCommandExecutionItem(
       command: chooseCanonicalCommand(existingCommand.command, item.command),
       status: item.status,
       exitCode: item.exit_code ?? existingCommand.exitCode,
+      timeoutSeconds:
+        extractPiCommandTimeoutSeconds(context.input.rawPayload) ?? existingCommand.timeoutSeconds,
       completedAt,
       durationMs: computeDurationMs(existingCommand.startedAt, completedAt),
       outputPreview: previewText(output, context.previewMaxChars),
@@ -1045,14 +1048,40 @@ function upsertPiToolRows(
       const parsed = parseKnownPiToolArguments("edit", rawArgs) as PiEditArguments | null;
       if (!parsed) return;
       context.tx.delete(piEditsTable).where(and(eq(piEditsTable.runId, runId), eq(piEditsTable.turnId, turnId), eq(piEditsTable.itemId, itemId))).run();
-      context.tx.insert(piEditsTable).values({ ...pk, path: parsed.path, editCount: parsed.edits.length, insertedAt: now, updatedAt: now }).run();
+      const editResult = extractPiEditResult(context, parsed);
+      context.tx
+        .insert(piEditsTable)
+        .values({
+          ...pk,
+          path: parsed.path,
+          editCount: parsed.edits.length,
+          lineCount: editResult.lineCount,
+          firstChangedLine: editResult.firstChangedLine,
+          diffPreview: editResult.diffPreview,
+          diffOverflowId: editResult.diffOverflowId,
+          insertedAt: now,
+          updatedAt: now
+        })
+        .run();
       break;
     }
     case "write": {
       const parsed = parseKnownPiToolArguments("write", rawArgs) as PiWriteArguments | null;
       if (!parsed) return;
       context.tx.delete(piWritesTable).where(and(eq(piWritesTable.runId, runId), eq(piWritesTable.turnId, turnId), eq(piWritesTable.itemId, itemId))).run();
-      context.tx.insert(piWritesTable).values({ ...pk, path: parsed.path, insertedAt: now, updatedAt: now }).run();
+      const writeResult = extractPiWriteResult(context.input.rawPayload, parsed);
+      context.tx
+        .insert(piWritesTable)
+        .values({
+          ...pk,
+          path: parsed.path,
+          lineCount: writeResult.lineCount,
+          contentBytes: writeResult.contentBytes,
+          bytesWritten: writeResult.bytesWritten,
+          insertedAt: now,
+          updatedAt: now
+        })
+        .run();
       break;
     }
     case "grep": {
@@ -1859,13 +1888,13 @@ function extractPiMessageEndMetadata(
 
   return {
     responseId: getString(rawPayload, "responseId") ?? getString(message, "responseId"),
-    api: getString(rawPayload, "api"),
-    provider: getString(rawPayload, "provider"),
-    model: getString(rawPayload, "model"),
-    stopReason: getString(rawPayload, "stopReason"),
+    api: getString(rawPayload, "api") ?? getString(message, "api"),
+    provider: getString(rawPayload, "provider") ?? getString(message, "provider"),
+    model: getString(rawPayload, "model") ?? getString(message, "model"),
+    stopReason: getString(rawPayload, "stopReason") ?? getString(message, "stopReason"),
     responseTimestamp:
-      getString(rawPayload, "timestamp") ??
-      getString(message, "timestamp") ??
+      normalizePiTimestamp(rawPayload?.timestamp) ??
+      normalizePiTimestamp(message?.timestamp) ??
       recordedAt,
     inputTokens,
     cachedInputTokens,
@@ -1873,8 +1902,112 @@ function extractPiMessageEndMetadata(
     outputTokens,
     totalTokens:
       getInteger(usage, "totalTokens") ??
-      inputTokens + cachedInputTokens + outputTokens
+      inputTokens + cachedInputTokens + (cacheWriteTokens ?? 0) + outputTokens
   };
+}
+
+function extractPiCommandTimeoutSeconds(rawPayloadValue: unknown): number | null {
+  const rawPayload = asRecord(rawPayloadValue);
+  const args = asRecord(rawPayload?.args);
+  return getInteger(args, "timeout");
+}
+
+function extractPiEditResult(
+  context: AgentEventMutationContext,
+  parsed: PiEditArguments
+): {
+  lineCount: number;
+  firstChangedLine: number | null;
+  diffPreview: string | null;
+  diffOverflowId: string | null;
+} {
+  const rawPayload = asRecord(context.input.rawPayload);
+  const result = asRecord(rawPayload?.result);
+  const details = asRecord(result?.details);
+  const diff = getString(details, "diff");
+  const firstChangedLine = getInteger(details, "firstChangedLine");
+  const lineCount = countPiEditArgumentLines(parsed);
+  const diffOverflowId =
+    diff && context.input.turnId
+      ? maybeStoreTextOverflow(
+          context.payloadMaxBytes,
+          (overflow) => storeOverflowRecord(context, overflow),
+          "tool_result",
+          diff,
+          context.input.turnId,
+          `${parsed.path}:diff`
+        )
+      : null;
+
+  return {
+    lineCount,
+    firstChangedLine,
+    diffPreview: previewText(diff, 500),
+    diffOverflowId
+  };
+}
+
+function extractPiWriteResult(
+  rawPayloadValue: unknown,
+  parsed: PiWriteArguments
+): {
+  lineCount: number;
+  contentBytes: number;
+  bytesWritten: number | null;
+} {
+  const rawPayload = asRecord(rawPayloadValue);
+  const result = asRecord(rawPayload?.result);
+  const resultText = extractToolResultText(result);
+  const bytesWrittenMatch = resultText?.match(/\bSuccessfully wrote (\d+) bytes to\b/);
+
+  return {
+    lineCount: countTextLines(parsed.content),
+    contentBytes: byteLength(parsed.content),
+    bytesWritten: bytesWrittenMatch ? Number.parseInt(bytesWrittenMatch[1] ?? "", 10) : null
+  };
+}
+
+function extractToolResultText(value: Record<string, unknown> | null): string | null {
+  const content = getArray(value, "content");
+  const firstText = content
+    .map((entry) => getString(asRecord(entry), "text"))
+    .find((entry): entry is string => typeof entry === "string" && entry.length > 0);
+
+  return firstText ?? null;
+}
+
+function normalizePiTimestamp(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return new Date(value).toISOString();
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && /^\d+$/.test(value.trim())) {
+      return new Date(numeric).toISOString();
+    }
+
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : new Date(parsed).toISOString();
+  }
+
+  return null;
+}
+
+function countPiEditArgumentLines(value: PiEditArguments): number {
+  return value.edits.reduce((total, edit) => {
+    const oldLineCount = countTextLines(edit.oldText);
+    const newLineCount = countTextLines(edit.newText);
+    return total + Math.max(oldLineCount, newLineCount, 1);
+  }, 0);
+}
+
+function countTextLines(value: string): number {
+  if (value === "") {
+    return 0;
+  }
+
+  return value.split("\n").length;
 }
 
 function maybeStoreTextOverflow(

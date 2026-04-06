@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  symphonyAgentCommandExecutionRecordSchema,
   symphonyAgentMessageRecordSchema,
   symphonyAgentOverflowRecordSchema,
   symphonyAgentRunRecordSchema,
@@ -257,6 +258,91 @@ describe("agent analytics contracts", () => {
         },
         insertedAt: "2026-04-03T20:37:38.000Z",
         updatedAt: "2026-04-03T20:37:38.000Z"
+      })
+    ).not.toThrow();
+  });
+
+  it("accepts Pi-native command, edit, and write metadata", () => {
+    expect(() =>
+      symphonyAgentCommandExecutionRecordSchema.parse({
+        runId: "run-1",
+        turnId: "turn-1",
+        itemId: "cmd-1",
+        command: "pnpm test",
+        status: "completed",
+        exitCode: 0,
+        timeoutSeconds: 60,
+        startedAt: "2026-04-03T20:37:38.000Z",
+        completedAt: "2026-04-03T20:37:39.000Z",
+        durationMs: 1000,
+        outputPreview: "ok",
+        outputOverflowId: null,
+        insertedAt: "2026-04-03T20:37:38.000Z",
+        updatedAt: "2026-04-03T20:37:39.000Z"
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      symphonyAgentToolCallRecordSchema.parse({
+        runId: "run-1",
+        turnId: "turn-1",
+        itemId: "tool-1",
+        server: "pi",
+        tool: "edit",
+        status: "completed",
+        errorMessage: null,
+        argumentsJson: {
+          path: "src/index.ts"
+        },
+        resultPreview: "@@ -1 +1 @@",
+        resultOverflowId: null,
+        startedAt: "2026-04-03T20:37:38.000Z",
+        completedAt: "2026-04-03T20:37:39.000Z",
+        durationMs: 1000,
+        piEdit: {
+          path: "src/index.ts",
+          editCount: 1,
+          lineCount: 1,
+          firstChangedLine: 1,
+          diffPreview: "@@ -1 +1 @@",
+          diffOverflowId: null,
+          edits: [
+            {
+              oldText: "const x = 1;",
+              newText: "const x = 2;"
+            }
+          ]
+        },
+        insertedAt: "2026-04-03T20:37:38.000Z",
+        updatedAt: "2026-04-03T20:37:39.000Z"
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      symphonyAgentToolCallRecordSchema.parse({
+        runId: "run-1",
+        turnId: "turn-1",
+        itemId: "tool-2",
+        server: "pi",
+        tool: "write",
+        status: "completed",
+        errorMessage: null,
+        argumentsJson: {
+          path: "src/out.ts"
+        },
+        resultPreview: "Successfully wrote 24 bytes",
+        resultOverflowId: null,
+        startedAt: "2026-04-03T20:37:38.000Z",
+        completedAt: "2026-04-03T20:37:39.000Z",
+        durationMs: 1000,
+        piWrite: {
+          path: "src/out.ts",
+          lineCount: 2,
+          contentBytes: 20,
+          bytesWritten: 24
+        },
+        insertedAt: "2026-04-03T20:37:38.000Z",
+        updatedAt: "2026-04-03T20:37:39.000Z"
       })
     ).not.toThrow();
   });

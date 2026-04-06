@@ -35,8 +35,7 @@ import type {
 } from "@symphony/contracts";
 import {
   parseKnownPiToolArguments,
-  type PiEditArguments,
-  type PiWriteArguments
+  type PiEditArguments
 } from "@symphony/contracts";
 import {
   symphonyAgentCommandExecutionsTable,
@@ -1103,14 +1102,7 @@ function mapAgentToolCallRecords(
     const piGrep = piGrepByKey.get(key);
     const piFind = piFindByKey.get(key);
 
-    const parsedPiEdit = parseKnownPiToolArguments(
-      row.tool,
-      row.argumentsJson
-    ) as PiEditArguments | null;
-    const parsedPiWrite = parseKnownPiToolArguments(
-      row.tool,
-      row.argumentsJson
-    ) as PiWriteArguments | null;
+    const parsedPiEdit = parseKnownPiToolArguments(row.tool, row.argumentsJson) as PiEditArguments | null;
 
     return {
       ...row,
@@ -1130,7 +1122,10 @@ function mapAgentToolCallRecords(
           : {
               path: piEdit.path,
               editCount: piEdit.editCount,
-              lineCount: parsedPiEdit ? countPiEditLines(parsedPiEdit) : piEdit.editCount,
+              lineCount: piEdit.lineCount,
+              firstChangedLine: piEdit.firstChangedLine,
+              diffPreview: piEdit.diffPreview,
+              diffOverflowId: piEdit.diffOverflowId,
               edits: parsedPiEdit?.edits ?? []
             },
       piWrite:
@@ -1138,7 +1133,9 @@ function mapAgentToolCallRecords(
           ? undefined
           : {
               path: piWrite.path,
-              lineCount: parsedPiWrite ? countNonEmptyLines(parsedPiWrite.content) : 1
+              lineCount: piWrite.lineCount,
+              contentBytes: piWrite.contentBytes,
+              bytesWritten: piWrite.bytesWritten
             },
       piGrep:
         piGrep === undefined
@@ -1157,23 +1154,6 @@ function mapAgentToolCallRecords(
             }
     };
   });
-}
-
-function countPiEditLines(value: PiEditArguments): number {
-  return value.edits.reduce((total, edit) => {
-    const oldLineCount = countNonEmptyLines(edit.oldText);
-    const newLineCount = countNonEmptyLines(edit.newText);
-
-    return total + Math.max(oldLineCount, newLineCount, 1);
-  }, 0);
-}
-
-function countNonEmptyLines(value: string): number {
-  if (value === "") {
-    return 0;
-  }
-
-  return value.split("\n").length;
 }
 
 function toolRowKey(runId: string, turnId: string, itemId: string): string {

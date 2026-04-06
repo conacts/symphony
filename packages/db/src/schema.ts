@@ -201,6 +201,7 @@ export const symphonyAgentCommandExecutionsTable = sqliteTable(
     command: text("command").notNull(),
     status: text("status").notNull(),
     exitCode: integer("exit_code"),
+    timeoutSeconds: integer("timeout_seconds"),
     startedAt: text("started_at"),
     completedAt: text("completed_at"),
     durationMs: integer("duration_ms"),
@@ -292,6 +293,10 @@ export const piEditsTable = sqliteTable(
     itemId: text("item_id").notNull(),
     path: text("path").notNull(),
     editCount: integer("edit_count").notNull(),
+    lineCount: integer("line_count").notNull(),
+    firstChangedLine: integer("first_changed_line"),
+    diffPreview: text("diff_preview"),
+    diffOverflowId: text("diff_overflow_id"),
     insertedAt: text("inserted_at").notNull(),
     updatedAt: text("updated_at").notNull()
   },
@@ -312,6 +317,9 @@ export const piWritesTable = sqliteTable(
     turnId: text("turn_id").notNull(),
     itemId: text("item_id").notNull(),
     path: text("path").notNull(),
+    lineCount: integer("line_count").notNull(),
+    contentBytes: integer("content_bytes").notNull(),
+    bytesWritten: integer("bytes_written"),
     insertedAt: text("inserted_at").notNull(),
     updatedAt: text("updated_at").notNull()
   },

@@ -174,6 +174,7 @@ export const symphonyAgentCommandExecutionRecordSchema = z.strictObject({
   command: z.string(),
   status: symphonyAgentItemLifecycleStatusSchema,
   exitCode: z.number().int().nullable(),
+  timeoutSeconds: z.number().int().nonnegative().nullable(),
   startedAt: isoTimestampSchema.nullable(),
   completedAt: isoTimestampSchema.nullable(),
   durationMs: z.number().int().nonnegative().nullable(),
@@ -208,7 +209,10 @@ export const symphonyAgentToolCallRecordSchema = z.strictObject({
     .strictObject({
       path: nonEmptyStringSchema,
       editCount: z.number().int().positive(),
-      lineCount: z.number().int().positive(),
+      lineCount: z.number().int().nonnegative(),
+      firstChangedLine: z.number().int().positive().nullable(),
+      diffPreview: nullableNonEmptyStringSchema,
+      diffOverflowId: nullableNonEmptyStringSchema,
       edits: z.array(
         z.strictObject({
           oldText: z.string(),
@@ -220,7 +224,9 @@ export const symphonyAgentToolCallRecordSchema = z.strictObject({
   piWrite: z
     .strictObject({
       path: nonEmptyStringSchema,
-      lineCount: z.number().int().positive()
+      lineCount: z.number().int().nonnegative(),
+      contentBytes: z.number().int().nonnegative(),
+      bytesWritten: z.number().int().nonnegative().nullable()
     })
     .optional(),
   piGrep: z

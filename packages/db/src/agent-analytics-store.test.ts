@@ -22,7 +22,8 @@ import {
   symphonyAgentTurnsTable,
   piEditsTable,
   piMessageEndsTable,
-  piReadsTable
+  piReadsTable,
+  piWritesTable
 } from "./schema.js";
 
 const tempDirectories: string[] = [];
@@ -83,6 +84,15 @@ describe("sqlite agent analytics store", () => {
         turnId,
         threadId: "thread-command",
         recordedAt: "2026-04-03T20:37:39.100Z",
+        rawPayload: {
+          type: "tool_execution_start",
+          toolCallId: "cmd-1",
+          toolName: "bash",
+          args: {
+            command: "pnpm test",
+            timeout: 60
+          }
+        },
         payload: {
           type: "item.started",
           item: {
@@ -185,6 +195,7 @@ describe("sqlite agent analytics store", () => {
         command: "pnpm test",
         status: "completed",
         exitCode: 0,
+        timeoutSeconds: 60,
         outputPreview: "all tests passed"
       });
       expect(command?.durationMs).toBe(400);
@@ -273,18 +284,20 @@ describe("sqlite agent analytics store", () => {
         recordedAt: "2026-04-03T20:38:01.200Z",
         rawPayload: {
           type: "message_end",
-          responseId: "assistant-42",
-          api: "responses",
-          provider: "openrouter",
-          model: "xiaomi/mimo-v2-pro",
-          stopReason: "tool_use",
-          timestamp: "2026-04-03T20:38:01.200Z",
-          usage: {
-            input: 12,
-            cacheRead: 3,
-            cacheWrite: 1,
-            output: 8,
-            totalTokens: 23
+          message: {
+            responseId: "assistant-42",
+            api: "responses",
+            provider: "openrouter",
+            model: "xiaomi/mimo-v2-pro",
+            stopReason: "tool_use",
+            timestamp: 1775424832845,
+            usage: {
+              input: 12,
+              cacheRead: 3,
+              cacheWrite: 1,
+              output: 8,
+              totalTokens: 24
+            }
           }
         },
         payload: {
@@ -303,18 +316,20 @@ describe("sqlite agent analytics store", () => {
         recordedAt: "2026-04-03T20:38:01.300Z",
         rawPayload: {
           type: "message_end",
-          responseId: "assistant-42",
-          api: "responses",
-          provider: "openrouter",
-          model: "xiaomi/mimo-v2-pro",
-          stopReason: "tool_use",
-          timestamp: "2026-04-03T20:38:01.300Z",
-          usage: {
-            input: 12,
-            cacheRead: 3,
-            cacheWrite: 1,
-            output: 8,
-            totalTokens: 23
+          message: {
+            responseId: "assistant-42",
+            api: "responses",
+            provider: "openrouter",
+            model: "xiaomi/mimo-v2-pro",
+            stopReason: "tool_use",
+            timestamp: 1775424838851,
+            usage: {
+              input: 12,
+              cacheRead: 3,
+              cacheWrite: 1,
+              output: 8,
+              totalTokens: 24
+            }
           }
         },
         payload: {
@@ -373,11 +388,12 @@ describe("sqlite agent analytics store", () => {
           provider: "openrouter",
           model: "xiaomi/mimo-v2-pro",
           stopReason: "tool_use",
+          responseTimestamp: "2026-04-05T21:33:52.845Z",
           inputTokens: 12,
           cachedInputTokens: 3,
           cacheWriteTokens: 1,
           outputTokens: 8,
-          totalTokens: 23
+          totalTokens: 24
         }),
         expect.objectContaining({
           runId,
@@ -388,11 +404,12 @@ describe("sqlite agent analytics store", () => {
           provider: "openrouter",
           model: "xiaomi/mimo-v2-pro",
           stopReason: "tool_use",
+          responseTimestamp: "2026-04-05T21:33:58.851Z",
           inputTokens: 12,
           cachedInputTokens: 3,
           cacheWriteTokens: 1,
           outputTokens: 8,
-          totalTokens: 23
+          totalTokens: 24
         })
       ]);
     } finally {
@@ -783,7 +800,24 @@ describe("sqlite agent analytics store", () => {
         turnId,
         threadId: "thread-pi-structured",
         recordedAt: "2026-04-05T08:00:03.000Z",
-        rawPayload: null,
+        rawPayload: {
+          type: "tool_execution_end",
+          toolCallId: "tool-edit-1",
+          toolName: "edit",
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "Successfully replaced 1 block in src/index.ts."
+              }
+            ],
+            details: {
+              diff: "@@ -1 +1 @@\n-const x = 1;\n+const x = 2;",
+              firstChangedLine: 1
+            }
+          },
+          isError: false
+        },
         payload: {
           type: "item.completed",
           item: {
@@ -814,11 +848,57 @@ describe("sqlite agent analytics store", () => {
         }
       });
 
+      await analyticsStore.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-pi-structured",
+        recordedAt: "2026-04-05T08:00:04.000Z",
+        rawPayload: {
+          type: "tool_execution_end",
+          toolCallId: "tool-write-1",
+          toolName: "write",
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "Successfully wrote 24 bytes to src/out.ts"
+              }
+            ]
+          },
+          isError: false
+        },
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "tool-write-1",
+            type: "mcp_tool_call",
+            server: "pi",
+            tool: "write",
+            arguments: {
+              path: "src/out.ts",
+              content: "export const x = 2;\n"
+            },
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: "Successfully wrote 24 bytes to src/out.ts"
+                }
+              ],
+              structured_content: null
+            },
+            status: "completed"
+          }
+        }
+      });
+
       const piReadRow = database.db.select().from(piReadsTable).get();
       const piEditRow = database.db.select().from(piEditsTable).get();
+      const piWriteRow = database.db.select().from(piWritesTable).get();
       const artifacts = await readStore.fetchRunArtifacts(runId);
       const readTool = artifacts?.toolCalls.find((entry) => entry.itemId === "tool-read-1");
       const editTool = artifacts?.toolCalls.find((entry) => entry.itemId === "tool-edit-1");
+      const writeTool = artifacts?.toolCalls.find((entry) => entry.itemId === "tool-write-1");
 
       expect(piReadRow).toMatchObject({
         runId,
@@ -833,7 +913,19 @@ describe("sqlite agent analytics store", () => {
         turnId,
         itemId: "tool-edit-1",
         path: "src/index.ts",
-        editCount: 1
+        editCount: 1,
+        lineCount: 1,
+        firstChangedLine: 1,
+        diffPreview: "@@ -1 +1 @@ -const x = 1; +const x = 2;"
+      });
+      expect(piWriteRow).toMatchObject({
+        runId,
+        turnId,
+        itemId: "tool-write-1",
+        path: "src/out.ts",
+        lineCount: 2,
+        contentBytes: 20,
+        bytesWritten: 24
       });
       expect(readTool).toMatchObject({
         piRead: {
@@ -847,12 +939,23 @@ describe("sqlite agent analytics store", () => {
           path: "src/index.ts",
           editCount: 1,
           lineCount: 1,
+          firstChangedLine: 1,
+          diffPreview: "@@ -1 +1 @@ -const x = 1; +const x = 2;",
+          diffOverflowId: null,
           edits: [
             {
               oldText: "const x = 1;",
               newText: "const x = 2;"
             }
           ]
+        }
+      });
+      expect(writeTool).toMatchObject({
+        piWrite: {
+          path: "src/out.ts",
+          lineCount: 2,
+          contentBytes: 20,
+          bytesWritten: 24
         }
       });
     } finally {

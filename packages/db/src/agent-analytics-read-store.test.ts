@@ -96,20 +96,20 @@ describe("sqlite agent analytics read store", () => {
         recordedAt: "2026-04-03T20:37:39.200Z",
         rawPayload: {
           type: "message_end",
-          responseId: "assistant-1",
-          api: "responses",
-          provider: "openrouter",
-          model: "xiaomi/mimo-v2-pro",
-          stopReason: "tool_use",
-          timestamp: "2026-04-03T20:37:39.200Z",
-          usage: {
-            input: 11,
-            cacheRead: 2,
-            cacheWrite: 1,
-            output: 7,
-            totalTokens: 20
-          },
           message: {
+            responseId: "assistant-1",
+            api: "responses",
+            provider: "openrouter",
+            model: "xiaomi/mimo-v2-pro",
+            stopReason: "tool_use",
+            timestamp: 1775424832845,
+            usage: {
+              input: 11,
+              cacheRead: 2,
+              cacheWrite: 1,
+              output: 7,
+              totalTokens: 21
+            },
             role: "assistant",
             content: [
               {
@@ -341,12 +341,12 @@ describe("sqlite agent analytics read store", () => {
         provider: "openrouter",
         model: "xiaomi/mimo-v2-pro",
         stopReason: "tool_use",
-        responseTimestamp: "2026-04-03T20:37:39.200Z",
+        responseTimestamp: "2026-04-05T21:33:52.845Z",
         inputTokens: 11,
         cachedInputTokens: 2,
         cacheWriteTokens: 1,
         outputTokens: 7,
-        totalTokens: 20
+        totalTokens: 21
       });
       expect(agentMessageOverflow).toMatchObject({
         runId,
