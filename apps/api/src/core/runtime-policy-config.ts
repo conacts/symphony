@@ -135,7 +135,7 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       defaultReasoningEffort: null,
       provider: null,
       turnTimeoutMs: 3_600_000,
-      readTimeoutMs: 5_000,
+      readTimeoutMs: 30_000,
       stallTimeoutMs: 300_000
     },
     hooks: {
