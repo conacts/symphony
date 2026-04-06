@@ -267,6 +267,7 @@ export class SymphonyOrchestrator {
       issueId: preparedIssue.id,
       issueIdentifier: preparedIssue.identifier
     };
+    this.#state.claimed.add(preparedIssue.id);
     (
       workspaceContext as WorkspaceContext & {
         branchName?: string | null;
@@ -415,8 +416,9 @@ export class SymphonyOrchestrator {
         }
       });
 
-      this.#state.claimed.add(preparedIssue.id);
     } catch (error) {
+      this.#state.claimed.delete(preparedIssue.id);
+
       if (isFatalRuntimeError(error)) {
         throw error;
       }

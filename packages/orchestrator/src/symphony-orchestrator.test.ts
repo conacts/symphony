@@ -37,6 +37,62 @@ function createAgentRuntime(
 }
 
 describe("symphony orchestrator", () => {
+  it("claims an issue before startup completes so concurrent polls cannot redispatch it", async () => {
+    const config = buildSymphonyOrchestratorConfig();
+    const issue = buildSymphonyTrackerIssue();
+    const tracker = createMemorySymphonyTracker([issue]);
+    let prepareWorkspaceCalls = 0;
+    let releasePrepareWorkspace: (() => void) | null = null;
+    const prepareWorkspacePromise = new Promise<void>((resolve) => {
+      releasePrepareWorkspace = resolve;
+    });
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: {
+        ...createTestWorkspaceBackend({
+          commandRunner: async () => ({
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          })
+        }),
+        async prepareWorkspace(input) {
+          prepareWorkspaceCalls += 1;
+          await prepareWorkspacePromise;
+          return await createTestWorkspaceBackend({
+            commandRunner: async () => ({
+              exitCode: 0,
+              stdout: "",
+              stderr: ""
+            })
+          }).prepareWorkspace(input);
+        }
+      },
+      agentRuntime: createAgentRuntime(),
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    const firstPoll = orchestrator.runPollCycle();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(orchestrator.snapshot().claimedIssueIds).toContain(issue.id);
+
+    await orchestrator.runPollCycle();
+    expect(prepareWorkspaceCalls).toBe(1);
+
+    expect(releasePrepareWorkspace).not.toBeNull();
+    releasePrepareWorkspace!();
+    await firstPoll;
+
+    expect(orchestrator.snapshot().running).toHaveLength(1);
+    expect(orchestrator.snapshot().running[0]?.issue.id).toBe(issue.id);
+  });
+
   it("creates deterministic runtime state from orchestrator config", () => {
     const config = buildSymphonyOrchestratorConfig();
     const state = createSymphonyOrchestratorState(config, {
