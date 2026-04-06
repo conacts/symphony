@@ -57,7 +57,7 @@ export function RunTurnDetailView(input: {
             </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-3">
+          <section className="grid gap-4 md:grid-cols-2">
             <MetricCard
               label="Status"
               value={turn.status}
@@ -67,11 +67,6 @@ export function RunTurnDetailView(input: {
               label="Tokens"
               value={turn.tokenSummary}
               detail="Token usage recorded for this turn."
-            />
-            <MetricCard
-              label="Activity"
-              value={turn.countsSummary}
-              detail={turn.promptText}
             />
           </section>
 
