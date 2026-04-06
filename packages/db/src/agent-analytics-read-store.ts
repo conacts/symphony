@@ -56,6 +56,7 @@ import {
   piWritesTable,
   piGrepsTable,
   piFindsTable,
+  piMessageEndsTable,
   symphonyIssuesTable,
   symphonyRuntimeLogsTable,
   symphonyRunsTable,
@@ -257,8 +258,18 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
       items: data.itemRows.map(mapAgentItemRecord),
       commandExecutions: data.commandRows.map(mapAgentCommandExecutionRecord),
       toolCalls: mapAgentToolCallRecords(data),
-      agentMessages: data.agentMessageRows.map(mapAgentMessageRecord),
-      reasoning: data.reasoningRows.map(mapAgentReasoningRecord),
+      agentMessages: data.agentMessageRows.map((row) =>
+        mapAgentMessageRecord(
+          row,
+          data.piMessageEndMap.get(toolRowKey(row.runId, row.turnId, row.itemId))
+        )
+      ),
+      reasoning: data.reasoningRows.map((row) =>
+        mapAgentReasoningRecord(
+          row,
+          data.piMessageEndMap.get(toolRowKey(row.runId, row.turnId, row.itemId))
+        )
+      ),
       fileChanges: data.fileChangeRows.map(mapAgentFileChangeRecord),
       taskSnapshots: mapAgentTaskSnapshotRecords(
         data.taskSnapshotRows,
@@ -268,6 +279,7 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
         turnRows: data.agentTurns,
         agentMessageRows: data.agentMessageRows,
         reasoningRows: data.reasoningRows,
+        piMessageEndMap: data.piMessageEndMap,
         fileChangeRows: data.fileChangeRows,
         taskSnapshotRows: data.taskSnapshotRows,
         taskSnapshotItemRows: data.taskSnapshotItemRows
@@ -419,39 +431,74 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
   async listAgentMessages(
     input: SymphonyAgentRunTurnQuery
   ): Promise<SymphonyAgentMessageRecord[]> {
-    const rows = await this.#db
-      .select()
-      .from(symphonyAgentMessagesTable)
-      .where(
-        input.turnId
-          ? and(
-              eq(symphonyAgentMessagesTable.runId, input.runId),
-              eq(symphonyAgentMessagesTable.turnId, input.turnId)
-            )
-          : eq(symphonyAgentMessagesTable.runId, input.runId)
-      )
-      .orderBy(asc(symphonyAgentMessagesTable.recordedAt), asc(symphonyAgentMessagesTable.insertedAt))
-      .all();
+    const [rows, piMessageEndRows] = await Promise.all([
+      this.#db
+        .select()
+        .from(symphonyAgentMessagesTable)
+        .where(
+          input.turnId
+            ? and(
+                eq(symphonyAgentMessagesTable.runId, input.runId),
+                eq(symphonyAgentMessagesTable.turnId, input.turnId)
+              )
+            : eq(symphonyAgentMessagesTable.runId, input.runId)
+        )
+        .orderBy(asc(symphonyAgentMessagesTable.recordedAt), asc(symphonyAgentMessagesTable.insertedAt))
+        .all(),
+      this.#db
+        .select()
+        .from(piMessageEndsTable)
+        .where(
+          input.turnId
+            ? and(eq(piMessageEndsTable.runId, input.runId), eq(piMessageEndsTable.turnId, input.turnId))
+            : eq(piMessageEndsTable.runId, input.runId)
+        )
+        .all()
+    ]);
+    const piMessageEndMap = new Map(
+      piMessageEndRows.map((row) => [toolRowKey(row.runId, row.turnId, row.itemId), row] as const)
+    );
 
-    return rows.map(mapAgentMessageRecord);
+    return rows.map((row) =>
+      mapAgentMessageRecord(row, piMessageEndMap.get(toolRowKey(row.runId, row.turnId, row.itemId)))
+    );
   }
 
   async listReasoning(input: SymphonyAgentRunTurnQuery): Promise<SymphonyAgentReasoningBlockRecord[]> {
-    const rows = await this.#db
-      .select()
-      .from(symphonyAgentReasoningTable)
-      .where(
-        input.turnId
-          ? and(
-              eq(symphonyAgentReasoningTable.runId, input.runId),
-              eq(symphonyAgentReasoningTable.turnId, input.turnId)
-            )
-          : eq(symphonyAgentReasoningTable.runId, input.runId)
-      )
-      .orderBy(asc(symphonyAgentReasoningTable.recordedAt), asc(symphonyAgentReasoningTable.insertedAt))
-      .all();
+    const [rows, piMessageEndRows] = await Promise.all([
+      this.#db
+        .select()
+        .from(symphonyAgentReasoningTable)
+        .where(
+          input.turnId
+            ? and(
+                eq(symphonyAgentReasoningTable.runId, input.runId),
+                eq(symphonyAgentReasoningTable.turnId, input.turnId)
+              )
+            : eq(symphonyAgentReasoningTable.runId, input.runId)
+        )
+        .orderBy(asc(symphonyAgentReasoningTable.recordedAt), asc(symphonyAgentReasoningTable.insertedAt))
+        .all(),
+      this.#db
+        .select()
+        .from(piMessageEndsTable)
+        .where(
+          input.turnId
+            ? and(eq(piMessageEndsTable.runId, input.runId), eq(piMessageEndsTable.turnId, input.turnId))
+            : eq(piMessageEndsTable.runId, input.runId)
+        )
+        .all()
+    ]);
+    const piMessageEndMap = new Map(
+      piMessageEndRows.map((row) => [toolRowKey(row.runId, row.turnId, row.itemId), row] as const)
+    );
 
-    return rows.map(mapAgentReasoningRecord);
+    return rows.map((row) =>
+      mapAgentReasoningRecord(
+        row,
+        piMessageEndMap.get(toolRowKey(row.runId, row.turnId, row.itemId))
+      )
+    );
   }
 
   async listFileChanges(
@@ -522,6 +569,7 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
       turnRows: data.agentTurns,
       agentMessageRows: data.agentMessageRows,
       reasoningRows: data.reasoningRows,
+      piMessageEndMap: data.piMessageEndMap,
       fileChangeRows: data.fileChangeRows,
       taskSnapshotRows: data.taskSnapshotRows,
       taskSnapshotItemRows: data.taskSnapshotItemRows
@@ -583,6 +631,7 @@ function buildForensicsRunSummary(
   }
 ): SymphonyForensicsRunSummary {
   const inputTokens = agentRun?.inputTokens ?? 0;
+  const cachedInputTokens = agentRun?.cachedInputTokens ?? 0;
   const outputTokens = agentRun?.outputTokens ?? 0;
 
   return {
@@ -612,8 +661,9 @@ function buildForensicsRunSummary(
     errorClass: run.errorClass ?? null,
     errorMessage: run.errorMessage ?? null,
     inputTokens,
+    cachedInputTokens,
     outputTokens,
-    totalTokens: inputTokens + outputTokens,
+    totalTokens: inputTokens + cachedInputTokens + outputTokens,
     machineLoad: buildRunMachineLoadSummary(run)
   };
 }
@@ -976,7 +1026,7 @@ function mapAgentRunRecord(
     ...run,
     harnessKind: normalizeHarnessKind(run.harnessKind),
     status: normalizeAgentRunStatus(run.status),
-    totalTokens: run.inputTokens + run.outputTokens
+    totalTokens: run.inputTokens + run.cachedInputTokens + run.outputTokens
   };
 }
 
@@ -987,7 +1037,7 @@ function mapAgentTurnRecord(
     ...turn,
     harnessKind: normalizeHarnessKind(turn.harnessKind),
     status: normalizeAgentTurnStatus(turn.status),
-    totalTokens: turn.inputTokens + turn.outputTokens,
+    totalTokens: turn.inputTokens + turn.cachedInputTokens + turn.outputTokens,
     usage: buildUsage(turn, null)
   };
 }
@@ -1021,7 +1071,12 @@ function mapAgentCommandExecutionRecord(
 function mapAgentToolCallRecords(
   input: Pick<
     RunData,
-    "toolRows" | "piReadRows" | "piEditRows" | "piWriteRows" | "piGrepRows" | "piFindRows"
+    | "toolRows"
+    | "piReadRows"
+    | "piEditRows"
+    | "piWriteRows"
+    | "piGrepRows"
+    | "piFindRows"
   >
 ): SymphonyAgentToolCallRecord[] {
   const piReadByKey = new Map(
@@ -1126,15 +1181,53 @@ function toolRowKey(runId: string, turnId: string, itemId: string): string {
 }
 
 function mapAgentMessageRecord(
-  row: typeof symphonyAgentMessagesTable.$inferSelect
+  row: typeof symphonyAgentMessagesTable.$inferSelect,
+  piMessageEnd?: typeof piMessageEndsTable.$inferSelect
 ): SymphonyAgentMessageRecord {
-  return { ...row };
+  return {
+    ...row,
+    piMessage:
+      piMessageEnd === undefined
+        ? undefined
+        : {
+            responseId: piMessageEnd.responseId,
+            api: piMessageEnd.api,
+            provider: piMessageEnd.provider,
+            model: piMessageEnd.model,
+            stopReason: piMessageEnd.stopReason,
+            responseTimestamp: piMessageEnd.responseTimestamp,
+            inputTokens: piMessageEnd.inputTokens,
+            cachedInputTokens: piMessageEnd.cachedInputTokens,
+            cacheWriteTokens: piMessageEnd.cacheWriteTokens,
+            outputTokens: piMessageEnd.outputTokens,
+            totalTokens: piMessageEnd.totalTokens
+          }
+  };
 }
 
 function mapAgentReasoningRecord(
-  row: typeof symphonyAgentReasoningTable.$inferSelect
+  row: typeof symphonyAgentReasoningTable.$inferSelect,
+  piMessageEnd?: typeof piMessageEndsTable.$inferSelect
 ): SymphonyAgentReasoningBlockRecord {
-  return { ...row };
+  return {
+    ...row,
+    piMessage:
+      piMessageEnd === undefined
+        ? undefined
+        : {
+            responseId: piMessageEnd.responseId,
+            api: piMessageEnd.api,
+            provider: piMessageEnd.provider,
+            model: piMessageEnd.model,
+            stopReason: piMessageEnd.stopReason,
+            responseTimestamp: piMessageEnd.responseTimestamp,
+            inputTokens: piMessageEnd.inputTokens,
+            cachedInputTokens: piMessageEnd.cachedInputTokens,
+            cacheWriteTokens: piMessageEnd.cacheWriteTokens,
+            outputTokens: piMessageEnd.outputTokens,
+            totalTokens: piMessageEnd.totalTokens
+          }
+  };
 }
 
 function mapAgentFileChangeRecord(
@@ -1186,6 +1279,7 @@ function mapAgentTurnActivityRecords(input: {
   turnRows: Array<typeof symphonyAgentTurnsTable.$inferSelect>;
   agentMessageRows: Array<typeof symphonyAgentMessagesTable.$inferSelect>;
   reasoningRows: Array<typeof symphonyAgentReasoningTable.$inferSelect>;
+  piMessageEndMap: Map<string, typeof piMessageEndsTable.$inferSelect>;
   fileChangeRows: Array<typeof symphonyAgentFileChangesTable.$inferSelect>;
   taskSnapshotRows: Array<typeof symphonyAgentTaskSnapshotsTable.$inferSelect>;
   taskSnapshotItemRows: Array<typeof symphonyAgentTaskSnapshotItemsTable.$inferSelect>;
@@ -1216,7 +1310,12 @@ function mapAgentTurnActivityRecords(input: {
 
           return compareNullableIso(left.insertedAt, right.insertedAt);
         })
-        .map(mapAgentMessageRecord),
+        .map((row) =>
+          mapAgentMessageRecord(
+            row,
+            input.piMessageEndMap.get(toolRowKey(row.runId, row.turnId, row.itemId))
+          )
+        ),
       reasoningBlocks: (reasoningByTurn.get(turn.turnId) ?? [])
         .sort((left, right) => {
           const recordedAtOrder = compareNullableIso(left.recordedAt, right.recordedAt);
@@ -1226,7 +1325,12 @@ function mapAgentTurnActivityRecords(input: {
 
           return compareNullableIso(left.insertedAt, right.insertedAt);
         })
-        .map(mapAgentReasoningRecord),
+        .map((row) =>
+          mapAgentReasoningRecord(
+            row,
+            input.piMessageEndMap.get(toolRowKey(row.runId, row.turnId, row.itemId))
+          )
+        ),
       fileChanges: (fileChangesByTurn.get(turn.turnId) ?? []).map(
         mapAgentFileChangeRecord
       ),
@@ -1408,6 +1512,8 @@ type RunData = {
   piWriteRows: Array<typeof piWritesTable.$inferSelect>;
   piGrepRows: Array<typeof piGrepsTable.$inferSelect>;
   piFindRows: Array<typeof piFindsTable.$inferSelect>;
+  piMessageEndRows: Array<typeof piMessageEndsTable.$inferSelect>;
+  piMessageEndMap: Map<string, typeof piMessageEndsTable.$inferSelect>;
   agentMessageRows: Array<typeof symphonyAgentMessagesTable.$inferSelect>;
   reasoningRows: Array<typeof symphonyAgentReasoningTable.$inferSelect>;
   fileChangeRows: Array<typeof symphonyAgentFileChangesTable.$inferSelect>;
@@ -1442,7 +1548,7 @@ async function loadRunData(
     return null;
   }
 
-  const [agentRun, issue, issueRuns, symphonyTurns, agentTurns, eventRows, itemRows, commandRows, toolRows, piReadRows, piEditRows, piWriteRows, piGrepRows, piFindRows, agentMessageRows, reasoningRows, fileChangeRows, taskSnapshotRows, runtimeLogRows] =
+  const [agentRun, issue, issueRuns, symphonyTurns, agentTurns, eventRows, itemRows, commandRows, toolRows, piReadRows, piEditRows, piWriteRows, piGrepRows, piFindRows, piMessageEndRows, agentMessageRows, reasoningRows, fileChangeRows, taskSnapshotRows, runtimeLogRows] =
     await Promise.all([
       db.select().from(symphonyAgentRunsTable).where(eq(symphonyAgentRunsTable.runId, runId)).get(),
       db.select().from(symphonyIssuesTable).where(eq(symphonyIssuesTable.issueId, run.issueId)).get(),
@@ -1458,6 +1564,7 @@ async function loadRunData(
       db.select().from(piWritesTable).where(eq(piWritesTable.runId, runId)).all(),
       db.select().from(piGrepsTable).where(eq(piGrepsTable.runId, runId)).all(),
       db.select().from(piFindsTable).where(eq(piFindsTable.runId, runId)).all(),
+      db.select().from(piMessageEndsTable).where(eq(piMessageEndsTable.runId, runId)).all(),
       db
         .select()
         .from(symphonyAgentMessagesTable)
@@ -1497,6 +1604,9 @@ async function loadRunData(
           .all();
   const overflowMap = new Map(overflowRows.map((row) => [row.id, row] as const));
   const agentTurnMap = new Map(agentTurns.map((turn) => [turn.turnId, turn] as const));
+  const piMessageEndMap = new Map(
+    piMessageEndRows.map((row) => [toolRowKey(row.runId, row.turnId, row.itemId), row] as const)
+  );
   const snapshotIds = taskSnapshotRows.map((row) => row.snapshotId);
   const taskSnapshotItemRows =
     snapshotIds.length === 0
@@ -1536,6 +1646,8 @@ async function loadRunData(
     piWriteRows,
     piGrepRows,
     piFindRows,
+    piMessageEndRows,
+    piMessageEndMap,
     agentMessageRows,
     reasoningRows,
     fileChangeRows,

@@ -55,6 +55,7 @@ describe("failure analysis view model", () => {
           maxTurnsCount: 1,
           startupFailureCount: 2,
           inputTokens: 6000,
+          cachedInputTokens: 0,
           outputTokens: 2500,
           totalTokens: 8500
         }

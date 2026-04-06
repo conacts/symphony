@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  symphonyAgentMessageRecordSchema,
   symphonyAgentOverflowRecordSchema,
   symphonyAgentRunRecordSchema,
   symphonyAgentTurnRecordSchema,
@@ -27,7 +28,7 @@ describe("agent analytics contracts", () => {
         inputTokens: 10,
         cachedInputTokens: 2,
         outputTokens: 5,
-        totalTokens: 15,
+        totalTokens: 17,
         turnCount: 1,
         itemCount: 1,
         commandCount: 0,
@@ -227,6 +228,35 @@ describe("agent analytics contracts", () => {
         contentText: null,
         byteCount: 42,
         insertedAt: "2026-04-03T20:37:38.000Z"
+      })
+    ).not.toThrow();
+  });
+
+  it("accepts Pi message-end metadata on message records", () => {
+    expect(() =>
+      symphonyAgentMessageRecordSchema.parse({
+        runId: "run-1",
+        turnId: "turn-1",
+        itemId: "message-1",
+        textContent: "Investigating token totals",
+        textPreview: "Investigating token totals",
+        textOverflowId: null,
+        recordedAt: "2026-04-03T20:37:38.000Z",
+        piMessage: {
+          responseId: "assistant-1",
+          api: "responses",
+          provider: "openrouter",
+          model: "xiaomi/mimo-v2-pro",
+          stopReason: "tool_use",
+          responseTimestamp: "2026-04-03T20:37:38.000Z",
+          inputTokens: 10,
+          cachedInputTokens: 2,
+          cacheWriteTokens: 1,
+          outputTokens: 5,
+          totalTokens: 17
+        },
+        insertedAt: "2026-04-03T20:37:38.000Z",
+        updatedAt: "2026-04-03T20:37:38.000Z"
       })
     ).not.toThrow();
   });

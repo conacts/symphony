@@ -338,7 +338,7 @@ function parseTokenTotals(tokens: { input_tokens?: number; cached_input_tokens?:
     inputTokens,
     cachedInputTokens,
     outputTokens,
-    totalTokens: inputTokens + outputTokens
+    totalTokens: inputTokens + cachedInputTokens + outputTokens
   };
 }
 

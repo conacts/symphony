@@ -248,6 +248,21 @@ export const symphonyAgentMessageRecordSchema = z.strictObject({
   textPreview: nullableNonEmptyStringSchema,
   textOverflowId: nullableNonEmptyStringSchema,
   recordedAt: isoTimestampSchema,
+  piMessage: z
+    .strictObject({
+      responseId: nullableNonEmptyStringSchema,
+      api: nullableNonEmptyStringSchema,
+      provider: nullableNonEmptyStringSchema,
+      model: nullableNonEmptyStringSchema,
+      stopReason: nullableNonEmptyStringSchema,
+      responseTimestamp: isoTimestampSchema.nullable(),
+      inputTokens: z.number().int().nonnegative(),
+      cachedInputTokens: z.number().int().nonnegative(),
+      cacheWriteTokens: z.number().int().nonnegative().nullable(),
+      outputTokens: z.number().int().nonnegative(),
+      totalTokens: z.number().int().nonnegative()
+    })
+    .optional(),
   insertedAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema
 });
@@ -260,6 +275,21 @@ export const symphonyAgentReasoningRecordSchema = z.strictObject({
   textPreview: nullableNonEmptyStringSchema,
   textOverflowId: nullableNonEmptyStringSchema,
   recordedAt: isoTimestampSchema,
+  piMessage: z
+    .strictObject({
+      responseId: nullableNonEmptyStringSchema,
+      api: nullableNonEmptyStringSchema,
+      provider: nullableNonEmptyStringSchema,
+      model: nullableNonEmptyStringSchema,
+      stopReason: nullableNonEmptyStringSchema,
+      responseTimestamp: isoTimestampSchema.nullable(),
+      inputTokens: z.number().int().nonnegative(),
+      cachedInputTokens: z.number().int().nonnegative(),
+      cacheWriteTokens: z.number().int().nonnegative().nullable(),
+      outputTokens: z.number().int().nonnegative(),
+      totalTokens: z.number().int().nonnegative()
+    })
+    .optional(),
   insertedAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema
 });

@@ -418,6 +418,37 @@ export const symphonyAgentReasoningTable = sqliteTable(
   })
 );
 
+export const piMessageEndsTable = sqliteTable(
+  "pi_message_ends",
+  {
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    itemId: text("item_id").notNull(),
+    responseId: text("response_id"),
+    api: text("api"),
+    provider: text("provider"),
+    model: text("model"),
+    stopReason: text("stop_reason"),
+    responseTimestamp: text("response_timestamp"),
+    inputTokens: integer("input_tokens").notNull(),
+    cachedInputTokens: integer("cached_input_tokens").notNull(),
+    cacheWriteTokens: integer("cache_write_tokens"),
+    outputTokens: integer("output_tokens").notNull(),
+    totalTokens: integer("total_tokens").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      name: "pi_message_ends_pk"
+    }),
+    runIdIdx: index("pi_message_ends_run_id_idx").on(table.runId),
+    responseIdIdx: index("pi_message_ends_response_id_idx").on(table.responseId),
+    modelIdx: index("pi_message_ends_model_idx").on(table.model)
+  })
+);
+
 export const symphonyAgentFileChangesTable = sqliteTable(
   "symphony_agent_file_changes",
   {
@@ -691,6 +722,7 @@ export const symphonySchema = {
   piFindsTable,
   symphonyAgentMessagesTable,
   symphonyAgentReasoningTable,
+  piMessageEndsTable,
   symphonyAgentFileChangesTable,
   symphonyAgentTaskSnapshotsTable,
   symphonyAgentTaskSnapshotItemsTable,

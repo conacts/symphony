@@ -27,8 +27,9 @@ describe("forensics view model", () => {
           maxTurnsCount: 1,
           startupFailureCount: 0,
           totalInputTokens: 6000,
+          totalCachedInputTokens: 1200,
           totalOutputTokens: 2500,
-          totalTokens: 8500,
+          totalTokens: 9700,
           avgDurationSeconds: 420,
           avgTurns: 5,
           avgEvents: 10,
@@ -49,8 +50,9 @@ describe("forensics view model", () => {
         maxTurnsCount: 1,
         startupFailureCount: 0,
         inputTokens: 6000,
+        cachedInputTokens: 1200,
         outputTokens: 2500,
-        totalTokens: 8500
+        totalTokens: 9700
       },
       filters: {
         limit: null,
@@ -122,8 +124,9 @@ describe("forensics view model", () => {
           errorClass: null,
           errorMessage: null,
           inputTokens: 120,
+          cachedInputTokens: 40,
           outputTokens: 80,
-          totalTokens: 200,
+          totalTokens: 240,
           machineLoad: null
         }
       ],
@@ -151,7 +154,7 @@ describe("forensics view model", () => {
     expect(issueDetail.recentFailureRows).toEqual([]);
     expect(issueDetail.rows[0]?.runHref).toBe("/issues/COL-165/runs/run_123");
     expect(issueDetail.rows[0]?.durationSeconds).toBe("2:00");
-    expect(issueDetail.rows[0]?.totalTokens).toBe("200");
+    expect(issueDetail.rows[0]?.totalTokens).toBe("240");
     expect(issueDetail.machineLoadCards[0]?.value).toBe("0 / 1");
     expect(issueDetail.machineLoadCards[1]?.value).toBe("n/a");
   });
@@ -187,6 +190,7 @@ describe("forensics view model", () => {
           errorClass: null,
           errorMessage: null,
           inputTokens: 120,
+          cachedInputTokens: 0,
           outputTokens: 80,
           totalTokens: 200,
           machineLoad: {
@@ -229,6 +233,7 @@ describe("forensics view model", () => {
           errorClass: "failed",
           errorMessage: "Runtime failed.",
           inputTokens: 220,
+          cachedInputTokens: 0,
           outputTokens: 90,
           totalTokens: 310,
           machineLoad: {
@@ -310,6 +315,7 @@ describe("forensics view model", () => {
           errorClass: null,
           errorMessage: null,
           inputTokens: 10517907,
+          cachedInputTokens: 0,
           outputTokens: 17501,
           totalTokens: 10535408,
           machineLoad: null
@@ -341,6 +347,7 @@ describe("forensics view model", () => {
           errorClass: null,
           errorMessage: null,
           inputTokens: 0,
+          cachedInputTokens: 0,
           outputTokens: 0,
           totalTokens: 0,
           machineLoad: null

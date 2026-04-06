@@ -51,6 +51,7 @@ const mockIssues: SymphonyForensicsIssueSummary[] = [
     maxTurnsCount: 1,
     startupFailureCount: 0,
     totalInputTokens: 6000,
+    totalCachedInputTokens: 0,
     totalOutputTokens: 2500,
     totalTokens: 8500,
     avgDurationSeconds: 420,
@@ -82,6 +83,7 @@ const mockIssues: SymphonyForensicsIssueSummary[] = [
     maxTurnsCount: 0,
     startupFailureCount: 0,
     totalInputTokens: 4200,
+    totalCachedInputTokens: 0,
     totalOutputTokens: 1800,
     totalTokens: 6000,
     avgDurationSeconds: 315,
@@ -113,6 +115,7 @@ const mockIssues: SymphonyForensicsIssueSummary[] = [
     maxTurnsCount: 0,
     startupFailureCount: 2,
     totalInputTokens: 900,
+    totalCachedInputTokens: 0,
     totalOutputTokens: 110,
     totalTokens: 1010,
     avgDurationSeconds: 95,
@@ -136,6 +139,7 @@ function withMockAgentRunSummary(
     | "agentFailureKind"
     | "agentFailureOrigin"
     | "agentFailureMessagePreview"
+    | "cachedInputTokens"
     | "machineLoad"
   >
 ): SymphonyForensicsRunSummary {
@@ -153,6 +157,7 @@ function withMockAgentRunSummary(
       run.outcome === "completed" ? null : run.errorClass ?? run.outcome,
     agentFailureOrigin: run.outcome === "completed" ? null : "runtime",
     agentFailureMessagePreview: run.errorMessage,
+    cachedInputTokens: 0,
     machineLoad: {
       sampleCount: 6,
       maxCpuPercent: run.outcome === "completed" ? 67 : 88,
@@ -1250,8 +1255,10 @@ function getSortValue(
   }
 }
 
-function buildIssueTotals(issues: SymphonyForensicsIssueSummary[]) {
-  return issues.reduce(
+function buildIssueTotals(
+  issues: SymphonyForensicsIssueSummary[]
+): SymphonyForensicsIssueListResult["totals"] {
+  return issues.reduce<SymphonyForensicsIssueListResult["totals"]>(
     (totals, issue) => ({
       issueCount: totals.issueCount + 1,
       runCount: totals.runCount + issue.runCount,
@@ -1261,6 +1268,7 @@ function buildIssueTotals(issues: SymphonyForensicsIssueSummary[]) {
       maxTurnsCount: totals.maxTurnsCount + issue.maxTurnsCount,
       startupFailureCount: totals.startupFailureCount + issue.startupFailureCount,
       inputTokens: totals.inputTokens + issue.totalInputTokens,
+      cachedInputTokens: totals.cachedInputTokens + issue.totalCachedInputTokens,
       outputTokens: totals.outputTokens + issue.totalOutputTokens,
       totalTokens: totals.totalTokens + issue.totalTokens
     }),
@@ -1273,6 +1281,7 @@ function buildIssueTotals(issues: SymphonyForensicsIssueSummary[]) {
       maxTurnsCount: 0,
       startupFailureCount: 0,
       inputTokens: 0,
+      cachedInputTokens: 0,
       outputTokens: 0,
       totalTokens: 0
     }

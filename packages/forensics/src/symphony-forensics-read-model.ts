@@ -71,6 +71,7 @@ export type SymphonyForensicsIssueTotals = {
   maxTurnsCount: number;
   startupFailureCount: number;
   inputTokens: number;
+  cachedInputTokens: number;
   outputTokens: number;
   totalTokens: number;
 };

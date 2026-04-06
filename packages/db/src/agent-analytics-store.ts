@@ -43,6 +43,7 @@ import {
   piWritesTable,
   piGrepsTable,
   piFindsTable,
+  piMessageEndsTable,
   symphonyRunsTable
 } from "./schema.js";
 import {
@@ -1104,6 +1105,15 @@ function projectTextItem(
     context.now,
     context.previewMaxChars
   );
+  upsertPiMessageEndRow(
+    context.tx,
+    context.input.runId,
+    context.input.turnId,
+    itemId,
+    context.input.rawPayload,
+    context.input.recordedAt,
+    context.now
+  );
 
   return textOverflowId;
 }
@@ -1357,6 +1367,13 @@ function getString(value: Record<string, unknown> | null, key: string): string |
 function getArray(value: Record<string, unknown> | null, key: string): unknown[] {
   const nested = value?.[key];
   return Array.isArray(nested) ? nested : [];
+}
+
+function getInteger(value: Record<string, unknown> | null, key: string): number | null {
+  const nested = value?.[key];
+  return typeof nested === "number" && Number.isFinite(nested) && nested >= 0
+    ? Math.floor(nested)
+    : null;
 }
 
 function getStringArray(value: unknown): string[] {
@@ -1764,6 +1781,100 @@ function upsertTextItemRow(
     })
     .where(and(eq(table.runId, runId), eq(table.turnId, turnId), eq(table.itemId, itemId)))
     .run();
+}
+
+function upsertPiMessageEndRow(
+  tx: AgentAnalyticsMutationTx,
+  runId: string,
+  turnId: string,
+  itemId: string,
+  rawPayloadValue: unknown,
+  recordedAt: string,
+  now: string
+): void {
+  const metadata = extractPiMessageEndMetadata(rawPayloadValue, recordedAt);
+  if (!metadata) {
+    return;
+  }
+
+  tx.delete(piMessageEndsTable)
+    .where(
+      and(
+        eq(piMessageEndsTable.runId, runId),
+        eq(piMessageEndsTable.turnId, turnId),
+        eq(piMessageEndsTable.itemId, itemId)
+      )
+    )
+    .run();
+
+  tx.insert(piMessageEndsTable)
+    .values({
+      runId,
+      turnId,
+      itemId,
+      responseId: metadata.responseId,
+      api: metadata.api,
+      provider: metadata.provider,
+      model: metadata.model,
+      stopReason: metadata.stopReason,
+      responseTimestamp: metadata.responseTimestamp,
+      inputTokens: metadata.inputTokens,
+      cachedInputTokens: metadata.cachedInputTokens,
+      cacheWriteTokens: metadata.cacheWriteTokens,
+      outputTokens: metadata.outputTokens,
+      totalTokens: metadata.totalTokens,
+      insertedAt: now,
+      updatedAt: now
+    })
+    .run();
+}
+
+function extractPiMessageEndMetadata(
+  rawPayloadValue: unknown,
+  recordedAt: string
+): {
+  responseId: string | null;
+  api: string | null;
+  provider: string | null;
+  model: string | null;
+  stopReason: string | null;
+  responseTimestamp: string | null;
+  inputTokens: number;
+  cachedInputTokens: number;
+  cacheWriteTokens: number | null;
+  outputTokens: number;
+  totalTokens: number;
+} | null {
+  const rawPayload = asRecord(rawPayloadValue);
+  if (getString(rawPayload, "type") !== "message_end") {
+    return null;
+  }
+
+  const message = asRecord(rawPayload?.message);
+  const usage = asRecord(rawPayload?.usage) ?? asRecord(message?.usage);
+  const inputTokens = getInteger(usage, "input") ?? 0;
+  const cachedInputTokens = getInteger(usage, "cacheRead") ?? 0;
+  const cacheWriteTokens = getInteger(usage, "cacheWrite");
+  const outputTokens = getInteger(usage, "output") ?? 0;
+
+  return {
+    responseId: getString(rawPayload, "responseId") ?? getString(message, "responseId"),
+    api: getString(rawPayload, "api"),
+    provider: getString(rawPayload, "provider"),
+    model: getString(rawPayload, "model"),
+    stopReason: getString(rawPayload, "stopReason"),
+    responseTimestamp:
+      getString(rawPayload, "timestamp") ??
+      getString(message, "timestamp") ??
+      recordedAt,
+    inputTokens,
+    cachedInputTokens,
+    cacheWriteTokens,
+    outputTokens,
+    totalTokens:
+      getInteger(usage, "totalTokens") ??
+      inputTokens + cachedInputTokens + outputTokens
+  };
 }
 
 function maybeStoreTextOverflow(

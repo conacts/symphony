@@ -75,6 +75,7 @@ export const symphonyForensicsIssueSummarySchema = z.strictObject({
   maxTurnsCount: z.number().int().nonnegative(),
   startupFailureCount: z.number().int().nonnegative(),
   totalInputTokens: z.number().int().nonnegative(),
+  totalCachedInputTokens: z.number().int().nonnegative(),
   totalOutputTokens: z.number().int().nonnegative(),
   totalTokens: z.number().int().nonnegative(),
   avgDurationSeconds: z.number().nonnegative(),
@@ -115,6 +116,7 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   errorClass: nullableNonEmptyStringSchema,
   errorMessage: nullableNonEmptyStringSchema,
   inputTokens: z.number().int().nonnegative(),
+  cachedInputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
   totalTokens: z.number().int().nonnegative(),
   machineLoad: z.strictObject({
@@ -188,6 +190,7 @@ export const symphonyForensicsIssueTotalsSchema = z.strictObject({
   maxTurnsCount: z.number().int().nonnegative(),
   startupFailureCount: z.number().int().nonnegative(),
   inputTokens: z.number().int().nonnegative(),
+  cachedInputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
   totalTokens: z.number().int().nonnegative()
 });

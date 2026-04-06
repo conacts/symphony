@@ -21,6 +21,7 @@ import {
   symphonyAgentToolCallsTable,
   symphonyAgentTurnsTable,
   piEditsTable,
+  piMessageEndsTable,
   piReadsTable
 } from "./schema.js";
 
@@ -270,6 +271,22 @@ describe("sqlite agent analytics store", () => {
         turnId,
         threadId: "thread-message-reasoning",
         recordedAt: "2026-04-03T20:38:01.200Z",
+        rawPayload: {
+          type: "message_end",
+          responseId: "assistant-42",
+          api: "responses",
+          provider: "openrouter",
+          model: "xiaomi/mimo-v2-pro",
+          stopReason: "tool_use",
+          timestamp: "2026-04-03T20:38:01.200Z",
+          usage: {
+            input: 12,
+            cacheRead: 3,
+            cacheWrite: 1,
+            output: 8,
+            totalTokens: 23
+          }
+        },
         payload: {
           type: "item.completed",
           item: {
@@ -284,6 +301,22 @@ describe("sqlite agent analytics store", () => {
         turnId,
         threadId: "thread-message-reasoning",
         recordedAt: "2026-04-03T20:38:01.300Z",
+        rawPayload: {
+          type: "message_end",
+          responseId: "assistant-42",
+          api: "responses",
+          provider: "openrouter",
+          model: "xiaomi/mimo-v2-pro",
+          stopReason: "tool_use",
+          timestamp: "2026-04-03T20:38:01.300Z",
+          usage: {
+            input: 12,
+            cacheRead: 3,
+            cacheWrite: 1,
+            output: 8,
+            totalTokens: 23
+          }
+        },
         payload: {
           type: "item.completed",
           item: {
@@ -314,6 +347,11 @@ describe("sqlite agent analytics store", () => {
           )
         )
         .all();
+      const messageEndRows = database.db
+        .select()
+        .from(piMessageEndsTable)
+        .where(eq(piMessageEndsTable.runId, runId))
+        .all();
 
       expect(reason?.recordedAt).toBe("2026-04-03T20:38:01.200Z");
       expect(message?.recordedAt).toBe("2026-04-03T20:38:01.300Z");
@@ -325,6 +363,38 @@ describe("sqlite agent analytics store", () => {
       expect(message?.textPreview).toBeDefined();
       expect(overflowEntries.length).toBe(2);
       expect(reason?.textOverflowId).not.toBe(message?.textOverflowId);
+      expect(messageEndRows).toEqual([
+        expect.objectContaining({
+          runId,
+          turnId,
+          itemId: "reasoning-1",
+          responseId: "assistant-42",
+          api: "responses",
+          provider: "openrouter",
+          model: "xiaomi/mimo-v2-pro",
+          stopReason: "tool_use",
+          inputTokens: 12,
+          cachedInputTokens: 3,
+          cacheWriteTokens: 1,
+          outputTokens: 8,
+          totalTokens: 23
+        }),
+        expect.objectContaining({
+          runId,
+          turnId,
+          itemId: "message-1",
+          responseId: "assistant-42",
+          api: "responses",
+          provider: "openrouter",
+          model: "xiaomi/mimo-v2-pro",
+          stopReason: "tool_use",
+          inputTokens: 12,
+          cachedInputTokens: 3,
+          cacheWriteTokens: 1,
+          outputTokens: 8,
+          totalTokens: 23
+        })
+      ]);
     } finally {
       database.close();
     }

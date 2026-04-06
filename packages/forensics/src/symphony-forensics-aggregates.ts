@@ -34,6 +34,7 @@ export function buildIssueAggregate(
   const maxTurnsCount = runs.filter((run) => isMaxTurnsOutcome(run.outcome)).length;
   const startupFailureCount = runs.filter((run) => isStartupFailureOutcome(run.outcome)).length;
   const totalInputTokens = runs.reduce((sum, run) => sum + run.inputTokens, 0);
+  const totalCachedInputTokens = runs.reduce((sum, run) => sum + run.cachedInputTokens, 0);
   const totalOutputTokens = runs.reduce((sum, run) => sum + run.outputTokens, 0);
   const totalTokens = runs.reduce((sum, run) => sum + run.totalTokens, 0);
   const avgDurationSeconds = average(
@@ -98,6 +99,7 @@ export function buildIssueAggregate(
     maxTurnsCount,
     startupFailureCount,
     totalInputTokens,
+    totalCachedInputTokens,
     totalOutputTokens,
     totalTokens,
     avgDurationSeconds,
@@ -125,6 +127,7 @@ export function buildIssueTotals(
       maxTurnsCount: totals.maxTurnsCount + issue.maxTurnsCount,
       startupFailureCount: totals.startupFailureCount + issue.startupFailureCount,
       inputTokens: totals.inputTokens + issue.totalInputTokens,
+      cachedInputTokens: totals.cachedInputTokens + issue.totalCachedInputTokens,
       outputTokens: totals.outputTokens + issue.totalOutputTokens,
       totalTokens: totals.totalTokens + issue.totalTokens
     }),
@@ -137,6 +140,7 @@ export function buildIssueTotals(
       maxTurnsCount: 0,
       startupFailureCount: 0,
       inputTokens: 0,
+      cachedInputTokens: 0,
       outputTokens: 0,
       totalTokens: 0
     }

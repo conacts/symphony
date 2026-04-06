@@ -94,6 +94,31 @@ describe("sqlite agent analytics read store", () => {
         turnId,
         threadId: "thread-1",
         recordedAt: "2026-04-03T20:37:39.200Z",
+        rawPayload: {
+          type: "message_end",
+          responseId: "assistant-1",
+          api: "responses",
+          provider: "openrouter",
+          model: "xiaomi/mimo-v2-pro",
+          stopReason: "tool_use",
+          timestamp: "2026-04-03T20:37:39.200Z",
+          usage: {
+            input: 11,
+            cacheRead: 2,
+            cacheWrite: 1,
+            output: 7,
+            totalTokens: 20
+          },
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: longMessage
+              }
+            ]
+          }
+        },
         payload: {
           type: "item.completed",
           item: {
@@ -240,7 +265,9 @@ describe("sqlite agent analytics read store", () => {
       expect(runs[0]?.turnCount).toBe(1);
       expect(runs[0]?.eventCount).toBe(3);
       expect(runs[0]?.inputTokens).toBe(11);
+      expect(runs[0]?.cachedInputTokens).toBe(2);
       expect(runs[0]?.outputTokens).toBe(7);
+      expect(runs[0]?.totalTokens).toBe(20);
       expect(issueRuns).toHaveLength(1);
       expect(problemRuns).toHaveLength(0);
       expect(runDetail?.issue.issueIdentifier).toBe("COL-157");
@@ -308,6 +335,19 @@ describe("sqlite agent analytics read store", () => {
       expect(agentMessages).toHaveLength(1);
       expect(agentMessages[0]?.textContent).toBeNull();
       expect(agentMessages[0]?.textPreview).toBe(longMessage.slice(0, 279) + "…");
+      expect(agentMessages[0]?.piMessage).toEqual({
+        responseId: "assistant-1",
+        api: "responses",
+        provider: "openrouter",
+        model: "xiaomi/mimo-v2-pro",
+        stopReason: "tool_use",
+        responseTimestamp: "2026-04-03T20:37:39.200Z",
+        inputTokens: 11,
+        cachedInputTokens: 2,
+        cacheWriteTokens: 1,
+        outputTokens: 7,
+        totalTokens: 20
+      });
       expect(agentMessageOverflow).toMatchObject({
         runId,
         turnId,

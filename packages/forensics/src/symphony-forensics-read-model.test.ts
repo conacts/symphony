@@ -200,8 +200,9 @@ function createRunSummary(
     errorClass: "max_turns_reached",
     errorMessage: "Reached the configured max turns.",
     inputTokens: 10,
+    cachedInputTokens: 2,
     outputTokens: 20,
-    totalTokens: 30,
+    totalTokens: 32,
     machineLoad: null,
     ...overrides
   };

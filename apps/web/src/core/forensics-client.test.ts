@@ -38,8 +38,9 @@ describe("forensics client", () => {
               maxTurnsCount: 1,
               startupFailureCount: 0,
               totalInputTokens: 6000,
+              totalCachedInputTokens: 1200,
               totalOutputTokens: 2500,
-              totalTokens: 8500,
+              totalTokens: 9700,
               avgDurationSeconds: 420,
               avgTurns: 5,
               avgEvents: 10,
@@ -60,8 +61,9 @@ describe("forensics client", () => {
             maxTurnsCount: 1,
             startupFailureCount: 0,
             inputTokens: 6000,
+            cachedInputTokens: 1200,
             outputTokens: 2500,
-            totalTokens: 8500
+            totalTokens: 9700
           },
           filters: {
             limit: 200,
@@ -179,8 +181,9 @@ describe("forensics client", () => {
             maxTurnsCount: 1,
             startupFailureCount: 0,
             totalInputTokens: 6000,
+            totalCachedInputTokens: 1200,
             totalOutputTokens: 2500,
-            totalTokens: 8500,
+            totalTokens: 9700,
             avgDurationSeconds: 420,
             avgTurns: 5,
             avgEvents: 10,

@@ -445,8 +445,9 @@ export function buildSymphonyForensicsIssueListResult(
         maxTurnsCount: 1,
         startupFailureCount: 0,
         totalInputTokens: 6000,
+        totalCachedInputTokens: 1200,
         totalOutputTokens: 2500,
-        totalTokens: 8500,
+        totalTokens: 9700,
         avgDurationSeconds: 420,
         avgTurns: 5.3,
         avgEvents: 12,
@@ -467,8 +468,9 @@ export function buildSymphonyForensicsIssueListResult(
       maxTurnsCount: 1,
       startupFailureCount: 0,
       inputTokens: 6000,
+      cachedInputTokens: 1200,
       outputTokens: 2500,
-      totalTokens: 8500
+      totalTokens: 9700
     },
     filters: {
       limit: null,
@@ -522,8 +524,9 @@ export function buildSymphonyForensicsIssueDetailResult(
         errorClass: null,
         errorMessage: null,
         inputTokens: 120,
+        cachedInputTokens: 40,
         outputTokens: 80,
-        totalTokens: 200,
+        totalTokens: 240,
         machineLoad: {
           sampleCount: 6,
           maxCpuPercent: 71,
@@ -582,6 +585,7 @@ export function buildSymphonyForensicsProblemRunsResult(
         errorClass: "max_turns",
         errorMessage: "Reached max turns.",
         inputTokens: 120,
+        cachedInputTokens: 0,
         outputTokens: 80,
         totalTokens: 200,
         machineLoad: {
@@ -652,6 +656,7 @@ export function buildSymphonyForensicsRunDetailResult(
       lastEventAt: "2026-03-31T18:02:00.000Z",
       durationSeconds: 120,
       inputTokens: 120,
+      cachedInputTokens: 0,
       outputTokens: 80,
       totalTokens: 200,
       machineLoad: {
