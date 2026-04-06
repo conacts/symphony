@@ -159,7 +159,7 @@ export function buildPiAppServerSpawnSpec(input: {
       "-i",
       ...dockerEnvFlags({
         ...input.env,
-        PI_AGENT_DIR: piAgentDir
+        PI_CODING_AGENT_DIR: piAgentDir
       }),
       "--workdir",
       input.launchTarget.runtimeWorkspacePath,

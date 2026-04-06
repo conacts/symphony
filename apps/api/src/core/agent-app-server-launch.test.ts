@@ -36,7 +36,9 @@ describe("agent app server launch", () => {
     });
     expect(spec.args).toContain("--env");
     expect(spec.args).toContain("OPENAI_API_KEY=explicit-openai-key");
-    expect(spec.args).toContain("PI_AGENT_DIR=/tmp/symphony-pi-agent");
+    expect(spec.args).toContain(
+      "PI_CODING_AGENT_DIR=/tmp/symphony-pi-agent"
+    );
     expect(spec.args.at(-1)).toContain("mkdir -p '/tmp/symphony-pi-agent'");
     expect(spec.args.at(-1)).toContain(
       "cp '/home/agent/.pi/agent/auth.json' '/tmp/symphony-pi-agent/auth.json'"
