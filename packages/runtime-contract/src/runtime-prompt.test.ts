@@ -72,6 +72,12 @@ describe("prompt contract", () => {
         ""
       ].join("\n")
     );
+    expect(symphonyHarnessPromptAppendix).toContain(
+      "Before editing, gather enough local context to make one clean patch"
+    );
+    expect(symphonyHarnessPromptAppendix).toContain(
+      "Prefer built-in Pi tools for reading, searching, and editing files."
+    );
   });
 
   it("keeps the runtime-prompt compatibility exports wired to the same implementation", async () => {

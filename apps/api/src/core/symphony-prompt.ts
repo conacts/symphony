@@ -10,6 +10,8 @@ Continuation guidance:
 - This is the same PI thread. Resume from the current workspace and thread context instead of restarting from scratch.
 - The original task instructions and prior turn context are already present in this thread, so do not restate them before acting.
 - Focus on the remaining ticket work immediately.
+- Before editing, gather enough local context to make one clean patch instead of many small speculative changes.
+- Prefer built-in Pi tools for reading, searching, and editing files. Use shell primarily for execution tasks like tests, builds, git, and package-manager commands.
 - If Symphony exposes built-in Linear tools in this runtime, use them instead of searching for \`LINEAR_API_KEY\` in shell startup files, the workspace, or git history.
 - If Symphony exposes \`linear_graphql\`, use it for direct Linear reads or writes outside delivery reporting; Symphony provides the auth server-side.
 - Never move the issue to \`Done\` from the agent runtime.
