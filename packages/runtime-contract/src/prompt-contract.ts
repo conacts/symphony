@@ -8,7 +8,10 @@ export const symphonyHarnessPromptAppendix = [
   "- Use `pi.read` for file reads and structured inspection whenever possible.",
   "- Use `pi.edit` for scoped file edits whenever possible.",
   "- Use shell commands for project execution, verification, and operations that are not exposed through PI-native tools.",
-  "- Keep file operations targeted and avoid broad recursive shell reads when PI-native tool calls can provide the same information."
+  "- Keep file operations targeted and avoid broad recursive shell reads when PI-native tool calls can provide the same information.",
+  "- `report_issue_delivery` is the explicit completion boundary for Symphony runs.",
+  "- Before ending a completed run, call `report_issue_delivery` with `status: \"completed\"` and the opened PR URL.",
+  "- If the work is blocked or only partially delivered, call `report_issue_delivery` with the matching status and the concrete reason before ending the run."
 ].join("\n");
 
 export type SymphonyPromptContractIssue = {

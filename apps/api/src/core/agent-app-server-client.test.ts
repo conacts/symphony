@@ -190,6 +190,12 @@ done
         inputSchema: expect.objectContaining({
           required: ["query"]
         })
+      }),
+      expect.objectContaining({
+        name: "report_issue_delivery",
+        inputSchema: expect.objectContaining({
+          required: ["status", "summary"]
+        })
       })
     ]);
   });

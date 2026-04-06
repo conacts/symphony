@@ -23,6 +23,7 @@ import type {
 } from "@symphony/tracker";
 import type {
   AgentAnalyticsStore,
+  SymphonyIssueDeliveryReportStore,
   SymphonyRuntimeLogStore,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
@@ -46,6 +47,10 @@ import {
   createPiRuntimeHarness,
   type SymphonyRuntimeHarness
 } from "./runtime-harness.js";
+import {
+  buildRuntimeDynamicToolExecutor,
+  type RuntimeDeliveryReportResult
+} from "./runtime-dynamic-tools.js";
 
 type RunCallbacks = {
   onUpdate(issueId: string, update: SymphonyAgentRuntimeUpdate): void | Promise<void>;
@@ -65,6 +70,7 @@ export function createSymphonyAgentRuntime(input: {
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
+  deliveryReports: SymphonyIssueDeliveryReportStore;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -86,6 +92,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
+  deliveryReports: SymphonyIssueDeliveryReportStore;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -116,6 +123,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
         githubRepository: input.githubRepository ?? null,
         tracker: input.tracker,
         runStore: input.runStore,
+        deliveryReports: input.deliveryReports,
         agentAnalytics: input.agentAnalytics,
         runtimeLogs: input.runtimeLogs,
         runtimePolicy: runInput.runtimePolicy,
@@ -165,6 +173,7 @@ async function executeRun(input: {
   githubRepository: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
+  deliveryReports: SymphonyIssueDeliveryReportStore;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
@@ -190,6 +199,10 @@ async function executeRun(input: {
   let sessionModel: string | null = null;
   let sessionProviderId: string | null = null;
   let sessionProviderName: string | null = null;
+  let deliveryReport: RuntimeDeliveryReportResult | null = null;
+  const requiresExplicitDeliveryReport = /(?:^|\s)app-server(?=\s|$)/u.test(
+    input.runtimePolicy.agentRuntime.command.trim()
+  );
 
   try {
     await input.runtimeLogs.record({
@@ -340,10 +353,16 @@ async function executeRun(input: {
         prompt,
         title: `${currentIssue.identifier}: ${currentIssue.title}`,
         sandboxPolicy: null,
-        toolExecutor: async () => ({
-          success: false,
-          output: "Dynamic tool execution is not enabled for the SDK transport.",
-          contentItems: []
+        toolExecutor: buildRuntimeDynamicToolExecutor({
+          runtimePolicy: input.runtimePolicy,
+          logger: input.logger,
+          deliveryReports: input.deliveryReports,
+          issue: currentIssue,
+          runId: input.runId,
+          readTurnId: () => persistedTurnId,
+          onDeliveryReportRecorded(recordedReport) {
+            deliveryReport = recordedReport;
+          }
         }),
         turnTimeoutMs: input.runtimePolicy.pi.turnTimeoutMs,
         onMessage: async (update) => {
@@ -430,6 +449,10 @@ async function executeRun(input: {
         persistedTurnId = null;
       }
 
+      if (requiresExplicitDeliveryReport && deliveryReport) {
+        break;
+      }
+
       const refreshedIssue = await refreshIssueState(
         input.tracker,
         input.runtimePolicy,
@@ -460,16 +483,24 @@ async function executeRun(input: {
         });
       }
 
-      if (maxTurnsReached) {
+      if (requiresExplicitDeliveryReport && deliveryReport) {
+        await input.callbacks.onComplete(
+          input.issue.id,
+          deliveryCompletion(deliveryReport)
+        );
+      } else if (maxTurnsReached) {
         await input.callbacks.onComplete(input.issue.id, {
           kind: "max_turns_reached",
           reason: `Reached the configured ${input.runtimePolicy.agent.maxTurns}-turn limit while the issue remained active.`,
           maxTurns: input.runtimePolicy.agent.maxTurns
         });
       } else {
-        await input.callbacks.onComplete(input.issue.id, {
-          kind: "normal"
-        });
+        await input.callbacks.onComplete(
+          input.issue.id,
+          requiresExplicitDeliveryReport
+            ? missingDeliveryReportCompletion()
+            : { kind: "normal" }
+        );
       }
     }
   } catch (error) {
@@ -621,6 +652,38 @@ function describeLaunchTarget(target: SymphonyRuntimeLaunchTarget): JsonObject {
     containerId: target.containerId,
     containerName: target.containerName,
     shell: target.shell
+  };
+}
+
+function deliveryCompletion(
+  deliveryReport: RuntimeDeliveryReportResult
+): SymphonyAgentRuntimeCompletion {
+  switch (deliveryReport.status) {
+    case "completed":
+      return {
+        kind: "normal"
+      };
+    case "blocked":
+      return {
+        kind: "failure",
+        reason:
+          deliveryReport.blockingReason ??
+          `Delivery reported as blocked: ${deliveryReport.summary}`
+      };
+    case "partial":
+    default:
+      return {
+        kind: "failure",
+        reason: `Delivery reported as partial: ${deliveryReport.summary}`
+      };
+  }
+}
+
+function missingDeliveryReportCompletion(): SymphonyAgentRuntimeCompletion {
+  return {
+    kind: "failure",
+    reason:
+      "Run ended without calling `report_issue_delivery`. Delivery success must be reported explicitly before the run can complete."
   };
 }
 

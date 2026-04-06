@@ -15,6 +15,7 @@ import {
 } from "@symphony/runtime-contract";
 import {
   createSqliteAgentAnalyticsStore,
+  createSymphonyIssueDeliveryReportStore,
   createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
@@ -101,6 +102,9 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         const runStore = createSqliteSymphonyRuntimeRunStore({
           db: database.db
         });
+        const deliveryReports = createSymphonyIssueDeliveryReportStore({
+          db: database.db
+        });
         const agentAnalytics = createSqliteAgentAnalyticsStore({
           db: database.db
         });
@@ -121,6 +125,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
             ),
             tracker: createDoneTracker(issue),
             runStore,
+            deliveryReports,
             agentAnalytics,
             runtimeLogs: {
               async record() {
@@ -255,6 +260,9 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
         const runStore = createSqliteSymphonyRuntimeRunStore({
           db: database.db
         });
+        const deliveryReports = createSymphonyIssueDeliveryReportStore({
+          db: database.db
+        });
         const agentAnalytics = createSqliteAgentAnalyticsStore({
           db: database.db
         });
@@ -275,6 +283,7 @@ describe.runIf(process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1")(
             ),
             tracker: createDoneTracker(issue),
             runStore,
+            deliveryReports,
             agentAnalytics,
             runtimeLogs: {
               async record() {
@@ -618,6 +627,9 @@ while IFS= read -r _line; do
     4)
       printf '%s\\n' '{"id":3,"result":{"turn":{"id":"turn-live-docker"}}}'
       printf '%s\\n' '{"method":"thread/tokenUsage/updated","params":{"tokenUsage":{"total":{"inputTokens":5,"outputTokens":2,"totalTokens":7}}}}'
+      printf '%s\\n' '{"id":101,"method":"item/tool/call","params":{"name":"report_issue_delivery","arguments":{"status":"completed","summary":"Opened the PR for the requested work.","prUrl":"https://github.com/openai/symphony/pull/123","branchName":"codex/col-123"}}}'
+      ;;
+    5)
       printf '%s\\n' '{"method":"turn/completed","params":{"result":"ok"}}'
       exit 0
       ;;

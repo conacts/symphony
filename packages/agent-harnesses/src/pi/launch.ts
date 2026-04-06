@@ -211,6 +211,48 @@ export function buildDynamicToolSpecs(): Array<Record<string, unknown>> {
           }
         }
       }
+    },
+    {
+      name: "report_issue_delivery",
+      description:
+        "Report the final delivery outcome for the active Symphony issue. Use completed only after the PR is opened.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["status", "summary"],
+        properties: {
+          status: {
+            type: "string",
+            enum: ["completed", "blocked", "partial"],
+            description:
+              "Delivery status for the active issue. Completed requires a PR URL."
+          },
+          summary: {
+            type: "string",
+            description: "Short summary of what was delivered or why delivery was blocked."
+          },
+          prUrl: {
+            type: ["string", "null"],
+            description: "Opened pull request URL. Required when status is completed."
+          },
+          prNumber: {
+            type: ["string", "null"],
+            description: "Optional pull request number when it is available."
+          },
+          branchName: {
+            type: ["string", "null"],
+            description: "Optional branch name associated with the delivered work."
+          },
+          blockingReason: {
+            type: ["string", "null"],
+            description: "Required when status is blocked."
+          },
+          testsSummary: {
+            type: ["string", "null"],
+            description: "Optional test and verification summary for the delivery."
+          }
+        }
+      }
     }
   ];
 }

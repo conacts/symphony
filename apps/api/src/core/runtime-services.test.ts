@@ -139,6 +139,7 @@ describe("runtime services", () => {
     harnesses.push(harness);
 
     expect(harness.services.runtimePolicy.agent.harness).toBe("pi");
+    expect(harness.services.runtimePolicy.agentRuntime.command).toBe("pi app-server");
     expect(harness.services.runtimePolicy.pi.profile).toBe("mimo-v2-pro");
     expect(harness.services.runtimePolicy.pi.defaultModel).toBe(
       "xiaomi/mimo-v2-pro"

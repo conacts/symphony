@@ -14,6 +14,7 @@ import {
 import {
   createSqliteAgentAnalyticsReadStore,
   createSqliteAgentAnalyticsStore,
+  createSymphonyIssueDeliveryReportStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyGitHubIngressJournal,
   createSymphonyIssueTimelineStore,
@@ -118,6 +119,10 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
   const runtimeLogStore = createSymphonyRuntimeLogStore(database.db);
   const runStore = createSqliteSymphonyRuntimeRunStore({
+    db: database.db,
+    timelineStore: issueTimelineStore
+  });
+  const deliveryReports = createSymphonyIssueDeliveryReportStore({
     db: database.db,
     timelineStore: issueTimelineStore
   });
@@ -285,6 +290,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       githubRepository: runtimePolicy.github.repo,
       tracker,
       runStore,
+      deliveryReports,
       agentAnalytics: agentAnalyticsStore,
       runtimeLogs: runtimeLogStore,
       hostCommandEnvSource,

@@ -126,7 +126,7 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       profileDefaults: piProfileDefaults
     }),
     agentRuntime: {
-      command: "pi",
+      command: "pi app-server",
       approvalPolicy: "never",
       threadSandbox: "danger-full-access",
       turnSandboxPolicy: null,
