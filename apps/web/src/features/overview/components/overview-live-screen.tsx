@@ -4,7 +4,10 @@ import { useMemo } from "react";
 import { buildFailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
 import { useAnalysisSample } from "@/features/analysis/hooks/use-analysis-sample";
 import { useIssueIndex } from "@/features/issues/hooks/use-issue-index";
+import { buildStartedAfterForTimeRange } from "@/features/issues/model/issue-query-state";
 import { OverviewView } from "@/features/overview/components/overview-view";
+import { useSuccessMetrics } from "@/features/overview/hooks/use-success-metrics";
+import { buildOverviewSuccessMetricsViewModel } from "@/features/overview/model/overview-success-metrics";
 import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
 import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
 import { useControlPlaneRuntime } from "@/features/shared/components/control-plane-runtime-context";
@@ -29,6 +32,14 @@ export function OverviewLiveScreen() {
   const analysisSampleState = useAnalysisSample({
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl
+  });
+  const successMetricsState = useSuccessMetrics({
+    runtimeBaseUrl: model.runtimeBaseUrl,
+    websocketUrl: model.websocketUrl,
+    query: {
+      timeRange: "30d",
+      startedAfter: buildStartedAfterForTimeRange("30d")
+    }
   });
   const now = useNow();
 
@@ -55,6 +66,13 @@ export function OverviewLiveScreen() {
         : null,
     [issueIndexState.resource]
   );
+  const successMetrics = useMemo(
+    () =>
+      successMetricsState.resource
+        ? buildOverviewSuccessMetricsViewModel(successMetricsState.resource)
+        : null,
+    [successMetricsState.resource]
+  );
 
   return (
     <ControlPlanePage connection={connection}>
@@ -62,13 +80,14 @@ export function OverviewLiveScreen() {
         connection={connection}
         error={
           runtimeSummaryState.error ??
-          issueIndexState.error ??
           analysisSampleState.error
         }
         failureAnalysis={failureAnalysis}
         failureAnalysisError={issueIndexState.error}
         loading={runtimeSummaryState.loading}
         runtimeSummary={runtimeSummaryViewModel}
+        successMetrics={successMetrics}
+        successMetricsError={successMetricsState.error}
       />
     </ControlPlanePage>
   );

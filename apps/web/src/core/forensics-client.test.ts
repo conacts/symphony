@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildSymphonyForensicsRunDetailResult } from "@/test-support/build-symphony-dashboard-view-fixtures";
+import {
+  buildSymphonyForensicsRunDetailResult,
+  buildSymphonyForensicsSuccessMetricsResult
+} from "@/test-support/build-symphony-dashboard-view-fixtures";
 import {
   fetchIssueDetail,
   fetchIssueForensicsBundle,
   fetchIssueIndex,
   fetchRunDetail,
+  fetchSuccessMetrics,
   shouldRefreshIssueDetail,
   shouldRefreshIssueIndex,
   shouldRefreshRunDetail
@@ -245,6 +249,33 @@ describe("forensics client", () => {
 
     expect(bundle.issue.issueIdentifier).toBe("COL-165");
     expect(bundle.filters.timeRange).toBe("all");
+  });
+
+  it("parses the success metrics envelope", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        schemaVersion: "1",
+        ok: true,
+        data: buildSymphonyForensicsSuccessMetricsResult(),
+        meta: {
+          durationMs: 1,
+          generatedAt: "2026-03-31T18:05:00.000Z"
+        }
+      })
+    });
+
+    const result = await fetchSuccessMetrics(
+      "http://127.0.0.1:4400",
+      {
+        timeRange: "30d",
+        startedAfter: "2026-03-01T00:00:00.000Z"
+      },
+      fetchImpl as typeof fetch
+    );
+
+    expect(result.executive.deliveredIssueCount).toBe(8);
+    expect(result.daily).toHaveLength(3);
   });
 
   it("matches websocket invalidation to drilldown surfaces", () => {

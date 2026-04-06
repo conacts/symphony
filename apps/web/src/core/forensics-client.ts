@@ -4,6 +4,7 @@ import {
   symphonyForensicsIssueListResponseSchema,
   symphonyForensicsProblemRunsResponseSchema,
   symphonyForensicsRunDetailResponseSchema,
+  symphonyForensicsSuccessMetricsResponseSchema,
   type SymphonyForensicsIssueDetailResult,
   type SymphonyForensicsIssueForensicsBundleQuery,
   type SymphonyForensicsIssueForensicsBundleResult,
@@ -11,6 +12,8 @@ import {
   type SymphonyForensicsIssueListResult,
   type SymphonyForensicsProblemRunsResult,
   type SymphonyForensicsRunDetailResult,
+  type SymphonyForensicsSuccessMetricsQuery,
+  type SymphonyForensicsSuccessMetricsResult,
   type SymphonyRealtimeServerMessage
 } from "@symphony/contracts";
 import { messageInvalidatesPath } from "@/core/runtime-summary-client";
@@ -185,6 +188,38 @@ export async function fetchProblemRuns(
   }
 
   const parsed = symphonyForensicsProblemRunsResponseSchema.parse(
+    await response.json()
+  );
+
+  if (!parsed.ok) {
+    throw new Error(parsed.error.message);
+  }
+
+  return parsed.data;
+}
+
+export async function fetchSuccessMetrics(
+  runtimeBaseUrl: string,
+  input: Partial<SymphonyForensicsSuccessMetricsQuery> = {},
+  fetchImpl: typeof fetch = fetch
+): Promise<SymphonyForensicsSuccessMetricsResult> {
+  const endpoint = createRuntimeUrl("/api/v1/success-metrics", runtimeBaseUrl, {
+    timeRange: input.timeRange,
+    startedAfter: input.startedAfter,
+    startedBefore: input.startedBefore
+  });
+  const response = await fetchImpl(endpoint, {
+    headers: {
+      accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Success metrics request failed with ${response.status}.`);
+  }
+
+  const parsed = symphonyForensicsSuccessMetricsResponseSchema.parse(
     await response.json()
   );
 

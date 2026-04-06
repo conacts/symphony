@@ -38,7 +38,7 @@ export function buildIssueQueryFromSearchParams(
 
   return {
     timeRange,
-    startedAfter: buildStartedAfter(timeRange),
+    startedAfter: buildStartedAfterForTimeRange(timeRange),
     startedBefore: undefined,
     outcome: parseOptionalFilter(searchParams.get("outcome")),
     errorClass: parseOptionalFilter(searchParams.get("errorClass")),
@@ -113,7 +113,7 @@ function parseOptionalFilter(value: string | null): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function buildStartedAfter(
+export function buildStartedAfterForTimeRange(
   timeRange: SymphonyForensicsIssueTimeRange
 ): string | undefined {
   const now = Date.now();

@@ -3,10 +3,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { buildFailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
 import { buildRuntimeSummaryViewModel } from "@/features/overview/model/overview-view-model";
+import { buildOverviewSuccessMetricsViewModel } from "@/features/overview/model/overview-success-metrics";
 import { OverviewView } from "@/features/overview/components/overview-view";
 import {
   buildSymphonyDashboardConnectionState,
   buildSymphonyForensicsIssueListResult,
+  buildSymphonyForensicsSuccessMetricsResult,
   buildSymphonyRuntimeStateResult
 } from "../test-support/build-symphony-dashboard-view-fixtures.js";
 
@@ -24,6 +26,8 @@ describe("runtime summary view", () => {
         failureAnalysisError={null}
         loading
         runtimeSummary={null}
+        successMetrics={null}
+        successMetricsError={null}
       />
     );
 
@@ -44,14 +48,19 @@ describe("runtime summary view", () => {
           buildSymphonyRuntimeStateResult(),
           new Date("2026-03-31T18:02:00.000Z")
         )}
+        successMetrics={buildOverviewSuccessMetricsViewModel(
+          buildSymphonyForensicsSuccessMetricsResult()
+        )}
+        successMetricsError={null}
       />
     );
 
     expect(html).toContain("Overview");
-    expect(html).toContain("Active token footprint");
+    expect(html).toContain("Issue delivery rate");
+    expect(html).toContain("Delivery trend");
     expect(html).toContain("Retry attempt queue");
     expect(html).toContain("Retry pressure");
-    expect(html).toContain("Provider headroom");
+    expect(html).toContain("Max-turn failures");
     expect(html).toContain("Failure analysis");
     expect(html).toContain("Open failure analysis");
     expect(html).toContain("Active runs");

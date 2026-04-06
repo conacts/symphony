@@ -23,7 +23,9 @@ import type {
   RuntimeSummaryViewModel
 } from "@/features/overview/model/overview-view-model";
 import { OverviewRetryChart } from "@/features/overview/components/overview-retry-chart";
+import { OverviewSuccessTrendChart } from "@/features/overview/components/overview-success-trend-chart";
 import { OverviewTokenChart } from "@/features/overview/components/overview-token-chart";
+import type { OverviewSuccessMetricsViewModel } from "@/features/overview/model/overview-success-metrics";
 
 export function OverviewView(input: {
   connection: RuntimeSummaryConnectionState;
@@ -32,6 +34,8 @@ export function OverviewView(input: {
   failureAnalysisError: string | null;
   loading: boolean;
   runtimeSummary: RuntimeSummaryViewModel | null;
+  successMetrics: OverviewSuccessMetricsViewModel | null;
+  successMetricsError: string | null;
 }) {
   const runningMetric = input.runtimeSummary
     ? findMetric(input.runtimeSummary, "Running")
@@ -59,6 +63,13 @@ export function OverviewView(input: {
         <Alert variant="destructive">
           <AlertTitle>Failure analysis degraded</AlertTitle>
           <AlertDescription>{input.failureAnalysisError}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {input.successMetricsError ? (
+        <Alert variant="destructive">
+          <AlertTitle>Success metrics degraded</AlertTitle>
+          <AlertDescription>{input.successMetricsError}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -176,8 +187,36 @@ export function OverviewView(input: {
             ))}
           </section>
 
+          {input.successMetrics ? (
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {input.successMetrics.cards.map((card) => (
+                <Card key={card.label}>
+                  <CardHeader>
+                    <CardDescription>{card.label}</CardDescription>
+                    <CardTitle className="text-3xl">{card.value}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground">
+                    {card.detail}
+                  </CardContent>
+                </Card>
+              ))}
+            </section>
+          ) : null}
+
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {input.runtimeSummary.piTelemetryCards.map((card) => (
+            {input.successMetrics
+              ? input.successMetrics.diagnostics.map((card) => (
+                  <Card key={card.label}>
+                    <CardHeader>
+                      <CardDescription>{card.label}</CardDescription>
+                      <CardTitle className="text-3xl">{card.value}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm text-muted-foreground">
+                      {card.detail}
+                    </CardContent>
+                  </Card>
+                ))
+              : input.runtimeSummary.piTelemetryCards.map((card) => (
               <Card key={card.label}>
                 <CardHeader>
                   <CardDescription>{card.label}</CardDescription>
@@ -187,7 +226,7 @@ export function OverviewView(input: {
                   {card.detail}
                 </CardContent>
               </Card>
-            ))}
+                ))}
           </section>
 
           {input.failureAnalysis ? (
@@ -306,7 +345,11 @@ export function OverviewView(input: {
           ) : null}
 
           <section className="grid gap-6 xl:grid-cols-2">
-            <OverviewTokenChart rows={input.runtimeSummary.tokenChartRows} />
+            {input.successMetrics ? (
+              <OverviewSuccessTrendChart rows={input.successMetrics.trendRows} />
+            ) : (
+              <OverviewTokenChart rows={input.runtimeSummary.tokenChartRows} />
+            )}
             <OverviewRetryChart rows={input.runtimeSummary.retryChartRows} />
           </section>
 
@@ -386,30 +429,6 @@ export function OverviewView(input: {
                     </div>
                   ))
                 )}
-              </CardContent>
-            </Card>
-          </section>
-
-          <section>
-            <Card>
-              <CardHeader>
-                <CardTitle>Provider headroom</CardTitle>
-                <CardDescription>
-                  Latest upstream rate-limit snapshot from the runtime surface.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-2">
-                {input.runtimeSummary.rateLimitRows.map((row) => (
-                  <div
-                    key={row.label}
-                    className="rounded-xl border border-border/70 p-4"
-                  >
-                    <p className="text-sm text-muted-foreground">{row.label}</p>
-                    <p className="mt-2 text-lg font-medium break-words">
-                      {row.value}
-                    </p>
-                  </div>
-                ))}
               </CardContent>
             </Card>
           </section>

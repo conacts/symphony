@@ -11,6 +11,7 @@ export {
   buildSymphonyForensicsIssueListResult,
   buildSymphonyForensicsProblemRunsResult,
   buildSymphonyForensicsRunDetailResult,
+  buildSymphonyForensicsSuccessMetricsResult,
   buildSymphonyRuntimeHealthResult,
   buildSymphonyRuntimeLogsResult,
   buildSymphonyRuntimeStateResult

@@ -6,6 +6,7 @@ import type {
   SymphonyForensicsIssueListResult,
   SymphonyForensicsProblemRunsResult,
   SymphonyForensicsRunDetailResult,
+  SymphonyForensicsSuccessMetricsResult,
   SymphonyRuntimeHealthResult,
   SymphonyRuntimeIssueResult,
   SymphonyRuntimeLogsResult,
@@ -955,6 +956,74 @@ export function buildSymphonyForensicsRunDetailResult(
             insertedAt: "2026-03-31T18:01:00.000Z"
           }
         ]
+      }
+    ],
+    ...overrides
+  };
+}
+
+export function buildSymphonyForensicsSuccessMetricsResult(
+  overrides: Partial<SymphonyForensicsSuccessMetricsResult> = {}
+): SymphonyForensicsSuccessMetricsResult {
+  return {
+    window: {
+      timeRange: "30d",
+      startedAfter: "2026-03-01T00:00:00.000Z",
+      startedBefore: "2026-03-31T23:59:59.999Z"
+    },
+    executive: {
+      startedIssueCount: 12,
+      deliveredIssueCount: 8,
+      issueDeliveryRate: 8 / 12,
+      medianTokensPerDeliveredIssue: 1420,
+      medianTimeToDeliveredIssueSeconds: 7_200,
+      deliveryRetryRate: 0.5,
+      maxTurnFailureRate: 0.125
+    },
+    diagnostics: {
+      startedRunCount: 16,
+      deliveredRunCount: 8,
+      blockedIssueCount: 1,
+      partialIssueCount: 2,
+      missingDeliveryReportFailureCount: 1,
+      startupFailureRate: 0.0625,
+      rateLimitedRunRate: 0.125,
+      highMachinePressureRunRate: 0.1875,
+      medianCachedInputShareDeliveredIssues: 0.42
+    },
+    daily: [
+      {
+        date: "2026-03-29",
+        startedIssueCount: 2,
+        deliveredIssueCount: 1,
+        startedRunCount: 3,
+        deliveredRunCount: 1,
+        maxTurnFailureCount: 0,
+        startupFailureCount: 0,
+        rateLimitedRunCount: 0,
+        totalTokens: 930
+      },
+      {
+        date: "2026-03-30",
+        startedIssueCount: 4,
+        deliveredIssueCount: 3,
+        startedRunCount: 5,
+        deliveredRunCount: 3,
+        maxTurnFailureCount: 1,
+        startupFailureCount: 0,
+        rateLimitedRunCount: 1,
+        totalTokens: 1_420
+      },
+      {
+        date: "2026-03-31",
+        startedIssueCount: 3,
+        deliveredIssueCount: 2,
+        startedRunCount: 4,
+        deliveredRunCount: 2,
+        maxTurnFailureCount: 1,
+        startupFailureCount: 1,
+        rateLimitedRunCount: 0,
+        totalTokens: 1_280
       }
     ],
     ...overrides
