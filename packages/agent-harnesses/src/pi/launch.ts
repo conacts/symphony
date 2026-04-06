@@ -149,18 +149,28 @@ export function buildPiAppServerSpawnSpec(input: {
   runtimeWorkspacePath: string;
   env: Record<string, string>;
 } {
+  const piAgentDir = "/tmp/symphony-pi-agent";
+  const mountedPiAuthPath = "/home/agent/.pi/agent/auth.json";
+
   return {
     command: "docker",
     args: [
       "exec",
       "-i",
-      ...dockerEnvFlags(input.env),
+      ...dockerEnvFlags({
+        ...input.env,
+        PI_AGENT_DIR: piAgentDir
+      }),
       "--workdir",
       input.launchTarget.runtimeWorkspacePath,
       input.launchTarget.containerName,
       input.launchTarget.shell,
       "-lc",
-      input.command
+      [
+        `mkdir -p ${shellQuote(piAgentDir)}`,
+        `if [ -f ${shellQuote(mountedPiAuthPath)} ] && [ ! -f ${shellQuote(`${piAgentDir}/auth.json`)} ]; then cp ${shellQuote(mountedPiAuthPath)} ${shellQuote(`${piAgentDir}/auth.json`)}; fi`,
+        `exec ${input.command}`
+      ].join(" && ")
     ],
     cwd: input.launchTarget.hostLaunchPath,
     hostLaunchPath: input.launchTarget.hostLaunchPath,
@@ -269,6 +279,10 @@ function buildHostCommandEnv(
 
 function dockerEnvFlags(env: Record<string, string>): string[] {
   return Object.entries(env).flatMap(([key, value]) => ["--env", `${key}=${value}`]);
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 function resolvePiModelSettings(
