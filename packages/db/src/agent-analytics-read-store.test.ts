@@ -998,4 +998,71 @@ describe("sqlite agent analytics read store", () => {
       database.close();
     }
   });
+
+  it("derives run list totals from runtime ledger rows when agent analytics rows are unavailable", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-runtime-fallback-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runLedger = createSqliteSymphonyRuntimeRunLedger({
+      db: database.db,
+      dbFile: path.join(root, "symphony.db"),
+      timelineStore: createSymphonyIssueTimelineStore(database.db)
+    });
+    const readStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runLedger.recordRunStarted({
+        runId: "run-runtime-only",
+        issueId: "issue-runtime-only",
+        issueIdentifier: "COL-999",
+        startedAt: "2026-04-05T00:00:00.000Z",
+        status: "running"
+      });
+      const turnId = await runLedger.recordTurnStarted(runId, {
+        turnId: "turn-runtime-only",
+        turnSequence: 1,
+        promptText: "Inspect runtime-only history",
+        status: "running",
+        startedAt: "2026-04-05T00:00:01.000Z"
+      });
+
+      await runLedger.finalizeTurn(turnId, {
+        status: "completed",
+        endedAt: "2026-04-05T00:00:05.000Z",
+        usage: {
+          input_tokens: 10,
+          cached_input_tokens: 4,
+          output_tokens: 6
+        }
+      });
+      await runLedger.finalizeRun(runId, {
+        status: "finished",
+        outcome: "completed",
+        endedAt: "2026-04-05T00:00:06.000Z"
+      });
+
+      const runs = await readStore.listRuns({
+        issueIdentifier: "COL-999"
+      });
+
+      expect(runs).toHaveLength(1);
+      expect(runs[0]).toMatchObject({
+        runId,
+        turnCount: 1,
+        eventCount: 0,
+        inputTokens: 10,
+        cachedInputTokens: 4,
+        outputTokens: 6,
+        totalTokens: 20,
+        agentStatus: null
+      });
+    } finally {
+      database.close();
+    }
+  });
 });

@@ -68,4 +68,62 @@ describe("sqlite symphony runtime run ledger", () => {
       database.close();
     }
   });
+
+  it("includes cached input tokens in runtime ledger run summaries", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-sqlite-runtime-ledger-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const ledger = createSqliteSymphonyRuntimeRunLedger({
+      db: database.db,
+      dbFile: path.join(root, "symphony.db"),
+      timelineStore: createSymphonyIssueTimelineStore(database.db)
+    });
+
+    try {
+      const runId = await ledger.recordRunStarted({
+        issueId: "issue-tokens",
+        issueIdentifier: "COL-TOKENS",
+        runId: "run-tokens",
+        status: "running",
+        startedAt: "2026-03-31T00:00:00.000Z"
+      });
+      const turnId = await ledger.recordTurnStarted(runId, {
+        turnId: "turn-tokens",
+        turnSequence: 1,
+        promptText: "Measure token totals",
+        status: "running",
+        startedAt: "2026-03-31T00:00:01.000Z"
+      });
+
+      await ledger.finalizeTurn(turnId, {
+        status: "completed",
+        endedAt: "2026-03-31T00:00:05.000Z",
+        usage: {
+          input_tokens: 12,
+          cached_input_tokens: 5,
+          output_tokens: 8
+        }
+      });
+      await ledger.finalizeRun(runId, {
+        status: "finished",
+        outcome: "completed",
+        endedAt: "2026-03-31T00:00:06.000Z"
+      });
+
+      const runs = await ledger.listRuns({
+        issueIdentifier: "COL-TOKENS"
+      });
+
+      expect(runs[0]).toMatchObject({
+        inputTokens: 12,
+        outputTokens: 8,
+        totalTokens: 25
+      });
+    } finally {
+      database.close();
+    }
+  });
 });

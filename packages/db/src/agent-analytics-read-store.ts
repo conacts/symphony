@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import {
   isThreadEvent,
@@ -61,6 +61,12 @@ import {
   symphonyRunsTable,
   symphonyTurnsTable
 } from "./schema.js";
+import {
+  buildRuntimeIssueSummary,
+  buildRuntimeRunSummary,
+  computeRuntimeRunTokenTotals,
+  isProblemOutcome
+} from "./runtime-run-summary.js";
 
 type SymphonyDbShape = typeof import("./schema.js").symphonySchema;
 
@@ -134,14 +140,15 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
       .from(symphonyAgentRunsTable)
       .where(inArray(symphonyAgentRunsTable.runId, runIds))
       .all();
-    const eventCounts = this.#db
-      .select({
-        runId: symphonyAgentEventLogTable.runId,
-        count: sql<number>`count(*)`
-      })
+    const runtimeTurns = this.#db
+      .select()
+      .from(symphonyTurnsTable)
+      .where(inArray(symphonyTurnsTable.runId, runIds))
+      .all();
+    const eventRows = this.#db
+      .select()
       .from(symphonyAgentEventLogTable)
       .where(inArray(symphonyAgentEventLogTable.runId, runIds))
-      .groupBy(symphonyAgentEventLogTable.runId)
       .all();
     const runtimeLogRows = this.#db
       .select()
@@ -151,14 +158,16 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
       .all();
 
     const agentRunMap = new Map(agentRuns.map((run) => [run.runId, run] as const));
-    const eventCountMap = new Map(eventCounts.map((row) => [row.runId, row.count] as const));
+    const runtimeTurnsByRunId = groupRowsByRunId(runtimeTurns);
+    const eventRowsByRunId = groupRowsByRunId(eventRows);
     const runtimeContextMap = buildRuntimeContextMap(runtimeLogRows);
 
     return runs.map((run) =>
       buildForensicsRunSummary(
         run,
         agentRunMap.get(run.runId),
-        eventCountMap.get(run.runId) ?? 0,
+        runtimeTurnsByRunId.get(run.runId) ?? [],
+        mapEventRowsForRunSummary(eventRowsByRunId.get(run.runId) ?? []),
         runtimeContextMap.get(run.runId)
       )
     );
@@ -212,7 +221,8 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
         ...buildForensicsRunSummary(
           mapPersistedRunRecord(data.run),
           data.agentRun,
-          data.eventRows.length,
+          data.symphonyTurns,
+          mapEventRowsForRunSummary(data.eventRows),
           data.runtimeContext
         ),
         threadId: data.agentRun.threadId ?? null,
@@ -586,6 +596,13 @@ type PersistedRunRecord = typeof symphonyRunsTable.$inferSelect & {
   metadata: JsonObject | null;
 };
 
+type SummaryEventRow = {
+  runId: string;
+  eventSequence: number;
+  eventType: string;
+  recordedAt: string;
+};
+
 type ForensicsTurn = SymphonyForensicsRunDetailResult["turns"][number];
 type ForensicsEvent = ForensicsTurn["events"][number];
 
@@ -621,7 +638,8 @@ function mapPersistedRunRecord(
 function buildForensicsRunSummary(
   run: PersistedRunRecord,
   agentRun: typeof symphonyAgentRunsTable.$inferSelect | undefined,
-  eventCount: number,
+  runtimeTurns: Array<typeof symphonyTurnsTable.$inferSelect>,
+  eventRows: SummaryEventRow[],
   runtimeContext?: {
     harness: "pi" | null;
     model: string | null;
@@ -629,9 +647,15 @@ function buildForensicsRunSummary(
     providerName: string | null;
   }
 ): SymphonyForensicsRunSummary {
-  const inputTokens = agentRun?.inputTokens ?? 0;
-  const cachedInputTokens = agentRun?.cachedInputTokens ?? 0;
-  const outputTokens = agentRun?.outputTokens ?? 0;
+  const runtimeSummary = buildRuntimeRunSummary(run, runtimeTurns, eventRows);
+  const runtimeTokenTotals = computeRuntimeRunTokenTotals(runtimeTurns);
+  const inputTokens = agentRun?.inputTokens ?? runtimeSummary.inputTokens;
+  const cachedInputTokens = agentRun?.cachedInputTokens ?? runtimeTokenTotals.cachedInputTokens;
+  const outputTokens = agentRun?.outputTokens ?? runtimeSummary.outputTokens;
+  const totalTokens =
+    agentRun === undefined
+      ? runtimeSummary.totalTokens
+      : inputTokens + cachedInputTokens + outputTokens;
 
   return {
     runId: run.runId,
@@ -652,17 +676,17 @@ function buildForensicsRunSummary(
     endedAt: run.endedAt,
     commitHashStart: run.commitHashStart,
     commitHashEnd: run.commitHashEnd,
-    turnCount: agentRun?.turnCount ?? 0,
-    eventCount,
-    lastEventType: agentRun?.latestEventType ?? null,
-    lastEventAt: agentRun?.latestEventAt ?? null,
-    durationSeconds: computeDurationSeconds(run.startedAt, run.endedAt),
+    turnCount: runtimeSummary.turnCount,
+    eventCount: runtimeSummary.eventCount,
+    lastEventType: runtimeSummary.lastEventType,
+    lastEventAt: runtimeSummary.lastEventAt,
+    durationSeconds: runtimeSummary.durationSeconds,
     errorClass: run.errorClass ?? null,
     errorMessage: run.errorMessage ?? null,
     inputTokens,
     cachedInputTokens,
     outputTokens,
-    totalTokens: inputTokens + cachedInputTokens + outputTokens,
+    totalTokens,
     machineLoad: buildRunMachineLoadSummary(run)
   };
 }
@@ -846,6 +870,34 @@ function groupRowsByTurnId<T extends { turnId: string }>(rows: T[]) {
   return groups;
 }
 
+function groupRowsByRunId<T extends { runId: string }>(rows: T[]) {
+  const groups = new Map<string, T[]>();
+
+  for (const row of rows) {
+    const group = groups.get(row.runId);
+
+    if (group) {
+      group.push(row);
+      continue;
+    }
+
+    groups.set(row.runId, [row]);
+  }
+
+  return groups;
+}
+
+function mapEventRowsForRunSummary(
+  rows: Array<typeof symphonyAgentEventLogTable.$inferSelect>
+): SummaryEventRow[] {
+  return rows.map((row) => ({
+    runId: row.runId,
+    eventSequence: row.sequence,
+    eventType: row.eventType,
+    recordedAt: row.recordedAt
+  }));
+}
+
 function byteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
 }
@@ -856,38 +908,6 @@ function normalizeLimit(limit: number | undefined, fallback = 50): number {
   }
 
   return Math.max(1, Math.floor(limit));
-}
-
-function computeDurationSeconds(
-  startedAt: string | null,
-  endedAt: string | null
-): number | null {
-  if (!startedAt) {
-    return null;
-  }
-
-  const startedMs = Date.parse(startedAt);
-  if (Number.isNaN(startedMs)) {
-    return null;
-  }
-
-  const endedMs = endedAt ? Date.parse(endedAt) : Date.now();
-  if (Number.isNaN(endedMs)) {
-    return null;
-  }
-
-  return Math.max(0, Math.floor((endedMs - startedMs) / 1_000));
-}
-
-function isCompletedOutcome(outcome: string | null): boolean {
-  return (
-    outcome === "completed" ||
-    outcome === "completed_turn_batch"
-  );
-}
-
-function isProblemOutcome(outcome: string | null): boolean {
-  return typeof outcome === "string" && !isCompletedOutcome(outcome);
 }
 
 function matchesRunFilters(
@@ -933,26 +953,7 @@ function buildForensicsIssueExport(
   issue: typeof symphonyIssuesTable.$inferSelect,
   runs: Array<typeof symphonyRunsTable.$inferSelect>
 ): SymphonyForensicsRunDetailResult["issue"] {
-  const issueRuns = runs
-    .filter((run) => run.issueId === issue.issueId)
-    .sort((left, right) => compareDescendingTimestamps(left.startedAt, right.startedAt));
-  const latestRun = issueRuns[0];
-  const latestProblemRun = issueRuns.find((run) => isProblemOutcome(run.outcome));
-  const lastCompletedRun = issueRuns.find((run) => isCompletedOutcome(run.outcome));
-
-  return {
-    issueId: issue.issueId,
-    issueIdentifier: issue.issueIdentifier,
-    latestRunStartedAt: issue.latestRunStartedAt ?? null,
-    latestRunId: latestRun?.runId ?? null,
-    latestRunStatus: latestRun?.status ?? null,
-    latestRunOutcome: latestRun?.outcome ?? null,
-    runCount: issueRuns.length,
-    latestProblemOutcome: latestProblemRun?.outcome ?? null,
-    lastCompletedOutcome: lastCompletedRun?.outcome ?? null,
-    insertedAt: issue.insertedAt ?? null,
-    updatedAt: issue.updatedAt ?? null
-  };
+  return buildRuntimeIssueSummary(issue, runs);
 }
 
 function normalizeAgentRunStatus(status: string): SymphonyAgentRunStatus {
@@ -1756,13 +1757,4 @@ function extractRuntimeContext(
     providerEnvKey,
     launchTarget
   };
-}
-
-function compareDescendingTimestamps(
-  left: string | null | undefined,
-  right: string | null | undefined
-): number {
-  const leftTime = left ? Date.parse(left) : Number.NEGATIVE_INFINITY;
-  const rightTime = right ? Date.parse(right) : Number.NEGATIVE_INFINITY;
-  return rightTime - leftTime;
 }
