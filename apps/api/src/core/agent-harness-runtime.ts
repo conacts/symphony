@@ -28,6 +28,8 @@ import type {
 } from "@symphony/db";
 import type { SymphonyLogger } from "@symphony/logger";
 import {
+  decodePiRuntimeEvent,
+  extractPiRuntimeUsage,
   HarnessSessionError,
   resolveHarnessModelRuntimePolicy,
   type HarnessSessionClient
@@ -788,6 +790,23 @@ function extractRuntimeUsage(
   const eventUsage = threadEvent ? extractUsage(threadEvent) : null;
   if (eventUsage) {
     return eventUsage;
+  }
+
+  const decodedPiEvent =
+    decodePiRuntimeEvent(payload) ??
+    decodePiRuntimeEvent(asRecord(asRecord(payload?.params)?.msg));
+  const piUsage =
+    decodedPiEvent &&
+    (decodedPiEvent.type === "message_end" || decodedPiEvent.type === "turn_end")
+      ? extractPiRuntimeUsage(decodedPiEvent)
+      : null;
+
+  if (piUsage) {
+    return {
+      input_tokens: piUsage.input,
+      cached_input_tokens: piUsage.cacheRead,
+      output_tokens: piUsage.output
+    };
   }
 
   const directUsage =

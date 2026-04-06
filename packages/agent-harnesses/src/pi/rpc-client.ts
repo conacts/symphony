@@ -14,6 +14,7 @@ import {
   piAnalyticsAdapter,
   type PiAnalyticsProjection
 } from "./analytics-adapter.js";
+import { decodePiRuntimeEvent } from "./event-decoder.js";
 import { PiRpcProcess } from "./rpc-process.js";
 
 export class PiRpcClient implements HarnessSessionClient {
@@ -117,10 +118,14 @@ export class PiRpcClient implements HarnessSessionClient {
     }
 
     while (true) {
-      const event = await this.#process.awaitEvent(input.turnTimeoutMs);
-      const eventType = getString(event, "type");
+      const rawEvent = await this.#process.awaitEvent(input.turnTimeoutMs);
+      const event = decodePiRuntimeEvent(rawEvent);
+      const eventType =
+        event?.type === "unknown"
+          ? event.rawType
+          : event?.type ?? getString(rawEvent, "type");
 
-      if (eventType === "turn_end") {
+      if (event?.type === "turn_end") {
         const usage = piAnalyticsAdapter.extractTurnUsage({
           event
         });
@@ -139,15 +144,16 @@ export class PiRpcClient implements HarnessSessionClient {
           message: {
             event: "turn_end"
           },
-          rawPayload: event
+          rawPayload: rawEvent
         });
       }
 
       if (eventType === "process_exit") {
         throw new HarnessSessionError(
           "pi_turn_failed",
-          getString(event, "reason") ?? "Pi RPC process exited unexpectedly.",
-          event
+          (event && event.type === "process_exit" ? event.reason : null) ??
+            "Pi RPC process exited unexpectedly.",
+          rawEvent
         );
       }
 
@@ -155,21 +161,23 @@ export class PiRpcClient implements HarnessSessionClient {
         await input.onMessage({
           message: {
             event: "turn_input_required",
-            request: event
+            request: rawEvent
           }
         });
         throw new HarnessSessionError(
           "turn_input_required",
           "Pi requested interactive operator input during a non-interactive session.",
-          event
+          rawEvent
         );
       }
 
-      const projection = piAnalyticsAdapter.projectRuntimeEvent({
-        event
-      });
+      const projection = event
+        ? piAnalyticsAdapter.projectRuntimeEvent({
+            event
+          })
+        : null;
       if (projection) {
-        await emitProjection(input.onMessage, projection, event);
+        await emitProjection(input.onMessage, projection, rawEvent);
       }
 
       if (eventType === "agent_end") {

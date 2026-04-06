@@ -9,8 +9,30 @@ import type {
   Usage
 } from "@symphony/agent-analytics";
 import type { SymphonyAgentHarnessAnalyticsProjection } from "../shared/types.js";
+import type {
+  PiJsonRecord,
+  PiMessageEndEvent,
+  PiQueueUpdateEvent,
+  PiRuntimeEvent,
+  PiToolExecutionEndEvent,
+  PiToolExecutionStartEvent,
+  PiToolExecutionUpdateEvent,
+  PiTurnEndEvent
+} from "./event-decoder.js";
+import {
+  decodePiRuntimeEvent,
+  extractPiRuntimeUsage
+} from "./event-decoder.js";
 
-type PiJsonRecord = Record<string, unknown>;
+function decodeEventOfType<TEvent extends PiRuntimeEvent["type"]>(
+  value: PiRuntimeEvent | PiJsonRecord,
+  type: TEvent
+): Extract<PiRuntimeEvent, { type: TEvent }> | null {
+  const event = "raw" in value ? value : decodePiRuntimeEvent(value);
+  return event && event.type === type
+    ? (event as Extract<PiRuntimeEvent, { type: TEvent }>)
+    : null;
+}
 
 export type PiAnalyticsLoss =
   | {
@@ -53,23 +75,27 @@ export type PiAnalyticsAdapter = {
 };
 
 export function projectPiRuntimeEvent(input: {
-  event: PiJsonRecord;
+  event: PiRuntimeEvent | PiJsonRecord;
 }): PiAnalyticsProjection | null {
-  const type = getString(input.event, "type");
+  const event =
+    "raw" in input.event ? input.event : decodePiRuntimeEvent(input.event);
+  if (!event) {
+    return null;
+  }
 
-  switch (type) {
+  switch (event.type) {
     case "turn_start":
       return null;
     case "message_end":
-      return projectPiMessageEndEvent(input);
+      return projectPiMessageEndEvent({ event });
     case "tool_execution_start":
-      return projectPiToolExecutionStartEvent(input);
+      return projectPiToolExecutionStartEvent({ event });
     case "tool_execution_update":
-      return projectPiToolExecutionUpdateEvent(input);
+      return projectPiToolExecutionUpdateEvent({ event });
     case "tool_execution_end":
-      return projectPiToolExecutionEndEvent(input);
+      return projectPiToolExecutionEndEvent({ event });
     case "queue_update":
-      return projectPiQueueUpdateEvent(input);
+      return projectPiQueueUpdateEvent({ event });
     case "turn_end":
       return null;
     default:
@@ -78,9 +104,10 @@ export function projectPiRuntimeEvent(input: {
 }
 
 export function projectPiSessionHeaderEvent(input: {
-  event: PiJsonRecord;
+  event: PiRuntimeEvent | PiJsonRecord;
 }): PiAnalyticsProjection {
-  const sessionId = getString(input.event, "id");
+  const event = decodeEventOfType(input.event, "session_started");
+  const sessionId = event?.id ?? null;
   return sessionId
     ? {
         events: [
@@ -105,10 +132,18 @@ export function projectPiTurnStartEvent(): PiAnalyticsProjection {
 }
 
 export function projectPiMessageEndEvent(input: {
-  event: PiJsonRecord;
+  event: PiMessageEndEvent | PiJsonRecord;
 }): PiAnalyticsProjection {
-  const message = asRecord(input.event.message);
-  if (!message || getString(message, "role") !== "assistant") {
+  const event = decodeEventOfType(input.event, "message_end");
+  if (!event) {
+    return {
+      events: [],
+      losses: []
+    };
+  }
+
+  const message = event.message;
+  if (!message || message.role !== "assistant") {
     return {
       events: [],
       losses: []
@@ -118,49 +153,40 @@ export function projectPiMessageEndEvent(input: {
   const events: ThreadEvent[] = [];
   const losses: PiAnalyticsLoss[] = [];
 
-  for (const partValue of getArray(message, "content")) {
-    const part = asRecord(partValue);
-    const partType = getString(part, "type");
-
-    if (!partType || partType === "toolCall") {
+  for (const part of message.content) {
+    if (part.type === "toolCall") {
       continue;
     }
 
-    if (partType === "thinking") {
-      const text = getString(part, "thinking");
-      if (text) {
-        const item: ReasoningItem = {
-          id: `${getString(message, "responseId") ?? "pi"}:reasoning:${events.length}`,
-          type: "reasoning",
-          text
-        };
-        events.push({
-          type: "item.completed",
-          item
-        });
-      }
+    if (part.type === "thinking" && "thinking" in part) {
+      const item: ReasoningItem = {
+        id: `${message.responseId ?? "pi"}:reasoning:${events.length}`,
+        type: "reasoning",
+        text: part.thinking
+      };
+      events.push({
+        type: "item.completed",
+        item
+      });
       continue;
     }
 
-    if (partType === "text") {
-      const text = getString(part, "text");
-      if (text) {
-        const item: AgentMessageItem = {
-          id: `${getString(message, "responseId") ?? "pi"}:text:${events.length}`,
-          type: "agent_message",
-          text
-        };
-        events.push({
-          type: "item.completed",
-          item
-        });
-      }
+    if (part.type === "text" && "text" in part) {
+      const item: AgentMessageItem = {
+        id: `${message.responseId ?? "pi"}:text:${events.length}`,
+        type: "agent_message",
+        text: part.text
+      };
+      events.push({
+        type: "item.completed",
+        item
+      });
       continue;
     }
 
     losses.push({
       kind: "unsupported_message_part",
-      partType
+      partType: part.type
     });
   }
 
@@ -171,10 +197,17 @@ export function projectPiMessageEndEvent(input: {
 }
 
 export function projectPiToolExecutionStartEvent(input: {
-  event: PiJsonRecord;
+  event: PiToolExecutionStartEvent | PiJsonRecord;
 }): PiAnalyticsProjection {
-  const toolCallId = getString(input.event, "toolCallId");
-  const toolName = getString(input.event, "toolName");
+  const event = decodeEventOfType(input.event, "tool_execution_start");
+  if (!event) {
+    return {
+      events: [],
+      losses: []
+    };
+  }
+
+  const { toolCallId, toolName } = event;
   if (!toolCallId || !toolName) {
     return {
       events: [],
@@ -186,7 +219,7 @@ export function projectPiToolExecutionStartEvent(input: {
     events: [
       {
         type: "item.started",
-        item: projectToolItem(toolCallId, toolName, input.event.args, null, false)
+        item: projectToolItem(toolCallId, toolName, event.args, null, false)
       }
     ],
     losses: []
@@ -194,10 +227,17 @@ export function projectPiToolExecutionStartEvent(input: {
 }
 
 export function projectPiToolExecutionUpdateEvent(input: {
-  event: PiJsonRecord;
+  event: PiToolExecutionUpdateEvent | PiJsonRecord;
 }): PiAnalyticsProjection {
-  const toolCallId = getString(input.event, "toolCallId");
-  const toolName = getString(input.event, "toolName");
+  const event = decodeEventOfType(input.event, "tool_execution_update");
+  if (!event) {
+    return {
+      events: [],
+      losses: []
+    };
+  }
+
+  const { toolCallId, toolName } = event;
   if (!toolCallId || !toolName || toolName !== "bash") {
     return {
       events: [],
@@ -205,7 +245,7 @@ export function projectPiToolExecutionUpdateEvent(input: {
     };
   }
 
-  const output = extractToolContentText(input.event.partialResult);
+  const output = extractToolContentText(event.partialResult);
   if (output === null) {
     return {
       events: [],
@@ -216,7 +256,7 @@ export function projectPiToolExecutionUpdateEvent(input: {
   const item: CommandExecutionItem = {
     id: toolCallId,
     type: "command_execution",
-    command: extractBashCommand(input.event.args),
+    command: extractBashCommand(event.args),
     aggregated_output: output,
     status: "in_progress"
   };
@@ -233,10 +273,17 @@ export function projectPiToolExecutionUpdateEvent(input: {
 }
 
 export function projectPiToolExecutionEndEvent(input: {
-  event: PiJsonRecord;
+  event: PiToolExecutionEndEvent | PiJsonRecord;
 }): PiAnalyticsProjection {
-  const toolCallId = getString(input.event, "toolCallId");
-  const toolName = getString(input.event, "toolName");
+  const event = decodeEventOfType(input.event, "tool_execution_end");
+  if (!event) {
+    return {
+      events: [],
+      losses: []
+    };
+  }
+
+  const { toolCallId, toolName } = event;
   if (!toolCallId || !toolName) {
     return {
       events: [],
@@ -244,8 +291,8 @@ export function projectPiToolExecutionEndEvent(input: {
     };
   }
 
-  const isError = Boolean(input.event.isError);
-  const output = extractToolContentText(input.event.result);
+  const isError = event.isError;
+  const output = extractToolContentText(event.result);
   const losses: PiAnalyticsLoss[] =
     output === null
       ? [
@@ -257,7 +304,7 @@ export function projectPiToolExecutionEndEvent(input: {
         ]
       : [];
 
-  const resolvedArgs = input.event.args ?? extractToolResultPath(input.event.result);
+  const resolvedArgs = event.args ?? extractToolResultPath(event.result);
   const item = projectToolItem(
     toolCallId,
     toolName,
@@ -303,17 +350,25 @@ export function projectPiToolExecutionEndEvent(input: {
 }
 
 export function projectPiQueueUpdateEvent(input: {
-  event: PiJsonRecord;
+  event: PiQueueUpdateEvent | PiJsonRecord;
 }): PiAnalyticsProjection {
+  const event = decodeEventOfType(input.event, "queue_update");
+  if (!event) {
+    return {
+      events: [],
+      losses: []
+    };
+  }
+
   const item: TodoListItem = {
     id: "pi-todo-queue",
     type: "todo_list",
     items: [
-      ...getStringArray(input.event.steering).map((text) => ({
+      ...event.steering.map((text) => ({
         text: `[Steering] ${text}`,
         completed: false
       })),
-      ...getStringArray(input.event.followUp).map((text) => ({
+      ...event.followUp.map((text) => ({
         text: `[Follow-up] ${text}`,
         completed: false
       }))
@@ -339,13 +394,22 @@ export function projectPiTurnEndEvent(): PiAnalyticsProjection {
 }
 
 export function extractPiTurnUsage(input: {
-  event: PiJsonRecord;
+  event: PiTurnEndEvent | PiJsonRecord;
 }): Usage | null {
-  const usage = projectUsage(asRecord(input.event.message));
-  return usage.input_tokens > 0 ||
-    usage.cached_input_tokens > 0 ||
-    usage.output_tokens > 0
-    ? usage
+  const event = decodeEventOfType(input.event, "turn_end");
+  const usage = event ? extractPiRuntimeUsage(event) : null;
+  if (!usage) {
+    return null;
+  }
+
+  return usage.input > 0 ||
+    usage.cacheRead > 0 ||
+    usage.output > 0
+    ? {
+        input_tokens: usage.input,
+        cached_input_tokens: usage.cacheRead,
+        output_tokens: usage.output
+      }
     : null;
 }
 
@@ -493,15 +557,6 @@ function extractToolResultPath(value: unknown): PiJsonRecord | null {
   return { path: candidate };
 }
 
-function projectUsage(message: PiJsonRecord | null): Usage {
-  const usage = asRecord(message?.usage);
-  return {
-    input_tokens: getNumber(usage, "input") ?? 0,
-    cached_input_tokens: getNumber(usage, "cacheRead") ?? 0,
-    output_tokens: getNumber(usage, "output") ?? 0
-  };
-}
-
 function extractBashCommand(argsValue: unknown): string {
   const args = asRecord(argsValue);
   return getString(args, "command") ?? "bash";
@@ -544,26 +599,12 @@ function getArray(value: PiJsonRecord | null | undefined, key: string): unknown[
   return Array.isArray(nested) ? nested : [];
 }
 
-function getStringArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string" && entry.trim() !== "")
-    : [];
-}
-
 function getString(
   value: PiJsonRecord | null | undefined,
   key: string
 ): string | null {
   const nested = value?.[key];
   return typeof nested === "string" && nested.trim() !== "" ? nested : null;
-}
-
-function getNumber(
-  value: PiJsonRecord | null | undefined,
-  key: string
-): number | null {
-  const nested = value?.[key];
-  return typeof nested === "number" && Number.isFinite(nested) ? nested : null;
 }
 
 export const piAnalyticsAdapter: PiAnalyticsAdapter = {
