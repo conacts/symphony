@@ -8,6 +8,7 @@ import {
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import { buildSymphonyRuntimePolicy } from "@symphony/test-support";
+import { createMemorySymphonyTracker } from "@symphony/tracker";
 import { buildRuntimeDynamicToolExecutor } from "./runtime-dynamic-tools.js";
 
 const tempRoots: string[] = [];
@@ -35,13 +36,37 @@ describe("runtime dynamic tools", () => {
       db: database.db
     });
     const recorded: Array<{ status: string; prUrl: string | null }> = [];
+    const tracker = createMemorySymphonyTracker([
+      {
+        id: "issue-123",
+        identifier: "COL-123",
+        title: "Ship the feature",
+        description: null,
+        priority: null,
+        state: "In Progress",
+        branchName: "codex/col-123",
+        url: null,
+        projectId: null,
+        projectName: null,
+        projectSlug: null,
+        teamKey: null,
+        assigneeId: null,
+        blockedBy: [],
+        labels: [],
+        assignedToWorker: true,
+        createdAt: null,
+        updatedAt: null
+      }
+    ]);
     const executor = buildRuntimeDynamicToolExecutor({
       runtimePolicy: buildSymphonyRuntimePolicy(),
       logger: createSilentSymphonyLogger("@symphony/api.test.dynamic-tools"),
+      tracker,
       deliveryReports,
       issue: {
         id: "issue-123",
-        identifier: "COL-123"
+        identifier: "COL-123",
+        state: "In Progress"
       },
       runId: "run-123",
       readTurnId: () => "turn-123",
@@ -61,6 +86,7 @@ describe("runtime dynamic tools", () => {
     });
 
     expect(result.success).toBe(true);
+    expect(String(result.output)).toContain('"targetState": "In Review"');
     expect(recorded).toEqual([
       {
         status: "completed",
@@ -80,6 +106,7 @@ describe("runtime dynamic tools", () => {
         branchName: "codex/col-123"
       })
     );
+    expect(tracker.getIssue("issue-123")?.state).toBe("In Review");
 
     database.close();
   });
@@ -97,6 +124,7 @@ describe("runtime dynamic tools", () => {
     const executor = buildRuntimeDynamicToolExecutor({
       runtimePolicy: buildSymphonyRuntimePolicy(),
       logger: createSilentSymphonyLogger("@symphony/api.test.dynamic-tools"),
+      tracker: createMemorySymphonyTracker(),
       deliveryReports,
       issue: {
         id: "issue-123",
@@ -114,6 +142,62 @@ describe("runtime dynamic tools", () => {
     expect(result.success).toBe(false);
     expect(String(result.output)).toContain("requires `prUrl`");
     expect(await deliveryReports.listForRun("run-123")).toEqual([]);
+
+    database.close();
+  });
+
+  it("records delivery even when the In Review transition fails", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-dynamic-tools-"));
+    tempRoots.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const executor = buildRuntimeDynamicToolExecutor({
+      runtimePolicy: buildSymphonyRuntimePolicy(),
+      logger: createSilentSymphonyLogger("@symphony/api.test.dynamic-tools"),
+      tracker: {
+        async fetchCandidateIssues() {
+          return [];
+        },
+        async fetchIssuesByStates() {
+          return [];
+        },
+        async fetchIssueStatesByIds() {
+          return [];
+        },
+        async fetchIssueByIdentifier() {
+          return null;
+        },
+        async createComment() {
+          return;
+        },
+        async updateIssueState() {
+          throw new Error("tracker unavailable");
+        }
+      },
+      deliveryReports,
+      issue: {
+        id: "issue-123",
+        identifier: "COL-123",
+        state: "In Progress"
+      },
+      runId: "run-123",
+      readTurnId: () => "turn-123"
+    });
+
+    const result = await executor("report_issue_delivery", {
+      status: "completed",
+      summary: "Opened the PR and finished the requested work.",
+      prUrl: "https://github.com/openai/symphony/pull/123"
+    });
+
+    expect(result.success).toBe(true);
+    expect(String(result.output)).toContain('"success": false');
+    expect(await deliveryReports.listForRun("run-123")).toHaveLength(1);
 
     database.close();
   });

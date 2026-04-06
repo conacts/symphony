@@ -193,7 +193,7 @@ export function buildDynamicToolSpecs(): Array<Record<string, unknown>> {
     {
       name: "linear_graphql",
       description:
-        "Execute a raw GraphQL query or mutation against Linear using Symphony's configured auth.",
+        "Execute a raw GraphQL query or mutation against Linear using Symphony's configured server-side auth. Do not search for LINEAR_API_KEY in the shell.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -215,7 +215,7 @@ export function buildDynamicToolSpecs(): Array<Record<string, unknown>> {
     {
       name: "report_issue_delivery",
       description:
-        "Report the final delivery outcome for the active Symphony issue. Use completed only after the PR is opened.",
+        "Report the final delivery outcome for the active Symphony issue. Use completed only after the PR is opened. Symphony records the delivery and moves the issue to In Review; do not move it to Done yourself.",
       inputSchema: {
         type: "object",
         additionalProperties: false,

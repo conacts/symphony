@@ -356,6 +356,7 @@ async function executeRun(input: {
         toolExecutor: buildRuntimeDynamicToolExecutor({
           runtimePolicy: input.runtimePolicy,
           logger: input.logger,
+          tracker: input.tracker,
           deliveryReports: input.deliveryReports,
           issue: currentIssue,
           runId: input.runId,

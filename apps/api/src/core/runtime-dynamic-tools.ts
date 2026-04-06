@@ -2,17 +2,21 @@ import type { SymphonyIssueDeliveryReportStore } from "@symphony/db";
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyLogger } from "@symphony/logger";
 import type { HarnessToolExecutor } from "@symphony/agent-harnesses";
+import type { SymphonyTracker } from "@symphony/tracker";
 
 const linearGraphqlToolName = "linear_graphql";
 const reportIssueDeliveryToolName = "report_issue_delivery";
+const deliveryTransitionState = "In Review";
 
 export function buildRuntimeDynamicToolExecutor(input: {
   runtimePolicy: SymphonyAgentRuntimeConfig;
   logger: SymphonyLogger;
+  tracker: SymphonyTracker;
   deliveryReports: SymphonyIssueDeliveryReportStore;
   issue: {
     id: string;
     identifier: string;
+    state?: string | null;
   };
   runId: string | null;
   readTurnId(): string | null;
@@ -54,10 +58,12 @@ type NormalizedDeliveryReportArguments = {
 
 async function executeDeliveryReportTool(
   input: {
+    tracker: SymphonyTracker;
     deliveryReports: SymphonyIssueDeliveryReportStore;
     issue: {
       id: string;
       identifier: string;
+      state?: string | null;
     };
     runId: string | null;
     readTurnId(): string | null;
@@ -105,6 +111,11 @@ async function executeDeliveryReportTool(
     };
     input.onDeliveryReportRecorded?.(deliveryResult);
 
+    const transition = await maybeTransitionDeliveredIssueToInReview(
+      input,
+      normalizedArguments.status
+    );
+
     const output = JSON.stringify(
       {
         reportId,
@@ -113,7 +124,8 @@ async function executeDeliveryReportTool(
         status: normalizedArguments.status,
         prUrl: normalizedArguments.prUrl,
         branchName: normalizedArguments.branchName,
-        recorded: true
+        recorded: true,
+        issueStateTransition: transition
       },
       null,
       2
@@ -134,6 +146,58 @@ async function executeDeliveryReportTool(
       message:
         error instanceof Error ? error.message : "Failed to record the issue delivery report."
     });
+  }
+}
+
+async function maybeTransitionDeliveredIssueToInReview(
+  input: {
+    tracker: SymphonyTracker;
+    issue: {
+      id: string;
+      identifier: string;
+      state?: string | null;
+    };
+  },
+  status: "completed" | "blocked" | "partial"
+): Promise<{
+  attempted: boolean;
+  targetState: string | null;
+  success: boolean;
+  reason: string | null;
+}> {
+  if (status !== "completed") {
+    return {
+      attempted: false,
+      targetState: null,
+      success: false,
+      reason: null
+    };
+  }
+
+  if (input.issue.state?.trim().toLowerCase() === deliveryTransitionState.toLowerCase()) {
+    return {
+      attempted: false,
+      targetState: deliveryTransitionState,
+      success: true,
+      reason: null
+    };
+  }
+
+  try {
+    await input.tracker.updateIssueState(input.issue.id, deliveryTransitionState);
+    return {
+      attempted: true,
+      targetState: deliveryTransitionState,
+      success: true,
+      reason: null
+    };
+  } catch (error) {
+    return {
+      attempted: true,
+      targetState: deliveryTransitionState,
+      success: false,
+      reason: error instanceof Error ? error.message : String(error)
+    };
   }
 }
 

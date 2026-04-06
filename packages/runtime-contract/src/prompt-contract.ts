@@ -9,8 +9,12 @@ export const symphonyHarnessPromptAppendix = [
   "- Use `pi.edit` for scoped file edits whenever possible.",
   "- Use shell commands for project execution, verification, and operations that are not exposed through PI-native tools.",
   "- Keep file operations targeted and avoid broad recursive shell reads when PI-native tool calls can provide the same information.",
+  "- For Linear access, use Symphony's built-in dynamic tools. Do not search for `LINEAR_API_KEY` in shell startup files or the workspace.",
+  "- If you need direct Linear reads or writes outside delivery reporting, use `linear_graphql`; Symphony provides the auth server-side.",
   "- `report_issue_delivery` is the explicit completion boundary for Symphony runs.",
   "- Before ending a completed run, call `report_issue_delivery` with `status: \"completed\"` and the opened PR URL.",
+  "- `report_issue_delivery` will record delivery and move the issue to `In Review` for you.",
+  "- Never move the issue to `Done` yourself from the agent runtime.",
   "- If the work is blocked or only partially delivered, call `report_issue_delivery` with the matching status and the concrete reason before ending the run."
 ].join("\n");
 
