@@ -369,9 +369,9 @@ importers:
       '@symphony/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@symphony/run-journal':
+      '@symphony/runtime-run-ledger':
         specifier: workspace:*
-        version: link:../run-journal
+        version: link:../runtime-run-ledger
       better-sqlite3:
         specifier: ^12.4.1
         version: 12.8.0
@@ -526,18 +526,6 @@ importers:
         specifier: ^4.1.2
         version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.2)(msw@2.12.14(@types/node@25.5.2)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
 
-  packages/run-journal:
-    devDependencies:
-      '@symphony/eslint-configs':
-        specifier: workspace:*
-        version: link:../eslint-configs
-      '@symphony/vitest-configs':
-        specifier: workspace:*
-        version: link:../vitest-configs
-      vitest:
-        specifier: ^4.1.2
-        version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.2)(msw@2.12.14(@types/node@25.5.2)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
-
   packages/runtime:
     dependencies:
       '@symphony/orchestrator':
@@ -593,6 +581,18 @@ importers:
       '@symphony/tracker':
         specifier: workspace:*
         version: link:../tracker
+    devDependencies:
+      '@symphony/eslint-configs':
+        specifier: workspace:*
+        version: link:../eslint-configs
+      '@symphony/vitest-configs':
+        specifier: workspace:*
+        version: link:../vitest-configs
+      vitest:
+        specifier: ^4.1.2
+        version: 4.1.2(@opentelemetry/api@1.9.0)(@types/node@25.5.2)(msw@2.12.14(@types/node@25.5.2)(typescript@6.0.2))(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+
+  packages/runtime-run-ledger:
     devDependencies:
       '@symphony/eslint-configs':
         specifier: workspace:*

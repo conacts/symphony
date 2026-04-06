@@ -7,7 +7,7 @@ import {
   buildRunSummary,
   clampPositiveInteger,
   compareDescendingTimestamps,
-  createEmptyRunJournalDocument,
+  createEmptyRuntimeRunLedgerDocument,
   isoNow,
   matchesRunFilters,
   normalizeIsoTimestamp,
@@ -16,7 +16,7 @@ import {
   sanitizeJsonObject,
   sanitizeText,
   truncatePayload
-} from "./symphony-run-journal-private.js";
+} from "./runtime-run-ledger-private.js";
 import type {
   SymphonyAgentAnalyticsEvent,
   SymphonyAgentThreadItemStatus,
@@ -24,16 +24,16 @@ import type {
 } from "./agent-analytics-types.js";
 import type {
   SymphonyEventAttrs,
-  SymphonyFileBackedRunJournalOptions,
+  SymphonyFileBackedRuntimeRunLedgerOptions,
   SymphonyIssueRecord,
   SymphonyIssueSummary,
   SymphonyRunExport,
   SymphonyRunFinishAttrs,
-  SymphonyRunJournal,
-  SymphonyRunJournalDocument,
-  SymphonyRunJournalListOptions,
-  SymphonyRunJournalRunsOptions,
-  SymphonyRunJournalProblemRunsOptions,
+  SymphonyRuntimeRunLedger,
+  SymphonyRuntimeRunLedgerDocument,
+  SymphonyRuntimeRunLedgerListOptions,
+  SymphonyRuntimeRunLedgerRunsOptions,
+  SymphonyRuntimeRunLedgerProblemRunsOptions,
   SymphonyRunRecord,
   SymphonyRunStartAttrs,
   SymphonyRunSummary,
@@ -42,29 +42,29 @@ import type {
   SymphonyTurnRecord,
   SymphonyTurnStartAttrs,
   SymphonyTurnUpdateAttrs
-} from "./symphony-run-journal-types.js";
+} from "./runtime-run-ledger-types.js";
 
 const defaultRetentionDays = 90;
 const defaultPayloadMaxBytes = 64 * 1024;
-const defaultJournalRelativePath = path.join("log", "run-journal.json");
+const defaultLedgerRelativePath = path.join("log", "runtime-run-ledger.json");
 
-export function defaultSymphonyRunJournalFile(logsRoot = process.cwd()): string {
-  return path.join(logsRoot, defaultJournalRelativePath);
+export function defaultSymphonyRuntimeRunLedgerFile(logsRoot = process.cwd()): string {
+  return path.join(logsRoot, defaultLedgerRelativePath);
 }
 
-export function createFileBackedSymphonyRunJournal(
-  options: SymphonyFileBackedRunJournalOptions
-): SymphonyRunJournal {
-  return new FileBackedSymphonyRunJournal(options);
+export function createFileBackedSymphonyRuntimeRunLedger(
+  options: SymphonyFileBackedRuntimeRunLedgerOptions
+): SymphonyRuntimeRunLedger {
+  return new FileBackedSymphonyRuntimeRunLedger(options);
 }
 
-class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
+class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
   readonly dbFile: string;
   readonly retentionDays: number;
   readonly payloadMaxBytes: number;
   #writeQueue: Promise<void> = Promise.resolve();
 
-  constructor(options: SymphonyFileBackedRunJournalOptions) {
+  constructor(options: SymphonyFileBackedRuntimeRunLedgerOptions) {
     this.dbFile = path.resolve(options.dbFile);
     this.retentionDays = clampPositiveInteger(options.retentionDays, defaultRetentionDays);
     this.payloadMaxBytes = clampPositiveInteger(options.payloadMaxBytes, defaultPayloadMaxBytes);
@@ -273,7 +273,7 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
   }
 
   async listIssues(
-    opts: SymphonyRunJournalListOptions = {}
+    opts: SymphonyRuntimeRunLedgerListOptions = {}
   ): Promise<SymphonyIssueSummary[]> {
     const document = await this.#read();
     const limit = normalizeLimit(opts.limit, 50);
@@ -288,7 +288,7 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
 
   async listRunsForIssue(
     issueIdentifier: string,
-    opts: SymphonyRunJournalListOptions = {}
+    opts: SymphonyRuntimeRunLedgerListOptions = {}
   ): Promise<SymphonyRunSummary[]> {
     return this.listRuns({
       issueIdentifier,
@@ -297,7 +297,7 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
   }
 
   async listRuns(
-    opts: SymphonyRunJournalRunsOptions = {}
+    opts: SymphonyRuntimeRunLedgerRunsOptions = {}
   ): Promise<SymphonyRunSummary[]> {
     const document = await this.#read();
     const limit = normalizeLimit(opts.limit, 200);
@@ -310,7 +310,7 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
   }
 
   async listProblemRuns(
-    opts: SymphonyRunJournalProblemRunsOptions = {}
+    opts: SymphonyRuntimeRunLedgerProblemRunsOptions = {}
   ): Promise<SymphonyRunSummary[]> {
     return this.listRuns({
       limit: opts.limit,
@@ -358,13 +358,13 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
     });
   }
 
-  async #read(): Promise<SymphonyRunJournalDocument> {
+  async #read(): Promise<SymphonyRuntimeRunLedgerDocument> {
     await this.#writeQueue;
     return readJournalDocument(this.dbFile);
   }
 
   async #mutate(
-    mutator: (document: SymphonyRunJournalDocument) => Promise<void> | void
+    mutator: (document: SymphonyRuntimeRunLedgerDocument) => Promise<void> | void
   ): Promise<void> {
     const run = this.#writeQueue.then(async () => {
       const document = await readJournalDocument(this.dbFile);
@@ -377,10 +377,10 @@ class FileBackedSymphonyRunJournal implements SymphonyRunJournal {
   }
 }
 
-async function readJournalDocument(dbFile: string): Promise<SymphonyRunJournalDocument> {
+async function readJournalDocument(dbFile: string): Promise<SymphonyRuntimeRunLedgerDocument> {
   try {
     const raw = await readFile(dbFile, "utf8");
-    const parsed = JSON.parse(raw) as SymphonyRunJournalDocument;
+    const parsed = JSON.parse(raw) as SymphonyRuntimeRunLedgerDocument;
     return {
       schemaVersion: "1",
       issues: parsed.issues ?? [],
@@ -394,7 +394,7 @@ async function readJournalDocument(dbFile: string): Promise<SymphonyRunJournalDo
       "code" in error &&
       error.code === "ENOENT"
     ) {
-      return createEmptyRunJournalDocument();
+      return createEmptyRuntimeRunLedgerDocument();
     }
 
     throw error;
@@ -403,7 +403,7 @@ async function readJournalDocument(dbFile: string): Promise<SymphonyRunJournalDo
 
 async function writeJournalDocument(
   dbFile: string,
-  document: SymphonyRunJournalDocument
+  document: SymphonyRuntimeRunLedgerDocument
 ): Promise<void> {
   const directory = path.dirname(dbFile);
   await mkdir(directory, { recursive: true });

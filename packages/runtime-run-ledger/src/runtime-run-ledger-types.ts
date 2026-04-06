@@ -84,7 +84,7 @@ export type SymphonyEventRecord = {
   insertedAt: SymphonyIsoTimestamp;
 };
 
-export type SymphonyRunJournalDocument = {
+export type SymphonyRuntimeRunLedgerDocument = {
   schemaVersion: "1";
   issues: SymphonyIssueRecord[];
   runs: SymphonyRunRecord[];
@@ -228,11 +228,11 @@ export type SymphonyRunExport = {
   turns: SymphonyTurnExport[];
 };
 
-export type SymphonyRunJournalListOptions = {
+export type SymphonyRuntimeRunLedgerListOptions = {
   limit?: number;
 };
 
-export type SymphonyRunJournalRunsOptions = SymphonyRunJournalListOptions & {
+export type SymphonyRuntimeRunLedgerRunsOptions = SymphonyRuntimeRunLedgerListOptions & {
   issueIdentifier?: string;
   outcome?: string;
   errorClass?: string;
@@ -241,18 +241,18 @@ export type SymphonyRunJournalRunsOptions = SymphonyRunJournalListOptions & {
   problemOnly?: boolean;
 };
 
-export type SymphonyRunJournalProblemRunsOptions = SymphonyRunJournalListOptions & {
+export type SymphonyRuntimeRunLedgerProblemRunsOptions = SymphonyRuntimeRunLedgerListOptions & {
   outcome?: string;
   issueIdentifier?: string;
 };
 
-export type SymphonyFileBackedRunJournalOptions = {
+export type SymphonyFileBackedRuntimeRunLedgerOptions = {
   dbFile: string;
   retentionDays?: number;
   payloadMaxBytes?: number;
 };
 
-export interface SymphonyRunJournal {
+export interface SymphonyRuntimeRunLedger {
   readonly dbFile: string;
   readonly retentionDays: number;
   readonly payloadMaxBytes: number;
@@ -263,15 +263,24 @@ export interface SymphonyRunJournal {
   finalizeTurn(turnId: string, attrs: SymphonyTurnFinishAttrs): Promise<void>;
   updateRun(runId: string, attrs: SymphonyRunUpdateAttrs): Promise<void>;
   finalizeRun(runId: string, attrs: SymphonyRunFinishAttrs): Promise<void>;
-  listIssues(opts?: SymphonyRunJournalListOptions): Promise<SymphonyIssueSummary[]>;
-  listRuns(opts?: SymphonyRunJournalRunsOptions): Promise<SymphonyRunSummary[]>;
+  listIssues(opts?: SymphonyRuntimeRunLedgerListOptions): Promise<SymphonyIssueSummary[]>;
+  listRuns(opts?: SymphonyRuntimeRunLedgerRunsOptions): Promise<SymphonyRunSummary[]>;
   listRunsForIssue(
     issueIdentifier: string,
-    opts?: SymphonyRunJournalListOptions
+    opts?: SymphonyRuntimeRunLedgerListOptions
   ): Promise<SymphonyRunSummary[]>;
   listProblemRuns(
-    opts?: SymphonyRunJournalProblemRunsOptions
+    opts?: SymphonyRuntimeRunLedgerProblemRunsOptions
   ): Promise<SymphonyRunSummary[]>;
   fetchRunExport(runId: string): Promise<SymphonyRunExport | null>;
   pruneRetention(now?: Date): Promise<void>;
 }
+
+export type SymphonyRunJournalDocument = SymphonyRuntimeRunLedgerDocument;
+export type SymphonyRunJournalListOptions = SymphonyRuntimeRunLedgerListOptions;
+export type SymphonyRunJournalRunsOptions = SymphonyRuntimeRunLedgerRunsOptions;
+export type SymphonyRunJournalProblemRunsOptions =
+  SymphonyRuntimeRunLedgerProblemRunsOptions;
+export type SymphonyFileBackedRunJournalOptions =
+  SymphonyFileBackedRuntimeRunLedgerOptions;
+export type SymphonyRunJournal = SymphonyRuntimeRunLedger;

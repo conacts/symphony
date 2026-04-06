@@ -1,5 +1,5 @@
 {
-  "name": "@symphony/run-journal",
+  "name": "@symphony/runtime-run-ledger",
   "version": "0.0.0",
   "private": true,
   "type": "module",

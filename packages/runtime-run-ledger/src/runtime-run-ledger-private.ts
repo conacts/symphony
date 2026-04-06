@@ -5,13 +5,13 @@ import type {
   SymphonyJsonObject,
   SymphonyJsonValue,
   SymphonyRunExport,
-  SymphonyRunJournalRunsOptions,
-  SymphonyRunJournalDocument,
+  SymphonyRuntimeRunLedgerRunsOptions,
+  SymphonyRuntimeRunLedgerDocument,
   SymphonyRunSummary,
   SymphonyRunRecord,
   SymphonyTurnExport,
   SymphonyTurnRecord
-} from "./symphony-run-journal-types.js";
+} from "./runtime-run-ledger-types.js";
 import type { SymphonyAgentAnalyticsEvent } from "./agent-analytics-types.js";
 
 export const symphonyCompletedRunOutcomes = new Set([
@@ -21,7 +21,7 @@ export const symphonyCompletedRunOutcomes = new Set([
   "done"
 ]);
 
-export function createEmptyRunJournalDocument(): SymphonyRunJournalDocument {
+export function createEmptyRuntimeRunLedgerDocument(): SymphonyRuntimeRunLedgerDocument {
   return {
     schemaVersion: "1",
     issues: [],
@@ -231,7 +231,7 @@ export function isCompletedOutcome(outcome: string | null): boolean {
 
 export function matchesRunFilters(
   run: SymphonyRunRecord,
-  opts: SymphonyRunJournalRunsOptions
+  opts: SymphonyRuntimeRunLedgerRunsOptions
 ): boolean {
   if (opts.issueIdentifier && run.issueIdentifier !== opts.issueIdentifier) {
     return false;

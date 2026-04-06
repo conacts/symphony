@@ -4,7 +4,7 @@ import type {
   SymphonyRunStartAttrs,
   SymphonyTurnFinishAttrs,
   SymphonyTurnStartAttrs
-} from "./symphony-run-journal-types.js";
+} from "./runtime-run-ledger-types.js";
 
 let fixtureCounter = 0;
 

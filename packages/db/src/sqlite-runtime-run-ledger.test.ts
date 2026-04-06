@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
 import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
-import { createSqliteSymphonyRunJournal } from "./sqlite-symphony-run-journal.js";
+import { createSqliteSymphonyRuntimeRunLedger } from "./sqlite-runtime-run-ledger.js";
 
 const tempDirectories: string[] = [];
 
@@ -19,7 +19,7 @@ afterEach(async () => {
   );
 });
 
-describe("sqlite symphony run journal", () => {
+describe("sqlite symphony runtime run ledger", () => {
   it("merges run metadata updates instead of overwriting earlier fields", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-sqlite-journal-"));
     tempDirectories.push(root);
@@ -27,7 +27,7 @@ describe("sqlite symphony run journal", () => {
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const journal = createSqliteSymphonyRunJournal({
+    const journal = createSqliteSymphonyRuntimeRunLedger({
       db: database.db,
       dbFile: path.join(root, "symphony.db"),
       timelineStore: createSymphonyIssueTimelineStore(database.db)

@@ -8,7 +8,7 @@ import { createSymphonyRuntimeLogStore } from "./runtime-logs.js";
 import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-store.js";
 import { createSqliteAgentAnalyticsStore } from "./agent-analytics-store.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
-import { createSqliteSymphonyRunJournal } from "./sqlite-symphony-run-journal.js";
+import { createSqliteSymphonyRuntimeRunLedger } from "./sqlite-runtime-run-ledger.js";
 
 const tempDirectories: string[] = [];
 
@@ -31,7 +31,7 @@ describe("sqlite agent analytics read store", () => {
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const runJournal = createSqliteSymphonyRunJournal({
+    const runJournal = createSqliteSymphonyRuntimeRunLedger({
       db: database.db,
       dbFile: path.join(root, "symphony.db"),
       timelineStore: createSymphonyIssueTimelineStore(database.db)
@@ -477,7 +477,7 @@ describe("sqlite agent analytics read store", () => {
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const runJournal = createSqliteSymphonyRunJournal({
+    const runJournal = createSqliteSymphonyRuntimeRunLedger({
       db: database.db,
       dbFile: path.join(root, "symphony.db"),
       timelineStore: createSymphonyIssueTimelineStore(database.db)
@@ -613,7 +613,7 @@ describe("sqlite agent analytics read store", () => {
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const runJournal = createSqliteSymphonyRunJournal({
+    const runJournal = createSqliteSymphonyRuntimeRunLedger({
       db: database.db,
       dbFile: path.join(root, "symphony.db"),
       timelineStore: createSymphonyIssueTimelineStore(database.db)
@@ -818,7 +818,7 @@ describe("sqlite agent analytics read store", () => {
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const runJournal = createSqliteSymphonyRunJournal({
+    const runJournal = createSqliteSymphonyRuntimeRunLedger({
       db: database.db,
       dbFile: path.join(root, "symphony.db"),
       timelineStore: createSymphonyIssueTimelineStore(database.db)
@@ -890,7 +890,7 @@ describe("sqlite agent analytics read store", () => {
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const runJournal = createSqliteSymphonyRunJournal({
+    const runJournal = createSqliteSymphonyRuntimeRunLedger({
       db: database.db,
       dbFile: path.join(root, "symphony.db"),
       timelineStore: createSymphonyIssueTimelineStore(database.db)

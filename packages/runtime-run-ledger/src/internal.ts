@@ -4,7 +4,7 @@ export {
   buildRunSummary,
   clampPositiveInteger,
   compareDescendingTimestamps,
-  createEmptyRunJournalDocument,
+  createEmptyRuntimeRunLedgerDocument,
   durationSeconds,
   isCompletedOutcome,
   isProblemOutcome,
@@ -17,4 +17,4 @@ export {
   sanitizeJsonObject,
   sanitizeText,
   truncatePayload
-} from "./symphony-run-journal-private.js";
+} from "./runtime-run-ledger-private.js";

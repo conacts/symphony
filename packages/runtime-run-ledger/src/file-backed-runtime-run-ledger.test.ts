@@ -3,16 +3,16 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  createFileBackedSymphonyRunJournal,
-  defaultSymphonyRunJournalFile
-} from "./file-backed-symphony-run-journal.js";
+  createFileBackedSymphonyRuntimeRunLedger,
+  defaultSymphonyRuntimeRunLedgerFile
+} from "./file-backed-runtime-run-ledger.js";
 import {
   buildSymphonyEventAttrs,
   buildSymphonyRunFinishAttrs,
   buildSymphonyRunStartAttrs,
   buildSymphonyTurnFinishAttrs,
   buildSymphonyTurnStartAttrs
-} from "./build-symphony-run-journal-fixture.js";
+} from "./build-runtime-run-ledger-fixture.js";
 
 const tempDirectories: string[] = [];
 
@@ -20,11 +20,11 @@ async function createJournal(options: {
   retentionDays?: number;
   payloadMaxBytes?: number;
 } = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), "symphony-run-journal-"));
+  const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-run-ledger-"));
   tempDirectories.push(root);
 
-  return createFileBackedSymphonyRunJournal({
-    dbFile: defaultSymphonyRunJournalFile(root),
+  return createFileBackedSymphonyRuntimeRunLedger({
+    dbFile: defaultSymphonyRuntimeRunLedgerFile(root),
     ...options
   });
 }
@@ -33,7 +33,7 @@ afterEach(async () => {
   await Promise.all(tempDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });
 
-describe("file-backed symphony run journal", () => {
+describe("file-backed symphony runtime run ledger", () => {
   it("records nested runs, turns, and events for export and issue views", async () => {
     const journal = await createJournal();
 

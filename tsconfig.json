@@ -27,7 +27,7 @@
       "path": "./packages/contracts"
     },
     {
-      "path": "./packages/run-journal"
+      "path": "./packages/runtime-run-ledger"
     },
     {
       "path": "./packages/tracker"
