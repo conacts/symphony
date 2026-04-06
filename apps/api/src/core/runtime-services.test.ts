@@ -173,7 +173,7 @@ describe("runtime services", () => {
       "pi app-server"
     );
     expect(harness.services.runtimePolicy.agentRuntime.readTimeoutMs).toBe(
-      30_000
+      120_000
     );
     expect(harness.services.runtimePolicy.pi.profile).toBe("mimo-v2-pro");
     expect(harness.services.runtimePolicy.pi.defaultModel).toBe(
