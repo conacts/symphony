@@ -113,17 +113,16 @@ export class PiRpcClient implements HarnessSessionClient {
     const continuationState =
       turnSequence === 1 ? null : await this.#resolveContinuationCommand();
     const commandType = continuationState?.commandType ?? "prompt";
-    const command:
-      | {
-          type: "prompt";
-          message: string;
-        }
-      | {
-          type: "follow_up";
-          message: string;
-        } = {
+    const command: PiTurnCommand = {
       type: commandType,
       message: input.prompt
+    };
+    const turnContext: PiTurnFailureContext = {
+      turnSequence,
+      threadId: session.threadId,
+      command,
+      continuationState: continuationState?.state ?? null,
+      eventTrace
     };
     this.#logger.debug("Dispatching Pi turn", {
       threadId: session.threadId,
@@ -136,21 +135,14 @@ export class PiRpcClient implements HarnessSessionClient {
     const promptResponse = await this.#process.sendCommand(command);
 
     if (promptResponse.success !== true) {
-      throw new HarnessSessionError(
+      throw this.#buildTurnFailure(
         "pi_turn_start_failed",
         getString(promptResponse, "error") ??
-          (commandType === "prompt"
-            ? "Pi RPC prompt command failed."
-            : "Pi RPC follow_up command failed."),
-        buildPiTurnDiagnostics({
-          turnSequence,
-          threadId: session.threadId,
-          command,
-          continuationState: continuationState?.state ?? null,
-          promptResponse,
-          eventTrace,
-          processDiagnostics: this.#process.diagnosticsSnapshot()
-        })
+          defaultPromptFailureMessage(commandType),
+        turnContext,
+        {
+          promptResponse
+        }
       );
     }
 
@@ -197,19 +189,14 @@ export class PiRpcClient implements HarnessSessionClient {
       }
 
       if (eventType === "process_exit") {
-        throw new HarnessSessionError(
+        throw this.#buildTurnFailure(
           "pi_turn_failed",
           (event && event.type === "process_exit" ? event.reason : null) ??
             "Pi RPC process exited unexpectedly.",
-          buildPiTurnDiagnostics({
-            turnSequence,
-            threadId: session.threadId,
-            command,
-            continuationState: continuationState?.state ?? null,
+          turnContext,
+          {
             failureEvent: eventSummary,
-            eventTrace,
-            processDiagnostics: this.#process.diagnosticsSnapshot()
-          })
+          }
         );
       }
 
@@ -220,18 +207,13 @@ export class PiRpcClient implements HarnessSessionClient {
             request: rawEvent
           }
         });
-        throw new HarnessSessionError(
+        throw this.#buildTurnFailure(
           "turn_input_required",
           "Pi requested interactive operator input during a non-interactive session.",
-          buildPiTurnDiagnostics({
-            turnSequence,
-            threadId: session.threadId,
-            command,
-            continuationState: continuationState?.state ?? null,
+          turnContext,
+          {
             failureEvent: eventSummary,
-            eventTrace,
-            processDiagnostics: this.#process.diagnosticsSnapshot()
-          })
+          }
         );
       }
 
@@ -266,37 +248,27 @@ export class PiRpcClient implements HarnessSessionClient {
 
       if (eventType === "agent_end") {
         if (!accumulatedUsage && !sawMeaningfulProjection) {
-          throw new HarnessSessionError(
+          throw this.#buildTurnFailure(
             sawQueueUpdate ? "pi_queue_only_turn" : "pi_no_progress_turn",
             sawQueueUpdate
               ? "Pi ended the turn after emitting only queue/todo updates with no measurable work."
               : "Pi ended the turn without usage or meaningful projected work.",
-            buildPiTurnDiagnostics({
-              turnSequence,
-              threadId: session.threadId,
-              command,
-              continuationState: continuationState?.state ?? null,
+            turnContext,
+            {
               failureEvent: eventSummary,
-              eventTrace,
-              processDiagnostics: this.#process.diagnosticsSnapshot()
-            })
+            }
           );
         }
 
         const threadId = session.threadId;
         if (!threadId) {
-          throw new HarnessSessionError(
+          throw this.#buildTurnFailure(
             "invalid_thread_payload",
             "Pi RPC session completed without a session id.",
-            buildPiTurnDiagnostics({
-              turnSequence,
-              threadId: session.threadId,
-              command,
-              continuationState: continuationState?.state ?? null,
+            turnContext,
+            {
               failureEvent: eventSummary,
-              eventTrace,
-              processDiagnostics: this.#process.diagnosticsSnapshot()
-            })
+            }
           );
         }
 
@@ -343,7 +315,51 @@ export class PiRpcClient implements HarnessSessionClient {
       state
     };
   }
+
+  #buildTurnFailure(
+    code: string,
+    message: string,
+    context: PiTurnFailureContext,
+    extras: {
+      failureEvent?: PiTurnEventTraceEntry;
+      promptResponse?: unknown;
+    } = {}
+  ): HarnessSessionError {
+    return new HarnessSessionError(
+      code,
+      message,
+      buildPiTurnDiagnostics({
+        ...context,
+        ...extras,
+        processDiagnostics: this.#process.diagnosticsSnapshot()
+      })
+    );
+  }
 }
+
+type PiTurnCommand =
+  | {
+      type: "prompt";
+      message: string;
+    }
+  | {
+      type: "follow_up";
+      message: string;
+    };
+
+type PiTurnContinuationState = {
+  isStreaming: boolean;
+  pendingMessageCount: number;
+  messageCount: number;
+};
+
+type PiTurnFailureContext = {
+  turnSequence: number;
+  threadId: string | null;
+  command: PiTurnCommand;
+  continuationState: PiTurnContinuationState | null;
+  eventTrace: PiTurnEventTraceEntry[];
+};
 
 type PiTurnEventTraceEntry = {
   type: string | null;
@@ -382,15 +398,8 @@ function pushPiTurnEventTrace(
 function buildPiTurnDiagnostics(input: {
   turnSequence: number;
   threadId: string | null;
-  command: {
-    type: "prompt" | "follow_up";
-    message: string;
-  };
-  continuationState: {
-    isStreaming: boolean;
-    pendingMessageCount: number;
-    messageCount: number;
-  } | null;
+  command: PiTurnCommand;
+  continuationState: PiTurnContinuationState | null;
   eventTrace: PiTurnEventTraceEntry[];
   processDiagnostics: Record<string, unknown>;
   failureEvent?: PiTurnEventTraceEntry;
@@ -517,6 +526,12 @@ function summarizePiEventForDiagnostics(
         usage: null
       };
   }
+}
+
+function defaultPromptFailureMessage(commandType: PiTurnCommand["type"]): string {
+  return commandType === "prompt"
+    ? "Pi RPC prompt command failed."
+    : "Pi RPC follow_up command failed.";
 }
 
 function summarizeUsage(
