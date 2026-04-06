@@ -196,6 +196,15 @@ export function createSymphonyForensicsReadModel(
         return null;
       }
 
+      const latestDeliveryRun =
+        runs
+          .filter((run) => run.deliveryStatus !== null && run.deliveryReportedAt !== null)
+          .sort((left, right) => {
+            const leftTime = left.deliveryReportedAt ? Date.parse(left.deliveryReportedAt) : 0;
+            const rightTime = right.deliveryReportedAt ? Date.parse(right.deliveryReportedAt) : 0;
+            return rightTime - leftTime;
+          })[0] ?? null;
+
       return {
         issueIdentifier,
         runs,
@@ -203,7 +212,11 @@ export function createSymphonyForensicsReadModel(
           runCount: runs.length,
           latestProblemOutcome: runs.find((run) => isProblemOutcome(run.outcome))?.outcome ?? null,
           lastCompletedOutcome:
-            runs.find((run) => isCompletedOutcome(run.outcome))?.outcome ?? null
+            runs.find((run) => isCompletedOutcome(run.outcome))?.outcome ?? null,
+          latestDeliveryStatus: latestDeliveryRun?.deliveryStatus ?? null,
+          latestDeliveryReportedAt: latestDeliveryRun?.deliveryReportedAt ?? null,
+          latestDeliveryPrUrl: latestDeliveryRun?.deliveryPrUrl ?? null,
+          deliveredRunCount: runs.filter((run) => run.deliveryStatus === "completed").length
         },
         filters: {
           limit: opts.limit ?? null

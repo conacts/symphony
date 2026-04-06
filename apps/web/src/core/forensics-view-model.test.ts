@@ -21,6 +21,11 @@ describe("forensics view model", () => {
           problemRate: 2 / 3,
           latestProblemOutcome: "max_turns",
           lastCompletedOutcome: "completed",
+          latestDeliveryStatus: "completed",
+          latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
+          latestDeliveryRunId: "run_123",
+          latestDeliveryPrUrl: "https://github.com/example/repo/pull/165",
+          deliveredRunCount: 1,
           retryCount: 2,
           latestRetryAttempt: 3,
           rateLimitedCount: 1,
@@ -127,13 +132,20 @@ describe("forensics view model", () => {
           cachedInputTokens: 40,
           outputTokens: 80,
           totalTokens: 240,
+          deliveryStatus: "completed",
+          deliveryReportedAt: "2026-03-31T18:06:00.000Z",
+          deliveryPrUrl: "https://github.com/example/repo/pull/165",
           machineLoad: null
         }
       ],
       summary: {
         runCount: 3,
         latestProblemOutcome: "max_turns",
-        lastCompletedOutcome: "completed"
+        lastCompletedOutcome: "completed",
+        latestDeliveryStatus: "completed",
+        latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
+        latestDeliveryPrUrl: "https://github.com/example/repo/pull/165",
+        deliveredRunCount: 1
       },
       filters: {
         limit: 200
@@ -194,6 +206,9 @@ describe("forensics view model", () => {
           cachedInputTokens: 0,
           outputTokens: 80,
           totalTokens: 200,
+          deliveryStatus: "completed",
+          deliveryReportedAt: "2026-03-31T18:06:00.000Z",
+          deliveryPrUrl: "https://github.com/example/repo/pull/165",
           machineLoad: {
             sampleCount: 4,
             maxCpuPercent: 84,
@@ -237,6 +252,9 @@ describe("forensics view model", () => {
           cachedInputTokens: 0,
           outputTokens: 90,
           totalTokens: 310,
+          deliveryStatus: null,
+          deliveryReportedAt: null,
+          deliveryPrUrl: null,
           machineLoad: {
             sampleCount: 6,
             maxCpuPercent: 91,
@@ -254,7 +272,11 @@ describe("forensics view model", () => {
       summary: {
         runCount: 2,
         latestProblemOutcome: "failed",
-        lastCompletedOutcome: "completed"
+        lastCompletedOutcome: "completed",
+        latestDeliveryStatus: "completed",
+        latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
+        latestDeliveryPrUrl: "https://github.com/example/repo/pull/165",
+        deliveredRunCount: 1
       },
       filters: {
         limit: 200
@@ -319,6 +341,9 @@ describe("forensics view model", () => {
           cachedInputTokens: 0,
           outputTokens: 17501,
           totalTokens: 10535408,
+          deliveryStatus: null,
+          deliveryReportedAt: null,
+          deliveryPrUrl: null,
           machineLoad: null
         },
         {
@@ -351,13 +376,20 @@ describe("forensics view model", () => {
           cachedInputTokens: 0,
           outputTokens: 0,
           totalTokens: 0,
+          deliveryStatus: null,
+          deliveryReportedAt: null,
+          deliveryPrUrl: null,
           machineLoad: null
         }
       ],
       summary: {
         runCount: 2,
         latestProblemOutcome: "run_stopped_terminal",
-        lastCompletedOutcome: null
+        lastCompletedOutcome: null,
+        latestDeliveryStatus: null,
+        latestDeliveryReportedAt: null,
+        latestDeliveryPrUrl: null,
+        deliveredRunCount: 0
       },
       filters: {
         limit: 200

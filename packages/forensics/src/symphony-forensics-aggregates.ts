@@ -21,10 +21,16 @@ export function buildIssueAggregate(
   const firstRun = runs[0] ?? null;
   const latestProblemRun = runs.find((run) => isProblemOutcome(run.outcome)) ?? null;
   const latestCompletedRun = runs.find((run) => isCompletedOutcome(run.outcome)) ?? null;
+  const latestDeliveredRun =
+    runs
+      .filter((run) => run.deliveryStatus !== null && run.deliveryReportedAt !== null)
+      .sort((left, right) => compareDates(right.deliveryReportedAt, left.deliveryReportedAt))[0] ??
+    null;
   const latestErrorRun =
     runs.find((run) => run.errorClass !== null || run.errorMessage !== null) ?? null;
   const completedRunCount = runs.filter((run) => isCompletedOutcome(run.outcome)).length;
   const problemRunCount = runs.filter((run) => isProblemOutcome(run.outcome)).length;
+  const deliveredRunCount = runs.filter((run) => run.deliveryStatus === "completed").length;
   const retryCount = runs.filter((run) => (run.attempt ?? 0) > 1).length;
   const latestRetryAttempt = runs.reduce(
     (maxAttempt, run) => Math.max(maxAttempt, run.attempt ?? 0),
@@ -93,6 +99,11 @@ export function buildIssueAggregate(
     problemRate: runs.length === 0 ? 0 : problemRunCount / runs.length,
     latestProblemOutcome: latestProblemRun?.outcome ?? null,
     lastCompletedOutcome: latestCompletedRun?.outcome ?? null,
+    latestDeliveryStatus: latestDeliveredRun?.deliveryStatus ?? null,
+    latestDeliveryReportedAt: latestDeliveredRun?.deliveryReportedAt ?? null,
+    latestDeliveryRunId: latestDeliveredRun?.runId ?? null,
+    latestDeliveryPrUrl: latestDeliveredRun?.deliveryPrUrl ?? null,
+    deliveredRunCount,
     retryCount,
     latestRetryAttempt,
     rateLimitedCount,

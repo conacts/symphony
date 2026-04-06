@@ -33,6 +33,11 @@ describe("symphony forensics contracts", () => {
             problemRate: 0,
             latestProblemOutcome: null,
             lastCompletedOutcome: "done",
+            latestDeliveryStatus: "completed",
+            latestDeliveryReportedAt: "2026-03-31T00:02:00.000Z",
+            latestDeliveryRunId: "run-1",
+            latestDeliveryPrUrl: "https://github.com/example/repo/pull/157",
+            deliveredRunCount: 1,
             retryCount: 0,
             latestRetryAttempt: 1,
             rateLimitedCount: 0,
@@ -101,7 +106,11 @@ describe("symphony forensics contracts", () => {
         summary: {
           runCount: 0,
           latestProblemOutcome: null,
-          lastCompletedOutcome: null
+          lastCompletedOutcome: null,
+          latestDeliveryStatus: null,
+          latestDeliveryReportedAt: null,
+          latestDeliveryPrUrl: null,
+          deliveredRunCount: 0
         },
         filters: {
           limit: 200
@@ -131,6 +140,11 @@ describe("symphony forensics contracts", () => {
           runCount: 1,
           latestProblemOutcome: null,
           lastCompletedOutcome: "done",
+          latestDeliveryStatus: "completed",
+          latestDeliveryReportedAt: "2026-03-31T00:02:00.000Z",
+          latestDeliveryRunId: "run-1",
+          latestDeliveryPrUrl: "https://github.com/example/repo/pull/157",
+          deliveredRunCount: 1,
           insertedAt: "2026-03-31T00:00:00.000Z",
           updatedAt: "2026-03-31T00:00:00.000Z"
         },
@@ -178,6 +192,9 @@ describe("symphony forensics contracts", () => {
           cachedInputTokens: 2,
           outputTokens: 20,
           totalTokens: 32,
+          deliveryStatus: "completed",
+          deliveryReportedAt: "2026-03-31T00:02:00.000Z",
+          deliveryPrUrl: "https://github.com/example/repo/pull/157",
           machineLoad: null,
           repoStart: {},
           repoEnd: {},
@@ -186,6 +203,23 @@ describe("symphony forensics contracts", () => {
           errorMessage: null,
           insertedAt: "2026-03-31T00:00:00.000Z",
           updatedAt: "2026-03-31T00:01:00.000Z"
+        },
+        deliveryReport: {
+          reportId: "report-1",
+          issueId: "issue-1",
+          issueIdentifier: "COL-157",
+          runId: "run-1",
+          turnId: "turn-1",
+          status: "completed",
+          summary: "Opened the pull request.",
+          prUrl: "https://github.com/example/repo/pull/157",
+          prNumber: "157",
+          branchName: "codex/col-157",
+          blockingReason: null,
+          testsSummary: "pnpm verify:precommit",
+          source: "pi",
+          reportedAt: "2026-03-31T00:02:00.000Z",
+          insertedAt: "2026-03-31T00:02:00.000Z"
         },
         turns: [
           {
@@ -261,11 +295,16 @@ describe("symphony forensics contracts", () => {
             latestRunStatus: "completed",
             latestRunOutcome: "done",
             runCount: 1,
-            latestProblemOutcome: null,
-            lastCompletedOutcome: "done",
-            insertedAt: "2026-03-31T00:00:00.000Z",
-            updatedAt: "2026-03-31T00:00:00.000Z"
-          },
+          latestProblemOutcome: null,
+          lastCompletedOutcome: "done",
+          latestDeliveryStatus: "completed",
+          latestDeliveryReportedAt: "2026-03-31T00:02:00.000Z",
+          latestDeliveryRunId: "run-1",
+          latestDeliveryPrUrl: "https://github.com/example/repo/pull/157",
+          deliveredRunCount: 1,
+          insertedAt: "2026-03-31T00:00:00.000Z",
+          updatedAt: "2026-03-31T00:00:00.000Z"
+        },
           run: {
             runId: "run-1",
             issueId: "issue-1",
@@ -302,11 +341,28 @@ describe("symphony forensics contracts", () => {
             repoEnd: {},
             metadata: {},
             errorClass: null,
-            errorMessage: null,
-            insertedAt: "2026-03-31T00:00:00.000Z",
-            updatedAt: "2026-03-31T00:01:00.000Z"
-          },
-          turns: [
+          errorMessage: null,
+          insertedAt: "2026-03-31T00:00:00.000Z",
+          updatedAt: "2026-03-31T00:01:00.000Z"
+        },
+        deliveryReport: {
+          reportId: "report-1",
+          issueId: "issue-1",
+          issueIdentifier: "COL-157",
+          runId: "run-1",
+          turnId: "turn-1",
+          status: "completed",
+          summary: "Opened the pull request.",
+          prUrl: "https://github.com/example/repo/pull/157",
+          prNumber: "157",
+          branchName: "codex/col-157",
+          blockingReason: null,
+          testsSummary: "pnpm verify:precommit",
+          source: "pi",
+          reportedAt: "2026-03-31T00:02:00.000Z",
+          insertedAt: "2026-03-31T00:02:00.000Z"
+        },
+        turns: [
             {
               turnId: "turn-1",
               runId: "run-1",
@@ -496,6 +552,11 @@ describe("symphony forensics contracts", () => {
           problemRate: 0,
           latestProblemOutcome: null,
           lastCompletedOutcome: "done",
+          latestDeliveryStatus: "completed",
+          latestDeliveryReportedAt: "2026-03-31T00:02:00.000Z",
+          latestDeliveryRunId: "run-1",
+          latestDeliveryPrUrl: "https://github.com/example/repo/pull/157",
+          deliveredRunCount: 1,
           retryCount: 0,
           latestRetryAttempt: 1,
           rateLimitedCount: 0,

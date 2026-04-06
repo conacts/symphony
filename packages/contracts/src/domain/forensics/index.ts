@@ -19,6 +19,8 @@ export {
   symphonyForensicsCompatHarnessSchema,
   symphonyForensicsTimelineSourceSchema,
   symphonyForensicsCompatTimelineSourceSchema,
+  symphonyForensicsDeliveryStatusSchema,
+  symphonyForensicsDeliveryReportSchema,
   symphonyForensicsIssueSummarySchema,
   symphonyForensicsRunSummarySchema,
   symphonyForensicsIssueFiltersSchema,
@@ -56,6 +58,8 @@ export type {
   SymphonyForensicsProblemRunsQuery
 } from "./requests.js";
 export type {
+  SymphonyForensicsDeliveryStatus,
+  SymphonyForensicsDeliveryReport,
   SymphonyForensicsIssueSummary,
   SymphonyForensicsRunSummary,
   SymphonyForensicsIssueFilters,

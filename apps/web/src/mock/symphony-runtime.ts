@@ -45,6 +45,11 @@ const mockIssues: SymphonyForensicsIssueSummary[] = [
     problemRate: 2 / 3,
     latestProblemOutcome: "max_turns",
     lastCompletedOutcome: "completed",
+    latestDeliveryStatus: "completed",
+    latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
+    latestDeliveryRunId: "run_123",
+    latestDeliveryPrUrl: "https://github.com/example/repo/pull/165",
+    deliveredRunCount: 1,
     retryCount: 2,
     latestRetryAttempt: 3,
     rateLimitedCount: 1,
@@ -77,6 +82,11 @@ const mockIssues: SymphonyForensicsIssueSummary[] = [
     problemRate: 0.75,
     latestProblemOutcome: "rate_limited",
     lastCompletedOutcome: "completed",
+    latestDeliveryStatus: "completed",
+    latestDeliveryReportedAt: "2026-03-31T19:06:00.000Z",
+    latestDeliveryRunId: "run_455",
+    latestDeliveryPrUrl: "https://github.com/example/repo/pull/166",
+    deliveredRunCount: 1,
     retryCount: 3,
     latestRetryAttempt: 2,
     rateLimitedCount: 2,
@@ -109,6 +119,11 @@ const mockIssues: SymphonyForensicsIssueSummary[] = [
     problemRate: 1,
     latestProblemOutcome: "startup_failure",
     lastCompletedOutcome: null,
+    latestDeliveryStatus: null,
+    latestDeliveryReportedAt: null,
+    latestDeliveryRunId: null,
+    latestDeliveryPrUrl: null,
+    deliveredRunCount: 0,
     retryCount: 1,
     latestRetryAttempt: 1,
     rateLimitedCount: 0,
@@ -141,6 +156,9 @@ function withMockAgentRunSummary(
     | "agentFailureMessagePreview"
     | "cachedInputTokens"
     | "machineLoad"
+    | "deliveryStatus"
+    | "deliveryReportedAt"
+    | "deliveryPrUrl"
   >
 ): SymphonyForensicsRunSummary {
   return {
@@ -158,6 +176,13 @@ function withMockAgentRunSummary(
     agentFailureOrigin: run.outcome === "completed" ? null : "runtime",
     agentFailureMessagePreview: run.errorMessage,
     cachedInputTokens: 0,
+    deliveryStatus: run.outcome === "completed" ? "completed" : null,
+    deliveryReportedAt:
+      run.outcome === "completed" ? "2026-03-31T18:06:00.000Z" : null,
+    deliveryPrUrl:
+      run.outcome === "completed"
+        ? `https://github.com/example/repo/pull/${run.issueIdentifier.replace("COL-", "")}`
+        : null,
     machineLoad: {
       sampleCount: 6,
       maxCpuPercent: run.outcome === "completed" ? 67 : 88,
@@ -908,7 +933,11 @@ export function buildMockIssueDetailResult(
     summary: {
       runCount: issue.runCount,
       latestProblemOutcome: issue.latestProblemOutcome,
-      lastCompletedOutcome: issue.lastCompletedOutcome
+      lastCompletedOutcome: issue.lastCompletedOutcome,
+      latestDeliveryStatus: issue.latestDeliveryStatus,
+      latestDeliveryReportedAt: issue.latestDeliveryReportedAt,
+      latestDeliveryPrUrl: issue.latestDeliveryPrUrl,
+      deliveredRunCount: issue.deliveredRunCount
     },
     filters: {
       limit
@@ -1016,6 +1045,11 @@ export function buildMockRunDetailResult(
         runCount: issue.runCount,
         latestProblemOutcome: issue.latestProblemOutcome,
         lastCompletedOutcome: issue.lastCompletedOutcome,
+        latestDeliveryStatus: issue.latestDeliveryStatus,
+        latestDeliveryReportedAt: issue.latestDeliveryReportedAt,
+        latestDeliveryRunId: issue.latestDeliveryRunId,
+        latestDeliveryPrUrl: issue.latestDeliveryPrUrl,
+        deliveredRunCount: issue.deliveredRunCount,
         insertedAt: issue.insertedAt,
         updatedAt: issue.updatedAt
       }
@@ -1048,6 +1082,11 @@ export function buildMockRunDetailResult(
       runCount: issue.runCount,
       latestProblemOutcome: issue.latestProblemOutcome,
       lastCompletedOutcome: issue.lastCompletedOutcome,
+      latestDeliveryStatus: issue.latestDeliveryStatus,
+      latestDeliveryReportedAt: issue.latestDeliveryReportedAt,
+      latestDeliveryRunId: issue.latestDeliveryRunId,
+      latestDeliveryPrUrl: issue.latestDeliveryPrUrl,
+      deliveredRunCount: issue.deliveredRunCount,
       insertedAt: issue.insertedAt,
       updatedAt: issue.updatedAt
     },

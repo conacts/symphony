@@ -407,6 +407,11 @@ export function buildSymphonyForensicsIssueListResult(
         problemRate: 2 / 3,
         latestProblemOutcome: "max_turns",
         lastCompletedOutcome: "completed",
+        latestDeliveryStatus: "completed",
+        latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
+        latestDeliveryRunId: "run_123",
+        latestDeliveryPrUrl: "https://github.com/example/repo/pull/165",
+        deliveredRunCount: 1,
         retryCount: 2,
         latestRetryAttempt: 3,
         rateLimitedCount: 1,
@@ -495,6 +500,9 @@ export function buildSymphonyForensicsIssueDetailResult(
         cachedInputTokens: 40,
         outputTokens: 80,
         totalTokens: 240,
+        deliveryStatus: "completed",
+        deliveryReportedAt: "2026-03-31T18:06:00.000Z",
+        deliveryPrUrl: "https://github.com/example/repo/pull/165",
         machineLoad: {
           sampleCount: 6,
           maxCpuPercent: 71,
@@ -512,7 +520,11 @@ export function buildSymphonyForensicsIssueDetailResult(
     summary: {
       runCount: 3,
       latestProblemOutcome: "max_turns",
-      lastCompletedOutcome: "completed"
+      lastCompletedOutcome: "completed",
+      latestDeliveryStatus: "completed",
+      latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
+      latestDeliveryPrUrl: "https://github.com/example/repo/pull/165",
+      deliveredRunCount: 1
     },
     filters: {
       limit: 200
@@ -682,6 +694,9 @@ export function buildSymphonyForensicsProblemRunsResult(
         cachedInputTokens: 0,
         outputTokens: 80,
         totalTokens: 200,
+        deliveryStatus: null,
+        deliveryReportedAt: null,
+        deliveryPrUrl: null,
         machineLoad: {
           sampleCount: 6,
           maxCpuPercent: 89,
@@ -799,6 +814,11 @@ export function buildSymphonyForensicsRunDetailResult(
       runCount: 3,
       latestProblemOutcome: "max_turns",
       lastCompletedOutcome: "completed",
+      latestDeliveryStatus: "completed",
+      latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
+      latestDeliveryRunId: "run_123",
+      latestDeliveryPrUrl: "https://github.com/example/repo/pull/165",
+      deliveredRunCount: 1,
       insertedAt: "2026-03-31T18:00:00.000Z",
       updatedAt: "2026-03-31T18:05:00.000Z"
     },
@@ -830,6 +850,9 @@ export function buildSymphonyForensicsRunDetailResult(
       cachedInputTokens: 0,
       outputTokens: 80,
       totalTokens: 200,
+      deliveryStatus: "completed",
+      deliveryReportedAt: "2026-03-31T18:06:00.000Z",
+      deliveryPrUrl: "https://github.com/example/repo/pull/165",
       machineLoad: {
         sampleCount: 6,
         maxCpuPercent: 71,
@@ -866,6 +889,23 @@ export function buildSymphonyForensicsRunDetailResult(
       errorMessage: null,
       insertedAt: "2026-03-31T18:00:00.000Z",
       updatedAt: "2026-03-31T18:02:00.000Z"
+    },
+    deliveryReport: {
+      reportId: "delivery_123",
+      issueId: "issue_123",
+      issueIdentifier: "COL-165",
+      runId: "run_123",
+      turnId: "turn_123",
+      status: "completed",
+      summary: "Opened the pull request.",
+      prUrl: "https://github.com/example/repo/pull/165",
+      prNumber: "165",
+      branchName: "codex/col-165",
+      blockingReason: null,
+      testsSummary: "pnpm verify:precommit",
+      source: "pi",
+      reportedAt: "2026-03-31T18:06:00.000Z",
+      insertedAt: "2026-03-31T18:06:00.000Z"
     },
     turns: [
       {

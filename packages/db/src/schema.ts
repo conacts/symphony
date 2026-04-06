@@ -622,6 +622,42 @@ export const symphonyIssueTimelineTable = sqliteTable(
   })
 );
 
+export const symphonyIssueDeliveryReportsTable = sqliteTable(
+  "symphony_issue_delivery_reports",
+  {
+    reportId: text("report_id").primaryKey(),
+    issueId: text("issue_id").notNull(),
+    issueIdentifier: text("issue_identifier").notNull(),
+    runId: text("run_id").notNull(),
+    turnId: text("turn_id"),
+    status: text("status").notNull(),
+    summary: text("summary").notNull(),
+    prUrl: text("pr_url"),
+    prNumber: text("pr_number"),
+    branchName: text("branch_name"),
+    blockingReason: text("blocking_reason"),
+    testsSummary: text("tests_summary"),
+    source: text("source").notNull(),
+    payloadJson: text("payload_json", { mode: "json" }).$type<unknown>(),
+    reportedAt: text("reported_at").notNull(),
+    insertedAt: text("inserted_at").notNull()
+  },
+  (table) => ({
+    issueIdentifierReportedAtIdx: index("symphony_issue_delivery_reports_issue_identifier_idx").on(
+      table.issueIdentifier,
+      table.reportedAt
+    ),
+    runIdReportedAtIdx: index("symphony_issue_delivery_reports_run_id_idx").on(
+      table.runId,
+      table.reportedAt
+    ),
+    statusReportedAtIdx: index("symphony_issue_delivery_reports_status_idx").on(
+      table.status,
+      table.reportedAt
+    )
+  })
+);
+
 export const symphonyRuntimeLogsTable = sqliteTable(
   "symphony_runtime_logs",
   {
@@ -739,6 +775,7 @@ export const symphonySchema = {
   symphonyTurnsTable,
   symphonyEventsTable,
   symphonyIssueTimelineTable,
+  symphonyIssueDeliveryReportsTable,
   symphonyRuntimeLogsTable,
   symphonyGitHubIngressTable,
   symphonyMigrationStateTable

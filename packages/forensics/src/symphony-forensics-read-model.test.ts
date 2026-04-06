@@ -41,8 +41,13 @@ describe("symphony forensics read model", () => {
     expect(issues.issues[0]?.issueIdentifier).toBe("COL-157");
     expect(issues.totals.issueCount).toBe(1);
     expect(issueDetail?.summary.runCount).toBe(1);
+    expect(issueDetail?.summary.latestDeliveryStatus).toBe("completed");
     expect(issueBundle?.issue.issueIdentifier).toBe("COL-157");
+    expect(issueBundle?.issue.latestDeliveryStatus).toBe("completed");
     expect(resolvedRunDetail?.run.runId).toBe(run.runId);
+    expect(resolvedRunDetail?.deliveryReport?.prUrl).toBe(
+      "https://github.com/example/repo/pull/157"
+    );
     expect(problemRuns.problemRuns[0]?.runId).toBe(run.runId);
     expect(problemRuns.problemSummary.paused_max_turns).toBe(1);
   });
@@ -89,7 +94,10 @@ describe("symphony forensics read model", () => {
             endedAt: "2026-03-31T00:03:00.000Z",
             lastEventAt: "2026-03-31T00:03:00.000Z",
             errorClass: "rate_limit",
-            errorMessage: "Rate limited."
+            errorMessage: "Rate limited.",
+            deliveryStatus: null,
+            deliveryReportedAt: null,
+            deliveryPrUrl: null
           })
         ]
       })
@@ -100,6 +108,7 @@ describe("symphony forensics read model", () => {
 
     expect(issues.issues[0]?.issueIdentifier).toBe("COL-157");
     expect(issues.issues[0]?.runCount).toBe(2);
+    expect(issues.issues[0]?.deliveredRunCount).toBe(1);
     expect(issues.issues[0]?.flags).toContain("rate_limited");
     expect(bundle?.issue.runCount).toBe(2);
     expect(bundle?.recentRuns).toHaveLength(2);
@@ -203,6 +212,9 @@ function createRunSummary(
     cachedInputTokens: 2,
     outputTokens: 20,
     totalTokens: 32,
+    deliveryStatus: "completed",
+    deliveryReportedAt: "2026-03-31T00:02:00.000Z",
+    deliveryPrUrl: "https://github.com/example/repo/pull/157",
     machineLoad: null,
     ...overrides
   };
@@ -222,6 +234,11 @@ function createRunDetail(
       runCount: 1,
       latestProblemOutcome: run.outcome,
       lastCompletedOutcome: null,
+      latestDeliveryStatus: "completed",
+      latestDeliveryReportedAt: "2026-03-31T00:02:00.000Z",
+      latestDeliveryRunId: run.runId,
+      latestDeliveryPrUrl: "https://github.com/example/repo/pull/157",
+      deliveredRunCount: 1,
       insertedAt: null,
       updatedAt: null
     },
@@ -255,6 +272,23 @@ function createRunDetail(
       },
       insertedAt: "2026-03-31T00:00:00.000Z",
       updatedAt: "2026-03-31T00:01:00.000Z"
+    },
+    deliveryReport: {
+      reportId: "report-1",
+      issueId: run.issueId,
+      issueIdentifier: run.issueIdentifier,
+      runId: run.runId,
+      turnId: "turn-1",
+      status: "completed",
+      summary: "Opened the pull request.",
+      prUrl: "https://github.com/example/repo/pull/157",
+      prNumber: "157",
+      branchName: "codex/col-157",
+      blockingReason: null,
+      testsSummary: "pnpm verify:precommit",
+      source: "pi",
+      reportedAt: "2026-03-31T00:02:00.000Z",
+      insertedAt: "2026-03-31T00:02:00.000Z"
     },
     turns: [
       {

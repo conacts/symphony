@@ -55,6 +55,28 @@ export const symphonyForensicsTimelineSourceSchema = z.enum([
 ]);
 export const symphonyForensicsCompatTimelineSourceSchema =
   symphonyForensicsTimelineSourceSchema;
+export const symphonyForensicsDeliveryStatusSchema = z.enum([
+  "completed",
+  "blocked",
+  "partial"
+]);
+export const symphonyForensicsDeliveryReportSchema = z.strictObject({
+  reportId: nonEmptyStringSchema,
+  issueId: nonEmptyStringSchema,
+  issueIdentifier: nonEmptyStringSchema,
+  runId: nonEmptyStringSchema,
+  turnId: nullableNonEmptyStringSchema,
+  status: symphonyForensicsDeliveryStatusSchema,
+  summary: nonEmptyStringSchema,
+  prUrl: nullableNonEmptyStringSchema,
+  prNumber: nullableNonEmptyStringSchema,
+  branchName: nullableNonEmptyStringSchema,
+  blockingReason: nullableNonEmptyStringSchema,
+  testsSummary: nullableNonEmptyStringSchema,
+  source: nonEmptyStringSchema,
+  reportedAt: isoTimestampSchema,
+  insertedAt: isoTimestampSchema
+});
 
 export const symphonyForensicsIssueSummarySchema = z.strictObject({
   issueId: nonEmptyStringSchema,
@@ -69,6 +91,11 @@ export const symphonyForensicsIssueSummarySchema = z.strictObject({
   problemRate: z.number().min(0).max(1),
   latestProblemOutcome: nullableNonEmptyStringSchema,
   lastCompletedOutcome: nullableNonEmptyStringSchema,
+  latestDeliveryStatus: symphonyForensicsDeliveryStatusSchema.nullable(),
+  latestDeliveryReportedAt: isoTimestampSchema.nullable(),
+  latestDeliveryRunId: nullableNonEmptyStringSchema,
+  latestDeliveryPrUrl: nullableNonEmptyStringSchema,
+  deliveredRunCount: z.number().int().nonnegative(),
   retryCount: z.number().int().nonnegative(),
   latestRetryAttempt: z.number().int().nonnegative(),
   rateLimitedCount: z.number().int().nonnegative(),
@@ -119,6 +146,9 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   cachedInputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
   totalTokens: z.number().int().nonnegative(),
+  deliveryStatus: symphonyForensicsDeliveryStatusSchema.nullable(),
+  deliveryReportedAt: isoTimestampSchema.nullable(),
+  deliveryPrUrl: nullableNonEmptyStringSchema,
   machineLoad: z.strictObject({
     sampleCount: z.number().int().positive(),
     maxCpuPercent: z.number().int().min(0).max(100).nullable(),
@@ -213,7 +243,11 @@ export const symphonyForensicsIssueDetailResultSchema = z.strictObject({
   summary: z.strictObject({
     runCount: z.number().int().nonnegative(),
     latestProblemOutcome: nullableNonEmptyStringSchema,
-    lastCompletedOutcome: nullableNonEmptyStringSchema
+    lastCompletedOutcome: nullableNonEmptyStringSchema,
+    latestDeliveryStatus: symphonyForensicsDeliveryStatusSchema.nullable(),
+    latestDeliveryReportedAt: isoTimestampSchema.nullable(),
+    latestDeliveryPrUrl: nullableNonEmptyStringSchema,
+    deliveredRunCount: z.number().int().nonnegative()
   }),
   filters: z.strictObject({
     limit: z.number().int().positive().nullable()
@@ -258,6 +292,11 @@ export const symphonyForensicsIssueExportSchema = z.strictObject({
   runCount: z.number().int().nonnegative(),
   latestProblemOutcome: nullableNonEmptyStringSchema,
   lastCompletedOutcome: nullableNonEmptyStringSchema,
+  latestDeliveryStatus: symphonyForensicsDeliveryStatusSchema.nullable(),
+  latestDeliveryReportedAt: isoTimestampSchema.nullable(),
+  latestDeliveryRunId: nullableNonEmptyStringSchema,
+  latestDeliveryPrUrl: nullableNonEmptyStringSchema,
+  deliveredRunCount: z.number().int().nonnegative(),
   insertedAt: isoTimestampSchema.nullable(),
   updatedAt: isoTimestampSchema.nullable()
 });
@@ -348,6 +387,7 @@ export const symphonyForensicsRunDetailResultSchema = z.strictObject({
     lastEventType: nullableNonEmptyStringSchema,
     lastEventAt: isoTimestampSchema.nullable()
   }),
+  deliveryReport: symphonyForensicsDeliveryReportSchema.nullable(),
   turns: z.array(symphonyForensicsTurnSchema)
 });
 
@@ -406,6 +446,12 @@ export const symphonyForensicsIssueTimelineResponseSchema = createEnvelopeSchema
 
 export type SymphonyForensicsIssueSummary = z.infer<typeof symphonyForensicsIssueSummarySchema>;
 export type SymphonyForensicsRunSummary = z.infer<typeof symphonyForensicsRunSummarySchema>;
+export type SymphonyForensicsDeliveryStatus = z.infer<
+  typeof symphonyForensicsDeliveryStatusSchema
+>;
+export type SymphonyForensicsDeliveryReport = z.infer<
+  typeof symphonyForensicsDeliveryReportSchema
+>;
 export type SymphonyForensicsIssueFilters = z.infer<typeof symphonyForensicsIssueFiltersSchema>;
 export type SymphonyForensicsIssueTotals = z.infer<typeof symphonyForensicsIssueTotalsSchema>;
 export type SymphonyForensicsIssueFacets = z.infer<typeof symphonyForensicsIssueFacetsSchema>;

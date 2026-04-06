@@ -32,6 +32,11 @@ describe("forensics client", () => {
               problemRate: 2 / 3,
               latestProblemOutcome: "max_turns",
               lastCompletedOutcome: "completed",
+              latestDeliveryStatus: "completed",
+              latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
+              latestDeliveryRunId: "run_123",
+              latestDeliveryPrUrl: "https://github.com/example/repo/pull/165",
+              deliveredRunCount: 1,
               retryCount: 2,
               latestRetryAttempt: 3,
               rateLimitedCount: 1,
@@ -112,7 +117,11 @@ describe("forensics client", () => {
             summary: {
               runCount: 3,
               latestProblemOutcome: "max_turns",
-              lastCompletedOutcome: "completed"
+              lastCompletedOutcome: "completed",
+              latestDeliveryStatus: "completed",
+              latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
+              latestDeliveryPrUrl: "https://github.com/example/repo/pull/165",
+              deliveredRunCount: 1
             },
             filters: {
               limit: 200
@@ -175,6 +184,11 @@ describe("forensics client", () => {
             problemRate: 2 / 3,
             latestProblemOutcome: "max_turns",
             lastCompletedOutcome: "completed",
+            latestDeliveryStatus: "completed",
+            latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
+            latestDeliveryRunId: "run_123",
+            latestDeliveryPrUrl: "https://github.com/example/repo/pull/165",
+            deliveredRunCount: 1,
             retryCount: 2,
             latestRetryAttempt: 3,
             rateLimitedCount: 1,

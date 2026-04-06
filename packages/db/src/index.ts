@@ -47,6 +47,14 @@ export type {
   SymphonyIssueTimelineStore
 } from "./issue-timeline.js";
 export {
+  createSymphonyIssueDeliveryReportStore
+} from "./issue-delivery-reports.js";
+export type {
+  SymphonyIssueDeliveryReportRecord,
+  SymphonyIssueDeliveryReportStore,
+  SymphonyIssueDeliveryStatus
+} from "./issue-delivery-reports.js";
+export {
   createSymphonyRuntimeLogStore
 } from "./runtime-logs.js";
 export type {
