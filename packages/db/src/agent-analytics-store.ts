@@ -943,6 +943,17 @@ function projectToolCallItem(
       )
     )
     .get();
+  const canonicalArguments = chooseCanonicalToolArguments(
+    existingToolCall?.argumentsJson,
+    item.arguments
+  );
+  const canonicalItem =
+    canonicalArguments === item.arguments
+      ? item
+      : {
+          ...item,
+          arguments: canonicalArguments
+        };
 
   if (!existingToolCall) {
     context.tx
@@ -955,7 +966,7 @@ function projectToolCallItem(
         tool: item.tool,
         status: item.status,
         errorMessage: item.error?.message ?? null,
-        argumentsJson: item.arguments,
+        argumentsJson: canonicalArguments,
         resultPreview: previewText(resultText, context.previewMaxChars),
         resultOverflowId,
         startedAt: context.input.recordedAt,
@@ -966,7 +977,7 @@ function projectToolCallItem(
         updatedAt: context.now
       })
       .run();
-    upsertPiToolRows(context, item);
+    upsertPiToolRows(context, canonicalItem);
     return resultOverflowId;
   }
 
@@ -982,7 +993,7 @@ function projectToolCallItem(
       tool: item.tool,
       status: item.status,
       errorMessage: item.error?.message ?? existingToolCall.errorMessage,
-      argumentsJson: item.arguments,
+      argumentsJson: canonicalArguments,
       resultPreview: previewText(resultText, context.previewMaxChars),
       resultOverflowId: resultOverflowId ?? existingToolCall.resultOverflowId,
       completedAt,
@@ -998,11 +1009,38 @@ function projectToolCallItem(
     )
     .run();
 
-  if (item.arguments != null && typeof item.arguments === "object" && !Array.isArray(item.arguments)) {
-    upsertPiToolRows(context, item);
+  if (
+    canonicalArguments != null &&
+    typeof canonicalArguments === "object" &&
+    !Array.isArray(canonicalArguments)
+  ) {
+    upsertPiToolRows(context, canonicalItem);
   }
 
   return resultOverflowId;
+}
+
+function chooseCanonicalToolArguments(
+  existingArguments: unknown,
+  nextArguments: unknown
+): unknown {
+  if (isMeaningfulToolArguments(nextArguments)) {
+    return nextArguments;
+  }
+
+  if (isMeaningfulToolArguments(existingArguments)) {
+    return existingArguments;
+  }
+
+  return nextArguments;
+}
+
+function isMeaningfulToolArguments(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  return Object.keys(value).length > 0;
 }
 
 /**

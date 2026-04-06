@@ -127,6 +127,10 @@ export function createDockerWorkspaceBackend(
     options.containerNamePrefix
   );
   const shell = normalizeNonEmptyString(options.shell) ?? "bash";
+  const gitUserName = normalizeNonEmptyString(options.gitUserName) ?? "symphony";
+  const gitUserEmail =
+    normalizeNonEmptyString(options.gitUserEmail) ?? "csheehan630@gmail.com";
+  const containerEnv = normalizeContainerEnv(options.containerEnv);
   const materializationMode =
     options.materializationMode ?? bindMaterializationKind;
   const runtimeManifest = options.runtimeManifest ?? null;
@@ -189,6 +193,9 @@ export function createDockerWorkspaceBackend(
         image,
         workspacePath,
         shell,
+        gitUserName,
+        gitUserEmail,
+        containerEnv,
         hostFileMounts,
         addHostGateway: services.requiresHostGateway,
         networkName: null,
@@ -2256,6 +2263,9 @@ async function ensureManagedContainer(input: {
   image: string;
   workspacePath: string;
   shell: string;
+  gitUserName: string;
+  gitUserEmail: string;
+  containerEnv: Record<string, string>;
   hostFileMounts: DockerWorkspaceHostFileMount[];
   addHostGateway: boolean;
   networkName: string | null;
@@ -2319,6 +2329,9 @@ async function startManagedContainer(input: {
   image: string;
   workspacePath: string;
   shell: string;
+  gitUserName: string;
+  gitUserEmail: string;
+  containerEnv: Record<string, string>;
   hostFileMounts: DockerWorkspaceHostFileMount[];
   addHostGateway: boolean;
   networkName: string | null;
@@ -2359,6 +2372,11 @@ async function startManagedContainer(input: {
     input.workspacePath,
     "--env",
     `HOME=${defaultDockerHomePath}`,
+    "--env",
+    `SYMPHONY_GIT_USER_NAME=${input.gitUserName}`,
+    "--env",
+    `SYMPHONY_GIT_USER_EMAIL=${input.gitUserEmail}`,
+    ...dockerEnvFlags(input.containerEnv),
     ...(input.addHostGateway
       ? ["--add-host", "host.docker.internal:host-gateway"]
       : []),
@@ -2370,7 +2388,7 @@ async function startManagedContainer(input: {
     input.shell,
     input.image,
     "-lc",
-    'mkdir -p "$HOME" "$HOME/.config" "$HOME/.pi/agent" && if command -v gh >/dev/null 2>&1; then gh auth setup-git >/dev/null 2>&1 || true; fi && while :; do sleep 3600; done'
+    'mkdir -p "$HOME" "$HOME/.config" "$HOME/.pi/agent" && if command -v git >/dev/null 2>&1; then git config --global user.name "$SYMPHONY_GIT_USER_NAME" && git config --global user.email "$SYMPHONY_GIT_USER_EMAIL"; fi && if command -v gh >/dev/null 2>&1; then gh auth setup-git >/dev/null 2>&1 || true; fi && while :; do sleep 3600; done'
   ];
   const result = await input.commandRunner({
     args,
@@ -2818,6 +2836,21 @@ function normalizeDockerWorkspaceHostFileMounts(
 
   return normalizedMounts
     .filter((mount): mount is DockerWorkspaceHostFileMount => mount !== null);
+}
+
+function normalizeContainerEnv(
+  env: DockerWorkspaceBackendOptions["containerEnv"]
+): Record<string, string> {
+  if (!env) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(env).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === "string" && entry[1].trim() !== ""
+    )
+  );
 }
 
 function buildHostFileMountsHash(

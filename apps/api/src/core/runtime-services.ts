@@ -193,7 +193,14 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const dockerAuth = resolveDockerWorkspaceAuthContracts(hostCommandEnvSource, {
     preferredApiKeyEnvKey: harnessProviderEnvKey
   });
+  const dockerGitHubCliAuth = dockerAuth.githubCli;
   const dockerPiAuth = dockerAuth.pi;
+  const dockerLinearLaunchEnv: Record<string, string> =
+    typeof env.linearApiKey === "string" && env.linearApiKey.trim() !== ""
+      ? {
+          LINEAR_API_KEY: env.linearApiKey
+        }
+      : {};
 
   if (dockerPiAuth.mount === null && Object.keys(dockerPiAuth.launchEnv).length === 0) {
     throw new HarnessSessionError(
@@ -204,18 +211,34 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
   const workspaceBackendSelection = createRuntimeWorkspaceBackend(env, {
     dockerHostFileMounts: dockerAuth.mounts,
+    dockerContainerEnv: {
+      ...dockerGitHubCliAuth.launchEnv,
+      ...dockerLinearLaunchEnv
+    },
     runtimeManifest: validatedRuntimeManifest?.runtimeManifest ?? null
   });
   const workspaceBackendPayload = {
     workspaceRoot: runtimePolicy.workspace.root,
     ...workspaceBackendSelection.metadata,
+    dockerGitHubCliAuthMode:
+      dockerGitHubCliAuth.authEnvKey !== null
+        ? "env"
+        : dockerGitHubCliAuth.mount !== null
+          ? "mount"
+          : "none",
+    dockerGitHubCliAuthEnvKey: dockerGitHubCliAuth.authEnvKey,
+    dockerLinearApiKeyInjected:
+      Object.prototype.hasOwnProperty.call(dockerLinearLaunchEnv, "LINEAR_API_KEY"),
     dockerPiAuthMounted: dockerPiAuth.mount !== null,
     dockerPiProviderEnvKey: dockerPiAuth.providerEnvKey,
     dockerPiProviderEnvMounted:
       dockerPiAuth.providerEnvKey !== null &&
       Object.prototype.hasOwnProperty.call(dockerPiAuth.launchEnv, dockerPiAuth.providerEnvKey)
   };
-  const harnessLaunchEnv = dockerPiAuth.launchEnv;
+  const harnessLaunchEnv = {
+    ...dockerPiAuth.launchEnv,
+    ...dockerLinearLaunchEnv
+  };
   let dockerPreflight: SymphonyDockerWorkspacePreflightResult | null = null;
   if (workspaceBackendSelection.metadata.backendKind === "docker") {
     try {
@@ -295,6 +318,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       tracker,
       runStore,
       deliveryReports,
+      issueTimelineStore,
       agentAnalytics: agentAnalyticsStore,
       runtimeLogs: runtimeLogStore,
       hostCommandEnvSource,
@@ -399,8 +423,26 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           runtimePolicy.tracker,
           issueIdentifier
         );
+        const requeuedHandoff =
+          result.status === "requeued" &&
+          "handoff" in result &&
+          result.handoff &&
+          typeof result.handoff === "object"
+            ? result.handoff
+            : null;
 
         if (trackedIssue) {
+          if (requeuedHandoff) {
+            await issueTimelineStore.record({
+              issueId: trackedIssue.id,
+              issueIdentifier: trackedIssue.identifier,
+              source: "tracker",
+              eventType: "github_review_rework_handoff",
+              message: "Stored GitHub review rework handoff for the next run.",
+              payload: normalizeRuntimeJsonValue(requeuedHandoff)
+            });
+          }
+
           await issueTimelineStore.record({
             issueId: trackedIssue.id,
             issueIdentifier: trackedIssue.identifier,

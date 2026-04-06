@@ -113,6 +113,7 @@ export type SymphonyGitHubRuntimePolicy = {
   apiToken: string | null;
   statePath: string | null;
   allowedReviewLogins: string[];
+  allowedReviewCommentLogins: string[];
   allowedReworkCommentLogins: string[];
 };
 export type SymphonyWorkflowGitHubConfig = SymphonyGitHubRuntimePolicy;
@@ -482,6 +483,10 @@ function normalizeGitHubConfig(
       normalizeOptionalString(resolveEnvToken(github.statePath, env)) ??
       path.join(workspaceRoot, ".symphony", "github-state.json"),
     allowedReviewLogins: normalizeStringArray(github.allowedReviewLogins, []),
+    allowedReviewCommentLogins: normalizeStringArray(
+      github.allowedReviewCommentLogins,
+      []
+    ),
     allowedReworkCommentLogins: normalizeStringArray(
       github.allowedReworkCommentLogins,
       []

@@ -13,8 +13,9 @@ export const symphonyHarnessPromptAppendix = [
   "- Keep file operations targeted and avoid broad recursive shell reads when PI-native tool calls can provide the same information.",
   "- If Symphony exposes built-in Linear tools in this runtime, use them instead of searching for `LINEAR_API_KEY` in shell startup files or the workspace.",
   "- If Symphony exposes `linear_graphql`, use it for direct Linear reads or writes outside delivery reporting; Symphony provides the auth server-side.",
+  "- If the issue is in `Rework`, or review feedback is already present, read the latest Linear comment context and any relevant PR review feedback before editing so the run addresses the newest feedback.",
   "- If Symphony exposes `report_issue_delivery`, treat it as the explicit completion boundary for Symphony runs.",
-  "- If `report_issue_delivery` is available, call it with `status: \"completed\"` and the opened PR URL before ending a completed run.",
+  "- If `report_issue_delivery` is available, call it immediately after opening the real PR for completed work; do not leave a completed run active after the PR exists.",
   "- When available, `report_issue_delivery` will record delivery and move the issue to `In Review` for you.",
   "- Never move the issue to `Done` yourself from the agent runtime.",
   "- If `report_issue_delivery` is available and the work is blocked or only partially delivered, call it with the matching status and the concrete reason before ending the run."
@@ -51,6 +52,7 @@ export type SymphonyPromptContractPayload = {
   run: SymphonyPromptContractRun;
   workspace: SymphonyPromptContractWorkspace;
   attempt?: number;
+  rework_handoff?: string | null;
 };
 
 export type SymphonyPromptContractLoadOptions = {
@@ -249,7 +251,8 @@ export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContract
       path: "/workspace/symphony",
       branch: "codex/runtime-contract-boundary"
     },
-    attempt: 1
+    attempt: 1,
+    rework_handoff: null
   };
 }
 

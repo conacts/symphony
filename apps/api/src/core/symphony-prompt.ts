@@ -14,8 +14,10 @@ Continuation guidance:
 - Prefer built-in Pi tools for reading, searching, and editing files. Use shell primarily for execution tasks like tests, builds, git, and package-manager commands.
 - If Symphony exposes built-in Linear tools in this runtime, use them instead of searching for \`LINEAR_API_KEY\` in shell startup files, the workspace, or git history.
 - If Symphony exposes \`linear_graphql\`, use it for direct Linear reads or writes outside delivery reporting; Symphony provides the auth server-side.
+- If the issue is in \`Rework\`, or review feedback already exists, read the latest Linear comment context and any relevant PR review feedback before editing so you address the current feedback instead of stale assumptions.
 - Never move the issue to \`Done\` from the agent runtime.
-- If Symphony exposes \`report_issue_delivery\`, call it with \`status: "completed"\` and the opened PR URL when the work is delivered. Symphony will record delivery and move the issue to \`In Review\`.
+- If Symphony exposes \`report_issue_delivery\`, treat it as the required finish step: once the requested work is delivered and the PR is opened, call it immediately in the same turn with \`status: "completed"\` and the PR URL. Symphony will record delivery, move the issue to \`In Review\`, and that should usually end the run.
+- Do not keep taking extra turns after the PR is open and delivery is reported unless there is a concrete unresolved failure in the same run.
 - Do not end the turn with a completion-style summary while the issue stays active unless the requested work is actually finished and validated.
 - Do not stop for partial progress, a likely fix, or a request for human follow-up.
 - Only stop early for a true external blocker: missing required permissions, missing required secrets/auth, or a hard platform/runtime failure that prevents further progress.

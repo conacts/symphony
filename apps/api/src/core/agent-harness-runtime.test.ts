@@ -8,6 +8,7 @@ import {
   createSqliteAgentAnalyticsReadStore,
   createSqliteAgentAnalyticsStore,
   createSymphonyIssueDeliveryReportStore,
+  createSymphonyIssueTimelineStore,
   createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
@@ -534,6 +535,356 @@ done
       kind: "normal"
     });
     expect(await deliveryReports.listForRun(runId)).toEqual([]);
+
+    database.close();
+  });
+
+  it("injects persisted GitHub rework handoff context into the first-turn prompt", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-rework-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createDoneTracker(issue);
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const agentReadStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    await issueTimelineStore.record({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      source: "tracker",
+      eventType: "github_review_rework_handoff",
+      message: "Stored GitHub review rework handoff for the next run.",
+      payload: {
+        triggerKind: "review_comment",
+        reviewContextUrl: "https://github.com/openai/symphony/pull/123#pullrequestreview-456",
+        pullRequestUrl: "https://github.com/openai/symphony/pull/123",
+        actorLogin: "chatgpt-codex-connector",
+        feedbackBody: "Please rename this API and add the missing test coverage.",
+        recordedAt: "2026-04-06T00:00:00.000Z"
+      }
+    });
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(
+          root,
+          "You are working on {{ issue.identifier }}.\n\n{{ rework_handoff }}"
+        ),
+        tracker,
+        runStore,
+        deliveryReports,
+        issueTimelineStore,
+        agentAnalytics,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            return;
+          },
+          async onComplete() {
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    const runDetail = await agentReadStore.fetchRunDetail(runId);
+    expect(runDetail?.turns[0]?.promptText).toContain("Rework handoff:");
+    expect(runDetail?.turns[0]?.promptText).toContain(
+      "GitHub review feedback triggered rework"
+    );
+    expect(runDetail?.turns[0]?.promptText).toContain(
+      "https://github.com/openai/symphony/pull/123#pullrequestreview-456"
+    );
+    expect(runDetail?.turns[0]?.promptText).toContain(
+      "Please rename this API and add the missing test coverage."
+    );
+
+    database.close();
+  });
+
+  it("leaves the first-turn prompt unchanged when no GitHub rework handoff exists", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-no-rework-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createDoneTracker(issue);
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const agentReadStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(
+          root,
+          "You are working on {{ issue.identifier }}.\n\n{{ rework_handoff }}"
+        ),
+        tracker,
+        runStore,
+        deliveryReports,
+        issueTimelineStore,
+        agentAnalytics,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            return;
+          },
+          async onComplete() {
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    const runDetail = await agentReadStore.fetchRunDetail(runId);
+    expect(runDetail?.turns[0]?.promptText).toContain(
+      `You are working on ${issue.identifier}.`
+    );
+    expect(runDetail?.turns[0]?.promptText).not.toContain("Rework handoff:");
+    expect(runDetail?.turns[0]?.promptText).not.toContain(
+      "GitHub review feedback triggered rework"
+    );
+
+    database.close();
+  });
+
+  it("uses the latest persisted GitHub rework handoff in the first-turn prompt", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-latest-rework-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createDoneTracker(issue);
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const agentReadStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    await issueTimelineStore.record({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      source: "tracker",
+      eventType: "github_review_rework_handoff",
+      message: "Stored older GitHub review rework handoff for the next run.",
+      payload: {
+        triggerKind: "review_comment",
+        reviewContextUrl: "https://github.com/openai/symphony/pull/123#pullrequestreview-111",
+        pullRequestUrl: "https://github.com/openai/symphony/pull/123",
+        actorLogin: "chatgpt-codex-connector",
+        feedbackBody: "Old feedback that should not be used.",
+        recordedAt: "2026-04-05T00:00:00.000Z"
+      }
+    });
+    await issueTimelineStore.record({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      source: "tracker",
+      eventType: "github_review_rework_handoff",
+      message: "Stored newer GitHub review rework handoff for the next run.",
+      payload: {
+        triggerKind: "changes_requested_review",
+        reviewContextUrl: "https://github.com/openai/symphony/pull/123#pullrequestreview-222",
+        pullRequestUrl: "https://github.com/openai/symphony/pull/123",
+        actorLogin: "chatgpt-codex-connector",
+        feedbackBody: "Newest feedback that should be shown first.",
+        recordedAt: "2026-04-06T00:00:00.000Z"
+      }
+    });
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(
+          root,
+          "You are working on {{ issue.identifier }}.\n\n{{ rework_handoff }}"
+        ),
+        tracker,
+        runStore,
+        deliveryReports,
+        issueTimelineStore,
+        agentAnalytics,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            return;
+          },
+          async onComplete() {
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    const runDetail = await agentReadStore.fetchRunDetail(runId);
+    expect(runDetail?.turns[0]?.promptText).toContain("Rework handoff:");
+    expect(runDetail?.turns[0]?.promptText).toContain(
+      "https://github.com/openai/symphony/pull/123#pullrequestreview-222"
+    );
+    expect(runDetail?.turns[0]?.promptText).toContain(
+      "Newest feedback that should be shown first."
+    );
+    expect(runDetail?.turns[0]?.promptText).not.toContain(
+      "Old feedback that should not be used."
+    );
 
     database.close();
   });

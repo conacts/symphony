@@ -13,6 +13,8 @@ type DockerReadOnlyMount = {
 export type DockerGitHubCliAuthContract = {
   mount: DockerReadOnlyMount | null;
   configDirectoryPath: string | null;
+  launchEnv: Record<string, string>;
+  authEnvKey: "GH_TOKEN" | "GITHUB_TOKEN" | null;
 };
 
 export type DockerPiAuthContract = {
@@ -31,10 +33,22 @@ export type DockerWorkspaceAuthContracts = {
 export function resolveDockerGitHubCliAuthContract(
   hostCommandEnvSource: Record<string, string | undefined>
 ): DockerGitHubCliAuthContract {
+  const tokenEnv = resolveGitHubCliLaunchEnv(hostCommandEnvSource);
+  if (tokenEnv) {
+    return {
+      mount: null,
+      configDirectoryPath: null,
+      launchEnv: tokenEnv,
+      authEnvKey: Object.keys(tokenEnv)[0] as "GH_TOKEN" | "GITHUB_TOKEN"
+    };
+  }
+
   const configDirectoryPath = resolveGitHubCliConfigDirectoryPath(hostCommandEnvSource);
   return {
     mount: createReadOnlyMount(configDirectoryPath, defaultDockerGitHubConfigPath),
-    configDirectoryPath
+    configDirectoryPath,
+    launchEnv: {},
+    authEnvKey: null
   };
 }
 
@@ -74,6 +88,26 @@ export function resolveDockerWorkspaceAuthContracts(
       (mount): mount is DockerReadOnlyMount => mount !== null
     )
   };
+}
+
+function resolveGitHubCliLaunchEnv(
+  hostCommandEnvSource: Record<string, string | undefined>
+): Record<string, string> | null {
+  const ghToken = normalizeNonEmptyString(hostCommandEnvSource.GH_TOKEN);
+  if (ghToken) {
+    return {
+      GH_TOKEN: ghToken
+    };
+  }
+
+  const githubToken = normalizeNonEmptyString(hostCommandEnvSource.GITHUB_TOKEN);
+  if (githubToken) {
+    return {
+      GITHUB_TOKEN: githubToken
+    };
+  }
+
+  return null;
 }
 
 function resolveLaunchEnv(

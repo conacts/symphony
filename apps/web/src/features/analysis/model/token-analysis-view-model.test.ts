@@ -61,6 +61,7 @@ describe("token analysis view model", () => {
 
     expect(viewModel.summaryCards[0]?.value).toBe("2");
     expect(viewModel.tokenCards[0]?.value).toBe("410");
+    expect(viewModel.tokenCards[2]?.value).toBe("16.3%");
     expect(viewModel.runTokenRows[0]?.totalTokens).toBe(620);
     expect(viewModel.turnTokenRows[0]?.totalTokens).toBe(620);
     expect(viewModel.issueTokenRows[0]?.issueIdentifier).toBe("COL-166");

@@ -106,6 +106,15 @@ export function buildSymphonyRuntimePolicyForRoot(
   overrides: Partial<SymphonyResolvedRuntimePolicy> = {}
 ): SymphonyResolvedRuntimePolicy {
   const baseConfig = buildSymphonyRuntimePolicy();
+  const githubOverrideRecord =
+    overrides.github && typeof overrides.github === "object"
+      ? (overrides.github as Record<string, unknown>)
+      : null;
+  const allowedReviewCommentLogins = Array.isArray(
+    githubOverrideRecord?.allowedReviewCommentLogins
+  )
+    ? (githubOverrideRecord.allowedReviewCommentLogins as string[])
+    : null;
 
   return {
     ...baseConfig,
@@ -157,8 +166,13 @@ export function buildSymphonyRuntimePolicyForRoot(
       statePath: path.join(root, "github-state.json"),
       allowedReviewLogins: ["reviewer"],
       allowedReworkCommentLogins: ["reviewer"],
+      ...(allowedReviewCommentLogins
+        ? {
+            allowedReviewCommentLogins
+          }
+        : {}),
       ...overrides.github
-    }
+    } as SymphonyResolvedRuntimePolicy["github"]
   };
 }
 

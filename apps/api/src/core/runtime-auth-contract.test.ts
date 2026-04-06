@@ -22,7 +22,38 @@ afterEach(async () => {
 });
 
 describe("pi auth contract", () => {
-  it("mounts host gh config when present", async () => {
+  it("prefers GH_TOKEN for github cli auth when present", async () => {
+    expect(
+      resolveDockerGitHubCliAuthContract({
+        GH_TOKEN: "test-gh-token",
+        GITHUB_TOKEN: "ignored-github-token"
+      })
+    ).toEqual({
+      mount: null,
+      configDirectoryPath: null,
+      launchEnv: {
+        GH_TOKEN: "test-gh-token"
+      },
+      authEnvKey: "GH_TOKEN"
+    });
+  });
+
+  it("falls back to GITHUB_TOKEN for github cli auth when GH_TOKEN is absent", async () => {
+    expect(
+      resolveDockerGitHubCliAuthContract({
+        GITHUB_TOKEN: "test-github-token"
+      })
+    ).toEqual({
+      mount: null,
+      configDirectoryPath: null,
+      launchEnv: {
+        GITHUB_TOKEN: "test-github-token"
+      },
+      authEnvKey: "GITHUB_TOKEN"
+    });
+  });
+
+  it("mounts host gh config when no github token env is present", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-gh-auth-"));
     tempDirectories.push(root);
     const home = path.join(root, "home");
@@ -45,7 +76,9 @@ describe("pi auth contract", () => {
         containerPath: "/home/agent/.config/gh",
         readOnly: true
       },
-      configDirectoryPath: path.join(home, ".config", "gh")
+      configDirectoryPath: path.join(home, ".config", "gh"),
+      launchEnv: {},
+      authEnvKey: null
     });
   });
 
@@ -142,5 +175,21 @@ describe("pi auth contract", () => {
       contracts.githubCli.mount,
       contracts.pi.mount
     ]);
+  });
+
+  it("does not mount github cli config when token env auth is available", () => {
+    const contracts = resolveDockerWorkspaceAuthContracts({
+      GH_TOKEN: "test-gh-token"
+    });
+
+    expect(contracts.githubCli).toEqual({
+      mount: null,
+      configDirectoryPath: null,
+      launchEnv: {
+        GH_TOKEN: "test-gh-token"
+      },
+      authEnvKey: "GH_TOKEN"
+    });
+    expect(contracts.mounts).toEqual([]);
   });
 });

@@ -23,6 +23,8 @@ describe("@symphony/api scaffold", () => {
     expect(runtime.env.dockerWorkspacePath).toBeNull();
     expect(runtime.env.dockerContainerNamePrefix).toBeNull();
     expect(runtime.env.dockerShell).toBeNull();
+    expect(runtime.env.dockerGitUserName).toBe("symphony");
+    expect(runtime.env.dockerGitUserEmail).toBe("csheehan630@gmail.com");
     expect(runtime.env.allowedOrigins).toEqual([
       "http://localhost:3000",
       "http://127.0.0.1:3000"
@@ -51,6 +53,7 @@ describe("@symphony/api scaffold", () => {
       ...buildSymphonyRuntimeEnv(),
       OPENAI_API_KEY: "test-openai-api-key",
       OPENROUTER_API_KEY: "test-openrouter-api-key",
+      GH_TOKEN: "test-gh-token",
       GITHUB_TOKEN: "test-github-token",
       UNRELATED_ENV: "ignore-me"
     };
@@ -68,6 +71,7 @@ describe("@symphony/api scaffold", () => {
     expect(buildSymphonyHostCommandEnvironmentSource(environmentSource)).toEqual({
       OPENAI_API_KEY: "test-openai-api-key",
       OPENROUTER_API_KEY: "test-openrouter-api-key",
+      GH_TOKEN: "test-gh-token",
       GITHUB_TOKEN: "test-github-token"
     });
   });
@@ -106,5 +110,7 @@ describe("@symphony/api scaffold", () => {
     expect(env.dockerWorkspacePath).toBe("/workspace");
     expect(env.dockerContainerNamePrefix).toBe("symphony-test");
     expect(env.dockerShell).toBe("sh");
+    expect(env.dockerGitUserName).toBe("symphony");
+    expect(env.dockerGitUserEmail).toBe("csheehan630@gmail.com");
   });
 });

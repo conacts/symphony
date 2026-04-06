@@ -24,6 +24,8 @@ describe("runtime workspace backend selection", () => {
       dockerWorkspacePath: null,
       dockerContainerNamePrefix: null,
       dockerShell: null,
+      dockerGitUserName: null,
+      dockerGitUserEmail: null,
       sourceRepo: null
     }));
 
@@ -62,6 +64,8 @@ describe("runtime workspace backend selection", () => {
       dockerWorkspacePath: "/workspace",
       dockerContainerNamePrefix: "symphony-test",
       dockerShell: "sh",
+      dockerGitUserName: null,
+      dockerGitUserEmail: null,
       sourceRepo: null
     }));
 
@@ -100,6 +104,8 @@ describe("runtime workspace backend selection", () => {
       dockerWorkspacePath: "/workspace",
       dockerContainerNamePrefix: "symphony-test",
       dockerShell: "sh",
+      dockerGitUserName: null,
+      dockerGitUserEmail: null,
       sourceRepo: null
     }));
 
@@ -138,6 +144,8 @@ describe("runtime workspace backend selection", () => {
       dockerWorkspacePath: null,
       dockerContainerNamePrefix: null,
       dockerShell: null,
+      dockerGitUserName: null,
+      dockerGitUserEmail: null,
       sourceRepo: null
     }));
 
@@ -178,6 +186,8 @@ function buildRuntimeEnv(
     dockerWorkspacePath: null,
     dockerContainerNamePrefix: null,
     dockerShell: null,
+    dockerGitUserName: null,
+    dockerGitUserEmail: null,
     dockerSharedPostgresContainerName: "symphony-shared-postgres",
     dockerSharedPostgresImage: "postgres:16",
     dockerSharedPostgresHost: "host.docker.internal",

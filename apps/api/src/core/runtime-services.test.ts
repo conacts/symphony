@@ -218,9 +218,34 @@ describe("runtime services", () => {
 
     expect(selectedBackendLog?.payload).toEqual(
       expect.objectContaining({
+        dockerGitHubCliAuthMode: "none",
+        dockerGitHubCliAuthEnvKey: null,
+        dockerLinearApiKeyInjected: true,
         dockerPiAuthMounted: true,
         dockerPiProviderEnvKey: "OPENROUTER_API_KEY",
         dockerPiProviderEnvMounted: true
+      })
+    );
+  });
+
+  it("prefers GH_TOKEN env injection over mounting host gh config for docker runs", async () => {
+    const harness = await createSymphonyRuntimeAppServicesHarness({
+      hostCommandEnvSource: {
+        GH_TOKEN: "test-gh-token",
+        OPENROUTER_API_KEY: "test-openrouter-api-key"
+      }
+    });
+    harnesses.push(harness);
+
+    const selectedBackendLog = (await harness.services.runtimeLogs.list()).logs.find(
+      (entry) => entry.eventType === "workspace_backend_selected"
+    );
+
+    expect(selectedBackendLog?.payload).toEqual(
+      expect.objectContaining({
+        dockerGitHubCliAuthMode: "env",
+        dockerGitHubCliAuthEnvKey: "GH_TOKEN",
+        dockerLinearApiKeyInjected: true
       })
     );
   });

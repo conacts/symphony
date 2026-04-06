@@ -16,7 +16,9 @@ describe("symphony continuation prompt", () => {
       "Prefer built-in Pi tools for reading, searching, and editing files."
     );
     expect(prompt).toContain("use them instead of searching for `LINEAR_API_KEY`");
+    expect(prompt).toContain("read the latest Linear comment context");
     expect(prompt).toContain("Never move the issue to `Done`");
     expect(prompt).toContain("move the issue to `In Review`");
+    expect(prompt).toContain("call it immediately in the same turn");
   });
 });

@@ -2,6 +2,7 @@ import type { SymphonyTrackerConfig } from "@symphony/tracker";
 
 export type SymphonyGitHubReviewConfig = {
   allowedReviewLogins: string[];
+  allowedReviewCommentLogins: string[];
   allowedReworkCommentLogins: string[];
 };
 
@@ -16,6 +17,7 @@ export type SymphonyGitHubReviewEvent =
       repository: string;
       payload: {
         reviewState: string;
+        reviewBody: string | null;
         authorLogin: string | null;
         headRef: string | null;
         headSha: string | null;
@@ -44,6 +46,19 @@ export type SymphonyGitHubReviewSignal =
       authorLogin: string | null;
       pullRequestUrl: string | null;
       reviewId: number;
+      feedbackBody: string | null;
+    }
+  | {
+      kind: "review_comment";
+      issueIdentifier: string | null;
+      repository: string;
+      issueNumber: number;
+      pullRequestUrl: string | null;
+      headSha: null;
+      authorLogin: string | null;
+      commentId: number;
+      feedbackBody: string | null;
+      operatorContext: string | null;
     }
   | {
       kind: "manual_rework_comment";
@@ -54,8 +69,18 @@ export type SymphonyGitHubReviewSignal =
       headSha: null;
       authorLogin: string | null;
       commentId: number;
+      feedbackBody: string | null;
       operatorContext: string | null;
     };
+
+export type SymphonyGitHubReworkHandoff = {
+  triggerKind: SymphonyGitHubReviewSignal["kind"];
+  reviewContextUrl: string | null;
+  pullRequestUrl: string | null;
+  actorLogin: string | null;
+  feedbackBody: string | null;
+  recordedAt: string;
+};
 
 export type SymphonyGitHubPullRequestResolver = {
   fetchPullRequest(
@@ -70,5 +95,9 @@ export type SymphonyGitHubPullRequestResolver = {
 
 export type SymphonyGitHubReviewProcessResult =
   | { status: "ignored" }
-  | { status: "requeued"; issueIdentifier: string }
+  | {
+      status: "requeued";
+      issueIdentifier: string;
+      handoff: SymphonyGitHubReworkHandoff;
+    }
   | { status: "skipped"; issueIdentifier: string | null; reason: string };

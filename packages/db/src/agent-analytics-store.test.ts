@@ -799,6 +799,32 @@ describe("sqlite agent analytics store", () => {
         runId,
         turnId,
         threadId: "thread-pi-structured",
+        recordedAt: "2026-04-05T08:00:02.500Z",
+        payload: {
+          type: "item.started",
+          item: {
+            id: "tool-edit-1",
+            type: "mcp_tool_call",
+            server: "pi",
+            tool: "edit",
+            arguments: {
+              path: "src/index.ts",
+              edits: [
+                {
+                  oldText: "const x = 1;",
+                  newText: "const x = 2;"
+                }
+              ]
+            },
+            status: "in_progress"
+          }
+        }
+      });
+
+      await analyticsStore.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-pi-structured",
         recordedAt: "2026-04-05T08:00:03.000Z",
         rawPayload: {
           type: "tool_execution_end",
@@ -825,15 +851,7 @@ describe("sqlite agent analytics store", () => {
             type: "mcp_tool_call",
             server: "pi",
             tool: "edit",
-            arguments: {
-              path: "src/index.ts",
-              edits: [
-                {
-                  oldText: "const x = 1;",
-                  newText: "const x = 2;"
-                }
-              ]
-            },
+            arguments: {},
             result: {
               content: [
                 {
@@ -935,6 +953,15 @@ describe("sqlite agent analytics store", () => {
         }
       });
       expect(editTool).toMatchObject({
+        argumentsJson: {
+          path: "src/index.ts",
+          edits: [
+            {
+              oldText: "const x = 1;",
+              newText: "const x = 2;"
+            }
+          ]
+        },
         piEdit: {
           path: "src/index.ts",
           editCount: 1,

@@ -12,11 +12,14 @@ change directories.
 
 Title: {{ issue.title }}
 State: {{ issue.state }}
+If the state above is `Rework`, you were moved back from review because review feedback exists. Read the latest Linear rework note and the relevant GitHub review/comment context before editing, then address that feedback first.
 Labels: {{ issue.labels }}
 Suggested issue branch: {{ issue.branch_name }}
 
 Description:
 {{ issue.description }}
+
+{{ rework_handoff }}
 
 Execution contract:
 
@@ -32,6 +35,7 @@ Working style:
 
 - Start by understanding the current issue state in the repository before changing code.
 - Resume from the current workspace state instead of restarting from scratch.
+- If the issue is in `Rework`, or review feedback already exists, read the latest Linear comment context and relevant PR review feedback before editing so you address the current rework request first.
 - Prefer direct execution over extended planning once the next step is clear.
 - Validate meaningful changes before declaring the work complete.
 - Keep the branch and workspace scoped to this issue only.
@@ -46,5 +50,6 @@ Completion bar:
 - The relevant validation or tests have been run.
 - The resulting repository state has been checked before ending the turn.
 - If the task is complete, the issue-scoped code changes are committed before reporting completion.
+- If the task is complete and a real PR can be opened, open it in the same run and use `report_issue_delivery` immediately afterward instead of leaving completion for a later turn.
 - The result is reported clearly and concisely.
 - If blocked, report only the concrete blocker and why it prevents completion.

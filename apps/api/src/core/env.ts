@@ -28,6 +28,7 @@ const hostCommandEnvironmentKeys = new Set([
   "HTTP_PROXY",
   "HTTPS_PROXY",
   "NO_PROXY",
+  "GH_TOKEN",
   "GITHUB_TOKEN",
   "OPENAI_API_KEY",
   "OPENROUTER_API_KEY"
@@ -44,6 +45,8 @@ export type SymphonyRuntimeAppEnv = {
   dockerWorkspacePath: string | null;
   dockerContainerNamePrefix: string | null;
   dockerShell: string | null;
+  dockerGitUserName: string | null;
+  dockerGitUserEmail: string | null;
   dockerSharedPostgresContainerName: string;
   dockerSharedPostgresImage: string;
   dockerSharedPostgresHost: string;
@@ -78,6 +81,8 @@ export function loadSymphonyRuntimeAppEnv(
       SYMPHONY_DOCKER_WORKSPACE_PATH: z.string().min(1).optional(),
       SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX: z.string().min(1).optional(),
       SYMPHONY_DOCKER_SHELL: z.string().min(1).optional(),
+      SYMPHONY_DOCKER_GIT_USER_NAME: z.string().min(1).optional(),
+      SYMPHONY_DOCKER_GIT_USER_EMAIL: z.string().email().optional(),
       SYMPHONY_DOCKER_SHARED_POSTGRES_CONTAINER_NAME: z.string().min(1).optional(),
       SYMPHONY_DOCKER_SHARED_POSTGRES_IMAGE: z.string().min(1).optional(),
       SYMPHONY_DOCKER_SHARED_POSTGRES_HOST: z.string().min(1).optional(),
@@ -134,6 +139,9 @@ export function loadSymphonyRuntimeAppEnv(
     dockerContainerNamePrefix:
       parsed.SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX ?? null,
     dockerShell: parsed.SYMPHONY_DOCKER_SHELL ?? null,
+    dockerGitUserName: parsed.SYMPHONY_DOCKER_GIT_USER_NAME ?? "symphony",
+    dockerGitUserEmail:
+      parsed.SYMPHONY_DOCKER_GIT_USER_EMAIL ?? "csheehan630@gmail.com",
     dockerSharedPostgresContainerName:
       parsed.SYMPHONY_DOCKER_SHARED_POSTGRES_CONTAINER_NAME ??
       "symphony-shared-postgres",

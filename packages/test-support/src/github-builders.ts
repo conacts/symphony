@@ -67,6 +67,7 @@ export function buildSymphonyGitHubIssueCommentPayload(
     comment: {
       id: 456,
       body: "/rework please retry",
+      html_url: "https://github.com/openai/symphony/pull/123#issuecomment-456",
       created_at: "2026-04-01T07:41:59.000Z",
       user: {
         login: "reviewer",

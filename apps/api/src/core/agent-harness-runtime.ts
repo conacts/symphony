@@ -24,6 +24,7 @@ import type {
 import type {
   AgentAnalyticsStore,
   SymphonyIssueDeliveryReportStore,
+  SymphonyIssueTimelineStore,
   SymphonyRuntimeLogStore,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
@@ -71,6 +72,7 @@ export function createSymphonyAgentRuntime(input: {
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
+  issueTimelineStore?: SymphonyIssueTimelineStore;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -93,6 +95,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
+  issueTimelineStore?: SymphonyIssueTimelineStore;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -124,6 +127,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
         tracker: input.tracker,
         runStore: input.runStore,
         deliveryReports: input.deliveryReports,
+        issueTimelineStore: input.issueTimelineStore,
         agentAnalytics: input.agentAnalytics,
         runtimeLogs: input.runtimeLogs,
         runtimePolicy: runInput.runtimePolicy,
@@ -174,6 +178,7 @@ async function executeRun(input: {
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
+  issueTimelineStore?: SymphonyIssueTimelineStore;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
@@ -203,6 +208,12 @@ async function executeRun(input: {
   const requiresExplicitDeliveryReport = /(?:^|\s)app-server(?=\s|$)/u.test(
     input.runtimePolicy.agentRuntime.command.trim()
   );
+  const latestReworkHandoff = input.issueTimelineStore
+    ? await loadLatestGitHubReworkHandoff(
+        input.issueTimelineStore,
+        input.issue.identifier
+      )
+    : null;
 
   try {
     await input.runtimeLogs.record({
@@ -307,35 +318,40 @@ async function executeRun(input: {
         return;
       }
 
+      const promptPayload = {
+        issue: {
+          id: currentIssue.id,
+          identifier: currentIssue.identifier,
+          title: currentIssue.title,
+          description: currentIssue.description,
+          state: currentIssue.state,
+          labels: currentIssue.labels,
+          url: currentIssue.url,
+          branch_name: currentIssue.branchName
+        },
+        repo: {
+          name: promptRepoName,
+          default_branch: promptRepoDefaultBranch
+        },
+        run: {
+          id: input.runId ?? `attempt-${input.attempt}`
+        },
+        workspace: {
+          path: session.workspacePath,
+          branch: currentIssue.branchName
+        },
+        attempt: input.attempt,
+        rework_handoff: formatPromptReworkHandoff(latestReworkHandoff)
+      };
+
       const prompt =
         turnNumber === 1
           ? renderSymphonyPromptContract({
               template: input.promptTemplate,
               promptPath: input.promptContract.promptPath,
-              payload: {
-                issue: {
-                  id: currentIssue.id,
-                  identifier: currentIssue.identifier,
-                  title: currentIssue.title,
-                  description: currentIssue.description,
-                  state: currentIssue.state,
-                  labels: currentIssue.labels,
-                  url: currentIssue.url,
-                  branch_name: currentIssue.branchName
-                },
-                repo: {
-                  name: promptRepoName,
-                  default_branch: promptRepoDefaultBranch
-                },
-                run: {
-                  id: input.runId ?? `attempt-${input.attempt}`
-                },
-                workspace: {
-                  path: session.workspacePath,
-                  branch: currentIssue.branchName
-                },
-                attempt: input.attempt
-              }
+              payload: promptPayload as Parameters<
+                typeof renderSymphonyPromptContract
+              >[0]["payload"]
             })
           : buildSymphonyContinuationPrompt({
               turnNumber,
@@ -680,6 +696,84 @@ function deliveryCompletion(
         reason: `Delivery reported as partial: ${deliveryReport.summary}`
       };
   }
+}
+
+type GitHubReworkHandoff = {
+  triggerKind: string;
+  reviewContextUrl: string | null;
+  pullRequestUrl: string | null;
+  actorLogin: string | null;
+  feedbackBody: string | null;
+  recordedAt: string;
+};
+
+async function loadLatestGitHubReworkHandoff(
+  issueTimelineStore: SymphonyIssueTimelineStore,
+  issueIdentifier: string
+): Promise<GitHubReworkHandoff | null> {
+  const entries = await issueTimelineStore.listIssueTimeline(issueIdentifier, {
+    limit: 20
+  });
+  const handoffs = entries
+    .filter((candidate) => candidate.eventType === "github_review_rework_handoff")
+    .map((entry) => parseGitHubReworkHandoff(entry.payload))
+    .filter((handoff): handoff is GitHubReworkHandoff => handoff !== null)
+    .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt));
+
+  return handoffs[0] ?? null;
+}
+
+function parseGitHubReworkHandoff(payload: JsonValue): GitHubReworkHandoff | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const triggerKind = getStringValue(record.triggerKind);
+  const recordedAt = getStringValue(record.recordedAt);
+  if (!triggerKind || !recordedAt) {
+    return null;
+  }
+
+  return {
+    triggerKind,
+    reviewContextUrl: getStringValue(record.reviewContextUrl),
+    pullRequestUrl: getStringValue(record.pullRequestUrl),
+    actorLogin: getStringValue(record.actorLogin),
+    feedbackBody: getStringValue(record.feedbackBody),
+    recordedAt
+  };
+}
+
+function formatPromptReworkHandoff(
+  handoff: GitHubReworkHandoff | null
+): string | null {
+  if (!handoff) {
+    return null;
+  }
+
+  const lines = [
+    "Rework handoff:",
+    `- This run was resumed because GitHub review feedback triggered rework (${handoff.triggerKind}).`,
+    `- Review context: ${handoff.reviewContextUrl ?? "unknown"}`,
+    `- PR: ${handoff.pullRequestUrl ?? "unknown"}`,
+    `- Actor: ${handoff.actorLogin ?? "unknown"}`,
+    `- Recorded at: ${handoff.recordedAt}`
+  ];
+
+  if (handoff.feedbackBody) {
+    lines.push("- Feedback:", handoff.feedbackBody);
+  }
+
+  lines.push(
+    "- Required first step: read the linked review feedback and address it before making new changes."
+  );
+
+  return lines.join("\n");
+}
+
+function getStringValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value : null;
 }
 
 function missingDeliveryReportCompletion(): SymphonyAgentRuntimeCompletion {

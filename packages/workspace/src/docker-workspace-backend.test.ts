@@ -284,12 +284,20 @@ describe("docker workspace backend", () => {
     );
     expect(runCall?.args).toEqual(
       expect.arrayContaining([
+        "--env",
+        "HOME=/home/agent",
+        "--env",
+        "SYMPHONY_GIT_USER_NAME=symphony",
+        "--env",
+        "SYMPHONY_GIT_USER_EMAIL=csheehan630@gmail.com",
         "--entrypoint",
         "bash",
         "ghcr.io/openai/symphony-workspace:latest",
         "-lc"
       ])
     );
+    expect(runCall?.args.at(-1)).toContain('git config --global user.name "$SYMPHONY_GIT_USER_NAME"');
+    expect(runCall?.args.at(-1)).toContain('git config --global user.email "$SYMPHONY_GIT_USER_EMAIL"');
     expect(calls.filter((call) => call.args[0] === "exec")).toHaveLength(1);
   });
 

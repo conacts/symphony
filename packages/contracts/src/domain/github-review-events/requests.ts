@@ -37,6 +37,7 @@ const reviewSchema = z
   .object({
     id: z.number().int().positive(),
     state: nonEmptyStringSchema,
+    body: z.string().optional(),
     user: z
       .object({
         login: nonEmptyStringSchema.optional()
@@ -51,7 +52,8 @@ const issueSchema = z
     number: z.number().int().positive(),
     pull_request: z
       .object({
-        url: z.string().url().optional()
+        url: z.string().url().optional(),
+        html_url: z.string().url().optional()
       })
       .passthrough()
       .optional()

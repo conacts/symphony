@@ -201,6 +201,7 @@ function normalizeReviewEvent(
             repository,
             payload: {
               reviewState: reviewBody.review.state,
+              reviewBody: reviewBody.review.body ?? null,
               authorLogin: reviewBody.review.user?.login ?? null,
               headRef: reviewBody.pull_request.head.ref ?? null,
               headSha: reviewBody.pull_request.head.sha,
@@ -208,7 +209,7 @@ function normalizeReviewEvent(
               pullRequestUrl: reviewBody.pull_request.url ?? null,
               pullRequestHtmlUrl: reviewBody.pull_request.html_url ?? null
             }
-          }
+          } as SymphonyGitHubReviewEvent
         };
       }
 

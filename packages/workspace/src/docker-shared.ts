@@ -63,6 +63,9 @@ export type DockerWorkspaceBackendOptions = {
   sourceRepoPath?: string;
   containerNamePrefix?: string;
   shell?: string;
+  gitUserName?: string;
+  gitUserEmail?: string;
+  containerEnv?: Record<string, string>;
   materializationMode?: DockerWorkspaceMaterializationMode;
   runtimeManifest?: SymphonyLoadedRuntimeManifest | null;
   sharedPostgres?: DockerSharedPostgresOptions | null;

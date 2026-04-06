@@ -225,7 +225,7 @@ export function buildDynamicToolSpecs(): Array<Record<string, unknown>> {
     {
       name: "report_issue_delivery",
       description:
-        "Report the final delivery outcome for the active Symphony issue. Use completed only after the PR is opened. Symphony records the delivery and moves the issue to In Review; do not move it to Done yourself.",
+        "Report the final delivery outcome for the active Symphony issue. Use completed only after the real PR is opened, and call it immediately once delivery is ready. Symphony records the delivery and moves the issue to In Review; do not move it to Done yourself.",
       inputSchema: {
         type: "object",
         additionalProperties: false,

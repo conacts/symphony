@@ -1156,6 +1156,11 @@ function mapAgentTurnRecord(
 
   return {
     ...turn,
+    startedAt:
+      turn.startedAt ??
+      runtimeTurn?.startedAt ??
+      turn.latestEventAt ??
+      turn.insertedAt,
     harnessKind: normalizeHarnessKind(turn.harnessKind),
     status: normalizeAgentTurnStatus(turn.status),
     inputTokens: resolvedTokens.inputTokens,
@@ -1178,7 +1183,18 @@ function mapAgentTurnRecords(
   );
 
   return [...turns]
-    .sort((left, right) => compareNullableIso(left.startedAt, right.startedAt))
+    .sort((left, right) =>
+      compareNullableIso(
+        left.startedAt ??
+          runtimeTurnMap.get(left.turnId)?.startedAt ??
+          left.latestEventAt ??
+          left.insertedAt,
+        right.startedAt ??
+          runtimeTurnMap.get(right.turnId)?.startedAt ??
+          right.latestEventAt ??
+          right.insertedAt
+      )
+    )
     .map((turn) => mapAgentTurnRecord(turn, runtimeTurnMap.get(turn.turnId)));
 }
 

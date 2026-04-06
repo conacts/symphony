@@ -35,6 +35,8 @@ export function createRuntimeWorkspaceBackend(
     | "dockerWorkspacePath"
     | "dockerContainerNamePrefix"
     | "dockerShell"
+    | "dockerGitUserName"
+    | "dockerGitUserEmail"
     | "dockerSharedPostgresContainerName"
     | "dockerSharedPostgresImage"
     | "dockerSharedPostgresHost"
@@ -54,6 +56,7 @@ export function createRuntimeWorkspaceBackend(
       containerPath: string;
       readOnly?: boolean;
     }>;
+    dockerContainerEnv?: Record<string, string>;
   } = {}
 ): SymphonyRuntimeWorkspaceBackendSelection {
   const { image, imageSelectionSource } = resolveSymphonyDockerWorkspaceImage(
@@ -61,28 +64,37 @@ export function createRuntimeWorkspaceBackend(
   );
 
   return {
-    backend: createDockerWorkspaceBackend({
-      image,
-      materializationMode: env.dockerMaterializationMode,
-      workspacePath: env.dockerWorkspacePath ?? undefined,
-      sourceRepoPath: env.sourceRepo ?? undefined,
-      containerNamePrefix: env.dockerContainerNamePrefix ?? undefined,
-      shell: env.dockerShell ?? undefined,
-      hostFileMounts: options.dockerHostFileMounts,
-      runtimeManifest: options.runtimeManifest ?? null,
-      sharedPostgres: {
-        containerName: env.dockerSharedPostgresContainerName,
-        image: env.dockerSharedPostgresImage,
-        host: env.dockerSharedPostgresHost,
-        hostPort: env.dockerSharedPostgresHostPort,
-        containerPort: env.dockerSharedPostgresContainerPort,
-        adminDatabase: env.dockerSharedPostgresAdminDatabase,
-        adminUsername: env.dockerSharedPostgresAdminUsername,
-        adminPassword: env.dockerSharedPostgresAdminPassword,
-        databasePrefix: env.dockerSharedPostgresDatabasePrefix,
-        rolePrefix: env.dockerSharedPostgresRolePrefix
-      }
-    }),
+    backend: createDockerWorkspaceBackend(
+      {
+        image,
+        materializationMode: env.dockerMaterializationMode,
+        workspacePath: env.dockerWorkspacePath ?? undefined,
+        sourceRepoPath: env.sourceRepo ?? undefined,
+        containerNamePrefix: env.dockerContainerNamePrefix ?? undefined,
+        shell: env.dockerShell ?? undefined,
+        ...(env.dockerGitUserName
+          ? { gitUserName: env.dockerGitUserName }
+          : {}),
+        ...(env.dockerGitUserEmail
+          ? { gitUserEmail: env.dockerGitUserEmail }
+          : {}),
+        containerEnv: options.dockerContainerEnv,
+        hostFileMounts: options.dockerHostFileMounts,
+        runtimeManifest: options.runtimeManifest ?? null,
+        sharedPostgres: {
+          containerName: env.dockerSharedPostgresContainerName,
+          image: env.dockerSharedPostgresImage,
+          host: env.dockerSharedPostgresHost,
+          hostPort: env.dockerSharedPostgresHostPort,
+          containerPort: env.dockerSharedPostgresContainerPort,
+          adminDatabase: env.dockerSharedPostgresAdminDatabase,
+          adminUsername: env.dockerSharedPostgresAdminUsername,
+          adminPassword: env.dockerSharedPostgresAdminPassword,
+          databasePrefix: env.dockerSharedPostgresDatabasePrefix,
+          rolePrefix: env.dockerSharedPostgresRolePrefix
+        }
+      } as Parameters<typeof createDockerWorkspaceBackend>[0]
+    ),
     metadata: {
       backendKind: "docker",
       executionTargetKind: "container",

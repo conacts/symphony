@@ -116,6 +116,7 @@ export function buildSymphonyRuntimePolicy(
       apiToken: null,
       statePath: githubStatePath,
       allowedReviewLogins: [],
+      allowedReviewCommentLogins: [],
       allowedReworkCommentLogins: [],
       ...overrides.github
     }
@@ -132,6 +133,7 @@ export function buildSymphonyGithubReviewEvent(
       ? overrides.payload
       : {
           reviewState: "changes_requested",
+          reviewBody: "The current implementation needs one more pass.",
           authorLogin: "reviewer",
           headRef: "symphony/COL-123",
           headSha: "abc123",

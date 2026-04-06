@@ -166,8 +166,14 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       allowedReviewLogins:
         readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS) ?? [],
       allowedReworkCommentLogins:
-        readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS) ?? []
-    }
+        readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS) ?? [],
+      ...(readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS)
+        ? {
+            allowedReviewCommentLogins:
+              readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS) ?? []
+          }
+        : {})
+    } as SymphonyResolvedRuntimePolicy["github"]
   };
 }
 export function defaultSymphonyAllowedOrigins(): string[] {

@@ -854,7 +854,7 @@ function buildTurnTokens(
   const totals = sumTurnTokenTotals(rows);
   const averageTurnTokens = rows.length === 0 ? 0 : totals.totalTokens / rows.length;
   const heaviestTurn = [...rows].sort((left, right) => right.totalTokens - left.totalTokens)[0];
-  const cachedShare = totals.inputTokens === 0 ? 0 : totals.cachedInputTokens / totals.inputTokens;
+  const cachedShare = totals.totalTokens === 0 ? 0 : totals.cachedInputTokens / totals.totalTokens;
 
   return {
     cards: [

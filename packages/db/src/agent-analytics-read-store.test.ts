@@ -883,6 +883,71 @@ describe("sqlite agent analytics read store", () => {
     }
   });
 
+  it("falls back to runtime turn start timestamps when agent turn starts were not persisted", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-turn-start-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runJournal = createSqliteSymphonyRuntimeRunLedger({
+      db: database.db,
+      dbFile: path.join(root, "symphony.db"),
+      timelineStore: createSymphonyIssueTimelineStore(database.db)
+    });
+    const analytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const readStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runJournal.recordRunStarted({
+        runId: "run-turn-start-fallback",
+        issueId: "issue-4",
+        issueIdentifier: "COL-501",
+        startedAt: "2026-04-06T05:00:00.000Z",
+        status: "running"
+      });
+
+      const turnId = await runJournal.recordTurnStarted(runId, {
+        turnId: "turn-start-fallback",
+        turnSequence: 1,
+        promptText: "Resume the current issue",
+        status: "running",
+        startedAt: "2026-04-06T05:00:05.000Z",
+        threadId: "thread-fallback",
+        agentTurnId: "turn-start-fallback"
+      });
+
+      await analytics.startRun({
+        runId,
+        issueId: "issue-4",
+        issueIdentifier: "COL-501",
+        startedAt: "2026-04-06T05:00:00.000Z",
+        status: "running",
+        threadId: "thread-fallback"
+      });
+      await analytics.finalizeTurn({
+        runId,
+        turnId,
+        endedAt: "2026-04-06T05:00:25.000Z",
+        status: "completed",
+        threadId: "thread-fallback",
+        failureKind: null,
+        failureMessagePreview: null
+      });
+
+      const turns = await readStore.listTurns(runId);
+
+      expect(turns[0]?.startedAt).toBe("2026-04-06T05:00:05.000Z");
+      expect(turns[0]?.endedAt).toBe("2026-04-06T05:00:25.000Z");
+    } finally {
+      database.close();
+    }
+  });
+
   it("returns structured task snapshots for Pi queue updates in run artifacts", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-task-snapshots-"));
     tempDirectories.push(root);

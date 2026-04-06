@@ -52,6 +52,8 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       dockerWorkspacePath: null,
       dockerContainerNamePrefix: null,
       dockerShell: null,
+      dockerGitUserName: null,
+      dockerGitUserEmail: null,
       dockerSharedPostgresContainerName: "symphony-shared-postgres",
       dockerSharedPostgresImage: "postgres:16",
       dockerSharedPostgresHost: "host.docker.internal",
@@ -91,6 +93,7 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       SYMPHONY_GITHUB_REPOSITORY: "openai/symphony",
       SYMPHONY_GITHUB_WEBHOOK_SECRET: "secret",
       SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS: "reviewer",
+      SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS: "",
       SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS: "reviewer",
       ...input.environmentSource
     };

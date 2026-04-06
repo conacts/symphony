@@ -6,6 +6,7 @@ import {
 } from "@symphony/tracker";
 import {
   autoRequeueCommentBody,
+  buildSymphonyGitHubReviewContextUrl,
   notInReviewCommentBody
 } from "./symphony-github-review-comments.js";
 import {
@@ -14,6 +15,7 @@ import {
 } from "./symphony-github-review-signal.js";
 import type {
   SymphonyGitHubPullRequestResolver,
+  SymphonyGitHubReworkHandoff,
   SymphonyGitHubReviewPolicyConfig,
   SymphonyGitHubReviewEvent,
   SymphonyGitHubReviewProcessResult,
@@ -48,7 +50,10 @@ export class SymphonyGithubReviewProcessor {
       };
     }
 
-    if (signal.kind === "manual_rework_comment") {
+    if (
+      signal.kind === "manual_rework_comment" ||
+      signal.kind === "review_comment"
+    ) {
       return await this.#processManualReworkComment(signal);
     }
 
@@ -56,7 +61,10 @@ export class SymphonyGithubReviewProcessor {
   }
 
   async #processManualReworkComment(
-    signal: Extract<SymphonyGitHubReviewSignal, { kind: "manual_rework_comment" }>
+    signal: Extract<
+      SymphonyGitHubReviewSignal,
+      { kind: "manual_rework_comment" | "review_comment" }
+    >
   ): Promise<Extract<SymphonyGitHubReviewProcessResult, { status: "requeued" | "skipped" }>> {
     if (!signal.pullRequestUrl) {
       return {
@@ -161,6 +169,7 @@ export class SymphonyGithubReviewProcessor {
 
     if (
       signal.kind !== "manual_rework_comment" &&
+      signal.kind !== "review_comment" &&
       isSymphonyAutoReworkDisabled(issue)
     ) {
       return {
@@ -178,7 +187,24 @@ export class SymphonyGithubReviewProcessor {
 
     return {
       status: "requeued",
-      issueIdentifier
+      issueIdentifier,
+      handoff: buildReworkHandoff(signal)
     };
   }
+}
+
+function buildReworkHandoff(
+  signal: SymphonyGitHubReviewSignal
+): SymphonyGitHubReworkHandoff {
+  return {
+    triggerKind: signal.kind,
+    reviewContextUrl: buildSymphonyGitHubReviewContextUrl(signal),
+    pullRequestUrl: signal.pullRequestUrl ?? null,
+    actorLogin: signal.authorLogin ?? null,
+    feedbackBody:
+      signal.kind === "manual_rework_comment" && signal.operatorContext
+        ? signal.operatorContext
+        : signal.feedbackBody ?? null,
+    recordedAt: new Date().toISOString()
+  };
 }

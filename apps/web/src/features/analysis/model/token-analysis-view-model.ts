@@ -117,8 +117,7 @@ export function buildTokenAnalysisViewModel(
   const averageTurnTokens =
     turnRows.length === 0 ? 0 : totalTurnTokens / turnRows.length;
   const cachedTurnTokens = sumTurnTokenTotals(turnRows).cachedInputTokens;
-  const cachedShare =
-    totalTurnTokens === 0 ? 0 : cachedTurnTokens / Math.max(1, sumTurnTokenTotals(turnRows).inputTokens);
+  const cachedShare = totalTurnTokens === 0 ? 0 : cachedTurnTokens / totalTurnTokens;
   const heaviestRun = runTokenRows[0];
   const heaviestTurn = [...turnRows].sort((left, right) => right.totalTokens - left.totalTokens)[0];
   const hottestIssue = issueTokenRows[0];

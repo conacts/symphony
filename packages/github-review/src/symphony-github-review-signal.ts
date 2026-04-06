@@ -24,7 +24,8 @@ export function extractSymphonyGithubReviewSignal(
         headSha: event.payload.headSha,
         authorLogin: event.payload.authorLogin,
         pullRequestUrl: event.payload.pullRequestHtmlUrl,
-        reviewId: event.payload.reviewId
+        reviewId: event.payload.reviewId,
+        feedbackBody: event.payload.reviewBody
       };
     }
 
@@ -34,6 +35,9 @@ export function extractSymphonyGithubReviewSignal(
   const allowedLogins = new Set(
     policyConfig.github.allowedReworkCommentLogins
   );
+  const allowedReviewCommentLogins = new Set(
+    policyConfig.github.allowedReviewCommentLogins
+  );
   const parsed = parseReworkCommand(event.payload.commentBody);
 
   if (
@@ -42,17 +46,37 @@ export function extractSymphonyGithubReviewSignal(
     allowedLogins.has(event.payload.authorLogin) &&
     event.payload.pullRequestUrl
   ) {
-    return {
-      kind: "manual_rework_comment",
-      issueIdentifier: null,
-      repository: event.repository,
+      return {
+        kind: "manual_rework_comment",
+        issueIdentifier: null,
+        repository: event.repository,
+        issueNumber: event.payload.issueNumber,
+      pullRequestUrl: event.payload.pullRequestUrl,
+        headSha: null,
+        authorLogin: event.payload.authorLogin,
+        commentId: event.payload.commentId,
+        feedbackBody: event.payload.commentBody,
+        operatorContext: parsed
+      };
+  }
+
+  if (
+    event.payload.authorLogin &&
+    allowedReviewCommentLogins.has(event.payload.authorLogin) &&
+    event.payload.pullRequestUrl
+  ) {
+      return {
+        kind: "review_comment",
+        issueIdentifier: null,
+        repository: event.repository,
       issueNumber: event.payload.issueNumber,
       pullRequestUrl: event.payload.pullRequestUrl,
-      headSha: null,
-      authorLogin: event.payload.authorLogin,
-      commentId: event.payload.commentId,
-      operatorContext: parsed
-    };
+        headSha: null,
+        authorLogin: event.payload.authorLogin,
+        commentId: event.payload.commentId,
+        feedbackBody: event.payload.commentBody,
+        operatorContext: null
+      };
   }
 
   return null;
