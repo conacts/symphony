@@ -25,6 +25,9 @@ export function buildAgentTurnTokenRows(input: {
       turn.turnSequence
     ])
   );
+  const forensicsTurnMap = new Map(
+    (input.forensicsTurns ?? []).map((turn) => [turn.turnId, turn] as const)
+  );
 
   return input.runArtifacts.turns
     .slice()
@@ -34,13 +37,31 @@ export function buildAgentTurnTokenRows(input: {
         (turnSequenceMap.get(right.turnId) ?? Number.MAX_SAFE_INTEGER)
     )
     .map((turn, index) => {
-      const inputTokens = turn.usage?.input_tokens ?? turn.inputTokens ?? 0;
+      const forensicsTurn = forensicsTurnMap.get(turn.turnId);
+      const inputTokens =
+        turn.usage?.input_tokens ??
+        (turn.inputTokens && turn.inputTokens > 0 ? turn.inputTokens : null) ??
+        forensicsTurn?.usage?.input_tokens ??
+        0;
       const cachedInputTokens =
-        turn.usage?.cached_input_tokens ?? turn.cachedInputTokens ?? 0;
-      const outputTokens = turn.usage?.output_tokens ?? turn.outputTokens ?? 0;
+        turn.usage?.cached_input_tokens ??
+        (turn.cachedInputTokens && turn.cachedInputTokens > 0
+          ? turn.cachedInputTokens
+          : null) ??
+        forensicsTurn?.usage?.cached_input_tokens ??
+        0;
+      const outputTokens =
+        turn.usage?.output_tokens ??
+        (turn.outputTokens && turn.outputTokens > 0 ? turn.outputTokens : null) ??
+        forensicsTurn?.usage?.output_tokens ??
+        0;
       const totalTokens =
         turn.totalTokens !== null && turn.totalTokens > 0
           ? turn.totalTokens
+          : forensicsTurn?.usage
+            ? forensicsTurn.usage.input_tokens +
+              forensicsTurn.usage.cached_input_tokens +
+              forensicsTurn.usage.output_tokens
           : inputTokens + cachedInputTokens + outputTokens;
 
       return {

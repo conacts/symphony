@@ -34,7 +34,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   formatCount,
-  formatLabel,
   formatTimestamp
 } from "@/core/display-formatters";
 import type {
@@ -467,16 +466,6 @@ function PiResponseMeta(input: {
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      <span>
-        {formatLabel(input.entry.provider ?? "provider")} / {formatLabel(input.entry.api ?? "api")}
-      </span>
-      <span>{input.entry.model ?? "Unknown model"}</span>
-      <span>{formatLabel(input.entry.stopReason ?? "stop reason unavailable")}</span>
-      <span>
-        In {formatCount(input.entry.inputTokens)} / Cached {formatCount(
-          input.entry.cachedInputTokens
-        )} / Out {formatCount(input.entry.outputTokens)}
-      </span>
       <span>Total {formatCount(input.entry.totalTokens)}</span>
       {input.entry.responseTimestamp ? (
         <span>{formatTimestamp(input.entry.responseTimestamp)}</span>

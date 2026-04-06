@@ -613,6 +613,12 @@ function buildTranscriptTurns(
   const turnActivityMap = new Map(
     runArtifacts.turnActivities.map((activity) => [activity.turnId, activity] as const)
   );
+  const turnTokenMap = new Map(
+    buildAgentTurnTokenRows({
+      runArtifacts,
+      forensicsTurns
+    }).map((row) => [row.turnId, row] as const)
+  );
 
   const forensicsTurnMap = new Map(
     forensicsTurns.map((turn) => [turn.turnId, turn] as const)
@@ -628,6 +634,7 @@ function buildTranscriptTurns(
     .map((turn, index) => {
       const forensicsTurn = forensicsTurnMap.get(turn.turnId);
       const turnActivity = turnActivityMap.get(turn.turnId) ?? null;
+      const turnTokens = turnTokenMap.get(turn.turnId) ?? null;
 
       return {
         turnId: turn.turnId,
@@ -639,12 +646,11 @@ function buildTranscriptTurns(
         commandCount: turn.commandCount,
         toolCount: turn.toolCallCount,
         reasoningCount: turn.reasoningCount,
-        tokenSummary:
-          turn.usage === null
-            ? "Usage unavailable"
-            : `In ${formatCount(turn.usage.input_tokens)} / Cached ${formatCount(
-                turn.usage.cached_input_tokens
-              )} / Out ${formatCount(turn.usage.output_tokens)}`,
+        tokenSummary: turnTokens
+          ? `In ${formatCount(turnTokens.inputTokens)} / Cached ${formatCount(
+              turnTokens.cachedInputTokens
+            )} / Out ${formatCount(turnTokens.outputTokens)}`
+          : "Usage unavailable",
         countsSummary: buildTurnCountsSummary(
           turn,
           turnActivity?.taskSnapshots.length ?? 0

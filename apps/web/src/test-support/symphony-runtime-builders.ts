@@ -922,7 +922,7 @@ export function buildSymphonyForensicsRunDetailResult(
         endedAt: "2026-03-31T18:01:00.000Z",
         usage: {
           input_tokens: 120,
-          cached_input_tokens: 0,
+          cached_input_tokens: 40,
           output_tokens: 80
         },
         metadata: {},
@@ -1088,12 +1088,12 @@ export function buildSymphonyAgentRunArtifactsResult(
         lastAgentMessagePreview: "Task complete.",
         lastAgentMessageOverflowId: null,
         inputTokens: 120,
-        cachedInputTokens: 0,
+        cachedInputTokens: 40,
         outputTokens: 80,
-        totalTokens: 200,
+        totalTokens: 240,
         usage: {
           input_tokens: 120,
-          cached_input_tokens: 0,
+          cached_input_tokens: 40,
           output_tokens: 80
         },
         itemCount: 4,

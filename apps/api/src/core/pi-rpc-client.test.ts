@@ -246,12 +246,6 @@ describe("PiRpcClient", () => {
     });
     const issue = buildSymphonyTrackerIssue();
 
-    const logger = {
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
     const session = await PiRpcClient.startSession({
       launchTarget: {
         kind: "container",
@@ -525,12 +519,6 @@ describe("PiRpcClient", () => {
       }
     });
     const issue = buildSymphonyTrackerIssue();
-    const logger = {
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
     const session = await PiRpcClient.startSession({
       launchTarget: {
         kind: "container",
@@ -690,12 +678,6 @@ describe("PiRpcClient", () => {
       }
     });
     const issue = buildSymphonyTrackerIssue();
-    const logger = {
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
     const session = await PiRpcClient.startSession({
       launchTarget: {
         kind: "container",

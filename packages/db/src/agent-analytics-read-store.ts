@@ -275,8 +275,8 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
     }
 
     return {
-      run: mapAgentRunRecord(data.agentRun),
-      turns: mapAgentTurnRecords(data.agentTurns),
+      run: mapAgentRunRecord(data.agentRun, data.symphonyTurns),
+      turns: mapAgentTurnRecords(data.agentTurns, data.symphonyTurns),
       items: data.itemRows.map(mapAgentItemRecord),
       commandExecutions: data.commandRows.map(mapAgentCommandExecutionRecord),
       toolCalls: mapAgentToolCallRecords(data),
@@ -329,14 +329,22 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
   }
 
   async listTurns(runId: SymphonyAgentRunQuery["runId"]): Promise<SymphonyAgentTurnRecord[]> {
-    const rows = await this.#db
-      .select()
-      .from(symphonyAgentTurnsTable)
-      .where(eq(symphonyAgentTurnsTable.runId, runId))
-      .orderBy(asc(symphonyAgentTurnsTable.startedAt))
-      .all();
+    const [rows, runtimeTurns] = await Promise.all([
+      this.#db
+        .select()
+        .from(symphonyAgentTurnsTable)
+        .where(eq(symphonyAgentTurnsTable.runId, runId))
+        .orderBy(asc(symphonyAgentTurnsTable.startedAt))
+        .all(),
+      this.#db
+        .select()
+        .from(symphonyTurnsTable)
+        .where(eq(symphonyTurnsTable.runId, runId))
+        .orderBy(asc(symphonyTurnsTable.turnSequence))
+        .all()
+    ]);
 
-    return mapAgentTurnRecords(rows);
+    return mapAgentTurnRecords(rows, runtimeTurns);
   }
 
   async listItems(input: SymphonyAgentRunTurnQuery): Promise<SymphonyAgentItemRecord[]> {
@@ -663,13 +671,24 @@ function buildForensicsRunSummary(
 ): SymphonyForensicsRunSummary {
   const runtimeSummary = buildRuntimeRunSummary(run, runtimeTurns, eventRows);
   const runtimeTokenTotals = computeRuntimeRunTokenTotals(runtimeTurns);
-  const inputTokens = agentRun?.inputTokens ?? runtimeSummary.inputTokens;
-  const cachedInputTokens = agentRun?.cachedInputTokens ?? runtimeTokenTotals.cachedInputTokens;
-  const outputTokens = agentRun?.outputTokens ?? runtimeSummary.outputTokens;
-  const totalTokens =
-    agentRun === undefined
-      ? runtimeSummary.totalTokens
-      : inputTokens + cachedInputTokens + outputTokens;
+  const resolvedRunTokens = resolvePreferredTokenTotals(
+    agentRun
+      ? {
+          inputTokens: agentRun.inputTokens,
+          cachedInputTokens: agentRun.cachedInputTokens,
+          outputTokens: agentRun.outputTokens
+        }
+      : null,
+    {
+      inputTokens: runtimeSummary.inputTokens,
+      cachedInputTokens: runtimeTokenTotals.cachedInputTokens,
+      outputTokens: runtimeSummary.outputTokens
+    }
+  );
+  const inputTokens = resolvedRunTokens.inputTokens;
+  const cachedInputTokens = resolvedRunTokens.cachedInputTokens;
+  const outputTokens = resolvedRunTokens.outputTokens;
+  const totalTokens = inputTokens + cachedInputTokens + outputTokens;
 
   return {
     runId: run.runId,
@@ -766,6 +785,8 @@ function buildUsage(
   agentTurn: typeof symphonyAgentTurnsTable.$inferSelect | undefined,
   legacyUsage: unknown
 ): SymphonyAgentTurnRecord["usage"] {
+  const fallbackUsage = parseLegacyUsage(legacyUsage);
+
   if (agentTurn) {
     const usage = {
       input_tokens: agentTurn.inputTokens,
@@ -773,30 +794,20 @@ function buildUsage(
       output_tokens: agentTurn.outputTokens
     };
 
-    if (
-      agentTurn.status !== "running" ||
-      usage.input_tokens > 0 ||
-      usage.cached_input_tokens > 0 ||
-      usage.output_tokens > 0
-    ) {
+    if (hasTokenUsage(usage)) {
+      return usage;
+    }
+
+    if (fallbackUsage) {
+      return fallbackUsage;
+    }
+
+    if (agentTurn.status !== "running") {
       return usage;
     }
   }
 
-  if (!legacyUsage || typeof legacyUsage !== "object" || Array.isArray(legacyUsage)) {
-    return null;
-  }
-
-  const value = legacyUsage as Record<string, unknown>;
-  return typeof value.input_tokens === "number" &&
-    typeof value.cached_input_tokens === "number" &&
-    typeof value.output_tokens === "number"
-    ? {
-        input_tokens: value.input_tokens,
-        cached_input_tokens: value.cached_input_tokens,
-        output_tokens: value.output_tokens
-      }
-    : null;
+  return fallbackUsage;
 }
 
 function castJsonObject(value: unknown): JsonObject | null {
@@ -1100,34 +1111,75 @@ function normalizeDeliveryStatus(
 }
 
 function mapAgentRunRecord(
-  run: typeof symphonyAgentRunsTable.$inferSelect
+  run: typeof symphonyAgentRunsTable.$inferSelect,
+  runtimeTurns: Array<typeof symphonyTurnsTable.$inferSelect> = []
 ): SymphonyAgentRunRecord {
+  const resolvedTokens = resolvePreferredTokenTotals(
+    {
+      inputTokens: run.inputTokens,
+      cachedInputTokens: run.cachedInputTokens,
+      outputTokens: run.outputTokens
+    },
+    computeRuntimeRunTokenTotals(runtimeTurns)
+  );
+
   return {
     ...run,
     harnessKind: normalizeHarnessKind(run.harnessKind),
     status: normalizeAgentRunStatus(run.status),
-    totalTokens: run.inputTokens + run.cachedInputTokens + run.outputTokens
+    inputTokens: resolvedTokens.inputTokens,
+    cachedInputTokens: resolvedTokens.cachedInputTokens,
+    outputTokens: resolvedTokens.outputTokens,
+    totalTokens:
+      resolvedTokens.inputTokens +
+      resolvedTokens.cachedInputTokens +
+      resolvedTokens.outputTokens
   };
 }
 
 function mapAgentTurnRecord(
-  turn: typeof symphonyAgentTurnsTable.$inferSelect
+  turn: typeof symphonyAgentTurnsTable.$inferSelect,
+  runtimeTurn?: typeof symphonyTurnsTable.$inferSelect
 ): SymphonyAgentTurnRecord {
+  const usage = buildUsage(turn, runtimeTurn?.usage ?? null);
+  const resolvedTokens = usage
+    ? {
+        inputTokens: usage.input_tokens,
+        cachedInputTokens: usage.cached_input_tokens,
+        outputTokens: usage.output_tokens
+      }
+    : {
+        inputTokens: turn.inputTokens,
+        cachedInputTokens: turn.cachedInputTokens,
+        outputTokens: turn.outputTokens
+      };
+
   return {
     ...turn,
     harnessKind: normalizeHarnessKind(turn.harnessKind),
     status: normalizeAgentTurnStatus(turn.status),
-    totalTokens: turn.inputTokens + turn.cachedInputTokens + turn.outputTokens,
-    usage: buildUsage(turn, null)
+    inputTokens: resolvedTokens.inputTokens,
+    cachedInputTokens: resolvedTokens.cachedInputTokens,
+    outputTokens: resolvedTokens.outputTokens,
+    totalTokens:
+      resolvedTokens.inputTokens +
+      resolvedTokens.cachedInputTokens +
+      resolvedTokens.outputTokens,
+    usage
   };
 }
 
 function mapAgentTurnRecords(
-  turns: Array<typeof symphonyAgentTurnsTable.$inferSelect>
+  turns: Array<typeof symphonyAgentTurnsTable.$inferSelect>,
+  runtimeTurns: Array<typeof symphonyTurnsTable.$inferSelect> = []
 ): SymphonyAgentTurnRecord[] {
+  const runtimeTurnMap = new Map(
+    runtimeTurns.map((turn) => [turn.turnId, turn] as const)
+  );
+
   return [...turns]
     .sort((left, right) => compareNullableIso(left.startedAt, right.startedAt))
-    .map(mapAgentTurnRecord);
+    .map((turn) => mapAgentTurnRecord(turn, runtimeTurnMap.get(turn.turnId)));
 }
 
 function mapAgentItemRecord(
@@ -1492,6 +1544,73 @@ function mapForensicsTurnRecord(
     usage: buildUsage(agentTurn, turn.usage),
     metadata: castJsonObject(turn.metadata)
   };
+}
+
+function hasTokenUsage(input: {
+  input_tokens: number;
+  cached_input_tokens: number;
+  output_tokens: number;
+}): boolean {
+  return (
+    input.input_tokens > 0 ||
+    input.cached_input_tokens > 0 ||
+    input.output_tokens > 0
+  );
+}
+
+function parseLegacyUsage(
+  legacyUsage: unknown
+): SymphonyAgentTurnRecord["usage"] {
+  if (!legacyUsage || typeof legacyUsage !== "object" || Array.isArray(legacyUsage)) {
+    return null;
+  }
+
+  const value = legacyUsage as Record<string, unknown>;
+  return typeof value.input_tokens === "number" &&
+    typeof value.cached_input_tokens === "number" &&
+    typeof value.output_tokens === "number"
+    ? {
+        input_tokens: value.input_tokens,
+        cached_input_tokens: value.cached_input_tokens,
+        output_tokens: value.output_tokens
+      }
+    : null;
+}
+
+function resolvePreferredTokenTotals(
+  analyticsTokens: {
+    inputTokens: number;
+    cachedInputTokens: number;
+    outputTokens: number;
+  } | null,
+  runtimeTokens: {
+    inputTokens: number;
+    cachedInputTokens: number;
+    outputTokens: number;
+  }
+): {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+} {
+  if (
+    analyticsTokens &&
+    (analyticsTokens.inputTokens > 0 ||
+      analyticsTokens.cachedInputTokens > 0 ||
+      analyticsTokens.outputTokens > 0)
+  ) {
+    return analyticsTokens;
+  }
+
+  if (
+    runtimeTokens.inputTokens > 0 ||
+    runtimeTokens.cachedInputTokens > 0 ||
+    runtimeTokens.outputTokens > 0
+  ) {
+    return runtimeTokens;
+  }
+
+  return analyticsTokens ?? runtimeTokens;
 }
 
 function synthesizeForensicsTurnRecord(

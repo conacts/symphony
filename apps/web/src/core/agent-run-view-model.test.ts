@@ -602,14 +602,14 @@ describe("agent run view model", () => {
 
     expect(viewModel.metrics[3]).toEqual({
       label: "Tokens",
-      value: "200",
-      detail: "In 120 / Cached 0 / Out 80"
+      value: "240",
+      detail: "In 120 / Cached 40 / Out 80"
     });
     expect(viewModel.turnTokens.cards[1]).toEqual({
       label: "Turn output tokens",
       value: "80",
-      detail: "200 total turn tokens across the run."
+      detail: "240 total turn tokens across the run."
     });
-    expect(viewModel.turnTokens.rows[0]?.totalTokens).toBe(200);
+    expect(viewModel.turnTokens.rows[0]?.totalTokens).toBe(240);
   });
 });

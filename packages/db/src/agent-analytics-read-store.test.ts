@@ -1065,4 +1065,163 @@ describe("sqlite agent analytics read store", () => {
       database.close();
     }
   });
+
+  it("falls back to runtime ledger usage when analytics turn rows exist but only contain zero tokens", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-zero-fallback-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runLedger = createSqliteSymphonyRuntimeRunLedger({
+      db: database.db,
+      dbFile: path.join(root, "symphony.db"),
+      timelineStore: createSymphonyIssueTimelineStore(database.db)
+    });
+    const analytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const readStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runLedger.recordRunStarted({
+        runId: "run-zero-analytics",
+        issueId: "issue-zero-analytics",
+        issueIdentifier: "COL-1000",
+        startedAt: "2026-04-05T00:00:00.000Z",
+        status: "running"
+      });
+      await analytics.startRun({
+        runId,
+        issueId: "issue-zero-analytics",
+        issueIdentifier: "COL-1000",
+        startedAt: "2026-04-05T00:00:00.000Z",
+        status: "running",
+        threadId: "thread-zero-analytics"
+      });
+
+      const turnId = await runLedger.recordTurnStarted(runId, {
+        turnId: "turn-zero-analytics",
+        turnSequence: 1,
+        promptText: "Continue implementation",
+        status: "running",
+        startedAt: "2026-04-05T00:00:01.000Z"
+      });
+
+      await analytics.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-zero-analytics",
+        recordedAt: "2026-04-05T00:00:01.500Z",
+        payload: {
+          type: "item.started",
+          item: {
+            id: "item-1",
+            type: "command_execution",
+            command: "echo hi",
+            aggregated_output: "",
+            status: "in_progress"
+          }
+        }
+      });
+
+      await analytics.finalizeTurn({
+        runId,
+        turnId,
+        endedAt: "2026-04-05T00:00:06.000Z",
+        status: "stopped",
+        threadId: "thread-zero-analytics",
+        failureKind: "runtime_stopped",
+        failureMessagePreview: "Turn stopped by runtime."
+      });
+      await analytics.finalizeRun({
+        runId,
+        endedAt: "2026-04-05T00:00:07.000Z",
+        status: "stopped",
+        threadId: "thread-zero-analytics",
+        failureKind: "runtime_stopped",
+        failureOrigin: null,
+        failureMessagePreview: "Run stopped by runtime."
+      });
+
+      await runLedger.finalizeTurn(turnId, {
+        status: "stopped",
+        endedAt: "2026-04-05T00:00:06.000Z",
+        usage: {
+          input_tokens: 475,
+          cached_input_tokens: 86208,
+          output_tokens: 86
+        },
+        metadata: {
+          stopReason: "runtime_stopped"
+        }
+      });
+      await runLedger.finalizeRun(runId, {
+        status: "finished",
+        outcome: "failed",
+        endedAt: "2026-04-05T00:00:07.000Z"
+      });
+
+      const runs = await readStore.listRuns({
+        issueIdentifier: "COL-1000"
+      });
+      const runDetail = await readStore.fetchRunDetail(runId);
+      const artifacts = await readStore.fetchRunArtifacts(runId);
+      const turns = await readStore.listTurns(runId);
+
+      expect(runs).toHaveLength(1);
+      expect(runs[0]).toMatchObject({
+        inputTokens: 475,
+        cachedInputTokens: 86208,
+        outputTokens: 86,
+        totalTokens: 86769
+      });
+
+      expect(runDetail?.run).toMatchObject({
+        inputTokens: 475,
+        cachedInputTokens: 86208,
+        outputTokens: 86,
+        totalTokens: 86769
+      });
+      expect(runDetail?.turns[0]?.usage).toEqual({
+        input_tokens: 475,
+        cached_input_tokens: 86208,
+        output_tokens: 86
+      });
+
+      expect(artifacts?.run).toMatchObject({
+        inputTokens: 475,
+        cachedInputTokens: 86208,
+        outputTokens: 86,
+        totalTokens: 86769
+      });
+      expect(artifacts?.turns[0]).toMatchObject({
+        inputTokens: 475,
+        cachedInputTokens: 86208,
+        outputTokens: 86,
+        totalTokens: 86769,
+        usage: {
+          input_tokens: 475,
+          cached_input_tokens: 86208,
+          output_tokens: 86
+        }
+      });
+
+      expect(turns[0]).toMatchObject({
+        inputTokens: 475,
+        cachedInputTokens: 86208,
+        outputTokens: 86,
+        totalTokens: 86769,
+        usage: {
+          input_tokens: 475,
+          cached_input_tokens: 86208,
+          output_tokens: 86
+        }
+      });
+    } finally {
+      database.close();
+    }
+  });
 });

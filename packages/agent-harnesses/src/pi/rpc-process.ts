@@ -356,7 +356,7 @@ function normalizePiThinkingLevel(value: string): string {
 }
 
 function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\"'"'\"'`)}'`;
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 function filterStringEnv(
