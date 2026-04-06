@@ -21,7 +21,7 @@ describe("issue detail view", () => {
 
     expect(html).toContain("Issue runs");
     expect(html).toContain("Recent run token load");
-    expect(html).toContain("Average run tokens");
+    expect(html).toContain("Issue cached input");
     expect(html).toContain("Recent failure signals");
     expect(html).toContain("Run history");
     expect(html).toContain("Runs under pressure");

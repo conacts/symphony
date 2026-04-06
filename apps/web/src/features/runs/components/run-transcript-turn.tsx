@@ -32,9 +32,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  formatCount,
+  formatLabel,
+  formatTimestamp
+} from "@/core/display-formatters";
 import type {
   AgentRunTranscriptEntry,
-  AgentRunTranscriptTurn
+  AgentRunTranscriptTurn,
+  PiResponseMetadata
 } from "@/features/runs/model/agent-run-view-model";
 
 type ReasoningEntry = Extract<AgentRunTranscriptEntry, { kind: "reasoning" }>;
@@ -96,6 +102,7 @@ export function RunTranscriptTurn(input: {
                 <MessageResponse>
                   {entry.text ?? entry.preview}
                 </MessageResponse>
+                <PiResponseMeta entry={entry.piMessage} />
                 <EntryFiles files={entry.files} />
                 {entry.overflowId ? (
                   <div>
@@ -127,6 +134,7 @@ export function RunTranscriptTurn(input: {
                   {entry.text ?? entry.preview}
                 </ReasoningContent>
               </Reasoning>
+              <PiResponseMeta entry={entry.piMessage} />
             </div>
           ) : null}
 
@@ -171,6 +179,11 @@ export function RunTranscriptTurn(input: {
                   <TaskItem>
                     {formatPiEditLineCount(entry.lineCount)}
                   </TaskItem>
+                  {entry.firstChangedLine ? (
+                    <TaskItem>
+                      First changed line {entry.firstChangedLine}
+                    </TaskItem>
+                  ) : null}
                   {entry.paths.length > 0 ? (
                     entry.paths.map((path) => (
                       <TaskItem key={`${entry.itemId}:${path}`}>
@@ -205,6 +218,14 @@ export function RunTranscriptTurn(input: {
                   <TaskItem>
                     {formatPiWriteLineCount(entry.lineCount)}
                   </TaskItem>
+                  {entry.contentBytes !== null ? (
+                    <TaskItem>
+                      {formatCount(entry.contentBytes)} content bytes
+                      {entry.bytesWritten !== null
+                        ? ` · ${formatCount(entry.bytesWritten)} bytes written`
+                        : ""}
+                    </TaskItem>
+                  ) : null}
                   {entry.paths.length > 0 ? (
                     entry.paths.map((path) => (
                       <TaskItem key={`${entry.itemId}:${path}`}>
@@ -291,6 +312,11 @@ export function RunTranscriptTurn(input: {
                   <TaskItem>
                     {entry.duration} · exit {entry.exitCode ?? "n/a"}
                   </TaskItem>
+                  {entry.timeoutSeconds !== null ? (
+                    <TaskItem>
+                      Timeout {formatCount(entry.timeoutSeconds)}s
+                    </TaskItem>
+                  ) : null}
                   <CodeBlock code={entry.outputPreview} language="bash" wrapLongLines />
                   <EntryFiles files={entry.files} />
                   {entry.overflowId ? (
@@ -428,6 +454,33 @@ function EntryFiles(input: {
           </Badge>
         ))}
       </div>
+    </div>
+  );
+}
+
+function PiResponseMeta(input: {
+  entry: PiResponseMetadata | null;
+}) {
+  if (!input.entry) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      <span>
+        {formatLabel(input.entry.provider ?? "provider")} / {formatLabel(input.entry.api ?? "api")}
+      </span>
+      <span>{input.entry.model ?? "Unknown model"}</span>
+      <span>{formatLabel(input.entry.stopReason ?? "stop reason unavailable")}</span>
+      <span>
+        In {formatCount(input.entry.inputTokens)} / Cached {formatCount(
+          input.entry.cachedInputTokens
+        )} / Out {formatCount(input.entry.outputTokens)}
+      </span>
+      <span>Total {formatCount(input.entry.totalTokens)}</span>
+      {input.entry.responseTimestamp ? (
+        <span>{formatTimestamp(input.entry.responseTimestamp)}</span>
+      ) : null}
     </div>
   );
 }

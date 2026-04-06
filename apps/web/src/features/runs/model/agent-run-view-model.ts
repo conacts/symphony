@@ -55,6 +55,7 @@ export type AgentRunTranscriptEntry =
       preview: string;
       overflowId: string | null;
       files: AgentRunFileChip[];
+      piMessage: PiResponseMetadata | null;
     }
   | {
       kind: "reasoning";
@@ -65,6 +66,7 @@ export type AgentRunTranscriptEntry =
       preview: string;
       overflowId: string | null;
       segmentCount: number;
+      piMessage: PiResponseMetadata | null;
     }
   | {
       kind: "pi-read-task";
@@ -83,6 +85,7 @@ export type AgentRunTranscriptEntry =
       paths: string[];
       editCount: number;
       lineCount: number;
+      firstChangedLine: number | null;
       diffText: string | null;
       overflowId: string | null;
     }
@@ -94,6 +97,8 @@ export type AgentRunTranscriptEntry =
       paths: string[];
       writeCount: number;
       lineCount: number;
+      contentBytes: number | null;
+      bytesWritten: number | null;
       overflowId: string | null;
     }
   | {
@@ -121,6 +126,7 @@ export type AgentRunTranscriptEntry =
       status: string;
       command: string;
       exitCode: number | null;
+      timeoutSeconds: number | null;
       duration: string;
       outputPreview: string;
       overflowId: string | null;
@@ -171,6 +177,20 @@ export type PiPatternTaskQuery = {
   ignoreCase?: boolean | null;
 };
 
+export type PiResponseMetadata = {
+  responseId: string | null;
+  api: string | null;
+  provider: string | null;
+  model: string | null;
+  stopReason: string | null;
+  responseTimestamp: string | null;
+  inputTokens: number;
+  cachedInputTokens: number;
+  cacheWriteTokens: number | null;
+  outputTokens: number;
+  totalTokens: number;
+};
+
 type PiEditBlock = {
   oldText: string;
   newText: string;
@@ -219,6 +239,11 @@ export type AgentRunViewModel = {
   metadata: Array<{
     label: string;
     value: string;
+  }>;
+  piResponseCards: Array<{
+    label: string;
+    value: string;
+    detail: string;
   }>;
   machineLoadCards: Array<{
     label: string;
@@ -323,6 +348,7 @@ export function buildAgentRunViewModel(input: {
   const executionPerformance = buildExecutionPerformance(runArtifacts);
   const turnLatency = buildTurnLatency(runArtifacts, input.runDetail.turns);
   const turnTokens = buildTurnTokens(runArtifacts, input.runDetail.turns);
+  const piResponseCards = buildPiResponseCards(runArtifacts);
   const fallbackTokenTotals = turnTokens.rows.reduce(
     (totals, row) => ({
       inputTokens: totals.inputTokens + row.inputTokens,
@@ -471,6 +497,7 @@ export function buildAgentRunViewModel(input: {
         value: run.workerHost ?? "Unavailable"
       }
     ],
+    piResponseCards,
     machineLoadCards: buildRunMachineLoadCards(run.machineLoad),
     executionPerformance,
     turnLatency,
@@ -854,6 +881,109 @@ function buildTurnTokens(
   };
 }
 
+function buildPiResponseCards(
+  runArtifacts: SymphonyAgentRunArtifactsResult | null
+): AgentRunViewModel["piResponseCards"] {
+  const responses = collectPiResponses(runArtifacts);
+
+  if (responses.length === 0) {
+    return [
+      {
+        label: "Pi responses",
+        value: "n/a",
+        detail: "No typed Pi response metadata was captured for this run."
+      },
+      {
+        label: "Dominant model",
+        value: "n/a",
+        detail: "No Pi response model metadata was captured for this run."
+      },
+      {
+        label: "Top stop reason",
+        value: "n/a",
+        detail: "No Pi stop-reason metadata was captured for this run."
+      }
+    ];
+  }
+
+  const totalTokens = responses.reduce((sum, response) => sum + response.totalTokens, 0);
+  const cachedInputTokens = responses.reduce(
+    (sum, response) => sum + response.cachedInputTokens,
+    0
+  );
+  const dominantModel = sortCounts(
+    countResponseField(responses, (response) => response.model ?? "Unknown model")
+  )[0];
+  const dominantStopReason = sortCounts(
+    countResponseField(
+      responses,
+      (response) => response.stopReason ?? "No stop reason"
+    )
+  )[0];
+  const latestResponse = [...responses].sort((left, right) =>
+    compareDescending(
+      left.responseTimestamp ?? left.recordedAt,
+      right.responseTimestamp ?? right.recordedAt
+    )
+  )[0];
+
+  return [
+    {
+      label: "Pi responses",
+      value: formatCount(responses.length),
+      detail: `${formatCount(totalTokens)} total tokens · ${formatCount(
+        cachedInputTokens
+      )} cached input.`
+    },
+    {
+      label: "Dominant model",
+      value: dominantModel?.[0] ?? "n/a",
+      detail: dominantModel
+        ? `${formatCount(dominantModel[1])} response items used this model.`
+        : "No Pi response model metadata was captured for this run."
+    },
+    {
+      label: "Top stop reason",
+      value: formatLabel(dominantStopReason?.[0] ?? "n/a"),
+      detail: latestResponse
+        ? `Latest ${formatLabel(latestResponse.provider ?? "provider")} / ${formatLabel(
+            latestResponse.api ?? "api"
+          )} at ${formatTimestamp(latestResponse.responseTimestamp ?? latestResponse.recordedAt)}.`
+        : "No Pi stop-reason metadata was captured for this run."
+    }
+  ];
+}
+
+function collectPiResponses(runArtifacts: SymphonyAgentRunArtifactsResult | null) {
+  const messages = runArtifacts?.agentMessages ?? [];
+  const reasoning = runArtifacts?.reasoning ?? [];
+
+  return [...messages, ...reasoning].flatMap((record) =>
+    record.piMessage
+      ? [
+          {
+            ...record.piMessage,
+            recordedAt: record.recordedAt
+          }
+        ]
+      : []
+  );
+}
+
+function countResponseField(
+  responses: Array<ReturnType<typeof collectPiResponses>[number]>,
+  getValue: (response: ReturnType<typeof collectPiResponses>[number]) => string
+) {
+  const counts = new Map<string, number>();
+
+  for (const response of responses) {
+    const value = getValue(response);
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
 function mapTranscriptEntry(input: {
   item: SymphonyAgentItemRecord;
   agentMessage: SymphonyAgentMessageRecord | null;
@@ -883,7 +1013,8 @@ function mapTranscriptEntry(input: {
         input.item.latestPreview ??
         "Assistant message",
       overflowId: input.agentMessage.textOverflowId,
-      files
+      files,
+      piMessage: mapPiResponseMetadata(input.agentMessage.piMessage)
     };
   }
 
@@ -900,7 +1031,8 @@ function mapTranscriptEntry(input: {
         input.item.latestPreview ??
         "Reasoning trace",
       overflowId: input.reasoning.textOverflowId,
-      segmentCount: 1
+      segmentCount: 1,
+      piMessage: mapPiResponseMetadata(input.reasoning.piMessage)
     };
   }
 
@@ -912,6 +1044,7 @@ function mapTranscriptEntry(input: {
       status,
       command: input.command.command,
       exitCode: input.command.exitCode,
+      timeoutSeconds: input.command.timeoutSeconds,
       duration: formatNullableDuration(input.command.durationMs),
       outputPreview:
         input.command.outputPreview ??
@@ -955,8 +1088,12 @@ function mapTranscriptEntry(input: {
         editCount: 1,
         lineCount:
           input.toolCall.piEdit?.lineCount ?? countPiEditLines(typedEdits),
-        diffText: buildPiEditDiff(typedEdits),
-        overflowId: input.toolCall.resultOverflowId
+        firstChangedLine: input.toolCall.piEdit?.firstChangedLine ?? null,
+        diffText:
+          input.toolCall.piEdit?.diffPreview ?? buildPiEditDiff(typedEdits),
+        overflowId:
+          input.toolCall.piEdit?.diffOverflowId ??
+          input.toolCall.resultOverflowId
       };
     }
 
@@ -972,7 +1109,10 @@ function mapTranscriptEntry(input: {
             : extractPiWritePaths(input.toolCall.argumentsJson),
         writeCount: 1,
         lineCount:
-          input.toolCall.piWrite?.lineCount ?? extractPiWriteLineCount(input.toolCall.argumentsJson),
+          input.toolCall.piWrite?.lineCount ??
+          extractPiWriteLineCount(input.toolCall.argumentsJson),
+        contentBytes: input.toolCall.piWrite?.contentBytes ?? null,
+        bytesWritten: input.toolCall.piWrite?.bytesWritten ?? null,
         overflowId: input.toolCall.resultOverflowId
       };
     }
@@ -1157,6 +1297,31 @@ function formatRepoSnapshot(value: unknown): string {
   return JSON.stringify(value ?? null, null, 2);
 }
 
+function mapPiResponseMetadata(
+  value:
+    | SymphonyAgentMessageRecord["piMessage"]
+    | SymphonyAgentReasoningBlockRecord["piMessage"]
+    | undefined
+): PiResponseMetadata | null {
+  if (!value) {
+    return null;
+  }
+
+  return {
+    responseId: value.responseId,
+    api: value.api,
+    provider: value.provider,
+    model: value.model,
+    stopReason: value.stopReason,
+    responseTimestamp: value.responseTimestamp,
+    inputTokens: value.inputTokens,
+    cachedInputTokens: value.cachedInputTokens,
+    cacheWriteTokens: value.cacheWriteTokens,
+    outputTokens: value.outputTokens,
+    totalTokens: value.totalTokens
+  };
+}
+
 function formatTodoListMarkdown(value: string): string {
   const items = value
     .split(/\s*;\s*/g)
@@ -1181,6 +1346,16 @@ function formatTodoListMarkdown(value: string): string {
       return `- ${normalized}`;
     })
     .join("\n");
+}
+
+function sortCounts(counts: Map<string, number>) {
+  return Array.from(counts.entries()).sort((left, right) => {
+    if (right[1] !== left[1]) {
+      return right[1] - left[1];
+    }
+
+    return 0;
+  });
 }
 
 function formatTaskSnapshotMarkdown(snapshot: SymphonyAgentTaskSnapshotRecord): string {

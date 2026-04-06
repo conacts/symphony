@@ -23,6 +23,10 @@ const runTokenChartConfig = {
     label: "Input tokens",
     color: "var(--chart-2)"
   },
+  cachedInputTokens: {
+    label: "Cached input",
+    color: "var(--chart-4)"
+  },
   outputTokens: {
     label: "Output tokens",
     color: "var(--chart-3)"
@@ -33,6 +37,7 @@ export function IssueRunTokenChart(input: {
   rows: Array<{
     runLabel: string;
     inputTokens: number;
+    cachedInputTokens: number;
     outputTokens: number;
   }>;
 }) {
@@ -41,7 +46,7 @@ export function IssueRunTokenChart(input: {
       <CardHeader className="flex flex-col gap-1">
         <CardTitle>Recent run token load</CardTitle>
         <CardDescription>
-          Input and output token usage across the most recent recorded runs.
+          Input, cached input, and output token usage across the most recent recorded runs.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -71,6 +76,12 @@ export function IssueRunTokenChart(input: {
                 radius={4}
               />
               <Bar
+                dataKey="cachedInputTokens"
+                stackId="tokens"
+                fill="var(--color-cachedInputTokens)"
+                radius={4}
+              />
+              <Bar
                 dataKey="outputTokens"
                 stackId="tokens"
                 fill="var(--color-outputTokens)"
@@ -90,16 +101,20 @@ function IssueRunTokenTooltip(input: {
   payload?: Array<{
     dataKey?: string | number | ((value: unknown) => unknown);
     value?: number | string;
-    payload?: {
-      runLabel?: string;
-      inputTokens?: number;
-      outputTokens?: number;
-    };
+      payload?: {
+        runLabel?: string;
+        inputTokens?: number;
+        cachedInputTokens?: number;
+        outputTokens?: number;
+      };
   }>;
 }) {
   const row = input.payload?.[0]?.payload;
   const inputTokens = input.payload?.find((entry) => entry.dataKey === "inputTokens")
     ?.value;
+  const cachedInputTokens = input.payload?.find(
+    (entry) => entry.dataKey === "cachedInputTokens"
+  )?.value;
   const outputTokens = input.payload?.find((entry) => entry.dataKey === "outputTokens")
     ?.value;
 
@@ -120,6 +135,14 @@ function IssueRunTokenTooltip(input: {
           {typeof inputTokens === "number"
             ? inputTokens.toLocaleString()
             : row.inputTokens?.toLocaleString() ?? "0"}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-muted-foreground">Cached input</span>
+        <span className="font-mono font-medium text-foreground tabular-nums">
+          {typeof cachedInputTokens === "number"
+            ? cachedInputTokens.toLocaleString()
+            : row.cachedInputTokens?.toLocaleString() ?? "0"}
         </span>
       </div>
       <div className="flex items-center justify-between gap-4">

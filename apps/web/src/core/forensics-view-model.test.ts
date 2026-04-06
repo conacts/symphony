@@ -148,6 +148,7 @@ describe("forensics view model", () => {
     expect(issueDetail.tokenChartRows[0]).toEqual({
       runLabel: "#1",
       inputTokens: 120,
+      cachedInputTokens: 40,
       outputTokens: 80
     });
     expect(issueDetail.failureCards[0]?.value).toBe("0");
@@ -367,11 +368,13 @@ describe("forensics view model", () => {
       {
         runLabel: "Run 2 · b2122c",
         inputTokens: 0,
+        cachedInputTokens: 0,
         outputTokens: 0
       },
       {
         runLabel: "Run 1 · 564d18",
         inputTokens: 10517907,
+        cachedInputTokens: 0,
         outputTokens: 17501
       }
     ]);

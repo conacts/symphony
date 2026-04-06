@@ -1074,6 +1074,7 @@ export function buildSymphonyAgentRunArtifactsResult(
         command: "pnpm lint && pnpm test",
         status: "completed",
         exitCode: 0,
+        timeoutSeconds: 90,
         startedAt: "2026-03-31T18:00:12.000Z",
         completedAt: "2026-03-31T18:00:30.000Z",
         durationMs: 18_000,
@@ -1113,6 +1114,19 @@ export function buildSymphonyAgentRunArtifactsResult(
         textPreview: "Task complete.",
         textOverflowId: "overflow_message_123",
         recordedAt: "2026-03-31T18:01:00.000Z",
+        piMessage: {
+          responseId: "response_123",
+          api: "responses",
+          provider: "openrouter",
+          model: "xiaomi/mimo-v2-pro",
+          stopReason: "tool_use",
+          responseTimestamp: "2026-03-31T18:01:00.000Z",
+          inputTokens: 120,
+          cachedInputTokens: 40,
+          cacheWriteTokens: 0,
+          outputTokens: 80,
+          totalTokens: 240
+        },
         insertedAt: "2026-03-31T18:00:42.000Z",
         updatedAt: "2026-03-31T18:01:00.000Z"
       }
@@ -1126,6 +1140,19 @@ export function buildSymphonyAgentRunArtifactsResult(
         textPreview: "Inspecting the repository structure before making changes.",
         textOverflowId: null,
         recordedAt: "2026-03-31T18:00:05.000Z",
+        piMessage: {
+          responseId: "response_122",
+          api: "responses",
+          provider: "openrouter",
+          model: "xiaomi/mimo-v2-pro",
+          stopReason: "reasoning",
+          responseTimestamp: "2026-03-31T18:00:05.000Z",
+          inputTokens: 60,
+          cachedInputTokens: 20,
+          cacheWriteTokens: 0,
+          outputTokens: 0,
+          totalTokens: 80
+        },
         insertedAt: "2026-03-31T18:00:05.000Z",
         updatedAt: "2026-03-31T18:00:10.000Z"
       }
@@ -1167,6 +1194,19 @@ export function buildSymphonyAgentRunArtifactsResult(
             textPreview: "Task complete.",
             textOverflowId: "overflow_message_123",
             recordedAt: "2026-03-31T18:01:00.000Z",
+            piMessage: {
+              responseId: "response_123",
+              api: "responses",
+              provider: "openrouter",
+              model: "xiaomi/mimo-v2-pro",
+              stopReason: "tool_use",
+              responseTimestamp: "2026-03-31T18:01:00.000Z",
+              inputTokens: 120,
+              cachedInputTokens: 40,
+              cacheWriteTokens: 0,
+              outputTokens: 80,
+              totalTokens: 240
+            },
             insertedAt: "2026-03-31T18:00:42.000Z",
             updatedAt: "2026-03-31T18:01:00.000Z"
           }
@@ -1180,6 +1220,19 @@ export function buildSymphonyAgentRunArtifactsResult(
             textPreview: "Inspecting the repository structure before making changes.",
             textOverflowId: null,
             recordedAt: "2026-03-31T18:00:05.000Z",
+            piMessage: {
+              responseId: "response_122",
+              api: "responses",
+              provider: "openrouter",
+              model: "xiaomi/mimo-v2-pro",
+              stopReason: "reasoning",
+              responseTimestamp: "2026-03-31T18:00:05.000Z",
+              inputTokens: 60,
+              cachedInputTokens: 20,
+              cacheWriteTokens: 0,
+              outputTokens: 0,
+              totalTokens: 80
+            },
             insertedAt: "2026-03-31T18:00:05.000Z",
             updatedAt: "2026-03-31T18:00:10.000Z"
           }

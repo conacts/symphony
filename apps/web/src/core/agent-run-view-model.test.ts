@@ -10,6 +10,31 @@ import {
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
 
 describe("agent run view model", () => {
+  it("distills pi response metadata and typed command details into the run view", () => {
+    const viewModel = buildAgentRunViewModel({
+      runDetail: buildSymphonyForensicsRunDetailResult(),
+      runArtifacts: buildSymphonyAgentRunArtifactsResult()
+    });
+
+    expect(viewModel.piResponseCards[0]).toEqual({
+      label: "Pi responses",
+      value: "2",
+      detail: "320 total tokens · 60 cached input."
+    });
+    expect(viewModel.piResponseCards[1]?.value).toBe("xiaomi/mimo-v2-pro");
+    expect(viewModel.piResponseCards[2]?.value).toBe("Tool Use");
+
+    const commandEntry = viewModel.transcriptTurns[0]?.entries.find(
+      (entry) => entry.kind === "command"
+    );
+    const messageEntry = viewModel.transcriptTurns[0]?.entries.find(
+      (entry) => entry.kind === "agent-message"
+    );
+
+    expect(commandEntry && "timeoutSeconds" in commandEntry ? commandEntry.timeoutSeconds : null).toBe(90);
+    expect(messageEntry && "piMessage" in messageEntry ? messageEntry.piMessage?.cachedInputTokens : null).toBe(40);
+  });
+
   it("builds machine-load cards from run summaries and falls back when unavailable", () => {
     const populated = buildAgentRunViewModel({
       runDetail: buildSymphonyForensicsRunDetailResult(),

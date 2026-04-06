@@ -219,6 +219,10 @@ export function buildIssueDetailViewModel(
 
   const dominantProblemOutcome = sortCounts(problemOutcomeCounts)[0];
   const totalInputTokens = input.runs.reduce((total, run) => total + run.inputTokens, 0);
+  const totalCachedInputTokens = input.runs.reduce(
+    (total, run) => total + run.cachedInputTokens,
+    0
+  );
   const totalOutputTokens = input.runs.reduce((total, run) => total + run.outputTokens, 0);
   const averageTotalTokens =
     input.runs.length === 0
@@ -283,12 +287,18 @@ export function buildIssueDetailViewModel(
     tokenChartRows: recentRuns.map((run, index) => ({
       runLabel: buildIssueRunLabel(run.attempt, run.runId, index, recentRuns.length),
       inputTokens: run.inputTokens,
+      cachedInputTokens: run.cachedInputTokens,
       outputTokens: run.outputTokens
     })),
     tokenCards: [
       {
         label: "Issue input tokens",
         value: formatCount(totalInputTokens),
+        detail: `${formatCount(totalCachedInputTokens)} cached input tokens across recorded runs.`
+      },
+      {
+        label: "Issue cached input",
+        value: formatCount(totalCachedInputTokens),
         detail: `${formatCount(totalOutputTokens)} output tokens across recorded runs.`
       },
       {

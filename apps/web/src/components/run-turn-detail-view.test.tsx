@@ -28,6 +28,8 @@ describe("run turn detail view", () => {
     expect(html).not.toContain("Back to turns table");
     expect(html).toContain("Turn 1");
     expect(html).toContain("Operator prompt");
+    expect(html).toContain("Openrouter / Responses");
+    expect(html).toContain("Cached 40");
   });
 
   it("renders a not found state when the turn is missing", () => {
