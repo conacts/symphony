@@ -2,6 +2,7 @@ import {
   resolveSymphonyRepositoryLabel,
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
+import type { SymphonyTrackerRuntimePolicy } from "@symphony/runtime-policy";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 
 type RuntimeRepositoryIssue = Pick<
@@ -75,14 +76,60 @@ export function resolveWorkspaceRepository(
     if (matchedRepository) {
       return matchedRepository;
     }
+
+    throw new TypeError(
+      `Workspace requested repository ${JSON.stringify(repositoryKey)}, but the runtime does not admit it.`
+    );
   }
 
-  const defaultRepository = admittedRepositories[0];
-  if (!defaultRepository) {
+  if (admittedRepositories.length === 1) {
+    return admittedRepositories[0]!;
+  }
+
+  if (admittedRepositories.length === 0) {
     throw new TypeError("At least one admitted repository is required.");
   }
 
-  return defaultRepository;
+  throw new TypeError(
+    "Workspace repository selection requires an explicit repositoryKey when multiple repositories are admitted."
+  );
+}
+
+export function resolveRepositoryForLinearScope(
+  admittedRepositories: AdmittedRuntimeRepository[],
+  tracker: Pick<SymphonyTrackerRuntimePolicy, "projectSlug" | "teamKey">
+): AdmittedRuntimeRepository {
+  if (admittedRepositories.length === 0) {
+    throw new TypeError("At least one admitted repository is required.");
+  }
+
+  if (admittedRepositories.length === 1) {
+    return admittedRepositories[0]!;
+  }
+
+  if (!tracker.projectSlug && !tracker.teamKey) {
+    throw new TypeError(
+      "Multiple admitted repositories require tracker.projectSlug or tracker.teamKey to select the default repository."
+    );
+  }
+
+  const matchedRepositories = admittedRepositories.filter((repository) =>
+    repositoryMatchesLinearBinding(repository, tracker)
+  );
+
+  if (matchedRepositories.length === 1) {
+    return matchedRepositories[0];
+  }
+
+  if (matchedRepositories.length > 1) {
+    throw new TypeError(
+      "Linear tracker binding matches multiple admitted repositories."
+    );
+  }
+
+  throw new TypeError(
+    "Linear tracker binding does not match any admitted repository."
+  );
 }
 
 function resolveLabeledRepository(
@@ -121,6 +168,23 @@ function repositoryMatchesLinearIssue(
 
   if (linearBinding.teamKey) {
     return issue.teamKey === linearBinding.teamKey;
+  }
+
+  return false;
+}
+
+function repositoryMatchesLinearBinding(
+  repository: AdmittedRuntimeRepository,
+  tracker: Pick<SymphonyTrackerRuntimePolicy, "projectSlug" | "teamKey">
+): boolean {
+  const linearBinding = repository.linearBinding;
+
+  if (linearBinding.projectSlug) {
+    return tracker.projectSlug === linearBinding.projectSlug;
+  }
+
+  if (linearBinding.teamKey) {
+    return tracker.teamKey === linearBinding.teamKey;
   }
 
   return false;

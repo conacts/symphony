@@ -61,6 +61,7 @@ import { createAgentAnalyticsReadPort } from "./agent-analytics-read-port.js";
 import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { loadAdmittedRuntimeRepositories } from "./runtime-admitted-repositories.js";
 import { createRepositoryScopedWorkspaceBackend } from "./runtime-workspace-backend-selector.js";
+import { resolveRepositoryForLinearScope } from "./runtime-repository-routing.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -102,7 +103,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           )
         )
       : [];
-  const primaryRepository = admittedRepositories[0] ?? null;
+  const primaryRepository =
+    admittedRepositories.length > 0
+      ? resolveRepositoryForLinearScope(admittedRepositories, runtimePolicy.tracker)
+      : null;
+  const selectedRuntimeManifestEntry = primaryRepository
+    ? validatedRuntimeManifests.find(
+        (candidate) =>
+          candidate.runtimeManifest.repoRoot === primaryRepository.repoRoot
+      ) ?? null
+    : null;
   const promptContract =
     primaryRepository?.promptContract ??
     (await loadAdmittedRuntimeRepositories([process.cwd()]))[0].promptContract;
@@ -120,25 +130,22 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     maxConcurrentAgents: runtimePolicy.agent.maxConcurrentAgents
   });
 
-  const validatedRuntimeManifest =
-    validatedRuntimeManifests[0] ?? null;
-
-  if (validatedRuntimeManifest) {
+  if (selectedRuntimeManifestEntry) {
     runtimePolicy = applyRuntimeManifestPiPolicy(
       runtimePolicy,
-      validatedRuntimeManifest.runtimeManifest.manifest
+      selectedRuntimeManifestEntry.runtimeManifest.manifest
     );
     logger.info(
       "Validated source-repo runtime manifest",
-      validatedRuntimeManifest.summary
+      selectedRuntimeManifestEntry.summary
     );
   }
 
   const database = initializeSymphonyDb({
     dbFile: env.dbFile
   });
-  const repositoryKey = resolveRuntimeRepositoryKey({
-    sourceRepo: primaryRepository?.repoRoot ?? env.sourceRepo,
+  const repositoryKey = primaryRepository?.repositoryKey ?? resolveRuntimeRepositoryKey({
+    sourceRepo: env.sourceRepo,
     githubRepo: runtimePolicy.github.repo
   });
   const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
@@ -265,11 +272,23 @@ export async function loadDefaultSymphonyRuntimeAppServices(
                 ...dockerGitHubCliAuth.launchEnv,
                 ...dockerLinearLaunchEnv
               },
-              runtimeManifest: validatedRuntimeManifest?.runtimeManifest ?? null
+              runtimeManifest: validatedRuntimeManifests[0]?.runtimeManifest ?? null
             })
           }
         ];
-  const workspaceBackendSelection = workspaceBackendSelections[0].selection;
+  const workspaceBackendSelection =
+    primaryRepository
+      ? workspaceBackendSelections.find(
+          (entry) => entry.repositoryKey === primaryRepository.repositoryKey
+        )?.selection ??
+        (() => {
+          throw new TypeError(
+            `Workspace backend selection missing for repository ${JSON.stringify(
+              primaryRepository.repositoryKey
+            )}.`
+          );
+        })()
+      : workspaceBackendSelections[0].selection;
   const workspaceBackendsByRepository = new Map(
     workspaceBackendSelections.map((entry) => [entry.repositoryKey, entry.selection.backend])
   );

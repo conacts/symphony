@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildSymphonyTrackerIssue } from "@symphony/tracker";
 import {
-  resolveIssueRepository
+  resolveIssueRepository,
+  resolveRepositoryForLinearScope,
+  resolveWorkspaceRepository
 } from "./runtime-repository-routing.js";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 
@@ -110,6 +112,66 @@ describe("runtime repository routing", () => {
     );
 
     expect(repository.repositoryKey).toBe("conacts/symphony");
+  });
+
+  it("resolves the process default repository from the Linear tracker binding", () => {
+    const repository = resolveRepositoryForLinearScope(
+      [
+        buildAdmittedRepository("conacts/symphony", {
+          projectSlug: "symphony",
+          teamKey: null
+        }),
+        buildAdmittedRepository("conacts/coldets-v2", {
+          projectSlug: "coldets",
+          teamKey: null
+        })
+      ],
+      {
+        projectSlug: "coldets",
+        teamKey: null
+      }
+    );
+
+    expect(repository.repositoryKey).toBe("conacts/coldets-v2");
+  });
+
+  it("rejects multi-repo process defaults without a Linear tracker binding", () => {
+    expect(() =>
+      resolveRepositoryForLinearScope(
+        [
+          buildAdmittedRepository("conacts/symphony", {
+            projectSlug: "symphony",
+            teamKey: null
+          }),
+          buildAdmittedRepository("conacts/coldets-v2", {
+            projectSlug: "coldets",
+            teamKey: null
+          })
+        ],
+        {
+          projectSlug: null,
+          teamKey: null
+        }
+      )
+    ).toThrowError(/require tracker\.projectSlug or tracker\.teamKey/i);
+  });
+
+  it("rejects workspace repo selection when multiple repos are admitted and no repositoryKey is present", () => {
+    expect(() =>
+      resolveWorkspaceRepository(
+        [
+          buildAdmittedRepository("conacts/symphony", {
+            projectSlug: "symphony",
+            teamKey: null
+          }),
+          buildAdmittedRepository("conacts/coldets-v2", {
+            projectSlug: "coldets",
+            teamKey: null
+          })
+        ],
+        null
+      )
+    ).toThrowError(/explicit repositoryKey/i);
   });
 });
 

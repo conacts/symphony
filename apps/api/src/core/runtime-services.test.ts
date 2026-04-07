@@ -3,11 +3,16 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  createTempSymphonySqliteHarness,
+  renderSymphonyRuntimeManifestSource
+} from "@symphony/test-support";
+import {
   createSymphonyRuntimeAppServicesHarness,
   type SymphonyRuntimeAppServicesHarness
 } from "../test-support/create-symphony-runtime-app-services-harness.js";
-import { renderSymphonyRuntimeManifestSource } from "@symphony/test-support";
 import { initializeSymphonyDb } from "@symphony/db";
+import { loadDefaultSymphonyRuntimeAppServices } from "./runtime-services.js";
+import type { SymphonyRuntimeAppEnv } from "./env.js";
 
 const harnesses: SymphonyRuntimeAppServicesHarness[] = [];
 const tempDirectories: string[] = [];
@@ -190,6 +195,209 @@ describe("runtime services", () => {
       supportsWebsockets: false,
       wireApi: "responses"
     });
+  });
+
+  it("selects the admitted repo matching the process Linear scope when multiple repos are admitted", async () => {
+    const sqlite = await createTempSymphonySqliteHarness({
+      rootPrefix: "symphony-runtime-services-multi-repo-"
+    });
+    const root = sqlite.root;
+    const workspaceRoot = path.join(root, "workspaces");
+    const symphonyRepo = path.join(root, "symphony");
+    const coldetsRepo = path.join(root, "coldets");
+
+    await mkdir(path.join(symphonyRepo, ".symphony"), {
+      recursive: true
+    });
+    await mkdir(path.join(coldetsRepo, ".symphony"), {
+      recursive: true
+    });
+    await mkdir(workspaceRoot, {
+      recursive: true
+    });
+    await writeFile(
+      path.join(symphonyRepo, ".symphony", "prompt.md"),
+      "Symphony prompt\n"
+    );
+    await writeFile(
+      path.join(coldetsRepo, ".symphony", "prompt.md"),
+      "Coldets prompt\n"
+    );
+    await writeFile(
+      path.join(symphonyRepo, ".symphony", "runtime.ts"),
+      renderSymphonyRuntimeManifestSource({
+        schemaVersion: 1,
+        repositoryKey: "conacts/symphony",
+        linear: {
+          projectSlug: "symphony"
+        },
+        workspace: {
+          packageManager: "pnpm",
+          workingDirectory: "."
+        },
+        pi: {
+          defaultPreset: "basic",
+          presets: {
+            basic: {
+              model: "minimax/minimax-m2.7",
+              reasoningEffort: "medium",
+              auth: "provider"
+            },
+            advanced: {
+              model: "xiaomi/mimo-v2-pro",
+              reasoningEffort: "xhigh",
+              auth: "provider"
+            },
+            premium: {
+              model: "gpt-4.1",
+              reasoningEffort: "high",
+              auth: "subscription"
+            }
+          }
+        },
+        env: {
+          host: {
+            required: [],
+            optional: []
+          },
+          inject: {}
+        },
+        lifecycle: {
+          bootstrap: [],
+          migrate: [],
+          verify: [
+            {
+              name: "verify",
+              run: "pnpm test"
+            }
+          ],
+          seed: [],
+          cleanup: []
+        }
+      })
+    );
+    await writeFile(
+      path.join(coldetsRepo, ".symphony", "runtime.ts"),
+      renderSymphonyRuntimeManifestSource({
+        schemaVersion: 1,
+        repositoryKey: "conacts/coldets-v2",
+        linear: {
+          projectSlug: "coldets"
+        },
+        workspace: {
+          packageManager: "pnpm",
+          workingDirectory: "."
+        },
+        pi: {
+          defaultPreset: "premium",
+          presets: {
+            basic: {
+              model: "minimax/minimax-m2.7",
+              reasoningEffort: "medium",
+              auth: "provider"
+            },
+            advanced: {
+              model: "xiaomi/mimo-v2-pro",
+              reasoningEffort: "xhigh",
+              auth: "provider"
+            },
+            premium: {
+              model: "gpt-5.4",
+              reasoningEffort: "high",
+              auth: "subscription"
+            }
+          }
+        },
+        env: {
+          host: {
+            required: [],
+            optional: []
+          },
+          inject: {}
+        },
+        lifecycle: {
+          bootstrap: [],
+          migrate: [],
+          verify: [
+            {
+              name: "verify",
+              run: "pnpm test"
+            }
+          ],
+          seed: [],
+          cleanup: []
+        }
+      })
+    );
+
+    const env = {
+      port: 4_400,
+      dbFile: sqlite.dbFile,
+      sourceRepo: symphonyRepo,
+      sourceRepos: [symphonyRepo, coldetsRepo],
+      dockerWorkspaceImage: null,
+      dockerMaterializationMode: "bind_mount" as const,
+      dockerWorkspacePath: null,
+      dockerContainerNamePrefix: null,
+      dockerShell: null,
+      dockerGitUserName: null,
+      dockerGitUserEmail: null,
+      dockerSharedPostgresContainerName: "symphony-shared-postgres",
+      dockerSharedPostgresImage: "postgres:16",
+      dockerSharedPostgresHost: "host.docker.internal",
+      dockerSharedPostgresHostPort: 55_432,
+      dockerSharedPostgresContainerPort: 5_432,
+      dockerSharedPostgresAdminDatabase: "postgres",
+      dockerSharedPostgresAdminUsername: "postgres",
+      dockerSharedPostgresAdminPassword: "postgres",
+      dockerSharedPostgresDatabasePrefix: "symphony",
+      dockerSharedPostgresRolePrefix: "symphony",
+      allowedOrigins: [],
+      linearApiKey: "test-linear-api-key",
+      logLevel: "error"
+    } satisfies SymphonyRuntimeAppEnv;
+    const environmentSource = {
+      LINEAR_API_KEY: env.linearApiKey,
+      SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
+      SYMPHONY_SOURCE_REPOS:
+        env.sourceRepos.length > 0 ? env.sourceRepos.join(",") : undefined,
+      SYMPHONY_TRACKER_KIND: "linear",
+      SYMPHONY_LINEAR_PROJECT_SLUG: "coldets",
+      SYMPHONY_WORKSPACE_ROOT: workspaceRoot,
+      SYMPHONY_POLL_INTERVAL_MS: "50",
+      SYMPHONY_GITHUB_REPOSITORY: "conacts/coldets-v2",
+      SYMPHONY_GITHUB_WEBHOOK_SECRET: "secret",
+      SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS: "reviewer",
+      SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS: "",
+      SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS: "reviewer"
+    };
+
+    const services = await loadDefaultSymphonyRuntimeAppServices(
+      env,
+      environmentSource,
+      {
+        OPENROUTER_API_KEY: "test-openrouter-api-key"
+      }
+    );
+
+    try {
+      expect(
+        services.admittedRepositories.map((repository) => repository.repositoryKey)
+      ).toEqual(["conacts/symphony", "conacts/coldets-v2"]);
+      expect(services.promptContract.promptPath).toBe(
+        path.join(coldetsRepo, ".symphony", "prompt.md")
+      );
+      expect(services.promptTemplate.promptTemplate).toBe("Coldets prompt\n");
+      expect(services.runtimePolicy.pi.defaultPreset).toBe("premium");
+      expect(services.runtimePolicy.pi.presets.premium).toEqual({
+        model: "gpt-5.4",
+        reasoningEffort: "high",
+        authMode: "subscription"
+      });
+    } finally {
+      await services.shutdown();
+      await sqlite.cleanup();
+    }
   });
 
   it("merges repo-defined Pi presets from the runtime manifest into the active policy", async () => {

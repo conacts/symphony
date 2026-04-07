@@ -51,7 +51,7 @@ export function findAdmittedRepository(
   repositoryKey: string | null | undefined
 ): AdmittedRuntimeRepository | null {
   if (!repositoryKey) {
-    return admittedRepositories[0] ?? null;
+    return null;
   }
 
   return (
