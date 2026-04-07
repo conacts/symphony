@@ -21,6 +21,11 @@
       "sourceType": "github",
       "computedHash": "120d6db8ce786706c0844ca1558aa4796c808230a5c40bcb5382df7aa1c5043f"
     },
+    "linear-cli": {
+      "source": "schpet/linear-cli",
+      "sourceType": "github",
+      "computedHash": "5f8516b9aa8157e7710ec5d029e1c44a0e55be1c3f834f844d0c7f27dae62580"
+    },
     "next-best-practices": {
       "source": "vercel-labs/next-skills",
       "sourceType": "github",
