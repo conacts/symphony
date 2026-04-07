@@ -22,6 +22,31 @@ notes that explain the platform shape. It does not carry a second runtime implem
 - operator/runtime setup:
   [`docs/architecture/symphony-runtime-operations.md`](docs/architecture/symphony-runtime-operations.md)
 
+## Local Self-Host
+
+Use Symphony against this repository itself when validating orchestration changes locally:
+
+```bash
+pnpm install
+pnpm docker:workspace-image:build
+mkdir -p ~/.config/symphony
+cp symphony.env.example ~/.config/symphony/symphony.env
+pnpm dev:self
+```
+
+`pnpm dev:self` forces `SYMPHONY_SOURCE_REPO` to this repository root, keeps the SQLite file at
+`./symphony.db`, and points the dashboard at the local API on `http://127.0.0.1:4400`. That avoids
+stale shell state accidentally booting Symphony against some other admitted repository.
+
+For a Linux Mint user service with hot reload:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp symphony-dev.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now symphony-dev.service
+```
+
 ## Repository Notes
 
 The `symphony/` directory is intentionally not part of the pnpm/turbo workspace graph. The live

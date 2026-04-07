@@ -42,6 +42,21 @@ export GITHUB_TOKEN=...
 pnpm --filter @symphony/api dev
 ```
 
+For self-host development on this repository with hot reload enabled for both the API and the
+dashboard:
+
+```bash
+pnpm install
+pnpm docker:workspace-image:build
+mkdir -p ~/.config/symphony
+cp symphony.env.example ~/.config/symphony/symphony.env
+pnpm dev:self
+```
+
+`pnpm dev:self` forces `SYMPHONY_SOURCE_REPO` to the repository root, sets the dashboard runtime
+base URL to the local API, and keeps the runtime DB at `./symphony.db`. Use it instead of bare
+`pnpm dev` when the goal is to have Symphony improve this repository directly.
+
 Optional overrides:
 
 - `PORT`
@@ -50,6 +65,27 @@ Optional overrides:
 - `SYMPHONY_DOCKER_WORKSPACE_PATH`
 - `SYMPHONY_DOCKER_CONTAINER_NAME_PREFIX`
 - `SYMPHONY_DOCKER_SHELL`
+- `SYMPHONY_DB_FILE`
+
+On Linux Mint, an operator-managed hot-reload service can use the root-level
+[`symphony-dev.service`](../../symphony-dev.service) unit, while the production-style start path
+can use [`symphony.service`](../../symphony.service).
+
+Install either unit as a user service so `%h` resolves to the operator home directory:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp symphony-dev.service ~/.config/systemd/user/
+cp symphony.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now symphony-dev.service
+```
+
+If the service should survive logout, enable linger for the operator account:
+
+```bash
+loginctl enable-linger "$USER"
+```
 
 ## Admitted Repo Expectations
 

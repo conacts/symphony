@@ -1,5 +1,5 @@
 [Unit]
-Description=Symphony runtime and dashboard
+Description=Symphony self-host dev runtime and dashboard
 After=network-online.target
 Wants=network-online.target
 
@@ -11,10 +11,10 @@ Environment=SYMPHONY_SOURCE_REPO=%h/junction/symphony
 Environment=SYMPHONY_DB_FILE=%h/junction/symphony/symphony.db
 Environment=SYMPHONY_RUNTIME_BASE_URL=http://127.0.0.1:4400
 Environment=NEXT_PUBLIC_SYMPHONY_RUNTIME_BASE_URL=http://127.0.0.1:4400
-ExecStart=/usr/bin/env pnpm start
+Environment=NODE_ENV=development
+ExecStart=/usr/bin/env pnpm dev:self
 Restart=on-failure
 RestartSec=5
-Environment=NODE_ENV=production
 
 [Install]
 WantedBy=default.target

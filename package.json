@@ -50,6 +50,7 @@
     "build": "turbo run build --filter=@symphony/api... --filter=@symphony/runtime-contract --filter=@symphony/web",
     "typecheck": "turbo run typecheck --filter=@symphony/api... --filter=@symphony/runtime-contract --filter=@symphony/web",
     "dev": "turbo run dev --filter=@symphony/api --filter=@symphony/web",
+    "dev:self": "node ./scripts/dev-self-host.mjs",
     "dashboard:build": "pnpm --filter @symphony/web build",
     "dashboard:dev": "pnpm --filter @symphony/web dev",
     "dashboard:start": "pnpm --filter @symphony/web start",
