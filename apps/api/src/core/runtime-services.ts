@@ -7,10 +7,7 @@ import {
 } from "@symphony/workspace";
 import { createSymphonyForensicsReadModel } from "@symphony/forensics";
 import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
-import {
-  createLinearSymphonyTracker,
-  createMemorySymphonyTracker
-} from "@symphony/tracker";
+import type { SymphonyTracker } from "@symphony/tracker";
 import {
   createSqliteAgentAnalyticsReadStore,
   createSqliteAgentAnalyticsStore,
@@ -31,7 +28,6 @@ import {
   SymphonyRuntimePolicyError,
   type SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
-import type { SymphonyTracker } from "@symphony/tracker";
 import {
   resolveDockerWorkspaceAuthContracts
 } from "./runtime-auth-contract.js";
@@ -62,6 +58,7 @@ import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { loadAdmittedRuntimeRepositories } from "./runtime-admitted-repositories.js";
 import { createRepositoryScopedWorkspaceBackend } from "./runtime-workspace-backend-selector.js";
 import { resolveRepositoryForLinearScope } from "./runtime-repository-routing.js";
+import { createRepositoryScopedLinearTracker } from "./runtime-linear-tracker-registry.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -202,12 +199,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     }
   });
 
-  const tracker =
-    runtimePolicy.tracker.kind === "linear"
-      ? createLinearSymphonyTracker({
-          config: runtimePolicy.tracker
-        })
-      : createMemorySymphonyTracker([]);
+  const tracker = createRepositoryScopedLinearTracker({
+    trackerTemplate: runtimePolicy.tracker,
+    admittedRepositories,
+    environmentSource
+  });
   if (runtimePolicy.tracker.kind === "memory") {
     logger.warn("Using in-memory tracker placeholder");
     await runtimeLogStore.record({

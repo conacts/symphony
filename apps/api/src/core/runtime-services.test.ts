@@ -401,6 +401,8 @@ describe("runtime services", () => {
     } satisfies SymphonyRuntimeAppEnv;
     const environmentSource = {
       LINEAR_API_KEY: env.linearApiKey,
+      LINEAR_API_KEY_SYM: "test-linear-api-key-sym",
+      LINEAR_API_KEY_COLD: "test-linear-api-key-cold",
       SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
       SYMPHONY_SOURCE_REPOS:
         env.sourceRepos.length > 0 ? env.sourceRepos.join(",") : undefined,

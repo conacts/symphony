@@ -1,5 +1,4 @@
 import {
-  isLinearIssueInScope,
   isSymphonyAutoReworkDisabled,
   isSymphonyWorkflowDisabled,
   type SymphonyTracker
@@ -151,14 +150,6 @@ export class SymphonyGithubReviewProcessor {
         status: "skipped",
         issueIdentifier,
         reason: "workflow_disabled"
-      };
-    }
-
-    if (!isLinearIssueInScope(this.#policyConfig.tracker, issue)) {
-      return {
-        status: "skipped",
-        issueIdentifier,
-        reason: "outside_scope"
       };
     }
 
