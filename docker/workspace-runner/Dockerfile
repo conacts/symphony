@@ -21,6 +21,7 @@ RUN apt-get update \
     python3 \
     ripgrep \
     tini \
+    xz-utils \
   && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable \
