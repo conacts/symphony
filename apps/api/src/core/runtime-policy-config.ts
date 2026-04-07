@@ -1,6 +1,9 @@
 import path from "node:path";
-import type {
-  SymphonyResolvedRuntimePolicy
+import {
+  defaultSymphonyPiProfileDefaults,
+  findSymphonyPiProfileDefaults,
+  type SymphonyPiProfileDefaults,
+  type SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
 import type { EnvironmentSource } from "./env.js";
 
@@ -19,25 +22,6 @@ const defaultDispatchableStates = ["Todo", "Bootstrapping", "In Progress", "Rewo
 const defaultTerminalStates = ["Canceled", "Done"];
 const defaultClaimTransitionFromStates = ["Todo", "Rework"];
 const defaultAllowedOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
-function createOpenRouterProfile(profile: string, defaultModel: string) {
-  return {
-    profile,
-    defaultModel,
-    defaultReasoningEffort: "high",
-    provider: {
-      id: "openrouter",
-      name: "OpenRouter",
-      baseUrl: "https://openrouter.ai/api/v1",
-      envKey: "OPENROUTER_API_KEY",
-      supportsWebsockets: false,
-      wireApi: "responses"
-    }
-  } as const;
-}
-
-const mimoV2ProProfile = createOpenRouterProfile("mimo-v2-pro", "xiaomi/mimo-v2-pro");
-const glm5TurboProfile = createOpenRouterProfile("glm-5-turbo", "z-ai/glm-5-turbo");
-const defaultOpenRouterProfile = mimoV2ProProfile;
 
 export function loadSymphonyRuntimePolicyConfig(input: {
   environmentSource: EnvironmentSource;
@@ -52,8 +36,8 @@ export function loadSymphonyRuntimePolicyConfig(input: {
     readOptionalString(environmentSource.SYMPHONY_GITHUB_STATE_PATH) ??
     path.join(workspaceRoot, ".symphony", "github-state.json");
   const trackerKind = readOptionalString(environmentSource.SYMPHONY_TRACKER_KIND) ?? "linear";
-  const piProfile = readOptionalString(environmentSource.SYMPHONY_PI_PROFILE);
-  const piProfileDefaults = resolvePiProfileDefaults(piProfile);
+  const requestedPiProfile = readOptionalString(environmentSource.SYMPHONY_PI_PROFILE);
+  const matchedPiProfileDefaults = findSymphonyPiProfileDefaults(requestedPiProfile);
   const trackerProjectSlug = readOptionalString(
     environmentSource.SYMPHONY_LINEAR_PROJECT_SLUG
   );
@@ -122,8 +106,8 @@ export function loadSymphonyRuntimePolicyConfig(input: {
     },
     pi: readPiPolicy({
       environmentSource,
-      profile: piProfile,
-      profileDefaults: piProfileDefaults
+      requestedProfile: requestedPiProfile,
+      matchedProfileDefaults: matchedPiProfileDefaults
     }),
     agentRuntime: {
       command: "pi",
@@ -242,46 +226,45 @@ function readOptionalBoolean(value: string | undefined): boolean | null {
 
 function readPiPolicy(input: {
   environmentSource: EnvironmentSource;
-  profile: string | null;
-  profileDefaults: ReturnType<typeof resolvePiProfileDefaults>;
+  requestedProfile: string | null;
+  matchedProfileDefaults: SymphonyPiProfileDefaults | null;
 }): SymphonyPiRuntimePolicy {
-  const { environmentSource, profile, profileDefaults } = input;
+  const {
+    environmentSource,
+    requestedProfile,
+    matchedProfileDefaults
+  } = input;
+  const fallbackProfileDefaults = defaultSymphonyPiProfileDefaults();
+  const resolvedProfileDefaults =
+    matchedProfileDefaults ?? fallbackProfileDefaults;
 
   return {
-    profile: profileDefaults?.profile ?? profile,
+    profile: matchedProfileDefaults?.profile ?? requestedProfile,
     defaultModel:
       readOptionalString(environmentSource.SYMPHONY_PI_MODEL) ??
-      profileDefaults?.defaultModel ??
-      defaultOpenRouterProfile.defaultModel,
+      resolvedProfileDefaults.defaultModel,
     defaultReasoningEffort:
       readOptionalString(environmentSource.SYMPHONY_PI_REASONING_EFFORT) ??
-      profileDefaults?.defaultReasoningEffort ??
-      defaultOpenRouterProfile.defaultReasoningEffort,
+      resolvedProfileDefaults.defaultReasoningEffort,
     provider: {
       id:
         readOptionalString(environmentSource.SYMPHONY_PI_PROVIDER) ??
-        profileDefaults?.provider.id ??
-        defaultOpenRouterProfile.provider.id,
+        resolvedProfileDefaults.provider.id,
       name:
         readOptionalString(environmentSource.SYMPHONY_PI_PROVIDER_NAME) ??
-        profileDefaults?.provider.name ??
-        defaultOpenRouterProfile.provider.name,
+        resolvedProfileDefaults.provider.name,
       baseUrl:
         readOptionalString(environmentSource.SYMPHONY_PI_PROVIDER_BASE_URL) ??
-        profileDefaults?.provider.baseUrl ??
-        defaultOpenRouterProfile.provider.baseUrl,
+        resolvedProfileDefaults.provider.baseUrl,
       envKey:
         readOptionalString(environmentSource.SYMPHONY_PI_PROVIDER_ENV_KEY) ??
-        profileDefaults?.provider.envKey ??
-        defaultOpenRouterProfile.provider.envKey,
+        resolvedProfileDefaults.provider.envKey,
       supportsWebsockets:
         readOptionalBoolean(environmentSource.SYMPHONY_PI_PROVIDER_SUPPORTS_WEBSOCKETS) ??
-        profileDefaults?.provider.supportsWebsockets ??
-        defaultOpenRouterProfile.provider.supportsWebsockets,
+        resolvedProfileDefaults.provider.supportsWebsockets,
       wireApi:
         readOptionalString(environmentSource.SYMPHONY_PI_PROVIDER_WIRE_API) ??
-        profileDefaults?.provider.wireApi ??
-        defaultOpenRouterProfile.provider.wireApi
+        resolvedProfileDefaults.provider.wireApi
     },
     turnTimeoutMs: readPositiveInteger(
       environmentSource.SYMPHONY_PI_TURN_TIMEOUT_MS,
@@ -296,21 +279,4 @@ function readPiPolicy(input: {
       300_000
     )
   };
-}
-
-function resolvePiProfileDefaults(
-  profile: string | null
-): typeof glm5TurboProfile | typeof mimoV2ProProfile | null {
-  if (profile === null) {
-    return defaultOpenRouterProfile;
-  }
-
-  switch (profile.trim().toLowerCase()) {
-    case mimoV2ProProfile.profile:
-      return mimoV2ProProfile;
-    case glm5TurboProfile.profile:
-      return glm5TurboProfile;
-    default:
-      return null;
-  }
 }
