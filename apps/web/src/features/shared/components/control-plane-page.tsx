@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useMemo } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   Select,
@@ -17,6 +18,9 @@ import {
 } from "@/features/shared/components/control-plane-breadcrumbs";
 import { ConnectionStateBadge } from "@/features/shared/components/connection-state-badge";
 import { useControlPlaneRepoContext } from "@/features/shared/components/control-plane-repo-context";
+import {
+  describeControlPlaneRepositoryScope
+} from "@/core/control-plane-repo-scope";
 
 export function ControlPlanePage(input: {
   connection: SymphonyDashboardFoundationModel["connection"];
@@ -27,11 +31,18 @@ export function ControlPlanePage(input: {
   const router = useRouter();
   const searchParams = useSearchParams();
   const repoContext = useControlPlaneRepoContext();
+  const selectedRepository = useMemo(
+    () =>
+      repoContext.repositories.find(
+        (repository) => repository.repositoryKey === repoContext.selectedRepo
+      ) ?? null,
+    [repoContext.repositories, repoContext.selectedRepo]
+  );
 
-  function updateRepoScope(nextRepo: string) {
+  function updateRepoScope(nextRepo: string | null) {
     const nextSearchParams = new URLSearchParams(searchParams.toString());
 
-    if (nextRepo === "__all__") {
+    if (nextRepo === null || nextRepo === "__all__") {
       nextSearchParams.delete("repo");
     } else {
       nextSearchParams.set("repo", nextRepo);
@@ -52,22 +63,39 @@ export function ControlPlanePage(input: {
         </div>
         <div className="flex items-center gap-3">
           {repoContext.repositories.length > 0 ? (
-            <Select
-              value={repoContext.selectedRepo ?? "__all__"}
-              onValueChange={updateRepoScope}
-            >
-              <SelectTrigger size="sm" aria-label="Repository scope">
-                <SelectValue placeholder="All repositories" />
-              </SelectTrigger>
-              <SelectContent align="end">
-                <SelectItem value="__all__">All repositories</SelectItem>
-                {repoContext.repositories.map((repositoryKey) => (
-                  <SelectItem key={repositoryKey} value={repositoryKey}>
-                    {repositoryKey}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              {selectedRepository ? (
+                <div className="hidden max-w-[18rem] flex-col items-end text-right text-[11px] leading-tight text-muted-foreground md:flex">
+                  <span className="truncate font-medium text-foreground">
+                    {selectedRepository.repositoryKey}
+                  </span>
+                  <span className="truncate">
+                    {describeControlPlaneRepositoryScope(selectedRepository)}
+                  </span>
+                </div>
+              ) : null}
+              <Select
+                value={repoContext.selectedRepo ?? "__all__"}
+                onValueChange={updateRepoScope}
+              >
+                <SelectTrigger size="sm" aria-label="Repository scope">
+                  <SelectValue placeholder="All repositories" />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectItem value="__all__">All repositories</SelectItem>
+                  {repoContext.repositories.map((repository) => (
+                    <SelectItem key={repository.repositoryKey} value={repository.repositoryKey}>
+                      <span className="flex flex-col items-start">
+                        <span>{repository.repositoryKey}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {describeControlPlaneRepositoryScope(repository)}
+                        </span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           ) : null}
           <ConnectionStateBadge
             kind={input.connection.kind}

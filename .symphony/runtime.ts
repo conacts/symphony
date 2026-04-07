@@ -4,7 +4,8 @@ export default defineSymphonyRuntime({
   schemaVersion: 1,
   repositoryKey: "conacts/symphony",
   linear: {
-    projectSlug: "symphony"
+    projectSlug: "symphony",
+    apiKeyEnvKey: "LINEAR_API_KEY_SYM"
   },
   workspace: {
     packageManager: "pnpm",

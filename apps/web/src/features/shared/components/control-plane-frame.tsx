@@ -21,8 +21,14 @@ import { DashboardNavigation } from "@/features/shared/components/dashboard-navi
 import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
 import { ControlPlaneRepoProvider } from "@/features/shared/components/control-plane-repo-context";
 import { ControlPlaneRuntimeProvider } from "@/features/shared/components/control-plane-runtime-context";
+import type { ControlPlaneRepositorySummary } from "@/core/control-plane-repo-scope";
 import { useDashboardIssues } from "@/hooks/use-dashboard-issues";
 import { useRuntimeSummary } from "@/hooks/use-runtime-summary";
+import type { SymphonyRuntimeStateResult } from "@symphony/contracts";
+
+type RuntimeSummaryWithRepositories = SymphonyRuntimeStateResult & {
+  repositories?: ControlPlaneRepositorySummary[];
+};
 
 export function ControlPlaneFrame(input: { children: ReactNode }) {
   const model = useControlPlaneModel();
@@ -37,6 +43,19 @@ export function ControlPlaneFrame(input: { children: ReactNode }) {
     websocketUrl: model.websocketUrl,
     selectedRepo
   });
+  const runtimeSummary = runtimeSummaryState.runtimeSummary as
+    | RuntimeSummaryWithRepositories
+    | null;
+  const repositories: ControlPlaneRepositorySummary[] =
+    runtimeSummary?.repositories ??
+    dashboardIssuesState.repositories.map((repositoryKey) => ({
+      repositoryKey,
+      linear: {
+        projectSlug: null,
+        teamKey: null,
+        apiKeyEnvKey: null
+      }
+    }));
 
   return (
     <TooltipProvider>
@@ -44,24 +63,24 @@ export function ControlPlaneFrame(input: { children: ReactNode }) {
         <ControlPlaneRepoProvider
           value={{
             selectedRepo,
-            repositories: dashboardIssuesState.repositories
+            repositories
           }}
         >
           <SidebarProvider>
             <Sidebar collapsible="icon">
-            <SidebarHeader className="relative">
-              <Link
-                href="/"
-                aria-label="Symphony Control Plane"
-                title="Symphony"
-                className="flex min-h-12 items-center gap-2 rounded-md px-2 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
-              >
-                <CircleEllipsisIcon />
-                <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                  <span className="truncate text-lg font-semibold">Symphony</span>
-                </div>
-              </Link>
-            </SidebarHeader>
+              <SidebarHeader className="relative">
+                <Link
+                  href="/"
+                  aria-label="Symphony Control Plane"
+                  title="Symphony"
+                  className="flex min-h-12 items-center gap-2 rounded-md px-2 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+                >
+                  <CircleEllipsisIcon />
+                  <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+                    <span className="truncate text-lg font-semibold">Symphony</span>
+                  </div>
+                </Link>
+              </SidebarHeader>
 
               <SidebarContent>
                 <DashboardNavigation
@@ -72,9 +91,9 @@ export function ControlPlaneFrame(input: { children: ReactNode }) {
                   }
                 />
               </SidebarContent>
-            <SidebarFooter>
-              <ThemeToggleButton />
-            </SidebarFooter>
+              <SidebarFooter>
+                <ThemeToggleButton />
+              </SidebarFooter>
             </Sidebar>
 
             <SidebarInset className="min-h-svh">{input.children}</SidebarInset>

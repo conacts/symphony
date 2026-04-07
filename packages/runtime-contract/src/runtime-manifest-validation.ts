@@ -37,6 +37,7 @@ import {
   piPresetNames,
   piPresetKeys,
   piReasoningLevels,
+  environmentVariablePattern,
   repositoryKeyPattern,
   workspaceKeys,
   workspacePackageManagers
@@ -142,6 +143,13 @@ function parseLinearBinding(
     issues,
     "linear.teamKey"
   );
+  const apiKeyEnvKey = readOptionalString(
+    record,
+    "apiKeyEnvKey",
+    ["linear", "apiKeyEnvKey"],
+    issues,
+    "linear.apiKeyEnvKey"
+  );
 
   if (projectSlug && teamKey) {
     pushIssue(
@@ -161,13 +169,23 @@ function parseLinearBinding(
     return undefined;
   }
 
+  if (apiKeyEnvKey && !environmentVariablePattern.test(apiKeyEnvKey)) {
+    pushIssue(
+      issues,
+      ["linear", "apiKeyEnvKey"],
+      "linear.apiKeyEnvKey must use an environment variable name like LINEAR_API_KEY_SYM."
+    );
+    return undefined;
+  }
+
   if (hasIssuesSince(issues, checkpoint)) {
     return undefined;
   }
 
   return {
     projectSlug: projectSlug ?? null,
-    teamKey: teamKey ?? null
+    teamKey: teamKey ?? null,
+    apiKeyEnvKey: apiKeyEnvKey ?? null
   };
 }
 

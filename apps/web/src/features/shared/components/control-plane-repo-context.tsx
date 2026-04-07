@@ -1,10 +1,11 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import type { ControlPlaneRepositorySummary } from "@/core/control-plane-repo-scope";
 
 type ControlPlaneRepoContextValue = {
   selectedRepo?: string;
-  repositories: string[];
+  repositories: ControlPlaneRepositorySummary[];
 };
 
 const ControlPlaneRepoContext = createContext<ControlPlaneRepoContextValue>({

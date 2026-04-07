@@ -17,6 +17,7 @@ import {
   listSupportedAgentModels,
   resolveAgentIssueModel
 } from "../core/agent-app-server-launch.js";
+import type { AdmittedRuntimeRepository } from "../core/runtime-admitted-repositories.js";
 
 export type RuntimeIssuePiSelectionPolicy = {
   defaultModel: string | null;
@@ -31,13 +32,25 @@ export type RuntimeIssuePiSelectionPolicy = {
 };
 
 export function serializeRuntimeState(
-  snapshot: SymphonyOrchestratorSnapshot
+  snapshot: SymphonyOrchestratorSnapshot,
+  admittedRepositories: AdmittedRuntimeRepository[] = []
 ): SymphonyRuntimeStateResult {
   return {
     counts: {
       running: snapshot.running.length,
       retrying: snapshot.retrying.length
     },
+    repositories:
+      admittedRepositories.length > 0
+        ? admittedRepositories.map((repository) => ({
+            repositoryKey: repository.repositoryKey,
+            linear: {
+              projectSlug: repository.linearBinding.projectSlug,
+              teamKey: repository.linearBinding.teamKey,
+              apiKeyEnvKey: repository.linearBinding.apiKeyEnvKey
+            }
+          }))
+        : undefined,
     running: snapshot.running.map((entry) => ({
       issueId: entry.issueId,
       issueIdentifier: entry.issue.identifier,

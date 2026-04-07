@@ -229,7 +229,8 @@ describe("runtime services", () => {
         schemaVersion: 1,
         repositoryKey: "conacts/symphony",
         linear: {
-          projectSlug: "symphony"
+          projectSlug: "symphony",
+          apiKeyEnvKey: "LINEAR_API_KEY_SYM"
         },
         workspace: {
           packageManager: "pnpm",
@@ -282,7 +283,8 @@ describe("runtime services", () => {
         schemaVersion: 1,
         repositoryKey: "conacts/coldets-v2",
         linear: {
-          projectSlug: "coldets"
+          projectSlug: "coldets",
+          apiKeyEnvKey: "LINEAR_API_KEY_COLD"
         },
         workspace: {
           packageManager: "pnpm",

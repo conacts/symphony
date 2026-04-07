@@ -175,6 +175,18 @@ export const symphonyRuntimeStateResultSchema = z.strictObject({
     running: z.number().int().nonnegative(),
     retrying: z.number().int().nonnegative()
   }),
+  repositories: z
+    .array(
+      z.strictObject({
+        repositoryKey: nonEmptyStringSchema,
+        linear: z.strictObject({
+          projectSlug: nullableNonEmptyStringSchema,
+          teamKey: nullableNonEmptyStringSchema,
+          apiKeyEnvKey: nullableNonEmptyStringSchema
+        })
+      })
+    )
+    .optional(),
   running: z.array(symphonyRuntimeRunningEntrySchema),
   retrying: z.array(symphonyRuntimeRetryEntrySchema),
   agentTotals: symphonyRuntimeAgentTotalsSchema,

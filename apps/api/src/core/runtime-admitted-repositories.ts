@@ -11,6 +11,7 @@ export type AdmittedRuntimeRepository = {
   linearBinding: {
     projectSlug: string | null;
     teamKey: string | null;
+    apiKeyEnvKey: string | null;
   };
   promptContract: SymphonyLoadedPromptContract;
   runtimeManifest: SymphonyLoadedRuntimeManifest;

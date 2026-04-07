@@ -4,7 +4,11 @@ import {
   buildSymphonyTrackerIssue,
   buildSymphonyRuntimePolicy
 } from "@symphony/test-support";
-import { serializeRuntimeIssue } from "./serializers.js";
+import {
+  serializeRuntimeIssue,
+  serializeRuntimeState
+} from "./serializers.js";
+import type { AdmittedRuntimeRepository } from "../core/runtime-admitted-repositories.js";
 
 describe("runtime serializers", () => {
   it("resolves Pi preset labels from runtime policy defaults", () => {
@@ -332,4 +336,82 @@ describe("runtime serializers", () => {
       materialization: null
     });
   });
+
+  it("includes admitted repository metadata in runtime state serialization", () => {
+    const serialized = serializeRuntimeState(
+      buildSymphonyOrchestratorSnapshot({
+        running: [],
+        retrying: []
+      }),
+      [
+        buildAdmittedRepository("conacts/symphony", {
+          projectSlug: "symphony",
+          teamKey: null,
+          apiKeyEnvKey: "LINEAR_API_KEY_SYM"
+        })
+      ]
+    );
+
+    expect(serialized.repositories).toEqual([
+      {
+        repositoryKey: "conacts/symphony",
+        linear: {
+          projectSlug: "symphony",
+          teamKey: null,
+          apiKeyEnvKey: "LINEAR_API_KEY_SYM"
+        }
+      }
+    ]);
+  });
 });
+
+function buildAdmittedRepository(
+  repositoryKey: string,
+  linearBinding: AdmittedRuntimeRepository["linearBinding"]
+): AdmittedRuntimeRepository {
+  return {
+    repositoryKey,
+    repoRoot: `/tmp/${repositoryKey.replace("/", "-")}`,
+    linearBinding,
+    promptContract: {
+      repoRoot: "/tmp",
+      promptPath: "/tmp/.symphony/prompt.md",
+      template: "Prompt body\n",
+      variables: []
+    },
+    runtimeManifest: {
+      repoRoot: "/tmp",
+      manifestPath: "/tmp/.symphony/runtime.ts",
+      manifest: {
+        schemaVersion: 1,
+        repositoryKey,
+        linear: linearBinding,
+        workspace: {
+          packageManager: "pnpm",
+          workingDirectory: "."
+        },
+        services: {},
+        pi: null,
+        env: {
+          host: {
+            required: [],
+            optional: []
+          },
+          inject: {}
+        },
+        lifecycle: {
+          bootstrap: [],
+          migrate: [],
+          verify: [
+            {
+              name: "verify",
+              run: "pnpm test"
+            }
+          ],
+          seed: [],
+          cleanup: []
+        }
+      }
+    }
+  };
+}

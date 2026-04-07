@@ -120,7 +120,8 @@ export default defineSymphonyRuntime({
     });
     expect(loaded.manifest.linear).toEqual({
       projectSlug: "symphony",
-      teamKey: null
+      teamKey: null,
+      apiKeyEnvKey: null
     });
     expect(loaded.manifest.pi).toBeNull();
     expect(loaded.manifest.services.postgres).toEqual({
@@ -334,7 +335,8 @@ export default defineSymphonyRuntime({
 
     expect(manifest.linear).toEqual({
       projectSlug: "symphony",
-      teamKey: null
+      teamKey: null,
+      apiKeyEnvKey: null
     });
   });
 

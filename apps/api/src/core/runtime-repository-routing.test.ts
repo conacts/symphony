@@ -13,11 +13,13 @@ describe("runtime repository routing", () => {
       [
         buildAdmittedRepository("conacts/symphony", {
           projectSlug: "symphony",
-          teamKey: null
+          teamKey: null,
+          apiKeyEnvKey: null
         }),
         buildAdmittedRepository("conacts/coldets-v2", {
           projectSlug: "coldets",
-          teamKey: null
+          teamKey: null,
+          apiKeyEnvKey: null
         })
       ],
       buildSymphonyTrackerIssue({
@@ -36,11 +38,13 @@ describe("runtime repository routing", () => {
         [
           buildAdmittedRepository("conacts/symphony", {
             projectSlug: "symphony",
-            teamKey: null
+            teamKey: null,
+            apiKeyEnvKey: null
           }),
           buildAdmittedRepository("conacts/coldets-v2", {
             projectSlug: "coldets",
-            teamKey: null
+            teamKey: null,
+            apiKeyEnvKey: null
           })
         ],
         buildSymphonyTrackerIssue({
@@ -58,11 +62,13 @@ describe("runtime repository routing", () => {
         [
           buildAdmittedRepository("conacts/symphony", {
             projectSlug: "symphony",
-            teamKey: null
+            teamKey: null,
+            apiKeyEnvKey: null
           }),
           buildAdmittedRepository("conacts/coldets-v2", {
             projectSlug: "coldets",
-            teamKey: null
+            teamKey: null,
+            apiKeyEnvKey: null
           })
         ],
         buildSymphonyTrackerIssue({
@@ -80,11 +86,13 @@ describe("runtime repository routing", () => {
         [
           buildAdmittedRepository("conacts/symphony", {
             projectSlug: "symphony",
-            teamKey: null
+            teamKey: null,
+            apiKeyEnvKey: null
           }),
           buildAdmittedRepository("conacts/coldets-v2", {
             projectSlug: "coldets",
-            teamKey: null
+            teamKey: null,
+            apiKeyEnvKey: null
           })
         ],
         buildSymphonyTrackerIssue({
@@ -101,7 +109,8 @@ describe("runtime repository routing", () => {
       [
         buildAdmittedRepository("conacts/symphony", {
           projectSlug: "symphony",
-          teamKey: null
+          teamKey: null,
+          apiKeyEnvKey: null
         })
       ],
       buildSymphonyTrackerIssue({
@@ -119,11 +128,13 @@ describe("runtime repository routing", () => {
       [
         buildAdmittedRepository("conacts/symphony", {
           projectSlug: "symphony",
-          teamKey: null
+          teamKey: null,
+          apiKeyEnvKey: null
         }),
         buildAdmittedRepository("conacts/coldets-v2", {
           projectSlug: "coldets",
-          teamKey: null
+          teamKey: null,
+          apiKeyEnvKey: null
         })
       ],
       {
@@ -141,11 +152,13 @@ describe("runtime repository routing", () => {
         [
           buildAdmittedRepository("conacts/symphony", {
             projectSlug: "symphony",
-            teamKey: null
+            teamKey: null,
+            apiKeyEnvKey: null
           }),
           buildAdmittedRepository("conacts/coldets-v2", {
             projectSlug: "coldets",
-            teamKey: null
+            teamKey: null,
+            apiKeyEnvKey: null
           })
         ],
         {
@@ -162,11 +175,13 @@ describe("runtime repository routing", () => {
         [
           buildAdmittedRepository("conacts/symphony", {
             projectSlug: "symphony",
-            teamKey: null
+            teamKey: null,
+            apiKeyEnvKey: null
           }),
           buildAdmittedRepository("conacts/coldets-v2", {
             projectSlug: "coldets",
-            teamKey: null
+            teamKey: null,
+            apiKeyEnvKey: null
           })
         ],
         null

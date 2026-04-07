@@ -24,7 +24,10 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
   const runtimeRoutes = new Hono<SymphonyRuntimeAppContextSchema>();
 
   runtimeRoutes.get("/state", (c) => {
-    const result = serializeRuntimeState(services.orchestrator.snapshot());
+    const result = serializeRuntimeState(
+      services.orchestrator.snapshot(),
+      services.admittedRepositories
+    );
     c.get("logger").debug("Returning runtime state", {
       runningCount: result.counts.running,
       retryingCount: result.counts.retrying

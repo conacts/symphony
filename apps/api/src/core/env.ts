@@ -196,7 +196,15 @@ export function buildSymphonyRuntimeEnvironmentSource(
 export function buildSymphonyHostCommandEnvironmentSource(
   source: EnvironmentSource = process.env
 ): EnvironmentSource {
-  return selectStringEnvironmentSource(source, hostCommandEnvironmentKeys);
+  return {
+    ...selectStringEnvironmentSource(source, hostCommandEnvironmentKeys),
+    ...selectStringEnvironmentSource(
+      source,
+      new Set(
+        Object.keys(source).filter((key) => isLinearApiKeyEnvKey(key))
+      )
+    )
+  };
 }
 
 function parseAllowedOrigins(value: string | undefined): string[] {
@@ -233,4 +241,8 @@ function selectStringEnvironmentSource(
         (allowedKeys === undefined || allowedKeys.has(entry[0]))
     )
   );
+}
+
+function isLinearApiKeyEnvKey(key: string): boolean {
+  return /^LINEAR_API_KEY_[A-Z0-9_]+$/u.test(key);
 }
