@@ -1107,7 +1107,7 @@ function upsertPiToolRows(
       const parsed = parseKnownPiToolArguments("write", rawArgs) as PiWriteArguments | null;
       if (!parsed) return;
       context.tx.delete(piWritesTable).where(and(eq(piWritesTable.runId, runId), eq(piWritesTable.turnId, turnId), eq(piWritesTable.itemId, itemId))).run();
-      const writeResult = extractPiWriteResult(context.input.rawPayload, parsed);
+      const writeResult = extractPiWriteResult(context, parsed);
       context.tx
         .insert(piWritesTable)
         .values({
@@ -1116,6 +1116,8 @@ function upsertPiToolRows(
           lineCount: writeResult.lineCount,
           contentBytes: writeResult.contentBytes,
           bytesWritten: writeResult.bytesWritten,
+          diffPreview: writeResult.diffPreview,
+          diffOverflowId: writeResult.diffOverflowId,
           insertedAt: now,
           updatedAt: now
         })
@@ -1986,23 +1988,50 @@ function extractPiEditResult(
 }
 
 function extractPiWriteResult(
-  rawPayloadValue: unknown,
+  context: AgentEventMutationContext,
   parsed: PiWriteArguments
 ): {
   lineCount: number;
   contentBytes: number;
   bytesWritten: number | null;
+  diffPreview: string | null;
+  diffOverflowId: string | null;
 } {
-  const rawPayload = asRecord(rawPayloadValue);
+  const rawPayload = asRecord(context.input.rawPayload);
   const result = asRecord(rawPayload?.result);
   const resultText = extractToolResultText(result);
   const bytesWrittenMatch = resultText?.match(/\bSuccessfully wrote (\d+) bytes to\b/);
+  const diff = buildPiWriteDiff(parsed.path, parsed.content);
+  const diffOverflowId =
+    context.input.turnId
+      ? maybeStoreTextOverflow(
+          context.payloadMaxBytes,
+          (overflow) => storeOverflowRecord(context, overflow),
+          "tool_result",
+          diff,
+          context.input.turnId,
+          `${parsed.path}:write-diff`
+        )
+      : null;
 
   return {
     lineCount: countTextLines(parsed.content),
     contentBytes: byteLength(parsed.content),
-    bytesWritten: bytesWrittenMatch ? Number.parseInt(bytesWrittenMatch[1] ?? "", 10) : null
+    bytesWritten: bytesWrittenMatch ? Number.parseInt(bytesWrittenMatch[1] ?? "", 10) : null,
+    diffPreview: previewText(diff, 500),
+    diffOverflowId
   };
+}
+
+function buildPiWriteDiff(path: string, content: string): string {
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+
+  return [
+    `--- a/${path}`,
+    `+++ b/${path}`,
+    "@@ write @@",
+    ...lines.map((line) => `+${line}`)
+  ].join("\n");
 }
 
 function extractToolResultText(value: Record<string, unknown> | null): string | null {

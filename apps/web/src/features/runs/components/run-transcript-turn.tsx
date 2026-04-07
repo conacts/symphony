@@ -226,6 +226,11 @@ export function RunTranscriptTurn(input: {
                   ) : (
                     <TaskItem>No file paths were captured for this write.</TaskItem>
                   )}
+                  {entry.diffText ? (
+                    <div className="pt-1">
+                      <CodeBlock code={entry.diffText} language="diff" />
+                    </div>
+                  ) : null}
                 </TaskContent>
               </Task>
             </div>

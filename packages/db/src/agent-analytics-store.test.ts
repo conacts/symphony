@@ -943,7 +943,10 @@ describe("sqlite agent analytics store", () => {
         path: "src/out.ts",
         lineCount: 2,
         contentBytes: 20,
-        bytesWritten: 24
+        bytesWritten: 24,
+        diffPreview:
+          "--- a/src/out.ts +++ b/src/out.ts @@ write @@ +export const x = 2; +",
+        diffOverflowId: null
       });
       expect(readTool).toMatchObject({
         piRead: {
@@ -982,7 +985,10 @@ describe("sqlite agent analytics store", () => {
           path: "src/out.ts",
           lineCount: 2,
           contentBytes: 20,
-          bytesWritten: 24
+          bytesWritten: 24,
+          diffPreview:
+            "--- a/src/out.ts +++ b/src/out.ts @@ write @@ +export const x = 2; +",
+          diffOverflowId: null
         }
       });
     } finally {

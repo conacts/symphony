@@ -549,6 +549,8 @@ describe("agent run view model", () => {
     expect(piWriteEntry?.writeCount).toBe(1);
     expect(piWriteEntry?.lineCount).toBe(2);
     expect(piWriteEntry?.paths).toEqual(["packages/db/src/index.ts"]);
+    expect(piWriteEntry?.diffText).toContain("@@ write @@");
+    expect(piWriteEntry?.diffText).toContain("+export const second = 2;");
     expect(piGrepEntry?.kind).toBe("pi-grep-task");
     expect(piGrepEntry?.grepCount).toBe(1);
     expect(piGrepEntry?.queries).toEqual([

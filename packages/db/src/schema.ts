@@ -320,6 +320,8 @@ export const piWritesTable = sqliteTable(
     lineCount: integer("line_count").notNull(),
     contentBytes: integer("content_bytes").notNull(),
     bytesWritten: integer("bytes_written"),
+    diffPreview: text("diff_preview"),
+    diffOverflowId: text("diff_overflow_id"),
     insertedAt: text("inserted_at").notNull(),
     updatedAt: text("updated_at").notNull()
   },

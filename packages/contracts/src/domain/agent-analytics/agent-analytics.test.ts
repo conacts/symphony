@@ -339,7 +339,9 @@ describe("agent analytics contracts", () => {
           path: "src/out.ts",
           lineCount: 2,
           contentBytes: 20,
-          bytesWritten: 24
+          bytesWritten: 24,
+          diffPreview: null,
+          diffOverflowId: null
         },
         insertedAt: "2026-04-03T20:37:38.000Z",
         updatedAt: "2026-04-03T20:37:39.000Z"

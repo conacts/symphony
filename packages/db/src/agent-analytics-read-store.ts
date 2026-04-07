@@ -1284,7 +1284,9 @@ function mapAgentToolCallRecords(
               path: piWrite.path,
               lineCount: piWrite.lineCount,
               contentBytes: piWrite.contentBytes,
-              bytesWritten: piWrite.bytesWritten
+              bytesWritten: piWrite.bytesWritten,
+              diffPreview: piWrite.diffPreview,
+              diffOverflowId: piWrite.diffOverflowId
             },
       piGrep:
         piGrep === undefined

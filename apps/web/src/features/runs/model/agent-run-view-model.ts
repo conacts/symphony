@@ -101,6 +101,7 @@ export type AgentRunTranscriptEntry =
       paths: string[];
       writeCount: number;
       lineCount: number;
+      diffText: string | null;
       contentBytes: number | null;
       bytesWritten: number | null;
       overflowId: string | null;
@@ -1019,9 +1020,17 @@ function mapTranscriptEntry(input: {
         lineCount:
           input.toolCall.piWrite?.lineCount ??
           extractPiWriteLineCount(input.toolCall.argumentsJson),
+        diffText:
+          input.toolCall.piWrite?.diffPreview ??
+          buildPiWriteDiff(
+            extractPiWritePaths(input.toolCall.argumentsJson)[0] ?? "unknown",
+            extractPiWriteContent(input.toolCall.argumentsJson)
+          ),
         contentBytes: input.toolCall.piWrite?.contentBytes ?? null,
         bytesWritten: input.toolCall.piWrite?.bytesWritten ?? null,
-        overflowId: input.toolCall.resultOverflowId
+        overflowId:
+          input.toolCall.piWrite?.diffOverflowId ??
+          input.toolCall.resultOverflowId
       };
     }
 
@@ -1385,6 +1394,7 @@ function compactTranscriptEntries(
         paths: uniquePaths([...previous.paths, ...entry.paths]),
         writeCount: previous.writeCount + entry.writeCount,
         lineCount: previous.lineCount + entry.lineCount,
+        diffText: joinTranscriptText(previous.diffText, entry.diffText),
         overflowId:
           previous.overflowId !== null && previous.overflowId === entry.overflowId
             ? previous.overflowId
@@ -1528,6 +1538,21 @@ function extractPiWriteLineCount(value: unknown): number {
   return content === null ? 1 : countTextLines(content);
 }
 
+function extractPiWriteContent(value: unknown): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return "";
+  }
+
+  return (
+    getAliasedStringValue(value as Record<string, unknown>, [
+      "content",
+      "text",
+      "fileText",
+      "file_text"
+    ]) ?? ""
+  );
+}
+
 function countPiEditLines(edits: PiEditBlock[]): number {
   return edits.reduce((total, edit) => {
     const oldLineCount = countTextLines(edit.oldText);
@@ -1566,6 +1591,15 @@ function buildPiEditDiff(edits: PiEditBlock[]): string | null {
 
 function extractPiWritePaths(value: unknown): string[] {
   return extractPiEditPaths(value);
+}
+
+function buildPiWriteDiff(path: string, content: string): string | null {
+  if (content.length === 0) {
+    return null;
+  }
+
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  return [`--- a/${path}`, `+++ b/${path}`, "@@ write @@", ...lines.map((line) => `+${line}`)].join("\n");
 }
 
 function extractPiGrepQueries(value: unknown): PiPatternTaskQuery[] {
