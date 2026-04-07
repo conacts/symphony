@@ -28,9 +28,9 @@ repo orchestration contract.
 
 Minimum env:
 
-- `LINEAR_API_KEY`
+- `LINEAR_API_KEY_<REPO>`
 - `GITHUB_TOKEN`
-- `SYMPHONY_SOURCE_REPO`
+- `SYMPHONY_SOURCE_REPOS`
 
 Supported overrides:
 
@@ -51,8 +51,8 @@ Short version:
 
 ```bash
 pnpm docker:workspace-image:build
-export SYMPHONY_SOURCE_REPO=/absolute/path/to/source-repo
-export LINEAR_API_KEY=...
+export SYMPHONY_SOURCE_REPOS=/absolute/path/to/source-repo
+export LINEAR_API_KEY_SYM=...
 export GITHUB_TOKEN=...
 pnpm --filter @symphony/api dev
 ```

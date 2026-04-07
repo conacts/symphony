@@ -6,11 +6,10 @@ This is the supported local path for Symphony. There is no supported local/workt
 
 - Docker daemon available locally
 - `codex` installed and authenticated
-- `lin` installed and authenticated when you want direct Linear CLI access
 - GitHub CLI auth when the agent needs `gh`
-- `LINEAR_API_KEY`
+- `LINEAR_API_KEY_<REPO>`
 - `GITHUB_TOKEN`
-- `SYMPHONY_SOURCE_REPO=/absolute/path/to/admitted-repo`
+- `SYMPHONY_SOURCE_REPOS=/absolute/path/to/admitted-repo`
 
 The admitted source repository must contain:
 
@@ -39,8 +38,8 @@ You only need `SYMPHONY_DOCKER_WORKSPACE_IMAGE` when overriding the default imag
 ## Start The Runtime
 
 ```bash
-export SYMPHONY_SOURCE_REPO=/absolute/path/to/admitted-repo
-export LINEAR_API_KEY=...
+export SYMPHONY_SOURCE_REPOS=/absolute/path/to/admitted-repo
+export LINEAR_API_KEY_SYM=...
 export GITHUB_TOKEN=...
 pnpm --filter @symphony/api dev
 ```

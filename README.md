@@ -37,11 +37,11 @@ cp symphony.env.example ~/.config/symphony/symphony.env
 pnpm dev:host
 ```
 
-`pnpm dev:host` forces `SYMPHONY_SOURCE_REPO` to this repository root, keeps the SQLite file at
-`./symphony.db`, and points the dashboard at the local API on `http://127.0.0.1:4400`. That avoids
-stale shell state accidentally booting Symphony against some other admitted repository. It also
-checks required env up front, installs the `linear` CLI on the host when missing, and refreshes the
-local workspace-runner image with normal Docker layer caching before startup.
+`pnpm dev:host` reads the local Symphony env file, keeps the SQLite file at `./symphony.db`, and
+points the dashboard at the local API on `http://127.0.0.1:4400`. That avoids stale shell state
+accidentally booting Symphony against some other admitted repository. It also checks required env
+up front and refreshes the local workspace-runner image with normal Docker layer caching before
+startup.
 
 ## Repo Routing
 
@@ -53,7 +53,8 @@ Symphony now uses a simple repo-routing convention:
 - if a repo uses a dedicated Linear token, its manifest should name the env key via `linear.apiKeyEnvKey`
 - the runtime admits one or more repo roots from `SYMPHONY_SOURCE_REPOS`
 - GitHub review webhooks route by `repository.full_name`
-- issue dispatch can target a non-default admitted repo by adding a Linear label in the form `repo:<owner>/<repo>`
+- issue dispatch resolves from the admitted repo's Linear binding first and uses
+  `repo:<owner>/<repo>` only as an explicit override/validation label
 - the repo picker shows the admitted repo key and its Linear scope in the header
 
 That keeps repo separation explicit without adding project-level tenancy or extra control-plane

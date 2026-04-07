@@ -38,8 +38,8 @@ Start the runtime:
 source /opt/homebrew/opt/nvm/nvm.sh && nvm use
 pnpm install
 pnpm docker:workspace-image:build
-export SYMPHONY_SOURCE_REPO=/absolute/path/to/admitted-repo
-export LINEAR_API_KEY=...
+export SYMPHONY_SOURCE_REPOS=/absolute/path/to/admitted-repo
+export LINEAR_API_KEY_SYM=...
 export GITHUB_TOKEN=...
 pnpm --filter @symphony/api dev
 ```
@@ -52,9 +52,6 @@ export SYMPHONY_GITHUB_WEBHOOK_SECRETS=owner-a/repo-a=secret-a,owner-b/repo-b=se
 pnpm --filter @symphony/api dev
 ```
 
-`SYMPHONY_SOURCE_REPO` remains supported as the single-repo shortcut. `SYMPHONY_SOURCE_REPOS`
-becomes the source of truth when running more than one admitted repo in one process.
-
 For self-host development on this repository with hot reload enabled for both the API and the
 dashboard:
 
@@ -66,10 +63,10 @@ cp symphony.env.example ~/.config/symphony/symphony.env
 pnpm dev:host
 ```
 
-`pnpm dev:host` forces `SYMPHONY_SOURCE_REPO` to the repository root, sets the dashboard runtime
-base URL to the local API, and keeps the runtime DB at `./symphony.db`. Use it instead of bare
-`pnpm dev` when the goal is to have Symphony improve this repository directly. It also fails fast on
-missing required env and auto-builds the local Docker runner image if it has not been built yet.
+`pnpm dev:host` reads the local Symphony env file, sets the dashboard runtime base URL to the local
+API, and keeps the runtime DB at `./symphony.db`. Use it instead of bare `pnpm dev` when the goal
+is to have Symphony improve this repository directly. It also fails fast on missing required env
+and auto-builds the local Docker runner image if it has not been built yet.
 
 Optional overrides:
 
@@ -125,7 +122,7 @@ Use this routing model consistently:
 - webhook secrets remain environment-owned, not repo-owned
 - use `SYMPHONY_GITHUB_WEBHOOK_SECRETS` for per-repo secrets when one process admits many repos
 - use a Linear label in the form `repo:<owner>/<repo>` to route an issue to a non-default admitted repo
-- if no `repo:` label is present, Symphony dispatches into the first admitted repo
+- if no `repo:` label is present, Symphony dispatches from the repo's Linear binding
 - the UI repo picker is repository-only; Linear project is not part of routing identity
 
 Example:
