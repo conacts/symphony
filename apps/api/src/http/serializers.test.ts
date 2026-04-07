@@ -44,11 +44,7 @@ describe("runtime serializers", () => {
       runtimePolicy.github.repo,
       issue.identifier,
       issue,
-      {
-        defaultModel: runtimePolicy.pi.defaultModel,
-        defaultPreset: runtimePolicy.pi.defaultPreset,
-        presets: runtimePolicy.pi.presets
-      }
+      runtimePolicy.pi
     );
 
     expect(serialized?.operator.pi.defaultModel).toBe("xiaomi/mimo-v2-pro");
@@ -95,11 +91,7 @@ describe("runtime serializers", () => {
       runtimePolicy.github.repo,
       issue.identifier,
       issue,
-      {
-        defaultModel: runtimePolicy.pi.defaultModel,
-        defaultPreset: runtimePolicy.pi.defaultPreset,
-        presets: runtimePolicy.pi.presets
-      }
+      runtimePolicy.pi
     );
 
     expect(serialized?.operator.pi.selectedModel).toBe("gpt-5.4");
@@ -221,7 +213,8 @@ describe("runtime serializers", () => {
       snapshot,
       buildSymphonyRuntimePolicy().github.repo,
       issue.identifier,
-      issue
+      issue,
+      buildSymphonyRuntimePolicy().pi
     );
 
     expect(serialized?.workspace).toEqual({
@@ -307,7 +300,8 @@ describe("runtime serializers", () => {
       }),
       buildSymphonyRuntimePolicy().github.repo,
       issue.identifier,
-      issue
+      issue,
+      buildSymphonyRuntimePolicy().pi
     );
 
     expect(serialized?.workspace).toEqual({

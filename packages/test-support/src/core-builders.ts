@@ -15,6 +15,7 @@ import {
 } from "@symphony/tracker";
 import {
   buildSymphonyDefaultPiPresets,
+  defaultSymphonyPiProfileDefaults,
   defaultSymphonyPiPresetName,
   type SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
@@ -26,6 +27,7 @@ let fixtureCounter = 0;
 export function buildSymphonyRuntimePolicy(
   overrides: Partial<SymphonyResolvedRuntimePolicy> = {}
 ): SymphonyResolvedRuntimePolicy {
+  const defaultPiProfileDefaults = defaultSymphonyPiProfileDefaults();
   const workspaceRoot =
     overrides.workspace?.root ?? path.join(tmpdir(), "symphony-test-workspaces");
   const githubStatePath =
@@ -72,15 +74,17 @@ export function buildSymphonyRuntimePolicy(
       ...overrides.agent
     },
     pi: {
-      profile: null,
-      defaultModel: null,
-      defaultReasoningEffort: null,
+      profile: defaultPiProfileDefaults.profile,
+      defaultModel: defaultPiProfileDefaults.defaultModel,
+      defaultReasoningEffort: defaultPiProfileDefaults.defaultReasoningEffort,
       defaultPreset: defaultSymphonyPiPresetName,
       presets: buildSymphonyDefaultPiPresets({
-        defaultModel: null,
-        defaultReasoningEffort: null
+        defaultModel: defaultPiProfileDefaults.defaultModel,
+        defaultReasoningEffort: defaultPiProfileDefaults.defaultReasoningEffort
       }),
-      provider: null,
+      provider: {
+        ...defaultPiProfileDefaults.provider
+      },
       turnTimeoutMs: 3_600_000,
       readTimeoutMs: 5_000,
       stallTimeoutMs: 300_000,

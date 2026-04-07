@@ -122,16 +122,15 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       services.runtimePolicy.tracker,
       path.issueIdentifier
     );
+    const piSelectionPolicy = resolveHarnessModelRuntimePolicy(
+      services.runtimePolicy
+    );
     const result = serializeRuntimeIssue(
       services.orchestrator.snapshot(),
       services.runtimePolicy.github.repo,
       path.issueIdentifier,
       trackedIssue,
-      {
-        defaultModel: resolveHarnessModelRuntimePolicy(services.runtimePolicy).defaultModel,
-        defaultPreset: resolveHarnessModelRuntimePolicy(services.runtimePolicy).defaultPreset,
-        presets: resolveHarnessModelRuntimePolicy(services.runtimePolicy).presets
-      }
+      piSelectionPolicy
     );
 
     if (!result) {

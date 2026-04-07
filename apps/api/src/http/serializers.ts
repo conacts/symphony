@@ -19,6 +19,18 @@ import {
   resolveAgentIssueModel
 } from "../core/agent-app-server-launch.js";
 
+export type RuntimeIssuePiSelectionPolicy = {
+  defaultModel: string | null;
+  defaultPreset: string;
+  presets: Record<
+    string,
+    {
+      model: string | null;
+      reasoningEffort: string | null;
+    }
+  >;
+};
+
 export function serializeRuntimeState(
   snapshot: SymphonyOrchestratorSnapshot
 ): SymphonyRuntimeStateResult {
@@ -76,17 +88,7 @@ export function serializeRuntimeIssue(
   githubRepository: string | null,
   issueIdentifier: string,
   trackedIssue: SymphonyTrackerIssue | null,
-  runtimePolicyDefaults?: {
-    defaultModel: string | null;
-    defaultPreset?: string | null;
-    presets?: Record<
-      string,
-      {
-        model: string | null;
-        reasoningEffort: string | null;
-      }
-    >;
-  }
+  piSelectionPolicy: RuntimeIssuePiSelectionPolicy
 ): SymphonyRuntimeIssueResult | null {
   const running = snapshot.running.find(
     (entry) => entry.issue.identifier === issueIdentifier
@@ -127,11 +129,9 @@ export function serializeRuntimeIssue(
     branchName
   );
   const workspace = running?.workspace ?? retry?.workspace ?? null;
-  const defaultModel =
-    runtimePolicyDefaults?.defaultModel ?? listSupportedAgentModels()[0] ?? null;
   const selectedModel = resolveAgentIssueModel(
     tracked,
-    runtimePolicyDefaults ?? (defaultModel ?? undefined)
+    piSelectionPolicy
   );
 
   return {
@@ -195,7 +195,7 @@ export function serializeRuntimeIssue(
       requeueHelpText:
         "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
       pi: {
-        defaultModel,
+        defaultModel: piSelectionPolicy.defaultModel,
         selectedModel,
         availableModels: listSupportedAgentModels(),
         modelOverrideLabelPrefix: agentModelLabelPrefix,
