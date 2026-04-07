@@ -31,61 +31,52 @@ export function createRepositoryScopedLinearTracker(input: {
     input.createTracker ??
     ((config: SymphonyTrackerConfig): SymphonyTracker =>
       createLinearSymphonyTracker({ config }));
-  const entries =
-    input.admittedRepositories.length > 0
-      ? input.admittedRepositories.map((repository) => ({
-          repositoryKey: repository.repositoryKey,
-          config: buildRepositoryLinearTrackerConfig(
-            input.trackerTemplate,
-            repository,
-            input.environmentSource
-          )
-        }))
-      : [
-          {
-            repositoryKey: "default",
-            config: input.trackerTemplate
-          }
-        ];
-  const trackers = new Map<string, RepositoryLinearTrackerEntry>(
-    entries.map((entry) => {
-      const tracker = createTracker(entry.config);
-      return [
-        entry.repositoryKey,
-        {
-          repositoryKey: entry.repositoryKey,
-          config: entry.config,
-          tracker
-        }
-      ] as const;
-    })
+  const trackerEntries = buildRepositoryLinearTrackerEntries({
+    trackerTemplate: input.trackerTemplate,
+    admittedRepositories: input.admittedRepositories,
+    environmentSource: input.environmentSource,
+    createTracker
+  });
+  const trackersByRepositoryKey = new Map(
+    trackerEntries.map((entry) => [entry.repositoryKey, entry] as const)
   );
   const issueRepositoryKeys = new Map<string, string>();
 
   return {
     async fetchCandidateIssues(config) {
       return await collectIssues(
-        trackers.values(),
+        trackerEntries,
         issueRepositoryKeys,
-        (entry) => entry.tracker.fetchCandidateIssues({ ...config, ...entry.config }),
+        (entry) =>
+          entry.tracker.fetchCandidateIssues(
+            mergeTrackerConfigs(config, entry.config)
+          ),
         false
       );
     },
 
     async fetchIssuesByStates(config, states) {
       return await collectIssues(
-        trackers.values(),
+        trackerEntries,
         issueRepositoryKeys,
-        (entry) => entry.tracker.fetchIssuesByStates({ ...config, ...entry.config }, states),
+        (entry) =>
+          entry.tracker.fetchIssuesByStates(
+            mergeTrackerConfigs(config, entry.config),
+            states
+          ),
         false
       );
     },
 
     async fetchIssueStatesByIds(config, issueIds) {
       return await collectIssues(
-        trackers.values(),
+        trackerEntries,
         issueRepositoryKeys,
-        (entry) => entry.tracker.fetchIssueStatesByIds({ ...config, ...entry.config }, issueIds),
+        (entry) =>
+          entry.tracker.fetchIssueStatesByIds(
+            mergeTrackerConfigs(config, entry.config),
+            issueIds
+          ),
         true
       );
     },
@@ -99,9 +90,9 @@ export function createRepositoryScopedLinearTracker(input: {
       let resolvedIssue: SymphonyTrackerIssue | null = null;
       let resolvedRepositoryKey: string | null = null;
 
-      for (const entry of trackers.values()) {
+      for (const entry of trackerEntries) {
         const issue = await entry.tracker.fetchIssueByIdentifier(
-          { ...config, ...entry.config },
+          mergeTrackerConfigs(config, entry.config),
           identifier
         );
 
@@ -125,7 +116,8 @@ export function createRepositoryScopedLinearTracker(input: {
 
     async createComment(issueId, body) {
       const entry = await resolveEntryForIssueId(
-        trackers,
+        trackerEntries,
+        trackersByRepositoryKey,
         issueRepositoryKeys,
         issueId
       );
@@ -134,13 +126,49 @@ export function createRepositoryScopedLinearTracker(input: {
 
     async updateIssueState(issueId, stateName) {
       const entry = await resolveEntryForIssueId(
-        trackers,
+        trackerEntries,
+        trackersByRepositoryKey,
         issueRepositoryKeys,
         issueId
       );
       await entry.tracker.updateIssueState(issueId, stateName);
     }
   };
+}
+
+function buildRepositoryLinearTrackerEntries(input: {
+  trackerTemplate: SymphonyTrackerConfig;
+  admittedRepositories: AdmittedRuntimeRepository[];
+  environmentSource: Record<string, string | undefined>;
+  createTracker: RepositoryLinearTrackerFactory;
+}): RepositoryLinearTrackerEntry[] {
+  const repositories =
+    input.admittedRepositories.length > 0
+      ? input.admittedRepositories
+      : [
+          {
+            repositoryKey: "default",
+            linearBinding: {
+              projectSlug: input.trackerTemplate.projectSlug,
+              teamKey: input.trackerTemplate.teamKey,
+              apiKeyEnvKey: null
+            }
+          } as AdmittedRuntimeRepository
+        ];
+
+  return repositories.map((repository) => {
+    const config = buildRepositoryLinearTrackerConfig(
+      input.trackerTemplate,
+      repository,
+      input.environmentSource
+    );
+
+    return {
+      repositoryKey: repository.repositoryKey,
+      config,
+      tracker: input.createTracker(config)
+    };
+  });
 }
 
 function buildRepositoryLinearTrackerConfig(
@@ -165,11 +193,21 @@ function buildRepositoryLinearTrackerConfig(
   };
 }
 
+function mergeTrackerConfigs(
+  base: SymphonyTrackerConfig,
+  override: SymphonyTrackerConfig
+): SymphonyTrackerConfig {
+  return {
+    ...base,
+    ...override
+  };
+}
+
 async function collectIssues(
   entries: Iterable<RepositoryLinearTrackerEntry>,
   issueRepositoryKeys: Map<string, string>,
   fetchIssues: (entry: RepositoryLinearTrackerEntry) => Promise<SymphonyTrackerIssue[]>,
-  requireUniqueIssueIds: boolean
+  dedupeIssueIds: boolean
 ): Promise<SymphonyTrackerIssue[]> {
   const resolvedIssues: SymphonyTrackerIssue[] = [];
   const seenIssueIds = new Set<string>();
@@ -179,14 +217,11 @@ async function collectIssues(
     for (const issue of issues) {
       cacheIssueRepository(issueRepositoryKeys, issue, entry.repositoryKey);
 
-      if (requireUniqueIssueIds) {
-        if (seenIssueIds.has(issue.id)) {
-          continue;
-        }
-
-        seenIssueIds.add(issue.id);
+      if (dedupeIssueIds && seenIssueIds.has(issue.id)) {
+        continue;
       }
 
+      seenIssueIds.add(issue.id);
       resolvedIssues.push(issue);
     }
   }
@@ -195,25 +230,33 @@ async function collectIssues(
 }
 
 async function resolveEntryForIssueId(
-  trackers: Map<string, RepositoryLinearTrackerEntry>,
+  trackerEntries: Iterable<RepositoryLinearTrackerEntry>,
+  trackersByRepositoryKey: Map<string, RepositoryLinearTrackerEntry>,
   issueRepositoryKeys: Map<string, string>,
   issueId: string
 ): Promise<RepositoryLinearTrackerEntry> {
   const cachedRepositoryKey = issueRepositoryKeys.get(issueId);
   if (cachedRepositoryKey) {
-    return requireTrackerEntry(trackers, cachedRepositoryKey);
+    return requireTrackerEntry(trackersByRepositoryKey, cachedRepositoryKey);
   }
 
-  if (trackers.size === 1) {
-    const onlyEntry = trackers.values().next().value as RepositoryLinearTrackerEntry;
-    cacheIssueRepository(issueRepositoryKeys, { id: issueId } as SymphonyTrackerIssue, onlyEntry.repositoryKey);
+  const entries = [...trackerEntries];
+  if (entries.length === 1) {
+    const onlyEntry = entries[0]!;
+    cacheIssueRepository(
+      issueRepositoryKeys,
+      { id: issueId } as SymphonyTrackerIssue,
+      onlyEntry.repositoryKey
+    );
     return onlyEntry;
   }
 
   let resolvedEntry: RepositoryLinearTrackerEntry | null = null;
 
-  for (const entry of trackers.values()) {
-    const issues = await entry.tracker.fetchIssueStatesByIds(entry.config, [issueId]);
+  for (const entry of entries) {
+    const issues = await entry.tracker.fetchIssueStatesByIds(entry.config, [
+      issueId
+    ]);
     if (issues.length === 0) {
       continue;
     }
@@ -240,10 +283,10 @@ async function resolveEntryForIssueId(
 }
 
 function requireTrackerEntry(
-  trackers: Map<string, RepositoryLinearTrackerEntry>,
+  trackersByRepositoryKey: Map<string, RepositoryLinearTrackerEntry>,
   repositoryKey: string
 ): RepositoryLinearTrackerEntry {
-  const entry = trackers.get(repositoryKey);
+  const entry = trackersByRepositoryKey.get(repositoryKey);
   if (!entry) {
     throw new TypeError(
       `Issue references unknown admitted repository ${JSON.stringify(repositoryKey)}.`
