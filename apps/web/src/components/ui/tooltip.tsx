@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
 
 import { cn } from "@/lib/utils"
@@ -21,8 +22,28 @@ function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
   return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
 }
 
-function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
+type TooltipTriggerProps = TooltipPrimitive.Trigger.Props & {
+  asChild?: boolean
+}
+
+function TooltipTrigger({
+  asChild,
+  children,
+  render,
+  ...props
+}: TooltipTriggerProps) {
+  const resolvedRender =
+    render ?? (asChild ? extractSingleChildElement(children) : undefined)
+
+  return (
+    <TooltipPrimitive.Trigger
+      data-slot="tooltip-trigger"
+      render={resolvedRender}
+      {...props}
+    >
+      {resolvedRender ? null : children}
+    </TooltipPrimitive.Trigger>
+  )
 }
 
 function TooltipContent({
@@ -61,6 +82,16 @@ function TooltipContent({
       </TooltipPrimitive.Positioner>
     </TooltipPrimitive.Portal>
   )
+}
+
+function extractSingleChildElement(
+  children: React.ReactNode
+): React.ReactElement | undefined {
+  if (!React.isValidElement(children)) {
+    return undefined
+  }
+
+  return children
 }
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
