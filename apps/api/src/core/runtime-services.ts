@@ -59,6 +59,7 @@ import {
 } from "./runtime-github-client.js";
 import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
 import { createAgentAnalyticsReadPort } from "./agent-analytics-read-port.js";
+import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -567,26 +568,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       return await shutdownPromise;
     }
   };
-}
-
-function resolveRuntimeRepositoryKey(input: {
-  sourceRepo: string | null;
-  githubRepo: string | null;
-}): string {
-  const githubRepo = input.githubRepo?.trim();
-
-  if (githubRepo) {
-    return githubRepo;
-  }
-
-  const sourceRepo = input.sourceRepo?.trim();
-
-  if (!sourceRepo) {
-    return "default";
-  }
-
-  const segments = sourceRepo.split("/").filter((segment) => segment.length > 0);
-  return segments.at(-1) ?? "default";
 }
 
 function applyRuntimeManifestPiPolicy(

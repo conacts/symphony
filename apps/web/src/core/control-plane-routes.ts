@@ -3,26 +3,27 @@ export type ControlPlaneBreadcrumbRoute = {
   href?: string;
 };
 
-export type ControlPlaneRepoScope = {
-  repo?: string | null;
-};
+import {
+  buildRepoScopedHref,
+  type ControlPlaneRepoScope
+} from "@/core/control-plane-repo-scope";
 
 export function buildIssuesHref(scope?: ControlPlaneRepoScope): string {
-  return buildScopedHref("/issues", scope);
+  return buildRepoScopedHref("/issues", scope);
 }
 
 export function buildIssueHref(
   issueIdentifier: string,
   scope?: ControlPlaneRepoScope
 ): string {
-  return buildScopedHref(`/issues/${encodeURIComponent(issueIdentifier)}`, scope);
+  return buildRepoScopedHref(`/issues/${encodeURIComponent(issueIdentifier)}`, scope);
 }
 
 export function buildIssueTimelineHref(
   issueIdentifier: string,
   scope?: ControlPlaneRepoScope
 ): string {
-  return buildScopedHref(
+  return buildRepoScopedHref(
     `/issues/${encodeURIComponent(issueIdentifier)}/timeline`,
     scope
   );
@@ -33,7 +34,7 @@ export function buildIssueRunHref(
   runId: string,
   scope?: ControlPlaneRepoScope
 ): string {
-  return buildScopedHref(
+  return buildRepoScopedHref(
     `/issues/${encodeURIComponent(issueIdentifier)}/runs/${encodeURIComponent(runId)}`,
     scope
   );
@@ -44,7 +45,7 @@ export function buildIssueRunTurnsHref(
   runId: string,
   scope?: ControlPlaneRepoScope
 ): string {
-  return buildScopedHref(
+  return buildRepoScopedHref(
     `/issues/${encodeURIComponent(issueIdentifier)}/runs/${encodeURIComponent(runId)}/turns`,
     scope
   );
@@ -56,14 +57,14 @@ export function buildIssueRunTurnHref(
   turnId: string,
   scope?: ControlPlaneRepoScope
 ): string {
-  return buildScopedHref(
+  return buildRepoScopedHref(
     `/issues/${encodeURIComponent(issueIdentifier)}/runs/${encodeURIComponent(runId)}/turns/${encodeURIComponent(turnId)}`,
     scope
   );
 }
 
 export function buildLegacyRunHref(runId: string, scope?: ControlPlaneRepoScope): string {
-  return buildScopedHref(`/runs/${encodeURIComponent(runId)}`, scope);
+  return buildRepoScopedHref(`/runs/${encodeURIComponent(runId)}`, scope);
 }
 
 export function buildIssueBreadcrumbRoutes(
@@ -118,26 +119,4 @@ export function buildIssueRunTurnBreadcrumbRoutes(
     ...buildIssueRunTurnsBreadcrumbRoutes(issueIdentifier, runId, scope),
     { label: turnId, href: buildIssueRunTurnHref(issueIdentifier, runId, turnId, scope) }
   ];
-}
-
-function buildScopedHref(pathname: string, scope?: ControlPlaneRepoScope): string {
-  const repo = normalizeRepoScope(scope?.repo);
-
-  if (!repo) {
-    return pathname;
-  }
-
-  const searchParams = new URLSearchParams({
-    repo
-  });
-  return `${pathname}?${searchParams.toString()}`;
-}
-
-function normalizeRepoScope(value: string | null | undefined): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : null;
 }
