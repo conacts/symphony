@@ -12,6 +12,9 @@ const dashboardPort = normalizePort(
 const runtimeBaseUrl =
   normalizeText(process.env.SYMPHONY_RUNTIME_BASE_URL) ??
   `http://127.0.0.1:${apiPort}`;
+const dockerImage =
+  normalizeText(process.env.SYMPHONY_DOCKER_WORKSPACE_IMAGE) ??
+  "symphony/workspace-runner:local";
 const baseEnv = {
   ...process.env,
   SYMPHONY_SOURCE_REPO: repoRoot,
@@ -23,6 +26,8 @@ const baseEnv = {
     normalizeText(process.env.NEXT_PUBLIC_SYMPHONY_RUNTIME_BASE_URL) ??
     runtimeBaseUrl
 };
+const requiredEnvKeys = ["LINEAR_API_KEY"];
+const recommendedEnvKeys = ["GITHUB_TOKEN"];
 const services = [
   {
     name: "@symphony/api",
@@ -45,6 +50,8 @@ const services = [
     }
   }
 ];
+
+await runPreflight();
 
 const buildArgs = [
   "exec",
@@ -74,6 +81,36 @@ build.on("exit", (code, signal) => {
   runServices(services);
 });
 
+async function runPreflight() {
+  const missingRequired = requiredEnvKeys.filter(
+    (key) => normalizeText(baseEnv[key]) === null
+  );
+
+  if (missingRequired.length > 0) {
+    const envFilePath = path.join(
+      process.env.HOME ?? "~",
+      ".config/symphony/symphony.env"
+    );
+    process.stderr.write(
+      `Missing required environment variables: ${missingRequired.join(", ")}.\n` +
+        `Set them in the shell or ${envFilePath} before running dev:host.\n`
+    );
+    process.exit(1);
+  }
+
+  const missingRecommended = recommendedEnvKeys.filter(
+    (key) => normalizeText(baseEnv[key]) === null
+  );
+
+  if (missingRecommended.length > 0) {
+    process.stdout.write(
+      `Continuing without optional environment variables: ${missingRecommended.join(", ")}.\n`
+    );
+  }
+
+  await ensureDockerImage();
+}
+
 function normalizeText(value) {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
@@ -94,6 +131,40 @@ function normalizePort(value, fallback) {
   }
 
   return parsed;
+}
+
+async function ensureDockerImage() {
+  const inspectExitCode = await runCommand(
+    "docker",
+    ["image", "inspect", dockerImage],
+    {
+      cwd: repoRoot,
+      env: baseEnv,
+      stdio: "ignore"
+    }
+  );
+
+  if (inspectExitCode === 0) {
+    return;
+  }
+
+  process.stdout.write(
+    `Workspace runner image ${dockerImage} is missing. Building it now.\n`
+  );
+
+  const buildExitCode = await runCommand(
+    "pnpm",
+    ["docker:workspace-image:build"],
+    {
+      cwd: repoRoot,
+      env: baseEnv,
+      stdio: "inherit"
+    }
+  );
+
+  if (buildExitCode !== 0) {
+    process.exit(buildExitCode);
+  }
 }
 
 function runServices(definitions) {
@@ -143,4 +214,13 @@ function runServices(definitions) {
 
   process.once("SIGINT", () => shutdown("SIGINT"));
   process.once("SIGTERM", () => shutdown("SIGTERM"));
+}
+
+function runCommand(command, args, options) {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, options);
+    child.on("exit", (code, signal) => {
+      resolve(code ?? (signal ? 1 : 0));
+    });
+  });
 }

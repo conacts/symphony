@@ -50,12 +50,13 @@ pnpm install
 pnpm docker:workspace-image:build
 mkdir -p ~/.config/symphony
 cp symphony.env.example ~/.config/symphony/symphony.env
-pnpm dev:self
+pnpm dev:host
 ```
 
-`pnpm dev:self` forces `SYMPHONY_SOURCE_REPO` to the repository root, sets the dashboard runtime
+`pnpm dev:host` forces `SYMPHONY_SOURCE_REPO` to the repository root, sets the dashboard runtime
 base URL to the local API, and keeps the runtime DB at `./symphony.db`. Use it instead of bare
-`pnpm dev` when the goal is to have Symphony improve this repository directly.
+`pnpm dev` when the goal is to have Symphony improve this repository directly. It also fails fast on
+missing required env and auto-builds the local Docker runner image if it has not been built yet.
 
 Optional overrides:
 
