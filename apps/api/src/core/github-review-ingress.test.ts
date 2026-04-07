@@ -1,32 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { createMemorySymphonyTracker } from "@symphony/tracker";
 import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
 import {
-  buildSymphonyGitHubIssueCommentPayload,
-  buildSymphonyGitHubWebhookHeaders,
-  buildSymphonyRuntimePolicy,
-  buildSymphonyTrackerIssue,
-  signSymphonyGitHubWebhook
+  buildSymphonyManualReworkIngressFixture
 } from "@symphony/test-support";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 
 describe("github review ingress", () => {
   it("processes a manual /rework webhook once and suppresses semantic duplicates", async () => {
-    const issue = buildSymphonyTrackerIssue({
-      state: "In Review",
-      branchName: "symphony/COL-123"
-    });
-    const baseRuntimePolicy = buildSymphonyRuntimePolicy();
-    const runtimePolicy = {
-      ...baseRuntimePolicy,
-      github: {
-        ...baseRuntimePolicy.github,
-        repo: "openai/symphony",
-        webhookSecret: "secret",
-        allowedReworkCommentLogins: ["reviewer"]
-      }
-    };
-    const tracker = createMemorySymphonyTracker([issue]);
+    const fixture = buildSymphonyManualReworkIngressFixture();
     const processedResults: Array<{
       status: string;
       issueIdentifier?: string | null;
@@ -34,17 +15,19 @@ describe("github review ingress", () => {
     let refreshCount = 0;
 
     const ingress = createSymphonyGitHubReviewIngressService({
-      githubPolicy: runtimePolicy.github,
+      githubPolicy: fixture.runtimePolicy.github,
       reviewProcessor: new SymphonyGithubReviewProcessor({
         policyConfig: {
-          tracker: runtimePolicy.tracker,
-          github: runtimePolicy.github
+          tracker: fixture.runtimePolicy.tracker,
+          github: fixture.runtimePolicy.github
         },
-        tracker,
+        tracker: fixture.tracker,
         pullRequestResolver: {
           async fetchPullRequest() {
             return {
-              headRef: issue.branchName ?? `symphony/${issue.identifier}`,
+              headRef:
+                fixture.issue.branchName ??
+                `symphony/${fixture.issue.identifier}`,
               htmlUrl: "https://github.com/openai/symphony/pull/123"
             };
           },
@@ -59,27 +42,8 @@ describe("github review ingress", () => {
       }
     });
 
-    const rawBody = JSON.stringify(buildSymphonyGitHubIssueCommentPayload());
-    const signature = signSymphonyGitHubWebhook(rawBody, "secret");
-
-    const first = await ingress.ingest({
-      headers: buildSymphonyGitHubWebhookHeaders({
-        xGitHubDelivery: "delivery-1",
-        xGitHubEvent: "issue_comment",
-        xHubSignature256: signature
-      }),
-      body: JSON.parse(rawBody),
-      rawBody
-    });
-    const duplicateSemantic = await ingress.ingest({
-      headers: buildSymphonyGitHubWebhookHeaders({
-        xGitHubDelivery: "delivery-2",
-        xGitHubEvent: "issue_comment",
-        xHubSignature256: signature
-      }),
-      body: JSON.parse(rawBody),
-      rawBody
-    });
+    const first = await ingress.ingest(fixture.firstRequest);
+    const duplicateSemantic = await ingress.ingest(fixture.duplicateRequest);
 
     expect(first).toMatchObject({
       accepted: true,
@@ -96,7 +60,7 @@ describe("github review ingress", () => {
     expect(processedResults).toHaveLength(1);
     expect(processedResults[0]).toMatchObject({
       status: "requeued",
-      issueIdentifier: issue.identifier
+      issueIdentifier: fixture.issue.identifier
     });
     expect(refreshCount).toBe(1);
   });

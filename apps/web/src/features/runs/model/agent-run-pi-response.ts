@@ -9,7 +9,8 @@ import {
   formatTimestamp
 } from "@/core/display-formatters";
 import { sortCounts } from "@/core/counts";
-import type { AgentRunViewModel, PiResponseMetadata } from "./agent-run-view-model";
+import type { AgentRunViewModel } from "./agent-run-view-model";
+import type { PiResponseMetadata } from "./agent-run-transcript";
 
 type PiResponseRecord = PiResponseMetadata & {
   recordedAt: string;

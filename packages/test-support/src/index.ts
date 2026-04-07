@@ -18,6 +18,11 @@ export {
   buildSymphonyGitHubWebhookHeaders,
   signSymphonyGitHubWebhook
 } from "./github-builders.js";
+export type {
+  SymphonyGitHubIngressRequestFixture,
+  SymphonyManualReworkIngressFixture
+} from "./github-review-flow-builders.js";
+export { buildSymphonyManualReworkIngressFixture } from "./github-review-flow-builders.js";
 export {
   buildSymphonyForensicsIssueDetailResult,
   buildSymphonyForensicsIssueListResult,

@@ -532,7 +532,7 @@ describe("agent run view model", () => {
     );
     expect(reasoningEntry?.kind).toBe("reasoning");
     expect(reasoningEntry?.segmentCount).toBe(2);
-    expect(reasoningEntry?.preview).toContain(
+    expect(reasoningEntry?.contentText).toContain(
       "Checking the pending task queue before continuing."
     );
     expect(piReadEntry?.kind).toBe("pi-read-task");
@@ -557,6 +557,7 @@ describe("agent run view model", () => {
       {
         pattern: "agentRun",
         path: "packages/db/src",
+        scopeLabel: "in packages/db/src",
         ignoreCase: true
       }
     ]);
@@ -565,17 +566,19 @@ describe("agent run view model", () => {
     expect(piFindEntry?.queries).toEqual([
       {
         pattern: "agent-analytics-read-store.ts",
-        path: "packages"
+        path: "packages",
+        scopeLabel: "in packages",
+        ignoreCase: false
       }
     ]);
     expect(todoEntry?.kind).toBe("todo-list");
-    expect(todoEntry?.markdown).toContain("**Steering**");
-    expect(todoEntry?.markdown).toContain("- [ ] Keep the patch scoped");
-    expect(todoEntry?.markdown).toContain("**Follow-up**");
-    expect(todoEntry?.markdown).toContain(
+    expect(todoEntry?.markdownText).toContain("**Steering**");
+    expect(todoEntry?.markdownText).toContain("- [ ] Keep the patch scoped");
+    expect(todoEntry?.markdownText).toContain("**Follow-up**");
+    expect(todoEntry?.markdownText).toContain(
       "- In progress: Create internal billing summaries DB action"
     );
-    expect(todoEntry?.markdown).toContain("- [x] Run verification flows");
+    expect(todoEntry?.markdownText).toContain("- [x] Run verification flows");
   });
 
   it("formats overflow payloads as readable text", () => {
