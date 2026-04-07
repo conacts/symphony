@@ -18,7 +18,8 @@ export type AdmittedRuntimeRepository = {
 };
 
 export async function loadAdmittedRuntimeRepositories(
-  sourceRepos: string[]
+  sourceRepos: string[],
+  environmentSource: Record<string, string | undefined>
 ): Promise<AdmittedRuntimeRepository[]> {
   const admittedRepositories: AdmittedRuntimeRepository[] = [];
   const seenRepositoryKeys = new Set<string>();
@@ -27,6 +28,7 @@ export async function loadAdmittedRuntimeRepositories(
     const repoRoot = path.resolve(sourceRepo);
     const runtimeContract = await loadSymphonyRuntimeContract(repoRoot);
     const repositoryKey = runtimeContract.runtimeManifest.manifest.repositoryKey;
+    const linearBinding = runtimeContract.runtimeManifest.manifest.linear;
 
     if (seenRepositoryKeys.has(repositoryKey)) {
       throw new TypeError(
@@ -34,11 +36,17 @@ export async function loadAdmittedRuntimeRepositories(
       );
     }
 
+    ensureLinearAuthEnvironment(
+      repositoryKey,
+      linearBinding.apiKeyEnvKey,
+      environmentSource
+    );
+
     seenRepositoryKeys.add(repositoryKey);
     admittedRepositories.push({
       repositoryKey,
       repoRoot,
-      linearBinding: runtimeContract.runtimeManifest.manifest.linear,
+      linearBinding,
       promptContract: runtimeContract.promptContract,
       runtimeManifest: runtimeContract.runtimeManifest
     });
@@ -59,5 +67,24 @@ export function findAdmittedRepository(
     admittedRepositories.find(
       (repository) => repository.repositoryKey === repositoryKey
     ) ?? null
+  );
+}
+
+function ensureLinearAuthEnvironment(
+  repositoryKey: string,
+  apiKeyEnvKey: string | null,
+  environmentSource: Record<string, string | undefined>
+): void {
+  if (!apiKeyEnvKey) {
+    return;
+  }
+
+  const apiKey = environmentSource[apiKeyEnvKey];
+  if (typeof apiKey === "string" && apiKey.trim().length > 0) {
+    return;
+  }
+
+  throw new TypeError(
+    `Admitted repository ${JSON.stringify(repositoryKey)} requires ${apiKeyEnvKey}, but that environment variable is missing.`
   );
 }

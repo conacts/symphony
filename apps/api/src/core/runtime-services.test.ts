@@ -128,6 +128,47 @@ describe("runtime services", () => {
     ).rejects.toThrowError(/Required host environment variable OPENAI_API_KEY is missing/i);
   });
 
+  it("fails fast when an admitted repo declares a Linear auth env key that is missing", async () => {
+    await expect(
+      createSymphonyRuntimeAppServicesHarness({
+        runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
+          schemaVersion: 1,
+          repositoryKey: "openai/symphony",
+          linear: {
+            projectSlug: "symphony",
+            apiKeyEnvKey: "LINEAR_API_KEY_SYM"
+          },
+          workspace: {
+            packageManager: "pnpm",
+            workingDirectory: "."
+          },
+          env: {
+            host: {
+              required: [],
+              optional: []
+            },
+            inject: {}
+          },
+          lifecycle: {
+            bootstrap: [],
+            migrate: [],
+            verify: [
+              {
+                name: "verify",
+                run: "pnpm test"
+              }
+            ],
+            seed: [],
+            cleanup: []
+          }
+        }) as never),
+        hostCommandEnvSource: {
+          OPENAI_API_KEY: "test-openai-api-key"
+        }
+      })
+    ).rejects.toThrowError(/requires LINEAR_API_KEY_SYM/i);
+  });
+
   it("fails fast when docker-backed runs do not have Pi auth or a provider api key", async () => {
     await expect(
       createSymphonyRuntimeAppServicesHarness({
@@ -378,6 +419,8 @@ describe("runtime services", () => {
       env,
       environmentSource,
       {
+        LINEAR_API_KEY_COLD: "test-linear-api-key-cold",
+        LINEAR_API_KEY_SYM: "test-linear-api-key-sym",
         OPENROUTER_API_KEY: "test-openrouter-api-key"
       }
     );
