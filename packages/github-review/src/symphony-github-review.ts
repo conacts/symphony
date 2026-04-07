@@ -6,8 +6,7 @@ import {
 } from "@symphony/tracker";
 import {
   autoRequeueCommentBody,
-  buildSymphonyGitHubReviewContextUrl,
-  notInReviewCommentBody
+  buildSymphonyGitHubReviewContextUrl
 } from "./symphony-github-review-comments.js";
 import {
   extractSymphonyGithubReviewSignal,
@@ -97,11 +96,7 @@ export class SymphonyGithubReviewProcessor {
     );
 
     const githubAcknowledgement =
-      result.status === "requeued"
-        ? "Queued rework via Symphony."
-        : result.reason === "not_in_review"
-          ? notInReviewCommentBody()
-          : null;
+      result.status === "requeued" ? "Queued rework via Symphony." : null;
 
     if (
       githubAcknowledgement &&

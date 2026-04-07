@@ -5,6 +5,7 @@ import type {
 } from "./symphony-github-review-types.js";
 
 const reworkCommandPattern = /^\/rework(?:\s+(?<context>[\s\S]+))?$/u;
+const defaultReviewCommentLogin = "chatgpt-codex-connector";
 
 export function extractSymphonyGithubReviewSignal(
   policyConfig: SymphonyGitHubReviewPolicyConfig,
@@ -109,7 +110,7 @@ function shouldAcceptReviewComment(
   authorLogin: string | null
 ): boolean {
   if (allowedReviewCommentLogins.size === 0) {
-    return true;
+    return authorLogin === defaultReviewCommentLogin;
   }
 
   return authorLogin ? allowedReviewCommentLogins.has(authorLogin) : false;

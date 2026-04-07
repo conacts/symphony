@@ -193,7 +193,7 @@ describe("symphony github review policy", () => {
     expect(signal?.kind).toBe("review_comment");
   });
 
-  it("accepts plain PR comments as review comments when no review-comment allowlist is configured", () => {
+  it("defaults plain PR review comments to the Codex connector when no review-comment allowlist is configured", () => {
     const policyConfig = buildSymphonyGitHubReviewPolicyConfig();
 
     const signal = extractSymphonyGithubReviewSignal(
@@ -203,13 +203,32 @@ describe("symphony github review policy", () => {
           issueNumber: 123,
           commentId: 790,
           commentBody: "Please address this before merge.",
-          authorLogin: "some-private-repo-reviewer",
+          authorLogin: "chatgpt-codex-connector",
           pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
         }
       })
     );
 
     expect(signal?.kind).toBe("review_comment");
+  });
+
+  it("ignores plain PR comments from other authors when no review-comment allowlist is configured", () => {
+    const policyConfig = buildSymphonyGitHubReviewPolicyConfig();
+
+    const signal = extractSymphonyGithubReviewSignal(
+      policyConfig,
+      buildSymphonyGithubIssueCommentEvent({
+        payload: {
+          issueNumber: 123,
+          commentId: 791,
+          commentBody: "Please address this before merge.",
+          authorLogin: "some-private-repo-reviewer",
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
+        }
+      })
+    );
+
+    expect(signal).toBeNull();
   });
 
   it("requeues issues in review through tracker state transitions and comments", async () => {
@@ -435,7 +454,7 @@ describe("symphony github review policy", () => {
     ]);
   });
 
-  it("requeues issues in review from generic PR comments when no review-comment allowlist is configured", async () => {
+  it("requeues issues in review from Codex connector PR comments when no review-comment allowlist is configured", async () => {
     const policyConfig = buildSymphonyGitHubReviewPolicyConfig();
 
     const tracker = createMemorySymphonyTracker([
@@ -461,9 +480,9 @@ describe("symphony github review policy", () => {
       buildSymphonyGithubIssueCommentEvent({
         payload: {
           issueNumber: 123,
-          commentId: 790,
+          commentId: 792,
           commentBody: "Please tighten the validation logic before merge.",
-          authorLogin: "some-private-repo-reviewer",
+          authorLogin: "chatgpt-codex-connector",
           pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
         }
       })
@@ -474,9 +493,9 @@ describe("symphony github review policy", () => {
       issueIdentifier: "COL-123",
       handoff: {
         triggerKind: "review_comment",
-        actorLogin: "some-private-repo-reviewer",
+        actorLogin: "chatgpt-codex-connector",
         reviewContextUrl:
-          "https://github.com/openai/symphony/pull/123#issuecomment-790",
+          "https://github.com/openai/symphony/pull/123#issuecomment-792",
         feedbackBody: "Please tighten the validation logic before merge."
       }
     });
@@ -490,7 +509,7 @@ describe("symphony github review policy", () => {
       {
         kind: "comment",
         issueId: "issue-123",
-        body: expect.stringContaining("issuecomment-790")
+        body: expect.stringContaining("issuecomment-792")
       }
     ]);
   });
@@ -530,6 +549,60 @@ describe("symphony github review policy", () => {
       status: "skipped",
       issueIdentifier: "COL-404",
       reason: "issue_not_found"
+    });
+    expect(githubComments).toEqual([]);
+  });
+
+  it("does not post a GitHub acknowledgement when the linked issue is no longer in review", async () => {
+    const policyConfig = buildSymphonyGitHubReviewPolicyConfig();
+
+    const tracker = createMemorySymphonyTracker([
+      buildSymphonyTrackerIssue({
+        state: "In Progress"
+      })
+    ]);
+    const githubComments: Array<{
+      repository: string;
+      issueNumber: number;
+      body: string;
+    }> = [];
+
+    const processor = new SymphonyGithubReviewProcessor({
+      policyConfig,
+      tracker,
+      pullRequestResolver: {
+        async fetchPullRequest() {
+          return {
+            headRef: "symphony/COL-123",
+            htmlUrl: "https://github.com/openai/symphony/pull/123"
+          };
+        },
+        async createIssueComment(repository, issueNumber, body) {
+          githubComments.push({
+            repository,
+            issueNumber,
+            body
+          });
+        }
+      }
+    });
+
+    const result = await processor.processEvent(
+      buildSymphonyGithubIssueCommentEvent({
+        payload: {
+          issueNumber: 123,
+          commentId: 791,
+          commentBody: "Please address this before merge.",
+          authorLogin: "chatgpt-codex-connector",
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
+        }
+      })
+    );
+
+    expect(result).toEqual({
+      status: "skipped",
+      issueIdentifier: "COL-123",
+      reason: "not_in_review"
     });
     expect(githubComments).toEqual([]);
   });

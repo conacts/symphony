@@ -227,7 +227,13 @@ export function renderSymphonyPromptContract(input: {
     );
   }
 
-  return appendSymphonyHarnessPromptAppendix(rendered);
+  const withFallbackReworkHandoff = appendFallbackReworkHandoff(
+    rendered,
+    input.payload.rework_handoff ?? null,
+    segments
+  );
+
+  return appendSymphonyHarnessPromptAppendix(withFallbackReworkHandoff);
 }
 
 export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContractPayload {
@@ -280,6 +286,36 @@ function appendSymphonyHarnessPromptAppendix(rendered: string): string {
   }
 
   return `${rendered.trimEnd()}\n\n${symphonyHarnessPromptAppendix}\n`;
+}
+
+function appendFallbackReworkHandoff(
+  rendered: string,
+  reworkHandoff: string | null,
+  segments: Array<
+    | {
+        kind: "text";
+        value: string;
+      }
+    | {
+        kind: "expression";
+        value: string;
+      }
+  >
+): string {
+  const normalizedHandoff = reworkHandoff?.trim() ?? "";
+  if (normalizedHandoff === "") {
+    return rendered;
+  }
+
+  const templateIncludesHandoff = segments.some(
+    (segment) =>
+      segment.kind === "expression" && segment.value === "rework_handoff"
+  );
+  if (templateIncludesHandoff || rendered.includes(normalizedHandoff)) {
+    return rendered;
+  }
+
+  return `${rendered.trimEnd()}\n\n${normalizedHandoff}\n`;
 }
 
 function resolvePromptContractPath(

@@ -161,6 +161,60 @@ describe("prompt contract", () => {
 
     expect(SymphonyRuntimePromptError).toBe(SymphonyPromptContractError);
   });
+
+  it("appends the rework handoff when the repo prompt omits the handoff slot", () => {
+    const payload = {
+      ...buildMockSymphonyPromptContractPayload(),
+      rework_handoff: [
+        "Rework handoff:",
+        "- Review context: https://github.com/openai/symphony/pull/123#issuecomment-456"
+      ].join("\n")
+    };
+
+    expect(
+      renderSymphonyPromptContract({
+        template: "Issue {{ issue.identifier }}",
+        payload
+      })
+    ).toBe(
+      [
+        "Issue ENG-123",
+        "",
+        "Rework handoff:",
+        "- Review context: https://github.com/openai/symphony/pull/123#issuecomment-456",
+        "",
+        symphonyHarnessPromptAppendix,
+        ""
+      ].join("\n")
+    );
+  });
+
+  it("does not duplicate the rework handoff when the repo prompt already renders it", () => {
+    const payload = {
+      ...buildMockSymphonyPromptContractPayload(),
+      rework_handoff: [
+        "Rework handoff:",
+        "- Review context: https://github.com/openai/symphony/pull/123#issuecomment-456"
+      ].join("\n")
+    };
+
+    expect(
+      renderSymphonyPromptContract({
+        template: ["Issue {{ issue.identifier }}", "", "{{ rework_handoff }}"].join("\n"),
+        payload
+      })
+    ).toBe(
+      [
+        "Issue ENG-123",
+        "",
+        "Rework handoff:",
+        "- Review context: https://github.com/openai/symphony/pull/123#issuecomment-456",
+        "",
+        symphonyHarnessPromptAppendix,
+        ""
+      ].join("\n")
+    );
+  });
 });
 
 async function createTempRepo(): Promise<string> {
