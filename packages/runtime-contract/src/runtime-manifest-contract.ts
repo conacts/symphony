@@ -102,10 +102,21 @@ export type SymphonyRuntimeWorkspace = {
   workingDirectory?: string;
 };
 
+export type SymphonyRuntimePiPreset = {
+  model: string;
+  reasoningEffort?: string;
+};
+
+export type SymphonyRuntimePiConfig = {
+  defaultPreset: string;
+  presets: Record<string, SymphonyRuntimePiPreset>;
+};
+
 export type SymphonyRuntimeManifest = {
   schemaVersion: SymphonyRuntimeManifestSchemaVersion;
   workspace: SymphonyRuntimeWorkspace;
   services?: Record<string, SymphonyRuntimeService>;
+  pi?: SymphonyRuntimePiConfig;
   env: SymphonyRuntimeEnv;
   lifecycle: SymphonyRuntimeLifecycle;
 };
@@ -143,6 +154,7 @@ export type SymphonyNormalizedRuntimeManifest = {
   schemaVersion: SymphonyRuntimeManifestSchemaVersion;
   workspace: SymphonyNormalizedRuntimeWorkspace;
   services: Record<string, SymphonyNormalizedRuntimeService>;
+  pi: SymphonyRuntimePiConfig | null;
   env: SymphonyRuntimeEnv;
   lifecycle: {
     bootstrap: SymphonyRuntimeStep[];

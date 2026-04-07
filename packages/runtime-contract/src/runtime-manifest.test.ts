@@ -114,6 +114,7 @@ export default defineSymphonyRuntime({
       packageManager: "pnpm",
       workingDirectory: defaultSymphonyRuntimeWorkingDirectory
     });
+    expect(loaded.manifest.pi).toBeNull();
     expect(loaded.manifest.services.postgres).toEqual({
       type: "postgres",
       image: "postgres:16",
@@ -212,6 +213,61 @@ export default defineSymphonyRuntime({
     expect(loaded.manifest.env.inject.EXAMPLE).toEqual({
       kind: "static",
       value: "ok: true"
+    });
+  });
+
+  it("normalizes Pi preset configuration from the runtime manifest", () => {
+    const manifest = normalizeSymphonyRuntimeManifest({
+      schemaVersion: 1,
+      workspace: {
+        packageManager: "pnpm"
+      },
+      pi: {
+        defaultPreset: "advanced",
+        presets: {
+          basic: {
+            model: "gpt-5.4-mini",
+            reasoningEffort: "medium"
+          },
+          advanced: {
+            model: "xiaomi/mimo-v2-pro",
+            reasoningEffort: "xhigh"
+          }
+        }
+      },
+      env: {
+        host: {
+          required: [],
+          optional: []
+        },
+        inject: {}
+      },
+      lifecycle: {
+        bootstrap: [],
+        migrate: [],
+        verify: [
+          {
+            name: "verify",
+            run: "pnpm test"
+          }
+        ],
+        seed: [],
+        cleanup: []
+      }
+    });
+
+    expect(manifest.pi).toEqual({
+      defaultPreset: "advanced",
+      presets: {
+        basic: {
+          model: "gpt-5.4-mini",
+          reasoningEffort: "medium"
+        },
+        advanced: {
+          model: "xiaomi/mimo-v2-pro",
+          reasoningEffort: "xhigh"
+        }
+      }
     });
   });
 

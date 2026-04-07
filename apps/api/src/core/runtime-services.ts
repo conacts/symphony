@@ -22,6 +22,7 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import { loadSymphonyPromptContract } from "@symphony/runtime-contract";
+import type { SymphonyNormalizedRuntimeManifest } from "@symphony/runtime-contract";
 import { createSymphonyLogger } from "@symphony/logger";
 import {
   HarnessSessionError,
@@ -75,7 +76,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     logLevel: env.logLevel
   });
 
-  const runtimePolicy = loadSymphonyRuntimePolicyConfig({
+  let runtimePolicy = loadSymphonyRuntimePolicyConfig({
     environmentSource,
     cwd: process.cwd()
   });
@@ -111,6 +112,10 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     : null;
 
   if (validatedRuntimeManifest) {
+    runtimePolicy = applyRuntimeManifestPiPolicy(
+      runtimePolicy,
+      validatedRuntimeManifest.runtimeManifest.manifest
+    );
     logger.info(
       "Validated source-repo runtime manifest",
       validatedRuntimeManifest.summary
@@ -548,6 +553,51 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       })();
 
       return await shutdownPromise;
+    }
+  };
+}
+
+function applyRuntimeManifestPiPolicy(
+  runtimePolicy: SymphonyResolvedRuntimePolicy,
+  runtimeManifest: SymphonyNormalizedRuntimeManifest
+): SymphonyResolvedRuntimePolicy {
+  if (!runtimeManifest.pi) {
+    return runtimePolicy;
+  }
+
+  const mergedPresets = {
+    ...runtimePolicy.pi.presets,
+    ...Object.fromEntries(
+      Object.entries(runtimeManifest.pi.presets).map(([presetName, preset]) => [
+        presetName,
+        {
+          model: preset.model,
+          reasoningEffort: preset.reasoningEffort ?? null
+        }
+      ])
+    )
+  };
+  const defaultPreset = runtimeManifest.pi.defaultPreset;
+  const defaultPresetConfig = mergedPresets[defaultPreset] ?? null;
+  const defaultModel = defaultPresetConfig?.model ?? runtimePolicy.pi.defaultModel;
+  const defaultReasoningEffort =
+    defaultPresetConfig?.reasoningEffort ?? runtimePolicy.pi.defaultReasoningEffort;
+
+  return {
+    ...runtimePolicy,
+    pi: {
+      ...runtimePolicy.pi,
+      defaultPreset,
+      presets: mergedPresets,
+      defaultModel,
+      defaultReasoningEffort
+    },
+    agentRuntime: {
+      ...runtimePolicy.agentRuntime,
+      defaultPreset,
+      presets: mergedPresets,
+      defaultModel,
+      defaultReasoningEffort
     }
   };
 }

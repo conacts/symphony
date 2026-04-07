@@ -6,6 +6,23 @@ export default defineSymphonyRuntime({
     packageManager: "pnpm",
     workingDirectory: "."
   },
+  pi: {
+    defaultPreset: "advanced",
+    presets: {
+      basic: {
+        model: "xiaomi/mimo-v2-pro",
+        reasoningEffort: "medium"
+      },
+      balanced: {
+        model: "xiaomi/mimo-v2-pro",
+        reasoningEffort: "high"
+      },
+      advanced: {
+        model: "xiaomi/mimo-v2-pro",
+        reasoningEffort: "xhigh"
+      }
+    }
+  },
   env: {
     host: {
       required: [],

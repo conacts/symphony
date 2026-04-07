@@ -307,6 +307,8 @@ export function resolvePiLaunchSettings(
   const modelPolicy = resolveHarnessModelRuntimePolicy(input.runtimePolicy, "pi");
   const issueSelection = resolvePiIssueSelection(input.issue, {
     model: modelPolicy.defaultModel ?? defaultPiModel,
+    defaultPreset: modelPolicy.defaultPreset,
+    presets: modelPolicy.presets,
     reasoningEffort: normalizePiThinkingLevel(
       modelPolicy.defaultReasoningEffort ?? "medium"
     )

@@ -27,6 +27,7 @@ import {
 } from "./agent-app-server-protocol.js";
 import {
   HarnessSessionError,
+  resolveHarnessModelRuntimePolicy,
   type HarnessControlMessageResult as ControlMessageResult,
   type HarnessSession as AppServerSession,
   type HarnessSessionLogger as AppServerLogger,
@@ -113,15 +114,18 @@ export class AgentAppServerClient {
       input.launchTarget.hostLaunchPath,
       input.runtimePolicy.workspace.root
     );
+    const modelPolicy = resolveHarnessModelRuntimePolicy(input.runtimePolicy);
     const launchSettings = resolveAgentLaunchSettings(
       input.runtimePolicy.agentRuntime.command,
       input.issue,
       {
-        model: input.runtimePolicy.agentRuntime.defaultModel,
-        reasoningEffort: input.runtimePolicy.agentRuntime.defaultReasoningEffort,
-        profile: input.runtimePolicy.agentRuntime.profile,
-        providerId: input.runtimePolicy.agentRuntime.provider?.id ?? null,
-        providerName: input.runtimePolicy.agentRuntime.provider?.name ?? null
+        model: modelPolicy.defaultModel,
+        reasoningEffort: modelPolicy.defaultReasoningEffort,
+        defaultPreset: modelPolicy.defaultPreset,
+        presets: modelPolicy.presets,
+        profile: modelPolicy.profile,
+        providerId: modelPolicy.provider?.id ?? null,
+        providerName: modelPolicy.provider?.name ?? null
       }
     );
     const spawnSpec = buildAgentAppServerSpawnSpec({

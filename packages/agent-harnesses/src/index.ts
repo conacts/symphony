@@ -11,6 +11,7 @@ export * from "./pi/rpc-process.js";
 export * from "./pi/rpc-client.js";
 export {
   agentModelLabelPrefix,
+  agentPresetLabelPrefix,
   buildAgentAppServerSpawnSpec,
   buildDynamicToolSpecs,
   listSupportedAgentModels,

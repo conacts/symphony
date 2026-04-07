@@ -188,6 +188,68 @@ describe("runtime services", () => {
     });
   });
 
+  it("merges repo-defined Pi presets from the runtime manifest into the active policy", async () => {
+    const harness = await createSymphonyRuntimeAppServicesHarness({
+      runtimeManifestSource: renderSymphonyRuntimeManifestSource({
+        schemaVersion: 1,
+        workspace: {
+          packageManager: "pnpm",
+          workingDirectory: "."
+        },
+        pi: {
+          defaultPreset: "basic",
+          presets: {
+            basic: {
+              model: "gpt-5.4-mini",
+              reasoningEffort: "medium"
+            },
+            advanced: {
+              model: "xiaomi/mimo-v2-pro",
+              reasoningEffort: "xhigh"
+            }
+          }
+        },
+        env: {
+          host: {
+            required: [],
+            optional: []
+          },
+          inject: {}
+        },
+        lifecycle: {
+          bootstrap: [],
+          migrate: [],
+          verify: [
+            {
+              name: "verify",
+              run: "pnpm test"
+            }
+          ],
+          seed: [],
+          cleanup: []
+        }
+      }),
+      environmentSource: {
+        SYMPHONY_PI_PROFILE: "mimo-v2-pro"
+      },
+      hostCommandEnvSource: {
+        OPENROUTER_API_KEY: "test-openrouter-api-key"
+      }
+    });
+    harnesses.push(harness);
+
+    expect(harness.services.runtimePolicy.pi.defaultPreset).toBe("basic");
+    expect(harness.services.runtimePolicy.pi.presets.basic).toEqual({
+      model: "gpt-5.4-mini",
+      reasoningEffort: "medium"
+    });
+    expect(harness.services.runtimePolicy.pi.defaultModel).toBe("gpt-5.4-mini");
+    expect(harness.services.runtimePolicy.agentRuntime.defaultPreset).toBe("basic");
+    expect(harness.services.runtimePolicy.agentRuntime.defaultModel).toBe(
+      "gpt-5.4-mini"
+    );
+  });
+
   it("mounts standard Pi auth alongside the configured provider env for docker runs", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-pi-auth-"));
     tempDirectories.push(root);

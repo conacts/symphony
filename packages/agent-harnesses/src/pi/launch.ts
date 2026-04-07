@@ -4,11 +4,13 @@ import { HarnessSessionError, type HarnessLaunchSettings } from "../shared/sessi
 import {
   listSupportedPiModels,
   piModelLabelPrefix,
+  piPresetLabelPrefix,
   resolvePiIssueModel,
   resolvePiIssueSelection
 } from "./model-selection.js";
 
 export const agentModelLabelPrefix = piModelLabelPrefix;
+export const agentPresetLabelPrefix = piPresetLabelPrefix;
 export const listSupportedAgentModels = listSupportedPiModels;
 
 export const resolveAgentIssueModel = resolvePiIssueModel;
@@ -19,6 +21,14 @@ export function resolvePiLaunchSettings(
   defaults?: {
     model?: string | null;
     reasoningEffort?: string | null;
+    defaultPreset?: string | null;
+    presets?: Record<
+      string,
+      {
+        model: string | null;
+        reasoningEffort: string | null;
+      }
+    >;
     profile?: string | null;
     providerId?: string | null;
     providerName?: string | null;
@@ -71,6 +81,14 @@ export function resolvePiSdkLaunchSettings(
   defaults?: {
     model?: string | null;
     reasoningEffort?: string | null;
+    defaultPreset?: string | null;
+    presets?: Record<
+      string,
+      {
+        model: string | null;
+        reasoningEffort: string | null;
+      }
+    >;
     profile?: string | null;
     providerId?: string | null;
     providerName?: string | null;

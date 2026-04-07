@@ -50,6 +50,7 @@ export function buildSymphonyRuntimeManifestInput(
       ...baseManifest.lifecycle,
       ...overrides.lifecycle
     },
+    pi: overrides.pi ?? baseManifest.pi,
     services: overrides.services ?? baseManifest.services
   };
 }

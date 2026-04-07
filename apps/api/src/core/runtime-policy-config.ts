@@ -11,6 +11,8 @@ type SymphonyPiRuntimePolicy = {
   profile: string | null;
   defaultModel: string | null;
   defaultReasoningEffort: string | null;
+  defaultPreset: string;
+  presets: SymphonyResolvedRuntimePolicy["pi"]["presets"];
   provider: SymphonyResolvedRuntimePolicy["pi"]["provider"];
   turnTimeoutMs: number;
   readTimeoutMs: number;
@@ -117,6 +119,21 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       profile: null,
       defaultModel: null,
       defaultReasoningEffort: null,
+      defaultPreset: "advanced",
+      presets: {
+        basic: {
+          model: null,
+          reasoningEffort: "medium"
+        },
+        balanced: {
+          model: null,
+          reasoningEffort: "high"
+        },
+        advanced: {
+          model: null,
+          reasoningEffort: "xhigh"
+        }
+      },
       provider: null,
       turnTimeoutMs: 3_600_000,
       readTimeoutMs: 120_000,
@@ -246,6 +263,29 @@ function readPiPolicy(input: {
     defaultReasoningEffort:
       readOptionalString(environmentSource.SYMPHONY_PI_REASONING_EFFORT) ??
       resolvedProfileDefaults.defaultReasoningEffort,
+    defaultPreset: "advanced",
+    presets: {
+      basic: {
+        model:
+          readOptionalString(environmentSource.SYMPHONY_PI_MODEL) ??
+          resolvedProfileDefaults.defaultModel,
+        reasoningEffort: "medium"
+      },
+      balanced: {
+        model:
+          readOptionalString(environmentSource.SYMPHONY_PI_MODEL) ??
+          resolvedProfileDefaults.defaultModel,
+        reasoningEffort: "high"
+      },
+      advanced: {
+        model:
+          readOptionalString(environmentSource.SYMPHONY_PI_MODEL) ??
+          resolvedProfileDefaults.defaultModel,
+        reasoningEffort:
+          readOptionalString(environmentSource.SYMPHONY_PI_REASONING_EFFORT) ??
+          resolvedProfileDefaults.defaultReasoningEffort
+      }
+    },
     provider: {
       id:
         readOptionalString(environmentSource.SYMPHONY_PI_PROVIDER) ??

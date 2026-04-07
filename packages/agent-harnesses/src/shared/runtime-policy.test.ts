@@ -53,6 +53,21 @@ function createRuntimePolicy(
       profile: "gpt-5.4",
       defaultModel: "gpt-5.4",
       defaultReasoningEffort: "high",
+      defaultPreset: "advanced",
+      presets: {
+        basic: {
+          model: "gpt-5.4",
+          reasoningEffort: "medium"
+        },
+        balanced: {
+          model: "gpt-5.4",
+          reasoningEffort: "high"
+        },
+        advanced: {
+          model: "gpt-5.4",
+          reasoningEffort: "xhigh"
+        }
+      },
       provider: {
         id: "openai",
         name: "OpenAI",
@@ -70,6 +85,21 @@ function createRuntimePolicy(
       profile: "mimo-v2-pro",
       defaultModel: "xiaomi/mimo-v2-pro",
       defaultReasoningEffort: "high",
+      defaultPreset: "advanced",
+      presets: {
+        basic: {
+          model: "xiaomi/mimo-v2-pro",
+          reasoningEffort: "medium"
+        },
+        balanced: {
+          model: "xiaomi/mimo-v2-pro",
+          reasoningEffort: "high"
+        },
+        advanced: {
+          model: "xiaomi/mimo-v2-pro",
+          reasoningEffort: "xhigh"
+        }
+      },
       provider: {
         id: "openrouter",
         name: "OpenRouter",
@@ -121,6 +151,21 @@ describe("harness runtime policy helpers", () => {
         profile: "mimo-v2-pro",
         defaultModel: "xiaomi/mimo-v2-pro",
         defaultReasoningEffort: "high",
+        defaultPreset: "advanced",
+        presets: {
+          basic: {
+            model: "xiaomi/mimo-v2-pro",
+            reasoningEffort: "medium"
+          },
+          balanced: {
+            model: "xiaomi/mimo-v2-pro",
+            reasoningEffort: "high"
+          },
+          advanced: {
+            model: "xiaomi/mimo-v2-pro",
+            reasoningEffort: "xhigh"
+          }
+        },
         provider: null,
         turnTimeoutMs: 3_600_000,
         readTimeoutMs: 5_000,

@@ -4,6 +4,7 @@ import { HarnessSessionError } from "../shared/session-types.js";
 export const defaultPiModel = "xiaomi/mimo-v2-pro";
 export const defaultPiReasoningEffort = "xhigh";
 export const piModelLabelPrefix = "symphony:model:";
+export const piPresetLabelPrefix = "symphony:pi-preset:";
 export const piReasoningLabelPrefix = "symphony:reasoning:";
 
 const supportedPiModelSet = new Set([
@@ -30,6 +31,14 @@ const acceptedPiThinkingLevelSet = new Set([
 export type PiIssueSelectionDefaults = {
   model?: string | null;
   reasoningEffort?: string | null;
+  defaultPreset?: string | null;
+  presets?: Record<
+    string,
+    {
+      model: string | null;
+      reasoningEffort: string | null;
+    }
+  >;
 };
 
 export type PiIssueSelection = {
@@ -43,27 +52,27 @@ export function listSupportedPiModels(): string[] {
 
 export function resolvePiIssueModel(
   issue: SymphonyTrackerIssue,
-  defaultModel = defaultPiModel
+  defaults: PiIssueSelectionDefaults | string = defaultPiModel
 ): string {
-  return selectPiIssueLabelOverride({
+  return resolvePiIssueSelection(
     issue,
-    labelPrefix: piModelLabelPrefix,
-    supportedValues: supportedPiModelSet,
-    fallbackValue: defaultModel,
-    settingName: "model"
-  });
+    typeof defaults === "string" ? { model: defaults } : defaults
+  ).model;
 }
 
 export function resolvePiIssueSelection(
   issue: SymphonyTrackerIssue,
   defaults: PiIssueSelectionDefaults = {}
 ): PiIssueSelection {
+  const presetSelection = resolvePiPresetSelection(issue, defaults);
+
   return {
     model: selectPiIssueLabelOverride({
       issue,
       labelPrefix: piModelLabelPrefix,
       supportedValues: supportedPiModelSet,
-      fallbackValue: defaults.model ?? defaultPiModel,
+      fallbackValue:
+        presetSelection?.model ?? defaults.model ?? defaultPiModel,
       settingName: "model"
     }),
     reasoningEffort: selectPiIssueLabelOverride({
@@ -71,7 +80,9 @@ export function resolvePiIssueSelection(
       labelPrefix: piReasoningLabelPrefix,
       supportedValues: supportedPiReasoningEffortSet,
       fallbackValue:
-        normalizePiThinkingLevel(defaults.reasoningEffort) ??
+        normalizePiThinkingLevel(
+          presetSelection?.reasoningEffort ?? defaults.reasoningEffort
+        ) ??
         defaultPiReasoningEffort,
       settingName: "reasoning effort"
     })
@@ -119,4 +130,44 @@ function selectPiIssueLabelOverride(input: {
   }
 
   return input.fallbackValue;
+}
+
+function resolvePiPresetSelection(
+  issue: SymphonyTrackerIssue,
+  defaults: PiIssueSelectionDefaults
+): PiIssueSelectionDefaults | null {
+  const presetName = selectPiPresetOverride(issue, defaults);
+  if (!presetName) {
+    return null;
+  }
+
+  const preset = defaults.presets?.[presetName];
+  if (!preset) {
+    throw new HarnessSessionError(
+      "invalid_pi_label_override",
+      `Unsupported preset override label on ${issue.identifier}: ${piPresetLabelPrefix}${presetName}`,
+      {
+        issueLabel: `${piPresetLabelPrefix}${presetName}`,
+        availablePresets: Object.keys(defaults.presets ?? {})
+      }
+    );
+  }
+
+  return preset;
+}
+
+function selectPiPresetOverride(
+  issue: SymphonyTrackerIssue,
+  defaults: PiIssueSelectionDefaults
+): string | null {
+  for (const label of issue.labels) {
+    if (!label.startsWith(piPresetLabelPrefix)) {
+      continue;
+    }
+
+    return label.slice(piPresetLabelPrefix.length).trim();
+  }
+
+  const defaultPreset = defaults.defaultPreset?.trim();
+  return defaultPreset ? defaultPreset : null;
 }

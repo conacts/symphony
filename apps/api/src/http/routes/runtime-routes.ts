@@ -128,7 +128,9 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       path.issueIdentifier,
       trackedIssue,
       {
-        defaultModel: resolveHarnessModelRuntimePolicy(services.runtimePolicy).defaultModel
+        defaultModel: resolveHarnessModelRuntimePolicy(services.runtimePolicy).defaultModel,
+        defaultPreset: resolveHarnessModelRuntimePolicy(services.runtimePolicy).defaultPreset,
+        presets: resolveHarnessModelRuntimePolicy(services.runtimePolicy).presets
       }
     );
 

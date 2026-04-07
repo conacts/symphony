@@ -35,6 +35,8 @@ export type {
   SymphonyRuntimeManifestInput,
   SymphonyRuntimeManifestLoadOptions,
   SymphonyRuntimeManifestValidationOptions,
+  SymphonyRuntimePiConfig,
+  SymphonyRuntimePiPreset,
   SymphonyRuntimePostgresService,
   SymphonyRuntimePostgresServiceInput,
   SymphonyRuntimeRuntimeEnvBinding,

@@ -13,6 +13,7 @@ import type {
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
 import {
+  agentPresetLabelPrefix,
   agentModelLabelPrefix,
   listSupportedAgentModels,
   resolveAgentIssueModel
@@ -77,6 +78,14 @@ export function serializeRuntimeIssue(
   trackedIssue: SymphonyTrackerIssue | null,
   runtimePolicyDefaults?: {
     defaultModel: string | null;
+    defaultPreset?: string | null;
+    presets?: Record<
+      string,
+      {
+        model: string | null;
+        reasoningEffort: string | null;
+      }
+    >;
   }
 ): SymphonyRuntimeIssueResult | null {
   const running = snapshot.running.find(
@@ -122,7 +131,7 @@ export function serializeRuntimeIssue(
     runtimePolicyDefaults?.defaultModel ?? listSupportedAgentModels()[0] ?? null;
   const selectedModel = resolveAgentIssueModel(
     tracked,
-    defaultModel ?? undefined
+    runtimePolicyDefaults ?? (defaultModel ?? undefined)
   );
 
   return {
@@ -191,7 +200,7 @@ export function serializeRuntimeIssue(
         availableModels: listSupportedAgentModels(),
         modelOverrideLabelPrefix: agentModelLabelPrefix,
         selectionHelpText:
-          "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
+          `Pi selection is label-driven. Prefer ${agentPresetLabelPrefix}<preset> for repo-defined tiers; raw ${agentModelLabelPrefix}<model> labels still work for direct model overrides.`
       }
     }
   };

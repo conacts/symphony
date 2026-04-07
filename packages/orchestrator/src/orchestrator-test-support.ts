@@ -93,6 +93,21 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         profile: null,
         defaultModel: null,
         defaultReasoningEffort: null,
+        defaultPreset: "advanced",
+        presets: {
+          basic: {
+            model: null,
+            reasoningEffort: "medium"
+          },
+          balanced: {
+            model: null,
+            reasoningEffort: "high"
+          },
+          advanced: {
+            model: null,
+            reasoningEffort: "xhigh"
+          }
+        },
         provider: null,
         turnTimeoutMs: 3_600_000,
         readTimeoutMs: 5_000,
@@ -107,6 +122,21 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         profile: null,
         defaultModel: null,
         defaultReasoningEffort: null,
+        defaultPreset: "advanced",
+        presets: {
+          basic: {
+            model: null,
+            reasoningEffort: "medium"
+          },
+          balanced: {
+            model: null,
+            reasoningEffort: "high"
+          },
+          advanced: {
+            model: null,
+            reasoningEffort: "xhigh"
+          }
+        },
         provider: null,
         turnTimeoutMs: 3_600_000,
         readTimeoutMs: 5_000,

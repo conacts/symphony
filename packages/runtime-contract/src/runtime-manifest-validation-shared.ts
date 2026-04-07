@@ -12,11 +12,14 @@ export const manifestTopLevelKeys = new Set([
   "schemaVersion",
   "workspace",
   "services",
+  "pi",
   "env",
   "lifecycle"
 ]);
 
 export const workspaceKeys = new Set(["packageManager", "workingDirectory"]);
+export const piKeys = new Set(["defaultPreset", "presets"]);
+export const piPresetKeys = new Set(["model", "reasoningEffort"]);
 export const lifecycleKeys = new Set([
   "bootstrap",
   "migrate",
@@ -52,6 +55,15 @@ export const workspacePackageManagers = new Set<SymphonyRuntimeWorkspacePackageM
   "npm",
   "yarn",
   "bun"
+]);
+
+export const piReasoningLevels = new Set([
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh"
 ]);
 
 export const serviceBindingValues = new Set<SymphonyRuntimeServiceBindingValue>([

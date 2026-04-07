@@ -12,6 +12,14 @@ export type SymphonyAgentRuntimeConfig = {
     profile: string | null;
     defaultModel: string | null;
     defaultReasoningEffort: string | null;
+    defaultPreset: string;
+    presets: Record<
+      string,
+      {
+        model: string | null;
+        reasoningEffort: string | null;
+      }
+    >;
     provider: {
       id: string | null;
       name: string | null;
@@ -32,6 +40,14 @@ export type SymphonyAgentRuntimeConfig = {
     profile: string | null;
     defaultModel: string | null;
     defaultReasoningEffort: string | null;
+    defaultPreset: string;
+    presets: Record<
+      string,
+      {
+        model: string | null;
+        reasoningEffort: string | null;
+      }
+    >;
     provider: {
       id: string | null;
       name: string | null;

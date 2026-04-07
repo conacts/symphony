@@ -60,10 +60,17 @@ export type SymphonyHarnessProviderRuntimePolicy = {
   wireApi: string | null;
 } | null;
 
+export type SymphonyHarnessModelPresetRuntimePolicy = {
+  model: string | null;
+  reasoningEffort: string | null;
+};
+
 export type SymphonyHarnessModelRuntimePolicy = {
   profile: string | null;
   defaultModel: string | null;
   defaultReasoningEffort: string | null;
+  defaultPreset: string;
+  presets: Record<string, SymphonyHarnessModelPresetRuntimePolicy>;
   provider: SymphonyHarnessProviderRuntimePolicy;
 };
 
@@ -324,11 +331,69 @@ function normalizeHarnessModelConfig(
   value: unknown
 ): SymphonyHarnessModelRuntimePolicy {
   const config = getNestedRecord(value);
+  const defaultModel = normalizeOptionalString(config.defaultModel);
+  const defaultReasoningEffort = normalizeOptionalString(
+    config.defaultReasoningEffort
+  );
+  const defaultPreset =
+    normalizeOptionalString(config.defaultPreset) ?? "advanced";
+
   return {
     profile: normalizeOptionalString(config.profile),
-    defaultModel: normalizeOptionalString(config.defaultModel),
-    defaultReasoningEffort: normalizeOptionalString(config.defaultReasoningEffort),
+    defaultModel,
+    defaultReasoningEffort,
+    defaultPreset,
+    presets: normalizeHarnessModelPresets(config.presets, {
+      defaultModel,
+      defaultReasoningEffort
+    }),
     provider: normalizeHarnessProviderConfig(config.provider)
+  };
+}
+
+function normalizeHarnessModelPresets(
+  value: unknown,
+  defaults: {
+    defaultModel: string | null;
+    defaultReasoningEffort: string | null;
+  }
+): Record<string, SymphonyHarnessModelPresetRuntimePolicy> {
+  const presets = getNestedRecord(value);
+  const normalized = Object.fromEntries(
+    Object.entries(presets).map(([presetName, presetValue]) => {
+      const preset = getNestedRecord(presetValue);
+      return [
+        presetName,
+        {
+          model: normalizeOptionalString(preset.model),
+          reasoningEffort: normalizeOptionalString(preset.reasoningEffort)
+        }
+      ];
+    })
+  );
+
+  return Object.keys(normalized).length > 0
+    ? normalized
+    : buildDefaultHarnessModelPresets(defaults);
+}
+
+function buildDefaultHarnessModelPresets(defaults: {
+  defaultModel: string | null;
+  defaultReasoningEffort: string | null;
+}): Record<string, SymphonyHarnessModelPresetRuntimePolicy> {
+  return {
+    basic: {
+      model: defaults.defaultModel,
+      reasoningEffort: "medium"
+    },
+    balanced: {
+      model: defaults.defaultModel,
+      reasoningEffort: "high"
+    },
+    advanced: {
+      model: defaults.defaultModel,
+      reasoningEffort: defaults.defaultReasoningEffort ?? "xhigh"
+    }
   };
 }
 

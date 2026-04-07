@@ -1,5 +1,6 @@
 export {
   agentModelLabelPrefix,
+  agentPresetLabelPrefix,
   buildAgentAppServerSpawnSpec,
   buildDynamicToolSpecs,
   ensureWorkspaceCwd,

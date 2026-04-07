@@ -24,6 +24,34 @@ describe("pi model selection", () => {
     });
   });
 
+  it("resolves repo-defined Pi presets from issue labels", () => {
+    const selection = resolvePiIssueSelection(
+      buildIssue({
+        labels: ["symphony:pi-preset:basic"]
+      }),
+      {
+        model: "xiaomi/mimo-v2-pro",
+        reasoningEffort: "xhigh",
+        defaultPreset: "advanced",
+        presets: {
+          basic: {
+            model: "gpt-5.4-mini",
+            reasoningEffort: "medium"
+          },
+          advanced: {
+            model: "xiaomi/mimo-v2-pro",
+            reasoningEffort: "xhigh"
+          }
+        }
+      }
+    );
+
+    expect(selection).toEqual({
+      model: "gpt-5.4-mini",
+      reasoningEffort: "medium"
+    });
+  });
+
   it("normalizes unsupported thinking levels to medium", () => {
     expect(normalizePiThinkingLevel("off")).toBe("off");
     expect(normalizePiThinkingLevel("MINIMAL")).toBe("minimal");
@@ -137,6 +165,21 @@ function buildRuntimePolicy(
       profile: null,
       defaultModel: null,
       defaultReasoningEffort: null,
+      defaultPreset: "advanced",
+      presets: {
+        basic: {
+          model: null,
+          reasoningEffort: "medium"
+        },
+        balanced: {
+          model: null,
+          reasoningEffort: "high"
+        },
+        advanced: {
+          model: null,
+          reasoningEffort: "xhigh"
+        }
+      },
       provider: null,
       turnTimeoutMs: 3_600_000,
       readTimeoutMs: 5_000,
@@ -151,6 +194,21 @@ function buildRuntimePolicy(
       profile: null,
       defaultModel: null,
       defaultReasoningEffort: null,
+      defaultPreset: "advanced",
+      presets: {
+        basic: {
+          model: null,
+          reasoningEffort: "medium"
+        },
+        balanced: {
+          model: null,
+          reasoningEffort: "high"
+        },
+        advanced: {
+          model: null,
+          reasoningEffort: "xhigh"
+        }
+      },
       provider: null,
       turnTimeoutMs: 3_600_000,
       readTimeoutMs: 5_000,

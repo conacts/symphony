@@ -19,6 +19,11 @@ describe("resolveRuntimePolicy", () => {
     expect(config.agent.harness).toBe("pi");
     expect(config.agent.maxConcurrentAgents).toBe(10);
     expect(config.pi.defaultModel).toBeNull();
+    expect(config.pi.defaultPreset).toBe("advanced");
+    expect(config.pi.presets.advanced).toEqual({
+      model: null,
+      reasoningEffort: "xhigh"
+    });
     expect(config.pi.turnTimeoutMs).toBe(3_600_000);
     expect(config.pi.stallTimeoutMs).toBe(300_000);
   });
