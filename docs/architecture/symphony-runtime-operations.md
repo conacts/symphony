@@ -12,6 +12,8 @@ This document replaces the older evaluation/parity setup story.
 
 - Docker-only issue execution
 - admitted repos must provide `.symphony/runtime.ts` and `.symphony/prompt.md`
+- admitted repos must declare `repositoryKey` in `.symphony/runtime.ts`
+- one runtime process may admit multiple repositories
 - one active run per Linear issue
 - one durable workspace per Linear issue
 - prompt rendering happens in memory
@@ -41,6 +43,17 @@ export LINEAR_API_KEY=...
 export GITHUB_TOKEN=...
 pnpm --filter @symphony/api dev
 ```
+
+To admit more than one repo into the same process:
+
+```bash
+export SYMPHONY_SOURCE_REPOS=/absolute/path/to/repo-a,/absolute/path/to/repo-b
+export SYMPHONY_GITHUB_WEBHOOK_SECRETS=owner-a/repo-a=secret-a,owner-b/repo-b=secret-b
+pnpm --filter @symphony/api dev
+```
+
+`SYMPHONY_SOURCE_REPO` remains supported as the single-repo shortcut. `SYMPHONY_SOURCE_REPOS`
+becomes the source of truth when running more than one admitted repo in one process.
 
 For self-host development on this repository with hot reload enabled for both the API and the
 dashboard:
@@ -97,10 +110,31 @@ The admitted repository must provide:
 
 The repo contract must be explicit:
 
+- `repositoryKey` is required and must use `<owner>/<repo>` format
 - lifecycle commands are stable repo commands
 - lifecycle consumes injected process env only
 - required secret-bearing values are not written into repo files by default
 - `.symphony/` contains static contract artifacts, not generated secret-bearing state
+
+## Repo Routing Convention
+
+Use this routing model consistently:
+
+- `repositoryKey` is the canonical identity for an admitted repo
+- GitHub webhook routing uses the webhook payload repository slug, which must match an admitted `repositoryKey`
+- webhook secrets remain environment-owned, not repo-owned
+- use `SYMPHONY_GITHUB_WEBHOOK_SECRETS` for per-repo secrets when one process admits many repos
+- use a Linear label in the form `repo:<owner>/<repo>` to route an issue to a non-default admitted repo
+- if no `repo:` label is present, Symphony dispatches into the first admitted repo
+- the UI repo picker is repository-only; Linear project is not part of routing identity
+
+Example:
+
+- admitted repos: `conacts/symphony`, `conacts/coldets-v2`
+- default admitted repo: `conacts/symphony`
+- issue label `repo:conacts/coldets-v2` routes the issue into the Coldets repo
+- GitHub webhook repository `conacts/coldets-v2` verifies against that repo's secret and rework flow
+  stays attached to that repo's runs and timeline entries
 
 ## Lifecycle Expectations
 

@@ -18,6 +18,9 @@ Suggested issue branch: {{ issue.branch_name }}
 
 Repository context:
 - This repo is Symphony's self-host and orchestration workspace.
+- Repository routing uses the admitted repo `repositoryKey` in `<owner>/<repo>` form.
+- If the issue has a `repo:<owner>/<repo>` label, route work to that admitted repo. Otherwise,
+  use the default admitted repo for this runtime.
 - Linear is the source of truth for issue status, rework context, and delivery flow.
 - Prefer built-in Linear tools when they exist.
 - Keep naming explicit and consistent with the Pi / Symphony vocabulary already used here.

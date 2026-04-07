@@ -8,7 +8,9 @@ notes that explain the platform shape. It does not carry a second runtime implem
 ## Active Product Shape
 
 - Docker-only issue execution
-- one admitted repo contract: `.symphony/runtime.ts` plus `.symphony/prompt.md`
+- admitted repo contract: `.symphony/runtime.ts` plus `.symphony/prompt.md`
+- one runtime process can admit multiple repositories
+- `repositoryKey` in `.symphony/runtime.ts` is the canonical repo identity
 - one active run per Linear issue
 - prompt rendering in memory from repo-owned template plus platform-provided variables
 - fail-fast admission, dispatch, and startup behavior
@@ -37,8 +39,22 @@ pnpm dev:host
 `pnpm dev:host` forces `SYMPHONY_SOURCE_REPO` to this repository root, keeps the SQLite file at
 `./symphony.db`, and points the dashboard at the local API on `http://127.0.0.1:4400`. That avoids
 stale shell state accidentally booting Symphony against some other admitted repository. It also
-checks required env up front, installs the `lin` CLI on the host when missing, and refreshes the
+checks required env up front, installs the `linear` CLI on the host when missing, and refreshes the
 local workspace-runner image with normal Docker layer caching before startup.
+
+## Repo Routing
+
+Symphony now uses a simple repo-routing convention:
+
+- every admitted repo must declare `repositoryKey` in `.symphony/runtime.ts`
+- `repositoryKey` must use `<owner>/<repo>` format, for example `conacts/symphony`
+- the runtime admits one or more repo roots from `SYMPHONY_SOURCE_REPOS`
+- GitHub review webhooks route by `repository.full_name`
+- issue dispatch can target a non-default admitted repo by adding a Linear label in the form `repo:<owner>/<repo>`
+- if no `repo:` label is present, Symphony uses the first admitted repo as the default
+
+That keeps repo separation explicit without adding project-level tenancy or extra control-plane
+concepts.
 
 `pnpm dev:self` remains as an alias.
 
