@@ -19,7 +19,7 @@ export const manifestTopLevelKeys = new Set([
 
 export const workspaceKeys = new Set(["packageManager", "workingDirectory"]);
 export const piKeys = new Set(["defaultPreset", "presets"]);
-export const piPresetKeys = new Set(["model", "reasoningEffort"]);
+export const piPresetKeys = new Set(["model", "reasoningEffort", "auth"]);
 export const lifecycleKeys = new Set([
   "bootstrap",
   "migrate",
@@ -65,6 +65,9 @@ export const piReasoningLevels = new Set([
   "high",
   "xhigh"
 ]);
+
+export const piPresetNames = new Set(["basic", "advanced", "premium"]);
+export const piAuthModes = new Set(["provider", "subscription"]);
 
 export const serviceBindingValues = new Set<SymphonyRuntimeServiceBindingValue>([
   "connectionString",

@@ -57,15 +57,18 @@ function createRuntimePolicy(
       presets: {
         basic: {
           model: "gpt-5.4",
-          reasoningEffort: "medium"
-        },
-        balanced: {
-          model: "gpt-5.4",
-          reasoningEffort: "high"
+          reasoningEffort: "medium",
+          authMode: "provider"
         },
         advanced: {
           model: "gpt-5.4",
-          reasoningEffort: "xhigh"
+          reasoningEffort: "xhigh",
+          authMode: "provider"
+        },
+        premium: {
+          model: "gpt-5.4",
+          reasoningEffort: "high",
+          authMode: "subscription"
         }
       },
       provider: {
@@ -89,15 +92,18 @@ function createRuntimePolicy(
       presets: {
         basic: {
           model: "xiaomi/mimo-v2-pro",
-          reasoningEffort: "medium"
-        },
-        balanced: {
-          model: "xiaomi/mimo-v2-pro",
-          reasoningEffort: "high"
+          reasoningEffort: "medium",
+          authMode: "provider"
         },
         advanced: {
           model: "xiaomi/mimo-v2-pro",
-          reasoningEffort: "xhigh"
+          reasoningEffort: "xhigh",
+          authMode: "provider"
+        },
+        premium: {
+          model: "gpt-5.4",
+          reasoningEffort: "high",
+          authMode: "subscription"
         }
       },
       provider: {
@@ -155,15 +161,18 @@ describe("harness runtime policy helpers", () => {
         presets: {
           basic: {
             model: "xiaomi/mimo-v2-pro",
-            reasoningEffort: "medium"
-          },
-          balanced: {
-            model: "xiaomi/mimo-v2-pro",
-            reasoningEffort: "high"
+            reasoningEffort: "medium",
+            authMode: "provider"
           },
           advanced: {
             model: "xiaomi/mimo-v2-pro",
-            reasoningEffort: "xhigh"
+            reasoningEffort: "xhigh",
+            authMode: "provider"
+          },
+          premium: {
+            model: "gpt-5.4",
+            reasoningEffort: "high",
+            authMode: "subscription"
           }
         },
         provider: null,

@@ -19,15 +19,17 @@ describe("pi model selection", () => {
     );
 
     expect(selection).toEqual({
+      presetName: null,
       model: "gpt-5.4-mini",
-      reasoningEffort: "high"
+      reasoningEffort: "high",
+      authMode: "provider"
     });
   });
 
-  it("resolves repo-defined Pi presets from issue labels", () => {
+  it("resolves repo-defined Pi presets from model labels", () => {
     const selection = resolvePiIssueSelection(
       buildIssue({
-        labels: ["symphony:pi-preset:basic"]
+        labels: ["model:basic"]
       }),
       {
         model: "xiaomi/mimo-v2-pro",
@@ -36,19 +38,60 @@ describe("pi model selection", () => {
         presets: {
           basic: {
             model: "gpt-5.4-mini",
-            reasoningEffort: "medium"
+            reasoningEffort: "medium",
+            authMode: "provider"
           },
           advanced: {
             model: "xiaomi/mimo-v2-pro",
-            reasoningEffort: "xhigh"
+            reasoningEffort: "xhigh",
+            authMode: "provider"
           }
         }
       }
     );
 
     expect(selection).toEqual({
+      presetName: "basic",
       model: "gpt-5.4-mini",
-      reasoningEffort: "medium"
+      reasoningEffort: "medium",
+      authMode: "provider"
+    });
+  });
+
+  it("uses subscription auth for the premium preset", () => {
+    const selection = resolvePiIssueSelection(
+      buildIssue({
+        labels: ["model:premium"]
+      }),
+      {
+        model: "xiaomi/mimo-v2-pro",
+        reasoningEffort: "xhigh",
+        defaultPreset: "advanced",
+        presets: {
+          basic: {
+            model: "minimax/minimax-m2.7",
+            reasoningEffort: "medium",
+            authMode: "provider"
+          },
+          advanced: {
+            model: "xiaomi/mimo-v2-pro",
+            reasoningEffort: "xhigh",
+            authMode: "provider"
+          },
+          premium: {
+            model: "gpt-5.4",
+            reasoningEffort: "high",
+            authMode: "subscription"
+          }
+        }
+      }
+    );
+
+    expect(selection).toEqual({
+      presetName: "premium",
+      model: "gpt-5.4",
+      reasoningEffort: "high",
+      authMode: "subscription"
     });
   });
 
@@ -63,12 +106,30 @@ describe("pi model selection", () => {
   it("uses the same issue override rules for native rpc launches", () => {
     const launchSettings = resolvePiLaunchSettings({
       issue: buildIssue({
-        labels: ["symphony:model:gpt-5.4", "symphony:reasoning:high"]
+        labels: ["model:premium"]
       }),
       runtimePolicy: buildRuntimePolicy({
         pi: {
           defaultModel: "xiaomi/mimo-v2-pro",
           defaultReasoningEffort: "xhigh",
+          defaultPreset: "advanced",
+          presets: {
+            basic: {
+              model: "minimax/minimax-m2.7",
+              reasoningEffort: "medium",
+              authMode: "provider"
+            },
+            advanced: {
+              model: "xiaomi/mimo-v2-pro",
+              reasoningEffort: "xhigh",
+              authMode: "provider"
+            },
+            premium: {
+              model: "gpt-5.4",
+              reasoningEffort: "high",
+              authMode: "subscription"
+            }
+          },
           provider: {
             id: "openrouter",
             name: "OpenRouter",
@@ -99,8 +160,8 @@ describe("pi model selection", () => {
     expect(launchSettings).toMatchObject({
       model: "gpt-5.4",
       reasoningEffort: "high",
-      providerId: "openrouter",
-      providerName: "OpenRouter"
+      providerId: null,
+      providerName: null
     });
   });
 });
@@ -169,15 +230,18 @@ function buildRuntimePolicy(
       presets: {
         basic: {
           model: null,
-          reasoningEffort: "medium"
-        },
-        balanced: {
-          model: null,
-          reasoningEffort: "high"
+          reasoningEffort: "medium",
+          authMode: "provider"
         },
         advanced: {
           model: null,
-          reasoningEffort: "xhigh"
+          reasoningEffort: "xhigh",
+          authMode: "provider"
+        },
+        premium: {
+          model: "gpt-5.4",
+          reasoningEffort: "high",
+          authMode: "subscription"
         }
       },
       provider: null,
@@ -198,15 +262,18 @@ function buildRuntimePolicy(
       presets: {
         basic: {
           model: null,
-          reasoningEffort: "medium"
-        },
-        balanced: {
-          model: null,
-          reasoningEffort: "high"
+          reasoningEffort: "medium",
+          authMode: "provider"
         },
         advanced: {
           model: null,
-          reasoningEffort: "xhigh"
+          reasoningEffort: "xhigh",
+          authMode: "provider"
+        },
+        premium: {
+          model: "gpt-5.4",
+          reasoningEffort: "high",
+          authMode: "subscription"
         }
       },
       provider: null,

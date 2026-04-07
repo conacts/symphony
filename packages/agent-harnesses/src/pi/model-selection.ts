@@ -3,8 +3,10 @@ import { HarnessSessionError } from "../shared/session-types.js";
 
 export const defaultPiModel = "xiaomi/mimo-v2-pro";
 export const defaultPiReasoningEffort = "xhigh";
-export const piModelLabelPrefix = "symphony:model:";
-export const piPresetLabelPrefix = "symphony:pi-preset:";
+export const piModelLabelPrefix = "model:";
+export const legacyPiModelLabelPrefix = "symphony:model:";
+export const piPresetLabelPrefix = "model:";
+export const legacyPiPresetLabelPrefix = "symphony:pi-preset:";
 export const piReasoningLabelPrefix = "symphony:reasoning:";
 
 const supportedPiModelSet = new Set([
@@ -37,13 +39,16 @@ export type PiIssueSelectionDefaults = {
     {
       model: string | null;
       reasoningEffort: string | null;
+      authMode?: "provider" | "subscription" | null;
     }
   >;
 };
 
 export type PiIssueSelection = {
+  presetName: string | null;
   model: string;
   reasoningEffort: string;
+  authMode: "provider" | "subscription";
 };
 
 export function listSupportedPiModels(): string[] {
@@ -67,9 +72,10 @@ export function resolvePiIssueSelection(
   const presetSelection = resolvePiPresetSelection(issue, defaults);
 
   return {
+    presetName: presetSelection?.presetName ?? normalizedDefaultPreset(defaults),
     model: selectPiIssueLabelOverride({
       issue,
-      labelPrefix: piModelLabelPrefix,
+      labelPrefixes: [legacyPiModelLabelPrefix],
       supportedValues: supportedPiModelSet,
       fallbackValue:
         presetSelection?.model ?? defaults.model ?? defaultPiModel,
@@ -77,7 +83,7 @@ export function resolvePiIssueSelection(
     }),
     reasoningEffort: selectPiIssueLabelOverride({
       issue,
-      labelPrefix: piReasoningLabelPrefix,
+      labelPrefixes: [piReasoningLabelPrefix],
       supportedValues: supportedPiReasoningEffortSet,
       fallbackValue:
         normalizePiThinkingLevel(
@@ -85,7 +91,8 @@ export function resolvePiIssueSelection(
         ) ??
         defaultPiReasoningEffort,
       settingName: "reasoning effort"
-    })
+    }),
+    authMode: presetSelection?.authMode ?? "provider"
   };
 }
 
@@ -104,17 +111,20 @@ export function normalizePiThinkingLevel(value: string | null | undefined): stri
 
 function selectPiIssueLabelOverride(input: {
   issue: SymphonyTrackerIssue;
-  labelPrefix: string;
+  labelPrefixes: string[];
   supportedValues: Set<string>;
   fallbackValue: string;
   settingName: string;
 }): string {
   for (const label of input.issue.labels) {
-    if (!label.startsWith(input.labelPrefix)) {
+    const matchedPrefix = input.labelPrefixes.find((labelPrefix) =>
+      label.startsWith(labelPrefix)
+    );
+    if (!matchedPrefix) {
       continue;
     }
 
-    const overrideValue = label.slice(input.labelPrefix.length).trim();
+    const overrideValue = label.slice(matchedPrefix.length).trim();
     if (input.supportedValues.has(overrideValue)) {
       return overrideValue;
     }
@@ -135,7 +145,7 @@ function selectPiIssueLabelOverride(input: {
 function resolvePiPresetSelection(
   issue: SymphonyTrackerIssue,
   defaults: PiIssueSelectionDefaults
-): PiIssueSelectionDefaults | null {
+) {
   const presetName = selectPiPresetOverride(issue, defaults);
   if (!presetName) {
     return null;
@@ -153,7 +163,11 @@ function resolvePiPresetSelection(
     );
   }
 
-  return preset;
+  return {
+    ...preset,
+    presetName,
+    authMode: preset.authMode ?? "provider"
+  };
 }
 
 function selectPiPresetOverride(
@@ -161,13 +175,18 @@ function selectPiPresetOverride(
   defaults: PiIssueSelectionDefaults
 ): string | null {
   for (const label of issue.labels) {
-    if (!label.startsWith(piPresetLabelPrefix)) {
-      continue;
+    if (label.startsWith(piPresetLabelPrefix)) {
+      return label.slice(piPresetLabelPrefix.length).trim();
     }
-
-    return label.slice(piPresetLabelPrefix.length).trim();
+    if (label.startsWith(legacyPiPresetLabelPrefix)) {
+      return label.slice(legacyPiPresetLabelPrefix.length).trim();
+    }
   }
 
+  return normalizedDefaultPreset(defaults);
+}
+
+function normalizedDefaultPreset(defaults: PiIssueSelectionDefaults): string | null {
   const defaultPreset = defaults.defaultPreset?.trim();
   return defaultPreset ? defaultPreset : null;
 }

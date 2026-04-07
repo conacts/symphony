@@ -102,14 +102,18 @@ export type SymphonyRuntimeWorkspace = {
   workingDirectory?: string;
 };
 
+export type SymphonyRuntimePiPresetName = "basic" | "advanced" | "premium";
+export type SymphonyRuntimePiAuthMode = "provider" | "subscription";
+
 export type SymphonyRuntimePiPreset = {
   model: string;
   reasoningEffort?: string;
+  auth?: SymphonyRuntimePiAuthMode;
 };
 
 export type SymphonyRuntimePiConfig = {
-  defaultPreset: string;
-  presets: Record<string, SymphonyRuntimePiPreset>;
+  defaultPreset: SymphonyRuntimePiPresetName;
+  presets: Record<SymphonyRuntimePiPresetName, SymphonyRuntimePiPreset>;
 };
 
 export type SymphonyRuntimeManifest = {

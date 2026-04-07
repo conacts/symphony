@@ -134,19 +134,29 @@ export function buildSymphonyOrchestratorConfig(overrides: {
 function buildDefaultPiPresetsForTests(input: {
   defaultModel: string | null;
   defaultReasoningEffort: string | null;
-}) {
+}): Record<
+  string,
+  {
+    model: string | null;
+    reasoningEffort: string | null;
+    authMode: "provider" | "subscription";
+  }
+> {
   return {
     basic: {
       model: input.defaultModel,
-      reasoningEffort: "medium"
-    },
-    balanced: {
-      model: input.defaultModel,
-      reasoningEffort: "high"
+      reasoningEffort: "medium",
+      authMode: "provider"
     },
     advanced: {
       model: input.defaultModel,
-      reasoningEffort: input.defaultReasoningEffort ?? "xhigh"
+      reasoningEffort: input.defaultReasoningEffort ?? "xhigh",
+      authMode: "provider"
+    },
+    premium: {
+      model: "gpt-5.4",
+      reasoningEffort: "high",
+      authMode: "subscription"
     }
   };
 }

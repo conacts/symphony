@@ -377,7 +377,7 @@ export function buildSymphonyRuntimeIssueResult(
           "gpt-5.4",
           "gpt-5.4-mini"
         ],
-        modelOverrideLabelPrefix: "symphony:model:",
+        modelOverrideLabelPrefix: "model:",
         selectionHelpText:
           "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
       }

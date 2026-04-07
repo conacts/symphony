@@ -572,7 +572,8 @@ function applyRuntimeManifestPiPolicy(
         presetName,
         {
           model: preset.model,
-          reasoningEffort: preset.reasoningEffort ?? null
+          reasoningEffort: preset.reasoningEffort ?? null,
+          authMode: preset.auth ?? "provider"
         }
       ])
     )

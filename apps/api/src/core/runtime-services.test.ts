@@ -200,12 +200,19 @@ describe("runtime services", () => {
           defaultPreset: "basic",
           presets: {
             basic: {
-              model: "gpt-5.4-mini",
-              reasoningEffort: "medium"
+              model: "minimax/minimax-m2.7",
+              reasoningEffort: "medium",
+              auth: "provider"
             },
             advanced: {
               model: "xiaomi/mimo-v2-pro",
-              reasoningEffort: "xhigh"
+              reasoningEffort: "xhigh",
+              auth: "provider"
+            },
+            premium: {
+              model: "gpt-5.4",
+              reasoningEffort: "high",
+              auth: "subscription"
             }
           }
         },
@@ -240,13 +247,19 @@ describe("runtime services", () => {
 
     expect(harness.services.runtimePolicy.pi.defaultPreset).toBe("basic");
     expect(harness.services.runtimePolicy.pi.presets.basic).toEqual({
-      model: "gpt-5.4-mini",
-      reasoningEffort: "medium"
+      model: "minimax/minimax-m2.7",
+      reasoningEffort: "medium",
+      authMode: "provider"
     });
-    expect(harness.services.runtimePolicy.pi.defaultModel).toBe("gpt-5.4-mini");
+    expect(harness.services.runtimePolicy.pi.presets.premium).toEqual({
+      model: "gpt-5.4",
+      reasoningEffort: "high",
+      authMode: "subscription"
+    });
+    expect(harness.services.runtimePolicy.pi.defaultModel).toBe("minimax/minimax-m2.7");
     expect(harness.services.runtimePolicy.agentRuntime.defaultPreset).toBe("basic");
     expect(harness.services.runtimePolicy.agentRuntime.defaultModel).toBe(
-      "gpt-5.4-mini"
+      "minimax/minimax-m2.7"
     );
   });
 

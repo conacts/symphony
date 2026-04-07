@@ -13,7 +13,6 @@ import type {
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
 import {
-  agentPresetLabelPrefix,
   agentModelLabelPrefix,
   listSupportedAgentModels,
   resolveAgentIssueModel
@@ -200,7 +199,7 @@ export function serializeRuntimeIssue(
         availableModels: listSupportedAgentModels(),
         modelOverrideLabelPrefix: agentModelLabelPrefix,
         selectionHelpText:
-          `Pi selection is label-driven. Prefer ${agentPresetLabelPrefix}<preset> for repo-defined tiers; raw ${agentModelLabelPrefix}<model> labels still work for direct model overrides.`
+          `Pi selection is label-driven. Prefer ${agentModelLabelPrefix}<preset> for repo-defined tiers; raw symphony:model:<model> labels still work for direct model overrides.`
       }
     }
   };

@@ -60,9 +60,14 @@ export type SymphonyHarnessProviderRuntimePolicy = {
   wireApi: string | null;
 } | null;
 
+export type SymphonyHarnessModelAuthModeRuntimePolicy =
+  | "provider"
+  | "subscription";
+
 export type SymphonyHarnessModelPresetRuntimePolicy = {
   model: string | null;
   reasoningEffort: string | null;
+  authMode: SymphonyHarnessModelAuthModeRuntimePolicy;
 };
 
 export const defaultSymphonyPiPresetName = "advanced";
@@ -161,15 +166,18 @@ export function buildSymphonyDefaultPiPresets(input: {
   return {
     basic: {
       model: input.defaultModel,
-      reasoningEffort: "medium"
-    },
-    balanced: {
-      model: input.defaultModel,
-      reasoningEffort: "high"
+      reasoningEffort: "medium",
+      authMode: "provider"
     },
     advanced: {
       model: input.defaultModel,
-      reasoningEffort: input.defaultReasoningEffort ?? "xhigh"
+      reasoningEffort: input.defaultReasoningEffort ?? "xhigh",
+      authMode: "provider"
+    },
+    premium: {
+      model: "gpt-5.4",
+      reasoningEffort: "high",
+      authMode: "subscription"
     }
   };
 }
@@ -389,11 +397,15 @@ function normalizeHarnessModelPresets(
         presetName,
         {
           model: normalizeOptionalString(preset.model),
-          reasoningEffort: normalizeOptionalString(preset.reasoningEffort)
+          reasoningEffort: normalizeOptionalString(preset.reasoningEffort),
+          authMode:
+            normalizeOptionalString(preset.authMode) === "subscription"
+              ? "subscription"
+              : "provider"
         }
       ];
     })
-  );
+  ) as Record<string, SymphonyHarnessModelPresetRuntimePolicy>;
 
   return Object.keys(normalized).length > 0
     ? normalized

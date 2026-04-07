@@ -10,7 +10,7 @@ describe("runtime serializers", () => {
   it("resolves Pi preset labels from runtime policy defaults", () => {
     const issue = buildSymphonyTrackerIssue({
       state: "In Review",
-      labels: ["symphony:pi-preset:basic"]
+      labels: ["model:basic"]
     });
     const baseRuntimePolicy = buildSymphonyRuntimePolicy();
     const runtimePolicy = buildSymphonyRuntimePolicy({
@@ -21,16 +21,19 @@ describe("runtime serializers", () => {
         defaultPreset: "advanced",
         presets: {
           basic: {
-            model: "gpt-5.4-mini",
-            reasoningEffort: "medium"
-          },
-          balanced: {
-            model: "gpt-5.4",
-            reasoningEffort: "high"
+            model: "minimax/minimax-m2.7",
+            reasoningEffort: "medium",
+            authMode: "provider"
           },
           advanced: {
             model: "xiaomi/mimo-v2-pro",
-            reasoningEffort: "xhigh"
+            reasoningEffort: "xhigh",
+            authMode: "provider"
+          },
+          premium: {
+            model: "gpt-5.4",
+            reasoningEffort: "high",
+            authMode: "subscription"
           }
         }
       }
@@ -48,9 +51,9 @@ describe("runtime serializers", () => {
     );
 
     expect(serialized?.operator.pi.defaultModel).toBe("xiaomi/mimo-v2-pro");
-    expect(serialized?.operator.pi.selectedModel).toBe("gpt-5.4-mini");
+    expect(serialized?.operator.pi.selectedModel).toBe("minimax/minimax-m2.7");
     expect(serialized?.operator.pi.selectionHelpText).toContain(
-      "symphony:pi-preset:"
+      "model:"
     );
   });
 
@@ -69,15 +72,18 @@ describe("runtime serializers", () => {
         presets: {
           basic: {
             model: "gpt-5.4",
-            reasoningEffort: "medium"
-          },
-          balanced: {
-            model: "gpt-5.4-mini",
-            reasoningEffort: "high"
+            reasoningEffort: "medium",
+            authMode: "provider"
           },
           advanced: {
             model: "xiaomi/mimo-v2-pro",
-            reasoningEffort: "xhigh"
+            reasoningEffort: "xhigh",
+            authMode: "provider"
+          },
+          premium: {
+            model: "gpt-5.4-mini",
+            reasoningEffort: "high",
+            authMode: "subscription"
           }
         }
       }

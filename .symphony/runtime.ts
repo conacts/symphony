@@ -10,16 +10,19 @@ export default defineSymphonyRuntime({
     defaultPreset: "advanced",
     presets: {
       basic: {
-        model: "xiaomi/mimo-v2-pro",
-        reasoningEffort: "medium"
-      },
-      balanced: {
-        model: "xiaomi/mimo-v2-pro",
-        reasoningEffort: "high"
+        model: "minimax/minimax-m2.7",
+        reasoningEffort: "medium",
+        auth: "provider"
       },
       advanced: {
         model: "xiaomi/mimo-v2-pro",
-        reasoningEffort: "xhigh"
+        reasoningEffort: "xhigh",
+        auth: "provider"
+      },
+      premium: {
+        model: "gpt-5.4",
+        reasoningEffort: "high",
+        auth: "subscription"
       }
     }
   },

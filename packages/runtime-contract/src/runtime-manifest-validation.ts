@@ -1,6 +1,7 @@
 import {
   defaultSymphonyRuntimeWorkingDirectory,
   type SymphonyNormalizedRuntimeManifest,
+  type SymphonyRuntimePiPresetName,
   type SymphonyRuntimeManifestValidationOptions
 } from "./runtime-manifest-contract.js";
 import {
@@ -30,7 +31,9 @@ import {
 import { parseServices } from "./runtime-manifest-validation-services.js";
 import {
   manifestTopLevelKeys,
+  piAuthModes,
   piKeys,
+  piPresetNames,
   piPresetKeys,
   piReasoningLevels,
   workspaceKeys,
@@ -195,7 +198,7 @@ function parsePi(
   }
 
   return {
-    defaultPreset,
+    defaultPreset: defaultPreset as SymphonyRuntimePiPresetName,
     presets
   };
 }
@@ -204,6 +207,7 @@ function parsePiPresets(
   value: unknown,
   issues: SymphonyRuntimeManifestIssue[]
 ): NonNullable<SymphonyNormalizedRuntimeManifest["pi"]>["presets"] | undefined {
+  const checkpoint = startIssueCheckpoint(issues);
   const record = readStrictRecord(value, ["pi", "presets"], issues, "pi.presets");
 
   if (!record) {
@@ -211,13 +215,40 @@ function parsePiPresets(
   }
 
   const entries = Object.entries(record);
-  if (entries.length === 0) {
-    pushIssue(issues, ["pi", "presets"], "pi.presets must declare at least one preset.");
+  const declaredPresetNames = new Set(entries.map(([presetName]) => presetName));
+
+  for (const presetName of piPresetNames) {
+    if (!declaredPresetNames.has(presetName)) {
+      pushIssue(
+        issues,
+        ["pi", "presets", presetName],
+        `pi.presets must declare the ${presetName} preset.`
+      );
+    }
+  }
+
+  for (const presetName of declaredPresetNames) {
+    if (!piPresetNames.has(presetName)) {
+      pushIssue(
+        issues,
+        ["pi", "presets", presetName],
+        "Unknown preset key. Expected basic, advanced, or premium."
+      );
+    }
+  }
+
+  if (hasIssuesSince(issues, checkpoint)) {
     return undefined;
   }
 
-  const normalized: NonNullable<SymphonyNormalizedRuntimeManifest["pi"]>["presets"] = {};
+  const normalized = {} as NonNullable<
+    SymphonyNormalizedRuntimeManifest["pi"]
+  >["presets"];
   for (const [presetName, presetValue] of entries) {
+    if (!piPresetNames.has(presetName)) {
+      continue;
+    }
+
     const presetPath = ["pi", "presets", presetName] as const;
     const presetRecord = readStrictRecord(
       presetValue,
@@ -245,6 +276,13 @@ function parsePiPresets(
       issues,
       `pi.presets.${presetName}.reasoningEffort`
     );
+    const authMode = readOptionalString(
+      presetRecord,
+      "auth",
+      [...presetPath, "auth"],
+      issues,
+      `pi.presets.${presetName}.auth`
+    );
 
     if (reasoningEffort && !piReasoningLevels.has(reasoningEffort)) {
       pushIssue(
@@ -255,15 +293,27 @@ function parsePiPresets(
       continue;
     }
 
+    if (authMode && !piAuthModes.has(authMode)) {
+      pushIssue(
+        issues,
+        [...presetPath, "auth"],
+        `pi.presets.${presetName}.auth must be either "provider" or "subscription".`
+      );
+      continue;
+    }
+
     if (!model) {
       continue;
     }
 
-    normalized[presetName] = {
+    normalized[presetName as SymphonyRuntimePiPresetName] = {
       model,
-      ...(reasoningEffort ? { reasoningEffort } : {})
+      ...(reasoningEffort ? { reasoningEffort } : {}),
+      ...(authMode
+        ? { auth: authMode as "provider" | "subscription" }
+        : {})
     };
   }
 
-  return Object.keys(normalized).length > 0 ? normalized : undefined;
+  return hasIssuesSince(issues, checkpoint) ? undefined : normalized;
 }

@@ -226,12 +226,19 @@ export default defineSymphonyRuntime({
         defaultPreset: "advanced",
         presets: {
           basic: {
-            model: "gpt-5.4-mini",
-            reasoningEffort: "medium"
+            model: "minimax/minimax-m2.7",
+            reasoningEffort: "medium",
+            auth: "provider"
           },
           advanced: {
             model: "xiaomi/mimo-v2-pro",
-            reasoningEffort: "xhigh"
+            reasoningEffort: "xhigh",
+            auth: "provider"
+          },
+          premium: {
+            model: "gpt-5.4",
+            reasoningEffort: "high",
+            auth: "subscription"
           }
         }
       },
@@ -260,12 +267,19 @@ export default defineSymphonyRuntime({
       defaultPreset: "advanced",
       presets: {
         basic: {
-          model: "gpt-5.4-mini",
-          reasoningEffort: "medium"
+          model: "minimax/minimax-m2.7",
+          reasoningEffort: "medium",
+          auth: "provider"
         },
         advanced: {
           model: "xiaomi/mimo-v2-pro",
-          reasoningEffort: "xhigh"
+          reasoningEffort: "xhigh",
+          auth: "provider"
+        },
+        premium: {
+          model: "gpt-5.4",
+          reasoningEffort: "high",
+          auth: "subscription"
         }
       }
     });

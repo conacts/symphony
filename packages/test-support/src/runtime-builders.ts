@@ -408,9 +408,9 @@ export function buildSymphonyRuntimeIssueResult(
           "gpt-5.4",
           "gpt-5.4-mini"
         ],
-        modelOverrideLabelPrefix: "symphony:model:",
+        modelOverrideLabelPrefix: "model:",
         selectionHelpText:
-          "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
+          "Pi selection is label-driven. Prefer model:<preset> for repo-defined tiers; raw symphony:model:<model> labels still work for direct model overrides."
       }
     },
     ...Object.fromEntries(

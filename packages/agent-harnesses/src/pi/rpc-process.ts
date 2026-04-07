@@ -317,8 +317,12 @@ export function resolvePiLaunchSettings(
   return {
     model: issueSelection.model,
     reasoningEffort: issueSelection.reasoningEffort,
-    providerId: modelPolicy.provider?.id ?? null,
-    providerName: modelPolicy.provider?.name ?? null
+    providerId:
+      issueSelection.authMode === "provider" ? (modelPolicy.provider?.id ?? null) : null,
+    providerName:
+      issueSelection.authMode === "provider"
+        ? (modelPolicy.provider?.name ?? null)
+        : null
   };
 }
 

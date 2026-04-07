@@ -22,7 +22,13 @@ describe("resolveRuntimePolicy", () => {
     expect(config.pi.defaultPreset).toBe("advanced");
     expect(config.pi.presets.advanced).toEqual({
       model: null,
-      reasoningEffort: "xhigh"
+      reasoningEffort: "xhigh",
+      authMode: "provider"
+    });
+    expect(config.pi.presets.premium).toEqual({
+      model: "gpt-5.4",
+      reasoningEffort: "high",
+      authMode: "subscription"
     });
     expect(config.pi.turnTimeoutMs).toBe(3_600_000);
     expect(config.pi.stallTimeoutMs).toBe(300_000);

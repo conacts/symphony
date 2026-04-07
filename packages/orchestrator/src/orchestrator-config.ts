@@ -18,6 +18,7 @@ export type SymphonyAgentRuntimeConfig = {
       {
         model: string | null;
         reasoningEffort: string | null;
+        authMode: "provider" | "subscription";
       }
     >;
     provider: {
@@ -46,6 +47,7 @@ export type SymphonyAgentRuntimeConfig = {
       {
         model: string | null;
         reasoningEffort: string | null;
+        authMode: "provider" | "subscription";
       }
     >;
     provider: {

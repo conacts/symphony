@@ -2,6 +2,7 @@ import type { AgentRuntimeLaunchTarget } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { HarnessSessionError, type HarnessLaunchSettings } from "../shared/session-types.js";
 import {
+  legacyPiModelLabelPrefix,
   listSupportedPiModels,
   piModelLabelPrefix,
   piPresetLabelPrefix,
@@ -11,6 +12,7 @@ import {
 
 export const agentModelLabelPrefix = piModelLabelPrefix;
 export const agentPresetLabelPrefix = piPresetLabelPrefix;
+export const legacyAgentModelLabelPrefix = legacyPiModelLabelPrefix;
 export const listSupportedAgentModels = listSupportedPiModels;
 
 export const resolveAgentIssueModel = resolvePiIssueModel;
@@ -27,6 +29,7 @@ export function resolvePiLaunchSettings(
       {
         model: string | null;
         reasoningEffort: string | null;
+        authMode?: "provider" | "subscription" | null;
       }
     >;
     profile?: string | null;
@@ -34,7 +37,7 @@ export function resolvePiLaunchSettings(
     providerName?: string | null;
   }
 ): HarnessLaunchSettings {
-  const { model, reasoningEffort } = resolvePiIssueSelection(issue, defaults);
+  const { model, reasoningEffort, authMode } = resolvePiIssueSelection(issue, defaults);
   const cleanedCommand = stripPiReasoningOverrides(
     stripPiModelOverrides(baseCommand)
   ).trim();
@@ -68,8 +71,8 @@ export function resolvePiLaunchSettings(
     model,
     reasoningEffort,
     profile: defaults?.profile ?? null,
-    providerId: defaults?.providerId ?? null,
-    providerName: defaults?.providerName ?? null
+    providerId: authMode === "provider" ? (defaults?.providerId ?? null) : null,
+    providerName: authMode === "provider" ? (defaults?.providerName ?? null) : null
   };
 }
 
@@ -87,6 +90,7 @@ export function resolvePiSdkLaunchSettings(
       {
         model: string | null;
         reasoningEffort: string | null;
+        authMode?: "provider" | "subscription" | null;
       }
     >;
     profile?: string | null;
@@ -112,7 +116,7 @@ export function resolvePiSdkLaunchSettings(
     );
   }
 
-  const { model, reasoningEffort } = resolvePiIssueSelection(issue, defaults);
+  const { model, reasoningEffort, authMode } = resolvePiIssueSelection(issue, defaults);
 
   return {
     command: cleanedCommand,
@@ -120,8 +124,8 @@ export function resolvePiSdkLaunchSettings(
     model,
     reasoningEffort,
     profile: defaults?.profile ?? null,
-    providerId: defaults?.providerId ?? null,
-    providerName: defaults?.providerName ?? null
+    providerId: authMode === "provider" ? (defaults?.providerId ?? null) : null,
+    providerName: authMode === "provider" ? (defaults?.providerName ?? null) : null
   };
 }
 
