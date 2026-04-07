@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   buildSymphonyGitHubIssueCommentPayload,
+  buildSymphonyGitHubPullRequestReviewCommentPayload,
   buildSymphonyGitHubPullRequestReviewPayload,
   signSymphonyGitHubWebhook
 } from "@symphony/test-support";
@@ -595,6 +596,42 @@ describe("@symphony/api app", () => {
     expect(ingressResponse.status).toBe(202);
     expect(ingressPayload.data.accepted).toBe(true);
     expect(ingressPayload.data.event).toBe("issue_comment");
+  });
+
+  it("accepts raw GitHub pull_request_review_comment webhooks", async () => {
+    const harness = await createSymphonyRuntimeTestHarness({
+      issue: {
+        state: "In Review"
+      }
+    });
+    harnesses.push(harness);
+
+    const app = createSymphonyRuntimeApp(harness.services);
+    const rawBody = JSON.stringify(
+      buildSymphonyGitHubPullRequestReviewCommentPayload()
+    );
+    const signature = signSymphonyGitHubWebhook(rawBody, "secret");
+
+    const ingressResponse = await app.request("/api/v1/github/review-events", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-github-delivery": "delivery-pr-review-comment-1",
+        "x-github-event": "pull_request_review_comment",
+        "x-hub-signature-256": signature
+      },
+      body: rawBody
+    });
+    const ingressPayload = await responseJson<{
+      data: {
+        accepted: boolean;
+        event: string;
+      };
+    }>(ingressResponse);
+
+    expect(ingressResponse.status).toBe(202);
+    expect(ingressPayload.data.accepted).toBe(true);
+    expect(ingressPayload.data.event).toBe("pull_request_review_comment");
   });
 
   it("allows local dashboard origins to read the runtime api", async () => {

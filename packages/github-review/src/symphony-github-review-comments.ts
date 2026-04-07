@@ -50,6 +50,14 @@ export function buildSymphonyGitHubReviewContextUrl(
     signal.issueNumber > 0 &&
     signal.commentId > 0
   ) {
+    if (signal.commentHtmlUrl) {
+      return signal.commentHtmlUrl;
+    }
+
+    if (signal.pullRequestHtmlUrl) {
+      return `${signal.pullRequestHtmlUrl}#issuecomment-${signal.commentId}`;
+    }
+
     return `https://github.com/${signal.repository}/pull/${signal.issueNumber}#issuecomment-${signal.commentId}`;
   }
 

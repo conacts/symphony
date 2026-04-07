@@ -27,6 +27,19 @@ export type SymphonyGitHubReviewEvent =
       };
     }
   | {
+      event: "pull_request_review_comment";
+      repository: string;
+      payload: {
+        issueNumber: number;
+        commentId: number;
+        commentBody: string;
+        authorLogin: string | null;
+        pullRequestUrl: string | null;
+        pullRequestHtmlUrl: string | null;
+        commentHtmlUrl: string | null;
+      };
+    }
+  | {
       event: "issue_comment";
       repository: string;
       payload: {
@@ -35,6 +48,7 @@ export type SymphonyGitHubReviewEvent =
         commentBody: string;
         authorLogin: string | null;
         pullRequestUrl: string | null;
+        commentHtmlUrl: string | null;
       };
     };
 
@@ -54,6 +68,8 @@ export type SymphonyGitHubReviewSignal =
       repository: string;
       issueNumber: number;
       pullRequestUrl: string | null;
+      pullRequestHtmlUrl: string | null;
+      commentHtmlUrl: string | null;
       headSha: null;
       authorLogin: string | null;
       commentId: number;
@@ -66,6 +82,8 @@ export type SymphonyGitHubReviewSignal =
       repository: string;
       issueNumber: number;
       pullRequestUrl: string | null;
+      pullRequestHtmlUrl: string | null;
+      commentHtmlUrl: string | null;
       headSha: null;
       authorLogin: string | null;
       commentId: number;

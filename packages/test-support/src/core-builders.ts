@@ -161,7 +161,8 @@ export function buildSymphonyGithubIssueCommentEvent(
           commentId: 456,
           commentBody: "/rework Please address the feedback.",
           authorLogin: "reviewer",
-          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
+          commentHtmlUrl: "https://github.com/openai/symphony/pull/123#issuecomment-456"
         };
 
   return {

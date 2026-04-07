@@ -131,11 +131,38 @@ function buildSymphonyGithubIssueCommentEvent(
           commentId: 456,
           commentBody: "/rework Please address the feedback.",
           authorLogin: "reviewer",
-          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
+          commentHtmlUrl: "https://github.com/openai/symphony/pull/123#issuecomment-456"
         };
 
   return {
     event: "issue_comment",
+    repository: "openai/symphony",
+    ...overrides,
+    payload
+  };
+}
+
+function buildSymphonyGithubPullRequestReviewCommentEvent(
+  overrides: Partial<
+    Extract<SymphonyGitHubReviewEvent, { event: "pull_request_review_comment" }>
+  > = {}
+): SymphonyGitHubReviewEvent {
+  const payload =
+    "payload" in overrides && overrides.payload
+      ? overrides.payload
+      : {
+          issueNumber: 123,
+          commentId: 789,
+          commentBody: "Please address this inline issue before merge.",
+          authorLogin: "chatgpt-codex-connector[bot]",
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
+          pullRequestHtmlUrl: "https://github.com/openai/symphony/pull/123",
+          commentHtmlUrl: "https://github.com/openai/symphony/pull/123#discussion_r789"
+        };
+
+  return {
+    event: "pull_request_review_comment",
     repository: "openai/symphony",
     ...overrides,
     payload
@@ -185,9 +212,21 @@ describe("symphony github review policy", () => {
           commentId: 789,
           commentBody: "Please address the API naming issues before merge.",
           authorLogin: "chatgpt-codex-connector",
-          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
+          commentHtmlUrl: "https://github.com/openai/symphony/pull/123#issuecomment-789"
         }
       })
+    );
+
+    expect(signal?.kind).toBe("review_comment");
+  });
+
+  it("accepts pull_request_review_comment events from the Codex bot by default", () => {
+    const policyConfig = buildSymphonyGitHubReviewPolicyConfig();
+
+    const signal = extractSymphonyGithubReviewSignal(
+      policyConfig,
+      buildSymphonyGithubPullRequestReviewCommentEvent()
     );
 
     expect(signal?.kind).toBe("review_comment");
@@ -204,7 +243,8 @@ describe("symphony github review policy", () => {
           commentId: 790,
           commentBody: "Please address this before merge.",
           authorLogin: "chatgpt-codex-connector",
-          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
+          commentHtmlUrl: "https://github.com/openai/symphony/pull/123#issuecomment-790"
         }
       })
     );
@@ -223,7 +263,8 @@ describe("symphony github review policy", () => {
           commentId: 791,
           commentBody: "Please address this before merge.",
           authorLogin: "some-private-repo-reviewer",
-          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
+          commentHtmlUrl: "https://github.com/openai/symphony/pull/123#issuecomment-791"
         }
       })
     );
@@ -423,7 +464,8 @@ describe("symphony github review policy", () => {
           commentId: 789,
           commentBody: "Please address the API naming issues before merge.",
           authorLogin: "chatgpt-codex-connector",
-          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
+          commentHtmlUrl: "https://github.com/openai/symphony/pull/123#issuecomment-789"
         }
       })
     );
@@ -483,7 +525,8 @@ describe("symphony github review policy", () => {
           commentId: 792,
           commentBody: "Please tighten the validation logic before merge.",
           authorLogin: "chatgpt-codex-connector",
-          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
+          commentHtmlUrl: "https://github.com/openai/symphony/pull/123#issuecomment-792"
         }
       })
     );
@@ -512,6 +555,44 @@ describe("symphony github review policy", () => {
         body: expect.stringContaining("issuecomment-792")
       }
     ]);
+  });
+
+  it("requeues issues in review from Codex pull_request_review_comment events", async () => {
+    const policyConfig = buildSymphonyGitHubReviewPolicyConfig();
+
+    const tracker = createMemorySymphonyTracker([
+      buildSymphonyTrackerIssue({
+        state: "In Review"
+      })
+    ]);
+
+    const processor = new SymphonyGithubReviewProcessor({
+      policyConfig,
+      tracker,
+      pullRequestResolver: {
+        async fetchPullRequest() {
+          return {
+            headRef: "symphony/COL-123",
+            htmlUrl: "https://github.com/openai/symphony/pull/123"
+          };
+        }
+      }
+    });
+
+    const result = await processor.processEvent(
+      buildSymphonyGithubPullRequestReviewCommentEvent()
+    );
+
+    expect(result).toMatchObject({
+      status: "requeued",
+      issueIdentifier: "COL-123",
+      handoff: {
+        triggerKind: "review_comment",
+        actorLogin: "chatgpt-codex-connector[bot]",
+        reviewContextUrl: "https://github.com/openai/symphony/pull/123#discussion_r789",
+        feedbackBody: "Please address this inline issue before merge."
+      }
+    });
   });
 
   it("does not claim manual /rework was queued when no Symphony issue matches", async () => {
@@ -594,7 +675,8 @@ describe("symphony github review policy", () => {
           commentId: 791,
           commentBody: "Please address this before merge.",
           authorLogin: "chatgpt-codex-connector",
-          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123"
+          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
+          commentHtmlUrl: "https://github.com/openai/symphony/pull/123#issuecomment-791"
         }
       })
     );

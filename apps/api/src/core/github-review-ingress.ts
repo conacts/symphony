@@ -3,6 +3,7 @@ import type {
   SymphonyGitHubReviewIngressResult,
   SymphonyGitHubWebhookBody,
   SymphonyGitHubIssueCommentPayload,
+  SymphonyGitHubPullRequestReviewCommentPayload,
   SymphonyGitHubPullRequestReviewPayload,
   SymphonyGitHubWebhookEvent,
   SymphonyGitHubWebhookHeaders
@@ -175,7 +176,8 @@ function normalizeReviewEvent(
             commentId: 0,
             commentBody: "",
             authorLogin: null,
-            pullRequestUrl: null
+            pullRequestUrl: null,
+            commentHtmlUrl: null
           }
         }
       };
@@ -237,7 +239,55 @@ function normalizeReviewEvent(
               commentId: commentBody.comment.id,
               commentBody: commentBody.comment.body,
               authorLogin: commentBody.comment.user?.login ?? null,
-              pullRequestUrl: commentBody.issue.pull_request?.url ?? null
+              pullRequestUrl:
+                typeof commentBody.issue.pull_request?.url === "string"
+                  ? commentBody.issue.pull_request.url
+                  : null,
+              commentHtmlUrl:
+                typeof commentBody.comment.html_url === "string"
+                  ? commentBody.comment.html_url
+                  : null
+            }
+          }
+        };
+      }
+
+    case "pull_request_review_comment":
+      if (!("pull_request" in body) || !("comment" in body)) {
+        throw createRuntimeHttpError(
+          422,
+          "VALIDATION_FAILED",
+          "GitHub webhook payload is not valid for this event type."
+        );
+      }
+
+      {
+        const reviewCommentBody = body as SymphonyGitHubPullRequestReviewCommentPayload;
+
+        return {
+          repository,
+          action,
+          semanticKey: `pull_request_review_comment:${reviewCommentBody.pull_request.number}:${reviewCommentBody.comment.id}:${action ?? "none"}`,
+          event: {
+            event: "pull_request_review_comment",
+            repository,
+            payload: {
+              issueNumber: reviewCommentBody.pull_request.number,
+              commentId: reviewCommentBody.comment.id,
+              commentBody: reviewCommentBody.comment.body,
+              authorLogin: reviewCommentBody.comment.user?.login ?? null,
+              pullRequestUrl:
+                typeof reviewCommentBody.pull_request.url === "string"
+                  ? reviewCommentBody.pull_request.url
+                  : null,
+              pullRequestHtmlUrl:
+                typeof reviewCommentBody.pull_request.html_url === "string"
+                  ? reviewCommentBody.pull_request.html_url
+                  : null,
+              commentHtmlUrl:
+                typeof reviewCommentBody.comment.html_url === "string"
+                  ? reviewCommentBody.comment.html_url
+                  : null
             }
           }
         };

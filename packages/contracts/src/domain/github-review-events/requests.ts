@@ -4,6 +4,7 @@ import { nonEmptyStringSchema } from "../../core/shared.js";
 export const symphonyGitHubWebhookEventSchema = z.enum([
   "ping",
   "pull_request_review",
+  "pull_request_review_comment",
   "issue_comment"
 ]);
 
@@ -100,9 +101,19 @@ export const symphonyGitHubIssueCommentPayloadSchema = z
   })
   .passthrough();
 
+export const symphonyGitHubPullRequestReviewCommentPayloadSchema = z
+  .object({
+    repository: repositorySchema,
+    action: nonEmptyStringSchema.optional(),
+    pull_request: pullRequestSchema,
+    comment: commentSchema
+  })
+  .passthrough();
+
 export const symphonyGitHubWebhookBodySchema = z.union([
   symphonyGitHubPingPayloadSchema,
   symphonyGitHubPullRequestReviewPayloadSchema,
+  symphonyGitHubPullRequestReviewCommentPayloadSchema,
   symphonyGitHubIssueCommentPayloadSchema
 ]);
 
@@ -112,6 +123,9 @@ export type SymphonyGitHubWebhookBody = z.infer<typeof symphonyGitHubWebhookBody
 export type SymphonyGitHubPingPayload = z.infer<typeof symphonyGitHubPingPayloadSchema>;
 export type SymphonyGitHubPullRequestReviewPayload = z.infer<
   typeof symphonyGitHubPullRequestReviewPayloadSchema
+>;
+export type SymphonyGitHubPullRequestReviewCommentPayload = z.infer<
+  typeof symphonyGitHubPullRequestReviewCommentPayloadSchema
 >;
 export type SymphonyGitHubIssueCommentPayload = z.infer<
   typeof symphonyGitHubIssueCommentPayloadSchema

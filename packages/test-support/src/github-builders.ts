@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import type {
   SymphonyGitHubIssueCommentPayload,
+  SymphonyGitHubPullRequestReviewCommentPayload,
   SymphonyGitHubPullRequestReviewPayload,
   SymphonyGitHubReviewIngressResult,
   SymphonyGitHubWebhookHeaders
@@ -77,6 +78,36 @@ export function buildSymphonyGitHubIssueCommentPayload(
     sender: {
       login: "reviewer",
       id: 1
+    },
+    ...overrides
+  };
+}
+
+export function buildSymphonyGitHubPullRequestReviewCommentPayload(
+  overrides: Partial<SymphonyGitHubPullRequestReviewCommentPayload> = {}
+): SymphonyGitHubPullRequestReviewCommentPayload {
+  return {
+    action: "created",
+    repository: {
+      full_name: "openai/symphony"
+    },
+    pull_request: {
+      number: 123,
+      head: {
+        sha: "abc123",
+        ref: "symphony/COL-123"
+      },
+      url: "https://api.github.com/repos/openai/symphony/pulls/123",
+      html_url: "https://github.com/openai/symphony/pull/123"
+    },
+    comment: {
+      id: 789,
+      body: "Please address this inline issue before merge.",
+      html_url:
+        "https://github.com/openai/symphony/pull/123#discussion_r789",
+      user: {
+        login: "chatgpt-codex-connector[bot]"
+      }
     },
     ...overrides
   };

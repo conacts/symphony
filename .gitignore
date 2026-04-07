@@ -28,6 +28,7 @@ packages/*/.env.local
 packages/*/.env.*.local
 
 # Runtime and logging artifacts
+.tmp/
 .symphony/*
 **/.symphony/
 !.symphony/

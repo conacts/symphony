@@ -12,6 +12,7 @@ export {
 export { createTestWorkspaceBackend } from "@symphony/workspace/test-support";
 export {
   buildSymphonyGitHubIssueCommentPayload,
+  buildSymphonyGitHubPullRequestReviewCommentPayload,
   buildSymphonyGitHubPullRequestReviewPayload,
   buildSymphonyGitHubReviewIngressResult,
   buildSymphonyGitHubWebhookHeaders,

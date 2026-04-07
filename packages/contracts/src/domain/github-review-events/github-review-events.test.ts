@@ -99,6 +99,45 @@ describe("symphony github review ingress contracts", () => {
     expect("issue" in body).toBe(true);
   });
 
+  it("accepts a raw GitHub pull_request_review_comment webhook payload with extra fields", () => {
+    const headers = symphonyGitHubWebhookHeadersSchema.parse({
+      xGitHubDelivery: "delivery-2",
+      xGitHubEvent: "pull_request_review_comment",
+      xHubSignature256: "sha256=abc"
+    });
+
+    const body = symphonyGitHubWebhookBodySchema.parse({
+      action: "created",
+      repository: {
+        full_name: "openai/symphony",
+        private: true
+      },
+      pull_request: {
+        number: 123,
+        head: {
+          sha: "abc123",
+          ref: "symphony/COL-123"
+        },
+        url: "https://api.github.com/repos/openai/symphony/pulls/123",
+        html_url: "https://github.com/openai/symphony/pull/123"
+      },
+      comment: {
+        id: 789,
+        body: "Please address this inline issue before merge.",
+        user: {
+          login: "chatgpt-codex-connector[bot]"
+        }
+      },
+      sender: {
+        login: "chatgpt-codex-connector[bot]"
+      }
+    });
+
+    expect(headers.xGitHubEvent).toBe("pull_request_review_comment");
+    expect("comment" in body).toBe(true);
+    expect("pull_request" in body).toBe(true);
+  });
+
   it("rejects unsupported webhook events", () => {
     expect(() =>
       symphonyGitHubWebhookHeadersSchema.parse({

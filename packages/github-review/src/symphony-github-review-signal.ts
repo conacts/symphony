@@ -5,7 +5,10 @@ import type {
 } from "./symphony-github-review-types.js";
 
 const reworkCommandPattern = /^\/rework(?:\s+(?<context>[\s\S]+))?$/u;
-const defaultReviewCommentLogin = "chatgpt-codex-connector";
+const defaultReviewCommentLogins = new Set([
+  "chatgpt-codex-connector",
+  "chatgpt-codex-connector[bot]"
+]);
 
 export function extractSymphonyGithubReviewSignal(
   policyConfig: SymphonyGitHubReviewPolicyConfig,
@@ -52,7 +55,9 @@ export function extractSymphonyGithubReviewSignal(
         issueIdentifier: null,
         repository: event.repository,
         issueNumber: event.payload.issueNumber,
-      pullRequestUrl: event.payload.pullRequestUrl,
+        pullRequestUrl: event.payload.pullRequestUrl,
+        pullRequestHtmlUrl: null,
+        commentHtmlUrl: event.payload.commentHtmlUrl,
         headSha: null,
         authorLogin: event.payload.authorLogin,
         commentId: event.payload.commentId,
@@ -73,8 +78,13 @@ export function extractSymphonyGithubReviewSignal(
         kind: "review_comment",
         issueIdentifier: null,
         repository: event.repository,
-      issueNumber: event.payload.issueNumber,
-      pullRequestUrl: event.payload.pullRequestUrl,
+        issueNumber: event.payload.issueNumber,
+        pullRequestUrl: event.payload.pullRequestUrl,
+        pullRequestHtmlUrl:
+          event.event === "pull_request_review_comment"
+            ? event.payload.pullRequestHtmlUrl
+            : null,
+        commentHtmlUrl: event.payload.commentHtmlUrl,
         headSha: null,
         authorLogin: event.payload.authorLogin,
         commentId: event.payload.commentId,
@@ -110,7 +120,7 @@ function shouldAcceptReviewComment(
   authorLogin: string | null
 ): boolean {
   if (allowedReviewCommentLogins.size === 0) {
-    return authorLogin === defaultReviewCommentLogin;
+    return authorLogin ? defaultReviewCommentLogins.has(authorLogin) : false;
   }
 
   return authorLogin ? allowedReviewCommentLogins.has(authorLogin) : false;

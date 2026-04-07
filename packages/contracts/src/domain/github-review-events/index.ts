@@ -4,6 +4,7 @@ export {
   symphonyGitHubWebhookBodySchema,
   symphonyGitHubPingPayloadSchema,
   symphonyGitHubPullRequestReviewPayloadSchema,
+  symphonyGitHubPullRequestReviewCommentPayloadSchema,
   symphonyGitHubIssueCommentPayloadSchema
 } from "./requests.js";
 export {
@@ -17,6 +18,7 @@ export type {
   SymphonyGitHubWebhookBody,
   SymphonyGitHubPingPayload,
   SymphonyGitHubPullRequestReviewPayload,
+  SymphonyGitHubPullRequestReviewCommentPayload,
   SymphonyGitHubIssueCommentPayload
 } from "./requests.js";
 export type { SymphonyGitHubReviewIngressResult } from "./responses.js";
