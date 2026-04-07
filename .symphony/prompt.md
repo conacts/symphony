@@ -7,17 +7,31 @@ Current branch: {{ workspace.branch }}
 Default branch: {{ repo.default_branch }}
 Issue URL: {{ issue.url }}
 
-The shell already starts in the workspace above. Work from that directory directly.
+This shell already starts in the admitted repo workspace. Stay in that directory and make the
+smallest coherent change that solves the issue.
 
 Issue title: {{ issue.title }}
 Issue state: {{ issue.state }}
 Issue labels: {{ issue.labels }}
 Suggested issue branch: {{ issue.branch_name }}
 
-Linear is the source of truth for issue status, rework context, and delivery flow in this repository.
-If built-in Linear tools are available, prefer them. If the `lin` CLI is available, use it before inventing local substitutes.
+Repository context:
+- This repo is Symphony's self-host and orchestration workspace.
+- Linear is the source of truth for issue status, rework context, and delivery flow.
+- Prefer built-in Linear tools when they exist.
+- If the `lin` CLI is available, use it before inventing local substitutes.
+- Keep naming explicit and consistent with the Pi / Symphony vocabulary already used here.
+- Prefer deleting dead code over leaving legacy branches around once the new path is stable.
 
-If the issue is in `Rework`, read the latest Linear rework note and relevant GitHub review/comment context first, then address that feedback before anything else.
+Execution style:
+- Read enough local context to make one clean patch before editing.
+- Keep the change targeted and avoid speculative refactors.
+- When behavior changes, add or update tests that reproduce the exact bug or flow.
+- Use shell commands for tests, builds, git, and package-manager operations.
+- Use Pi-native tools for file reads and edits whenever they are available.
+
+If the issue is in `Rework`, read the latest Linear rework note and any relevant GitHub review
+comment context first, then address that feedback before anything else.
 
 Description:
 {{ issue.description }}
