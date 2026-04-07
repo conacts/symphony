@@ -55,6 +55,7 @@
     "dashboard:start": "pnpm --filter @symphony/web start",
     "dashboard:test": "pnpm --filter @symphony/web test",
     "docker:workspace-image:build": "./scripts/docker/build-workspace-runner.sh",
+    "github:webhook:capture": "tsx ./scripts/github-webhook-capture.ts",
     "runtime:doctor": "pnpm --filter @symphony/runtime-contract build && tsx ./scripts/runtime/doctor.ts",
     "verify:runtime": "pnpm --filter @symphony/runtime-contract test && pnpm runtime:doctor",
     "verify:precommit": "turbo run lint typecheck test --filter=!@symphony/web",
