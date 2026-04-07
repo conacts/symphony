@@ -12,6 +12,11 @@ import {
   HarnessSessionError
 } from "../shared/session-types.js";
 import { resolveHarnessModelRuntimePolicy } from "../shared/runtime-policy.js";
+import {
+  defaultPiModel,
+  normalizePiThinkingLevel,
+  resolvePiIssueSelection
+} from "./model-selection.js";
 
 type PendingResponse = {
   resolve: (value: Record<string, unknown>) => void;
@@ -300,11 +305,16 @@ export function resolvePiLaunchSettings(
   input: HarnessLaunchSessionInput
 ): PiLaunchSettings {
   const modelPolicy = resolveHarnessModelRuntimePolicy(input.runtimePolicy, "pi");
-  return {
-    model: modelPolicy.defaultModel ?? "xiaomi/mimo-v2-pro",
+  const issueSelection = resolvePiIssueSelection(input.issue, {
+    model: modelPolicy.defaultModel ?? defaultPiModel,
     reasoningEffort: normalizePiThinkingLevel(
       modelPolicy.defaultReasoningEffort ?? "medium"
-    ),
+    )
+  });
+
+  return {
+    model: issueSelection.model,
+    reasoningEffort: issueSelection.reasoningEffort,
     providerId: modelPolicy.provider?.id ?? null,
     providerName: modelPolicy.provider?.name ?? null
   };
@@ -345,14 +355,6 @@ function buildPiRpcSpawnArgs(
         .join(" ")
     ].join(" && ")
   ];
-}
-
-function normalizePiThinkingLevel(value: string): string {
-  if (["off", "minimal", "low", "medium", "high", "xhigh"].includes(value)) {
-    return value;
-  }
-
-  return "medium";
 }
 
 function shellQuote(value: string): string {

@@ -1,42 +1,15 @@
 import type { AgentRuntimeLaunchTarget } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { HarnessSessionError, type HarnessLaunchSettings } from "../shared/session-types.js";
+import {
+  listSupportedPiModels,
+  piModelLabelPrefix,
+  resolvePiIssueModel,
+  resolvePiIssueSelection
+} from "./model-selection.js";
 
-const defaultPiModel = "xiaomi/mimo-v2-pro";
-const defaultPiReasoningEffort = "xhigh";
-const supportedPiModels = new Set([
-  "xiaomi/mimo-v2-pro",
-  "gpt-5.4",
-  "gpt-5.4-mini"
-]);
-const supportedPiReasoningEfforts = new Set([
-  "low",
-  "medium",
-  "high",
-  "xhigh"
-]);
-export const piModelLabelPrefix = "symphony:model:";
 export const agentModelLabelPrefix = piModelLabelPrefix;
-const piReasoningLabelPrefix = "symphony:reasoning:";
-
-export function listSupportedPiModels(): string[] {
-  return [...supportedPiModels];
-}
-
 export const listSupportedAgentModels = listSupportedPiModels;
-
-export function resolvePiIssueModel(
-  issue: SymphonyTrackerIssue,
-  defaultModel = defaultPiModel
-): string {
-  return selectPiIssueOverride(
-    issue,
-    piModelLabelPrefix,
-    supportedPiModels,
-    defaultModel,
-    "model"
-  );
-}
 
 export const resolveAgentIssueModel = resolvePiIssueModel;
 
@@ -51,7 +24,7 @@ export function resolvePiLaunchSettings(
     providerName?: string | null;
   }
 ): HarnessLaunchSettings {
-  const { model, reasoningEffort } = resolvePiModelSettings(issue, defaults);
+  const { model, reasoningEffort } = resolvePiIssueSelection(issue, defaults);
   const cleanedCommand = stripPiReasoningOverrides(
     stripPiModelOverrides(baseCommand)
   ).trim();
@@ -121,7 +94,7 @@ export function resolvePiSdkLaunchSettings(
     );
   }
 
-  const { model, reasoningEffort } = resolvePiModelSettings(issue, defaults);
+  const { model, reasoningEffort } = resolvePiIssueSelection(issue, defaults);
 
   return {
     command: cleanedCommand,
@@ -283,67 +256,6 @@ function dockerEnvFlags(env: Record<string, string>): string[] {
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
-}
-
-function resolvePiModelSettings(
-  issue: SymphonyTrackerIssue,
-  defaults?: {
-    model?: string | null;
-    reasoningEffort?: string | null;
-  }
-): {
-  model: string;
-  reasoningEffort: string;
-} {
-  const model = selectPiIssueOverride(
-    issue,
-    piModelLabelPrefix,
-    supportedPiModels,
-    defaults?.model ?? defaultPiModel,
-    "model"
-  );
-  const reasoningEffort = selectPiIssueOverride(
-    issue,
-    piReasoningLabelPrefix,
-    supportedPiReasoningEfforts,
-    defaults?.reasoningEffort ?? defaultPiReasoningEffort,
-    "reasoning effort"
-  );
-
-  return {
-    model,
-    reasoningEffort
-  };
-}
-
-function selectPiIssueOverride(
-  issue: SymphonyTrackerIssue,
-  prefix: string,
-  supported: Set<string>,
-  fallback: string,
-  label: string
-): string {
-  for (const issueLabel of issue.labels) {
-    if (!issueLabel.startsWith(prefix)) {
-      continue;
-    }
-
-    const value = issueLabel.slice(prefix.length).trim();
-    if (supported.has(value)) {
-      return value;
-    }
-
-    throw new HarnessSessionError(
-      "invalid_pi_label_override",
-      `Unsupported ${label} override label on ${issue.identifier}: ${issueLabel}`,
-      {
-        issueLabel,
-        fallback
-      }
-    );
-  }
-
-  return fallback;
 }
 
 function stripPiModelOverrides(command: string): string {
