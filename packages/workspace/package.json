@@ -26,6 +26,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@docker/node-sdk": "^0.0.17",
     "@symphony/runtime-contract": "workspace:*"
   },
   "devDependencies": {
