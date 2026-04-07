@@ -13,6 +13,11 @@ type RepositoryLinearTrackerEntry = {
   tracker: SymphonyTracker;
 };
 
+type RepositoryLinearTrackerSource = Pick<
+  AdmittedRuntimeRepository,
+  "repositoryKey" | "linearBinding"
+>;
+
 export type RepositoryLinearTrackerFactory = (
   config: SymphonyTrackerConfig
 ) => SymphonyTracker;
@@ -44,40 +49,37 @@ export function createRepositoryScopedLinearTracker(input: {
 
   return {
     async fetchCandidateIssues(config) {
-      return await collectIssues(
+      return await collectIssuesFromEntries(
         trackerEntries,
         issueRepositoryKeys,
         (entry) =>
           entry.tracker.fetchCandidateIssues(
             mergeTrackerConfigs(config, entry.config)
-          ),
-        false
+          )
       );
     },
 
     async fetchIssuesByStates(config, states) {
-      return await collectIssues(
+      return await collectIssuesFromEntries(
         trackerEntries,
         issueRepositoryKeys,
         (entry) =>
           entry.tracker.fetchIssuesByStates(
             mergeTrackerConfigs(config, entry.config),
             states
-          ),
-        false
+          )
       );
     },
 
     async fetchIssueStatesByIds(config, issueIds) {
-      return await collectIssues(
+      return await collectUniqueIssuesFromEntries(
         trackerEntries,
         issueRepositoryKeys,
         (entry) =>
           entry.tracker.fetchIssueStatesByIds(
             mergeTrackerConfigs(config, entry.config),
             issueIds
-          ),
-        true
+          )
       );
     },
 
@@ -142,19 +144,10 @@ function buildRepositoryLinearTrackerEntries(input: {
   environmentSource: Record<string, string | undefined>;
   createTracker: RepositoryLinearTrackerFactory;
 }): RepositoryLinearTrackerEntry[] {
-  const repositories =
+  const repositories: ReadonlyArray<RepositoryLinearTrackerSource> =
     input.admittedRepositories.length > 0
       ? input.admittedRepositories
-      : [
-          {
-            repositoryKey: "default",
-            linearBinding: {
-              projectSlug: input.trackerTemplate.projectSlug,
-              teamKey: input.trackerTemplate.teamKey,
-              apiKeyEnvKey: null
-            }
-          } as AdmittedRuntimeRepository
-        ];
+      : [createFallbackAdmittedRepository(input.trackerTemplate)];
 
   return repositories.map((repository) => {
     const config = buildRepositoryLinearTrackerConfig(
@@ -173,7 +166,7 @@ function buildRepositoryLinearTrackerEntries(input: {
 
 function buildRepositoryLinearTrackerConfig(
   trackerTemplate: SymphonyTrackerConfig,
-  repository: AdmittedRuntimeRepository,
+  repository: RepositoryLinearTrackerSource,
   environmentSource: Record<string, string | undefined>
 ): SymphonyTrackerConfig {
   const apiKeyEnvKey = repository.linearBinding.apiKeyEnvKey;
@@ -203,11 +196,41 @@ function mergeTrackerConfigs(
   };
 }
 
-async function collectIssues(
+function createFallbackAdmittedRepository(
+  trackerTemplate: SymphonyTrackerConfig
+): RepositoryLinearTrackerSource {
+  return {
+    repositoryKey: "default",
+    linearBinding: {
+      projectSlug: trackerTemplate.projectSlug,
+      teamKey: trackerTemplate.teamKey,
+      apiKeyEnvKey: null
+    }
+  };
+}
+
+async function collectIssuesFromEntries(
   entries: Iterable<RepositoryLinearTrackerEntry>,
   issueRepositoryKeys: Map<string, string>,
-  fetchIssues: (entry: RepositoryLinearTrackerEntry) => Promise<SymphonyTrackerIssue[]>,
-  dedupeIssueIds: boolean
+  fetchIssues: (entry: RepositoryLinearTrackerEntry) => Promise<SymphonyTrackerIssue[]>
+): Promise<SymphonyTrackerIssue[]> {
+  const resolvedIssues: SymphonyTrackerIssue[] = [];
+
+  for (const entry of entries) {
+    const issues = await fetchIssues(entry);
+    for (const issue of issues) {
+      cacheIssueRepository(issueRepositoryKeys, issue, entry.repositoryKey);
+      resolvedIssues.push(issue);
+    }
+  }
+
+  return resolvedIssues;
+}
+
+async function collectUniqueIssuesFromEntries(
+  entries: Iterable<RepositoryLinearTrackerEntry>,
+  issueRepositoryKeys: Map<string, string>,
+  fetchIssues: (entry: RepositoryLinearTrackerEntry) => Promise<SymphonyTrackerIssue[]>
 ): Promise<SymphonyTrackerIssue[]> {
   const resolvedIssues: SymphonyTrackerIssue[] = [];
   const seenIssueIds = new Set<string>();
@@ -217,7 +240,7 @@ async function collectIssues(
     for (const issue of issues) {
       cacheIssueRepository(issueRepositoryKeys, issue, entry.repositoryKey);
 
-      if (dedupeIssueIds && seenIssueIds.has(issue.id)) {
+      if (seenIssueIds.has(issue.id)) {
         continue;
       }
 
