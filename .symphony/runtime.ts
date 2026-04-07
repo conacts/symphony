@@ -20,14 +20,14 @@ export default defineSymphonyRuntime({
         auth: "provider"
       },
       advanced: {
-        model: "xiaomi/mimo-v2-pro",
-        reasoningEffort: "xhigh",
+        model: "z-ai/glm-5.1",
+        reasoningEffort: "high",
         auth: "provider"
       },
       premium: {
-        model: "gpt-5.4",
-        reasoningEffort: "high",
-        auth: "subscription"
+        model: "xiaomi/mimo-v2-pro",
+        reasoningEffort: "xhigh",
+        auth: "provider"
       }
     }
   },
