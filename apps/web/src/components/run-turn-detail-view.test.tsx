@@ -28,8 +28,8 @@ describe("run turn detail view", () => {
     expect(html).not.toContain("Back to turns table");
     expect(html).toContain("Turn 1");
     expect(html).toContain("Operator prompt");
-    expect(html).toContain("In 120 / Cached 40 / Out 80");
-    expect(html).toContain("Total 240");
+    expect(html).toContain("In 120 · Cached 40 · Out 80");
+    expect(html).toContain("Tokens 240 · In 120 · Cached 40 · Out 80");
     expect(html).not.toContain("Openrouter / Responses");
   });
 

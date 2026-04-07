@@ -302,6 +302,71 @@ exec "$shell_bin" -lc "$2"
     expect(getParams(turnStart)?.cwd).toBe("/workspace");
   });
 
+  it("starts the session inside the resolved repo working directory when provided", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-app-server-working-dir-"));
+    tempRoots.push(root);
+
+    const dockerTraceFile = path.join(root, "docker.trace");
+    const piTraceFile = path.join(root, "agent-runtime.trace");
+
+    const scenario = await createScenario({
+      root,
+      script: `#!/bin/sh
+trace_file="${piTraceFile}"
+count=0
+while IFS= read -r line; do
+  count=$((count + 1))
+  printf 'JSON:%s\\n' "$line" >> "$trace_file"
+  case "$count" in
+    1)
+      printf '%s\\n' '{"id":1,"result":{}}'
+      ;;
+    2)
+      ;;
+    3)
+      printf '%s\\n' '{"id":2,"result":{"thread":{"id":"thread-working-dir"}}}'
+      exit 0
+      ;;
+  esac
+done
+`
+    });
+    await mkdir(path.join(scenario.workspacePath, "apps", "api"), { recursive: true });
+
+    const fakeDocker = path.join(root, "docker");
+    await writeExecutable(
+      fakeDocker,
+      `#!/bin/sh
+trace_file="${dockerTraceFile}"
+printf 'PWD:%s\\n' "$(pwd)" >> "$trace_file"
+printf 'ARGV:%s\\n' "$*" >> "$trace_file"
+exec "${scenario.fakePi}" "$@"
+`
+    );
+    process.env.PATH = `${root}:${process.env.PATH ?? ""}`;
+
+    const session = await AgentAppServerClient.startSession({
+      launchTarget: {
+        ...buildContainerLaunchTarget(scenario.workspacePath),
+        hostLaunchPath: path.join(scenario.workspacePath, "apps", "api"),
+        runtimeWorkspacePath: "/workspace/apps/api"
+      },
+      env: defaultLaunchEnv(),
+      hostCommandEnvSource: defaultHostCommandEnvSource(),
+      runtimePolicy: scenario.runtimePolicy,
+      issue: scenario.issue,
+      logger: scenario.loggerSpy.logger
+    });
+    session.client.close();
+
+    const lines = await readTraceLines(dockerTraceFile);
+    const payloads = parseTraceJsonLines(await readTraceLines(piTraceFile));
+    const threadStart = payloads.find((payload) => payload.id === 2);
+
+    expect(lines.some((line) => line === "PWD:/workspace/apps/api" || line.endsWith("/apps/api"))).toBe(true);
+    expect(getParams(threadStart)?.cwd).toBe("/workspace/apps/api");
+  });
+
   it("passes the configured turn sandbox policy unchanged", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-app-server-sandbox-"));
     tempRoots.push(root);

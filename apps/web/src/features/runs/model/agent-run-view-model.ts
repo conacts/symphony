@@ -429,9 +429,9 @@ export function buildAgentRunViewModel(input: {
       {
         label: "Tokens",
         value: formatCount(effectiveTotalTokens),
-        detail: `In ${formatCount(effectiveInputTokens)} / Cached ${formatCount(
+        detail: `In ${formatCount(effectiveInputTokens)} · Cached ${formatCount(
           effectiveCachedInputTokens
-        )} / Out ${formatCount(effectiveOutputTokens)}`
+        )} · Out ${formatCount(effectiveOutputTokens)}`
       },
       {
         label: "Turns",
@@ -647,9 +647,9 @@ function buildTranscriptTurns(
         toolCount: turn.toolCallCount,
         reasoningCount: turn.reasoningCount,
         tokenSummary: turnTokens
-          ? `In ${formatCount(turnTokens.inputTokens)} / Cached ${formatCount(
+          ? `In ${formatCount(turnTokens.inputTokens)} · Cached ${formatCount(
               turnTokens.cachedInputTokens
-            )} / Out ${formatCount(turnTokens.outputTokens)}`
+            )} · Out ${formatCount(turnTokens.outputTokens)}`
           : "Usage unavailable",
         countsSummary: buildTurnCountsSummary(
           turn,

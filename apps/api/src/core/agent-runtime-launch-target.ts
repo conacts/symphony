@@ -9,7 +9,8 @@ export const runtimeContainerLaunchDirectoryName = "pi-launch";
 
 export function resolveRuntimeLaunchTarget(
   workspace: PreparedWorkspace,
-  workspaceRoot: string
+  workspaceRoot: string,
+  runtimeWorkingDirectory = "."
 ): SymphonyRuntimeLaunchTarget {
   const hostWorkspacePath =
     workspace.executionTarget.hostPath ??
@@ -29,14 +30,27 @@ export function resolveRuntimeLaunchTarget(
     workspace.executionTarget.shell,
     "container shell"
   );
+  const normalizedWorkingDirectory = normalizeWorkingDirectory(
+    runtimeWorkingDirectory
+  );
+  const runtimeLaunchPath = resolveRuntimeLaunchPath(
+    runtimeWorkspacePath,
+    normalizedWorkingDirectory
+  );
+  const hostLaunchPath =
+    hostWorkspacePath !== null
+      ? resolveHostLaunchPath(hostWorkspacePath, normalizedWorkingDirectory)
+      : buildRuntimeContainerLaunchPath(
+          workspaceRoot,
+          workspace.workspaceKey,
+          normalizedWorkingDirectory
+        );
 
   return {
     kind: "container",
-    hostLaunchPath:
-      hostWorkspacePath ??
-      buildRuntimeContainerLaunchPath(workspaceRoot, workspace.workspaceKey),
+    hostLaunchPath,
     hostWorkspacePath,
-    runtimeWorkspacePath,
+    runtimeWorkspacePath: runtimeLaunchPath,
     containerId: workspace.executionTarget.containerId,
     containerName,
     shell
@@ -45,14 +59,40 @@ export function resolveRuntimeLaunchTarget(
 
 export function buildRuntimeContainerLaunchPath(
   workspaceRoot: string,
-  workspaceKey: string
+  workspaceKey: string,
+  workingDirectory = "."
 ): string {
-  return path.join(
+  const launchRoot = path.join(
     path.resolve(workspaceRoot),
     ".symphony-runtime",
     runtimeContainerLaunchDirectoryName,
     workspaceKey
   );
+
+  return resolveHostLaunchPath(launchRoot, normalizeWorkingDirectory(workingDirectory));
+}
+
+function resolveHostLaunchPath(
+  hostWorkspacePath: string,
+  workingDirectory: string
+): string {
+  return workingDirectory === "."
+    ? hostWorkspacePath
+    : path.join(hostWorkspacePath, workingDirectory);
+}
+
+function resolveRuntimeLaunchPath(
+  runtimeWorkspacePath: string,
+  workingDirectory: string
+): string {
+  return workingDirectory === "."
+    ? runtimeWorkspacePath
+    : path.posix.join(runtimeWorkspacePath, workingDirectory);
+}
+
+function normalizeWorkingDirectory(value: string): string {
+  const normalized = value.trim();
+  return normalized === "" ? "." : normalized.replace(/[\\/]+$/u, "");
 }
 
 function normalizeRequiredString(

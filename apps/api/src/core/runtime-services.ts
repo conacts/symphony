@@ -314,6 +314,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const agentRuntime = createAgentRuntime(
     createSymphonyAgentRuntime({
       promptContract,
+      runtimeWorkingDirectory:
+        validatedRuntimeManifest?.runtimeManifest.manifest.workspace.workingDirectory ?? ".",
       githubRepository: runtimePolicy.github.repo,
       tracker,
       runStore,
@@ -417,6 +419,10 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       });
       realtime.publishSnapshotUpdated();
       realtime.publishProblemRunsUpdated();
+
+      if (result.status === "requeued") {
+        await orchestratorPort.requestRefresh();
+      }
 
       if (result.status !== "ignored" && issueIdentifier) {
         const trackedIssue = await tracker.fetchIssueByIdentifier(

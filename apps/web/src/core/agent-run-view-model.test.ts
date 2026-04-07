@@ -603,7 +603,7 @@ describe("agent run view model", () => {
     expect(viewModel.metrics[3]).toEqual({
       label: "Tokens",
       value: "240",
-      detail: "In 120 / Cached 40 / Out 80"
+      detail: "In 120 · Cached 40 · Out 80"
     });
     expect(viewModel.turnTokens.cards[1]).toEqual({
       label: "Turn output tokens",

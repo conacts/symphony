@@ -68,6 +68,13 @@ describe("issue delivery report store", () => {
       expect(latestForRun?.status).toBe("completed");
       expect(issueReports).toHaveLength(2);
       expect(timeline[0]?.eventType).toBe("delivery_reported");
+      expect(timeline[0]?.message).toBe("Delivery reported as completed.");
+      expect(timeline[0]?.payload).toEqual({
+        reportId: completedId,
+        status: "completed",
+        branchName: "codex/col-157",
+        blockingReason: null
+      });
     } finally {
       database.close();
     }

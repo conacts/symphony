@@ -68,6 +68,7 @@ type ActiveRun = {
 
 export function createSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
+  runtimeWorkingDirectory?: string;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
@@ -91,6 +92,7 @@ export function createSymphonyAgentRuntime(input: {
 export function createHarnessBackedSymphonyAgentRuntime(input: {
   harness: SymphonyRuntimeHarness;
   promptContract: SymphonyLoadedPromptContract;
+  runtimeWorkingDirectory?: string;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
@@ -116,7 +118,8 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
       activeRuns.set(runInput.issue.id, activeRun);
       const launchTarget = resolveRuntimeLaunchTarget(
         runInput.workspace,
-        runInput.runtimePolicy.workspace.root
+        runInput.runtimePolicy.workspace.root,
+        input.runtimeWorkingDirectory ?? "."
       );
 
       void executeRun({

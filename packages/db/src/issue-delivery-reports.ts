@@ -136,11 +136,10 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
       turnId: input.turnId ?? null,
       source: "tracker",
       eventType: "delivery_reported",
-      message: buildTimelineMessage(input.status, prUrl),
+      message: buildTimelineMessage(input.status),
       payload: {
         reportId,
         status: input.status,
-        prUrl,
         branchName: input.branchName ?? null,
         blockingReason
       },
@@ -243,13 +242,10 @@ function normalizeStatus(value: string): SymphonyIssueDeliveryStatus {
   }
 }
 
-function buildTimelineMessage(
-  status: SymphonyIssueDeliveryStatus,
-  prUrl: string | null
-): string {
+function buildTimelineMessage(status: SymphonyIssueDeliveryStatus): string {
   switch (status) {
     case "completed":
-      return prUrl ? `Delivery reported with PR ${prUrl}.` : "Delivery reported as completed.";
+      return "Delivery reported as completed.";
     case "blocked":
       return "Delivery reported as blocked.";
     case "partial":

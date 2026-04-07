@@ -52,6 +52,52 @@ describe("agent runtime launch target", () => {
     });
   });
 
+  it("maps container workspaces into the manifest working directory", () => {
+    expect(
+      resolveRuntimeLaunchTarget(
+        {
+          issueIdentifier: "COL-123",
+          workspaceKey: "COL-123",
+          backendKind: "docker",
+          prepareDisposition: "reused",
+          containerDisposition: "reused",
+          networkDisposition: "reused",
+          afterCreateHookOutcome: "skipped",
+          executionTarget: {
+            kind: "container",
+            workspacePath: "/workspace",
+            containerId: "container-123",
+            containerName: "symphony-col-123",
+            hostPath: "/tmp/symphony-COL-123",
+            shell: "bash"
+          },
+          materialization: {
+            kind: "bind_mount",
+            hostPath: "/tmp/symphony-COL-123",
+            containerPath: "/workspace"
+          },
+          networkName: "symphony-network-col-123",
+          services: [],
+          envBundle: ambientEnvBundle(),
+          manifestLifecycle: null,
+          path: null,
+          created: false,
+          workerHost: "docker-host"
+        },
+        workspaceRoot,
+        "apps/api"
+      )
+    ).toEqual({
+      kind: "container",
+      hostLaunchPath: "/tmp/symphony-COL-123/apps/api",
+      hostWorkspacePath: "/tmp/symphony-COL-123",
+      runtimeWorkspacePath: "/workspace/apps/api",
+      containerId: "container-123",
+      containerName: "symphony-col-123",
+      shell: "bash"
+    });
+  });
+
   it("maps volume-backed container workspaces into docker exec launch targets", () => {
     expect(
       resolveRuntimeLaunchTarget(

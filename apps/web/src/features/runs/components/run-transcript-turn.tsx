@@ -61,7 +61,7 @@ export function RunTranscriptTurn(input: {
         </p>
         <Message from="user">
           <MessageContent>
-            <RunTranscriptCopy>{input.turn.promptText}</RunTranscriptCopy>
+            <MessageResponse>{input.turn.promptText}</MessageResponse>
           </MessageContent>
         </Message>
       </div>
@@ -217,14 +217,6 @@ export function RunTranscriptTurn(input: {
                   <TaskItem>
                     {formatPiWriteLineCount(entry.lineCount)}
                   </TaskItem>
-                  {entry.contentBytes !== null ? (
-                    <TaskItem>
-                      {formatCount(entry.contentBytes)} content bytes
-                      {entry.bytesWritten !== null
-                        ? ` · ${formatCount(entry.bytesWritten)} bytes written`
-                        : ""}
-                    </TaskItem>
-                  ) : null}
                   {entry.paths.length > 0 ? (
                     entry.paths.map((path) => (
                       <TaskItem key={`${entry.itemId}:${path}`}>
@@ -466,7 +458,15 @@ function PiResponseMeta(input: {
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      <span>Total {formatCount(input.entry.totalTokens)}</span>
+      <span>
+        Tokens {formatCount(input.entry.totalTokens)}
+        {" · "}
+        In {formatCount(input.entry.inputTokens)}
+        {" · "}
+        Cached {formatCount(input.entry.cachedInputTokens)}
+        {" · "}
+        Out {formatCount(input.entry.outputTokens)}
+      </span>
       {input.entry.responseTimestamp ? (
         <span>{formatTimestamp(input.entry.responseTimestamp)}</span>
       ) : null}
