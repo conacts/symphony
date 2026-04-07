@@ -18,11 +18,7 @@ import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
 import type { UIMessage } from "ai";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import React, {
-  type ComponentProps,
-  type HTMLAttributes,
-  type ReactElement
-} from "react";
+import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import {
   createContext,
   memo,
@@ -302,7 +298,7 @@ export const MessageBranchNext = ({
   );
 };
 
-export type MessageBranchPageProps = ComponentProps<typeof ButtonGroupText>;
+export type MessageBranchPageProps = HTMLAttributes<HTMLSpanElement>;
 
 export const MessageBranchPage = ({
   className,

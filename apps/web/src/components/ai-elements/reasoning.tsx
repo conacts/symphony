@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import {
   Collapsible,
@@ -175,13 +174,13 @@ export const ReasoningTrigger = memo(
     const { isStreaming, isOpen, duration } = useReasoning();
 
     return (
-        <CollapsibleTrigger
-          className={cn(
-            "group flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
-            className
-          )}
-          {...props}
-        >
+      <CollapsibleTrigger
+        className={cn(
+          "flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
+          className
+        )}
+        {...props}
+      >
         {children ?? (
           <>
             <BrainIcon className="size-4" />

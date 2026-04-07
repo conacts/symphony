@@ -233,7 +233,7 @@ export function RunTranscriptTurnEntry(input: {
             {entry.timeoutSeconds !== null ? (
               <TaskItem>Timeout {formatCount(entry.timeoutSeconds)}s</TaskItem>
             ) : null}
-            <CodeBlock code={entry.outputText} language="bash" wrapLongLines />
+            <CodeBlock code={entry.outputText} language="bash" />
             <EntryFiles files={entry.files} />
             {entry.overflowId ? (
               <div className="pt-1">

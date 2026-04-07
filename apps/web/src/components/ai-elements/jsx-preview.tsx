@@ -22,6 +22,7 @@ interface JSXPreviewContextValue {
   isStreaming: boolean;
   error: Error | null;
   setError: (error: Error | null) => void;
+  setLastGoodJsx: (jsx: string) => void;
   components: JsxParserProps["components"];
   bindings: JsxParserProps["bindings"];
   onErrorProp?: (error: Error) => void;
@@ -116,7 +117,6 @@ const completeJsxTag = (code: string) => {
   return (
     result +
     stack
-      .slice()
       .reverse()
       .map((tag: string) => `</${tag}>`)
       .join("")
@@ -144,6 +144,7 @@ export const JSXPreview = memo(
   }: JSXPreviewProps) => {
     const [prevJsx, setPrevJsx] = useState(jsx);
     const [error, setError] = useState<Error | null>(null);
+    const [_lastGoodJsx, setLastGoodJsx] = useState("");
 
     // Clear error when jsx changes (derived state pattern)
     if (jsx !== prevJsx) {
@@ -166,8 +167,18 @@ export const JSXPreview = memo(
         onErrorProp: onError,
         processedJsx,
         setError,
+        setLastGoodJsx,
       }),
-      [bindings, components, error, isStreaming, jsx, onError, processedJsx]
+      [
+        bindings,
+        components,
+        error,
+        isStreaming,
+        jsx,
+        onError,
+        processedJsx,
+        setError,
+      ]
     );
 
     return (
@@ -192,6 +203,7 @@ export const JSXPreviewContent = memo(
       components,
       bindings,
       setError,
+      setLastGoodJsx,
       onErrorProp,
     } = useJSXPreview();
     const errorReportedRef = useRef<string | null>(null);
@@ -228,8 +240,9 @@ export const JSXPreviewContent = memo(
     useEffect(() => {
       if (!errorReportedRef.current) {
         lastGoodJsxRef.current = processedJsx;
+        setLastGoodJsx(processedJsx);
       }
-    }, [processedJsx]);
+    }, [processedJsx, setLastGoodJsx]);
 
     // During streaming, if the current JSX errored, re-render with last good version
     const displayJsx =
