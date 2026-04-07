@@ -53,21 +53,24 @@ const services = [
 
 await runPreflight();
 
-const buildArgs = [
-  "exec",
-  "turbo",
-  "run",
-  "build",
-  "--filter=@symphony/api^...",
-  "--filter=@symphony/web^..."
-];
-const build = spawn("pnpm", buildArgs, {
-  cwd: repoRoot,
-  env: baseEnv,
-  stdio: "inherit"
-});
+const serviceBuild = spawn(
+  "pnpm",
+  [
+    "exec",
+    "turbo",
+    "run",
+    "build",
+    "--filter=@symphony/api^...",
+    "--filter=@symphony/web^..."
+  ],
+  {
+    cwd: repoRoot,
+    env: baseEnv,
+    stdio: "inherit"
+  }
+);
 
-build.on("exit", (code, signal) => {
+serviceBuild.on("exit", (code, signal) => {
   if (signal) {
     process.kill(process.pid, signal);
     return;
@@ -108,6 +111,7 @@ async function runPreflight() {
     );
   }
 
+  await ensureHostLinearCli();
   await ensureDockerImage();
 }
 
@@ -134,24 +138,9 @@ function normalizePort(value, fallback) {
 }
 
 async function ensureDockerImage() {
-  const inspectExitCode = await runCommand(
-    "docker",
-    ["image", "inspect", dockerImage],
-    {
-      cwd: repoRoot,
-      env: baseEnv,
-      stdio: "ignore"
-    }
-  );
-
-  if (inspectExitCode === 0) {
-    return;
-  }
-
   process.stdout.write(
-    `Workspace runner image ${dockerImage} is missing. Building it now.\n`
+    `Refreshing workspace runner image ${dockerImage} with Docker layer cache.\n`
   );
-
   const buildExitCode = await runCommand(
     "pnpm",
     ["docker:workspace-image:build"],
@@ -164,6 +153,36 @@ async function ensureDockerImage() {
 
   if (buildExitCode !== 0) {
     process.exit(buildExitCode);
+  }
+}
+
+async function ensureHostLinearCli() {
+  const linearCliExitCode = await runCommand("lin", ["--help"], {
+    cwd: repoRoot,
+    env: baseEnv,
+    stdio: "ignore"
+  });
+
+  if (linearCliExitCode === 0) {
+    return;
+  }
+
+  process.stdout.write(
+    "Installing Linear CLI on the host because `lin` is not available.\n"
+  );
+
+  const installExitCode = await runCommand(
+    "npm",
+    ["install", "-g", "@linear/cli@0.0.5"],
+    {
+      cwd: repoRoot,
+      env: baseEnv,
+      stdio: "inherit"
+    }
+  );
+
+  if (installExitCode !== 0) {
+    process.exit(installExitCode);
   }
 }
 

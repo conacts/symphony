@@ -37,7 +37,8 @@ pnpm dev:host
 `pnpm dev:host` forces `SYMPHONY_SOURCE_REPO` to this repository root, keeps the SQLite file at
 `./symphony.db`, and points the dashboard at the local API on `http://127.0.0.1:4400`. That avoids
 stale shell state accidentally booting Symphony against some other admitted repository. It also
-checks required env up front and auto-builds the local workspace-runner image when it is missing.
+checks required env up front, installs the `lin` CLI on the host when missing, and refreshes the
+local workspace-runner image with normal Docker layer caching before startup.
 
 `pnpm dev:self` remains as an alias.
 

@@ -6,6 +6,7 @@ This is the supported local path for Symphony. There is no supported local/workt
 
 - Docker daemon available locally
 - `codex` installed and authenticated
+- `lin` installed and authenticated when you want direct Linear CLI access
 - GitHub CLI auth when the agent needs `gh`
 - `LINEAR_API_KEY`
 - `GITHUB_TOKEN`
@@ -29,6 +30,9 @@ Build or refresh it with:
 ```bash
 pnpm docker:workspace-image:build
 ```
+
+The Docker build uses normal layer caching. Re-running it after no relevant changes is usually much
+faster than a cold rebuild.
 
 You only need `SYMPHONY_DOCKER_WORKSPACE_IMAGE` when overriding the default image.
 

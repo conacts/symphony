@@ -6,6 +6,7 @@ export function buildSymphonyContinuationPrompt(input: {
 Continuation guidance:
 
 - The previous PI turn completed normally, but the Linear issue is still in an active state.
+- The active Linear workspace for this repository is \`symphony-harness\`.
 - This is continuation turn #${input.turnNumber} of ${input.maxTurns} for the current agent run.
 - This is the same PI thread. Resume from the current workspace and thread context instead of restarting from scratch.
 - The original task instructions and prior turn context are already present in this thread, so do not restate them before acting.
@@ -13,6 +14,7 @@ Continuation guidance:
 - Before editing, gather enough local context to make one clean patch instead of many small speculative changes.
 - Prefer built-in Pi tools for reading, searching, and editing files. Use shell primarily for execution tasks like tests, builds, git, and package-manager commands.
 - If Symphony exposes built-in Linear tools in this runtime, use them instead of searching for \`LINEAR_API_KEY\` in shell startup files, the workspace, or git history.
+- If the \`lin\` CLI is available, prefer it over one-off shell scripts for direct Linear inspection.
 - If Symphony exposes \`linear_graphql\`, use it for direct Linear reads or writes outside delivery reporting; Symphony provides the auth server-side.
 - If the issue is in \`Rework\`, or review feedback already exists, read the latest Linear comment context and any relevant PR review feedback before editing so you address the current feedback instead of stale assumptions.
 - Never move the issue to \`Done\` from the agent runtime.
