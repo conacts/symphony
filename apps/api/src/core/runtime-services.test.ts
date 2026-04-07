@@ -51,8 +51,8 @@ describe("runtime services", () => {
         },
         machineLoad: expect.objectContaining({
           memoryPercent: expect.any(Number)
-        })
-      })
+        } as never)
+      } as never)
     );
 
     await waitFor(() => {
@@ -86,8 +86,9 @@ describe("runtime services", () => {
   it("fails fast when required host env from the runtime manifest is missing", async () => {
     await expect(
       createSymphonyRuntimeAppServicesHarness({
-        runtimeManifestSource: renderSymphonyRuntimeManifestSource({
+        runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
           schemaVersion: 1,
+          repositoryKey: "openai/symphony",
           workspace: {
             packageManager: "pnpm",
             workingDirectory: "."
@@ -111,7 +112,7 @@ describe("runtime services", () => {
             seed: [],
             cleanup: []
           }
-        }),
+        }) as never),
         environmentSource: {
           LINEAR_API_KEY: "test-linear-api-key"
         }
@@ -190,8 +191,9 @@ describe("runtime services", () => {
 
   it("merges repo-defined Pi presets from the runtime manifest into the active policy", async () => {
     const harness = await createSymphonyRuntimeAppServicesHarness({
-      runtimeManifestSource: renderSymphonyRuntimeManifestSource({
+      runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
         schemaVersion: 1,
+        repositoryKey: "openai/symphony",
         workspace: {
           packageManager: "pnpm",
           workingDirectory: "."
@@ -235,7 +237,7 @@ describe("runtime services", () => {
           seed: [],
           cleanup: []
         }
-      }),
+      }) as never),
       environmentSource: {
         SYMPHONY_PI_PROFILE: "mimo-v2-pro"
       },

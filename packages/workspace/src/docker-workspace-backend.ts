@@ -273,6 +273,9 @@ export function createDockerWorkspaceBackend(
 
       const workspace = buildPreparedWorkspace({
         descriptor,
+        repositoryKey:
+          (runtimeManifest?.manifest as { repositoryKey?: string } | undefined)
+            ?.repositoryKey ?? null,
         containerId: container.container.id,
         workerHost: input.workerHost ?? null,
         workspacePath,
@@ -632,6 +635,7 @@ async function resolveCleanupDescriptor(
 
 function buildPreparedWorkspace(input: {
   descriptor: DockerWorkspaceDescriptor;
+  repositoryKey: string | null;
   containerId: string;
   workerHost: string | null;
   workspacePath: string;
@@ -648,6 +652,7 @@ function buildPreparedWorkspace(input: {
   return {
     issueIdentifier: input.descriptor.issueIdentifier,
     workspaceKey: input.descriptor.workspaceKey,
+    repositoryKey: input.repositoryKey,
     backendKind: "docker",
     prepareDisposition: input.created ? "created" : "reused",
     containerDisposition: input.containerDisposition,

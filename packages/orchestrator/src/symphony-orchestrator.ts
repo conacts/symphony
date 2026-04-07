@@ -290,6 +290,8 @@ export class SymphonyOrchestrator {
       issueId: preparedIssue.id,
       issueIdentifier: preparedIssue.identifier
     };
+    (workspaceContext as WorkspaceContext & { repositoryKey?: string | null }).repositoryKey =
+      resolveRepositoryLabel(preparedIssue.labels);
     this.#state.claimed.add(preparedIssue.id);
     (
       workspaceContext as WorkspaceContext & {
@@ -553,12 +555,15 @@ export class SymphonyOrchestrator {
     this.#state.claimed.delete(issueId);
 
     if (runningEntry.workspace) {
+      const afterRunContext: WorkspaceContext = {
+        issueId,
+        issueIdentifier: runningEntry.issue.identifier
+      };
+      (afterRunContext as WorkspaceContext & { repositoryKey?: string | null }).repositoryKey =
+        resolveRepositoryLabel(runningEntry.issue.labels);
       const afterRunResult = await this.#workspaceBackend.runAfterRun({
         workspace: runningEntry.workspace,
-        context: {
-          issueId,
-          issueIdentifier: runningEntry.issue.identifier
-        },
+        context: afterRunContext,
         hooks: this.#config.hooks,
         ...createWorkspaceRunnerOptions(this.#runnerEnv, runningEntry.workerHost)
       });
@@ -1018,4 +1023,20 @@ function assertPiRuntimeHarness(
     code: "invalid_workflow_config"
   });
   throw error;
+}
+
+function resolveRepositoryLabel(labels: string[]): string | null {
+  for (const label of labels) {
+    const normalizedLabel = label.trim().toLowerCase();
+    if (!normalizedLabel.startsWith("repo:")) {
+      continue;
+    }
+
+    const repositoryKey = normalizedLabel.slice("repo:".length).trim();
+    if (repositoryKey.length > 0) {
+      return repositoryKey;
+    }
+  }
+
+  return null;
 }

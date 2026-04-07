@@ -224,6 +224,7 @@ describe("docker workspace backend", () => {
     expect(first).toEqual({
       issueIdentifier: "COL/200",
       workspaceKey: "COL_200",
+      repositoryKey: null,
       backendKind: "docker",
       prepareDisposition: "created",
       containerDisposition: "started",
@@ -2448,6 +2449,7 @@ function buildLoadedRuntimeManifest(input?: {
     manifestPath: "/repo/.symphony/runtime.ts",
     manifest: normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
+      repositoryKey: "openai/symphony",
       workspace: {
         packageManager: "pnpm"
       },

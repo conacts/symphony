@@ -30,6 +30,7 @@ describe("runtime contract", () => {
 
 export default defineSymphonyRuntime({
   schemaVersion: 1,
+  repositoryKey: "openai/symphony",
   workspace: {
     packageManager: "pnpm"
   },
@@ -85,6 +86,7 @@ export default defineSymphonyRuntime({
 
 export default defineSymphonyRuntime({
   schemaVersion: 1,
+  repositoryKey: "openai/symphony",
   workspace: {
     packageManager: "pnpm"
   },

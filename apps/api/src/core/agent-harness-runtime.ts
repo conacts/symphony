@@ -36,6 +36,8 @@ import {
   resolveHarnessModelRuntimePolicy,
   type HarnessSessionClient
 } from "@symphony/agent-harnesses";
+import { resolveIssueRepository } from "./runtime-repository-routing.js";
+import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 import { captureRepoSnapshot } from "./agent-repo-snapshot.js";
 import {
   resolveRuntimeLaunchTarget,
@@ -68,6 +70,7 @@ type ActiveRun = {
 
 export function createSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
+  admittedRepositories?: AdmittedRuntimeRepository[];
   runtimeWorkingDirectory?: string;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
@@ -92,6 +95,7 @@ export function createSymphonyAgentRuntime(input: {
 export function createHarnessBackedSymphonyAgentRuntime(input: {
   harness: SymphonyRuntimeHarness;
   promptContract: SymphonyLoadedPromptContract;
+  admittedRepositories?: AdmittedRuntimeRepository[];
   runtimeWorkingDirectory?: string;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
@@ -111,6 +115,10 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
 
   return {
     async startRun(runInput) {
+      const selectedRepository =
+        input.admittedRepositories && input.admittedRepositories.length > 0
+          ? resolveIssueRepository(input.admittedRepositories, runInput.issue)
+          : null;
       const activeRun: ActiveRun = {
         stopped: false,
         client: null
@@ -119,14 +127,18 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
       const launchTarget = resolveRuntimeLaunchTarget(
         runInput.workspace,
         runInput.runtimePolicy.workspace.root,
-        input.runtimeWorkingDirectory ?? "."
+        selectedRepository?.runtimeManifest.manifest.workspace.workingDirectory ??
+          input.runtimeWorkingDirectory ??
+          "."
       );
 
       void executeRun({
-        promptTemplate: input.promptContract.template,
+        promptTemplate:
+          selectedRepository?.promptContract.template ?? input.promptContract.template,
         harness: input.harness,
-        promptContract: input.promptContract,
-        githubRepository: input.githubRepository ?? null,
+        promptContract: selectedRepository?.promptContract ?? input.promptContract,
+        githubRepository:
+          selectedRepository?.repositoryKey ?? input.githubRepository ?? null,
         tracker: input.tracker,
         runStore: input.runStore,
         deliveryReports: input.deliveryReports,

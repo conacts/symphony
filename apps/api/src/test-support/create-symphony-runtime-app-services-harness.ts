@@ -47,6 +47,7 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       port: 4_400,
       dbFile: sqlite.dbFile,
       sourceRepo,
+      sourceRepos: [sourceRepo],
       dockerWorkspaceImage: null,
       dockerMaterializationMode: "bind_mount" as const,
       dockerWorkspacePath: null,
@@ -87,6 +88,8 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
     const environmentSource = {
       LINEAR_API_KEY: env.linearApiKey,
       SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
+      SYMPHONY_SOURCE_REPOS:
+        env.sourceRepos.length > 0 ? env.sourceRepos.join(",") : undefined,
       SYMPHONY_TRACKER_KIND: "memory",
       SYMPHONY_WORKSPACE_ROOT: workspaceRoot,
       SYMPHONY_POLL_INTERVAL_MS: "50",

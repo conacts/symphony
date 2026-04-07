@@ -27,6 +27,7 @@ import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import type { SymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 import type { SymphonyRuntimePollSchedulerSnapshot } from "./poll-scheduler.js";
+import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 
 export type SymphonyRuntimeOrchestratorPort = {
   snapshot(): SymphonyOrchestratorSnapshot;
@@ -102,6 +103,7 @@ export type SymphonyLoadedRuntimePromptTemplate = {
 
 export type SymphonyRuntimeAppServices = {
   logger: SymphonyLogger;
+  admittedRepositories: AdmittedRuntimeRepository[];
   promptTemplate: SymphonyLoadedRuntimePromptTemplate;
   promptContract: SymphonyLoadedPromptContract;
   runtimePolicy: SymphonyResolvedRuntimePolicy;

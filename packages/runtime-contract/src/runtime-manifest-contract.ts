@@ -118,6 +118,7 @@ export type SymphonyRuntimePiConfig = {
 
 export type SymphonyRuntimeManifest = {
   schemaVersion: SymphonyRuntimeManifestSchemaVersion;
+  repositoryKey: string;
   workspace: SymphonyRuntimeWorkspace;
   services?: Record<string, SymphonyRuntimeService>;
   pi?: SymphonyRuntimePiConfig;
@@ -156,6 +157,7 @@ export type SymphonyNormalizedRuntimeService =
 
 export type SymphonyNormalizedRuntimeManifest = {
   schemaVersion: SymphonyRuntimeManifestSchemaVersion;
+  repositoryKey: string;
   workspace: SymphonyNormalizedRuntimeWorkspace;
   services: Record<string, SymphonyNormalizedRuntimeService>;
   pi: SymphonyRuntimePiConfig | null;

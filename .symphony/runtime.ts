@@ -2,6 +2,7 @@ import { defineSymphonyRuntime } from "@symphony/runtime-contract";
 
 export default defineSymphonyRuntime({
   schemaVersion: 1,
+  repositoryKey: "conacts/symphony",
   workspace: {
     packageManager: "pnpm",
     workingDirectory: "."

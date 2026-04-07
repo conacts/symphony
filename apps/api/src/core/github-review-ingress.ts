@@ -35,6 +35,8 @@ type EventJournal = {
 
 export function createSymphonyGitHubReviewIngressService(input: {
   githubPolicy: SymphonyGitHubRuntimePolicy;
+  admittedRepositories?: string[];
+  resolveWebhookSecret?: (repository: string) => string | null;
   reviewProcessor: SymphonyGithubReviewProcessor;
   eventJournal?: EventJournal;
   logger?: SymphonyLogger;
@@ -53,10 +55,29 @@ export function createSymphonyGitHubReviewIngressService(input: {
       body: SymphonyGitHubWebhookBody;
       rawBody: string;
     }): Promise<SymphonyGitHubReviewIngressResult> {
-      if (!input.githubPolicy.repo || !input.githubPolicy.webhookSecret) {
+      const normalized = normalizeReviewEvent(args.headers.xGitHubEvent, args.body);
+      const configuredRepository =
+        input.githubPolicy.repo &&
+        input.githubPolicy.repo.trim() !== ""
+          ? input.githubPolicy.repo
+          : null;
+      const allowedRepositories = new Set(
+        [
+          configuredRepository,
+          ...(input.admittedRepositories ?? [])
+        ].filter((value): value is string => typeof value === "string" && value.length > 0)
+      );
+      const webhookSecret =
+        input.resolveWebhookSecret?.(normalized.repository) ??
+        (normalized.repository === configuredRepository
+          ? input.githubPolicy.webhookSecret
+          : null);
+
+      if (allowedRepositories.size === 0 || !webhookSecret) {
         logger.error("GitHub webhook ingress is not configured", {
           event: args.headers.xGitHubEvent,
-          delivery: args.headers.xGitHubDelivery
+          delivery: args.headers.xGitHubDelivery,
+          repository: normalized.repository
         });
         throw createRuntimeHttpError(
           503,
@@ -65,13 +86,7 @@ export function createSymphonyGitHubReviewIngressService(input: {
         );
       }
 
-      if (
-        !validateGitHubWebhookSignature(
-          args.rawBody,
-          args.headers.xHubSignature256,
-          input.githubPolicy.webhookSecret
-        )
-      ) {
+      if (!validateGitHubWebhookSignature(args.rawBody, args.headers.xHubSignature256, webhookSecret)) {
         logger.warn("Rejected GitHub webhook due to invalid signature", {
           event: args.headers.xGitHubEvent,
           delivery: args.headers.xGitHubDelivery
@@ -83,8 +98,7 @@ export function createSymphonyGitHubReviewIngressService(input: {
         );
       }
 
-      const normalized = normalizeReviewEvent(args.headers.xGitHubEvent, args.body);
-      if (normalized.repository !== input.githubPolicy.repo) {
+      if (!allowedRepositories.has(normalized.repository)) {
         logger.warn("Rejected GitHub webhook for disallowed repository", {
           event: args.headers.xGitHubEvent,
           delivery: args.headers.xGitHubDelivery,

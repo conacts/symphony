@@ -40,6 +40,7 @@ export type SymphonyRuntimeAppEnv = {
   port: number;
   dbFile: string;
   sourceRepo: string | null;
+  sourceRepos: string[];
   dockerWorkspaceImage: string | null;
   dockerMaterializationMode: "bind_mount" | "volume";
   dockerWorkspacePath: string | null;
@@ -74,6 +75,7 @@ export function loadSymphonyRuntimeAppEnv(
       ),
       SYMPHONY_DB_FILE: z.string().min(1).optional(),
       SYMPHONY_SOURCE_REPO: z.string().min(1).optional(),
+      SYMPHONY_SOURCE_REPOS: z.string().min(1).optional(),
       SYMPHONY_DOCKER_WORKSPACE_IMAGE: z.string().min(1).optional(),
       SYMPHONY_DOCKER_MATERIALIZATION_MODE: z
         .enum(["bind_mount", "volume"])
@@ -128,10 +130,16 @@ export function loadSymphonyRuntimeAppEnv(
     );
   }
 
+  const sourceRepos = readPathList(
+    parsed.SYMPHONY_SOURCE_REPOS,
+    parsed.SYMPHONY_SOURCE_REPO
+  );
+
   return {
     port: parsed.PORT,
     dbFile: parsed.SYMPHONY_DB_FILE ?? defaultSymphonyDbFile(cwd),
-    sourceRepo: parsed.SYMPHONY_SOURCE_REPO ?? null,
+    sourceRepo: sourceRepos[0] ?? null,
+    sourceRepos,
     dockerWorkspaceImage: parsed.SYMPHONY_DOCKER_WORKSPACE_IMAGE ?? null,
     dockerMaterializationMode:
       parsed.SYMPHONY_DOCKER_MATERIALIZATION_MODE ?? "bind_mount",
@@ -179,7 +187,9 @@ export function buildSymphonyRuntimeEnvironmentSource(
   return {
     ...selectStringEnvironmentSource(source),
     LINEAR_API_KEY: env.linearApiKey,
-    SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined
+    SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
+    SYMPHONY_SOURCE_REPOS:
+      env.sourceRepos.length > 0 ? env.sourceRepos.join(",") : undefined
   };
 }
 
@@ -198,6 +208,18 @@ function parseAllowedOrigins(value: string | undefined): string[] {
     .split(",")
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
+}
+
+function readPathList(...values: Array<string | undefined>): string[] {
+  const normalized = values
+    .flatMap((value) =>
+      typeof value === "string"
+        ? value.split(",").map((entry) => entry.trim())
+        : []
+    )
+    .filter((entry) => entry.length > 0);
+
+  return [...new Set(normalized)];
 }
 
 function selectStringEnvironmentSource(

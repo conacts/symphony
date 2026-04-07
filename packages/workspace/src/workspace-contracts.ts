@@ -190,6 +190,7 @@ export type WorkspaceMaterializationMetadata =
 export type PreparedWorkspace = {
   issueIdentifier: string;
   workspaceKey: string;
+  repositoryKey?: string | null;
   backendKind: WorkspaceBackendKind;
   prepareDisposition: WorkspacePrepareDisposition;
   containerDisposition: WorkspaceContainerDisposition;

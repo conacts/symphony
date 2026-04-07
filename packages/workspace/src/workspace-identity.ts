@@ -1,6 +1,7 @@
 export type SymphonyWorkspaceContext = {
   issueId: string | null;
   issueIdentifier: string;
+  repositoryKey?: string | null;
   branchName?: string | null;
 };
 

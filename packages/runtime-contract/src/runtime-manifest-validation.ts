@@ -36,6 +36,7 @@ import {
   piPresetNames,
   piPresetKeys,
   piReasoningLevels,
+  repositoryKeyPattern,
   workspaceKeys,
   workspacePackageManagers
 } from "./runtime-manifest-validation-shared.js";
@@ -76,6 +77,7 @@ function parseRuntimeManifest(
   rejectUnknownKeys(record, manifestTopLevelKeys, [], issues);
 
   const schemaVersion = parseSchemaVersion(record.schemaVersion, issues);
+  const repositoryKey = parseRepositoryKey(record.repositoryKey, issues);
   const workspace = parseWorkspace(record.workspace, issues);
   const services = parseServices(record.services, issues);
   const pi = parsePi(record.pi, issues);
@@ -87,18 +89,50 @@ function parseRuntimeManifest(
     validateServiceReferences(env.inject, services.declaredKeys, issues);
   }
 
-  if (!schemaVersion || !workspace || !env || !lifecycle) {
+  if (!schemaVersion || !repositoryKey || !workspace || !env || !lifecycle) {
     return undefined;
   }
 
   return {
     schemaVersion,
+    repositoryKey,
     workspace,
     services: services.normalized,
     pi,
     env,
     lifecycle
   };
+}
+
+function parseRepositoryKey(
+  value: unknown,
+  issues: SymphonyRuntimeManifestIssue[]
+): string | undefined {
+  const record = {
+    repositoryKey: value
+  };
+  const repositoryKey = readRequiredString(
+    record,
+    "repositoryKey",
+    ["repositoryKey"],
+    issues,
+    "repositoryKey"
+  );
+
+  if (!repositoryKey) {
+    return undefined;
+  }
+
+  if (!repositoryKeyPattern.test(repositoryKey)) {
+    pushIssue(
+      issues,
+      ["repositoryKey"],
+      "repositoryKey must use the <owner>/<repo> format."
+    );
+    return undefined;
+  }
+
+  return repositoryKey;
 }
 
 function parseSchemaVersion(

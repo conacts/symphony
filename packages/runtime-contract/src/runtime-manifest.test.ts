@@ -52,6 +52,7 @@ import { buildStep } from "./steps.ts";
 
 export default defineSymphonyRuntime({
   schemaVersion: 1,
+  repositoryKey: "openai/symphony",
   workspace: {
     packageManager: "pnpm"
   },
@@ -177,6 +178,7 @@ const serialized = YAML.stringify({ ok: true }).trim();
 
 export default defineSymphonyRuntime({
   schemaVersion: 1,
+  repositoryKey: "openai/symphony",
   workspace: {
     packageManager: "pnpm"
   },
@@ -219,6 +221,7 @@ export default defineSymphonyRuntime({
   it("normalizes Pi preset configuration from the runtime manifest", () => {
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
+      repositoryKey: "openai/symphony",
       workspace: {
         packageManager: "pnpm"
       },
@@ -316,6 +319,7 @@ export default defineSymphonyRuntime({
 
 export default defineSymphonyRuntime({
   schemaVersion: 1,
+  repositoryKey: "openai/symphony",
   workspace: {
     packageManager: "pnpm"
   },
@@ -362,6 +366,7 @@ import { runtimeStep } from "./missing-helper.ts";
 
 export default defineSymphonyRuntime({
   schemaVersion: 1,
+  repositoryKey: "openai/symphony",
   workspace: {
     packageManager: "pnpm"
   },
@@ -544,6 +549,7 @@ export default defineSymphonyRuntime({
 function buildValidManifestInput(): SymphonyRuntimeManifestInput {
   return {
     schemaVersion: 1,
+    repositoryKey: "openai/symphony",
     workspace: {
       packageManager: "pnpm",
       workingDirectory: "."

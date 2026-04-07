@@ -14,9 +14,12 @@ import type {
 } from "@symphony/db";
 import type { SymphonyAgentRunStatus } from "@symphony/contracts";
 import type { RuntimeMachineLoadMonitor } from "./runtime-machine-load.js";
+import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
+import { resolveIssueRepository } from "./runtime-repository-routing.js";
 
 export function createDbBackedOrchestratorObserver(input: {
-  repositoryKey: string;
+  admittedRepositories: AdmittedRuntimeRepository[];
+  defaultRepositoryKey: string;
   runStore: SymphonyRuntimeRunStore;
   issueTimelineStore: SymphonyIssueTimelineStore;
   agentAnalytics: AgentAnalyticsStore;
@@ -24,8 +27,12 @@ export function createDbBackedOrchestratorObserver(input: {
 }): SymphonyOrchestratorObserver {
   return {
     async startRun({ issue, attempt, harness, workspace, workerHost, startedAt }) {
+      const repositoryKey =
+        input.admittedRepositories.length > 0
+          ? resolveIssueRepository(input.admittedRepositories, issue).repositoryKey
+          : input.defaultRepositoryKey;
       const runId = await input.runStore.recordRunStarted({
-        repositoryKey: input.repositoryKey,
+        repositoryKey,
         issueId: issue.id,
         issueIdentifier: issue.identifier,
         attempt,
@@ -149,6 +156,10 @@ export function createDbBackedOrchestratorObserver(input: {
       }
 
       await input.issueTimelineStore.record({
+        repositoryKey:
+          input.admittedRepositories.length > 0
+            ? resolveIssueRepository(input.admittedRepositories, issue).repositoryKey
+            : input.defaultRepositoryKey,
         issueId: issue.id,
         issueIdentifier: issue.identifier,
         runId,

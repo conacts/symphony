@@ -10,6 +10,7 @@ export const symphonyRuntimeManifestBrand = Symbol.for(
 
 export const manifestTopLevelKeys = new Set([
   "schemaVersion",
+  "repositoryKey",
   "workspace",
   "services",
   "pi",
@@ -49,6 +50,7 @@ export const postgresReadinessKeys = new Set(["timeoutMs", "intervalMs", "retrie
 
 export const serviceKeyPattern = /^[a-z][a-z0-9-]*$/u;
 export const environmentVariablePattern = /^[A-Z][A-Z0-9_]*$/u;
+export const repositoryKeyPattern = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/u;
 
 export const workspacePackageManagers = new Set<SymphonyRuntimeWorkspacePackageManager>([
   "pnpm",

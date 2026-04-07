@@ -374,6 +374,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
 
   const services: SymphonyRuntimeAppServices = {
     logger: createSilentSymphonyLogger("@symphony/api.test"),
+    admittedRepositories: [],
     promptTemplate,
     promptContract: {
       repoRoot: root,

@@ -5,6 +5,7 @@ import {
 
 export const symphonyDisabledLabel = "symphony:disabled";
 export const symphonyNoAutoReworkLabel = "symphony:no-auto-rework";
+export const symphonyRepositoryLabelPrefix = "repo:";
 
 export type SymphonyTrackerIssue = {
   id: string;
@@ -77,6 +78,24 @@ export function isSymphonyWorkflowDisabled(
   issue: Pick<SymphonyTrackerIssue, "labels">
 ): boolean {
   return hasSymphonyLabel(issue, symphonyDisabledLabel);
+}
+
+export function resolveSymphonyRepositoryLabel(
+  issue: Pick<SymphonyTrackerIssue, "labels">
+): string | null {
+  for (const label of issue.labels) {
+    const normalized = normalizeLabel(label);
+    if (!normalized.startsWith(symphonyRepositoryLabelPrefix)) {
+      continue;
+    }
+
+    const repositoryKey = normalized.slice(symphonyRepositoryLabelPrefix.length).trim();
+    if (repositoryKey.length > 0) {
+      return repositoryKey;
+    }
+  }
+
+  return null;
 }
 
 export function isSymphonyAutoReworkDisabled(

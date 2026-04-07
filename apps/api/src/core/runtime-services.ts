@@ -21,7 +21,6 @@ import {
   createSymphonyRuntimeLogStore,
   initializeSymphonyDb
 } from "@symphony/db";
-import { loadSymphonyPromptContract } from "@symphony/runtime-contract";
 import type { SymphonyNormalizedRuntimeManifest } from "@symphony/runtime-contract";
 import { createSymphonyLogger } from "@symphony/logger";
 import {
@@ -60,6 +59,8 @@ import {
 import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
 import { createAgentAnalyticsReadPort } from "./agent-analytics-read-port.js";
 import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
+import { loadAdmittedRuntimeRepositories } from "./runtime-admitted-repositories.js";
+import { createRepositoryScopedWorkspaceBackend } from "./runtime-workspace-backend-selector.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -73,6 +74,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
   logger.info("Loading Symphony runtime services", {
     sourceRepo: env.sourceRepo,
+    sourceRepos: env.sourceRepos,
     dbFile: env.dbFile,
     logLevel: env.logLevel
   });
@@ -88,9 +90,22 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     );
   }
   const harnessProviderEnvKey = resolveHarnessProviderEnvKey(runtimePolicy);
-  const promptContract = loadSymphonyPromptContract({
-    repoRoot: env.sourceRepo ?? process.cwd()
-  });
+  const admittedRepositories =
+    env.sourceRepos.length > 0
+      ? await loadAdmittedRuntimeRepositories(env.sourceRepos)
+      : [];
+  const validatedRuntimeManifests =
+    env.sourceRepos.length > 0
+      ? await Promise.all(
+          env.sourceRepos.map((sourceRepo) =>
+            validateSourceRepoRuntimeManifest(sourceRepo, environmentSource)
+          )
+        )
+      : [];
+  const primaryRepository = admittedRepositories[0] ?? null;
+  const promptContract =
+    primaryRepository?.promptContract ??
+    (await loadAdmittedRuntimeRepositories([process.cwd()]))[0].promptContract;
   const promptTemplate = {
     prompt: promptContract.template.trim(),
     promptTemplate: promptContract.template,
@@ -105,12 +120,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     maxConcurrentAgents: runtimePolicy.agent.maxConcurrentAgents
   });
 
-  const validatedRuntimeManifest = env.sourceRepo
-    ? await validateSourceRepoRuntimeManifest(
-        env.sourceRepo,
-        environmentSource
-      )
-    : null;
+  const validatedRuntimeManifest =
+    validatedRuntimeManifests[0] ?? null;
 
   if (validatedRuntimeManifest) {
     runtimePolicy = applyRuntimeManifestPiPolicy(
@@ -127,7 +138,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     dbFile: env.dbFile
   });
   const repositoryKey = resolveRuntimeRepositoryKey({
-    sourceRepo: env.sourceRepo,
+    sourceRepo: primaryRepository?.repoRoot ?? env.sourceRepo,
     githubRepo: runtimePolicy.github.repo
   });
   const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
@@ -226,14 +237,42 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     );
   }
 
-  const workspaceBackendSelection = createRuntimeWorkspaceBackend(env, {
-    dockerHostFileMounts: dockerAuth.mounts,
-    dockerContainerEnv: {
-      ...dockerGitHubCliAuth.launchEnv,
-      ...dockerLinearLaunchEnv
-    },
-    runtimeManifest: validatedRuntimeManifest?.runtimeManifest ?? null
-  });
+  const workspaceBackendSelections =
+    admittedRepositories.length > 0
+      ? admittedRepositories.map((repository) => ({
+          repositoryKey: repository.repositoryKey,
+          selection: createRuntimeWorkspaceBackend(
+            {
+              ...env,
+              sourceRepo: repository.repoRoot
+            },
+            {
+              dockerHostFileMounts: dockerAuth.mounts,
+              dockerContainerEnv: {
+                ...dockerGitHubCliAuth.launchEnv,
+                ...dockerLinearLaunchEnv
+              },
+              runtimeManifest: repository.runtimeManifest
+            }
+          )
+        }))
+      : [
+          {
+            repositoryKey,
+            selection: createRuntimeWorkspaceBackend(env, {
+              dockerHostFileMounts: dockerAuth.mounts,
+              dockerContainerEnv: {
+                ...dockerGitHubCliAuth.launchEnv,
+                ...dockerLinearLaunchEnv
+              },
+              runtimeManifest: validatedRuntimeManifest?.runtimeManifest ?? null
+            })
+          }
+        ];
+  const workspaceBackendSelection = workspaceBackendSelections[0].selection;
+  const workspaceBackendsByRepository = new Map(
+    workspaceBackendSelections.map((entry) => [entry.repositoryKey, entry.selection.backend])
+  );
   const workspaceBackendPayload = {
     workspaceRoot: runtimePolicy.workspace.root,
     ...workspaceBackendSelection.metadata,
@@ -290,7 +329,13 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       throw error;
     }
   }
-  const workspaceBackend = workspaceBackendSelection.backend;
+  const workspaceBackend =
+    workspaceBackendsByRepository.size > 1
+      ? createRepositoryScopedWorkspaceBackend({
+          admittedRepositories,
+          backends: workspaceBackendsByRepository
+        })
+      : workspaceBackendSelection.backend;
   logger.info("Initialized workspace backend", {
     workspaceRoot: runtimePolicy.workspace.root,
     ...workspaceBackendSelection.metadata,
@@ -319,7 +364,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
   machineLoad.start();
   const observer = createDbBackedOrchestratorObserver({
-    repositoryKey,
+    admittedRepositories,
+    defaultRepositoryKey: repositoryKey,
     runStore,
     issueTimelineStore,
     agentAnalytics: agentAnalyticsStore,
@@ -332,9 +378,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const agentRuntime = createAgentRuntime(
     createSymphonyAgentRuntime({
       promptContract,
-      runtimeWorkingDirectory:
-        validatedRuntimeManifest?.runtimeManifest.manifest.workspace.workingDirectory ?? ".",
-      githubRepository: runtimePolicy.github.repo,
+      admittedRepositories,
       tracker,
       runStore,
       deliveryReports,
@@ -391,6 +435,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({
     githubPolicy: runtimePolicy.github,
+    admittedRepositories: admittedRepositories.map((entry) => entry.repositoryKey),
+    resolveWebhookSecret: createRepositoryWebhookSecretResolver(
+      environmentSource,
+      runtimePolicy.github.webhookSecret
+    ),
     reviewProcessor: new SymphonyGithubReviewProcessor({
       policyConfig: {
         tracker: runtimePolicy.tracker,
@@ -513,6 +562,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
   return {
     logger,
+    admittedRepositories,
     promptTemplate,
     promptContract,
     runtimePolicy,
@@ -614,6 +664,43 @@ function applyRuntimeManifestPiPolicy(
       defaultReasoningEffort
     }
   };
+}
+
+function createRepositoryWebhookSecretResolver(
+  environmentSource: Record<string, string | undefined>,
+  fallbackSecret: string | null
+): (repository: string) => string | null {
+  const configuredSecrets =
+    typeof environmentSource.SYMPHONY_GITHUB_WEBHOOK_SECRETS === "string"
+      ? parseRepositorySecretMap(environmentSource.SYMPHONY_GITHUB_WEBHOOK_SECRETS)
+      : new Map<string, string>();
+
+  return (repository) => configuredSecrets.get(repository) ?? fallbackSecret;
+}
+
+function parseRepositorySecretMap(value: string): Map<string, string> {
+  const secrets = new Map<string, string>();
+
+  for (const entry of value.split(",")) {
+    const normalized = entry.trim();
+    if (normalized.length === 0) {
+      continue;
+    }
+
+    const separatorIndex = normalized.indexOf("=");
+    if (separatorIndex <= 0 || separatorIndex >= normalized.length - 1) {
+      continue;
+    }
+
+    const repositoryKey = normalized.slice(0, separatorIndex).trim();
+    const secret = normalized.slice(separatorIndex + 1).trim();
+
+    if (repositoryKey.length > 0 && secret.length > 0) {
+      secrets.set(repositoryKey, secret);
+    }
+  }
+
+  return secrets;
 }
 
 async function reconcilePersistedActiveRunsOnShutdown(input: {

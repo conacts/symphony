@@ -10,6 +10,7 @@ describe("runtime manifest env resolution", () => {
   it("resolves required host env plus static, runtime, and service bindings explicitly", () => {
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
+      repositoryKey: "openai/symphony",
       workspace: {
         packageManager: "pnpm"
       },
@@ -124,6 +125,7 @@ describe("runtime manifest env resolution", () => {
   it("fails fast with a path-targeted error when required host env is missing", () => {
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
+      repositoryKey: "openai/symphony",
       workspace: {
         packageManager: "pnpm"
       },
@@ -162,6 +164,7 @@ describe("runtime manifest env resolution", () => {
   it("fails fast when a declared service binding cannot be resolved", () => {
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
+      repositoryKey: "openai/symphony",
       workspace: {
         packageManager: "pnpm"
       },
@@ -222,6 +225,7 @@ describe("runtime manifest env resolution", () => {
   it("fails fast when a runtime binding resolves to null", () => {
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
+      repositoryKey: "openai/symphony",
       workspace: {
         packageManager: "pnpm"
       },

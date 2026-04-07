@@ -11,6 +11,7 @@ export {
   issueMatchesDispatchableState,
   issueMatchesTerminalState,
   linearScope,
+  resolveSymphonyRepositoryLabel,
   symphonyDisabledLabel,
   symphonyNoAutoReworkLabel
 } from "./symphony-tracker.js";
