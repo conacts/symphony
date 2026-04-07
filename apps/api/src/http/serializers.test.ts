@@ -7,6 +7,104 @@ import {
 import { serializeRuntimeIssue } from "./serializers.js";
 
 describe("runtime serializers", () => {
+  it("resolves Pi preset labels from runtime policy defaults", () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Review",
+      labels: ["symphony:pi-preset:basic"]
+    });
+    const baseRuntimePolicy = buildSymphonyRuntimePolicy();
+    const runtimePolicy = buildSymphonyRuntimePolicy({
+      pi: {
+        ...baseRuntimePolicy.pi,
+        defaultModel: "xiaomi/mimo-v2-pro",
+        defaultReasoningEffort: "xhigh",
+        defaultPreset: "advanced",
+        presets: {
+          basic: {
+            model: "gpt-5.4-mini",
+            reasoningEffort: "medium"
+          },
+          balanced: {
+            model: "gpt-5.4",
+            reasoningEffort: "high"
+          },
+          advanced: {
+            model: "xiaomi/mimo-v2-pro",
+            reasoningEffort: "xhigh"
+          }
+        }
+      }
+    });
+
+    const serialized = serializeRuntimeIssue(
+      buildSymphonyOrchestratorSnapshot({
+        running: [],
+        retrying: []
+      }),
+      runtimePolicy.github.repo,
+      issue.identifier,
+      issue,
+      {
+        defaultModel: runtimePolicy.pi.defaultModel,
+        defaultPreset: runtimePolicy.pi.defaultPreset,
+        presets: runtimePolicy.pi.presets
+      }
+    );
+
+    expect(serialized?.operator.pi.defaultModel).toBe("xiaomi/mimo-v2-pro");
+    expect(serialized?.operator.pi.selectedModel).toBe("gpt-5.4-mini");
+    expect(serialized?.operator.pi.selectionHelpText).toContain(
+      "symphony:pi-preset:"
+    );
+  });
+
+  it("falls back to the configured default Pi preset when no issue label is present", () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Review",
+      labels: []
+    });
+    const baseRuntimePolicy = buildSymphonyRuntimePolicy();
+    const runtimePolicy = buildSymphonyRuntimePolicy({
+      pi: {
+        ...baseRuntimePolicy.pi,
+        defaultModel: "xiaomi/mimo-v2-pro",
+        defaultReasoningEffort: "xhigh",
+        defaultPreset: "basic",
+        presets: {
+          basic: {
+            model: "gpt-5.4",
+            reasoningEffort: "medium"
+          },
+          balanced: {
+            model: "gpt-5.4-mini",
+            reasoningEffort: "high"
+          },
+          advanced: {
+            model: "xiaomi/mimo-v2-pro",
+            reasoningEffort: "xhigh"
+          }
+        }
+      }
+    });
+
+    const serialized = serializeRuntimeIssue(
+      buildSymphonyOrchestratorSnapshot({
+        running: [],
+        retrying: []
+      }),
+      runtimePolicy.github.repo,
+      issue.identifier,
+      issue,
+      {
+        defaultModel: runtimePolicy.pi.defaultModel,
+        defaultPreset: runtimePolicy.pi.defaultPreset,
+        presets: runtimePolicy.pi.presets
+      }
+    );
+
+    expect(serialized?.operator.pi.selectedModel).toBe("gpt-5.4");
+  });
+
   it("preserves execution-target metadata for container-backed workspaces", () => {
     const issue = buildSymphonyTrackerIssue({
       state: "In Progress"
