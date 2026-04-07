@@ -94,20 +94,10 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         defaultModel: null,
         defaultReasoningEffort: null,
         defaultPreset: "advanced",
-        presets: {
-          basic: {
-            model: null,
-            reasoningEffort: "medium"
-          },
-          balanced: {
-            model: null,
-            reasoningEffort: "high"
-          },
-          advanced: {
-            model: null,
-            reasoningEffort: "xhigh"
-          }
-        },
+        presets: buildDefaultPiPresetsForTests({
+          defaultModel: null,
+          defaultReasoningEffort: null
+        }),
         provider: null,
         turnTimeoutMs: 3_600_000,
         readTimeoutMs: 5_000,
@@ -123,20 +113,10 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         defaultModel: null,
         defaultReasoningEffort: null,
         defaultPreset: "advanced",
-        presets: {
-          basic: {
-            model: null,
-            reasoningEffort: "medium"
-          },
-          balanced: {
-            model: null,
-            reasoningEffort: "high"
-          },
-          advanced: {
-            model: null,
-            reasoningEffort: "xhigh"
-          }
-        },
+        presets: buildDefaultPiPresetsForTests({
+          defaultModel: null,
+          defaultReasoningEffort: null
+        }),
         provider: null,
         turnTimeoutMs: 3_600_000,
         readTimeoutMs: 5_000,
@@ -147,6 +127,26 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         timeoutMs: hooks.timeoutMs,
         ...overrides.runtime?.hooks
       }
+    }
+  };
+}
+
+function buildDefaultPiPresetsForTests(input: {
+  defaultModel: string | null;
+  defaultReasoningEffort: string | null;
+}) {
+  return {
+    basic: {
+      model: input.defaultModel,
+      reasoningEffort: "medium"
+    },
+    balanced: {
+      model: input.defaultModel,
+      reasoningEffort: "high"
+    },
+    advanced: {
+      model: input.defaultModel,
+      reasoningEffort: input.defaultReasoningEffort ?? "xhigh"
     }
   };
 }

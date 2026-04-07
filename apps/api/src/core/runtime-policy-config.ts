@@ -1,5 +1,7 @@
 import path from "node:path";
 import {
+  buildSymphonyDefaultPiPresets,
+  defaultSymphonyPiPresetName,
   defaultSymphonyPiProfileDefaults,
   findSymphonyPiProfileDefaults,
   type SymphonyPiProfileDefaults,
@@ -119,21 +121,11 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       profile: null,
       defaultModel: null,
       defaultReasoningEffort: null,
-      defaultPreset: "advanced",
-      presets: {
-        basic: {
-          model: null,
-          reasoningEffort: "medium"
-        },
-        balanced: {
-          model: null,
-          reasoningEffort: "high"
-        },
-        advanced: {
-          model: null,
-          reasoningEffort: "xhigh"
-        }
-      },
+      defaultPreset: defaultSymphonyPiPresetName,
+      presets: buildSymphonyDefaultPiPresets({
+        defaultModel: null,
+        defaultReasoningEffort: null
+      }),
       provider: null,
       turnTimeoutMs: 3_600_000,
       readTimeoutMs: 120_000,
@@ -254,38 +246,22 @@ function readPiPolicy(input: {
   const fallbackProfileDefaults = defaultSymphonyPiProfileDefaults();
   const resolvedProfileDefaults =
     matchedProfileDefaults ?? fallbackProfileDefaults;
+  const defaultModel =
+    readOptionalString(environmentSource.SYMPHONY_PI_MODEL) ??
+    resolvedProfileDefaults.defaultModel;
+  const defaultReasoningEffort =
+    readOptionalString(environmentSource.SYMPHONY_PI_REASONING_EFFORT) ??
+    resolvedProfileDefaults.defaultReasoningEffort;
 
   return {
     profile: matchedProfileDefaults?.profile ?? requestedProfile,
-    defaultModel:
-      readOptionalString(environmentSource.SYMPHONY_PI_MODEL) ??
-      resolvedProfileDefaults.defaultModel,
-    defaultReasoningEffort:
-      readOptionalString(environmentSource.SYMPHONY_PI_REASONING_EFFORT) ??
-      resolvedProfileDefaults.defaultReasoningEffort,
-    defaultPreset: "advanced",
-    presets: {
-      basic: {
-        model:
-          readOptionalString(environmentSource.SYMPHONY_PI_MODEL) ??
-          resolvedProfileDefaults.defaultModel,
-        reasoningEffort: "medium"
-      },
-      balanced: {
-        model:
-          readOptionalString(environmentSource.SYMPHONY_PI_MODEL) ??
-          resolvedProfileDefaults.defaultModel,
-        reasoningEffort: "high"
-      },
-      advanced: {
-        model:
-          readOptionalString(environmentSource.SYMPHONY_PI_MODEL) ??
-          resolvedProfileDefaults.defaultModel,
-        reasoningEffort:
-          readOptionalString(environmentSource.SYMPHONY_PI_REASONING_EFFORT) ??
-          resolvedProfileDefaults.defaultReasoningEffort
-      }
-    },
+    defaultModel,
+    defaultReasoningEffort,
+    defaultPreset: defaultSymphonyPiPresetName,
+    presets: buildSymphonyDefaultPiPresets({
+      defaultModel,
+      defaultReasoningEffort
+    }),
     provider: {
       id:
         readOptionalString(environmentSource.SYMPHONY_PI_PROVIDER) ??

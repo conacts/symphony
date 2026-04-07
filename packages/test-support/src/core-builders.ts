@@ -13,7 +13,11 @@ import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import {
   buildSymphonyTrackerIssue
 } from "@symphony/tracker";
-import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
+import {
+  buildSymphonyDefaultPiPresets,
+  defaultSymphonyPiPresetName,
+  type SymphonyResolvedRuntimePolicy
+} from "@symphony/runtime-policy";
 
 export { buildSymphonyTrackerIssue } from "@symphony/tracker";
 
@@ -71,21 +75,11 @@ export function buildSymphonyRuntimePolicy(
       profile: null,
       defaultModel: null,
       defaultReasoningEffort: null,
-      defaultPreset: "advanced",
-      presets: {
-        basic: {
-          model: null,
-          reasoningEffort: "medium"
-        },
-        balanced: {
-          model: null,
-          reasoningEffort: "high"
-        },
-        advanced: {
-          model: null,
-          reasoningEffort: "xhigh"
-        }
-      },
+      defaultPreset: defaultSymphonyPiPresetName,
+      presets: buildSymphonyDefaultPiPresets({
+        defaultModel: null,
+        defaultReasoningEffort: null
+      }),
       provider: null,
       turnTimeoutMs: 3_600_000,
       readTimeoutMs: 5_000,
@@ -100,21 +94,11 @@ export function buildSymphonyRuntimePolicy(
       profile: null,
       defaultModel: null,
       defaultReasoningEffort: null,
-      defaultPreset: "advanced",
-      presets: {
-        basic: {
-          model: null,
-          reasoningEffort: "medium"
-        },
-        balanced: {
-          model: null,
-          reasoningEffort: "high"
-        },
-        advanced: {
-          model: null,
-          reasoningEffort: "xhigh"
-        }
-      },
+      defaultPreset: defaultSymphonyPiPresetName,
+      presets: buildSymphonyDefaultPiPresets({
+        defaultModel: null,
+        defaultReasoningEffort: null
+      }),
       provider: null,
       turnTimeoutMs: 3_600_000,
       readTimeoutMs: 5_000,

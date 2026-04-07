@@ -65,6 +65,8 @@ export type SymphonyHarnessModelPresetRuntimePolicy = {
   reasoningEffort: string | null;
 };
 
+export const defaultSymphonyPiPresetName = "advanced";
+
 export type SymphonyHarnessModelRuntimePolicy = {
   profile: string | null;
   defaultModel: string | null;
@@ -151,6 +153,27 @@ export {
   SymphonyRuntimePolicyError
 } from "./runtime-policy-errors.js";
 export { normalizeIssueState } from "@symphony/tracker";
+
+export function buildSymphonyDefaultPiPresets(input: {
+  defaultModel: string | null;
+  defaultReasoningEffort: string | null;
+}): Record<string, SymphonyHarnessModelPresetRuntimePolicy> {
+  return {
+    basic: {
+      model: input.defaultModel,
+      reasoningEffort: "medium"
+    },
+    balanced: {
+      model: input.defaultModel,
+      reasoningEffort: "high"
+    },
+    advanced: {
+      model: input.defaultModel,
+      reasoningEffort: input.defaultReasoningEffort ?? "xhigh"
+    }
+  };
+}
+
 export function resolveRuntimePolicy(
   rawConfig: Record<string, unknown>,
   options: SymphonyRuntimePolicyLoadOptions
@@ -336,7 +359,7 @@ function normalizeHarnessModelConfig(
     config.defaultReasoningEffort
   );
   const defaultPreset =
-    normalizeOptionalString(config.defaultPreset) ?? "advanced";
+    normalizeOptionalString(config.defaultPreset) ?? defaultSymphonyPiPresetName;
 
   return {
     profile: normalizeOptionalString(config.profile),
@@ -374,27 +397,7 @@ function normalizeHarnessModelPresets(
 
   return Object.keys(normalized).length > 0
     ? normalized
-    : buildDefaultHarnessModelPresets(defaults);
-}
-
-function buildDefaultHarnessModelPresets(defaults: {
-  defaultModel: string | null;
-  defaultReasoningEffort: string | null;
-}): Record<string, SymphonyHarnessModelPresetRuntimePolicy> {
-  return {
-    basic: {
-      model: defaults.defaultModel,
-      reasoningEffort: "medium"
-    },
-    balanced: {
-      model: defaults.defaultModel,
-      reasoningEffort: "high"
-    },
-    advanced: {
-      model: defaults.defaultModel,
-      reasoningEffort: defaults.defaultReasoningEffort ?? "xhigh"
-    }
-  };
+    : buildSymphonyDefaultPiPresets(defaults);
 }
 
 function normalizePiConfig(value: unknown): SymphonyPiRuntimePolicy {
