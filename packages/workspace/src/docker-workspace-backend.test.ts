@@ -2450,6 +2450,9 @@ function buildLoadedRuntimeManifest(input?: {
     manifest: normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
+      linear: {
+        projectSlug: "symphony"
+      },
       workspace: {
         packageManager: "pnpm"
       },

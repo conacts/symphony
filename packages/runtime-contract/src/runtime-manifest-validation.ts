@@ -91,7 +91,7 @@ function parseRuntimeManifest(
     validateServiceReferences(env.inject, services.declaredKeys, issues);
   }
 
-  if (!schemaVersion || !repositoryKey || !workspace || !env || !lifecycle) {
+  if (!schemaVersion || !repositoryKey || !linear || !workspace || !env || !lifecycle) {
     return undefined;
   }
 
@@ -110,16 +110,21 @@ function parseRuntimeManifest(
 function parseLinearBinding(
   value: unknown,
   issues: SymphonyRuntimeManifestIssue[]
-): SymphonyNormalizedRuntimeManifest["linear"] {
+): SymphonyNormalizedRuntimeManifest["linear"] | undefined {
   if (value === undefined) {
-    return null;
+    pushIssue(
+      issues,
+      ["linear"],
+      "linear must declare projectSlug or teamKey."
+    );
+    return undefined;
   }
 
   const checkpoint = startIssueCheckpoint(issues);
   const record = readStrictRecord(value, ["linear"], issues, "linear");
 
   if (!record) {
-    return null;
+    return undefined;
   }
 
   rejectUnknownKeys(record, linearKeys, ["linear"], issues);
@@ -144,7 +149,7 @@ function parseLinearBinding(
       ["linear"],
       "linear must declare either projectSlug or teamKey, not both."
     );
-    return null;
+    return undefined;
   }
 
   if (!projectSlug && !teamKey) {
@@ -153,11 +158,11 @@ function parseLinearBinding(
       ["linear"],
       "linear must declare projectSlug or teamKey."
     );
-    return null;
+    return undefined;
   }
 
   if (hasIssuesSince(issues, checkpoint)) {
-    return null;
+    return undefined;
   }
 
   return {

@@ -11,7 +11,7 @@ export type AdmittedRuntimeRepository = {
   linearBinding: {
     projectSlug: string | null;
     teamKey: string | null;
-  } | null;
+  };
   promptContract: SymphonyLoadedPromptContract;
   runtimeManifest: SymphonyLoadedRuntimeManifest;
 };
@@ -26,12 +26,6 @@ export async function loadAdmittedRuntimeRepositories(
     const repoRoot = path.resolve(sourceRepo);
     const runtimeContract = await loadSymphonyRuntimeContract(repoRoot);
     const repositoryKey = runtimeContract.runtimeManifest.manifest.repositoryKey;
-
-    if (!repositoryKey) {
-      throw new TypeError(
-        `Runtime manifest for ${repoRoot} must declare repositoryKey.`
-      );
-    }
 
     if (seenRepositoryKeys.has(repositoryKey)) {
       throw new TypeError(

@@ -89,6 +89,9 @@ describe("runtime services", () => {
         runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
           schemaVersion: 1,
           repositoryKey: "openai/symphony",
+          linear: {
+            projectSlug: "symphony"
+          },
           workspace: {
             packageManager: "pnpm",
             workingDirectory: "."
@@ -194,6 +197,9 @@ describe("runtime services", () => {
       runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
         schemaVersion: 1,
         repositoryKey: "openai/symphony",
+        linear: {
+          projectSlug: "symphony"
+        },
         workspace: {
           packageManager: "pnpm",
           workingDirectory: "."

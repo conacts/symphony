@@ -11,6 +11,9 @@ describe("runtime manifest env resolution", () => {
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
+      linear: {
+        projectSlug: "symphony"
+      },
       workspace: {
         packageManager: "pnpm"
       },
@@ -126,6 +129,9 @@ describe("runtime manifest env resolution", () => {
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
+      linear: {
+        projectSlug: "symphony"
+      },
       workspace: {
         packageManager: "pnpm"
       },
@@ -165,6 +171,9 @@ describe("runtime manifest env resolution", () => {
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
+      linear: {
+        projectSlug: "symphony"
+      },
       workspace: {
         packageManager: "pnpm"
       },
@@ -226,6 +235,9 @@ describe("runtime manifest env resolution", () => {
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
+      linear: {
+        projectSlug: "symphony"
+      },
       workspace: {
         packageManager: "pnpm"
       },

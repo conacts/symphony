@@ -33,6 +33,9 @@ import { defineSymphonyRuntime } from "@symphony/runtime-contract";
 export default defineSymphonyRuntime({
   schemaVersion: 1,
   repositoryKey: "openai/symphony",
+  linear: {
+    projectSlug: "symphony"
+  },
   workspace: {
     packageManager: "pnpm"
   },
@@ -133,6 +136,9 @@ import { defineSymphonyRuntime } from "@symphony/runtime-contract";
 export default defineSymphonyRuntime({
   schemaVersion: 1,
   repositoryKey: "openai/symphony",
+  linear: {
+    projectSlug: "symphony"
+  },
   workspace: {
     packageManager: "pnpm"
   },
@@ -182,6 +188,9 @@ import { defineSymphonyRuntime } from "@symphony/runtime-contract";
 export default defineSymphonyRuntime({
   schemaVersion: 1,
   repositoryKey: "openai/symphony",
+  linear: {
+    projectSlug: "symphony"
+  },
   workspace: {
     packageManager: "pnpm"
   },

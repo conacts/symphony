@@ -114,9 +114,6 @@ function repositoryMatchesLinearIssue(
   issue: RuntimeRepositoryIssue
 ): boolean {
   const linearBinding = repository.linearBinding;
-  if (!linearBinding) {
-    return false;
-  }
 
   if (linearBinding.projectSlug) {
     return issue.projectSlug === linearBinding.projectSlug;

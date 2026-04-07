@@ -53,6 +53,9 @@ import { buildStep } from "./steps.ts";
 export default defineSymphonyRuntime({
   schemaVersion: 1,
   repositoryKey: "openai/symphony",
+  linear: {
+    projectSlug: "symphony"
+  },
   workspace: {
     packageManager: "pnpm"
   },
@@ -115,7 +118,10 @@ export default defineSymphonyRuntime({
       packageManager: "pnpm",
       workingDirectory: defaultSymphonyRuntimeWorkingDirectory
     });
-    expect(loaded.manifest.linear).toBeNull();
+    expect(loaded.manifest.linear).toEqual({
+      projectSlug: "symphony",
+      teamKey: null
+    });
     expect(loaded.manifest.pi).toBeNull();
     expect(loaded.manifest.services.postgres).toEqual({
       type: "postgres",
@@ -180,6 +186,9 @@ const serialized = YAML.stringify({ ok: true }).trim();
 export default defineSymphonyRuntime({
   schemaVersion: 1,
   repositoryKey: "openai/symphony",
+  linear: {
+    projectSlug: "symphony"
+  },
   workspace: {
     packageManager: "pnpm"
   },
@@ -223,6 +232,9 @@ export default defineSymphonyRuntime({
     const manifest = normalizeSymphonyRuntimeManifest({
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
+      linear: {
+        projectSlug: "symphony"
+      },
       workspace: {
         packageManager: "pnpm"
       },
@@ -326,6 +338,37 @@ export default defineSymphonyRuntime({
     });
   });
 
+  it("rejects a runtime manifest without a Linear binding", () => {
+    expect(() =>
+      normalizeSymphonyRuntimeManifest({
+        schemaVersion: 1,
+        repositoryKey: "openai/symphony",
+        workspace: {
+          packageManager: "pnpm"
+        },
+        env: {
+          host: {
+            required: [],
+            optional: []
+          },
+          inject: {}
+        },
+        lifecycle: {
+          bootstrap: [],
+          migrate: [],
+          verify: [
+            {
+              name: "verify",
+              run: "pnpm test"
+            }
+          ],
+          seed: [],
+          cleanup: []
+        }
+      })
+    ).toThrowError(/linear must declare projectSlug or teamKey/i);
+  });
+
   it("rejects a Linear binding that declares both projectSlug and teamKey", () => {
     expect(() =>
       normalizeSymphonyRuntimeManifest({
@@ -393,6 +436,9 @@ export default defineSymphonyRuntime({
 export default defineSymphonyRuntime({
   schemaVersion: 1,
   repositoryKey: "openai/symphony",
+  linear: {
+    projectSlug: "symphony"
+  },
   workspace: {
     packageManager: "pnpm"
   },
@@ -440,6 +486,9 @@ import { runtimeStep } from "./missing-helper.ts";
 export default defineSymphonyRuntime({
   schemaVersion: 1,
   repositoryKey: "openai/symphony",
+  linear: {
+    projectSlug: "symphony"
+  },
   workspace: {
     packageManager: "pnpm"
   },
@@ -623,6 +672,9 @@ function buildValidManifestInput(): SymphonyRuntimeManifestInput {
   return {
     schemaVersion: 1,
     repositoryKey: "openai/symphony",
+    linear: {
+      projectSlug: "symphony"
+    },
     workspace: {
       packageManager: "pnpm",
       workingDirectory: "."

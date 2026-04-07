@@ -6,6 +6,9 @@ export function buildSymphonyRuntimeManifestInput(
   const baseManifest: SymphonyRuntimeManifestInput = {
     schemaVersion: 1,
     repositoryKey: "openai/symphony",
+    linear: {
+      projectSlug: "symphony"
+    },
     workspace: {
       packageManager: "pnpm",
       workingDirectory: "."
