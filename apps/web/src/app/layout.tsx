@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { Suspense } from "react";
 import type { ReactNode } from "react";
 import { IBM_Plex_Mono, Public_Sans } from "next/font/google";
 import "./globals.css";
@@ -49,7 +50,9 @@ export default function RootLayout(input: { children: ReactNode }) {
       <body>
         <ThemeProvider>
           <ControlPlaneModelProvider model={model}>
-            <ControlPlaneFrame>{input.children}</ControlPlaneFrame>
+            <Suspense fallback={null}>
+              <ControlPlaneFrame>{input.children}</ControlPlaneFrame>
+            </Suspense>
           </ControlPlaneModelProvider>
         </ThemeProvider>
       </body>
