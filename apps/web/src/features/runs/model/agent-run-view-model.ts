@@ -222,9 +222,13 @@ export function buildAgentRunViewModel(input: {
         ? run.totalTokens
         : fallbackTokenTotals.totalTokens;
   const issueIdentifier = input.runDetail.issue.issueIdentifier;
-  const runHref = buildIssueRunHref(issueIdentifier, run.runId);
-  const turnsHref = buildIssueRunTurnsHref(issueIdentifier, run.runId);
-  const transcriptHref = buildLegacyRunHref(run.runId);
+  const repositoryKey = input.runDetail.issue.repositoryKey;
+  const routeScope = {
+    repo: repositoryKey
+  };
+  const runHref = buildIssueRunHref(issueIdentifier, run.runId, routeScope);
+  const turnsHref = buildIssueRunTurnsHref(issueIdentifier, run.runId, routeScope);
+  const transcriptHref = buildLegacyRunHref(run.runId, routeScope);
 
   return {
     harnessLabel,
@@ -232,7 +236,7 @@ export function buildAgentRunViewModel(input: {
     runId: run.runId,
     runTitle: `${issueIdentifier} · ${run.runId}`,
     routes: {
-      issueHref: buildIssueHref(issueIdentifier),
+      issueHref: buildIssueHref(issueIdentifier, routeScope),
       runHref,
       turnsHref,
       transcriptHref
@@ -342,7 +346,7 @@ export function buildAgentRunViewModel(input: {
     turnRows: transcriptTurns.map((turn) => ({
       turnId: turn.turnId,
       turnSequence: turn.turnSequence,
-      href: buildIssueRunTurnHref(issueIdentifier, run.runId, turn.turnId),
+      href: buildIssueRunTurnHref(issueIdentifier, run.runId, turn.turnId, routeScope),
       startedAt: turn.startedAt,
       endedAt: turn.endedAt,
       status: turn.status,

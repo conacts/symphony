@@ -33,6 +33,6 @@ describe("issue index view", () => {
     expect(html).toContain("Issue inventory");
     expect(html).toContain("Reached max turns before completion.");
     expect(html).toContain("Total issues");
-    expect(html).toContain('href="/issues/COL-165"');
+    expect(html).toContain('href="/issues/COL-165?repo=symphony"');
   });
 });

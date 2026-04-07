@@ -29,7 +29,8 @@ export function PerformanceAnalysisLiveScreen() {
   );
   const analysisSampleState = useAnalysisSample({
     runtimeBaseUrl: model.runtimeBaseUrl,
-    websocketUrl: model.websocketUrl
+    websocketUrl: model.websocketUrl,
+    repo: query.repo
   });
   const connection = useMemo(
     () =>

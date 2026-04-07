@@ -131,6 +131,7 @@ export function buildRunSummary(
 
   return {
     runId: run.runId,
+    repositoryKey: run.repositoryKey,
     issueId: run.issueId,
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
@@ -168,6 +169,7 @@ export function buildIssueSummary(
 
   return {
     issueId: issue.issueId,
+    repositoryKey: issue.repositoryKey,
     issueIdentifier: issue.issueIdentifier,
     latestRunStartedAt: issue.latestRunStartedAt ?? null,
     latestRunId: latestRun?.runId ?? null,

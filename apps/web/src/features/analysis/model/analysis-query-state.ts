@@ -1,6 +1,7 @@
 "use client";
 
 export type AnalysisQuery = {
+  repo?: string;
   harness?: "pi";
   provider?: string;
   model?: string;
@@ -10,10 +11,12 @@ export function buildAnalysisQueryFromSearchParams(
   searchParams: Pick<URLSearchParams, "get">
 ): AnalysisQuery {
   const harness = parseHarness(searchParams.get("harness"));
+  const repo = parseOptionalValue(searchParams.get("repo"));
   const provider = parseOptionalValue(searchParams.get("provider"));
   const model = parseOptionalValue(searchParams.get("model"));
 
   return {
+    ...(repo ? { repo } : {}),
     ...(harness ? { harness } : {}),
     ...(provider ? { provider } : {}),
     ...(model ? { model } : {})
@@ -25,6 +28,10 @@ export function buildAnalysisSearchParams(query: AnalysisQuery): URLSearchParams
 
   if (query.harness) {
     searchParams.set("harness", query.harness);
+  }
+
+  if (query.repo) {
+    searchParams.set("repo", query.repo);
   }
 
   if (query.provider) {
@@ -39,7 +46,7 @@ export function buildAnalysisSearchParams(query: AnalysisQuery): URLSearchParams
 }
 
 export function hasActiveAnalysisFilters(query: AnalysisQuery): boolean {
-  return Boolean(query.harness || query.provider || query.model);
+  return Boolean(query.repo || query.harness || query.provider || query.model);
 }
 
 function parseHarness(value: string | null): AnalysisQuery["harness"] {

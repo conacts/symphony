@@ -11,6 +11,7 @@ describe("performance analysis view model", () => {
       issueIndex: buildSymphonyForensicsIssueListResult(),
       sampledRuns: [
         {
+          repositoryKey: "symphony",
           issueIdentifier: "COL-165",
           run: {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,

@@ -28,6 +28,7 @@ export function normalizeFilters(
 ): SymphonyForensicsIssueFilters {
   return {
     limit: input.limit ?? null,
+    repo: input.repo ?? null,
     timeRange: input.timeRange ?? "all",
     startedAfter: input.startedAfter ?? null,
     startedBefore: input.startedBefore ?? null,

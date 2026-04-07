@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { JsonValue } from "@symphony/contracts";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { symphonyRuntimeLogsTable } from "./schema.js";
@@ -8,6 +8,7 @@ export type SymphonyRuntimeLogLevel = "debug" | "info" | "warn" | "error";
 
 export type SymphonyRuntimeLogEntry = {
   entryId: string;
+  repositoryKey: string | null;
   level: SymphonyRuntimeLogLevel;
   source: string;
   eventType: string;
@@ -21,6 +22,7 @@ export type SymphonyRuntimeLogEntry = {
 
 export interface SymphonyRuntimeLogStore {
   record(input: {
+    repositoryKey?: string | null;
     level: SymphonyRuntimeLogLevel;
     source: string;
     eventType: string;
@@ -33,13 +35,19 @@ export interface SymphonyRuntimeLogStore {
   }): Promise<string>;
   list(input?: {
     limit?: number;
+    repositoryKey?: string;
     issueIdentifier?: string;
   }): Promise<SymphonyRuntimeLogEntry[]>;
 }
 
 export function createSymphonyRuntimeLogStore(
-  db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>
+  db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>,
+  input: {
+    repositoryKey?: string;
+  } = {}
 ): SymphonyRuntimeLogStore {
+  const defaultRepositoryKey = sanitizeText(input.repositoryKey) ?? "default";
+
   return {
     async record(input) {
       const entryId = randomUUID();
@@ -47,6 +55,7 @@ export function createSymphonyRuntimeLogStore(
 
       db.insert(symphonyRuntimeLogsTable).values({
         entryId,
+        repositoryKey: sanitizeText(input.repositoryKey) ?? defaultRepositoryKey,
         level: input.level,
         source: input.source,
         eventType: input.eventType,
@@ -70,14 +79,20 @@ export function createSymphonyRuntimeLogStore(
         .orderBy(desc(symphonyRuntimeLogsTable.recordedAt))
         .limit(limit);
 
+      const repositoryKey = sanitizeText(input.repositoryKey) ?? defaultRepositoryKey;
+
       const rows = input.issueIdentifier
         ? query.where(
-            eq(symphonyRuntimeLogsTable.issueIdentifier, input.issueIdentifier)
+            and(
+              eq(symphonyRuntimeLogsTable.repositoryKey, repositoryKey),
+              eq(symphonyRuntimeLogsTable.issueIdentifier, input.issueIdentifier)
+            )
           ).all()
-        : query.all();
+        : query.where(eq(symphonyRuntimeLogsTable.repositoryKey, repositoryKey)).all();
 
       return rows.map((row) => ({
         entryId: row.entryId,
+        repositoryKey: row.repositoryKey ?? null,
         level: normalizeLevel(row.level),
         source: row.source,
         eventType: row.eventType,
@@ -108,4 +123,13 @@ function normalizeLevel(value: string): SymphonyRuntimeLogLevel {
     default:
       return "info";
   }
+}
+
+function sanitizeText(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
 }

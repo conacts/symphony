@@ -79,6 +79,7 @@ export function buildTokenAnalysisViewModel(
   );
   const runTokenRows = input.sampledRuns
     .map((sampledRun, index) => ({
+      repositoryKey: sampledRun.repositoryKey,
       runLabel: `Run ${index + 1} · ${sampledRun.run.runId.slice(0, 6)}`,
       totalTokens: sampledRun.run.totalTokens,
       inputTokens: sampledRun.run.inputTokens,
@@ -193,8 +194,12 @@ export function buildTokenAnalysisViewModel(
       inputTokens: formatCount(row.inputTokens),
       outputTokens: formatCount(row.outputTokens),
       startedAt: formatTimestamp(row.startedAt),
-      runHref: buildIssueRunHref(row.issueIdentifier, row.runId),
-      issueHref: buildIssueHref(row.issueIdentifier)
+      runHref: buildIssueRunHref(row.issueIdentifier, row.runId, {
+        repo: row.repositoryKey
+      }),
+      issueHref: buildIssueHref(row.issueIdentifier, {
+        repo: row.repositoryKey
+      })
     })),
     spotlight: {
       heaviestRun: heaviestRun ? `${heaviestRun.issueIdentifier} · ${heaviestRun.runLabel}` : "n/a",

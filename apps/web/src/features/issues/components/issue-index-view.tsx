@@ -175,6 +175,22 @@ export function IssueIndexView(input: {
               </div>
               <div className="flex flex-col gap-2 xl:flex-row xl:flex-wrap">
                 <FilterDropdown
+                  label="Repository"
+                  value={input.query.repo ?? ""}
+                  options={[
+                    { value: "", label: "All repositories" },
+                    ...viewModel.facets.repositories.map((repositoryKey) => ({
+                      value: repositoryKey,
+                      label: repositoryKey
+                    }))
+                  ]}
+                  onChange={(value) =>
+                    updateQuery({
+                      repo: value === "" ? undefined : value
+                    })
+                  }
+                />
+                <FilterDropdown
                   label="Outcome"
                   value={input.query.outcome ?? ""}
                   options={[
@@ -231,6 +247,7 @@ export function IssueIndexView(input: {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Issue</TableHead>
+                      <TableHead>Repository</TableHead>
                       <TableHead>Runs</TableHead>
                       <TableHead>Problem rate</TableHead>
                       <TableHead>Latest problem</TableHead>
@@ -241,7 +258,7 @@ export function IssueIndexView(input: {
                   </TableHeader>
                   <TableBody>
                     {viewModel.rows.map((row) => (
-                      <TableRow key={row.issueIdentifier}>
+                      <TableRow key={`${row.repositoryKey}:${row.issueIdentifier}`}>
                         <TableCell className="font-medium">
                           <div className="flex flex-col gap-1">
                             <Link
@@ -257,6 +274,7 @@ export function IssueIndexView(input: {
                             </span>
                           </div>
                         </TableCell>
+                        <TableCell>{row.repositoryKey}</TableCell>
                         <TableCell>{row.runCount}</TableCell>
                         <TableCell>{row.problemRate}</TableCell>
                         <TableCell>{row.latestProblemOutcome}</TableCell>

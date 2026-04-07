@@ -76,9 +76,11 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
     await this.#mutate(async (document) => {
       const now = isoNow();
       const startedAt = normalizeIsoTimestamp(attrs.startedAt) ?? now;
+      const repositoryKey = attrs.repositoryKey ?? "default";
 
       const nextIssue = upsertIssueRecord(document.issues, {
         issueId: attrs.issueId,
+        repositoryKey,
         issueIdentifier: attrs.issueIdentifier,
         latestRunStartedAt: startedAt,
         insertedAt: now,
@@ -88,6 +90,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       document.issues = nextIssue;
       document.runs.push({
         runId,
+        repositoryKey,
         issueId: attrs.issueId,
         issueIdentifier: attrs.issueIdentifier,
         attempt: attrs.attempt ?? null,

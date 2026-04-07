@@ -87,6 +87,7 @@ export function buildIssueAggregate(
   }
 
   return {
+    repositoryKey: firstRun?.repositoryKey ?? "default",
     issueId: firstRun?.issueId ?? "[missing-issue-id]",
     issueIdentifier: firstRun?.issueIdentifier ?? "[missing-issue-identifier]",
     latestRunStartedAt: latestRun?.startedAt ?? null,
@@ -164,12 +165,13 @@ export function groupRunsByIssue(
   const grouped = new Map<string, SymphonyForensicsRunSummary[]>();
 
   for (const run of runs) {
-    const existingRuns = grouped.get(run.issueIdentifier);
+    const issueKey = `${run.repositoryKey}\u0000${run.issueIdentifier}`;
+    const existingRuns = grouped.get(issueKey);
 
     if (existingRuns) {
       existingRuns.push(run);
     } else {
-      grouped.set(run.issueIdentifier, [run]);
+      grouped.set(issueKey, [run]);
     }
   }
 

@@ -31,7 +31,9 @@ import {
   type EnvironmentSource
 } from "@/core/env";
 
-const mockIssues: SymphonyForensicsIssueSummary[] = [
+const DEFAULT_REPOSITORY_KEY = "symphony";
+
+const rawMockIssues = [
   {
     issueId: "issue_123",
     issueIdentifier: "COL-165",
@@ -143,7 +145,12 @@ const mockIssues: SymphonyForensicsIssueSummary[] = [
     insertedAt: "2026-03-31T17:20:00.000Z",
     updatedAt: "2026-03-31T17:27:00.000Z"
   }
-];
+] satisfies Array<Omit<SymphonyForensicsIssueSummary, "repositoryKey">>;
+
+const mockIssues: SymphonyForensicsIssueSummary[] = rawMockIssues.map((issue) => ({
+  ...issue,
+  repositoryKey: DEFAULT_REPOSITORY_KEY
+}));
 
 function withMockAgentRunSummary(
   run: Omit<
@@ -155,6 +162,7 @@ function withMockAgentRunSummary(
     | "agentFailureOrigin"
     | "agentFailureMessagePreview"
     | "cachedInputTokens"
+    | "repositoryKey"
     | "machineLoad"
     | "deliveryStatus"
     | "deliveryReportedAt"
@@ -163,6 +171,7 @@ function withMockAgentRunSummary(
 ): SymphonyForensicsRunSummary {
   return {
     ...run,
+    repositoryKey: DEFAULT_REPOSITORY_KEY,
     agentHarness: "pi",
     model: "xiaomi/mimo-v2-pro",
     agentStatus:
@@ -626,6 +635,7 @@ const mockRuntimeLogsByIssueIdentifier: Record<string, SymphonyRuntimeLogEntry[]
   "COL-165": [
     {
       entryId: "log_165_1",
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       level: "info",
       source: "runtime",
       eventType: "run.started",
@@ -640,6 +650,7 @@ const mockRuntimeLogsByIssueIdentifier: Record<string, SymphonyRuntimeLogEntry[]
     },
     {
       entryId: "log_165_2",
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       level: "warn",
       source: "agent",
       eventType: "retry.recovered",
@@ -654,6 +665,7 @@ const mockRuntimeLogsByIssueIdentifier: Record<string, SymphonyRuntimeLogEntry[]
   "COL-166": [
     {
       entryId: "log_166_1",
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       level: "warn",
       source: "runtime",
       eventType: "retry.scheduled",
@@ -670,6 +682,7 @@ const mockRuntimeLogsByIssueIdentifier: Record<string, SymphonyRuntimeLogEntry[]
   "COL-167": [
     {
       entryId: "log_167_1",
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       level: "error",
       source: "workspace",
       eventType: "workspace.bootstrap.failed",
@@ -689,6 +702,7 @@ const mockTimelineByIssueIdentifier: Record<string, SymphonyForensicsIssueTimeli
   "COL-165": [
     {
       entryId: "timeline_165_1",
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       issueId: "issue_123",
       issueIdentifier: "COL-165",
       runId: "run_123",
@@ -703,6 +717,7 @@ const mockTimelineByIssueIdentifier: Record<string, SymphonyForensicsIssueTimeli
     },
     {
       entryId: "timeline_165_2",
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       issueId: "issue_123",
       issueIdentifier: "COL-165",
       runId: "run_123",
@@ -719,6 +734,7 @@ const mockTimelineByIssueIdentifier: Record<string, SymphonyForensicsIssueTimeli
   "COL-166": [
     {
       entryId: "timeline_166_1",
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       issueId: "issue_456",
       issueIdentifier: "COL-166",
       runId: "run_456",
@@ -735,6 +751,7 @@ const mockTimelineByIssueIdentifier: Record<string, SymphonyForensicsIssueTimeli
   "COL-167": [
     {
       entryId: "timeline_167_1",
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       issueId: "issue_789",
       issueIdentifier: "COL-167",
       runId: "run_789",
@@ -878,6 +895,7 @@ export function buildMockRuntimeLogsResult(
       .slice(0, limit),
     filters: {
       limit,
+      repo: null,
       issueIdentifier
     }
   });
@@ -898,6 +916,7 @@ export function buildMockIssueListResult(
     totals: buildIssueTotals(issues),
     filters,
     facets: {
+      repositories: uniqueValues(mockIssues.map((issue) => issue.repositoryKey)),
       outcomes: uniqueValues(
         mockIssues.flatMap((issue) =>
           [issue.latestRunOutcome, issue.latestProblemOutcome, issue.lastCompletedOutcome].filter(
@@ -928,6 +947,7 @@ export function buildMockIssueDetailResult(
   const runs = (mockRunsByIssueIdentifier[issueIdentifier] ?? []).slice(0, limit);
 
   return {
+    repositoryKey: issue.repositoryKey,
     issueIdentifier,
     runs,
     summary: {
@@ -940,7 +960,8 @@ export function buildMockIssueDetailResult(
       deliveredRunCount: issue.deliveredRunCount
     },
     filters: {
-      limit
+      limit,
+      repo: null
     }
   };
 }
@@ -962,6 +983,7 @@ export function buildMockIssueForensicsBundleResult(
   const latestFailureRun = recentRuns.find((run) => run.outcome !== "completed") ?? null;
 
   return {
+    repositoryKey: issue.repositoryKey,
     issue,
     recentRuns: recentRuns.slice(0, parsePositiveInt(input.get("recentRunLimit")) ?? 5),
     distributions: {
@@ -1013,6 +1035,7 @@ export function buildMockProblemRunsResult(
     problemRuns: runs,
     problemSummary,
     filters: {
+      repo: null,
       outcome,
       issueIdentifier,
       limit
@@ -1036,6 +1059,7 @@ export function buildMockRunDetailResult(
   if (runId === "run_123") {
     return buildSymphonyForensicsRunDetailResult({
       issue: {
+        repositoryKey: issue.repositoryKey,
         issueId: issue.issueId,
         issueIdentifier: issue.issueIdentifier,
         latestRunStartedAt: issue.latestRunStartedAt,
@@ -1073,6 +1097,7 @@ export function buildMockRunDetailResult(
 
   return buildSymphonyForensicsRunDetailResult({
     issue: {
+      repositoryKey: issue.repositoryKey,
       issueId: issue.issueId,
       issueIdentifier: issue.issueIdentifier,
       latestRunStartedAt: issue.latestRunStartedAt,
@@ -1193,6 +1218,7 @@ export function createMockEnvelope<T>(data: T) {
 function buildIssueFilters(input: URLSearchParams): SymphonyForensicsIssueFilters {
   return {
     limit: parsePositiveInt(input.get("limit")),
+    repo: toNullableString(input.get("repo")),
     timeRange: parseTimeRange(input.get("timeRange")),
     startedAfter: toNullableString(input.get("startedAfter")),
     startedBefore: toNullableString(input.get("startedBefore")),
@@ -1208,6 +1234,10 @@ function issueMatchesFilters(
   issue: SymphonyForensicsIssueSummary,
   filters: SymphonyForensicsIssueFilters
 ): boolean {
+  if (filters.repo && issue.repositoryKey !== filters.repo) {
+    return false;
+  }
+
   if (
     filters.outcome &&
     ![issue.latestRunOutcome, issue.latestProblemOutcome, issue.lastCompletedOutcome].includes(

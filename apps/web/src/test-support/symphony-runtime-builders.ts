@@ -15,6 +15,8 @@ import type {
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
 
+const DEFAULT_REPOSITORY_KEY = "symphony";
+
 export function buildSymphonyRuntimeStateResult(
   overrides: Partial<Omit<SymphonyRuntimeStateResult, "running" | "retrying">> & {
     running?: Array<Partial<SymphonyRuntimeStateResult["running"][number]>>;
@@ -396,6 +398,7 @@ export function buildSymphonyForensicsIssueListResult(
   return {
     issues: [
       {
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
         issueId: "issue_123",
         issueIdentifier: "COL-165",
         latestRunStartedAt: "2026-03-31T18:00:00.000Z",
@@ -448,6 +451,7 @@ export function buildSymphonyForensicsIssueListResult(
     },
     filters: {
       limit: null,
+      repo: null,
       timeRange: "all",
       startedAfter: null,
       startedBefore: null,
@@ -458,6 +462,7 @@ export function buildSymphonyForensicsIssueListResult(
       sortDirection: "desc"
     },
     facets: {
+      repositories: [DEFAULT_REPOSITORY_KEY],
       outcomes: ["completed", "max_turns", "rate_limited"],
       errorClasses: ["max_turns", "rate_limit_exceeded"]
     },
@@ -469,9 +474,11 @@ export function buildSymphonyForensicsIssueDetailResult(
   overrides: Partial<SymphonyForensicsIssueDetailResult> = {}
 ): SymphonyForensicsIssueDetailResult {
   return {
+    repositoryKey: DEFAULT_REPOSITORY_KEY,
     issueIdentifier: "COL-165",
     runs: [
       {
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
         runId: "run_12345678",
         issueId: "issue_123",
         issueIdentifier: "COL-165",
@@ -528,7 +535,8 @@ export function buildSymphonyForensicsIssueDetailResult(
       deliveredRunCount: 1
     },
     filters: {
-      limit: 200
+      limit: 200,
+      repo: null
     },
     ...overrides
   };
@@ -541,6 +549,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
     logs: [
       {
         entryId: "runtime-log-1",
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
         level: "info",
         source: "runtime",
         eventType: "manual_refresh_queued",
@@ -555,6 +564,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
       },
       {
         entryId: "runtime-log-2",
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
         level: "warn",
         source: "workspace",
         eventType: "rate_limit_warning",
@@ -571,6 +581,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
   }).logs;
 
   return {
+    repositoryKey: overrides.repositoryKey ?? DEFAULT_REPOSITORY_KEY,
     issue: buildSymphonyForensicsIssueListResult().issues[0]!,
     recentRuns: buildSymphonyForensicsIssueDetailResult().runs,
     distributions: {
@@ -595,6 +606,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
       timelineEntries: [
         {
           entryId: "timeline-1",
+          repositoryKey: DEFAULT_REPOSITORY_KEY,
           issueId: "issue_123",
           issueIdentifier: "COL-165",
           runId: "run_12345678",
@@ -609,6 +621,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
         },
         {
           entryId: "timeline-2",
+          repositoryKey: DEFAULT_REPOSITORY_KEY,
           issueId: "issue_123",
           issueIdentifier: "COL-165",
           runId: "run_12345678",
@@ -627,6 +640,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
     timeline: [
       {
         entryId: "timeline-1",
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
         issueId: "issue_123",
         issueIdentifier: "COL-165",
         runId: "run_12345678",
@@ -641,6 +655,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
       },
       {
         entryId: "timeline-2",
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
         issueId: "issue_123",
         issueIdentifier: "COL-165",
         runId: "run_12345678",
@@ -666,6 +681,7 @@ export function buildSymphonyForensicsProblemRunsResult(
   return {
     problemRuns: [
       {
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
         runId: "run_12345678",
         issueId: "issue_123",
         issueIdentifier: "COL-165",
@@ -716,6 +732,7 @@ export function buildSymphonyForensicsProblemRunsResult(
       max_turns: 2
     },
     filters: {
+      repo: null,
       outcome: "max_turns",
       issueIdentifier: "",
       limit: 200
@@ -733,6 +750,7 @@ export function buildSymphonyRuntimeLogsResult(
     logs: overrides.logs ?? [
       {
         entryId: "runtime-log-1",
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
         level: "info",
         source: "runtime",
         eventType: "db_initialized",
@@ -747,6 +765,7 @@ export function buildSymphonyRuntimeLogsResult(
       },
       {
         entryId: "runtime-log-2",
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
         level: "warn",
         source: "tracker",
         eventType: "tracker_placeholder_active",
@@ -760,6 +779,7 @@ export function buildSymphonyRuntimeLogsResult(
     ],
     filters: {
       limit: 200,
+      repo: null,
       issueIdentifier: null
     },
     ...Object.fromEntries(
@@ -806,6 +826,7 @@ export function buildSymphonyForensicsRunDetailResult(
 ): SymphonyForensicsRunDetailResult {
   return {
     issue: {
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       issueId: "issue_123",
       issueIdentifier: "COL-165",
       latestRunStartedAt: "2026-03-31T18:00:00.000Z",
@@ -824,6 +845,7 @@ export function buildSymphonyForensicsRunDetailResult(
       updatedAt: "2026-03-31T18:05:00.000Z"
     },
     run: {
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       runId: "run_123",
       issueId: "issue_123",
       issueIdentifier: "COL-165",
@@ -893,6 +915,7 @@ export function buildSymphonyForensicsRunDetailResult(
     },
     deliveryReport: {
       reportId: "delivery_123",
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       issueId: "issue_123",
       issueIdentifier: "COL-165",
       runId: "run_123",

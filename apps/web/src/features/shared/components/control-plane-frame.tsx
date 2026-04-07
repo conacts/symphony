@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { CircleEllipsisIcon, MoonIcon, SunIcon } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   Sidebar,
@@ -15,28 +16,39 @@ import {
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { readRepoScopeFromSearchParams } from "@/core/control-plane-repo-scope";
 import { DashboardNavigation } from "@/features/shared/components/dashboard-navigation";
 import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
+import { ControlPlaneRepoProvider } from "@/features/shared/components/control-plane-repo-context";
 import { ControlPlaneRuntimeProvider } from "@/features/shared/components/control-plane-runtime-context";
-import { useDashboardActiveIssues } from "@/hooks/use-dashboard-active-issues";
+import { useDashboardIssues } from "@/hooks/use-dashboard-issues";
 import { useRuntimeSummary } from "@/hooks/use-runtime-summary";
 
 export function ControlPlaneFrame(input: { children: ReactNode }) {
   const model = useControlPlaneModel();
+  const searchParams = useSearchParams();
+  const selectedRepo = readRepoScopeFromSearchParams(searchParams);
   const runtimeSummaryState = useRuntimeSummary({
     stateUrl: model.runtimeSurface.stateUrl,
     websocketUrl: model.websocketUrl
   });
-  const activeIssuesState = useDashboardActiveIssues({
+  const dashboardIssuesState = useDashboardIssues({
     runtimeBaseUrl: model.runtimeBaseUrl,
-    runtimeSummary: runtimeSummaryState.runtimeSummary
+    websocketUrl: model.websocketUrl,
+    selectedRepo
   });
 
   return (
     <TooltipProvider>
       <ControlPlaneRuntimeProvider runtimeSummaryState={runtimeSummaryState}>
-        <SidebarProvider>
-          <Sidebar collapsible="icon">
+        <ControlPlaneRepoProvider
+          value={{
+            selectedRepo,
+            repositories: dashboardIssuesState.repositories
+          }}
+        >
+          <SidebarProvider>
+            <Sidebar collapsible="icon">
             <SidebarHeader className="relative">
               <Link
                 href="/"
@@ -51,22 +63,23 @@ export function ControlPlaneFrame(input: { children: ReactNode }) {
               </Link>
             </SidebarHeader>
 
-            <SidebarContent>
-              <DashboardNavigation
-                items={model.navigation}
-                activeIssues={activeIssuesState.activeIssues}
-                loadingActiveIssues={
-                  runtimeSummaryState.loading || activeIssuesState.loading
-                }
-              />
-            </SidebarContent>
+              <SidebarContent>
+                <DashboardNavigation
+                  items={model.navigation}
+                  issues={dashboardIssuesState.issues}
+                  loadingIssues={
+                    runtimeSummaryState.loading || dashboardIssuesState.loading
+                  }
+                />
+              </SidebarContent>
             <SidebarFooter>
               <ThemeToggleButton />
             </SidebarFooter>
-          </Sidebar>
+            </Sidebar>
 
-          <SidebarInset className="min-h-svh">{input.children}</SidebarInset>
-        </SidebarProvider>
+            <SidebarInset className="min-h-svh">{input.children}</SidebarInset>
+          </SidebarProvider>
+        </ControlPlaneRepoProvider>
       </ControlPlaneRuntimeProvider>
     </TooltipProvider>
   );

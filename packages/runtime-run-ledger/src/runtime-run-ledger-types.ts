@@ -20,6 +20,7 @@ export type SymphonyJsonObject = { [key: string]: SymphonyJsonValue };
 
 export type SymphonyIssueRecord = {
   issueId: string;
+  repositoryKey: string;
   issueIdentifier: string;
   latestRunStartedAt: SymphonyIsoTimestamp;
   insertedAt: SymphonyIsoTimestamp;
@@ -28,6 +29,7 @@ export type SymphonyIssueRecord = {
 
 export type SymphonyRunRecord = {
   runId: string;
+  repositoryKey: string;
   issueId: string;
   issueIdentifier: string;
   attempt: number | null;
@@ -93,6 +95,7 @@ export type SymphonyRuntimeRunLedgerDocument = {
 };
 
 export type SymphonyRunStartAttrs = {
+  repositoryKey?: string;
   issueId: string;
   issueIdentifier: string;
   runId?: string;
@@ -180,6 +183,7 @@ export type SymphonyRunFinishAttrs = {
 
 export type SymphonyIssueSummary = {
   issueId: string;
+  repositoryKey: string;
   issueIdentifier: string;
   latestRunStartedAt: SymphonyIsoTimestamp | null;
   latestRunId: string | null;
@@ -194,6 +198,7 @@ export type SymphonyIssueSummary = {
 
 export type SymphonyRunSummary = {
   runId: string;
+  repositoryKey: string;
   issueId: string;
   issueIdentifier: string;
   attempt: number | null;

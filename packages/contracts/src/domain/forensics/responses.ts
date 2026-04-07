@@ -62,6 +62,7 @@ export const symphonyForensicsDeliveryStatusSchema = z.enum([
 ]);
 export const symphonyForensicsDeliveryReportSchema = z.strictObject({
   reportId: nonEmptyStringSchema,
+  repositoryKey: nonEmptyStringSchema,
   issueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   runId: nonEmptyStringSchema,
@@ -79,6 +80,7 @@ export const symphonyForensicsDeliveryReportSchema = z.strictObject({
 });
 
 export const symphonyForensicsIssueSummarySchema = z.strictObject({
+  repositoryKey: nonEmptyStringSchema,
   issueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   latestRunStartedAt: isoTimestampSchema.nullable(),
@@ -118,6 +120,7 @@ export const symphonyForensicsIssueSummarySchema = z.strictObject({
 
 export const symphonyForensicsRunSummarySchema = z.strictObject({
   runId: nonEmptyStringSchema,
+  repositoryKey: nonEmptyStringSchema,
   issueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   attempt: z.number().int().nonnegative().nullable(),
@@ -201,6 +204,7 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
 
 export const symphonyForensicsIssueFiltersSchema = z.strictObject({
   limit: z.number().int().positive().nullable(),
+  repo: nullableNonEmptyStringSchema,
   timeRange: symphonyForensicsIssueTimeRangeSchema,
   startedAfter: isoTimestampSchema.nullable(),
   startedBefore: isoTimestampSchema.nullable(),
@@ -226,6 +230,7 @@ export const symphonyForensicsIssueTotalsSchema = z.strictObject({
 });
 
 export const symphonyForensicsIssueFacetsSchema = z.strictObject({
+  repositories: z.array(nonEmptyStringSchema),
   outcomes: z.array(nonEmptyStringSchema),
   errorClasses: z.array(nonEmptyStringSchema)
 });
@@ -238,6 +243,7 @@ export const symphonyForensicsIssueListResultSchema = z.strictObject({
 });
 
 export const symphonyForensicsIssueDetailResultSchema = z.strictObject({
+  repositoryKey: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   runs: z.array(symphonyForensicsRunSummarySchema),
   summary: z.strictObject({
@@ -250,12 +256,14 @@ export const symphonyForensicsIssueDetailResultSchema = z.strictObject({
     deliveredRunCount: z.number().int().nonnegative()
   }),
   filters: z.strictObject({
-    limit: z.number().int().positive().nullable()
+    limit: z.number().int().positive().nullable(),
+    repo: nullableNonEmptyStringSchema
   })
 });
 
 export const symphonyForensicsIssueTimelineEntrySchema = z.strictObject({
   entryId: nonEmptyStringSchema,
+  repositoryKey: nonEmptyStringSchema,
   issueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   runId: nullableNonEmptyStringSchema,
@@ -275,14 +283,17 @@ export const symphonyForensicsIssueTimelineEntrySchema = z.strictObject({
 });
 
 export const symphonyForensicsIssueTimelineResultSchema = z.strictObject({
+  repositoryKey: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   entries: z.array(symphonyForensicsIssueTimelineEntrySchema),
   filters: z.strictObject({
-    limit: z.number().int().positive().nullable()
+    limit: z.number().int().positive().nullable(),
+    repo: nullableNonEmptyStringSchema
   })
 });
 
 export const symphonyForensicsIssueExportSchema = z.strictObject({
+  repositoryKey: nonEmptyStringSchema,
   issueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   latestRunStartedAt: isoTimestampSchema.nullable(),
@@ -395,6 +406,7 @@ export const symphonyForensicsProblemRunsResultSchema = z.strictObject({
   problemRuns: z.array(symphonyForensicsRunSummarySchema),
   problemSummary: z.record(z.string(), z.number().int().nonnegative()),
   filters: z.strictObject({
+    repo: nullableNonEmptyStringSchema,
     outcome: nullableNonEmptyStringSchema,
     issueIdentifier: nullableNonEmptyStringSchema,
     limit: z.number().int().positive().nullable()
@@ -449,6 +461,7 @@ export const symphonyForensicsSuccessMetricsResultSchema = z.strictObject({
 });
 
 export const symphonyForensicsIssueForensicsBundleResultSchema = z.strictObject({
+  repositoryKey: nonEmptyStringSchema,
   issue: symphonyForensicsIssueSummarySchema,
   recentRuns: z.array(symphonyForensicsRunSummarySchema),
   distributions: z.strictObject({

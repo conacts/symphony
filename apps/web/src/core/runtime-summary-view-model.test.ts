@@ -16,6 +16,7 @@ describe("runtime summary view model", () => {
         issueIndex: { issues: [], totals: {} as never, filters: {} as never, facets: {} as never },
         sampledRuns: [
           {
+            repositoryKey: "symphony",
             issueIdentifier: "COL-165",
             run: {
               issueIdentifier: "COL-165",

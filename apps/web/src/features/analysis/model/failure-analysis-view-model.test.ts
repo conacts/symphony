@@ -85,6 +85,7 @@ describe("failure analysis view model", () => {
       issueIndex: buildSymphonyForensicsIssueListResult(),
       sampledRuns: [
         {
+          repositoryKey: "symphony",
           issueIdentifier: "COL-165",
           run: {
             ...buildSymphonyForensicsIssueDetailResult().runs[0]!,
@@ -96,6 +97,7 @@ describe("failure analysis view model", () => {
           artifacts: buildSymphonyAgentRunArtifactsResult()
         },
         {
+          repositoryKey: "symphony",
           issueIdentifier: "COL-165",
           run: {
             ...buildSymphonyForensicsIssueDetailResult().runs[0]!,
@@ -113,6 +115,7 @@ describe("failure analysis view model", () => {
           })
         },
         {
+          repositoryKey: "symphony",
           issueIdentifier: "COL-166",
           run: {
             ...buildSymphonyForensicsIssueDetailResult().runs[0]!,

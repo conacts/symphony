@@ -407,6 +407,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
       runStore: agentAnalyticsReadStore,
       async listIssueTimeline(input) {
         return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
+          repositoryKey: input.repositoryKey,
           limit: input.limit
         });
       },
@@ -415,33 +416,41 @@ export async function createSymphonyRuntimeTestHarness(input: {
       }
     }),
     issueTimeline: {
-      async list({ issueIdentifier, limit }) {
+      async list({ issueIdentifier, limit, repo }) {
         const entries = await issueTimelineStore.listIssueTimeline(
           issueIdentifier,
           {
-            limit
+            limit,
+            repositoryKey: repo
           }
         );
 
         return entries.length === 0
           ? null
           : {
+              repositoryKey: repo ?? entries[0].repositoryKey,
               issueIdentifier,
               entries,
               filters: {
-                limit: limit ?? null
+                limit: limit ?? null,
+                repo: repo ?? null
               }
             };
       }
     },
     runtimeLogs: {
       async list(input = {}) {
-        const logs = await runtimeLogStore.list(input);
+        const logs = await runtimeLogStore.list({
+          limit: input.limit,
+          repositoryKey: input.repo,
+          issueIdentifier: input.issueIdentifier
+        });
 
         return {
           logs,
           filters: {
             limit: input.limit ?? null,
+            repo: input.repo ?? null,
             issueIdentifier: input.issueIdentifier ?? null
           }
         };

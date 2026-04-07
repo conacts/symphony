@@ -30,6 +30,7 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
     const query = parseWithSchema(symphonyForensicsIssuesQuerySchema, c.req.query());
     const result = await services.forensics.issues({
       limit: query.limit,
+      repo: query.repo,
       timeRange: query.timeRange,
       startedAfter: query.startedAfter,
       startedBefore: query.startedBefore,
@@ -68,6 +69,7 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
       c.req.query()
     );
     const result = await services.forensics.successMetrics({
+      repo: query.repo,
       timeRange: query.timeRange,
       startedAfter: query.startedAfter,
       startedBefore: query.startedBefore
@@ -106,6 +108,7 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
       path.issueIdentifier,
       {
         limit: query.limit,
+        repo: query.repo,
         timeRange: query.timeRange,
         startedAfter: query.startedAfter,
         startedBefore: query.startedBefore,
@@ -155,6 +158,7 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
     );
     const result = await services.issueTimeline.list({
       issueIdentifier: path.issueIdentifier,
+      repo: query.repo,
       limit: query.limit
     });
 
@@ -189,7 +193,8 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
     const path = parseWithSchema(symphonyForensicsIssuePathSchema, c.req.param());
     const query = parseWithSchema(symphonyForensicsIssueQuerySchema, c.req.query());
     const result = await services.forensics.issueDetail(path.issueIdentifier, {
-      limit: query.limit
+      limit: query.limit,
+      repo: query.repo
     });
 
     if (!result) {
@@ -256,6 +261,7 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
     );
     const result = await services.forensics.problemRuns({
       limit: query.limit,
+      repo: query.repo,
       outcome: query.outcome,
       issueIdentifier: query.issueIdentifier
     });

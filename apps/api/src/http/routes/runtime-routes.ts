@@ -69,6 +69,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     const query = parseWithSchema(symphonyRuntimeLogsQuerySchema, c.req.query());
     const result = await services.runtimeLogs.list({
       limit: query.limit,
+      repo: query.repo,
       issueIdentifier: query.issueIdentifier
     });
 

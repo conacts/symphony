@@ -9,6 +9,7 @@ describe("forensics view model", () => {
     const issueIndex = buildIssueIndexViewModel({
       issues: [
         {
+          repositoryKey: "symphony",
           issueId: "issue_123",
           issueIdentifier: "COL-165",
           latestRunStartedAt: "2026-03-31T18:00:00.000Z",
@@ -61,6 +62,7 @@ describe("forensics view model", () => {
       },
       filters: {
         limit: null,
+        repo: null,
         timeRange: "all",
         startedAfter: null,
         startedBefore: null,
@@ -71,6 +73,7 @@ describe("forensics view model", () => {
         sortDirection: "desc"
       },
       facets: {
+        repositories: ["symphony"],
         outcomes: ["completed", "max_turns"],
         errorClasses: ["max_turns"]
       }
@@ -79,7 +82,7 @@ describe("forensics view model", () => {
     expect(issueIndex.summaryCards[0]?.label).toBe("Total issues");
     expect(issueIndex.summaryCards[3]?.value).toBe("33.3%");
     expect(issueIndex.focusCards[0]?.label).toBe("Most active issue");
-    expect(issueIndex.focusCards[0]?.href).toBe("/issues/COL-165");
+    expect(issueIndex.focusCards[0]?.href).toBe("/issues/COL-165?repo=symphony");
     expect(issueIndex.outcomeChartRows[0]).toEqual({
       issueIdentifier: "COL-165",
       completedRunCount: 1,
@@ -91,7 +94,7 @@ describe("forensics view model", () => {
       rateLimitedCount: 1,
       maxTurnsCount: 1
     });
-    expect(issueIndex.rows[0]?.issueHref).toBe("/issues/COL-165");
+    expect(issueIndex.rows[0]?.issueHref).toBe("/issues/COL-165?repo=symphony");
     expect(issueIndex.rows[0]?.problemRate).toBe("66.7%");
     expect(issueIndex.rows[0]?.avgDuration).toBe("7:00");
     expect(issueIndex.rows[0]?.flags).toEqual(["Max turns reached", "Many retries"]);
@@ -100,9 +103,11 @@ describe("forensics view model", () => {
 
   it("formats the issue drilldown rows", () => {
     const issueDetail = buildIssueDetailViewModel({
+      repositoryKey: "symphony",
       issueIdentifier: "COL-165",
       runs: [
         {
+          repositoryKey: "symphony",
           runId: "run_123",
           issueId: "issue_123",
           issueIdentifier: "COL-165",
@@ -148,7 +153,8 @@ describe("forensics view model", () => {
         deliveredRunCount: 1
       },
       filters: {
-        limit: 200
+        limit: 200,
+        repo: null
       }
     });
 
@@ -165,7 +171,9 @@ describe("forensics view model", () => {
     });
     expect(issueDetail.failureCards[0]?.value).toBe("0");
     expect(issueDetail.recentFailureRows).toEqual([]);
-    expect(issueDetail.rows[0]?.runHref).toBe("/issues/COL-165/runs/run_123");
+    expect(issueDetail.rows[0]?.runHref).toBe(
+      "/issues/COL-165/runs/run_123?repo=symphony"
+    );
     expect(issueDetail.rows[0]?.durationSeconds).toBe("2:00");
     expect(issueDetail.rows[0]?.totalTokens).toBe("240");
     expect(issueDetail.machineLoadCards[0]?.value).toBe("0 / 1");
@@ -174,9 +182,11 @@ describe("forensics view model", () => {
 
   it("rolls run machine-load summaries up into issue machine-load cards", () => {
     const issueDetail = buildIssueDetailViewModel({
+      repositoryKey: "symphony",
       issueIdentifier: "COL-165",
       runs: [
         {
+          repositoryKey: "symphony",
           runId: "run_123",
           issueId: "issue_123",
           issueIdentifier: "COL-165",
@@ -223,6 +233,7 @@ describe("forensics view model", () => {
           }
         },
         {
+          repositoryKey: "symphony",
           runId: "run_124",
           issueId: "issue_123",
           issueIdentifier: "COL-165",
@@ -279,7 +290,8 @@ describe("forensics view model", () => {
         deliveredRunCount: 1
       },
       filters: {
-        limit: 200
+        limit: 200,
+        repo: null
       }
     });
 
@@ -309,9 +321,11 @@ describe("forensics view model", () => {
 
   it("falls back to unique run labels when attempts are missing", () => {
     const issueDetail = buildIssueDetailViewModel({
+      repositoryKey: "symphony",
       issueIdentifier: "COL-165",
       runs: [
         {
+          repositoryKey: "symphony",
           runId: "564d183f-24ed-4c4f-be2e-06b15d2782b0",
           issueId: "issue_123",
           issueIdentifier: "COL-165",
@@ -347,6 +361,7 @@ describe("forensics view model", () => {
           machineLoad: null
         },
         {
+          repositoryKey: "symphony",
           runId: "b2122cb9-5748-4d41-92b3-29eb082ce99b",
           issueId: "issue_123",
           issueIdentifier: "COL-165",
@@ -392,7 +407,8 @@ describe("forensics view model", () => {
         deliveredRunCount: 0
       },
       filters: {
-        limit: 200
+        limit: 200,
+        repo: null
       }
     });
 
@@ -413,7 +429,7 @@ describe("forensics view model", () => {
     expect(issueDetail.failureCards[0]?.value).toBe("2");
     expect(issueDetail.failureCards[1]?.value).toBe("Stopped by operator");
     expect(issueDetail.recentFailureRows[0]?.runHref).toBe(
-      "/issues/COL-165/runs/564d183f-24ed-4c4f-be2e-06b15d2782b0"
+      "/issues/COL-165/runs/564d183f-24ed-4c4f-be2e-06b15d2782b0?repo=symphony"
     );
   });
 });

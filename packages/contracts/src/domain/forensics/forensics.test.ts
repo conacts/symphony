@@ -9,6 +9,8 @@ import {
   symphonyForensicsSuccessMetricsResponseSchema
 } from "./index.js";
 
+const REPOSITORY_KEY = "symphony";
+
 describe("symphony forensics contracts", () => {
   it("parses the issue list envelope", () => {
     const parsed = symphonyForensicsIssueListResponseSchema.parse({
@@ -22,6 +24,7 @@ describe("symphony forensics contracts", () => {
       data: {
         issues: [
           {
+            repositoryKey: REPOSITORY_KEY,
             issueId: "issue-1",
             issueIdentifier: "COL-157",
             latestRunStartedAt: "2026-03-31T00:00:00.000Z",
@@ -74,6 +77,7 @@ describe("symphony forensics contracts", () => {
         },
         filters: {
           limit: 200,
+          repo: null,
           timeRange: "all",
           startedAfter: null,
           startedBefore: null,
@@ -84,6 +88,7 @@ describe("symphony forensics contracts", () => {
           sortDirection: "desc"
         },
         facets: {
+          repositories: [REPOSITORY_KEY],
           outcomes: ["done"],
           errorClasses: []
         }
@@ -102,6 +107,7 @@ describe("symphony forensics contracts", () => {
         generatedAt: "2026-03-31T00:00:00.000Z"
       },
       data: {
+        repositoryKey: REPOSITORY_KEY,
         issueIdentifier: "COL-157",
         runs: [],
         summary: {
@@ -114,7 +120,8 @@ describe("symphony forensics contracts", () => {
           deliveredRunCount: 0
         },
         filters: {
-          limit: 200
+          limit: 200,
+          repo: null
         }
       }
     });
@@ -197,6 +204,7 @@ describe("symphony forensics contracts", () => {
       },
       data: {
         issue: {
+          repositoryKey: REPOSITORY_KEY,
           issueId: "issue-1",
           issueIdentifier: "COL-157",
           latestRunStartedAt: "2026-03-31T00:00:00.000Z",
@@ -216,6 +224,7 @@ describe("symphony forensics contracts", () => {
         },
         run: {
           runId: "run-1",
+          repositoryKey: REPOSITORY_KEY,
           issueId: "issue-1",
           issueIdentifier: "COL-157",
           attempt: 1,
@@ -272,6 +281,7 @@ describe("symphony forensics contracts", () => {
         },
         deliveryReport: {
           reportId: "report-1",
+          repositoryKey: REPOSITORY_KEY,
           issueId: "issue-1",
           issueIdentifier: "COL-157",
           runId: "run-1",
@@ -605,7 +615,9 @@ describe("symphony forensics contracts", () => {
         generatedAt: "2026-03-31T00:00:00.000Z"
       },
       data: {
+        repositoryKey: REPOSITORY_KEY,
         issue: {
+          repositoryKey: REPOSITORY_KEY,
           issueId: "issue-1",
           issueIdentifier: "COL-157",
           latestRunStartedAt: "2026-03-31T00:00:00.000Z",
@@ -653,6 +665,7 @@ describe("symphony forensics contracts", () => {
         runtimeLogs: [],
         filters: {
           limit: 200,
+          repo: null,
           timeRange: "all",
           startedAfter: null,
           startedBefore: null,
@@ -671,6 +684,7 @@ describe("symphony forensics contracts", () => {
   it("parses problem-run filters and envelopes", () => {
     const query = symphonyForensicsProblemRunsQuerySchema.parse({
       limit: "25",
+      repo: "symphony",
       outcome: "failed",
       issueIdentifier: "COL-157"
     });
@@ -686,6 +700,7 @@ describe("symphony forensics contracts", () => {
         problemRuns: [],
         problemSummary: {},
         filters: {
+          repo: "symphony",
           outcome: "failed",
           issueIdentifier: "COL-157",
           limit: 25

@@ -20,6 +20,7 @@ describe("token analysis view", () => {
           issueIndex: buildSymphonyForensicsIssueListResult(),
           sampledRuns: [
             {
+              repositoryKey: "symphony",
               issueIdentifier: "COL-165",
               run: {
                 ...buildSymphonyForensicsIssueListResult().issues[0]!,

@@ -16,6 +16,7 @@ import type { SymphonyAgentRunStatus } from "@symphony/contracts";
 import type { RuntimeMachineLoadMonitor } from "./runtime-machine-load.js";
 
 export function createDbBackedOrchestratorObserver(input: {
+  repositoryKey: string;
   runStore: SymphonyRuntimeRunStore;
   issueTimelineStore: SymphonyIssueTimelineStore;
   agentAnalytics: AgentAnalyticsStore;
@@ -24,6 +25,7 @@ export function createDbBackedOrchestratorObserver(input: {
   return {
     async startRun({ issue, attempt, harness, workspace, workerHost, startedAt }) {
       const runId = await input.runStore.recordRunStarted({
+        repositoryKey: input.repositoryKey,
         issueId: issue.id,
         issueIdentifier: issue.identifier,
         attempt,

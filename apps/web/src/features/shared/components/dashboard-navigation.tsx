@@ -34,8 +34,8 @@ const navigationIcons = {
 
 export function DashboardNavigation(input: {
   items: SymphonyDashboardNavigationItem[];
-  activeIssues: SymphonyDashboardActiveIssue[];
-  loadingActiveIssues: boolean;
+  issues: SymphonyDashboardActiveIssue[];
+  loadingIssues: boolean;
 }) {
   const pathname = usePathname();
 
@@ -70,30 +70,30 @@ export function DashboardNavigation(input: {
       </SidebarGroup>
 
       <SidebarGroup>
-        <SidebarGroupLabel>Active Tickets</SidebarGroupLabel>
+        <SidebarGroupLabel>Tickets</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu className="gap-2">
-            {input.loadingActiveIssues && input.activeIssues.length === 0 ? (
+            {input.loadingIssues && input.issues.length === 0 ? (
               <SidebarMenuItem>
                 <SidebarMenuButton
                   className="group-data-[collapsible=icon]:hidden"
                   disabled
                 >
-                  <span>Loading active tickets…</span>
+                  <span>Loading tickets…</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            ) : input.activeIssues.length === 0 ? (
+            ) : input.issues.length === 0 ? (
               <SidebarMenuItem>
                 <SidebarMenuButton
                   className="group-data-[collapsible=icon]:hidden"
                   disabled
                 >
-                  <span>No active tickets</span>
+                  <span>No tickets recorded</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ) : (
-              input.activeIssues.map((issue) => (
-                <SidebarMenuItem key={issue.issueIdentifier}>
+              input.issues.map((issue) => (
+                <SidebarMenuItem key={`${issue.href}:${issue.issueIdentifier}`}>
                   <SidebarMenuButton
                     asChild
                     isActive={pathname === issue.href}

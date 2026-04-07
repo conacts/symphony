@@ -37,6 +37,7 @@ export function buildIssueQueryFromSearchParams(
   const sortDirection = parseSortDirection(searchParams.get("sortDirection"));
 
   return {
+    repo: parseOptionalFilter(searchParams.get("repo")),
     timeRange,
     startedAfter: buildStartedAfterForTimeRange(timeRange),
     startedBefore: undefined,
@@ -54,6 +55,10 @@ export function buildIssueSearchParams(
 
   if (query.timeRange && query.timeRange !== "all") {
     searchParams.set("timeRange", query.timeRange);
+  }
+
+  if (query.repo) {
+    searchParams.set("repo", query.repo);
   }
 
   if (query.outcome) {

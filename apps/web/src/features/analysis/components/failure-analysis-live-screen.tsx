@@ -36,6 +36,7 @@ export function FailureAnalysisLiveScreen() {
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl,
     query: {
+      repo: query.repo,
       timeRange: "all",
       sortBy: "lastActive",
       sortDirection: "desc"
@@ -43,7 +44,8 @@ export function FailureAnalysisLiveScreen() {
   });
   const analysisSampleState = useAnalysisSample({
     runtimeBaseUrl: model.runtimeBaseUrl,
-    websocketUrl: model.websocketUrl
+    websocketUrl: model.websocketUrl,
+    repo: query.repo
   });
   const connection = useMemo(
     () =>

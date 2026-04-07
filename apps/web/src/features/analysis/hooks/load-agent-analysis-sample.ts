@@ -13,6 +13,7 @@ const MAX_SAMPLED_RUNS = 12;
 export type AgentAnalysisSampleResource = {
   issueIndex: SymphonyForensicsIssueListResult;
   sampledRuns: Array<{
+    repositoryKey: string;
     issueIdentifier: string;
     run: SymphonyForensicsIssueDetailResult["runs"][number];
     artifacts: SymphonyAgentRunArtifactsResult;
@@ -20,9 +21,13 @@ export type AgentAnalysisSampleResource = {
 };
 
 export async function loadAgentAnalysisSample(
-  runtimeBaseUrl: string
+  runtimeBaseUrl: string,
+  input: {
+    repo?: string;
+  } = {}
 ): Promise<AgentAnalysisSampleResource> {
   const issueIndex = await fetchIssueIndex(runtimeBaseUrl, {
+    repo: input.repo,
     timeRange: "all",
     sortBy: "lastActive",
     sortDirection: "desc",
@@ -32,7 +37,8 @@ export async function loadAgentAnalysisSample(
     issueIndex.issues.slice(0, ISSUE_SAMPLE_LIMIT).map(async (issue) => {
       try {
         return await fetchIssueDetail(runtimeBaseUrl, issue.issueIdentifier, {
-          limit: RUNS_PER_ISSUE
+          limit: RUNS_PER_ISSUE,
+          repo: issue.repositoryKey
         });
       } catch {
         return null;
@@ -43,6 +49,7 @@ export async function loadAgentAnalysisSample(
     .flatMap((detail) =>
       detail
         ? detail.runs.map((run) => ({
+            repositoryKey: detail.repositoryKey,
             issueIdentifier: detail.issueIdentifier,
             run
           }))
@@ -59,6 +66,7 @@ export async function loadAgentAnalysisSample(
         );
 
         return {
+          repositoryKey: sampledRun.repositoryKey,
           issueIdentifier: sampledRun.issueIdentifier,
           run: sampledRun.run,
           artifacts

@@ -187,6 +187,7 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
     opts: Partial<SymphonyForensicsIssueQuery> = {}
   ): Promise<SymphonyForensicsRunSummary[]> {
     return this.listRuns({
+      repo: opts.repo,
       issueIdentifier,
       limit: opts.limit
     });
@@ -197,6 +198,7 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
   ): Promise<SymphonyForensicsRunSummary[]> {
     return this.listRuns({
       limit: opts.limit,
+      repo: opts.repo,
       outcome: opts.outcome,
       issueIdentifier: opts.issueIdentifier,
       problemOnly: true
@@ -692,6 +694,7 @@ function buildForensicsRunSummary(
 
   return {
     runId: run.runId,
+    repositoryKey: run.repositoryKey,
     issueId: run.issueId,
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
@@ -946,6 +949,10 @@ function matchesRunFilters(
     return false;
   }
 
+  if (opts.repo && run.repositoryKey !== opts.repo) {
+    return false;
+  }
+
   if (opts.outcome && run.outcome !== opts.outcome) {
     return false;
   }
@@ -1016,6 +1023,7 @@ function mapForensicsDeliveryReport(
   row: typeof symphonyIssueDeliveryReportsTable.$inferSelect
 ): SymphonyForensicsRunDetailResult["deliveryReport"] {
   return {
+    repositoryKey: row.repositoryKey,
     reportId: row.reportId,
     issueId: row.issueId,
     issueIdentifier: row.issueIdentifier,

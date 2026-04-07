@@ -56,6 +56,7 @@ export type SymphonyForensicsIssuesQuery = Partial<
 
 export type SymphonyForensicsIssueFilters = {
   limit: number | null;
+  repo: string | null;
   timeRange: SymphonyForensicsIssueTimeRange;
   startedAfter: string | null;
   startedBefore: string | null;
@@ -103,6 +104,7 @@ export type SymphonyForensicsIssueForensicsBundle =
 
 export type SymphonyForensicsRuntimeLogEntry = {
   entryId: string;
+  repositoryKey: string | null;
   level: "debug" | "info" | "warn" | "error";
   source: string;
   eventType: string;
@@ -125,10 +127,12 @@ export type SymphonyForensicsReadModelDependencies = {
   runStore: SymphonyForensicsRunStore;
   listIssueTimeline?: (input: {
     issueIdentifier: string;
+    repositoryKey: string;
     limit?: number;
   }) => Promise<SymphonyForensicsTimelineEntry[]>;
   listRuntimeLogs?: (input: {
     issueIdentifier: string;
+    repositoryKey: string;
     limit?: number;
   }) => Promise<SymphonyForensicsRuntimeLogEntry[]>;
 };
@@ -173,6 +177,7 @@ export function createSymphonyForensicsReadModel(
       const [scopedRuns, facetRuns] = await Promise.all([
         deps.runStore.listRuns({
           limit: allRowsLimit,
+          repo: filters.repo ?? undefined,
           startedAfter: filters.startedAfter ?? undefined,
           startedBefore: filters.startedBefore ?? undefined,
           outcome: filters.outcome ?? undefined,
@@ -180,6 +185,7 @@ export function createSymphonyForensicsReadModel(
         }),
         deps.runStore.listRuns({
           limit: allRowsLimit,
+          repo: filters.repo ?? undefined,
           startedAfter: filters.startedAfter ?? undefined,
           startedBefore: filters.startedBefore ?? undefined
         })
@@ -197,6 +203,7 @@ export function createSymphonyForensicsReadModel(
         totals: buildIssueTotals(visibleIssues),
         filters,
         facets: {
+          repositories: collectDistinctValues(facetRuns.map((run) => run.repositoryKey)),
           outcomes: collectDistinctValues(facetRuns.map((run) => run.outcome)),
           errorClasses: collectDistinctValues(facetRuns.map((run) => run.errorClass))
         }
@@ -206,6 +213,11 @@ export function createSymphonyForensicsReadModel(
     async issueDetail(issueIdentifier, opts = {}) {
       const runs = await deps.runStore.listRunsForIssue(issueIdentifier, opts);
       if (runs.length === 0) {
+        return null;
+      }
+      const repositoryKey = runs[0]?.repositoryKey;
+
+      if (!repositoryKey) {
         return null;
       }
 
@@ -219,6 +231,7 @@ export function createSymphonyForensicsReadModel(
           })[0] ?? null;
 
       return {
+        repositoryKey,
         issueIdentifier,
         runs,
         summary: {
@@ -232,7 +245,8 @@ export function createSymphonyForensicsReadModel(
           deliveredRunCount: runs.filter((run) => run.deliveryStatus === "completed").length
         },
         filters: {
-          limit: opts.limit ?? null
+          limit: opts.limit ?? null,
+          repo: opts.repo ?? null
         }
       };
     },
@@ -242,6 +256,7 @@ export function createSymphonyForensicsReadModel(
       const [runs, timelineEntries, runtimeLogs] = await Promise.all([
         deps.runStore.listRuns({
           limit: allRowsLimit,
+          repo: filters.repo ?? undefined,
           issueIdentifier,
           startedAfter: filters.startedAfter ?? undefined,
           startedBefore: filters.startedBefore ?? undefined,
@@ -249,16 +264,22 @@ export function createSymphonyForensicsReadModel(
           errorClass: filters.errorClass ?? undefined
         }),
         deps.listIssueTimeline
-          ? deps.listIssueTimeline({
-              issueIdentifier,
-              limit: opts.timelineLimit ?? allRowsLimit
-            })
+          ? filters.repo
+            ? deps.listIssueTimeline({
+                issueIdentifier,
+                repositoryKey: filters.repo,
+                limit: opts.timelineLimit ?? allRowsLimit
+              })
+            : Promise.resolve([])
           : Promise.resolve([]),
         deps.listRuntimeLogs
-          ? deps.listRuntimeLogs({
-              issueIdentifier,
-              limit: opts.runtimeLogLimit ?? allRowsLimit
-            })
+          ? filters.repo
+            ? deps.listRuntimeLogs({
+                issueIdentifier,
+                repositoryKey: filters.repo,
+                limit: opts.runtimeLogLimit ?? allRowsLimit
+              })
+            : Promise.resolve([])
           : Promise.resolve([])
       ]);
 
@@ -277,6 +298,7 @@ export function createSymphonyForensicsReadModel(
       const latestFailureRun = runs.find((run) => isProblemOutcome(run.outcome)) ?? null;
 
       return {
+        repositoryKey: issue.repositoryKey,
         issue,
         recentRuns: runs.slice(0, opts.recentRunLimit ?? 8),
         distributions: {
@@ -308,6 +330,7 @@ export function createSymphonyForensicsReadModel(
     async successMetrics(opts = {}) {
       const runs = await deps.runStore.listRuns({
         limit: allRowsLimit,
+        repo: opts.repo ?? undefined,
         startedAfter: opts.startedAfter ?? undefined,
         startedBefore: opts.startedBefore ?? undefined
       });
@@ -333,6 +356,7 @@ export function createSymphonyForensicsReadModel(
         problemRuns,
         problemSummary: problemSummary(problemRuns),
         filters: {
+          repo: opts.repo ?? null,
           outcome: opts.outcome ?? null,
           issueIdentifier: opts.issueIdentifier ?? null,
           limit: opts.limit ?? null

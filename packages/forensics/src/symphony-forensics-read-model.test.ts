@@ -183,6 +183,10 @@ function createRunStore(input: {
     async listRuns(opts: SymphonyForensicsRunsQuery = {}) {
       return runs
         .filter((run) => {
+          if (opts.repo && run.repositoryKey !== opts.repo) {
+            return false;
+          }
+
           if (opts.issueIdentifier && run.issueIdentifier !== opts.issueIdentifier) {
             return false;
           }
@@ -215,12 +219,14 @@ function createRunStore(input: {
     async listRunsForIssue(issueIdentifier: string, opts: SymphonyForensicsIssueDetailQuery = {}) {
       return runs
         .filter((run) => run.issueIdentifier === issueIdentifier)
+        .filter((run) => (opts.repo ? run.repositoryKey === opts.repo : true))
         .slice(0, opts.limit ?? runs.length);
     },
 
     async listProblemRuns(opts: SymphonyForensicsProblemRunsQuery = {}) {
       return runs
         .filter((run) => run.outcome !== "completed")
+        .filter((run) => (opts.repo ? run.repositoryKey === opts.repo : true))
         .filter((run) => (opts.issueIdentifier ? run.issueIdentifier === opts.issueIdentifier : true))
         .filter((run) => (opts.outcome ? run.outcome === opts.outcome : true))
         .slice(0, opts.limit ?? runs.length);
@@ -237,6 +243,7 @@ function createRunSummary(
 ): SymphonyForensicsRunSummary {
   return {
     runId: "run-1",
+    repositoryKey: "symphony",
     issueId: "issue-1",
     issueIdentifier: "COL-157",
     attempt: 1,
@@ -278,6 +285,7 @@ function createRunDetail(
 ): SymphonyForensicsRunDetailResult {
   return {
     issue: {
+      repositoryKey: "symphony",
       issueId: run.issueId,
       issueIdentifier: run.issueIdentifier,
       latestRunStartedAt: run.startedAt,
@@ -328,6 +336,7 @@ function createRunDetail(
     },
     deliveryReport: {
       reportId: "report-1",
+      repositoryKey: "symphony",
       issueId: run.issueId,
       issueIdentifier: run.issueIdentifier,
       runId: run.runId,

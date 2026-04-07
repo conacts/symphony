@@ -281,6 +281,7 @@ export const symphonyRuntimeIssueRetryStateSchema = z.strictObject({
 
 export const symphonyRuntimeLogEntrySchema = z.strictObject({
   entryId: nonEmptyStringSchema,
+  repositoryKey: nullableNonEmptyStringSchema,
   level: z.enum(["debug", "info", "warn", "error"]),
   source: nonEmptyStringSchema,
   eventType: nonEmptyStringSchema,
@@ -344,6 +345,7 @@ export const symphonyRuntimeLogsResultSchema = z.strictObject({
   logs: z.array(symphonyRuntimeLogEntrySchema),
   filters: z.strictObject({
     limit: z.number().int().positive().nullable(),
+    repo: nullableNonEmptyStringSchema,
     issueIdentifier: nullableNonEmptyStringSchema
   })
 });

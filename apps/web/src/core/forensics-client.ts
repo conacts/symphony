@@ -26,6 +26,7 @@ export async function fetchIssueIndex(
 ): Promise<SymphonyForensicsIssueListResult> {
   const endpoint = createRuntimeUrl("/api/v1/issues", runtimeBaseUrl, {
     limit: input.limit ? String(input.limit) : undefined,
+    repo: input.repo,
     timeRange: input.timeRange,
     startedAfter: input.startedAfter,
     startedBefore: input.startedBefore,
@@ -66,6 +67,7 @@ export async function fetchIssueForensicsBundle(
     runtimeBaseUrl,
     {
       limit: input.limit ? String(input.limit) : undefined,
+      repo: input.repo,
       timeRange: input.timeRange,
       startedAfter: input.startedAfter,
       startedBefore: input.startedBefore,
@@ -106,6 +108,7 @@ export async function fetchIssueDetail(
   issueIdentifier: string,
   input: {
     limit?: number;
+    repo?: string;
   } = {},
   fetchImpl: typeof fetch = fetch
 ): Promise<SymphonyForensicsIssueDetailResult> {
@@ -113,7 +116,8 @@ export async function fetchIssueDetail(
     `/api/v1/issues/${issueIdentifier}`,
     runtimeBaseUrl,
     {
-      limit: String(input.limit ?? 200)
+      limit: String(input.limit ?? 200),
+      repo: input.repo
     }
   );
   const response = await fetchImpl(endpoint, {
@@ -166,6 +170,7 @@ export async function fetchProblemRuns(
   runtimeBaseUrl: string,
   input: {
     limit?: number;
+    repo?: string;
     outcome?: string;
     issueIdentifier?: string;
   } = {},
@@ -173,6 +178,7 @@ export async function fetchProblemRuns(
 ): Promise<SymphonyForensicsProblemRunsResult> {
   const endpoint = createRuntimeUrl("/api/v1/problem-runs", runtimeBaseUrl, {
     limit: input.limit ? String(input.limit) : undefined,
+    repo: input.repo,
     outcome: input.outcome,
     issueIdentifier: input.issueIdentifier
   });
@@ -204,6 +210,7 @@ export async function fetchSuccessMetrics(
   fetchImpl: typeof fetch = fetch
 ): Promise<SymphonyForensicsSuccessMetricsResult> {
   const endpoint = createRuntimeUrl("/api/v1/success-metrics", runtimeBaseUrl, {
+    repo: input.repo,
     timeRange: input.timeRange,
     startedAfter: input.startedAfter,
     startedBefore: input.startedBefore

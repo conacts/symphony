@@ -45,6 +45,7 @@ export const symphonyForensicsIssueFlagSchema = z.enum([
 
 export const symphonyForensicsIssuesQuerySchema = z.strictObject({
   limit: positiveLimitSchema.optional(),
+  repo: optionalFilterSchema,
   timeRange: symphonyForensicsIssueTimeRangeSchema.default("all"),
   startedAfter: isoTimestampSchema.optional(),
   startedBefore: isoTimestampSchema.optional(),
@@ -60,7 +61,8 @@ export const symphonyForensicsIssuePathSchema = z.strictObject({
 });
 
 export const symphonyForensicsIssueQuerySchema = z.strictObject({
-  limit: positiveLimitSchema
+  limit: positiveLimitSchema,
+  repo: optionalFilterSchema
 });
 
 export const symphonyForensicsIssueForensicsBundleQuerySchema =
@@ -71,7 +73,8 @@ export const symphonyForensicsIssueForensicsBundleQuerySchema =
   });
 
 export const symphonyForensicsIssueTimelineQuerySchema = z.strictObject({
-  limit: positiveLimitSchema
+  limit: positiveLimitSchema,
+  repo: optionalFilterSchema
 });
 
 export const symphonyForensicsRunPathSchema = z.strictObject({
@@ -80,11 +83,13 @@ export const symphonyForensicsRunPathSchema = z.strictObject({
 
 export const symphonyForensicsProblemRunsQuerySchema = z.strictObject({
   limit: positiveLimitSchema,
+  repo: optionalFilterSchema,
   outcome: optionalFilterSchema,
   issueIdentifier: optionalFilterSchema
 });
 
 export const symphonyForensicsSuccessMetricsQuerySchema = z.strictObject({
+  repo: optionalFilterSchema,
   timeRange: symphonyForensicsIssueTimeRangeSchema.default("all"),
   startedAfter: isoTimestampSchema.optional(),
   startedBefore: isoTimestampSchema.optional()

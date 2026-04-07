@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { JsonValue } from "@symphony/contracts";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { createSymphonyIssueTimelineStore, type SymphonyIssueTimelineStore } from "./issue-timeline.js";
@@ -9,6 +9,7 @@ export type SymphonyIssueDeliveryStatus = "completed" | "blocked" | "partial";
 
 export type SymphonyIssueDeliveryReportRecord = {
   reportId: string;
+  repositoryKey: string;
   issueId: string;
   issueIdentifier: string;
   runId: string;
@@ -28,6 +29,7 @@ export type SymphonyIssueDeliveryReportRecord = {
 
 export interface SymphonyIssueDeliveryReportStore {
   record(input: {
+    repositoryKey?: string;
     issueId: string;
     issueIdentifier: string;
     runId: string;
@@ -47,6 +49,7 @@ export interface SymphonyIssueDeliveryReportStore {
     issueIdentifier: string,
     input?: {
       limit?: number;
+      repositoryKey?: string;
     }
   ): Promise<SymphonyIssueDeliveryReportRecord[]>;
   listForRun(
@@ -55,13 +58,17 @@ export interface SymphonyIssueDeliveryReportStore {
       limit?: number;
     }
   ): Promise<SymphonyIssueDeliveryReportRecord[]>;
-  fetchLatestForIssue(issueIdentifier: string): Promise<SymphonyIssueDeliveryReportRecord | null>;
+  fetchLatestForIssue(
+    issueIdentifier: string,
+    repositoryKey?: string
+  ): Promise<SymphonyIssueDeliveryReportRecord | null>;
   fetchLatestForRun(runId: string): Promise<SymphonyIssueDeliveryReportRecord | null>;
 }
 
 export function createSymphonyIssueDeliveryReportStore(input: {
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   timelineStore?: SymphonyIssueTimelineStore;
+  repositoryKey?: string;
 }): SymphonyIssueDeliveryReportStore {
   return new SqliteSymphonyIssueDeliveryReportStore(input);
 }
@@ -69,17 +76,24 @@ export function createSymphonyIssueDeliveryReportStore(input: {
 class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryReportStore {
   readonly #db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   readonly #timelineStore: SymphonyIssueTimelineStore;
+  readonly #repositoryKey: string;
 
   constructor(input: {
     db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
     timelineStore?: SymphonyIssueTimelineStore;
+    repositoryKey?: string;
   }) {
     this.#db = input.db;
     this.#timelineStore =
       input.timelineStore ?? createSymphonyIssueTimelineStore(input.db);
+    this.#repositoryKey = sanitizeRequiredText(
+      input.repositoryKey ?? "default",
+      "repositoryKey"
+    );
   }
 
   async record(input: {
+    repositoryKey?: string;
     issueId: string;
     issueIdentifier: string;
     runId: string;
@@ -112,6 +126,10 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
 
     this.#db.insert(symphonyIssueDeliveryReportsTable).values({
       reportId,
+      repositoryKey: sanitizeRequiredText(
+        input.repositoryKey ?? this.#repositoryKey,
+        "repositoryKey"
+      ),
       issueId: sanitizeRequiredText(input.issueId, "issueId"),
       issueIdentifier: sanitizeRequiredText(input.issueIdentifier, "issueIdentifier"),
       runId: sanitizeRequiredText(input.runId, "runId"),
@@ -131,6 +149,7 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
 
     await this.#timelineStore.record({
       issueId: input.issueId,
+      repositoryKey: input.repositoryKey ?? this.#repositoryKey,
       issueIdentifier: input.issueIdentifier,
       runId: input.runId,
       turnId: input.turnId ?? null,
@@ -153,12 +172,24 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
     issueIdentifier: string,
     input: {
       limit?: number;
+      repositoryKey?: string;
     } = {}
   ): Promise<SymphonyIssueDeliveryReportRecord[]> {
     const rows = this.#db
       .select()
       .from(symphonyIssueDeliveryReportsTable)
-      .where(eq(symphonyIssueDeliveryReportsTable.issueIdentifier, issueIdentifier))
+      .where(
+        and(
+          eq(
+            symphonyIssueDeliveryReportsTable.repositoryKey,
+            sanitizeRequiredText(
+              input.repositoryKey ?? this.#repositoryKey,
+              "repositoryKey"
+            )
+          ),
+          eq(symphonyIssueDeliveryReportsTable.issueIdentifier, issueIdentifier)
+        )
+      )
       .orderBy(desc(symphonyIssueDeliveryReportsTable.reportedAt))
       .limit(normalizeLimit(input.limit, 50))
       .all();
@@ -183,11 +214,22 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
     return rows.map(mapDeliveryReportRecord);
   }
 
-  async fetchLatestForIssue(issueIdentifier: string): Promise<SymphonyIssueDeliveryReportRecord | null> {
+  async fetchLatestForIssue(
+    issueIdentifier: string,
+    repositoryKey?: string
+  ): Promise<SymphonyIssueDeliveryReportRecord | null> {
     const row = this.#db
       .select()
       .from(symphonyIssueDeliveryReportsTable)
-      .where(eq(symphonyIssueDeliveryReportsTable.issueIdentifier, issueIdentifier))
+      .where(
+        and(
+          eq(
+            symphonyIssueDeliveryReportsTable.repositoryKey,
+            sanitizeRequiredText(repositoryKey ?? this.#repositoryKey, "repositoryKey")
+          ),
+          eq(symphonyIssueDeliveryReportsTable.issueIdentifier, issueIdentifier)
+        )
+      )
       .orderBy(desc(symphonyIssueDeliveryReportsTable.reportedAt))
       .limit(1)
       .get();
@@ -213,6 +255,7 @@ function mapDeliveryReportRecord(
 ): SymphonyIssueDeliveryReportRecord {
   return {
     reportId: row.reportId,
+    repositoryKey: row.repositoryKey,
     issueId: row.issueId,
     issueIdentifier: row.issueIdentifier,
     runId: row.runId,

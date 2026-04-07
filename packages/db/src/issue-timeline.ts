@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { JsonValue } from "@symphony/contracts";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { symphonyIssueTimelineTable } from "./schema.js";
@@ -13,6 +13,7 @@ export type SymphonyIssueTimelineSource =
 
 export type SymphonyIssueTimelineEntry = {
   entryId: string;
+  repositoryKey: string;
   issueId: string;
   issueIdentifier: string;
   runId: string | null;
@@ -26,6 +27,7 @@ export type SymphonyIssueTimelineEntry = {
 
 export interface SymphonyIssueTimelineStore {
   record(input: {
+    repositoryKey?: string;
     issueId: string;
     issueIdentifier: string;
     runId?: string | null;
@@ -40,13 +42,22 @@ export interface SymphonyIssueTimelineStore {
     issueIdentifier: string,
     input?: {
       limit?: number;
+      repositoryKey?: string;
     }
   ): Promise<SymphonyIssueTimelineEntry[]>;
 }
 
 export function createSymphonyIssueTimelineStore(
-  db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>
+  db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>,
+  input: {
+    repositoryKey?: string;
+  } = {}
 ): SymphonyIssueTimelineStore {
+  const defaultRepositoryKey = sanitizeRequiredText(
+    input.repositoryKey ?? "default",
+    "repositoryKey"
+  );
+
   return {
     async record(input) {
       const entryId = randomUUID();
@@ -54,6 +65,10 @@ export function createSymphonyIssueTimelineStore(
 
       db.insert(symphonyIssueTimelineTable).values({
         entryId,
+        repositoryKey: sanitizeRequiredText(
+          input.repositoryKey ?? defaultRepositoryKey,
+          "repositoryKey"
+        ),
         issueId: input.issueId,
         issueIdentifier: input.issueIdentifier,
         runId: input.runId ?? null,
@@ -71,17 +86,27 @@ export function createSymphonyIssueTimelineStore(
 
     async listIssueTimeline(issueIdentifier, input = {}) {
       const limit = normalizeLimit(input.limit, 200);
+      const repositoryKey = sanitizeRequiredText(
+        input.repositoryKey ?? defaultRepositoryKey,
+        "repositoryKey"
+      );
 
       const rows = db
         .select()
         .from(symphonyIssueTimelineTable)
-        .where(eq(symphonyIssueTimelineTable.issueIdentifier, issueIdentifier))
+        .where(
+          and(
+            eq(symphonyIssueTimelineTable.repositoryKey, repositoryKey),
+            eq(symphonyIssueTimelineTable.issueIdentifier, issueIdentifier)
+          )
+        )
         .orderBy(desc(symphonyIssueTimelineTable.recordedAt))
         .limit(limit)
         .all();
 
       return rows.map((row) => ({
         entryId: row.entryId,
+        repositoryKey: row.repositoryKey,
         issueId: row.issueId,
         issueIdentifier: row.issueIdentifier,
         runId: row.runId ?? null,
@@ -115,4 +140,14 @@ function normalizeSource(value: string): SymphonyIssueTimelineSource {
     default:
       return "runtime";
   }
+}
+
+function sanitizeRequiredText(value: string, field: string): string {
+  const normalized = value.trim();
+
+  if (normalized.length === 0) {
+    throw new TypeError(`${field} is required.`);
+  }
+
+  return normalized;
 }

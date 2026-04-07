@@ -11,6 +11,7 @@ describe("token analysis view model", () => {
       issueIndex: buildSymphonyForensicsIssueListResult(),
       sampledRuns: [
         {
+          repositoryKey: "symphony",
           issueIdentifier: "COL-165",
           run: {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
@@ -23,6 +24,7 @@ describe("token analysis view model", () => {
           artifacts: buildSymphonyAgentRunArtifactsResult()
         },
         {
+          repositoryKey: "symphony",
           issueIdentifier: "COL-166",
           run: {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,

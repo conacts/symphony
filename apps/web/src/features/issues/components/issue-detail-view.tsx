@@ -117,7 +117,9 @@ export function IssueDetailView(input: {
             </CardHeader>
             <CardContent>
               <Link
-                href={buildIssueTimelineHref(input.issueIdentifier)}
+                href={buildIssueTimelineHref(input.issueIdentifier, {
+                  repo: input.issueDetail?.repositoryKey
+                })}
                 className="text-sm font-medium text-foreground underline underline-offset-4"
               >
                 Open issue activity

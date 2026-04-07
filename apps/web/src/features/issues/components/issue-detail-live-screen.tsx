@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import { readRepoScopeFromSearchParams } from "@/core/control-plane-repo-scope";
 import { buildIssueBreadcrumbRoutes } from "@/core/control-plane-routes";
 import { useRuntimeIssue } from "@/hooks/use-runtime-issue";
 import { IssueDetailView } from "@/features/issues/components/issue-detail-view";
@@ -12,10 +14,13 @@ import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/ov
 
 export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
   const model = useControlPlaneModel();
+  const searchParams = useSearchParams();
+  const repo = readRepoScopeFromSearchParams(searchParams);
   const issueDetailState = useIssueDetail({
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl,
-    issueIdentifier: input.issueIdentifier
+    issueIdentifier: input.issueIdentifier,
+    repo
   });
   const runtimeIssueState = useRuntimeIssue({
     runtimeBaseUrl: model.runtimeBaseUrl,
@@ -35,7 +40,7 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
   return (
     <ControlPlanePage
       connection={connection}
-      breadcrumbs={buildIssueBreadcrumbRoutes(input.issueIdentifier)}
+      breadcrumbs={buildIssueBreadcrumbRoutes(input.issueIdentifier, { repo })}
     >
       <div className="flex flex-col gap-8">
         <IssueRequeuePanel

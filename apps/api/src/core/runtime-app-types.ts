@@ -46,6 +46,7 @@ export type SymphonyGitHubReviewIngressPort = {
 export type SymphonyIssueTimelinePort = {
   list(input: {
     issueIdentifier: string;
+    repo?: string;
     limit?: number;
   }): Promise<SymphonyForensicsIssueTimelineResult | null>;
 };
@@ -53,6 +54,7 @@ export type SymphonyIssueTimelinePort = {
 export type SymphonyRuntimeLogsPort = {
   list(input?: {
     limit?: number;
+    repo?: string;
     issueIdentifier?: string;
   }): Promise<SymphonyRuntimeLogsResult>;
 };

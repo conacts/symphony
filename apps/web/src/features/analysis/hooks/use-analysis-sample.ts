@@ -10,12 +10,15 @@ import {
 export function useAnalysisSample(input: {
   runtimeBaseUrl: string;
   websocketUrl: string;
+  repo?: string;
 }) {
   return useRealtimeResource<AgentAnalysisSampleResource>({
-    loadResource: () => loadAgentAnalysisSample(input.runtimeBaseUrl),
+    loadResource: () => loadAgentAnalysisSample(input.runtimeBaseUrl, {
+      repo: input.repo
+    }),
     websocketUrl: input.websocketUrl,
     channels: ["issues", "runs"],
     shouldRefresh: shouldRefreshIssueIndex,
-    refreshKey: `${input.runtimeBaseUrl}:analysis:sample`
+    refreshKey: `${input.runtimeBaseUrl}:analysis:sample:${input.repo ?? "all"}`
   });
 }

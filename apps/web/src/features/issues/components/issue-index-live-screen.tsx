@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { SymphonyForensicsIssuesQuery } from "@symphony/contracts";
+import { readRepoScopeFromSearchParams } from "@/core/control-plane-repo-scope";
 import { buildIssuesHref } from "@/core/control-plane-routes";
 import { IssueIndexView } from "@/features/issues/components/issue-index-view";
 import { useIssueIndex } from "@/features/issues/hooks/use-issue-index";
@@ -48,10 +49,12 @@ export function IssueIndexLiveScreen() {
     );
   }
 
+  const repo = readRepoScopeFromSearchParams(searchParams);
+
   return (
     <ControlPlanePage
       connection={connection}
-      breadcrumbs={[{ label: "Issues", href: buildIssuesHref() }]}
+      breadcrumbs={[{ label: "Issues", href: buildIssuesHref({ repo }) }]}
     >
       <IssueIndexView
         connection={connection}

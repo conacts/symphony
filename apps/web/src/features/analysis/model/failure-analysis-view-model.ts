@@ -112,7 +112,9 @@ export function buildFailureAnalysisViewModel(
       .slice(0, 8)
       .map((issue) => ({
         issueIdentifier: issue.issueIdentifier,
-        issueHref: buildIssueHref(issue.issueIdentifier),
+        issueHref: buildIssueHref(issue.issueIdentifier, {
+          repo: issue.repositoryKey
+        }),
         latestProblemOutcome: formatOutcomeLabel(issue.latestProblemOutcome),
         latestErrorClass: formatErrorClassLabel(issue.latestErrorClass),
         problemRuns: formatCount(issue.problemRunCount),
@@ -223,7 +225,9 @@ export function buildFailureAnalysisViewModelFromSample(
       .slice(0, 8)
       .map((issue) => ({
         issueIdentifier: issue.issueIdentifier,
-        issueHref: buildIssueHref(issue.issueIdentifier),
+        issueHref: buildIssueHref(issue.issueIdentifier, {
+          repo: issue.repositoryKey
+        }),
         latestProblemOutcome: formatOutcomeLabel(issue.latestProblemOutcome),
         latestErrorClass: formatErrorClassLabel(issue.latestErrorClass),
         problemRuns: formatCount(issue.problemRunCount),
@@ -286,6 +290,7 @@ function buildFailureIssueRow(
   issueIdentifier: string,
   sampledRuns: AgentAnalysisSampleResource["sampledRuns"]
 ): {
+  repositoryKey: string;
   issueIdentifier: string;
   latestProblemOutcome: string | null;
   latestErrorClass: string | null;
@@ -310,6 +315,10 @@ function buildFailureIssueRow(
   const latestFailureMessage = latestProblemRun?.agentFailureMessagePreview ?? null;
 
   return {
+    repositoryKey:
+      latestRun?.repositoryKey ??
+      latestProblemRun?.repositoryKey ??
+      DEFAULT_REPOSITORY_KEY,
     issueIdentifier,
     latestProblemOutcome: latestProblemRun?.outcome ?? latestFailureKind,
     latestErrorClass: latestProblemRun?.errorClass ?? latestFailureKind,
@@ -319,6 +328,8 @@ function buildFailureIssueRow(
     retryCount: Math.max(sampledRuns.length - 1, 0)
   };
 }
+
+const DEFAULT_REPOSITORY_KEY = "symphony";
 
 function isProblemRun(
   run: AgentAnalysisSampleResource["sampledRuns"][number]["run"]

@@ -19,6 +19,7 @@ describe("analysis overview view", () => {
       issueIndex,
       sampledRuns: [
         {
+          repositoryKey: "symphony",
           issueIdentifier: "COL-165",
           run: {
             ...issueIndex.issues[0]!,

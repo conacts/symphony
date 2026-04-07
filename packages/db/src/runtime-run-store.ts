@@ -50,6 +50,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     const runId = attrs.runId ?? randomUUID();
     const now = isoNow();
     const startedAt = normalizeIsoTimestamp(attrs.startedAt) ?? now;
+    const repositoryKey = sanitizeText(attrs.repositoryKey) ?? "default";
 
     this.#db.transaction((tx) => {
       const existingIssue = tx
@@ -61,6 +62,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       if (existingIssue) {
         tx.update(symphonyIssuesTable)
           .set({
+            repositoryKey,
             issueIdentifier: attrs.issueIdentifier,
             latestRunStartedAt:
               compareDescendingTimestamps(startedAt, existingIssue.latestRunStartedAt) < 0
@@ -74,6 +76,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         tx.insert(symphonyIssuesTable)
           .values({
             issueId: attrs.issueId,
+            repositoryKey,
             issueIdentifier: attrs.issueIdentifier,
             latestRunStartedAt: startedAt,
             insertedAt: now,
@@ -85,6 +88,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       tx.insert(symphonyRunsTable)
         .values({
           runId,
+          repositoryKey,
           issueId: attrs.issueId,
           issueIdentifier: attrs.issueIdentifier,
           attempt: attrs.attempt ?? null,
@@ -118,6 +122,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     });
 
     await this.#timelineStore.record({
+      repositoryKey,
       issueId: attrs.issueId,
       issueIdentifier: attrs.issueIdentifier,
       runId,
@@ -186,6 +191,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       .run();
 
     await this.#timelineStore.record({
+      repositoryKey: run.repositoryKey,
       issueId: run.issueId,
       issueIdentifier: run.issueIdentifier,
       runId,
@@ -331,6 +337,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     });
 
     await this.#timelineStore.record({
+      repositoryKey: existing.repositoryKey,
       issueId: existing.issueId,
       issueIdentifier: existing.issueIdentifier,
       runId,

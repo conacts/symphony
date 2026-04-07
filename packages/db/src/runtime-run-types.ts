@@ -37,6 +37,7 @@ export type SymphonyRuntimeTurnStatus =
   | "stopped";
 
 export type SymphonyRuntimeRunStartAttrs = {
+  repositoryKey?: string;
   issueId: string;
   issueIdentifier: string;
   runId?: string;

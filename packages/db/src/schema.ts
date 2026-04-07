@@ -484,15 +484,18 @@ export const symphonyIssuesTable = sqliteTable(
   "symphony_issues",
   {
     issueId: text("issue_id").primaryKey(),
+    repositoryKey: text("repository_key").notNull(),
     issueIdentifier: text("issue_identifier").notNull(),
     latestRunStartedAt: text("latest_run_started_at").notNull(),
     insertedAt: text("inserted_at").notNull(),
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
-    issueIdentifierIdx: uniqueIndex("symphony_issues_issue_identifier_idx").on(
+    repositoryIssueIdentifierIdx: uniqueIndex("symphony_issues_repository_issue_identifier_idx").on(
+      table.repositoryKey,
       table.issueIdentifier
     ),
+    repositoryKeyIdx: index("symphony_issues_repository_key_idx").on(table.repositoryKey),
     latestRunStartedAtIdx: index("symphony_issues_latest_run_started_at_idx").on(
       table.latestRunStartedAt
     )
@@ -503,6 +506,7 @@ export const symphonyRunsTable = sqliteTable(
   "symphony_runs",
   {
     runId: text("run_id").primaryKey(),
+    repositoryKey: text("repository_key").notNull(),
     issueId: text("issue_id").notNull(),
     issueIdentifier: text("issue_identifier").notNull(),
     attempt: integer("attempt"),
@@ -533,8 +537,10 @@ export const symphonyRunsTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    repositoryKeyIdx: index("symphony_runs_repository_key_idx").on(table.repositoryKey),
     issueIdIdx: index("symphony_runs_issue_id_idx").on(table.issueId),
-    issueIdentifierIdx: index("symphony_runs_issue_identifier_idx").on(
+    repositoryIssueIdentifierIdx: index("symphony_runs_repository_issue_identifier_idx").on(
+      table.repositoryKey,
       table.issueIdentifier
     ),
     startedAtIdx: index("symphony_runs_started_at_idx").on(table.startedAt)
@@ -603,6 +609,7 @@ export const symphonyIssueTimelineTable = sqliteTable(
   "symphony_issue_timeline_entries",
   {
     entryId: text("entry_id").primaryKey(),
+    repositoryKey: text("repository_key").notNull(),
     issueId: text("issue_id").notNull(),
     issueIdentifier: text("issue_identifier").notNull(),
     runId: text("run_id"),
@@ -615,8 +622,12 @@ export const symphonyIssueTimelineTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
-    issueIdentifierIdx: index("symphony_issue_timeline_issue_identifier_idx").on(
+    repositoryIssueIdentifierIdx: index("symphony_issue_timeline_repository_issue_identifier_idx").on(
+      table.repositoryKey,
       table.issueIdentifier
+    ),
+    repositoryKeyIdx: index("symphony_issue_timeline_repository_key_idx").on(
+      table.repositoryKey
     ),
     recordedAtIdx: index("symphony_issue_timeline_recorded_at_idx").on(
       table.recordedAt
@@ -628,6 +639,7 @@ export const symphonyIssueDeliveryReportsTable = sqliteTable(
   "symphony_issue_delivery_reports",
   {
     reportId: text("report_id").primaryKey(),
+    repositoryKey: text("repository_key").notNull(),
     issueId: text("issue_id").notNull(),
     issueIdentifier: text("issue_identifier").notNull(),
     runId: text("run_id").notNull(),
@@ -645,8 +657,13 @@ export const symphonyIssueDeliveryReportsTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
-    issueIdentifierReportedAtIdx: index("symphony_issue_delivery_reports_issue_identifier_idx").on(
+    repositoryIssueIdentifierReportedAtIdx: index("symphony_issue_delivery_reports_repository_issue_identifier_idx").on(
+      table.repositoryKey,
       table.issueIdentifier,
+      table.reportedAt
+    ),
+    repositoryKeyReportedAtIdx: index("symphony_issue_delivery_reports_repository_key_idx").on(
+      table.repositoryKey,
       table.reportedAt
     ),
     runIdReportedAtIdx: index("symphony_issue_delivery_reports_run_id_idx").on(
@@ -664,6 +681,7 @@ export const symphonyRuntimeLogsTable = sqliteTable(
   "symphony_runtime_logs",
   {
     entryId: text("entry_id").primaryKey(),
+    repositoryKey: text("repository_key"),
     level: text("level").notNull(),
     source: text("source").notNull(),
     eventType: text("event_type").notNull(),
@@ -676,10 +694,14 @@ export const symphonyRuntimeLogsTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
+    repositoryKeyIdx: index("symphony_runtime_logs_repository_key_idx").on(
+      table.repositoryKey
+    ),
     recordedAtIdx: index("symphony_runtime_logs_recorded_at_idx").on(
       table.recordedAt
     ),
-    issueIdentifierIdx: index("symphony_runtime_logs_issue_identifier_idx").on(
+    repositoryIssueIdentifierIdx: index("symphony_runtime_logs_repository_issue_identifier_idx").on(
+      table.repositoryKey,
       table.issueIdentifier
     )
   })

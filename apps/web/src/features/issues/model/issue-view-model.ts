@@ -167,8 +167,11 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
     outcomeChartRows,
     pressureChartRows,
     rows: input.issues.map((issue) => ({
+      repositoryKey: issue.repositoryKey,
       issueIdentifier: issue.issueIdentifier,
-      issueHref: buildIssueHref(issue.issueIdentifier),
+      issueHref: buildIssueHref(issue.issueIdentifier, {
+        repo: issue.repositoryKey
+      }),
       runCount: formatCount(issue.runCount),
       problemRate: formatPercent(issue.problemRate),
       latestProblemOutcome: formatOutcomeLabel(issue.latestProblemOutcome),
@@ -360,7 +363,9 @@ export function buildIssueDetailViewModel(
     ],
     recentFailureRows: problemRuns.slice(0, 3).map((run) => ({
       runId: run.runId,
-      runHref: buildIssueRunHref(input.issueIdentifier, run.runId),
+      runHref: buildIssueRunHref(input.issueIdentifier, run.runId, {
+        repo: input.repositoryKey
+      }),
       outcome: formatOutcomeLabel(run.outcome),
       errorClass: formatErrorClassLabel(run.errorClass),
       startedAt: formatTimestamp(run.startedAt),
@@ -368,7 +373,9 @@ export function buildIssueDetailViewModel(
     })),
     rows: input.runs.map((run) => ({
       runId: run.runId,
-      runHref: buildIssueRunHref(input.issueIdentifier, run.runId),
+      runHref: buildIssueRunHref(input.issueIdentifier, run.runId, {
+        repo: input.repositoryKey
+      }),
       startedAt: formatTimestamp(run.startedAt),
       durationSeconds:
         run.durationSeconds === null ? "n/a" : formatDuration(run.durationSeconds),
@@ -469,7 +476,11 @@ function buildIssueFocusCard(input: {
 }) {
   return {
     label: input.label,
-    href: input.issue ? `/issues/${input.issue.issueIdentifier}` : null,
+    href: input.issue
+      ? buildIssueHref(input.issue.issueIdentifier, {
+          repo: input.issue.repositoryKey
+        })
+      : null,
     value: input.value,
     detail: input.detail
   };

@@ -125,15 +125,24 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const database = initializeSymphonyDb({
     dbFile: env.dbFile
   });
-  const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
-  const runtimeLogStore = createSymphonyRuntimeLogStore(database.db);
+  const repositoryKey = resolveRuntimeRepositoryKey({
+    sourceRepo: env.sourceRepo,
+    githubRepo: runtimePolicy.github.repo
+  });
+  const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+    repositoryKey
+  });
+  const runtimeLogStore = createSymphonyRuntimeLogStore(database.db, {
+    repositoryKey
+  });
   const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db,
     timelineStore: issueTimelineStore
   });
   const deliveryReports = createSymphonyIssueDeliveryReportStore({
     db: database.db,
-    timelineStore: issueTimelineStore
+    timelineStore: issueTimelineStore,
+    repositoryKey
   });
   const agentAnalyticsStore = createSqliteAgentAnalyticsStore({
     db: database.db
@@ -146,12 +155,14 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runStore: agentAnalyticsReadStore,
     async listIssueTimeline(input) {
       return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
+        repositoryKey: input.repositoryKey,
         limit: input.limit
       });
     },
     async listRuntimeLogs(input) {
       return runtimeLogStore.list({
         limit: input.limit,
+        repositoryKey: input.repositoryKey,
         issueIdentifier: input.issueIdentifier
       });
     }
@@ -307,6 +318,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
   machineLoad.start();
   const observer = createDbBackedOrchestratorObserver({
+    repositoryKey,
     runStore,
     issueTimelineStore,
     agentAnalytics: agentAnalyticsStore,
@@ -555,6 +567,26 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       return await shutdownPromise;
     }
   };
+}
+
+function resolveRuntimeRepositoryKey(input: {
+  sourceRepo: string | null;
+  githubRepo: string | null;
+}): string {
+  const githubRepo = input.githubRepo?.trim();
+
+  if (githubRepo) {
+    return githubRepo;
+  }
+
+  const sourceRepo = input.sourceRepo?.trim();
+
+  if (!sourceRepo) {
+    return "default";
+  }
+
+  const segments = sourceRepo.split("/").filter((segment) => segment.length > 0);
+  return segments.at(-1) ?? "default";
 }
 
 function applyRuntimeManifestPiPolicy(

@@ -17,11 +17,13 @@ describe("analysis sample filter", () => {
       issueIndex: buildSymphonyForensicsIssueListResult(),
       sampledRuns: [
         {
+          repositoryKey: "symphony",
           issueIdentifier: "COL-165",
           run: buildSymphonyForensicsIssueDetailResult().runs[0]!,
           artifacts: buildSymphonyAgentRunArtifactsResult()
         },
         {
+          repositoryKey: "symphony",
           issueIdentifier: "COL-166",
           run: {
             ...buildSymphonyForensicsIssueDetailResult().runs[0]!,

@@ -16,6 +16,7 @@ type RuntimeEventRow = Pick<
 >;
 type RuntimeIssueRow = {
   issueId: string;
+  repositoryKey: string;
   issueIdentifier: string;
   latestRunStartedAt: string | null;
   insertedAt: string | null;
@@ -50,6 +51,7 @@ export function buildRuntimeRunSummary(
 
   return {
     runId: run.runId,
+    repositoryKey: run.repositoryKey,
     issueId: run.issueId,
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
@@ -110,6 +112,7 @@ export function buildRuntimeIssueSummary(
 
   return {
     issueId: issue.issueId,
+    repositoryKey: issue.repositoryKey,
     issueIdentifier: issue.issueIdentifier,
     latestRunStartedAt: issue.latestRunStartedAt ?? null,
     latestRunId: latestRun?.runId ?? null,

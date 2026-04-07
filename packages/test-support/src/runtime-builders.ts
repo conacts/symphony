@@ -8,6 +8,8 @@ import type {
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
 
+const DEFAULT_REPOSITORY_KEY = "symphony";
+
 export function buildSymphonyRuntimeEnv(
   overrides: Partial<
     Record<
@@ -427,6 +429,7 @@ export function buildSymphonyForensicsIssueListResult(
   return {
     issues: [
       {
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
         issueId: "issue_123",
         issueIdentifier: "COL-165",
         latestRunStartedAt: "2026-03-31T18:00:00.000Z",
@@ -479,6 +482,7 @@ export function buildSymphonyForensicsIssueListResult(
     },
     filters: {
       limit: null,
+      repo: null,
       timeRange: "all",
       startedAfter: null,
       startedBefore: null,
@@ -489,6 +493,7 @@ export function buildSymphonyForensicsIssueListResult(
       sortDirection: "desc"
     },
     facets: {
+      repositories: [DEFAULT_REPOSITORY_KEY],
       outcomes: ["completed", "max_turns", "rate_limited"],
       errorClasses: ["max_turns", "rate_limit_exceeded"]
     },
@@ -500,9 +505,11 @@ export function buildSymphonyForensicsIssueDetailResult(
   overrides: Partial<SymphonyForensicsIssueDetailResult> = {}
 ): SymphonyForensicsIssueDetailResult {
   return {
+    repositoryKey: DEFAULT_REPOSITORY_KEY,
     issueIdentifier: "COL-165",
     runs: [
       {
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
         runId: "run_12345678",
         issueId: "issue_123",
         issueIdentifier: "COL-165",
@@ -559,7 +566,8 @@ export function buildSymphonyForensicsIssueDetailResult(
       deliveredRunCount: 1
     },
     filters: {
-      limit: 200
+      limit: 200,
+      repo: null
     },
     ...overrides
   };
@@ -571,6 +579,7 @@ export function buildSymphonyForensicsProblemRunsResult(
   return {
     problemRuns: [
       {
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
         runId: "run_12345678",
         issueId: "issue_123",
         issueIdentifier: "COL-165",
@@ -621,6 +630,7 @@ export function buildSymphonyForensicsProblemRunsResult(
       max_turns: 2
     },
     filters: {
+      repo: null,
       outcome: "max_turns",
       issueIdentifier: "",
       limit: 200
@@ -634,6 +644,7 @@ export function buildSymphonyForensicsRunDetailResult(
 ): SymphonyForensicsRunDetailResult {
   return {
     issue: {
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       issueId: "issue_123",
       issueIdentifier: "COL-165",
       latestRunStartedAt: "2026-03-31T18:00:00.000Z",
@@ -652,6 +663,7 @@ export function buildSymphonyForensicsRunDetailResult(
       updatedAt: "2026-03-31T18:05:00.000Z"
     },
     run: {
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       runId: "run_123",
       issueId: "issue_123",
       issueIdentifier: "COL-165",
@@ -713,6 +725,7 @@ export function buildSymphonyForensicsRunDetailResult(
     },
     deliveryReport: {
       reportId: "delivery_123",
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
       issueId: "issue_123",
       issueIdentifier: "COL-165",
       runId: "run_123",

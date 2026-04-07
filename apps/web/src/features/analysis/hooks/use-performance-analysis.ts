@@ -8,12 +8,15 @@ import { loadAgentAnalysisSample } from "@/features/analysis/hooks/load-agent-an
 export function usePerformanceAnalysis(input: {
   runtimeBaseUrl: string;
   websocketUrl: string;
+  repo?: string;
 }) {
   return useRealtimeResource<PerformanceAnalysisResource>({
-    loadResource: () => loadAgentAnalysisSample(input.runtimeBaseUrl),
+    loadResource: () => loadAgentAnalysisSample(input.runtimeBaseUrl, {
+      repo: input.repo
+    }),
     websocketUrl: input.websocketUrl,
     channels: ["issues", "runs"],
     shouldRefresh: shouldRefreshIssueIndex,
-    refreshKey: `${input.runtimeBaseUrl}:analysis:performance`
+    refreshKey: `${input.runtimeBaseUrl}:analysis:performance:${input.repo ?? "all"}`
   });
 }

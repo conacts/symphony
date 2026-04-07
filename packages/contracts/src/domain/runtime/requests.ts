@@ -8,6 +8,7 @@ export const symphonyRuntimeIssuePathSchema = z.strictObject({
 export const symphonyRuntimeRefreshRequestSchema = z.strictObject({});
 export const symphonyRuntimeLogsQuerySchema = z.strictObject({
   limit: z.coerce.number().int().positive().optional(),
+  repo: nonEmptyStringSchema.optional(),
   issueIdentifier: nonEmptyStringSchema.optional()
 });
 

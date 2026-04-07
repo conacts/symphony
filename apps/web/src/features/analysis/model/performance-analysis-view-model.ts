@@ -22,6 +22,7 @@ import {
 export type PerformanceAnalysisResource = {
   issueIndex: SymphonyForensicsIssueListResult;
   sampledRuns: Array<{
+    repositoryKey: string;
     issueIdentifier: string;
     run: SymphonyForensicsIssueDetailResult["runs"][number];
     artifacts: SymphonyAgentRunArtifactsResult;
@@ -104,6 +105,7 @@ type OperationAggregate = {
   totalDurationMs: number;
   maxDurationMs: number;
   latestRecordedAt: string | null;
+  latestRepositoryKey: string;
   latestIssueIdentifier: string;
   latestRunId: string;
 };
@@ -116,7 +118,8 @@ export function buildPerformanceAnalysisViewModel(
   const hotspotMap = new Map<string, OperationAggregate>();
   const turnLatencyRows = input.sampledRuns.flatMap((sampledRun) =>
     buildAgentTurnLatencyRows({
-      runArtifacts: sampledRun.artifacts
+      runArtifacts: sampledRun.artifacts,
+      repositoryKey: sampledRun.repositoryKey
     })
   );
 
@@ -130,6 +133,7 @@ export function buildPerformanceAnalysisViewModel(
         durationMs: command.durationMs ?? 0,
         failed: command.status !== "completed",
         recordedAt: command.completedAt ?? command.updatedAt,
+        repositoryKey: sampledRun.repositoryKey,
         issueIdentifier: sampledRun.issueIdentifier,
         runId: sampledRun.run.runId
       });
@@ -140,6 +144,7 @@ export function buildPerformanceAnalysisViewModel(
         durationMs: command.durationMs ?? 0,
         failed: command.status !== "completed",
         recordedAt: command.completedAt ?? command.updatedAt,
+        repositoryKey: sampledRun.repositoryKey,
         issueIdentifier: sampledRun.issueIdentifier,
         runId: sampledRun.run.runId
       });
@@ -155,6 +160,7 @@ export function buildPerformanceAnalysisViewModel(
         durationMs: tool.durationMs ?? 0,
         failed: tool.status !== "completed",
         recordedAt: tool.completedAt ?? tool.updatedAt,
+        repositoryKey: sampledRun.repositoryKey,
         issueIdentifier: sampledRun.issueIdentifier,
         runId: sampledRun.run.runId
       });
@@ -165,6 +171,7 @@ export function buildPerformanceAnalysisViewModel(
         durationMs: tool.durationMs ?? 0,
         failed: tool.status !== "completed",
         recordedAt: tool.completedAt ?? tool.updatedAt,
+        repositoryKey: sampledRun.repositoryKey,
         issueIdentifier: sampledRun.issueIdentifier,
         runId: sampledRun.run.runId
       });
@@ -198,8 +205,12 @@ export function buildPerformanceAnalysisViewModel(
       avgDuration: formatDurationMilliseconds(averageDuration(entry)),
       maxDuration: formatDurationMilliseconds(entry.maxDurationMs),
       lastSeen: formatTimestamp(entry.latestRecordedAt),
-      runHref: buildIssueRunHref(entry.latestIssueIdentifier, entry.latestRunId),
-      issueHref: buildIssueHref(entry.latestIssueIdentifier)
+      runHref: buildIssueRunHref(entry.latestIssueIdentifier, entry.latestRunId, {
+        repo: entry.latestRepositoryKey
+      }),
+      issueHref: buildIssueHref(entry.latestIssueIdentifier, {
+        repo: entry.latestRepositoryKey
+      })
     }));
 
   const commandCount = input.sampledRuns.reduce(
@@ -260,8 +271,12 @@ export function buildPerformanceAnalysisViewModel(
     .map((row) => ({
       turnLabel: row.turnLabel,
       issueIdentifier: row.issueIdentifier,
-      runHref: buildIssueRunHref(row.issueIdentifier, row.runId),
-      issueHref: buildIssueHref(row.issueIdentifier),
+      runHref: buildIssueRunHref(row.issueIdentifier, row.runId, {
+        repo: row.repositoryKey
+      }),
+      issueHref: buildIssueHref(row.issueIdentifier, {
+        repo: row.repositoryKey
+      }),
       wallClock: formatDurationMilliseconds(row.wallClockMs),
       wallClockMs: row.wallClockMs,
       reasoningMs: row.reasoningMs,
@@ -364,6 +379,7 @@ function updateAggregate(
     durationMs: number;
     failed: boolean;
     recordedAt: string | null;
+    repositoryKey: string;
     issueIdentifier: string;
     runId: string;
   }
@@ -378,6 +394,7 @@ function updateAggregate(
 
     if ((input.recordedAt ?? "") >= (current.latestRecordedAt ?? "")) {
       current.latestRecordedAt = input.recordedAt;
+      current.latestRepositoryKey = input.repositoryKey;
       current.latestIssueIdentifier = input.issueIdentifier;
       current.latestRunId = input.runId;
     }
@@ -394,6 +411,7 @@ function updateAggregate(
     totalDurationMs: input.durationMs,
     maxDurationMs: input.durationMs,
     latestRecordedAt: input.recordedAt,
+    latestRepositoryKey: input.repositoryKey,
     latestIssueIdentifier: input.issueIdentifier,
     latestRunId: input.runId
   });
