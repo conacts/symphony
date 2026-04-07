@@ -15,7 +15,6 @@ Continuation guidance:
 - Prefer built-in Pi tools for reading, searching, and editing files. Use shell primarily for execution tasks like tests, builds, git, and package-manager commands.
 - If Symphony exposes built-in Linear tools in this runtime, use them instead of searching for \`LINEAR_API_KEY\` in shell startup files, the workspace, or git history.
 - If the \`linear\` CLI is available, prefer it over one-off shell scripts for direct Linear inspection.
-- If only the \`lin\` CLI is available, use it as a fallback.
 - If Symphony exposes \`linear_graphql\`, use it for direct Linear reads or writes outside delivery reporting; Symphony provides the auth server-side.
 - If the issue is in \`Rework\`, or review feedback already exists, read the latest Linear comment context and any relevant PR review feedback before editing so you address the current feedback instead of stale assumptions.
 - Never move the issue to \`Done\` from the agent runtime.

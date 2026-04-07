@@ -17,7 +17,6 @@ export const symphonyHarnessPromptAppendix = [
   "- Keep file operations targeted and avoid broad recursive shell reads when PI-native tool calls can provide the same information.",
   "- If Symphony exposes built-in Linear tools in this runtime, use them instead of searching for `LINEAR_API_KEY` in shell startup files or the workspace.",
   "- If the `linear` CLI is available in the host or workspace runner, prefer it over ad hoc shell scripts for direct Linear inspection.",
-  "- If only the `lin` CLI is available, use it as a fallback.",
   "- If Symphony exposes `linear_graphql`, use it for direct Linear reads or writes outside delivery reporting; Symphony provides the auth server-side.",
   "- If the issue is in `Rework`, or review feedback is already present, read the latest Linear comment context and any relevant PR review feedback before editing so the run addresses the newest feedback.",
   "- If Symphony exposes `finish_and_send_to_review`, treat it as the explicit completion boundary for Symphony runs.",

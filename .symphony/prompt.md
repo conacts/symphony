@@ -1,4 +1,5 @@
 You are working on Linear issue {{ issue.identifier }} for repository {{ repo.name }}.
+This repository is Symphony and lives at `~/junction/symphony` on this machine.
 
 Run: {{ run.id }}
 Linear workspace: symphony-harness
@@ -19,7 +20,6 @@ Repository context:
 - This repo is Symphony's self-host and orchestration workspace.
 - Linear is the source of truth for issue status, rework context, and delivery flow.
 - Prefer built-in Linear tools when they exist.
-- If the `lin` CLI is available, use it before inventing local substitutes.
 - Keep naming explicit and consistent with the Pi / Symphony vocabulary already used here.
 - Prefer deleting dead code over leaving legacy branches around once the new path is stable.
 
