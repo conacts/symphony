@@ -996,7 +996,7 @@ done
 
     expect(completion).toEqual({
       kind: "failure",
-      reason: expect.stringContaining("report_issue_delivery")
+      reason: expect.stringContaining("finish_and_send_to_review")
     });
 
     database.close();

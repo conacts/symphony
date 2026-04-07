@@ -78,7 +78,7 @@ describe("runtime dynamic tools", () => {
       }
     });
 
-    const result = await executor("report_issue_delivery", {
+    const result = await executor("finish_and_send_to_review", {
       status: "completed",
       summary: "Opened the PR and finished the requested work.",
       prUrl: "https://github.com/openai/symphony/pull/123",
@@ -134,7 +134,7 @@ describe("runtime dynamic tools", () => {
       readTurnId: () => "turn-123"
     });
 
-    const result = await executor("report_issue_delivery", {
+    const result = await executor("finish_and_send_to_review", {
       status: "completed",
       summary: "Finished the work without a PR."
     });
@@ -189,7 +189,7 @@ describe("runtime dynamic tools", () => {
       readTurnId: () => "turn-123"
     });
 
-    const result = await executor("report_issue_delivery", {
+    const result = await executor("finish_and_send_to_review", {
       status: "completed",
       summary: "Opened the PR and finished the requested work.",
       prUrl: "https://github.com/openai/symphony/pull/123"
@@ -197,6 +197,40 @@ describe("runtime dynamic tools", () => {
 
     expect(result.success).toBe(true);
     expect(String(result.output)).toContain('"success": false');
+    expect(await deliveryReports.listForRun("run-123")).toHaveLength(1);
+
+    database.close();
+  });
+
+  it("keeps accepting the legacy report_issue_delivery alias", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-dynamic-tools-"));
+    tempRoots.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const executor = buildRuntimeDynamicToolExecutor({
+      runtimePolicy: buildSymphonyRuntimePolicy(),
+      logger: createSilentSymphonyLogger("@symphony/api.test.dynamic-tools"),
+      tracker: createMemorySymphonyTracker(),
+      deliveryReports,
+      issue: {
+        id: "issue-123",
+        identifier: "COL-123"
+      },
+      runId: "run-123",
+      readTurnId: () => "turn-123"
+    });
+
+    const result = await executor("report_issue_delivery", {
+      status: "partial",
+      summary: "Partially delivered work while using the legacy alias."
+    });
+
+    expect(result.success).toBe(true);
     expect(await deliveryReports.listForRun("run-123")).toHaveLength(1);
 
     database.close();

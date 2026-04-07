@@ -627,7 +627,7 @@ while IFS= read -r _line; do
     4)
       printf '%s\\n' '{"id":3,"result":{"turn":{"id":"turn-live-docker"}}}'
       printf '%s\\n' '{"method":"thread/tokenUsage/updated","params":{"tokenUsage":{"total":{"inputTokens":5,"outputTokens":2,"totalTokens":7}}}}'
-      printf '%s\\n' '{"id":101,"method":"item/tool/call","params":{"name":"report_issue_delivery","arguments":{"status":"completed","summary":"Opened the PR for the requested work.","prUrl":"https://github.com/openai/symphony/pull/123","branchName":"codex/col-123"}}}'
+      printf '%s\\n' '{"id":101,"method":"item/tool/call","params":{"name":"finish_and_send_to_review","arguments":{"status":"completed","summary":"Opened the PR for the requested work.","prUrl":"https://github.com/openai/symphony/pull/123","branchName":"codex/col-123"}}}'
       ;;
     5)
       printf '%s\\n' '{"method":"turn/completed","params":{"result":"ok"}}'

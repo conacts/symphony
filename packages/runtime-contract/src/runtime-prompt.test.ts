@@ -78,6 +78,9 @@ describe("prompt contract", () => {
     expect(symphonyHarnessPromptAppendix).toContain(
       "Prefer built-in Pi tools for reading, searching, and editing files."
     );
+    expect(symphonyHarnessPromptAppendix).toContain(
+      "`finish_and_send_to_review`: Record delivery, move the issue to `In Review`, and end the run."
+    );
   });
 
   it("keeps the runtime-prompt compatibility exports wired to the same implementation", async () => {

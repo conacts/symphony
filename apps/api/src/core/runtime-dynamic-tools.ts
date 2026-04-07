@@ -5,7 +5,8 @@ import type { HarnessToolExecutor } from "@symphony/agent-harnesses";
 import type { SymphonyTracker } from "@symphony/tracker";
 
 const linearGraphqlToolName = "linear_graphql";
-const reportIssueDeliveryToolName = "report_issue_delivery";
+const finishAndSendToReviewToolName = "finish_and_send_to_review";
+const legacyReportIssueDeliveryToolName = "report_issue_delivery";
 const deliveryTransitionState = "In Review";
 
 export function buildRuntimeDynamicToolExecutor(input: {
@@ -26,12 +27,13 @@ export function buildRuntimeDynamicToolExecutor(input: {
     switch (toolName) {
       case linearGraphqlToolName:
         return await executeLinearGraphqlTool(input.runtimePolicy, input.logger, argumentsPayload);
-      case reportIssueDeliveryToolName:
+      case finishAndSendToReviewToolName:
+      case legacyReportIssueDeliveryToolName:
         return await executeDeliveryReportTool(input, argumentsPayload);
       default:
         return buildToolErrorResult({
           message: `Unsupported dynamic tool: ${JSON.stringify(toolName)}.`,
-          supportedTools: [linearGraphqlToolName, reportIssueDeliveryToolName]
+          supportedTools: [linearGraphqlToolName, finishAndSendToReviewToolName]
         });
     }
   };
@@ -74,7 +76,7 @@ async function executeDeliveryReportTool(
   if (!input.runId) {
     return buildToolErrorResult({
       message:
-        "`report_issue_delivery` requires an active persisted run. Symphony could not resolve the current run id."
+        "`finish_and_send_to_review` requires an active persisted run. Symphony could not resolve the current run id."
     });
   }
 
@@ -360,7 +362,7 @@ function normalizeDeliveryReportArguments(
     return {
       ok: false,
       message:
-        "`report_issue_delivery` expects an object with `status`, `summary`, and the relevant delivery fields."
+        "`finish_and_send_to_review` expects an object with `status`, `summary`, and the relevant delivery fields."
     };
   }
 
@@ -377,21 +379,22 @@ function normalizeDeliveryReportArguments(
     return {
       ok: false,
       message:
-        "`report_issue_delivery.status` must be one of `completed`, `blocked`, or `partial`."
+        "`finish_and_send_to_review.status` must be one of `completed`, `blocked`, or `partial`."
     };
   }
 
   if (!summary) {
     return {
       ok: false,
-      message: "`report_issue_delivery.summary` requires a non-empty string."
+      message: "`finish_and_send_to_review.summary` requires a non-empty string."
     };
   }
 
   if (status === "completed" && !prUrl) {
     return {
       ok: false,
-      message: "`report_issue_delivery` requires `prUrl` when status is `completed`."
+      message:
+        "`finish_and_send_to_review` requires `prUrl` when status is `completed`."
     };
   }
 
@@ -399,7 +402,7 @@ function normalizeDeliveryReportArguments(
     return {
       ok: false,
       message:
-        "`report_issue_delivery` requires `blockingReason` when status is `blocked`."
+        "`finish_and_send_to_review` requires `blockingReason` when status is `blocked`."
     };
   }
 

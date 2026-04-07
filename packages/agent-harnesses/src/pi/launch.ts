@@ -223,9 +223,9 @@ export function buildDynamicToolSpecs(): Array<Record<string, unknown>> {
       }
     },
     {
-      name: "report_issue_delivery",
+      name: "finish_and_send_to_review",
       description:
-        "Report the final delivery outcome for the active Symphony issue. Use completed only after the real PR is opened, and call it immediately once delivery is ready. Symphony records the delivery and moves the issue to In Review; do not move it to Done yourself.",
+        "Finish the active Symphony run by reporting the delivery outcome for the current issue. Use completed only after the real PR is opened. Symphony records the delivery, moves the issue to In Review, and this should be the terminal tool call for the run.",
       inputSchema: {
         type: "object",
         additionalProperties: false,

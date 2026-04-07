@@ -68,7 +68,7 @@ describe("symphony forensics success metrics", () => {
           outcome: "startup_failure",
           errorClass: "startup_failure",
           agentFailureKind: "startup_failure",
-          errorMessage: "Missing report_issue_delivery call.",
+          errorMessage: "Missing finish_and_send_to_review call.",
           totalTokens: 10,
           cachedInputTokens: 0
         }),

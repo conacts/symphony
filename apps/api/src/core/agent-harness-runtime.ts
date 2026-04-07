@@ -780,7 +780,7 @@ function missingDeliveryReportCompletion(): SymphonyAgentRuntimeCompletion {
   return {
     kind: "failure",
     reason:
-      "Run ended without calling `report_issue_delivery`. Delivery success must be reported explicitly before the run can complete."
+      "Run ended without calling `finish_and_send_to_review`. Delivery success must be reported explicitly before the run can complete."
   };
 }
 

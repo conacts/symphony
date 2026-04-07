@@ -4,6 +4,8 @@ import path from "node:path";
 export const defaultSymphonyPromptContractRelativePath = ".symphony/prompt.md";
 export const symphonyHarnessPromptAppendix = [
   "## Symphony harness guidance",
+  "### Project runtime tools",
+  "- `finish_and_send_to_review`: Record delivery, move the issue to `In Review`, and end the run. Use it immediately after opening the real PR for completed work.",
   "- Prefer PI-native harness tools over shelling out for equivalent file work.",
   "- Use `pi.read` for file reads and structured inspection whenever possible.",
   "- Use `pi.edit` for scoped file edits whenever possible.",
@@ -14,11 +16,11 @@ export const symphonyHarnessPromptAppendix = [
   "- If Symphony exposes built-in Linear tools in this runtime, use them instead of searching for `LINEAR_API_KEY` in shell startup files or the workspace.",
   "- If Symphony exposes `linear_graphql`, use it for direct Linear reads or writes outside delivery reporting; Symphony provides the auth server-side.",
   "- If the issue is in `Rework`, or review feedback is already present, read the latest Linear comment context and any relevant PR review feedback before editing so the run addresses the newest feedback.",
-  "- If Symphony exposes `report_issue_delivery`, treat it as the explicit completion boundary for Symphony runs.",
-  "- If `report_issue_delivery` is available, call it immediately after opening the real PR for completed work; do not leave a completed run active after the PR exists.",
-  "- When available, `report_issue_delivery` will record delivery and move the issue to `In Review` for you.",
+  "- If Symphony exposes `finish_and_send_to_review`, treat it as the explicit completion boundary for Symphony runs.",
+  "- If `finish_and_send_to_review` is available, call it immediately after opening the real PR for completed work; do not leave a completed run active after the PR exists.",
+  "- When available, `finish_and_send_to_review` will record delivery and move the issue to `In Review` for you.",
   "- Never move the issue to `Done` yourself from the agent runtime.",
-  "- If `report_issue_delivery` is available and the work is blocked or only partially delivered, call it with the matching status and the concrete reason before ending the run."
+  "- If `finish_and_send_to_review` is available and the work is blocked or only partially delivered, call it with the matching status and the concrete reason before ending the run."
 ].join("\n");
 
 export type SymphonyPromptContractIssue = {

@@ -192,7 +192,7 @@ done
         })
       }),
       expect.objectContaining({
-        name: "report_issue_delivery",
+        name: "finish_and_send_to_review",
         inputSchema: expect.objectContaining({
           required: ["status", "summary"]
         })

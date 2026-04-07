@@ -16,6 +16,9 @@ If the state above is `Rework`, you were moved back from review because review f
 Labels: {{ issue.labels }}
 Suggested issue branch: {{ issue.branch_name }}
 
+Project runtime tools:
+- `finish_and_send_to_review`: record delivery, move the issue to `In Review`, and end the session. Use it immediately after opening the real PR for completed work.
+
 Description:
 {{ issue.description }}
 
@@ -50,6 +53,6 @@ Completion bar:
 - The relevant validation or tests have been run.
 - The resulting repository state has been checked before ending the turn.
 - If the task is complete, the issue-scoped code changes are committed before reporting completion.
-- If the task is complete and a real PR can be opened, open it in the same run and use `report_issue_delivery` immediately afterward instead of leaving completion for a later turn.
+- If the task is complete and a real PR can be opened, open it in the same run and use `finish_and_send_to_review` immediately afterward instead of leaving completion for a later turn.
 - The result is reported clearly and concisely.
 - If blocked, report only the concrete blocker and why it prevents completion.

@@ -132,7 +132,7 @@ describe("symphony forensics read model", () => {
       issueIdentifier: "COL-158",
       outcome: "startup_failure",
       errorClass: "startup_failure",
-      errorMessage: "Missing report_issue_delivery call.",
+      errorMessage: "Missing finish_and_send_to_review call.",
       deliveryStatus: null,
       deliveryReportedAt: null,
       deliveryPrUrl: null,
