@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Fragment } from "react";
+import React, { Fragment, type ReactNode } from "react";
 import {
   Reasoning,
   ReasoningContent,
@@ -48,11 +48,19 @@ type PiEditTaskEntry = Extract<AgentRunTranscriptEntry, { kind: "pi-edit-task" }
 type PiWriteTaskEntry = Extract<AgentRunTranscriptEntry, { kind: "pi-write-task" }>;
 type PiGrepTaskEntry = Extract<AgentRunTranscriptEntry, { kind: "pi-grep-task" }>;
 type PiFindTaskEntry = Extract<AgentRunTranscriptEntry, { kind: "pi-find-task" }>;
+type TranscriptSection = {
+  key: string;
+  label: string;
+  description: string;
+  entries: AgentRunTranscriptEntry[];
+};
 
 export function RunTranscriptTurn(input: {
   turn: AgentRunTranscriptTurn;
   onOpenOverflow: (entry: AgentRunTranscriptEntry) => void;
 }) {
+  const sections = buildTranscriptSections(input.turn.entries);
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
@@ -90,344 +98,393 @@ export function RunTranscriptTurn(input: {
         </Card>
       ) : null}
 
-      {input.turn.entries.map((entry) => (
-        <Fragment key={entry.itemId}>
-          {entry.kind === "agent-message" ? (
-            <Message from="assistant">
-              <MessageContent className="gap-2">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span>{entry.recordedAt}</span>
-                </div>
-                <MessageResponse>
-                  {entry.text ?? entry.preview}
-                </MessageResponse>
-                <PiResponseMeta entry={entry.piMessage} />
-                <EntryFiles files={entry.files} />
-                {entry.overflowId ? (
-                  <div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => input.onOpenOverflow(entry)}
-                    >
-                      View full message
-                    </Button>
-                  </div>
-                ) : null}
-              </MessageContent>
-            </Message>
-          ) : null}
-
-          {entry.kind === "reasoning" ? (
+      {sections.map((section) => (
+        <section
+          key={section.key}
+          className="rounded-xl border border-border/70 bg-card/60 p-4"
+        >
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
-              <Reasoning className="mb-0" defaultOpen={false}>
-                <ReasoningTrigger className="items-center gap-2 hover:text-foreground">
-                  <BrainIcon className="size-4" />
-                  <span className="text-sm font-medium">
-                    {buildReasoningLabel(entry)}
-                  </span>
-                  <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                </ReasoningTrigger>
-                <ReasoningContent>
-                  {entry.text ?? entry.preview}
-                </ReasoningContent>
-              </Reasoning>
-              <PiResponseMeta entry={entry.piMessage} />
+              <h3 className="text-sm font-semibold tracking-tight">{section.label}</h3>
+              <p className="text-sm text-muted-foreground">{section.description}</p>
             </div>
-          ) : null}
-
-          {entry.kind === "pi-read-task" ? (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
-              <Task defaultOpen={false}>
-                <TaskTrigger title={buildPiReadTaskTitle(entry)}>
-                  <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
-                    <SearchIcon className="size-4" />
-                    <span>{buildPiReadTaskTitle(entry)}</span>
-                    <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                  </div>
-                </TaskTrigger>
-                <TaskContent>
-                  {entry.paths.length > 0 ? (
-                    entry.paths.map((path) => (
-                      <TaskItem key={`${entry.itemId}:${path}`}>
-                        <TaskItemFile>{path}</TaskItemFile>
-                      </TaskItem>
-                    ))
-                  ) : (
-                    <TaskItem>No file paths were captured for this read.</TaskItem>
-                  )}
-                </TaskContent>
-              </Task>
-            </div>
-          ) : null}
-
-          {entry.kind === "pi-edit-task" ? (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
-              <Task className="mb-0" defaultOpen={false}>
-                <TaskTrigger title={buildPiEditTaskTitle(entry)}>
-                  <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
-                    <PencilIcon className="size-4" />
-                    <span>{buildPiEditTaskTitle(entry)}</span>
-                    <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                  </div>
-                </TaskTrigger>
-                <TaskContent>
-                  <TaskItem>
-                    {formatPiEditLineCount(entry.lineCount)}
-                  </TaskItem>
-                  {entry.firstChangedLine ? (
-                    <TaskItem>
-                      First changed line {entry.firstChangedLine}
-                    </TaskItem>
-                  ) : null}
-                  {entry.paths.length > 0 ? (
-                    entry.paths.map((path) => (
-                      <TaskItem key={`${entry.itemId}:${path}`}>
-                        <TaskItemFile>{path}</TaskItemFile>
-                      </TaskItem>
-                    ))
-                  ) : (
-                    <TaskItem>No file paths were captured for this edit.</TaskItem>
-                  )}
-                  {entry.diffText ? (
-                    <div className="pt-1">
-                      <CodeBlock code={entry.diffText} language="diff" />
-                    </div>
-                  ) : null}
-                </TaskContent>
-              </Task>
-            </div>
-          ) : null}
-
-          {entry.kind === "pi-write-task" ? (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
-              <Task className="mb-0" defaultOpen={false}>
-                <TaskTrigger title={buildPiWriteTaskTitle(entry)}>
-                  <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
-                    <UploadIcon className="size-4" />
-                    <span>{buildPiWriteTaskTitle(entry)}</span>
-                    <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                  </div>
-                </TaskTrigger>
-                <TaskContent>
-                  <TaskItem>
-                    {formatPiWriteLineCount(entry.lineCount)}
-                  </TaskItem>
-                  {entry.paths.length > 0 ? (
-                    entry.paths.map((path) => (
-                      <TaskItem key={`${entry.itemId}:${path}`}>
-                        <TaskItemFile>{path}</TaskItemFile>
-                      </TaskItem>
-                    ))
-                  ) : (
-                    <TaskItem>No file paths were captured for this write.</TaskItem>
-                  )}
-                  {entry.diffText ? (
-                    <div className="pt-1">
-                      <CodeBlock code={entry.diffText} language="diff" />
-                    </div>
-                  ) : null}
-                </TaskContent>
-              </Task>
-            </div>
-          ) : null}
-
-          {entry.kind === "pi-grep-task" ? (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
-              <Task className="mb-0" defaultOpen={false}>
-                <TaskTrigger title={buildPiGrepTaskTitle(entry)}>
-                  <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
-                    <SearchIcon className="size-4" />
-                    <span>{buildPiGrepTaskTitle(entry)}</span>
-                    <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                  </div>
-                </TaskTrigger>
-                <TaskContent>
-                  {entry.queries.length > 0 ? (
-                    entry.queries.map((query, index) => (
-                      <TaskItem key={`${entry.itemId}:${query.pattern}:${query.path ?? index}`}>
-                        <span className="font-medium text-foreground">{query.pattern}</span>
-                        {query.path ? ` in ${query.path}` : " in workspace"}
-                        {query.ignoreCase ? " (ignore case)" : ""}
-                      </TaskItem>
-                    ))
-                  ) : (
-                    <TaskItem>No search pattern was captured for this grep.</TaskItem>
-                  )}
-                </TaskContent>
-              </Task>
-            </div>
-          ) : null}
-
-          {entry.kind === "pi-find-task" ? (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
-              <Task className="mb-0" defaultOpen={false}>
-                <TaskTrigger title={buildPiFindTaskTitle(entry)}>
-                  <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
-                    <SearchIcon className="size-4" />
-                    <span>{buildPiFindTaskTitle(entry)}</span>
-                    <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-                  </div>
-                </TaskTrigger>
-                <TaskContent>
-                  {entry.queries.length > 0 ? (
-                    entry.queries.map((query, index) => (
-                      <TaskItem key={`${entry.itemId}:${query.pattern}:${query.path ?? index}`}>
-                        <span className="font-medium text-foreground">{query.pattern}</span>
-                        {query.path ? ` in ${query.path}` : " in workspace"}
-                      </TaskItem>
-                    ))
-                  ) : (
-                    <TaskItem>No search target was captured for this find.</TaskItem>
-                  )}
-                </TaskContent>
-              </Task>
-            </div>
-          ) : null}
-
-          {entry.kind === "command" ? (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
-              <Task className="mb-0" defaultOpen={false}>
-                <TaskTrigger title={entry.command}>
-                  <div className="flex w-full cursor-pointer items-start gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
-                    <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap group-data-[state=open]:overflow-visible group-data-[state=open]:whitespace-normal">
-                      {entry.command}
-                    </span>
-                    <ChevronDownIcon className="mt-0.5 size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
-                  </div>
-                </TaskTrigger>
-                <TaskContent>
-                  <TaskItem>{formatCommandOutcome(entry.status, entry.exitCode)}</TaskItem>
-                  <TaskItem>
-                    {entry.duration} · exit {entry.exitCode ?? "n/a"}
-                  </TaskItem>
-                  {entry.timeoutSeconds !== null ? (
-                    <TaskItem>
-                      Timeout {formatCount(entry.timeoutSeconds)}s
-                    </TaskItem>
-                  ) : null}
-                  <CodeBlock code={entry.outputPreview} language="bash" wrapLongLines />
-                  <EntryFiles files={entry.files} />
-                  {entry.overflowId ? (
-                    <div className="pt-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => input.onOpenOverflow(entry)}
-                      >
-                        View full command output
-                      </Button>
-                    </div>
-                  ) : null}
-                </TaskContent>
-              </Task>
-            </div>
-          ) : null}
-
-          {entry.kind === "tool-call" ? (
-            <Card className="border-border/70">
-              <CardHeader className="pb-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle className="text-sm font-medium">
-                    Tool call
-                  </CardTitle>
-                  <Badge variant="outline">{entry.status}</Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {entry.recordedAt}
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium">{entry.server}</span>
-                  <span className="text-muted-foreground">/</span>
-                  <span>{entry.tool}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <span>{entry.duration}</span>
-                  {entry.errorMessage ? <span>{entry.errorMessage}</span> : null}
-                </div>
-                <pre className="overflow-x-auto rounded-md border border-border/70 bg-muted/40 p-3 text-xs">
-                  <code>{entry.argumentsText}</code>
-                </pre>
-                <RunTranscriptCopy>{entry.resultPreview}</RunTranscriptCopy>
-                <EntryFiles files={entry.files} />
-                {entry.overflowId ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => input.onOpenOverflow(entry)}
-                  >
-                    View full tool result
-                  </Button>
-                ) : null}
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {entry.kind === "todo-list" ? (
-            <Message from="assistant">
-              <MessageContent className="gap-3">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">Todo list</span>
-                  <span>{entry.recordedAt}</span>
-                </div>
-                <MessageResponse>{entry.markdown}</MessageResponse>
-                <EntryFiles files={entry.files} />
-                {entry.overflowId ? (
-                  <div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => input.onOpenOverflow(entry)}
-                    >
-                      View full todo list
-                    </Button>
-                  </div>
-                ) : null}
-              </MessageContent>
-            </Message>
-          ) : null}
-
-          {entry.kind === "generic" ? (
-            <Card className="border-border/70">
-              <CardHeader className="pb-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle className="text-sm font-medium">
-                    {entry.itemType}
-                  </CardTitle>
-                  <Badge variant="outline">{entry.status}</Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {entry.recordedAt}
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <RunTranscriptCopy>{entry.preview}</RunTranscriptCopy>
-                <EntryFiles files={entry.files} />
-                {entry.overflowId ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => input.onOpenOverflow(entry)}
-                  >
-                    View full payload
-                  </Button>
-                ) : null}
-              </CardContent>
-            </Card>
-          ) : null}
-        </Fragment>
+            <Badge variant="secondary">
+              {formatCount(section.entries.length)} item{section.entries.length === 1 ? "" : "s"}
+            </Badge>
+          </div>
+          <div className="flex flex-col gap-4">
+            {section.entries.map((entry) => (
+              <Fragment key={entry.itemId}>
+                {renderTranscriptEntry(entry, input.onOpenOverflow)}
+              </Fragment>
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   );
+}
+
+function renderTranscriptEntry(
+  entry: AgentRunTranscriptEntry,
+  onOpenOverflow: (entry: AgentRunTranscriptEntry) => void
+): ReactNode {
+  if (entry.kind === "agent-message") {
+    return (
+      <Message from="assistant">
+        <MessageContent className="gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>{entry.recordedAt}</span>
+          </div>
+          <MessageResponse>
+            {entry.text ?? entry.preview}
+          </MessageResponse>
+          <PiResponseMeta entry={entry.piMessage} />
+          <EntryFiles files={entry.files} />
+          {entry.overflowId ? (
+            <div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onOpenOverflow(entry)}
+              >
+                View full message
+              </Button>
+            </div>
+          ) : null}
+        </MessageContent>
+      </Message>
+    );
+  }
+
+  if (entry.kind === "reasoning") {
+    return (
+      <div className="space-y-1">
+        <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+        <Reasoning className="mb-0" defaultOpen={false}>
+          <ReasoningTrigger className="items-center gap-2 hover:text-foreground">
+            <BrainIcon className="size-4" />
+            <span className="text-sm font-medium">
+              {buildReasoningLabel(entry)}
+            </span>
+            <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+          </ReasoningTrigger>
+          <ReasoningContent>
+            {entry.text ?? entry.preview}
+          </ReasoningContent>
+        </Reasoning>
+        <PiResponseMeta entry={entry.piMessage} />
+      </div>
+    );
+  }
+
+  if (entry.kind === "pi-read-task") {
+    return (
+      <div className="space-y-1">
+        <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+        <Task defaultOpen={false}>
+          <TaskTrigger title={buildPiReadTaskTitle(entry)}>
+            <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+              <SearchIcon className="size-4" />
+              <span>{buildPiReadTaskTitle(entry)}</span>
+              <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+            </div>
+          </TaskTrigger>
+          <TaskContent>
+            {entry.paths.length > 0 ? (
+              entry.paths.map((path) => (
+                <TaskItem key={`${entry.itemId}:${path}`}>
+                  <TaskItemFile>{path}</TaskItemFile>
+                </TaskItem>
+              ))
+            ) : (
+              <TaskItem>No file paths were captured for this read.</TaskItem>
+            )}
+          </TaskContent>
+        </Task>
+      </div>
+    );
+  }
+
+  if (entry.kind === "pi-edit-task") {
+    return (
+      <div className="space-y-1">
+        <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+        <Task className="mb-0" defaultOpen={false}>
+          <TaskTrigger title={buildPiEditTaskTitle(entry)}>
+            <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+              <PencilIcon className="size-4" />
+              <span>{buildPiEditTaskTitle(entry)}</span>
+              <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+            </div>
+          </TaskTrigger>
+          <TaskContent>
+            <TaskItem>
+              {formatPiEditLineCount(entry.lineCount)}
+            </TaskItem>
+            {entry.firstChangedLine ? (
+              <TaskItem>
+                First changed line {entry.firstChangedLine}
+              </TaskItem>
+            ) : null}
+            {entry.paths.length > 0 ? (
+              entry.paths.map((path) => (
+                <TaskItem key={`${entry.itemId}:${path}`}>
+                  <TaskItemFile>{path}</TaskItemFile>
+                </TaskItem>
+              ))
+            ) : (
+              <TaskItem>No file paths were captured for this edit.</TaskItem>
+            )}
+            {entry.diffText ? (
+              <div className="pt-1">
+                <CodeBlock code={entry.diffText} language="diff" />
+              </div>
+            ) : null}
+          </TaskContent>
+        </Task>
+      </div>
+    );
+  }
+
+  if (entry.kind === "pi-write-task") {
+    return (
+      <div className="space-y-1">
+        <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+        <Task className="mb-0" defaultOpen={false}>
+          <TaskTrigger title={buildPiWriteTaskTitle(entry)}>
+            <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+              <UploadIcon className="size-4" />
+              <span>{buildPiWriteTaskTitle(entry)}</span>
+              <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+            </div>
+          </TaskTrigger>
+          <TaskContent>
+            <TaskItem>
+              {formatPiWriteLineCount(entry.lineCount)}
+            </TaskItem>
+            {entry.paths.length > 0 ? (
+              entry.paths.map((path) => (
+                <TaskItem key={`${entry.itemId}:${path}`}>
+                  <TaskItemFile>{path}</TaskItemFile>
+                </TaskItem>
+              ))
+            ) : (
+              <TaskItem>No file paths were captured for this write.</TaskItem>
+            )}
+            {entry.diffText ? (
+              <div className="pt-1">
+                <CodeBlock code={entry.diffText} language="diff" />
+              </div>
+            ) : null}
+          </TaskContent>
+        </Task>
+      </div>
+    );
+  }
+
+  if (entry.kind === "pi-grep-task") {
+    return (
+      <div className="space-y-1">
+        <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+        <Task className="mb-0" defaultOpen={false}>
+          <TaskTrigger title={buildPiGrepTaskTitle(entry)}>
+            <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+              <SearchIcon className="size-4" />
+              <span>{buildPiGrepTaskTitle(entry)}</span>
+              <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+            </div>
+          </TaskTrigger>
+          <TaskContent>
+            {entry.queries.length > 0 ? (
+              entry.queries.map((query, index) => (
+                <TaskItem key={`${entry.itemId}:${query.pattern}:${query.path ?? index}`}>
+                  <span className="font-medium text-foreground">{query.pattern}</span>
+                  {query.path ? ` in ${query.path}` : " in workspace"}
+                  {query.ignoreCase ? " (ignore case)" : ""}
+                </TaskItem>
+              ))
+            ) : (
+              <TaskItem>No search pattern was captured for this grep.</TaskItem>
+            )}
+          </TaskContent>
+        </Task>
+      </div>
+    );
+  }
+
+  if (entry.kind === "pi-find-task") {
+    return (
+      <div className="space-y-1">
+        <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+        <Task className="mb-0" defaultOpen={false}>
+          <TaskTrigger title={buildPiFindTaskTitle(entry)}>
+            <div className="flex w-full cursor-pointer items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+              <SearchIcon className="size-4" />
+              <span>{buildPiFindTaskTitle(entry)}</span>
+              <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+            </div>
+          </TaskTrigger>
+          <TaskContent>
+            {entry.queries.length > 0 ? (
+              entry.queries.map((query, index) => (
+                <TaskItem key={`${entry.itemId}:${query.pattern}:${query.path ?? index}`}>
+                  <span className="font-medium text-foreground">{query.pattern}</span>
+                  {query.path ? ` in ${query.path}` : " in workspace"}
+                </TaskItem>
+              ))
+            ) : (
+              <TaskItem>No search target was captured for this find.</TaskItem>
+            )}
+          </TaskContent>
+        </Task>
+      </div>
+    );
+  }
+
+  if (entry.kind === "command") {
+    return (
+      <div className="space-y-1">
+        <p className="text-xs text-muted-foreground">{entry.recordedAt}</p>
+        <Task className="mb-0" defaultOpen={false}>
+          <TaskTrigger title={entry.command}>
+            <div className="flex w-full cursor-pointer items-start gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+              <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap group-data-[state=open]:overflow-visible group-data-[state=open]:whitespace-normal">
+                {entry.command}
+              </span>
+              <ChevronDownIcon className="mt-0.5 size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+            </div>
+          </TaskTrigger>
+          <TaskContent>
+            <TaskItem>{formatCommandOutcome(entry.status, entry.exitCode)}</TaskItem>
+            <TaskItem>
+              {entry.duration} · exit {entry.exitCode ?? "n/a"}
+            </TaskItem>
+            {entry.timeoutSeconds !== null ? (
+              <TaskItem>
+                Timeout {formatCount(entry.timeoutSeconds)}s
+              </TaskItem>
+            ) : null}
+            <CodeBlock code={entry.outputPreview} language="bash" wrapLongLines />
+            <EntryFiles files={entry.files} />
+            {entry.overflowId ? (
+              <div className="pt-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onOpenOverflow(entry)}
+                >
+                  View full command output
+                </Button>
+              </div>
+            ) : null}
+          </TaskContent>
+        </Task>
+      </div>
+    );
+  }
+
+  if (entry.kind === "tool-call") {
+    return (
+      <Card className="border-border/70">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle className="text-sm font-medium">
+              Tool call
+            </CardTitle>
+            <Badge variant="outline">{entry.status}</Badge>
+            <span className="text-xs text-muted-foreground">
+              {entry.recordedAt}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-medium">{entry.server}</span>
+            <span className="text-muted-foreground">/</span>
+            <span>{entry.tool}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <span>{entry.duration}</span>
+            {entry.errorMessage ? <span>{entry.errorMessage}</span> : null}
+          </div>
+          <pre className="overflow-x-auto rounded-md border border-border/70 bg-muted/40 p-3 text-xs">
+            <code>{entry.argumentsText}</code>
+          </pre>
+          <RunTranscriptCopy>{entry.resultPreview}</RunTranscriptCopy>
+          <EntryFiles files={entry.files} />
+          {entry.overflowId ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onOpenOverflow(entry)}
+            >
+              View full tool result
+            </Button>
+          ) : null}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (entry.kind === "todo-list") {
+    return (
+      <Message from="assistant">
+        <MessageContent className="gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Todo list</span>
+            <span>{entry.recordedAt}</span>
+          </div>
+          <MessageResponse>{entry.markdown}</MessageResponse>
+          <EntryFiles files={entry.files} />
+          {entry.overflowId ? (
+            <div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onOpenOverflow(entry)}
+              >
+                View full todo list
+              </Button>
+            </div>
+          ) : null}
+        </MessageContent>
+      </Message>
+    );
+  }
+
+  if (entry.kind === "generic") {
+    return (
+      <Card className="border-border/70">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle className="text-sm font-medium">
+              {entry.itemType}
+            </CardTitle>
+            <Badge variant="outline">{entry.status}</Badge>
+            <span className="text-xs text-muted-foreground">
+              {entry.recordedAt}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <RunTranscriptCopy>{entry.preview}</RunTranscriptCopy>
+          <EntryFiles files={entry.files} />
+          {entry.overflowId ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onOpenOverflow(entry)}
+            >
+              View full payload
+            </Button>
+          ) : null}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return null;
 }
 
 function EntryFiles(input: {
@@ -477,6 +534,66 @@ function PiResponseMeta(input: {
       ) : null}
     </div>
   );
+}
+
+function buildTranscriptSections(
+  entries: AgentRunTranscriptEntry[]
+): TranscriptSection[] {
+  const sections: TranscriptSection[] = [];
+
+  for (const entry of entries) {
+    const descriptor = describeTranscriptEntryGroup(entry);
+    const previousSection = sections.at(-1);
+
+    if (
+      previousSection &&
+      previousSection.label === descriptor.label &&
+      previousSection.description === descriptor.description
+    ) {
+      previousSection.entries.push(entry);
+      continue;
+    }
+
+    sections.push({
+      key: `${descriptor.label}:${entry.itemId}`,
+      label: descriptor.label,
+      description: descriptor.description,
+      entries: [entry]
+    });
+  }
+
+  return sections;
+}
+
+function describeTranscriptEntryGroup(entry: AgentRunTranscriptEntry): Pick<
+  TranscriptSection,
+  "label" | "description"
+> {
+  if (entry.kind === "reasoning") {
+    return {
+      label: "Reasoning",
+      description: "The agent's internal analysis and planning before or between actions."
+    };
+  }
+
+  if (entry.kind === "agent-message") {
+    return {
+      label: "Assistant output",
+      description: "User-facing responses and delivery-oriented summaries from the agent."
+    };
+  }
+
+  if (entry.kind === "todo-list") {
+    return {
+      label: "Task timeline",
+      description: "Structured task-state updates captured during the turn."
+    };
+  }
+
+  return {
+    label: "Execution log",
+    description: "Commands, tools, and file operations captured while the turn was running."
+  };
 }
 
 function buildReasoningLabel(entry: ReasoningEntry): string {
