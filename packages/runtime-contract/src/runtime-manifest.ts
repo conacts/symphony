@@ -26,6 +26,7 @@ export type {
   SymphonyRuntimeEnvInput,
   SymphonyRuntimeHostEnv,
   SymphonyRuntimeHostEnvResolutionInput,
+  SymphonyRuntimeLinearBinding,
   SymphonyRuntimeHostEnvInput,
   SymphonyRuntimeLifecycle,
   SymphonyRuntimeLifecycleInput,

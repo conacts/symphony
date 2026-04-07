@@ -34,6 +34,7 @@ export function buildSymphonyRuntimeManifestInput(
   return {
     ...baseManifest,
     ...overrides,
+    linear: overrides.linear ?? baseManifest.linear,
     workspace: {
       ...baseManifest.workspace,
       ...overrides.workspace

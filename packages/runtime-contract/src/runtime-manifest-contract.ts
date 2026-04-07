@@ -102,6 +102,11 @@ export type SymphonyRuntimeWorkspace = {
   workingDirectory?: string;
 };
 
+export type SymphonyRuntimeLinearBinding = {
+  projectSlug?: string;
+  teamKey?: string;
+};
+
 export type SymphonyRuntimePiPresetName = "basic" | "advanced" | "premium";
 export type SymphonyRuntimePiAuthMode = "provider" | "subscription";
 
@@ -119,6 +124,7 @@ export type SymphonyRuntimePiConfig = {
 export type SymphonyRuntimeManifest = {
   schemaVersion: SymphonyRuntimeManifestSchemaVersion;
   repositoryKey: string;
+  linear?: SymphonyRuntimeLinearBinding;
   workspace: SymphonyRuntimeWorkspace;
   services?: Record<string, SymphonyRuntimeService>;
   pi?: SymphonyRuntimePiConfig;
@@ -158,6 +164,10 @@ export type SymphonyNormalizedRuntimeService =
 export type SymphonyNormalizedRuntimeManifest = {
   schemaVersion: SymphonyRuntimeManifestSchemaVersion;
   repositoryKey: string;
+  linear: {
+    projectSlug: string | null;
+    teamKey: string | null;
+  } | null;
   workspace: SymphonyNormalizedRuntimeWorkspace;
   services: Record<string, SymphonyNormalizedRuntimeService>;
   pi: SymphonyRuntimePiConfig | null;

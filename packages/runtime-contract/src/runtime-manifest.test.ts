@@ -115,6 +115,7 @@ export default defineSymphonyRuntime({
       packageManager: "pnpm",
       workingDirectory: defaultSymphonyRuntimeWorkingDirectory
     });
+    expect(loaded.manifest.linear).toBeNull();
     expect(loaded.manifest.pi).toBeNull();
     expect(loaded.manifest.services.postgres).toEqual({
       type: "postgres",
@@ -286,6 +287,78 @@ export default defineSymphonyRuntime({
         }
       }
     });
+  });
+
+  it("normalizes Linear routing binding from the runtime manifest", () => {
+    const manifest = normalizeSymphonyRuntimeManifest({
+      schemaVersion: 1,
+      repositoryKey: "openai/symphony",
+      linear: {
+        projectSlug: "symphony"
+      },
+      workspace: {
+        packageManager: "pnpm"
+      },
+      env: {
+        host: {
+          required: [],
+          optional: []
+        },
+        inject: {}
+      },
+      lifecycle: {
+        bootstrap: [],
+        migrate: [],
+        verify: [
+          {
+            name: "verify",
+            run: "pnpm test"
+          }
+        ],
+        seed: [],
+        cleanup: []
+      }
+    });
+
+    expect(manifest.linear).toEqual({
+      projectSlug: "symphony",
+      teamKey: null
+    });
+  });
+
+  it("rejects a Linear binding that declares both projectSlug and teamKey", () => {
+    expect(() =>
+      normalizeSymphonyRuntimeManifest({
+        schemaVersion: 1,
+        repositoryKey: "openai/symphony",
+        linear: {
+          projectSlug: "symphony",
+          teamKey: "COL"
+        },
+        workspace: {
+          packageManager: "pnpm"
+        },
+        env: {
+          host: {
+            required: [],
+            optional: []
+          },
+          inject: {}
+        },
+        lifecycle: {
+          bootstrap: [],
+          migrate: [],
+          verify: [
+            {
+              name: "verify",
+              run: "pnpm test"
+            }
+          ],
+          seed: [],
+          cleanup: []
+        }
+      })
+    ).toThrowError(/either projectSlug or teamKey, not both/i);
   });
 
   it("fails fast when the repo-local manifest is missing", async () => {

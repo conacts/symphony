@@ -11,6 +11,7 @@ export const symphonyRuntimeManifestBrand = Symbol.for(
 export const manifestTopLevelKeys = new Set([
   "schemaVersion",
   "repositoryKey",
+  "linear",
   "workspace",
   "services",
   "pi",
@@ -18,6 +19,7 @@ export const manifestTopLevelKeys = new Set([
   "lifecycle"
 ]);
 
+export const linearKeys = new Set(["projectSlug", "teamKey"]);
 export const workspaceKeys = new Set(["packageManager", "workingDirectory"]);
 export const piKeys = new Set(["defaultPreset", "presets"]);
 export const piPresetKeys = new Set(["model", "reasoningEffort", "auth"]);

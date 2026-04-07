@@ -30,6 +30,7 @@ import {
 } from "./runtime-manifest-validation-readers.js";
 import { parseServices } from "./runtime-manifest-validation-services.js";
 import {
+  linearKeys,
   manifestTopLevelKeys,
   piAuthModes,
   piKeys,
@@ -78,6 +79,7 @@ function parseRuntimeManifest(
 
   const schemaVersion = parseSchemaVersion(record.schemaVersion, issues);
   const repositoryKey = parseRepositoryKey(record.repositoryKey, issues);
+  const linear = parseLinearBinding(record.linear, issues);
   const workspace = parseWorkspace(record.workspace, issues);
   const services = parseServices(record.services, issues);
   const pi = parsePi(record.pi, issues);
@@ -96,11 +98,71 @@ function parseRuntimeManifest(
   return {
     schemaVersion,
     repositoryKey,
+    linear,
     workspace,
     services: services.normalized,
     pi,
     env,
     lifecycle
+  };
+}
+
+function parseLinearBinding(
+  value: unknown,
+  issues: SymphonyRuntimeManifestIssue[]
+): SymphonyNormalizedRuntimeManifest["linear"] {
+  if (value === undefined) {
+    return null;
+  }
+
+  const checkpoint = startIssueCheckpoint(issues);
+  const record = readStrictRecord(value, ["linear"], issues, "linear");
+
+  if (!record) {
+    return null;
+  }
+
+  rejectUnknownKeys(record, linearKeys, ["linear"], issues);
+  const projectSlug = readOptionalString(
+    record,
+    "projectSlug",
+    ["linear", "projectSlug"],
+    issues,
+    "linear.projectSlug"
+  );
+  const teamKey = readOptionalString(
+    record,
+    "teamKey",
+    ["linear", "teamKey"],
+    issues,
+    "linear.teamKey"
+  );
+
+  if (projectSlug && teamKey) {
+    pushIssue(
+      issues,
+      ["linear"],
+      "linear must declare either projectSlug or teamKey, not both."
+    );
+    return null;
+  }
+
+  if (!projectSlug && !teamKey) {
+    pushIssue(
+      issues,
+      ["linear"],
+      "linear must declare projectSlug or teamKey."
+    );
+    return null;
+  }
+
+  if (hasIssuesSince(issues, checkpoint)) {
+    return null;
+  }
+
+  return {
+    projectSlug: projectSlug ?? null,
+    teamKey: teamKey ?? null
   };
 }
 

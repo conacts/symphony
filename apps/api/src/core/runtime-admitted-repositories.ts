@@ -8,6 +8,10 @@ import {
 export type AdmittedRuntimeRepository = {
   repositoryKey: string;
   repoRoot: string;
+  linearBinding: {
+    projectSlug: string | null;
+    teamKey: string | null;
+  } | null;
   promptContract: SymphonyLoadedPromptContract;
   runtimeManifest: SymphonyLoadedRuntimeManifest;
 };
@@ -21,9 +25,7 @@ export async function loadAdmittedRuntimeRepositories(
   for (const sourceRepo of sourceRepos) {
     const repoRoot = path.resolve(sourceRepo);
     const runtimeContract = await loadSymphonyRuntimeContract(repoRoot);
-    const repositoryKey = (runtimeContract.runtimeManifest.manifest as {
-      repositoryKey?: string;
-    }).repositoryKey;
+    const repositoryKey = runtimeContract.runtimeManifest.manifest.repositoryKey;
 
     if (!repositoryKey) {
       throw new TypeError(
@@ -41,6 +43,7 @@ export async function loadAdmittedRuntimeRepositories(
     admittedRepositories.push({
       repositoryKey,
       repoRoot,
+      linearBinding: runtimeContract.runtimeManifest.manifest.linear,
       promptContract: runtimeContract.promptContract,
       runtimeManifest: runtimeContract.runtimeManifest
     });
