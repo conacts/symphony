@@ -4,11 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:deps": "pnpm --filter @symphony/contracts build",
     "build": "next build",
     "clean": "rm -rf .next tsconfig.tsbuildinfo",
     "dev": "next dev --turbopack",
     "dev:mock": "NEXT_PUBLIC_SYMPHONY_USE_MOCK_RUNTIME=true next dev --turbopack",
     "lint": "eslint .",
+    "prebuild": "pnpm run build:deps",
+    "predev": "pnpm run build:deps",
+    "predev:mock": "pnpm run build:deps",
+    "prestart": "pnpm run build:deps",
+    "pretest": "pnpm run build:deps",
+    "pretypecheck": "pnpm run build:deps",
     "start": "next start",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"

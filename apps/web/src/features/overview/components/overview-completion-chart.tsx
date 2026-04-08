@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, XAxis } from "recharts";
 import {
@@ -17,7 +19,7 @@ import {
 } from "@/components/ui/chart";
 import type { OverviewSuccessMetricsViewModel } from "@/features/overview/model/overview-success-metrics";
 
-const successTrendConfig = {
+const completionChartConfig = {
   startedIssueCount: {
     label: "Started issues",
     color: "var(--chart-4)"
@@ -26,31 +28,36 @@ const successTrendConfig = {
     label: "Delivered issues",
     color: "var(--chart-2)"
   },
-  maxTurnFailureCount: {
-    label: "Max-turn failures",
+  runsPerDeliveredIssue: {
+    label: "Runs per delivered issue",
     color: "var(--chart-5)"
   }
 } satisfies ChartConfig;
 
-export function OverviewSuccessTrendChart(input: {
-  rows: OverviewSuccessMetricsViewModel["trendRows"];
+export function OverviewCompletionChart(input: {
+  rows: OverviewSuccessMetricsViewModel["completionRows"];
 }) {
   return (
     <Card>
       <CardHeader className="flex flex-col gap-1">
-        <CardTitle>Delivery trend</CardTitle>
+        <CardTitle>Weekly throughput</CardTitle>
         <CardDescription>
-          Started issues, delivered issues, and max-turn failures over the selected window.
+          Delivered issues are the main signal. The line shows how many runs it took, on
+          average, to complete a delivered issue each day.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {input.rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No success-metrics trend data is available for this time window.
+            No weekly success data is available for this time window.
           </p>
         ) : (
-          <ChartContainer className="h-80 w-full" config={successTrendConfig}>
-            <ComposedChart accessibilityLayer data={input.rows} margin={{ left: 12, right: 12 }}>
+          <ChartContainer className="h-80 w-full" config={completionChartConfig}>
+            <ComposedChart
+              accessibilityLayer
+              data={input.rows}
+              margin={{ left: 12, right: 12 }}
+            >
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="label"
@@ -74,8 +81,8 @@ export function OverviewSuccessTrendChart(input: {
                 radius={4}
               />
               <Line
-                dataKey="maxTurnFailureCount"
-                stroke="var(--color-maxTurnFailureCount)"
+                dataKey="runsPerDeliveredIssue"
+                stroke="var(--color-runsPerDeliveredIssue)"
                 strokeWidth={2}
                 dot={false}
                 type="monotone"

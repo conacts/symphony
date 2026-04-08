@@ -22,6 +22,11 @@ import {
   describeControlPlaneRepositoryScope
 } from "@/core/control-plane-repo-scope";
 
+function getRepositoryName(repositoryKey: string): string {
+  const segments = repositoryKey.split("/");
+  return segments[segments.length - 1] ?? repositoryKey;
+}
+
 export function ControlPlanePage(input: {
   connection: SymphonyDashboardFoundationModel["connection"];
   breadcrumbs?: ControlPlaneBreadcrumbItem[];
@@ -64,22 +69,16 @@ export function ControlPlanePage(input: {
         <div className="flex items-center gap-3">
           {repoContext.repositories.length > 0 ? (
             <div className="flex items-center gap-2">
-              {selectedRepository ? (
-                <div className="hidden max-w-[18rem] flex-col items-end text-right text-[11px] leading-tight text-muted-foreground md:flex">
-                  <span className="truncate font-medium text-foreground">
-                    {selectedRepository.repositoryKey}
-                  </span>
-                  <span className="truncate">
-                    {describeControlPlaneRepositoryScope(selectedRepository)}
-                  </span>
-                </div>
-              ) : null}
               <Select
                 value={repoContext.selectedRepo ?? "__all__"}
                 onValueChange={updateRepoScope}
               >
                 <SelectTrigger size="sm" aria-label="Repository scope">
-                  <SelectValue placeholder="All repositories" />
+                  <SelectValue placeholder="All repositories">
+                    {selectedRepository
+                      ? getRepositoryName(selectedRepository.repositoryKey)
+                      : "All repositories"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent align="end">
                   <SelectItem value="__all__">All repositories</SelectItem>

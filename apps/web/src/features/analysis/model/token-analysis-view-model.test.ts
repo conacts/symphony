@@ -6,7 +6,7 @@ import {
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
 
 describe("token analysis view model", () => {
-  it("aggregates run and turn token hotspots from sampled runs", () => {
+  it("aggregates token totals into summary and daily series rows", () => {
     const viewModel = buildTokenAnalysisViewModel({
       issueIndex: buildSymphonyForensicsIssueListResult(),
       sampledRuns: [
@@ -61,9 +61,17 @@ describe("token analysis view model", () => {
       ]
     });
 
-    expect(viewModel.summaryCards[0]?.value).toBe("2");
-    expect(viewModel.tokenCards[0]?.value).toBe("410");
-    expect(viewModel.tokenCards[2]?.value).toBe("16.3%");
+    expect(viewModel.summaryCards[0]?.value).toBe("820");
+    expect(viewModel.summaryCards[1]?.value).toBe("2");
+    expect(viewModel.summaryCards[2]?.value).toBe("410");
+    expect(viewModel.timeSeriesRows[0]).toEqual({
+      date: "2026-03-31",
+      label: "Mar 31",
+      inputTokens: 620,
+      outputTokens: 200,
+      totalTokens: 820,
+      runCount: 2
+    });
     expect(viewModel.runTokenRows[0]?.totalTokens).toBe(620);
     expect(viewModel.turnTokenRows[0]?.totalTokens).toBe(620);
     expect(viewModel.issueTokenRows[0]?.issueIdentifier).toBe("COL-166");

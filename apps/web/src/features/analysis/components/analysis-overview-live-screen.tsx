@@ -19,7 +19,6 @@ import {
   buildFailureAnalysisViewModel,
   buildFailureAnalysisViewModelFromSample
 } from "@/features/analysis/model/failure-analysis-view-model";
-import { buildPerformanceAnalysisViewModel } from "@/features/analysis/model/performance-analysis-view-model";
 import { buildTokenAnalysisViewModel } from "@/features/analysis/model/token-analysis-view-model";
 import { useIssueIndex } from "@/features/issues/hooks/use-issue-index";
 import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
@@ -100,20 +99,16 @@ export function AnalysisOverviewLiveScreen() {
       : issueIndexState.resource
         ? buildFailureAnalysisViewModel(issueIndexState.resource)
         : null;
-    const performanceAnalysis = filteredSample
-      ? buildPerformanceAnalysisViewModel(filteredSample)
-      : null;
     const tokenAnalysis = filteredSample
       ? buildTokenAnalysisViewModel(filteredSample)
       : null;
 
-    if (!failureAnalysis && !performanceAnalysis && !tokenAnalysis) {
+    if (!failureAnalysis && !tokenAnalysis) {
       return null;
     }
 
     return buildAnalysisOverviewViewModel({
       failureAnalysis,
-      performanceAnalysis,
       tokenAnalysis
     });
   }, [filteredSample, issueIndexState.resource, query]);

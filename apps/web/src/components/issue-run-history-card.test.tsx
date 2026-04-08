@@ -11,6 +11,7 @@ describe("issue run history card", () => {
           {
             runId: "09cacfc1-1234",
             runHref: "/issues/COL-184/runs/09cacfc1-1234",
+            startedAtIso: "2026-04-05T15:00:00.000Z",
             startedAt: "Apr 5, 10:00 AM",
             durationSeconds: "45s",
             totalTokens: "1,240",
@@ -24,6 +25,9 @@ describe("issue run history card", () => {
     );
 
     expect(html).toContain("Run history");
+    expect(html).toContain("Status filter");
+    expect(html).toContain("Outcome filter");
+    expect(html).toContain("Model filter");
     expect(html).toContain("/issues/COL-184/runs/09cacfc1-1234");
     expect(html).toContain("1,240");
   });

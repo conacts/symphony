@@ -15,6 +15,7 @@ import type {
 } from "@symphony/contracts";
 import { RuntimeHealthEventFeed } from "@/features/runtime/components/runtime-health-event-feed";
 import { RuntimeHealthLogLevelChart } from "@/features/runtime/components/runtime-health-log-level-chart";
+import { RuntimeHealthMachineLoadChart } from "@/features/runtime/components/runtime-health-machine-load-chart";
 import { buildRuntimeHealthViewModel } from "@/features/runtime/model/runtime-health-view-model";
 
 export function RuntimeHealthView(input: {
@@ -40,17 +41,23 @@ export function RuntimeHealthView(input: {
 
       {viewModel ? (
         <>
-          <section className="space-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight">Runtime health</h1>
-            <p className="text-sm text-muted-foreground">
-              Operator diagnostics for scheduler heartbeat, runtime readiness, and recent runtime event pressure.
+          <section className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
+              Runtime heartbeat
             </p>
+            <div className="space-y-1">
+              <h1 className="text-3xl font-semibold tracking-tight">Runtime health</h1>
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                A compact operator view of scheduler heartbeat, machine pressure, and the
+                latest runtime event stream.
+              </p>
+            </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             {viewModel.summaryCards.map((card) => (
               <Card key={card.label}>
-                <CardHeader>
+                <CardHeader className="space-y-1 pb-2">
                   <CardDescription>{card.label}</CardDescription>
                   <CardTitle className="text-3xl">{card.value}</CardTitle>
                 </CardHeader>
@@ -63,12 +70,32 @@ export function RuntimeHealthView(input: {
 
           <section className="grid gap-6 xl:grid-cols-2">
             <RuntimeHealthLogLevelChart rows={viewModel.logLevelChartRows} />
+            <RuntimeHealthMachineLoadChart rows={viewModel.machineLoadChartRows} />
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Heartbeat</CardTitle>
+                <CardDescription>
+                  Scheduler timestamps and cycle duration for the latest runtime snapshot.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 text-sm text-muted-foreground md:grid-cols-2">
+                {viewModel.heartbeatRows.map((row) => (
+                  <div key={row.label}>
+                    <p className="font-medium text-foreground">{row.label}</p>
+                    <p>{row.value}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Active incidents</CardTitle>
+                <CardTitle>Runtime incidents</CardTitle>
                 <CardDescription>
-                  The shortest path to understanding whether operator attention is needed.
+                  The most relevant runtime alerts surfaced from the current log sample.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
@@ -83,83 +110,11 @@ export function RuntimeHealthView(input: {
             </Card>
           </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Machine load</CardTitle>
-              <CardDescription>
-                Current host pressure sampled for the active runtime process.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-3">
-              {viewModel.machineLoadCards.map((row) => (
-                <div key={row.label} className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">{row.label}</p>
-                  <p className="mt-2 text-lg font-medium">{row.value}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{row.detail}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <section className="grid gap-6 xl:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Health signals</CardTitle>
-                <CardDescription>
-                  High-signal checks for the active runtime process.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                {viewModel.signalRows.map((row) => (
-                  <div key={row.label} className="rounded-xl border border-border/70 p-4">
-                    <p className="text-sm text-muted-foreground">{row.label}</p>
-                    <p className="mt-2 text-lg font-medium">{row.value}</p>
-                    <p className="mt-2 text-sm text-muted-foreground">{row.detail}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Scheduler heartbeat</CardTitle>
-                <CardDescription>
-                  Most recent poller timestamps and cycle timing.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 text-sm text-muted-foreground md:grid-cols-2">
-                {viewModel.heartbeatRows.map((row) => (
-                  <div key={row.label}>
-                    <p className="font-medium text-foreground">{row.label}</p>
-                    <p>{row.value}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </section>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Runtime storage and cadence</CardTitle>
-              <CardDescription>
-                Static runtime health facts that are still important during investigations.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4 text-sm text-muted-foreground md:grid-cols-2 xl:grid-cols-4">
-              {viewModel.storageRows.map((row) => (
-                <div key={row.label}>
-                  <p className="font-medium text-foreground">{row.label}</p>
-                  <p className="break-words">{row.value}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
           <RuntimeHealthEventFeed rows={viewModel.recentEventRows} />
         </>
       ) : input.loading ? (
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }, (_, index) => (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {Array.from({ length: 5 }, (_, index) => (
             <Card key={index}>
               <CardHeader>
                 <Skeleton className="h-4 w-24" />

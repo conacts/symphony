@@ -11,12 +11,12 @@ export type OverviewSuccessMetricsViewModel = {
     value: string;
     detail: string;
   }>;
-  trendRows: Array<{
+  completionRows: Array<{
     date: string;
     label: string;
     startedIssueCount: number;
     deliveredIssueCount: number;
-    maxTurnFailureCount: number;
+    runsPerDeliveredIssue: number | null;
   }>;
   diagnostics: Array<{
     label: string;
@@ -28,12 +28,55 @@ export type OverviewSuccessMetricsViewModel = {
 export function buildOverviewSuccessMetricsViewModel(
   result: SymphonyForensicsSuccessMetricsResult
 ): OverviewSuccessMetricsViewModel {
+  const completedIssueCount = result.executive.deliveredIssueCount;
+  const daysCovered = Math.max(1, result.daily.length);
+  const deliveryVelocity = completedIssueCount / daysCovered;
+  const runsPerDeliveredIssue =
+    completedIssueCount === 0
+      ? null
+      : result.diagnostics.startedRunCount / completedIssueCount;
+
   return {
     cards: [
       {
+        label: "Delivered issues",
+        value: formatCount(completedIssueCount),
+        detail: `Completed across ${formatCount(daysCovered)} days in the selected window.`
+      },
+      {
+        label: "Delivery velocity",
+        value: formatRate(deliveryVelocity),
+        detail: "Average delivered issues per day in the selected window."
+      },
+      {
+        label: "Runs per delivered issue",
+        value:
+          runsPerDeliveredIssue === null
+            ? "n/a"
+            : formatRate(runsPerDeliveredIssue),
+        detail: "Average started runs required to land a completed issue."
+      },
+      {
+        label: "Delivery retries",
+        value: formatPercent(result.executive.deliveryRetryRate),
+        detail: "Delivered issues that required more than one run."
+      }
+    ],
+    completionRows: result.daily.map((row) => ({
+      date: row.date,
+      label: formatDayLabel(row.date),
+      startedIssueCount: row.startedIssueCount,
+      deliveredIssueCount: row.deliveredIssueCount,
+      runsPerDeliveredIssue:
+        row.deliveredIssueCount === 0
+          ? null
+          : row.startedRunCount / row.deliveredIssueCount
+    })),
+    diagnostics: [
+      {
         label: "Issue delivery rate",
         value: formatPercent(result.executive.issueDeliveryRate),
-        detail: `${formatCount(result.executive.deliveredIssueCount)} of ${formatCount(result.executive.startedIssueCount)} started issues reported delivery.`
+        detail: `${formatCount(completedIssueCount)} of ${formatCount(result.executive.startedIssueCount)} started issues reported delivery.`
       },
       {
         label: "Median time to delivery",
@@ -52,35 +95,6 @@ export function buildOverviewSuccessMetricsViewModel(
         detail: "Includes cached input so Pi-heavy work is not understated."
       },
       {
-        label: "Delivery retries",
-        value: formatPercent(result.executive.deliveryRetryRate),
-        detail: "Delivered issues that required more than one run."
-      }
-    ],
-    trendRows: result.daily.map((row) => ({
-      date: row.date,
-      label: formatDayLabel(row.date),
-      startedIssueCount: row.startedIssueCount,
-      deliveredIssueCount: row.deliveredIssueCount,
-      maxTurnFailureCount: row.maxTurnFailureCount
-    })),
-    diagnostics: [
-      {
-        label: "Max-turn failures",
-        value: formatPercent(result.executive.maxTurnFailureRate),
-        detail: `${formatCount(result.daily.reduce((sum, row) => sum + row.maxTurnFailureCount, 0))} max-turn failures across ${formatCount(result.diagnostics.startedRunCount)} runs in this window.`
-      },
-      {
-        label: "Startup failures",
-        value: formatPercent(result.diagnostics.startupFailureRate),
-        detail: "Runs that failed before the agent could make meaningful progress."
-      },
-      {
-        label: "Rate-limited runs",
-        value: formatPercent(result.diagnostics.rateLimitedRunRate),
-        detail: "Runs interrupted by provider rate limiting."
-      },
-      {
         label: "Cached input share",
         value:
           result.diagnostics.medianCachedInputShareDeliveredIssues === null
@@ -90,6 +104,17 @@ export function buildOverviewSuccessMetricsViewModel(
       }
     ]
   };
+}
+
+function formatRate(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "n/a";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: value >= 10 ? 0 : 1
+  }).format(value);
 }
 
 function formatDayLabel(value: string): string {

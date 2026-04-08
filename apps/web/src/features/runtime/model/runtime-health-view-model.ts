@@ -28,6 +28,16 @@ export type RuntimeHealthViewModel = {
     value: string;
     detail: string;
   }>;
+  machineLoadChartRows: Array<{
+    label: string;
+    value: number;
+    valueLabel: string;
+    threshold: number;
+    status: "healthy" | "warning" | "critical" | "unknown";
+    detail: string;
+    capturedAt: string | null;
+    samplePath: string | null;
+  }>;
   signalRows: Array<{
     label: string;
     value: string;
@@ -68,7 +78,7 @@ export function buildRuntimeHealthViewModel(
     input.poller.lastCompletedAt
   );
   const lastSuccessAgeMs = getAgeMs(input.poller.lastSucceededAt, now);
-  const recentLogs = sortLogs(runtimeLogs).slice(0, 12);
+  const recentLogs = sortLogs(runtimeLogs);
   const recentWarnings = recentLogs.filter((entry) => entry.level === "warn");
   const recentErrors = recentLogs.filter((entry) => entry.level === "error");
   const latestAlert = recentErrors[0] ?? recentWarnings[0] ?? null;
@@ -154,6 +164,7 @@ export function buildRuntimeHealthViewModel(
           : "Machine load sampling has not produced a host snapshot yet."
       }
     ],
+    machineLoadChartRows: buildMachineLoadChartRows(machineLoad),
     signalRows: [
       {
         label: "Database readiness",
@@ -277,6 +288,105 @@ function sortLogs(runtimeLogs: SymphonyRuntimeLogsResult | null) {
     (left, right) =>
       Date.parse(right.recordedAt) - Date.parse(left.recordedAt)
   );
+}
+
+function buildMachineLoadChartRows(
+  machineLoad: SymphonyRuntimeHealthResult["machineLoad"]
+): RuntimeHealthViewModel["machineLoadChartRows"] {
+  const cpuThreshold = 80;
+  const memoryThreshold = 85;
+  const diskThreshold = 90;
+
+  if (!machineLoad) {
+    return [
+      {
+        label: "CPU",
+        value: 0,
+        valueLabel: "n/a",
+        threshold: cpuThreshold,
+        status: "unknown",
+        detail: "No CPU sample captured yet.",
+        capturedAt: null,
+        samplePath: null
+      },
+      {
+        label: "Memory",
+        value: 0,
+        valueLabel: "n/a",
+        threshold: memoryThreshold,
+        status: "unknown",
+        detail: "No memory sample captured yet.",
+        capturedAt: null,
+        samplePath: null
+      },
+      {
+        label: "Disk",
+        value: 0,
+        valueLabel: "n/a",
+        threshold: diskThreshold,
+        status: "unknown",
+        detail: "No disk sample captured yet.",
+        capturedAt: null,
+        samplePath: null
+      }
+    ];
+  }
+
+  return [
+    {
+      label: "CPU",
+      value: machineLoad.cpuPercent ?? 0,
+      valueLabel: formatWholePercent(machineLoad.cpuPercent),
+      threshold: cpuThreshold,
+      status: getLoadStatus(machineLoad.cpuPercent, cpuThreshold),
+      detail: `Host sample captured at ${formatTimestamp(machineLoad.capturedAt)}.`,
+      capturedAt: machineLoad.capturedAt,
+      samplePath: machineLoad.samplePath
+    },
+    {
+      label: "Memory",
+      value: machineLoad.memoryPercent,
+      valueLabel: formatWholePercent(machineLoad.memoryPercent),
+      threshold: memoryThreshold,
+      status: getLoadStatus(machineLoad.memoryPercent, memoryThreshold),
+      detail: `${formatBytes(machineLoad.memoryUsedBytes)} used of ${formatBytes(
+        machineLoad.memoryTotalBytes
+      )}.`,
+      capturedAt: machineLoad.capturedAt,
+      samplePath: machineLoad.samplePath
+    },
+    {
+      label: "Disk",
+      value: machineLoad.diskPercent ?? 0,
+      valueLabel: formatWholePercent(machineLoad.diskPercent),
+      threshold: diskThreshold,
+      status: getLoadStatus(machineLoad.diskPercent, diskThreshold),
+      detail: machineLoad.samplePath
+        ? `Filesystem sample for ${machineLoad.samplePath}.`
+        : "Workspace filesystem sample was not available.",
+      capturedAt: machineLoad.capturedAt,
+      samplePath: machineLoad.samplePath
+    }
+  ];
+}
+
+function getLoadStatus(
+  value: number | null | undefined,
+  threshold: number
+): "healthy" | "warning" | "critical" | "unknown" {
+  if (value === null || value === undefined) {
+    return "unknown";
+  }
+
+  if (value >= threshold) {
+    return "critical";
+  }
+
+  if (value >= threshold - 10) {
+    return "warning";
+  }
+
+  return "healthy";
 }
 
 function buildLoudestSourceLabel(

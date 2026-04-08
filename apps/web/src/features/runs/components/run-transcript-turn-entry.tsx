@@ -389,9 +389,7 @@ function PiResponseMeta(input: {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
       <span>
-        Tokens {formatCount(input.entry.totalTokens)} · In {formatCount(input.entry.inputTokens)} ·
-        {" "}
-        Cached {formatCount(input.entry.cachedInputTokens)} · Out {formatCount(input.entry.outputTokens)}
+        Total tokens {formatCount(input.entry.totalTokens)}
       </span>
       {input.entry.responseTimestamp ? (
         <span>{formatTimestamp(input.entry.responseTimestamp)}</span>

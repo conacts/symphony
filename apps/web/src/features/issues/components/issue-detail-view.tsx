@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
@@ -13,8 +12,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 import type { SymphonyForensicsIssueDetailResult } from "@symphony/contracts";
-import { buildIssueTimelineHref } from "@/core/control-plane-routes";
-import { IssueFailureSignalsCard } from "@/features/issues/components/issue-failure-signals-card";
+import { IssueRunMachineLoadChart } from "@/features/issues/components/issue-run-machine-load-chart";
 import { IssueRunHistoryCard } from "@/features/issues/components/issue-run-history-card";
 import { IssueRunTokenChart } from "@/features/issues/components/issue-run-token-chart";
 import { buildIssueDetailViewModel } from "@/features/issues/model/issue-view-model";
@@ -24,7 +22,6 @@ export function IssueDetailView(input: {
   error: string | null;
   issueDetail: SymphonyForensicsIssueDetailResult | null;
   loading: boolean;
-  issueIdentifier: string;
 }) {
   const viewModel = input.issueDetail
     ? buildIssueDetailViewModel(input.issueDetail)
@@ -41,107 +38,41 @@ export function IssueDetailView(input: {
 
       {viewModel ? (
         <>
-          <section className="flex flex-col gap-2">
-            <h1 className="text-3xl font-semibold tracking-tight">Issue runs</h1>
-            <p className="text-sm text-muted-foreground">
-              Run history is the primary surface here. Timeline and runtime debugging move to the dedicated activity page.
-            </p>
-          </section>
-
-          <section className="grid gap-5 md:grid-cols-3">
-            {viewModel.metrics.map((metric) => (
-              <Card key={metric.label}>
-                <CardHeader>
-                  <CardDescription>{metric.label}</CardDescription>
-                  <CardTitle className="break-all text-3xl">{metric.value}</CardTitle>
-                  {metric.detail ? (
-                    <CardDescription>{metric.detail}</CardDescription>
-                  ) : null}
-                </CardHeader>
-              </Card>
-            ))}
+          <section className="grid gap-6 xl:grid-cols-2">
+            <IssueRunTokenChart rows={viewModel.tokenChartRows} />
+            <IssueRunMachineLoadChart rows={viewModel.machineLoadChartRows} />
           </section>
 
           <IssueRunHistoryCard rows={viewModel.rows} />
-
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {viewModel.machineLoadCards.map((card) => (
-              <Card key={card.label}>
-                <CardHeader>
-                  <CardDescription>{card.label}</CardDescription>
-                  <CardTitle className="break-all text-2xl">{card.value}</CardTitle>
-                  <CardDescription>{card.detail}</CardDescription>
+        </>
+      ) : input.loading ? (
+        <div className="flex flex-col gap-6">
+          <section className="grid gap-6 xl:grid-cols-2">
+            {Array.from({ length: 2 }, (_, index) => (
+              <Card key={index}>
+                <CardHeader className="space-y-2">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-4 w-72" />
                 </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-72 w-full" />
+                </CardContent>
               </Card>
             ))}
           </section>
 
-          <section>
-            <IssueRunTokenChart rows={viewModel.tokenChartRows} />
-          </section>
-
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-            <section className="grid gap-4 md:grid-cols-3">
-              {viewModel.tokenCards.map((card) => (
-                <Card key={card.label}>
-                  <CardHeader>
-                    <CardDescription>{card.label}</CardDescription>
-                    <CardTitle className="break-all text-2xl">{card.value}</CardTitle>
-                    <CardDescription>{card.detail}</CardDescription>
-                  </CardHeader>
-                </Card>
-              ))}
-            </section>
-
-            <section className="grid gap-4 md:grid-cols-3">
-              {viewModel.failureCards.map((card) => (
-                <Card key={card.label}>
-                  <CardHeader>
-                    <CardDescription>{card.label}</CardDescription>
-                    <CardTitle className="break-all text-2xl">{card.value}</CardTitle>
-                    <CardDescription>{card.detail}</CardDescription>
-                  </CardHeader>
-                </Card>
-              ))}
-            </section>
-
-            <IssueFailureSignalsCard rows={viewModel.recentFailureRows} />
-          </section>
-
           <Card>
-            <CardHeader>
-              <CardTitle>Issue activity</CardTitle>
-              <CardDescription>
-                Tracker events, runtime logs, and deep debugging now live on a separate page so this screen can stay focused on run history.
-              </CardDescription>
+            <CardHeader className="space-y-2">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-64" />
             </CardHeader>
-            <CardContent>
-              <Link
-                href={buildIssueTimelineHref(input.issueIdentifier, {
-                  repo: input.issueDetail?.repositoryKey
-                })}
-                className="text-sm font-medium text-foreground underline underline-offset-4"
-              >
-                Open issue activity
-              </Link>
+            <CardContent className="flex flex-col gap-3">
+              {Array.from({ length: 4 }, (_, index) => (
+                <Skeleton key={index} className="h-10 w-full" />
+              ))}
             </CardContent>
           </Card>
-
-        </>
-      ) : input.loading ? (
-        <section className="grid gap-4 md:grid-cols-3">
-          {Array.from({ length: 3 }, (_, index) => (
-            <Card key={index}>
-              <CardHeader>
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-8 w-20" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-40" />
-              </CardContent>
-            </Card>
-          ))}
-        </section>
+        </div>
       ) : (
         <Card>
           <CardHeader>

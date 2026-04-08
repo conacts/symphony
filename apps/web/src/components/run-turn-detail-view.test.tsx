@@ -29,10 +29,10 @@ describe("run turn detail view", () => {
     expect(html).toContain("Turn 1");
     expect(html).toContain("Operator prompt");
     expect(html).toContain("Reasoning");
-    expect(html).toContain("Execution log");
-    expect(html).toContain("Assistant output");
-    expect(html).toContain("In 120 · Cached 40 · Out 80");
-    expect(html).toContain("Tokens 240 · In 120 · Cached 40 · Out 80");
+    expect(html).toContain("Tool call");
+    expect(html).toContain("View full message");
+    expect(html).toContain("Total tokens 240");
+    expect(html).toContain("Total 240");
     expect(html).not.toContain("Openrouter / Responses");
   });
 
@@ -101,8 +101,8 @@ describe("run turn detail view", () => {
       />
     );
 
-    expect(html).toContain("Task timeline");
-    expect(html).toContain("Structured task-state updates captured during the turn.");
+    expect(html).toContain("Task queue");
+    expect(html).toContain("1 tasks");
     expect(html).toContain("Keep the patch scoped");
   });
 

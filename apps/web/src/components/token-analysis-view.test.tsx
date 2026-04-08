@@ -10,7 +10,7 @@ import {
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
 
 describe("token analysis view", () => {
-  it("renders cross-run token analysis surfaces", () => {
+  it("renders the dense token analysis surfaces", () => {
     const html = renderToStaticMarkup(
       <TokenAnalysisView
         connection={buildSymphonyDashboardConnectionState()}
@@ -34,13 +34,21 @@ describe("token analysis view", () => {
             }
           ]
         })}
+        modelOptions={[
+          {
+            value: "xiaomi/mimo-v2-pro",
+            label: "xiaomi/mimo-v2-pro"
+          }
+        ]}
+        timeRange="7d"
+        onModelChange={() => {}}
+        onTimeRangeChange={() => {}}
       />
     );
 
     expect(html).toContain("Token analysis");
     expect(html).toContain("Run token load");
-    expect(html).toContain("Turn token load");
-    expect(html).toContain("Issue token pressure");
-    expect(html).toContain("Token hotspots");
+    expect(html).toContain("Issue concentration");
+    expect(html).toContain("Total tokens");
   });
 });

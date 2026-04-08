@@ -30,9 +30,9 @@ export function TokenIssueChart(input: {
   return (
     <Card>
       <CardHeader className="flex flex-col gap-1">
-        <CardTitle>Issue token pressure</CardTitle>
+        <CardTitle>Issue concentration</CardTitle>
         <CardDescription>
-          Total token load across the hottest issues in the current sample.
+          Total token load across the hottest issues in the selected window.
         </CardDescription>
       </CardHeader>
       <CardContent>

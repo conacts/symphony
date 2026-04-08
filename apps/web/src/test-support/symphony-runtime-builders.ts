@@ -206,19 +206,19 @@ export function buildSymphonyRuntimeStateResult(
 
   return {
     counts: {
-      running: 1,
-      retrying: 1
+      running: running.length,
+      retrying: retrying.length
     },
     running,
     retrying,
     agentTotals: {
-      inputTokens: 200,
-      outputTokens: 120,
-      totalTokens: 320,
-      secondsRunning: 95
+      inputTokens: running.reduce((sum, entry) => sum + entry.tokens.inputTokens, 0),
+      outputTokens: running.reduce((sum, entry) => sum + entry.tokens.outputTokens, 0),
+      totalTokens: running.reduce((sum, entry) => sum + entry.tokens.totalTokens, 0),
+      secondsRunning: running.length * 95
     },
     rateLimits: {
-      remaining: 3
+      remaining: Math.max(0, 7 - retrying.length)
     },
     ...Object.fromEntries(
       Object.entries(overrides).filter(
@@ -434,20 +434,134 @@ export function buildSymphonyForensicsIssueListResult(
         flags: ["rate_limited", "max_turns", "many_retries"],
         insertedAt: "2026-03-31T18:00:00.000Z",
         updatedAt: "2026-03-31T18:05:00.000Z"
+      },
+      {
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
+        issueId: "issue_234",
+        issueIdentifier: "COL-168",
+        latestRunStartedAt: "2026-03-30T16:20:00.000Z",
+        latestRunId: "run_234",
+        latestRunStatus: "finished",
+        latestRunOutcome: "completed",
+        runCount: 5,
+        completedRunCount: 3,
+        problemRunCount: 2,
+        problemRate: 0.4,
+        latestProblemOutcome: "completed",
+        lastCompletedOutcome: "completed",
+        latestDeliveryStatus: "completed",
+        latestDeliveryReportedAt: "2026-03-30T16:31:00.000Z",
+        latestDeliveryRunId: "run_234",
+        latestDeliveryPrUrl: "https://github.com/example/repo/pull/168",
+        deliveredRunCount: 3,
+        retryCount: 1,
+        latestRetryAttempt: 2,
+        rateLimitedCount: 0,
+        maxTurnsCount: 1,
+        startupFailureCount: 0,
+        totalInputTokens: 9400,
+        totalCachedInputTokens: 1800,
+        totalOutputTokens: 4100,
+        totalTokens: 15300,
+        avgDurationSeconds: 360,
+        avgTurns: 4.8,
+        avgEvents: 11,
+        latestErrorClass: "max_turns",
+        latestErrorMessage: "Reached max turns before completion.",
+        latestActivityAt: "2026-03-30T16:29:00.000Z",
+        flags: ["max_turns"],
+        insertedAt: "2026-03-30T16:20:00.000Z",
+        updatedAt: "2026-03-30T16:29:00.000Z"
+      },
+      {
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
+        issueId: "issue_345",
+        issueIdentifier: "COL-169",
+        latestRunStartedAt: "2026-03-29T14:15:00.000Z",
+        latestRunId: "run_345",
+        latestRunStatus: "retrying",
+        latestRunOutcome: "rate_limited",
+        runCount: 4,
+        completedRunCount: 2,
+        problemRunCount: 2,
+        problemRate: 0.5,
+        latestProblemOutcome: "rate_limited",
+        lastCompletedOutcome: "completed",
+        latestDeliveryStatus: "completed",
+        latestDeliveryReportedAt: "2026-03-29T14:28:00.000Z",
+        latestDeliveryRunId: "run_345",
+        latestDeliveryPrUrl: "https://github.com/example/repo/pull/169",
+        deliveredRunCount: 2,
+        retryCount: 2,
+        latestRetryAttempt: 2,
+        rateLimitedCount: 2,
+        maxTurnsCount: 0,
+        startupFailureCount: 0,
+        totalInputTokens: 8600,
+        totalCachedInputTokens: 1400,
+        totalOutputTokens: 3600,
+        totalTokens: 13600,
+        avgDurationSeconds: 305,
+        avgTurns: 4.1,
+        avgEvents: 10,
+        latestErrorClass: "rate_limit_exceeded",
+        latestErrorMessage: "Upstream rate limit reached.",
+        latestActivityAt: "2026-03-29T14:20:00.000Z",
+        flags: ["rate_limited", "many_retries"],
+        insertedAt: "2026-03-29T14:15:00.000Z",
+        updatedAt: "2026-03-29T14:20:00.000Z"
+      },
+      {
+        repositoryKey: DEFAULT_REPOSITORY_KEY,
+        issueId: "issue_456",
+        issueIdentifier: "COL-170",
+        latestRunStartedAt: "2026-03-28T11:10:00.000Z",
+        latestRunId: "run_456",
+        latestRunStatus: "finished",
+        latestRunOutcome: "startup_failure",
+        runCount: 2,
+        completedRunCount: 0,
+        problemRunCount: 2,
+        problemRate: 1,
+        latestProblemOutcome: "startup_failure",
+        lastCompletedOutcome: null,
+        latestDeliveryStatus: null,
+        latestDeliveryReportedAt: null,
+        latestDeliveryRunId: null,
+        latestDeliveryPrUrl: null,
+        deliveredRunCount: 0,
+        retryCount: 1,
+        latestRetryAttempt: 1,
+        rateLimitedCount: 0,
+        maxTurnsCount: 0,
+        startupFailureCount: 2,
+        totalInputTokens: 1400,
+        totalCachedInputTokens: 0,
+        totalOutputTokens: 300,
+        totalTokens: 1700,
+        avgDurationSeconds: 88,
+        avgTurns: 1.3,
+        avgEvents: 3,
+        latestErrorClass: "workspace_boot_failure",
+        latestErrorMessage: "Workspace bootstrap failed.",
+        latestActivityAt: "2026-03-28T11:12:00.000Z",
+        flags: ["startup_failure", "no_success"],
+        insertedAt: "2026-03-28T11:10:00.000Z",
+        updatedAt: "2026-03-28T11:12:00.000Z"
       }
     ],
     totals: {
-      issueCount: 1,
-      runCount: 3,
-      completedRunCount: 1,
-      problemRunCount: 2,
-      rateLimitedCount: 1,
-      maxTurnsCount: 1,
-      startupFailureCount: 0,
-      inputTokens: 6000,
-      cachedInputTokens: 1200,
-      outputTokens: 2500,
-      totalTokens: 9700
+      issueCount: 4,
+      runCount: 14,
+      completedRunCount: 6,
+      problemRunCount: 8,
+      rateLimitedCount: 3,
+      maxTurnsCount: 2,
+      startupFailureCount: 2,
+      inputTokens: 24_900,
+      cachedInputTokens: 4_400,
+      outputTokens: 10_500,
+      totalTokens: 39_800
     },
     filters: {
       limit: null,
@@ -462,9 +576,9 @@ export function buildSymphonyForensicsIssueListResult(
       sortDirection: "desc"
     },
     facets: {
-      repositories: [DEFAULT_REPOSITORY_KEY],
-      outcomes: ["completed", "max_turns", "rate_limited"],
-      errorClasses: ["max_turns", "rate_limit_exceeded"]
+      repositories: [DEFAULT_REPOSITORY_KEY, "symphony/agents", "symphony/runtime"],
+      outcomes: ["completed", "max_turns", "rate_limited", "startup_failure"],
+      errorClasses: ["max_turns", "rate_limit_exceeded", "workspace_boot_failure"]
     },
     ...overrides
   };
@@ -990,33 +1104,33 @@ export function buildSymphonyForensicsSuccessMetricsResult(
 ): SymphonyForensicsSuccessMetricsResult {
   return {
     window: {
-      timeRange: "30d",
-      startedAfter: "2026-03-01T00:00:00.000Z",
+      timeRange: "7d",
+      startedAfter: "2026-03-25T00:00:00.000Z",
       startedBefore: "2026-03-31T23:59:59.999Z"
     },
     executive: {
-      startedIssueCount: 12,
-      deliveredIssueCount: 8,
-      issueDeliveryRate: 8 / 12,
-      medianTokensPerDeliveredIssue: 1420,
-      medianTimeToDeliveredIssueSeconds: 7_200,
-      deliveryRetryRate: 0.5,
-      maxTurnFailureRate: 0.125
+      startedIssueCount: 24,
+      deliveredIssueCount: 16,
+      issueDeliveryRate: 16 / 24,
+      medianTokensPerDeliveredIssue: 1_480,
+      medianTimeToDeliveredIssueSeconds: 6_900,
+      deliveryRetryRate: 0.625,
+      maxTurnFailureRate: 0.16666666666666666
     },
     diagnostics: {
-      startedRunCount: 16,
-      deliveredRunCount: 8,
+      startedRunCount: 36,
+      deliveredRunCount: 18,
       blockedIssueCount: 1,
       partialIssueCount: 2,
       missingDeliveryReportFailureCount: 1,
-      startupFailureRate: 0.0625,
-      rateLimitedRunRate: 0.125,
-      highMachinePressureRunRate: 0.1875,
-      medianCachedInputShareDeliveredIssues: 0.42
+      startupFailureRate: 0.08333333333333333,
+      rateLimitedRunRate: 0.16666666666666666,
+      highMachinePressureRunRate: 0.25,
+      medianCachedInputShareDeliveredIssues: 0.44
     },
     daily: [
       {
-        date: "2026-03-29",
+        date: "2026-03-25",
         startedIssueCount: 2,
         deliveredIssueCount: 1,
         startedRunCount: 3,
@@ -1024,14 +1138,58 @@ export function buildSymphonyForensicsSuccessMetricsResult(
         maxTurnFailureCount: 0,
         startupFailureCount: 0,
         rateLimitedRunCount: 0,
-        totalTokens: 930
+        totalTokens: 900
+      },
+      {
+        date: "2026-03-26",
+        startedIssueCount: 3,
+        deliveredIssueCount: 2,
+        startedRunCount: 4,
+        deliveredRunCount: 2,
+        maxTurnFailureCount: 1,
+        startupFailureCount: 0,
+        rateLimitedRunCount: 1,
+        totalTokens: 1_150
+      },
+      {
+        date: "2026-03-27",
+        startedIssueCount: 4,
+        deliveredIssueCount: 2,
+        startedRunCount: 5,
+        deliveredRunCount: 2,
+        maxTurnFailureCount: 1,
+        startupFailureCount: 1,
+        rateLimitedRunCount: 0,
+        totalTokens: 1_480
+      },
+      {
+        date: "2026-03-28",
+        startedIssueCount: 5,
+        deliveredIssueCount: 3,
+        startedRunCount: 7,
+        deliveredRunCount: 3,
+        maxTurnFailureCount: 2,
+        startupFailureCount: 0,
+        rateLimitedRunCount: 1,
+        totalTokens: 1_920
+      },
+      {
+        date: "2026-03-29",
+        startedIssueCount: 4,
+        deliveredIssueCount: 3,
+        startedRunCount: 6,
+        deliveredRunCount: 3,
+        maxTurnFailureCount: 0,
+        startupFailureCount: 0,
+        rateLimitedRunCount: 0,
+        totalTokens: 1_710
       },
       {
         date: "2026-03-30",
-        startedIssueCount: 4,
-        deliveredIssueCount: 3,
-        startedRunCount: 5,
-        deliveredRunCount: 3,
+        startedIssueCount: 3,
+        deliveredIssueCount: 2,
+        startedRunCount: 4,
+        deliveredRunCount: 2,
         maxTurnFailureCount: 1,
         startupFailureCount: 0,
         rateLimitedRunCount: 1,
@@ -1040,13 +1198,13 @@ export function buildSymphonyForensicsSuccessMetricsResult(
       {
         date: "2026-03-31",
         startedIssueCount: 3,
-        deliveredIssueCount: 2,
-        startedRunCount: 4,
-        deliveredRunCount: 2,
+        deliveredIssueCount: 3,
+        startedRunCount: 7,
+        deliveredRunCount: 3,
         maxTurnFailureCount: 1,
         startupFailureCount: 1,
         rateLimitedRunCount: 0,
-        totalTokens: 1_280
+        totalTokens: 1_980
       }
     ],
     ...overrides

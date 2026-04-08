@@ -49,28 +49,20 @@ export type IssueActivityViewModel = {
   activityRows: IssueActivityRow[];
 };
 
+export type IssueRunMachineLoadChartRow = {
+  runLabel: string;
+  startedAt: string;
+  cpuPercent: number | null;
+  memoryPercent: number | null;
+  diskPercent: number | null;
+  pressureHit: boolean;
+};
+
 export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult) {
   const successRate =
     input.totals.runCount === 0
       ? 0
       : input.totals.completedRunCount / input.totals.runCount;
-  const mostActiveIssue = [...input.issues].sort(
-    (left, right) => right.runCount - left.runCount
-  )[0];
-  const highestProblemIssue = [...input.issues].sort(
-    (left, right) => right.problemRate - left.problemRate
-  )[0];
-  const mostRetriedIssue = [...input.issues].sort(
-    (left, right) => right.retryCount - left.retryCount
-  )[0];
-  const newestProblemIssue = [...input.issues]
-    .filter(
-      (issue) =>
-        issue.latestProblemOutcome !== null || issue.latestErrorMessage !== null
-    )
-    .sort((left, right) =>
-      (right.latestActivityAt ?? "").localeCompare(left.latestActivityAt ?? "")
-    )[0];
   const outcomeChartRows = [...input.issues]
     .sort((left, right) => right.runCount - left.runCount)
     .slice(0, 6)
@@ -112,57 +104,7 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
       {
         label: "Success rate",
         value: formatPercent(successRate)
-      },
-      {
-        label: "Rate-limited runs",
-        value: formatCount(input.totals.rateLimitedCount)
-      },
-      {
-        label: "Max-turn pauses",
-        value: formatCount(input.totals.maxTurnsCount)
       }
-    ],
-    focusCards: [
-      buildIssueFocusCard({
-        label: "Most active issue",
-        issue: mostActiveIssue,
-        value: mostActiveIssue ? mostActiveIssue.issueIdentifier : "No issues",
-        detail: mostActiveIssue
-          ? `${formatCount(mostActiveIssue.runCount)} runs recorded.`
-          : "No issue activity has been recorded yet."
-      }),
-      buildIssueFocusCard({
-        label: "Highest problem rate",
-        issue: highestProblemIssue,
-        value: highestProblemIssue
-          ? `${highestProblemIssue.issueIdentifier} · ${formatPercent(highestProblemIssue.problemRate)}`
-          : "No issues",
-        detail: highestProblemIssue
-          ? formatOutcomeLabel(highestProblemIssue.latestProblemOutcome)
-          : "No issue activity has been recorded yet."
-      }),
-      buildIssueFocusCard({
-        label: "Most retries",
-        issue: mostRetriedIssue,
-        value: mostRetriedIssue
-          ? `${mostRetriedIssue.issueIdentifier} · ${formatCount(mostRetriedIssue.retryCount)}`
-          : "No retries",
-        detail: mostRetriedIssue
-          ? formatErrorClassLabel(mostRetriedIssue.latestErrorClass)
-          : "No issues are currently retry-heavy."
-      }),
-      buildIssueFocusCard({
-        label: "Latest problem signal",
-        issue: newestProblemIssue,
-        value: newestProblemIssue
-          ? newestProblemIssue.issueIdentifier
-          : "No recent failures",
-        detail: newestProblemIssue
-          ? newestProblemIssue.latestErrorMessage ??
-            formatOutcomeLabel(newestProblemIssue.latestProblemOutcome) ??
-            "Problem outcome unavailable."
-          : "The current issue set does not show a recent failure message."
-      })
     ],
     outcomeChartRows,
     pressureChartRows,
@@ -265,6 +207,24 @@ export function buildIssueDetailViewModel(
         : max,
     null
   );
+  const machineLoadChartRows = recentRuns
+    .map((run, index) => ({
+      runLabel: buildIssueRunLabel(run.attempt, run.runId, index, recentRuns.length),
+      startedAt: formatTimestamp(run.startedAt),
+      cpuPercent: run.machineLoad?.maxCpuPercent ?? null,
+      memoryPercent: run.machineLoad?.maxMemoryPercent ?? null,
+      diskPercent: run.machineLoad?.maxDiskPercent ?? null,
+      pressureHit:
+        Boolean(run.machineLoad?.hadHighCpu) ||
+        Boolean(run.machineLoad?.hadHighMemory) ||
+        Boolean(run.machineLoad?.hadHighDisk)
+    }))
+    .filter(
+      (row): row is IssueRunMachineLoadChartRow =>
+        row.cpuPercent !== null ||
+        row.memoryPercent !== null ||
+        row.diskPercent !== null
+    );
 
   return {
     metrics: [
@@ -294,6 +254,7 @@ export function buildIssueDetailViewModel(
       cachedInputTokens: run.cachedInputTokens,
       outputTokens: run.outputTokens
     })),
+    machineLoadChartRows,
     tokenCards: [
       {
         label: "Issue input tokens",
@@ -376,6 +337,7 @@ export function buildIssueDetailViewModel(
       runHref: buildIssueRunHref(input.issueIdentifier, run.runId, {
         repo: input.repositoryKey
       }),
+      startedAtIso: run.startedAt,
       startedAt: formatTimestamp(run.startedAt),
       durationSeconds:
         run.durationSeconds === null ? "n/a" : formatDuration(run.durationSeconds),
@@ -465,23 +427,5 @@ export function buildIssueActivityViewModel(
             errorMessage: input.latestFailure.errorMessage ?? "n/a"
           },
     activityRows
-  };
-}
-
-function buildIssueFocusCard(input: {
-  label: string;
-  issue: SymphonyForensicsIssueListResult["issues"][number] | undefined;
-  value: string;
-  detail: string;
-}) {
-  return {
-    label: input.label,
-    href: input.issue
-      ? buildIssueHref(input.issue.issueIdentifier, {
-          repo: input.issue.repositoryKey
-        })
-      : null,
-    value: input.value,
-    detail: input.detail
   };
 }

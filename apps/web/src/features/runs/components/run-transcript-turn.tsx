@@ -2,13 +2,11 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Message,
   MessageContent,
   MessageResponse
 } from "@/components/ai-elements/message";
-import { formatCount } from "@/core/display-formatters";
 import { RunTranscriptTurnEntry } from "@/features/runs/components/run-transcript-turn-entry";
 import { buildTranscriptSections } from "@/features/runs/components/run-transcript-turn-sections";
 import type {
@@ -60,29 +58,15 @@ export function RunTranscriptTurn(input: {
       ) : null}
 
       {sections.map((section) => (
-        <section
-          key={section.key}
-          className="rounded-xl border border-border/70 bg-card/60 p-4"
-        >
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold tracking-tight">{section.label}</h3>
-              <p className="text-sm text-muted-foreground">{section.description}</p>
-            </div>
-            <Badge variant="secondary">
-              {formatCount(section.entries.length)} item{section.entries.length === 1 ? "" : "s"}
-            </Badge>
-          </div>
-          <div className="flex flex-col gap-4">
-            {section.entries.map((entry) => (
-              <RunTranscriptTurnEntry
-                key={entry.itemId}
-                entry={entry}
-                onOpenOverflow={input.onOpenOverflow}
-              />
-            ))}
-          </div>
-        </section>
+        <div key={section.key} className="flex flex-col gap-4">
+          {section.entries.map((entry) => (
+            <RunTranscriptTurnEntry
+              key={entry.itemId}
+              entry={entry}
+              onOpenOverflow={input.onOpenOverflow}
+            />
+          ))}
+        </div>
       ))}
     </div>
   );

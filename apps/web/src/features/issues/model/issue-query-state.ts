@@ -37,12 +37,9 @@ export function buildIssueQueryFromSearchParams(
   const sortDirection = parseSortDirection(searchParams.get("sortDirection"));
 
   return {
-    repo: parseOptionalFilter(searchParams.get("repo")),
     timeRange,
     startedAfter: buildStartedAfterForTimeRange(timeRange),
     startedBefore: undefined,
-    outcome: parseOptionalFilter(searchParams.get("outcome")),
-    errorClass: parseOptionalFilter(searchParams.get("errorClass")),
     sortBy,
     sortDirection
   };
@@ -55,18 +52,6 @@ export function buildIssueSearchParams(
 
   if (query.timeRange && query.timeRange !== "all") {
     searchParams.set("timeRange", query.timeRange);
-  }
-
-  if (query.repo) {
-    searchParams.set("repo", query.repo);
-  }
-
-  if (query.outcome) {
-    searchParams.set("outcome", query.outcome);
-  }
-
-  if (query.errorClass) {
-    searchParams.set("errorClass", query.errorClass);
   }
 
   if (query.sortBy && query.sortBy !== "lastActive") {
@@ -107,15 +92,6 @@ function parseSortDirection(
   }
 
   return "desc";
-}
-
-function parseOptionalFilter(value: string | null): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 export function buildStartedAfterForTimeRange(

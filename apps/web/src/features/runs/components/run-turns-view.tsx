@@ -11,6 +11,9 @@ import {
 } from "@/components/ui/card";
 import { buildAgentRunViewModel } from "@/features/runs/model/agent-run-view-model";
 import type { AgentRunResource } from "@/features/runs/hooks/use-agent-run";
+import { RunTurnActivityChart } from "@/features/runs/components/run-turn-activity-chart";
+import { RunTurnLatencyChart } from "@/features/runs/components/run-turn-latency-chart";
+import { RunTurnTokenChart } from "@/features/runs/components/run-turn-token-chart";
 import { RunTurnsCard } from "@/features/runs/components/run-turns-card";
 
 export function RunTurnsView(input: {
@@ -54,31 +57,10 @@ export function RunTurnsView(input: {
             </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-3">
-            <MetricCard
-              label="Turns"
-              value={viewModel.metrics.find((metric) => metric.label === "Turns")?.value ?? "0"}
-              detail={
-                viewModel.metrics.find((metric) => metric.label === "Turns")?.detail ??
-                "No turns were recorded."
-              }
-            />
-            <MetricCard
-              label="Tokens"
-              value={viewModel.metrics.find((metric) => metric.label === "Tokens")?.value ?? "0"}
-              detail={
-                viewModel.metrics.find((metric) => metric.label === "Tokens")?.detail ??
-                "No token usage was recorded."
-              }
-            />
-            <MetricCard
-              label="Workflow"
-              value={viewModel.metrics.find((metric) => metric.label === "Workflow")?.value ?? "n/a"}
-              detail={
-                viewModel.metrics.find((metric) => metric.label === "Workflow")?.detail ??
-                "Workflow state unavailable."
-              }
-            />
+          <section className="grid gap-4 xl:grid-cols-3">
+            <RunTurnTokenChart rows={viewModel.turnTokens.rows} />
+            <RunTurnLatencyChart rows={viewModel.turnLatency.rows} />
+            <RunTurnActivityChart rows={viewModel.transcriptTurns} />
           </section>
 
           <section className="flex flex-col gap-3">
@@ -110,21 +92,5 @@ export function RunTurnsView(input: {
         </Card>
       )}
     </div>
-  );
-}
-
-function MetricCard(input: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <Card className="border-border/70">
-      <CardHeader>
-        <CardDescription>{input.label}</CardDescription>
-        <CardTitle className="text-2xl">{input.value}</CardTitle>
-        <CardDescription>{input.detail}</CardDescription>
-      </CardHeader>
-    </Card>
   );
 }

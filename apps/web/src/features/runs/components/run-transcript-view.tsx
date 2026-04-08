@@ -12,15 +12,17 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { RunDebugPanel } from "@/features/runs/components/run-debug-panel";
-import { RunExecutionDurationChart } from "@/features/runs/components/run-execution-duration-chart";
-import { RunTurnLatencyChart } from "@/features/runs/components/run-turn-latency-chart";
+import { RunMachineLoadChart } from "@/features/runs/components/run-machine-load-chart";
 import { RunTurnTokenChart } from "@/features/runs/components/run-turn-token-chart";
 import { RunTurnsCard } from "@/features/runs/components/run-turns-card";
-import {
-  buildAgentRunViewModel
-} from "@/features/runs/model/agent-run-view-model";
+import { buildAgentRunViewModel } from "@/features/runs/model/agent-run-view-model";
 import type { AgentRunResource } from "@/features/runs/hooks/use-agent-run";
+import {
+  formatCount,
+  formatDuration,
+  formatStatusLabel,
+  formatTimestamp
+} from "@/core/display-formatters";
 
 const TRANSCRIPT_TURN_PAGE_SIZE = 6;
 
@@ -92,43 +94,60 @@ export function RunTranscriptView(input: {
         </Card>
       ) : null}
 
-      {viewModel ? (
+      {viewModel && input.resource ? (
         <>
-          <section className="flex flex-col gap-5">
+          <section className="flex flex-col gap-3">
             <div className="space-y-2">
               <h1 className="text-3xl font-semibold tracking-tight">
                 {viewModel.runTitle}
               </h1>
-              <p className="max-w-3xl text-sm text-muted-foreground">
-                {viewModel.statusSummary}
-              </p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">
+                  {viewModel.metadata.find((row) => row.label === "Model")?.value ??
+                    "Unavailable"}
+                </Badge>
+                <Badge variant="secondary">
+                  {formatStatusLabel(input.resource.runDetail.run.status)}
+                </Badge>
+                <Badge variant="secondary">
+                  {input.resource.runDetail.run.endedAt
+                    ? `Ended ${formatTimestamp(input.resource.runDetail.run.endedAt)}`
+                    : "Still running"}
+                </Badge>
+                <Badge variant="secondary">
+                  {`Started ${formatTimestamp(input.resource.runDetail.run.startedAt)}`}
+                </Badge>
+                <Badge variant="outline">
+                  {`${viewModel.metrics.find((metric) => metric.label === "Tokens")?.value ?? formatCount(input.resource.runDetail.run.totalTokens)} tokens`}
+                </Badge>
+                <Badge variant="outline">
+                  {input.resource.runDetail.run.durationSeconds === null
+                    ? "In progress"
+                    : formatDuration(input.resource.runDetail.run.durationSeconds)}
+                </Badge>
+              </div>
               {viewModel.failureSummary ? (
                 <p className="max-w-3xl text-sm text-destructive">
                   {viewModel.failureSummary}
                 </p>
               ) : null}
             </div>
+          </section>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {viewModel.metrics.slice(0, 4).map((metric) => (
-                <Card key={metric.label} className="border-border/70">
-                  <CardHeader className="space-y-1 pb-3">
-                    <CardDescription>{metric.label}</CardDescription>
-                    <CardTitle className="text-xl">{metric.value}</CardTitle>
-                  </CardHeader>
-                  {metric.detail ? (
-                    <CardContent className="pt-0 text-sm text-muted-foreground">
-                      {metric.detail}
-                    </CardContent>
-                  ) : null}
-                </Card>
-              ))}
-            </div>
+          <section
+            className={
+              input.resource.runDetail.run.machineLoad
+                ? "grid gap-4 xl:grid-cols-2"
+                : "grid gap-4"
+            }
+          >
+            <RunTurnTokenChart rows={viewModel.turnTokens.rows} />
+            <RunMachineLoadChart machineLoad={input.resource.runDetail.run.machineLoad} />
           </section>
 
           <RunTurnsCard
             title="Turns"
-            description="Runs aggregate into turns here. Open an individual turn to inspect its full transcript, commands, tools, reasoning, and task updates."
+            description="Sort by started, ended, or token load to scan the run history."
             rows={viewModel.turnRows}
           />
 
@@ -139,7 +158,7 @@ export function RunTranscriptView(input: {
                   Turn stream
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Newest turns first. Use this to scan prompt flow and execution shape before opening a full turn drilldown.
+                  Newest turns first. Use this to scan prompt flow before opening a full turn drilldown.
                 </p>
               </div>
               {transcriptTurns.length > 0 ? (
@@ -242,173 +261,6 @@ export function RunTranscriptView(input: {
                 </CardContent>
               </Card>
             )}
-          </section>
-
-          <section className="flex flex-col gap-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">
-                Turn tokens
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Turn-level token load split across input, cached input, and output.
-              </p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {viewModel.turnTokens.cards.map((card) => (
-                <Card key={card.label} className="border-border/70">
-                  <CardHeader className="space-y-1 pb-3">
-                    <CardDescription>{card.label}</CardDescription>
-                    <CardTitle className="text-lg break-all">{card.value}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0 text-sm text-muted-foreground">
-                    {card.detail}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <RunTurnTokenChart rows={viewModel.turnTokens.rows} />
-          </section>
-
-          <section className="flex flex-col gap-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">
-                Turn latency
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Turn-level wall-clock timing split across reasoning, commands, tools, and assistant output.
-              </p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {viewModel.turnLatency.cards.map((card) => (
-                <Card key={card.label} className="border-border/70">
-                  <CardHeader className="space-y-1 pb-3">
-                    <CardDescription>{card.label}</CardDescription>
-                    <CardTitle className="text-lg break-all">{card.value}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0 text-sm text-muted-foreground">
-                    {card.detail}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <RunTurnLatencyChart rows={viewModel.turnLatency.rows} />
-          </section>
-
-          <section className="flex flex-col gap-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">
-                Execution performance
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Local command and tool execution hotspots for this run before you read the full conversation.
-              </p>
-            </div>
-            <div className="grid gap-4 xl:grid-cols-2">
-              <RunExecutionDurationChart
-                title="Command executions"
-                description={viewModel.executionPerformance.commandSummary}
-                emptyText="No command executions were captured for this run."
-                rows={viewModel.executionPerformance.commandRows}
-              />
-              <RunExecutionDurationChart
-                title="Tool calls"
-                description={viewModel.executionPerformance.toolSummary}
-                emptyText="No tool calls were captured for this run."
-                rows={viewModel.executionPerformance.toolRows}
-              />
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">
-                Pi responses
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Typed response metadata captured from Pi message-end events.
-              </p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-3">
-              {viewModel.piResponseCards.map((card) => (
-                <Card key={card.label} className="border-border/70">
-                  <CardHeader className="space-y-1 pb-3">
-                    <CardDescription>{card.label}</CardDescription>
-                    <CardTitle className="text-lg break-all">{card.value}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0 text-sm text-muted-foreground">
-                    {card.detail}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">Run context</h2>
-              <p className="text-sm text-muted-foreground">
-                Supporting runtime, provider, and workspace details for the conversation above.
-              </p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {viewModel.metrics.slice(4).map((metric) => (
-                <Card key={metric.label} className="border-border/70">
-                  <CardHeader className="space-y-1 pb-3">
-                    <CardDescription>{metric.label}</CardDescription>
-                    <CardTitle className="text-lg">{metric.value}</CardTitle>
-                  </CardHeader>
-                  {metric.detail ? (
-                    <CardContent className="pt-0 text-sm text-muted-foreground">
-                      {metric.detail}
-                    </CardContent>
-                  ) : null}
-                </Card>
-              ))}
-              {viewModel.metadata.map((row) => (
-                <Card key={row.label} className="border-border/70">
-                  <CardHeader className="space-y-1 pb-3">
-                    <CardDescription>{row.label}</CardDescription>
-                    <CardTitle className="text-lg break-all">{row.value}</CardTitle>
-                  </CardHeader>
-                </Card>
-              ))}
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">
-                Machine load
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Peak and average host pressure captured while this run was active.
-              </p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-3">
-              {viewModel.machineLoadCards.map((card) => (
-                <Card key={card.label} className="border-border/70">
-                  <CardHeader className="space-y-1 pb-3">
-                    <CardDescription>{card.label}</CardDescription>
-                    <CardTitle className="text-lg">{card.value}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0 text-sm text-muted-foreground">
-                    {card.detail}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">
-                Debug context
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Repository snapshots and raw runtime events for deeper debugging.
-              </p>
-            </div>
-            <RunDebugPanel viewModel={viewModel} />
           </section>
         </>
       ) : null}

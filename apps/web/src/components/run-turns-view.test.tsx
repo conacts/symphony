@@ -22,14 +22,14 @@ describe("run turns view", () => {
     );
 
     expect(html).toContain("Turn table");
+    expect(html).toContain("Turn token load");
+    expect(html).toContain("Turn latency breakdown");
+    expect(html).toContain("Turn activity");
     expect(html).toContain("Turn 1");
-    expect(html).toContain("/issues/COL-165/runs/run_123");
-    expect(html).toContain("/issues/COL-165/runs/run_123/turns/turn_123");
-    expect(html).toContain("Commands");
-    expect(html).toContain("Tools");
-    expect(html).toContain("Reasoning");
+    expect(html).toContain("/issues/COL-165/runs/run_123/turns/turn_123?repo=symphony");
     expect(html).not.toContain("Back to run transcript");
     expect(html).not.toContain("Prompt");
+    expect(html).not.toContain("Workflow");
   });
 
   it("renders the empty turn state", () => {

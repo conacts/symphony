@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -10,49 +10,36 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AnalysisFilterBar } from "@/features/analysis/components/analysis-filter-bar";
-import { AnalysisPageHeader } from "@/features/analysis/components/analysis-page-header";
-import { AnalysisSpotlightItem } from "@/features/analysis/components/analysis-spotlight-item";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TokenIssueChart } from "@/features/analysis/components/token-issue-chart";
-import { TokenRunChart } from "@/features/analysis/components/token-run-chart";
-import { TokenTurnChart } from "@/features/analysis/components/token-turn-chart";
-import type { AnalysisQuery } from "@/features/analysis/model/analysis-query-state";
-import type { AnalysisFilterOptions } from "@/features/analysis/model/analysis-sample-filter";
+import { TokenTimeSeriesChart } from "@/features/analysis/components/token-time-series-chart";
+import type { TokenAnalysisTimeRange } from "@/features/analysis/model/token-analysis-query-state";
 import type { TokenAnalysisViewModel } from "@/features/analysis/model/token-analysis-view-model";
 import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
-
-const emptyAnalysisQuery: AnalysisQuery = {};
-const emptyAnalysisFilterOptions: AnalysisFilterOptions = {
-  harnesses: [],
-  providers: [],
-  models: []
-};
 
 export function TokenAnalysisView(input: {
   connection: RuntimeSummaryConnectionState;
   error: string | null;
   loading: boolean;
   tokenAnalysis: TokenAnalysisViewModel | null;
-  query?: AnalysisQuery;
-  filterOptions?: AnalysisFilterOptions;
-  sampledRunCount?: number;
-  sampledIssueCount?: number;
-  onQueryChange?(query: AnalysisQuery): void;
+  selectedModel?: string;
+  modelOptions?: Array<{
+    value: string;
+    label: string;
+  }>;
+  timeRange: TokenAnalysisTimeRange;
+  onModelChange(model: string | undefined): void;
+  onTimeRangeChange(timeRange: TokenAnalysisTimeRange): void;
 }) {
-  const query = input.query ?? emptyAnalysisQuery;
-  const filterOptions = input.filterOptions ?? emptyAnalysisFilterOptions;
-  const sampledRunCount = input.sampledRunCount ?? 0;
-  const sampledIssueCount = input.sampledIssueCount ?? 0;
-  const onQueryChange = input.onQueryChange ?? (() => {});
+  const modelOptions = input.modelOptions ?? [];
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
@@ -65,188 +52,116 @@ export function TokenAnalysisView(input: {
 
       {input.tokenAnalysis ? (
         <>
-          <AnalysisPageHeader
-            eyebrow="Cross-run trends"
-            title="Token analysis"
-            description="Cross-run token pressure across runs, turns, and issues so you can see where orchestration cost is concentrating."
-            focus="Use this page to identify which runs, turns, and issues are driving the largest share of current token usage."
-          />
-          <AnalysisFilterBar
-            query={query}
-            options={filterOptions}
-            sampledRunCount={sampledRunCount}
-            sampledIssueCount={sampledIssueCount}
-            onQueryChange={onQueryChange}
-          />
-
-          <section className="space-y-3">
+          <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">Token coverage</h2>
-              <p className="text-sm text-muted-foreground">
-                High-level usage across the sampled runs before you drill into the biggest hotspots.
+              <h1 className="text-3xl font-semibold tracking-tight">Token analysis</h1>
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                Token load by day, concentrated into a compact weekly or monthly view.
+                Use the model filter to isolate a single model and keep the chart dense.
               </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="flex flex-col gap-2 lg:items-end">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">
+                  {input.tokenAnalysis.summaryCards[0]?.value ?? "n/a"} total tokens
+                </Badge>
+                <Badge variant="secondary">
+                  {input.tokenAnalysis.summaryCards[1]?.value ?? "0"} runs
+                </Badge>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Select
+                  value={input.selectedModel ?? "__all_models__"}
+                  onValueChange={(value) => {
+                    input.onModelChange(
+                      value === "__all_models__" ? undefined : value
+                    );
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-64" size="sm" aria-label="Model filter">
+                    <SelectValue placeholder="All models" />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    <SelectItem value="__all_models__">All models</SelectItem>
+                    {modelOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  size="sm"
+                  spacing={0}
+                  value={input.timeRange}
+                  onValueChange={(value) => {
+                    if (value) {
+                      input.onTimeRangeChange(value as TokenAnalysisTimeRange);
+                    }
+                  }}
+                  aria-label="Token analysis time range"
+                >
+                  {tokenTimeRangeOptions.map((option) => (
+                    <ToggleGroupItem key={option.value} value={option.value}>
+                      {option.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <TokenTimeSeriesChart rows={input.tokenAnalysis.timeSeriesRows} />
+          </section>
+
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {input.tokenAnalysis.summaryCards.map((card) => (
               <Card key={card.label}>
                 <CardHeader className="space-y-1 pb-2">
                   <CardDescription>{card.label}</CardDescription>
-                  <CardTitle className="break-all text-2xl">{card.value}</CardTitle>
+                  <CardTitle className="text-2xl">{card.value}</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
+                <CardContent className="pt-0 text-sm text-muted-foreground">
                   {card.detail}
                 </CardContent>
               </Card>
             ))}
-            </div>
           </section>
 
-          <section className="space-y-3">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">Usage profile</h2>
-              <p className="text-sm text-muted-foreground">
-                Token concentration across runs, turns, and current issue load.
-              </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {input.tokenAnalysis.tokenCards.map((card) => (
-              <Card key={card.label}>
-                <CardHeader className="space-y-1 pb-2">
-                  <CardDescription>{card.label}</CardDescription>
-                  <CardTitle className="break-all text-2xl">{card.value}</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
-                  {card.detail}
-                </CardContent>
-              </Card>
-            ))}
-            </div>
-          </section>
-
-          <section className="space-y-3">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">Spotlight and charts</h2>
-              <p className="text-sm text-muted-foreground">
-                The heaviest run, turn, and issue first, followed by the charts that show how token pressure is spreading.
-              </p>
-            </div>
-
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)]">
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle>Token spotlight</CardTitle>
-                <CardDescription>
-                  The strongest current token hotspots across runs, turns, and issues.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <AnalysisSpotlightItem
-                  label="Heaviest run"
-                  value={input.tokenAnalysis.spotlight.heaviestRun}
-                  detail={input.tokenAnalysis.spotlight.heaviestRunDetail}
-                />
-                <AnalysisSpotlightItem
-                  label="Heaviest turn"
-                  value={input.tokenAnalysis.spotlight.heaviestTurn}
-                  detail={input.tokenAnalysis.spotlight.heaviestTurnDetail}
-                />
-                <AnalysisSpotlightItem
-                  label="Hottest issue"
-                  value={input.tokenAnalysis.spotlight.hottestIssue}
-                  detail={input.tokenAnalysis.spotlight.hottestIssueDetail}
-                  className="md:col-span-2"
-                />
-              </CardContent>
-            </Card>
-
-            <TokenRunChart rows={input.tokenAnalysis.runTokenRows} />
-            <TokenTurnChart rows={input.tokenAnalysis.turnTokenRows} />
-            </div>
-          </section>
-
-          <section className="space-y-3">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">Issue concentration</h2>
-              <p className="text-sm text-muted-foreground">
-                Which issues and runs are carrying the biggest share of token load in the current sample.
-              </p>
-            </div>
-
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <section>
             <TokenIssueChart rows={input.tokenAnalysis.issueTokenRows} />
-
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle>Token hotspots</CardTitle>
-                <CardDescription>
-                  The heaviest sampled runs and the issue contexts carrying them.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {input.tokenAnalysis.hotspotRows.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No token hotspots are active in the current sample.
-                  </p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Issue</TableHead>
-                        <TableHead>Run</TableHead>
-                        <TableHead>Total</TableHead>
-                        <TableHead>Input</TableHead>
-                        <TableHead>Output</TableHead>
-                        <TableHead>Started</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {input.tokenAnalysis.hotspotRows.map((row) => (
-                        <TableRow key={`${row.scope}:${row.label}`}>
-                          <TableCell className="font-medium">
-                            <Link
-                              href={row.issueHref}
-                              className="underline-offset-4 hover:underline focus-visible:underline"
-                            >
-                              {row.scope}
-                            </Link>
-                          </TableCell>
-                          <TableCell>
-                            <Link
-                              href={row.runHref}
-                              className="underline-offset-4 hover:underline focus-visible:underline"
-                            >
-                              {row.label}
-                            </Link>
-                          </TableCell>
-                          <TableCell>{row.totalTokens}</TableCell>
-                          <TableCell>{row.inputTokens}</TableCell>
-                          <TableCell>{row.outputTokens}</TableCell>
-                          <TableCell>{row.startedAt}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-            </div>
           </section>
         </>
       ) : input.loading ? (
-        <section className="grid gap-4 md:grid-cols-3">
-          {Array.from({ length: 3 }, (_, index) => (
-            <Card key={index}>
-              <CardHeader>
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-8 w-28" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-44" />
-              </CardContent>
-            </Card>
-          ))}
+        <section className="grid gap-4">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-8 w-48" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-80 w-full" />
+            </CardContent>
+          </Card>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }, (_, index) => (
+              <Card key={index}>
+                <CardHeader>
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-8 w-20" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-4 w-40" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </section>
       ) : (
         <Card>
@@ -259,3 +174,12 @@ export function TokenAnalysisView(input: {
     </div>
   );
 }
+
+const tokenTimeRangeOptions = [
+  { value: "7d", label: "Week" },
+  { value: "30d", label: "Month" },
+  { value: "all", label: "All" }
+] as const satisfies ReadonlyArray<{
+  value: TokenAnalysisTimeRange;
+  label: string;
+}>;

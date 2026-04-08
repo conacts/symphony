@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -20,6 +20,14 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious
+} from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -41,6 +49,8 @@ import {
   formatErrorClassLabel,
   formatOutcomeLabel
 } from "@/core/display-formatters";
+
+const ISSUE_INVENTORY_PAGE_SIZE = 8;
 
 const timeRangeOptions = [
   { value: "all", label: "All time" },
@@ -65,11 +75,89 @@ export function IssueIndexView(input: {
   onQueryChange: (query: SymphonyForensicsIssuesQuery) => void;
   query: SymphonyForensicsIssuesQuery;
 }) {
+  const [inventoryPage, setInventoryPage] = useState(1);
+  const [inventoryFilters, setInventoryFilters] = useState({
+    repo: "",
+    outcome: "",
+    errorClass: ""
+  });
   const viewModel = input.issueIndex
     ? buildIssueIndexViewModel(input.issueIndex)
     : null;
+  const inventoryFilterKey = [
+    inventoryFilters.repo,
+    inventoryFilters.outcome,
+    inventoryFilters.errorClass,
+    input.query.timeRange ?? "all",
+    input.query.sortBy ?? "lastActive",
+    input.query.sortDirection ?? "desc"
+  ].join("|");
+  const filteredInventoryRows = useMemo(() => {
+    if (!viewModel) {
+      return [];
+    }
+
+    return viewModel.rows.filter((row) => {
+      if (
+        inventoryFilters.repo &&
+        row.repositoryKey !== inventoryFilters.repo
+      ) {
+        return false;
+      }
+
+      if (inventoryFilters.outcome) {
+        const outcomeLabel = formatOutcomeLabel(inventoryFilters.outcome);
+        if (
+          row.latestProblemOutcome !== outcomeLabel &&
+          row.lastCompletedOutcome !== outcomeLabel
+        ) {
+          return false;
+        }
+      }
+
+      if (inventoryFilters.errorClass) {
+        const errorClassLabel = formatErrorClassLabel(
+          inventoryFilters.errorClass
+        );
+        if (row.latestErrorClass !== errorClassLabel) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [inventoryFilters, viewModel]);
+  const inventoryPageCount = Math.max(
+    1,
+    Math.ceil(filteredInventoryRows.length / ISSUE_INVENTORY_PAGE_SIZE)
+  );
+  const visibleInventoryPage = Math.min(inventoryPage, inventoryPageCount);
+  const inventoryRows = useMemo(() => {
+    const start = (visibleInventoryPage - 1) * ISSUE_INVENTORY_PAGE_SIZE;
+    return filteredInventoryRows.slice(start, start + ISSUE_INVENTORY_PAGE_SIZE);
+  }, [filteredInventoryRows, visibleInventoryPage]);
+  const inventoryRangeStart =
+    filteredInventoryRows.length === 0
+      ? 0
+      : (visibleInventoryPage - 1) * ISSUE_INVENTORY_PAGE_SIZE + 1;
+  const inventoryRangeEnd =
+    filteredInventoryRows.length === 0
+      ? 0
+      : Math.min(
+          visibleInventoryPage * ISSUE_INVENTORY_PAGE_SIZE,
+          filteredInventoryRows.length
+        );
+
+  useEffect(() => {
+    setInventoryPage((current) => Math.min(current, inventoryPageCount));
+  }, [inventoryPageCount]);
+
+  useEffect(() => {
+    setInventoryPage(1);
+  }, [inventoryFilterKey]);
 
   function updateQuery(next: Partial<SymphonyForensicsIssuesQuery>) {
+    setInventoryPage(1);
     input.onQueryChange({
       ...input.query,
       ...next
@@ -99,7 +187,7 @@ export function IssueIndexView(input: {
             <div className="space-y-1">
               <h1 className="text-3xl font-semibold tracking-tight">Issues</h1>
               <p className="text-sm text-muted-foreground">
-                Pi-first issue inventory for deciding what to inspect next.
+                Weekly issue posture, failure mix, and a paginated inventory for drilling in.
               </p>
             </div>
 
@@ -130,7 +218,7 @@ export function IssueIndexView(input: {
             </div>
           </div>
 
-          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {viewModel.summaryCards.map((card) => (
               <Card key={card.label}>
                 <CardHeader className="space-y-1 pb-2">
@@ -146,37 +234,19 @@ export function IssueIndexView(input: {
             <IssuePressureChart rows={viewModel.pressureChartRows} />
           </section>
 
-          <section className="grid gap-3 xl:grid-cols-2">
-            {viewModel.focusCards.map((card) => (
-              <Card key={card.label}>
-                <CardHeader className="space-y-2">
-                  <CardDescription>{card.label}</CardDescription>
-                  <CardTitle className="text-xl">{card.value}</CardTitle>
-                  <CardDescription>{card.detail}</CardDescription>
-                </CardHeader>
-                {card.href ? (
-                  <CardContent className="pt-0">
-                    <Button asChild size="sm" variant="outline">
-                      <Link href={card.href}>Open issue</Link>
-                    </Button>
-                  </CardContent>
-                ) : null}
-              </Card>
-            ))}
-          </section>
-
           <Card>
             <CardHeader className="gap-4">
               <div className="flex flex-col gap-1">
                 <CardTitle>Issue inventory</CardTitle>
                 <CardDescription>
-                  One row per issue, with enough context to decide where to drill in next.
+                  One row per issue, condensed into pages so the page stays readable.
+                  Filters here only affect the inventory.
                 </CardDescription>
               </div>
               <div className="flex flex-col gap-2 xl:flex-row xl:flex-wrap">
                 <FilterDropdown
                   label="Repository"
-                  value={input.query.repo ?? ""}
+                  value={inventoryFilters.repo}
                   options={[
                     { value: "", label: "All repositories" },
                     ...viewModel.facets.repositories.map((repositoryKey) => ({
@@ -185,14 +255,15 @@ export function IssueIndexView(input: {
                     }))
                   ]}
                   onChange={(value) =>
-                    updateQuery({
-                      repo: value === "" ? undefined : value
-                    })
+                    setInventoryFilters((current) => ({
+                      ...current,
+                      repo: value
+                    }))
                   }
                 />
                 <FilterDropdown
                   label="Outcome"
-                  value={input.query.outcome ?? ""}
+                  value={inventoryFilters.outcome}
                   options={[
                     { value: "", label: "All outcomes" },
                     ...viewModel.facets.outcomes.map((outcome) => ({
@@ -201,14 +272,15 @@ export function IssueIndexView(input: {
                     }))
                   ]}
                   onChange={(value) =>
-                    updateQuery({
-                      outcome: value === "" ? undefined : value
-                    })
+                    setInventoryFilters((current) => ({
+                      ...current,
+                      outcome: value
+                    }))
                   }
                 />
                 <FilterDropdown
                   label="Error class"
-                  value={input.query.errorClass ?? ""}
+                  value={inventoryFilters.errorClass}
                   options={[
                     { value: "", label: "All error classes" },
                     ...viewModel.facets.errorClasses.map((errorClass) => ({
@@ -217,9 +289,10 @@ export function IssueIndexView(input: {
                     }))
                   ]}
                   onChange={(value) =>
-                    updateQuery({
-                      errorClass: value === "" ? undefined : value
-                    })
+                    setInventoryFilters((current) => ({
+                      ...current,
+                      errorClass: value
+                    }))
                   }
                 />
                 <FilterDropdown
@@ -238,60 +311,100 @@ export function IssueIndexView(input: {
               </div>
             </CardHeader>
             <CardContent>
-              {viewModel.rows.length === 0 ? (
+              {filteredInventoryRows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No recorded issue runs match the current forensic scope.
+                  No recorded issue runs match the current inventory filters.
                 </p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Issue</TableHead>
-                      <TableHead>Repository</TableHead>
-                      <TableHead>Runs</TableHead>
-                      <TableHead>Problem rate</TableHead>
-                      <TableHead>Latest problem</TableHead>
-                      <TableHead>Retries</TableHead>
-                      <TableHead>Last active</TableHead>
-                      <TableHead>Latest error</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {viewModel.rows.map((row) => (
-                      <TableRow key={`${row.repositoryKey}:${row.issueIdentifier}`}>
-                        <TableCell className="font-medium">
-                          <div className="flex flex-col gap-1">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+                    <p>
+                      Showing {inventoryRangeStart}-{inventoryRangeEnd} of {filteredInventoryRows.length} issues.
+                    </p>
+                    <p>
+                      Page {visibleInventoryPage} of {inventoryPageCount}
+                    </p>
+                  </div>
+
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Issue</TableHead>
+                        <TableHead>Runs</TableHead>
+                        <TableHead>Retries</TableHead>
+                        <TableHead>Problem rate</TableHead>
+                        <TableHead>Latest problem</TableHead>
+                        <TableHead>Last active</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {inventoryRows.map((row) => (
+                        <TableRow key={`${row.repositoryKey}:${row.issueIdentifier}`}>
+                          <TableCell className="font-medium">
                             <Link
                               href={row.issueHref}
                               className="w-fit underline-offset-4 hover:underline focus-visible:underline"
                             >
                               {row.issueIdentifier}
                             </Link>
-                            <span className="text-xs text-muted-foreground">
-                              {row.flags.length > 0
-                                ? row.flags.join(" · ")
-                                : "No active issue flags"}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{row.repositoryKey}</TableCell>
-                        <TableCell>{row.runCount}</TableCell>
-                        <TableCell>{row.problemRate}</TableCell>
-                        <TableCell>{row.latestProblemOutcome}</TableCell>
-                        <TableCell>{row.retryCount}</TableCell>
-                        <TableCell>{row.lastActive}</TableCell>
-                        <TableCell className="max-w-sm">
-                          <div className="flex flex-col gap-1">
-                            <span>{row.latestErrorClass}</span>
-                            <span className="truncate text-xs text-muted-foreground">
-                              {row.latestErrorMessage}
-                            </span>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                          </TableCell>
+                          <TableCell>{row.runCount}</TableCell>
+                          <TableCell>{row.retryCount}</TableCell>
+                          <TableCell>{row.problemRate}</TableCell>
+                          <TableCell>{row.latestProblemOutcome}</TableCell>
+                          <TableCell>{row.lastActive}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  {inventoryPageCount > 1 ? (
+                    <Pagination className="justify-end">
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            href="#"
+                            aria-disabled={visibleInventoryPage === 1}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              setInventoryPage((current) => Math.max(1, current - 1));
+                            }}
+                          />
+                        </PaginationItem>
+                        {Array.from({ length: inventoryPageCount }, (_, index) => {
+                          const nextPage = index + 1;
+
+                          return (
+                            <PaginationItem key={nextPage}>
+                              <PaginationLink
+                                href="#"
+                                isActive={visibleInventoryPage === nextPage}
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  setInventoryPage(nextPage);
+                                }}
+                              >
+                                {nextPage}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        })}
+                        <PaginationItem>
+                          <PaginationNext
+                            href="#"
+                            aria-disabled={visibleInventoryPage === inventoryPageCount}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              setInventoryPage((current) =>
+                                Math.min(inventoryPageCount, current + 1)
+                              );
+                            }}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  ) : null}
+                </div>
               )}
             </CardContent>
           </Card>

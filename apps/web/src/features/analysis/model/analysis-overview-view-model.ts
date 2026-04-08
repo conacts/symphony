@@ -1,5 +1,4 @@
 import type { FailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
-import type { PerformanceAnalysisViewModel } from "@/features/analysis/model/performance-analysis-view-model";
 import type { TokenAnalysisViewModel } from "@/features/analysis/model/token-analysis-view-model";
 
 export type AnalysisOverviewViewModel = {
@@ -18,7 +17,6 @@ export type AnalysisOverviewViewModel = {
 
 export function buildAnalysisOverviewViewModel(input: {
   failureAnalysis: FailureAnalysisViewModel | null;
-  performanceAnalysis: PerformanceAnalysisViewModel | null;
   tokenAnalysis: TokenAnalysisViewModel | null;
 }): AnalysisOverviewViewModel {
   return {
@@ -40,24 +38,6 @@ export function buildAnalysisOverviewViewModel(input: {
         secondaryDetail:
           input.failureAnalysis?.spotlight.dominantErrorClassDetail ??
           "No error-class summary is available."
-      },
-      {
-        href: "/analysis/performance",
-        title: "Performance analysis",
-        description:
-          "Review command, tool, and turn latency hotspots across the latest sampled work.",
-        primaryLabel: "Slowest command family",
-        primaryValue:
-          input.performanceAnalysis?.spotlight.slowestCommandFamily ?? "Unavailable",
-        primaryDetail:
-          input.performanceAnalysis?.spotlight.slowestCommandFamilyDetail ??
-          "Performance analysis data is unavailable.",
-        secondaryLabel: "Slowest turn",
-        secondaryValue:
-          input.performanceAnalysis?.spotlight.slowestTurn ?? "Unavailable",
-        secondaryDetail:
-          input.performanceAnalysis?.spotlight.slowestTurnDetail ??
-          "No slow-turn summary is available."
       },
       {
         href: "/analysis/tokens",

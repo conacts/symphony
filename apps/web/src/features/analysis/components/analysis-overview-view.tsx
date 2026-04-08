@@ -60,7 +60,7 @@ export function AnalysisOverviewView(input: {
           <AnalysisPageHeader
             eyebrow="Cross-run trends"
             title="Analysis overview"
-            description="Operator analysis surfaces for failures, performance, and token pressure across recent work."
+            description="Operator analysis surfaces for failures and token pressure across recent work."
             focus="Start here to decide which investigation path matters most, then drill into the dedicated page for that dimension."
           />
 
@@ -82,7 +82,7 @@ export function AnalysisOverviewView(input: {
               </p>
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-3">
+            <div className="grid gap-6 xl:grid-cols-2">
               {input.overview.cards.map((card) => (
                 <Card key={card.href}>
                   <CardHeader className="pb-4">

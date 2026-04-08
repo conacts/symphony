@@ -168,9 +168,12 @@ export type AgentRunTranscriptTurn = {
   turnId: string;
   turnSequence: number;
   promptText: string;
+  startedAtIso: string;
   startedAt: string;
+  endedAtIso: string;
   endedAt: string;
   status: string;
+  totalTokens: number;
   tokenSummary: string;
   countsSummary: string;
   commandCount: number;
@@ -236,16 +239,17 @@ export function buildTranscriptTurns(
         turnId: turn.turnId,
         turnSequence: forensicsTurn?.turnSequence ?? index + 1,
         promptText: forensicsTurn?.promptText ?? `Turn ${index + 1}`,
-        startedAt: formatTimestamp(turn.startedAt),
-        endedAt: formatTimestamp(turn.endedAt),
+        startedAtIso: turn.startedAt ?? forensicsTurn?.startedAt ?? "",
+        startedAt: formatTimestamp(turn.startedAt ?? forensicsTurn?.startedAt ?? null),
+        endedAtIso: turn.endedAt ?? forensicsTurn?.endedAt ?? "",
+        endedAt: formatTimestamp(turn.endedAt ?? forensicsTurn?.endedAt ?? null),
         status: formatStatusLabel(turn.status),
         commandCount: turn.commandCount,
         toolCount: turn.toolCallCount,
         reasoningCount: turn.reasoningCount,
+        totalTokens: turnTokens?.totalTokens ?? 0,
         tokenSummary: turnTokens
-          ? `In ${formatCount(turnTokens.inputTokens)} · Cached ${formatCount(
-              turnTokens.cachedInputTokens
-            )} · Out ${formatCount(turnTokens.outputTokens)}`
+          ? `Total ${formatCount(turnTokens.totalTokens)}`
           : "Usage unavailable",
         countsSummary: buildTurnCountsSummary(
           turn,
