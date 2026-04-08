@@ -149,7 +149,7 @@ describe("docker pi symphony agent runtime", () => {
 
     expect(completion).toEqual({
       kind: "failure",
-      reason: expect.stringContaining("finish_and_send_to_review")
+      reason: expect.stringContaining("symphony tool finish")
     });
     expect(updates).toContain("thread.started");
     expect(updates).toContain("item.completed");
@@ -534,7 +534,7 @@ done
 
     expect(completion).toEqual({
       kind: "failure",
-      reason: expect.stringContaining("finish_and_send_to_review")
+      reason: expect.stringContaining("symphony tool finish")
     });
     expect(await deliveryReports.listForRun(runId)).toEqual([]);
 
@@ -998,7 +998,7 @@ done
 
     expect(completion).toEqual({
       kind: "failure",
-      reason: expect.stringContaining("finish_and_send_to_review")
+      reason: expect.stringContaining("symphony tool finish")
     });
 
     database.close();
@@ -1351,7 +1351,7 @@ done
 
     expect(completion).toEqual({
       kind: "failure",
-      reason: expect.stringContaining("finish_and_send_to_review")
+      reason: expect.stringContaining("symphony tool finish")
     });
 
     const fakeDockerInvocation = JSON.parse(
@@ -1607,7 +1607,7 @@ exit 1
 
     expect(completion).toEqual({
       kind: "failure",
-      reason: expect.stringContaining("finish_and_send_to_review")
+      reason: expect.stringContaining("symphony tool finish")
     });
 
     const dockerInvocations = (await readFile(fakeDockerLog, "utf8"))
@@ -1645,6 +1645,7 @@ exit 1
 
     database.close();
   });
+
 });
 
 function createDoneTracker(issue: SymphonyTrackerIssue): SymphonyTracker {

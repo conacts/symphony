@@ -47,6 +47,9 @@
       "path": "../../packages/runtime-policy"
     },
     {
+      "path": "../../packages/runtime-tools"
+    },
+    {
       "path": "../../packages/test-support"
     },
     {

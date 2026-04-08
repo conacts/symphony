@@ -457,6 +457,32 @@ export async function createSymphonyRuntimeTestHarness(input: {
         };
       }
     },
+    runtimeTools: {
+      async recordDeliveryReport() {
+        return {
+          success: true,
+          output: JSON.stringify({ ok: true }),
+          contentItems: [
+            {
+              type: "inputText",
+              text: JSON.stringify({ ok: true })
+            }
+          ]
+        };
+      },
+      async submitSpikeResult() {
+        return {
+          success: true,
+          output: JSON.stringify({ ok: true }),
+          contentItems: [
+            {
+              type: "inputText",
+              text: JSON.stringify({ ok: true })
+            }
+          ]
+        };
+      }
+    },
     health: {
       snapshot() {
         return {

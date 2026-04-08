@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { resolveHarnessModelRuntimePolicy } from "@symphony/agent-harnesses";
 import {
   symphonyRuntimeHealthResponseSchema,
@@ -22,6 +23,17 @@ import type { SymphonyRuntimeAppContextSchema } from "../context.js";
 
 export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
   const runtimeRoutes = new Hono<SymphonyRuntimeAppContextSchema>();
+  const deliveryReportRequestSchema = z.strictObject({
+    runId: z.string().trim().min(1),
+    turnId: z.string().trim().min(1).nullable().optional(),
+    issue: z.strictObject({
+      id: z.string().trim().min(1),
+      identifier: z.string().trim().min(1),
+      state: z.string().trim().min(1).nullable().optional()
+    }),
+    arguments: z.unknown()
+  });
+  const spikeResultRequestSchema = deliveryReportRequestSchema;
 
   runtimeRoutes.get("/state", (c) => {
     const result = serializeRuntimeState(
@@ -118,6 +130,50 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     return jsonOk(c, result, {
       status: 202
     });
+  });
+
+  runtimeRoutes.post("/internal/runtime-tools/finish", async (c) => {
+    const payload = parseWithSchema(deliveryReportRequestSchema, await c.req.json());
+    const result = await services.runtimeTools.recordDeliveryReport({
+      runId: payload.runId,
+      turnId: payload.turnId ?? null,
+      issue: {
+        id: payload.issue.id,
+        identifier: payload.issue.identifier,
+        state: payload.issue.state ?? null
+      },
+      argumentsPayload: payload.arguments
+    });
+
+    c.get("logger").info("Recorded delivery report through the runtime tools API", {
+      runId: payload.runId,
+      issueIdentifier: payload.issue.identifier,
+      success: result.success
+    });
+
+    return jsonOk(c, result);
+  });
+
+  runtimeRoutes.post("/internal/runtime-tools/spike-result", async (c) => {
+    const payload = parseWithSchema(spikeResultRequestSchema, await c.req.json());
+    const result = await services.runtimeTools.submitSpikeResult({
+      runId: payload.runId,
+      turnId: payload.turnId ?? null,
+      issue: {
+        id: payload.issue.id,
+        identifier: payload.issue.identifier,
+        state: payload.issue.state ?? null
+      },
+      argumentsPayload: payload.arguments
+    });
+
+    c.get("logger").info("Submitted spike result through the runtime tools API", {
+      runId: payload.runId,
+      issueIdentifier: payload.issue.identifier,
+      success: result.success
+    });
+
+    return jsonOk(c, result);
   });
 
   runtimeRoutes.get("/:issueIdentifier", async (c) => {

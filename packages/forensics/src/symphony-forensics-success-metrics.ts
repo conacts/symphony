@@ -301,9 +301,7 @@ function hasHighMachinePressure(run: SymphonyForensicsRunSummary): boolean {
 
 function hasMissingDeliveryReportFailure(run: SymphonyForensicsRunSummary): boolean {
   return (
-    run.errorMessage?.includes("finish_and_send_to_review") === true ||
-    run.agentFailureMessagePreview?.includes("finish_and_send_to_review") === true ||
-    run.errorMessage?.includes("report_issue_delivery") === true ||
-    run.agentFailureMessagePreview?.includes("report_issue_delivery") === true
+    run.errorMessage?.includes("symphony tool finish") === true ||
+    run.agentFailureMessagePreview?.includes("symphony tool finish") === true
   );
 }

@@ -1,0 +1,28 @@
+{
+  "extends": "../../packages/typescript-configs/tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "types": [
+      "node"
+    ]
+  },
+  "references": [
+    {
+      "path": "../../packages/db"
+    },
+    {
+      "path": "../../packages/logger"
+    },
+    {
+      "path": "../../packages/runtime-tools"
+    },
+    {
+      "path": "../../packages/tracker"
+    }
+  ],
+  "include": [
+    "src/**/*.ts"
+  ]
+}

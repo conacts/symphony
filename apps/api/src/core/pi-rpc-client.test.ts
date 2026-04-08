@@ -405,6 +405,196 @@ describe("PiRpcClient", () => {
     ).toBe(false);
   });
 
+  it("preserves shell-based Symphony completion commands as command executions", async () => {
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    const stdin = new PassThrough();
+    const completionCommand =
+      'pnpm exec symphony tool finish --status partial --summary "Partial delivery."';
+    let buffer = "";
+
+    stdin.on("data", (chunk: Buffer | string) => {
+      buffer += chunk.toString();
+
+      while (true) {
+        const newlineIndex = buffer.indexOf("\n");
+        if (newlineIndex === -1) {
+          break;
+        }
+
+        const line = buffer.slice(0, newlineIndex);
+        buffer = buffer.slice(newlineIndex + 1);
+        const message = JSON.parse(line) as Record<string, unknown>;
+
+        if (message.type === "get_state") {
+          stdout.write(
+            `${JSON.stringify({
+              id: message.id,
+              type: "response",
+              command: "get_state",
+              success: true,
+              data: {
+                sessionId: "pi-session-1",
+                model: {
+                  id: "xiaomi/mimo-v2-pro",
+                  provider: "openrouter"
+                }
+              }
+            })}\n`
+          );
+          continue;
+        }
+
+        if (message.type === "prompt") {
+          stdout.write(
+            `${JSON.stringify({
+              id: message.id,
+              type: "response",
+              command: "prompt",
+              success: true
+            })}\n`
+          );
+          stdout.write('{"type":"agent_start"}\n');
+          stdout.write('{"type":"turn_start"}\n');
+          stdout.write(
+            `${JSON.stringify({
+              type: "tool_execution_start",
+              toolCallId: "call-finish",
+              toolName: "bash",
+              args: {
+                command: completionCommand
+              }
+            })}\n`
+          );
+          stdout.write(
+            `${JSON.stringify({
+              type: "tool_execution_end",
+              toolCallId: "call-finish",
+              toolName: "bash",
+              args: {
+                command: completionCommand
+              },
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: '{"recorded":true}\n'
+                  }
+                ]
+              },
+              isError: false
+            })}\n`
+          );
+          stdout.write(
+            `${JSON.stringify({
+              type: "turn_end",
+              message: {
+                usage: {
+                  input: 5,
+                  output: 2,
+                  cacheRead: 0
+                }
+              }
+            })}\n`
+          );
+          stdout.write('{"type":"agent_end"}\n');
+        }
+      }
+    });
+
+    const child = Object.assign(new EventEmitter(), {
+      stdout,
+      stderr,
+      stdin,
+      pid: 9877,
+      kill: vi.fn(),
+      exitCode: null
+    });
+    spawnMock.mockReturnValue(child);
+
+    const runtimePolicy = buildSymphonyRuntimePolicy({
+      agent: {
+        ...buildSymphonyRuntimePolicy().agent,
+        harness: "pi"
+      },
+      workspace: {
+        ...buildSymphonyRuntimePolicy().workspace,
+        root: "/tmp/symphony-pi-test"
+      },
+      pi: {
+        ...buildSymphonyRuntimePolicy().pi,
+        defaultModel: "xiaomi/mimo-v2-pro",
+        defaultReasoningEffort: "medium",
+        provider: {
+          id: "openrouter",
+          name: "OpenRouter",
+          baseUrl: "https://openrouter.ai/api/v1",
+          envKey: "OPENROUTER_API_KEY",
+          supportsWebsockets: false,
+          wireApi: "responses"
+        }
+      }
+    });
+    const issue = buildSymphonyTrackerIssue();
+
+    const session = await PiRpcClient.startSession({
+      launchTarget: {
+        kind: "container",
+        hostLaunchPath: "/tmp/symphony-pi-test/workspace",
+        hostWorkspacePath: "/tmp/symphony-pi-test/workspace",
+        runtimeWorkspacePath: "/workspace",
+        containerId: "container-1",
+        containerName: "symphony-workspace",
+        shell: "/bin/bash"
+      },
+      env: {
+        OPENROUTER_API_KEY: "test-key"
+      },
+      hostCommandEnvSource: {
+        PATH: process.env.PATH
+      },
+      runtimePolicy,
+      issue,
+      logger: {
+        debug: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn()
+      }
+    });
+
+    const updates: Array<{ message: Record<string, unknown> }> = [];
+    await session.client.runTurn(session, {
+      prompt: "Record delivery",
+      title: "Record delivery",
+      sandboxPolicy: null,
+      toolExecutor: vi.fn(),
+      onMessage(update: { message: Record<string, unknown> }) {
+        updates.push(update);
+      },
+      turnTimeoutMs: 1_000
+    });
+
+    expect(updates.map((update) => update.message)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "item.started",
+          item: expect.objectContaining({
+            type: "command_execution",
+            command: completionCommand
+          })
+        }),
+        expect.objectContaining({
+          type: "item.completed",
+          item: expect.objectContaining({
+            type: "command_execution",
+            command: completionCommand,
+            status: "completed"
+          })
+        })
+      ])
+    );
+  });
+
   it("uses follow_up for continuation turns in the same Pi session", async () => {
     const stdout = new PassThrough();
     const stderr = new PassThrough();

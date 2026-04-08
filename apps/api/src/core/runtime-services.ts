@@ -55,6 +55,8 @@ import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { createRepositoryScopedWorkspaceBackend } from "./runtime-workspace-backend-selector.js";
 import { createRepositoryScopedLinearTracker } from "./runtime-linear-tracker-registry.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
+import { executeDeliveryReportTool } from "@symphony/runtime-tools";
+import { executeSpikeResultTool } from "@symphony/runtime-tools";
 import {
   reconcilePersistedActiveRunsOnShutdown,
   waitForPollSchedulerDrain
@@ -364,6 +366,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     createSymphonyAgentRuntime({
       promptContract,
       admittedRepositories,
+      apiPort: env.port,
       tracker,
       runStore,
       deliveryReports,
@@ -417,6 +420,48 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     readPollSchedulerSnapshot: () => pollScheduler?.snapshot() ?? null,
     readMachineLoadSnapshot: () => machineLoad.snapshot()
   });
+  const runtimeTools = {
+    async recordDeliveryReport(input: {
+      runId: string;
+      turnId: string | null;
+      issue: {
+        id: string;
+        identifier: string;
+        state: string | null;
+      };
+      argumentsPayload: unknown;
+    }) {
+      return await executeDeliveryReportTool(
+        {
+          tracker,
+          deliveryReports,
+          issue: input.issue,
+          runId: input.runId,
+          turnId: input.turnId
+        },
+        input.argumentsPayload
+      );
+    },
+    async submitSpikeResult(input: {
+      runId: string;
+      turnId: string | null;
+      issue: {
+        id: string;
+        identifier: string;
+        state: string | null;
+      };
+      argumentsPayload: unknown;
+    }) {
+      return await executeSpikeResultTool(
+        {
+          tracker,
+          issue: input.issue,
+          defaultTargetState: runtimePolicy.tracker.pauseTransitionToState
+        },
+        input.argumentsPayload
+      );
+    }
+  };
 
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({
     githubPolicy: runtimePolicy.github,
@@ -560,6 +605,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     issueTimeline,
     runtimeLogs,
     health,
+    runtimeTools,
     githubReviewIngress,
     realtime,
     async shutdown() {

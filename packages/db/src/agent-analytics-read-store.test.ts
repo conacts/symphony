@@ -470,7 +470,7 @@ describe("sqlite agent analytics read store", () => {
     }
   });
 
-  it("returns persisted command resource profiles with command executions", async () => {
+  it("returns persisted resource profiles for shell-based Symphony completion commands", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-command-metrics-read-"));
     tempDirectories.push(root);
 
@@ -520,7 +520,8 @@ describe("sqlite agent analytics read store", () => {
           item: {
             id: "cmd-metrics-1",
             type: "command_execution",
-            command: "pnpm test",
+            command:
+              'pnpm exec symphony tool finish --status partial --summary "Partial delivery."',
             aggregated_output: "",
             status: "in_progress"
           }
@@ -542,7 +543,8 @@ describe("sqlite agent analytics read store", () => {
           peakProcessCount: 2,
           topProcesses: [
             {
-              command: "pnpm test",
+              command:
+                'pnpm exec symphony tool finish --status partial --summary "Partial delivery."',
               executable: "node",
               peakCpuPercent: 92.4,
               peakMemPercent: 1.4,

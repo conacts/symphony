@@ -132,7 +132,8 @@ describe("symphony forensics read model", () => {
       issueIdentifier: "COL-158",
       outcome: "startup_failure",
       errorClass: "startup_failure",
-      errorMessage: "Missing finish_and_send_to_review call.",
+      errorMessage:
+        "Run ended without recording delivery explicitly through `pnpm exec symphony tool finish ...`.",
       deliveryStatus: null,
       deliveryReportedAt: null,
       deliveryPrUrl: null,

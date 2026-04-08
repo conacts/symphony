@@ -363,6 +363,71 @@ describe("@symphony/api app", () => {
       expect(missingCodexOverflowPayload.error.code).toBe("NOT_FOUND");
     });
 
+    it("serves the internal runtime-tools finish route", async () => {
+      const response = await app.request("/api/v1/internal/runtime-tools/finish", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          runId: "run-123",
+          turnId: "turn-123",
+          issue: {
+            id: "issue-123",
+            identifier: "COL-123",
+            state: "In Progress"
+          },
+          arguments: {
+            status: "partial",
+            summary: "Partial delivery."
+          }
+        })
+      });
+      const payload = await responseJson<{
+        data: {
+          success: boolean;
+          output: string;
+        };
+      }>(response);
+
+      expect(response.status).toBe(200);
+      expect(payload.data.success).toBe(true);
+      expect(payload.data.output).toContain('"ok":true');
+    });
+
+    it("serves the internal runtime-tools spike-result route", async () => {
+      const response = await app.request("/api/v1/internal/runtime-tools/spike-result", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          runId: "run-123",
+          turnId: "turn-123",
+          issue: {
+            id: "issue-123",
+            identifier: "COL-123",
+            state: "In Progress"
+          },
+          arguments: {
+            summary: "Documented the spike recommendation.",
+            details: "- Findings\n- Recommendation",
+            state: "Paused"
+          }
+        })
+      });
+      const payload = await responseJson<{
+        data: {
+          success: boolean;
+          output: string;
+        };
+      }>(response);
+
+      expect(response.status).toBe(200);
+      expect(payload.data.success).toBe(true);
+      expect(payload.data.output).toContain('"ok":true');
+    });
+
     it("serves runtime issue details", async () => {
       const runtimeIssueResponse = await app.request("/api/v1/COL-123");
       const runtimeIssuePayload = await responseJson<{

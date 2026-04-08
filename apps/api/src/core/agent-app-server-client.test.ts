@@ -118,7 +118,7 @@ describe("pi app server client", () => {
     );
   });
 
-  it("injects issue label launch overrides and sends the Linear dynamic tool spec", async () => {
+  it("injects issue label launch overrides without advertising runtime-injected tools", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-app-server-launch-"));
     tempRoots.push(root);
 
@@ -184,20 +184,7 @@ done
 
     const tracePayloads = parseTraceJsonLines(lines);
     const threadStart = tracePayloads.find((payload) => payload.id === 2);
-    expect(getParams(threadStart)?.dynamicTools).toEqual([
-      expect.objectContaining({
-        name: "linear_graphql",
-        inputSchema: expect.objectContaining({
-          required: ["query"]
-        })
-      }),
-      expect.objectContaining({
-        name: "finish_and_send_to_review",
-        inputSchema: expect.objectContaining({
-          required: ["status", "summary"]
-        })
-      })
-    ]);
+    expect(getParams(threadStart)?.dynamicTools).toBeUndefined();
   });
 
   it("uses the host workspace as spawn cwd while sending container cwd to thread and turn start", async () => {
@@ -699,10 +686,10 @@ while IFS= read -r line; do
       ;;
     4)
       printf '%s\\n' '{"id":3,"result":{"turn":{"id":"turn-tool-call"}}}'
-      printf '%s\\n' '{"id":102,"method":"item/tool/call","params":{"name":"linear_graphql","arguments":{"query":"query Viewer { viewer { id } }","variables":{"includeTeams":false}}}}'
+      printf '%s\\n' '{"id":102,"method":"item/tool/call","params":{"name":"demo_tool","arguments":{"query":"query Viewer { viewer { id } }","variables":{"includeTeams":false}}}}'
       ;;
     5)
-      printf '%s\\n' '{"id":103,"method":"item/tool/call","params":{"tool":"linear_graphql","arguments":{"query":"query Viewer { viewer { id } }"}}}'
+      printf '%s\\n' '{"id":103,"method":"item/tool/call","params":{"tool":"demo_tool","arguments":{"query":"query Viewer { viewer { id } }"}}}'
       ;;
     6)
       printf '%s\\n' '{"method":"turn/completed"}'
@@ -752,7 +739,7 @@ done
 
     expect(toolCalls).toEqual([
       {
-        toolName: "linear_graphql",
+        toolName: "demo_tool",
         argumentsPayload: {
           query: "query Viewer { viewer { id } }",
           variables: {
@@ -761,7 +748,7 @@ done
         }
       },
       {
-        toolName: "linear_graphql",
+        toolName: "demo_tool",
         argumentsPayload: {
           query: "query Viewer { viewer { id } }"
         }
@@ -1094,18 +1081,18 @@ function runTurnForScenario(
       toolExecutor:
         input.toolExecutor ??
         (async (toolName) => ({
-          success: toolName === "linear_graphql",
+          success: toolName === "demo_tool",
           output:
-            toolName === "linear_graphql"
+            toolName === "demo_tool"
               ? '{"data":{"viewer":{"id":"usr_default"}}}'
-              : `Unsupported dynamic tool: ${String(toolName)}`,
+              : `Unsupported tool: ${String(toolName)}`,
           contentItems: [
             {
               type: "inputText",
               text:
-                toolName === "linear_graphql"
+                toolName === "demo_tool"
                   ? '{"data":{"viewer":{"id":"usr_default"}}}'
-                  : `Unsupported dynamic tool: ${String(toolName)}`
+                  : `Unsupported tool: ${String(toolName)}`
             }
           ]
         })),

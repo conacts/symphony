@@ -34,6 +34,7 @@ import {
   extractPiRuntimeUsage,
   HarnessSessionError,
   resolveHarnessModelRuntimePolicy,
+  type HarnessToolExecutor,
   type HarnessSessionClient
 } from "@symphony/agent-harnesses";
 import { resolveIssueRepository } from "./runtime-repository-routing.js";
@@ -50,10 +51,7 @@ import {
   createPiRuntimeHarness,
   type SymphonyRuntimeHarness
 } from "./runtime-harness.js";
-import {
-  buildRuntimeDynamicToolExecutor,
-  type RuntimeDeliveryReportResult
-} from "./runtime-dynamic-tools.js";
+import type { RuntimeDeliveryReportResult } from "@symphony/runtime-tools";
 import { CommandResourceMonitor } from "./command-resource-monitor.js";
 
 type RunCallbacks = {
@@ -73,6 +71,7 @@ export function createSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
   admittedRepositories?: AdmittedRuntimeRepository[];
   runtimeWorkingDirectory?: string;
+  apiPort?: number;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
@@ -98,6 +97,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
   admittedRepositories?: AdmittedRuntimeRepository[];
   runtimeWorkingDirectory?: string;
+  apiPort?: number;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
@@ -190,6 +190,7 @@ async function executeRun(input: {
   promptTemplate: string;
   harness: SymphonyRuntimeHarness;
   promptContract: SymphonyLoadedPromptContract;
+  apiPort?: number;
   githubRepository: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
@@ -263,6 +264,12 @@ async function executeRun(input: {
         FORCE_COLOR: "0",
         CLICOLOR: "0",
         CLICOLOR_FORCE: "0",
+        SYMPHONY_API_BASE_URL:
+          input.apiPort !== undefined
+            ? buildRuntimeApiBaseUrl(input.launchTarget, input.apiPort)
+            : "",
+        SYMPHONY_ISSUE_ID: input.issue.id,
+        SYMPHONY_ISSUE_STATE: input.issue.state ?? "",
         ...input.workspace.envBundle.values,
         ...input.harnessLaunchEnv
       },
@@ -389,18 +396,7 @@ async function executeRun(input: {
         prompt,
         title: `${currentIssue.identifier}: ${currentIssue.title}`,
         sandboxPolicy: null,
-        toolExecutor: buildRuntimeDynamicToolExecutor({
-          runtimePolicy: input.runtimePolicy,
-          logger: input.logger,
-          tracker: input.tracker,
-          deliveryReports: input.deliveryReports,
-          issue: currentIssue,
-          runId: input.runId,
-          readTurnId: () => persistedTurnId,
-          onDeliveryReportRecorded(recordedReport) {
-            deliveryReport = recordedReport;
-          }
-        }),
+        toolExecutor: unsupportedRuntimeToolExecutor,
         turnTimeoutMs: input.runtimePolicy.pi.turnTimeoutMs,
         onMessage: async (update) => {
           const { message, projectionLosses, rawPayload } = update;
@@ -693,6 +689,18 @@ async function executeRun(input: {
   }
 }
 
+function buildRuntimeApiBaseUrl(
+  launchTarget: SymphonyRuntimeLaunchTarget,
+  apiPort: number
+): string {
+  switch (launchTarget.kind) {
+    case "container":
+      return `http://host.docker.internal:${apiPort}/api/v1/internal/runtime-tools`;
+    default:
+      return `http://127.0.0.1:${apiPort}/api/v1/internal/runtime-tools`;
+  }
+}
+
 function resolvePromptRepoName(
   configuredGitHubRepo: string | null,
   repoRoot: string
@@ -848,7 +856,7 @@ function missingDeliveryReportCompletion(): SymphonyAgentRuntimeCompletion {
   return {
     kind: "failure",
     reason:
-      "Run ended without calling `finish_and_send_to_review`. Delivery success must be reported explicitly before the run can complete."
+      "Run ended without recording delivery explicitly through `pnpm exec symphony tool finish ...`. Delivery success must be reported before the run can complete."
   };
 }
 
@@ -1119,3 +1127,20 @@ async function finalizeStoppedTurn(
     threadId: null
   });
 }
+
+const unsupportedRuntimeToolExecutor: HarnessToolExecutor = async () => {
+  return {
+    success: false,
+    output: JSON.stringify(
+      {
+        error: {
+          message:
+            "Symphony runtime-injected tools are disabled. Use the workspace CLI instead."
+        }
+      },
+      null,
+      2
+    ),
+    contentItems: []
+  };
+};

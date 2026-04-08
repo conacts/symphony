@@ -1,0 +1,50 @@
+{
+  "name": "@symphony/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "symphony": "./bin/run.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "oclif.manifest.json"
+  ],
+  "scripts": {
+    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc -b tsconfig.json",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo oclif.manifest.json",
+    "lint": "eslint .",
+    "manifest": "oclif manifest",
+    "test": "node ../../scripts/run-vitest.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@oclif/core": "^4.5.4",
+    "@symphony/db": "workspace:*",
+    "@symphony/logger": "workspace:*",
+    "@symphony/runtime-tools": "workspace:*",
+    "@symphony/tracker": "workspace:*"
+  },
+  "devDependencies": {
+    "@oclif/test": "^4.1.13",
+    "@symphony/eslint-configs": "workspace:*",
+    "@symphony/vitest-configs": "workspace:*",
+    "tsx": "^4.21.0",
+    "vitest": "^4.1.2"
+  },
+  "oclif": {
+    "bin": "symphony",
+    "dirname": "symphony",
+    "commands": {
+      "strategy": "pattern",
+      "target": "./dist/commands"
+    },
+    "hooks": {
+      "init": "./dist/hooks/init.js",
+      "prerun": "./dist/hooks/prerun.js",
+      "finally": "./dist/hooks/finally.js"
+    },
+    "topicSeparator": " "
+  }
+}

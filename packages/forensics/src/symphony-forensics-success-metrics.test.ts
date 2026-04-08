@@ -68,7 +68,8 @@ describe("symphony forensics success metrics", () => {
           outcome: "startup_failure",
           errorClass: "startup_failure",
           agentFailureKind: "startup_failure",
-          errorMessage: "Missing finish_and_send_to_review call.",
+          errorMessage:
+            "Run ended without recording delivery explicitly through pnpm exec symphony tool finish ...",
           totalTokens: 10,
           cachedInputTokens: 0
         }),

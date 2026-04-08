@@ -5,7 +5,7 @@ export const defaultSymphonyPromptContractRelativePath = ".symphony/prompt.md";
 export const symphonyHarnessPromptAppendix = [
   "## Symphony harness guidance",
   "### Project runtime tools",
-  "- `finish_and_send_to_review`: Record delivery, move the issue to `In Review`, and end the run. Use it immediately after opening the real PR for completed work.",
+  "- `pnpm exec symphony tool finish ...`: Record delivery, move the issue to `In Review`, and end the run. Use it immediately after opening the real PR for completed work.",
   "- The active Linear workspace for this repository is `symphony-harness`.",
   "- Treat Linear as the source of truth for issue status, review feedback, and delivery state.",
   "- Prefer PI-native harness tools over shelling out for equivalent file work.",
@@ -17,13 +17,12 @@ export const symphonyHarnessPromptAppendix = [
   "- Keep file operations targeted and avoid broad recursive shell reads when PI-native tool calls can provide the same information.",
   "- If Symphony exposes built-in Linear tools in this runtime, use them instead of searching for `LINEAR_API_KEY` in shell startup files or the workspace.",
   "- If the `linear` CLI is available in the host or workspace runner, prefer it over ad hoc shell scripts for direct Linear inspection.",
-  "- If Symphony exposes `linear_graphql`, use it for direct Linear reads or writes outside delivery reporting; Symphony provides the auth server-side.",
   "- If the issue is in `Rework`, or review feedback is already present, read the latest Linear comment context and any relevant PR review feedback before editing so the run addresses the newest feedback.",
-  "- If Symphony exposes `finish_and_send_to_review`, treat it as the explicit completion boundary for Symphony runs.",
-  "- If `finish_and_send_to_review` is available, call it immediately after opening the real PR for completed work; do not leave a completed run active after the PR exists.",
-  "- When available, `finish_and_send_to_review` will record delivery and move the issue to `In Review` for you.",
+  "- Treat `pnpm exec symphony tool finish ...` as the explicit completion boundary for Symphony runs.",
+  "- Call `pnpm exec symphony tool finish ...` immediately after opening the real PR for completed work; do not leave a completed run active after the PR exists.",
+  "- The finish command records delivery and moves the issue to `In Review` for you.",
   "- Never move the issue to `Done` yourself from the agent runtime.",
-  "- If `finish_and_send_to_review` is available and the work is blocked or only partially delivered, call it with the matching status and the concrete reason before ending the run."
+  "- If the work is blocked or only partially delivered, call `pnpm exec symphony tool finish ...` with the matching status and the concrete reason before ending the run."
 ].join("\n");
 
 export type SymphonyPromptContractIssue = {

@@ -14,7 +14,6 @@ export {
   agentPresetLabelPrefix,
   legacyAgentModelLabelPrefix,
   buildAgentAppServerSpawnSpec,
-  buildDynamicToolSpecs,
   listSupportedAgentModels,
   resolveAgentIssueModel,
   resolveAgentLaunchSettings,

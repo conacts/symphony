@@ -3,7 +3,6 @@ import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
   buildAgentAppServerSpawnSpec,
-  buildDynamicToolSpecs,
   ensureWorkspaceCwd,
   resolveAgentLaunchSettings,
   wrapSessionError
@@ -162,8 +161,7 @@ export class AgentAppServerClient {
         {
           approvalPolicy: input.runtimePolicy.agentRuntime.approvalPolicy,
           sandbox: input.runtimePolicy.agentRuntime.threadSandbox,
-          cwd: spawnSpec.runtimeWorkspacePath,
-          dynamicTools: buildDynamicToolSpecs()
+          cwd: spawnSpec.runtimeWorkspacePath
         }
       );
       const threadId =

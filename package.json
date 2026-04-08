@@ -48,6 +48,8 @@
   },
   "scripts": {
     "build": "turbo run build --filter=@symphony/api... --filter=@symphony/runtime-contract --filter=@symphony/web",
+    "cli:build": "turbo run build --filter=@symphony/cli",
+    "cli:test": "turbo run test --filter=@symphony/cli",
     "typecheck": "turbo run typecheck --filter=@symphony/api... --filter=@symphony/runtime-contract --filter=@symphony/web",
     "dev": "turbo run dev --filter=@symphony/api --filter=@symphony/web",
     "dev:host": "node ./scripts/dev-self-host.mjs",

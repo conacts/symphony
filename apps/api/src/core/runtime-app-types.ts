@@ -28,6 +28,7 @@ import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import type { SymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 import type { SymphonyRuntimePollSchedulerSnapshot } from "./poll-scheduler.js";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
+import type { RuntimeToolExecutionResult } from "@symphony/runtime-tools";
 
 export type SymphonyRuntimeOrchestratorPort = {
   snapshot(): SymphonyOrchestratorSnapshot;
@@ -62,6 +63,29 @@ export type SymphonyRuntimeLogsPort = {
 
 export type SymphonyRuntimeHealthPort = {
   snapshot(): SymphonyRuntimeHealthResult;
+};
+
+export type SymphonyRuntimeToolsPort = {
+  recordDeliveryReport(input: {
+    runId: string;
+    turnId: string | null;
+    issue: {
+      id: string;
+      identifier: string;
+      state: string | null;
+    };
+    argumentsPayload: unknown;
+  }): Promise<RuntimeToolExecutionResult>;
+  submitSpikeResult(input: {
+    runId: string;
+    turnId: string | null;
+    issue: {
+      id: string;
+      identifier: string;
+      state: string | null;
+    };
+    argumentsPayload: unknown;
+  }): Promise<RuntimeToolExecutionResult>;
 };
 
 export type SymphonyAgentAnalyticsReadPort = {
@@ -114,6 +138,7 @@ export type SymphonyRuntimeAppServices = {
   issueTimeline: SymphonyIssueTimelinePort;
   runtimeLogs: SymphonyRuntimeLogsPort;
   health: SymphonyRuntimeHealthPort;
+  runtimeTools: SymphonyRuntimeToolsPort;
   githubReviewIngress: SymphonyGitHubReviewIngressPort;
   realtime: SymphonyRealtimeHub;
   shutdown(): Promise<void>;

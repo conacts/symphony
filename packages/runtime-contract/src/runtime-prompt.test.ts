@@ -79,7 +79,7 @@ describe("prompt contract", () => {
       "Prefer built-in Pi tools for reading, searching, and editing files."
     );
     expect(symphonyHarnessPromptAppendix).toContain(
-      "`finish_and_send_to_review`: Record delivery, move the issue to `In Review`, and end the run."
+      "`pnpm exec symphony tool finish ...`: Record delivery, move the issue to `In Review`, and end the run."
     );
   });
 
