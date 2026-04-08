@@ -488,7 +488,7 @@ describe("symphony orchestrator", () => {
     expect(orchestrator.snapshot().pollCheckInProgress).toBe(false);
   });
 
-  it("records pause and workspace preservation after a failed run completes", async () => {
+  it("destroys the workspace after a failed run completes", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
         ...buildSymphonyOrchestratorConfig().tracker,
@@ -551,13 +551,13 @@ describe("symphony orchestrator", () => {
       issueIdentifier: "COL-123"
     });
     expect(lifecycleEvents).toContainEqual({
-      eventType: "workspace_preserved_after_run",
+      eventType: "workspace_destroyed_after_run",
       runId: "run-1",
       issueIdentifier: "COL-123"
     });
   });
 
-  it("destroys the workspace after Pi no-progress failures", async () => {
+  it("destroys the workspace after a normal completion moves the issue out of dispatchable states", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
         ...buildSymphonyOrchestratorConfig().tracker,
@@ -609,9 +609,9 @@ describe("symphony orchestrator", () => {
     });
 
     await orchestrator.dispatchIssue(issue, 0);
-    await orchestrator.handleRunCompletion("issue-123", {
-      kind: "failure",
-      reason: "Pi ended the turn without usage or meaningful projected work."
+    await tracker.updateIssueState(issue.id, "In Review");
+    await orchestrator.handleRunCompletion(issue.id, {
+      kind: "normal"
     });
 
     expect(lifecycleEvents).toContainEqual({
@@ -798,6 +798,69 @@ describe("symphony orchestrator", () => {
 
     expect(stopped).toEqual(["issue-123"]);
     expect(orchestrator.snapshot().running).toHaveLength(0);
+  });
+
+  it("destroys the workspace when a running issue moves to In Review", async () => {
+    const config = buildSymphonyOrchestratorConfig({
+      tracker: {
+        ...buildSymphonyOrchestratorConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: []
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const lifecycleEvents: string[] = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime({
+        async startRun() {
+          return {
+            sessionId: "thread-1",
+            workerHost: null,
+            launchTarget: null
+          };
+        },
+        async stopRun() {
+          return;
+        }
+      }),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push(input.eventType);
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 0);
+    await tracker.updateIssueState(issue.id, "In Review");
+    await orchestrator.reconcileRunningIssues();
+
+    expect(lifecycleEvents).toContain("run_stopped_inactive");
+    expect(lifecycleEvents).toContain("workspace_cleanup_completed");
+    expect(lifecycleEvents).toContain("docker_container_removed");
   });
 
   it("pauses failed runs instead of scheduling hidden retries", async () => {
@@ -994,6 +1057,56 @@ describe("symphony orchestrator", () => {
         "Symphony did not retry automatically."
       )
     });
+  });
+
+  it("destroys the workspace after max-turn pauses", async () => {
+    const config = buildSymphonyOrchestratorConfig({
+      tracker: {
+        ...buildSymphonyOrchestratorConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: []
+      }
+    });
+    const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);
+    const lifecycleEvents: string[] = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push(input.eventType);
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 0);
+    await orchestrator.handleRunCompletion("issue-123", {
+      kind: "max_turns_reached",
+      maxTurns: 2,
+      reason: "Reached the configured 2-turn limit while the issue remained active."
+    });
+
+    expect(lifecycleEvents).toContain("workspace_destroyed_after_run");
   });
 
   it("pauses stalled runs instead of silently retrying them", async () => {

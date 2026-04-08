@@ -2,6 +2,7 @@ import {
   issueMatchesDispatchableState,
   issueMatchesTerminalState,
   issueBranchName,
+  type SymphonyTrackerConfig,
   type SymphonyTracker,
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
@@ -200,7 +201,7 @@ export class SymphonyOrchestrator {
 
       const refreshedIssue = refreshedById.get(issueId);
       if (!refreshedIssue) {
-        await this.#terminateRunningIssue(issueId, false);
+        await this.#terminateRunningIssue(issueId, true);
         continue;
       }
 
@@ -216,7 +217,7 @@ export class SymphonyOrchestrator {
           this.#config.tracker
         )
       ) {
-        await this.#terminateRunningIssue(issueId, false);
+        await this.#terminateRunningIssue(issueId, true);
         continue;
       }
 
@@ -604,10 +605,12 @@ export class SymphonyOrchestrator {
     });
 
     let currentIssue = await this.#refreshIssue(runningEntry.issue);
-    const destroyWorkspace =
-      currentIssue !== null &&
-      issueMatchesTerminalState(currentIssue, this.#config.tracker);
-    const cleanupMode = destroyWorkspace ? "destroy" : "preserve";
+    const cleanupMode = shouldDestroyWorkspaceForStoppedIssue(
+      currentIssue,
+      this.#config.tracker
+    )
+      ? "destroy"
+      : "preserve";
 
     if (completion.kind === "normal" || completion.kind === "max_turns_reached") {
       if (completion.kind === "max_turns_reached") {
@@ -643,7 +646,12 @@ export class SymphonyOrchestrator {
         completionKind: completion.kind,
         mode:
           completion.kind === "max_turns_reached"
-            ? "preserve"
+            ? shouldDestroyWorkspaceForStoppedIssue(
+                currentIssue ?? runningEntry.issue,
+                this.#config.tracker
+              )
+              ? "destroy"
+              : "preserve"
             : cleanupMode
       });
       return;
@@ -744,7 +752,10 @@ export class SymphonyOrchestrator {
       workspace: runningEntry.workspace,
       workerHost: runningEntry.workerHost,
       completionKind: completion.kind,
-      mode: shouldDestroyWorkspaceAfterCompletion(completion)
+      mode: shouldDestroyWorkspaceForStoppedIssue(
+        currentIssue ?? runningEntry.issue,
+        this.#config.tracker
+      )
         ? "destroy"
         : "preserve"
     });
@@ -937,6 +948,13 @@ export class SymphonyOrchestrator {
       return;
     }
 
+    const stopReason = issueMatchesTerminalState(
+      runningEntry.issue,
+      this.#config.tracker
+    )
+      ? "terminal"
+      : "inactive";
+
     await this.#agentRuntime.stopRun({
       issue: runningEntry.issue,
       workspace: runningEntry.workspace,
@@ -947,10 +965,14 @@ export class SymphonyOrchestrator {
       issue: runningEntry.issue,
       runId: runningEntry.runId,
       source: "orchestrator",
-      eventType: cleanupWorkspace ? "run_stopped_terminal" : "run_stopped_inactive",
-      message: cleanupWorkspace
-        ? "Running issue stopped because it entered a terminal state."
-        : "Running issue stopped because it became ineligible.",
+      eventType:
+        stopReason === "terminal"
+          ? "run_stopped_terminal"
+          : "run_stopped_inactive",
+      message:
+        stopReason === "terminal"
+          ? "Running issue stopped because it entered a terminal state."
+          : "Running issue stopped because it became ineligible.",
       payload: {
         cleanupWorkspace
       }
@@ -989,22 +1011,18 @@ export class SymphonyOrchestrator {
   }
 }
 
-function shouldDestroyWorkspaceAfterCompletion(
-  completion: SymphonyAgentRuntimeCompletion
+function shouldDestroyWorkspaceForStoppedIssue(
+  issue: SymphonyTrackerIssue | null,
+  tracker: SymphonyTrackerConfig
 ): boolean {
-  if (completion.kind === "startup_failure") {
+  if (!issue) {
     return true;
   }
 
-  if (completion.kind !== "failure") {
-    return false;
-  }
-
   return (
-    completion.reason.includes("Pi ended the turn without usage or meaningful projected work.") ||
-    completion.reason.includes(
-      "Pi ended the turn after emitting only queue/todo updates with no measurable work."
-    )
+    issueMatchesTerminalState(issue, tracker) ||
+    !issue.assignedToWorker ||
+    !issueMatchesDispatchableState(issue, tracker)
   );
 }
 
