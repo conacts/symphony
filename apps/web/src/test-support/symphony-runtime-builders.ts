@@ -359,7 +359,6 @@ export function buildSymphonyRuntimeIssueResult(
       branchName: "symphony/COL-167",
       url: "https://linear.app/coldets/issue/COL-167/refresh-and-requeue",
       projectName: "Symphony",
-      projectSlug: "symphony",
       teamKey: "COL"
     },
     operator: {

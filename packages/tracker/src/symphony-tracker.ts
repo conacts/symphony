@@ -18,7 +18,6 @@ export type SymphonyTrackerIssue = {
   url: string | null;
   projectId: string | null;
   projectName: string | null;
-  projectSlug: string | null;
   teamKey: string | null;
   assigneeId: string | null;
   blockedBy: string[];
@@ -112,18 +111,11 @@ export function isSymphonyProjectAssigned(
 
 export function linearScope(
   tracker: SymphonyTrackerConfig
-): { kind: "project"; value: string } | { kind: "team"; value: string } | null {
+): { kind: "team"; value: string } | null {
   if (tracker.teamKey) {
     return {
       kind: "team",
       value: tracker.teamKey
-    };
-  }
-
-  if (tracker.projectSlug) {
-    return {
-      kind: "project",
-      value: tracker.projectSlug
     };
   }
 
@@ -145,10 +137,6 @@ export function isLinearIssueInScope(
   const scope = linearScope(tracker);
   if (!scope) {
     return false;
-  }
-
-  if (scope.kind === "project") {
-    return issue.projectSlug === scope.value;
   }
 
   return (

@@ -48,7 +48,6 @@ describe("runtime dynamic tools", () => {
         url: null,
         projectId: null,
         projectName: null,
-        projectSlug: null,
         teamKey: null,
         assigneeId: null,
         blockedBy: [],

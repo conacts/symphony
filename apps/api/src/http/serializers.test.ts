@@ -345,9 +345,7 @@ describe("runtime serializers", () => {
       }),
       [
         buildAdmittedRepository("conacts/symphony", {
-          projectSlug: "symphony",
-          teamKey: null,
-          apiKeyEnvKey: "LINEAR_API_KEY_SYM"
+          teamKey: "SYM"
         })
       ]
     );
@@ -356,9 +354,7 @@ describe("runtime serializers", () => {
       {
         repositoryKey: "conacts/symphony",
         linear: {
-          projectSlug: "symphony",
-          teamKey: null,
-          apiKeyEnvKey: "LINEAR_API_KEY_SYM"
+          teamKey: "SYM"
         }
       }
     ]);

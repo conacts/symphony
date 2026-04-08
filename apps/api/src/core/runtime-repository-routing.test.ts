@@ -8,23 +8,15 @@ import {
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 
 describe("runtime repository routing", () => {
-  it("routes a multi-repo issue by Linear project binding", () => {
+  it("routes a multi-repo issue by Linear team binding", () => {
     const repository = resolveIssueRepository(
       [
-        buildAdmittedRepository("conacts/symphony", {
-          projectSlug: "symphony",
-          teamKey: null,
-          apiKeyEnvKey: null
-        }),
-        buildAdmittedRepository("conacts/coldets-v2", {
-          projectSlug: "coldets",
-          teamKey: null,
-          apiKeyEnvKey: null
-        })
+        buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
+        buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
       ],
       buildSymphonyTrackerIssue({
         identifier: "SYM-101",
-        projectSlug: "symphony",
+        teamKey: "SYM",
         labels: []
       })
     );
@@ -36,20 +28,12 @@ describe("runtime repository routing", () => {
     expect(() =>
       resolveIssueRepository(
         [
-          buildAdmittedRepository("conacts/symphony", {
-            projectSlug: "symphony",
-            teamKey: null,
-            apiKeyEnvKey: null
-          }),
-          buildAdmittedRepository("conacts/coldets-v2", {
-            projectSlug: "coldets",
-            teamKey: null,
-            apiKeyEnvKey: null
-          })
+          buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
+          buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
         ],
         buildSymphonyTrackerIssue({
           identifier: "SYM-102",
-          projectSlug: "symphony",
+          teamKey: "SYM",
           labels: ["repo:conacts/coldets-v2"]
         })
       )
@@ -60,20 +44,12 @@ describe("runtime repository routing", () => {
     expect(() =>
       resolveIssueRepository(
         [
-          buildAdmittedRepository("conacts/symphony", {
-            projectSlug: "symphony",
-            teamKey: null,
-            apiKeyEnvKey: null
-          }),
-          buildAdmittedRepository("conacts/coldets-v2", {
-            projectSlug: "coldets",
-            teamKey: null,
-            apiKeyEnvKey: null
-          })
+          buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
+          buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
         ],
         buildSymphonyTrackerIssue({
           identifier: "SYM-103",
-          projectSlug: "unknown-project",
+          teamKey: "OTHER",
           labels: []
         })
       )
@@ -84,20 +60,12 @@ describe("runtime repository routing", () => {
     expect(() =>
       resolveIssueRepository(
         [
-          buildAdmittedRepository("conacts/symphony", {
-            projectSlug: "symphony",
-            teamKey: null,
-            apiKeyEnvKey: null
-          }),
-          buildAdmittedRepository("conacts/coldets-v2", {
-            projectSlug: "coldets",
-            teamKey: null,
-            apiKeyEnvKey: null
-          })
+          buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
+          buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
         ],
         buildSymphonyTrackerIssue({
           identifier: "SYM-104",
-          projectSlug: "symphony",
+          teamKey: "SYM",
           labels: ["repo:conacts/unknown"]
         })
       )
@@ -106,16 +74,10 @@ describe("runtime repository routing", () => {
 
   it("allows a single admitted repo without an explicit Linear binding match", () => {
     const repository = resolveIssueRepository(
-      [
-        buildAdmittedRepository("conacts/symphony", {
-          projectSlug: "symphony",
-          teamKey: null,
-          apiKeyEnvKey: null
-        })
-      ],
+      [buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" })],
       buildSymphonyTrackerIssue({
         identifier: "SYM-105",
-        projectSlug: "other-project",
+        teamKey: "OTHER",
         labels: []
       })
     );
@@ -126,63 +88,37 @@ describe("runtime repository routing", () => {
   it("resolves the process default repository from the Linear tracker binding", () => {
     const repository = resolveRepositoryForLinearScope(
       [
-        buildAdmittedRepository("conacts/symphony", {
-          projectSlug: "symphony",
-          teamKey: null,
-          apiKeyEnvKey: null
-        }),
-        buildAdmittedRepository("conacts/coldets-v2", {
-          projectSlug: "coldets",
-          teamKey: null,
-          apiKeyEnvKey: null
-        })
+        buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
+        buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
       ],
       {
-        projectSlug: "coldets",
-        teamKey: null
+        teamKey: "COL"
       }
     );
 
     expect(repository.repositoryKey).toBe("conacts/coldets-v2");
   });
 
-  it("rejects multi-repo process defaults without a Linear tracker binding", () => {
+  it("rejects multi-repo process defaults without a Linear tracker team", () => {
     expect(() =>
       resolveRepositoryForLinearScope(
         [
-          buildAdmittedRepository("conacts/symphony", {
-            projectSlug: "symphony",
-            teamKey: null,
-            apiKeyEnvKey: null
-          }),
-          buildAdmittedRepository("conacts/coldets-v2", {
-            projectSlug: "coldets",
-            teamKey: null,
-            apiKeyEnvKey: null
-          })
+          buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
+          buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
         ],
         {
-          projectSlug: null,
           teamKey: null
         }
       )
-    ).toThrowError(/require tracker\.projectSlug or tracker\.teamKey/i);
+    ).toThrowError(/require tracker\.teamKey/i);
   });
 
   it("rejects workspace repo selection when multiple repos are admitted and no repositoryKey is present", () => {
     expect(() =>
       resolveWorkspaceRepository(
         [
-          buildAdmittedRepository("conacts/symphony", {
-            projectSlug: "symphony",
-            teamKey: null,
-            apiKeyEnvKey: null
-          }),
-          buildAdmittedRepository("conacts/coldets-v2", {
-            projectSlug: "coldets",
-            teamKey: null,
-            apiKeyEnvKey: null
-          })
+          buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
+          buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
         ],
         null
       )

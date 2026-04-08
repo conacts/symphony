@@ -41,7 +41,7 @@ describe("resolveRuntimePolicy", () => {
           kind: "linear",
           apiKey: "$LINEAR_API_KEY",
           assignee: "$LINEAR_ASSIGNEE",
-          projectSlug: "coldets"
+          teamKey: "COL"
         }
       },
       {

@@ -45,9 +45,7 @@ export function serializeRuntimeState(
         ? admittedRepositories.map((repository) => ({
             repositoryKey: repository.repositoryKey,
             linear: {
-              projectSlug: repository.linearBinding.projectSlug,
-              teamKey: repository.linearBinding.teamKey,
-              apiKeyEnvKey: repository.linearBinding.apiKeyEnvKey
+              teamKey: repository.linearBinding.teamKey
             }
           }))
         : undefined,
@@ -126,7 +124,6 @@ export function serializeRuntimeIssue(
       url: null,
       projectId: null,
       projectName: null,
-      projectSlug: null,
       teamKey: null,
       assigneeId: null,
       blockedBy: [],
@@ -195,7 +192,6 @@ export function serializeRuntimeIssue(
       branchName: tracked.branchName,
       url: tracked.url,
       projectName: tracked.projectName,
-      projectSlug: tracked.projectSlug,
       teamKey: tracked.teamKey
     },
     operator: {

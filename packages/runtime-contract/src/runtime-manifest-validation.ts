@@ -37,7 +37,6 @@ import {
   piPresetNames,
   piPresetKeys,
   piReasoningLevels,
-  environmentVariablePattern,
   repositoryKeyPattern,
   workspaceKeys,
   workspacePackageManagers
@@ -116,7 +115,7 @@ function parseLinearBinding(
     pushIssue(
       issues,
       ["linear"],
-      "linear must declare projectSlug or teamKey."
+      "linear must declare teamKey."
     );
     return undefined;
   }
@@ -129,63 +128,24 @@ function parseLinearBinding(
   }
 
   rejectUnknownKeys(record, linearKeys, ["linear"], issues);
-  const projectSlug = readOptionalString(
-    record,
-    "projectSlug",
-    ["linear", "projectSlug"],
-    issues,
-    "linear.projectSlug"
-  );
-  const teamKey = readOptionalString(
+  const teamKey = readRequiredString(
     record,
     "teamKey",
     ["linear", "teamKey"],
     issues,
     "linear.teamKey"
   );
-  const apiKeyEnvKey = readOptionalString(
-    record,
-    "apiKeyEnvKey",
-    ["linear", "apiKeyEnvKey"],
-    issues,
-    "linear.apiKeyEnvKey"
-  );
-
-  if (projectSlug && teamKey) {
-    pushIssue(
-      issues,
-      ["linear"],
-      "linear must declare either projectSlug or teamKey, not both."
-    );
-    return undefined;
-  }
-
-  if (!projectSlug && !teamKey) {
-    pushIssue(
-      issues,
-      ["linear"],
-      "linear must declare projectSlug or teamKey."
-    );
-    return undefined;
-  }
-
-  if (apiKeyEnvKey && !environmentVariablePattern.test(apiKeyEnvKey)) {
-    pushIssue(
-      issues,
-      ["linear", "apiKeyEnvKey"],
-      "linear.apiKeyEnvKey must use an environment variable name like LINEAR_API_KEY_SYM."
-    );
-    return undefined;
-  }
 
   if (hasIssuesSince(issues, checkpoint)) {
     return undefined;
   }
 
+  if (!teamKey) {
+    return undefined;
+  }
+
   return {
-    projectSlug: projectSlug ?? null,
-    teamKey: teamKey ?? null,
-    apiKeyEnvKey: apiKeyEnvKey ?? null
+    teamKey
   };
 }
 

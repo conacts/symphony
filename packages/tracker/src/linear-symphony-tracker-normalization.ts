@@ -49,7 +49,6 @@ export function normalizeLinearIssue(
     url: getNullableString(issue, "url"),
     projectId: getNullableString(project, "id"),
     projectName: getNullableString(project, "name"),
-    projectSlug: getNullableString(project, "slugId"),
     teamKey: getNullableString(team, "key"),
     assigneeId: getNullableString(assignee, "id"),
     blockedBy: extractBlockers(issue),

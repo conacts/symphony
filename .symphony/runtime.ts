@@ -19,7 +19,7 @@ export default defineSymphonyRuntime({
         auth: "provider"
       },
       advanced: {
-        model: "z-ai/glm-5.1",
+        model: "z-ai/glm-5",
         reasoningEffort: "high",
         auth: "provider"
       },

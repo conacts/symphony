@@ -103,9 +103,7 @@ export type SymphonyRuntimeWorkspace = {
 };
 
 export type SymphonyRuntimeLinearBinding = {
-  projectSlug?: string;
-  teamKey?: string;
-  apiKeyEnvKey?: string;
+  teamKey: string;
 };
 
 export type SymphonyRuntimePiPresetName = "basic" | "advanced" | "premium";
@@ -166,9 +164,7 @@ export type SymphonyNormalizedRuntimeManifest = {
   schemaVersion: SymphonyRuntimeManifestSchemaVersion;
   repositoryKey: string;
   linear: {
-    projectSlug: string | null;
-    teamKey: string | null;
-    apiKeyEnvKey: string | null;
+    teamKey: string;
   };
   workspace: SymphonyNormalizedRuntimeWorkspace;
   services: Record<string, SymphonyNormalizedRuntimeService>;

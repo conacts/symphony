@@ -9,9 +9,7 @@ export type AdmittedRuntimeRepository = {
   repositoryKey: string;
   repoRoot: string;
   linearBinding: {
-    projectSlug: string | null;
-    teamKey: string | null;
-    apiKeyEnvKey: string | null;
+    teamKey: string;
   };
   promptContract: SymphonyLoadedPromptContract;
   runtimeManifest: SymphonyLoadedRuntimeManifest;
@@ -21,6 +19,7 @@ export async function loadAdmittedRuntimeRepositories(
   sourceRepos: string[],
   environmentSource: Record<string, string | undefined>
 ): Promise<AdmittedRuntimeRepository[]> {
+  void environmentSource;
   const admittedRepositories: AdmittedRuntimeRepository[] = [];
   const seenRepositoryKeys = new Set<string>();
 
@@ -35,13 +34,6 @@ export async function loadAdmittedRuntimeRepositories(
         `Duplicate repositoryKey ${JSON.stringify(repositoryKey)} across admitted repos.`
       );
     }
-
-    ensureLinearAuthEnvironment(
-      repositoryKey,
-      linearBinding.apiKeyEnvKey,
-      environmentSource
-    );
-
     seenRepositoryKeys.add(repositoryKey);
     admittedRepositories.push({
       repositoryKey,
@@ -67,24 +59,5 @@ export function findAdmittedRepository(
     admittedRepositories.find(
       (repository) => repository.repositoryKey === repositoryKey
     ) ?? null
-  );
-}
-
-function ensureLinearAuthEnvironment(
-  repositoryKey: string,
-  apiKeyEnvKey: string | null,
-  environmentSource: Record<string, string | undefined>
-): void {
-  if (!apiKeyEnvKey) {
-    return;
-  }
-
-  const apiKey = environmentSource[apiKeyEnvKey];
-  if (typeof apiKey === "string" && apiKey.trim().length > 0) {
-    return;
-  }
-
-  throw new TypeError(
-    `Admitted repository ${JSON.stringify(repositoryKey)} requires ${apiKeyEnvKey}, but that environment variable is missing.`
   );
 }

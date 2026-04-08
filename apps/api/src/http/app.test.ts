@@ -72,7 +72,7 @@ describe("@symphony/api app", () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {
         state: "In Review",
-        projectSlug: "coldets",
+        teamKey: "COL",
         projectId: "project-1"
       }
     });

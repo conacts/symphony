@@ -12,7 +12,6 @@ import {
 import {
   issuePageSize,
   queryByIds,
-  queryByProject,
   queryByTeam,
   stateLookupQuery,
   updateStateMutation,
@@ -44,20 +43,14 @@ export async function fetchIssuesByStates(
     throw new Error("Linear tracker scope is missing.");
   }
 
-  const query = scope.kind === "project" ? queryByProject : queryByTeam;
-  const scopeVariables =
-    scope.kind === "project"
-      ? { projectSlug: scope.value }
-      : { teamKey: scope.value };
-
   let after: string | null = null;
   const issues: SymphonyTrackerIssue[] = [];
 
   while (true) {
     const body = await request(
-      query,
+      queryByTeam,
       {
-        ...scopeVariables,
+        teamKey: scope.value,
         stateNames: states,
         first: issuePageSize,
         relationFirst: issuePageSize,

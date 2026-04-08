@@ -2,7 +2,6 @@ export type SymphonyTrackerConfig = {
   kind: "linear" | "memory";
   endpoint: string;
   apiKey: string | null;
-  projectSlug: string | null;
   teamKey: string | null;
   excludedProjectIds: string[];
   assignee: string | null;

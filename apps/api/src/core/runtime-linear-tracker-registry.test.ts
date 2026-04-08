@@ -21,51 +21,15 @@ describe("repository linear tracker registry", () => {
       body?: string;
     }> = [];
     const factory: RepositoryLinearTrackerFactory = (config) => {
-      const repositoryKey = `${config.projectSlug ?? config.teamKey ?? "none"}:${config.apiKey ?? "none"}`;
+      const repositoryKey = `${config.teamKey ?? "none"}:${config.apiKey ?? "none"}`;
       return createFakeTracker(repositoryKey, config, calls);
     };
 
-    const tracker = createRepositoryScopedLinearTracker({
-      trackerTemplate: {
-        kind: "linear",
-        endpoint: "https://api.linear.app/graphql",
-        apiKey: "shared-linear-token",
-        projectSlug: "symphony",
-        teamKey: null,
-        excludedProjectIds: [],
-        assignee: null,
-        dispatchableStates: ["Todo"],
-        terminalStates: ["Done"],
-        claimTransitionToState: "Bootstrapping",
-        claimTransitionFromStates: ["Todo"],
-        startupFailureTransitionToState: "Failed",
-        pauseTransitionToState: "Paused"
-      },
-      admittedRepositories: [
-        buildAdmittedRepository("conacts/symphony", {
-          projectSlug: "symphony",
-          teamKey: null,
-          apiKeyEnvKey: "LINEAR_API_KEY_SYM"
-        }),
-        buildAdmittedRepository("conacts/coldets-v2", {
-          projectSlug: "coldets",
-          teamKey: null,
-          apiKeyEnvKey: "LINEAR_API_KEY"
-        })
-      ],
-      environmentSource: {
-        LINEAR_API_KEY_SYM: "sym-token",
-        LINEAR_API_KEY: "cold-token"
-      },
-      createTracker: factory
-    });
-
-    const issues = await tracker.fetchCandidateIssues({
+    const trackerConfig: SymphonyTrackerConfig = {
       kind: "linear",
       endpoint: "https://api.linear.app/graphql",
       apiKey: "shared-linear-token",
-      projectSlug: "symphony",
-      teamKey: null,
+      teamKey: "SYM",
       excludedProjectIds: [],
       assignee: null,
       dispatchableStates: ["Todo"],
@@ -74,30 +38,27 @@ describe("repository linear tracker registry", () => {
       claimTransitionFromStates: ["Todo"],
       startupFailureTransitionToState: "Failed",
       pauseTransitionToState: "Paused"
+    };
+
+    const tracker = createRepositoryScopedLinearTracker({
+      trackerTemplate: trackerConfig,
+      admittedRepositories: [
+        buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
+        buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
+      ],
+      environmentSource: {
+        LINEAR_API_KEY: "shared-linear-token"
+      },
+      createTracker: factory
     });
+
+    const issues = await tracker.fetchCandidateIssues(trackerConfig);
 
     expect(issues.map((issue) => issue.identifier)).toEqual(
       expect.arrayContaining(["SYMPHONY-1", "COLDETS-1"])
     );
 
-    const issue = await tracker.fetchIssueByIdentifier(
-      {
-        kind: "linear",
-        endpoint: "https://api.linear.app/graphql",
-        apiKey: "shared-linear-token",
-        projectSlug: "symphony",
-        teamKey: null,
-        excludedProjectIds: [],
-        assignee: null,
-        dispatchableStates: ["Todo"],
-        terminalStates: ["Done"],
-        claimTransitionToState: "Bootstrapping",
-        claimTransitionFromStates: ["Todo"],
-        startupFailureTransitionToState: "Failed",
-        pauseTransitionToState: "Paused"
-      },
-      "COLDETS-1"
-    );
+    const issue = await tracker.fetchIssueByIdentifier(trackerConfig, "COLDETS-1");
 
     expect(issue?.identifier).toBe("COLDETS-1");
 
@@ -105,32 +66,20 @@ describe("repository linear tracker registry", () => {
     await tracker.createComment(issue?.id ?? "", "hello");
 
     expect(
-      calls.filter((call) => call.repositoryKey.startsWith("coldets"))
+      calls.filter((call) => call.repositoryKey.startsWith("COL"))
     ).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          method: "fetchCandidateIssues"
-        }),
-        expect.objectContaining({
-          method: "fetchIssueByIdentifier"
-        }),
-        expect.objectContaining({
-          method: "updateIssueState"
-        }),
-        expect.objectContaining({
-          method: "createComment"
-        })
+        expect.objectContaining({ method: "fetchCandidateIssues" }),
+        expect.objectContaining({ method: "fetchIssueByIdentifier" }),
+        expect.objectContaining({ method: "updateIssueState" }),
+        expect.objectContaining({ method: "createComment" })
       ])
     );
 
     expect(
-      calls.filter((call) => call.repositoryKey.startsWith("symphony"))
+      calls.filter((call) => call.repositoryKey.startsWith("SYM"))
     ).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          method: "fetchCandidateIssues"
-        })
-      ])
+      expect.arrayContaining([expect.objectContaining({ method: "fetchCandidateIssues" })])
     );
   });
 });
@@ -202,47 +151,27 @@ function createFakeTracker(
 
   return {
     async fetchCandidateIssues() {
-      calls.push({
-        repositoryKey,
-        method: "fetchCandidateIssues",
-        apiKey: config.apiKey
-      });
+      calls.push({ repositoryKey, method: "fetchCandidateIssues", apiKey: config.apiKey });
       return [issue];
     },
     async fetchIssuesByStates() {
-      calls.push({
-        repositoryKey,
-        method: "fetchIssuesByStates",
-        apiKey: config.apiKey
-      });
+      calls.push({ repositoryKey, method: "fetchIssuesByStates", apiKey: config.apiKey });
       return [issue];
     },
     async fetchIssueStatesByIds(_config, issueIds) {
-      calls.push({
-        repositoryKey,
-        method: "fetchIssueStatesByIds",
-        apiKey: config.apiKey,
-        issueId: issueIds[0] ?? null
-      });
+      calls.push({ repositoryKey, method: "fetchIssueStatesByIds", apiKey: config.apiKey });
       return issueIds.includes(issue.id) ? [issue] : [];
     },
     async fetchIssueByIdentifier(_config, issueIdentifier) {
       calls.push({
         repositoryKey,
         method: "fetchIssueByIdentifier",
-        apiKey: config.apiKey,
-        issueId: issueIdentifier
+        apiKey: config.apiKey
       });
       return issue.identifier === issueIdentifier ? issue : null;
     },
     async createComment(issueId, body) {
-      calls.push({
-        repositoryKey,
-        method: "createComment",
-        apiKey: config.apiKey,
-        issueId,
-        body
-      });
+      calls.push({ repositoryKey, method: "createComment", apiKey: config.apiKey, issueId, body });
     },
     async updateIssueState(issueId, stateName) {
       calls.push({
@@ -260,24 +189,24 @@ function issueForConfig(
   config: SymphonyTrackerConfig,
   repositoryKey: string
 ): SymphonyTrackerIssue {
-  const prefix = config.projectSlug ?? config.teamKey ?? "repo";
+  const prefix = config.teamKey ?? "repo";
+  const identifier = prefix === "SYM" ? "SYMPHONY-1" : "COLDETS-1";
   return {
-    id: `${repositoryKey}:issue`,
-    identifier: `${prefix.toUpperCase()}-1`,
-    title: `${repositoryKey} issue`,
+    id: `${repositoryKey}-issue`,
+    identifier,
+    title: `Issue for ${repositoryKey}`,
     description: null,
     priority: null,
     state: "Todo",
-    branchName: null,
+    branchName: `symphony/${identifier}`,
     url: null,
-    projectId: null,
-    projectName: null,
-    projectSlug: config.projectSlug,
+    projectId: "project-1",
+    projectName: "Project",
     teamKey: config.teamKey,
     assigneeId: null,
     blockedBy: [],
     labels: [],
-    assignedToWorker: false,
+    assignedToWorker: true,
     createdAt: null,
     updatedAt: null
   };

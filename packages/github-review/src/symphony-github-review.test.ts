@@ -20,8 +20,7 @@ function buildSymphonyGitHubReviewPolicyConfig(
       kind: "linear",
       endpoint: "https://api.linear.app/graphql",
       apiKey: "token",
-      projectSlug: "coldets",
-      teamKey: null,
+      teamKey: "COL",
       excludedProjectIds: [],
       assignee: null,
       dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework"],
@@ -71,8 +70,6 @@ function buildSymphonyTrackerIssue(
       typeof overrides.projectName === "string"
         ? overrides.projectName
         : "Symphony Developer Control Plane Foundation",
-    projectSlug:
-      typeof overrides.projectSlug === "string" ? overrides.projectSlug : "coldets",
     teamKey: typeof overrides.teamKey === "string" ? overrides.teamKey : "COL",
     assigneeId:
       typeof overrides.assigneeId === "string" ? overrides.assigneeId : "worker-1",

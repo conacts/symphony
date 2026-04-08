@@ -276,7 +276,6 @@ function normalizeTrackerConfig(
       normalizeOptionalString(resolveEnvToken(tracker.apiKey, env)) ??
       normalizeOptionalString(env.LINEAR_API_KEY) ??
       null,
-    projectSlug: normalizeOptionalString(resolveEnvToken(tracker.projectSlug, env)),
     teamKey: normalizeOptionalString(resolveEnvToken(tracker.teamKey, env)),
     excludedProjectIds: normalizeStringArray(tracker.excludedProjectIds, []),
     assignee:
@@ -586,34 +585,11 @@ function validateSemanticConfig(config: SymphonyResolvedRuntimePolicy): void {
 
   if (
     tracker.kind === "linear" &&
-    tracker.projectSlug &&
-    tracker.teamKey
-  ) {
-    throw new SymphonyRuntimePolicyError(
-      "invalid_workflow_config",
-      "Set either tracker.projectSlug or tracker.teamKey, not both."
-    );
-  }
-
-  if (
-    tracker.kind === "linear" &&
-    !tracker.projectSlug &&
     !tracker.teamKey
   ) {
     throw new SymphonyRuntimePolicyError(
       "missing_linear_tracker_scope",
-      "Linear tracker requires tracker.projectSlug or tracker.teamKey."
-    );
-  }
-
-  if (
-    tracker.kind === "linear" &&
-    tracker.projectSlug &&
-    tracker.excludedProjectIds.length > 0
-  ) {
-    throw new SymphonyRuntimePolicyError(
-      "invalid_workflow_config",
-      "tracker.excludedProjectIds requires tracker.teamKey and must not be used with tracker.projectSlug."
+      "Linear tracker requires tracker.teamKey."
     );
   }
 

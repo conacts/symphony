@@ -2536,7 +2536,7 @@ function buildLoadedRuntimeManifest(input?: {
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
       linear: {
-        projectSlug: "symphony"
+        teamKey: "SYM"
       },
       workspace: {
         packageManager: "pnpm"

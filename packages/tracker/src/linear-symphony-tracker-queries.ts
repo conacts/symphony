@@ -17,7 +17,6 @@ const issueFields = `
       project {
         id
         name
-        slugId
       }
       assignee {
         id
@@ -41,20 +40,6 @@ const issueFields = `
       }
       createdAt
       updatedAt
-`;
-
-export const queryByProject = `
-query SymphonyLinearPollByProject($projectSlug: String!, $stateNames: [String!]!, $first: Int!, $relationFirst: Int!, $after: String) {
-  issues(filter: {project: {slugId: {eq: $projectSlug}}, state: {name: {in: $stateNames}}}, first: $first, after: $after) {
-    nodes {
-${issueFields}
-    }
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-  }
-}
 `;
 
 export const queryByTeam = `

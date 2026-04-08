@@ -53,7 +53,7 @@ Symphony now uses a simple repo-routing convention:
 - every admitted repo must declare its Linear binding in `.symphony/runtime.ts`
 - the preferred shape is one Linear workspace with repo separation by team
 - use `linear.teamKey` for repo routing when repos share one workspace
-- use a repo-specific `linear.apiKeyEnvKey` only when a repo truly needs a separate Linear token
+- use shared `LINEAR_API_KEY`
 - the runtime admits one or more repo roots from `SYMPHONY_SOURCE_REPOS`
 - GitHub review webhooks route by `repository.full_name`
 - issue dispatch resolves from the admitted repo's Linear binding first and uses
@@ -61,7 +61,7 @@ Symphony now uses a simple repo-routing convention:
 - the repo picker shows the admitted repo key and its Linear scope in the header
 
 That keeps repo separation explicit without adding project-level tenancy or extra control-plane
-concepts, while still allowing repo-scoped Linear auth.
+concepts, while keeping shared Linear auth as the normal path.
 
 Current intended team mapping:
 

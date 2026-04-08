@@ -19,10 +19,8 @@ describe("symphony tracker helpers", () => {
     expect(isSymphonyAutoReworkDisabled(issue)).toBe(true);
   });
 
-  it("evaluates linear project and team scope rules", () => {
-    const trackerProject = buildSymphonyTrackerConfig();
+  it("evaluates linear team scope rules", () => {
     const trackerTeam = buildSymphonyTrackerConfig({
-      projectSlug: null,
       teamKey: "COL",
       excludedProjectIds: ["project-2"]
     });
@@ -34,7 +32,6 @@ describe("symphony tracker helpers", () => {
       projectId: "project-2"
     });
 
-    expect(isLinearIssueInScope(trackerProject, issue)).toBe(true);
     expect(isLinearIssueInScope(trackerTeam, issue)).toBe(true);
     expect(isLinearIssueInScope(trackerTeam, excluded)).toBe(false);
   });
@@ -79,7 +76,7 @@ describe("symphony tracker helpers", () => {
     const tracker = createLinearSymphonyTracker({
       config,
       request: async (query) => {
-        if (query.includes("SymphonyLinearPollByProject")) {
+        if (query.includes("SymphonyLinearPollByTeam")) {
           return {
             data: {
               issues: {

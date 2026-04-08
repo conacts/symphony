@@ -42,14 +42,11 @@ export function loadSymphonyRuntimePolicyConfig(input: {
   const trackerKind = readOptionalString(environmentSource.SYMPHONY_TRACKER_KIND) ?? "linear";
   const requestedPiProfile = readOptionalString(environmentSource.SYMPHONY_PI_PROFILE);
   const matchedPiProfileDefaults = findSymphonyPiProfileDefaults(requestedPiProfile);
-  const trackerProjectSlug = readOptionalString(
-    environmentSource.SYMPHONY_LINEAR_PROJECT_SLUG
-  );
   const trackerTeamKey = readOptionalString(environmentSource.SYMPHONY_LINEAR_TEAM_KEY);
 
-  if (trackerKind === "linear" && !trackerProjectSlug && !trackerTeamKey) {
+  if (trackerKind === "linear" && !trackerTeamKey) {
     throw new TypeError(
-      "Invalid Symphony runtime policy: set SYMPHONY_LINEAR_PROJECT_SLUG or SYMPHONY_LINEAR_TEAM_KEY."
+      "Invalid Symphony runtime policy: set SYMPHONY_LINEAR_TEAM_KEY."
     );
   }
 
@@ -63,7 +60,6 @@ export function loadSymphonyRuntimePolicyConfig(input: {
         trackerKind === "memory"
           ? null
           : readOptionalString(environmentSource.LINEAR_API_KEY),
-      projectSlug: trackerKind === "memory" ? null : trackerProjectSlug,
       teamKey: trackerKind === "memory" ? null : trackerTeamKey,
       excludedProjectIds:
         readStringList(environmentSource.SYMPHONY_LINEAR_EXCLUDED_PROJECT_IDS) ?? [],

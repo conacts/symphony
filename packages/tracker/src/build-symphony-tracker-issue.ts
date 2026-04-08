@@ -17,7 +17,6 @@ export function buildSymphonyTrackerIssue(
     projectId: overrides.projectId ?? "project-1",
     projectName:
       overrides.projectName ?? "Symphony Developer Control Plane Foundation",
-    projectSlug: overrides.projectSlug ?? "coldets",
     teamKey: overrides.teamKey ?? "COL",
     assigneeId: overrides.assigneeId ?? "worker-1",
     blockedBy: overrides.blockedBy ?? [],

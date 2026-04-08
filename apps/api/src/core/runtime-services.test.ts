@@ -95,7 +95,7 @@ describe("runtime services", () => {
           schemaVersion: 1,
           repositoryKey: "openai/symphony",
           linear: {
-            projectSlug: "symphony"
+            teamKey: "SYM"
           },
           workspace: {
             packageManager: "pnpm",
@@ -126,47 +126,6 @@ describe("runtime services", () => {
         }
       })
     ).rejects.toThrowError(/Required host environment variable OPENAI_API_KEY is missing/i);
-  });
-
-  it("fails fast when an admitted repo declares a Linear auth env key that is missing", async () => {
-    await expect(
-      createSymphonyRuntimeAppServicesHarness({
-        runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
-          schemaVersion: 1,
-          repositoryKey: "openai/symphony",
-          linear: {
-            projectSlug: "symphony",
-            apiKeyEnvKey: "LINEAR_API_KEY_SYM"
-          },
-          workspace: {
-            packageManager: "pnpm",
-            workingDirectory: "."
-          },
-          env: {
-            host: {
-              required: [],
-              optional: []
-            },
-            inject: {}
-          },
-          lifecycle: {
-            bootstrap: [],
-            migrate: [],
-            verify: [
-              {
-                name: "verify",
-                run: "pnpm test"
-              }
-            ],
-            seed: [],
-            cleanup: []
-          }
-        }) as never),
-        hostCommandEnvSource: {
-          OPENAI_API_KEY: "test-openai-api-key"
-        }
-      })
-    ).rejects.toThrowError(/requires LINEAR_API_KEY_SYM/i);
   });
 
   it("fails fast when docker-backed runs do not have Pi auth or a provider api key", async () => {
@@ -270,8 +229,7 @@ describe("runtime services", () => {
         schemaVersion: 1,
         repositoryKey: "conacts/symphony",
         linear: {
-          projectSlug: "symphony",
-          apiKeyEnvKey: "LINEAR_API_KEY_SYM"
+          teamKey: "SYM"
         },
         workspace: {
           packageManager: "pnpm",
@@ -324,8 +282,7 @@ describe("runtime services", () => {
         schemaVersion: 1,
         repositoryKey: "conacts/coldets-v2",
         linear: {
-          projectSlug: "coldets",
-          apiKeyEnvKey: "LINEAR_API_KEY"
+          teamKey: "COL"
         },
         workspace: {
           packageManager: "pnpm",
@@ -401,12 +358,11 @@ describe("runtime services", () => {
     } satisfies SymphonyRuntimeAppEnv;
     const environmentSource = {
       LINEAR_API_KEY: env.linearApiKey,
-      LINEAR_API_KEY_SYM: "test-linear-api-key-sym",
       SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
       SYMPHONY_SOURCE_REPOS:
         env.sourceRepos.length > 0 ? env.sourceRepos.join(",") : undefined,
       SYMPHONY_TRACKER_KIND: "linear",
-      SYMPHONY_LINEAR_PROJECT_SLUG: "coldets",
+      SYMPHONY_LINEAR_TEAM_KEY: "COL",
       SYMPHONY_WORKSPACE_ROOT: workspaceRoot,
       SYMPHONY_POLL_INTERVAL_MS: "50",
       SYMPHONY_GITHUB_REPOSITORY: "conacts/coldets-v2",
@@ -421,7 +377,6 @@ describe("runtime services", () => {
       environmentSource,
       {
         LINEAR_API_KEY: "test-linear-api-key",
-        LINEAR_API_KEY_SYM: "test-linear-api-key-sym",
         OPENROUTER_API_KEY: "test-openrouter-api-key"
       }
     );
@@ -452,7 +407,7 @@ describe("runtime services", () => {
         schemaVersion: 1,
         repositoryKey: "openai/symphony",
         linear: {
-          projectSlug: "symphony"
+          teamKey: "SYM"
         },
         workspace: {
           packageManager: "pnpm",

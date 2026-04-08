@@ -7,7 +7,7 @@ import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.
 
 type RuntimeRepositoryIssue = Pick<
   SymphonyTrackerIssue,
-  "identifier" | "labels" | "projectSlug" | "teamKey"
+  "identifier" | "labels" | "teamKey"
 >;
 
 export function resolveIssueRepository(
@@ -97,7 +97,7 @@ export function resolveWorkspaceRepository(
 
 export function resolveRepositoryForLinearScope(
   admittedRepositories: AdmittedRuntimeRepository[],
-  tracker: Pick<SymphonyTrackerRuntimePolicy, "projectSlug" | "teamKey">
+  tracker: Pick<SymphonyTrackerRuntimePolicy, "teamKey">
 ): AdmittedRuntimeRepository {
   if (admittedRepositories.length === 0) {
     throw new TypeError("At least one admitted repository is required.");
@@ -107,9 +107,9 @@ export function resolveRepositoryForLinearScope(
     return admittedRepositories[0]!;
   }
 
-  if (!tracker.projectSlug && !tracker.teamKey) {
+  if (!tracker.teamKey) {
     throw new TypeError(
-      "Multiple admitted repositories require tracker.projectSlug or tracker.teamKey to select the default repository."
+      "Multiple admitted repositories require tracker.teamKey to select the default repository."
     );
   }
 
@@ -160,32 +160,12 @@ function repositoryMatchesLinearIssue(
   repository: AdmittedRuntimeRepository,
   issue: RuntimeRepositoryIssue
 ): boolean {
-  const linearBinding = repository.linearBinding;
-
-  if (linearBinding.projectSlug) {
-    return issue.projectSlug === linearBinding.projectSlug;
-  }
-
-  if (linearBinding.teamKey) {
-    return issue.teamKey === linearBinding.teamKey;
-  }
-
-  return false;
+  return issue.teamKey === repository.linearBinding.teamKey;
 }
 
 function repositoryMatchesLinearBinding(
   repository: AdmittedRuntimeRepository,
-  tracker: Pick<SymphonyTrackerRuntimePolicy, "projectSlug" | "teamKey">
+  tracker: Pick<SymphonyTrackerRuntimePolicy, "teamKey">
 ): boolean {
-  const linearBinding = repository.linearBinding;
-
-  if (linearBinding.projectSlug) {
-    return tracker.projectSlug === linearBinding.projectSlug;
-  }
-
-  if (linearBinding.teamKey) {
-    return tracker.teamKey === linearBinding.teamKey;
-  }
-
-  return false;
+  return tracker.teamKey === repository.linearBinding.teamKey;
 }

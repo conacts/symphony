@@ -12,7 +12,7 @@ describe("runtime manifest env resolution", () => {
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
       linear: {
-        projectSlug: "symphony"
+        teamKey: "SYM"
       },
       workspace: {
         packageManager: "pnpm"
@@ -130,7 +130,7 @@ describe("runtime manifest env resolution", () => {
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
       linear: {
-        projectSlug: "symphony"
+        teamKey: "SYM"
       },
       workspace: {
         packageManager: "pnpm"
@@ -172,7 +172,7 @@ describe("runtime manifest env resolution", () => {
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
       linear: {
-        projectSlug: "symphony"
+        teamKey: "SYM"
       },
       workspace: {
         packageManager: "pnpm"
@@ -236,7 +236,7 @@ describe("runtime manifest env resolution", () => {
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
       linear: {
-        projectSlug: "symphony"
+        teamKey: "SYM"
       },
       workspace: {
         packageManager: "pnpm"

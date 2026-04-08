@@ -54,7 +54,7 @@ export default defineSymphonyRuntime({
   schemaVersion: 1,
   repositoryKey: "openai/symphony",
   linear: {
-    projectSlug: "symphony"
+    teamKey: "SYM"
   },
   workspace: {
     packageManager: "pnpm"
@@ -119,9 +119,7 @@ export default defineSymphonyRuntime({
       workingDirectory: defaultSymphonyRuntimeWorkingDirectory
     });
     expect(loaded.manifest.linear).toEqual({
-      projectSlug: "symphony",
-      teamKey: null,
-      apiKeyEnvKey: null
+      teamKey: "SYM"
     });
     expect(loaded.manifest.pi).toBeNull();
     expect(loaded.manifest.services.postgres).toEqual({
@@ -188,7 +186,7 @@ export default defineSymphonyRuntime({
   schemaVersion: 1,
   repositoryKey: "openai/symphony",
   linear: {
-    projectSlug: "symphony"
+    teamKey: "SYM"
   },
   workspace: {
     packageManager: "pnpm"
@@ -234,7 +232,7 @@ export default defineSymphonyRuntime({
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
       linear: {
-        projectSlug: "symphony"
+        teamKey: "SYM"
       },
       workspace: {
         packageManager: "pnpm"
@@ -307,7 +305,7 @@ export default defineSymphonyRuntime({
       schemaVersion: 1,
       repositoryKey: "openai/symphony",
       linear: {
-        projectSlug: "symphony"
+        teamKey: "SYM"
       },
       workspace: {
         packageManager: "pnpm"
@@ -334,9 +332,7 @@ export default defineSymphonyRuntime({
     });
 
     expect(manifest.linear).toEqual({
-      projectSlug: "symphony",
-      teamKey: null,
-      apiKeyEnvKey: null
+      teamKey: "SYM"
     });
   });
 
@@ -368,17 +364,16 @@ export default defineSymphonyRuntime({
           cleanup: []
         }
       })
-    ).toThrowError(/linear must declare projectSlug or teamKey/i);
+    ).toThrowError(/linear must declare teamKey/i);
   });
 
-  it("rejects a Linear binding that declares both projectSlug and teamKey", () => {
+  it("rejects a Linear binding that still uses legacy projectSlug", () => {
     expect(() =>
       normalizeSymphonyRuntimeManifest({
         schemaVersion: 1,
         repositoryKey: "openai/symphony",
         linear: {
-          projectSlug: "symphony",
-          teamKey: "COL"
+          projectSlug: "symphony"
         },
         workspace: {
           packageManager: "pnpm"
@@ -403,7 +398,7 @@ export default defineSymphonyRuntime({
           cleanup: []
         }
       })
-    ).toThrowError(/either projectSlug or teamKey, not both/i);
+    ).toThrowError(/linear\.projectSlug: Unknown key\.; linear\.teamKey:/i);
   });
 
   it("fails fast when the repo-local manifest is missing", async () => {
@@ -439,7 +434,7 @@ export default defineSymphonyRuntime({
   schemaVersion: 1,
   repositoryKey: "openai/symphony",
   linear: {
-    projectSlug: "symphony"
+    teamKey: "SYM"
   },
   workspace: {
     packageManager: "pnpm"
@@ -489,7 +484,7 @@ export default defineSymphonyRuntime({
   schemaVersion: 1,
   repositoryKey: "openai/symphony",
   linear: {
-    projectSlug: "symphony"
+    teamKey: "SYM"
   },
   workspace: {
     packageManager: "pnpm"
@@ -675,7 +670,7 @@ function buildValidManifestInput(): SymphonyRuntimeManifestInput {
     schemaVersion: 1,
     repositoryKey: "openai/symphony",
     linear: {
-      projectSlug: "symphony"
+      teamKey: "SYM"
     },
     workspace: {
       packageManager: "pnpm",

@@ -262,7 +262,6 @@ describe("symphony runtime contracts", () => {
           branchName: "symphony/COL-157",
           url: "https://linear.app/coldets/issue/COL-157/runtime-summary",
           projectName: "Symphony",
-          projectSlug: "symphony",
           teamKey: "COL"
         },
         operator: {
@@ -339,7 +338,6 @@ describe("symphony runtime contracts", () => {
           branchName: "symphony/COL-106",
           url: "https://linear.app/coldets/issue/COL-106/historical-issue",
           projectName: "Symphony",
-          projectSlug: "symphony",
           teamKey: "COL"
         },
         operator: {

@@ -19,7 +19,7 @@ export const manifestTopLevelKeys = new Set([
   "lifecycle"
 ]);
 
-export const linearKeys = new Set(["projectSlug", "teamKey", "apiKeyEnvKey"]);
+export const linearKeys = new Set(["teamKey"]);
 export const workspaceKeys = new Set(["packageManager", "workingDirectory"]);
 export const piKeys = new Set(["defaultPreset", "presets"]);
 export const piPresetKeys = new Set(["model", "reasoningEffort", "auth"]);

@@ -169,19 +169,9 @@ function buildRepositoryLinearTrackerConfig(
   repository: RepositoryLinearTrackerSource,
   environmentSource: Record<string, string | undefined>
 ): SymphonyTrackerConfig {
-  const apiKeyEnvKey = repository.linearBinding.apiKeyEnvKey;
-  const apiKey =
-    apiKeyEnvKey !== null
-      ? normalizeRequiredEnvironmentValue(
-          environmentSource[apiKeyEnvKey],
-          `Admitted repository ${JSON.stringify(repository.repositoryKey)} requires ${apiKeyEnvKey}, but that environment variable is missing.`
-        )
-      : trackerTemplate.apiKey;
-
+  void environmentSource;
   return {
     ...trackerTemplate,
-    apiKey,
-    projectSlug: repository.linearBinding.projectSlug,
     teamKey: repository.linearBinding.teamKey
   };
 }
@@ -199,12 +189,14 @@ function mergeTrackerConfigs(
 function createFallbackAdmittedRepository(
   trackerTemplate: SymphonyTrackerConfig
 ): RepositoryLinearTrackerSource {
+  if (!trackerTemplate.teamKey) {
+    throw new TypeError("Linear tracker requires tracker.teamKey.");
+  }
+
   return {
     repositoryKey: "default",
     linearBinding: {
-      projectSlug: trackerTemplate.projectSlug,
-      teamKey: trackerTemplate.teamKey,
-      apiKeyEnvKey: null
+      teamKey: trackerTemplate.teamKey
     }
   };
 }
@@ -332,20 +324,4 @@ function cacheIssueRepository(
   }
 
   issueRepositoryKeys.set(issue.id, repositoryKey);
-}
-
-function normalizeRequiredEnvironmentValue(
-  value: string | undefined,
-  errorMessage: string
-): string {
-  if (typeof value !== "string") {
-    throw new TypeError(errorMessage);
-  }
-
-  const normalized = value.trim();
-  if (normalized === "") {
-    throw new TypeError(errorMessage);
-  }
-
-  return normalized;
 }

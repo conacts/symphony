@@ -220,8 +220,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       eventType: "tracker_initialized",
       message: "Initialized Linear-backed tracker.",
       payload: {
-        teamKey: runtimePolicy.tracker.teamKey,
-        projectSlug: runtimePolicy.tracker.projectSlug
+        teamKey: runtimePolicy.tracker.teamKey
       }
     });
   }

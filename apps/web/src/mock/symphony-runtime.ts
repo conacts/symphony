@@ -395,7 +395,6 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
       branchName: "symphony/COL-165",
       url: "https://linear.app/coldets/issue/COL-165/stabilize-issue-forensic-drilldown",
       projectName: "Symphony",
-      projectSlug: "symphony",
       teamKey: "COL"
     },
     running: {
@@ -454,7 +453,6 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
       branchName: "symphony/COL-166",
       url: "https://linear.app/coldets/issue/COL-166/reduce-upstream-throttling-during-retries",
       projectName: "Symphony",
-      projectSlug: "symphony",
       teamKey: "COL"
     }
   }),
@@ -468,7 +466,6 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
       branchName: "symphony/COL-167",
       url: "https://linear.app/coldets/issue/COL-167/repair-workspace-bootstrap-flow",
       projectName: "Symphony",
-      projectSlug: "symphony",
       teamKey: "COL"
     },
     running: {

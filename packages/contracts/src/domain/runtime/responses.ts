@@ -180,9 +180,7 @@ export const symphonyRuntimeStateResultSchema = z.strictObject({
       z.strictObject({
         repositoryKey: nonEmptyStringSchema,
         linear: z.strictObject({
-          projectSlug: nullableNonEmptyStringSchema,
-          teamKey: nullableNonEmptyStringSchema,
-          apiKeyEnvKey: nullableNonEmptyStringSchema
+          teamKey: nonEmptyStringSchema
         })
       })
     )
@@ -311,7 +309,6 @@ export const symphonyRuntimeTrackedIssueSchema = z.strictObject({
   branchName: nullableNonEmptyStringSchema,
   url: z.string().url().nullable(),
   projectName: nullableNonEmptyStringSchema,
-  projectSlug: nullableNonEmptyStringSchema,
   teamKey: nullableNonEmptyStringSchema
 });
 

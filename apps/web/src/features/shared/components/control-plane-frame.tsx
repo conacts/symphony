@@ -51,9 +51,7 @@ export function ControlPlaneFrame(input: { children: ReactNode }) {
     dashboardIssuesState.repositories.map((repositoryKey) => ({
       repositoryKey,
       linear: {
-        projectSlug: null,
-        teamKey: null,
-        apiKeyEnvKey: null
+        teamKey: "unbound"
       }
     }));
 
