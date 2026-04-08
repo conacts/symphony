@@ -135,6 +135,18 @@ export type AgentRunViewModel = {
       totalTokens: number;
     }>;
   };
+  turnResources: {
+    rows: Array<{
+      turnLabel: string;
+      peakCpuPercent: number;
+      peakMemPercent: number;
+      peakProcessCount: number;
+      peakRssBytes: number;
+      commandCount: number;
+      firstSampledAt: string | null;
+      lastSampledAt: string | null;
+    }>;
+  };
   transcriptTurns: AgentRunTranscriptTurn[];
   turnRows: Array<{
     turnId: string;
@@ -187,6 +199,7 @@ export function buildAgentRunViewModel(input: {
   const executionPerformance = buildExecutionPerformance(runArtifacts);
   const turnLatency = buildTurnLatency(runArtifacts, input.runDetail.turns);
   const turnTokens = buildTurnTokens(runArtifacts, input.runDetail.turns);
+  const turnResources = buildTurnResources(runArtifacts, input.runDetail.turns);
   const piResponseCards = buildPiResponseCards(runArtifacts, compareDescending);
   const fallbackTokenTotals = turnTokens.rows.reduce(
     (totals, row) => ({
@@ -327,6 +340,7 @@ export function buildAgentRunViewModel(input: {
     executionPerformance,
     turnLatency,
     turnTokens,
+    turnResources,
     transcriptTurns,
     turnRows: transcriptTurns.map((turn) => ({
       turnId: turn.turnId,
@@ -358,6 +372,67 @@ export function buildAgentRunViewModel(input: {
           payloadText: JSON.stringify(event.payload, null, 2)
         })) ?? []
   };
+}
+
+function buildTurnResources(
+  runArtifacts: SymphonyAgentRunArtifactsResult | null,
+  forensicsTurns: SymphonyForensicsRunDetailResult["turns"]
+): AgentRunViewModel["turnResources"] {
+  if (!runArtifacts) {
+    return { rows: [] };
+  }
+
+  const turnSequenceById = new Map(
+    forensicsTurns.map((turn) => [turn.turnId, turn.turnSequence] as const)
+  );
+  const aggregateByTurnId = new Map<
+    string,
+    AgentRunViewModel["turnResources"]["rows"][number]
+  >();
+
+  for (const command of runArtifacts.commandExecutions) {
+    const profile = command.resourceProfile;
+    if (profile.sampleCount <= 0) {
+      continue;
+    }
+
+    const turnSequence = turnSequenceById.get(command.turnId);
+    if (turnSequence === undefined) {
+      continue;
+    }
+
+    const existing = aggregateByTurnId.get(command.turnId) ?? {
+      turnLabel: `Turn ${turnSequence}`,
+      peakCpuPercent: 0,
+      peakMemPercent: 0,
+      peakProcessCount: 0,
+      peakRssBytes: 0,
+      commandCount: 0,
+      firstSampledAt: null,
+      lastSampledAt: null
+    };
+
+    aggregateByTurnId.set(command.turnId, {
+      turnLabel: existing.turnLabel,
+      peakCpuPercent: Math.max(existing.peakCpuPercent, profile.peakCpuPercent),
+      peakMemPercent: Math.max(existing.peakMemPercent, profile.peakMemPercent),
+      peakProcessCount: Math.max(existing.peakProcessCount, profile.peakProcessCount),
+      peakRssBytes: Math.max(existing.peakRssBytes, profile.peakRssKb * 1024),
+      commandCount: existing.commandCount + 1,
+      firstSampledAt: minIsoTimestamp(existing.firstSampledAt, profile.firstSampledAt),
+      lastSampledAt: maxIsoTimestamp(existing.lastSampledAt, profile.lastSampledAt)
+    });
+  }
+
+  const rows = [...aggregateByTurnId.entries()]
+    .sort(
+      ([leftTurnId], [rightTurnId]) =>
+        (turnSequenceById.get(leftTurnId) ?? Number.MAX_SAFE_INTEGER) -
+        (turnSequenceById.get(rightTurnId) ?? Number.MAX_SAFE_INTEGER)
+    )
+    .map(([, row]) => row);
+
+  return { rows };
 }
 
 function buildRunMachineLoadCards(
@@ -585,4 +660,24 @@ function formatRepoSnapshot(value: unknown): string {
 
 function compareDescending(left: string | null, right: string | null): number {
   return new Date(right ?? 0).getTime() - new Date(left ?? 0).getTime();
+}
+
+function minIsoTimestamp(left: string | null, right: string | null): string | null {
+  if (!left) {
+    return right;
+  }
+  if (!right) {
+    return left;
+  }
+  return new Date(left).getTime() <= new Date(right).getTime() ? left : right;
+}
+
+function maxIsoTimestamp(left: string | null, right: string | null): string | null {
+  if (!left) {
+    return right;
+  }
+  if (!right) {
+    return left;
+  }
+  return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
 }

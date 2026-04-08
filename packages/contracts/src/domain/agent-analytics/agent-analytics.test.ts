@@ -277,6 +277,19 @@ describe("agent analytics contracts", () => {
         durationMs: 1000,
         outputPreview: "ok",
         outputOverflowId: null,
+        resourceProfile: {
+          captureScope: "session_process_tree",
+          samplingIntervalMs: 1000,
+          firstSampledAt: null,
+          lastSampledAt: null,
+          sampleCount: 0,
+          peakCpuPercent: 0,
+          peakMemPercent: 0,
+          peakRssKb: 0,
+          peakProcessCount: 0,
+          topProcesses: [],
+          samples: []
+        },
         insertedAt: "2026-04-03T20:37:38.000Z",
         updatedAt: "2026-04-03T20:37:39.000Z"
       })

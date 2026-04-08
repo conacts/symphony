@@ -207,6 +207,7 @@ export const symphonyAgentCommandExecutionsTable = sqliteTable(
     durationMs: integer("duration_ms"),
     outputPreview: text("output_preview"),
     outputOverflowId: text("output_overflow_id"),
+    resourceProfileJson: text("resource_profile_json", { mode: "json" }).$type<unknown>(),
     insertedAt: text("inserted_at").notNull(),
     updatedAt: text("updated_at").notNull()
   },

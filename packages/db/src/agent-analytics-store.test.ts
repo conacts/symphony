@@ -104,6 +104,68 @@ describe("sqlite agent analytics store", () => {
           }
         }
       });
+      await analyticsStore.recordCommandResourceProfile({
+        runId,
+        turnId,
+        itemId: "cmd-1",
+        resourceProfile: {
+          captureScope: "session_process_tree",
+          samplingIntervalMs: 1000,
+          firstSampledAt: "2026-04-03T20:37:39.200Z",
+          lastSampledAt: "2026-04-03T20:37:40.200Z",
+          sampleCount: 2,
+          peakCpuPercent: 187.4,
+          peakMemPercent: 2.8,
+          peakRssKb: 412_000,
+          peakProcessCount: 4,
+          topProcesses: [
+            {
+              command: "pnpm test",
+              executable: "node",
+              peakCpuPercent: 187.4,
+              peakMemPercent: 2.8,
+              peakRssKb: 412_000,
+              sampleCount: 2
+            }
+          ],
+          samples: [
+            {
+              recordedAt: "2026-04-03T20:37:39.200Z",
+              processCount: 3,
+              totalCpuPercent: 121.5,
+              totalMemPercent: 2.1,
+              totalRssKb: 320_000,
+              topProcesses: [
+                {
+                  command: "pnpm test",
+                  executable: "node",
+                  peakCpuPercent: 121.5,
+                  peakMemPercent: 2.1,
+                  peakRssKb: 320_000,
+                  sampleCount: 1
+                }
+              ]
+            },
+            {
+              recordedAt: "2026-04-03T20:37:39.500Z",
+              processCount: 4,
+              totalCpuPercent: 187.4,
+              totalMemPercent: 2.8,
+              totalRssKb: 412_000,
+              topProcesses: [
+                {
+                  command: "pnpm test",
+                  executable: "node",
+                  peakCpuPercent: 187.4,
+                  peakMemPercent: 2.8,
+                  peakRssKb: 412_000,
+                  sampleCount: 1
+                }
+              ]
+            }
+          ]
+        }
+      });
       await analyticsStore.recordEvent({
         runId,
         turnId,
@@ -196,7 +258,11 @@ describe("sqlite agent analytics store", () => {
         status: "completed",
         exitCode: 0,
         timeoutSeconds: 60,
-        outputPreview: "all tests passed"
+        outputPreview: "all tests passed",
+        resourceProfileJson: expect.objectContaining({
+          sampleCount: 2,
+          peakCpuPercent: 187.4
+        })
       });
       expect(command?.durationMs).toBe(400);
       expect(item).toMatchObject({

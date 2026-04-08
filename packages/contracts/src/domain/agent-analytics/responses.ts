@@ -167,6 +167,38 @@ export const symphonyAgentItemRecordSchema = z.strictObject({
   updatedAt: isoTimestampSchema
 });
 
+export const symphonyAgentCommandResourceProcessSummarySchema = z.strictObject({
+  command: z.string(),
+  executable: nullableNonEmptyStringSchema,
+  peakCpuPercent: z.number().nonnegative(),
+  peakMemPercent: z.number().nonnegative(),
+  peakRssKb: z.number().int().nonnegative(),
+  sampleCount: z.number().int().nonnegative()
+});
+
+export const symphonyAgentCommandResourceSampleSchema = z.strictObject({
+  recordedAt: isoTimestampSchema,
+  processCount: z.number().int().nonnegative(),
+  totalCpuPercent: z.number().nonnegative(),
+  totalMemPercent: z.number().nonnegative(),
+  totalRssKb: z.number().int().nonnegative(),
+  topProcesses: z.array(symphonyAgentCommandResourceProcessSummarySchema)
+});
+
+export const symphonyAgentCommandResourceProfileSchema = z.strictObject({
+  captureScope: z.literal("session_process_tree"),
+  samplingIntervalMs: z.number().int().positive(),
+  firstSampledAt: isoTimestampSchema.nullable(),
+  lastSampledAt: isoTimestampSchema.nullable(),
+  sampleCount: z.number().int().nonnegative(),
+  peakCpuPercent: z.number().nonnegative(),
+  peakMemPercent: z.number().nonnegative(),
+  peakRssKb: z.number().int().nonnegative(),
+  peakProcessCount: z.number().int().nonnegative(),
+  topProcesses: z.array(symphonyAgentCommandResourceProcessSummarySchema),
+  samples: z.array(symphonyAgentCommandResourceSampleSchema)
+});
+
 export const symphonyAgentCommandExecutionRecordSchema = z.strictObject({
   runId: nonEmptyStringSchema,
   turnId: nonEmptyStringSchema,
@@ -180,6 +212,7 @@ export const symphonyAgentCommandExecutionRecordSchema = z.strictObject({
   durationMs: z.number().int().nonnegative().nullable(),
   outputPreview: nullableNonEmptyStringSchema,
   outputOverflowId: nullableNonEmptyStringSchema,
+  resourceProfile: symphonyAgentCommandResourceProfileSchema,
   insertedAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema
 });
@@ -480,6 +513,15 @@ export type SymphonyAgentItemLifecycleStatus = z.infer<
 >;
 export type SymphonyAgentCommandExecutionRecord = z.infer<
   typeof symphonyAgentCommandExecutionRecordSchema
+>;
+export type SymphonyAgentCommandResourceProcessSummary = z.infer<
+  typeof symphonyAgentCommandResourceProcessSummarySchema
+>;
+export type SymphonyAgentCommandResourceSample = z.infer<
+  typeof symphonyAgentCommandResourceSampleSchema
+>;
+export type SymphonyAgentCommandResourceProfile = z.infer<
+  typeof symphonyAgentCommandResourceProfileSchema
 >;
 export type SymphonyAgentToolCallRecord = z.infer<typeof symphonyAgentToolCallRecordSchema>;
 export type SymphonyAgentMessageRecord = z.infer<typeof symphonyAgentMessageRecordSchema>;

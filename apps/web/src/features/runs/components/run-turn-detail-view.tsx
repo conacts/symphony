@@ -8,7 +8,7 @@ import {
   CardContent
 } from "@/components/ui/card";
 import { formatCount, formatDurationMilliseconds } from "@/core/display-formatters";
-import { RunTurnActivityChart } from "@/features/runs/components/run-turn-activity-chart";
+import { RunTurnResourceChart } from "@/features/runs/components/run-turn-resource-chart";
 import { RunTurnTokenChart } from "@/features/runs/components/run-turn-token-chart";
 import { RunTurnToolCallsChart } from "@/features/runs/components/run-turn-tool-calls-chart";
 import { RunTranscriptTurn } from "@/features/runs/components/run-transcript-turn";
@@ -37,6 +37,10 @@ export function RunTurnDetailView(input: {
   const turnTokenRow = viewModel?.turnTokens.rows.find(
     (candidate) => candidate.turnLabel === `Turn ${turn?.turnSequence ?? 0}`
   );
+  const turnCommands =
+    input.resource?.runArtifacts?.commandExecutions.filter(
+      (candidate) => candidate.turnId === input.turnId
+    ) ?? [];
   const modelValue =
     viewModel?.metadata.find((row) => row.label === "Model")?.value ?? "Unavailable";
   const turnDuration =
@@ -87,7 +91,7 @@ export function RunTurnDetailView(input: {
 
           <section className="grid gap-4 xl:grid-cols-2">
             <RunTurnTokenChart rows={turnTokenRow ? [turnTokenRow] : []} />
-            <RunTurnActivityChart rows={[turn]} />
+            <RunTurnResourceChart commands={turnCommands} />
             <RunTurnToolCallsChart turn={turn} className="xl:col-span-2" />
           </section>
 

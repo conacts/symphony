@@ -470,6 +470,196 @@ describe("sqlite agent analytics read store", () => {
     }
   });
 
+  it("returns persisted command resource profiles with command executions", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-command-metrics-read-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const analytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const readStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runStore.recordRunStarted({
+        runId: "run-command-metrics",
+        issueId: "issue-3",
+        issueIdentifier: "SYM-300",
+        startedAt: "2026-04-08T12:00:00.000Z",
+        status: "running"
+      });
+      const turnId = await runStore.recordTurnStarted(runId, {
+        turnId: "turn-command-metrics",
+        promptText: "Run the monitored command",
+        startedAt: "2026-04-08T12:00:01.000Z",
+        status: "running"
+      });
+
+      await analytics.startRun({
+        runId,
+        issueId: "issue-3",
+        issueIdentifier: "SYM-300",
+        startedAt: "2026-04-08T12:00:00.000Z",
+        status: "running",
+        threadId: "thread-command-metrics"
+      });
+      await analytics.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-command-metrics",
+        recordedAt: "2026-04-08T12:00:01.100Z",
+        payload: {
+          type: "item.started",
+          item: {
+            id: "cmd-metrics-1",
+            type: "command_execution",
+            command: "pnpm test",
+            aggregated_output: "",
+            status: "in_progress"
+          }
+        }
+      });
+      await analytics.recordCommandResourceProfile({
+        runId,
+        turnId,
+        itemId: "cmd-metrics-1",
+        resourceProfile: {
+          captureScope: "session_process_tree",
+          samplingIntervalMs: 1000,
+          firstSampledAt: "2026-04-08T12:00:01.200Z",
+          lastSampledAt: "2026-04-08T12:00:01.200Z",
+          sampleCount: 1,
+          peakCpuPercent: 92.4,
+          peakMemPercent: 1.4,
+          peakRssKb: 128_000,
+          peakProcessCount: 2,
+          topProcesses: [
+            {
+              command: "pnpm test",
+              executable: "node",
+              peakCpuPercent: 92.4,
+              peakMemPercent: 1.4,
+              peakRssKb: 128_000,
+              sampleCount: 1
+            }
+          ],
+          samples: [
+            {
+              recordedAt: "2026-04-08T12:00:01.200Z",
+              processCount: 2,
+              totalCpuPercent: 92.4,
+              totalMemPercent: 1.4,
+              totalRssKb: 128_000,
+              topProcesses: [
+                {
+                  command: "pnpm test",
+                  executable: "node",
+                  peakCpuPercent: 92.4,
+                  peakMemPercent: 1.4,
+                  peakRssKb: 128_000,
+                  sampleCount: 1
+                }
+              ]
+            }
+          ]
+        }
+      });
+
+      const commands = await readStore.listCommandExecutions({
+        runId
+      });
+
+      expect(commands).toEqual([
+        expect.objectContaining({
+          runId,
+          turnId,
+          itemId: "cmd-metrics-1",
+          resourceProfile: expect.objectContaining({
+            captureScope: "session_process_tree",
+            samplingIntervalMs: 1000,
+            firstSampledAt: "2026-04-08T12:00:01.200Z",
+            lastSampledAt: "2026-04-08T12:00:01.200Z",
+            sampleCount: 1,
+            peakCpuPercent: 92.4,
+            peakProcessCount: 2
+          })
+        })
+      ]);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("returns a zeroed resource profile for commands without persisted metrics", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-zero-profile-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const analytics = createSqliteAgentAnalyticsStore({
+      db: database.db,
+      payloadMaxBytes: 64
+    });
+    const readStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      await analytics.startRun({
+        runId: "run-zero-profile",
+        issueId: "issue-zero-profile",
+        issueIdentifier: "SYM-301",
+        startedAt: "2026-04-08T12:10:00.000Z",
+        status: "running",
+        threadId: "thread-zero-profile"
+      });
+      await analytics.recordEvent({
+        runId: "run-zero-profile",
+        turnId: "turn-zero-profile",
+        threadId: "thread-zero-profile",
+        recordedAt: "2026-04-08T12:10:01.000Z",
+        payload: {
+          type: "item.started",
+          item: {
+            id: "cmd-zero-profile",
+            type: "command_execution",
+            command: "pnpm lint",
+            aggregated_output: "",
+            status: "completed"
+          }
+        }
+      });
+
+      const commands = await readStore.listCommandExecutions({
+        runId: "run-zero-profile"
+      });
+
+      expect(commands[0]?.resourceProfile).toEqual({
+        captureScope: "session_process_tree",
+        samplingIntervalMs: 1000,
+        firstSampledAt: null,
+        lastSampledAt: null,
+        sampleCount: 0,
+        peakCpuPercent: 0,
+        peakMemPercent: 0,
+        peakRssKb: 0,
+        peakProcessCount: 0,
+        topProcesses: [],
+        samples: []
+      });
+    } finally {
+      database.close();
+    }
+  });
+
   it("orders persisted messages and reasoning by recordedAt for deterministic turn activities", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-ordering-"));
     tempDirectories.push(root);

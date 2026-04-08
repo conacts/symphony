@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type {
+  AgentCommandResourceProfile,
   AgentAnalyticsEventInput,
   AgentAnalyticsRunFinalize,
   AgentAnalyticsTurnFinalize,
@@ -210,6 +211,28 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
       }
       refreshRunRollups(context, resolvedThreadId);
     });
+  }
+
+  async recordCommandResourceProfile(input: {
+    runId: string;
+    turnId: string;
+    itemId: string;
+    resourceProfile: AgentCommandResourceProfile;
+  }): Promise<void> {
+    this.#db
+      .update(symphonyAgentCommandExecutionsTable)
+      .set({
+        resourceProfileJson: input.resourceProfile,
+        updatedAt: isoNow()
+      })
+      .where(
+        and(
+          eq(symphonyAgentCommandExecutionsTable.runId, input.runId),
+          eq(symphonyAgentCommandExecutionsTable.turnId, input.turnId),
+          eq(symphonyAgentCommandExecutionsTable.itemId, input.itemId)
+        )
+      )
+      .run();
   }
 
   async finalizeTurn(input: AgentAnalyticsTurnFinalize): Promise<void> {

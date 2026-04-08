@@ -1218,9 +1218,162 @@ function mapAgentItemRecord(
 function mapAgentCommandExecutionRecord(
   row: typeof symphonyAgentCommandExecutionsTable.$inferSelect
 ): SymphonyAgentCommandExecutionRecord {
+  const { resourceProfileJson, ...rest } = row;
+
   return {
-    ...row,
-    status: normalizeItemLifecycleStatus(row.status) ?? "in_progress"
+    ...rest,
+    status: normalizeItemLifecycleStatus(rest.status) ?? "in_progress",
+    resourceProfile: normalizeAgentCommandResourceProfile(resourceProfileJson)
+  };
+}
+
+function normalizeAgentCommandResourceProfile(
+  value: unknown
+): SymphonyAgentCommandExecutionRecord["resourceProfile"] {
+  const emptyProfile: SymphonyAgentCommandExecutionRecord["resourceProfile"] = {
+    captureScope: "session_process_tree",
+    samplingIntervalMs: 1_000,
+    firstSampledAt: null,
+    lastSampledAt: null,
+    sampleCount: 0,
+    peakCpuPercent: 0,
+    peakMemPercent: 0,
+    peakRssKb: 0,
+    peakProcessCount: 0,
+    topProcesses: [],
+    samples: []
+  };
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return emptyProfile;
+  }
+
+  const record = value as Record<string, unknown>;
+  const normalizeProcessSummary = (
+    candidate: unknown
+  ): SymphonyAgentCommandExecutionRecord["resourceProfile"]["topProcesses"][number] | null => {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+      return null;
+    }
+
+    const entry = candidate as Record<string, unknown>;
+    return {
+      command: typeof entry.command === "string" ? entry.command : "",
+      executable: typeof entry.executable === "string" ? entry.executable : null,
+      peakCpuPercent:
+        typeof entry.peakCpuPercent === "number" && Number.isFinite(entry.peakCpuPercent)
+          ? Math.max(0, entry.peakCpuPercent)
+          : 0,
+      peakMemPercent:
+        typeof entry.peakMemPercent === "number" && Number.isFinite(entry.peakMemPercent)
+          ? Math.max(0, entry.peakMemPercent)
+          : 0,
+      peakRssKb:
+        typeof entry.peakRssKb === "number" && Number.isFinite(entry.peakRssKb)
+          ? Math.max(0, Math.trunc(entry.peakRssKb))
+          : 0,
+      sampleCount:
+        typeof entry.sampleCount === "number" && Number.isFinite(entry.sampleCount)
+          ? Math.max(0, Math.trunc(entry.sampleCount))
+          : 0
+    };
+  };
+
+  const topProcesses = Array.isArray(record.topProcesses)
+    ? record.topProcesses
+        .map(normalizeProcessSummary)
+        .filter(
+          (
+            entry
+          ): entry is SymphonyAgentCommandExecutionRecord["resourceProfile"]["topProcesses"][number] =>
+            entry !== null
+        )
+    : [];
+
+  const samples = Array.isArray(record.samples)
+    ? record.samples
+        .map((candidate) => {
+          if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+            return null;
+          }
+
+          const entry = candidate as Record<string, unknown>;
+          return {
+            recordedAt:
+              typeof entry.recordedAt === "string"
+                ? entry.recordedAt
+                : new Date(0).toISOString(),
+            processCount:
+              typeof entry.processCount === "number" && Number.isFinite(entry.processCount)
+                ? Math.max(0, Math.trunc(entry.processCount))
+                : 0,
+            totalCpuPercent:
+              typeof entry.totalCpuPercent === "number" && Number.isFinite(entry.totalCpuPercent)
+                ? Math.max(0, entry.totalCpuPercent)
+                : 0,
+            totalMemPercent:
+              typeof entry.totalMemPercent === "number" && Number.isFinite(entry.totalMemPercent)
+                ? Math.max(0, entry.totalMemPercent)
+                : 0,
+            totalRssKb:
+              typeof entry.totalRssKb === "number" && Number.isFinite(entry.totalRssKb)
+                ? Math.max(0, Math.trunc(entry.totalRssKb))
+                : 0,
+            topProcesses: Array.isArray(entry.topProcesses)
+              ? entry.topProcesses
+                  .map(normalizeProcessSummary)
+                  .filter(
+                    (
+                      processEntry
+                    ): processEntry is SymphonyAgentCommandExecutionRecord["resourceProfile"]["topProcesses"][number] =>
+                      processEntry !== null
+                  )
+              : []
+          };
+        })
+        .filter(
+          (
+            entry
+          ): entry is SymphonyAgentCommandExecutionRecord["resourceProfile"]["samples"][number] =>
+            entry !== null
+        )
+    : [];
+
+  return {
+    captureScope:
+      record.captureScope === "session_process_tree"
+        ? "session_process_tree"
+        : emptyProfile.captureScope,
+    samplingIntervalMs:
+      typeof record.samplingIntervalMs === "number" && Number.isFinite(record.samplingIntervalMs)
+        ? Math.max(1, Math.trunc(record.samplingIntervalMs))
+        : emptyProfile.samplingIntervalMs,
+    firstSampledAt:
+      typeof record.firstSampledAt === "string" ? record.firstSampledAt : emptyProfile.firstSampledAt,
+    lastSampledAt:
+      typeof record.lastSampledAt === "string" ? record.lastSampledAt : emptyProfile.lastSampledAt,
+    sampleCount:
+      typeof record.sampleCount === "number" && Number.isFinite(record.sampleCount)
+        ? Math.max(0, Math.trunc(record.sampleCount))
+        : samples.length,
+    peakCpuPercent:
+      typeof record.peakCpuPercent === "number" && Number.isFinite(record.peakCpuPercent)
+        ? Math.max(0, record.peakCpuPercent)
+        : 0,
+    peakMemPercent:
+      typeof record.peakMemPercent === "number" && Number.isFinite(record.peakMemPercent)
+        ? Math.max(0, record.peakMemPercent)
+        : 0,
+    peakRssKb:
+      typeof record.peakRssKb === "number" && Number.isFinite(record.peakRssKb)
+        ? Math.max(0, Math.trunc(record.peakRssKb))
+        : 0,
+    peakProcessCount:
+      typeof record.peakProcessCount === "number" && Number.isFinite(record.peakProcessCount)
+        ? Math.max(0, Math.trunc(record.peakProcessCount))
+        : 0,
+    topProcesses,
+    samples
   };
 }
 

@@ -1369,6 +1369,80 @@ export function buildSymphonyAgentRunArtifactsResult(
         durationMs: 18_000,
         outputPreview: "pnpm lint && pnpm test passed",
         outputOverflowId: null,
+        resourceProfile: {
+          captureScope: "session_process_tree",
+          samplingIntervalMs: 1000,
+          firstSampledAt: "2026-03-31T18:00:18.000Z",
+          lastSampledAt: "2026-03-31T18:00:29.000Z",
+          sampleCount: 3,
+          peakCpuPercent: 81,
+          peakMemPercent: 37,
+          peakRssKb: 524_288,
+          peakProcessCount: 6,
+          topProcesses: [
+            {
+              command: "vitest run",
+              executable: "node",
+              peakCpuPercent: 66,
+              peakMemPercent: 22,
+              peakRssKb: 393_216,
+              sampleCount: 3
+            }
+          ],
+          samples: [
+            {
+              recordedAt: "2026-03-31T18:00:18.000Z",
+              processCount: 4,
+              totalCpuPercent: 55,
+              totalMemPercent: 24,
+              totalRssKb: 327_680,
+              topProcesses: [
+                {
+                  command: "vitest run",
+                  executable: "node",
+                  peakCpuPercent: 48,
+                  peakMemPercent: 18,
+                  peakRssKb: 262_144,
+                  sampleCount: 1
+                }
+              ]
+            },
+            {
+              recordedAt: "2026-03-31T18:00:24.000Z",
+              processCount: 6,
+              totalCpuPercent: 81,
+              totalMemPercent: 37,
+              totalRssKb: 524_288,
+              topProcesses: [
+                {
+                  command: "vitest run",
+                  executable: "node",
+                  peakCpuPercent: 66,
+                  peakMemPercent: 22,
+                  peakRssKb: 393_216,
+                  sampleCount: 1
+                }
+              ]
+            },
+            {
+              recordedAt: "2026-03-31T18:00:29.000Z",
+              processCount: 5,
+              totalCpuPercent: 47,
+              totalMemPercent: 31,
+              totalRssKb: 458_752,
+              topProcesses: [
+                {
+                  command: "pnpm test",
+                  executable: "node",
+                  peakCpuPercent: 29,
+                  peakMemPercent: 14,
+                  peakRssKb: 196_608,
+                  sampleCount: 1
+                }
+              ]
+            }
+          ]
+        },
         insertedAt: "2026-03-31T18:00:12.000Z",
         updatedAt: "2026-03-31T18:00:30.000Z"
       }

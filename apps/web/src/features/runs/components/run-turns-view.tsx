@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/card";
 import { buildAgentRunViewModel } from "@/features/runs/model/agent-run-view-model";
 import type { AgentRunResource } from "@/features/runs/hooks/use-agent-run";
-import { RunTurnActivityChart } from "@/features/runs/components/run-turn-activity-chart";
 import { RunTurnLatencyChart } from "@/features/runs/components/run-turn-latency-chart";
+import { RunTurnResourceSummaryChart } from "@/features/runs/components/run-turn-resource-summary-chart";
 import { RunTurnTokenChart } from "@/features/runs/components/run-turn-token-chart";
 import { RunTurnsCard } from "@/features/runs/components/run-turns-card";
 
@@ -60,7 +60,7 @@ export function RunTurnsView(input: {
           <section className="grid gap-4 xl:grid-cols-3">
             <RunTurnTokenChart rows={viewModel.turnTokens.rows} />
             <RunTurnLatencyChart rows={viewModel.turnLatency.rows} />
-            <RunTurnActivityChart rows={viewModel.transcriptTurns} />
+            <RunTurnResourceSummaryChart rows={viewModel.turnResources.rows} />
           </section>
 
           <section className="flex flex-col gap-3">

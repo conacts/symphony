@@ -12,6 +12,38 @@ import type {
   Usage
 } from "./sdk-types.js";
 
+export type AgentCommandResourceProcessSummary = {
+  command: string;
+  executable: string | null;
+  peakCpuPercent: number;
+  peakMemPercent: number;
+  peakRssKb: number;
+  sampleCount: number;
+};
+
+export type AgentCommandResourceSample = {
+  recordedAt: string;
+  processCount: number;
+  totalCpuPercent: number;
+  totalMemPercent: number;
+  totalRssKb: number;
+  topProcesses: AgentCommandResourceProcessSummary[];
+};
+
+export type AgentCommandResourceProfile = {
+  captureScope: "session_process_tree";
+  samplingIntervalMs: number;
+  firstSampledAt: string | null;
+  lastSampledAt: string | null;
+  sampleCount: number;
+  peakCpuPercent: number;
+  peakMemPercent: number;
+  peakRssKb: number;
+  peakProcessCount: number;
+  topProcesses: AgentCommandResourceProcessSummary[];
+  samples: AgentCommandResourceSample[];
+};
+
 export type AgentPayloadOverflowKind =
   | "agent_message"
   | "command_output"
@@ -110,6 +142,12 @@ export type AgentAnalyticsTurnFinalize = {
 export interface AgentAnalyticsStore {
   startRun(input: AgentAnalyticsRunStart): Promise<void>;
   recordEvent(input: AgentAnalyticsEventInput): Promise<void>;
+  recordCommandResourceProfile(input: {
+    runId: string;
+    turnId: string;
+    itemId: string;
+    resourceProfile: AgentCommandResourceProfile;
+  }): Promise<void>;
   finalizeTurn(input: AgentAnalyticsTurnFinalize): Promise<void>;
   finalizeRun(input: AgentAnalyticsRunFinalize): Promise<void>;
 }

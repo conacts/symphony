@@ -1,0 +1,2 @@
+ALTER TABLE symphony_agent_command_executions
+ADD COLUMN resource_profile_json TEXT;

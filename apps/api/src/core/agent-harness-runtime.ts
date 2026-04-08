@@ -54,6 +54,7 @@ import {
   buildRuntimeDynamicToolExecutor,
   type RuntimeDeliveryReportResult
 } from "./runtime-dynamic-tools.js";
+import { CommandResourceMonitor } from "./command-resource-monitor.js";
 
 type RunCallbacks = {
   onUpdate(issueId: string, update: SymphonyAgentRuntimeUpdate): void | Promise<void>;
@@ -220,6 +221,7 @@ async function executeRun(input: {
   let sessionProviderId: string | null = null;
   let sessionProviderName: string | null = null;
   let deliveryReport: RuntimeDeliveryReportResult | null = null;
+  let commandResourceMonitor: CommandResourceMonitor | null = null;
   const requiresExplicitDeliveryReport = input.runId !== null;
   const latestReworkHandoff = input.issueTimelineStore
     ? await loadLatestGitHubReworkHandoff(
@@ -273,6 +275,7 @@ async function executeRun(input: {
     sessionModel = session.model;
     sessionProviderId = session.providerId;
     sessionProviderName = session.providerName;
+    commandResourceMonitor = new CommandResourceMonitor(session.processId);
 
     if (input.runId) {
       await input.agentAnalytics.startRun({
@@ -451,6 +454,32 @@ async function executeRun(input: {
                 projectionLosses,
                 rawPayload
               });
+
+              if (commandResourceMonitor) {
+                try {
+                  const completedProfiles = await commandResourceMonitor.observe(
+                    threadEvent,
+                    timestamp
+                  );
+                  for (const profile of completedProfiles) {
+                    await input.agentAnalytics.recordCommandResourceProfile({
+                      runId: input.runId,
+                      turnId: persistedTurnId,
+                      itemId: profile.itemId,
+                      resourceProfile: profile.profile
+                    });
+                  }
+                } catch (monitorError) {
+                  input.logger.warn("Failed to record command resource metrics", {
+                    runId: input.runId,
+                    turnId: persistedTurnId,
+                    error:
+                      monitorError instanceof Error
+                        ? monitorError.message
+                        : String(monitorError)
+                  });
+                }
+              }
             }
           }
         }
@@ -638,6 +667,28 @@ async function executeRun(input: {
             })
     });
   } finally {
+    if (commandResourceMonitor && input.runId && persistedTurnId) {
+      try {
+        const flushedProfiles = await commandResourceMonitor.flush();
+        for (const profile of flushedProfiles) {
+          await input.agentAnalytics.recordCommandResourceProfile({
+            runId: input.runId,
+            turnId: persistedTurnId,
+            itemId: profile.itemId,
+            resourceProfile: profile.profile
+          });
+        }
+      } catch (monitorError) {
+        input.logger.warn("Failed to flush command resource metrics", {
+          runId: input.runId,
+          turnId: persistedTurnId,
+          error:
+            monitorError instanceof Error
+              ? monitorError.message
+              : String(monitorError)
+        });
+      }
+    }
     input.activeRun.client?.close();
   }
 }

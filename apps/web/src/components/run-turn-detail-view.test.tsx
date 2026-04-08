@@ -29,10 +29,13 @@ describe("run turn detail view", () => {
     expect(html).toContain("Turn 1");
     expect(html).toContain("Operator prompt");
     expect(html).toContain("Turn token load");
-    expect(html).toContain("Turn activity");
+    expect(html).toContain("Command resource usage");
     expect(html).toContain("Tool calls made");
     expect(html).toContain("pnpm lint");
     expect(html).toContain("pnpm test");
+    expect(html).toContain("Latest CPU peak");
+    expect(html).toContain("81%");
+    expect(html).toContain("512 MB");
     expect(html).toContain("Reasoning");
     expect(html).toContain("Task complete.");
     expect(html).toContain("80 tokens");

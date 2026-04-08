@@ -24,7 +24,9 @@ describe("run turns view", () => {
     expect(html).toContain("Turn table");
     expect(html).toContain("Turn token load");
     expect(html).toContain("Turn latency breakdown");
-    expect(html).toContain("Turn activity");
+    expect(html).toContain("Turn resource pressure");
+    expect(html).toContain("81%");
+    expect(html).toContain("37%");
     expect(html).toContain("Turn 1");
     expect(html).toContain("/issues/COL-165/runs/run_123/turns/turn_123?repo=symphony");
     expect(html).not.toContain("Back to run transcript");

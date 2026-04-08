@@ -33,6 +33,16 @@ describe("agent run view model", () => {
 
     expect(commandEntry && "timeoutSeconds" in commandEntry ? commandEntry.timeoutSeconds : null).toBe(90);
     expect(messageEntry && "piMessage" in messageEntry ? messageEntry.piMessage?.cachedInputTokens : null).toBe(40);
+    expect(viewModel.turnResources.rows[0]).toEqual({
+      turnLabel: "Turn 1",
+      peakCpuPercent: 81,
+      peakMemPercent: 37,
+      peakProcessCount: 6,
+      peakRssBytes: 536870912,
+      commandCount: 1,
+      firstSampledAt: "2026-03-31T18:00:18.000Z",
+      lastSampledAt: "2026-03-31T18:00:29.000Z"
+    });
   });
 
   it("builds machine-load cards from run summaries and falls back when unavailable", () => {
