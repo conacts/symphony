@@ -220,9 +220,7 @@ async function executeRun(input: {
   let sessionProviderId: string | null = null;
   let sessionProviderName: string | null = null;
   let deliveryReport: RuntimeDeliveryReportResult | null = null;
-  const requiresExplicitDeliveryReport = /(?:^|\s)app-server(?=\s|$)/u.test(
-    input.runtimePolicy.agentRuntime.command.trim()
-  );
+  const requiresExplicitDeliveryReport = input.runId !== null;
   const latestReworkHandoff = input.issueTimelineStore
     ? await loadLatestGitHubReworkHandoff(
         input.issueTimelineStore,

@@ -148,7 +148,8 @@ describe("docker pi symphony agent runtime", () => {
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "normal"
+      kind: "failure",
+      reason: expect.stringContaining("finish_and_send_to_review")
     });
     expect(updates).toContain("thread.started");
     expect(updates).toContain("item.completed");
@@ -449,7 +450,7 @@ done
     database.close();
   });
 
-  it("allows completed native Pi RPC runs without an explicit delivery report", async () => {
+  it("fails persisted native Pi RPC runs that never emit an explicit delivery report", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-report-"));
     tempRoots.push(root);
 
@@ -532,7 +533,8 @@ done
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "normal"
+      kind: "failure",
+      reason: expect.stringContaining("finish_and_send_to_review")
     });
     expect(await deliveryReports.listForRun(runId)).toEqual([]);
 
@@ -1348,7 +1350,8 @@ done
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "normal"
+      kind: "failure",
+      reason: expect.stringContaining("finish_and_send_to_review")
     });
 
     const fakeDockerInvocation = JSON.parse(
@@ -1603,7 +1606,8 @@ exit 1
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "normal"
+      kind: "failure",
+      reason: expect.stringContaining("finish_and_send_to_review")
     });
 
     const dockerInvocations = (await readFile(fakeDockerLog, "utf8"))
