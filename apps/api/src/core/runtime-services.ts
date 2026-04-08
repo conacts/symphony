@@ -26,7 +26,9 @@ import {
   type SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
 import {
-  resolveDockerWorkspaceAuthContracts
+  resolveDockerWorkspaceAuthContracts,
+  type DockerGitHubCliAuthContract,
+  type DockerPiAuthContract
 } from "./runtime-auth-contract.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
@@ -64,9 +66,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   hostCommandEnvSource: Record<string, string | undefined>,
   options: {
     startPollScheduler?: boolean;
+    startMachineLoadMonitor?: boolean;
   } = {}
 ): Promise<SymphonyRuntimeAppServices> {
   const startPollScheduler = options.startPollScheduler ?? true;
+  const startMachineLoadMonitor = options.startMachineLoadMonitor ?? true;
   const logger = createSymphonyLogger({
     name: "@symphony/api",
     level: env.logLevel
@@ -261,24 +265,13 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const workspaceBackendsByRepository = new Map(
     workspaceBackendSelections.map((entry) => [entry.repositoryKey, entry.selection.backend])
   );
-  const workspaceBackendPayload = {
+  const workspaceBackendPayload = buildWorkspaceBackendPayload({
     workspaceRoot: runtimePolicy.workspace.root,
-    ...workspaceBackendSelection.metadata,
-    dockerGitHubCliAuthMode:
-      dockerGitHubCliAuth.authEnvKey !== null
-        ? "env"
-        : dockerGitHubCliAuth.mount !== null
-          ? "mount"
-          : "none",
-    dockerGitHubCliAuthEnvKey: dockerGitHubCliAuth.authEnvKey,
-    dockerLinearApiKeyInjected:
-      Object.prototype.hasOwnProperty.call(dockerLinearLaunchEnv, "LINEAR_API_KEY"),
-    dockerPiAuthMounted: dockerPiAuth.mount !== null,
-    dockerPiProviderEnvKey: dockerPiAuth.providerEnvKey,
-    dockerPiProviderEnvMounted:
-      dockerPiAuth.providerEnvKey !== null &&
-      Object.prototype.hasOwnProperty.call(dockerPiAuth.launchEnv, dockerPiAuth.providerEnvKey)
-  };
+    metadata: workspaceBackendSelection.metadata,
+    dockerGitHubCliAuth,
+    dockerLinearLaunchEnv,
+    dockerPiAuth
+  });
   const harnessLaunchEnv = {
     ...dockerPiAuth.launchEnv,
     ...dockerLinearLaunchEnv
@@ -350,7 +343,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     samplePath: runtimePolicy.workspace.root,
     intervalMs: Math.max(5_000, runtimePolicy.polling.intervalMs)
   });
-  machineLoad.start();
+  if (startMachineLoadMonitor) {
+    machineLoad.start();
+  }
   const observer = createDbBackedOrchestratorObserver({
     admittedRepositories,
     defaultRepositoryKey: repositoryKey,
@@ -610,7 +605,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   };
 }
 
-function applyRuntimeManifestPiPolicy(
+export function applyRuntimeManifestPiPolicy(
   runtimePolicy: SymphonyResolvedRuntimePolicy,
   runtimeManifest: SymphonyNormalizedRuntimeManifest
 ): SymphonyResolvedRuntimePolicy {
@@ -653,6 +648,41 @@ function applyRuntimeManifestPiPolicy(
       defaultModel,
       defaultReasoningEffort
     }
+  };
+}
+
+export function buildWorkspaceBackendPayload(input: {
+  workspaceRoot: string;
+  metadata: Record<string, unknown>;
+  dockerGitHubCliAuth: DockerGitHubCliAuthContract;
+  dockerLinearLaunchEnv: Record<string, string>;
+  dockerPiAuth: DockerPiAuthContract;
+}): Record<string, unknown> {
+  const {
+    workspaceRoot,
+    metadata,
+    dockerGitHubCliAuth,
+    dockerLinearLaunchEnv,
+    dockerPiAuth
+  } = input;
+
+  return {
+    workspaceRoot,
+    ...metadata,
+    dockerGitHubCliAuthMode:
+      dockerGitHubCliAuth.authEnvKey !== null
+        ? "env"
+        : dockerGitHubCliAuth.mount !== null
+          ? "mount"
+          : "none",
+    dockerGitHubCliAuthEnvKey: dockerGitHubCliAuth.authEnvKey,
+    dockerLinearApiKeyInjected:
+      Object.prototype.hasOwnProperty.call(dockerLinearLaunchEnv, "LINEAR_API_KEY"),
+    dockerPiAuthMounted: dockerPiAuth.mount !== null,
+    dockerPiProviderEnvKey: dockerPiAuth.providerEnvKey,
+    dockerPiProviderEnvMounted:
+      dockerPiAuth.providerEnvKey !== null &&
+      Object.prototype.hasOwnProperty.call(dockerPiAuth.launchEnv, dockerPiAuth.providerEnvKey)
   };
 }
 

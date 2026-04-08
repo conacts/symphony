@@ -11,8 +11,14 @@ import {
   type SymphonyRuntimeAppServicesHarness
 } from "../test-support/create-symphony-runtime-app-services-harness.js";
 import { initializeSymphonyDb } from "@symphony/db";
-import { loadDefaultSymphonyRuntimeAppServices } from "./runtime-services.js";
+import {
+  applyRuntimeManifestPiPolicy,
+  buildWorkspaceBackendPayload,
+  loadDefaultSymphonyRuntimeAppServices
+} from "./runtime-services.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
+import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
+import { resolveDockerWorkspaceAuthContracts } from "./runtime-auth-contract.js";
 
 const harnesses: SymphonyRuntimeAppServicesHarness[] = [];
 const tempDirectories: string[] = [];
@@ -34,7 +40,10 @@ describe("runtime services", () => {
   it(
     "loads the default app services through the explicit prompt and runtime contract",
     async () => {
-      const harness = await createSymphonyRuntimeAppServicesHarness();
+      const harness = await createSymphonyRuntimeAppServicesHarness({
+        startPollScheduler: true,
+        startMachineLoadMonitor: true
+      });
       harnesses.push(harness);
 
       const { services, env } = harness;
@@ -86,92 +95,126 @@ describe("runtime services", () => {
   );
 
   it("fails fast when the source repo runtime manifest is missing", async () => {
-    await expect(
-      createSymphonyRuntimeAppServicesHarness({
-        runtimeManifestSource: null
-      })
-    ).rejects.toThrowError(/Missing Symphony runtime manifest/i);
+    const fixture = await createRuntimeBootstrapFixture({
+      runtimeManifestSource: null
+    });
+
+    try {
+      await expect(
+        loadRuntimeServiceBootstrap({
+          env: fixture.env,
+          environmentSource: fixture.environmentSource
+        })
+      ).rejects.toThrowError(/Missing Symphony runtime manifest/i);
+    } finally {
+      await fixture.cleanup();
+    }
   });
 
   it("fails fast when required host env from the runtime manifest is missing", async () => {
-    await expect(
-      createSymphonyRuntimeAppServicesHarness({
-        runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
-          schemaVersion: 1,
-          repositoryKey: "openai/symphony",
-          linear: {
-            teamKey: "SYM"
+    const fixture = await createRuntimeBootstrapFixture({
+      runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
+        schemaVersion: 1,
+        repositoryKey: "openai/symphony",
+        linear: {
+          teamKey: "SYM"
+        },
+        workspace: {
+          packageManager: "pnpm",
+          workingDirectory: "."
+        },
+        env: {
+          host: {
+            required: ["OPENAI_API_KEY"],
+            optional: []
           },
-          workspace: {
-            packageManager: "pnpm",
-            workingDirectory: "."
-          },
-          env: {
-            host: {
-              required: ["OPENAI_API_KEY"],
-              optional: []
-            },
-            inject: {}
-          },
-          lifecycle: {
-            bootstrap: [],
-            migrate: [],
-            verify: [
-              {
-                name: "verify",
-                run: "pnpm test"
-              }
-            ],
-            seed: [],
-            cleanup: []
-          }
-        }) as never),
-        environmentSource: {
-          LINEAR_API_KEY: "test-linear-api-key"
+          inject: {}
+        },
+        lifecycle: {
+          bootstrap: [],
+          migrate: [],
+          verify: [
+            {
+              name: "verify",
+              run: "pnpm test"
+            }
+          ],
+          seed: [],
+          cleanup: []
         }
-      })
-    ).rejects.toThrowError(/Required host environment variable OPENAI_API_KEY is missing/i);
+      }) as never),
+      environmentSource: {
+        LINEAR_API_KEY: "test-linear-api-key"
+      }
+    });
+
+    try {
+      await expect(
+        loadRuntimeServiceBootstrap({
+          env: fixture.env,
+          environmentSource: fixture.environmentSource
+        })
+      ).rejects.toThrowError(
+        /Required host environment variable OPENAI_API_KEY is missing/i
+      );
+    } finally {
+      await fixture.cleanup();
+    }
   });
 
-  it("fails fast when docker-backed runs do not have Pi auth or a provider api key", async () => {
-    await expect(
-      createSymphonyRuntimeAppServicesHarness({
-        hostCommandEnvSource: {}
-      })
-    ).rejects.toThrowError(/Docker-backed Symphony workspaces require Pi auth/i);
+  it("detects when docker-backed runs do not have Pi auth or a provider api key", async () => {
+    const fixture = await createRuntimeBootstrapFixture();
+
+    try {
+      const bootstrap = await loadRuntimeServiceBootstrap({
+        env: fixture.env,
+        environmentSource: fixture.environmentSource
+      });
+      const dockerAuth = resolveDockerWorkspaceAuthContracts({}, {
+        preferredApiKeyEnvKey: bootstrap.harnessProviderEnvKey
+      });
+
+      expect(dockerAuth.pi.mount).toBeNull();
+      expect(dockerAuth.pi.launchEnv).toEqual({});
+    } finally {
+      await fixture.cleanup();
+    }
   });
 
   it(
     "accepts an OpenRouter api key for the Pi default profile",
     async () => {
-      const harness = await createSymphonyRuntimeAppServicesHarness({
+      const fixture = await createRuntimeBootstrapFixture({
         environmentSource: {
           LINEAR_API_KEY: "test-linear-api-key",
           SYMPHONY_PI_PROFILE: "mimo-v2-pro"
-        },
-        hostCommandEnvSource: {
-          OPENROUTER_API_KEY: "test-openrouter-api-key"
         }
       });
-      harnesses.push(harness);
 
-      expect(harness.services.runtimePolicy.agent.harness).toBe("pi");
-      expect(harness.services.runtimePolicy.agentRuntime.command).toBe("pi");
-      expect(harness.services.runtimePolicy.pi.profile).toBe("mimo-v2-pro");
-      expect(harness.services.runtimePolicy.pi.defaultModel).toBe(
-        "xiaomi/mimo-v2-pro"
-      );
-      expect(harness.services.runtimePolicy.pi.defaultReasoningEffort).toBe(
-        "high"
-      );
-      expect(harness.services.runtimePolicy.pi.provider).toEqual({
-        id: "openrouter",
-        name: "OpenRouter",
-        baseUrl: "https://openrouter.ai/api/v1",
-        envKey: "OPENROUTER_API_KEY",
-        supportsWebsockets: false,
-        wireApi: "responses"
-      });
+      try {
+        const bootstrap = await loadRuntimeServiceBootstrap({
+          env: fixture.env,
+          environmentSource: fixture.environmentSource
+        });
+
+        expect(bootstrap.runtimePolicy.agent.harness).toBe("pi");
+        expect(bootstrap.runtimePolicy.agentRuntime.command).toBe("pi");
+        expect(bootstrap.runtimePolicy.pi.profile).toBe("mimo-v2-pro");
+        expect(bootstrap.runtimePolicy.pi.defaultModel).toBe(
+          "xiaomi/mimo-v2-pro"
+        );
+        expect(bootstrap.runtimePolicy.pi.defaultReasoningEffort).toBe("high");
+        expect(bootstrap.runtimePolicy.pi.provider).toEqual({
+          id: "openrouter",
+          name: "OpenRouter",
+          baseUrl: "https://openrouter.ai/api/v1",
+          envKey: "OPENROUTER_API_KEY",
+          supportsWebsockets: false,
+          wireApi: "responses"
+        });
+      } finally {
+        await fixture.cleanup();
+      }
     },
     runtimeServicesIntegrationTestTimeoutMs
   );
@@ -179,33 +222,36 @@ describe("runtime services", () => {
   it(
     "loads runtime services with the Pi harness by default",
     async () => {
-      const harness = await createSymphonyRuntimeAppServicesHarness({
+      const fixture = await createRuntimeBootstrapFixture({
         environmentSource: {
           SYMPHONY_PI_PROFILE: "mimo-v2-pro"
-        },
-        hostCommandEnvSource: {
-          OPENROUTER_API_KEY: "test-openrouter-api-key"
         }
       });
-      harnesses.push(harness);
 
-      expect(harness.services.runtimePolicy.agent.harness).toBe("pi");
-      expect(harness.services.runtimePolicy.agentRuntime.command).toBe("pi");
-      expect(harness.services.runtimePolicy.agentRuntime.readTimeoutMs).toBe(
-        120_000
-      );
-      expect(harness.services.runtimePolicy.pi.profile).toBe("mimo-v2-pro");
-      expect(harness.services.runtimePolicy.pi.defaultModel).toBe(
-        "xiaomi/mimo-v2-pro"
-      );
-      expect(harness.services.runtimePolicy.pi.provider).toEqual({
-        id: "openrouter",
-        name: "OpenRouter",
-        baseUrl: "https://openrouter.ai/api/v1",
-        envKey: "OPENROUTER_API_KEY",
-        supportsWebsockets: false,
-        wireApi: "responses"
-      });
+      try {
+        const bootstrap = await loadRuntimeServiceBootstrap({
+          env: fixture.env,
+          environmentSource: fixture.environmentSource
+        });
+
+        expect(bootstrap.runtimePolicy.agent.harness).toBe("pi");
+        expect(bootstrap.runtimePolicy.agentRuntime.command).toBe("pi");
+        expect(bootstrap.runtimePolicy.agentRuntime.readTimeoutMs).toBe(120_000);
+        expect(bootstrap.runtimePolicy.pi.profile).toBe("mimo-v2-pro");
+        expect(bootstrap.runtimePolicy.pi.defaultModel).toBe(
+          "xiaomi/mimo-v2-pro"
+        );
+        expect(bootstrap.runtimePolicy.pi.provider).toEqual({
+          id: "openrouter",
+          name: "OpenRouter",
+          baseUrl: "https://openrouter.ai/api/v1",
+          envKey: "OPENROUTER_API_KEY",
+          supportsWebsockets: false,
+          wireApi: "responses"
+        });
+      } finally {
+        await fixture.cleanup();
+      }
     },
     runtimeServicesIntegrationTestTimeoutMs
   );
@@ -422,7 +468,7 @@ describe("runtime services", () => {
   );
 
   it("merges repo-defined Pi presets from the runtime manifest into the active policy", async () => {
-    const harness = await createSymphonyRuntimeAppServicesHarness({
+    const fixture = await createRuntimeBootstrapFixture({
       runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
         schemaVersion: 1,
         repositoryKey: "openai/symphony",
@@ -475,32 +521,44 @@ describe("runtime services", () => {
       }) as never),
       environmentSource: {
         SYMPHONY_PI_PROFILE: "mimo-v2-pro"
-      },
-      hostCommandEnvSource: {
-        OPENROUTER_API_KEY: "test-openrouter-api-key"
       }
     });
-    harnesses.push(harness);
+    try {
+      const bootstrap = await loadRuntimeServiceBootstrap({
+        env: fixture.env,
+        environmentSource: fixture.environmentSource
+      });
+      const runtimeManifest = bootstrap.selectedRuntimeManifestEntry?.runtimeManifest.manifest;
 
-    expect(harness.services.runtimePolicy.pi.defaultPreset).toBe("basic");
-    expect(harness.services.runtimePolicy.pi.presets.basic).toEqual({
-      model: "minimax/minimax-m2.7",
-      reasoningEffort: "medium",
-      authMode: "provider"
-    });
-    expect(harness.services.runtimePolicy.pi.presets.premium).toEqual({
-      model: "gpt-5.4",
-      reasoningEffort: "high",
-      authMode: "subscription"
-    });
-    expect(harness.services.runtimePolicy.pi.defaultModel).toBe("minimax/minimax-m2.7");
-    expect(harness.services.runtimePolicy.agentRuntime.defaultPreset).toBe("basic");
-    expect(harness.services.runtimePolicy.agentRuntime.defaultModel).toBe(
-      "minimax/minimax-m2.7"
-    );
+      expect(runtimeManifest).not.toBeNull();
+
+      const mergedPolicy = applyRuntimeManifestPiPolicy(
+        bootstrap.runtimePolicy,
+        runtimeManifest!
+      );
+
+      expect(mergedPolicy.pi.defaultPreset).toBe("basic");
+      expect(mergedPolicy.pi.presets.basic).toEqual({
+        model: "minimax/minimax-m2.7",
+        reasoningEffort: "medium",
+        authMode: "provider"
+      });
+      expect(mergedPolicy.pi.presets.premium).toEqual({
+        model: "gpt-5.4",
+        reasoningEffort: "high",
+        authMode: "subscription"
+      });
+      expect(mergedPolicy.pi.defaultModel).toBe("minimax/minimax-m2.7");
+      expect(mergedPolicy.agentRuntime.defaultPreset).toBe("basic");
+      expect(mergedPolicy.agentRuntime.defaultModel).toBe(
+        "minimax/minimax-m2.7"
+      );
+    } finally {
+      await fixture.cleanup();
+    }
   });
 
-  it("mounts standard Pi auth alongside the configured provider env for docker runs", async () => {
+  it("builds workspace backend payloads with mounted Pi auth and provider env", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-pi-auth-"));
     tempDirectories.push(root);
     const home = path.join(root, "home");
@@ -512,24 +570,31 @@ describe("runtime services", () => {
       '{"ok":true}\n'
     );
 
-    const harness = await createSymphonyRuntimeAppServicesHarness({
-      environmentSource: {
-        SYMPHONY_AGENT_HARNESS: "pi",
-        SYMPHONY_PI_PROFILE: "mimo-v2-pro"
-      },
-      hostCommandEnvSource: {
+    const dockerAuth = resolveDockerWorkspaceAuthContracts(
+      {
         HOME: home,
         OPENROUTER_API_KEY: "test-openrouter-api-key"
+      },
+      {
+        preferredApiKeyEnvKey: "OPENROUTER_API_KEY"
       }
-    });
-    harnesses.push(harness);
-
-    const selectedBackendLog = (await harness.services.runtimeLogs.list()).logs.find(
-      (entry) => entry.eventType === "workspace_backend_selected"
     );
 
-    expect(selectedBackendLog?.payload).toEqual(
+    expect(
+      buildWorkspaceBackendPayload({
+        workspaceRoot: "/tmp/workspaces",
+        metadata: {
+          backendKind: "docker"
+        },
+        dockerGitHubCliAuth: dockerAuth.githubCli,
+        dockerLinearLaunchEnv: {
+          LINEAR_API_KEY: "test-linear-api-key"
+        },
+        dockerPiAuth: dockerAuth.pi
+      })
+    ).toEqual(
       expect.objectContaining({
+        backendKind: "docker",
         dockerGitHubCliAuthMode: "none",
         dockerGitHubCliAuthEnvKey: null,
         dockerLinearApiKeyInjected: true,
@@ -540,20 +605,30 @@ describe("runtime services", () => {
     );
   });
 
-  it("prefers GH_TOKEN env injection over mounting host gh config for docker runs", async () => {
-    const harness = await createSymphonyRuntimeAppServicesHarness({
-      hostCommandEnvSource: {
+  it("builds workspace backend payloads that prefer GH_TOKEN env injection", () => {
+    const dockerAuth = resolveDockerWorkspaceAuthContracts(
+      {
         GH_TOKEN: "test-gh-token",
         OPENROUTER_API_KEY: "test-openrouter-api-key"
+      },
+      {
+        preferredApiKeyEnvKey: "OPENROUTER_API_KEY"
       }
-    });
-    harnesses.push(harness);
-
-    const selectedBackendLog = (await harness.services.runtimeLogs.list()).logs.find(
-      (entry) => entry.eventType === "workspace_backend_selected"
     );
 
-    expect(selectedBackendLog?.payload).toEqual(
+    expect(
+      buildWorkspaceBackendPayload({
+        workspaceRoot: "/tmp/workspaces",
+        metadata: {
+          backendKind: "docker"
+        },
+        dockerGitHubCliAuth: dockerAuth.githubCli,
+        dockerLinearLaunchEnv: {
+          LINEAR_API_KEY: "test-linear-api-key"
+        },
+        dockerPiAuth: dockerAuth.pi
+      })
+    ).toEqual(
       expect.objectContaining({
         dockerGitHubCliAuthMode: "env",
         dockerGitHubCliAuthEnvKey: "GH_TOKEN",
@@ -774,4 +849,97 @@ async function waitFor(
       setTimeout(resolve, 10);
     });
   }
+}
+
+async function createRuntimeBootstrapFixture(input: {
+  env?: Partial<SymphonyRuntimeAppEnv>;
+  environmentSource?: Record<string, string | undefined>;
+  promptTemplate?: string;
+  rootPrefix?: string;
+  runtimeManifestSource?: string | null;
+} = {}): Promise<{
+  cleanup(): Promise<void>;
+  env: SymphonyRuntimeAppEnv;
+  environmentSource: Record<string, string | undefined>;
+}> {
+  const sqlite = await createTempSymphonySqliteHarness({
+    rootPrefix: input.rootPrefix ?? "symphony-runtime-bootstrap-"
+  });
+  const root = sqlite.root;
+  const workspaceRoot = path.join(root, "workspaces");
+  const sourceRepo = path.join(root, "source-repo");
+  const promptPath = path.join(sourceRepo, ".symphony", "prompt.md");
+
+  await mkdir(workspaceRoot, {
+    recursive: true
+  });
+
+  const env = {
+    port: 4_400,
+    dbFile: sqlite.dbFile,
+    sourceRepo,
+    sourceRepos: [sourceRepo],
+    dockerWorkspaceImage: null,
+    dockerMaterializationMode: "bind_mount" as const,
+    dockerWorkspacePath: null,
+    dockerContainerNamePrefix: null,
+    dockerShell: null,
+    dockerGitUserName: null,
+    dockerGitUserEmail: null,
+    dockerSharedPostgresContainerName: "symphony-shared-postgres",
+    dockerSharedPostgresImage: "postgres:16",
+    dockerSharedPostgresHost: "host.docker.internal",
+    dockerSharedPostgresHostPort: 55_432,
+    dockerSharedPostgresContainerPort: 5_432,
+    dockerSharedPostgresAdminDatabase: "postgres",
+    dockerSharedPostgresAdminUsername: "postgres",
+    dockerSharedPostgresAdminPassword: "postgres",
+    dockerSharedPostgresDatabasePrefix: "symphony",
+    dockerSharedPostgresRolePrefix: "symphony",
+    allowedOrigins: [],
+    linearApiKey: "test-linear-api-key",
+    logLevel: "error",
+    ...input.env
+  } satisfies SymphonyRuntimeAppEnv;
+
+  if (env.sourceRepo) {
+    await mkdir(path.join(env.sourceRepo, ".symphony"), {
+      recursive: true
+    });
+    await writeFile(promptPath, `${input.promptTemplate ?? "Prompt body"}\n`);
+
+    if (input.runtimeManifestSource !== null) {
+      await writeFile(
+        path.join(env.sourceRepo, ".symphony", "runtime.ts"),
+        input.runtimeManifestSource ?? renderSymphonyRuntimeManifestSource()
+      );
+    }
+  }
+
+  const environmentSource = {
+    LINEAR_API_KEY: env.linearApiKey,
+    SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
+    SYMPHONY_SOURCE_REPOS:
+      env.sourceRepos.length > 0 ? env.sourceRepos.join(",") : undefined,
+    SYMPHONY_TRACKER_KIND: "memory",
+    SYMPHONY_WORKSPACE_ROOT: workspaceRoot,
+    SYMPHONY_POLL_INTERVAL_MS: "50",
+    SYMPHONY_GITHUB_REPOSITORY: "openai/symphony",
+    SYMPHONY_GITHUB_WEBHOOK_SECRET: "secret",
+    SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS: "reviewer",
+    SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS: "",
+    SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS: "reviewer",
+    ...input.environmentSource
+  };
+
+  return {
+    env,
+    environmentSource,
+    async cleanup() {
+      await rm(root, {
+        recursive: true,
+        force: true
+      });
+    }
+  };
 }

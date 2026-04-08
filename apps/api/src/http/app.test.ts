@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   buildSymphonyGitHubIssueCommentPayload,
   buildSymphonyGitHubPullRequestReviewCommentPayload,
@@ -112,295 +112,314 @@ describe("@symphony/api app", () => {
     expect(refreshPayload.data.operations).toEqual(["poll", "reconcile"]);
   });
 
-  it("serves forensics, Codex analytics, and runtime issue routes", async () => {
-    const harness = await createSymphonyRuntimeTestHarness({
-      issue: {
-        state: "In Review"
-      }
-    });
-    harnesses.push(harness);
+  describe("read surfaces", () => {
+    let harness: SymphonyRuntimeTestHarness;
+    let app: ReturnType<typeof createSymphonyRuntimeApp>;
 
-    const app = createSymphonyRuntimeApp(harness.services);
-    const issuesResponse = await app.request("/api/v1/issues");
-    const issueDetailResponse = await app.request("/api/v1/issues/COL-123");
-    const issueBundleResponse = await app.request(
-      "/api/v1/issues/COL-123/forensics-bundle"
-    );
-    const successMetricsResponse = await app.request("/api/v1/success-metrics");
-    const runDetailResponse = await app.request("/api/v1/runs/run-123");
-    const problemRunsResponse = await app.request("/api/v1/problem-runs");
-    const codexArtifactsResponse = await app.request(
-      "/api/v1/agent/runs/run-123/artifacts"
-    );
-    const codexOverflowResponse = await app.request(
-      "/api/v1/agent/runs/run-123/overflow/item-123-overflow"
-    );
-    const codexTurnsResponse = await app.request("/api/v1/agent/runs/run-123/turns");
-    const codexItemsResponse = await app.request(
-      "/api/v1/agent/runs/run-123/items?turnId=turn-123"
-    );
-    const codexItemsAllTurnsResponse = await app.request(
-      "/api/v1/agent/runs/run-123/items"
-    );
-    const codexAgentMessagesResponse = await app.request(
-      "/api/v1/agent/runs/run-123/agent-messages?turnId=turn-123"
-    );
-    const codexCommandExecutionsResponse = await app.request(
-      "/api/v1/agent/runs/run-123/command-executions"
-    );
-    const missingCodexArtifactsResponse = await app.request(
-      "/api/v1/agent/runs/run-missing/artifacts"
-    );
-    const missingCodexOverflowResponse = await app.request(
-      "/api/v1/agent/runs/run-123/overflow/overflow-missing"
-    );
-    const runtimeIssueResponse = await app.request("/api/v1/COL-123");
-    const issuesPayload = await responseJson<{
-      data: {
-        issues: Array<{
-          issueIdentifier: string;
-        }>;
-        totals: {
-          issueCount: number;
-        };
-      };
-    }>(issuesResponse);
-    const issueDetailPayload = await responseJson<{
-      data: {
-        issueIdentifier: string;
-      };
-    }>(issueDetailResponse);
-    const issueBundlePayload = await responseJson<{
-      data: {
+    beforeAll(async () => {
+      harness = await createSymphonyRuntimeTestHarness({
         issue: {
-          issueIdentifier: string;
-        };
-        recentRuns: unknown[];
-      };
-    }>(issueBundleResponse);
-    const successMetricsPayload = await responseJson<{
-      data: {
-        executive: {
-          startedIssueCount: number;
-          deliveredIssueCount: number;
-        };
-        daily: Array<{
-          date: string;
-        }>;
-      };
-    }>(successMetricsResponse);
-    const runDetailPayload = await responseJson<{
-      data: {
-        run: {
-          runId: string;
-        };
-      };
-    }>(runDetailResponse);
-    const problemRunsPayload = await responseJson<{
-      data: {
-        problemRuns: unknown[];
-      };
-    }>(problemRunsResponse);
-    const codexArtifactsPayload = await responseJson<{
-      data: {
-        run: {
-          runId: string;
-        };
-        turns: Array<{
-          turnId: string;
-        }>;
-        items: Array<{
-          itemId: string;
-        }>;
-        events: Array<{
-          eventType: string;
-        }>;
-      };
-    }>(codexArtifactsResponse);
-    const codexTurnsPayload = await responseJson<{
-      data: {
-        runId: string;
-        turns: Array<{
-          turnId: string;
-          usage: {
-            input_tokens: number;
-            output_tokens: number;
-          } | null;
-        }>;
-      };
-    }>(codexTurnsResponse);
-    const codexItemsPayload = await responseJson<{
-      data: {
-        runId: string;
-        turnId: string | null;
-        items: Array<{
-          itemId: string;
-          itemType: string;
-        }>;
-      };
-    }>(codexItemsResponse);
-    const codexItemsAllTurnsPayload = await responseJson<{
-      data: {
-        runId: string;
-        turnId: string | null;
-        items: Array<{
-          itemId: string;
-        }>;
-      };
-    }>(codexItemsAllTurnsResponse);
-    const codexAgentMessagesPayload = await responseJson<{
-      data: {
-        runId: string;
-        turnId: string | null;
-        agentMessages: Array<{
-          itemId: string;
-          textPreview: string | null;
-        }>;
-      };
-    }>(codexAgentMessagesResponse);
-    const codexCommandExecutionsPayload = await responseJson<{
-      data: {
-        commandExecutions: unknown[];
-      };
-    }>(codexCommandExecutionsResponse);
-    const codexOverflowPayload = await responseJson<{
-      data: {
-        runId: string;
-        overflow: {
-          overflowId: string;
-          kind: string;
-          contentText: string | null;
-        };
-      };
-    }>(codexOverflowResponse);
-    const missingCodexArtifactsPayload = await responseJson<{
-      error: {
-        code: string;
-      };
-    }>(missingCodexArtifactsResponse);
-    const missingCodexOverflowPayload = await responseJson<{
-      error: {
-        code: string;
-      };
-    }>(missingCodexOverflowResponse);
-    const runtimeIssuePayload = await responseJson<{
-      data: {
-        issueIdentifier: string;
-        workspace: {
-          backendKind: string | null;
-          workerHost: string | null;
-          prepareDisposition: string | null;
-          executionTargetKind: string | null;
-          materializationKind: string | null;
-          containerDisposition: string | null;
-          hostPath: string | null;
-          runtimePath: string | null;
-          containerId: string | null;
-          containerName: string | null;
-          path: string | null;
-          executionTarget:
-            | {
-                kind: string;
-              }
-            | null;
-        };
-        tracked: {
-          url: string | null;
-        };
-        operator: {
-          githubPullRequestSearchUrl: string | null;
-          requeueCommand: string;
-          pi: {
-            defaultModel: string | null;
-            selectedModel: string | null;
+          state: "In Review"
+        }
+      });
+      app = createSymphonyRuntimeApp(harness.services);
+    });
+
+    afterAll(async () => {
+      await harness.cleanup();
+    });
+
+    it("serves issue, forensics, and run summary routes", async () => {
+      const issuesResponse = await app.request("/api/v1/issues");
+      const issueDetailResponse = await app.request("/api/v1/issues/COL-123");
+      const issueBundleResponse = await app.request(
+        "/api/v1/issues/COL-123/forensics-bundle"
+      );
+      const successMetricsResponse = await app.request("/api/v1/success-metrics");
+      const runDetailResponse = await app.request("/api/v1/runs/run-123");
+      const problemRunsResponse = await app.request("/api/v1/problem-runs");
+      const issuesPayload = await responseJson<{
+        data: {
+          issues: Array<{
+            issueIdentifier: string;
+          }>;
+          totals: {
+            issueCount: number;
           };
         };
-      };
-    }>(runtimeIssueResponse);
+      }>(issuesResponse);
+      const issueDetailPayload = await responseJson<{
+        data: {
+          issueIdentifier: string;
+        };
+      }>(issueDetailResponse);
+      const issueBundlePayload = await responseJson<{
+        data: {
+          issue: {
+            issueIdentifier: string;
+          };
+          recentRuns: unknown[];
+        };
+      }>(issueBundleResponse);
+      const successMetricsPayload = await responseJson<{
+        data: {
+          executive: {
+            startedIssueCount: number;
+            deliveredIssueCount: number;
+          };
+          daily: Array<{
+            date: string;
+          }>;
+        };
+      }>(successMetricsResponse);
+      const runDetailPayload = await responseJson<{
+        data: {
+          run: {
+            runId: string;
+          };
+        };
+      }>(runDetailResponse);
+      const problemRunsPayload = await responseJson<{
+        data: {
+          problemRuns: unknown[];
+        };
+      }>(problemRunsResponse);
 
-    expect(issuesResponse.status).toBe(200);
-    expect(issuesPayload.data.issues[0]?.issueIdentifier).toBe("COL-123");
-    expect(issuesPayload.data.totals.issueCount).toBeGreaterThanOrEqual(1);
+      expect(issuesResponse.status).toBe(200);
+      expect(issuesPayload.data.issues[0]?.issueIdentifier).toBe("COL-123");
+      expect(issuesPayload.data.totals.issueCount).toBeGreaterThanOrEqual(1);
 
-    expect(issueDetailResponse.status).toBe(200);
-    expect(issueDetailPayload.data.issueIdentifier).toBe("COL-123");
+      expect(issueDetailResponse.status).toBe(200);
+      expect(issueDetailPayload.data.issueIdentifier).toBe("COL-123");
 
-    expect(issueBundleResponse.status).toBe(200);
-    expect(issueBundlePayload.data.issue.issueIdentifier).toBe("COL-123");
-    expect(Array.isArray(issueBundlePayload.data.recentRuns)).toBe(true);
+      expect(issueBundleResponse.status).toBe(200);
+      expect(issueBundlePayload.data.issue.issueIdentifier).toBe("COL-123");
+      expect(Array.isArray(issueBundlePayload.data.recentRuns)).toBe(true);
 
-    expect(successMetricsResponse.status).toBe(200);
-    expect(successMetricsPayload.data.executive.startedIssueCount).toBeGreaterThan(0);
-    expect(successMetricsPayload.data.executive.deliveredIssueCount).toBeGreaterThanOrEqual(0);
-    expect(Array.isArray(successMetricsPayload.data.daily)).toBe(true);
+      expect(successMetricsResponse.status).toBe(200);
+      expect(successMetricsPayload.data.executive.startedIssueCount).toBeGreaterThan(0);
+      expect(
+        successMetricsPayload.data.executive.deliveredIssueCount
+      ).toBeGreaterThanOrEqual(0);
+      expect(Array.isArray(successMetricsPayload.data.daily)).toBe(true);
 
-    expect(runDetailResponse.status).toBe(200);
-    expect(runDetailPayload.data.run.runId).toBe("run-123");
+      expect(runDetailResponse.status).toBe(200);
+      expect(runDetailPayload.data.run.runId).toBe("run-123");
 
-    expect(problemRunsResponse.status).toBe(200);
-    expect(Array.isArray(problemRunsPayload.data.problemRuns)).toBe(true);
+      expect(problemRunsResponse.status).toBe(200);
+      expect(Array.isArray(problemRunsPayload.data.problemRuns)).toBe(true);
+    });
 
-    expect(codexArtifactsResponse.status).toBe(200);
-    expect(codexArtifactsPayload.data.run.runId).toBe("run-123");
-    expect(codexArtifactsPayload.data.turns[0]?.turnId).toBe("turn-123");
-    expect(codexArtifactsPayload.data.items[0]?.itemId).toBe("item-123");
-    expect(codexArtifactsPayload.data.events.length).toBeGreaterThanOrEqual(3);
-    expect(codexOverflowResponse.status).toBe(200);
-    expect(codexOverflowPayload.data.runId).toBe("run-123");
-    expect(codexOverflowPayload.data.overflow.overflowId).toBe("item-123-overflow");
-    expect(codexOverflowPayload.data.overflow.kind).toBe("agent_message");
-    expect(codexOverflowPayload.data.overflow.contentText).toBe("Initial agent message");
+    it("serves agent analytics routes", async () => {
+      const codexArtifactsResponse = await app.request(
+        "/api/v1/agent/runs/run-123/artifacts"
+      );
+      const codexOverflowResponse = await app.request(
+        "/api/v1/agent/runs/run-123/overflow/item-123-overflow"
+      );
+      const codexTurnsResponse = await app.request("/api/v1/agent/runs/run-123/turns");
+      const codexItemsResponse = await app.request(
+        "/api/v1/agent/runs/run-123/items?turnId=turn-123"
+      );
+      const codexItemsAllTurnsResponse = await app.request(
+        "/api/v1/agent/runs/run-123/items"
+      );
+      const codexAgentMessagesResponse = await app.request(
+        "/api/v1/agent/runs/run-123/agent-messages?turnId=turn-123"
+      );
+      const codexCommandExecutionsResponse = await app.request(
+        "/api/v1/agent/runs/run-123/command-executions"
+      );
+      const missingCodexArtifactsResponse = await app.request(
+        "/api/v1/agent/runs/run-missing/artifacts"
+      );
+      const missingCodexOverflowResponse = await app.request(
+        "/api/v1/agent/runs/run-123/overflow/overflow-missing"
+      );
+      const codexArtifactsPayload = await responseJson<{
+        data: {
+          run: {
+            runId: string;
+          };
+          turns: Array<{
+            turnId: string;
+          }>;
+          items: Array<{
+            itemId: string;
+          }>;
+          events: Array<{
+            eventType: string;
+          }>;
+        };
+      }>(codexArtifactsResponse);
+      const codexTurnsPayload = await responseJson<{
+        data: {
+          runId: string;
+          turns: Array<{
+            turnId: string;
+            usage: {
+              input_tokens: number;
+              output_tokens: number;
+            } | null;
+          }>;
+        };
+      }>(codexTurnsResponse);
+      const codexItemsPayload = await responseJson<{
+        data: {
+          runId: string;
+          turnId: string | null;
+          items: Array<{
+            itemId: string;
+            itemType: string;
+          }>;
+        };
+      }>(codexItemsResponse);
+      const codexItemsAllTurnsPayload = await responseJson<{
+        data: {
+          runId: string;
+          turnId: string | null;
+          items: Array<{
+            itemId: string;
+          }>;
+        };
+      }>(codexItemsAllTurnsResponse);
+      const codexAgentMessagesPayload = await responseJson<{
+        data: {
+          runId: string;
+          turnId: string | null;
+          agentMessages: Array<{
+            itemId: string;
+            textPreview: string | null;
+          }>;
+        };
+      }>(codexAgentMessagesResponse);
+      const codexCommandExecutionsPayload = await responseJson<{
+        data: {
+          commandExecutions: unknown[];
+        };
+      }>(codexCommandExecutionsResponse);
+      const codexOverflowPayload = await responseJson<{
+        data: {
+          runId: string;
+          overflow: {
+            overflowId: string;
+            kind: string;
+            contentText: string | null;
+          };
+        };
+      }>(codexOverflowResponse);
+      const missingCodexArtifactsPayload = await responseJson<{
+        error: {
+          code: string;
+        };
+      }>(missingCodexArtifactsResponse);
+      const missingCodexOverflowPayload = await responseJson<{
+        error: {
+          code: string;
+        };
+      }>(missingCodexOverflowResponse);
 
-    expect(codexTurnsResponse.status).toBe(200);
-    expect(codexTurnsPayload.data.runId).toBe("run-123");
-    expect(codexTurnsPayload.data.turns[0]?.turnId).toBe("turn-123");
-    expect(codexTurnsPayload.data.turns[0]?.usage?.input_tokens).toBe(10);
+      expect(codexArtifactsResponse.status).toBe(200);
+      expect(codexArtifactsPayload.data.run.runId).toBe("run-123");
+      expect(codexArtifactsPayload.data.turns[0]?.turnId).toBe("turn-123");
+      expect(codexArtifactsPayload.data.items[0]?.itemId).toBe("item-123");
+      expect(codexArtifactsPayload.data.events.length).toBeGreaterThanOrEqual(3);
 
-    expect(codexItemsResponse.status).toBe(200);
-    expect(codexItemsPayload.data.runId).toBe("run-123");
-    expect(codexItemsPayload.data.turnId).toBe("turn-123");
-    expect(codexItemsPayload.data.items[0]?.itemType).toBe("agent_message");
+      expect(codexOverflowResponse.status).toBe(200);
+      expect(codexOverflowPayload.data.runId).toBe("run-123");
+      expect(codexOverflowPayload.data.overflow.overflowId).toBe("item-123-overflow");
+      expect(codexOverflowPayload.data.overflow.kind).toBe("agent_message");
+      expect(codexOverflowPayload.data.overflow.contentText).toBe("Initial agent message");
 
-    expect(codexItemsAllTurnsResponse.status).toBe(200);
-    expect(codexItemsAllTurnsPayload.data.runId).toBe("run-123");
-    expect(codexItemsAllTurnsPayload.data.turnId).toBeNull();
-    expect(codexItemsAllTurnsPayload.data.items[0]?.itemId).toBe("item-123");
+      expect(codexTurnsResponse.status).toBe(200);
+      expect(codexTurnsPayload.data.runId).toBe("run-123");
+      expect(codexTurnsPayload.data.turns[0]?.turnId).toBe("turn-123");
+      expect(codexTurnsPayload.data.turns[0]?.usage?.input_tokens).toBe(10);
 
-    expect(codexAgentMessagesResponse.status).toBe(200);
-    expect(codexAgentMessagesPayload.data.agentMessages[0]?.itemId).toBe(
-      "item-123"
-    );
-    expect(codexAgentMessagesPayload.data.agentMessages[0]?.textPreview).toContain(
-      "Initial agent message"
-    );
+      expect(codexItemsResponse.status).toBe(200);
+      expect(codexItemsPayload.data.runId).toBe("run-123");
+      expect(codexItemsPayload.data.turnId).toBe("turn-123");
+      expect(codexItemsPayload.data.items[0]?.itemType).toBe("agent_message");
 
-    expect(codexCommandExecutionsResponse.status).toBe(200);
-    expect(codexCommandExecutionsPayload.data.commandExecutions).toEqual([]);
+      expect(codexItemsAllTurnsResponse.status).toBe(200);
+      expect(codexItemsAllTurnsPayload.data.runId).toBe("run-123");
+      expect(codexItemsAllTurnsPayload.data.turnId).toBeNull();
+      expect(codexItemsAllTurnsPayload.data.items[0]?.itemId).toBe("item-123");
 
-    expect(missingCodexArtifactsResponse.status).toBe(404);
-    expect(missingCodexArtifactsPayload.error.code).toBe("NOT_FOUND");
-    expect(missingCodexOverflowResponse.status).toBe(404);
-    expect(missingCodexOverflowPayload.error.code).toBe("NOT_FOUND");
+      expect(codexAgentMessagesResponse.status).toBe(200);
+      expect(codexAgentMessagesPayload.data.agentMessages[0]?.itemId).toBe(
+        "item-123"
+      );
+      expect(codexAgentMessagesPayload.data.agentMessages[0]?.textPreview).toContain(
+        "Initial agent message"
+      );
 
-    expect(runtimeIssueResponse.status).toBe(200);
-    expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");
-    expect(runtimeIssuePayload.data.workspace.backendKind).toBe("docker");
-    expect(runtimeIssuePayload.data.workspace.workerHost).toBeNull();
-    expect(runtimeIssuePayload.data.workspace.hostPath).toContain("/symphony-COL-123");
-    expect(runtimeIssuePayload.data.workspace.executionTarget?.kind).toBe("container");
-    expect(runtimeIssuePayload.data.tracked.url).toBe(
-      "https://linear.app/coldets/issue/col-123"
-    );
-    expect(runtimeIssuePayload.data.operator.githubPullRequestSearchUrl).toContain(
-      "github.com/openai/symphony/pulls"
-    );
-    expect(runtimeIssuePayload.data.operator.requeueCommand).toBe("/rework");
-    expect(runtimeIssuePayload.data.operator.pi.defaultModel).toBe(
-      "xiaomi/mimo-v2-pro"
-    );
-    expect(runtimeIssuePayload.data.operator.pi.selectedModel).toBe(
-      "xiaomi/mimo-v2-pro"
-    );
+      expect(codexCommandExecutionsResponse.status).toBe(200);
+      expect(codexCommandExecutionsPayload.data.commandExecutions).toEqual([]);
+
+      expect(missingCodexArtifactsResponse.status).toBe(404);
+      expect(missingCodexArtifactsPayload.error.code).toBe("NOT_FOUND");
+      expect(missingCodexOverflowResponse.status).toBe(404);
+      expect(missingCodexOverflowPayload.error.code).toBe("NOT_FOUND");
+    });
+
+    it("serves runtime issue details", async () => {
+      const runtimeIssueResponse = await app.request("/api/v1/COL-123");
+      const runtimeIssuePayload = await responseJson<{
+        data: {
+          issueIdentifier: string;
+          workspace: {
+            backendKind: string | null;
+            workerHost: string | null;
+            prepareDisposition: string | null;
+            executionTargetKind: string | null;
+            materializationKind: string | null;
+            containerDisposition: string | null;
+            hostPath: string | null;
+            runtimePath: string | null;
+            containerId: string | null;
+            containerName: string | null;
+            path: string | null;
+            executionTarget:
+              | {
+                  kind: string;
+                }
+              | null;
+          };
+          tracked: {
+            url: string | null;
+          };
+          operator: {
+            githubPullRequestSearchUrl: string | null;
+            requeueCommand: string;
+            pi: {
+              defaultModel: string | null;
+              selectedModel: string | null;
+            };
+          };
+        };
+      }>(runtimeIssueResponse);
+
+      expect(runtimeIssueResponse.status).toBe(200);
+      expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");
+      expect(runtimeIssuePayload.data.workspace.backendKind).toBe("docker");
+      expect(runtimeIssuePayload.data.workspace.workerHost).toBeNull();
+      expect(runtimeIssuePayload.data.workspace.hostPath).toContain("/symphony-COL-123");
+      expect(runtimeIssuePayload.data.workspace.executionTarget?.kind).toBe("container");
+      expect(runtimeIssuePayload.data.tracked.url).toBe(
+        "https://linear.app/coldets/issue/col-123"
+      );
+      expect(runtimeIssuePayload.data.operator.githubPullRequestSearchUrl).toContain(
+        "github.com/openai/symphony/pulls"
+      );
+      expect(runtimeIssuePayload.data.operator.requeueCommand).toBe("/rework");
+      expect(runtimeIssuePayload.data.operator.pi.defaultModel).toBe(
+        "xiaomi/mimo-v2-pro"
+      );
+      expect(runtimeIssuePayload.data.operator.pi.selectedModel).toBe(
+        "xiaomi/mimo-v2-pro"
+      );
+    });
   });
 
   it("serves tracker-only runtime issue context when no live runtime state exists", async () => {
