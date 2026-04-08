@@ -25,7 +25,6 @@ export type RepositoryLinearTrackerFactory = (
 export function createRepositoryScopedLinearTracker(input: {
   trackerTemplate: SymphonyTrackerConfig;
   admittedRepositories: AdmittedRuntimeRepository[];
-  environmentSource: Record<string, string | undefined>;
   createTracker?: RepositoryLinearTrackerFactory;
 }): SymphonyTracker {
   if (input.trackerTemplate.kind !== "linear") {
@@ -39,7 +38,6 @@ export function createRepositoryScopedLinearTracker(input: {
   const trackerEntries = buildRepositoryLinearTrackerEntries({
     trackerTemplate: input.trackerTemplate,
     admittedRepositories: input.admittedRepositories,
-    environmentSource: input.environmentSource,
     createTracker
   });
   const trackersByRepositoryKey = new Map(
@@ -141,7 +139,6 @@ export function createRepositoryScopedLinearTracker(input: {
 function buildRepositoryLinearTrackerEntries(input: {
   trackerTemplate: SymphonyTrackerConfig;
   admittedRepositories: AdmittedRuntimeRepository[];
-  environmentSource: Record<string, string | undefined>;
   createTracker: RepositoryLinearTrackerFactory;
 }): RepositoryLinearTrackerEntry[] {
   const repositories: ReadonlyArray<RepositoryLinearTrackerSource> =
@@ -152,8 +149,7 @@ function buildRepositoryLinearTrackerEntries(input: {
   return repositories.map((repository) => {
     const config = buildRepositoryLinearTrackerConfig(
       input.trackerTemplate,
-      repository,
-      input.environmentSource
+      repository
     );
 
     return {
@@ -166,10 +162,8 @@ function buildRepositoryLinearTrackerEntries(input: {
 
 function buildRepositoryLinearTrackerConfig(
   trackerTemplate: SymphonyTrackerConfig,
-  repository: RepositoryLinearTrackerSource,
-  environmentSource: Record<string, string | undefined>
+  repository: RepositoryLinearTrackerSource
 ): SymphonyTrackerConfig {
-  void environmentSource;
   return {
     ...trackerTemplate,
     teamKey: repository.linearBinding.teamKey

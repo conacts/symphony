@@ -46,9 +46,6 @@ describe("repository linear tracker registry", () => {
         buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
         buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
       ],
-      environmentSource: {
-        LINEAR_API_KEY: "shared-linear-token"
-      },
       createTracker: factory
     });
 

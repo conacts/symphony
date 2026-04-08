@@ -16,10 +16,8 @@ export type AdmittedRuntimeRepository = {
 };
 
 export async function loadAdmittedRuntimeRepositories(
-  sourceRepos: string[],
-  environmentSource: Record<string, string | undefined>
+  sourceRepos: string[]
 ): Promise<AdmittedRuntimeRepository[]> {
-  void environmentSource;
   const admittedRepositories: AdmittedRuntimeRepository[] = [];
   const seenRepositoryKeys = new Set<string>();
 

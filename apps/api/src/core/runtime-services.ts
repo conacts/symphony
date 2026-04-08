@@ -90,10 +90,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const harnessProviderEnvKey = resolveHarnessProviderEnvKey(runtimePolicy);
   const admittedRepositories =
     env.sourceRepos.length > 0
-      ? await loadAdmittedRuntimeRepositories(
-          env.sourceRepos,
-          hostCommandEnvSource
-        )
+      ? await loadAdmittedRuntimeRepositories(env.sourceRepos)
       : [];
   const validatedRuntimeManifests =
     env.sourceRepos.length > 0
@@ -115,9 +112,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     : null;
   const promptContract =
     primaryRepository?.promptContract ??
-    (
-      await loadAdmittedRuntimeRepositories([process.cwd()], hostCommandEnvSource)
-    )[0].promptContract;
+    (await loadAdmittedRuntimeRepositories([process.cwd()]))[0].promptContract;
   const promptTemplate = {
     prompt: promptContract.template.trim(),
     promptTemplate: promptContract.template,
@@ -202,7 +197,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const tracker = createRepositoryScopedLinearTracker({
     trackerTemplate: runtimePolicy.tracker,
     admittedRepositories,
-    environmentSource
   });
   if (runtimePolicy.tracker.kind === "memory") {
     logger.warn("Using in-memory tracker placeholder");
