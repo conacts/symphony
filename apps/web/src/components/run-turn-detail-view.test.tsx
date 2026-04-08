@@ -31,12 +31,11 @@ describe("run turn detail view", () => {
     expect(html).toContain("Tool calls made");
     expect(html).toContain("pnpm lint");
     expect(html).toContain("pnpm test");
-    expect(html).toContain("linear");
-    expect(html).toContain("get_issue");
     expect(html).toContain("Reasoning");
-    expect(html).toContain("Tool call");
-    expect(html).toContain("View full message");
-    expect(html).toContain("Total tokens 240");
+    expect(html).toContain("Task complete.");
+    expect(html).toContain("80 tokens");
+    expect(html).toContain("240 tokens");
+    expect(html).toContain("90-second timeout");
     expect(html).not.toContain("Openrouter / Responses");
     expect(html).not.toContain("Turn transcript");
     expect(html).not.toContain("Single-turn drilldown");
@@ -108,7 +107,6 @@ describe("run turn detail view", () => {
       />
     );
 
-    expect(html).toContain("Todo list");
     expect(html).toContain("Keep the patch scoped");
   });
 
