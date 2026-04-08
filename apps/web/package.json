@@ -10,7 +10,7 @@
     "dev:mock": "NEXT_PUBLIC_SYMPHONY_USE_MOCK_RUNTIME=true next dev --turbopack",
     "lint": "eslint .",
     "start": "next start",
-    "test": "vitest run",
+    "test": "node ../../scripts/run-vitest.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -22,7 +22,7 @@
     "build": "tsc -b tsconfig.json",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "node ../../scripts/run-vitest.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

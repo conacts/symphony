@@ -35,6 +35,7 @@ packages/*/.env.*.local
 !.symphony/runtime.ts
 !.symphony/prompt.md
 apps/api/.symphony/workspaces/
+apps/api/.symphony/metrics/
 log/
 logs/
 *.log

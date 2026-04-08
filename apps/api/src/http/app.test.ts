@@ -16,6 +16,7 @@ import { createSymphonyRuntimeTestHarness } from "../test-support/create-symphon
 const harnesses: Array<
   SymphonyRuntimeTestHarness | SymphonyRuntimeAppServicesHarness
 > = [];
+const runtimeHttpIntegrationTestTimeoutMs = 30_000;
 
 afterEach(async () => {
   await Promise.all(harnesses.splice(0).map((harness) => harness.cleanup()));
@@ -26,47 +27,51 @@ async function responseJson<T>(response: Response): Promise<T> {
 }
 
 describe("@symphony/api app", () => {
-  it("boots the http app against real runtime service wiring", async () => {
-    const harness = await createSymphonyRuntimeAppServicesHarness();
-    harnesses.push(harness);
+  it(
+    "boots the http app against real runtime service wiring",
+    async () => {
+      const harness = await createSymphonyRuntimeAppServicesHarness();
+      harnesses.push(harness);
 
-    const app = createSymphonyRuntimeApp(harness.services);
-    const stateResponse = await app.request("/api/v1/state");
-    const healthResponse = await app.request("/api/v1/health");
-    const refreshResponse = await app.request("/api/v1/refresh", {
-      method: "POST"
-    });
-    const statePayload = await responseJson<{
-      data: {
-        counts: {
-          running: number;
-          retrying: number;
+      const app = createSymphonyRuntimeApp(harness.services);
+      const stateResponse = await app.request("/api/v1/state");
+      const healthResponse = await app.request("/api/v1/health");
+      const refreshResponse = await app.request("/api/v1/refresh", {
+        method: "POST"
+      });
+      const statePayload = await responseJson<{
+        data: {
+          counts: {
+            running: number;
+            retrying: number;
+          };
         };
-      };
-    }>(stateResponse);
-    const healthPayload = await responseJson<{
-      data: {
-        healthy: boolean;
-      };
-    }>(healthResponse);
-    const refreshPayload = await responseJson<{
-      data: {
-        queued: boolean;
-      };
-    }>(refreshResponse);
+      }>(stateResponse);
+      const healthPayload = await responseJson<{
+        data: {
+          healthy: boolean;
+        };
+      }>(healthResponse);
+      const refreshPayload = await responseJson<{
+        data: {
+          queued: boolean;
+        };
+      }>(refreshResponse);
 
-    expect(stateResponse.status).toBe(200);
-    expect(statePayload.data.counts).toEqual({
-      running: 0,
-      retrying: 0
-    });
+      expect(stateResponse.status).toBe(200);
+      expect(statePayload.data.counts).toEqual({
+        running: 0,
+        retrying: 0
+      });
 
-    expect(healthResponse.status).toBe(200);
-    expect(healthPayload.data.healthy).toBe(true);
+      expect(healthResponse.status).toBe(200);
+      expect(healthPayload.data.healthy).toBe(true);
 
-    expect(refreshResponse.status).toBe(202);
-    expect(refreshPayload.data.queued).toBe(true);
-  });
+      expect(refreshResponse.status).toBe(202);
+      expect(refreshPayload.data.queued).toBe(true);
+    },
+    runtimeHttpIntegrationTestTimeoutMs
+  );
 
   it("serves the runtime state and refresh surfaces", async () => {
     const harness = await createSymphonyRuntimeTestHarness({

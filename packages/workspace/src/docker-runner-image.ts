@@ -25,7 +25,10 @@ export const symphonyDockerWorkspaceRequiredTools = [
   "psql",
   "rg"
 ] as const;
-export const defaultSymphonyDockerWorkspacePreflightTimeoutMs = 15_000;
+// Docker image inspection and in-container tool checks can exceed 15s when the
+// host is already running multiple build/test workers. Keep the default budget
+// high enough to avoid load-sensitive false negatives during real bootstrap.
+export const defaultSymphonyDockerWorkspacePreflightTimeoutMs = 30_000;
 
 export type SymphonyDockerWorkspaceImageSelectionSource = "default" | "env";
 

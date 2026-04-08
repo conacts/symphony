@@ -62,6 +62,8 @@
     "verify:precommit": "turbo run lint typecheck test --filter=!@symphony/web",
     "start": "node ./scripts/start-services.mjs",
     "lint": "turbo run lint",
+    "monitor:build": "node ./scripts/monitor-command.mjs --label build -- pnpm build",
+    "monitor:test": "SYMPHONY_VITEST_TIMING_DIR=.symphony/metrics/vitest SYMPHONY_VITEST_TIMING_SUMMARY=1 node ./scripts/monitor-command.mjs --label test -- pnpm test",
     "test": "turbo run test",
     "verify": "turbo run lint typecheck test",
     "clean": "turbo run clean && rm -rf node_modules",
