@@ -11,7 +11,7 @@ notes that explain the platform shape. It does not carry a second runtime implem
 - admitted repo contract: `.symphony/runtime.ts` plus `.symphony/prompt.md`
 - one runtime process can admit multiple repositories
 - `repositoryKey` in `.symphony/runtime.ts` is the canonical repo identity
-- each repo manifest also declares its Linear binding and Linear auth env key
+- each repo manifest also declares its Linear binding
 - one active run per Linear issue
 - prompt rendering in memory from repo-owned template plus platform-provided variables
 - fail-fast admission, dispatch, and startup behavior
@@ -37,7 +37,8 @@ cp symphony.env.example ~/.config/symphony/symphony.env
 pnpm dev:host
 ```
 
-`pnpm dev:host` reads the local Symphony env file, keeps the SQLite file at `./symphony.db`, and
+`pnpm dev:host` reads the local Symphony env file, keeps the SQLite file at `./symphony.db`,
+forces `SYMPHONY_SOURCE_REPO` to this repository, clears inherited `SYMPHONY_SOURCE_REPOS`, and
 points the dashboard at the local API on `http://127.0.0.1:4400`. That avoids stale shell state
 accidentally booting Symphony against some other admitted repository. It also checks required env
 up front and refreshes the local workspace-runner image with normal Docker layer caching before
@@ -50,7 +51,9 @@ Symphony now uses a simple repo-routing convention:
 - every admitted repo must declare `repositoryKey` in `.symphony/runtime.ts`
 - `repositoryKey` must use `<owner>/<repo>` format, for example `conacts/symphony`
 - every admitted repo must declare its Linear binding in `.symphony/runtime.ts`
-- if a repo uses a dedicated Linear token, its manifest should name the env key via `linear.apiKeyEnvKey`
+- the preferred shape is one Linear workspace with repo separation by team
+- use `linear.teamKey` for repo routing when repos share one workspace
+- use a repo-specific `linear.apiKeyEnvKey` only when a repo truly needs a separate Linear token
 - the runtime admits one or more repo roots from `SYMPHONY_SOURCE_REPOS`
 - GitHub review webhooks route by `repository.full_name`
 - issue dispatch resolves from the admitted repo's Linear binding first and uses
@@ -59,6 +62,13 @@ Symphony now uses a simple repo-routing convention:
 
 That keeps repo separation explicit without adding project-level tenancy or extra control-plane
 concepts, while still allowing repo-scoped Linear auth.
+
+Current intended team mapping:
+
+- `conacts/symphony` -> `SYM`
+- `conacts/coldets-v2` -> `COL`
+
+Projects can span both teams. Team selects the repo. Project does not.
 
 `pnpm dev:self` remains as an alias.
 

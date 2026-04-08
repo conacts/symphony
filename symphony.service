@@ -7,7 +7,8 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=%h/junction/symphony
 EnvironmentFile=-%h/.config/symphony/symphony.env
-Environment=SYMPHONY_SOURCE_REPOS=%h/junction/symphony
+Environment=SYMPHONY_SOURCE_REPO=%h/junction/symphony
+Environment=SYMPHONY_SOURCE_REPOS=
 Environment=SYMPHONY_DB_FILE=%h/junction/symphony/symphony.db
 Environment=SYMPHONY_RUNTIME_BASE_URL=http://127.0.0.1:4400
 Environment=NEXT_PUBLIC_SYMPHONY_RUNTIME_BASE_URL=http://127.0.0.1:4400

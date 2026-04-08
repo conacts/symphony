@@ -87,8 +87,6 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
 
     const environmentSource = {
       LINEAR_API_KEY: env.linearApiKey,
-      LINEAR_API_KEY_SYM: "test-linear-api-key-sym",
-      LINEAR_API_KEY_COLD: "test-linear-api-key-cold",
       SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
       SYMPHONY_SOURCE_REPOS:
         env.sourceRepos.length > 0 ? env.sourceRepos.join(",") : undefined,
@@ -107,8 +105,6 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       cwd: root
     });
     const hostCommandEnvSource = input.hostCommandEnvSource ?? {
-      LINEAR_API_KEY_SYM: "test-linear-api-key-sym",
-      LINEAR_API_KEY_COLD: "test-linear-api-key-cold",
       OPENAI_API_KEY: "test-openai-api-key",
       OPENROUTER_API_KEY: "test-openrouter-api-key"
     };

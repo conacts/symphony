@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { Writable } from "node:stream";
 import {
   DockerClient,
@@ -35,11 +36,17 @@ type DockerClientLike = Pick<
 
 export type DockerClientFactory = () => Promise<DockerClientLike>;
 
+export type DockerCliCommandRunner = (
+  input: DockerWorkspaceCommandInput
+) => Promise<DockerWorkspaceCommandResult>;
+
 export function createDockerWorkspaceCommandRunner(input?: {
   clientFactory?: DockerClientFactory;
+  cliRunner?: DockerCliCommandRunner;
 }): DockerWorkspaceCommandRunner {
   const clientFactory =
     input?.clientFactory ?? (async () => await DockerClient.fromDockerConfig());
+  const cliRunner = input?.cliRunner ?? runDockerCliCommand;
 
   return async function runDockerWorkspaceCommand(
     command: DockerWorkspaceCommandInput
@@ -48,7 +55,7 @@ export function createDockerWorkspaceCommandRunner(input?: {
 
     try {
       return await withDockerTimeout(command.timeoutMs, async () => {
-        return await runDockerCommand(client, command.args);
+        return await runDockerCommand(client, command.args, cliRunner);
       });
     } finally {
       await client.close().catch(() => undefined);
@@ -134,7 +141,8 @@ export function shouldRedactDockerEnvValue(key: string): boolean {
 
 async function runDockerCommand(
   client: DockerClientLike,
-  args: string[]
+  args: string[],
+  cliRunner: DockerCliCommandRunner
 ): Promise<DockerWorkspaceCommandResult> {
   const command = args[0];
   if (!command) {
@@ -164,7 +172,7 @@ async function runDockerCommand(
       case "start":
         return await runDockerContainerStartCommand(client, args);
       case "exec":
-        return await runDockerExecCommand(client, args);
+        return await runDockerExecCommand(client, args, cliRunner);
       case "run":
         return await runDockerRunCommand(client, args);
       default:
@@ -425,7 +433,8 @@ async function runDockerContainerStartCommand(
 
 async function runDockerExecCommand(
   client: DockerClientLike,
-  args: string[]
+  args: string[],
+  cliRunner: DockerCliCommandRunner
 ): Promise<DockerWorkspaceCommandResult> {
   const parsed = parseDockerExecCommand(args);
   const execConfig: ExecConfig = {
@@ -437,26 +446,47 @@ async function runDockerExecCommand(
     WorkingDir: parsed.workdir ?? undefined
   };
 
-  const created = await client.containerExec(parsed.containerName, execConfig);
-  const stdout = createStringCollector();
-  const stderr = createStringCollector();
-  await client.execStart(
-    created.Id ?? "",
-    stdout.writer,
-    stderr.writer,
-    {
-      Detach: false,
-      Tty: false
-    } satisfies ExecStartConfig
-  );
+  let lastError: unknown = null;
 
-  const inspected = await client.execInspect(created.Id ?? "");
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const stdout = createStringCollector();
+    const stderr = createStringCollector();
 
-  return {
-    exitCode: inspected.ExitCode ?? 1,
-    stdout: stdout.value(),
-    stderr: stderr.value()
-  };
+    try {
+      const created = await client.containerExec(parsed.containerName, execConfig);
+      await client.execStart(
+        created.Id ?? "",
+        stdout.writer,
+        stderr.writer,
+        {
+          Detach: false,
+          Tty: false
+        } satisfies ExecStartConfig
+      );
+
+      const inspected = await client.execInspect(created.Id ?? "");
+
+      return {
+        exitCode: inspected.ExitCode ?? 1,
+        stdout: stdout.value(),
+        stderr: stderr.value()
+      };
+    } catch (error) {
+      lastError = error;
+      if (!isTransientDockerExecStartError(error)) {
+        throw error;
+      }
+
+      if (attempt >= 2) {
+        return await cliRunner({
+          args,
+          timeoutMs: 30_000
+        });
+      }
+    }
+  }
+
+  throw lastError;
 }
 
 async function runDockerRunCommand(
@@ -644,7 +674,7 @@ function parseDockerRunCommand(args: string[]): {
         index += 2;
         continue;
       case "--tmpfs":
-        assignKeyValue(state.tmpfs, requireOptionValue(args, index, token));
+        assignTmpfsValue(state.tmpfs, requireOptionValue(args, index, token));
         index += 2;
         continue;
       case "--tty":
@@ -762,6 +792,16 @@ function assignKeyValue(target: Record<string, string>, assignment: string): voi
   }
 
   target[assignment.slice(0, separator)] = assignment.slice(separator + 1);
+}
+
+function assignTmpfsValue(target: Record<string, string>, value: string): void {
+  const separator = value.indexOf(":");
+  if (separator === -1) {
+    target[value] = "";
+    return;
+  }
+
+  target[value.slice(0, separator)] = value.slice(separator + 1);
 }
 
 function readOptionValue(args: string[], option: string): string | null {
@@ -888,7 +928,39 @@ function renderDockerErrorResult(
 }
 
 function isDockerNotFoundError(error: unknown): boolean {
-  return error instanceof NotFoundError;
+  if (error instanceof NotFoundError) {
+    return true;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    typeof (error as { name?: unknown }).name === "string" &&
+    (error as { name: string }).name === "NotFoundError"
+  ) {
+    return true;
+  }
+
+  const rendered =
+    error instanceof Error
+      ? `${error.name}\n${error.message}`
+      : String(error);
+
+  return /NotFoundError|not found|no such (?:object|container|network|volume|image)/i.test(
+    rendered
+  );
+}
+
+function isTransientDockerExecStartError(error: unknown): boolean {
+  const rendered =
+    error instanceof Error
+      ? `${error.name}\n${error.message}`
+      : String(error);
+
+  return /bad upgrade|upgrade request|required hijack|unexpected eof/i.test(
+    rendered
+  );
 }
 
 function inferDockerObjectKind(
@@ -929,6 +1001,65 @@ async function withDockerTimeout<T>(
         clearTimeout(timeout);
         reject(error);
       });
+  });
+}
+
+async function runDockerCliCommand(
+  input: DockerWorkspaceCommandInput
+): Promise<DockerWorkspaceCommandResult> {
+  return await new Promise((resolve, reject) => {
+    const child = spawn("docker", input.args, {
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+
+    const finish = (result: DockerWorkspaceCommandResult) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(result);
+    };
+
+    const fail = (error: Error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      reject(error);
+    };
+
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      fail(
+        new SymphonyWorkspaceError(
+          "workspace_docker_timeout",
+          `Docker command timed out after ${input.timeoutMs}ms.`
+        )
+      );
+    }, input.timeoutMs);
+
+    child.stdout.on("data", (chunk: Buffer | string) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk: Buffer | string) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (error) => {
+      clearTimeout(timeout);
+      fail(error);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      finish({
+        exitCode: code ?? 1,
+        stdout,
+        stderr
+      });
+    });
   });
 }
 

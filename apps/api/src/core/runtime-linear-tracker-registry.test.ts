@@ -50,12 +50,12 @@ describe("repository linear tracker registry", () => {
         buildAdmittedRepository("conacts/coldets-v2", {
           projectSlug: "coldets",
           teamKey: null,
-          apiKeyEnvKey: "LINEAR_API_KEY_COLD"
+          apiKeyEnvKey: "LINEAR_API_KEY"
         })
       ],
       environmentSource: {
         LINEAR_API_KEY_SYM: "sym-token",
-        LINEAR_API_KEY_COLD: "cold-token"
+        LINEAR_API_KEY: "cold-token"
       },
       createTracker: factory
     });

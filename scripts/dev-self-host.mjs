@@ -28,6 +28,7 @@ async function main() {
     ...fileEnv,
     ...process.env,
     SYMPHONY_SOURCE_REPO: repoRoot,
+    SYMPHONY_SOURCE_REPOS: "",
     SYMPHONY_DB_FILE:
       normalizeText(process.env.SYMPHONY_DB_FILE) ??
       path.join(repoRoot, "symphony.db"),

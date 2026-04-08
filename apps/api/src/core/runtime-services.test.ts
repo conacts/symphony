@@ -325,7 +325,7 @@ describe("runtime services", () => {
         repositoryKey: "conacts/coldets-v2",
         linear: {
           projectSlug: "coldets",
-          apiKeyEnvKey: "LINEAR_API_KEY_COLD"
+          apiKeyEnvKey: "LINEAR_API_KEY"
         },
         workspace: {
           packageManager: "pnpm",
@@ -402,7 +402,6 @@ describe("runtime services", () => {
     const environmentSource = {
       LINEAR_API_KEY: env.linearApiKey,
       LINEAR_API_KEY_SYM: "test-linear-api-key-sym",
-      LINEAR_API_KEY_COLD: "test-linear-api-key-cold",
       SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
       SYMPHONY_SOURCE_REPOS:
         env.sourceRepos.length > 0 ? env.sourceRepos.join(",") : undefined,
@@ -421,7 +420,7 @@ describe("runtime services", () => {
       env,
       environmentSource,
       {
-        LINEAR_API_KEY_COLD: "test-linear-api-key-cold",
+        LINEAR_API_KEY: "test-linear-api-key",
         LINEAR_API_KEY_SYM: "test-linear-api-key-sym",
         OPENROUTER_API_KEY: "test-openrouter-api-key"
       }

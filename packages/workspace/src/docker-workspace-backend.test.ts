@@ -1,8 +1,10 @@
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
+import { Writable } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { SymphonyWorkspaceError } from "./workspace-identity.js";
+import { createDockerWorkspaceCommandRunner } from "./docker-client.js";
 import {
   createDockerWorkspaceBackend,
   type PreparedWorkspace,
@@ -300,6 +302,89 @@ describe("docker workspace backend", () => {
     expect(runCall?.args.at(-1)).toContain('git config --global user.name "$SYMPHONY_GIT_USER_NAME"');
     expect(runCall?.args.at(-1)).toContain('git config --global user.email "$SYMPHONY_GIT_USER_EMAIL"');
     expect(calls.filter((call) => call.args[0] === "exec")).toHaveLength(1);
+  });
+
+  it("starts a new container when docker inspect throws a shaped not-found error", async () => {
+    const root = await createWorkspaceRoot();
+    const config = buildWorkspaceTestConfig({
+      workspace: {
+        root
+      }
+    });
+    const client = {
+      close: async () => undefined,
+      systemVersion: async () => ({ ServerVersion: "25.0.0" }),
+      imageInspect: async () => ({ Id: "sha256:image" }),
+      containerInspect: async () => {
+        const error = new Error("container not found");
+        error.name = "NotFoundError";
+        throw error;
+      },
+      containerDelete: async () => undefined,
+      containerStop: async () => undefined,
+      containerStart: async () => undefined,
+      containerCreate: async () => ({
+        Id: "container-created",
+        Warnings: []
+      }),
+      containerWait: async () => ({ StatusCode: 0 }),
+      containerExec: async () => ({ Id: "exec-1" }),
+      execStart: async (
+        _id: string,
+        stdout: Writable | null,
+        stderr: Writable | null
+      ) => {
+        stdout?.end();
+        stderr?.end();
+        return undefined;
+      },
+      execInspect: async () => ({ ExitCode: 0 }),
+      containerLogs: async () => undefined,
+      volumeInspect: async () => {
+        const error = new Error("volume not found");
+        error.name = "NotFoundError";
+        throw error;
+      },
+      volumeCreate: async () => ({
+        Name: "volume-1",
+        Driver: "local",
+        Mountpoint: "/var/lib/docker/volumes/volume-1",
+        Labels: {},
+        Scope: "local",
+        Options: {}
+      }),
+      volumeDelete: async () => undefined,
+      networkInspect: async () => ({
+        Id: "network-1",
+        Name: "symphony-net",
+        Labels: {}
+      }),
+      networkDelete: async () => undefined
+    };
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      commandRunner: createDockerWorkspaceCommandRunner({
+        clientFactory: async () => client as never
+      })
+    });
+
+    const workspace = await backend.prepareWorkspace({
+      context: {
+        issueId: "issue-sym-1",
+        issueIdentifier: "SYM-1"
+      },
+      config: config.workspace,
+      hooks: {
+        ...config.hooks,
+        afterCreate: null
+      }
+    });
+
+    expect(workspace.prepareDisposition).toBe("created");
+    expect(workspace.containerDisposition).toBe("started");
+    expect(requireContainerTarget(workspace).containerName).toMatch(
+      /^symphony-workspace-sym-1-/
+    );
   });
 
   it("hydrates an empty workspace from the configured source repo before lifecycle runs", async () => {

@@ -38,8 +38,8 @@ Start the runtime:
 source /opt/homebrew/opt/nvm/nvm.sh && nvm use
 pnpm install
 pnpm docker:workspace-image:build
-export SYMPHONY_SOURCE_REPOS=/absolute/path/to/admitted-repo
-export LINEAR_API_KEY_SYM=...
+export SYMPHONY_SOURCE_REPO=/absolute/path/to/admitted-repo
+export LINEAR_API_KEY=...
 export GITHUB_TOKEN=...
 pnpm --filter @symphony/api dev
 ```
@@ -113,6 +113,26 @@ The repo contract must be explicit:
 - required secret-bearing values are not written into repo files by default
 - `.symphony/` contains static contract artifacts, not generated secret-bearing state
 
+## Team Mapping
+
+The preferred operating model is one Linear workspace with one team per admitted repository.
+
+Current intended mapping:
+
+- `conacts/symphony` -> `SYM`
+- `conacts/coldets-v2` -> `COL`
+
+Use the repo manifest to bind a repo to its team:
+
+```ts
+linear: {
+  teamKey: "SYM"
+}
+```
+
+Use `SYMPHONY_SOURCE_REPO` when running Symphony only against itself locally.
+Use `SYMPHONY_SOURCE_REPOS` only when you explicitly want one runtime process to admit multiple repositories.
+
 ## Repo Routing Convention
 
 Use this routing model consistently:
@@ -129,6 +149,7 @@ Example:
 
 - admitted repos: `conacts/symphony`, `conacts/coldets-v2`
 - default admitted repo: `conacts/symphony`
+- team mapping: `SYM -> conacts/symphony`, `COL -> conacts/coldets-v2`
 - issue label `repo:conacts/coldets-v2` routes the issue into the Coldets repo
 - GitHub webhook repository `conacts/coldets-v2` verifies against that repo's secret and rework flow
   stays attached to that repo's runs and timeline entries
