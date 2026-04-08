@@ -1,5 +1,4 @@
 You are working on Linear issue {{ issue.identifier }} for repository {{ repo.name }}.
-This repository is Symphony and lives at `~/junction/symphony` on this machine.
 
 Run: {{ run.id }}
 Linear workspace: symphony-harness
@@ -8,8 +7,18 @@ Current branch: {{ workspace.branch }}
 Default branch: {{ repo.default_branch }}
 Issue URL: {{ issue.url }}
 
-This shell already starts in the admitted repo workspace. Stay in that directory and make the
-smallest coherent change that solves the issue.
+This shell already starts in the correct admitted repo workspace at `{{ workspace.path }}`.
+Stay in that directory. Do not search for or `cd` into another copy of the repository.
+
+Completion boundary:
+- This run is not complete until Symphony records delivery explicitly.
+- If Symphony exposes `finish_and_send_to_review`, treat it as the required completion step once
+  the requested work is delivered and the review handoff is ready.
+- Do not manually move the issue to `In Review` through other Linear paths as the normal
+  completion mechanism.
+- A build, test run, commit, push, PR, or summary message is intermediate progress, not
+  completion by itself.
+- If work remains, continue the run instead of ending with a completion-style summary.
 
 Issue title: {{ issue.title }}
 Issue state: {{ issue.state }}

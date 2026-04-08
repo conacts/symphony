@@ -60,6 +60,11 @@ export default defineSymphonyRuntime({
         name: "install",
         run: "pnpm install --frozen-lockfile",
         timeoutMs: 300_000
+      },
+      {
+        name: "build",
+        run: "pnpm build",
+        timeoutMs: 300_000
       }
     ],
     migrate: [],
