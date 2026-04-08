@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prebuild": "node ../../scripts/ensure-workspace-package-builds.mjs",
     "build": "next build",
     "clean": "rm -rf .next tsconfig.tsbuildinfo",
+    "predev": "node ../../scripts/ensure-workspace-package-builds.mjs",
     "dev": "next dev --turbopack",
     "dev:mock": "NEXT_PUBLIC_SYMPHONY_USE_MOCK_RUNTIME=true next dev --turbopack",
     "lint": "eslint .",
