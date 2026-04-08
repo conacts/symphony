@@ -110,7 +110,7 @@ describe("runtime dynamic tools", () => {
     database.close();
   });
 
-  it("rejects completed delivery reports that omit the PR url", async () => {
+  it("still requires prUrl for finish_and_send_to_review with completed status", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-dynamic-tools-"));
     tempRoots.push(root);
 
@@ -135,9 +135,10 @@ describe("runtime dynamic tools", () => {
 
     const result = await executor("finish_and_send_to_review", {
       status: "completed",
-      summary: "Finished the work without a PR."
+      summary: "Finished implementation work."
     });
 
+    // finish_and_send_to_review still requires prUrl for completed status
     expect(result.success).toBe(false);
     expect(String(result.output)).toContain("requires `prUrl`");
     expect(await deliveryReports.listForRun("run-123")).toEqual([]);
@@ -231,6 +232,227 @@ describe("runtime dynamic tools", () => {
 
     expect(result.success).toBe(true);
     expect(await deliveryReports.listForRun("run-123")).toHaveLength(1);
+
+    database.close();
+  });
+});
+
+describe("submit_spike_result tool", () => {
+  it("records spike results and transitions issue to In Review", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-spike-result-"));
+    tempRoots.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const recorded: Array<{ status: string; summary: string }> = [];
+    const tracker = createMemorySymphonyTracker([
+      {
+        id: "spike-456",
+        identifier: "COL-456",
+        title: "Investigate caching strategy",
+        description: null,
+        priority: null,
+        state: "In Progress",
+        branchName: "codex/col-456",
+        url: null,
+        projectId: null,
+        projectName: null,
+        teamKey: null,
+        assigneeId: null,
+        blockedBy: [],
+        labels: ["type:spike"],
+        assignedToWorker: true,
+        createdAt: null,
+        updatedAt: null
+      }
+    ]);
+    const executor = buildRuntimeDynamicToolExecutor({
+      runtimePolicy: buildSymphonyRuntimePolicy(),
+      logger: createSilentSymphonyLogger("@symphony/api.test.spike-result"),
+      tracker,
+      deliveryReports,
+      issue: {
+        id: "spike-456",
+        identifier: "COL-456",
+        state: "In Progress"
+      },
+      runId: "run-456",
+      readTurnId: () => "turn-456",
+      onDeliveryReportRecorded(report) {
+        recorded.push({
+          status: report.status,
+          summary: report.summary
+        });
+      }
+    });
+
+    const result = await executor("submit_spike_result", {
+      summary: "Investigated Redis vs Memcached for session caching.",
+      findings: "Redis provides better pub/sub support and data structure flexibility.",
+      recommendations: "Use Redis for session caching with a 24h TTL.",
+      risks: "Redis requires more operational overhead for HA setup."
+    });
+
+    expect(result.success).toBe(true);
+    expect(String(result.output)).toContain('"status": "completed"');
+    expect(String(result.output)).toContain('"targetState": "In Review"');
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0].status).toBe("completed");
+    expect(recorded[0].summary).toContain("Spike Investigation Complete");
+    expect(recorded[0].summary).toContain("Redis vs Memcached");
+
+    const reports = await deliveryReports.listForRun("run-456");
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toEqual(
+      expect.objectContaining({
+        issueIdentifier: "COL-456",
+        runId: "run-456",
+        turnId: "turn-456",
+        status: "completed",
+        prUrl: null
+      })
+    );
+    expect(tracker.getIssue("spike-456")?.state).toBe("In Review");
+
+    database.close();
+  });
+
+  it("requires summary field", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-spike-result-"));
+    tempRoots.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const executor = buildRuntimeDynamicToolExecutor({
+      runtimePolicy: buildSymphonyRuntimePolicy(),
+      logger: createSilentSymphonyLogger("@symphony/api.test.spike-result"),
+      tracker: createMemorySymphonyTracker(),
+      deliveryReports,
+      issue: {
+        id: "spike-456",
+        identifier: "COL-456"
+      },
+      runId: "run-456",
+      readTurnId: () => "turn-456"
+    });
+
+    const result = await executor("submit_spike_result", {
+      findings: "Some findings without a summary."
+    });
+
+    expect(result.success).toBe(false);
+    expect(String(result.output)).toContain("summary");
+    expect(await deliveryReports.listForRun("run-456")).toEqual([]);
+
+    database.close();
+  });
+
+  it("requires findings field", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-spike-result-"));
+    tempRoots.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const executor = buildRuntimeDynamicToolExecutor({
+      runtimePolicy: buildSymphonyRuntimePolicy(),
+      logger: createSilentSymphonyLogger("@symphony/api.test.spike-result"),
+      tracker: createMemorySymphonyTracker(),
+      deliveryReports,
+      issue: {
+        id: "spike-456",
+        identifier: "COL-456"
+      },
+      runId: "run-456",
+      readTurnId: () => "turn-456"
+    });
+
+    const result = await executor("submit_spike_result", {
+      summary: "A summary without findings."
+    });
+
+    expect(result.success).toBe(false);
+    expect(String(result.output)).toContain("findings");
+    expect(await deliveryReports.listForRun("run-456")).toEqual([]);
+
+    database.close();
+  });
+
+  it("allows optional recommendations and risks", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-spike-result-"));
+    tempRoots.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const executor = buildRuntimeDynamicToolExecutor({
+      runtimePolicy: buildSymphonyRuntimePolicy(),
+      logger: createSilentSymphonyLogger("@symphony/api.test.spike-result"),
+      tracker: createMemorySymphonyTracker(),
+      deliveryReports,
+      issue: {
+        id: "spike-456",
+        identifier: "COL-456"
+      },
+      runId: "run-456",
+      readTurnId: () => "turn-456"
+    });
+
+    const result = await executor("submit_spike_result", {
+      summary: "Minimal spike with required fields only.",
+      findings: "Found important insights."
+    });
+
+    expect(result.success).toBe(true);
+    expect(await deliveryReports.listForRun("run-456")).toHaveLength(1);
+
+    database.close();
+  });
+
+  it("requires active persisted run", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-spike-result-"));
+    tempRoots.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const executor = buildRuntimeDynamicToolExecutor({
+      runtimePolicy: buildSymphonyRuntimePolicy(),
+      logger: createSilentSymphonyLogger("@symphony/api.test.spike-result"),
+      tracker: createMemorySymphonyTracker(),
+      deliveryReports,
+      issue: {
+        id: "spike-456",
+        identifier: "COL-456"
+      },
+      runId: null,
+      readTurnId: () => "turn-456"
+    });
+
+    const result = await executor("submit_spike_result", {
+      summary: "Valid summary.",
+      findings: "Valid findings."
+    });
+
+    expect(result.success).toBe(false);
+    expect(String(result.output)).toContain("active persisted run");
 
     database.close();
   });

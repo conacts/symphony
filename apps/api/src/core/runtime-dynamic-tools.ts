@@ -7,6 +7,7 @@ import type { SymphonyTracker } from "@symphony/tracker";
 const linearGraphqlToolName = "linear_graphql";
 const finishAndSendToReviewToolName = "finish_and_send_to_review";
 const legacyReportIssueDeliveryToolName = "report_issue_delivery";
+const submitSpikeResultToolName = "submit_spike_result";
 const deliveryTransitionState = "In Review";
 
 export function buildRuntimeDynamicToolExecutor(input: {
@@ -30,10 +31,12 @@ export function buildRuntimeDynamicToolExecutor(input: {
       case finishAndSendToReviewToolName:
       case legacyReportIssueDeliveryToolName:
         return await executeDeliveryReportTool(input, argumentsPayload);
+      case submitSpikeResultToolName:
+        return await executeSpikeResultTool(input, argumentsPayload);
       default:
         return buildToolErrorResult({
           message: `Unsupported dynamic tool: ${JSON.stringify(toolName)}.`,
-          supportedTools: [linearGraphqlToolName, finishAndSendToReviewToolName]
+          supportedTools: [linearGraphqlToolName, finishAndSendToReviewToolName, submitSpikeResultToolName]
         });
     }
   };
@@ -45,6 +48,14 @@ export type RuntimeDeliveryReportResult = {
   summary: string;
   prUrl: string | null;
   blockingReason: string | null;
+};
+
+export type RuntimeSpikeResult = {
+  reportId: string;
+  summary: string;
+  findings: string;
+  recommendations: string | null;
+  risks: string | null;
 };
 
 type NormalizedDeliveryReportArguments = {
@@ -149,6 +160,190 @@ async function executeDeliveryReportTool(
         error instanceof Error ? error.message : "Failed to record the issue delivery report."
     });
   }
+}
+
+type NormalizedSpikeResultArguments = {
+  ok: true;
+  summary: string;
+  findings: string;
+  recommendations: string | null;
+  risks: string | null;
+  rawPayload: unknown;
+};
+
+async function executeSpikeResultTool(
+  input: {
+    tracker: SymphonyTracker;
+    deliveryReports: SymphonyIssueDeliveryReportStore;
+    issue: {
+      id: string;
+      identifier: string;
+      state?: string | null;
+    };
+    runId: string | null;
+    readTurnId(): string | null;
+    onDeliveryReportRecorded?(delivery: RuntimeDeliveryReportResult): void;
+  },
+  argumentsPayload: unknown
+): Promise<Record<string, unknown>> {
+  if (!input.runId) {
+    return buildToolErrorResult({
+      message:
+        "`submit_spike_result` requires an active persisted run. Symphony could not resolve the current run id."
+    });
+  }
+
+  const normalizedArguments = normalizeSpikeResultArguments(argumentsPayload);
+  if (!normalizedArguments.ok) {
+    return buildToolErrorResult({
+      message: normalizedArguments.message
+    });
+  }
+
+  try {
+    const spikeSummary = formatSpikeResultForLinear(normalizedArguments);
+
+    const reportId = await input.deliveryReports.record({
+      issueId: input.issue.id,
+      issueIdentifier: input.issue.identifier,
+      runId: input.runId,
+      turnId: input.readTurnId(),
+      status: "completed",
+      summary: spikeSummary,
+      prUrl: null,
+      prNumber: null,
+      branchName: null,
+      blockingReason: null,
+      testsSummary: null,
+      source: "pi",
+      payload: toJsonValue(normalizedArguments.rawPayload)
+    });
+
+    const deliveryResult: RuntimeDeliveryReportResult = {
+      reportId,
+      status: "completed",
+      summary: spikeSummary,
+      prUrl: null,
+      blockingReason: null
+    };
+    input.onDeliveryReportRecorded?.(deliveryResult);
+
+    const transition = await maybeTransitionDeliveredIssueToInReview(
+      input,
+      "completed"
+    );
+
+    const output = JSON.stringify(
+      {
+        reportId,
+        issueIdentifier: input.issue.identifier,
+        runId: input.runId,
+        status: "completed",
+        spikeResult: {
+          summary: normalizedArguments.summary,
+          findings: normalizedArguments.findings,
+          recommendations: normalizedArguments.recommendations,
+          risks: normalizedArguments.risks
+        },
+        recorded: true,
+        issueStateTransition: transition
+      },
+      null,
+      2
+    );
+
+    return {
+      success: true,
+      output,
+      contentItems: [
+        {
+          type: "inputText",
+          text: output
+        }
+      ]
+    };
+  } catch (error) {
+    return buildToolErrorResult({
+      message:
+        error instanceof Error ? error.message : "Failed to record the spike result."
+    });
+  }
+}
+
+function normalizeSpikeResultArguments(
+  argumentsPayload: unknown
+):
+  | ({
+      ok: true;
+    } & NormalizedSpikeResultArguments)
+  | {
+      ok: false;
+      message: string;
+    } {
+  if (
+    !argumentsPayload ||
+    typeof argumentsPayload !== "object" ||
+    Array.isArray(argumentsPayload)
+  ) {
+    return {
+      ok: false,
+      message:
+        "`submit_spike_result` expects an object with `summary`, `findings`, and optional `recommendations` and `risks` fields."
+    };
+  }
+
+  const record = argumentsPayload as Record<string, unknown>;
+  const summary = getString(record, "summary");
+  const findings = getString(record, "findings");
+  const recommendations = getOptionalString(record, "recommendations");
+  const risks = getOptionalString(record, "risks");
+
+  if (!summary) {
+    return {
+      ok: false,
+      message: "`submit_spike_result.summary` requires a non-empty string describing the investigation."
+    };
+  }
+
+  if (!findings) {
+    return {
+      ok: false,
+      message: "`submit_spike_result.findings` requires a non-empty string with the key findings."
+    };
+  }
+
+  return {
+    ok: true,
+    summary,
+    findings,
+    recommendations,
+    risks,
+    rawPayload: record
+  };
+}
+
+function formatSpikeResultForLinear(
+  result: NormalizedSpikeResultArguments
+): string {
+  const sections: string[] = [
+    "## Spike Investigation Complete",
+    "",
+    "### Summary",
+    result.summary,
+    "",
+    "### Key Findings",
+    result.findings
+  ];
+
+  if (result.recommendations) {
+    sections.push("", "### Recommendations", result.recommendations);
+  }
+
+  if (result.risks) {
+    sections.push("", "### Risks & Concerns", result.risks);
+  }
+
+  return sections.join("\n");
 }
 
 async function maybeTransitionDeliveredIssueToInReview(

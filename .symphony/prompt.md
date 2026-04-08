@@ -12,8 +12,9 @@ Stay in that directory. Do not search for or `cd` into another copy of the repos
 
 Completion boundary:
 - This run is not complete until Symphony records delivery explicitly.
-- If Symphony exposes `finish_and_send_to_review`, treat it as the required completion step once
-  the requested work is delivered and the review handoff is ready.
+- If this is a spike/investigation ticket (check labels for `type:spike` or similar), use `submit_spike_result`
+  to report structured investigation findings. For implementation tickets, use `finish_and_send_to_review`
+  once the requested work is delivered and the review handoff is ready.
 - Do not manually move the issue to `In Review` through other Linear paths as the normal
   completion mechanism.
 - A build, test run, commit, push, PR, or summary message is intermediate progress, not

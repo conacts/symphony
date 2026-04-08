@@ -18,7 +18,8 @@ Continuation guidance:
 - If Symphony exposes \`linear_graphql\`, use it for direct Linear reads or writes outside delivery reporting; Symphony provides the auth server-side.
 - If the issue is in \`Rework\`, or review feedback already exists, read the latest Linear comment context and any relevant PR review feedback before editing so you address the current feedback instead of stale assumptions.
 - Never move the issue to \`Done\` from the agent runtime.
-- If Symphony exposes \`finish_and_send_to_review\`, treat it as the required finish step: once the requested work is delivered and the PR is opened, call it immediately in the same turn with \`status: "completed"\` and the PR URL. Symphony will record delivery, move the issue to \`In Review\`, and that should usually end the run.
+- If this is a spike/investigation ticket (check issue labels for \`type:spike\` or similar), use \`submit_spike_result\` to report your structured investigation findings instead of \`finish_and_send_to_review\`. The spike tool does not require a PR URL - it records your investigation summary, findings, recommendations, and risks.
+- If Symphony exposes \`finish_and_send_to_review\`, treat it as the required finish step for implementation tickets: once the requested work is delivered and the PR is opened, call it immediately in the same turn with \`status: "completed"\` and the PR URL. Symphony will record delivery, move the issue to \`In Review\`, and that should usually end the run.
 - Do not keep taking extra turns after the PR is open and delivery is reported unless there is a concrete unresolved failure in the same run.
 - Do not end the turn with a completion-style summary while the issue stays active unless the requested work is actually finished and validated.
 - Do not stop for partial progress, a likely fix, or a request for human follow-up.

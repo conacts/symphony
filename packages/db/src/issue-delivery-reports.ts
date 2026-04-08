@@ -116,9 +116,9 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
     const prUrl = sanitizeText(input.prUrl);
     const blockingReason = sanitizeText(input.blockingReason);
 
-    if (input.status === "completed" && !prUrl) {
-      throw new TypeError("Completed delivery reports require prUrl.");
-    }
+    // Note: Spike completions may have null prUrl since their primary artifact
+    // is a structured investigation result rather than shipped code. We no longer
+    // enforce prUrl for completed delivery reports to support spike completion flows.
 
     if (input.status === "blocked" && !blockingReason) {
       throw new TypeError("Blocked delivery reports require blockingReason.");
