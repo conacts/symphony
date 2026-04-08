@@ -16,7 +16,7 @@ export function ControlPlanePage(input: {
 }) {
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-30 flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:left-(--sidebar-width) group-data-[collapsible=icon]:md:left-(--sidebar-width-icon)">
+      <header className="fixed top-0 left-0 right-0 z-30 flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:left-(--sidebar-width) peer-data-[collapsible=icon]:md:left-(--sidebar-width-icon)">
         <div className="flex min-w-0 items-center gap-3">
           <SidebarTrigger className="-ml-1" />
           <ControlPlaneBreadcrumbs items={input.breadcrumbs ?? []} />
