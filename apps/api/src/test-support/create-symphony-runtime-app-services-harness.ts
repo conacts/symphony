@@ -30,6 +30,7 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
   runtimeManifestSource?: string | null;
   startPollScheduler?: boolean;
   startMachineLoadMonitor?: boolean;
+  enableDockerPreflight?: boolean;
 } = {}): Promise<SymphonyRuntimeAppServicesHarness> {
   const sqlite = await createTempSymphonySqliteHarness({
     rootPrefix: input.rootPrefix ?? "symphony-runtime-services-"
@@ -117,7 +118,8 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       hostCommandEnvSource,
       {
         startPollScheduler: input.startPollScheduler ?? false,
-        startMachineLoadMonitor: input.startMachineLoadMonitor ?? false
+        startMachineLoadMonitor: input.startMachineLoadMonitor ?? false,
+        enableDockerPreflight: input.enableDockerPreflight ?? false
       }
     );
 

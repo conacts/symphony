@@ -67,10 +67,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   options: {
     startPollScheduler?: boolean;
     startMachineLoadMonitor?: boolean;
+    enableDockerPreflight?: boolean;
   } = {}
 ): Promise<SymphonyRuntimeAppServices> {
   const startPollScheduler = options.startPollScheduler ?? true;
   const startMachineLoadMonitor = options.startMachineLoadMonitor ?? true;
+  const enableDockerPreflight = options.enableDockerPreflight ?? true;
   const logger = createSymphonyLogger({
     name: "@symphony/api",
     level: env.logLevel
@@ -277,7 +279,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     ...dockerLinearLaunchEnv
   };
   let dockerPreflight: SymphonyDockerWorkspacePreflightResult | null = null;
-  if (workspaceBackendSelection.metadata.backendKind === "docker") {
+  if (enableDockerPreflight && workspaceBackendSelection.metadata.backendKind === "docker") {
     try {
       dockerPreflight = await preflightDockerWorkspaceBackendSelection({
         image: workspaceBackendSelection.metadata.image,

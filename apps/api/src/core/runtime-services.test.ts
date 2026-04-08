@@ -13,8 +13,7 @@ import {
 import { initializeSymphonyDb } from "@symphony/db";
 import {
   applyRuntimeManifestPiPolicy,
-  buildWorkspaceBackendPayload,
-  loadDefaultSymphonyRuntimeAppServices
+  buildWorkspaceBackendPayload
 } from "./runtime-services.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
@@ -259,209 +258,35 @@ describe("runtime services", () => {
   it(
     "selects the admitted repo matching the process Linear scope when multiple repos are admitted",
     async () => {
-      const sqlite = await createTempSymphonySqliteHarness({
-        rootPrefix: "symphony-runtime-services-multi-repo-"
-      });
-      const root = sqlite.root;
-      const workspaceRoot = path.join(root, "workspaces");
-      const symphonyRepo = path.join(root, "symphony");
-      const coldetsRepo = path.join(root, "coldets");
-
-      await mkdir(path.join(symphonyRepo, ".symphony"), {
-        recursive: true
-      });
-      await mkdir(path.join(coldetsRepo, ".symphony"), {
-        recursive: true
-      });
-      await mkdir(workspaceRoot, {
-        recursive: true
-      });
-      await writeFile(
-        path.join(symphonyRepo, ".symphony", "prompt.md"),
-        "Symphony prompt\n"
-      );
-      await writeFile(
-        path.join(coldetsRepo, ".symphony", "prompt.md"),
-        "Coldets prompt\n"
-      );
-      await writeFile(
-        path.join(symphonyRepo, ".symphony", "runtime.ts"),
-        renderSymphonyRuntimeManifestSource({
-          schemaVersion: 1,
-          repositoryKey: "conacts/symphony",
-          linear: {
-            teamKey: "SYM"
-          },
-          workspace: {
-            packageManager: "pnpm",
-            workingDirectory: "."
-          },
-          pi: {
-            defaultPreset: "basic",
-            presets: {
-              basic: {
-                model: "minimax/minimax-m2.7",
-                reasoningEffort: "medium",
-                auth: "provider"
-              },
-              advanced: {
-                model: "xiaomi/mimo-v2-pro",
-                reasoningEffort: "xhigh",
-                auth: "provider"
-              },
-              premium: {
-                model: "gpt-4.1",
-                reasoningEffort: "high",
-                auth: "subscription"
-              }
-            }
-          },
-          env: {
-            host: {
-              required: [],
-              optional: []
-            },
-            inject: {}
-          },
-          lifecycle: {
-            bootstrap: [],
-            migrate: [],
-            verify: [
-              {
-                name: "verify",
-                run: "pnpm test"
-              }
-            ],
-            seed: [],
-            cleanup: []
-          }
-        })
-      );
-      await writeFile(
-        path.join(coldetsRepo, ".symphony", "runtime.ts"),
-        renderSymphonyRuntimeManifestSource({
-          schemaVersion: 1,
-          repositoryKey: "conacts/coldets-v2",
-          linear: {
-            teamKey: "COL"
-          },
-          workspace: {
-            packageManager: "pnpm",
-            workingDirectory: "."
-          },
-          pi: {
-            defaultPreset: "premium",
-            presets: {
-              basic: {
-                model: "minimax/minimax-m2.7",
-                reasoningEffort: "medium",
-                auth: "provider"
-              },
-              advanced: {
-                model: "xiaomi/mimo-v2-pro",
-                reasoningEffort: "xhigh",
-                auth: "provider"
-              },
-              premium: {
-                model: "gpt-5.4",
-                reasoningEffort: "high",
-                auth: "subscription"
-              }
-            }
-          },
-          env: {
-            host: {
-              required: [],
-              optional: []
-            },
-            inject: {}
-          },
-          lifecycle: {
-            bootstrap: [],
-            migrate: [],
-            verify: [
-              {
-                name: "verify",
-                run: "pnpm test"
-              }
-            ],
-            seed: [],
-            cleanup: []
-          }
-        })
-      );
-
-      const env = {
-        port: 4_400,
-        dbFile: sqlite.dbFile,
-        sourceRepo: symphonyRepo,
-        sourceRepos: [symphonyRepo, coldetsRepo],
-        dockerWorkspaceImage: null,
-        dockerMaterializationMode: "bind_mount" as const,
-        dockerWorkspacePath: null,
-        dockerContainerNamePrefix: null,
-        dockerShell: null,
-        dockerGitUserName: null,
-        dockerGitUserEmail: null,
-        dockerSharedPostgresContainerName: "symphony-shared-postgres",
-        dockerSharedPostgresImage: "postgres:16",
-        dockerSharedPostgresHost: "host.docker.internal",
-        dockerSharedPostgresHostPort: 55_432,
-        dockerSharedPostgresContainerPort: 5_432,
-        dockerSharedPostgresAdminDatabase: "postgres",
-        dockerSharedPostgresAdminUsername: "postgres",
-        dockerSharedPostgresAdminPassword: "postgres",
-        dockerSharedPostgresDatabasePrefix: "symphony",
-        dockerSharedPostgresRolePrefix: "symphony",
-        allowedOrigins: [],
-        linearApiKey: "test-linear-api-key",
-        logLevel: "error"
-      } satisfies SymphonyRuntimeAppEnv;
-      const environmentSource = {
-        LINEAR_API_KEY: env.linearApiKey,
-        SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
-        SYMPHONY_SOURCE_REPOS:
-          env.sourceRepos.length > 0 ? env.sourceRepos.join(",") : undefined,
-        SYMPHONY_TRACKER_KIND: "linear",
-        SYMPHONY_LINEAR_TEAM_KEY: "COL",
-        SYMPHONY_WORKSPACE_ROOT: workspaceRoot,
-        SYMPHONY_POLL_INTERVAL_MS: "50",
-        SYMPHONY_GITHUB_REPOSITORY: "conacts/coldets-v2",
-        SYMPHONY_GITHUB_WEBHOOK_SECRET: "secret",
-        SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS: "reviewer",
-        SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS: "",
-        SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS: "reviewer"
-      };
-
-      const services = await loadDefaultSymphonyRuntimeAppServices(
-        env,
-        environmentSource,
-        {
-          LINEAR_API_KEY: "test-linear-api-key",
-          OPENROUTER_API_KEY: "test-openrouter-api-key"
-        },
-        {
-          startPollScheduler: false
-        }
-      );
+      const fixture = await createMultiRepoRuntimeBootstrapFixture();
 
       try {
+        const bootstrap = await loadRuntimeServiceBootstrap({
+          env: fixture.env,
+          environmentSource: fixture.environmentSource
+        });
+        const runtimeManifest = bootstrap.selectedRuntimeManifestEntry?.runtimeManifest.manifest;
+
         expect(
-          services.admittedRepositories.map((repository) => repository.repositoryKey)
+          bootstrap.admittedRepositories.map((repository) => repository.repositoryKey)
         ).toEqual(["conacts/symphony", "conacts/coldets-v2"]);
-        expect(services.promptContract.promptPath).toBe(
-          path.join(coldetsRepo, ".symphony", "prompt.md")
+        expect(bootstrap.promptContract.promptPath).toBe(fixture.expectedPromptPath);
+        expect(bootstrap.promptTemplate.promptTemplate).toBe("Coldets prompt\n");
+        expect(runtimeManifest).not.toBeNull();
+
+        const mergedPolicy = applyRuntimeManifestPiPolicy(
+          bootstrap.runtimePolicy,
+          runtimeManifest!
         );
-        expect(services.promptTemplate.promptTemplate).toBe("Coldets prompt\n");
-        expect(services.runtimePolicy.pi.defaultPreset).toBe("premium");
-        expect(services.runtimePolicy.pi.presets.premium).toEqual({
+
+        expect(mergedPolicy.pi.defaultPreset).toBe("premium");
+        expect(mergedPolicy.pi.presets.premium).toEqual({
           model: "gpt-5.4",
           reasoningEffort: "high",
           authMode: "subscription"
         });
       } finally {
-        await services.shutdown();
-        await sqlite.cleanup();
+        await fixture.cleanup();
       }
     },
     runtimeServicesIntegrationTestTimeoutMs
@@ -637,16 +462,18 @@ describe("runtime services", () => {
     );
   });
 
-  it("reconciles active persisted runs during shutdown", async () => {
-    const harness = await createSymphonyRuntimeAppServicesHarness();
-    harnesses.push(harness);
+  it(
+    "reconciles active persisted runs during shutdown",
+    async () => {
+      const harness = await createSymphonyRuntimeAppServicesHarness();
+      harnesses.push(harness);
 
-    const seededAt = new Date().toISOString();
-    const seedDb = initializeSymphonyDb({
-      dbFile: harness.env.dbFile
-    });
+      const seededAt = new Date().toISOString();
+      const seedDb = initializeSymphonyDb({
+        dbFile: harness.env.dbFile
+      });
 
-    seedDb.client.prepare(`
+      seedDb.client.prepare(`
       insert into symphony_runs (
         run_id, issue_id, issue_identifier, attempt, status, outcome, worker_host, workspace_path,
         started_at, ended_at, metadata, error_class, error_message, inserted_at, updated_at
@@ -668,7 +495,7 @@ describe("runtime services", () => {
       seededAt,
       seededAt
     );
-    seedDb.client.prepare(`
+      seedDb.client.prepare(`
       insert into symphony_turns (
         turn_id, run_id, turn_sequence, thread_id, agent_turn_id, session_id,
         prompt_text, status, started_at, ended_at, usage, metadata, inserted_at, updated_at
@@ -689,7 +516,7 @@ describe("runtime services", () => {
       seededAt,
       seededAt
     );
-    seedDb.client.prepare(`
+      seedDb.client.prepare(`
       insert into symphony_agent_runs (
         run_id, thread_id, harness_kind, model, provider_id, provider_name, issue_id, issue_identifier,
         started_at, ended_at, status, failure_kind, failure_origin, failure_message_preview, final_turn_id,
@@ -733,7 +560,7 @@ describe("runtime services", () => {
       seededAt,
       seededAt
     );
-    seedDb.client.prepare(`
+      seedDb.client.prepare(`
       insert into symphony_agent_turns (
         turn_id, run_id, thread_id, harness_kind, model, provider_id, provider_name,
         started_at, ended_at, status, failure_kind, failure_message_preview, last_agent_message_item_id,
@@ -772,15 +599,15 @@ describe("runtime services", () => {
       seededAt,
       seededAt
     );
-    seedDb.close();
+      seedDb.close();
 
-    await harness.services.shutdown();
+      await harness.services.shutdown();
 
-    const verifyDb = initializeSymphonyDb({
-      dbFile: harness.env.dbFile
-    });
+      const verifyDb = initializeSymphonyDb({
+        dbFile: harness.env.dbFile
+      });
 
-    const run = verifyDb.client.prepare(`
+      const run = verifyDb.client.prepare(`
       select status, outcome, error_class as errorClass, error_message as errorMessage
       from symphony_runs
       where run_id = ?
@@ -790,12 +617,12 @@ describe("runtime services", () => {
       errorClass: string | null;
       errorMessage: string | null;
     };
-    const turn = verifyDb.client.prepare(`
+      const turn = verifyDb.client.prepare(`
       select status
       from symphony_turns
       where turn_id = ?
     `).get("turn-shutdown") as { status: string };
-    const agentRun = verifyDb.client.prepare(`
+      const agentRun = verifyDb.client.prepare(`
       select status, failure_kind as failureKind
       from symphony_agent_runs
       where run_id = ?
@@ -803,7 +630,7 @@ describe("runtime services", () => {
       status: string;
       failureKind: string | null;
     };
-    const agentTurn = verifyDb.client.prepare(`
+      const agentTurn = verifyDb.client.prepare(`
       select status, failure_kind as failureKind
       from symphony_agent_turns
       where turn_id = ?
@@ -812,26 +639,28 @@ describe("runtime services", () => {
       failureKind: string | null;
     };
 
-    expect(run).toEqual(
-      expect.objectContaining({
+      expect(run).toEqual(
+        expect.objectContaining({
+          status: "paused",
+          outcome: "runtime_shutdown",
+          errorClass: "runtime_shutdown",
+          errorMessage: "Symphony runtime shut down while the run was active."
+        })
+      );
+      expect(turn.status).toBe("stopped");
+      expect(agentRun).toEqual({
         status: "paused",
-        outcome: "runtime_shutdown",
-        errorClass: "runtime_shutdown",
-        errorMessage: "Symphony runtime shut down while the run was active."
-      })
-    );
-    expect(turn.status).toBe("stopped");
-    expect(agentRun).toEqual({
-      status: "paused",
-      failureKind: "runtime_shutdown"
-    });
-    expect(agentTurn).toEqual({
-      status: "stopped",
-      failureKind: "runtime_shutdown"
-    });
+        failureKind: "runtime_shutdown"
+      });
+      expect(agentTurn).toEqual({
+        status: "stopped",
+        failureKind: "runtime_shutdown"
+      });
 
-    verifyDb.close();
-  });
+      verifyDb.close();
+    },
+    runtimeServicesIntegrationTestTimeoutMs
+  );
 });
 
 async function waitFor(
@@ -942,4 +771,163 @@ async function createRuntimeBootstrapFixture(input: {
       });
     }
   };
+}
+
+async function createMultiRepoRuntimeBootstrapFixture(): Promise<{
+  cleanup(): Promise<void>;
+  env: SymphonyRuntimeAppEnv;
+  environmentSource: Record<string, string | undefined>;
+  expectedPromptPath: string;
+}> {
+  const sqlite = await createTempSymphonySqliteHarness({
+    rootPrefix: "symphony-runtime-services-multi-repo-"
+  });
+  const root = sqlite.root;
+  const workspaceRoot = path.join(root, "workspaces");
+  const symphonyRepo = path.join(root, "symphony");
+  const coldetsRepo = path.join(root, "coldets");
+
+  await mkdir(workspaceRoot, {
+    recursive: true
+  });
+  await writeRuntimeRepositoryFixture({
+    repoRoot: symphonyRepo,
+    prompt: "Symphony prompt\n",
+    manifest: buildRuntimeManifest({
+      repositoryKey: "conacts/symphony",
+      teamKey: "SYM",
+      defaultPreset: "basic",
+      premiumModel: "gpt-4.1"
+    })
+  });
+  await writeRuntimeRepositoryFixture({
+    repoRoot: coldetsRepo,
+    prompt: "Coldets prompt\n",
+    manifest: buildRuntimeManifest({
+      repositoryKey: "conacts/coldets-v2",
+      teamKey: "COL",
+      defaultPreset: "premium",
+      premiumModel: "gpt-5.4"
+    })
+  });
+
+  const env = {
+    port: 4_400,
+    dbFile: sqlite.dbFile,
+    sourceRepo: symphonyRepo,
+    sourceRepos: [symphonyRepo, coldetsRepo],
+    dockerWorkspaceImage: null,
+    dockerMaterializationMode: "bind_mount" as const,
+    dockerWorkspacePath: null,
+    dockerContainerNamePrefix: null,
+    dockerShell: null,
+    dockerGitUserName: null,
+    dockerGitUserEmail: null,
+    dockerSharedPostgresContainerName: "symphony-shared-postgres",
+    dockerSharedPostgresImage: "postgres:16",
+    dockerSharedPostgresHost: "host.docker.internal",
+    dockerSharedPostgresHostPort: 55_432,
+    dockerSharedPostgresContainerPort: 5_432,
+    dockerSharedPostgresAdminDatabase: "postgres",
+    dockerSharedPostgresAdminUsername: "postgres",
+    dockerSharedPostgresAdminPassword: "postgres",
+    dockerSharedPostgresDatabasePrefix: "symphony",
+    dockerSharedPostgresRolePrefix: "symphony",
+    allowedOrigins: [],
+    linearApiKey: "test-linear-api-key",
+    logLevel: "error"
+  } satisfies SymphonyRuntimeAppEnv;
+  const environmentSource = {
+    LINEAR_API_KEY: env.linearApiKey,
+    SYMPHONY_SOURCE_REPO: env.sourceRepo ?? undefined,
+    SYMPHONY_SOURCE_REPOS: env.sourceRepos.join(","),
+    SYMPHONY_TRACKER_KIND: "linear",
+    SYMPHONY_LINEAR_TEAM_KEY: "COL",
+    SYMPHONY_WORKSPACE_ROOT: workspaceRoot,
+    SYMPHONY_POLL_INTERVAL_MS: "50",
+    SYMPHONY_GITHUB_REPOSITORY: "conacts/coldets-v2",
+    SYMPHONY_GITHUB_WEBHOOK_SECRET: "secret",
+    SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS: "reviewer",
+    SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS: "",
+    SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS: "reviewer"
+  };
+
+  return {
+    env,
+    environmentSource,
+    expectedPromptPath: path.join(coldetsRepo, ".symphony", "prompt.md"),
+    async cleanup() {
+      await sqlite.cleanup();
+    }
+  };
+}
+
+async function writeRuntimeRepositoryFixture(input: {
+  repoRoot: string;
+  prompt: string;
+  manifest: string;
+}): Promise<void> {
+  await mkdir(path.join(input.repoRoot, ".symphony"), {
+    recursive: true
+  });
+  await writeFile(path.join(input.repoRoot, ".symphony", "prompt.md"), input.prompt);
+  await writeFile(path.join(input.repoRoot, ".symphony", "runtime.ts"), input.manifest);
+}
+
+function buildRuntimeManifest(input: {
+  repositoryKey: string;
+  teamKey: string;
+  defaultPreset: "basic" | "premium";
+  premiumModel: string;
+}): string {
+  return renderSymphonyRuntimeManifestSource({
+    schemaVersion: 1,
+    repositoryKey: input.repositoryKey,
+    linear: {
+      teamKey: input.teamKey
+    },
+    workspace: {
+      packageManager: "pnpm",
+      workingDirectory: "."
+    },
+    pi: {
+      defaultPreset: input.defaultPreset,
+      presets: {
+        basic: {
+          model: "minimax/minimax-m2.7",
+          reasoningEffort: "medium",
+          auth: "provider"
+        },
+        advanced: {
+          model: "xiaomi/mimo-v2-pro",
+          reasoningEffort: "xhigh",
+          auth: "provider"
+        },
+        premium: {
+          model: input.premiumModel,
+          reasoningEffort: "high",
+          auth: "subscription"
+        }
+      }
+    },
+    env: {
+      host: {
+        required: [],
+        optional: []
+      },
+      inject: {}
+    },
+    lifecycle: {
+      bootstrap: [],
+      migrate: [],
+      verify: [
+        {
+          name: "verify",
+          run: "pnpm test"
+        }
+      ],
+      seed: [],
+      cleanup: []
+    }
+  });
 }
