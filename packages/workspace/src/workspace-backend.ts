@@ -14,7 +14,11 @@ export {
   type SymphonyDockerWorkspaceImageSelectionSource,
   type SymphonyDockerWorkspacePreflightResult
 } from "./docker-runner-image.js";
-export { defaultDockerHomePath } from "./docker-shared.js";
+export {
+  defaultDockerHomePath,
+  defaultRuntimeDbSnapshotEnvKey,
+  defaultRuntimeDbSnapshotFileName
+} from "./docker-shared.js";
 export {
   summarizePreparedWorkspace,
   workspaceHostPath,

@@ -70,3 +70,8 @@ export type {
   SymphonyGitHubIngressRecordStatus
 } from "./github-ingress-journal.js";
 export { symphonySchema, symphonyAgentPayloadOverflowTable } from "./schema.js";
+export {
+  copySymphonyDbSnapshot,
+  buildRuntimeDbSnapshotContainerPath,
+  defaultRuntimeDbSnapshotName
+} from "./db-snapshot.js";

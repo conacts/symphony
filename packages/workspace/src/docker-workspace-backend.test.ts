@@ -2207,6 +2207,193 @@ describe("docker workspace backend", () => {
     ).toBe(false);
   });
 
+  it("copies runtime DB snapshot into bind-mount workspace and sets env var", async () => {
+    const root = await createWorkspaceRoot();
+    const snapshotDir = path.join(root, "db-snapshot");
+    await mkdir(snapshotDir, { recursive: true });
+    const snapshotSource = path.join(snapshotDir, "symphony.db");
+    await writeFile(snapshotSource, "test-db-content");
+
+    const config = buildWorkspaceTestConfig({ workspace: { root } });
+    const lifecycleEvents: string[] = [];
+    let inspectCallCount = 0;
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      runtimeDbSnapshotPath: snapshotSource,
+      commandRunner: async (input) => {
+        if (input.args[0] === "inspect") {
+          inspectCallCount += 1;
+          if (inspectCallCount === 1) {
+            return {
+              exitCode: 1,
+              stdout: "[]\n",
+              stderr: `Error response from daemon: No such container: ${input.args[3]}`
+            };
+          }
+
+          return {
+            exitCode: 0,
+            stdout: buildDockerInspectPayload({
+              id: "container-snapshot-1",
+              image: "ghcr.io/openai/symphony-workspace:latest",
+              name: input.args[3] ?? "unknown",
+              issueIdentifier: "COL-SNAPSHOT",
+              workspaceKey: "COL_SNAPSHOT",
+              hostPath: null,
+              workspacePath: "/workspace",
+              running: true
+            }),
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "run") {
+          return {
+            exitCode: 0,
+            stdout: "container-snapshot-1\n",
+            stderr: ""
+          };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    const workspace = await backend.prepareWorkspace({
+      context: { issueId: "issue-snapshot", issueIdentifier: "COL-SNAPSHOT" },
+      config: config.workspace,
+      hooks: { ...config.hooks, afterCreate: null },
+      lifecycleRecorder(event) {
+        lifecycleEvents.push(event.eventType);
+      }
+    });
+
+    // Verify env var is set with the snapshot path
+    expect(workspace.envBundle.values.SYMPHONY_RUNTIME_DB_SNAPSHOT).toBe(
+      "/workspace/.symphony-runtime/runtime-snapshot.db"
+    );
+    // Verify lifecycle event was recorded
+    expect(lifecycleEvents).toContain("runtime_db_snapshot_copied");
+    // Verify snapshot file was actually copied
+    const hostWorkspacePath = workspace.executionTarget.kind === "container"
+      ? workspace.executionTarget.hostPath
+      : null;
+    expect(hostWorkspacePath).not.toBeNull();
+    const snapshotHostPath = path.join(
+      hostWorkspacePath!,
+      ".symphony-runtime",
+      "runtime-snapshot.db"
+    );
+    const { readFile } = await import("node:fs/promises");
+    const snapshotContent = await readFile(snapshotHostPath, "utf8");
+    expect(snapshotContent).toBe("test-db-content");
+  });
+
+  it("copies runtime DB snapshot into volume workspace using docker cp and sets env var", async () => {
+    const root = await createWorkspaceRoot();
+    const snapshotDir = path.join(root, "db-snapshot");
+    await mkdir(snapshotDir, { recursive: true });
+    const snapshotSource = path.join(snapshotDir, "symphony.db");
+    await writeFile(snapshotSource, "test-db-content");
+
+    const config = buildWorkspaceTestConfig({ workspace: { root } });
+    const calls: string[][] = [];
+    const lifecycleEvents: string[] = [];
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      materializationMode: "volume",
+      runtimeDbSnapshotPath: snapshotSource,
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        if (input.args[0] === "volume" && input.args[1] === "inspect") {
+          return {
+            exitCode: 1,
+            stdout: "[]\n",
+            stderr: `Error response from daemon: No such volume: ${input.args[2]}`
+          };
+        }
+
+        if (input.args[0] === "volume" && input.args[1] === "create") {
+          return {
+            exitCode: 0,
+            stdout: `${input.args.at(-1) ?? "volume"}\n`,
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "inspect" && input.args[1] === "--type") {
+          if (input.args[3]?.includes("workspace")) {
+            return {
+              exitCode: 1,
+              stdout: "[]\n",
+              stderr: `Error response from daemon: No such container: ${input.args[3]}`
+            };
+          }
+          return {
+            exitCode: 0,
+            stdout: buildDockerInspectPayload({
+              id: "container-volume-snapshot",
+              image: "ghcr.io/openai/symphony-workspace:latest",
+              name: input.args[3] ?? "unknown",
+              issueIdentifier: "COL-SNAPSHOT-VOL",
+              workspaceKey: "COL_SNAPSHOT_VOL",
+              hostPath: null,
+              volumeName: "symphony-workspace-col-snapshot-vol-deadbeef",
+              workspacePath: "/workspace",
+              running: true,
+              materializationKind: "volume"
+            }),
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "run") {
+          return {
+            exitCode: 0,
+            stdout: "container-volume-snapshot\n",
+            stderr: ""
+          };
+        }
+
+        if (input.args[0] === "exec") {
+          // mkdir for snapshot directory or other exec commands
+          return { exitCode: 0, stdout: "", stderr: "" };
+        }
+
+        if (input.args[0] === "cp") {
+          return { exitCode: 0, stdout: "", stderr: "" };
+        }
+
+        throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+      }
+    });
+
+    const workspace = await backend.prepareWorkspace({
+      context: { issueId: "issue-snapshot-vol", issueIdentifier: "COL-SNAPSHOT-VOL" },
+      config: config.workspace,
+      hooks: { ...config.hooks, afterCreate: null },
+      lifecycleRecorder(event) {
+        lifecycleEvents.push(event.eventType);
+      }
+    });
+
+    // Verify env var is set with the snapshot path
+    expect(workspace.envBundle.values.SYMPHONY_RUNTIME_DB_SNAPSHOT).toBe(
+      "/workspace/.symphony-runtime/runtime-snapshot.db"
+    );
+    // Verify lifecycle event was recorded
+    expect(lifecycleEvents).toContain("runtime_db_snapshot_copied");
+    // Verify docker cp was called with the right arguments
+    const cpCall = calls.find((call) => call[0] === "cp");
+    expect(cpCall).toBeDefined();
+    expect(cpCall).toEqual([
+      "cp",
+      snapshotSource,
+      expect.stringContaining("/workspace/.symphony-runtime/runtime-snapshot.db")
+    ]);
+  });
+
 });
 
 function buildPreparedDockerWorkspace(input: {
