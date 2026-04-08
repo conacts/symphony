@@ -24,6 +24,7 @@ describe("forensics client", () => {
         data: {
           issues: [
             {
+              repositoryKey: "symphony",
               issueId: "issue_123",
               issueIdentifier: "COL-165",
               latestRunStartedAt: "2026-03-31T18:00:00.000Z",
@@ -76,6 +77,7 @@ describe("forensics client", () => {
           },
           filters: {
             limit: 200,
+            repo: null,
             timeRange: "all",
             startedAfter: null,
             startedBefore: null,
@@ -86,6 +88,7 @@ describe("forensics client", () => {
             sortDirection: "desc"
           },
           facets: {
+            repositories: ["symphony"],
             outcomes: ["completed", "max_turns"],
             errorClasses: ["max_turns"]
           }
@@ -116,6 +119,7 @@ describe("forensics client", () => {
           schemaVersion: "1",
           ok: true,
           data: {
+            repositoryKey: "symphony",
             issueIdentifier: "COL-165",
             runs: [],
             summary: {
@@ -128,7 +132,8 @@ describe("forensics client", () => {
               deliveredRunCount: 1
             },
             filters: {
-              limit: 200
+              limit: 200,
+              repo: null
             }
           },
           meta: {
@@ -174,10 +179,12 @@ describe("forensics client", () => {
       json: async () => ({
         schemaVersion: "1",
         ok: true,
-        data: {
-          issue: {
-            issueId: "issue_123",
-            issueIdentifier: "COL-165",
+          data: {
+            repositoryKey: "symphony",
+            issue: {
+              repositoryKey: "symphony",
+              issueId: "issue_123",
+              issueIdentifier: "COL-165",
             latestRunStartedAt: "2026-03-31T18:00:00.000Z",
             latestRunId: "run_123",
             latestRunStatus: "finished",
@@ -223,6 +230,7 @@ describe("forensics client", () => {
           runtimeLogs: [],
           filters: {
             limit: 200,
+            repo: null,
             timeRange: "all",
             startedAfter: null,
             startedBefore: null,

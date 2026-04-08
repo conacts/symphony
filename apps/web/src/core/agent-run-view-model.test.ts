@@ -475,15 +475,15 @@ describe("agent run view model", () => {
     expect(viewModel.executionPerformance.toolRows.map((row) => row.label)).toContain(
       "pi.read"
     );
-    expect(viewModel.routes.issueHref).toBe("/issues/COL-165");
-    expect(viewModel.routes.runHref).toBe("/issues/COL-165/runs/run_123");
-    expect(viewModel.routes.turnsHref).toBe("/issues/COL-165/runs/run_123/turns");
-    expect(viewModel.routes.transcriptHref).toBe("/runs/run_123");
+    expect(viewModel.routes.issueHref).toBe("/issues/COL-165?repo=symphony");
+    expect(viewModel.routes.runHref).toBe("/issues/COL-165/runs/run_123?repo=symphony");
+    expect(viewModel.routes.turnsHref).toBe("/issues/COL-165/runs/run_123/turns?repo=symphony");
+    expect(viewModel.routes.transcriptHref).toBe("/runs/run_123?repo=symphony");
     expect(viewModel.transcriptTurns).toHaveLength(1);
     expect(viewModel.turnRows[0]).toMatchObject({
       turnId: "turn_123",
       turnSequence: 1,
-      href: "/issues/COL-165/runs/run_123/turns/turn_123",
+      href: "/issues/COL-165/runs/run_123/turns/turn_123?repo=symphony",
       commandCount: "1",
       toolCount: "1",
       reasoningCount: "2"

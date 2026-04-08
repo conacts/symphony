@@ -3,7 +3,6 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   buildSymphonyRuntimePostgresConnectionString,
-  resolveSymphonyRuntimeEnvBundle,
   type SymphonyLoadedRuntimeManifest,
   type SymphonyNormalizedRuntimePostgresService,
   type SymphonyResolvedRuntimeService
@@ -12,10 +11,7 @@ import { isEnoent } from "./internal/errors.js";
 import { asRecord } from "./internal/records.js";
 import {
   SymphonyWorkspaceError,
-  sanitizeSymphonyIssueIdentifier,
-  type SymphonyWorkspaceContext
 } from "./workspace-identity.js";
-import { resolveManagedWorkspacePath } from "./workspace-paths.js";
 import {
   dockerCommandError,
   dockerEnvFlags,
@@ -41,8 +37,6 @@ import {
   removeMaterializedWorkspace
 } from "./docker-materialization.js";
 import {
-  buildDockerContainerName,
-  buildDockerVolumeName,
   buildManagedContainerLabels,
   bindMaterializationKind,
   defaultContainerSourceRepoPath,
@@ -62,13 +56,10 @@ import {
   managedHostFileMountsHashLabelKey,
   normalizeContainerPrefix,
   normalizeNonEmptyString,
-  volumeMaterializationKind,
   type DockerContainerInspectState,
   type DockerWorkspaceHostFileMount,
   type DockerManifestLifecyclePhasePlan,
   type DockerManifestLifecycleState,
-  type DockerWorkspaceMaterializationDescriptor,
-  type DockerWorkspaceMaterializationMode,
   type DockerPostgresProvision,
   type DockerSharedPostgresOptions,
   type DockerPrepareManifestLifecycleInput,
@@ -78,13 +69,18 @@ import {
   type DockerWorkspaceDescriptor,
   workspaceDescriptorHostPath
 } from "./docker-shared.js";
+import {
+  buildPreparedWorkspace,
+  createDockerWorkspaceDescriptor,
+  resolveCleanupDescriptor
+} from "./docker-workspace-descriptor.js";
+import { resolveDockerWorkspaceEnvBundle } from "./docker-workspace-env.js";
 import type {
   PreparedWorkspace,
   PreparedWorkspaceService,
   WorkspaceBackend,
   WorkspaceBackendEventRecorder,
   WorkspaceCleanupResult,
-  WorkspaceCleanupInput,
   WorkspaceCleanupService,
   WorkspaceManifestLifecyclePhase,
   WorkspaceManifestLifecyclePhaseRecord,
@@ -92,7 +88,6 @@ import type {
   WorkspaceManifestLifecyclePhaseTrigger,
   WorkspaceManifestLifecycleStepRecord,
   WorkspaceManifestLifecycleSummary,
-  WorkspacePrepareInput
 } from "./workspace-contracts.js";
 
 export type {
@@ -547,148 +542,6 @@ export function createDockerWorkspaceBackend(
   };
 }
 
-async function createDockerWorkspaceDescriptor(
-  context: SymphonyWorkspaceContext,
-  config: WorkspacePrepareInput["config"],
-  containerNamePrefix: string,
-  materializationMode: DockerWorkspaceMaterializationMode
-): Promise<DockerWorkspaceDescriptor> {
-  const workspaceKey = sanitizeSymphonyIssueIdentifier(context.issueIdentifier);
-  const materialization: DockerWorkspaceMaterializationDescriptor =
-    materializationMode === volumeMaterializationKind
-      ? {
-          kind: volumeMaterializationKind,
-          hostPath: null,
-          volumeName: buildDockerVolumeName(containerNamePrefix, workspaceKey)
-        }
-      : {
-          kind: bindMaterializationKind,
-          hostPath: await resolveManagedWorkspacePath(
-            context.issueIdentifier,
-            config.root,
-            true
-          ),
-          volumeName: null
-        };
-
-  return {
-    issueIdentifier: context.issueIdentifier,
-    workspaceKey,
-    containerName: buildDockerContainerName(containerNamePrefix, workspaceKey),
-    networkName: null,
-    materialization
-  };
-}
-
-async function resolveCleanupDescriptor(
-  input: WorkspaceCleanupInput,
-  containerNamePrefix: string,
-  materializationMode: DockerWorkspaceMaterializationMode
-): Promise<DockerWorkspaceDescriptor> {
-  const workspace = input.workspace;
-  const workspaceKey =
-    workspace?.workspaceKey ??
-    sanitizeSymphonyIssueIdentifier(input.issueIdentifier);
-  const materialization: DockerWorkspaceMaterializationDescriptor =
-    workspace?.materialization.kind === "bind_mount"
-      ? {
-          kind: bindMaterializationKind,
-          hostPath: workspace.materialization.hostPath,
-          volumeName: null
-        }
-      : workspace?.materialization.kind === "volume"
-        ? {
-            kind: volumeMaterializationKind,
-            hostPath: null,
-            volumeName: workspace.materialization.volumeName
-          }
-        : materializationMode === volumeMaterializationKind
-          ? {
-              kind: volumeMaterializationKind,
-              hostPath: null,
-              volumeName: buildDockerVolumeName(containerNamePrefix, workspaceKey)
-            }
-          : {
-              kind: bindMaterializationKind,
-              hostPath: await resolveManagedWorkspacePath(
-                input.issueIdentifier,
-                input.config.root,
-                false
-              ),
-              volumeName: null
-            };
-  const containerName =
-    workspace &&
-    workspace.executionTarget.kind === "container" &&
-    workspace.executionTarget.containerName
-      ? workspace.executionTarget.containerName
-      : buildDockerContainerName(containerNamePrefix, workspaceKey);
-
-  return {
-    issueIdentifier: input.issueIdentifier,
-    workspaceKey,
-    containerName,
-    networkName: workspace?.networkName ?? null,
-    materialization
-  };
-}
-
-function buildPreparedWorkspace(input: {
-  descriptor: DockerWorkspaceDescriptor;
-  repositoryKey: string | null;
-  containerId: string;
-  workerHost: string | null;
-  workspacePath: string;
-  shell: string;
-  created: boolean;
-  containerDisposition: DockerContainerPrepareDisposition;
-  networkDisposition: PreparedWorkspace["networkDisposition"];
-  networkName: string | null;
-  services: PreparedWorkspaceService[];
-  envBundle: PreparedWorkspace["envBundle"];
-  manifestLifecycle: PreparedWorkspace["manifestLifecycle"];
-  afterCreateHookOutcome: "skipped" | "completed";
-}): PreparedWorkspace {
-  return {
-    issueIdentifier: input.descriptor.issueIdentifier,
-    workspaceKey: input.descriptor.workspaceKey,
-    repositoryKey: input.repositoryKey,
-    backendKind: "docker",
-    prepareDisposition: input.created ? "created" : "reused",
-    containerDisposition: input.containerDisposition,
-    networkDisposition: input.networkDisposition,
-    afterCreateHookOutcome: input.afterCreateHookOutcome,
-    executionTarget: {
-      kind: "container",
-      workspacePath: input.workspacePath,
-      containerId: input.containerId,
-      containerName: input.descriptor.containerName,
-      hostPath: workspaceDescriptorHostPath(input.descriptor),
-      shell: input.shell
-    },
-    materialization:
-      input.descriptor.materialization.kind === bindMaterializationKind
-        ? {
-            kind: bindMaterializationKind,
-            hostPath: input.descriptor.materialization.hostPath,
-            containerPath: input.workspacePath
-          }
-        : {
-            kind: volumeMaterializationKind,
-            volumeName: input.descriptor.materialization.volumeName,
-            containerPath: input.workspacePath,
-            hostPath: null
-          },
-    networkName: input.networkName,
-    services: input.services,
-    envBundle: input.envBundle,
-    manifestLifecycle: input.manifestLifecycle,
-    path: null,
-    created: input.created,
-    workerHost: input.workerHost
-  };
-}
-
 async function hydrateWorkspaceFromMountedSourceRepo(input: {
   sourceRepoPath: string | null;
   commandRunner: DockerWorkspaceCommandRunner;
@@ -795,84 +648,6 @@ async function hydrateWorkspaceFromMountedSourceRepo(input: {
     },
     endedAt
   );
-}
-
-function resolveDockerWorkspaceEnvBundle(input: {
-  runtimeManifest: SymphonyLoadedRuntimeManifest | null;
-  environmentSource: Record<string, string | undefined> | undefined;
-  issueIdentifier: string;
-  workspaceKey: string;
-  workspacePath: string;
-  runId: string | null;
-  issueId: string | null;
-  services: Record<string, SymphonyResolvedRuntimeService>;
-}): PreparedWorkspace["envBundle"] {
-  if (!input.runtimeManifest) {
-    return applyDockerWorkspaceRuntimeEnvDefaults(
-      buildAmbientDockerWorkspaceEnvBundle(input.environmentSource)
-    );
-  }
-
-  return applyDockerWorkspaceRuntimeEnvDefaults(
-    resolveSymphonyRuntimeEnvBundle({
-      manifest: input.runtimeManifest.manifest,
-      environmentSource: input.environmentSource ?? {},
-      runtime: {
-        issueId: input.issueId,
-        issueIdentifier: input.issueIdentifier,
-        runId: input.runId,
-        workspaceKey: input.workspaceKey,
-        workspacePath: input.workspacePath,
-        backendKind: "docker"
-      },
-      services: input.services,
-      manifestPath: input.runtimeManifest.manifestPath
-    })
-  );
-}
-
-function applyDockerWorkspaceRuntimeEnvDefaults(
-  envBundle: PreparedWorkspace["envBundle"]
-): PreparedWorkspace["envBundle"] {
-  if (envBundle.values.NODE_OPTIONS) {
-    return envBundle;
-  }
-
-  return {
-    ...envBundle,
-    values: {
-      ...envBundle.values,
-      NODE_OPTIONS: "--max-old-space-size=2048"
-    }
-  };
-}
-
-function buildAmbientDockerWorkspaceEnvBundle(
-  environmentSource: Record<string, string | undefined> | undefined
-): PreparedWorkspace["envBundle"] {
-  const values = Object.fromEntries(
-    Object.entries(environmentSource ?? {}).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string"
-    )
-  );
-
-  return {
-    source: "ambient",
-    values,
-    summary: {
-      source: "ambient",
-      injectedKeys: Object.keys(values).sort(),
-      requiredHostKeys: [],
-      optionalHostKeys: [],
-      repoEnvPath: null,
-      projectedRepoKeys: [],
-      requiredRepoKeys: [],
-      optionalRepoKeys: [],
-      staticBindingKeys: [],
-      runtimeBindingKeys: [],
-      serviceBindingKeys: []
-    }
-  };
 }
 
 class DockerWorkspaceManifestLifecycleError extends SymphonyWorkspaceError {

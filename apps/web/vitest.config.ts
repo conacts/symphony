@@ -8,6 +8,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default mergeConfig(
   base,
   defineConfig({
+    esbuild: {
+      jsx: "automatic",
+      jsxImportSource: "react"
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

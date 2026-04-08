@@ -378,6 +378,9 @@ describe("runtime services", () => {
       {
         LINEAR_API_KEY: "test-linear-api-key",
         OPENROUTER_API_KEY: "test-openrouter-api-key"
+      },
+      {
+        startPollScheduler: false
       }
     );
 

@@ -25,6 +25,6 @@ describe("failure analysis view", () => {
     expect(html).toContain("Current failure modes");
     expect(html).toContain("Error classes");
     expect(html).toContain("Failure hotspots");
-    expect(html).toContain('href="/issues/COL-165"');
+    expect(html).toContain('href="/issues/COL-165?repo=symphony"');
   });
 });
