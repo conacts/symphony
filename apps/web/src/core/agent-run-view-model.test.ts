@@ -484,6 +484,9 @@ describe("agent run view model", () => {
       turnId: "turn_123",
       turnSequence: 1,
       href: "/issues/COL-165/runs/run_123/turns/turn_123?repo=symphony",
+      startedAtIso: "2026-03-31T18:00:00.000Z",
+      endedAtIso: "2026-03-31T18:01:00.000Z",
+      totalTokens: 240,
       commandCount: "1",
       toolCount: "1",
       reasoningCount: "2"
@@ -608,7 +611,7 @@ describe("agent run view model", () => {
     expect(viewModel.metrics[3]).toEqual({
       label: "Tokens",
       value: "240",
-      detail: "In 120 · Cached 40 · Out 80"
+      detail: "240 total tokens across the run."
     });
     expect(viewModel.turnTokens.cards[1]).toEqual({
       label: "Turn output tokens",

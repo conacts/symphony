@@ -36,7 +36,7 @@ describe("web proxy", () => {
 
     const payload = await response!.json();
     expect(payload.ok).toBe(true);
-    expect(payload.data.counts.running).toBe(2);
+    expect(payload.data.counts.running).toBe(3);
   });
 
   it("serves the issue index endpoint from mock data when mock runtime is enabled", async () => {

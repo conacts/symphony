@@ -23,6 +23,8 @@ describe("runtime health view model", () => {
     expect(viewModel.incidentCards[2]?.value).toBe("Runtime");
     expect(viewModel.machineLoadCards[0]?.value).toBe("61%");
     expect(viewModel.machineLoadCards[1]?.value).toBe("50%");
+    expect(viewModel.machineLoadChartRows[0]?.status).toBe("healthy");
+    expect(viewModel.machineLoadChartRows[1]?.valueLabel).toBe("50%");
     expect(viewModel.signalRows[2]?.value).toBe("4s");
     expect(viewModel.storageRows[0]?.value).toBe("/tmp/symphony.db");
     expect(viewModel.storageRows[4]?.value).toBe("/tmp/workspaces");

@@ -282,8 +282,8 @@ describe("forensics client", () => {
       fetchImpl as typeof fetch
     );
 
-    expect(result.executive.deliveredIssueCount).toBe(8);
-    expect(result.daily).toHaveLength(3);
+    expect(result.executive.deliveredIssueCount).toBe(16);
+    expect(result.daily).toHaveLength(7);
   });
 
   it("matches websocket invalidation to drilldown surfaces", () => {

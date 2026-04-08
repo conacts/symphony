@@ -1,20 +1,26 @@
 "use client";
 
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  Message,
-  MessageContent,
-  MessageResponse
-} from "@/components/ai-elements/message";
-import { formatCount } from "@/core/display-formatters";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from "@/components/ui/collapsible";
+import { ChevronDownIcon } from "lucide-react";
 import { RunTranscriptTurnEntry } from "@/features/runs/components/run-transcript-turn-entry";
 import { buildTranscriptSections } from "@/features/runs/components/run-transcript-turn-sections";
 import type {
   AgentRunTranscriptEntry,
   AgentRunTranscriptTurn
 } from "@/features/runs/model/agent-run-transcript";
+import { Streamdown } from "streamdown";
+import { math } from "@streamdown/math";
+import { cjk } from "@streamdown/cjk";
+import { code } from "@streamdown/code";
+import { mermaid } from "@streamdown/mermaid";
+
+const streamdownPlugins = { cjk, code, math, mermaid };
 
 export function RunTranscriptTurn(input: {
   turn: AgentRunTranscriptTurn;
@@ -24,32 +30,24 @@ export function RunTranscriptTurn(input: {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-          Operator prompt
-        </p>
-        <Message from="user">
-          <MessageContent>
-            <MessageResponse>{input.turn.promptText}</MessageResponse>
-          </MessageContent>
-        </Message>
-      </div>
-
-      {input.turn.activitySummary.length > 0 ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          {input.turn.activitySummary.map((card) => (
-            <Card key={card.label} className="border-border/70">
-              <CardHeader className="space-y-1 pb-3">
-                <CardTitle className="text-sm font-medium">{card.label}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1 pt-0">
-                <p className="text-base font-semibold">{card.value}</p>
-                <p className="text-sm text-muted-foreground">{card.detail}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : null}
+      <Collapsible className="rounded-xl border border-border/70 overflow-hidden" defaultOpen={false}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="group flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+          >
+            <div className="space-y-0.5">
+              <p className="text-xs font-medium uppercase tracking-[0.2em]">
+                Operator prompt
+              </p>
+            </div>
+            <ChevronDownIcon className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="border-t border-border/60 px-4 py-4">
+          <Streamdown plugins={streamdownPlugins}>{input.turn.promptText}</Streamdown>
+        </CollapsibleContent>
+      </Collapsible>
 
       {input.turn.entries.length === 0 ? (
         <Card>
@@ -60,29 +58,15 @@ export function RunTranscriptTurn(input: {
       ) : null}
 
       {sections.map((section) => (
-        <section
-          key={section.key}
-          className="rounded-xl border border-border/70 bg-card/60 p-4"
-        >
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold tracking-tight">{section.label}</h3>
-              <p className="text-sm text-muted-foreground">{section.description}</p>
-            </div>
-            <Badge variant="secondary">
-              {formatCount(section.entries.length)} item{section.entries.length === 1 ? "" : "s"}
-            </Badge>
-          </div>
-          <div className="flex flex-col gap-4">
-            {section.entries.map((entry) => (
-              <RunTranscriptTurnEntry
-                key={entry.itemId}
-                entry={entry}
-                onOpenOverflow={input.onOpenOverflow}
-              />
-            ))}
-          </div>
-        </section>
+        <div key={section.key} className="flex flex-col gap-4">
+          {section.entries.map((entry) => (
+            <RunTranscriptTurnEntry
+              key={entry.itemId}
+              entry={entry}
+              onOpenOverflow={input.onOpenOverflow}
+            />
+          ))}
+        </div>
       ))}
     </div>
   );

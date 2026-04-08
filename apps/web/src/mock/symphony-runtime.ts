@@ -33,7 +33,7 @@ import {
 
 const DEFAULT_REPOSITORY_KEY = "symphony";
 
-const rawMockIssues = [
+const rawMockIssueTemplates = [
   {
     issueId: "issue_123",
     issueIdentifier: "COL-165",
@@ -144,7 +144,113 @@ const rawMockIssues = [
     flags: ["startup_failure", "no_success"],
     insertedAt: "2026-03-31T17:20:00.000Z",
     updatedAt: "2026-03-31T17:27:00.000Z"
+  },
+  {
+    issueId: "issue_234",
+    issueIdentifier: "COL-168",
+    latestRunStartedAt: "2026-03-30T16:20:00.000Z",
+    latestRunId: "run_234",
+    latestRunStatus: "finished",
+    latestRunOutcome: "completed",
+    runCount: 5,
+    completedRunCount: 3,
+    problemRunCount: 2,
+    problemRate: 0.4,
+    latestProblemOutcome: "completed",
+    lastCompletedOutcome: "completed",
+    latestDeliveryStatus: "completed",
+    latestDeliveryReportedAt: "2026-03-30T16:31:00.000Z",
+    latestDeliveryRunId: "run_234",
+    latestDeliveryPrUrl: "https://github.com/example/repo/pull/168",
+    deliveredRunCount: 3,
+    retryCount: 1,
+    latestRetryAttempt: 2,
+    rateLimitedCount: 0,
+    maxTurnsCount: 1,
+    startupFailureCount: 0,
+    totalInputTokens: 9400,
+    totalCachedInputTokens: 1800,
+    totalOutputTokens: 4100,
+    totalTokens: 15300,
+    avgDurationSeconds: 360,
+    avgTurns: 4.8,
+    avgEvents: 11,
+    latestErrorClass: "max_turns",
+    latestErrorMessage: "Reached max turns before completion.",
+    latestActivityAt: "2026-03-30T16:29:00.000Z",
+    flags: ["max_turns"],
+    insertedAt: "2026-03-30T16:20:00.000Z",
+    updatedAt: "2026-03-30T16:29:00.000Z"
+  },
+  {
+    issueId: "issue_345",
+    issueIdentifier: "COL-169",
+    latestRunStartedAt: "2026-03-29T14:15:00.000Z",
+    latestRunId: "run_345",
+    latestRunStatus: "retrying",
+    latestRunOutcome: "rate_limited",
+    runCount: 4,
+    completedRunCount: 2,
+    problemRunCount: 2,
+    problemRate: 0.5,
+    latestProblemOutcome: "rate_limited",
+    lastCompletedOutcome: "completed",
+    latestDeliveryStatus: "completed",
+    latestDeliveryReportedAt: "2026-03-29T14:28:00.000Z",
+    latestDeliveryRunId: "run_345",
+    latestDeliveryPrUrl: "https://github.com/example/repo/pull/169",
+    deliveredRunCount: 2,
+    retryCount: 2,
+    latestRetryAttempt: 2,
+    rateLimitedCount: 2,
+    maxTurnsCount: 0,
+    startupFailureCount: 0,
+    totalInputTokens: 8600,
+    totalCachedInputTokens: 1400,
+    totalOutputTokens: 3600,
+    totalTokens: 13600,
+    avgDurationSeconds: 305,
+    avgTurns: 4.1,
+    avgEvents: 10,
+    latestErrorClass: "rate_limit_exceeded",
+    latestErrorMessage: "Upstream rate limit reached.",
+    latestActivityAt: "2026-03-29T14:20:00.000Z",
+    flags: ["rate_limited", "many_retries"],
+    insertedAt: "2026-03-29T14:15:00.000Z",
+    updatedAt: "2026-03-29T14:20:00.000Z"
   }
+] satisfies Array<Omit<SymphonyForensicsIssueSummary, "repositoryKey">>;
+
+const rawMockIssues = [
+  ...rawMockIssueTemplates,
+  ...rawMockIssueTemplates.map((issue, index) => {
+    const issueNumber = 170 + index;
+    const shiftedStart = new Date(
+      Date.parse(issue.latestRunStartedAt) - (index + 1) * 24 * 60 * 60 * 1000
+    ).toISOString();
+    const shiftedActivity = new Date(
+      Date.parse(issue.latestActivityAt) - (index + 1) * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    return {
+      ...issue,
+      issueId: `issue_${issueNumber}`,
+      issueIdentifier: `COL-${issueNumber}`,
+      latestRunStartedAt: shiftedStart,
+      latestRunId: `run_${issueNumber}`,
+      latestDeliveryReportedAt:
+        issue.latestDeliveryReportedAt === null ? null : shiftedActivity,
+      latestDeliveryRunId:
+        issue.latestDeliveryRunId === null ? null : `run_${issueNumber}`,
+      latestDeliveryPrUrl:
+        issue.latestDeliveryPrUrl === null
+          ? null
+          : `https://github.com/example/repo/pull/${issueNumber}`,
+      latestActivityAt: shiftedActivity,
+      insertedAt: shiftedStart,
+      updatedAt: shiftedActivity
+    };
+  })
 ] satisfies Array<Omit<SymphonyForensicsIssueSummary, "repositoryKey">>;
 
 const mockIssues: SymphonyForensicsIssueSummary[] = rawMockIssues.map((issue) => ({
@@ -381,6 +487,106 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       outputTokens: 50,
       totalTokens: 450
     })
+  ],
+  "COL-168": [
+    withMockAgentRunSummary({
+      runId: "run_234",
+      issueId: "issue_234",
+      issueIdentifier: "COL-168",
+      attempt: 3,
+      status: "finished",
+      outcome: "completed",
+      workerHost: "worker-d",
+      workspacePath: "/tmp/workspaces/col-168",
+      startedAt: "2026-03-30T16:20:00.000Z",
+      endedAt: "2026-03-30T16:31:00.000Z",
+      commitHashStart: "kkk111",
+      commitHashEnd: "lll222",
+      turnCount: 7,
+      eventCount: 13,
+      lastEventType: "message.output",
+      lastEventAt: "2026-03-30T16:31:00.000Z",
+      durationSeconds: 660,
+      errorClass: null,
+      errorMessage: null,
+      inputTokens: 3400,
+      outputTokens: 1500,
+      totalTokens: 4900
+    }),
+    withMockAgentRunSummary({
+      runId: "run_233",
+      issueId: "issue_234",
+      issueIdentifier: "COL-168",
+      attempt: 2,
+      status: "finished",
+      outcome: "max_turns",
+      workerHost: "worker-d",
+      workspacePath: "/tmp/workspaces/col-168",
+      startedAt: "2026-03-30T15:55:00.000Z",
+      endedAt: "2026-03-30T16:03:00.000Z",
+      commitHashStart: "mmm333",
+      commitHashEnd: "nnn444",
+      turnCount: 9,
+      eventCount: 18,
+      lastEventType: "agent.max_turns",
+      lastEventAt: "2026-03-30T16:03:00.000Z",
+      durationSeconds: 480,
+      errorClass: "max_turns",
+      errorMessage: "Reached max turns before completion.",
+      inputTokens: 2600,
+      outputTokens: 1100,
+      totalTokens: 3700
+    })
+  ],
+  "COL-169": [
+    withMockAgentRunSummary({
+      runId: "run_345",
+      issueId: "issue_345",
+      issueIdentifier: "COL-169",
+      attempt: 2,
+      status: "retrying",
+      outcome: "rate_limited",
+      workerHost: "worker-e",
+      workspacePath: "/tmp/workspaces/col-169",
+      startedAt: "2026-03-29T14:15:00.000Z",
+      endedAt: "2026-03-29T14:20:00.000Z",
+      commitHashStart: "ooo555",
+      commitHashEnd: "ppp666",
+      turnCount: 5,
+      eventCount: 10,
+      lastEventType: "upstream.rate_limit",
+      lastEventAt: "2026-03-29T14:20:00.000Z",
+      durationSeconds: 300,
+      errorClass: "rate_limit_exceeded",
+      errorMessage: "Upstream rate limit reached.",
+      inputTokens: 2800,
+      outputTokens: 900,
+      totalTokens: 3700
+    }),
+    withMockAgentRunSummary({
+      runId: "run_344",
+      issueId: "issue_345",
+      issueIdentifier: "COL-169",
+      attempt: 1,
+      status: "finished",
+      outcome: "completed",
+      workerHost: "worker-e",
+      workspacePath: "/tmp/workspaces/col-169",
+      startedAt: "2026-03-29T13:40:00.000Z",
+      endedAt: "2026-03-29T13:51:00.000Z",
+      commitHashStart: "qqq777",
+      commitHashEnd: "rrr888",
+      turnCount: 6,
+      eventCount: 12,
+      lastEventType: "message.output",
+      lastEventAt: "2026-03-29T13:51:00.000Z",
+      durationSeconds: 660,
+      errorClass: null,
+      errorMessage: null,
+      inputTokens: 3200,
+      outputTokens: 1500,
+      totalTokens: 4700
+    })
   ]
 };
 
@@ -484,6 +690,77 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
         outputTokens: 20,
         totalTokens: 90
       }
+    }
+  }),
+  "COL-168": buildSymphonyRuntimeIssueResult({
+    issueIdentifier: "COL-168",
+    issueId: "issue_234",
+    workspace: buildRuntimeWorkspace("/tmp/workspaces/col-168", "worker-d"),
+    tracked: {
+      title: "Broaden delivery trend visibility",
+      state: "In Progress",
+      branchName: "symphony/COL-168",
+      url: "https://linear.app/coldets/issue/COL-168/broaden-delivery-trend-visibility",
+      projectName: "Symphony",
+      teamKey: "COL"
+    },
+    running: {
+      workerHost: "worker-d",
+      workspacePath: "/tmp/workspaces/col-168",
+      sessionId: "session-168",
+      launchTarget: buildBindMountLaunchTarget("/tmp/workspaces/col-168"),
+      turnCount: 7,
+      state: "In Progress",
+      startedAt: "2026-03-30T16:20:00.000Z",
+      lastEvent: "message.output",
+      lastMessage: "Preparing final summary",
+      lastEventAt: "2026-03-30T16:30:00.000Z",
+      tokens: {
+        inputTokens: 1450,
+        outputTokens: 780,
+        totalTokens: 2230
+      }
+    }
+  }),
+  "COL-169": buildSymphonyRuntimeIssueResult({
+    issueIdentifier: "COL-169",
+    issueId: "issue_345",
+    status: "retrying",
+    workspace: buildDockerRuntimeWorkspace({
+      hostPath: "/tmp/workspaces/col-169",
+      runtimePath: "/workspace",
+      workerHost: "worker-e",
+      containerId: "container-169",
+      containerName: "symphony-col-169"
+    }),
+    attempts: {
+      restartCount: 1,
+      currentRetryAttempt: 2
+    },
+    running: null,
+    retry: {
+      attempt: 2,
+      dueAt: "2026-03-29T14:28:00.000Z",
+      error: "Upstream rate limit reached.",
+      workerHost: "worker-e",
+      workspacePath: "/tmp/workspaces/col-169",
+      launchTarget: buildContainerLaunchTarget({
+        hostLaunchPath: "/tmp/workspaces/col-169",
+        hostWorkspacePath: "/tmp/workspaces/col-169",
+        runtimeWorkspacePath: "/workspace",
+        containerId: "container-169",
+        containerName: "symphony-col-169",
+        shell: "sh"
+      })
+    },
+    lastError: "Upstream rate limit reached.",
+    tracked: {
+      title: "Reduce repeated upstream throttling",
+      state: "Blocked",
+      branchName: "symphony/COL-169",
+      url: "https://linear.app/coldets/issue/COL-169/reduce-repeated-upstream-throttling",
+      projectName: "Symphony",
+      teamKey: "COL"
     }
   })
 };
@@ -773,8 +1050,8 @@ export function isMockRuntimeEnabled(
 export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
   return buildSymphonyRuntimeStateResult({
     counts: {
-      running: 2,
-      retrying: 1
+      running: 3,
+      retrying: 2
     },
     running: [
       {
@@ -816,6 +1093,26 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
           outputTokens: 20,
           totalTokens: 90
         }
+      },
+      {
+        issueId: "issue_234",
+        issueIdentifier: "COL-168",
+        state: "In Progress",
+        workerHost: "worker-d",
+        workspacePath: "/tmp/workspaces/col-168",
+        sessionId: "session-168",
+        workspace: buildRuntimeWorkspace("/tmp/workspaces/col-168", "worker-d"),
+        launchTarget: buildBindMountLaunchTarget("/tmp/workspaces/col-168"),
+        turnCount: 7,
+        lastEvent: "message.output",
+        lastMessage: "Preparing final summary",
+        startedAt: "2026-03-30T16:20:00.000Z",
+        lastEventAt: "2026-03-30T16:30:00.000Z",
+        tokens: {
+          inputTokens: 1450,
+          outputTokens: 780,
+          totalTokens: 2230
+        }
       }
     ],
     retrying: [
@@ -840,6 +1137,30 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
           runtimeWorkspacePath: "/workspace",
           containerId: "container-166",
           containerName: "symphony-col-166",
+          shell: "sh"
+        })
+      },
+      {
+        issueId: "issue_345",
+        issueIdentifier: "COL-169",
+        attempt: 2,
+        dueAt: "2026-03-29T14:28:00.000Z",
+        error: "Upstream rate limit reached.",
+        workerHost: "worker-e",
+        workspacePath: "/tmp/workspaces/col-169",
+        workspace: buildDockerRuntimeWorkspace({
+          hostPath: "/tmp/workspaces/col-169",
+          runtimePath: "/workspace",
+          workerHost: "worker-e",
+          containerId: "container-169",
+          containerName: "symphony-col-169"
+        }),
+        launchTarget: buildContainerLaunchTarget({
+          hostLaunchPath: "/tmp/workspaces/col-169",
+          hostWorkspacePath: "/tmp/workspaces/col-169",
+          runtimeWorkspacePath: "/workspace",
+          containerId: "container-169",
+          containerName: "symphony-col-169",
           shell: "sh"
         })
       }

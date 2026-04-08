@@ -30,7 +30,7 @@ describe("runtime summary client", () => {
     expect(runtimeSummary.counts.running).toBe(1);
     expect(runtimeSummary.running[0]?.issueIdentifier).toBe("COL-165");
     expect(runtimeSummary.retrying[0]?.attempt).toBe(2);
-    expect(runtimeSummary.agentTotals.totalTokens).toBe(320);
+    expect(runtimeSummary.agentTotals.totalTokens).toBe(200);
   });
 
   it("serializes runtime channel subscriptions", () => {

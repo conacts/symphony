@@ -46,6 +46,7 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
         <IssueRequeuePanel
           error={runtimeIssueState.error}
           issue={runtimeIssueState.resource}
+          issueDetail={issueDetailState.resource}
           issueIdentifier={input.issueIdentifier}
           loading={runtimeIssueState.loading}
         />
@@ -53,7 +54,6 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
           connection={connection}
           error={issueDetailState.error}
           issueDetail={issueDetailState.resource}
-          issueIdentifier={input.issueIdentifier}
           loading={issueDetailState.loading}
         />
       </div>

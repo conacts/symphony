@@ -1,5 +1,6 @@
 import type { SymphonyForensicsIssueListResult } from "@symphony/contracts";
 import type { AgentAnalysisSampleResource } from "@/features/analysis/hooks/load-agent-analysis-sample";
+import { buildFailureAnalysisWindowStart, type FailureAnalysisTimeRange } from "@/features/analysis/model/failure-analysis-query-state";
 import {
   formatCount,
   formatErrorClassLabel,
@@ -14,6 +15,16 @@ export type FailureAnalysisViewModel = {
     label: string;
     value: string;
     detail: string;
+  }>;
+  timeSeriesRows: Array<{
+    date: string;
+    label: string;
+    totalFailures: number;
+    maxTurnsFailures: number;
+    startupFailures: number;
+    rateLimitedFailures: number;
+    providerTransientFailures: number;
+    otherFailures: number;
   }>;
   failureModeRows: Array<{
     outcome: string;
@@ -78,7 +89,12 @@ export function buildFailureAnalysisViewModel(
   return {
     summaryCards: [
       {
-        label: "Issues with failures",
+        label: "Failed runs",
+        value: formatCount(input.totals.problemRunCount),
+        detail: "Problem runs across the full issue inventory."
+      },
+      {
+        label: "Issues affected",
         value: formatCount(issuesWithFailures.length),
         detail: "Issue inventory entries currently carrying a problem signal."
       },
@@ -86,20 +102,9 @@ export function buildFailureAnalysisViewModel(
         label: "Problem run share",
         value: formatPercent(problemRunShare),
         detail: `${formatCount(input.totals.problemRunCount)} problem runs across ${formatCount(input.totals.runCount)} recorded runs.`
-      },
-      {
-        label: "Startup failures",
-        value: formatCount(input.totals.startupFailureCount),
-        detail: "Runs that failed before the active agent session really began."
-      },
-      {
-        label: "Dominant failure mode",
-        value: formatOutcomeLabel(dominantFailureMode?.outcome ?? null),
-        detail: dominantFailureMode
-          ? `${formatCount(dominantFailureMode.issueCount)} impacted issues right now.`
-          : "No cross-issue failure mode is currently dominant."
       }
     ],
+    timeSeriesRows: [],
     failureModeRows,
     errorClassRows,
     hotspotRows: [...issuesWithFailures]
@@ -142,7 +147,11 @@ export function buildFailureAnalysisViewModel(
 }
 
 export function buildFailureAnalysisViewModelFromSample(
-  input: AgentAnalysisSampleResource
+  input: AgentAnalysisSampleResource,
+  options?: {
+    timeRange?: FailureAnalysisTimeRange;
+    now?: number;
+  }
 ): FailureAnalysisViewModel {
   const issueRuns = new Map<
     string,
@@ -162,15 +171,19 @@ export function buildFailureAnalysisViewModelFromSample(
 
   const issueRows = Array.from(issueRuns.entries())
     .map(([issueIdentifier, sampledRuns]) => buildFailureIssueRow(issueIdentifier, sampledRuns))
-    .filter((issue) => issue !== null);
-  const problemRunCount = input.sampledRuns.filter((sampledRun) =>
+    .filter(isFailureIssueRow);
+  const timeSeriesRows = buildFailureTimeSeriesRows(
+    input.sampledRuns,
+    options?.timeRange ?? "7d",
+    options?.now ?? Date.now()
+  );
+  const problemRuns = input.sampledRuns.filter((sampledRun) =>
     isProblemRun(sampledRun.run)
-  ).length;
-  const startupFailureCount = input.sampledRuns.filter(
-    (sampledRun) =>
-      sampledRun.run.outcome === "startup_failed" ||
-      sampledRun.run.errorClass === "startup_failure_runtime_prepare"
-  ).length;
+  );
+  const failureTypeCounts = countFailureTypeFrequency(problemRuns);
+  const totalProblemRuns = problemRuns.length;
+  const affectedIssues = new Set(problemRuns.map((sampledRun) => sampledRun.issueIdentifier));
+  const dominantFailureType = failureTypeCounts[0];
   const failureModeRows = countIssueFrequency(issueRows, (issue) => issue.latestProblemOutcome)
     .map(([outcome, issueCount]) => ({
       outcome: formatOutcomeLabel(outcome),
@@ -183,36 +196,30 @@ export function buildFailureAnalysisViewModelFromSample(
       issueCount
     }))
     .slice(0, 6);
-  const dominantFailureMode = failureModeRows[0];
+  const dominantIssueOutcome = failureModeRows[0];
   const dominantErrorClass = errorClassRows[0];
-  const problemRunShare =
-    input.sampledRuns.length === 0 ? 0 : problemRunCount / input.sampledRuns.length;
 
   return {
     summaryCards: [
       {
-        label: "Issues with failures",
-        value: formatCount(issueRows.length),
-        detail: "Sampled issues currently carrying a problem signal under the active filter."
+        label: "Failed runs",
+        value: formatCount(totalProblemRuns),
+        detail: "Problem runs in the selected window."
       },
       {
-        label: "Problem run share",
-        value: formatPercent(problemRunShare),
-        detail: `${formatCount(problemRunCount)} problem runs across ${formatCount(input.sampledRuns.length)} filtered sampled runs.`
+        label: "Issues affected",
+        value: formatCount(affectedIssues.size),
+        detail: "Distinct issues carrying a failure signal."
       },
       {
-        label: "Startup failures",
-        value: formatCount(startupFailureCount),
-        detail: "Filtered sampled runs that failed before active execution began."
-      },
-      {
-        label: "Dominant failure mode",
-        value: formatOutcomeLabel(dominantFailureMode?.outcome ?? null),
-        detail: dominantFailureMode
-          ? `${formatCount(dominantFailureMode.issueCount)} sampled issues are currently led by this outcome.`
-          : "No dominant failure mode is visible in the filtered sample."
+        label: "Dominant failure type",
+        value: formatOutcomeLabel(dominantFailureType?.type ?? null),
+        detail: dominantFailureType
+          ? `${formatCount(dominantFailureType.issueCount)} sampled runs carry this failure type.`
+          : "No failure type is dominant in the selected window."
       }
     ],
+    timeSeriesRows,
     failureModeRows,
     errorClassRows,
     hotspotRows: issueRows
@@ -237,11 +244,11 @@ export function buildFailureAnalysisViewModelFromSample(
       })),
     spotlight: {
       dominantFailureMode:
-        dominantFailureMode?.outcome === undefined
+        dominantIssueOutcome?.outcome === undefined
           ? "No current failure mode"
-          : formatOutcomeLabel(dominantFailureMode.outcome),
-      dominantFailureModeDetail: dominantFailureMode
-        ? `${formatCount(dominantFailureMode.issueCount)} sampled issues are currently led by this outcome.`
+          : formatOutcomeLabel(dominantIssueOutcome.outcome),
+      dominantFailureModeDetail: dominantIssueOutcome
+        ? `${formatCount(dominantIssueOutcome.issueCount)} sampled issues are currently led by this outcome.`
         : "The filtered sample does not show a dominant failure outcome.",
       dominantErrorClass:
         dominantErrorClass?.errorClass === undefined
@@ -252,6 +259,222 @@ export function buildFailureAnalysisViewModelFromSample(
         : "The filtered sample does not show a dominant error class."
     }
   };
+}
+
+function buildFailureTimeSeriesRows(
+  sampledRuns: AgentAnalysisSampleResource["sampledRuns"],
+  timeRange: FailureAnalysisTimeRange,
+  now: number
+): Array<{
+  date: string;
+  label: string;
+  totalFailures: number;
+  maxTurnsFailures: number;
+  startupFailures: number;
+  rateLimitedFailures: number;
+  providerTransientFailures: number;
+  otherFailures: number;
+}> {
+  const startWindow = buildFailureAnalysisWindowStart(timeRange, now);
+  const dailyTotals = new Map<
+    string,
+    {
+      date: string;
+      totalFailures: number;
+      maxTurnsFailures: number;
+      startupFailures: number;
+      rateLimitedFailures: number;
+      providerTransientFailures: number;
+      otherFailures: number;
+    }
+  >();
+  const problemRuns = sampledRuns.filter((sampledRun) => isProblemRun(sampledRun.run));
+
+  for (const sampledRun of problemRuns) {
+    const date = sampledRun.run.startedAt.slice(0, 10);
+    if (!date) {
+      continue;
+    }
+
+    if (startWindow !== null && Date.parse(sampledRun.run.startedAt) < startWindow) {
+      continue;
+    }
+
+    const current = dailyTotals.get(date);
+    const failureType = classifyFailureType(sampledRun.run);
+
+    if (current) {
+      current.totalFailures += 1;
+      incrementFailureType(current, failureType);
+      continue;
+    }
+
+    const row = {
+      date,
+      totalFailures: 1,
+      maxTurnsFailures: 0,
+      startupFailures: 0,
+      rateLimitedFailures: 0,
+      providerTransientFailures: 0,
+      otherFailures: 0
+    };
+    incrementFailureType(row, failureType);
+    dailyTotals.set(date, row);
+  }
+
+  const dates = [...dailyTotals.keys()].sort();
+
+  if (dates.length === 0) {
+    return [];
+  }
+
+  const startDate =
+    startWindow !== null
+      ? new Date(startWindow)
+      : new Date(`${dates[0]}T00:00:00.000Z`);
+  const endDate =
+    startWindow !== null
+      ? (() => {
+          const end = new Date(now);
+          end.setUTCHours(0, 0, 0, 0);
+          return end;
+        })()
+      : new Date(`${dates[dates.length - 1]}T00:00:00.000Z`);
+  const rows: Array<{
+    date: string;
+    label: string;
+    totalFailures: number;
+    maxTurnsFailures: number;
+    startupFailures: number;
+    rateLimitedFailures: number;
+    providerTransientFailures: number;
+    otherFailures: number;
+  }> = [];
+
+  for (
+    let cursor = new Date(startDate.getTime());
+    cursor.getTime() <= endDate.getTime();
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  ) {
+    const date = cursor.toISOString().slice(0, 10);
+    const row = dailyTotals.get(date);
+    rows.push({
+      date,
+      label: formatDayLabel(date),
+      totalFailures: row?.totalFailures ?? 0,
+      maxTurnsFailures: row?.maxTurnsFailures ?? 0,
+      startupFailures: row?.startupFailures ?? 0,
+      rateLimitedFailures: row?.rateLimitedFailures ?? 0,
+      providerTransientFailures: row?.providerTransientFailures ?? 0,
+      otherFailures: row?.otherFailures ?? 0
+    });
+  }
+
+  return rows;
+}
+
+function countFailureTypeFrequency(
+  sampledRuns: AgentAnalysisSampleResource["sampledRuns"]
+): Array<{
+  type: FailureType;
+  issueCount: number;
+}> {
+  const counts = new Map<FailureType, number>();
+
+  for (const sampledRun of sampledRuns) {
+    const type = classifyFailureType(sampledRun.run);
+    counts.set(type, (counts.get(type) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries()).sort((left, right) => {
+    if (right[1] !== left[1]) {
+      return right[1] - left[1];
+    }
+
+    return left[0].localeCompare(right[0]);
+  }).map(([type, issueCount]) => ({
+    type,
+    issueCount
+  }));
+}
+
+function incrementFailureType(
+  target: {
+    maxTurnsFailures: number;
+    startupFailures: number;
+    rateLimitedFailures: number;
+    providerTransientFailures: number;
+    otherFailures: number;
+  },
+  failureType: FailureType
+) {
+  if (failureType === "max_turns") {
+    target.maxTurnsFailures += 1;
+    return;
+  }
+
+  if (failureType === "startup_failure") {
+    target.startupFailures += 1;
+    return;
+  }
+
+  if (failureType === "rate_limited") {
+    target.rateLimitedFailures += 1;
+    return;
+  }
+
+  if (failureType === "provider_transient") {
+    target.providerTransientFailures += 1;
+    return;
+  }
+
+  target.otherFailures += 1;
+}
+
+function classifyFailureType(
+  run: AgentAnalysisSampleResource["sampledRuns"][number]["run"]
+): FailureType {
+  const outcome = run.outcome ?? null;
+  const errorClass = run.errorClass ?? null;
+  const failureKind = run.agentFailureKind ?? null;
+
+  if (
+    outcome === "startup_failed" ||
+    outcome === "startup_failed_backlog" ||
+    failureKind === "startup_failure" ||
+    errorClass?.includes("startup_failure") === true
+  ) {
+    return "startup_failure";
+  }
+
+  if (
+    outcome === "rate_limited" ||
+    failureKind === "rate_limited" ||
+    errorClass === "rate_limited" ||
+    errorClass === "rate_limit_exceeded"
+  ) {
+    return "rate_limited";
+  }
+
+  if (
+    outcome === "paused_max_turns" ||
+    outcome === "max_turns_reached" ||
+    failureKind === "max_turns_reached" ||
+    errorClass === "max_turns_reached" ||
+    errorClass === "max_turns"
+  ) {
+    return "max_turns";
+  }
+
+  if (
+    outcome === "provider_transient" ||
+    failureKind === "provider_transient" ||
+    errorClass === "provider_transient"
+  ) {
+    return "provider_transient";
+  }
+
+  return "other";
 }
 
 function countIssueFrequency<T>(
@@ -329,7 +552,33 @@ function buildFailureIssueRow(
   };
 }
 
+function isFailureIssueRow(
+  value: ReturnType<typeof buildFailureIssueRow>
+): value is NonNullable<ReturnType<typeof buildFailureIssueRow>> {
+  return value !== null;
+}
+
+function formatDayLabel(value: string): string {
+  const parsed = Date.parse(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed)) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC"
+  }).format(new Date(parsed));
+}
+
 const DEFAULT_REPOSITORY_KEY = "symphony";
+
+type FailureType =
+  | "max_turns"
+  | "startup_failure"
+  | "rate_limited"
+  | "provider_transient"
+  | "other";
 
 function isProblemRun(
   run: AgentAnalysisSampleResource["sampledRuns"][number]["run"]

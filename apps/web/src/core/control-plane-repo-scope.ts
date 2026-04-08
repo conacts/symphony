@@ -49,3 +49,10 @@ export function describeControlPlaneRepositoryScope(
 ): string {
   return `team ${repository.linear.teamKey}`;
 }
+
+export function formatControlPlaneRepositoryName(
+  repositoryKey: string
+): string {
+  const segments = repositoryKey.split("/");
+  return segments[segments.length - 1] ?? repositoryKey;
+}

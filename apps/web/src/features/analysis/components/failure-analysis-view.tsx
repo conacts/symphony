@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
@@ -10,48 +9,35 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AnalysisFilterBar } from "@/features/analysis/components/analysis-filter-bar";
-import { AnalysisPageHeader } from "@/features/analysis/components/analysis-page-header";
-import { AnalysisSpotlightItem } from "@/features/analysis/components/analysis-spotlight-item";
-import type { AnalysisQuery } from "@/features/analysis/model/analysis-query-state";
-import type { AnalysisFilterOptions } from "@/features/analysis/model/analysis-sample-filter";
-import { FailureErrorClassChart } from "@/features/analysis/components/failure-error-class-chart";
-import { FailureModeChart } from "@/features/analysis/components/failure-mode-chart";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { FailureTimeSeriesChart } from "@/features/analysis/components/failure-time-series-chart";
+import type { FailureAnalysisTimeRange } from "@/features/analysis/model/failure-analysis-query-state";
 import type { FailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
 import type { RuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
-
-const emptyAnalysisQuery: AnalysisQuery = {};
-const emptyAnalysisFilterOptions: AnalysisFilterOptions = {
-  harnesses: [],
-  providers: [],
-  models: []
-};
 
 export function FailureAnalysisView(input: {
   connection: RuntimeSummaryConnectionState;
   error: string | null;
   loading: boolean;
   failureAnalysis: FailureAnalysisViewModel | null;
-  query?: AnalysisQuery;
-  filterOptions?: AnalysisFilterOptions;
-  sampledRunCount?: number;
-  sampledIssueCount?: number;
-  onQueryChange?(query: AnalysisQuery): void;
+  selectedModel?: string;
+  modelOptions?: Array<{
+    value: string;
+    label: string;
+  }>;
+  timeRange: FailureAnalysisTimeRange;
+  onModelChange(model: string | undefined): void;
+  onTimeRangeChange(timeRange: FailureAnalysisTimeRange): void;
 }) {
-  const query = input.query ?? emptyAnalysisQuery;
-  const filterOptions = input.filterOptions ?? emptyAnalysisFilterOptions;
-  const sampledRunCount = input.sampledRunCount ?? 0;
-  const sampledIssueCount = input.sampledIssueCount ?? 0;
-  const onQueryChange = input.onQueryChange ?? (() => {});
+  const modelOptions = input.modelOptions ?? [];
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
@@ -64,143 +50,106 @@ export function FailureAnalysisView(input: {
 
       {input.failureAnalysis ? (
         <>
-          <AnalysisPageHeader
-            eyebrow="Cross-run trends"
-            title="Failure analysis"
-            description="Cross-run failure patterns for deciding where orchestration improvements will matter most."
-            focus="Use this page to identify which failure modes and error classes are currently creating the heaviest operator drag."
-          />
-          <AnalysisFilterBar
-            query={query}
-            options={filterOptions}
-            sampledRunCount={sampledRunCount}
-            sampledIssueCount={sampledIssueCount}
-            onQueryChange={onQueryChange}
-          />
-
-          <section className="space-y-3">
+          <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">Failure coverage</h2>
-              <p className="text-sm text-muted-foreground">
-                High-level pressure across the current issue set before you drill into specific patterns.
+              <p className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
+                Cross-run trends
+              </p>
+              <h1 className="text-3xl font-semibold tracking-tight">Failure analysis</h1>
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                Weekly and monthly failure patterns, condensed into a chart-first view.
+                Use the model filter to isolate a single model and keep the signal dense.
               </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="flex flex-col gap-2 lg:items-end">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Select
+                  value={input.selectedModel ?? "__all_models__"}
+                  onValueChange={(value) => {
+                    input.onModelChange(
+                      value === "__all_models__" ? undefined : value
+                    );
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-64" size="sm" aria-label="Model filter">
+                    <SelectValue placeholder="All models" />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    <SelectItem value="__all_models__">All models</SelectItem>
+                    {modelOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  size="sm"
+                  spacing={0}
+                  value={input.timeRange}
+                  onValueChange={(value) => {
+                    if (value) {
+                      input.onTimeRangeChange(value as FailureAnalysisTimeRange);
+                    }
+                  }}
+                  aria-label="Failure analysis time range"
+                >
+                  {failureTimeRangeOptions.map((option) => (
+                    <ToggleGroupItem key={option.value} value={option.value}>
+                      {option.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <FailureTimeSeriesChart rows={input.failureAnalysis.timeSeriesRows} />
+          </section>
+
+          <section className="grid gap-3 md:grid-cols-3">
             {input.failureAnalysis.summaryCards.map((card) => (
               <Card key={card.label}>
                 <CardHeader className="space-y-1 pb-2">
                   <CardDescription>{card.label}</CardDescription>
-                  <CardTitle className="break-all text-2xl">{card.value}</CardTitle>
+                  <CardTitle className="text-2xl">{card.value}</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
+                <CardContent className="pt-0 text-sm text-muted-foreground">
                   {card.detail}
                 </CardContent>
               </Card>
             ))}
-            </div>
           </section>
-
-          <section className="space-y-3">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">Spotlight and composition</h2>
-              <p className="text-sm text-muted-foreground">
-                The strongest failure signals first, then the charts that show how widely they are spreading.
-              </p>
-            </div>
-
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle>Current failure landscape</CardTitle>
-                <CardDescription>
-                  The strongest failure signals in the current issue set.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <AnalysisSpotlightItem
-                  label="Dominant failure mode"
-                  value={input.failureAnalysis.spotlight.dominantFailureMode}
-                  detail={input.failureAnalysis.spotlight.dominantFailureModeDetail}
-                />
-                <AnalysisSpotlightItem
-                  label="Dominant error class"
-                  value={input.failureAnalysis.spotlight.dominantErrorClass}
-                  detail={input.failureAnalysis.spotlight.dominantErrorClassDetail}
-                />
-              </CardContent>
-            </Card>
-
-            <FailureModeChart rows={input.failureAnalysis.failureModeRows} />
-            <FailureErrorClassChart rows={input.failureAnalysis.errorClassRows} />
-            </div>
-          </section>
-
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle>Failure hotspots</CardTitle>
-              <CardDescription>
-                The issues currently carrying the heaviest failure load.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {input.failureAnalysis.hotspotRows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No current failure hotspots are active.
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Issue</TableHead>
-                      <TableHead>Current mode</TableHead>
-                      <TableHead>Error class</TableHead>
-                      <TableHead>Problem runs</TableHead>
-                      <TableHead>Retries</TableHead>
-                      <TableHead>Last active</TableHead>
-                      <TableHead>Latest signal</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {input.failureAnalysis.hotspotRows.map((row) => (
-                      <TableRow key={row.issueIdentifier}>
-                        <TableCell className="font-medium">
-                          <Link
-                            href={row.issueHref}
-                            className="underline-offset-4 hover:underline focus-visible:underline"
-                          >
-                            {row.issueIdentifier}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{row.latestProblemOutcome}</TableCell>
-                        <TableCell>{row.latestErrorClass}</TableCell>
-                        <TableCell>{row.problemRuns}</TableCell>
-                        <TableCell>{row.retries}</TableCell>
-                        <TableCell>{row.lastActive}</TableCell>
-                        <TableCell className="max-w-sm text-sm text-muted-foreground">
-                          {row.latestErrorMessage}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
         </>
       ) : input.loading ? (
-        <section className="grid gap-4 md:grid-cols-3">
-          {Array.from({ length: 3 }, (_, index) => (
-            <Card key={index}>
-              <CardHeader>
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-8 w-28" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-44" />
-              </CardContent>
-            </Card>
-          ))}
+        <section className="grid gap-4">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-8 w-48" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-80 w-full" />
+            </CardContent>
+          </Card>
+          <div className="grid gap-4 md:grid-cols-3">
+            {Array.from({ length: 3 }, (_, index) => (
+              <Card key={index}>
+                <CardHeader>
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-8 w-20" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-4 w-40" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </section>
       ) : (
         <Card>
@@ -213,3 +162,12 @@ export function FailureAnalysisView(input: {
     </div>
   );
 }
+
+const failureTimeRangeOptions = [
+  { value: "7d", label: "Week" },
+  { value: "30d", label: "Month" },
+  { value: "all", label: "All" }
+] as const satisfies ReadonlyArray<{
+  value: FailureAnalysisTimeRange;
+  label: string;
+}>;

@@ -79,10 +79,9 @@ describe("forensics view model", () => {
       }
     });
 
+    expect(issueIndex.summaryCards).toHaveLength(4);
     expect(issueIndex.summaryCards[0]?.label).toBe("Total issues");
     expect(issueIndex.summaryCards[3]?.value).toBe("33.3%");
-    expect(issueIndex.focusCards[0]?.label).toBe("Most active issue");
-    expect(issueIndex.focusCards[0]?.href).toBe("/issues/COL-165?repo=symphony");
     expect(issueIndex.outcomeChartRows[0]).toEqual({
       issueIdentifier: "COL-165",
       completedRunCount: 1,
@@ -178,6 +177,7 @@ describe("forensics view model", () => {
     expect(issueDetail.rows[0]?.totalTokens).toBe("240");
     expect(issueDetail.machineLoadCards[0]?.value).toBe("0 / 1");
     expect(issueDetail.machineLoadCards[1]?.value).toBe("n/a");
+    expect(issueDetail.machineLoadChartRows).toEqual([]);
   });
 
   it("rolls run machine-load summaries up into issue machine-load cards", () => {
@@ -317,6 +317,22 @@ describe("forensics view model", () => {
         detail: "Highest sampled disk pressure across this issue's runs."
       }
     ]);
+    expect(issueDetail.machineLoadChartRows).toHaveLength(2);
+    expect(issueDetail.machineLoadChartRows[0]).toMatchObject({
+      runLabel: "#2",
+      cpuPercent: 91,
+      memoryPercent: 85,
+      diskPercent: 48,
+      pressureHit: true
+    });
+    expect(issueDetail.machineLoadChartRows[0]?.startedAt).toBeTypeOf("string");
+    expect(issueDetail.machineLoadChartRows[1]).toMatchObject({
+      runLabel: "#1",
+      cpuPercent: 84,
+      memoryPercent: 72,
+      diskPercent: 47,
+      pressureHit: false
+    });
   });
 
   it("falls back to unique run labels when attempts are missing", () => {

@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import { AnalysisOverviewView } from "@/features/analysis/components/analysis-overview-view";
 import { buildAnalysisOverviewViewModel } from "@/features/analysis/model/analysis-overview-view-model";
 import { buildFailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
-import { buildPerformanceAnalysisViewModel } from "@/features/analysis/model/performance-analysis-view-model";
 import { buildTokenAnalysisViewModel } from "@/features/analysis/model/token-analysis-view-model";
 import {
   buildSymphonyAgentRunArtifactsResult,
@@ -40,7 +39,6 @@ describe("analysis overview view", () => {
         loading={false}
         overview={buildAnalysisOverviewViewModel({
           failureAnalysis: buildFailureAnalysisViewModel(issueIndex),
-          performanceAnalysis: buildPerformanceAnalysisViewModel(sample),
           tokenAnalysis: buildTokenAnalysisViewModel(sample)
         })}
       />
@@ -48,10 +46,8 @@ describe("analysis overview view", () => {
 
     expect(html).toContain("Analysis overview");
     expect(html).toContain("Failure analysis");
-    expect(html).toContain("Performance analysis");
     expect(html).toContain("Token analysis");
     expect(html).toContain('href="/analysis/failures"');
-    expect(html).toContain('href="/analysis/performance"');
     expect(html).toContain('href="/analysis/tokens"');
   });
 });

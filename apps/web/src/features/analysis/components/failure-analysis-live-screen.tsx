@@ -1,122 +1,105 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FailureAnalysisView } from "@/features/analysis/components/failure-analysis-view";
 import { useAnalysisSample } from "@/features/analysis/hooks/use-analysis-sample";
 import {
-  buildAnalysisSearchParams,
-  buildAnalysisQueryFromSearchParams,
-  hasActiveAnalysisFilters
-} from "@/features/analysis/model/analysis-query-state";
-import {
-  buildAnalysisFilterOptions,
-  countSampledIssues,
-  filterAgentAnalysisSample
-} from "@/features/analysis/model/analysis-sample-filter";
-import {
-  buildFailureAnalysisViewModel,
-  buildFailureAnalysisViewModelFromSample
-} from "@/features/analysis/model/failure-analysis-view-model";
-import { useIssueIndex } from "@/features/issues/hooks/use-issue-index";
+  buildFailureAnalysisSearchParams,
+  buildFailureAnalysisWindowStart,
+  parseFailureAnalysisQueryFromSearchParams
+} from "@/features/analysis/model/failure-analysis-query-state";
+import { buildFailureAnalysisViewModelFromSample } from "@/features/analysis/model/failure-analysis-view-model";
 import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
 import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
+import { useControlPlaneRepoContext } from "@/features/shared/components/control-plane-repo-context";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
+import type { AgentAnalysisSampleResource } from "@/features/analysis/hooks/load-agent-analysis-sample";
 
 export function FailureAnalysisLiveScreen() {
   const model = useControlPlaneModel();
+  const repoContext = useControlPlaneRepoContext();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const searchParamsString = searchParams.toString();
   const query = useMemo(
-    () => buildAnalysisQueryFromSearchParams(searchParams),
-    [searchParams]
+    () => parseFailureAnalysisQueryFromSearchParams(searchParams),
+    [searchParamsString]
   );
-  const issueIndexState = useIssueIndex({
-    runtimeBaseUrl: model.runtimeBaseUrl,
-    websocketUrl: model.websocketUrl,
-    query: {
-      repo: query.repo,
-      timeRange: "all",
-      sortBy: "lastActive",
-      sortDirection: "desc"
-    }
-  });
+  const [queryNow] = useState(() => Date.now());
   const analysisSampleState = useAnalysisSample({
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl,
-    repo: query.repo
+    repo: repoContext.selectedRepo
   });
   const connection = useMemo(
     () =>
       buildRuntimeSummaryConnectionState({
-        status:
-          issueIndexState.status === "connected" &&
-          analysisSampleState.status === "connected"
-            ? "connected"
-            : issueIndexState.status === "degraded" ||
-                analysisSampleState.status === "degraded"
-              ? "degraded"
-              : "connecting",
-        error: issueIndexState.error ?? analysisSampleState.error,
-        hasSnapshot:
-          issueIndexState.resource !== null && analysisSampleState.resource !== null
+        status: analysisSampleState.status,
+        error: analysisSampleState.error,
+        hasSnapshot: analysisSampleState.resource !== null
       }),
     [
       analysisSampleState.error,
       analysisSampleState.resource,
-      analysisSampleState.status,
-      issueIndexState.error,
-      issueIndexState.resource,
-      issueIndexState.status
+      analysisSampleState.status
     ]
   );
-  const filterOptions = useMemo(
-    () =>
-      analysisSampleState.resource
-        ? buildAnalysisFilterOptions(analysisSampleState.resource)
-        : {
-            harnesses: [],
-            providers: [],
-            models: []
-          },
+  const modelOptions = useMemo(
+    () => buildModelOptions(analysisSampleState.resource),
     [analysisSampleState.resource]
+  );
+  const windowStart = useMemo(
+    () => buildFailureAnalysisWindowStart(query.timeRange, queryNow),
+    [query.timeRange, queryNow]
   );
   const filteredSample = useMemo(
     () =>
-      analysisSampleState.resource
-        ? filterAgentAnalysisSample(analysisSampleState.resource, query)
-        : null,
-    [analysisSampleState.resource, query]
+      filterFailureAnalysisSample(
+        analysisSampleState.resource,
+        query.model,
+        windowStart
+      ),
+    [analysisSampleState.resource, query.model, windowStart]
   );
   const failureAnalysis = useMemo(
-    () => {
-      if (hasActiveAnalysisFilters(query)) {
-        return filteredSample
-          ? buildFailureAnalysisViewModelFromSample(filteredSample)
-          : null;
-      }
-
-      return issueIndexState.resource
-        ? buildFailureAnalysisViewModel(issueIndexState.resource)
-        : null;
-    },
-    [filteredSample, issueIndexState.resource, query]
+    () =>
+      filteredSample
+        ? buildFailureAnalysisViewModelFromSample(filteredSample, {
+            timeRange: query.timeRange,
+            now: queryNow
+          })
+        : null,
+    [filteredSample, query.timeRange, queryNow]
   );
 
   return (
     <ControlPlanePage connection={connection}>
       <FailureAnalysisView
         connection={connection}
-        error={issueIndexState.error ?? analysisSampleState.error}
-        loading={issueIndexState.loading || analysisSampleState.loading}
+        error={analysisSampleState.error}
+        loading={analysisSampleState.loading}
         failureAnalysis={failureAnalysis}
-        query={query}
-        filterOptions={filterOptions}
-        sampledRunCount={filteredSample?.sampledRuns.length ?? 0}
-        sampledIssueCount={filteredSample ? countSampledIssues(filteredSample) : 0}
-        onQueryChange={(nextQuery) => {
-          const nextSearch = buildAnalysisSearchParams(nextQuery).toString();
+        selectedModel={query.model}
+        modelOptions={modelOptions}
+        timeRange={query.timeRange}
+        onModelChange={(nextModel) => {
+          const nextSearchParams = buildFailureAnalysisSearchParams(searchParams, {
+            model: nextModel,
+            timeRange: query.timeRange
+          });
+          const nextSearch = nextSearchParams.toString();
+          router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname, {
+            scroll: false
+          });
+        }}
+        onTimeRangeChange={(timeRange) => {
+          const nextSearchParams = buildFailureAnalysisSearchParams(searchParams, {
+            model: query.model,
+            timeRange
+          });
+          const nextSearch = nextSearchParams.toString();
           router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname, {
             scroll: false
           });
@@ -124,4 +107,54 @@ export function FailureAnalysisLiveScreen() {
       />
     </ControlPlanePage>
   );
+}
+
+function buildModelOptions(input: AgentAnalysisSampleResource | null) {
+  if (!input) {
+    return [];
+  }
+
+  const models = new Map<string, string>();
+
+  for (const sampledRun of input.sampledRuns) {
+    const model = sampledRun.artifacts.run.model ?? sampledRun.run.model;
+
+    if (model) {
+      models.set(model, model);
+    }
+  }
+
+  return [...models.entries()]
+    .map(([value, label]) => ({ value, label }))
+    .sort((left, right) => left.label.localeCompare(right.label));
+}
+
+function filterFailureAnalysisSample(
+  input: AgentAnalysisSampleResource | null,
+  model: string | undefined,
+  windowStart: number | null
+): AgentAnalysisSampleResource | null {
+  if (!input) {
+    return null;
+  }
+
+  const sampledRuns = input.sampledRuns.filter((sampledRun) => {
+    if (model) {
+      const runModel = sampledRun.artifacts.run.model ?? sampledRun.run.model;
+      if (runModel !== model) {
+        return false;
+      }
+    }
+
+    if (windowStart === null) {
+      return true;
+    }
+
+    return Date.parse(sampledRun.run.startedAt) >= windowStart;
+  });
+
+  return {
+    ...input,
+    sampledRuns
+  };
 }

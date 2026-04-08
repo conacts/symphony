@@ -6,11 +6,13 @@ import type {
 export {
   buildSymphonyAgentOverflowResult,
   buildSymphonyAgentRunArtifactsResult,
+  buildSymphonyAgentRunArtifactsDiffDemoResult,
   buildSymphonyForensicsIssueDetailResult,
   buildSymphonyForensicsIssueForensicsBundleResult,
   buildSymphonyForensicsIssueListResult,
   buildSymphonyForensicsProblemRunsResult,
   buildSymphonyForensicsRunDetailResult,
+  buildSymphonyForensicsRunDetailDiffDemoResult,
   buildSymphonyForensicsSuccessMetricsResult,
   buildSymphonyRuntimeHealthResult,
   buildSymphonyRuntimeLogsResult,

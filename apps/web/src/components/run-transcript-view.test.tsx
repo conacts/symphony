@@ -22,19 +22,9 @@ describe("run transcript view", () => {
     );
 
     expect(html).toContain("Turns");
-    expect(html).toContain("Turn tokens");
-    expect(html).toContain("Turn token breakdown");
-    expect(html).toContain("Turn latency");
-    expect(html).toContain("Turn latency breakdown");
-    expect(html).toContain("Execution performance");
-    expect(html).toContain("Command executions");
-    expect(html).toContain("Tool calls");
-    expect(html).toContain("Pi responses");
-    expect(html).toContain("Dominant model");
-    expect(html).toContain("Machine load");
-    expect(html).toContain("Peak CPU load");
-    expect(html).toContain("/issues/COL-165/runs/run_123/turns");
-    expect(html).toContain("/issues/COL-165/runs/run_123/turns/turn_123");
+    expect(html).toContain("Turn token load");
+    expect(html).toContain("Run pressure");
+    expect(html).toContain("/issues/COL-165/runs/run_123/turns/turn_123?repo=symphony");
     expect(html).toContain("Turn 1");
     expect(html).toContain("Commands");
     expect(html).toContain("Tools");
@@ -42,11 +32,17 @@ describe("run transcript view", () => {
     expect(html).toContain("Turn stream");
     expect(html).toContain("Open turn");
     expect(html).toContain("Showing 1-1 of 1");
+    expect(html).toContain("200 tokens");
     expect(html).not.toContain("Prompt");
     expect(html).not.toContain("Browse turns");
     expect(html).not.toContain("<p class=\"text-sm font-medium text-muted-foreground\">COL-165</p>");
     expect(html).not.toContain("Structured run conversation");
-    expect(html).toContain("Debug context");
+    expect(html).not.toContain("Turn latency");
+    expect(html).not.toContain("Execution performance");
+    expect(html).not.toContain("Pi responses");
+    expect(html).not.toContain("Run context");
+    expect(html).not.toContain("Machine load");
+    expect(html).not.toContain("Debug context");
   });
 
   it("limits the turn stream to the first page of newest turns", () => {

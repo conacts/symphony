@@ -47,7 +47,7 @@ describe("runtime summary view model", () => {
     });
     expect(runtimeSummary.rateLimitRows[0]).toEqual({
       label: "remaining",
-      value: "3"
+      value: "6"
     });
     expect(runtimeSummary.piTelemetryCards[0]?.label).toBe("Sampled PI runs");
     expect(runtimeSummary.piTelemetryCards[1]?.value).toBe("1");

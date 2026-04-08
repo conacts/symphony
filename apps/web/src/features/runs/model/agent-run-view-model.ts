@@ -140,9 +140,12 @@ export type AgentRunViewModel = {
     turnId: string;
     turnSequence: number;
     href: string;
+    startedAtIso: string;
     startedAt: string;
+    endedAtIso: string;
     endedAt: string;
     status: string;
+    totalTokens: number;
     tokenSummary: string;
     commandCount: string;
     toolCount: string;
@@ -199,22 +202,6 @@ export function buildAgentRunViewModel(input: {
       totalTokens: 0
     }
   );
-  const effectiveInputTokens =
-    (agentRun?.inputTokens ?? 0) > 0
-      ? (agentRun?.inputTokens ?? 0)
-      : run.inputTokens > 0
-        ? run.inputTokens
-        : fallbackTokenTotals.inputTokens;
-  const effectiveCachedInputTokens =
-    (agentRun?.cachedInputTokens ?? 0) > 0
-      ? (agentRun?.cachedInputTokens ?? 0)
-      : fallbackTokenTotals.cachedInputTokens;
-  const effectiveOutputTokens =
-    (agentRun?.outputTokens ?? 0) > 0
-      ? (agentRun?.outputTokens ?? 0)
-      : run.outputTokens > 0
-        ? run.outputTokens
-        : fallbackTokenTotals.outputTokens;
   const effectiveTotalTokens =
     (agentRun?.totalTokens ?? 0) > 0
       ? (agentRun?.totalTokens ?? 0)
@@ -265,9 +252,7 @@ export function buildAgentRunViewModel(input: {
       {
         label: "Tokens",
         value: formatCount(effectiveTotalTokens),
-        detail: `In ${formatCount(effectiveInputTokens)} · Cached ${formatCount(
-          effectiveCachedInputTokens
-        )} · Out ${formatCount(effectiveOutputTokens)}`
+        detail: `${formatCount(effectiveTotalTokens)} total tokens across the run.`
       },
       {
         label: "Turns",
@@ -347,9 +332,12 @@ export function buildAgentRunViewModel(input: {
       turnId: turn.turnId,
       turnSequence: turn.turnSequence,
       href: buildIssueRunTurnHref(issueIdentifier, run.runId, turn.turnId, routeScope),
+      startedAtIso: turn.startedAtIso,
       startedAt: turn.startedAt,
+      endedAtIso: turn.endedAtIso,
       endedAt: turn.endedAt,
       status: turn.status,
+      totalTokens: turn.totalTokens,
       tokenSummary: turn.tokenSummary,
       commandCount: formatCount(turn.commandCount),
       toolCount: formatCount(turn.toolCount),

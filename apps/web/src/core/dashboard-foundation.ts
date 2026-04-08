@@ -105,19 +105,13 @@ export function buildSymphonyDashboardFoundation(
       {
         href: "/",
         label: "Overview",
-        description: "Review the live runtime summary, retry queue, and operator refresh action.",
+        description: "Review weekly delivery performance, velocity, and completed-work health.",
         readiness: "available"
       },
       {
         href: "/analysis/failures",
         label: "Failure analysis",
         description: "Review cross-run failure patterns and the issues carrying the highest failure load.",
-        readiness: "available"
-      },
-      {
-        href: "/analysis/performance",
-        label: "Performance analysis",
-        description: "Review command and tool execution hotspots across recent sampled runs.",
         readiness: "available"
       },
       {

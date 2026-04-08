@@ -2,13 +2,15 @@
 
 import React from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
+  CardContent
 } from "@/components/ui/card";
+import { formatCount, formatDurationMilliseconds } from "@/core/display-formatters";
+import { RunTurnActivityChart } from "@/features/runs/components/run-turn-activity-chart";
+import { RunTurnTokenChart } from "@/features/runs/components/run-turn-token-chart";
+import { RunTurnToolCallsChart } from "@/features/runs/components/run-turn-tool-calls-chart";
 import { RunTranscriptTurn } from "@/features/runs/components/run-transcript-turn";
 import {
   buildAgentRunViewModel,
@@ -32,6 +34,15 @@ export function RunTurnDetailView(input: {
   const turn = viewModel?.transcriptTurns.find(
     (candidate) => candidate.turnId === input.turnId
   );
+  const turnTokenRow = viewModel?.turnTokens.rows.find(
+    (candidate) => candidate.turnLabel === `Turn ${turn?.turnSequence ?? 0}`
+  );
+  const modelValue =
+    viewModel?.metadata.find((row) => row.label === "Model")?.value ?? "Unavailable";
+  const turnDuration =
+    turn?.startedAtIso && turn?.endedAtIso
+      ? Math.max(0, Date.parse(turn.endedAtIso) - Date.parse(turn.startedAtIso))
+      : null;
 
   return (
     <div className="flex flex-col gap-8">
@@ -44,41 +55,43 @@ export function RunTurnDetailView(input: {
 
       {viewModel && turn ? (
         <>
-          <section className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="space-y-2">
-                <h1 className="text-3xl font-semibold tracking-tight">
-                  Turn {turn.turnSequence}
-                </h1>
-                <p className="max-w-3xl text-sm text-muted-foreground">
-                  Single-turn drilldown across prompt, transcript, tools, commands, and task state.
-                </p>
+          <section className="flex flex-col gap-3">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-semibold tracking-tight">
+                Turn {turn.turnSequence}
+              </h1>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">{modelValue}</Badge>
+                <Badge variant="secondary">Started {turn.startedAt}</Badge>
+                <Badge variant="secondary">
+                  {turn.endedAtIso ? `Ended ${turn.endedAt}` : "Still running"}
+                </Badge>
+                <Badge variant="outline">{turn.status}</Badge>
+                <Badge variant="outline">
+                  {turnDuration === null
+                    ? "In progress"
+                    : formatDurationMilliseconds(turnDuration)}
+                </Badge>
+                <Badge variant="outline">
+                  {`${formatCount(turn.totalTokens)} tokens`}
+                </Badge>
+                <Badge variant="outline">
+                  {`${formatCount(turn.commandCount)} commands`}
+                </Badge>
+                <Badge variant="outline">
+                  {`${formatCount(turn.toolCount)} tools`}
+                </Badge>
               </div>
             </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2">
-            <MetricCard
-              label="Status"
-              value={turn.status}
-              detail={`${turn.startedAt} → ${turn.endedAt}`}
-            />
-            <MetricCard
-              label="Tokens"
-              value={turn.tokenSummary}
-              detail="Token usage recorded for this turn."
-            />
+          <section className="grid gap-4 xl:grid-cols-2">
+            <RunTurnTokenChart rows={turnTokenRow ? [turnTokenRow] : []} />
+            <RunTurnActivityChart rows={[turn]} />
+            <RunTurnToolCallsChart turn={turn} className="xl:col-span-2" />
           </section>
 
-          <section className="flex flex-col gap-3">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">Turn transcript</h2>
-              <p className="text-sm text-muted-foreground">
-                The full transcript for this turn, including reasoning, commands, tools, tasks, and assistant output.
-              </p>
-            </div>
-            <RunTranscriptTurn turn={turn} onOpenOverflow={input.onOpenOverflow} />
-          </section>
+          <RunTranscriptTurn turn={turn} onOpenOverflow={input.onOpenOverflow} />
         </>
       ) : input.loading ? (
         <Card>
@@ -95,21 +108,5 @@ export function RunTurnDetailView(input: {
         </Alert>
       )}
     </div>
-  );
-}
-
-function MetricCard(input: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <Card className="border-border/70">
-      <CardHeader>
-        <CardDescription>{input.label}</CardDescription>
-        <CardTitle className="text-2xl">{input.value}</CardTitle>
-        <CardDescription>{input.detail}</CardDescription>
-      </CardHeader>
-    </Card>
   );
 }

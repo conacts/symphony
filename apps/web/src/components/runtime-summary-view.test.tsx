@@ -1,16 +1,12 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { buildFailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
-import { buildRuntimeSummaryViewModel } from "@/features/overview/model/overview-view-model";
 import { buildOverviewSuccessMetricsViewModel } from "@/features/overview/model/overview-success-metrics";
 import { OverviewView } from "@/features/overview/components/overview-view";
 import {
   buildSymphonyDashboardConnectionState,
-  buildSymphonyForensicsIssueListResult,
   buildSymphonyForensicsSuccessMetricsResult,
-  buildSymphonyRuntimeStateResult
-} from "../test-support/build-symphony-dashboard-view-fixtures.js";
+  } from "../test-support/build-symphony-dashboard-view-fixtures.js";
 
 describe("runtime summary view", () => {
   it("renders loading placeholders before the first snapshot arrives", () => {
@@ -22,12 +18,10 @@ describe("runtime summary view", () => {
           detail: "Fetching the first runtime summary snapshot."
         })}
         error={null}
-        failureAnalysis={null}
-        failureAnalysisError={null}
         loading
-        runtimeSummary={null}
         successMetrics={null}
-        successMetricsError={null}
+        selectedTimeRange="7d"
+        onTimeRangeChange={() => {}}
       />
     );
 
@@ -39,32 +33,20 @@ describe("runtime summary view", () => {
       <OverviewView
         connection={buildSymphonyDashboardConnectionState()}
         error={null}
-        failureAnalysis={buildFailureAnalysisViewModel(
-          buildSymphonyForensicsIssueListResult()
-        )}
-        failureAnalysisError={null}
         loading={false}
-        runtimeSummary={buildRuntimeSummaryViewModel(
-          buildSymphonyRuntimeStateResult(),
-          new Date("2026-03-31T18:02:00.000Z")
-        )}
         successMetrics={buildOverviewSuccessMetricsViewModel(
           buildSymphonyForensicsSuccessMetricsResult()
         )}
-        successMetricsError={null}
+        selectedTimeRange="7d"
+        onTimeRangeChange={() => {}}
       />
     );
 
     expect(html).toContain("Overview");
-    expect(html).toContain("Issue delivery rate");
-    expect(html).toContain("Delivery trend");
-    expect(html).toContain("Retry attempt queue");
-    expect(html).toContain("Retry pressure");
-    expect(html).toContain("Max-turn failures");
-    expect(html).toContain("Failure analysis");
-    expect(html).toContain("Open failure analysis");
-    expect(html).toContain("Active runs");
-    expect(html).toContain("COL-165");
-    expect(html).toContain("Worker disconnected");
+    expect(html).toContain("Time range");
+    expect(html).toContain("Weekly throughput");
+    expect(html).toContain("Delivered issues");
+    expect(html).toContain("Delivery velocity");
+    expect(html).toContain("Delivery retries");
   });
 });

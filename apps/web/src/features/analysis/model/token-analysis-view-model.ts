@@ -16,6 +16,14 @@ export type TokenAnalysisViewModel = {
     value: string;
     detail: string;
   }>;
+  timeSeriesRows: Array<{
+    date: string;
+    label: string;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    runCount: number;
+  }>;
   tokenCards: Array<{
     label: string;
     value: string;
@@ -72,6 +80,16 @@ export function buildTokenAnalysisViewModel(
       totalTokens: number;
     }
   >();
+  const dailyTotals = new Map<
+    string,
+    {
+      date: string;
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      runCount: number;
+    }
+  >();
   const turnRows = input.sampledRuns.flatMap((sampledRun) =>
     buildAgentTurnTokenRows({
       runArtifacts: sampledRun.artifacts
@@ -91,26 +109,43 @@ export function buildTokenAnalysisViewModel(
     .sort((left, right) => right.totalTokens - left.totalTokens);
 
   for (const run of input.sampledRuns) {
+    const day = run.run.startedAt.slice(0, 10);
     const current = issueTotals.get(run.issueIdentifier);
 
     if (current) {
       current.inputTokens += run.run.inputTokens;
       current.outputTokens += run.run.outputTokens;
       current.totalTokens += run.run.totalTokens;
-      continue;
+    } else {
+      issueTotals.set(run.issueIdentifier, {
+        issueIdentifier: run.issueIdentifier,
+        inputTokens: run.run.inputTokens,
+        outputTokens: run.run.outputTokens,
+        totalTokens: run.run.totalTokens
+      });
     }
 
-    issueTotals.set(run.issueIdentifier, {
-      issueIdentifier: run.issueIdentifier,
-      inputTokens: run.run.inputTokens,
-      outputTokens: run.run.outputTokens,
-      totalTokens: run.run.totalTokens
-    });
+    const daily = dailyTotals.get(day);
+    if (daily) {
+      daily.inputTokens += run.run.inputTokens;
+      daily.outputTokens += run.run.outputTokens;
+      daily.totalTokens += run.run.totalTokens;
+      daily.runCount += 1;
+    } else {
+      dailyTotals.set(day, {
+        date: day,
+        inputTokens: run.run.inputTokens,
+        outputTokens: run.run.outputTokens,
+        totalTokens: run.run.totalTokens,
+        runCount: 1
+      });
+    }
   }
 
   const issueTokenRows = Array.from(issueTotals.values())
     .sort((left, right) => right.totalTokens - left.totalTokens)
     .slice(0, 8);
+  const timeSeriesRows = buildTimeSeriesRows(dailyTotals);
   const totalRunTokens = runTokenRows.reduce((total, row) => total + row.totalTokens, 0);
   const totalTurnTokens = sumTurnTokenTotals(turnRows).totalTokens;
   const averageRunTokens =
@@ -126,26 +161,27 @@ export function buildTokenAnalysisViewModel(
   return {
     summaryCards: [
       {
+        label: "Total tokens",
+        value: formatCount(totalRunTokens),
+        detail: "Run token load across the selected sample window."
+      },
+      {
         label: "Sampled runs",
         value: formatCount(runTokenRows.length),
-        detail: "Recent runs with readable token data in the current sample."
+        detail: "Recent runs with readable token data in the selected window."
       },
       {
-        label: "Sampled turns",
-        value: formatCount(turnRows.length),
-        detail: "Recorded turns carrying typed usage totals."
+        label: "Average tokens / run",
+        value: formatCount(Math.round(averageRunTokens)),
+        detail: "Average run-level token load in the selected sample."
       },
       {
-        label: "Run tokens",
-        value: formatCount(totalRunTokens),
-        detail: "Total run-level token load across the sample."
-      },
-      {
-        label: "Turn tokens",
-        value: formatCount(totalTurnTokens),
-        detail: "Total turn-level token load across the sample."
+        label: "Cached-input share",
+        value: formatPercent(cachedShare),
+        detail: `${formatCount(cachedTurnTokens)} cached input tokens across sampled turns.`
       }
     ],
+    timeSeriesRows,
     tokenCards: [
       {
         label: "Average run tokens",
@@ -218,4 +254,73 @@ export function buildTokenAnalysisViewModel(
         : "No issue token hotspot is available yet."
     }
   };
+}
+
+function buildTimeSeriesRows(
+  dailyTotals: Map<
+    string,
+    {
+      date: string;
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      runCount: number;
+    }
+  >
+): Array<{
+  date: string;
+  label: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  runCount: number;
+}> {
+  const dates = [...dailyTotals.keys()].sort();
+
+  if (dates.length === 0) {
+    return [];
+  }
+
+  const start = new Date(`${dates[0]}T00:00:00.000Z`);
+  const end = new Date(`${dates[dates.length - 1]}T00:00:00.000Z`);
+  const rows: Array<{
+    date: string;
+    label: string;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    runCount: number;
+  }> = [];
+
+  for (
+    let cursor = new Date(start.getTime());
+    cursor.getTime() <= end.getTime();
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  ) {
+    const date = cursor.toISOString().slice(0, 10);
+    const row = dailyTotals.get(date);
+    rows.push({
+      date,
+      label: formatDayLabel(date),
+      inputTokens: row?.inputTokens ?? 0,
+      outputTokens: row?.outputTokens ?? 0,
+      totalTokens: row?.totalTokens ?? 0,
+      runCount: row?.runCount ?? 0
+    });
+  }
+
+  return rows;
+}
+
+function formatDayLabel(value: string): string {
+  const parsed = Date.parse(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed)) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC"
+  }).format(new Date(parsed));
 }

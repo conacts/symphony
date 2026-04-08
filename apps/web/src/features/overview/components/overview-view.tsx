@@ -1,6 +1,4 @@
 import React from "react";
-import Link from "next/link";
-import type { FailureAnalysisViewModel } from "@/features/analysis/model/failure-analysis-view-model";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
@@ -10,449 +8,123 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type {
-  RuntimeSummaryConnectionState,
-  RuntimeSummaryViewModel
+  RuntimeSummaryConnectionState
 } from "@/features/overview/model/overview-view-model";
-import { OverviewRetryChart } from "@/features/overview/components/overview-retry-chart";
-import { OverviewSuccessTrendChart } from "@/features/overview/components/overview-success-trend-chart";
-import { OverviewTokenChart } from "@/features/overview/components/overview-token-chart";
+import { OverviewCompletionChart } from "@/features/overview/components/overview-completion-chart";
+import {
+  overviewTimeRangeOptions,
+  type OverviewTimeRange
+} from "@/features/overview/model/overview-query-state";
 import type { OverviewSuccessMetricsViewModel } from "@/features/overview/model/overview-success-metrics";
 
 export function OverviewView(input: {
   connection: RuntimeSummaryConnectionState;
   error: string | null;
-  failureAnalysis: FailureAnalysisViewModel | null;
-  failureAnalysisError: string | null;
   loading: boolean;
-  runtimeSummary: RuntimeSummaryViewModel | null;
   successMetrics: OverviewSuccessMetricsViewModel | null;
-  successMetricsError: string | null;
+  selectedTimeRange: OverviewTimeRange;
+  onTimeRangeChange(timeRange: OverviewTimeRange): void;
 }) {
-  const runningMetric = input.runtimeSummary
-    ? findMetric(input.runtimeSummary, "Running")
-    : null;
-  const retryingMetric = input.runtimeSummary
-    ? findMetric(input.runtimeSummary, "Retrying")
-    : null;
-  const tokenMetric = input.runtimeSummary
-    ? findMetric(input.runtimeSummary, "Total tokens")
-    : null;
-  const runtimeMetric = input.runtimeSummary
-    ? findMetric(input.runtimeSummary, "Runtime")
-    : null;
+  const summaryCards = input.successMetrics?.cards ?? [];
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {input.error ? (
         <Alert variant="destructive">
-          <AlertTitle>Runtime summary degraded</AlertTitle>
+          <AlertTitle>Overview data degraded</AlertTitle>
           <AlertDescription>{input.error}</AlertDescription>
         </Alert>
       ) : null}
 
-      {input.failureAnalysisError ? (
-        <Alert variant="destructive">
-          <AlertTitle>Failure analysis degraded</AlertTitle>
-          <AlertDescription>{input.failureAnalysisError}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {input.successMetricsError ? (
-        <Alert variant="destructive">
-          <AlertTitle>Success metrics degraded</AlertTitle>
-          <AlertDescription>{input.successMetricsError}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {input.runtimeSummary ? (
+      {input.successMetrics ? (
         <>
-          <div className="space-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
-            <p className="text-sm text-muted-foreground">
-              Operator landing page for live pressure, active agent work, and what needs intervention next.
-            </p>
-          </div>
+          <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-1">
+              <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                Weekly performance for completed work. This page is meant to read like a
+                quick acknowledgement of what the orchestration platform delivered in the
+                selected window.
+              </p>
+            </div>
 
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-            <Card className="border-border/70">
-              <CardHeader>
-                <CardTitle>Operator focus</CardTitle>
-                <CardDescription>
-                  The current runtime story in one place before you drill into the detailed surfaces below.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Live work</p>
-                  <p className="mt-2 text-2xl font-semibold">
-                    {runningMetric?.value ?? "0"} active runs
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.runtimeSummary.runningRows[0]
-                      ? `${input.runtimeSummary.runningRows[0].issueIdentifier} is currently active.`
-                      : "No runs are active right now."}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Attention now</p>
-                  <p className="mt-2 text-2xl font-semibold">
-                    {retryingMetric?.value ?? "0"} retries waiting
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.runtimeSummary.retryRows[0]
-                      ? `${input.runtimeSummary.retryRows[0].issueIdentifier} is backing off because ${input.runtimeSummary.retryRows[0].error.toLowerCase()}`
-                      : "No issues are currently waiting for another attempt."}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Agent load</p>
-                  <p className="mt-2 text-2xl font-semibold">
-                    {tokenMetric?.value ?? "0"}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {tokenMetric?.detail ?? "Token usage is unavailable."}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Runtime posture</p>
-                  <p className="mt-2 text-2xl font-semibold">
-                    {runtimeMetric?.value ?? "0s"}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.connection.detail}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/70">
-              <CardHeader>
-                <CardTitle>Latest pressure</CardTitle>
-                <CardDescription>
-                  The most recent retry, headroom, and agent update signals from the runtime.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Latest retry</p>
-                  <p className="mt-2 font-medium">
-                    {input.runtimeSummary.retryRows[0]?.issueIdentifier ?? "None"}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {input.runtimeSummary.retryRows[0]?.error ??
-                      "No issue is currently in backoff."}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Headroom</p>
-                  <p className="mt-2 font-medium">
-                    {input.runtimeSummary.rateLimitRows[0]?.label ?? "Status"}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground break-words">
-                    {input.runtimeSummary.rateLimitRows[0]?.value ??
-                      "No upstream rate-limit snapshot is available yet."}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-sm text-muted-foreground">Latest agent update</p>
-                  <p className="mt-2 text-sm">
-                    {input.runtimeSummary.runningRows[0]?.agentUpdate ??
-                      "No live agent session is reporting updates right now."}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                Time range
+              </p>
+              <ToggleGroup
+                type="single"
+                variant="outline"
+                size="sm"
+                spacing={0}
+                value={input.selectedTimeRange}
+                onValueChange={(value) => {
+                  if (value) {
+                    input.onTimeRangeChange(value as OverviewTimeRange);
+                  }
+                }}
+                aria-label="Overview time range"
+              >
+                {overviewTimeRangeOptions.map((option) => (
+                  <ToggleGroupItem key={option.value} value={option.value}>
+                    {option.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {input.runtimeSummary.metrics.map((metric) => (
-              <Card key={metric.label}>
-                <CardHeader>
-                  <CardDescription>{metric.label}</CardDescription>
-                  <CardTitle className="text-3xl">{metric.value}</CardTitle>
+          <section>
+            <OverviewCompletionChart rows={input.successMetrics.completionRows} />
+          </section>
+
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {summaryCards.map((card) => (
+              <Card key={card.label}>
+                <CardHeader className="space-y-1 pb-2">
+                  <CardDescription>{card.label}</CardDescription>
+                  <CardTitle className="text-2xl">{card.value}</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
-                  {metric.detail}
+                <CardContent className="pt-0 text-sm text-muted-foreground">
+                  {card.detail}
                 </CardContent>
               </Card>
             ))}
           </section>
-
-          {input.successMetrics ? (
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {input.successMetrics.cards.map((card) => (
-                <Card key={card.label}>
-                  <CardHeader>
-                    <CardDescription>{card.label}</CardDescription>
-                    <CardTitle className="text-3xl">{card.value}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-sm text-muted-foreground">
-                    {card.detail}
-                  </CardContent>
-                </Card>
-              ))}
-            </section>
-          ) : null}
-
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {input.successMetrics
-              ? input.successMetrics.diagnostics.map((card) => (
-                  <Card key={card.label}>
-                    <CardHeader>
-                      <CardDescription>{card.label}</CardDescription>
-                      <CardTitle className="text-3xl">{card.value}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground">
-                      {card.detail}
-                    </CardContent>
-                  </Card>
-                ))
-              : input.runtimeSummary.piTelemetryCards.map((card) => (
-              <Card key={card.label}>
-                <CardHeader>
-                  <CardDescription>{card.label}</CardDescription>
-                  <CardTitle className="text-3xl">{card.value}</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
-                  {card.detail}
-                </CardContent>
-              </Card>
-                ))}
-          </section>
-
-          {input.failureAnalysis ? (
-            <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Failure analysis</CardTitle>
-                  <CardDescription>
-                    Cross-run failure patterns worth operator attention right now.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-xl border border-border/70 p-4">
-                    <p className="text-sm text-muted-foreground">Dominant mode</p>
-                    <p className="mt-2 break-all text-xl font-semibold">
-                      {input.failureAnalysis.spotlight.dominantFailureMode}
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {input.failureAnalysis.spotlight.dominantFailureModeDetail}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/70 p-4">
-                    <p className="text-sm text-muted-foreground">Dominant error class</p>
-                    <p className="mt-2 break-all text-xl font-semibold">
-                      {input.failureAnalysis.spotlight.dominantErrorClass}
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {input.failureAnalysis.spotlight.dominantErrorClassDetail}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/70 p-4">
-                    <p className="text-sm text-muted-foreground">Issues with failures</p>
-                    <p className="mt-2 text-xl font-semibold">
-                      {input.failureAnalysis.summaryCards[0]?.value ?? "0"}
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {input.failureAnalysis.summaryCards[0]?.detail ?? "Failure coverage unavailable."}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/70 p-4">
-                    <p className="text-sm text-muted-foreground">Problem run share</p>
-                    <p className="mt-2 text-xl font-semibold">
-                      {input.failureAnalysis.summaryCards[1]?.value ?? "0%"}
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {input.failureAnalysis.summaryCards[1]?.detail ?? "Problem rate unavailable."}
-                    </p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <Link
-                      href="/analysis/failures"
-                      className="text-sm font-medium text-foreground underline underline-offset-4"
-                    >
-                      Open failure analysis
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/70">
-                <CardHeader>
-                  <CardTitle>Top failure modes</CardTitle>
-                  <CardDescription>
-                    What is currently dominating failed work across issues.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  {input.failureAnalysis.failureModeRows.slice(0, 4).map((row) => (
-                    <div
-                      key={row.outcome}
-                      className="rounded-xl border border-border/70 p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium">{row.outcome}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {row.issueCount} issues
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/70">
-                <CardHeader>
-                  <CardTitle>Hotspot issues</CardTitle>
-                  <CardDescription>
-                    Issues carrying the heaviest current failure pressure.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  {input.failureAnalysis.hotspotRows.slice(0, 3).map((row) => (
-                    <div
-                      key={row.issueIdentifier}
-                      className="rounded-xl border border-border/70 p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <Link
-                          href={row.issueHref}
-                          className="font-medium underline-offset-4 hover:underline focus-visible:underline"
-                        >
-                          {row.issueIdentifier}
-                        </Link>
-                        <p className="text-sm text-muted-foreground">
-                          {row.problemRuns} problem runs
-                        </p>
-                      </div>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {row.latestProblemOutcome} · {row.latestErrorClass}
-                      </p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </section>
-          ) : null}
-
-          <section className="grid gap-6 xl:grid-cols-2">
-            {input.successMetrics ? (
-              <OverviewSuccessTrendChart rows={input.successMetrics.trendRows} />
-            ) : (
-              <OverviewTokenChart rows={input.runtimeSummary.tokenChartRows} />
-            )}
-            <OverviewRetryChart rows={input.runtimeSummary.retryChartRows} />
-          </section>
-
-          <section className="grid gap-6 xl:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Active runs</CardTitle>
-                <CardDescription>
-                  The primary operator surface for the work happening in this runtime right now.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {input.runtimeSummary.runningRows.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No active sessions.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Issue</TableHead>
-                        <TableHead>State</TableHead>
-                        <TableHead>Session</TableHead>
-                        <TableHead>Execution</TableHead>
-                        <TableHead>Runtime / turns</TableHead>
-                        <TableHead>Agent update</TableHead>
-                        <TableHead>Tokens</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {input.runtimeSummary.runningRows.map((row) => (
-                        <TableRow key={row.issueIdentifier}>
-                          <TableCell>{row.issueIdentifier}</TableCell>
-                          <TableCell>{row.state}</TableCell>
-                          <TableCell>{row.sessionId ?? "n/a"}</TableCell>
-                          <TableCell>{row.execution}</TableCell>
-                          <TableCell>{row.runtimeAndTurns}</TableCell>
-                          <TableCell>{row.agentUpdate}</TableCell>
-                          <TableCell>{row.tokenSummary}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Retry pressure</CardTitle>
-                <CardDescription>
-                  Issues currently waiting for the next retry window.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                {input.runtimeSummary.retryRows.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No issues are currently backing off.
-                  </p>
-                ) : (
-                  input.runtimeSummary.retryRows.map((row) => (
-                    <div
-                      key={`${row.issueIdentifier}:${row.attempt}`}
-                      className="rounded-xl border border-border/70 p-4"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="font-medium">{row.issueIdentifier}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Attempt {row.attempt}
-                        </p>
-                      </div>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Due {row.dueAt}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {row.execution}
-                      </p>
-                      <p className="mt-3 text-sm">{row.error}</p>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          </section>
         </>
       ) : input.loading ? (
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }, (_, index) => (
-            <Card key={index}>
-              <CardHeader>
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-8 w-20" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-40" />
-              </CardContent>
-            </Card>
-          ))}
+        <section className="grid gap-4">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-8 w-48" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-80 w-full" />
+            </CardContent>
+          </Card>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }, (_, index) => (
+              <Card key={index}>
+                <CardHeader>
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-8 w-20" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-4 w-40" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </section>
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>Runtime summary unavailable</CardTitle>
+            <CardTitle>Weekly performance unavailable</CardTitle>
             <CardDescription>
-              The dashboard could not load the runtime snapshot.
+              The dashboard could not load the success-metrics snapshot.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
@@ -462,11 +134,4 @@ export function OverviewView(input: {
       )}
     </div>
   );
-}
-
-function findMetric(
-  runtimeSummary: RuntimeSummaryViewModel,
-  label: string
-) {
-  return runtimeSummary.metrics.find((metric) => metric.label === label) ?? null;
 }
