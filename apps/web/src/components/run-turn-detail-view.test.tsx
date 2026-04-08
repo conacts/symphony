@@ -3,7 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { RunTurnDetailView } from "@/features/runs/components/run-turn-detail-view";
 import {
+  buildSymphonyAgentRunArtifactsDiffDemoResult,
   buildSymphonyAgentRunArtifactsResult,
+  buildSymphonyForensicsRunDetailDiffDemoResult,
   buildSymphonyForensicsRunDetailResult
 } from "@/test-support/build-symphony-dashboard-view-fixtures";
 
@@ -108,6 +110,55 @@ describe("run turn detail view", () => {
     );
 
     expect(html).toContain("Keep the patch scoped");
+  });
+
+  it("renders inline edit and write diffs for the run 456 demo fixture", () => {
+    const runDetail = buildSymphonyForensicsRunDetailDiffDemoResult();
+    const runArtifacts = buildSymphonyAgentRunArtifactsDiffDemoResult();
+
+    expect(runDetail.turns).toHaveLength(3);
+    expect(runArtifacts.turns).toHaveLength(3);
+
+    const editHtml = renderToStaticMarkup(
+      <RunTurnDetailView
+        error={null}
+        loading={false}
+        resource={{
+          runDetail,
+          runArtifacts,
+          agentError: null
+        }}
+        turnId="turn_2"
+        onOpenOverflow={vi.fn()}
+      />
+    );
+
+    expect(editHtml).toContain("Turn 2");
+    expect(editHtml).toContain("src/app/page.tsx");
+    expect(editHtml).toContain("@@ edit 1 @@");
+    expect(editHtml).toContain("Updated page copy");
+    expect(editHtml).toContain("Old page copy");
+
+    const writeHtml = renderToStaticMarkup(
+      <RunTurnDetailView
+        error={null}
+        loading={false}
+        resource={{
+          runDetail,
+          runArtifacts,
+          agentError: null
+        }}
+        turnId="turn_3"
+        onOpenOverflow={vi.fn()}
+      />
+    );
+
+    expect(writeHtml).toContain("Turn 3");
+    expect(writeHtml).toContain("src/app/layout.tsx");
+    expect(writeHtml).toContain("@@ -1,3 +1,3 @@");
+    expect(writeHtml).toContain("lang=&quot;en&quot;");
+    expect(writeHtml).toContain("Task complete.");
+    expect(writeHtml).toContain("Read and write diffs are visible inline.");
   });
 
   it("renders a not found state when the turn is missing", () => {

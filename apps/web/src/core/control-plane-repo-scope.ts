@@ -61,3 +61,10 @@ export function describeControlPlaneRepositoryScope(
 
   return `${linearScope} • ${authLabel}`;
 }
+
+export function formatControlPlaneRepositoryName(
+  repositoryKey: string
+): string {
+  const segments = repositoryKey.split("/");
+  return segments[segments.length - 1] ?? repositoryKey;
+}

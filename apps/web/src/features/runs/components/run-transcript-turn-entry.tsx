@@ -113,6 +113,7 @@ export function RunTranscriptTurnEntry(input: {
         entry={entry}
         icon={<PencilIcon className="size-4" />}
         title={buildPiEditTaskTitle(entry)}
+        defaultOpen
       >
         <TaskItem>{formatPiEditLineCount(entry.lineCount)}</TaskItem>
         {entry.firstChangedLine ? (
@@ -142,6 +143,7 @@ export function RunTranscriptTurnEntry(input: {
         entry={entry}
         icon={<UploadIcon className="size-4" />}
         title={buildPiWriteTaskTitle(entry)}
+        defaultOpen
       >
         <TaskItem>{formatPiWriteLineCount(entry.lineCount)}</TaskItem>
         {entry.paths.length > 0 ? (
@@ -286,11 +288,12 @@ function PiTaskCard(input: {
   icon: ReactNode;
   title: string;
   children: ReactNode;
+  defaultOpen?: boolean;
 }) {
   return (
     <div className="space-y-2">
       <TranscriptMetaRow items={[input.entry.recordedAt]} />
-      <Task className="mb-0" defaultOpen={false}>
+      <Task className="mb-0" defaultOpen={input.defaultOpen ?? false}>
         <TaskTrigger title={input.title}>
           <div className="flex w-full cursor-pointer items-center gap-2 text-sm text-foreground transition-colors hover:text-foreground">
             {input.icon}
