@@ -33,7 +33,7 @@ export default defineSymphonyRuntime({
   env: {
     host: {
       required: [],
-      optional: []
+      optional: ["CONTEXT7_API_KEY"]
     },
     inject: {
       SYMPHONY_ISSUE_IDENTIFIER: {
