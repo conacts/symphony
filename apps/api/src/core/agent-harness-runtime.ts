@@ -257,6 +257,10 @@ async function executeRun(input: {
     const session = await input.harness.startSession({
       launchTarget: input.launchTarget,
       env: {
+        NO_COLOR: "1",
+        FORCE_COLOR: "0",
+        CLICOLOR: "0",
+        CLICOLOR_FORCE: "0",
         ...input.workspace.envBundle.values,
         ...input.harnessLaunchEnv
       },
