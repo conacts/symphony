@@ -23,17 +23,24 @@ describe("run turn detail view", () => {
       />
     );
 
-    expect(html).toContain("Turn transcript");
-    expect(html).toContain("Single-turn drilldown");
     expect(html).not.toContain("Back to turns table");
     expect(html).toContain("Turn 1");
     expect(html).toContain("Operator prompt");
+    expect(html).toContain("Turn token load");
+    expect(html).toContain("Turn activity");
+    expect(html).toContain("Tool calls made");
+    expect(html).toContain("pnpm lint");
+    expect(html).toContain("pnpm test");
+    expect(html).toContain("linear");
+    expect(html).toContain("get_issue");
     expect(html).toContain("Reasoning");
     expect(html).toContain("Tool call");
     expect(html).toContain("View full message");
     expect(html).toContain("Total tokens 240");
-    expect(html).toContain("Total 240");
     expect(html).not.toContain("Openrouter / Responses");
+    expect(html).not.toContain("Turn transcript");
+    expect(html).not.toContain("Single-turn drilldown");
+    expect(html).not.toContain("Total 240");
   });
 
   it("renders a task timeline section when todo snapshots are present", () => {
@@ -101,8 +108,7 @@ describe("run turn detail view", () => {
       />
     );
 
-    expect(html).toContain("Task queue");
-    expect(html).toContain("1 tasks");
+    expect(html).toContain("Todo list");
     expect(html).toContain("Keep the patch scoped");
   });
 
