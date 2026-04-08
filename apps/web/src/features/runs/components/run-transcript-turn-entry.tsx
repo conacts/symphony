@@ -227,7 +227,9 @@ export function RunTranscriptTurnEntry(input: {
             </div>
           </TaskTrigger>
           <TaskContent>
-            <CodeBlock code={entry.outputText} language="bash" />
+            <RunTranscriptCopy className="rounded-md border border-border/70 bg-muted/40 p-3 font-mono text-xs leading-5">
+              {entry.outputText}
+            </RunTranscriptCopy>
             <EntryFiles files={entry.files} />
             {entry.overflowId ? (
               <div className="pt-1">
@@ -332,10 +334,15 @@ function TranscriptMetaRow(input: {
   const items = input.items.filter((item): item is ReactNode => item !== null);
 
   return (
-    <div className="flex flex-wrap items-center text-xs text-foreground">
+    <div className="flex flex-wrap items-center text-xs text-muted-foreground">
       {items.map((item, index) => (
         <React.Fragment key={index}>
-          {index > 0 ? <Separator orientation="vertical" className="mx-1 h-3" /> : null}
+          {index > 0 ? (
+            <Separator
+              orientation="vertical"
+              className="mx-2 h-4 !w-[2px] !self-center"
+            />
+          ) : null}
           <span className="font-medium">{item}</span>
         </React.Fragment>
       ))}
