@@ -50,7 +50,7 @@ export function RunTranscriptTurnEntry(input: {
   if (entry.kind === "agent-message") {
     return (
       <Message from="assistant">
-        <MessageContent className="gap-2">
+        <MessageContent className="gap-2 max-w-full">
           <TranscriptMetaRow
             items={[
               entry.recordedAt,
@@ -130,7 +130,7 @@ export function RunTranscriptTurnEntry(input: {
         )}
         {entry.diffText ? (
           <div className="pt-1">
-            <CodeBlock code={entry.diffText} language="diff" />
+            <CodeBlock code={formatDiffForDisplay(entry.diffText)} language="diff" />
           </div>
         ) : null}
       </PiTaskCard>
@@ -157,7 +157,7 @@ export function RunTranscriptTurnEntry(input: {
         )}
         {entry.diffText ? (
           <div className="pt-1">
-            <CodeBlock code={entry.diffText} language="diff" />
+            <CodeBlock code={formatDiffForDisplay(entry.diffText)} language="diff" />
           </div>
         ) : null}
       </PiTaskCard>
@@ -387,4 +387,16 @@ function formatPiWriteLineCount(lineCount: number): string {
 
 function formatTimeoutSeconds(timeoutSeconds: number): string {
   return `${formatCount(timeoutSeconds)}-second timeout`;
+}
+
+function formatDiffForDisplay(diffText: string): string {
+  const unescaped = diffText.replace(/\\n/g, "\n");
+  if (unescaped.includes("\n")) {
+    return unescaped;
+  }
+
+  return unescaped
+    .replace(/\s(?=(?:diff --git|index |--- |\+\+\+ |@@ ))/g, "\n")
+    .replace(/(@@[^@\n]*@@)\s+/g, "$1\n")
+    .replace(/\s(?=[+-][^\s])/g, "\n");
 }

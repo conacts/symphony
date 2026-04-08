@@ -418,10 +418,15 @@ export const CodeBlockContent = ({
   }, [code, language]);
 
   const tokenized = asyncTokens ?? syncTokens;
+  const shouldWrap = language === "diff";
 
   return (
-    <div className="relative overflow-auto">
-      <CodeBlockBody showLineNumbers={showLineNumbers} tokenized={tokenized} />
+    <div className={cn("relative", shouldWrap ? "overflow-hidden" : "overflow-auto")}>
+      <CodeBlockBody
+        showLineNumbers={showLineNumbers}
+        tokenized={tokenized}
+        className={shouldWrap ? "whitespace-pre-wrap break-words [overflow-wrap:anywhere]" : undefined}
+      />
     </div>
   );
 };
