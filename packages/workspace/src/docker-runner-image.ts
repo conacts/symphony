@@ -1,11 +1,18 @@
 import {
   defaultDockerWorkspaceCommandRunner,
   dockerCommandError,
+  dockerLabelFlags,
   isDockerMissingObject
 } from "./docker-client.js";
 import type {
   DockerWorkspaceCommandResult,
   DockerWorkspaceCommandRunner
+} from "./docker-shared.js";
+import {
+  managedBackendLabelKey,
+  managedBackendLabelValue,
+  managedKindLabelKey,
+  managedWorkspacePreflightKind
 } from "./docker-shared.js";
 import { SymphonyWorkspaceError } from "./workspace-identity.js";
 
@@ -155,9 +162,16 @@ async function assertDockerImageToolContract(input: {
   shell: string;
   timeoutMs: number;
 }): Promise<void> {
+  const preflightContainerName = buildDockerWorkspacePreflightContainerName();
   const args = [
     "run",
     "--rm",
+    "--name",
+    preflightContainerName,
+    ...dockerLabelFlags({
+      [managedBackendLabelKey]: managedBackendLabelValue,
+      [managedKindLabelKey]: managedWorkspacePreflightKind
+    }),
     "--entrypoint",
     input.shell,
     input.image,
@@ -205,6 +219,14 @@ async function assertDockerImageToolContract(input: {
   }
 
   throw dockerCommandError("run", args, result);
+}
+
+function buildDockerWorkspacePreflightContainerName(): string {
+  return [
+    "symphony-workspace-preflight",
+    String(process.pid),
+    Date.now().toString(36)
+  ].join("-");
 }
 
 function renderRequiredToolsCheckScript(tools: readonly string[]): string {

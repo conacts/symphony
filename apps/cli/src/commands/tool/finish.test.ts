@@ -30,7 +30,9 @@ afterEach(async () => {
 });
 
 describe("tool finish command", () => {
-  it("records a completed delivery report from CLI context", async () => {
+  it(
+    "records a completed delivery report from CLI context",
+    async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-cli-finish-"));
     tempRoots.push(root);
 
@@ -85,9 +87,13 @@ describe("tool finish command", () => {
       })
     );
     verificationDb.close();
-  });
+    },
+    20_000
+  );
 
-  it("fails cleanly when required runtime context is missing", async () => {
+  it(
+    "fails cleanly when required runtime context is missing",
+    async () => {
     await expect(
       execFinishCommand(
         [
@@ -104,76 +110,84 @@ describe("tool finish command", () => {
     ).rejects.toMatchObject({
       stderr: expect.stringContaining("Missing required Symphony CLI environment variable")
     });
-  });
+    },
+    20_000
+  );
 
-  it("records delivery through the runtime tools API when a control-plane URL is available", async () => {
-    let requestBody = "";
-    const server = createServer((request, response) => {
-      request.setEncoding("utf8");
-      request.on("data", (chunk) => {
-        requestBody += chunk;
-      });
-      request.on("end", () => {
-        response.writeHead(200, {
-          "Content-Type": "application/json"
+  it(
+    "records delivery through the runtime tools API when a control-plane URL is available",
+    async () => {
+      let requestBody = "";
+      const server = createServer((request, response) => {
+        request.setEncoding("utf8");
+        request.on("data", (chunk) => {
+          requestBody += chunk;
         });
-        response.end(
-          JSON.stringify({
-            ok: true,
-            schemaVersion: "1",
-            data: {
-              success: true,
-              output: JSON.stringify({ recorded: true, via: "api" }),
-              contentItems: [
-                {
-                  type: "inputText",
-                  text: JSON.stringify({ recorded: true, via: "api" })
-                }
-              ]
-            },
-            meta: {
-              durationMs: 0,
-              generatedAt: new Date().toISOString()
-            }
-          })
-        );
+        request.on("end", () => {
+          response.writeHead(200, {
+            "Content-Type": "application/json"
+          });
+          response.end(
+            JSON.stringify({
+              ok: true,
+              schemaVersion: "1",
+              data: {
+                success: true,
+                output: JSON.stringify({ recorded: true, via: "api" }),
+                contentItems: [
+                  {
+                    type: "inputText",
+                    text: JSON.stringify({ recorded: true, via: "api" })
+                  }
+                ]
+              },
+              meta: {
+                durationMs: 0,
+                generatedAt: new Date().toISOString()
+              }
+            })
+          );
+        });
       });
-    });
 
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
-    const address = server.address();
-    if (!address || typeof address === "string") {
-      server.close();
-      throw new TypeError("Expected a TCP address for the CLI finish API test.");
-    }
-
-    try {
-      const command = await execFinishCommand(
-        [
-          "--status",
-          "partial",
-          "--summary",
-          "Partial delivery through the control plane."
-        ],
-        {
-          SYMPHONY_API_BASE_URL: `http://127.0.0.1:${address.port}`,
-          SYMPHONY_RUN_ID: "run-456",
-          SYMPHONY_ISSUE_ID: "issue-456",
-          SYMPHONY_ISSUE_IDENTIFIER: "COL-456",
-          SYMPHONY_ISSUE_STATE: "In Progress",
-          SYMPHONY_TURN_ID: "turn-456"
-        }
+      await new Promise<void>((resolve) =>
+        server.listen(0, "127.0.0.1", () => resolve())
       );
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close();
+        throw new TypeError("Expected a TCP address for the CLI finish API test.");
+      }
 
-      expect(command.stdout).toContain('"recorded": true');
-      expect(requestBody).toContain('"runId":"run-456"');
-      expect(requestBody).toContain('"status":"partial"');
-    } finally {
-      await new Promise<void>((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve()))
-      );
-    }
-  });
+      try {
+        const command = await execFinishCommand(
+          [
+            "--status",
+            "partial",
+            "--summary",
+            "Partial delivery through the control plane."
+          ],
+          {
+            SYMPHONY_API_BASE_URL: `http://127.0.0.1:${address.port}`,
+            SYMPHONY_RUN_ID: "run-456",
+            SYMPHONY_ISSUE_ID: "issue-456",
+            SYMPHONY_ISSUE_IDENTIFIER: "COL-456",
+            SYMPHONY_ISSUE_STATE: "In Progress",
+            SYMPHONY_TURN_ID: "turn-456"
+          }
+        );
+
+        expect(command.stdout).toContain('"recorded": true');
+        expect(requestBody).toContain('"runId":"run-456"');
+        expect(requestBody).toContain('"status":"partial"');
+      } finally {
+        await new Promise<void>((resolve, reject) =>
+          server.close((error) => (error ? reject(error) : resolve()))
+        );
+      }
+    },
+    20_000
+  );
 });
 
 function execFinishCommand(

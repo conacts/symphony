@@ -34,6 +34,7 @@ export const managedServiceMemoryMbLabelKey = "dev.symphony.service-memory-mb";
 export const managedServiceCpuSharesLabelKey = "dev.symphony.service-cpu-shares";
 export const managedHostFileMountsHashLabelKey = "dev.symphony.host-file-mounts-hash";
 export const managedWorkspaceContainerKind = "workspace_container";
+export const managedWorkspacePreflightKind = "workspace_preflight";
 export const managedWorkspaceNetworkKind = "workspace_network";
 export const managedWorkspaceServiceKind = "workspace_service";
 export const managedSharedServiceKind = "shared_service";

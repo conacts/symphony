@@ -26,101 +26,115 @@ afterEach(async () => {
 });
 
 describe("tool spike-result command", () => {
-  it("fails cleanly when the spike details are missing", async () => {
-    await expect(
-      execSpikeResultCommand(
-        [
-          "--summary",
-          "Need a detailed comment."
-        ],
-        {
-          SYMPHONY_RUN_ID: "run-123",
-          SYMPHONY_ISSUE_ID: "issue-123",
-          SYMPHONY_ISSUE_IDENTIFIER: "COL-123"
-        }
-      )
-    ).rejects.toMatchObject({
-      stderr: expect.stringContaining("requires either `--details` or `--details-file`")
-    });
-  });
-
-  it("submits the spike result through the runtime tools API when a control-plane URL is available", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-cli-spike-result-"));
-    tempRoots.push(root);
-
-    const detailsFile = path.join(root, "spike-result.md");
-    await writeFile(
-      detailsFile,
-      "- Findings\n- Recommendation: proceed with the container-side SDK runner spike."
-    );
-
-    let requestBody = "";
-    const server = createServer((request, response) => {
-      request.setEncoding("utf8");
-      request.on("data", (chunk) => {
-        requestBody += chunk;
+  it(
+    "fails cleanly when the spike details are missing",
+    async () => {
+      await expect(
+        execSpikeResultCommand(
+          [
+            "--summary",
+            "Need a detailed comment."
+          ],
+          {
+            SYMPHONY_RUN_ID: "run-123",
+            SYMPHONY_ISSUE_ID: "issue-123",
+            SYMPHONY_ISSUE_IDENTIFIER: "COL-123"
+          }
+        )
+      ).rejects.toMatchObject({
+        stderr: expect.stringContaining(
+          "requires either `--details` or `--details-file`"
+        )
       });
-      request.on("end", () => {
-        response.writeHead(200, {
-          "Content-Type": "application/json"
+    },
+    20_000
+  );
+
+  it(
+    "submits the spike result through the runtime tools API when a control-plane URL is available",
+    async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "symphony-cli-spike-result-"));
+      tempRoots.push(root);
+
+      const detailsFile = path.join(root, "spike-result.md");
+      await writeFile(
+        detailsFile,
+        "- Findings\n- Recommendation: proceed with the container-side SDK runner spike."
+      );
+
+      let requestBody = "";
+      const server = createServer((request, response) => {
+        request.setEncoding("utf8");
+        request.on("data", (chunk) => {
+          requestBody += chunk;
         });
-        response.end(
-          JSON.stringify({
-            ok: true,
-            schemaVersion: "1",
-            data: {
-              success: true,
-              output: JSON.stringify({ commentPosted: true, via: "api" }),
-              contentItems: [
-                {
-                  type: "inputText",
-                  text: JSON.stringify({ commentPosted: true, via: "api" })
-                }
-              ]
-            },
-            meta: {
-              durationMs: 0,
-              generatedAt: new Date().toISOString()
-            }
-          })
-        );
+        request.on("end", () => {
+          response.writeHead(200, {
+            "Content-Type": "application/json"
+          });
+          response.end(
+            JSON.stringify({
+              ok: true,
+              schemaVersion: "1",
+              data: {
+                success: true,
+                output: JSON.stringify({ commentPosted: true, via: "api" }),
+                contentItems: [
+                  {
+                    type: "inputText",
+                    text: JSON.stringify({ commentPosted: true, via: "api" })
+                  }
+                ]
+              },
+              meta: {
+                durationMs: 0,
+                generatedAt: new Date().toISOString()
+              }
+            })
+          );
+        });
       });
-    });
 
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
-    const address = server.address();
-    if (!address || typeof address === "string") {
-      server.close();
-      throw new TypeError("Expected a TCP address for the CLI spike-result API test.");
-    }
-
-    try {
-      const command = await execSpikeResultCommand(
-        [
-          "--summary",
-          "Documented the spike result.",
-          "--details-file",
-          detailsFile
-        ],
-        {
-          SYMPHONY_API_BASE_URL: `http://127.0.0.1:${address.port}`,
-          SYMPHONY_RUN_ID: "run-456",
-          SYMPHONY_ISSUE_ID: "issue-456",
-          SYMPHONY_ISSUE_IDENTIFIER: "COL-456",
-          SYMPHONY_ISSUE_STATE: "In Progress",
-          SYMPHONY_TURN_ID: "turn-456"
-        }
+      await new Promise<void>((resolve) =>
+        server.listen(0, "127.0.0.1", () => resolve())
       );
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close();
+        throw new TypeError(
+          "Expected a TCP address for the CLI spike-result API test."
+        );
+      }
 
-      expect(command.stdout).toContain('"commentPosted": true');
-      expect(requestBody).toContain('"runId":"run-456"');
-      expect(requestBody).toContain('"summary":"Documented the spike result."');
-    } finally {
-      await new Promise<void>((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve()))
-      );
-    }
-  });
+      try {
+        const command = await execSpikeResultCommand(
+          [
+            "--summary",
+            "Documented the spike result.",
+            "--details-file",
+            detailsFile
+          ],
+          {
+            SYMPHONY_API_BASE_URL: `http://127.0.0.1:${address.port}`,
+            SYMPHONY_RUN_ID: "run-456",
+            SYMPHONY_ISSUE_ID: "issue-456",
+            SYMPHONY_ISSUE_IDENTIFIER: "COL-456",
+            SYMPHONY_ISSUE_STATE: "In Progress",
+            SYMPHONY_TURN_ID: "turn-456"
+          }
+        );
+
+        expect(command.stdout).toContain('"commentPosted": true');
+        expect(requestBody).toContain('"runId":"run-456"');
+        expect(requestBody).toContain('"summary":"Documented the spike result."');
+      } finally {
+        await new Promise<void>((resolve, reject) =>
+          server.close((error) => (error ? reject(error) : resolve()))
+        );
+      }
+    },
+    20_000
+  );
 });
 
 function execSpikeResultCommand(

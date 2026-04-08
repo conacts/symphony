@@ -518,7 +518,7 @@ async function runDockerRunCommand(
     AttachStderr: !parsed.detached
   };
 
-  let created;
+  let created: { Id: string; Warnings?: string[] } | undefined;
   try {
     created = await client.containerCreate(
       createRequest,
@@ -533,42 +533,44 @@ async function runDockerRunCommand(
   }
 
   try {
-    await client.containerStart(created.Id);
-  } catch (error) {
-    if (isDockerNotFoundError(error)) {
-      return missingDockerObjectResult("container", created.Id);
+    try {
+      await client.containerStart(created.Id);
+    } catch (error) {
+      if (isDockerNotFoundError(error)) {
+        return missingDockerObjectResult("container", created.Id);
+      }
+
+      throw error;
     }
 
-    throw error;
-  }
+    if (parsed.detached) {
+      return {
+        exitCode: 0,
+        stdout: `${created.Id}\n`,
+        stderr: ""
+      };
+    }
 
-  if (parsed.detached) {
+    const waitResponse = await client.containerWait(created.Id);
+    const stdout = createStringCollector();
+    const stderr = createStringCollector();
+    await client.containerLogs(created.Id, stdout.writer, stderr.writer, {
+      follow: false,
+      stdout: true,
+      stderr: true,
+      tail: "all"
+    });
+
     return {
-      exitCode: 0,
-      stdout: `${created.Id}\n`,
-      stderr: ""
+      exitCode: waitResponse.StatusCode,
+      stdout: stdout.value(),
+      stderr: stderr.value()
     };
+  } finally {
+    if (parsed.autoRemove && created) {
+      await client.containerDelete(created.Id, { force: true }).catch(() => undefined);
+    }
   }
-
-  const waitResponse = await client.containerWait(created.Id);
-  const stdout = createStringCollector();
-  const stderr = createStringCollector();
-  await client.containerLogs(created.Id, stdout.writer, stderr.writer, {
-    follow: false,
-    stdout: true,
-    stderr: true,
-    tail: "all"
-  });
-
-  if (parsed.autoRemove) {
-    await client.containerDelete(created.Id, { force: true }).catch(() => undefined);
-  }
-
-  return {
-    exitCode: waitResponse.StatusCode,
-    stdout: stdout.value(),
-    stderr: stderr.value()
-  };
 }
 
 function parseDockerRunCommand(args: string[]): {
