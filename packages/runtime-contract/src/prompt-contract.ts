@@ -1,52 +1,12 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { buildSymphonyRunModeSection, symphonyHarnessPromptAppendix } from "./prompt-sections.js";
+import type { SymphonyRunMode } from "./prompt-run-mode.js";
+
+export { symphonyHarnessPromptAppendix } from "./prompt-sections.js";
+export { deriveSymphonyRunMode, type SymphonyRunMode } from "./prompt-run-mode.js";
 
 export const defaultSymphonyPromptContractRelativePath = ".symphony/prompt.md";
-export const symphonyHarnessPromptAppendix = [
-  "## Symphony harness guidance",
-  "### Project runtime tools",
-  "- `pnpm exec symphony tool finish ...`: Record delivery for implementation or rework runs, move the issue to `In Review`, and end the run.",
-  "- `pnpm exec symphony tool merge-result ...`: Record the explicit outcome of an approved merge run. Use `merged` for a clean merge and `blocked` when conflicts or verification failures could not be resolved safely.",
-  "- The active Linear workspace for this repository is `symphony-harness`.",
-  "- Treat Linear as the source of truth for issue status, review feedback, and delivery state.",
-  "- Prefer PI-native harness tools over shelling out for equivalent file work.",
-  "- Use `pi.read` for file reads and structured inspection whenever possible.",
-  "- Use `pi.edit` for scoped file edits whenever possible.",
-  "- Before editing, gather enough local context to make one clean patch instead of many small speculative changes.",
-  "- Use shell commands for project execution, verification, and operations that are not exposed through PI-native tools.",
-  "- Prefer built-in Pi tools for reading, searching, and editing files. Use shell primarily for execution tasks like tests, builds, git, and package-manager commands.",
-  "- Keep file operations targeted and avoid broad recursive shell reads when PI-native tool calls can provide the same information.",
-  "- If Symphony exposes built-in Linear tools in this runtime, use them instead of searching for `LINEAR_API_KEY` in shell startup files or the workspace.",
-  "- If the `linear` CLI is available in the host or workspace runner, prefer it over ad hoc shell scripts for direct Linear inspection.",
-  "- If the issue is in `Rework`, or review feedback is already present, read the latest Linear comment context and any relevant PR review feedback before editing so the run addresses the newest feedback.",
-  "- Treat the mode-specific Symphony CLI command as the explicit completion boundary for every run.",
-  "- Implementation and rework runs complete through `pnpm exec symphony tool finish ...`.",
-  "- Approved merge runs complete through `pnpm exec symphony tool merge-result ...`.",
-  "- The finish command records delivery and moves the issue to `In Review` for you.",
-  "- Never move the issue to `Done` yourself from the agent runtime.",
-  "- If the work is blocked or only partially delivered, call `pnpm exec symphony tool finish ...` with the matching status and the concrete reason before ending the run."
-].join("\n");
-
-export type SymphonyRunMode =
-  | "implementation"
-  | "rework"
-  | "approved_merge";
-
-export function deriveSymphonyRunMode(
-  issueState: string | null | undefined
-): SymphonyRunMode {
-  const normalizedState = issueState?.trim().toLowerCase() ?? "";
-
-  if (normalizedState === "rework") {
-    return "rework";
-  }
-
-  if (normalizedState === "approved") {
-    return "approved_merge";
-  }
-
-  return "implementation";
-}
 
 export type SymphonyPromptContractIssue = {
   id: string;
@@ -356,33 +316,7 @@ function appendFallbackHandoffSection(
 function buildPromptRunModeSection(
   payload: SymphonyPromptContractPayload
 ): string {
-  const runMode = payload.run_mode;
-
-  if (runMode === "rework") {
-    return [
-      "Current run mode: Rework",
-      "- Read the latest Linear rework note and any relevant GitHub review comment context first.",
-      "- Address the requested feedback before taking on any new work.",
-      "- Keep the patch scoped to the requested revisions."
-    ].join("\n");
-  }
-
-  if (runMode === "approved_merge") {
-    return [
-      "Current run mode: Approved Merge",
-      "- This run is for merge completion, not normal feature development.",
-      "- Update the branch from the latest `main` and resolve conflicts conservatively.",
-      "- Run the required verification and merge only if the branch is clean.",
-      "- If the merge succeeds, report it with `pnpm exec symphony tool merge-result --status merged ...`.",
-      "- If conflicts or verification failures cannot be resolved safely, report the blocked result with `pnpm exec symphony tool merge-result --status blocked ...`."
-    ].join("\n");
-  }
-
-  return [
-    "Current run mode: Implementation",
-    "- Complete the requested ticket work in the current workspace.",
-    "- Keep the patch targeted and move directly toward a review-ready result."
-  ].join("\n");
+  return buildSymphonyRunModeSection(payload.run_mode);
 }
 
 function buildPromptHandoffSection(

@@ -1,4 +1,8 @@
+# Symphony Agent Run
+
 You are working on Linear issue {{ issue.identifier }} for repository {{ repo.name }}.
+
+## Run Context
 
 Run: {{ run.id }}
 Linear workspace: symphony-harness
@@ -10,7 +14,8 @@ Issue URL: {{ issue.url }}
 This shell already starts in the correct admitted repo workspace at `{{ workspace.path }}`.
 Stay in that directory. Do not search for or `cd` into another copy of the repository.
 
-Completion boundary:
+## Completion Boundary
+
 - This run is not complete until Symphony records the required explicit result.
 - For implementation or rework runs, use `pnpm exec symphony tool finish ...` as the required completion step.
 - For approved merge runs, use `pnpm exec symphony tool merge-result ...` as the required completion step.
@@ -20,12 +25,15 @@ Completion boundary:
   completion by itself.
 - If work remains, continue the run instead of ending with a completion-style summary.
 
+## Issue
+
 Issue title: {{ issue.title }}
 Issue state: {{ issue.state }}
 Issue labels: {{ issue.labels }}
 Suggested issue branch: {{ issue.branch_name }}
 
-Repository context:
+## Repository Context
+
 - This repo is Symphony's self-host and orchestration workspace.
 - Repository routing uses the admitted repo `repositoryKey` in `<owner>/<repo>` form.
 - If the issue has a `repo:<owner>/<repo>` label, route work to that admitted repo. Otherwise,
@@ -35,7 +43,8 @@ Repository context:
 - Keep naming explicit and consistent with the Pi / Symphony vocabulary already used here.
 - Prefer deleting dead code over leaving legacy branches around once the new path is stable.
 
-Execution style:
+## Execution Style
+
 - Read enough local context to make one clean patch before editing.
 - Keep the change targeted and avoid speculative refactors.
 - When behavior changes, add or update tests that reproduce the exact bug or flow.
@@ -45,9 +54,14 @@ Execution style:
 - Do not search for `LINEAR_API_KEY` or try to move the issue to `In Review` manually as a substitute
   for the required Symphony completion command.
 
+## Run Mode
+
 {{ run_mode_section }}
 
-Description:
+## Issue Description
+
 {{ issue.description }}
+
+## Handoff
 
 {{ handoff_section }}
