@@ -177,9 +177,53 @@ describe("runtime tools", () => {
       }
     );
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
     expect(String(result.output)).toContain('"success": false');
     expect(await deliveryReports.listForRun("run-123")).toHaveLength(1);
+
+    database.close();
+  });
+
+  it("records blocked delivery reports and moves the issue to Blocked", async () => {
+    const { database, deliveryReports } = await createRuntimeToolsTestContext();
+    const tracker = createMemorySymphonyTracker([
+      buildRuntimeToolIssue({
+        id: "issue-124",
+        identifier: "COL-124",
+        title: "Unblock the workspace integration",
+        state: "In Progress"
+      })
+    ]);
+
+    const result = await executeDeliveryReportTool(
+      {
+        tracker,
+        deliveryReports,
+        issue: {
+          id: "issue-124",
+          identifier: "COL-124",
+          state: "In Progress"
+        },
+        runId: "run-124",
+        turnId: "turn-124",
+        blockedTargetState: "Blocked"
+      },
+      {
+        status: "blocked",
+        summary: "Workspace bootstrap exposed a repository-owned blocker.",
+        blockingReason: "Missing required repo credentials for integration tests."
+      }
+    );
+
+    expect(result.success).toBe(true);
+    expect(String(result.output)).toContain('"targetState": "Blocked"');
+    expect(tracker.getIssue("issue-124")?.state).toBe("Blocked");
+    expect(await deliveryReports.listForRun("run-124")).toEqual([
+      expect.objectContaining({
+        status: "blocked",
+        blockingReason: "Missing required repo credentials for integration tests."
+      })
+    ]);
 
     database.close();
   });

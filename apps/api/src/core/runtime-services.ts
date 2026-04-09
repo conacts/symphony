@@ -442,7 +442,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           deliveryReports,
           issue: input.issue,
           runId: input.runId,
-          turnId: input.turnId
+          turnId: input.turnId,
+          blockedTargetState: runtimePolicy.tracker.blockedTransitionToState
         },
         input.argumentsPayload
       );

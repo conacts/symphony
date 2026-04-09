@@ -63,7 +63,7 @@ describe("tool finish command", () => {
         SYMPHONY_RUN_ID: "run-123",
         SYMPHONY_ISSUE_ID: "issue-123",
         SYMPHONY_ISSUE_IDENTIFIER: "COL-123",
-        SYMPHONY_ISSUE_STATE: "In Progress",
+        SYMPHONY_ISSUE_STATE: "In Review",
         SYMPHONY_TURN_ID: "turn-123",
         SYMPHONY_LINEAR_TEAM_KEY: "COL",
         LINEAR_API_KEY: "token"

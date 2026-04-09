@@ -5,6 +5,7 @@ import type {
 import type { SymphonyTracker } from "@symphony/tracker";
 
 export const deliveryTransitionState = "In Review";
+export const blockedDeliveryTransitionState = "Blocked";
 export const runtimeMergeResultEventType = "merge_result_reported";
 
 export type RuntimeToolExecutionResult = {
@@ -85,6 +86,7 @@ export async function executeDeliveryReportTool(
     };
     runId: string | null;
     turnId: string | null;
+    blockedTargetState?: string | null;
     onDeliveryReportRecorded?(delivery: RuntimeDeliveryReportResult): void;
   },
   rawArguments: unknown
@@ -129,12 +131,14 @@ export async function executeDeliveryReportTool(
     };
     executionContext.onDeliveryReportRecorded?.(deliveryResult);
 
-    const issueStateTransition = await transitionDeliveredIssueToInReviewIfNeeded(
+    const issueStateTransition = await transitionDeliveryIssueStateIfNeeded(
       executionContext,
       deliveryArguments.status
     );
 
-    return buildToolSuccessResult({
+    return buildToolResult(
+      deliveryToolSucceeded(deliveryArguments.status, issueStateTransition),
+      {
       reportId,
       issueIdentifier: executionContext.issue.identifier,
       runId: executionContext.runId,
@@ -143,7 +147,8 @@ export async function executeDeliveryReportTool(
       branchName: deliveryArguments.branchName,
       recorded: true,
       issueStateTransition
-    });
+      }
+    );
   } catch (error) {
     return buildToolErrorResult({
       message:
@@ -553,7 +558,7 @@ export function normalizeMergeResultArguments(
   };
 }
 
-async function transitionDeliveredIssueToInReviewIfNeeded(
+async function transitionDeliveryIssueStateIfNeeded(
   executionContext: {
     tracker: SymphonyTracker;
     issue: {
@@ -561,10 +566,21 @@ async function transitionDeliveredIssueToInReviewIfNeeded(
       identifier: string;
       state?: string | null;
     };
+    blockedTargetState?: string | null;
   },
   status: "completed" | "blocked" | "partial"
 ): Promise<DeliveryTransitionResult> {
-  if (status !== "completed") {
+  let targetState: string | null = null;
+
+  if (status === "completed") {
+    targetState = deliveryTransitionState;
+  } else if (status === "blocked") {
+    targetState =
+      normalizeOptionalText(executionContext.blockedTargetState) ??
+      blockedDeliveryTransitionState;
+  }
+
+  if (!targetState) {
     return {
       attempted: false,
       targetState: null,
@@ -573,7 +589,18 @@ async function transitionDeliveredIssueToInReviewIfNeeded(
     };
   }
 
-  return transitionIssueStateIfNeeded(executionContext, deliveryTransitionState);
+  return transitionIssueStateIfNeeded(executionContext, targetState);
+}
+
+function deliveryToolSucceeded(
+  status: "completed" | "blocked" | "partial",
+  issueStateTransition: DeliveryTransitionResult
+): boolean {
+  if (status === "partial") {
+    return true;
+  }
+
+  return issueStateTransition.success;
 }
 
 async function transitionIssueStateIfNeeded(

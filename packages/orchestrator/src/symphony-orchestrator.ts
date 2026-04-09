@@ -612,6 +612,36 @@ export class SymphonyOrchestrator {
       ? "destroy"
       : "preserve";
 
+    if (completion.kind === "blocked") {
+      currentIssue = await this.#transitionIssueState({
+        issue: currentIssue ?? runningEntry.issue,
+        targetState: this.#config.tracker.blockedTransitionToState,
+        runId: runningEntry.runId,
+        eventType: "blocked_transition",
+        message: "Issue moved to Blocked after the run reported a repo or workspace blocker.",
+        payload: {
+          reason: completion.reason,
+          completionKind: completion.kind
+        },
+        swallowErrors: true
+      });
+
+      await this.#cleanupStoppedRun({
+        issue: currentIssue ?? runningEntry.issue,
+        runId: runningEntry.runId,
+        workspace: runningEntry.workspace,
+        workerHost: runningEntry.workerHost,
+        completionKind: completion.kind,
+        mode: shouldDestroyWorkspaceForStoppedIssue(
+          currentIssue ?? runningEntry.issue,
+          this.#config.tracker
+        )
+          ? "destroy"
+          : "preserve"
+      });
+      return;
+    }
+
     if (completion.kind === "normal" || completion.kind === "max_turns_reached") {
       if (runningEntry.runMode === "approved_merge") {
         await this.#handleApprovedMergeCompletion({

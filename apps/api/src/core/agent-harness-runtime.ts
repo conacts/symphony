@@ -57,6 +57,7 @@ import {
   type SymphonyRuntimeHarness
 } from "./runtime-harness.js";
 import {
+  deliveryTransitionState,
   runtimeMergeResultEventType,
   type RuntimeDeliveryReportResult,
   type RuntimeMergeResult
@@ -540,7 +541,17 @@ async function executeRun(input: {
         }
       }
 
-      if (deliveryReport || mergeResult) {
+      if (deliveryReport) {
+        const refreshedIssue = await refreshIssueState(
+          input.tracker,
+          input.runtimePolicy,
+          currentIssue
+        );
+        currentIssue = refreshedIssue ?? currentIssue;
+        break;
+      }
+
+      if (mergeResult) {
         break;
       }
 
@@ -577,7 +588,7 @@ async function executeRun(input: {
       if (deliveryReport) {
         await input.callbacks.onComplete(
           input.issue.id,
-          deliveryCompletion(deliveryReport)
+          deliveryCompletion(deliveryReport, currentIssue, input.runtimePolicy)
         );
       } else if (mergeResult) {
         await input.callbacks.onComplete(
@@ -786,16 +797,45 @@ function describeLaunchTarget(target: SymphonyRuntimeLaunchTarget): JsonObject {
 }
 
 function deliveryCompletion(
-  deliveryReport: RuntimeDeliveryReportResult
+  deliveryReport: RuntimeDeliveryReportResult,
+  currentIssue: SymphonyTrackerIssue,
+  runtimePolicy: SymphonyAgentRuntimeConfig
 ): SymphonyAgentRuntimeCompletion {
   switch (deliveryReport.status) {
     case "completed":
+      if (!matchesIssueState(currentIssue.state, deliveryTransitionState)) {
+        return {
+          kind: "failure",
+          reason: buildUnexpectedDeliveryStateReason(
+            deliveryReport.status,
+            deliveryTransitionState,
+            currentIssue.state
+          )
+        };
+      }
+
       return {
         kind: "normal"
       };
     case "blocked":
+      if (
+        !matchesIssueState(
+          currentIssue.state,
+          runtimePolicy.tracker.blockedTransitionToState
+        )
+      ) {
+        return {
+          kind: "failure",
+          reason: buildUnexpectedDeliveryStateReason(
+            deliveryReport.status,
+            runtimePolicy.tracker.blockedTransitionToState,
+            currentIssue.state
+          )
+        };
+      }
+
       return {
-        kind: "failure",
+        kind: "blocked",
         reason:
           deliveryReport.blockingReason ??
           `Delivery reported as blocked: ${deliveryReport.summary}`
@@ -807,6 +847,27 @@ function deliveryCompletion(
         reason: `Delivery reported as partial: ${deliveryReport.summary}`
       };
   }
+}
+
+function matchesIssueState(actualState: string, expectedState: string | null): boolean {
+  const normalizedActual = actualState.trim().toLowerCase();
+  const normalizedExpected = expectedState?.trim().toLowerCase();
+
+  return normalizedExpected !== undefined && normalizedExpected !== null
+    ? normalizedActual === normalizedExpected
+    : false;
+}
+
+function buildUnexpectedDeliveryStateReason(
+  deliveryStatus: RuntimeDeliveryReportResult["status"],
+  expectedState: string | null,
+  actualState: string
+): string {
+  const expected = expectedState?.trim() || "the expected terminal state";
+
+  return deliveryStatus === "completed"
+    ? `Delivery was recorded as completed, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`
+    : `Delivery was recorded as blocked, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`;
 }
 
 type ExplicitCompletionRequirement =

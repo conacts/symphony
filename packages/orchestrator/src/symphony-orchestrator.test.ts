@@ -1536,6 +1536,38 @@ describe("symphony orchestrator", () => {
       expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
     });
 
+    it("moves blocked implementation runs into Blocked without adding a runtime failure comment", async () => {
+      const harness = createFlowHarness({
+        issue: {
+          state: "In Progress"
+        },
+        config: {
+          tracker: {
+            claimTransitionToState: null,
+            claimTransitionFromStates: []
+          }
+        }
+      });
+
+      await harness.orchestrator.dispatchIssue(harness.issue, 0);
+      await harness.orchestrator.handleRunCompletion(harness.issue.id, {
+        kind: "blocked",
+        reason: "Missing required repo credentials for integration tests."
+      });
+
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Blocked");
+      expect(harness.tracker.listOperations()).toContainEqual({
+        kind: "update_state",
+        issueId: harness.issue.id,
+        stateName: "Blocked"
+      });
+      expect(
+        harness.tracker.listOperations().filter((operation) => operation.kind === "comment")
+      ).toEqual([]);
+      expect(harness.lifecycleEvents).toContain("blocked_transition");
+      expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+    });
+
     it("dispatches Approved issues in approved_merge mode and completes them into Done", async () => {
       const harness = createFlowHarness({
         issue: {

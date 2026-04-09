@@ -92,6 +92,7 @@ export type SymphonyOrchestratorState = {
 
 export type SymphonyAgentRuntimeCompletion =
   | { kind: "normal" }
+  | { kind: "blocked"; reason: string }
   | { kind: "merge_blocked"; reason: string }
   | { kind: "max_turns_reached"; reason: string; maxTurns: number }
   | {
