@@ -2,25 +2,16 @@
 
 Symphony is a single-host control plane for Linear-driven coding-agent orchestration.
 
-This directory now exists to hold the product specification, durable templates, and architecture
-notes that explain the platform shape. It does not carry a second runtime implementation.
+This directory holds the durable product spec and templates. The live runtime implementation remains
+under `apps/` and `packages/`.
 
-## Active Product Shape
+## Canonical Docs
 
-- Docker-only issue execution
-- one admitted repo contract: `.symphony/runtime.ts` plus `.symphony/prompt.md`
-- one active run per Linear issue
-- prompt rendering in memory from repo-owned template plus platform-provided variables
-- fail-fast admission, dispatch, and startup behavior
-
-## Where To Start
-
-- product specification: [`SPEC.md`](SPEC.md)
-- repo contract handoff: [`../docs/repo-integration-handoff.md`](../docs/repo-integration-handoff.md)
-- runtime manifest details:
-  [`../docs/architecture/runtime-manifest-contract.md`](../docs/architecture/runtime-manifest-contract.md)
-- operator/runtime setup:
-  [`../docs/architecture/symphony-runtime-operations.md`](../docs/architecture/symphony-runtime-operations.md)
+- product shape: [`SPEC.md`](SPEC.md)
+- repo contract authoring: [`../packages/runtime-contract/README.md`](../packages/runtime-contract/README.md)
+- operator/runtime setup: [`../docs/architecture/symphony-runtime-operations.md`](../docs/architecture/symphony-runtime-operations.md)
+- accepted decisions: [`../docs/adr`](../docs/adr)
+- docs index: [`../docs/README.md`](../docs/README.md)
 
 ## Repository Notes
 

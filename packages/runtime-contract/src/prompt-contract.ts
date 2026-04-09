@@ -94,6 +94,9 @@ export function defaultSymphonyPromptContractPath(
   return path.join(repoRoot, defaultSymphonyPromptContractRelativePath);
 }
 
+/**
+ * Load and validate the static `.symphony/prompt.md` template for an admitted repository.
+ */
 export function loadSymphonyPromptContract(
   input: string | SymphonyPromptContractLoadOptions
 ): SymphonyLoadedPromptContract {
@@ -170,6 +173,10 @@ export function validateSymphonyPromptContract(
   };
 }
 
+/**
+ * Render the prompt template in memory against the current run payload. This never writes a
+ * generated prompt file back into the repository.
+ */
 export function renderSymphonyPromptContract(input: {
   template: string;
   payload: SymphonyPromptContractPayload;

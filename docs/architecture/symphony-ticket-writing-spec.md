@@ -481,7 +481,7 @@ not leave production code changes behind unless explicitly requested.
 ## Likely Touch Points
 
 - `packages/workspace/`
-- `docs/architecture/docker-workspace-backend.md`
+- `docs/architecture/symphony-runtime-operations.md`
 - `docs/architecture/durable-issue-workspace-state-machine.md`
 
 ## Avoid Touching
@@ -493,4 +493,3 @@ not leave production code changes behind unless explicitly requested.
 
 - None
 ```
-

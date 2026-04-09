@@ -1,6 +1,6 @@
 # Symphony Service Specification
 
-Status: Draft v1
+Status: Living contract
 
 Purpose: Define the current Symphony product contract for Docker-only, Linear-driven coding-agent
 orchestration.
@@ -54,7 +54,10 @@ The runtime file is a declarative TypeScript contract authored through
 It defines:
 
 - schema version
+- repository identity via `repositoryKey`
+- Linear routing via `linear.teamKey`
 - workspace package-manager context
+- optional PI preset configuration
 - required and optional host env
 - runtime/service env injection
 - lifecycle command surface
@@ -99,6 +102,8 @@ That package owns:
 
 The visible repo contract stays at the repo root under `.symphony/`, while the shared
 implementation stays inside the package boundary.
+
+The current authoring reference lives in `packages/runtime-contract/README.md`.
 
 ## 6. Execution Model
 
@@ -211,6 +216,7 @@ It validates the repo contract in redacted form:
 ### 8.1 Active Dispatch States
 
 - `Todo`
+- `Bootstrapping`
 - `In Progress`
 - `Rework`
 - `Approved`
@@ -222,6 +228,7 @@ It validates the repo contract in redacted form:
 - `Backlog`
 - `In Review`
 - `Blocked`
+- `Paused`
 - `Failed`
 
 `Blocked` is repo-owned failure: the platform worked, but the repo lifecycle failed and needs human
@@ -237,6 +244,25 @@ repo lifecycle was allowed to proceed normally.
 
 Terminal states are hard stops. Once an issue reaches a terminal state, Symphony does not create a
 fresh workspace for that issue again.
+
+### 8.4 Run Modes And Explicit Completion
+
+Symphony derives run mode from the current issue state:
+
+- `Approved` uses the merge-only `approved_merge` mode
+- `Rework` uses the `rework` mode
+- other active work uses the default implementation mode
+
+Implementation and rework runs must cross the explicit delivery boundary through
+`pnpm exec symphony tool finish ...`.
+
+Approved merge runs must cross the explicit merge boundary through
+`pnpm exec symphony tool merge-result ...`.
+
+The accepted workflow details live in:
+
+- `docs/adr/2026-04-08-runtime-result-command-contract.md`
+- `docs/adr/2026-04-08-run-mode-and-issue-state-contract.md`
 
 ## 9. Failure Semantics
 

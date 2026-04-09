@@ -74,6 +74,9 @@ type NormalizedMergeResultArguments = {
   rawPayload: unknown;
 };
 
+/**
+ * Record the explicit delivery boundary for implementation and rework runs.
+ */
 export async function executeDeliveryReportTool(
   executionContext: {
     tracker: SymphonyTracker;
@@ -152,6 +155,10 @@ export async function executeDeliveryReportTool(
   }
 }
 
+/**
+ * Record an investigation-style outcome that should leave a detailed comment and park the issue in a
+ * non-active state.
+ */
 export async function executeSpikeResultTool(
   executionContext: {
     tracker: SymphonyTracker;
@@ -206,6 +213,9 @@ export async function executeSpikeResultTool(
   }
 }
 
+/**
+ * Cancel the active issue with an explicit human-readable reason.
+ */
 export async function executeCancelTool(
   executionContext: {
     tracker: SymphonyTracker;
@@ -255,6 +265,9 @@ export async function executeCancelTool(
   }
 }
 
+/**
+ * Record the explicit merge outcome for approved merge runs.
+ */
 export async function executeMergeResultTool(
   executionContext: {
     tracker: SymphonyTracker;
