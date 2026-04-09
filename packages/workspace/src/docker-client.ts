@@ -55,7 +55,12 @@ export function createDockerWorkspaceCommandRunner(input?: {
 
     try {
       return await withDockerTimeout(command.timeoutMs, async () => {
-        return await runDockerCommand(client, command.args, cliRunner);
+        return await runDockerCommand(
+          client,
+          command.args,
+          cliRunner,
+          command.timeoutMs
+        );
       });
     } finally {
       await client.close().catch(() => undefined);
@@ -162,7 +167,8 @@ export function shouldRedactDockerEnvValue(key: string): boolean {
 async function runDockerCommand(
   client: DockerClientLike,
   args: string[],
-  cliRunner: DockerCliCommandRunner
+  cliRunner: DockerCliCommandRunner,
+  timeoutMs: number
 ): Promise<DockerWorkspaceCommandResult> {
   const command = args[0];
   if (!command) {
@@ -195,6 +201,11 @@ async function runDockerCommand(
         return await runDockerExecCommand(client, args, cliRunner);
       case "run":
         return await runDockerRunCommand(client, args);
+      case "ps":
+        return await cliRunner({
+          args,
+          timeoutMs
+        });
       default:
         return unsupportedDockerCommandResult(args);
     }

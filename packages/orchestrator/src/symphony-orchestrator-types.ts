@@ -63,6 +63,36 @@ export type SymphonyRunningEntry = {
   startedAt: string;
 };
 
+export type SymphonyDispatchPhase =
+  | "claim"
+  | "workspace_prepare"
+  | "workspace_before_run"
+  | "runtime_launch";
+
+export type SymphonyDispatchStopReason =
+  | "inactive"
+  | "terminal";
+
+export type SymphonyDispatchStopRequest = {
+  reason: SymphonyDispatchStopReason;
+  issue: SymphonyTrackerIssue;
+};
+
+export type SymphonyDispatchingEntry = {
+  issue: SymphonyTrackerIssue;
+  runId: string | null;
+  runMode: SymphonyRunMode;
+  workerHost: string | null;
+  workspace: PreparedWorkspace | null;
+  launchTarget: AgentRuntimeLaunchTarget | null;
+  attempt: number;
+  startedAt: string;
+  phase: SymphonyDispatchPhase;
+  runtimeStarted: boolean;
+  stopRequest: SymphonyDispatchStopRequest | null;
+  shutdownDrainCompleted: boolean;
+};
+
 export type SymphonyRetryEntry = {
   attempt: number;
   dueAtMs: number;
@@ -82,6 +112,7 @@ export type SymphonyOrchestratorState = {
   maxConcurrentAgents: number;
   nextPollDueAtMs: number | null;
   pollCheckInProgress: boolean;
+  dispatching: Record<string, SymphonyDispatchingEntry>;
   running: Record<string, SymphonyRunningEntry>;
   completed: Set<string>;
   claimed: Set<string>;

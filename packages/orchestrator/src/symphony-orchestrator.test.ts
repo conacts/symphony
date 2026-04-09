@@ -4,6 +4,7 @@ import {
   prepareIssueForDispatch,
   SymphonyOrchestrator
 } from "./symphony-orchestrator.js";
+import { SymphonyDispatchRefusedError } from "./symphony-orchestrator-errors.js";
 import type { SymphonyAgentRuntimeCompletion } from "./symphony-orchestrator-types.js";
 import { SymphonyRuntimeManifestError } from "@symphony/runtime-contract";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
@@ -459,6 +460,49 @@ describe("symphony orchestrator", () => {
     );
   });
 
+  it("refuses duplicate dispatch starts without failing the poll cycle", async () => {
+    const issue = buildSymphonyTrackerIssue();
+    const lifecycleEvents: string[] = [];
+    const orchestrator = new SymphonyOrchestrator({
+      config: buildSymphonyOrchestratorConfig(),
+      tracker: createMemorySymphonyTracker([issue]),
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      observer: {
+        startRun() {
+          throw new SymphonyDispatchRefusedError({
+            reason: "active_run_exists",
+            issueIdentifier: issue.identifier,
+            activeRunId: "run-duplicate-1",
+            activeRunStatus: "running"
+          });
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push(input.eventType);
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      }
+    });
+
+    await expect(orchestrator.runPollCycle()).resolves.toEqual(
+      expect.objectContaining({
+        running: []
+      })
+    );
+
+    expect(orchestrator.snapshot().claimedIssueIds).toEqual([]);
+    expect(lifecycleEvents).toContain("dispatch_refused_active_run");
+  });
+
   it("accumulates token usage from raw pi message_end and turn_end payloads", async () => {
     const agentRuntime: AgentRuntime = {
       async startRun() {
@@ -840,12 +884,7 @@ describe("symphony orchestrator", () => {
       }
     });
     const todoIssue = buildSymphonyTrackerIssue();
-    const tracker = createMemorySymphonyTracker([
-      {
-        ...todoIssue,
-        state: "Done"
-      }
-    ]);
+    const tracker = createMemorySymphonyTracker([todoIssue]);
 
     const stopped: string[] = [];
 
@@ -878,6 +917,7 @@ describe("symphony orchestrator", () => {
     });
 
     await orchestrator.dispatchIssue(todoIssue, 1);
+    await tracker.updateIssueState(todoIssue.id, "Done");
     await orchestrator.reconcileRunningIssues();
 
     expect(stopped).toEqual(["issue-123"]);
@@ -945,6 +985,382 @@ describe("symphony orchestrator", () => {
     expect(lifecycleEvents).toContain("run_stopped_inactive");
     expect(lifecycleEvents).toContain("workspace_cleanup_completed");
     expect(lifecycleEvents).toContain("docker_container_stopped");
+  });
+
+  it("stops stale candidates before runtime launch when they are already non-runnable", async () => {
+    const config = buildSymphonyOrchestratorConfig({
+      tracker: {
+        ...buildSymphonyOrchestratorConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: []
+      }
+    });
+    const staleIssue = buildSymphonyTrackerIssue();
+    const tracker = createMemorySymphonyTracker([
+      {
+        ...staleIssue,
+        state: "Backlog"
+      }
+    ]);
+    const lifecycleEvents: string[] = [];
+    let startRunCalls = 0;
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime({
+        async startRun() {
+          startRunCalls += 1;
+          return {
+            threadId: "thread-1",
+            workerHost: null,
+            launchTarget: null
+          };
+        },
+        async stopRun() {
+          return;
+        }
+      }),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push(input.eventType);
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      }
+    });
+
+    await orchestrator.dispatchIssue(staleIssue, 1);
+
+    expect(startRunCalls).toBe(0);
+    expect(orchestrator.snapshot().running).toEqual([]);
+    expect(orchestrator.snapshot().claimedIssueIds).toEqual([]);
+    expect(Object.keys(orchestrator.state.dispatching)).toEqual([]);
+    expect(lifecycleEvents).toContain("run_stopped_inactive");
+    expect(tracker.listOperations()).toEqual([]);
+  });
+
+  it("preserves the workspace when bootstrapping is cancelled during workspace prepare", async () => {
+    const harness = createBlockedDispatchHarness({
+      blockPhase: "prepare"
+    });
+
+    const dispatchPromise = harness.orchestrator.dispatchIssue(harness.issue, 1);
+    await harness.blockStarted;
+    await harness.tracker.updateIssueState(harness.issue.id, "Backlog");
+    await harness.orchestrator.reconcileRunningIssues();
+    harness.releaseBlocked();
+    await dispatchPromise;
+
+    expect(harness.counts.startRunCalls).toBe(0);
+    expect(harness.cleanupModes).toEqual(["preserve"]);
+    expect(harness.lifecycleEvents).toContain("run_stopped_inactive");
+    expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
+    expect(harness.lifecycleEvents).toContain("docker_container_stopped");
+    expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Backlog");
+    expect(harness.tracker.listOperations()).not.toContainEqual({
+      kind: "update_state",
+      issueId: harness.issue.id,
+      stateName: "Paused"
+    });
+  });
+
+  it("destroys the workspace when bootstrapping is cancelled by a terminal state during workspace prepare", async () => {
+    const harness = createBlockedDispatchHarness({
+      blockPhase: "prepare"
+    });
+
+    const dispatchPromise = harness.orchestrator.dispatchIssue(harness.issue, 1);
+    await harness.blockStarted;
+    await harness.tracker.updateIssueState(harness.issue.id, "Canceled");
+    await harness.orchestrator.reconcileRunningIssues();
+    harness.releaseBlocked();
+    await dispatchPromise;
+
+    expect(harness.counts.startRunCalls).toBe(0);
+    expect(harness.cleanupModes).toEqual(["destroy"]);
+    expect(harness.lifecycleEvents).toContain("run_stopped_terminal");
+    expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
+    expect(harness.lifecycleEvents).toContain("docker_container_removed");
+    expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Canceled");
+  });
+
+  it("preserves the workspace when a non-runnable state arrives during before_run", async () => {
+    const harness = createBlockedDispatchHarness({
+      blockPhase: "before_run"
+    });
+
+    const dispatchPromise = harness.orchestrator.dispatchIssue(harness.issue, 1);
+    await harness.blockStarted;
+    await harness.tracker.updateIssueState(harness.issue.id, "Paused");
+    await harness.orchestrator.reconcileRunningIssues();
+    harness.releaseBlocked();
+    await dispatchPromise;
+
+    expect(harness.counts.startRunCalls).toBe(0);
+    expect(harness.cleanupModes).toEqual(["preserve"]);
+    expect(harness.lifecycleEvents).toContain("run_stopped_inactive");
+    expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
+    expect(harness.lifecycleEvents).toContain("docker_container_stopped");
+    expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Paused");
+  });
+
+  it("stops the launched runtime when a non-runnable state arrives during runtime launch", async () => {
+    const harness = createBlockedDispatchHarness({
+      blockPhase: "runtime_launch",
+      issue: {
+        state: "In Progress"
+      },
+      config: {
+        tracker: {
+          claimTransitionToState: null,
+          claimTransitionFromStates: []
+        }
+      }
+    });
+
+    const dispatchPromise = harness.orchestrator.dispatchIssue(harness.issue, 1);
+    await harness.blockStarted;
+    await harness.tracker.updateIssueState(harness.issue.id, "Paused");
+    await harness.orchestrator.reconcileRunningIssues();
+    harness.releaseBlocked();
+    await dispatchPromise;
+
+    expect(harness.counts.startRunCalls).toBe(1);
+    expect(harness.stoppedIssueIds).toEqual([harness.issue.id]);
+    expect(harness.cleanupModes).toEqual(["preserve"]);
+    expect(harness.lifecycleEvents).toContain("run_stopped_inactive");
+    expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
+    expect(harness.lifecycleEvents).toContain("docker_container_stopped");
+    expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Paused");
+  });
+
+  it("drains dispatching work during runtime shutdown and preserves the prepared workspace", async () => {
+    const shutdownReason =
+      "Symphony runtime shut down while the run was active.";
+    const harness = createBlockedDispatchHarness({
+      blockPhase: "before_run"
+    });
+
+    const dispatchPromise = harness.orchestrator.dispatchIssue(harness.issue, 1);
+    await harness.blockStarted;
+
+    await expect(
+      harness.orchestrator.shutdownActiveRuns(shutdownReason)
+    ).resolves.toBe(1);
+
+    expect(harness.cleanupModes).toEqual(["preserve"]);
+    expect(harness.stoppedIssueIds).toEqual([]);
+    expect(harness.lifecycleEvents).toContain("runtime_shutdown_dispatch_drained");
+    expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
+    expect(harness.lifecycleEvents).not.toContain("run_stopped_inactive");
+    expect(harness.orchestrator.snapshot().claimedIssueIds).toEqual([]);
+
+    harness.releaseBlocked();
+    await dispatchPromise;
+
+    expect(harness.cleanupModes).toEqual(["preserve"]);
+    expect(harness.stoppedIssueIds).toEqual([]);
+    expect(Object.keys(harness.orchestrator.state.dispatching)).toEqual([]);
+  });
+
+  it("makes a best-effort runtime stop when shutdown interrupts runtime launch", async () => {
+    const shutdownReason =
+      "Symphony runtime shut down while the run was active.";
+    const harness = createBlockedDispatchHarness({
+      blockPhase: "runtime_launch",
+      issue: {
+        state: "In Progress"
+      },
+      config: {
+        tracker: {
+          claimTransitionToState: null,
+          claimTransitionFromStates: []
+        }
+      }
+    });
+
+    const dispatchPromise = harness.orchestrator.dispatchIssue(harness.issue, 1);
+    await harness.blockStarted;
+
+    await expect(
+      harness.orchestrator.shutdownActiveRuns(shutdownReason)
+    ).resolves.toBe(1);
+
+    expect(harness.counts.startRunCalls).toBe(1);
+    expect(harness.stoppedIssueIds).toEqual([harness.issue.id]);
+    expect(harness.cleanupModes).toEqual(["preserve"]);
+    expect(harness.lifecycleEvents).toContain("runtime_shutdown_dispatch_drained");
+    expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
+    expect(harness.lifecycleEvents).not.toContain("run_stopped_inactive");
+    expect(harness.orchestrator.snapshot().claimedIssueIds).toEqual([]);
+
+    harness.releaseBlocked();
+    await dispatchPromise;
+
+    expect(harness.stoppedIssueIds).toEqual([harness.issue.id]);
+    expect(harness.cleanupModes).toEqual(["preserve"]);
+    expect(Object.keys(harness.orchestrator.state.dispatching)).toEqual([]);
+  });
+
+  it("does not redispatch an issue until the cancelled bootstrap dispatch has finished cleaning up", async () => {
+    const config = buildSymphonyOrchestratorConfig();
+    const issue = buildSymphonyTrackerIssue();
+    const tracker = createMemorySymphonyTracker([issue]);
+    const lifecycleEvents: string[] = [];
+    const cleanupModes: string[] = [];
+    let prepareWorkspaceCalls = 0;
+    let startRunCalls = 0;
+    let releasePrepareWorkspace: (() => void) | null = null;
+    let blockFirstPrepare = true;
+    const prepareWorkspaceEntered = createDeferred<void>();
+    const baseBackend = createTestWorkspaceBackend({
+      commandRunner: async () => ({
+        exitCode: 0,
+        stdout: "",
+        stderr: ""
+      })
+    });
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: {
+        ...baseBackend,
+        async prepareWorkspace(input) {
+          prepareWorkspaceCalls += 1;
+          if (blockFirstPrepare) {
+            blockFirstPrepare = false;
+            prepareWorkspaceEntered.resolve();
+            await new Promise<void>((resolve) => {
+              releasePrepareWorkspace = resolve;
+            });
+          }
+          return await baseBackend.prepareWorkspace(input);
+        },
+        async cleanupWorkspace(input) {
+          cleanupModes.push(input.mode ?? "destroy");
+          return await baseBackend.cleanupWorkspace(input);
+        }
+      },
+      agentRuntime: createAgentRuntime({
+        async startRun() {
+          startRunCalls += 1;
+          return {
+            threadId: "thread-1",
+            workerHost: null,
+            launchTarget: null
+          };
+        },
+        async stopRun() {
+          return;
+        }
+      }),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push(input.eventType);
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      }
+    });
+
+    const firstPoll = orchestrator.runPollCycle();
+    await prepareWorkspaceEntered.promise;
+    await tracker.updateIssueState(issue.id, "Backlog");
+    await orchestrator.reconcileRunningIssues();
+    await tracker.updateIssueState(issue.id, "Todo");
+
+    await orchestrator.runPollCycle();
+    expect(prepareWorkspaceCalls).toBe(1);
+    expect(startRunCalls).toBe(0);
+
+    expect(releasePrepareWorkspace).not.toBeNull();
+    releasePrepareWorkspace!();
+    await firstPoll;
+
+    await orchestrator.runPollCycle();
+
+    expect(cleanupModes).toEqual(["preserve"]);
+    expect(lifecycleEvents).toContain("run_stopped_inactive");
+    expect(prepareWorkspaceCalls).toBe(2);
+    expect(startRunCalls).toBe(1);
+    expect(orchestrator.snapshot().running).toHaveLength(1);
+  });
+
+  it("counts dispatching work against the global concurrency limit", async () => {
+    const config = buildSymphonyOrchestratorConfig({
+      agent: {
+        maxConcurrentAgents: 1
+      }
+    });
+    const firstIssue = buildSymphonyTrackerIssue();
+    const secondIssue = buildSymphonyTrackerIssue({
+      id: "issue-456",
+      identifier: "SYM-456",
+      title: "Second issue"
+    });
+    const tracker = createMemorySymphonyTracker([firstIssue, secondIssue]);
+    let prepareWorkspaceCalls = 0;
+    let releasePrepareWorkspace: (() => void) | null = null;
+    const prepareWorkspaceEntered = createDeferred<void>();
+    const baseBackend = createTestWorkspaceBackend({
+      commandRunner: async () => ({
+        exitCode: 0,
+        stdout: "",
+        stderr: ""
+      })
+    });
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: {
+        ...baseBackend,
+        async prepareWorkspace(input) {
+          prepareWorkspaceCalls += 1;
+          if (input.context.issueIdentifier === firstIssue.identifier) {
+            prepareWorkspaceEntered.resolve();
+            await new Promise<void>((resolve) => {
+              releasePrepareWorkspace = resolve;
+            });
+          }
+          return await baseBackend.prepareWorkspace(input);
+        }
+      },
+      agentRuntime: createAgentRuntime(),
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    const firstPoll = orchestrator.runPollCycle();
+    await prepareWorkspaceEntered.promise;
+    await orchestrator.runPollCycle();
+
+    expect(prepareWorkspaceCalls).toBe(1);
+
+    expect(releasePrepareWorkspace).not.toBeNull();
+    releasePrepareWorkspace!();
+    await firstPoll;
   });
 
   it("pauses failed runs instead of scheduling hidden retries", async () => {
@@ -2084,5 +2500,137 @@ function createFlowHarness(input: {
     stoppedIssueIds,
     startRuns,
     orchestrator
+  };
+}
+
+function createBlockedDispatchHarness(input: {
+  blockPhase: "prepare" | "before_run" | "runtime_launch";
+  issue?: Parameters<typeof buildSymphonyTrackerIssue>[0];
+  config?: Parameters<typeof buildSymphonyOrchestratorConfig>[0];
+}): {
+  config: ReturnType<typeof buildSymphonyOrchestratorConfig>;
+  issue: ReturnType<typeof buildSymphonyTrackerIssue>;
+  tracker: ReturnType<typeof createMemorySymphonyTracker>;
+  lifecycleEvents: string[];
+  stoppedIssueIds: string[];
+  cleanupModes: Array<"destroy" | "preserve">;
+  counts: {
+    prepareWorkspaceCalls: number;
+    beforeRunCalls: number;
+    startRunCalls: number;
+  };
+  blockStarted: Promise<void>;
+  releaseBlocked: () => void;
+  orchestrator: SymphonyOrchestrator;
+} {
+  const config = buildSymphonyOrchestratorConfig(input.config);
+  const issue = buildSymphonyTrackerIssue(input.issue);
+  const tracker = createMemorySymphonyTracker([issue]);
+  const lifecycleEvents: string[] = [];
+  const stoppedIssueIds: string[] = [];
+  const cleanupModes: Array<"destroy" | "preserve"> = [];
+  const counts = {
+    prepareWorkspaceCalls: 0,
+    beforeRunCalls: 0,
+    startRunCalls: 0
+  };
+  const blockStarted = createDeferred<void>();
+  const blockReleased = createDeferred<void>();
+  let blockOpen = true;
+  const baseBackend = createTestWorkspaceBackend({
+    commandRunner: async () => ({
+      exitCode: 0,
+      stdout: "",
+      stderr: ""
+    })
+  });
+
+  const orchestrator = new SymphonyOrchestrator({
+    config,
+    tracker,
+    workspaceBackend: {
+      ...baseBackend,
+      async prepareWorkspace(workspaceInput) {
+        counts.prepareWorkspaceCalls += 1;
+        if (input.blockPhase === "prepare" && blockOpen) {
+          blockOpen = false;
+          blockStarted.resolve();
+          await blockReleased.promise;
+        }
+        return await baseBackend.prepareWorkspace(workspaceInput);
+      },
+      async runBeforeRun(workspaceInput) {
+        counts.beforeRunCalls += 1;
+        if (input.blockPhase === "before_run" && blockOpen) {
+          blockOpen = false;
+          blockStarted.resolve();
+          await blockReleased.promise;
+        }
+        return await baseBackend.runBeforeRun(workspaceInput);
+      },
+      async cleanupWorkspace(workspaceInput) {
+        cleanupModes.push((workspaceInput.mode ?? "destroy") as "destroy" | "preserve");
+        return await baseBackend.cleanupWorkspace(workspaceInput);
+      }
+    },
+    agentRuntime: createAgentRuntime({
+      async startRun() {
+        counts.startRunCalls += 1;
+        if (input.blockPhase === "runtime_launch" && blockOpen) {
+          blockOpen = false;
+          blockStarted.resolve();
+          await blockReleased.promise;
+        }
+        return {
+          threadId: "thread-1",
+          workerHost: null,
+          launchTarget: null
+        };
+      },
+      async stopRun({ issue: stoppedIssue }) {
+        stoppedIssueIds.push(stoppedIssue.id);
+      }
+    }),
+    observer: {
+      startRun() {
+        return "run-1";
+      },
+      recordLifecycleEvent(lifecycleInput) {
+        lifecycleEvents.push(lifecycleInput.eventType);
+        return;
+      },
+      finalizeRun() {
+        return;
+      }
+    },
+    clock: {
+      now: () => new Date("2026-03-31T00:00:00.000Z"),
+      nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+    }
+  });
+
+  return {
+    config,
+    issue,
+    tracker,
+    lifecycleEvents,
+    stoppedIssueIds,
+    cleanupModes,
+    counts,
+    blockStarted: blockStarted.promise,
+    releaseBlocked: blockReleased.resolve,
+    orchestrator
+  };
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+
+  return {
+    promise,
+    resolve
   };
 }

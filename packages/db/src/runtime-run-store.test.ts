@@ -3,6 +3,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
+import { SymphonyActiveRunExistsError } from "./errors.js";
 import { createSymphonyIssueDeliveryReportStore } from "./issue-delivery-reports.js";
 import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
 import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-store.js";
@@ -276,6 +277,61 @@ describe("runtime run delivery projections", () => {
           user: "1000:1000"
         }
       });
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects a second active run for the same issue until the first run is finalized", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-active-run-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      const firstRunId = await runStore.recordRunStarted({
+        runId: "run-active-1",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-active-1",
+        issueIdentifier: "COL-401",
+        runMode: "implementation",
+        startedAt: "2026-04-09T11:00:00.000Z",
+        status: "dispatching"
+      });
+
+      await expect(
+        runStore.recordRunStarted({
+          runId: "run-active-2",
+          repositoryKey: testRepositoryKey,
+          trackerIssueId: "issue-active-1",
+          issueIdentifier: "COL-401",
+          runMode: "implementation",
+          startedAt: "2026-04-09T11:01:00.000Z",
+          status: "running"
+        })
+      ).rejects.toBeInstanceOf(SymphonyActiveRunExistsError);
+
+      await runStore.finalizeRun(firstRunId, {
+        status: "failed",
+        endedAt: "2026-04-09T11:02:00.000Z"
+      });
+
+      await expect(
+        runStore.recordRunStarted({
+          runId: "run-active-3",
+          repositoryKey: testRepositoryKey,
+          trackerIssueId: "issue-active-1",
+          issueIdentifier: "COL-401",
+          runMode: "implementation",
+          startedAt: "2026-04-09T11:03:00.000Z",
+          status: "dispatching"
+        })
+      ).resolves.toBe("run-active-3");
     } finally {
       database.close();
     }

@@ -5,6 +5,12 @@ export {
   prepareIssueForDispatch,
   SymphonyOrchestrator
 } from "./symphony-orchestrator.js";
+export {
+  isSymphonyDispatchCancelledError,
+  isSymphonyDispatchRefusedError,
+  SymphonyDispatchCancelledError,
+  SymphonyDispatchRefusedError
+} from "./symphony-orchestrator-errors.js";
 export { createSymphonyOrchestratorState } from "./symphony-orchestrator-state.js";
 export type {
   AgentRunInput,
@@ -19,6 +25,9 @@ export type {
   SymphonyAgentMessage,
   SymphonyAgentTotals,
   SymphonyClock,
+  SymphonyDispatchingEntry,
+  SymphonyDispatchPhase,
+  SymphonyDispatchStopReason,
   SymphonyOrchestratorObserver,
   SymphonyOrchestratorSnapshot,
   SymphonyOrchestratorState,

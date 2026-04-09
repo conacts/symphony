@@ -54,9 +54,13 @@ export function stateSlotsAvailable(
     return true;
   }
 
-  const runningInState = Object.values(state.running).filter(
-    (entry) => entry.issue.state.trim().toLowerCase() === normalizedState
-  ).length;
+  const activeInState =
+    Object.values(state.running).filter(
+      (entry) => entry.issue.state.trim().toLowerCase() === normalizedState
+    ).length +
+    Object.values(state.dispatching).filter(
+      (entry) => entry.issue.state.trim().toLowerCase() === normalizedState
+    ).length;
 
-  return runningInState < configuredLimit;
+  return activeInState < configuredLimit;
 }

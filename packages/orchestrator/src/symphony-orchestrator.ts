@@ -32,6 +32,11 @@ import {
   isFatalRuntimeError
 } from "./symphony-orchestrator-failures.js";
 import {
+  isSymphonyDispatchCancelledError,
+  SymphonyDispatchCancelledError,
+  isSymphonyDispatchRefusedError
+} from "./symphony-orchestrator-errors.js";
+import {
   deriveSymphonyRunMode,
   type SymphonyRunMode
 } from "@symphony/runtime-contract";
@@ -58,6 +63,7 @@ import type {
   SymphonyAgentRuntimeCompletion,
   SymphonyAgentRuntimeUpdate,
   SymphonyClock,
+  SymphonyDispatchStopRequest,
   SymphonyOrchestratorObserver,
   SymphonyOrchestratorSnapshot,
   SymphonyOrchestratorState,
@@ -111,6 +117,7 @@ export class SymphonyOrchestrator {
 
   async shutdownActiveRuns(reason: string): Promise<number> {
     const runningIssueIds = Object.keys(this.#state.running);
+    const dispatchingIssueIds = Object.keys(this.#state.dispatching);
 
     for (const issueId of runningIssueIds) {
       const runningEntry = this.#state.running[issueId];
@@ -129,7 +136,11 @@ export class SymphonyOrchestrator {
       });
     }
 
-    return runningIssueIds.length;
+    for (const issueId of dispatchingIssueIds) {
+      await this.#drainDispatchingIssueOnShutdown(issueId, reason);
+    }
+
+    return runningIssueIds.length + dispatchingIssueIds.length;
   }
 
   async runPollCycle(): Promise<SymphonyOrchestratorSnapshot> {
@@ -174,6 +185,7 @@ export class SymphonyOrchestrator {
       handleRunCompletion: (issueId, completion) =>
         this.handleRunCompletion(issueId, completion)
     });
+    await this.#reconcileDispatchingIssues();
     const runningIssueIds = Object.keys(this.#state.running);
     if (runningIssueIds.length === 0) {
       return;
@@ -229,6 +241,7 @@ export class SymphonyOrchestrator {
 
   shouldDispatchIssue(issue: SymphonyTrackerIssue): boolean {
     if (
+      this.#state.dispatching[issue.id] ||
       this.#state.running[issue.id] ||
       this.#state.retryAttempts[issue.id] ||
       this.#state.claimed.has(issue.id) ||
@@ -261,7 +274,9 @@ export class SymphonyOrchestrator {
   availableSlots(): number {
     return Math.max(
       0,
-      this.#state.maxConcurrentAgents - Object.keys(this.#state.running).length
+      this.#state.maxConcurrentAgents -
+        (Object.keys(this.#state.running).length +
+          Object.keys(this.#state.dispatching).length)
     );
   }
 
@@ -275,44 +290,73 @@ export class SymphonyOrchestrator {
       throw new Error(`Dispatch attempt must be >= 1. Received ${attempt}.`);
     }
 
+    this.#state.claimed.add(issue.id);
+
     const runMode = runModeOverride ?? deriveSymphonyRunMode(issue.state);
     const startedAt = this.#clock.now().toISOString();
-    const runId =
-      (await this.#observer?.startRun({
-        issue,
-        attempt,
-        runMode,
-        harness: this.#config.runtime.agent.harness,
-        workspace: null,
-        workerHost: preferredWorkerHost,
-        startedAt
-      })) ?? null;
-
-    await this.#observer?.recordLifecycleEvent({
+    this.#state.dispatching[issue.id] = {
       issue,
-      runId,
-      source: "orchestrator",
-      eventType: "dispatch_started",
-      message: "Dispatch started.",
-      payload: {
-        attempt,
-        workerHost: preferredWorkerHost,
-        runMode
-      },
-      recordedAt: startedAt
-    });
+      runId: null,
+      runMode,
+      workerHost: preferredWorkerHost,
+      workspace: null,
+      launchTarget: null,
+      attempt,
+      startedAt,
+      phase: "claim",
+      runtimeStarted: false,
+      stopRequest: null,
+      shutdownDrainCompleted: false
+    };
 
     let preparedIssue = issue;
+    let runId: string | null = null;
     let workspace: PreparedWorkspace | null = null;
     let launchTarget: AgentRuntimeLaunchTarget | null = null;
     let startupFailureStage: SymphonyStartupFailureStage = "workspace_prepare";
 
     try {
+      preparedIssue = await this.#checkpointDispatchEligibility(issue.id);
+
+      runId =
+        (await this.#observer?.startRun({
+          issue: preparedIssue,
+          attempt,
+          runMode,
+          harness: this.#config.runtime.agent.harness,
+          workspace: null,
+          workerHost: preferredWorkerHost,
+          startedAt
+        })) ?? null;
+      this.#setDispatchingEntry(issue.id, {
+        issue: preparedIssue,
+        runId
+      });
+
+      await this.#observer?.recordLifecycleEvent({
+        issue: preparedIssue,
+        runId,
+        source: "orchestrator",
+        eventType: "dispatch_started",
+        message: "Dispatch started.",
+        payload: {
+          attempt,
+          workerHost: preferredWorkerHost,
+          runMode
+        },
+        recordedAt: startedAt
+      });
+
+      const dispatchSourceIssue = preparedIssue;
       preparedIssue = await prepareIssueForDispatch(
         this.#config,
         this.#tracker,
-        issue
+        dispatchSourceIssue
       );
+      this.#setDispatchingEntry(issue.id, {
+        issue: preparedIssue
+      });
+      preparedIssue = await this.#checkpointDispatchEligibility(issue.id);
 
       const workspaceContext: WorkspaceContext = {
         trackerIssueId: preparedIssue.id,
@@ -320,7 +364,6 @@ export class SymphonyOrchestrator {
       };
       (workspaceContext as WorkspaceContext & { repositoryKey?: string | null }).repositoryKey =
         resolveRepositoryLabel(preparedIssue.labels);
-      this.#state.claimed.add(preparedIssue.id);
       (
         workspaceContext as WorkspaceContext & {
           branchName?: string | null;
@@ -328,15 +371,15 @@ export class SymphonyOrchestrator {
       ).branchName =
         preparedIssue.branchName ?? issueBranchName(preparedIssue.identifier);
 
-      if (issue.state !== preparedIssue.state) {
+      if (dispatchSourceIssue.state !== preparedIssue.state) {
         await this.#observer?.recordLifecycleEvent({
           issue: preparedIssue,
           runId,
           source: "tracker",
           eventType: "claim_transition",
-          message: `Issue moved from ${issue.state} to ${preparedIssue.state}.`,
+          message: `Issue moved from ${dispatchSourceIssue.state} to ${preparedIssue.state}.`,
           payload: {
-            fromState: issue.state,
+            fromState: dispatchSourceIssue.state,
             toState: preparedIssue.state
           },
           recordedAt: startedAt
@@ -346,6 +389,10 @@ export class SymphonyOrchestrator {
       startupFailureStage = "runtime_launch";
       assertPiRuntimeHarness(this.#config.runtime.agent.harness);
       startupFailureStage = "workspace_prepare";
+      this.#setDispatchingEntry(issue.id, {
+        issue: preparedIssue,
+        phase: "workspace_prepare"
+      });
       await this.#observer?.recordLifecycleEvent({
         issue: preparedIssue,
         runId,
@@ -370,6 +417,10 @@ export class SymphonyOrchestrator {
         ),
         ...createWorkspaceRunnerOptions(this.#runnerEnv, preferredWorkerHost)
       });
+      this.#setDispatchingEntry(issue.id, {
+        issue: preparedIssue,
+        workspace
+      });
 
       await this.#observer?.recordLifecycleEvent({
         issue: preparedIssue,
@@ -391,6 +442,12 @@ export class SymphonyOrchestrator {
         workspace
       });
 
+      preparedIssue = await this.#checkpointDispatchEligibility(issue.id);
+      this.#setDispatchingEntry(issue.id, {
+        issue: preparedIssue,
+        workspace,
+        phase: "workspace_before_run"
+      });
       startupFailureStage = "workspace_before_run";
       await this.#observer?.recordLifecycleEvent({
         issue: preparedIssue,
@@ -423,15 +480,22 @@ export class SymphonyOrchestrator {
         }
       });
 
-      const activeIssue = await this.#activatePreparedIssue({
+      preparedIssue = await this.#checkpointDispatchEligibility(issue.id);
+      const activatedIssue = await this.#activatePreparedIssue({
         issue: preparedIssue,
         runId,
         runMode
       });
+      this.#setDispatchingEntry(issue.id, {
+        issue: activatedIssue,
+        workspace,
+        phase: "runtime_launch"
+      });
+      const runtimeLaunchIssue = await this.#checkpointDispatchEligibility(issue.id);
 
       startupFailureStage = "runtime_launch";
       await this.#observer?.recordLifecycleEvent({
-        issue: activeIssue,
+        issue: runtimeLaunchIssue,
         runId,
         source: "orchestrator",
         eventType: "runtime_launch_starting",
@@ -445,7 +509,7 @@ export class SymphonyOrchestrator {
         recordedAt: this.#clock.now().toISOString()
       });
       const launch = await this.#agentRuntime.startRun({
-        issue: activeIssue,
+        issue: runtimeLaunchIssue,
         runId,
         attempt,
         runMode,
@@ -454,8 +518,17 @@ export class SymphonyOrchestrator {
       });
       const workerHost = launch.workerHost ?? workspace.workerHost;
       launchTarget = launch.launchTarget;
+      this.#setDispatchingEntry(issue.id, {
+        issue: runtimeLaunchIssue,
+        workerHost,
+        workspace,
+        launchTarget,
+        runtimeStarted: true
+      });
+      const activeIssue = await this.#checkpointDispatchEligibility(issue.id);
 
-      this.#state.running[preparedIssue.id] = createRunningEntry({
+      delete this.#state.dispatching[issue.id];
+      this.#state.running[activeIssue.id] = createRunningEntry({
         issue: activeIssue,
         runId,
         runMode,
@@ -482,11 +555,34 @@ export class SymphonyOrchestrator {
       });
 
     } catch (error) {
-      this.#state.claimed.delete(preparedIssue.id);
+      if (isSymphonyDispatchCancelledError(error)) {
+        await this.#cancelDispatchingIssue(issue.id);
+        return;
+      }
+
+      if (isSymphonyDispatchRefusedError(error)) {
+        this.#clearDispatchState(issue.id);
+        await this.#observer?.recordLifecycleEvent({
+          issue,
+          runId: null,
+          source: "orchestrator",
+          eventType: "dispatch_refused_active_run",
+          message: "Dispatch refused because the issue already has an active run.",
+          payload: {
+            activeRunId: error.activeRunId,
+            activeRunStatus: error.activeRunStatus
+          },
+          recordedAt: this.#clock.now().toISOString()
+        });
+        return;
+      }
 
       if (isFatalRuntimeError(error)) {
+        this.#clearDispatchState(issue.id);
         throw error;
       }
+
+      this.#clearDispatchState(issue.id);
 
       const reason = String(error);
       const failureOrigin = classifyStartupFailureOrigin(
@@ -1326,6 +1422,270 @@ export class SymphonyOrchestrator {
     });
   }
 
+  #setDispatchingEntry(
+    issueId: string,
+    next: Partial<SymphonyOrchestratorState["dispatching"][string]>
+  ): void {
+    const existing = this.#state.dispatching[issueId];
+    if (!existing || existing.shutdownDrainCompleted) {
+      return;
+    }
+
+    this.#state.dispatching[issueId] = {
+      ...existing,
+      ...next
+    };
+  }
+
+  #clearDispatchState(issueId: string): void {
+    delete this.#state.dispatching[issueId];
+    this.#state.claimed.delete(issueId);
+  }
+
+  async #reconcileDispatchingIssues(): Promise<void> {
+    const dispatchingIssueIds = Object.keys(this.#state.dispatching);
+    if (dispatchingIssueIds.length === 0) {
+      return;
+    }
+
+    const refreshed = await this.#tracker.fetchIssueStatesByIds(
+      this.#config.tracker,
+      dispatchingIssueIds
+    );
+    const refreshedById = new Map(refreshed.map((issue) => [issue.id, issue]));
+
+    for (const issueId of dispatchingIssueIds) {
+      const dispatchingEntry = this.#state.dispatching[issueId];
+      if (!dispatchingEntry) {
+        continue;
+      }
+
+      const refreshedIssue = refreshedById.get(issueId) ?? null;
+      const nextStopRequest = resolveDispatchStopRequest({
+        issue: refreshedIssue,
+        fallbackIssue: dispatchingEntry.issue,
+        runMode: dispatchingEntry.runMode,
+        tracker: this.#config.tracker
+      });
+
+      if (!nextStopRequest) {
+        if (dispatchingEntry.stopRequest) {
+          continue;
+        }
+
+        if (refreshedIssue) {
+          this.#setDispatchingEntry(issueId, {
+            issue: refreshedIssue
+          });
+        }
+        continue;
+      }
+
+      const stopRequest = mergeDispatchStopRequests(
+        dispatchingEntry.stopRequest,
+        nextStopRequest
+      );
+
+      this.#setDispatchingEntry(issueId, {
+        issue: stopRequest.issue,
+        stopRequest
+      });
+    }
+  }
+
+  async #checkpointDispatchEligibility(
+    issueId: string
+  ): Promise<SymphonyTrackerIssue> {
+    const dispatchingEntry = this.#state.dispatching[issueId];
+    if (!dispatchingEntry) {
+      throw new Error(`Dispatch entry missing for issue ${issueId}.`);
+    }
+
+    if (dispatchingEntry.stopRequest) {
+      throw new SymphonyDispatchCancelledError({
+        reason: dispatchingEntry.stopRequest.reason,
+        issueIdentifier: dispatchingEntry.stopRequest.issue.identifier
+      });
+    }
+
+    const refreshedIssue = await this.#refreshIssue(dispatchingEntry.issue);
+    const stopRequest = resolveDispatchStopRequest({
+      issue: refreshedIssue,
+      fallbackIssue: dispatchingEntry.issue,
+      runMode: dispatchingEntry.runMode,
+      tracker: this.#config.tracker
+    });
+    if (stopRequest) {
+      this.#setDispatchingEntry(issueId, {
+        issue: stopRequest.issue,
+        stopRequest
+      });
+      throw new SymphonyDispatchCancelledError({
+        reason: stopRequest.reason,
+        issueIdentifier: stopRequest.issue.identifier
+      });
+    }
+
+    const activeIssue = refreshedIssue;
+    if (!activeIssue) {
+      throw new Error(`Dispatch checkpoint resolved without an active issue for ${issueId}.`);
+    }
+
+    this.#setDispatchingEntry(issueId, {
+      issue: activeIssue
+    });
+    return activeIssue;
+  }
+
+  async #cancelDispatchingIssue(issueId: string): Promise<void> {
+    const dispatchingEntry = this.#state.dispatching[issueId];
+    if (!dispatchingEntry) {
+      this.#clearDispatchState(issueId);
+      return;
+    }
+
+    if (!dispatchingEntry.stopRequest) {
+      throw new Error(`Dispatch stop requested without a stop reason for ${issueId}.`);
+    }
+
+    if (dispatchingEntry.shutdownDrainCompleted) {
+      this.#clearDispatchState(issueId);
+      return;
+    }
+
+    const effectiveIssue = dispatchingEntry.stopRequest.issue;
+    const cleanupMode =
+      dispatchingEntry.stopRequest.reason === "terminal"
+        ? "destroy"
+        : workspaceCleanupModeForIssue({
+            issue: effectiveIssue,
+            tracker: this.#config.tracker
+          });
+
+    if (dispatchingEntry.runtimeStarted) {
+      await this.#agentRuntime.stopRun({
+        issue: effectiveIssue,
+        workspace: dispatchingEntry.workspace,
+        cleanupMode
+      });
+    }
+
+    await this.#observer?.recordLifecycleEvent({
+      issue: effectiveIssue,
+      runId: dispatchingEntry.runId,
+      source: "orchestrator",
+      eventType:
+        dispatchingEntry.stopRequest.reason === "terminal"
+          ? "run_stopped_terminal"
+          : "run_stopped_inactive",
+      message:
+        dispatchingEntry.stopRequest.reason === "terminal"
+          ? "Dispatch stopped because the issue entered a terminal state before runtime launch."
+          : "Dispatch stopped because the issue became ineligible before runtime launch.",
+      payload: {
+        cleanupMode,
+        duringDispatch: true,
+        dispatchPhase: dispatchingEntry.phase,
+        runtimeStarted: dispatchingEntry.runtimeStarted
+      }
+    });
+
+    if (dispatchingEntry.workspace) {
+      await cleanupWorkspaceAndRecordLifecycle({
+        observer: this.#observer,
+        workspaceBackend: this.#workspaceBackend,
+        config: this.#config,
+        runnerEnv: this.#runnerEnv,
+        issue: effectiveIssue,
+        runId: dispatchingEntry.runId,
+        workspace: dispatchingEntry.workspace,
+        workerHost: dispatchingEntry.workerHost,
+        reason: cleanupMode === "destroy" ? "issue_stopped" : "issue_suspended",
+        mode: cleanupMode
+      });
+    }
+
+    this.#clearDispatchState(issueId);
+  }
+
+  async #drainDispatchingIssueOnShutdown(
+    issueId: string,
+    reason: string
+  ): Promise<void> {
+    const dispatchingEntry = this.#state.dispatching[issueId];
+    if (!dispatchingEntry || dispatchingEntry.shutdownDrainCompleted) {
+      return;
+    }
+
+    const stopRequest: SymphonyDispatchStopRequest =
+      dispatchingEntry.stopRequest ?? {
+        reason: "inactive",
+        issue: dispatchingEntry.issue
+      };
+    const cleanupMode = "preserve";
+    const shouldStopRuntime =
+      dispatchingEntry.workspace !== null &&
+      (dispatchingEntry.runtimeStarted ||
+        dispatchingEntry.phase === "runtime_launch");
+
+    this.#setDispatchingEntry(issueId, {
+      stopRequest
+    });
+    this.#state.claimed.delete(issueId);
+
+    if (shouldStopRuntime) {
+      await this.#agentRuntime.stopRun({
+        issue: stopRequest.issue,
+        workspace: dispatchingEntry.workspace,
+        cleanupMode
+      });
+    }
+
+    await this.#observer?.recordLifecycleEvent({
+      issue: stopRequest.issue,
+      runId: dispatchingEntry.runId,
+      source: "runtime",
+      eventType: "runtime_shutdown_dispatch_drained",
+      message:
+        "Runtime shutdown drained a dispatch before the run became active.",
+      payload: {
+        shutdownReason: reason,
+        dispatchPhase: dispatchingEntry.phase,
+        runtimeStopAttempted: shouldStopRuntime,
+        cleanupMode
+      }
+    });
+
+    if (dispatchingEntry.workspace) {
+      await cleanupWorkspaceAndRecordLifecycle({
+        observer: this.#observer,
+        workspaceBackend: this.#workspaceBackend,
+        config: this.#config,
+        runnerEnv: this.#runnerEnv,
+        issue: stopRequest.issue,
+        runId: dispatchingEntry.runId,
+        workspace: dispatchingEntry.workspace,
+        workerHost: dispatchingEntry.workerHost,
+        reason: "issue_suspended",
+        mode: cleanupMode
+      });
+    }
+
+    const currentDispatchingEntry = this.#state.dispatching[issueId];
+    if (!currentDispatchingEntry) {
+      return;
+    }
+
+    this.#state.dispatching[issueId] = {
+      ...currentDispatchingEntry,
+      issue: stopRequest.issue,
+      stopRequest,
+      workspace: null,
+      runtimeStarted: false,
+      shutdownDrainCompleted: true
+    };
+  }
+
   async #terminateRunningIssue(
     issueId: string,
     cleanupMode: "destroy" | "preserve",
@@ -1411,6 +1771,52 @@ function canIssueContinueRun(input: {
   }
 
   return normalizedState !== "approved";
+}
+
+function resolveDispatchStopRequest(input: {
+  issue: SymphonyTrackerIssue | null;
+  fallbackIssue: SymphonyTrackerIssue;
+  runMode: SymphonyRunMode;
+  tracker: SymphonyTrackerConfig;
+}): SymphonyDispatchStopRequest | null {
+  if (!input.issue) {
+    return {
+      reason: "terminal",
+      issue: input.fallbackIssue
+    };
+  }
+
+  if (
+    !canIssueContinueRun({
+      issue: input.issue,
+      runMode: input.runMode,
+      tracker: input.tracker
+    })
+  ) {
+    return {
+      reason: issueMatchesTerminalState(input.issue, input.tracker)
+        ? "terminal"
+        : "inactive",
+      issue: input.issue
+    };
+  }
+
+  return null;
+}
+
+function mergeDispatchStopRequests(
+  current: SymphonyDispatchStopRequest | null,
+  next: SymphonyDispatchStopRequest
+): SymphonyDispatchStopRequest {
+  if (!current) {
+    return next;
+  }
+
+  if (current.reason === "terminal") {
+    return current;
+  }
+
+  return next.reason === "terminal" ? next : current;
 }
 
 function normalizeStateName(state: string | null | undefined): string {

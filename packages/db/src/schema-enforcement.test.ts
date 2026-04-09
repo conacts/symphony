@@ -168,4 +168,54 @@ describe("db schema enforcement", () => {
       database.close();
     }
   });
+
+  it("rejects a second active run for the same issue at the DB layer", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-schema-active-run-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      await runStore.recordRunStarted({
+        runId: "run-702",
+        repositoryKey: "openai/symphony",
+        trackerIssueId: "tracker-702",
+        issueIdentifier: "COL-702",
+        runMode: "implementation",
+        startedAt: "2026-04-09T12:03:00.000Z",
+        status: "running"
+      });
+
+      expect(() =>
+        database.client.prepare(`
+          insert into symphony_runs (
+            run_id,
+            repository_key,
+            issue_identifier,
+            status,
+            started_at,
+            inserted_at,
+            updated_at
+          ) values (?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          "run-703",
+          "openai/symphony",
+          "COL-702",
+          "dispatching",
+          "2026-04-09T12:04:00.000Z",
+          "2026-04-09T12:04:00.000Z",
+          "2026-04-09T12:04:00.000Z"
+        )
+      ).toThrow(
+        /symphony_runs_one_active_run_per_issue_idx|UNIQUE constraint failed: symphony_runs.issue_identifier/
+      );
+    } finally {
+      database.close();
+    }
+  });
 });
