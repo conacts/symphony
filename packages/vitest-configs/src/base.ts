@@ -225,7 +225,7 @@ function resolveVitestMaxWorkers(): number | string {
 
   // Keep per-package worker pools conservative because Turbo already parallelizes
   // multiple package test tasks across the monorepo.
-  return "50%";
+  return "75%";
 }
 
 const base = defineConfig({
