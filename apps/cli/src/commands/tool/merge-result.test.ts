@@ -34,6 +34,34 @@ describe("tool merge-result command", () => {
   );
 
   it(
+    "fails cleanly when the runtime tools API URL is missing",
+    async () => {
+      await expect(
+        execMergeResultCommand(
+          [
+            "--status",
+            "blocked",
+            "--summary",
+            "Conflicts remain unresolved.",
+            "--blocking-reason",
+            "Conflicts in packages/workspace/src/docker-client.ts"
+          ],
+          {
+            SYMPHONY_RUN_ID: "run-123",
+            SYMPHONY_TRACKER_ISSUE_ID: "issue-123",
+            SYMPHONY_ISSUE_IDENTIFIER: "COL-123"
+          }
+        )
+      ).rejects.toMatchObject({
+        stderr: expect.stringContaining(
+          "Missing required Symphony CLI environment variable: SYMPHONY_API_BASE_URL."
+        )
+      });
+    },
+    20_000
+  );
+
+  it(
     "submits the merge result through the runtime tools API when a control-plane URL is available",
     async () => {
       let requestBody = "";

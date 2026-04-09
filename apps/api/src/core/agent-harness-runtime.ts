@@ -152,6 +152,7 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
           selectedRepository?.promptContract.template ?? input.promptContract.template,
         harness: input.harness,
         promptContract: selectedRepository?.promptContract ?? input.promptContract,
+        apiPort: input.apiPort,
         githubRepository: repositoryKey,
         tracker: input.tracker,
         runStore: input.runStore,

@@ -1,36 +1,16 @@
 import path from "node:path";
 import { createServer } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import {
-  createSymphonyIssueDeliveryReportStore,
-  createSqliteSymphonyRuntimeRunStore,
-  initializeSymphonyDb
-} from "@symphony/db";
 import { ensureRuntimeToolsBuild } from "../../test-support/ensure-runtime-tools-build.js";
 
 const execFileAsync = promisify(execFile);
-const tempRoots: string[] = [];
-const testRepositoryKey = "openai/symphony";
 const devJsPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../bin/dev.js"
 );
-
-afterEach(async () => {
-  await Promise.all(
-    tempRoots.splice(0).map((root) =>
-      rm(root, {
-        recursive: true,
-        force: true
-      })
-    )
-  );
-});
 
 beforeAll(async () => {
   await ensureRuntimeToolsBuild();
@@ -38,107 +18,47 @@ beforeAll(async () => {
 
 describe("tool finish command", () => {
   it(
-    "records a completed delivery report from CLI context",
+    "fails cleanly when required runtime context is missing",
     async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-cli-finish-"));
-    tempRoots.push(root);
-
-    const dbFile = path.join(root, "symphony.db");
-    const database = initializeSymphonyDb({
-      dbFile
-    });
-    const runStore = createSqliteSymphonyRuntimeRunStore({
-      db: database.db
-    });
-    await runStore.recordRunStarted({
-      runId: "run-123",
-      repositoryKey: testRepositoryKey,
-      trackerIssueId: "issue-123",
-      issueIdentifier: "COL-123",
-      runMode: "implementation",
-      status: "running",
-      startedAt: "2026-04-05T19:00:00.000Z"
-    });
-    await runStore.recordTurnStarted("run-123", {
-      turnId: "turn-123",
-      turnSequence: 1,
-      threadId: "thread-turn-123",
-      promptText: "Continue the issue.",
-      status: "running",
-      startedAt: "2026-04-05T19:00:01.000Z"
-    });
-    database.close();
-
-    const command = await execFinishCommand(
-      [
-        "--status",
-        "completed",
-        "--summary",
-        "Opened PR for the requested work.",
-        "--pr-url",
-        "https://github.com/openai/symphony/pull/123",
-        "--branch-name",
-        "symphony/col-123"
-      ],
-      {
-        SYMPHONY_DB_FILE: dbFile,
-        SYMPHONY_RUN_ID: "run-123",
-        SYMPHONY_TRACKER_ISSUE_ID: "issue-123",
-        SYMPHONY_ISSUE_IDENTIFIER: "COL-123",
-        SYMPHONY_ISSUE_STATE: "In Review",
-        SYMPHONY_REPOSITORY_KEY: testRepositoryKey,
-        SYMPHONY_TURN_ID: "turn-123",
-        SYMPHONY_LINEAR_TEAM_KEY: "COL",
-        LINEAR_API_KEY: "token"
-      }
-    );
-
-    expect(command.stdout).toContain('"recorded": true');
-    expect(command.stdout).toContain('"targetState": "In Review"');
-
-    const verificationDb = initializeSymphonyDb({
-      dbFile
-    });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: verificationDb.db,
-      repositoryKey: testRepositoryKey
-    });
-    const reports = await deliveryReports.listForRun("run-123");
-    expect(reports).toHaveLength(1);
-    expect(reports[0]).toEqual(
-      expect.objectContaining({
-        issueIdentifier: "COL-123",
-        runId: "run-123",
-        turnId: "turn-123",
-        status: "completed",
-        prUrl: "https://github.com/openai/symphony/pull/123",
-        branchName: "symphony/col-123"
-      })
-    );
-    verificationDb.close();
+      await expect(
+        execFinishCommand(
+          [
+            "--status",
+            "partial",
+            "--summary",
+            "Partial delivery."
+          ],
+          {}
+        )
+      ).rejects.toMatchObject({
+        stderr: expect.stringContaining("Missing required Symphony CLI environment variable")
+      });
     },
     20_000
   );
 
   it(
-    "fails cleanly when required runtime context is missing",
+    "fails cleanly when the runtime tools API URL is missing",
     async () => {
-    await expect(
-      execFinishCommand(
-        [
-          "--status",
-          "partial",
-          "--summary",
-          "Partial delivery."
-        ],
-        {
-          SYMPHONY_LINEAR_TEAM_KEY: "COL",
-          LINEAR_API_KEY: "token"
-        }
-      )
-    ).rejects.toMatchObject({
-      stderr: expect.stringContaining("Missing required Symphony CLI environment variable")
-    });
+      await expect(
+        execFinishCommand(
+          [
+            "--status",
+            "partial",
+            "--summary",
+            "Partial delivery."
+          ],
+          {
+            SYMPHONY_RUN_ID: "run-123",
+            SYMPHONY_TRACKER_ISSUE_ID: "issue-123",
+            SYMPHONY_ISSUE_IDENTIFIER: "COL-123"
+          }
+        )
+      ).rejects.toMatchObject({
+        stderr: expect.stringContaining(
+          "Missing required Symphony CLI environment variable: SYMPHONY_API_BASE_URL."
+        )
+      });
     },
     20_000
   );

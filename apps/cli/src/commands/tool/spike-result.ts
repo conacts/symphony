@@ -1,12 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { Flags } from "@oclif/core";
 import { createSymphonyLogger } from "@symphony/logger";
-import { executeSpikeResultTool } from "@symphony/runtime-tools";
 import { BaseCommand } from "../../base-command.js";
-import {
-  loadCliCommandContext,
-  loadCliRuntimeContext
-} from "../../runtime-context.js";
+import { loadCliCommandContext } from "../../runtime-context.js";
 import { postRuntimeToolRequest } from "../../runtime-tools-api.js";
 
 const logger = createSymphonyLogger({
@@ -38,13 +34,14 @@ export default class ToolSpikeResultCommand extends BaseCommand {
 
   async run(): Promise<void> {
     const { flags } = await this.parse(ToolSpikeResultCommand);
-    const commandContext = loadCliCommandContext();
     const spikePayload = await buildSpikeResultPayload(flags);
+    const commandContext = loadCliCommandContext();
 
     try {
-      const result = commandContext.apiBaseUrl
-        ? await submitSpikeResultThroughApi(commandContext, spikePayload)
-        : await submitSpikeResultLocally(commandContext, spikePayload);
+      const result = await submitSpikeResultThroughApi(
+        commandContext,
+        spikePayload
+      );
 
       this.printJson(JSON.parse(result.output));
 
@@ -60,32 +57,12 @@ export default class ToolSpikeResultCommand extends BaseCommand {
   }
 }
 
-async function submitSpikeResultLocally(
-  commandContext: ReturnType<typeof loadCliCommandContext>,
-  spikePayload: Awaited<ReturnType<typeof buildSpikeResultPayload>>
-) {
-  const runtimeContext = loadCliRuntimeContext();
-
-  try {
-    return await executeSpikeResultTool(
-      {
-        tracker: runtimeContext.tracker,
-        issue: commandContext.issue,
-        defaultTargetState: runtimeContext.trackerConfig.pauseTransitionToState
-      },
-      spikePayload
-    );
-  } finally {
-    runtimeContext.db.close();
-  }
-}
-
 async function submitSpikeResultThroughApi(
   commandContext: ReturnType<typeof loadCliCommandContext>,
   spikePayload: Awaited<ReturnType<typeof buildSpikeResultPayload>>
 ) {
   return await postRuntimeToolRequest({
-    apiBaseUrl: commandContext.apiBaseUrl!,
+    apiBaseUrl: commandContext.apiBaseUrl,
     endpoint: "spike-result",
     runId: commandContext.runId,
     turnId: commandContext.turnId,

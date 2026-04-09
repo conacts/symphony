@@ -1,11 +1,7 @@
 import { Flags } from "@oclif/core";
 import { createSymphonyLogger } from "@symphony/logger";
-import { executeMergeResultTool } from "@symphony/runtime-tools";
 import { BaseCommand } from "../../base-command.js";
-import {
-  loadCliCommandContext,
-  loadCliRuntimeContext
-} from "../../runtime-context.js";
+import { loadCliCommandContext } from "../../runtime-context.js";
 import { postRuntimeToolRequest } from "../../runtime-tools-api.js";
 
 const logger = createSymphonyLogger({
@@ -50,9 +46,10 @@ export default class ToolMergeResultCommand extends BaseCommand {
     const mergePayload = buildMergeResultPayload(flags);
 
     try {
-      const result = commandContext.apiBaseUrl
-        ? await submitMergeResultThroughApi(commandContext, mergePayload)
-        : await submitMergeResultLocally(commandContext, mergePayload);
+      const result = await submitMergeResultThroughApi(
+        commandContext,
+        mergePayload
+      );
 
       this.printJson(JSON.parse(result.output));
 
@@ -65,28 +62,6 @@ export default class ToolMergeResultCommand extends BaseCommand {
       });
       throw error;
     }
-  }
-}
-
-async function submitMergeResultLocally(
-  commandContext: ReturnType<typeof loadCliCommandContext>,
-  mergePayload: ReturnType<typeof buildMergeResultPayload>
-) {
-  const runtimeContext = loadCliRuntimeContext();
-
-  try {
-    return await executeMergeResultTool(
-      {
-        tracker: runtimeContext.tracker,
-        issueTimelineStore: runtimeContext.issueTimelineStore,
-        issue: commandContext.issue,
-        runId: commandContext.runId,
-        turnId: commandContext.turnId
-      },
-      mergePayload
-    );
-  } finally {
-    runtimeContext.db.close();
   }
 }
 
@@ -108,7 +83,7 @@ async function submitMergeResultThroughApi(
   mergePayload: ReturnType<typeof buildMergeResultPayload>
 ) {
   return await postRuntimeToolRequest({
-    apiBaseUrl: commandContext.apiBaseUrl!,
+    apiBaseUrl: commandContext.apiBaseUrl,
     endpoint: "merge-result",
     runId: commandContext.runId,
     turnId: commandContext.turnId,

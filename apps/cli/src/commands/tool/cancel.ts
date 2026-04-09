@@ -1,11 +1,7 @@
 import { Flags } from "@oclif/core";
 import { createSymphonyLogger } from "@symphony/logger";
-import { executeCancelTool } from "@symphony/runtime-tools";
 import { BaseCommand } from "../../base-command.js";
-import {
-  loadCliCommandContext,
-  loadCliRuntimeContext
-} from "../../runtime-context.js";
+import { loadCliCommandContext } from "../../runtime-context.js";
 import { postRuntimeToolRequest } from "../../runtime-tools-api.js";
 
 const logger = createSymphonyLogger({
@@ -35,9 +31,7 @@ export default class ToolCancelCommand extends BaseCommand {
     const cancelPayload = buildCancelPayload(flags);
 
     try {
-      const result = commandContext.apiBaseUrl
-        ? await cancelIssueThroughApi(commandContext, cancelPayload)
-        : await cancelIssueLocally(commandContext, cancelPayload);
+      const result = await cancelIssueThroughApi(commandContext, cancelPayload);
 
       this.printJson(JSON.parse(result.output));
 
@@ -53,26 +47,6 @@ export default class ToolCancelCommand extends BaseCommand {
   }
 }
 
-async function cancelIssueLocally(
-  commandContext: ReturnType<typeof loadCliCommandContext>,
-  cancelPayload: ReturnType<typeof buildCancelPayload>
-) {
-  const runtimeContext = loadCliRuntimeContext();
-
-  try {
-    return await executeCancelTool(
-      {
-        tracker: runtimeContext.tracker,
-        issue: commandContext.issue,
-        defaultTargetState: "Canceled"
-      },
-      cancelPayload
-    );
-  } finally {
-    runtimeContext.db.close();
-  }
-}
-
 function buildCancelPayload(flags: Awaited<ReturnType<ToolCancelCommand["parse"]>>["flags"]) {
   return {
     reason: flags.reason,
@@ -85,7 +59,7 @@ async function cancelIssueThroughApi(
   cancelPayload: ReturnType<typeof buildCancelPayload>
 ) {
   return await postRuntimeToolRequest({
-    apiBaseUrl: commandContext.apiBaseUrl!,
+    apiBaseUrl: commandContext.apiBaseUrl,
     endpoint: "cancel",
     runId: commandContext.runId,
     turnId: commandContext.turnId,

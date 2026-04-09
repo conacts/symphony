@@ -2112,7 +2112,13 @@ done
 
     const fakeDocker = path.join(root, "docker");
     const fakeDockerLog = path.join(root, "fake-docker-log.json");
-    await writeFakeDockerBinary(fakeDocker, fakeDockerLog);
+    const fakeDockerEnvLog = path.join(root, "fake-docker-env.log");
+    await writeFakeDockerBinary(
+      fakeDocker,
+      fakeDockerLog,
+      undefined,
+      fakeDockerEnvLog
+    );
     process.env.PATH = `${root}:${originalPath ?? ""}`;
 
     const issue = buildSymphonyRuntimeTrackerIssue({
@@ -2152,6 +2158,7 @@ done
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
+        apiPort: 4_400,
         tracker,
         runStore,
         deliveryReports,
@@ -2207,6 +2214,9 @@ done
       containerName: "symphony-col-123-container",
       workdir: "/workspace"
     });
+    expect(await readFile(fakeDockerEnvLog, "utf8")).toContain(
+      "SYMPHONY_API_BASE_URL=http://host.docker.internal:4400/api/v1/internal/runtime-tools"
+    );
     expect(runtimeLogPayloads).toContainEqual(
       expect.objectContaining({
         launchTarget: expect.objectContaining({
@@ -2597,7 +2607,8 @@ done
 async function writeFakeDockerBinary(
   dockerBinary: string,
   logPath: string,
-  repoPath?: string
+  repoPath?: string,
+  envLogPath?: string
 ): Promise<void> {
   await writeFile(
     dockerBinary,
@@ -2605,6 +2616,8 @@ async function writeFakeDockerBinary(
 set -eu
 repo_path=""
 ${repoPath ? `repo_path='${repoPath.replaceAll("'", `'"'"'`) }'` : ""}
+env_log_path=""
+${envLogPath ? `env_log_path='${envLogPath.replaceAll("'", `'"'"'`) }'` : ""}
 if [ "$1" != "exec" ]; then
   echo "unexpected docker command: $1" >&2
   exit 99
@@ -2620,6 +2633,9 @@ while [ "$#" -gt 0 ]; do
       shift 2
       ;;
     --env)
+      if [ -n "$env_log_path" ]; then
+        printf '%s\n' "$2" >> "$env_log_path"
+      fi
       shift 2
       ;;
     --workdir)

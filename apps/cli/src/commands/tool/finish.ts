@@ -1,11 +1,7 @@
 import { Flags } from "@oclif/core";
 import { createSymphonyLogger } from "@symphony/logger";
-import { executeDeliveryReportTool } from "@symphony/runtime-tools";
 import { BaseCommand } from "../../base-command.js";
-import {
-  loadCliCommandContext,
-  loadCliRuntimeContext
-} from "../../runtime-context.js";
+import { loadCliCommandContext } from "../../runtime-context.js";
 import { postRuntimeToolRequest } from "../../runtime-tools-api.js";
 
 const logger = createSymphonyLogger({
@@ -52,9 +48,10 @@ export default class ToolFinishCommand extends BaseCommand {
     const deliveryPayload = buildDeliveryReportPayload(flags);
 
     try {
-      const result = commandContext.apiBaseUrl
-        ? await recordDeliveryReportThroughApi(commandContext, deliveryPayload)
-        : await recordDeliveryReportLocally(commandContext, deliveryPayload);
+      const result = await recordDeliveryReportThroughApi(
+        commandContext,
+        deliveryPayload
+      );
 
       this.printJson(JSON.parse(result.output));
 
@@ -68,34 +65,6 @@ export default class ToolFinishCommand extends BaseCommand {
       throw error;
     }
   }
-}
-
-async function recordDeliveryReportLocally(
-  commandContext: ReturnType<typeof loadCliCommandContext>,
-  deliveryPayload: ReturnType<typeof buildDeliveryReportPayload>
-) {
-  const runtimeContext = loadCliRuntimeContext();
-  try {
-    return await executeDeliveryReportTool(
-      buildDeliveryExecutionContext(runtimeContext, commandContext),
-      deliveryPayload
-    );
-  } finally {
-    runtimeContext.db.close();
-  }
-}
-
-function buildDeliveryExecutionContext(
-  runtimeContext: ReturnType<typeof loadCliRuntimeContext>,
-  commandContext: ReturnType<typeof loadCliCommandContext>
-) {
-  return {
-    tracker: runtimeContext.tracker,
-    deliveryReports: runtimeContext.deliveryReports,
-    issue: commandContext.issue,
-    runId: commandContext.runId,
-    turnId: commandContext.turnId
-  };
 }
 
 function buildDeliveryReportPayload(flags: Awaited<ReturnType<ToolFinishCommand["parse"]>>["flags"]) {
@@ -115,7 +84,7 @@ async function recordDeliveryReportThroughApi(
   deliveryPayload: ReturnType<typeof buildDeliveryReportPayload>
 ) {
   return await postRuntimeToolRequest({
-    apiBaseUrl: commandContext.apiBaseUrl!,
+    apiBaseUrl: commandContext.apiBaseUrl,
     endpoint: "finish",
     runId: commandContext.runId,
     turnId: commandContext.turnId,

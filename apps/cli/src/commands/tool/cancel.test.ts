@@ -34,6 +34,30 @@ describe("tool cancel command", () => {
   );
 
   it(
+    "fails cleanly when the runtime tools API URL is missing",
+    async () => {
+      await expect(
+        execCancelCommand(
+          [
+            "--reason",
+            "Canceling this run because the requirements changed."
+          ],
+          {
+            SYMPHONY_RUN_ID: "run-123",
+            SYMPHONY_TRACKER_ISSUE_ID: "issue-123",
+            SYMPHONY_ISSUE_IDENTIFIER: "COL-123"
+          }
+        )
+      ).rejects.toMatchObject({
+        stderr: expect.stringContaining(
+          "Missing required Symphony CLI environment variable: SYMPHONY_API_BASE_URL."
+        )
+      });
+    },
+    20_000
+  );
+
+  it(
     "submits the cancellation through the runtime tools API when a control-plane URL is available",
     async () => {
       let requestBody = "";
