@@ -206,12 +206,13 @@ function buildRuntimePolicy(
       teamKey: "SYM",
       excludedProjectIds: [],
       assignee: null,
-      dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework"],
+      dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework", "Approved"],
       terminalStates: ["Canceled", "Done"],
       claimTransitionToState: "Bootstrapping",
       claimTransitionFromStates: ["Todo", "Rework"],
       startupFailureTransitionToState: "Failed",
-      pauseTransitionToState: "Paused"
+      pauseTransitionToState: "Paused",
+      blockedTransitionToState: "Blocked"
     },
     workspace: {
       root: "/tmp/workspaces"

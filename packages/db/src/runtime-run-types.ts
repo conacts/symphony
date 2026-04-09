@@ -17,6 +17,11 @@ export type SymphonyRuntimeRunStatus =
   | "stalled"
   | "stopped";
 
+export type SymphonyRuntimeRunMode =
+  | "implementation"
+  | "rework"
+  | "approved_merge";
+
 export type SymphonyRuntimeMachineLoadSummary = {
   sampleCount: number;
   maxCpuPercent: number | null;
@@ -42,6 +47,7 @@ export type SymphonyRuntimeRunStartAttrs = {
   issueIdentifier: string;
   runId?: string;
   attempt?: number | null;
+  runMode: SymphonyRuntimeRunMode;
   status: SymphonyRuntimeRunStatus;
   workerHost?: string | null;
   workspacePath?: string | null;
@@ -87,6 +93,7 @@ export type SymphonyRuntimeTurnFinishAttrs = {
 export type SymphonyRuntimeRunUpdateAttrs = {
   status?: SymphonyRuntimeRunStatus;
   outcome?: string | null;
+  runMode?: SymphonyRuntimeRunMode;
   workerHost?: string | null;
   workspacePath?: string | null;
   startedAt?: Date | string | null;
@@ -104,6 +111,7 @@ export type SymphonyRuntimeRunUpdateAttrs = {
 export type SymphonyRuntimeRunFinishAttrs = {
   status: SymphonyRuntimeRunStatus;
   outcome?: string | null;
+  runMode?: SymphonyRuntimeRunMode;
   endedAt: Date | string;
   commitHashEnd?: string | null;
   repoEnd?: JsonObject | null;

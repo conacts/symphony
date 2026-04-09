@@ -2,6 +2,7 @@ import type {
   AgentRuntimeLaunchTarget
 } from "./agent-runtime.js";
 import type { JsonObject } from "@symphony/contracts";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type {
   PreparedWorkspace,
@@ -40,6 +41,7 @@ export type SymphonyStartupFailureOrigin =
 export type SymphonyRunningEntry = {
   issue: SymphonyTrackerIssue;
   runId: string | null;
+  runMode: SymphonyRunMode;
   sessionId: string | null;
   workerHost: string | null;
   workspace: PreparedWorkspace | null;
@@ -66,6 +68,7 @@ export type SymphonyRetryEntry = {
   dueAtMs: number;
   retryToken: string;
   identifier: string;
+  runMode: SymphonyRunMode;
   error: string | null;
   workerHost: string | null;
   workspace: PreparedWorkspace | null;
@@ -117,6 +120,7 @@ export interface SymphonyOrchestratorObserver {
   startRun(input: {
     issue: SymphonyTrackerIssue;
     attempt: number;
+    runMode: SymphonyRunMode;
     harness: "pi";
     workspace: PreparedWorkspace | null;
     workerHost: string | null;

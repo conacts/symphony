@@ -19,6 +19,7 @@ function buildAgentRunInput(): AgentRunInput {
     issue,
     runId: "run-123",
     attempt: 1,
+    runMode: "implementation",
     runtimePolicy: config.runtime,
     workspace: {
       issueIdentifier: issue.identifier,

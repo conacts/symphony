@@ -7,6 +7,8 @@ import { createSymphonyIssueDeliveryReportStore } from "./issue-delivery-reports
 import { createSqliteAgentAnalyticsStore } from "./agent-analytics-store.js";
 import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-store.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
+import { symphonyRunsTable } from "./schema.js";
+import { eq } from "drizzle-orm";
 
 const tempDirectories: string[] = [];
 
@@ -22,6 +24,45 @@ afterEach(async () => {
 });
 
 describe("runtime run delivery projections", () => {
+  it("persists the internal run mode in run metadata", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-run-mode-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runStore.recordRunStarted({
+        runId: "run-mode-1",
+        issueId: "issue-1",
+        issueIdentifier: "COL-200",
+        runMode: "rework",
+        metadata: {
+          source: "test"
+        },
+        startedAt: "2026-04-05T19:00:00.000Z",
+        status: "running"
+      });
+
+      const storedRun = database.db
+        .select()
+        .from(symphonyRunsTable)
+        .where(eq(symphonyRunsTable.runId, runId))
+        .get();
+
+      expect(storedRun?.metadata).toMatchObject({
+        source: "test",
+        runMode: "rework"
+      });
+    } finally {
+      database.close();
+    }
+  });
+
   it("surfaces latest delivery status on run and issue summaries", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-delivery-"));
     tempDirectories.push(root);
@@ -47,6 +88,7 @@ describe("runtime run delivery projections", () => {
         runId: "run-1",
         issueId: "issue-1",
         issueIdentifier: "COL-157",
+        runMode: "implementation",
         startedAt: "2026-04-05T19:00:00.000Z",
         status: "running"
       });

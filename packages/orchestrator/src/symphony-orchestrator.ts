@@ -32,6 +32,10 @@ import {
   isFatalRuntimeError
 } from "./symphony-orchestrator-failures.js";
 import {
+  deriveSymphonyRunMode,
+  type SymphonyRunMode
+} from "@symphony/runtime-contract";
+import {
   createRetryEntry,
   stateSlotsAvailable
 } from "./symphony-orchestrator-retries.js";
@@ -211,11 +215,11 @@ export class SymphonyOrchestrator {
       }
 
       if (
-        !refreshedIssue.assignedToWorker ||
-        !issueMatchesDispatchableState(
-          refreshedIssue,
-          this.#config.tracker
-        )
+        !canIssueContinueRun({
+          issue: refreshedIssue,
+          runMode: runningEntry.runMode,
+          tracker: this.#config.tracker
+        })
       ) {
         await this.#terminateRunningIssue(issueId, true, refreshedIssue);
         continue;
@@ -269,8 +273,10 @@ export class SymphonyOrchestrator {
   async dispatchIssue(
     issue: SymphonyTrackerIssue,
     attempt: number,
-    preferredWorkerHost: string | null = null
+    preferredWorkerHost: string | null = null,
+    runModeOverride?: SymphonyRunMode
   ): Promise<void> {
+    const runMode = runModeOverride ?? deriveSymphonyRunMode(issue.state);
     const preparedIssue = await prepareIssueForDispatch(
       this.#config,
       this.#tracker,
@@ -281,6 +287,7 @@ export class SymphonyOrchestrator {
       (await this.#observer?.startRun({
         issue: preparedIssue,
         attempt,
+        runMode,
         harness: this.#config.runtime.agent.harness,
         workspace: null,
         workerHost: preferredWorkerHost,
@@ -391,26 +398,18 @@ export class SymphonyOrchestrator {
         }
       });
 
-      const activeIssue =
-        preparedIssue.state.trim().toLowerCase() === "bootstrapping"
-          ? await this.#transitionIssueState({
-              issue: preparedIssue,
-              targetState: "In Progress",
-              runId,
-              eventType: "bootstrap_transition",
-              message: "Issue moved from Bootstrapping to In Progress.",
-              payload: {
-                fromState: preparedIssue.state,
-                toState: "In Progress"
-              }
-            })
-          : preparedIssue;
+      const activeIssue = await this.#activatePreparedIssue({
+        issue: preparedIssue,
+        runId,
+        runMode
+      });
 
       startupFailureStage = "runtime_launch";
       const launch = await this.#agentRuntime.startRun({
         issue: activeIssue,
         runId,
         attempt,
+        runMode,
         runtimePolicy: this.#config.runtime,
         workspace
       });
@@ -420,6 +419,7 @@ export class SymphonyOrchestrator {
       this.#state.running[preparedIssue.id] = createRunningEntry({
         issue: activeIssue,
         runId,
+        runMode,
         sessionId: launch.sessionId,
         workerHost,
         workspace,
@@ -613,6 +613,15 @@ export class SymphonyOrchestrator {
       : "preserve";
 
     if (completion.kind === "normal" || completion.kind === "max_turns_reached") {
+      if (runningEntry.runMode === "approved_merge") {
+        await this.#handleApprovedMergeCompletion({
+          runningEntry,
+          completion,
+          currentIssue
+        });
+        return;
+      }
+
       if (completion.kind === "max_turns_reached") {
         currentIssue = await this.#transitionIssueState({
           issue: currentIssue ?? runningEntry.issue,
@@ -703,6 +712,55 @@ export class SymphonyOrchestrator {
         workerHost: runningEntry.workerHost,
         completionKind: completion.kind,
         mode: "preserve"
+      });
+      return;
+    }
+
+    if (
+      runningEntry.runMode === "approved_merge" &&
+      (completion.kind === "failure" || completion.kind === "stalled")
+    ) {
+      currentIssue = await this.#transitionIssueState({
+        issue: currentIssue ?? runningEntry.issue,
+        targetState: this.#config.tracker.blockedTransitionToState,
+        runId: runningEntry.runId,
+        eventType: "blocked_transition",
+        message:
+          completion.kind === "stalled"
+            ? "Issue moved to Blocked after merge automation stalled."
+            : "Issue moved to Blocked after merge automation could not complete safely.",
+        payload: {
+          reason: completion.reason,
+          completionKind: completion.kind,
+          runMode: runningEntry.runMode
+        },
+        swallowErrors: true
+      });
+
+      await leaveFailureComment({
+        tracker: this.#tracker,
+        observer: this.#observer,
+        issue: currentIssue,
+        reason: completion.reason,
+        outcome:
+          completion.kind === "stalled"
+            ? "blocked_merge_stalled"
+            : "blocked_merge_failure",
+        runId: runningEntry.runId
+      });
+
+      await this.#cleanupStoppedRun({
+        issue: currentIssue,
+        runId: runningEntry.runId,
+        workspace: runningEntry.workspace,
+        workerHost: runningEntry.workerHost,
+        completionKind: completion.kind,
+        mode: shouldDestroyWorkspaceForStoppedIssue(
+          currentIssue,
+          this.#config.tracker
+        )
+          ? "destroy"
+          : "preserve"
       });
       return;
     }
@@ -830,6 +888,111 @@ export class SymphonyOrchestrator {
     return refreshed[0] ?? null;
   }
 
+  async #activatePreparedIssue(input: {
+    issue: SymphonyTrackerIssue;
+    runId: string | null;
+    runMode: SymphonyRunMode;
+  }): Promise<SymphonyTrackerIssue> {
+    const normalizedState = normalizeStateName(input.issue.state);
+
+    if (normalizedState === "bootstrapping") {
+      return await this.#transitionIssueState({
+        issue: input.issue,
+        targetState: "In Progress",
+        runId: input.runId,
+        eventType: "bootstrap_transition",
+        message: "Issue moved from Bootstrapping to In Progress.",
+        payload: {
+          fromState: input.issue.state,
+          toState: "In Progress"
+        }
+      });
+    }
+
+    if (
+      input.runMode === "approved_merge" &&
+      normalizedState === "approved"
+    ) {
+      return await this.#transitionIssueState({
+        issue: input.issue,
+        targetState: "In Progress",
+        runId: input.runId,
+        eventType: "approved_merge_transition",
+        message: "Issue moved from Approved to In Progress for merge automation.",
+        payload: {
+          fromState: input.issue.state,
+          toState: "In Progress",
+          runMode: input.runMode
+        }
+      });
+    }
+
+    return input.issue;
+  }
+
+  async #handleApprovedMergeCompletion(input: {
+    runningEntry: SymphonyOrchestratorState["running"][string];
+    completion: Extract<
+      SymphonyAgentRuntimeCompletion,
+      { kind: "normal" | "max_turns_reached" }
+    >;
+    currentIssue: SymphonyTrackerIssue | null;
+  }): Promise<void> {
+    let finalIssue = input.currentIssue ?? input.runningEntry.issue;
+
+    if (input.completion.kind === "normal") {
+      finalIssue = await this.#transitionIssueState({
+        issue: finalIssue,
+        targetState: "Done",
+        runId: input.runningEntry.runId,
+        eventType: "done_transition",
+        message: "Issue moved to Done after merge automation completed successfully.",
+        payload: {
+          completionKind: input.completion.kind,
+          runMode: input.runningEntry.runMode
+        },
+        swallowErrors: true
+      });
+    } else {
+      finalIssue = await this.#transitionIssueState({
+        issue: finalIssue,
+        targetState: this.#config.tracker.blockedTransitionToState,
+        runId: input.runningEntry.runId,
+        eventType: "blocked_transition",
+        message: "Issue moved to Blocked after merge automation hit the max-turn limit.",
+        payload: {
+          reason: input.completion.reason,
+          completionKind: input.completion.kind,
+          runMode: input.runningEntry.runMode
+        },
+        swallowErrors: true
+      });
+
+      await leaveFailureComment({
+        tracker: this.#tracker,
+        observer: this.#observer,
+        issue: finalIssue,
+        reason: input.completion.reason,
+        outcome: "blocked_merge_max_turns",
+        runId: input.runningEntry.runId
+      });
+    }
+
+    await this.#cleanupStoppedRun({
+      issue: finalIssue,
+      runId: input.runningEntry.runId,
+      workspace: input.runningEntry.workspace,
+      workerHost: input.runningEntry.workerHost,
+      completionKind: input.completion.kind,
+      mode: shouldDestroyWorkspaceForStoppedIssue(
+        finalIssue,
+        this.#config.tracker
+      )
+        ? "destroy"
+        : "preserve"
+    });
+  }
+
   async #dispatchDueRetries(): Promise<void> {
     const dueRetries = Object.entries(this.#state.retryAttempts)
       .sort(([, left], [, right]) => left.dueAtMs - right.dueAtMs)
@@ -856,7 +1019,12 @@ export class SymphonyOrchestrator {
       }
 
       delete this.#state.retryAttempts[issueId];
-      await this.dispatchIssue(issue, retry.attempt, retry.workerHost);
+      await this.dispatchIssue(
+        issue,
+        retry.attempt,
+        retry.workerHost,
+        retry.runMode
+      );
     }
   }
 
@@ -869,6 +1037,7 @@ export class SymphonyOrchestrator {
       attempt: nextAttempt,
       nowMs: this.#clock.nowMs(),
       identifier: runningEntry.issue.identifier,
+      runMode: runningEntry.runMode,
       error: reason,
       workerHost: runningEntry.workerHost,
       workspace: runningEntry.workspace,
@@ -1027,6 +1196,35 @@ function shouldDestroyWorkspaceForStoppedIssue(
     !issue.assignedToWorker ||
     !issueMatchesDispatchableState(issue, tracker)
   );
+}
+
+function canIssueContinueRun(input: {
+  issue: SymphonyTrackerIssue;
+  runMode: SymphonyRunMode;
+  tracker: SymphonyTrackerConfig;
+}): boolean {
+  if (!input.issue.assignedToWorker) {
+    return false;
+  }
+
+  if (issueMatchesTerminalState(input.issue, input.tracker)) {
+    return false;
+  }
+
+  if (!issueMatchesDispatchableState(input.issue, input.tracker)) {
+    return false;
+  }
+
+  const normalizedState = normalizeStateName(input.issue.state);
+  if (input.runMode === "approved_merge") {
+    return normalizedState === "approved" || normalizedState === "in progress";
+  }
+
+  return normalizedState !== "approved";
+}
+
+function normalizeStateName(state: string | null | undefined): string {
+  return state?.trim().toLowerCase() ?? "";
 }
 
 function assertPiRuntimeHarness(

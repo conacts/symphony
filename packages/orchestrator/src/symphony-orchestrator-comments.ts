@@ -85,6 +85,18 @@ function failureCommentTitle(outcome: string, reason: string): string {
     return "Symphony agent paused after a runtime failure.";
   }
 
+  if (outcome === "blocked_merge_max_turns") {
+    return "Symphony merge automation moved the issue to Blocked after reaching max turns.";
+  }
+
+  if (outcome === "blocked_merge_stalled") {
+    return "Symphony merge automation moved the issue to Blocked after stalling.";
+  }
+
+  if (outcome === "blocked_merge_failure") {
+    return "Symphony merge automation moved the issue to Blocked after a runtime failure.";
+  }
+
   if (outcome === "rate_limited" || rateLimitReason(reason)) {
     return "Symphony agent paused after hitting a Pi rate limit.";
   }
@@ -111,6 +123,18 @@ function failureCommentSummary(outcome: string, reason: string): string {
 
   if (outcome === "paused_failure") {
     return "Pi stopped because the runtime failed during an active run.";
+  }
+
+  if (outcome === "blocked_merge_max_turns") {
+    return "Pi stopped because merge automation reached the configured max-turn limit.";
+  }
+
+  if (outcome === "blocked_merge_stalled") {
+    return "Pi stopped because merge automation stalled without visible activity.";
+  }
+
+  if (outcome === "blocked_merge_failure") {
+    return "Pi stopped because merge automation could not complete safely.";
   }
 
   return truncateReason(reason);
@@ -164,6 +188,17 @@ function failureCommentFollowUpLines(
 ): string[] {
   if (outcome === "startup_failed" || outcome === "startup_failed_backlog") {
     return startupFailureFollowUpLines(transition);
+  }
+
+  if (
+    outcome === "blocked_merge_max_turns" ||
+    outcome === "blocked_merge_stalled" ||
+    outcome === "blocked_merge_failure"
+  ) {
+    return [
+      "Symphony did not retry automatically.",
+      "Symphony moved the issue to `Blocked`. After resolving the merge problem, move it back to `Approved` to request another merge run."
+    ];
   }
 
   return pausedFailureFollowUpLines(outcome, transition);

@@ -22,7 +22,13 @@ type SymphonyPiRuntimePolicy = {
 };
 
 const defaultLinearEndpoint = "https://api.linear.app/graphql";
-const defaultDispatchableStates = ["Todo", "Bootstrapping", "In Progress", "Rework"];
+const defaultDispatchableStates = [
+  "Todo",
+  "Bootstrapping",
+  "In Progress",
+  "Rework",
+  "Approved"
+];
 const defaultTerminalStates = ["Canceled", "Done"];
 const defaultClaimTransitionFromStates = ["Todo", "Rework"];
 const defaultAllowedOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
@@ -79,7 +85,9 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       startupFailureTransitionToState:
         readOptionalString(environmentSource.SYMPHONY_STARTUP_FAILURE_STATE) ?? "Failed",
       pauseTransitionToState:
-        readOptionalString(environmentSource.SYMPHONY_PAUSE_STATE) ?? "Paused"
+        readOptionalString(environmentSource.SYMPHONY_PAUSE_STATE) ?? "Paused",
+      blockedTransitionToState:
+        readOptionalString(environmentSource.SYMPHONY_BLOCKED_STATE) ?? "Blocked"
     },
     polling: {
       intervalMs: readPositiveInteger(environmentSource.SYMPHONY_POLL_INTERVAL_MS, 5_000)

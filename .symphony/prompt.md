@@ -45,10 +45,9 @@ Execution style:
 - Do not search for `LINEAR_API_KEY` or try to move the issue to `In Review` manually as a substitute
   for the finish command.
 
-If the issue is in `Rework`, read the latest Linear rework note and any relevant GitHub review
-comment context first, then address that feedback before anything else.
+{{ run_mode_section }}
 
 Description:
 {{ issue.description }}
 
-{{ rework_handoff }}
+{{ handoff_section }}

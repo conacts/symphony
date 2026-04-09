@@ -100,6 +100,7 @@ export type SymphonyRunStartAttrs = {
   issueIdentifier: string;
   runId?: string;
   attempt?: number | null;
+  runMode: "implementation" | "rework" | "approved_merge";
   status?: string;
   workerHost?: string | null;
   workspacePath?: string | null;

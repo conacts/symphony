@@ -92,6 +92,7 @@ describe("docker pi symphony agent runtime", () => {
     const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
+      runMode: "implementation",
       status: "dispatching",
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
@@ -140,6 +141,7 @@ describe("docker pi symphony agent runtime", () => {
         issue,
         runId,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
@@ -241,6 +243,7 @@ done
     const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
+      runMode: "implementation",
       status: "dispatching",
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
@@ -279,6 +282,7 @@ done
         issue,
         runId,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
@@ -413,6 +417,7 @@ done
         issue,
         runId: null,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
@@ -486,6 +491,7 @@ done
     const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
+      runMode: "implementation",
       status: "dispatching",
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
@@ -525,6 +531,7 @@ done
         issue,
         runId,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
@@ -581,6 +588,7 @@ done
     const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
+      runMode: "implementation",
       status: "dispatching",
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
@@ -637,6 +645,7 @@ done
         issue,
         runId,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
@@ -699,6 +708,7 @@ done
     const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
+      runMode: "implementation",
       status: "dispatching",
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
@@ -739,6 +749,7 @@ done
         issue,
         runId,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
@@ -753,6 +764,108 @@ done
     expect(runDetail?.turns[0]?.promptText).not.toContain("Rework handoff:");
     expect(runDetail?.turns[0]?.promptText).not.toContain(
       "GitHub review feedback triggered rework"
+    );
+
+    database.close();
+  });
+
+  it("uses the explicit run mode when it differs from the visible issue state", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-run-mode-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createDoneTracker(issue);
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const agentReadStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      runMode: "approved_merge",
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    let completion: SymphonyAgentRuntimeCompletion | null = null;
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(root, "{{ run_mode_section }}"),
+        tracker,
+        runStore,
+        deliveryReports,
+        agentAnalytics,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            return;
+          },
+          async onComplete(_issueId, result) {
+            completion = result;
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runMode: "approved_merge",
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    expect(completion).toEqual({
+      kind: "normal"
+    });
+
+    const runDetail = await agentReadStore.fetchRunDetail(runId);
+    expect(runDetail?.turns[0]?.promptText).toContain(
+      "Current run mode: Approved Merge"
+    );
+    expect(runDetail?.turns[0]?.promptText).toContain(
+      "This run is for merge completion, not normal feature development."
     );
 
     database.close();
@@ -798,6 +911,7 @@ done
     const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
+      runMode: "implementation",
       status: "dispatching",
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
@@ -869,6 +983,7 @@ done
         issue,
         runId,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
@@ -989,6 +1104,7 @@ done
         issue,
         runId: null,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
@@ -1074,6 +1190,7 @@ done
     const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
+      runMode: "implementation",
       status: "dispatching",
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
@@ -1113,6 +1230,7 @@ done
         issue,
         runId,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
@@ -1222,6 +1340,7 @@ done
         issue,
         runId: null,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
@@ -1301,6 +1420,7 @@ done
     const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
+      runMode: "implementation",
       status: "dispatching",
       workspacePath: hostWorkspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
@@ -1342,6 +1462,7 @@ done
         issue,
         runId,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildContainerPreparedWorkspace(issue.identifier, hostWorkspacePath)
       });
@@ -1478,6 +1599,7 @@ exit 1
         issue,
         runId: null,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildContainerPreparedWorkspace(issue.identifier, hostWorkspacePath)
       });
@@ -1559,6 +1681,7 @@ exit 1
     const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
+      runMode: "implementation",
       status: "dispatching",
       workspacePath: null,
       startedAt: "2026-03-31T00:00:00.000Z"
@@ -1598,6 +1721,7 @@ exit 1
         issue,
         runId,
         attempt: 1,
+        runMode: "implementation",
         runtimePolicy,
         workspace: buildContainerPreparedWorkspace(issue.identifier, null)
       });

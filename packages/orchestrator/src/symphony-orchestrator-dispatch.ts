@@ -15,6 +15,7 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
   workspaceHostPath,
   type PreparedWorkspace
@@ -51,6 +52,7 @@ export async function prepareIssueForDispatch(
 export function createRunningEntry(input: {
   issue: SymphonyTrackerIssue;
   runId: string | null;
+  runMode: SymphonyRunMode;
   sessionId: string | null;
   workerHost: string | null;
   workspace: PreparedWorkspace | null;
@@ -61,6 +63,7 @@ export function createRunningEntry(input: {
   return {
     issue: input.issue,
     runId: input.runId,
+    runMode: input.runMode,
     sessionId: input.sessionId,
     workerHost: input.workerHost,
     workspace: input.workspace,

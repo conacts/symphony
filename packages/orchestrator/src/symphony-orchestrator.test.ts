@@ -6,6 +6,7 @@ import {
   type SymphonyAgentRuntimeCompletion
 } from "./symphony-orchestrator.js";
 import { SymphonyRuntimeManifestError } from "@symphony/runtime-contract";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type {
   AgentRunLaunch,
   AgentRuntime
@@ -1535,7 +1536,83 @@ describe("symphony orchestrator", () => {
       expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
     });
 
-    it("stops and destroys runs that move into Approved even though Approved is not terminal", async () => {
+    it("dispatches Approved issues in approved_merge mode and completes them into Done", async () => {
+      const harness = createFlowHarness({
+        issue: {
+          state: "Approved"
+        },
+        config: {
+          tracker: {
+            claimTransitionToState: null,
+            claimTransitionFromStates: []
+          }
+        }
+      });
+
+      await harness.orchestrator.runPollCycle();
+      await harness.orchestrator.handleRunCompletion(harness.issue.id, {
+        kind: "normal"
+      });
+
+      expect(harness.startRuns).toEqual([
+        expect.objectContaining({
+          issueId: harness.issue.id,
+          issueState: "In Progress",
+          runMode: "approved_merge"
+        })
+      ]);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Done");
+      expect(harness.lifecycleEvents).toContain("approved_merge_transition");
+      expect(harness.lifecycleEvents).toContain("done_transition");
+      expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
+      expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+    });
+
+    it("moves failed approved merge runs into Blocked", async () => {
+      const harness = createFlowHarness({
+        issue: {
+          state: "Approved"
+        },
+        config: {
+          tracker: {
+            claimTransitionToState: null,
+            claimTransitionFromStates: []
+          }
+        }
+      });
+
+      await harness.orchestrator.runPollCycle();
+      await harness.orchestrator.handleRunCompletion(harness.issue.id, {
+        kind: "failure",
+        reason: "git merge origin/main failed with conflicts"
+      });
+
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Blocked");
+      expect(harness.tracker.listOperations()).toEqual(
+        expect.arrayContaining([
+          {
+            kind: "update_state",
+            issueId: harness.issue.id,
+            stateName: "In Progress"
+          },
+          {
+            kind: "update_state",
+            issueId: harness.issue.id,
+            stateName: "Blocked"
+          },
+          {
+            kind: "comment",
+            issueId: harness.issue.id,
+            body: expect.stringContaining("move it back to `Approved`")
+          }
+        ])
+      );
+      expect(harness.lifecycleEvents).toContain("approved_merge_transition");
+      expect(harness.lifecycleEvents).toContain("blocked_transition");
+      expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+    });
+
+    it("stops implementation runs that move into Approved so merge mode can take over", async () => {
       const harness = createFlowHarness({
         issue: {
           state: "In Progress"
@@ -1625,6 +1702,11 @@ function createFlowHarness(input: {
   const tracker = createMemorySymphonyTracker([issue]);
   const lifecycleEvents: string[] = [];
   const stoppedIssueIds: string[] = [];
+  const startRuns: Array<{
+    issueId: string;
+    issueState: string;
+    runMode: SymphonyRunMode;
+  }> = [];
 
   const orchestrator = new SymphonyOrchestrator({
     config,
@@ -1637,7 +1719,12 @@ function createFlowHarness(input: {
       })
     }),
     agentRuntime: createAgentRuntime({
-      async startRun() {
+      async startRun(runInput) {
+        startRuns.push({
+          issueId: runInput.issue.id,
+          issueState: runInput.issue.state,
+          runMode: runInput.runMode
+        });
         return {
           sessionId: "thread-1",
           workerHost: null,
@@ -1672,6 +1759,7 @@ function createFlowHarness(input: {
     tracker,
     lifecycleEvents,
     stoppedIssueIds,
+    startRuns,
     orchestrator
   };
 }

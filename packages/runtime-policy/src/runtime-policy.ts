@@ -264,7 +264,7 @@ function normalizeTrackerConfig(
   const tracker = getNestedRecord(value);
   const dispatchableStates = normalizeStringArray(
     tracker.dispatchableStates ?? tracker.activeStates,
-    ["Todo", "Bootstrapping", "In Progress"]
+    ["Todo", "Bootstrapping", "In Progress", "Rework", "Approved"]
   );
 
   return {
@@ -299,7 +299,11 @@ function normalizeTrackerConfig(
     ),
     pauseTransitionToState: normalizeOptionalString(
       resolveEnvToken(tracker.pauseTransitionToState, env)
-    )
+    ),
+    blockedTransitionToState:
+      normalizeOptionalString(
+        resolveEnvToken(tracker.blockedTransitionToState, env)
+      ) ?? "Blocked"
   };
 }
 
@@ -607,6 +611,7 @@ function validateSemanticConfig(config: SymphonyResolvedRuntimePolicy): void {
     tracker.startupFailureTransitionToState
   );
   const pausedState = normalizeIssueState(tracker.pauseTransitionToState);
+  const blockedState = normalizeIssueState(tracker.blockedTransitionToState);
 
   if (
     startupFailureState !== "" &&
@@ -629,6 +634,18 @@ function validateSemanticConfig(config: SymphonyResolvedRuntimePolicy): void {
     throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
       "tracker.pauseTransitionToState must not be one of tracker.dispatchableStates."
+    );
+  }
+
+  if (
+    blockedState !== "" &&
+    tracker.dispatchableStates.some(
+      (stateName) => normalizeIssueState(stateName) === blockedState
+    )
+  ) {
+    throw new SymphonyRuntimePolicyError(
+      "invalid_workflow_config",
+      "tracker.blockedTransitionToState must not be one of tracker.dispatchableStates."
     );
   }
 }

@@ -38,6 +38,7 @@ describe("sqlite symphony runtime run ledger", () => {
         {
           issueId: "issue-metadata",
           issueIdentifier: "COL-META",
+          runMode: "implementation",
           runId: "run-meta",
           attempt: 1,
           status: "running",
@@ -61,6 +62,7 @@ describe("sqlite symphony runtime run ledger", () => {
       const exportPayload = await journal.fetchRunExport(runId);
 
       expect(exportPayload?.run.metadata).toEqual({
+        runMode: "implementation",
         runtime: "typescript",
         sessionId: "session-123"
       });
@@ -86,6 +88,7 @@ describe("sqlite symphony runtime run ledger", () => {
       const runId = await ledger.recordRunStarted({
         issueId: "issue-tokens",
         issueIdentifier: "COL-TOKENS",
+        runMode: "implementation",
         runId: "run-tokens",
         status: "running",
         startedAt: "2026-03-31T00:00:00.000Z"

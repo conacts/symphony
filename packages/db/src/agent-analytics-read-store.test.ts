@@ -50,6 +50,7 @@ describe("sqlite agent analytics read store", () => {
         runId: "run-agent",
         issueId: "issue-1",
         issueIdentifier: "COL-157",
+        runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.949Z",
         status: "running",
         workerHost: "worker-1",
@@ -409,6 +410,7 @@ describe("sqlite agent analytics read store", () => {
         runId: "run-machine-load",
         issueId: "issue-2",
         issueIdentifier: "COL-200",
+        runMode: "implementation",
         startedAt: "2026-04-05T00:00:00.000Z",
         status: "running"
       });
@@ -492,6 +494,7 @@ describe("sqlite agent analytics read store", () => {
         runId: "run-command-metrics",
         issueId: "issue-3",
         issueIdentifier: "SYM-300",
+        runMode: "implementation",
         startedAt: "2026-04-08T12:00:00.000Z",
         status: "running"
       });
@@ -687,6 +690,7 @@ describe("sqlite agent analytics read store", () => {
         runId: "run-ordering",
         issueId: "issue-4",
         issueIdentifier: "COL-204",
+        runMode: "implementation",
         startedAt: "2026-04-03T20:39:00.000Z",
         status: "running"
       });
@@ -823,6 +827,7 @@ describe("sqlite agent analytics read store", () => {
         runId: "run-problem",
         issueId: "issue-2",
         issueIdentifier: "COL-158",
+        runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.949Z",
         status: "running",
         workerHost: "worker-2",
@@ -1027,6 +1032,7 @@ describe("sqlite agent analytics read store", () => {
         runId: "run-startup-failed",
         issueId: "issue-3",
         issueIdentifier: "COL-500",
+        runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.000Z",
         status: "dispatching"
       });
@@ -1099,6 +1105,7 @@ describe("sqlite agent analytics read store", () => {
         runId: "run-turn-start-fallback",
         issueId: "issue-4",
         issueIdentifier: "COL-501",
+        runMode: "implementation",
         startedAt: "2026-04-06T05:00:00.000Z",
         status: "running"
       });
@@ -1164,6 +1171,7 @@ describe("sqlite agent analytics read store", () => {
         runId: "run-task-snapshots",
         issueId: "issue-10",
         issueIdentifier: "COL-910",
+        runMode: "implementation",
         startedAt: "2026-04-05T09:00:00.000Z",
         status: "running"
       });
@@ -1277,6 +1285,7 @@ describe("sqlite agent analytics read store", () => {
         runId: "run-runtime-only",
         issueId: "issue-runtime-only",
         issueIdentifier: "COL-999",
+        runMode: "implementation",
         startedAt: "2026-04-05T00:00:00.000Z",
         status: "running"
       });
@@ -1347,6 +1356,7 @@ describe("sqlite agent analytics read store", () => {
         runId: "run-zero-analytics",
         issueId: "issue-zero-analytics",
         issueIdentifier: "COL-1000",
+        runMode: "implementation",
         startedAt: "2026-04-05T00:00:00.000Z",
         status: "running"
       });

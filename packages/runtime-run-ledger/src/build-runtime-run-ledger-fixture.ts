@@ -17,6 +17,7 @@ export function buildSymphonyRunStartAttrs(
     issueId: `issue-${fixtureCounter}`,
     issueIdentifier: `COL-${fixtureCounter}`,
     attempt: 1,
+    runMode: "implementation",
     status: "running",
     workerHost: "docker-host",
     workspacePath: `/tmp/COL-${fixtureCounter}`,

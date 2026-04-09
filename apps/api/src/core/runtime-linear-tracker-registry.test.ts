@@ -37,7 +37,8 @@ describe("repository linear tracker registry", () => {
       claimTransitionToState: "Bootstrapping",
       claimTransitionFromStates: ["Todo"],
       startupFailureTransitionToState: "Failed",
-      pauseTransitionToState: "Paused"
+      pauseTransitionToState: "Paused",
+      blockedTransitionToState: "Blocked"
     };
 
     const tracker = createRepositoryScopedLinearTracker({

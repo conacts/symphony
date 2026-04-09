@@ -25,6 +25,27 @@ export const symphonyHarnessPromptAppendix = [
   "- If the work is blocked or only partially delivered, call `pnpm exec symphony tool finish ...` with the matching status and the concrete reason before ending the run."
 ].join("\n");
 
+export type SymphonyRunMode =
+  | "implementation"
+  | "rework"
+  | "approved_merge";
+
+export function deriveSymphonyRunMode(
+  issueState: string | null | undefined
+): SymphonyRunMode {
+  const normalizedState = issueState?.trim().toLowerCase() ?? "";
+
+  if (normalizedState === "rework") {
+    return "rework";
+  }
+
+  if (normalizedState === "approved") {
+    return "approved_merge";
+  }
+
+  return "implementation";
+}
+
 export type SymphonyPromptContractIssue = {
   id: string;
   identifier: string;
@@ -56,6 +77,9 @@ export type SymphonyPromptContractPayload = {
   run: SymphonyPromptContractRun;
   workspace: SymphonyPromptContractWorkspace;
   attempt?: number;
+  run_mode: SymphonyRunMode;
+  run_mode_section?: string | null;
+  handoff_section?: string | null;
   rework_handoff?: string | null;
 };
 
@@ -231,7 +255,8 @@ export function renderSymphonyPromptContract(input: {
 
   const withFallbackReworkHandoff = appendFallbackReworkHandoff(
     rendered,
-    input.payload.rework_handoff ?? null,
+    input.payload.handoff_section ??
+      buildPromptHandoffSection(input.payload),
     segments
   );
 
@@ -262,6 +287,9 @@ export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContract
       branch: "codex/runtime-contract-boundary"
     },
     attempt: 1,
+    run_mode: "implementation",
+    run_mode_section: null,
+    handoff_section: null,
     rework_handoff: null
   };
 }
@@ -269,8 +297,13 @@ export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContract
 function buildPromptContractScope(
   payload: SymphonyPromptContractPayload
 ): Record<string, unknown> {
+  const handoffSection =
+    payload.handoff_section ?? buildPromptHandoffSection(payload);
+  const runModeSection = payload.run_mode_section ?? buildPromptRunModeSection(payload);
+
   return {
     ...payload,
+    handoff_section: handoffSection,
     issue: {
       ...payload.issue,
       branchName: payload.issue.branch_name
@@ -278,7 +311,8 @@ function buildPromptContractScope(
     repo: {
       ...payload.repo,
       defaultBranch: payload.repo.default_branch
-    }
+    },
+    run_mode_section: runModeSection
   };
 }
 
@@ -292,7 +326,7 @@ function appendSymphonyHarnessPromptAppendix(rendered: string): string {
 
 function appendFallbackReworkHandoff(
   rendered: string,
-  reworkHandoff: string | null,
+  handoffSection: string | null,
   segments: Array<
     | {
         kind: "text";
@@ -304,20 +338,58 @@ function appendFallbackReworkHandoff(
       }
   >
 ): string {
-  const normalizedHandoff = reworkHandoff?.trim() ?? "";
+  const normalizedHandoff = handoffSection?.trim() ?? "";
   if (normalizedHandoff === "") {
     return rendered;
   }
 
   const templateIncludesHandoff = segments.some(
     (segment) =>
-      segment.kind === "expression" && segment.value === "rework_handoff"
+      segment.kind === "expression" &&
+      (segment.value === "rework_handoff" || segment.value === "handoff_section")
   );
   if (templateIncludesHandoff || rendered.includes(normalizedHandoff)) {
     return rendered;
   }
 
   return `${rendered.trimEnd()}\n\n${normalizedHandoff}\n`;
+}
+
+function buildPromptRunModeSection(
+  payload: SymphonyPromptContractPayload
+): string {
+  const runMode = payload.run_mode;
+
+  if (runMode === "rework") {
+    return [
+      "Current run mode: Rework",
+      "- Read the latest Linear rework note and any relevant GitHub review comment context first.",
+      "- Address the requested feedback before taking on any new work.",
+      "- Keep the patch scoped to the requested revisions."
+    ].join("\n");
+  }
+
+  if (runMode === "approved_merge") {
+    return [
+      "Current run mode: Approved Merge",
+      "- This run is for merge completion, not normal feature development.",
+      "- Update the branch from the latest `main` and resolve conflicts conservatively.",
+      "- Run the required verification and merge only if the branch is clean.",
+      "- If conflicts or verification failures cannot be resolved safely, stop and report the blocked result."
+    ].join("\n");
+  }
+
+  return [
+    "Current run mode: Implementation",
+    "- Complete the requested ticket work in the current workspace.",
+    "- Keep the patch targeted and move directly toward a review-ready result."
+  ].join("\n");
+}
+
+function buildPromptHandoffSection(
+  payload: SymphonyPromptContractPayload
+): string {
+  return payload.rework_handoff ?? "";
 }
 
 function resolvePromptContractPath(

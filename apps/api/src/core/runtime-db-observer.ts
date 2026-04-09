@@ -26,7 +26,7 @@ export function createDbBackedOrchestratorObserver(input: {
   machineLoad?: RuntimeMachineLoadMonitor;
 }): SymphonyOrchestratorObserver {
   return {
-    async startRun({ issue, attempt, harness, workspace, workerHost, startedAt }) {
+    async startRun({ issue, attempt, harness, workspace, workerHost, startedAt, runMode }) {
       const repositoryKey =
         input.admittedRepositories.length > 0
           ? resolveIssueRepository(input.admittedRepositories, issue).repositoryKey
@@ -36,12 +36,14 @@ export function createDbBackedOrchestratorObserver(input: {
         issueId: issue.id,
         issueIdentifier: issue.identifier,
         attempt,
+        runMode,
         status: "dispatching",
         workerHost,
         workspacePath: workspaceHostPath(summarizePreparedWorkspace(workspace)),
         startedAt,
         metadata: {
           runtime: "typescript",
+          runMode,
           workspace: workspaceMetadata(summarizePreparedWorkspace(workspace))
         }
       });

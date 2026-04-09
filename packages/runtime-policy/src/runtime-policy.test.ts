@@ -12,9 +12,12 @@ describe("resolveRuntimePolicy", () => {
     expect(config.tracker.dispatchableStates).toEqual([
       "Todo",
       "Bootstrapping",
-      "In Progress"
+      "In Progress",
+      "Rework",
+      "Approved"
     ]);
     expect(config.tracker.terminalStates).toEqual(["Canceled", "Done"]);
+    expect(config.tracker.blockedTransitionToState).toBe("Blocked");
     expect(config.workspace.root).toContain("symphony_workspaces");
     expect(config.agent.harness).toBe("pi");
     expect(config.agent.maxConcurrentAgents).toBe(10);

@@ -10,7 +10,8 @@ import type {
 } from "@symphony/orchestrator";
 import {
   renderSymphonyPromptContract,
-  type SymphonyLoadedPromptContract
+  type SymphonyLoadedPromptContract,
+  type SymphonyRunMode
 } from "@symphony/runtime-contract";
 import type { JsonObject, JsonValue } from "@symphony/contracts";
 import {
@@ -160,6 +161,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
         issue: runInput.issue,
         runId: runInput.runId,
         attempt: runInput.attempt,
+        runMode: runInput.runMode,
         workspace: runInput.workspace,
         launchTarget,
         activeRun,
@@ -208,6 +210,7 @@ async function executeRun(input: {
   issue: SymphonyTrackerIssue;
   runId: string | null;
   attempt: number;
+  runMode: SymphonyRunMode;
   workspace: Parameters<AgentRuntime["startRun"]>[0]["workspace"];
   launchTarget: SymphonyRuntimeLaunchTarget;
   activeRun: ActiveRun;
@@ -223,7 +226,8 @@ async function executeRun(input: {
   let sessionProviderName: string | null = null;
   let deliveryReport: RuntimeDeliveryReportResult | null = null;
   let commandResourceMonitor: CommandResourceMonitor | null = null;
-  const requiresExplicitDeliveryReport = input.runId !== null;
+  const requiresExplicitDeliveryReport =
+    input.runId !== null && input.runMode !== "approved_merge";
   const latestReworkHandoff = input.issueTimelineStore
     ? await loadLatestGitHubReworkHandoff(
         input.issueTimelineStore,
@@ -368,6 +372,7 @@ async function executeRun(input: {
           branch: currentIssue.branchName
         },
         attempt: input.attempt,
+        run_mode: input.runMode,
         rework_handoff: formatPromptReworkHandoff(latestReworkHandoff)
       };
 

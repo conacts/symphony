@@ -9,6 +9,7 @@ import {
 } from "./schema.js";
 import type {
   SymphonyRuntimeMachineLoadSummary,
+  SymphonyRuntimeRunMode,
   SymphonyRuntimeRunFinishAttrs,
   SymphonyRuntimeRunStartAttrs,
   SymphonyRuntimeRunUpdateAttrs,
@@ -51,6 +52,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     const now = isoNow();
     const startedAt = normalizeIsoTimestamp(attrs.startedAt) ?? now;
     const repositoryKey = sanitizeText(attrs.repositoryKey) ?? "default";
+    const metadata = withRunModeMetadata(attrs.metadata, attrs.runMode);
 
     this.#db.transaction((tx) => {
       const existingIssue = tx
@@ -102,7 +104,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
           commitHashEnd: null,
           repoStart: sanitizeJsonObject(attrs.repoStart),
           repoEnd: null,
-          metadata: sanitizeJsonObject(attrs.metadata),
+          metadata,
           errorClass: null,
           errorMessage: null,
           machineLoadSampleCount: null,
@@ -275,7 +277,10 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
           commitHashEnd: attrs.commitHashEnd ?? existing.commitHashEnd,
           repoStart: sanitizeJsonObject(attrs.repoStart) ?? existing.repoStart,
           repoEnd: sanitizeJsonObject(attrs.repoEnd) ?? existing.repoEnd,
-          metadata: mergeSanitizedJsonObjects(existing.metadata, attrs.metadata),
+          metadata: mergeSanitizedJsonObjects(
+            existing.metadata,
+            withRunModeMetadata(attrs.metadata, attrs.runMode)
+          ),
           errorClass: attrs.errorClass ? sanitizeText(attrs.errorClass) : existing.errorClass,
           errorMessage:
             attrs.errorMessage ? sanitizeText(attrs.errorMessage) : existing.errorMessage,
@@ -355,6 +360,20 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       recordedAt: normalizeIsoTimestamp(attrs.endedAt) ?? isoNow()
     });
   }
+}
+
+function withRunModeMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+  runMode: SymphonyRuntimeRunMode | null | undefined
+): Record<string, unknown> | null {
+  if (!runMode) {
+    return sanitizeJsonObject(metadata);
+  }
+
+  return sanitizeJsonObject({
+    ...(metadata ?? {}),
+    runMode
+  });
 }
 
 function normalizeIsoTimestamp(value: Date | string | null | undefined): string | null {

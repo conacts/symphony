@@ -1,6 +1,7 @@
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type { PreparedWorkspace } from "@symphony/workspace";
 import type { SymphonyAgentRuntimeConfig } from "./orchestrator-config.js";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 
 export type AgentRuntimeLaunchTarget = {
   kind: "container";
@@ -16,6 +17,7 @@ export type AgentRunInput = {
   issue: SymphonyTrackerIssue;
   runId: string | null;
   attempt: number;
+  runMode: SymphonyRunMode;
   runtimePolicy: SymphonyAgentRuntimeConfig;
   workspace: PreparedWorkspace;
 };

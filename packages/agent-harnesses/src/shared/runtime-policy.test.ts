@@ -27,12 +27,13 @@ function createRuntimePolicy(
       teamKey: "COL",
       excludedProjectIds: [],
       assignee: null,
-      dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework"],
+      dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework", "Approved"],
       terminalStates: ["Canceled", "Done"],
       claimTransitionToState: "Bootstrapping",
       claimTransitionFromStates: ["Todo", "Rework"],
       startupFailureTransitionToState: "Failed",
       pauseTransitionToState: "Paused",
+      blockedTransitionToState: "Blocked",
       ...tracker
     },
     workspace: {

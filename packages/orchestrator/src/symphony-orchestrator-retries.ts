@@ -6,6 +6,7 @@ import type {
   SymphonyRetryEntry
 } from "./symphony-orchestrator-types.js";
 import { failureRetryDelay } from "./symphony-orchestrator-failures.js";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 
 export const continuationRetryDelayMs = 1_000;
 
@@ -13,6 +14,7 @@ export function createRetryEntry(input: {
   attempt: number;
   nowMs: number;
   identifier: string;
+  runMode: SymphonyRunMode;
   error?: string;
   workerHost?: string | null;
   workspace?: PreparedWorkspace | null;
@@ -30,6 +32,7 @@ export function createRetryEntry(input: {
     dueAtMs: input.nowMs + delayMs,
     retryToken: randomUUID(),
     identifier: input.identifier,
+    runMode: input.runMode,
     error: input.error ?? null,
     workerHost: input.workerHost ?? null,
     workspace: input.workspace ?? null,

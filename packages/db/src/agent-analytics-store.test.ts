@@ -60,6 +60,7 @@ describe("sqlite agent analytics store", () => {
         runId: "run-command",
         issueId: "issue-1",
         issueIdentifier: "COL-200",
+        runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.000Z",
         status: "running"
       });
@@ -321,6 +322,7 @@ describe("sqlite agent analytics store", () => {
         runId: "run-message-reasoning",
         issueId: "issue-4",
         issueIdentifier: "COL-204",
+        runMode: "implementation",
         startedAt: "2026-04-03T20:38:00.000Z",
         status: "running"
       });
@@ -502,6 +504,7 @@ describe("sqlite agent analytics store", () => {
         runId: "run-in-progress",
         issueId: "issue-3",
         issueIdentifier: "COL-202",
+        runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.000Z",
         status: "running"
       });
@@ -622,6 +625,7 @@ describe("sqlite agent analytics store", () => {
         runId: "run-pi-native",
         issueId: "issue-9",
         issueIdentifier: "COL-909",
+        runMode: "implementation",
         startedAt: "2026-04-05T08:00:00.000Z",
         status: "running"
       });
@@ -810,6 +814,7 @@ describe("sqlite agent analytics store", () => {
         runId: "run-pi-structured",
         issueId: "issue-10",
         issueIdentifier: "COL-910",
+        runMode: "implementation",
         startedAt: "2026-04-05T08:00:00.000Z",
         status: "running"
       });
@@ -1086,6 +1091,7 @@ describe("sqlite agent analytics store", () => {
         runId: "run-pi-edit-merge",
         issueId: "issue-merge",
         issueIdentifier: "COL-911",
+        runMode: "implementation",
         startedAt: "2026-04-08T14:26:24.000Z",
         status: "running"
       });
@@ -1287,6 +1293,7 @@ describe("sqlite agent analytics store", () => {
         runId: "run-bash-merge",
         issueId: "issue-merge",
         issueIdentifier: "COL-299",
+        runMode: "implementation",
         startedAt: "2026-04-05T00:00:00.000Z",
         status: "running"
       });
@@ -1376,6 +1383,7 @@ describe("sqlite agent analytics store", () => {
         runId: "run-tool-failure",
         issueId: "issue-4",
         issueIdentifier: "COL-203",
+        runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.000Z",
         status: "running"
       });
@@ -1489,6 +1497,7 @@ describe("sqlite agent analytics store", () => {
         runId: "run-tool",
         issueId: "issue-2",
         issueIdentifier: "COL-201",
+        runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.000Z",
         status: "running"
       });

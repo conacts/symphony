@@ -96,7 +96,8 @@ function buildCliTrackerConfig(
       "Todo",
       "Bootstrapping",
       "In Progress",
-      "Rework"
+      "Rework",
+      "Approved"
     ]),
     terminalStates: readList(env, "SYMPHONY_TERMINAL_STATES", ["Canceled", "Done"]),
     claimTransitionToState:
@@ -107,7 +108,8 @@ function buildCliTrackerConfig(
     ]),
     startupFailureTransitionToState:
       readOptional(env, "SYMPHONY_STARTUP_FAILURE_STATE") ?? "Failed",
-    pauseTransitionToState: readOptional(env, "SYMPHONY_PAUSE_STATE") ?? "Paused"
+    pauseTransitionToState: readOptional(env, "SYMPHONY_PAUSE_STATE") ?? "Paused",
+    blockedTransitionToState: readOptional(env, "SYMPHONY_BLOCKED_STATE") ?? "Blocked"
   };
 }
 

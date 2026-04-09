@@ -37,7 +37,11 @@ describe("prompt contract", () => {
         "Repo {{ repo.name }}",
         "Default branch {{ repo.default_branch }}",
         "Run {{ run.id }}",
-        "Workspace {{ workspace.path }} on {{ workspace.branch }}"
+        "Workspace {{ workspace.path }} on {{ workspace.branch }}",
+        "",
+        "{{ run_mode_section }}",
+        "",
+        "{{ handoff_section }}"
       ].join("\n")
     );
 
@@ -52,7 +56,9 @@ describe("prompt contract", () => {
       "repo.default_branch",
       "run.id",
       "workspace.path",
-      "workspace.branch"
+      "workspace.branch",
+      "run_mode_section",
+      "handoff_section"
     ]);
     expect(
       renderSymphonyPromptContract({
@@ -67,6 +73,10 @@ describe("prompt contract", () => {
         "Default branch main",
         "Run run-123",
         "Workspace /workspace/symphony on codex/runtime-contract-boundary",
+        "",
+        "Current run mode: Implementation",
+        "- Complete the requested ticket work in the current workspace.",
+        "- Keep the patch targeted and move directly toward a review-ready result.",
         "",
         symphonyHarnessPromptAppendix,
         ""
@@ -209,6 +219,59 @@ describe("prompt contract", () => {
         "",
         "Rework handoff:",
         "- Review context: https://github.com/openai/symphony/pull/123#issuecomment-456",
+        "",
+        symphonyHarnessPromptAppendix,
+        ""
+      ].join("\n")
+    );
+  });
+
+  it("renders the rework run-mode section when the issue is in Rework", () => {
+    const payload = {
+      ...buildMockSymphonyPromptContractPayload(),
+      run_mode: "rework" as const,
+      issue: {
+        ...buildMockSymphonyPromptContractPayload().issue,
+        state: "Rework"
+      }
+    };
+
+    expect(
+      renderSymphonyPromptContract({
+        template: "{{ run_mode_section }}",
+        payload
+      })
+    ).toBe(
+      [
+        "Current run mode: Rework",
+        "- Read the latest Linear rework note and any relevant GitHub review comment context first.",
+        "- Address the requested feedback before taking on any new work.",
+        "- Keep the patch scoped to the requested revisions.",
+        "",
+        symphonyHarnessPromptAppendix,
+        ""
+      ].join("\n")
+    );
+  });
+
+  it("renders the approved merge run-mode section when the payload requests it", () => {
+    const payload = {
+      ...buildMockSymphonyPromptContractPayload(),
+      run_mode: "approved_merge" as const
+    };
+
+    expect(
+      renderSymphonyPromptContract({
+        template: "{{ run_mode_section }}",
+        payload
+      })
+    ).toBe(
+      [
+        "Current run mode: Approved Merge",
+        "- This run is for merge completion, not normal feature development.",
+        "- Update the branch from the latest `main` and resolve conflicts conservatively.",
+        "- Run the required verification and merge only if the branch is clean.",
+        "- If conflicts or verification failures cannot be resolved safely, stop and report the blocked result.",
         "",
         symphonyHarnessPromptAppendix,
         ""
