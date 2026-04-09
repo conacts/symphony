@@ -53,7 +53,7 @@ export function createRunningEntry(input: {
   issue: SymphonyTrackerIssue;
   runId: string | null;
   runMode: SymphonyRunMode;
-  sessionId: string | null;
+  threadId: string | null;
   workerHost: string | null;
   workspace: PreparedWorkspace | null;
   launchTarget: AgentRuntimeLaunchTarget | null;
@@ -64,7 +64,7 @@ export function createRunningEntry(input: {
     issue: input.issue,
     runId: input.runId,
     runMode: input.runMode,
-    sessionId: input.sessionId,
+    threadId: input.threadId,
     workerHost: input.workerHost,
     workspace: input.workspace,
     launchTarget: input.launchTarget,
@@ -102,7 +102,7 @@ export function applyAgentRuntimeUpdateToEntry(
   return {
     entry: {
       ...runningEntry,
-      sessionId: update.sessionId ?? runningEntry.sessionId,
+      threadId: update.threadId ?? runningEntry.threadId,
       turnCount:
         isTerminalTurnEvent(update.event)
           ? runningEntry.turnCount + 1

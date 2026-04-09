@@ -131,14 +131,19 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
           .filter((turn) => turn.runId === runId)
           .reduce((max, turn) => Math.max(max, turn.turnSequence), 0) +
           1;
+      const threadId =
+        typeof attrs.threadId === "string" ? attrs.threadId.trim() : "";
+
+      if (!threadId) {
+        throw new TypeError(`Turn thread id is required for run ${runId}`);
+      }
 
       document.turns.push({
         turnId,
         runId,
         turnSequence: nextSequence,
-        threadId: attrs.threadId ?? null,
+        threadId,
         agentTurnId: attrs.agentTurnId ?? null,
-        sessionId: attrs.sessionId ?? null,
         promptText: sanitizeText(attrs.promptText),
         status: attrs.status ?? "running",
         startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? now,
@@ -190,9 +195,8 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
         payloadTruncated: truncatedPayload.payloadTruncated,
         payloadBytes: truncatedPayload.payloadBytes,
         summary: attrs.summary ? sanitizeText(attrs.summary) : null,
-        threadId: attrs.threadId ?? null,
+        threadId: attrs.threadId ?? turn.threadId,
         agentTurnId: attrs.agentTurnId ?? null,
-        sessionId: attrs.sessionId ?? null,
         insertedAt: now
       });
     });
@@ -212,7 +216,6 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       turn.endedAt = normalizeIsoTimestamp(attrs.endedAt) ?? turn.endedAt;
       turn.threadId = attrs.threadId ?? turn.threadId;
       turn.agentTurnId = attrs.agentTurnId ?? turn.agentTurnId;
-      turn.sessionId = attrs.sessionId ?? turn.sessionId;
       turn.usage = sanitizeUsage(attrs.usage) ?? turn.usage;
       turn.metadata = mergeSanitizedJsonObjects(turn.metadata, attrs.metadata);
       turn.updatedAt = isoNow();
@@ -225,7 +228,6 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       endedAt: attrs.endedAt,
       threadId: attrs.threadId,
       agentTurnId: attrs.agentTurnId,
-      sessionId: attrs.sessionId,
       usage: attrs.usage,
       metadata: attrs.metadata
     });

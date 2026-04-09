@@ -429,7 +429,7 @@ export class SymphonyOrchestrator {
         issue: activeIssue,
         runId,
         runMode,
-        sessionId: launch.sessionId,
+        threadId: launch.threadId,
         workerHost,
         workspace,
         launchTarget,
@@ -444,7 +444,7 @@ export class SymphonyOrchestrator {
         eventType: "runtime_launch_requested",
         message: "Agent runtime launch requested.",
         payload: {
-          sessionId: launch.sessionId,
+          threadId: launch.threadId,
           workerHost,
           launchTarget,
           workspace: buildWorkspaceLifecyclePayload(workspace)

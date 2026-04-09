@@ -67,6 +67,7 @@ describe("sqlite agent analytics store", () => {
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-command",
         promptText: "Run the command",
+        threadId: "thread-command",
         startedAt: "2026-04-03T20:37:39.000Z",
         status: "running"
       });
@@ -329,6 +330,7 @@ describe("sqlite agent analytics store", () => {
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-message-reasoning",
         promptText: "Write a response with reasoning",
+        threadId: "thread-message-reasoning",
         startedAt: "2026-04-03T20:38:01.000Z",
         status: "running"
       });
@@ -511,6 +513,7 @@ describe("sqlite agent analytics store", () => {
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-in-progress",
         promptText: "Run a long command",
+        threadId: "thread-in-progress",
         startedAt: "2026-04-03T20:37:39.000Z",
         status: "running"
       });
@@ -632,6 +635,7 @@ describe("sqlite agent analytics store", () => {
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-pi-native",
         promptText: "Apply the patch",
+        threadId: "thread-pi-native",
         startedAt: "2026-04-05T08:00:01.000Z",
         status: "running"
       });
@@ -821,6 +825,7 @@ describe("sqlite agent analytics store", () => {
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-pi-structured",
         promptText: "Inspect and patch the file",
+        threadId: "thread-pi-structured",
         startedAt: "2026-04-05T08:00:01.000Z",
         status: "running"
       });
@@ -1098,6 +1103,7 @@ describe("sqlite agent analytics store", () => {
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-pi-edit-merge",
         promptText: "Patch the runtime tool test",
+        threadId: "thread-pi-edit-merge",
         startedAt: "2026-04-08T14:26:24.000Z",
         status: "running"
       });
@@ -1300,6 +1306,7 @@ describe("sqlite agent analytics store", () => {
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-bash-merge",
         promptText: "List files",
+        threadId: "thread-bash-merge",
         startedAt: "2026-04-05T00:00:01.000Z",
         status: "running"
       });
@@ -1390,6 +1397,7 @@ describe("sqlite agent analytics store", () => {
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-tool-failure",
         promptText: "Call a failing tool",
+        threadId: "thread-tool-failure",
         startedAt: "2026-04-03T20:37:39.000Z",
         status: "running"
       });
@@ -1504,6 +1512,7 @@ describe("sqlite agent analytics store", () => {
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-tool",
         promptText: "Call the MCP tool",
+        threadId: "thread-tool",
         startedAt: "2026-04-03T20:37:39.000Z",
         status: "running"
       });

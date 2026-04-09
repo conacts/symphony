@@ -360,7 +360,6 @@ function createRunDetail(
         turnSequence: 1,
         threadId: "thread-1",
         agentTurnId: "turn-1",
-        sessionId: "session-1",
         promptText: "Implement the requested change.",
         status: "completed",
         startedAt: "2026-03-31T00:00:00.000Z",
@@ -399,7 +398,6 @@ function createRunDetail(
             summary: "input=11 output=7",
             threadId: "thread-1",
             agentTurnId: "turn-1",
-            sessionId: "session-1",
             insertedAt: "2026-03-31T00:00:10.000Z"
           }
         ]

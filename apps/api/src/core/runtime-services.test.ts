@@ -475,12 +475,13 @@ describe("runtime services", () => {
 
       seedDb.client.prepare(`
       insert into symphony_runs (
-        run_id, issue_id, issue_identifier, attempt, status, outcome, worker_host, workspace_path,
-        started_at, ended_at, metadata, error_class, error_message, inserted_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        run_id, issue_id, repository_key, issue_identifier, attempt, status, outcome, worker_host,
+        workspace_path, started_at, ended_at, metadata, error_class, error_message, inserted_at, updated_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       "run-shutdown",
       "issue-shutdown",
+      "owner/repo",
       "COL-SHUTDOWN",
       0,
       "running",
@@ -497,15 +498,14 @@ describe("runtime services", () => {
     );
       seedDb.client.prepare(`
       insert into symphony_turns (
-        turn_id, run_id, turn_sequence, thread_id, agent_turn_id, session_id,
+        turn_id, run_id, turn_sequence, thread_id, agent_turn_id,
         prompt_text, status, started_at, ended_at, usage, metadata, inserted_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       "turn-shutdown",
       "run-shutdown",
       1,
       "thread-shutdown",
-      null,
       null,
       "Continue the issue.",
       "running",

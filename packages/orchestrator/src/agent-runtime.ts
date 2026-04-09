@@ -26,7 +26,7 @@ export type AgentRunInput = {
 };
 
 export type AgentRunLaunch = {
-  sessionId: string | null;
+  threadId: string | null;
   workerHost: string | null;
   launchTarget: AgentRuntimeLaunchTarget | null;
 };

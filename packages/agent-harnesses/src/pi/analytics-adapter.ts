@@ -107,13 +107,13 @@ export function projectPiSessionHeaderEvent(input: {
   event: PiRuntimeEvent | PiJsonRecord;
 }): PiAnalyticsProjection {
   const event = decodeEventOfType(input.event, "session_started");
-  const sessionId = event?.id ?? null;
-  return sessionId
+  const rawSessionId = event?.id ?? null;
+  return rawSessionId
     ? {
         events: [
           {
             type: "thread.started",
-            thread_id: sessionId
+            thread_id: rawSessionId
           }
         ],
         losses: []

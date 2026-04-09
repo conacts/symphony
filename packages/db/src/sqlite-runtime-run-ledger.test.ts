@@ -55,7 +55,7 @@ describe("sqlite symphony runtime run ledger", () => {
 
       await journal.updateRun(runId, {
         metadata: {
-          sessionId: "session-123"
+          threadId: "thread-123"
         }
       });
 
@@ -64,7 +64,7 @@ describe("sqlite symphony runtime run ledger", () => {
       expect(exportPayload?.run.metadata).toEqual({
         runMode: "implementation",
         runtime: "typescript",
-        sessionId: "session-123"
+        threadId: "thread-123"
       });
     } finally {
       database.close();
@@ -96,6 +96,7 @@ describe("sqlite symphony runtime run ledger", () => {
       const turnId = await ledger.recordTurnStarted(runId, {
         turnId: "turn-tokens",
         turnSequence: 1,
+        threadId: "thread-tokens",
         promptText: "Measure token totals",
         status: "running",
         startedAt: "2026-03-31T00:00:01.000Z"

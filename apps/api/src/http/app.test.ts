@@ -94,7 +94,7 @@ describe("@symphony/api app", () => {
     const statePayload = await responseJson<{
       data: {
         running: Array<{
-          sessionId: string | null;
+          threadId: string | null;
         }>;
       };
     }>(stateResponse);
@@ -107,7 +107,7 @@ describe("@symphony/api app", () => {
     }>(refreshResponse);
 
     expect(stateResponse.status).toBe(200);
-    expect(statePayload.data.running[0]?.sessionId).toBe("thread-live");
+    expect(statePayload.data.running[0]?.threadId).toBe("thread-live");
 
     expect(refreshResponse.status).toBe(202);
     expect(refreshPayload.data.queued).toBe(true);

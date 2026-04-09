@@ -240,12 +240,10 @@ export class AgentAppServerClient {
       );
     }
 
-    const sessionId = `${session.threadId}-${turnId}`;
-
     await input.onMessage({
       message: {
         type: "session.started",
-        session_id: sessionId,
+        session_id: `${session.threadId}-${turnId}`,
         thread_id: session.threadId,
         turn_id: turnId,
         agent_app_server_pid: session.processId,
@@ -346,8 +344,7 @@ export class AgentAppServerClient {
         });
 
         return {
-          sessionId,
-          threadId: session.threadId ?? "",
+          threadId: session.threadId,
           turnId
         };
       }

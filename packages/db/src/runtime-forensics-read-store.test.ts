@@ -53,14 +53,12 @@ describe("runtime forensics read store", () => {
         promptText: "Implement the requested change.",
         status: "running",
         threadId: "thread-runtime-1",
-        sessionId: "thread-runtime-1",
         startedAt: "2026-04-09T03:00:01.000Z"
       });
       await runStore.recordEvent(runId, turnId, {
         eventType: "session.started",
         recordedAt: "2026-04-09T03:00:02.000Z",
         threadId: "thread-runtime-1",
-        sessionId: "thread-runtime-1",
         payload: {
           type: "session.started",
           session_id: "thread-runtime-1",
@@ -90,7 +88,6 @@ describe("runtime forensics read store", () => {
         status: "completed",
         endedAt: "2026-04-09T03:00:04.000Z",
         threadId: "thread-runtime-1",
-        sessionId: "thread-runtime-1",
         usage: {
           input_tokens: 40,
           cached_input_tokens: 10,
@@ -114,7 +111,6 @@ describe("runtime forensics read store", () => {
       await runStore.upsertRunContext(runId, {
         harnessKind: "pi",
         threadId: "thread-runtime-1",
-        sessionId: "thread-runtime-1",
         processId: "4242",
         model: "gpt-5.4",
         reasoningEffort: "high",

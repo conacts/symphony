@@ -209,17 +209,17 @@ describe("file-backed symphony runtime run ledger", () => {
       })
     );
 
-    await journal.updateRun(runId, {
-      metadata: {
-        sessionId: "session-123"
-      }
-    });
+      await journal.updateRun(runId, {
+        metadata: {
+          threadId: "thread-123"
+        }
+      });
 
     const exportPayload = await journal.fetchRunExport(runId);
 
     expect(exportPayload?.run.metadata).toEqual({
       runtime: "typescript",
-      sessionId: "session-123"
+      threadId: "thread-123"
     });
   });
 });

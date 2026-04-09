@@ -319,7 +319,6 @@ describe("PiRpcClient", () => {
     );
     expect(spawnArgs.at(-1)).toContain("exec pi --mode rpc");
     expect(result).toEqual({
-      sessionId: "pi-session-1",
       threadId: "pi-session-1",
       turnId: "pi-turn-1",
       usage: {

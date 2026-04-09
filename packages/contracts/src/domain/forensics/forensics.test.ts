@@ -302,9 +302,8 @@ describe("symphony forensics contracts", () => {
             turnId: "turn-1",
             runId: "run-1",
             turnSequence: 1,
-            threadId: null,
+            threadId: "thread-1",
             agentTurnId: null,
-            sessionId: null,
             promptText: "Implement the fix",
             status: "completed",
             startedAt: "2026-03-31T00:00:00.000Z",
@@ -339,9 +338,8 @@ describe("symphony forensics contracts", () => {
                 payloadTruncated: false,
                 payloadBytes: 10,
                 summary: "turn completed",
-                threadId: null,
+                threadId: "thread-1",
                 agentTurnId: null,
-                sessionId: null,
                 insertedAt: "2026-03-31T00:01:00.000Z"
               }
             ]
@@ -443,9 +441,8 @@ describe("symphony forensics contracts", () => {
               turnId: "turn-1",
               runId: "run-1",
               turnSequence: 1,
-              threadId: null,
+              threadId: "thread-1",
               agentTurnId: null,
-              sessionId: null,
               promptText: "Implement the fix",
               status: "completed",
               startedAt: "2026-03-31T00:00:00.000Z",
@@ -475,9 +472,8 @@ describe("symphony forensics contracts", () => {
                   payloadTruncated: false,
                   payloadBytes: 10,
                   summary: "bad event",
-                  threadId: null,
+                  threadId: "thread-1",
                   agentTurnId: null,
-                  sessionId: null,
                   insertedAt: "2026-03-31T00:01:00.000Z"
                 }
               ]
@@ -770,9 +766,8 @@ describe("symphony forensics contracts", () => {
               turnId: "turn-1",
               runId: "run-1",
               turnSequence: 1,
-              threadId: null,
+              threadId: "thread-1",
               agentTurnId: null,
-              sessionId: null,
               promptText: "Implement the fix",
               status: null,
               startedAt: "2026-03-31T00:00:00.000Z",

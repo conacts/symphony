@@ -1692,9 +1692,14 @@ function mapForensicsTurnRecord(
   agentTurn: typeof symphonyAgentTurnsTable.$inferSelect | undefined,
   agentRunThreadId: string | null
 ): Omit<ForensicsTurn, "eventCount" | "events"> {
+  const threadId = requireForensicsThreadId(
+    agentTurn?.threadId ?? turn.threadId ?? agentRunThreadId,
+    `turn ${turn.turnId}`
+  );
+
   return {
     ...turn,
-    threadId: agentTurn?.threadId ?? turn.threadId ?? agentRunThreadId,
+    threadId,
     usage: buildUsage(agentTurn, turn.usage),
     metadata: castJsonObject(turn.metadata)
   };
@@ -1772,13 +1777,17 @@ function synthesizeForensicsTurnRecord(
   agentTurn: typeof symphonyAgentTurnsTable.$inferSelect,
   turnSequence: number
 ): Omit<ForensicsTurn, "eventCount" | "events"> {
+  const threadId = requireForensicsThreadId(
+    agentTurn.threadId,
+    `turn ${agentTurn.turnId}`
+  );
+
   return {
     turnId: agentTurn.turnId,
     runId: agentTurn.runId,
     turnSequence,
-    threadId: agentTurn.threadId ?? null,
+    threadId,
     agentTurnId: agentTurn.turnId,
-    sessionId: null,
     promptText: "[agent prompt unavailable]",
     status: agentTurn.status,
     startedAt: agentTurn.startedAt ?? run.startedAt,
@@ -1803,6 +1812,14 @@ function buildForensicsEvents(input: {
       return [];
     }
 
+    const threadId = requireForensicsThreadId(
+      row.threadId ??
+        input.agentTurnMap.get(row.turnId)?.threadId ??
+        input.agentRun.threadId ??
+        null,
+      `event ${row.id}`
+    );
+
     return [{
       eventId: row.id,
       turnId: row.turnId,
@@ -1816,16 +1833,22 @@ function buildForensicsEvents(input: {
       payloadTruncated: row.payloadTruncated,
       payloadBytes: byteLength(JSON.stringify(payload)),
       summary: summarizeEvent(payload),
-      threadId:
-        row.threadId ??
-        input.agentTurnMap.get(row.turnId)?.threadId ??
-        input.agentRun.threadId ??
-        null,
+      threadId,
       agentTurnId: row.turnId,
-      sessionId: null,
       insertedAt: row.insertedAt
     }];
   });
+}
+
+function requireForensicsThreadId(
+  value: string | null | undefined,
+  subject: string
+): string {
+  if (typeof value === "string" && value.trim() !== "") {
+    return value;
+  }
+
+  throw new TypeError(`Forensics ${subject} is missing a thread id.`);
 }
 
 type RunData = {
@@ -1858,7 +1881,6 @@ type RunData = {
   runtimeContext: {
     harness: "pi" | null;
     threadId: string | null;
-    sessionId: string | null;
     processId: string | null;
     model: string | null;
     reasoningEffort: string | null;

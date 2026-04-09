@@ -98,9 +98,9 @@ export function createDbBackedOrchestratorObserver(input: {
           metadata: {
             workspace: workspaceMetadata(workspacePayload),
             launchTarget: normalizeJsonValue(launchPayload?.launchTarget ?? null),
-            sessionId:
-              typeof launchPayload?.sessionId === "string"
-                ? launchPayload.sessionId
+            threadId:
+              typeof launchPayload?.threadId === "string"
+                ? launchPayload.threadId
                 : null
           }
         });

@@ -54,9 +54,8 @@ export type SymphonyTurnRecord = {
   turnId: string;
   runId: string;
   turnSequence: number;
-  threadId: string | null;
+  threadId: string;
   agentTurnId: string | null;
-  sessionId: string | null;
   promptText: string;
   status: string;
   startedAt: SymphonyIsoTimestamp;
@@ -80,9 +79,8 @@ export type SymphonyEventRecord = {
   payloadTruncated: boolean;
   payloadBytes: number;
   summary: string | null;
-  threadId: string | null;
+  threadId: string;
   agentTurnId: string | null;
-  sessionId: string | null;
   insertedAt: SymphonyIsoTimestamp;
 };
 
@@ -113,9 +111,8 @@ export type SymphonyRunStartAttrs = {
 export type SymphonyTurnStartAttrs = {
   turnId?: string;
   turnSequence?: number;
-  threadId?: string | null;
+  threadId?: string;
   agentTurnId?: string | null;
-  sessionId?: string | null;
   promptText: string;
   status?: string;
   startedAt?: Date | SymphonyIsoTimestamp;
@@ -131,16 +128,14 @@ export type SymphonyEventAttrs = {
   summary?: string | null;
   threadId?: string | null;
   agentTurnId?: string | null;
-  sessionId?: string | null;
 };
 
 export type SymphonyTurnUpdateAttrs = {
   status?: string;
   startedAt?: Date | SymphonyIsoTimestamp | null;
   endedAt?: Date | SymphonyIsoTimestamp | null;
-  threadId?: string | null;
+  threadId?: string;
   agentTurnId?: string | null;
-  sessionId?: string | null;
   usage?: SymphonyAgentUsage | null;
   metadata?: SymphonyJsonObject | null;
 };
@@ -148,9 +143,8 @@ export type SymphonyTurnUpdateAttrs = {
 export type SymphonyTurnFinishAttrs = {
   status?: string;
   endedAt?: Date | SymphonyIsoTimestamp;
-  threadId?: string | null;
+  threadId?: string;
   agentTurnId?: string | null;
-  sessionId?: string | null;
   usage?: SymphonyAgentUsage | null;
   metadata?: SymphonyJsonObject | null;
 };

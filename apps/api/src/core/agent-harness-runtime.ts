@@ -179,7 +179,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
       });
 
       return {
-        sessionId: null,
+        threadId: null,
         workerHost: runInput.workspace.workerHost ?? null,
         launchTarget
       };
@@ -353,8 +353,7 @@ async function executeRun(input: {
     if (input.runId) {
       await input.runStore.upsertRunContext(input.runId, {
         ...runtimeContextBase,
-        threadId: session.threadId,
-        sessionId: null
+        threadId: session.threadId
       });
     }
 
@@ -426,6 +425,7 @@ async function executeRun(input: {
 
       persistedTurnId = input.runId
         ? await input.runStore.recordTurnStarted(input.runId, {
+            threadId: session.threadId,
             promptText: prompt,
             status: "running"
           })
@@ -451,13 +451,11 @@ async function executeRun(input: {
             recordedAt: new Date().toISOString(),
             payload: sessionStartedEvent,
             summary: summarizeCanonicalRuntimeEvent(sessionStartedEvent),
-            threadId: sessionStartedEvent.thread_id,
-            sessionId: sessionStartedEvent.session_id
+            threadId: sessionStartedEvent.thread_id ?? session.threadId
           });
           await input.runStore.upsertRunContext(input.runId, {
             ...runtimeContextBase,
             threadId: sessionStartedEvent.thread_id ?? session.threadId,
-            sessionId: sessionStartedEvent.session_id,
             processId: sessionStartedEvent.agent_app_server_pid ?? session.processId,
             model: sessionStartedEvent.model ?? session.model,
             reasoningEffort:
@@ -493,11 +491,7 @@ async function executeRun(input: {
           const threadId =
             getString(message, "thread_id") ??
             getString(runtimePayloadRecord, "thread_id") ??
-            null;
-          const sessionId =
-            getString(message, "session_id") ??
-            getString(runtimePayloadRecord, "session_id") ??
-            null;
+            session.threadId;
           const canonicalEvent =
             (threadEvent as CanonicalRuntimeEventPayload | null) ?? sessionStartedEvent;
 
@@ -505,8 +499,8 @@ async function executeRun(input: {
             event: eventName,
             payload: runtimePayload,
             timestamp,
-            sessionId:
-              sessionStartedEvent?.session_id ?? sessionId,
+            threadId:
+              sessionStartedEvent?.thread_id ?? threadId,
             agentRuntimeProcessId:
               getString(message, "agent_app_server_pid") ?? session.processId
           });
@@ -525,25 +519,20 @@ async function executeRun(input: {
                 payload: canonicalEvent,
                 summary: summarizeCanonicalRuntimeEvent(canonicalEvent),
                 threadId:
-                  canonicalEvent.type === "session.started"
+                  (canonicalEvent.type === "session.started"
                     ? canonicalEvent.thread_id
-                    : threadId,
+                    : threadId) ?? session.threadId,
                 agentTurnId:
                   canonicalEvent.type === "session.started"
                     ? canonicalEvent.turn_id
                     : getString(message, "turn_id") ??
                       getString(runtimePayloadRecord, "turn_id") ??
-                      null,
-                sessionId:
-                  canonicalEvent.type === "session.started"
-                    ? canonicalEvent.session_id
-                    : sessionId
+                      null
               });
               if (canonicalEvent.type === "session.started") {
                 await input.runStore.upsertRunContext(input.runId, {
                   ...runtimeContextBase,
                   threadId: canonicalEvent.thread_id ?? session.threadId,
-                  sessionId: canonicalEvent.session_id,
                   processId: canonicalEvent.agent_app_server_pid ?? session.processId,
                   model: canonicalEvent.model ?? session.model,
                   reasoningEffort:
@@ -601,7 +590,6 @@ async function executeRun(input: {
           endedAt,
           threadId: turnResult.threadId,
           agentTurnId: turnResult.turnId,
-          sessionId: turnResult.sessionId,
           usage: turnResult.usage ?? null
         });
         await input.agentAnalytics.finalizeTurn({
@@ -1355,16 +1343,16 @@ function extractCanonicalSessionStartedEvent(
     return null;
   }
 
-  const sessionId = getString(value, "session_id");
+  const rawSessionId = getString(value, "session_id");
   const turnId = getString(value, "turn_id");
 
-  if (!sessionId || !turnId) {
+  if (!rawSessionId || !turnId) {
     return null;
   }
 
   return {
     type: "session.started",
-    session_id: sessionId,
+    session_id: rawSessionId,
     thread_id: getString(value, "thread_id"),
     turn_id: turnId,
     agent_app_server_pid: getString(value, "agent_app_server_pid"),

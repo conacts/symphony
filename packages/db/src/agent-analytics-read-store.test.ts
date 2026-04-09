@@ -176,7 +176,6 @@ describe("sqlite agent analytics read store", () => {
       }).upsertRunContext(runId, {
         harnessKind: "pi",
         threadId: "thread-1",
-        sessionId: null,
         processId: "pi-process-123",
         model: "xiaomi/mimo-v2-pro",
         reasoningEffort: "high",
@@ -495,6 +494,7 @@ describe("sqlite agent analytics read store", () => {
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-command-metrics",
         promptText: "Run the monitored command",
+        threadId: "thread-command-metrics",
         startedAt: "2026-04-08T12:00:01.000Z",
         status: "running"
       });
@@ -1286,6 +1286,7 @@ describe("sqlite agent analytics read store", () => {
       const turnId = await runLedger.recordTurnStarted(runId, {
         turnId: "turn-runtime-only",
         turnSequence: 1,
+        threadId: "thread-runtime-only",
         promptText: "Inspect runtime-only history",
         status: "running",
         startedAt: "2026-04-05T00:00:01.000Z"
@@ -1366,6 +1367,7 @@ describe("sqlite agent analytics read store", () => {
       const turnId = await runLedger.recordTurnStarted(runId, {
         turnId: "turn-zero-analytics",
         turnSequence: 1,
+        threadId: "thread-zero-analytics",
         promptText: "Continue implementation",
         status: "running",
         startedAt: "2026-04-05T00:00:01.000Z"

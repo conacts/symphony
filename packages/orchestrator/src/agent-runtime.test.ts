@@ -73,7 +73,7 @@ describe("agent runtime facade", () => {
   it("adapts pi runtime implementations behind the stable contract", async () => {
     const runInput = buildAgentRunInput();
     const startRun = vi.fn(async () => ({
-      sessionId: "thread-123",
+      threadId: "thread-123",
       workerHost: "worker-a",
       launchTarget: null
     }));
@@ -87,7 +87,7 @@ describe("agent runtime facade", () => {
 
     expect(runtime).not.toBe(implementation);
     await expect(runtime.startRun(runInput)).resolves.toEqual({
-      sessionId: "thread-123",
+      threadId: "thread-123",
       workerHost: "worker-a",
       launchTarget: null
     });

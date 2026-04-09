@@ -353,9 +353,8 @@ export const symphonyForensicsEventSchema = z.strictObject({
   payloadTruncated: z.boolean(),
   payloadBytes: z.number().int().nonnegative().nullable(),
   summary: nullableNonEmptyStringSchema,
-  threadId: nullableNonEmptyStringSchema,
+  threadId: nonEmptyStringSchema,
   agentTurnId: nullableNonEmptyStringSchema,
-  sessionId: nullableNonEmptyStringSchema,
   insertedAt: isoTimestampSchema
 });
 
@@ -363,9 +362,8 @@ export const symphonyForensicsTurnSchema = z.strictObject({
   turnId: nonEmptyStringSchema,
   runId: nonEmptyStringSchema,
   turnSequence: z.number().int().positive(),
-  threadId: nullableNonEmptyStringSchema,
+  threadId: nonEmptyStringSchema,
   agentTurnId: nullableNonEmptyStringSchema,
-  sessionId: nullableNonEmptyStringSchema,
   promptText: nonEmptyStringSchema,
   status: nonEmptyStringSchema,
   startedAt: isoTimestampSchema,

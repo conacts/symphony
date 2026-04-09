@@ -147,7 +147,7 @@ export const symphonyRuntimeRunningEntrySchema = z.strictObject({
   state: nonEmptyStringSchema,
   workerHost: nullableNonEmptyStringSchema,
   workspacePath: nullableNonEmptyStringSchema,
-  sessionId: nullableNonEmptyStringSchema,
+  threadId: nullableNonEmptyStringSchema,
   workspace: z.lazy(() => symphonyRuntimeWorkspaceSchema).nullable(),
   launchTarget: z.lazy(() => symphonyRuntimeLaunchTargetSchema).nullable(),
   turnCount: z.number().int().nonnegative(),
@@ -269,7 +269,7 @@ export const symphonyRuntimeIssueStatusSchema = z.enum([
 export const symphonyRuntimeIssueRunningStateSchema = z.strictObject({
   workerHost: nullableNonEmptyStringSchema,
   workspacePath: nullableNonEmptyStringSchema,
-  sessionId: nullableNonEmptyStringSchema,
+  threadId: nullableNonEmptyStringSchema,
   launchTarget: symphonyRuntimeLaunchTargetSchema.nullable(),
   turnCount: z.number().int().nonnegative(),
   state: nonEmptyStringSchema,

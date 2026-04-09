@@ -52,7 +52,7 @@ describe("symphony runtime review seam", () => {
       agentRuntime: createAgentRuntime({
         async startRun() {
           return {
-            sessionId: null,
+            threadId: null,
             workerHost: null,
             launchTarget: null
           };
@@ -88,7 +88,7 @@ describe("symphony runtime review seam", () => {
       agentRuntime: createAgentRuntime({
         async startRun() {
           return {
-            sessionId: null,
+            threadId: null,
             workerHost: null,
             launchTarget: null
           };

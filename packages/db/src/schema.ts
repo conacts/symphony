@@ -554,9 +554,8 @@ export const symphonyTurnsTable = sqliteTable(
     turnId: text("turn_id").primaryKey(),
     runId: text("run_id").notNull(),
     turnSequence: integer("turn_sequence").notNull(),
-    threadId: text("thread_id"),
+    threadId: text("thread_id").notNull(),
     agentTurnId: text("agent_turn_id"),
-    sessionId: text("session_id"),
     promptText: text("prompt_text").notNull(),
     status: text("status").notNull(),
     startedAt: text("started_at").notNull(),
@@ -590,9 +589,8 @@ export const symphonyEventsTable = sqliteTable(
     payloadTruncated: integer("payload_truncated", { mode: "boolean" }).notNull(),
     payloadBytes: integer("payload_bytes").notNull(),
     summary: text("summary"),
-    threadId: text("thread_id"),
+    threadId: text("thread_id").notNull(),
     agentTurnId: text("agent_turn_id"),
-    sessionId: text("session_id"),
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
@@ -713,8 +711,7 @@ export const symphonyRunRuntimeContextTable = sqliteTable(
   {
     runId: text("run_id").primaryKey(),
     harnessKind: text("harness_kind"),
-    threadId: text("thread_id"),
-    sessionId: text("session_id"),
+    threadId: text("thread_id").notNull(),
     processId: text("process_id"),
     model: text("model"),
     reasoningEffort: text("reasoning_effort"),

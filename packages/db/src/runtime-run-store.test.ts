@@ -159,6 +159,7 @@ describe("runtime run delivery projections", () => {
         turnId: "turn-events-1",
         promptText: "Investigate the event stream.",
         status: "running",
+        threadId: "thread-events-1",
         startedAt: "2026-04-08T21:00:01.000Z"
       });
       const timelineBefore = await issueTimelineStore.listIssueTimeline("COL-310");
@@ -168,7 +169,6 @@ describe("runtime run delivery projections", () => {
         recordedAt: "2026-04-08T21:00:02.000Z",
         summary: "runtime session started",
         threadId: "thread-events-1",
-        sessionId: "thread-events-1",
         payload: {
           type: "session.started",
           session_id: "thread-events-1",
@@ -196,7 +196,6 @@ describe("runtime run delivery projections", () => {
         itemStatus: null,
         summary: "runtime session started",
         threadId: "thread-events-1",
-        sessionId: "thread-events-1",
         payloadTruncated: false
       });
       expect(timelineAfter).toHaveLength(timelineBefore.length);
@@ -229,7 +228,6 @@ describe("runtime run delivery projections", () => {
       await runStore.upsertRunContext(runId, {
         harnessKind: "pi",
         threadId: "thread-context-1",
-        sessionId: null,
         processId: "4242",
         model: "gpt-5.4",
         reasoningEffort: "high",
@@ -249,7 +247,7 @@ describe("runtime run delivery projections", () => {
         }
       });
       await runStore.upsertRunContext(runId, {
-        sessionId: "session-context-1",
+        threadId: "thread-context-1",
         model: "gpt-5.5"
       });
 
@@ -263,7 +261,6 @@ describe("runtime run delivery projections", () => {
         runId,
         harnessKind: "pi",
         threadId: "thread-context-1",
-        sessionId: "session-context-1",
         processId: "4242",
         model: "gpt-5.5",
         reasoningEffort: "high",

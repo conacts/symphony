@@ -268,7 +268,6 @@ export async function createSymphonyRuntimeTestHarness(input: {
     eventType: "session.started",
     recordedAt: "2026-03-31T00:00:00.000Z",
     threadId: "thread-123",
-    sessionId: "thread-123",
     payload: {
       type: "session.started",
       session_id: "thread-123",
@@ -411,7 +410,6 @@ export async function createSymphonyRuntimeTestHarness(input: {
   await runStore.upsertRunContext(runId, {
     harnessKind: "pi",
     threadId: "thread-123",
-    sessionId: "thread-123",
     processId: "4242",
     model: "gpt-5.4",
     reasoningEffort: "high",
@@ -436,7 +434,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
           state: "In Progress"
         },
         runId,
-        sessionId: "thread-live",
+        threadId: "thread-live",
         workerHost: null,
         launchTarget: null,
         workspacePath: path.join(root, `symphony-${issue.identifier}`),

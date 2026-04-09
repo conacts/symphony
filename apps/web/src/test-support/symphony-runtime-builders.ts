@@ -131,7 +131,7 @@ export function buildSymphonyRuntimeStateResult(
       state: "In Progress",
       workerHost: "worker-b",
       workspacePath: "/tmp/workspaces/col-165",
-      sessionId: "session_123",
+      threadId: "thread_123",
       workspace: defaultRunningWorkspace,
       launchTarget: defaultRunningLaunchTarget,
       turnCount: 4,
@@ -151,7 +151,7 @@ export function buildSymphonyRuntimeStateResult(
     state: "In Progress",
     workerHost: "worker-b",
     workspacePath: "/tmp/workspaces/col-165",
-    sessionId: "session_123",
+    threadId: "thread_123",
     turnCount: 4,
     lastEvent: "message.output",
     lastMessage: "Runtime view updated",
@@ -296,7 +296,7 @@ export function buildSymphonyRuntimeIssueResult(
   const defaultRunning: NonNullable<SymphonyRuntimeIssueResult["running"]> = {
     workerHost: "worker-b",
     workspacePath: "/tmp/symphony-COL-167",
-    sessionId: "session-167",
+    threadId: "thread-167",
     launchTarget: {
       kind: "container",
       hostLaunchPath: "/tmp/symphony-COL-167",
@@ -1049,9 +1049,8 @@ export function buildSymphonyForensicsRunDetailResult(
         turnId: "turn_123",
         runId: "run_123",
         turnSequence: 1,
-        threadId: null,
         agentTurnId: null,
-        sessionId: "session_123",
+        threadId: "thread_123",
         promptText: "Solve the task",
         status: "completed",
         startedAt: "2026-03-31T18:00:00.000Z",
@@ -1086,9 +1085,8 @@ export function buildSymphonyForensicsRunDetailResult(
             payloadTruncated: false,
             payloadBytes: 12,
             summary: "Produced output",
-            threadId: null,
             agentTurnId: null,
-            sessionId: "session_123",
+            threadId: "thread_123",
             insertedAt: "2026-03-31T18:01:00.000Z"
           }
         ]
@@ -1692,12 +1690,14 @@ export function buildSymphonyAgentRunArtifactsResult(
             arguments: {
               id: "COL-165"
             },
-            content: [
-              {
-                type: "text",
-                text: "Fetched the latest issue metadata from Linear."
-              }
-            ],
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: "Fetched the latest issue metadata from Linear."
+                }
+              ]
+            },
             status: "completed"
           }
         },
@@ -2196,12 +2196,14 @@ export function buildSymphonyAgentRunArtifactsDiffDemoResult(
           arguments: {
             path: "src/app/page.tsx"
           },
-          content: [
-            {
-              type: "text",
-              text: "Read src/app/page.tsx"
-            }
-          ],
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "Read src/app/page.tsx"
+              }
+            ]
+          },
           status: "completed"
         }
       },
@@ -2230,12 +2232,14 @@ export function buildSymphonyAgentRunArtifactsDiffDemoResult(
           arguments: {
             path: "src/app/page.tsx"
           },
-          content: [
-            {
-              type: "text",
-              text: "@@ edit 1 @@"
-            }
-          ],
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "@@ edit 1 @@"
+              }
+            ]
+          },
           status: "completed"
         }
       },
@@ -2264,12 +2268,14 @@ export function buildSymphonyAgentRunArtifactsDiffDemoResult(
           arguments: {
             path: "src/app/layout.tsx"
           },
-          content: [
-            {
-              type: "text",
-              text: "Read src/app/layout.tsx"
-            }
-          ],
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "Read src/app/layout.tsx"
+              }
+            ]
+          },
           status: "completed"
         }
       },
@@ -2298,12 +2304,14 @@ export function buildSymphonyAgentRunArtifactsDiffDemoResult(
           arguments: {
             path: "src/app/layout.tsx"
           },
-          content: [
-            {
-              type: "text",
-              text: "Updated src/app/layout.tsx"
-            }
-          ],
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "Updated src/app/layout.tsx"
+              }
+            ]
+          },
           status: "completed"
         }
       },
@@ -2530,21 +2538,22 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
               arguments: {
                 path: "src/app/page.tsx"
               },
-              content: [
-                {
-                  type: "text",
-                  text: "Read src/app/page.tsx"
-                }
-              ],
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: "Read src/app/page.tsx"
+                  }
+                ]
+              },
               status: "completed"
             }
           },
           payloadTruncated: false,
           payloadBytes: 12,
           summary: "Read the page file.",
-          threadId: null,
           agentTurnId: null,
-          sessionId: "session_456",
+          threadId: "thread_456",
           insertedAt: "2026-04-03T20:00:12.000Z"
         }
       ]
@@ -2589,21 +2598,22 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
               arguments: {
                 path: "src/app/page.tsx"
               },
-              content: [
-                {
-                  type: "text",
-                  text: "@@ edit 1 @@"
-                }
-              ],
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: "@@ edit 1 @@"
+                  }
+                ]
+              },
               status: "completed"
             }
           },
           payloadTruncated: false,
           payloadBytes: 12,
           summary: "Applied a page edit.",
-          threadId: null,
           agentTurnId: null,
-          sessionId: "session_456",
+          threadId: "thread_456",
           insertedAt: "2026-04-03T20:02:24.000Z"
         }
       ]
@@ -2648,21 +2658,22 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
               arguments: {
                 path: "src/app/layout.tsx"
               },
-              content: [
-                {
-                  type: "text",
-                  text: "Read src/app/layout.tsx"
-                }
-              ],
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: "Read src/app/layout.tsx"
+                  }
+                ]
+              },
               status: "completed"
             }
           },
           payloadTruncated: false,
           payloadBytes: 12,
           summary: "Read the layout file.",
-          threadId: null,
           agentTurnId: null,
-          sessionId: "session_456",
+          threadId: "thread_456",
           insertedAt: "2026-04-03T20:05:12.000Z"
         },
         {
@@ -2684,21 +2695,22 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
               arguments: {
                 path: "src/app/layout.tsx"
               },
-              content: [
-                {
-                  type: "text",
-                  text: "Updated src/app/layout.tsx"
-                }
-              ],
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: "Updated src/app/layout.tsx"
+                  }
+                ]
+              },
               status: "completed"
             }
           },
           payloadTruncated: false,
           payloadBytes: 12,
           summary: "Wrote the layout update.",
-          threadId: null,
           agentTurnId: null,
-          sessionId: "session_456",
+          threadId: "thread_456",
           insertedAt: "2026-04-03T20:05:26.000Z"
         },
         {
@@ -2721,9 +2733,8 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
           payloadTruncated: false,
           payloadBytes: 12,
           summary: "Produced output",
-          threadId: null,
           agentTurnId: null,
-          sessionId: "session_456",
+          threadId: "thread_456",
           insertedAt: turn3EndedAt
         }
       ]

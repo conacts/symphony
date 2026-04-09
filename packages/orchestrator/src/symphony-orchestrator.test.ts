@@ -25,7 +25,7 @@ function createAgentRuntime(
   return {
     async startRun(): Promise<AgentRunLaunch> {
       return {
-        sessionId: "thread-1",
+        threadId: "thread-1",
         workerHost: null,
         launchTarget: null
       };
@@ -143,7 +143,7 @@ describe("symphony orchestrator", () => {
     const agentRuntime = createAgentRuntime({
       async startRun(): Promise<AgentRunLaunch> {
         return {
-          sessionId: "thread-live",
+          threadId: "thread-live",
           workerHost: null,
           launchTarget: null
         };
@@ -164,7 +164,7 @@ describe("symphony orchestrator", () => {
     await orchestrator.runPollCycle();
     orchestrator.applyAgentUpdate("issue-123", {
       event: "session_started",
-      sessionId: "thread-live",
+      threadId: "thread-live",
       timestamp: "2026-03-31T00:00:01.000Z"
     });
     orchestrator.applyAgentUpdate("issue-123", {
@@ -197,7 +197,7 @@ describe("symphony orchestrator", () => {
     });
 
     const runningSnapshot = orchestrator.snapshot();
-    expect(runningSnapshot.running[0]?.sessionId).toBe("thread-live");
+    expect(runningSnapshot.running[0]?.threadId).toBe("thread-live");
     expect(runningSnapshot.running[0]?.workspace?.executionTarget.kind).toBe("container");
     expect(runningSnapshot.running[0]?.turnCount).toBe(1);
     expect(runningSnapshot.running[0]?.agentTotalTokens).toBe(16);
@@ -380,7 +380,7 @@ describe("symphony orchestrator", () => {
     const agentRuntime: AgentRuntime = {
       async startRun() {
         return {
-          sessionId: null,
+          threadId: null,
           workerHost: null,
           launchTarget: null
         };
@@ -703,7 +703,7 @@ describe("symphony orchestrator", () => {
       agentRuntime: createAgentRuntime({
         async startRun(): Promise<AgentRunLaunch> {
           return {
-            sessionId: "thread-live",
+            threadId: "thread-live",
             workerHost: null,
             launchTarget: null
           };
@@ -779,7 +779,7 @@ describe("symphony orchestrator", () => {
       agentRuntime: createAgentRuntime({
         async startRun() {
           return {
-            sessionId: "thread-1",
+            threadId: "thread-1",
             workerHost: null,
             launchTarget: null
           };
@@ -828,7 +828,7 @@ describe("symphony orchestrator", () => {
       agentRuntime: createAgentRuntime({
         async startRun() {
           return {
-            sessionId: "thread-1",
+            threadId: "thread-1",
             workerHost: null,
             launchTarget: null
           };
@@ -1160,7 +1160,7 @@ describe("symphony orchestrator", () => {
     await orchestrator.dispatchIssue(issue, 0);
     orchestrator.applyAgentUpdate("issue-123", {
       event: "session_started",
-      sessionId: "thread-live",
+      threadId: "thread-live",
       timestamp: "2026-03-31T00:00:00.000Z"
     });
 
@@ -1966,7 +1966,7 @@ function createFlowHarness(input: {
           runMode: runInput.runMode
         });
         return {
-          sessionId: "thread-1",
+          threadId: "thread-1",
           workerHost: null,
           launchTarget: null
         };

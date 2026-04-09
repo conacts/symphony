@@ -4,7 +4,6 @@ import { symphonyRunRuntimeContextTable } from "./schema.js";
 export type SymphonyRuntimeRunContext = {
   harness: "pi" | null;
   threadId: string | null;
-  sessionId: string | null;
   processId: string | null;
   model: string | null;
   reasoningEffort: string | null;
@@ -20,7 +19,6 @@ export function emptyRuntimeRunContext(): SymphonyRuntimeRunContext {
   return {
     harness: null,
     threadId: null,
-    sessionId: null,
     processId: null,
     model: null,
     reasoningEffort: null,
@@ -49,7 +47,6 @@ export function mapRuntimeRunContextRow(
   return {
     harness: normalizeHarnessKind(row.harnessKind),
     threadId: row.threadId ?? null,
-    sessionId: row.sessionId ?? null,
     processId: row.processId ?? null,
     model: row.model ?? null,
     reasoningEffort: row.reasoningEffort ?? null,

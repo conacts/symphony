@@ -191,7 +191,6 @@ describe("docker pi symphony agent runtime", () => {
     ]);
     expect(canonicalEvents[0]).toMatchObject({
       summary: "Runtime session started.",
-      sessionId: expect.any(String),
       threadId: expect.any(String),
       payload: expect.objectContaining({
         type: "session.started"

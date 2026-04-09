@@ -25,7 +25,7 @@ describe("symphony runtime contracts", () => {
             state: "In Progress",
             workerHost: "docker-host",
             workspacePath: "/tmp/COL-157",
-            sessionId: "session-1",
+            threadId: "thread-1",
             workspace: {
               backendKind: "docker",
               workerHost: "docker-host",
@@ -232,7 +232,7 @@ describe("symphony runtime contracts", () => {
         running: {
           workerHost: "docker-host",
           workspacePath: "/tmp/COL-157",
-          sessionId: "session-1",
+          threadId: "thread-1",
           launchTarget: {
             kind: "container",
             hostLaunchPath: "/tmp/COL-157",

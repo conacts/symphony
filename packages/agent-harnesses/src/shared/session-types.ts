@@ -26,7 +26,6 @@ export type HarnessToolExecutor = (
 ) => Promise<Record<string, unknown>>;
 
 export type HarnessTurnResult = {
-  sessionId: string;
   threadId: string;
   turnId: string;
   usage?: Usage | null;
@@ -55,7 +54,7 @@ export type HarnessSessionClient = {
 
 export type HarnessSession = {
   client: HarnessSessionClient;
-  threadId: string | null;
+  threadId: string;
   workspacePath: string;
   hostLaunchPath: string;
   hostWorkspacePath: string | null;

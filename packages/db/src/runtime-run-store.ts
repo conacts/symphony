@@ -183,9 +183,13 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     const turnSequence = attrs.turnSequence ?? (lastTurn?.turnSequence ?? 0) + 1;
     const startedAt = normalizeIsoTimestamp(attrs.startedAt) ?? now;
     const promptText = sanitizeText(attrs.promptText);
+    const threadId = sanitizeText(attrs.threadId);
 
     if (!promptText) {
       throw new TypeError(`Turn prompt text is required for run ${runId}`);
+    }
+    if (!threadId) {
+      throw new TypeError(`Turn thread id is required for run ${runId}`);
     }
 
     this.#db.insert(symphonyTurnsTable)
@@ -193,9 +197,8 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         turnId,
         runId,
         turnSequence,
-        threadId: attrs.threadId ?? null,
+        threadId,
         agentTurnId: attrs.agentTurnId ?? null,
-        sessionId: attrs.sessionId ?? null,
         promptText,
         status: attrs.status,
         startedAt,
@@ -218,7 +221,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       message: `Turn ${turnSequence} started.`,
       payload: {
         turnSequence,
-        sessionId: attrs.sessionId ?? null
+        threadId
       },
       recordedAt: startedAt
     });
@@ -242,9 +245,8 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         status: attrs.status ?? existing.status,
         startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? existing.startedAt,
         endedAt: normalizeIsoTimestamp(attrs.endedAt) ?? existing.endedAt,
-        threadId: attrs.threadId ?? existing.threadId,
+        threadId: sanitizeText(attrs.threadId) ?? existing.threadId,
         agentTurnId: attrs.agentTurnId ?? existing.agentTurnId,
-        sessionId: attrs.sessionId ?? existing.sessionId,
         usage: sanitizeUsage(attrs.usage) ?? existing.usage,
         metadata: mergeSanitizedJsonObjects(existing.metadata, attrs.metadata),
         updatedAt: isoNow()
@@ -293,6 +295,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     const eventSequence = attrs.eventSequence ?? (lastEvent?.eventSequence ?? 0) + 1;
     const truncatedPayload = truncatePayload(attrs.payload, this.#payloadMaxBytes);
     const recordedAt = normalizeIsoTimestamp(attrs.recordedAt) ?? isoNow();
+    const threadId = sanitizeText(attrs.threadId) ?? turn.threadId;
 
     this.#db.insert(symphonyEventsTable)
       .values({
@@ -308,9 +311,8 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         payloadTruncated: truncatedPayload.payloadTruncated,
         payloadBytes: truncatedPayload.payloadBytes,
         summary: attrs.summary ? sanitizeRuntimeEventSummary(attrs.summary) : null,
-        threadId: attrs.threadId ?? null,
+        threadId,
         agentTurnId: attrs.agentTurnId ?? null,
-        sessionId: attrs.sessionId ?? null,
         insertedAt: isoNow()
       })
       .run();
@@ -335,10 +337,15 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       .where(eq(symphonyRunRuntimeContextTable.runId, runId))
       .get();
     const now = isoNow();
+    const threadId = sanitizeText(attrs.threadId) ?? existing?.threadId ?? null;
+
+    if (!threadId) {
+      throw new TypeError(`Runtime context thread id is required for run ${runId}`);
+    }
+
     const nextValues = {
       harnessKind: sanitizeHarnessKind(attrs.harnessKind) ?? existing?.harnessKind ?? null,
-      threadId: sanitizeText(attrs.threadId) ?? existing?.threadId ?? null,
-      sessionId: sanitizeText(attrs.sessionId) ?? existing?.sessionId ?? null,
+      threadId,
       processId: sanitizeText(attrs.processId) ?? existing?.processId ?? null,
       model: sanitizeText(attrs.model) ?? existing?.model ?? null,
       reasoningEffort:
@@ -377,7 +384,6 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       endedAt: attrs.endedAt,
       threadId: attrs.threadId,
       agentTurnId: attrs.agentTurnId,
-      sessionId: attrs.sessionId,
       usage: attrs.usage,
       metadata: attrs.metadata
     });

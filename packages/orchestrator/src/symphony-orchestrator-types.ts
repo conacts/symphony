@@ -42,7 +42,7 @@ export type SymphonyRunningEntry = {
   issue: SymphonyTrackerIssue;
   runId: string | null;
   runMode: SymphonyRunMode;
-  sessionId: string | null;
+  threadId: string | null;
   workerHost: string | null;
   workspace: PreparedWorkspace | null;
   launchTarget: AgentRuntimeLaunchTarget | null;
@@ -115,7 +115,7 @@ export type SymphonyAgentRuntimeUpdate = {
   event: string;
   payload?: unknown;
   timestamp: string;
-  sessionId?: string | null;
+  threadId?: string | null;
   agentRuntimeProcessId?: string | null;
 };
 

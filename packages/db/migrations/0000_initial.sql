@@ -1,19 +1,24 @@
 CREATE TABLE IF NOT EXISTS symphony_issues (
   issue_id TEXT PRIMARY KEY NOT NULL,
+  repository_key TEXT NOT NULL,
   issue_identifier TEXT NOT NULL,
   latest_run_started_at TEXT NOT NULL,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS symphony_issues_issue_identifier_idx
-  ON symphony_issues (issue_identifier);
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_issues_repository_issue_identifier_idx
+  ON symphony_issues (repository_key, issue_identifier);
+
+CREATE INDEX IF NOT EXISTS symphony_issues_repository_key_idx
+  ON symphony_issues (repository_key);
 
 CREATE INDEX IF NOT EXISTS symphony_issues_latest_run_started_at_idx
   ON symphony_issues (latest_run_started_at);
 
 CREATE TABLE IF NOT EXISTS symphony_runs (
   run_id TEXT PRIMARY KEY NOT NULL,
+  repository_key TEXT NOT NULL,
   issue_id TEXT NOT NULL,
   issue_identifier TEXT NOT NULL,
   attempt INTEGER,
@@ -30,15 +35,28 @@ CREATE TABLE IF NOT EXISTS symphony_runs (
   metadata TEXT,
   error_class TEXT,
   error_message TEXT,
+  machine_load_sample_count INTEGER,
+  machine_load_max_cpu_percent INTEGER,
+  machine_load_avg_cpu_percent INTEGER,
+  machine_load_max_memory_percent INTEGER,
+  machine_load_avg_memory_percent INTEGER,
+  machine_load_max_disk_percent INTEGER,
+  machine_load_avg_disk_percent INTEGER,
+  machine_load_had_high_cpu INTEGER,
+  machine_load_had_high_memory INTEGER,
+  machine_load_had_high_disk INTEGER,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS symphony_runs_repository_key_idx
+  ON symphony_runs (repository_key);
+
 CREATE INDEX IF NOT EXISTS symphony_runs_issue_id_idx
   ON symphony_runs (issue_id);
 
-CREATE INDEX IF NOT EXISTS symphony_runs_issue_identifier_idx
-  ON symphony_runs (issue_identifier);
+CREATE INDEX IF NOT EXISTS symphony_runs_repository_issue_identifier_idx
+  ON symphony_runs (repository_key, issue_identifier);
 
 CREATE INDEX IF NOT EXISTS symphony_runs_started_at_idx
   ON symphony_runs (started_at);
@@ -47,9 +65,8 @@ CREATE TABLE IF NOT EXISTS symphony_turns (
   turn_id TEXT PRIMARY KEY NOT NULL,
   run_id TEXT NOT NULL,
   turn_sequence INTEGER NOT NULL,
-  thread_id TEXT,
+  thread_id TEXT NOT NULL,
   agent_turn_id TEXT,
-  session_id TEXT,
   prompt_text TEXT NOT NULL,
   status TEXT NOT NULL,
   started_at TEXT NOT NULL,
@@ -79,9 +96,8 @@ CREATE TABLE IF NOT EXISTS symphony_events (
   payload_truncated INTEGER NOT NULL,
   payload_bytes INTEGER NOT NULL,
   summary TEXT,
-  thread_id TEXT,
+  thread_id TEXT NOT NULL,
   agent_turn_id TEXT,
-  session_id TEXT,
   inserted_at TEXT NOT NULL
 );
 
@@ -99,6 +115,7 @@ CREATE INDEX IF NOT EXISTS symphony_events_recorded_at_idx
 
 CREATE TABLE IF NOT EXISTS symphony_issue_timeline_entries (
   entry_id TEXT PRIMARY KEY NOT NULL,
+  repository_key TEXT NOT NULL,
   issue_id TEXT NOT NULL,
   issue_identifier TEXT NOT NULL,
   run_id TEXT,
@@ -111,14 +128,18 @@ CREATE TABLE IF NOT EXISTS symphony_issue_timeline_entries (
   inserted_at TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS symphony_issue_timeline_issue_identifier_idx
-  ON symphony_issue_timeline_entries (issue_identifier);
+CREATE INDEX IF NOT EXISTS symphony_issue_timeline_repository_issue_identifier_idx
+  ON symphony_issue_timeline_entries (repository_key, issue_identifier);
+
+CREATE INDEX IF NOT EXISTS symphony_issue_timeline_repository_key_idx
+  ON symphony_issue_timeline_entries (repository_key);
 
 CREATE INDEX IF NOT EXISTS symphony_issue_timeline_recorded_at_idx
   ON symphony_issue_timeline_entries (recorded_at);
 
 CREATE TABLE IF NOT EXISTS symphony_runtime_logs (
   entry_id TEXT PRIMARY KEY NOT NULL,
+  repository_key TEXT,
   level TEXT NOT NULL,
   source TEXT NOT NULL,
   event_type TEXT NOT NULL,
@@ -131,11 +152,14 @@ CREATE TABLE IF NOT EXISTS symphony_runtime_logs (
   inserted_at TEXT NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS symphony_runtime_logs_repository_key_idx
+  ON symphony_runtime_logs (repository_key);
+
 CREATE INDEX IF NOT EXISTS symphony_runtime_logs_recorded_at_idx
   ON symphony_runtime_logs (recorded_at);
 
-CREATE INDEX IF NOT EXISTS symphony_runtime_logs_issue_identifier_idx
-  ON symphony_runtime_logs (issue_identifier);
+CREATE INDEX IF NOT EXISTS symphony_runtime_logs_repository_issue_identifier_idx
+  ON symphony_runtime_logs (repository_key, issue_identifier);
 
 CREATE TABLE IF NOT EXISTS symphony_github_ingress (
   delivery_id TEXT PRIMARY KEY NOT NULL,
@@ -227,17 +251,17 @@ CREATE TABLE IF NOT EXISTS symphony_agent_runs (
   last_agent_message_item_id TEXT,
   last_agent_message_preview TEXT,
   last_agent_message_overflow_id TEXT,
-  input_tokens INTEGER NOT NULL DEFAULT 0,
-  cached_input_tokens INTEGER NOT NULL DEFAULT 0,
-  output_tokens INTEGER NOT NULL DEFAULT 0,
-  turn_count INTEGER NOT NULL DEFAULT 0,
-  item_count INTEGER NOT NULL DEFAULT 0,
-  command_count INTEGER NOT NULL DEFAULT 0,
-  tool_call_count INTEGER NOT NULL DEFAULT 0,
-  file_change_count INTEGER NOT NULL DEFAULT 0,
-  agent_message_count INTEGER NOT NULL DEFAULT 0,
-  reasoning_count INTEGER NOT NULL DEFAULT 0,
-  error_count INTEGER NOT NULL DEFAULT 0,
+  input_tokens INTEGER NOT NULL,
+  cached_input_tokens INTEGER NOT NULL,
+  output_tokens INTEGER NOT NULL,
+  turn_count INTEGER NOT NULL,
+  item_count INTEGER NOT NULL,
+  command_count INTEGER NOT NULL,
+  tool_call_count INTEGER NOT NULL,
+  file_change_count INTEGER NOT NULL,
+  agent_message_count INTEGER NOT NULL,
+  reasoning_count INTEGER NOT NULL,
+  error_count INTEGER NOT NULL,
   latest_event_at TEXT,
   latest_event_type TEXT,
   inserted_at TEXT NOT NULL,
@@ -272,16 +296,16 @@ CREATE TABLE IF NOT EXISTS symphony_agent_turns (
   last_agent_message_item_id TEXT,
   last_agent_message_preview TEXT,
   last_agent_message_overflow_id TEXT,
-  input_tokens INTEGER NOT NULL DEFAULT 0,
-  cached_input_tokens INTEGER NOT NULL DEFAULT 0,
-  output_tokens INTEGER NOT NULL DEFAULT 0,
-  item_count INTEGER NOT NULL DEFAULT 0,
-  command_count INTEGER NOT NULL DEFAULT 0,
-  tool_call_count INTEGER NOT NULL DEFAULT 0,
-  file_change_count INTEGER NOT NULL DEFAULT 0,
-  agent_message_count INTEGER NOT NULL DEFAULT 0,
-  reasoning_count INTEGER NOT NULL DEFAULT 0,
-  error_count INTEGER NOT NULL DEFAULT 0,
+  input_tokens INTEGER NOT NULL,
+  cached_input_tokens INTEGER NOT NULL,
+  output_tokens INTEGER NOT NULL,
+  item_count INTEGER NOT NULL,
+  command_count INTEGER NOT NULL,
+  tool_call_count INTEGER NOT NULL,
+  file_change_count INTEGER NOT NULL,
+  agent_message_count INTEGER NOT NULL,
+  reasoning_count INTEGER NOT NULL,
+  error_count INTEGER NOT NULL,
   latest_event_at TEXT,
   latest_event_type TEXT,
   inserted_at TEXT NOT NULL,
@@ -303,7 +327,7 @@ CREATE TABLE IF NOT EXISTS symphony_agent_items (
   last_updated_at TEXT,
   completed_at TEXT,
   final_status TEXT,
-  update_count INTEGER NOT NULL DEFAULT 0,
+  update_count INTEGER NOT NULL,
   duration_ms INTEGER,
   latest_preview TEXT,
   latest_overflow_id TEXT,
@@ -328,11 +352,13 @@ CREATE TABLE IF NOT EXISTS symphony_agent_command_executions (
   command TEXT NOT NULL,
   status TEXT NOT NULL,
   exit_code INTEGER,
+  timeout_seconds INTEGER,
   started_at TEXT,
   completed_at TEXT,
   duration_ms INTEGER,
   output_preview TEXT,
   output_overflow_id TEXT,
+  resource_profile_json TEXT,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   PRIMARY KEY (run_id, turn_id, item_id)
@@ -376,7 +402,7 @@ CREATE TABLE IF NOT EXISTS symphony_agent_messages (
   text_content TEXT,
   text_preview TEXT,
   text_overflow_id TEXT,
-  recorded_at TEXT,
+  recorded_at TEXT NOT NULL,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   PRIMARY KEY (run_id, turn_id, item_id)
@@ -384,9 +410,6 @@ CREATE TABLE IF NOT EXISTS symphony_agent_messages (
 
 CREATE INDEX IF NOT EXISTS symphony_agent_messages_run_id_idx
   ON symphony_agent_messages (run_id);
-
-CREATE INDEX IF NOT EXISTS symphony_agent_messages_recorded_at_idx
-  ON symphony_agent_messages (recorded_at);
 
 CREATE INDEX IF NOT EXISTS symphony_agent_messages_run_recorded_at_idx
   ON symphony_agent_messages (run_id, recorded_at);
@@ -398,7 +421,7 @@ CREATE TABLE IF NOT EXISTS symphony_agent_reasoning (
   text_content TEXT,
   text_preview TEXT,
   text_overflow_id TEXT,
-  recorded_at TEXT,
+  recorded_at TEXT NOT NULL,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   PRIMARY KEY (run_id, turn_id, item_id)
@@ -406,9 +429,6 @@ CREATE TABLE IF NOT EXISTS symphony_agent_reasoning (
 
 CREATE INDEX IF NOT EXISTS symphony_agent_reasoning_run_id_idx
   ON symphony_agent_reasoning (run_id);
-
-CREATE INDEX IF NOT EXISTS symphony_agent_reasoning_recorded_at_idx
-  ON symphony_agent_reasoning (recorded_at);
 
 CREATE INDEX IF NOT EXISTS symphony_agent_reasoning_run_recorded_at_idx
   ON symphony_agent_reasoning (run_id, recorded_at);
@@ -431,7 +451,7 @@ CREATE INDEX IF NOT EXISTS symphony_agent_file_changes_path_idx
   ON symphony_agent_file_changes (path);
 
 CREATE TABLE IF NOT EXISTS symphony_agent_task_snapshots (
-  snapshot_id TEXT PRIMARY KEY,
+  snapshot_id TEXT PRIMARY KEY NOT NULL,
   run_id TEXT NOT NULL,
   turn_id TEXT NOT NULL,
   item_id TEXT NOT NULL,
@@ -469,3 +489,176 @@ CREATE INDEX IF NOT EXISTS symphony_agent_task_snapshot_items_snapshot_id_idx
 
 CREATE INDEX IF NOT EXISTS symphony_agent_task_snapshot_items_state_idx
   ON symphony_agent_task_snapshot_items (state);
+
+CREATE TABLE IF NOT EXISTS pi_reads (
+  run_id TEXT NOT NULL,
+  turn_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  path TEXT NOT NULL,
+  read_offset INTEGER,
+  read_limit INTEGER,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (run_id, turn_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS pi_reads_run_id_idx
+  ON pi_reads (run_id);
+
+CREATE INDEX IF NOT EXISTS pi_reads_path_idx
+  ON pi_reads (path);
+
+CREATE TABLE IF NOT EXISTS pi_edits (
+  run_id TEXT NOT NULL,
+  turn_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  path TEXT NOT NULL,
+  edit_count INTEGER NOT NULL,
+  line_count INTEGER NOT NULL,
+  first_changed_line INTEGER,
+  diff_preview TEXT,
+  diff_overflow_id TEXT,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (run_id, turn_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS pi_edits_run_id_idx
+  ON pi_edits (run_id);
+
+CREATE INDEX IF NOT EXISTS pi_edits_path_idx
+  ON pi_edits (path);
+
+CREATE TABLE IF NOT EXISTS pi_writes (
+  run_id TEXT NOT NULL,
+  turn_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  path TEXT NOT NULL,
+  line_count INTEGER NOT NULL,
+  content_bytes INTEGER NOT NULL,
+  bytes_written INTEGER,
+  diff_preview TEXT,
+  diff_overflow_id TEXT,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (run_id, turn_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS pi_writes_run_id_idx
+  ON pi_writes (run_id);
+
+CREATE INDEX IF NOT EXISTS pi_writes_path_idx
+  ON pi_writes (path);
+
+CREATE TABLE IF NOT EXISTS pi_greps (
+  run_id TEXT NOT NULL,
+  turn_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  pattern TEXT NOT NULL,
+  search_path TEXT,
+  ignore_case INTEGER,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (run_id, turn_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS pi_greps_run_id_idx
+  ON pi_greps (run_id);
+
+CREATE TABLE IF NOT EXISTS pi_finds (
+  run_id TEXT NOT NULL,
+  turn_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  pattern TEXT NOT NULL,
+  search_path TEXT,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (run_id, turn_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS pi_finds_run_id_idx
+  ON pi_finds (run_id);
+
+CREATE TABLE IF NOT EXISTS pi_message_ends (
+  run_id TEXT NOT NULL,
+  turn_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  response_id TEXT,
+  api TEXT,
+  provider TEXT,
+  model TEXT,
+  stop_reason TEXT,
+  response_timestamp TEXT,
+  input_tokens INTEGER NOT NULL,
+  cached_input_tokens INTEGER NOT NULL,
+  cache_write_tokens INTEGER,
+  output_tokens INTEGER NOT NULL,
+  total_tokens INTEGER NOT NULL,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (run_id, turn_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS pi_message_ends_run_id_idx
+  ON pi_message_ends (run_id);
+
+CREATE INDEX IF NOT EXISTS pi_message_ends_response_id_idx
+  ON pi_message_ends (response_id);
+
+CREATE INDEX IF NOT EXISTS pi_message_ends_model_idx
+  ON pi_message_ends (model);
+
+CREATE TABLE IF NOT EXISTS symphony_issue_delivery_reports (
+  report_id TEXT PRIMARY KEY NOT NULL,
+  repository_key TEXT NOT NULL,
+  issue_id TEXT NOT NULL,
+  issue_identifier TEXT NOT NULL,
+  run_id TEXT NOT NULL,
+  turn_id TEXT,
+  status TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  pr_url TEXT,
+  pr_number TEXT,
+  branch_name TEXT,
+  blocking_reason TEXT,
+  tests_summary TEXT,
+  source TEXT NOT NULL,
+  payload_json TEXT,
+  reported_at TEXT NOT NULL,
+  inserted_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS symphony_issue_delivery_reports_repository_issue_identifier_idx
+  ON symphony_issue_delivery_reports (repository_key, issue_identifier, reported_at);
+
+CREATE INDEX IF NOT EXISTS symphony_issue_delivery_reports_repository_key_idx
+  ON symphony_issue_delivery_reports (repository_key, reported_at);
+
+CREATE INDEX IF NOT EXISTS symphony_issue_delivery_reports_run_id_idx
+  ON symphony_issue_delivery_reports (run_id, reported_at);
+
+CREATE INDEX IF NOT EXISTS symphony_issue_delivery_reports_status_idx
+  ON symphony_issue_delivery_reports (status, reported_at);
+
+CREATE TABLE IF NOT EXISTS symphony_run_runtime_context (
+  run_id TEXT PRIMARY KEY NOT NULL,
+  harness_kind TEXT,
+  thread_id TEXT NOT NULL,
+  process_id TEXT,
+  model TEXT,
+  reasoning_effort TEXT,
+  profile TEXT,
+  provider_id TEXT,
+  provider_name TEXT,
+  auth_mode TEXT,
+  provider_env_key TEXT,
+  launch_target_json TEXT,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS symphony_run_runtime_context_harness_kind_idx
+  ON symphony_run_runtime_context (harness_kind);
+
+CREATE INDEX IF NOT EXISTS symphony_run_runtime_context_thread_id_idx
+  ON symphony_run_runtime_context (thread_id);

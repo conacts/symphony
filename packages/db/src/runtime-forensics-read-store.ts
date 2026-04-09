@@ -310,9 +310,8 @@ function mapForensicsTurn(
     turnId: turn.turnId,
     runId: turn.runId,
     turnSequence: turn.turnSequence,
-    threadId: turn.threadId ?? null,
+    threadId: turn.threadId,
     agentTurnId: turn.agentTurnId ?? null,
-    sessionId: turn.sessionId ?? null,
     promptText: turn.promptText,
     status: turn.status,
     startedAt: turn.startedAt,
@@ -345,9 +344,8 @@ function mapForensicsEvent(
     payloadTruncated: event.payloadTruncated,
     payloadBytes: event.payloadBytes,
     summary: event.summary ?? null,
-    threadId: event.threadId ?? null,
+    threadId: event.threadId,
     agentTurnId: event.agentTurnId ?? null,
-    sessionId: event.sessionId ?? null,
     insertedAt: event.insertedAt
   };
 }

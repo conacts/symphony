@@ -55,7 +55,7 @@ export function serializeRuntimeState(
       state: entry.issue.state,
       workerHost: entry.workerHost,
       workspacePath: entry.workspacePath,
-      sessionId: entry.sessionId,
+      threadId: entry.threadId,
       workspace: serializeRuntimeWorkspace(
         entry.workspace,
         entry.workerHost,
@@ -160,7 +160,7 @@ export function serializeRuntimeIssue(
       ? {
           workerHost: running.workerHost,
           workspacePath: running.workspacePath,
-          sessionId: running.sessionId,
+          threadId: running.threadId,
           launchTarget: serializeRuntimeLaunchTarget(running.launchTarget),
           turnCount: running.turnCount,
           state: running.issue.state,

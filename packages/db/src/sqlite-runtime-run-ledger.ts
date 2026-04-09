@@ -92,7 +92,13 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
 
   async recordTurnStarted(runId: string, attrs: SymphonyTurnStartAttrs): Promise<string> {
     return this.#runtimeRunStore.recordTurnStarted(runId, {
-      ...attrs,
+      turnId: attrs.turnId,
+      turnSequence: attrs.turnSequence,
+      threadId: attrs.threadId ?? undefined,
+      agentTurnId: attrs.agentTurnId,
+      promptText: attrs.promptText,
+      startedAt: attrs.startedAt,
+      metadata: attrs.metadata,
       status: normalizeRuntimeTurnStatus(attrs.status, "running")
     });
   }
@@ -135,14 +141,22 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
 
   async updateTurn(turnId: string, attrs: SymphonyTurnUpdateAttrs): Promise<void> {
     await this.#runtimeRunStore.updateTurn(turnId, {
-      ...attrs,
+      startedAt: attrs.startedAt,
+      endedAt: attrs.endedAt,
+      threadId: attrs.threadId ?? undefined,
+      agentTurnId: attrs.agentTurnId,
+      usage: attrs.usage,
+      metadata: attrs.metadata,
       status: attrs.status ? normalizeRuntimeTurnStatus(attrs.status, "running") : undefined
     });
   }
 
   async finalizeTurn(turnId: string, attrs: SymphonyTurnFinishAttrs): Promise<void> {
     await this.#runtimeRunStore.finalizeTurn(turnId, {
-      ...attrs,
+      threadId: attrs.threadId ?? undefined,
+      agentTurnId: attrs.agentTurnId,
+      usage: attrs.usage,
+      metadata: attrs.metadata,
       endedAt: attrs.endedAt ?? isoNow(),
       status: normalizeRuntimeTurnStatus(attrs.status, "completed")
     });
@@ -467,9 +481,8 @@ function castTurnExport(
 ): SymphonyRunExport["turns"][number] {
   return {
     ...turn,
-    threadId: turn.threadId ?? null,
+    threadId: turn.threadId,
     agentTurnId: turn.agentTurnId ?? null,
-    sessionId: turn.sessionId ?? null,
     usage: (turn.usage ?? null) as {
       input_tokens: number;
       cached_input_tokens: number;
@@ -478,9 +491,8 @@ function castTurnExport(
     metadata: (turn.metadata ?? null) as SymphonyJsonObject | null,
     events: turn.events.map((event) => ({
       ...event,
-      threadId: event.threadId ?? null,
+      threadId: event.threadId,
       agentTurnId: event.agentTurnId ?? null,
-      sessionId: event.sessionId ?? null,
       eventType: event.eventType as SymphonyRunExport["turns"][number]["events"][number]["eventType"],
       itemType: (event.itemType ?? null) as SymphonyRunExport["turns"][number]["events"][number]["itemType"],
       itemStatus: (event.itemStatus ?? null) as SymphonyRunExport["turns"][number]["events"][number]["itemStatus"],
