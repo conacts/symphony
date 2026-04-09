@@ -5,7 +5,8 @@ describe("symphony continuation prompt", () => {
   it("repeats the Linear and delivery exactness rules on continuation turns", () => {
     const prompt = buildSymphonyContinuationPrompt({
       turnNumber: 2,
-      maxTurns: 20
+      maxTurns: 20,
+      runMode: "implementation"
     });
 
     expect(prompt).toContain("This is the same PI thread.");
@@ -20,5 +21,18 @@ describe("symphony continuation prompt", () => {
     expect(prompt).toContain("Never move the issue to `Done`");
     expect(prompt).toContain("move the issue to `In Review`");
     expect(prompt).toContain("pnpm exec symphony tool finish");
+  });
+
+  it("switches completion guidance for approved merge continuation turns", () => {
+    const prompt = buildSymphonyContinuationPrompt({
+      turnNumber: 2,
+      maxTurns: 20,
+      runMode: "approved_merge"
+    });
+
+    expect(prompt).toContain("approved merge run");
+    expect(prompt).toContain("pnpm exec symphony tool merge-result --status merged");
+    expect(prompt).toContain("pnpm exec symphony tool merge-result --status blocked");
+    expect(prompt).not.toContain("move the issue to `In Review`");
   });
 });

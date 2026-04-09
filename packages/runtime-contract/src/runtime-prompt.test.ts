@@ -89,7 +89,10 @@ describe("prompt contract", () => {
       "Prefer built-in Pi tools for reading, searching, and editing files."
     );
     expect(symphonyHarnessPromptAppendix).toContain(
-      "`pnpm exec symphony tool finish ...`: Record delivery, move the issue to `In Review`, and end the run."
+      "`pnpm exec symphony tool finish ...`: Record delivery for implementation or rework runs"
+    );
+    expect(symphonyHarnessPromptAppendix).toContain(
+      "`pnpm exec symphony tool merge-result ...`: Record the explicit outcome of an approved merge run."
     );
   });
 
@@ -271,7 +274,8 @@ describe("prompt contract", () => {
         "- This run is for merge completion, not normal feature development.",
         "- Update the branch from the latest `main` and resolve conflicts conservatively.",
         "- Run the required verification and merge only if the branch is clean.",
-        "- If conflicts or verification failures cannot be resolved safely, stop and report the blocked result.",
+        "- If the merge succeeds, report it with `pnpm exec symphony tool merge-result --status merged ...`.",
+        "- If conflicts or verification failures cannot be resolved safely, report the blocked result with `pnpm exec symphony tool merge-result --status blocked ...`.",
         "",
         symphonyHarnessPromptAppendix,
         ""

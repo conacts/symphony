@@ -52,7 +52,11 @@ import {
   createPiRuntimeHarness,
   type SymphonyRuntimeHarness
 } from "./runtime-harness.js";
-import type { RuntimeDeliveryReportResult } from "@symphony/runtime-tools";
+import {
+  runtimeMergeResultEventType,
+  type RuntimeDeliveryReportResult,
+  type RuntimeMergeResult
+} from "@symphony/runtime-tools";
 import { CommandResourceMonitor } from "./command-resource-monitor.js";
 
 type RunCallbacks = {
@@ -225,9 +229,11 @@ async function executeRun(input: {
   let sessionProviderId: string | null = null;
   let sessionProviderName: string | null = null;
   let deliveryReport: RuntimeDeliveryReportResult | null = null;
+  let mergeResult: RuntimeMergeResult | null = null;
   let commandResourceMonitor: CommandResourceMonitor | null = null;
-  const requiresExplicitDeliveryReport =
-    input.runId !== null && input.runMode !== "approved_merge";
+  const explicitCompletionRequirement = resolveExplicitCompletionRequirement(
+    input.runMode
+  );
   const latestReworkHandoff = input.issueTimelineStore
     ? await loadLatestGitHubReworkHandoff(
         input.issueTimelineStore,
@@ -387,7 +393,8 @@ async function executeRun(input: {
             })
           : buildSymphonyContinuationPrompt({
               turnNumber,
-              maxTurns: input.runtimePolicy.agent.maxTurns
+              maxTurns: input.runtimePolicy.agent.maxTurns,
+              runMode: input.runMode
             });
 
       persistedTurnId = input.runId
@@ -513,7 +520,22 @@ async function executeRun(input: {
         persistedTurnId = null;
       }
 
-      if (requiresExplicitDeliveryReport && deliveryReport) {
+      if (input.runId) {
+        if (explicitCompletionRequirement === "delivery_report") {
+          deliveryReport = await loadLatestDeliveryReportForRun(
+            input.deliveryReports,
+            input.runId
+          );
+        } else if (input.issueTimelineStore) {
+          mergeResult = await loadLatestMergeResultForRun(
+            input.issueTimelineStore,
+            currentIssue.identifier,
+            input.runId
+          );
+        }
+      }
+
+      if (deliveryReport || mergeResult) {
         break;
       }
 
@@ -547,10 +569,15 @@ async function executeRun(input: {
         });
       }
 
-      if (requiresExplicitDeliveryReport && deliveryReport) {
+      if (deliveryReport) {
         await input.callbacks.onComplete(
           input.issue.id,
           deliveryCompletion(deliveryReport)
+        );
+      } else if (mergeResult) {
+        await input.callbacks.onComplete(
+          input.issue.id,
+          mergeResultCompletion(mergeResult)
         );
       } else if (maxTurnsReached) {
         await input.callbacks.onComplete(input.issue.id, {
@@ -561,9 +588,7 @@ async function executeRun(input: {
       } else {
         await input.callbacks.onComplete(
           input.issue.id,
-          requiresExplicitDeliveryReport
-            ? missingDeliveryReportCompletion()
-            : { kind: "normal" }
+          missingExplicitCompletion(explicitCompletionRequirement)
         );
       }
     }
@@ -779,6 +804,89 @@ function deliveryCompletion(
   }
 }
 
+type ExplicitCompletionRequirement =
+  | "delivery_report"
+  | "merge_result";
+
+function resolveExplicitCompletionRequirement(
+  runMode: SymphonyRunMode
+): ExplicitCompletionRequirement {
+  return runMode === "approved_merge" ? "merge_result" : "delivery_report";
+}
+
+async function loadLatestDeliveryReportForRun(
+  deliveryReports: SymphonyIssueDeliveryReportStore,
+  runId: string
+): Promise<RuntimeDeliveryReportResult | null> {
+  const persistedReport = await deliveryReports.fetchLatestForRun(runId);
+  if (!persistedReport) {
+    return null;
+  }
+
+  return {
+    reportId: persistedReport.reportId,
+    status: persistedReport.status,
+    summary: persistedReport.summary,
+    prUrl: persistedReport.prUrl,
+    blockingReason: persistedReport.blockingReason
+  };
+}
+
+async function loadLatestMergeResultForRun(
+  issueTimelineStore: SymphonyIssueTimelineStore,
+  issueIdentifier: string,
+  runId: string
+): Promise<RuntimeMergeResult | null> {
+  const entries = await issueTimelineStore.listIssueTimeline(issueIdentifier, {
+    limit: 50
+  });
+  const matchingEntry = entries.find(
+    (entry) =>
+      entry.runId === runId && entry.eventType === runtimeMergeResultEventType
+  );
+
+  return matchingEntry ? parseMergeResult(matchingEntry.payload) : null;
+}
+
+function parseMergeResult(payload: JsonValue): RuntimeMergeResult | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const status = getStringValue(record.status);
+  const summary = getStringValue(record.summary);
+  if ((status !== "merged" && status !== "blocked") || !summary) {
+    return null;
+  }
+
+  return {
+    status,
+    summary,
+    prUrl: getStringValue(record.prUrl),
+    mergeCommitSha: getStringValue(record.mergeCommitSha),
+    blockingReason: getStringValue(record.blockingReason),
+    testsSummary: getStringValue(record.testsSummary)
+  };
+}
+
+function mergeResultCompletion(
+  mergeResult: RuntimeMergeResult
+): SymphonyAgentRuntimeCompletion {
+  if (mergeResult.status === "merged") {
+    return {
+      kind: "normal"
+    };
+  }
+
+  return {
+    kind: "merge_blocked",
+    reason:
+      mergeResult.blockingReason ??
+      `Merge reported as blocked: ${mergeResult.summary}`
+  };
+}
+
 type GitHubReworkHandoff = {
   triggerKind: string;
   reviewContextUrl: string | null;
@@ -863,6 +971,22 @@ function missingDeliveryReportCompletion(): SymphonyAgentRuntimeCompletion {
     reason:
       "Run ended without recording delivery explicitly through `pnpm exec symphony tool finish ...`. Delivery success must be reported before the run can complete."
   };
+}
+
+function missingMergeResultCompletion(): SymphonyAgentRuntimeCompletion {
+  return {
+    kind: "failure",
+    reason:
+      "Approved merge run ended without recording the merge result explicitly through `pnpm exec symphony tool merge-result ...`. Merge success or a blocked merge outcome must be reported before the run can complete."
+  };
+}
+
+function missingExplicitCompletion(
+  requirement: ExplicitCompletionRequirement
+): SymphonyAgentRuntimeCompletion {
+  return requirement === "merge_result"
+    ? missingMergeResultCompletion()
+    : missingDeliveryReportCompletion();
 }
 
 async function refreshIssueState(

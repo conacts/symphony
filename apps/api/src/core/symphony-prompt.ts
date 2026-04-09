@@ -1,7 +1,22 @@
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
+
 export function buildSymphonyContinuationPrompt(input: {
   turnNumber: number;
   maxTurns: number;
+  runMode: SymphonyRunMode;
 }): string {
+  const completionGuidance =
+    input.runMode === "approved_merge"
+      ? [
+          "- This is an approved merge run. Continue merge completion work instead of reopening normal feature development.",
+          "- Once the branch is merged cleanly, run `pnpm exec symphony tool merge-result --status merged ...` immediately in the same turn.",
+          "- If conflicts or verification failures cannot be resolved safely, run `pnpm exec symphony tool merge-result --status blocked ...` with the concrete blocking reason before ending the run."
+        ]
+      : [
+          "- Once the requested work is delivered and the PR is opened, run `pnpm exec symphony tool finish ...` immediately in the same turn. Symphony will record delivery, move the issue to `In Review`, and that should usually end the run.",
+          "- Do not keep taking extra turns after the PR is open and delivery is reported unless there is a concrete unresolved failure in the same run."
+        ];
+
   return `
 Continuation guidance:
 
@@ -17,8 +32,7 @@ Continuation guidance:
 - If the \`linear\` CLI is available, prefer it over one-off shell scripts for direct Linear inspection.
 - If the issue is in \`Rework\`, or review feedback already exists, read the latest Linear comment context and any relevant PR review feedback before editing so you address the current feedback instead of stale assumptions.
 - Never move the issue to \`Done\` from the agent runtime.
-- Once the requested work is delivered and the PR is opened, run \`pnpm exec symphony tool finish ...\` immediately in the same turn. Symphony will record delivery, move the issue to \`In Review\`, and that should usually end the run.
-- Do not keep taking extra turns after the PR is open and delivery is reported unless there is a concrete unresolved failure in the same run.
+${completionGuidance.join("\n")}
 - Do not end the turn with a completion-style summary while the issue stays active unless the requested work is actually finished and validated.
 - Do not stop for partial progress, a likely fix, or a request for human follow-up.
 - Only stop early for a true external blocker: missing required permissions, missing required secrets/auth, or a hard platform/runtime failure that prevents further progress.

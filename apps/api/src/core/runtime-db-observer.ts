@@ -253,6 +253,8 @@ function completionStatus(
   switch (completion.kind) {
     case "normal":
       return "finished";
+    case "merge_blocked":
+      return "failed";
     case "max_turns_reached":
       return "paused";
     case "startup_failure":
@@ -274,6 +276,8 @@ function agentRunStatus(
   switch (completion.kind) {
     case "normal":
       return "completed";
+    case "merge_blocked":
+      return "failed";
     case "max_turns_reached":
       return "paused";
     case "startup_failure":
@@ -295,6 +299,8 @@ function completionOutcome(
   switch (completion.kind) {
     case "normal":
       return "completed_turn_batch";
+    case "merge_blocked":
+      return "merge_blocked";
     case "max_turns_reached":
       return "paused_max_turns";
     case "startup_failure":

@@ -459,6 +459,38 @@ describe("@symphony/api app", () => {
       expect(payload.data.output).toContain('"ok":true');
     });
 
+    it("serves the internal runtime-tools merge-result route", async () => {
+      const response = await app.request("/api/v1/internal/runtime-tools/merge-result", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          runId: "run-123",
+          turnId: "turn-123",
+          issue: {
+            id: "issue-123",
+            identifier: "COL-123",
+            state: "In Progress"
+          },
+          arguments: {
+            status: "merged",
+            summary: "Merged the PR after syncing with main."
+          }
+        })
+      });
+      const payload = await responseJson<{
+        data: {
+          success: boolean;
+          output: string;
+        };
+      }>(response);
+
+      expect(response.status).toBe(200);
+      expect(payload.data.success).toBe(true);
+      expect(payload.data.output).toContain('"ok":true');
+    });
+
     it("serves runtime issue details", async () => {
       const runtimeIssueResponse = await app.request("/api/v1/COL-123");
       const runtimeIssuePayload = await responseJson<{

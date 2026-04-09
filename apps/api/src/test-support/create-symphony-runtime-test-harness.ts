@@ -493,6 +493,18 @@ export async function createSymphonyRuntimeTestHarness(input: {
             }
           ]
         };
+      },
+      async submitMergeResult() {
+        return {
+          success: true,
+          output: JSON.stringify({ ok: true }),
+          contentItems: [
+            {
+              type: "inputText",
+              text: JSON.stringify({ ok: true })
+            }
+          ]
+        };
       }
     },
     health: {

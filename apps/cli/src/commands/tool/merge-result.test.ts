@@ -1,72 +1,41 @@
 import path from "node:path";
 import { createServer } from "node:http";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { ensureRuntimeToolsBuild } from "../../test-support/ensure-runtime-tools-build.js";
 
 const execFileAsync = promisify(execFile);
-const tempRoots: string[] = [];
 const devJsPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../bin/dev.js"
 );
 
-afterEach(async () => {
-  await Promise.all(
-    tempRoots.splice(0).map((root) =>
-      rm(root, {
-        recursive: true,
-        force: true
-      })
-    )
-  );
-});
-
 beforeAll(async () => {
   await ensureRuntimeToolsBuild();
 });
 
-describe("tool spike-result command", () => {
+describe("tool merge-result command", () => {
   it(
-    "fails cleanly when the spike details are missing",
+    "fails cleanly when the merge status is missing",
     async () => {
       await expect(
-        execSpikeResultCommand(
-          [
-            "--summary",
-            "Need a detailed comment."
-          ],
-          {
-            SYMPHONY_RUN_ID: "run-123",
-            SYMPHONY_ISSUE_ID: "issue-123",
-            SYMPHONY_ISSUE_IDENTIFIER: "COL-123"
-          }
-        )
+        execMergeResultCommand([], {
+          SYMPHONY_RUN_ID: "run-123",
+          SYMPHONY_ISSUE_ID: "issue-123",
+          SYMPHONY_ISSUE_IDENTIFIER: "COL-123"
+        })
       ).rejects.toMatchObject({
-        stderr: expect.stringContaining(
-          "requires either `--details` or `--details-file`"
-        )
+        stderr: expect.stringContaining("Missing required flag status")
       });
     },
     20_000
   );
 
   it(
-    "submits the spike result through the runtime tools API when a control-plane URL is available",
+    "submits the merge result through the runtime tools API when a control-plane URL is available",
     async () => {
-      const root = await mkdtemp(path.join(tmpdir(), "symphony-cli-spike-result-"));
-      tempRoots.push(root);
-
-      const detailsFile = path.join(root, "spike-result.md");
-      await writeFile(
-        detailsFile,
-        "- Findings\n- Recommendation: proceed with the container-side SDK runner spike."
-      );
-
       let requestBody = "";
       const server = createServer((request, response) => {
         request.setEncoding("utf8");
@@ -83,11 +52,11 @@ describe("tool spike-result command", () => {
               schemaVersion: "1",
               data: {
                 success: true,
-                output: JSON.stringify({ commentPosted: true, via: "api" }),
+                output: JSON.stringify({ mergeResultRecorded: true, via: "api" }),
                 contentItems: [
                   {
                     type: "inputText",
-                    text: JSON.stringify({ commentPosted: true, via: "api" })
+                    text: JSON.stringify({ mergeResultRecorded: true, via: "api" })
                   }
                 ]
               },
@@ -106,18 +75,18 @@ describe("tool spike-result command", () => {
       const address = server.address();
       if (!address || typeof address === "string") {
         server.close();
-        throw new TypeError(
-          "Expected a TCP address for the CLI spike-result API test."
-        );
+        throw new TypeError("Expected a TCP address for the CLI merge-result API test.");
       }
 
       try {
-        const command = await execSpikeResultCommand(
+        const command = await execMergeResultCommand(
           [
+            "--status",
+            "blocked",
             "--summary",
-            "Documented the spike result.",
-            "--details-file",
-            detailsFile
+            "Conflicts remain unresolved.",
+            "--blocking-reason",
+            "Conflicts in packages/workspace/src/docker-client.ts"
           ],
           {
             SYMPHONY_API_BASE_URL: `http://127.0.0.1:${address.port}`,
@@ -129,9 +98,12 @@ describe("tool spike-result command", () => {
           }
         );
 
-        expect(command.stdout).toContain('"commentPosted": true');
+        expect(command.stdout).toContain('"mergeResultRecorded": true');
         expect(requestBody).toContain('"runId":"run-456"');
-        expect(requestBody).toContain('"summary":"Documented the spike result."');
+        expect(requestBody).toContain('"status":"blocked"');
+        expect(requestBody).toContain(
+          '"blockingReason":"Conflicts in packages/workspace/src/docker-client.ts"'
+        );
       } finally {
         await new Promise<void>((resolve, reject) =>
           server.close((error) => (error ? reject(error) : resolve()))
@@ -142,13 +114,13 @@ describe("tool spike-result command", () => {
   );
 });
 
-function execSpikeResultCommand(
+function execMergeResultCommand(
   args: string[],
   env: Record<string, string>
 ) {
   return execFileAsync(
     "node",
-    [devJsPath, "tool", "spike-result", ...args],
+    [devJsPath, "tool", "merge-result", ...args],
     {
       cwd: process.cwd(),
       env: {

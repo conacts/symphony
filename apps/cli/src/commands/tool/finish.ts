@@ -6,6 +6,7 @@ import {
   loadCliCommandContext,
   loadCliRuntimeContext
 } from "../../runtime-context.js";
+import { postRuntimeToolRequest } from "../../runtime-tools-api.js";
 
 const logger = createSymphonyLogger({
   name: "@symphony/cli"
@@ -113,40 +114,12 @@ async function recordDeliveryReportThroughApi(
   commandContext: ReturnType<typeof loadCliCommandContext>,
   deliveryPayload: ReturnType<typeof buildDeliveryReportPayload>
 ) {
-  const response = await fetch(`${commandContext.apiBaseUrl}/finish`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      runId: commandContext.runId,
-      turnId: commandContext.turnId,
-      issue: commandContext.issue,
-      arguments: deliveryPayload
-    })
+  return await postRuntimeToolRequest({
+    apiBaseUrl: commandContext.apiBaseUrl!,
+    endpoint: "finish",
+    runId: commandContext.runId,
+    turnId: commandContext.turnId,
+    issue: commandContext.issue,
+    argumentsPayload: deliveryPayload
   });
-
-  const body = (await response.json()) as {
-    ok?: boolean;
-    data?: {
-      success: boolean;
-      output: string;
-      contentItems: Array<{
-        type: "inputText";
-        text: string;
-      }>;
-    };
-    error?: {
-      message?: string;
-    };
-  };
-
-  if (!response.ok || !body.ok || !body.data) {
-    throw new Error(
-      body.error?.message ??
-        `Symphony runtime tools API request failed with status ${response.status}.`
-    );
-  }
-
-  return body.data;
 }

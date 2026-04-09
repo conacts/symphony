@@ -718,6 +718,40 @@ export class SymphonyOrchestrator {
 
     if (
       runningEntry.runMode === "approved_merge" &&
+      completion.kind === "merge_blocked"
+    ) {
+      currentIssue = await this.#transitionIssueState({
+        issue: currentIssue ?? runningEntry.issue,
+        targetState: this.#config.tracker.blockedTransitionToState,
+        runId: runningEntry.runId,
+        eventType: "blocked_transition",
+        message: "Issue moved to Blocked after merge automation reported a blocked merge result.",
+        payload: {
+          reason: completion.reason,
+          completionKind: completion.kind,
+          runMode: runningEntry.runMode
+        },
+        swallowErrors: true
+      });
+
+      await this.#cleanupStoppedRun({
+        issue: currentIssue,
+        runId: runningEntry.runId,
+        workspace: runningEntry.workspace,
+        workerHost: runningEntry.workerHost,
+        completionKind: completion.kind,
+        mode: shouldDestroyWorkspaceForStoppedIssue(
+          currentIssue,
+          this.#config.tracker
+        )
+          ? "destroy"
+          : "preserve"
+      });
+      return;
+    }
+
+    if (
+      runningEntry.runMode === "approved_merge" &&
       (completion.kind === "failure" || completion.kind === "stalled")
     ) {
       currentIssue = await this.#transitionIssueState({

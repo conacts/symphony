@@ -58,6 +58,7 @@ import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import {
   executeCancelTool,
   executeDeliveryReportTool,
+  executeMergeResultTool,
   executeSpikeResultTool
 } from "@symphony/runtime-tools";
 import {
@@ -479,6 +480,27 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           tracker,
           issue: input.issue,
           defaultTargetState: "Canceled"
+        },
+        input.argumentsPayload
+      );
+    },
+    async submitMergeResult(input: {
+      runId: string;
+      turnId: string | null;
+      issue: {
+        id: string;
+        identifier: string;
+        state: string | null;
+      };
+      argumentsPayload: unknown;
+    }) {
+      return await executeMergeResultTool(
+        {
+          tracker,
+          issueTimelineStore,
+          issue: input.issue,
+          runId: input.runId,
+          turnId: input.turnId
         },
         input.argumentsPayload
       );

@@ -15,6 +15,7 @@ import {
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import type { SymphonyAgentRuntimeCompletion } from "@symphony/orchestrator";
 import { symphonyHarnessPromptAppendix } from "@symphony/runtime-contract";
+import { runtimeMergeResultEventType } from "@symphony/runtime-tools";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
@@ -312,6 +313,115 @@ done
         })
       })
     );
+
+    database.close();
+  });
+
+  it("completes implementation runs when delivery is recorded through persisted run state", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(
+      fakeDocker,
+      path.join(root, "fake-docker-log.json")
+    );
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createDoneTracker(issue);
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      runMode: "implementation",
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    let completion: SymphonyAgentRuntimeCompletion | null = null;
+    let deliveryRecorded = false;
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
+        tracker,
+        runStore,
+        deliveryReports,
+        agentAnalytics,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            if (deliveryRecorded) {
+              return;
+            }
+
+            deliveryRecorded = true;
+            await deliveryReports.record({
+              issueId: issue.id,
+              issueIdentifier: issue.identifier,
+              runId,
+              status: "completed",
+              summary: "Opened the PR and finished the requested work.",
+              prUrl: "https://github.com/openai/symphony/pull/123",
+              branchName: "codex/col-123",
+              source: "pi"
+            });
+          },
+          async onComplete(_issueId, result) {
+            completion = result;
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runMode: "implementation",
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    expect(completion).toEqual({
+      kind: "normal"
+    });
 
     database.close();
   });
@@ -793,6 +903,7 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
@@ -803,6 +914,127 @@ done
       db: database.db
     });
     const agentReadStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      runMode: "approved_merge",
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    let completion: SymphonyAgentRuntimeCompletion | null = null;
+    let mergeResultRecorded = false;
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(root, "{{ run_mode_section }}"),
+        tracker,
+        runStore,
+        deliveryReports,
+        issueTimelineStore,
+        agentAnalytics,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            if (mergeResultRecorded) {
+              return;
+            }
+
+            mergeResultRecorded = true;
+            await issueTimelineStore.record({
+              issueId: issue.id,
+              issueIdentifier: issue.identifier,
+              runId,
+              source: "runtime",
+              eventType: runtimeMergeResultEventType,
+              message: "Recorded merge completion for the active approved run.",
+              payload: {
+                status: "merged",
+                summary: "Merged the PR cleanly after syncing with main.",
+                prUrl: "https://github.com/openai/symphony/pull/123",
+                mergeCommitSha: "abc123",
+                blockingReason: null,
+                testsSummary: "pnpm test"
+              }
+            });
+          },
+          async onComplete(_issueId, result) {
+            completion = result;
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runMode: "approved_merge",
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    expect(completion).toEqual({
+      kind: "normal"
+    });
+
+    const runDetail = await agentReadStore.fetchRunDetail(runId);
+    expect(runDetail?.turns[0]?.promptText).toContain(
+      "Current run mode: Approved Merge"
+    );
+    expect(runDetail?.turns[0]?.promptText).toContain(
+      "This run is for merge completion, not normal feature development."
+    );
+
+    database.close();
+  });
+
+  it("fails approved merge runs that end without an explicit merge result", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-run-mode-missing-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createDoneTracker(issue);
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
@@ -857,16 +1089,124 @@ done
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "normal"
+      kind: "failure",
+      reason: expect.stringContaining("symphony tool merge-result")
     });
 
-    const runDetail = await agentReadStore.fetchRunDetail(runId);
-    expect(runDetail?.turns[0]?.promptText).toContain(
-      "Current run mode: Approved Merge"
-    );
-    expect(runDetail?.turns[0]?.promptText).toContain(
-      "This run is for merge completion, not normal feature development."
-    );
+    database.close();
+  });
+
+  it("emits merge_blocked when the approved run records a blocked merge result", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-run-mode-blocked-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createDoneTracker(issue);
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      runMode: "approved_merge",
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    let completion: SymphonyAgentRuntimeCompletion | null = null;
+    let mergeResultRecorded = false;
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(root, "{{ run_mode_section }}"),
+        tracker,
+        runStore,
+        deliveryReports,
+        issueTimelineStore,
+        agentAnalytics,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            if (mergeResultRecorded) {
+              return;
+            }
+
+            mergeResultRecorded = true;
+            await issueTimelineStore.record({
+              issueId: issue.id,
+              issueIdentifier: issue.identifier,
+              runId,
+              source: "runtime",
+              eventType: runtimeMergeResultEventType,
+              message: "Recorded blocked merge result for the active approved run.",
+              payload: {
+                status: "blocked",
+                summary: "Main branch introduced conflicts in the workspace package.",
+                prUrl: "https://github.com/openai/symphony/pull/123",
+                mergeCommitSha: null,
+                blockingReason: "Conflicts in packages/workspace/src/docker-client.ts",
+                testsSummary: "pnpm test --filter @symphony/workspace"
+              }
+            });
+          },
+          async onComplete(_issueId, result) {
+            completion = result;
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runMode: "approved_merge",
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    expect(completion).toEqual({
+      kind: "merge_blocked",
+      reason: "Conflicts in packages/workspace/src/docker-client.ts"
+    });
 
     database.close();
   });

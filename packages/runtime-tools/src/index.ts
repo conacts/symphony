@@ -1,7 +1,11 @@
-import type { SymphonyIssueDeliveryReportStore } from "@symphony/db";
+import type {
+  SymphonyIssueDeliveryReportStore,
+  SymphonyIssueTimelineStore
+} from "@symphony/db";
 import type { SymphonyTracker } from "@symphony/tracker";
 
 export const deliveryTransitionState = "In Review";
+export const runtimeMergeResultEventType = "merge_result_reported";
 
 export type RuntimeToolExecutionResult = {
   success: boolean;
@@ -18,6 +22,15 @@ export type RuntimeDeliveryReportResult = {
   summary: string;
   prUrl: string | null;
   blockingReason: string | null;
+};
+
+export type RuntimeMergeResult = {
+  status: "merged" | "blocked";
+  summary: string;
+  prUrl: string | null;
+  mergeCommitSha: string | null;
+  blockingReason: string | null;
+  testsSummary: string | null;
 };
 
 type DeliveryTransitionResult = {
@@ -48,6 +61,16 @@ type NormalizedSpikeResultArguments = {
 type NormalizedCancelArguments = {
   reason: string;
   targetState: string;
+  rawPayload: unknown;
+};
+
+type NormalizedMergeResultArguments = {
+  status: "merged" | "blocked";
+  summary: string;
+  prUrl: string | null;
+  mergeCommitSha: string | null;
+  blockingReason: string | null;
+  testsSummary: string | null;
   rawPayload: unknown;
 };
 
@@ -232,6 +255,81 @@ export async function executeCancelTool(
   }
 }
 
+export async function executeMergeResultTool(
+  executionContext: {
+    tracker: SymphonyTracker;
+    issueTimelineStore: SymphonyIssueTimelineStore;
+    issue: {
+      id: string;
+      identifier: string;
+      state?: string | null;
+    };
+    runId: string | null;
+    turnId: string | null;
+    onMergeResultRecorded?(result: RuntimeMergeResult): void;
+  },
+  rawArguments: unknown
+): Promise<RuntimeToolExecutionResult> {
+  if (!executionContext.runId) {
+    return buildToolErrorResult({
+      message:
+        "`symphony tool merge-result` requires an active persisted run. Symphony could not resolve the current run id."
+    });
+  }
+
+  const mergeArguments = normalizeMergeResultArguments(rawArguments);
+  if (!mergeArguments.ok) {
+    return buildToolErrorResult({
+      message: mergeArguments.message
+    });
+  }
+
+  try {
+    const mergeResult: RuntimeMergeResult = {
+      status: mergeArguments.status,
+      summary: mergeArguments.summary,
+      prUrl: mergeArguments.prUrl,
+      mergeCommitSha: mergeArguments.mergeCommitSha,
+      blockingReason: mergeArguments.blockingReason,
+      testsSummary: mergeArguments.testsSummary
+    };
+
+    await executionContext.tracker.createComment(
+      executionContext.issue.id,
+      renderMergeResultComment(mergeResult)
+    );
+    await executionContext.issueTimelineStore.record({
+      issueId: executionContext.issue.id,
+      issueIdentifier: executionContext.issue.identifier,
+      runId: executionContext.runId,
+      turnId: executionContext.turnId,
+      source: "runtime",
+      eventType: runtimeMergeResultEventType,
+      message:
+        mergeResult.status === "merged"
+          ? "Recorded merge completion for the active approved run."
+          : "Recorded blocked merge result for the active approved run.",
+      payload: toJsonValue({
+        ...mergeResult
+      })
+    });
+    executionContext.onMergeResultRecorded?.(mergeResult);
+
+    return buildToolSuccessResult({
+      mergeResultRecorded: true,
+      commentPosted: true,
+      issueIdentifier: executionContext.issue.identifier,
+      runId: executionContext.runId,
+      ...mergeResult
+    });
+  } catch (error) {
+    return buildToolErrorResult({
+      message:
+        error instanceof Error ? error.message : "Failed to record the merge result."
+    });
+  }
+}
+
 export function normalizeDeliveryReportArguments(
   rawArguments: unknown
 ):
@@ -394,6 +492,67 @@ export function normalizeCancelArguments(
   };
 }
 
+export function normalizeMergeResultArguments(
+  rawArguments: unknown
+):
+  | ({
+      ok: true;
+    } & NormalizedMergeResultArguments)
+  | {
+      ok: false;
+      message: string;
+    } {
+  if (!rawArguments || typeof rawArguments !== "object" || Array.isArray(rawArguments)) {
+    return {
+      ok: false,
+      message:
+        "`symphony tool merge-result` expects an object with `status`, `summary`, and the merge-result fields."
+    };
+  }
+
+  const record = rawArguments as Record<string, unknown>;
+  const status = getString(record, "status");
+  const summary = getString(record, "summary");
+  const prUrl = getOptionalString(record, "prUrl");
+  const mergeCommitSha = getOptionalString(record, "mergeCommitSha");
+  const blockingReason = getOptionalString(record, "blockingReason");
+  const testsSummary = getOptionalString(record, "testsSummary");
+
+  if (status !== "merged" && status !== "blocked") {
+    return {
+      ok: false,
+      message:
+        "`symphony tool merge-result.status` must be one of `merged` or `blocked`."
+    };
+  }
+
+  if (!summary) {
+    return {
+      ok: false,
+      message: "`symphony tool merge-result.summary` requires a non-empty string."
+    };
+  }
+
+  if (status === "blocked" && !blockingReason) {
+    return {
+      ok: false,
+      message:
+        "`symphony tool merge-result` requires `blockingReason` when status is `blocked`."
+    };
+  }
+
+  return {
+    ok: true,
+    status,
+    summary,
+    prUrl,
+    mergeCommitSha,
+    blockingReason,
+    testsSummary,
+    rawPayload: record
+  };
+}
+
 async function transitionDeliveredIssueToInReviewIfNeeded(
   executionContext: {
     tracker: SymphonyTracker;
@@ -520,6 +679,19 @@ function renderCancelComment(input: { reason: string }): string {
     "",
     input.reason.trim()
   ].join("\n");
+}
+
+function renderMergeResultComment(input: RuntimeMergeResult): string {
+  const details = [
+    `Status: ${input.status === "merged" ? "Merged" : "Blocked"}`,
+    `Summary: ${input.summary.trim()}`,
+    input.prUrl ? `PR: ${input.prUrl}` : null,
+    input.mergeCommitSha ? `Merge commit: ${input.mergeCommitSha}` : null,
+    input.testsSummary ? `Verification: ${input.testsSummary}` : null,
+    input.blockingReason ? `Blocking reason: ${input.blockingReason}` : null
+  ].filter((line): line is string => typeof line === "string" && line.trim() !== "");
+
+  return ["## Merge Result", "", ...details].join("\n");
 }
 
 function normalizeOptionalText(value: string | null | undefined): string | null {

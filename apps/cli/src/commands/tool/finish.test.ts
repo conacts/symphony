@@ -2,7 +2,7 @@ import path from "node:path";
 import { createServer } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -10,6 +10,7 @@ import {
   createSymphonyIssueDeliveryReportStore,
   initializeSymphonyDb
 } from "@symphony/db";
+import { ensureRuntimeToolsBuild } from "../../test-support/ensure-runtime-tools-build.js";
 
 const execFileAsync = promisify(execFile);
 const tempRoots: string[] = [];
@@ -27,6 +28,10 @@ afterEach(async () => {
       })
     )
   );
+});
+
+beforeAll(async () => {
+  await ensureRuntimeToolsBuild();
 });
 
 describe("tool finish command", () => {

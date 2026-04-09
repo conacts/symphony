@@ -1612,6 +1612,34 @@ describe("symphony orchestrator", () => {
       expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
     });
 
+    it("moves explicit blocked merge results into Blocked without adding a second failure comment", async () => {
+      const harness = createFlowHarness({
+        issue: {
+          state: "Approved"
+        },
+        config: {
+          tracker: {
+            claimTransitionToState: null,
+            claimTransitionFromStates: []
+          }
+        }
+      });
+
+      await harness.orchestrator.runPollCycle();
+      await harness.orchestrator.handleRunCompletion(harness.issue.id, {
+        kind: "merge_blocked",
+        reason: "Conflicts in packages/workspace/src/docker-client.ts"
+      });
+
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Blocked");
+      expect(
+        harness.tracker.listOperations().filter((operation) => operation.kind === "comment")
+      ).toEqual([]);
+      expect(harness.lifecycleEvents).toContain("approved_merge_transition");
+      expect(harness.lifecycleEvents).toContain("blocked_transition");
+      expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+    });
+
     it("stops implementation runs that move into Approved so merge mode can take over", async () => {
       const harness = createFlowHarness({
         issue: {

@@ -35,6 +35,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
   });
   const spikeResultRequestSchema = deliveryReportRequestSchema;
   const cancelRequestSchema = deliveryReportRequestSchema;
+  const mergeResultRequestSchema = deliveryReportRequestSchema;
 
   runtimeRoutes.get("/state", (c) => {
     const result = serializeRuntimeState(
@@ -191,6 +192,28 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     });
 
     c.get("logger").info("Canceled issue through the runtime tools API", {
+      runId: payload.runId,
+      issueIdentifier: payload.issue.identifier,
+      success: result.success
+    });
+
+    return jsonOk(c, result);
+  });
+
+  runtimeRoutes.post("/internal/runtime-tools/merge-result", async (c) => {
+    const payload = parseWithSchema(mergeResultRequestSchema, await c.req.json());
+    const result = await services.runtimeTools.submitMergeResult({
+      runId: payload.runId,
+      turnId: payload.turnId ?? null,
+      issue: {
+        id: payload.issue.id,
+        identifier: payload.issue.identifier,
+        state: payload.issue.state ?? null
+      },
+      argumentsPayload: payload.arguments
+    });
+
+    c.get("logger").info("Recorded merge result through the runtime tools API", {
       runId: payload.runId,
       issueIdentifier: payload.issue.identifier,
       success: result.success

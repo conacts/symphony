@@ -11,9 +11,9 @@ This shell already starts in the correct admitted repo workspace at `{{ workspac
 Stay in that directory. Do not search for or `cd` into another copy of the repository.
 
 Completion boundary:
-- This run is not complete until Symphony records delivery explicitly.
-- Once the requested work is delivered and the review handoff is ready, run
-  `pnpm exec symphony tool finish ...` from this workspace as the required completion step.
+- This run is not complete until Symphony records the required explicit result.
+- For implementation or rework runs, use `pnpm exec symphony tool finish ...` as the required completion step.
+- For approved merge runs, use `pnpm exec symphony tool merge-result ...` as the required completion step.
 - Do not manually move the issue to `In Review` through other Linear paths as the normal
   completion mechanism.
 - A build, test run, commit, push, PR, or summary message is intermediate progress, not
@@ -41,9 +41,9 @@ Execution style:
 - When behavior changes, add or update tests that reproduce the exact bug or flow.
 - Use shell commands for tests, builds, git, and package-manager operations.
 - Use Pi-native tools for file reads and edits whenever they are available.
-- Use `pnpm exec symphony tool finish ...` when the run is actually complete or blocked.
+- Use the mode-appropriate Symphony completion command when the run is actually complete or blocked.
 - Do not search for `LINEAR_API_KEY` or try to move the issue to `In Review` manually as a substitute
-  for the finish command.
+  for the required Symphony completion command.
 
 {{ run_mode_section }}
 
