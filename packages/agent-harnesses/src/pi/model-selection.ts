@@ -2,10 +2,10 @@ import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { HarnessSessionError } from "../shared/session-types.js";
 
 export const defaultPiModel = "xiaomi/mimo-v2-pro";
-export const defaultPiReasoningEffort = "xhigh";
+const defaultPiReasoningEffort = "xhigh";
 export const piModelLabelPrefix = "model:";
-export const piPresetLabelPrefix = "model:";
-export const piReasoningLabelPrefix = "symphony:reasoning:";
+const piPresetLabelPrefix = "model:";
+const piReasoningLabelPrefix = "symphony:reasoning:";
 
 const supportedPiModelSet = new Set([
   "xiaomi/mimo-v2-pro",
@@ -28,7 +28,7 @@ const acceptedPiThinkingLevelSet = new Set([
   "xhigh"
 ]);
 
-export type PiIssueSelectionDefaults = {
+type PiIssueSelectionDefaults = {
   model?: string | null;
   reasoningEffort?: string | null;
   defaultPreset?: string | null;
@@ -42,7 +42,7 @@ export type PiIssueSelectionDefaults = {
   >;
 };
 
-export type PiIssueSelection = {
+type PiIssueSelection = {
   presetName: string | null;
   model: string;
   reasoningEffort: string;

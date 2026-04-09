@@ -78,7 +78,7 @@ describe("tool finish command", () => {
         "--pr-url",
         "https://github.com/openai/symphony/pull/123",
         "--branch-name",
-        "codex/col-123"
+        "symphony/col-123"
       ],
       {
         SYMPHONY_DB_FILE: dbFile,
@@ -112,7 +112,7 @@ describe("tool finish command", () => {
         turnId: "turn-123",
         status: "completed",
         prUrl: "https://github.com/openai/symphony/pull/123",
-        branchName: "codex/col-123"
+        branchName: "symphony/col-123"
       })
     );
     verificationDb.close();

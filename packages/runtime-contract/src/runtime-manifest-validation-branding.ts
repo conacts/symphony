@@ -16,7 +16,7 @@ export function defineSymphonyRuntime(
   return brandSymphonyRuntimeManifest(normalizeSymphonyRuntimeManifest(input));
 }
 
-export function brandSymphonyRuntimeManifest(
+function brandSymphonyRuntimeManifest(
   manifest: SymphonyNormalizedRuntimeManifest
 ): SymphonyNormalizedRuntimeManifest {
   Object.defineProperty(manifest, symphonyRuntimeManifestBrand, {

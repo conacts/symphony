@@ -1,4 +1,4 @@
-export type ControlPlaneBreadcrumbRoute = {
+type ControlPlaneBreadcrumbRoute = {
   label: string;
   href?: string;
 };

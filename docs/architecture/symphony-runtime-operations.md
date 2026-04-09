@@ -169,13 +169,13 @@ The Docker workspace runtime also applies a conservative default `NODE_OPTIONS` 
 repo or operator does not provide one. This keeps bootstrap/build flows stable on resource-limited
 local Docker setups without forcing each admitted repo to rediscover the same memory ceiling.
 
-## Codex Transport
+## Pi Transport
 
-The control plane now treats the Codex CLI as the canonical execution surface.
+The control plane now treats Pi as the canonical execution surface.
 
 That means:
 
-- Codex runs inside the issue container, not on the host
+- Pi runs inside the issue container, not on the host
 - Symphony uses the TypeScript SDK to drive turns and resume threads
 - event capture is based on typed SDK events such as `reasoning`, `todo_list`,
   `command_execution`, `file_change`, `mcp_tool_call`, and `agent_message`

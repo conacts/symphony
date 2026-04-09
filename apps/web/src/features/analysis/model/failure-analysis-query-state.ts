@@ -2,14 +2,14 @@
 
 export type FailureAnalysisTimeRange = "7d" | "30d" | "all";
 
-export type FailureAnalysisQuery = {
+type FailureAnalysisQuery = {
   model?: string;
   timeRange: FailureAnalysisTimeRange;
 };
 
 const validTimeRanges = new Set<FailureAnalysisTimeRange>(["7d", "30d", "all"]);
 
-export const failureAnalysisTimeRangeOptions = [
+const failureAnalysisTimeRangeOptions = [
   { value: "7d", label: "Week" },
   { value: "30d", label: "Month" },
   { value: "all", label: "All" }
@@ -69,7 +69,7 @@ export function buildFailureAnalysisWindowStart(
   return anchor.getTime() - lookbackMs;
 }
 
-export function parseFailureAnalysisTimeRange(
+function parseFailureAnalysisTimeRange(
   value: string | null | undefined
 ): FailureAnalysisTimeRange {
   if (value && validTimeRanges.has(value as FailureAnalysisTimeRange)) {

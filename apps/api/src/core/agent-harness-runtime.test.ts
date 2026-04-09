@@ -438,7 +438,7 @@ done
               status: "completed",
               summary: "Opened the PR and finished the requested work.",
               prUrl: "https://github.com/openai/symphony/pull/123",
-              branchName: "codex/col-123",
+              branchName: "symphony/col-123",
               source: "pi"
             });
           },
@@ -544,7 +544,7 @@ done
               status: "completed",
               summary: "Opened the PR and finished the requested work.",
               prUrl: "https://github.com/openai/symphony/pull/123",
-              branchName: "codex/col-123",
+              branchName: "symphony/col-123",
               source: "pi"
             });
           },

@@ -218,32 +218,32 @@ describe("@symphony/api app", () => {
     });
 
     it("serves agent analytics routes", async () => {
-      const codexArtifactsResponse = await app.request(
+      const agentArtifactsResponse = await app.request(
         "/api/v1/agent/runs/run-123/artifacts"
       );
-      const codexOverflowResponse = await app.request(
+      const agentOverflowResponse = await app.request(
         "/api/v1/agent/runs/run-123/overflow/item-123-overflow"
       );
-      const codexTurnsResponse = await app.request("/api/v1/agent/runs/run-123/turns");
-      const codexItemsResponse = await app.request(
+      const agentTurnsResponse = await app.request("/api/v1/agent/runs/run-123/turns");
+      const agentItemsResponse = await app.request(
         "/api/v1/agent/runs/run-123/items?turnId=turn-123"
       );
-      const codexItemsAllTurnsResponse = await app.request(
+      const agentItemsAllTurnsResponse = await app.request(
         "/api/v1/agent/runs/run-123/items"
       );
-      const codexAgentMessagesResponse = await app.request(
+      const agentMessagesResponse = await app.request(
         "/api/v1/agent/runs/run-123/agent-messages?turnId=turn-123"
       );
-      const codexCommandExecutionsResponse = await app.request(
+      const agentCommandExecutionsResponse = await app.request(
         "/api/v1/agent/runs/run-123/command-executions"
       );
-      const missingCodexArtifactsResponse = await app.request(
+      const missingAgentArtifactsResponse = await app.request(
         "/api/v1/agent/runs/run-missing/artifacts"
       );
-      const missingCodexOverflowResponse = await app.request(
+      const missingAgentOverflowResponse = await app.request(
         "/api/v1/agent/runs/run-123/overflow/overflow-missing"
       );
-      const codexArtifactsPayload = await responseJson<{
+      const agentArtifactsPayload = await responseJson<{
         data: {
           run: {
             runId: string;
@@ -258,8 +258,8 @@ describe("@symphony/api app", () => {
             eventType: string;
           }>;
         };
-      }>(codexArtifactsResponse);
-      const codexTurnsPayload = await responseJson<{
+      }>(agentArtifactsResponse);
+      const agentTurnsPayload = await responseJson<{
         data: {
           runId: string;
           turns: Array<{
@@ -270,8 +270,8 @@ describe("@symphony/api app", () => {
             } | null;
           }>;
         };
-      }>(codexTurnsResponse);
-      const codexItemsPayload = await responseJson<{
+      }>(agentTurnsResponse);
+      const agentItemsPayload = await responseJson<{
         data: {
           runId: string;
           turnId: string | null;
@@ -280,8 +280,8 @@ describe("@symphony/api app", () => {
             itemType: string;
           }>;
         };
-      }>(codexItemsResponse);
-      const codexItemsAllTurnsPayload = await responseJson<{
+      }>(agentItemsResponse);
+      const agentItemsAllTurnsPayload = await responseJson<{
         data: {
           runId: string;
           turnId: string | null;
@@ -289,8 +289,8 @@ describe("@symphony/api app", () => {
             itemId: string;
           }>;
         };
-      }>(codexItemsAllTurnsResponse);
-      const codexAgentMessagesPayload = await responseJson<{
+      }>(agentItemsAllTurnsResponse);
+      const agentMessagesPayload = await responseJson<{
         data: {
           runId: string;
           turnId: string | null;
@@ -299,13 +299,13 @@ describe("@symphony/api app", () => {
             textPreview: string | null;
           }>;
         };
-      }>(codexAgentMessagesResponse);
-      const codexCommandExecutionsPayload = await responseJson<{
+      }>(agentMessagesResponse);
+      const agentCommandExecutionsPayload = await responseJson<{
         data: {
           commandExecutions: unknown[];
         };
-      }>(codexCommandExecutionsResponse);
-      const codexOverflowPayload = await responseJson<{
+      }>(agentCommandExecutionsResponse);
+      const agentOverflowPayload = await responseJson<{
         data: {
           runId: string;
           overflow: {
@@ -314,60 +314,60 @@ describe("@symphony/api app", () => {
             contentText: string | null;
           };
         };
-      }>(codexOverflowResponse);
-      const missingCodexArtifactsPayload = await responseJson<{
+      }>(agentOverflowResponse);
+      const missingAgentArtifactsPayload = await responseJson<{
         error: {
           code: string;
         };
-      }>(missingCodexArtifactsResponse);
-      const missingCodexOverflowPayload = await responseJson<{
+      }>(missingAgentArtifactsResponse);
+      const missingAgentOverflowPayload = await responseJson<{
         error: {
           code: string;
         };
-      }>(missingCodexOverflowResponse);
+      }>(missingAgentOverflowResponse);
 
-      expect(codexArtifactsResponse.status).toBe(200);
-      expect(codexArtifactsPayload.data.run.runId).toBe("run-123");
-      expect(codexArtifactsPayload.data.turns[0]?.turnId).toBe("turn-123");
-      expect(codexArtifactsPayload.data.items[0]?.itemId).toBe("item-123");
-      expect(codexArtifactsPayload.data.events.length).toBeGreaterThanOrEqual(3);
+      expect(agentArtifactsResponse.status).toBe(200);
+      expect(agentArtifactsPayload.data.run.runId).toBe("run-123");
+      expect(agentArtifactsPayload.data.turns[0]?.turnId).toBe("turn-123");
+      expect(agentArtifactsPayload.data.items[0]?.itemId).toBe("item-123");
+      expect(agentArtifactsPayload.data.events.length).toBeGreaterThanOrEqual(3);
 
-      expect(codexOverflowResponse.status).toBe(200);
-      expect(codexOverflowPayload.data.runId).toBe("run-123");
-      expect(codexOverflowPayload.data.overflow.overflowId).toBe("item-123-overflow");
-      expect(codexOverflowPayload.data.overflow.kind).toBe("agent_message");
-      expect(codexOverflowPayload.data.overflow.contentText).toBe("Initial agent message");
+      expect(agentOverflowResponse.status).toBe(200);
+      expect(agentOverflowPayload.data.runId).toBe("run-123");
+      expect(agentOverflowPayload.data.overflow.overflowId).toBe("item-123-overflow");
+      expect(agentOverflowPayload.data.overflow.kind).toBe("agent_message");
+      expect(agentOverflowPayload.data.overflow.contentText).toBe("Initial agent message");
 
-      expect(codexTurnsResponse.status).toBe(200);
-      expect(codexTurnsPayload.data.runId).toBe("run-123");
-      expect(codexTurnsPayload.data.turns[0]?.turnId).toBe("turn-123");
-      expect(codexTurnsPayload.data.turns[0]?.usage?.input_tokens).toBe(11);
+      expect(agentTurnsResponse.status).toBe(200);
+      expect(agentTurnsPayload.data.runId).toBe("run-123");
+      expect(agentTurnsPayload.data.turns[0]?.turnId).toBe("turn-123");
+      expect(agentTurnsPayload.data.turns[0]?.usage?.input_tokens).toBe(11);
 
-      expect(codexItemsResponse.status).toBe(200);
-      expect(codexItemsPayload.data.runId).toBe("run-123");
-      expect(codexItemsPayload.data.turnId).toBe("turn-123");
-      expect(codexItemsPayload.data.items[0]?.itemType).toBe("agent_message");
+      expect(agentItemsResponse.status).toBe(200);
+      expect(agentItemsPayload.data.runId).toBe("run-123");
+      expect(agentItemsPayload.data.turnId).toBe("turn-123");
+      expect(agentItemsPayload.data.items[0]?.itemType).toBe("agent_message");
 
-      expect(codexItemsAllTurnsResponse.status).toBe(200);
-      expect(codexItemsAllTurnsPayload.data.runId).toBe("run-123");
-      expect(codexItemsAllTurnsPayload.data.turnId).toBeNull();
-      expect(codexItemsAllTurnsPayload.data.items[0]?.itemId).toBe("item-123");
+      expect(agentItemsAllTurnsResponse.status).toBe(200);
+      expect(agentItemsAllTurnsPayload.data.runId).toBe("run-123");
+      expect(agentItemsAllTurnsPayload.data.turnId).toBeNull();
+      expect(agentItemsAllTurnsPayload.data.items[0]?.itemId).toBe("item-123");
 
-      expect(codexAgentMessagesResponse.status).toBe(200);
-      expect(codexAgentMessagesPayload.data.agentMessages[0]?.itemId).toBe(
+      expect(agentMessagesResponse.status).toBe(200);
+      expect(agentMessagesPayload.data.agentMessages[0]?.itemId).toBe(
         "item-123"
       );
-      expect(codexAgentMessagesPayload.data.agentMessages[0]?.textPreview).toContain(
+      expect(agentMessagesPayload.data.agentMessages[0]?.textPreview).toContain(
         "Initial agent message"
       );
 
-      expect(codexCommandExecutionsResponse.status).toBe(200);
-      expect(codexCommandExecutionsPayload.data.commandExecutions).toEqual([]);
+      expect(agentCommandExecutionsResponse.status).toBe(200);
+      expect(agentCommandExecutionsPayload.data.commandExecutions).toEqual([]);
 
-      expect(missingCodexArtifactsResponse.status).toBe(404);
-      expect(missingCodexArtifactsPayload.error.code).toBe("NOT_FOUND");
-      expect(missingCodexOverflowResponse.status).toBe(404);
-      expect(missingCodexOverflowPayload.error.code).toBe("NOT_FOUND");
+      expect(missingAgentArtifactsResponse.status).toBe(404);
+      expect(missingAgentArtifactsPayload.error.code).toBe("NOT_FOUND");
+      expect(missingAgentOverflowResponse.status).toBe(404);
+      expect(missingAgentOverflowPayload.error.code).toBe("NOT_FOUND");
     });
 
     it("uses canonical runtime runs as agent route parents when shadow rows are absent", async () => {

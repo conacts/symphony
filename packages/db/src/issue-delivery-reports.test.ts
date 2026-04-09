@@ -74,7 +74,7 @@ describe("issue delivery report store", () => {
         summary: "Opened the PR.",
         prUrl: "https://github.com/example/repo/pull/157",
         prNumber: "157",
-        branchName: "codex/col-157",
+        branchName: "symphony/col-157",
         testsSummary: "pnpm verify:precommit",
         reportedAt: "2026-04-05T18:05:00.000Z"
       });
@@ -94,7 +94,7 @@ describe("issue delivery report store", () => {
       expect(timeline[0]?.payload).toEqual({
         reportId: completedId,
         status: "completed",
-        branchName: "codex/col-157",
+        branchName: "symphony/col-157",
         blockingReason: null
       });
     } finally {

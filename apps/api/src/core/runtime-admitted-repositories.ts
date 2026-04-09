@@ -44,18 +44,3 @@ export async function loadAdmittedRuntimeRepositories(
 
   return admittedRepositories;
 }
-
-export function findAdmittedRepository(
-  admittedRepositories: AdmittedRuntimeRepository[],
-  repositoryKey: string | null | undefined
-): AdmittedRuntimeRepository | null {
-  if (!repositoryKey) {
-    return null;
-  }
-
-  return (
-    admittedRepositories.find(
-      (repository) => repository.repositoryKey === repositoryKey
-    ) ?? null
-  );
-}

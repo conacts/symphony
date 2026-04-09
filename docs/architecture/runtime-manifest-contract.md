@@ -19,7 +19,7 @@ This contract covers:
 - per-workspace Docker network provisioning
 - per-workspace Postgres sidecar provisioning for manifest-declared services
 - Postgres readiness checks plus optional Postgres `init` steps
-- explicit env bundle injection into workspace hooks and Codex runtime launch paths
+- explicit env bundle injection into workspace hooks and Pi runtime launch paths
 - ordered manifest lifecycle execution for `bootstrap`, `migrate`, optional `seed`, and
   required `verify` inside Docker-backed workspaces
 - explicit warm-reuse skip semantics and teardown-time manifest `cleanup`

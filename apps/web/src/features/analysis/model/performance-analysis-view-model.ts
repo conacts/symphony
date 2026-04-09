@@ -19,7 +19,7 @@ import {
   buildIssueRunHref
 } from "@/core/control-plane-routes";
 
-export type PerformanceAnalysisResource = {
+type PerformanceAnalysisResource = {
   issueIndex: SymphonyForensicsIssueListResult;
   sampledRuns: Array<{
     repositoryKey: string;

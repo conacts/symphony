@@ -2,9 +2,9 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
-  buildAgentAppServerSpawnSpec,
+  buildPiAppServerSpawnSpec,
   ensureWorkspaceCwd,
-  resolveAgentLaunchSettings,
+  resolvePiLaunchSettings,
   wrapSessionError
 } from "./agent-app-server-launch.js";
 import {
@@ -102,7 +102,7 @@ export class AgentAppServerClient {
   }
 
   static async startSession(input: {
-    launchTarget: Parameters<typeof buildAgentAppServerSpawnSpec>[0]["launchTarget"];
+    launchTarget: Parameters<typeof buildPiAppServerSpawnSpec>[0]["launchTarget"];
     env: Record<string, string>;
     hostCommandEnvSource: Record<string, string | undefined>;
     runtimePolicy: SymphonyAgentRuntimeConfig;
@@ -114,7 +114,7 @@ export class AgentAppServerClient {
       input.runtimePolicy.workspace.root
     );
     const modelPolicy = resolveHarnessModelRuntimePolicy(input.runtimePolicy);
-    const launchSettings = resolveAgentLaunchSettings(
+    const launchSettings = resolvePiLaunchSettings(
       input.runtimePolicy.agentRuntime.command,
       input.issue,
       {
@@ -127,7 +127,7 @@ export class AgentAppServerClient {
         providerName: modelPolicy.provider?.name ?? null
       }
     );
-    const spawnSpec = buildAgentAppServerSpawnSpec({
+    const spawnSpec = buildPiAppServerSpawnSpec({
       launchTarget: input.launchTarget,
       command: launchSettings.command,
       env: input.env,

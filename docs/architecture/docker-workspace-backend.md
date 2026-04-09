@@ -68,7 +68,7 @@ Declared repo services and env bindings are the source of truth.
 
 The prepared execution target is a container.
 
-Codex launches through `docker exec` against the prepared workspace path inside the container. The
+Pi launches through `docker exec` against the prepared workspace path inside the container. The
 runtime does not preserve a parallel host-path execution story.
 
 ## Cleanup

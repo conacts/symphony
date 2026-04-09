@@ -8,7 +8,7 @@ import {
   symphonyAgentOverflowResponseSchema,
   symphonyAgentReasoningBlockListResponseSchema,
   symphonyAgentRunArtifactsResponseSchema,
-  symphonyAgentRunPathSchema,
+  symphonyAgentRunQuerySchema,
   symphonyAgentRunTurnFilterSchema,
   symphonyAgentToolCallListResponseSchema,
   symphonyAgentTurnListResponseSchema
@@ -202,7 +202,7 @@ export function createAgentAnalyticsRoutes(
 type AgentRouteContext = Context<SymphonyRuntimeAppContextSchema>;
 
 function parseAgentRunId(c: AgentRouteContext): string {
-  return parseWithSchema(symphonyAgentRunPathSchema, c.req.param()).runId;
+  return parseWithSchema(symphonyAgentRunQuerySchema, c.req.param()).runId;
 }
 
 function parseAgentRunTurnInput(

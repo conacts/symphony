@@ -15,7 +15,7 @@ export function buildWorkspaceLifecyclePayload(
   return normalizeWorkspaceLifecycleMetadata(summarizePreparedWorkspace(workspace));
 }
 
-export function normalizeWorkspaceLifecycleMetadata(
+function normalizeWorkspaceLifecycleMetadata(
   workspace: WorkspaceLifecycleMetadata | null
 ): JsonObject | null {
   if (!workspace) {

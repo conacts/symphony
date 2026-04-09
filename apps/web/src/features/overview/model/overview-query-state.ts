@@ -34,16 +34,6 @@ export function buildOverviewSuccessMetricsQuery(input: {
   };
 }
 
-export function buildOverviewSuccessMetricsQueryFromSearchParams(
-  searchParams: Pick<URLSearchParams, "get">,
-  now?: number
-): SymphonyForensicsSuccessMetricsQuery {
-  return buildOverviewSuccessMetricsQuery({
-    timeRange: parseOverviewTimeRange(searchParams.get("timeRange")),
-    now
-  });
-}
-
 export function buildOverviewSearchParams(
   searchParams: Pick<URLSearchParams, "toString">,
   timeRange: OverviewTimeRange
@@ -59,7 +49,7 @@ export function buildOverviewSearchParams(
   return nextSearchParams;
 }
 
-export function buildStartedAfterForTimeRange(
+function buildStartedAfterForTimeRange(
   timeRange: OverviewTimeRange,
   now: number = Date.now()
 ): string | undefined {
@@ -75,11 +65,4 @@ export function buildStartedAfterForTimeRange(
   return lookbackMs === null
     ? undefined
     : new Date(now - lookbackMs).toISOString();
-}
-
-export function labelForOverviewTimeRange(timeRange: OverviewTimeRange): string {
-  return (
-    overviewTimeRangeOptions.find((option) => option.value === timeRange)?.label ??
-    "Week"
-  );
 }

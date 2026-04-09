@@ -733,7 +733,7 @@ export function buildSymphonyForensicsRunDetailResult(
       summary: "Opened the pull request.",
       prUrl: "https://github.com/example/repo/pull/165",
       prNumber: "165",
-      branchName: "codex/col-165",
+      branchName: "symphony/col-165",
       blockingReason: null,
       testsSummary: "pnpm verify:precommit",
       source: "pi",

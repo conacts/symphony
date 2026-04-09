@@ -37,28 +37,21 @@ export const symphonyRuntimeWorkspaceContainerDispositionSchema = z.enum([
   "recreated"
 ]);
 
-export const symphonyRuntimeWorkspaceNetworkDispositionSchema = z.enum([
+const symphonyRuntimeWorkspaceNetworkDispositionSchema = z.enum([
   "created",
   "reused",
   "not_applicable"
 ]);
 
-export const symphonyRuntimeWorkspaceServiceTypeSchema = z.enum(["postgres"]);
+const symphonyRuntimeWorkspaceServiceTypeSchema = z.enum(["postgres"]);
 
-export const symphonyRuntimeWorkspaceServiceDispositionSchema = z.enum([
+const symphonyRuntimeWorkspaceServiceDispositionSchema = z.enum([
   "created",
   "reused",
   "recreated"
 ]);
 
-export const symphonyRuntimeWorkspaceServiceRemovalDispositionSchema = z.enum([
-  "removed",
-  "missing",
-  "stopped",
-  "preserved"
-]);
-
-export const symphonyRuntimeWorkspaceEnvBundleSummarySchema = z.strictObject({
+const symphonyRuntimeWorkspaceEnvBundleSummarySchema = z.strictObject({
   source: z.enum(["ambient", "manifest"]),
   injectedKeys: z.array(nonEmptyStringSchema),
   requiredHostKeys: z.array(nonEmptyStringSchema),
@@ -72,7 +65,7 @@ export const symphonyRuntimeWorkspaceEnvBundleSummarySchema = z.strictObject({
   serviceBindingKeys: z.array(nonEmptyStringSchema)
 });
 
-export const symphonyRuntimeWorkspaceServiceSchema = z.strictObject({
+const symphonyRuntimeWorkspaceServiceSchema = z.strictObject({
   key: nonEmptyStringSchema,
   type: symphonyRuntimeWorkspaceServiceTypeSchema,
   hostname: nonEmptyStringSchema,
@@ -255,18 +248,18 @@ export const symphonyRuntimeLaunchTargetSchema = z.discriminatedUnion("kind", [
   })
 ]);
 
-export const symphonyRuntimeAttemptsSchema = z.strictObject({
+const symphonyRuntimeAttemptsSchema = z.strictObject({
   restartCount: z.number().int().nonnegative(),
   currentRetryAttempt: z.number().int().nonnegative()
 });
 
-export const symphonyRuntimeIssueStatusSchema = z.enum([
+const symphonyRuntimeIssueStatusSchema = z.enum([
   "running",
   "retrying",
   "tracked"
 ]);
 
-export const symphonyRuntimeIssueRunningStateSchema = z.strictObject({
+const symphonyRuntimeIssueRunningStateSchema = z.strictObject({
   workerHost: nullableNonEmptyStringSchema,
   workspacePath: nullableNonEmptyStringSchema,
   threadId: nullableNonEmptyStringSchema,
@@ -280,7 +273,7 @@ export const symphonyRuntimeIssueRunningStateSchema = z.strictObject({
   tokens: symphonyRuntimeTokenTotalsSchema
 });
 
-export const symphonyRuntimeIssueRetryStateSchema = z.strictObject({
+const symphonyRuntimeIssueRetryStateSchema = z.strictObject({
   attempt: z.number().int().positive(),
   dueAt: isoTimestampSchema.nullable(),
   error: nullableNonEmptyStringSchema,

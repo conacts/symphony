@@ -63,7 +63,7 @@ pnpm --filter @symphony/api dev
 ## Current State
 
 This app owns the TypeScript HTTP and websocket surfaces, DB-backed observability, autonomous
-polling, real Linear integration, and the Docker-backed Codex execution path.
+polling, real Linear integration, and the Docker-backed Pi execution path.
 
 The remaining work is package separation and boundary hardening rather than basic runtime wiring.
 

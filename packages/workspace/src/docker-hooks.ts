@@ -50,7 +50,7 @@ export async function runWorkspaceHookInContainer(input: {
   }
 }
 
-export function buildWorkspaceHookEnv(
+function buildWorkspaceHookEnv(
   workspacePath: string,
   context: SymphonyWorkspaceContext,
   workerHost: string | null,

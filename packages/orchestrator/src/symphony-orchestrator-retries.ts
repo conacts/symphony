@@ -8,7 +8,7 @@ import type {
 import { failureRetryDelay } from "./symphony-orchestrator-failures.js";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 
-export const continuationRetryDelayMs = 1_000;
+const continuationRetryDelayMs = 1_000;
 
 export function createRetryEntry(input: {
   attempt: number;

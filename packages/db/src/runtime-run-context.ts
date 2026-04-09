@@ -15,7 +15,7 @@ export type SymphonyRuntimeRunContext = {
   launchTarget: SymphonyRuntimeLaunchTarget | null;
 };
 
-export function emptyRuntimeRunContext(): SymphonyRuntimeRunContext {
+function emptyRuntimeRunContext(): SymphonyRuntimeRunContext {
   return {
     harness: null,
     threadId: null,

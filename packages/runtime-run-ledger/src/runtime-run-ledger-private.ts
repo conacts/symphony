@@ -14,7 +14,7 @@ import type {
 } from "./runtime-run-ledger-types.js";
 import type { SymphonyAgentAnalyticsEvent } from "./agent-analytics-types.js";
 
-export const symphonyCompletedRunOutcomes = new Set([
+const symphonyCompletedRunOutcomes = new Set([
   "completed",
   "merged",
   "done"
@@ -284,7 +284,7 @@ export function sanitizeText(value: string): string {
     .replace(/(session\s*=\s*)(\S+)/gi, "$1[REDACTED]");
 }
 
-export function sanitizeJsonValue(
+function sanitizeJsonValue(
   value: SymphonyJsonValue,
   keyHint?: string
 ): SymphonyJsonValue {

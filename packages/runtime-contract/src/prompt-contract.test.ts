@@ -68,7 +68,7 @@ describe("prompt contract", () => {
         "Repo symphony",
         "Default branch main",
         "Run run-123",
-        "Workspace /workspace/symphony on codex/runtime-contract-boundary",
+        "Workspace /workspace/symphony on symphony/runtime-contract-boundary",
         "",
         "Current run mode: Implementation",
         "- Complete the requested ticket work in the current workspace.",

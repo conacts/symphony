@@ -10,12 +10,11 @@ export * from "./pi/analytics-adapter.js";
 export * from "./pi/rpc-process.js";
 export * from "./pi/rpc-client.js";
 export {
-  agentModelLabelPrefix,
-  agentPresetLabelPrefix,
-  buildAgentAppServerSpawnSpec,
-  listSupportedAgentModels,
-  resolveAgentIssueModel,
-  resolveAgentLaunchSettings,
-  resolveAgentSdkLaunchSettings,
+  buildPiAppServerSpawnSpec,
+  listSupportedPiModels,
+  piModelLabelPrefix,
+  resolvePiIssueModel,
+  resolvePiLaunchSettings,
+  resolvePiSdkLaunchSettings,
   wrapSessionError
 } from "./pi/launch.js";

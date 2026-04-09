@@ -13,13 +13,13 @@ import type {
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
 import {
-  agentModelLabelPrefix,
-  listSupportedAgentModels,
-  resolveAgentIssueModel
+  listSupportedPiModels,
+  piModelLabelPrefix,
+  resolvePiIssueModel
 } from "../core/agent-app-server-launch.js";
 import type { AdmittedRuntimeRepository } from "../core/runtime-admitted-repositories.js";
 
-export type RuntimeIssuePiSelectionPolicy = {
+type RuntimeIssuePiSelectionPolicy = {
   defaultModel: string | null;
   defaultPreset: string;
   presets: Record<
@@ -138,7 +138,7 @@ export function serializeRuntimeIssue(
     branchName
   );
   const workspace = running?.workspace ?? retry?.workspace ?? null;
-  const selectedModel = resolveAgentIssueModel(
+  const selectedModel = resolvePiIssueModel(
     tracked,
     piSelectionPolicy
   );
@@ -205,10 +205,10 @@ export function serializeRuntimeIssue(
       pi: {
         defaultModel: piSelectionPolicy.defaultModel,
         selectedModel,
-        availableModels: listSupportedAgentModels(),
-        modelOverrideLabelPrefix: agentModelLabelPrefix,
+        availableModels: listSupportedPiModels(),
+        modelOverrideLabelPrefix: piModelLabelPrefix,
         selectionHelpText:
-          `Pi selection is label-driven. Use ${agentModelLabelPrefix}<preset> for repo-defined tiers or ${agentModelLabelPrefix}<model> for a direct model override.`
+          `Pi selection is label-driven. Use ${piModelLabelPrefix}<preset> for repo-defined tiers or ${piModelLabelPrefix}<model> for a direct model override.`
       }
     }
   };

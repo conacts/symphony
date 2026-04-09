@@ -5,7 +5,7 @@ import {
   type SymphonyRuntimeEnvironmentSource
 } from "@symphony/runtime-contract";
 
-export type SymphonySourceRepoRuntimeManifestSummary = {
+type SymphonySourceRepoRuntimeManifestSummary = {
   sourceRepo: string;
   manifestPath: string;
   schemaVersion: 1;
@@ -15,7 +15,7 @@ export type SymphonySourceRepoRuntimeManifestSummary = {
   optionalHostEnv: string[];
 };
 
-export type SymphonyValidatedSourceRepoRuntimeManifest = {
+type SymphonyValidatedSourceRepoRuntimeManifest = {
   runtimeManifest: SymphonyLoadedRuntimeManifest;
   summary: SymphonySourceRepoRuntimeManifestSummary;
 };

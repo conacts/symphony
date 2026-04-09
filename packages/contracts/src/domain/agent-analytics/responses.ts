@@ -28,7 +28,6 @@ const agentTurnTerminalStatuses = new Set([
 ]);
 
 export const symphonyAgentActiveHarnessKindSchema = z.literal("pi");
-export const symphonyAgentCompatHarnessKindSchema = symphonyAgentActiveHarnessKindSchema;
 
 export const symphonyAgentRunStatusSchema = z.enum([
   "dispatching",
@@ -58,7 +57,7 @@ export const symphonyAgentItemLifecycleStatusSchema = z.enum([
 export const symphonyAgentRunRecordSchema = z.strictObject({
   runId: nonEmptyStringSchema,
   threadId: nullableNonEmptyStringSchema,
-  harnessKind: symphonyAgentCompatHarnessKindSchema.nullable().default(null),
+  harnessKind: symphonyAgentActiveHarnessKindSchema.nullable().default(null),
   model: nullableNonEmptyStringSchema.default(null),
   providerId: nullableNonEmptyStringSchema.default(null),
   providerName: nullableNonEmptyStringSchema.default(null),
@@ -108,7 +107,7 @@ export const symphonyAgentTurnRecordSchema = z.strictObject({
   turnId: nonEmptyStringSchema,
   runId: nonEmptyStringSchema,
   threadId: nullableNonEmptyStringSchema,
-  harnessKind: symphonyAgentCompatHarnessKindSchema.nullable().default(null),
+  harnessKind: symphonyAgentActiveHarnessKindSchema.nullable().default(null),
   model: nullableNonEmptyStringSchema.default(null),
   providerId: nullableNonEmptyStringSchema.default(null),
   providerName: nullableNonEmptyStringSchema.default(null),
@@ -461,9 +460,6 @@ export const symphonyAgentReasoningListResultSchema = z.strictObject({
   turnId: nullableNonEmptyStringSchema,
   reasoning: z.array(symphonyAgentReasoningRecordSchema)
 });
-export const symphonyAgentReasoningBlockListResultSchema =
-  symphonyAgentReasoningListResultSchema;
-
 export const symphonyAgentFileChangeListResultSchema = z.strictObject({
   runId: nonEmptyStringSchema,
   turnId: nullableNonEmptyStringSchema,
@@ -494,7 +490,7 @@ export const symphonyAgentMessageListResponseSchema = createEnvelopeSchema(
   symphonyAgentMessageListResultSchema
 );
 export const symphonyAgentReasoningBlockListResponseSchema = createEnvelopeSchema(
-  symphonyAgentReasoningBlockListResultSchema
+  symphonyAgentReasoningListResultSchema
 );
 export const symphonyAgentFileChangeListResponseSchema = createEnvelopeSchema(
   symphonyAgentFileChangeListResultSchema

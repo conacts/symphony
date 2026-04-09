@@ -28,7 +28,7 @@ import {
   type ManifestPath
 } from "./runtime-manifest-validation-shared.js";
 
-export type ParsedServices = {
+type ParsedServices = {
   declaredKeys: Set<string>;
   normalized: Record<string, SymphonyNormalizedRuntimeService>;
 };

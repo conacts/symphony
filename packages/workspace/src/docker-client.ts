@@ -36,7 +36,7 @@ type DockerClientLike = Pick<
 
 export type DockerClientFactory = () => Promise<DockerClientLike>;
 
-export type DockerCliCommandRunner = (
+type DockerCliCommandRunner = (
   input: DockerWorkspaceCommandInput
 ) => Promise<DockerWorkspaceCommandResult>;
 
@@ -66,11 +66,11 @@ export function createDockerWorkspaceCommandRunner(input?: {
 export const defaultDockerWorkspaceCommandRunner =
   createDockerWorkspaceCommandRunner();
 
-export type DockerWorkspaceCommandRunner = (
+type DockerWorkspaceCommandRunner = (
   input: DockerWorkspaceCommandInput
 ) => Promise<DockerWorkspaceCommandResult>;
 
-export type DockerWorkspaceCommandInput = {
+type DockerWorkspaceCommandInput = {
   args: string[];
   timeoutMs: number;
 };

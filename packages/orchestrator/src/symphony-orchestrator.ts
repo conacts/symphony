@@ -68,20 +68,6 @@ const maxProviderTransientRetries = 3;
 
 export { createSymphonyOrchestratorState } from "./symphony-orchestrator-state.js";
 export { prepareIssueForDispatch } from "./symphony-orchestrator-dispatch.js";
-export type {
-  SymphonyAgentRuntimeCompletion,
-  SymphonyAgentRuntimeUpdate,
-  SymphonyClock,
-  SymphonyAgentMessage,
-  SymphonyAgentTotals,
-  SymphonyOrchestratorObserver,
-  SymphonyOrchestratorSnapshot,
-  SymphonyOrchestratorState,
-  SymphonyRetryEntry,
-  SymphonyRunningEntry,
-  SymphonyStartupFailureOrigin,
-  SymphonyStartupFailureStage
-} from "./symphony-orchestrator-types.js";
 
 export class SymphonyOrchestrator {
   readonly #config: SymphonyOrchestratorConfig;

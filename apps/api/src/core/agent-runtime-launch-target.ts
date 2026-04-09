@@ -5,7 +5,7 @@ import type {
 import type { PreparedWorkspace } from "@symphony/workspace";
 
 export type SymphonyRuntimeLaunchTarget = AgentRuntimeLaunchTarget;
-export const runtimeContainerLaunchDirectoryName = "pi-launch";
+const runtimeContainerLaunchDirectoryName = "pi-launch";
 
 export function resolveRuntimeLaunchTarget(
   workspace: PreparedWorkspace,

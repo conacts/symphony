@@ -5,7 +5,7 @@ import {
 
 export const symphonyDisabledLabel = "symphony:disabled";
 export const symphonyNoAutoReworkLabel = "symphony:no-auto-rework";
-export const symphonyRepositoryLabelPrefix = "repo:";
+const symphonyRepositoryLabelPrefix = "repo:";
 
 export type SymphonyTrackerIssue = {
   id: string;

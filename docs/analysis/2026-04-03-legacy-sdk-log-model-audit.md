@@ -1,4 +1,4 @@
-# Codex SDK Log Model Audit
+# Legacy SDK Log Model Audit
 
 Date: April 3, 2026
 
@@ -10,7 +10,7 @@ Anchor run:
 
 ## Scope
 
-This audit focuses on the Codex TypeScript SDK-backed observability path and compares:
+This audit records the old Codex SDK-backed observability path and compares:
 
 1. the upstream `@openai/codex-sdk@0.118.0` event model,
 2. the data actually stored for a recent valid run,

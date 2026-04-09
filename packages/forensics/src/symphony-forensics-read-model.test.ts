@@ -346,7 +346,7 @@ function createRunDetail(
       summary: "Opened the pull request.",
       prUrl: "https://github.com/example/repo/pull/157",
       prNumber: "157",
-      branchName: "codex/col-157",
+      branchName: "symphony/col-157",
       blockingReason: null,
       testsSummary: "pnpm verify:precommit",
       source: "pi",

@@ -23,7 +23,7 @@ type RuntimeIssueRow = {
   updatedAt: string | null;
 };
 
-export type SymphonyRuntimeTokenTotals = {
+type SymphonyRuntimeTokenTotals = {
   inputTokens: number;
   cachedInputTokens: number;
   outputTokens: number;
@@ -127,7 +127,7 @@ export function buildRuntimeIssueSummary(
   };
 }
 
-export function parseRuntimeTurnTokenTotals(tokens: unknown): SymphonyRuntimeTokenTotals {
+function parseRuntimeTurnTokenTotals(tokens: unknown): SymphonyRuntimeTokenTotals {
   const value =
     tokens && typeof tokens === "object" && !Array.isArray(tokens)
       ? (tokens as Record<string, unknown>)
@@ -144,13 +144,13 @@ export function parseRuntimeTurnTokenTotals(tokens: unknown): SymphonyRuntimeTok
   };
 }
 
-export function parseTokenCount(value: unknown): number {
+function parseTokenCount(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? Math.floor(value)
     : 0;
 }
 
-export function computeDurationSeconds(
+function computeDurationSeconds(
   startedAt: string | null,
   endedAt: string | null
 ): number | null {
@@ -171,7 +171,7 @@ export function computeDurationSeconds(
   return Math.max(0, Math.floor((endedMs - startedMs) / 1_000));
 }
 
-export function compareDescendingTimestamps(
+function compareDescendingTimestamps(
   left: string | null | undefined,
   right: string | null | undefined
 ): number {
@@ -180,7 +180,7 @@ export function compareDescendingTimestamps(
   return rightTime - leftTime;
 }
 
-export function isCompletedOutcome(outcome: string | null): boolean {
+function isCompletedOutcome(outcome: string | null): boolean {
   return outcome === "completed" || outcome === "merged" || outcome === "done";
 }
 

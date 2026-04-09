@@ -77,7 +77,7 @@ export async function createGitHubIssueComment(input: {
   }
 }
 
-export function buildGitHubRequestHeaders(
+function buildGitHubRequestHeaders(
   apiToken: string | null
 ): Record<string, string> {
   return {

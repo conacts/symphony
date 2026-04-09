@@ -45,7 +45,7 @@ The important runtime concepts remain:
 The supported composition path uses:
 
 - `createDockerWorkspaceBackend(...)`
-- `createCodexAgentRuntime(...)`
+- `createSymphonyAgentRuntime(...)`
 - `createSymphonyRuntime(...)`
 
 The public API should not advertise a parallel supported local-backend path.

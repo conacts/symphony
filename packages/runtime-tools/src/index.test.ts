@@ -52,7 +52,7 @@ describe("runtime tools", () => {
         description: null,
         priority: null,
         state: "In Progress",
-        branchName: "codex/col-123",
+        branchName: "symphony/col-123",
         url: null,
         projectId: null,
         projectName: null,
@@ -88,7 +88,7 @@ describe("runtime tools", () => {
         status: "completed",
         summary: "Opened the PR and finished the requested work.",
         prUrl: "https://github.com/openai/symphony/pull/123",
-        branchName: "codex/col-123"
+        branchName: "symphony/col-123"
       }
     );
 
@@ -110,7 +110,7 @@ describe("runtime tools", () => {
         turnId: "turn-123",
         status: "completed",
         prUrl: "https://github.com/openai/symphony/pull/123",
-        branchName: "codex/col-123"
+        branchName: "symphony/col-123"
       })
     );
     expect(tracker.getIssue("issue-123")?.state).toBe("In Review");
@@ -507,7 +507,7 @@ function buildRuntimeToolIssue(overrides: Partial<SymphonyTrackerIssue> = {}) {
     description: null,
     priority: null,
     state: "In Progress",
-    branchName: "codex/col-123",
+    branchName: "symphony/col-123",
     url: null,
     projectId: null,
     projectName: null,

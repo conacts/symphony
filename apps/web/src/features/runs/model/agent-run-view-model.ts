@@ -46,13 +46,8 @@ import {
 
 export type {
   AgentRunTranscriptEntry,
-  AgentRunTranscriptTurn,
-  AgentRunFileChip,
-  PiPatternTaskQuery,
-  PiResponseMetadata
+  AgentRunTranscriptTurn
 } from "@/features/runs/model/agent-run-transcript";
-
-export type AgentRunResourceViewModel = AgentRunViewModel;
 
 export type AgentRunViewModel = {
   harnessLabel: string;

@@ -1,4 +1,4 @@
-export const DEFAULT_SYMPHONY_RUNTIME_BASE_URL = "http://127.0.0.1:4400";
+const DEFAULT_SYMPHONY_RUNTIME_BASE_URL = "http://127.0.0.1:4400";
 
 export type EnvironmentSource = Record<string, string | undefined>;
 

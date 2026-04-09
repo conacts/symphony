@@ -103,7 +103,7 @@ export function createSymphonyAgentRuntime(input: {
   });
 }
 
-export function createHarnessBackedSymphonyAgentRuntime(input: {
+function createHarnessBackedSymphonyAgentRuntime(input: {
   harness: SymphonyRuntimeHarness;
   promptContract: SymphonyLoadedPromptContract;
   admittedRepositories?: AdmittedRuntimeRepository[];

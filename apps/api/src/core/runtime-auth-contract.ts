@@ -24,7 +24,7 @@ export type DockerPiAuthContract = {
   providerEnvKey: string | null;
 };
 
-export type DockerWorkspaceAuthContracts = {
+type DockerWorkspaceAuthContracts = {
   githubCli: DockerGitHubCliAuthContract;
   pi: DockerPiAuthContract;
   mounts: DockerReadOnlyMount[];

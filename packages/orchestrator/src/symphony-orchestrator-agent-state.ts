@@ -2,12 +2,12 @@ import type { JsonObject } from "@symphony/contracts";
 import { asJsonObject } from "./internal/json.js";
 import { asRecord, isRecord } from "./internal/records.js";
 
-export type SymphonyAgentStateUpdate = {
+type SymphonyAgentStateUpdate = {
   event: string;
   payload?: unknown;
 };
 
-export type SymphonyStallTrackedEntry = {
+type SymphonyStallTrackedEntry = {
   lastAgentTimestamp: string | null;
   startedAt: string;
 };

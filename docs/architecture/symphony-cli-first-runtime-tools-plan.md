@@ -116,7 +116,7 @@ symphony tool finish \
   --status completed \
   --summary "Opened PR with requested changes." \
   --pr-url https://github.com/... \
-  --branch-name codex/col-123
+  --branch-name symphony/col-123
 ```
 
 ### Phase 4: Implement `symphony tool spike-result`

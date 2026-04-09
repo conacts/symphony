@@ -19,7 +19,7 @@ export async function workspaceExists(workspacePath: string): Promise<boolean> {
   }
 }
 
-export function buildWorkspacePath(
+function buildWorkspacePath(
   issueIdentifier: string,
   root: string
 ): string {

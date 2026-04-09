@@ -73,7 +73,7 @@ function isActiveHarness(harness: string): boolean {
   return harness === "pi";
 }
 
-export function formatHarnessLabel(harness: string): string {
+function formatHarnessLabel(harness: string): string {
   if (harness === "pi") {
     return "PI";
   }

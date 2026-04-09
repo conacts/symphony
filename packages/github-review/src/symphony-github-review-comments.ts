@@ -37,10 +37,6 @@ export function autoRequeueCommentBody(
   return lines.join("\n");
 }
 
-export function notInReviewCommentBody(): string {
-  return "No action taken: matching Linear issue is not currently in `In Review`.";
-}
-
 export function buildSymphonyGitHubReviewContextUrl(
   signal: SymphonyGitHubReviewSignal
 ): string {

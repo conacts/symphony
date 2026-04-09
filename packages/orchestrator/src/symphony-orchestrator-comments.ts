@@ -20,7 +20,7 @@ export type SymphonyFailureStateTransition =
       reason: string;
     };
 
-export type SymphonyFailureCommentOptions = {
+type SymphonyFailureCommentOptions = {
   rateLimits?: JsonObject | null;
   stateTransition?: SymphonyFailureStateTransition;
   workspaceCleanupMode?: WorkspaceCleanupMode | null;

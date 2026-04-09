@@ -119,12 +119,12 @@ stateDiagram-v2
 - Counts against concurrency limits.
 - Entered only when a real worker slot is available.
 - Covers workspace attach/provision, branch creation, preflight, and pre-agent setup.
-- A ticket leaves `Bootstrapping` only when the first real Codex turn can begin.
+- A ticket leaves `Bootstrapping` only when the first real Pi turn can begin.
 
 ### `In Progress`
 
 - Agent is actively working.
-- This begins at the first Codex turn start, not at workspace creation.
+- This begins at the first Pi turn start, not at workspace creation.
 
 ### `In Review`
 

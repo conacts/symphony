@@ -269,7 +269,7 @@ Recommendation:
 - do not let heuristic task parsing quietly define item completion rules unless that policy is
   made first-class
 
-### 8. The legacy `codex_*` schema package shows the rename is incomplete at the model level
+### 8. The legacy analytics schema package shows the rename is incomplete at the model level
 
 `packages/agent-analytics/src/schema.ts` still defines a parallel `codex_*` schema that mirrors the
 new `symphony_*` tables almost exactly.

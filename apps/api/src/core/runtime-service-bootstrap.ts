@@ -15,7 +15,7 @@ import { loadSymphonyRuntimePolicyConfig } from "./runtime-policy-config.js";
 import { loadAdmittedRuntimeRepositories } from "./runtime-admitted-repositories.js";
 import { resolveRepositoryForLinearScope } from "./runtime-repository-routing.js";
 
-export type RuntimeServiceBootstrapResult = {
+type RuntimeServiceBootstrapResult = {
   runtimePolicy: SymphonyResolvedRuntimePolicy;
   harnessProviderEnvKey: string | null;
   admittedRepositories: AdmittedRuntimeRepository[];

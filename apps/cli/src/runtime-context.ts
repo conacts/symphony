@@ -14,7 +14,7 @@ import {
 
 const defaultLinearEndpoint = "https://api.linear.app/graphql";
 
-export type SymphonyCliRuntimeContext = {
+type SymphonyCliRuntimeContext = {
   db: SymphonyDb;
   deliveryReports: SymphonyIssueDeliveryReportStore;
   issueTimelineStore: ReturnType<typeof createSymphonyIssueTimelineStore>;
@@ -30,7 +30,7 @@ export type SymphonyCliRuntimeContext = {
   turnId: string | null;
 };
 
-export type SymphonyCliCommandContext = {
+type SymphonyCliCommandContext = {
   runId: string;
   issue: {
     trackerIssueId: string;

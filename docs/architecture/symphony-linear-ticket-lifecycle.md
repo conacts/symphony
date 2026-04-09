@@ -108,7 +108,7 @@ Use this when the workspace exists but Symphony cannot keep the run going becaus
 channel or provider failed. Examples:
 
 - provider rate limit or capacity failure
-- runtime stall without visible Codex activity
+- runtime stall without visible agent activity
 - approval/orchestration interruption
 
 `Paused` is non-terminal and non-dispatch. There are no hidden retries. A human must move the

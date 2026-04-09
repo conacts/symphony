@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   createSymphonyOrchestratorState,
   prepareIssueForDispatch,
-  SymphonyOrchestrator,
-  type SymphonyAgentRuntimeCompletion
+  SymphonyOrchestrator
 } from "./symphony-orchestrator.js";
+import type { SymphonyAgentRuntimeCompletion } from "./symphony-orchestrator-types.js";
 import { SymphonyRuntimeManifestError } from "@symphony/runtime-contract";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type {
