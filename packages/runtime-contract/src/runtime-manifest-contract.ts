@@ -20,7 +20,7 @@ export type SymphonyRuntimeServiceBindingValue =
   | "password";
 
 export type SymphonyRuntimeBindingValue =
-  | "issueId"
+  | "trackerIssueId"
   | "issueIdentifier"
   | "runId"
   | "workspaceKey"
@@ -193,7 +193,7 @@ export type SymphonyRuntimeEnvironmentSource = Record<string, string | undefined
 export type SymphonyRuntimeEnvironmentBackendKind = "docker";
 
 export type SymphonyRuntimeEnvironmentContext = {
-  issueId: string | null;
+  trackerIssueId: string | null;
   issueIdentifier: string;
   runId: string | null;
   workspaceKey: string;

@@ -71,7 +71,7 @@ describe("runtime tools", () => {
         tracker,
         deliveryReports,
         issue: {
-          id: "issue-123",
+          trackerIssueId: "issue-123",
           identifier: "COL-123",
           state: "In Progress"
         },
@@ -133,7 +133,7 @@ describe("runtime tools", () => {
         tracker: createMemorySymphonyTracker(),
         deliveryReports,
         issue: {
-          id: "issue-123",
+          trackerIssueId: "issue-123",
           identifier: "COL-123"
         },
         runId: "run-123",
@@ -186,7 +186,7 @@ describe("runtime tools", () => {
         },
         deliveryReports,
         issue: {
-          id: "issue-123",
+          trackerIssueId: "issue-123",
           identifier: "COL-123",
           state: "In Progress"
         },
@@ -230,7 +230,7 @@ describe("runtime tools", () => {
         tracker,
         deliveryReports,
         issue: {
-          id: "issue-124",
+          trackerIssueId: "issue-124",
           identifier: "COL-124",
           state: "In Progress"
         },
@@ -271,7 +271,7 @@ describe("runtime tools", () => {
       {
         tracker,
         issue: {
-          id: "issue-456",
+          trackerIssueId: "issue-456",
           identifier: "SYM-456",
           state: "In Progress"
         },
@@ -313,7 +313,7 @@ describe("runtime tools", () => {
       {
         tracker,
         issue: {
-          id: "issue-789",
+          trackerIssueId: "issue-789",
           identifier: "SYM-789",
           state: "In Progress"
         },
@@ -366,7 +366,7 @@ describe("runtime tools", () => {
         tracker,
         issueTimelineStore,
         issue: {
-          id: "issue-321",
+          trackerIssueId: "issue-321",
           identifier: "SYM-321",
           state: "In Progress"
         },
@@ -424,7 +424,7 @@ describe("runtime tools", () => {
         tracker: createMemorySymphonyTracker(),
         issueTimelineStore,
         issue: {
-          id: "issue-654",
+          trackerIssueId: "issue-654",
           identifier: "SYM-654"
         },
         runId: "run-654",

@@ -216,7 +216,7 @@ export function createDockerWorkspaceBackend(
         workspaceKey: descriptor.workspaceKey,
         workspacePath,
         runId: input.runId ?? null,
-        issueId: input.context.issueId,
+        trackerIssueId: input.context.trackerIssueId,
         services: services.connections
       });
 
@@ -406,7 +406,7 @@ export function createDockerWorkspaceBackend(
               workspacePath: cleanupWorkspacePath,
               command: input.hooks.beforeRemove,
               context: {
-                issueId: null,
+                trackerIssueId: null,
                 issueIdentifier: descriptor.issueIdentifier
               },
               workerHost: input.workerHost ?? null,
@@ -436,7 +436,7 @@ export function createDockerWorkspaceBackend(
                 workspaceKey: descriptor.workspaceKey,
                 workspacePath: cleanupWorkspacePath,
                 runId: input.runId ?? null,
-                issueId: null,
+                trackerIssueId: null,
                 services: buildResolvedCleanupServices(serviceDescriptors)
               }).values,
             commandRunner,
@@ -486,7 +486,7 @@ export function createDockerWorkspaceBackend(
                   ? input.workspace.executionTarget.workspacePath
                   : workspacePath,
               runId: input.runId ?? null,
-              issueId: null,
+              trackerIssueId: null,
               services: buildResolvedCleanupServices(serviceDescriptors)
             }).values,
           commandRunner,

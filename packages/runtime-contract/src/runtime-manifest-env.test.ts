@@ -74,7 +74,7 @@ describe("runtime manifest env resolution", () => {
         GITHUB_TOKEN: "github-token"
       },
       runtime: {
-        issueId: "issue-123",
+        trackerIssueId: "issue-123",
         issueIdentifier: "COL-123",
         runId: "run-123",
         workspaceKey: "COL-123",
@@ -218,7 +218,7 @@ describe("runtime manifest env resolution", () => {
         manifest,
         environmentSource: {},
         runtime: {
-          issueId: "issue-123",
+          trackerIssueId: "issue-123",
           issueIdentifier: "COL-123",
           runId: "run-123",
           workspaceKey: "COL-123",
@@ -272,7 +272,7 @@ describe("runtime manifest env resolution", () => {
         manifest,
         environmentSource: {},
         runtime: {
-          issueId: "issue-123",
+          trackerIssueId: "issue-123",
           issueIdentifier: "COL-123",
           runId: null,
           workspaceKey: "COL-123",

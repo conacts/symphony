@@ -197,7 +197,7 @@ Inject binding kinds:
 - `service`
   - `{ kind: "service", service: string, value: "connectionString" | "host" | "port" | "database" | "username" | "password" }`
 - `runtime`
-  - `{ kind: "runtime", value: "issueId" | "issueIdentifier" | "runId" | "workspaceKey" | "workspacePath" | "backendKind" }`
+  - `{ kind: "runtime", value: "trackerIssueId" | "issueIdentifier" | "runId" | "workspaceKey" | "workspacePath" | "backendKind" }`
 
 `lifecycle`:
 

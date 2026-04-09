@@ -438,7 +438,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runId: string;
       turnId: string | null;
       issue: {
-        id: string;
+        trackerIssueId: string;
         identifier: string;
         state: string | null;
       };
@@ -460,7 +460,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runId: string;
       turnId: string | null;
       issue: {
-        id: string;
+        trackerIssueId: string;
         identifier: string;
         state: string | null;
       };
@@ -479,7 +479,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runId: string;
       turnId: string | null;
       issue: {
-        id: string;
+        trackerIssueId: string;
         identifier: string;
         state: string | null;
       };
@@ -498,7 +498,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runId: string;
       turnId: string | null;
       issue: {
-        id: string;
+        trackerIssueId: string;
         identifier: string;
         state: string | null;
       };

@@ -13,7 +13,7 @@ export async function postRuntimeToolRequest(input: {
   runId: string;
   turnId: string | null;
   issue: {
-    id: string;
+    trackerIssueId: string;
     identifier: string;
     state: string | null;
   };

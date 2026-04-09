@@ -27,7 +27,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     runId: z.string().trim().min(1),
     turnId: z.string().trim().min(1).nullable().optional(),
     issue: z.strictObject({
-      id: z.string().trim().min(1),
+      trackerIssueId: z.string().trim().min(1),
       identifier: z.string().trim().min(1),
       state: z.string().trim().min(1).nullable().optional()
     }),
@@ -140,7 +140,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       runId: payload.runId,
       turnId: payload.turnId ?? null,
       issue: {
-        id: payload.issue.id,
+        trackerIssueId: payload.issue.trackerIssueId,
         identifier: payload.issue.identifier,
         state: payload.issue.state ?? null
       },
@@ -162,7 +162,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       runId: payload.runId,
       turnId: payload.turnId ?? null,
       issue: {
-        id: payload.issue.id,
+        trackerIssueId: payload.issue.trackerIssueId,
         identifier: payload.issue.identifier,
         state: payload.issue.state ?? null
       },
@@ -184,7 +184,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       runId: payload.runId,
       turnId: payload.turnId ?? null,
       issue: {
-        id: payload.issue.id,
+        trackerIssueId: payload.issue.trackerIssueId,
         identifier: payload.issue.identifier,
         state: payload.issue.state ?? null
       },
@@ -206,7 +206,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       runId: payload.runId,
       turnId: payload.turnId ?? null,
       issue: {
-        id: payload.issue.id,
+        trackerIssueId: payload.issue.trackerIssueId,
         identifier: payload.issue.identifier,
         state: payload.issue.state ?? null
       },

@@ -16,7 +16,7 @@ export function resolvePreparedWorkspaceEnvBundle(input: {
   workspaceKey: string;
   backendKind: WorkspaceBackendKind;
   workspacePath: string;
-  issueId: string | null;
+  trackerIssueId: string | null;
   runId: string | null;
   services: Record<string, SymphonyResolvedRuntimeService>;
 }): WorkspaceEnvBundle {
@@ -28,7 +28,7 @@ export function resolvePreparedWorkspaceEnvBundle(input: {
     manifest: input.runtimeManifest.manifest,
     environmentSource: input.environmentSource ?? {},
     runtime: {
-      issueId: input.issueId,
+      trackerIssueId: input.trackerIssueId,
       issueIdentifier: input.issueIdentifier,
       runId: input.runId,
       workspaceKey: input.workspaceKey,

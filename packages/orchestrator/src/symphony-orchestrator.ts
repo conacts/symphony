@@ -304,7 +304,7 @@ export class SymphonyOrchestrator {
       })) ?? null;
 
     const workspaceContext: WorkspaceContext = {
-      issueId: preparedIssue.id,
+      trackerIssueId: preparedIssue.id,
       issueIdentifier: preparedIssue.identifier
     };
     (workspaceContext as WorkspaceContext & { repositoryKey?: string | null }).repositoryKey =
@@ -566,7 +566,7 @@ export class SymphonyOrchestrator {
 
     if (runningEntry.workspace) {
       const afterRunContext: WorkspaceContext = {
-        issueId,
+        trackerIssueId: issueId,
         issueIdentifier: runningEntry.issue.identifier
       };
       (afterRunContext as WorkspaceContext & { repositoryKey?: string | null }).repositoryKey =

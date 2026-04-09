@@ -285,15 +285,17 @@ async function executeRun(input: {
         FORCE_COLOR: "0",
         CLICOLOR: "0",
         CLICOLOR_FORCE: "0",
+        ...input.workspace.envBundle.values,
+        ...input.harnessLaunchEnv,
         SYMPHONY_API_BASE_URL:
           input.apiPort !== undefined
             ? buildRuntimeApiBaseUrl(input.launchTarget, input.apiPort)
             : "",
         SYMPHONY_REPOSITORY_KEY: repositoryKey,
-        SYMPHONY_ISSUE_ID: input.issue.id,
+        SYMPHONY_ISSUE_IDENTIFIER: input.issue.identifier,
+        SYMPHONY_TRACKER_ISSUE_ID: input.issue.id,
         SYMPHONY_ISSUE_STATE: input.issue.state ?? "",
-        ...input.workspace.envBundle.values,
-        ...input.harnessLaunchEnv
+        ...(input.runId ? { SYMPHONY_RUN_ID: input.runId } : {}),
       },
       hostCommandEnvSource: input.hostCommandEnvSource,
       runtimePolicy: input.runtimePolicy,

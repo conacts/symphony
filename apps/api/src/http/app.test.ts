@@ -479,7 +479,7 @@ describe("@symphony/api app", () => {
           runId: "run-123",
           turnId: "turn-123",
           issue: {
-            id: "issue-123",
+            trackerIssueId: "issue-123",
             identifier: "COL-123",
             state: "In Progress"
           },
@@ -511,7 +511,7 @@ describe("@symphony/api app", () => {
           runId: "run-123",
           turnId: "turn-123",
           issue: {
-            id: "issue-123",
+            trackerIssueId: "issue-123",
             identifier: "COL-123",
             state: "In Progress"
           },
@@ -544,7 +544,7 @@ describe("@symphony/api app", () => {
           runId: "run-123",
           turnId: "turn-123",
           issue: {
-            id: "issue-123",
+            trackerIssueId: "issue-123",
             identifier: "COL-123",
             state: "In Progress"
           },
@@ -575,7 +575,7 @@ describe("@symphony/api app", () => {
           runId: "run-123",
           turnId: "turn-123",
           issue: {
-            id: "issue-123",
+            trackerIssueId: "issue-123",
             identifier: "COL-123",
             state: "In Progress"
           },

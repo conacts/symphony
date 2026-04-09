@@ -23,7 +23,7 @@ export type SymphonyCliRuntimeContext = {
   trackerConfig: SymphonyTrackerConfig;
   runId: string;
   issue: {
-    id: string;
+    trackerIssueId: string;
     identifier: string;
     state: string | null;
   };
@@ -33,7 +33,7 @@ export type SymphonyCliRuntimeContext = {
 export type SymphonyCliCommandContext = {
   runId: string;
   issue: {
-    id: string;
+    trackerIssueId: string;
     identifier: string;
     state: string | null;
   };
@@ -123,12 +123,12 @@ function buildCliTrackerConfig(
 }
 
 function readCliIssueContext(env: Record<string, string | undefined>): {
-  id: string;
+  trackerIssueId: string;
   identifier: string;
   state: string | null;
 } {
   return {
-    id: readRequired(env, "SYMPHONY_ISSUE_ID"),
+    trackerIssueId: readRequired(env, "SYMPHONY_TRACKER_ISSUE_ID"),
     identifier: readRequired(env, "SYMPHONY_ISSUE_IDENTIFIER"),
     state: readOptional(env, "SYMPHONY_ISSUE_STATE")
   };

@@ -108,7 +108,7 @@ describe("docker workspace backend", () => {
 
     await backend.prepareWorkspace({
       context: {
-        issueId: "issue-auth-200",
+        trackerIssueId: "issue-auth-200",
         issueIdentifier: "COL/200"
       },
       config: config.workspace,
@@ -203,7 +203,7 @@ describe("docker workspace backend", () => {
 
     const first = await backend.prepareWorkspace({
       context: {
-        issueId: "issue-200",
+        trackerIssueId: "issue-200",
         issueIdentifier: "COL/200"
       },
       config: config.workspace,
@@ -211,7 +211,7 @@ describe("docker workspace backend", () => {
     });
     const second = await backend.prepareWorkspace({
       context: {
-        issueId: "issue-200",
+        trackerIssueId: "issue-200",
         issueIdentifier: "COL/200"
       },
       config: config.workspace,
@@ -276,7 +276,7 @@ describe("docker workspace backend", () => {
         "--env",
         "SYMPHONY_ISSUE_IDENTIFIER=COL/200",
         "--env",
-        "SYMPHONY_ISSUE_ID=issue-200",
+        "SYMPHONY_TRACKER_ISSUE_ID=issue-200",
         "--workdir",
         "/workspace",
         firstTarget.containerName ?? "",
@@ -370,7 +370,7 @@ describe("docker workspace backend", () => {
 
     const workspace = await backend.prepareWorkspace({
       context: {
-        issueId: "issue-sym-1",
+        trackerIssueId: "issue-sym-1",
         issueIdentifier: "SYM-1"
       },
       config: config.workspace,
@@ -455,7 +455,7 @@ describe("docker workspace backend", () => {
 
     await backend.prepareWorkspace({
       context: {
-        issueId: "issue-201",
+        trackerIssueId: "issue-201",
         issueIdentifier: "COL-201",
         branchName: "feature/demo"
       },
@@ -567,7 +567,7 @@ describe("docker workspace backend", () => {
 
     const workspace = await backend.prepareWorkspace({
       context: {
-        issueId: "issue-207",
+        trackerIssueId: "issue-207",
         issueIdentifier: "COL-207"
       },
       config: config.workspace,
@@ -769,7 +769,7 @@ describe("docker workspace backend", () => {
 
     const workspace = await backend.prepareWorkspace({
       context: {
-        issueId: "issue-201",
+        trackerIssueId: "issue-201",
         issueIdentifier: "COL-201"
       },
       config: config.workspace,
@@ -818,7 +818,7 @@ describe("docker workspace backend", () => {
       backend.runBeforeRun({
         workspace,
         context: {
-          issueId: "issue-202",
+          trackerIssueId: "issue-202",
           issueIdentifier: "COL-202"
         },
         hooks,
@@ -833,7 +833,7 @@ describe("docker workspace backend", () => {
       backend.runAfterRun({
         workspace,
         context: {
-          issueId: "issue-202",
+          trackerIssueId: "issue-202",
           issueIdentifier: "COL-202"
         },
         hooks,
@@ -1313,7 +1313,7 @@ describe("docker workspace backend", () => {
 
     const workspace = await backend.prepareWorkspace({
       context: {
-        issueId: "issue-401",
+        trackerIssueId: "issue-401",
         issueIdentifier: "COL-401"
       },
       runId: "run-401",
@@ -1406,14 +1406,14 @@ describe("docker workspace backend", () => {
     });
 
     const first = await backend.prepareWorkspace({
-      context: { issueId: "issue-511", issueIdentifier: "COL-511" },
+      context: { trackerIssueId: "issue-511", issueIdentifier: "COL-511" },
       runId: "run-511a",
       config: buildWorkspaceTestConfig({ workspace: { root } }).workspace,
       hooks: buildWorkspaceTestConfig().hooks,
       env: { OPENAI_API_KEY: "test-openai-key", GITHUB_TOKEN: "test-github-token" }
     });
     const second = await backend.prepareWorkspace({
-      context: { issueId: "issue-511", issueIdentifier: "COL-511" },
+      context: { trackerIssueId: "issue-511", issueIdentifier: "COL-511" },
       runId: "run-511b",
       config: buildWorkspaceTestConfig({ workspace: { root } }).workspace,
       hooks: buildWorkspaceTestConfig().hooks,
@@ -1461,7 +1461,7 @@ describe("docker workspace backend", () => {
     });
 
     await backend.prepareWorkspace({
-      context: { issueId: "issue-512", issueIdentifier: "COL-512" },
+      context: { trackerIssueId: "issue-512", issueIdentifier: "COL-512" },
       runId: "run-512",
       config: config.workspace,
       hooks: config.hooks,
@@ -1517,7 +1517,7 @@ describe("docker workspace backend", () => {
 
     await expect(
       backend.prepareWorkspace({
-        context: { issueId: "issue-512", issueIdentifier: "COL-512" },
+        context: { trackerIssueId: "issue-512", issueIdentifier: "COL-512" },
         runId: "run-512",
         config: buildWorkspaceTestConfig({ workspace: { root } }).workspace,
         hooks: buildWorkspaceTestConfig().hooks,
@@ -1550,7 +1550,7 @@ describe("docker workspace backend", () => {
 
     await expect(
       backend.prepareWorkspace({
-        context: { issueId: "issue-513", issueIdentifier: "COL-513" },
+        context: { trackerIssueId: "issue-513", issueIdentifier: "COL-513" },
         config: buildWorkspaceTestConfig({ workspace: { root } }).workspace,
         hooks: buildWorkspaceTestConfig().hooks,
         env: { OPENAI_API_KEY: "test-openai-key" }
@@ -1573,7 +1573,7 @@ describe("docker workspace backend", () => {
       commandRunner: mock.runner
     });
     const workspace = await backend.prepareWorkspace({
-      context: { issueId: "issue-514", issueIdentifier: "COL-514" },
+      context: { trackerIssueId: "issue-514", issueIdentifier: "COL-514" },
       runId: "run-514",
       config: buildWorkspaceTestConfig({ workspace: { root } }).workspace,
       hooks: buildWorkspaceTestConfig().hooks,
@@ -1608,7 +1608,7 @@ describe("docker workspace backend", () => {
       commandRunner: mock.runner
     });
     const workspace = await backend.prepareWorkspace({
-      context: { issueId: "issue-515", issueIdentifier: "COL-515" },
+      context: { trackerIssueId: "issue-515", issueIdentifier: "COL-515" },
       runId: "run-515",
       config: buildWorkspaceTestConfig({ workspace: { root } }).workspace,
       hooks: buildWorkspaceTestConfig().hooks,
@@ -1787,7 +1787,7 @@ describe("docker workspace backend", () => {
 
     await backend.prepareWorkspace({
       context: {
-        issueId: "issue-501b",
+        trackerIssueId: "issue-501b",
         issueIdentifier: "COL-501B"
       },
       runId: "run-501b",
@@ -1939,7 +1939,7 @@ describe("docker workspace backend", () => {
     await expect(
       backend.prepareWorkspace({
         context: {
-          issueId: "issue-504",
+          trackerIssueId: "issue-504",
           issueIdentifier: "COL-504"
         },
         runId: "run-504",
@@ -2074,7 +2074,7 @@ describe("docker workspace backend", () => {
     await expect(
       backend.prepareWorkspace({
         context: {
-          issueId: "issue-505",
+          trackerIssueId: "issue-505",
           issueIdentifier: "COL-505"
         },
         runId: "run-505",
@@ -2189,7 +2189,7 @@ describe("docker workspace backend", () => {
     await expect(
       backend.prepareWorkspace({
         context: {
-          issueId: "issue-304",
+          trackerIssueId: "issue-304",
           issueIdentifier: "COL-304"
         },
         config: config.workspace,

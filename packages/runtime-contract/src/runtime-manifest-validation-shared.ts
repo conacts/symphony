@@ -83,7 +83,7 @@ export const serviceBindingValues = new Set<SymphonyRuntimeServiceBindingValue>(
 ]);
 
 export const runtimeBindingValues = new Set<SymphonyRuntimeBindingValue>([
-  "issueId",
+  "trackerIssueId",
   "issueIdentifier",
   "runId",
   "workspaceKey",

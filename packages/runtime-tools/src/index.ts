@@ -80,7 +80,7 @@ export async function executeDeliveryReportTool(
     tracker: SymphonyTracker;
     deliveryReports: SymphonyIssueDeliveryReportStore;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state?: string | null;
     };
@@ -159,7 +159,7 @@ export async function executeSpikeResultTool(
   executionContext: {
     tracker: SymphonyTracker;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state?: string | null;
     };
@@ -188,7 +188,10 @@ export async function executeSpikeResultTool(
       summary: spikeArguments.summary,
       details: spikeArguments.details
     });
-    await executionContext.tracker.createComment(executionContext.issue.id, commentBody);
+    await executionContext.tracker.createComment(
+      executionContext.issue.trackerIssueId,
+      commentBody
+    );
 
     const issueStateTransition = await transitionIssueStateIfNeeded(
       executionContext,
@@ -213,7 +216,7 @@ export async function executeCancelTool(
   executionContext: {
     tracker: SymphonyTracker;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state?: string | null;
     };
@@ -233,7 +236,7 @@ export async function executeCancelTool(
 
   try {
     await executionContext.tracker.createComment(
-      executionContext.issue.id,
+      executionContext.issue.trackerIssueId,
       renderCancelComment({
         reason: cancelArguments.reason
       })
@@ -263,7 +266,7 @@ export async function executeMergeResultTool(
     tracker: SymphonyTracker;
     issueTimelineStore: SymphonyIssueTimelineStore;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state?: string | null;
     };
@@ -298,7 +301,7 @@ export async function executeMergeResultTool(
     };
 
     await executionContext.tracker.createComment(
-      executionContext.issue.id,
+      executionContext.issue.trackerIssueId,
       renderMergeResultComment(mergeResult)
     );
     await executionContext.issueTimelineStore.record({
@@ -559,7 +562,7 @@ async function transitionDeliveryIssueStateIfNeeded(
   executionContext: {
     tracker: SymphonyTracker;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state?: string | null;
     };
@@ -604,7 +607,7 @@ async function transitionIssueStateIfNeeded(
   executionContext: {
     tracker: SymphonyTracker;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state?: string | null;
     };
@@ -621,7 +624,10 @@ async function transitionIssueStateIfNeeded(
   }
 
   try {
-    await executionContext.tracker.updateIssueState(executionContext.issue.id, targetState);
+    await executionContext.tracker.updateIssueState(
+      executionContext.issue.trackerIssueId,
+      targetState
+    );
     return {
       attempted: true,
       targetState,
