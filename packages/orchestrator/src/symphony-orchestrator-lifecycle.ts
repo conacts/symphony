@@ -222,7 +222,7 @@ export async function handleStartupFailure(input: {
     observer: input.observer,
     issue: input.issue,
     reason: input.reason,
-    outcome: targetState ? "startup_failed_backlog" : "startup_failed",
+    outcome: "startup_failed",
     runId: input.runId,
     options: {
       startupFailureTransition: transition

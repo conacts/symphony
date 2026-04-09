@@ -65,7 +65,7 @@ function truncateReason(reason: string, maxLength = 1_000): string {
 }
 
 function failureCommentTitle(outcome: string, reason: string): string {
-  if (outcome === "startup_failed" || outcome === "startup_failed_backlog") {
+  if (outcome === "startup_failed") {
     return "Symphony agent startup failed.";
   }
 
@@ -186,7 +186,7 @@ function failureCommentFollowUpLines(
   outcome: string,
   transition: SymphonyStartupFailureTransition | undefined
 ): string[] {
-  if (outcome === "startup_failed" || outcome === "startup_failed_backlog") {
+  if (outcome === "startup_failed") {
     return startupFailureFollowUpLines(transition);
   }
 

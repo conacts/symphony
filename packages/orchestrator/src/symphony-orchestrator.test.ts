@@ -293,7 +293,7 @@ describe("symphony orchestrator", () => {
           ...buildSymphonyOrchestratorConfig().tracker,
           claimTransitionToState: null,
           claimTransitionFromStates: [],
-          startupFailureTransitionToState: "Backlog"
+          startupFailureTransitionToState: "Failed"
         }
       });
       const issue = buildSymphonyTrackerIssue({
@@ -371,7 +371,7 @@ describe("symphony orchestrator", () => {
       expect(tracker.listOperations()).toContainEqual({
         kind: "update_state",
         issueId: issue.id,
-        stateName: "Backlog"
+        stateName: "Failed"
       });
     }
   );
@@ -1188,7 +1188,7 @@ describe("symphony orchestrator", () => {
         ...buildSymphonyOrchestratorConfig().tracker,
         claimTransitionToState: null,
         claimTransitionFromStates: [],
-        startupFailureTransitionToState: "Backlog"
+        startupFailureTransitionToState: "Failed"
       }
     });
     const issue = buildSymphonyTrackerIssue({
@@ -1225,7 +1225,7 @@ describe("symphony orchestrator", () => {
     expect(tracker.listOperations()).toContainEqual({
       kind: "update_state",
       issueId: "issue-123",
-      stateName: "Backlog"
+      stateName: "Failed"
     });
     expect(tracker.listOperations()).toContainEqual({
       kind: "comment",
@@ -1235,7 +1235,7 @@ describe("symphony orchestrator", () => {
     expect(tracker.listOperations()).toContainEqual({
       kind: "comment",
       issueId: "issue-123",
-      body: expect.stringContaining("Symphony moved the issue to `Backlog`.")
+      body: expect.stringContaining("Symphony moved the issue to `Failed`.")
     });
   });
 
@@ -1245,7 +1245,7 @@ describe("symphony orchestrator", () => {
         ...buildSymphonyOrchestratorConfig().tracker,
         claimTransitionToState: null,
         claimTransitionFromStates: [],
-        startupFailureTransitionToState: "Backlog"
+        startupFailureTransitionToState: "Failed"
       }
     });
     const issue = buildSymphonyTrackerIssue({
@@ -1302,7 +1302,7 @@ describe("symphony orchestrator", () => {
         ...buildSymphonyOrchestratorConfig().tracker,
         claimTransitionToState: null,
         claimTransitionFromStates: [],
-        startupFailureTransitionToState: "Backlog"
+        startupFailureTransitionToState: "Failed"
       }
     });
     const issue = buildSymphonyTrackerIssue({
@@ -1358,7 +1358,7 @@ describe("symphony orchestrator", () => {
     });
 
     expect(comments[0]).toContain(
-      "Symphony could not move the issue to `Backlog`, so manual state cleanup is required before the ticket is requeued."
+      "Symphony could not move the issue to `Failed`, so manual state cleanup is required before the ticket is requeued."
     );
   });
 
@@ -1474,7 +1474,7 @@ describe("symphony orchestrator", () => {
       expect(harness.stoppedIssueIds).toEqual([]);
     });
 
-    it("moves Bootstrapping startup failures back to Backlog", async () => {
+    it("moves Bootstrapping startup failures into Failed", async () => {
       const harness = createFlowHarness({
         issue: {
           state: "Bootstrapping"
@@ -1496,11 +1496,11 @@ describe("symphony orchestrator", () => {
         launchTarget: null
       });
 
-      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Backlog");
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Failed");
       expect(harness.tracker.listOperations()).toContainEqual({
         kind: "update_state",
         issueId: harness.issue.id,
-        stateName: "Backlog"
+        stateName: "Failed"
       });
       expect(harness.lifecycleEvents).toContain("runtime_startup_failed");
       expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");

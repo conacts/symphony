@@ -102,7 +102,6 @@ const labelOverrides = new Map<string, string>([
   ["run_stopped_terminal", "Stopped by operator"],
   ["run_stopped_inactive", "Stopped after inactivity"],
   ["startup_failed", "Startup failed"],
-  ["startup_failed_backlog", "Startup failed in backlog"],
   ["max_turns", "Max turns reached"],
   ["max_turns_reached", "Max turns reached"],
   ["paused_max_turns", "Paused at max turns"],

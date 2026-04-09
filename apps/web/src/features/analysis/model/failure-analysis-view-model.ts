@@ -440,7 +440,6 @@ function classifyFailureType(
 
   if (
     outcome === "startup_failed" ||
-    outcome === "startup_failed_backlog" ||
     failureKind === "startup_failure" ||
     errorClass?.includes("startup_failure") === true
   ) {
