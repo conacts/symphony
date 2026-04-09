@@ -31,6 +31,9 @@ importers:
 
   .:
     devDependencies:
+      '@symphony/cli':
+        specifier: workspace:*
+        version: link:apps/cli
       '@symphony/runtime-contract':
         specifier: workspace:*
         version: link:packages/runtime-contract
@@ -503,6 +506,9 @@ importers:
 
   packages/github-review:
     dependencies:
+      '@symphony/runtime-contract':
+        specifier: workspace:*
+        version: link:../runtime-contract
       '@symphony/tracker':
         specifier: workspace:*
         version: link:../tracker

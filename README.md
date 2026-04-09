@@ -2,28 +2,13 @@
 
 Symphony is a single-host control plane for Linear-driven coding-agent orchestration.
 
-This directory now exists to hold the product specification, durable templates, and architecture
-notes that explain the platform shape. It does not carry a second runtime implementation.
+The durable product and contract docs live in a small set of canonical locations:
 
-## Active Product Shape
-
-- Docker-only issue execution
-- admitted repo contract: `.symphony/runtime.ts` plus `.symphony/prompt.md`
-- one runtime process can admit multiple repositories
-- `repositoryKey` in `.symphony/runtime.ts` is the canonical repo identity
-- each repo manifest also declares its Linear binding
-- one active run per Linear issue
-- prompt rendering in memory from repo-owned template plus platform-provided variables
-- fail-fast admission, dispatch, and startup behavior
-
-## Where To Start
-
-- product specification: [`SPEC.md`](symphony/SPEC.md)
-- repo contract handoff: [`docs/repo-integration-handoff.md`](docs/repo-integration-handoff.md)
-- runtime manifest details:
-  [`docs/architecture/runtime-manifest-contract.md`](docs/architecture/runtime-manifest-contract.md)
-- operator/runtime setup:
-  [`docs/architecture/symphony-runtime-operations.md`](docs/architecture/symphony-runtime-operations.md)
+- product shape: [`symphony/SPEC.md`](symphony/SPEC.md)
+- repo contract authoring: [`packages/runtime-contract/README.md`](packages/runtime-contract/README.md)
+- operator/runtime setup: [`docs/architecture/symphony-runtime-operations.md`](docs/architecture/symphony-runtime-operations.md)
+- accepted decisions: [`docs/adr/`](docs/adr/)
+- docs index and category rules: [`docs/README.md`](docs/README.md)
 
 ## Local Self-Host
 
@@ -43,32 +28,6 @@ points the dashboard at the local API on `http://127.0.0.1:4400`. That avoids st
 accidentally booting Symphony against some other admitted repository. It also checks required env
 up front and refreshes the local workspace-runner image with normal Docker layer caching before
 startup.
-
-## Repo Routing
-
-Symphony now uses a simple repo-routing convention:
-
-- every admitted repo must declare `repositoryKey` in `.symphony/runtime.ts`
-- `repositoryKey` must use `<owner>/<repo>` format, for example `conacts/symphony`
-- every admitted repo must declare its Linear binding in `.symphony/runtime.ts`
-- the preferred shape is one Linear workspace with repo separation by team
-- use `linear.teamKey` for repo routing when repos share one workspace
-- use shared `LINEAR_API_KEY`
-- the runtime admits one or more repo roots from `SYMPHONY_SOURCE_REPOS`
-- GitHub review webhooks route by `repository.full_name`
-- issue dispatch resolves from the admitted repo's Linear binding first and uses
-  `repo:<owner>/<repo>` only as an explicit override/validation label
-- the repo picker shows the admitted repo key and its Linear scope in the header
-
-That keeps repo separation explicit without adding project-level tenancy or extra control-plane
-concepts, while keeping shared Linear auth as the normal path.
-
-Current intended team mapping:
-
-- `conacts/symphony` -> `SYM`
-- `conacts/coldets-v2` -> `COL`
-
-Projects can span both teams. Team selects the repo. Project does not.
 
 `pnpm dev:self` remains as an alias.
 

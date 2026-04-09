@@ -36,6 +36,10 @@ export function defaultSymphonyRuntimeContractPaths(repoRoot = process.cwd()): {
   };
 }
 
+/**
+ * Load both required repo contract files and return the normalized runtime manifest plus validated
+ * prompt template.
+ */
 export async function loadSymphonyRuntimeContract(
   input: string | SymphonyRuntimeContractLoadOptions
 ): Promise<SymphonyLoadedRuntimeContract> {

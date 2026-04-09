@@ -4,25 +4,16 @@ Date: 2026-04-03
 
 ## Purpose
 
-Describe the active runtime and operator setup for this repository's Symphony control plane.
+Describe the active operator setup for this repository's Symphony control plane.
 
-This document replaces the older evaluation/parity setup story.
+This document is intentionally operational. Live contract details live with code in
+`packages/runtime-contract`, and durable workflow decisions live in `docs/adr/`.
 
-## Current Product Contract
+## Canonical References
 
-- Docker-only issue execution
-- admitted repos must provide `.symphony/runtime.ts` and `.symphony/prompt.md`
-- admitted repos must declare `repositoryKey` in `.symphony/runtime.ts`
-- one runtime process may admit multiple repositories
-- one active run per Linear issue
-- one durable workspace per Linear issue
-- prompt rendering happens in memory
-- agent turns run through the Codex TypeScript SDK over `codex exec --experimental-json`
-- typed turn artifacts are captured from the SDK stream instead of raw transport blobs
-- platform-owned pre-agent failures move issues to `Failed`
-- platform/provider interruptions move issues to `Paused`
-- there are no hidden retries
-- workspace reuse is the default; reset is explicit
+- Product shape: [`../../symphony/SPEC.md`](../../symphony/SPEC.md)
+- Repo contract authoring: [`../../packages/runtime-contract/README.md`](../../packages/runtime-contract/README.md)
+- Accepted decisions: [`../adr`](../adr)
 
 ## Local Runtime Startup
 
@@ -100,18 +91,15 @@ loginctl enable-linger "$USER"
 
 ## Admitted Repo Expectations
 
-The admitted repository must provide:
+The admitted repository contract is defined in
+[`../../packages/runtime-contract/README.md`](../../packages/runtime-contract/README.md).
 
-- `.symphony/runtime.ts`
-- `.symphony/prompt.md`
+At the operator level, the important constraints are:
 
-The repo contract must be explicit:
-
-- `repositoryKey` is required and must use `<owner>/<repo>` format
-- lifecycle commands are stable repo commands
-- lifecycle consumes injected process env only
-- required secret-bearing values are not written into repo files by default
-- `.symphony/` contains static contract artifacts, not generated secret-bearing state
+- every admitted repo must provide `.symphony/runtime.ts` and `.symphony/prompt.md`
+- `repositoryKey` is the canonical admitted-repo identity
+- `linear.teamKey` is the repo's default issue-routing binding
+- lifecycle commands are repo-owned commands run inside the prepared workspace
 
 ## Team Mapping
 
@@ -145,30 +133,6 @@ Use this routing model consistently:
 - if no `repo:` label is present, Symphony dispatches from the repo's Linear binding
 - the UI repo picker is repository-only; Linear project is not part of routing identity
 
-Example:
-
-- admitted repos: `conacts/symphony`, `conacts/coldets-v2`
-- default admitted repo: `conacts/symphony`
-- team mapping: `SYM -> conacts/symphony`, `COL -> conacts/coldets-v2`
-- issue label `repo:conacts/coldets-v2` routes the issue into the Coldets repo
-- GitHub webhook repository `conacts/coldets-v2` verifies against that repo's secret and rework flow
-  stays attached to that repo's runs and timeline entries
-
-## Lifecycle Expectations
-
-- Symphony installs repo dependencies before `bootstrap` when the manifest does not already do it
-- `bootstrap` prepares repo-local runtime assumptions
-- `migrate` applies deterministic repo-owned setup against declared services
-- `verify` proves the environment is usable with a narrow, deterministic proof
-- `runtime:doctor` validates the contract in redacted, non-dispatch form
-
-The platform is not responsible for making repo-internal code quality perfect. It is responsible
-for making the isolated environment explicit, valid, and usable.
-
-The Docker workspace runtime also applies a conservative default `NODE_OPTIONS` heap cap when the
-repo or operator does not provide one. This keeps bootstrap/build flows stable on resource-limited
-local Docker setups without forcing each admitted repo to rediscover the same memory ceiling.
-
 ## Codex Transport
 
 The control plane now treats the Codex CLI as the canonical execution surface.
@@ -185,21 +149,24 @@ This is a better fit for the product because the SDK event model is closer to th
 we want to reconstruct: what the agent thought, what it executed, what files it touched, and why it
 stopped.
 
-For this repository, the durable orchestration rules are:
+## Run Behavior
 
-- the issue workspace survives across runs by default
-- unstaged changes, staged changes, local commits, and service data survive across runs
-- hot compute may stop when a run ends in `Paused`, `Failed`, `Blocked`, or `In Review`
-- `Done` and `Canceled` eagerly tear the workspace down only after final artifact capture
+- workspaces are preserved across `In Review`, `Blocked`, `Paused`, and `Failed` unless an explicit reset is required
+- `Done` and `Canceled` destroy the workspace after final artifact capture
+- implementation and rework runs must report completion through `pnpm exec symphony tool finish ...`
+- approved merge runs must report completion through `pnpm exec symphony tool merge-result ...`
+- merge success ends in `Done`; blocked merge automation ends in `Blocked`
 
 ## State Semantics
 
-Use `Todo`, `Bootstrapping`, `In Progress`, `Rework`, and `Approved` for active work.
+- `Bootstrapping` is runtime-owned setup before normal work
+- `Paused` is a platform/provider interruption
+- `Failed` is a platform-owned refusal or setup failure
+- `Blocked` is a repo/agent-owned stop, including blocked merge outcomes
+- `Approved` is merge-only execution
 
-Use `In Review`, `Blocked`, `Paused`, and `Failed` as non-dispatch parking states.
-
-Use `Done` and `Canceled` as terminal states. Terminal states are final for workspace cleanup and
-fresh-run eligibility.
+The accepted state and run-mode contract lives in
+[`../adr/2026-04-08-run-mode-and-issue-state-contract.md`](../adr/2026-04-08-run-mode-and-issue-state-contract.md).
 
 ## Dashboard Scope
 

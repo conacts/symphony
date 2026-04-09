@@ -44,6 +44,10 @@ import {
 export { defineSymphonyRuntime } from "./runtime-manifest-validation-branding.js";
 export { extractDefinedRuntimeManifest } from "./runtime-manifest-validation-export.js";
 
+/**
+ * Validate and normalize the repo-owned `.symphony/runtime.ts` contract into the live shape used by
+ * the runtime.
+ */
 export function normalizeSymphonyRuntimeManifest(
   input: unknown,
   options: SymphonyRuntimeManifestValidationOptions = {}
