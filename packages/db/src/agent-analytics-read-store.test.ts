@@ -383,6 +383,96 @@ describe("sqlite agent analytics read store", () => {
     }
   });
 
+  it("uses canonical runtime runs as artifact parents when shadow run rows are absent", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-parent-read-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const readStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runStore.recordRunStarted({
+        runId: "run-runtime-parent",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-runtime-parent",
+        issueIdentifier: "COL-201",
+        runMode: "implementation",
+        startedAt: "2026-04-09T12:00:00.000Z",
+        status: "running"
+      });
+      await runStore.recordTurnStarted(runId, {
+        turnId: "turn-runtime-parent",
+        turnSequence: 1,
+        promptText: "Inspect runtime-only artifact reads.",
+        status: "running",
+        startedAt: "2026-04-09T12:00:01.000Z",
+        threadId: "thread-runtime-parent"
+      });
+      await runStore.upsertRunContext(runId, {
+        harnessKind: "pi",
+        threadId: "thread-runtime-parent",
+        model: "gpt-5.4",
+        providerId: "openrouter",
+        providerName: "OpenRouter"
+      });
+
+      const artifacts = await readStore.fetchRunArtifacts(runId);
+      const turns = await readStore.listTurns(runId);
+
+      expect(artifacts?.run).toMatchObject({
+        runId,
+        trackerIssueId: "issue-runtime-parent",
+        issueIdentifier: "COL-201",
+        status: "running",
+        threadId: "thread-runtime-parent",
+        harnessKind: "pi",
+        model: "gpt-5.4",
+        providerId: "openrouter",
+        providerName: "OpenRouter",
+        turnCount: 1
+      });
+      expect(artifacts?.turns).toEqual([
+        expect.objectContaining({
+          turnId: "turn-runtime-parent",
+          runId,
+          threadId: "thread-runtime-parent",
+          status: "running",
+          harnessKind: "pi"
+        })
+      ]);
+      expect(artifacts?.items).toEqual([]);
+      expect(artifacts?.events).toEqual([]);
+      expect(artifacts?.turnActivities).toEqual([
+        expect.objectContaining({
+          turnId: "turn-runtime-parent",
+          status: "running",
+          messages: [],
+          reasoningBlocks: [],
+          fileChanges: [],
+          taskSnapshots: []
+        })
+      ]);
+      expect(turns).toEqual([
+        expect.objectContaining({
+          turnId: "turn-runtime-parent",
+          runId,
+          threadId: "thread-runtime-parent",
+          status: "running",
+          harnessKind: "pi"
+        })
+      ]);
+    } finally {
+      database.close();
+    }
+  });
+
   it("surfaces compact machine-load summaries on run summaries and run detail", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-machine-load-read-"));
     tempDirectories.push(root);

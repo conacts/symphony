@@ -76,6 +76,7 @@ import {
 type SymphonyDbShape = typeof import("./schema.js").symphonySchema;
 
 export interface AgentAnalyticsReadStore {
+  hasRun(runId: SymphonyAgentRunQuery["runId"]): Promise<boolean>;
   listRuns(opts?: SymphonyForensicsRunsQuery): Promise<SymphonyForensicsRunSummary[]>;
   listRunsForIssue(
     issueIdentifier: string,
@@ -120,6 +121,18 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
 
   constructor(db: BetterSQLite3Database<SymphonyDbShape>) {
     this.#db = db;
+  }
+
+  async hasRun(runId: SymphonyAgentRunQuery["runId"]): Promise<boolean> {
+    const row = await this.#db
+      .select({
+        runId: symphonyRunsTable.runId
+      })
+      .from(symphonyRunsTable)
+      .where(eq(symphonyRunsTable.runId, runId))
+      .get();
+
+    return row !== undefined;
   }
 
   async listRuns(
@@ -256,10 +269,10 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
           data.latestRunDelivery ?? undefined,
           data.runtimeContext
         ),
-        threadId: data.agentRun.threadId ?? data.runtimeContext.threadId ?? null,
+        threadId: data.agentRun?.threadId ?? data.runtimeContext.threadId ?? null,
         processId: data.runtimeContext.processId,
-        providerId: data.agentRun.providerId ?? data.runtimeContext.providerId,
-        providerName: data.agentRun.providerName ?? data.runtimeContext.providerName,
+        providerId: data.agentRun?.providerId ?? data.runtimeContext.providerId,
+        providerName: data.agentRun?.providerName ?? data.runtimeContext.providerName,
         reasoningEffort: data.runtimeContext.reasoningEffort,
         profile: data.runtimeContext.profile,
         authMode:
@@ -295,9 +308,11 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
       return null;
     }
 
+    const turns = buildAgentArtifactTurnRecords(data);
+
     return {
-      run: mapAgentRunRecord(data.agentRun, data.symphonyTurns),
-      turns: mapAgentTurnRecords(data.agentTurns, data.symphonyTurns),
+      run: buildAgentArtifactRunRecord(data, turns),
+      turns,
       items: data.itemRows.map(mapAgentItemRecord),
       commandExecutions: data.commandRows.map(mapAgentCommandExecutionRecord),
       toolCalls: mapAgentToolCallRecords(data),
@@ -319,7 +334,7 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
         data.taskSnapshotItemRows
       ),
       turnActivities: mapAgentTurnActivityRecords({
-        turnRows: data.agentTurns,
+        turns,
         agentMessageRows: data.agentMessageRows,
         reasoningRows: data.reasoningRows,
         piMessageEndMap: data.piMessageEndMap,
@@ -327,7 +342,13 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
         taskSnapshotRows: data.taskSnapshotRows,
         taskSnapshotItemRows: data.taskSnapshotItemRows
       }),
-      events: mapAgentEventRecords(data.eventRows, data.overflowMap, data.agentTurnMap, data.agentRun)
+      events: mapAgentEventRecords(
+        data.eventRows,
+        data.overflowMap,
+        data.agentTurnMap,
+        buildRuntimeTurnMap(data.symphonyTurns),
+        data.agentRun?.threadId ?? data.runtimeContext.threadId ?? null
+      )
     };
   }
 
@@ -350,22 +371,8 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
   }
 
   async listTurns(runId: SymphonyAgentRunQuery["runId"]): Promise<SymphonyAgentTurnRecord[]> {
-    const [rows, runtimeTurns] = await Promise.all([
-      this.#db
-        .select()
-        .from(symphonyAgentTurnsTable)
-        .where(eq(symphonyAgentTurnsTable.runId, runId))
-        .orderBy(asc(symphonyAgentTurnsTable.startedAt))
-        .all(),
-      this.#db
-        .select()
-        .from(symphonyTurnsTable)
-        .where(eq(symphonyTurnsTable.runId, runId))
-        .orderBy(asc(symphonyTurnsTable.turnSequence))
-        .all()
-    ]);
-
-    return mapAgentTurnRecords(rows, runtimeTurns);
+    const data = await loadRunData(this.#db, runId);
+    return data ? buildAgentArtifactTurnRecords(data) : [];
   }
 
   async listItems(input: SymphonyAgentRunTurnQuery): Promise<SymphonyAgentItemRecord[]> {
@@ -617,7 +624,7 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
     }
 
     const activities = mapAgentTurnActivityRecords({
-      turnRows: data.agentTurns,
+      turns: buildAgentArtifactTurnRecords(data),
       agentMessageRows: data.agentMessageRows,
       reasoningRows: data.reasoningRows,
       piMessageEndMap: data.piMessageEndMap,
@@ -680,7 +687,7 @@ function mapPersistedRunRecord(
 function buildForensicsRunSummary(
   issue: typeof symphonyIssuesTable.$inferSelect,
   run: PersistedRunRecord,
-  agentRun: typeof symphonyAgentRunsTable.$inferSelect | undefined,
+  agentRun: typeof symphonyAgentRunsTable.$inferSelect | null | undefined,
   runtimeTurns: Array<typeof symphonyTurnsTable.$inferSelect>,
   eventRows: SummaryEventRow[],
   deliveryReport: typeof symphonyIssueDeliveryReportsTable.$inferSelect | undefined,
@@ -1180,28 +1187,128 @@ function mapAgentTurnRecord(
   };
 }
 
-function mapAgentTurnRecords(
-  turns: Array<typeof symphonyAgentTurnsTable.$inferSelect>,
-  runtimeTurns: Array<typeof symphonyTurnsTable.$inferSelect> = []
-): SymphonyAgentTurnRecord[] {
-  const runtimeTurnMap = new Map(
-    runtimeTurns.map((turn) => [turn.turnId, turn] as const)
-  );
+function buildAgentArtifactRunRecord(
+  input: RunData,
+  turns: SymphonyAgentTurnRecord[]
+): SymphonyAgentRunRecord {
+  if (input.agentRun) {
+    return mapAgentRunRecord(input.agentRun, input.symphonyTurns);
+  }
 
-  return [...turns]
-    .sort((left, right) =>
-      compareNullableIso(
-        left.startedAt ??
-          runtimeTurnMap.get(left.turnId)?.startedAt ??
-          left.latestEventAt ??
-          left.insertedAt,
-        right.startedAt ??
-          runtimeTurnMap.get(right.turnId)?.startedAt ??
-          right.latestEventAt ??
-          right.insertedAt
-      )
-    )
+  const tokenTotals = computeRuntimeRunTokenTotals(input.symphonyTurns);
+  const latestEvent = input.eventRows.at(-1) ?? null;
+
+  return {
+    runId: input.run.runId,
+    threadId: input.runtimeContext.threadId,
+    harnessKind: input.runtimeContext.harness,
+    model: input.runtimeContext.model,
+    providerId: input.runtimeContext.providerId,
+    providerName: input.runtimeContext.providerName,
+    trackerIssueId: input.issue.trackerIssueId,
+    issueIdentifier: input.run.issueIdentifier,
+    startedAt: input.run.startedAt,
+    endedAt: input.run.endedAt,
+    status: normalizeAgentRunStatus(input.run.status),
+    failureKind: null,
+    failureOrigin: null,
+    failureMessagePreview: null,
+    finalTurnId: turns.at(-1)?.turnId ?? null,
+    lastAgentMessageItemId: null,
+    lastAgentMessagePreview: null,
+    lastAgentMessageOverflowId: null,
+    inputTokens: tokenTotals.inputTokens,
+    cachedInputTokens: tokenTotals.cachedInputTokens,
+    outputTokens: tokenTotals.outputTokens,
+    totalTokens:
+      tokenTotals.inputTokens +
+      tokenTotals.cachedInputTokens +
+      tokenTotals.outputTokens,
+    turnCount: turns.length,
+    itemCount: input.itemRows.length,
+    commandCount: input.commandRows.length,
+    toolCallCount: input.toolRows.length,
+    fileChangeCount: input.fileChangeRows.length,
+    agentMessageCount: input.agentMessageRows.length,
+    reasoningCount: input.reasoningRows.length,
+    errorCount: input.eventRows.filter((row) => row.eventType === "error").length,
+    latestEventAt: latestEvent?.recordedAt ?? null,
+    latestEventType: latestEvent?.eventType ?? null,
+    insertedAt: input.run.insertedAt,
+    updatedAt: input.run.updatedAt
+  };
+}
+
+function buildAgentArtifactTurnRecords(input: RunData): SymphonyAgentTurnRecord[] {
+  const runtimeTurnMap = buildRuntimeTurnMap(input.symphonyTurns);
+  const agentTurnMap = new Map(
+    input.agentTurns.map((turn) => [turn.turnId, turn] as const)
+  );
+  const runtimeTurnIds = new Set(input.symphonyTurns.map((turn) => turn.turnId));
+  const runtimeTurns = input.symphonyTurns.map((runtimeTurn) => {
+    const agentTurn = agentTurnMap.get(runtimeTurn.turnId);
+    return agentTurn
+      ? mapAgentTurnRecord(agentTurn, runtimeTurn)
+      : synthesizeAgentTurnRecord(input, runtimeTurn);
+  });
+  const projectionOnlyTurns = input.agentTurns
+    .filter((turn) => !runtimeTurnIds.has(turn.turnId))
     .map((turn) => mapAgentTurnRecord(turn, runtimeTurnMap.get(turn.turnId)));
+
+  return [...runtimeTurns, ...projectionOnlyTurns].sort((left, right) =>
+    compareNullableIso(
+      left.startedAt ?? left.latestEventAt ?? left.insertedAt,
+      right.startedAt ?? right.latestEventAt ?? right.insertedAt
+    )
+  );
+}
+
+function synthesizeAgentTurnRecord(
+  input: RunData,
+  runtimeTurn: typeof symphonyTurnsTable.$inferSelect
+): SymphonyAgentTurnRecord {
+  const usage = buildUsage(undefined, runtimeTurn.usage);
+  const latestEvent = latestTurnEventRow(input.eventRows, runtimeTurn.turnId);
+  const inputTokens = usage?.input_tokens ?? 0;
+  const cachedInputTokens = usage?.cached_input_tokens ?? 0;
+  const outputTokens = usage?.output_tokens ?? 0;
+
+  return {
+    turnId: runtimeTurn.turnId,
+    runId: runtimeTurn.runId,
+    threadId: runtimeTurn.threadId,
+    harnessKind: input.runtimeContext.harness,
+    model: input.runtimeContext.model,
+    providerId: input.runtimeContext.providerId,
+    providerName: input.runtimeContext.providerName,
+    startedAt: runtimeTurn.startedAt,
+    endedAt: runtimeTurn.endedAt,
+    status: normalizeAgentTurnStatus(runtimeTurn.status),
+    failureKind: null,
+    failureMessagePreview: null,
+    lastAgentMessageItemId: null,
+    lastAgentMessagePreview: null,
+    lastAgentMessageOverflowId: null,
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    totalTokens: inputTokens + cachedInputTokens + outputTokens,
+    usage,
+    itemCount: countRowsForTurn(input.itemRows, runtimeTurn.turnId),
+    commandCount: countRowsForTurn(input.commandRows, runtimeTurn.turnId),
+    toolCallCount: countRowsForTurn(input.toolRows, runtimeTurn.turnId),
+    fileChangeCount: countRowsForTurn(input.fileChangeRows, runtimeTurn.turnId),
+    agentMessageCount: countRowsForTurn(input.agentMessageRows, runtimeTurn.turnId),
+    reasoningCount: countRowsForTurn(input.reasoningRows, runtimeTurn.turnId),
+    errorCount: countRowsForTurn(
+      input.eventRows.filter((row) => row.eventType === "error"),
+      runtimeTurn.turnId
+    ),
+    latestEventAt: latestEvent?.recordedAt ?? null,
+    latestEventType: latestEvent?.eventType ?? null,
+    insertedAt: runtimeTurn.insertedAt,
+    updatedAt: runtimeTurn.updatedAt
+  };
 }
 
 function mapAgentItemRecord(
@@ -1566,7 +1673,7 @@ function mapAgentTaskSnapshotRecords(
 }
 
 function mapAgentTurnActivityRecords(input: {
-  turnRows: Array<typeof symphonyAgentTurnsTable.$inferSelect>;
+  turns: SymphonyAgentTurnRecord[];
   agentMessageRows: Array<typeof symphonyAgentMessagesTable.$inferSelect>;
   reasoningRows: Array<typeof symphonyAgentReasoningTable.$inferSelect>;
   piMessageEndMap: Map<string, typeof piMessageEndsTable.$inferSelect>;
@@ -1583,7 +1690,7 @@ function mapAgentTurnActivityRecords(input: {
   );
   const taskSnapshotsByTurn = groupRowsByTurnId(taskSnapshots);
 
-  return [...input.turnRows]
+  return [...input.turns]
     .sort((left, right) => compareNullableIso(left.startedAt, right.startedAt))
     .map((turn) => ({
       runId: turn.runId,
@@ -1632,7 +1739,8 @@ function mapAgentEventRecords(
   eventRows: Array<typeof symphonyAgentEventLogTable.$inferSelect>,
   overflowMap: Map<string, typeof symphonyAgentPayloadOverflowTable.$inferSelect>,
   agentTurnMap: Map<string, typeof symphonyAgentTurnsTable.$inferSelect>,
-  agentRun: typeof symphonyAgentRunsTable.$inferSelect
+  runtimeTurnMap: Map<string, typeof symphonyTurnsTable.$inferSelect>,
+  runThreadId: string | null
 ): SymphonyAgentEventRecord[] {
   return eventRows.flatMap((row) => {
     const payload = resolveEventPayload(row, overflowMap);
@@ -1644,11 +1752,14 @@ function mapAgentEventRecords(
     let inferredThreadId: string | null = row.threadId;
 
     if (inferredThreadId === null && row.turnId) {
-      inferredThreadId = agentTurnMap.get(row.turnId)?.threadId ?? null;
+      inferredThreadId =
+        agentTurnMap.get(row.turnId)?.threadId ??
+        runtimeTurnMap.get(row.turnId)?.threadId ??
+        null;
     }
 
     if (inferredThreadId === null) {
-      inferredThreadId = agentRun.threadId;
+      inferredThreadId = runThreadId;
     }
 
     return [{
@@ -1689,7 +1800,11 @@ function mapAgentOverflowRecord(
 function buildForensicsTurns(input: RunData): ForensicsTurn[] {
   const knownTurnIds = new Set(input.symphonyTurns.map((turn) => turn.turnId));
   const baseTurns = input.symphonyTurns.map((turn) =>
-    mapForensicsTurnRecord(turn, input.agentTurnMap.get(turn.turnId), input.agentRun.threadId ?? null)
+    mapForensicsTurnRecord(
+      turn,
+      input.agentTurnMap.get(turn.turnId),
+      input.agentRun?.threadId ?? input.runtimeContext.threadId ?? null
+    )
   );
   const maxTurnSequence = baseTurns.reduce(
     (max, turn) => Math.max(max, turn.turnSequence),
@@ -1826,8 +1941,11 @@ function buildForensicsEvents(input: {
   eventRows: Array<typeof symphonyAgentEventLogTable.$inferSelect>;
   overflowMap: Map<string, typeof symphonyAgentPayloadOverflowTable.$inferSelect>;
   agentTurnMap: Map<string, typeof symphonyAgentTurnsTable.$inferSelect>;
-  agentRun: typeof symphonyAgentRunsTable.$inferSelect;
+  runtimeTurns: Array<typeof symphonyTurnsTable.$inferSelect>;
+  runThreadId: string | null;
 }): ForensicsEvent[] {
+  const runtimeTurnMap = buildRuntimeTurnMap(input.runtimeTurns);
+
   return input.eventRows.flatMap((row) => {
     const payload = resolveEventPayload(row, input.overflowMap);
 
@@ -1838,7 +1956,8 @@ function buildForensicsEvents(input: {
     const threadId = requireForensicsThreadId(
       row.threadId ??
         input.agentTurnMap.get(row.turnId)?.threadId ??
-        input.agentRun.threadId ??
+        runtimeTurnMap.get(row.turnId)?.threadId ??
+        input.runThreadId ??
         null,
       `event ${row.id}`
     );
@@ -1876,7 +1995,7 @@ function requireForensicsThreadId(
 
 type RunData = {
   run: typeof symphonyRunsTable.$inferSelect;
-  agentRun: typeof symphonyAgentRunsTable.$inferSelect;
+  agentRun: typeof symphonyAgentRunsTable.$inferSelect | null;
   issue: typeof symphonyIssuesTable.$inferSelect;
   issueRuns: Array<typeof symphonyRunsTable.$inferSelect>;
   issueDeliveryRows: Array<typeof symphonyIssueDeliveryReportsTable.$inferSelect>;
@@ -1965,7 +2084,7 @@ async function loadRunData(
       db.select().from(symphonyRunRuntimeContextTable).where(eq(symphonyRunRuntimeContextTable.runId, runId)).get()
     ]);
 
-  if (!agentRun || !issue) {
+  if (!issue) {
     return null;
   }
 
@@ -2004,18 +2123,19 @@ async function loadRunData(
             asc(symphonyAgentTaskSnapshotItemsTable.position)
           )
           .all();
+  const runtimeContext = mapRuntimeRunContextRow(runtimeContextRow);
   const events = buildForensicsEvents({
     eventRows,
     overflowMap,
     agentTurnMap,
-    agentRun
+    runtimeTurns: symphonyTurns,
+    runThreadId: agentRun?.threadId ?? runtimeContext.threadId ?? null
   });
-  const runtimeContext = mapRuntimeRunContextRow(runtimeContextRow);
   const latestRunDelivery = issueDeliveryRows.find((row) => row.runId === runId) ?? null;
 
   return {
     run,
-    agentRun,
+    agentRun: agentRun ?? null,
     issue,
     issueRuns,
     issueDeliveryRows,
@@ -2043,4 +2163,24 @@ async function loadRunData(
     runtimeContext,
     events
   };
+}
+
+function buildRuntimeTurnMap(
+  turns: Array<typeof symphonyTurnsTable.$inferSelect>
+): Map<string, typeof symphonyTurnsTable.$inferSelect> {
+  return new Map(turns.map((turn) => [turn.turnId, turn] as const));
+}
+
+function latestTurnEventRow(
+  rows: Array<{ turnId: string | null; recordedAt: string; eventType: string }>,
+  turnId: string
+): { recordedAt: string; eventType: string } | null {
+  return rows.filter((row) => row.turnId === turnId).at(-1) ?? null;
+}
+
+function countRowsForTurn(
+  rows: Array<{ turnId: string | null }>,
+  turnId: string
+): number {
+  return rows.filter((row) => row.turnId === turnId).length;
 }

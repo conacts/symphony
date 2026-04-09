@@ -109,6 +109,9 @@ export type SymphonyRuntimeToolsPort = {
 };
 
 export type SymphonyAgentAnalyticsReadPort = {
+  hasRun(
+    runId: SymphonyAgentRunQuery["runId"]
+  ): Promise<boolean>;
   fetchRunArtifacts(
     runId: SymphonyAgentRunQuery["runId"]
   ): Promise<SymphonyAgentRunArtifactsResult | null>;

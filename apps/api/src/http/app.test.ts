@@ -8,6 +8,10 @@ import {
 } from "@symphony/test-support";
 import { runtimeReworkHandoffEventType } from "@symphony/runtime-contract";
 import type { MemorySymphonyTracker } from "@symphony/tracker";
+import {
+  createSqliteSymphonyRuntimeRunStore,
+  initializeSymphonyDb
+} from "@symphony/db";
 import { createSymphonyRuntimeApp } from "./app.js";
 import type { SymphonyRuntimeTestHarness } from "../test-support/create-symphony-runtime-test-harness.js";
 import {
@@ -364,6 +368,105 @@ describe("@symphony/api app", () => {
       expect(missingCodexArtifactsPayload.error.code).toBe("NOT_FOUND");
       expect(missingCodexOverflowResponse.status).toBe(404);
       expect(missingCodexOverflowPayload.error.code).toBe("NOT_FOUND");
+    });
+
+    it("uses canonical runtime runs as agent route parents when shadow rows are absent", async () => {
+      const servicesHarness = await createSymphonyRuntimeAppServicesHarness();
+      harnesses.push(servicesHarness);
+
+      const database = initializeSymphonyDb({
+        dbFile: servicesHarness.env.dbFile
+      });
+
+      try {
+        const runStore = createSqliteSymphonyRuntimeRunStore({
+          db: database.db
+        });
+        await runStore.recordRunStarted({
+          runId: "run-runtime-only",
+          repositoryKey: "openai/symphony",
+          trackerIssueId: "issue-runtime-only",
+          issueIdentifier: "COL-901",
+          runMode: "implementation",
+          startedAt: "2026-04-09T12:00:00.000Z",
+          status: "running"
+        });
+        await runStore.recordTurnStarted("run-runtime-only", {
+          turnId: "turn-runtime-only",
+          turnSequence: 1,
+          promptText: "Inspect runtime-only agent routes.",
+          status: "running",
+          startedAt: "2026-04-09T12:00:01.000Z",
+          threadId: "thread-runtime-only"
+        });
+        await runStore.upsertRunContext("run-runtime-only", {
+          harnessKind: "pi",
+          threadId: "thread-runtime-only"
+        });
+      } finally {
+        database.close();
+      }
+
+      const runtimeOnlyApp = createSymphonyRuntimeApp(servicesHarness.services);
+      const artifactsResponse = await runtimeOnlyApp.request(
+        "/api/v1/agent/runs/run-runtime-only/artifacts"
+      );
+      const turnsResponse = await runtimeOnlyApp.request(
+        "/api/v1/agent/runs/run-runtime-only/turns"
+      );
+      const missingTurnsResponse = await runtimeOnlyApp.request(
+        "/api/v1/agent/runs/run-missing/turns"
+      );
+      const artifactsPayload = await responseJson<{
+        data: {
+          run: {
+            runId: string;
+            threadId: string | null;
+          };
+          turns: Array<{
+            turnId: string;
+          }>;
+          items: unknown[];
+          events: unknown[];
+        };
+      }>(artifactsResponse);
+      const turnsPayload = await responseJson<{
+        data: {
+          runId: string;
+          turns: Array<{
+            turnId: string;
+            threadId: string | null;
+          }>;
+        };
+      }>(turnsResponse);
+      const missingTurnsPayload = await responseJson<{
+        error: {
+          code: string;
+        };
+      }>(missingTurnsResponse);
+
+      expect(artifactsResponse.status).toBe(200);
+      expect(artifactsPayload.data.run.runId).toBe("run-runtime-only");
+      expect(artifactsPayload.data.run.threadId).toBe("thread-runtime-only");
+      expect(artifactsPayload.data.turns).toEqual([
+        expect.objectContaining({
+          turnId: "turn-runtime-only"
+        })
+      ]);
+      expect(artifactsPayload.data.items).toEqual([]);
+      expect(artifactsPayload.data.events).toEqual([]);
+
+      expect(turnsResponse.status).toBe(200);
+      expect(turnsPayload.data.runId).toBe("run-runtime-only");
+      expect(turnsPayload.data.turns).toEqual([
+        expect.objectContaining({
+          turnId: "turn-runtime-only",
+          threadId: "thread-runtime-only"
+        })
+      ]);
+
+      expect(missingTurnsResponse.status).toBe(404);
+      expect(missingTurnsPayload.error.code).toBe("NOT_FOUND");
     });
 
     it("serves the internal runtime-tools finish route", async () => {
