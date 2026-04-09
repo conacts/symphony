@@ -33,7 +33,9 @@ describe("run turn detail view", () => {
     expect(html).toContain("Tool calls made");
     expect(html).toContain("pnpm lint");
     expect(html).toContain("pnpm test");
-    expect(html).toContain("Latest CPU peak");
+    expect(html).toContain("Peak CPU");
+    expect(html).toContain("Peak memory");
+    expect(html).toContain("Peak processes");
     expect(html).toContain("81%");
     expect(html).toContain("512 MB");
     expect(html).toContain("Reasoning");
@@ -45,6 +47,45 @@ describe("run turn detail view", () => {
     expect(html).not.toContain("Turn transcript");
     expect(html).not.toContain("Single-turn drilldown");
     expect(html).not.toContain("Total 240");
+  });
+
+  it("shows an empty resource state when commands have no sampled profiles", () => {
+    const runArtifacts = buildSymphonyAgentRunArtifactsResult();
+    const command = runArtifacts.commandExecutions[0];
+
+    if (!command?.resourceProfile) {
+      throw new TypeError("Expected the fixture to include a command resource profile.");
+    }
+
+    command.resourceProfile = {
+      ...command.resourceProfile,
+      firstSampledAt: null,
+      lastSampledAt: null,
+      sampleCount: 0,
+      peakCpuPercent: 0,
+      peakMemPercent: 0,
+      peakRssKb: 0,
+      peakProcessCount: 0,
+      samples: [],
+      topProcesses: []
+    };
+
+    const html = renderToStaticMarkup(
+      <RunTurnDetailView
+        error={null}
+        loading={false}
+        resource={{
+          runDetail: buildSymphonyForensicsRunDetailResult(),
+          runArtifacts,
+          agentError: null
+        }}
+        turnId="turn_123"
+        onOpenOverflow={vi.fn()}
+      />
+    );
+
+    expect(html).toContain("No per-command resource profile was captured for this turn.");
+    expect(html).not.toContain("Peak processes");
   });
 
   it("renders a task timeline section when todo snapshots are present", () => {
@@ -137,12 +178,7 @@ describe("run turn detail view", () => {
     );
 
     expect(editHtml).toContain("Turn 2");
-    expect(editHtml).toContain("src/app/page.tsx");
-    expect(editHtml).toContain("--- a/src/app/page.tsx");
-    expect(editHtml).toContain("+++ b/src/app/page.tsx");
-    expect(editHtml).toContain("@@ edit 1 @@");
-    expect(editHtml).toContain("Updated page copy");
-    expect(editHtml).toContain("Old page copy");
+    expect(editHtml).toContain("pi.edit · 1 file");
 
     const writeHtml = renderToStaticMarkup(
       <RunTurnDetailView
@@ -159,9 +195,7 @@ describe("run turn detail view", () => {
     );
 
     expect(writeHtml).toContain("Turn 3");
-    expect(writeHtml).toContain("src/app/layout.tsx");
-    expect(writeHtml).toContain("@@ -1,3 +1,3 @@");
-    expect(writeHtml).toContain("lang=&quot;en&quot;");
+    expect(writeHtml).toContain("pi.write · 1 file");
     expect(writeHtml).toContain("Task complete.");
     expect(writeHtml).toContain("Read and write diffs are visible inline.");
   });

@@ -20,6 +20,7 @@ export type TokenAnalysisViewModel = {
     date: string;
     label: string;
     inputTokens: number;
+    cachedInputTokens: number;
     outputTokens: number;
     totalTokens: number;
     runCount: number;
@@ -85,6 +86,7 @@ export function buildTokenAnalysisViewModel(
     {
       date: string;
       inputTokens: number;
+      cachedInputTokens: number;
       outputTokens: number;
       totalTokens: number;
       runCount: number;
@@ -96,47 +98,54 @@ export function buildTokenAnalysisViewModel(
     })
   );
   const runTokenRows = input.sampledRuns
-    .map((sampledRun, index) => ({
+    .map((sampledRun, index) => {
+      const tokenTotals = buildCompatibleRunTokenTotals(sampledRun);
+
+      return {
       repositoryKey: sampledRun.repositoryKey,
       runLabel: `Run ${index + 1} · ${sampledRun.run.runId.slice(0, 6)}`,
-      totalTokens: sampledRun.run.totalTokens,
-      inputTokens: sampledRun.run.inputTokens,
-      outputTokens: sampledRun.run.outputTokens,
+      totalTokens: tokenTotals.totalTokens,
+      inputTokens: tokenTotals.inputTokens,
+      cachedInputTokens: tokenTotals.cachedInputTokens,
+      outputTokens: tokenTotals.outputTokens,
       issueIdentifier: sampledRun.issueIdentifier,
       startedAt: sampledRun.run.startedAt,
       runId: sampledRun.run.runId
-    }))
+      };
+    })
     .sort((left, right) => right.totalTokens - left.totalTokens);
 
-  for (const run of input.sampledRuns) {
-    const day = run.run.startedAt.slice(0, 10);
+  for (const run of runTokenRows) {
+    const day = run.startedAt.slice(0, 10);
     const current = issueTotals.get(run.issueIdentifier);
 
     if (current) {
-      current.inputTokens += run.run.inputTokens;
-      current.outputTokens += run.run.outputTokens;
-      current.totalTokens += run.run.totalTokens;
+      current.inputTokens += run.inputTokens;
+      current.outputTokens += run.outputTokens;
+      current.totalTokens += run.totalTokens;
     } else {
       issueTotals.set(run.issueIdentifier, {
         issueIdentifier: run.issueIdentifier,
-        inputTokens: run.run.inputTokens,
-        outputTokens: run.run.outputTokens,
-        totalTokens: run.run.totalTokens
+        inputTokens: run.inputTokens,
+        outputTokens: run.outputTokens,
+        totalTokens: run.totalTokens
       });
     }
 
     const daily = dailyTotals.get(day);
     if (daily) {
-      daily.inputTokens += run.run.inputTokens;
-      daily.outputTokens += run.run.outputTokens;
-      daily.totalTokens += run.run.totalTokens;
+      daily.inputTokens += run.inputTokens;
+      daily.cachedInputTokens += run.cachedInputTokens;
+      daily.outputTokens += run.outputTokens;
+      daily.totalTokens += run.totalTokens;
       daily.runCount += 1;
     } else {
       dailyTotals.set(day, {
         date: day,
-        inputTokens: run.run.inputTokens,
-        outputTokens: run.run.outputTokens,
-        totalTokens: run.run.totalTokens,
+        inputTokens: run.inputTokens,
+        cachedInputTokens: run.cachedInputTokens,
+        outputTokens: run.outputTokens,
+        totalTokens: run.totalTokens,
         runCount: 1
       });
     }
@@ -262,6 +271,7 @@ function buildTimeSeriesRows(
     {
       date: string;
       inputTokens: number;
+      cachedInputTokens: number;
       outputTokens: number;
       totalTokens: number;
       runCount: number;
@@ -271,6 +281,7 @@ function buildTimeSeriesRows(
   date: string;
   label: string;
   inputTokens: number;
+  cachedInputTokens: number;
   outputTokens: number;
   totalTokens: number;
   runCount: number;
@@ -287,6 +298,7 @@ function buildTimeSeriesRows(
     date: string;
     label: string;
     inputTokens: number;
+    cachedInputTokens: number;
     outputTokens: number;
     totalTokens: number;
     runCount: number;
@@ -303,6 +315,7 @@ function buildTimeSeriesRows(
       date,
       label: formatDayLabel(date),
       inputTokens: row?.inputTokens ?? 0,
+      cachedInputTokens: row?.cachedInputTokens ?? 0,
       outputTokens: row?.outputTokens ?? 0,
       totalTokens: row?.totalTokens ?? 0,
       runCount: row?.runCount ?? 0
@@ -323,4 +336,39 @@ function formatDayLabel(value: string): string {
     day: "numeric",
     timeZone: "UTC"
   }).format(new Date(parsed));
+}
+
+function buildCompatibleRunTokenTotals(
+  sampledRun: AgentAnalysisSampleResource["sampledRuns"][number]
+) {
+  const fallback = {
+    inputTokens: sampledRun.run.inputTokens,
+    cachedInputTokens: normalizeRunCachedInputTokens(sampledRun.run),
+    outputTokens: sampledRun.run.outputTokens,
+    totalTokens: sampledRun.run.totalTokens
+  };
+  const turnTotals = sumTurnTokenTotals(
+    buildAgentTurnTokenRows({
+      runArtifacts: sampledRun.artifacts
+    })
+  );
+
+  const isCompatibleTurnBreakdown =
+    turnTotals.totalTokens > 0 &&
+    turnTotals.totalTokens === fallback.totalTokens &&
+    turnTotals.outputTokens === fallback.outputTokens &&
+    turnTotals.inputTokens + turnTotals.cachedInputTokens ===
+      fallback.inputTokens + fallback.cachedInputTokens;
+
+  return isCompatibleTurnBreakdown ? turnTotals : fallback;
+}
+
+function normalizeRunCachedInputTokens(
+  run: AgentAnalysisSampleResource["sampledRuns"][number]["run"]
+): number {
+  if (run.cachedInputTokens > 0) {
+    return run.cachedInputTokens;
+  }
+
+  return Math.max(0, run.totalTokens - run.inputTokens - run.outputTokens);
 }

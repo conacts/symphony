@@ -7,7 +7,6 @@ import {
   ReasoningContent,
   ReasoningTrigger
 } from "@/components/ai-elements/reasoning";
-import { CodeBlock } from "@/components/ai-elements/code-block";
 import {
   Task,
   TaskContent,
@@ -28,6 +27,7 @@ import {
   MessageResponse
 } from "@/components/ai-elements/message";
 import { RunTranscriptCopy } from "@/features/runs/components/run-transcript-copy";
+import { RunTranscriptTaskDiffPreview } from "@/features/runs/components/run-transcript-task-diff-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -108,7 +108,6 @@ export function RunTranscriptTurnEntry(input: {
   }
 
   if (entry.kind === "pi-edit-task") {
-	console.log("here", entry);
     return (
       <PiTaskCard
         entry={entry}
@@ -129,9 +128,7 @@ export function RunTranscriptTurnEntry(input: {
           <TaskItem>No file paths were captured for this edit.</TaskItem>
         )}
         {entry.diffText ? (
-          <div className="pt-1">
-            <CodeBlock code={formatDiffForDisplay(entry.diffText)} language="diff" />
-          </div>
+          <RunTranscriptTaskDiffPreview diffText={entry.diffText} />
         ) : null}
       </PiTaskCard>
     );
@@ -143,7 +140,6 @@ export function RunTranscriptTurnEntry(input: {
         entry={entry}
         icon={<UploadIcon className="size-4" />}
         title={buildPiWriteTaskTitle(entry)}
-        defaultOpen
       >
         <TaskItem>{formatPiWriteLineCount(entry.lineCount)}</TaskItem>
         {entry.paths.length > 0 ? (
@@ -156,9 +152,7 @@ export function RunTranscriptTurnEntry(input: {
           <TaskItem>No file paths were captured for this write.</TaskItem>
         )}
         {entry.diffText ? (
-          <div className="pt-1">
-            <CodeBlock code={formatDiffForDisplay(entry.diffText)} language="diff" />
-          </div>
+          <RunTranscriptTaskDiffPreview diffText={entry.diffText} />
         ) : null}
       </PiTaskCard>
     );
@@ -288,12 +282,11 @@ function PiTaskCard(input: {
   icon: ReactNode;
   title: string;
   children: ReactNode;
-  defaultOpen?: boolean;
 }) {
   return (
     <div className="space-y-2">
       <TranscriptMetaRow items={[input.entry.recordedAt]} />
-      <Task className="mb-0" defaultOpen={input.defaultOpen ?? false}>
+      <Task className="mb-0" defaultOpen={false}>
         <TaskTrigger title={input.title}>
           <div className="flex w-full cursor-pointer items-center gap-2 text-sm text-foreground transition-colors hover:text-foreground">
             {input.icon}
@@ -387,16 +380,4 @@ function formatPiWriteLineCount(lineCount: number): string {
 
 function formatTimeoutSeconds(timeoutSeconds: number): string {
   return `${formatCount(timeoutSeconds)}-second timeout`;
-}
-
-function formatDiffForDisplay(diffText: string): string {
-  const unescaped = diffText.replace(/\\n/g, "\n");
-  if (unescaped.includes("\n")) {
-    return unescaped;
-  }
-
-  return unescaped
-    .replace(/\s(?=(?:diff --git|index |--- |\+\+\+ |@@ ))/g, "\n")
-    .replace(/(@@[^@\n]*@@)\s+/g, "$1\n")
-    .replace(/\s(?=[+-][^\s])/g, "\n");
 }

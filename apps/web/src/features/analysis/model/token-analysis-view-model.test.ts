@@ -67,7 +67,8 @@ describe("token analysis view model", () => {
     expect(viewModel.timeSeriesRows[0]).toEqual({
       date: "2026-03-31",
       label: "Mar 31",
-      inputTokens: 620,
+      inputTokens: 520,
+      cachedInputTokens: 100,
       outputTokens: 200,
       totalTokens: 820,
       runCount: 2

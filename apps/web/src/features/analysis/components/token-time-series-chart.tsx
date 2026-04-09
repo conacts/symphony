@@ -24,9 +24,13 @@ const chartConfig = {
     label: "Input tokens",
     color: "var(--chart-2)"
   },
+  cachedInputTokens: {
+    label: "Cached input",
+    color: "var(--chart-3)"
+  },
   outputTokens: {
     label: "Output tokens",
-    color: "var(--chart-3)"
+    color: "var(--chart-4)"
   },
   totalTokens: {
     label: "Total load",
@@ -38,20 +42,23 @@ export function TokenTimeSeriesChart(input: {
   rows: TokenAnalysisViewModel["timeSeriesRows"];
 }) {
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader className="flex flex-col gap-1">
         <CardTitle>Run token load</CardTitle>
         <CardDescription>
-          Daily input and output load with total run tokens over the selected window.
+          Daily input, cached input, and output load with total run tokens over the selected window.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex min-h-0 flex-1">
         {input.rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No token data is available for the selected window.
           </p>
         ) : (
-          <ChartContainer className="h-80 w-full" config={chartConfig}>
+          <ChartContainer
+            className="aspect-auto min-h-64 w-full flex-1 xl:h-full xl:min-h-0"
+            config={chartConfig}
+          >
             <ComposedChart
               accessibilityLayer
               data={input.rows}
@@ -70,6 +77,12 @@ export function TokenTimeSeriesChart(input: {
                 dataKey="inputTokens"
                 stackId="tokens"
                 fill="var(--color-inputTokens)"
+                radius={4}
+              />
+              <Bar
+                dataKey="cachedInputTokens"
+                stackId="tokens"
+                fill="var(--color-cachedInputTokens)"
                 radius={4}
               />
               <Bar
@@ -95,14 +108,15 @@ export function TokenTimeSeriesChart(input: {
 
 function TokenTimeSeriesTooltip(input: {
   active?: boolean;
-  payload?: Array<{
-    payload?: {
-      label?: string;
-      inputTokens?: number;
-      outputTokens?: number;
-      totalTokens?: number;
-      runCount?: number;
-    };
+    payload?: Array<{
+      payload?: {
+        label?: string;
+        inputTokens?: number;
+        cachedInputTokens?: number;
+        outputTokens?: number;
+        totalTokens?: number;
+        runCount?: number;
+      };
   }>;
 }) {
   const row = input.payload?.[0]?.payload;
@@ -118,6 +132,12 @@ function TokenTimeSeriesTooltip(input: {
         <span className="text-muted-foreground">Input</span>
         <span className="font-mono font-medium tabular-nums">
           {formatCount(row.inputTokens ?? 0)}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-muted-foreground">Cached input</span>
+        <span className="font-mono font-medium tabular-nums">
+          {formatCount(row.cachedInputTokens ?? 0)}
         </span>
       </div>
       <div className="flex items-center justify-between gap-4">

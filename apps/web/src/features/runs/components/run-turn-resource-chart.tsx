@@ -23,8 +23,7 @@ import {
 import {
   formatBytes,
   formatCount,
-  formatDurationMilliseconds,
-  formatWholePercent
+  formatDurationMilliseconds
 } from "@/core/display-formatters";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +60,7 @@ export function RunTurnResourceChart(input: {
   const commandsWithProfiles = input.commands.filter(
     (command): command is SymphonyAgentCommandExecutionRecord & {
       resourceProfile: SymphonyAgentCommandResourceProfile;
-    } => command.resourceProfile !== null
+    } => command.resourceProfile !== null && command.resourceProfile.sampleCount > 0
   );
 
   const rows = commandsWithProfiles
@@ -82,7 +81,9 @@ export function RunTurnResourceChart(input: {
         completedAt: command.completedAt
       };
     });
-  const latestRow = rows.at(-1) ?? null;
+  const peakCpuRow = findPeakRow(rows, (row) => row.peakCpuPercent);
+  const peakMemRow = findPeakRow(rows, (row) => row.peakMemPercent);
+  const peakProcessRow = findPeakRow(rows, (row) => row.peakProcessCount);
 
   return (
     <Card className="border-border/70">
@@ -94,22 +95,22 @@ export function RunTurnResourceChart(input: {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {latestRow ? (
+        {peakCpuRow && peakMemRow && peakProcessRow ? (
           <div className="grid gap-3 sm:grid-cols-3">
             <MetricCard
-              label="Latest CPU peak"
-              value={formatWholePercent(latestRow.peakCpuPercent)}
-              detail={`${formatCount(latestRow.sampleCount)} samples across the latest command`}
+              label="Peak CPU"
+              value={formatMeasuredPercent(peakCpuRow.peakCpuPercent)}
+              detail={`${peakCpuRow.label} · ${peakCpuRow.command}`}
             />
             <MetricCard
-              label="Latest memory peak"
-              value={formatWholePercent(latestRow.peakMemPercent)}
-              detail={formatBytes(latestRow.peakRssBytes)}
+              label="Peak memory"
+              value={formatMeasuredPercent(peakMemRow.peakMemPercent)}
+              detail={`${peakMemRow.label} · ${formatBytes(peakMemRow.peakRssBytes)} RSS`}
             />
             <MetricCard
-              label="Latest process peak"
-              value={formatCount(latestRow.peakProcessCount)}
-              detail={formatDurationMilliseconds(latestRow.durationMs)}
+              label="Peak processes"
+              value={formatCount(peakProcessRow.peakProcessCount)}
+              detail={`${peakProcessRow.label} · ${formatDurationMilliseconds(peakProcessRow.durationMs)}`}
             />
           </div>
         ) : null}
@@ -208,8 +209,8 @@ function RunTurnResourceTooltip(input: {
     >
       <div className="font-medium">{row.label}</div>
       <div className="line-clamp-2 text-muted-foreground">{row.command}</div>
-      <TooltipStat label="CPU peak" value={formatWholePercent(row.peakCpuPercent)} />
-      <TooltipStat label="Memory peak" value={formatWholePercent(row.peakMemPercent)} />
+      <TooltipStat label="CPU peak" value={formatMeasuredPercent(row.peakCpuPercent)} />
+      <TooltipStat label="Memory peak" value={formatMeasuredPercent(row.peakMemPercent)} />
       <TooltipStat label="RSS peak" value={formatBytes(row.peakRssBytes)} />
       <TooltipStat label="Process peak" value={formatCount(row.peakProcessCount)} />
       <TooltipStat label="Samples" value={formatCount(row.sampleCount)} />
@@ -231,6 +232,45 @@ function TooltipStat(input: {
       <span className="font-mono font-medium tabular-nums">{input.value}</span>
     </div>
   );
+}
+
+function findPeakRow(
+  rows: ResourceCommandRow[],
+  getValue: (row: ResourceCommandRow) => number
+): ResourceCommandRow | null {
+  let bestRow: ResourceCommandRow | null = null;
+  let bestValue = Number.NEGATIVE_INFINITY;
+
+  for (const row of rows) {
+    const value = getValue(row);
+    if (value > bestValue) {
+      bestValue = value;
+      bestRow = row;
+    }
+  }
+
+  return bestRow;
+}
+
+function formatMeasuredPercent(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "n/a";
+  }
+
+  const clamped = Math.max(0, Math.min(100, value));
+  if (clamped === 0) {
+    return "0%";
+  }
+
+  if (clamped < 0.1) {
+    return "<0.1%";
+  }
+
+  if (clamped < 10 && !Number.isInteger(clamped)) {
+    return `${clamped.toFixed(1)}%`;
+  }
+
+  return `${Math.round(clamped)}%`;
 }
 
 function compareIsoTimestamp(left: string | null, right: string | null) {

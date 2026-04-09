@@ -47,20 +47,23 @@ export function RunTurnLatencyChart(input: {
   rows: AgentRunViewModel["turnLatency"]["rows"];
 }) {
   return (
-    <Card className="border-border/70">
+    <Card className="h-full border-border/70">
       <CardHeader>
         <CardTitle>Turn latency breakdown</CardTitle>
         <CardDescription>
           Where wall-clock time was spent inside each recorded turn.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex min-h-0 flex-1">
         {input.rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No turn latency data was captured for this run.
           </p>
         ) : (
-          <ChartContainer className="h-80 w-full" config={chartConfig}>
+          <ChartContainer
+            className="aspect-auto min-h-64 w-full flex-1 xl:h-full xl:min-h-0"
+            config={chartConfig}
+          >
             <BarChart accessibilityLayer data={input.rows} margin={{ left: 12, right: 12 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="turnLabel" tickLine={false} axisLine={false} tickMargin={8} />
