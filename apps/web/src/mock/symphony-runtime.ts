@@ -872,7 +872,8 @@ function buildBindMountLaunchTarget(
     runtimeWorkspacePath: "/workspace",
     containerId: "container-local",
     containerName: "symphony-local",
-    shell: "sh"
+    shell: "sh",
+    user: "1000:1000"
   };
 }
 

@@ -309,7 +309,8 @@ export function buildSymphonyRuntimeIssueResult(
       runtimeWorkspacePath: "/workspace",
       containerId: "container-167",
       containerName: "symphony-col-167",
-      shell: "sh"
+      shell: "sh",
+      user: "1000:1000"
     },
     turnCount: 3,
     state: "In Progress",
