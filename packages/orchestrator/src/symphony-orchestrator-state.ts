@@ -25,6 +25,7 @@ export function createSymphonyOrchestratorState(
     maxConcurrentAgents: config.agent.maxConcurrentAgents,
     nextPollDueAtMs: clock.nowMs(),
     pollCheckInProgress: false,
+    dispatching: {},
     running: {},
     completed: new Set<string>(),
     claimed: new Set<string>(),

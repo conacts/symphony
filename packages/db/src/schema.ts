@@ -676,6 +676,11 @@ export const symphonyRunsTable = sqliteTable(
       "symphony_runs_attempt_check",
       sql`${table.attempt} is null or ${table.attempt} >= 1`
     ),
+    oneActiveRunPerIssueIdx: uniqueIndex(
+      "symphony_runs_one_active_run_per_issue_idx"
+    )
+      .on(table.issueIdentifier)
+      .where(sql`${table.status} in ('dispatching', 'running')`),
     repositoryKeyIdx: index("symphony_runs_repository_key_idx").on(table.repositoryKey),
     issueIdentifierIdx: index("symphony_runs_issue_identifier_idx").on(table.issueIdentifier),
     startedAtIdx: index("symphony_runs_started_at_idx").on(table.startedAt)

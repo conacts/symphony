@@ -36,6 +36,8 @@ export const symphonyDockerWorkspaceRequiredTools = [
 // host is already running multiple build/test workers. Keep the default budget
 // high enough to avoid load-sensitive false negatives during real bootstrap.
 export const defaultSymphonyDockerWorkspacePreflightTimeoutMs = 30_000;
+export const defaultSymphonyDockerWorkspacePreflightCreatedTtlMs = 60_000;
+export const defaultSymphonyDockerWorkspacePreflightRunningTtlMs = 5 * 60_000;
 
 export type SymphonyDockerWorkspaceImageSelectionSource = "default" | "env";
 
@@ -45,6 +47,23 @@ export type SymphonyDockerWorkspacePreflightResult = {
   serverVersion: string | null;
   imageId: string | null;
   requiredTools: readonly string[];
+  cleanup: SymphonyDockerWorkspacePreflightCleanupSummary;
+};
+
+export type SymphonyDockerWorkspacePreflightCleanupDisposition =
+  | "removed"
+  | "missing"
+  | "failed";
+
+export type SymphonyDockerWorkspacePreflightCleanupSummary = {
+  staleContainersDetected: number;
+  staleContainersRemoved: number;
+  staleContainersFailedToRemove: number;
+  preservedContainers: number;
+  createdContainerTtlMs: number;
+  runningContainerTtlMs: number;
+  sweepFailed: boolean;
+  currentContainerCleanupDisposition: SymphonyDockerWorkspacePreflightCleanupDisposition;
 };
 
 export function resolveSymphonyDockerWorkspaceImage(image: string | null): {
@@ -69,6 +88,8 @@ export async function preflightSymphonyDockerWorkspaceImage(input: {
   shell?: string | null;
   commandRunner?: DockerWorkspaceCommandRunner;
   timeoutMs?: number | null;
+  staleCreatedTtlMs?: number | null;
+  staleRunningTtlMs?: number | null;
 }): Promise<SymphonyDockerWorkspacePreflightResult> {
   const image = input.image.trim();
   if (image === "") {
@@ -79,22 +100,54 @@ export async function preflightSymphonyDockerWorkspaceImage(input: {
   const commandRunner = input.commandRunner ?? defaultDockerWorkspaceCommandRunner;
   const timeoutMs =
     input.timeoutMs ?? defaultSymphonyDockerWorkspacePreflightTimeoutMs;
+  const staleCreatedTtlMs = normalizePositiveInteger(
+    input.staleCreatedTtlMs
+  ) ?? defaultSymphonyDockerWorkspacePreflightCreatedTtlMs;
+  const staleRunningTtlMs = normalizePositiveInteger(
+    input.staleRunningTtlMs
+  ) ?? defaultSymphonyDockerWorkspacePreflightRunningTtlMs;
 
   const serverVersion = await resolveDockerServerVersion(commandRunner, timeoutMs);
   const imageId = await resolveDockerImageId(commandRunner, image, timeoutMs);
-  await assertDockerImageToolContract({
+  const cleanupTimeoutMs = resolvePreflightCleanupTimeoutMs(timeoutMs);
+  const preflightContainerName = buildDockerWorkspacePreflightContainerName();
+  const staleCleanup = await cleanupManagedPreflightContainers({
     commandRunner,
-    image,
-    shell,
-    timeoutMs
+    timeoutMs: cleanupTimeoutMs,
+    currentContainerName: preflightContainerName,
+    staleCreatedTtlMs,
+    staleRunningTtlMs
   });
+  let currentContainerCleanupDisposition!: SymphonyDockerWorkspacePreflightCleanupDisposition;
+
+  try {
+    await assertDockerImageToolContract({
+      commandRunner,
+      image,
+      shell,
+      timeoutMs,
+      preflightContainerName
+    });
+  } finally {
+    currentContainerCleanupDisposition = await forceRemovePreflightContainer({
+      commandRunner,
+      containerName: preflightContainerName,
+      timeoutMs: cleanupTimeoutMs
+    });
+  }
 
   return {
     image,
     shell,
     serverVersion,
     imageId,
-    requiredTools: symphonyDockerWorkspaceRequiredTools
+    requiredTools: symphonyDockerWorkspaceRequiredTools,
+    cleanup: {
+      ...staleCleanup,
+      createdContainerTtlMs: staleCreatedTtlMs,
+      runningContainerTtlMs: staleRunningTtlMs,
+      currentContainerCleanupDisposition
+    }
   };
 }
 
@@ -161,13 +214,13 @@ async function assertDockerImageToolContract(input: {
   image: string;
   shell: string;
   timeoutMs: number;
+  preflightContainerName: string;
 }): Promise<void> {
-  const preflightContainerName = buildDockerWorkspacePreflightContainerName();
   const args = [
     "run",
     "--rm",
     "--name",
-    preflightContainerName,
+    input.preflightContainerName,
     ...dockerLabelFlags({
       [managedBackendLabelKey]: managedBackendLabelValue,
       [managedKindLabelKey]: managedWorkspacePreflightKind
@@ -229,6 +282,261 @@ function buildDockerWorkspacePreflightContainerName(): string {
   ].join("-");
 }
 
+type ManagedPreflightContainerSummary = {
+  name: string;
+  state: string | null;
+};
+
+type ManagedPreflightContainerInspectState = {
+  createdAt: string | null;
+  startedAt: string | null;
+};
+
+async function cleanupManagedPreflightContainers(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+  currentContainerName: string;
+  staleCreatedTtlMs: number;
+  staleRunningTtlMs: number;
+}): Promise<
+  Omit<
+    SymphonyDockerWorkspacePreflightCleanupSummary,
+    | "createdContainerTtlMs"
+    | "runningContainerTtlMs"
+    | "currentContainerCleanupDisposition"
+  >
+> {
+  const containers = await listManagedPreflightContainers({
+    commandRunner: input.commandRunner,
+    timeoutMs: input.timeoutMs
+  });
+
+  if (containers === null) {
+    return {
+      staleContainersDetected: 0,
+      staleContainersRemoved: 0,
+      staleContainersFailedToRemove: 0,
+      preservedContainers: 0,
+      sweepFailed: true
+    };
+  }
+
+  let staleContainersDetected = 0;
+  let staleContainersRemoved = 0;
+  let staleContainersFailedToRemove = 0;
+  let preservedContainers = 0;
+
+  for (const container of containers) {
+    if (container.name === input.currentContainerName) {
+      continue;
+    }
+
+    const shouldRemove = await shouldRemoveManagedPreflightContainer({
+      commandRunner: input.commandRunner,
+      timeoutMs: input.timeoutMs,
+      container,
+      staleCreatedTtlMs: input.staleCreatedTtlMs,
+      staleRunningTtlMs: input.staleRunningTtlMs
+    });
+
+    if (!shouldRemove) {
+      preservedContainers += 1;
+      continue;
+    }
+
+    staleContainersDetected += 1;
+    const disposition = await forceRemovePreflightContainer({
+      commandRunner: input.commandRunner,
+      containerName: container.name,
+      timeoutMs: input.timeoutMs
+    });
+
+    if (disposition === "removed" || disposition === "missing") {
+      staleContainersRemoved += 1;
+      continue;
+    }
+
+    staleContainersFailedToRemove += 1;
+  }
+
+  return {
+    staleContainersDetected,
+    staleContainersRemoved,
+    staleContainersFailedToRemove,
+    preservedContainers,
+    sweepFailed: false
+  };
+}
+
+async function listManagedPreflightContainers(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+}): Promise<ManagedPreflightContainerSummary[] | null> {
+  const args = [
+    "ps",
+    "-a",
+    "--filter",
+    `label=${managedBackendLabelKey}=${managedBackendLabelValue}`,
+    "--filter",
+    `label=${managedKindLabelKey}=${managedWorkspacePreflightKind}`,
+    "--format",
+    "{{json .}}"
+  ];
+  const result = await input.commandRunner({
+    args,
+    timeoutMs: input.timeoutMs
+  });
+
+  if (result.exitCode !== 0) {
+    return null;
+  }
+
+  return result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .flatMap((line) => {
+      try {
+        const parsed = JSON.parse(line) as {
+          Names?: unknown;
+          State?: unknown;
+        };
+        const name = normalizeNonEmptyString(
+          typeof parsed.Names === "string" ? parsed.Names : null
+        );
+        if (!name) {
+          return [];
+        }
+
+        return [
+          {
+            name,
+            state:
+              typeof parsed.State === "string"
+                ? parsed.State.trim().toLowerCase()
+                : null
+          } satisfies ManagedPreflightContainerSummary
+        ];
+      } catch {
+        return [];
+      }
+    });
+}
+
+async function shouldRemoveManagedPreflightContainer(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+  container: ManagedPreflightContainerSummary;
+  staleCreatedTtlMs: number;
+  staleRunningTtlMs: number;
+}): Promise<boolean> {
+  const state = input.container.state;
+  if (state === "exited" || state === "dead" || state === "removing") {
+    return true;
+  }
+
+  if (state !== "created" && state !== "running") {
+    return false;
+  }
+
+  const inspectState = await inspectManagedPreflightContainer({
+    commandRunner: input.commandRunner,
+    timeoutMs: input.timeoutMs,
+    containerName: input.container.name
+  });
+
+  if (inspectState === "missing") {
+    return true;
+  }
+
+  if (inspectState === "failed") {
+    return false;
+  }
+
+  const referenceTimestamp =
+    state === "running" ? inspectState.startedAt : inspectState.createdAt;
+  const thresholdMs =
+    state === "running" ? input.staleRunningTtlMs : input.staleCreatedTtlMs;
+  if (!referenceTimestamp) {
+    return false;
+  }
+
+  const ageMs = Date.now() - Date.parse(referenceTimestamp);
+  if (!Number.isFinite(ageMs)) {
+    return false;
+  }
+
+  return ageMs >= thresholdMs;
+}
+
+async function inspectManagedPreflightContainer(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  timeoutMs: number;
+  containerName: string;
+}): Promise<ManagedPreflightContainerInspectState | "missing" | "failed"> {
+  const args = ["inspect", "--type", "container", input.containerName];
+  const result = await input.commandRunner({
+    args,
+    timeoutMs: input.timeoutMs
+  });
+
+  if (result.exitCode !== 0) {
+    return isDockerMissingObject(result.stderr) ? "missing" : "failed";
+  }
+
+  try {
+    const parsed = JSON.parse(result.stdout) as Array<{
+      Created?: unknown;
+      State?: {
+        Status?: unknown;
+        StartedAt?: unknown;
+      };
+    }>;
+    const container = parsed[0];
+    if (!container) {
+      return "failed";
+    }
+
+    return {
+      createdAt:
+        typeof container.Created === "string" ? container.Created : null,
+      startedAt:
+        typeof container.State?.StartedAt === "string"
+          ? container.State.StartedAt
+          : null
+    };
+  } catch {
+    return "failed";
+  }
+}
+
+async function forceRemovePreflightContainer(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  containerName: string;
+  timeoutMs: number;
+}): Promise<SymphonyDockerWorkspacePreflightCleanupDisposition> {
+  const args = ["rm", "-f", input.containerName];
+
+  try {
+    const result = await input.commandRunner({
+      args,
+      timeoutMs: input.timeoutMs
+    });
+
+    if (result.exitCode === 0) {
+      return "removed";
+    }
+
+    return isDockerMissingObject(result.stderr) ? "missing" : "failed";
+  } catch {
+    return "failed";
+  }
+}
+
+function resolvePreflightCleanupTimeoutMs(timeoutMs: number): number {
+  return Math.max(5_000, Math.min(timeoutMs, 15_000));
+}
+
 function renderRequiredToolsCheckScript(tools: readonly string[]): string {
   return [
     "missing=0",
@@ -269,4 +577,13 @@ function normalizeNonEmptyString(value: string | null | undefined): string | nul
 
   const trimmed = value.trim();
   return trimmed === "" ? null : trimmed;
+}
+
+function normalizePositiveInteger(value: number | null | undefined): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  const normalized = Math.floor(value);
+  return normalized > 0 ? normalized : null;
 }

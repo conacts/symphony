@@ -1,4 +1,8 @@
-export { SymphonyDbError, SymphonyDbMigrationError } from "./errors.js";
+export {
+  SymphonyActiveRunExistsError,
+  SymphonyDbError,
+  SymphonyDbMigrationError
+} from "./errors.js";
 export {
   applySymphonyDbMigrations,
   defaultSymphonyDbMigrationsFolder

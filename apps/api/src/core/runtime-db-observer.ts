@@ -7,10 +7,12 @@ import {
 } from "@symphony/workspace";
 import type { JsonValue } from "@symphony/contracts";
 import type {
+  SymphonyActiveRunExistsError,
   SymphonyIssueTimelineStore,
   SymphonyRuntimeRunStatus,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
+import { SymphonyDispatchRefusedError } from "@symphony/orchestrator";
 import type { RuntimeMachineLoadMonitor } from "./runtime-machine-load.js";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 import { resolveIssueRepository } from "./runtime-repository-routing.js";
@@ -28,22 +30,37 @@ export function createDbBackedOrchestratorObserver(input: {
         input.admittedRepositories.length > 0
           ? resolveIssueRepository(input.admittedRepositories, issue).repositoryKey
           : input.defaultRepositoryKey;
-      const runId = await input.runStore.recordRunStarted({
-        repositoryKey,
-        trackerIssueId: issue.id,
-        issueIdentifier: issue.identifier,
-        attempt,
-        runMode,
-        status: "dispatching",
-        workerHost,
-        workspacePath: workspaceHostPath(summarizePreparedWorkspace(workspace)),
-        startedAt,
-        metadata: {
-          runtime: "typescript",
+      let runId: string;
+
+      try {
+        runId = await input.runStore.recordRunStarted({
+          repositoryKey,
+          trackerIssueId: issue.id,
+          issueIdentifier: issue.identifier,
+          attempt,
           runMode,
-          workspace: workspaceMetadata(summarizePreparedWorkspace(workspace))
+          status: "dispatching",
+          workerHost,
+          workspacePath: workspaceHostPath(summarizePreparedWorkspace(workspace)),
+          startedAt,
+          metadata: {
+            runtime: "typescript",
+            runMode,
+            workspace: workspaceMetadata(summarizePreparedWorkspace(workspace))
+          }
+        });
+      } catch (error) {
+        if (isActiveRunExistsError(error)) {
+          throw new SymphonyDispatchRefusedError({
+            reason: "active_run_exists",
+            issueIdentifier: issue.identifier,
+            activeRunId: error.existingRunId,
+            activeRunStatus: error.existingStatus
+          });
         }
-      });
+
+        throw error;
+      }
 
       input.machineLoad?.startRun(runId);
 
@@ -202,6 +219,17 @@ export function createDbBackedOrchestratorObserver(input: {
 
     }
   };
+}
+
+function isActiveRunExistsError(
+  error: unknown
+): error is SymphonyActiveRunExistsError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "SymphonyActiveRunExistsError"
+  );
 }
 
 type ObserverWorkspaceMetadata = WorkspaceLifecycleMetadata | null;

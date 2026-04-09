@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type {
   SymphonyAgentAnalyticsEvent,
@@ -15,6 +15,7 @@ import {
   symphonyRunsTable,
   symphonyTurnsTable
 } from "./schema.js";
+import { SymphonyActiveRunExistsError } from "./errors.js";
 import type {
   SymphonyRuntimeMachineLoadSummary,
   SymphonyRuntimeRunContextAttrs,
@@ -68,83 +69,131 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     const repositoryKey = sanitizeRequiredText(attrs.repositoryKey, "repositoryKey");
     const metadata = withRunModeMetadata(attrs.metadata, attrs.runMode);
 
-    this.#db.transaction((tx) => {
-      const existingIssue = tx
-        .select()
-        .from(symphonyIssuesTable)
-        .where(eq(symphonyIssuesTable.issueIdentifier, attrs.issueIdentifier))
-        .get();
-
-      if (existingIssue) {
-        if (existingIssue.repositoryKey !== repositoryKey) {
-          throw new TypeError(
-            `Issue ${attrs.issueIdentifier} is already bound to repository ${existingIssue.repositoryKey}, not ${repositoryKey}.`
-          );
-        }
-
-        if (existingIssue.trackerIssueId !== attrs.trackerIssueId) {
-          throw new TypeError(
-            `Issue ${attrs.issueIdentifier} is already bound to tracker issue ${existingIssue.trackerIssueId}, not ${attrs.trackerIssueId}.`
-          );
-        }
-
-        tx.update(symphonyIssuesTable)
-          .set({
-            latestRunStartedAt:
-              compareDescendingTimestamps(startedAt, existingIssue.latestRunStartedAt) < 0
-                ? existingIssue.latestRunStartedAt
-                : startedAt,
-            updatedAt: now
-          })
+    try {
+      this.#db.transaction((tx) => {
+        const existingIssue = tx
+          .select()
+          .from(symphonyIssuesTable)
           .where(eq(symphonyIssuesTable.issueIdentifier, attrs.issueIdentifier))
-          .run();
-      } else {
-        tx.insert(symphonyIssuesTable)
+          .get();
+
+        if (existingIssue) {
+          if (existingIssue.repositoryKey !== repositoryKey) {
+            throw new TypeError(
+              `Issue ${attrs.issueIdentifier} is already bound to repository ${existingIssue.repositoryKey}, not ${repositoryKey}.`
+            );
+          }
+
+          if (existingIssue.trackerIssueId !== attrs.trackerIssueId) {
+            throw new TypeError(
+              `Issue ${attrs.issueIdentifier} is already bound to tracker issue ${existingIssue.trackerIssueId}, not ${attrs.trackerIssueId}.`
+            );
+          }
+
+          tx.update(symphonyIssuesTable)
+            .set({
+              latestRunStartedAt:
+                compareDescendingTimestamps(startedAt, existingIssue.latestRunStartedAt) < 0
+                  ? existingIssue.latestRunStartedAt
+                  : startedAt,
+              updatedAt: now
+            })
+            .where(eq(symphonyIssuesTable.issueIdentifier, attrs.issueIdentifier))
+            .run();
+        } else {
+          tx.insert(symphonyIssuesTable)
+            .values({
+              issueIdentifier: attrs.issueIdentifier,
+              trackerIssueId: attrs.trackerIssueId,
+              repositoryKey,
+              latestRunStartedAt: startedAt,
+              insertedAt: now,
+              updatedAt: now
+            })
+            .run();
+        }
+
+        if (isActiveRunStatus(attrs.status)) {
+          const existingActiveRun = tx
+            .select({
+              runId: symphonyRunsTable.runId,
+              status: symphonyRunsTable.status
+            })
+            .from(symphonyRunsTable)
+            .where(
+              and(
+                eq(symphonyRunsTable.issueIdentifier, attrs.issueIdentifier),
+                inArray(symphonyRunsTable.status, activeRunStatuses)
+              )
+            )
+            .orderBy(desc(symphonyRunsTable.startedAt), desc(symphonyRunsTable.insertedAt))
+            .limit(1)
+            .get();
+
+          if (existingActiveRun) {
+            throw new SymphonyActiveRunExistsError({
+              issueIdentifier: attrs.issueIdentifier,
+              existingRunId: existingActiveRun.runId,
+              existingStatus: assertActiveRunStatus(existingActiveRun.status)
+            });
+          }
+        }
+
+        tx.insert(symphonyRunsTable)
           .values({
-            issueIdentifier: attrs.issueIdentifier,
-            trackerIssueId: attrs.trackerIssueId,
+            runId,
             repositoryKey,
-            latestRunStartedAt: startedAt,
+            issueIdentifier: attrs.issueIdentifier,
+            attempt: attrs.attempt ?? null,
+            status: attrs.status,
+            outcome: null,
+            workerHost: attrs.workerHost ?? null,
+            workspacePath: attrs.workspacePath ?? null,
+            startedAt,
+            endedAt: null,
+            commitHashStart: attrs.commitHashStart ?? null,
+            commitHashEnd: null,
+            repoStart: sanitizeJsonObject(attrs.repoStart),
+            repoEnd: null,
+            metadata,
+            errorClass: null,
+            errorMessage: null,
+            machineLoadSampleCount: null,
+            machineLoadMaxCpuPercent: null,
+            machineLoadAvgCpuPercent: null,
+            machineLoadMaxMemoryPercent: null,
+            machineLoadAvgMemoryPercent: null,
+            machineLoadMaxDiskPercent: null,
+            machineLoadAvgDiskPercent: null,
+            machineLoadHadHighCpu: null,
+            machineLoadHadHighMemory: null,
+            machineLoadHadHighDisk: null,
             insertedAt: now,
             updatedAt: now
           })
           .run();
+      });
+    } catch (error) {
+      if (error instanceof SymphonyActiveRunExistsError) {
+        throw error;
       }
 
-      tx.insert(symphonyRunsTable)
-        .values({
-          runId,
-          repositoryKey,
-          issueIdentifier: attrs.issueIdentifier,
-          attempt: attrs.attempt ?? null,
-          status: attrs.status,
-          outcome: null,
-          workerHost: attrs.workerHost ?? null,
-          workspacePath: attrs.workspacePath ?? null,
-          startedAt,
-          endedAt: null,
-          commitHashStart: attrs.commitHashStart ?? null,
-          commitHashEnd: null,
-          repoStart: sanitizeJsonObject(attrs.repoStart),
-          repoEnd: null,
-          metadata,
-          errorClass: null,
-          errorMessage: null,
-          machineLoadSampleCount: null,
-          machineLoadMaxCpuPercent: null,
-          machineLoadAvgCpuPercent: null,
-          machineLoadMaxMemoryPercent: null,
-          machineLoadAvgMemoryPercent: null,
-          machineLoadMaxDiskPercent: null,
-          machineLoadAvgDiskPercent: null,
-          machineLoadHadHighCpu: null,
-          machineLoadHadHighMemory: null,
-          machineLoadHadHighDisk: null,
-          insertedAt: now,
-          updatedAt: now
-        })
-        .run();
-    });
+      if (isActiveRunStatus(attrs.status) && isActiveRunConstraintError(error)) {
+        const existingActiveRun = this.#findActiveRunByIssueIdentifier(
+          attrs.issueIdentifier
+        );
+
+        if (existingActiveRun) {
+          throw new SymphonyActiveRunExistsError({
+            issueIdentifier: attrs.issueIdentifier,
+            existingRunId: existingActiveRun.runId,
+            existingStatus: assertActiveRunStatus(existingActiveRun.status)
+          });
+        }
+      }
+
+      throw error;
+    }
 
     await this.#timelineStoreFor(repositoryKey).record({
       issueIdentifier: attrs.issueIdentifier,
@@ -510,6 +559,52 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       })
     );
   }
+
+  #findActiveRunByIssueIdentifier(issueIdentifier: string): {
+    runId: string;
+    status: string;
+  } | null {
+    return this.#db
+      .select({
+        runId: symphonyRunsTable.runId,
+        status: symphonyRunsTable.status
+      })
+      .from(symphonyRunsTable)
+      .where(
+        and(
+          eq(symphonyRunsTable.issueIdentifier, issueIdentifier),
+          inArray(symphonyRunsTable.status, activeRunStatuses)
+        )
+      )
+      .orderBy(desc(symphonyRunsTable.startedAt), desc(symphonyRunsTable.insertedAt))
+      .limit(1)
+      .get() ?? null;
+  }
+}
+
+const activeRunStatuses = ["dispatching", "running"] as const;
+
+function isActiveRunStatus(status: string): status is (typeof activeRunStatuses)[number] {
+  return status === "dispatching" || status === "running";
+}
+
+function assertActiveRunStatus(status: string): (typeof activeRunStatuses)[number] {
+  if (isActiveRunStatus(status)) {
+    return status;
+  }
+
+  throw new TypeError(`Expected an active run status, received ${status}.`);
+}
+
+function isActiveRunConstraintError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.message.includes("symphony_runs_one_active_run_per_issue_idx") ||
+    error.message.includes("UNIQUE constraint failed: symphony_runs.issue_identifier")
+  );
 }
 
 function withRunModeMetadata(
