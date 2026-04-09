@@ -12,7 +12,7 @@ import type {
 } from "@symphony/workspace";
 import {
   buildFailureCommentBody,
-  type SymphonyStartupFailureTransition
+  type SymphonyFailureStateTransition
 } from "./symphony-orchestrator-comments.js";
 import {
   buildWorkspaceLifecyclePayload,
@@ -48,7 +48,7 @@ export async function leaveFailureComment(input: {
   runId: string | null;
   options?: {
     rateLimits?: JsonObject | null;
-    startupFailureTransition?: SymphonyStartupFailureTransition;
+    stateTransition?: SymphonyFailureStateTransition;
     workspaceCleanupMode?: WorkspaceCleanupMode | null;
   };
 }): Promise<void> {
@@ -169,7 +169,7 @@ export async function handleStartupFailure(input: {
 }): Promise<void> {
   const targetState = input.config.tracker.startupFailureTransitionToState;
   let effectiveIssue = input.issue;
-  let transition: SymphonyStartupFailureTransition = {
+  let transition: SymphonyFailureStateTransition = {
     kind: "none"
   };
 
@@ -231,7 +231,7 @@ export async function handleStartupFailure(input: {
     outcome: "startup_failed",
     runId: input.runId,
     options: {
-      startupFailureTransition: transition,
+      stateTransition: transition,
       workspaceCleanupMode: cleanupMode
     }
   });

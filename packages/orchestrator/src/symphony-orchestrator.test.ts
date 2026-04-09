@@ -1536,7 +1536,7 @@ describe("symphony orchestrator", () => {
       expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");
     });
 
-    it("moves blocked implementation runs into Blocked without adding a runtime failure comment", async () => {
+    it("moves blocked implementation runs into Blocked and leaves blocker guidance", async () => {
       const harness = createFlowHarness({
         issue: {
           state: "In Progress"
@@ -1561,9 +1561,20 @@ describe("symphony orchestrator", () => {
         issueId: harness.issue.id,
         stateName: "Blocked"
       });
-      expect(
-        harness.tracker.listOperations().filter((operation) => operation.kind === "comment")
-      ).toEqual([]);
+      expect(harness.tracker.listOperations()).toEqual(
+        expect.arrayContaining([
+          {
+            kind: "comment",
+            issueId: harness.issue.id,
+            body: expect.stringContaining("Symphony agent reported a repo or workspace blocker.")
+          },
+          {
+            kind: "comment",
+            issueId: harness.issue.id,
+            body: expect.stringContaining("move it back to `Todo`")
+          }
+        ])
+      );
       expect(harness.lifecycleEvents).toContain("blocked_transition");
       expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");
     });
@@ -1725,7 +1736,7 @@ describe("symphony orchestrator", () => {
       expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");
     });
 
-    it("moves explicit blocked merge results into Blocked without adding a second failure comment", async () => {
+    it("moves explicit blocked merge results into Blocked and leaves merge rerun guidance", async () => {
       const harness = createFlowHarness({
         issue: {
           state: "Approved"
@@ -1745,9 +1756,20 @@ describe("symphony orchestrator", () => {
       });
 
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Blocked");
-      expect(
-        harness.tracker.listOperations().filter((operation) => operation.kind === "comment")
-      ).toEqual([]);
+      expect(harness.tracker.listOperations()).toEqual(
+        expect.arrayContaining([
+          {
+            kind: "comment",
+            issueId: harness.issue.id,
+            body: expect.stringContaining("Symphony merge automation reported a merge blocker.")
+          },
+          {
+            kind: "comment",
+            issueId: harness.issue.id,
+            body: expect.stringContaining("move it back to `Approved`")
+          }
+        ])
+      );
       expect(harness.lifecycleEvents).toContain("approved_merge_transition");
       expect(harness.lifecycleEvents).toContain("blocked_transition");
       expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");

@@ -13,7 +13,7 @@ describe("buildFailureCommentBody", () => {
       "workspace hook `before_run` exited with status 1.",
       "startup_failed",
       {
-        startupFailureTransition: {
+        stateTransition: {
           kind: "moved",
           targetState: "Failed"
         },
@@ -36,5 +36,43 @@ describe("buildFailureCommentBody", () => {
     );
 
     expect(comment).toContain("Workspace policy: destroy.");
+  });
+
+  it("formats blocked implementation comments with blocker guidance", () => {
+    const comment = buildFailureCommentBody(
+      issue,
+      "Integration tests require a missing seed fixture.",
+      "blocked_repo",
+      {
+        stateTransition: {
+          kind: "moved",
+          targetState: "Blocked"
+        },
+        workspaceCleanupMode: "preserve"
+      }
+    );
+
+    expect(comment).toContain("Symphony agent reported a repo or workspace blocker.");
+    expect(comment).toContain("Workspace policy: preserve.");
+    expect(comment).toContain("Symphony moved the issue to `Blocked`.");
+    expect(comment).toContain("move it back to `Todo`");
+  });
+
+  it("formats blocked merge comments with merge rerun guidance", () => {
+    const comment = buildFailureCommentBody(
+      issue,
+      "Conflicts in packages/workspace/src/docker-client.ts",
+      "blocked_merge",
+      {
+        stateTransition: {
+          kind: "moved",
+          targetState: "Blocked"
+        },
+        workspaceCleanupMode: "preserve"
+      }
+    );
+
+    expect(comment).toContain("Symphony merge automation reported a merge blocker.");
+    expect(comment).toContain("move it back to `Approved`");
   });
 });
