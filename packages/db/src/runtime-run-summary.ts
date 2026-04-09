@@ -15,9 +15,9 @@ type RuntimeEventRow = Pick<
   "runId" | "eventSequence" | "eventType" | "recordedAt"
 >;
 type RuntimeIssueRow = {
-  issueId: string;
-  repositoryKey: string;
   issueIdentifier: string;
+  trackerIssueId: string;
+  repositoryKey: string;
   latestRunStartedAt: string | null;
   insertedAt: string | null;
   updatedAt: string | null;
@@ -31,6 +31,7 @@ export type SymphonyRuntimeTokenTotals = {
 };
 
 export function buildRuntimeRunSummary(
+  issue: Pick<RuntimeIssueRow, "issueIdentifier" | "trackerIssueId">,
   run: RuntimeRunRow,
   turns: RuntimeTurnRow[],
   events: RuntimeEventRow[]
@@ -52,7 +53,7 @@ export function buildRuntimeRunSummary(
   return {
     runId: run.runId,
     repositoryKey: run.repositoryKey,
-    trackerIssueId: run.issueId,
+    trackerIssueId: issue.trackerIssueId,
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
     status: run.status,
@@ -104,14 +105,14 @@ export function buildRuntimeIssueSummary(
   runs: RuntimeRunRow[]
 ): SymphonyIssueSummary {
   const issueRuns = runs
-    .filter((run) => run.issueId === issue.issueId)
+    .filter((run) => run.issueIdentifier === issue.issueIdentifier)
     .sort((left, right) => compareDescendingTimestamps(left.startedAt, right.startedAt));
   const latestRun = issueRuns[0];
   const latestProblemRun = issueRuns.find((run) => isProblemOutcome(run.outcome));
   const lastCompletedRun = issueRuns.find((run) => isCompletedOutcome(run.outcome));
 
   return {
-    trackerIssueId: issue.issueId,
+    trackerIssueId: issue.trackerIssueId,
     repositoryKey: issue.repositoryKey,
     issueIdentifier: issue.issueIdentifier,
     latestRunStartedAt: issue.latestRunStartedAt ?? null,

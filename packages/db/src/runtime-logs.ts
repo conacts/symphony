@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { JsonValue } from "@symphony/contracts";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { symphonyRuntimeLogsTable } from "./schema.js";
+import { symphonyIssuesTable, symphonyRuntimeLogsTable } from "./schema.js";
 
 export type SymphonyRuntimeLogLevel = "debug" | "info" | "warn" | "error";
 
@@ -22,12 +22,10 @@ export type SymphonyRuntimeLogEntry = {
 
 export interface SymphonyRuntimeLogStore {
   record(input: {
-    repositoryKey?: string | null;
     level: SymphonyRuntimeLogLevel;
     source: string;
     eventType: string;
     message: string;
-    issueId?: string | null;
     issueIdentifier?: string | null;
     runId?: string | null;
     payload?: JsonValue;
@@ -35,7 +33,6 @@ export interface SymphonyRuntimeLogStore {
   }): Promise<string>;
   list(input?: {
     limit?: number;
-    repositoryKey?: string;
     issueIdentifier?: string;
   }): Promise<SymphonyRuntimeLogEntry[]>;
 }
@@ -43,10 +40,10 @@ export interface SymphonyRuntimeLogStore {
 export function createSymphonyRuntimeLogStore(
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>,
   input: {
-    repositoryKey?: string;
-  } = {}
+    repositoryKey: string;
+  }
 ): SymphonyRuntimeLogStore {
-  const defaultRepositoryKey = sanitizeText(input.repositoryKey);
+  const repositoryKey = sanitizeRequiredText(input.repositoryKey, "repositoryKey");
 
   return {
     async record(input) {
@@ -55,12 +52,11 @@ export function createSymphonyRuntimeLogStore(
 
       db.insert(symphonyRuntimeLogsTable).values({
         entryId,
-        repositoryKey: sanitizeText(input.repositoryKey) ?? defaultRepositoryKey,
+        repositoryKey,
         level: input.level,
         source: input.source,
         eventType: input.eventType,
         message: input.message,
-        issueId: input.issueId ?? null,
         issueIdentifier: input.issueIdentifier ?? null,
         runId: input.runId ?? null,
         payload: input.payload ?? null,
@@ -79,11 +75,6 @@ export function createSymphonyRuntimeLogStore(
         .orderBy(desc(symphonyRuntimeLogsTable.recordedAt))
         .limit(limit);
 
-      const repositoryKey = sanitizeRequiredText(
-        input.repositoryKey ?? defaultRepositoryKey,
-        "repositoryKey"
-      );
-
       const rows = input.issueIdentifier
         ? query.where(
             and(
@@ -93,14 +84,28 @@ export function createSymphonyRuntimeLogStore(
           ).all()
         : query.where(eq(symphonyRuntimeLogsTable.repositoryKey, repositoryKey)).all();
 
+      const issueIdentifiers = [...new Set(rows.flatMap((row) => row.issueIdentifier ?? []))];
+      const issueMap = new Map(
+        (issueIdentifiers.length === 0
+          ? []
+          : db
+              .select()
+              .from(symphonyIssuesTable)
+              .where(inArray(symphonyIssuesTable.issueIdentifier, issueIdentifiers))
+              .all()
+        ).map((row) => [row.issueIdentifier, row] as const)
+      );
+
       return rows.map((row) => ({
         entryId: row.entryId,
-        repositoryKey: row.repositoryKey ?? null,
+        repositoryKey: row.repositoryKey,
         level: normalizeLevel(row.level),
         source: row.source,
         eventType: row.eventType,
         message: row.message,
-        trackerIssueId: row.issueId ?? null,
+        trackerIssueId: row.issueIdentifier
+          ? issueMap.get(row.issueIdentifier)?.trackerIssueId ?? null
+          : null,
         issueIdentifier: row.issueIdentifier ?? null,
         runId: row.runId ?? null,
         payload: (row.payload ?? null) as JsonValue,

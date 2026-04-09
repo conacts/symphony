@@ -54,6 +54,12 @@ export type {
   SymphonyIssueTimelineStore
 } from "./issue-timeline.js";
 export {
+  createSymphonyIssueStore
+} from "./issues.js";
+export type {
+  SymphonyIssueStore
+} from "./issues.js";
+export {
   createSymphonyIssueDeliveryReportStore
 } from "./issue-delivery-reports.js";
 export type {

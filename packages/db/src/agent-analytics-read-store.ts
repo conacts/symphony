@@ -140,6 +140,12 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
     }
 
     const runIds = runs.map((run) => run.runId);
+    const issueIdentifiers = [...new Set(runs.map((run) => run.issueIdentifier))];
+    const issues = this.#db
+      .select()
+      .from(symphonyIssuesTable)
+      .where(inArray(symphonyIssuesTable.issueIdentifier, issueIdentifiers))
+      .all();
     const agentRuns = this.#db
       .select()
       .from(symphonyAgentRunsTable)
@@ -172,17 +178,26 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
     const eventRowsByRunId = groupRowsByRunId(eventRows);
     const runtimeContextMap = buildRuntimeRunContextMap(runtimeContextRows);
     const deliveryMap = buildLatestDeliveryReportByRunId(deliveryRows);
+    const issueMap = new Map(
+      issues.map((issue) => [issue.issueIdentifier, issue] as const)
+    );
 
-    return runs.map((run) =>
-      buildForensicsRunSummary(
+    return runs.flatMap((run) => {
+      const issue = issueMap.get(run.issueIdentifier);
+      if (!issue) {
+        return [];
+      }
+
+      return [buildForensicsRunSummary(
+        issue,
         run,
         agentRunMap.get(run.runId),
         runtimeTurnsByRunId.get(run.runId) ?? [],
         mapEventRowsForRunSummary(eventRowsByRunId.get(run.runId) ?? []),
         deliveryMap.get(run.runId),
         runtimeContextMap.get(run.runId)
-      )
-    );
+      )];
+    });
   }
 
   async listRunsForIssue(
@@ -233,6 +248,7 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
       issue: buildForensicsIssueExport(data.issue, data.issueRuns, data.issueDeliveryRows),
       run: {
         ...buildForensicsRunSummary(
+          data.issue,
           mapPersistedRunRecord(data.run),
           data.agentRun,
           data.symphonyTurns,
@@ -264,7 +280,7 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
         lastEventAt: lastEvent?.recordedAt ?? null
       },
       deliveryReport: data.latestRunDelivery
-        ? mapForensicsDeliveryReport(data.latestRunDelivery)
+        ? mapForensicsDeliveryReport(data.latestRunDelivery, data.issue)
         : null,
       turns
     };
@@ -662,6 +678,7 @@ function mapPersistedRunRecord(
 }
 
 function buildForensicsRunSummary(
+  issue: typeof symphonyIssuesTable.$inferSelect,
   run: PersistedRunRecord,
   agentRun: typeof symphonyAgentRunsTable.$inferSelect | undefined,
   runtimeTurns: Array<typeof symphonyTurnsTable.$inferSelect>,
@@ -674,7 +691,7 @@ function buildForensicsRunSummary(
     providerName: string | null;
   }
 ): SymphonyForensicsRunSummary {
-  const runtimeSummary = buildRuntimeRunSummary(run, runtimeTurns, eventRows);
+  const runtimeSummary = buildRuntimeRunSummary(issue, run, runtimeTurns, eventRows);
   const runtimeTokenTotals = computeRuntimeRunTokenTotals(runtimeTurns);
   const resolvedRunTokens = resolvePreferredTokenTotals(
     agentRun
@@ -698,7 +715,7 @@ function buildForensicsRunSummary(
   return {
     runId: run.runId,
     repositoryKey: run.repositoryKey,
-    trackerIssueId: run.issueId,
+    trackerIssueId: issue.trackerIssueId,
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
     status: run.status,
@@ -995,12 +1012,13 @@ function buildLatestDeliveryReportByRunId(
 }
 
 function mapForensicsDeliveryReport(
-  row: typeof symphonyIssueDeliveryReportsTable.$inferSelect
+  row: typeof symphonyIssueDeliveryReportsTable.$inferSelect,
+  issue: typeof symphonyIssuesTable.$inferSelect
 ): SymphonyForensicsRunDetailResult["deliveryReport"] {
   return {
-    repositoryKey: row.repositoryKey,
+    repositoryKey: issue.repositoryKey,
     reportId: row.reportId,
-    trackerIssueId: row.issueId,
+    trackerIssueId: issue.trackerIssueId,
     issueIdentifier: row.issueIdentifier,
     runId: row.runId,
     turnId: row.turnId ?? null,
@@ -1916,9 +1934,9 @@ async function loadRunData(
   const [agentRun, issue, issueRuns, issueDeliveryRows, symphonyTurns, agentTurns, eventRows, itemRows, commandRows, toolRows, piReadRows, piEditRows, piWriteRows, piGrepRows, piFindRows, piMessageEndRows, agentMessageRows, reasoningRows, fileChangeRows, taskSnapshotRows, runtimeContextRow] =
     await Promise.all([
       db.select().from(symphonyAgentRunsTable).where(eq(symphonyAgentRunsTable.runId, runId)).get(),
-      db.select().from(symphonyIssuesTable).where(eq(symphonyIssuesTable.issueId, run.issueId)).get(),
-      db.select().from(symphonyRunsTable).where(eq(symphonyRunsTable.issueId, run.issueId)).all(),
-      db.select().from(symphonyIssueDeliveryReportsTable).where(eq(symphonyIssueDeliveryReportsTable.issueId, run.issueId)).orderBy(desc(symphonyIssueDeliveryReportsTable.reportedAt)).all(),
+      db.select().from(symphonyIssuesTable).where(eq(symphonyIssuesTable.issueIdentifier, run.issueIdentifier)).get(),
+      db.select().from(symphonyRunsTable).where(eq(symphonyRunsTable.issueIdentifier, run.issueIdentifier)).all(),
+      db.select().from(symphonyIssueDeliveryReportsTable).where(eq(symphonyIssueDeliveryReportsTable.issueIdentifier, run.issueIdentifier)).orderBy(desc(symphonyIssueDeliveryReportsTable.reportedAt)).all(),
       db.select().from(symphonyTurnsTable).where(eq(symphonyTurnsTable.runId, runId)).orderBy(asc(symphonyTurnsTable.turnSequence)).all(),
       db.select().from(symphonyAgentTurnsTable).where(eq(symphonyAgentTurnsTable.runId, runId)).all(),
       db.select().from(symphonyAgentEventLogTable).where(eq(symphonyAgentEventLogTable.runId, runId)).orderBy(asc(symphonyAgentEventLogTable.sequence)).all(),

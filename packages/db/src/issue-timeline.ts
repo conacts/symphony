@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { JsonValue } from "@symphony/contracts";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { symphonyIssueTimelineTable } from "./schema.js";
+import { symphonyIssueTimelineTable, symphonyIssuesTable } from "./schema.js";
 
 export type SymphonyIssueTimelineSource =
   | "orchestrator"
@@ -27,8 +27,6 @@ export type SymphonyIssueTimelineEntry = {
 
 export interface SymphonyIssueTimelineStore {
   record(input: {
-    repositoryKey?: string;
-    issueId: string;
     issueIdentifier: string;
     runId?: string | null;
     turnId?: string | null;
@@ -42,7 +40,6 @@ export interface SymphonyIssueTimelineStore {
     issueIdentifier: string,
     input?: {
       limit?: number;
-      repositoryKey?: string;
     }
   ): Promise<SymphonyIssueTimelineEntry[]>;
 }
@@ -50,10 +47,10 @@ export interface SymphonyIssueTimelineStore {
 export function createSymphonyIssueTimelineStore(
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>,
   input: {
-    repositoryKey?: string;
-  } = {}
+    repositoryKey: string;
+  }
 ): SymphonyIssueTimelineStore {
-  const defaultRepositoryKey = sanitizeOptionalText(input.repositoryKey);
+  const repositoryKey = sanitizeRequiredText(input.repositoryKey, "repositoryKey");
 
   return {
     async record(input) {
@@ -62,11 +59,6 @@ export function createSymphonyIssueTimelineStore(
 
       db.insert(symphonyIssueTimelineTable).values({
         entryId,
-        repositoryKey: sanitizeRequiredText(
-          input.repositoryKey ?? defaultRepositoryKey,
-          "repositoryKey"
-        ),
-        issueId: input.issueId,
         issueIdentifier: input.issueIdentifier,
         runId: input.runId ?? null,
         turnId: input.turnId ?? null,
@@ -83,28 +75,29 @@ export function createSymphonyIssueTimelineStore(
 
     async listIssueTimeline(issueIdentifier, input = {}) {
       const limit = normalizeLimit(input.limit, 200);
-      const repositoryKey = sanitizeRequiredText(
-        input.repositoryKey ?? defaultRepositoryKey,
-        "repositoryKey"
-      );
 
       const rows = db
         .select()
         .from(symphonyIssueTimelineTable)
-        .where(
-          and(
-            eq(symphonyIssueTimelineTable.repositoryKey, repositoryKey),
-            eq(symphonyIssueTimelineTable.issueIdentifier, issueIdentifier)
-          )
-        )
+        .where(eq(symphonyIssueTimelineTable.issueIdentifier, issueIdentifier))
         .orderBy(desc(symphonyIssueTimelineTable.recordedAt))
         .limit(limit)
         .all();
 
+      const issue = db
+        .select()
+        .from(symphonyIssuesTable)
+        .where(eq(symphonyIssuesTable.issueIdentifier, issueIdentifier))
+        .get();
+
+      if (!issue || issue.repositoryKey !== repositoryKey) {
+        return [];
+      }
+
       return rows.map((row) => ({
         entryId: row.entryId,
-        repositoryKey: row.repositoryKey,
-        trackerIssueId: row.issueId,
+        repositoryKey: issue.repositoryKey,
+        trackerIssueId: issue.trackerIssueId,
         issueIdentifier: row.issueIdentifier,
         runId: row.runId ?? null,
         turnId: row.turnId ?? null,
@@ -140,20 +133,14 @@ function normalizeSource(value: string): SymphonyIssueTimelineSource {
 }
 
 function sanitizeRequiredText(value: string | null | undefined, field: string): string {
-  const normalized = sanitizeOptionalText(value);
+  if (typeof value !== "string") {
+    throw new TypeError(`${field} is required.`);
+  }
 
-  if (!normalized) {
+  const normalized = value.trim();
+  if (normalized.length === 0) {
     throw new TypeError(`${field} is required.`);
   }
 
   return normalized;
-}
-
-function sanitizeOptionalText(value: string | null | undefined): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : null;
 }

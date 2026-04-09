@@ -25,7 +25,7 @@ export type RepositoryLinearTrackerFactory = (
 export function createRepositoryScopedLinearTracker(input: {
   trackerTemplate: SymphonyTrackerConfig;
   admittedRepositories: AdmittedRuntimeRepository[];
-  fallbackRepositoryKey?: string;
+  primaryRepositoryKey?: string;
   createTracker?: RepositoryLinearTrackerFactory;
 }): SymphonyTracker {
   if (input.trackerTemplate.kind !== "linear") {
@@ -39,7 +39,7 @@ export function createRepositoryScopedLinearTracker(input: {
   const trackerEntries = buildRepositoryLinearTrackerEntries({
     trackerTemplate: input.trackerTemplate,
     admittedRepositories: input.admittedRepositories,
-    fallbackRepositoryKey: input.fallbackRepositoryKey,
+    primaryRepositoryKey: input.primaryRepositoryKey,
     createTracker
   });
   const trackersByRepositoryKey = new Map(
@@ -141,16 +141,16 @@ export function createRepositoryScopedLinearTracker(input: {
 function buildRepositoryLinearTrackerEntries(input: {
   trackerTemplate: SymphonyTrackerConfig;
   admittedRepositories: AdmittedRuntimeRepository[];
-  fallbackRepositoryKey?: string;
+  primaryRepositoryKey?: string;
   createTracker: RepositoryLinearTrackerFactory;
 }): RepositoryLinearTrackerEntry[] {
   const repositories: ReadonlyArray<RepositoryLinearTrackerSource> =
     input.admittedRepositories.length > 0
       ? input.admittedRepositories
       : [
-          createFallbackAdmittedRepository(
+          createPrimaryAdmittedRepository(
             input.trackerTemplate,
-            input.fallbackRepositoryKey
+            input.primaryRepositoryKey
           )
         ];
 
@@ -188,7 +188,7 @@ function mergeTrackerConfigs(
   };
 }
 
-function createFallbackAdmittedRepository(
+function createPrimaryAdmittedRepository(
   trackerTemplate: SymphonyTrackerConfig,
   repositoryKey: string | undefined
 ): RepositoryLinearTrackerSource {
@@ -197,7 +197,7 @@ function createFallbackAdmittedRepository(
   }
   if (typeof repositoryKey !== "string" || repositoryKey.trim() === "") {
     throw new TypeError(
-      "Repository-scoped Linear tracker fallback requires an explicit repository key."
+      "Repository-scoped Linear tracker requires an explicit primary repository key."
     );
   }
 

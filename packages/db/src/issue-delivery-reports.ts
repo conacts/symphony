@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { JsonValue } from "@symphony/contracts";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { createSymphonyIssueTimelineStore, type SymphonyIssueTimelineStore } from "./issue-timeline.js";
-import { symphonyIssueDeliveryReportsTable } from "./schema.js";
+import {
+  symphonyIssueDeliveryReportsTable,
+  symphonyIssuesTable,
+  symphonyRunsTable
+} from "./schema.js";
 
 export type SymphonyIssueDeliveryStatus = "completed" | "blocked" | "partial";
 
@@ -29,9 +33,6 @@ export type SymphonyIssueDeliveryReportRecord = {
 
 export interface SymphonyIssueDeliveryReportStore {
   record(input: {
-    repositoryKey?: string;
-    issueId: string;
-    issueIdentifier: string;
     runId: string;
     turnId?: string | null;
     status: SymphonyIssueDeliveryStatus;
@@ -49,7 +50,6 @@ export interface SymphonyIssueDeliveryReportStore {
     issueIdentifier: string,
     input?: {
       limit?: number;
-      repositoryKey?: string;
     }
   ): Promise<SymphonyIssueDeliveryReportRecord[]>;
   listForRun(
@@ -59,8 +59,7 @@ export interface SymphonyIssueDeliveryReportStore {
     }
   ): Promise<SymphonyIssueDeliveryReportRecord[]>;
   fetchLatestForIssue(
-    issueIdentifier: string,
-    repositoryKey?: string
+    issueIdentifier: string
   ): Promise<SymphonyIssueDeliveryReportRecord | null>;
   fetchLatestForRun(runId: string): Promise<SymphonyIssueDeliveryReportRecord | null>;
 }
@@ -68,7 +67,7 @@ export interface SymphonyIssueDeliveryReportStore {
 export function createSymphonyIssueDeliveryReportStore(input: {
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   timelineStore?: SymphonyIssueTimelineStore;
-  repositoryKey?: string;
+  repositoryKey: string;
 }): SymphonyIssueDeliveryReportStore {
   return new SqliteSymphonyIssueDeliveryReportStore(input);
 }
@@ -76,23 +75,22 @@ export function createSymphonyIssueDeliveryReportStore(input: {
 class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryReportStore {
   readonly #db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   readonly #timelineStore: SymphonyIssueTimelineStore;
-  readonly #repositoryKey: string | null;
+  readonly #repositoryKey: string;
 
   constructor(input: {
     db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
     timelineStore?: SymphonyIssueTimelineStore;
-    repositoryKey?: string;
+    repositoryKey: string;
   }) {
     this.#db = input.db;
+    this.#repositoryKey = sanitizeRequiredText(input.repositoryKey, "repositoryKey");
     this.#timelineStore =
-      input.timelineStore ?? createSymphonyIssueTimelineStore(input.db);
-    this.#repositoryKey = sanitizeText(input.repositoryKey);
+      input.timelineStore ?? createSymphonyIssueTimelineStore(input.db, {
+        repositoryKey: this.#repositoryKey
+      });
   }
 
   async record(input: {
-    repositoryKey?: string;
-    issueId: string;
-    issueIdentifier: string;
     runId: string;
     turnId?: string | null;
     status: SymphonyIssueDeliveryStatus;
@@ -120,17 +118,26 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
     if (input.status === "blocked" && !blockingReason) {
       throw new TypeError("Blocked delivery reports require blockingReason.");
     }
-    const repositoryKey = sanitizeRequiredText(
-      sanitizeText(input.repositoryKey) ?? this.#repositoryKey,
-      "repositoryKey"
-    );
+    const runId = sanitizeRequiredText(input.runId, "runId");
+    const run = this.#db
+      .select()
+      .from(symphonyRunsTable)
+      .where(eq(symphonyRunsTable.runId, runId))
+      .get();
+
+    if (!run) {
+      throw new TypeError(`Run not found for delivery report: ${runId}`);
+    }
+    if (run.repositoryKey !== this.#repositoryKey) {
+      throw new TypeError(
+        `Run ${runId} does not belong to repository ${this.#repositoryKey}.`
+      );
+    }
 
     this.#db.insert(symphonyIssueDeliveryReportsTable).values({
       reportId,
-      repositoryKey,
-      issueId: sanitizeRequiredText(input.issueId, "issueId"),
-      issueIdentifier: sanitizeRequiredText(input.issueIdentifier, "issueIdentifier"),
-      runId: sanitizeRequiredText(input.runId, "runId"),
+      issueIdentifier: run.issueIdentifier,
+      runId,
       turnId: sanitizeText(input.turnId),
       status: input.status,
       summary,
@@ -146,10 +153,8 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
     }).run();
 
     await this.#timelineStore.record({
-      issueId: input.issueId,
-      repositoryKey,
-      issueIdentifier: input.issueIdentifier,
-      runId: input.runId,
+      issueIdentifier: run.issueIdentifier,
+      runId,
       turnId: input.turnId ?? null,
       source: "tracker",
       eventType: "delivery_reported",
@@ -170,29 +175,18 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
     issueIdentifier: string,
     input: {
       limit?: number;
-      repositoryKey?: string;
     } = {}
   ): Promise<SymphonyIssueDeliveryReportRecord[]> {
     const rows = this.#db
       .select()
       .from(symphonyIssueDeliveryReportsTable)
-      .where(
-        and(
-          eq(
-            symphonyIssueDeliveryReportsTable.repositoryKey,
-            sanitizeRequiredText(
-              input.repositoryKey ?? this.#repositoryKey,
-              "repositoryKey"
-            )
-          ),
-          eq(symphonyIssueDeliveryReportsTable.issueIdentifier, issueIdentifier)
-        )
-      )
+      .where(eq(symphonyIssueDeliveryReportsTable.issueIdentifier, issueIdentifier))
       .orderBy(desc(symphonyIssueDeliveryReportsTable.reportedAt))
       .limit(normalizeLimit(input.limit, 50))
       .all();
 
-    return rows.map(mapDeliveryReportRecord);
+    const records = await Promise.all(rows.map((row) => this.#mapDeliveryReportRecord(row)));
+    return records.filter((record) => record.repositoryKey === this.#repositoryKey);
   }
 
   async listForRun(
@@ -209,30 +203,25 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
       .limit(normalizeLimit(input.limit, 50))
       .all();
 
-    return rows.map(mapDeliveryReportRecord);
+    const records = await Promise.all(rows.map((row) => this.#mapDeliveryReportRecord(row)));
+    return records.filter((record) => record.repositoryKey === this.#repositoryKey);
   }
 
-  async fetchLatestForIssue(
-    issueIdentifier: string,
-    repositoryKey?: string
-  ): Promise<SymphonyIssueDeliveryReportRecord | null> {
+  async fetchLatestForIssue(issueIdentifier: string): Promise<SymphonyIssueDeliveryReportRecord | null> {
     const row = this.#db
       .select()
       .from(symphonyIssueDeliveryReportsTable)
-      .where(
-        and(
-          eq(
-            symphonyIssueDeliveryReportsTable.repositoryKey,
-            sanitizeRequiredText(repositoryKey ?? this.#repositoryKey, "repositoryKey")
-          ),
-          eq(symphonyIssueDeliveryReportsTable.issueIdentifier, issueIdentifier)
-        )
-      )
+      .where(eq(symphonyIssueDeliveryReportsTable.issueIdentifier, issueIdentifier))
       .orderBy(desc(symphonyIssueDeliveryReportsTable.reportedAt))
       .limit(1)
       .get();
 
-    return row ? mapDeliveryReportRecord(row) : null;
+    if (!row) {
+      return null;
+    }
+
+    const record = await this.#mapDeliveryReportRecord(row);
+    return record.repositoryKey === this.#repositoryKey ? record : null;
   }
 
   async fetchLatestForRun(runId: string): Promise<SymphonyIssueDeliveryReportRecord | null> {
@@ -244,17 +233,41 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
       .limit(1)
       .get();
 
-    return row ? mapDeliveryReportRecord(row) : null;
+    if (!row) {
+      return null;
+    }
+
+    const record = await this.#mapDeliveryReportRecord(row);
+    return record.repositoryKey === this.#repositoryKey ? record : null;
+  }
+
+  async #mapDeliveryReportRecord(
+    row: typeof symphonyIssueDeliveryReportsTable.$inferSelect
+  ): Promise<SymphonyIssueDeliveryReportRecord> {
+    const issue = this.#db
+      .select()
+      .from(symphonyIssuesTable)
+      .where(eq(symphonyIssuesTable.issueIdentifier, row.issueIdentifier))
+      .get();
+
+    if (!issue) {
+      throw new TypeError(
+        `Issue not found for delivery report ${row.reportId}: ${row.issueIdentifier}`
+      );
+    }
+
+    return mapDeliveryReportRecord(row, issue);
   }
 }
 
 function mapDeliveryReportRecord(
-  row: typeof symphonyIssueDeliveryReportsTable.$inferSelect
+  row: typeof symphonyIssueDeliveryReportsTable.$inferSelect,
+  issue: typeof symphonyIssuesTable.$inferSelect
 ): SymphonyIssueDeliveryReportRecord {
   return {
     reportId: row.reportId,
-    repositoryKey: row.repositoryKey,
-    trackerIssueId: row.issueId,
+    repositoryKey: issue.repositoryKey,
+    trackerIssueId: issue.trackerIssueId,
     issueIdentifier: row.issueIdentifier,
     runId: row.runId,
     turnId: row.turnId ?? null,

@@ -43,7 +43,7 @@ export type SymphonyRuntimeTurnStatus =
 
 export type SymphonyRuntimeRunStartAttrs = {
   repositoryKey: string;
-  issueId: string;
+  trackerIssueId: string;
   issueIdentifier: string;
   runId?: string;
   attempt?: number | null;

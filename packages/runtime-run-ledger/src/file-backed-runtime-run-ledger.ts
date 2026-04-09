@@ -79,9 +79,9 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       const repositoryKey = sanitizeRequiredText(attrs.repositoryKey, "repositoryKey");
 
       const nextIssue = upsertIssueRecord(document.issues, {
-        issueId: attrs.issueId,
-        repositoryKey,
         issueIdentifier: attrs.issueIdentifier,
+        trackerIssueId: attrs.trackerIssueId,
+        repositoryKey,
         latestRunStartedAt: startedAt,
         insertedAt: now,
         updatedAt: now
@@ -91,7 +91,6 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       document.runs.push({
         runId,
         repositoryKey,
-        issueId: attrs.issueId,
         issueIdentifier: attrs.issueIdentifier,
         attempt: attrs.attempt ?? null,
         status: attrs.status ?? "running",
@@ -257,7 +256,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
         : run.errorMessage;
       run.updatedAt = isoNow();
 
-      const issue = document.issues.find((entry) => entry.issueId === run.issueId);
+      const issue = document.issues.find((entry) => entry.issueIdentifier === run.issueIdentifier);
       if (issue) {
         issue.updatedAt = isoNow();
       }
@@ -311,7 +310,10 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       .filter((run) => matchesRunFilters(run, opts))
       .sort((left, right) => compareDescendingTimestamps(left.startedAt, right.startedAt))
       .slice(0, limit)
-      .map((run) => buildRunSummary(run, document.turns, document.events));
+      .flatMap((run) => {
+        const issue = document.issues.find((entry) => entry.issueIdentifier === run.issueIdentifier);
+        return issue ? [buildRunSummary(issue, run, document.turns, document.events)] : [];
+      });
   }
 
   async listProblemRuns(
@@ -332,7 +334,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       return null;
     }
 
-    const issueRecord = document.issues.find((entry) => entry.issueId === run.issueId);
+    const issueRecord = document.issues.find((entry) => entry.issueIdentifier === run.issueIdentifier);
     if (!issueRecord) {
       return null;
     }
@@ -350,11 +352,13 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
         return Number.isNaN(startedAtMs) ? true : startedAtMs >= cutoffMs;
       });
       const retainedRunIds = new Set(retainedRuns.map((run) => run.runId));
-      const retainedIssueIds = new Set(retainedRuns.map((run) => run.issueId));
+      const retainedIssueIdentifiers = new Set(retainedRuns.map((run) => run.issueIdentifier));
       const retainedTurns = document.turns.filter((turn) => retainedRunIds.has(turn.runId));
       const retainedTurnIds = new Set(retainedTurns.map((turn) => turn.turnId));
       const retainedEvents = document.events.filter((event) => retainedTurnIds.has(event.turnId));
-      const retainedIssues = document.issues.filter((issue) => retainedIssueIds.has(issue.issueId));
+      const retainedIssues = document.issues.filter((issue) =>
+        retainedIssueIdentifiers.has(issue.issueIdentifier)
+      );
 
       document.runs = retainedRuns;
       document.turns = retainedTurns;
@@ -422,13 +426,14 @@ function upsertIssueRecord(
   issues: SymphonyIssueRecord[],
   issue: SymphonyIssueRecord
 ): SymphonyIssueRecord[] {
-  const existing = issues.find((entry) => entry.issueId === issue.issueId);
+  const existing = issues.find((entry) => entry.issueIdentifier === issue.issueIdentifier);
 
   if (!existing) {
     return [...issues, issue];
   }
 
-  existing.issueIdentifier = issue.issueIdentifier;
+  existing.trackerIssueId = issue.trackerIssueId;
+  existing.repositoryKey = issue.repositoryKey;
   existing.latestRunStartedAt =
     Date.parse(issue.latestRunStartedAt) > Date.parse(existing.latestRunStartedAt)
       ? issue.latestRunStartedAt

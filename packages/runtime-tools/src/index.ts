@@ -107,8 +107,6 @@ export async function executeDeliveryReportTool(
 
   try {
     const reportId = await executionContext.deliveryReports.record({
-      issueId: executionContext.issue.id,
-      issueIdentifier: executionContext.issue.identifier,
       runId: executionContext.runId,
       turnId: executionContext.turnId,
       status: deliveryArguments.status,
@@ -304,7 +302,6 @@ export async function executeMergeResultTool(
       renderMergeResultComment(mergeResult)
     );
     await executionContext.issueTimelineStore.record({
-      issueId: executionContext.issue.id,
       issueIdentifier: executionContext.issue.identifier,
       runId: executionContext.runId,
       turnId: executionContext.turnId,

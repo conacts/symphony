@@ -41,7 +41,7 @@ describe("runtime run delivery projections", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-mode-1",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-1",
+        trackerIssueId: "issue-1",
         issueIdentifier: "COL-200",
         runMode: "rework",
         metadata: {
@@ -91,7 +91,7 @@ describe("runtime run delivery projections", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-1",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-1",
+        trackerIssueId: "issue-1",
         issueIdentifier: "COL-157",
         runMode: "implementation",
         startedAt: "2026-04-05T19:00:00.000Z",
@@ -113,8 +113,6 @@ describe("runtime run delivery projections", () => {
         endedAt: "2026-04-05T19:10:00.000Z"
       });
       await deliveryStore.record({
-        issueId: "issue-1",
-        issueIdentifier: "COL-157",
         runId,
         status: "completed",
         summary: "Opened the PR.",
@@ -145,8 +143,8 @@ describe("runtime run delivery projections", () => {
       dbFile: path.join(root, "symphony.db")
     });
     const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
-      repositoryKey: testRepositoryKey
-    });
+        repositoryKey: testRepositoryKey
+      });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db,
       timelineStore: issueTimelineStore
@@ -156,7 +154,7 @@ describe("runtime run delivery projections", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-events-1",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-events-1",
+        trackerIssueId: "issue-events-1",
         issueIdentifier: "COL-310",
         runMode: "implementation",
         startedAt: "2026-04-08T21:00:00.000Z",
@@ -226,7 +224,7 @@ describe("runtime run delivery projections", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-context-1",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-context-1",
+        trackerIssueId: "issue-context-1",
         issueIdentifier: "COL-311",
         runMode: "implementation",
         startedAt: "2026-04-09T02:00:00.000Z",

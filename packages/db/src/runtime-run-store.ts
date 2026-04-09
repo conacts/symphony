@@ -48,7 +48,7 @@ export function createSqliteSymphonyRuntimeRunStore(input: {
 
 class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
   readonly #db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
-  readonly #timelineStore: SymphonyIssueTimelineStore;
+  readonly #timelineStore: SymphonyIssueTimelineStore | null;
   readonly #payloadMaxBytes: number;
 
   constructor(input: {
@@ -57,8 +57,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     payloadMaxBytes?: number;
   }) {
     this.#db = input.db;
-    this.#timelineStore =
-      input.timelineStore ?? createSymphonyIssueTimelineStore(input.db);
+    this.#timelineStore = input.timelineStore ?? null;
     this.#payloadMaxBytes = normalizePositiveInteger(input.payloadMaxBytes, 64 * 1024);
   }
 
@@ -73,28 +72,28 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       const existingIssue = tx
         .select()
         .from(symphonyIssuesTable)
-        .where(eq(symphonyIssuesTable.issueId, attrs.issueId))
+        .where(eq(symphonyIssuesTable.issueIdentifier, attrs.issueIdentifier))
         .get();
 
       if (existingIssue) {
         tx.update(symphonyIssuesTable)
           .set({
             repositoryKey,
-            issueIdentifier: attrs.issueIdentifier,
+            trackerIssueId: attrs.trackerIssueId,
             latestRunStartedAt:
               compareDescendingTimestamps(startedAt, existingIssue.latestRunStartedAt) < 0
                 ? existingIssue.latestRunStartedAt
                 : startedAt,
             updatedAt: now
           })
-          .where(eq(symphonyIssuesTable.issueId, attrs.issueId))
+          .where(eq(symphonyIssuesTable.issueIdentifier, attrs.issueIdentifier))
           .run();
       } else {
         tx.insert(symphonyIssuesTable)
           .values({
-            issueId: attrs.issueId,
-            repositoryKey,
             issueIdentifier: attrs.issueIdentifier,
+            trackerIssueId: attrs.trackerIssueId,
+            repositoryKey,
             latestRunStartedAt: startedAt,
             insertedAt: now,
             updatedAt: now
@@ -106,7 +105,6 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         .values({
           runId,
           repositoryKey,
-          issueId: attrs.issueId,
           issueIdentifier: attrs.issueIdentifier,
           attempt: attrs.attempt ?? null,
           status: attrs.status,
@@ -138,9 +136,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         .run();
     });
 
-    await this.#timelineStore.record({
-      repositoryKey,
-      issueId: attrs.issueId,
+    await this.#timelineStoreFor(repositoryKey).record({
       issueIdentifier: attrs.issueIdentifier,
       runId,
       source: "orchestrator",
@@ -210,9 +206,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       })
       .run();
 
-    await this.#timelineStore.record({
-      repositoryKey: run.repositoryKey,
-      issueId: run.issueId,
+    await this.#timelineStoreFor(run.repositoryKey).record({
       issueIdentifier: run.issueIdentifier,
       runId,
       turnId,
@@ -452,7 +446,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         .set({
           updatedAt
         })
-        .where(eq(symphonyIssuesTable.issueId, existing.issueId))
+        .where(eq(symphonyIssuesTable.issueIdentifier, existing.issueIdentifier))
         .run();
     });
   }
@@ -480,9 +474,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       machineLoadSummary: attrs.machineLoadSummary
     });
 
-    await this.#timelineStore.record({
-      repositoryKey: existing.repositoryKey,
-      issueId: existing.issueId,
+    await this.#timelineStoreFor(existing.repositoryKey).record({
       issueIdentifier: existing.issueIdentifier,
       runId,
       source: "orchestrator",
@@ -498,6 +490,15 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       },
       recordedAt: normalizeIsoTimestamp(attrs.endedAt) ?? isoNow()
     });
+  }
+
+  #timelineStoreFor(repositoryKey: string): SymphonyIssueTimelineStore {
+    return (
+      this.#timelineStore ??
+      createSymphonyIssueTimelineStore(this.#db, {
+        repositoryKey
+      })
+    );
   }
 }
 

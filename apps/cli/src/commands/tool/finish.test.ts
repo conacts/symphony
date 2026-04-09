@@ -8,12 +8,14 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import {
   createSymphonyIssueDeliveryReportStore,
+  createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
 import { ensureRuntimeToolsBuild } from "../../test-support/ensure-runtime-tools-build.js";
 
 const execFileAsync = promisify(execFile);
 const tempRoots: string[] = [];
+const testRepositoryKey = "openai/symphony";
 const devJsPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../bin/dev.js"
@@ -45,6 +47,26 @@ describe("tool finish command", () => {
     const database = initializeSymphonyDb({
       dbFile
     });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    await runStore.recordRunStarted({
+      runId: "run-123",
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: "issue-123",
+      issueIdentifier: "COL-123",
+      runMode: "implementation",
+      status: "running",
+      startedAt: "2026-04-05T19:00:00.000Z"
+    });
+    await runStore.recordTurnStarted("run-123", {
+      turnId: "turn-123",
+      turnSequence: 1,
+      threadId: "thread-turn-123",
+      promptText: "Continue the issue.",
+      status: "running",
+      startedAt: "2026-04-05T19:00:01.000Z"
+    });
     database.close();
 
     const command = await execFinishCommand(
@@ -64,7 +86,7 @@ describe("tool finish command", () => {
         SYMPHONY_ISSUE_ID: "issue-123",
         SYMPHONY_ISSUE_IDENTIFIER: "COL-123",
         SYMPHONY_ISSUE_STATE: "In Review",
-        SYMPHONY_REPOSITORY_KEY: "openai/symphony",
+        SYMPHONY_REPOSITORY_KEY: testRepositoryKey,
         SYMPHONY_TURN_ID: "turn-123",
         SYMPHONY_LINEAR_TEAM_KEY: "COL",
         LINEAR_API_KEY: "token"
@@ -79,7 +101,7 @@ describe("tool finish command", () => {
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
       db: verificationDb.db,
-      repositoryKey: "openai/symphony"
+      repositoryKey: testRepositoryKey
     });
     const reports = await deliveryReports.listForRun("run-123");
     expect(reports).toHaveLength(1);

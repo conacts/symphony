@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createSymphonyIssueTimelineStore,
   createSymphonyIssueDeliveryReportStore,
+  createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
 import {
@@ -34,7 +35,14 @@ afterEach(async () => {
 
 describe("runtime tools", () => {
   it("records completed delivery reports against the active run and turn", async () => {
-    const { database, deliveryReports } = await createRuntimeToolsTestContext();
+    const { database, deliveryReports } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-123",
+        identifier: "COL-123"
+      },
+      runId: "run-123",
+      turnId: "turn-123"
+    });
     const recorded: Array<{ status: string; prUrl: string | null }> = [];
     const tracker = createMemorySymphonyTracker([
       {
@@ -111,7 +119,14 @@ describe("runtime tools", () => {
   });
 
   it("rejects completed delivery reports that omit the PR url", async () => {
-    const { database, deliveryReports } = await createRuntimeToolsTestContext();
+    const { database, deliveryReports } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-123",
+        identifier: "COL-123"
+      },
+      runId: "run-123",
+      turnId: "turn-123"
+    });
 
     const result = await executeDeliveryReportTool(
       {
@@ -138,7 +153,14 @@ describe("runtime tools", () => {
   });
 
   it("records delivery even when the In Review transition fails", async () => {
-    const { database, deliveryReports } = await createRuntimeToolsTestContext();
+    const { database, deliveryReports } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-123",
+        identifier: "COL-123"
+      },
+      runId: "run-123",
+      turnId: "turn-123"
+    });
 
     const result = await executeDeliveryReportTool(
       {
@@ -186,7 +208,14 @@ describe("runtime tools", () => {
   });
 
   it("records blocked delivery reports and moves the issue to Blocked", async () => {
-    const { database, deliveryReports } = await createRuntimeToolsTestContext();
+    const { database, deliveryReports } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-124",
+        identifier: "COL-124"
+      },
+      runId: "run-124",
+      turnId: "turn-124"
+    });
     const tracker = createMemorySymphonyTracker([
       buildRuntimeToolIssue({
         id: "issue-124",
@@ -314,7 +343,15 @@ describe("runtime tools", () => {
   });
 
   it("records a merged result for the active approved run", async () => {
-    const { issueTimelineStore } = await createRuntimeToolsTestContext();
+    const { database, issueTimelineStore } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-321",
+        identifier: "SYM-321"
+      },
+      runId: "run-321",
+      turnId: "turn-321",
+      runMode: "approved_merge"
+    });
     const tracker = createMemorySymphonyTracker([
       buildRuntimeToolIssue({
         id: "issue-321",
@@ -367,10 +404,20 @@ describe("runtime tools", () => {
         eventType: "merge_result_reported"
       })
     );
+
+    database.close();
   });
 
   it("rejects blocked merge results that omit the blocking reason", async () => {
-    const { issueTimelineStore } = await createRuntimeToolsTestContext();
+    const { database, issueTimelineStore } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-654",
+        identifier: "SYM-654"
+      },
+      runId: "run-654",
+      turnId: "turn-654",
+      runMode: "approved_merge"
+    });
 
     const result = await executeMergeResultTool(
       {
@@ -391,10 +438,20 @@ describe("runtime tools", () => {
 
     expect(result.success).toBe(false);
     expect(String(result.output)).toContain("requires `blockingReason`");
+
+    database.close();
   });
 });
 
-async function createRuntimeToolsTestContext() {
+async function createRuntimeToolsTestContext(input: {
+  issue: {
+    id: string;
+    identifier: string;
+  };
+  runId: string;
+  turnId?: string;
+  runMode?: "implementation" | "rework" | "approved_merge";
+}) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-tools-"));
   tempRoots.push(root);
 
@@ -409,6 +466,31 @@ async function createRuntimeToolsTestContext() {
     timelineStore: issueTimelineStore,
     repositoryKey: testRepositoryKey
   });
+  const runStore = createSqliteSymphonyRuntimeRunStore({
+    db: database.db,
+    timelineStore: issueTimelineStore
+  });
+
+  await runStore.recordRunStarted({
+    runId: input.runId,
+    repositoryKey: testRepositoryKey,
+    trackerIssueId: input.issue.id,
+    issueIdentifier: input.issue.identifier,
+    runMode: input.runMode ?? "implementation",
+    status: "running",
+    startedAt: "2026-04-05T19:00:00.000Z"
+  });
+
+  if (input.turnId) {
+    await runStore.recordTurnStarted(input.runId, {
+      turnId: input.turnId,
+      turnSequence: 1,
+      threadId: `thread-${input.turnId}`,
+      promptText: "Continue the issue.",
+      status: "running",
+      startedAt: "2026-04-05T19:00:01.000Z"
+    });
+  }
 
   return {
     database,

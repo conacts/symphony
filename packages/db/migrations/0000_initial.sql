@@ -1,14 +1,14 @@
 CREATE TABLE IF NOT EXISTS symphony_issues (
-  issue_id TEXT PRIMARY KEY NOT NULL,
+  issue_identifier TEXT PRIMARY KEY NOT NULL,
+  tracker_issue_id TEXT NOT NULL UNIQUE,
   repository_key TEXT NOT NULL,
-  issue_identifier TEXT NOT NULL,
-  latest_run_started_at TEXT NOT NULL,
+  latest_run_started_at TEXT,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS symphony_issues_repository_issue_identifier_idx
-  ON symphony_issues (repository_key, issue_identifier);
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_issues_tracker_issue_id_idx
+  ON symphony_issues (tracker_issue_id);
 
 CREATE INDEX IF NOT EXISTS symphony_issues_repository_key_idx
   ON symphony_issues (repository_key);
@@ -19,10 +19,21 @@ CREATE INDEX IF NOT EXISTS symphony_issues_latest_run_started_at_idx
 CREATE TABLE IF NOT EXISTS symphony_runs (
   run_id TEXT PRIMARY KEY NOT NULL,
   repository_key TEXT NOT NULL,
-  issue_id TEXT NOT NULL,
   issue_identifier TEXT NOT NULL,
   attempt INTEGER,
-  status TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (
+    status IN (
+      'dispatching',
+      'running',
+      'finished',
+      'paused',
+      'failed',
+      'startup_failed',
+      'rate_limited',
+      'stalled',
+      'stopped'
+    )
+  ),
   outcome TEXT,
   worker_host TEXT,
   workspace_path TEXT,
@@ -46,17 +57,37 @@ CREATE TABLE IF NOT EXISTS symphony_runs (
   machine_load_had_high_memory INTEGER,
   machine_load_had_high_disk INTEGER,
   inserted_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE RESTRICT,
+  CHECK (
+    outcome IS NULL OR outcome IN (
+      'completed',
+      'merged',
+      'blocked',
+      'merge_blocked',
+      'paused_max_turns',
+      'startup_failed',
+      'rate_limited',
+      'provider_transient',
+      'stalled',
+      'failed',
+      'runtime_shutdown',
+      'run_stopped_inactive',
+      'run_stopped_terminal',
+      'delivered',
+      'max_turns_reached',
+      'blocked_repo',
+      'blocked_merge',
+      'blocked_merge_max_turns'
+    )
+  )
 );
 
 CREATE INDEX IF NOT EXISTS symphony_runs_repository_key_idx
   ON symphony_runs (repository_key);
 
-CREATE INDEX IF NOT EXISTS symphony_runs_issue_id_idx
-  ON symphony_runs (issue_id);
-
-CREATE INDEX IF NOT EXISTS symphony_runs_repository_issue_identifier_idx
-  ON symphony_runs (repository_key, issue_identifier);
+CREATE INDEX IF NOT EXISTS symphony_runs_issue_identifier_idx
+  ON symphony_runs (issue_identifier);
 
 CREATE INDEX IF NOT EXISTS symphony_runs_started_at_idx
   ON symphony_runs (started_at);
@@ -68,13 +99,14 @@ CREATE TABLE IF NOT EXISTS symphony_turns (
   thread_id TEXT NOT NULL,
   agent_turn_id TEXT,
   prompt_text TEXT NOT NULL,
-  status TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed', 'stopped')),
   started_at TEXT NOT NULL,
   ended_at TEXT,
   usage TEXT,
   metadata TEXT,
   inserted_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS symphony_turns_run_id_idx
@@ -93,12 +125,14 @@ CREATE TABLE IF NOT EXISTS symphony_events (
   item_status TEXT,
   recorded_at TEXT NOT NULL,
   payload TEXT,
-  payload_truncated INTEGER NOT NULL,
+  payload_truncated INTEGER NOT NULL CHECK (payload_truncated IN (0, 1)),
   payload_bytes INTEGER NOT NULL,
   summary TEXT,
   thread_id TEXT NOT NULL,
   agent_turn_id TEXT,
-  inserted_at TEXT NOT NULL
+  inserted_at TEXT NOT NULL,
+  FOREIGN KEY (turn_id) REFERENCES symphony_turns(turn_id) ON DELETE CASCADE,
+  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS symphony_events_run_id_idx
@@ -115,8 +149,6 @@ CREATE INDEX IF NOT EXISTS symphony_events_recorded_at_idx
 
 CREATE TABLE IF NOT EXISTS symphony_issue_timeline_entries (
   entry_id TEXT PRIMARY KEY NOT NULL,
-  repository_key TEXT NOT NULL,
-  issue_id TEXT NOT NULL,
   issue_identifier TEXT NOT NULL,
   run_id TEXT,
   turn_id TEXT,
@@ -125,31 +157,35 @@ CREATE TABLE IF NOT EXISTS symphony_issue_timeline_entries (
   message TEXT,
   payload TEXT,
   recorded_at TEXT NOT NULL,
-  inserted_at TEXT NOT NULL
+  inserted_at TEXT NOT NULL,
+  FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE CASCADE,
+  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE SET NULL,
+  FOREIGN KEY (turn_id) REFERENCES symphony_turns(turn_id) ON DELETE SET NULL
 );
 
-CREATE INDEX IF NOT EXISTS symphony_issue_timeline_repository_issue_identifier_idx
-  ON symphony_issue_timeline_entries (repository_key, issue_identifier);
+CREATE INDEX IF NOT EXISTS symphony_issue_timeline_issue_identifier_idx
+  ON symphony_issue_timeline_entries (issue_identifier);
 
-CREATE INDEX IF NOT EXISTS symphony_issue_timeline_repository_key_idx
-  ON symphony_issue_timeline_entries (repository_key);
+CREATE INDEX IF NOT EXISTS symphony_issue_timeline_run_id_idx
+  ON symphony_issue_timeline_entries (run_id);
 
 CREATE INDEX IF NOT EXISTS symphony_issue_timeline_recorded_at_idx
   ON symphony_issue_timeline_entries (recorded_at);
 
 CREATE TABLE IF NOT EXISTS symphony_runtime_logs (
   entry_id TEXT PRIMARY KEY NOT NULL,
-  repository_key TEXT,
-  level TEXT NOT NULL,
+  repository_key TEXT NOT NULL,
+  level TEXT NOT NULL CHECK (level IN ('debug', 'info', 'warn', 'error')),
   source TEXT NOT NULL,
   event_type TEXT NOT NULL,
   message TEXT NOT NULL,
-  issue_id TEXT,
   issue_identifier TEXT,
   run_id TEXT,
   payload TEXT,
   recorded_at TEXT NOT NULL,
-  inserted_at TEXT NOT NULL
+  inserted_at TEXT NOT NULL,
+  FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE SET NULL,
+  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS symphony_runtime_logs_repository_key_idx
@@ -610,12 +646,10 @@ CREATE INDEX IF NOT EXISTS pi_message_ends_model_idx
 
 CREATE TABLE IF NOT EXISTS symphony_issue_delivery_reports (
   report_id TEXT PRIMARY KEY NOT NULL,
-  repository_key TEXT NOT NULL,
-  issue_id TEXT NOT NULL,
   issue_identifier TEXT NOT NULL,
   run_id TEXT NOT NULL,
   turn_id TEXT,
-  status TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('completed', 'blocked', 'partial')),
   summary TEXT NOT NULL,
   pr_url TEXT,
   pr_number TEXT,
@@ -625,14 +659,14 @@ CREATE TABLE IF NOT EXISTS symphony_issue_delivery_reports (
   source TEXT NOT NULL,
   payload_json TEXT,
   reported_at TEXT NOT NULL,
-  inserted_at TEXT NOT NULL
+  inserted_at TEXT NOT NULL,
+  FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE CASCADE,
+  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE,
+  FOREIGN KEY (turn_id) REFERENCES symphony_turns(turn_id) ON DELETE SET NULL
 );
 
-CREATE INDEX IF NOT EXISTS symphony_issue_delivery_reports_repository_issue_identifier_idx
-  ON symphony_issue_delivery_reports (repository_key, issue_identifier, reported_at);
-
-CREATE INDEX IF NOT EXISTS symphony_issue_delivery_reports_repository_key_idx
-  ON symphony_issue_delivery_reports (repository_key, reported_at);
+CREATE INDEX IF NOT EXISTS symphony_issue_delivery_reports_issue_identifier_idx
+  ON symphony_issue_delivery_reports (issue_identifier, reported_at);
 
 CREATE INDEX IF NOT EXISTS symphony_issue_delivery_reports_run_id_idx
   ON symphony_issue_delivery_reports (run_id, reported_at);
@@ -654,7 +688,8 @@ CREATE TABLE IF NOT EXISTS symphony_run_runtime_context (
   provider_env_key TEXT,
   launch_target_json TEXT,
   inserted_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS symphony_run_runtime_context_harness_kind_idx

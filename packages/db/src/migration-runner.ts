@@ -53,18 +53,26 @@ export function applySymphonyDbMigrations(input: {
   }
 
   const appliedRows = input.client
-    .prepare("SELECT name FROM symphony_migrations;")
-    .all() as Array<{ name: string }>;
-  const appliedNames = new Set(appliedRows.map((row) => row.name));
+    .prepare("SELECT name, checksum FROM symphony_migrations;")
+    .all() as Array<{ name: string; checksum: string }>;
+  const appliedChecksums = new Map(
+    appliedRows.map((row) => [row.name, row.checksum] as const)
+  );
 
   for (const fileName of migrationFiles) {
-    if (appliedNames.has(fileName)) {
-      continue;
-    }
-
     const migrationPath = path.join(migrationsFolder, fileName);
     const sqlText = readFileSync(migrationPath, "utf8");
     const checksum = createHash("sha256").update(sqlText).digest("hex");
+    const appliedChecksum = appliedChecksums.get(fileName);
+
+    if (appliedChecksum) {
+      if (appliedChecksum !== checksum) {
+        throw new SymphonyDbMigrationError(
+          `Symphony DB migration ${fileName} has changed since it was applied.`
+        );
+      }
+      continue;
+    }
     const appliedAt = new Date().toISOString();
 
     try {

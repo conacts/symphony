@@ -22,7 +22,7 @@ export type AgentTurnLatencyRow = {
 export function buildAgentTurnLatencyRows(input: {
   runArtifacts: SymphonyAgentRunArtifactsResult;
   forensicsTurns?: SymphonyForensicsRunDetailResult["turns"];
-  repositoryKey?: string;
+  repositoryKey: string;
 }): AgentTurnLatencyRow[] {
   const turnSequenceMap = new Map(
     (input.forensicsTurns ?? []).map((turn) => [
@@ -53,7 +53,7 @@ export function buildAgentTurnLatencyRows(input: {
       const wallClockMs = computeWallClockMs(turn.startedAt, turn.endedAt, classifiedDuration);
 
       return {
-        repositoryKey: input.repositoryKey ?? "default",
+        repositoryKey: input.repositoryKey,
         turnId: turn.turnId,
         turnSequence: turnSequenceMap.get(turn.turnId)?.turnSequence ?? index + 1,
         turnLabel: `Turn ${turnSequenceMap.get(turn.turnId)?.turnSequence ?? index + 1}`,

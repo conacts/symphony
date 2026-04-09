@@ -33,7 +33,7 @@ export function createDbBackedOrchestratorObserver(input: {
           : input.defaultRepositoryKey;
       const runId = await input.runStore.recordRunStarted({
         repositoryKey,
-        issueId: issue.id,
+        trackerIssueId: issue.id,
         issueIdentifier: issue.identifier,
         attempt,
         runMode,
@@ -158,11 +158,6 @@ export function createDbBackedOrchestratorObserver(input: {
       }
 
       await input.issueTimelineStore.record({
-        repositoryKey:
-          input.admittedRepositories.length > 0
-            ? resolveIssueRepository(input.admittedRepositories, issue).repositoryKey
-            : input.defaultRepositoryKey,
-        issueId: issue.id,
         issueIdentifier: issue.identifier,
         runId,
         source,

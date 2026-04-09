@@ -203,11 +203,15 @@ export async function createSymphonyRuntimeTestHarness(input: {
   const database = initializeSymphonyDb({
     dbFile: path.join(root, "symphony.db")
   });
+  const repositoryKey = runtimePolicy.github.repo;
+  if (!repositoryKey) {
+    throw new TypeError("Runtime test harness requires runtimePolicy.github.repo.");
+  }
   const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
-    repositoryKey: runtimePolicy.github.repo ?? undefined
+    repositoryKey
   });
   const runtimeLogStore = createSymphonyRuntimeLogStore(database.db, {
-    repositoryKey: runtimePolicy.github.repo ?? undefined
+    repositoryKey
   });
   const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db,
@@ -226,7 +230,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
   const runId = await runStore.recordRunStarted(
     buildSymphonyRunStartAttrs({
       runId: "run-123",
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier
     })
   );
@@ -369,7 +373,6 @@ export async function createSymphonyRuntimeTestHarness(input: {
   await runStore.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
   await runStore.finalizeRun(runId, buildSymphonyRunFinishAttrs());
   await issueTimelineStore.record({
-    issueId: issue.id,
     issueIdentifier: issue.identifier,
     runId,
     source: "orchestrator",
@@ -384,7 +387,6 @@ export async function createSymphonyRuntimeTestHarness(input: {
     source: "runtime",
     eventType: "db_initialized",
     message: "Initialized Symphony DB.",
-    issueId: issue.id,
     issueIdentifier: issue.identifier,
     runId,
     payload: null
@@ -394,7 +396,6 @@ export async function createSymphonyRuntimeTestHarness(input: {
     source: "agent_runtime",
     eventType: "runtime_session_started",
     message: "Started the agent harness session.",
-    issueId: issue.id,
     issueIdentifier: issue.identifier,
     runId,
     payload: {
@@ -504,12 +505,14 @@ export async function createSymphonyRuntimeTestHarness(input: {
       runStore: runtimeForensicsReadStore,
       async listIssueTimeline(input) {
         return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
-          repositoryKey: input.repositoryKey,
           limit: input.limit
         });
       },
       async listRuntimeLogs(input) {
-        return runtimeLogStore.list(input);
+        return runtimeLogStore.list({
+          limit: input.limit,
+          issueIdentifier: input.issueIdentifier
+        });
       }
     }),
     issueTimeline: {
@@ -517,15 +520,14 @@ export async function createSymphonyRuntimeTestHarness(input: {
         const entries = await issueTimelineStore.listIssueTimeline(
           issueIdentifier,
           {
-            limit,
-            repositoryKey: repo
+            limit
           }
         );
 
         return entries.length === 0
           ? null
           : {
-              repositoryKey: repo ?? entries[0].repositoryKey,
+              repositoryKey: entries[0].repositoryKey,
               issueIdentifier,
               entries,
               filters: {
@@ -539,7 +541,6 @@ export async function createSymphonyRuntimeTestHarness(input: {
       async list(input = {}) {
         const logs = await runtimeLogStore.list({
           limit: input.limit,
-          repositoryKey: input.repo,
           issueIdentifier: input.issueIdentifier
         });
 

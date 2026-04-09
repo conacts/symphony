@@ -50,7 +50,7 @@ describe("sqlite agent analytics read store", () => {
       const runId = await runJournal.recordRunStarted({
         runId: "run-agent",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-1",
+        trackerIssueId: "issue-1",
         issueIdentifier: "COL-157",
         runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.949Z",
@@ -391,8 +391,8 @@ describe("sqlite agent analytics read store", () => {
       dbFile: path.join(root, "symphony.db")
     });
     const timelineStore = createSymphonyIssueTimelineStore(database.db, {
-      repositoryKey: testRepositoryKey
-    });
+        repositoryKey: testRepositoryKey
+      });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db,
       timelineStore
@@ -408,7 +408,7 @@ describe("sqlite agent analytics read store", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-machine-load",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-2",
+        trackerIssueId: "issue-2",
         issueIdentifier: "COL-200",
         runMode: "implementation",
         startedAt: "2026-04-05T00:00:00.000Z",
@@ -493,7 +493,7 @@ describe("sqlite agent analytics read store", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-command-metrics",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-3",
+        trackerIssueId: "issue-3",
         issueIdentifier: "SYM-300",
         runMode: "implementation",
         startedAt: "2026-04-08T12:00:00.000Z",
@@ -693,7 +693,7 @@ describe("sqlite agent analytics read store", () => {
       const runId = await runJournal.recordRunStarted({
         runId: "run-ordering",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-4",
+        trackerIssueId: "issue-4",
         issueIdentifier: "COL-204",
         runMode: "implementation",
         startedAt: "2026-04-03T20:39:00.000Z",
@@ -833,7 +833,7 @@ describe("sqlite agent analytics read store", () => {
       const runId = await runJournal.recordRunStarted({
         runId: "run-problem",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-2",
+        trackerIssueId: "issue-2",
         issueIdentifier: "COL-158",
         runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.949Z",
@@ -955,9 +955,9 @@ describe("sqlite agent analytics read store", () => {
       });
       await runJournal.finalizeRun(runId, {
         status: "finished",
-        outcome: "rate_limit",
+        outcome: "rate_limited",
         endedAt: "2026-04-03T20:37:41.000Z",
-        errorClass: "rate_limit",
+        errorClass: "rate_limited",
         errorMessage: "Rate limited while retrying"
       });
 
@@ -985,7 +985,7 @@ describe("sqlite agent analytics read store", () => {
       expect(problemRuns[0]).toMatchObject({
         runId,
         issueIdentifier: "COL-158",
-        outcome: "rate_limit",
+        outcome: "rate_limited",
         status: "finished"
       });
       expect(allAgentMessages).toHaveLength(1);
@@ -1041,7 +1041,7 @@ describe("sqlite agent analytics read store", () => {
       const runId = await runJournal.recordRunStarted({
         runId: "run-startup-failed",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-3",
+        trackerIssueId: "issue-3",
         issueIdentifier: "COL-500",
         runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.000Z",
@@ -1117,7 +1117,7 @@ describe("sqlite agent analytics read store", () => {
       const runId = await runJournal.recordRunStarted({
         runId: "run-turn-start-fallback",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-4",
+        trackerIssueId: "issue-4",
         issueIdentifier: "COL-501",
         runMode: "implementation",
         startedAt: "2026-04-06T05:00:00.000Z",
@@ -1186,7 +1186,7 @@ describe("sqlite agent analytics read store", () => {
       const runId = await runJournal.recordRunStarted({
         runId: "run-task-snapshots",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-10",
+        trackerIssueId: "issue-10",
         issueIdentifier: "COL-910",
         runMode: "implementation",
         startedAt: "2026-04-05T09:00:00.000Z",
@@ -1303,7 +1303,7 @@ describe("sqlite agent analytics read store", () => {
       const runId = await runLedger.recordRunStarted({
         runId: "run-runtime-only",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-runtime-only",
+        trackerIssueId: "issue-runtime-only",
         issueIdentifier: "COL-999",
         runMode: "implementation",
         startedAt: "2026-04-05T00:00:00.000Z",
@@ -1378,7 +1378,7 @@ describe("sqlite agent analytics read store", () => {
       const runId = await runLedger.recordRunStarted({
         runId: "run-zero-analytics",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-zero-analytics",
+        trackerIssueId: "issue-zero-analytics",
         issueIdentifier: "COL-1000",
         runMode: "implementation",
         startedAt: "2026-04-05T00:00:00.000Z",

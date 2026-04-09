@@ -60,7 +60,7 @@ describe("sqlite agent analytics store", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-command",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-1",
+        trackerIssueId: "issue-1",
         issueIdentifier: "COL-200",
         runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.000Z",
@@ -324,7 +324,7 @@ describe("sqlite agent analytics store", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-message-reasoning",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-4",
+        trackerIssueId: "issue-4",
         issueIdentifier: "COL-204",
         runMode: "implementation",
         startedAt: "2026-04-03T20:38:00.000Z",
@@ -508,7 +508,7 @@ describe("sqlite agent analytics store", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-in-progress",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-3",
+        trackerIssueId: "issue-3",
         issueIdentifier: "COL-202",
         runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.000Z",
@@ -631,7 +631,7 @@ describe("sqlite agent analytics store", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-pi-native",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-9",
+        trackerIssueId: "issue-9",
         issueIdentifier: "COL-909",
         runMode: "implementation",
         startedAt: "2026-04-05T08:00:00.000Z",
@@ -822,7 +822,7 @@ describe("sqlite agent analytics store", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-pi-structured",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-10",
+        trackerIssueId: "issue-10",
         issueIdentifier: "COL-910",
         runMode: "implementation",
         startedAt: "2026-04-05T08:00:00.000Z",
@@ -1101,7 +1101,7 @@ describe("sqlite agent analytics store", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-pi-edit-merge",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-merge",
+        trackerIssueId: "issue-merge",
         issueIdentifier: "COL-911",
         runMode: "implementation",
         startedAt: "2026-04-08T14:26:24.000Z",
@@ -1305,7 +1305,7 @@ describe("sqlite agent analytics store", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-bash-merge",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-merge",
+        trackerIssueId: "issue-merge",
         issueIdentifier: "COL-299",
         runMode: "implementation",
         startedAt: "2026-04-05T00:00:00.000Z",
@@ -1397,7 +1397,7 @@ describe("sqlite agent analytics store", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-tool-failure",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-4",
+        trackerIssueId: "issue-4",
         issueIdentifier: "COL-203",
         runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.000Z",
@@ -1513,7 +1513,7 @@ describe("sqlite agent analytics store", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-tool",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-2",
+        trackerIssueId: "issue-2",
         issueIdentifier: "COL-201",
         runMode: "implementation",
         startedAt: "2026-04-03T20:37:38.000Z",

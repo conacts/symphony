@@ -26,7 +26,7 @@ import type {
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import {
-  createSymphonyAgentRuntime,
+  createSymphonyAgentRuntime as createRawSymphonyAgentRuntime,
   isTransientProviderError
 } from "./agent-harness-runtime.js";
 import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimePolicyForRoot } from "../test-support/create-symphony-runtime-test-harness.js";
@@ -36,6 +36,15 @@ const execFileAsync = promisify(execFile);
 const originalPath = process.env.PATH;
 const originalOpenRouterKey = process.env.OPENROUTER_API_KEY;
 const testRepositoryKey = "openai/symphony";
+
+function createSymphonyAgentRuntime(
+  input: Parameters<typeof createRawSymphonyAgentRuntime>[0]
+) {
+  return createRawSymphonyAgentRuntime({
+    githubRepository: testRepositoryKey,
+    ...input
+  });
+}
 
 afterEach(async () => {
   process.env.PATH = originalPath;
@@ -99,7 +108,7 @@ describe("docker pi symphony agent runtime", () => {
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "rework",
       status: "dispatching",
@@ -173,7 +182,7 @@ describe("docker pi symphony agent runtime", () => {
     const runDetail = await agentReadStore.fetchRunDetail(runId);
     expect(runDetail?.turns).toHaveLength(1);
     expect(runDetail?.turns[0]?.promptText).toBe(
-      `You are working on COL-123 in source-repo on main.\n\n${symphonyHarnessPromptAppendix}`
+      `You are working on COL-123 in symphony on main.\n\n${symphonyHarnessPromptAppendix}`
     );
     expect(
       runDetail?.turns[0]?.events.map((event: { eventType: string }) => event.eventType)
@@ -275,7 +284,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -389,7 +398,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -425,8 +434,6 @@ done
 
             deliveryRecorded = true;
             await deliveryReports.record({
-              issueId: issue.id,
-              issueIdentifier: issue.identifier,
               runId,
               status: "completed",
               summary: "Opened the PR and finished the requested work.",
@@ -497,7 +504,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -533,8 +540,6 @@ done
 
             deliveryRecorded = true;
             await deliveryReports.record({
-              issueId: issue.id,
-              issueIdentifier: issue.identifier,
               runId,
               status: "completed",
               summary: "Opened the PR and finished the requested work.",
@@ -606,7 +611,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -642,8 +647,6 @@ done
 
             deliveryRecorded = true;
             await deliveryReports.record({
-              issueId: issue.id,
-              issueIdentifier: issue.identifier,
               runId,
               status: "blocked",
               summary: "Blocked by a repository-owned environment contract.",
@@ -854,7 +857,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -955,7 +958,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "rework",
       status: "dispatching",
@@ -964,8 +967,7 @@ done
     });
 
     await issueTimelineStore.record({
-      issueId: issue.id,
-      issueIdentifier: issue.identifier,
+              issueIdentifier: issue.identifier,
       source: "tracker",
       eventType: runtimeReworkHandoffEventType,
       message: "Stored rework handoff for the next run.",
@@ -1072,7 +1074,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -1179,7 +1181,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -1188,8 +1190,7 @@ done
     });
 
     await issueTimelineStore.record({
-      issueId: issue.id,
-      issueIdentifier: issue.identifier,
+              issueIdentifier: issue.identifier,
       source: "tracker",
       eventType: runtimeReworkHandoffEventType,
       message: "Stored rework handoff for the next run.",
@@ -1290,7 +1291,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "approved_merge",
       status: "dispatching",
@@ -1327,7 +1328,6 @@ done
 
             mergeResultRecorded = true;
             await issueTimelineStore.record({
-              issueId: issue.id,
               issueIdentifier: issue.identifier,
               runId,
               source: "runtime",
@@ -1413,7 +1413,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "approved_merge",
       status: "dispatching",
@@ -1510,7 +1510,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "approved_merge",
       status: "dispatching",
@@ -1547,7 +1547,6 @@ done
 
             mergeResultRecorded = true;
             await issueTimelineStore.record({
-              issueId: issue.id,
               issueIdentifier: issue.identifier,
               runId,
               source: "runtime",
@@ -1632,7 +1631,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "rework",
       status: "dispatching",
@@ -1641,8 +1640,7 @@ done
     });
 
     await issueTimelineStore.record({
-      issueId: issue.id,
-      issueIdentifier: issue.identifier,
+              issueIdentifier: issue.identifier,
       source: "tracker",
       eventType: runtimeReworkHandoffEventType,
       message: "Stored older rework handoff for the next run.",
@@ -1653,8 +1651,7 @@ done
       })
     });
     await issueTimelineStore.record({
-      issueId: issue.id,
-      issueIdentifier: issue.identifier,
+              issueIdentifier: issue.identifier,
       source: "tracker",
       eventType: runtimeReworkHandoffEventType,
       message: "Stored newer rework handoff for the next run.",
@@ -1908,7 +1905,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -2141,7 +2138,7 @@ done
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -2405,7 +2402,7 @@ exit 1
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",

@@ -197,7 +197,11 @@ export function buildAgentRunViewModel(input: {
     run.errorMessage ??
     null;
   const executionPerformance = buildExecutionPerformance(runArtifacts);
-  const turnLatency = buildTurnLatency(runArtifacts, input.runDetail.turns);
+  const turnLatency = buildTurnLatency(
+    runArtifacts,
+    input.runDetail.turns,
+    input.runDetail.issue.repositoryKey
+  );
   const turnTokens = buildTurnTokens(runArtifacts, input.runDetail.turns);
   const turnResources = buildTurnResources(runArtifacts, input.runDetail.turns);
   const piResponseCards = buildPiResponseCards(runArtifacts, compareDescending);
@@ -542,12 +546,14 @@ function safeDurationMs(value: number | null) {
 
 function buildTurnLatency(
   runArtifacts: SymphonyAgentRunArtifactsResult | null,
-  forensicsTurns: SymphonyForensicsRunDetailResult["turns"]
+  forensicsTurns: SymphonyForensicsRunDetailResult["turns"],
+  repositoryKey: string
 ): AgentRunViewModel["turnLatency"] {
   const rows = runArtifacts
     ? buildAgentTurnLatencyRows({
         runArtifacts,
-        forensicsTurns
+        forensicsTurns,
+        repositoryKey
       })
     : [];
   const totals = sumTurnLatencyTotals(rows);

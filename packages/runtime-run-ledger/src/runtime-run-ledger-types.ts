@@ -19,9 +19,9 @@ export type SymphonyJsonValue =
 export type SymphonyJsonObject = { [key: string]: SymphonyJsonValue };
 
 export type SymphonyIssueRecord = {
-  issueId: string;
-  repositoryKey: string;
   issueIdentifier: string;
+  trackerIssueId: string;
+  repositoryKey: string;
   latestRunStartedAt: SymphonyIsoTimestamp;
   insertedAt: SymphonyIsoTimestamp;
   updatedAt: SymphonyIsoTimestamp;
@@ -30,7 +30,6 @@ export type SymphonyIssueRecord = {
 export type SymphonyRunRecord = {
   runId: string;
   repositoryKey: string;
-  issueId: string;
   issueIdentifier: string;
   attempt: number | null;
   status: string;
@@ -94,7 +93,7 @@ export type SymphonyRuntimeRunLedgerDocument = {
 
 export type SymphonyRunStartAttrs = {
   repositoryKey: string;
-  issueId: string;
+  trackerIssueId: string;
   issueIdentifier: string;
   runId?: string;
   attempt?: number | null;

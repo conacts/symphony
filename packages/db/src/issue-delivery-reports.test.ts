@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
 import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
 import { createSymphonyIssueDeliveryReportStore } from "./issue-delivery-reports.js";
+import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
 
 const tempDirectories: string[] = [];
 const testRepositoryKey = "openai/symphony";
@@ -36,11 +37,30 @@ describe("issue delivery report store", () => {
       timelineStore,
       repositoryKey: testRepositoryKey
     });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db,
+      timelineStore
+    });
 
     try {
-      await store.record({
-        issueId: "issue-1",
+      await runStore.recordRunStarted({
+        runId: "run-1",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-157",
         issueIdentifier: "COL-157",
+        runMode: "implementation",
+        status: "running",
+        startedAt: "2026-04-05T17:59:00.000Z"
+      });
+      await runStore.recordTurnStarted("run-1", {
+        turnId: "turn-1",
+        turnSequence: 1,
+        threadId: "thread-1",
+        promptText: "Continue the issue.",
+        status: "running",
+        startedAt: "2026-04-05T17:59:30.000Z"
+      });
+      await store.record({
         runId: "run-1",
         status: "blocked",
         summary: "Blocked on auth.",
@@ -48,10 +68,8 @@ describe("issue delivery report store", () => {
         reportedAt: "2026-04-05T18:00:00.000Z"
       });
       const completedId = await store.record({
-        issueId: "issue-1",
-        issueIdentifier: "COL-157",
         runId: "run-1",
-        turnId: "turn-2",
+        turnId: "turn-1",
         status: "completed",
         summary: "Opened the PR.",
         prUrl: "https://github.com/example/repo/pull/157",

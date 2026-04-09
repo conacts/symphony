@@ -45,6 +45,7 @@ import {
   piGrepsTable,
   piFindsTable,
   piMessageEndsTable,
+  symphonyIssuesTable,
   symphonyRunsTable
 } from "./schema.js";
 import {
@@ -337,7 +338,6 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
     if (!existing) {
       const symphonyRun = this.#db
         .select({
-          issueId: symphonyRunsTable.issueId,
           issueIdentifier: symphonyRunsTable.issueIdentifier,
           startedAt: symphonyRunsTable.startedAt
         })
@@ -349,9 +349,19 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
         return;
       }
 
+      const issue = this.#db
+        .select()
+        .from(symphonyIssuesTable)
+        .where(eq(symphonyIssuesTable.issueIdentifier, symphonyRun.issueIdentifier))
+        .get();
+
+      if (!issue) {
+        return;
+      }
+
       await this.startRun({
         runId: input.runId,
-        issueId: symphonyRun.issueId,
+        issueId: issue.trackerIssueId,
         issueIdentifier: symphonyRun.issueIdentifier,
         startedAt: symphonyRun.startedAt,
         status: "running",
@@ -403,7 +413,6 @@ function ensureAgentRunRecord(context: AgentEventMutationContext): AgentRunRow {
 
   const symphonyRun = context.tx
     .select({
-      issueId: symphonyRunsTable.issueId,
       issueIdentifier: symphonyRunsTable.issueIdentifier,
       startedAt: symphonyRunsTable.startedAt,
       status: symphonyRunsTable.status
@@ -416,6 +425,18 @@ function ensureAgentRunRecord(context: AgentEventMutationContext): AgentRunRow {
     throw new TypeError(`Agent analytics run not found: ${context.input.runId}`);
   }
 
+  const issue = context.tx
+    .select()
+    .from(symphonyIssuesTable)
+    .where(eq(symphonyIssuesTable.issueIdentifier, symphonyRun.issueIdentifier))
+    .get();
+
+  if (!issue) {
+    throw new TypeError(
+      `Agent analytics issue not found: ${symphonyRun.issueIdentifier}`
+    );
+  }
+
   context.tx
     .insert(symphonyAgentRunsTable)
     .values({
@@ -425,7 +446,7 @@ function ensureAgentRunRecord(context: AgentEventMutationContext): AgentRunRow {
       model: null,
       providerId: null,
       providerName: null,
-      issueId: symphonyRun.issueId,
+      issueId: issue.trackerIssueId,
       issueIdentifier: symphonyRun.issueIdentifier,
       startedAt: symphonyRun.startedAt,
       endedAt: null,

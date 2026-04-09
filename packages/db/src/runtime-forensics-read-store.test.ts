@@ -44,7 +44,7 @@ describe("runtime forensics read store", () => {
       const runId = await runStore.recordRunStarted({
         runId: "run-runtime-1",
         repositoryKey: testRepositoryKey,
-        issueId: "issue-runtime-1",
+        trackerIssueId: "issue-runtime-1",
         issueIdentifier: "COL-410",
         runMode: "implementation",
         status: "running",
@@ -103,8 +103,6 @@ describe("runtime forensics read store", () => {
         endedAt: "2026-04-09T03:00:05.000Z"
       });
       await deliveryStore.record({
-        issueId: "issue-runtime-1",
-        issueIdentifier: "COL-410",
         runId,
         status: "completed",
         summary: "Opened the PR.",

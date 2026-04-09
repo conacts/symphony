@@ -1,17 +1,10 @@
 export function resolveRuntimeRepositoryKey(input: {
-  sourceRepo: string | null;
   githubRepo: string | null;
 }): string {
   const githubRepo = normalizeRuntimeRepositoryKey(input.githubRepo);
 
   if (githubRepo) {
     return githubRepo;
-  }
-
-  const sourceRepo = normalizeRuntimeRepositoryKey(input.sourceRepo);
-
-  if (sourceRepo) {
-    return sourceRepo;
   }
 
   throw new TypeError(

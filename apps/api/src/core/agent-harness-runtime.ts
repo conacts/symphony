@@ -42,6 +42,7 @@ import {
   type HarnessToolExecutor,
   type HarnessSessionClient
 } from "@symphony/agent-harnesses";
+import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { resolveIssueRepository } from "./runtime-repository-routing.js";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 import { captureRepoSnapshot } from "./agent-repo-snapshot.js";
@@ -130,6 +131,9 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
         input.admittedRepositories && input.admittedRepositories.length > 0
           ? resolveIssueRepository(input.admittedRepositories, runInput.issue)
           : null;
+      const repositoryKey = resolveRuntimeRepositoryKey({
+        githubRepo: selectedRepository?.repositoryKey ?? input.githubRepository ?? null
+      });
       const activeRun: ActiveRun = {
         stopped: false,
         client: null
@@ -148,8 +152,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
           selectedRepository?.promptContract.template ?? input.promptContract.template,
         harness: input.harness,
         promptContract: selectedRepository?.promptContract ?? input.promptContract,
-        githubRepository:
-          selectedRepository?.repositoryKey ?? input.githubRepository ?? null,
+        githubRepository: repositoryKey,
         tracker: input.tracker,
         runStore: input.runStore,
         deliveryReports: input.deliveryReports,
@@ -247,6 +250,9 @@ async function executeRun(input: {
           input.issue.identifier
         )
       : null;
+  const repositoryKey = resolveRuntimeRepositoryKey({
+    githubRepo: input.githubRepository
+  });
 
   try {
     await input.runtimeLogs.record({
@@ -254,7 +260,6 @@ async function executeRun(input: {
       source: "agent_runtime",
       eventType: "runtime_launch_target_resolved",
       message: "Resolved the agent runtime launch target.",
-      issueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {
@@ -285,7 +290,7 @@ async function executeRun(input: {
           input.apiPort !== undefined
             ? buildRuntimeApiBaseUrl(input.launchTarget, input.apiPort)
             : "",
-        SYMPHONY_REPOSITORY_KEY: input.githubRepository ?? "",
+        SYMPHONY_REPOSITORY_KEY: repositoryKey,
         SYMPHONY_ISSUE_ID: input.issue.id,
         SYMPHONY_ISSUE_STATE: input.issue.state ?? "",
         ...input.workspace.envBundle.values,
@@ -333,7 +338,6 @@ async function executeRun(input: {
       source: "agent_runtime",
       eventType: "runtime_session_started",
       message: "Started the agent harness session.",
-      issueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {
@@ -750,7 +754,6 @@ async function executeRun(input: {
       message: startupFailure
         ? "Agent runtime startup failed."
         : "Agent runtime execution failed.",
-      issueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {

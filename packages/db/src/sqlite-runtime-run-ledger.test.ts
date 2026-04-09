@@ -39,7 +39,7 @@ describe("sqlite symphony runtime run ledger", () => {
     try {
       const runId = await journal.recordRunStarted(
         {
-          issueId: "issue-metadata",
+          trackerIssueId: "issue-metadata",
           issueIdentifier: "COL-META",
           repositoryKey: testRepositoryKey,
           runMode: "implementation",
@@ -92,7 +92,7 @@ describe("sqlite symphony runtime run ledger", () => {
 
     try {
       const runId = await ledger.recordRunStarted({
-        issueId: "issue-tokens",
+        trackerIssueId: "issue-tokens",
         issueIdentifier: "COL-TOKENS",
         repositoryKey: testRepositoryKey,
         runMode: "implementation",
