@@ -86,6 +86,16 @@ export type SymphonyRuntimeToolsPort = {
     };
     argumentsPayload: unknown;
   }): Promise<RuntimeToolExecutionResult>;
+  cancelIssue(input: {
+    runId: string;
+    turnId: string | null;
+    issue: {
+      id: string;
+      identifier: string;
+      state: string | null;
+    };
+    argumentsPayload: unknown;
+  }): Promise<RuntimeToolExecutionResult>;
 };
 
 export type SymphonyAgentAnalyticsReadPort = {

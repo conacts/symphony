@@ -10,7 +10,11 @@ import {
   createMemorySymphonyTracker,
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
-import { executeDeliveryReportTool, executeSpikeResultTool } from "./index.js";
+import {
+  executeCancelTool,
+  executeDeliveryReportTool,
+  executeSpikeResultTool
+} from "./index.js";
 
 const tempRoots: string[] = [];
 
@@ -216,6 +220,48 @@ describe("runtime tools", () => {
         kind: "update_state",
         issueId: "issue-456",
         stateName: "Paused"
+      }
+    ]);
+  });
+
+  it("posts a cancellation comment and moves the issue to Canceled", async () => {
+    const tracker = createMemorySymphonyTracker([
+      buildRuntimeToolIssue({
+        id: "issue-789",
+        identifier: "SYM-789",
+        title: "Abort the stale work"
+      })
+    ]);
+
+    const result = await executeCancelTool(
+      {
+        tracker,
+        issue: {
+          id: "issue-789",
+          identifier: "SYM-789",
+          state: "In Progress"
+        },
+        defaultTargetState: "Canceled"
+      },
+      {
+        reason: "Canceling this run because the requirements changed."
+      }
+    );
+
+    expect(result.success).toBe(true);
+    expect(String(result.output)).toContain('"canceled": true');
+    expect(String(result.output)).toContain('"targetState": "Canceled"');
+    expect(tracker.getIssue("issue-789")?.state).toBe("Canceled");
+    expect(tracker.listOperations()).toEqual([
+      expect.objectContaining({
+        kind: "comment",
+        issueId: "issue-789",
+        body: expect.stringContaining("Cancellation")
+      }),
+      {
+        kind: "update_state",
+        issueId: "issue-789",
+        stateName: "Canceled"
       }
     ]);
   });

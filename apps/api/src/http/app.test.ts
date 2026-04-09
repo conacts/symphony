@@ -428,6 +428,37 @@ describe("@symphony/api app", () => {
       expect(payload.data.output).toContain('"ok":true');
     });
 
+    it("serves the internal runtime-tools cancel route", async () => {
+      const response = await app.request("/api/v1/internal/runtime-tools/cancel", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          runId: "run-123",
+          turnId: "turn-123",
+          issue: {
+            id: "issue-123",
+            identifier: "COL-123",
+            state: "In Progress"
+          },
+          arguments: {
+            reason: "Cancel this issue because the requirements changed."
+          }
+        })
+      });
+      const payload = await responseJson<{
+        data: {
+          success: boolean;
+          output: string;
+        };
+      }>(response);
+
+      expect(response.status).toBe(200);
+      expect(payload.data.success).toBe(true);
+      expect(payload.data.output).toContain('"ok":true');
+    });
+
     it("serves runtime issue details", async () => {
       const runtimeIssueResponse = await app.request("/api/v1/COL-123");
       const runtimeIssuePayload = await responseJson<{

@@ -55,8 +55,11 @@ import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { createRepositoryScopedWorkspaceBackend } from "./runtime-workspace-backend-selector.js";
 import { createRepositoryScopedLinearTracker } from "./runtime-linear-tracker-registry.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
-import { executeDeliveryReportTool } from "@symphony/runtime-tools";
-import { executeSpikeResultTool } from "@symphony/runtime-tools";
+import {
+  executeCancelTool,
+  executeDeliveryReportTool,
+  executeSpikeResultTool
+} from "@symphony/runtime-tools";
 import {
   reconcilePersistedActiveRunsOnShutdown,
   waitForPollSchedulerDrain
@@ -457,6 +460,25 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           tracker,
           issue: input.issue,
           defaultTargetState: runtimePolicy.tracker.pauseTransitionToState
+        },
+        input.argumentsPayload
+      );
+    },
+    async cancelIssue(input: {
+      runId: string;
+      turnId: string | null;
+      issue: {
+        id: string;
+        identifier: string;
+        state: string | null;
+      };
+      argumentsPayload: unknown;
+    }) {
+      return await executeCancelTool(
+        {
+          tracker,
+          issue: input.issue,
+          defaultTargetState: "Canceled"
         },
         input.argumentsPayload
       );

@@ -45,6 +45,12 @@ type NormalizedSpikeResultArguments = {
   rawPayload: unknown;
 };
 
+type NormalizedCancelArguments = {
+  reason: string;
+  targetState: string;
+  rawPayload: unknown;
+};
+
 export async function executeDeliveryReportTool(
   executionContext: {
     tracker: SymphonyTracker;
@@ -177,6 +183,55 @@ export async function executeSpikeResultTool(
   }
 }
 
+export async function executeCancelTool(
+  executionContext: {
+    tracker: SymphonyTracker;
+    issue: {
+      id: string;
+      identifier: string;
+      state?: string | null;
+    };
+    defaultTargetState: string;
+  },
+  rawArguments: unknown
+): Promise<RuntimeToolExecutionResult> {
+  const cancelArguments = normalizeCancelArguments(
+    rawArguments,
+    executionContext.defaultTargetState
+  );
+  if (!cancelArguments.ok) {
+    return buildToolErrorResult({
+      message: cancelArguments.message
+    });
+  }
+
+  try {
+    await executionContext.tracker.createComment(
+      executionContext.issue.id,
+      renderCancelComment({
+        reason: cancelArguments.reason
+      })
+    );
+
+    const issueStateTransition = await transitionIssueStateIfNeeded(
+      executionContext,
+      cancelArguments.targetState
+    );
+
+    return buildToolResult(issueStateTransition.success, {
+      canceled: true,
+      issueIdentifier: executionContext.issue.identifier,
+      reason: cancelArguments.reason,
+      targetState: cancelArguments.targetState,
+      issueStateTransition
+    });
+  } catch (error) {
+    return buildToolErrorResult({
+      message: error instanceof Error ? error.message : "Failed to cancel the issue."
+    });
+  }
+}
+
 export function normalizeDeliveryReportArguments(
   rawArguments: unknown
 ):
@@ -288,6 +343,52 @@ export function normalizeSpikeResultArguments(
     ok: true,
     summary,
     details,
+    targetState,
+    rawPayload: record
+  };
+}
+
+export function normalizeCancelArguments(
+  rawArguments: unknown,
+  defaultTargetState: string
+):
+  | ({
+      ok: true;
+    } & NormalizedCancelArguments)
+  | {
+      ok: false;
+      message: string;
+    } {
+  if (!rawArguments || typeof rawArguments !== "object" || Array.isArray(rawArguments)) {
+    return {
+      ok: false,
+      message:
+        "`symphony tool cancel` expects an object with `reason` and an optional `state`."
+    };
+  }
+
+  const record = rawArguments as Record<string, unknown>;
+  const reason = getString(record, "reason");
+  const targetState = getOptionalString(record, "state") ?? defaultTargetState;
+
+  if (!reason) {
+    return {
+      ok: false,
+      message: "`symphony tool cancel.reason` requires a non-empty string."
+    };
+  }
+
+  if (!targetState || targetState.trim() === "") {
+    return {
+      ok: false,
+      message:
+        "`symphony tool cancel` requires a non-empty target state. Provide `state` explicitly or configure a default canceled state."
+    };
+  }
+
+  return {
+    ok: true,
+    reason,
     targetState,
     rawPayload: record
   };
@@ -410,6 +511,14 @@ function renderSpikeResultComment(input: {
     input.summary.trim(),
     "",
     input.details.trim()
+  ].join("\n");
+}
+
+function renderCancelComment(input: { reason: string }): string {
+  return [
+    "## Cancellation",
+    "",
+    input.reason.trim()
   ].join("\n");
 }
 
