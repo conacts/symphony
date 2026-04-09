@@ -1,4 +1,5 @@
 import type { JsonObject } from "@symphony/contracts";
+import type { WorkspaceCleanupMode } from "@symphony/workspace";
 import { asJsonObject } from "./internal/json.js";
 import {
   issueBranchName,
@@ -22,6 +23,7 @@ export type SymphonyStartupFailureTransition =
 export type SymphonyFailureCommentOptions = {
   rateLimits?: JsonObject | null;
   startupFailureTransition?: SymphonyStartupFailureTransition;
+  workspaceCleanupMode?: WorkspaceCleanupMode | null;
 };
 
 export function claimTransitionCommentBody(
@@ -49,6 +51,7 @@ export function buildFailureCommentBody(
     "",
     `Summary: ${failureCommentSummary(outcome, reason)}`,
     failureCommentDetailBlock(failureCommentDetails(reason, outcome, options)),
+    failureCommentWorkspacePolicyLine(options.workspaceCleanupMode),
     "",
     ...failureCommentFollowUpLines(outcome, options.startupFailureTransition)
   ]
@@ -180,6 +183,20 @@ function failureCommentDetailBlock(details: string | null): string | null {
   }
 
   return ["Details:", "```text", details, "```"].join("\n");
+}
+
+function failureCommentWorkspacePolicyLine(
+  cleanupMode: WorkspaceCleanupMode | null | undefined
+): string | null {
+  if (cleanupMode === "preserve") {
+    return "Workspace policy: preserve. Symphony keeps the issue workspace available for inspection or a deliberate rerun.";
+  }
+
+  if (cleanupMode === "destroy") {
+    return "Workspace policy: destroy. Symphony cleans up the issue workspace after the run stops.";
+  }
+
+  return null;
 }
 
 function failureCommentFollowUpLines(

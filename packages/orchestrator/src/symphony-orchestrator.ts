@@ -690,6 +690,10 @@ export class SymphonyOrchestrator {
           },
           swallowErrors: true
         });
+        const pausedCleanupMode = workspaceCleanupModeForIssue({
+          issue: currentIssue ?? runningEntry.issue,
+          tracker: this.#config.tracker
+        });
         await leaveFailureComment({
           tracker: this.#tracker,
           observer: this.#observer,
@@ -698,7 +702,8 @@ export class SymphonyOrchestrator {
           outcome: "paused_max_turns",
           runId: runningEntry.runId,
           options: {
-            rateLimits: runningEntry.lastRateLimits
+            rateLimits: runningEntry.lastRateLimits,
+            workspaceCleanupMode: pausedCleanupMode
           }
         });
       }
@@ -832,7 +837,13 @@ export class SymphonyOrchestrator {
           resolvedCompletion.kind === "stalled"
             ? "blocked_merge_stalled"
             : "blocked_merge_failure",
-        runId: runningEntry.runId
+        runId: runningEntry.runId,
+        options: {
+          workspaceCleanupMode: workspaceCleanupModeForIssue({
+            issue: currentIssue,
+            tracker: this.#config.tracker
+          })
+        }
       });
 
       await this.#cleanupStoppedRun({
@@ -868,6 +879,10 @@ export class SymphonyOrchestrator {
       },
       swallowErrors: true
     });
+    const pausedCleanupMode = workspaceCleanupModeForIssue({
+      issue: currentIssue ?? runningEntry.issue,
+      tracker: this.#config.tracker
+    });
 
     await leaveFailureComment({
       tracker: this.#tracker,
@@ -884,7 +899,8 @@ export class SymphonyOrchestrator {
             : "paused_failure",
       runId: runningEntry.runId,
       options: {
-        rateLimits: runningEntry.lastRateLimits
+        rateLimits: runningEntry.lastRateLimits,
+        workspaceCleanupMode: pausedCleanupMode
       }
     });
 
@@ -1043,7 +1059,13 @@ export class SymphonyOrchestrator {
         issue: finalIssue,
         reason: input.completion.reason,
         outcome: "blocked_merge_max_turns",
-        runId: input.runningEntry.runId
+        runId: input.runningEntry.runId,
+        options: {
+          workspaceCleanupMode: workspaceCleanupModeForIssue({
+            issue: finalIssue,
+            tracker: this.#config.tracker
+          })
+        }
       });
     }
 

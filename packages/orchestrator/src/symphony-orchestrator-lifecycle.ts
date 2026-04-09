@@ -49,6 +49,7 @@ export async function leaveFailureComment(input: {
   options?: {
     rateLimits?: JsonObject | null;
     startupFailureTransition?: SymphonyStartupFailureTransition;
+    workspaceCleanupMode?: WorkspaceCleanupMode | null;
   };
 }): Promise<void> {
   const comment = buildFailureCommentBody(
@@ -217,6 +218,11 @@ export async function handleStartupFailure(input: {
     }
   }
 
+  const cleanupMode = workspaceCleanupModeForIssue({
+    issue: effectiveIssue,
+    tracker: input.config.tracker
+  });
+
   await leaveFailureComment({
     tracker: input.tracker,
     observer: input.observer,
@@ -225,7 +231,8 @@ export async function handleStartupFailure(input: {
     outcome: "startup_failed",
     runId: input.runId,
     options: {
-      startupFailureTransition: transition
+      startupFailureTransition: transition,
+      workspaceCleanupMode: cleanupMode
     }
   });
 
@@ -239,10 +246,7 @@ export async function handleStartupFailure(input: {
     workspace: input.workspace,
     workerHost: input.workerHost,
     reason: "startup_failure",
-    mode: workspaceCleanupModeForIssue({
-      issue: effectiveIssue,
-      tracker: input.config.tracker
-    }),
+    mode: cleanupMode,
     startupFailure: input.completion
   });
 }
