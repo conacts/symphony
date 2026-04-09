@@ -1,10 +1,13 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
+  buildSymphonyTrackerIssue,
   buildSymphonyGitHubIssueCommentPayload,
   buildSymphonyGitHubPullRequestReviewCommentPayload,
   buildSymphonyGitHubPullRequestReviewPayload,
   signSymphonyGitHubWebhook
 } from "@symphony/test-support";
+import { runtimeReworkHandoffEventType } from "@symphony/runtime-contract";
+import type { MemorySymphonyTracker } from "@symphony/tracker";
 import { createSymphonyRuntimeApp } from "./app.js";
 import type { SymphonyRuntimeTestHarness } from "../test-support/create-symphony-runtime-test-harness.js";
 import {
@@ -749,6 +752,73 @@ describe("@symphony/api app", () => {
     expect(ingressPayload.data.accepted).toBe(true);
     expect(ingressPayload.data.event).toBe("issue_comment");
   });
+
+  it(
+    "persists a structured rework handoff after GitHub review ingress",
+    async () => {
+      const harness = await createSymphonyRuntimeAppServicesHarness();
+      harnesses.push(harness);
+
+      const tracker = harness.services.tracker as MemorySymphonyTracker;
+      tracker.setIssues([
+        buildSymphonyTrackerIssue({
+          identifier: "COL-123",
+          state: "In Review",
+          branchName: "symphony/COL-123"
+        })
+      ]);
+      harness.services.orchestrator.requestRefresh = async () => ({
+        queued: true,
+        coalesced: false,
+        requestedAt: "2026-03-31T00:00:00.000Z",
+        operations: ["poll", "reconcile"]
+      });
+
+      const app = createSymphonyRuntimeApp(harness.services);
+      const rawBody = JSON.stringify(buildSymphonyGitHubPullRequestReviewPayload());
+      const signature = signSymphonyGitHubWebhook(rawBody, "secret");
+
+      const ingressResponse = await app.request("/api/v1/github/review-events", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-github-delivery": "delivery-review-structured-handoff",
+          "x-github-event": "pull_request_review",
+          "x-hub-signature-256": signature
+        },
+        body: rawBody
+      });
+      const trackedIssue = await harness.services.tracker.fetchIssueByIdentifier(
+        harness.runtimePolicy.tracker,
+        "COL-123"
+      );
+      const issueTimeline = await harness.services.issueTimeline.list({
+        issueIdentifier: "COL-123"
+      });
+
+      expect(ingressResponse.status).toBe(202);
+      expect(trackedIssue?.state).toBe("Rework");
+      expect(issueTimeline).not.toBeNull();
+
+      const reworkHandoffEntry = issueTimeline?.entries.find(
+        (entry) => entry.eventType === runtimeReworkHandoffEventType
+      );
+      expect(reworkHandoffEntry).toMatchObject({
+        eventType: runtimeReworkHandoffEventType,
+        message: "Stored rework handoff for the next run.",
+        payload: {
+          source: "github_review",
+          triggerKind: "changes_requested_review",
+          actorLogin: "reviewer",
+          pullRequestUrl: "https://github.com/openai/symphony/pull/123",
+          reviewContextUrl:
+            "https://github.com/openai/symphony/pull/123#pullrequestreview-999",
+          feedbackBody: null
+        }
+      });
+    },
+    runtimeHttpIntegrationTestTimeoutMs
+  );
 
   it("accepts raw GitHub pull_request_review_comment webhooks", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
