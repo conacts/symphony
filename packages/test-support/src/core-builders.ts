@@ -24,6 +24,16 @@ export { buildSymphonyTrackerIssue } from "@symphony/tracker";
 
 let fixtureCounter = 0;
 
+type SymphonyReworkHandoffFixture = {
+  source: "github_review";
+  triggerKind: string;
+  reviewContextUrl: string | null;
+  pullRequestUrl: string | null;
+  actorLogin: string | null;
+  feedbackBody: string | null;
+  recordedAt: string;
+};
+
 export function buildSymphonyRuntimePolicy(
   overrides: Partial<SymphonyResolvedRuntimePolicy> = {}
 ): SymphonyResolvedRuntimePolicy {
@@ -188,6 +198,21 @@ export function buildSymphonyGithubIssueCommentEvent(
     repository: "openai/symphony",
     ...overrides,
     payload
+  };
+}
+
+export function buildSymphonyReworkHandoff(
+  overrides: Partial<SymphonyReworkHandoffFixture> = {}
+): SymphonyReworkHandoffFixture {
+  return {
+    source: "github_review",
+    triggerKind: "review_comment",
+    reviewContextUrl: "https://github.com/openai/symphony/pull/123#pullrequestreview-456",
+    pullRequestUrl: "https://github.com/openai/symphony/pull/123",
+    actorLogin: "chatgpt-codex-connector",
+    feedbackBody: "Please rename this API and add the missing test coverage.",
+    recordedAt: "2026-04-06T00:00:00.000Z",
+    ...overrides
   };
 }
 

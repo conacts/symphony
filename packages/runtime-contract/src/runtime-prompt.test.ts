@@ -175,10 +175,10 @@ describe("prompt contract", () => {
     expect(SymphonyRuntimePromptError).toBe(SymphonyPromptContractError);
   });
 
-  it("appends the rework handoff when the repo prompt omits the handoff slot", () => {
+  it("appends the handoff section when the repo prompt omits the handoff slot", () => {
     const payload = {
       ...buildMockSymphonyPromptContractPayload(),
-      rework_handoff: [
+      handoff_section: [
         "Rework handoff:",
         "- Review context: https://github.com/openai/symphony/pull/123#issuecomment-456"
       ].join("\n")
@@ -202,10 +202,10 @@ describe("prompt contract", () => {
     );
   });
 
-  it("does not duplicate the rework handoff when the repo prompt already renders it", () => {
+  it("does not duplicate the handoff section when the repo prompt already renders it", () => {
     const payload = {
       ...buildMockSymphonyPromptContractPayload(),
-      rework_handoff: [
+      handoff_section: [
         "Rework handoff:",
         "- Review context: https://github.com/openai/symphony/pull/123#issuecomment-456"
       ].join("\n")
@@ -213,7 +213,7 @@ describe("prompt contract", () => {
 
     expect(
       renderSymphonyPromptContract({
-        template: ["Issue {{ issue.identifier }}", "", "{{ rework_handoff }}"].join("\n"),
+        template: ["Issue {{ issue.identifier }}", "", "{{ handoff_section }}"].join("\n"),
         payload
       })
     ).toBe(

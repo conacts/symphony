@@ -82,7 +82,6 @@ export type SymphonyPromptContractPayload = {
   run_mode: SymphonyRunMode;
   run_mode_section?: string | null;
   handoff_section?: string | null;
-  rework_handoff?: string | null;
 };
 
 export type SymphonyPromptContractLoadOptions = {
@@ -255,14 +254,13 @@ export function renderSymphonyPromptContract(input: {
     );
   }
 
-  const withFallbackReworkHandoff = appendFallbackReworkHandoff(
+  const withFallbackHandoffSection = appendFallbackHandoffSection(
     rendered,
-    input.payload.handoff_section ??
-      buildPromptHandoffSection(input.payload),
+    buildPromptHandoffSection(input.payload),
     segments
   );
 
-  return appendSymphonyHarnessPromptAppendix(withFallbackReworkHandoff);
+  return appendSymphonyHarnessPromptAppendix(withFallbackHandoffSection);
 }
 
 export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContractPayload {
@@ -291,16 +289,14 @@ export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContract
     attempt: 1,
     run_mode: "implementation",
     run_mode_section: null,
-    handoff_section: null,
-    rework_handoff: null
+    handoff_section: null
   };
 }
 
 function buildPromptContractScope(
   payload: SymphonyPromptContractPayload
 ): Record<string, unknown> {
-  const handoffSection =
-    payload.handoff_section ?? buildPromptHandoffSection(payload);
+  const handoffSection = buildPromptHandoffSection(payload);
   const runModeSection = payload.run_mode_section ?? buildPromptRunModeSection(payload);
 
   return {
@@ -326,7 +322,7 @@ function appendSymphonyHarnessPromptAppendix(rendered: string): string {
   return `${rendered.trimEnd()}\n\n${symphonyHarnessPromptAppendix}\n`;
 }
 
-function appendFallbackReworkHandoff(
+function appendFallbackHandoffSection(
   rendered: string,
   handoffSection: string | null,
   segments: Array<
@@ -348,7 +344,7 @@ function appendFallbackReworkHandoff(
   const templateIncludesHandoff = segments.some(
     (segment) =>
       segment.kind === "expression" &&
-      (segment.value === "rework_handoff" || segment.value === "handoff_section")
+      segment.value === "handoff_section"
   );
   if (templateIncludesHandoff || rendered.includes(normalizedHandoff)) {
     return rendered;
@@ -392,7 +388,7 @@ function buildPromptRunModeSection(
 function buildPromptHandoffSection(
   payload: SymphonyPromptContractPayload
 ): string {
-  return payload.rework_handoff ?? "";
+  return payload.handoff_section ?? "";
 }
 
 function resolvePromptContractPath(

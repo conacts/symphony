@@ -1,4 +1,5 @@
 import type { SymphonyTrackerConfig } from "@symphony/tracker";
+import type { SymphonyReworkHandoff } from "@symphony/runtime-contract";
 
 export type SymphonyGitHubReviewConfig = {
   allowedReviewLogins: string[];
@@ -91,15 +92,6 @@ export type SymphonyGitHubReviewSignal =
       operatorContext: string | null;
     };
 
-export type SymphonyGitHubReworkHandoff = {
-  triggerKind: SymphonyGitHubReviewSignal["kind"];
-  reviewContextUrl: string | null;
-  pullRequestUrl: string | null;
-  actorLogin: string | null;
-  feedbackBody: string | null;
-  recordedAt: string;
-};
-
 export type SymphonyGitHubPullRequestResolver = {
   fetchPullRequest(
     pullRequestUrl: string
@@ -116,6 +108,6 @@ export type SymphonyGitHubReviewProcessResult =
   | {
       status: "requeued";
       issueIdentifier: string;
-      handoff: SymphonyGitHubReworkHandoff;
+      handoff: SymphonyReworkHandoff;
     }
   | { status: "skipped"; issueIdentifier: string | null; reason: string };

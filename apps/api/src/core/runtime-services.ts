@@ -18,6 +18,7 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import type { SymphonyNormalizedRuntimeManifest } from "@symphony/runtime-contract";
+import { runtimeReworkHandoffEventType } from "@symphony/runtime-contract";
 import { createSymphonyLogger } from "@symphony/logger";
 import {
   HarnessSessionError
@@ -584,8 +585,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
               issueId: trackedIssue.id,
               issueIdentifier: trackedIssue.identifier,
               source: "tracker",
-              eventType: "github_review_rework_handoff",
-              message: "Stored GitHub review rework handoff for the next run.",
+              eventType: runtimeReworkHandoffEventType,
+              message: "Stored rework handoff for the next run.",
               payload: normalizeRuntimeJsonValue(requeuedHandoff)
             });
           }

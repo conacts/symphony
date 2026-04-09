@@ -2,6 +2,7 @@ export {
   buildSymphonyGithubIssueCommentEvent,
   buildSymphonyGithubReviewEvent,
   buildSymphonyOrchestratorSnapshot,
+  buildSymphonyReworkHandoff,
   buildSymphonyRunFinishAttrs,
   buildSymphonyRunStartAttrs,
   buildSymphonyTrackerIssue,

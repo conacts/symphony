@@ -9,8 +9,12 @@ import type {
   SymphonyStartupFailureStage
 } from "@symphony/orchestrator";
 import {
+  formatSymphonyReworkHandoffSection,
+  isSymphonyReworkHandoff,
   renderSymphonyPromptContract,
+  runtimeReworkHandoffEventType,
   type SymphonyLoadedPromptContract,
+  type SymphonyReworkHandoff,
   type SymphonyRunMode
 } from "@symphony/runtime-contract";
 import type { JsonObject, JsonValue } from "@symphony/contracts";
@@ -234,12 +238,13 @@ async function executeRun(input: {
   const explicitCompletionRequirement = resolveExplicitCompletionRequirement(
     input.runMode
   );
-  const latestReworkHandoff = input.issueTimelineStore
-    ? await loadLatestGitHubReworkHandoff(
-        input.issueTimelineStore,
-        input.issue.identifier
-      )
-    : null;
+  const latestReworkHandoff =
+    input.runMode === "rework" && input.issueTimelineStore
+      ? await loadLatestReworkHandoff(
+          input.issueTimelineStore,
+          input.issue.identifier
+        )
+      : null;
 
   try {
     await input.runtimeLogs.record({
@@ -379,7 +384,7 @@ async function executeRun(input: {
         },
         attempt: input.attempt,
         run_mode: input.runMode,
-        rework_handoff: formatPromptReworkHandoff(latestReworkHandoff)
+        handoff_section: formatSymphonyReworkHandoffSection(latestReworkHandoff)
       };
 
       const prompt =
@@ -887,78 +892,26 @@ function mergeResultCompletion(
   };
 }
 
-type GitHubReworkHandoff = {
-  triggerKind: string;
-  reviewContextUrl: string | null;
-  pullRequestUrl: string | null;
-  actorLogin: string | null;
-  feedbackBody: string | null;
-  recordedAt: string;
-};
-
-async function loadLatestGitHubReworkHandoff(
+async function loadLatestReworkHandoff(
   issueTimelineStore: SymphonyIssueTimelineStore,
   issueIdentifier: string
-): Promise<GitHubReworkHandoff | null> {
+): Promise<SymphonyReworkHandoff | null> {
   const entries = await issueTimelineStore.listIssueTimeline(issueIdentifier, {
     limit: 20
   });
   const handoffs = entries
-    .filter((candidate) => candidate.eventType === "github_review_rework_handoff")
-    .map((entry) => parseGitHubReworkHandoff(entry.payload))
-    .filter((handoff): handoff is GitHubReworkHandoff => handoff !== null)
+    .filter((candidate) => candidate.eventType === runtimeReworkHandoffEventType)
+    .map((entry) => parseSymphonyReworkHandoff(entry.payload))
+    .filter((handoff): handoff is SymphonyReworkHandoff => handoff !== null)
     .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt));
 
   return handoffs[0] ?? null;
 }
 
-function parseGitHubReworkHandoff(payload: JsonValue): GitHubReworkHandoff | null {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return null;
-  }
-
-  const record = payload as Record<string, unknown>;
-  const triggerKind = getStringValue(record.triggerKind);
-  const recordedAt = getStringValue(record.recordedAt);
-  if (!triggerKind || !recordedAt) {
-    return null;
-  }
-
-  return {
-    triggerKind,
-    reviewContextUrl: getStringValue(record.reviewContextUrl),
-    pullRequestUrl: getStringValue(record.pullRequestUrl),
-    actorLogin: getStringValue(record.actorLogin),
-    feedbackBody: getStringValue(record.feedbackBody),
-    recordedAt
-  };
-}
-
-function formatPromptReworkHandoff(
-  handoff: GitHubReworkHandoff | null
-): string | null {
-  if (!handoff) {
-    return null;
-  }
-
-  const lines = [
-    "Rework handoff:",
-    `- This run was resumed because GitHub review feedback triggered rework (${handoff.triggerKind}).`,
-    `- Review context: ${handoff.reviewContextUrl ?? "unknown"}`,
-    `- PR: ${handoff.pullRequestUrl ?? "unknown"}`,
-    `- Actor: ${handoff.actorLogin ?? "unknown"}`,
-    `- Recorded at: ${handoff.recordedAt}`
-  ];
-
-  if (handoff.feedbackBody) {
-    lines.push("- Feedback:", handoff.feedbackBody);
-  }
-
-  lines.push(
-    "- Required first step: read the linked review feedback and address it before making new changes."
-  );
-
-  return lines.join("\n");
+function parseSymphonyReworkHandoff(
+  payload: JsonValue
+): SymphonyReworkHandoff | null {
+  return isSymphonyReworkHandoff(payload) ? payload : null;
 }
 
 function getStringValue(value: unknown): string | null {

@@ -3,6 +3,7 @@ import {
   isSymphonyWorkflowDisabled,
   type SymphonyTracker
 } from "@symphony/tracker";
+import type { SymphonyReworkHandoff } from "@symphony/runtime-contract";
 import {
   autoRequeueCommentBody,
   buildSymphonyGitHubReviewContextUrl
@@ -13,7 +14,6 @@ import {
 } from "./symphony-github-review-signal.js";
 import type {
   SymphonyGitHubPullRequestResolver,
-  SymphonyGitHubReworkHandoff,
   SymphonyGitHubReviewPolicyConfig,
   SymphonyGitHubReviewEvent,
   SymphonyGitHubReviewProcessResult,
@@ -181,8 +181,9 @@ export class SymphonyGithubReviewProcessor {
 
 function buildReworkHandoff(
   signal: SymphonyGitHubReviewSignal
-): SymphonyGitHubReworkHandoff {
+): SymphonyReworkHandoff {
   return {
+    source: "github_review",
     triggerKind: signal.kind,
     reviewContextUrl: buildSymphonyGitHubReviewContextUrl(signal),
     pullRequestUrl: signal.pullRequestUrl ?? null,

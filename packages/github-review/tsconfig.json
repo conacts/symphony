@@ -13,6 +13,9 @@
   ],
   "references": [
     {
+      "path": "../runtime-contract"
+    },
+    {
       "path": "../tracker"
     }
   ]

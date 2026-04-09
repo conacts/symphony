@@ -305,6 +305,7 @@ describe("symphony github review policy", () => {
       status: "requeued",
       issueIdentifier: "COL-123",
       handoff: {
+        source: "github_review",
         triggerKind: "changes_requested_review",
         actorLogin: "reviewer",
         pullRequestUrl: "https://github.com/openai/symphony/pull/123",
@@ -410,6 +411,7 @@ describe("symphony github review policy", () => {
       status: "requeued",
       issueIdentifier: "COL-123",
       handoff: {
+        source: "github_review",
         triggerKind: "manual_rework_comment",
         actorLogin: "reviewer",
         reviewContextUrl:
@@ -472,6 +474,7 @@ describe("symphony github review policy", () => {
       status: "requeued",
       issueIdentifier: "COL-123",
       handoff: {
+        source: "github_review",
         triggerKind: "review_comment",
         actorLogin: "chatgpt-codex-connector",
         reviewContextUrl:
@@ -533,6 +536,7 @@ describe("symphony github review policy", () => {
       status: "requeued",
       issueIdentifier: "COL-123",
       handoff: {
+        source: "github_review",
         triggerKind: "review_comment",
         actorLogin: "chatgpt-codex-connector",
         reviewContextUrl:
@@ -585,6 +589,7 @@ describe("symphony github review policy", () => {
       status: "requeued",
       issueIdentifier: "COL-123",
       handoff: {
+        source: "github_review",
         triggerKind: "review_comment",
         actorLogin: "chatgpt-codex-connector[bot]",
         reviewContextUrl: "https://github.com/openai/symphony/pull/123#discussion_r789",

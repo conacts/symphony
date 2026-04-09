@@ -14,8 +14,12 @@ import {
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import type { SymphonyAgentRuntimeCompletion } from "@symphony/orchestrator";
-import { symphonyHarnessPromptAppendix } from "@symphony/runtime-contract";
+import {
+  runtimeReworkHandoffEventType,
+  symphonyHarnessPromptAppendix
+} from "@symphony/runtime-contract";
 import { runtimeMergeResultEventType } from "@symphony/runtime-tools";
+import { buildSymphonyReworkHandoff } from "@symphony/test-support";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
@@ -93,7 +97,7 @@ describe("docker pi symphony agent runtime", () => {
     const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
-      runMode: "implementation",
+      runMode: "rework",
       status: "dispatching",
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
@@ -142,7 +146,7 @@ describe("docker pi symphony agent runtime", () => {
         issue,
         runId,
         attempt: 1,
-        runMode: "implementation",
+        runMode: "rework",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
@@ -658,7 +662,7 @@ done
     database.close();
   });
 
-  it("injects persisted GitHub rework handoff context into the first-turn prompt", async () => {
+  it("injects persisted rework handoff context into the first-turn prompt for rework runs", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-rework-"));
     tempRoots.push(root);
 
@@ -698,7 +702,7 @@ done
     const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
-      runMode: "implementation",
+      runMode: "rework",
       status: "dispatching",
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
@@ -708,23 +712,16 @@ done
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       source: "tracker",
-      eventType: "github_review_rework_handoff",
-      message: "Stored GitHub review rework handoff for the next run.",
-      payload: {
-        triggerKind: "review_comment",
-        reviewContextUrl: "https://github.com/openai/symphony/pull/123#pullrequestreview-456",
-        pullRequestUrl: "https://github.com/openai/symphony/pull/123",
-        actorLogin: "chatgpt-codex-connector",
-        feedbackBody: "Please rename this API and add the missing test coverage.",
-        recordedAt: "2026-04-06T00:00:00.000Z"
-      }
+      eventType: runtimeReworkHandoffEventType,
+      message: "Stored rework handoff for the next run.",
+      payload: buildSymphonyReworkHandoff()
     });
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createSymphonyAgentRuntime({
         promptContract: buildPromptContract(
           root,
-          "You are working on {{ issue.identifier }}.\n\n{{ rework_handoff }}"
+          "You are working on {{ issue.identifier }}.\n\n{{ handoff_section }}"
         ),
         tracker,
         runStore,
@@ -755,7 +752,7 @@ done
         issue,
         runId,
         attempt: 1,
-        runMode: "implementation",
+        runMode: "rework",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
@@ -778,7 +775,7 @@ done
     database.close();
   });
 
-  it("leaves the first-turn prompt unchanged when no GitHub rework handoff exists", async () => {
+  it("leaves the first-turn prompt unchanged when no rework handoff exists", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-no-rework-"));
     tempRoots.push(root);
 
@@ -828,7 +825,7 @@ done
       const runtime = createSymphonyAgentRuntime({
         promptContract: buildPromptContract(
           root,
-          "You are working on {{ issue.identifier }}.\n\n{{ rework_handoff }}"
+          "You are working on {{ issue.identifier }}.\n\n{{ handoff_section }}"
         ),
         tracker,
         runStore,
@@ -871,6 +868,115 @@ done
     expect(runDetail?.turns[0]?.promptText).toContain(
       `You are working on ${issue.identifier}.`
     );
+    expect(runDetail?.turns[0]?.promptText).not.toContain("Rework handoff:");
+    expect(runDetail?.turns[0]?.promptText).not.toContain(
+      "GitHub review feedback triggered rework"
+    );
+
+    database.close();
+  });
+
+  it("does not inject rework handoff context for implementation runs", async () => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), "symphony-agent-runtime-implementation-handoff-")
+    );
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createDoneTracker(issue);
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const agentReadStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      runMode: "implementation",
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    await issueTimelineStore.record({
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      source: "tracker",
+      eventType: runtimeReworkHandoffEventType,
+      message: "Stored rework handoff for the next run.",
+      payload: buildSymphonyReworkHandoff()
+    });
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(
+          root,
+          "You are working on {{ issue.identifier }}.\n\n{{ handoff_section }}"
+        ),
+        tracker,
+        runStore,
+        deliveryReports,
+        issueTimelineStore,
+        agentAnalytics,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            return;
+          },
+          async onComplete() {
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runMode: "implementation",
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    const runDetail = await agentReadStore.fetchRunDetail(runId);
     expect(runDetail?.turns[0]?.promptText).not.toContain("Rework handoff:");
     expect(runDetail?.turns[0]?.promptText).not.toContain(
       "GitHub review feedback triggered rework"
@@ -1211,7 +1317,7 @@ done
     database.close();
   });
 
-  it("uses the latest persisted GitHub rework handoff in the first-turn prompt", async () => {
+  it("uses the latest persisted rework handoff in the first-turn prompt", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-latest-rework-"));
     tempRoots.push(root);
 
@@ -1251,7 +1357,7 @@ done
     const runId = await runStore.recordRunStarted({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
-      runMode: "implementation",
+      runMode: "rework",
       status: "dispatching",
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
@@ -1261,38 +1367,32 @@ done
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       source: "tracker",
-      eventType: "github_review_rework_handoff",
-      message: "Stored older GitHub review rework handoff for the next run.",
-      payload: {
-        triggerKind: "review_comment",
+      eventType: runtimeReworkHandoffEventType,
+      message: "Stored older rework handoff for the next run.",
+      payload: buildSymphonyReworkHandoff({
         reviewContextUrl: "https://github.com/openai/symphony/pull/123#pullrequestreview-111",
-        pullRequestUrl: "https://github.com/openai/symphony/pull/123",
-        actorLogin: "chatgpt-codex-connector",
         feedbackBody: "Old feedback that should not be used.",
         recordedAt: "2026-04-05T00:00:00.000Z"
-      }
+      })
     });
     await issueTimelineStore.record({
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       source: "tracker",
-      eventType: "github_review_rework_handoff",
-      message: "Stored newer GitHub review rework handoff for the next run.",
-      payload: {
+      eventType: runtimeReworkHandoffEventType,
+      message: "Stored newer rework handoff for the next run.",
+      payload: buildSymphonyReworkHandoff({
         triggerKind: "changes_requested_review",
         reviewContextUrl: "https://github.com/openai/symphony/pull/123#pullrequestreview-222",
-        pullRequestUrl: "https://github.com/openai/symphony/pull/123",
-        actorLogin: "chatgpt-codex-connector",
-        feedbackBody: "Newest feedback that should be shown first.",
-        recordedAt: "2026-04-06T00:00:00.000Z"
-      }
+        feedbackBody: "Newest feedback that should be shown first."
+      })
     });
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createSymphonyAgentRuntime({
         promptContract: buildPromptContract(
           root,
-          "You are working on {{ issue.identifier }}.\n\n{{ rework_handoff }}"
+          "You are working on {{ issue.identifier }}.\n\n{{ handoff_section }}"
         ),
         tracker,
         runStore,
@@ -1323,7 +1423,7 @@ done
         issue,
         runId,
         attempt: 1,
-        runMode: "implementation",
+        runMode: "rework",
         runtimePolicy,
         workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
       });
