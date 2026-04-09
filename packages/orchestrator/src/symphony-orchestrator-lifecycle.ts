@@ -1,5 +1,10 @@
 import type { JsonObject } from "@symphony/contracts";
-import type { SymphonyTracker, SymphonyTrackerIssue } from "@symphony/tracker";
+import {
+  issueMatchesTerminalState,
+  type SymphonyTracker,
+  type SymphonyTrackerConfig,
+  type SymphonyTrackerIssue
+} from "@symphony/tracker";
 import type {
   PreparedWorkspace,
   WorkspaceBackend,
@@ -20,6 +25,19 @@ import type {
   SymphonyOrchestratorObserver
 } from "./symphony-orchestrator-types.js";
 import type { SymphonyOrchestratorConfig } from "./orchestrator-config.js";
+
+export function workspaceCleanupModeForIssue(input: {
+  issue: SymphonyTrackerIssue | null;
+  tracker: SymphonyTrackerConfig;
+}): WorkspaceCleanupMode {
+  if (!input.issue) {
+    return "destroy";
+  }
+
+  return issueMatchesTerminalState(input.issue, input.tracker)
+    ? "destroy"
+    : "preserve";
+}
 
 export async function leaveFailureComment(input: {
   tracker: SymphonyTracker;
@@ -149,6 +167,7 @@ export async function handleStartupFailure(input: {
   completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
 }): Promise<void> {
   const targetState = input.config.tracker.startupFailureTransitionToState;
+  let effectiveIssue = input.issue;
   let transition: SymphonyStartupFailureTransition = {
     kind: "none"
   };
@@ -156,14 +175,17 @@ export async function handleStartupFailure(input: {
   if (targetState) {
     try {
       await input.tracker.updateIssueState(input.issue.id, targetState);
+      effectiveIssue = {
+        ...input.issue,
+        state: targetState
+      };
       transition = {
         kind: "moved",
         targetState
       };
       await input.observer?.recordLifecycleEvent({
         issue: {
-          ...input.issue,
-          state: targetState
+          ...effectiveIssue
         },
         runId: input.runId,
         source: "tracker",
@@ -217,7 +239,10 @@ export async function handleStartupFailure(input: {
     workspace: input.workspace,
     workerHost: input.workerHost,
     reason: "startup_failure",
-    mode: "destroy",
+    mode: workspaceCleanupModeForIssue({
+      issue: effectiveIssue,
+      tracker: input.config.tracker
+    }),
     startupFailure: input.completion
   });
 }

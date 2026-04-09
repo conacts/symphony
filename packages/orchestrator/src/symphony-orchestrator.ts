@@ -40,6 +40,7 @@ import {
   stateSlotsAvailable
 } from "./symphony-orchestrator-retries.js";
 import {
+  workspaceCleanupModeForIssue,
   cleanupWorkspaceAndRecordLifecycle,
   handleStartupFailure,
   leaveFailureComment
@@ -133,7 +134,7 @@ export class SymphonyOrchestrator {
       await this.#agentRuntime.stopRun({
         issue: runningEntry.issue,
         workspace: runningEntry.workspace,
-        cleanupWorkspace: false
+        cleanupMode: "preserve"
       });
       await this.handleRunCompletion(issueId, {
         kind: "failure",
@@ -205,12 +206,12 @@ export class SymphonyOrchestrator {
 
       const refreshedIssue = refreshedById.get(issueId);
       if (!refreshedIssue) {
-        await this.#terminateRunningIssue(issueId, true);
+        await this.#terminateRunningIssue(issueId, "destroy");
         continue;
       }
 
       if (issueMatchesTerminalState(refreshedIssue, this.#config.tracker)) {
-        await this.#terminateRunningIssue(issueId, true, refreshedIssue);
+        await this.#terminateRunningIssue(issueId, "destroy", refreshedIssue);
         continue;
       }
 
@@ -221,7 +222,14 @@ export class SymphonyOrchestrator {
           tracker: this.#config.tracker
         })
       ) {
-        await this.#terminateRunningIssue(issueId, true, refreshedIssue);
+        await this.#terminateRunningIssue(
+          issueId,
+          workspaceCleanupModeForIssue({
+            issue: refreshedIssue,
+            tracker: this.#config.tracker
+          }),
+          refreshedIssue
+        );
         continue;
       }
 
@@ -619,12 +627,10 @@ export class SymphonyOrchestrator {
       outputTokens: runningEntry.agentOutputTokens,
       totalTokens: runningEntry.agentTotalTokens
     });
-    const cleanupMode = shouldDestroyWorkspaceForStoppedIssue(
-      currentIssue,
-      this.#config.tracker
-    )
-      ? "destroy"
-      : "preserve";
+    const cleanupMode = workspaceCleanupModeForIssue({
+      issue: currentIssue,
+      tracker: this.#config.tracker
+    });
 
     if (resolvedCompletion.kind === "blocked") {
       currentIssue = await this.#transitionIssueState({
@@ -646,12 +652,10 @@ export class SymphonyOrchestrator {
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
         completionKind: resolvedCompletion.kind,
-        mode: shouldDestroyWorkspaceForStoppedIssue(
-          currentIssue ?? runningEntry.issue,
-          this.#config.tracker
-        )
-          ? "destroy"
-          : "preserve"
+        mode: workspaceCleanupModeForIssue({
+          issue: currentIssue ?? runningEntry.issue,
+          tracker: this.#config.tracker
+        })
       });
       return;
     }
@@ -707,12 +711,10 @@ export class SymphonyOrchestrator {
         completionKind: resolvedCompletion.kind,
         mode:
           resolvedCompletion.kind === "max_turns_reached"
-            ? shouldDestroyWorkspaceForStoppedIssue(
-                currentIssue ?? runningEntry.issue,
-                this.#config.tracker
-              )
-              ? "destroy"
-              : "preserve"
+            ? workspaceCleanupModeForIssue({
+                issue: currentIssue ?? runningEntry.issue,
+                tracker: this.#config.tracker
+              })
             : cleanupMode
       });
       return;
@@ -792,12 +794,10 @@ export class SymphonyOrchestrator {
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
         completionKind: resolvedCompletion.kind,
-        mode: shouldDestroyWorkspaceForStoppedIssue(
-          currentIssue,
-          this.#config.tracker
-        )
-          ? "destroy"
-          : "preserve"
+        mode: workspaceCleanupModeForIssue({
+          issue: currentIssue,
+          tracker: this.#config.tracker
+        })
       });
       return;
     }
@@ -841,12 +841,10 @@ export class SymphonyOrchestrator {
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
         completionKind: resolvedCompletion.kind,
-        mode: shouldDestroyWorkspaceForStoppedIssue(
-          currentIssue,
-          this.#config.tracker
-        )
-          ? "destroy"
-          : "preserve"
+        mode: workspaceCleanupModeForIssue({
+          issue: currentIssue,
+          tracker: this.#config.tracker
+        })
       });
       return;
     }
@@ -896,12 +894,10 @@ export class SymphonyOrchestrator {
       workspace: runningEntry.workspace,
       workerHost: runningEntry.workerHost,
       completionKind: resolvedCompletion.kind,
-      mode: shouldDestroyWorkspaceForStoppedIssue(
-        currentIssue ?? runningEntry.issue,
-        this.#config.tracker
-      )
-        ? "destroy"
-        : "preserve"
+      mode: workspaceCleanupModeForIssue({
+        issue: currentIssue ?? runningEntry.issue,
+        tracker: this.#config.tracker
+      })
     });
   }
 
@@ -1057,12 +1053,10 @@ export class SymphonyOrchestrator {
       workspace: input.runningEntry.workspace,
       workerHost: input.runningEntry.workerHost,
       completionKind: input.completion.kind,
-      mode: shouldDestroyWorkspaceForStoppedIssue(
-        finalIssue,
-        this.#config.tracker
-      )
-        ? "destroy"
-        : "preserve"
+      mode: workspaceCleanupModeForIssue({
+        issue: finalIssue,
+        tracker: this.#config.tracker
+      })
     });
   }
 
@@ -1223,7 +1217,7 @@ export class SymphonyOrchestrator {
 
   async #terminateRunningIssue(
     issueId: string,
-    cleanupWorkspace: boolean,
+    cleanupMode: "destroy" | "preserve",
     refreshedIssue?: SymphonyTrackerIssue
   ): Promise<void> {
     const runningEntry = this.#state.running[issueId];
@@ -1243,7 +1237,7 @@ export class SymphonyOrchestrator {
     await this.#agentRuntime.stopRun({
       issue: effectiveIssue,
       workspace: runningEntry.workspace,
-      cleanupWorkspace
+      cleanupMode
     });
 
     await this.#observer?.recordLifecycleEvent({
@@ -1259,11 +1253,11 @@ export class SymphonyOrchestrator {
           ? "Running issue stopped because it entered a terminal state."
           : "Running issue stopped because it became ineligible.",
       payload: {
-        cleanupWorkspace
+        cleanupMode
       }
     });
 
-    if (cleanupWorkspace && runningEntry.workspace) {
+    if (runningEntry.workspace) {
       await cleanupWorkspaceAndRecordLifecycle({
         observer: this.#observer,
         workspaceBackend: this.#workspaceBackend,
@@ -1273,42 +1267,14 @@ export class SymphonyOrchestrator {
         runId: runningEntry.runId,
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
-        reason: cleanupWorkspace ? "issue_stopped" : "issue_suspended",
-        mode: cleanupWorkspace ? "destroy" : "preserve"
-      });
-    } else if (runningEntry.workspace) {
-      await cleanupWorkspaceAndRecordLifecycle({
-        observer: this.#observer,
-        workspaceBackend: this.#workspaceBackend,
-        config: this.#config,
-        runnerEnv: this.#runnerEnv,
-        issue: runningEntry.issue,
-        runId: runningEntry.runId,
-        workspace: runningEntry.workspace,
-        workerHost: runningEntry.workerHost,
-        reason: "issue_suspended",
-        mode: "preserve"
+        reason: cleanupMode === "destroy" ? "issue_stopped" : "issue_suspended",
+        mode: cleanupMode
       });
     }
 
     delete this.#state.running[issueId];
     this.#state.claimed.delete(issueId);
   }
-}
-
-function shouldDestroyWorkspaceForStoppedIssue(
-  issue: SymphonyTrackerIssue | null,
-  tracker: SymphonyTrackerConfig
-): boolean {
-  if (!issue) {
-    return true;
-  }
-
-  return (
-    issueMatchesTerminalState(issue, tracker) ||
-    !issue.assignedToWorker ||
-    !issueMatchesDispatchableState(issue, tracker)
-  );
 }
 
 function canIssueContinueRun(input: {

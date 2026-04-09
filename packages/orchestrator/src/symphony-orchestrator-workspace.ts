@@ -124,6 +124,8 @@ export async function recordDockerContainerCleanupEvent(input: {
   const eventType =
     input.cleanup.containerRemovalDisposition === "removed"
       ? "docker_container_removed"
+      : input.cleanup.containerRemovalDisposition === "stopped"
+        ? "docker_container_stopped"
       : input.cleanup.containerRemovalDisposition === "missing"
         ? "docker_container_missing"
         : null;
@@ -140,6 +142,8 @@ export async function recordDockerContainerCleanupEvent(input: {
     message:
       input.cleanup.containerRemovalDisposition === "removed"
         ? "Docker container removed during workspace cleanup."
+        : input.cleanup.containerRemovalDisposition === "stopped"
+          ? "Docker container stopped during workspace cleanup."
         : "Docker container was already missing during workspace cleanup.",
     payload: {
       cleanup: input.cleanup

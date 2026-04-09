@@ -489,7 +489,7 @@ describe("symphony orchestrator", () => {
     expect(orchestrator.snapshot().pollCheckInProgress).toBe(false);
   });
 
-  it("destroys the workspace after a failed run completes", async () => {
+  it("preserves the workspace after a failed run completes", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
         ...buildSymphonyOrchestratorConfig().tracker,
@@ -552,13 +552,13 @@ describe("symphony orchestrator", () => {
       issueIdentifier: "COL-123"
     });
     expect(lifecycleEvents).toContainEqual({
-      eventType: "workspace_destroyed_after_run",
+      eventType: "workspace_preserved_after_run",
       runId: "run-1",
       issueIdentifier: "COL-123"
     });
   });
 
-  it("destroys the workspace after a normal completion moves the issue out of dispatchable states", async () => {
+  it("preserves the workspace after delivery moves the issue into In Review", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
         ...buildSymphonyOrchestratorConfig().tracker,
@@ -616,7 +616,7 @@ describe("symphony orchestrator", () => {
     });
 
     expect(lifecycleEvents).toContainEqual({
-      eventType: "workspace_destroyed_after_run",
+      eventType: "workspace_preserved_after_run",
       runId: "run-1",
       issueIdentifier: "COL-123"
     });
@@ -801,7 +801,7 @@ describe("symphony orchestrator", () => {
     expect(orchestrator.snapshot().running).toHaveLength(0);
   });
 
-  it("destroys the workspace when a running issue moves to In Review", async () => {
+  it("preserves the workspace when a running issue moves to In Review", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
         ...buildSymphonyOrchestratorConfig().tracker,
@@ -861,7 +861,7 @@ describe("symphony orchestrator", () => {
 
     expect(lifecycleEvents).toContain("run_stopped_inactive");
     expect(lifecycleEvents).toContain("workspace_cleanup_completed");
-    expect(lifecycleEvents).toContain("docker_container_removed");
+    expect(lifecycleEvents).toContain("docker_container_stopped");
   });
 
   it("pauses failed runs instead of scheduling hidden retries", async () => {
@@ -1060,7 +1060,7 @@ describe("symphony orchestrator", () => {
     });
   });
 
-  it("destroys the workspace after max-turn pauses", async () => {
+  it("preserves the workspace after max-turn pauses", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
         ...buildSymphonyOrchestratorConfig().tracker,
@@ -1107,7 +1107,7 @@ describe("symphony orchestrator", () => {
       reason: "Reached the configured 2-turn limit while the issue remained active."
     });
 
-    expect(lifecycleEvents).toContain("workspace_destroyed_after_run");
+    expect(lifecycleEvents).toContain("workspace_preserved_after_run");
   });
 
   it("pauses stalled runs instead of silently retrying them", async () => {
@@ -1239,7 +1239,7 @@ describe("symphony orchestrator", () => {
     });
   });
 
-  it("destroys the workspace after startup failures", async () => {
+  it("preserves the workspace after startup failures", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
         ...buildSymphonyOrchestratorConfig().tracker,
@@ -1293,7 +1293,7 @@ describe("symphony orchestrator", () => {
     });
 
     expect(lifecycleEvents).toContain("workspace_cleanup_completed");
-    expect(lifecycleEvents).toContain("docker_container_removed");
+    expect(lifecycleEvents).toContain("docker_container_stopped");
   });
 
   it("formats startup-failure comments with manual cleanup guidance when transition fails", async () => {
@@ -1442,7 +1442,7 @@ describe("symphony orchestrator", () => {
   });
 
   describe("workflow transition flows", () => {
-    it("moves Todo issues into Bootstrapping and lets normal completion exit cleanly after In Review", async () => {
+    it("moves Todo issues into Bootstrapping and preserves the workspace after In Review handoff", async () => {
       const harness = createFlowHarness();
 
       await harness.orchestrator.runPollCycle();
@@ -1469,7 +1469,7 @@ describe("symphony orchestrator", () => {
       });
 
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Review");
-      expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+      expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");
       expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
       expect(harness.stoppedIssueIds).toEqual([]);
     });
@@ -1504,7 +1504,7 @@ describe("symphony orchestrator", () => {
       });
       expect(harness.lifecycleEvents).toContain("runtime_startup_failed");
       expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
-      expect(harness.lifecycleEvents).toContain("docker_container_removed");
+      expect(harness.lifecycleEvents).toContain("docker_container_stopped");
     });
 
     it("moves failed in-progress runs into Paused", async () => {
@@ -1533,7 +1533,7 @@ describe("symphony orchestrator", () => {
         stateName: "Paused"
       });
       expect(harness.lifecycleEvents).toContain("pause_transition");
-      expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+      expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");
     });
 
     it("moves blocked implementation runs into Blocked without adding a runtime failure comment", async () => {
@@ -1565,7 +1565,7 @@ describe("symphony orchestrator", () => {
         harness.tracker.listOperations().filter((operation) => operation.kind === "comment")
       ).toEqual([]);
       expect(harness.lifecycleEvents).toContain("blocked_transition");
-      expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+      expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");
     });
 
     it("dispatches Approved issues in approved_merge mode and completes them into Done", async () => {
@@ -1722,7 +1722,7 @@ describe("symphony orchestrator", () => {
       );
       expect(harness.lifecycleEvents).toContain("approved_merge_transition");
       expect(harness.lifecycleEvents).toContain("blocked_transition");
-      expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+      expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");
     });
 
     it("moves explicit blocked merge results into Blocked without adding a second failure comment", async () => {
@@ -1750,7 +1750,7 @@ describe("symphony orchestrator", () => {
       ).toEqual([]);
       expect(harness.lifecycleEvents).toContain("approved_merge_transition");
       expect(harness.lifecycleEvents).toContain("blocked_transition");
-      expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+      expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");
     });
 
     it("stops implementation runs that move into Approved so merge mode can take over", async () => {
@@ -1774,7 +1774,7 @@ describe("symphony orchestrator", () => {
       expect(harness.stoppedIssueIds).toEqual([harness.issue.id]);
       expect(harness.lifecycleEvents).toContain("run_stopped_inactive");
       expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
-      expect(harness.lifecycleEvents).toContain("docker_container_removed");
+      expect(harness.lifecycleEvents).toContain("docker_container_stopped");
     });
 
     it("stops and destroys runs that move into Canceled", async () => {

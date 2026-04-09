@@ -95,14 +95,14 @@ describe("agent runtime facade", () => {
       runtime.stopRun({
         issue: runInput.issue,
         workspace: runInput.workspace,
-        cleanupWorkspace: false
+        cleanupMode: "preserve"
       })
     ).resolves.toBeUndefined();
     expect(startRun).toHaveBeenCalledWith(runInput);
     expect(stopRun).toHaveBeenCalledWith({
       issue: runInput.issue,
       workspace: runInput.workspace,
-      cleanupWorkspace: false
+      cleanupMode: "preserve"
     });
   });
 
