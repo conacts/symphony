@@ -10,6 +10,7 @@ import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
 import {
   createSqliteAgentAnalyticsReadStore,
   createSqliteAgentAnalyticsStore,
+  createSqliteRuntimeForensicsReadStore,
   createSymphonyIssueDeliveryReportStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyGitHubIngressJournal,
@@ -154,9 +155,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const agentAnalyticsReadStore = createSqliteAgentAnalyticsReadStore({
     db: database.db
   });
+  const runtimeForensicsReadStore = createSqliteRuntimeForensicsReadStore({
+    db: database.db
+  });
   const agentAnalyticsRead = createAgentAnalyticsReadPort(agentAnalyticsReadStore);
   const forensics = createSymphonyForensicsReadModel({
-    runStore: agentAnalyticsReadStore,
+    runStore: runtimeForensicsReadStore,
     async listIssueTimeline(input) {
       return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
         repositoryKey: input.repositoryKey,

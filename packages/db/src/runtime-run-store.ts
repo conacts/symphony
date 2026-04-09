@@ -1,14 +1,23 @@
 import { randomUUID } from "node:crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import type {
+  SymphonyAgentAnalyticsEvent,
+  SymphonyAgentThreadItemStatus,
+  SymphonyAgentThreadItemType,
+  SymphonyEventAttrs
+} from "@symphony/runtime-run-ledger";
 import { createSymphonyIssueTimelineStore, type SymphonyIssueTimelineStore } from "./issue-timeline.js";
 import {
+  symphonyEventsTable,
   symphonyIssuesTable,
+  symphonyRunRuntimeContextTable,
   symphonyRunsTable,
   symphonyTurnsTable
 } from "./schema.js";
 import type {
   SymphonyRuntimeMachineLoadSummary,
+  SymphonyRuntimeRunContextAttrs,
   SymphonyRuntimeRunMode,
   SymphonyRuntimeRunFinishAttrs,
   SymphonyRuntimeRunStartAttrs,
@@ -21,6 +30,8 @@ import type {
 export interface SymphonyRuntimeRunStore {
   recordRunStarted(attrs: SymphonyRuntimeRunStartAttrs): Promise<string>;
   recordTurnStarted(runId: string, attrs: SymphonyRuntimeTurnStartAttrs): Promise<string>;
+  recordEvent(runId: string, turnId: string, attrs: SymphonyEventAttrs): Promise<string>;
+  upsertRunContext(runId: string, attrs: SymphonyRuntimeRunContextAttrs): Promise<void>;
   updateTurn(turnId: string, attrs: SymphonyRuntimeTurnUpdateAttrs): Promise<void>;
   finalizeTurn(turnId: string, attrs: SymphonyRuntimeTurnFinishAttrs): Promise<void>;
   updateRun(runId: string, attrs: SymphonyRuntimeRunUpdateAttrs): Promise<void>;
@@ -30,6 +41,7 @@ export interface SymphonyRuntimeRunStore {
 export function createSqliteSymphonyRuntimeRunStore(input: {
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   timelineStore?: SymphonyIssueTimelineStore;
+  payloadMaxBytes?: number;
 }): SymphonyRuntimeRunStore {
   return new SqliteSymphonyRuntimeRunStore(input);
 }
@@ -37,14 +49,17 @@ export function createSqliteSymphonyRuntimeRunStore(input: {
 class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
   readonly #db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   readonly #timelineStore: SymphonyIssueTimelineStore;
+  readonly #payloadMaxBytes: number;
 
   constructor(input: {
     db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
     timelineStore?: SymphonyIssueTimelineStore;
+    payloadMaxBytes?: number;
   }) {
     this.#db = input.db;
     this.#timelineStore =
       input.timelineStore ?? createSymphonyIssueTimelineStore(input.db);
+    this.#payloadMaxBytes = normalizePositiveInteger(input.payloadMaxBytes, 64 * 1024);
   }
 
   async recordRunStarted(attrs: SymphonyRuntimeRunStartAttrs): Promise<string> {
@@ -238,6 +253,124 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       .run();
   }
 
+  async recordEvent(runId: string, turnId: string, attrs: SymphonyEventAttrs): Promise<string> {
+    const eventId = attrs.eventId ?? randomUUID();
+    const run = this.#db
+      .select()
+      .from(symphonyRunsTable)
+      .where(eq(symphonyRunsTable.runId, runId))
+      .get();
+
+    if (!run) {
+      throw new TypeError(`Run not found for event: ${runId}`);
+    }
+
+    const turn = this.#db
+      .select()
+      .from(symphonyTurnsTable)
+      .where(
+        and(
+          eq(symphonyTurnsTable.turnId, turnId),
+          eq(symphonyTurnsTable.runId, runId)
+        )
+      )
+      .get();
+
+    if (!turn) {
+      throw new TypeError(`Turn not found for event: ${turnId}`);
+    }
+
+    const lastEvent = this.#db
+      .select({
+        eventSequence: symphonyEventsTable.eventSequence
+      })
+      .from(symphonyEventsTable)
+      .where(eq(symphonyEventsTable.turnId, turnId))
+      .orderBy(desc(symphonyEventsTable.eventSequence))
+      .limit(1)
+      .get();
+
+    const eventSequence = attrs.eventSequence ?? (lastEvent?.eventSequence ?? 0) + 1;
+    const truncatedPayload = truncatePayload(attrs.payload, this.#payloadMaxBytes);
+    const recordedAt = normalizeIsoTimestamp(attrs.recordedAt) ?? isoNow();
+
+    this.#db.insert(symphonyEventsTable)
+      .values({
+        eventId,
+        turnId,
+        runId,
+        eventSequence,
+        eventType: attrs.eventType,
+        itemType: deriveItemType(truncatedPayload.payload),
+        itemStatus: deriveItemStatus(truncatedPayload.payload),
+        recordedAt,
+        payload: truncatedPayload.payload,
+        payloadTruncated: truncatedPayload.payloadTruncated,
+        payloadBytes: truncatedPayload.payloadBytes,
+        summary: attrs.summary ? sanitizeRuntimeEventSummary(attrs.summary) : null,
+        threadId: attrs.threadId ?? null,
+        agentTurnId: attrs.agentTurnId ?? null,
+        sessionId: attrs.sessionId ?? null,
+        insertedAt: isoNow()
+      })
+      .run();
+
+    return eventId;
+  }
+
+  async upsertRunContext(runId: string, attrs: SymphonyRuntimeRunContextAttrs): Promise<void> {
+    const run = this.#db
+      .select()
+      .from(symphonyRunsTable)
+      .where(eq(symphonyRunsTable.runId, runId))
+      .get();
+
+    if (!run) {
+      throw new TypeError(`Run not found for runtime context: ${runId}`);
+    }
+
+    const existing = this.#db
+      .select()
+      .from(symphonyRunRuntimeContextTable)
+      .where(eq(symphonyRunRuntimeContextTable.runId, runId))
+      .get();
+    const now = isoNow();
+    const nextValues = {
+      harnessKind: sanitizeHarnessKind(attrs.harnessKind) ?? existing?.harnessKind ?? null,
+      threadId: sanitizeText(attrs.threadId) ?? existing?.threadId ?? null,
+      sessionId: sanitizeText(attrs.sessionId) ?? existing?.sessionId ?? null,
+      processId: sanitizeText(attrs.processId) ?? existing?.processId ?? null,
+      model: sanitizeText(attrs.model) ?? existing?.model ?? null,
+      reasoningEffort:
+        sanitizeText(attrs.reasoningEffort) ?? existing?.reasoningEffort ?? null,
+      profile: sanitizeText(attrs.profile) ?? existing?.profile ?? null,
+      providerId: sanitizeText(attrs.providerId) ?? existing?.providerId ?? null,
+      providerName: sanitizeText(attrs.providerName) ?? existing?.providerName ?? null,
+      authMode: sanitizeText(attrs.authMode) ?? existing?.authMode ?? null,
+      providerEnvKey:
+        sanitizeText(attrs.providerEnvKey) ?? existing?.providerEnvKey ?? null,
+      launchTarget:
+        sanitizeJsonObject(attrs.launchTarget) ?? existing?.launchTarget ?? null,
+      updatedAt: now
+    };
+
+    if (existing) {
+      this.#db.update(symphonyRunRuntimeContextTable)
+        .set(nextValues)
+        .where(eq(symphonyRunRuntimeContextTable.runId, runId))
+        .run();
+      return;
+    }
+
+    this.#db.insert(symphonyRunRuntimeContextTable)
+      .values({
+        runId,
+        ...nextValues,
+        insertedAt: now
+      })
+      .run();
+  }
+
   async finalizeTurn(turnId: string, attrs: SymphonyRuntimeTurnFinishAttrs): Promise<void> {
     await this.updateTurn(turnId, {
       status: attrs.status,
@@ -410,6 +543,16 @@ function sanitizeText(value: string | null | undefined): string | null {
   return normalized === "" ? null : normalized;
 }
 
+function sanitizeHarnessKind(value: "pi" | null | undefined): "pi" | null {
+  return value === "pi" ? value : null;
+}
+
+const secretKeyPattern = /(authorization|cookie|token|password|secret|api[_-]?key)/i;
+
+function sanitizeRuntimeEventSummary(value: string): string | null {
+  return sanitizeSecrets(value);
+}
+
 function sanitizeJsonObject(
   value: Record<string, unknown> | null | undefined
 ): Record<string, unknown> | null {
@@ -423,6 +566,175 @@ function sanitizeJsonObject(
       return normalized === undefined ? [] : [[key, normalized] as const];
     })
   );
+}
+
+function sanitizeJsonValue(value: unknown, keyHint?: string): unknown {
+  if (typeof value === "string") {
+    if (keyHint && secretKeyPattern.test(keyHint)) {
+      if (keyHint.toLowerCase() === "authorization" && value.startsWith("Bearer ")) {
+        return "Bearer [REDACTED]";
+      }
+
+      return "[REDACTED]";
+    }
+
+    return sanitizeSecrets(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => sanitizeJsonValue(entry));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
+        key,
+        sanitizeJsonValue(nestedValue, key)
+      ])
+    );
+  }
+
+  return value;
+}
+
+function sanitizeSecrets(value: string): string {
+  return value
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer [REDACTED]")
+    .replace(/(OPENAI_API_KEY\s*=\s*)(\S+)/gi, "$1[REDACTED]")
+    .replace(/(api[_-]?key\s*=\s*)(\S+)/gi, "$1[REDACTED]")
+    .replace(/(password\s*=\s*)(\S+)/gi, "$1[REDACTED]")
+    .replace(/(token\s*=\s*)(\S+)/gi, "$1[REDACTED]")
+    .replace(/(session\s*=\s*)(\S+)/gi, "$1[REDACTED]");
+}
+
+function truncatePayload(
+  payload: SymphonyAgentAnalyticsEvent,
+  payloadMaxBytes: number
+): {
+  payload: SymphonyAgentAnalyticsEvent;
+  payloadBytes: number;
+  payloadTruncated: boolean;
+} {
+  const sanitizedPayload = sanitizeJsonValue(payload) as SymphonyAgentAnalyticsEvent;
+  const encoded = JSON.stringify(sanitizedPayload);
+  const payloadBytes = Buffer.byteLength(encoded, "utf8");
+
+  if (payloadBytes <= payloadMaxBytes) {
+    return {
+      payload: sanitizedPayload,
+      payloadBytes,
+      payloadTruncated: false
+    };
+  }
+
+  for (const maxLength of [8192, 2048, 512, 128, 32, 0]) {
+    const compactPayload = compactAnalyticsPayload(sanitizedPayload, maxLength);
+    const compactEncoded = JSON.stringify(compactPayload);
+    if (Buffer.byteLength(compactEncoded, "utf8") <= payloadMaxBytes) {
+      return {
+        payload: compactPayload,
+        payloadBytes,
+        payloadTruncated: true
+      };
+    }
+  }
+
+  return {
+    payload: compactAnalyticsPayload(sanitizedPayload, 0),
+    payloadBytes,
+    payloadTruncated: true
+  };
+}
+
+function compactAnalyticsPayload(
+  payload: SymphonyAgentAnalyticsEvent,
+  maxLength: number
+): SymphonyAgentAnalyticsEvent {
+  if (payload.type === "session.started") {
+    return payload;
+  }
+
+  if (
+    payload.type === "thread.started" ||
+    payload.type === "turn.started" ||
+    payload.type === "turn.completed" ||
+    payload.type === "turn.failed" ||
+    payload.type === "error"
+  ) {
+    return payload;
+  }
+
+  switch (payload.item.type) {
+    case "command_execution":
+      return {
+        ...payload,
+        item: {
+          ...payload.item,
+          aggregated_output: compactString(payload.item.aggregated_output, maxLength)
+        }
+      };
+    case "agent_message":
+      return {
+        ...payload,
+        item: {
+          ...payload.item,
+          text: compactString(payload.item.text, maxLength)
+        }
+      };
+    case "reasoning":
+      return {
+        ...payload,
+        item: {
+          ...payload.item,
+          text: compactString(payload.item.text, maxLength)
+        }
+      };
+    case "error":
+      return {
+        ...payload,
+        item: {
+          ...payload.item,
+          message: compactString(payload.item.message, maxLength)
+        }
+      };
+    default:
+      return payload;
+  }
+}
+
+function compactString(value: string, maxLength = 8192): string {
+  if (maxLength <= 0) {
+    return `[TRUNCATED ${value.length} chars]`;
+  }
+
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength)}\n...[TRUNCATED ${value.length - maxLength} chars]`;
+}
+
+function deriveItemType(
+  payload: SymphonyAgentAnalyticsEvent
+): SymphonyAgentThreadItemType | null {
+  return "item" in payload ? payload.item.type : null;
+}
+
+function deriveItemStatus(
+  payload: SymphonyAgentAnalyticsEvent
+): SymphonyAgentThreadItemStatus {
+  if (!("item" in payload)) {
+    return null;
+  }
+
+  switch (payload.item.type) {
+    case "command_execution":
+    case "file_change":
+    case "mcp_tool_call":
+      return payload.item.status;
+    default:
+      return null;
+  }
 }
 
 function sanitizeMachineLoadSummary(
@@ -491,6 +803,12 @@ function normalizeTokenCount(value: number | null | undefined): number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? Math.floor(value)
     : 0;
+}
+
+function normalizePositiveInteger(value: number | undefined, fallback: number): number {
+  return Number.isInteger(value) && value !== undefined && value > 0
+    ? value
+    : fallback;
 }
 
 function normalizeJsonValue(value: unknown): unknown {

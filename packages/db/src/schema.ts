@@ -708,6 +708,31 @@ export const symphonyRuntimeLogsTable = sqliteTable(
   })
 );
 
+export const symphonyRunRuntimeContextTable = sqliteTable(
+  "symphony_run_runtime_context",
+  {
+    runId: text("run_id").primaryKey(),
+    harnessKind: text("harness_kind"),
+    threadId: text("thread_id"),
+    sessionId: text("session_id"),
+    processId: text("process_id"),
+    model: text("model"),
+    reasoningEffort: text("reasoning_effort"),
+    profile: text("profile"),
+    providerId: text("provider_id"),
+    providerName: text("provider_name"),
+    authMode: text("auth_mode"),
+    providerEnvKey: text("provider_env_key"),
+    launchTarget: text("launch_target_json", { mode: "json" }).$type<Record<string, unknown> | null>(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    harnessKindIdx: index("symphony_run_runtime_context_harness_kind_idx").on(table.harnessKind),
+    threadIdIdx: index("symphony_run_runtime_context_thread_id_idx").on(table.threadId)
+  })
+);
+
 export const symphonyGitHubIngressTable = sqliteTable(
   "symphony_github_ingress",
   {
@@ -802,6 +827,7 @@ export const symphonySchema = {
   symphonyIssueTimelineTable,
   symphonyIssueDeliveryReportsTable,
   symphonyRuntimeLogsTable,
+  symphonyRunRuntimeContextTable,
   symphonyGitHubIngressTable,
   symphonyMigrationStateTable
 };

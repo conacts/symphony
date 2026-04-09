@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
 import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
-import { createSymphonyRuntimeLogStore } from "./runtime-logs.js";
 import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-store.js";
 import { createSqliteAgentAnalyticsStore } from "./agent-analytics-store.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
@@ -43,7 +42,6 @@ describe("sqlite agent analytics read store", () => {
     const readStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
-    const runtimeLogs = createSymphonyRuntimeLogStore(database.db);
 
     try {
       const runId = await runJournal.recordRunStarted({
@@ -173,32 +171,28 @@ describe("sqlite agent analytics read store", () => {
         failureOrigin: null,
         failureMessagePreview: null
       });
-      await runtimeLogs.record({
-        level: "info",
-        source: "agent_runtime",
-        eventType: "runtime_session_started",
-        issueId: "issue-1",
-        issueIdentifier: "COL-157",
-        runId,
-        message: "Started the agent harness session.",
-        payload: {
-          processId: "pi-process-123",
-          model: "xiaomi/mimo-v2-pro",
-          reasoningEffort: "high",
-          profile: "mimo-v2-pro",
-          providerId: "openrouter",
-          providerName: "OpenRouter",
-          authMode: "api_key_env",
-          providerEnvKey: "OPENROUTER_API_KEY",
-          launchTarget: {
-            kind: "container",
-            hostLaunchPath: "/tmp/workspaces/col-157",
-            hostWorkspacePath: "/tmp/workspaces/col-157",
-            runtimeWorkspacePath: "/workspace",
-            containerId: "container-157",
-            containerName: "symphony-col-157",
-            shell: "sh"
-          }
+      await createSqliteSymphonyRuntimeRunStore({
+        db: database.db
+      }).upsertRunContext(runId, {
+        harnessKind: "pi",
+        threadId: "thread-1",
+        sessionId: null,
+        processId: "pi-process-123",
+        model: "xiaomi/mimo-v2-pro",
+        reasoningEffort: "high",
+        profile: "mimo-v2-pro",
+        providerId: "openrouter",
+        providerName: "OpenRouter",
+        authMode: "api_key_env",
+        providerEnvKey: "OPENROUTER_API_KEY",
+        launchTarget: {
+          kind: "container",
+          hostLaunchPath: "/tmp/workspaces/col-157",
+          hostWorkspacePath: "/tmp/workspaces/col-157",
+          runtimeWorkspacePath: "/workspace",
+          containerId: "container-157",
+          containerName: "symphony-col-157",
+          shell: "sh"
         }
       });
       await runJournal.finalizeTurn(turnId, {

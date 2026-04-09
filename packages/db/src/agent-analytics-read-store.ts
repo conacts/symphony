@@ -58,10 +58,14 @@ import {
   piMessageEndsTable,
   symphonyIssueDeliveryReportsTable,
   symphonyIssuesTable,
-  symphonyRuntimeLogsTable,
+  symphonyRunRuntimeContextTable,
   symphonyRunsTable,
   symphonyTurnsTable
 } from "./schema.js";
+import {
+  buildRuntimeRunContextMap,
+  mapRuntimeRunContextRow
+} from "./runtime-run-context.js";
 import {
   buildRuntimeIssueSummary,
   buildRuntimeRunSummary,
@@ -151,11 +155,10 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
       .from(symphonyAgentEventLogTable)
       .where(inArray(symphonyAgentEventLogTable.runId, runIds))
       .all();
-    const runtimeLogRows = this.#db
+    const runtimeContextRows = this.#db
       .select()
-      .from(symphonyRuntimeLogsTable)
-      .where(inArray(symphonyRuntimeLogsTable.runId, runIds))
-      .orderBy(desc(symphonyRuntimeLogsTable.recordedAt))
+      .from(symphonyRunRuntimeContextTable)
+      .where(inArray(symphonyRunRuntimeContextTable.runId, runIds))
       .all();
     const deliveryRows = this.#db
       .select()
@@ -167,7 +170,7 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
     const agentRunMap = new Map(agentRuns.map((run) => [run.runId, run] as const));
     const runtimeTurnsByRunId = groupRowsByRunId(runtimeTurns);
     const eventRowsByRunId = groupRowsByRunId(eventRows);
-    const runtimeContextMap = buildRuntimeContextMap(runtimeLogRows);
+    const runtimeContextMap = buildRuntimeRunContextMap(runtimeContextRows);
     const deliveryMap = buildLatestDeliveryReportByRunId(deliveryRows);
 
     return runs.map((run) =>
@@ -237,7 +240,7 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
           data.latestRunDelivery ?? undefined,
           data.runtimeContext
         ),
-        threadId: data.agentRun.threadId ?? null,
+        threadId: data.agentRun.threadId ?? data.runtimeContext.threadId ?? null,
         processId: data.runtimeContext.processId,
         providerId: data.agentRun.providerId ?? data.runtimeContext.providerId,
         providerName: data.agentRun.providerName ?? data.runtimeContext.providerName,
@@ -754,34 +757,6 @@ function buildRunMachineLoadSummary(
     hadHighMemory: run.machineLoadHadHighMemory ?? false,
     hadHighDisk: run.machineLoadHadHighDisk ?? false
   };
-}
-
-function buildRuntimeContextMap(
-  rows: Array<typeof symphonyRuntimeLogsTable.$inferSelect>
-): Map<string, ReturnType<typeof extractRuntimeContext>> {
-  const rowsByRunId = new Map<string, Array<typeof symphonyRuntimeLogsTable.$inferSelect>>();
-
-  for (const row of rows) {
-    if (!row.runId) {
-      continue;
-    }
-
-    const existing = rowsByRunId.get(row.runId);
-
-    if (existing) {
-      existing.push(row);
-      continue;
-    }
-
-    rowsByRunId.set(row.runId, [row]);
-  }
-
-  return new Map(
-    Array.from(rowsByRunId.entries()).map(([runId, runRows]) => [
-      runId,
-      extractRuntimeContext(runRows)
-    ])
-  );
 }
 
 function buildUsage(
@@ -1882,6 +1857,8 @@ type RunData = {
   taskSnapshotItemRows: Array<typeof symphonyAgentTaskSnapshotItemsTable.$inferSelect>;
   runtimeContext: {
     harness: "pi" | null;
+    threadId: string | null;
+    sessionId: string | null;
     processId: string | null;
     model: string | null;
     reasoningEffort: string | null;
@@ -1909,7 +1886,7 @@ async function loadRunData(
     return null;
   }
 
-  const [agentRun, issue, issueRuns, issueDeliveryRows, symphonyTurns, agentTurns, eventRows, itemRows, commandRows, toolRows, piReadRows, piEditRows, piWriteRows, piGrepRows, piFindRows, piMessageEndRows, agentMessageRows, reasoningRows, fileChangeRows, taskSnapshotRows, runtimeLogRows] =
+  const [agentRun, issue, issueRuns, issueDeliveryRows, symphonyTurns, agentTurns, eventRows, itemRows, commandRows, toolRows, piReadRows, piEditRows, piWriteRows, piGrepRows, piFindRows, piMessageEndRows, agentMessageRows, reasoningRows, fileChangeRows, taskSnapshotRows, runtimeContextRow] =
     await Promise.all([
       db.select().from(symphonyAgentRunsTable).where(eq(symphonyAgentRunsTable.runId, runId)).get(),
       db.select().from(symphonyIssuesTable).where(eq(symphonyIssuesTable.issueId, run.issueId)).get(),
@@ -1940,7 +1917,7 @@ async function loadRunData(
         .all(),
       db.select().from(symphonyAgentFileChangesTable).where(eq(symphonyAgentFileChangesTable.runId, runId)).all(),
       db.select().from(symphonyAgentTaskSnapshotsTable).where(eq(symphonyAgentTaskSnapshotsTable.runId, runId)).all(),
-      db.select().from(symphonyRuntimeLogsTable).where(eq(symphonyRuntimeLogsTable.runId, runId)).orderBy(desc(symphonyRuntimeLogsTable.recordedAt)).all()
+      db.select().from(symphonyRunRuntimeContextTable).where(eq(symphonyRunRuntimeContextTable.runId, runId)).get()
     ]);
 
   if (!agentRun || !issue) {
@@ -1988,7 +1965,7 @@ async function loadRunData(
     agentTurnMap,
     agentRun
   });
-  const runtimeContext = extractRuntimeContext(runtimeLogRows);
+  const runtimeContext = mapRuntimeRunContextRow(runtimeContextRow);
   const latestRunDelivery = issueDeliveryRows.find((row) => row.runId === runId) ?? null;
 
   return {
@@ -2020,125 +1997,5 @@ async function loadRunData(
     taskSnapshotItemRows,
     runtimeContext,
     events
-  };
-}
-
-function extractRuntimeContext(
-  rows: Array<typeof symphonyRuntimeLogsTable.$inferSelect>
-): {
-  harness: "pi" | null;
-  processId: string | null;
-  model: string | null;
-  reasoningEffort: string | null;
-  profile: string | null;
-  providerId: string | null;
-  providerName: string | null;
-  authMode: string | null;
-  providerEnvKey: string | null;
-  launchTarget: SymphonyRuntimeLaunchTarget | null;
-} {
-  let harness: "pi" | null = null;
-  let processId: string | null = null;
-  let model: string | null = null;
-  let reasoningEffort: string | null = null;
-  let profile: string | null = null;
-  let providerId: string | null = null;
-  let providerName: string | null = null;
-  let authMode: string | null = null;
-  let providerEnvKey: string | null = null;
-  let launchTarget: SymphonyRuntimeLaunchTarget | null = null;
-
-  for (const row of rows) {
-    const payload =
-      row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
-        ? (row.payload as Record<string, unknown>)
-        : null;
-
-    if (!payload) {
-      continue;
-    }
-
-    if (harness === null) {
-      const payloadHarness = payload.harness;
-      if (payloadHarness === "codex" || payloadHarness === "pi") {
-        harness = "pi";
-      }
-    }
-
-    model ??=
-      typeof payload.model === "string" && payload.model !== ""
-        ? payload.model
-        : null;
-    processId ??=
-      typeof payload.processId === "string" && payload.processId !== ""
-        ? payload.processId
-        : null;
-    reasoningEffort ??=
-      typeof payload.reasoningEffort === "string" && payload.reasoningEffort !== ""
-        ? payload.reasoningEffort
-        : null;
-    profile ??=
-      typeof payload.profile === "string" && payload.profile !== ""
-        ? payload.profile
-        : null;
-    providerId ??=
-      typeof payload.providerId === "string" && payload.providerId !== ""
-        ? payload.providerId
-        : null;
-    providerName ??=
-      typeof payload.providerName === "string" && payload.providerName !== ""
-        ? payload.providerName
-        : null;
-    authMode ??=
-      typeof payload.authMode === "string" && payload.authMode !== ""
-        ? payload.authMode
-        : null;
-    providerEnvKey ??=
-      typeof payload.providerEnvKey === "string" && payload.providerEnvKey !== ""
-        ? payload.providerEnvKey
-        : null;
-    if (
-      launchTarget === null &&
-      payload.launchTarget &&
-      typeof payload.launchTarget === "object" &&
-      !Array.isArray(payload.launchTarget)
-    ) {
-      const candidate = payload.launchTarget as Record<string, unknown>;
-
-      if (
-        candidate.kind === "container" &&
-        typeof candidate.hostLaunchPath === "string" &&
-        typeof candidate.runtimeWorkspacePath === "string" &&
-        typeof candidate.containerName === "string" &&
-        typeof candidate.shell === "string"
-      ) {
-        launchTarget = {
-          kind: "container",
-          hostLaunchPath: candidate.hostLaunchPath,
-          hostWorkspacePath:
-            typeof candidate.hostWorkspacePath === "string"
-              ? candidate.hostWorkspacePath
-              : null,
-          runtimeWorkspacePath: candidate.runtimeWorkspacePath,
-          containerId:
-            typeof candidate.containerId === "string" ? candidate.containerId : null,
-          containerName: candidate.containerName,
-          shell: candidate.shell
-        };
-      }
-    }
-  }
-
-  return {
-    harness,
-    processId,
-    model,
-    reasoningEffort,
-    profile,
-    providerId,
-    providerName,
-    authMode,
-    providerEnvKey,
-    launchTarget
   };
 }

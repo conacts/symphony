@@ -650,7 +650,10 @@ describe("@symphony/api app", () => {
     expect(healthPayload.data.db.ready).toBe(true);
 
     expect(logsResponse.status).toBe(200);
-    expect(logsPayload.data.logs[0]?.eventType).toBe("db_initialized");
+    expect(logsPayload.data.logs.some((log) => log.eventType === "runtime_session_started")).toBe(
+      true
+    );
+    expect(logsPayload.data.logs.some((log) => log.eventType === "db_initialized")).toBe(true);
 
     expect(timelineResponse.status).toBe(200);
     expect(timelinePayload.data.entries[0]?.eventType).toBe("retry_scheduled");

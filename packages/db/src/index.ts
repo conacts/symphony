@@ -15,8 +15,15 @@ export {
 export type {
   SymphonyRuntimeRunStore
 } from "./runtime-run-store.js";
+export {
+  createSqliteRuntimeForensicsReadStore
+} from "./runtime-forensics-read-store.js";
+export type {
+  SymphonyRuntimeForensicsReadStore
+} from "./runtime-forensics-read-store.js";
 export type {
   SymphonyRuntimeMachineLoadSummary,
+  SymphonyRuntimeRunContextAttrs,
   SymphonyRuntimeRunFinishAttrs,
   SymphonyRuntimeRunStatus,
   SymphonyRuntimeRunStartAttrs,

@@ -120,3 +120,18 @@ export type SymphonyRuntimeRunFinishAttrs = {
   errorMessage?: string | null;
   machineLoadSummary?: SymphonyRuntimeMachineLoadSummary | null;
 };
+
+export type SymphonyRuntimeRunContextAttrs = {
+  harnessKind?: "pi" | null;
+  threadId?: string | null;
+  sessionId?: string | null;
+  processId?: string | null;
+  model?: string | null;
+  reasoningEffort?: string | null;
+  profile?: string | null;
+  providerId?: string | null;
+  providerName?: string | null;
+  authMode?: string | null;
+  providerEnvKey?: string | null;
+  launchTarget?: JsonObject | null;
+};

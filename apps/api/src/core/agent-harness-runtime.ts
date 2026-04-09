@@ -236,6 +236,7 @@ async function executeRun(input: {
   let deliveryReport: RuntimeDeliveryReportResult | null = null;
   let mergeResult: RuntimeMergeResult | null = null;
   let commandResourceMonitor: CommandResourceMonitor | null = null;
+  let recordedCanonicalSessionStart = false;
   const explicitCompletionRequirement = resolveExplicitCompletionRequirement(
     input.runMode
   );
@@ -299,6 +300,18 @@ async function executeRun(input: {
     sessionProviderId = session.providerId;
     sessionProviderName = session.providerName;
     commandResourceMonitor = new CommandResourceMonitor(session.processId);
+    const runtimeContextBase = {
+      harnessKind: input.harness.kind,
+      processId: session.processId,
+      model: session.model,
+      reasoningEffort: session.reasoningEffort,
+      profile: session.profile,
+      providerId: session.providerId,
+      providerName: session.providerName,
+      authMode: input.harnessAuthMode,
+      providerEnvKey: input.harnessProviderEnvKey,
+      launchTarget: describeLaunchTarget(session.launchTarget)
+    };
 
     if (input.runId) {
       await input.agentAnalytics.startRun({
@@ -330,12 +343,20 @@ async function executeRun(input: {
         profile: session.profile,
         providerId: session.providerId,
         providerName: session.providerName,
-        authMode: input.harnessAuthMode,
-        providerEnvKey: input.harnessProviderEnvKey,
+        authMode: runtimeContextBase.authMode,
+        providerEnvKey: runtimeContextBase.providerEnvKey,
         harness: input.harness.kind,
-        launchTarget: describeLaunchTarget(session.launchTarget)
+        launchTarget: runtimeContextBase.launchTarget
       }
     });
+
+    if (input.runId) {
+      await input.runStore.upsertRunContext(input.runId, {
+        ...runtimeContextBase,
+        threadId: session.threadId,
+        sessionId: null
+      });
+    }
 
     let currentIssue = input.issue;
     const promptRepoName = resolvePromptRepoName(
@@ -410,6 +431,42 @@ async function executeRun(input: {
           })
         : null;
 
+      if (
+        input.runId &&
+        persistedTurnId &&
+        !recordedCanonicalSessionStart &&
+        shouldSynthesizeSessionStartedEvent(input.runtimePolicy)
+      ) {
+        const sessionStartedEvent = buildSyntheticSessionStartedEvent({
+          threadId: session.threadId,
+          persistedTurnId,
+          processId: session.processId,
+          model: session.model,
+          reasoningEffort: session.reasoningEffort
+        });
+
+        if (sessionStartedEvent) {
+          await input.runStore.recordEvent(input.runId, persistedTurnId, {
+            eventType: sessionStartedEvent.type,
+            recordedAt: new Date().toISOString(),
+            payload: sessionStartedEvent,
+            summary: summarizeCanonicalRuntimeEvent(sessionStartedEvent),
+            threadId: sessionStartedEvent.thread_id,
+            sessionId: sessionStartedEvent.session_id
+          });
+          await input.runStore.upsertRunContext(input.runId, {
+            ...runtimeContextBase,
+            threadId: sessionStartedEvent.thread_id ?? session.threadId,
+            sessionId: sessionStartedEvent.session_id,
+            processId: sessionStartedEvent.agent_app_server_pid ?? session.processId,
+            model: sessionStartedEvent.model ?? session.model,
+            reasoningEffort:
+              sessionStartedEvent.reasoning_effort ?? session.reasoningEffort
+          });
+          recordedCanonicalSessionStart = true;
+        }
+      }
+
       const turnResult = await session.client.runTurn(session, {
         prompt,
         title: `${currentIssue.identifier}: ${currentIssue.title}`,
@@ -421,32 +478,35 @@ async function executeRun(input: {
           const threadEvent = isThreadEvent(message) ? message : null;
           const runtimePayload = rawPayload ?? message;
           const runtimePayloadRecord = asRecord(runtimePayload);
+          const sessionStartedEvent =
+            extractCanonicalSessionStartedEvent(message) ??
+            extractCanonicalSessionStartedEvent(runtimePayloadRecord);
           const eventName =
             threadEvent?.type ??
-            normalizeRuntimeUpdateEventName(
-              getString(message, "event") ?? getString(runtimePayloadRecord, "type")
-            ) ??
+            getString(message, "type") ??
+            getString(message, "event") ??
+            getString(runtimePayloadRecord, "type") ??
+            getString(runtimePayloadRecord, "event") ??
             "notification";
           const timestamp = new Date().toISOString();
           const turnUsage = extractRuntimeUsage(threadEvent, runtimePayloadRecord);
           const threadId =
             getString(message, "thread_id") ??
-            getString(message, "threadId") ??
-            getStringPath(message, ["params", "threadId"]) ??
             getString(runtimePayloadRecord, "thread_id") ??
-            getString(runtimePayloadRecord, "threadId") ??
-            getStringPath(runtimePayloadRecord, ["params", "threadId"]);
+            null;
+          const sessionId =
+            getString(message, "session_id") ??
+            getString(runtimePayloadRecord, "session_id") ??
+            null;
+          const canonicalEvent =
+            (threadEvent as CanonicalRuntimeEventPayload | null) ?? sessionStartedEvent;
 
           await input.callbacks.onUpdate(currentIssue.id, {
             event: eventName,
             payload: runtimePayload,
             timestamp,
             sessionId:
-              getString(message, "session_id") ??
-              getString(message, "sessionId") ??
-              getString(runtimePayloadRecord, "session_id") ??
-              getString(runtimePayloadRecord, "sessionId") ??
-              null,
+              sessionStartedEvent?.session_id ?? sessionId,
             agentRuntimeProcessId:
               getString(message, "agent_app_server_pid") ?? session.processId
           });
@@ -456,6 +516,41 @@ async function executeRun(input: {
               await input.runStore.updateTurn(persistedTurnId, {
                 usage: turnUsage
               });
+            }
+
+            if (canonicalEvent) {
+              await input.runStore.recordEvent(input.runId, persistedTurnId, {
+                eventType: canonicalEvent.type,
+                recordedAt: timestamp,
+                payload: canonicalEvent,
+                summary: summarizeCanonicalRuntimeEvent(canonicalEvent),
+                threadId:
+                  canonicalEvent.type === "session.started"
+                    ? canonicalEvent.thread_id
+                    : threadId,
+                agentTurnId:
+                  canonicalEvent.type === "session.started"
+                    ? canonicalEvent.turn_id
+                    : getString(message, "turn_id") ??
+                      getString(runtimePayloadRecord, "turn_id") ??
+                      null,
+                sessionId:
+                  canonicalEvent.type === "session.started"
+                    ? canonicalEvent.session_id
+                    : sessionId
+              });
+              if (canonicalEvent.type === "session.started") {
+                await input.runStore.upsertRunContext(input.runId, {
+                  ...runtimeContextBase,
+                  threadId: canonicalEvent.thread_id ?? session.threadId,
+                  sessionId: canonicalEvent.session_id,
+                  processId: canonicalEvent.agent_app_server_pid ?? session.processId,
+                  model: canonicalEvent.model ?? session.model,
+                  reasoningEffort:
+                    canonicalEvent.reasoning_effort ?? session.reasoningEffort
+                });
+                recordedCanonicalSessionStart = true;
+              }
             }
 
             if (threadEvent) {
@@ -1138,23 +1233,6 @@ function getString(
   return typeof nested === "string" && nested.trim() !== "" ? nested : null;
 }
 
-function getStringPath(
-  value: Record<string, unknown> | null | undefined,
-  path: string[]
-): string | null {
-  let current: unknown = value;
-
-  for (const segment of path) {
-    if (!current || typeof current !== "object" || Array.isArray(current)) {
-      return null;
-    }
-
-    current = (current as Record<string, unknown>)[segment];
-  }
-
-  return typeof current === "string" && current.trim() !== "" ? current : null;
-}
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -1235,12 +1313,89 @@ function getNumber(
   return typeof nested === "number" && Number.isFinite(nested) ? nested : null;
 }
 
-function normalizeRuntimeUpdateEventName(value: string | null): string | null {
-  if (value === "session_started") {
-    return "session.started";
+type CanonicalRuntimeEventPayload =
+  Parameters<SymphonyRuntimeRunStore["recordEvent"]>[2]["payload"];
+type CanonicalRuntimeSessionStartedEvent = Extract<
+  CanonicalRuntimeEventPayload,
+  { type: "session.started" }
+>;
+
+function shouldSynthesizeSessionStartedEvent(
+  runtimePolicy: SymphonyAgentRuntimeConfig
+): boolean {
+  return !/(?:^|\s)app-server(?=\s|$)/u.test(runtimePolicy.agentRuntime.command.trim());
+}
+
+function buildSyntheticSessionStartedEvent(input: {
+  threadId: string | null;
+  persistedTurnId: string;
+  processId: string | null;
+  model: string | null;
+  reasoningEffort: string | null;
+}): CanonicalRuntimeSessionStartedEvent | null {
+  if (!input.threadId) {
+    return null;
   }
 
-  return value;
+  return {
+    type: "session.started",
+    session_id: input.threadId,
+    thread_id: input.threadId,
+    turn_id: input.persistedTurnId,
+    agent_app_server_pid: input.processId,
+    model: input.model,
+    reasoning_effort: input.reasoningEffort
+  };
+}
+
+function extractCanonicalSessionStartedEvent(
+  value: Record<string, unknown> | null | undefined
+): CanonicalRuntimeSessionStartedEvent | null {
+  if (getString(value, "type") !== "session.started") {
+    return null;
+  }
+
+  const sessionId = getString(value, "session_id");
+  const turnId = getString(value, "turn_id");
+
+  if (!sessionId || !turnId) {
+    return null;
+  }
+
+  return {
+    type: "session.started",
+    session_id: sessionId,
+    thread_id: getString(value, "thread_id"),
+    turn_id: turnId,
+    agent_app_server_pid: getString(value, "agent_app_server_pid"),
+    model: getString(value, "model"),
+    reasoning_effort: getString(value, "reasoning_effort")
+  };
+}
+
+function summarizeCanonicalRuntimeEvent(event: CanonicalRuntimeEventPayload): string | null {
+  switch (event.type) {
+    case "session.started":
+      return "Runtime session started.";
+    case "thread.started":
+      return "Thread started.";
+    case "turn.started":
+      return "Turn started.";
+    case "turn.completed":
+      return "Turn completed.";
+    case "turn.failed":
+      return "Turn failed.";
+    case "error":
+      return event.message;
+    case "item.started":
+      return `${event.item.type} started.`;
+    case "item.updated":
+      return `${event.item.type} updated.`;
+    case "item.completed":
+      return `${event.item.type} completed.`;
+    default:
+      return null;
+  }
 }
 
 async function finalizeStoppedTurn(

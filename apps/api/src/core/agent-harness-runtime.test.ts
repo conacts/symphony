@@ -10,7 +10,8 @@ import {
   createSymphonyIssueDeliveryReportStore,
   createSymphonyIssueTimelineStore,
   createSqliteSymphonyRuntimeRunStore,
-  initializeSymphonyDb
+  initializeSymphonyDb,
+  symphonySchema
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import type { SymphonyAgentRuntimeCompletion } from "@symphony/orchestrator";
@@ -177,6 +178,25 @@ describe("docker pi symphony agent runtime", () => {
       "thread.started",
       "item.completed"
     ]);
+    const canonicalEvents = database.db
+      .select()
+      .from(symphonySchema.symphonyEventsTable)
+      .all()
+      .filter((event) => event.runId === runId)
+      .sort((left, right) => left.eventSequence - right.eventSequence);
+    expect(canonicalEvents.map((event) => event.eventType)).toEqual([
+      "session.started",
+      "thread.started",
+      "item.completed"
+    ]);
+    expect(canonicalEvents[0]).toMatchObject({
+      summary: "Runtime session started.",
+      sessionId: expect.any(String),
+      threadId: expect.any(String),
+      payload: expect.objectContaining({
+        type: "session.started"
+      })
+    });
     expect(runDetail?.run.commitHashStart).toMatch(/[0-9a-f]{40}/);
     expect(runDetail?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
     expect(runDetail?.run.repoStart).toMatchObject({

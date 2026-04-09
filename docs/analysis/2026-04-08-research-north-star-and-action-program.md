@@ -138,6 +138,20 @@ That applies to:
 - shadow-table reads kept alive only because old screens once depended on them
 - route helpers and endpoint aliases that no longer match the intended product model
 
+## Naming Standard
+
+The repository also needs one explicit naming rule:
+
+- SQL column names use `snake_case`
+- TypeScript fields and app-owned JSON use `camelCase`
+- raw harness payloads may keep their original names, but only inside raw artifact storage
+
+That means the control plane should not accept both `session_id` and `sessionId`, and it should
+not rely on logs or projections that store app-owned context in a second dialect.
+
+If a boundary adapter needs to translate a raw payload into the canonical app shape, it should do
+that once and then stop the ambiguity there.
+
 ## What “Done” Looks Like
 
 The repository is in a good state when all of these are true:
@@ -151,6 +165,7 @@ The repository is in a good state when all of these are true:
 5. Raw harness capture remains available without pretending to be control-plane truth.
 6. The DB rejects impossible parent/child combinations and impossible state values.
 7. UI branching becomes simpler because backend shapes are more explicit.
+8. App-owned storage and contracts use one naming convention instead of mixed payload dialects.
 
 ## Actionable Program
 

@@ -244,7 +244,7 @@ export class AgentAppServerClient {
 
     await input.onMessage({
       message: {
-        event: "session_started",
+        type: "session.started",
         session_id: sessionId,
         thread_id: session.threadId,
         turn_id: turnId,
