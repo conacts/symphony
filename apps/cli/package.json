@@ -27,10 +27,8 @@
     "@symphony/tracker": "workspace:*"
   },
   "devDependencies": {
-    "@oclif/test": "^4.1.13",
     "@symphony/eslint-configs": "workspace:*",
     "@symphony/vitest-configs": "workspace:*",
-    "tsx": "^4.21.0",
     "vitest": "^4.1.2"
   },
   "oclif": {

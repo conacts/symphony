@@ -6,8 +6,7 @@ export {
 export { defaultSymphonyDbFile, initializeSymphonyDb } from "./client.js";
 export type { SymphonyDb } from "./client.js";
 export {
-  createSqliteSymphonyRuntimeRunLedger,
-  createSqliteSymphonyRuntimeRunLedger as createSqliteSymphonyRunJournal
+  createSqliteSymphonyRuntimeRunLedger
 } from "./sqlite-runtime-run-ledger.js";
 export {
   createSqliteSymphonyRuntimeRunStore

@@ -20,9 +20,6 @@
     "test": "node ../../scripts/run-vitest.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "dependencies": {
-    "@openai/codex-sdk": "^0.118.0"
-  },
   "devDependencies": {
     "@symphony/eslint-configs": "workspace:*",
     "@symphony/vitest-configs": "workspace:*",

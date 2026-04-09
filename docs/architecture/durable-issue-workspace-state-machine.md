@@ -294,9 +294,9 @@ Comments should use a fixed structure:
 - continuity brief injection on new-thread resume
 - remote drift surfacing
 - meaningful progress metrics
-- typed normalization of Codex event payloads, tool calls, approvals, and file-change artifacts
-- evaluation of the Codex TypeScript SDK as a simpler typed integration path if it preserves the
-  fully autonomous runtime model
+- typed normalization of Pi/runtime event payloads, tool calls, approvals, and file-change artifacts
+- continued hardening of the Pi harness projection layer while preserving the fully autonomous
+  runtime model
 
 ## Non-Goals For This Wave
 

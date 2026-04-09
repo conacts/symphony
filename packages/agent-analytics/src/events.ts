@@ -10,7 +10,7 @@ import type {
   ThreadEvent,
   ThreadItem,
   Usage
-} from "./sdk-types.js";
+} from "./types.js";
 
 export type AgentCommandResourceProcessSummary = {
   command: string;

@@ -19,8 +19,7 @@
     "@symphony/runtime-contract": "workspace:*",
     "@symphony/runtime-policy": "workspace:*",
     "@symphony/tracker": "workspace:*",
-    "@symphony/workspace": "workspace:*",
-    "yaml": "^2.8.3"
+    "@symphony/workspace": "workspace:*"
   },
   "devDependencies": {
     "@symphony/eslint-configs": "workspace:*"

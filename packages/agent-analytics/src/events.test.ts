@@ -5,7 +5,7 @@ import {
   previewItem,
   previewText
 } from "./events.js";
-import type { ThreadEvent, ThreadItem } from "./sdk-types.js";
+import type { ThreadEvent, ThreadItem } from "./types.js";
 
 describe("agent analytics events", () => {
   it("recognizes valid sdk thread events", () => {

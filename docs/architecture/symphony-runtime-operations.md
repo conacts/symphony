@@ -17,8 +17,8 @@ This document replaces the older evaluation/parity setup story.
 - one active run per Linear issue
 - one durable workspace per Linear issue
 - prompt rendering happens in memory
-- agent turns run through the Codex TypeScript SDK over `codex exec --experimental-json`
-- typed turn artifacts are captured from the SDK stream instead of raw transport blobs
+- agent turns run through the Pi harness and Symphony runtime projection layer
+- typed turn artifacts are captured from projected Pi/runtime events instead of raw transport blobs
 - platform-owned pre-agent failures move issues to `Failed`
 - platform/provider interruptions move issues to `Paused`
 - there are no hidden retries

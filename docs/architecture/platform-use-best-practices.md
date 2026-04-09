@@ -254,9 +254,9 @@ explained there.
 
 Two follow-up areas are especially valuable:
 
-- Codex event typing and normalization:
-  treat Codex messages, tool events, approvals, file changes, and turn summaries as first-class
+- Pi event typing and normalization:
+  treat Pi messages, tool events, approvals, file changes, and turn summaries as first-class
   typed artifacts rather than loosely parsed payload blobs.
-- Codex TypeScript SDK evaluation:
-  evaluate whether the SDK can simplify thread management and event typing while preserving the
-  fully autonomous runtime model.
+- Pi harness projection hardening:
+  continue tightening the Pi-to-Symphony projection layer while preserving the fully autonomous
+  runtime model.
