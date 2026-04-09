@@ -10,7 +10,7 @@ describe("pi model selection", () => {
   it("applies issue labels on top of provided defaults", () => {
     const selection = resolvePiIssueSelection(
       buildIssue({
-        labels: ["symphony:model:gpt-5.4-mini", "symphony:reasoning:high"]
+        labels: ["model:gpt-5.4-mini", "symphony:reasoning:high"]
       }),
       {
         model: "xiaomi/mimo-v2-pro",

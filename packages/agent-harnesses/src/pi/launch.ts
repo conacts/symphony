@@ -2,7 +2,6 @@ import type { AgentRuntimeLaunchTarget } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { HarnessSessionError, type HarnessLaunchSettings } from "../shared/session-types.js";
 import {
-  legacyPiModelLabelPrefix,
   listSupportedPiModels,
   piModelLabelPrefix,
   piPresetLabelPrefix,
@@ -12,7 +11,6 @@ import {
 
 export const agentModelLabelPrefix = piModelLabelPrefix;
 export const agentPresetLabelPrefix = piPresetLabelPrefix;
-export const legacyAgentModelLabelPrefix = legacyPiModelLabelPrefix;
 export const listSupportedAgentModels = listSupportedPiModels;
 
 export const resolveAgentIssueModel = resolvePiIssueModel;

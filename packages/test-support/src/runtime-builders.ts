@@ -411,7 +411,7 @@ export function buildSymphonyRuntimeIssueResult(
         ],
         modelOverrideLabelPrefix: "model:",
         selectionHelpText:
-          "Pi selection is label-driven. Prefer model:<preset> for repo-defined tiers; raw symphony:model:<model> labels still work for direct model overrides."
+          "Pi selection is label-driven. Use model:<preset> for repo-defined tiers or model:<model> for a direct model override."
       }
     },
     ...Object.fromEntries(

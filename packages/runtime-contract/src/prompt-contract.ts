@@ -262,14 +262,8 @@ function buildPromptContractScope(
   return {
     ...payload,
     handoff_section: handoffSection,
-    issue: {
-      ...payload.issue,
-      branchName: payload.issue.branch_name
-    },
-    repo: {
-      ...payload.repo,
-      defaultBranch: payload.repo.default_branch
-    },
+    issue: payload.issue,
+    repo: payload.repo,
     run_mode_section: runModeSection
   };
 }

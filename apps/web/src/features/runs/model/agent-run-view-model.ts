@@ -31,7 +31,7 @@ import {
 } from "@/core/agent-token";
 import {
   buildIssueHref,
-  buildLegacyRunHref,
+  buildRunTranscriptHref,
   buildIssueRunHref,
   buildIssueRunTurnHref,
   buildIssueRunTurnsHref
@@ -232,7 +232,7 @@ export function buildAgentRunViewModel(input: {
   };
   const runHref = buildIssueRunHref(issueIdentifier, run.runId, routeScope);
   const turnsHref = buildIssueRunTurnsHref(issueIdentifier, run.runId, routeScope);
-  const transcriptHref = buildLegacyRunHref(run.runId, routeScope);
+  const transcriptHref = buildRunTranscriptHref(run.runId, routeScope);
 
   return {
     harnessLabel,

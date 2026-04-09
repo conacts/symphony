@@ -11,7 +11,7 @@ import {
   buildIssueRunTurnsHref,
   buildIssueTimelineBreadcrumbRoutes,
   buildIssueTimelineHref,
-  buildLegacyRunHref
+  buildRunTranscriptHref
 } from "@/core/control-plane-routes";
 
 describe("control plane routes", () => {
@@ -37,7 +37,7 @@ describe("control plane routes", () => {
     expect(buildIssueRunTurnHref("COL/165", "run id", "turn/id")).toBe(
       "/issues/COL%2F165/runs/run%20id/turns/turn%2Fid"
     );
-    expect(buildLegacyRunHref("run id")).toBe("/runs/run%20id");
+    expect(buildRunTranscriptHref("run id")).toBe("/runs/run%20id");
   });
 
   it("builds breadcrumb routes for issue and run drilldowns", () => {

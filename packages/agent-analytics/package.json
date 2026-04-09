@@ -21,8 +21,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@openai/codex-sdk": "^0.118.0",
-    "drizzle-orm": "^0.44.5"
+    "@openai/codex-sdk": "^0.118.0"
   },
   "devDependencies": {
     "@symphony/eslint-configs": "workspace:*",

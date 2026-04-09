@@ -4,9 +4,7 @@ import { HarnessSessionError } from "../shared/session-types.js";
 export const defaultPiModel = "xiaomi/mimo-v2-pro";
 export const defaultPiReasoningEffort = "xhigh";
 export const piModelLabelPrefix = "model:";
-export const legacyPiModelLabelPrefix = "symphony:model:";
 export const piPresetLabelPrefix = "model:";
-export const legacyPiPresetLabelPrefix = "symphony:pi-preset:";
 export const piReasoningLabelPrefix = "symphony:reasoning:";
 
 const supportedPiModelSet = new Set([
@@ -73,14 +71,7 @@ export function resolvePiIssueSelection(
 
   return {
     presetName: presetSelection?.presetName ?? normalizedDefaultPreset(defaults),
-    model: selectPiIssueLabelOverride({
-      issue,
-      labelPrefixes: [legacyPiModelLabelPrefix],
-      supportedValues: supportedPiModelSet,
-      fallbackValue:
-        presetSelection?.model ?? defaults.model ?? defaultPiModel,
-      settingName: "model"
-    }),
+    model: selectPiIssueModelOverride(issue, defaults, presetSelection?.model ?? null),
     reasoningEffort: selectPiIssueLabelOverride({
       issue,
       labelPrefixes: [piReasoningLabelPrefix],
@@ -174,16 +165,67 @@ function selectPiPresetOverride(
   issue: SymphonyTrackerIssue,
   defaults: PiIssueSelectionDefaults
 ): string | null {
+  const availablePresets = Object.keys(defaults.presets ?? {});
+  const availablePresetSet = new Set(availablePresets);
+
   for (const label of issue.labels) {
     if (label.startsWith(piPresetLabelPrefix)) {
-      return label.slice(piPresetLabelPrefix.length).trim();
-    }
-    if (label.startsWith(legacyPiPresetLabelPrefix)) {
-      return label.slice(legacyPiPresetLabelPrefix.length).trim();
+      const overrideValue = label.slice(piPresetLabelPrefix.length).trim();
+      if (availablePresetSet.has(overrideValue)) {
+        return overrideValue;
+      }
+
+      if (supportedPiModelSet.has(overrideValue)) {
+        continue;
+      }
+
+      throw new HarnessSessionError(
+        "invalid_pi_label_override",
+        `Unsupported preset override label on ${issue.identifier}: ${label}`,
+        {
+          issueLabel: label,
+          availablePresets
+        }
+      );
     }
   }
 
   return normalizedDefaultPreset(defaults);
+}
+
+function selectPiIssueModelOverride(
+  issue: SymphonyTrackerIssue,
+  defaults: PiIssueSelectionDefaults,
+  presetModel: string | null
+): string {
+  const fallbackValue = presetModel ?? defaults.model ?? defaultPiModel;
+  const availablePresetSet = new Set(Object.keys(defaults.presets ?? {}));
+
+  for (const label of issue.labels) {
+    if (!label.startsWith(piModelLabelPrefix)) {
+      continue;
+    }
+
+    const overrideValue = label.slice(piModelLabelPrefix.length).trim();
+    if (availablePresetSet.has(overrideValue)) {
+      continue;
+    }
+
+    if (supportedPiModelSet.has(overrideValue)) {
+      return overrideValue;
+    }
+
+    throw new HarnessSessionError(
+      "invalid_pi_label_override",
+      `Unsupported model override label on ${issue.identifier}: ${label}`,
+      {
+        issueLabel: label,
+        fallback: fallbackValue
+      }
+    );
+  }
+
+  return fallbackValue;
 }
 
 function normalizedDefaultPreset(defaults: PiIssueSelectionDefaults): string | null {

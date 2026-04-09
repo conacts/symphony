@@ -12,7 +12,6 @@ export * from "./pi/rpc-client.js";
 export {
   agentModelLabelPrefix,
   agentPresetLabelPrefix,
-  legacyAgentModelLabelPrefix,
   buildAgentAppServerSpawnSpec,
   listSupportedAgentModels,
   resolveAgentIssueModel,

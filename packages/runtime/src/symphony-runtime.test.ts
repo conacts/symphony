@@ -80,7 +80,7 @@ describe("symphony runtime review seam", () => {
     });
   });
 
-  it("adapts transitional resolve and publish callbacks behind the new runtime methods", async () => {
+  it("returns null when the explicit review provider skips publication", async () => {
     const runtime = createSymphonyRuntime({
       runtimePolicy: buildSymphonyRuntimePolicy(),
       tracker: inertTracker,
@@ -96,21 +96,10 @@ describe("symphony runtime review seam", () => {
         async stopRun() {}
       }),
       reviewProvider: {
-        resolve(input: string) {
-          return input === "skip"
-            ? null
-            : {
-                findings: [
-                  {
-                    title: "Legacy input",
-                    body: input
-                  }
-                ]
-              };
-        }
+        review: vi.fn(async () => null)
       },
       reviewPublisher: {
-        publish(review) {
+        async publishReview(review) {
           return {
             delivered: review.findings.length
           };
@@ -118,10 +107,6 @@ describe("symphony runtime review seam", () => {
       }
     });
 
-    await expect(runtime.runReview("legacy")).resolves.toEqual({
-      delivered: 1
-    });
-    await expect(runtime.ingestReview("skip")).resolves.toBeNull();
+    await expect(runtime.runReview("skip")).resolves.toBeNull();
   });
-
 });

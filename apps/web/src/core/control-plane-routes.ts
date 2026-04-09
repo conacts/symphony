@@ -63,7 +63,10 @@ export function buildIssueRunTurnHref(
   );
 }
 
-export function buildLegacyRunHref(runId: string, scope?: ControlPlaneRepoScope): string {
+export function buildRunTranscriptHref(
+  runId: string,
+  scope?: ControlPlaneRepoScope
+): string {
   return buildRepoScopedHref(`/runs/${encodeURIComponent(runId)}`, scope);
 }
 

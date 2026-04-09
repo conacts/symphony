@@ -208,7 +208,7 @@ export function serializeRuntimeIssue(
         availableModels: listSupportedAgentModels(),
         modelOverrideLabelPrefix: agentModelLabelPrefix,
         selectionHelpText:
-          `Pi selection is label-driven. Prefer ${agentModelLabelPrefix}<preset> for repo-defined tiers; raw symphony:model:<model> labels still work for direct model overrides.`
+          `Pi selection is label-driven. Use ${agentModelLabelPrefix}<preset> for repo-defined tiers or ${agentModelLabelPrefix}<model> for a direct model override.`
       }
     }
   };

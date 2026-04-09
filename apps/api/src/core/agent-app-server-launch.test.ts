@@ -58,7 +58,7 @@ describe("agent app server launch", () => {
         url: null,
         state: "Todo",
         branchName: null,
-        labels: ["symphony:model:gpt-5.4-mini", "symphony:reasoning:high"],
+        labels: ["model:gpt-5.4-mini", "symphony:reasoning:high"],
         projectId: null,
         projectName: null,
         teamKey: null,
