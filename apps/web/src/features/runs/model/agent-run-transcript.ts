@@ -424,20 +424,26 @@ function mapTranscriptEntry(input: {
       const typedEdits = input.toolCall.piEdit?.edits ?? extractPiEditBlocks(
         input.toolCall.argumentsJson
       );
+      const editPaths =
+        input.toolCall.piEdit?.path !== undefined
+          ? [input.toolCall.piEdit.path]
+          : extractPiEditPaths(input.toolCall.argumentsJson);
+      const primaryEditPath = editPaths[0] ?? "unknown";
 
       return {
         kind: "pi-edit-task",
         itemId: input.item.itemId,
         recordedAt,
         status,
-        paths:
-          input.toolCall.piEdit?.path !== undefined
-            ? [input.toolCall.piEdit.path]
-            : extractPiEditPaths(input.toolCall.argumentsJson),
+        paths: editPaths,
         editCount: 1,
         lineCount: input.toolCall.piEdit?.lineCount ?? countPiEditLines(typedEdits),
         firstChangedLine: input.toolCall.piEdit?.firstChangedLine ?? null,
-        diffText: input.toolCall.piEdit?.diffPreview ?? buildPiEditDiff(typedEdits),
+        diffText: normalizePiEditDiff(
+          primaryEditPath,
+          input.toolCall.piEdit?.diffPreview,
+          typedEdits
+        ),
         overflowId:
           input.toolCall.piEdit?.diffOverflowId ?? input.toolCall.resultOverflowId
       };
@@ -931,23 +937,35 @@ function countTextLines(value: string): number {
   return value === "" ? 0 : value.split("\n").length;
 }
 
-function buildPiEditDiff(edits: PiEditBlock[]): string | null {
+function normalizePiEditDiff(
+  path: string,
+  diffText: string | null | undefined,
+  edits: PiEditBlock[]
+): string | null {
+  if (diffText && diffText.trim() !== "") {
+    return ensureDiffHasFileHeaders(path, diffText);
+  }
+
+  return buildPiEditDiff(path, edits);
+}
+
+function buildPiEditDiff(path: string, edits: PiEditBlock[]): string | null {
   if (edits.length === 0) {
     return null;
   }
 
-  return edits
-    .map((edit, index) => {
-      const oldLines = edit.oldText === "" ? [] : edit.oldText.split("\n");
-      const newLines = edit.newText === "" ? [] : edit.newText.split("\n");
+  const hunks = edits.map((edit, index) => {
+    const oldLines = edit.oldText === "" ? [] : edit.oldText.split("\n");
+    const newLines = edit.newText === "" ? [] : edit.newText.split("\n");
 
-      return [
-        `@@ edit ${index + 1} @@`,
-        ...oldLines.map((line) => `-${line}`),
-        ...newLines.map((line) => `+${line}`)
-      ].join("\n");
-    })
-    .join("\n\n");
+    return [
+      `@@ edit ${index + 1} @@`,
+      ...oldLines.map((line) => `-${line}`),
+      ...newLines.map((line) => `+${line}`)
+    ].join("\n");
+  });
+
+  return ensureDiffHasFileHeaders(path, hunks.join("\n\n"));
 }
 
 function extractPiWritePaths(value: unknown): string[] {
@@ -961,6 +979,15 @@ function buildPiWriteDiff(path: string, content: string): string | null {
 
   const lines = content.replace(/\r\n/g, "\n").split("\n");
   return [`--- a/${path}`, `+++ b/${path}`, "@@ write @@", ...lines.map((line) => `+${line}`)].join("\n");
+}
+
+function ensureDiffHasFileHeaders(path: string, diffText: string): string {
+  const normalized = diffText.replace(/\r\n/g, "\n").trim();
+  if (normalized.startsWith("--- ") || normalized.startsWith("diff --git ")) {
+    return normalized;
+  }
+
+  return [`--- a/${path}`, `+++ b/${path}`, normalized].join("\n");
 }
 
 function extractPiGrepQueries(value: unknown): PiPatternTaskQuery[] {

@@ -59,41 +59,43 @@ export function RunTurnDetailView(input: {
 
       {viewModel && turn ? (
         <>
-          <section className="flex flex-col gap-3">
-            <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight">
-                Turn {turn.turnSequence}
-              </h1>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{modelValue}</Badge>
-                <Badge variant="secondary">Started {turn.startedAt}</Badge>
-                <Badge variant="secondary">
-                  {turn.endedAtIso ? `Ended ${turn.endedAt}` : "Still running"}
-                </Badge>
-                <Badge variant="outline">{turn.status}</Badge>
-                <Badge variant="outline">
-                  {turnDuration === null
-                    ? "In progress"
-                    : formatDurationMilliseconds(turnDuration)}
-                </Badge>
-                <Badge variant="outline">
-                  {`${formatCount(turn.totalTokens)} tokens`}
-                </Badge>
-                <Badge variant="outline">
-                  {`${formatCount(turn.commandCount)} commands`}
-                </Badge>
-                <Badge variant="outline">
-                  {`${formatCount(turn.toolCount)} tools`}
-                </Badge>
+          <div className="flex min-h-[calc(100svh-5.5rem)] flex-col gap-8 md:min-h-[calc(100svh-6.5rem)]">
+            <section className="flex flex-col gap-3">
+              <div className="space-y-2">
+                <h1 className="text-3xl font-semibold tracking-tight">
+                  Turn {turn.turnSequence}
+                </h1>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary">{modelValue}</Badge>
+                  <Badge variant="secondary">Started {turn.startedAt}</Badge>
+                  <Badge variant="secondary">
+                    {turn.endedAtIso ? `Ended ${turn.endedAt}` : "Still running"}
+                  </Badge>
+                  <Badge variant="outline">{turn.status}</Badge>
+                  <Badge variant="outline">
+                    {turnDuration === null
+                      ? "In progress"
+                      : formatDurationMilliseconds(turnDuration)}
+                  </Badge>
+                  <Badge variant="outline">
+                    {`${formatCount(turn.totalTokens)} tokens`}
+                  </Badge>
+                  <Badge variant="outline">
+                    {`${formatCount(turn.commandCount)} commands`}
+                  </Badge>
+                  <Badge variant="outline">
+                    {`${formatCount(turn.toolCount)} tools`}
+                  </Badge>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <section className="grid gap-4 xl:grid-cols-2">
-            <RunTurnTokenChart rows={turnTokenRow ? [turnTokenRow] : []} />
-            <RunTurnResourceChart commands={turnCommands} />
-            <RunTurnToolCallsChart turn={turn} className="xl:col-span-2" />
-          </section>
+            <section className="grid gap-4 xl:flex-1 xl:grid-cols-2 xl:grid-rows-[minmax(0,1fr)_auto]">
+              <RunTurnTokenChart rows={turnTokenRow ? [turnTokenRow] : []} />
+              <RunTurnResourceChart commands={turnCommands} />
+              <RunTurnToolCallsChart turn={turn} className="xl:col-span-2" />
+            </section>
+          </div>
 
           <RunTranscriptTurn turn={turn} onOpenOverflow={input.onOpenOverflow} />
         </>

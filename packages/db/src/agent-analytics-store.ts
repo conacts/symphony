@@ -1047,6 +1047,10 @@ function chooseCanonicalToolArguments(
   existingArguments: unknown,
   nextArguments: unknown
 ): unknown {
+  if (isToolArgumentRecord(existingArguments) && isToolArgumentRecord(nextArguments)) {
+    return mergeToolArgumentRecords(existingArguments, nextArguments);
+  }
+
   if (isMeaningfulToolArguments(nextArguments)) {
     return nextArguments;
   }
@@ -1064,6 +1068,57 @@ function isMeaningfulToolArguments(value: unknown): boolean {
   }
 
   return Object.keys(value).length > 0;
+}
+
+function isToolArgumentRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function mergeToolArgumentRecords(
+  existingArguments: Record<string, unknown>,
+  nextArguments: Record<string, unknown>
+): Record<string, unknown> {
+  const mergedEntries = new Map<string, unknown>(Object.entries(existingArguments));
+
+  for (const [key, value] of Object.entries(nextArguments)) {
+    const existingValue = mergedEntries.get(key);
+
+    if (isToolArgumentRecord(existingValue) && isToolArgumentRecord(value)) {
+      mergedEntries.set(key, mergeToolArgumentRecords(existingValue, value));
+      continue;
+    }
+
+    if (isMeaningfulToolArgumentValue(value)) {
+      mergedEntries.set(key, value);
+      continue;
+    }
+
+    if (!mergedEntries.has(key)) {
+      mergedEntries.set(key, value);
+    }
+  }
+
+  return Object.fromEntries(mergedEntries);
+}
+
+function isMeaningfulToolArgumentValue(value: unknown): boolean {
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  if (isToolArgumentRecord(value)) {
+    return Object.values(value).some((entry) => isMeaningfulToolArgumentValue(entry));
+  }
+
+  return true;
 }
 
 /**
@@ -1987,7 +2042,7 @@ function extractPiEditResult(
   const rawPayload = asRecord(context.input.rawPayload);
   const result = asRecord(rawPayload?.result);
   const details = asRecord(result?.details);
-  const diff = getString(details, "diff");
+  const diff = normalizePiEditDiff(parsed.path, getString(details, "diff"), parsed.edits);
   const firstChangedLine = getInteger(details, "firstChangedLine");
   const lineCount = countPiEditArgumentLines(parsed);
   const diffOverflowId =
@@ -2055,6 +2110,49 @@ function buildPiWriteDiff(path: string, content: string): string {
     "@@ write @@",
     ...lines.map((line) => `+${line}`)
   ].join("\n");
+}
+
+function normalizePiEditDiff(
+  path: string,
+  diffText: string | null,
+  edits: PiEditArguments["edits"]
+): string | null {
+  if (diffText && diffText.trim() !== "") {
+    return ensureDiffHasFileHeaders(path, diffText);
+  }
+
+  return buildPiEditDiff(path, edits);
+}
+
+function buildPiEditDiff(
+  path: string,
+  edits: PiEditArguments["edits"]
+): string | null {
+  if (edits.length === 0) {
+    return null;
+  }
+
+  const hunks = edits.map((edit, index) => {
+    const oldLines = edit.oldText.replace(/\r\n/g, "\n").split("\n");
+    const newLines = edit.newText.replace(/\r\n/g, "\n").split("\n");
+
+    return [
+      `@@ edit ${index + 1} @@`,
+      ...oldLines.map((line) => `-${line}`),
+      ...newLines.map((line) => `+${line}`)
+    ].join("\n");
+  });
+
+  return ensureDiffHasFileHeaders(path, hunks.join("\n\n"));
+}
+
+function ensureDiffHasFileHeaders(path: string, diffText: string): string {
+  const normalized = diffText.replace(/\r\n/g, "\n").trim();
+  if (normalized.startsWith("--- ") || normalized.startsWith("diff --git ")) {
+    return normalized;
+  }
+
+  return [`--- a/${path}`, `+++ b/${path}`, normalized].join("\n");
 }
 
 function extractToolResultText(value: Record<string, unknown> | null): string | null {

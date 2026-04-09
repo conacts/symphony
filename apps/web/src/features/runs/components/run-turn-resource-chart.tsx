@@ -72,7 +72,7 @@ export function RunTurnResourceChart(input: {
 
       return {
         label: `Cmd ${index + 1}`,
-        command: command.command,
+        command: truncateCommandLabel(command.command),
         durationMs: command.durationMs ?? 0,
         peakCpuPercent: profile.peakCpuPercent,
         peakMemPercent: profile.peakMemPercent,
@@ -235,4 +235,13 @@ function TooltipStat(input: {
 
 function compareIsoTimestamp(left: string | null, right: string | null) {
   return new Date(left ?? 0).getTime() - new Date(right ?? 0).getTime();
+}
+
+function truncateCommandLabel(value: string): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 25) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, 25)}...`;
 }

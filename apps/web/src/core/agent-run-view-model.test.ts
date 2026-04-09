@@ -555,6 +555,8 @@ describe("agent run view model", () => {
     expect(piEditEntry?.editCount).toBe(1);
     expect(piEditEntry?.paths).toEqual(["packages/db/src/index.ts"]);
     expect(piEditEntry?.lineCount).toBe(2);
+    expect(piEditEntry?.diffText).toContain("--- a/packages/db/src/index.ts");
+    expect(piEditEntry?.diffText).toContain("+++ b/packages/db/src/index.ts");
     expect(piEditEntry?.diffText).toContain("@@ edit 1 @@");
     expect(piEditEntry?.diffText).toContain("-const oldValue = 1;");
     expect(piEditEntry?.diffText).toContain("+const newValue = 2;");

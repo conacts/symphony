@@ -45,7 +45,7 @@ export function RunTranscriptTurn(input: {
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent className="border-t border-border/60 px-4 py-4">
-          <Streamdown plugins={streamdownPlugins}>{input.turn.promptText}</Streamdown>
+          <Streamdown className="p-4" plugins={streamdownPlugins}>{input.turn.promptText}</Streamdown>
         </CollapsibleContent>
       </Collapsible>
 

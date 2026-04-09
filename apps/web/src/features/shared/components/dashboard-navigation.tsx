@@ -8,7 +8,6 @@ import {
   FolderKanbanIcon,
   LayoutDashboardIcon
 } from "lucide-react";
-import { IssueStateIcon } from "@/components/issue-state-icon";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -99,9 +98,14 @@ export function DashboardNavigation(input: {
                     tooltip={`${issue.title} - ${issue.state}`}
                   >
                     <Link href={issue.href} aria-label={`${issue.title} - ${issue.state}`}>
-                      <IssueStateIcon state={issue.state} />
-                      <span className="truncate group-data-[collapsible=icon]:hidden">
-                        {issue.title}
+                      <span className="hidden w-full truncate text-center font-mono text-[9px] leading-none tracking-[0.08em] text-foreground uppercase group-data-[collapsible=icon]:block">
+                        {formatCollapsedIssueState(issue.state)}
+                      </span>
+                      <span className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+                        <span className="block truncate">{issue.title}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          {issue.state}
+                        </span>
                       </span>
                     </Link>
                   </SidebarMenuButton>
@@ -121,4 +125,20 @@ function isNavigationActive(pathname: string, href: string): boolean {
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function formatCollapsedIssueState(state: string): string {
+  const words = state.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) {
+    return "?";
+  }
+
+  if (words.length === 1) {
+    return words[0]!.slice(0, 2).toUpperCase();
+  }
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("");
 }

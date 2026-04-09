@@ -1000,7 +1000,8 @@ describe("sqlite agent analytics store", () => {
         editCount: 1,
         lineCount: 1,
         firstChangedLine: 1,
-        diffPreview: "@@ -1 +1 @@ -const x = 1; +const x = 2;"
+        diffPreview:
+          "--- a/src/index.ts +++ b/src/index.ts @@ -1 +1 @@ -const x = 1; +const x = 2;"
       });
       expect(piWriteRow).toMatchObject({
         runId,
@@ -1036,7 +1037,8 @@ describe("sqlite agent analytics store", () => {
           editCount: 1,
           lineCount: 1,
           firstChangedLine: 1,
-          diffPreview: "@@ -1 +1 @@ -const x = 1; +const x = 2;",
+          diffPreview:
+            "--- a/src/index.ts +++ b/src/index.ts @@ -1 +1 @@ -const x = 1; +const x = 2;",
           diffOverflowId: null,
           edits: [
             {
@@ -1057,6 +1059,210 @@ describe("sqlite agent analytics store", () => {
           diffOverflowId: null
         }
       });
+    } finally {
+      database.close();
+    }
+  });
+
+  it("preserves rich pi.edit arguments and synthesizes a diff when completion is path-only", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-pi-edit-merge-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const analyticsStore = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const readStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await runStore.recordRunStarted({
+        runId: "run-pi-edit-merge",
+        issueId: "issue-merge",
+        issueIdentifier: "COL-911",
+        startedAt: "2026-04-08T14:26:24.000Z",
+        status: "running"
+      });
+      const turnId = await runStore.recordTurnStarted(runId, {
+        turnId: "turn-pi-edit-merge",
+        promptText: "Patch the runtime tool test",
+        startedAt: "2026-04-08T14:26:24.000Z",
+        status: "running"
+      });
+
+      await analyticsStore.startRun({
+        runId,
+        issueId: "issue-merge",
+        issueIdentifier: "COL-911",
+        startedAt: "2026-04-08T14:26:24.000Z",
+        status: "running",
+        threadId: "thread-pi-edit-merge"
+      });
+
+      await analyticsStore.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-pi-edit-merge",
+        recordedAt: "2026-04-08T14:26:24.331Z",
+        rawPayload: {
+          type: "tool_execution_start",
+          toolCallId: "tool-edit-merge-1",
+          toolName: "edit",
+          args: {
+            path: "/workspace/apps/api/src/core/runtime-dynamic-tools.test.ts",
+            edits: [
+              {
+                oldText: "const spikeResults = createSymphonySpikeResultStore({\n  db: database.db\n});",
+                newText:
+                  "const deliveryReports = createSymphonyIssueDeliveryReportStore({\n  db: database.db\n});\nconst spikeResults = createSymphonySpikeResultStore({\n  db: database.db\n});"
+              }
+            ]
+          }
+        },
+        payload: {
+          type: "item.started",
+          item: {
+            id: "tool-edit-merge-1",
+            type: "mcp_tool_call",
+            server: "pi",
+            tool: "edit",
+            arguments: {
+              path: "/workspace/apps/api/src/core/runtime-dynamic-tools.test.ts",
+              edits: [
+                {
+                  oldText: "const spikeResults = createSymphonySpikeResultStore({\n  db: database.db\n});",
+                  newText:
+                    "const deliveryReports = createSymphonyIssueDeliveryReportStore({\n  db: database.db\n});\nconst spikeResults = createSymphonySpikeResultStore({\n  db: database.db\n});"
+                }
+              ]
+            },
+            status: "in_progress"
+          }
+        }
+      });
+
+      await analyticsStore.recordEvent({
+        runId,
+        turnId,
+        threadId: "thread-pi-edit-merge",
+        recordedAt: "2026-04-08T14:26:24.333Z",
+        rawPayload: {
+          type: "tool_execution_end",
+          toolCallId: "tool-edit-merge-1",
+          toolName: "edit",
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "Successfully replaced 1 block(s) in /workspace/apps/api/src/core/runtime-dynamic-tools.test.ts."
+              }
+            ]
+          },
+          isError: false
+        },
+        payload: {
+          type: "item.completed",
+          item: {
+            id: "tool-edit-merge-1",
+            type: "mcp_tool_call",
+            server: "pi",
+            tool: "edit",
+            arguments: {
+              path: "/workspace/apps/api/src/core/runtime-dynamic-tools.test.ts"
+            },
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: "Successfully replaced 1 block(s) in /workspace/apps/api/src/core/runtime-dynamic-tools.test.ts."
+                }
+              ],
+              structured_content: null
+            },
+            status: "completed"
+          }
+        }
+      });
+
+      const toolCall = database.db
+        .select()
+        .from(symphonyAgentToolCallsTable)
+        .where(eq(symphonyAgentToolCallsTable.itemId, "tool-edit-merge-1"))
+        .get();
+      const piEditRow = database.db
+        .select()
+        .from(piEditsTable)
+        .where(eq(piEditsTable.itemId, "tool-edit-merge-1"))
+        .get();
+      const artifacts = await readStore.fetchRunArtifacts(runId);
+      const editTool = artifacts?.toolCalls.find((entry) => entry.itemId === "tool-edit-merge-1");
+
+      expect(toolCall?.argumentsJson).toEqual({
+        path: "/workspace/apps/api/src/core/runtime-dynamic-tools.test.ts",
+        edits: [
+          {
+            oldText: "const spikeResults = createSymphonySpikeResultStore({\n  db: database.db\n});",
+            newText:
+              "const deliveryReports = createSymphonyIssueDeliveryReportStore({\n  db: database.db\n});\nconst spikeResults = createSymphonySpikeResultStore({\n  db: database.db\n});"
+          }
+        ]
+      });
+      expect(piEditRow).toMatchObject({
+        itemId: "tool-edit-merge-1",
+        path: "/workspace/apps/api/src/core/runtime-dynamic-tools.test.ts",
+        editCount: 1,
+        lineCount: 6,
+        firstChangedLine: null
+      });
+      expect(piEditRow?.diffPreview).toContain(
+        "--- a//workspace/apps/api/src/core/runtime-dynamic-tools.test.ts"
+      );
+      expect(piEditRow?.diffPreview).toContain(
+        "+++ b//workspace/apps/api/src/core/runtime-dynamic-tools.test.ts"
+      );
+      expect(piEditRow?.diffPreview).toContain("@@ edit 1 @@");
+      expect(piEditRow?.diffPreview).toContain(
+        "-const spikeResults = createSymphonySpikeResultStore({"
+      );
+      expect(piEditRow?.diffPreview).toContain(
+        "+const deliveryReports = createSymphonyIssueDeliveryReportStore({"
+      );
+      expect(editTool).toMatchObject({
+        argumentsJson: {
+          path: "/workspace/apps/api/src/core/runtime-dynamic-tools.test.ts",
+          edits: [
+            {
+              oldText: "const spikeResults = createSymphonySpikeResultStore({\n  db: database.db\n});",
+              newText:
+                "const deliveryReports = createSymphonyIssueDeliveryReportStore({\n  db: database.db\n});\nconst spikeResults = createSymphonySpikeResultStore({\n  db: database.db\n});"
+            }
+          ]
+        },
+        piEdit: {
+          path: "/workspace/apps/api/src/core/runtime-dynamic-tools.test.ts",
+          editCount: 1,
+          lineCount: 6,
+          firstChangedLine: null,
+          diffOverflowId: null,
+          edits: [
+            {
+              oldText: "const spikeResults = createSymphonySpikeResultStore({\n  db: database.db\n});",
+              newText:
+                "const deliveryReports = createSymphonyIssueDeliveryReportStore({\n  db: database.db\n});\nconst spikeResults = createSymphonySpikeResultStore({\n  db: database.db\n});"
+            }
+          ]
+        }
+      });
+      expect(editTool?.piEdit?.diffPreview).toContain(
+        "--- a//workspace/apps/api/src/core/runtime-dynamic-tools.test.ts"
+      );
+      expect(editTool?.piEdit?.diffPreview).toContain("@@ edit 1 @@");
     } finally {
       database.close();
     }

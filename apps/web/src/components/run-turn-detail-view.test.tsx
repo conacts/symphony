@@ -138,6 +138,8 @@ describe("run turn detail view", () => {
 
     expect(editHtml).toContain("Turn 2");
     expect(editHtml).toContain("src/app/page.tsx");
+    expect(editHtml).toContain("--- a/src/app/page.tsx");
+    expect(editHtml).toContain("+++ b/src/app/page.tsx");
     expect(editHtml).toContain("@@ edit 1 @@");
     expect(editHtml).toContain("Updated page copy");
     expect(editHtml).toContain("Old page copy");

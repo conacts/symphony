@@ -108,12 +108,12 @@ export function RunTranscriptTurnEntry(input: {
   }
 
   if (entry.kind === "pi-edit-task") {
+	console.log("here", entry);
     return (
       <PiTaskCard
         entry={entry}
         icon={<PencilIcon className="size-4" />}
         title={buildPiEditTaskTitle(entry)}
-        defaultOpen
       >
         <TaskItem>{formatPiEditLineCount(entry.lineCount)}</TaskItem>
         {entry.firstChangedLine ? (
