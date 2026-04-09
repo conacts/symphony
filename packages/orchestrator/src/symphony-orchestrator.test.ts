@@ -357,7 +357,7 @@ describe("symphony orchestrator", () => {
         }
       });
 
-      await orchestrator.dispatchIssue(issue, 0);
+      await orchestrator.dispatchIssue(issue, 1);
 
       expect(finalized).toEqual([
         expect.objectContaining({
@@ -375,6 +375,89 @@ describe("symphony orchestrator", () => {
       });
     }
   );
+
+  it("rejects invalid dispatch attempts before mutating tracker state", async () => {
+    const issue = buildSymphonyTrackerIssue();
+    const tracker = createMemorySymphonyTracker([issue]);
+    const orchestrator = new SymphonyOrchestrator({
+      config: buildSymphonyOrchestratorConfig(),
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent() {
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      }
+    });
+
+    await expect(orchestrator.dispatchIssue(issue, 0)).rejects.toThrow(
+      "Dispatch attempt must be >= 1. Received 0."
+    );
+    expect(tracker.listOperations()).toEqual([]);
+    expect(orchestrator.snapshot().running).toEqual([]);
+  });
+
+  it("records explicit bootstrapping lifecycle events during startup", async () => {
+    const issue = buildSymphonyTrackerIssue();
+    const lifecycleEvents: string[] = [];
+    const orchestrator = new SymphonyOrchestrator({
+      config: buildSymphonyOrchestratorConfig(),
+      tracker: createMemorySymphonyTracker([issue]),
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push(input.eventType);
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 1);
+
+    expect(lifecycleEvents).toEqual(
+      expect.arrayContaining([
+        "dispatch_started",
+        "claim_transition",
+        "workspace_prepare_started",
+        "workspace_prepare_completed",
+        "workspace_before_run_started",
+        "workspace_before_run_completed",
+        "bootstrap_transition",
+        "runtime_launch_starting",
+        "runtime_launch_requested"
+      ])
+    );
+  });
 
   it("accumulates token usage from raw pi message_end and turn_end payloads", async () => {
     const agentRuntime: AgentRuntime = {
@@ -540,7 +623,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.dispatchIssue(issue, 1);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "failure",
       reason: "agent exited"
@@ -609,7 +692,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.dispatchIssue(issue, 1);
     await tracker.updateIssueState(issue.id, "In Review");
     await orchestrator.handleRunCompletion(issue.id, {
       kind: "delivered"
@@ -666,7 +749,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 0);
+    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 1);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "startup_failure",
       reason: "workspace hook failed",
@@ -794,7 +877,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(todoIssue, 0);
+    await orchestrator.dispatchIssue(todoIssue, 1);
     await orchestrator.reconcileRunningIssues();
 
     expect(stopped).toEqual(["issue-123"]);
@@ -855,7 +938,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.dispatchIssue(issue, 1);
     await tracker.updateIssueState(issue.id, "In Review");
     await orchestrator.reconcileRunningIssues();
 
@@ -886,7 +969,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 0);
+    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 1);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "failure",
       reason: "agent exited"
@@ -922,7 +1005,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 0);
+    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 1);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "provider_transient",
       reason: "unexpected status 502 Bad Gateway"
@@ -930,7 +1013,7 @@ describe("symphony orchestrator", () => {
 
     expect(orchestrator.snapshot().retrying).toHaveLength(1);
     expect(orchestrator.snapshot().retrying[0]).toMatchObject({
-      attempt: 1,
+      attempt: 2,
       delayType: "failure"
     });
     expect(tracker.listOperations()).not.toContainEqual({
@@ -948,7 +1031,7 @@ describe("symphony orchestrator", () => {
     await orchestrator.runPollCycle();
 
     expect(orchestrator.snapshot().retrying).toHaveLength(0);
-    expect(orchestrator.snapshot().running[0]?.retryAttempt).toBe(1);
+    expect(orchestrator.snapshot().running[0]?.retryAttempt).toBe(2);
   });
 
   it("pauses after the transient provider retry budget is exhausted", async () => {
@@ -1031,7 +1114,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 0);
+    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 1);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "max_turns_reached",
       maxTurns: 2,
@@ -1100,7 +1183,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 0);
+    await orchestrator.dispatchIssue(buildSymphonyTrackerIssue(), 1);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "max_turns_reached",
       maxTurns: 2,
@@ -1157,7 +1240,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.dispatchIssue(issue, 1);
     orchestrator.applyAgentUpdate("issue-123", {
       event: "session_started",
       threadId: "thread-live",
@@ -1234,7 +1317,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.dispatchIssue(issue, 1);
     await orchestrator.handleRunCompletion(issue.id, {
       kind: "failure",
       reason: "agent exited"
@@ -1290,7 +1373,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.dispatchIssue(issue, 1);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "startup_failure",
       reason: "workspace hook `before_run` exited with status 1.",
@@ -1360,7 +1443,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.dispatchIssue(issue, 1);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "startup_failure",
       reason: "Pi RPC process exited (code:137).",
@@ -1425,7 +1508,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.dispatchIssue(issue, 1);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "startup_failure",
       reason: "workspace hook `before_run` exited with status 1.",
@@ -1469,7 +1552,7 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.dispatchIssue(issue, 1);
     orchestrator.applyAgentUpdate("issue-123", {
       event: "notification",
       payload: {
@@ -1564,7 +1647,7 @@ describe("symphony orchestrator", () => {
         }
       });
 
-      await harness.orchestrator.dispatchIssue(harness.issue, 0);
+      await harness.orchestrator.dispatchIssue(harness.issue, 1);
       await harness.orchestrator.handleRunCompletion(harness.issue.id, {
         kind: "startup_failure",
         reason: "workspace bootstrap failed",
@@ -1597,7 +1680,7 @@ describe("symphony orchestrator", () => {
         }
       });
 
-      await harness.orchestrator.dispatchIssue(harness.issue, 0);
+      await harness.orchestrator.dispatchIssue(harness.issue, 1);
       await harness.orchestrator.handleRunCompletion(harness.issue.id, {
         kind: "failure",
         reason: "agent exited"
@@ -1626,7 +1709,7 @@ describe("symphony orchestrator", () => {
         }
       });
 
-      await harness.orchestrator.dispatchIssue(harness.issue, 0);
+      await harness.orchestrator.dispatchIssue(harness.issue, 1);
       await harness.orchestrator.handleRunCompletion(harness.issue.id, {
         kind: "blocked",
         reason: "Missing required repo credentials for integration tests."
@@ -1865,7 +1948,7 @@ describe("symphony orchestrator", () => {
         }
       });
 
-      await harness.orchestrator.dispatchIssue(harness.issue, 0);
+      await harness.orchestrator.dispatchIssue(harness.issue, 1);
       await harness.tracker.updateIssueState(harness.issue.id, "Approved");
       await harness.orchestrator.reconcileRunningIssues();
 
@@ -1889,7 +1972,7 @@ describe("symphony orchestrator", () => {
         }
       });
 
-      await harness.orchestrator.dispatchIssue(harness.issue, 0);
+      await harness.orchestrator.dispatchIssue(harness.issue, 1);
       await harness.tracker.updateIssueState(harness.issue.id, "Canceled");
       await harness.orchestrator.reconcileRunningIssues();
 

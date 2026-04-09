@@ -148,7 +148,7 @@ export class SymphonyOrchestrator {
             continue;
           }
 
-          await this.dispatchIssue(issue, 0);
+          await this.dispatchIssue(issue, 1);
 
           if (this.availableSlots() <= 0) {
             break;
@@ -271,16 +271,15 @@ export class SymphonyOrchestrator {
     preferredWorkerHost: string | null = null,
     runModeOverride?: SymphonyRunMode
   ): Promise<void> {
+    if (attempt < 1) {
+      throw new Error(`Dispatch attempt must be >= 1. Received ${attempt}.`);
+    }
+
     const runMode = runModeOverride ?? deriveSymphonyRunMode(issue.state);
-    const preparedIssue = await prepareIssueForDispatch(
-      this.#config,
-      this.#tracker,
-      issue
-    );
     const startedAt = this.#clock.now().toISOString();
     const runId =
       (await this.#observer?.startRun({
-        issue: preparedIssue,
+        issue,
         attempt,
         runMode,
         harness: this.#config.runtime.agent.harness,
@@ -289,56 +288,76 @@ export class SymphonyOrchestrator {
         startedAt
       })) ?? null;
 
-    const workspaceContext: WorkspaceContext = {
-      trackerIssueId: preparedIssue.id,
-      issueIdentifier: preparedIssue.identifier
-    };
-    (workspaceContext as WorkspaceContext & { repositoryKey?: string | null }).repositoryKey =
-      resolveRepositoryLabel(preparedIssue.labels);
-    this.#state.claimed.add(preparedIssue.id);
-    (
-      workspaceContext as WorkspaceContext & {
-        branchName?: string | null;
-      }
-    ).branchName =
-      preparedIssue.branchName ?? issueBranchName(preparedIssue.identifier);
-
-    if (issue.state !== preparedIssue.state) {
-      await this.#observer?.recordLifecycleEvent({
-        issue: preparedIssue,
-        runId,
-        source: "tracker",
-        eventType: "claim_transition",
-        message: `Issue moved from ${issue.state} to ${preparedIssue.state}.`,
-        payload: {
-          fromState: issue.state,
-          toState: preparedIssue.state
-        },
-        recordedAt: startedAt
-      });
-    }
-
     await this.#observer?.recordLifecycleEvent({
-      issue: preparedIssue,
+      issue,
       runId,
       source: "orchestrator",
       eventType: "dispatch_started",
       message: "Dispatch started.",
       payload: {
         attempt,
-        workerHost: preferredWorkerHost
+        workerHost: preferredWorkerHost,
+        runMode
       },
       recordedAt: startedAt
     });
 
+    let preparedIssue = issue;
     let workspace: PreparedWorkspace | null = null;
     let launchTarget: AgentRuntimeLaunchTarget | null = null;
     let startupFailureStage: SymphonyStartupFailureStage = "workspace_prepare";
 
     try {
+      preparedIssue = await prepareIssueForDispatch(
+        this.#config,
+        this.#tracker,
+        issue
+      );
+
+      const workspaceContext: WorkspaceContext = {
+        trackerIssueId: preparedIssue.id,
+        issueIdentifier: preparedIssue.identifier
+      };
+      (workspaceContext as WorkspaceContext & { repositoryKey?: string | null }).repositoryKey =
+        resolveRepositoryLabel(preparedIssue.labels);
+      this.#state.claimed.add(preparedIssue.id);
+      (
+        workspaceContext as WorkspaceContext & {
+          branchName?: string | null;
+        }
+      ).branchName =
+        preparedIssue.branchName ?? issueBranchName(preparedIssue.identifier);
+
+      if (issue.state !== preparedIssue.state) {
+        await this.#observer?.recordLifecycleEvent({
+          issue: preparedIssue,
+          runId,
+          source: "tracker",
+          eventType: "claim_transition",
+          message: `Issue moved from ${issue.state} to ${preparedIssue.state}.`,
+          payload: {
+            fromState: issue.state,
+            toState: preparedIssue.state
+          },
+          recordedAt: startedAt
+        });
+      }
+
       startupFailureStage = "runtime_launch";
       assertPiRuntimeHarness(this.#config.runtime.agent.harness);
       startupFailureStage = "workspace_prepare";
+      await this.#observer?.recordLifecycleEvent({
+        issue: preparedIssue,
+        runId,
+        source: "workspace",
+        eventType: "workspace_prepare_started",
+        message: "Preparing workspace for the run.",
+        payload: {
+          workerHost: preferredWorkerHost,
+          runMode
+        },
+        recordedAt: this.#clock.now().toISOString()
+      });
       workspace = await this.#workspaceBackend.prepareWorkspace({
         context: workspaceContext,
         runId,
@@ -373,6 +392,17 @@ export class SymphonyOrchestrator {
       });
 
       startupFailureStage = "workspace_before_run";
+      await this.#observer?.recordLifecycleEvent({
+        issue: preparedIssue,
+        runId,
+        source: "workspace",
+        eventType: "workspace_before_run_started",
+        message: "Running workspace before_run hook.",
+        payload: {
+          workspace: buildWorkspaceLifecyclePayload(workspace)
+        },
+        recordedAt: this.#clock.now().toISOString()
+      });
       const beforeRunResult = await this.#workspaceBackend.runBeforeRun({
         workspace,
         context: workspaceContext,
@@ -400,6 +430,20 @@ export class SymphonyOrchestrator {
       });
 
       startupFailureStage = "runtime_launch";
+      await this.#observer?.recordLifecycleEvent({
+        issue: activeIssue,
+        runId,
+        source: "orchestrator",
+        eventType: "runtime_launch_starting",
+        message: "Launching the agent runtime.",
+        payload: {
+          attempt,
+          runMode,
+          workerHost: preferredWorkerHost,
+          workspace: buildWorkspaceLifecyclePayload(workspace)
+        },
+        recordedAt: this.#clock.now().toISOString()
+      });
       const launch = await this.#agentRuntime.startRun({
         issue: activeIssue,
         runId,

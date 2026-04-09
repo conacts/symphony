@@ -493,6 +493,105 @@ describe("docker workspace backend", () => {
     ]);
   });
 
+  it("mounts git admin metadata when the source repo is a git worktree", async () => {
+    const root = await createWorkspaceRoot();
+    const sourceRepoPath = path.join(root, "source-repo");
+    const commonGitDir = path.join(root, "repo.git");
+    const worktreeGitDir = path.join(commonGitDir, "worktrees", "source-repo");
+    await mkdir(sourceRepoPath, {
+      recursive: true
+    });
+    await mkdir(worktreeGitDir, {
+      recursive: true
+    });
+    await writeFile(
+      path.join(sourceRepoPath, ".git"),
+      `gitdir: ${worktreeGitDir}\n`,
+      "utf8"
+    );
+    await writeFile(path.join(worktreeGitDir, "commondir"), "../..\n", "utf8");
+
+    const calls: string[][] = [];
+    let inspectCallCount = 0;
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      shell: "bash",
+      sourceRepoPath,
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        switch (input.args[0]) {
+          case "inspect":
+            inspectCallCount += 1;
+            if (inspectCallCount === 1) {
+              return {
+                exitCode: 1,
+                stdout: "[]\n",
+                stderr: `Error response from daemon: No such container: ${input.args[3]}`
+              };
+            }
+
+            return {
+              exitCode: 0,
+              stdout: buildDockerInspectPayload({
+                id: "container-worktree-201",
+                image: "ghcr.io/openai/symphony-workspace:latest",
+                name: input.args[3] ?? "unknown",
+                issueIdentifier: "COL-201",
+                workspaceKey: "COL-201",
+                hostPath: path.join(root, "symphony-COL-201"),
+                workspacePath: "/workspace",
+                running: true
+              }),
+              stderr: ""
+            };
+          case "run":
+            return {
+              exitCode: 0,
+              stdout: "container-worktree-201\n",
+              stderr: ""
+            };
+          case "exec":
+            return {
+              exitCode: 0,
+              stdout: "hydrated\n",
+              stderr: ""
+            };
+          default:
+            throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+        }
+      }
+    });
+
+    await backend.prepareWorkspace({
+      context: {
+        trackerIssueId: "issue-201",
+        issueIdentifier: "COL-201"
+      },
+      config: buildWorkspaceTestConfig({
+        workspace: {
+          root
+        }
+      }).workspace,
+      hooks: {
+        afterCreate: null,
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: null,
+        timeoutMs: 1_000
+      }
+    });
+
+    expect(calls.find((call) => call[0] === "run")).toEqual(
+      expect.arrayContaining([
+        "--mount",
+        `type=bind,src=${sourceRepoPath},dst=/home/agent/source-repo,readonly`,
+        "--mount",
+        `type=bind,src=${commonGitDir},dst=${commonGitDir},readonly`
+      ])
+    );
+  });
+
   it("prepares volume-backed workspaces without fabricating a host repo path", async () => {
     const root = await createWorkspaceRoot();
     const config = buildWorkspaceTestConfig({
