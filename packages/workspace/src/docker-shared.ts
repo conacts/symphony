@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { defaultRuntimeDbSnapshotName } from "@symphony/db";
 import type {
   SymphonyLoadedRuntimeManifest,
   SymphonyNormalizedRuntimePostgresService,
@@ -46,6 +47,8 @@ export const defaultPostgresReadinessIntervalMs = 500;
 export const defaultPostgresReadinessRetries = 20;
 export const dockerManifestLifecycleStateDirectoryName = ".symphony-runtime";
 export const dockerManifestLifecycleStateSuffix = ".docker-manifest-lifecycle.json";
+export const defaultRuntimeDbSnapshotFileName = defaultRuntimeDbSnapshotName;
+export const defaultRuntimeDbSnapshotEnvKey = "SYMPHONY_RUNTIME_DB_SNAPSHOT";
 
 export type DockerWorkspaceCommandResult = {
   exitCode: number;
@@ -73,6 +76,12 @@ export type DockerWorkspaceBackendOptions = {
   hostFileMounts?: DockerWorkspaceHostFileMount[];
   commandRunner?: DockerWorkspaceCommandRunner;
   commandTimeoutMs?: number;
+  /**
+   * Path to the runtime database file to snapshot into the workspace.
+   * When provided, a read-only copy of the database is placed in the workspace
+   * for agent inspection.
+   */
+  runtimeDbSnapshotPath?: string | null;
 };
 
 export type DockerSharedPostgresOptions = {

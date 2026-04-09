@@ -181,6 +181,7 @@ function buildRuntimeEnv(
   overrides: Partial<Parameters<typeof createRuntimeWorkspaceBackend>[0]>
 ): Parameters<typeof createRuntimeWorkspaceBackend>[0] {
   return {
+    dbFile: "/tmp/symphony-test.db",
     dockerWorkspaceImage: null,
     dockerMaterializationMode: "bind_mount",
     dockerWorkspacePath: null,

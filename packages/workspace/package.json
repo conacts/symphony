@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@docker/node-sdk": "^0.0.17",
+    "@symphony/db": "workspace:*",
     "@symphony/runtime-contract": "workspace:*"
   },
   "devDependencies": {

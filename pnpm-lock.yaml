@@ -736,6 +736,9 @@ importers:
       '@docker/node-sdk':
         specifier: ^0.0.17
         version: 0.0.17
+      '@symphony/db':
+        specifier: workspace:*
+        version: link:../db
       '@symphony/runtime-contract':
         specifier: workspace:*
         version: link:../runtime-contract

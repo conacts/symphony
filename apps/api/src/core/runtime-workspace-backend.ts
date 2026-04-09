@@ -30,6 +30,7 @@ export type SymphonyRuntimeWorkspaceBackendSelection = {
 export function createRuntimeWorkspaceBackend(
   env: Pick<
     SymphonyRuntimeAppEnv,
+    | "dbFile"
     | "dockerWorkspaceImage"
     | "dockerMaterializationMode"
     | "dockerWorkspacePath"
@@ -81,6 +82,7 @@ export function createRuntimeWorkspaceBackend(
         containerEnv: options.dockerContainerEnv,
         hostFileMounts: options.dockerHostFileMounts,
         runtimeManifest: options.runtimeManifest ?? null,
+        runtimeDbSnapshotPath: env.dbFile,
         sharedPostgres: {
           containerName: env.dockerSharedPostgresContainerName,
           image: env.dockerSharedPostgresImage,
