@@ -698,7 +698,7 @@ function buildForensicsRunSummary(
   return {
     runId: run.runId,
     repositoryKey: run.repositoryKey,
-    issueId: run.issueId,
+    trackerIssueId: run.issueId,
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
     status: run.status,
@@ -1000,7 +1000,7 @@ function mapForensicsDeliveryReport(
   return {
     repositoryKey: row.repositoryKey,
     reportId: row.reportId,
-    issueId: row.issueId,
+    trackerIssueId: row.issueId,
     issueIdentifier: row.issueIdentifier,
     runId: row.runId,
     turnId: row.turnId ?? null,
@@ -1097,6 +1097,10 @@ function mapAgentRunRecord(
   run: typeof symphonyAgentRunsTable.$inferSelect,
   runtimeTurns: Array<typeof symphonyTurnsTable.$inferSelect> = []
 ): SymphonyAgentRunRecord {
+  const {
+    issueId,
+    ...rest
+  } = run;
   const resolvedTokens = resolvePreferredTokenTotals(
     {
       inputTokens: run.inputTokens,
@@ -1107,7 +1111,8 @@ function mapAgentRunRecord(
   );
 
   return {
-    ...run,
+    ...rest,
+    trackerIssueId: issueId,
     harnessKind: normalizeHarnessKind(run.harnessKind),
     status: normalizeAgentRunStatus(run.status),
     inputTokens: resolvedTokens.inputTokens,

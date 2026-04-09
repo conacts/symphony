@@ -7,6 +7,7 @@ import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
 import { createSqliteSymphonyRuntimeRunLedger } from "./sqlite-runtime-run-ledger.js";
 
 const tempDirectories: string[] = [];
+const testRepositoryKey = "openai/symphony";
 
 afterEach(async () => {
   await Promise.all(
@@ -30,7 +31,9 @@ describe("sqlite symphony runtime run ledger", () => {
     const journal = createSqliteSymphonyRuntimeRunLedger({
       db: database.db,
       dbFile: path.join(root, "symphony.db"),
-      timelineStore: createSymphonyIssueTimelineStore(database.db)
+      timelineStore: createSymphonyIssueTimelineStore(database.db, {
+        repositoryKey: testRepositoryKey
+      })
     });
 
     try {
@@ -38,6 +41,7 @@ describe("sqlite symphony runtime run ledger", () => {
         {
           issueId: "issue-metadata",
           issueIdentifier: "COL-META",
+          repositoryKey: testRepositoryKey,
           runMode: "implementation",
           runId: "run-meta",
           attempt: 1,
@@ -81,13 +85,16 @@ describe("sqlite symphony runtime run ledger", () => {
     const ledger = createSqliteSymphonyRuntimeRunLedger({
       db: database.db,
       dbFile: path.join(root, "symphony.db"),
-      timelineStore: createSymphonyIssueTimelineStore(database.db)
+      timelineStore: createSymphonyIssueTimelineStore(database.db, {
+        repositoryKey: testRepositoryKey
+      })
     });
 
     try {
       const runId = await ledger.recordRunStarted({
         issueId: "issue-tokens",
         issueIdentifier: "COL-TOKENS",
+        repositoryKey: testRepositoryKey,
         runMode: "implementation",
         runId: "run-tokens",
         status: "running",

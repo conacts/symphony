@@ -128,7 +128,7 @@ describe("symphony forensics read model", () => {
     });
     const failedRun = createRunSummary({
       runId: "run-failure",
-      issueId: "issue-2",
+      trackerIssueId: "issue-2",
       issueIdentifier: "COL-158",
       outcome: "startup_failure",
       errorClass: "startup_failure",
@@ -245,7 +245,7 @@ function createRunSummary(
   return {
     runId: "run-1",
     repositoryKey: "symphony",
-    issueId: "issue-1",
+    trackerIssueId: "issue-1",
     issueIdentifier: "COL-157",
     attempt: 1,
     status: "finished",
@@ -287,7 +287,7 @@ function createRunDetail(
   return {
     issue: {
       repositoryKey: "symphony",
-      issueId: run.issueId,
+      trackerIssueId: run.trackerIssueId,
       issueIdentifier: run.issueIdentifier,
       latestRunStartedAt: run.startedAt,
       latestRunId: run.runId,
@@ -338,7 +338,7 @@ function createRunDetail(
     deliveryReport: {
       reportId: "report-1",
       repositoryKey: "symphony",
-      issueId: run.issueId,
+      trackerIssueId: run.trackerIssueId,
       issueIdentifier: run.issueIdentifier,
       runId: run.runId,
       turnId: "turn-1",

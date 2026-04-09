@@ -35,6 +35,7 @@ const tempRoots: string[] = [];
 const execFileAsync = promisify(execFile);
 const originalPath = process.env.PATH;
 const originalOpenRouterKey = process.env.OPENROUTER_API_KEY;
+const testRepositoryKey = "openai/symphony";
 
 afterEach(async () => {
   process.env.PATH = originalPath;
@@ -87,7 +88,8 @@ describe("docker pi symphony agent runtime", () => {
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -96,6 +98,7 @@ describe("docker pi symphony agent runtime", () => {
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "rework",
@@ -264,12 +267,14 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
@@ -376,12 +381,14 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
@@ -482,12 +489,14 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
@@ -589,12 +598,14 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
@@ -722,7 +733,8 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -834,12 +846,14 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
@@ -923,12 +937,15 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -937,6 +954,7 @@ done
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "rework",
@@ -1036,12 +1054,15 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -1050,6 +1071,7 @@ done
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
@@ -1139,12 +1161,15 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -1153,6 +1178,7 @@ done
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
@@ -1246,12 +1272,15 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -1260,6 +1289,7 @@ done
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "approved_merge",
@@ -1375,12 +1405,14 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "approved_merge",
@@ -1463,17 +1495,21 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "approved_merge",
@@ -1578,12 +1614,15 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -1592,6 +1631,7 @@ done
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "rework",
@@ -1741,7 +1781,8 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -1859,12 +1900,14 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
@@ -1977,7 +2020,8 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -2086,7 +2130,8 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -2095,6 +2140,7 @@ done
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
@@ -2234,7 +2280,8 @@ exit 1
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -2347,7 +2394,8 @@ exit 1
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -2356,6 +2404,7 @@ exit 1
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",

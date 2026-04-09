@@ -63,7 +63,7 @@ export const symphonyForensicsDeliveryStatusSchema = z.enum([
 export const symphonyForensicsDeliveryReportSchema = z.strictObject({
   reportId: nonEmptyStringSchema,
   repositoryKey: nonEmptyStringSchema,
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   runId: nonEmptyStringSchema,
   turnId: nullableNonEmptyStringSchema,
@@ -81,7 +81,7 @@ export const symphonyForensicsDeliveryReportSchema = z.strictObject({
 
 export const symphonyForensicsIssueSummarySchema = z.strictObject({
   repositoryKey: nonEmptyStringSchema,
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   latestRunStartedAt: isoTimestampSchema.nullable(),
   latestRunId: nullableNonEmptyStringSchema,
@@ -121,7 +121,7 @@ export const symphonyForensicsIssueSummarySchema = z.strictObject({
 export const symphonyForensicsRunSummarySchema = z.strictObject({
   runId: nonEmptyStringSchema,
   repositoryKey: nonEmptyStringSchema,
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   attempt: z.number().int().nonnegative().nullable(),
   status: nonEmptyStringSchema,
@@ -264,7 +264,7 @@ export const symphonyForensicsIssueDetailResultSchema = z.strictObject({
 export const symphonyForensicsIssueTimelineEntrySchema = z.strictObject({
   entryId: nonEmptyStringSchema,
   repositoryKey: nonEmptyStringSchema,
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   runId: nullableNonEmptyStringSchema,
   turnId: nullableNonEmptyStringSchema,
@@ -294,7 +294,7 @@ export const symphonyForensicsIssueTimelineResultSchema = z.strictObject({
 
 export const symphonyForensicsIssueExportSchema = z.strictObject({
   repositoryKey: nonEmptyStringSchema,
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   latestRunStartedAt: isoTimestampSchema.nullable(),
   latestRunId: nullableNonEmptyStringSchema,

@@ -7,6 +7,7 @@ import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
 import { createSymphonyIssueDeliveryReportStore } from "./issue-delivery-reports.js";
 
 const tempDirectories: string[] = [];
+const testRepositoryKey = "openai/symphony";
 
 afterEach(async () => {
   await Promise.all(
@@ -27,10 +28,13 @@ describe("issue delivery report store", () => {
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const timelineStore = createSymphonyIssueTimelineStore(database.db);
+    const timelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const store = createSymphonyIssueDeliveryReportStore({
       db: database.db,
-      timelineStore
+      timelineStore,
+      repositoryKey: testRepositoryKey
     });
 
     try {

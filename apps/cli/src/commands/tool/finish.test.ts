@@ -64,6 +64,7 @@ describe("tool finish command", () => {
         SYMPHONY_ISSUE_ID: "issue-123",
         SYMPHONY_ISSUE_IDENTIFIER: "COL-123",
         SYMPHONY_ISSUE_STATE: "In Review",
+        SYMPHONY_REPOSITORY_KEY: "openai/symphony",
         SYMPHONY_TURN_ID: "turn-123",
         SYMPHONY_LINEAR_TEAM_KEY: "COL",
         LINEAR_API_KEY: "token"
@@ -77,7 +78,8 @@ describe("tool finish command", () => {
       dbFile
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: verificationDb.db
+      db: verificationDb.db,
+      repositoryKey: "openai/symphony"
     });
     const reports = await deliveryReports.listForRun("run-123");
     expect(reports).toHaveLength(1);

@@ -264,7 +264,7 @@ function buildForensicsRunSummary(
   return {
     runId: run.runId,
     repositoryKey: run.repositoryKey,
-    issueId: run.issueId,
+    trackerIssueId: run.issueId,
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
     status: run.status,
@@ -391,7 +391,7 @@ function mapForensicsDeliveryReport(
   return {
     repositoryKey: row.repositoryKey,
     reportId: row.reportId,
-    issueId: row.issueId,
+    trackerIssueId: row.issueId,
     issueIdentifier: row.issueIdentifier,
     runId: row.runId,
     turnId: row.turnId ?? null,

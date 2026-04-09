@@ -70,6 +70,9 @@ export function buildWorkspaceHookEnv(
   if (context.issueId) {
     merged.SYMPHONY_ISSUE_ID = context.issueId;
   }
+  if (context.repositoryKey) {
+    merged.SYMPHONY_REPOSITORY_KEY = context.repositoryKey;
+  }
 
   if (workerHost) {
     merged.SYMPHONY_WORKER_HOST = workerHost;

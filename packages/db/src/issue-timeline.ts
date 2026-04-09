@@ -14,7 +14,7 @@ export type SymphonyIssueTimelineSource =
 export type SymphonyIssueTimelineEntry = {
   entryId: string;
   repositoryKey: string;
-  issueId: string;
+  trackerIssueId: string;
   issueIdentifier: string;
   runId: string | null;
   turnId: string | null;
@@ -53,10 +53,7 @@ export function createSymphonyIssueTimelineStore(
     repositoryKey?: string;
   } = {}
 ): SymphonyIssueTimelineStore {
-  const defaultRepositoryKey = sanitizeRequiredText(
-    input.repositoryKey ?? "default",
-    "repositoryKey"
-  );
+  const defaultRepositoryKey = sanitizeOptionalText(input.repositoryKey);
 
   return {
     async record(input) {
@@ -107,7 +104,7 @@ export function createSymphonyIssueTimelineStore(
       return rows.map((row) => ({
         entryId: row.entryId,
         repositoryKey: row.repositoryKey,
-        issueId: row.issueId,
+        trackerIssueId: row.issueId,
         issueIdentifier: row.issueIdentifier,
         runId: row.runId ?? null,
         turnId: row.turnId ?? null,
@@ -142,12 +139,21 @@ function normalizeSource(value: string): SymphonyIssueTimelineSource {
   }
 }
 
-function sanitizeRequiredText(value: string, field: string): string {
-  const normalized = value.trim();
+function sanitizeRequiredText(value: string | null | undefined, field: string): string {
+  const normalized = sanitizeOptionalText(value);
 
-  if (normalized.length === 0) {
+  if (!normalized) {
     throw new TypeError(`${field} is required.`);
   }
 
   return normalized;
+}
+
+function sanitizeOptionalText(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
 }

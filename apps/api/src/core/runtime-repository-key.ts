@@ -1,5 +1,3 @@
-export const defaultRuntimeRepositoryKey = "default";
-
 export function resolveRuntimeRepositoryKey(input: {
   sourceRepo: string | null;
   githubRepo: string | null;
@@ -12,12 +10,13 @@ export function resolveRuntimeRepositoryKey(input: {
 
   const sourceRepo = normalizeRuntimeRepositoryKey(input.sourceRepo);
 
-  if (!sourceRepo) {
-    return defaultRuntimeRepositoryKey;
+  if (sourceRepo) {
+    return sourceRepo;
   }
 
-  const segments = sourceRepo.split("/").filter((segment) => segment.length > 0);
-  return segments.at(-1) ?? defaultRuntimeRepositoryKey;
+  throw new TypeError(
+    "Symphony runtime repository identity is required. Configure an explicit repository key such as owner/repo."
+  );
 }
 
 function normalizeRuntimeRepositoryKey(value: string | null | undefined): string | null {
@@ -26,5 +25,14 @@ function normalizeRuntimeRepositoryKey(value: string | null | undefined): string
   }
 
   const normalized = value.trim();
-  return normalized.length > 0 ? normalized : null;
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  const segments = normalized.split("/").filter((segment) => segment.length > 0);
+  if (segments.length === 2 && segments.every((segment) => segment.trim().length > 0)) {
+    return `${segments[0]}/${segments[1]}`;
+  }
+
+  return null;
 }

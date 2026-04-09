@@ -14,7 +14,7 @@ describe("agent analytics contracts", () => {
       symphonyAgentRunRecordSchema.parse({
         runId: "run-1",
         threadId: "thread-1",
-        issueId: "issue-1",
+        trackerIssueId: "issue-1",
         issueIdentifier: "COL-1",
         startedAt: "2026-04-03T20:37:38.000Z",
         endedAt: "2026-04-03T20:38:38.000Z",
@@ -87,7 +87,7 @@ describe("agent analytics contracts", () => {
       symphonyAgentRunRecordSchema.parse({
         runId: "run-1",
         threadId: null,
-        issueId: "issue-1",
+        trackerIssueId: "issue-1",
         issueIdentifier: "COL-1",
         startedAt: "2026-04-03T20:37:38.000Z",
         endedAt: null,
@@ -146,7 +146,7 @@ describe("agent analytics contracts", () => {
       symphonyAgentRunRecordSchema.parse({
         runId: "run-1",
         threadId: null,
-        issueId: "issue-1",
+        trackerIssueId: "issue-1",
         issueIdentifier: "COL-1",
         startedAt: "2026-04-03T20:37:38.000Z",
         endedAt: null,

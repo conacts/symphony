@@ -50,7 +50,7 @@ export function serializeRuntimeState(
           }))
         : undefined,
     running: snapshot.running.map((entry) => ({
-      issueId: entry.issueId,
+      trackerIssueId: entry.issueId,
       issueIdentifier: entry.issue.identifier,
       state: entry.issue.state,
       workerHost: entry.workerHost,
@@ -74,7 +74,7 @@ export function serializeRuntimeState(
       }
     })),
     retrying: snapshot.retrying.map((entry) => ({
-      issueId: entry.issueId,
+      trackerIssueId: entry.issueId,
       issueIdentifier: entry.identifier,
       attempt: entry.attempt,
       dueAt: new Date(entry.dueAtMs).toISOString(),
@@ -145,7 +145,7 @@ export function serializeRuntimeIssue(
 
   return {
     issueIdentifier,
-    issueId: running?.issueId ?? retry?.issueId ?? tracked.id,
+    trackerIssueId: running?.issueId ?? retry?.issueId ?? tracked.id,
     status: running ? "running" : retry ? "retrying" : "tracked",
     workspace: serializeRuntimeWorkspace(
       workspace,

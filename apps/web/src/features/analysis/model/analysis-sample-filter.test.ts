@@ -28,7 +28,7 @@ describe("analysis sample filter", () => {
           run: {
             ...buildSymphonyForensicsIssueDetailResult().runs[0]!,
             runId: "run_456",
-            issueId: "issue_456",
+            trackerIssueId: "issue_456",
             issueIdentifier: "COL-166",
             agentHarness: "pi",
             model: "gpt-5.4"
@@ -37,7 +37,7 @@ describe("analysis sample filter", () => {
             run: {
               ...buildSymphonyAgentRunArtifactsResult().run,
               runId: "run_456",
-              issueId: "issue_456",
+              trackerIssueId: "issue_456",
               issueIdentifier: "COL-166",
               harnessKind: "pi",
               providerId: "openai",

@@ -189,6 +189,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const tracker = createRepositoryScopedLinearTracker({
     trackerTemplate: runtimePolicy.tracker,
     admittedRepositories,
+    fallbackRepositoryKey: repositoryKey
   });
   if (runtimePolicy.tracker.kind === "memory") {
     logger.warn("Using in-memory tracker placeholder");

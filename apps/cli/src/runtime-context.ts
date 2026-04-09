@@ -18,6 +18,7 @@ export type SymphonyCliRuntimeContext = {
   db: SymphonyDb;
   deliveryReports: SymphonyIssueDeliveryReportStore;
   issueTimelineStore: ReturnType<typeof createSymphonyIssueTimelineStore>;
+  repositoryKey: string;
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
   runId: string;
@@ -60,13 +61,18 @@ export function loadCliRuntimeContext(
   const db = initializeSymphonyDb({
     dbFile: readOptional(env, "SYMPHONY_DB_FILE") ?? defaultSymphonyDbFile(cwd)
   });
+  const repositoryKey = readRequired(env, "SYMPHONY_REPOSITORY_KEY");
 
   return {
     db,
     deliveryReports: createSymphonyIssueDeliveryReportStore({
-      db: db.db
+      db: db.db,
+      repositoryKey
     }),
-    issueTimelineStore: createSymphonyIssueTimelineStore(db.db),
+    issueTimelineStore: createSymphonyIssueTimelineStore(db.db, {
+      repositoryKey
+    }),
+    repositoryKey,
     tracker: createLinearSymphonyTracker({
       config: trackerConfig
     }),

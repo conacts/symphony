@@ -62,7 +62,7 @@ export const symphonyAgentRunRecordSchema = z.strictObject({
   model: nullableNonEmptyStringSchema.default(null),
   providerId: nullableNonEmptyStringSchema.default(null),
   providerName: nullableNonEmptyStringSchema.default(null),
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   startedAt: isoTimestampSchema.nullable(),
   endedAt: isoTimestampSchema.nullable(),

@@ -297,6 +297,7 @@ export function buildSymphonyRunStartAttrs(
   fixtureCounter += 1;
 
   return {
+    repositoryKey: "openai/symphony",
     issueId: `issue-${fixtureCounter}`,
     issueIdentifier: `COL-${fixtureCounter}`,
     attempt: 1,

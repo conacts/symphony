@@ -66,7 +66,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     const runId = attrs.runId ?? randomUUID();
     const now = isoNow();
     const startedAt = normalizeIsoTimestamp(attrs.startedAt) ?? now;
-    const repositoryKey = sanitizeText(attrs.repositoryKey) ?? "default";
+    const repositoryKey = sanitizeRequiredText(attrs.repositoryKey, "repositoryKey");
     const metadata = withRunModeMetadata(attrs.metadata, attrs.runMode);
 
     this.#db.transaction((tx) => {
@@ -547,6 +547,16 @@ function sanitizeText(value: string | null | undefined): string | null {
 
   const normalized = value.trim();
   return normalized === "" ? null : normalized;
+}
+
+function sanitizeRequiredText(value: string | null | undefined, field: string): string {
+  const normalized = sanitizeText(value);
+
+  if (!normalized) {
+    throw new TypeError(`${field} is required.`);
+  }
+
+  return normalized;
 }
 
 function sanitizeHarnessKind(value: "pi" | null | undefined): "pi" | null {

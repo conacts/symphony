@@ -142,7 +142,7 @@ export const symphonyRuntimeWorkspaceManifestLifecycleSchema = z.strictObject({
 });
 
 export const symphonyRuntimeRunningEntrySchema = z.strictObject({
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   state: nonEmptyStringSchema,
   workerHost: nullableNonEmptyStringSchema,
@@ -159,7 +159,7 @@ export const symphonyRuntimeRunningEntrySchema = z.strictObject({
 });
 
 export const symphonyRuntimeRetryEntrySchema = z.strictObject({
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   attempt: z.number().int().positive(),
   dueAt: isoTimestampSchema.nullable(),
@@ -296,7 +296,7 @@ export const symphonyRuntimeLogEntrySchema = z.strictObject({
   source: nonEmptyStringSchema,
   eventType: nonEmptyStringSchema,
   message: nonEmptyStringSchema,
-  issueId: nullableNonEmptyStringSchema,
+  trackerIssueId: nullableNonEmptyStringSchema,
   issueIdentifier: nullableNonEmptyStringSchema,
   runId: nullableNonEmptyStringSchema,
   payload: jsonValueSchema,
@@ -332,7 +332,7 @@ export const symphonyRuntimeIssueOperatorSchema = z.strictObject({
 
 export const symphonyRuntimeIssueResultSchema = z.strictObject({
   issueIdentifier: nonEmptyStringSchema,
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   status: symphonyRuntimeIssueStatusSchema,
   workspace: symphonyRuntimeWorkspaceSchema,
   attempts: symphonyRuntimeAttemptsSchema,

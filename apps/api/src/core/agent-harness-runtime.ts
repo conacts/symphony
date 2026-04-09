@@ -285,6 +285,7 @@ async function executeRun(input: {
           input.apiPort !== undefined
             ? buildRuntimeApiBaseUrl(input.launchTarget, input.apiPort)
             : "",
+        SYMPHONY_REPOSITORY_KEY: input.githubRepository ?? "",
         SYMPHONY_ISSUE_ID: input.issue.id,
         SYMPHONY_ISSUE_STATE: input.issue.state ?? "",
         ...input.workspace.envBundle.values,

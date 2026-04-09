@@ -12,6 +12,7 @@ import { symphonySchema, symphonyRunsTable } from "./schema.js";
 import { eq } from "drizzle-orm";
 
 const tempDirectories: string[] = [];
+const testRepositoryKey = "openai/symphony";
 
 afterEach(async () => {
   await Promise.all(
@@ -39,6 +40,7 @@ describe("runtime run delivery projections", () => {
     try {
       const runId = await runStore.recordRunStarted({
         runId: "run-mode-1",
+        repositoryKey: testRepositoryKey,
         issueId: "issue-1",
         issueIdentifier: "COL-200",
         runMode: "rework",
@@ -78,7 +80,8 @@ describe("runtime run delivery projections", () => {
       db: database.db
     });
     const deliveryStore = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const readStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
@@ -87,6 +90,7 @@ describe("runtime run delivery projections", () => {
     try {
       const runId = await runStore.recordRunStarted({
         runId: "run-1",
+        repositoryKey: testRepositoryKey,
         issueId: "issue-1",
         issueIdentifier: "COL-157",
         runMode: "implementation",
@@ -140,7 +144,9 @@ describe("runtime run delivery projections", () => {
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db,
       timelineStore: issueTimelineStore
@@ -149,6 +155,7 @@ describe("runtime run delivery projections", () => {
     try {
       const runId = await runStore.recordRunStarted({
         runId: "run-events-1",
+        repositoryKey: testRepositoryKey,
         issueId: "issue-events-1",
         issueIdentifier: "COL-310",
         runMode: "implementation",
@@ -218,6 +225,7 @@ describe("runtime run delivery projections", () => {
     try {
       const runId = await runStore.recordRunStarted({
         runId: "run-context-1",
+        repositoryKey: testRepositoryKey,
         issueId: "issue-context-1",
         issueIdentifier: "COL-311",
         runMode: "implementation",

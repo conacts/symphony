@@ -13,7 +13,7 @@ export type SymphonyRuntimeLogEntry = {
   source: string;
   eventType: string;
   message: string;
-  issueId: string | null;
+  trackerIssueId: string | null;
   issueIdentifier: string | null;
   runId: string | null;
   payload: JsonValue;
@@ -46,7 +46,7 @@ export function createSymphonyRuntimeLogStore(
     repositoryKey?: string;
   } = {}
 ): SymphonyRuntimeLogStore {
-  const defaultRepositoryKey = sanitizeText(input.repositoryKey) ?? "default";
+  const defaultRepositoryKey = sanitizeText(input.repositoryKey);
 
   return {
     async record(input) {
@@ -79,7 +79,10 @@ export function createSymphonyRuntimeLogStore(
         .orderBy(desc(symphonyRuntimeLogsTable.recordedAt))
         .limit(limit);
 
-      const repositoryKey = sanitizeText(input.repositoryKey) ?? defaultRepositoryKey;
+      const repositoryKey = sanitizeRequiredText(
+        input.repositoryKey ?? defaultRepositoryKey,
+        "repositoryKey"
+      );
 
       const rows = input.issueIdentifier
         ? query.where(
@@ -97,7 +100,7 @@ export function createSymphonyRuntimeLogStore(
         source: row.source,
         eventType: row.eventType,
         message: row.message,
-        issueId: row.issueId ?? null,
+        trackerIssueId: row.issueId ?? null,
         issueIdentifier: row.issueIdentifier ?? null,
         runId: row.runId ?? null,
         payload: (row.payload ?? null) as JsonValue,
@@ -132,4 +135,14 @@ function sanitizeText(value: string | null | undefined): string | null {
 
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function sanitizeRequiredText(value: string | null | undefined, field: string): string {
+  const normalized = sanitizeText(value);
+
+  if (!normalized) {
+    throw new TypeError(`${field} is required.`);
+  }
+
+  return normalized;
 }

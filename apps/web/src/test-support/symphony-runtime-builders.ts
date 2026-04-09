@@ -126,7 +126,7 @@ export function buildSymphonyRuntimeStateResult(
 
   const running = (overrides.running ?? [
     {
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       state: "In Progress",
       workerHost: "worker-b",
@@ -146,7 +146,7 @@ export function buildSymphonyRuntimeStateResult(
       }
     }
   ]).map((entry): RuntimeRunningEntry => ({
-    issueId: "issue_123",
+    trackerIssueId: "issue_123",
     issueIdentifier: "COL-165",
     state: "In Progress",
     workerHost: "worker-b",
@@ -175,7 +175,7 @@ export function buildSymphonyRuntimeStateResult(
 
   const retrying = (overrides.retrying ?? [
     {
-      issueId: "issue_456",
+      trackerIssueId: "issue_456",
       issueIdentifier: "COL-166",
       attempt: 2,
       dueAt: "2026-03-31T18:05:00.000Z",
@@ -186,7 +186,7 @@ export function buildSymphonyRuntimeStateResult(
       launchTarget: defaultRetryLaunchTarget
     }
   ]).map((entry): RuntimeRetryEntry => ({
-    issueId: "issue_456",
+    trackerIssueId: "issue_456",
     issueIdentifier: "COL-166",
     attempt: 2,
     dueAt: "2026-03-31T18:05:00.000Z",
@@ -321,7 +321,7 @@ export function buildSymphonyRuntimeIssueResult(
 
   return {
     issueIdentifier: "COL-167",
-    issueId: "issue-167",
+    trackerIssueId: "issue-167",
     status: "running",
     workspace: {
       ...defaultWorkspace,
@@ -398,7 +398,7 @@ export function buildSymphonyForensicsIssueListResult(
     issues: [
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         latestRunStartedAt: "2026-03-31T18:00:00.000Z",
         latestRunId: "run_123",
@@ -436,7 +436,7 @@ export function buildSymphonyForensicsIssueListResult(
       },
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_234",
+        trackerIssueId: "issue_234",
         issueIdentifier: "COL-168",
         latestRunStartedAt: "2026-03-30T16:20:00.000Z",
         latestRunId: "run_234",
@@ -474,7 +474,7 @@ export function buildSymphonyForensicsIssueListResult(
       },
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_345",
+        trackerIssueId: "issue_345",
         issueIdentifier: "COL-169",
         latestRunStartedAt: "2026-03-29T14:15:00.000Z",
         latestRunId: "run_345",
@@ -512,7 +512,7 @@ export function buildSymphonyForensicsIssueListResult(
       },
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_456",
+        trackerIssueId: "issue_456",
         issueIdentifier: "COL-170",
         latestRunStartedAt: "2026-03-28T11:10:00.000Z",
         latestRunId: "run_456",
@@ -593,7 +593,7 @@ export function buildSymphonyForensicsIssueDetailResult(
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
         runId: "run_12345678",
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         attempt: 1,
         status: "finished",
@@ -667,7 +667,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
         source: "runtime",
         eventType: "manual_refresh_queued",
         message: "Queued manual refresh request.",
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         runId: "run_12345678",
         payload: {
@@ -682,7 +682,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
         source: "workspace",
         eventType: "rate_limit_warning",
         message: "Approaching upstream rate limit.",
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         runId: "run_12345678",
         payload: {
@@ -720,7 +720,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
         {
           entryId: "timeline-1",
           repositoryKey: DEFAULT_REPOSITORY_KEY,
-          issueId: "issue_123",
+          trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           runId: "run_12345678",
           turnId: "turn_123",
@@ -735,7 +735,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
         {
           entryId: "timeline-2",
           repositoryKey: DEFAULT_REPOSITORY_KEY,
-          issueId: "issue_123",
+          trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           runId: "run_12345678",
           turnId: "turn_123",
@@ -754,7 +754,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
       {
         entryId: "timeline-1",
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         runId: "run_12345678",
         turnId: "turn_123",
@@ -769,7 +769,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
       {
         entryId: "timeline-2",
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         runId: "run_12345678",
         turnId: "turn_123",
@@ -796,7 +796,7 @@ export function buildSymphonyForensicsProblemRunsResult(
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
         runId: "run_12345678",
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         attempt: 1,
         status: "finished",
@@ -868,7 +868,7 @@ export function buildSymphonyRuntimeLogsResult(
         source: "runtime",
         eventType: "db_initialized",
         message: "Initialized Symphony DB.",
-        issueId: null,
+        trackerIssueId: null,
         issueIdentifier: null,
         runId: null,
         payload: {
@@ -883,7 +883,7 @@ export function buildSymphonyRuntimeLogsResult(
         source: "tracker",
         eventType: "tracker_placeholder_active",
         message: "Using in-memory tracker placeholder.",
-        issueId: null,
+        trackerIssueId: null,
         issueIdentifier: null,
         runId: null,
         payload: null,
@@ -940,7 +940,7 @@ export function buildSymphonyForensicsRunDetailResult(
   return {
     issue: {
       repositoryKey: DEFAULT_REPOSITORY_KEY,
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       latestRunStartedAt: "2026-03-31T18:00:00.000Z",
       latestRunId: "run_123",
@@ -960,7 +960,7 @@ export function buildSymphonyForensicsRunDetailResult(
     run: {
       repositoryKey: DEFAULT_REPOSITORY_KEY,
       runId: "run_123",
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       attempt: 1,
       status: "finished",
@@ -1029,7 +1029,7 @@ export function buildSymphonyForensicsRunDetailResult(
     deliveryReport: {
       reportId: "delivery_123",
       repositoryKey: DEFAULT_REPOSITORY_KEY,
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       runId: "run_123",
       turnId: "turn_123",
@@ -1219,7 +1219,7 @@ export function buildSymphonyAgentRunArtifactsResult(
       model: "xiaomi/mimo-v2-pro",
       providerId: "openrouter",
       providerName: "OpenRouter",
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       startedAt: "2026-03-31T18:00:00.000Z",
       endedAt: "2026-03-31T18:02:00.000Z",
@@ -1754,7 +1754,7 @@ export function buildSymphonyAgentRunArtifactsDiffDemoResult(
     ...result.run,
     runId: "run_456",
     threadId: "thread_456",
-    issueId: "issue_456",
+    trackerIssueId: "issue_456",
     issueIdentifier: "COL-166",
     startedAt: runStartedAt,
     endedAt: turn3EndedAt,
@@ -2390,7 +2390,7 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
 
   result.issue = {
     ...result.issue,
-    issueId: "issue_456",
+    trackerIssueId: "issue_456",
     issueIdentifier: "COL-166",
     latestRunStartedAt: runStartedAt,
     latestRunId: "run_456",
@@ -2411,7 +2411,7 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
   result.run = {
     ...result.run,
     runId: "run_456",
-    issueId: "issue_456",
+    trackerIssueId: "issue_456",
     issueIdentifier: "COL-166",
     attempt: 1,
     status: "finished",
@@ -2481,7 +2481,7 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
   result.deliveryReport = {
     reportId: "delivery_456",
     repositoryKey: DEFAULT_REPOSITORY_KEY,
-    issueId: "issue_456",
+    trackerIssueId: "issue_456",
     issueIdentifier: "COL-166",
     runId: "run_456",
     turnId: "turn_3",

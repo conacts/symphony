@@ -25,7 +25,7 @@ describe("symphony forensics contracts", () => {
         issues: [
           {
             repositoryKey: REPOSITORY_KEY,
-            issueId: "issue-1",
+            trackerIssueId: "issue-1",
             issueIdentifier: "COL-157",
             latestRunStartedAt: "2026-03-31T00:00:00.000Z",
             latestRunId: "run-1",
@@ -205,7 +205,7 @@ describe("symphony forensics contracts", () => {
       data: {
         issue: {
           repositoryKey: REPOSITORY_KEY,
-          issueId: "issue-1",
+          trackerIssueId: "issue-1",
           issueIdentifier: "COL-157",
           latestRunStartedAt: "2026-03-31T00:00:00.000Z",
           latestRunId: "run-1",
@@ -225,7 +225,7 @@ describe("symphony forensics contracts", () => {
         run: {
           runId: "run-1",
           repositoryKey: REPOSITORY_KEY,
-          issueId: "issue-1",
+          trackerIssueId: "issue-1",
           issueIdentifier: "COL-157",
           attempt: 1,
           status: "completed",
@@ -282,7 +282,7 @@ describe("symphony forensics contracts", () => {
         deliveryReport: {
           reportId: "report-1",
           repositoryKey: REPOSITORY_KEY,
-          issueId: "issue-1",
+          trackerIssueId: "issue-1",
           issueIdentifier: "COL-157",
           runId: "run-1",
           turnId: "turn-1",
@@ -362,7 +362,7 @@ describe("symphony forensics contracts", () => {
         },
         data: {
           issue: {
-            issueId: "issue-1",
+            trackerIssueId: "issue-1",
             issueIdentifier: "COL-157",
             latestRunStartedAt: "2026-03-31T00:00:00.000Z",
             latestRunId: "run-1",
@@ -381,7 +381,7 @@ describe("symphony forensics contracts", () => {
         },
           run: {
             runId: "run-1",
-            issueId: "issue-1",
+            trackerIssueId: "issue-1",
             issueIdentifier: "COL-157",
             attempt: 1,
             status: "completed",
@@ -421,7 +421,7 @@ describe("symphony forensics contracts", () => {
         },
         deliveryReport: {
           reportId: "report-1",
-          issueId: "issue-1",
+          trackerIssueId: "issue-1",
           issueIdentifier: "COL-157",
           runId: "run-1",
           turnId: "turn-1",
@@ -495,7 +495,7 @@ describe("symphony forensics contracts", () => {
         },
         data: {
           issue: {
-            issueId: "issue-1",
+            trackerIssueId: "issue-1",
             issueIdentifier: "COL-157",
             latestRunStartedAt: "2026-03-31T00:00:00.000Z",
             latestRunId: "run-1",
@@ -509,7 +509,7 @@ describe("symphony forensics contracts", () => {
           },
           run: {
             runId: "run-1",
-            issueId: "issue-1",
+            trackerIssueId: "issue-1",
             issueIdentifier: "COL-157",
             attempt: 1,
             status: "finished",
@@ -554,7 +554,7 @@ describe("symphony forensics contracts", () => {
         },
         data: {
           issue: {
-            issueId: "issue-1",
+            trackerIssueId: "issue-1",
             issueIdentifier: "COL-157",
             latestRunStartedAt: "2026-03-31T00:00:00.000Z",
             latestRunId: "run-1",
@@ -568,7 +568,7 @@ describe("symphony forensics contracts", () => {
           },
           run: {
             runId: "run-1",
-            issueId: "issue-1",
+            trackerIssueId: "issue-1",
             issueIdentifier: "COL-157",
             attempt: 1,
             status: "finished",
@@ -614,7 +614,7 @@ describe("symphony forensics contracts", () => {
         repositoryKey: REPOSITORY_KEY,
         issue: {
           repositoryKey: REPOSITORY_KEY,
-          issueId: "issue-1",
+          trackerIssueId: "issue-1",
           issueIdentifier: "COL-157",
           latestRunStartedAt: "2026-03-31T00:00:00.000Z",
           latestRunId: "run-1",
@@ -719,7 +719,7 @@ describe("symphony forensics contracts", () => {
         },
         data: {
           issue: {
-            issueId: "issue-1",
+            trackerIssueId: "issue-1",
             issueIdentifier: "COL-157",
             latestRunStartedAt: "2026-03-31T00:00:00.000Z",
             latestRunId: "run-1",
@@ -733,7 +733,7 @@ describe("symphony forensics contracts", () => {
           },
           run: {
             runId: "run-1",
-            issueId: "issue-1",
+            trackerIssueId: "issue-1",
             issueIdentifier: "COL-157",
             attempt: 1,
             status: "completed",

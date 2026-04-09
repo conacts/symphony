@@ -8,6 +8,7 @@ import { createSqliteRuntimeForensicsReadStore } from "./runtime-forensics-read-
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
 
 const tempDirectories: string[] = [];
+const testRepositoryKey = "openai/symphony";
 
 afterEach(async () => {
   await Promise.all(
@@ -32,7 +33,8 @@ describe("runtime forensics read store", () => {
       db: database.db
     });
     const deliveryStore = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const readStore = createSqliteRuntimeForensicsReadStore({
       db: database.db
@@ -41,6 +43,7 @@ describe("runtime forensics read store", () => {
     try {
       const runId = await runStore.recordRunStarted({
         runId: "run-runtime-1",
+        repositoryKey: testRepositoryKey,
         issueId: "issue-runtime-1",
         issueIdentifier: "COL-410",
         runMode: "implementation",

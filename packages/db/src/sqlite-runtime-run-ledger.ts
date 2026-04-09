@@ -85,7 +85,18 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
 
   async recordRunStarted(attrs: SymphonyRunStartAttrs): Promise<string> {
     return this.#runtimeRunStore.recordRunStarted({
-      ...attrs,
+      repositoryKey: requireRepositoryKey(attrs.repositoryKey),
+      issueId: attrs.issueId,
+      issueIdentifier: attrs.issueIdentifier,
+      runId: attrs.runId,
+      attempt: attrs.attempt,
+      runMode: attrs.runMode,
+      workerHost: attrs.workerHost,
+      workspacePath: attrs.workspacePath,
+      startedAt: attrs.startedAt,
+      commitHashStart: attrs.commitHashStart,
+      repoStart: attrs.repoStart,
+      metadata: attrs.metadata,
       status: normalizeRuntimeRunStatus(attrs.status, "running")
     });
   }
@@ -499,4 +510,12 @@ function castTurnExport(
       payload: event.payload as SymphonyRunExport["turns"][number]["events"][number]["payload"]
     }))
   };
+}
+
+function requireRepositoryKey(value: string | null | undefined): string {
+  if (typeof value === "string" && value.trim() !== "") {
+    return value.trim();
+  }
+
+  throw new TypeError("repositoryKey is required.");
 }

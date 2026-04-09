@@ -93,7 +93,7 @@ export type SymphonyRuntimeRunLedgerDocument = {
 };
 
 export type SymphonyRunStartAttrs = {
-  repositoryKey?: string;
+  repositoryKey: string;
   issueId: string;
   issueIdentifier: string;
   runId?: string;
@@ -177,7 +177,7 @@ export type SymphonyRunFinishAttrs = {
 };
 
 export type SymphonyIssueSummary = {
-  issueId: string;
+  trackerIssueId: string;
   repositoryKey: string;
   issueIdentifier: string;
   latestRunStartedAt: SymphonyIsoTimestamp | null;
@@ -194,7 +194,7 @@ export type SymphonyIssueSummary = {
 export type SymphonyRunSummary = {
   runId: string;
   repositoryKey: string;
-  issueId: string;
+  trackerIssueId: string;
   issueIdentifier: string;
   attempt: number | null;
   status: string | null;

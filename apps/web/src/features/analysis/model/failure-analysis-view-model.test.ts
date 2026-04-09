@@ -25,7 +25,7 @@ describe("failure analysis view model", () => {
           },
           {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
-            issueId: "issue_456",
+            trackerIssueId: "issue_456",
             issueIdentifier: "COL-166",
             latestProblemOutcome: "startup_failure",
             latestErrorClass: "workspace_boot_failure",
@@ -36,7 +36,7 @@ describe("failure analysis view model", () => {
           },
           {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
-            issueId: "issue_789",
+            trackerIssueId: "issue_789",
             issueIdentifier: "COL-167",
             latestProblemOutcome: "startup_failure",
             latestErrorClass: "workspace_boot_failure",
@@ -123,7 +123,7 @@ describe("failure analysis view model", () => {
             run: {
               ...buildSymphonyForensicsIssueDetailResult().runs[0]!,
               runId: "run_c",
-              issueId: "issue_456",
+              trackerIssueId: "issue_456",
               issueIdentifier: "COL-166",
               outcome: "startup_failed",
               errorClass: "startup_failure_runtime_prepare",
@@ -134,7 +134,7 @@ describe("failure analysis view model", () => {
               run: {
                 ...buildSymphonyAgentRunArtifactsResult().run,
                 runId: "run_c",
-                issueId: "issue_456",
+                trackerIssueId: "issue_456",
                 issueIdentifier: "COL-166"
               }
             })

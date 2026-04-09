@@ -19,6 +19,7 @@ import {
 } from "./index.js";
 
 const tempRoots: string[] = [];
+const testRepositoryKey = "openai/symphony";
 
 afterEach(async () => {
   await Promise.all(
@@ -400,10 +401,13 @@ async function createRuntimeToolsTestContext() {
   const database = initializeSymphonyDb({
     dbFile: path.join(root, "symphony.db")
   });
-  const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+  const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+    repositoryKey: testRepositoryKey
+  });
   const deliveryReports = createSymphonyIssueDeliveryReportStore({
     db: database.db,
-    timelineStore: issueTimelineStore
+    timelineStore: issueTimelineStore,
+    repositoryKey: testRepositoryKey
   });
 
   return {

@@ -10,7 +10,7 @@ export type SymphonyIssueDeliveryStatus = "completed" | "blocked" | "partial";
 export type SymphonyIssueDeliveryReportRecord = {
   reportId: string;
   repositoryKey: string;
-  issueId: string;
+  trackerIssueId: string;
   issueIdentifier: string;
   runId: string;
   turnId: string | null;
@@ -76,7 +76,7 @@ export function createSymphonyIssueDeliveryReportStore(input: {
 class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryReportStore {
   readonly #db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   readonly #timelineStore: SymphonyIssueTimelineStore;
-  readonly #repositoryKey: string;
+  readonly #repositoryKey: string | null;
 
   constructor(input: {
     db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
@@ -86,10 +86,7 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
     this.#db = input.db;
     this.#timelineStore =
       input.timelineStore ?? createSymphonyIssueTimelineStore(input.db);
-    this.#repositoryKey = sanitizeRequiredText(
-      input.repositoryKey ?? "default",
-      "repositoryKey"
-    );
+    this.#repositoryKey = sanitizeText(input.repositoryKey);
   }
 
   async record(input: {
@@ -123,13 +120,14 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
     if (input.status === "blocked" && !blockingReason) {
       throw new TypeError("Blocked delivery reports require blockingReason.");
     }
+    const repositoryKey = sanitizeRequiredText(
+      sanitizeText(input.repositoryKey) ?? this.#repositoryKey,
+      "repositoryKey"
+    );
 
     this.#db.insert(symphonyIssueDeliveryReportsTable).values({
       reportId,
-      repositoryKey: sanitizeRequiredText(
-        input.repositoryKey ?? this.#repositoryKey,
-        "repositoryKey"
-      ),
+      repositoryKey,
       issueId: sanitizeRequiredText(input.issueId, "issueId"),
       issueIdentifier: sanitizeRequiredText(input.issueIdentifier, "issueIdentifier"),
       runId: sanitizeRequiredText(input.runId, "runId"),
@@ -149,7 +147,7 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
 
     await this.#timelineStore.record({
       issueId: input.issueId,
-      repositoryKey: input.repositoryKey ?? this.#repositoryKey,
+      repositoryKey,
       issueIdentifier: input.issueIdentifier,
       runId: input.runId,
       turnId: input.turnId ?? null,
@@ -256,7 +254,7 @@ function mapDeliveryReportRecord(
   return {
     reportId: row.reportId,
     repositoryKey: row.repositoryKey,
-    issueId: row.issueId,
+    trackerIssueId: row.issueId,
     issueIdentifier: row.issueIdentifier,
     runId: row.runId,
     turnId: row.turnId ?? null,
@@ -297,7 +295,7 @@ function buildTimelineMessage(status: SymphonyIssueDeliveryStatus): string {
   }
 }
 
-function sanitizeRequiredText(value: string, field: string): string {
+function sanitizeRequiredText(value: string | null | undefined, field: string): string {
   const result = sanitizeText(value);
 
   if (!result) {

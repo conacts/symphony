@@ -203,8 +203,12 @@ export async function createSymphonyRuntimeTestHarness(input: {
   const database = initializeSymphonyDb({
     dbFile: path.join(root, "symphony.db")
   });
-  const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
-  const runtimeLogStore = createSymphonyRuntimeLogStore(database.db);
+  const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+    repositoryKey: runtimePolicy.github.repo ?? undefined
+  });
+  const runtimeLogStore = createSymphonyRuntimeLogStore(database.db, {
+    repositoryKey: runtimePolicy.github.repo ?? undefined
+  });
   const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db,
     timelineStore: issueTimelineStore

@@ -52,7 +52,7 @@ export function buildRuntimeRunSummary(
   return {
     runId: run.runId,
     repositoryKey: run.repositoryKey,
-    issueId: run.issueId,
+    trackerIssueId: run.issueId,
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
     status: run.status,
@@ -111,7 +111,7 @@ export function buildRuntimeIssueSummary(
   const lastCompletedRun = issueRuns.find((run) => isCompletedOutcome(run.outcome));
 
   return {
-    issueId: issue.issueId,
+    trackerIssueId: issue.issueId,
     repositoryKey: issue.repositoryKey,
     issueIdentifier: issue.issueIdentifier,
     latestRunStartedAt: issue.latestRunStartedAt ?? null,

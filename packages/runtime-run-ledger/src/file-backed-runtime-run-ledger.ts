@@ -76,7 +76,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
     await this.#mutate(async (document) => {
       const now = isoNow();
       const startedAt = normalizeIsoTimestamp(attrs.startedAt) ?? now;
-      const repositoryKey = attrs.repositoryKey ?? "default";
+      const repositoryKey = sanitizeRequiredText(attrs.repositoryKey, "repositoryKey");
 
       const nextIssue = upsertIssueRecord(document.issues, {
         issueId: attrs.issueId,
@@ -484,6 +484,19 @@ function parseTokenCount(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? Math.floor(value)
     : 0;
+}
+
+function sanitizeRequiredText(value: string | null | undefined, field: string): string {
+  const normalized =
+    typeof value === "string" && value.trim() !== ""
+      ? sanitizeText(value)
+      : null;
+
+  if (!normalized) {
+    throw new TypeError(`${field} is required.`);
+  }
+
+  return normalized;
 }
 
 function deriveItemType(
