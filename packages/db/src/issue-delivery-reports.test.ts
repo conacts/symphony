@@ -101,4 +101,90 @@ describe("issue delivery report store", () => {
       database.close();
     }
   });
+
+  it("fails fast when a delivery report loses its canonical issue row", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-delivery-invalid-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const store = createSymphonyIssueDeliveryReportStore({
+      db: database.db,
+      repositoryKey: testRepositoryKey
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      await runStore.recordRunStarted({
+        runId: "run-invalid",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-invalid",
+        issueIdentifier: "COL-999",
+        runMode: "implementation",
+        status: "running",
+        startedAt: "2026-04-05T17:59:00.000Z"
+      });
+      const reportId = await store.record({
+        runId: "run-invalid",
+        status: "partial",
+        summary: "Still working.",
+        reportedAt: "2026-04-05T18:05:00.000Z"
+      });
+
+      database.client.pragma("foreign_keys = OFF");
+      database.client.prepare(`
+        delete from symphony_issues
+        where issue_identifier = ?
+      `).run("COL-999");
+      database.client.pragma("foreign_keys = ON");
+
+      await expect(store.fetchLatestForRun("run-invalid")).rejects.toThrow(
+        `Issue not found for delivery report ${reportId}: COL-999`
+      );
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects completed delivery reports without a prUrl", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-delivery-prurl-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const store = createSymphonyIssueDeliveryReportStore({
+      db: database.db,
+      repositoryKey: testRepositoryKey
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      await runStore.recordRunStarted({
+        runId: "run-prurl",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-prurl",
+        issueIdentifier: "COL-1000",
+        runMode: "implementation",
+        status: "running",
+        startedAt: "2026-04-05T17:59:00.000Z"
+      });
+
+      await expect(
+        store.record({
+          runId: "run-prurl",
+          status: "completed",
+          summary: "Opened the PR.",
+          reportedAt: "2026-04-05T18:05:00.000Z"
+        })
+      ).rejects.toThrow("Completed delivery reports require prUrl.");
+    } finally {
+      database.close();
+    }
+  });
 });

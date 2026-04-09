@@ -117,20 +117,21 @@ class SqliteRuntimeForensicsReadStore implements SymphonyRuntimeForensicsReadSto
       issues.map((issue) => [issue.issueIdentifier, issue] as const)
     );
 
-    return runs.flatMap((run) => {
-      const issue = issueByIdentifier.get(run.issueIdentifier);
-      if (!issue) {
-        return [];
-      }
+    return runs.map((run) => {
+      const issue = requireIssueRecord(
+        issueByIdentifier.get(run.issueIdentifier),
+        run.runId,
+        run.issueIdentifier
+      );
 
-      return [buildForensicsRunSummary(
+      return buildForensicsRunSummary(
         issue,
         run,
         runtimeTurnsByRunId.get(run.runId) ?? [],
         runtimeEventsByRunId.get(run.runId) ?? [],
         deliveryByRunId.get(run.runId),
         runtimeContextByRunId.get(run.runId)
-      )];
+      );
     });
   }
 
@@ -205,9 +206,7 @@ class SqliteRuntimeForensicsReadStore implements SymphonyRuntimeForensicsReadSto
           .get()
       ]);
 
-    if (!issue) {
-      return null;
-    }
+    const resolvedIssue = requireIssueRecord(issue, runId, run.issueIdentifier);
 
     const runtimeContext = mapRuntimeRunContextRow(runtimeContextRow);
     const latestRunDelivery = issueDeliveryRows.find((row) => row.runId === runId) ?? null;
@@ -219,7 +218,7 @@ class SqliteRuntimeForensicsReadStore implements SymphonyRuntimeForensicsReadSto
       )
     );
     const runSummary = buildForensicsRunSummary(
-      issue,
+      resolvedIssue,
       mapPersistedRunRecord(run),
       turns,
       events,
@@ -228,7 +227,7 @@ class SqliteRuntimeForensicsReadStore implements SymphonyRuntimeForensicsReadSto
     );
 
     return {
-      issue: buildForensicsIssueExport(issue, issueRuns, issueDeliveryRows),
+      issue: buildForensicsIssueExport(resolvedIssue, issueRuns, issueDeliveryRows),
       run: {
         ...runSummary,
         threadId: runtimeContext.threadId ?? deriveRunThreadId(turns, events),
@@ -237,10 +236,7 @@ class SqliteRuntimeForensicsReadStore implements SymphonyRuntimeForensicsReadSto
         providerName: runtimeContext.providerName,
         reasoningEffort: runtimeContext.reasoningEffort,
         profile: runtimeContext.profile,
-        authMode:
-          runtimeContext.authMode === "auth_json" || runtimeContext.authMode === "api_key_env"
-            ? runtimeContext.authMode
-            : null,
+        authMode: normalizeForensicsAuthMode(runtimeContext.authMode),
         providerEnvKey: runtimeContext.providerEnvKey,
         launchTarget: runtimeContext.launchTarget,
         repoStart: castJsonObject(run.repoStart),
@@ -250,7 +246,7 @@ class SqliteRuntimeForensicsReadStore implements SymphonyRuntimeForensicsReadSto
         updatedAt: run.updatedAt
       },
       deliveryReport: latestRunDelivery
-        ? mapForensicsDeliveryReport(latestRunDelivery, issue)
+        ? mapForensicsDeliveryReport(latestRunDelivery, resolvedIssue)
         : null,
       turns: mappedTurns
     };
@@ -312,7 +308,10 @@ function buildForensicsRunSummary(
       runtimeSummary.inputTokens +
       computeCachedInputTokens(runtimeTurns) +
       runtimeSummary.outputTokens,
-    deliveryStatus: normalizeDeliveryStatus(deliveryReport?.status),
+    deliveryStatus: normalizeOptionalDeliveryStatus(
+      deliveryReport?.status,
+      "delivery report"
+    ),
     deliveryReportedAt: deliveryReport?.reportedAt ?? null,
     deliveryPrUrl: deliveryReport?.prUrl ?? null,
     machineLoad: buildRunMachineLoadSummary(run)
@@ -378,12 +377,15 @@ function buildForensicsIssueExport(
 
   return {
     ...summary,
-    latestDeliveryStatus: normalizeDeliveryStatus(latestDelivery?.status),
+    latestDeliveryStatus: normalizeOptionalDeliveryStatus(
+      latestDelivery?.status,
+      "delivery report"
+    ),
     latestDeliveryReportedAt: latestDelivery?.reportedAt ?? null,
     latestDeliveryRunId: latestDelivery?.runId ?? null,
     latestDeliveryPrUrl: latestDelivery?.prUrl ?? null,
     deliveredRunCount: Array.from(latestByRunId.values()).filter(
-      (row) => normalizeDeliveryStatus(row.status) === "completed"
+      (row) => normalizeOptionalDeliveryStatus(row.status, "delivery report") === "completed"
     ).length
   };
 }
@@ -413,7 +415,7 @@ function mapForensicsDeliveryReport(
     issueIdentifier: row.issueIdentifier,
     runId: row.runId,
     turnId: row.turnId ?? null,
-    status: normalizeDeliveryStatus(row.status) ?? "partial",
+    status: normalizeRequiredDeliveryStatus(row.status, "delivery report"),
     summary: row.summary,
     prUrl: row.prUrl ?? null,
     prNumber: row.prNumber ?? null,
@@ -508,6 +510,20 @@ function deriveFailureKind(run: typeof symphonyRunsTable.$inferSelect): string |
   return run.outcome && isProblemOutcome(run.outcome) ? run.outcome : null;
 }
 
+function requireIssueRecord(
+  issue: typeof symphonyIssuesTable.$inferSelect | undefined,
+  runId: string,
+  issueIdentifier: string
+): typeof symphonyIssuesTable.$inferSelect {
+  if (issue) {
+    return issue;
+  }
+
+  throw new TypeError(
+    `Run ${runId} is missing canonical issue ${issueIdentifier}.`
+  );
+}
+
 function groupRowsByRunId<T extends { runId: string }>(rows: T[]): Map<string, T[]> {
   const groups = new Map<string, T[]>();
 
@@ -556,26 +572,64 @@ function normalizeAgentRunStatus(
     case "finished":
       return "completed";
     default:
-      return null;
+      throw new TypeError(`Unknown agent run status: ${status}`);
   }
 }
 
-function normalizeDeliveryStatus(
-  status: string | null | undefined
+function normalizeOptionalDeliveryStatus(
+  status: string | null | undefined,
+  subject: string
 ): "completed" | "blocked" | "partial" | null {
+  if (status === null || status === undefined) {
+    return null;
+  }
+
   switch (status) {
     case "completed":
     case "blocked":
     case "partial":
       return status;
     default:
-      return null;
+      throw new TypeError(`Unknown ${subject} status: ${status}`);
+  }
+}
+
+function normalizeRequiredDeliveryStatus(
+  status: string | null | undefined,
+  subject: string
+): "completed" | "blocked" | "partial" {
+  const normalized = normalizeOptionalDeliveryStatus(status, subject);
+
+  if (normalized !== null) {
+    return normalized;
+  }
+
+  throw new TypeError(`Missing ${subject} status.`);
+}
+
+function normalizeForensicsAuthMode(
+  value: string | null
+): "auth_json" | "api_key_env" | null {
+  if (value === null) {
+    return null;
+  }
+
+  switch (value) {
+    case "auth_json":
+    case "api_key_env":
+      return value;
+    default:
+      throw new TypeError(`Unknown forensics auth mode: ${value}`);
   }
 }
 
 function normalizeEventItemType(
   value: string | null
 ): ForensicsEvent["itemType"] {
+  if (value === null) {
+    return null;
+  }
+
   switch (value) {
     case "agent_message":
     case "reasoning":
@@ -587,20 +641,24 @@ function normalizeEventItemType(
     case "error":
       return value;
     default:
-      return null;
+      throw new TypeError(`Unknown event item type: ${value}`);
   }
 }
 
 function normalizeEventItemStatus(
   value: string | null
 ): ForensicsEvent["itemStatus"] {
+  if (value === null) {
+    return null;
+  }
+
   switch (value) {
     case "in_progress":
     case "completed":
     case "failed":
       return value;
     default:
-      return null;
+      throw new TypeError(`Unknown event item status: ${value}`);
   }
 }
 

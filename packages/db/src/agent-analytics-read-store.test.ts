@@ -302,4 +302,44 @@ describe("sqlite agent analytics read store", () => {
       database.close();
     }
   });
+
+  it("fails fast when a runtime run loses its canonical issue row", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-invalid-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const readStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      await runStore.recordRunStarted({
+        runId: "run-invalid",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-invalid",
+        issueIdentifier: "COL-999",
+        runMode: "implementation",
+        startedAt: "2026-04-03T20:37:38.949Z",
+        status: "running"
+      });
+
+      database.client.pragma("foreign_keys = OFF");
+      database.client.prepare(`
+        delete from symphony_issues
+        where issue_identifier = ?
+      `).run("COL-999");
+      database.client.pragma("foreign_keys = ON");
+
+      await expect(readStore.listRuns()).rejects.toThrow(
+        "Run run-invalid is missing canonical issue COL-999."
+      );
+    } finally {
+      database.close();
+    }
+  });
 });

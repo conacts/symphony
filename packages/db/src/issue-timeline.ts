@@ -125,10 +125,8 @@ function normalizeSource(value: string): SymphonyIssueTimelineSource {
     case "workspace":
     case "runtime":
       return value;
-    case "codex":
-      return "agent";
     default:
-      return "runtime";
+      throw new TypeError(`Unknown issue timeline source: ${value}`);
   }
 }
 

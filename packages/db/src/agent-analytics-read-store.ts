@@ -187,20 +187,21 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
       issues.map((issue) => [issue.issueIdentifier, issue] as const)
     );
 
-    return runs.flatMap((run) => {
-      const issue = issueMap.get(run.issueIdentifier);
-      if (!issue) {
-        return [];
-      }
+    return runs.map((run) => {
+      const issue = requireIssueRecord(
+        issueMap.get(run.issueIdentifier),
+        run.runId,
+        run.issueIdentifier
+      );
 
-      return [buildForensicsRunSummary(
+      return buildForensicsRunSummary(
         issue,
         run,
         runtimeTurnsByRunId.get(run.runId) ?? [],
         mapEventRowsForRunSummary(eventRowsByRunId.get(run.runId) ?? []),
         deliveryMap.get(run.runId),
         runtimeContextMap.get(run.runId)
-      )];
+      );
     });
   }
 
@@ -265,11 +266,7 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
         providerName: data.runtimeContext.providerName,
         reasoningEffort: data.runtimeContext.reasoningEffort,
         profile: data.runtimeContext.profile,
-        authMode:
-          data.runtimeContext.authMode === "auth_json" ||
-          data.runtimeContext.authMode === "api_key_env"
-            ? data.runtimeContext.authMode
-            : null,
+        authMode: normalizeForensicsAuthMode(data.runtimeContext.authMode),
         providerEnvKey: data.runtimeContext.providerEnvKey,
         launchTarget: data.runtimeContext.launchTarget,
         repoStart: castJsonObject(data.run.repoStart),
@@ -724,7 +721,7 @@ function buildForensicsRunSummary(
     cachedInputTokens,
     outputTokens,
     totalTokens,
-    deliveryStatus: normalizeDeliveryStatus(deliveryReport?.status),
+    deliveryStatus: normalizeOptionalDeliveryStatus(deliveryReport?.status, "delivery report"),
     deliveryReportedAt: deliveryReport?.reportedAt ?? null,
     deliveryPrUrl: deliveryReport?.prUrl ?? null,
     machineLoad: buildRunMachineLoadSummary(run)
@@ -951,14 +948,31 @@ function buildForensicsIssueExport(
 
   return {
     ...summary,
-    latestDeliveryStatus: normalizeDeliveryStatus(latestDelivery?.status),
+    latestDeliveryStatus: normalizeOptionalDeliveryStatus(
+      latestDelivery?.status,
+      "delivery report"
+    ),
     latestDeliveryReportedAt: latestDelivery?.reportedAt ?? null,
     latestDeliveryRunId: latestDelivery?.runId ?? null,
     latestDeliveryPrUrl: latestDelivery?.prUrl ?? null,
     deliveredRunCount: Array.from(latestByRunId.values()).filter(
-      (row) => normalizeDeliveryStatus(row.status) === "completed"
+      (row) => normalizeOptionalDeliveryStatus(row.status, "delivery report") === "completed"
     ).length
   };
+}
+
+function requireIssueRecord(
+  issue: typeof symphonyIssuesTable.$inferSelect | undefined,
+  runId: string,
+  issueIdentifier: string
+): typeof symphonyIssuesTable.$inferSelect {
+  if (issue) {
+    return issue;
+  }
+
+  throw new TypeError(
+    `Run ${runId} is missing canonical issue ${issueIdentifier}.`
+  );
 }
 
 function buildLatestDeliveryReportByRunId(
@@ -986,7 +1000,7 @@ function mapForensicsDeliveryReport(
     issueIdentifier: row.issueIdentifier,
     runId: row.runId,
     turnId: row.turnId ?? null,
-    status: normalizeDeliveryStatus(row.status) ?? "partial",
+    status: normalizeRequiredDeliveryStatus(row.status, "delivery report"),
     summary: row.summary,
     prUrl: row.prUrl ?? null,
     prNumber: row.prNumber ?? null,
@@ -1014,7 +1028,7 @@ function normalizeAgentRunStatus(status: string): SymphonyAgentRunStatus {
     case "finished":
       return "completed";
     default:
-      return "running";
+      throw new TypeError(`Unknown agent run status: ${status}`);
   }
 }
 
@@ -1028,13 +1042,17 @@ function normalizeAgentTurnStatus(status: string): SymphonyAgentTurnStatus {
     case "finished":
       return "completed";
     default:
-      return "running";
+      throw new TypeError(`Unknown agent turn status: ${status}`);
   }
 }
 
 function normalizeItemLifecycleStatus(
   status: string | null
 ): SymphonyAgentItemLifecycleStatus | null {
+  if (status === null) {
+    return null;
+  }
+
   switch (status) {
     case "in_progress":
     case "completed":
@@ -1045,20 +1063,54 @@ function normalizeItemLifecycleStatus(
     case "finished":
       return "completed";
     default:
-      return null;
+      throw new TypeError(`Unknown agent item lifecycle status: ${status}`);
   }
 }
 
-function normalizeDeliveryStatus(
-  status: string | null | undefined
+function normalizeOptionalDeliveryStatus(
+  status: string | null | undefined,
+  subject: string
 ): "completed" | "blocked" | "partial" | null {
+  if (status === null || status === undefined) {
+    return null;
+  }
+
   switch (status) {
     case "completed":
     case "blocked":
     case "partial":
       return status;
     default:
-      return null;
+      throw new TypeError(`Unknown ${subject} status: ${status}`);
+  }
+}
+
+function normalizeRequiredDeliveryStatus(
+  status: string | null | undefined,
+  subject: string
+): "completed" | "blocked" | "partial" {
+  const normalized = normalizeOptionalDeliveryStatus(status, subject);
+
+  if (normalized !== null) {
+    return normalized;
+  }
+
+  throw new TypeError(`Missing ${subject} status.`);
+}
+
+function normalizeForensicsAuthMode(
+  value: string | null
+): "auth_json" | "api_key_env" | null {
+  if (value === null) {
+    return null;
+  }
+
+  switch (value) {
+    case "auth_json":
+    case "api_key_env":
+      return value;
+    default:
+      throw new TypeError(`Unknown forensics auth mode: ${value}`);
   }
 }
 
@@ -1183,9 +1235,22 @@ function mapAgentCommandExecutionRecord(
 
   return {
     ...rest,
-    status: normalizeItemLifecycleStatus(rest.status) ?? "in_progress",
+    status: normalizeRequiredItemLifecycleStatus(rest.status, "command execution"),
     resourceProfile: normalizeAgentCommandResourceProfile(resourceProfileJson)
   };
+}
+
+function normalizeRequiredItemLifecycleStatus(
+  status: string | null,
+  subject: string
+): SymphonyAgentItemLifecycleStatus {
+  const normalized = normalizeItemLifecycleStatus(status);
+
+  if (normalized !== null) {
+    return normalized;
+  }
+
+  throw new TypeError(`Missing ${subject} lifecycle status.`);
 }
 
 function normalizeAgentCommandResourceProfile(
@@ -1377,7 +1442,7 @@ function mapAgentToolCallRecords(
 
     return {
       ...row,
-      status: normalizeItemLifecycleStatus(row.status) ?? "in_progress",
+      status: normalizeRequiredItemLifecycleStatus(row.status, "tool call"),
       argumentsJson: (row.argumentsJson ?? null) as SymphonyAgentToolCallRecord["argumentsJson"],
       piRead:
         piRead === undefined
@@ -1837,9 +1902,7 @@ async function loadRunData(
       db.select().from(symphonyRunRuntimeContextTable).where(eq(symphonyRunRuntimeContextTable.runId, runId)).get()
     ]);
 
-  if (!issue) {
-    return null;
-  }
+  const resolvedIssue = requireIssueRecord(issue, runId, run.issueIdentifier);
 
   const overflowIds = [...new Set(
     eventRows
@@ -1889,7 +1952,7 @@ async function loadRunData(
 
   return {
     run,
-    issue,
+    issue: resolvedIssue,
     issueRuns,
     issueDeliveryRows,
     latestRunDelivery,

@@ -292,7 +292,7 @@ function normalizeStatus(value: string): SymphonyIssueDeliveryStatus {
     case "partial":
       return value;
     default:
-      return "partial";
+      throw new TypeError(`Unknown delivery report status: ${value}`);
   }
 }
 

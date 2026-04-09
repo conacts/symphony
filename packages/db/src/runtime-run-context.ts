@@ -60,7 +60,15 @@ export function mapRuntimeRunContextRow(
 }
 
 function normalizeHarnessKind(value: string | null | undefined): "pi" | null {
-  return value === "pi" ? "pi" : null;
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (value === "pi") {
+    return "pi";
+  }
+
+  throw new TypeError(`Unknown runtime harness kind: ${value}`);
 }
 
 function normalizeLaunchTarget(value: Record<string, unknown> | null): SymphonyRuntimeLaunchTarget | null {
@@ -87,5 +95,5 @@ function normalizeLaunchTarget(value: Record<string, unknown> | null): SymphonyR
     };
   }
 
-  return null;
+  throw new TypeError("Malformed runtime launch target.");
 }

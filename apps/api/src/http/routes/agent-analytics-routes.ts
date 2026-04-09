@@ -30,8 +30,9 @@ export function createAgentAnalyticsRoutes(
     const result = await services.agentAnalytics.fetchRunArtifacts(runId);
 
     if (!result) {
-      logAgentRunNotFound(c, "Agent run artifacts not found", runId);
-      throw createHttpError("NOT_FOUND", "Run not found.");
+      throw new TypeError(
+        `Agent run ${runId} exists but artifacts could not be loaded.`
+      );
     }
 
     c.get("logger").debug("Returning agent run artifacts", {

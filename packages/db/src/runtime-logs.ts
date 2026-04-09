@@ -129,7 +129,7 @@ function normalizeLevel(value: string): SymphonyRuntimeLogLevel {
     case "error":
       return value;
     default:
-      return "info";
+      throw new TypeError(`Unknown runtime log level: ${value}`);
   }
 }
 
