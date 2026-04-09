@@ -94,6 +94,8 @@ async function gitCapture(
           file: "docker",
           args: [
             "exec",
+            "--user",
+            launchTarget.user,
             "--workdir",
             launchTarget.runtimeWorkspacePath,
             launchTarget.containerName,

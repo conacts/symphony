@@ -270,7 +270,8 @@ function serializeRuntimeWorkspace(
       workspacePath: workspace.executionTarget.workspacePath,
       containerId: workspace.executionTarget.containerId,
       containerName: workspace.executionTarget.containerName,
-      hostPath: workspace.executionTarget.hostPath
+      hostPath: workspace.executionTarget.hostPath,
+      user: workspace.executionTarget.user
     },
     materialization: {
       ...workspace.materialization

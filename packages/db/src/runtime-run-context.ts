@@ -81,7 +81,8 @@ function normalizeLaunchTarget(value: Record<string, unknown> | null): SymphonyR
     typeof value.hostLaunchPath === "string" &&
     typeof value.runtimeWorkspacePath === "string" &&
     typeof value.containerName === "string" &&
-    typeof value.shell === "string"
+    typeof value.shell === "string" &&
+    typeof value.user === "string"
   ) {
     return {
       kind: "container",
@@ -91,7 +92,8 @@ function normalizeLaunchTarget(value: Record<string, unknown> | null): SymphonyR
       runtimeWorkspacePath: value.runtimeWorkspacePath,
       containerId: typeof value.containerId === "string" ? value.containerId : null,
       containerName: value.containerName,
-      shell: value.shell
+      shell: value.shell,
+      user: value.user
     };
   }
 

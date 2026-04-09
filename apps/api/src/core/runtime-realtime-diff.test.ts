@@ -156,7 +156,8 @@ describe("runtime realtime diff", () => {
               containerId: "container-123",
               containerName: "symphony-col-123",
               hostPath: workspacePath,
-              shell: "sh"
+              shell: "sh",
+              user: "1000:1000"
             },
             materialization: {
               kind: "bind_mount",
@@ -194,7 +195,8 @@ describe("runtime realtime diff", () => {
             runtimeWorkspacePath: "/workspace",
             containerId: "container-123",
             containerName: "symphony-col-123",
-            shell: "sh"
+            shell: "sh",
+            user: "1000:1000"
           },
           workerHost: "docker-host"
         }

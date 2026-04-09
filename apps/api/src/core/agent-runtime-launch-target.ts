@@ -53,7 +53,8 @@ export function resolveRuntimeLaunchTarget(
     runtimeWorkspacePath: runtimeLaunchPath,
     containerId: workspace.executionTarget.containerId,
     containerName,
-    shell
+    shell,
+    user: workspace.executionTarget.user
   };
 }
 

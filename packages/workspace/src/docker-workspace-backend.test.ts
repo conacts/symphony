@@ -239,7 +239,8 @@ describe("docker workspace backend", () => {
         containerId: "container-123",
         containerName: observedContainerName,
         hostPath: expectedHostPath,
-        shell: "bash"
+        shell: "bash",
+        user: expect.stringMatching(/^\d+:\d+$/)
       },
       materialization: {
         kind: "bind_mount",
@@ -272,6 +273,8 @@ describe("docker workspace backend", () => {
     expect(afterCreateCall?.args).toEqual(
       expect.arrayContaining([
         "exec",
+        "--user",
+        expect.stringMatching(/^\d+:\d+$/),
         "--env",
         "SYMPHONY_WORKSPACE_PATH=/workspace",
         "--env",
@@ -294,6 +297,10 @@ describe("docker workspace backend", () => {
         "SYMPHONY_GIT_USER_NAME=symphony",
         "--env",
         "SYMPHONY_GIT_USER_EMAIL=csheehan630@gmail.com",
+        "--env",
+        expect.stringMatching(/^SYMPHONY_RUNTIME_UID=\d+$/),
+        "--env",
+        expect.stringMatching(/^SYMPHONY_RUNTIME_GID=\d+$/),
         "--entrypoint",
         "bash",
         "ghcr.io/openai/symphony-workspace:latest",
@@ -682,7 +689,8 @@ describe("docker workspace backend", () => {
         /^symphony-workspace-col-207-[0-9a-f]{8}$/
       ),
       hostPath: null,
-      shell: "bash"
+      shell: "bash",
+      user: `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`
     });
     expect(workspace.materialization).toEqual({
       kind: "volume",
@@ -1027,7 +1035,8 @@ describe("docker workspace backend", () => {
             containerId: "container-203",
             containerName: "symphony-workspace-col-203-deadbeef",
             hostPath: workspacePath,
-            shell: "bash"
+            shell: "bash",
+            user: "1000:1000"
           },
           materialization: {
             kind: "bind_mount" as const,
@@ -2559,7 +2568,8 @@ function buildPreparedDockerWorkspace(input: {
       containerId: input.containerId,
       containerName: input.containerName,
       hostPath: input.hostPath,
-      shell: "sh"
+      shell: "sh",
+      user: "1000:1000"
     },
     materialization:
       materializationKind === "volume"

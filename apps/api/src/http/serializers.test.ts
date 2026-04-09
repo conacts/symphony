@@ -133,7 +133,8 @@ describe("runtime serializers", () => {
               containerId: "container-123",
               containerName: "symphony-col-123",
               hostPath: null,
-              shell: "sh"
+              shell: "sh",
+              user: "1000:1000"
             },
             materialization: {
               kind: "volume",
@@ -197,7 +198,8 @@ describe("runtime serializers", () => {
             runtimeWorkspacePath: "/workspace",
             containerId: "container-123",
             containerName: "symphony-col-123",
-            shell: "sh"
+            shell: "sh",
+            user: "1000:1000"
           },
           workspacePath: null,
           retryAttempt: 0,
@@ -287,7 +289,8 @@ describe("runtime serializers", () => {
         workspacePath: "/workspace",
         containerId: "container-123",
         containerName: "symphony-col-123",
-        hostPath: null
+        hostPath: null,
+        user: "1000:1000"
       },
       materialization: {
         kind: "volume",

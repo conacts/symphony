@@ -147,7 +147,8 @@ describe("pi model selection", () => {
         runtimeWorkspacePath: "/workspace",
         containerId: "container-123",
         containerName: "symphony-col-123",
-        shell: "sh"
+        shell: "sh",
+        user: "1000:1000"
       },
       env: {},
       logger: {

@@ -145,6 +145,8 @@ export function buildPiAppServerSpawnSpec(input: {
     args: [
       "exec",
       "-i",
+      "--user",
+      input.launchTarget.user,
       ...dockerEnvFlags({
         ...input.env,
         PI_CODING_AGENT_DIR: piAgentDir

@@ -295,7 +295,8 @@ function buildPreparedWorkspace(input: {
       hostPath: input.hostPath,
       containerId,
       containerName,
-      shell: input.shell
+      shell: input.shell,
+      user: "1000:1000"
     },
     materialization: {
       kind: "bind_mount",

@@ -74,7 +74,8 @@ export function buildSymphonyRuntimeStateResult(
       workspacePath: "/workspace",
       containerId: "container-166",
       containerName: "symphony-col-166",
-      hostPath: "/tmp/workspaces/col-166"
+      hostPath: "/tmp/workspaces/col-166",
+      user: "1000:1000"
     },
     materialization: {
       kind: "bind_mount",
@@ -95,7 +96,8 @@ export function buildSymphonyRuntimeStateResult(
       workspacePath: "/workspace",
       containerId: "container-165",
       containerName: "symphony-col-165",
-      hostPath: "/tmp/workspaces/col-165"
+      hostPath: "/tmp/workspaces/col-165",
+      user: "1000:1000"
     },
     materialization: {
       kind: "bind_mount",
@@ -111,7 +113,8 @@ export function buildSymphonyRuntimeStateResult(
     runtimeWorkspacePath: "/workspace",
     containerId: "container-165",
     containerName: "symphony-col-165",
-    shell: "sh"
+    shell: "sh",
+    user: "1000:1000"
   };
 
   const defaultRetryLaunchTarget: RetryLaunchTarget = {
@@ -121,7 +124,8 @@ export function buildSymphonyRuntimeStateResult(
     runtimeWorkspacePath: "/workspace",
     containerId: "container-166",
     containerName: "symphony-col-166",
-    shell: "sh"
+    shell: "sh",
+    user: "1000:1000"
   };
 
   const running = (overrides.running ?? [
@@ -284,7 +288,8 @@ export function buildSymphonyRuntimeIssueResult(
       workspacePath: "/workspace",
       containerId: "container-167",
       containerName: "symphony-col-167",
-      hostPath: "/tmp/symphony-COL-167"
+      hostPath: "/tmp/symphony-COL-167",
+      user: "1000:1000"
     },
     materialization: {
       kind: "bind_mount",
@@ -1016,7 +1021,8 @@ export function buildSymphonyForensicsRunDetailResult(
         runtimeWorkspacePath: "/workspace",
         containerId: "container-165",
         containerName: "symphony-col-165",
-        shell: "sh"
+        shell: "sh",
+        user: "1000:1000"
       },
       repoStart: {},
       repoEnd: {},
@@ -2467,7 +2473,8 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
       runtimeWorkspacePath: "/workspace",
       containerId: "container-166",
       containerName: "symphony-col-166",
-      shell: "sh"
+      shell: "sh",
+      user: "1000:1000"
     },
     repoStart: {},
     repoEnd: {},

@@ -21,7 +21,8 @@ import {
   dockerCommandError,
   dockerEnvFlags,
   dockerLabelFlags,
-  hostUserFlags,
+  dockerUserFlags,
+  requireHostUserSpec,
   isDockerMissingObject,
   resolveDockerTimeoutMs,
   sleep,
@@ -164,6 +165,7 @@ export function createDockerWorkspaceBackend(
         ...(options.hostFileMounts ?? []),
         ...(await resolveSourceRepoHostFileMounts(sourceRepoPath))
       ]);
+      const execUser = requireHostUserSpec();
       const created = await ensureMaterializedWorkspace({
         descriptor,
         commandRunner,
@@ -205,7 +207,8 @@ export function createDockerWorkspaceBackend(
         addHostGateway: services.requiresHostGateway,
         networkName: null,
         commandRunner,
-        timeoutMs
+        timeoutMs,
+        containerUser: execUser
       });
       // Copy runtime DB snapshot into volume-backed workspace
       if (runtimeDbSnapshotPath && descriptor.materialization.kind === "volume") {
@@ -225,6 +228,7 @@ export function createDockerWorkspaceBackend(
         shell,
         containerName: descriptor.containerName,
         workspacePath,
+        user: execUser,
         issueIdentifier: input.context.issueIdentifier,
         branchName:
           normalizeNonEmptyString(input.context.branchName ?? undefined) ?? null,
@@ -265,6 +269,7 @@ export function createDockerWorkspaceBackend(
           shell,
           containerName: descriptor.containerName,
           workspacePath,
+          user: execUser,
           command: input.hooks.afterCreate,
           context: input.context,
           workerHost: input.workerHost ?? null,
@@ -283,6 +288,7 @@ export function createDockerWorkspaceBackend(
               created,
               workspacePath,
               shell,
+              execUser,
               env: envBundle.values,
               services: services.summaries,
               statePath: manifestLifecycleStatePath,
@@ -298,6 +304,7 @@ export function createDockerWorkspaceBackend(
           (runtimeManifest?.manifest as { repositoryKey?: string } | undefined)
             ?.repositoryKey ?? null,
         containerId: container.container.id,
+        containerUser: execUser,
         workerHost: input.workerHost ?? null,
         workspacePath,
         shell,
@@ -333,6 +340,7 @@ export function createDockerWorkspaceBackend(
         shell,
         containerName: requireDockerContainerName(input.workspace),
         workspacePath: target.workspacePath,
+        user: target.user,
         command: input.hooks.beforeRun,
         context: input.context,
         workerHost: input.workerHost ?? null,
@@ -361,6 +369,7 @@ export function createDockerWorkspaceBackend(
           shell,
           containerName: requireDockerContainerName(input.workspace),
           workspacePath: target.workspacePath,
+          user: target.user,
           command: input.hooks.afterRun,
           context: input.context,
           workerHost: input.workerHost ?? null,
@@ -430,6 +439,10 @@ export function createDockerWorkspaceBackend(
               shell,
               containerName: descriptor.containerName,
               workspacePath: cleanupWorkspacePath,
+              user:
+                input.workspace?.executionTarget.kind === "container"
+                  ? input.workspace.executionTarget.user
+                  : requireHostUserSpec(),
               command: input.hooks.beforeRemove,
               context: {
                 trackerIssueId: null,
@@ -453,6 +466,10 @@ export function createDockerWorkspaceBackend(
             workspacePath: cleanupWorkspacePath,
             shell,
             running: container.running,
+            execUser:
+              input.workspace?.executionTarget.kind === "container"
+                ? input.workspace.executionTarget.user
+                : requireHostUserSpec(),
             env:
               input.workspace?.envBundle.values ??
               resolveDockerWorkspaceEnvBundle({
@@ -500,6 +517,10 @@ export function createDockerWorkspaceBackend(
               : workspacePath,
           shell,
           running: false,
+          execUser:
+            input.workspace?.executionTarget.kind === "container"
+              ? input.workspace.executionTarget.user
+              : requireHostUserSpec(),
           env:
             input.workspace?.envBundle.values ??
             resolveDockerWorkspaceEnvBundle({
@@ -656,6 +677,7 @@ async function hydrateWorkspaceFromMountedSourceRepo(input: {
   shell: string;
   containerName: string;
   workspacePath: string;
+  user: string;
   issueIdentifier: string;
   branchName: string | null;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
@@ -714,6 +736,7 @@ async function hydrateWorkspaceFromMountedSourceRepo(input: {
   const result = await input.commandRunner({
     args: [
       "exec",
+      ...dockerUserFlags(input.user),
       "--workdir",
       input.workspacePath,
       input.containerName,
@@ -794,6 +817,7 @@ async function runDockerPrepareManifestLifecycle(
     workspacePath: input.workspacePath,
     shell: input.shell,
     containerName: input.containerName,
+    execUser: input.execUser,
     env: input.env,
     commandRunner: input.commandRunner,
     defaultTimeoutMs: input.defaultTimeoutMs,
@@ -812,6 +836,7 @@ async function runDockerPrepareManifestLifecycle(
       workspacePath: input.workspacePath,
       shell: input.shell,
       containerName: input.containerName,
+      execUser: input.execUser,
       env: input.env,
       commandRunner: input.commandRunner,
       defaultTimeoutMs: input.defaultTimeoutMs,
@@ -848,6 +873,7 @@ async function ensureDockerWorkspaceDependenciesForBootstrap(input: {
   workspacePath: string;
   shell: string;
   containerName: string;
+  execUser: string;
   env: Record<string, string>;
   commandRunner: DockerWorkspaceCommandRunner;
   defaultTimeoutMs: number;
@@ -897,6 +923,7 @@ async function ensureDockerWorkspaceDependenciesForBootstrap(input: {
   const result = await input.commandRunner({
     args: [
       "exec",
+      ...dockerUserFlags(input.execUser),
       ...dockerEnvFlags(input.env),
       "--workdir",
       input.workspacePath,
@@ -966,6 +993,7 @@ async function runDockerCleanupManifestLifecycle(input: {
   workspacePath: string;
   shell: string;
   running: boolean;
+  execUser: string;
   env: Record<string, string>;
   commandRunner: DockerWorkspaceCommandRunner;
   defaultTimeoutMs: number;
@@ -981,6 +1009,7 @@ async function runDockerCleanupManifestLifecycle(input: {
     workspacePath: input.workspacePath,
     shell: input.shell,
     containerName: input.containerName,
+    execUser: input.execUser,
     env: input.env,
     commandRunner: input.commandRunner,
     defaultTimeoutMs: input.defaultTimeoutMs,
@@ -1076,6 +1105,7 @@ async function executeDockerManifestLifecyclePhase(input: {
   workspacePath: string;
   shell: string;
   containerName: string;
+  execUser: string;
   env: Record<string, string>;
   commandRunner: DockerWorkspaceCommandRunner;
   defaultTimeoutMs: number;
@@ -1131,6 +1161,7 @@ async function executeDockerManifestLifecyclePhase(input: {
       workspacePath: input.workspacePath,
       shell: input.shell,
       containerName: input.containerName,
+      execUser: input.execUser,
       env: input.env,
       commandRunner: input.commandRunner,
       defaultTimeoutMs: input.defaultTimeoutMs,
@@ -1193,6 +1224,7 @@ async function executeDockerManifestLifecycleStep(input: {
   workspacePath: string;
   shell: string;
   containerName: string;
+  execUser: string;
   env: Record<string, string>;
   commandRunner: DockerWorkspaceCommandRunner;
   defaultTimeoutMs: number;
@@ -1224,6 +1256,7 @@ async function executeDockerManifestLifecycleStep(input: {
 
   const args = [
     "exec",
+    ...dockerUserFlags(input.execUser),
     ...dockerEnvFlags(input.env),
     "--workdir",
     cwd,
@@ -2158,6 +2191,7 @@ async function ensureManagedContainer(input: {
   networkName: string | null;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
+  containerUser: string;
 }): Promise<{
   container: DockerContainerInspectState;
   disposition: DockerContainerPrepareDisposition;
@@ -2224,6 +2258,7 @@ async function startManagedContainer(input: {
   networkName: string | null;
   commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
+  containerUser: string;
 }): Promise<DockerContainerInspectState> {
   const hostFileMountsHash = buildHostFileMountsHash(input.hostFileMounts);
   const labels = {
@@ -2242,10 +2277,6 @@ async function startManagedContainer(input: {
     "--mount",
     renderHostFileMount(mount)
   ]);
-  const userFlags =
-    input.descriptor.materialization.kind === bindMaterializationKind
-      ? hostUserFlags()
-      : [];
   const args = [
     "run",
     "-d",
@@ -2263,19 +2294,22 @@ async function startManagedContainer(input: {
     `SYMPHONY_GIT_USER_NAME=${input.gitUserName}`,
     "--env",
     `SYMPHONY_GIT_USER_EMAIL=${input.gitUserEmail}`,
+    "--env",
+    `SYMPHONY_RUNTIME_UID=${input.containerUser.split(":", 1)[0]}`,
+    "--env",
+    `SYMPHONY_RUNTIME_GID=${input.containerUser.split(":")[1] ?? input.containerUser.split(":", 1)[0]}`,
     ...dockerEnvFlags(input.containerEnv),
     ...(input.addHostGateway
       ? ["--add-host", "host.docker.internal:host-gateway"]
       : []),
     ...hostFileMountArgs,
     ...(input.networkName ? ["--network", input.networkName] : []),
-    ...userFlags,
     ...dockerLabelFlags(labels),
     "--entrypoint",
     input.shell,
     input.image,
     "-lc",
-    'mkdir -p "$HOME" "$HOME/.config" "$HOME/.pi/agent" && if command -v git >/dev/null 2>&1; then git config --global user.name "$SYMPHONY_GIT_USER_NAME" && git config --global user.email "$SYMPHONY_GIT_USER_EMAIL"; fi && if command -v gh >/dev/null 2>&1; then gh auth setup-git >/dev/null 2>&1 || true; fi && while :; do sleep 3600; done'
+    'if [ -n "${SYMPHONY_RUNTIME_UID:-}" ]; then if ! getent passwd "$SYMPHONY_RUNTIME_UID" >/dev/null 2>&1; then echo "symphony:x:${SYMPHONY_RUNTIME_UID}:${SYMPHONY_RUNTIME_GID:-${SYMPHONY_RUNTIME_UID}}:Symphony Runtime:${HOME}:/bin/bash" >> /etc/passwd; fi; if ! getent group "${SYMPHONY_RUNTIME_GID:-${SYMPHONY_RUNTIME_UID}}" >/dev/null 2>&1; then echo "symphony:x:${SYMPHONY_RUNTIME_GID:-${SYMPHONY_RUNTIME_UID}}:" >> /etc/group; fi; fi && mkdir -p "$HOME" "$HOME/.config" "$HOME/.pi/agent" && if command -v git >/dev/null 2>&1; then git config --global user.name "$SYMPHONY_GIT_USER_NAME" && git config --global user.email "$SYMPHONY_GIT_USER_EMAIL"; fi && if command -v gh >/dev/null 2>&1; then gh auth setup-git >/dev/null 2>&1 || true; fi && while :; do sleep 3600; done'
   ];
   const result = await input.commandRunner({
     args,

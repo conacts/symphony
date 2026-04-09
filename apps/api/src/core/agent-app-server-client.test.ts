@@ -241,6 +241,9 @@ while [ "$#" -gt 0 ]; do
     -i)
       shift
       ;;
+    --user)
+      shift 2
+      ;;
     --env)
       printf 'ENV:%s\\n' "$2" >> "$trace_file"
       shift 2
@@ -327,7 +330,40 @@ done
 trace_file="${dockerTraceFile}"
 printf 'PWD:%s\\n' "$(pwd)" >> "$trace_file"
 printf 'ARGV:%s\\n' "$*" >> "$trace_file"
-exec "${scenario.fakePi}" "$@"
+if [ "$1" != "exec" ]; then
+  echo "unexpected docker command: $1" >&2
+  exit 99
+fi
+shift
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -i)
+      shift
+      ;;
+    --user)
+      shift 2
+      ;;
+    --env)
+      shift 2
+      ;;
+    --workdir)
+      shift 2
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+shift
+shell_bin="$1"
+shift
+if [ "$1" != "-lc" ]; then
+  echo "unexpected docker shell args" >&2
+  exit 98
+fi
+shift
+cd "${scenario.workspacePath}/apps/api"
+exec "$shell_bin" -lc "$1"
 `
     );
     process.env.PATH = `${root}:${process.env.PATH ?? ""}`;
@@ -955,6 +991,9 @@ while [ "$#" -gt 0 ]; do
     -i)
       shift
       ;;
+    --user)
+      shift 2
+      ;;
     --env)
       export "$2"
       shift 2
@@ -1118,7 +1157,8 @@ function buildContainerLaunchTarget(workspacePath: string) {
     runtimeWorkspacePath: "/workspace",
     containerId: "container-123",
     containerName: "symphony-col-123-container",
-    shell: "sh"
+    shell: "sh",
+    user: "1000:1000"
   };
 }
 

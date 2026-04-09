@@ -321,7 +321,8 @@ function createRunDetail(
         runtimeWorkspacePath: "/workspace",
         containerId: "container-1",
         containerName: "symphony-col-157",
-        shell: "sh"
+        shell: "sh",
+        user: "1000:1000"
       },
       repoStart: {
         dirty: true

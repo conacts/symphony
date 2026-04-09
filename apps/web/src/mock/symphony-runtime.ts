@@ -792,7 +792,8 @@ function buildRuntimeWorkspace(
       workspacePath: "/workspace",
       containerId: "container-local",
       containerName: "symphony-local",
-      hostPath: path
+      hostPath: path,
+      user: "1000:1000"
     },
     materialization: {
       kind: "bind_mount",
@@ -832,7 +833,8 @@ function buildDockerRuntimeWorkspace(input: {
       workspacePath: input.runtimePath,
       containerId: input.containerId,
       containerName: input.containerName,
-      hostPath: input.hostPath
+      hostPath: input.hostPath,
+      user: "1000:1000"
     },
     materialization: {
       kind: "bind_mount",
@@ -889,7 +891,8 @@ function buildContainerLaunchTarget(input: {
     runtimeWorkspacePath: input.runtimeWorkspacePath,
     containerId: input.containerId,
     containerName: input.containerName,
-    shell: input.shell
+    shell: input.shell,
+    user: "1000:1000"
   };
 }
 
@@ -1450,7 +1453,8 @@ export function buildMockRunDetailResult(
         runtimeWorkspacePath: "/workspace",
         containerId: `container_${run.runId}`,
         containerName: `symphony-${issue.issueIdentifier.toLowerCase()}`,
-        shell: "sh"
+        shell: "sh",
+        user: "1000:1000"
       },
       repoStart: {
         branch: `symphony/${issue.issueIdentifier}`

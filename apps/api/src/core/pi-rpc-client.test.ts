@@ -254,7 +254,8 @@ describe("PiRpcClient", () => {
         runtimeWorkspacePath: "/workspace",
         containerId: "container-1",
         containerName: "symphony-workspace",
-        shell: "/bin/bash"
+        shell: "/bin/bash",
+        user: "1000:1000"
       },
       env: {
         OPENROUTER_API_KEY: "test-key"
@@ -544,7 +545,8 @@ describe("PiRpcClient", () => {
         runtimeWorkspacePath: "/workspace",
         containerId: "container-1",
         containerName: "symphony-workspace",
-        shell: "/bin/bash"
+        shell: "/bin/bash",
+        user: "1000:1000"
       },
       env: {
         OPENROUTER_API_KEY: "test-key"
@@ -716,7 +718,8 @@ describe("PiRpcClient", () => {
         runtimeWorkspacePath: "/workspace",
         containerId: "container-2",
         containerName: "symphony-workspace",
-        shell: "/bin/bash"
+        shell: "/bin/bash",
+        user: "1000:1000"
       },
       env: {
         OPENROUTER_API_KEY: "test-key"
@@ -875,7 +878,8 @@ describe("PiRpcClient", () => {
         runtimeWorkspacePath: "/workspace",
         containerId: "container-3",
         containerName: "symphony-workspace",
-        shell: "/bin/bash"
+        shell: "/bin/bash",
+        user: "1000:1000"
       },
       env: {
         OPENROUTER_API_KEY: "test-key"
@@ -1025,7 +1029,8 @@ describe("PiRpcClient", () => {
         runtimeWorkspacePath: "/workspace",
         containerId: "container-4",
         containerName: "symphony-workspace",
-        shell: "/bin/bash"
+        shell: "/bin/bash",
+        user: "1000:1000"
       },
       env: {
         OPENROUTER_API_KEY: "test-key"
@@ -1186,7 +1191,8 @@ describe("PiRpcClient", () => {
         runtimeWorkspacePath: "/workspace",
         containerId: "container-5",
         containerName: "symphony-workspace",
-        shell: "/bin/bash"
+        shell: "/bin/bash",
+        user: "1000:1000"
       },
       env: {
         OPENROUTER_API_KEY: "test-key"

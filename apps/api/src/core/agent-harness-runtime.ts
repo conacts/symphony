@@ -837,7 +837,8 @@ function describeLaunchTarget(target: SymphonyRuntimeLaunchTarget): JsonObject {
     runtimeWorkspacePath: target.runtimeWorkspacePath,
     containerId: target.containerId,
     containerName: target.containerName,
-    shell: target.shell
+    shell: target.shell,
+    user: target.user
   };
 }
 

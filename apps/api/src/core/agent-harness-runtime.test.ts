@@ -2340,7 +2340,8 @@ exit 1
         runtimeWorkspacePath: "/workspace",
         containerId: "container-123",
         containerName: "symphony-col-123-container",
-        shell: "sh"
+        shell: "sh",
+        user: "1000:1000"
       }
     });
     expect(runtimeLogPayloads).toContainEqual(
@@ -2615,6 +2616,9 @@ while [ "$#" -gt 0 ]; do
     -i)
       shift
       ;;
+    --user)
+      shift 2
+      ;;
     --env)
       shift 2
       ;;
@@ -2689,7 +2693,8 @@ function buildBindMountPreparedWorkspace(
       containerId: "container-123",
       containerName: "symphony-col-123-container",
       hostPath: workspacePath,
-      shell: "sh"
+      shell: "sh",
+      user: "1000:1000"
     },
     materialization: {
       kind: "bind_mount" as const,
@@ -2724,7 +2729,8 @@ function buildContainerPreparedWorkspace(
       containerId: "container-123",
       containerName: "symphony-col-123-container",
       hostPath: hostWorkspacePath,
-      shell: "sh"
+      shell: "sh",
+      user: "1000:1000"
     },
     materialization:
       hostWorkspacePath === null

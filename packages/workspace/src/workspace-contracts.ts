@@ -172,6 +172,7 @@ export type WorkspaceExecutionTarget = {
   containerName: string | null;
   hostPath: string | null;
   shell: string;
+  user: string;
 };
 
 export type WorkspaceMaterializationMetadata =

@@ -86,7 +86,8 @@ describe("symphony runtime contracts", () => {
                 workspacePath: "/workspace",
                 containerId: "container-157",
                 containerName: "symphony-col-157",
-                hostPath: "/tmp/COL-157"
+                hostPath: "/tmp/COL-157",
+                user: "1000:1000"
               },
               materialization: {
                 kind: "bind_mount",
@@ -101,7 +102,8 @@ describe("symphony runtime contracts", () => {
               runtimeWorkspacePath: "/workspace",
               containerId: "container-157",
               containerName: "symphony-col-157",
-              shell: "sh"
+              shell: "sh",
+              user: "1000:1000"
             },
             turnCount: 3,
             lastEvent: "notification",
@@ -217,7 +219,8 @@ describe("symphony runtime contracts", () => {
             workspacePath: "/workspace",
             containerId: "container-157",
             containerName: "symphony-col-157",
-            hostPath: "/tmp/COL-157"
+            hostPath: "/tmp/COL-157",
+            user: "1000:1000"
           },
           materialization: {
             kind: "bind_mount",
@@ -240,7 +243,8 @@ describe("symphony runtime contracts", () => {
             runtimeWorkspacePath: "/workspace",
             containerId: "container-157",
             containerName: "symphony-col-157",
-            shell: "sh"
+            shell: "sh",
+            user: "1000:1000"
           },
           turnCount: 3,
           state: "In Progress",

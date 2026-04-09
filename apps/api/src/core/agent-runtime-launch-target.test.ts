@@ -24,7 +24,8 @@ describe("agent runtime launch target", () => {
             containerId: "container-123",
             containerName: "symphony-col-123",
             hostPath: "/tmp/symphony-COL-123",
-            shell: "bash"
+            shell: "bash",
+            user: "1000:1000"
           },
           materialization: {
             kind: "bind_mount",
@@ -48,7 +49,8 @@ describe("agent runtime launch target", () => {
       runtimeWorkspacePath: "/workspace",
       containerId: "container-123",
       containerName: "symphony-col-123",
-      shell: "bash"
+      shell: "bash",
+      user: "1000:1000"
     });
   });
 
@@ -69,7 +71,8 @@ describe("agent runtime launch target", () => {
             containerId: "container-123",
             containerName: "symphony-col-123",
             hostPath: "/tmp/symphony-COL-123",
-            shell: "bash"
+            shell: "bash",
+            user: "1000:1000"
           },
           materialization: {
             kind: "bind_mount",
@@ -94,7 +97,8 @@ describe("agent runtime launch target", () => {
       runtimeWorkspacePath: "/workspace/apps/api",
       containerId: "container-123",
       containerName: "symphony-col-123",
-      shell: "bash"
+      shell: "bash",
+      user: "1000:1000"
     });
   });
 
@@ -115,7 +119,8 @@ describe("agent runtime launch target", () => {
             containerId: "container-123",
             containerName: "symphony-col-123",
             hostPath: null,
-            shell: "sh"
+            shell: "sh",
+            user: "1000:1000"
           },
           materialization: {
             kind: "volume",
@@ -140,7 +145,8 @@ describe("agent runtime launch target", () => {
       runtimeWorkspacePath: "/workspace",
       containerId: "container-123",
       containerName: "symphony-col-123",
-      shell: "sh"
+      shell: "sh",
+      user: "1000:1000"
     });
   });
 
@@ -160,7 +166,8 @@ describe("agent runtime launch target", () => {
           containerId: "container-123",
           containerName: null,
           hostPath: "/tmp/symphony-COL-123",
-          shell: "sh"
+          shell: "sh",
+          user: "1000:1000"
         },
         materialization: {
           kind: "bind_mount",
@@ -194,7 +201,8 @@ describe("agent runtime launch target", () => {
           containerId: "container-123",
           containerName: "symphony-col-123",
           hostPath: "/tmp/symphony-COL-123",
-          shell: "sh"
+          shell: "sh",
+          user: "1000:1000"
         },
         materialization: {
           kind: "bind_mount",
@@ -228,7 +236,8 @@ describe("agent runtime launch target", () => {
           containerId: "container-123",
           containerName: "symphony-col-123",
           hostPath: "/tmp/symphony-COL-123",
-          shell: ""
+          shell: "",
+          user: "1000:1000"
         },
         materialization: {
           kind: "bind_mount",

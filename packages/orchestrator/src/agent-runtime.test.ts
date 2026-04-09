@@ -35,7 +35,8 @@ function buildAgentRunInput(): AgentRunInput {
         containerId: "container-123",
         containerName: "symphony-col-123",
         hostPath: "/tmp/symphony-runtime",
-        shell: "sh"
+        shell: "sh",
+        user: "1000:1000"
       },
       materialization: {
         kind: "bind_mount",

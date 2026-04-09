@@ -1,4 +1,4 @@
-import { dockerEnvFlags } from "./docker-client.js";
+import { dockerEnvFlags, dockerUserFlags } from "./docker-client.js";
 import type { DockerWorkspaceCommandRunner } from "./docker-shared.js";
 import type { SymphonyWorkspaceContext } from "./workspace-identity.js";
 import { SymphonyWorkspaceError } from "./workspace-identity.js";
@@ -9,6 +9,7 @@ export async function runWorkspaceHookInContainer(input: {
   shell: string;
   containerName: string;
   workspacePath: string;
+  user: string;
   command: string;
   context: SymphonyWorkspaceContext;
   workerHost: string | null;
@@ -16,6 +17,7 @@ export async function runWorkspaceHookInContainer(input: {
 }): Promise<void> {
   const args = [
     "exec",
+    ...dockerUserFlags(input.user),
     ...dockerEnvFlags(
       buildWorkspaceHookEnv(
         input.workspacePath,

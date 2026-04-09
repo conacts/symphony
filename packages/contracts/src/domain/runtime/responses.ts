@@ -192,7 +192,8 @@ export const symphonyRuntimeWorkspaceExecutionTargetSchema = z.discriminatedUnio
       workspacePath: nonEmptyStringSchema,
       containerId: nullableNonEmptyStringSchema,
       containerName: nullableNonEmptyStringSchema,
-      hostPath: nullableNonEmptyStringSchema
+      hostPath: nullableNonEmptyStringSchema,
+      user: nonEmptyStringSchema
     })
   ]
 );
@@ -244,7 +245,8 @@ export const symphonyRuntimeLaunchTargetSchema = z.discriminatedUnion("kind", [
     runtimeWorkspacePath: nonEmptyStringSchema,
     containerId: nullableNonEmptyStringSchema,
     containerName: nonEmptyStringSchema,
-    shell: nonEmptyStringSchema
+    shell: nonEmptyStringSchema,
+    user: nonEmptyStringSchema
   })
 ]);
 

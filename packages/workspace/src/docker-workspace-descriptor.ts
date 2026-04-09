@@ -107,6 +107,7 @@ export function buildPreparedWorkspace(input: {
   descriptor: DockerWorkspaceDescriptor;
   repositoryKey: string | null;
   containerId: string;
+  containerUser: string;
   workerHost: string | null;
   workspacePath: string;
   shell: string;
@@ -134,7 +135,8 @@ export function buildPreparedWorkspace(input: {
       containerId: input.containerId,
       containerName: input.descriptor.containerName,
       hostPath: workspaceDescriptorHostPath(input.descriptor),
-      shell: input.shell
+      shell: input.shell,
+      user: input.containerUser
     },
     materialization:
       input.descriptor.materialization.kind === bindMaterializationKind

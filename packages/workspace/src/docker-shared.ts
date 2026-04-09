@@ -189,6 +189,7 @@ export type DockerPrepareManifestLifecycleInput = {
   created: boolean;
   workspacePath: string;
   shell: string;
+  execUser: string;
   env: Record<string, string>;
   services: PreparedWorkspaceService[];
   statePath: string;

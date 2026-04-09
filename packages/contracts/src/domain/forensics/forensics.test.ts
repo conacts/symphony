@@ -256,7 +256,8 @@ describe("symphony forensics contracts", () => {
             runtimeWorkspacePath: "/workspace",
             containerId: "container-1",
             containerName: "symphony-col-157",
-            shell: "sh"
+            shell: "sh",
+            user: "1000:1000"
           },
           turnCount: 1,
           eventCount: 1,

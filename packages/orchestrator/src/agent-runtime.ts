@@ -14,6 +14,7 @@ export type AgentRuntimeLaunchTarget = {
   containerId: string | null;
   containerName: string;
   shell: string;
+  user: string;
 };
 
 export type AgentRunInput = {

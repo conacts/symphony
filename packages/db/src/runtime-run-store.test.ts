@@ -238,7 +238,8 @@ describe("runtime run delivery projections", () => {
           runtimeWorkspacePath: "/workspace",
           containerId: "container-311",
           containerName: "symphony-col-311",
-          shell: "sh"
+          shell: "sh",
+          user: "1000:1000"
         }
       });
       await runStore.upsertRunContext(runId, {
@@ -271,7 +272,8 @@ describe("runtime run delivery projections", () => {
           runtimeWorkspacePath: "/workspace",
           containerId: "container-311",
           containerName: "symphony-col-311",
-          shell: "sh"
+          shell: "sh",
+          user: "1000:1000"
         }
       });
     } finally {

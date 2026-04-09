@@ -336,6 +336,8 @@ function buildPiRpcSpawnArgs(
   return [
     "exec",
     "-i",
+    "--user",
+    input.launchTarget.user,
     ...Object.entries({
       ...input.env,
       PI_CODING_AGENT_DIR: piAgentDir

@@ -105,14 +105,34 @@ export function dockerEnvFlags(env: Record<string, string>): string[] {
 }
 
 export function hostUserFlags(): string[] {
+  return ["--user", requireHostUserSpec()];
+}
+
+export function hostUserSpec(): string | null {
   const uid = process.getuid?.();
   const gid = process.getgid?.();
 
   if (typeof uid !== "number" || typeof gid !== "number") {
-    return [];
+    return null;
   }
 
-  return ["--user", `${uid}:${gid}`];
+  return `${uid}:${gid}`;
+}
+
+export function requireHostUserSpec(): string {
+  const user = hostUserSpec();
+  if (user) {
+    return user;
+  }
+
+  throw new SymphonyWorkspaceError(
+    "workspace_missing_host_user",
+    "Docker workspace execution requires a resolvable host uid:gid."
+  );
+}
+
+export function dockerUserFlags(user: string): string[] {
+  return ["--user", user];
 }
 
 export function isDockerMissingObject(stderr: string): boolean {
@@ -443,7 +463,8 @@ async function runDockerExecCommand(
     Tty: false,
     Cmd: parsed.command,
     Env: Object.entries(parsed.env).map(([key, value]) => `${key}=${value}`),
-    WorkingDir: parsed.workdir ?? undefined
+    WorkingDir: parsed.workdir ?? undefined,
+    User: parsed.user ?? undefined
   };
 
   let lastError: unknown = null;
@@ -698,12 +719,14 @@ function parseDockerExecCommand(args: string[]): {
   command: string[];
   env: Record<string, string>;
   workdir: string | null;
+  user: string | null;
 } {
   const state = {
     containerName: "",
     command: [] as string[],
     env: {} as Record<string, string>,
-    workdir: null as string | null
+    workdir: null as string | null,
+    user: null as string | null
   };
 
   let index = 1;
@@ -723,6 +746,10 @@ function parseDockerExecCommand(args: string[]): {
         continue;
       case "--workdir":
         state.workdir = requireOptionValue(args, index, token);
+        index += 2;
+        continue;
+      case "--user":
+        state.user = requireOptionValue(args, index, token);
         index += 2;
         continue;
       default:
