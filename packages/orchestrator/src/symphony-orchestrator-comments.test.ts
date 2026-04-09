@@ -38,6 +38,45 @@ describe("buildFailureCommentBody", () => {
     expect(comment).toContain("Workspace policy: destroy.");
   });
 
+  it("uses stopped wording when the pause transition fails", () => {
+    const comment = buildFailureCommentBody(
+      issue,
+      "agent exited",
+      "paused_failure",
+      {
+        stateTransition: {
+          kind: "failed",
+          targetState: "Paused",
+          reason: "Tracker state remained `In Progress`."
+        },
+        workspaceCleanupMode: "preserve"
+      }
+    );
+
+    expect(comment).toContain("Symphony agent stopped after a runtime failure.");
+    expect(comment).not.toContain("Symphony agent paused after a runtime failure.");
+    expect(comment).toContain("Symphony could not move the issue to `Paused`");
+  });
+
+  it("uses stopped wording for rate-limit comments when the pause transition fails", () => {
+    const comment = buildFailureCommentBody(
+      issue,
+      "rate_limit_exceeded",
+      "rate_limited",
+      {
+        stateTransition: {
+          kind: "failed",
+          targetState: "Paused",
+          reason: "Tracker state remained `In Progress`."
+        },
+        workspaceCleanupMode: "preserve"
+      }
+    );
+
+    expect(comment).toContain("Symphony agent stopped after hitting a Pi rate limit.");
+    expect(comment).not.toContain("Symphony agent paused after hitting a Pi rate limit.");
+  });
+
   it("formats blocked implementation comments with blocker guidance", () => {
     const comment = buildFailureCommentBody(
       issue,

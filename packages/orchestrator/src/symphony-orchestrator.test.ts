@@ -1182,6 +1182,83 @@ describe("symphony orchestrator", () => {
     });
   });
 
+  it("describes runtime failures as stopped when the pause transition fails", async () => {
+    const config = buildSymphonyOrchestratorConfig({
+      tracker: {
+        ...buildSymphonyOrchestratorConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: []
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const baseTracker = createMemorySymphonyTracker([issue]);
+    const lifecycleEvents: string[] = [];
+    const tracker = baseTracker;
+    const updateIssueState = baseTracker.updateIssueState.bind(baseTracker);
+    tracker.updateIssueState = async (issueId: string, stateName: string) => {
+      if (stateName === "Paused") {
+        throw new Error("tracker unavailable");
+      }
+
+      await updateIssueState(issueId, stateName);
+    };
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push(input.eventType);
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 0);
+    await orchestrator.handleRunCompletion(issue.id, {
+      kind: "failure",
+      reason: "agent exited"
+    });
+
+    expect(baseTracker.getIssue(issue.id)?.state).toBe("In Progress");
+    expect(baseTracker.listOperations()).toEqual(
+      expect.arrayContaining([
+        {
+          kind: "comment",
+          issueId: issue.id,
+          body: expect.stringContaining("Symphony agent stopped after a runtime failure.")
+        },
+        {
+          kind: "comment",
+          issueId: issue.id,
+          body: expect.stringContaining("Symphony could not move the issue to `Paused`")
+        }
+      ])
+    );
+    expect(lifecycleEvents).toContain("pause_transition_failed");
+    expect(lifecycleEvents).toContain("workspace_preserved_after_run");
+  });
+
   it("formats startup-failure comments with moved-state guidance", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {

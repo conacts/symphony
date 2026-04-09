@@ -47,7 +47,7 @@ export function buildFailureCommentBody(
   options: SymphonyFailureCommentOptions = {}
 ): string {
   return [
-    failureCommentTitle(outcome, reason),
+    failureCommentTitle(outcome, reason, options.stateTransition),
     "",
     `Summary: ${failureCommentSummary(outcome, reason)}`,
     failureCommentDetailBlock(failureCommentDetails(reason, outcome, options)),
@@ -67,25 +67,37 @@ function truncateReason(reason: string, maxLength = 1_000): string {
   return `${reason.slice(0, maxLength)}...`;
 }
 
-function failureCommentTitle(outcome: string, reason: string): string {
+function failureCommentTitle(
+  outcome: string,
+  reason: string,
+  transition: SymphonyFailureStateTransition | undefined
+): string {
   if (outcome === "startup_failed") {
     return "Symphony agent startup failed.";
   }
 
   if (outcome === "paused_max_turns") {
-    return "Symphony agent paused after reaching max turns.";
+    return pauseTransitionSucceeded(transition)
+      ? "Symphony agent paused after reaching max turns."
+      : "Symphony agent stopped after reaching max turns.";
   }
 
   if (outcome === "paused_stalled") {
-    return "Symphony agent paused after the run stalled.";
+    return pauseTransitionSucceeded(transition)
+      ? "Symphony agent paused after the run stalled."
+      : "Symphony agent stopped after the run stalled.";
   }
 
   if (outcome === "paused_provider_transient") {
-    return "Symphony agent paused after repeated transient provider failures.";
+    return pauseTransitionSucceeded(transition)
+      ? "Symphony agent paused after repeated transient provider failures."
+      : "Symphony agent stopped after repeated transient provider failures.";
   }
 
   if (outcome === "paused_failure") {
-    return "Symphony agent paused after a runtime failure.";
+    return pauseTransitionSucceeded(transition)
+      ? "Symphony agent paused after a runtime failure."
+      : "Symphony agent stopped after a runtime failure.";
   }
 
   if (outcome === "blocked_repo") {
@@ -109,7 +121,9 @@ function failureCommentTitle(outcome: string, reason: string): string {
   }
 
   if (outcome === "rate_limited" || rateLimitReason(reason)) {
-    return "Symphony agent paused after hitting a Pi rate limit.";
+    return pauseTransitionSucceeded(transition)
+      ? "Symphony agent paused after hitting a Pi rate limit."
+      : "Symphony agent stopped after hitting a Pi rate limit.";
   }
 
   return "Symphony agent run failed.";
@@ -363,6 +377,12 @@ function startupFailureTransitionDetail(
   return truncateReason(
     `State transition to \`${transition.targetState}\` failed:\n${transition.reason}`
   );
+}
+
+function pauseTransitionSucceeded(
+  transition: SymphonyFailureStateTransition | undefined
+): boolean {
+  return transition?.kind === "moved";
 }
 
 function formatRateLimitDetail(
