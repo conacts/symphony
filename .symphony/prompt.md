@@ -45,6 +45,8 @@ Suggested issue branch: {{ issue.branch_name }}
 
 ## Execution Style
 
+- Before editing a non-trivial feature, bug, or ticket, read and follow `.agents/skills/implement-from-ticket/SKILL.md`.
+- Use that skill to map the affected slice, answer the key design questions, choose the owning boundary, and define verification before writing code.
 - Read enough local context to make one clean patch before editing.
 - Keep the change targeted and avoid speculative refactors.
 - When behavior changes, add or update tests that reproduce the exact bug or flow.

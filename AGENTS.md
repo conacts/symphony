@@ -9,6 +9,12 @@
 - Preserve existing repo naming standards unless a real correctness issue requires a change.
 - Assert invariants aggressively when code reaches a state that should be impossible.
 
+## Required Skill
+
+- For any feature, bug fix, rework, or other non-trivial code change, read and follow `.agents/skills/implement-from-ticket/SKILL.md` before editing.
+- This requirement applies to the primary agent and to subagents.
+- The only exceptions are purely informational requests and trivial mechanical edits with no behavior change.
+
 ## Data Model And Database
 
 - Fail fast. Required data should be required in the type system, at the API boundary, and in the database.
