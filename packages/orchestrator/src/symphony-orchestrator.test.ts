@@ -1439,4 +1439,239 @@ describe("symphony orchestrator", () => {
     });
     expect(orchestrator.snapshot().retrying).toHaveLength(0);
   });
+
+  describe("workflow transition flows", () => {
+    it("moves Todo issues into Bootstrapping and lets normal completion exit cleanly after In Review", async () => {
+      const harness = createFlowHarness();
+
+      await harness.orchestrator.runPollCycle();
+
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Progress");
+      expect(harness.tracker.listOperations()).toEqual(
+        expect.arrayContaining([
+          {
+            kind: "update_state",
+            issueId: harness.issue.id,
+            stateName: "Bootstrapping"
+          },
+          {
+            kind: "update_state",
+            issueId: harness.issue.id,
+            stateName: "In Progress"
+          }
+        ])
+      );
+
+      await harness.tracker.updateIssueState(harness.issue.id, "In Review");
+      await harness.orchestrator.handleRunCompletion(harness.issue.id, {
+        kind: "normal"
+      });
+
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Review");
+      expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+      expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
+      expect(harness.stoppedIssueIds).toEqual([]);
+    });
+
+    it("moves Bootstrapping startup failures back to Backlog", async () => {
+      const harness = createFlowHarness({
+        issue: {
+          state: "Bootstrapping"
+        },
+        config: {
+          tracker: {
+            claimTransitionToState: null,
+            claimTransitionFromStates: []
+          }
+        }
+      });
+
+      await harness.orchestrator.dispatchIssue(harness.issue, 0);
+      await harness.orchestrator.handleRunCompletion(harness.issue.id, {
+        kind: "startup_failure",
+        reason: "workspace bootstrap failed",
+        failureStage: "workspace_prepare",
+        failureOrigin: "workspace_lifecycle",
+        launchTarget: null
+      });
+
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Backlog");
+      expect(harness.tracker.listOperations()).toContainEqual({
+        kind: "update_state",
+        issueId: harness.issue.id,
+        stateName: "Backlog"
+      });
+      expect(harness.lifecycleEvents).toContain("runtime_startup_failed");
+      expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
+      expect(harness.lifecycleEvents).toContain("docker_container_removed");
+    });
+
+    it("moves failed in-progress runs into Paused", async () => {
+      const harness = createFlowHarness({
+        issue: {
+          state: "In Progress"
+        },
+        config: {
+          tracker: {
+            claimTransitionToState: null,
+            claimTransitionFromStates: []
+          }
+        }
+      });
+
+      await harness.orchestrator.dispatchIssue(harness.issue, 0);
+      await harness.orchestrator.handleRunCompletion(harness.issue.id, {
+        kind: "failure",
+        reason: "agent exited"
+      });
+
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Paused");
+      expect(harness.tracker.listOperations()).toContainEqual({
+        kind: "update_state",
+        issueId: harness.issue.id,
+        stateName: "Paused"
+      });
+      expect(harness.lifecycleEvents).toContain("pause_transition");
+      expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+    });
+
+    it("stops and destroys runs that move into Approved even though Approved is not terminal", async () => {
+      const harness = createFlowHarness({
+        issue: {
+          state: "In Progress"
+        },
+        config: {
+          tracker: {
+            claimTransitionToState: null,
+            claimTransitionFromStates: []
+          }
+        }
+      });
+
+      await harness.orchestrator.dispatchIssue(harness.issue, 0);
+      await harness.tracker.updateIssueState(harness.issue.id, "Approved");
+      await harness.orchestrator.reconcileRunningIssues();
+
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Approved");
+      expect(harness.stoppedIssueIds).toEqual([harness.issue.id]);
+      expect(harness.lifecycleEvents).toContain("run_stopped_inactive");
+      expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
+      expect(harness.lifecycleEvents).toContain("docker_container_removed");
+    });
+
+    it("stops and destroys runs that move into Canceled", async () => {
+      const harness = createFlowHarness({
+        issue: {
+          state: "In Progress"
+        },
+        config: {
+          tracker: {
+            claimTransitionToState: null,
+            claimTransitionFromStates: []
+          }
+        }
+      });
+
+      await harness.orchestrator.dispatchIssue(harness.issue, 0);
+      await harness.tracker.updateIssueState(harness.issue.id, "Canceled");
+      await harness.orchestrator.reconcileRunningIssues();
+
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Canceled");
+      expect(harness.stoppedIssueIds).toEqual([harness.issue.id]);
+      expect(harness.lifecycleEvents).toContain("run_stopped_terminal");
+      expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
+      expect(harness.lifecycleEvents).toContain("docker_container_removed");
+    });
+
+    it("re-dispatches Rework issues through Bootstrapping and leaves a handoff comment", async () => {
+      const harness = createFlowHarness({
+        issue: {
+          state: "Rework"
+        }
+      });
+
+      await harness.orchestrator.runPollCycle();
+
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Progress");
+      expect(harness.tracker.listOperations()).toEqual(
+        expect.arrayContaining([
+          {
+            kind: "update_state",
+            issueId: harness.issue.id,
+            stateName: "Bootstrapping"
+          },
+          {
+            kind: "comment",
+            issueId: harness.issue.id,
+            body: expect.stringContaining("moved it from `Rework` to `Bootstrapping`")
+          },
+          {
+            kind: "update_state",
+            issueId: harness.issue.id,
+            stateName: "In Progress"
+          }
+        ])
+      );
+    });
+  });
 });
+
+function createFlowHarness(input: {
+  issue?: Parameters<typeof buildSymphonyTrackerIssue>[0];
+  config?: Parameters<typeof buildSymphonyOrchestratorConfig>[0];
+} = {}) {
+  const config = buildSymphonyOrchestratorConfig(input.config);
+  const issue = buildSymphonyTrackerIssue(input.issue);
+  const tracker = createMemorySymphonyTracker([issue]);
+  const lifecycleEvents: string[] = [];
+  const stoppedIssueIds: string[] = [];
+
+  const orchestrator = new SymphonyOrchestrator({
+    config,
+    tracker,
+    workspaceBackend: createTestWorkspaceBackend({
+      commandRunner: async () => ({
+        exitCode: 0,
+        stdout: "",
+        stderr: ""
+      })
+    }),
+    agentRuntime: createAgentRuntime({
+      async startRun() {
+        return {
+          sessionId: "thread-1",
+          workerHost: null,
+          launchTarget: null
+        };
+      },
+      async stopRun({ issue: stoppedIssue }) {
+        stoppedIssueIds.push(stoppedIssue.id);
+      }
+    }),
+    observer: {
+      startRun() {
+        return "run-1";
+      },
+      recordLifecycleEvent(input) {
+        lifecycleEvents.push(input.eventType);
+        return;
+      },
+      finalizeRun() {
+        return;
+      }
+    },
+    clock: {
+      now: () => new Date("2026-03-31T00:00:00.000Z"),
+      nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+    }
+  });
+
+  return {
+    config,
+    issue,
+    tracker,
+    lifecycleEvents,
+    stoppedIssueIds,
+    orchestrator
+  };
+}

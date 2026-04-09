@@ -206,7 +206,7 @@ export class SymphonyOrchestrator {
       }
 
       if (issueMatchesTerminalState(refreshedIssue, this.#config.tracker)) {
-        await this.#terminateRunningIssue(issueId, true);
+        await this.#terminateRunningIssue(issueId, true, refreshedIssue);
         continue;
       }
 
@@ -217,7 +217,7 @@ export class SymphonyOrchestrator {
           this.#config.tracker
         )
       ) {
-        await this.#terminateRunningIssue(issueId, true);
+        await this.#terminateRunningIssue(issueId, true, refreshedIssue);
         continue;
       }
 
@@ -941,28 +941,31 @@ export class SymphonyOrchestrator {
 
   async #terminateRunningIssue(
     issueId: string,
-    cleanupWorkspace: boolean
+    cleanupWorkspace: boolean,
+    refreshedIssue?: SymphonyTrackerIssue
   ): Promise<void> {
     const runningEntry = this.#state.running[issueId];
     if (!runningEntry) {
       return;
     }
 
+    const effectiveIssue = refreshedIssue ?? runningEntry.issue;
+
     const stopReason = issueMatchesTerminalState(
-      runningEntry.issue,
+      effectiveIssue,
       this.#config.tracker
     )
       ? "terminal"
       : "inactive";
 
     await this.#agentRuntime.stopRun({
-      issue: runningEntry.issue,
+      issue: effectiveIssue,
       workspace: runningEntry.workspace,
       cleanupWorkspace
     });
 
     await this.#observer?.recordLifecycleEvent({
-      issue: runningEntry.issue,
+      issue: effectiveIssue,
       runId: runningEntry.runId,
       source: "orchestrator",
       eventType:
@@ -984,7 +987,7 @@ export class SymphonyOrchestrator {
         workspaceBackend: this.#workspaceBackend,
         config: this.#config,
         runnerEnv: this.#runnerEnv,
-        issue: runningEntry.issue,
+        issue: effectiveIssue,
         runId: runningEntry.runId,
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
