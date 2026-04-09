@@ -180,7 +180,7 @@ export function compareDescendingTimestamps(
 }
 
 export function isCompletedOutcome(outcome: string | null): boolean {
-  return outcome === "completed" || outcome === "completed_turn_batch";
+  return outcome === "completed" || outcome === "merged" || outcome === "done";
 }
 
 export function isProblemOutcome(outcome: string | null): boolean {

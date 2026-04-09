@@ -222,19 +222,25 @@ export function createDbBackedOrchestratorObserver(input: {
           }
         },
         errorClass:
-          completion.kind === "normal" ? null : completionErrorClass(completion),
+          isSuccessfulCompletion(completion) ? null : completionErrorClass(completion),
         errorMessage:
-          completion.kind === "normal" ? null : completion.reason
+          isSuccessfulCompletion(completion) ? null : completion.reason
       });
 
       await input.agentAnalytics.finalizeRun({
         runId,
         status: agentRunStatus(completion),
         endedAt,
-        failureKind: completion.kind === "normal" ? null : completion.kind,
-        failureOrigin: completion.kind === "startup_failure" ? "runtime" : "agent",
+        failureKind: isSuccessfulCompletion(completion) ? null : completion.kind,
+        failureOrigin: isSuccessfulCompletion(completion)
+          ? null
+          : completion.kind === "startup_failure"
+            ? "runtime"
+            : "agent",
         failureMessagePreview:
-          completion.kind === "normal" ? null : previewRuntimeFailure(completion.reason),
+          isSuccessfulCompletion(completion)
+            ? null
+            : previewRuntimeFailure(completion.reason),
         threadId: null
       });
     }
@@ -247,11 +253,21 @@ function previewRuntimeFailure(value: string): string {
 
 type ObserverWorkspaceMetadata = WorkspaceLifecycleMetadata | null;
 
+function isSuccessfulCompletion(
+  completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
+): completion is Extract<
+  Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"],
+  { kind: "delivered" | "merged" }
+> {
+  return completion.kind === "delivered" || completion.kind === "merged";
+}
+
 function completionStatus(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
 ): SymphonyRuntimeRunStatus {
   switch (completion.kind) {
-    case "normal":
+    case "delivered":
+    case "merged":
       return "finished";
     case "blocked":
       return "failed";
@@ -276,7 +292,8 @@ function agentRunStatus(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
 ): SymphonyAgentRunStatus {
   switch (completion.kind) {
-    case "normal":
+    case "delivered":
+    case "merged":
       return "completed";
     case "blocked":
       return "failed";
@@ -301,8 +318,10 @@ function completionOutcome(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
 ): string {
   switch (completion.kind) {
-    case "normal":
-      return "completed_turn_batch";
+    case "delivered":
+      return "completed";
+    case "merged":
+      return "merged";
     case "blocked":
       return "blocked";
     case "merge_blocked":
@@ -332,8 +351,10 @@ function completionErrorClass(
         : `startup_failure_${completion.failureOrigin}_${completion.failureStage}`;
     case "max_turns_reached":
       return "max_turns_reached";
-    case "normal":
-      return "normal";
+    case "delivered":
+      return "delivered";
+    case "merged":
+      return "merged";
     default:
       return completion.kind;
   }

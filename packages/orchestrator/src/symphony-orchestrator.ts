@@ -590,10 +590,26 @@ export class SymphonyOrchestrator {
       });
     }
 
+    let currentIssue = await this.#refreshIssue(runningEntry.issue);
+    let resolvedCompletion = completion;
+
+    if (
+      runningEntry.runMode === "approved_merge" &&
+      completion.kind === "merged"
+    ) {
+      const mergeResolution = await this.#resolveApprovedMergeSuccess({
+        runningEntry,
+        completion,
+        currentIssue
+      });
+      currentIssue = mergeResolution.currentIssue;
+      resolvedCompletion = mergeResolution.completion;
+    }
+
     await this.#observer?.finalizeRun({
       issue: runningEntry.issue,
       runId: runningEntry.runId,
-      completion,
+      completion: resolvedCompletion,
       workerHost: runningEntry.workerHost,
       workspace: runningEntry.workspace,
       startedAt: runningEntry.startedAt,
@@ -603,8 +619,6 @@ export class SymphonyOrchestrator {
       outputTokens: runningEntry.agentOutputTokens,
       totalTokens: runningEntry.agentTotalTokens
     });
-
-    let currentIssue = await this.#refreshIssue(runningEntry.issue);
     const cleanupMode = shouldDestroyWorkspaceForStoppedIssue(
       currentIssue,
       this.#config.tracker
@@ -612,7 +626,7 @@ export class SymphonyOrchestrator {
       ? "destroy"
       : "preserve";
 
-    if (completion.kind === "blocked") {
+    if (resolvedCompletion.kind === "blocked") {
       currentIssue = await this.#transitionIssueState({
         issue: currentIssue ?? runningEntry.issue,
         targetState: this.#config.tracker.blockedTransitionToState,
@@ -620,8 +634,8 @@ export class SymphonyOrchestrator {
         eventType: "blocked_transition",
         message: "Issue moved to Blocked after the run reported a repo or workspace blocker.",
         payload: {
-          reason: completion.reason,
-          completionKind: completion.kind
+          reason: resolvedCompletion.reason,
+          completionKind: resolvedCompletion.kind
         },
         swallowErrors: true
       });
@@ -631,7 +645,7 @@ export class SymphonyOrchestrator {
         runId: runningEntry.runId,
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
-        completionKind: completion.kind,
+        completionKind: resolvedCompletion.kind,
         mode: shouldDestroyWorkspaceForStoppedIssue(
           currentIssue ?? runningEntry.issue,
           this.#config.tracker
@@ -642,17 +656,25 @@ export class SymphonyOrchestrator {
       return;
     }
 
-    if (completion.kind === "normal" || completion.kind === "max_turns_reached") {
-      if (runningEntry.runMode === "approved_merge") {
+    if (
+      resolvedCompletion.kind === "delivered" ||
+      resolvedCompletion.kind === "merged" ||
+      resolvedCompletion.kind === "max_turns_reached"
+    ) {
+      if (
+        runningEntry.runMode === "approved_merge" &&
+        (resolvedCompletion.kind === "merged" ||
+          resolvedCompletion.kind === "max_turns_reached")
+      ) {
         await this.#handleApprovedMergeCompletion({
           runningEntry,
-          completion,
+          completion: resolvedCompletion,
           currentIssue
         });
         return;
       }
 
-      if (completion.kind === "max_turns_reached") {
+      if (resolvedCompletion.kind === "max_turns_reached") {
         currentIssue = await this.#transitionIssueState({
           issue: currentIssue ?? runningEntry.issue,
           targetState: this.#config.tracker.pauseTransitionToState,
@@ -660,7 +682,7 @@ export class SymphonyOrchestrator {
           eventType: "pause_transition",
           message: "Issue moved to the paused state after hitting the max-turn limit.",
           payload: {
-            reason: completion.reason
+            reason: resolvedCompletion.reason
           },
           swallowErrors: true
         });
@@ -668,7 +690,7 @@ export class SymphonyOrchestrator {
           tracker: this.#tracker,
           observer: this.#observer,
           issue: currentIssue ?? runningEntry.issue,
-          reason: completion.reason,
+          reason: resolvedCompletion.reason,
           outcome: "paused_max_turns",
           runId: runningEntry.runId,
           options: {
@@ -682,9 +704,9 @@ export class SymphonyOrchestrator {
         runId: runningEntry.runId,
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
-        completionKind: completion.kind,
+        completionKind: resolvedCompletion.kind,
         mode:
-          completion.kind === "max_turns_reached"
+          resolvedCompletion.kind === "max_turns_reached"
             ? shouldDestroyWorkspaceForStoppedIssue(
                 currentIssue ?? runningEntry.issue,
                 this.#config.tracker
@@ -696,7 +718,7 @@ export class SymphonyOrchestrator {
       return;
     }
 
-    if (completion.kind === "startup_failure") {
+    if (resolvedCompletion.kind === "startup_failure") {
       await this.#observer?.recordLifecycleEvent({
         issue: runningEntry.issue,
         runId: runningEntry.runId,
@@ -704,13 +726,13 @@ export class SymphonyOrchestrator {
         eventType: "runtime_startup_failed",
         message: "Agent runtime startup failed before the run became active.",
         payload: {
-          reason: completion.reason,
-          failureStage: completion.failureStage,
-          failureOrigin: completion.failureOrigin,
-          manifestLifecyclePhase: completion.manifestLifecyclePhase ?? null,
-          manifestLifecycleStepName: completion.manifestLifecycleStepName ?? null,
-          manifestLifecycle: completion.manifestLifecycle ?? null,
-          launchTarget: completion.launchTarget ?? runningEntry.launchTarget ?? null,
+          reason: resolvedCompletion.reason,
+          failureStage: resolvedCompletion.failureStage,
+          failureOrigin: resolvedCompletion.failureOrigin,
+          manifestLifecyclePhase: resolvedCompletion.manifestLifecyclePhase ?? null,
+          manifestLifecycleStepName: resolvedCompletion.manifestLifecycleStepName ?? null,
+          manifestLifecycle: resolvedCompletion.manifestLifecycle ?? null,
+          launchTarget: resolvedCompletion.launchTarget ?? runningEntry.launchTarget ?? null,
           workspace: buildWorkspaceLifecyclePayload(runningEntry.workspace)
         }
       });
@@ -723,24 +745,24 @@ export class SymphonyOrchestrator {
         issue: runningEntry.issue,
         workerHost: runningEntry.workerHost,
         workspace: runningEntry.workspace,
-        reason: completion.reason,
+        reason: resolvedCompletion.reason,
         runId: runningEntry.runId,
-        completion
+        completion: resolvedCompletion
       });
       return;
     }
 
     if (
-      completion.kind === "provider_transient" &&
+      resolvedCompletion.kind === "provider_transient" &&
       runningEntry.retryAttempt < maxProviderTransientRetries
     ) {
-      await this.#scheduleTransientProviderRetry(runningEntry, completion.reason);
+      await this.#scheduleTransientProviderRetry(runningEntry, resolvedCompletion.reason);
       await this.#cleanupStoppedRun({
         issue: currentIssue ?? runningEntry.issue,
         runId: runningEntry.runId,
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
-        completionKind: completion.kind,
+        completionKind: resolvedCompletion.kind,
         mode: "preserve"
       });
       return;
@@ -748,7 +770,7 @@ export class SymphonyOrchestrator {
 
     if (
       runningEntry.runMode === "approved_merge" &&
-      completion.kind === "merge_blocked"
+      resolvedCompletion.kind === "merge_blocked"
     ) {
       currentIssue = await this.#transitionIssueState({
         issue: currentIssue ?? runningEntry.issue,
@@ -757,8 +779,8 @@ export class SymphonyOrchestrator {
         eventType: "blocked_transition",
         message: "Issue moved to Blocked after merge automation reported a blocked merge result.",
         payload: {
-          reason: completion.reason,
-          completionKind: completion.kind,
+          reason: resolvedCompletion.reason,
+          completionKind: resolvedCompletion.kind,
           runMode: runningEntry.runMode
         },
         swallowErrors: true
@@ -769,7 +791,7 @@ export class SymphonyOrchestrator {
         runId: runningEntry.runId,
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
-        completionKind: completion.kind,
+        completionKind: resolvedCompletion.kind,
         mode: shouldDestroyWorkspaceForStoppedIssue(
           currentIssue,
           this.#config.tracker
@@ -782,7 +804,7 @@ export class SymphonyOrchestrator {
 
     if (
       runningEntry.runMode === "approved_merge" &&
-      (completion.kind === "failure" || completion.kind === "stalled")
+      (resolvedCompletion.kind === "failure" || resolvedCompletion.kind === "stalled")
     ) {
       currentIssue = await this.#transitionIssueState({
         issue: currentIssue ?? runningEntry.issue,
@@ -790,12 +812,12 @@ export class SymphonyOrchestrator {
         runId: runningEntry.runId,
         eventType: "blocked_transition",
         message:
-          completion.kind === "stalled"
+          resolvedCompletion.kind === "stalled"
             ? "Issue moved to Blocked after merge automation stalled."
             : "Issue moved to Blocked after merge automation could not complete safely.",
         payload: {
-          reason: completion.reason,
-          completionKind: completion.kind,
+          reason: resolvedCompletion.reason,
+          completionKind: resolvedCompletion.kind,
           runMode: runningEntry.runMode
         },
         swallowErrors: true
@@ -805,9 +827,9 @@ export class SymphonyOrchestrator {
         tracker: this.#tracker,
         observer: this.#observer,
         issue: currentIssue,
-        reason: completion.reason,
+        reason: resolvedCompletion.reason,
         outcome:
-          completion.kind === "stalled"
+          resolvedCompletion.kind === "stalled"
             ? "blocked_merge_stalled"
             : "blocked_merge_failure",
         runId: runningEntry.runId
@@ -818,7 +840,7 @@ export class SymphonyOrchestrator {
         runId: runningEntry.runId,
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
-        completionKind: completion.kind,
+        completionKind: resolvedCompletion.kind,
         mode: shouldDestroyWorkspaceForStoppedIssue(
           currentIssue,
           this.#config.tracker
@@ -835,16 +857,16 @@ export class SymphonyOrchestrator {
       runId: runningEntry.runId,
       eventType: "pause_transition",
       message:
-        completion.kind === "rate_limited"
+        resolvedCompletion.kind === "rate_limited"
           ? "Issue moved to the paused state after a provider rate limit."
-          : completion.kind === "provider_transient"
+          : resolvedCompletion.kind === "provider_transient"
             ? "Issue moved to the paused state after transient provider failures exhausted the retry budget."
-          : completion.kind === "stalled"
+          : resolvedCompletion.kind === "stalled"
             ? "Issue moved to the paused state after the run stalled."
             : "Issue moved to the paused state after a runtime failure.",
       payload: {
-        reason: completion.reason,
-        completionKind: completion.kind
+        reason: resolvedCompletion.reason,
+        completionKind: resolvedCompletion.kind
       },
       swallowErrors: true
     });
@@ -853,13 +875,13 @@ export class SymphonyOrchestrator {
       tracker: this.#tracker,
       observer: this.#observer,
       issue: currentIssue ?? runningEntry.issue,
-      reason: completion.reason,
+      reason: resolvedCompletion.reason,
       outcome:
-        completion.kind === "rate_limited"
+        resolvedCompletion.kind === "rate_limited"
           ? "rate_limited"
-          : completion.kind === "provider_transient"
+          : resolvedCompletion.kind === "provider_transient"
             ? "paused_provider_transient"
-          : completion.kind === "stalled"
+          : resolvedCompletion.kind === "stalled"
             ? "paused_stalled"
             : "paused_failure",
       runId: runningEntry.runId,
@@ -873,7 +895,7 @@ export class SymphonyOrchestrator {
       runId: runningEntry.runId,
       workspace: runningEntry.workspace,
       workerHost: runningEntry.workerHost,
-      completionKind: completion.kind,
+      completionKind: resolvedCompletion.kind,
       mode: shouldDestroyWorkspaceForStoppedIssue(
         currentIssue ?? runningEntry.issue,
         this.#config.tracker
@@ -998,26 +1020,13 @@ export class SymphonyOrchestrator {
     runningEntry: SymphonyOrchestratorState["running"][string];
     completion: Extract<
       SymphonyAgentRuntimeCompletion,
-      { kind: "normal" | "max_turns_reached" }
+      { kind: "merged" | "max_turns_reached" }
     >;
     currentIssue: SymphonyTrackerIssue | null;
   }): Promise<void> {
     let finalIssue = input.currentIssue ?? input.runningEntry.issue;
 
-    if (input.completion.kind === "normal") {
-      finalIssue = await this.#transitionIssueState({
-        issue: finalIssue,
-        targetState: "Done",
-        runId: input.runningEntry.runId,
-        eventType: "done_transition",
-        message: "Issue moved to Done after merge automation completed successfully.",
-        payload: {
-          completionKind: input.completion.kind,
-          runMode: input.runningEntry.runMode
-        },
-        swallowErrors: true
-      });
-    } else {
+    if (input.completion.kind === "max_turns_reached") {
       finalIssue = await this.#transitionIssueState({
         issue: finalIssue,
         targetState: this.#config.tracker.blockedTransitionToState,
@@ -1055,6 +1064,46 @@ export class SymphonyOrchestrator {
         ? "destroy"
         : "preserve"
     });
+  }
+
+  async #resolveApprovedMergeSuccess(input: {
+    runningEntry: SymphonyOrchestratorState["running"][string];
+    completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "merged" }>;
+    currentIssue: SymphonyTrackerIssue | null;
+  }): Promise<{
+    currentIssue: SymphonyTrackerIssue;
+    completion: SymphonyAgentRuntimeCompletion;
+  }> {
+    const issue = input.currentIssue ?? input.runningEntry.issue;
+
+    try {
+      const finalIssue = await this.#transitionIssueState({
+        issue,
+        targetState: "Done",
+        runId: input.runningEntry.runId,
+        eventType: "done_transition",
+        message: "Issue moved to Done after merge automation completed successfully.",
+        payload: {
+          completionKind: input.completion.kind,
+          runMode: input.runningEntry.runMode
+        }
+      });
+
+      return {
+        currentIssue: finalIssue,
+        completion: input.completion
+      };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+
+      return {
+        currentIssue: issue,
+        completion: {
+          kind: "failure",
+          reason: `Merge was recorded as merged, but Symphony could not move the issue to \`Done\`: ${reason}`
+        }
+      };
+    }
   }
 
   async #dispatchDueRetries(): Promise<void> {

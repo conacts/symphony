@@ -204,7 +204,7 @@ describe("symphony orchestrator", () => {
     expect(runningSnapshot.running[0]?.agentRuntimeProcessId).toBe("4242");
 
     await orchestrator.handleRunCompletion("issue-123", {
-      kind: "normal"
+      kind: "delivered"
     });
 
     const completedSnapshot = orchestrator.snapshot();
@@ -612,7 +612,7 @@ describe("symphony orchestrator", () => {
     await orchestrator.dispatchIssue(issue, 0);
     await tracker.updateIssueState(issue.id, "In Review");
     await orchestrator.handleRunCompletion(issue.id, {
-      kind: "normal"
+      kind: "delivered"
     });
 
     expect(lifecycleEvents).toContainEqual({
@@ -1465,7 +1465,7 @@ describe("symphony orchestrator", () => {
 
       await harness.tracker.updateIssueState(harness.issue.id, "In Review");
       await harness.orchestrator.handleRunCompletion(harness.issue.id, {
-        kind: "normal"
+        kind: "delivered"
       });
 
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Review");
@@ -1583,7 +1583,7 @@ describe("symphony orchestrator", () => {
 
       await harness.orchestrator.runPollCycle();
       await harness.orchestrator.handleRunCompletion(harness.issue.id, {
-        kind: "normal"
+        kind: "merged"
       });
 
       expect(harness.startRuns).toEqual([
@@ -1598,6 +1598,87 @@ describe("symphony orchestrator", () => {
       expect(harness.lifecycleEvents).toContain("done_transition");
       expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
       expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+    });
+
+    it("downgrades merged approved runs when the Done transition fails", async () => {
+      const config = buildSymphonyOrchestratorConfig({
+        tracker: {
+          claimTransitionToState: null,
+          claimTransitionFromStates: []
+        }
+      });
+      const issue = buildSymphonyTrackerIssue({
+        state: "Approved"
+      });
+      const baseTracker = createMemorySymphonyTracker([issue]);
+      const lifecycleEvents: string[] = [];
+      const tracker = baseTracker;
+      const updateIssueState = baseTracker.updateIssueState.bind(baseTracker);
+      tracker.updateIssueState = async (issueId: string, stateName: string) => {
+        if (stateName === "Done") {
+          throw new Error("tracker unavailable");
+        }
+
+        await updateIssueState(issueId, stateName);
+      };
+
+      const orchestrator = new SymphonyOrchestrator({
+        config,
+        tracker,
+        workspaceBackend: createTestWorkspaceBackend({
+          commandRunner: async () => ({
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          })
+        }),
+        agentRuntime: createAgentRuntime(),
+        observer: {
+          startRun() {
+            return "run-1";
+          },
+          recordLifecycleEvent(input) {
+            lifecycleEvents.push(input.eventType);
+            return;
+          },
+          finalizeRun() {
+            return;
+          }
+        },
+        clock: {
+          now: () => new Date("2026-03-31T00:00:00.000Z"),
+          nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+        }
+      });
+
+      await orchestrator.runPollCycle();
+      await orchestrator.handleRunCompletion(issue.id, {
+        kind: "merged"
+      });
+
+      expect(baseTracker.getIssue(issue.id)?.state).toBe("Blocked");
+      expect(baseTracker.listOperations()).toEqual(
+        expect.arrayContaining([
+          {
+            kind: "update_state",
+            issueId: issue.id,
+            stateName: "In Progress"
+          },
+          {
+            kind: "update_state",
+            issueId: issue.id,
+            stateName: "Blocked"
+          },
+          {
+            kind: "comment",
+            issueId: issue.id,
+            body: expect.stringContaining("could not move the issue to `Done`")
+          }
+        ])
+      );
+      expect(lifecycleEvents).toContain("approved_merge_transition");
+      expect(lifecycleEvents).toContain("done_transition_failed");
+      expect(lifecycleEvents).toContain("blocked_transition");
     });
 
     it("moves failed approved merge runs into Blocked", async () => {

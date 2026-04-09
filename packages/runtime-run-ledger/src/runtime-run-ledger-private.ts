@@ -16,7 +16,6 @@ import type { SymphonyAgentAnalyticsEvent } from "./agent-analytics-types.js";
 
 export const symphonyCompletedRunOutcomes = new Set([
   "completed",
-  "completed_turn_batch",
   "merged",
   "done"
 ]);

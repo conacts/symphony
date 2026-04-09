@@ -815,7 +815,7 @@ function deliveryCompletion(
       }
 
       return {
-        kind: "normal"
+        kind: "delivered"
       };
     case "blocked":
       if (
@@ -941,7 +941,7 @@ function mergeResultCompletion(
 ): SymphonyAgentRuntimeCompletion {
   if (mergeResult.status === "merged") {
     return {
-      kind: "normal"
+      kind: "merged"
     };
   }
 

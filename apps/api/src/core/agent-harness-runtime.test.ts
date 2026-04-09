@@ -134,7 +134,12 @@ describe("docker pi symphony agent runtime", () => {
             completion = result;
             await runStore.finalizeRun(runId, {
               status: "finished",
-              outcome: result.kind === "normal" ? "completed_turn_batch" : "failed",
+              outcome:
+                result.kind === "delivered"
+                  ? "completed"
+                  : result.kind === "merged"
+                    ? "merged"
+                    : "failed",
               endedAt: new Date().toISOString()
             });
             resolve();
@@ -424,7 +429,7 @@ done
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "normal"
+      kind: "delivered"
     });
 
     database.close();
@@ -1309,7 +1314,7 @@ done
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "normal"
+      kind: "merged"
     });
 
     const runDetail = await agentReadStore.fetchRunDetail(runId);
