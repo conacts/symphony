@@ -369,6 +369,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     defaultRepositoryKey: repositoryKey,
     runStore,
     issueTimelineStore,
+    runtimeLogs: runtimeLogStore,
     machineLoad
   });
   let runtimeRef: Pick<

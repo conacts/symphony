@@ -6,11 +6,11 @@ import {
   createTempSymphonySqliteHarness,
   renderSymphonyRuntimeManifestSource
 } from "@symphony/test-support";
+import { initializeSymphonyDb } from "@symphony/db";
 import {
   createSymphonyRuntimeAppServicesHarness,
   type SymphonyRuntimeAppServicesHarness
 } from "../test-support/create-symphony-runtime-app-services-harness.js";
-import { initializeSymphonyDb } from "@symphony/db";
 import {
   applyRuntimeManifestPiPolicy,
   buildWorkspaceBackendPayload
@@ -18,6 +18,11 @@ import {
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import { resolveDockerWorkspaceAuthContracts } from "./runtime-auth-contract.js";
+import { createSymphonyRuntimeTestHarness } from "../test-support/create-symphony-runtime-test-harness.js";
+import {
+  buildBootstrapInstallLifecycleEvent,
+  createRuntimeDbObserverTestSupport
+} from "../test-support/runtime-lifecycle-test-support.js";
 
 const harnesses: SymphonyRuntimeAppServicesHarness[] = [];
 const tempDirectories: string[] = [];
@@ -92,6 +97,54 @@ describe("runtime services", () => {
     },
     runtimeServicesIntegrationTestTimeoutMs
   );
+
+  it("queries mirrored lifecycle runtime logs by issue identifier through the forensics read model", async () => {
+    const harness = await createSymphonyRuntimeTestHarness();
+    const repositoryKey = harness.runtimePolicy.github.repo;
+
+    try {
+      if (!repositoryKey) {
+        throw new TypeError(
+          "Runtime test harness requires runtimePolicy.github.repo."
+        );
+      }
+
+      const { observer } = createRuntimeDbObserverTestSupport({
+        dbFile: path.join(harness.root, "symphony.db"),
+        repositoryKey
+      });
+
+      await observer.recordLifecycleEvent(
+        buildBootstrapInstallLifecycleEvent({
+          issue: harness.issue,
+          recordedAt: "2026-04-09T22:10:00.000Z"
+        })
+      );
+
+      const bundle = await harness.services.forensics.issueForensicsBundle(
+        harness.issue.identifier,
+        {
+          repo: repositoryKey,
+          timelineLimit: 20,
+          runtimeLogLimit: 20
+        }
+      );
+
+      expect(bundle?.runtimeLogs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            issueIdentifier: harness.issue.identifier,
+            runId: null,
+            source: "workspace",
+            eventType: "workspace_manifest_step_started",
+            message: "Manifest lifecycle step bootstrap/install started."
+          })
+        ])
+      );
+    } finally {
+      await harness.cleanup();
+    }
+  });
 
   it("fails fast when the source repo runtime manifest is missing", async () => {
     const fixture = await createRuntimeBootstrapFixture({

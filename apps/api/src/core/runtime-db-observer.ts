@@ -8,6 +8,8 @@ import {
 import type { JsonValue } from "@symphony/contracts";
 import type {
   SymphonyIssueTimelineStore,
+  SymphonyRuntimeLogStore,
+  SymphonyRuntimeLogLevel,
   SymphonyRuntimeRunStatus,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
@@ -20,6 +22,7 @@ export function createDbBackedOrchestratorObserver(input: {
   defaultRepositoryKey: string;
   runStore: SymphonyRuntimeRunStore;
   issueTimelineStore: SymphonyIssueTimelineStore;
+  runtimeLogs: SymphonyRuntimeLogStore;
   machineLoad?: RuntimeMachineLoadMonitor;
 }): SymphonyOrchestratorObserver {
   return {
@@ -59,6 +62,8 @@ export function createDbBackedOrchestratorObserver(input: {
       payload,
       recordedAt
     }) {
+      const normalizedPayload = normalizeJsonValue(payload);
+
       if (runId && source === "workspace") {
         const workspacePayload = extractWorkspaceMetadata(payload);
         if (workspacePayload) {
@@ -141,7 +146,18 @@ export function createDbBackedOrchestratorObserver(input: {
         source,
         eventType,
         message: message ?? null,
-        payload: normalizeJsonValue(payload),
+        payload: normalizedPayload,
+        recordedAt
+      });
+
+      await input.runtimeLogs.record({
+        level: runtimeLogLevelForLifecycleEvent(eventType),
+        source,
+        eventType,
+        message: message ?? eventType,
+        issueIdentifier: issue.identifier,
+        runId,
+        payload: normalizedPayload,
         recordedAt
       });
     },
@@ -375,4 +391,8 @@ function normalizeJsonValue(value: unknown): JsonValue {
   }
 
   return String(value);
+}
+
+function runtimeLogLevelForLifecycleEvent(eventType: string): SymphonyRuntimeLogLevel {
+  return eventType.endsWith("_failed") ? "error" : "info";
 }

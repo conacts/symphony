@@ -6,12 +6,12 @@ import {
   buildSymphonyGitHubPullRequestReviewPayload,
   signSymphonyGitHubWebhook
 } from "@symphony/test-support";
-import { runtimeReworkHandoffEventType } from "@symphony/runtime-contract";
-import type { MemorySymphonyTracker } from "@symphony/tracker";
 import {
   createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
+import { runtimeReworkHandoffEventType } from "@symphony/runtime-contract";
+import type { MemorySymphonyTracker } from "@symphony/tracker";
 import { createSymphonyRuntimeApp } from "./app.js";
 import type { SymphonyRuntimeTestHarness } from "../test-support/create-symphony-runtime-test-harness.js";
 import {
@@ -19,6 +19,10 @@ import {
   type SymphonyRuntimeAppServicesHarness
 } from "../test-support/create-symphony-runtime-app-services-harness.js";
 import { createSymphonyRuntimeTestHarness } from "../test-support/create-symphony-runtime-test-harness.js";
+import {
+  buildBootstrapInstallLifecycleEvent,
+  createRuntimeDbObserverTestSupport
+} from "../test-support/runtime-lifecycle-test-support.js";
 
 const harnesses: Array<
   SymphonyRuntimeTestHarness | SymphonyRuntimeAppServicesHarness
@@ -117,6 +121,71 @@ describe("@symphony/api app", () => {
     expect(refreshPayload.data.queued).toBe(true);
     expect(refreshPayload.data.coalesced).toBe(false);
     expect(refreshPayload.data.operations).toEqual(["poll", "reconcile"]);
+  });
+
+  it("serves mirrored bootstrap lifecycle runtime logs in the forensics bundle", async () => {
+    const harness = await createSymphonyRuntimeTestHarness({
+      issue: {
+        state: "In Review"
+      }
+    });
+    harnesses.push(harness);
+
+    const repositoryKey = harness.runtimePolicy.github.repo;
+    if (!repositoryKey) {
+      throw new TypeError("Runtime test harness requires runtimePolicy.github.repo.");
+    }
+
+    const { observer } = createRuntimeDbObserverTestSupport({
+      dbFile: `${harness.root}/symphony.db`,
+      repositoryKey
+    });
+
+    await observer.recordLifecycleEvent(
+      buildBootstrapInstallLifecycleEvent({
+        issue: harness.issue,
+        recordedAt: "2026-04-09T22:15:00.000Z"
+      })
+    );
+
+    const app = createSymphonyRuntimeApp(harness.services);
+    const response = await app.request(
+      `/api/v1/issues/${harness.issue.identifier}/forensics-bundle?repo=${encodeURIComponent(repositoryKey)}`
+    );
+    const payload = await responseJson<{
+      data: {
+        timeline: Array<{
+          eventType: string;
+        }>;
+        runtimeLogs: Array<{
+          issueIdentifier: string;
+          runId: string | null;
+          source: string;
+          eventType: string;
+          message: string;
+        }>;
+      };
+    }>(response);
+
+    expect(response.status).toBe(200);
+    expect(payload.data.timeline).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: "workspace_manifest_step_started"
+        })
+      ])
+    );
+    expect(payload.data.runtimeLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          issueIdentifier: harness.issue.identifier,
+          runId: null,
+          source: "workspace",
+          eventType: "workspace_manifest_step_started",
+          message: "Manifest lifecycle step bootstrap/install started."
+        })
+      ])
+    );
   });
 
   describe("read surfaces", () => {

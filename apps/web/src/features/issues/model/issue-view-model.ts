@@ -367,17 +367,42 @@ function buildIssueRunLabel(
 export function buildIssueActivityViewModel(
   input: SymphonyForensicsIssueForensicsBundleResult
 ): IssueActivityViewModel {
-  const activityRows = [
-    ...input.timeline.map((entry) => ({
-      entryId: `timeline:${entry.entryId}`,
-      recordedAt: entry.recordedAt,
-      source: formatSourceLabel(entry.source),
-      eventType: formatEventTypeLabel(entry.eventType),
-      runId: entry.runId,
-      message: entry.message ?? formatEventTypeLabel(entry.eventType) ?? "No message",
-      detail: prettyValue(entry.payload)
-    })),
-    ...input.runtimeLogs.map((entry) => ({
+  const timelineRows = input.timeline.map((entry) => ({
+    entryId: `timeline:${entry.entryId}`,
+    recordedAt: entry.recordedAt,
+    source: formatSourceLabel(entry.source),
+    eventType: formatEventTypeLabel(entry.eventType),
+    runId: entry.runId,
+    message: entry.message ?? formatEventTypeLabel(entry.eventType) ?? "No message",
+    detail: prettyValue(entry.payload)
+  }));
+  const timelineSignatures = new Set(
+    input.timeline.map((entry) =>
+      buildIssueActivityEntrySignature({
+        source: entry.source,
+        eventType: entry.eventType,
+        runId: entry.runId,
+        message: entry.message,
+        payload: entry.payload,
+        recordedAt: entry.recordedAt
+      })
+    )
+  );
+  const runtimeRows = input.runtimeLogs
+    .filter(
+      (entry) =>
+        !timelineSignatures.has(
+          buildIssueActivityEntrySignature({
+            source: entry.source,
+            eventType: entry.eventType,
+            runId: entry.runId,
+            message: entry.message,
+            payload: entry.payload,
+            recordedAt: entry.recordedAt
+          })
+        )
+    )
+    .map((entry) => ({
       entryId: `runtime:${entry.entryId}`,
       recordedAt: entry.recordedAt,
       source: formatSourceLabel(`runtime:${entry.source}`),
@@ -385,8 +410,8 @@ export function buildIssueActivityViewModel(
       runId: entry.runId,
       message: entry.message ?? formatEventTypeLabel(entry.eventType) ?? "No message",
       detail: prettyValue(entry.payload)
-    }))
-  ]
+    }));
+  const activityRows = [...timelineRows, ...runtimeRows]
     .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt))
     .map((row) => ({
       ...row,
@@ -428,4 +453,22 @@ export function buildIssueActivityViewModel(
           },
     activityRows
   };
+}
+
+function buildIssueActivityEntrySignature(input: {
+  source: string;
+  eventType: string;
+  runId: string | null;
+  message: string | null;
+  payload: unknown;
+  recordedAt: string;
+}) {
+  return JSON.stringify([
+    input.source,
+    input.eventType,
+    input.runId,
+    input.message,
+    input.recordedAt,
+    prettyValue(input.payload)
+  ]);
 }
