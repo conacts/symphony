@@ -76,10 +76,20 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         .get();
 
       if (existingIssue) {
+        if (existingIssue.repositoryKey !== repositoryKey) {
+          throw new TypeError(
+            `Issue ${attrs.issueIdentifier} is already bound to repository ${existingIssue.repositoryKey}, not ${repositoryKey}.`
+          );
+        }
+
+        if (existingIssue.trackerIssueId !== attrs.trackerIssueId) {
+          throw new TypeError(
+            `Issue ${attrs.issueIdentifier} is already bound to tracker issue ${existingIssue.trackerIssueId}, not ${attrs.trackerIssueId}.`
+          );
+        }
+
         tx.update(symphonyIssuesTable)
           .set({
-            repositoryKey,
-            trackerIssueId: attrs.trackerIssueId,
             latestRunStartedAt:
               compareDescendingTimestamps(startedAt, existingIssue.latestRunStartedAt) < 0
                 ? existingIssue.latestRunStartedAt

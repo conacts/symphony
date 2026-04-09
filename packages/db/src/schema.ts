@@ -1,5 +1,97 @@
-import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import {
+  check,
+  foreignKey,
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex
+} from "drizzle-orm/sqlite-core";
 import type { ThreadEvent } from "@symphony/agent-analytics";
+
+const runStatusValues = [
+  "dispatching",
+  "running",
+  "finished",
+  "paused",
+  "failed",
+  "startup_failed",
+  "rate_limited",
+  "stalled",
+  "stopped"
+] as const;
+
+const runOutcomeValues = [
+  "completed",
+  "merged",
+  "blocked",
+  "merge_blocked",
+  "paused_max_turns",
+  "startup_failed",
+  "rate_limited",
+  "provider_transient",
+  "stalled",
+  "failed",
+  "runtime_shutdown",
+  "run_stopped_inactive",
+  "run_stopped_terminal",
+  "delivered",
+  "max_turns_reached",
+  "blocked_repo",
+  "blocked_merge",
+  "blocked_merge_max_turns"
+] as const;
+
+const turnStatusValues = ["running", "completed", "failed", "stopped"] as const;
+const eventItemTypeValues = [
+  "agent_message",
+  "reasoning",
+  "command_execution",
+  "file_change",
+  "mcp_tool_call",
+  "web_search",
+  "todo_list",
+  "error"
+] as const;
+const eventItemStatusValues = ["in_progress", "completed", "failed"] as const;
+const issueTimelineSourceValues = [
+  "orchestrator",
+  "agent",
+  "tracker",
+  "workspace",
+  "runtime"
+] as const;
+const deliveryReportStatusValues = ["completed", "blocked", "partial"] as const;
+const deliveryReportSourceValues = ["pi", "runtime"] as const;
+const runtimeLogLevelValues = ["debug", "info", "warn", "error"] as const;
+const overflowKindValues = [
+  "agent_message",
+  "command_output",
+  "event_payload",
+  "projection_losses",
+  "raw_harness_payload",
+  "reasoning",
+  "tool_result"
+] as const;
+const itemLifecycleStatusValues = ["in_progress", "completed", "failed"] as const;
+const commandExecutionStatusValues = ["in_progress", "completed", "failed"] as const;
+const toolCallStatusValues = ["in_progress", "completed", "failed"] as const;
+const fileChangeKindValues = ["add", "delete", "update"] as const;
+const harnessKindValues = ["pi"] as const;
+const authModeValues = ["auth_json", "api_key_env"] as const;
+const taskSnapshotSourceKindValues = ["pi_queue_update", "todo_list_projection"] as const;
+const taskSnapshotStateValues = [
+  "pending",
+  "in_progress",
+  "completed",
+  "cancelled"
+] as const;
+
+function sqlEnum(values: readonly string[]) {
+  return sql.raw(values.map((value) => `'${value}'`).join(", "));
+}
 export const symphonyAgentEventLogTable = sqliteTable(
   "symphony_agent_event_log",
   {
@@ -58,6 +150,14 @@ export const symphonyAgentPayloadOverflowTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
+    kindCheck: check(
+      "symphony_agent_payload_overflow_kind_check",
+      sql`${table.kind} in (${sqlEnum(overflowKindValues)})`
+    ),
+    byteCountCheck: check(
+      "symphony_agent_payload_overflow_byte_count_check",
+      sql`${table.byteCount} >= 0`
+    ),
     runInsertedAtIdx: index("symphony_agent_payload_overflow_run_inserted_at_idx").on(
       table.runId,
       table.insertedAt
@@ -96,6 +196,18 @@ export const symphonyAgentItemsTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    itemTypeCheck: check(
+      "symphony_agent_items_item_type_check",
+      sql`${table.itemType} in (${sqlEnum(eventItemTypeValues)})`
+    ),
+    finalStatusCheck: check(
+      "symphony_agent_items_final_status_check",
+      sql`${table.finalStatus} is null or ${table.finalStatus} in (${sqlEnum(itemLifecycleStatusValues)})`
+    ),
+    updateCountCheck: check(
+      "symphony_agent_items_update_count_check",
+      sql`${table.updateCount} >= 1`
+    ),
     pk: primaryKey({
       columns: [table.runId, table.turnId, table.itemId],
       name: "symphony_agent_items_pk"
@@ -126,6 +238,10 @@ export const symphonyAgentCommandExecutionsTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    statusCheck: check(
+      "symphony_agent_command_executions_status_check",
+      sql`${table.status} in (${sqlEnum(commandExecutionStatusValues)})`
+    ),
     pk: primaryKey({
       columns: [table.runId, table.turnId, table.itemId],
       name: "symphony_agent_command_executions_pk"
@@ -155,6 +271,10 @@ export const symphonyAgentToolCallsTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    statusCheck: check(
+      "symphony_agent_tool_calls_status_check",
+      sql`${table.status} in (${sqlEnum(toolCallStatusValues)})`
+    ),
     pk: primaryKey({
       columns: [table.runId, table.turnId, table.itemId],
       name: "symphony_agent_tool_calls_pk"
@@ -191,6 +311,15 @@ export const piReadsTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    toolCallFk: foreignKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      foreignColumns: [
+        symphonyAgentToolCallsTable.runId,
+        symphonyAgentToolCallsTable.turnId,
+        symphonyAgentToolCallsTable.itemId
+      ],
+      name: "pi_reads_tool_call_fk"
+    }).onDelete("cascade"),
     pk: primaryKey({
       columns: [table.runId, table.turnId, table.itemId],
       name: "pi_reads_pk"
@@ -216,6 +345,15 @@ export const piEditsTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    toolCallFk: foreignKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      foreignColumns: [
+        symphonyAgentToolCallsTable.runId,
+        symphonyAgentToolCallsTable.turnId,
+        symphonyAgentToolCallsTable.itemId
+      ],
+      name: "pi_edits_tool_call_fk"
+    }).onDelete("cascade"),
     pk: primaryKey({
       columns: [table.runId, table.turnId, table.itemId],
       name: "pi_edits_pk"
@@ -241,6 +379,15 @@ export const piWritesTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    toolCallFk: foreignKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      foreignColumns: [
+        symphonyAgentToolCallsTable.runId,
+        symphonyAgentToolCallsTable.turnId,
+        symphonyAgentToolCallsTable.itemId
+      ],
+      name: "pi_writes_tool_call_fk"
+    }).onDelete("cascade"),
     pk: primaryKey({
       columns: [table.runId, table.turnId, table.itemId],
       name: "pi_writes_pk"
@@ -263,6 +410,15 @@ export const piGrepsTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    toolCallFk: foreignKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      foreignColumns: [
+        symphonyAgentToolCallsTable.runId,
+        symphonyAgentToolCallsTable.turnId,
+        symphonyAgentToolCallsTable.itemId
+      ],
+      name: "pi_greps_tool_call_fk"
+    }).onDelete("cascade"),
     pk: primaryKey({
       columns: [table.runId, table.turnId, table.itemId],
       name: "pi_greps_pk"
@@ -283,6 +439,15 @@ export const piFindsTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    toolCallFk: foreignKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      foreignColumns: [
+        symphonyAgentToolCallsTable.runId,
+        symphonyAgentToolCallsTable.turnId,
+        symphonyAgentToolCallsTable.itemId
+      ],
+      name: "pi_finds_tool_call_fk"
+    }).onDelete("cascade"),
     pk: primaryKey({
       columns: [table.runId, table.turnId, table.itemId],
       name: "pi_finds_pk"
@@ -305,6 +470,15 @@ export const symphonyAgentMessagesTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    itemFk: foreignKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      foreignColumns: [
+        symphonyAgentItemsTable.runId,
+        symphonyAgentItemsTable.turnId,
+        symphonyAgentItemsTable.itemId
+      ],
+      name: "symphony_agent_messages_item_fk"
+    }).onDelete("cascade"),
     pk: primaryKey({
       columns: [table.runId, table.turnId, table.itemId],
       name: "symphony_agent_messages_pk"
@@ -331,6 +505,15 @@ export const symphonyAgentReasoningTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    itemFk: foreignKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      foreignColumns: [
+        symphonyAgentItemsTable.runId,
+        symphonyAgentItemsTable.turnId,
+        symphonyAgentItemsTable.itemId
+      ],
+      name: "symphony_agent_reasoning_item_fk"
+    }).onDelete("cascade"),
     pk: primaryKey({
       columns: [table.runId, table.turnId, table.itemId],
       name: "symphony_agent_reasoning_pk"
@@ -364,6 +547,15 @@ export const piMessageEndsTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    itemFk: foreignKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      foreignColumns: [
+        symphonyAgentItemsTable.runId,
+        symphonyAgentItemsTable.turnId,
+        symphonyAgentItemsTable.itemId
+      ],
+      name: "pi_message_ends_item_fk"
+    }).onDelete("cascade"),
     pk: primaryKey({
       columns: [table.runId, table.turnId, table.itemId],
       name: "pi_message_ends_pk"
@@ -386,6 +578,19 @@ export const symphonyAgentFileChangesTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
+    changeKindCheck: check(
+      "symphony_agent_file_changes_change_kind_check",
+      sql`${table.changeKind} in (${sqlEnum(fileChangeKindValues)})`
+    ),
+    itemFk: foreignKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      foreignColumns: [
+        symphonyAgentItemsTable.runId,
+        symphonyAgentItemsTable.turnId,
+        symphonyAgentItemsTable.itemId
+      ],
+      name: "symphony_agent_file_changes_item_fk"
+    }).onDelete("cascade"),
     pk: primaryKey({
       columns: [table.runId, table.turnId, table.itemId, table.path],
       name: "symphony_agent_file_changes_pk"
@@ -408,6 +613,10 @@ export const symphonyIssuesTable = sqliteTable(
   (table) => ({
     trackerIssueIdIdx: uniqueIndex("symphony_issues_tracker_issue_id_idx").on(
       table.trackerIssueId
+    ),
+    issueRepositoryKeyIdx: uniqueIndex("symphony_issues_issue_repository_key_idx").on(
+      table.issueIdentifier,
+      table.repositoryKey
     ),
     repositoryKeyIdx: index("symphony_issues_repository_key_idx").on(table.repositoryKey),
     latestRunStartedAtIdx: index("symphony_issues_latest_run_started_at_idx").on(
@@ -450,6 +659,23 @@ export const symphonyRunsTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    issueBindingFk: foreignKey({
+      columns: [table.issueIdentifier, table.repositoryKey],
+      foreignColumns: [symphonyIssuesTable.issueIdentifier, symphonyIssuesTable.repositoryKey],
+      name: "symphony_runs_issue_binding_fk"
+    }).onDelete("restrict"),
+    statusCheck: check(
+      "symphony_runs_status_check",
+      sql`${table.status} in (${sqlEnum(runStatusValues)})`
+    ),
+    outcomeCheck: check(
+      "symphony_runs_outcome_check",
+      sql`${table.outcome} is null or ${table.outcome} in (${sqlEnum(runOutcomeValues)})`
+    ),
+    attemptCheck: check(
+      "symphony_runs_attempt_check",
+      sql`${table.attempt} is null or ${table.attempt} >= 1`
+    ),
     repositoryKeyIdx: index("symphony_runs_repository_key_idx").on(table.repositoryKey),
     issueIdentifierIdx: index("symphony_runs_issue_identifier_idx").on(table.issueIdentifier),
     startedAtIdx: index("symphony_runs_started_at_idx").on(table.startedAt)
@@ -474,7 +700,19 @@ export const symphonyTurnsTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    statusCheck: check(
+      "symphony_turns_status_check",
+      sql`${table.status} in (${sqlEnum(turnStatusValues)})`
+    ),
+    turnSequenceCheck: check(
+      "symphony_turns_turn_sequence_check",
+      sql`${table.turnSequence} >= 1`
+    ),
     runIdIdx: index("symphony_turns_run_id_idx").on(table.runId),
+    runTurnIdIdx: uniqueIndex("symphony_turns_run_turn_id_idx").on(
+      table.runId,
+      table.turnId
+    ),
     runTurnSequenceIdx: uniqueIndex("symphony_turns_run_sequence_idx").on(
       table.runId,
       table.turnSequence
@@ -502,6 +740,27 @@ export const symphonyEventsTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
+    runTurnFk: foreignKey({
+      columns: [table.runId, table.turnId],
+      foreignColumns: [symphonyTurnsTable.runId, symphonyTurnsTable.turnId],
+      name: "symphony_events_run_turn_fk"
+    }).onDelete("cascade"),
+    eventSequenceCheck: check(
+      "symphony_events_event_sequence_check",
+      sql`${table.eventSequence} >= 1`
+    ),
+    itemTypeCheck: check(
+      "symphony_events_item_type_check",
+      sql`${table.itemType} is null or ${table.itemType} in (${sqlEnum(eventItemTypeValues)})`
+    ),
+    itemStatusCheck: check(
+      "symphony_events_item_status_check",
+      sql`${table.itemStatus} is null or ${table.itemStatus} in (${sqlEnum(eventItemStatusValues)})`
+    ),
+    payloadBytesCheck: check(
+      "symphony_events_payload_bytes_check",
+      sql`${table.payloadBytes} >= 0`
+    ),
     runIdIdx: index("symphony_events_run_id_idx").on(table.runId),
     turnIdIdx: index("symphony_events_turn_id_idx").on(table.turnId),
     turnSequenceIdx: uniqueIndex("symphony_events_turn_sequence_idx").on(
@@ -527,6 +786,19 @@ export const symphonyIssueTimelineTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
+    sourceCheck: check(
+      "symphony_issue_timeline_source_check",
+      sql`${table.source} in (${sqlEnum(issueTimelineSourceValues)})`
+    ),
+    turnRequiresRunCheck: check(
+      "symphony_issue_timeline_turn_requires_run_check",
+      sql`${table.turnId} is null or ${table.runId} is not null`
+    ),
+    runTurnFk: foreignKey({
+      columns: [table.runId, table.turnId],
+      foreignColumns: [symphonyTurnsTable.runId, symphonyTurnsTable.turnId],
+      name: "symphony_issue_timeline_run_turn_fk"
+    }).onDelete("set null"),
     issueIdentifierIdx: index("symphony_issue_timeline_issue_identifier_idx").on(
       table.issueIdentifier
     ),
@@ -559,6 +831,27 @@ export const symphonyIssueDeliveryReportsTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
+    statusCheck: check(
+      "symphony_issue_delivery_reports_status_check",
+      sql`${table.status} in (${sqlEnum(deliveryReportStatusValues)})`
+    ),
+    sourceCheck: check(
+      "symphony_issue_delivery_reports_source_check",
+      sql`${table.source} in (${sqlEnum(deliveryReportSourceValues)})`
+    ),
+    completedRequiresPrUrlCheck: check(
+      "symphony_issue_delivery_reports_completed_pr_url_check",
+      sql`${table.status} != 'completed' or ${table.prUrl} is not null`
+    ),
+    blockedRequiresReasonCheck: check(
+      "symphony_issue_delivery_reports_blocked_reason_check",
+      sql`${table.status} != 'blocked' or ${table.blockingReason} is not null`
+    ),
+    runTurnFk: foreignKey({
+      columns: [table.runId, table.turnId],
+      foreignColumns: [symphonyTurnsTable.runId, symphonyTurnsTable.turnId],
+      name: "symphony_issue_delivery_reports_run_turn_fk"
+    }).onDelete("cascade"),
     issueIdentifierReportedAtIdx: index("symphony_issue_delivery_reports_issue_identifier_idx").on(
       table.issueIdentifier,
       table.reportedAt
@@ -590,6 +883,10 @@ export const symphonyRuntimeLogsTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
+    levelCheck: check(
+      "symphony_runtime_logs_level_check",
+      sql`${table.level} in (${sqlEnum(runtimeLogLevelValues)})`
+    ),
     repositoryKeyIdx: index("symphony_runtime_logs_repository_key_idx").on(
       table.repositoryKey
     ),
@@ -622,6 +919,18 @@ export const symphonyRunRuntimeContextTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    harnessKindCheck: check(
+      "symphony_run_runtime_context_harness_kind_check",
+      sql`${table.harnessKind} is null or ${table.harnessKind} in (${sqlEnum(harnessKindValues)})`
+    ),
+    authModeCheck: check(
+      "symphony_run_runtime_context_auth_mode_check",
+      sql`${table.authMode} is null or ${table.authMode} in (${sqlEnum(authModeValues)})`
+    ),
+    threadIdCheck: check(
+      "symphony_run_runtime_context_thread_id_check",
+      sql`length(trim(${table.threadId})) > 0`
+    ),
     harnessKindIdx: index("symphony_run_runtime_context_harness_kind_idx").on(table.harnessKind),
     threadIdIdx: index("symphony_run_runtime_context_thread_id_idx").on(table.threadId)
   })
@@ -668,6 +977,19 @@ export const symphonyAgentTaskSnapshotsTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
+    sourceKindCheck: check(
+      "symphony_agent_task_snapshots_source_kind_check",
+      sql`${table.sourceKind} in (${sqlEnum(taskSnapshotSourceKindValues)})`
+    ),
+    itemFk: foreignKey({
+      columns: [table.runId, table.turnId, table.itemId],
+      foreignColumns: [
+        symphonyAgentItemsTable.runId,
+        symphonyAgentItemsTable.turnId,
+        symphonyAgentItemsTable.itemId
+      ],
+      name: "symphony_agent_task_snapshots_item_fk"
+    }).onDelete("cascade"),
     runIdIdx: index("symphony_agent_task_snapshots_run_id_idx").on(table.runId),
     turnIdIdx: index("symphony_agent_task_snapshots_turn_id_idx").on(table.turnId),
     itemIdIdx: index("symphony_agent_task_snapshots_item_id_idx").on(table.itemId),
@@ -686,6 +1008,15 @@ export const symphonyAgentTaskSnapshotItemsTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
+    stateCheck: check(
+      "symphony_agent_task_snapshot_items_state_check",
+      sql`${table.state} in (${sqlEnum(taskSnapshotStateValues)})`
+    ),
+    snapshotFk: foreignKey({
+      columns: [table.snapshotId],
+      foreignColumns: [symphonyAgentTaskSnapshotsTable.snapshotId],
+      name: "symphony_agent_task_snapshot_items_snapshot_fk"
+    }).onDelete("cascade"),
     pk: uniqueIndex("symphony_agent_task_snapshot_items_pk").on(
       table.snapshotId,
       table.position

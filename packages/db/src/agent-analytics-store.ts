@@ -369,6 +369,8 @@ function projectThreadItem(
   const latestPreview = previewItem(item, context.previewMaxChars);
   let latestOverflowId: string | null = null;
 
+  upsertItemLifecycleRecord(context, item, null, latestPreview);
+
   switch (item.type) {
     case "command_execution":
       latestOverflowId = projectCommandExecutionItem(context, item);
@@ -393,7 +395,23 @@ function projectThreadItem(
       break;
   }
 
-  upsertItemLifecycleRecord(context, item, latestOverflowId, latestPreview);
+  if (latestOverflowId !== null) {
+    context.tx
+      .update(symphonyAgentItemsTable)
+      .set({
+        latestPreview,
+        latestOverflowId,
+        updatedAt: context.now
+      })
+      .where(
+        and(
+          eq(symphonyAgentItemsTable.runId, context.input.runId),
+          eq(symphonyAgentItemsTable.turnId, context.input.turnId),
+          eq(symphonyAgentItemsTable.itemId, item.id)
+        )
+      )
+      .run();
+  }
 }
 
 function projectCommandExecutionItem(

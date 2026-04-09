@@ -494,7 +494,7 @@ describe("runtime services", () => {
       "run-shutdown",
       "owner/repo",
       "COL-SHUTDOWN",
-      0,
+      1,
       "running",
       null,
       null,

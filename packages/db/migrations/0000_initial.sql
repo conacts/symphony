@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS symphony_issues (
 CREATE UNIQUE INDEX IF NOT EXISTS symphony_issues_tracker_issue_id_idx
   ON symphony_issues (tracker_issue_id);
 
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_issues_issue_repository_key_idx
+  ON symphony_issues (issue_identifier, repository_key);
+
 CREATE INDEX IF NOT EXISTS symphony_issues_repository_key_idx
   ON symphony_issues (repository_key);
 
@@ -58,7 +61,8 @@ CREATE TABLE IF NOT EXISTS symphony_runs (
   machine_load_had_high_disk INTEGER,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE RESTRICT,
+  FOREIGN KEY (issue_identifier, repository_key) REFERENCES symphony_issues(issue_identifier, repository_key) ON DELETE RESTRICT,
+  CHECK (attempt IS NULL OR attempt >= 1),
   CHECK (
     outcome IS NULL OR outcome IN (
       'completed',
@@ -106,11 +110,15 @@ CREATE TABLE IF NOT EXISTS symphony_turns (
   metadata TEXT,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE
+  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE,
+  CHECK (turn_sequence >= 1)
 );
 
 CREATE INDEX IF NOT EXISTS symphony_turns_run_id_idx
   ON symphony_turns (run_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_turns_run_turn_id_idx
+  ON symphony_turns (run_id, turn_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS symphony_turns_run_sequence_idx
   ON symphony_turns (run_id, turn_sequence);
@@ -131,8 +139,29 @@ CREATE TABLE IF NOT EXISTS symphony_events (
   thread_id TEXT NOT NULL,
   agent_turn_id TEXT,
   inserted_at TEXT NOT NULL,
-  FOREIGN KEY (turn_id) REFERENCES symphony_turns(turn_id) ON DELETE CASCADE,
-  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE
+  FOREIGN KEY (run_id, turn_id) REFERENCES symphony_turns(run_id, turn_id) ON DELETE CASCADE,
+  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE,
+  CHECK (event_sequence >= 1),
+  CHECK (payload_bytes >= 0),
+  CHECK (
+    item_type IS NULL OR item_type IN (
+      'agent_message',
+      'reasoning',
+      'command_execution',
+      'file_change',
+      'mcp_tool_call',
+      'web_search',
+      'todo_list',
+      'error'
+    )
+  ),
+  CHECK (
+    item_status IS NULL OR item_status IN (
+      'in_progress',
+      'completed',
+      'failed'
+    )
+  )
 );
 
 CREATE INDEX IF NOT EXISTS symphony_events_run_id_idx
@@ -160,7 +189,10 @@ CREATE TABLE IF NOT EXISTS symphony_issue_timeline_entries (
   inserted_at TEXT NOT NULL,
   FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE CASCADE,
   FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE SET NULL,
-  FOREIGN KEY (turn_id) REFERENCES symphony_turns(turn_id) ON DELETE SET NULL
+  FOREIGN KEY (turn_id) REFERENCES symphony_turns(turn_id) ON DELETE SET NULL,
+  FOREIGN KEY (run_id, turn_id) REFERENCES symphony_turns(run_id, turn_id) ON DELETE SET NULL,
+  CHECK (source IN ('orchestrator', 'agent', 'tracker', 'workspace', 'runtime')),
+  CHECK (turn_id IS NULL OR run_id IS NOT NULL)
 );
 
 CREATE INDEX IF NOT EXISTS symphony_issue_timeline_issue_identifier_idx
@@ -185,7 +217,8 @@ CREATE TABLE IF NOT EXISTS symphony_runtime_logs (
   recorded_at TEXT NOT NULL,
   inserted_at TEXT NOT NULL,
   FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE SET NULL,
-  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE SET NULL
+  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE SET NULL,
+  CHECK (level IN ('debug', 'info', 'warn', 'error'))
 );
 
 CREATE INDEX IF NOT EXISTS symphony_runtime_logs_repository_key_idx
@@ -226,7 +259,10 @@ CREATE TABLE IF NOT EXISTS symphony_agent_event_log (
   projection_loss_overflow_id TEXT,
   raw_payload_overflow_id TEXT,
   payload_truncated INTEGER NOT NULL,
-  inserted_at TEXT NOT NULL
+  inserted_at TEXT NOT NULL,
+  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE,
+  CHECK (payload_truncated IN (0, 1)),
+  CHECK (sequence >= 1)
 );
 
 CREATE INDEX IF NOT EXISTS symphony_agent_event_log_run_sequence_idx
@@ -253,7 +289,20 @@ CREATE TABLE IF NOT EXISTS symphony_agent_payload_overflow (
   content_json TEXT,
   content_text TEXT,
   byte_count INTEGER NOT NULL,
-  inserted_at TEXT NOT NULL
+  inserted_at TEXT NOT NULL,
+  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE,
+  CHECK (
+    kind IN (
+      'agent_message',
+      'command_output',
+      'event_payload',
+      'projection_losses',
+      'raw_harness_payload',
+      'reasoning',
+      'tool_result'
+    )
+  ),
+  CHECK (byte_count >= 0)
 );
 
 CREATE INDEX IF NOT EXISTS symphony_agent_payload_overflow_run_inserted_at_idx
@@ -283,7 +332,28 @@ CREATE TABLE IF NOT EXISTS symphony_agent_items (
   latest_overflow_id TEXT,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (run_id, turn_id, item_id)
+  PRIMARY KEY (run_id, turn_id, item_id),
+  FOREIGN KEY (run_id, turn_id) REFERENCES symphony_turns(run_id, turn_id) ON DELETE CASCADE,
+  CHECK (
+    item_type IN (
+      'agent_message',
+      'reasoning',
+      'command_execution',
+      'file_change',
+      'mcp_tool_call',
+      'web_search',
+      'todo_list',
+      'error'
+    )
+  ),
+  CHECK (
+    final_status IS NULL OR final_status IN (
+      'in_progress',
+      'completed',
+      'failed'
+    )
+  ),
+  CHECK (update_count >= 1)
 );
 
 CREATE INDEX IF NOT EXISTS symphony_agent_items_run_id_idx
@@ -311,7 +381,9 @@ CREATE TABLE IF NOT EXISTS symphony_agent_command_executions (
   resource_profile_json TEXT,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (run_id, turn_id, item_id)
+  PRIMARY KEY (run_id, turn_id, item_id),
+  FOREIGN KEY (run_id, turn_id, item_id) REFERENCES symphony_agent_items(run_id, turn_id, item_id) ON DELETE CASCADE,
+  CHECK (status IN ('in_progress', 'completed', 'failed'))
 );
 
 CREATE INDEX IF NOT EXISTS symphony_agent_command_executions_run_id_idx
@@ -336,7 +408,9 @@ CREATE TABLE IF NOT EXISTS symphony_agent_tool_calls (
   duration_ms INTEGER,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (run_id, turn_id, item_id)
+  PRIMARY KEY (run_id, turn_id, item_id),
+  FOREIGN KEY (run_id, turn_id, item_id) REFERENCES symphony_agent_items(run_id, turn_id, item_id) ON DELETE CASCADE,
+  CHECK (status IN ('in_progress', 'completed', 'failed'))
 );
 
 CREATE INDEX IF NOT EXISTS symphony_agent_tool_calls_run_id_idx
@@ -355,7 +429,8 @@ CREATE TABLE IF NOT EXISTS symphony_agent_messages (
   recorded_at TEXT NOT NULL,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (run_id, turn_id, item_id)
+  PRIMARY KEY (run_id, turn_id, item_id),
+  FOREIGN KEY (run_id, turn_id, item_id) REFERENCES symphony_agent_items(run_id, turn_id, item_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS symphony_agent_messages_run_id_idx
@@ -374,7 +449,8 @@ CREATE TABLE IF NOT EXISTS symphony_agent_reasoning (
   recorded_at TEXT NOT NULL,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (run_id, turn_id, item_id)
+  PRIMARY KEY (run_id, turn_id, item_id),
+  FOREIGN KEY (run_id, turn_id, item_id) REFERENCES symphony_agent_items(run_id, turn_id, item_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS symphony_agent_reasoning_run_id_idx
@@ -391,7 +467,9 @@ CREATE TABLE IF NOT EXISTS symphony_agent_file_changes (
   change_kind TEXT NOT NULL,
   recorded_at TEXT NOT NULL,
   inserted_at TEXT NOT NULL,
-  PRIMARY KEY (run_id, turn_id, item_id, path)
+  PRIMARY KEY (run_id, turn_id, item_id, path),
+  FOREIGN KEY (run_id, turn_id, item_id) REFERENCES symphony_agent_items(run_id, turn_id, item_id) ON DELETE CASCADE,
+  CHECK (change_kind IN ('add', 'delete', 'update'))
 );
 
 CREATE INDEX IF NOT EXISTS symphony_agent_file_changes_run_id_idx
@@ -407,7 +485,9 @@ CREATE TABLE IF NOT EXISTS symphony_agent_task_snapshots (
   item_id TEXT NOT NULL,
   source_kind TEXT NOT NULL,
   recorded_at TEXT NOT NULL,
-  inserted_at TEXT NOT NULL
+  inserted_at TEXT NOT NULL,
+  FOREIGN KEY (run_id, turn_id, item_id) REFERENCES symphony_agent_items(run_id, turn_id, item_id) ON DELETE CASCADE,
+  CHECK (source_kind IN ('pi_queue_update', 'todo_list_projection'))
 );
 
 CREATE INDEX IF NOT EXISTS symphony_agent_task_snapshots_run_id_idx
@@ -428,7 +508,9 @@ CREATE TABLE IF NOT EXISTS symphony_agent_task_snapshot_items (
   label TEXT NOT NULL,
   state TEXT NOT NULL,
   section TEXT,
-  inserted_at TEXT NOT NULL
+  inserted_at TEXT NOT NULL,
+  FOREIGN KEY (snapshot_id) REFERENCES symphony_agent_task_snapshots(snapshot_id) ON DELETE CASCADE,
+  CHECK (state IN ('pending', 'in_progress', 'completed', 'cancelled'))
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS symphony_agent_task_snapshot_items_pk
@@ -449,7 +531,8 @@ CREATE TABLE IF NOT EXISTS pi_reads (
   read_limit INTEGER,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (run_id, turn_id, item_id)
+  PRIMARY KEY (run_id, turn_id, item_id),
+  FOREIGN KEY (run_id, turn_id, item_id) REFERENCES symphony_agent_tool_calls(run_id, turn_id, item_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS pi_reads_run_id_idx
@@ -470,7 +553,8 @@ CREATE TABLE IF NOT EXISTS pi_edits (
   diff_overflow_id TEXT,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (run_id, turn_id, item_id)
+  PRIMARY KEY (run_id, turn_id, item_id),
+  FOREIGN KEY (run_id, turn_id, item_id) REFERENCES symphony_agent_tool_calls(run_id, turn_id, item_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS pi_edits_run_id_idx
@@ -491,7 +575,8 @@ CREATE TABLE IF NOT EXISTS pi_writes (
   diff_overflow_id TEXT,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (run_id, turn_id, item_id)
+  PRIMARY KEY (run_id, turn_id, item_id),
+  FOREIGN KEY (run_id, turn_id, item_id) REFERENCES symphony_agent_tool_calls(run_id, turn_id, item_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS pi_writes_run_id_idx
@@ -509,7 +594,9 @@ CREATE TABLE IF NOT EXISTS pi_greps (
   ignore_case INTEGER,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (run_id, turn_id, item_id)
+  PRIMARY KEY (run_id, turn_id, item_id),
+  FOREIGN KEY (run_id, turn_id, item_id) REFERENCES symphony_agent_tool_calls(run_id, turn_id, item_id) ON DELETE CASCADE,
+  CHECK (ignore_case IS NULL OR ignore_case IN (0, 1))
 );
 
 CREATE INDEX IF NOT EXISTS pi_greps_run_id_idx
@@ -523,7 +610,8 @@ CREATE TABLE IF NOT EXISTS pi_finds (
   search_path TEXT,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (run_id, turn_id, item_id)
+  PRIMARY KEY (run_id, turn_id, item_id),
+  FOREIGN KEY (run_id, turn_id, item_id) REFERENCES symphony_agent_tool_calls(run_id, turn_id, item_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS pi_finds_run_id_idx
@@ -546,7 +634,13 @@ CREATE TABLE IF NOT EXISTS pi_message_ends (
   total_tokens INTEGER NOT NULL,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (run_id, turn_id, item_id)
+  PRIMARY KEY (run_id, turn_id, item_id),
+  FOREIGN KEY (run_id, turn_id, item_id) REFERENCES symphony_agent_items(run_id, turn_id, item_id) ON DELETE CASCADE,
+  CHECK (input_tokens >= 0),
+  CHECK (cached_input_tokens >= 0),
+  CHECK (cache_write_tokens IS NULL OR cache_write_tokens >= 0),
+  CHECK (output_tokens >= 0),
+  CHECK (total_tokens >= 0)
 );
 
 CREATE INDEX IF NOT EXISTS pi_message_ends_run_id_idx
@@ -576,7 +670,10 @@ CREATE TABLE IF NOT EXISTS symphony_issue_delivery_reports (
   inserted_at TEXT NOT NULL,
   FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE CASCADE,
   FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE,
-  FOREIGN KEY (turn_id) REFERENCES symphony_turns(turn_id) ON DELETE SET NULL
+  FOREIGN KEY (run_id, turn_id) REFERENCES symphony_turns(run_id, turn_id) ON DELETE CASCADE,
+  CHECK (source IN ('pi', 'runtime')),
+  CHECK (status != 'completed' OR pr_url IS NOT NULL),
+  CHECK (status != 'blocked' OR blocking_reason IS NOT NULL)
 );
 
 CREATE INDEX IF NOT EXISTS symphony_issue_delivery_reports_issue_identifier_idx
@@ -603,7 +700,10 @@ CREATE TABLE IF NOT EXISTS symphony_run_runtime_context (
   launch_target_json TEXT,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE
+  FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE CASCADE,
+  CHECK (harness_kind IS NULL OR harness_kind IN ('pi')),
+  CHECK (auth_mode IS NULL OR auth_mode IN ('auth_json', 'api_key_env')),
+  CHECK (length(trim(thread_id)) > 0)
 );
 
 CREATE INDEX IF NOT EXISTS symphony_run_runtime_context_harness_kind_idx

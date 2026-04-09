@@ -278,4 +278,58 @@ describe("runtime run delivery projections", () => {
       database.close();
     }
   });
+
+  it("rejects attempts to rebind an issue identifier to a different repository or tracker id", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-issue-binding-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      await runStore.recordRunStarted({
+        runId: "run-binding-1",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-binding-1",
+        issueIdentifier: "COL-400",
+        runMode: "implementation",
+        startedAt: "2026-04-09T10:00:00.000Z",
+        status: "running"
+      });
+
+      await expect(
+        runStore.recordRunStarted({
+          runId: "run-binding-2",
+          repositoryKey: "other/repo",
+          trackerIssueId: "issue-binding-1",
+          issueIdentifier: "COL-400",
+          runMode: "implementation",
+          startedAt: "2026-04-09T10:05:00.000Z",
+          status: "running"
+        })
+      ).rejects.toThrow(
+        "Issue COL-400 is already bound to repository openai/symphony, not other/repo."
+      );
+
+      await expect(
+        runStore.recordRunStarted({
+          runId: "run-binding-3",
+          repositoryKey: testRepositoryKey,
+          trackerIssueId: "issue-binding-2",
+          issueIdentifier: "COL-400",
+          runMode: "implementation",
+          startedAt: "2026-04-09T10:10:00.000Z",
+          status: "running"
+        })
+      ).rejects.toThrow(
+        "Issue COL-400 is already bound to tracker issue issue-binding-1, not issue-binding-2."
+      );
+    } finally {
+      database.close();
+    }
+  });
 });
