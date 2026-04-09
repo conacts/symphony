@@ -7,12 +7,10 @@ import {
 } from "@symphony/workspace";
 import type { JsonValue } from "@symphony/contracts";
 import type {
-  AgentAnalyticsStore,
   SymphonyIssueTimelineStore,
   SymphonyRuntimeRunStatus,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
-import type { SymphonyAgentRunStatus } from "@symphony/contracts";
 import type { RuntimeMachineLoadMonitor } from "./runtime-machine-load.js";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 import { resolveIssueRepository } from "./runtime-repository-routing.js";
@@ -22,11 +20,10 @@ export function createDbBackedOrchestratorObserver(input: {
   defaultRepositoryKey: string;
   runStore: SymphonyRuntimeRunStore;
   issueTimelineStore: SymphonyIssueTimelineStore;
-  agentAnalytics: AgentAnalyticsStore;
   machineLoad?: RuntimeMachineLoadMonitor;
 }): SymphonyOrchestratorObserver {
   return {
-    async startRun({ issue, attempt, harness, workspace, workerHost, startedAt, runMode }) {
+    async startRun({ issue, attempt, workspace, workerHost, startedAt, runMode }) {
       const repositoryKey =
         input.admittedRepositories.length > 0
           ? resolveIssueRepository(input.admittedRepositories, issue).repositoryKey
@@ -46,16 +43,6 @@ export function createDbBackedOrchestratorObserver(input: {
           runMode,
           workspace: workspaceMetadata(summarizePreparedWorkspace(workspace))
         }
-      });
-
-      await input.agentAnalytics.startRun({
-        runId,
-        issueId: issue.id,
-        issueIdentifier: issue.identifier,
-        startedAt,
-        status: "dispatching",
-        threadId: null,
-        harnessKind: harness
       });
 
       input.machineLoad?.startRun(runId);
@@ -146,15 +133,6 @@ export function createDbBackedOrchestratorObserver(input: {
             stopPayload: normalizeJsonValue(payload)
           }
         });
-        await input.agentAnalytics.finalizeRun({
-          runId,
-          status: "stopped",
-          endedAt: stoppedAt,
-          failureKind: eventType,
-          failureOrigin: "runtime",
-          failureMessagePreview: previewRuntimeFailure(eventType),
-          threadId: null
-        });
       }
 
       await input.issueTimelineStore.record({
@@ -222,28 +200,8 @@ export function createDbBackedOrchestratorObserver(input: {
           isSuccessfulCompletion(completion) ? null : completion.reason
       });
 
-      await input.agentAnalytics.finalizeRun({
-        runId,
-        status: agentRunStatus(completion),
-        endedAt,
-        failureKind: isSuccessfulCompletion(completion) ? null : completion.kind,
-        failureOrigin: isSuccessfulCompletion(completion)
-          ? null
-          : completion.kind === "startup_failure"
-            ? "runtime"
-            : "agent",
-        failureMessagePreview:
-          isSuccessfulCompletion(completion)
-            ? null
-            : previewRuntimeFailure(completion.reason),
-        threadId: null
-      });
     }
   };
-}
-
-function previewRuntimeFailure(value: string): string {
-  return value.length <= 280 ? value : `${value.slice(0, 279)}…`;
 }
 
 type ObserverWorkspaceMetadata = WorkspaceLifecycleMetadata | null;
@@ -264,32 +222,6 @@ function completionStatus(
     case "delivered":
     case "merged":
       return "finished";
-    case "blocked":
-      return "failed";
-    case "merge_blocked":
-      return "failed";
-    case "max_turns_reached":
-      return "paused";
-    case "startup_failure":
-      return "startup_failed";
-    case "rate_limited":
-      return "rate_limited";
-    case "provider_transient":
-      return "failed";
-    case "stalled":
-      return "stalled";
-    case "failure":
-      return "failed";
-  }
-}
-
-function agentRunStatus(
-  completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
-): SymphonyAgentRunStatus {
-  switch (completion.kind) {
-    case "delivered":
-    case "merged":
-      return "completed";
     case "blocked":
       return "failed";
     case "merge_blocked":

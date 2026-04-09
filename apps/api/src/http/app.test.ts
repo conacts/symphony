@@ -341,7 +341,7 @@ describe("@symphony/api app", () => {
       expect(codexTurnsResponse.status).toBe(200);
       expect(codexTurnsPayload.data.runId).toBe("run-123");
       expect(codexTurnsPayload.data.turns[0]?.turnId).toBe("turn-123");
-      expect(codexTurnsPayload.data.turns[0]?.usage?.input_tokens).toBe(10);
+      expect(codexTurnsPayload.data.turns[0]?.usage?.input_tokens).toBe(11);
 
       expect(codexItemsResponse.status).toBe(200);
       expect(codexItemsPayload.data.runId).toBe("run-123");

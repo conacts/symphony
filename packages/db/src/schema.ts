@@ -77,92 +77,6 @@ export const symphonyAgentPayloadOverflowTable = sqliteTable(
   })
 );
 
-export const symphonyAgentRunsTable = sqliteTable(
-  "symphony_agent_runs",
-  {
-    runId: text("run_id").primaryKey(),
-    threadId: text("thread_id"),
-    harnessKind: text("harness_kind"),
-    model: text("model"),
-    providerId: text("provider_id"),
-    providerName: text("provider_name"),
-    issueId: text("issue_id").notNull(),
-    issueIdentifier: text("issue_identifier").notNull(),
-    startedAt: text("started_at"),
-    endedAt: text("ended_at"),
-    status: text("status").notNull(),
-    failureKind: text("failure_kind"),
-    failureOrigin: text("failure_origin"),
-    failureMessagePreview: text("failure_message_preview"),
-    finalTurnId: text("final_turn_id"),
-    lastAgentMessageItemId: text("last_agent_message_item_id"),
-    lastAgentMessagePreview: text("last_agent_message_preview"),
-    lastAgentMessageOverflowId: text("last_agent_message_overflow_id"),
-    inputTokens: integer("input_tokens").notNull(),
-    cachedInputTokens: integer("cached_input_tokens").notNull(),
-    outputTokens: integer("output_tokens").notNull(),
-    turnCount: integer("turn_count").notNull(),
-    itemCount: integer("item_count").notNull(),
-    commandCount: integer("command_count").notNull(),
-    toolCallCount: integer("tool_call_count").notNull(),
-    fileChangeCount: integer("file_change_count").notNull(),
-    agentMessageCount: integer("agent_message_count").notNull(),
-    reasoningCount: integer("reasoning_count").notNull(),
-    errorCount: integer("error_count").notNull(),
-    latestEventAt: text("latest_event_at"),
-    latestEventType: text("latest_event_type"),
-    insertedAt: text("inserted_at").notNull(),
-    updatedAt: text("updated_at").notNull()
-  },
-  (table) => ({
-    issueIdIdx: index("symphony_agent_runs_issue_id_idx").on(table.issueId),
-    issueIdentifierIdx: index("symphony_agent_runs_issue_identifier_idx").on(
-      table.issueIdentifier
-    ),
-    startedAtIdx: index("symphony_agent_runs_started_at_idx").on(table.startedAt),
-    threadIdIdx: index("symphony_agent_runs_thread_id_idx").on(table.threadId)
-  })
-);
-
-export const symphonyAgentTurnsTable = sqliteTable(
-  "symphony_agent_turns",
-  {
-    turnId: text("turn_id").primaryKey(),
-    runId: text("run_id").notNull(),
-    threadId: text("thread_id"),
-    harnessKind: text("harness_kind"),
-    model: text("model"),
-    providerId: text("provider_id"),
-    providerName: text("provider_name"),
-    startedAt: text("started_at"),
-    endedAt: text("ended_at"),
-    status: text("status").notNull(),
-    failureKind: text("failure_kind"),
-    failureMessagePreview: text("failure_message_preview"),
-    lastAgentMessageItemId: text("last_agent_message_item_id"),
-    lastAgentMessagePreview: text("last_agent_message_preview"),
-    lastAgentMessageOverflowId: text("last_agent_message_overflow_id"),
-    inputTokens: integer("input_tokens").notNull(),
-    cachedInputTokens: integer("cached_input_tokens").notNull(),
-    outputTokens: integer("output_tokens").notNull(),
-    itemCount: integer("item_count").notNull(),
-    commandCount: integer("command_count").notNull(),
-    toolCallCount: integer("tool_call_count").notNull(),
-    fileChangeCount: integer("file_change_count").notNull(),
-    agentMessageCount: integer("agent_message_count").notNull(),
-    reasoningCount: integer("reasoning_count").notNull(),
-    errorCount: integer("error_count").notNull(),
-    latestEventAt: text("latest_event_at"),
-    latestEventType: text("latest_event_type"),
-    insertedAt: text("inserted_at").notNull(),
-    updatedAt: text("updated_at").notNull()
-  },
-  (table) => ({
-    runIdIdx: index("symphony_agent_turns_run_id_idx").on(table.runId),
-    startedAtIdx: index("symphony_agent_turns_started_at_idx").on(table.startedAt)
-  })
-);
-
 export const symphonyAgentItemsTable = sqliteTable(
   "symphony_agent_items",
   {
@@ -784,8 +698,6 @@ export const symphonyAgentTaskSnapshotItemsTable = sqliteTable(
 export const symphonySchema = {
   symphonyAgentEventLogTable,
   symphonyAgentPayloadOverflowTable,
-  symphonyAgentRunsTable,
-  symphonyAgentTurnsTable,
   symphonyAgentItemsTable,
   symphonyAgentCommandExecutionsTable,
   symphonyAgentToolCallsTable,

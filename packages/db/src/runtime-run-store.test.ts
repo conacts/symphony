@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
 import { createSymphonyIssueDeliveryReportStore } from "./issue-delivery-reports.js";
 import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
-import { createSqliteAgentAnalyticsStore } from "./agent-analytics-store.js";
 import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-store.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
 import { symphonySchema, symphonyRunsTable } from "./schema.js";
@@ -76,9 +75,6 @@ describe("runtime run delivery projections", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const analyticsStore = createSqliteAgentAnalyticsStore({
-      db: database.db
-    });
     const deliveryStore = createSymphonyIssueDeliveryReportStore({
       db: database.db,
       repositoryKey: testRepositoryKey
@@ -96,13 +92,6 @@ describe("runtime run delivery projections", () => {
         runMode: "implementation",
         startedAt: "2026-04-05T19:00:00.000Z",
         status: "running"
-      });
-      await analyticsStore.startRun({
-        runId,
-        issueId: "issue-1",
-        issueIdentifier: "COL-157",
-        status: "running",
-        threadId: "thread-1"
       });
       await runStore.updateRun(runId, {
         status: "running"

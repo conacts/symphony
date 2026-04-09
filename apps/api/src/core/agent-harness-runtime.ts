@@ -233,7 +233,6 @@ async function executeRun(input: {
   );
   let persistedTurnId: string | null = null;
   let maxTurnsReached = false;
-  let sessionModel: string | null = null;
   let sessionProviderId: string | null = null;
   let sessionProviderName: string | null = null;
   let deliveryReport: RuntimeDeliveryReportResult | null = null;
@@ -302,7 +301,6 @@ async function executeRun(input: {
       logger: input.logger
     });
     input.activeRun.client = session.client;
-    sessionModel = session.model;
     sessionProviderId = session.providerId;
     sessionProviderName = session.providerName;
     commandResourceMonitor = new CommandResourceMonitor(session.processId);
@@ -318,20 +316,6 @@ async function executeRun(input: {
       providerEnvKey: input.harnessProviderEnvKey,
       launchTarget: describeLaunchTarget(session.launchTarget)
     };
-
-    if (input.runId) {
-      await input.agentAnalytics.startRun({
-        runId: input.runId,
-        issueId: input.issue.id,
-        issueIdentifier: input.issue.identifier,
-        status: "running",
-        threadId: session.threadId,
-        harnessKind: input.harness.kind,
-        model: sessionModel,
-        providerId: session.providerId,
-        providerName: session.providerName
-      });
-    }
 
     await input.runtimeLogs.record({
       level: "info",
@@ -379,7 +363,6 @@ async function executeRun(input: {
       if (input.activeRun.stopped) {
         await finalizeStoppedTurn(
           input.runStore,
-          input.agentAnalytics,
           input.runId,
           persistedTurnId
         );
@@ -597,20 +580,6 @@ async function executeRun(input: {
           agentTurnId: turnResult.turnId,
           usage: turnResult.usage ?? null
         });
-        await input.agentAnalytics.finalizeTurn({
-          runId: input.runId,
-          turnId: persistedTurnId,
-          endedAt,
-          status: "completed",
-          failureKind: null,
-          failureMessagePreview: null,
-          threadId: turnResult.threadId,
-          usage: turnResult.usage ?? null,
-          harnessKind: input.harness.kind,
-          model: sessionModel,
-          providerId: sessionProviderId,
-          providerName: sessionProviderName
-        });
         persistedTurnId = null;
       }
 
@@ -700,7 +669,6 @@ async function executeRun(input: {
     if (input.activeRun.stopped) {
       await finalizeStoppedTurn(
         input.runStore,
-        input.agentAnalytics,
         input.runId,
         persistedTurnId
       );
@@ -711,25 +679,13 @@ async function executeRun(input: {
     const harnessError = error instanceof HarnessSessionError ? error : null;
 
     if (input.runId && persistedTurnId) {
+      const endedAt = new Date().toISOString();
       await input.runStore.finalizeTurn(persistedTurnId, {
         status: "failed",
-        endedAt: new Date().toISOString(),
+        endedAt,
         metadata: {
           reason
         }
-      });
-      await input.agentAnalytics.finalizeTurn({
-        runId: input.runId,
-        turnId: persistedTurnId,
-        endedAt: new Date().toISOString(),
-        status: "failed",
-        failureKind: "runtime_failure",
-        failureMessagePreview: reason,
-        threadId: null,
-        harnessKind: input.harness.kind,
-        model: sessionModel ?? harnessModelPolicy.defaultModel,
-        providerId: sessionProviderId,
-        providerName: sessionProviderName
       });
     }
 
@@ -1392,7 +1348,6 @@ function summarizeCanonicalRuntimeEvent(event: CanonicalRuntimeEventPayload): st
 
 async function finalizeStoppedTurn(
   runStore: SymphonyRuntimeRunStore,
-  agentAnalytics: AgentAnalyticsStore,
   runId: string | null,
   persistedTurnId: string | null
 ): Promise<void> {
@@ -1406,15 +1361,6 @@ async function finalizeStoppedTurn(
     metadata: {
       stopReason: "runtime_stopped"
     }
-  });
-  await agentAnalytics.finalizeTurn({
-    runId,
-    turnId: persistedTurnId,
-    endedAt: new Date().toISOString(),
-    status: "stopped",
-    failureKind: "runtime_stopped",
-    failureMessagePreview: "Turn stopped by runtime.",
-    threadId: null
   });
 }
 

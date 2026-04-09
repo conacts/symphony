@@ -240,14 +240,6 @@ export async function createSymphonyRuntimeTestHarness(input: {
       turnId: "turn-123"
     })
   );
-  await agentAnalyticsStore.startRun({
-    runId,
-    issueId: issue.id,
-    issueIdentifier: issue.identifier,
-    startedAt: "2026-03-31T00:00:00.000Z",
-    status: "running",
-    threadId: "thread-123"
-  });
   await agentAnalyticsStore.recordEvent({
     runId,
     turnId,
@@ -352,24 +344,6 @@ export async function createSymphonyRuntimeTestHarness(input: {
       insertedAt: "2026-03-31T00:00:01.000Z"
     })
     .run();
-  await agentAnalyticsStore.finalizeTurn({
-    runId,
-    turnId,
-    endedAt: "2026-03-31T00:01:00.000Z",
-    status: "completed",
-    threadId: "thread-123",
-    failureKind: null,
-    failureMessagePreview: null
-  });
-  await agentAnalyticsStore.finalizeRun({
-    runId,
-    endedAt: "2026-03-31T00:01:00.000Z",
-    status: "completed",
-    threadId: "thread-123",
-    failureKind: null,
-    failureOrigin: null,
-    failureMessagePreview: null
-  });
   await runStore.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
   await runStore.finalizeRun(runId, buildSymphonyRunFinishAttrs());
   await issueTimelineStore.record({

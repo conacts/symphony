@@ -369,7 +369,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     defaultRepositoryKey: repositoryKey,
     runStore,
     issueTimelineStore,
-    agentAnalytics: agentAnalyticsStore,
     machineLoad
   });
   let runtimeRef: Pick<
@@ -695,7 +694,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
               runStore,
               issueTimelineStore,
               runtimeLogStore,
-              agentAnalyticsStore,
               shutdownReason
             });
 

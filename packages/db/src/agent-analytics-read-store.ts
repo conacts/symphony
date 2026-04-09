@@ -45,11 +45,9 @@ import {
   symphonyAgentMessagesTable,
   symphonyAgentPayloadOverflowTable,
   symphonyAgentReasoningTable,
-  symphonyAgentRunsTable,
   symphonyAgentTaskSnapshotItemsTable,
   symphonyAgentTaskSnapshotsTable,
   symphonyAgentToolCallsTable,
-  symphonyAgentTurnsTable,
   piReadsTable,
   piEditsTable,
   piWritesTable,
@@ -159,11 +157,6 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
       .from(symphonyIssuesTable)
       .where(inArray(symphonyIssuesTable.issueIdentifier, issueIdentifiers))
       .all();
-    const agentRuns = this.#db
-      .select()
-      .from(symphonyAgentRunsTable)
-      .where(inArray(symphonyAgentRunsTable.runId, runIds))
-      .all();
     const runtimeTurns = this.#db
       .select()
       .from(symphonyTurnsTable)
@@ -186,7 +179,6 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
       .orderBy(desc(symphonyIssueDeliveryReportsTable.reportedAt))
       .all();
 
-    const agentRunMap = new Map(agentRuns.map((run) => [run.runId, run] as const));
     const runtimeTurnsByRunId = groupRowsByRunId(runtimeTurns);
     const eventRowsByRunId = groupRowsByRunId(eventRows);
     const runtimeContextMap = buildRuntimeRunContextMap(runtimeContextRows);
@@ -204,7 +196,6 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
       return [buildForensicsRunSummary(
         issue,
         run,
-        agentRunMap.get(run.runId),
         runtimeTurnsByRunId.get(run.runId) ?? [],
         mapEventRowsForRunSummary(eventRowsByRunId.get(run.runId) ?? []),
         deliveryMap.get(run.runId),
@@ -263,16 +254,15 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
         ...buildForensicsRunSummary(
           data.issue,
           mapPersistedRunRecord(data.run),
-          data.agentRun,
           data.symphonyTurns,
           mapEventRowsForRunSummary(data.eventRows),
           data.latestRunDelivery ?? undefined,
           data.runtimeContext
         ),
-        threadId: data.agentRun?.threadId ?? data.runtimeContext.threadId ?? null,
+        threadId: resolveRunThreadId(data),
         processId: data.runtimeContext.processId,
-        providerId: data.agentRun?.providerId ?? data.runtimeContext.providerId,
-        providerName: data.agentRun?.providerName ?? data.runtimeContext.providerName,
+        providerId: data.runtimeContext.providerId,
+        providerName: data.runtimeContext.providerName,
         reasoningEffort: data.runtimeContext.reasoningEffort,
         profile: data.runtimeContext.profile,
         authMode:
@@ -345,9 +335,8 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
       events: mapAgentEventRecords(
         data.eventRows,
         data.overflowMap,
-        data.agentTurnMap,
         buildRuntimeTurnMap(data.symphonyTurns),
-        data.agentRun?.threadId ?? data.runtimeContext.threadId ?? null
+        resolveRunThreadId(data)
       )
     };
   }
@@ -687,7 +676,6 @@ function mapPersistedRunRecord(
 function buildForensicsRunSummary(
   issue: typeof symphonyIssuesTable.$inferSelect,
   run: PersistedRunRecord,
-  agentRun: typeof symphonyAgentRunsTable.$inferSelect | null | undefined,
   runtimeTurns: Array<typeof symphonyTurnsTable.$inferSelect>,
   eventRows: SummaryEventRow[],
   deliveryReport: typeof symphonyIssueDeliveryReportsTable.$inferSelect | undefined,
@@ -700,23 +688,9 @@ function buildForensicsRunSummary(
 ): SymphonyForensicsRunSummary {
   const runtimeSummary = buildRuntimeRunSummary(issue, run, runtimeTurns, eventRows);
   const runtimeTokenTotals = computeRuntimeRunTokenTotals(runtimeTurns);
-  const resolvedRunTokens = resolvePreferredTokenTotals(
-    agentRun
-      ? {
-          inputTokens: agentRun.inputTokens,
-          cachedInputTokens: agentRun.cachedInputTokens,
-          outputTokens: agentRun.outputTokens
-        }
-      : null,
-    {
-      inputTokens: runtimeSummary.inputTokens,
-      cachedInputTokens: runtimeTokenTotals.cachedInputTokens,
-      outputTokens: runtimeSummary.outputTokens
-    }
-  );
-  const inputTokens = resolvedRunTokens.inputTokens;
-  const cachedInputTokens = resolvedRunTokens.cachedInputTokens;
-  const outputTokens = resolvedRunTokens.outputTokens;
+  const inputTokens = runtimeSummary.inputTokens;
+  const cachedInputTokens = runtimeTokenTotals.cachedInputTokens;
+  const outputTokens = runtimeSummary.outputTokens;
   const totalTokens = inputTokens + cachedInputTokens + outputTokens;
 
   return {
@@ -727,12 +701,12 @@ function buildForensicsRunSummary(
     attempt: run.attempt,
     status: run.status,
     outcome: run.outcome,
-    agentHarness: normalizeHarnessKind(agentRun?.harnessKind ?? null) ?? runtimeContext?.harness ?? null,
-    agentStatus: agentRun ? normalizeAgentRunStatus(agentRun.status) : null,
-    agentFailureKind: agentRun?.failureKind ?? null,
-    agentFailureOrigin: agentRun?.failureOrigin ?? null,
-    agentFailureMessagePreview: agentRun?.failureMessagePreview ?? null,
-    model: agentRun?.model ?? runtimeContext?.model ?? null,
+    agentHarness: runtimeContext?.harness ?? null,
+    agentStatus: normalizeAgentRunStatus(run.status),
+    agentFailureKind: deriveFailureKind(run),
+    agentFailureOrigin: null,
+    agentFailureMessagePreview: run.errorMessage ?? null,
+    model: runtimeContext?.model ?? null,
     workerHost: run.workerHost,
     workspacePath: run.workspacePath,
     startedAt: run.startedAt,
@@ -783,33 +757,16 @@ function buildRunMachineLoadSummary(
   };
 }
 
-function buildUsage(
-  agentTurn: typeof symphonyAgentTurnsTable.$inferSelect | undefined,
-  legacyUsage: unknown
-): SymphonyAgentTurnRecord["usage"] {
-  const fallbackUsage = parseLegacyUsage(legacyUsage);
-
-  if (agentTurn) {
-    const usage = {
-      input_tokens: agentTurn.inputTokens,
-      cached_input_tokens: agentTurn.cachedInputTokens,
-      output_tokens: agentTurn.outputTokens
-    };
-
-    if (hasTokenUsage(usage)) {
-      return usage;
-    }
-
-    if (fallbackUsage) {
-      return fallbackUsage;
-    }
-
-    if (agentTurn.status !== "running") {
-      return usage;
-    }
+function deriveFailureKind(run: typeof symphonyRunsTable.$inferSelect): string | null {
+  if (run.errorClass) {
+    return run.errorClass;
   }
 
-  return fallbackUsage;
+  return run.outcome && isProblemOutcome(run.outcome) ? run.outcome : null;
+}
+
+function buildUsage(legacyUsage: unknown): SymphonyAgentTurnRecord["usage"] {
+  return parseLegacyUsage(legacyUsage);
 }
 
 function castJsonObject(value: unknown): JsonObject | null {
@@ -1092,19 +1049,6 @@ function normalizeItemLifecycleStatus(
   }
 }
 
-function normalizeHarnessKind(
-  harness: string | null
-): "pi" | null {
-  switch (harness) {
-    case "codex":
-      return "pi";
-    case "pi":
-      return "pi";
-    default:
-      return null;
-  }
-}
-
 function normalizeDeliveryStatus(
   status: string | null | undefined
 ): "completed" | "blocked" | "partial" | null {
@@ -1118,89 +1062,16 @@ function normalizeDeliveryStatus(
   }
 }
 
-function mapAgentRunRecord(
-  run: typeof symphonyAgentRunsTable.$inferSelect,
-  runtimeTurns: Array<typeof symphonyTurnsTable.$inferSelect> = []
-): SymphonyAgentRunRecord {
-  const {
-    issueId,
-    ...rest
-  } = run;
-  const resolvedTokens = resolvePreferredTokenTotals(
-    {
-      inputTokens: run.inputTokens,
-      cachedInputTokens: run.cachedInputTokens,
-      outputTokens: run.outputTokens
-    },
-    computeRuntimeRunTokenTotals(runtimeTurns)
-  );
-
-  return {
-    ...rest,
-    trackerIssueId: issueId,
-    harnessKind: normalizeHarnessKind(run.harnessKind),
-    status: normalizeAgentRunStatus(run.status),
-    inputTokens: resolvedTokens.inputTokens,
-    cachedInputTokens: resolvedTokens.cachedInputTokens,
-    outputTokens: resolvedTokens.outputTokens,
-    totalTokens:
-      resolvedTokens.inputTokens +
-      resolvedTokens.cachedInputTokens +
-      resolvedTokens.outputTokens
-  };
-}
-
-function mapAgentTurnRecord(
-  turn: typeof symphonyAgentTurnsTable.$inferSelect,
-  runtimeTurn?: typeof symphonyTurnsTable.$inferSelect
-): SymphonyAgentTurnRecord {
-  const usage = buildUsage(turn, runtimeTurn?.usage ?? null);
-  const resolvedTokens = usage
-    ? {
-        inputTokens: usage.input_tokens,
-        cachedInputTokens: usage.cached_input_tokens,
-        outputTokens: usage.output_tokens
-      }
-    : {
-        inputTokens: turn.inputTokens,
-        cachedInputTokens: turn.cachedInputTokens,
-        outputTokens: turn.outputTokens
-      };
-
-  return {
-    ...turn,
-    startedAt:
-      turn.startedAt ??
-      runtimeTurn?.startedAt ??
-      turn.latestEventAt ??
-      turn.insertedAt,
-    harnessKind: normalizeHarnessKind(turn.harnessKind),
-    status: normalizeAgentTurnStatus(turn.status),
-    inputTokens: resolvedTokens.inputTokens,
-    cachedInputTokens: resolvedTokens.cachedInputTokens,
-    outputTokens: resolvedTokens.outputTokens,
-    totalTokens:
-      resolvedTokens.inputTokens +
-      resolvedTokens.cachedInputTokens +
-      resolvedTokens.outputTokens,
-    usage
-  };
-}
-
 function buildAgentArtifactRunRecord(
   input: RunData,
   turns: SymphonyAgentTurnRecord[]
 ): SymphonyAgentRunRecord {
-  if (input.agentRun) {
-    return mapAgentRunRecord(input.agentRun, input.symphonyTurns);
-  }
-
   const tokenTotals = computeRuntimeRunTokenTotals(input.symphonyTurns);
   const latestEvent = input.eventRows.at(-1) ?? null;
 
   return {
     runId: input.run.runId,
-    threadId: input.runtimeContext.threadId,
+    threadId: resolveRunThreadId(input),
     harnessKind: input.runtimeContext.harness,
     model: input.runtimeContext.model,
     providerId: input.runtimeContext.providerId,
@@ -1210,9 +1081,9 @@ function buildAgentArtifactRunRecord(
     startedAt: input.run.startedAt,
     endedAt: input.run.endedAt,
     status: normalizeAgentRunStatus(input.run.status),
-    failureKind: null,
+    failureKind: deriveFailureKind(input.run),
     failureOrigin: null,
-    failureMessagePreview: null,
+    failureMessagePreview: input.run.errorMessage ?? null,
     finalTurnId: turns.at(-1)?.turnId ?? null,
     lastAgentMessageItemId: null,
     lastAgentMessagePreview: null,
@@ -1240,22 +1111,7 @@ function buildAgentArtifactRunRecord(
 }
 
 function buildAgentArtifactTurnRecords(input: RunData): SymphonyAgentTurnRecord[] {
-  const runtimeTurnMap = buildRuntimeTurnMap(input.symphonyTurns);
-  const agentTurnMap = new Map(
-    input.agentTurns.map((turn) => [turn.turnId, turn] as const)
-  );
-  const runtimeTurnIds = new Set(input.symphonyTurns.map((turn) => turn.turnId));
-  const runtimeTurns = input.symphonyTurns.map((runtimeTurn) => {
-    const agentTurn = agentTurnMap.get(runtimeTurn.turnId);
-    return agentTurn
-      ? mapAgentTurnRecord(agentTurn, runtimeTurn)
-      : synthesizeAgentTurnRecord(input, runtimeTurn);
-  });
-  const projectionOnlyTurns = input.agentTurns
-    .filter((turn) => !runtimeTurnIds.has(turn.turnId))
-    .map((turn) => mapAgentTurnRecord(turn, runtimeTurnMap.get(turn.turnId)));
-
-  return [...runtimeTurns, ...projectionOnlyTurns].sort((left, right) =>
+  return input.symphonyTurns.map((runtimeTurn) => synthesizeAgentTurnRecord(input, runtimeTurn)).sort((left, right) =>
     compareNullableIso(
       left.startedAt ?? left.latestEventAt ?? left.insertedAt,
       right.startedAt ?? right.latestEventAt ?? right.insertedAt
@@ -1267,7 +1123,7 @@ function synthesizeAgentTurnRecord(
   input: RunData,
   runtimeTurn: typeof symphonyTurnsTable.$inferSelect
 ): SymphonyAgentTurnRecord {
-  const usage = buildUsage(undefined, runtimeTurn.usage);
+  const usage = buildUsage(runtimeTurn.usage);
   const latestEvent = latestTurnEventRow(input.eventRows, runtimeTurn.turnId);
   const inputTokens = usage?.input_tokens ?? 0;
   const cachedInputTokens = usage?.cached_input_tokens ?? 0;
@@ -1738,7 +1594,6 @@ function mapAgentTurnActivityRecords(input: {
 function mapAgentEventRecords(
   eventRows: Array<typeof symphonyAgentEventLogTable.$inferSelect>,
   overflowMap: Map<string, typeof symphonyAgentPayloadOverflowTable.$inferSelect>,
-  agentTurnMap: Map<string, typeof symphonyAgentTurnsTable.$inferSelect>,
   runtimeTurnMap: Map<string, typeof symphonyTurnsTable.$inferSelect>,
   runThreadId: string | null
 ): SymphonyAgentEventRecord[] {
@@ -1752,10 +1607,7 @@ function mapAgentEventRecords(
     let inferredThreadId: string | null = row.threadId;
 
     if (inferredThreadId === null && row.turnId) {
-      inferredThreadId =
-        agentTurnMap.get(row.turnId)?.threadId ??
-        runtimeTurnMap.get(row.turnId)?.threadId ??
-        null;
+      inferredThreadId = runtimeTurnMap.get(row.turnId)?.threadId ?? null;
     }
 
     if (inferredThreadId === null) {
@@ -1798,25 +1650,9 @@ function mapAgentOverflowRecord(
 }
 
 function buildForensicsTurns(input: RunData): ForensicsTurn[] {
-  const knownTurnIds = new Set(input.symphonyTurns.map((turn) => turn.turnId));
-  const baseTurns = input.symphonyTurns.map((turn) =>
-    mapForensicsTurnRecord(
-      turn,
-      input.agentTurnMap.get(turn.turnId),
-      input.agentRun?.threadId ?? input.runtimeContext.threadId ?? null
-    )
+  const turns = input.symphonyTurns.map((turn) =>
+    mapForensicsTurnRecord(turn, resolveRunThreadId(input))
   );
-  const maxTurnSequence = baseTurns.reduce(
-    (max, turn) => Math.max(max, turn.turnSequence),
-    0
-  );
-  const syntheticTurns = input.agentTurns
-    .filter((turn) => !knownTurnIds.has(turn.turnId))
-    .sort((left, right) => compareNullableIso(left.startedAt, right.startedAt))
-    .map((turn, index) =>
-      synthesizeForensicsTurnRecord(input.run, turn, maxTurnSequence + index + 1)
-    );
-  const turns = [...baseTurns, ...syntheticTurns];
 
   return turns.map((turn) => ({
     ...turn,
@@ -1827,32 +1663,19 @@ function buildForensicsTurns(input: RunData): ForensicsTurn[] {
 
 function mapForensicsTurnRecord(
   turn: typeof symphonyTurnsTable.$inferSelect,
-  agentTurn: typeof symphonyAgentTurnsTable.$inferSelect | undefined,
-  agentRunThreadId: string | null
+  runThreadId: string | null
 ): Omit<ForensicsTurn, "eventCount" | "events"> {
   const threadId = requireForensicsThreadId(
-    agentTurn?.threadId ?? turn.threadId ?? agentRunThreadId,
+    turn.threadId ?? runThreadId,
     `turn ${turn.turnId}`
   );
 
   return {
     ...turn,
     threadId,
-    usage: buildUsage(agentTurn, turn.usage),
+    usage: buildUsage(turn.usage),
     metadata: castJsonObject(turn.metadata)
   };
-}
-
-function hasTokenUsage(input: {
-  input_tokens: number;
-  cached_input_tokens: number;
-  output_tokens: number;
-}): boolean {
-  return (
-    input.input_tokens > 0 ||
-    input.cached_input_tokens > 0 ||
-    input.output_tokens > 0
-  );
 }
 
 function parseLegacyUsage(
@@ -1874,73 +1697,9 @@ function parseLegacyUsage(
     : null;
 }
 
-function resolvePreferredTokenTotals(
-  analyticsTokens: {
-    inputTokens: number;
-    cachedInputTokens: number;
-    outputTokens: number;
-  } | null,
-  runtimeTokens: {
-    inputTokens: number;
-    cachedInputTokens: number;
-    outputTokens: number;
-  }
-): {
-  inputTokens: number;
-  cachedInputTokens: number;
-  outputTokens: number;
-} {
-  if (
-    analyticsTokens &&
-    (analyticsTokens.inputTokens > 0 ||
-      analyticsTokens.cachedInputTokens > 0 ||
-      analyticsTokens.outputTokens > 0)
-  ) {
-    return analyticsTokens;
-  }
-
-  if (
-    runtimeTokens.inputTokens > 0 ||
-    runtimeTokens.cachedInputTokens > 0 ||
-    runtimeTokens.outputTokens > 0
-  ) {
-    return runtimeTokens;
-  }
-
-  return analyticsTokens ?? runtimeTokens;
-}
-
-function synthesizeForensicsTurnRecord(
-  run: typeof symphonyRunsTable.$inferSelect,
-  agentTurn: typeof symphonyAgentTurnsTable.$inferSelect,
-  turnSequence: number
-): Omit<ForensicsTurn, "eventCount" | "events"> {
-  const threadId = requireForensicsThreadId(
-    agentTurn.threadId,
-    `turn ${agentTurn.turnId}`
-  );
-
-  return {
-    turnId: agentTurn.turnId,
-    runId: agentTurn.runId,
-    turnSequence,
-    threadId,
-    agentTurnId: agentTurn.turnId,
-    promptText: "[agent prompt unavailable]",
-    status: agentTurn.status,
-    startedAt: agentTurn.startedAt ?? run.startedAt,
-    endedAt: agentTurn.endedAt ?? null,
-    usage: buildUsage(agentTurn, null),
-    metadata: null,
-    insertedAt: agentTurn.insertedAt,
-    updatedAt: agentTurn.updatedAt
-  };
-}
-
 function buildForensicsEvents(input: {
   eventRows: Array<typeof symphonyAgentEventLogTable.$inferSelect>;
   overflowMap: Map<string, typeof symphonyAgentPayloadOverflowTable.$inferSelect>;
-  agentTurnMap: Map<string, typeof symphonyAgentTurnsTable.$inferSelect>;
   runtimeTurns: Array<typeof symphonyTurnsTable.$inferSelect>;
   runThreadId: string | null;
 }): ForensicsEvent[] {
@@ -1955,7 +1714,6 @@ function buildForensicsEvents(input: {
 
     const threadId = requireForensicsThreadId(
       row.threadId ??
-        input.agentTurnMap.get(row.turnId)?.threadId ??
         runtimeTurnMap.get(row.turnId)?.threadId ??
         input.runThreadId ??
         null,
@@ -1995,16 +1753,13 @@ function requireForensicsThreadId(
 
 type RunData = {
   run: typeof symphonyRunsTable.$inferSelect;
-  agentRun: typeof symphonyAgentRunsTable.$inferSelect | null;
   issue: typeof symphonyIssuesTable.$inferSelect;
   issueRuns: Array<typeof symphonyRunsTable.$inferSelect>;
   issueDeliveryRows: Array<typeof symphonyIssueDeliveryReportsTable.$inferSelect>;
   latestRunDelivery: typeof symphonyIssueDeliveryReportsTable.$inferSelect | null;
   symphonyTurns: Array<typeof symphonyTurnsTable.$inferSelect>;
-  agentTurns: Array<typeof symphonyAgentTurnsTable.$inferSelect>;
   eventRows: Array<typeof symphonyAgentEventLogTable.$inferSelect>;
   overflowMap: Map<string, typeof symphonyAgentPayloadOverflowTable.$inferSelect>;
-  agentTurnMap: Map<string, typeof symphonyAgentTurnsTable.$inferSelect>;
   itemRows: Array<typeof symphonyAgentItemsTable.$inferSelect>;
   commandRows: Array<typeof symphonyAgentCommandExecutionsTable.$inferSelect>;
   toolRows: Array<typeof symphonyAgentToolCallsTable.$inferSelect>;
@@ -2050,14 +1805,12 @@ async function loadRunData(
     return null;
   }
 
-  const [agentRun, issue, issueRuns, issueDeliveryRows, symphonyTurns, agentTurns, eventRows, itemRows, commandRows, toolRows, piReadRows, piEditRows, piWriteRows, piGrepRows, piFindRows, piMessageEndRows, agentMessageRows, reasoningRows, fileChangeRows, taskSnapshotRows, runtimeContextRow] =
+  const [issue, issueRuns, issueDeliveryRows, symphonyTurns, eventRows, itemRows, commandRows, toolRows, piReadRows, piEditRows, piWriteRows, piGrepRows, piFindRows, piMessageEndRows, agentMessageRows, reasoningRows, fileChangeRows, taskSnapshotRows, runtimeContextRow] =
     await Promise.all([
-      db.select().from(symphonyAgentRunsTable).where(eq(symphonyAgentRunsTable.runId, runId)).get(),
       db.select().from(symphonyIssuesTable).where(eq(symphonyIssuesTable.issueIdentifier, run.issueIdentifier)).get(),
       db.select().from(symphonyRunsTable).where(eq(symphonyRunsTable.issueIdentifier, run.issueIdentifier)).all(),
       db.select().from(symphonyIssueDeliveryReportsTable).where(eq(symphonyIssueDeliveryReportsTable.issueIdentifier, run.issueIdentifier)).orderBy(desc(symphonyIssueDeliveryReportsTable.reportedAt)).all(),
       db.select().from(symphonyTurnsTable).where(eq(symphonyTurnsTable.runId, runId)).orderBy(asc(symphonyTurnsTable.turnSequence)).all(),
-      db.select().from(symphonyAgentTurnsTable).where(eq(symphonyAgentTurnsTable.runId, runId)).all(),
       db.select().from(symphonyAgentEventLogTable).where(eq(symphonyAgentEventLogTable.runId, runId)).orderBy(asc(symphonyAgentEventLogTable.sequence)).all(),
       db.select().from(symphonyAgentItemsTable).where(eq(symphonyAgentItemsTable.runId, runId)).all(),
       db.select().from(symphonyAgentCommandExecutionsTable).where(eq(symphonyAgentCommandExecutionsTable.runId, runId)).all(),
@@ -2106,7 +1859,6 @@ async function loadRunData(
           .where(inArray(symphonyAgentPayloadOverflowTable.id, overflowIds))
           .all();
   const overflowMap = new Map(overflowRows.map((row) => [row.id, row] as const));
-  const agentTurnMap = new Map(agentTurns.map((turn) => [turn.turnId, turn] as const));
   const piMessageEndMap = new Map(
     piMessageEndRows.map((row) => [toolRowKey(row.runId, row.turnId, row.itemId), row] as const)
   );
@@ -2127,24 +1879,23 @@ async function loadRunData(
   const events = buildForensicsEvents({
     eventRows,
     overflowMap,
-    agentTurnMap,
     runtimeTurns: symphonyTurns,
-    runThreadId: agentRun?.threadId ?? runtimeContext.threadId ?? null
+    runThreadId:
+      runtimeContext.threadId ??
+      symphonyTurns.find((turn) => typeof turn.threadId === "string" && turn.threadId.trim() !== "")?.threadId ??
+      null
   });
   const latestRunDelivery = issueDeliveryRows.find((row) => row.runId === runId) ?? null;
 
   return {
     run,
-    agentRun: agentRun ?? null,
     issue,
     issueRuns,
     issueDeliveryRows,
     latestRunDelivery,
     symphonyTurns,
-    agentTurns,
     eventRows,
     overflowMap,
-    agentTurnMap,
     itemRows,
     commandRows,
     toolRows,
@@ -2183,4 +1934,21 @@ function countRowsForTurn(
   turnId: string
 ): number {
   return rows.filter((row) => row.turnId === turnId).length;
+}
+
+function resolveRunThreadId(input: Pick<RunData, "runtimeContext" | "symphonyTurns" | "eventRows">): string | null {
+  if (input.runtimeContext.threadId) {
+    return input.runtimeContext.threadId;
+  }
+
+  const turnThreadId = input.symphonyTurns.find(
+    (turn) => typeof turn.threadId === "string" && turn.threadId.trim() !== ""
+  )?.threadId;
+  if (turnThreadId) {
+    return turnThreadId;
+  }
+
+  return input.eventRows.find(
+    (row) => typeof row.threadId === "string" && row.threadId.trim() !== ""
+  )?.threadId ?? null;
 }

@@ -527,89 +527,6 @@ describe("runtime services", () => {
       seededAt,
       seededAt
     );
-      seedDb.client.prepare(`
-      insert into symphony_agent_runs (
-        run_id, thread_id, harness_kind, model, provider_id, provider_name, issue_id, issue_identifier,
-        started_at, ended_at, status, failure_kind, failure_origin, failure_message_preview, final_turn_id,
-        last_agent_message_item_id, last_agent_message_preview, last_agent_message_overflow_id,
-        input_tokens, cached_input_tokens, output_tokens, turn_count, item_count, command_count, tool_call_count,
-        file_change_count, agent_message_count, reasoning_count, error_count, latest_event_at, latest_event_type,
-        inserted_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      "run-shutdown",
-      "thread-shutdown",
-      "pi",
-      "xiaomi/mimo-v2-pro",
-      "openrouter",
-      "OpenRouter",
-      "issue-shutdown",
-      "COL-SHUTDOWN",
-      seededAt,
-      null,
-      "running",
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      0,
-      0,
-      0,
-      1,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      seededAt,
-      "thread.started",
-      seededAt,
-      seededAt
-    );
-      seedDb.client.prepare(`
-      insert into symphony_agent_turns (
-        turn_id, run_id, thread_id, harness_kind, model, provider_id, provider_name,
-        started_at, ended_at, status, failure_kind, failure_message_preview, last_agent_message_item_id,
-        last_agent_message_preview, last_agent_message_overflow_id, input_tokens, cached_input_tokens, output_tokens,
-        item_count, command_count, tool_call_count, file_change_count, agent_message_count, reasoning_count, error_count,
-        latest_event_at, latest_event_type, inserted_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      "turn-shutdown",
-      "run-shutdown",
-      "thread-shutdown",
-      "pi",
-      "xiaomi/mimo-v2-pro",
-      "openrouter",
-      "OpenRouter",
-      seededAt,
-      null,
-      "running",
-      null,
-      null,
-      null,
-      null,
-      null,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      seededAt,
-      "thread.started",
-      seededAt,
-      seededAt
-    );
       seedDb.close();
 
       await harness.services.shutdown();
@@ -633,23 +550,6 @@ describe("runtime services", () => {
       from symphony_turns
       where turn_id = ?
     `).get("turn-shutdown") as { status: string };
-      const agentRun = verifyDb.client.prepare(`
-      select status, failure_kind as failureKind
-      from symphony_agent_runs
-      where run_id = ?
-    `).get("run-shutdown") as {
-      status: string;
-      failureKind: string | null;
-    };
-      const agentTurn = verifyDb.client.prepare(`
-      select status, failure_kind as failureKind
-      from symphony_agent_turns
-      where turn_id = ?
-    `).get("turn-shutdown") as {
-      status: string;
-      failureKind: string | null;
-    };
-
       expect(run).toEqual(
         expect.objectContaining({
           status: "paused",
@@ -659,14 +559,6 @@ describe("runtime services", () => {
         })
       );
       expect(turn.status).toBe("stopped");
-      expect(agentRun).toEqual({
-        status: "paused",
-        failureKind: "runtime_shutdown"
-      });
-      expect(agentTurn).toEqual({
-        status: "stopped",
-        failureKind: "runtime_shutdown"
-      });
 
       verifyDb.close();
     },
