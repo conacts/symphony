@@ -198,7 +198,7 @@ export function resolveEnvToken(
   return env[value.slice(1)];
 }
 
-export function normalizeObjectKeys(
+function normalizeObjectKeys(
   value: Record<string, unknown>
 ): Record<string, unknown> {
   const normalized: Record<string, unknown> = {};

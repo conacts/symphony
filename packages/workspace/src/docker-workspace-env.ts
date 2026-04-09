@@ -12,7 +12,7 @@ export function resolveDockerWorkspaceEnvBundle(input: {
   workspaceKey: string;
   workspacePath: string;
   runId: string | null;
-  issueId: string | null;
+  trackerIssueId: string | null;
   services: Record<string, SymphonyResolvedRuntimeService>;
 }): PreparedWorkspace["envBundle"] {
   if (!input.runtimeManifest) {
@@ -26,7 +26,7 @@ export function resolveDockerWorkspaceEnvBundle(input: {
       manifest: input.runtimeManifest.manifest,
       environmentSource: input.environmentSource ?? {},
       runtime: {
-        issueId: input.issueId,
+        trackerIssueId: input.trackerIssueId,
         issueIdentifier: input.issueIdentifier,
         runId: input.runId,
         workspaceKey: input.workspaceKey,

@@ -23,7 +23,7 @@ export const symphonyRealtimeClientMessageSchema = z.discriminatedUnion("type", 
   })
 ]);
 
-export const symphonyRealtimeConnectionAckMessageSchema = z.strictObject({
+const symphonyRealtimeConnectionAckMessageSchema = z.strictObject({
   type: z.literal("connection.ack"),
   connectionId: nonEmptyStringSchema,
   subscribedChannels: z.array(symphonyRealtimeChannelSchema),

@@ -176,7 +176,7 @@ function createRun(
 ): SymphonyForensicsRunSummary {
   return {
     runId: "run-1",
-    issueId: "issue-1",
+    trackerIssueId: "issue-1",
     issueIdentifier: "COL-1",
     attempt: 1,
     status: "finished",

@@ -16,6 +16,9 @@ export function createAgentAnalyticsReadPort(
   readStore: AgentAnalyticsReadStore
 ): SymphonyAgentAnalyticsReadPort {
   return {
+    hasRun(runId) {
+      return readStore.hasRun(runId);
+    },
     fetchRunArtifacts(runId) {
       return readStore.fetchRunArtifacts(runId);
     },

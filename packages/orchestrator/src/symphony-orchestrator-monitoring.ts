@@ -46,7 +46,7 @@ export async function reconcileStalledRunningIssues(input: {
     await input.agentRuntime.stopRun({
       issue: runningEntry.issue,
       workspace: runningEntry.workspace,
-      cleanupWorkspace: false
+      cleanupMode: "preserve"
     });
 
     await input.handleRunCompletion(issueId, {

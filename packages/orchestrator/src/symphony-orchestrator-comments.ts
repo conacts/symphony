@@ -1,11 +1,12 @@
 import type { JsonObject } from "@symphony/contracts";
+import type { WorkspaceCleanupMode } from "@symphony/workspace";
 import { asJsonObject } from "./internal/json.js";
 import {
   issueBranchName,
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
 
-export type SymphonyStartupFailureTransition =
+export type SymphonyFailureStateTransition =
   | {
       kind: "none";
     }
@@ -19,9 +20,10 @@ export type SymphonyStartupFailureTransition =
       reason: string;
     };
 
-export type SymphonyFailureCommentOptions = {
+type SymphonyFailureCommentOptions = {
   rateLimits?: JsonObject | null;
-  startupFailureTransition?: SymphonyStartupFailureTransition;
+  stateTransition?: SymphonyFailureStateTransition;
+  workspaceCleanupMode?: WorkspaceCleanupMode | null;
 };
 
 export function claimTransitionCommentBody(
@@ -45,12 +47,13 @@ export function buildFailureCommentBody(
   options: SymphonyFailureCommentOptions = {}
 ): string {
   return [
-    failureCommentTitle(outcome, reason),
+    failureCommentTitle(outcome, reason, options.stateTransition),
     "",
     `Summary: ${failureCommentSummary(outcome, reason)}`,
     failureCommentDetailBlock(failureCommentDetails(reason, outcome, options)),
+    failureCommentWorkspacePolicyLine(options.workspaceCleanupMode),
     "",
-    ...failureCommentFollowUpLines(outcome, options.startupFailureTransition)
+    ...failureCommentFollowUpLines(outcome, options.stateTransition)
   ]
     .filter((line): line is string => typeof line === "string" && line !== "")
     .join("\n");
@@ -64,41 +67,63 @@ function truncateReason(reason: string, maxLength = 1_000): string {
   return `${reason.slice(0, maxLength)}...`;
 }
 
-function failureCommentTitle(outcome: string, reason: string): string {
-  if (outcome === "startup_failed" || outcome === "startup_failed_backlog") {
+function failureCommentTitle(
+  outcome: string,
+  reason: string,
+  transition: SymphonyFailureStateTransition | undefined
+): string {
+  if (outcome === "startup_failed") {
     return "Symphony agent startup failed.";
   }
 
   if (outcome === "paused_max_turns") {
-    return "Symphony agent paused after reaching max turns.";
+    return pauseTransitionSucceeded(transition)
+      ? "Symphony agent paused after reaching max turns."
+      : "Symphony agent stopped after reaching max turns.";
   }
 
   if (outcome === "paused_stalled") {
-    return "Symphony agent paused after the run stalled.";
+    return pauseTransitionSucceeded(transition)
+      ? "Symphony agent paused after the run stalled."
+      : "Symphony agent stopped after the run stalled.";
   }
 
   if (outcome === "paused_provider_transient") {
-    return "Symphony agent paused after repeated transient provider failures.";
+    return pauseTransitionSucceeded(transition)
+      ? "Symphony agent paused after repeated transient provider failures."
+      : "Symphony agent stopped after repeated transient provider failures.";
   }
 
   if (outcome === "paused_failure") {
-    return "Symphony agent paused after a runtime failure.";
+    return pauseTransitionSucceeded(transition)
+      ? "Symphony agent paused after a runtime failure."
+      : "Symphony agent stopped after a runtime failure.";
+  }
+
+  if (outcome === "blocked_repo") {
+    return "Symphony agent reported a repo or workspace blocker.";
+  }
+
+  if (outcome === "blocked_merge") {
+    return "Symphony merge automation reported a merge blocker.";
   }
 
   if (outcome === "blocked_merge_max_turns") {
-    return "Symphony merge automation moved the issue to Blocked after reaching max turns.";
+    return "Symphony merge automation stopped after reaching max turns.";
   }
 
   if (outcome === "blocked_merge_stalled") {
-    return "Symphony merge automation moved the issue to Blocked after stalling.";
+    return "Symphony merge automation stalled.";
   }
 
   if (outcome === "blocked_merge_failure") {
-    return "Symphony merge automation moved the issue to Blocked after a runtime failure.";
+    return "Symphony merge automation failed during an active run.";
   }
 
   if (outcome === "rate_limited" || rateLimitReason(reason)) {
-    return "Symphony agent paused after hitting a Pi rate limit.";
+    return pauseTransitionSucceeded(transition)
+      ? "Symphony agent paused after hitting a Pi rate limit."
+      : "Symphony agent stopped after hitting a Pi rate limit.";
   }
 
   return "Symphony agent run failed.";
@@ -123,6 +148,14 @@ function failureCommentSummary(outcome: string, reason: string): string {
 
   if (outcome === "paused_failure") {
     return "Pi stopped because the runtime failed during an active run.";
+  }
+
+  if (outcome === "blocked_repo") {
+    return "Pi stopped because active work hit a repo-side or task-side blocker that needs human intervention.";
+  }
+
+  if (outcome === "blocked_merge") {
+    return "Pi stopped because merge automation reported a blocker that needs human intervention.";
   }
 
   if (outcome === "blocked_merge_max_turns") {
@@ -156,7 +189,7 @@ function failureCommentDetails(
   }
 
   const transitionDetail = startupFailureTransitionDetail(
-    options.startupFailureTransition
+    options.stateTransition
   );
   if (transitionDetail) {
     details.push(transitionDetail);
@@ -182,30 +215,46 @@ function failureCommentDetailBlock(details: string | null): string | null {
   return ["Details:", "```text", details, "```"].join("\n");
 }
 
+function failureCommentWorkspacePolicyLine(
+  cleanupMode: WorkspaceCleanupMode | null | undefined
+): string | null {
+  if (cleanupMode === "preserve") {
+    return "Workspace policy: preserve. Symphony keeps the issue workspace available for inspection or a deliberate rerun.";
+  }
+
+  if (cleanupMode === "destroy") {
+    return "Workspace policy: destroy. Symphony cleans up the issue workspace after the run stops.";
+  }
+
+  return null;
+}
+
 function failureCommentFollowUpLines(
   outcome: string,
-  transition: SymphonyStartupFailureTransition | undefined
+  transition: SymphonyFailureStateTransition | undefined
 ): string[] {
-  if (outcome === "startup_failed" || outcome === "startup_failed_backlog") {
+  if (outcome === "startup_failed") {
     return startupFailureFollowUpLines(transition);
   }
 
+  if (outcome === "blocked_repo") {
+    return blockedFollowUpLines(transition);
+  }
+
   if (
+    outcome === "blocked_merge" ||
     outcome === "blocked_merge_max_turns" ||
     outcome === "blocked_merge_stalled" ||
     outcome === "blocked_merge_failure"
   ) {
-    return [
-      "Symphony did not retry automatically.",
-      "Symphony moved the issue to `Blocked`. After resolving the merge problem, move it back to `Approved` to request another merge run."
-    ];
+    return blockedMergeFollowUpLines(transition);
   }
 
   return pausedFailureFollowUpLines(outcome, transition);
 }
 
 function startupFailureFollowUpLines(
-  transition: SymphonyStartupFailureTransition | undefined
+  transition: SymphonyFailureStateTransition | undefined
 ): string[] {
   if (transition?.kind === "moved") {
     return [
@@ -227,9 +276,55 @@ function startupFailureFollowUpLines(
   ];
 }
 
+function blockedFollowUpLines(
+  transition: SymphonyFailureStateTransition | undefined
+): string[] {
+  if (transition?.kind === "moved") {
+    return [
+      "Symphony did not retry automatically.",
+      `Symphony moved the issue to \`${transition.targetState}\`. After resolving the repo or workspace blocker, move it back to \`Todo\` to request another run.`
+    ];
+  }
+
+  if (transition?.kind === "failed") {
+    return [
+      "Symphony did not retry automatically.",
+      `Symphony could not move the issue to \`${transition.targetState}\`, so manual state cleanup is required before the ticket is requeued.`
+    ];
+  }
+
+  return [
+    "Symphony did not retry automatically.",
+    "After resolving the repo or workspace blocker, move the issue back to `Todo` to request another run."
+  ];
+}
+
+function blockedMergeFollowUpLines(
+  transition: SymphonyFailureStateTransition | undefined
+): string[] {
+  if (transition?.kind === "moved") {
+    return [
+      "Symphony did not retry automatically.",
+      `Symphony moved the issue to \`${transition.targetState}\`. After resolving the merge problem, move it back to \`Approved\` to request another merge run.`
+    ];
+  }
+
+  if (transition?.kind === "failed") {
+    return [
+      "Symphony did not retry automatically.",
+      `Symphony could not move the issue to \`${transition.targetState}\`, so manual state cleanup is required before the merge is retried.`
+    ];
+  }
+
+  return [
+    "Symphony did not retry automatically.",
+    "After resolving the merge problem, move the issue back to `Approved` to request another merge run."
+  ];
+}
+
 function pausedFailureFollowUpLines(
   outcome: string,
-  transition: SymphonyStartupFailureTransition | undefined
+  transition: SymphonyFailureStateTransition | undefined
 ): string[] {
   if (outcome === "paused_provider_transient" && transition?.kind === "moved") {
     return [
@@ -273,7 +368,7 @@ function pausedFailureFollowUpLines(
 }
 
 function startupFailureTransitionDetail(
-  transition: SymphonyStartupFailureTransition | undefined
+  transition: SymphonyFailureStateTransition | undefined
 ): string | null {
   if (transition?.kind !== "failed") {
     return null;
@@ -282,6 +377,12 @@ function startupFailureTransitionDetail(
   return truncateReason(
     `State transition to \`${transition.targetState}\` failed:\n${transition.reason}`
   );
+}
+
+function pauseTransitionSucceeded(
+  transition: SymphonyFailureStateTransition | undefined
+): boolean {
+  return transition?.kind === "moved";
 }
 
 function formatRateLimitDetail(

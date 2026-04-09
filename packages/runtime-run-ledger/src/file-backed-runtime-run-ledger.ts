@@ -76,12 +76,12 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
     await this.#mutate(async (document) => {
       const now = isoNow();
       const startedAt = normalizeIsoTimestamp(attrs.startedAt) ?? now;
-      const repositoryKey = attrs.repositoryKey ?? "default";
+      const repositoryKey = sanitizeRequiredText(attrs.repositoryKey, "repositoryKey");
 
       const nextIssue = upsertIssueRecord(document.issues, {
-        issueId: attrs.issueId,
-        repositoryKey,
         issueIdentifier: attrs.issueIdentifier,
+        trackerIssueId: attrs.trackerIssueId,
+        repositoryKey,
         latestRunStartedAt: startedAt,
         insertedAt: now,
         updatedAt: now
@@ -91,7 +91,6 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       document.runs.push({
         runId,
         repositoryKey,
-        issueId: attrs.issueId,
         issueIdentifier: attrs.issueIdentifier,
         attempt: attrs.attempt ?? null,
         status: attrs.status ?? "running",
@@ -131,14 +130,19 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
           .filter((turn) => turn.runId === runId)
           .reduce((max, turn) => Math.max(max, turn.turnSequence), 0) +
           1;
+      const threadId =
+        typeof attrs.threadId === "string" ? attrs.threadId.trim() : "";
+
+      if (!threadId) {
+        throw new TypeError(`Turn thread id is required for run ${runId}`);
+      }
 
       document.turns.push({
         turnId,
         runId,
         turnSequence: nextSequence,
-        threadId: attrs.threadId ?? null,
+        threadId,
         agentTurnId: attrs.agentTurnId ?? null,
-        sessionId: attrs.sessionId ?? null,
         promptText: sanitizeText(attrs.promptText),
         status: attrs.status ?? "running",
         startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? now,
@@ -190,9 +194,8 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
         payloadTruncated: truncatedPayload.payloadTruncated,
         payloadBytes: truncatedPayload.payloadBytes,
         summary: attrs.summary ? sanitizeText(attrs.summary) : null,
-        threadId: attrs.threadId ?? null,
+        threadId: attrs.threadId ?? turn.threadId,
         agentTurnId: attrs.agentTurnId ?? null,
-        sessionId: attrs.sessionId ?? null,
         insertedAt: now
       });
     });
@@ -212,7 +215,6 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       turn.endedAt = normalizeIsoTimestamp(attrs.endedAt) ?? turn.endedAt;
       turn.threadId = attrs.threadId ?? turn.threadId;
       turn.agentTurnId = attrs.agentTurnId ?? turn.agentTurnId;
-      turn.sessionId = attrs.sessionId ?? turn.sessionId;
       turn.usage = sanitizeUsage(attrs.usage) ?? turn.usage;
       turn.metadata = mergeSanitizedJsonObjects(turn.metadata, attrs.metadata);
       turn.updatedAt = isoNow();
@@ -225,7 +227,6 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       endedAt: attrs.endedAt,
       threadId: attrs.threadId,
       agentTurnId: attrs.agentTurnId,
-      sessionId: attrs.sessionId,
       usage: attrs.usage,
       metadata: attrs.metadata
     });
@@ -255,7 +256,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
         : run.errorMessage;
       run.updatedAt = isoNow();
 
-      const issue = document.issues.find((entry) => entry.issueId === run.issueId);
+      const issue = document.issues.find((entry) => entry.issueIdentifier === run.issueIdentifier);
       if (issue) {
         issue.updatedAt = isoNow();
       }
@@ -309,7 +310,10 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       .filter((run) => matchesRunFilters(run, opts))
       .sort((left, right) => compareDescendingTimestamps(left.startedAt, right.startedAt))
       .slice(0, limit)
-      .map((run) => buildRunSummary(run, document.turns, document.events));
+      .flatMap((run) => {
+        const issue = document.issues.find((entry) => entry.issueIdentifier === run.issueIdentifier);
+        return issue ? [buildRunSummary(issue, run, document.turns, document.events)] : [];
+      });
   }
 
   async listProblemRuns(
@@ -330,7 +334,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       return null;
     }
 
-    const issueRecord = document.issues.find((entry) => entry.issueId === run.issueId);
+    const issueRecord = document.issues.find((entry) => entry.issueIdentifier === run.issueIdentifier);
     if (!issueRecord) {
       return null;
     }
@@ -348,11 +352,13 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
         return Number.isNaN(startedAtMs) ? true : startedAtMs >= cutoffMs;
       });
       const retainedRunIds = new Set(retainedRuns.map((run) => run.runId));
-      const retainedIssueIds = new Set(retainedRuns.map((run) => run.issueId));
+      const retainedIssueIdentifiers = new Set(retainedRuns.map((run) => run.issueIdentifier));
       const retainedTurns = document.turns.filter((turn) => retainedRunIds.has(turn.runId));
       const retainedTurnIds = new Set(retainedTurns.map((turn) => turn.turnId));
       const retainedEvents = document.events.filter((event) => retainedTurnIds.has(event.turnId));
-      const retainedIssues = document.issues.filter((issue) => retainedIssueIds.has(issue.issueId));
+      const retainedIssues = document.issues.filter((issue) =>
+        retainedIssueIdentifiers.has(issue.issueIdentifier)
+      );
 
       document.runs = retainedRuns;
       document.turns = retainedTurns;
@@ -420,13 +426,14 @@ function upsertIssueRecord(
   issues: SymphonyIssueRecord[],
   issue: SymphonyIssueRecord
 ): SymphonyIssueRecord[] {
-  const existing = issues.find((entry) => entry.issueId === issue.issueId);
+  const existing = issues.find((entry) => entry.issueIdentifier === issue.issueIdentifier);
 
   if (!existing) {
     return [...issues, issue];
   }
 
-  existing.issueIdentifier = issue.issueIdentifier;
+  existing.trackerIssueId = issue.trackerIssueId;
+  existing.repositoryKey = issue.repositoryKey;
   existing.latestRunStartedAt =
     Date.parse(issue.latestRunStartedAt) > Date.parse(existing.latestRunStartedAt)
       ? issue.latestRunStartedAt
@@ -482,6 +489,19 @@ function parseTokenCount(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? Math.floor(value)
     : 0;
+}
+
+function sanitizeRequiredText(value: string | null | undefined, field: string): string {
+  const normalized =
+    typeof value === "string" && value.trim() !== ""
+      ? sanitizeText(value)
+      : null;
+
+  if (!normalized) {
+    throw new TypeError(`${field} is required.`);
+  }
+
+  return normalized;
 }
 
 function deriveItemType(

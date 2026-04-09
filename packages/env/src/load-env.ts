@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
 
-export type EnvLoadOptions = {
+type EnvLoadOptions = {
   cwd?: string;
   mode?: string;
   skipLocal?: boolean;

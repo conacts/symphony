@@ -9,7 +9,6 @@ import {
   type DockerContainerNetwork,
   type DockerNetworkInspectState,
   type DockerVolumeInspectState,
-  type DockerServiceDescriptor,
   type DockerWorkspaceCommandRunner,
   type DockerWorkspaceDescriptor,
   managedBackendLabelKey,
@@ -17,13 +16,9 @@ import {
   managedIssueIdentifierLabelKey,
   managedKindLabelKey,
   managedMaterializationLabelKey,
-  managedNetworkNameLabelKey,
-  managedServiceKeyLabelKey,
-  managedServiceTypeLabelKey,
   managedWorkspaceContainerKind,
   managedWorkspaceKeyLabelKey,
   managedWorkspaceNetworkKind,
-  managedWorkspaceServiceKind,
   managedWorkspaceVolumeKind,
   normalizeDockerContainerName,
   stringOrFallback,
@@ -154,21 +149,6 @@ export async function inspectDockerContainer(
   return parseDockerInspectPayload(result.stdout, containerName);
 }
 
-export function containerAttachedToNetwork(
-  container: DockerContainerInspectState,
-  networkName: string
-): boolean {
-  return networkName in container.networks;
-}
-
-export function containerHasNetworkAlias(
-  container: DockerContainerInspectState,
-  networkName: string,
-  alias: string
-): boolean {
-  return container.networks[networkName]?.aliases.includes(alias) ?? false;
-}
-
 export async function containerHasExpectedBindMount(
   container: DockerContainerInspectState,
   workspacePath: string,
@@ -297,64 +277,7 @@ export function assertManagedVolume(
   }
 }
 
-export function assertManagedServiceContainer(
-  container: DockerContainerInspectState,
-  descriptor: DockerServiceDescriptor,
-  networkName: string
-): void {
-  if (container.labels[managedBackendLabelKey] !== managedBackendLabelValue) {
-    throw new SymphonyWorkspaceError(
-      "workspace_docker_name_conflict",
-      `Docker service container ${descriptor.containerName} exists but is not managed by Symphony.`
-    );
-  }
-
-  if (container.labels[managedKindLabelKey] !== managedWorkspaceServiceKind) {
-    throw new SymphonyWorkspaceError(
-      "workspace_docker_name_conflict",
-      `Docker service container ${descriptor.containerName} is not a managed Symphony service container.`
-    );
-  }
-
-  if (container.labels[managedServiceKeyLabelKey] !== descriptor.key) {
-    throw new SymphonyWorkspaceError(
-      "workspace_docker_name_conflict",
-      `Docker service container ${descriptor.containerName} is already assigned to service ${container.labels[managedServiceKeyLabelKey]}.`
-    );
-  }
-
-  if (container.labels[managedWorkspaceKeyLabelKey] !== descriptor.workspaceKey) {
-    throw new SymphonyWorkspaceError(
-      "workspace_docker_name_conflict",
-      `Docker service container ${descriptor.containerName} is already assigned to workspace ${container.labels[managedWorkspaceKeyLabelKey]}.`
-    );
-  }
-
-  if (
-    container.labels[managedIssueIdentifierLabelKey] !== descriptor.issueIdentifier
-  ) {
-    throw new SymphonyWorkspaceError(
-      "workspace_docker_name_conflict",
-      `Docker service container ${descriptor.containerName} is already assigned to issue ${container.labels[managedIssueIdentifierLabelKey]}.`
-    );
-  }
-
-  if (container.labels[managedServiceTypeLabelKey] !== "postgres") {
-    throw new SymphonyWorkspaceError(
-      "workspace_docker_name_conflict",
-      `Docker service container ${descriptor.containerName} uses unsupported service type ${container.labels[managedServiceTypeLabelKey]}.`
-    );
-  }
-
-  if (container.labels[managedNetworkNameLabelKey] !== networkName) {
-    throw new SymphonyWorkspaceError(
-      "workspace_docker_name_conflict",
-      `Docker service container ${descriptor.containerName} is attached to ${container.labels[managedNetworkNameLabelKey]} instead of ${networkName}.`
-    );
-  }
-}
-
-export function assertManagedNetwork(
+function assertManagedNetwork(
   network: DockerNetworkInspectState,
   descriptor: DockerWorkspaceDescriptor
 ): void {

@@ -25,7 +25,7 @@ describe("forensics client", () => {
           issues: [
             {
               repositoryKey: "symphony",
-              issueId: "issue_123",
+              trackerIssueId: "issue_123",
               issueIdentifier: "COL-165",
               latestRunStartedAt: "2026-03-31T18:00:00.000Z",
               latestRunId: "run_123",
@@ -183,7 +183,7 @@ describe("forensics client", () => {
             repositoryKey: "symphony",
             issue: {
               repositoryKey: "symphony",
-              issueId: "issue_123",
+              trackerIssueId: "issue_123",
               issueIdentifier: "COL-165",
             latestRunStartedAt: "2026-03-31T18:00:00.000Z",
             latestRunId: "run_123",

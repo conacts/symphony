@@ -94,7 +94,7 @@ function parseSortDirection(
   return "desc";
 }
 
-export function buildStartedAfterForTimeRange(
+function buildStartedAfterForTimeRange(
   timeRange: SymphonyForensicsIssueTimeRange
 ): string | undefined {
   const now = Date.now();

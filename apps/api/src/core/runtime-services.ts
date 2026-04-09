@@ -10,7 +10,9 @@ import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
 import {
   createSqliteAgentAnalyticsReadStore,
   createSqliteAgentAnalyticsStore,
+  createSqliteRuntimeForensicsReadStore,
   createSymphonyIssueDeliveryReportStore,
+  createSymphonyIssueStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyGitHubIngressJournal,
   createSymphonyIssueTimelineStore,
@@ -129,13 +131,18 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const database = initializeSymphonyDb({
     dbFile: env.dbFile
   });
-  const repositoryKey = primaryRepository?.repositoryKey ?? resolveRuntimeRepositoryKey({
-    sourceRepo: env.sourceRepo,
+  const repositoryKey = resolveRuntimeRepositoryKey({
     githubRepo: runtimePolicy.github.repo
   });
+  if (primaryRepository && primaryRepository.repositoryKey !== repositoryKey) {
+    throw new TypeError(
+      `Primary admitted repository ${primaryRepository.repositoryKey} does not match runtime repository ${repositoryKey}.`
+    );
+  }
   const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
     repositoryKey
   });
+  const issueStore = createSymphonyIssueStore(database.db);
   const runtimeLogStore = createSymphonyRuntimeLogStore(database.db, {
     repositoryKey
   });
@@ -154,19 +161,20 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const agentAnalyticsReadStore = createSqliteAgentAnalyticsReadStore({
     db: database.db
   });
+  const runtimeForensicsReadStore = createSqliteRuntimeForensicsReadStore({
+    db: database.db
+  });
   const agentAnalyticsRead = createAgentAnalyticsReadPort(agentAnalyticsReadStore);
   const forensics = createSymphonyForensicsReadModel({
-    runStore: agentAnalyticsReadStore,
+    runStore: runtimeForensicsReadStore,
     async listIssueTimeline(input) {
       return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
-        repositoryKey: input.repositoryKey,
         limit: input.limit
       });
     },
     async listRuntimeLogs(input) {
       return runtimeLogStore.list({
         limit: input.limit,
-        repositoryKey: input.repositoryKey,
         issueIdentifier: input.issueIdentifier
       });
     }
@@ -185,6 +193,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const tracker = createRepositoryScopedLinearTracker({
     trackerTemplate: runtimePolicy.tracker,
     admittedRepositories,
+    primaryRepositoryKey: repositoryKey
   });
   if (runtimePolicy.tracker.kind === "memory") {
     logger.warn("Using in-memory tracker placeholder");
@@ -360,7 +369,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     defaultRepositoryKey: repositoryKey,
     runStore,
     issueTimelineStore,
-    agentAnalytics: agentAnalyticsStore,
     machineLoad
   });
   let runtimeRef: Pick<
@@ -430,7 +438,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runId: string;
       turnId: string | null;
       issue: {
-        id: string;
+        trackerIssueId: string;
         identifier: string;
         state: string | null;
       };
@@ -442,7 +450,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           deliveryReports,
           issue: input.issue,
           runId: input.runId,
-          turnId: input.turnId
+          turnId: input.turnId,
+          blockedTargetState: runtimePolicy.tracker.blockedTransitionToState
         },
         input.argumentsPayload
       );
@@ -451,7 +460,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runId: string;
       turnId: string | null;
       issue: {
-        id: string;
+        trackerIssueId: string;
         identifier: string;
         state: string | null;
       };
@@ -470,7 +479,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runId: string;
       turnId: string | null;
       issue: {
-        id: string;
+        trackerIssueId: string;
         identifier: string;
         state: string | null;
       };
@@ -489,7 +498,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runId: string;
       turnId: string | null;
       issue: {
-        id: string;
+        trackerIssueId: string;
         identifier: string;
         state: string | null;
       };
@@ -550,13 +559,25 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       });
       const issueIdentifier =
         "issueIdentifier" in result ? result.issueIdentifier : null;
+      const trackedIssue =
+        issueIdentifier
+          ? await tracker.fetchIssueByIdentifier(runtimePolicy.tracker, issueIdentifier)
+          : null;
+
+      if (trackedIssue) {
+        await issueStore.upsert({
+          issueIdentifier: trackedIssue.identifier,
+          trackerIssueId: trackedIssue.id,
+          repositoryKey
+        });
+      }
 
       await runtimeLogStore.record({
         level: "info",
         source: "github_review_ingress",
         eventType: "github_review_ingress_processed",
         message: "Processed GitHub review ingress event.",
-        issueIdentifier,
+        issueIdentifier: trackedIssue?.identifier ?? null,
         payload: result
       });
       realtime.publishSnapshotUpdated();
@@ -567,10 +588,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       }
 
       if (result.status !== "ignored" && issueIdentifier) {
-        const trackedIssue = await tracker.fetchIssueByIdentifier(
-          runtimePolicy.tracker,
-          issueIdentifier
-        );
         const requeuedHandoff =
           result.status === "requeued" &&
           "handoff" in result &&
@@ -582,7 +599,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
         if (trackedIssue) {
           if (requeuedHandoff) {
             await issueTimelineStore.record({
-              issueId: trackedIssue.id,
               issueIdentifier: trackedIssue.identifier,
               source: "tracker",
               eventType: runtimeReworkHandoffEventType,
@@ -592,7 +608,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           }
 
           await issueTimelineStore.record({
-            issueId: trackedIssue.id,
             issueIdentifier: trackedIssue.identifier,
             source: "tracker",
             eventType: "github_review_ingress_processed",
@@ -679,7 +694,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
               runStore,
               issueTimelineStore,
               runtimeLogStore,
-              agentAnalyticsStore,
               shutdownReason
             });
 

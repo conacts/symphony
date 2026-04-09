@@ -18,7 +18,7 @@
       "path": "./packages/agent-harnesses"
     },
     {
-      "path": "./packages/codex-analytics"
+      "path": "./packages/agent-analytics"
     },
     {
       "path": "./packages/db"

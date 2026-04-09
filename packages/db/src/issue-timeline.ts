@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { JsonValue } from "@symphony/contracts";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { symphonyIssueTimelineTable } from "./schema.js";
+import { symphonyIssueTimelineTable, symphonyIssuesTable } from "./schema.js";
 
 export type SymphonyIssueTimelineSource =
   | "orchestrator"
@@ -14,7 +14,7 @@ export type SymphonyIssueTimelineSource =
 export type SymphonyIssueTimelineEntry = {
   entryId: string;
   repositoryKey: string;
-  issueId: string;
+  trackerIssueId: string;
   issueIdentifier: string;
   runId: string | null;
   turnId: string | null;
@@ -27,8 +27,6 @@ export type SymphonyIssueTimelineEntry = {
 
 export interface SymphonyIssueTimelineStore {
   record(input: {
-    repositoryKey?: string;
-    issueId: string;
     issueIdentifier: string;
     runId?: string | null;
     turnId?: string | null;
@@ -42,7 +40,6 @@ export interface SymphonyIssueTimelineStore {
     issueIdentifier: string,
     input?: {
       limit?: number;
-      repositoryKey?: string;
     }
   ): Promise<SymphonyIssueTimelineEntry[]>;
 }
@@ -50,13 +47,10 @@ export interface SymphonyIssueTimelineStore {
 export function createSymphonyIssueTimelineStore(
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>,
   input: {
-    repositoryKey?: string;
-  } = {}
+    repositoryKey: string;
+  }
 ): SymphonyIssueTimelineStore {
-  const defaultRepositoryKey = sanitizeRequiredText(
-    input.repositoryKey ?? "default",
-    "repositoryKey"
-  );
+  const repositoryKey = sanitizeRequiredText(input.repositoryKey, "repositoryKey");
 
   return {
     async record(input) {
@@ -65,11 +59,6 @@ export function createSymphonyIssueTimelineStore(
 
       db.insert(symphonyIssueTimelineTable).values({
         entryId,
-        repositoryKey: sanitizeRequiredText(
-          input.repositoryKey ?? defaultRepositoryKey,
-          "repositoryKey"
-        ),
-        issueId: input.issueId,
         issueIdentifier: input.issueIdentifier,
         runId: input.runId ?? null,
         turnId: input.turnId ?? null,
@@ -86,28 +75,29 @@ export function createSymphonyIssueTimelineStore(
 
     async listIssueTimeline(issueIdentifier, input = {}) {
       const limit = normalizeLimit(input.limit, 200);
-      const repositoryKey = sanitizeRequiredText(
-        input.repositoryKey ?? defaultRepositoryKey,
-        "repositoryKey"
-      );
 
       const rows = db
         .select()
         .from(symphonyIssueTimelineTable)
-        .where(
-          and(
-            eq(symphonyIssueTimelineTable.repositoryKey, repositoryKey),
-            eq(symphonyIssueTimelineTable.issueIdentifier, issueIdentifier)
-          )
-        )
+        .where(eq(symphonyIssueTimelineTable.issueIdentifier, issueIdentifier))
         .orderBy(desc(symphonyIssueTimelineTable.recordedAt))
         .limit(limit)
         .all();
 
+      const issue = db
+        .select()
+        .from(symphonyIssuesTable)
+        .where(eq(symphonyIssuesTable.issueIdentifier, issueIdentifier))
+        .get();
+
+      if (!issue || issue.repositoryKey !== repositoryKey) {
+        return [];
+      }
+
       return rows.map((row) => ({
         entryId: row.entryId,
-        repositoryKey: row.repositoryKey,
-        issueId: row.issueId,
+        repositoryKey: issue.repositoryKey,
+        trackerIssueId: issue.trackerIssueId,
         issueIdentifier: row.issueIdentifier,
         runId: row.runId ?? null,
         turnId: row.turnId ?? null,
@@ -135,16 +125,17 @@ function normalizeSource(value: string): SymphonyIssueTimelineSource {
     case "workspace":
     case "runtime":
       return value;
-    case "codex":
-      return "agent";
     default:
-      return "runtime";
+      throw new TypeError(`Unknown issue timeline source: ${value}`);
   }
 }
 
-function sanitizeRequiredText(value: string, field: string): string {
-  const normalized = value.trim();
+function sanitizeRequiredText(value: string | null | undefined, field: string): string {
+  if (typeof value !== "string") {
+    throw new TypeError(`${field} is required.`);
+  }
 
+  const normalized = value.trim();
   if (normalized.length === 0) {
     throw new TypeError(`${field} is required.`);
   }

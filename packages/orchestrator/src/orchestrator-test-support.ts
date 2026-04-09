@@ -38,7 +38,7 @@ export function buildSymphonyOrchestratorConfig(overrides: {
     terminalStates: ["Canceled", "Done"],
     claimTransitionToState: "Bootstrapping",
     claimTransitionFromStates: ["Todo", "Rework"],
-    startupFailureTransitionToState: "Backlog",
+    startupFailureTransitionToState: "Failed",
     pauseTransitionToState: "Paused",
     blockedTransitionToState: "Blocked",
     ...overrides.tracker

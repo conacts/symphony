@@ -14,7 +14,8 @@ export function buildSymphonyRunStartAttrs(
   fixtureCounter += 1;
 
   return {
-    issueId: `issue-${fixtureCounter}`,
+    repositoryKey: "openai/symphony",
+    trackerIssueId: `issue-${fixtureCounter}`,
     issueIdentifier: `COL-${fixtureCounter}`,
     attempt: 1,
     runMode: "implementation",
@@ -42,7 +43,6 @@ export function buildSymphonyTurnStartAttrs(
     turnSequence: 1,
     threadId: `thread-${fixtureCounter}`,
     agentTurnId: `turn-${fixtureCounter}`,
-    sessionId: `session-${fixtureCounter}`,
     promptText: "Implement the requested change.",
     status: "running",
     startedAt: new Date("2026-03-31T00:00:00.000Z"),
@@ -74,7 +74,6 @@ export function buildSymphonyEventAttrs(
     summary: "session started",
     threadId: `thread-${fixtureCounter}`,
     agentTurnId: `turn-${fixtureCounter}`,
-    sessionId: `session-${fixtureCounter}`,
     ...overrides
   };
 }

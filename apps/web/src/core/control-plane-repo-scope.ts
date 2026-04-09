@@ -35,7 +35,7 @@ export function buildRepoScopedHref(
   return `${pathname}?${searchParams.toString()}`;
 }
 
-export function normalizeRepoScope(value: string | null | undefined): string | null {
+function normalizeRepoScope(value: string | null | undefined): string | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -44,7 +44,7 @@ export function normalizeRepoScope(value: string | null | undefined): string | n
   return normalized.length > 0 ? normalized : null;
 }
 
-export function describeControlPlaneRepositoryScope(
+function describeControlPlaneRepositoryScope(
   repository: ControlPlaneRepositorySummary
 ): string {
   return `team ${repository.linear.teamKey}`;

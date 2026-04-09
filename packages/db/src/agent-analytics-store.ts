@@ -1,16 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type {
   AgentCommandResourceProfile,
   AgentAnalyticsEventInput,
-  AgentAnalyticsRunFinalize,
-  AgentAnalyticsTurnFinalize,
-  AgentAnalyticsRunStart,
-  AgentAnalyticsStore as LegacyAgentAnalyticsStore,
   AgentPayloadOverflowKind,
-  AgentRunStatus,
-  AgentTurnStatus,
   FileChangeItem,
   ThreadItem
 } from "@symphony/agent-analytics";
@@ -34,11 +28,9 @@ import {
   symphonyAgentMessagesTable,
   symphonyAgentPayloadOverflowTable,
   symphonyAgentReasoningTable,
-  symphonyAgentRunsTable,
   symphonyAgentTaskSnapshotItemsTable,
   symphonyAgentTaskSnapshotsTable,
   symphonyAgentToolCallsTable,
-  symphonyAgentTurnsTable,
   piReadsTable,
   piEditsTable,
   piWritesTable,
@@ -56,7 +48,15 @@ import {
   type PiFindArguments
 } from "@symphony/contracts";
 
-export type AgentAnalyticsStore = LegacyAgentAnalyticsStore;
+export interface AgentAnalyticsStore {
+  recordEvent(input: AgentAnalyticsEventInput): Promise<void>;
+  recordCommandResourceProfile(input: {
+    runId: string;
+    turnId: string;
+    itemId: string;
+    resourceProfile: AgentCommandResourceProfile;
+  }): Promise<void>;
+}
 
 const defaultPayloadMaxBytes = 64 * 1024;
 const defaultPreviewMaxChars = 280;
@@ -66,17 +66,6 @@ type AgentAnalyticsMutationTx = Pick<
   "delete" | "insert" | "select" | "update"
 >;
 
-type AgentRunRow = typeof symphonyAgentRunsTable.$inferSelect;
-type AgentTurnPatch = {
-  turnId: string;
-  threadId?: string | null;
-  startedAt?: string | null;
-  endedAt?: string | null;
-  status?: AgentTurnStatus;
-  failureKind?: string | null;
-  failureMessagePreview?: string | null;
-  usage?: { input_tokens: number; cached_input_tokens: number; output_tokens: number } | null;
-};
 type AgentOverflowInput = {
   kind: AgentPayloadOverflowKind;
   contentJson?: unknown;
@@ -115,74 +104,6 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
     this.#previewMaxChars = input.previewMaxChars ?? defaultPreviewMaxChars;
   }
 
-  async startRun(input: AgentAnalyticsRunStart): Promise<void> {
-    const now = isoNow();
-    const existing = this.#db
-      .select()
-      .from(symphonyAgentRunsTable)
-      .where(eq(symphonyAgentRunsTable.runId, input.runId))
-      .get();
-
-    if (existing) {
-      this.#db
-        .update(symphonyAgentRunsTable)
-        .set({
-          issueId: input.issueId,
-          issueIdentifier: input.issueIdentifier,
-          startedAt: existing.startedAt ?? input.startedAt ?? null,
-          status: input.status,
-          threadId: input.threadId ?? existing.threadId,
-          harnessKind: input.harnessKind ?? existing.harnessKind,
-          model: input.model ?? existing.model,
-          providerId: input.providerId ?? existing.providerId,
-          providerName: input.providerName ?? existing.providerName,
-          updatedAt: now
-        })
-        .where(eq(symphonyAgentRunsTable.runId, input.runId))
-        .run();
-      return;
-    }
-
-    this.#db
-      .insert(symphonyAgentRunsTable)
-      .values({
-        runId: input.runId,
-        threadId: input.threadId,
-        harnessKind: input.harnessKind ?? null,
-        model: input.model ?? null,
-        providerId: input.providerId ?? null,
-        providerName: input.providerName ?? null,
-        issueId: input.issueId,
-        issueIdentifier: input.issueIdentifier,
-        startedAt: input.startedAt ?? null,
-        endedAt: null,
-        status: input.status,
-        failureKind: null,
-        failureOrigin: null,
-        failureMessagePreview: null,
-        finalTurnId: null,
-        lastAgentMessageItemId: null,
-        lastAgentMessagePreview: null,
-        lastAgentMessageOverflowId: null,
-        inputTokens: 0,
-        cachedInputTokens: 0,
-        outputTokens: 0,
-        turnCount: 0,
-        itemCount: 0,
-        commandCount: 0,
-        toolCallCount: 0,
-        fileChangeCount: 0,
-        agentMessageCount: 0,
-        reasoningCount: 0,
-        errorCount: 0,
-        latestEventAt: null,
-        latestEventType: null,
-        insertedAt: now,
-        updatedAt: now
-      })
-      .run();
-  }
-
   async recordEvent(input: AgentAnalyticsEventInput): Promise<void> {
     this.#db.transaction((tx) => {
       const context: AgentEventMutationContext = {
@@ -193,23 +114,16 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
         previewMaxChars: this.#previewMaxChars
       };
 
-      const run = ensureAgentRunRecord(context);
       const resolvedThreadId =
-        input.threadId ?? extractThreadId(input.payload) ?? run.threadId ?? null;
+        input.threadId ?? extractThreadId(input.payload) ?? null;
 
-      syncRunThreadId(context, run.threadId, resolvedThreadId);
+      ensureRuntimeRunRecord(context);
       appendEventLogRow(context, resolvedThreadId);
-      applyTurnEventProjection(context, resolvedThreadId);
 
       const itemEvent = extractItemEvent(input.payload);
       if (itemEvent) {
         projectThreadItem(context, itemEvent.item);
       }
-
-      if (input.turnId) {
-        refreshTurnRollups(context, input.turnId);
-      }
-      refreshRunRollups(context, resolvedThreadId);
     });
   }
 
@@ -234,179 +148,12 @@ class SqliteAgentAnalyticsStore implements AgentAnalyticsStore {
       )
       .run();
   }
-
-  async finalizeTurn(input: AgentAnalyticsTurnFinalize): Promise<void> {
-    const now = isoNow();
-    this.#db.transaction((tx) => {
-      const existing = tx
-        .select()
-        .from(symphonyAgentTurnsTable)
-        .where(eq(symphonyAgentTurnsTable.turnId, input.turnId))
-        .get();
-
-      if (!existing) {
-        tx
-          .insert(symphonyAgentTurnsTable)
-          .values({
-            turnId: input.turnId,
-            runId: input.runId,
-            threadId: input.threadId,
-            harnessKind: input.harnessKind ?? null,
-            model: input.model ?? null,
-            providerId: input.providerId ?? null,
-            providerName: input.providerName ?? null,
-            startedAt: null,
-            endedAt: input.endedAt,
-            status: input.status,
-            failureKind: input.failureKind,
-            failureMessagePreview: input.failureMessagePreview,
-            lastAgentMessageItemId: null,
-            lastAgentMessagePreview: null,
-            lastAgentMessageOverflowId: null,
-            inputTokens: input.usage?.input_tokens ?? 0,
-            cachedInputTokens: input.usage?.cached_input_tokens ?? 0,
-            outputTokens: input.usage?.output_tokens ?? 0,
-            itemCount: 0,
-            commandCount: 0,
-            toolCallCount: 0,
-            fileChangeCount: 0,
-            agentMessageCount: 0,
-            reasoningCount: 0,
-            errorCount: 0,
-            latestEventAt: input.endedAt,
-            latestEventType: null,
-            insertedAt: now,
-            updatedAt: now
-          })
-          .run();
-      } else {
-        tx
-          .update(symphonyAgentTurnsTable)
-          .set({
-            threadId: input.threadId ?? existing.threadId,
-            harnessKind: input.harnessKind ?? existing.harnessKind,
-            model: input.model ?? existing.model,
-            providerId: input.providerId ?? existing.providerId,
-            providerName: input.providerName ?? existing.providerName,
-            endedAt: input.endedAt,
-            status: input.status,
-            failureKind: input.failureKind ?? existing.failureKind,
-            failureMessagePreview:
-              input.failureMessagePreview ?? existing.failureMessagePreview,
-            inputTokens: input.usage?.input_tokens ?? existing.inputTokens,
-            cachedInputTokens:
-              input.usage?.cached_input_tokens ?? existing.cachedInputTokens,
-            outputTokens: input.usage?.output_tokens ?? existing.outputTokens,
-            updatedAt: now
-          })
-          .where(eq(symphonyAgentTurnsTable.turnId, input.turnId))
-          .run();
-      }
-
-      const usageTotals = tx
-        .select({
-          inputTokens: sql<number>`coalesce(sum(${symphonyAgentTurnsTable.inputTokens}), 0)`,
-          cachedInputTokens: sql<number>`coalesce(sum(${symphonyAgentTurnsTable.cachedInputTokens}), 0)`,
-          outputTokens: sql<number>`coalesce(sum(${symphonyAgentTurnsTable.outputTokens}), 0)`
-        })
-        .from(symphonyAgentTurnsTable)
-        .where(eq(symphonyAgentTurnsTable.runId, input.runId))
-        .get();
-
-      tx
-        .update(symphonyAgentRunsTable)
-        .set({
-          inputTokens: usageTotals?.inputTokens ?? 0,
-          cachedInputTokens: usageTotals?.cachedInputTokens ?? 0,
-          outputTokens: usageTotals?.outputTokens ?? 0,
-          updatedAt: now
-        })
-        .where(eq(symphonyAgentRunsTable.runId, input.runId))
-        .run();
-    });
-  }
-
-  async finalizeRun(input: AgentAnalyticsRunFinalize): Promise<void> {
-    const now = isoNow();
-    const existing = this.#db
-      .select()
-      .from(symphonyAgentRunsTable)
-      .where(eq(symphonyAgentRunsTable.runId, input.runId))
-      .get();
-
-    if (!existing) {
-      const symphonyRun = this.#db
-        .select({
-          issueId: symphonyRunsTable.issueId,
-          issueIdentifier: symphonyRunsTable.issueIdentifier,
-          startedAt: symphonyRunsTable.startedAt
-        })
-        .from(symphonyRunsTable)
-        .where(eq(symphonyRunsTable.runId, input.runId))
-        .get();
-
-      if (!symphonyRun) {
-        return;
-      }
-
-      await this.startRun({
-        runId: input.runId,
-        issueId: symphonyRun.issueId,
-        issueIdentifier: symphonyRun.issueIdentifier,
-        startedAt: symphonyRun.startedAt,
-        status: "running",
-        threadId: input.threadId,
-        harnessKind: input.harnessKind ?? null,
-        model: input.model ?? null,
-        providerId: input.providerId ?? null,
-        providerName: input.providerName ?? null
-      });
-    }
-
-    this.#db
-      .update(symphonyAgentRunsTable)
-      .set({
-        threadId: input.threadId ?? existing?.threadId ?? null,
-        harnessKind: input.harnessKind ?? existing?.harnessKind ?? null,
-        model: input.model ?? existing?.model ?? null,
-        providerId: input.providerId ?? existing?.providerId ?? null,
-        providerName: input.providerName ?? existing?.providerName ?? null,
-        endedAt: input.endedAt,
-        status: input.status,
-        failureKind:
-          input.failureKind === undefined ? existing?.failureKind ?? null : input.failureKind,
-        failureOrigin:
-          input.failureOrigin === undefined
-            ? existing?.failureOrigin ?? null
-            : input.failureOrigin,
-        failureMessagePreview:
-          input.failureMessagePreview === undefined
-            ? existing?.failureMessagePreview ?? null
-            : input.failureMessagePreview,
-        updatedAt: now
-      })
-      .where(eq(symphonyAgentRunsTable.runId, input.runId))
-      .run();
-  }
 }
 
-function ensureAgentRunRecord(context: AgentEventMutationContext): AgentRunRow {
-  const existingRun = context.tx
-    .select()
-    .from(symphonyAgentRunsTable)
-    .where(eq(symphonyAgentRunsTable.runId, context.input.runId))
-    .get();
-
-  if (existingRun) {
-    return existingRun;
-  }
-
+function ensureRuntimeRunRecord(context: AgentEventMutationContext): void {
   const symphonyRun = context.tx
     .select({
-      issueId: symphonyRunsTable.issueId,
-      issueIdentifier: symphonyRunsTable.issueIdentifier,
-      startedAt: symphonyRunsTable.startedAt,
-      status: symphonyRunsTable.status
+      runId: symphonyRunsTable.runId
     })
     .from(symphonyRunsTable)
     .where(eq(symphonyRunsTable.runId, context.input.runId))
@@ -414,192 +161,6 @@ function ensureAgentRunRecord(context: AgentEventMutationContext): AgentRunRow {
 
   if (!symphonyRun) {
     throw new TypeError(`Agent analytics run not found: ${context.input.runId}`);
-  }
-
-  context.tx
-    .insert(symphonyAgentRunsTable)
-    .values({
-      runId: context.input.runId,
-      threadId: context.input.threadId ?? extractThreadId(context.input.payload),
-      harnessKind: null,
-      model: null,
-      providerId: null,
-      providerName: null,
-      issueId: symphonyRun.issueId,
-      issueIdentifier: symphonyRun.issueIdentifier,
-      startedAt: symphonyRun.startedAt,
-      endedAt: null,
-      status: mapLegacyRunStatus(symphonyRun.status),
-      failureKind: null,
-      failureOrigin: null,
-      failureMessagePreview: null,
-      finalTurnId: null,
-      lastAgentMessageItemId: null,
-      lastAgentMessagePreview: null,
-      lastAgentMessageOverflowId: null,
-      inputTokens: 0,
-      cachedInputTokens: 0,
-      outputTokens: 0,
-      turnCount: 0,
-      itemCount: 0,
-      commandCount: 0,
-      toolCallCount: 0,
-      fileChangeCount: 0,
-      agentMessageCount: 0,
-      reasoningCount: 0,
-      errorCount: 0,
-      latestEventAt: null,
-      latestEventType: null,
-      insertedAt: context.now,
-      updatedAt: context.now
-    })
-    .run();
-
-  const initializedRun = context.tx
-    .select()
-    .from(symphonyAgentRunsTable)
-    .where(eq(symphonyAgentRunsTable.runId, context.input.runId))
-    .get();
-
-  if (!initializedRun) {
-    throw new TypeError(`Failed to initialize agent run ${context.input.runId}`);
-  }
-
-  return initializedRun;
-}
-
-function syncRunThreadId(
-  context: AgentEventMutationContext,
-  existingThreadId: string | null,
-  resolvedThreadId: string | null
-): void {
-  if (!resolvedThreadId || resolvedThreadId === existingThreadId) {
-    return;
-  }
-
-  context.tx
-    .update(symphonyAgentRunsTable)
-    .set({
-      threadId: resolvedThreadId,
-      updatedAt: context.now
-    })
-    .where(eq(symphonyAgentRunsTable.runId, context.input.runId))
-    .run();
-}
-
-function upsertTurnRecord(
-  context: AgentEventMutationContext,
-  patch: AgentTurnPatch
-): void {
-  const existingTurn = context.tx
-    .select()
-    .from(symphonyAgentTurnsTable)
-    .where(eq(symphonyAgentTurnsTable.turnId, patch.turnId))
-    .get();
-
-  if (!existingTurn) {
-    context.tx
-      .insert(symphonyAgentTurnsTable)
-      .values({
-        turnId: patch.turnId,
-        runId: context.input.runId,
-        threadId: patch.threadId ?? null,
-        startedAt: patch.startedAt ?? null,
-        endedAt: patch.endedAt ?? null,
-        status: patch.status ?? "running",
-        failureKind: patch.failureKind ?? null,
-        failureMessagePreview: patch.failureMessagePreview ?? null,
-        lastAgentMessageItemId: null,
-        lastAgentMessagePreview: null,
-        lastAgentMessageOverflowId: null,
-        inputTokens: patch.usage?.input_tokens ?? 0,
-        cachedInputTokens: patch.usage?.cached_input_tokens ?? 0,
-        outputTokens: patch.usage?.output_tokens ?? 0,
-        itemCount: 0,
-        commandCount: 0,
-        toolCallCount: 0,
-        fileChangeCount: 0,
-        agentMessageCount: 0,
-        reasoningCount: 0,
-        errorCount: 0,
-        latestEventAt: context.input.recordedAt,
-        latestEventType: context.input.payload.type,
-        insertedAt: context.now,
-        updatedAt: context.now
-      })
-      .run();
-    return;
-  }
-
-  context.tx
-    .update(symphonyAgentTurnsTable)
-    .set({
-      threadId: patch.threadId ?? existingTurn.threadId,
-      startedAt: existingTurn.startedAt ?? patch.startedAt ?? null,
-      endedAt: patch.endedAt ?? existingTurn.endedAt,
-      status: patch.status ?? existingTurn.status,
-      failureKind:
-        patch.failureKind === undefined ? existingTurn.failureKind : patch.failureKind,
-      failureMessagePreview:
-        patch.failureMessagePreview === undefined
-          ? existingTurn.failureMessagePreview
-          : patch.failureMessagePreview,
-      inputTokens: patch.usage?.input_tokens ?? existingTurn.inputTokens,
-      cachedInputTokens:
-        patch.usage?.cached_input_tokens ?? existingTurn.cachedInputTokens,
-      outputTokens: patch.usage?.output_tokens ?? existingTurn.outputTokens,
-      latestEventAt: context.input.recordedAt,
-      latestEventType: context.input.payload.type,
-      updatedAt: context.now
-    })
-    .where(eq(symphonyAgentTurnsTable.turnId, patch.turnId))
-    .run();
-}
-
-function applyTurnEventProjection(
-  context: AgentEventMutationContext,
-  resolvedThreadId: string | null
-): void {
-  if (!context.input.turnId) {
-    return;
-  }
-
-  switch (context.input.payload.type) {
-    case "turn.started":
-      upsertTurnRecord(context, {
-        turnId: context.input.turnId,
-        threadId: resolvedThreadId,
-        startedAt: context.input.recordedAt,
-        status: "running"
-      });
-      return;
-    case "turn.completed":
-      upsertTurnRecord(context, {
-        turnId: context.input.turnId,
-        threadId: resolvedThreadId,
-        endedAt: context.input.recordedAt,
-        status: "completed",
-        usage: context.input.payload.usage
-      });
-      return;
-    case "turn.failed":
-      upsertTurnRecord(context, {
-        turnId: context.input.turnId,
-        threadId: resolvedThreadId,
-        endedAt: context.input.recordedAt,
-        status: "failed",
-        failureKind: "turn_failed",
-        failureMessagePreview: previewText(
-          context.input.payload.error.message,
-          context.previewMaxChars
-        )
-      });
-      return;
-    default:
-      upsertTurnRecord(context, {
-        turnId: context.input.turnId,
-        threadId: resolvedThreadId
-      });
   }
 }
 
@@ -808,6 +369,8 @@ function projectThreadItem(
   const latestPreview = previewItem(item, context.previewMaxChars);
   let latestOverflowId: string | null = null;
 
+  upsertItemLifecycleRecord(context, item, null, latestPreview);
+
   switch (item.type) {
     case "command_execution":
       latestOverflowId = projectCommandExecutionItem(context, item);
@@ -832,7 +395,23 @@ function projectThreadItem(
       break;
   }
 
-  upsertItemLifecycleRecord(context, item, latestOverflowId, latestPreview);
+  if (latestOverflowId !== null) {
+    context.tx
+      .update(symphonyAgentItemsTable)
+      .set({
+        latestPreview,
+        latestOverflowId,
+        updatedAt: context.now
+      })
+      .where(
+        and(
+          eq(symphonyAgentItemsTable.runId, context.input.runId),
+          eq(symphonyAgentItemsTable.turnId, context.input.turnId),
+          eq(symphonyAgentItemsTable.itemId, item.id)
+        )
+      )
+      .run();
+  }
 }
 
 function projectCommandExecutionItem(
@@ -1543,342 +1122,6 @@ function isTaskSnapshotEntry(
   return value !== null;
 }
 
-function refreshTurnRollups(
-  context: AgentEventMutationContext,
-  turnId: string
-): void {
-  const latestEvent = context.tx
-    .select({
-      recordedAt: symphonyAgentEventLogTable.recordedAt,
-      eventType: symphonyAgentEventLogTable.eventType
-    })
-    .from(symphonyAgentEventLogTable)
-    .where(
-      and(
-        eq(symphonyAgentEventLogTable.runId, context.input.runId),
-        eq(symphonyAgentEventLogTable.turnId, turnId)
-      )
-    )
-    .orderBy(desc(symphonyAgentEventLogTable.sequence))
-    .limit(1)
-    .get();
-  const latestAgentItem = context.tx
-    .select({
-      itemId: symphonyAgentItemsTable.itemId
-    })
-    .from(symphonyAgentItemsTable)
-    .where(
-      and(
-        eq(symphonyAgentItemsTable.runId, context.input.runId),
-        eq(symphonyAgentItemsTable.turnId, turnId),
-        eq(symphonyAgentItemsTable.itemType, "agent_message")
-      )
-    )
-    .orderBy(desc(symphonyAgentItemsTable.updatedAt))
-    .limit(1)
-    .get();
-  const latestAgentMessage = latestAgentItem
-    ? context.tx
-        .select({
-          textPreview: symphonyAgentMessagesTable.textPreview,
-          textOverflowId: symphonyAgentMessagesTable.textOverflowId
-        })
-        .from(symphonyAgentMessagesTable)
-        .where(
-          and(
-            eq(symphonyAgentMessagesTable.runId, context.input.runId),
-            eq(symphonyAgentMessagesTable.turnId, turnId),
-            eq(symphonyAgentMessagesTable.itemId, latestAgentItem.itemId)
-          )
-        )
-        .get()
-    : null;
-
-  context.tx
-    .update(symphonyAgentTurnsTable)
-    .set({
-      itemCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentItemsTable)
-          .where(
-            and(
-              eq(symphonyAgentItemsTable.runId, context.input.runId),
-              eq(symphonyAgentItemsTable.turnId, turnId)
-            )
-          )
-          .get()
-      ),
-      commandCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentCommandExecutionsTable)
-          .where(
-            and(
-              eq(symphonyAgentCommandExecutionsTable.runId, context.input.runId),
-              eq(symphonyAgentCommandExecutionsTable.turnId, turnId)
-            )
-          )
-          .get()
-      ),
-      toolCallCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentToolCallsTable)
-          .where(
-            and(
-              eq(symphonyAgentToolCallsTable.runId, context.input.runId),
-              eq(symphonyAgentToolCallsTable.turnId, turnId)
-            )
-          )
-          .get()
-      ),
-      fileChangeCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentFileChangesTable)
-          .where(
-            and(
-              eq(symphonyAgentFileChangesTable.runId, context.input.runId),
-              eq(symphonyAgentFileChangesTable.turnId, turnId)
-            )
-          )
-          .get()
-      ),
-      agentMessageCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentMessagesTable)
-          .where(
-            and(
-              eq(symphonyAgentMessagesTable.runId, context.input.runId),
-              eq(symphonyAgentMessagesTable.turnId, turnId)
-            )
-          )
-          .get()
-      ),
-      reasoningCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentReasoningTable)
-          .where(
-            and(
-              eq(symphonyAgentReasoningTable.runId, context.input.runId),
-              eq(symphonyAgentReasoningTable.turnId, turnId)
-            )
-          )
-          .get()
-      ),
-      errorCount:
-        countRows(
-          context.tx
-            .select({ count: sql<number>`count(*)` })
-            .from(symphonyAgentItemsTable)
-            .where(
-              and(
-                eq(symphonyAgentItemsTable.runId, context.input.runId),
-                eq(symphonyAgentItemsTable.turnId, turnId),
-                eq(symphonyAgentItemsTable.itemType, "error")
-              )
-            )
-            .get()
-        ) +
-        countRows(
-          context.tx
-            .select({ count: sql<number>`count(*)` })
-            .from(symphonyAgentEventLogTable)
-            .where(
-              and(
-                eq(symphonyAgentEventLogTable.runId, context.input.runId),
-                eq(symphonyAgentEventLogTable.turnId, turnId),
-                eq(symphonyAgentEventLogTable.eventType, "error")
-              )
-            )
-            .get()
-        ),
-      lastAgentMessageItemId: latestAgentItem?.itemId ?? null,
-      lastAgentMessagePreview: latestAgentMessage?.textPreview ?? null,
-      lastAgentMessageOverflowId: latestAgentMessage?.textOverflowId ?? null,
-      latestEventAt: latestEvent?.recordedAt ?? null,
-      latestEventType: latestEvent?.eventType ?? null,
-      updatedAt: context.now
-    })
-    .where(eq(symphonyAgentTurnsTable.turnId, turnId))
-    .run();
-}
-
-function refreshRunRollups(
-  context: AgentEventMutationContext,
-  resolvedThreadId: string | null
-): void {
-  const latestEvent = context.tx
-    .select({
-      recordedAt: symphonyAgentEventLogTable.recordedAt,
-      eventType: symphonyAgentEventLogTable.eventType
-    })
-    .from(symphonyAgentEventLogTable)
-    .where(eq(symphonyAgentEventLogTable.runId, context.input.runId))
-    .orderBy(desc(symphonyAgentEventLogTable.sequence))
-    .limit(1)
-    .get();
-  const latestAgentItem = context.tx
-    .select({
-      turnId: symphonyAgentItemsTable.turnId,
-      itemId: symphonyAgentItemsTable.itemId
-    })
-    .from(symphonyAgentItemsTable)
-    .where(
-      and(
-        eq(symphonyAgentItemsTable.runId, context.input.runId),
-        eq(symphonyAgentItemsTable.itemType, "agent_message")
-      )
-    )
-    .orderBy(desc(symphonyAgentItemsTable.updatedAt))
-    .limit(1)
-    .get();
-  const latestAgentMessage = latestAgentItem
-    ? context.tx
-        .select({
-          textPreview: symphonyAgentMessagesTable.textPreview,
-          textOverflowId: symphonyAgentMessagesTable.textOverflowId
-        })
-        .from(symphonyAgentMessagesTable)
-        .where(
-          and(
-            eq(symphonyAgentMessagesTable.runId, context.input.runId),
-            eq(symphonyAgentMessagesTable.turnId, latestAgentItem.turnId),
-            eq(symphonyAgentMessagesTable.itemId, latestAgentItem.itemId)
-          )
-        )
-        .get()
-    : null;
-  const finalTurn = context.tx
-    .select({
-      turnId: symphonyAgentTurnsTable.turnId
-    })
-    .from(symphonyAgentTurnsTable)
-    .where(
-      and(
-        eq(symphonyAgentTurnsTable.runId, context.input.runId),
-        sql`${symphonyAgentTurnsTable.status} <> 'running'`
-      )
-    )
-    .orderBy(desc(symphonyAgentTurnsTable.updatedAt))
-    .limit(1)
-    .get();
-  const usageTotals = context.tx
-    .select({
-      inputTokens: sql<number>`coalesce(sum(${symphonyAgentTurnsTable.inputTokens}), 0)`,
-      cachedInputTokens: sql<number>`coalesce(sum(${symphonyAgentTurnsTable.cachedInputTokens}), 0)`,
-      outputTokens: sql<number>`coalesce(sum(${symphonyAgentTurnsTable.outputTokens}), 0)`
-    })
-    .from(symphonyAgentTurnsTable)
-    .where(eq(symphonyAgentTurnsTable.runId, context.input.runId))
-    .get();
-  const currentRunThreadId = context.tx
-    .select({ threadId: symphonyAgentRunsTable.threadId })
-    .from(symphonyAgentRunsTable)
-    .where(eq(symphonyAgentRunsTable.runId, context.input.runId))
-    .get()?.threadId;
-
-  context.tx
-    .update(symphonyAgentRunsTable)
-    .set({
-      threadId:
-        resolvedThreadId ??
-        context.input.threadId ??
-        extractThreadId(context.input.payload) ??
-        currentRunThreadId ??
-        null,
-      finalTurnId: finalTurn?.turnId ?? null,
-      lastAgentMessageItemId: latestAgentItem?.itemId ?? null,
-      lastAgentMessagePreview: latestAgentMessage?.textPreview ?? null,
-      lastAgentMessageOverflowId: latestAgentMessage?.textOverflowId ?? null,
-      inputTokens: usageTotals?.inputTokens ?? 0,
-      cachedInputTokens: usageTotals?.cachedInputTokens ?? 0,
-      outputTokens: usageTotals?.outputTokens ?? 0,
-      turnCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentTurnsTable)
-          .where(eq(symphonyAgentTurnsTable.runId, context.input.runId))
-          .get()
-      ),
-      itemCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentItemsTable)
-          .where(eq(symphonyAgentItemsTable.runId, context.input.runId))
-          .get()
-      ),
-      commandCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentCommandExecutionsTable)
-          .where(eq(symphonyAgentCommandExecutionsTable.runId, context.input.runId))
-          .get()
-      ),
-      toolCallCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentToolCallsTable)
-          .where(eq(symphonyAgentToolCallsTable.runId, context.input.runId))
-          .get()
-      ),
-      fileChangeCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentFileChangesTable)
-          .where(eq(symphonyAgentFileChangesTable.runId, context.input.runId))
-          .get()
-      ),
-      agentMessageCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentMessagesTable)
-          .where(eq(symphonyAgentMessagesTable.runId, context.input.runId))
-          .get()
-      ),
-      reasoningCount: countRows(
-        context.tx
-          .select({ count: sql<number>`count(*)` })
-          .from(symphonyAgentReasoningTable)
-          .where(eq(symphonyAgentReasoningTable.runId, context.input.runId))
-          .get()
-      ),
-      errorCount:
-        countRows(
-          context.tx
-            .select({ count: sql<number>`count(*)` })
-            .from(symphonyAgentItemsTable)
-            .where(
-              and(
-                eq(symphonyAgentItemsTable.runId, context.input.runId),
-                eq(symphonyAgentItemsTable.itemType, "error")
-              )
-            )
-            .get()
-        ) +
-        countRows(
-          context.tx
-            .select({ count: sql<number>`count(*)` })
-            .from(symphonyAgentEventLogTable)
-            .where(
-              and(
-                eq(symphonyAgentEventLogTable.runId, context.input.runId),
-                eq(symphonyAgentEventLogTable.eventType, "error")
-              )
-            )
-            .get()
-        ),
-      latestEventAt: latestEvent?.recordedAt ?? null,
-      latestEventType: latestEvent?.eventType ?? null,
-      updatedAt: context.now
-    })
-    .where(eq(symphonyAgentRunsTable.runId, context.input.runId))
-    .run();
-}
-
 function upsertTextItemRow(
   tx: AgentAnalyticsMutationTx,
   kind: "agent_message" | "reasoning",
@@ -2222,28 +1465,6 @@ function maybeStoreTextOverflow(
     turnId,
     itemId
   });
-}
-
-function mapLegacyRunStatus(status: string): AgentRunStatus {
-  switch (status) {
-    case "dispatching":
-    case "running":
-    case "paused":
-    case "failed":
-    case "startup_failed":
-    case "rate_limited":
-    case "stalled":
-    case "stopped":
-      return status;
-    case "finished":
-      return "completed";
-    default:
-      return "running";
-  }
-}
-
-function countRows(row: { count: number } | undefined): number {
-  return typeof row?.count === "number" ? row.count : 0;
 }
 
 function byteLength(value: string | null): number {

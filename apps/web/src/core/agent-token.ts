@@ -3,7 +3,7 @@ import type {
   SymphonyForensicsRunDetailResult
 } from "@symphony/contracts";
 
-export type AgentTurnTokenRow = {
+type AgentTurnTokenRow = {
   turnId: string;
   turnSequence: number;
   turnLabel: string;

@@ -1,3 +1,2 @@
 export * from "./events.js";
-export * from "./schema.js";
-export * from "./sdk-types.js";
+export * from "./types.js";

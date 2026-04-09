@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import process from "node:process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execute } from "@oclif/core";

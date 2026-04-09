@@ -1,12 +1,10 @@
 export {
-  agentModelLabelPrefix,
-  agentPresetLabelPrefix,
-  buildAgentAppServerSpawnSpec,
+  buildPiAppServerSpawnSpec,
   ensureWorkspaceCwd,
-  listSupportedAgentModels,
-  resolveAgentIssueModel,
-  resolveAgentLaunchSettings,
-  resolveAgentSdkLaunchSettings,
-  validateWorkspaceCwd,
+  listSupportedPiModels,
+  piModelLabelPrefix,
+  resolvePiIssueModel,
+  resolvePiLaunchSettings,
+  resolvePiSdkLaunchSettings,
   wrapSessionError
 } from "@symphony/agent-harnesses";

@@ -126,12 +126,12 @@ export function buildSymphonyRuntimeStateResult(
 
   const running = (overrides.running ?? [
     {
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       state: "In Progress",
       workerHost: "worker-b",
       workspacePath: "/tmp/workspaces/col-165",
-      sessionId: "session_123",
+      threadId: "thread_123",
       workspace: defaultRunningWorkspace,
       launchTarget: defaultRunningLaunchTarget,
       turnCount: 4,
@@ -146,12 +146,12 @@ export function buildSymphonyRuntimeStateResult(
       }
     }
   ]).map((entry): RuntimeRunningEntry => ({
-    issueId: "issue_123",
+    trackerIssueId: "issue_123",
     issueIdentifier: "COL-165",
     state: "In Progress",
     workerHost: "worker-b",
     workspacePath: "/tmp/workspaces/col-165",
-    sessionId: "session_123",
+    threadId: "thread_123",
     turnCount: 4,
     lastEvent: "message.output",
     lastMessage: "Runtime view updated",
@@ -175,7 +175,7 @@ export function buildSymphonyRuntimeStateResult(
 
   const retrying = (overrides.retrying ?? [
     {
-      issueId: "issue_456",
+      trackerIssueId: "issue_456",
       issueIdentifier: "COL-166",
       attempt: 2,
       dueAt: "2026-03-31T18:05:00.000Z",
@@ -186,7 +186,7 @@ export function buildSymphonyRuntimeStateResult(
       launchTarget: defaultRetryLaunchTarget
     }
   ]).map((entry): RuntimeRetryEntry => ({
-    issueId: "issue_456",
+    trackerIssueId: "issue_456",
     issueIdentifier: "COL-166",
     attempt: 2,
     dueAt: "2026-03-31T18:05:00.000Z",
@@ -296,7 +296,7 @@ export function buildSymphonyRuntimeIssueResult(
   const defaultRunning: NonNullable<SymphonyRuntimeIssueResult["running"]> = {
     workerHost: "worker-b",
     workspacePath: "/tmp/symphony-COL-167",
-    sessionId: "session-167",
+    threadId: "thread-167",
     launchTarget: {
       kind: "container",
       hostLaunchPath: "/tmp/symphony-COL-167",
@@ -321,7 +321,7 @@ export function buildSymphonyRuntimeIssueResult(
 
   return {
     issueIdentifier: "COL-167",
-    issueId: "issue-167",
+    trackerIssueId: "issue-167",
     status: "running",
     workspace: {
       ...defaultWorkspace,
@@ -398,7 +398,7 @@ export function buildSymphonyForensicsIssueListResult(
     issues: [
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         latestRunStartedAt: "2026-03-31T18:00:00.000Z",
         latestRunId: "run_123",
@@ -436,7 +436,7 @@ export function buildSymphonyForensicsIssueListResult(
       },
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_234",
+        trackerIssueId: "issue_234",
         issueIdentifier: "COL-168",
         latestRunStartedAt: "2026-03-30T16:20:00.000Z",
         latestRunId: "run_234",
@@ -474,7 +474,7 @@ export function buildSymphonyForensicsIssueListResult(
       },
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_345",
+        trackerIssueId: "issue_345",
         issueIdentifier: "COL-169",
         latestRunStartedAt: "2026-03-29T14:15:00.000Z",
         latestRunId: "run_345",
@@ -512,7 +512,7 @@ export function buildSymphonyForensicsIssueListResult(
       },
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_456",
+        trackerIssueId: "issue_456",
         issueIdentifier: "COL-170",
         latestRunStartedAt: "2026-03-28T11:10:00.000Z",
         latestRunId: "run_456",
@@ -593,7 +593,7 @@ export function buildSymphonyForensicsIssueDetailResult(
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
         runId: "run_12345678",
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         attempt: 1,
         status: "finished",
@@ -667,7 +667,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
         source: "runtime",
         eventType: "manual_refresh_queued",
         message: "Queued manual refresh request.",
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         runId: "run_12345678",
         payload: {
@@ -682,7 +682,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
         source: "workspace",
         eventType: "rate_limit_warning",
         message: "Approaching upstream rate limit.",
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         runId: "run_12345678",
         payload: {
@@ -720,7 +720,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
         {
           entryId: "timeline-1",
           repositoryKey: DEFAULT_REPOSITORY_KEY,
-          issueId: "issue_123",
+          trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           runId: "run_12345678",
           turnId: "turn_123",
@@ -735,7 +735,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
         {
           entryId: "timeline-2",
           repositoryKey: DEFAULT_REPOSITORY_KEY,
-          issueId: "issue_123",
+          trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           runId: "run_12345678",
           turnId: "turn_123",
@@ -754,7 +754,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
       {
         entryId: "timeline-1",
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         runId: "run_12345678",
         turnId: "turn_123",
@@ -769,7 +769,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
       {
         entryId: "timeline-2",
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         runId: "run_12345678",
         turnId: "turn_123",
@@ -796,7 +796,7 @@ export function buildSymphonyForensicsProblemRunsResult(
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
         runId: "run_12345678",
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         attempt: 1,
         status: "finished",
@@ -868,7 +868,7 @@ export function buildSymphonyRuntimeLogsResult(
         source: "runtime",
         eventType: "db_initialized",
         message: "Initialized Symphony DB.",
-        issueId: null,
+        trackerIssueId: null,
         issueIdentifier: null,
         runId: null,
         payload: {
@@ -883,7 +883,7 @@ export function buildSymphonyRuntimeLogsResult(
         source: "tracker",
         eventType: "tracker_placeholder_active",
         message: "Using in-memory tracker placeholder.",
-        issueId: null,
+        trackerIssueId: null,
         issueIdentifier: null,
         runId: null,
         payload: null,
@@ -940,7 +940,7 @@ export function buildSymphonyForensicsRunDetailResult(
   return {
     issue: {
       repositoryKey: DEFAULT_REPOSITORY_KEY,
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       latestRunStartedAt: "2026-03-31T18:00:00.000Z",
       latestRunId: "run_123",
@@ -960,7 +960,7 @@ export function buildSymphonyForensicsRunDetailResult(
     run: {
       repositoryKey: DEFAULT_REPOSITORY_KEY,
       runId: "run_123",
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       attempt: 1,
       status: "finished",
@@ -1029,7 +1029,7 @@ export function buildSymphonyForensicsRunDetailResult(
     deliveryReport: {
       reportId: "delivery_123",
       repositoryKey: DEFAULT_REPOSITORY_KEY,
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       runId: "run_123",
       turnId: "turn_123",
@@ -1037,7 +1037,7 @@ export function buildSymphonyForensicsRunDetailResult(
       summary: "Opened the pull request.",
       prUrl: "https://github.com/example/repo/pull/165",
       prNumber: "165",
-      branchName: "codex/col-165",
+      branchName: "symphony/col-165",
       blockingReason: null,
       testsSummary: "pnpm verify:precommit",
       source: "pi",
@@ -1049,9 +1049,8 @@ export function buildSymphonyForensicsRunDetailResult(
         turnId: "turn_123",
         runId: "run_123",
         turnSequence: 1,
-        threadId: null,
         agentTurnId: null,
-        sessionId: "session_123",
+        threadId: "thread_123",
         promptText: "Solve the task",
         status: "completed",
         startedAt: "2026-03-31T18:00:00.000Z",
@@ -1086,9 +1085,8 @@ export function buildSymphonyForensicsRunDetailResult(
             payloadTruncated: false,
             payloadBytes: 12,
             summary: "Produced output",
-            threadId: null,
             agentTurnId: null,
-            sessionId: "session_123",
+            threadId: "thread_123",
             insertedAt: "2026-03-31T18:01:00.000Z"
           }
         ]
@@ -1221,7 +1219,7 @@ export function buildSymphonyAgentRunArtifactsResult(
       model: "xiaomi/mimo-v2-pro",
       providerId: "openrouter",
       providerName: "OpenRouter",
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       startedAt: "2026-03-31T18:00:00.000Z",
       endedAt: "2026-03-31T18:02:00.000Z",
@@ -1692,12 +1690,14 @@ export function buildSymphonyAgentRunArtifactsResult(
             arguments: {
               id: "COL-165"
             },
-            content: [
-              {
-                type: "text",
-                text: "Fetched the latest issue metadata from Linear."
-              }
-            ],
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: "Fetched the latest issue metadata from Linear."
+                }
+              ]
+            },
             status: "completed"
           }
         },
@@ -1754,7 +1754,7 @@ export function buildSymphonyAgentRunArtifactsDiffDemoResult(
     ...result.run,
     runId: "run_456",
     threadId: "thread_456",
-    issueId: "issue_456",
+    trackerIssueId: "issue_456",
     issueIdentifier: "COL-166",
     startedAt: runStartedAt,
     endedAt: turn3EndedAt,
@@ -2196,12 +2196,14 @@ export function buildSymphonyAgentRunArtifactsDiffDemoResult(
           arguments: {
             path: "src/app/page.tsx"
           },
-          content: [
-            {
-              type: "text",
-              text: "Read src/app/page.tsx"
-            }
-          ],
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "Read src/app/page.tsx"
+              }
+            ]
+          },
           status: "completed"
         }
       },
@@ -2230,12 +2232,14 @@ export function buildSymphonyAgentRunArtifactsDiffDemoResult(
           arguments: {
             path: "src/app/page.tsx"
           },
-          content: [
-            {
-              type: "text",
-              text: "@@ edit 1 @@"
-            }
-          ],
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "@@ edit 1 @@"
+              }
+            ]
+          },
           status: "completed"
         }
       },
@@ -2264,12 +2268,14 @@ export function buildSymphonyAgentRunArtifactsDiffDemoResult(
           arguments: {
             path: "src/app/layout.tsx"
           },
-          content: [
-            {
-              type: "text",
-              text: "Read src/app/layout.tsx"
-            }
-          ],
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "Read src/app/layout.tsx"
+              }
+            ]
+          },
           status: "completed"
         }
       },
@@ -2298,12 +2304,14 @@ export function buildSymphonyAgentRunArtifactsDiffDemoResult(
           arguments: {
             path: "src/app/layout.tsx"
           },
-          content: [
-            {
-              type: "text",
-              text: "Updated src/app/layout.tsx"
-            }
-          ],
+          result: {
+            content: [
+              {
+                type: "text",
+                text: "Updated src/app/layout.tsx"
+              }
+            ]
+          },
           status: "completed"
         }
       },
@@ -2382,7 +2390,7 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
 
   result.issue = {
     ...result.issue,
-    issueId: "issue_456",
+    trackerIssueId: "issue_456",
     issueIdentifier: "COL-166",
     latestRunStartedAt: runStartedAt,
     latestRunId: "run_456",
@@ -2403,7 +2411,7 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
   result.run = {
     ...result.run,
     runId: "run_456",
-    issueId: "issue_456",
+    trackerIssueId: "issue_456",
     issueIdentifier: "COL-166",
     attempt: 1,
     status: "finished",
@@ -2473,7 +2481,7 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
   result.deliveryReport = {
     reportId: "delivery_456",
     repositoryKey: DEFAULT_REPOSITORY_KEY,
-    issueId: "issue_456",
+    trackerIssueId: "issue_456",
     issueIdentifier: "COL-166",
     runId: "run_456",
     turnId: "turn_3",
@@ -2481,7 +2489,7 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
     summary: "Completed the read/write diff sample.",
     prUrl: "https://github.com/example/repo/pull/166",
     prNumber: "166",
-    branchName: "codex/col-166",
+    branchName: "symphony/col-166",
     blockingReason: null,
     testsSummary: "pnpm lint",
     source: "pi",
@@ -2530,21 +2538,22 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
               arguments: {
                 path: "src/app/page.tsx"
               },
-              content: [
-                {
-                  type: "text",
-                  text: "Read src/app/page.tsx"
-                }
-              ],
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: "Read src/app/page.tsx"
+                  }
+                ]
+              },
               status: "completed"
             }
           },
           payloadTruncated: false,
           payloadBytes: 12,
           summary: "Read the page file.",
-          threadId: null,
           agentTurnId: null,
-          sessionId: "session_456",
+          threadId: "thread_456",
           insertedAt: "2026-04-03T20:00:12.000Z"
         }
       ]
@@ -2589,21 +2598,22 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
               arguments: {
                 path: "src/app/page.tsx"
               },
-              content: [
-                {
-                  type: "text",
-                  text: "@@ edit 1 @@"
-                }
-              ],
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: "@@ edit 1 @@"
+                  }
+                ]
+              },
               status: "completed"
             }
           },
           payloadTruncated: false,
           payloadBytes: 12,
           summary: "Applied a page edit.",
-          threadId: null,
           agentTurnId: null,
-          sessionId: "session_456",
+          threadId: "thread_456",
           insertedAt: "2026-04-03T20:02:24.000Z"
         }
       ]
@@ -2648,21 +2658,22 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
               arguments: {
                 path: "src/app/layout.tsx"
               },
-              content: [
-                {
-                  type: "text",
-                  text: "Read src/app/layout.tsx"
-                }
-              ],
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: "Read src/app/layout.tsx"
+                  }
+                ]
+              },
               status: "completed"
             }
           },
           payloadTruncated: false,
           payloadBytes: 12,
           summary: "Read the layout file.",
-          threadId: null,
           agentTurnId: null,
-          sessionId: "session_456",
+          threadId: "thread_456",
           insertedAt: "2026-04-03T20:05:12.000Z"
         },
         {
@@ -2684,21 +2695,22 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
               arguments: {
                 path: "src/app/layout.tsx"
               },
-              content: [
-                {
-                  type: "text",
-                  text: "Updated src/app/layout.tsx"
-                }
-              ],
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: "Updated src/app/layout.tsx"
+                  }
+                ]
+              },
               status: "completed"
             }
           },
           payloadTruncated: false,
           payloadBytes: 12,
           summary: "Wrote the layout update.",
-          threadId: null,
           agentTurnId: null,
-          sessionId: "session_456",
+          threadId: "thread_456",
           insertedAt: "2026-04-03T20:05:26.000Z"
         },
         {
@@ -2721,9 +2733,8 @@ export function buildSymphonyForensicsRunDetailDiffDemoResult(
           payloadTruncated: false,
           payloadBytes: 12,
           summary: "Produced output",
-          threadId: null,
           agentTurnId: null,
-          sessionId: "session_456",
+          threadId: "thread_456",
           insertedAt: turn3EndedAt
         }
       ]

@@ -5,8 +5,6 @@ export const symphonyAgentRunQuerySchema = z.strictObject({
   runId: nonEmptyStringSchema
 });
 
-export const symphonyAgentRunPathSchema = symphonyAgentRunQuerySchema;
-
 export const symphonyAgentOverflowPathSchema = z.strictObject({
   runId: nonEmptyStringSchema,
   overflowId: nonEmptyStringSchema
@@ -22,7 +20,6 @@ export const symphonyAgentRunTurnFilterSchema = z.strictObject({
 });
 
 export type SymphonyAgentRunQuery = z.infer<typeof symphonyAgentRunQuerySchema>;
-export type SymphonyAgentRunPath = z.infer<typeof symphonyAgentRunPathSchema>;
 export type SymphonyAgentOverflowPath = z.infer<typeof symphonyAgentOverflowPathSchema>;
 export type SymphonyAgentRunTurnQuery = z.infer<typeof symphonyAgentRunTurnQuerySchema>;
 export type SymphonyAgentRunTurnFilter = z.infer<

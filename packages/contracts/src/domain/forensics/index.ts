@@ -17,9 +17,7 @@ export {
 } from "./run-queries.js";
 export {
   symphonyForensicsActiveHarnessSchema,
-  symphonyForensicsCompatHarnessSchema,
   symphonyForensicsTimelineSourceSchema,
-  symphonyForensicsCompatTimelineSourceSchema,
   symphonyForensicsDeliveryStatusSchema,
   symphonyForensicsDeliveryReportSchema,
   symphonyForensicsIssueSummarySchema,

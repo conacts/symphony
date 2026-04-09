@@ -31,7 +31,7 @@ import {
 } from "@/core/agent-token";
 import {
   buildIssueHref,
-  buildLegacyRunHref,
+  buildRunTranscriptHref,
   buildIssueRunHref,
   buildIssueRunTurnHref,
   buildIssueRunTurnsHref
@@ -46,13 +46,8 @@ import {
 
 export type {
   AgentRunTranscriptEntry,
-  AgentRunTranscriptTurn,
-  AgentRunFileChip,
-  PiPatternTaskQuery,
-  PiResponseMetadata
+  AgentRunTranscriptTurn
 } from "@/features/runs/model/agent-run-transcript";
-
-export type AgentRunResourceViewModel = AgentRunViewModel;
 
 export type AgentRunViewModel = {
   harnessLabel: string;
@@ -197,7 +192,11 @@ export function buildAgentRunViewModel(input: {
     run.errorMessage ??
     null;
   const executionPerformance = buildExecutionPerformance(runArtifacts);
-  const turnLatency = buildTurnLatency(runArtifacts, input.runDetail.turns);
+  const turnLatency = buildTurnLatency(
+    runArtifacts,
+    input.runDetail.turns,
+    input.runDetail.issue.repositoryKey
+  );
   const turnTokens = buildTurnTokens(runArtifacts, input.runDetail.turns);
   const turnResources = buildTurnResources(runArtifacts, input.runDetail.turns);
   const piResponseCards = buildPiResponseCards(runArtifacts, compareDescending);
@@ -228,7 +227,7 @@ export function buildAgentRunViewModel(input: {
   };
   const runHref = buildIssueRunHref(issueIdentifier, run.runId, routeScope);
   const turnsHref = buildIssueRunTurnsHref(issueIdentifier, run.runId, routeScope);
-  const transcriptHref = buildLegacyRunHref(run.runId, routeScope);
+  const transcriptHref = buildRunTranscriptHref(run.runId, routeScope);
 
   return {
     harnessLabel,
@@ -542,12 +541,14 @@ function safeDurationMs(value: number | null) {
 
 function buildTurnLatency(
   runArtifacts: SymphonyAgentRunArtifactsResult | null,
-  forensicsTurns: SymphonyForensicsRunDetailResult["turns"]
+  forensicsTurns: SymphonyForensicsRunDetailResult["turns"],
+  repositoryKey: string
 ): AgentRunViewModel["turnLatency"] {
   const rows = runArtifacts
     ? buildAgentTurnLatencyRows({
         runArtifacts,
-        forensicsTurns
+        forensicsTurns,
+        repositoryKey
       })
     : [];
   const totals = sumTurnLatencyTotals(rows);

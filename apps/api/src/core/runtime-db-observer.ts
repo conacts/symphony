@@ -7,12 +7,10 @@ import {
 } from "@symphony/workspace";
 import type { JsonValue } from "@symphony/contracts";
 import type {
-  AgentAnalyticsStore,
   SymphonyIssueTimelineStore,
   SymphonyRuntimeRunStatus,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
-import type { SymphonyAgentRunStatus } from "@symphony/contracts";
 import type { RuntimeMachineLoadMonitor } from "./runtime-machine-load.js";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 import { resolveIssueRepository } from "./runtime-repository-routing.js";
@@ -22,18 +20,17 @@ export function createDbBackedOrchestratorObserver(input: {
   defaultRepositoryKey: string;
   runStore: SymphonyRuntimeRunStore;
   issueTimelineStore: SymphonyIssueTimelineStore;
-  agentAnalytics: AgentAnalyticsStore;
   machineLoad?: RuntimeMachineLoadMonitor;
 }): SymphonyOrchestratorObserver {
   return {
-    async startRun({ issue, attempt, harness, workspace, workerHost, startedAt, runMode }) {
+    async startRun({ issue, attempt, workspace, workerHost, startedAt, runMode }) {
       const repositoryKey =
         input.admittedRepositories.length > 0
           ? resolveIssueRepository(input.admittedRepositories, issue).repositoryKey
           : input.defaultRepositoryKey;
       const runId = await input.runStore.recordRunStarted({
         repositoryKey,
-        issueId: issue.id,
+        trackerIssueId: issue.id,
         issueIdentifier: issue.identifier,
         attempt,
         runMode,
@@ -46,16 +43,6 @@ export function createDbBackedOrchestratorObserver(input: {
           runMode,
           workspace: workspaceMetadata(summarizePreparedWorkspace(workspace))
         }
-      });
-
-      await input.agentAnalytics.startRun({
-        runId,
-        issueId: issue.id,
-        issueIdentifier: issue.identifier,
-        startedAt,
-        status: "dispatching",
-        threadId: null,
-        harnessKind: harness
       });
 
       input.machineLoad?.startRun(runId);
@@ -98,9 +85,9 @@ export function createDbBackedOrchestratorObserver(input: {
           metadata: {
             workspace: workspaceMetadata(workspacePayload),
             launchTarget: normalizeJsonValue(launchPayload?.launchTarget ?? null),
-            sessionId:
-              typeof launchPayload?.sessionId === "string"
-                ? launchPayload.sessionId
+            threadId:
+              typeof launchPayload?.threadId === "string"
+                ? launchPayload.threadId
                 : null
           }
         });
@@ -146,23 +133,9 @@ export function createDbBackedOrchestratorObserver(input: {
             stopPayload: normalizeJsonValue(payload)
           }
         });
-        await input.agentAnalytics.finalizeRun({
-          runId,
-          status: "stopped",
-          endedAt: stoppedAt,
-          failureKind: eventType,
-          failureOrigin: "runtime",
-          failureMessagePreview: previewRuntimeFailure(eventType),
-          threadId: null
-        });
       }
 
       await input.issueTimelineStore.record({
-        repositoryKey:
-          input.admittedRepositories.length > 0
-            ? resolveIssueRepository(input.admittedRepositories, issue).repositoryKey
-            : input.defaultRepositoryKey,
-        issueId: issue.id,
         issueIdentifier: issue.identifier,
         runId,
         source,
@@ -222,60 +195,35 @@ export function createDbBackedOrchestratorObserver(input: {
           }
         },
         errorClass:
-          completion.kind === "normal" ? null : completionErrorClass(completion),
+          isSuccessfulCompletion(completion) ? null : completionErrorClass(completion),
         errorMessage:
-          completion.kind === "normal" ? null : completion.reason
+          isSuccessfulCompletion(completion) ? null : completion.reason
       });
 
-      await input.agentAnalytics.finalizeRun({
-        runId,
-        status: agentRunStatus(completion),
-        endedAt,
-        failureKind: completion.kind === "normal" ? null : completion.kind,
-        failureOrigin: completion.kind === "startup_failure" ? "runtime" : "agent",
-        failureMessagePreview:
-          completion.kind === "normal" ? null : previewRuntimeFailure(completion.reason),
-        threadId: null
-      });
     }
   };
 }
 
-function previewRuntimeFailure(value: string): string {
-  return value.length <= 280 ? value : `${value.slice(0, 279)}…`;
-}
-
 type ObserverWorkspaceMetadata = WorkspaceLifecycleMetadata | null;
+
+function isSuccessfulCompletion(
+  completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
+): completion is Extract<
+  Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"],
+  { kind: "delivered" | "merged" }
+> {
+  return completion.kind === "delivered" || completion.kind === "merged";
+}
 
 function completionStatus(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
 ): SymphonyRuntimeRunStatus {
   switch (completion.kind) {
-    case "normal":
+    case "delivered":
+    case "merged":
       return "finished";
-    case "merge_blocked":
+    case "blocked":
       return "failed";
-    case "max_turns_reached":
-      return "paused";
-    case "startup_failure":
-      return "startup_failed";
-    case "rate_limited":
-      return "rate_limited";
-    case "provider_transient":
-      return "failed";
-    case "stalled":
-      return "stalled";
-    case "failure":
-      return "failed";
-  }
-}
-
-function agentRunStatus(
-  completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
-): SymphonyAgentRunStatus {
-  switch (completion.kind) {
-    case "normal":
-      return "completed";
     case "merge_blocked":
       return "failed";
     case "max_turns_reached":
@@ -297,8 +245,12 @@ function completionOutcome(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
 ): string {
   switch (completion.kind) {
-    case "normal":
-      return "completed_turn_batch";
+    case "delivered":
+      return "completed";
+    case "merged":
+      return "merged";
+    case "blocked":
+      return "blocked";
     case "merge_blocked":
       return "merge_blocked";
     case "max_turns_reached":
@@ -326,8 +278,10 @@ function completionErrorClass(
         : `startup_failure_${completion.failureOrigin}_${completion.failureStage}`;
     case "max_turns_reached":
       return "max_turns_reached";
-    case "normal":
-      return "normal";
+    case "delivered":
+      return "delivered";
+    case "merged":
+      return "merged";
     default:
       return completion.kind;
   }

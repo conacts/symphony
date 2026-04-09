@@ -8,7 +8,7 @@ import {
   symphonyAgentOverflowResponseSchema,
   symphonyAgentReasoningBlockListResponseSchema,
   symphonyAgentRunArtifactsResponseSchema,
-  symphonyAgentRunPathSchema,
+  symphonyAgentRunQuerySchema,
   symphonyAgentRunTurnFilterSchema,
   symphonyAgentToolCallListResponseSchema,
   symphonyAgentTurnListResponseSchema
@@ -26,11 +26,13 @@ export function createAgentAnalyticsRoutes(
 
   agentRoutes.get("/agent/runs/:runId/artifacts", async (c) => {
     const runId = parseAgentRunId(c);
+    await ensureAgentRunExists(c, services, runId);
     const result = await services.agentAnalytics.fetchRunArtifacts(runId);
 
     if (!result) {
-      logAgentRunNotFound(c, "Agent run artifacts not found", runId);
-      throw createHttpError("NOT_FOUND", "Run not found.");
+      throw new TypeError(
+        `Agent run ${runId} exists but artifacts could not be loaded.`
+      );
     }
 
     c.get("logger").debug("Returning agent run artifacts", {
@@ -48,6 +50,7 @@ export function createAgentAnalyticsRoutes(
 
   agentRoutes.get("/agent/runs/:runId/overflow/:overflowId", async (c) => {
     const { runId, overflowId } = parseAgentOverflowPath(c);
+    await ensureAgentRunExists(c, services, runId);
     const result = await services.agentAnalytics.fetchOverflow(runId, overflowId);
 
     if (!result) {
@@ -70,6 +73,7 @@ export function createAgentAnalyticsRoutes(
 
   agentRoutes.get("/agent/runs/:runId/turns", async (c) => {
     const runId = parseAgentRunId(c);
+    await ensureAgentRunExists(c, services, runId);
     const result = await services.agentAnalytics.listTurns(runId);
 
     c.get("logger").debug("Returning agent turns", {
@@ -84,6 +88,7 @@ export function createAgentAnalyticsRoutes(
 
   agentRoutes.get("/agent/runs/:runId/items", async (c) => {
     const { runId, turnId } = parseAgentRunTurnInput(c);
+    await ensureAgentRunExists(c, services, runId);
     const result = await services.agentAnalytics.listItems(toRunTurnQuery(runId, turnId));
 
     c.get("logger").debug("Returning agent items", {
@@ -99,6 +104,7 @@ export function createAgentAnalyticsRoutes(
 
   agentRoutes.get("/agent/runs/:runId/command-executions", async (c) => {
     const { runId, turnId } = parseAgentRunTurnInput(c);
+    await ensureAgentRunExists(c, services, runId);
     const result = await services.agentAnalytics.listCommandExecutions(
       toRunTurnQuery(runId, turnId)
     );
@@ -121,6 +127,7 @@ export function createAgentAnalyticsRoutes(
 
   agentRoutes.get("/agent/runs/:runId/tool-calls", async (c) => {
     const { runId, turnId } = parseAgentRunTurnInput(c);
+    await ensureAgentRunExists(c, services, runId);
     const result = await services.agentAnalytics.listToolCalls(toRunTurnQuery(runId, turnId));
 
     c.get("logger").debug("Returning agent tool calls", {
@@ -136,6 +143,7 @@ export function createAgentAnalyticsRoutes(
 
   agentRoutes.get("/agent/runs/:runId/agent-messages", async (c) => {
     const { runId, turnId } = parseAgentRunTurnInput(c);
+    await ensureAgentRunExists(c, services, runId);
     const result = await services.agentAnalytics.listAgentMessages(
       toRunTurnQuery(runId, turnId)
     );
@@ -158,6 +166,7 @@ export function createAgentAnalyticsRoutes(
 
   agentRoutes.get("/agent/runs/:runId/reasoning", async (c) => {
     const { runId, turnId } = parseAgentRunTurnInput(c);
+    await ensureAgentRunExists(c, services, runId);
     const result = await services.agentAnalytics.listReasoning(toRunTurnQuery(runId, turnId));
 
     c.get("logger").debug("Returning agent reasoning rows", {
@@ -173,6 +182,7 @@ export function createAgentAnalyticsRoutes(
 
   agentRoutes.get("/agent/runs/:runId/file-changes", async (c) => {
     const { runId, turnId } = parseAgentRunTurnInput(c);
+    await ensureAgentRunExists(c, services, runId);
     const result = await services.agentAnalytics.listFileChanges(toRunTurnQuery(runId, turnId));
 
     c.get("logger").debug("Returning agent file changes", {
@@ -192,7 +202,7 @@ export function createAgentAnalyticsRoutes(
 type AgentRouteContext = Context<SymphonyRuntimeAppContextSchema>;
 
 function parseAgentRunId(c: AgentRouteContext): string {
-  return parseWithSchema(symphonyAgentRunPathSchema, c.req.param()).runId;
+  return parseWithSchema(symphonyAgentRunQuerySchema, c.req.param()).runId;
 }
 
 function parseAgentRunTurnInput(
@@ -221,6 +231,19 @@ function logAgentRunNotFound(c: AgentRouteContext, message: string, runId: strin
   c.get("logger").warn(message, {
     runId
   });
+}
+
+async function ensureAgentRunExists(
+  c: AgentRouteContext,
+  services: SymphonyRuntimeAppServices,
+  runId: string
+): Promise<void> {
+  if (await services.agentAnalytics.hasRun(runId)) {
+    return;
+  }
+
+  logAgentRunNotFound(c, "Agent run not found", runId);
+  throw createHttpError("NOT_FOUND", "Run not found.");
 }
 
 function validateAndSendAgentResponse<T>(

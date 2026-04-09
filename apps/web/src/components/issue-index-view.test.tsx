@@ -31,7 +31,7 @@ function buildPagedIssueIndexResult() {
 
     return {
       ...template,
-      issueId: `issue_${issueNumber}`,
+      trackerIssueId: `issue_${issueNumber}`,
       issueIdentifier: `COL-${issueNumber}`,
       latestRunStartedAt: startedAt,
       latestRunId: `run_${issueNumber}`,

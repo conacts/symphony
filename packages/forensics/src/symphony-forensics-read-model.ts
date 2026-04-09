@@ -109,7 +109,7 @@ export type SymphonyForensicsRuntimeLogEntry = {
   source: string;
   eventType: string;
   message: string;
-  issueId: string | null;
+  trackerIssueId: string | null;
   issueIdentifier: string | null;
   runId: string | null;
   payload: JsonValue;

@@ -13,13 +13,13 @@ import type {
   SymphonyRuntimeStateResult
 } from "@symphony/contracts";
 import {
-  agentModelLabelPrefix,
-  listSupportedAgentModels,
-  resolveAgentIssueModel
+  listSupportedPiModels,
+  piModelLabelPrefix,
+  resolvePiIssueModel
 } from "../core/agent-app-server-launch.js";
 import type { AdmittedRuntimeRepository } from "../core/runtime-admitted-repositories.js";
 
-export type RuntimeIssuePiSelectionPolicy = {
+type RuntimeIssuePiSelectionPolicy = {
   defaultModel: string | null;
   defaultPreset: string;
   presets: Record<
@@ -50,12 +50,12 @@ export function serializeRuntimeState(
           }))
         : undefined,
     running: snapshot.running.map((entry) => ({
-      issueId: entry.issueId,
+      trackerIssueId: entry.issueId,
       issueIdentifier: entry.issue.identifier,
       state: entry.issue.state,
       workerHost: entry.workerHost,
       workspacePath: entry.workspacePath,
-      sessionId: entry.sessionId,
+      threadId: entry.threadId,
       workspace: serializeRuntimeWorkspace(
         entry.workspace,
         entry.workerHost,
@@ -74,7 +74,7 @@ export function serializeRuntimeState(
       }
     })),
     retrying: snapshot.retrying.map((entry) => ({
-      issueId: entry.issueId,
+      trackerIssueId: entry.issueId,
       issueIdentifier: entry.identifier,
       attempt: entry.attempt,
       dueAt: new Date(entry.dueAtMs).toISOString(),
@@ -138,14 +138,14 @@ export function serializeRuntimeIssue(
     branchName
   );
   const workspace = running?.workspace ?? retry?.workspace ?? null;
-  const selectedModel = resolveAgentIssueModel(
+  const selectedModel = resolvePiIssueModel(
     tracked,
     piSelectionPolicy
   );
 
   return {
     issueIdentifier,
-    issueId: running?.issueId ?? retry?.issueId ?? tracked.id,
+    trackerIssueId: running?.issueId ?? retry?.issueId ?? tracked.id,
     status: running ? "running" : retry ? "retrying" : "tracked",
     workspace: serializeRuntimeWorkspace(
       workspace,
@@ -160,7 +160,7 @@ export function serializeRuntimeIssue(
       ? {
           workerHost: running.workerHost,
           workspacePath: running.workspacePath,
-          sessionId: running.sessionId,
+          threadId: running.threadId,
           launchTarget: serializeRuntimeLaunchTarget(running.launchTarget),
           turnCount: running.turnCount,
           state: running.issue.state,
@@ -205,10 +205,10 @@ export function serializeRuntimeIssue(
       pi: {
         defaultModel: piSelectionPolicy.defaultModel,
         selectedModel,
-        availableModels: listSupportedAgentModels(),
-        modelOverrideLabelPrefix: agentModelLabelPrefix,
+        availableModels: listSupportedPiModels(),
+        modelOverrideLabelPrefix: piModelLabelPrefix,
         selectionHelpText:
-          `Pi selection is label-driven. Prefer ${agentModelLabelPrefix}<preset> for repo-defined tiers; raw symphony:model:<model> labels still work for direct model overrides.`
+          `Pi selection is label-driven. Use ${piModelLabelPrefix}<preset> for repo-defined tiers or ${piModelLabelPrefix}<model> for a direct model override.`
       }
     }
   };

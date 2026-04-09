@@ -22,12 +22,10 @@
   },
   "dependencies": {
     "@symphony/db": "workspace:*",
-    "@symphony/logger": "workspace:*",
     "@symphony/tracker": "workspace:*"
   },
   "devDependencies": {
     "@symphony/eslint-configs": "workspace:*",
-    "@symphony/test-support": "workspace:*",
     "@symphony/vitest-configs": "workspace:*",
     "vitest": "^4.1.2"
   }

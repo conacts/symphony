@@ -128,7 +128,7 @@ describe("symphony forensics read model", () => {
     });
     const failedRun = createRunSummary({
       runId: "run-failure",
-      issueId: "issue-2",
+      trackerIssueId: "issue-2",
       issueIdentifier: "COL-158",
       outcome: "startup_failure",
       errorClass: "startup_failure",
@@ -245,7 +245,7 @@ function createRunSummary(
   return {
     runId: "run-1",
     repositoryKey: "symphony",
-    issueId: "issue-1",
+    trackerIssueId: "issue-1",
     issueIdentifier: "COL-157",
     attempt: 1,
     status: "finished",
@@ -287,7 +287,7 @@ function createRunDetail(
   return {
     issue: {
       repositoryKey: "symphony",
-      issueId: run.issueId,
+      trackerIssueId: run.trackerIssueId,
       issueIdentifier: run.issueIdentifier,
       latestRunStartedAt: run.startedAt,
       latestRunId: run.runId,
@@ -338,7 +338,7 @@ function createRunDetail(
     deliveryReport: {
       reportId: "report-1",
       repositoryKey: "symphony",
-      issueId: run.issueId,
+      trackerIssueId: run.trackerIssueId,
       issueIdentifier: run.issueIdentifier,
       runId: run.runId,
       turnId: "turn-1",
@@ -346,7 +346,7 @@ function createRunDetail(
       summary: "Opened the pull request.",
       prUrl: "https://github.com/example/repo/pull/157",
       prNumber: "157",
-      branchName: "codex/col-157",
+      branchName: "symphony/col-157",
       blockingReason: null,
       testsSummary: "pnpm verify:precommit",
       source: "pi",
@@ -360,7 +360,6 @@ function createRunDetail(
         turnSequence: 1,
         threadId: "thread-1",
         agentTurnId: "turn-1",
-        sessionId: "session-1",
         promptText: "Implement the requested change.",
         status: "completed",
         startedAt: "2026-03-31T00:00:00.000Z",
@@ -399,7 +398,6 @@ function createRunDetail(
             summary: "input=11 output=7",
             threadId: "thread-1",
             agentTurnId: "turn-1",
-            sessionId: "session-1",
             insertedAt: "2026-03-31T00:00:10.000Z"
           }
         ]

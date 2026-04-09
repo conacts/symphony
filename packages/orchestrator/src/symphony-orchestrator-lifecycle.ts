@@ -1,5 +1,10 @@
 import type { JsonObject } from "@symphony/contracts";
-import type { SymphonyTracker, SymphonyTrackerIssue } from "@symphony/tracker";
+import {
+  issueMatchesTerminalState,
+  type SymphonyTracker,
+  type SymphonyTrackerConfig,
+  type SymphonyTrackerIssue
+} from "@symphony/tracker";
 import type {
   PreparedWorkspace,
   WorkspaceBackend,
@@ -7,7 +12,7 @@ import type {
 } from "@symphony/workspace";
 import {
   buildFailureCommentBody,
-  type SymphonyStartupFailureTransition
+  type SymphonyFailureStateTransition
 } from "./symphony-orchestrator-comments.js";
 import {
   buildWorkspaceLifecyclePayload,
@@ -21,6 +26,19 @@ import type {
 } from "./symphony-orchestrator-types.js";
 import type { SymphonyOrchestratorConfig } from "./orchestrator-config.js";
 
+export function workspaceCleanupModeForIssue(input: {
+  issue: SymphonyTrackerIssue | null;
+  tracker: SymphonyTrackerConfig;
+}): WorkspaceCleanupMode {
+  if (!input.issue) {
+    return "destroy";
+  }
+
+  return issueMatchesTerminalState(input.issue, input.tracker)
+    ? "destroy"
+    : "preserve";
+}
+
 export async function leaveFailureComment(input: {
   tracker: SymphonyTracker;
   observer: SymphonyOrchestratorObserver | null;
@@ -30,7 +48,8 @@ export async function leaveFailureComment(input: {
   runId: string | null;
   options?: {
     rateLimits?: JsonObject | null;
-    startupFailureTransition?: SymphonyStartupFailureTransition;
+    stateTransition?: SymphonyFailureStateTransition;
+    workspaceCleanupMode?: WorkspaceCleanupMode | null;
   };
 }): Promise<void> {
   const comment = buildFailureCommentBody(
@@ -149,21 +168,25 @@ export async function handleStartupFailure(input: {
   completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
 }): Promise<void> {
   const targetState = input.config.tracker.startupFailureTransitionToState;
-  let transition: SymphonyStartupFailureTransition = {
+  let effectiveIssue = input.issue;
+  let transition: SymphonyFailureStateTransition = {
     kind: "none"
   };
 
   if (targetState) {
     try {
       await input.tracker.updateIssueState(input.issue.id, targetState);
+      effectiveIssue = {
+        ...input.issue,
+        state: targetState
+      };
       transition = {
         kind: "moved",
         targetState
       };
       await input.observer?.recordLifecycleEvent({
         issue: {
-          ...input.issue,
-          state: targetState
+          ...effectiveIssue
         },
         runId: input.runId,
         source: "tracker",
@@ -195,15 +218,21 @@ export async function handleStartupFailure(input: {
     }
   }
 
+  const cleanupMode = workspaceCleanupModeForIssue({
+    issue: effectiveIssue,
+    tracker: input.config.tracker
+  });
+
   await leaveFailureComment({
     tracker: input.tracker,
     observer: input.observer,
     issue: input.issue,
     reason: input.reason,
-    outcome: targetState ? "startup_failed_backlog" : "startup_failed",
+    outcome: "startup_failed",
     runId: input.runId,
     options: {
-      startupFailureTransition: transition
+      stateTransition: transition,
+      workspaceCleanupMode: cleanupMode
     }
   });
 
@@ -217,7 +246,7 @@ export async function handleStartupFailure(input: {
     workspace: input.workspace,
     workerHost: input.workerHost,
     reason: "startup_failure",
-    mode: "destroy",
+    mode: cleanupMode,
     startupFailure: input.completion
   });
 }

@@ -42,8 +42,8 @@ export type SymphonyRuntimeTurnStatus =
   | "stopped";
 
 export type SymphonyRuntimeRunStartAttrs = {
-  repositoryKey?: string;
-  issueId: string;
+  repositoryKey: string;
+  trackerIssueId: string;
   issueIdentifier: string;
   runId?: string;
   attempt?: number | null;
@@ -60,9 +60,8 @@ export type SymphonyRuntimeRunStartAttrs = {
 export type SymphonyRuntimeTurnStartAttrs = {
   turnId?: string;
   turnSequence?: number;
-  threadId?: string | null;
+  threadId?: string;
   agentTurnId?: string | null;
-  sessionId?: string | null;
   promptText: string;
   status: SymphonyRuntimeTurnStatus;
   startedAt?: Date | string;
@@ -73,9 +72,8 @@ export type SymphonyRuntimeTurnUpdateAttrs = {
   status?: SymphonyRuntimeTurnStatus;
   startedAt?: Date | string | null;
   endedAt?: Date | string | null;
-  threadId?: string | null;
+  threadId?: string;
   agentTurnId?: string | null;
-  sessionId?: string | null;
   usage?: SymphonyRuntimeAgentUsage | null;
   metadata?: JsonObject | null;
 };
@@ -83,9 +81,8 @@ export type SymphonyRuntimeTurnUpdateAttrs = {
 export type SymphonyRuntimeTurnFinishAttrs = {
   status: SymphonyRuntimeTurnStatus;
   endedAt: Date | string;
-  threadId?: string | null;
+  threadId?: string;
   agentTurnId?: string | null;
-  sessionId?: string | null;
   usage?: SymphonyRuntimeAgentUsage | null;
   metadata?: JsonObject | null;
 };
@@ -119,4 +116,18 @@ export type SymphonyRuntimeRunFinishAttrs = {
   errorClass?: string | null;
   errorMessage?: string | null;
   machineLoadSummary?: SymphonyRuntimeMachineLoadSummary | null;
+};
+
+export type SymphonyRuntimeRunContextAttrs = {
+  harnessKind?: "pi" | null;
+  threadId?: string;
+  processId?: string | null;
+  model?: string | null;
+  reasoningEffort?: string | null;
+  profile?: string | null;
+  providerId?: string | null;
+  providerName?: string | null;
+  authMode?: string | null;
+  providerEnvKey?: string | null;
+  launchTarget?: JsonObject | null;
 };

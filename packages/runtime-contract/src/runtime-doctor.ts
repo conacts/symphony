@@ -148,7 +148,7 @@ export function buildMockSymphonyRuntimeEnvironmentContext(
   overrides: Partial<SymphonyRuntimeEnvironmentContext> = {}
 ): SymphonyRuntimeEnvironmentContext {
   return {
-    issueId: promptPayload.issue.id,
+    trackerIssueId: promptPayload.issue.id,
     issueIdentifier: promptPayload.issue.identifier,
     runId: promptPayload.run.id,
     workspaceKey: promptPayload.issue.identifier,

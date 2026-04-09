@@ -137,18 +137,6 @@ export function createDockerWorkspaceBackend(
     options.materializationMode ?? bindMaterializationKind;
   const runtimeManifest = options.runtimeManifest ?? null;
   const sharedPostgres = options.sharedPostgres ?? null;
-  const hostFileMounts = normalizeDockerWorkspaceHostFileMounts([
-    ...(options.hostFileMounts ?? []),
-    ...(sourceRepoPath
-      ? [
-          {
-            sourcePath: sourceRepoPath,
-            containerPath: defaultContainerSourceRepoPath,
-            readOnly: true
-          }
-        ]
-      : [])
-  ]);
   const commandRunner = options.commandRunner ?? defaultDockerWorkspaceCommandRunner;
   const configuredCommandTimeoutMs = options.commandTimeoutMs ?? null;
   const runtimeDbSnapshotPath = normalizeNonEmptyString(options.runtimeDbSnapshotPath ?? undefined);
@@ -172,6 +160,10 @@ export function createDockerWorkspaceBackend(
         configuredCommandTimeoutMs,
         input.hooks.timeoutMs
       );
+      const hostFileMounts = normalizeDockerWorkspaceHostFileMounts([
+        ...(options.hostFileMounts ?? []),
+        ...(await resolveSourceRepoHostFileMounts(sourceRepoPath))
+      ]);
       const created = await ensureMaterializedWorkspace({
         descriptor,
         commandRunner,
@@ -245,7 +237,7 @@ export function createDockerWorkspaceBackend(
         workspaceKey: descriptor.workspaceKey,
         workspacePath,
         runId: input.runId ?? null,
-        issueId: input.context.issueId,
+        trackerIssueId: input.context.trackerIssueId,
         services: services.connections
       });
 
@@ -440,7 +432,7 @@ export function createDockerWorkspaceBackend(
               workspacePath: cleanupWorkspacePath,
               command: input.hooks.beforeRemove,
               context: {
-                issueId: null,
+                trackerIssueId: null,
                 issueIdentifier: descriptor.issueIdentifier
               },
               workerHost: input.workerHost ?? null,
@@ -470,7 +462,7 @@ export function createDockerWorkspaceBackend(
                 workspaceKey: descriptor.workspaceKey,
                 workspacePath: cleanupWorkspacePath,
                 runId: input.runId ?? null,
-                issueId: null,
+                trackerIssueId: null,
                 services: buildResolvedCleanupServices(serviceDescriptors)
               }).values,
             commandRunner,
@@ -520,7 +512,7 @@ export function createDockerWorkspaceBackend(
                   ? input.workspace.executionTarget.workspacePath
                   : workspacePath,
               runId: input.runId ?? null,
-              issueId: null,
+              trackerIssueId: null,
               services: buildResolvedCleanupServices(serviceDescriptors)
             }).values,
           commandRunner,
@@ -574,6 +566,87 @@ export function createDockerWorkspaceBackend(
       };
     }
   };
+}
+
+async function resolveSourceRepoHostFileMounts(
+  sourceRepoPath: string | null
+): Promise<DockerWorkspaceHostFileMount[]> {
+  if (!sourceRepoPath) {
+    return [];
+  }
+
+  const mounts: DockerWorkspaceHostFileMount[] = [
+    {
+      sourcePath: sourceRepoPath,
+      containerPath: defaultContainerSourceRepoPath,
+      readOnly: true
+    }
+  ];
+  const gitAdminRoot = await resolveSourceRepoGitAdminRoot(sourceRepoPath);
+
+  if (gitAdminRoot) {
+    mounts.push({
+      sourcePath: gitAdminRoot,
+      containerPath: gitAdminRoot,
+      readOnly: true
+    });
+  }
+
+  return mounts;
+}
+
+async function resolveSourceRepoGitAdminRoot(
+  sourceRepoPath: string
+): Promise<string | null> {
+  const sourceRepoGitPath = path.join(sourceRepoPath, ".git");
+  let gitReference: string;
+
+  try {
+    gitReference = await readFile(sourceRepoGitPath, "utf8");
+  } catch (error) {
+    const errorCode =
+      typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code?: unknown }).code)
+        : null;
+    if (
+      isEnoent(error) ||
+      errorCode === "EISDIR"
+    ) {
+      return null;
+    }
+
+    throw error;
+  }
+
+  const gitDir = parseGitDirPointer(gitReference, sourceRepoGitPath);
+  if (!gitDir) {
+    return null;
+  }
+
+  const commonDirPath = path.join(gitDir, "commondir");
+
+  try {
+    const commonDirReference = await readFile(commonDirPath, "utf8");
+    return path.resolve(gitDir, commonDirReference.trim());
+  } catch (error) {
+    if (isEnoent(error)) {
+      return gitDir;
+    }
+
+    throw error;
+  }
+}
+
+function parseGitDirPointer(
+  gitReference: string,
+  sourceRepoGitPath: string
+): string | null {
+  const match = gitReference.match(/^gitdir:\s*(.+)\s*$/m);
+  if (!match) {
+    return null;
+  }
+
+  return path.resolve(path.dirname(sourceRepoGitPath), match[1]);
 }
 
 async function hydrateWorkspaceFromMountedSourceRepo(input: {
@@ -2648,8 +2721,17 @@ function normalizeDockerWorkspaceHostFileMounts(
     }
   );
 
-  return normalizedMounts
-    .filter((mount): mount is DockerWorkspaceHostFileMount => mount !== null);
+  const deduped = new Map<string, DockerWorkspaceHostFileMount>();
+
+  for (const mount of normalizedMounts) {
+    if (!mount) {
+      continue;
+    }
+
+    deduped.set(`${mount.sourcePath}\u0000${mount.containerPath}`, mount);
+  }
+
+  return [...deduped.values()];
 }
 
 function normalizeContainerEnv(

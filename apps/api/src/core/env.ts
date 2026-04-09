@@ -6,7 +6,7 @@ import {
 } from "@symphony/logger";
 import { defaultSymphonyAllowedOrigins } from "./runtime-policy-config.js";
 
-export const DEFAULT_SYMPHONY_RUNTIME_PORT = 4_400;
+const DEFAULT_SYMPHONY_RUNTIME_PORT = 4_400;
 const hostCommandEnvironmentKeys = new Set([
   "PATH",
   "HOME",

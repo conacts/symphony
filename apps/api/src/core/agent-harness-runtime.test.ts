@@ -10,7 +10,8 @@ import {
   createSymphonyIssueDeliveryReportStore,
   createSymphonyIssueTimelineStore,
   createSqliteSymphonyRuntimeRunStore,
-  initializeSymphonyDb
+  initializeSymphonyDb,
+  symphonySchema
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import type { SymphonyAgentRuntimeCompletion } from "@symphony/orchestrator";
@@ -25,7 +26,7 @@ import type {
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import {
-  createSymphonyAgentRuntime,
+  createSymphonyAgentRuntime as createRawSymphonyAgentRuntime,
   isTransientProviderError
 } from "./agent-harness-runtime.js";
 import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimePolicyForRoot } from "../test-support/create-symphony-runtime-test-harness.js";
@@ -34,6 +35,16 @@ const tempRoots: string[] = [];
 const execFileAsync = promisify(execFile);
 const originalPath = process.env.PATH;
 const originalOpenRouterKey = process.env.OPENROUTER_API_KEY;
+const testRepositoryKey = "openai/symphony";
+
+function createSymphonyAgentRuntime(
+  input: Parameters<typeof createRawSymphonyAgentRuntime>[0]
+) {
+  return createRawSymphonyAgentRuntime({
+    githubRepository: testRepositoryKey,
+    ...input
+  });
+}
 
 afterEach(async () => {
   process.env.PATH = originalPath;
@@ -77,7 +88,7 @@ describe("docker pi symphony agent runtime", () => {
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createDoneTracker(issue);
+    const tracker = createStateTracker(issue, "In Review");
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
@@ -86,7 +97,8 @@ describe("docker pi symphony agent runtime", () => {
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -95,7 +107,8 @@ describe("docker pi symphony agent runtime", () => {
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "rework",
       status: "dispatching",
@@ -134,7 +147,12 @@ describe("docker pi symphony agent runtime", () => {
             completion = result;
             await runStore.finalizeRun(runId, {
               status: "finished",
-              outcome: result.kind === "normal" ? "completed_turn_batch" : "failed",
+              outcome:
+                result.kind === "delivered"
+                  ? "completed"
+                  : result.kind === "merged"
+                    ? "merged"
+                    : "failed",
               endedAt: new Date().toISOString()
             });
             resolve();
@@ -164,7 +182,7 @@ describe("docker pi symphony agent runtime", () => {
     const runDetail = await agentReadStore.fetchRunDetail(runId);
     expect(runDetail?.turns).toHaveLength(1);
     expect(runDetail?.turns[0]?.promptText).toBe(
-      `You are working on COL-123 in source-repo on main.\n\n${symphonyHarnessPromptAppendix}`
+      `You are working on COL-123 in symphony on main.\n\n${symphonyHarnessPromptAppendix}`
     );
     expect(
       runDetail?.turns[0]?.events.map((event: { eventType: string }) => event.eventType)
@@ -172,6 +190,24 @@ describe("docker pi symphony agent runtime", () => {
       "thread.started",
       "item.completed"
     ]);
+    const canonicalEvents = database.db
+      .select()
+      .from(symphonySchema.symphonyEventsTable)
+      .all()
+      .filter((event) => event.runId === runId)
+      .sort((left, right) => left.eventSequence - right.eventSequence);
+    expect(canonicalEvents.map((event) => event.eventType)).toEqual([
+      "session.started",
+      "thread.started",
+      "item.completed"
+    ]);
+    expect(canonicalEvents[0]).toMatchObject({
+      summary: "Runtime session started.",
+      threadId: expect.any(String),
+      payload: expect.objectContaining({
+        type: "session.started"
+      })
+    });
     expect(runDetail?.run.commitHashStart).toMatch(/[0-9a-f]{40}/);
     expect(runDetail?.run.commitHashEnd).toMatch(/[0-9a-f]{40}/);
     expect(runDetail?.run.repoStart).toMatchObject({
@@ -231,7 +267,7 @@ done
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createDoneTracker(issue);
+    const tracker = createStateTracker(issue, "In Review");
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
@@ -240,13 +276,15 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -343,7 +381,7 @@ done
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createDoneTracker(issue);
+    const tracker = createStateTracker(issue, "In Review");
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
@@ -352,13 +390,15 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -394,13 +434,11 @@ done
 
             deliveryRecorded = true;
             await deliveryReports.record({
-              issueId: issue.id,
-              issueIdentifier: issue.identifier,
               runId,
               status: "completed",
               summary: "Opened the PR and finished the requested work.",
               prUrl: "https://github.com/openai/symphony/pull/123",
-              branchName: "codex/col-123",
+              branchName: "symphony/col-123",
               source: "pi"
             });
           },
@@ -424,7 +462,220 @@ done
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "normal"
+      kind: "delivered"
+    });
+
+    database.close();
+  });
+
+  it("fails completed delivery reports that never move the issue to In Review", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-transition-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createStateTracker(issue, "In Progress");
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db,
+      repositoryKey: testRepositoryKey
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
+      issueIdentifier: issue.identifier,
+      runMode: "implementation",
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    let completion: SymphonyAgentRuntimeCompletion | null = null;
+    let deliveryRecorded = false;
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
+        tracker,
+        runStore,
+        deliveryReports,
+        agentAnalytics,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            if (deliveryRecorded) {
+              return;
+            }
+
+            deliveryRecorded = true;
+            await deliveryReports.record({
+              runId,
+              status: "completed",
+              summary: "Opened the PR and finished the requested work.",
+              prUrl: "https://github.com/openai/symphony/pull/123",
+              branchName: "symphony/col-123",
+              source: "pi"
+            });
+          },
+          async onComplete(_issueId, result) {
+            completion = result;
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runMode: "implementation",
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    expect(completion).toEqual({
+      kind: "failure",
+      reason: expect.stringContaining("did not reach `In Review`")
+    });
+
+    database.close();
+  });
+
+  it("emits blocked when a delivery report records a repo-owned blocker", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-blocked-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createStateTracker(issue, "Blocked");
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db,
+      repositoryKey: testRepositoryKey
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
+      issueIdentifier: issue.identifier,
+      runMode: "implementation",
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    let completion: SymphonyAgentRuntimeCompletion | null = null;
+    let deliveryRecorded = false;
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
+        tracker,
+        runStore,
+        deliveryReports,
+        agentAnalytics,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            if (deliveryRecorded) {
+              return;
+            }
+
+            deliveryRecorded = true;
+            await deliveryReports.record({
+              runId,
+              status: "blocked",
+              summary: "Blocked by a repository-owned environment contract.",
+              blockingReason: "Missing required repo credentials for integration tests.",
+              source: "pi"
+            });
+          },
+          async onComplete(_issueId, result) {
+            completion = result;
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runMode: "implementation",
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    expect(completion).toEqual({
+      kind: "blocked",
+      reason: "Missing required repo credentials for integration tests."
     });
 
     database.close();
@@ -485,7 +736,8 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -597,13 +849,15 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -686,12 +940,15 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -700,7 +957,8 @@ done
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "rework",
       status: "dispatching",
@@ -709,8 +967,7 @@ done
     });
 
     await issueTimelineStore.record({
-      issueId: issue.id,
-      issueIdentifier: issue.identifier,
+              issueIdentifier: issue.identifier,
       source: "tracker",
       eventType: runtimeReworkHandoffEventType,
       message: "Stored rework handoff for the next run.",
@@ -799,12 +1056,15 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -813,7 +1073,8 @@ done
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -902,12 +1163,15 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -916,7 +1180,8 @@ done
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -925,8 +1190,7 @@ done
     });
 
     await issueTimelineStore.record({
-      issueId: issue.id,
-      issueIdentifier: issue.identifier,
+              issueIdentifier: issue.identifier,
       source: "tracker",
       eventType: runtimeReworkHandoffEventType,
       message: "Stored rework handoff for the next run.",
@@ -1009,12 +1273,15 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -1023,7 +1290,8 @@ done
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "approved_merge",
       status: "dispatching",
@@ -1060,7 +1328,6 @@ done
 
             mergeResultRecorded = true;
             await issueTimelineStore.record({
-              issueId: issue.id,
               issueIdentifier: issue.identifier,
               runId,
               source: "runtime",
@@ -1096,7 +1363,7 @@ done
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "normal"
+      kind: "merged"
     });
 
     const runDetail = await agentReadStore.fetchRunDetail(runId);
@@ -1138,13 +1405,15 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "approved_merge",
       status: "dispatching",
@@ -1226,18 +1495,22 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "approved_merge",
       status: "dispatching",
@@ -1274,7 +1547,6 @@ done
 
             mergeResultRecorded = true;
             await issueTimelineStore.record({
-              issueId: issue.id,
               issueIdentifier: issue.identifier,
               runId,
               source: "runtime",
@@ -1341,12 +1613,15 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -1355,7 +1630,8 @@ done
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "rework",
       status: "dispatching",
@@ -1364,8 +1640,7 @@ done
     });
 
     await issueTimelineStore.record({
-      issueId: issue.id,
-      issueIdentifier: issue.identifier,
+              issueIdentifier: issue.identifier,
       source: "tracker",
       eventType: runtimeReworkHandoffEventType,
       message: "Stored older rework handoff for the next run.",
@@ -1376,8 +1651,7 @@ done
       })
     });
     await issueTimelineStore.record({
-      issueId: issue.id,
-      issueIdentifier: issue.identifier,
+              issueIdentifier: issue.identifier,
       source: "tracker",
       eventType: runtimeReworkHandoffEventType,
       message: "Stored newer rework handoff for the next run.",
@@ -1504,7 +1778,8 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -1622,13 +1897,15 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -1740,7 +2017,8 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -1849,7 +2127,8 @@ done
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -1858,7 +2137,8 @@ done
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",
@@ -1997,7 +2277,8 @@ exit 1
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -2110,7 +2391,8 @@ exit 1
       db: database.db
     });
     const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db
+      db: database.db,
+      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -2119,7 +2401,8 @@ exit 1
       db: database.db
     });
     const runId = await runStore.recordRunStarted({
-      issueId: issue.id,
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier,
       runMode: "implementation",
       status: "dispatching",

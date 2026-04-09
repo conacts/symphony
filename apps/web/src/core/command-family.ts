@@ -1,4 +1,4 @@
-export type ClassifiedCommand = {
+type ClassifiedCommand = {
   tool: string;
   family: string;
   displayLabel: string;

@@ -40,10 +40,10 @@ export class PiRpcClient implements HarnessSessionClient {
         type: "get_state"
       });
       const statePayload = getRecord(stateResponse, "data");
-      const sessionId = getString(statePayload, "sessionId");
+      const rawSessionId = getString(statePayload, "sessionId");
       const modelRecord = getRecord(statePayload, "model");
 
-      if (!sessionId) {
+      if (!rawSessionId) {
         throw new HarnessSessionError(
           "pi_session_start_failed",
           "Pi RPC get_state response did not include a session id.",
@@ -53,7 +53,7 @@ export class PiRpcClient implements HarnessSessionClient {
 
       return {
         client,
-        threadId: sessionId,
+        threadId: rawSessionId,
         workspacePath: input.launchTarget.runtimeWorkspacePath,
         hostLaunchPath,
         hostWorkspacePath: input.launchTarget.hostWorkspacePath,
@@ -100,7 +100,7 @@ export class PiRpcClient implements HarnessSessionClient {
     let sawMeaningfulProjection = false;
     const eventTrace: PiTurnEventTraceEntry[] = [];
 
-    if (!this.#threadStartedEmitted && session.threadId) {
+    if (!this.#threadStartedEmitted) {
       this.#threadStartedEmitted = true;
       await input.onMessage({
         message: {
@@ -260,21 +260,8 @@ export class PiRpcClient implements HarnessSessionClient {
           );
         }
 
-        const threadId = session.threadId;
-        if (!threadId) {
-          throw this.#buildTurnFailure(
-            "invalid_thread_payload",
-            "Pi RPC session completed without a session id.",
-            turnContext,
-            {
-              failureEvent: eventSummary,
-            }
-          );
-        }
-
         return {
-          sessionId: threadId,
-          threadId,
+          threadId: session.threadId,
           turnId,
           usage: accumulatedUsage
         };

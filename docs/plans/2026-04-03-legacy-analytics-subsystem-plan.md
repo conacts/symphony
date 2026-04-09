@@ -1,12 +1,13 @@
-# Codex Analytics Subsystem Plan
+# Legacy Analytics Subsystem Plan
 
 Date: 2026-04-03
 
 ## Purpose
 
-Replace the legacy run journal analytics model with a dedicated Codex analytics subsystem built around the actual TypeScript SDK event model. The goal is to make Codex data maximally type-safe, queryable, and isolated from Symphony runtime internals while preserving enough fidelity to support future analysis and dashboard work.
+This document records a superseded analytics design from the pre-Pi standardization era. It
+describes a dedicated Codex analytics subsystem built around the TypeScript SDK event model.
 
-This plan assumes:
+Historical assumptions in this document:
 
 - Codex SDK types are the source of truth.
 - Dashboard compatibility is not a constraint during the migration.

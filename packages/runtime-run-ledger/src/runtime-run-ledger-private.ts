@@ -14,9 +14,8 @@ import type {
 } from "./runtime-run-ledger-types.js";
 import type { SymphonyAgentAnalyticsEvent } from "./agent-analytics-types.js";
 
-export const symphonyCompletedRunOutcomes = new Set([
+const symphonyCompletedRunOutcomes = new Set([
   "completed",
-  "completed_turn_batch",
   "merged",
   "done"
 ]);
@@ -95,6 +94,7 @@ export function durationSeconds(
 }
 
 export function buildRunSummary(
+  issue: Pick<SymphonyIssueRecord, "issueIdentifier" | "trackerIssueId">,
   run: SymphonyRunRecord,
   turns: SymphonyTurnRecord[],
   events: SymphonyEventRecord[]
@@ -132,7 +132,7 @@ export function buildRunSummary(
   return {
     runId: run.runId,
     repositoryKey: run.repositoryKey,
-    issueId: run.issueId,
+    trackerIssueId: issue.trackerIssueId,
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
     status: run.status,
@@ -161,14 +161,14 @@ export function buildIssueSummary(
   runs: SymphonyRunRecord[]
 ): SymphonyIssueSummary {
   const issueRuns = runs
-    .filter((run) => run.issueId === issue.issueId)
+    .filter((run) => run.issueIdentifier === issue.issueIdentifier)
     .sort((left, right) => compareDescendingTimestamps(left.startedAt, right.startedAt));
   const latestRun = issueRuns[0];
   const latestProblemRun = issueRuns.find((run) => isProblemOutcome(run.outcome));
   const lastCompletedRun = issueRuns.find((run) => isCompletedOutcome(run.outcome));
 
   return {
-    issueId: issue.issueId,
+    trackerIssueId: issue.trackerIssueId,
     repositoryKey: issue.repositoryKey,
     issueIdentifier: issue.issueIdentifier,
     latestRunStartedAt: issue.latestRunStartedAt ?? null,
@@ -284,7 +284,7 @@ export function sanitizeText(value: string): string {
     .replace(/(session\s*=\s*)(\S+)/gi, "$1[REDACTED]");
 }
 
-export function sanitizeJsonValue(
+function sanitizeJsonValue(
   value: SymphonyJsonValue,
   keyHint?: string
 ): SymphonyJsonValue {

@@ -14,25 +14,26 @@ import {
 
 const defaultLinearEndpoint = "https://api.linear.app/graphql";
 
-export type SymphonyCliRuntimeContext = {
+type SymphonyCliRuntimeContext = {
   db: SymphonyDb;
   deliveryReports: SymphonyIssueDeliveryReportStore;
   issueTimelineStore: ReturnType<typeof createSymphonyIssueTimelineStore>;
+  repositoryKey: string;
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
   runId: string;
   issue: {
-    id: string;
+    trackerIssueId: string;
     identifier: string;
     state: string | null;
   };
   turnId: string | null;
 };
 
-export type SymphonyCliCommandContext = {
+type SymphonyCliCommandContext = {
   runId: string;
   issue: {
-    id: string;
+    trackerIssueId: string;
     identifier: string;
     state: string | null;
   };
@@ -60,13 +61,18 @@ export function loadCliRuntimeContext(
   const db = initializeSymphonyDb({
     dbFile: readOptional(env, "SYMPHONY_DB_FILE") ?? defaultSymphonyDbFile(cwd)
   });
+  const repositoryKey = readRequired(env, "SYMPHONY_REPOSITORY_KEY");
 
   return {
     db,
     deliveryReports: createSymphonyIssueDeliveryReportStore({
-      db: db.db
+      db: db.db,
+      repositoryKey
     }),
-    issueTimelineStore: createSymphonyIssueTimelineStore(db.db),
+    issueTimelineStore: createSymphonyIssueTimelineStore(db.db, {
+      repositoryKey
+    }),
+    repositoryKey,
     tracker: createLinearSymphonyTracker({
       config: trackerConfig
     }),
@@ -117,12 +123,12 @@ function buildCliTrackerConfig(
 }
 
 function readCliIssueContext(env: Record<string, string | undefined>): {
-  id: string;
+  trackerIssueId: string;
   identifier: string;
   state: string | null;
 } {
   return {
-    id: readRequired(env, "SYMPHONY_ISSUE_ID"),
+    trackerIssueId: readRequired(env, "SYMPHONY_TRACKER_ISSUE_ID"),
     identifier: readRequired(env, "SYMPHONY_ISSUE_IDENTIFIER"),
     state: readOptional(env, "SYMPHONY_ISSUE_STATE")
   };

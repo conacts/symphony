@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildAgentAppServerSpawnSpec,
-  resolveAgentSdkLaunchSettings
+  buildPiAppServerSpawnSpec,
+  resolvePiSdkLaunchSettings
 } from "./agent-app-server-launch.js";
 
 describe("agent app server launch", () => {
   it("preserves docker transport env for container launches", () => {
-    const spec = buildAgentAppServerSpawnSpec({
+    const spec = buildPiAppServerSpawnSpec({
       launchTarget: {
         kind: "container",
         hostLaunchPath: "/tmp/workspace",
@@ -47,7 +47,7 @@ describe("agent app server launch", () => {
   });
 
   it("extracts the SDK executable while preserving label-based model overrides", () => {
-    const settings = resolveAgentSdkLaunchSettings(
+    const settings = resolvePiSdkLaunchSettings(
       "/tmp/fake-agent-runtime app-server --model gpt-5.4",
       {
         id: "issue-1",
@@ -58,7 +58,7 @@ describe("agent app server launch", () => {
         url: null,
         state: "Todo",
         branchName: null,
-        labels: ["symphony:model:gpt-5.4-mini", "symphony:reasoning:high"],
+        labels: ["model:gpt-5.4-mini", "symphony:reasoning:high"],
         projectId: null,
         projectName: null,
         teamKey: null,
@@ -81,7 +81,7 @@ describe("agent app server launch", () => {
   });
 
   it("applies the mimo-v2-pro profile defaults to SDK launches", () => {
-    const settings = resolveAgentSdkLaunchSettings(
+    const settings = resolvePiSdkLaunchSettings(
       "pi",
       {
         id: "issue-1",

@@ -1,5 +1,4 @@
 import {
-  createSqliteAgentAnalyticsStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
@@ -16,17 +15,21 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
   runStore: ReturnType<typeof createSqliteSymphonyRuntimeRunStore>;
   issueTimelineStore: ReturnType<typeof createSymphonyIssueTimelineStore>;
   runtimeLogStore: ReturnType<typeof createSymphonyRuntimeLogStore>;
-  agentAnalyticsStore: ReturnType<typeof createSqliteAgentAnalyticsStore>;
   shutdownReason: string;
 }): Promise<number> {
   const endedAt = new Date().toISOString();
   const activeRuns = input.database.client.prepare(`
-    select run_id as runId, issue_id as issueId, issue_identifier as issueIdentifier, status
-    from symphony_runs
+    select runs.run_id as runId,
+           issues.tracker_issue_id as trackerIssueId,
+           runs.issue_identifier as issueIdentifier,
+           runs.status as status
+    from symphony_runs runs
+    inner join symphony_issues issues
+      on issues.issue_identifier = runs.issue_identifier
     where status in ('dispatching', 'running')
   `).all() as Array<{
     runId: string;
-    issueId: string;
+    trackerIssueId: string;
     issueIdentifier: string;
     status: "dispatching" | "running";
   }>;
@@ -35,7 +38,7 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
     return 0;
   }
 
-  const issueIds = [...new Set(activeRuns.map((run) => run.issueId))];
+  const issueIds = [...new Set(activeRuns.map((run) => run.trackerIssueId))];
   const trackedIssues = await input.tracker.fetchIssueStatesByIds(
     input.runtimePolicy.tracker,
     issueIds
@@ -45,7 +48,7 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
   );
 
   for (const run of activeRuns) {
-    const trackedIssue = trackedIssuesById.get(run.issueId) ?? null;
+    const trackedIssue = trackedIssuesById.get(run.trackerIssueId) ?? null;
 
     await reconcileTrackerIssueOnShutdown({
       tracker: input.tracker,
@@ -73,50 +76,6 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
       });
     }
 
-    const runningAgentTurns = input.database.client.prepare(`
-      select turn_id as turnId, thread_id as threadId, harness_kind as harnessKind, model, provider_id as providerId, provider_name as providerName,
-             input_tokens as inputTokens, cached_input_tokens as cachedInputTokens, output_tokens as outputTokens
-      from symphony_agent_turns
-      where run_id = ? and status = 'running'
-    `).all(run.runId) as Array<{
-      turnId: string;
-      threadId: string | null;
-      harnessKind: "pi" | null;
-      model: string | null;
-      providerId: string | null;
-      providerName: string | null;
-      inputTokens: number;
-      cachedInputTokens: number;
-      outputTokens: number;
-    }>;
-
-    for (const turn of runningAgentTurns) {
-      await input.agentAnalyticsStore.finalizeTurn({
-        runId: run.runId,
-        turnId: turn.turnId,
-        threadId: turn.threadId,
-        harnessKind: turn.harnessKind ?? "pi",
-        model: turn.model,
-        providerId: turn.providerId,
-        providerName: turn.providerName,
-        endedAt,
-        status: "stopped",
-        failureKind: "runtime_shutdown",
-        failureMessagePreview: previewShutdownReason(input.shutdownReason),
-        usage: {
-          input_tokens: turn.inputTokens,
-          cached_input_tokens: turn.cachedInputTokens,
-          output_tokens: turn.outputTokens
-        }
-      });
-    }
-
-    const agentRun = input.database.client.prepare(`
-      select thread_id as threadId
-      from symphony_agent_runs
-      where run_id = ?
-    `).get(run.runId) as { threadId: string | null } | undefined;
-
     await input.runStore.finalizeRun(run.runId, {
       status: "paused",
       outcome: "runtime_shutdown",
@@ -131,18 +90,7 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
       }
     });
 
-    await input.agentAnalyticsStore.finalizeRun({
-      runId: run.runId,
-      status: "paused",
-      endedAt,
-      failureKind: "runtime_shutdown",
-      failureOrigin: "runtime",
-      failureMessagePreview: previewShutdownReason(input.shutdownReason),
-      threadId: agentRun?.threadId ?? null
-    });
-
     await input.issueTimelineStore.record({
-      issueId: run.issueId,
       issueIdentifier: run.issueIdentifier,
       runId: run.runId,
       source: "runtime",
@@ -160,7 +108,6 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
       source: "runtime",
       eventType: "runtime_shutdown_reconciled_run",
       message: "Reconciled an active persisted run during shutdown.",
-      issueId: run.issueId,
       issueIdentifier: run.issueIdentifier,
       runId: run.runId,
       payload: {
@@ -218,7 +165,6 @@ async function reconcileTrackerIssueOnShutdown(input: {
   try {
     await input.tracker.updateIssueState(input.trackedIssue.id, pauseState);
     await input.issueTimelineStore.record({
-      issueId: input.trackedIssue.id,
       issueIdentifier: input.trackedIssue.identifier,
       runId: input.runId,
       source: "tracker",
@@ -234,8 +180,4 @@ async function reconcileTrackerIssueOnShutdown(input: {
   } catch {
     // Best-effort containment. The run is still reconciled locally even if tracker state fails.
   }
-}
-
-function previewShutdownReason(reason: string): string {
-  return reason.length <= 280 ? reason : `${reason.slice(0, 279)}…`;
 }

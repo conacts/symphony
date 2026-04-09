@@ -10,7 +10,7 @@ import type {
   ThreadEvent,
   ThreadItem,
   Usage
-} from "./sdk-types.js";
+} from "./types.js";
 
 export type AgentCommandResourceProcessSummary = {
   command: string;
@@ -97,50 +97,7 @@ export type AgentTurnStatus =
   | "failed"
   | "stopped";
 
-export type AgentAnalyticsRunStart = {
-  runId: string;
-  issueId: string;
-  issueIdentifier: string;
-  startedAt?: string | null;
-  status: AgentRunStatus;
-  threadId: string | null;
-  harnessKind?: "pi" | null;
-  model?: string | null;
-  providerId?: string | null;
-  providerName?: string | null;
-};
-
-export type AgentAnalyticsRunFinalize = {
-  runId: string;
-  endedAt: string;
-  status: AgentRunStatus;
-  threadId: string | null;
-  failureKind: string | null;
-  failureOrigin: string | null;
-  failureMessagePreview: string | null;
-  harnessKind?: "pi" | null;
-  model?: string | null;
-  providerId?: string | null;
-  providerName?: string | null;
-};
-
-export type AgentAnalyticsTurnFinalize = {
-  runId: string;
-  turnId: string;
-  endedAt: string;
-  status: AgentTurnStatus;
-  threadId: string | null;
-  failureKind: string | null;
-  failureMessagePreview: string | null;
-  usage?: Usage | null;
-  harnessKind?: "pi" | null;
-  model?: string | null;
-  providerId?: string | null;
-  providerName?: string | null;
-};
-
 export interface AgentAnalyticsStore {
-  startRun(input: AgentAnalyticsRunStart): Promise<void>;
   recordEvent(input: AgentAnalyticsEventInput): Promise<void>;
   recordCommandResourceProfile(input: {
     runId: string;
@@ -148,8 +105,6 @@ export interface AgentAnalyticsStore {
     itemId: string;
     resourceProfile: AgentCommandResourceProfile;
   }): Promise<void>;
-  finalizeTurn(input: AgentAnalyticsTurnFinalize): Promise<void>;
-  finalizeRun(input: AgentAnalyticsRunFinalize): Promise<void>;
 }
 
 export function isThreadEvent(value: unknown): value is ThreadEvent {

@@ -240,7 +240,7 @@ export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContract
       state: "In Progress",
       labels: ["runtime", "automation"],
       url: "https://linear.app/symphony/issue/ENG-123",
-      branch_name: "codex/runtime-contract-boundary"
+      branch_name: "symphony/runtime-contract-boundary"
     },
     repo: {
       default_branch: "main",
@@ -251,7 +251,7 @@ export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContract
     },
     workspace: {
       path: "/workspace/symphony",
-      branch: "codex/runtime-contract-boundary"
+      branch: "symphony/runtime-contract-boundary"
     },
     attempt: 1,
     run_mode: "implementation",
@@ -269,14 +269,8 @@ function buildPromptContractScope(
   return {
     ...payload,
     handoff_section: handoffSection,
-    issue: {
-      ...payload.issue,
-      branchName: payload.issue.branch_name
-    },
-    repo: {
-      ...payload.repo,
-      defaultBranch: payload.repo.default_branch
-    },
+    issue: payload.issue,
+    repo: payload.repo,
     run_mode_section: runModeSection
   };
 }

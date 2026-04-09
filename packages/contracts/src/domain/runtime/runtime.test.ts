@@ -20,12 +20,12 @@ describe("symphony runtime contracts", () => {
         counts: { running: 1, retrying: 1 },
         running: [
           {
-            issueId: "issue-1",
+            trackerIssueId: "issue-1",
             issueIdentifier: "COL-157",
             state: "In Progress",
             workerHost: "docker-host",
             workspacePath: "/tmp/COL-157",
-            sessionId: "session-1",
+            threadId: "thread-1",
             workspace: {
               backendKind: "docker",
               workerHost: "docker-host",
@@ -117,7 +117,7 @@ describe("symphony runtime contracts", () => {
         ],
         retrying: [
           {
-            issueId: "issue-2",
+            trackerIssueId: "issue-2",
             issueIdentifier: "COL-158",
             attempt: 2,
             dueAt: "2026-03-31T00:00:05.000Z",
@@ -155,7 +155,7 @@ describe("symphony runtime contracts", () => {
       },
       data: {
         issueIdentifier: "COL-157",
-        issueId: "issue-1",
+        trackerIssueId: "issue-1",
         status: "running",
         workspace: {
           backendKind: "docker",
@@ -232,7 +232,7 @@ describe("symphony runtime contracts", () => {
         running: {
           workerHost: "docker-host",
           workspacePath: "/tmp/COL-157",
-          sessionId: "session-1",
+          threadId: "thread-1",
           launchTarget: {
             kind: "container",
             hostLaunchPath: "/tmp/COL-157",
@@ -283,7 +283,7 @@ describe("symphony runtime contracts", () => {
             ],
             modelOverrideLabelPrefix: "model:",
             selectionHelpText:
-              "Pi selection is label-driven. Prefer model:<preset> for repo-defined tiers; raw symphony:model:<model> labels still work for direct model overrides."
+              "Pi selection is label-driven. Use model:<preset> for repo-defined tiers or model:<model> for a direct model override."
           }
         }
       }
@@ -302,7 +302,7 @@ describe("symphony runtime contracts", () => {
       },
       data: {
         issueIdentifier: "COL-106",
-        issueId: "issue-106",
+        trackerIssueId: "issue-106",
         status: "tracked",
         workspace: {
           backendKind: null,
@@ -359,7 +359,7 @@ describe("symphony runtime contracts", () => {
             ],
             modelOverrideLabelPrefix: "model:",
             selectionHelpText:
-              "Pi selection is label-driven. Prefer model:<preset> for repo-defined tiers; raw symphony:model:<model> labels still work for direct model overrides."
+              "Pi selection is label-driven. Use model:<preset> for repo-defined tiers or model:<model> for a direct model override."
           }
         }
       }
@@ -381,7 +381,7 @@ describe("symphony runtime contracts", () => {
           counts: { running: 1, retrying: 0 },
           running: [
             {
-              issueId: "issue-1",
+              trackerIssueId: "issue-1",
               issueIdentifier: "COL-157",
               state: "In Progress",
               workspace: null,

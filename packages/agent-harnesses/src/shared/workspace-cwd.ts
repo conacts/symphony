@@ -2,7 +2,7 @@ import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { HarnessSessionError } from "./session-types.js";
 
-export async function validateWorkspaceCwd(
+async function validateWorkspaceCwd(
   workspacePath: string,
   workspaceRoot: string
 ): Promise<string> {

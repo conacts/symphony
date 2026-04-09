@@ -9,15 +9,12 @@ import type {
   PreparedWorkspaceService,
   WorkspaceBackendEventRecorder,
   WorkspaceManifestLifecyclePhase,
-  WorkspaceManifestLifecyclePhaseRecord,
   WorkspaceManifestLifecyclePhaseSkipReason,
   WorkspaceManifestLifecyclePhaseTrigger,
-  WorkspaceManifestLifecycleStepRecord,
-  WorkspaceManifestLifecycleSummary
 } from "./workspace-contracts.js";
 
 export const defaultContainerWorkspacePath = "/workspace";
-export const defaultContainerNamePrefix = "symphony-workspace";
+const defaultContainerNamePrefix = "symphony-workspace";
 export const defaultDockerHomePath = "/home/agent";
 export const defaultContainerSourceRepoPath = "/home/agent/source-repo";
 export const managedBackendLabelKey = "dev.symphony.workspace-backend";
@@ -26,18 +23,13 @@ export const managedWorkspaceKeyLabelKey = "dev.symphony.workspace-key";
 export const managedIssueIdentifierLabelKey = "dev.symphony.issue-identifier";
 export const managedMaterializationLabelKey = "dev.symphony.materialization";
 export const managedKindLabelKey = "dev.symphony.managed-kind";
-export const managedNetworkNameLabelKey = "dev.symphony.network-name";
-export const managedServiceKeyLabelKey = "dev.symphony.service-key";
+const managedNetworkNameLabelKey = "dev.symphony.network-name";
 export const managedServiceTypeLabelKey = "dev.symphony.service-type";
-export const managedServiceHostnameLabelKey = "dev.symphony.service-hostname";
 export const managedServicePortLabelKey = "dev.symphony.service-port";
-export const managedServiceMemoryMbLabelKey = "dev.symphony.service-memory-mb";
-export const managedServiceCpuSharesLabelKey = "dev.symphony.service-cpu-shares";
 export const managedHostFileMountsHashLabelKey = "dev.symphony.host-file-mounts-hash";
 export const managedWorkspaceContainerKind = "workspace_container";
 export const managedWorkspacePreflightKind = "workspace_preflight";
 export const managedWorkspaceNetworkKind = "workspace_network";
-export const managedWorkspaceServiceKind = "workspace_service";
 export const managedSharedServiceKind = "shared_service";
 export const managedWorkspaceVolumeKind = "workspace_volume";
 export const bindMaterializationKind = "bind_mount";
@@ -175,14 +167,6 @@ export type DockerPostgresProvision = {
   initRequired: boolean;
 };
 
-export type DockerManifestLifecyclePhaseRecord =
-  WorkspaceManifestLifecyclePhaseRecord;
-
-export type DockerManifestLifecycleStepRecord =
-  WorkspaceManifestLifecycleStepRecord;
-
-export type DockerManifestLifecycleSummary = WorkspaceManifestLifecycleSummary;
-
 export type DockerManifestLifecycleState = {
   schemaVersion: 1;
   workspaceLifetimeId: string;
@@ -243,98 +227,11 @@ export function buildManagedVolumeLabels(
   };
 }
 
-export function buildManagedNetworkLabels(
-  descriptor: DockerWorkspaceDescriptor
-): Record<string, string> {
-  return {
-    [managedBackendLabelKey]: managedBackendLabelValue,
-    [managedWorkspaceKeyLabelKey]: descriptor.workspaceKey,
-    [managedIssueIdentifierLabelKey]: descriptor.issueIdentifier,
-    [managedKindLabelKey]: managedWorkspaceNetworkKind
-  };
-}
-
-export function buildManagedServiceLabels(
-  descriptor: DockerServiceDescriptor,
-  networkName: string
-): Record<string, string> {
-  const resources = resolvePostgresResourceLimits(descriptor.service);
-
-  return {
-    [managedBackendLabelKey]: managedBackendLabelValue,
-    [managedWorkspaceKeyLabelKey]: descriptor.workspaceKey,
-    [managedIssueIdentifierLabelKey]: descriptor.issueIdentifier,
-    [managedKindLabelKey]: managedWorkspaceServiceKind,
-    [managedServiceKeyLabelKey]: descriptor.key,
-    [managedServiceTypeLabelKey]: "postgres",
-    [managedServiceHostnameLabelKey]: descriptor.service.hostname,
-    [managedServicePortLabelKey]: String(descriptor.service.port),
-    ...(resources?.memoryMb === undefined
-      ? {}
-      : { [managedServiceMemoryMbLabelKey]: String(resources.memoryMb) }),
-    ...(resources?.cpuShares === undefined
-      ? {}
-      : { [managedServiceCpuSharesLabelKey]: String(resources.cpuShares) }),
-    [managedNetworkNameLabelKey]: networkName
-  };
-}
-
-export function resolvePostgresResourceLimits(
-  service: SymphonyNormalizedRuntimePostgresService
-): {
-  memoryMb?: number;
-  cpuShares?: number;
-} | null {
-  if (!service.resources) {
-    return null;
-  }
-
-  return {
-    ...(service.resources.memoryMb === undefined
-      ? {}
-      : { memoryMb: service.resources.memoryMb }),
-    ...(service.resources.cpuShares === undefined
-      ? {}
-      : { cpuShares: service.resources.cpuShares })
-  };
-}
-
-export function dockerPostgresResourceFlags(
-  service: SymphonyNormalizedRuntimePostgresService
-): string[] {
-  const resources = resolvePostgresResourceLimits(service);
-
-  if (!resources) {
-    return [];
-  }
-
-  return [
-    ...(resources.memoryMb === undefined ? [] : ["--memory", `${resources.memoryMb}m`]),
-    ...(resources.cpuShares === undefined
-      ? []
-      : ["--cpu-shares", String(resources.cpuShares)])
-  ];
-}
-
 export function buildDockerContainerName(
   prefix: string,
   workspaceKey: string
 ): string {
   return buildDockerManagedName(prefix, workspaceKey);
-}
-
-export function buildDockerNetworkName(
-  prefix: string,
-  workspaceKey: string
-): string {
-  return buildDockerManagedName(`${prefix}-network`, workspaceKey);
-}
-
-export function buildDockerServiceContainerName(
-  workspaceKey: string,
-  serviceKey: string
-): string {
-  return buildDockerManagedName(`symphony-service-${serviceKey}`, workspaceKey);
 }
 
 export function buildDockerVolumeName(
@@ -344,7 +241,7 @@ export function buildDockerVolumeName(
   return buildDockerManagedName(`${prefix}-volume`, workspaceKey);
 }
 
-export function buildDockerManagedName(prefix: string, workspaceKey: string): string {
+function buildDockerManagedName(prefix: string, workspaceKey: string): string {
   const readable =
     workspaceKey
       .toLowerCase()

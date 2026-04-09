@@ -117,7 +117,7 @@ describe("runtime serializers", () => {
           issueId: issue.id,
           issue,
           runId: "run-123",
-          sessionId: "thread-live",
+          threadId: "thread-live",
           workerHost: "docker-host",
           workspace: {
             issueIdentifier: issue.identifier,

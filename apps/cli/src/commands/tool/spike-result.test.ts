@@ -42,7 +42,7 @@ describe("tool spike-result command", () => {
           ],
           {
             SYMPHONY_RUN_ID: "run-123",
-            SYMPHONY_ISSUE_ID: "issue-123",
+            SYMPHONY_TRACKER_ISSUE_ID: "issue-123",
             SYMPHONY_ISSUE_IDENTIFIER: "COL-123"
           }
         )
@@ -122,7 +122,7 @@ describe("tool spike-result command", () => {
           {
             SYMPHONY_API_BASE_URL: `http://127.0.0.1:${address.port}`,
             SYMPHONY_RUN_ID: "run-456",
-            SYMPHONY_ISSUE_ID: "issue-456",
+            SYMPHONY_TRACKER_ISSUE_ID: "issue-456",
             SYMPHONY_ISSUE_IDENTIFIER: "COL-456",
             SYMPHONY_ISSUE_STATE: "In Progress",
             SYMPHONY_TURN_ID: "turn-456"
@@ -131,6 +131,7 @@ describe("tool spike-result command", () => {
 
         expect(command.stdout).toContain('"commentPosted": true');
         expect(requestBody).toContain('"runId":"run-456"');
+        expect(requestBody).toContain('"trackerIssueId":"issue-456"');
         expect(requestBody).toContain('"summary":"Documented the spike result."');
       } finally {
         await new Promise<void>((resolve, reject) =>

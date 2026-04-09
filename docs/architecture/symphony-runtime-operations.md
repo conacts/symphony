@@ -15,6 +15,22 @@ This document is intentionally operational. Live contract details live with code
 - Repo contract authoring: [`../../packages/runtime-contract/README.md`](../../packages/runtime-contract/README.md)
 - Accepted decisions: [`../adr`](../adr)
 
+## Current Operating Assumptions
+
+- Docker-only issue execution
+- admitted repos must provide `.symphony/runtime.ts` and `.symphony/prompt.md`
+- admitted repos must declare `repositoryKey` in `.symphony/runtime.ts`
+- one runtime process may admit multiple repositories
+- one active run per Linear issue
+- one durable workspace per Linear issue
+- prompt rendering happens in memory
+- agent turns run through the Pi harness and Symphony runtime projection layer
+- typed turn artifacts are captured from projected Pi/runtime events instead of raw transport blobs
+- platform-owned pre-agent failures move issues to `Failed`
+- platform/provider interruptions move issues to `Paused`
+- there are no hidden retries
+- workspace reuse is the default; reset is explicit
+
 ## Local Runtime Startup
 
 Build the default runner image:
@@ -133,14 +149,38 @@ Use this routing model consistently:
 - if no `repo:` label is present, Symphony dispatches from the repo's Linear binding
 - the UI repo picker is repository-only; Linear project is not part of routing identity
 
-## Codex Transport
+Example:
 
-The control plane now treats the Codex CLI as the canonical execution surface.
+- admitted repos: `conacts/symphony`, `conacts/coldets-v2`
+- default admitted repo: `conacts/symphony`
+- team mapping: `SYM -> conacts/symphony`, `COL -> conacts/coldets-v2`
+- issue label `repo:conacts/coldets-v2` routes the issue into the Coldets repo
+- GitHub webhook repository `conacts/coldets-v2` verifies against that repo's secret and rework flow
+  stays attached to that repo's runs and timeline entries
+
+## Lifecycle Expectations
+
+- Symphony installs repo dependencies before `bootstrap` when the manifest does not already do it
+- `bootstrap` prepares repo-local runtime assumptions
+- `migrate` applies deterministic repo-owned setup against declared services
+- `verify` proves the environment is usable with a narrow, deterministic proof
+- `runtime:doctor` validates the contract in redacted, non-dispatch form
+
+The platform is not responsible for making repo-internal code quality perfect. It is responsible
+for making the isolated environment explicit, valid, and usable.
+
+The Docker workspace runtime also applies a conservative default `NODE_OPTIONS` heap cap when the
+repo or operator does not provide one. This keeps bootstrap/build flows stable on resource-limited
+local Docker setups without forcing each admitted repo to rediscover the same memory ceiling.
+
+## Pi Transport
+
+The control plane now treats Pi as the canonical execution surface.
 
 That means:
 
-- Codex runs inside the issue container, not on the host
-- Symphony uses the TypeScript SDK to drive turns and resume threads
+- Pi runs inside the issue container, not on the host
+- Symphony uses the Pi SDK/runtime surfaces to drive turns and resume threads
 - event capture is based on typed SDK events such as `reasoning`, `todo_list`,
   `command_execution`, `file_change`, `mcp_tool_call`, and `agent_message`
 - the dashboard should prefer these typed artifacts over raw line-oriented transport logs

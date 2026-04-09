@@ -70,7 +70,7 @@ export type SymphonyRuntimeToolsPort = {
     runId: string;
     turnId: string | null;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state: string | null;
     };
@@ -80,7 +80,7 @@ export type SymphonyRuntimeToolsPort = {
     runId: string;
     turnId: string | null;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state: string | null;
     };
@@ -90,7 +90,7 @@ export type SymphonyRuntimeToolsPort = {
     runId: string;
     turnId: string | null;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state: string | null;
     };
@@ -100,7 +100,7 @@ export type SymphonyRuntimeToolsPort = {
     runId: string;
     turnId: string | null;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state: string | null;
     };
@@ -109,6 +109,9 @@ export type SymphonyRuntimeToolsPort = {
 };
 
 export type SymphonyAgentAnalyticsReadPort = {
+  hasRun(
+    runId: SymphonyAgentRunQuery["runId"]
+  ): Promise<boolean>;
   fetchRunArtifacts(
     runId: SymphonyAgentRunQuery["runId"]
   ): Promise<SymphonyAgentRunArtifactsResult | null>;

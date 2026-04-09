@@ -45,7 +45,6 @@ const symphonyAgentRunStatusSchema = z.enum([
 ]);
 const authModes = z.enum(["auth_json", "api_key_env"]);
 export const symphonyForensicsActiveHarnessSchema = z.literal("pi");
-export const symphonyForensicsCompatHarnessSchema = symphonyForensicsActiveHarnessSchema;
 export const symphonyForensicsTimelineSourceSchema = z.enum([
   "orchestrator",
   "agent",
@@ -53,8 +52,6 @@ export const symphonyForensicsTimelineSourceSchema = z.enum([
   "workspace",
   "runtime"
 ]);
-export const symphonyForensicsCompatTimelineSourceSchema =
-  symphonyForensicsTimelineSourceSchema;
 export const symphonyForensicsDeliveryStatusSchema = z.enum([
   "completed",
   "blocked",
@@ -63,7 +60,7 @@ export const symphonyForensicsDeliveryStatusSchema = z.enum([
 export const symphonyForensicsDeliveryReportSchema = z.strictObject({
   reportId: nonEmptyStringSchema,
   repositoryKey: nonEmptyStringSchema,
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   runId: nonEmptyStringSchema,
   turnId: nullableNonEmptyStringSchema,
@@ -81,7 +78,7 @@ export const symphonyForensicsDeliveryReportSchema = z.strictObject({
 
 export const symphonyForensicsIssueSummarySchema = z.strictObject({
   repositoryKey: nonEmptyStringSchema,
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   latestRunStartedAt: isoTimestampSchema.nullable(),
   latestRunId: nullableNonEmptyStringSchema,
@@ -121,12 +118,12 @@ export const symphonyForensicsIssueSummarySchema = z.strictObject({
 export const symphonyForensicsRunSummarySchema = z.strictObject({
   runId: nonEmptyStringSchema,
   repositoryKey: nonEmptyStringSchema,
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   attempt: z.number().int().nonnegative().nullable(),
   status: nonEmptyStringSchema,
   outcome: nullableNonEmptyStringSchema,
-  agentHarness: symphonyForensicsCompatHarnessSchema.nullable().default(null),
+  agentHarness: symphonyForensicsActiveHarnessSchema.nullable().default(null),
   agentStatus: symphonyAgentRunStatusSchema.nullable(),
   agentFailureKind: nullableNonEmptyStringSchema,
   agentFailureOrigin: nullableNonEmptyStringSchema,
@@ -264,7 +261,7 @@ export const symphonyForensicsIssueDetailResultSchema = z.strictObject({
 export const symphonyForensicsIssueTimelineEntrySchema = z.strictObject({
   entryId: nonEmptyStringSchema,
   repositoryKey: nonEmptyStringSchema,
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   runId: nullableNonEmptyStringSchema,
   turnId: nullableNonEmptyStringSchema,
@@ -292,9 +289,9 @@ export const symphonyForensicsIssueTimelineResultSchema = z.strictObject({
   })
 });
 
-export const symphonyForensicsIssueExportSchema = z.strictObject({
+const symphonyForensicsIssueExportSchema = z.strictObject({
   repositoryKey: nonEmptyStringSchema,
-  issueId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   latestRunStartedAt: isoTimestampSchema.nullable(),
   latestRunId: nullableNonEmptyStringSchema,
@@ -312,7 +309,7 @@ export const symphonyForensicsIssueExportSchema = z.strictObject({
   updatedAt: isoTimestampSchema.nullable()
 });
 
-export const symphonyForensicsRunDetailSchema = symphonyForensicsRunSummarySchema.safeExtend({
+const symphonyForensicsRunDetailSchema = symphonyForensicsRunSummarySchema.safeExtend({
   threadId: nullableNonEmptyStringSchema,
   processId: nullableNonEmptyStringSchema,
   providerId: nullableNonEmptyStringSchema,
@@ -329,7 +326,7 @@ export const symphonyForensicsRunDetailSchema = symphonyForensicsRunSummarySchem
   updatedAt: isoTimestampSchema.nullable()
 });
 
-export const symphonyForensicsEventSchema = z.strictObject({
+const symphonyForensicsEventSchema = z.strictObject({
   eventId: nonEmptyStringSchema,
   turnId: nonEmptyStringSchema,
   runId: nonEmptyStringSchema,
@@ -353,19 +350,17 @@ export const symphonyForensicsEventSchema = z.strictObject({
   payloadTruncated: z.boolean(),
   payloadBytes: z.number().int().nonnegative().nullable(),
   summary: nullableNonEmptyStringSchema,
-  threadId: nullableNonEmptyStringSchema,
+  threadId: nonEmptyStringSchema,
   agentTurnId: nullableNonEmptyStringSchema,
-  sessionId: nullableNonEmptyStringSchema,
   insertedAt: isoTimestampSchema
 });
 
-export const symphonyForensicsTurnSchema = z.strictObject({
+const symphonyForensicsTurnSchema = z.strictObject({
   turnId: nonEmptyStringSchema,
   runId: nonEmptyStringSchema,
   turnSequence: z.number().int().positive(),
-  threadId: nullableNonEmptyStringSchema,
+  threadId: nonEmptyStringSchema,
   agentTurnId: nullableNonEmptyStringSchema,
-  sessionId: nullableNonEmptyStringSchema,
   promptText: nonEmptyStringSchema,
   status: nonEmptyStringSchema,
   startedAt: isoTimestampSchema,

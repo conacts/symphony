@@ -9,10 +9,6 @@ import {
   symphonyHarnessPromptAppendix,
   SymphonyPromptContractError
 } from "./prompt-contract.js";
-import {
-  loadSymphonyRuntimePromptTemplate,
-  SymphonyRuntimePromptError
-} from "./runtime-prompt.js";
 
 const tempDirectories: string[] = [];
 
@@ -72,7 +68,7 @@ describe("prompt contract", () => {
         "Repo symphony",
         "Default branch main",
         "Run run-123",
-        "Workspace /workspace/symphony on codex/runtime-contract-boundary",
+        "Workspace /workspace/symphony on symphony/runtime-contract-boundary",
         "",
         "Current run mode: Implementation",
         "- Complete the requested ticket work in the current workspace.",
@@ -94,17 +90,6 @@ describe("prompt contract", () => {
     expect(symphonyHarnessPromptAppendix).toContain(
       "`pnpm exec symphony tool merge-result ...`: Record the explicit outcome of an approved merge run."
     );
-  });
-
-  it("keeps the runtime-prompt compatibility exports wired to the same implementation", async () => {
-    const repoRoot = await createTempRepo();
-    await writePrompt(repoRoot, "Issue {{ issue.identifier }}");
-
-    const loaded = loadSymphonyRuntimePromptTemplate({
-      repoRoot
-    });
-
-    expect(loaded.variables).toEqual(["issue.identifier"]);
   });
 
   it("fails fast when the prompt file is missing", async () => {
@@ -160,19 +145,6 @@ describe("prompt contract", () => {
         }
       })
     ).toThrowError(/rendered an empty prompt/i);
-  });
-
-  it("supports the legacy camelCase prompt aliases for branch naming", () => {
-    const payload = buildMockSymphonyPromptContractPayload();
-
-    expect(
-      renderSymphonyPromptContract({
-        template: "{{ issue.branchName }}",
-        payload
-      })
-    ).toBe(`codex/runtime-contract-boundary\n\n${symphonyHarnessPromptAppendix}\n`);
-
-    expect(SymphonyRuntimePromptError).toBe(SymphonyPromptContractError);
   });
 
   it("appends the handoff section when the repo prompt omits the handoff slot", () => {
@@ -286,7 +258,7 @@ describe("prompt contract", () => {
 
 async function createTempRepo(): Promise<string> {
   const repoRoot = await mkdtemp(
-    path.join(tmpdir(), "symphony-runtime-prompt-")
+    path.join(tmpdir(), "symphony-prompt-contract-")
   );
   tempDirectories.push(repoRoot);
 

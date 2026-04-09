@@ -126,7 +126,7 @@ describe("pi app server client", () => {
     const scenario = await createScenario({
       root,
       issueOverrides: {
-        labels: ["symphony:model:gpt-5.4-mini", "symphony:reasoning:high"]
+        labels: ["model:gpt-5.4-mini", "symphony:reasoning:high"]
       },
       command: undefined,
       script: `#!/bin/sh

@@ -5,6 +5,7 @@ import type {
 import type { SymphonyTracker } from "@symphony/tracker";
 
 export const deliveryTransitionState = "In Review";
+export const blockedDeliveryTransitionState = "Blocked";
 export const runtimeMergeResultEventType = "merge_result_reported";
 
 export type RuntimeToolExecutionResult = {
@@ -82,12 +83,13 @@ export async function executeDeliveryReportTool(
     tracker: SymphonyTracker;
     deliveryReports: SymphonyIssueDeliveryReportStore;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state?: string | null;
     };
     runId: string | null;
     turnId: string | null;
+    blockedTargetState?: string | null;
     onDeliveryReportRecorded?(delivery: RuntimeDeliveryReportResult): void;
   },
   rawArguments: unknown
@@ -108,8 +110,6 @@ export async function executeDeliveryReportTool(
 
   try {
     const reportId = await executionContext.deliveryReports.record({
-      issueId: executionContext.issue.id,
-      issueIdentifier: executionContext.issue.identifier,
       runId: executionContext.runId,
       turnId: executionContext.turnId,
       status: deliveryArguments.status,
@@ -132,12 +132,14 @@ export async function executeDeliveryReportTool(
     };
     executionContext.onDeliveryReportRecorded?.(deliveryResult);
 
-    const issueStateTransition = await transitionDeliveredIssueToInReviewIfNeeded(
+    const issueStateTransition = await transitionDeliveryIssueStateIfNeeded(
       executionContext,
       deliveryArguments.status
     );
 
-    return buildToolSuccessResult({
+    return buildToolResult(
+      deliveryToolSucceeded(deliveryArguments.status, issueStateTransition),
+      {
       reportId,
       issueIdentifier: executionContext.issue.identifier,
       runId: executionContext.runId,
@@ -146,7 +148,8 @@ export async function executeDeliveryReportTool(
       branchName: deliveryArguments.branchName,
       recorded: true,
       issueStateTransition
-    });
+      }
+    );
   } catch (error) {
     return buildToolErrorResult({
       message:
@@ -163,7 +166,7 @@ export async function executeSpikeResultTool(
   executionContext: {
     tracker: SymphonyTracker;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state?: string | null;
     };
@@ -192,7 +195,10 @@ export async function executeSpikeResultTool(
       summary: spikeArguments.summary,
       details: spikeArguments.details
     });
-    await executionContext.tracker.createComment(executionContext.issue.id, commentBody);
+    await executionContext.tracker.createComment(
+      executionContext.issue.trackerIssueId,
+      commentBody
+    );
 
     const issueStateTransition = await transitionIssueStateIfNeeded(
       executionContext,
@@ -220,7 +226,7 @@ export async function executeCancelTool(
   executionContext: {
     tracker: SymphonyTracker;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state?: string | null;
     };
@@ -240,7 +246,7 @@ export async function executeCancelTool(
 
   try {
     await executionContext.tracker.createComment(
-      executionContext.issue.id,
+      executionContext.issue.trackerIssueId,
       renderCancelComment({
         reason: cancelArguments.reason
       })
@@ -273,7 +279,7 @@ export async function executeMergeResultTool(
     tracker: SymphonyTracker;
     issueTimelineStore: SymphonyIssueTimelineStore;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state?: string | null;
     };
@@ -308,11 +314,10 @@ export async function executeMergeResultTool(
     };
 
     await executionContext.tracker.createComment(
-      executionContext.issue.id,
+      executionContext.issue.trackerIssueId,
       renderMergeResultComment(mergeResult)
     );
     await executionContext.issueTimelineStore.record({
-      issueId: executionContext.issue.id,
       issueIdentifier: executionContext.issue.identifier,
       runId: executionContext.runId,
       turnId: executionContext.turnId,
@@ -566,18 +571,29 @@ export function normalizeMergeResultArguments(
   };
 }
 
-async function transitionDeliveredIssueToInReviewIfNeeded(
+async function transitionDeliveryIssueStateIfNeeded(
   executionContext: {
     tracker: SymphonyTracker;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state?: string | null;
     };
+    blockedTargetState?: string | null;
   },
   status: "completed" | "blocked" | "partial"
 ): Promise<DeliveryTransitionResult> {
-  if (status !== "completed") {
+  let targetState: string | null = null;
+
+  if (status === "completed") {
+    targetState = deliveryTransitionState;
+  } else if (status === "blocked") {
+    targetState =
+      normalizeOptionalText(executionContext.blockedTargetState) ??
+      blockedDeliveryTransitionState;
+  }
+
+  if (!targetState) {
     return {
       attempted: false,
       targetState: null,
@@ -586,14 +602,25 @@ async function transitionDeliveredIssueToInReviewIfNeeded(
     };
   }
 
-  return transitionIssueStateIfNeeded(executionContext, deliveryTransitionState);
+  return transitionIssueStateIfNeeded(executionContext, targetState);
+}
+
+function deliveryToolSucceeded(
+  status: "completed" | "blocked" | "partial",
+  issueStateTransition: DeliveryTransitionResult
+): boolean {
+  if (status === "partial") {
+    return true;
+  }
+
+  return issueStateTransition.success;
 }
 
 async function transitionIssueStateIfNeeded(
   executionContext: {
     tracker: SymphonyTracker;
     issue: {
-      id: string;
+      trackerIssueId: string;
       identifier: string;
       state?: string | null;
     };
@@ -610,7 +637,10 @@ async function transitionIssueStateIfNeeded(
   }
 
   try {
-    await executionContext.tracker.updateIssueState(executionContext.issue.id, targetState);
+    await executionContext.tracker.updateIssueState(
+      executionContext.issue.trackerIssueId,
+      targetState
+    );
     return {
       attempted: true,
       targetState,

@@ -5,7 +5,7 @@ This is the supported local path for Symphony. There is no supported local/workt
 ## Requirements
 
 - Docker daemon available locally
-- `codex` installed and authenticated
+- `pi` installed and authenticated
 - GitHub CLI auth when the agent needs `gh`
 - `LINEAR_API_KEY`
 - `GITHUB_TOKEN`

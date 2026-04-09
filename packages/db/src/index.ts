@@ -6,8 +6,7 @@ export {
 export { defaultSymphonyDbFile, initializeSymphonyDb } from "./client.js";
 export type { SymphonyDb } from "./client.js";
 export {
-  createSqliteSymphonyRuntimeRunLedger,
-  createSqliteSymphonyRuntimeRunLedger as createSqliteSymphonyRunJournal
+  createSqliteSymphonyRuntimeRunLedger
 } from "./sqlite-runtime-run-ledger.js";
 export {
   createSqliteSymphonyRuntimeRunStore
@@ -15,8 +14,15 @@ export {
 export type {
   SymphonyRuntimeRunStore
 } from "./runtime-run-store.js";
+export {
+  createSqliteRuntimeForensicsReadStore
+} from "./runtime-forensics-read-store.js";
+export type {
+  SymphonyRuntimeForensicsReadStore
+} from "./runtime-forensics-read-store.js";
 export type {
   SymphonyRuntimeMachineLoadSummary,
+  SymphonyRuntimeRunContextAttrs,
   SymphonyRuntimeRunFinishAttrs,
   SymphonyRuntimeRunStatus,
   SymphonyRuntimeRunStartAttrs,
@@ -46,6 +52,12 @@ export type {
   SymphonyIssueTimelineSource,
   SymphonyIssueTimelineStore
 } from "./issue-timeline.js";
+export {
+  createSymphonyIssueStore
+} from "./issues.js";
+export type {
+  SymphonyIssueStore
+} from "./issues.js";
 export {
   createSymphonyIssueDeliveryReportStore
 } from "./issue-delivery-reports.js";

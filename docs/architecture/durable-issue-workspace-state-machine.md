@@ -119,12 +119,12 @@ stateDiagram-v2
 - Counts against concurrency limits.
 - Entered only when a real worker slot is available.
 - Covers workspace attach/provision, branch creation, preflight, and pre-agent setup.
-- A ticket leaves `Bootstrapping` only when the first real Codex turn can begin.
+- A ticket leaves `Bootstrapping` only when the first real Pi turn can begin.
 
 ### `In Progress`
 
 - Agent is actively working.
-- This begins at the first Codex turn start, not at workspace creation.
+- This begins at the first Pi turn start, not at workspace creation.
 
 ### `In Review`
 
@@ -294,9 +294,9 @@ Comments should use a fixed structure:
 - continuity brief injection on new-thread resume
 - remote drift surfacing
 - meaningful progress metrics
-- typed normalization of Codex event payloads, tool calls, approvals, and file-change artifacts
-- evaluation of the Codex TypeScript SDK as a simpler typed integration path if it preserves the
-  fully autonomous runtime model
+- typed normalization of Pi/runtime event payloads, tool calls, approvals, and file-change artifacts
+- continued hardening of the Pi harness projection layer while preserving the fully autonomous
+  runtime model
 
 ## Non-Goals For This Wave
 

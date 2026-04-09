@@ -57,7 +57,7 @@ export function buildSymphonyRuntimePolicy(
       terminalStates: ["Canceled", "Done"],
       claimTransitionToState: "Bootstrapping",
       claimTransitionFromStates: ["Todo", "Rework"],
-      startupFailureTransitionToState: "Backlog",
+      startupFailureTransitionToState: "Failed",
       pauseTransitionToState: "Paused",
       blockedTransitionToState: "Blocked",
       ...overrides.tracker
@@ -229,7 +229,7 @@ export function buildSymphonyOrchestratorSnapshot(
     issue: buildSymphonyTrackerIssue(),
     runId: "run-123",
     runMode: "implementation" as const,
-    sessionId: null,
+    threadId: null,
     workerHost: null,
     workspace: null,
     launchTarget: null,
@@ -297,7 +297,8 @@ export function buildSymphonyRunStartAttrs(
   fixtureCounter += 1;
 
   return {
-    issueId: `issue-${fixtureCounter}`,
+    repositoryKey: "openai/symphony",
+    trackerIssueId: `issue-${fixtureCounter}`,
     issueIdentifier: `COL-${fixtureCounter}`,
     attempt: 1,
     runMode: "implementation",
@@ -325,7 +326,6 @@ export function buildSymphonyTurnStartAttrs(
     turnSequence: 1,
     threadId: `thread-${fixtureCounter}`,
     agentTurnId: `turn-${fixtureCounter}`,
-    sessionId: `session-${fixtureCounter}`,
     promptText: "Implement the requested change.",
     status: "running",
     startedAt: new Date("2026-03-31T00:00:00.000Z"),

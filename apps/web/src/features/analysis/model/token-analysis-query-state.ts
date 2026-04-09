@@ -2,7 +2,7 @@
 
 export type TokenAnalysisTimeRange = "7d" | "30d" | "all";
 
-export type TokenAnalysisQuery = {
+type TokenAnalysisQuery = {
   repo?: string;
   model?: string;
   timeRange: TokenAnalysisTimeRange;
@@ -10,7 +10,7 @@ export type TokenAnalysisQuery = {
 
 const validTimeRanges = new Set<TokenAnalysisTimeRange>(["7d", "30d", "all"]);
 
-export const tokenAnalysisTimeRangeOptions = [
+const tokenAnalysisTimeRangeOptions = [
   { value: "7d", label: "Week" },
   { value: "30d", label: "Month" },
   { value: "all", label: "All" }
@@ -71,7 +71,7 @@ export function buildTokenAnalysisWindowStart(
   return anchor.getTime() - lookbackMs;
 }
 
-export function parseTokenAnalysisTimeRange(
+function parseTokenAnalysisTimeRange(
   value: string | null | undefined
 ): TokenAnalysisTimeRange {
   if (value && validTimeRanges.has(value as TokenAnalysisTimeRange)) {

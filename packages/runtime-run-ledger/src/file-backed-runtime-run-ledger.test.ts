@@ -38,7 +38,7 @@ describe("file-backed symphony runtime run ledger", () => {
     const journal = await createJournal();
 
     const runStart = buildSymphonyRunStartAttrs({
-      issueId: "issue-123",
+      trackerIssueId: "issue-123",
       issueIdentifier: "COL-123",
       commitHashStart: "abc123"
     });
@@ -76,7 +76,7 @@ describe("file-backed symphony runtime run ledger", () => {
 
     const runId = await journal.recordRunStarted(
       buildSymphonyRunStartAttrs({
-        issueId: "issue-truncated",
+        trackerIssueId: "issue-truncated",
         issueIdentifier: "COL-TRUNC"
       })
     );
@@ -121,7 +121,7 @@ describe("file-backed symphony runtime run ledger", () => {
 
     const runId = await journal.recordRunStarted(
       buildSymphonyRunStartAttrs({
-        issueId: "issue-old",
+        trackerIssueId: "issue-old",
         issueIdentifier: "COL-OLD",
         startedAt: new Date("2025-12-01T00:00:00.000Z")
       })
@@ -140,7 +140,7 @@ describe("file-backed symphony runtime run ledger", () => {
 
     const runId = await journal.recordRunStarted(
       buildSymphonyRunStartAttrs({
-        issueId: "issue-redacted",
+        trackerIssueId: "issue-redacted",
         issueIdentifier: "COL-REDACT",
         repoStart: {
           patch: "Authorization: Bearer top-secret-token\nOPENAI_API_KEY=sk-secret"
@@ -201,7 +201,7 @@ describe("file-backed symphony runtime run ledger", () => {
 
     const runId = await journal.recordRunStarted(
       buildSymphonyRunStartAttrs({
-        issueId: "issue-metadata",
+        trackerIssueId: "issue-metadata",
         issueIdentifier: "COL-META",
         metadata: {
           runtime: "typescript"
@@ -209,17 +209,17 @@ describe("file-backed symphony runtime run ledger", () => {
       })
     );
 
-    await journal.updateRun(runId, {
-      metadata: {
-        sessionId: "session-123"
-      }
-    });
+      await journal.updateRun(runId, {
+        metadata: {
+          threadId: "thread-123"
+        }
+      });
 
     const exportPayload = await journal.fetchRunExport(runId);
 
     expect(exportPayload?.run.metadata).toEqual({
       runtime: "typescript",
-      sessionId: "session-123"
+      threadId: "thread-123"
     });
   });
 });

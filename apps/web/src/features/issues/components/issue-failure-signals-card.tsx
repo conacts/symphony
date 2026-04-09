@@ -10,7 +10,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 
-export type IssueFailureSignalRow = {
+type IssueFailureSignalRow = {
   runId: string;
   runHref: string;
   outcome: string;

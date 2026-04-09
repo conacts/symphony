@@ -2,7 +2,6 @@ import type { SymphonyForensicsRunSummary } from "@symphony/contracts";
 
 const symphonyCompletedRunOutcomes = new Set([
   "completed",
-  "completed_turn_batch",
   "merged",
   "done"
 ]);

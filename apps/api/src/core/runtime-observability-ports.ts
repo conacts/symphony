@@ -14,18 +14,14 @@ export function createIssueTimelinePort(input: {
 }): SymphonyIssueTimelinePort {
   return {
     async list({ issueIdentifier, limit, repo }) {
-      const entries = await input.issueTimelineStore.listIssueTimeline(
-        issueIdentifier,
-        {
-          limit,
-          repositoryKey: repo
-        }
-      );
+      const entries = await input.issueTimelineStore.listIssueTimeline(issueIdentifier, {
+        limit
+      });
 
       return entries.length === 0
         ? null
         : {
-            repositoryKey: repo ?? entries[0].repositoryKey,
+            repositoryKey: entries[0].repositoryKey,
             issueIdentifier,
             entries,
             filters: {
@@ -44,7 +40,6 @@ export function createRuntimeLogsPort(input: {
     async list(query = {}) {
       const logs = await input.runtimeLogStore.list({
         limit: query.limit,
-        repositoryKey: query.repo,
         issueIdentifier: query.issueIdentifier
       });
 
@@ -52,7 +47,7 @@ export function createRuntimeLogsPort(input: {
         logs,
         filters: {
           limit: query.limit ?? null,
-          repo: query.repo ?? null,
+          repo: logs[0]?.repositoryKey ?? query.repo ?? null,
           issueIdentifier: query.issueIdentifier ?? null
         }
       };

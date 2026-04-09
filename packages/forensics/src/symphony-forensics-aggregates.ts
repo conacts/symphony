@@ -17,6 +17,10 @@ const defaultManyRetriesThreshold = 2;
 export function buildIssueAggregate(
   runs: SymphonyForensicsRunSummary[]
 ): SymphonyForensicsIssueAggregate {
+  if (runs.length === 0) {
+    throw new TypeError("Cannot build a forensics issue aggregate without runs.");
+  }
+
   const latestRun = runs[0] ?? null;
   const firstRun = runs[0] ?? null;
   const latestProblemRun = runs.find((run) => isProblemOutcome(run.outcome)) ?? null;
@@ -87,9 +91,9 @@ export function buildIssueAggregate(
   }
 
   return {
-    repositoryKey: firstRun?.repositoryKey ?? "default",
-    issueId: firstRun?.issueId ?? "[missing-issue-id]",
-    issueIdentifier: firstRun?.issueIdentifier ?? "[missing-issue-identifier]",
+    repositoryKey: firstRun.repositoryKey,
+    trackerIssueId: firstRun.trackerIssueId,
+    issueIdentifier: firstRun.issueIdentifier,
     latestRunStartedAt: latestRun?.startedAt ?? null,
     latestRunId: latestRun?.runId ?? null,
     latestRunStatus: latestRun?.status ?? null,

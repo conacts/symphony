@@ -1,10 +1,9 @@
 import { z } from "zod";
 import {
   isThreadEvent,
-  extractUsage,
-  type ThreadEvent
+  extractUsage
 } from "@symphony/agent-analytics";
-import { nonEmptyStringSchema } from "./shared.js";
+import { nonEmptyStringSchema, nullableNonEmptyStringSchema } from "./shared.js";
 
 export const symphonyAgentUsageSchema = z.strictObject({
   input_tokens: z.number().int().nonnegative(),
@@ -146,11 +145,37 @@ export const symphonyAgentStreamErrorEventSchema = z.strictObject({
   message: nonEmptyStringSchema
 });
 
-export const symphonyAgentAnalyticsEventSchema = z.custom<ThreadEvent>(
-  (value) => isThreadEvent(value),
-  {
-    message: "Invalid Agent ThreadEvent payload."
-  }
-);
+export const symphonyAgentSessionStartedEventSchema = z.strictObject({
+  type: z.literal("session.started"),
+  session_id: nonEmptyStringSchema,
+  thread_id: nullableNonEmptyStringSchema,
+  turn_id: nonEmptyStringSchema,
+  agent_app_server_pid: nullableNonEmptyStringSchema,
+  model: nullableNonEmptyStringSchema,
+  reasoning_effort: nullableNonEmptyStringSchema
+});
+
+export const symphonyAgentThreadEventSchema = z.discriminatedUnion("type", [
+  symphonyAgentThreadStartedEventSchema,
+  symphonyAgentTurnStartedEventSchema,
+  symphonyAgentTurnCompletedEventSchema,
+  symphonyAgentTurnFailedEventSchema,
+  symphonyAgentItemStartedEventSchema,
+  symphonyAgentItemUpdatedEventSchema,
+  symphonyAgentItemCompletedEventSchema,
+  symphonyAgentStreamErrorEventSchema
+]);
+
+export const symphonyAgentAnalyticsEventSchema = z.discriminatedUnion("type", [
+  symphonyAgentSessionStartedEventSchema,
+  symphonyAgentThreadStartedEventSchema,
+  symphonyAgentTurnStartedEventSchema,
+  symphonyAgentTurnCompletedEventSchema,
+  symphonyAgentTurnFailedEventSchema,
+  symphonyAgentItemStartedEventSchema,
+  symphonyAgentItemUpdatedEventSchema,
+  symphonyAgentItemCompletedEventSchema,
+  symphonyAgentStreamErrorEventSchema
+]);
 
 export { isThreadEvent, extractUsage };

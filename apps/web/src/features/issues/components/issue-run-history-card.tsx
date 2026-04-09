@@ -27,7 +27,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 
-export type IssueRunHistoryRow = {
+type IssueRunHistoryRow = {
   runId: string;
   runHref: string;
   startedAtIso: string;

@@ -1,5 +1,8 @@
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
-import type { PreparedWorkspace } from "@symphony/workspace";
+import type {
+  PreparedWorkspace,
+  WorkspaceCleanupMode
+} from "@symphony/workspace";
 import type { SymphonyAgentRuntimeConfig } from "./orchestrator-config.js";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 
@@ -23,7 +26,7 @@ export type AgentRunInput = {
 };
 
 export type AgentRunLaunch = {
-  sessionId: string | null;
+  threadId: string | null;
   workerHost: string | null;
   launchTarget: AgentRuntimeLaunchTarget | null;
 };
@@ -31,7 +34,7 @@ export type AgentRunLaunch = {
 export type AgentStopInput = {
   issue: SymphonyTrackerIssue;
   workspace: PreparedWorkspace | null;
-  cleanupWorkspace: boolean;
+  cleanupMode: WorkspaceCleanupMode;
 };
 
 export interface AgentRuntime {

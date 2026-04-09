@@ -210,7 +210,7 @@ async function resolveBeforeRemoveHookOutcome(input: {
       command: input.hooks.beforeRemove,
       timeoutMs: input.hooks.timeoutMs,
       context: {
-        issueId: null,
+        trackerIssueId: null,
         issueIdentifier: input.issueIdentifier
       },
       workerHost: input.workerHost,

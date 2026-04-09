@@ -9,7 +9,7 @@ import {
 import type { SymphonyLoadedRuntimeManifest } from "@symphony/runtime-contract";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 
-export type SymphonyRuntimeWorkspaceBackendSelection = {
+type SymphonyRuntimeWorkspaceBackendSelection = {
   backend: WorkspaceBackend;
   metadata: {
     backendKind: "docker";

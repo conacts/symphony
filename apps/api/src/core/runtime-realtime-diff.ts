@@ -75,7 +75,7 @@ function buildRealtimeComparableSnapshot(
       issueId: entry.issueId,
       issue: entry.issue,
       runId: entry.runId,
-      sessionId: entry.sessionId,
+      threadId: entry.threadId,
       workerHost: entry.workerHost,
       workspace: summarizePreparedWorkspace(entry.workspace),
       launchTarget: entry.launchTarget,

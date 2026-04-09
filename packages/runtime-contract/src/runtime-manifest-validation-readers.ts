@@ -6,7 +6,6 @@ import {
   type ManifestPath
 } from "./runtime-manifest-validation-shared.js";
 import {
-  formatManifestPath,
   hasIssuesSince,
   pushIssue,
   renderAllowedValues,
@@ -281,5 +280,3 @@ export function parseEnvironmentVariableArray(
 
   return hasIssuesSince(issues, checkpoint) ? undefined : normalizedValues;
 }
-
-export { formatManifestPath };

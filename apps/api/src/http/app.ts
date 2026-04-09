@@ -122,7 +122,7 @@ export function createSymphonyRuntimeApp(
   return createSymphonyRuntimeApplication(services, input).app;
 }
 
-export function getAllowedCorsOrigin(
+function getAllowedCorsOrigin(
   requestOrigin: string,
   configuredOrigins: string[]
 ): string | null {

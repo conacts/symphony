@@ -5,13 +5,13 @@ export function asJsonObject(value: unknown): JsonObject | null {
   return isRecord(value) ? normalizeUnknownJsonObject(value) : null;
 }
 
-export function normalizeUnknownJsonObject(
+function normalizeUnknownJsonObject(
   value: unknown
 ): JsonObject {
   return normalizeUnknownJsonValue(value) as JsonObject;
 }
 
-export function normalizeUnknownJsonValue(
+function normalizeUnknownJsonValue(
   value: unknown
 ): JsonValue {
   if (

@@ -42,6 +42,7 @@ import {
   type HarnessToolExecutor,
   type HarnessSessionClient
 } from "@symphony/agent-harnesses";
+import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { resolveIssueRepository } from "./runtime-repository-routing.js";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 import { captureRepoSnapshot } from "./agent-repo-snapshot.js";
@@ -57,6 +58,7 @@ import {
   type SymphonyRuntimeHarness
 } from "./runtime-harness.js";
 import {
+  deliveryTransitionState,
   runtimeMergeResultEventType,
   type RuntimeDeliveryReportResult,
   type RuntimeMergeResult
@@ -101,7 +103,7 @@ export function createSymphonyAgentRuntime(input: {
   });
 }
 
-export function createHarnessBackedSymphonyAgentRuntime(input: {
+function createHarnessBackedSymphonyAgentRuntime(input: {
   harness: SymphonyRuntimeHarness;
   promptContract: SymphonyLoadedPromptContract;
   admittedRepositories?: AdmittedRuntimeRepository[];
@@ -129,6 +131,9 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
         input.admittedRepositories && input.admittedRepositories.length > 0
           ? resolveIssueRepository(input.admittedRepositories, runInput.issue)
           : null;
+      const repositoryKey = resolveRuntimeRepositoryKey({
+        githubRepo: selectedRepository?.repositoryKey ?? input.githubRepository ?? null
+      });
       const activeRun: ActiveRun = {
         stopped: false,
         client: null
@@ -147,8 +152,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
           selectedRepository?.promptContract.template ?? input.promptContract.template,
         harness: input.harness,
         promptContract: selectedRepository?.promptContract ?? input.promptContract,
-        githubRepository:
-          selectedRepository?.repositoryKey ?? input.githubRepository ?? null,
+        githubRepository: repositoryKey,
         tracker: input.tracker,
         runStore: input.runStore,
         deliveryReports: input.deliveryReports,
@@ -178,7 +182,7 @@ export function createHarnessBackedSymphonyAgentRuntime(input: {
       });
 
       return {
-        sessionId: null,
+        threadId: null,
         workerHost: runInput.workspace.workerHost ?? null,
         launchTarget
       };
@@ -229,12 +233,12 @@ async function executeRun(input: {
   );
   let persistedTurnId: string | null = null;
   let maxTurnsReached = false;
-  let sessionModel: string | null = null;
   let sessionProviderId: string | null = null;
   let sessionProviderName: string | null = null;
   let deliveryReport: RuntimeDeliveryReportResult | null = null;
   let mergeResult: RuntimeMergeResult | null = null;
   let commandResourceMonitor: CommandResourceMonitor | null = null;
+  let recordedCanonicalSessionStart = false;
   const explicitCompletionRequirement = resolveExplicitCompletionRequirement(
     input.runMode
   );
@@ -245,6 +249,9 @@ async function executeRun(input: {
           input.issue.identifier
         )
       : null;
+  const repositoryKey = resolveRuntimeRepositoryKey({
+    githubRepo: input.githubRepository
+  });
 
   try {
     await input.runtimeLogs.record({
@@ -252,7 +259,6 @@ async function executeRun(input: {
       source: "agent_runtime",
       eventType: "runtime_launch_target_resolved",
       message: "Resolved the agent runtime launch target.",
-      issueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {
@@ -279,14 +285,17 @@ async function executeRun(input: {
         FORCE_COLOR: "0",
         CLICOLOR: "0",
         CLICOLOR_FORCE: "0",
+        ...input.workspace.envBundle.values,
+        ...input.harnessLaunchEnv,
         SYMPHONY_API_BASE_URL:
           input.apiPort !== undefined
             ? buildRuntimeApiBaseUrl(input.launchTarget, input.apiPort)
             : "",
-        SYMPHONY_ISSUE_ID: input.issue.id,
+        SYMPHONY_REPOSITORY_KEY: repositoryKey,
+        SYMPHONY_ISSUE_IDENTIFIER: input.issue.identifier,
+        SYMPHONY_TRACKER_ISSUE_ID: input.issue.id,
         SYMPHONY_ISSUE_STATE: input.issue.state ?? "",
-        ...input.workspace.envBundle.values,
-        ...input.harnessLaunchEnv
+        ...(input.runId ? { SYMPHONY_RUN_ID: input.runId } : {}),
       },
       hostCommandEnvSource: input.hostCommandEnvSource,
       runtimePolicy: input.runtimePolicy,
@@ -294,31 +303,27 @@ async function executeRun(input: {
       logger: input.logger
     });
     input.activeRun.client = session.client;
-    sessionModel = session.model;
     sessionProviderId = session.providerId;
     sessionProviderName = session.providerName;
     commandResourceMonitor = new CommandResourceMonitor(session.processId);
-
-    if (input.runId) {
-      await input.agentAnalytics.startRun({
-        runId: input.runId,
-        issueId: input.issue.id,
-        issueIdentifier: input.issue.identifier,
-        status: "running",
-        threadId: session.threadId,
-        harnessKind: input.harness.kind,
-        model: sessionModel,
-        providerId: session.providerId,
-        providerName: session.providerName
-      });
-    }
+    const runtimeContextBase = {
+      harnessKind: input.harness.kind,
+      processId: session.processId,
+      model: session.model,
+      reasoningEffort: session.reasoningEffort,
+      profile: session.profile,
+      providerId: session.providerId,
+      providerName: session.providerName,
+      authMode: input.harnessAuthMode,
+      providerEnvKey: input.harnessProviderEnvKey,
+      launchTarget: describeLaunchTarget(session.launchTarget)
+    };
 
     await input.runtimeLogs.record({
       level: "info",
       source: "agent_runtime",
       eventType: "runtime_session_started",
       message: "Started the agent harness session.",
-      issueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {
@@ -329,12 +334,19 @@ async function executeRun(input: {
         profile: session.profile,
         providerId: session.providerId,
         providerName: session.providerName,
-        authMode: input.harnessAuthMode,
-        providerEnvKey: input.harnessProviderEnvKey,
+        authMode: runtimeContextBase.authMode,
+        providerEnvKey: runtimeContextBase.providerEnvKey,
         harness: input.harness.kind,
-        launchTarget: describeLaunchTarget(session.launchTarget)
+        launchTarget: runtimeContextBase.launchTarget
       }
     });
+
+    if (input.runId) {
+      await input.runStore.upsertRunContext(input.runId, {
+        ...runtimeContextBase,
+        threadId: session.threadId
+      });
+    }
 
     let currentIssue = input.issue;
     const promptRepoName = resolvePromptRepoName(
@@ -353,7 +365,6 @@ async function executeRun(input: {
       if (input.activeRun.stopped) {
         await finalizeStoppedTurn(
           input.runStore,
-          input.agentAnalytics,
           input.runId,
           persistedTurnId
         );
@@ -404,10 +415,45 @@ async function executeRun(input: {
 
       persistedTurnId = input.runId
         ? await input.runStore.recordTurnStarted(input.runId, {
+            threadId: session.threadId,
             promptText: prompt,
             status: "running"
           })
         : null;
+
+      if (
+        input.runId &&
+        persistedTurnId &&
+        !recordedCanonicalSessionStart &&
+        shouldSynthesizeSessionStartedEvent(input.runtimePolicy)
+      ) {
+        const sessionStartedEvent = buildSyntheticSessionStartedEvent({
+          threadId: session.threadId,
+          persistedTurnId,
+          processId: session.processId,
+          model: session.model,
+          reasoningEffort: session.reasoningEffort
+        });
+
+        if (sessionStartedEvent) {
+          await input.runStore.recordEvent(input.runId, persistedTurnId, {
+            eventType: sessionStartedEvent.type,
+            recordedAt: new Date().toISOString(),
+            payload: sessionStartedEvent,
+            summary: summarizeCanonicalRuntimeEvent(sessionStartedEvent),
+            threadId: sessionStartedEvent.thread_id ?? session.threadId
+          });
+          await input.runStore.upsertRunContext(input.runId, {
+            ...runtimeContextBase,
+            threadId: sessionStartedEvent.thread_id ?? session.threadId,
+            processId: sessionStartedEvent.agent_app_server_pid ?? session.processId,
+            model: sessionStartedEvent.model ?? session.model,
+            reasoningEffort:
+              sessionStartedEvent.reasoning_effort ?? session.reasoningEffort
+          });
+          recordedCanonicalSessionStart = true;
+        }
+      }
 
       const turnResult = await session.client.runTurn(session, {
         prompt,
@@ -420,32 +466,31 @@ async function executeRun(input: {
           const threadEvent = isThreadEvent(message) ? message : null;
           const runtimePayload = rawPayload ?? message;
           const runtimePayloadRecord = asRecord(runtimePayload);
+          const sessionStartedEvent =
+            extractCanonicalSessionStartedEvent(message) ??
+            extractCanonicalSessionStartedEvent(runtimePayloadRecord);
           const eventName =
             threadEvent?.type ??
-            normalizeRuntimeUpdateEventName(
-              getString(message, "event") ?? getString(runtimePayloadRecord, "type")
-            ) ??
+            getString(message, "type") ??
+            getString(message, "event") ??
+            getString(runtimePayloadRecord, "type") ??
+            getString(runtimePayloadRecord, "event") ??
             "notification";
           const timestamp = new Date().toISOString();
           const turnUsage = extractRuntimeUsage(threadEvent, runtimePayloadRecord);
           const threadId =
             getString(message, "thread_id") ??
-            getString(message, "threadId") ??
-            getStringPath(message, ["params", "threadId"]) ??
             getString(runtimePayloadRecord, "thread_id") ??
-            getString(runtimePayloadRecord, "threadId") ??
-            getStringPath(runtimePayloadRecord, ["params", "threadId"]);
+            session.threadId;
+          const canonicalEvent =
+            (threadEvent as CanonicalRuntimeEventPayload | null) ?? sessionStartedEvent;
 
           await input.callbacks.onUpdate(currentIssue.id, {
             event: eventName,
             payload: runtimePayload,
             timestamp,
-            sessionId:
-              getString(message, "session_id") ??
-              getString(message, "sessionId") ??
-              getString(runtimePayloadRecord, "session_id") ??
-              getString(runtimePayloadRecord, "sessionId") ??
-              null,
+            threadId:
+              sessionStartedEvent?.thread_id ?? threadId,
             agentRuntimeProcessId:
               getString(message, "agent_app_server_pid") ?? session.processId
           });
@@ -455,6 +500,36 @@ async function executeRun(input: {
               await input.runStore.updateTurn(persistedTurnId, {
                 usage: turnUsage
               });
+            }
+
+            if (canonicalEvent) {
+              await input.runStore.recordEvent(input.runId, persistedTurnId, {
+                eventType: canonicalEvent.type,
+                recordedAt: timestamp,
+                payload: canonicalEvent,
+                summary: summarizeCanonicalRuntimeEvent(canonicalEvent),
+                threadId:
+                  (canonicalEvent.type === "session.started"
+                    ? canonicalEvent.thread_id
+                    : threadId) ?? session.threadId,
+                agentTurnId:
+                  canonicalEvent.type === "session.started"
+                    ? canonicalEvent.turn_id
+                    : getString(message, "turn_id") ??
+                      getString(runtimePayloadRecord, "turn_id") ??
+                      null
+              });
+              if (canonicalEvent.type === "session.started") {
+                await input.runStore.upsertRunContext(input.runId, {
+                  ...runtimeContextBase,
+                  threadId: canonicalEvent.thread_id ?? session.threadId,
+                  processId: canonicalEvent.agent_app_server_pid ?? session.processId,
+                  model: canonicalEvent.model ?? session.model,
+                  reasoningEffort:
+                    canonicalEvent.reasoning_effort ?? session.reasoningEffort
+                });
+                recordedCanonicalSessionStart = true;
+              }
             }
 
             if (threadEvent) {
@@ -505,22 +580,7 @@ async function executeRun(input: {
           endedAt,
           threadId: turnResult.threadId,
           agentTurnId: turnResult.turnId,
-          sessionId: turnResult.sessionId,
           usage: turnResult.usage ?? null
-        });
-        await input.agentAnalytics.finalizeTurn({
-          runId: input.runId,
-          turnId: persistedTurnId,
-          endedAt,
-          status: "completed",
-          failureKind: null,
-          failureMessagePreview: null,
-          threadId: turnResult.threadId,
-          usage: turnResult.usage ?? null,
-          harnessKind: input.harness.kind,
-          model: sessionModel,
-          providerId: sessionProviderId,
-          providerName: sessionProviderName
         });
         persistedTurnId = null;
       }
@@ -540,7 +600,17 @@ async function executeRun(input: {
         }
       }
 
-      if (deliveryReport || mergeResult) {
+      if (deliveryReport) {
+        const refreshedIssue = await refreshIssueState(
+          input.tracker,
+          input.runtimePolicy,
+          currentIssue
+        );
+        currentIssue = refreshedIssue ?? currentIssue;
+        break;
+      }
+
+      if (mergeResult) {
         break;
       }
 
@@ -577,7 +647,7 @@ async function executeRun(input: {
       if (deliveryReport) {
         await input.callbacks.onComplete(
           input.issue.id,
-          deliveryCompletion(deliveryReport)
+          deliveryCompletion(deliveryReport, currentIssue, input.runtimePolicy)
         );
       } else if (mergeResult) {
         await input.callbacks.onComplete(
@@ -601,7 +671,6 @@ async function executeRun(input: {
     if (input.activeRun.stopped) {
       await finalizeStoppedTurn(
         input.runStore,
-        input.agentAnalytics,
         input.runId,
         persistedTurnId
       );
@@ -612,25 +681,13 @@ async function executeRun(input: {
     const harnessError = error instanceof HarnessSessionError ? error : null;
 
     if (input.runId && persistedTurnId) {
+      const endedAt = new Date().toISOString();
       await input.runStore.finalizeTurn(persistedTurnId, {
         status: "failed",
-        endedAt: new Date().toISOString(),
+        endedAt,
         metadata: {
           reason
         }
-      });
-      await input.agentAnalytics.finalizeTurn({
-        runId: input.runId,
-        turnId: persistedTurnId,
-        endedAt: new Date().toISOString(),
-        status: "failed",
-        failureKind: "runtime_failure",
-        failureMessagePreview: reason,
-        threadId: null,
-        harnessKind: input.harness.kind,
-        model: sessionModel ?? harnessModelPolicy.defaultModel,
-        providerId: sessionProviderId,
-        providerName: sessionProviderName
       });
     }
 
@@ -655,7 +712,6 @@ async function executeRun(input: {
       message: startupFailure
         ? "Agent runtime startup failed."
         : "Agent runtime execution failed.",
-      issueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {
@@ -786,16 +842,45 @@ function describeLaunchTarget(target: SymphonyRuntimeLaunchTarget): JsonObject {
 }
 
 function deliveryCompletion(
-  deliveryReport: RuntimeDeliveryReportResult
+  deliveryReport: RuntimeDeliveryReportResult,
+  currentIssue: SymphonyTrackerIssue,
+  runtimePolicy: SymphonyAgentRuntimeConfig
 ): SymphonyAgentRuntimeCompletion {
   switch (deliveryReport.status) {
     case "completed":
+      if (!matchesIssueState(currentIssue.state, deliveryTransitionState)) {
+        return {
+          kind: "failure",
+          reason: buildUnexpectedDeliveryStateReason(
+            deliveryReport.status,
+            deliveryTransitionState,
+            currentIssue.state
+          )
+        };
+      }
+
       return {
-        kind: "normal"
+        kind: "delivered"
       };
     case "blocked":
+      if (
+        !matchesIssueState(
+          currentIssue.state,
+          runtimePolicy.tracker.blockedTransitionToState
+        )
+      ) {
+        return {
+          kind: "failure",
+          reason: buildUnexpectedDeliveryStateReason(
+            deliveryReport.status,
+            runtimePolicy.tracker.blockedTransitionToState,
+            currentIssue.state
+          )
+        };
+      }
+
       return {
-        kind: "failure",
+        kind: "blocked",
         reason:
           deliveryReport.blockingReason ??
           `Delivery reported as blocked: ${deliveryReport.summary}`
@@ -807,6 +892,27 @@ function deliveryCompletion(
         reason: `Delivery reported as partial: ${deliveryReport.summary}`
       };
   }
+}
+
+function matchesIssueState(actualState: string, expectedState: string | null): boolean {
+  const normalizedActual = actualState.trim().toLowerCase();
+  const normalizedExpected = expectedState?.trim().toLowerCase();
+
+  return normalizedExpected !== undefined && normalizedExpected !== null
+    ? normalizedActual === normalizedExpected
+    : false;
+}
+
+function buildUnexpectedDeliveryStateReason(
+  deliveryStatus: RuntimeDeliveryReportResult["status"],
+  expectedState: string | null,
+  actualState: string
+): string {
+  const expected = expectedState?.trim() || "the expected terminal state";
+
+  return deliveryStatus === "completed"
+    ? `Delivery was recorded as completed, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`
+    : `Delivery was recorded as blocked, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`;
 }
 
 type ExplicitCompletionRequirement =
@@ -880,7 +986,7 @@ function mergeResultCompletion(
 ): SymphonyAgentRuntimeCompletion {
   if (mergeResult.status === "merged") {
     return {
-      kind: "normal"
+      kind: "merged"
     };
   }
 
@@ -1077,23 +1183,6 @@ function getString(
   return typeof nested === "string" && nested.trim() !== "" ? nested : null;
 }
 
-function getStringPath(
-  value: Record<string, unknown> | null | undefined,
-  path: string[]
-): string | null {
-  let current: unknown = value;
-
-  for (const segment of path) {
-    if (!current || typeof current !== "object" || Array.isArray(current)) {
-      return null;
-    }
-
-    current = (current as Record<string, unknown>)[segment];
-  }
-
-  return typeof current === "string" && current.trim() !== "" ? current : null;
-}
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -1174,17 +1263,93 @@ function getNumber(
   return typeof nested === "number" && Number.isFinite(nested) ? nested : null;
 }
 
-function normalizeRuntimeUpdateEventName(value: string | null): string | null {
-  if (value === "session_started") {
-    return "session.started";
+type CanonicalRuntimeEventPayload =
+  Parameters<SymphonyRuntimeRunStore["recordEvent"]>[2]["payload"];
+type CanonicalRuntimeSessionStartedEvent = Extract<
+  CanonicalRuntimeEventPayload,
+  { type: "session.started" }
+>;
+
+function shouldSynthesizeSessionStartedEvent(
+  runtimePolicy: SymphonyAgentRuntimeConfig
+): boolean {
+  return !/(?:^|\s)app-server(?=\s|$)/u.test(runtimePolicy.agentRuntime.command.trim());
+}
+
+function buildSyntheticSessionStartedEvent(input: {
+  threadId: string | null;
+  persistedTurnId: string;
+  processId: string | null;
+  model: string | null;
+  reasoningEffort: string | null;
+}): CanonicalRuntimeSessionStartedEvent | null {
+  if (!input.threadId) {
+    return null;
   }
 
-  return value;
+  return {
+    type: "session.started",
+    session_id: input.threadId,
+    thread_id: input.threadId,
+    turn_id: input.persistedTurnId,
+    agent_app_server_pid: input.processId,
+    model: input.model,
+    reasoning_effort: input.reasoningEffort
+  };
+}
+
+function extractCanonicalSessionStartedEvent(
+  value: Record<string, unknown> | null | undefined
+): CanonicalRuntimeSessionStartedEvent | null {
+  if (getString(value, "type") !== "session.started") {
+    return null;
+  }
+
+  const rawSessionId = getString(value, "session_id");
+  const turnId = getString(value, "turn_id");
+
+  if (!rawSessionId || !turnId) {
+    return null;
+  }
+
+  return {
+    type: "session.started",
+    session_id: rawSessionId,
+    thread_id: getString(value, "thread_id"),
+    turn_id: turnId,
+    agent_app_server_pid: getString(value, "agent_app_server_pid"),
+    model: getString(value, "model"),
+    reasoning_effort: getString(value, "reasoning_effort")
+  };
+}
+
+function summarizeCanonicalRuntimeEvent(event: CanonicalRuntimeEventPayload): string | null {
+  switch (event.type) {
+    case "session.started":
+      return "Runtime session started.";
+    case "thread.started":
+      return "Thread started.";
+    case "turn.started":
+      return "Turn started.";
+    case "turn.completed":
+      return "Turn completed.";
+    case "turn.failed":
+      return "Turn failed.";
+    case "error":
+      return event.message;
+    case "item.started":
+      return `${event.item.type} started.`;
+    case "item.updated":
+      return `${event.item.type} updated.`;
+    case "item.completed":
+      return `${event.item.type} completed.`;
+    default:
+      return null;
+  }
 }
 
 async function finalizeStoppedTurn(
   runStore: SymphonyRuntimeRunStore,
-  agentAnalytics: AgentAnalyticsStore,
   runId: string | null,
   persistedTurnId: string | null
 ): Promise<void> {
@@ -1198,15 +1363,6 @@ async function finalizeStoppedTurn(
     metadata: {
       stopReason: "runtime_stopped"
     }
-  });
-  await agentAnalytics.finalizeTurn({
-    runId,
-    turnId: persistedTurnId,
-    endedAt: new Date().toISOString(),
-    status: "stopped",
-    failureKind: "runtime_stopped",
-    failureMessagePreview: "Turn stopped by runtime.",
-    threadId: null
   });
 }
 

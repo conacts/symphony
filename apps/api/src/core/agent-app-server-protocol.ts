@@ -1,9 +1,7 @@
 export {
-  asRecord,
   attachLineBuffer,
   buildApprovalAnswers,
   buildUnavailableAnswers,
-  getArray,
   getNumber,
   getRecord,
   getString,

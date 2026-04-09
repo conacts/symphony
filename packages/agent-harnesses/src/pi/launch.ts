@@ -2,20 +2,17 @@ import type { AgentRuntimeLaunchTarget } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { HarnessSessionError, type HarnessLaunchSettings } from "../shared/session-types.js";
 import {
-  legacyPiModelLabelPrefix,
   listSupportedPiModels,
   piModelLabelPrefix,
-  piPresetLabelPrefix,
   resolvePiIssueModel,
   resolvePiIssueSelection
 } from "./model-selection.js";
 
-export const agentModelLabelPrefix = piModelLabelPrefix;
-export const agentPresetLabelPrefix = piPresetLabelPrefix;
-export const legacyAgentModelLabelPrefix = legacyPiModelLabelPrefix;
-export const listSupportedAgentModels = listSupportedPiModels;
-
-export const resolveAgentIssueModel = resolvePiIssueModel;
+export {
+  listSupportedPiModels,
+  piModelLabelPrefix,
+  resolvePiIssueModel
+};
 
 export function resolvePiLaunchSettings(
   baseCommand: string,
@@ -76,8 +73,6 @@ export function resolvePiLaunchSettings(
   };
 }
 
-export const resolveAgentLaunchSettings = resolvePiLaunchSettings;
-
 export function resolvePiSdkLaunchSettings(
   baseCommand: string,
   issue: SymphonyTrackerIssue,
@@ -129,8 +124,6 @@ export function resolvePiSdkLaunchSettings(
   };
 }
 
-export const resolveAgentSdkLaunchSettings = resolvePiSdkLaunchSettings;
-
 export function buildPiAppServerSpawnSpec(input: {
   launchTarget: AgentRuntimeLaunchTarget;
   command: string;
@@ -173,8 +166,6 @@ export function buildPiAppServerSpawnSpec(input: {
     env: buildHostCommandEnv(input.hostCommandEnvSource)
   };
 }
-
-export const buildAgentAppServerSpawnSpec = buildPiAppServerSpawnSpec;
 
 export function wrapSessionError(error: unknown): Error {
   if (error instanceof HarnessSessionError) {

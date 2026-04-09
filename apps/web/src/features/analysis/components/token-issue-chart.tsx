@@ -14,7 +14,8 @@ import {
   ChartTooltip,
   type ChartConfig
 } from "@/components/ui/chart";
-import { TokenTooltipContent } from "@/features/analysis/components/token-run-chart";
+import { formatCount } from "@/core/display-formatters";
+import { cn } from "@/lib/utils";
 import type { TokenAnalysisViewModel } from "@/features/analysis/model/token-analysis-view-model";
 
 const chartConfig = {
@@ -52,5 +53,46 @@ export function TokenIssueChart(input: {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function TokenTooltipContent(input: {
+  active?: boolean;
+  payload?: Array<{
+    payload?: {
+      totalTokens?: number;
+      issueIdentifier?: string;
+    };
+  }>;
+}) {
+  const row = input.payload?.[0]?.payload;
+
+  if (!input.active || !row) {
+    return null;
+  }
+
+  return (
+    <div
+      className={cn(
+        "grid min-w-44 gap-1.5 rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl"
+      )}
+    >
+      <div className="font-medium">{row.issueIdentifier ?? "Tokens"}</div>
+      <TooltipStat label="Total" value={row.totalTokens ?? 0} />
+    </div>
+  );
+}
+
+function TooltipStat(input: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-muted-foreground">{input.label}</span>
+      <span className="font-mono font-medium text-foreground tabular-nums">
+        {formatCount(input.value)}
+      </span>
+    </div>
   );
 }

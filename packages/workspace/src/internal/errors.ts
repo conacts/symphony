@@ -1,4 +1,4 @@
-export function hasErrorCode(
+function hasErrorCode(
   error: unknown,
   code: string
 ): error is Error & { code: string } {

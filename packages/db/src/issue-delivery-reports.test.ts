@@ -5,8 +5,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
 import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
 import { createSymphonyIssueDeliveryReportStore } from "./issue-delivery-reports.js";
+import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
 
 const tempDirectories: string[] = [];
+const testRepositoryKey = "openai/symphony";
 
 afterEach(async () => {
   await Promise.all(
@@ -27,16 +29,38 @@ describe("issue delivery report store", () => {
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const timelineStore = createSymphonyIssueTimelineStore(database.db);
+    const timelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
+    });
     const store = createSymphonyIssueDeliveryReportStore({
+      db: database.db,
+      timelineStore,
+      repositoryKey: testRepositoryKey
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db,
       timelineStore
     });
 
     try {
-      await store.record({
-        issueId: "issue-1",
+      await runStore.recordRunStarted({
+        runId: "run-1",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-157",
         issueIdentifier: "COL-157",
+        runMode: "implementation",
+        status: "running",
+        startedAt: "2026-04-05T17:59:00.000Z"
+      });
+      await runStore.recordTurnStarted("run-1", {
+        turnId: "turn-1",
+        turnSequence: 1,
+        threadId: "thread-1",
+        promptText: "Continue the issue.",
+        status: "running",
+        startedAt: "2026-04-05T17:59:30.000Z"
+      });
+      await store.record({
         runId: "run-1",
         status: "blocked",
         summary: "Blocked on auth.",
@@ -44,15 +68,13 @@ describe("issue delivery report store", () => {
         reportedAt: "2026-04-05T18:00:00.000Z"
       });
       const completedId = await store.record({
-        issueId: "issue-1",
-        issueIdentifier: "COL-157",
         runId: "run-1",
-        turnId: "turn-2",
+        turnId: "turn-1",
         status: "completed",
         summary: "Opened the PR.",
         prUrl: "https://github.com/example/repo/pull/157",
         prNumber: "157",
-        branchName: "codex/col-157",
+        branchName: "symphony/col-157",
         testsSummary: "pnpm verify:precommit",
         reportedAt: "2026-04-05T18:05:00.000Z"
       });
@@ -72,9 +94,95 @@ describe("issue delivery report store", () => {
       expect(timeline[0]?.payload).toEqual({
         reportId: completedId,
         status: "completed",
-        branchName: "codex/col-157",
+        branchName: "symphony/col-157",
         blockingReason: null
       });
+    } finally {
+      database.close();
+    }
+  });
+
+  it("fails fast when a delivery report loses its canonical issue row", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-delivery-invalid-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const store = createSymphonyIssueDeliveryReportStore({
+      db: database.db,
+      repositoryKey: testRepositoryKey
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      await runStore.recordRunStarted({
+        runId: "run-invalid",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-invalid",
+        issueIdentifier: "COL-999",
+        runMode: "implementation",
+        status: "running",
+        startedAt: "2026-04-05T17:59:00.000Z"
+      });
+      const reportId = await store.record({
+        runId: "run-invalid",
+        status: "partial",
+        summary: "Still working.",
+        reportedAt: "2026-04-05T18:05:00.000Z"
+      });
+
+      database.client.pragma("foreign_keys = OFF");
+      database.client.prepare(`
+        delete from symphony_issues
+        where issue_identifier = ?
+      `).run("COL-999");
+      database.client.pragma("foreign_keys = ON");
+
+      await expect(store.fetchLatestForRun("run-invalid")).rejects.toThrow(
+        `Issue not found for delivery report ${reportId}: COL-999`
+      );
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects completed delivery reports without a prUrl", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-delivery-prurl-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const store = createSymphonyIssueDeliveryReportStore({
+      db: database.db,
+      repositoryKey: testRepositoryKey
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      await runStore.recordRunStarted({
+        runId: "run-prurl",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-prurl",
+        issueIdentifier: "COL-1000",
+        runMode: "implementation",
+        status: "running",
+        startedAt: "2026-04-05T17:59:00.000Z"
+      });
+
+      await expect(
+        store.record({
+          runId: "run-prurl",
+          status: "completed",
+          summary: "Opened the PR.",
+          reportedAt: "2026-04-05T18:05:00.000Z"
+        })
+      ).rejects.toThrow("Completed delivery reports require prUrl.");
     } finally {
       database.close();
     }

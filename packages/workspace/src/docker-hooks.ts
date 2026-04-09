@@ -50,7 +50,7 @@ export async function runWorkspaceHookInContainer(input: {
   }
 }
 
-export function buildWorkspaceHookEnv(
+function buildWorkspaceHookEnv(
   workspacePath: string,
   context: SymphonyWorkspaceContext,
   workerHost: string | null,
@@ -67,8 +67,11 @@ export function buildWorkspaceHookEnv(
   merged.SYMPHONY_WORKSPACE_PATH = workspacePath;
   merged.SYMPHONY_ISSUE_IDENTIFIER = context.issueIdentifier;
 
-  if (context.issueId) {
-    merged.SYMPHONY_ISSUE_ID = context.issueId;
+  if (context.trackerIssueId) {
+    merged.SYMPHONY_TRACKER_ISSUE_ID = context.trackerIssueId;
+  }
+  if (context.repositoryKey) {
+    merged.SYMPHONY_REPOSITORY_KEY = context.repositoryKey;
   }
 
   if (workerHost) {

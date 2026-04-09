@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createSymphonyIssueTimelineStore,
   createSymphonyIssueDeliveryReportStore,
+  createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
 import {
@@ -19,6 +20,7 @@ import {
 } from "./index.js";
 
 const tempRoots: string[] = [];
+const testRepositoryKey = "openai/symphony";
 
 afterEach(async () => {
   await Promise.all(
@@ -33,7 +35,14 @@ afterEach(async () => {
 
 describe("runtime tools", () => {
   it("records completed delivery reports against the active run and turn", async () => {
-    const { database, deliveryReports } = await createRuntimeToolsTestContext();
+    const { database, deliveryReports } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-123",
+        identifier: "COL-123"
+      },
+      runId: "run-123",
+      turnId: "turn-123"
+    });
     const recorded: Array<{ status: string; prUrl: string | null }> = [];
     const tracker = createMemorySymphonyTracker([
       {
@@ -43,7 +52,7 @@ describe("runtime tools", () => {
         description: null,
         priority: null,
         state: "In Progress",
-        branchName: "codex/col-123",
+        branchName: "symphony/col-123",
         url: null,
         projectId: null,
         projectName: null,
@@ -62,7 +71,7 @@ describe("runtime tools", () => {
         tracker,
         deliveryReports,
         issue: {
-          id: "issue-123",
+          trackerIssueId: "issue-123",
           identifier: "COL-123",
           state: "In Progress"
         },
@@ -79,7 +88,7 @@ describe("runtime tools", () => {
         status: "completed",
         summary: "Opened the PR and finished the requested work.",
         prUrl: "https://github.com/openai/symphony/pull/123",
-        branchName: "codex/col-123"
+        branchName: "symphony/col-123"
       }
     );
 
@@ -101,7 +110,7 @@ describe("runtime tools", () => {
         turnId: "turn-123",
         status: "completed",
         prUrl: "https://github.com/openai/symphony/pull/123",
-        branchName: "codex/col-123"
+        branchName: "symphony/col-123"
       })
     );
     expect(tracker.getIssue("issue-123")?.state).toBe("In Review");
@@ -110,14 +119,21 @@ describe("runtime tools", () => {
   });
 
   it("rejects completed delivery reports that omit the PR url", async () => {
-    const { database, deliveryReports } = await createRuntimeToolsTestContext();
+    const { database, deliveryReports } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-123",
+        identifier: "COL-123"
+      },
+      runId: "run-123",
+      turnId: "turn-123"
+    });
 
     const result = await executeDeliveryReportTool(
       {
         tracker: createMemorySymphonyTracker(),
         deliveryReports,
         issue: {
-          id: "issue-123",
+          trackerIssueId: "issue-123",
           identifier: "COL-123"
         },
         runId: "run-123",
@@ -137,7 +153,14 @@ describe("runtime tools", () => {
   });
 
   it("records delivery even when the In Review transition fails", async () => {
-    const { database, deliveryReports } = await createRuntimeToolsTestContext();
+    const { database, deliveryReports } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-123",
+        identifier: "COL-123"
+      },
+      runId: "run-123",
+      turnId: "turn-123"
+    });
 
     const result = await executeDeliveryReportTool(
       {
@@ -163,7 +186,7 @@ describe("runtime tools", () => {
         },
         deliveryReports,
         issue: {
-          id: "issue-123",
+          trackerIssueId: "issue-123",
           identifier: "COL-123",
           state: "In Progress"
         },
@@ -177,9 +200,60 @@ describe("runtime tools", () => {
       }
     );
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
     expect(String(result.output)).toContain('"success": false');
     expect(await deliveryReports.listForRun("run-123")).toHaveLength(1);
+
+    database.close();
+  });
+
+  it("records blocked delivery reports and moves the issue to Blocked", async () => {
+    const { database, deliveryReports } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-124",
+        identifier: "COL-124"
+      },
+      runId: "run-124",
+      turnId: "turn-124"
+    });
+    const tracker = createMemorySymphonyTracker([
+      buildRuntimeToolIssue({
+        id: "issue-124",
+        identifier: "COL-124",
+        title: "Unblock the workspace integration",
+        state: "In Progress"
+      })
+    ]);
+
+    const result = await executeDeliveryReportTool(
+      {
+        tracker,
+        deliveryReports,
+        issue: {
+          trackerIssueId: "issue-124",
+          identifier: "COL-124",
+          state: "In Progress"
+        },
+        runId: "run-124",
+        turnId: "turn-124",
+        blockedTargetState: "Blocked"
+      },
+      {
+        status: "blocked",
+        summary: "Workspace bootstrap exposed a repository-owned blocker.",
+        blockingReason: "Missing required repo credentials for integration tests."
+      }
+    );
+
+    expect(result.success).toBe(true);
+    expect(String(result.output)).toContain('"targetState": "Blocked"');
+    expect(tracker.getIssue("issue-124")?.state).toBe("Blocked");
+    expect(await deliveryReports.listForRun("run-124")).toEqual([
+      expect.objectContaining({
+        status: "blocked",
+        blockingReason: "Missing required repo credentials for integration tests."
+      })
+    ]);
 
     database.close();
   });
@@ -197,7 +271,7 @@ describe("runtime tools", () => {
       {
         tracker,
         issue: {
-          id: "issue-456",
+          trackerIssueId: "issue-456",
           identifier: "SYM-456",
           state: "In Progress"
         },
@@ -239,7 +313,7 @@ describe("runtime tools", () => {
       {
         tracker,
         issue: {
-          id: "issue-789",
+          trackerIssueId: "issue-789",
           identifier: "SYM-789",
           state: "In Progress"
         },
@@ -269,7 +343,15 @@ describe("runtime tools", () => {
   });
 
   it("records a merged result for the active approved run", async () => {
-    const { issueTimelineStore } = await createRuntimeToolsTestContext();
+    const { database, issueTimelineStore } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-321",
+        identifier: "SYM-321"
+      },
+      runId: "run-321",
+      turnId: "turn-321",
+      runMode: "approved_merge"
+    });
     const tracker = createMemorySymphonyTracker([
       buildRuntimeToolIssue({
         id: "issue-321",
@@ -284,7 +366,7 @@ describe("runtime tools", () => {
         tracker,
         issueTimelineStore,
         issue: {
-          id: "issue-321",
+          trackerIssueId: "issue-321",
           identifier: "SYM-321",
           state: "In Progress"
         },
@@ -322,17 +404,27 @@ describe("runtime tools", () => {
         eventType: "merge_result_reported"
       })
     );
+
+    database.close();
   });
 
   it("rejects blocked merge results that omit the blocking reason", async () => {
-    const { issueTimelineStore } = await createRuntimeToolsTestContext();
+    const { database, issueTimelineStore } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-654",
+        identifier: "SYM-654"
+      },
+      runId: "run-654",
+      turnId: "turn-654",
+      runMode: "approved_merge"
+    });
 
     const result = await executeMergeResultTool(
       {
         tracker: createMemorySymphonyTracker(),
         issueTimelineStore,
         issue: {
-          id: "issue-654",
+          trackerIssueId: "issue-654",
           identifier: "SYM-654"
         },
         runId: "run-654",
@@ -346,21 +438,59 @@ describe("runtime tools", () => {
 
     expect(result.success).toBe(false);
     expect(String(result.output)).toContain("requires `blockingReason`");
+
+    database.close();
   });
 });
 
-async function createRuntimeToolsTestContext() {
+async function createRuntimeToolsTestContext(input: {
+  issue: {
+    id: string;
+    identifier: string;
+  };
+  runId: string;
+  turnId?: string;
+  runMode?: "implementation" | "rework" | "approved_merge";
+}) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-tools-"));
   tempRoots.push(root);
 
   const database = initializeSymphonyDb({
     dbFile: path.join(root, "symphony.db")
   });
-  const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
+  const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+    repositoryKey: testRepositoryKey
+  });
   const deliveryReports = createSymphonyIssueDeliveryReportStore({
+    db: database.db,
+    timelineStore: issueTimelineStore,
+    repositoryKey: testRepositoryKey
+  });
+  const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db,
     timelineStore: issueTimelineStore
   });
+
+  await runStore.recordRunStarted({
+    runId: input.runId,
+    repositoryKey: testRepositoryKey,
+    trackerIssueId: input.issue.id,
+    issueIdentifier: input.issue.identifier,
+    runMode: input.runMode ?? "implementation",
+    status: "running",
+    startedAt: "2026-04-05T19:00:00.000Z"
+  });
+
+  if (input.turnId) {
+    await runStore.recordTurnStarted(input.runId, {
+      turnId: input.turnId,
+      turnSequence: 1,
+      threadId: `thread-${input.turnId}`,
+      promptText: "Continue the issue.",
+      status: "running",
+      startedAt: "2026-04-05T19:00:01.000Z"
+    });
+  }
 
   return {
     database,
@@ -377,7 +507,7 @@ function buildRuntimeToolIssue(overrides: Partial<SymphonyTrackerIssue> = {}) {
     description: null,
     priority: null,
     state: "In Progress",
-    branchName: "codex/col-123",
+    branchName: "symphony/col-123",
     url: null,
     projectId: null,
     projectName: null,

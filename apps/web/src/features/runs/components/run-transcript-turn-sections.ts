@@ -1,6 +1,6 @@
 import type { AgentRunTranscriptEntry } from "@/features/runs/model/agent-run-transcript";
 
-export type TranscriptSection = {
+type TranscriptSection = {
   key: string;
   label: string;
   description: string;

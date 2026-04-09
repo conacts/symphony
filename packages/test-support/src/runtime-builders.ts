@@ -159,12 +159,12 @@ export function buildSymphonyRuntimeStateResult(
 
   const running = (overrides.running ?? [
     {
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       state: "In Progress",
       workerHost: "worker-b",
       workspacePath: "/tmp/workspaces/col-165",
-      sessionId: "session_123",
+      threadId: "thread_123",
       workspace: defaultRunningWorkspace,
       launchTarget: defaultRunningLaunchTarget,
       turnCount: 4,
@@ -179,12 +179,12 @@ export function buildSymphonyRuntimeStateResult(
       }
     }
   ]).map((entry): RuntimeRunningEntry => ({
-    issueId: "issue_123",
+    trackerIssueId: "issue_123",
     issueIdentifier: "COL-165",
     state: "In Progress",
     workerHost: "worker-b",
     workspacePath: "/tmp/workspaces/col-165",
-    sessionId: "session_123",
+    threadId: "thread_123",
     turnCount: 4,
     lastEvent: "message.output",
     lastMessage: "Runtime view updated",
@@ -207,7 +207,7 @@ export function buildSymphonyRuntimeStateResult(
   }));
   const retrying = (overrides.retrying ?? [
     {
-      issueId: "issue_456",
+      trackerIssueId: "issue_456",
       issueIdentifier: "COL-166",
       attempt: 2,
       dueAt: "2026-03-31T18:05:00.000Z",
@@ -218,7 +218,7 @@ export function buildSymphonyRuntimeStateResult(
       launchTarget: defaultContainerLaunchTarget
     }
   ]).map((entry): RuntimeRetryEntry => ({
-    issueId: "issue_456",
+    trackerIssueId: "issue_456",
     issueIdentifier: "COL-166",
     attempt: 2,
     dueAt: "2026-03-31T18:05:00.000Z",
@@ -327,7 +327,7 @@ export function buildSymphonyRuntimeIssueResult(
   const defaultRunning: NonNullable<SymphonyRuntimeIssueResult["running"]> = {
     workerHost: "worker-b",
     workspacePath: "/tmp/symphony-COL-167",
-    sessionId: "session-167",
+    threadId: "thread-167",
     launchTarget: {
       kind: "container",
       hostLaunchPath: "/tmp/symphony-COL-167",
@@ -352,7 +352,7 @@ export function buildSymphonyRuntimeIssueResult(
 
   return {
     issueIdentifier: "COL-167",
-    issueId: "issue-167",
+    trackerIssueId: "issue-167",
     status: "running",
     workspace: {
       ...defaultWorkspace,
@@ -411,7 +411,7 @@ export function buildSymphonyRuntimeIssueResult(
         ],
         modelOverrideLabelPrefix: "model:",
         selectionHelpText:
-          "Pi selection is label-driven. Prefer model:<preset> for repo-defined tiers; raw symphony:model:<model> labels still work for direct model overrides."
+          "Pi selection is label-driven. Use model:<preset> for repo-defined tiers or model:<model> for a direct model override."
       }
     },
     ...Object.fromEntries(
@@ -429,7 +429,7 @@ export function buildSymphonyForensicsIssueListResult(
     issues: [
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         latestRunStartedAt: "2026-03-31T18:00:00.000Z",
         latestRunId: "run_123",
@@ -510,7 +510,7 @@ export function buildSymphonyForensicsIssueDetailResult(
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
         runId: "run_12345678",
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         attempt: 1,
         status: "finished",
@@ -580,7 +580,7 @@ export function buildSymphonyForensicsProblemRunsResult(
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
         runId: "run_12345678",
-        issueId: "issue_123",
+        trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         attempt: 1,
         status: "finished",
@@ -644,7 +644,7 @@ export function buildSymphonyForensicsRunDetailResult(
   return {
     issue: {
       repositoryKey: DEFAULT_REPOSITORY_KEY,
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       latestRunStartedAt: "2026-03-31T18:00:00.000Z",
       latestRunId: "run_123",
@@ -664,7 +664,7 @@ export function buildSymphonyForensicsRunDetailResult(
     run: {
       repositoryKey: DEFAULT_REPOSITORY_KEY,
       runId: "run_123",
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       attempt: 1,
       status: "finished",
@@ -725,7 +725,7 @@ export function buildSymphonyForensicsRunDetailResult(
     deliveryReport: {
       reportId: "delivery_123",
       repositoryKey: DEFAULT_REPOSITORY_KEY,
-      issueId: "issue_123",
+      trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       runId: "run_123",
       turnId: "turn_123",
@@ -733,7 +733,7 @@ export function buildSymphonyForensicsRunDetailResult(
       summary: "Opened the pull request.",
       prUrl: "https://github.com/example/repo/pull/165",
       prNumber: "165",
-      branchName: "codex/col-165",
+      branchName: "symphony/col-165",
       blockingReason: null,
       testsSummary: "pnpm verify:precommit",
       source: "pi",
@@ -744,47 +744,45 @@ export function buildSymphonyForensicsRunDetailResult(
       {
         turnId: "turn_123",
         runId: "run_123",
-      turnSequence: 1,
-      threadId: null,
-      agentTurnId: null,
-      sessionId: "session_123",
-      promptText: "Solve the task",
-      status: "completed",
-      startedAt: "2026-03-31T18:00:00.000Z",
-      endedAt: "2026-03-31T18:01:00.000Z",
-      usage: {
-        input_tokens: 120,
-        cached_input_tokens: 0,
-        output_tokens: 80
-      },
-      metadata: {},
-      insertedAt: "2026-03-31T18:00:00.000Z",
-      updatedAt: "2026-03-31T18:01:00.000Z",
-      eventCount: 1,
-      events: [
-        {
-          eventId: "event_123",
-          turnId: "turn_123",
-          runId: "run_123",
-          eventSequence: 1,
-          eventType: "item.completed",
-          itemType: "agent_message",
-          itemStatus: null,
-          recordedAt: "2026-03-31T18:01:00.000Z",
-          payload: {
-            type: "item.completed",
-            item: {
-              id: "message_123",
-              type: "agent_message",
-              text: "done"
-            }
-          },
-          payloadTruncated: false,
-          payloadBytes: 12,
+        turnSequence: 1,
+        threadId: "thread_123",
+        agentTurnId: null,
+        promptText: "Solve the task",
+        status: "completed",
+        startedAt: "2026-03-31T18:00:00.000Z",
+        endedAt: "2026-03-31T18:01:00.000Z",
+        usage: {
+          input_tokens: 120,
+          cached_input_tokens: 0,
+          output_tokens: 80
+        },
+        metadata: {},
+        insertedAt: "2026-03-31T18:00:00.000Z",
+        updatedAt: "2026-03-31T18:01:00.000Z",
+        eventCount: 1,
+        events: [
+          {
+            eventId: "event_123",
+            turnId: "turn_123",
+            runId: "run_123",
+            eventSequence: 1,
+            eventType: "item.completed",
+            itemType: "agent_message",
+            itemStatus: null,
+            recordedAt: "2026-03-31T18:01:00.000Z",
+            payload: {
+              type: "item.completed",
+              item: {
+                id: "message_123",
+                type: "agent_message",
+                text: "done"
+              }
+            },
+            payloadTruncated: false,
+            payloadBytes: 12,
             summary: "Produced output",
-            threadId: null,
+            threadId: "thread_123",
             agentTurnId: null,
-            sessionId: "session_123",
             insertedAt: "2026-03-31T18:01:00.000Z"
           }
         ]

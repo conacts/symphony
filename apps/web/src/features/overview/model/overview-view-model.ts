@@ -35,7 +35,7 @@ export type RuntimeSummaryViewModel = {
   runningRows: Array<{
     issueIdentifier: string;
     state: string;
-    sessionId: string | null;
+    threadId: string | null;
     execution: string;
     runtimeAndTurns: string;
     agentUpdate: string;
@@ -130,7 +130,7 @@ export function buildRuntimeSummaryViewModel(
     runningRows: runtimeSummary.running.map((entry) => ({
       issueIdentifier: entry.issueIdentifier,
       state: formatStatusLabel(entry.state),
-      sessionId: entry.sessionId ?? null,
+      threadId: entry.threadId ?? null,
       execution: formatExecution(entry.workspace, entry.launchTarget),
       runtimeAndTurns: formatRuntimeAndTurns(entry.startedAt, entry.turnCount, now),
       agentUpdate: formatAgentUpdate(

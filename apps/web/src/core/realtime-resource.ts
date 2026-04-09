@@ -10,7 +10,7 @@ import {
   serializeRealtimeClientMessage
 } from "@/core/runtime-summary-client";
 
-export type RealtimeResourceStatus = "connecting" | "connected" | "degraded";
+type RealtimeResourceStatus = "connecting" | "connected" | "degraded";
 
 export function shouldDegradeRealtimeState(input: {
   hasResource: boolean;

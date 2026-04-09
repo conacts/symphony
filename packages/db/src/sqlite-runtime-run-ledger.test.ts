@@ -7,6 +7,7 @@ import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
 import { createSqliteSymphonyRuntimeRunLedger } from "./sqlite-runtime-run-ledger.js";
 
 const tempDirectories: string[] = [];
+const testRepositoryKey = "openai/symphony";
 
 afterEach(async () => {
   await Promise.all(
@@ -30,14 +31,17 @@ describe("sqlite symphony runtime run ledger", () => {
     const journal = createSqliteSymphonyRuntimeRunLedger({
       db: database.db,
       dbFile: path.join(root, "symphony.db"),
-      timelineStore: createSymphonyIssueTimelineStore(database.db)
+      timelineStore: createSymphonyIssueTimelineStore(database.db, {
+        repositoryKey: testRepositoryKey
+      })
     });
 
     try {
       const runId = await journal.recordRunStarted(
         {
-          issueId: "issue-metadata",
+          trackerIssueId: "issue-metadata",
           issueIdentifier: "COL-META",
+          repositoryKey: testRepositoryKey,
           runMode: "implementation",
           runId: "run-meta",
           attempt: 1,
@@ -55,7 +59,7 @@ describe("sqlite symphony runtime run ledger", () => {
 
       await journal.updateRun(runId, {
         metadata: {
-          sessionId: "session-123"
+          threadId: "thread-123"
         }
       });
 
@@ -64,7 +68,7 @@ describe("sqlite symphony runtime run ledger", () => {
       expect(exportPayload?.run.metadata).toEqual({
         runMode: "implementation",
         runtime: "typescript",
-        sessionId: "session-123"
+        threadId: "thread-123"
       });
     } finally {
       database.close();
@@ -81,13 +85,16 @@ describe("sqlite symphony runtime run ledger", () => {
     const ledger = createSqliteSymphonyRuntimeRunLedger({
       db: database.db,
       dbFile: path.join(root, "symphony.db"),
-      timelineStore: createSymphonyIssueTimelineStore(database.db)
+      timelineStore: createSymphonyIssueTimelineStore(database.db, {
+        repositoryKey: testRepositoryKey
+      })
     });
 
     try {
       const runId = await ledger.recordRunStarted({
-        issueId: "issue-tokens",
+        trackerIssueId: "issue-tokens",
         issueIdentifier: "COL-TOKENS",
+        repositoryKey: testRepositoryKey,
         runMode: "implementation",
         runId: "run-tokens",
         status: "running",
@@ -96,6 +103,7 @@ describe("sqlite symphony runtime run ledger", () => {
       const turnId = await ledger.recordTurnStarted(runId, {
         turnId: "turn-tokens",
         turnSequence: 1,
+        threadId: "thread-tokens",
         promptText: "Measure token totals",
         status: "running",
         startedAt: "2026-03-31T00:00:01.000Z"

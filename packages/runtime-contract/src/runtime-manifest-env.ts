@@ -165,8 +165,8 @@ function runtimeBindingValue(
   input: SymphonyRuntimeEnvResolutionInput
 ): string | null {
   switch (bindingValue) {
-    case "issueId":
-      return input.runtime.issueId;
+    case "trackerIssueId":
+      return input.runtime.trackerIssueId;
     case "issueIdentifier":
       return input.runtime.issueIdentifier;
     case "runId":

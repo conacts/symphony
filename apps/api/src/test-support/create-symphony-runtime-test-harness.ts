@@ -24,6 +24,7 @@ import {
   createSqliteAgentAnalyticsReadStore,
   symphonyAgentPayloadOverflowTable,
   createSqliteAgentAnalyticsStore,
+  createSqliteRuntimeForensicsReadStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
@@ -202,8 +203,16 @@ export async function createSymphonyRuntimeTestHarness(input: {
   const database = initializeSymphonyDb({
     dbFile: path.join(root, "symphony.db")
   });
-  const issueTimelineStore = createSymphonyIssueTimelineStore(database.db);
-  const runtimeLogStore = createSymphonyRuntimeLogStore(database.db);
+  const repositoryKey = runtimePolicy.github.repo;
+  if (!repositoryKey) {
+    throw new TypeError("Runtime test harness requires runtimePolicy.github.repo.");
+  }
+  const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+    repositoryKey
+  });
+  const runtimeLogStore = createSymphonyRuntimeLogStore(database.db, {
+    repositoryKey
+  });
   const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db,
     timelineStore: issueTimelineStore
@@ -214,11 +223,14 @@ export async function createSymphonyRuntimeTestHarness(input: {
   const agentAnalyticsReadStore = createSqliteAgentAnalyticsReadStore({
     db: database.db
   });
+  const runtimeForensicsReadStore = createSqliteRuntimeForensicsReadStore({
+    db: database.db
+  });
 
   const runId = await runStore.recordRunStarted(
     buildSymphonyRunStartAttrs({
       runId: "run-123",
-      issueId: issue.id,
+      trackerIssueId: issue.id,
       issueIdentifier: issue.identifier
     })
   );
@@ -228,14 +240,6 @@ export async function createSymphonyRuntimeTestHarness(input: {
       turnId: "turn-123"
     })
   );
-  await agentAnalyticsStore.startRun({
-    runId,
-    issueId: issue.id,
-    issueIdentifier: issue.identifier,
-    startedAt: "2026-03-31T00:00:00.000Z",
-    status: "running",
-    threadId: "thread-123"
-  });
   await agentAnalyticsStore.recordEvent({
     runId,
     turnId,
@@ -259,6 +263,59 @@ export async function createSymphonyRuntimeTestHarness(input: {
         text: "Initial agent message"
       }
     }
+  });
+  await runStore.recordEvent(runId, turnId, {
+    eventType: "session.started",
+    recordedAt: "2026-03-31T00:00:00.000Z",
+    threadId: "thread-123",
+    payload: {
+      type: "session.started",
+      session_id: "thread-123",
+      thread_id: "thread-123",
+      turn_id: turnId,
+      agent_app_server_pid: "4242",
+      model: "gpt-5.4",
+      reasoning_effort: "high"
+    },
+    summary: "Runtime session started."
+  });
+  await runStore.recordEvent(runId, turnId, {
+    eventType: "thread.started",
+    recordedAt: "2026-03-31T00:00:00.000Z",
+    threadId: "thread-123",
+    payload: {
+      type: "thread.started",
+      thread_id: "thread-123"
+    },
+    summary: "Thread started."
+  });
+  await runStore.recordEvent(runId, turnId, {
+    eventType: "item.completed",
+    recordedAt: "2026-03-31T00:00:01.000Z",
+    threadId: "thread-123",
+    payload: {
+      type: "item.completed",
+      item: {
+        id: "item-123",
+        type: "agent_message",
+        text: "Initial agent message"
+      }
+    },
+    summary: "agent_message completed."
+  });
+  await runStore.recordEvent(runId, turnId, {
+    eventType: "turn.completed",
+    recordedAt: "2026-03-31T00:00:02.000Z",
+    threadId: "thread-123",
+    payload: {
+      type: "turn.completed",
+      usage: {
+        input_tokens: 10,
+        cached_input_tokens: 0,
+        output_tokens: 5
+      }
+    },
+    summary: "Turn completed."
   });
   await agentAnalyticsStore.recordEvent({
     runId,
@@ -287,28 +344,9 @@ export async function createSymphonyRuntimeTestHarness(input: {
       insertedAt: "2026-03-31T00:00:01.000Z"
     })
     .run();
-  await agentAnalyticsStore.finalizeTurn({
-    runId,
-    turnId,
-    endedAt: "2026-03-31T00:01:00.000Z",
-    status: "completed",
-    threadId: "thread-123",
-    failureKind: null,
-    failureMessagePreview: null
-  });
-  await agentAnalyticsStore.finalizeRun({
-    runId,
-    endedAt: "2026-03-31T00:01:00.000Z",
-    status: "completed",
-    threadId: "thread-123",
-    failureKind: null,
-    failureOrigin: null,
-    failureMessagePreview: null
-  });
   await runStore.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
   await runStore.finalizeRun(runId, buildSymphonyRunFinishAttrs());
   await issueTimelineStore.record({
-    issueId: issue.id,
     issueIdentifier: issue.identifier,
     runId,
     source: "orchestrator",
@@ -323,10 +361,43 @@ export async function createSymphonyRuntimeTestHarness(input: {
     source: "runtime",
     eventType: "db_initialized",
     message: "Initialized Symphony DB.",
-    issueId: issue.id,
     issueIdentifier: issue.identifier,
     runId,
     payload: null
+  });
+  await runtimeLogStore.record({
+    level: "info",
+    source: "agent_runtime",
+    eventType: "runtime_session_started",
+    message: "Started the agent harness session.",
+    issueIdentifier: issue.identifier,
+    runId,
+    payload: {
+      threadId: "thread-123",
+      processId: "4242",
+      model: "gpt-5.4",
+      reasoningEffort: "high",
+      profile: null,
+      providerId: "openrouter",
+      providerName: "OpenRouter",
+      authMode: "api_key_env",
+      providerEnvKey: "OPENROUTER_API_KEY",
+      harness: "pi",
+      launchTarget: null
+    }
+  });
+  await runStore.upsertRunContext(runId, {
+    harnessKind: "pi",
+    threadId: "thread-123",
+    processId: "4242",
+    model: "gpt-5.4",
+    reasoningEffort: "high",
+    profile: null,
+    providerId: "openrouter",
+    providerName: "OpenRouter",
+    authMode: "api_key_env",
+    providerEnvKey: "OPENROUTER_API_KEY",
+    launchTarget: null
   });
 
   const snapshot = buildSymphonyOrchestratorSnapshot({
@@ -342,7 +413,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
           state: "In Progress"
         },
         runId,
-        sessionId: "thread-live",
+        threadId: "thread-live",
         workerHost: null,
         launchTarget: null,
         workspacePath: path.join(root, `symphony-${issue.identifier}`),
@@ -405,15 +476,17 @@ export async function createSymphonyRuntimeTestHarness(input: {
     },
     agentAnalytics: createAgentAnalyticsReadPort(agentAnalyticsReadStore),
     forensics: createSymphonyForensicsReadModel({
-      runStore: agentAnalyticsReadStore,
+      runStore: runtimeForensicsReadStore,
       async listIssueTimeline(input) {
         return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
-          repositoryKey: input.repositoryKey,
           limit: input.limit
         });
       },
       async listRuntimeLogs(input) {
-        return runtimeLogStore.list(input);
+        return runtimeLogStore.list({
+          limit: input.limit,
+          issueIdentifier: input.issueIdentifier
+        });
       }
     }),
     issueTimeline: {
@@ -421,15 +494,14 @@ export async function createSymphonyRuntimeTestHarness(input: {
         const entries = await issueTimelineStore.listIssueTimeline(
           issueIdentifier,
           {
-            limit,
-            repositoryKey: repo
+            limit
           }
         );
 
         return entries.length === 0
           ? null
           : {
-              repositoryKey: repo ?? entries[0].repositoryKey,
+              repositoryKey: entries[0].repositoryKey,
               issueIdentifier,
               entries,
               filters: {
@@ -443,7 +515,6 @@ export async function createSymphonyRuntimeTestHarness(input: {
       async list(input = {}) {
         const logs = await runtimeLogStore.list({
           limit: input.limit,
-          repositoryKey: input.repo,
           issueIdentifier: input.issueIdentifier
         });
 

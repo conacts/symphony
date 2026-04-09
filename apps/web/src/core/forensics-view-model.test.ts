@@ -10,7 +10,7 @@ describe("forensics view model", () => {
       issues: [
         {
           repositoryKey: "symphony",
-          issueId: "issue_123",
+          trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           latestRunStartedAt: "2026-03-31T18:00:00.000Z",
           latestRunId: "run_123",
@@ -108,7 +108,7 @@ describe("forensics view model", () => {
         {
           repositoryKey: "symphony",
           runId: "run_123",
-          issueId: "issue_123",
+          trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           attempt: 1,
           status: "finished",
@@ -188,7 +188,7 @@ describe("forensics view model", () => {
         {
           repositoryKey: "symphony",
           runId: "run_123",
-          issueId: "issue_123",
+          trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           attempt: 1,
           status: "finished",
@@ -235,7 +235,7 @@ describe("forensics view model", () => {
         {
           repositoryKey: "symphony",
           runId: "run_124",
-          issueId: "issue_123",
+          trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           attempt: 2,
           status: "failed",
@@ -343,9 +343,9 @@ describe("forensics view model", () => {
         {
           repositoryKey: "symphony",
           runId: "564d183f-24ed-4c4f-be2e-06b15d2782b0",
-          issueId: "issue_123",
+          trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
-          attempt: 0,
+          attempt: null,
           status: "stopped",
           outcome: "run_stopped_terminal",
           agentHarness: "pi",
@@ -379,9 +379,9 @@ describe("forensics view model", () => {
         {
           repositoryKey: "symphony",
           runId: "b2122cb9-5748-4d41-92b3-29eb082ce99b",
-          issueId: "issue_123",
+          trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
-          attempt: 0,
+          attempt: null,
           status: "stopped",
           outcome: "run_stopped_inactive",
           agentHarness: "pi",

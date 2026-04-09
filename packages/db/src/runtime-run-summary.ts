@@ -15,15 +15,15 @@ type RuntimeEventRow = Pick<
   "runId" | "eventSequence" | "eventType" | "recordedAt"
 >;
 type RuntimeIssueRow = {
-  issueId: string;
-  repositoryKey: string;
   issueIdentifier: string;
+  trackerIssueId: string;
+  repositoryKey: string;
   latestRunStartedAt: string | null;
   insertedAt: string | null;
   updatedAt: string | null;
 };
 
-export type SymphonyRuntimeTokenTotals = {
+type SymphonyRuntimeTokenTotals = {
   inputTokens: number;
   cachedInputTokens: number;
   outputTokens: number;
@@ -31,6 +31,7 @@ export type SymphonyRuntimeTokenTotals = {
 };
 
 export function buildRuntimeRunSummary(
+  issue: Pick<RuntimeIssueRow, "issueIdentifier" | "trackerIssueId">,
   run: RuntimeRunRow,
   turns: RuntimeTurnRow[],
   events: RuntimeEventRow[]
@@ -52,7 +53,7 @@ export function buildRuntimeRunSummary(
   return {
     runId: run.runId,
     repositoryKey: run.repositoryKey,
-    issueId: run.issueId,
+    trackerIssueId: issue.trackerIssueId,
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
     status: run.status,
@@ -104,14 +105,14 @@ export function buildRuntimeIssueSummary(
   runs: RuntimeRunRow[]
 ): SymphonyIssueSummary {
   const issueRuns = runs
-    .filter((run) => run.issueId === issue.issueId)
+    .filter((run) => run.issueIdentifier === issue.issueIdentifier)
     .sort((left, right) => compareDescendingTimestamps(left.startedAt, right.startedAt));
   const latestRun = issueRuns[0];
   const latestProblemRun = issueRuns.find((run) => isProblemOutcome(run.outcome));
   const lastCompletedRun = issueRuns.find((run) => isCompletedOutcome(run.outcome));
 
   return {
-    issueId: issue.issueId,
+    trackerIssueId: issue.trackerIssueId,
     repositoryKey: issue.repositoryKey,
     issueIdentifier: issue.issueIdentifier,
     latestRunStartedAt: issue.latestRunStartedAt ?? null,
@@ -126,7 +127,7 @@ export function buildRuntimeIssueSummary(
   };
 }
 
-export function parseRuntimeTurnTokenTotals(tokens: unknown): SymphonyRuntimeTokenTotals {
+function parseRuntimeTurnTokenTotals(tokens: unknown): SymphonyRuntimeTokenTotals {
   const value =
     tokens && typeof tokens === "object" && !Array.isArray(tokens)
       ? (tokens as Record<string, unknown>)
@@ -143,13 +144,13 @@ export function parseRuntimeTurnTokenTotals(tokens: unknown): SymphonyRuntimeTok
   };
 }
 
-export function parseTokenCount(value: unknown): number {
+function parseTokenCount(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? Math.floor(value)
     : 0;
 }
 
-export function computeDurationSeconds(
+function computeDurationSeconds(
   startedAt: string | null,
   endedAt: string | null
 ): number | null {
@@ -170,7 +171,7 @@ export function computeDurationSeconds(
   return Math.max(0, Math.floor((endedMs - startedMs) / 1_000));
 }
 
-export function compareDescendingTimestamps(
+function compareDescendingTimestamps(
   left: string | null | undefined,
   right: string | null | undefined
 ): number {
@@ -179,8 +180,8 @@ export function compareDescendingTimestamps(
   return rightTime - leftTime;
 }
 
-export function isCompletedOutcome(outcome: string | null): boolean {
-  return outcome === "completed" || outcome === "completed_turn_batch";
+function isCompletedOutcome(outcome: string | null): boolean {
+  return outcome === "completed" || outcome === "merged" || outcome === "done";
 }
 
 export function isProblemOutcome(outcome: string | null): boolean {
