@@ -503,6 +503,9 @@ importers:
 
   packages/github-review:
     dependencies:
+      '@symphony/runtime-contract':
+        specifier: workspace:*
+        version: link:../runtime-contract
       '@symphony/tracker':
         specifier: workspace:*
         version: link:../tracker
