@@ -1,5 +1,6 @@
-import { chmod, copyFile, mkdir, stat } from "node:fs/promises";
+import { chmod, mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import Database from "better-sqlite3";
 import { SymphonyDbError } from "./errors.js";
 
 export const defaultRuntimeDbSnapshotName = "runtime-snapshot.db";
@@ -7,9 +8,9 @@ export const defaultRuntimeDbSnapshotName = "runtime-snapshot.db";
 /**
  * Creates a read-only snapshot copy of the Symphony runtime database.
  *
- * The snapshot is a simple file copy that agents can safely inspect without
- * affecting the live runtime database. The file is made read-only to prevent
- * accidental modifications.
+ * The snapshot uses SQLite's backup API so it stays consistent even when the
+ * source database is live and writing in WAL mode. The file is made read-only
+ * to prevent accidental modifications.
  *
  * @param input.sourceDbFile - Path to the source runtime database file
  * @param input.targetDirectory - Directory where the snapshot should be created
@@ -46,14 +47,23 @@ export async function copySymphonyDbSnapshot(input: {
     );
   }
 
-  // Copy the database file
+  await removeExistingSnapshotFile(targetPath);
+
+  let sourceDb: Database.Database | null = null;
   try {
-    await copyFile(sourcePath, targetPath);
+    sourceDb = new Database(sourcePath, {
+      readonly: true,
+      fileMustExist: true
+    });
+    await sourceDb.backup(targetPath);
   } catch (error) {
+    await rm(targetPath, { force: true }).catch(() => {});
     throw new SymphonyDbError(
-      `Failed to copy database snapshot from ${sourcePath} to ${targetPath}`,
+      `Failed to create database snapshot from ${sourcePath} to ${targetPath}`,
       { cause: error }
     );
+  } finally {
+    sourceDb?.close();
   }
 
   // Make the snapshot read-only
@@ -80,4 +90,36 @@ export function buildRuntimeDbSnapshotContainerPath(input: {
 }): string {
   const snapshotName = input.snapshotName ?? defaultRuntimeDbSnapshotName;
   return path.posix.join(input.workspacePath, ".symphony-runtime", snapshotName);
+}
+
+async function removeExistingSnapshotFile(targetPath: string): Promise<void> {
+  try {
+    const targetStat = await stat(targetPath);
+    if (!targetStat.isFile()) {
+      throw new SymphonyDbError(
+        `Snapshot target path is not a file: ${targetPath}`
+      );
+    }
+
+    await chmod(targetPath, 0o644).catch(() => {});
+    await rm(targetPath, { force: true });
+  } catch (error) {
+    if (isEnoent(error)) {
+      return;
+    }
+
+    throw new SymphonyDbError(
+      `Failed to prepare snapshot target path: ${targetPath}`,
+      { cause: error }
+    );
+  }
+}
+
+function isEnoent(error: unknown): error is Error & { code: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "ENOENT"
+  );
 }

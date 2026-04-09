@@ -1,6 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
-import { copyFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
+import {
+  buildRuntimeDbSnapshotContainerPath,
+  copySymphonyDbSnapshot
+} from "@symphony/db";
 import {
   buildSymphonyRuntimePostgresConnectionString,
   type SymphonyLoadedRuntimeManifest,
@@ -2707,36 +2712,17 @@ async function copyRuntimeDbSnapshotToBindMountWorkspace(input: {
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
 }): Promise<string> {
   const snapshotDir = path.join(input.hostWorkspacePath, dockerManifestLifecycleStateDirectoryName);
-  const snapshotHostPath = path.join(snapshotDir, defaultRuntimeDbSnapshotFileName);
-  const snapshotContainerPath = path.posix.join(
-    input.workspacePath,
-    dockerManifestLifecycleStateDirectoryName,
-    defaultRuntimeDbSnapshotFileName
-  );
+  const snapshotContainerPath = buildRuntimeDbSnapshotContainerPath({
+    workspacePath: input.workspacePath,
+    snapshotName: defaultRuntimeDbSnapshotFileName
+  });
 
   try {
-    // Verify source file exists
-    const sourceStat = await stat(input.sourceDbPath);
-    if (!sourceStat.isFile()) {
-      throw new SymphonyWorkspaceError(
-        "runtime_db_snapshot_source_not_file",
-        `Runtime DB snapshot source is not a file: ${input.sourceDbPath}`
-      );
-    }
-
-    // Ensure target directory exists
-    await mkdir(snapshotDir, { recursive: true });
-
-    // Copy the snapshot
-    await copyFile(input.sourceDbPath, snapshotHostPath);
-
-    // Make the snapshot read-only
-    try {
-      const { chmod } = await import("node:fs/promises");
-      await chmod(snapshotHostPath, 0o444);
-    } catch {
-      // Non-fatal: chmod may fail on some platforms/filesystems
-    }
+    const snapshotHostPath = await copySymphonyDbSnapshot({
+      sourceDbFile: input.sourceDbPath,
+      targetDirectory: snapshotDir,
+      snapshotName: defaultRuntimeDbSnapshotFileName
+    });
 
     await emitDockerManifestLifecyclePhaseEvent(
       input.lifecycleRecorder,
@@ -2754,7 +2740,7 @@ async function copyRuntimeDbSnapshotToBindMountWorkspace(input: {
 
     return snapshotContainerPath;
   } catch (error) {
-    if (isEnoent(error)) {
+    if (isMissingRuntimeDbSnapshotSourceError(error)) {
       await emitDockerManifestLifecyclePhaseEvent(
         input.lifecycleRecorder,
         "runtime_db_snapshot_source_missing",
@@ -2800,21 +2786,20 @@ async function copyRuntimeDbSnapshotToVolumeWorkspace(input: {
   timeoutMs: number;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
 }): Promise<string> {
-  const snapshotContainerPath = path.posix.join(
-    input.workspacePath,
-    dockerManifestLifecycleStateDirectoryName,
-    defaultRuntimeDbSnapshotFileName
+  const snapshotContainerPath = buildRuntimeDbSnapshotContainerPath({
+    workspacePath: input.workspacePath,
+    snapshotName: defaultRuntimeDbSnapshotFileName
+  });
+  const tempSnapshotDirectory = await mkdtemp(
+    path.join(tmpdir(), "symphony-runtime-db-snapshot-")
   );
 
   try {
-    // Verify source file exists
-    const sourceStat = await stat(input.sourceDbPath);
-    if (!sourceStat.isFile()) {
-      throw new SymphonyWorkspaceError(
-        "runtime_db_snapshot_source_not_file",
-        `Runtime DB snapshot source is not a file: ${input.sourceDbPath}`
-      );
-    }
+    const snapshotHostPath = await copySymphonyDbSnapshot({
+      sourceDbFile: input.sourceDbPath,
+      targetDirectory: tempSnapshotDirectory,
+      snapshotName: defaultRuntimeDbSnapshotFileName
+    });
 
     // Create the target directory in the container
     const mkdirArgs = [
@@ -2838,7 +2823,7 @@ async function copyRuntimeDbSnapshotToVolumeWorkspace(input: {
     // Copy the snapshot using docker cp
     const cpArgs = [
       "cp",
-      input.sourceDbPath,
+      snapshotHostPath,
       `${input.containerName}:${snapshotContainerPath}`
     ];
     const cpResult = await input.commandRunner({
@@ -2880,7 +2865,7 @@ async function copyRuntimeDbSnapshotToVolumeWorkspace(input: {
 
     return snapshotContainerPath;
   } catch (error) {
-    if (isEnoent(error)) {
+    if (isMissingRuntimeDbSnapshotSourceError(error)) {
       await emitDockerManifestLifecyclePhaseEvent(
         input.lifecycleRecorder,
         "runtime_db_snapshot_source_missing",
@@ -2912,5 +2897,15 @@ async function copyRuntimeDbSnapshotToVolumeWorkspace(input: {
       new Date().toISOString()
     );
     throw error;
+  } finally {
+    await rm(tempSnapshotDirectory, { recursive: true, force: true });
   }
+}
+
+function isMissingRuntimeDbSnapshotSourceError(error: unknown): boolean {
+  return (
+    isEnoent(error) ||
+    (error instanceof Error &&
+      error.message.includes("Source database file not found:"))
+  );
 }

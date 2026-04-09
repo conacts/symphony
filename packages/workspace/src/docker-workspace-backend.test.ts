@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { Writable } from "node:stream";
+import { initializeSymphonyDb } from "@symphony/db";
 import { afterEach, describe, expect, it } from "vitest";
 import { SymphonyWorkspaceError } from "./workspace-identity.js";
 import { createDockerWorkspaceCommandRunner } from "./docker-client.js";
@@ -2212,7 +2213,7 @@ describe("docker workspace backend", () => {
     const snapshotDir = path.join(root, "db-snapshot");
     await mkdir(snapshotDir, { recursive: true });
     const snapshotSource = path.join(snapshotDir, "symphony.db");
-    await writeFile(snapshotSource, "test-db-content");
+    await seedSnapshotSourceDb(snapshotSource, "bind-mount");
 
     const config = buildWorkspaceTestConfig({ workspace: { root } });
     const lifecycleEvents: string[] = [];
@@ -2284,9 +2285,8 @@ describe("docker workspace backend", () => {
       ".symphony-runtime",
       "runtime-snapshot.db"
     );
-    const { readFile } = await import("node:fs/promises");
-    const snapshotContent = await readFile(snapshotHostPath, "utf8");
-    expect(snapshotContent).toBe("test-db-content");
+    const snapshotHeader = await readFile(snapshotHostPath);
+    expect(snapshotHeader.subarray(0, 16).toString("utf8")).toBe("SQLite format 3\u0000");
   });
 
   it("copies runtime DB snapshot into volume workspace using docker cp and sets env var", async () => {
@@ -2294,11 +2294,12 @@ describe("docker workspace backend", () => {
     const snapshotDir = path.join(root, "db-snapshot");
     await mkdir(snapshotDir, { recursive: true });
     const snapshotSource = path.join(snapshotDir, "symphony.db");
-    await writeFile(snapshotSource, "test-db-content");
+    await seedSnapshotSourceDb(snapshotSource, "volume");
 
     const config = buildWorkspaceTestConfig({ workspace: { root } });
     const calls: string[][] = [];
     const lifecycleEvents: string[] = [];
+    let copiedSnapshotHeader: string | null = null;
     const backend = createDockerWorkspaceBackend({
       image: "ghcr.io/openai/symphony-workspace:latest",
       materializationMode: "volume",
@@ -2362,6 +2363,8 @@ describe("docker workspace backend", () => {
         }
 
         if (input.args[0] === "cp") {
+          const snapshotBytes = await readFile(input.args[1]!);
+          copiedSnapshotHeader = snapshotBytes.subarray(0, 16).toString("utf8");
           return { exitCode: 0, stdout: "", stderr: "" };
         }
 
@@ -2387,14 +2390,32 @@ describe("docker workspace backend", () => {
     // Verify docker cp was called with the right arguments
     const cpCall = calls.find((call) => call[0] === "cp");
     expect(cpCall).toBeDefined();
+    expect(copiedSnapshotHeader).toBe("SQLite format 3\u0000");
     expect(cpCall).toEqual([
       "cp",
-      snapshotSource,
+      expect.stringContaining("/runtime-snapshot.db"),
       expect.stringContaining("/workspace/.symphony-runtime/runtime-snapshot.db")
     ]);
   });
 
 });
+
+async function seedSnapshotSourceDb(dbFile: string, value: string): Promise<void> {
+  const db = initializeSymphonyDb({ dbFile });
+  try {
+    db.client.exec(
+      [
+        "create table if not exists workspace_snapshot_probe (",
+        "  id integer primary key,",
+        "  value text not null",
+        ");",
+        `insert into workspace_snapshot_probe(value) values ('${value}')`
+      ].join("\n")
+    );
+  } finally {
+    db.close();
+  }
+}
 
 function buildPreparedDockerWorkspace(input: {
   issueIdentifier: string;

@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   copySymphonyDbSnapshot,
@@ -133,6 +134,41 @@ describe("copySymphonyDbSnapshot", () => {
     snapshotDb.close();
   });
 
+  it("includes uncheckpointed writes from a live WAL database", async () => {
+    const tempDir = await mkdtemp(path.join(tmpdir(), "symphony-snapshot-"));
+    tempDirectories.push(tempDir);
+
+    const sourceDbPath = path.join(tempDir, "source.db");
+    const targetDir = path.join(tempDir, "target");
+
+    const sourceDb = initializeSymphonyDb({ dbFile: sourceDbPath });
+    sourceDb.client.exec(
+      [
+        "create table if not exists snapshot_probe (",
+        "  id integer primary key,",
+        "  value text not null",
+        ");",
+        "insert into snapshot_probe(value) values ('live-write')"
+      ].join("\n")
+    );
+
+    const snapshotPath = await copySymphonyDbSnapshot({
+      sourceDbFile: sourceDbPath,
+      targetDirectory: targetDir
+    });
+
+    const snapshotDb = new Database(snapshotPath, { readonly: true });
+    expect(
+      snapshotDb
+        .prepare<[number], { value: string }>(
+          "select value from snapshot_probe where id = ?"
+        )
+        .get(1)
+    ).toEqual({ value: "live-write" });
+    snapshotDb.close();
+    sourceDb.close();
+  });
+
   it("does not modify the source database", async () => {
     const tempDir = await mkdtemp(path.join(tmpdir(), "symphony-snapshot-"));
     tempDirectories.push(tempDir);
@@ -155,6 +191,52 @@ describe("copySymphonyDbSnapshot", () => {
     // Source file should be unchanged
     expect(sourceStatBefore.size).toBe(sourceStatAfter.size);
     expect(sourceStatBefore.mtimeMs).toBe(sourceStatAfter.mtimeMs);
+  });
+
+  it("refreshes an existing read-only snapshot file", async () => {
+    const tempDir = await mkdtemp(path.join(tmpdir(), "symphony-snapshot-"));
+    tempDirectories.push(tempDir);
+
+    const sourceDbPath = path.join(tempDir, "source.db");
+    const targetDir = path.join(tempDir, "target");
+
+    const sourceDb = initializeSymphonyDb({ dbFile: sourceDbPath });
+    sourceDb.client.exec(
+      [
+        "create table if not exists snapshot_refresh (",
+        "  id integer primary key,",
+        "  value text not null",
+        ");",
+        "insert into snapshot_refresh(value) values ('first')"
+      ].join("\n")
+    );
+
+    const firstSnapshotPath = await copySymphonyDbSnapshot({
+      sourceDbFile: sourceDbPath,
+      targetDirectory: targetDir
+    });
+
+    sourceDb.client.exec(
+      "insert into snapshot_refresh(value) values ('second')"
+    );
+
+    const secondSnapshotPath = await copySymphonyDbSnapshot({
+      sourceDbFile: sourceDbPath,
+      targetDirectory: targetDir
+    });
+
+    expect(secondSnapshotPath).toBe(firstSnapshotPath);
+
+    const snapshotDb = new Database(secondSnapshotPath, { readonly: true });
+    expect(
+      snapshotDb
+        .prepare<[], { count: number }>(
+          "select count(*) as count from snapshot_refresh"
+        )
+        .get()
+    ).toEqual({ count: 2 });
+    snapshotDb.close();
+    sourceDb.close();
   });
 });
 
