@@ -386,6 +386,143 @@ describe("runtime route lifecycle service", () => {
       >(harness.issue.identifier);
       expect(hydration?.snapshot?.projection.currentNode).toBe("blocked");
       expect(hydration?.snapshot?.projection.data.trackerState).toBe("Blocked");
+      expect(hydration?.snapshot?.projection.lastSignal?.type).toBe(
+        "runtime.delivery_reported"
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("routes spike-result state requests into Paused through route history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToRunningImplementation(harness);
+
+      const routed = await harness.service.routeRuntimeStateRequest({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        recordedAt: "2026-04-10T14:12:20.000Z",
+        requestKind: "spike_result",
+        targetState: "Paused"
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Paused");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("paused");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Paused");
+      expect(hydration?.snapshot?.projection.lastSignal?.type).toBe(
+        "runtime.state_requested"
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("routes cancel state requests into Canceled through route history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToRunningImplementation(harness);
+
+      const routed = await harness.service.routeRuntimeStateRequest({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        recordedAt: "2026-04-10T14:12:30.000Z",
+        requestKind: "cancel",
+        targetState: "Canceled"
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Canceled");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("canceled");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Canceled");
+      expect(hydration?.snapshot?.projection.lastSignal?.type).toBe(
+        "runtime.state_requested"
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("routes merged merge results into Done through route history", async () => {
+    const harness = await createHarness({
+      state: "Approved"
+    });
+
+    try {
+      await advanceWorkflowToRunningApprovedMerge(harness);
+
+      const routed = await harness.service.routeMergeResult({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        recordedAt: "2026-04-10T14:12:40.000Z",
+        status: "merged"
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Done");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("done");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Done");
+      expect(hydration?.snapshot?.projection.lastSignal?.type).toBe(
+        "runtime.merge_result_reported"
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("routes blocked merge results into Blocked through route history", async () => {
+    const harness = await createHarness({
+      state: "Approved"
+    });
+
+    try {
+      await advanceWorkflowToRunningApprovedMerge(harness);
+
+      const routed = await harness.service.routeMergeResult({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        recordedAt: "2026-04-10T14:12:50.000Z",
+        status: "blocked"
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Blocked");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("blocked");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Blocked");
+      expect(hydration?.snapshot?.projection.lastSignal?.type).toBe(
+        "runtime.merge_result_reported"
+      );
     } finally {
       harness.close();
     }
@@ -490,10 +627,35 @@ describe("runtime route lifecycle service", () => {
       harness.close();
     }
   });
+
+  it("fails fast when current-flow terminal state contracts do not match the router", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      const trackerConfig = {
+        ...buildSymphonyRuntimePolicy().tracker,
+        terminalStates: ["Done"]
+      };
+
+      await expect(
+        createRuntimeRouteLifecycleService({
+          routeWorkflows: harness.routeWorkflows,
+          tracker: harness.tracker,
+          trackerConfig,
+          repositoryKey: "openai/symphony",
+          now: () => new Date("2026-04-10T14:26:00.000Z")
+        })
+      ).rejects.toThrow(/terminalStates/i);
+    } finally {
+      harness.close();
+    }
+  });
 });
 
 async function createHarness(input: {
-  state: "Todo";
+  state: "Todo" | "Approved";
 }) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-route-lifecycle-service-"));
   tempDirectories.push(root);
@@ -580,5 +742,26 @@ async function advanceWorkflowToRunningImplementation(
     workerHost: null,
     launchTarget: null,
     recordedAt: "2026-04-10T14:11:05.000Z"
+  });
+}
+
+async function advanceWorkflowToRunningApprovedMerge(
+  harness: Awaited<ReturnType<typeof createHarness>>
+) {
+  await harness.service.dispatchBootstrapRouter.route({
+    issue: harness.issue,
+    attempt: 1,
+    preferredWorkerHost: null,
+    startedAt: "2026-04-10T14:12:00.000Z"
+  });
+  const approvedIssue = harness.tracker.getIssue(harness.issue.id);
+  await harness.service.runStartActivationRouter.activate({
+    issue: approvedIssue!,
+    runId: "run-1",
+    runMode: "approved_merge",
+    threadId: "thread-1",
+    workerHost: null,
+    launchTarget: null,
+    recordedAt: "2026-04-10T14:12:05.000Z"
   });
 }

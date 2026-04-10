@@ -2,17 +2,22 @@ import type { WorkflowRouteResult, WorkflowSignal } from "../types/index.js";
 import {
   createSymphonyCurrentFlowRouterAsync,
   createSymphonyCurrentFlowDeliveryReportedSignal,
+  createSymphonyCurrentFlowMergeResultReportedSignal,
   createSymphonyCurrentFlowRunStartedSignal,
   createSymphonyCurrentFlowRuntimeCompletedSignal,
   createSymphonyCurrentFlowRuntimeStartupFailureSignal,
+  createSymphonyCurrentFlowStateRequestedSignal,
   createSymphonyCurrentFlowTrackerStateObservedSignal
 } from "../index.js";
 import type {
   SymphonyCurrentFlowCompletionKind,
   SymphonyCurrentFlowData,
+  SymphonyCurrentFlowMergeResultStatus,
   SymphonyCurrentFlowNode,
   SymphonyCurrentFlowPolicy,
   SymphonyCurrentFlowRunMode,
+  SymphonyCurrentFlowStateRequestKind,
+  SymphonyCurrentFlowStateRequestTargetState,
   SymphonyCurrentFlowTrackerState
 } from "../index.js";
 
@@ -112,6 +117,83 @@ export const symphonyCurrentFlowReplayFixtures: ReadonlyArray<SymphonyCurrentFlo
       trackerState: "Blocked",
       lastDispatchMode: "implementation",
       lastRunMode: "implementation",
+      lastRuntimeOutcome: null
+    }
+  },
+  {
+    name: "implementation_state_requested_paused",
+    description:
+      "Implementation state requests can explicitly pause the workflow before tracker observation catches up.",
+    workflowId: "SYM-209",
+    signals: [
+      observeTrackerState("signal_todo_observed", "Todo", 0),
+      runtimeRunStarted("signal_implementation_started", "implementation", 1),
+      runtimeStateRequested(
+        "signal_spike_result_requested",
+        "spike_result",
+        "Paused",
+        2
+      )
+    ],
+    expected: {
+      currentNode: "paused",
+      trackerState: "Paused",
+      lastDispatchMode: "implementation",
+      lastRunMode: "implementation",
+      lastRuntimeOutcome: null
+    }
+  },
+  {
+    name: "implementation_state_requested_canceled",
+    description:
+      "Cancellation requests route through workflow history and settle the tracker into Canceled.",
+    workflowId: "SYM-210",
+    signals: [
+      observeTrackerState("signal_todo_observed", "Todo", 0),
+      runtimeRunStarted("signal_implementation_started", "implementation", 1),
+      runtimeStateRequested("signal_cancel_requested", "cancel", "Canceled", 2)
+    ],
+    expected: {
+      currentNode: "canceled",
+      trackerState: "Canceled",
+      lastDispatchMode: "implementation",
+      lastRunMode: "implementation",
+      lastRuntimeOutcome: null
+    }
+  },
+  {
+    name: "approved_merge_merge_result_reported_done",
+    description:
+      "Approved merge results can explicitly close the workflow into Done before runtime completion is observed.",
+    workflowId: "SYM-211",
+    signals: [
+      observeTrackerState("signal_approved_observed", "Approved", 0),
+      runtimeRunStarted("signal_merge_started", "approved_merge", 1),
+      runtimeMergeResultReported("signal_merge_result_done", "merged", 2)
+    ],
+    expected: {
+      currentNode: "done",
+      trackerState: "Done",
+      lastDispatchMode: "approved_merge",
+      lastRunMode: "approved_merge",
+      lastRuntimeOutcome: null
+    }
+  },
+  {
+    name: "approved_merge_merge_result_reported_blocked",
+    description:
+      "Blocked merge results can explicitly stop approved merge work before runtime completion is observed.",
+    workflowId: "SYM-212",
+    signals: [
+      observeTrackerState("signal_approved_observed", "Approved", 0),
+      runtimeRunStarted("signal_merge_started", "approved_merge", 1),
+      runtimeMergeResultReported("signal_merge_result_blocked", "blocked", 2)
+    ],
+    expected: {
+      currentNode: "blocked",
+      trackerState: "Blocked",
+      lastDispatchMode: "approved_merge",
+      lastRunMode: "approved_merge",
       lastRuntimeOutcome: null
     }
   },
@@ -289,6 +371,38 @@ function runtimeDeliveryReported(
   step: number
 ): WorkflowSignal {
   return createSymphonyCurrentFlowDeliveryReportedSignal({
+    id,
+    occurredAt: buildOccurredAt(step),
+    runId: "run-1",
+    status,
+    causationId: "run-1",
+    correlationId: null
+  });
+}
+
+function runtimeStateRequested(
+  id: string,
+  requestKind: SymphonyCurrentFlowStateRequestKind,
+  targetState: SymphonyCurrentFlowStateRequestTargetState,
+  step: number
+): WorkflowSignal {
+  return createSymphonyCurrentFlowStateRequestedSignal({
+    id,
+    occurredAt: buildOccurredAt(step),
+    runId: "run-1",
+    requestKind,
+    targetState,
+    causationId: "run-1",
+    correlationId: null
+  });
+}
+
+function runtimeMergeResultReported(
+  id: string,
+  status: SymphonyCurrentFlowMergeResultStatus,
+  step: number
+): WorkflowSignal {
+  return createSymphonyCurrentFlowMergeResultReportedSignal({
     id,
     occurredAt: buildOccurredAt(step),
     runId: "run-1",

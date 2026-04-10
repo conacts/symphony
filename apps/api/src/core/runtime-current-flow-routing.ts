@@ -71,6 +71,16 @@ function assertCurrentFlowTrackerContract(
     trackerConfig.claimTransitionFromStates,
     "Rework"
   );
+  assertTrackerStateIncluded(
+    "terminalStates",
+    trackerConfig.terminalStates,
+    "Done"
+  );
+  assertTrackerStateIncluded(
+    "terminalStates",
+    trackerConfig.terminalStates,
+    "Canceled"
+  );
 }
 
 function assertTrackerStateValue(

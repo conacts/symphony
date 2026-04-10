@@ -21,6 +21,7 @@ const trackerStates = [
   "Rework",
   "Approved",
   "Done",
+  "Canceled",
   "Paused",
   "Blocked",
   "Failed"
@@ -36,6 +37,23 @@ const deliveryStatuses = [
   "completed",
   "blocked",
   "partial"
+] as const;
+
+const mergeResultStatuses = [
+  "merged",
+  "blocked"
+] as const;
+
+const stateRequestKinds = [
+  "spike_result",
+  "cancel"
+] as const;
+
+const stateRequestTargetStates = [
+  "Paused",
+  "Blocked",
+  "Failed",
+  "Canceled"
 ] as const;
 
 const completionKinds = [
@@ -68,11 +86,21 @@ const nonStartupCompletionKinds = completionKinds.filter(
 export type SymphonyCurrentFlowTrackerState = (typeof trackerStates)[number];
 export type SymphonyCurrentFlowRunMode = (typeof runModes)[number];
 export type SymphonyCurrentFlowDeliveryStatus = (typeof deliveryStatuses)[number];
+export type SymphonyCurrentFlowMergeResultStatus =
+  (typeof mergeResultStatuses)[number];
+export type SymphonyCurrentFlowStateRequestKind = (typeof stateRequestKinds)[number];
+export type SymphonyCurrentFlowStateRequestTargetState =
+  (typeof stateRequestTargetStates)[number];
 export type SymphonyCurrentFlowCompletionKind = (typeof completionKinds)[number];
 
 const symphonyCurrentFlowTrackerStateSchema = z.enum(trackerStates);
 const symphonyCurrentFlowRunModeSchema = z.enum(runModes);
 const symphonyCurrentFlowDeliveryStatusSchema = z.enum(deliveryStatuses);
+const symphonyCurrentFlowMergeResultStatusSchema = z.enum(mergeResultStatuses);
+const symphonyCurrentFlowStateRequestKindSchema = z.enum(stateRequestKinds);
+const symphonyCurrentFlowStateRequestTargetStateSchema = z.enum(
+  stateRequestTargetStates
+);
 const symphonyCurrentFlowCompletionKindSchema = z.enum(completionKinds);
 const symphonyCurrentFlowNonStartupCompletionKindSchema = z.enum(
   nonStartupCompletionKinds
@@ -97,6 +125,21 @@ const deliveryReportedPayloadSchema = z
   .object({
     runId: z.string().trim().min(1),
     status: symphonyCurrentFlowDeliveryStatusSchema
+  })
+  .strict();
+
+const mergeResultReportedPayloadSchema = z
+  .object({
+    runId: z.string().trim().min(1),
+    status: symphonyCurrentFlowMergeResultStatusSchema
+  })
+  .strict();
+
+const stateRequestedPayloadSchema = z
+  .object({
+    runId: z.string().trim().min(1),
+    requestKind: symphonyCurrentFlowStateRequestKindSchema,
+    targetState: symphonyCurrentFlowStateRequestTargetStateSchema
   })
   .strict();
 
@@ -149,6 +192,22 @@ const deliveryReportedSignalSchema = workflowSignalSchema
     type: z.literal("runtime.delivery_reported"),
     source: z.literal("runtime"),
     payload: deliveryReportedPayloadSchema
+  })
+  .strict();
+
+const mergeResultReportedSignalSchema = workflowSignalSchema
+  .extend({
+    type: z.literal("runtime.merge_result_reported"),
+    source: z.literal("runtime"),
+    payload: mergeResultReportedPayloadSchema
+  })
+  .strict();
+
+const stateRequestedSignalSchema = workflowSignalSchema
+  .extend({
+    type: z.literal("runtime.state_requested"),
+    source: z.literal("runtime"),
+    payload: stateRequestedPayloadSchema
   })
   .strict();
 
@@ -211,6 +270,16 @@ export type SymphonyCurrentFlowRunStartedSignal = WorkflowSignal<
 export type SymphonyCurrentFlowDeliveryReportedSignal = WorkflowSignal<
   "runtime.delivery_reported",
   z.infer<typeof deliveryReportedPayloadSchema>
+>;
+
+export type SymphonyCurrentFlowMergeResultReportedSignal = WorkflowSignal<
+  "runtime.merge_result_reported",
+  z.infer<typeof mergeResultReportedPayloadSchema>
+>;
+
+export type SymphonyCurrentFlowStateRequestedSignal = WorkflowSignal<
+  "runtime.state_requested",
+  z.infer<typeof stateRequestedPayloadSchema>
 >;
 
 export type SymphonyCurrentFlowRuntimeCompletedSignal = WorkflowSignal<
@@ -300,6 +369,52 @@ export function createSymphonyCurrentFlowDeliveryReportedSignal(input: {
     payload: {
       runId: input.runId,
       status: input.status
+    },
+    causationId: input.causationId,
+    correlationId: input.correlationId
+  });
+}
+
+export function createSymphonyCurrentFlowMergeResultReportedSignal(input: {
+  id: string;
+  occurredAt: string;
+  runId: string;
+  status: SymphonyCurrentFlowMergeResultStatus;
+  causationId: string | null;
+  correlationId: string | null;
+}): SymphonyCurrentFlowMergeResultReportedSignal {
+  return mergeResultReportedSignalSchema.parse({
+    id: input.id,
+    type: "runtime.merge_result_reported",
+    source: "runtime",
+    occurredAt: input.occurredAt,
+    payload: {
+      runId: input.runId,
+      status: input.status
+    },
+    causationId: input.causationId,
+    correlationId: input.correlationId
+  });
+}
+
+export function createSymphonyCurrentFlowStateRequestedSignal(input: {
+  id: string;
+  occurredAt: string;
+  runId: string;
+  requestKind: SymphonyCurrentFlowStateRequestKind;
+  targetState: SymphonyCurrentFlowStateRequestTargetState;
+  causationId: string | null;
+  correlationId: string | null;
+}): SymphonyCurrentFlowStateRequestedSignal {
+  return stateRequestedSignalSchema.parse({
+    id: input.id,
+    type: "runtime.state_requested",
+    source: "runtime",
+    occurredAt: input.occurredAt,
+    payload: {
+      runId: input.runId,
+      requestKind: input.requestKind,
+      targetState: input.targetState
     },
     causationId: input.causationId,
     correlationId: input.correlationId
@@ -474,6 +589,28 @@ export function readSymphonyCurrentFlowDeliveryReportedSignal(
   });
 }
 
+export function readSymphonyCurrentFlowMergeResultReportedSignal(
+  signal: WorkflowSignal
+): SymphonyCurrentFlowMergeResultReportedSignal | null {
+  return readSignal({
+    signal,
+    expectedType: "runtime.merge_result_reported",
+    schema: mergeResultReportedSignalSchema,
+    label: "runtime.merge_result_reported"
+  });
+}
+
+export function readSymphonyCurrentFlowStateRequestedSignal(
+  signal: WorkflowSignal
+): SymphonyCurrentFlowStateRequestedSignal | null {
+  return readSignal({
+    signal,
+    expectedType: "runtime.state_requested",
+    schema: stateRequestedSignalSchema,
+    label: "runtime.state_requested"
+  });
+}
+
 export function readSymphonyCurrentFlowRuntimeCompletedSignal(
   signal: WorkflowSignal
 ): SymphonyCurrentFlowRuntimeCompletedSignal | null {
@@ -573,6 +710,9 @@ function readCommand<TCommand extends WorkflowCommand>(
 
 export {
   symphonyCurrentFlowDeliveryStatusSchema,
+  symphonyCurrentFlowMergeResultStatusSchema,
+  symphonyCurrentFlowStateRequestKindSchema,
+  symphonyCurrentFlowStateRequestTargetStateSchema,
   symphonyCurrentFlowCompletionKindSchema,
   symphonyCurrentFlowNonStartupCompletionKindSchema,
   symphonyCurrentFlowRunModeSchema,

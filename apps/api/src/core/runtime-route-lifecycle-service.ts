@@ -15,6 +15,9 @@ import {
   type SymphonyDeliveryStatus
 } from "./runtime-delivery-routing.js";
 import {
+  createRuntimeMergeResultRouter
+} from "./runtime-merge-result-routing.js";
+import {
   createRuntimeRunLifecycleRouter
 } from "./runtime-run-lifecycle-routing.js";
 import {
@@ -30,8 +33,11 @@ import {
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type {
   SymphonyCurrentFlowData,
+  SymphonyCurrentFlowMergeResultStatus,
   SymphonyCurrentFlowNode,
-  SymphonyCurrentFlowPolicy
+  SymphonyCurrentFlowPolicy,
+  SymphonyCurrentFlowStateRequestKind,
+  SymphonyCurrentFlowStateRequestTargetState
 } from "@symphony/router";
 import type {
   SymphonyTracker,
@@ -40,6 +46,9 @@ import type {
 import {
   normalizeIssueState
 } from "@symphony/tracker";
+import {
+  createRuntimeStateRequestRouter
+} from "./runtime-state-request-routing.js";
 
 export type SymphonyRuntimeRouteLifecycleService = {
   dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
@@ -50,6 +59,19 @@ export type SymphonyRuntimeRouteLifecycleService = {
     runId: string;
     recordedAt: string;
     status: SymphonyDeliveryStatus;
+  }): Promise<boolean>;
+  routeMergeResult(input: {
+    issueIdentifier: string;
+    runId: string;
+    recordedAt: string;
+    status: SymphonyCurrentFlowMergeResultStatus;
+  }): Promise<boolean>;
+  routeRuntimeStateRequest(input: {
+    issueIdentifier: string;
+    runId: string;
+    recordedAt: string;
+    requestKind: SymphonyCurrentFlowStateRequestKind;
+    targetState: SymphonyCurrentFlowStateRequestTargetState;
   }): Promise<boolean>;
   observeNonRunningTrackerStates(input: {
     claimedIssueIds: string[];
@@ -108,6 +130,16 @@ export async function createRuntimeRouteLifecycleService(input: {
     routing
   });
   const deliveryRouter = await createRuntimeDeliveryRouter({
+    routeWorkflows: input.routeWorkflows,
+    tracker: input.tracker,
+    routing
+  });
+  const mergeResultRouter = await createRuntimeMergeResultRouter({
+    routeWorkflows: input.routeWorkflows,
+    tracker: input.tracker,
+    routing
+  });
+  const stateRequestRouter = await createRuntimeStateRequestRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
     routing
@@ -218,6 +250,41 @@ export async function createRuntimeRouteLifecycleService(input: {
       });
       return true;
     },
+    async routeMergeResult(mergeResultInput) {
+      const issue = await input.tracker.fetchIssueByIdentifier(
+        input.trackerConfig,
+        mergeResultInput.issueIdentifier
+      );
+      if (!issue) {
+        return false;
+      }
+
+      await mergeResultRouter.routeMergeResult({
+        issue,
+        runId: mergeResultInput.runId,
+        recordedAt: mergeResultInput.recordedAt,
+        status: mergeResultInput.status
+      });
+      return true;
+    },
+    async routeRuntimeStateRequest(stateRequestInput) {
+      const issue = await input.tracker.fetchIssueByIdentifier(
+        input.trackerConfig,
+        stateRequestInput.issueIdentifier
+      );
+      if (!issue) {
+        return false;
+      }
+
+      await stateRequestRouter.routeStateRequest({
+        issue,
+        runId: stateRequestInput.runId,
+        recordedAt: stateRequestInput.recordedAt,
+        requestKind: stateRequestInput.requestKind,
+        targetState: stateRequestInput.targetState
+      });
+      return true;
+    },
     observeNonRunningTrackerStates,
     observeTrackerStateByIdentifier,
     routeShutdownPause,
@@ -255,6 +322,7 @@ const nonRunningTrackerSeedStates = [
 
 const nonRunningTrackerObservationStates = [
   ...nonRunningTrackerSeedStates,
+  "Canceled",
   "Paused",
   "Blocked",
   "Failed"

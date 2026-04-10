@@ -199,6 +199,9 @@ export async function executeSpikeResultTool(
       state?: string | null;
     };
     defaultTargetState: string | null;
+    transitionIssueState?(
+      request: RuntimeToolIssueStateTransitionRequest
+    ): Promise<DeliveryTransitionResult>;
     onIssueStateTransition?(
       transition: RuntimeToolIssueStateTransitionCallbackInput
     ): void | Promise<void>;
@@ -267,6 +270,9 @@ export async function executeCancelTool(
       state?: string | null;
     };
     defaultTargetState: string;
+    transitionIssueState?(
+      request: RuntimeToolIssueStateTransitionRequest
+    ): Promise<DeliveryTransitionResult>;
     onIssueStateTransition?(
       transition: RuntimeToolIssueStateTransitionCallbackInput
     ): void | Promise<void>;
@@ -329,7 +335,14 @@ export async function executeMergeResultTool(
     };
     runId: string | null;
     turnId: string | null;
+    blockedTargetState?: string | null;
+    transitionIssueState?(
+      request: RuntimeToolIssueStateTransitionRequest
+    ): Promise<DeliveryTransitionResult>;
     onMergeResultRecorded?(result: RuntimeMergeResult): void;
+    onIssueStateTransition?(
+      transition: RuntimeToolIssueStateTransitionCallbackInput
+    ): void | Promise<void>;
   },
   rawArguments: unknown
 ): Promise<RuntimeToolExecutionResult> {
@@ -377,12 +390,28 @@ export async function executeMergeResultTool(
     });
     executionContext.onMergeResultRecorded?.(mergeResult);
 
-    return buildToolSuccessResult({
+    const targetState = resolveMergeResultTargetState({
+      status: mergeResult.status,
+      blockedTargetState: executionContext.blockedTargetState
+    });
+    const issueStateTransition = await transitionIssueStateIfNeeded(
+      executionContext,
+      targetState
+    );
+    await maybeNotifyIssueStateTransition({
+      issueIdentifier: executionContext.issue.identifier,
+      issueStateTransition,
+      onIssueStateTransition: executionContext.onIssueStateTransition
+    });
+
+    return buildToolResult(issueStateTransition.success, {
       mergeResultRecorded: true,
       commentPosted: true,
       issueIdentifier: executionContext.issue.identifier,
       runId: executionContext.runId,
-      ...mergeResult
+      ...mergeResult,
+      targetState,
+      issueStateTransition
     });
   } catch (error) {
     return buildToolErrorResult({
@@ -660,6 +689,17 @@ function deliveryToolSucceeded(
   return issueStateTransition.success;
 }
 
+function resolveMergeResultTargetState(input: {
+  status: RuntimeMergeResult["status"];
+  blockedTargetState?: string | null;
+}): string {
+  if (input.status === "merged") {
+    return "Done";
+  }
+
+  return normalizeOptionalText(input.blockedTargetState) ?? "Blocked";
+}
+
 async function transitionIssueStateIfNeeded(
   executionContext: {
     tracker: SymphonyTracker;
@@ -739,10 +779,6 @@ async function maybeNotifyIssueStateTransition(input: {
     success: input.issueStateTransition.success,
     reason: input.issueStateTransition.reason
   });
-}
-
-function buildToolSuccessResult(payload: Record<string, unknown>): RuntimeToolExecutionResult {
-  return buildToolResult(true, payload);
 }
 
 function buildToolErrorResult(error: Record<string, unknown>): RuntimeToolExecutionResult {

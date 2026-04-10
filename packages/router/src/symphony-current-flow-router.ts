@@ -9,6 +9,8 @@ import { WorkflowNode } from "./router-node.js";
 import {
   createSymphonyCurrentFlowDispatchCommand,
   readSymphonyCurrentFlowDeliveryReportedSignal,
+  readSymphonyCurrentFlowMergeResultReportedSignal,
+  readSymphonyCurrentFlowStateRequestedSignal,
   createSymphonyCurrentFlowTrackerTransitionCommand,
   readSymphonyCurrentFlowDispatchCommand,
   readSymphonyCurrentFlowRuntimeCompletedSignal,
@@ -32,6 +34,7 @@ export type SymphonyCurrentFlowNode =
   | "review"
   | "approved_merge"
   | "done"
+  | "canceled"
   | "paused"
   | "blocked"
   | "failed";
@@ -83,6 +86,11 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
         terminal: true,
         enter: ({ signal }) =>
           maybeCreateTrackerTransitionCommand(signal, "Done")
+      }),
+      new WorkflowNode("canceled", {
+        terminal: true,
+        enter: ({ signal }) =>
+          maybeCreateTrackerTransitionCommand(signal, "Canceled")
       }),
       new WorkflowNode("paused", {
         terminal: true,
@@ -160,6 +168,7 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
         guard: ({ signal }) => isObservedTrackerState(signal, "Rework")
       }),
       ...buildTerminalReentryEdges("done"),
+      ...buildTerminalReentryEdges("canceled"),
       ...buildTerminalReentryEdges("paused"),
       ...buildTerminalReentryEdges("blocked"),
       ...buildTerminalReentryEdges("failed"),
@@ -235,6 +244,11 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
         reasonCode: "rework_delivery_blocked",
         guard: ({ signal }) => isDeliveryReported(signal, "blocked")
       }),
+      ...buildRequestedTerminalEdges("implementation"),
+      ...buildRequestedTerminalEdges("rework"),
+      ...buildRequestedTerminalEdges("approved_merge"),
+      ...buildObservedStateTerminalEdges("bootstrapping"),
+      ...buildObservedStateTerminalEdges("review"),
       ...buildObservedStateTerminalEdges("implementation"),
       ...buildObservedStateTerminalEdges("rework"),
       ...buildObservedStateTerminalEdges("approved_merge"),
@@ -252,6 +266,20 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
         reasonCode: "approved_merge_started",
         guard: ({ signal }) => isRunStarted(signal, "approved_merge"),
         commands: ({ signal }) => [createTrackerTransitionCommand(signal, "In Progress")]
+      }),
+      new WorkflowEdge({
+        id: "approved_merge_merge_result_reported_done",
+        from: "approved_merge",
+        to: "done",
+        reasonCode: "merge_result_reported",
+        guard: ({ signal }) => isMergeResultReported(signal, "merged")
+      }),
+      new WorkflowEdge({
+        id: "approved_merge_merge_result_reported_blocked",
+        from: "approved_merge",
+        to: "blocked",
+        reasonCode: "merge_result_blocked_reported",
+        guard: ({ signal }) => isMergeResultReported(signal, "blocked")
       }),
       new WorkflowEdge({
         id: "approved_merge_done",
@@ -442,6 +470,26 @@ function isDeliveryReported(
   return readSymphonyCurrentFlowDeliveryReportedSignal(signal)?.payload.status === status;
 }
 
+function isMergeResultReported(
+  signal: WorkflowSignal,
+  status: "merged" | "blocked"
+) {
+  return (
+    readSymphonyCurrentFlowMergeResultReportedSignal(signal)?.payload.status ===
+    status
+  );
+}
+
+function isStateRequested(
+  signal: WorkflowSignal,
+  targetState: "Paused" | "Blocked" | "Failed" | "Canceled"
+) {
+  return (
+    readSymphonyCurrentFlowStateRequestedSignal(signal)?.payload.targetState ===
+    targetState
+  );
+}
+
 function hasCompletionKind(
   signal: WorkflowSignal,
   kind: Exclude<SymphonyCurrentFlowCompletionKind, "startup_failure">
@@ -513,7 +561,7 @@ function createTrackerTransitionCommand(
 function buildTerminalReentryEdges(
   from: Extract<
     SymphonyCurrentFlowNode,
-    "done" | "paused" | "blocked" | "failed"
+    "done" | "canceled" | "paused" | "blocked" | "failed"
   >
 ): WorkflowEdge<
   SymphonyCurrentFlowNode,
@@ -559,10 +607,52 @@ function buildTerminalReentryEdges(
   ];
 }
 
+function buildRequestedTerminalEdges(
+  from: Extract<
+    SymphonyCurrentFlowNode,
+    "bootstrapping" | "review" | "implementation" | "rework" | "approved_merge"
+  >
+): WorkflowEdge<
+  SymphonyCurrentFlowNode,
+  SymphonyCurrentFlowData,
+  SymphonyCurrentFlowPolicy
+>[] {
+  return [
+    new WorkflowEdge({
+      id: `${from}_state_requested_paused`,
+      from,
+      to: "paused",
+      reasonCode: `${from}_state_requested_paused`,
+      guard: ({ signal }) => isStateRequested(signal, "Paused")
+    }),
+    new WorkflowEdge({
+      id: `${from}_state_requested_blocked`,
+      from,
+      to: "blocked",
+      reasonCode: `${from}_state_requested_blocked`,
+      guard: ({ signal }) => isStateRequested(signal, "Blocked")
+    }),
+    new WorkflowEdge({
+      id: `${from}_state_requested_failed`,
+      from,
+      to: "failed",
+      reasonCode: `${from}_state_requested_failed`,
+      guard: ({ signal }) => isStateRequested(signal, "Failed")
+    }),
+    new WorkflowEdge({
+      id: `${from}_state_requested_canceled`,
+      from,
+      to: "canceled",
+      reasonCode: `${from}_state_requested_canceled`,
+      guard: ({ signal }) => isStateRequested(signal, "Canceled")
+    })
+  ];
+}
+
 function buildObservedStateTerminalEdges(
   from: Extract<
     SymphonyCurrentFlowNode,
-    "implementation" | "rework" | "approved_merge"
+    "bootstrapping" | "review" | "implementation" | "rework" | "approved_merge"
   >
 ): WorkflowEdge<
   SymphonyCurrentFlowNode,
@@ -590,6 +680,13 @@ function buildObservedStateTerminalEdges(
       to: "failed",
       reasonCode: `${from}_failed_observed`,
       guard: ({ signal }) => isObservedTrackerState(signal, "Failed")
+    }),
+    new WorkflowEdge({
+      id: `${from}_observed_canceled`,
+      from,
+      to: "canceled",
+      reasonCode: `${from}_canceled_observed`,
+      guard: ({ signal }) => isObservedTrackerState(signal, "Canceled")
     })
   ];
 }
@@ -623,6 +720,7 @@ function resolveBootstrappingDispatchMode(input: {
     ? "rework"
     : "implementation";
 }
+
 function reduceSignalData(
   data: SymphonyCurrentFlowData,
   signal: WorkflowSignal

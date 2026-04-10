@@ -494,6 +494,65 @@ describe("runtime tools", () => {
     ]);
   });
 
+  it("routes spike-result state transitions through the provided callback", async () => {
+    const tracker = createMemorySymphonyTracker([
+      buildRuntimeToolIssue({
+        id: "issue-457",
+        identifier: "SYM-457",
+        title: "Investigate a blocker"
+      })
+    ]);
+    const transitionRequests: Array<{
+      issueIdentifier: string;
+      targetState: string;
+      currentState: string | null;
+    }> = [];
+
+    const result = await executeSpikeResultTool(
+      {
+        tracker,
+        issue: {
+          trackerIssueId: "issue-457",
+          identifier: "SYM-457",
+          state: "In Progress"
+        },
+        defaultTargetState: "Paused",
+        async transitionIssueState(request) {
+          transitionRequests.push({
+            issueIdentifier: request.issueIdentifier,
+            targetState: request.targetState,
+            currentState: request.currentState
+          });
+          return {
+            attempted: true,
+            targetState: request.targetState,
+            success: true,
+            reason: null
+          };
+        }
+      },
+      {
+        summary: "Escalated the investigation result.",
+        details: "- Findings\n- Next steps"
+      }
+    );
+
+    expect(result.success).toBe(true);
+    expect(transitionRequests).toEqual([
+      {
+        issueIdentifier: "SYM-457",
+        targetState: "Paused",
+        currentState: "In Progress"
+      }
+    ]);
+    expect(tracker.listOperations()).toEqual([
+      expect.objectContaining({
+        kind: "comment",
+        issueId: "issue-457"
+      })
+    ]);
+  });
+
   it("posts a cancellation comment and moves the issue to Canceled", async () => {
     const tracker = createMemorySymphonyTracker([
       buildRuntimeToolIssue({
@@ -533,6 +592,65 @@ describe("runtime tools", () => {
         issueId: "issue-789",
         stateName: "Canceled"
       }
+    ]);
+  });
+
+  it("routes cancellation state transitions through the provided callback", async () => {
+    const tracker = createMemorySymphonyTracker([
+      buildRuntimeToolIssue({
+        id: "issue-790",
+        identifier: "SYM-790",
+        title: "Abort the stale work"
+      })
+    ]);
+    const transitionRequests: Array<{
+      issueIdentifier: string;
+      targetState: string;
+      currentState: string | null;
+    }> = [];
+
+    const result = await executeCancelTool(
+      {
+        tracker,
+        issue: {
+          trackerIssueId: "issue-790",
+          identifier: "SYM-790",
+          state: "In Progress"
+        },
+        defaultTargetState: "Canceled",
+        async transitionIssueState(request) {
+          transitionRequests.push({
+            issueIdentifier: request.issueIdentifier,
+            targetState: request.targetState,
+            currentState: request.currentState
+          });
+          return {
+            attempted: true,
+            targetState: request.targetState,
+            success: true,
+            reason: null
+          };
+        }
+      },
+      {
+        reason: "Canceling this run because the requirements changed."
+      }
+    );
+
+    expect(result.success).toBe(true);
+    expect(transitionRequests).toEqual([
+      {
+        issueIdentifier: "SYM-790",
+        targetState: "Canceled",
+        currentState: "In Progress"
+      }
+    ]);
+    expect(tracker.listOperations()).toEqual([
+      expect.objectContaining({
+        kind: "comment",
+        issueId: "issue-790",
+        body: expect.stringContaining("Cancellation")
+      })
     ]);
   });
 
@@ -586,7 +704,12 @@ describe("runtime tools", () => {
         kind: "comment",
         issueId: "issue-321",
         body: expect.stringContaining("Merge Result")
-      })
+      }),
+      {
+        kind: "update_state",
+        issueId: "issue-321",
+        stateName: "Done"
+      }
     ]);
 
     const entries = await issueTimelineStore.listIssueTimeline("SYM-321");
@@ -598,6 +721,156 @@ describe("runtime tools", () => {
         eventType: "merge_result_reported"
       })
     );
+
+    database.close();
+  });
+
+  it("routes merged merge-result state transitions through the provided callback", async () => {
+    const { database, issueTimelineStore } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-322",
+        identifier: "SYM-322"
+      },
+      runId: "run-322",
+      turnId: "turn-322",
+      runMode: "approved_merge"
+    });
+    const tracker = createMemorySymphonyTracker([
+      buildRuntimeToolIssue({
+        id: "issue-322",
+        identifier: "SYM-322",
+        title: "Finish the approved merge"
+      })
+    ]);
+    const transitionRequests: Array<{
+      issueIdentifier: string;
+      targetState: string;
+      currentState: string | null;
+    }> = [];
+
+    const result = await executeMergeResultTool(
+      {
+        tracker,
+        issueTimelineStore,
+        issue: {
+          trackerIssueId: "issue-322",
+          identifier: "SYM-322",
+          state: "In Progress"
+        },
+        runId: "run-322",
+        turnId: "turn-322",
+        async transitionIssueState(request) {
+          transitionRequests.push({
+            issueIdentifier: request.issueIdentifier,
+            targetState: request.targetState,
+            currentState: request.currentState
+          });
+          return {
+            attempted: true,
+            targetState: request.targetState,
+            success: true,
+            reason: null
+          };
+        }
+      },
+      {
+        status: "merged",
+        summary: "Merged the PR after syncing with main.",
+        prUrl: "https://github.com/openai/symphony/pull/322",
+        mergeCommitSha: "abc123"
+      }
+    );
+
+    expect(result.success).toBe(true);
+    expect(transitionRequests).toEqual([
+      {
+        issueIdentifier: "SYM-322",
+        targetState: "Done",
+        currentState: "In Progress"
+      }
+    ]);
+    expect(tracker.listOperations()).toEqual([
+      expect.objectContaining({
+        kind: "comment",
+        issueId: "issue-322",
+        body: expect.stringContaining("Merge Result")
+      })
+    ]);
+
+    database.close();
+  });
+
+  it("routes blocked merge-result state transitions through the provided callback", async () => {
+    const { database, issueTimelineStore } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-323",
+        identifier: "SYM-323"
+      },
+      runId: "run-323",
+      turnId: "turn-323",
+      runMode: "approved_merge"
+    });
+    const tracker = createMemorySymphonyTracker([
+      buildRuntimeToolIssue({
+        id: "issue-323",
+        identifier: "SYM-323",
+        title: "Handle the blocked merge"
+      })
+    ]);
+    const transitionRequests: Array<{
+      issueIdentifier: string;
+      targetState: string;
+      currentState: string | null;
+    }> = [];
+
+    const result = await executeMergeResultTool(
+      {
+        tracker,
+        issueTimelineStore,
+        issue: {
+          trackerIssueId: "issue-323",
+          identifier: "SYM-323",
+          state: "In Progress"
+        },
+        runId: "run-323",
+        turnId: "turn-323",
+        blockedTargetState: "Blocked",
+        async transitionIssueState(request) {
+          transitionRequests.push({
+            issueIdentifier: request.issueIdentifier,
+            targetState: request.targetState,
+            currentState: request.currentState
+          });
+          return {
+            attempted: true,
+            targetState: request.targetState,
+            success: true,
+            reason: null
+          };
+        }
+      },
+      {
+        status: "blocked",
+        summary: "Main branch introduced conflicts.",
+        blockingReason: "Conflicts in packages/runtime/src/symphony-runtime.ts"
+      }
+    );
+
+    expect(result.success).toBe(true);
+    expect(transitionRequests).toEqual([
+      {
+        issueIdentifier: "SYM-323",
+        targetState: "Blocked",
+        currentState: "In Progress"
+      }
+    ]);
+    expect(tracker.listOperations()).toEqual([
+      expect.objectContaining({
+        kind: "comment",
+        issueId: "issue-323",
+        body: expect.stringContaining("Merge Result")
+      })
+    ]);
 
     database.close();
   });

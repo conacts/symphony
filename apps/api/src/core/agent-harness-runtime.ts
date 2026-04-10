@@ -651,9 +651,15 @@ async function executeRun(input: {
           deliveryCompletion(deliveryReport, currentIssue, input.runtimePolicy)
         );
       } else if (mergeResult) {
+        const refreshedIssue = await refreshIssueState(
+          input.tracker,
+          input.runtimePolicy,
+          currentIssue
+        );
+        currentIssue = refreshedIssue ?? currentIssue;
         await input.callbacks.onComplete(
           input.issue.id,
-          mergeResultCompletion(mergeResult)
+          mergeResultCompletion(mergeResult, currentIssue, input.runtimePolicy)
         );
       } else if (maxTurnsReached) {
         await input.callbacks.onComplete(input.issue.id, {
@@ -917,6 +923,18 @@ function buildUnexpectedDeliveryStateReason(
     : `Delivery was recorded as blocked, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`;
 }
 
+function buildUnexpectedMergeResultStateReason(
+  mergeStatus: RuntimeMergeResult["status"],
+  expectedState: string | null,
+  actualState: string
+): string {
+  const expected = expectedState?.trim() || "the expected terminal state";
+
+  return mergeStatus === "merged"
+    ? `Merge was recorded as merged, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`
+    : `Merge was recorded as blocked, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`;
+}
+
 type ExplicitCompletionRequirement =
   | "delivery_report"
   | "merge_result";
@@ -984,11 +1002,40 @@ function parseMergeResult(payload: JsonValue): RuntimeMergeResult | null {
 }
 
 function mergeResultCompletion(
-  mergeResult: RuntimeMergeResult
+  mergeResult: RuntimeMergeResult,
+  currentIssue: SymphonyTrackerIssue,
+  runtimePolicy: SymphonyAgentRuntimeConfig
 ): SymphonyAgentRuntimeCompletion {
   if (mergeResult.status === "merged") {
+    if (!matchesIssueState(currentIssue.state, "Done")) {
+      return {
+        kind: "failure",
+        reason: buildUnexpectedMergeResultStateReason(
+          mergeResult.status,
+          "Done",
+          currentIssue.state
+        )
+      };
+    }
+
     return {
       kind: "merged"
+    };
+  }
+
+  if (
+    !matchesIssueState(
+      currentIssue.state,
+      runtimePolicy.tracker.blockedTransitionToState
+    )
+  ) {
+    return {
+      kind: "failure",
+      reason: buildUnexpectedMergeResultStateReason(
+        mergeResult.status,
+        runtimePolicy.tracker.blockedTransitionToState,
+        currentIssue.state
+      )
     };
   }
 

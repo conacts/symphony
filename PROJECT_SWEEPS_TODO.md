@@ -94,7 +94,7 @@ Expected outputs:
 ### 4. Zod Contract Enforcement
 
 Goal:
-Use `zod` as a schema-backed assertion layer so data is parsed into strict shapes instead of being conditionally tolerated.
+Use `zod` as a schema-backed assertion layer so data is parsed into strict shapes instead of being conditionally tolerated. We can also use zod enforcement to remove a lot of the resolver functions. I see this being a cleaner implementation than resolving code a null that we are going to have to deal with downstream. It might be better to use zod further upstream to enforce the shape, catch the issue earlier and simply throw an error if something is breaking. We can also use zod to format incoming shapes to make it fit other schemas, if they are persisted throughout the codebase. It's important that we leverage zod to help us catch errors quicker and this is will also help us clean our code up a bit.
 
 Research questions:
 

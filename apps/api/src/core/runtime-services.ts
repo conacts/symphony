@@ -34,6 +34,9 @@ import {
   type DockerGitHubCliAuthContract,
   type DockerPiAuthContract
 } from "./runtime-auth-contract.js";
+import type {
+  SymphonyCurrentFlowStateRequestTargetState
+} from "@symphony/router";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
@@ -453,15 +456,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const runtimeLogs = createRuntimeLogsPort({
     runtimeLogStore
   });
-  const observeRouteLifecycleTransition = async (transition: {
-    issueIdentifier: string;
-    recordedAt: string;
-  }) => {
-    await routeLifecycle.observeActiveIssueStateByIdentifier({
-      issueIdentifier: transition.issueIdentifier,
-      recordedAt: transition.recordedAt
-    });
-  };
   const health = createRuntimeHealthPort({
     dbFile: database.dbFile,
     runtimePolicy,
@@ -534,7 +528,26 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           tracker,
           issue: input.issue,
           defaultTargetState: runtimePolicy.tracker.pauseTransitionToState,
-          onIssueStateTransition: observeRouteLifecycleTransition
+          async transitionIssueState(request) {
+            const targetState = mapRuntimeStateRequestTargetState(
+              request.targetState
+            );
+            const routed = await routeLifecycle.routeRuntimeStateRequest({
+              issueIdentifier: request.issueIdentifier,
+              runId: input.runId,
+              recordedAt: request.recordedAt,
+              requestKind: "spike_result",
+              targetState
+            });
+            return {
+              attempted: true,
+              targetState: request.targetState,
+              success: routed,
+              reason: routed
+                ? null
+                : `Route workflow-backed spike routing could not load ${request.issueIdentifier}.`
+            };
+          }
         },
         input.argumentsPayload
       );
@@ -554,7 +567,26 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           tracker,
           issue: input.issue,
           defaultTargetState: "Canceled",
-          onIssueStateTransition: observeRouteLifecycleTransition
+          async transitionIssueState(request) {
+            const targetState = mapRuntimeStateRequestTargetState(
+              request.targetState
+            );
+            const routed = await routeLifecycle.routeRuntimeStateRequest({
+              issueIdentifier: request.issueIdentifier,
+              runId: input.runId,
+              recordedAt: request.recordedAt,
+              requestKind: "cancel",
+              targetState
+            });
+            return {
+              attempted: true,
+              targetState: request.targetState,
+              success: routed,
+              reason: routed
+                ? null
+                : `Route workflow-backed cancel routing could not load ${request.issueIdentifier}.`
+            };
+          }
         },
         input.argumentsPayload
       );
@@ -575,7 +607,36 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           issueTimelineStore,
           issue: input.issue,
           runId: input.runId,
-          turnId: input.turnId
+          turnId: input.turnId,
+          blockedTargetState: runtimePolicy.tracker.blockedTransitionToState,
+          async transitionIssueState(request) {
+            const status =
+              request.targetState === "Done"
+                ? "merged"
+                : request.targetState === runtimePolicy.tracker.blockedTransitionToState
+                  ? "blocked"
+                  : null;
+            if (!status) {
+              throw new TypeError(
+                `Merge-result routing does not support target state ${request.targetState}.`
+              );
+            }
+
+            const routed = await routeLifecycle.routeMergeResult({
+              issueIdentifier: request.issueIdentifier,
+              runId: input.runId,
+              recordedAt: request.recordedAt,
+              status
+            });
+            return {
+              attempted: true,
+              targetState: request.targetState,
+              success: routed,
+              reason: routed
+                ? null
+                : `Route workflow-backed merge-result routing could not load ${request.issueIdentifier}.`
+            };
+          }
         },
         input.argumentsPayload
       );
@@ -917,4 +978,20 @@ async function preflightDockerWorkspaceBackendSelection(input: {
     shell: input.shell,
     timeoutMs: defaultSymphonyDockerWorkspacePreflightTimeoutMs
   });
+}
+
+function mapRuntimeStateRequestTargetState(
+  targetState: string
+): SymphonyCurrentFlowStateRequestTargetState {
+  switch (targetState) {
+    case "Paused":
+    case "Blocked":
+    case "Failed":
+    case "Canceled":
+      return targetState;
+    default:
+      throw new TypeError(
+        `Runtime state-request routing does not support target state ${JSON.stringify(targetState)}.`
+      );
+  }
 }

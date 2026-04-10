@@ -26,6 +26,7 @@ describe("Symphony current-flow router fixture", () => {
       "review",
       "approved_merge",
       "done",
+      "canceled",
       "paused",
       "blocked",
       "failed"
@@ -601,6 +602,119 @@ describe("Symphony current-flow router fixture", () => {
     expect(deliveryStep?.decision.commands).toEqual([
       {
         id: "command_signal_delivery_blocked_tracker_blocked",
+        kind: "tracker.transition",
+        dedupeKey: null,
+        payload: {
+          state: "Blocked"
+        }
+      }
+    ]);
+  });
+
+  it("routes requested paused states through an explicit runtime signal", async () => {
+    const fixture = symphonyCurrentFlowReplayFixtures.find(
+      (candidate) => candidate.name === "implementation_state_requested_paused"
+    );
+    if (!fixture) {
+      throw new TypeError("Missing implementation paused state-request replay fixture.");
+    }
+
+    const replay = await replaySymphonyCurrentFlowFixture(fixture);
+    const requestStep = replay.results[2];
+
+    expect(requestStep?.decision.fromNode).toBe("implementation");
+    expect(requestStep?.decision.toNode).toBe("paused");
+    expect(requestStep?.decision.reasonCode).toBe(
+      "implementation_state_requested_paused"
+    );
+    expect(requestStep?.decision.commands).toEqual([
+      {
+        id: "command_signal_spike_result_requested_tracker_paused",
+        kind: "tracker.transition",
+        dedupeKey: null,
+        payload: {
+          state: "Paused"
+        }
+      }
+    ]);
+  });
+
+  it("routes requested canceled states through an explicit runtime signal", async () => {
+    const fixture = symphonyCurrentFlowReplayFixtures.find(
+      (candidate) => candidate.name === "implementation_state_requested_canceled"
+    );
+    if (!fixture) {
+      throw new TypeError(
+        "Missing implementation canceled state-request replay fixture."
+      );
+    }
+
+    const replay = await replaySymphonyCurrentFlowFixture(fixture);
+    const requestStep = replay.results[2];
+
+    expect(requestStep?.decision.fromNode).toBe("implementation");
+    expect(requestStep?.decision.toNode).toBe("canceled");
+    expect(requestStep?.decision.reasonCode).toBe(
+      "implementation_state_requested_canceled"
+    );
+    expect(requestStep?.decision.commands).toEqual([
+      {
+        id: "command_signal_cancel_requested_tracker_canceled",
+        kind: "tracker.transition",
+        dedupeKey: null,
+        payload: {
+          state: "Canceled"
+        }
+      }
+    ]);
+  });
+
+  it("routes merge-result reports through an explicit runtime signal before runtime completion is observed", async () => {
+    const fixture = symphonyCurrentFlowReplayFixtures.find(
+      (candidate) => candidate.name === "approved_merge_merge_result_reported_done"
+    );
+    if (!fixture) {
+      throw new TypeError("Missing approved merge done replay fixture.");
+    }
+
+    const replay = await replaySymphonyCurrentFlowFixture(fixture);
+    const mergeResultStep = replay.results[2];
+
+    expect(mergeResultStep?.decision.fromNode).toBe("approved_merge");
+    expect(mergeResultStep?.decision.toNode).toBe("done");
+    expect(mergeResultStep?.decision.reasonCode).toBe("merge_result_reported");
+    expect(mergeResultStep?.decision.commands).toEqual([
+      {
+        id: "command_signal_merge_result_done_tracker_done",
+        kind: "tracker.transition",
+        dedupeKey: null,
+        payload: {
+          state: "Done"
+        }
+      }
+    ]);
+  });
+
+  it("routes blocked merge-result reports through an explicit runtime signal", async () => {
+    const fixture = symphonyCurrentFlowReplayFixtures.find(
+      (candidate) =>
+        candidate.name === "approved_merge_merge_result_reported_blocked"
+    );
+    if (!fixture) {
+      throw new TypeError("Missing approved merge blocked replay fixture.");
+    }
+
+    const replay = await replaySymphonyCurrentFlowFixture(fixture);
+    const mergeResultStep = replay.results[2];
+
+    expect(mergeResultStep?.decision.fromNode).toBe("approved_merge");
+    expect(mergeResultStep?.decision.toNode).toBe("blocked");
+    expect(mergeResultStep?.decision.reasonCode).toBe(
+      "merge_result_blocked_reported"
+    );
+    expect(mergeResultStep?.decision.commands).toEqual([
+      {
+        id: "command_signal_merge_result_blocked_tracker_blocked",
         kind: "tracker.transition",
         dedupeKey: null,
         payload: {
