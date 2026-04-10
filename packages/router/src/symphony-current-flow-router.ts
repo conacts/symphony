@@ -21,6 +21,7 @@ import {
   readSymphonyCurrentFlowTrackerStateObservedSignal,
   readSymphonyCurrentFlowTrackerTransitionCommand,
   type SymphonyCurrentFlowCompletionKind,
+  type SymphonyCurrentFlowReviewReworkHandoff,
   type SymphonyCurrentFlowRunMode,
   type SymphonyCurrentFlowTrackerState
 } from "./symphony-current-flow-contract.js";
@@ -48,6 +49,7 @@ export type SymphonyCurrentFlowData = {
   lastDispatchMode: SymphonyCurrentFlowRunMode | null;
   lastRunMode: SymphonyCurrentFlowRunMode | null;
   lastRuntimeOutcome: SymphonyCurrentFlowCompletionKind | null;
+  latestReworkHandoff: SymphonyCurrentFlowReviewReworkHandoff | null;
 };
 
 export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefinition<
@@ -364,7 +366,8 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
       lastObservedTrackerState: null,
       lastDispatchMode: null,
       lastRunMode: null,
-      lastRuntimeOutcome: null
+      lastRuntimeOutcome: null,
+      latestReworkHandoff: null
     }),
     reduceData: ({ data, event }) => {
       switch (event.kind) {
@@ -759,6 +762,15 @@ function reduceSignalData(
     return {
       ...data,
       lastRunMode: startedRunMode
+    };
+  }
+
+  const reworkRequested =
+    readSymphonyCurrentFlowReviewReworkRequestedSignal(signal);
+  if (reworkRequested !== null) {
+    return {
+      ...data,
+      latestReworkHandoff: reworkRequested.payload.handoff
     };
   }
 

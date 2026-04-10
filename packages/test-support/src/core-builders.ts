@@ -19,6 +19,7 @@ import {
   defaultSymphonyPiPresetName,
   type SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
+import type { SymphonyReworkHandoffTriggerKind } from "@symphony/runtime-contract";
 
 export { buildSymphonyTrackerIssue } from "@symphony/tracker";
 
@@ -26,7 +27,7 @@ let fixtureCounter = 0;
 
 type SymphonyReworkHandoffFixture = {
   source: "github_review";
-  triggerKind: string;
+  triggerKind: SymphonyReworkHandoffTriggerKind;
   reviewContextUrl: string | null;
   pullRequestUrl: string | null;
   actorLogin: string | null;

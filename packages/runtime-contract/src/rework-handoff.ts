@@ -1,10 +1,16 @@
-export const runtimeReworkHandoffEventType = "rework_handoff_recorded";
-
 export type SymphonyReworkHandoffSource = "github_review";
+export const symphonyReworkHandoffTriggerKinds = [
+  "changes_requested_review",
+  "review_comment",
+  "manual_rework_comment"
+] as const;
+
+export type SymphonyReworkHandoffTriggerKind =
+  (typeof symphonyReworkHandoffTriggerKinds)[number];
 
 export type SymphonyReworkHandoff = {
   source: SymphonyReworkHandoffSource;
-  triggerKind: string;
+  triggerKind: SymphonyReworkHandoffTriggerKind;
   reviewContextUrl: string | null;
   pullRequestUrl: string | null;
   actorLogin: string | null;
@@ -26,7 +32,7 @@ export function isSymphonyReworkHandoff(
 
   return (
     source === "github_review" &&
-    triggerKind !== null &&
+    isSymphonyReworkHandoffTriggerKind(triggerKind) &&
     recordedAt !== null
   );
 }
@@ -63,4 +69,13 @@ export function formatSymphonyReworkHandoffSection(
 
 function getNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+function isSymphonyReworkHandoffTriggerKind(
+  value: string | null
+): value is SymphonyReworkHandoffTriggerKind {
+  return (
+    value !== null &&
+    (symphonyReworkHandoffTriggerKinds as readonly string[]).includes(value)
+  );
 }

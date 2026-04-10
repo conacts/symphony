@@ -51,6 +51,9 @@ describe("Symphony current-flow router fixture", () => {
       expect(replay.projection.data.lastRuntimeOutcome).toBe(
         fixture.expected.lastRuntimeOutcome
       );
+      expect(replay.projection.data.latestReworkHandoff).toEqual(
+        fixture.expected.latestReworkHandoff ?? null
+      );
       expect(replay.projection.pendingCommands).toBe(0);
       expect(replay.results).toHaveLength(fixture.signals.length);
       expect(replay.historyLength).toBeGreaterThan(fixture.signals.length);
@@ -300,7 +303,8 @@ describe("Symphony current-flow router fixture", () => {
           lastObservedTrackerState: "Todo",
           lastDispatchMode: "implementation",
           lastRunMode: null,
-          lastRuntimeOutcome: null
+          lastRuntimeOutcome: null,
+          latestReworkHandoff: null
         },
         lastSignal: {
           id: "signal_todo_observed",

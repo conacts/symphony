@@ -10,7 +10,11 @@ import {
   createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
-import { runtimeReworkHandoffEventType } from "@symphony/runtime-contract";
+import type {
+  SymphonyCurrentFlowData,
+  SymphonyCurrentFlowNode,
+  SymphonyCurrentFlowPolicy
+} from "@symphony/router";
 import type { MemorySymphonyTracker } from "@symphony/tracker";
 import { createSymphonyRuntimeApp } from "./app.js";
 import type { SymphonyRuntimeTestHarness } from "../test-support/create-symphony-runtime-test-harness.js";
@@ -975,6 +979,12 @@ describe("@symphony/api app", () => {
         harness.runtimePolicy.tracker,
         "COL-123"
       );
+      const workflowHydration =
+        await harness.services.routeWorkflows.loadHydrationStateByIssueIdentifier<
+          SymphonyCurrentFlowNode,
+          SymphonyCurrentFlowData,
+          SymphonyCurrentFlowPolicy
+        >("COL-123");
       const issueTimeline = await harness.services.issueTimeline.list({
         issueIdentifier: "COL-123"
       });
@@ -989,15 +999,8 @@ describe("@symphony/api app", () => {
           runMode: "rework"
         }
       ]);
-      expect(issueTimeline).not.toBeNull();
-
-      const reworkHandoffEntry = issueTimeline?.entries.find(
-        (entry) => entry.eventType === runtimeReworkHandoffEventType
-      );
-      expect(reworkHandoffEntry).toMatchObject({
-        eventType: runtimeReworkHandoffEventType,
-        message: "Stored rework handoff for the next run.",
-        payload: {
+      expect(workflowHydration?.snapshot?.projection.data.latestReworkHandoff).toEqual(
+        expect.objectContaining({
           source: "github_review",
           triggerKind: "changes_requested_review",
           actorLogin: "reviewer",
@@ -1005,8 +1008,13 @@ describe("@symphony/api app", () => {
           reviewContextUrl:
             "https://github.com/openai/symphony/pull/123#pullrequestreview-999",
           feedbackBody: null
-        }
-      });
+        })
+      );
+      expect(
+        issueTimeline?.entries.some(
+          (entry) => entry.message === "Stored rework handoff for the next run."
+        ) ?? false
+      ).toBe(false);
     },
     runtimeHttpIntegrationTestTimeoutMs
   );

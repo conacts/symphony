@@ -12,7 +12,11 @@ import type {
   SymphonyCurrentFlowNode,
   SymphonyCurrentFlowPolicy
 } from "@symphony/router";
-import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
+import {
+  buildSymphonyReworkHandoff,
+  buildSymphonyRuntimePolicy,
+  buildSymphonyTrackerIssue
+} from "@symphony/test-support";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
 import { createRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
@@ -124,7 +128,10 @@ describe("runtime route lifecycle service", () => {
       const routed = await harness.service.routeReviewReworkRequest({
         issueIdentifier: harness.issue.identifier,
         recordedAt: "2026-04-10T14:00:17.000Z",
-        triggerKind: "changes_requested_review",
+        handoff: buildSymphonyReworkHandoff({
+          triggerKind: "changes_requested_review",
+          recordedAt: "2026-04-10T14:00:17.000Z"
+        }),
         onDispatchRequested: async (input) => {
           dispatchRequests.push({
             workflowId: input.workflowId,
@@ -152,6 +159,12 @@ describe("runtime route lifecycle service", () => {
       expect(hydration?.snapshot?.projection.currentNode).toBe("bootstrapping");
       expect(hydration?.snapshot?.projection.data.trackerState).toBe("Bootstrapping");
       expect(hydration?.snapshot?.projection.data.lastDispatchMode).toBe("rework");
+      expect(hydration?.snapshot?.projection.data.latestReworkHandoff).toEqual(
+        expect.objectContaining({
+          triggerKind: "changes_requested_review",
+          recordedAt: "2026-04-10T14:00:17.000Z"
+        })
+      );
       expect(hydration?.snapshot?.projection.lastSignal?.type).toBe(
         "review.rework_requested"
       );
@@ -302,7 +315,10 @@ describe("runtime route lifecycle service", () => {
         harness.service.routeReviewReworkRequest({
           issueIdentifier: harness.issue.identifier,
           recordedAt: "2026-04-10T14:00:21.000Z",
-          triggerKind: "review_comment"
+          handoff: buildSymphonyReworkHandoff({
+            triggerKind: "review_comment",
+            recordedAt: "2026-04-10T14:00:21.000Z"
+          })
         })
       ).rejects.toThrow(/run\.dispatch without a dispatch callback/i);
 

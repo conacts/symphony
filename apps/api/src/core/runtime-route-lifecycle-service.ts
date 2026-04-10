@@ -3,7 +3,10 @@ import type {
   SymphonyRunLifecycleRouter,
   SymphonyRunStartActivationRouter
 } from "@symphony/orchestrator";
-import type { SymphonyRunMode } from "@symphony/runtime-contract";
+import type {
+  SymphonyReworkHandoff,
+  SymphonyRunMode
+} from "@symphony/runtime-contract";
 import {
   createRuntimeCurrentFlowRouting
 } from "./runtime-current-flow-routing.js";
@@ -39,7 +42,6 @@ import type {
   SymphonyCurrentFlowMergeResultStatus,
   SymphonyCurrentFlowNode,
   SymphonyCurrentFlowPolicy,
-  SymphonyCurrentFlowReviewTriggerKind,
   SymphonyCurrentFlowStateRequestKind,
   SymphonyCurrentFlowStateRequestTargetState
 } from "@symphony/router";
@@ -80,7 +82,7 @@ export type SymphonyRuntimeRouteLifecycleService = {
   routeReviewReworkRequest(input: {
     issueIdentifier: string;
     recordedAt: string;
-    triggerKind: SymphonyCurrentFlowReviewTriggerKind;
+    handoff: SymphonyReworkHandoff;
     onDispatchRequested?(
       input: SymphonyTrackerStateDispatchRequest
     ): Promise<void> | void;
@@ -316,7 +318,7 @@ export async function createRuntimeRouteLifecycleService(input: {
       await reviewReworkRouter.routeReviewRework({
         issue: observed.issue,
         recordedAt: reviewReworkInput.recordedAt,
-        triggerKind: reviewReworkInput.triggerKind,
+        handoff: reviewReworkInput.handoff,
         onDispatchRequested: reviewReworkInput.onDispatchRequested
       });
       return true;

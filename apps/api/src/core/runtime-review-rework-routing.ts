@@ -1,9 +1,9 @@
 import {
   createSymphonyCurrentFlowReviewReworkRequestedSignal,
-  type SymphonyCurrentFlowReviewTriggerKind,
   type WorkflowCommand,
   type WorkflowSession
 } from "@symphony/router";
+import type { SymphonyReworkHandoff } from "@symphony/runtime-contract";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
@@ -21,7 +21,7 @@ import {
 export type SymphonyReviewReworkRoutingInput = {
   issue: SymphonyTrackerIssue;
   recordedAt: string;
-  triggerKind: SymphonyCurrentFlowReviewTriggerKind;
+  handoff: SymphonyReworkHandoff;
   onDispatchRequested?(
     input: SymphonyTrackerStateDispatchRequest
   ): Promise<void> | void;
@@ -64,11 +64,11 @@ export async function createRuntimeReviewReworkRouter(input: {
         createSymphonyCurrentFlowReviewReworkRequestedSignal({
           id: buildReviewReworkRequestedSignalId({
             issue: reviewInput.issue,
-            triggerKind: reviewInput.triggerKind,
+            handoff: reviewInput.handoff,
             recordedAt: reviewInput.recordedAt
           }),
           occurredAt: reviewInput.recordedAt,
-          triggerKind: reviewInput.triggerKind,
+          handoff: reviewInput.handoff,
           causationId: reviewInput.issue.identifier,
           correlationId: reviewInput.issue.identifier
         })
@@ -186,14 +186,14 @@ async function executeTrackerTransition(input: {
 
 function buildReviewReworkRequestedSignalId(input: {
   issue: SymphonyTrackerIssue;
-  triggerKind: SymphonyCurrentFlowReviewTriggerKind;
+  handoff: SymphonyReworkHandoff;
   recordedAt: string;
 }) {
   return [
     "signal",
     "review_rework_requested",
     normalizeWorkflowToken(input.issue.id),
-    normalizeWorkflowToken(input.triggerKind),
+    normalizeWorkflowToken(input.handoff.triggerKind),
     normalizeWorkflowToken(input.recordedAt)
   ].join("_");
 }

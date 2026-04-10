@@ -34,6 +34,7 @@ export type SymphonyCurrentFlowReplayFixture = {
     lastDispatchMode: SymphonyCurrentFlowRunMode | null;
     lastRunMode: SymphonyCurrentFlowRunMode | null;
     lastRuntimeOutcome: SymphonyCurrentFlowCompletionKind | null;
+    latestReworkHandoff?: SymphonyCurrentFlowData["latestReworkHandoff"];
   };
 };
 
@@ -217,7 +218,17 @@ export const symphonyCurrentFlowReplayFixtures: ReadonlyArray<SymphonyCurrentFlo
       trackerState: "Bootstrapping",
       lastDispatchMode: "rework",
       lastRunMode: null,
-      lastRuntimeOutcome: null
+      lastRuntimeOutcome: null,
+      latestReworkHandoff: {
+        source: "github_review",
+        triggerKind: "changes_requested_review",
+        reviewContextUrl:
+          "https://github.com/openai/symphony/pull/123#pullrequestreview-456",
+        pullRequestUrl: "https://github.com/openai/symphony/pull/123",
+        actorLogin: "reviewer",
+        feedbackBody: "Please address the latest review feedback.",
+        recordedAt: "2026-04-09T22:00:01.000Z"
+      }
     }
   },
   {
@@ -443,7 +454,16 @@ function reviewReworkRequested(
   return createSymphonyCurrentFlowReviewReworkRequestedSignal({
     id,
     occurredAt: buildOccurredAt(step),
-    triggerKind,
+    handoff: {
+      source: "github_review",
+      triggerKind,
+      reviewContextUrl:
+        "https://github.com/openai/symphony/pull/123#pullrequestreview-456",
+      pullRequestUrl: "https://github.com/openai/symphony/pull/123",
+      actorLogin: "reviewer",
+      feedbackBody: "Please address the latest review feedback.",
+      recordedAt: buildOccurredAt(step)
+    },
     causationId: `review-${step}`,
     correlationId: null
   });

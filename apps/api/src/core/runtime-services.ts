@@ -20,8 +20,11 @@ import {
   createSymphonyRuntimeLogStore,
   initializeSymphonyDb
 } from "@symphony/db";
-import type { SymphonyNormalizedRuntimeManifest } from "@symphony/runtime-contract";
-import { runtimeReworkHandoffEventType } from "@symphony/runtime-contract";
+import type {
+  SymphonyNormalizedRuntimeManifest,
+  SymphonyReworkHandoff
+} from "@symphony/runtime-contract";
+import { isSymphonyReworkHandoff } from "@symphony/runtime-contract";
 import { createSymphonyLogger } from "@symphony/logger";
 import {
   HarnessSessionError
@@ -35,10 +38,10 @@ import {
   type DockerPiAuthContract
 } from "./runtime-auth-contract.js";
 import type {
+  SymphonyCurrentFlowData,
+  SymphonyCurrentFlowNode,
+  SymphonyCurrentFlowPolicy,
   SymphonyCurrentFlowStateRequestTargetState
-} from "@symphony/router";
-import {
-  symphonyCurrentFlowReviewTriggerKindSchema
 } from "@symphony/router";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
@@ -64,7 +67,10 @@ import { createAgentAnalyticsReadPort } from "./agent-analytics-read-port.js";
 import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { createRepositoryScopedWorkspaceBackend } from "./runtime-workspace-backend-selector.js";
 import { createRepositoryScopedLinearTracker } from "./runtime-linear-tracker-registry.js";
-import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
+import {
+  createRouteWorkflowPort,
+  type SymphonyRouteWorkflowPort
+} from "./runtime-route-workflows.js";
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
@@ -413,6 +419,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runStore,
       deliveryReports,
       issueTimelineStore,
+      loadLatestReworkHandoff: (issueIdentifier) =>
+        loadLatestWorkflowReworkHandoff({
+          routeWorkflows,
+          issueIdentifier
+        }),
       agentAnalytics: agentAnalyticsStore,
       runtimeLogs: runtimeLogStore,
       hostCommandEnvSource,
@@ -728,14 +739,10 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
       if (result.status !== "ignored" && issueIdentifier) {
         if (result.status === "requeued") {
-          const reviewTriggerKind =
-            symphonyCurrentFlowReviewTriggerKindSchema.parse(
-              result.handoff.triggerKind
-            );
           const routed = await routeLifecycle.routeReviewReworkRequest({
             issueIdentifier,
             recordedAt: requeuedHandoff?.recordedAt ?? new Date().toISOString(),
-            triggerKind: reviewTriggerKind,
+            handoff: result.handoff,
             onDispatchRequested: dispatchObservedIssue
           });
           if (!routed) {
@@ -764,16 +771,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
       if (result.status !== "ignored" && issueIdentifier) {
         if (trackedIssue) {
-          if (requeuedHandoff) {
-            await issueTimelineStore.record({
-              issueIdentifier: trackedIssue.identifier,
-              source: "tracker",
-              eventType: runtimeReworkHandoffEventType,
-              message: "Stored rework handoff for the next run.",
-              payload: normalizeRuntimeJsonValue(requeuedHandoff)
-            });
-          }
-
           await issueTimelineStore.record({
             issueIdentifier: trackedIssue.identifier,
             source: "tracker",
@@ -1024,4 +1021,19 @@ function mapRuntimeStateRequestTargetState(
         `Runtime state-request routing does not support target state ${JSON.stringify(targetState)}.`
       );
   }
+}
+
+async function loadLatestWorkflowReworkHandoff(input: {
+  routeWorkflows: SymphonyRouteWorkflowPort;
+  issueIdentifier: string;
+}): Promise<SymphonyReworkHandoff | null> {
+  const hydration =
+    await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      SymphonyCurrentFlowNode,
+      SymphonyCurrentFlowData,
+      SymphonyCurrentFlowPolicy
+    >(input.issueIdentifier);
+  const handoff = hydration?.snapshot?.projection.data.latestReworkHandoff ?? null;
+
+  return isSymphonyReworkHandoff(handoff) ? handoff : null;
 }

@@ -10,9 +10,7 @@ import type {
 } from "@symphony/orchestrator";
 import {
   formatSymphonyReworkHandoffSection,
-  isSymphonyReworkHandoff,
   renderSymphonyPromptContract,
-  runtimeReworkHandoffEventType,
   type SymphonyLoadedPromptContract,
   type SymphonyReworkHandoff,
   type SymphonyRunMode
@@ -88,6 +86,9 @@ export function createSymphonyAgentRuntime(input: {
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
   issueTimelineStore?: SymphonyIssueTimelineStore;
+  loadLatestReworkHandoff?(
+    issueIdentifier: string
+  ): Promise<SymphonyReworkHandoff | null>;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -114,6 +115,9 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
   issueTimelineStore?: SymphonyIssueTimelineStore;
+  loadLatestReworkHandoff?(
+    issueIdentifier: string
+  ): Promise<SymphonyReworkHandoff | null>;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -158,6 +162,7 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
         runStore: input.runStore,
         deliveryReports: input.deliveryReports,
         issueTimelineStore: input.issueTimelineStore,
+        loadLatestReworkHandoff: input.loadLatestReworkHandoff,
         agentAnalytics: input.agentAnalytics,
         runtimeLogs: input.runtimeLogs,
         runtimePolicy: runInput.runtimePolicy,
@@ -211,6 +216,9 @@ async function executeRun(input: {
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
   issueTimelineStore?: SymphonyIssueTimelineStore;
+  loadLatestReworkHandoff?(
+    issueIdentifier: string
+  ): Promise<SymphonyReworkHandoff | null>;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
@@ -244,11 +252,8 @@ async function executeRun(input: {
     input.runMode
   );
   const latestReworkHandoff =
-    input.runMode === "rework" && input.issueTimelineStore
-      ? await loadLatestReworkHandoff(
-          input.issueTimelineStore,
-          input.issue.identifier
-        )
+    input.runMode === "rework" && input.loadLatestReworkHandoff
+      ? await input.loadLatestReworkHandoff(input.issue.identifier)
       : null;
   const repositoryKey = resolveRuntimeRepositoryKey({
     githubRepo: input.githubRepository
@@ -1045,28 +1050,6 @@ function mergeResultCompletion(
       mergeResult.blockingReason ??
       `Merge reported as blocked: ${mergeResult.summary}`
   };
-}
-
-async function loadLatestReworkHandoff(
-  issueTimelineStore: SymphonyIssueTimelineStore,
-  issueIdentifier: string
-): Promise<SymphonyReworkHandoff | null> {
-  const entries = await issueTimelineStore.listIssueTimeline(issueIdentifier, {
-    limit: 20
-  });
-  const handoffs = entries
-    .filter((candidate) => candidate.eventType === runtimeReworkHandoffEventType)
-    .map((entry) => parseSymphonyReworkHandoff(entry.payload))
-    .filter((handoff): handoff is SymphonyReworkHandoff => handoff !== null)
-    .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt));
-
-  return handoffs[0] ?? null;
-}
-
-function parseSymphonyReworkHandoff(
-  payload: JsonValue
-): SymphonyReworkHandoff | null {
-  return isSymphonyReworkHandoff(payload) ? payload : null;
 }
 
 function getStringValue(value: unknown): string | null {

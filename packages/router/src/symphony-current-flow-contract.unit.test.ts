@@ -83,7 +83,16 @@ describe("Symphony current-flow contract", () => {
     const signal = createSymphonyCurrentFlowReviewReworkRequestedSignal({
       id: "signal_review_rework_requested",
       occurredAt: "2026-04-10T15:00:01.700Z",
-      triggerKind: "changes_requested_review",
+      handoff: {
+        source: "github_review",
+        triggerKind: "changes_requested_review",
+        reviewContextUrl:
+          "https://github.com/openai/symphony/pull/123#pullrequestreview-555",
+        pullRequestUrl: "https://github.com/openai/symphony/pull/123",
+        actorLogin: "reviewer",
+        feedbackBody: "Please rename this API.",
+        recordedAt: "2026-04-10T15:00:01.700Z"
+      },
       causationId: "review-300",
       correlationId: "SYM-300"
     });
@@ -160,7 +169,7 @@ describe("Symphony current-flow contract", () => {
     );
   });
 
-  it("fails fast when review rework requests omit the trigger kind", () => {
+  it("fails fast when review rework requests omit the structured handoff", () => {
     expect(() =>
       readSymphonyCurrentFlowReviewReworkRequestedSignal({
         id: "signal_invalid_review_rework",

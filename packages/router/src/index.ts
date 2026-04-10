@@ -99,6 +99,7 @@ export type {
   SymphonyCurrentFlowMergeResultReportedSignal,
   SymphonyCurrentFlowMergeResultStatus,
   SymphonyCurrentFlowReviewReworkRequestedSignal,
+  SymphonyCurrentFlowReviewReworkHandoff,
   SymphonyCurrentFlowReviewTriggerKind,
   SymphonyCurrentFlowDispatchCommand,
   SymphonyCurrentFlowRunMode,

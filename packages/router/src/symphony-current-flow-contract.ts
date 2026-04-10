@@ -96,6 +96,15 @@ export type SymphonyCurrentFlowMergeResultStatus =
   (typeof mergeResultStatuses)[number];
 export type SymphonyCurrentFlowReviewTriggerKind =
   (typeof reviewTriggerKinds)[number];
+export type SymphonyCurrentFlowReviewReworkHandoff = {
+  source: "github_review";
+  triggerKind: SymphonyCurrentFlowReviewTriggerKind;
+  reviewContextUrl: string | null;
+  pullRequestUrl: string | null;
+  actorLogin: string | null;
+  feedbackBody: string | null;
+  recordedAt: string;
+};
 export type SymphonyCurrentFlowStateRequestKind = (typeof stateRequestKinds)[number];
 export type SymphonyCurrentFlowStateRequestTargetState =
   (typeof stateRequestTargetStates)[number];
@@ -114,6 +123,18 @@ const symphonyCurrentFlowCompletionKindSchema = z.enum(completionKinds);
 const symphonyCurrentFlowNonStartupCompletionKindSchema = z.enum(
   nonStartupCompletionKinds
 );
+
+const reviewReworkHandoffPayloadSchema = z
+  .object({
+    source: z.literal("github_review"),
+    triggerKind: symphonyCurrentFlowReviewTriggerKindSchema,
+    reviewContextUrl: z.string().trim().min(1).nullable(),
+    pullRequestUrl: z.string().trim().min(1).nullable(),
+    actorLogin: z.string().trim().min(1).nullable(),
+    feedbackBody: z.string().trim().min(1).nullable(),
+    recordedAt: z.string().trim().min(1)
+  })
+  .strict();
 
 const trackerStateObservedPayloadSchema = z
   .object({
@@ -146,7 +167,7 @@ const mergeResultReportedPayloadSchema = z
 
 const reviewReworkRequestedPayloadSchema = z
   .object({
-    triggerKind: symphonyCurrentFlowReviewTriggerKindSchema
+    handoff: reviewReworkHandoffPayloadSchema
   })
   .strict();
 
@@ -428,7 +449,7 @@ export function createSymphonyCurrentFlowMergeResultReportedSignal(input: {
 export function createSymphonyCurrentFlowReviewReworkRequestedSignal(input: {
   id: string;
   occurredAt: string;
-  triggerKind: SymphonyCurrentFlowReviewTriggerKind;
+  handoff: SymphonyCurrentFlowReviewReworkHandoff;
   causationId: string | null;
   correlationId: string | null;
 }): SymphonyCurrentFlowReviewReworkRequestedSignal {
@@ -438,7 +459,7 @@ export function createSymphonyCurrentFlowReviewReworkRequestedSignal(input: {
     source: "review",
     occurredAt: input.occurredAt,
     payload: {
-      triggerKind: input.triggerKind
+      handoff: input.handoff
     },
     causationId: input.causationId,
     correlationId: input.correlationId

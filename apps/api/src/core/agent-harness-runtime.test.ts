@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createSqliteAgentAnalyticsReadStore,
   createSqliteAgentAnalyticsStore,
+  createRouteWorkflowStore,
   createSymphonyIssueDeliveryReportStore,
   createSymphonyIssueTimelineStore,
   createSqliteSymphonyRuntimeRunStore,
@@ -16,19 +17,29 @@ import {
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import type { SymphonyAgentRuntimeCompletion } from "@symphony/orchestrator";
 import {
-  runtimeReworkHandoffEventType,
+  type SymphonyReworkHandoff,
   symphonyHarnessPromptAppendix
 } from "@symphony/runtime-contract";
 import { runtimeMergeResultEventType } from "@symphony/runtime-tools";
+import {
+  createSymphonyCurrentFlowReviewReworkRequestedSignal,
+  createSymphonyCurrentFlowTrackerStateObservedSignal,
+  type SymphonyCurrentFlowData,
+  type SymphonyCurrentFlowNode,
+  type SymphonyCurrentFlowPolicy
+} from "@symphony/router";
 import { buildSymphonyReworkHandoff } from "@symphony/test-support";
 import type {
   SymphonyTracker,
+  SymphonyTrackerConfig,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import {
   createSymphonyAgentRuntime as createRawSymphonyAgentRuntime,
   isTransientProviderError
 } from "./agent-harness-runtime.js";
+import { createRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
+import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimePolicyForRoot } from "../test-support/create-symphony-runtime-test-harness.js";
 
 const tempRoots: string[] = [];
@@ -940,9 +951,6 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
-      repositoryKey: testRepositoryKey
-    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
@@ -965,13 +973,12 @@ done
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
     });
-
-    await issueTimelineStore.record({
-              issueIdentifier: issue.identifier,
-      source: "tracker",
-      eventType: runtimeReworkHandoffEventType,
-      message: "Stored rework handoff for the next run.",
-      payload: buildSymphonyReworkHandoff()
+    const loadLatestReworkHandoff = await buildWorkflowBackedReworkHandoffLoader({
+      db: database.db,
+      issueIdentifier: issue.identifier,
+      repositoryKey: testRepositoryKey,
+      trackerConfig: runtimePolicy.tracker,
+      handoffs: [buildSymphonyReworkHandoff()]
     });
 
     const completionPromise = new Promise<void>((resolve) => {
@@ -983,7 +990,7 @@ done
         tracker,
         runStore,
         deliveryReports,
-        issueTimelineStore,
+        loadLatestReworkHandoff,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1056,9 +1063,6 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
-      repositoryKey: testRepositoryKey
-    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
@@ -1091,7 +1095,6 @@ done
         tracker,
         runStore,
         deliveryReports,
-        issueTimelineStore,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1163,9 +1166,6 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
-      repositoryKey: testRepositoryKey
-    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
@@ -1188,13 +1188,12 @@ done
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
     });
-
-    await issueTimelineStore.record({
-              issueIdentifier: issue.identifier,
-      source: "tracker",
-      eventType: runtimeReworkHandoffEventType,
-      message: "Stored rework handoff for the next run.",
-      payload: buildSymphonyReworkHandoff()
+    const loadLatestReworkHandoff = await buildWorkflowBackedReworkHandoffLoader({
+      db: database.db,
+      issueIdentifier: issue.identifier,
+      repositoryKey: testRepositoryKey,
+      trackerConfig: runtimePolicy.tracker,
+      handoffs: [buildSymphonyReworkHandoff()]
     });
 
     const completionPromise = new Promise<void>((resolve) => {
@@ -1206,7 +1205,7 @@ done
         tracker,
         runStore,
         deliveryReports,
-        issueTimelineStore,
+        loadLatestReworkHandoff,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1273,9 +1272,6 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
-      repositoryKey: testRepositoryKey
-    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
@@ -1288,6 +1284,9 @@ done
     });
     const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
+    });
+    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey: testRepositoryKey
     });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
@@ -1731,9 +1730,6 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
-      repositoryKey: testRepositoryKey
-    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
@@ -1756,28 +1752,25 @@ done
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
     });
-
-    await issueTimelineStore.record({
-              issueIdentifier: issue.identifier,
-      source: "tracker",
-      eventType: runtimeReworkHandoffEventType,
-      message: "Stored older rework handoff for the next run.",
-      payload: buildSymphonyReworkHandoff({
-        reviewContextUrl: "https://github.com/openai/symphony/pull/123#pullrequestreview-111",
-        feedbackBody: "Old feedback that should not be used.",
-        recordedAt: "2026-04-05T00:00:00.000Z"
-      })
-    });
-    await issueTimelineStore.record({
-              issueIdentifier: issue.identifier,
-      source: "tracker",
-      eventType: runtimeReworkHandoffEventType,
-      message: "Stored newer rework handoff for the next run.",
-      payload: buildSymphonyReworkHandoff({
-        triggerKind: "changes_requested_review",
-        reviewContextUrl: "https://github.com/openai/symphony/pull/123#pullrequestreview-222",
-        feedbackBody: "Newest feedback that should be shown first."
-      })
+    const loadLatestReworkHandoff = await buildWorkflowBackedReworkHandoffLoader({
+      db: database.db,
+      issueIdentifier: issue.identifier,
+      repositoryKey: testRepositoryKey,
+      trackerConfig: runtimePolicy.tracker,
+      handoffs: [
+        buildSymphonyReworkHandoff({
+          reviewContextUrl:
+            "https://github.com/openai/symphony/pull/123#pullrequestreview-111",
+          feedbackBody: "Old feedback that should not be used.",
+          recordedAt: "2026-04-05T00:00:00.000Z"
+        }),
+        buildSymphonyReworkHandoff({
+          triggerKind: "changes_requested_review",
+          reviewContextUrl:
+            "https://github.com/openai/symphony/pull/123#pullrequestreview-222",
+          feedbackBody: "Newest feedback that should be shown first."
+        })
+      ]
     });
 
     const completionPromise = new Promise<void>((resolve) => {
@@ -1789,7 +1782,7 @@ done
         tracker,
         runStore,
         deliveryReports,
-        issueTimelineStore,
+        loadLatestReworkHandoff,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -2906,6 +2899,102 @@ function ambientEnvBundle() {
       runtimeBindingKeys: [],
       serviceBindingKeys: []
     }
+  };
+}
+
+async function buildWorkflowBackedReworkHandoffLoader(input: {
+  db: ReturnType<typeof initializeSymphonyDb>["db"];
+  issueIdentifier: string;
+  repositoryKey: string;
+  trackerConfig: SymphonyTrackerConfig;
+  handoffs: SymphonyReworkHandoff[];
+}): Promise<(issueIdentifier: string) => Promise<SymphonyReworkHandoff | null>> {
+  const routeWorkflows = createRouteWorkflowPort({
+    routeWorkflowStore: createRouteWorkflowStore(input.db)
+  });
+  const routing = await createRuntimeCurrentFlowRouting({
+    trackerConfig: input.trackerConfig,
+    now: () => new Date("2026-04-10T16:00:00.000Z")
+  });
+
+  await routeWorkflows.ensureWorkflowForIssue({
+    issueIdentifier: input.issueIdentifier,
+    repositoryKey: input.repositoryKey,
+    router: routing.router,
+    createdAt: "2026-04-10T16:00:00.000Z"
+  });
+
+  const reviewObservation = await routeWorkflows.resumeSessionByIssueIdentifier({
+    issueIdentifier: input.issueIdentifier,
+    router: routing.router,
+    policy: routing.policy
+  });
+  if (!reviewObservation) {
+    throw new TypeError(
+      `Route workflow could not be resumed for ${input.issueIdentifier} while seeding rework handoff test state.`
+    );
+  }
+
+  await routeWorkflows.recordRouteResult({
+    workflowId: reviewObservation.hydrationState.workflow.workflowId,
+    policy: routing.policy,
+    result: await reviewObservation.session.receiveAsync(
+      createSymphonyCurrentFlowTrackerStateObservedSignal({
+        id: `signal_review_observed_${input.issueIdentifier.toLowerCase()}`,
+        occurredAt: "2026-04-10T16:00:00.000Z",
+        state: "In Review",
+        runId: null,
+        runMode: null,
+        causationId: null,
+        correlationId: input.issueIdentifier
+      })
+    )
+  });
+
+  for (const handoff of input.handoffs) {
+    const resumed = await routeWorkflows.resumeSessionByIssueIdentifier<
+      SymphonyCurrentFlowNode,
+      SymphonyCurrentFlowData,
+      SymphonyCurrentFlowPolicy
+    >({
+      issueIdentifier: input.issueIdentifier,
+      router: routing.router,
+      policy: routing.policy
+    });
+    if (!resumed) {
+      throw new TypeError(
+        `Route workflow could not be resumed for ${input.issueIdentifier} while recording rework handoff ${handoff.recordedAt}.`
+      );
+    }
+
+    await routeWorkflows.recordRouteResult({
+      workflowId: resumed.hydrationState.workflow.workflowId,
+      policy: routing.policy,
+      result: await resumed.session.receiveAsync(
+        createSymphonyCurrentFlowReviewReworkRequestedSignal({
+          id: [
+            "signal",
+            "review_rework_requested",
+            input.issueIdentifier.toLowerCase(),
+            handoff.recordedAt
+          ].join("_"),
+          occurredAt: handoff.recordedAt,
+          handoff,
+          causationId: input.issueIdentifier,
+          correlationId: input.issueIdentifier
+        })
+      )
+    });
+  }
+
+  return async (issueIdentifier) => {
+    const hydration =
+      await routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(issueIdentifier);
+    return hydration?.snapshot?.projection.data.latestReworkHandoff ?? null;
   };
 }
 
