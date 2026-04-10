@@ -250,6 +250,52 @@ describe("runtime route lifecycle service", () => {
       harness.close();
     }
   });
+
+  it("routes shutdown pauses through route history for active runs", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await harness.service.dispatchBootstrapRouter.route({
+        issue: harness.issue,
+        attempt: 1,
+        preferredWorkerHost: null,
+        startedAt: "2026-04-10T14:20:00.000Z"
+      });
+      const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
+      await harness.service.runStartActivationRouter.activate({
+        issue: bootstrappingIssue!,
+        runId: "run-1",
+        runMode: "implementation",
+        threadId: "thread-1",
+        workerHost: null,
+        launchTarget: null,
+        recordedAt: "2026-04-10T14:20:05.000Z"
+      });
+
+      const routed = await harness.service.routeShutdownPause({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        runMode: "implementation",
+        recordedAt: "2026-04-10T14:20:10.000Z",
+        reason: "runtime_shutdown"
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Paused");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("paused");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Paused");
+    } finally {
+      harness.close();
+    }
+  });
 });
 
 async function createHarness(input: {

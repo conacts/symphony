@@ -17,6 +17,9 @@ import {
   createRuntimeRunStartActivationRouter
 } from "./runtime-run-start-activation-routing.js";
 import {
+  createRuntimeRunShutdownRouter
+} from "./runtime-run-shutdown-routing.js";
+import {
   createRuntimeTrackerStateObservationRouter,
   type SymphonyTrackerStateDispatchRequest
 } from "./runtime-tracker-state-observation-routing.js";
@@ -43,6 +46,13 @@ export type SymphonyRuntimeRouteLifecycleService = {
     onDispatchRequested?(
       input: SymphonyTrackerStateDispatchRequest
     ): Promise<void> | void;
+  }): Promise<boolean>;
+  routeShutdownPause(input: {
+    issueIdentifier: string;
+    runId: string;
+    runMode: SymphonyRunMode;
+    recordedAt: string;
+    reason: string;
   }): Promise<boolean>;
   observeActiveIssueStateByIdentifier(input: {
     issueIdentifier: string;
@@ -78,6 +88,11 @@ export async function createRuntimeRouteLifecycleService(input: {
     tracker: input.tracker,
     routing
   });
+  const runShutdownRouter = await createRuntimeRunShutdownRouter({
+    routeWorkflows: input.routeWorkflows,
+    tracker: input.tracker,
+    routing
+  });
   const trackerStateObservationRouter =
     await createRuntimeTrackerStateObservationRouter({
       routeWorkflows: input.routeWorkflows,
@@ -93,12 +108,32 @@ export async function createRuntimeRouteLifecycleService(input: {
       );
       return observed !== null;
     };
+  const routeShutdownPause: SymphonyRuntimeRouteLifecycleService["routeShutdownPause"] =
+    async (shutdownInput) => {
+      const issue = await input.tracker.fetchIssueByIdentifier(
+        input.trackerConfig,
+        shutdownInput.issueIdentifier
+      );
+      if (!issue) {
+        return false;
+      }
+
+      await runShutdownRouter.routeShutdown({
+        issue,
+        runId: shutdownInput.runId,
+        runMode: shutdownInput.runMode,
+        recordedAt: shutdownInput.recordedAt,
+        reason: shutdownInput.reason
+      });
+      return true;
+    };
 
   return {
     dispatchBootstrapRouter,
     runStartActivationRouter,
     runLifecycleRouter,
     observeTrackerStateByIdentifier,
+    routeShutdownPause,
     async observeActiveIssueStateByIdentifier(observationInput) {
       const hydration =
         await input.routeWorkflows.loadHydrationStateByIssueIdentifier<

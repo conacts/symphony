@@ -272,11 +272,32 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
         guard: ({ signal }) => isPausedOutcome(signal)
       }),
       new WorkflowEdge({
+        id: "implementation_shutdown_paused",
+        from: "implementation",
+        to: "paused",
+        reasonCode: "implementation_shutdown_paused",
+        guard: ({ signal }) => isShutdownRequested(signal)
+      }),
+      new WorkflowEdge({
         id: "rework_paused",
         from: "rework",
         to: "paused",
         reasonCode: "rework_paused",
         guard: ({ signal }) => isPausedOutcome(signal)
+      }),
+      new WorkflowEdge({
+        id: "rework_shutdown_paused",
+        from: "rework",
+        to: "paused",
+        reasonCode: "rework_shutdown_paused",
+        guard: ({ signal }) => isShutdownRequested(signal)
+      }),
+      new WorkflowEdge({
+        id: "approved_merge_shutdown_paused",
+        from: "approved_merge",
+        to: "paused",
+        reasonCode: "approved_merge_shutdown_paused",
+        guard: ({ signal }) => isShutdownRequested(signal)
       })
     ],
     strategy: createDeterministicStrategy(),
@@ -491,6 +512,10 @@ function isBlockedMergeOutcome(signal: WorkflowSignal) {
     kind === "stalled" ||
     kind === "max_turns_reached"
   );
+}
+
+function isShutdownRequested(signal: WorkflowSignal) {
+  return signal.type === "runtime.shutdown_requested";
 }
 
 function maybeCreateTrackerTransitionCommand(

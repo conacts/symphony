@@ -737,6 +737,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
               runStore,
               issueTimelineStore,
               runtimeLogStore,
+              routeLifecycle,
               shutdownReason
             });
 

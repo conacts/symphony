@@ -559,7 +559,9 @@ describe("runtime services", () => {
       "/tmp/workspace",
       seededAt,
       null,
-      null,
+      JSON.stringify({
+        runMode: "implementation"
+      }),
       null,
       null,
       seededAt,

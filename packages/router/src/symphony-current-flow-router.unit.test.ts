@@ -409,4 +409,116 @@ describe("Symphony current-flow router fixture", () => {
       }
     ]);
   });
+
+  it("routes shutdown requests into paused from implementation", async () => {
+    const router = await createSymphonyCurrentFlowRouterAsync({
+      now: () => new Date("2026-04-09T23:05:00.000Z"),
+      createId: (() => {
+        let counter = 0;
+        return (prefix: string) =>
+          `${prefix}_${String(++counter).padStart(4, "0")}`;
+      })()
+    });
+
+    const result = await Effect.runPromise(
+      router.receive({
+        workflowId: "SYM-210",
+        history: [
+          {
+            kind: "signal_recorded",
+            recordedAt: "2026-04-09T23:00:00.000Z",
+            signal: {
+              id: "signal_bootstrapping",
+              type: "tracker.state_observed",
+              source: "tracker",
+              occurredAt: "2026-04-09T23:00:00.000Z",
+              payload: {
+                state: "Bootstrapping"
+              },
+              causationId: null,
+              correlationId: "SYM-210"
+            }
+          },
+          {
+            kind: "decision_recorded",
+            recordedAt: "2026-04-09T23:00:00.000Z",
+            decision: {
+              id: "decision_0001",
+              fromNode: "idle" as SymphonyCurrentFlowNode,
+              toNode: "bootstrapping" as SymphonyCurrentFlowNode,
+              edgeId: "idle_bootstrapping_to_bootstrapping",
+              reasonCode: "bootstrapping_resumed",
+              commands: [],
+              trace: [],
+              selectionMetadata: null
+            }
+          },
+          {
+            kind: "signal_recorded",
+            recordedAt: "2026-04-09T23:01:00.000Z",
+            signal: {
+              id: "signal_run_started",
+              type: "runtime.run_started",
+              source: "runtime",
+              occurredAt: "2026-04-09T23:01:00.000Z",
+              payload: {
+                runId: "run-210",
+                runMode: "implementation"
+              },
+              causationId: "run-210",
+              correlationId: "SYM-210"
+            }
+          },
+          {
+            kind: "decision_recorded",
+            recordedAt: "2026-04-09T23:01:00.000Z",
+            decision: {
+              id: "decision_0002",
+              fromNode: "bootstrapping" as SymphonyCurrentFlowNode,
+              toNode: "implementation" as SymphonyCurrentFlowNode,
+              edgeId: "bootstrapping_to_implementation_started",
+              reasonCode: "implementation_run_started",
+              commands: [
+                {
+                  id: "command_signal_run_started_tracker_in_progress",
+                  kind: "tracker.transition",
+                  payload: {
+                    state: "In Progress"
+                  }
+                }
+              ],
+              trace: [],
+              selectionMetadata: null
+            }
+          }
+        ],
+        signal: {
+          id: "signal_shutdown_requested",
+          type: "runtime.shutdown_requested",
+          source: "runtime",
+          occurredAt: "2026-04-09T23:05:00.000Z",
+          payload: {
+            runId: "run-210",
+            runMode: "implementation",
+            reason: "runtime_shutdown"
+          },
+          causationId: "run-210",
+          correlationId: "SYM-210"
+        },
+        policy: {}
+      })
+    );
+
+    expect(result.decision.toNode).toBe("paused");
+    expect(result.decision.reasonCode).toBe("implementation_shutdown_paused");
+    expect(result.decision.commands).toEqual([
+      {
+        id: "command_signal_shutdown_requested_tracker_paused",
+        kind: "tracker.transition",
+        payload: {
+          state: "Paused"
+        }
+      }
+    ]);
+  });
 });

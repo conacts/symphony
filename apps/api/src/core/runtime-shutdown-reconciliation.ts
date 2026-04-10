@@ -5,8 +5,10 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type { SymphonyTracker } from "@symphony/tracker";
 import { SymphonyRuntimePollScheduler } from "./poll-scheduler.js";
+import type { SymphonyRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 
 export async function reconcilePersistedActiveRunsOnShutdown(input: {
   database: ReturnType<typeof initializeSymphonyDb>;
@@ -15,6 +17,7 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
   runStore: ReturnType<typeof createSqliteSymphonyRuntimeRunStore>;
   issueTimelineStore: ReturnType<typeof createSymphonyIssueTimelineStore>;
   runtimeLogStore: ReturnType<typeof createSymphonyRuntimeLogStore>;
+  routeLifecycle: Pick<SymphonyRuntimeRouteLifecycleService, "routeShutdownPause">;
   shutdownReason: string;
 }): Promise<number> {
   const endedAt = new Date().toISOString();
@@ -22,7 +25,8 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
     select runs.run_id as runId,
            issues.tracker_issue_id as trackerIssueId,
            runs.issue_identifier as issueIdentifier,
-           runs.status as status
+           runs.status as status,
+           runs.metadata as metadataJson
     from symphony_runs runs
     inner join symphony_issues issues
       on issues.issue_identifier = runs.issue_identifier
@@ -32,6 +36,7 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
     trackerIssueId: string;
     issueIdentifier: string;
     status: "dispatching" | "running";
+    metadataJson: string | null;
   }>;
 
   if (activeRuns.length === 0) {
@@ -51,9 +56,9 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
     const trackedIssue = trackedIssuesById.get(run.trackerIssueId) ?? null;
 
     await reconcileTrackerIssueOnShutdown({
-      tracker: input.tracker,
-      runtimePolicy: input.runtimePolicy,
+      routeLifecycle: input.routeLifecycle,
       trackedIssue,
+      runMode: readPersistedRunMode(run.metadataJson),
       issueTimelineStore: input.issueTimelineStore,
       runId: run.runId,
       endedAt,
@@ -141,9 +146,9 @@ export async function waitForPollSchedulerDrain(
 }
 
 async function reconcileTrackerIssueOnShutdown(input: {
-  tracker: SymphonyTracker;
-  runtimePolicy: SymphonyResolvedRuntimePolicy;
+  routeLifecycle: Pick<SymphonyRuntimeRouteLifecycleService, "routeShutdownPause">;
   trackedIssue: Awaited<ReturnType<SymphonyTracker["fetchIssueStatesByIds"]>>[number] | null;
+  runMode: SymphonyRunMode;
   issueTimelineStore: ReturnType<typeof createSymphonyIssueTimelineStore>;
   runId: string;
   endedAt: string;
@@ -153,17 +158,18 @@ async function reconcileTrackerIssueOnShutdown(input: {
     return;
   }
 
-  const pauseState = input.runtimePolicy.tracker.pauseTransitionToState;
-
-  if (
-    !pauseState ||
-    input.trackedIssue.state.trim().toLowerCase() === pauseState.trim().toLowerCase()
-  ) {
-    return;
-  }
-
   try {
-    await input.tracker.updateIssueState(input.trackedIssue.id, pauseState);
+    const routed = await input.routeLifecycle.routeShutdownPause({
+      issueIdentifier: input.trackedIssue.identifier,
+      runId: input.runId,
+      runMode: input.runMode,
+      recordedAt: input.endedAt,
+      reason: input.shutdownReason
+    });
+    if (!routed) {
+      return;
+    }
+
     await input.issueTimelineStore.record({
       issueIdentifier: input.trackedIssue.identifier,
       runId: input.runId,
@@ -172,7 +178,7 @@ async function reconcileTrackerIssueOnShutdown(input: {
       message: "Issue moved to the paused state during runtime shutdown.",
       payload: {
         fromState: input.trackedIssue.state,
-        toState: pauseState,
+        toState: "Paused",
         shutdownReason: input.shutdownReason
       },
       recordedAt: input.endedAt
@@ -180,4 +186,23 @@ async function reconcileTrackerIssueOnShutdown(input: {
   } catch {
     // Best-effort containment. The run is still reconciled locally even if tracker state fails.
   }
+}
+
+function readPersistedRunMode(metadataJson: string | null): SymphonyRunMode {
+  if (!metadataJson) {
+    throw new TypeError("Persisted active run is missing metadata.runMode.");
+  }
+
+  const metadata = JSON.parse(metadataJson) as {
+    runMode?: unknown;
+  };
+  if (
+    metadata.runMode !== "implementation" &&
+    metadata.runMode !== "rework" &&
+    metadata.runMode !== "approved_merge"
+  ) {
+    throw new TypeError("Persisted active run is missing a supported metadata.runMode.");
+  }
+
+  return metadata.runMode;
 }
