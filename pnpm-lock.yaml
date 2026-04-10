@@ -103,6 +103,9 @@ importers:
       '@symphony/orchestrator':
         specifier: workspace:*
         version: link:../../packages/orchestrator
+      '@symphony/router':
+        specifier: workspace:*
+        version: link:../../packages/router
       '@symphony/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime

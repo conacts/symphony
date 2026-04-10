@@ -17,3 +17,16 @@ export function createWorkflowRouter<
 ): Effect.Effect<WorkflowRouter<Node, Data, Policy>, WorkflowRouterError, never> {
   return WorkflowRouter.make(definition, options);
 }
+
+export async function createWorkflowRouterAsync<
+  Node extends WorkflowNodeId,
+  Data,
+  Policy,
+>(
+  definition: WorkflowRouterDefinition<Node, Data, Policy>,
+  options: WorkflowRouterOptions = {}
+): Promise<WorkflowRouter<Node, Data, Policy>> {
+  return await Effect.runPromise(
+    createWorkflowRouter(definition, options)
+  );
+}

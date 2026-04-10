@@ -83,6 +83,14 @@ export class WorkflowRouter<
     });
   }
 
+  async startSessionAsync(input: {
+    workflowId: string;
+    policy: Policy;
+    history?: WorkflowHistory<Node>;
+  }): Promise<WorkflowSession<Node, Data, Policy>> {
+    return await Effect.runPromise(this.startSession(input));
+  }
+
   resumeSession(input: {
     projection: WorkflowProjection<Node, Data>;
     policy: Policy;
@@ -94,6 +102,14 @@ export class WorkflowRouter<
       policy: input.policy,
       history: input.history
     });
+  }
+
+  async resumeSessionAsync(input: {
+    projection: WorkflowProjection<Node, Data>;
+    policy: Policy;
+    history?: WorkflowHistory<Node>;
+  }): Promise<WorkflowSession<Node, Data, Policy>> {
+    return await Effect.runPromise(this.resumeSession(input));
   }
 
   project(input: {
@@ -109,6 +125,14 @@ export class WorkflowRouter<
     });
   }
 
+  async projectAsync(input: {
+    workflowId: string;
+    history: WorkflowHistory<Node>;
+    policy: Policy;
+  }): Promise<WorkflowProjection<Node, Data>> {
+    return await Effect.runPromise(this.project(input));
+  }
+
   rehydrate(input: {
     projection: WorkflowProjection<Node, Data>;
     tailHistory: WorkflowHistory<Node>;
@@ -120,6 +144,14 @@ export class WorkflowRouter<
       tailHistory: input.tailHistory,
       policy: input.policy
     });
+  }
+
+  async rehydrateAsync(input: {
+    projection: WorkflowProjection<Node, Data>;
+    tailHistory: WorkflowHistory<Node>;
+    policy: Policy;
+  }): Promise<WorkflowProjection<Node, Data>> {
+    return await Effect.runPromise(this.rehydrate(input));
   }
 
   receive(input: {
@@ -141,6 +173,15 @@ export class WorkflowRouter<
         policy: input.policy
       });
     });
+  }
+
+  async receiveAsync(input: {
+    workflowId: string;
+    history: WorkflowHistory<Node>;
+    signal: WorkflowSignal;
+    policy: Policy;
+  }): Promise<WorkflowRouteResult<Node, Data>> {
+    return await Effect.runPromise(this.receive(input));
   }
 
   receiveFromProjection(input: {
@@ -268,6 +309,14 @@ export class WorkflowRouter<
     });
   }
 
+  async receiveFromProjectionAsync(input: {
+    projection: WorkflowProjection<Node, Data>;
+    signal: WorkflowSignal;
+    policy: Policy;
+  }): Promise<WorkflowRouteResult<Node, Data>> {
+    return await Effect.runPromise(this.receiveFromProjection(input));
+  }
+
   simulate(input: {
     workflowId: string;
     history?: WorkflowHistory<Node>;
@@ -308,6 +357,15 @@ export class WorkflowRouter<
         steps
       };
     });
+  }
+
+  async simulateAsync(input: {
+    workflowId: string;
+    history?: WorkflowHistory<Node>;
+    signals: ReadonlyArray<WorkflowSignal>;
+    policy: Policy;
+  }): Promise<WorkflowSimulationResult<Node, Data>> {
+    return await Effect.runPromise(this.simulate(input));
   }
 
   #collectCandidates(input: {

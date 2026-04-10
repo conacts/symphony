@@ -117,6 +117,12 @@ export class WorkflowSession<
     });
   }
 
+  async receiveAsync(
+    signal: WorkflowSignal
+  ): Promise<WorkflowRouteResult<Node, Data>> {
+    return await Effect.runPromise(this.receive(signal));
+  }
+
   settleCommand(input: {
     commandId: string;
     status: "succeeded" | "failed";
@@ -143,5 +149,14 @@ export class WorkflowSession<
 
       return nextProjection;
     });
+  }
+
+  async settleCommandAsync(input: {
+    commandId: string;
+    status: "succeeded" | "failed";
+    payload?: WorkflowPayload;
+    recordedAt?: string;
+  }): Promise<WorkflowProjection<Node, Data>> {
+    return await Effect.runPromise(this.settleCommand(input));
   }
 }

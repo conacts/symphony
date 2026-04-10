@@ -38,6 +38,9 @@
       "path": "../../packages/orchestrator"
     },
     {
+      "path": "../../packages/router"
+    },
+    {
       "path": "../../packages/runtime-contract"
     },
     {

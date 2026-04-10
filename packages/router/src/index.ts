@@ -1,5 +1,6 @@
 export {
-  createWorkflowRouter
+  createWorkflowRouter,
+  createWorkflowRouterAsync
 } from "./router-builder.js";
 export {
   createDeterministicStrategy

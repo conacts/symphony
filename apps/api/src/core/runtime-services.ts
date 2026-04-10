@@ -10,6 +10,7 @@ import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
 import {
   createSqliteAgentAnalyticsReadStore,
   createSqliteAgentAnalyticsStore,
+  createRouteWorkflowStore,
   createSqliteRuntimeForensicsReadStore,
   createSymphonyIssueDeliveryReportStore,
   createSymphonyIssueStore,
@@ -57,6 +58,7 @@ import { createAgentAnalyticsReadPort } from "./agent-analytics-read-port.js";
 import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { createRepositoryScopedWorkspaceBackend } from "./runtime-workspace-backend-selector.js";
 import { createRepositoryScopedLinearTracker } from "./runtime-linear-tracker-registry.js";
+import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import {
   executeCancelTool,
@@ -143,6 +145,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     repositoryKey
   });
   const issueStore = createSymphonyIssueStore(database.db);
+  const routeWorkflowStore = createRouteWorkflowStore(database.db);
   const runtimeLogStore = createSymphonyRuntimeLogStore(database.db, {
     repositoryKey
   });
@@ -428,6 +431,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const runtimeLogs = createRuntimeLogsPort({
     runtimeLogStore
   });
+  const routeWorkflows = createRouteWorkflowPort({
+    routeWorkflowStore
+  });
   const health = createRuntimeHealthPort({
     dbFile: database.dbFile,
     runtimePolicy,
@@ -667,6 +673,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runtimeLogs,
     health,
     runtimeTools,
+    routeWorkflows,
     githubReviewIngress,
     realtime,
     async shutdown() {

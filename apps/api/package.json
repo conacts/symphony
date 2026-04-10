@@ -26,6 +26,7 @@
     "@symphony/github-review": "workspace:*",
     "@symphony/logger": "workspace:*",
     "@symphony/orchestrator": "workspace:*",
+    "@symphony/router": "workspace:*",
     "@symphony/runtime": "workspace:*",
     "@symphony/runtime-contract": "workspace:*",
     "@symphony/runtime-policy": "workspace:*",

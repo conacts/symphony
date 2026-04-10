@@ -29,6 +29,7 @@ import type { SymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 import type { SymphonyRuntimePollSchedulerSnapshot } from "./poll-scheduler.js";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 import type { RuntimeToolExecutionResult } from "@symphony/runtime-tools";
+import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 
 export type SymphonyRuntimeOrchestratorPort = {
   snapshot(): SymphonyOrchestratorSnapshot;
@@ -162,6 +163,7 @@ export type SymphonyRuntimeAppServices = {
   runtimeLogs: SymphonyRuntimeLogsPort;
   health: SymphonyRuntimeHealthPort;
   runtimeTools: SymphonyRuntimeToolsPort;
+  routeWorkflows: SymphonyRouteWorkflowPort;
   githubReviewIngress: SymphonyGitHubReviewIngressPort;
   realtime: SymphonyRealtimeHub;
   shutdown(): Promise<void>;

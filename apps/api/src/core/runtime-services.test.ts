@@ -82,6 +82,10 @@ describe("runtime services", () => {
       });
 
       const runtimeLogs = await services.runtimeLogs.list();
+      const routeWorkflowHydration =
+        await services.routeWorkflows.loadHydrationStateByIssueIdentifier(
+          "SYM-404"
+        );
 
       expect(runtimeLogs.logs.map((entry) => entry.eventType)).toEqual(
         expect.arrayContaining([
@@ -94,6 +98,7 @@ describe("runtime services", () => {
           "poll_completed"
         ])
       );
+      expect(routeWorkflowHydration).toBeNull();
     },
     runtimeServicesIntegrationTestTimeoutMs
   );
