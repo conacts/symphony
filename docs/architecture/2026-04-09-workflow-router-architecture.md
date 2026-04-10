@@ -337,8 +337,11 @@ They should not become mini-frameworks.
 - `src/workflow-router.ts`
 - `src/workflow-router-comparison.ts`
 - `src/testing/workflow-router-test-kit.ts`
+- `src/testing/symphony-current-flow-router.ts`
+- `src/testing/symphony-current-flow-replay-fixtures.ts`
 - `src/workflow-router.unit.test.ts`
 - `src/workflow-router-comparison.unit.test.ts`
+- `src/symphony-current-flow-router.unit.test.ts`
 
 V1 stays intentionally small.
 
@@ -348,6 +351,13 @@ If this package gains broader integration coverage later, follow the same patter
 
 - `.int.test.ts`
 - `.e2e.test.ts`
+
+The testing surface should be able to host progressively more realistic router definitions without
+forcing runtime integration immediately.
+
+The first example of that is a mocked "current Symphony flow" router definition plus replay
+fixtures. That gives us a way to prove that today's lifecycle can be expressed through the router
+package before the package is asked to own real control-plane work.
 
 ## Core Public API
 

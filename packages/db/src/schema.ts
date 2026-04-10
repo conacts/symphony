@@ -88,6 +88,20 @@ const taskSnapshotStateValues = [
   "completed",
   "cancelled"
 ] as const;
+const routeHistoryEventKindValues = [
+  "signal_recorded",
+  "decision_recorded",
+  "command_emitted",
+  "command_settled"
+] as const;
+const routeSignalSourceValues = [
+  "tracker",
+  "runtime",
+  "review",
+  "ci",
+  "operator",
+  "router"
+] as const;
 
 function sqlEnum(values: readonly string[]) {
   return sql.raw(values.map((value) => `'${value}'`).join(", "));
@@ -941,6 +955,175 @@ export const symphonyRunRuntimeContextTable = sqliteTable(
   })
 );
 
+export const routeWorkflowsTable = sqliteTable(
+  "route_workflows",
+  {
+    workflowId: text("workflow_id").primaryKey(),
+    repositoryKey: text("repository_key").notNull(),
+    issueIdentifier: text("issue_identifier").notNull(),
+    routerName: text("router_name").notNull(),
+    routerVersion: text("router_version").notNull(),
+    archivedAt: text("archived_at"),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    issueBindingFk: foreignKey({
+      columns: [table.issueIdentifier, table.repositoryKey],
+      foreignColumns: [symphonyIssuesTable.issueIdentifier, symphonyIssuesTable.repositoryKey],
+      name: "route_workflows_issue_binding_fk"
+    }).onDelete("restrict"),
+    repositoryKeyIdx: index("route_workflows_repository_key_idx").on(table.repositoryKey),
+    issueIdentifierIdx: index("route_workflows_issue_identifier_idx").on(
+      table.issueIdentifier
+    ),
+    liveIssueIdx: uniqueIndex("route_workflows_live_issue_idx")
+      .on(table.issueIdentifier)
+      .where(sql`${table.archivedAt} is null`)
+  })
+);
+
+export const routeHistoryEventsTable = sqliteTable(
+  "route_history_events",
+  {
+    eventId: text("event_id").primaryKey(),
+    workflowId: text("workflow_id").notNull(),
+    eventSequence: integer("event_sequence").notNull(),
+    kind: text("kind").notNull(),
+    recordedAt: text("recorded_at").notNull(),
+    signalId: text("signal_id"),
+    signalType: text("signal_type"),
+    signalSource: text("signal_source"),
+    decisionId: text("decision_id"),
+    commandId: text("command_id"),
+    fromNode: text("from_node"),
+    toNode: text("to_node"),
+    edgeId: text("edge_id"),
+    reasonCode: text("reason_code"),
+    eventJson: text("event_json", { mode: "json" }).notNull().$type<unknown>(),
+    insertedAt: text("inserted_at").notNull()
+  },
+  (table) => ({
+    workflowFk: foreignKey({
+      columns: [table.workflowId],
+      foreignColumns: [routeWorkflowsTable.workflowId],
+      name: "route_history_events_workflow_fk"
+    }).onDelete("cascade"),
+    eventSequenceCheck: check(
+      "route_history_events_event_sequence_check",
+      sql`${table.eventSequence} >= 1`
+    ),
+    kindCheck: check(
+      "route_history_events_kind_check",
+      sql`${table.kind} in (${sqlEnum(routeHistoryEventKindValues)})`
+    ),
+    signalSourceCheck: check(
+      "route_history_events_signal_source_check",
+      sql`${table.signalSource} is null or ${table.signalSource} in (${sqlEnum(routeSignalSourceValues)})`
+    ),
+    workflowSequenceIdx: uniqueIndex("route_history_events_workflow_sequence_idx").on(
+      table.workflowId,
+      table.eventSequence
+    ),
+    workflowSignalIdIdx: uniqueIndex("route_history_events_workflow_signal_id_idx")
+      .on(table.workflowId, table.signalId)
+      .where(sql`${table.signalId} is not null`),
+    workflowDecisionIdIdx: uniqueIndex("route_history_events_workflow_decision_id_idx")
+      .on(table.workflowId, table.decisionId)
+      .where(sql`${table.decisionId} is not null and ${table.kind} = 'decision_recorded'`),
+    workflowCommandIdIdx: uniqueIndex("route_history_events_workflow_command_id_idx")
+      .on(table.workflowId, table.commandId)
+      .where(sql`${table.commandId} is not null and ${table.kind} = 'command_emitted'`),
+    workflowRecordedAtIdx: index("route_history_events_workflow_recorded_at_idx").on(
+      table.workflowId,
+      table.recordedAt
+    )
+  })
+);
+
+export const routeDecisionsTable = sqliteTable(
+  "route_decisions",
+  {
+    decisionId: text("decision_id").primaryKey(),
+    workflowId: text("workflow_id").notNull(),
+    eventSequence: integer("event_sequence").notNull(),
+    signalId: text("signal_id").notNull(),
+    fromNode: text("from_node"),
+    toNode: text("to_node"),
+    edgeId: text("edge_id"),
+    reasonCode: text("reason_code").notNull(),
+    policyJson: text("policy_json", { mode: "json" }).notNull().$type<unknown>(),
+    projectionBeforeJson: text("projection_before_json", { mode: "json" }).notNull().$type<unknown>(),
+    projectionAfterJson: text("projection_after_json", { mode: "json" }).notNull().$type<unknown>(),
+    commandsJson: text("commands_json", { mode: "json" }).notNull().$type<unknown>(),
+    traceJson: text("trace_json", { mode: "json" }).notNull().$type<unknown>(),
+    selectionMetadataJson: text("selection_metadata_json", { mode: "json" }).$type<unknown>(),
+    recordedAt: text("recorded_at").notNull(),
+    insertedAt: text("inserted_at").notNull()
+  },
+  (table) => ({
+    workflowFk: foreignKey({
+      columns: [table.workflowId],
+      foreignColumns: [routeWorkflowsTable.workflowId],
+      name: "route_decisions_workflow_fk"
+    }).onDelete("cascade"),
+    workflowEventFk: foreignKey({
+      columns: [table.workflowId, table.eventSequence],
+      foreignColumns: [routeHistoryEventsTable.workflowId, routeHistoryEventsTable.eventSequence],
+      name: "route_decisions_workflow_event_fk"
+    }).onDelete("cascade"),
+    eventSequenceCheck: check(
+      "route_decisions_event_sequence_check",
+      sql`${table.eventSequence} >= 1`
+    ),
+    workflowEventSequenceIdx: uniqueIndex("route_decisions_workflow_event_sequence_idx").on(
+      table.workflowId,
+      table.eventSequence
+    ),
+    workflowSignalIdIdx: uniqueIndex("route_decisions_workflow_signal_id_idx").on(
+      table.workflowId,
+      table.signalId
+    ),
+    workflowRecordedAtIdx: index("route_decisions_workflow_recorded_at_idx").on(
+      table.workflowId,
+      table.recordedAt
+    )
+  })
+);
+
+export const routeProjectionSnapshotsTable = sqliteTable(
+  "route_projection_snapshots",
+  {
+    workflowId: text("workflow_id").primaryKey(),
+    eventSequence: integer("event_sequence").notNull(),
+    currentNode: text("current_node"),
+    terminal: integer("terminal", { mode: "boolean" }).notNull(),
+    lastSignalId: text("last_signal_id"),
+    lastDecisionId: text("last_decision_id"),
+    projectionJson: text("projection_json", { mode: "json" }).notNull().$type<unknown>(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    workflowFk: foreignKey({
+      columns: [table.workflowId],
+      foreignColumns: [routeWorkflowsTable.workflowId],
+      name: "route_projection_snapshots_workflow_fk"
+    }).onDelete("cascade"),
+    workflowEventFk: foreignKey({
+      columns: [table.workflowId, table.eventSequence],
+      foreignColumns: [routeHistoryEventsTable.workflowId, routeHistoryEventsTable.eventSequence],
+      name: "route_projection_snapshots_workflow_event_fk"
+    }).onDelete("cascade"),
+    eventSequenceCheck: check(
+      "route_projection_snapshots_event_sequence_check",
+      sql`${table.eventSequence} >= 1`
+    ),
+    eventSequenceIdx: index("route_projection_snapshots_event_sequence_idx").on(
+      table.eventSequence
+    )
+  })
+);
+
 export const symphonyGitHubIngressTable = sqliteTable(
   "symphony_github_ingress",
   {
@@ -1056,6 +1239,10 @@ export const symphonySchema = {
   symphonyIssueDeliveryReportsTable,
   symphonyRuntimeLogsTable,
   symphonyRunRuntimeContextTable,
+  routeWorkflowsTable,
+  routeHistoryEventsTable,
+  routeDecisionsTable,
+  routeProjectionSnapshotsTable,
   symphonyGitHubIngressTable,
   symphonyMigrationStateTable
 };

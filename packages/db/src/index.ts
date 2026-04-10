@@ -1,7 +1,9 @@
 export {
   SymphonyActiveRunExistsError,
   SymphonyDbError,
-  SymphonyDbMigrationError
+  SymphonyDbMigrationError,
+  SymphonyRouteWorkflowExistsError,
+  SymphonyRouteWorkflowNotFoundError
 } from "./errors.js";
 export {
   applySymphonyDbMigrations,
@@ -78,6 +80,17 @@ export type {
   SymphonyRuntimeLogLevel,
   SymphonyRuntimeLogStore
 } from "./runtime-logs.js";
+export {
+  createRouteWorkflowStore
+} from "./route-workflow-store.js";
+export type {
+  RouteDecisionRecord,
+  RouteHistoryEventRecord,
+  RouteProjectionSnapshotRecord,
+  RouteWorkflowHydrationState,
+  RouteWorkflowRecord,
+  RouteWorkflowStore
+} from "./route-workflow-store.js";
 export {
   createSymphonyGitHubIngressJournal
 } from "./github-ingress-journal.js";

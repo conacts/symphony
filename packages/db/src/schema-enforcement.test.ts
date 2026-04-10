@@ -218,4 +218,244 @@ describe("db schema enforcement", () => {
       database.close();
     }
   });
+
+  it("rejects a second active route workflow for the same issue at the DB layer", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-schema-route-workflow-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+
+    try {
+      database.client.prepare(`
+        insert into symphony_issues (
+          issue_identifier,
+          tracker_issue_id,
+          repository_key,
+          latest_run_started_at,
+          inserted_at,
+          updated_at
+        ) values (?, ?, ?, ?, ?, ?)
+      `).run(
+        "COL-703",
+        "tracker-703",
+        "openai/symphony",
+        "2026-04-09T12:00:00.000Z",
+        "2026-04-09T12:00:00.000Z",
+        "2026-04-09T12:00:00.000Z"
+      );
+
+      database.client.prepare(`
+        insert into route_workflows (
+          workflow_id,
+          repository_key,
+          issue_identifier,
+          router_name,
+          router_version,
+          archived_at,
+          inserted_at,
+          updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        "workflow-703-a",
+        "openai/symphony",
+        "COL-703",
+        "router-a",
+        "1",
+        null,
+        "2026-04-09T12:01:00.000Z",
+        "2026-04-09T12:01:00.000Z"
+      );
+
+      expect(() =>
+        database.client.prepare(`
+          insert into route_workflows (
+            workflow_id,
+            repository_key,
+            issue_identifier,
+            router_name,
+            router_version,
+            archived_at,
+            inserted_at,
+            updated_at
+          ) values (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          "workflow-703-b",
+          "openai/symphony",
+          "COL-703",
+          "router-b",
+          "1",
+          null,
+          "2026-04-09T12:02:00.000Z",
+          "2026-04-09T12:02:00.000Z"
+        )
+      ).toThrow(
+        /route_workflows_live_issue_idx|UNIQUE constraint failed: route_workflows.issue_identifier/
+      );
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects duplicate signal ids within the same route workflow at the DB layer", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-schema-route-signal-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+
+    try {
+      database.client.prepare(`
+        insert into symphony_issues (
+          issue_identifier,
+          tracker_issue_id,
+          repository_key,
+          latest_run_started_at,
+          inserted_at,
+          updated_at
+        ) values (?, ?, ?, ?, ?, ?)
+      `).run(
+        "COL-704",
+        "tracker-704",
+        "openai/symphony",
+        "2026-04-09T12:00:00.000Z",
+        "2026-04-09T12:00:00.000Z",
+        "2026-04-09T12:00:00.000Z"
+      );
+
+      database.client.prepare(`
+        insert into route_workflows (
+          workflow_id,
+          repository_key,
+          issue_identifier,
+          router_name,
+          router_version,
+          archived_at,
+          inserted_at,
+          updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        "workflow-704",
+        "openai/symphony",
+        "COL-704",
+        "router-a",
+        "1",
+        null,
+        "2026-04-09T12:01:00.000Z",
+        "2026-04-09T12:01:00.000Z"
+      );
+
+      database.client.prepare(`
+        insert into route_history_events (
+          event_id,
+          workflow_id,
+          event_sequence,
+          kind,
+          recorded_at,
+          signal_id,
+          signal_type,
+          signal_source,
+          decision_id,
+          command_id,
+          from_node,
+          to_node,
+          edge_id,
+          reason_code,
+          event_json,
+          inserted_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, json(?), ?)
+      `).run(
+        "event-704-a",
+        "workflow-704",
+        1,
+        "signal_recorded",
+        "2026-04-09T12:02:00.000Z",
+        "signal-704",
+        "tracker.state_observed",
+        "tracker",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        JSON.stringify({
+          kind: "signal_recorded",
+          recordedAt: "2026-04-09T12:02:00.000Z",
+          signal: {
+            id: "signal-704",
+            type: "tracker.state_observed",
+            source: "tracker",
+            occurredAt: "2026-04-09T12:02:00.000Z",
+            causationId: null,
+            correlationId: null,
+            payload: {
+              state: "Todo"
+            }
+          }
+        }),
+        "2026-04-09T12:02:00.000Z"
+      );
+
+      expect(() =>
+        database.client.prepare(`
+          insert into route_history_events (
+            event_id,
+            workflow_id,
+            event_sequence,
+            kind,
+            recorded_at,
+            signal_id,
+            signal_type,
+            signal_source,
+            decision_id,
+            command_id,
+            from_node,
+            to_node,
+            edge_id,
+            reason_code,
+            event_json,
+            inserted_at
+          ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, json(?), ?)
+        `).run(
+          "event-704-b",
+          "workflow-704",
+          2,
+          "signal_recorded",
+          "2026-04-09T12:03:00.000Z",
+          "signal-704",
+          "tracker.state_observed",
+          "tracker",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          JSON.stringify({
+            kind: "signal_recorded",
+            recordedAt: "2026-04-09T12:03:00.000Z",
+            signal: {
+              id: "signal-704",
+              type: "tracker.state_observed",
+              source: "tracker",
+              occurredAt: "2026-04-09T12:03:00.000Z",
+              causationId: null,
+              correlationId: null,
+              payload: {
+                state: "Rework"
+              }
+            }
+          }),
+          "2026-04-09T12:03:00.000Z"
+        )
+      ).toThrow(
+        /route_history_events_workflow_signal_id_idx|UNIQUE constraint failed: route_history_events.workflow_id, route_history_events.signal_id/
+      );
+    } finally {
+      database.close();
+    }
+  });
 });

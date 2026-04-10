@@ -38,3 +38,32 @@ export class SymphonyActiveRunExistsError extends SymphonyDbError {
     this.existingStatus = input.existingStatus;
   }
 }
+
+export class SymphonyRouteWorkflowExistsError extends SymphonyDbError {
+  readonly issueIdentifier: string;
+  readonly existingWorkflowId: string;
+
+  constructor(input: {
+    issueIdentifier: string;
+    existingWorkflowId: string;
+  }) {
+    super(
+      `Issue ${input.issueIdentifier} already has active route workflow ${input.existingWorkflowId}.`
+    );
+    this.name = "SymphonyRouteWorkflowExistsError";
+    this.issueIdentifier = input.issueIdentifier;
+    this.existingWorkflowId = input.existingWorkflowId;
+  }
+}
+
+export class SymphonyRouteWorkflowNotFoundError extends SymphonyDbError {
+  readonly workflowId: string;
+
+  constructor(input: {
+    workflowId: string;
+  }) {
+    super(`Route workflow ${input.workflowId} was not found.`);
+    this.name = "SymphonyRouteWorkflowNotFoundError";
+    this.workflowId = input.workflowId;
+  }
+}

@@ -399,6 +399,9 @@ importers:
       '@symphony/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@symphony/router':
+        specifier: workspace:*
+        version: link:../router
       '@symphony/runtime-run-ledger':
         specifier: workspace:*
         version: link:../runtime-run-ledger

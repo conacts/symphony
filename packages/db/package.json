@@ -23,6 +23,7 @@
   "dependencies": {
     "@symphony/agent-analytics": "workspace:*",
     "@symphony/contracts": "workspace:*",
+    "@symphony/router": "workspace:*",
     "@symphony/runtime-run-ledger": "workspace:*",
     "better-sqlite3": "^12.4.1",
     "drizzle-orm": "^0.44.5"

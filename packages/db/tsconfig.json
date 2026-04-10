@@ -13,6 +13,9 @@
     },
     {
       "path": "../agent-analytics"
+    },
+    {
+      "path": "../router"
     }
   ]
 }
