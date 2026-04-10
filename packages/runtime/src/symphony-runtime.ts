@@ -5,6 +5,7 @@ import {
   type SymphonyAgentRuntimeCompletion,
   type SymphonyAgentRuntimeUpdate,
   type SymphonyClock,
+  type SymphonyDispatchBootstrapRouter,
   type SymphonyOrchestratorObserver,
   type SymphonyOrchestratorSnapshot
 } from "@symphony/orchestrator";
@@ -64,6 +65,7 @@ export function createSymphonyRuntime<
   observer?: SymphonyOrchestratorObserver;
   clock?: SymphonyClock;
   runnerEnv?: Record<string, string | undefined>;
+  dispatchBootstrapRouter?: SymphonyDispatchBootstrapRouter | null;
 }): SymphonyRuntime<Request, Reviewed, Published> {
   const reviewProvider = input.reviewProvider ?? null;
   const reviewPublisher = input.reviewPublisher ?? null;
@@ -74,7 +76,8 @@ export function createSymphonyRuntime<
     agentRuntime: input.agentRuntime,
     observer: input.observer,
     clock: input.clock,
-    runnerEnv: input.runnerEnv
+    runnerEnv: input.runnerEnv,
+    dispatchBootstrapRouter: input.dispatchBootstrapRouter
   });
   const publishReview = async (
     review: PublishReviewInput<Reviewed>

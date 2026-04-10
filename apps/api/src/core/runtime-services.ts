@@ -59,6 +59,7 @@ import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { createRepositoryScopedWorkspaceBackend } from "./runtime-workspace-backend-selector.js";
 import { createRepositoryScopedLinearTracker } from "./runtime-linear-tracker-registry.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
+import { createRuntimeDispatchBootstrapRouter } from "./runtime-dispatch-bootstrap-routing.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import {
   executeCancelTool,
@@ -238,6 +239,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     );
   }
 
+  const routeWorkflows = createRouteWorkflowPort({
+    routeWorkflowStore
+  });
+  const dispatchBootstrapRouter = await createRuntimeDispatchBootstrapRouter({
+    routeWorkflows,
+    tracker,
+    trackerConfig: runtimePolicy.tracker,
+    repositoryKey
+  });
+
   const workspaceBackendSelections =
     admittedRepositories.length > 0
       ? admittedRepositories.map((repository) => ({
@@ -413,7 +424,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     workspaceBackend,
     observer,
     agentRuntime,
-    runnerEnv: environmentSource
+    runnerEnv: environmentSource,
+    dispatchBootstrapRouter
   });
   runtimeRef = runtime;
   const orchestratorPort = createRuntimeOrchestratorPort({
@@ -430,9 +442,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
   const runtimeLogs = createRuntimeLogsPort({
     runtimeLogStore
-  });
-  const routeWorkflows = createRouteWorkflowPort({
-    routeWorkflowStore
   });
   const health = createRuntimeHealthPort({
     dbFile: database.dbFile,

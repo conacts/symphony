@@ -136,6 +136,14 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
         guard: ({ signal }) => isObservedTrackerState(signal, "Bootstrapping")
       }),
       new WorkflowEdge({
+        id: "bootstrapping_bootstrapping_to_bootstrapping",
+        from: "bootstrapping",
+        to: "bootstrapping",
+        reasonCode: "bootstrapping_redispatched",
+        guard: ({ signal }) => isObservedTrackerState(signal, "Bootstrapping"),
+        commands: (context) => buildBootstrappingRedispatchCommands(context)
+      }),
+      new WorkflowEdge({
         id: "idle_review_to_review",
         from: "idle",
         to: "review",
@@ -150,12 +158,24 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
         guard: ({ signal }) => isObservedTrackerState(signal, "Approved")
       }),
       new WorkflowEdge({
+        id: "approved_merge_approved_to_approved_merge",
+        from: "approved_merge",
+        to: "approved_merge",
+        reasonCode: "approved_merge_redispatched",
+        guard: ({ signal }) => isObservedTrackerState(signal, "Approved"),
+        commands: ({ signal }) => [createDispatchCommand(signal, "approved_merge")]
+      }),
+      new WorkflowEdge({
         id: "review_rework_to_bootstrapping",
         from: "review",
         to: "bootstrapping",
         reasonCode: "review_requested_rework",
         guard: ({ signal }) => isObservedTrackerState(signal, "Rework")
       }),
+      ...buildTerminalReentryEdges("done"),
+      ...buildTerminalReentryEdges("paused"),
+      ...buildTerminalReentryEdges("blocked"),
+      ...buildTerminalReentryEdges("failed"),
       new WorkflowEdge({
         id: "review_approved_to_approved_merge",
         from: "review",
@@ -378,6 +398,24 @@ function buildBootstrappingEnterCommands(
   return commands;
 }
 
+function buildBootstrappingRedispatchCommands(
+  context: {
+    projection: {
+      data: SymphonyCurrentFlowData;
+    };
+    signal: WorkflowSignal;
+  }
+) {
+  const runMode = resolveBootstrappingDispatchMode({
+    signal: context.signal,
+    data: context.projection.data
+  });
+
+  return runMode === null
+    ? []
+    : [createDispatchCommand(context.signal, runMode)];
+}
+
 function shouldTransitionToInProgress(
   signal: WorkflowSignal,
   runMode: SymphonyCurrentFlowRunMode
@@ -489,6 +527,55 @@ function createRunCancelCommand(signal: WorkflowSignal) {
   };
 }
 
+function buildTerminalReentryEdges(
+  from: Extract<
+    SymphonyCurrentFlowNode,
+    "done" | "paused" | "blocked" | "failed"
+  >
+): WorkflowEdge<
+  SymphonyCurrentFlowNode,
+  SymphonyCurrentFlowData,
+  SymphonyCurrentFlowPolicy
+>[] {
+  return [
+    new WorkflowEdge({
+      id: `${from}_todo_to_bootstrapping`,
+      from,
+      to: "bootstrapping",
+      reasonCode: `${from}_reopened_from_todo`,
+      guard: ({ signal }) => isObservedTrackerState(signal, "Todo")
+    }),
+    new WorkflowEdge({
+      id: `${from}_rework_to_bootstrapping`,
+      from,
+      to: "bootstrapping",
+      reasonCode: `${from}_reopened_from_rework`,
+      guard: ({ signal }) => isObservedTrackerState(signal, "Rework")
+    }),
+    new WorkflowEdge({
+      id: `${from}_bootstrapping_to_bootstrapping`,
+      from,
+      to: "bootstrapping",
+      reasonCode: `${from}_reopened_from_bootstrapping`,
+      guard: ({ signal }) => isObservedTrackerState(signal, "Bootstrapping")
+    }),
+    new WorkflowEdge({
+      id: `${from}_review_to_review`,
+      from,
+      to: "review",
+      reasonCode: `${from}_reopened_from_review`,
+      guard: ({ signal }) => isObservedTrackerState(signal, "In Review")
+    }),
+    new WorkflowEdge({
+      id: `${from}_approved_to_approved_merge`,
+      from,
+      to: "approved_merge",
+      reasonCode: `${from}_reopened_from_approved`,
+      guard: ({ signal }) => isObservedTrackerState(signal, "Approved")
+    })
+  ];
+}
+
 function createCommandId(signal: WorkflowSignal, suffix: string) {
   const signalId = signal.id?.trim();
   if (!signalId) {
@@ -522,6 +609,23 @@ function readRunMode(payload: WorkflowPayload) {
   return typeof value === "string"
     ? (value as SymphonyCurrentFlowRunMode)
     : null;
+}
+
+function resolveBootstrappingDispatchMode(input: {
+  signal: WorkflowSignal;
+  data: SymphonyCurrentFlowData;
+}) {
+  if (!isObservedTrackerState(input.signal, "Bootstrapping")) {
+    return null;
+  }
+
+  if (input.data.lastDispatchMode === "implementation" || input.data.lastDispatchMode === "rework") {
+    return input.data.lastDispatchMode;
+  }
+
+  return input.data.lastObservedTrackerState === "Rework"
+    ? "rework"
+    : "implementation";
 }
 
 function readCompletionKind(payload: WorkflowPayload) {

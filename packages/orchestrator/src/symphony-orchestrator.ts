@@ -24,7 +24,7 @@ import {
 import {
   applyAgentRuntimeUpdateToEntry,
   createRunningEntry,
-  prepareIssueForDispatch
+  resolveDispatchBootstrap
 } from "./symphony-orchestrator-dispatch.js";
 import {
   classifyStartupFailureOrigin,
@@ -37,7 +37,6 @@ import {
   isSymphonyDispatchRefusedError
 } from "./symphony-orchestrator-errors.js";
 import {
-  deriveSymphonyRunMode,
   type SymphonyRunMode
 } from "@symphony/runtime-contract";
 import {
@@ -64,6 +63,7 @@ import type {
   SymphonyAgentRuntimeUpdate,
   SymphonyClock,
   SymphonyDispatchStopRequest,
+  SymphonyDispatchBootstrapRouter,
   SymphonyOrchestratorObserver,
   SymphonyOrchestratorSnapshot,
   SymphonyOrchestratorState,
@@ -83,6 +83,7 @@ export class SymphonyOrchestrator {
   readonly #observer: SymphonyOrchestratorObserver | null;
   readonly #clock: SymphonyClock;
   readonly #runnerEnv: Record<string, string | undefined> | undefined;
+  readonly #dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter | null;
   #state: SymphonyOrchestratorState;
 
   constructor(input: {
@@ -93,6 +94,7 @@ export class SymphonyOrchestrator {
     observer?: SymphonyOrchestratorObserver;
     clock?: SymphonyClock;
     runnerEnv?: Record<string, string | undefined>;
+    dispatchBootstrapRouter?: SymphonyDispatchBootstrapRouter | null;
   }) {
     this.#config = input.config;
     this.#tracker = input.tracker;
@@ -101,6 +103,7 @@ export class SymphonyOrchestrator {
     this.#observer = input.observer ?? null;
     this.#clock = input.clock ?? systemClock;
     this.#runnerEnv = input.runnerEnv;
+    this.#dispatchBootstrapRouter = input.dispatchBootstrapRouter ?? null;
     this.#state = createSymphonyOrchestratorState(
       input.config,
       this.#clock
@@ -292,10 +295,20 @@ export class SymphonyOrchestrator {
 
     this.#state.claimed.add(issue.id);
 
-    const runMode = runModeOverride ?? deriveSymphonyRunMode(issue.state);
     const startedAt = this.#clock.now().toISOString();
-    this.#state.dispatching[issue.id] = {
+    const bootstrap = await resolveDispatchBootstrap({
+      config: this.#config,
+      tracker: this.#tracker,
       issue,
+      attempt,
+      preferredWorkerHost,
+      startedAt,
+      runModeOverride,
+      dispatchBootstrapRouter: this.#dispatchBootstrapRouter
+    });
+    const runMode = bootstrap.runMode;
+    this.#state.dispatching[issue.id] = {
+      issue: bootstrap.issue,
       runId: null,
       runMode,
       workerHost: preferredWorkerHost,
@@ -347,16 +360,11 @@ export class SymphonyOrchestrator {
         recordedAt: startedAt
       });
 
-      const dispatchSourceIssue = preparedIssue;
-      preparedIssue = await prepareIssueForDispatch(
-        this.#config,
-        this.#tracker,
-        dispatchSourceIssue
-      );
+      const dispatchSourceIssue = issue;
+      preparedIssue = await this.#checkpointDispatchEligibility(issue.id);
       this.#setDispatchingEntry(issue.id, {
         issue: preparedIssue
       });
-      preparedIssue = await this.#checkpointDispatchEligibility(issue.id);
 
       const workspaceContext: WorkspaceContext = {
         trackerIssueId: preparedIssue.id,

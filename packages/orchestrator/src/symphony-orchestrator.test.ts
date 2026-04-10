@@ -131,6 +131,107 @@ describe("symphony orchestrator", () => {
     ]);
   });
 
+  it("uses the dispatch bootstrap router result when no run mode override is provided", async () => {
+    const config = buildSymphonyOrchestratorConfig({
+      tracker: {
+        claimTransitionToState: null,
+        claimTransitionFromStates: []
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "Todo"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const startRuns: SymphonyRunMode[] = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime({
+        async startRun(input) {
+          startRuns.push(input.runMode);
+          return {
+            threadId: "thread-1",
+            workerHost: null,
+            launchTarget: null
+          };
+        }
+      }),
+      dispatchBootstrapRouter: {
+        async route() {
+          await tracker.updateIssueState(issue.id, "Bootstrapping");
+          return {
+            issue: {
+              ...issue,
+              state: "Bootstrapping"
+            },
+            runMode: "rework"
+          };
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 1);
+
+    expect(startRuns).toEqual(["rework"]);
+    expect(orchestrator.snapshot().running[0]?.issue.state).toBe("In Progress");
+  });
+
+  it("bypasses the dispatch bootstrap router when a run mode override is provided", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "Rework"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const startRuns: SymphonyRunMode[] = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      config: buildSymphonyOrchestratorConfig(),
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime({
+        async startRun(input) {
+          startRuns.push(input.runMode);
+          return {
+            threadId: "thread-1",
+            workerHost: null,
+            launchTarget: null
+          };
+        }
+      }),
+      dispatchBootstrapRouter: {
+        async route() {
+          throw new Error("dispatch bootstrap router should not be called");
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 1, null, "rework");
+
+    expect(startRuns).toEqual(["rework"]);
+    expect(tracker.getIssue(issue.id)?.state).toBe("In Progress");
+  });
+
   it("dispatches eligible issues, updates snapshots, and preserves the workspace when a run stops", async () => {
     const config = buildSymphonyOrchestratorConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);

@@ -6,6 +6,8 @@ import {
 import { claimTransitionCommentBody } from "./symphony-orchestrator-comments.js";
 import type {
   SymphonyAgentRuntimeUpdate,
+  SymphonyDispatchBootstrapRouter,
+  SymphonyDispatchBootstrapRoutingResult,
   SymphonyRunningEntry
 } from "./symphony-orchestrator-types.js";
 import type {
@@ -15,7 +17,10 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
-import type { SymphonyRunMode } from "@symphony/runtime-contract";
+import {
+  deriveSymphonyRunMode,
+  type SymphonyRunMode
+} from "@symphony/runtime-contract";
 import {
   workspaceHostPath,
   type PreparedWorkspace
@@ -24,7 +29,7 @@ import type { JsonObject } from "@symphony/contracts";
 import type { SymphonyOrchestratorConfig } from "./orchestrator-config.js";
 
 export async function prepareIssueForDispatch(
-  config: SymphonyOrchestratorConfig,
+  config: Pick<SymphonyOrchestratorConfig, "tracker">,
   tracker: SymphonyTracker,
   issue: SymphonyTrackerIssue
 ): Promise<SymphonyTrackerIssue> {
@@ -46,6 +51,46 @@ export async function prepareIssueForDispatch(
   return {
     ...issue,
     state: targetState
+  };
+}
+
+export async function resolveDispatchBootstrap(input: {
+  config: SymphonyOrchestratorConfig;
+  tracker: SymphonyTracker;
+  issue: SymphonyTrackerIssue;
+  attempt: number;
+  preferredWorkerHost: string | null;
+  startedAt: string;
+  runModeOverride?: SymphonyRunMode;
+  dispatchBootstrapRouter?: SymphonyDispatchBootstrapRouter | null;
+}): Promise<SymphonyDispatchBootstrapRoutingResult> {
+  if (input.runModeOverride) {
+    return {
+      issue: await prepareIssueForDispatch(
+        input.config,
+        input.tracker,
+        input.issue
+      ),
+      runMode: input.runModeOverride
+    };
+  }
+
+  if (input.dispatchBootstrapRouter) {
+    return await input.dispatchBootstrapRouter.route({
+      issue: input.issue,
+      attempt: input.attempt,
+      preferredWorkerHost: input.preferredWorkerHost,
+      startedAt: input.startedAt
+    });
+  }
+
+  return {
+    issue: await prepareIssueForDispatch(
+      input.config,
+      input.tracker,
+      input.issue
+    ),
+    runMode: deriveSymphonyRunMode(input.issue.state)
   };
 }
 

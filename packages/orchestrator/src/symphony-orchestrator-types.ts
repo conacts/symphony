@@ -93,6 +93,26 @@ export type SymphonyDispatchingEntry = {
   shutdownDrainCompleted: boolean;
 };
 
+export type SymphonyDispatchBootstrapRoutingInput = {
+  issue: SymphonyTrackerIssue;
+  attempt: number;
+  preferredWorkerHost: string | null;
+  startedAt: string;
+};
+
+export type SymphonyDispatchBootstrapRoutingResult = {
+  issue: SymphonyTrackerIssue;
+  runMode: SymphonyRunMode;
+};
+
+export interface SymphonyDispatchBootstrapRouter {
+  route(
+    input: SymphonyDispatchBootstrapRoutingInput
+  ):
+    | Promise<SymphonyDispatchBootstrapRoutingResult>
+    | SymphonyDispatchBootstrapRoutingResult;
+}
+
 export type SymphonyRetryEntry = {
   attempt: number;
   dueAtMs: number;

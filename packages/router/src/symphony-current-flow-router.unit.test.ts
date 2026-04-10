@@ -270,4 +270,159 @@ describe("Symphony current-flow router fixture", () => {
     ]);
     expect(result.projectionAfter.data.lastDispatchMode).toBe("approved_merge");
   });
+
+  it("re-dispatches bootstrapping work when Bootstrapping is observed again after resume", async () => {
+    const router = await createSymphonyCurrentFlowRouterAsync({
+      now: () => new Date("2026-04-09T22:50:00.000Z"),
+      createId: (() => {
+        let counter = 0;
+        return (prefix: string) =>
+          `${prefix}_${String(++counter).padStart(4, "0")}`;
+      })()
+    });
+
+    const session = await router.resumeSessionAsync({
+      projection: {
+        workflowId: "SYM-208",
+        currentNode: "bootstrapping",
+        pendingCommands: [],
+        recordedSignalIds: ["signal_todo_observed"],
+        emittedCommandIds: [
+          "command_signal_todo_observed_tracker_bootstrapping",
+          "command_signal_todo_observed_dispatch_implementation"
+        ],
+        terminal: false,
+        sequence: 6,
+        data: {
+          trackerState: "Bootstrapping",
+          lastObservedTrackerState: "Todo",
+          lastDispatchMode: "implementation",
+          lastRunMode: null,
+          lastRuntimeOutcome: null
+        },
+        lastSignal: {
+          id: "signal_todo_observed",
+          type: "tracker.state_observed",
+          source: "tracker",
+          occurredAt: "2026-04-09T22:40:00.000Z",
+          payload: {
+            state: "Todo"
+          },
+          causationId: null,
+          correlationId: null
+        },
+        lastDecision: {
+          id: "decision_0001",
+          fromNode: "idle" as SymphonyCurrentFlowNode,
+          toNode: "bootstrapping" as SymphonyCurrentFlowNode,
+          edgeId: "idle_todo_to_bootstrapping",
+          reasonCode: "todo_claimed_for_dispatch",
+          commands: [],
+          trace: [],
+          selectionMetadata: null
+        }
+      },
+      history: [],
+      policy: {}
+    });
+
+    const result = await session.receiveAsync({
+      id: "signal_bootstrapping_reobserved",
+      type: "tracker.state_observed",
+      source: "tracker",
+      occurredAt: "2026-04-09T22:50:00.000Z",
+      payload: {
+        state: "Bootstrapping"
+      }
+    });
+
+    expect(result.decision.toNode).toBe("bootstrapping");
+    expect(result.decision.reasonCode).toBe("bootstrapping_redispatched");
+    expect(result.decision.commands).toEqual([
+      {
+        id: "command_signal_bootstrapping_reobserved_dispatch_implementation",
+        kind: "run.dispatch",
+        payload: {
+          runMode: "implementation"
+        }
+      }
+    ]);
+  });
+
+  it("reopens paused work back into bootstrapping when Todo is observed again", async () => {
+    const router = await createSymphonyCurrentFlowRouterAsync({
+      now: () => new Date("2026-04-09T23:00:00.000Z"),
+      createId: (() => {
+        let counter = 0;
+        return (prefix: string) =>
+          `${prefix}_${String(++counter).padStart(4, "0")}`;
+      })()
+    });
+
+    const result = await Effect.runPromise(
+      router.receive({
+        workflowId: "SYM-209",
+        history: [
+          {
+            kind: "signal_recorded",
+            recordedAt: "2026-04-09T22:55:00.000Z",
+            signal: {
+              id: "signal_paused_observed",
+              type: "tracker.state_observed",
+              source: "tracker",
+              occurredAt: "2026-04-09T22:55:00.000Z",
+              payload: {
+                state: "Paused"
+              },
+              causationId: null,
+              correlationId: null
+            }
+          },
+          {
+            kind: "decision_recorded",
+            recordedAt: "2026-04-09T22:55:00.000Z",
+            decision: {
+              id: "decision_0001",
+              fromNode: "idle" as SymphonyCurrentFlowNode,
+              toNode: "paused" as SymphonyCurrentFlowNode,
+              edgeId: "implementation_paused",
+              reasonCode: "implementation_paused",
+              commands: [],
+              trace: [],
+              selectionMetadata: null
+            }
+          }
+        ],
+        signal: {
+          id: "signal_todo_reopened",
+          type: "tracker.state_observed",
+          source: "tracker",
+          occurredAt: "2026-04-09T23:00:00.000Z",
+          payload: {
+            state: "Todo"
+          }
+        },
+        policy: {}
+      })
+    );
+
+    expect(result.decision.toNode).toBe("bootstrapping");
+    expect(result.decision.reasonCode).toBe("paused_reopened_from_todo");
+    expect(result.decision.commands).toEqual([
+      {
+        id: "command_signal_todo_reopened_tracker_bootstrapping",
+        kind: "tracker.transition",
+        payload: {
+          state: "Bootstrapping"
+        }
+      },
+      {
+        id: "command_signal_todo_reopened_dispatch_implementation",
+        kind: "run.dispatch",
+        payload: {
+          runMode: "implementation"
+        }
+      }
+    ]);
+  });
 });
