@@ -87,9 +87,9 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
       }),
       new WorkflowNode("review"),
       new WorkflowNode("approved_merge", {
-        enter: ({ signal }) =>
-          isObservedTrackerState(signal, "Approved")
-            ? [createDispatchCommand(signal, "approved_merge")]
+        enter: (context) =>
+          shouldDispatchApprovedMergeOnEnter(context)
+            ? [createDispatchCommand(context.signal, "approved_merge")]
             : []
       }),
       new WorkflowNode("done", {
@@ -218,13 +218,15 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
         reasonCode: "rework_delivery_recorded",
         guard: ({ signal }) => isObservedTrackerState(signal, "In Review")
       }),
+      ...buildObservedStateTerminalEdges("implementation"),
+      ...buildObservedStateTerminalEdges("rework"),
+      ...buildObservedStateTerminalEdges("approved_merge"),
       new WorkflowEdge({
         id: "implementation_to_approved_merge_takeover",
         from: "implementation",
         to: "approved_merge",
         reasonCode: "approved_merge_takeover",
-        guard: ({ signal }) => isObservedTrackerState(signal, "Approved"),
-        commands: ({ signal }) => [createRunCancelCommand(signal)]
+        guard: ({ signal }) => isObservedTrackerState(signal, "Approved")
       }),
       new WorkflowEdge({
         id: "approved_merge_started",
@@ -423,6 +425,16 @@ function shouldTransitionToInProgress(
   return isRunStarted(signal, runMode);
 }
 
+function shouldDispatchApprovedMergeOnEnter(context: {
+  fromNode: string | null;
+  signal: WorkflowSignal;
+}) {
+  return (
+    isObservedTrackerState(context.signal, "Approved") &&
+    context.fromNode !== "implementation"
+  );
+}
+
 function isObservedTrackerState(
   signal: WorkflowSignal,
   state: SymphonyCurrentFlowTrackerState
@@ -516,17 +528,6 @@ function createTrackerTransitionCommand(
   };
 }
 
-function createRunCancelCommand(signal: WorkflowSignal) {
-  return {
-    id: createCommandId(signal, "cancel_active_run"),
-    kind: "run.cancel",
-    payload: {
-      reason: "approved_merge_takeover",
-      cleanupMode: "preserve"
-    }
-  };
-}
-
 function buildTerminalReentryEdges(
   from: Extract<
     SymphonyCurrentFlowNode,
@@ -572,6 +573,41 @@ function buildTerminalReentryEdges(
       to: "approved_merge",
       reasonCode: `${from}_reopened_from_approved`,
       guard: ({ signal }) => isObservedTrackerState(signal, "Approved")
+    })
+  ];
+}
+
+function buildObservedStateTerminalEdges(
+  from: Extract<
+    SymphonyCurrentFlowNode,
+    "implementation" | "rework" | "approved_merge"
+  >
+): WorkflowEdge<
+  SymphonyCurrentFlowNode,
+  SymphonyCurrentFlowData,
+  SymphonyCurrentFlowPolicy
+>[] {
+  return [
+    new WorkflowEdge({
+      id: `${from}_observed_paused`,
+      from,
+      to: "paused",
+      reasonCode: `${from}_paused_observed`,
+      guard: ({ signal }) => isObservedTrackerState(signal, "Paused")
+    }),
+    new WorkflowEdge({
+      id: `${from}_observed_blocked`,
+      from,
+      to: "blocked",
+      reasonCode: `${from}_blocked_observed`,
+      guard: ({ signal }) => isObservedTrackerState(signal, "Blocked")
+    }),
+    new WorkflowEdge({
+      id: `${from}_observed_failed`,
+      from,
+      to: "failed",
+      reasonCode: `${from}_failed_observed`,
+      guard: ({ signal }) => isObservedTrackerState(signal, "Failed")
     })
   ];
 }

@@ -174,47 +174,53 @@ export async function handleStartupFailure(input: {
   };
 
   if (targetState) {
-    try {
-      await input.tracker.updateIssueState(input.issue.id, targetState);
-      effectiveIssue = {
-        ...input.issue,
-        state: targetState
-      };
+    if (input.issue.state.trim().toLowerCase() === targetState.trim().toLowerCase()) {
       transition = {
-        kind: "moved",
-        targetState
+        kind: "none"
       };
-      await input.observer?.recordLifecycleEvent({
-        issue: {
-          ...effectiveIssue
-        },
-        runId: input.runId,
-        source: "tracker",
-        eventType: "startup_failure_transition",
-        message: `Issue moved to ${targetState} after startup failure.`,
-        payload: {
-          fromState: input.issue.state,
-          toState: targetState
-        }
-      });
-    } catch (error) {
-      transition = {
-        kind: "failed",
-        targetState,
-        reason: error instanceof Error ? error.message : String(error)
-      };
-      await input.observer?.recordLifecycleEvent({
-        issue: input.issue,
-        runId: input.runId,
-        source: "tracker",
-        eventType: "startup_failure_transition_failed",
-        message: `Issue could not be moved to ${targetState} after startup failure.`,
-        payload: {
-          fromState: input.issue.state,
-          toState: targetState,
-          reason: transition.reason
-        }
-      });
+    } else {
+      try {
+        await input.tracker.updateIssueState(input.issue.id, targetState);
+        effectiveIssue = {
+          ...input.issue,
+          state: targetState
+        };
+        transition = {
+          kind: "moved",
+          targetState
+        };
+        await input.observer?.recordLifecycleEvent({
+          issue: {
+            ...effectiveIssue
+          },
+          runId: input.runId,
+          source: "tracker",
+          eventType: "startup_failure_transition",
+          message: `Issue moved to ${targetState} after startup failure.`,
+          payload: {
+            fromState: input.issue.state,
+            toState: targetState
+          }
+        });
+      } catch (error) {
+        transition = {
+          kind: "failed",
+          targetState,
+          reason: error instanceof Error ? error.message : String(error)
+        };
+        await input.observer?.recordLifecycleEvent({
+          issue: input.issue,
+          runId: input.runId,
+          source: "tracker",
+          eventType: "startup_failure_transition_failed",
+          message: `Issue could not be moved to ${targetState} after startup failure.`,
+          payload: {
+            fromState: input.issue.state,
+            toState: targetState,
+            reason: transition.reason
+          }
+        });
+      }
     }
   }
 

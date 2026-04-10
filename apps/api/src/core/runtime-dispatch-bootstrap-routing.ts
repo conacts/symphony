@@ -5,12 +5,9 @@ import {
 } from "@symphony/orchestrator";
 import {
   createSymphonyCurrentFlowRouterAsync,
-  type SymphonyCurrentFlowData,
-  type SymphonyCurrentFlowNode,
   type SymphonyCurrentFlowPolicy,
   type WorkflowCommand,
-  type WorkflowPayload,
-  type WorkflowSession
+  type WorkflowPayload
 } from "@symphony/router";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type {
@@ -19,6 +16,11 @@ import type {
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import {
+  normalizeWorkflowToken,
+  readTrackerTransitionState,
+  settleRouteCommand
+} from "./runtime-route-workflow-command-utils.js";
 
 const symphonyCurrentFlowPolicy: SymphonyCurrentFlowPolicy = {};
 
@@ -185,32 +187,6 @@ async function executeTrackerTransitionCommand(input: {
   );
 }
 
-async function settleRouteCommand(input: {
-  routeWorkflows: SymphonyRouteWorkflowPort;
-  workflowId: string;
-  session: WorkflowSession<SymphonyCurrentFlowNode, SymphonyCurrentFlowData, SymphonyCurrentFlowPolicy>;
-  commandId: string;
-  status: "succeeded" | "failed";
-  payload?: WorkflowPayload;
-  recordedAt: string;
-}) {
-  const projection = await input.session.settleCommandAsync({
-    commandId: input.commandId,
-    status: input.status,
-    payload: input.payload,
-    recordedAt: input.recordedAt
-  });
-
-  await input.routeWorkflows.appendCommandSettlement({
-    workflowId: input.workflowId,
-    commandId: input.commandId,
-    status: input.status,
-    payload: input.payload,
-    recordedAt: input.recordedAt,
-    projection
-  });
-}
-
 function buildTrackerObservedSignalId(
   issue: SymphonyTrackerIssue,
   attempt: number,
@@ -219,19 +195,11 @@ function buildTrackerObservedSignalId(
   return [
     "signal",
     "dispatch_bootstrap",
-    normalizeToken(issue.id),
-    normalizeToken(issue.state),
+    normalizeWorkflowToken(issue.id),
+    normalizeWorkflowToken(issue.state),
     `attempt_${attempt}`,
-    normalizeToken(startedAt)
+    normalizeWorkflowToken(startedAt)
   ].join("_");
-}
-
-function normalizeToken(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/g, "_")
-    .replaceAll(/^_+|_+$/g, "");
 }
 
 function readDispatchRunMode(payload: WorkflowPayload): SymphonyRunMode | null {
@@ -245,13 +213,4 @@ function readDispatchRunMode(payload: WorkflowPayload): SymphonyRunMode | null {
     runMode === "approved_merge"
     ? runMode
     : null;
-}
-
-function readTrackerTransitionState(payload: WorkflowPayload): string | null {
-  if (payload === null) {
-    return null;
-  }
-
-  const state = payload["state"];
-  return typeof state === "string" ? state : null;
 }

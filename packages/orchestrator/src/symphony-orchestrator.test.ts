@@ -232,6 +232,272 @@ describe("symphony orchestrator", () => {
     expect(tracker.getIssue(issue.id)?.state).toBe("In Progress");
   });
 
+  it("activates started runs through the run-start activation router", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "Bootstrapping"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const startRunStates: string[] = [];
+    const lifecycleEvents: string[] = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      config: buildSymphonyOrchestratorConfig({
+        tracker: {
+          claimTransitionToState: null,
+          claimTransitionFromStates: []
+        }
+      }),
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime({
+        async startRun(input) {
+          startRunStates.push(input.issue.state);
+          return {
+            threadId: "thread-1",
+            workerHost: null,
+            launchTarget: null
+          };
+        }
+      }),
+      runStartActivationRouter: {
+        async activate(input) {
+          await tracker.updateIssueState(input.issue.id, "In Progress");
+          return {
+            issue: {
+              ...input.issue,
+              state: "In Progress"
+            }
+          };
+        }
+      },
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push(input.eventType);
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 1);
+
+    expect(startRunStates).toEqual(["Bootstrapping"]);
+    expect(tracker.getIssue(issue.id)?.state).toBe("In Progress");
+    expect(orchestrator.snapshot().running[0]?.issue.state).toBe("In Progress");
+    expect(lifecycleEvents).toContain("bootstrap_transition");
+  });
+
+  it("treats run-start activation failures as runtime_session_start startup failures", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "Bootstrapping"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const stoppedIssueIds: string[] = [];
+    const lifecycleEvents: string[] = [];
+    let finalizedCompletion: SymphonyAgentRuntimeCompletion | null = null;
+
+    const orchestrator = new SymphonyOrchestrator({
+      config: buildSymphonyOrchestratorConfig({
+        tracker: {
+          claimTransitionToState: null,
+          claimTransitionFromStates: []
+        }
+      }),
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime({
+        async startRun() {
+          return {
+            threadId: "thread-1",
+            workerHost: null,
+            launchTarget: null
+          };
+        },
+        async stopRun({ issue: stoppedIssue }) {
+          stoppedIssueIds.push(stoppedIssue.id);
+        }
+      }),
+      runStartActivationRouter: {
+        async activate() {
+          throw new Error("activation failed");
+        }
+      },
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push(input.eventType);
+          return;
+        },
+        finalizeRun(input) {
+          finalizedCompletion = input.completion;
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 1);
+
+    expect(stoppedIssueIds).toEqual([issue.id]);
+    expect(tracker.getIssue(issue.id)?.state).toBe("Failed");
+    expect(finalizedCompletion).toEqual(
+      expect.objectContaining({
+        kind: "startup_failure",
+        failureStage: "runtime_session_start"
+      })
+    );
+    expect(lifecycleEvents).toContain("runtime_startup_failed");
+  });
+
+  it("routes running issue state changes through the lifecycle router before stopping the run", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const observedStates: string[] = [];
+    const stoppedIssueIds: string[] = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      config: buildSymphonyOrchestratorConfig({
+        tracker: {
+          claimTransitionToState: null,
+          claimTransitionFromStates: []
+        }
+      }),
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime({
+        async stopRun({ issue: stoppedIssue }) {
+          stoppedIssueIds.push(stoppedIssue.id);
+        }
+      }),
+      runLifecycleRouter: {
+        async observeIssueState(input) {
+          observedStates.push(input.issue.state);
+          return {
+            issue: input.issue
+          };
+        },
+        async routeCompletion(input) {
+          return {
+            issue: input.issue
+          };
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 1, null, "implementation");
+    await tracker.updateIssueState(issue.id, "In Review");
+
+    await orchestrator.reconcileRunningIssues();
+
+    expect(observedStates).toEqual(["In Review"]);
+    expect(stoppedIssueIds).toEqual([issue.id]);
+    expect(orchestrator.snapshot().running).toHaveLength(0);
+  });
+
+  it("routes blocked completions through the lifecycle router before final tracker cleanup", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const routedCompletions: string[] = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      config: buildSymphonyOrchestratorConfig({
+        tracker: {
+          claimTransitionToState: null,
+          claimTransitionFromStates: []
+        }
+      }),
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      runLifecycleRouter: {
+        async observeIssueState(input) {
+          return {
+            issue: input.issue
+          };
+        },
+        async routeCompletion(input) {
+          routedCompletions.push(input.completion.kind);
+          await tracker.updateIssueState(input.issue.id, "Blocked");
+          return {
+            issue: {
+              ...input.issue,
+              state: "Blocked"
+            }
+          };
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 1, null, "implementation");
+    await orchestrator.handleRunCompletion(issue.id, {
+      kind: "blocked",
+      reason: "repository blocker"
+    });
+
+    expect(routedCompletions).toEqual(["blocked"]);
+    expect(tracker.getIssue(issue.id)?.state).toBe("Blocked");
+    expect(
+      tracker
+        .listOperations()
+        .filter(
+          (operation) =>
+            operation.kind === "update_state" &&
+            operation.issueId === issue.id &&
+            operation.stateName === "Blocked"
+        )
+    ).toHaveLength(1);
+  });
+
   it("dispatches eligible issues, updates snapshots, and preserves the workspace when a run stops", async () => {
     const config = buildSymphonyOrchestratorConfig();
     const tracker = createMemorySymphonyTracker([buildSymphonyTrackerIssue()]);

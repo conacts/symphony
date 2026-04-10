@@ -1,0 +1,271 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import path from "node:path";
+import { tmpdir } from "node:os";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  createRouteWorkflowStore,
+  createSymphonyIssueStore,
+  initializeSymphonyDb
+} from "@symphony/db";
+import type {
+  SymphonyCurrentFlowData,
+  SymphonyCurrentFlowNode,
+  SymphonyCurrentFlowPolicy
+} from "@symphony/router";
+import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
+import { createMemorySymphonyTracker } from "@symphony/tracker";
+import { createRuntimeDispatchBootstrapRouter } from "./runtime-dispatch-bootstrap-routing.js";
+import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
+import { createRuntimeRunLifecycleRouter } from "./runtime-run-lifecycle-routing.js";
+import { createRuntimeRunStartActivationRouter } from "./runtime-run-start-activation-routing.js";
+
+const tempDirectories: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    tempDirectories.splice(0).map((directory) =>
+      rm(directory, {
+        recursive: true,
+        force: true
+      })
+    )
+  );
+});
+
+describe("runtime run lifecycle routing", () => {
+  it("records implementation delivery state changes through route history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      const inProgressIssue = await startImplementationRun(harness);
+      await harness.tracker.updateIssueState(harness.issue.id, "In Review");
+      const reviewIssue = harness.tracker.getIssue(harness.issue.id);
+
+      const result = await harness.runLifecycleRouter.observeIssueState({
+        issue: reviewIssue!,
+        runId: "run-1",
+        runMode: "implementation",
+        recordedAt: "2026-04-10T12:00:10.000Z"
+      });
+
+      expect(inProgressIssue.state).toBe("In Progress");
+      expect(result.issue.state).toBe("In Review");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("review");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("In Review");
+      expect(hydration?.latestDecision?.reasonCode).toBe("delivery_recorded");
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("routes implementation takeover into approved_merge history without dispatching immediately", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await startImplementationRun(harness);
+      await harness.tracker.updateIssueState(harness.issue.id, "Approved");
+      const approvedIssue = harness.tracker.getIssue(harness.issue.id);
+
+      const result = await harness.runLifecycleRouter.observeIssueState({
+        issue: approvedIssue!,
+        runId: "run-2",
+        runMode: "implementation",
+        recordedAt: "2026-04-10T12:05:10.000Z"
+      });
+
+      expect(result.issue.state).toBe("Approved");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("approved_merge");
+      expect(hydration?.snapshot?.projection.pendingCommands).toEqual([]);
+      expect(hydration?.snapshot?.projection.data.lastDispatchMode).toBe("implementation");
+      expect(hydration?.latestDecision?.reasonCode).toBe("approved_merge_takeover");
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("routes blocked implementation completions into Blocked through persisted route history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      const inProgressIssue = await startImplementationRun(harness);
+
+      const result = await harness.runLifecycleRouter.routeCompletion({
+        issue: inProgressIssue,
+        runId: "run-3",
+        runMode: "implementation",
+        completion: {
+          kind: "blocked",
+          reason: "repository blocker"
+        },
+        recordedAt: "2026-04-10T12:10:10.000Z"
+      });
+
+      expect(result.issue.state).toBe("Blocked");
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Blocked");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("blocked");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Blocked");
+      expect(hydration?.latestDecision?.reasonCode).toBe("implementation_blocked");
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("routes approved merge success into Done through persisted route history", async () => {
+    const harness = await createHarness({
+      state: "Approved"
+    });
+
+    try {
+      const inProgressIssue = await startApprovedMergeRun(harness);
+
+      const result = await harness.runLifecycleRouter.routeCompletion({
+        issue: inProgressIssue,
+        runId: "run-4",
+        runMode: "approved_merge",
+        completion: {
+          kind: "merged"
+        },
+        recordedAt: "2026-04-10T12:15:10.000Z"
+      });
+
+      expect(result.issue.state).toBe("Done");
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Done");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("done");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Done");
+      expect(hydration?.latestDecision?.reasonCode).toBe("merge_completed");
+    } finally {
+      harness.close();
+    }
+  });
+});
+
+async function createHarness(input: {
+  state: "Todo" | "Approved";
+}) {
+  const root = await mkdtemp(path.join(tmpdir(), "symphony-run-lifecycle-routing-"));
+  tempDirectories.push(root);
+
+  const database = initializeSymphonyDb({
+    dbFile: path.join(root, "symphony.db")
+  });
+  const issueStore = createSymphonyIssueStore(database.db);
+  const routeWorkflowStore = createRouteWorkflowStore(database.db);
+  const routeWorkflows = createRouteWorkflowPort({
+    routeWorkflowStore
+  });
+  const runtimePolicy = buildSymphonyRuntimePolicy();
+  const issue = buildSymphonyTrackerIssue({
+    state: input.state
+  });
+  const tracker = createMemorySymphonyTracker([issue]);
+
+  await issueStore.upsert({
+    issueIdentifier: issue.identifier,
+    trackerIssueId: issue.id,
+    repositoryKey: "openai/symphony"
+  });
+
+  const dispatchBootstrapRouter = await createRuntimeDispatchBootstrapRouter({
+    routeWorkflows,
+    tracker,
+    trackerConfig: runtimePolicy.tracker,
+    repositoryKey: "openai/symphony",
+    now: () => new Date("2026-04-10T12:00:00.000Z")
+  });
+  const runStartActivationRouter = await createRuntimeRunStartActivationRouter({
+    routeWorkflows,
+    tracker,
+    now: () => new Date("2026-04-10T12:00:00.000Z")
+  });
+  const runLifecycleRouter = await createRuntimeRunLifecycleRouter({
+    routeWorkflows,
+    tracker,
+    now: () => new Date("2026-04-10T12:00:00.000Z")
+  });
+
+  return {
+    issue,
+    tracker,
+    routeWorkflows,
+    dispatchBootstrapRouter,
+    runStartActivationRouter,
+    runLifecycleRouter,
+    close() {
+      database.close();
+    }
+  };
+}
+
+async function startImplementationRun(harness: Awaited<ReturnType<typeof createHarness>>) {
+  await harness.dispatchBootstrapRouter.route({
+    issue: harness.issue,
+    attempt: 1,
+    preferredWorkerHost: null,
+    startedAt: "2026-04-10T12:00:00.000Z"
+  });
+
+  const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
+  const activated = await harness.runStartActivationRouter.activate({
+    issue: bootstrappingIssue!,
+    runId: "run-implementation",
+    runMode: "implementation",
+    threadId: "thread-implementation",
+    workerHost: null,
+    launchTarget: null,
+    recordedAt: "2026-04-10T12:00:05.000Z"
+  });
+
+  return activated.issue;
+}
+
+async function startApprovedMergeRun(harness: Awaited<ReturnType<typeof createHarness>>) {
+  await harness.dispatchBootstrapRouter.route({
+    issue: harness.issue,
+    attempt: 1,
+    preferredWorkerHost: null,
+    startedAt: "2026-04-10T12:15:00.000Z"
+  });
+
+  const approvedIssue = harness.tracker.getIssue(harness.issue.id);
+  const activated = await harness.runStartActivationRouter.activate({
+    issue: approvedIssue!,
+    runId: "run-approved-merge",
+    runMode: "approved_merge",
+    threadId: "thread-approved-merge",
+    workerHost: null,
+    launchTarget: null,
+    recordedAt: "2026-04-10T12:15:05.000Z"
+  });
+
+  return activated.issue;
+}

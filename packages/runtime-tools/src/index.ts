@@ -41,6 +41,15 @@ type DeliveryTransitionResult = {
   reason: string | null;
 };
 
+type RuntimeToolIssueStateTransitionCallbackInput = {
+  issueIdentifier: string;
+  targetState: string;
+  recordedAt: string;
+  attempted: boolean;
+  success: boolean;
+  reason: string | null;
+};
+
 type NormalizedDeliveryReportArguments = {
   status: "completed" | "blocked" | "partial";
   summary: string;
@@ -91,6 +100,9 @@ export async function executeDeliveryReportTool(
     turnId: string | null;
     blockedTargetState?: string | null;
     onDeliveryReportRecorded?(delivery: RuntimeDeliveryReportResult): void;
+    onIssueStateTransition?(
+      transition: RuntimeToolIssueStateTransitionCallbackInput
+    ): void | Promise<void>;
   },
   rawArguments: unknown
 ): Promise<RuntimeToolExecutionResult> {
@@ -136,6 +148,11 @@ export async function executeDeliveryReportTool(
       executionContext,
       deliveryArguments.status
     );
+    await maybeNotifyIssueStateTransition({
+      issueIdentifier: executionContext.issue.identifier,
+      issueStateTransition,
+      onIssueStateTransition: executionContext.onIssueStateTransition
+    });
 
     return buildToolResult(
       deliveryToolSucceeded(deliveryArguments.status, issueStateTransition),
@@ -171,6 +188,9 @@ export async function executeSpikeResultTool(
       state?: string | null;
     };
     defaultTargetState: string | null;
+    onIssueStateTransition?(
+      transition: RuntimeToolIssueStateTransitionCallbackInput
+    ): void | Promise<void>;
   },
   rawArguments: unknown
 ): Promise<RuntimeToolExecutionResult> {
@@ -204,6 +224,11 @@ export async function executeSpikeResultTool(
       executionContext,
       targetState
     );
+    await maybeNotifyIssueStateTransition({
+      issueIdentifier: executionContext.issue.identifier,
+      issueStateTransition,
+      onIssueStateTransition: executionContext.onIssueStateTransition
+    });
 
     return buildToolResult(issueStateTransition.success, {
       commentPosted: true,
@@ -231,6 +256,9 @@ export async function executeCancelTool(
       state?: string | null;
     };
     defaultTargetState: string;
+    onIssueStateTransition?(
+      transition: RuntimeToolIssueStateTransitionCallbackInput
+    ): void | Promise<void>;
   },
   rawArguments: unknown
 ): Promise<RuntimeToolExecutionResult> {
@@ -256,6 +284,11 @@ export async function executeCancelTool(
       executionContext,
       cancelArguments.targetState
     );
+    await maybeNotifyIssueStateTransition({
+      issueIdentifier: executionContext.issue.identifier,
+      issueStateTransition,
+      onIssueStateTransition: executionContext.onIssueStateTransition
+    });
 
     return buildToolResult(issueStateTransition.success, {
       canceled: true,
@@ -655,6 +688,31 @@ async function transitionIssueStateIfNeeded(
       reason: error instanceof Error ? error.message : String(error)
     };
   }
+}
+
+async function maybeNotifyIssueStateTransition(input: {
+  issueIdentifier: string;
+  issueStateTransition: DeliveryTransitionResult;
+  onIssueStateTransition?(
+    transition: RuntimeToolIssueStateTransitionCallbackInput
+  ): void | Promise<void>;
+}): Promise<void> {
+  if (
+    !input.onIssueStateTransition ||
+    !input.issueStateTransition.success ||
+    !input.issueStateTransition.targetState
+  ) {
+    return;
+  }
+
+  await input.onIssueStateTransition({
+    issueIdentifier: input.issueIdentifier,
+    targetState: input.issueStateTransition.targetState,
+    recordedAt: new Date().toISOString(),
+    attempted: input.issueStateTransition.attempted,
+    success: input.issueStateTransition.success,
+    reason: input.issueStateTransition.reason
+  });
 }
 
 function buildToolSuccessResult(payload: Record<string, unknown>): RuntimeToolExecutionResult {

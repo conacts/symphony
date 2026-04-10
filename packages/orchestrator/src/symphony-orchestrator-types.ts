@@ -113,6 +113,64 @@ export interface SymphonyDispatchBootstrapRouter {
     | SymphonyDispatchBootstrapRoutingResult;
 }
 
+export type SymphonyRunStartActivationInput = {
+  issue: SymphonyTrackerIssue;
+  runId: string | null;
+  runMode: SymphonyRunMode;
+  threadId: string | null;
+  workerHost: string | null;
+  launchTarget: AgentRuntimeLaunchTarget | null;
+  recordedAt: string;
+};
+
+export type SymphonyRunStartActivationResult = {
+  issue: SymphonyTrackerIssue;
+};
+
+export interface SymphonyRunStartActivationRouter {
+  activate(
+    input: SymphonyRunStartActivationInput
+  ):
+    | Promise<SymphonyRunStartActivationResult>
+    | SymphonyRunStartActivationResult;
+}
+
+export type SymphonyRunLifecycleObservationInput = {
+  issue: SymphonyTrackerIssue;
+  runId: string | null;
+  runMode: SymphonyRunMode;
+  recordedAt: string;
+};
+
+export type SymphonyRunLifecycleObservationResult = {
+  issue: SymphonyTrackerIssue;
+};
+
+export type SymphonyRunLifecycleCompletionInput = {
+  issue: SymphonyTrackerIssue;
+  runId: string | null;
+  runMode: SymphonyRunMode;
+  completion: SymphonyAgentRuntimeCompletion;
+  recordedAt: string;
+};
+
+export type SymphonyRunLifecycleCompletionResult = {
+  issue: SymphonyTrackerIssue;
+};
+
+export interface SymphonyRunLifecycleRouter {
+  observeIssueState(
+    input: SymphonyRunLifecycleObservationInput
+  ):
+    | Promise<SymphonyRunLifecycleObservationResult>
+    | SymphonyRunLifecycleObservationResult;
+  routeCompletion(
+    input: SymphonyRunLifecycleCompletionInput
+  ):
+    | Promise<SymphonyRunLifecycleCompletionResult>
+    | SymphonyRunLifecycleCompletionResult;
+}
+
 export type SymphonyRetryEntry = {
   attempt: number;
   dueAtMs: number;

@@ -7,6 +7,8 @@ import {
   type SymphonyClock,
   type SymphonyDispatchBootstrapRouter,
   type SymphonyOrchestratorObserver,
+  type SymphonyRunStartActivationRouter,
+  type SymphonyRunLifecycleRouter,
   type SymphonyOrchestratorSnapshot
 } from "@symphony/orchestrator";
 import {
@@ -66,6 +68,8 @@ export function createSymphonyRuntime<
   clock?: SymphonyClock;
   runnerEnv?: Record<string, string | undefined>;
   dispatchBootstrapRouter?: SymphonyDispatchBootstrapRouter | null;
+  runStartActivationRouter?: SymphonyRunStartActivationRouter | null;
+  runLifecycleRouter?: SymphonyRunLifecycleRouter | null;
 }): SymphonyRuntime<Request, Reviewed, Published> {
   const reviewProvider = input.reviewProvider ?? null;
   const reviewPublisher = input.reviewPublisher ?? null;
@@ -77,7 +81,9 @@ export function createSymphonyRuntime<
     observer: input.observer,
     clock: input.clock,
     runnerEnv: input.runnerEnv,
-    dispatchBootstrapRouter: input.dispatchBootstrapRouter
+    dispatchBootstrapRouter: input.dispatchBootstrapRouter,
+    runStartActivationRouter: input.runStartActivationRouter,
+    runLifecycleRouter: input.runLifecycleRouter
   });
   const publishReview = async (
     review: PublishReviewInput<Reviewed>

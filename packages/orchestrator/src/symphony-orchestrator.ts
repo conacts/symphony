@@ -66,7 +66,9 @@ import type {
   SymphonyDispatchBootstrapRouter,
   SymphonyOrchestratorObserver,
   SymphonyOrchestratorSnapshot,
+  SymphonyRunLifecycleRouter,
   SymphonyOrchestratorState,
+  SymphonyRunStartActivationRouter,
   SymphonyStartupFailureStage
 } from "./symphony-orchestrator-types.js";
 
@@ -84,6 +86,8 @@ export class SymphonyOrchestrator {
   readonly #clock: SymphonyClock;
   readonly #runnerEnv: Record<string, string | undefined> | undefined;
   readonly #dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter | null;
+  readonly #runStartActivationRouter: SymphonyRunStartActivationRouter | null;
+  readonly #runLifecycleRouter: SymphonyRunLifecycleRouter | null;
   #state: SymphonyOrchestratorState;
 
   constructor(input: {
@@ -95,6 +99,8 @@ export class SymphonyOrchestrator {
     clock?: SymphonyClock;
     runnerEnv?: Record<string, string | undefined>;
     dispatchBootstrapRouter?: SymphonyDispatchBootstrapRouter | null;
+    runStartActivationRouter?: SymphonyRunStartActivationRouter | null;
+    runLifecycleRouter?: SymphonyRunLifecycleRouter | null;
   }) {
     this.#config = input.config;
     this.#tracker = input.tracker;
@@ -104,6 +110,8 @@ export class SymphonyOrchestrator {
     this.#clock = input.clock ?? systemClock;
     this.#runnerEnv = input.runnerEnv;
     this.#dispatchBootstrapRouter = input.dispatchBootstrapRouter ?? null;
+    this.#runStartActivationRouter = input.runStartActivationRouter ?? null;
+    this.#runLifecycleRouter = input.runLifecycleRouter ?? null;
     this.#state = createSymphonyOrchestratorState(
       input.config,
       this.#clock
@@ -212,14 +220,24 @@ export class SymphonyOrchestrator {
         continue;
       }
 
-      if (issueMatchesTerminalState(refreshedIssue, this.#config.tracker)) {
-        await this.#terminateRunningIssue(issueId, "destroy", refreshedIssue);
+      const observedIssue =
+        normalizeStateName(refreshedIssue.state) !==
+        normalizeStateName(runningEntry.issue.state)
+          ? await this.#observeRunningIssueStateChange({
+              issue: refreshedIssue,
+              runId: runningEntry.runId,
+              runMode: runningEntry.runMode
+            })
+          : refreshedIssue;
+
+      if (issueMatchesTerminalState(observedIssue, this.#config.tracker)) {
+        await this.#terminateRunningIssue(issueId, "destroy", observedIssue);
         continue;
       }
 
       if (
         !canIssueContinueRun({
-          issue: refreshedIssue,
+          issue: observedIssue,
           runMode: runningEntry.runMode,
           tracker: this.#config.tracker
         })
@@ -227,17 +245,17 @@ export class SymphonyOrchestrator {
         await this.#terminateRunningIssue(
           issueId,
           workspaceCleanupModeForIssue({
-            issue: refreshedIssue,
+            issue: observedIssue,
             tracker: this.#config.tracker
           }),
-          refreshedIssue
+          observedIssue
         );
         continue;
       }
 
       this.#state.running[issueId] = {
         ...runningEntry,
-        issue: refreshedIssue
+        issue: observedIssue
       };
     }
   }
@@ -489,13 +507,15 @@ export class SymphonyOrchestrator {
       });
 
       preparedIssue = await this.#checkpointDispatchEligibility(issue.id);
-      const activatedIssue = await this.#activatePreparedIssue({
-        issue: preparedIssue,
-        runId,
-        runMode
-      });
+      const runtimeLaunchCandidate = this.#runStartActivationRouter
+        ? preparedIssue
+        : await this.#activatePreparedIssue({
+            issue: preparedIssue,
+            runId,
+            runMode
+          });
       this.#setDispatchingEntry(issue.id, {
-        issue: activatedIssue,
+        issue: runtimeLaunchCandidate,
         workspace,
         phase: "runtime_launch"
       });
@@ -528,6 +548,24 @@ export class SymphonyOrchestrator {
       launchTarget = launch.launchTarget;
       this.#setDispatchingEntry(issue.id, {
         issue: runtimeLaunchIssue,
+        workerHost,
+        workspace,
+        launchTarget,
+        runtimeStarted: true
+      });
+      startupFailureStage = "runtime_session_start";
+      const activationCandidate = this.#runStartActivationRouter
+        ? await this.#activateStartedIssue({
+            issue: runtimeLaunchIssue,
+            runId,
+            runMode,
+            threadId: launch.threadId,
+            workerHost,
+            launchTarget
+          })
+        : runtimeLaunchIssue;
+      this.#setDispatchingEntry(issue.id, {
+        issue: activationCandidate,
         workerHost,
         workspace,
         launchTarget,
@@ -588,6 +626,18 @@ export class SymphonyOrchestrator {
       if (isFatalRuntimeError(error)) {
         this.#clearDispatchState(issue.id);
         throw error;
+      }
+
+      if (this.#state.dispatching[issue.id]?.runtimeStarted && workspace) {
+        try {
+          await this.#agentRuntime.stopRun({
+            issue: this.#state.dispatching[issue.id]?.issue ?? preparedIssue,
+            workspace,
+            cleanupMode: "preserve"
+          });
+        } catch {
+          // Best effort only; startup failure cleanup still owns the workspace lifecycle.
+        }
       }
 
       this.#clearDispatchState(issue.id);
@@ -734,7 +784,26 @@ export class SymphonyOrchestrator {
     }
 
     let currentIssue = await this.#refreshIssue(runningEntry.issue);
+    if (
+      currentIssue &&
+      normalizeStateName(currentIssue.state) !==
+        normalizeStateName(runningEntry.issue.state)
+    ) {
+      currentIssue = await this.#observeRunningIssueStateChange({
+        issue: currentIssue,
+        runId: runningEntry.runId,
+        runMode: runningEntry.runMode
+      });
+    }
+
     let resolvedCompletion = completion;
+    const routedCompletion = await this.#routeRunCompletion({
+      issue: currentIssue ?? runningEntry.issue,
+      runId: runningEntry.runId,
+      runMode: runningEntry.runMode,
+      completion
+    });
+    currentIssue = routedCompletion.issue;
 
     if (
       runningEntry.runMode === "approved_merge" &&
@@ -908,7 +977,7 @@ export class SymphonyOrchestrator {
         workspaceBackend: this.#workspaceBackend,
         observer: this.#observer,
         runnerEnv: this.#runnerEnv,
-        issue: runningEntry.issue,
+        issue: currentIssue ?? runningEntry.issue,
         workerHost: runningEntry.workerHost,
         workspace: runningEntry.workspace,
         reason: resolvedCompletion.reason,
@@ -1173,6 +1242,48 @@ export class SymphonyOrchestrator {
     return refreshed[0] ?? null;
   }
 
+  async #observeRunningIssueStateChange(input: {
+    issue: SymphonyTrackerIssue;
+    runId: string | null;
+    runMode: SymphonyRunMode;
+  }): Promise<SymphonyTrackerIssue> {
+    if (!this.#runLifecycleRouter) {
+      return input.issue;
+    }
+
+    const observed = await this.#runLifecycleRouter.observeIssueState({
+      issue: input.issue,
+      runId: input.runId,
+      runMode: input.runMode,
+      recordedAt: this.#clock.now().toISOString()
+    });
+
+    return observed.issue;
+  }
+
+  async #routeRunCompletion(input: {
+    issue: SymphonyTrackerIssue;
+    runId: string | null;
+    runMode: SymphonyRunMode;
+    completion: SymphonyAgentRuntimeCompletion;
+  }): Promise<{
+    issue: SymphonyTrackerIssue;
+  }> {
+    if (!this.#runLifecycleRouter) {
+      return {
+        issue: input.issue
+      };
+    }
+
+    return await this.#runLifecycleRouter.routeCompletion({
+      issue: input.issue,
+      runId: input.runId,
+      runMode: input.runMode,
+      completion: input.completion,
+      recordedAt: this.#clock.now().toISOString()
+    });
+  }
+
   async #activatePreparedIssue(input: {
     issue: SymphonyTrackerIssue;
     runId: string | null;
@@ -1213,6 +1324,91 @@ export class SymphonyOrchestrator {
     }
 
     return input.issue;
+  }
+
+  async #activateStartedIssue(input: {
+    issue: SymphonyTrackerIssue;
+    runId: string | null;
+    runMode: SymphonyRunMode;
+    threadId: string | null;
+    workerHost: string | null;
+    launchTarget: AgentRuntimeLaunchTarget | null;
+  }): Promise<SymphonyTrackerIssue> {
+    if (!this.#runStartActivationRouter) {
+      return input.issue;
+    }
+
+    const activated = await this.#runStartActivationRouter.activate({
+      issue: input.issue,
+      runId: input.runId,
+      runMode: input.runMode,
+      threadId: input.threadId,
+      workerHost: input.workerHost,
+      launchTarget: input.launchTarget,
+      recordedAt: this.#clock.now().toISOString()
+    });
+
+    await this.#recordRunStartActivationTransition({
+      issue: input.issue,
+      activatedIssue: activated.issue,
+      runId: input.runId,
+      runMode: input.runMode
+    });
+
+    return activated.issue;
+  }
+
+  async #recordRunStartActivationTransition(input: {
+    issue: SymphonyTrackerIssue;
+    activatedIssue: SymphonyTrackerIssue;
+    runId: string | null;
+    runMode: SymphonyRunMode;
+  }): Promise<void> {
+    const fromState = normalizeStateName(input.issue.state);
+    const toState = normalizeStateName(input.activatedIssue.state);
+
+    if (fromState === toState) {
+      return;
+    }
+
+    if (fromState === "bootstrapping" && toState === "in progress") {
+      await this.#observer?.recordLifecycleEvent({
+        issue: input.activatedIssue,
+        runId: input.runId,
+        source: "tracker",
+        eventType: "bootstrap_transition",
+        message: "Issue moved from Bootstrapping to In Progress.",
+        payload: {
+          fromState: input.issue.state,
+          toState: input.activatedIssue.state
+        }
+      });
+      return;
+    }
+
+    if (
+      input.runMode === "approved_merge" &&
+      fromState === "approved" &&
+      toState === "in progress"
+    ) {
+      await this.#observer?.recordLifecycleEvent({
+        issue: input.activatedIssue,
+        runId: input.runId,
+        source: "tracker",
+        eventType: "approved_merge_transition",
+        message: "Issue moved from Approved to In Progress for merge automation.",
+        payload: {
+          fromState: input.issue.state,
+          toState: input.activatedIssue.state,
+          runMode: input.runMode
+        }
+      });
+      return;
+    }
+
+    throw new TypeError(
+      `Unexpected run-start activation transition from ${input.issue.state} to ${input.activatedIssue.state}.`
+    );
   }
 
   async #handleApprovedMergeCompletion(input: {

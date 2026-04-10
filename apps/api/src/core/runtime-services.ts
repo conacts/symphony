@@ -59,7 +59,7 @@ import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { createRepositoryScopedWorkspaceBackend } from "./runtime-workspace-backend-selector.js";
 import { createRepositoryScopedLinearTracker } from "./runtime-linear-tracker-registry.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
-import { createRuntimeDispatchBootstrapRouter } from "./runtime-dispatch-bootstrap-routing.js";
+import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import {
   executeCancelTool,
@@ -242,11 +242,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const routeWorkflows = createRouteWorkflowPort({
     routeWorkflowStore
   });
-  const dispatchBootstrapRouter = await createRuntimeDispatchBootstrapRouter({
+  const routeLifecycle = await createRuntimeRouteLifecycleService({
     routeWorkflows,
     tracker,
     trackerConfig: runtimePolicy.tracker,
-    repositoryKey
+    repositoryKey,
+    now: undefined
   });
 
   const workspaceBackendSelections =
@@ -425,7 +426,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     observer,
     agentRuntime,
     runnerEnv: environmentSource,
-    dispatchBootstrapRouter
+    dispatchBootstrapRouter: routeLifecycle.dispatchBootstrapRouter,
+    runStartActivationRouter: routeLifecycle.runStartActivationRouter,
+    runLifecycleRouter: routeLifecycle.runLifecycleRouter
   });
   runtimeRef = runtime;
   const orchestratorPort = createRuntimeOrchestratorPort({
@@ -467,7 +470,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           issue: input.issue,
           runId: input.runId,
           turnId: input.turnId,
-          blockedTargetState: runtimePolicy.tracker.blockedTransitionToState
+          blockedTargetState: runtimePolicy.tracker.blockedTransitionToState,
+          async onIssueStateTransition(transition: {
+            issueIdentifier: string;
+            recordedAt: string;
+          }) {
+            await routeLifecycle.observeActiveIssueStateByIdentifier({
+              issueIdentifier: transition.issueIdentifier,
+              recordedAt: transition.recordedAt
+            });
+          }
         },
         input.argumentsPayload
       );
@@ -486,7 +498,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
         {
           tracker,
           issue: input.issue,
-          defaultTargetState: runtimePolicy.tracker.pauseTransitionToState
+          defaultTargetState: runtimePolicy.tracker.pauseTransitionToState,
+          async onIssueStateTransition(transition: {
+            issueIdentifier: string;
+            recordedAt: string;
+          }) {
+            await routeLifecycle.observeActiveIssueStateByIdentifier({
+              issueIdentifier: transition.issueIdentifier,
+              recordedAt: transition.recordedAt
+            });
+          }
         },
         input.argumentsPayload
       );
@@ -505,7 +526,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
         {
           tracker,
           issue: input.issue,
-          defaultTargetState: "Canceled"
+          defaultTargetState: "Canceled",
+          async onIssueStateTransition(transition: {
+            issueIdentifier: string;
+            recordedAt: string;
+          }) {
+            await routeLifecycle.observeActiveIssueStateByIdentifier({
+              issueIdentifier: transition.issueIdentifier,
+              recordedAt: transition.recordedAt
+            });
+          }
         },
         input.argumentsPayload
       );

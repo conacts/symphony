@@ -251,24 +251,8 @@ describe("Symphony current-flow router fixture", () => {
 
     expect(result.decision.toNode).toBe("approved_merge");
     expect(result.decision.reasonCode).toBe("approved_merge_takeover");
-    expect(result.decision.commands).toEqual([
-      {
-        id: "command_signal_approved_observed_cancel_active_run",
-        kind: "run.cancel",
-        payload: {
-          reason: "approved_merge_takeover",
-          cleanupMode: "preserve"
-        }
-      },
-      {
-        id: "command_signal_approved_observed_dispatch_approved_merge",
-        kind: "run.dispatch",
-        payload: {
-          runMode: "approved_merge"
-        }
-      }
-    ]);
-    expect(result.projectionAfter.data.lastDispatchMode).toBe("approved_merge");
+    expect(result.decision.commands).toEqual([]);
+    expect(result.projectionAfter.data.lastDispatchMode).toBe("implementation");
   });
 
   it("re-dispatches bootstrapping work when Bootstrapping is observed again after resume", async () => {

@@ -118,6 +118,60 @@ describe("runtime tools", () => {
     database.close();
   });
 
+  it("notifies the caller after a successful delivery state transition", async () => {
+    const { database, deliveryReports } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-150",
+        identifier: "COL-150"
+      },
+      runId: "run-150",
+      turnId: "turn-150"
+    });
+    const transitions: Array<{ issueIdentifier: string; targetState: string }> = [];
+    const tracker = createMemorySymphonyTracker([
+      buildRuntimeToolIssue({
+        id: "issue-150",
+        identifier: "COL-150",
+        state: "In Progress"
+      })
+    ]);
+
+    const result = await executeDeliveryReportTool(
+      {
+        tracker,
+        deliveryReports,
+        issue: {
+          trackerIssueId: "issue-150",
+          identifier: "COL-150",
+          state: "In Progress"
+        },
+        runId: "run-150",
+        turnId: "turn-150",
+        async onIssueStateTransition(transition) {
+          transitions.push({
+            issueIdentifier: transition.issueIdentifier,
+            targetState: transition.targetState
+          });
+        }
+      },
+      {
+        status: "completed",
+        summary: "Opened the PR and finished the requested work.",
+        prUrl: "https://github.com/openai/symphony/pull/150"
+      }
+    );
+
+    expect(result.success).toBe(true);
+    expect(transitions).toEqual([
+      {
+        issueIdentifier: "COL-150",
+        targetState: "In Review"
+      }
+    ]);
+
+    database.close();
+  });
+
   it("rejects completed delivery reports that omit the PR url", async () => {
     const { database, deliveryReports } = await createRuntimeToolsTestContext({
       issue: {
