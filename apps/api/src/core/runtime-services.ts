@@ -37,6 +37,9 @@ import {
 import type {
   SymphonyCurrentFlowStateRequestTargetState
 } from "@symphony/router";
+import {
+  symphonyCurrentFlowReviewTriggerKindSchema
+} from "@symphony/router";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
@@ -64,6 +67,7 @@ import { createRepositoryScopedLinearTracker } from "./runtime-linear-tracker-re
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
+import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import {
   executeCancelTool,
   executeDeliveryReportTool,
@@ -434,6 +438,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runLifecycleRouter: routeLifecycle.runLifecycleRouter
   });
   runtimeRef = runtime;
+  let orchestratorPortRef: SymphonyRuntimeAppServices["orchestrator"] | null = null;
+  const dispatchObservedIssue = async (
+    request: SymphonyTrackerStateDispatchRequest
+  ) => {
+    if (!orchestratorPortRef) {
+      throw new TypeError("Runtime orchestrator port is not initialized.");
+    }
+
+    await orchestratorPortRef.dispatchRoutedIssue(request);
+  };
   const orchestratorPort = createRuntimeOrchestratorPort({
     runtime,
     logger,
@@ -443,10 +457,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       await routeLifecycle.observeNonRunningTrackerStates({
         claimedIssueIds: snapshot.claimedIssueIds,
         recordedAt: new Date().toISOString(),
-        onDispatchRequested: async () => {}
+        onDispatchRequested: dispatchObservedIssue
       });
     }
   });
+  orchestratorPortRef = orchestratorPort;
 
   let pollScheduler: SymphonyRuntimePollScheduler | null = null;
   let shutdownPromise: Promise<void> | null = null;
@@ -685,18 +700,50 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       });
       const issueIdentifier =
         "issueIdentifier" in result ? result.issueIdentifier : null;
-      const trackedIssue =
+      const requeuedHandoff =
+        result.status === "requeued" &&
+        "handoff" in result &&
+        result.handoff &&
+        typeof result.handoff === "object"
+          ? result.handoff
+          : null;
+      const seededTrackedIssue =
         issueIdentifier
           ? await tracker.fetchIssueByIdentifier(runtimePolicy.tracker, issueIdentifier)
           : null;
 
-      if (trackedIssue) {
+      if (seededTrackedIssue) {
         await issueStore.upsert({
-          issueIdentifier: trackedIssue.identifier,
-          trackerIssueId: trackedIssue.id,
+          issueIdentifier: seededTrackedIssue.identifier,
+          trackerIssueId: seededTrackedIssue.id,
           repositoryKey
         });
       }
+
+      if (result.status !== "ignored" && issueIdentifier) {
+        if (result.status === "requeued") {
+          const reviewTriggerKind =
+            symphonyCurrentFlowReviewTriggerKindSchema.parse(
+              result.handoff.triggerKind
+            );
+          const routed = await routeLifecycle.routeReviewReworkRequest({
+            issueIdentifier,
+            recordedAt: requeuedHandoff?.recordedAt ?? new Date().toISOString(),
+            triggerKind: reviewTriggerKind,
+            onDispatchRequested: dispatchObservedIssue
+          });
+          if (!routed) {
+            throw new TypeError(
+              `GitHub review ingress requeued ${issueIdentifier} but no workflow-backed review rework route could be applied.`
+            );
+          }
+        }
+      }
+
+      const trackedIssue =
+        issueIdentifier
+          ? await tracker.fetchIssueByIdentifier(runtimePolicy.tracker, issueIdentifier)
+          : null;
 
       await runtimeLogStore.record({
         level: "info",
@@ -710,29 +757,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       realtime.publishProblemRunsUpdated();
 
       if (result.status !== "ignored" && issueIdentifier) {
-        const requeuedHandoff =
-          result.status === "requeued" &&
-          "handoff" in result &&
-          result.handoff &&
-          typeof result.handoff === "object"
-            ? result.handoff
-            : null;
-
-        if (result.status === "requeued") {
-          const observed = await routeLifecycle.observeTrackerStateByIdentifier({
-            issueIdentifier,
-            recordedAt: requeuedHandoff?.recordedAt ?? new Date().toISOString(),
-            onDispatchRequested: async () => {
-              await orchestratorPort.requestRefresh();
-            }
-          });
-          if (!observed) {
-            throw new TypeError(
-              `GitHub review ingress requeued ${issueIdentifier} but no route workflow-backed tracker state could be observed.`
-            );
-          }
-        }
-
         if (trackedIssue) {
           if (requeuedHandoff) {
             await issueTimelineStore.record({

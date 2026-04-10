@@ -85,9 +85,9 @@ export class SymphonyOrchestrator {
   readonly #observer: SymphonyOrchestratorObserver | null;
   readonly #clock: SymphonyClock;
   readonly #runnerEnv: Record<string, string | undefined> | undefined;
-  readonly #dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter | null;
-  readonly #runStartActivationRouter: SymphonyRunStartActivationRouter | null;
-  readonly #runLifecycleRouter: SymphonyRunLifecycleRouter | null;
+  readonly #dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
+  readonly #runStartActivationRouter: SymphonyRunStartActivationRouter;
+  readonly #runLifecycleRouter: SymphonyRunLifecycleRouter;
   #state: SymphonyOrchestratorState;
 
   constructor(input: {
@@ -98,9 +98,9 @@ export class SymphonyOrchestrator {
     observer?: SymphonyOrchestratorObserver;
     clock?: SymphonyClock;
     runnerEnv?: Record<string, string | undefined>;
-    dispatchBootstrapRouter?: SymphonyDispatchBootstrapRouter | null;
-    runStartActivationRouter?: SymphonyRunStartActivationRouter | null;
-    runLifecycleRouter?: SymphonyRunLifecycleRouter | null;
+    dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
+    runStartActivationRouter: SymphonyRunStartActivationRouter;
+    runLifecycleRouter: SymphonyRunLifecycleRouter;
   }) {
     this.#config = input.config;
     this.#tracker = input.tracker;
@@ -109,9 +109,9 @@ export class SymphonyOrchestrator {
     this.#observer = input.observer ?? null;
     this.#clock = input.clock ?? systemClock;
     this.#runnerEnv = input.runnerEnv;
-    this.#dispatchBootstrapRouter = input.dispatchBootstrapRouter ?? null;
-    this.#runStartActivationRouter = input.runStartActivationRouter ?? null;
-    this.#runLifecycleRouter = input.runLifecycleRouter ?? null;
+    this.#dispatchBootstrapRouter = input.dispatchBootstrapRouter;
+    this.#runStartActivationRouter = input.runStartActivationRouter;
+    this.#runLifecycleRouter = input.runLifecycleRouter;
     this.#state = createSymphonyOrchestratorState(
       input.config,
       this.#clock
@@ -507,13 +507,7 @@ export class SymphonyOrchestrator {
       });
 
       preparedIssue = await this.#checkpointDispatchEligibility(issue.id);
-      const runtimeLaunchCandidate = this.#runStartActivationRouter
-        ? preparedIssue
-        : await this.#activatePreparedIssue({
-            issue: preparedIssue,
-            runId,
-            runMode
-          });
+      const runtimeLaunchCandidate = preparedIssue;
       this.#setDispatchingEntry(issue.id, {
         issue: runtimeLaunchCandidate,
         workspace,
@@ -554,16 +548,14 @@ export class SymphonyOrchestrator {
         runtimeStarted: true
       });
       startupFailureStage = "runtime_session_start";
-      const activationCandidate = this.#runStartActivationRouter
-        ? await this.#activateStartedIssue({
-            issue: runtimeLaunchIssue,
-            runId,
-            runMode,
-            threadId: launch.threadId,
-            workerHost,
-            launchTarget
-          })
-        : runtimeLaunchIssue;
+      const activationCandidate = await this.#activateStartedIssue({
+        issue: runtimeLaunchIssue,
+        runId,
+        runMode,
+        threadId: launch.threadId,
+        workerHost,
+        launchTarget
+      });
       this.#setDispatchingEntry(issue.id, {
         issue: activationCandidate,
         workerHost,
@@ -809,19 +801,19 @@ export class SymphonyOrchestrator {
     }
 
     const completionIssueBeforeRouting = refreshedIssue ?? runningEntry.issue;
-    let resolvedCompletion = completion;
-    let currentIssue = (
-      await this.#routeRunCompletion({
-        issue: completionIssueBeforeRouting,
-        runId: runningEntry.runId,
-        runMode: runningEntry.runMode,
-        completion
-      })
-    ).issue;
+    const routedCompletion = await this.#routeCompletionWithRecovery({
+      issue: completionIssueBeforeRouting,
+      runId: runningEntry.runId,
+      runMode: runningEntry.runMode,
+      completion
+    });
+    let resolvedCompletion = routedCompletion.completion;
+    let currentIssue = routedCompletion.issue;
 
     if (
       runningEntry.runMode === "approved_merge" &&
-      completion.kind === "merged"
+      completion.kind === "merged" &&
+      resolvedCompletion.kind === "merged"
     ) {
       const mergeResolution = await this.#resolveApprovedMergeSuccess({
         runningEntry,
@@ -831,6 +823,17 @@ export class SymphonyOrchestrator {
       });
       currentIssue = mergeResolution.currentIssue;
       resolvedCompletion = mergeResolution.completion;
+    }
+
+    if (resolvedCompletion.kind !== completion.kind) {
+      const reroutedCompletion = await this.#routeCompletionWithRecovery({
+        issue: currentIssue,
+        runId: runningEntry.runId,
+        runMode: runningEntry.runMode,
+        completion: resolvedCompletion
+      });
+      currentIssue = reroutedCompletion.issue;
+      resolvedCompletion = reroutedCompletion.completion;
     }
 
     await this.#observer?.finalizeRun({
@@ -1080,10 +1083,7 @@ export class SymphonyOrchestrator {
       runningEntry.runMode === "approved_merge" &&
       (resolvedCompletion.kind === "failure" || resolvedCompletion.kind === "stalled")
     ) {
-      const blockedIssueBefore =
-        completion.kind === "merged" && resolvedCompletion.kind === "failure"
-          ? currentIssue
-          : completionIssueBeforeRouting;
+      const blockedIssueBefore = completionIssueBeforeRouting;
       currentIssue = await this.#applyCompletionTrackerTransition({
         beforeIssue: blockedIssueBefore,
         routedIssue: currentIssue,
@@ -1199,53 +1199,6 @@ export class SymphonyOrchestrator {
     });
   }
 
-  async #transitionIssueState(input: {
-    issue: SymphonyTrackerIssue;
-    targetState: string | null;
-    runId: string | null;
-    eventType: string;
-    message: string;
-    payload?: Record<string, unknown>;
-    swallowErrors?: boolean;
-  }): Promise<SymphonyTrackerIssue> {
-    if (
-      !input.targetState ||
-      input.issue.state.trim().toLowerCase() === input.targetState.trim().toLowerCase()
-    ) {
-      return input.issue;
-    }
-
-    try {
-      await this.#tracker.updateIssueState(input.issue.id, input.targetState);
-      const nextIssue = this.#withIssueState(input.issue, input.targetState);
-      await this.#recordTrackerTransitionEvent({
-        beforeIssue: input.issue,
-        afterIssue: nextIssue,
-        runId: input.runId,
-        eventType: input.eventType,
-        message: input.message,
-        payload: input.payload
-      });
-      return nextIssue;
-    } catch (error) {
-      await this.#recordTrackerTransitionFailureEvent({
-        beforeIssue: input.issue,
-        issue: input.issue,
-        targetState: input.targetState,
-        runId: input.runId,
-        eventType: input.eventType,
-        payload: input.payload,
-        reason: error instanceof Error ? error.message : String(error)
-      });
-
-      if (input.swallowErrors) {
-        return input.issue;
-      }
-
-      throw error;
-    }
-  }
-
   async #applyCompletionTrackerTransition(input: {
     beforeIssue: SymphonyTrackerIssue;
     routedIssue: SymphonyTrackerIssue;
@@ -1255,18 +1208,6 @@ export class SymphonyOrchestrator {
     message: string;
     payload?: Record<string, unknown>;
   }): Promise<SymphonyTrackerIssue> {
-    if (!this.#runLifecycleRouter) {
-      return await this.#transitionIssueState({
-        issue: input.beforeIssue,
-        targetState: input.targetState,
-        runId: input.runId,
-        eventType: input.eventType,
-        message: input.message,
-        payload: input.payload,
-        swallowErrors: true
-      });
-    }
-
     if (
       !input.targetState ||
       normalizeStateName(input.routedIssue.state) !==
@@ -1297,16 +1238,6 @@ export class SymphonyOrchestrator {
     });
 
     return input.routedIssue;
-  }
-
-  #withIssueState(
-    issue: SymphonyTrackerIssue,
-    state: string
-  ): SymphonyTrackerIssue {
-    return {
-      ...issue,
-      state
-    };
   }
 
   async #recordTrackerTransitionEvent(input: {
@@ -1379,10 +1310,6 @@ export class SymphonyOrchestrator {
     runId: string | null;
     runMode: SymphonyRunMode;
   }): Promise<SymphonyTrackerIssue> {
-    if (!this.#runLifecycleRouter) {
-      return input.issue;
-    }
-
     const observed = await this.#runLifecycleRouter.observeIssueState({
       issue: input.issue,
       runId: input.runId,
@@ -1401,12 +1328,6 @@ export class SymphonyOrchestrator {
   }): Promise<{
     issue: SymphonyTrackerIssue;
   }> {
-    if (!this.#runLifecycleRouter) {
-      return {
-        issue: input.issue
-      };
-    }
-
     return await this.#runLifecycleRouter.routeCompletion({
       issue: input.issue,
       runId: input.runId,
@@ -1416,6 +1337,69 @@ export class SymphonyOrchestrator {
     });
   }
 
+  async #routeCompletionWithRecovery(input: {
+    issue: SymphonyTrackerIssue;
+    runId: string | null;
+    runMode: SymphonyRunMode;
+    completion: SymphonyAgentRuntimeCompletion;
+  }): Promise<{
+    issue: SymphonyTrackerIssue;
+    completion: SymphonyAgentRuntimeCompletion;
+  }> {
+    try {
+      return {
+        issue: (
+          await this.#routeRunCompletion({
+            issue: input.issue,
+            runId: input.runId,
+            runMode: input.runMode,
+            completion: input.completion
+          })
+        ).issue,
+        completion: input.completion
+      };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+
+      if (
+        input.runMode === "approved_merge" &&
+        input.completion.kind === "merged"
+      ) {
+        await this.#recordTrackerTransitionFailureEvent({
+          beforeIssue: input.issue,
+          issue: input.issue,
+          targetState: "Done",
+          runId: input.runId,
+          eventType: "done_transition",
+          reason,
+          payload: {
+            completionKind: input.completion.kind,
+            runMode: input.runMode
+          }
+        });
+
+        return {
+          issue: input.issue,
+          completion: {
+            kind: "failure",
+            reason:
+              "Merge was recorded as merged, but Symphony could not move the issue to `Done`: " +
+              reason
+          }
+        };
+      }
+
+      if (!isRecoverableCompletionRoutingFailure(input.completion)) {
+        throw error;
+      }
+
+      return {
+        issue: input.issue,
+        completion: input.completion
+      };
+    }
+  }
+
   async #routeStartupFailure(input: {
     issue: SymphonyTrackerIssue;
     routedIssue?: SymphonyTrackerIssue;
@@ -1423,13 +1407,9 @@ export class SymphonyOrchestrator {
     runMode: SymphonyRunMode;
     completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
   }): Promise<{
-    effectiveIssue?: SymphonyTrackerIssue;
-    stateTransition?: SymphonyFailureStateTransition;
+    effectiveIssue: SymphonyTrackerIssue;
+    stateTransition: SymphonyFailureStateTransition;
   }> {
-    if (!this.#runLifecycleRouter) {
-      return {};
-    }
-
     const routedIssue =
       input.routedIssue ??
       (
@@ -1451,48 +1431,6 @@ export class SymphonyOrchestrator {
     };
   }
 
-  async #activatePreparedIssue(input: {
-    issue: SymphonyTrackerIssue;
-    runId: string | null;
-    runMode: SymphonyRunMode;
-  }): Promise<SymphonyTrackerIssue> {
-    const normalizedState = normalizeStateName(input.issue.state);
-
-    if (normalizedState === "bootstrapping") {
-      return await this.#transitionIssueState({
-        issue: input.issue,
-        targetState: "In Progress",
-        runId: input.runId,
-        eventType: "bootstrap_transition",
-        message: "Issue moved from Bootstrapping to In Progress.",
-        payload: {
-          fromState: input.issue.state,
-          toState: "In Progress"
-        }
-      });
-    }
-
-    if (
-      input.runMode === "approved_merge" &&
-      normalizedState === "approved"
-    ) {
-      return await this.#transitionIssueState({
-        issue: input.issue,
-        targetState: "In Progress",
-        runId: input.runId,
-        eventType: "approved_merge_transition",
-        message: "Issue moved from Approved to In Progress for merge automation.",
-        payload: {
-          fromState: input.issue.state,
-          toState: "In Progress",
-          runMode: input.runMode
-        }
-      });
-    }
-
-    return input.issue;
-  }
-
   async #activateStartedIssue(input: {
     issue: SymphonyTrackerIssue;
     runId: string | null;
@@ -1501,10 +1439,6 @@ export class SymphonyOrchestrator {
     workerHost: string | null;
     launchTarget: AgentRuntimeLaunchTarget | null;
   }): Promise<SymphonyTrackerIssue> {
-    if (!this.#runStartActivationRouter) {
-      return input.issue;
-    }
-
     const activated = await this.#runStartActivationRouter.activate({
       issue: input.issue,
       runId: input.runId,
@@ -2203,6 +2137,25 @@ function mergeDispatchStopRequests(
   }
 
   return next.reason === "terminal" ? next : current;
+}
+
+function isRecoverableCompletionRoutingFailure(
+  completion: SymphonyAgentRuntimeCompletion
+): boolean {
+  switch (completion.kind) {
+    case "blocked":
+    case "failure":
+    case "max_turns_reached":
+    case "merge_blocked":
+    case "provider_transient":
+    case "rate_limited":
+    case "stalled":
+    case "startup_failure":
+      return true;
+    case "delivered":
+    case "merged":
+      return false;
+  }
 }
 
 function normalizeStateName(state: string | null | undefined): string {

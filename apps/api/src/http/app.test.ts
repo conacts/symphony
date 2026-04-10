@@ -942,12 +942,20 @@ describe("@symphony/api app", () => {
           branchName: "symphony/COL-123"
         })
       ]);
-      harness.services.orchestrator.requestRefresh = async () => ({
-        queued: true,
-        coalesced: false,
-        requestedAt: "2026-03-31T00:00:00.000Z",
-        operations: ["poll", "reconcile"]
-      });
+      const routedDispatches: Array<{
+        workflowId: string;
+        commandId: string;
+        issueIdentifier: string;
+        runMode: string;
+      }> = [];
+      harness.services.orchestrator.dispatchRoutedIssue = async (input) => {
+        routedDispatches.push({
+          workflowId: input.workflowId,
+          commandId: input.commandId,
+          issueIdentifier: input.issue.identifier,
+          runMode: input.runMode
+        });
+      };
 
       const app = createSymphonyRuntimeApp(harness.services);
       const rawBody = JSON.stringify(buildSymphonyGitHubPullRequestReviewPayload());
@@ -973,6 +981,14 @@ describe("@symphony/api app", () => {
 
       expect(ingressResponse.status).toBe(202);
       expect(trackedIssue?.state).toBe("Bootstrapping");
+      expect(routedDispatches).toEqual([
+        {
+          workflowId: expect.any(String),
+          commandId: expect.any(String),
+          issueIdentifier: "COL-123",
+          runMode: "rework"
+        }
+      ]);
       expect(issueTimeline).not.toBeNull();
 
       const reworkHandoffEntry = issueTimeline?.entries.find(

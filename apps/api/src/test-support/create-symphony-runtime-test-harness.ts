@@ -471,6 +471,9 @@ export async function createSymphonyRuntimeTestHarness(input: {
           operations: ["poll", "reconcile"] as const
         };
       },
+      async dispatchRoutedIssue() {
+        return;
+      },
       async runPollCycle() {
         return snapshot;
       }

@@ -22,8 +22,12 @@ import type {
   SymphonyRuntimeRefreshResult
 } from "@symphony/contracts";
 import type { SymphonyLogger } from "@symphony/logger";
-import type { SymphonyTracker } from "@symphony/tracker";
+import type {
+  SymphonyTracker,
+  SymphonyTrackerIssue
+} from "@symphony/tracker";
 import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import type { SymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 import type { SymphonyRuntimePollSchedulerSnapshot } from "./poll-scheduler.js";
@@ -36,6 +40,13 @@ export type SymphonyRuntimeOrchestratorPort = {
   runPollCycle(): Promise<SymphonyOrchestratorSnapshot>;
   isPollCycleInFlight(): boolean;
   requestRefresh(): Promise<SymphonyRuntimeRefreshResult>;
+  dispatchRoutedIssue(input: {
+    workflowId: string;
+    commandId: string;
+    issue: SymphonyTrackerIssue;
+    runMode: SymphonyRunMode;
+    recordedAt: string;
+  }): Promise<void>;
 };
 
 export type SymphonyGitHubReviewIngressPort = {

@@ -5,7 +5,6 @@ import {
 } from "@symphony/tracker";
 import type { SymphonyReworkHandoff } from "@symphony/runtime-contract";
 import {
-  autoRequeueCommentBody,
   buildSymphonyGitHubReviewContextUrl
 } from "./symphony-github-review-comments.js";
 import {
@@ -21,8 +20,6 @@ import type {
 } from "./symphony-github-review-types.js";
 
 const expectedSourceState = "In Review";
-const targetState = "Rework";
-
 export class SymphonyGithubReviewProcessor {
   readonly #policyConfig: SymphonyGitHubReviewPolicyConfig;
   readonly #tracker: SymphonyTracker;
@@ -164,12 +161,6 @@ export class SymphonyGithubReviewProcessor {
         reason: "auto_rework_disabled"
       };
     }
-
-    await this.#tracker.updateIssueState(issue.id, targetState);
-    await this.#tracker.createComment(
-      issue.id,
-      autoRequeueCommentBody(issue, signal)
-    );
 
     return {
       status: "requeued",

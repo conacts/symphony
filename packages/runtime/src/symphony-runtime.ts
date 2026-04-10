@@ -14,6 +14,7 @@ import {
 import {
   type SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type {
   PublishReviewInput,
   PublishReviewResult,
@@ -22,7 +23,10 @@ import type {
   ReviewPublisher,
   ReviewResult
 } from "@symphony/review";
-import type { SymphonyTracker } from "@symphony/tracker";
+import type {
+  SymphonyTracker,
+  SymphonyTrackerIssue
+} from "@symphony/tracker";
 import type { WorkspaceBackend } from "@symphony/workspace";
 
 export interface SymphonyRuntime<
@@ -41,6 +45,12 @@ export interface SymphonyRuntime<
   > | null;
   snapshot(): SymphonyOrchestratorSnapshot;
   runPollCycle(): Promise<SymphonyOrchestratorSnapshot>;
+  dispatchIssue(
+    issue: SymphonyTrackerIssue,
+    attempt: number,
+    preferredWorkerHost?: string | null,
+    runModeOverride?: SymphonyRunMode
+  ): Promise<void>;
   applyAgentUpdate(issueId: string, update: SymphonyAgentRuntimeUpdate): void;
   handleRunCompletion(
     issueId: string,
@@ -67,12 +77,13 @@ export function createSymphonyRuntime<
   observer?: SymphonyOrchestratorObserver;
   clock?: SymphonyClock;
   runnerEnv?: Record<string, string | undefined>;
-  dispatchBootstrapRouter?: SymphonyDispatchBootstrapRouter | null;
-  runStartActivationRouter?: SymphonyRunStartActivationRouter | null;
-  runLifecycleRouter?: SymphonyRunLifecycleRouter | null;
+  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
+  runStartActivationRouter: SymphonyRunStartActivationRouter;
+  runLifecycleRouter: SymphonyRunLifecycleRouter;
 }): SymphonyRuntime<Request, Reviewed, Published> {
   const reviewProvider = input.reviewProvider ?? null;
   const reviewPublisher = input.reviewPublisher ?? null;
+  assertLifecycleRoutingConfigured(input);
   const orchestrator = new SymphonyOrchestrator({
     config: toSymphonyOrchestratorConfig(input.runtimePolicy),
     tracker: input.tracker,
@@ -114,6 +125,14 @@ export function createSymphonyRuntime<
     async runPollCycle() {
       return await orchestrator.runPollCycle();
     },
+    async dispatchIssue(issue, attempt, preferredWorkerHost = null, runModeOverride) {
+      await orchestrator.dispatchIssue(
+        issue,
+        attempt,
+        preferredWorkerHost,
+        runModeOverride
+      );
+    },
     applyAgentUpdate(issueId, update) {
       orchestrator.applyAgentUpdate(issueId, update);
     },
@@ -154,6 +173,34 @@ function requireReviewPublisher<Input extends ReviewResult, Published>(
   throw new TypeError(
     "Symphony runtime is not configured with a ReviewPublisher."
   );
+}
+
+function assertLifecycleRoutingConfigured(input: {
+  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter | null | undefined;
+  runStartActivationRouter: SymphonyRunStartActivationRouter | null | undefined;
+  runLifecycleRouter: SymphonyRunLifecycleRouter | null | undefined;
+}): asserts input is {
+  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
+  runStartActivationRouter: SymphonyRunStartActivationRouter;
+  runLifecycleRouter: SymphonyRunLifecycleRouter;
+} {
+  if (!input.dispatchBootstrapRouter) {
+    throw new TypeError(
+      "Symphony runtime requires a dispatch bootstrap router."
+    );
+  }
+
+  if (!input.runStartActivationRouter) {
+    throw new TypeError(
+      "Symphony runtime requires a run-start activation router."
+    );
+  }
+
+  if (!input.runLifecycleRouter) {
+    throw new TypeError(
+      "Symphony runtime requires a run lifecycle router."
+    );
+  }
 }
 
 function toSymphonyOrchestratorConfig(

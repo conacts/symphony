@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createSymphonyOrchestratorState,
   prepareIssueForDispatch,
-  SymphonyOrchestrator
+  SymphonyOrchestrator as BaseSymphonyOrchestrator
 } from "./symphony-orchestrator.js";
 import { SymphonyDispatchRefusedError } from "./symphony-orchestrator-errors.js";
 import type { SymphonyAgentRuntimeCompletion } from "./symphony-orchestrator-types.js";
@@ -17,6 +17,7 @@ import { SymphonyWorkspaceError } from "@symphony/workspace";
 import {
   buildSymphonyOrchestratorConfig,
   buildSymphonyTrackerIssue,
+  createTestOrchestratorRoutingAdapters,
   createTestWorkspaceBackend
 } from "./orchestrator-test-support.js";
 
@@ -36,6 +37,40 @@ function createAgentRuntime(
     },
     ...overrides
   };
+}
+
+type SymphonyOrchestratorInput = ConstructorParameters<
+  typeof BaseSymphonyOrchestrator
+>[0];
+
+class SymphonyOrchestrator extends BaseSymphonyOrchestrator {
+  constructor(
+    input: Omit<
+      SymphonyOrchestratorInput,
+      "dispatchBootstrapRouter" | "runStartActivationRouter" | "runLifecycleRouter"
+    > &
+      Partial<
+        Pick<
+          SymphonyOrchestratorInput,
+          "dispatchBootstrapRouter" | "runStartActivationRouter" | "runLifecycleRouter"
+        >
+      >
+  ) {
+    const routing = createTestOrchestratorRoutingAdapters({
+      config: input.config,
+      tracker: input.tracker,
+      overrides: {
+        dispatchBootstrapRouter: input.dispatchBootstrapRouter,
+        runStartActivationRouter: input.runStartActivationRouter,
+        runLifecycleRouter: input.runLifecycleRouter
+      }
+    });
+
+    super({
+      ...input,
+      ...routing
+    });
+  }
 }
 
 describe("symphony orchestrator", () => {
@@ -1951,6 +1986,22 @@ describe("symphony orchestrator", () => {
         })
       }),
       agentRuntime: createAgentRuntime(),
+      runLifecycleRouter: {
+        observeIssueState(input) {
+          return {
+            issue: input.issue
+          };
+        },
+        async routeCompletion(input) {
+          await tracker.updateIssueState(input.issue.id, "Paused");
+          return {
+            issue: {
+              ...input.issue,
+              state: "Paused"
+            }
+          };
+        }
+      },
       clock: {
         now: () => new Date("2026-03-31T00:00:00.000Z"),
         nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
@@ -2662,7 +2713,7 @@ describe("symphony orchestrator", () => {
       expect(harness.startRuns).toEqual([
         expect.objectContaining({
           issueId: harness.issue.id,
-          issueState: "In Progress",
+          issueState: "Approved",
           runMode: "approved_merge"
         })
       ]);

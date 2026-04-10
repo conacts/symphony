@@ -77,6 +77,7 @@ describe("runtime tools", () => {
         },
         runId: "run-123",
         turnId: "turn-123",
+        transitionIssueState: createSuccessfulIssueStateTransition(tracker),
         onDeliveryReportRecorded(report) {
           recorded.push({
             status: report.status,
@@ -147,6 +148,7 @@ describe("runtime tools", () => {
         },
         runId: "run-150",
         turnId: "turn-150",
+        transitionIssueState: createSuccessfulIssueStateTransition(tracker),
         async onIssueStateTransition(transition) {
           transitions.push({
             issueIdentifier: transition.issueIdentifier,
@@ -185,26 +187,7 @@ describe("runtime tools", () => {
 
     const result = await executeDeliveryReportTool(
       {
-        tracker: {
-          async fetchCandidateIssues() {
-            return [];
-          },
-          async fetchIssuesByStates() {
-            return [];
-          },
-          async fetchIssueStatesByIds() {
-            return [];
-          },
-          async fetchIssueByIdentifier() {
-            return null;
-          },
-          async createComment() {
-            return;
-          },
-          async updateIssueState() {
-            throw new Error("tracker unavailable");
-          }
-        },
+        tracker: createMemorySymphonyTracker(),
         deliveryReports,
         issue: {
           trackerIssueId: "issue-151",
@@ -213,6 +196,9 @@ describe("runtime tools", () => {
         },
         runId: "run-151",
         turnId: "turn-151",
+        transitionIssueState: createFailedIssueStateTransition(
+          "tracker unavailable"
+        ),
         async onIssueStateTransition(transition) {
           transitions.push({
             issueIdentifier: transition.issueIdentifier,
@@ -331,7 +317,10 @@ describe("runtime tools", () => {
           identifier: "COL-123"
         },
         runId: "run-123",
-        turnId: "turn-123"
+        turnId: "turn-123",
+        transitionIssueState: createSuccessfulIssueStateTransition(
+          createMemorySymphonyTracker()
+        )
       },
       {
         status: "completed",
@@ -358,26 +347,7 @@ describe("runtime tools", () => {
 
     const result = await executeDeliveryReportTool(
       {
-        tracker: {
-          async fetchCandidateIssues() {
-            return [];
-          },
-          async fetchIssuesByStates() {
-            return [];
-          },
-          async fetchIssueStatesByIds() {
-            return [];
-          },
-          async fetchIssueByIdentifier() {
-            return null;
-          },
-          async createComment() {
-            return;
-          },
-          async updateIssueState() {
-            throw new Error("tracker unavailable");
-          }
-        },
+        tracker: createMemorySymphonyTracker(),
         deliveryReports,
         issue: {
           trackerIssueId: "issue-123",
@@ -385,7 +355,10 @@ describe("runtime tools", () => {
           state: "In Progress"
         },
         runId: "run-123",
-        turnId: "turn-123"
+        turnId: "turn-123",
+        transitionIssueState: createFailedIssueStateTransition(
+          "tracker unavailable"
+        )
       },
       {
         status: "completed",
@@ -430,7 +403,8 @@ describe("runtime tools", () => {
         },
         runId: "run-124",
         turnId: "turn-124",
-        blockedTargetState: "Blocked"
+        blockedTargetState: "Blocked",
+        transitionIssueState: createSuccessfulIssueStateTransition(tracker)
       },
       {
         status: "blocked",
@@ -469,7 +443,8 @@ describe("runtime tools", () => {
           identifier: "SYM-456",
           state: "In Progress"
         },
-        defaultTargetState: "Paused"
+        defaultTargetState: "Paused",
+        transitionIssueState: createSuccessfulIssueStateTransition(tracker)
       },
       {
         summary: "Recommended the Agent OS spike.",
@@ -570,7 +545,8 @@ describe("runtime tools", () => {
           identifier: "SYM-789",
           state: "In Progress"
         },
-        defaultTargetState: "Canceled"
+        defaultTargetState: "Canceled",
+        transitionIssueState: createSuccessfulIssueStateTransition(tracker)
       },
       {
         reason: "Canceling this run because the requirements changed."
@@ -684,6 +660,7 @@ describe("runtime tools", () => {
         },
         runId: "run-321",
         turnId: "turn-321",
+        transitionIssueState: createSuccessfulIssueStateTransition(tracker),
         onMergeResultRecorded(mergeResult) {
           recorded.push(mergeResult.status);
         }
@@ -895,7 +872,10 @@ describe("runtime tools", () => {
           identifier: "SYM-654"
         },
         runId: "run-654",
-        turnId: "turn-654"
+        turnId: "turn-654",
+        transitionIssueState: createFailedIssueStateTransition(
+          "should not transition during invalid merge-result input"
+        )
       },
       {
         status: "blocked",
@@ -907,6 +887,39 @@ describe("runtime tools", () => {
     expect(String(result.output)).toContain("requires `blockingReason`");
 
     database.close();
+  });
+
+  it("fails fast when a runtime tool is asked to transition state without a routed callback", async () => {
+    const tracker = createMemorySymphonyTracker([
+      buildRuntimeToolIssue({
+        id: "issue-900",
+        identifier: "SYM-900",
+        title: "Strict lifecycle routing"
+      })
+    ]);
+
+    const result = await executeSpikeResultTool(
+      {
+        tracker,
+        issue: {
+          trackerIssueId: "issue-900",
+          identifier: "SYM-900",
+          state: "In Progress"
+        },
+        defaultTargetState: "Paused",
+        transitionIssueState: undefined as never
+      },
+      {
+        summary: "Investigated the strict routing contract.",
+        details: "- Findings\n- Missing routing callback"
+      }
+    );
+
+    expect(result.success).toBe(false);
+    expect(String(result.output)).toContain(
+      "must be routed through transitionIssueState"
+    );
+    expect(tracker.getIssue("issue-900")?.state).toBe("In Progress");
   });
 });
 
@@ -987,4 +1000,36 @@ function buildRuntimeToolIssue(overrides: Partial<SymphonyTrackerIssue> = {}) {
     updatedAt: null,
     ...overrides
   };
+}
+
+function createSuccessfulIssueStateTransition(tracker: {
+  updateIssueState(issueId: string, stateName: string): Promise<void>;
+}) {
+  return async (request: {
+    trackerIssueId: string;
+    targetState: string;
+  }) => {
+    await tracker.updateIssueState(
+      request.trackerIssueId,
+      request.targetState
+    );
+
+    return {
+      attempted: true,
+      targetState: request.targetState,
+      success: true,
+      reason: null
+    };
+  };
+}
+
+function createFailedIssueStateTransition(reason: string) {
+  return async (request: {
+    targetState: string;
+  }) => ({
+    attempted: true,
+    targetState: request.targetState,
+    success: false,
+    reason
+  });
 }

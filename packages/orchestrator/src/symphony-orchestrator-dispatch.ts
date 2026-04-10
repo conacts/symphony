@@ -17,10 +17,7 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
-import {
-  deriveSymphonyRunMode,
-  type SymphonyRunMode
-} from "@symphony/runtime-contract";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
   workspaceHostPath,
   type PreparedWorkspace
@@ -62,7 +59,7 @@ export async function resolveDispatchBootstrap(input: {
   preferredWorkerHost: string | null;
   startedAt: string;
   runModeOverride?: SymphonyRunMode;
-  dispatchBootstrapRouter?: SymphonyDispatchBootstrapRouter | null;
+  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
 }): Promise<SymphonyDispatchBootstrapRoutingResult> {
   if (input.runModeOverride) {
     return {
@@ -75,23 +72,12 @@ export async function resolveDispatchBootstrap(input: {
     };
   }
 
-  if (input.dispatchBootstrapRouter) {
-    return await input.dispatchBootstrapRouter.route({
-      issue: input.issue,
-      attempt: input.attempt,
-      preferredWorkerHost: input.preferredWorkerHost,
-      startedAt: input.startedAt
-    });
-  }
-
-  return {
-    issue: await prepareIssueForDispatch(
-      input.config,
-      input.tracker,
-      input.issue
-    ),
-    runMode: deriveSymphonyRunMode(input.issue.state)
-  };
+  return await input.dispatchBootstrapRouter.route({
+    issue: input.issue,
+    attempt: input.attempt,
+    preferredWorkerHost: input.preferredWorkerHost,
+    startedAt: input.startedAt
+  });
 }
 
 export function createRunningEntry(input: {

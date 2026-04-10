@@ -1,12 +1,26 @@
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { SymphonyTrackerConfig } from "@symphony/tracker";
+import {
+  deriveSymphonyRunMode
+} from "@symphony/runtime-contract";
+import type {
+  SymphonyTracker,
+  SymphonyTrackerConfig,
+  SymphonyTrackerIssue
+} from "@symphony/tracker";
 export { buildSymphonyTrackerIssue } from "@symphony/tracker";
 export { createTestWorkspaceBackend } from "@symphony/workspace/test-support";
 import type {
   SymphonyAgentRuntimeConfig,
   SymphonyOrchestratorConfig
 } from "./orchestrator-config.js";
+import type {
+  SymphonyAgentRuntimeCompletion,
+  SymphonyDispatchBootstrapRouter,
+  SymphonyRunLifecycleRouter,
+  SymphonyRunStartActivationRouter
+} from "./symphony-orchestrator-types.js";
+import { prepareIssueForDispatch } from "./symphony-orchestrator.js";
 
 export function buildSymphonyOrchestratorConfig(overrides: {
   tracker?: Partial<SymphonyTrackerConfig>;
@@ -129,6 +143,152 @@ export function buildSymphonyOrchestratorConfig(overrides: {
       }
     }
   };
+}
+
+export function createTestOrchestratorRoutingAdapters(input: {
+  config: SymphonyOrchestratorConfig;
+  tracker: SymphonyTracker;
+  overrides?: Partial<{
+    dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
+    runStartActivationRouter: SymphonyRunStartActivationRouter;
+    runLifecycleRouter: SymphonyRunLifecycleRouter;
+  }>;
+}): {
+  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
+  runStartActivationRouter: SymphonyRunStartActivationRouter;
+  runLifecycleRouter: SymphonyRunLifecycleRouter;
+} {
+  return {
+    dispatchBootstrapRouter:
+      input.overrides?.dispatchBootstrapRouter ?? {
+        async route(routeInput) {
+          return {
+            issue: await prepareIssueForDispatch(
+              input.config,
+              input.tracker,
+              routeInput.issue
+            ),
+            runMode: deriveSymphonyRunMode(routeInput.issue.state)
+          };
+        }
+      },
+    runStartActivationRouter:
+      input.overrides?.runStartActivationRouter ?? {
+        async activate(activationInput) {
+          return {
+            issue: await transitionIssueStateIfNeeded(
+              input.tracker,
+              activationInput.issue,
+              resolveActivationTargetState(activationInput)
+            )
+          };
+        }
+      },
+    runLifecycleRouter:
+      input.overrides?.runLifecycleRouter ?? {
+        async observeIssueState(observationInput) {
+          return {
+            issue: observationInput.issue
+          };
+        },
+        async routeCompletion(completionInput) {
+          return {
+            issue: await transitionIssueStateIfNeeded(
+              input.tracker,
+              completionInput.issue,
+              resolveCompletionTargetState({
+                config: input.config,
+                completion: completionInput.completion,
+                runMode: completionInput.runMode
+              })
+            )
+          };
+        }
+      }
+  };
+}
+
+async function transitionIssueStateIfNeeded(
+  tracker: SymphonyTracker,
+  issue: SymphonyTrackerIssue,
+  targetState: string | null
+): Promise<SymphonyTrackerIssue> {
+  if (
+    !targetState ||
+    issue.state.trim().toLowerCase() === targetState.trim().toLowerCase()
+  ) {
+    return issue;
+  }
+
+  await tracker.updateIssueState(issue.id, targetState);
+  return {
+    ...issue,
+    state: targetState
+  };
+}
+
+function resolveActivationTargetState(input: {
+  issue: SymphonyTrackerIssue;
+  runMode: string;
+}): string | null {
+  const normalizedState = input.issue.state.trim().toLowerCase();
+
+  if (normalizedState === "bootstrapping") {
+    return "In Progress";
+  }
+
+  if (
+    input.runMode === "approved_merge" &&
+    normalizedState === "approved"
+  ) {
+    return "In Progress";
+  }
+
+  return null;
+}
+
+function resolveCompletionTargetState(input: {
+  config: SymphonyOrchestratorConfig;
+  completion: SymphonyAgentRuntimeCompletion;
+  runMode: string;
+}): string | null {
+  if (input.completion.kind === "delivered") {
+    return "In Review";
+  }
+
+  if (input.completion.kind === "startup_failure") {
+    return input.config.tracker.startupFailureTransitionToState;
+  }
+
+  if (input.completion.kind === "blocked") {
+    return input.config.tracker.blockedTransitionToState;
+  }
+
+  if (input.runMode === "approved_merge") {
+    if (input.completion.kind === "merged") {
+      return "Done";
+    }
+
+    if (
+      input.completion.kind === "merge_blocked" ||
+      input.completion.kind === "failure" ||
+      input.completion.kind === "stalled" ||
+      input.completion.kind === "max_turns_reached"
+    ) {
+      return input.config.tracker.blockedTransitionToState;
+    }
+  }
+
+  if (
+    input.completion.kind === "failure" ||
+    input.completion.kind === "rate_limited" ||
+    input.completion.kind === "stalled" ||
+    input.completion.kind === "max_turns_reached"
+  ) {
+    return input.config.tracker.pauseTransitionToState;
+  }
+
+  return null;
 }
 
 function buildDefaultPiPresetsForTests(input: {

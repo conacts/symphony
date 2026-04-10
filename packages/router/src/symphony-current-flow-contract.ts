@@ -44,6 +44,12 @@ const mergeResultStatuses = [
   "blocked"
 ] as const;
 
+const reviewTriggerKinds = [
+  "changes_requested_review",
+  "review_comment",
+  "manual_rework_comment"
+] as const;
+
 const stateRequestKinds = [
   "spike_result",
   "cancel"
@@ -88,6 +94,8 @@ export type SymphonyCurrentFlowRunMode = (typeof runModes)[number];
 export type SymphonyCurrentFlowDeliveryStatus = (typeof deliveryStatuses)[number];
 export type SymphonyCurrentFlowMergeResultStatus =
   (typeof mergeResultStatuses)[number];
+export type SymphonyCurrentFlowReviewTriggerKind =
+  (typeof reviewTriggerKinds)[number];
 export type SymphonyCurrentFlowStateRequestKind = (typeof stateRequestKinds)[number];
 export type SymphonyCurrentFlowStateRequestTargetState =
   (typeof stateRequestTargetStates)[number];
@@ -97,6 +105,7 @@ const symphonyCurrentFlowTrackerStateSchema = z.enum(trackerStates);
 const symphonyCurrentFlowRunModeSchema = z.enum(runModes);
 const symphonyCurrentFlowDeliveryStatusSchema = z.enum(deliveryStatuses);
 const symphonyCurrentFlowMergeResultStatusSchema = z.enum(mergeResultStatuses);
+const symphonyCurrentFlowReviewTriggerKindSchema = z.enum(reviewTriggerKinds);
 const symphonyCurrentFlowStateRequestKindSchema = z.enum(stateRequestKinds);
 const symphonyCurrentFlowStateRequestTargetStateSchema = z.enum(
   stateRequestTargetStates
@@ -132,6 +141,12 @@ const mergeResultReportedPayloadSchema = z
   .object({
     runId: z.string().trim().min(1),
     status: symphonyCurrentFlowMergeResultStatusSchema
+  })
+  .strict();
+
+const reviewReworkRequestedPayloadSchema = z
+  .object({
+    triggerKind: symphonyCurrentFlowReviewTriggerKindSchema
   })
   .strict();
 
@@ -200,6 +215,14 @@ const mergeResultReportedSignalSchema = workflowSignalSchema
     type: z.literal("runtime.merge_result_reported"),
     source: z.literal("runtime"),
     payload: mergeResultReportedPayloadSchema
+  })
+  .strict();
+
+const reviewReworkRequestedSignalSchema = workflowSignalSchema
+  .extend({
+    type: z.literal("review.rework_requested"),
+    source: z.literal("review"),
+    payload: reviewReworkRequestedPayloadSchema
   })
   .strict();
 
@@ -275,6 +298,11 @@ export type SymphonyCurrentFlowDeliveryReportedSignal = WorkflowSignal<
 export type SymphonyCurrentFlowMergeResultReportedSignal = WorkflowSignal<
   "runtime.merge_result_reported",
   z.infer<typeof mergeResultReportedPayloadSchema>
+>;
+
+export type SymphonyCurrentFlowReviewReworkRequestedSignal = WorkflowSignal<
+  "review.rework_requested",
+  z.infer<typeof reviewReworkRequestedPayloadSchema>
 >;
 
 export type SymphonyCurrentFlowStateRequestedSignal = WorkflowSignal<
@@ -391,6 +419,26 @@ export function createSymphonyCurrentFlowMergeResultReportedSignal(input: {
     payload: {
       runId: input.runId,
       status: input.status
+    },
+    causationId: input.causationId,
+    correlationId: input.correlationId
+  });
+}
+
+export function createSymphonyCurrentFlowReviewReworkRequestedSignal(input: {
+  id: string;
+  occurredAt: string;
+  triggerKind: SymphonyCurrentFlowReviewTriggerKind;
+  causationId: string | null;
+  correlationId: string | null;
+}): SymphonyCurrentFlowReviewReworkRequestedSignal {
+  return reviewReworkRequestedSignalSchema.parse({
+    id: input.id,
+    type: "review.rework_requested",
+    source: "review",
+    occurredAt: input.occurredAt,
+    payload: {
+      triggerKind: input.triggerKind
     },
     causationId: input.causationId,
     correlationId: input.correlationId
@@ -600,6 +648,17 @@ export function readSymphonyCurrentFlowMergeResultReportedSignal(
   });
 }
 
+export function readSymphonyCurrentFlowReviewReworkRequestedSignal(
+  signal: WorkflowSignal
+): SymphonyCurrentFlowReviewReworkRequestedSignal | null {
+  return readSignal({
+    signal,
+    expectedType: "review.rework_requested",
+    schema: reviewReworkRequestedSignalSchema,
+    label: "review.rework_requested"
+  });
+}
+
 export function readSymphonyCurrentFlowStateRequestedSignal(
   signal: WorkflowSignal
 ): SymphonyCurrentFlowStateRequestedSignal | null {
@@ -711,6 +770,7 @@ function readCommand<TCommand extends WorkflowCommand>(
 export {
   symphonyCurrentFlowDeliveryStatusSchema,
   symphonyCurrentFlowMergeResultStatusSchema,
+  symphonyCurrentFlowReviewTriggerKindSchema,
   symphonyCurrentFlowStateRequestKindSchema,
   symphonyCurrentFlowStateRequestTargetStateSchema,
   symphonyCurrentFlowCompletionKindSchema,

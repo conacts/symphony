@@ -3,6 +3,7 @@ import {
   createSymphonyCurrentFlowRouterAsync,
   createSymphonyCurrentFlowDeliveryReportedSignal,
   createSymphonyCurrentFlowMergeResultReportedSignal,
+  createSymphonyCurrentFlowReviewReworkRequestedSignal,
   createSymphonyCurrentFlowRunStartedSignal,
   createSymphonyCurrentFlowRuntimeCompletedSignal,
   createSymphonyCurrentFlowRuntimeStartupFailureSignal,
@@ -15,6 +16,7 @@ import type {
   SymphonyCurrentFlowMergeResultStatus,
   SymphonyCurrentFlowNode,
   SymphonyCurrentFlowPolicy,
+  SymphonyCurrentFlowReviewTriggerKind,
   SymphonyCurrentFlowRunMode,
   SymphonyCurrentFlowStateRequestKind,
   SymphonyCurrentFlowStateRequestTargetState,
@@ -194,6 +196,27 @@ export const symphonyCurrentFlowReplayFixtures: ReadonlyArray<SymphonyCurrentFlo
       trackerState: "Blocked",
       lastDispatchMode: "approved_merge",
       lastRunMode: "approved_merge",
+      lastRuntimeOutcome: null
+    }
+  },
+  {
+    name: "review_rework_requested_to_bootstrapping",
+    description:
+      "Review ingress can request rework explicitly through workflow history before tracker observation catches up.",
+    workflowId: "SYM-213",
+    signals: [
+      observeTrackerState("signal_review_observed", "In Review", 0),
+      reviewReworkRequested(
+        "signal_review_rework_requested",
+        "changes_requested_review",
+        1
+      )
+    ],
+    expected: {
+      currentNode: "bootstrapping",
+      trackerState: "Bootstrapping",
+      lastDispatchMode: "rework",
+      lastRunMode: null,
       lastRuntimeOutcome: null
     }
   },
@@ -408,6 +431,20 @@ function runtimeMergeResultReported(
     runId: "run-1",
     status,
     causationId: "run-1",
+    correlationId: null
+  });
+}
+
+function reviewReworkRequested(
+  id: string,
+  triggerKind: SymphonyCurrentFlowReviewTriggerKind,
+  step: number
+): WorkflowSignal {
+  return createSymphonyCurrentFlowReviewReworkRequestedSignal({
+    id,
+    occurredAt: buildOccurredAt(step),
+    triggerKind,
+    causationId: `review-${step}`,
     correlationId: null
   });
 }

@@ -108,6 +108,58 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("routes explicit review rework requests through route history and requests dispatch", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToReview(harness);
+      const dispatchRequests: Array<{
+        workflowId: string;
+        issueState: string;
+        runMode: string;
+      }> = [];
+
+      const routed = await harness.service.routeReviewReworkRequest({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:00:17.000Z",
+        triggerKind: "changes_requested_review",
+        onDispatchRequested: async (input) => {
+          dispatchRequests.push({
+            workflowId: input.workflowId,
+            issueState: input.issue.state,
+            runMode: input.runMode
+          });
+        }
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
+      expect(dispatchRequests).toEqual([
+        {
+          workflowId: expect.any(String),
+          issueState: "Bootstrapping",
+          runMode: "rework"
+        }
+      ]);
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("bootstrapping");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Bootstrapping");
+      expect(hydration?.snapshot?.projection.data.lastDispatchMode).toBe("rework");
+      expect(hydration?.snapshot?.projection.lastSignal?.type).toBe(
+        "review.rework_requested"
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
   it("observes non-running tracker states in batch before dispatch", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -229,6 +281,28 @@ describe("runtime route lifecycle service", () => {
         harness.service.observeTrackerStateByIdentifier({
           issueIdentifier: harness.issue.identifier,
           recordedAt: "2026-04-10T14:00:20.000Z"
+        })
+      ).rejects.toThrow(/run\.dispatch without a dispatch callback/i);
+
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("fails fast when review rework routing emits run.dispatch without a callback", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToReview(harness);
+
+      await expect(
+        harness.service.routeReviewReworkRequest({
+          issueIdentifier: harness.issue.identifier,
+          recordedAt: "2026-04-10T14:00:21.000Z",
+          triggerKind: "review_comment"
         })
       ).rejects.toThrow(/run\.dispatch without a dispatch callback/i);
 

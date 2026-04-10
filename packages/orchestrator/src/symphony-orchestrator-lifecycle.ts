@@ -166,53 +166,19 @@ export async function handleStartupFailure(input: {
   reason: string;
   runId: string | null;
   completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
-  effectiveIssue?: SymphonyTrackerIssue;
-  stateTransition?: SymphonyFailureStateTransition;
+  effectiveIssue: SymphonyTrackerIssue;
+  stateTransition: SymphonyFailureStateTransition;
 }): Promise<void> {
-  const targetState = input.config.tracker.startupFailureTransitionToState;
-  let effectiveIssue = input.effectiveIssue ?? input.issue;
-  let transition: SymphonyFailureStateTransition =
-    input.stateTransition ?? {
-      kind: "none"
-    };
+  const effectiveIssue = input.effectiveIssue;
+  const transition = input.stateTransition;
 
-  if (input.stateTransition) {
-    await recordStartupFailureTransitionEvent({
-      observer: input.observer,
-      issue: input.issue,
-      effectiveIssue,
-      runId: input.runId,
-      transition
-    });
-  } else if (targetState) {
-    if (input.issue.state.trim().toLowerCase() !== targetState.trim().toLowerCase()) {
-      try {
-        await input.tracker.updateIssueState(input.issue.id, targetState);
-        effectiveIssue = {
-          ...input.issue,
-          state: targetState
-        };
-        transition = {
-          kind: "moved",
-          targetState
-        };
-      } catch (error) {
-        transition = {
-          kind: "failed",
-          targetState,
-          reason: error instanceof Error ? error.message : String(error)
-        };
-      }
-    }
-
-    await recordStartupFailureTransitionEvent({
-      observer: input.observer,
-      issue: input.issue,
-      effectiveIssue,
-      runId: input.runId,
-      transition
-    });
-  }
+  await recordStartupFailureTransitionEvent({
+    observer: input.observer,
+    issue: input.issue,
+    effectiveIssue,
+    runId: input.runId,
+    transition
+  });
 
   const cleanupMode = workspaceCleanupModeForIssue({
     issue: effectiveIssue,

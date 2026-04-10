@@ -1,5 +1,7 @@
 import type { SymphonyLogger } from "@symphony/logger";
 import type { SymphonyRuntimeLogStore } from "@symphony/db";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
+import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
   publishRealtimeSnapshotDiff,
   snapshotRequiresRealtimeInvalidation
@@ -11,7 +13,10 @@ import type {
 import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 
 export function createRuntimeOrchestratorPort(input: {
-  runtime: Pick<SymphonyRuntimeDriver, "snapshot" | "runPollCycle">;
+  runtime: Pick<
+    SymphonyRuntimeDriver,
+    "snapshot" | "runPollCycle" | "dispatchIssue"
+  >;
   logger: SymphonyLogger;
   runtimeLogs: SymphonyRuntimeLogStore;
   realtime: SymphonyRealtimeHub;
@@ -20,6 +25,7 @@ export function createRuntimeOrchestratorPort(input: {
   ): Promise<void> | void;
 }): SymphonyRuntimeOrchestratorPort {
   let inFlightPollCycle: Promise<SymphonyOrchestratorSnapshot> | null = null;
+  let runningBeforePollCycle = false;
   let manualRefreshQueued = false;
   let manualRefreshDrainScheduled = false;
 
@@ -95,6 +101,68 @@ export function createRuntimeOrchestratorPort(input: {
       };
     },
 
+    async dispatchRoutedIssue(dispatchInput) {
+      while (inFlightPollCycle && !runningBeforePollCycle) {
+        await inFlightPollCycle;
+      }
+
+      const claimedIssueIds = new Set(input.runtime.snapshot().claimedIssueIds);
+      if (claimedIssueIds.has(dispatchInput.issue.id)) {
+        await input.runtimeLogs.record({
+          level: "info",
+          source: "runtime",
+          eventType: "routed_dispatch_skipped_claimed",
+          message: "Skipped routed dispatch because the issue is already claimed.",
+          issueIdentifier: dispatchInput.issue.identifier,
+          payload: {
+            workflowId: dispatchInput.workflowId,
+            commandId: dispatchInput.commandId,
+            runMode: dispatchInput.runMode
+          },
+          recordedAt: dispatchInput.recordedAt
+        });
+        return;
+      }
+
+      try {
+        await input.runtime.dispatchIssue(
+          dispatchInput.issue,
+          1,
+          null,
+          dispatchInput.runMode
+        );
+        await input.runtimeLogs.record({
+          level: "info",
+          source: "runtime",
+          eventType: "routed_dispatch_started",
+          message: "Started routed issue dispatch directly from workflow history.",
+          issueIdentifier: dispatchInput.issue.identifier,
+          payload: {
+            workflowId: dispatchInput.workflowId,
+            commandId: dispatchInput.commandId,
+            runMode: dispatchInput.runMode
+          },
+          recordedAt: dispatchInput.recordedAt
+        });
+      } catch (error) {
+        await input.runtimeLogs.record({
+          level: "error",
+          source: "runtime",
+          eventType: "routed_dispatch_failed",
+          message: "Routed issue dispatch failed.",
+          issueIdentifier: dispatchInput.issue.identifier,
+          payload: {
+            workflowId: dispatchInput.workflowId,
+            commandId: dispatchInput.commandId,
+            runMode: dispatchInput.runMode,
+            error: error instanceof Error ? error.message : String(error)
+          },
+          recordedAt: dispatchInput.recordedAt
+        });
+        throw error;
+      }
+    },
+
     async runPollCycle() {
       if (inFlightPollCycle) {
         return await inFlightPollCycle;
@@ -102,7 +170,12 @@ export function createRuntimeOrchestratorPort(input: {
 
       const snapshotBeforePreparation = input.runtime.snapshot();
       inFlightPollCycle = (async () => {
-        await input.beforePollCycle?.(snapshotBeforePreparation);
+        runningBeforePollCycle = true;
+        try {
+          await input.beforePollCycle?.(snapshotBeforePreparation);
+        } finally {
+          runningBeforePollCycle = false;
+        }
         const previousSnapshot = input.runtime.snapshot();
         input.logger.info("Starting orchestrator poll cycle", {
           runningCount: previousSnapshot.running.length,
@@ -152,4 +225,10 @@ export function createRuntimeOrchestratorPort(input: {
 type SymphonyRuntimeDriver = {
   snapshot(): SymphonyOrchestratorSnapshot;
   runPollCycle(): Promise<SymphonyOrchestratorSnapshot>;
+  dispatchIssue(
+    issue: SymphonyTrackerIssue,
+    attempt: number,
+    preferredWorkerHost?: string | null,
+    runModeOverride?: SymphonyRunMode
+  ): Promise<void>;
 };

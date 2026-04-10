@@ -270,7 +270,7 @@ describe("symphony github review policy", () => {
     expect(signal).toBeNull();
   });
 
-  it("requeues issues in review through tracker state transitions and comments", async () => {
+  it("emits a rework handoff for issues already in review without mutating tracker state", async () => {
     const baseConfig = buildSymphonyGitHubReviewPolicyConfig();
     const policyConfig = buildSymphonyGitHubReviewPolicyConfig({
       tracker: baseConfig.tracker,
@@ -315,18 +315,7 @@ describe("symphony github review policy", () => {
       }
     });
 
-    expect(tracker.listOperations()).toEqual([
-      {
-        kind: "update_state",
-        issueId: "issue-123",
-        stateName: "Rework"
-      },
-      {
-        kind: "comment",
-        issueId: "issue-123",
-        body: expect.stringContaining("GitHub review automation moved the ticket")
-      }
-    ]);
+    expect(tracker.listOperations()).toEqual([]);
   });
 
   it("skips auto requeue when the issue is opted out", async () => {
@@ -426,6 +415,7 @@ describe("symphony github review policy", () => {
         body: "Queued rework via Symphony."
       }
     ]);
+    expect(tracker.listOperations()).toEqual([]);
   });
 
   it("requeues issues in review from allowed review-comment logins", async () => {
@@ -483,18 +473,7 @@ describe("symphony github review policy", () => {
       }
     });
 
-    expect(tracker.listOperations()).toEqual([
-      {
-        kind: "update_state",
-        issueId: "issue-123",
-        stateName: "Rework"
-      },
-      {
-        kind: "comment",
-        issueId: "issue-123",
-        body: expect.stringContaining("issuecomment-789")
-      }
-    ]);
+    expect(tracker.listOperations()).toEqual([]);
   });
 
   it("requeues issues in review from Codex connector PR comments when no review-comment allowlist is configured", async () => {
@@ -545,18 +524,7 @@ describe("symphony github review policy", () => {
       }
     });
 
-    expect(tracker.listOperations()).toEqual([
-      {
-        kind: "update_state",
-        issueId: "issue-123",
-        stateName: "Rework"
-      },
-      {
-        kind: "comment",
-        issueId: "issue-123",
-        body: expect.stringContaining("issuecomment-792")
-      }
-    ]);
+    expect(tracker.listOperations()).toEqual([]);
   });
 
   it("requeues issues in review from Codex pull_request_review_comment events", async () => {
@@ -596,6 +564,7 @@ describe("symphony github review policy", () => {
         feedbackBody: "Please address this inline issue before merge."
       }
     });
+    expect(tracker.listOperations()).toEqual([]);
   });
 
   it("does not claim manual /rework was queued when no Symphony issue matches", async () => {

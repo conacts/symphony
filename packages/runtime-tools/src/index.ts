@@ -107,7 +107,7 @@ export async function executeDeliveryReportTool(
     runId: string | null;
     turnId: string | null;
     blockedTargetState?: string | null;
-    transitionIssueState?(
+    transitionIssueState(
       request: RuntimeToolIssueStateTransitionRequest
     ): Promise<DeliveryTransitionResult>;
     onDeliveryReportRecorded?(delivery: RuntimeDeliveryReportResult): void;
@@ -199,7 +199,7 @@ export async function executeSpikeResultTool(
       state?: string | null;
     };
     defaultTargetState: string | null;
-    transitionIssueState?(
+    transitionIssueState(
       request: RuntimeToolIssueStateTransitionRequest
     ): Promise<DeliveryTransitionResult>;
     onIssueStateTransition?(
@@ -270,7 +270,7 @@ export async function executeCancelTool(
       state?: string | null;
     };
     defaultTargetState: string;
-    transitionIssueState?(
+    transitionIssueState(
       request: RuntimeToolIssueStateTransitionRequest
     ): Promise<DeliveryTransitionResult>;
     onIssueStateTransition?(
@@ -336,7 +336,7 @@ export async function executeMergeResultTool(
     runId: string | null;
     turnId: string | null;
     blockedTargetState?: string | null;
-    transitionIssueState?(
+    transitionIssueState(
       request: RuntimeToolIssueStateTransitionRequest
     ): Promise<DeliveryTransitionResult>;
     onMergeResultRecorded?(result: RuntimeMergeResult): void;
@@ -653,6 +653,9 @@ async function transitionDeliveryIssueStateIfNeeded(
       state?: string | null;
     };
     blockedTargetState?: string | null;
+    transitionIssueState(
+      request: RuntimeToolIssueStateTransitionRequest
+    ): Promise<DeliveryTransitionResult>;
   },
   status: "completed" | "blocked" | "partial"
 ): Promise<DeliveryTransitionResult> {
@@ -708,7 +711,7 @@ async function transitionIssueStateIfNeeded(
       identifier: string;
       state?: string | null;
     };
-    transitionIssueState?(
+    transitionIssueState(
       request: RuntimeToolIssueStateTransitionRequest
     ): Promise<DeliveryTransitionResult>;
   },
@@ -725,35 +728,19 @@ async function transitionIssueStateIfNeeded(
   }
 
   const recordedAt = new Date().toISOString();
-  if (executionContext.transitionIssueState) {
-    return await executionContext.transitionIssueState({
-      issueIdentifier: executionContext.issue.identifier,
-      trackerIssueId: executionContext.issue.trackerIssueId,
-      currentState,
-      targetState,
-      recordedAt
-    });
+  if (!executionContext.transitionIssueState) {
+    throw new TypeError(
+      "Runtime tool issue state transitions must be routed through transitionIssueState."
+    );
   }
 
-  try {
-    await executionContext.tracker.updateIssueState(
-      executionContext.issue.trackerIssueId,
-      targetState
-    );
-    return {
-      attempted: true,
-      targetState,
-      success: true,
-      reason: null
-    };
-  } catch (error) {
-    return {
-      attempted: true,
-      targetState,
-      success: false,
-      reason: error instanceof Error ? error.message : String(error)
-    };
-  }
+  return await executionContext.transitionIssueState({
+    issueIdentifier: executionContext.issue.identifier,
+    trackerIssueId: executionContext.issue.trackerIssueId,
+    currentState,
+    targetState,
+    recordedAt
+  });
 }
 
 async function maybeNotifyIssueStateTransition(input: {

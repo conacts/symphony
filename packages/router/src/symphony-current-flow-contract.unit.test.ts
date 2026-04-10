@@ -3,6 +3,7 @@ import {
   createSymphonyCurrentFlowDispatchCommand,
   createSymphonyCurrentFlowDeliveryReportedSignal,
   createSymphonyCurrentFlowMergeResultReportedSignal,
+  createSymphonyCurrentFlowReviewReworkRequestedSignal,
   createSymphonyCurrentFlowRunStartedSignal,
   createSymphonyCurrentFlowStateRequestedSignal,
   createSymphonyCurrentFlowTrackerStateObservedSignal,
@@ -10,6 +11,7 @@ import {
   readSymphonyCurrentFlowDispatchCommand,
   readSymphonyCurrentFlowDeliveryReportedSignal,
   readSymphonyCurrentFlowMergeResultReportedSignal,
+  readSymphonyCurrentFlowReviewReworkRequestedSignal,
   readSymphonyCurrentFlowRunStartedSignal,
   readSymphonyCurrentFlowStateRequestedSignal,
   readSymphonyCurrentFlowTrackerStateObservedSignal,
@@ -77,6 +79,21 @@ describe("Symphony current-flow contract", () => {
     expect(readSymphonyCurrentFlowDeliveryReportedSignal(signal)).toBeNull();
   });
 
+  it("builds and reads review rework requests with strict required fields", () => {
+    const signal = createSymphonyCurrentFlowReviewReworkRequestedSignal({
+      id: "signal_review_rework_requested",
+      occurredAt: "2026-04-10T15:00:01.700Z",
+      triggerKind: "changes_requested_review",
+      causationId: "review-300",
+      correlationId: "SYM-300"
+    });
+
+    expect(readSymphonyCurrentFlowReviewReworkRequestedSignal(signal)).toEqual(
+      signal
+    );
+    expect(readSymphonyCurrentFlowMergeResultReportedSignal(signal)).toBeNull();
+  });
+
   it("builds and reads runtime state requests with strict required fields", () => {
     const signal = createSymphonyCurrentFlowStateRequestedSignal({
       id: "signal_state_requested",
@@ -141,6 +158,20 @@ describe("Symphony current-flow contract", () => {
     ).toThrow(
       /Invalid Symphony current-flow runtime\.merge_result_reported signal/
     );
+  });
+
+  it("fails fast when review rework requests omit the trigger kind", () => {
+    expect(() =>
+      readSymphonyCurrentFlowReviewReworkRequestedSignal({
+        id: "signal_invalid_review_rework",
+        type: "review.rework_requested",
+        source: "review",
+        occurredAt: "2026-04-10T15:00:02.375Z",
+        payload: {},
+        causationId: "review-300",
+        correlationId: "SYM-300"
+      })
+    ).toThrow(/Invalid Symphony current-flow review\.rework_requested signal/);
   });
 
   it("fails fast when run.dispatch payload is malformed", () => {

@@ -585,6 +585,48 @@ describe("Symphony current-flow router fixture", () => {
     ]);
   });
 
+  it("routes explicit review rework requests through workflow history before tracker observation catches up", async () => {
+    const fixture = symphonyCurrentFlowReplayFixtures.find(
+      (candidate) => candidate.name === "review_rework_requested_to_bootstrapping"
+    );
+    if (!fixture) {
+      throw new TypeError("Missing review rework requested replay fixture.");
+    }
+
+    const replay = await replaySymphonyCurrentFlowFixture(fixture);
+    const requestStep = replay.results[1];
+
+    expect(requestStep?.decision.fromNode).toBe("review");
+    expect(requestStep?.decision.toNode).toBe("bootstrapping");
+    expect(requestStep?.decision.reasonCode).toBe("review_requested_rework");
+    expect(requestStep?.decision.commands).toEqual([
+      {
+        id: "command_signal_review_rework_requested_tracker_rework",
+        kind: "tracker.transition",
+        dedupeKey: null,
+        payload: {
+          state: "Rework"
+        }
+      },
+      {
+        id: "command_signal_review_rework_requested_tracker_bootstrapping",
+        kind: "tracker.transition",
+        dedupeKey: null,
+        payload: {
+          state: "Bootstrapping"
+        }
+      },
+      {
+        id: "command_signal_review_rework_requested_dispatch_rework",
+        kind: "run.dispatch",
+        dedupeKey: null,
+        payload: {
+          runMode: "rework"
+        }
+      }
+    ]);
+  });
+
   it("routes blocked delivery reports through workflow history before runtime completion settles", async () => {
     const fixture = symphonyCurrentFlowReplayFixtures.find(
       (candidate) => candidate.name === "implementation_delivery_reported_blocked"

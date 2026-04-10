@@ -10,6 +10,7 @@ import {
   createSymphonyCurrentFlowDispatchCommand,
   readSymphonyCurrentFlowDeliveryReportedSignal,
   readSymphonyCurrentFlowMergeResultReportedSignal,
+  readSymphonyCurrentFlowReviewReworkRequestedSignal,
   readSymphonyCurrentFlowStateRequestedSignal,
   createSymphonyCurrentFlowTrackerTransitionCommand,
   readSymphonyCurrentFlowDispatchCommand,
@@ -159,6 +160,18 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
         reasonCode: "approved_merge_redispatched",
         guard: ({ signal }) => isObservedTrackerState(signal, "Approved"),
         commands: ({ signal }) => [createDispatchCommand(signal, "approved_merge")]
+      }),
+      new WorkflowEdge({
+        id: "review_rework_requested_to_bootstrapping",
+        from: "review",
+        to: "bootstrapping",
+        reasonCode: "review_requested_rework",
+        guard: ({ signal }) => isReviewReworkRequested(signal),
+        commands: ({ signal }) => [
+          createTrackerTransitionCommand(signal, "Rework"),
+          createTrackerTransitionCommand(signal, "Bootstrapping"),
+          createDispatchCommand(signal, "rework")
+        ]
       }),
       new WorkflowEdge({
         id: "review_rework_to_bootstrapping",
@@ -478,6 +491,10 @@ function isMergeResultReported(
     readSymphonyCurrentFlowMergeResultReportedSignal(signal)?.payload.status ===
     status
   );
+}
+
+function isReviewReworkRequested(signal: WorkflowSignal) {
+  return readSymphonyCurrentFlowReviewReworkRequestedSignal(signal) !== null;
 }
 
 function isStateRequested(

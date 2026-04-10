@@ -18,6 +18,9 @@ import {
   createRuntimeMergeResultRouter
 } from "./runtime-merge-result-routing.js";
 import {
+  createRuntimeReviewReworkRouter
+} from "./runtime-review-rework-routing.js";
+import {
   createRuntimeRunLifecycleRouter
 } from "./runtime-run-lifecycle-routing.js";
 import {
@@ -36,6 +39,7 @@ import type {
   SymphonyCurrentFlowMergeResultStatus,
   SymphonyCurrentFlowNode,
   SymphonyCurrentFlowPolicy,
+  SymphonyCurrentFlowReviewTriggerKind,
   SymphonyCurrentFlowStateRequestKind,
   SymphonyCurrentFlowStateRequestTargetState
 } from "@symphony/router";
@@ -72,6 +76,14 @@ export type SymphonyRuntimeRouteLifecycleService = {
     recordedAt: string;
     requestKind: SymphonyCurrentFlowStateRequestKind;
     targetState: SymphonyCurrentFlowStateRequestTargetState;
+  }): Promise<boolean>;
+  routeReviewReworkRequest(input: {
+    issueIdentifier: string;
+    recordedAt: string;
+    triggerKind: SymphonyCurrentFlowReviewTriggerKind;
+    onDispatchRequested?(
+      input: SymphonyTrackerStateDispatchRequest
+    ): Promise<void> | void;
   }): Promise<boolean>;
   observeNonRunningTrackerStates(input: {
     claimedIssueIds: string[];
@@ -135,6 +147,11 @@ export async function createRuntimeRouteLifecycleService(input: {
     routing
   });
   const mergeResultRouter = await createRuntimeMergeResultRouter({
+    routeWorkflows: input.routeWorkflows,
+    tracker: input.tracker,
+    routing
+  });
+  const reviewReworkRouter = await createRuntimeReviewReworkRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
     routing
@@ -282,6 +299,25 @@ export async function createRuntimeRouteLifecycleService(input: {
         recordedAt: stateRequestInput.recordedAt,
         requestKind: stateRequestInput.requestKind,
         targetState: stateRequestInput.targetState
+      });
+      return true;
+    },
+    async routeReviewReworkRequest(reviewReworkInput) {
+      const observed = await trackerStateObservationRouter.observe({
+        observationKind: "idle",
+        issueIdentifier: reviewReworkInput.issueIdentifier,
+        recordedAt: reviewReworkInput.recordedAt,
+        onDispatchRequested: reviewReworkInput.onDispatchRequested
+      });
+      if (!observed) {
+        return false;
+      }
+
+      await reviewReworkRouter.routeReviewRework({
+        issue: observed.issue,
+        recordedAt: reviewReworkInput.recordedAt,
+        triggerKind: reviewReworkInput.triggerKind,
+        onDispatchRequested: reviewReworkInput.onDispatchRequested
       });
       return true;
     },

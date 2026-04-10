@@ -3,7 +3,13 @@ import {
   buildSymphonyRuntimePolicy,
   createTestWorkspaceBackend
 } from "@symphony/test-support";
-import { createAgentRuntime } from "@symphony/orchestrator";
+import {
+  createAgentRuntime,
+  type SymphonyDispatchBootstrapRouter,
+  type SymphonyRunLifecycleRouter,
+  type SymphonyRunStartActivationRouter
+} from "@symphony/orchestrator";
+import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { createSymphonyRuntime } from "./symphony-runtime.js";
 
 const inertTracker = {
@@ -24,6 +30,40 @@ const inertTracker = {
   },
   async updateIssueState() {
     return;
+  }
+};
+
+const inertLifecycleRouting: {
+  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
+  runStartActivationRouter: SymphonyRunStartActivationRouter;
+  runLifecycleRouter: SymphonyRunLifecycleRouter;
+} = {
+  dispatchBootstrapRouter: {
+    route(input: { issue: SymphonyTrackerIssue }) {
+      return {
+        issue: input.issue,
+        runMode: "implementation" as const
+      };
+    }
+  },
+  runStartActivationRouter: {
+    activate(input: { issue: SymphonyTrackerIssue }) {
+      return {
+        issue: input.issue
+      };
+    }
+  },
+  runLifecycleRouter: {
+    observeIssueState(input: { issue: SymphonyTrackerIssue }) {
+      return {
+        issue: input.issue
+      };
+    },
+    routeCompletion(input: { issue: SymphonyTrackerIssue }) {
+      return {
+        issue: input.issue
+      };
+    }
   }
 };
 
@@ -59,6 +99,7 @@ describe("symphony runtime review seam", () => {
         },
         async stopRun() {}
       }),
+      ...inertLifecycleRouting,
       reviewProvider: provider,
       reviewPublisher: publisher
     });
@@ -95,6 +136,7 @@ describe("symphony runtime review seam", () => {
         },
         async stopRun() {}
       }),
+      ...inertLifecycleRouting,
       reviewProvider: {
         review: vi.fn(async () => null)
       },
@@ -108,5 +150,28 @@ describe("symphony runtime review seam", () => {
     });
 
     await expect(runtime.runReview("skip")).resolves.toBeNull();
+  });
+
+  it("fails fast when lifecycle routing adapters are omitted", () => {
+    expect(() =>
+      createSymphonyRuntime({
+        runtimePolicy: buildSymphonyRuntimePolicy(),
+        tracker: inertTracker,
+        workspaceBackend: createTestWorkspaceBackend(),
+        agentRuntime: createAgentRuntime({
+          async startRun() {
+            return {
+              threadId: null,
+              workerHost: null,
+              launchTarget: null
+            };
+          },
+          async stopRun() {}
+        }),
+        dispatchBootstrapRouter: undefined as never,
+        runStartActivationRouter: inertLifecycleRouting.runStartActivationRouter,
+        runLifecycleRouter: inertLifecycleRouting.runLifecycleRouter
+      })
+    ).toThrow(/dispatch bootstrap router/i);
   });
 });
