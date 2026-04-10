@@ -14,6 +14,7 @@ import type {
 } from "@symphony/router";
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
+import { createRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 
@@ -86,6 +87,67 @@ describe("runtime route lifecycle service", () => {
       });
 
       expect(observed).toBe(false);
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("returns false when the tracked issue can no longer be loaded", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await harness.service.dispatchBootstrapRouter.route({
+        issue: harness.issue,
+        attempt: 1,
+        preferredWorkerHost: null,
+        startedAt: "2026-04-10T14:06:00.000Z"
+      });
+
+      const missingTracker = createMemorySymphonyTracker();
+      const missingIssueService = await createRuntimeRouteLifecycleService({
+        routeWorkflows: harness.routeWorkflows,
+        tracker: missingTracker,
+        trackerConfig: buildSymphonyRuntimePolicy().tracker,
+        repositoryKey: "openai/symphony",
+        now: () => new Date("2026-04-10T14:06:00.000Z")
+      });
+
+      const observed = await missingIssueService.observeActiveIssueStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:06:05.000Z"
+      });
+
+      expect(observed).toBe(false);
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("fails fast when a persisted workflow has no active run mode", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      const routing = await createRuntimeCurrentFlowRouting({
+        now: () => new Date("2026-04-10T14:10:00.000Z")
+      });
+
+      await harness.routeWorkflows.ensureWorkflowForIssue({
+        issueIdentifier: harness.issue.identifier,
+        repositoryKey: "openai/symphony",
+        router: routing.router,
+        createdAt: "2026-04-10T14:10:00.000Z"
+      });
+
+      await expect(
+        harness.service.observeActiveIssueStateByIdentifier({
+          issueIdentifier: harness.issue.identifier,
+          recordedAt: "2026-04-10T14:10:05.000Z"
+        })
+      ).rejects.toThrow(/missing an active run mode/i);
     } finally {
       harness.close();
     }

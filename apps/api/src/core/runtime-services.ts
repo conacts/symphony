@@ -446,6 +446,15 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const runtimeLogs = createRuntimeLogsPort({
     runtimeLogStore
   });
+  const observeRouteLifecycleTransition = async (transition: {
+    issueIdentifier: string;
+    recordedAt: string;
+  }) => {
+    await routeLifecycle.observeActiveIssueStateByIdentifier({
+      issueIdentifier: transition.issueIdentifier,
+      recordedAt: transition.recordedAt
+    });
+  };
   const health = createRuntimeHealthPort({
     dbFile: database.dbFile,
     runtimePolicy,
@@ -471,15 +480,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           runId: input.runId,
           turnId: input.turnId,
           blockedTargetState: runtimePolicy.tracker.blockedTransitionToState,
-          async onIssueStateTransition(transition: {
-            issueIdentifier: string;
-            recordedAt: string;
-          }) {
-            await routeLifecycle.observeActiveIssueStateByIdentifier({
-              issueIdentifier: transition.issueIdentifier,
-              recordedAt: transition.recordedAt
-            });
-          }
+          onIssueStateTransition: observeRouteLifecycleTransition
         },
         input.argumentsPayload
       );
@@ -499,15 +500,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           tracker,
           issue: input.issue,
           defaultTargetState: runtimePolicy.tracker.pauseTransitionToState,
-          async onIssueStateTransition(transition: {
-            issueIdentifier: string;
-            recordedAt: string;
-          }) {
-            await routeLifecycle.observeActiveIssueStateByIdentifier({
-              issueIdentifier: transition.issueIdentifier,
-              recordedAt: transition.recordedAt
-            });
-          }
+          onIssueStateTransition: observeRouteLifecycleTransition
         },
         input.argumentsPayload
       );
@@ -527,15 +520,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           tracker,
           issue: input.issue,
           defaultTargetState: "Canceled",
-          async onIssueStateTransition(transition: {
-            issueIdentifier: string;
-            recordedAt: string;
-          }) {
-            await routeLifecycle.observeActiveIssueStateByIdentifier({
-              issueIdentifier: transition.issueIdentifier,
-              recordedAt: transition.recordedAt
-            });
-          }
+          onIssueStateTransition: observeRouteLifecycleTransition
         },
         input.argumentsPayload
       );

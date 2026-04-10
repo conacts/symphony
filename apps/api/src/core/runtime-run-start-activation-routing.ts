@@ -3,44 +3,33 @@ import type {
   SymphonyRunStartActivationRouter
 } from "@symphony/orchestrator";
 import {
-  createSymphonyCurrentFlowRouterAsync,
-  type SymphonyCurrentFlowData,
-  type SymphonyCurrentFlowNode,
-  type SymphonyCurrentFlowPolicy,
   type WorkflowCommand
 } from "@symphony/router";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
+import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import {
+  executeSettledRouteCommand,
   normalizeWorkflowToken,
-  readTrackerTransitionState,
-  settleRouteCommand
+  readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
-
-const symphonyCurrentFlowPolicy: SymphonyCurrentFlowPolicy = {};
 
 export async function createRuntimeRunStartActivationRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
-  now?: () => Date;
+  routing: SymphonyRuntimeCurrentFlowRouting;
 }): Promise<SymphonyRunStartActivationRouter> {
-  const router = await createSymphonyCurrentFlowRouterAsync({
-    now: input.now
-  });
+  const { router, policy } = input.routing;
 
   return {
     async activate(activationInput): Promise<SymphonyRunStartActivationResult> {
-      const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier<
-        SymphonyCurrentFlowNode,
-        SymphonyCurrentFlowData,
-        SymphonyCurrentFlowPolicy
-      >({
+      const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
         issueIdentifier: activationInput.issue.identifier,
         router,
-        policy: symphonyCurrentFlowPolicy
+        policy
       });
 
       if (!resumed) {
@@ -71,41 +60,27 @@ export async function createRuntimeRunStartActivationRouter(input: {
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
-        policy: symphonyCurrentFlowPolicy,
+        policy,
         result
       });
 
       let activatedIssue = activationInput.issue;
       for (const command of result.decision.commands) {
         if (command.kind === "tracker.transition") {
-          try {
-            activatedIssue = await executeInProgressTransition({
-              command,
-              issue: activatedIssue,
-              tracker: input.tracker
-            });
-            await settleRouteCommand({
-              routeWorkflows: input.routeWorkflows,
-              workflowId: resumed.hydrationState.workflow.workflowId,
-              session: resumed.session,
-              commandId: command.id,
-              status: "succeeded",
-              recordedAt: activationInput.recordedAt
-            });
-          } catch (error) {
-            await settleRouteCommand({
-              routeWorkflows: input.routeWorkflows,
-              workflowId: resumed.hydrationState.workflow.workflowId,
-              session: resumed.session,
-              commandId: command.id,
-              status: "failed",
-              payload: {
-                error: String(error)
-              },
-              recordedAt: activationInput.recordedAt
-            });
-            throw error;
-          }
+          activatedIssue = await executeSettledRouteCommand({
+            routeWorkflows: input.routeWorkflows,
+            workflowId: resumed.hydrationState.workflow.workflowId,
+            session: resumed.session,
+            command,
+            recordedAt: activationInput.recordedAt,
+            async execute(executedCommand) {
+              return await executeInProgressTransition({
+                command: executedCommand,
+                issue: activatedIssue,
+                tracker: input.tracker
+              });
+            }
+          });
           continue;
         }
 

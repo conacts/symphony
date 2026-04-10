@@ -4,8 +4,6 @@ import {
   type SymphonyDispatchBootstrapRoutingResult
 } from "@symphony/orchestrator";
 import {
-  createSymphonyCurrentFlowRouterAsync,
-  type SymphonyCurrentFlowPolicy,
   type WorkflowCommand,
   type WorkflowPayload
 } from "@symphony/router";
@@ -15,25 +13,22 @@ import type {
   SymphonyTrackerConfig,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
+import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import {
+  executeSettledRouteCommand,
   normalizeWorkflowToken,
-  readTrackerTransitionState,
-  settleRouteCommand
+  readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
-
-const symphonyCurrentFlowPolicy: SymphonyCurrentFlowPolicy = {};
 
 export async function createRuntimeDispatchBootstrapRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
-  now?: () => Date;
+  routing: SymphonyRuntimeCurrentFlowRouting;
 }) : Promise<SymphonyDispatchBootstrapRouter> {
-  const router = await createSymphonyCurrentFlowRouterAsync({
-    now: input.now
-  });
+  const { router, policy } = input.routing;
 
   return {
     async route(routeInput): Promise<SymphonyDispatchBootstrapRoutingResult> {
@@ -46,7 +41,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
       const resumed = await input.routeWorkflows.resumeSessionByWorkflowId({
         workflowId: ensured.workflow.workflowId,
         router,
-        policy: symphonyCurrentFlowPolicy
+        policy
       });
 
       if (!resumed) {
@@ -72,7 +67,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: ensured.workflow.workflowId,
-        policy: symphonyCurrentFlowPolicy,
+        policy,
         result
       });
 
@@ -81,64 +76,41 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
 
       for (const command of result.decision.commands) {
         if (command.kind === "tracker.transition") {
-          try {
-            preparedIssue = await executeTrackerTransitionCommand({
-              command,
-              issue: preparedIssue,
-              tracker: input.tracker,
-              trackerConfig: input.trackerConfig
-            });
-            await settleRouteCommand({
-              routeWorkflows: input.routeWorkflows,
-              workflowId: ensured.workflow.workflowId,
-              session,
-              commandId: command.id,
-              status: "succeeded",
-              recordedAt: routeInput.startedAt
-            });
-          } catch (error) {
-            await settleRouteCommand({
-              routeWorkflows: input.routeWorkflows,
-              workflowId: ensured.workflow.workflowId,
-              session,
-              commandId: command.id,
-              status: "failed",
-              payload: {
-                error: String(error)
-              },
-              recordedAt: routeInput.startedAt
-            });
-            throw error;
-          }
+          preparedIssue = await executeSettledRouteCommand({
+            routeWorkflows: input.routeWorkflows,
+            workflowId: ensured.workflow.workflowId,
+            session,
+            command,
+            recordedAt: routeInput.startedAt,
+            async execute(executedCommand) {
+              return await executeTrackerTransitionCommand({
+                command: executedCommand,
+                issue: preparedIssue,
+                tracker: input.tracker,
+                trackerConfig: input.trackerConfig
+              });
+            }
+          });
           continue;
         }
 
         if (command.kind === "run.dispatch") {
-          selectedRunMode = readDispatchRunMode(command.payload);
-          if (!selectedRunMode) {
-            await settleRouteCommand({
-              routeWorkflows: input.routeWorkflows,
-              workflowId: ensured.workflow.workflowId,
-              session,
-              commandId: command.id,
-              status: "failed",
-              payload: {
-                error: "missing_run_mode"
-              },
-              recordedAt: routeInput.startedAt
-            });
-            throw new TypeError(
-              `Dispatch command ${command.id} is missing a run mode.`
-            );
-          }
-
-          await settleRouteCommand({
+          selectedRunMode = await executeSettledRouteCommand({
             routeWorkflows: input.routeWorkflows,
             workflowId: ensured.workflow.workflowId,
             session,
-            commandId: command.id,
-            status: "succeeded",
-            recordedAt: routeInput.startedAt
+            command,
+            recordedAt: routeInput.startedAt,
+            async execute(executedCommand) {
+              const runMode = readDispatchRunMode(executedCommand.payload);
+              if (!runMode) {
+                throw new TypeError(
+                  `Dispatch command ${executedCommand.id} is missing a run mode.`
+                );
+              }
+
+              return runMode;
+            }
           });
           continue;
         }

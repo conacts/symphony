@@ -5,6 +5,9 @@ import type {
 } from "@symphony/orchestrator";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
+  createRuntimeCurrentFlowRouting
+} from "./runtime-current-flow-routing.js";
+import {
   createRuntimeDispatchBootstrapRouter
 } from "./runtime-dispatch-bootstrap-routing.js";
 import {
@@ -41,23 +44,26 @@ export async function createRuntimeRouteLifecycleService(input: {
   repositoryKey: string;
   now?: () => Date;
 }): Promise<SymphonyRuntimeRouteLifecycleService> {
+  const routing = await createRuntimeCurrentFlowRouting({
+    now: input.now
+  });
   const dispatchBootstrapRouter = await createRuntimeDispatchBootstrapRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
     trackerConfig: input.trackerConfig,
     repositoryKey: input.repositoryKey,
-    now: input.now
+    routing
   });
   const runStartActivationRouter =
     await createRuntimeRunStartActivationRouter({
       routeWorkflows: input.routeWorkflows,
       tracker: input.tracker,
-      now: input.now
+      routing
     });
   const runLifecycleRouter = await createRuntimeRunLifecycleRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
-    now: input.now
+    routing
   });
 
   return {
@@ -97,6 +103,9 @@ export async function createRuntimeRouteLifecycleService(input: {
 
 function resolveActiveRunMode(
   hydration: {
+    workflow: {
+      workflowId: string;
+    };
     snapshot: {
       projection: {
         data: SymphonyCurrentFlowData;
@@ -112,5 +121,7 @@ function resolveActiveRunMode(
     return data.lastDispatchMode;
   }
 
-  return "implementation";
+  throw new TypeError(
+    `Route workflow ${hydration.workflow.workflowId} is missing an active run mode.`
+  );
 }

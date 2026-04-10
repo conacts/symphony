@@ -172,6 +172,67 @@ describe("runtime tools", () => {
     database.close();
   });
 
+  it("does not notify the caller when the delivery state transition fails", async () => {
+    const { database, deliveryReports } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-151",
+        identifier: "COL-151"
+      },
+      runId: "run-151",
+      turnId: "turn-151"
+    });
+    const transitions: Array<{ issueIdentifier: string; targetState: string }> = [];
+
+    const result = await executeDeliveryReportTool(
+      {
+        tracker: {
+          async fetchCandidateIssues() {
+            return [];
+          },
+          async fetchIssuesByStates() {
+            return [];
+          },
+          async fetchIssueStatesByIds() {
+            return [];
+          },
+          async fetchIssueByIdentifier() {
+            return null;
+          },
+          async createComment() {
+            return;
+          },
+          async updateIssueState() {
+            throw new Error("tracker unavailable");
+          }
+        },
+        deliveryReports,
+        issue: {
+          trackerIssueId: "issue-151",
+          identifier: "COL-151",
+          state: "In Progress"
+        },
+        runId: "run-151",
+        turnId: "turn-151",
+        async onIssueStateTransition(transition) {
+          transitions.push({
+            issueIdentifier: transition.issueIdentifier,
+            targetState: transition.targetState
+          });
+        }
+      },
+      {
+        status: "completed",
+        summary: "Opened the PR and finished the requested work.",
+        prUrl: "https://github.com/openai/symphony/pull/151"
+      }
+    );
+
+    expect(result.success).toBe(false);
+    expect(transitions).toEqual([]);
+
+    database.close();
+  });
+
   it("rejects completed delivery reports that omit the PR url", async () => {
     const { database, deliveryReports } = await createRuntimeToolsTestContext({
       issue: {

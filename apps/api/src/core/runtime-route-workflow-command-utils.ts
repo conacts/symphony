@@ -1,4 +1,5 @@
 import type {
+  WorkflowCommand,
   WorkflowNodeId,
   WorkflowPayload,
   WorkflowProjection,
@@ -36,6 +37,46 @@ export async function settleRouteCommand<
   });
 
   return projection;
+}
+
+export async function executeSettledRouteCommand<
+  Node extends WorkflowNodeId,
+  Data,
+  Policy,
+  Result,
+>(input: {
+  routeWorkflows: SymphonyRouteWorkflowPort;
+  workflowId: string;
+  session: WorkflowSession<Node, Data, Policy>;
+  command: WorkflowCommand;
+  recordedAt: string;
+  execute(command: WorkflowCommand): Promise<Result>;
+}): Promise<Result> {
+  try {
+    const result = await input.execute(input.command);
+    await settleRouteCommand({
+      routeWorkflows: input.routeWorkflows,
+      workflowId: input.workflowId,
+      session: input.session,
+      commandId: input.command.id,
+      status: "succeeded",
+      recordedAt: input.recordedAt
+    });
+    return result;
+  } catch (error) {
+    await settleRouteCommand({
+      routeWorkflows: input.routeWorkflows,
+      workflowId: input.workflowId,
+      session: input.session,
+      commandId: input.command.id,
+      status: "failed",
+      payload: {
+        error: String(error)
+      },
+      recordedAt: input.recordedAt
+    });
+    throw error;
+  }
 }
 
 export function normalizeWorkflowToken(value: string): string {

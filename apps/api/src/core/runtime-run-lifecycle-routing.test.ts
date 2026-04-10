@@ -14,6 +14,7 @@ import type {
 } from "@symphony/router";
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
+import { createRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
 import { createRuntimeDispatchBootstrapRouter } from "./runtime-dispatch-bootstrap-routing.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createRuntimeRunLifecycleRouter } from "./runtime-run-lifecycle-routing.js";
@@ -167,6 +168,49 @@ describe("runtime run lifecycle routing", () => {
       harness.close();
     }
   });
+
+  it("routes startup failures into Failed through persisted route history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await harness.dispatchBootstrapRouter.route({
+        issue: harness.issue,
+        attempt: 1,
+        preferredWorkerHost: null,
+        startedAt: "2026-04-10T12:20:00.000Z"
+      });
+
+      const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
+      const result = await harness.runLifecycleRouter.routeCompletion({
+        issue: bootstrappingIssue!,
+        runId: "run-5",
+        runMode: "implementation",
+        completion: {
+          kind: "startup_failure",
+          reason: "activation failed",
+          failureStage: "runtime_session_start",
+          failureOrigin: "workspace_lifecycle"
+        },
+        recordedAt: "2026-04-10T12:20:05.000Z"
+      });
+
+      expect(result.issue.state).toBe("Failed");
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Failed");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("failed");
+      expect(hydration?.snapshot?.projection.data.lastRuntimeOutcome).toBe("startup_failure");
+      expect(hydration?.latestDecision?.reasonCode).toBe("startup_failure");
+    } finally {
+      harness.close();
+    }
+  });
 });
 
 async function createHarness(input: {
@@ -195,22 +239,25 @@ async function createHarness(input: {
     repositoryKey: "openai/symphony"
   });
 
+  const routing = await createRuntimeCurrentFlowRouting({
+    now: () => new Date("2026-04-10T12:00:00.000Z")
+  });
   const dispatchBootstrapRouter = await createRuntimeDispatchBootstrapRouter({
     routeWorkflows,
     tracker,
     trackerConfig: runtimePolicy.tracker,
     repositoryKey: "openai/symphony",
-    now: () => new Date("2026-04-10T12:00:00.000Z")
+    routing
   });
   const runStartActivationRouter = await createRuntimeRunStartActivationRouter({
     routeWorkflows,
     tracker,
-    now: () => new Date("2026-04-10T12:00:00.000Z")
+    routing
   });
   const runLifecycleRouter = await createRuntimeRunLifecycleRouter({
     routeWorkflows,
     tracker,
-    now: () => new Date("2026-04-10T12:00:00.000Z")
+    routing
   });
 
   return {

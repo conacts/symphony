@@ -5,8 +5,6 @@ import type {
   SymphonyRunLifecycleRouter
 } from "@symphony/orchestrator";
 import {
-  createSymphonyCurrentFlowRouterAsync,
-  type SymphonyCurrentFlowPolicy,
   type WorkflowCommand,
   type WorkflowSession
 } from "@symphony/router";
@@ -14,23 +12,22 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
+import type {
+  SymphonyRuntimeCurrentFlowRouting
+} from "./runtime-current-flow-routing.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import {
+  executeSettledRouteCommand,
   normalizeWorkflowToken,
-  readTrackerTransitionState,
-  settleRouteCommand
+  readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
-
-const symphonyCurrentFlowPolicy: SymphonyCurrentFlowPolicy = {};
 
 export async function createRuntimeRunLifecycleRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
-  now?: () => Date;
+  routing: SymphonyRuntimeCurrentFlowRouting;
 }): Promise<SymphonyRunLifecycleRouter> {
-  const router = await createSymphonyCurrentFlowRouterAsync({
-    now: input.now
-  });
+  const { router, policy } = input.routing;
 
   return {
     async observeIssueState(
@@ -39,7 +36,7 @@ export async function createRuntimeRunLifecycleRouter(input: {
       const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
         issueIdentifier: observationInput.issue.identifier,
         router,
-        policy: symphonyCurrentFlowPolicy
+        policy
       });
 
       if (!resumed) {
@@ -68,7 +65,7 @@ export async function createRuntimeRunLifecycleRouter(input: {
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
-        policy: symphonyCurrentFlowPolicy,
+        policy,
         result
       });
 
@@ -95,7 +92,7 @@ export async function createRuntimeRunLifecycleRouter(input: {
       const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
         issueIdentifier: completionInput.issue.identifier,
         router,
-        policy: symphonyCurrentFlowPolicy
+        policy
       });
 
       if (!resumed) {
@@ -110,7 +107,7 @@ export async function createRuntimeRunLifecycleRouter(input: {
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
-        policy: symphonyCurrentFlowPolicy,
+        policy,
         result
       });
 
@@ -139,7 +136,7 @@ async function executeTrackerTransitionCommands(input: {
   tracker: SymphonyTracker;
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
-  session: WorkflowSession<string, unknown, SymphonyCurrentFlowPolicy>;
+  session: WorkflowSession<string, unknown, unknown>;
   recordedAt: string;
   unsupportedCommandErrorPrefix: string;
 }): Promise<SymphonyTrackerIssue> {
@@ -152,34 +149,20 @@ async function executeTrackerTransitionCommands(input: {
       );
     }
 
-    try {
-      currentIssue = await executeTrackerTransition({
-        command,
-        issue: currentIssue,
-        tracker: input.tracker
-      });
-      await settleRouteCommand({
-        routeWorkflows: input.routeWorkflows,
-        workflowId: input.workflowId,
-        session: input.session,
-        commandId: command.id,
-        status: "succeeded",
-        recordedAt: input.recordedAt
-      });
-    } catch (error) {
-      await settleRouteCommand({
-        routeWorkflows: input.routeWorkflows,
-        workflowId: input.workflowId,
-        session: input.session,
-        commandId: command.id,
-        status: "failed",
-        payload: {
-          error: String(error)
-        },
-        recordedAt: input.recordedAt
-      });
-      throw error;
-    }
+    currentIssue = await executeSettledRouteCommand({
+      routeWorkflows: input.routeWorkflows,
+      workflowId: input.workflowId,
+      session: input.session,
+      command,
+      recordedAt: input.recordedAt,
+      async execute(executedCommand) {
+        return await executeTrackerTransition({
+          command: executedCommand,
+          issue: currentIssue,
+          tracker: input.tracker
+        });
+      }
+    });
   }
 
   return currentIssue;
