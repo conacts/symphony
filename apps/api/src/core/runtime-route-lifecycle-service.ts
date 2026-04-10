@@ -16,6 +16,10 @@ import {
 import {
   createRuntimeRunStartActivationRouter
 } from "./runtime-run-start-activation-routing.js";
+import {
+  createRuntimeTrackerStateObservationRouter,
+  type SymphonyTrackerStateDispatchRequest
+} from "./runtime-tracker-state-observation-routing.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type {
   SymphonyCurrentFlowData,
@@ -31,6 +35,15 @@ export type SymphonyRuntimeRouteLifecycleService = {
   dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
   runStartActivationRouter: SymphonyRunStartActivationRouter;
   runLifecycleRouter: SymphonyRunLifecycleRouter;
+  observeTrackerStateByIdentifier(input: {
+    issueIdentifier: string;
+    recordedAt: string;
+    runId?: string | null;
+    runMode?: SymphonyRunMode | null;
+    onDispatchRequested?(
+      input: SymphonyTrackerStateDispatchRequest
+    ): Promise<void> | void;
+  }): Promise<boolean>;
   observeActiveIssueStateByIdentifier(input: {
     issueIdentifier: string;
     recordedAt: string;
@@ -65,11 +78,27 @@ export async function createRuntimeRouteLifecycleService(input: {
     tracker: input.tracker,
     routing
   });
+  const trackerStateObservationRouter =
+    await createRuntimeTrackerStateObservationRouter({
+      routeWorkflows: input.routeWorkflows,
+      tracker: input.tracker,
+      trackerConfig: input.trackerConfig,
+      repositoryKey: input.repositoryKey,
+      routing
+    });
+  const observeTrackerStateByIdentifier: SymphonyRuntimeRouteLifecycleService["observeTrackerStateByIdentifier"] =
+    async (observationInput) => {
+      const observed = await trackerStateObservationRouter.observe(
+        observationInput
+      );
+      return observed !== null;
+    };
 
   return {
     dispatchBootstrapRouter,
     runStartActivationRouter,
     runLifecycleRouter,
+    observeTrackerStateByIdentifier,
     async observeActiveIssueStateByIdentifier(observationInput) {
       const hydration =
         await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
@@ -81,22 +110,11 @@ export async function createRuntimeRouteLifecycleService(input: {
         return false;
       }
 
-      const issue = await input.tracker.fetchIssueByIdentifier(
-        input.trackerConfig,
-        observationInput.issueIdentifier
-      );
-      if (!issue) {
-        return false;
-      }
-
-      await runLifecycleRouter.observeIssueState({
-        issue,
-        runId: null,
-        runMode: resolveActiveRunMode(hydration),
-        recordedAt: observationInput.recordedAt
+      return await observeTrackerStateByIdentifier({
+        issueIdentifier: observationInput.issueIdentifier,
+        recordedAt: observationInput.recordedAt,
+        runMode: resolveActiveRunMode(hydration)
       });
-
-      return true;
     }
   };
 }

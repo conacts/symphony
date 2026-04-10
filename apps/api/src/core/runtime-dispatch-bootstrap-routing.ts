@@ -4,8 +4,7 @@ import {
   type SymphonyDispatchBootstrapRoutingResult
 } from "@symphony/orchestrator";
 import {
-  type WorkflowCommand,
-  type WorkflowPayload
+  type WorkflowCommand
 } from "@symphony/router";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type {
@@ -18,6 +17,7 @@ import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import {
   executeSettledRouteCommand,
   normalizeWorkflowToken,
+  readDispatchRunMode,
   readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
 
@@ -172,17 +172,4 @@ function buildTrackerObservedSignalId(
     `attempt_${attempt}`,
     normalizeWorkflowToken(startedAt)
   ].join("_");
-}
-
-function readDispatchRunMode(payload: WorkflowPayload): SymphonyRunMode | null {
-  if (payload === null) {
-    return null;
-  }
-
-  const runMode = payload["runMode"];
-  return runMode === "implementation" ||
-    runMode === "rework" ||
-    runMode === "approved_merge"
-    ? runMode
-    : null;
 }

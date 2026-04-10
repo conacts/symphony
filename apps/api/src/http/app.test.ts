@@ -929,7 +929,7 @@ describe("@symphony/api app", () => {
   });
 
   it(
-    "persists a structured rework handoff after GitHub review ingress",
+    "persists a structured rework handoff and routes requeued issues back into bootstrapping",
     async () => {
       const harness = await createSymphonyRuntimeAppServicesHarness();
       harnesses.push(harness);
@@ -972,7 +972,7 @@ describe("@symphony/api app", () => {
       });
 
       expect(ingressResponse.status).toBe(202);
-      expect(trackedIssue?.state).toBe("Rework");
+      expect(trackedIssue?.state).toBe("Bootstrapping");
       expect(issueTimeline).not.toBeNull();
 
       const reworkHandoffEntry = issueTimeline?.entries.find(

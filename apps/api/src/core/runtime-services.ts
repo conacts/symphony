@@ -614,10 +614,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       realtime.publishSnapshotUpdated();
       realtime.publishProblemRunsUpdated();
 
-      if (result.status === "requeued") {
-        await orchestratorPort.requestRefresh();
-      }
-
       if (result.status !== "ignored" && issueIdentifier) {
         const requeuedHandoff =
           result.status === "requeued" &&
@@ -626,6 +622,21 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           typeof result.handoff === "object"
             ? result.handoff
             : null;
+
+        if (result.status === "requeued") {
+          const observed = await routeLifecycle.observeTrackerStateByIdentifier({
+            issueIdentifier,
+            recordedAt: requeuedHandoff?.recordedAt ?? new Date().toISOString(),
+            onDispatchRequested: async () => {
+              await orchestratorPort.requestRefresh();
+            }
+          });
+          if (!observed) {
+            throw new TypeError(
+              `GitHub review ingress requeued ${issueIdentifier} but no route workflow-backed tracker state could be observed.`
+            );
+          }
+        }
 
         if (trackedIssue) {
           if (requeuedHandoff) {

@@ -1,3 +1,4 @@
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type {
   WorkflowCommand,
   WorkflowNodeId,
@@ -94,4 +95,17 @@ export function readTrackerTransitionState(payload: WorkflowPayload): string | n
 
   const state = payload["state"];
   return typeof state === "string" ? state : null;
+}
+
+export function readDispatchRunMode(payload: WorkflowPayload): SymphonyRunMode | null {
+  if (payload === null) {
+    return null;
+  }
+
+  const runMode = payload["runMode"];
+  return runMode === "implementation" ||
+    runMode === "rework" ||
+    runMode === "approved_merge"
+    ? runMode
+    : null;
 }
