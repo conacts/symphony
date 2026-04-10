@@ -791,16 +791,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       realtime.publishProblemRunsUpdated();
 
       if (result.status !== "ignored" && issueIdentifier) {
-        if (trackedIssue) {
-          await issueTimelineStore.record({
-            issueIdentifier: trackedIssue.identifier,
-            source: "tracker",
-            eventType: "github_review_ingress_processed",
-            message: `GitHub review ingress processed with status ${result.status}.`,
-            payload: result
-          });
-        }
-
         realtime.publishIssueUpdated(issueIdentifier);
       }
     }

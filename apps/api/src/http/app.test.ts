@@ -988,6 +988,9 @@ describe("@symphony/api app", () => {
       const issueTimeline = await harness.services.issueTimeline.list({
         issueIdentifier: "COL-123"
       });
+      const runtimeLogs = await harness.services.runtimeLogs.list({
+        issueIdentifier: "COL-123"
+      });
 
       expect(ingressResponse.status).toBe(202);
       expect(trackedIssue?.state).toBe("Bootstrapping");
@@ -1015,6 +1018,24 @@ describe("@symphony/api app", () => {
           (entry) => entry.message === "Stored rework handoff for the next run."
         ) ?? false
       ).toBe(false);
+      expect(
+        issueTimeline?.entries.some(
+          (entry) => entry.eventType === "github_review_ingress_processed"
+        ) ?? false
+      ).toBe(false);
+      expect(runtimeLogs.logs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            issueIdentifier: "COL-123",
+            source: "github_review_ingress",
+            eventType: "github_review_ingress_processed",
+            message: "Processed GitHub review ingress event.",
+            payload: expect.objectContaining({
+              status: "requeued"
+            })
+          })
+        ])
+      );
     },
     runtimeHttpIntegrationTestTimeoutMs
   );
