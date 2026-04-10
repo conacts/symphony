@@ -12,7 +12,10 @@ import {
   type WorkflowRouterDefinition,
   validateWorkflowRouterDefinition
 } from "./router-definition.js";
-import { projectWorkflow } from "./router-projection.js";
+import {
+  projectWorkflow,
+  rehydrateWorkflowProjection
+} from "./router-projection.js";
 import type { WorkflowEdge } from "./router-edge.js";
 import { WorkflowSession } from "./workflow-session.js";
 import type {
@@ -80,6 +83,19 @@ export class WorkflowRouter<
     });
   }
 
+  resumeSession(input: {
+    projection: WorkflowProjection<Node, Data>;
+    policy: Policy;
+    history?: WorkflowHistory<Node>;
+  }): Effect.Effect<WorkflowSession<Node, Data, Policy>, WorkflowRouterError, never> {
+    return WorkflowSession.resume({
+      router: this,
+      projection: input.projection,
+      policy: input.policy,
+      history: input.history
+    });
+  }
+
   project(input: {
     workflowId: string;
     history: WorkflowHistory<Node>;
@@ -93,6 +109,19 @@ export class WorkflowRouter<
     });
   }
 
+  rehydrate(input: {
+    projection: WorkflowProjection<Node, Data>;
+    tailHistory: WorkflowHistory<Node>;
+    policy: Policy;
+  }): Effect.Effect<WorkflowProjection<Node, Data>, WorkflowRouterError, never> {
+    return rehydrateWorkflowProjection({
+      definition: this.#definition,
+      projection: input.projection,
+      tailHistory: input.tailHistory,
+      policy: input.policy
+    });
+  }
+
   receive(input: {
     workflowId: string;
     history: WorkflowHistory<Node>;
@@ -100,15 +129,36 @@ export class WorkflowRouter<
     policy: Policy;
   }): Effect.Effect<WorkflowRouteResult<Node, Data>, WorkflowRouterError, never> {
     return Effect.gen(this, function* () {
-      yield* this.#ensureSignalIdIsUnique(input.history, input.signal.id);
-
       const projectionBefore = yield* this.project({
         workflowId: input.workflowId,
         history: input.history,
         policy: input.policy
       });
 
+      return yield* this.receiveFromProjection({
+        projection: projectionBefore,
+        signal: input.signal,
+        policy: input.policy
+      });
+    });
+  }
+
+  receiveFromProjection(input: {
+    projection: WorkflowProjection<Node, Data>;
+    signal: WorkflowSignal;
+    policy: Policy;
+  }): Effect.Effect<WorkflowRouteResult<Node, Data>, WorkflowRouterError, never> {
+    return Effect.gen(this, function* () {
+      const projectionBefore = yield* this.rehydrate({
+        projection: input.projection,
+        tailHistory: [],
+        policy: input.policy
+      });
       const normalizedSignal = this.#normalizeSignal(input.signal);
+      yield* this.#ensureSignalIdIsUniqueInProjection(
+        projectionBefore,
+        normalizedSignal.id
+      );
       const signalEvent: Extract<WorkflowJournalEvent<Node>, { kind: "signal_recorded" }> = {
         kind: "signal_recorded",
         signal: normalizedSignal,
@@ -171,7 +221,7 @@ export class WorkflowRouter<
       const commands = selectedEdge
         ? this.#buildTransitionCommands(selectedEdge, transitionContext)
         : [];
-      yield* this.#ensureCommandIdsAreUnique(input.history, commands);
+      yield* this.#ensureCommandIdsAreUniqueInProjection(projectionBefore, commands);
 
       const decision = {
         id: this.#createId("decision"),
@@ -204,18 +254,16 @@ export class WorkflowRouter<
         ...commandEvents
       ];
 
-      const projectionAfter = yield* this.project({
-        workflowId: input.workflowId,
-        history: [...input.history, ...events],
-        policy: input.policy
-      });
-
       return {
         projectionBefore,
         signalEvent,
         decision,
         events,
-        projectionAfter
+        projectionAfter: yield* this.rehydrate({
+          projection: projectionBefore,
+          tailHistory: events,
+          policy: input.policy
+        })
       };
     });
   }
@@ -378,8 +426,8 @@ export class WorkflowRouter<
     return this.#now().toISOString();
   }
 
-  #ensureSignalIdIsUnique(
-    history: WorkflowHistory<Node>,
+  #ensureSignalIdIsUniqueInProjection(
+    projection: WorkflowProjection<Node, Data>,
     signalId: string | undefined
   ): Effect.Effect<void, WorkflowRouterError, never> {
     return Effect.try({
@@ -388,12 +436,10 @@ export class WorkflowRouter<
           return;
         }
 
-        for (const event of history) {
-          if (event.kind === "signal_recorded" && event.signal.id === signalId) {
-            throw new DuplicateSignalIdError({
-              signalId
-            });
-          }
+        if (projection.recordedSignalIds.includes(signalId)) {
+          throw new DuplicateSignalIdError({
+            signalId
+          });
         }
       },
       catch: (error) =>
@@ -401,18 +447,13 @@ export class WorkflowRouter<
     });
   }
 
-  #ensureCommandIdsAreUnique(
-    history: WorkflowHistory<Node>,
+  #ensureCommandIdsAreUniqueInProjection(
+    projection: WorkflowProjection<Node, Data>,
     commands: ReadonlyArray<{ id: string }>
   ): Effect.Effect<void, WorkflowRouterError, never> {
     return Effect.try({
       try: () => {
-        const existingCommandIds = new Set<string>();
-        for (const event of history) {
-          if (event.kind === "command_emitted") {
-            existingCommandIds.add(event.command.id);
-          }
-        }
+        const existingCommandIds = new Set<string>(projection.emittedCommandIds);
 
         const nextCommandIds = new Set<string>();
         for (const command of commands) {

@@ -40,6 +40,30 @@ export class WorkflowSession<
     });
   }
 
+  static resume<Node extends WorkflowNodeId, Data, Policy>(input: {
+    router: WorkflowRouter<Node, Data, Policy>;
+    projection: WorkflowProjection<Node, Data>;
+    policy: Policy;
+    history?: WorkflowHistory<Node>;
+  }): Effect.Effect<WorkflowSession<Node, Data, Policy>, WorkflowRouterError, never> {
+    return Effect.gen(function* () {
+      const history = [...(input.history ?? [])];
+      const projection = yield* input.router.rehydrate({
+        projection: input.projection,
+        tailHistory: [],
+        policy: input.policy
+      });
+
+      return new WorkflowSession({
+        router: input.router,
+        workflowId: projection.workflowId,
+        policy: input.policy,
+        history,
+        projection
+      });
+    });
+  }
+
   readonly #router: WorkflowRouter<Node, Data, Policy>;
   readonly #workflowId: string;
   readonly #policy: Policy;
@@ -80,9 +104,8 @@ export class WorkflowSession<
     signal: WorkflowSignal
   ): Effect.Effect<WorkflowRouteResult<Node, Data>, WorkflowRouterError, never> {
     return Effect.gen(this, function* () {
-      const result = yield* this.#router.receive({
-        workflowId: this.#workflowId,
-        history: this.#history,
+      const result = yield* this.#router.receiveFromProjection({
+        projection: this.#projection,
         signal,
         policy: this.#policy
       });
@@ -109,18 +132,16 @@ export class WorkflowSession<
         recordedAt: input.recordedAt ?? new Date().toISOString()
       };
 
-      const nextHistory = [...this.#history, event];
-      const nextProjection = yield* this.#router.project({
-        workflowId: this.#workflowId,
-        history: nextHistory,
+      const nextProjection = yield* this.#router.rehydrate({
+        projection: this.#projection,
+        tailHistory: [event],
         policy: this.#policy
       });
 
-      this.#history = nextHistory;
+      this.#history = [...this.#history, event];
       this.#projection = nextProjection;
 
       return nextProjection;
     });
   }
 }
-

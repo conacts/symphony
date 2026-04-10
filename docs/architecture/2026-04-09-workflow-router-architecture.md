@@ -208,6 +208,10 @@ Examples:
 - last observed signal
 - last recorded decision
 
+Projection checkpoints also need to carry the identity history required to resume safely, including
+recorded signal ids and emitted command ids. Without that, a resumed session can no longer enforce
+the same duplicate protections as a full-history replay.
+
 ### Workflow Decision
 
 The router's interpretation of the latest signal against the current projection.
@@ -369,6 +373,7 @@ The package should expose:
 - `WorkflowRouterComparison`
 - `createWorkflowRouterComparison`
 - `createDeterministicStrategy`
+- a projection rehydration seam through `WorkflowRouter.rehydrate(...)`
 - core router types
 - typed router errors
 

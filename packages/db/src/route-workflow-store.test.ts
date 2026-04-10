@@ -452,6 +452,11 @@ function buildRouteResult(
     projectionAfter: buildProjection({
       workflowId,
       phase: "bootstrapping",
+      recordedSignalIds: ["signal_todo_observed"],
+      emittedCommandIds: [
+        "command_tracker_bootstrapping",
+        "command_dispatch_implementation"
+      ],
       lastSignal: signalEvent.signal,
       lastDecision: decision,
       pendingCommandIds: [
@@ -466,6 +471,8 @@ function buildProjection(input: {
   workflowId: string;
   phase: TestData["phase"];
   pendingCommandIds: string[];
+  recordedSignalIds?: string[];
+  emittedCommandIds?: string[];
   lastSignal?: WorkflowProjection<TestNode, TestData>["lastSignal"];
   lastDecision?: WorkflowProjection<TestNode, TestData>["lastDecision"];
 }): WorkflowProjection<TestNode, TestData> {
@@ -486,6 +493,8 @@ function buildProjection(input: {
               runMode: "implementation"
             }
     })),
+    recordedSignalIds: input.recordedSignalIds ?? [],
+    emittedCommandIds: input.emittedCommandIds ?? input.pendingCommandIds,
     terminal: false,
     sequence: input.pendingCommandIds.length,
     data: {

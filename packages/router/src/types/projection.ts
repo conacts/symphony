@@ -8,6 +8,8 @@ export type WorkflowProjection<Node extends WorkflowNodeId, Data> = {
   workflowId: string;
   currentNode: Node | null;
   pendingCommands: WorkflowCommand[];
+  recordedSignalIds: string[];
+  emittedCommandIds: string[];
   terminal: boolean;
   sequence: number;
   data: Data;

@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import {
   AmbiguousTransitionError,
+  DuplicateCommandIdError,
   DuplicateSignalIdError,
   ProjectionCorruptedError
 } from "./index.js";
@@ -118,6 +119,8 @@ describe("WorkflowRouter", () => {
     expect(projection.currentNode).toBe("queued");
     expect(projection.terminal).toBe(false);
     expect(projection.pendingCommands).toEqual([]);
+    expect(projection.recordedSignalIds).toEqual([]);
+    expect(projection.emittedCommandIds).toEqual([]);
     expect(projection.lastSignal).toBeNull();
     expect(projection.lastDecision).toBeNull();
   });
@@ -150,6 +153,11 @@ describe("WorkflowRouter", () => {
     ]);
     expect(result.projectionAfter.currentNode).toBe("implementation");
     expect(result.projectionAfter.pendingCommands).toHaveLength(2);
+    expect(result.projectionAfter.recordedSignalIds).toEqual(["signal_fixed"]);
+    expect(result.projectionAfter.emittedCommandIds).toEqual([
+      "command_audit_queued_to_implementation",
+      "command_dispatch_implementation"
+    ]);
     expect(result.projectionAfter.data.seenSignals).toEqual([
       "tracker.state_changed"
     ]);
@@ -215,6 +223,89 @@ describe("WorkflowRouter", () => {
     expect(projection.pendingCommands.map((command) => command.id)).toEqual([
       "command_dispatch_implementation"
     ]);
+  });
+
+  it("rehydrates from a checkpoint plus tail history", async () => {
+    const router = await createTestRouter();
+    const result = await Effect.runPromise(
+      router.receive({
+        workflowId: "SYM-103A",
+        history: [],
+        signal: {
+          type: "tracker.state_changed",
+          source: "tracker",
+          payload: {
+            state: "Todo"
+          }
+        },
+        policy: {}
+      })
+    );
+
+    const tailHistory: WorkflowJournalEvent<TestNode>[] = [
+      settleCommandEvent({
+        commandId: "command_audit_queued_to_implementation",
+        status: "succeeded",
+        recordedAt: "2026-04-09T23:00:01.000Z"
+      })
+    ];
+
+    const fullReplayProjection = await Effect.runPromise(
+      router.project({
+        workflowId: "SYM-103A",
+        history: [...result.events, ...tailHistory],
+        policy: {}
+      })
+    );
+
+    const rehydratedProjection = await Effect.runPromise(
+      router.rehydrate({
+        projection: result.projectionAfter,
+        tailHistory,
+        policy: {}
+      })
+    );
+
+    expect(rehydratedProjection).toEqual(fullReplayProjection);
+    expect(rehydratedProjection.pendingCommands.map((command) => command.id)).toEqual([
+      "command_dispatch_implementation"
+    ]);
+  });
+
+  it("rejects rehydration when the checkpoint cannot settle a tail command", async () => {
+    const router = await createTestRouter();
+    const result = await Effect.runPromise(
+      router.receive({
+        workflowId: "SYM-103B",
+        history: [],
+        signal: {
+          type: "tracker.state_changed",
+          source: "tracker",
+          payload: {
+            state: "Todo"
+          }
+        },
+        policy: {}
+      })
+    );
+
+    await expect(
+      Effect.runPromise(
+        Effect.flip(
+          router.rehydrate({
+            projection: result.projectionAfter,
+            tailHistory: [
+              settleCommandEvent({
+                commandId: "command_missing",
+                status: "succeeded",
+                recordedAt: "2026-04-09T23:00:01.000Z"
+              })
+            ],
+            policy: {}
+          })
+        )
+      )
+    ).resolves.toBeInstanceOf(ProjectionCorruptedError);
   });
 
   it("rejects duplicate signal ids", async () => {
@@ -385,5 +476,84 @@ describe("WorkflowRouter", () => {
       "command_dispatch_implementation"
     ]);
     expect(session.history()).toHaveLength(5);
+  });
+
+  it("preserves duplicate signal protection across resumed sessions", async () => {
+    const router = await createTestRouter();
+    const firstResult = await Effect.runPromise(
+      router.receive({
+        workflowId: "SYM-109",
+        history: [],
+        signal: {
+          id: "signal_resume_duplicate",
+          type: "tracker.state_changed",
+          source: "tracker",
+          payload: {
+            state: "Todo"
+          }
+        },
+        policy: {}
+      })
+    );
+
+    const resumedSession = await Effect.runPromise(
+      router.resumeSession({
+        projection: firstResult.projectionAfter,
+        history: [],
+        policy: {}
+      })
+    );
+
+    await expect(
+      Effect.runPromise(
+        Effect.flip(
+          resumedSession.receive({
+            id: "signal_resume_duplicate",
+            type: "operator.noop",
+            source: "operator",
+            payload: null
+          })
+        )
+      )
+    ).resolves.toBeInstanceOf(DuplicateSignalIdError);
+  });
+
+  it("preserves emitted command id protection across projection checkpoints", async () => {
+    const router = await createTestRouter();
+
+    await expect(
+      Effect.runPromise(
+        Effect.flip(
+          router.receiveFromProjection({
+            projection: {
+              workflowId: "SYM-110",
+              currentNode: "queued",
+              pendingCommands: [],
+              recordedSignalIds: [],
+              emittedCommandIds: [
+                "command_audit_queued_to_implementation",
+                "command_dispatch_implementation"
+              ],
+              terminal: false,
+              sequence: 0,
+              data: {
+                seenSignals: []
+              },
+              lastSignal: null,
+              lastDecision: null
+            },
+            signal: {
+              id: "signal_resume_command_duplicate",
+              type: "tracker.state_changed",
+              source: "tracker",
+              payload: {
+                state: "Todo"
+              }
+            },
+            policy: {}
+          })
+        )
+      )
+    ).resolves.toBeInstanceOf(DuplicateCommandIdError);
   });
 });
