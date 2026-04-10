@@ -50,6 +50,14 @@ type RuntimeToolIssueStateTransitionCallbackInput = {
   reason: string | null;
 };
 
+type RuntimeToolIssueStateTransitionRequest = {
+  issueIdentifier: string;
+  trackerIssueId: string;
+  currentState: string | null;
+  targetState: string;
+  recordedAt: string;
+};
+
 type NormalizedDeliveryReportArguments = {
   status: "completed" | "blocked" | "partial";
   summary: string;
@@ -99,6 +107,9 @@ export async function executeDeliveryReportTool(
     runId: string | null;
     turnId: string | null;
     blockedTargetState?: string | null;
+    transitionIssueState?(
+      request: RuntimeToolIssueStateTransitionRequest
+    ): Promise<DeliveryTransitionResult>;
     onDeliveryReportRecorded?(delivery: RuntimeDeliveryReportResult): void;
     onIssueStateTransition?(
       transition: RuntimeToolIssueStateTransitionCallbackInput
@@ -657,16 +668,31 @@ async function transitionIssueStateIfNeeded(
       identifier: string;
       state?: string | null;
     };
+    transitionIssueState?(
+      request: RuntimeToolIssueStateTransitionRequest
+    ): Promise<DeliveryTransitionResult>;
   },
   targetState: string
 ): Promise<DeliveryTransitionResult> {
-  if (normalizeOptionalText(executionContext.issue.state)?.toLowerCase() === targetState.toLowerCase()) {
+  const currentState = normalizeOptionalText(executionContext.issue.state);
+  if (currentState?.toLowerCase() === targetState.toLowerCase()) {
     return {
       attempted: false,
       targetState,
       success: true,
       reason: null
     };
+  }
+
+  const recordedAt = new Date().toISOString();
+  if (executionContext.transitionIssueState) {
+    return await executionContext.transitionIssueState({
+      issueIdentifier: executionContext.issue.identifier,
+      trackerIssueId: executionContext.issue.trackerIssueId,
+      currentState,
+      targetState,
+      recordedAt
+    });
   }
 
   try {

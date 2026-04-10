@@ -1,6 +1,7 @@
 import type { WorkflowRouteResult, WorkflowSignal } from "../types/index.js";
 import {
   createSymphonyCurrentFlowRouterAsync,
+  createSymphonyCurrentFlowDeliveryReportedSignal,
   createSymphonyCurrentFlowRunStartedSignal,
   createSymphonyCurrentFlowRuntimeCompletedSignal,
   createSymphonyCurrentFlowRuntimeStartupFailureSignal,
@@ -75,6 +76,42 @@ export const symphonyCurrentFlowReplayFixtures: ReadonlyArray<SymphonyCurrentFlo
       trackerState: "In Review",
       lastDispatchMode: "rework",
       lastRunMode: "rework",
+      lastRuntimeOutcome: null
+    }
+  },
+  {
+    name: "implementation_delivery_reported_to_review",
+    description:
+      "Implementation delivery reports route through the workflow journal before the tracker reaches review.",
+    workflowId: "SYM-207",
+    signals: [
+      observeTrackerState("signal_todo_observed", "Todo", 0),
+      runtimeRunStarted("signal_implementation_started", "implementation", 1),
+      runtimeDeliveryReported("signal_delivery_reported", "completed", 2)
+    ],
+    expected: {
+      currentNode: "review",
+      trackerState: "In Review",
+      lastDispatchMode: "implementation",
+      lastRunMode: "implementation",
+      lastRuntimeOutcome: null
+    }
+  },
+  {
+    name: "implementation_delivery_reported_blocked",
+    description:
+      "Blocked delivery reports route through workflow history and settle the tracker into Blocked.",
+    workflowId: "SYM-208",
+    signals: [
+      observeTrackerState("signal_todo_observed", "Todo", 0),
+      runtimeRunStarted("signal_implementation_started", "implementation", 1),
+      runtimeDeliveryReported("signal_delivery_blocked", "blocked", 2)
+    ],
+    expected: {
+      currentNode: "blocked",
+      trackerState: "Blocked",
+      lastDispatchMode: "implementation",
+      lastRunMode: "implementation",
       lastRuntimeOutcome: null
     }
   },
@@ -242,6 +279,21 @@ function runtimeCompleted(
         : "implementation",
     reason: null,
     causationId: null,
+    correlationId: null
+  });
+}
+
+function runtimeDeliveryReported(
+  id: string,
+  status: "completed" | "blocked" | "partial",
+  step: number
+): WorkflowSignal {
+  return createSymphonyCurrentFlowDeliveryReportedSignal({
+    id,
+    occurredAt: buildOccurredAt(step),
+    runId: "run-1",
+    status,
+    causationId: "run-1",
     correlationId: null
   });
 }

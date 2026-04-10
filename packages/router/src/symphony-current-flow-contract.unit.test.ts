@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   createSymphonyCurrentFlowDispatchCommand,
+  createSymphonyCurrentFlowDeliveryReportedSignal,
   createSymphonyCurrentFlowRunStartedSignal,
   createSymphonyCurrentFlowTrackerStateObservedSignal,
   createSymphonyCurrentFlowTrackerTransitionCommand,
   readSymphonyCurrentFlowDispatchCommand,
+  readSymphonyCurrentFlowDeliveryReportedSignal,
   readSymphonyCurrentFlowRunStartedSignal,
   readSymphonyCurrentFlowTrackerStateObservedSignal,
   readSymphonyCurrentFlowTrackerTransitionCommand
@@ -39,6 +41,20 @@ describe("Symphony current-flow contract", () => {
 
     expect(readSymphonyCurrentFlowTrackerStateObservedSignal(signal)).toBeNull();
     expect(readSymphonyCurrentFlowRunStartedSignal(signal)).toEqual(signal);
+  });
+
+  it("builds and reads runtime delivery reports with strict required fields", () => {
+    const signal = createSymphonyCurrentFlowDeliveryReportedSignal({
+      id: "signal_delivery_reported",
+      occurredAt: "2026-04-10T15:00:01.500Z",
+      runId: "run-300",
+      status: "completed",
+      causationId: "run-300",
+      correlationId: "SYM-300"
+    });
+
+    expect(readSymphonyCurrentFlowDeliveryReportedSignal(signal)).toEqual(signal);
+    expect(readSymphonyCurrentFlowRunStartedSignal(signal)).toBeNull();
   });
 
   it("fails fast when tracker observations omit required null fields", () => {

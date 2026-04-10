@@ -8,6 +8,7 @@ import { WorkflowEdge } from "./router-edge.js";
 import { WorkflowNode } from "./router-node.js";
 import {
   createSymphonyCurrentFlowDispatchCommand,
+  readSymphonyCurrentFlowDeliveryReportedSignal,
   createSymphonyCurrentFlowTrackerTransitionCommand,
   readSymphonyCurrentFlowDispatchCommand,
   readSymphonyCurrentFlowRuntimeCompletedSignal,
@@ -191,6 +192,22 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
         guard: ({ signal }) => signal.type === "runtime.startup_failure"
       }),
       new WorkflowEdge({
+        id: "implementation_delivery_reported_to_review",
+        from: "implementation",
+        to: "review",
+        reasonCode: "delivery_reported",
+        guard: ({ signal }) => isDeliveryReported(signal, "completed"),
+        commands: ({ signal }) => [createTrackerTransitionCommand(signal, "In Review")]
+      }),
+      new WorkflowEdge({
+        id: "rework_delivery_reported_to_review",
+        from: "rework",
+        to: "review",
+        reasonCode: "rework_delivery_reported",
+        guard: ({ signal }) => isDeliveryReported(signal, "completed"),
+        commands: ({ signal }) => [createTrackerTransitionCommand(signal, "In Review")]
+      }),
+      new WorkflowEdge({
         id: "implementation_to_review",
         from: "implementation",
         to: "review",
@@ -203,6 +220,20 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
         to: "review",
         reasonCode: "rework_delivery_recorded",
         guard: ({ signal }) => isObservedTrackerState(signal, "In Review")
+      }),
+      new WorkflowEdge({
+        id: "implementation_delivery_reported_to_blocked",
+        from: "implementation",
+        to: "blocked",
+        reasonCode: "implementation_delivery_blocked",
+        guard: ({ signal }) => isDeliveryReported(signal, "blocked")
+      }),
+      new WorkflowEdge({
+        id: "rework_delivery_reported_to_blocked",
+        from: "rework",
+        to: "blocked",
+        reasonCode: "rework_delivery_blocked",
+        guard: ({ signal }) => isDeliveryReported(signal, "blocked")
       }),
       ...buildObservedStateTerminalEdges("implementation"),
       ...buildObservedStateTerminalEdges("rework"),
@@ -402,6 +433,13 @@ function isRunStarted(
   runMode: SymphonyCurrentFlowRunMode
 ) {
   return readSymphonyCurrentFlowRunStartedSignal(signal)?.payload.runMode === runMode;
+}
+
+function isDeliveryReported(
+  signal: WorkflowSignal,
+  status: "completed" | "blocked"
+) {
+  return readSymphonyCurrentFlowDeliveryReportedSignal(signal)?.payload.status === status;
 }
 
 function hasCompletionKind(

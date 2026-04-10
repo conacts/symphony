@@ -233,6 +233,85 @@ describe("runtime tools", () => {
     database.close();
   });
 
+  it("uses a routed delivery transition callback instead of mutating the tracker directly", async () => {
+    const { database, deliveryReports } = await createRuntimeToolsTestContext({
+      issue: {
+        id: "issue-152",
+        identifier: "COL-152"
+      },
+      runId: "run-152",
+      turnId: "turn-152"
+    });
+    const transitionRequests: Array<{
+      issueIdentifier: string;
+      targetState: string;
+      currentState: string | null;
+    }> = [];
+    const tracker = {
+      async fetchCandidateIssues() {
+        return [];
+      },
+      async fetchIssuesByStates() {
+        return [];
+      },
+      async fetchIssueStatesByIds() {
+        return [];
+      },
+      async fetchIssueByIdentifier() {
+        return null;
+      },
+      async createComment() {
+        return;
+      },
+      async updateIssueState() {
+        throw new Error("tracker transition should be routed instead");
+      }
+    };
+
+    const result = await executeDeliveryReportTool(
+      {
+        tracker,
+        deliveryReports,
+        issue: {
+          trackerIssueId: "issue-152",
+          identifier: "COL-152",
+          state: "In Progress"
+        },
+        runId: "run-152",
+        turnId: "turn-152",
+        async transitionIssueState(request) {
+          transitionRequests.push({
+            issueIdentifier: request.issueIdentifier,
+            targetState: request.targetState,
+            currentState: request.currentState
+          });
+          return {
+            attempted: true,
+            targetState: request.targetState,
+            success: true,
+            reason: null
+          };
+        }
+      },
+      {
+        status: "completed",
+        summary: "Opened the PR and finished the requested work.",
+        prUrl: "https://github.com/openai/symphony/pull/152"
+      }
+    );
+
+    expect(result.success).toBe(true);
+    expect(transitionRequests).toEqual([
+      {
+        issueIdentifier: "COL-152",
+        targetState: "In Review",
+        currentState: "In Progress"
+      }
+    ]);
+
+    database.close();
+  });
+
   it("rejects completed delivery reports that omit the PR url", async () => {
     const { database, deliveryReports } = await createRuntimeToolsTestContext({
       issue: {

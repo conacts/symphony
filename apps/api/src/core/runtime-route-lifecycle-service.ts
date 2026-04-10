@@ -11,6 +11,10 @@ import {
   createRuntimeDispatchBootstrapRouter
 } from "./runtime-dispatch-bootstrap-routing.js";
 import {
+  createRuntimeDeliveryRouter,
+  type SymphonyDeliveryStatus
+} from "./runtime-delivery-routing.js";
+import {
   createRuntimeRunLifecycleRouter
 } from "./runtime-run-lifecycle-routing.js";
 import {
@@ -41,6 +45,12 @@ export type SymphonyRuntimeRouteLifecycleService = {
   dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
   runStartActivationRouter: SymphonyRunStartActivationRouter;
   runLifecycleRouter: SymphonyRunLifecycleRouter;
+  routeDeliveryReport(input: {
+    issueIdentifier: string;
+    runId: string;
+    recordedAt: string;
+    status: SymphonyDeliveryStatus;
+  }): Promise<boolean>;
   observeNonRunningTrackerStates(input: {
     claimedIssueIds: string[];
     recordedAt: string;
@@ -93,6 +103,11 @@ export async function createRuntimeRouteLifecycleService(input: {
       routing
     });
   const runLifecycleRouter = await createRuntimeRunLifecycleRouter({
+    routeWorkflows: input.routeWorkflows,
+    tracker: input.tracker,
+    routing
+  });
+  const deliveryRouter = await createRuntimeDeliveryRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
     routing
@@ -186,6 +201,23 @@ export async function createRuntimeRouteLifecycleService(input: {
     dispatchBootstrapRouter,
     runStartActivationRouter,
     runLifecycleRouter,
+    async routeDeliveryReport(deliveryInput) {
+      const issue = await input.tracker.fetchIssueByIdentifier(
+        input.trackerConfig,
+        deliveryInput.issueIdentifier
+      );
+      if (!issue) {
+        return false;
+      }
+
+      await deliveryRouter.routeDelivery({
+        issue,
+        runId: deliveryInput.runId,
+        recordedAt: deliveryInput.recordedAt,
+        status: deliveryInput.status
+      });
+      return true;
+    },
     observeNonRunningTrackerStates,
     observeTrackerStateByIdentifier,
     routeShutdownPause,

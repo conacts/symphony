@@ -32,6 +32,12 @@ const runModes = [
   "approved_merge"
 ] as const;
 
+const deliveryStatuses = [
+  "completed",
+  "blocked",
+  "partial"
+] as const;
+
 const completionKinds = [
   "delivered",
   "merged",
@@ -61,10 +67,12 @@ const nonStartupCompletionKinds = completionKinds.filter(
 
 export type SymphonyCurrentFlowTrackerState = (typeof trackerStates)[number];
 export type SymphonyCurrentFlowRunMode = (typeof runModes)[number];
+export type SymphonyCurrentFlowDeliveryStatus = (typeof deliveryStatuses)[number];
 export type SymphonyCurrentFlowCompletionKind = (typeof completionKinds)[number];
 
 const symphonyCurrentFlowTrackerStateSchema = z.enum(trackerStates);
 const symphonyCurrentFlowRunModeSchema = z.enum(runModes);
+const symphonyCurrentFlowDeliveryStatusSchema = z.enum(deliveryStatuses);
 const symphonyCurrentFlowCompletionKindSchema = z.enum(completionKinds);
 const symphonyCurrentFlowNonStartupCompletionKindSchema = z.enum(
   nonStartupCompletionKinds
@@ -82,6 +90,13 @@ const runStartedPayloadSchema = z
   .object({
     runId: workflowNullableIdSchema,
     runMode: symphonyCurrentFlowRunModeSchema
+  })
+  .strict();
+
+const deliveryReportedPayloadSchema = z
+  .object({
+    runId: z.string().trim().min(1),
+    status: symphonyCurrentFlowDeliveryStatusSchema
   })
   .strict();
 
@@ -126,6 +141,14 @@ const runStartedSignalSchema = workflowSignalSchema
     type: z.literal("runtime.run_started"),
     source: z.literal("runtime"),
     payload: runStartedPayloadSchema
+  })
+  .strict();
+
+const deliveryReportedSignalSchema = workflowSignalSchema
+  .extend({
+    type: z.literal("runtime.delivery_reported"),
+    source: z.literal("runtime"),
+    payload: deliveryReportedPayloadSchema
   })
   .strict();
 
@@ -183,6 +206,11 @@ export type SymphonyCurrentFlowTrackerStateObservedSignal = WorkflowSignal<
 export type SymphonyCurrentFlowRunStartedSignal = WorkflowSignal<
   "runtime.run_started",
   z.infer<typeof runStartedPayloadSchema>
+>;
+
+export type SymphonyCurrentFlowDeliveryReportedSignal = WorkflowSignal<
+  "runtime.delivery_reported",
+  z.infer<typeof deliveryReportedPayloadSchema>
 >;
 
 export type SymphonyCurrentFlowRuntimeCompletedSignal = WorkflowSignal<
@@ -250,6 +278,28 @@ export function createSymphonyCurrentFlowRunStartedSignal(input: {
     payload: {
       runId: input.runId,
       runMode: input.runMode
+    },
+    causationId: input.causationId,
+    correlationId: input.correlationId
+  });
+}
+
+export function createSymphonyCurrentFlowDeliveryReportedSignal(input: {
+  id: string;
+  occurredAt: string;
+  runId: string;
+  status: SymphonyCurrentFlowDeliveryStatus;
+  causationId: string | null;
+  correlationId: string | null;
+}): SymphonyCurrentFlowDeliveryReportedSignal {
+  return deliveryReportedSignalSchema.parse({
+    id: input.id,
+    type: "runtime.delivery_reported",
+    source: "runtime",
+    occurredAt: input.occurredAt,
+    payload: {
+      runId: input.runId,
+      status: input.status
     },
     causationId: input.causationId,
     correlationId: input.correlationId
@@ -413,6 +463,17 @@ export function readSymphonyCurrentFlowRunStartedSignal(
   });
 }
 
+export function readSymphonyCurrentFlowDeliveryReportedSignal(
+  signal: WorkflowSignal
+): SymphonyCurrentFlowDeliveryReportedSignal | null {
+  return readSignal({
+    signal,
+    expectedType: "runtime.delivery_reported",
+    schema: deliveryReportedSignalSchema,
+    label: "runtime.delivery_reported"
+  });
+}
+
 export function readSymphonyCurrentFlowRuntimeCompletedSignal(
   signal: WorkflowSignal
 ): SymphonyCurrentFlowRuntimeCompletedSignal | null {
@@ -511,6 +572,7 @@ function readCommand<TCommand extends WorkflowCommand>(
 }
 
 export {
+  symphonyCurrentFlowDeliveryStatusSchema,
   symphonyCurrentFlowCompletionKindSchema,
   symphonyCurrentFlowNonStartupCompletionKindSchema,
   symphonyCurrentFlowRunModeSchema,

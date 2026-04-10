@@ -59,6 +59,7 @@ export type {
 } from "./symphony-current-flow-router.js";
 export {
   createSymphonyCurrentFlowDispatchCommand,
+  createSymphonyCurrentFlowDeliveryReportedSignal,
   parseSymphonyCurrentFlowRunMode,
   parseSymphonyCurrentFlowTrackerState,
   createSymphonyCurrentFlowRunStartedSignal,
@@ -68,12 +69,14 @@ export {
   createSymphonyCurrentFlowTrackerStateObservedSignal,
   createSymphonyCurrentFlowTrackerTransitionCommand,
   readSymphonyCurrentFlowDispatchCommand,
+  readSymphonyCurrentFlowDeliveryReportedSignal,
   readSymphonyCurrentFlowRunStartedSignal,
   readSymphonyCurrentFlowRuntimeCompletedSignal,
   readSymphonyCurrentFlowRuntimeStartupFailureSignal,
   readSymphonyCurrentFlowShutdownRequestedSignal,
   readSymphonyCurrentFlowTrackerStateObservedSignal,
   readSymphonyCurrentFlowTrackerTransitionCommand,
+  symphonyCurrentFlowDeliveryStatusSchema,
   symphonyCurrentFlowCompletionKindSchema,
   symphonyCurrentFlowNonStartupCompletionKindSchema,
   symphonyCurrentFlowRunModeSchema,
@@ -81,6 +84,8 @@ export {
 } from "./symphony-current-flow-contract.js";
 export type {
   SymphonyCurrentFlowCompletionKind,
+  SymphonyCurrentFlowDeliveryReportedSignal,
+  SymphonyCurrentFlowDeliveryStatus,
   SymphonyCurrentFlowDispatchCommand,
   SymphonyCurrentFlowRunMode,
   SymphonyCurrentFlowRunStartedSignal,

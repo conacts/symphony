@@ -557,4 +557,56 @@ describe("Symphony current-flow router fixture", () => {
       }
     ]);
   });
+
+  it("routes delivery reports through an explicit runtime signal before review is observed", async () => {
+    const fixture = symphonyCurrentFlowReplayFixtures.find(
+      (candidate) => candidate.name === "implementation_delivery_reported_to_review"
+    );
+    if (!fixture) {
+      throw new TypeError("Missing implementation delivery replay fixture.");
+    }
+
+    const replay = await replaySymphonyCurrentFlowFixture(fixture);
+    const deliveryStep = replay.results[2];
+
+    expect(deliveryStep?.decision.fromNode).toBe("implementation");
+    expect(deliveryStep?.decision.toNode).toBe("review");
+    expect(deliveryStep?.decision.reasonCode).toBe("delivery_reported");
+    expect(deliveryStep?.decision.commands).toEqual([
+      {
+        id: "command_signal_delivery_reported_tracker_in_review",
+        kind: "tracker.transition",
+        dedupeKey: null,
+        payload: {
+          state: "In Review"
+        }
+      }
+    ]);
+  });
+
+  it("routes blocked delivery reports through workflow history before runtime completion settles", async () => {
+    const fixture = symphonyCurrentFlowReplayFixtures.find(
+      (candidate) => candidate.name === "implementation_delivery_reported_blocked"
+    );
+    if (!fixture) {
+      throw new TypeError("Missing blocked delivery replay fixture.");
+    }
+
+    const replay = await replaySymphonyCurrentFlowFixture(fixture);
+    const deliveryStep = replay.results[2];
+
+    expect(deliveryStep?.decision.fromNode).toBe("implementation");
+    expect(deliveryStep?.decision.toNode).toBe("blocked");
+    expect(deliveryStep?.decision.reasonCode).toBe("implementation_delivery_blocked");
+    expect(deliveryStep?.decision.commands).toEqual([
+      {
+        id: "command_signal_delivery_blocked_tracker_blocked",
+        kind: "tracker.transition",
+        dedupeKey: null,
+        payload: {
+          state: "Blocked"
+        }
+      }
+    ]);
+  });
 });

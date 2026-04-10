@@ -331,6 +331,66 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("routes delivery reports through route history for active implementation runs", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToRunningImplementation(harness);
+
+      const routed = await harness.service.routeDeliveryReport({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        recordedAt: "2026-04-10T14:12:00.000Z",
+        status: "completed"
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Review");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("review");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("In Review");
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("routes blocked delivery reports through route history for active implementation runs", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToRunningImplementation(harness);
+
+      const routed = await harness.service.routeDeliveryReport({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        recordedAt: "2026-04-10T14:12:10.000Z",
+        status: "blocked"
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Blocked");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("blocked");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Blocked");
+    } finally {
+      harness.close();
+    }
+  });
+
   it("fails fast when a persisted workflow has no active run mode", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -499,5 +559,26 @@ async function advanceWorkflowToReview(harness: Awaited<ReturnType<typeof create
   await harness.service.observeActiveIssueStateByIdentifier({
     issueIdentifier: harness.issue.identifier,
     recordedAt: "2026-04-10T14:00:10.000Z"
+  });
+}
+
+async function advanceWorkflowToRunningImplementation(
+  harness: Awaited<ReturnType<typeof createHarness>>
+) {
+  await harness.service.dispatchBootstrapRouter.route({
+    issue: harness.issue,
+    attempt: 1,
+    preferredWorkerHost: null,
+    startedAt: "2026-04-10T14:11:00.000Z"
+  });
+  const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
+  await harness.service.runStartActivationRouter.activate({
+    issue: bootstrappingIssue!,
+    runId: "run-1",
+    runMode: "implementation",
+    threadId: "thread-1",
+    workerHost: null,
+    launchTarget: null,
+    recordedAt: "2026-04-10T14:11:05.000Z"
   });
 }

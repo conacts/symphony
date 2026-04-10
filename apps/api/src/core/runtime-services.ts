@@ -487,7 +487,34 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           runId: input.runId,
           turnId: input.turnId,
           blockedTargetState: runtimePolicy.tracker.blockedTransitionToState,
-          onIssueStateTransition: observeRouteLifecycleTransition
+          async transitionIssueState(request) {
+            const status =
+              request.targetState === "In Review"
+                ? "completed"
+                : request.targetState === runtimePolicy.tracker.blockedTransitionToState
+                  ? "blocked"
+                  : null;
+            if (!status) {
+              throw new TypeError(
+                `Delivery routing does not support target state ${request.targetState}.`
+              );
+            }
+
+            const routed = await routeLifecycle.routeDeliveryReport({
+              issueIdentifier: request.issueIdentifier,
+              runId: input.runId,
+              recordedAt: request.recordedAt,
+              status
+            });
+            return {
+              attempted: true,
+              targetState: request.targetState,
+              success: routed,
+              reason: routed
+                ? null
+                : `Route workflow-backed delivery routing could not load ${request.issueIdentifier}.`
+            };
+          }
         },
         input.argumentsPayload
       );
