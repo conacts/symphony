@@ -15,6 +15,9 @@ export function createRuntimeOrchestratorPort(input: {
   logger: SymphonyLogger;
   runtimeLogs: SymphonyRuntimeLogStore;
   realtime: SymphonyRealtimeHub;
+  beforePollCycle?(
+    snapshot: SymphonyOrchestratorSnapshot
+  ): Promise<void> | void;
 }): SymphonyRuntimeOrchestratorPort {
   let inFlightPollCycle: Promise<SymphonyOrchestratorSnapshot> | null = null;
   let manualRefreshQueued = false;
@@ -97,8 +100,10 @@ export function createRuntimeOrchestratorPort(input: {
         return await inFlightPollCycle;
       }
 
-      const previousSnapshot = input.runtime.snapshot();
+      const snapshotBeforePreparation = input.runtime.snapshot();
       inFlightPollCycle = (async () => {
+        await input.beforePollCycle?.(snapshotBeforePreparation);
+        const previousSnapshot = input.runtime.snapshot();
         input.logger.info("Starting orchestrator poll cycle", {
           runningCount: previousSnapshot.running.length,
           retryingCount: previousSnapshot.retrying.length

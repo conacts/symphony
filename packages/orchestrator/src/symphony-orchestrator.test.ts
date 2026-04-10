@@ -397,6 +397,7 @@ describe("symphony orchestrator", () => {
       })
     ]);
     expect(lifecycleEvents).toContain("runtime_startup_failed");
+    expect(lifecycleEvents).toContain("startup_failure_transition");
   });
 
   it("routes running issue state changes through the lifecycle router before stopping the run", async () => {
@@ -462,6 +463,7 @@ describe("symphony orchestrator", () => {
     });
     const tracker = createMemorySymphonyTracker([issue]);
     const routedCompletions: string[] = [];
+    const lifecycleEvents: string[] = [];
 
     const orchestrator = new SymphonyOrchestrator({
       config: buildSymphonyOrchestratorConfig({
@@ -496,6 +498,18 @@ describe("symphony orchestrator", () => {
           };
         }
       },
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push(input.eventType);
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      },
       clock: {
         now: () => new Date("2026-03-31T00:00:00.000Z"),
         nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
@@ -510,6 +524,7 @@ describe("symphony orchestrator", () => {
 
     expect(routedCompletions).toEqual(["blocked"]);
     expect(tracker.getIssue(issue.id)?.state).toBe("Blocked");
+    expect(lifecycleEvents).toContain("blocked_transition");
     expect(
       tracker
         .listOperations()
@@ -518,6 +533,86 @@ describe("symphony orchestrator", () => {
             operation.kind === "update_state" &&
             operation.issueId === issue.id &&
             operation.stateName === "Blocked"
+        )
+    ).toHaveLength(1);
+  });
+
+  it("routes approved merge completions through the lifecycle router before final cleanup", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "Approved"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const routedCompletions: string[] = [];
+    const lifecycleEvents: string[] = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      config: buildSymphonyOrchestratorConfig({
+        tracker: {
+          claimTransitionToState: null,
+          claimTransitionFromStates: []
+        }
+      }),
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      runLifecycleRouter: {
+        async observeIssueState(input) {
+          return {
+            issue: input.issue
+          };
+        },
+        async routeCompletion(input) {
+          routedCompletions.push(input.completion.kind);
+          await tracker.updateIssueState(input.issue.id, "Done");
+          return {
+            issue: {
+              ...input.issue,
+              state: "Done"
+            }
+          };
+        }
+      },
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push(input.eventType);
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.runPollCycle();
+    await orchestrator.handleRunCompletion(issue.id, {
+      kind: "merged"
+    });
+
+    expect(routedCompletions).toEqual(["merged"]);
+    expect(tracker.getIssue(issue.id)?.state).toBe("Done");
+    expect(lifecycleEvents).toContain("approved_merge_transition");
+    expect(lifecycleEvents).toContain("done_transition");
+    expect(
+      tracker
+        .listOperations()
+        .filter(
+          (operation) =>
+            operation.kind === "update_state" &&
+            operation.issueId === issue.id &&
+            operation.stateName === "Done"
         )
     ).toHaveLength(1);
   });

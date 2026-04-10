@@ -108,6 +108,114 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("observes non-running tracker states in batch before dispatch", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      const dispatchRequests: Array<{
+        workflowId: string;
+        issueState: string;
+        runMode: string;
+      }> = [];
+
+      const observedCount = await harness.service.observeNonRunningTrackerStates({
+        claimedIssueIds: [],
+        recordedAt: "2026-04-10T14:00:12.000Z",
+        onDispatchRequested: async (input) => {
+          dispatchRequests.push({
+            workflowId: input.workflowId,
+            issueState: input.issue.state,
+            runMode: input.runMode
+          });
+        }
+      });
+
+      expect(observedCount).toBe(1);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
+      expect(dispatchRequests).toEqual([
+        {
+          workflowId: expect.any(String),
+          issueState: "Bootstrapping",
+          runMode: "implementation"
+        }
+      ]);
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("bootstrapping");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Bootstrapping");
+      expect(hydration?.snapshot?.projection.data.lastDispatchMode).toBe(
+        "implementation"
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("skips unchanged non-running tracker states that are already reflected in route history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToReview(harness);
+
+      const before = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      const observedCount = await harness.service.observeNonRunningTrackerStates({
+        claimedIssueIds: [],
+        recordedAt: "2026-04-10T14:00:11.000Z",
+        onDispatchRequested: async () => {}
+      });
+      const after = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+
+      expect(observedCount).toBe(0);
+      expect(after?.snapshot?.eventSequence).toBe(before?.snapshot?.eventSequence ?? null);
+      expect(after?.snapshot?.projection.currentNode).toBe("review");
+      expect(after?.snapshot?.projection.data.trackerState).toBe("In Review");
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("skips claimed issues during non-running tracker observation", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      const observedCount = await harness.service.observeNonRunningTrackerStates({
+        claimedIssueIds: [harness.issue.id],
+        recordedAt: "2026-04-10T14:00:12.000Z",
+        onDispatchRequested: async () => {}
+      });
+
+      expect(observedCount).toBe(0);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Todo");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration).toBeNull();
+    } finally {
+      harness.close();
+    }
+  });
+
   it("fails fast when non-running observation emits run.dispatch without a callback", async () => {
     const harness = await createHarness({
       state: "Todo"

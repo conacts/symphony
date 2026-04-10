@@ -435,7 +435,14 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runtime,
     logger,
     runtimeLogs: runtimeLogStore,
-    realtime
+    realtime,
+    async beforePollCycle(snapshot) {
+      await routeLifecycle.observeNonRunningTrackerStates({
+        claimedIssueIds: snapshot.claimedIssueIds,
+        recordedAt: new Date().toISOString(),
+        onDispatchRequested: async () => {}
+      });
+    }
   });
 
   let pollScheduler: SymphonyRuntimePollScheduler | null = null;

@@ -33,11 +33,21 @@ import type {
   SymphonyTracker,
   SymphonyTrackerConfig
 } from "@symphony/tracker";
+import {
+  normalizeIssueState
+} from "@symphony/tracker";
 
 export type SymphonyRuntimeRouteLifecycleService = {
   dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
   runStartActivationRouter: SymphonyRunStartActivationRouter;
   runLifecycleRouter: SymphonyRunLifecycleRouter;
+  observeNonRunningTrackerStates(input: {
+    claimedIssueIds: string[];
+    recordedAt: string;
+    onDispatchRequested?(
+      input: SymphonyTrackerStateDispatchRequest
+    ): Promise<void> | void;
+  }): Promise<number>;
   observeTrackerStateByIdentifier(input: {
     issueIdentifier: string;
     recordedAt: string;
@@ -100,6 +110,48 @@ export async function createRuntimeRouteLifecycleService(input: {
       repositoryKey: input.repositoryKey,
       routing
     });
+  const observeNonRunningTrackerStates: SymphonyRuntimeRouteLifecycleService["observeNonRunningTrackerStates"] =
+    async (observationInput) => {
+      const claimedIssueIds = new Set(observationInput.claimedIssueIds);
+      const issues = (
+        await input.tracker.fetchIssuesByStates(
+          input.trackerConfig,
+          [...nonRunningTrackerObservationStates]
+        )
+      )
+        .filter((issue) => !claimedIssueIds.has(issue.id))
+        .sort((left, right) => left.identifier.localeCompare(right.identifier));
+      let observedCount = 0;
+
+      for (const issue of issues) {
+        const hydration =
+          await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
+            SymphonyCurrentFlowNode,
+            SymphonyCurrentFlowData,
+            SymphonyCurrentFlowPolicy
+          >(issue.identifier);
+        if (
+          !shouldObserveNonRunningTrackerState({
+            issue,
+            hydration
+          })
+        ) {
+          continue;
+        }
+
+        const observed = await trackerStateObservationRouter.observe({
+          observationKind: "idle",
+          issueIdentifier: issue.identifier,
+          recordedAt: observationInput.recordedAt,
+          onDispatchRequested: observationInput.onDispatchRequested
+        });
+        if (observed) {
+          observedCount += 1;
+        }
+      }
+
+      return observedCount;
+    };
   const observeTrackerStateByIdentifier: SymphonyRuntimeRouteLifecycleService["observeTrackerStateByIdentifier"] =
     async (observationInput) => {
       const observed = await trackerStateObservationRouter.observe(
@@ -134,6 +186,7 @@ export async function createRuntimeRouteLifecycleService(input: {
     dispatchBootstrapRouter,
     runStartActivationRouter,
     runLifecycleRouter,
+    observeNonRunningTrackerStates,
     observeTrackerStateByIdentifier,
     routeShutdownPause,
     async observeActiveIssueStateByIdentifier(observationInput) {
@@ -158,6 +211,49 @@ export async function createRuntimeRouteLifecycleService(input: {
       return observed !== null;
     }
   };
+}
+
+const nonRunningTrackerSeedStates = [
+  "Todo",
+  "Bootstrapping",
+  "In Review",
+  "Rework",
+  "Approved"
+] as const;
+
+const nonRunningTrackerObservationStates = [
+  ...nonRunningTrackerSeedStates,
+  "Paused",
+  "Blocked",
+  "Failed"
+] as const;
+
+function shouldObserveNonRunningTrackerState(input: {
+  issue: {
+    state: string;
+  };
+  hydration: {
+    snapshot: {
+      projection: {
+        data: SymphonyCurrentFlowData;
+      };
+    } | null;
+  } | null;
+}): boolean {
+  const observedState = normalizeIssueState(input.issue.state);
+  const hydratedState = input.hydration?.snapshot?.projection.data.trackerState;
+
+  if (hydratedState && normalizeIssueState(hydratedState) === observedState) {
+    return false;
+  }
+
+  if (input.hydration) {
+    return true;
+  }
+
+  return nonRunningTrackerSeedStates.some(
+    (state) => normalizeIssueState(state) === observedState
+  );
 }
 
 function resolveActiveRunMode(
