@@ -69,6 +69,9 @@ import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-se
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import {
+  createWorkflowDispatchTracker
+} from "./runtime-workflow-dispatch-tracker.js";
+import {
   executeCancelTool,
   executeDeliveryReportTool,
   executeMergeResultTool,
@@ -256,6 +259,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     repositoryKey,
     now: undefined
   });
+  const runtimeTracker = createWorkflowDispatchTracker({
+    tracker
+  });
 
   const workspaceBackendSelections =
     admittedRepositories.length > 0
@@ -428,7 +434,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   );
   const runtime = createSymphonyRuntime({
     runtimePolicy,
-    tracker,
+    tracker: runtimeTracker,
     workspaceBackend,
     observer,
     agentRuntime,

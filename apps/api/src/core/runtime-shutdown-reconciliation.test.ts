@@ -132,10 +132,7 @@ describe("runtime shutdown reconciliation", () => {
         }
       );
       expect(issueTimeline.map((entry) => entry.eventType)).toEqual(
-        expect.arrayContaining([
-          "shutdown_pause_transition",
-          "runtime_shutdown_reconciled"
-        ])
+        expect.arrayContaining(["runtime_shutdown_reconciled"])
       );
     } finally {
       database.close();

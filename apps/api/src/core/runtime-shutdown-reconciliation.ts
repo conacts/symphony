@@ -64,7 +64,6 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
       routeLifecycle: input.routeLifecycle,
       trackedIssue,
       runMode: readPersistedRunMode(run.metadataJson),
-      issueTimelineStore: input.issueTimelineStore,
       runId: run.runId,
       endedAt,
       shutdownReason: input.shutdownReason
@@ -154,7 +153,6 @@ async function reconcileTrackerIssueOnShutdown(input: {
   routeLifecycle: Pick<SymphonyRuntimeRouteLifecycleService, "routeShutdownPause">;
   trackedIssue: Awaited<ReturnType<SymphonyTracker["fetchIssueStatesByIds"]>>[number] | null;
   runMode: SymphonyRunMode;
-  issueTimelineStore: ReturnType<typeof createSymphonyIssueTimelineStore>;
   runId: string;
   endedAt: string;
   shutdownReason: string;
@@ -174,20 +172,6 @@ async function reconcileTrackerIssueOnShutdown(input: {
     if (!routed) {
       return;
     }
-
-    await input.issueTimelineStore.record({
-      issueIdentifier: input.trackedIssue.identifier,
-      runId: input.runId,
-      source: "tracker",
-      eventType: "shutdown_pause_transition",
-      message: "Issue moved to the paused state during runtime shutdown.",
-      payload: {
-        fromState: input.trackedIssue.state,
-        toState: "Paused",
-        shutdownReason: input.shutdownReason
-      },
-      recordedAt: input.endedAt
-    });
   } catch {
     // Best-effort containment. The run is still reconciled locally even if tracker state fails.
   }

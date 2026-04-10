@@ -220,33 +220,40 @@ async function recordStartupFailureTransitionEvent(input: {
   runId: string | null;
   transition: SymphonyFailureStateTransition;
 }): Promise<void> {
-  if (input.transition.kind === "moved") {
-    await input.observer?.recordLifecycleEvent({
-      issue: input.effectiveIssue,
-      runId: input.runId,
-      source: "tracker",
-      eventType: "startup_failure_transition",
-      message: `Issue moved to ${input.transition.targetState} after startup failure.`,
-      payload: {
-        fromState: input.issue.state,
-        toState: input.effectiveIssue.state
-      }
-    });
-    return;
+  switch (input.transition.kind) {
+    case "none":
+      return;
+    case "moved":
+      await input.observer?.recordLifecycleEvent({
+        issue: input.effectiveIssue,
+        runId: input.runId,
+        source: "tracker",
+        eventType: "startup_failure_transition",
+        message: `Issue moved to ${input.transition.targetState} after startup failure.`,
+        payload: {
+          fromState: input.issue.state,
+          toState: input.effectiveIssue.state
+        }
+      });
+      return;
+    case "failed":
+      await input.observer?.recordLifecycleEvent({
+        issue: input.issue,
+        runId: input.runId,
+        source: "tracker",
+        eventType: "startup_failure_transition_failed",
+        message: `Issue could not be moved to ${input.transition.targetState} after startup failure.`,
+        payload: {
+          fromState: input.issue.state,
+          toState: input.transition.targetState,
+          reason: input.transition.reason
+        }
+      });
+      return;
   }
 
-  if (input.transition.kind === "failed") {
-    await input.observer?.recordLifecycleEvent({
-      issue: input.issue,
-      runId: input.runId,
-      source: "tracker",
-      eventType: "startup_failure_transition_failed",
-      message: `Issue could not be moved to ${input.transition.targetState} after startup failure.`,
-      payload: {
-        fromState: input.issue.state,
-        toState: input.transition.targetState,
-        reason: input.transition.reason
-      }
-    });
-  }
+  const exhaustiveTransition: never = input.transition;
+  throw new TypeError(
+    `Unhandled startup failure transition: ${JSON.stringify(exhaustiveTransition)}`
+  );
 }
