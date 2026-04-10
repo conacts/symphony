@@ -53,13 +53,44 @@ export {
   createSymphonyCurrentFlowRouterDefinition
 } from "./symphony-current-flow-router.js";
 export type {
-  SymphonyCurrentFlowCompletionKind,
   SymphonyCurrentFlowData,
   SymphonyCurrentFlowNode,
-  SymphonyCurrentFlowPolicy,
-  SymphonyCurrentFlowRunMode,
-  SymphonyCurrentFlowTrackerState
+  SymphonyCurrentFlowPolicy
 } from "./symphony-current-flow-router.js";
+export {
+  createSymphonyCurrentFlowDispatchCommand,
+  parseSymphonyCurrentFlowRunMode,
+  parseSymphonyCurrentFlowTrackerState,
+  createSymphonyCurrentFlowRunStartedSignal,
+  createSymphonyCurrentFlowRuntimeCompletedSignal,
+  createSymphonyCurrentFlowRuntimeStartupFailureSignal,
+  createSymphonyCurrentFlowShutdownRequestedSignal,
+  createSymphonyCurrentFlowTrackerStateObservedSignal,
+  createSymphonyCurrentFlowTrackerTransitionCommand,
+  readSymphonyCurrentFlowDispatchCommand,
+  readSymphonyCurrentFlowRunStartedSignal,
+  readSymphonyCurrentFlowRuntimeCompletedSignal,
+  readSymphonyCurrentFlowRuntimeStartupFailureSignal,
+  readSymphonyCurrentFlowShutdownRequestedSignal,
+  readSymphonyCurrentFlowTrackerStateObservedSignal,
+  readSymphonyCurrentFlowTrackerTransitionCommand,
+  symphonyCurrentFlowCompletionKindSchema,
+  symphonyCurrentFlowNonStartupCompletionKindSchema,
+  symphonyCurrentFlowRunModeSchema,
+  symphonyCurrentFlowTrackerStateSchema
+} from "./symphony-current-flow-contract.js";
+export type {
+  SymphonyCurrentFlowCompletionKind,
+  SymphonyCurrentFlowDispatchCommand,
+  SymphonyCurrentFlowRunMode,
+  SymphonyCurrentFlowRunStartedSignal,
+  SymphonyCurrentFlowRuntimeCompletedSignal,
+  SymphonyCurrentFlowRuntimeStartupFailureSignal,
+  SymphonyCurrentFlowShutdownRequestedSignal,
+  SymphonyCurrentFlowTrackerState,
+  SymphonyCurrentFlowTrackerStateObservedSignal,
+  SymphonyCurrentFlowTrackerTransitionCommand
+} from "./symphony-current-flow-contract.js";
 export type {
   RouterStrategy,
   WorkflowCandidateEdge,

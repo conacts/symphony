@@ -117,12 +117,11 @@ export type RouteWorkflowHydrationState<
 
 export interface RouteWorkflowStore {
   createWorkflow(input: {
-    workflowId?: string;
     repositoryKey: string;
     issueIdentifier: string;
     routerName: string;
     routerVersion: string;
-    createdAt?: string;
+    createdAt: string;
   }): Promise<string>;
   getWorkflow(workflowId: string): Promise<RouteWorkflowRecord | null>;
   getWorkflowForIssue(issueIdentifier: string): Promise<RouteWorkflowRecord | null>;
@@ -172,14 +171,22 @@ export interface RouteWorkflowStore {
   }>;
   appendHistoryEvent<
     Node extends WorkflowNodeId,
+  >(input: {
+    workflowId: string;
+    event: WorkflowJournalEvent<Node>;
+  }): Promise<{
+    historyEvent: RouteHistoryEventRecord<Node>;
+  }>;
+  appendHistoryEventWithSnapshot<
+    Node extends WorkflowNodeId,
     Data = unknown,
   >(input: {
     workflowId: string;
     event: WorkflowJournalEvent<Node>;
-    projection?: WorkflowProjection<Node, Data>;
+    projection: WorkflowProjection<Node, Data>;
   }): Promise<{
     historyEvent: RouteHistoryEventRecord<Node>;
-    snapshot: RouteProjectionSnapshotRecord<Node, Data> | null;
+    snapshot: RouteProjectionSnapshotRecord<Node, Data>;
   }>;
 }
 
@@ -199,19 +206,18 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
   }
 
   async createWorkflow(input: {
-    workflowId?: string;
     repositoryKey: string;
     issueIdentifier: string;
     routerName: string;
     routerVersion: string;
-    createdAt?: string;
+    createdAt: string;
   }): Promise<string> {
-    const workflowId = sanitizeText(input.workflowId) ?? randomUUID();
+    const workflowId = randomUUID();
     const repositoryKey = sanitizeRequiredText(input.repositoryKey, "repositoryKey");
     const issueIdentifier = sanitizeRequiredText(input.issueIdentifier, "issueIdentifier");
     const routerName = sanitizeRequiredText(input.routerName, "routerName");
     const routerVersion = sanitizeRequiredText(input.routerVersion, "routerVersion");
-    const now = normalizeIsoTimestamp(input.createdAt) ?? new Date().toISOString();
+    const now = sanitizeRequiredText(input.createdAt, "createdAt");
 
     try {
       this.#db.insert(routeWorkflowsTable)
@@ -485,7 +491,10 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
         projectionAfter: input.result.projectionAfter,
         commands: input.result.decision.commands,
         trace: input.result.decision.trace,
-        selectionMetadata: input.result.decision.selectionMetadata ?? null,
+        selectionMetadata: requireNullableRecord(
+          input.result.decision.selectionMetadata,
+          "decision.selectionMetadata"
+        ),
         recordedAt: decisionEvent.recordedAt,
         insertedAt: now
       };
@@ -550,6 +559,47 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
   }
 
   async appendHistoryEvent<
+    Node extends WorkflowNodeId,
+  >(input: {
+    workflowId: string;
+    event: WorkflowJournalEvent<Node>;
+  }): Promise<{
+    historyEvent: RouteHistoryEventRecord<Node>;
+  }> {
+    return await this.#appendHistoryEvent({
+      workflowId: input.workflowId,
+      event: input.event
+    });
+  }
+
+  async appendHistoryEventWithSnapshot<
+    Node extends WorkflowNodeId,
+    Data = unknown,
+  >(input: {
+    workflowId: string;
+    event: WorkflowJournalEvent<Node>;
+    projection: WorkflowProjection<Node, Data>;
+  }): Promise<{
+    historyEvent: RouteHistoryEventRecord<Node>;
+    snapshot: RouteProjectionSnapshotRecord<Node, Data>;
+  }> {
+    const appended = await this.#appendHistoryEvent({
+      workflowId: input.workflowId,
+      event: input.event,
+      projection: input.projection
+    });
+
+    return {
+      historyEvent: appended.historyEvent,
+      snapshot: appended.snapshot ?? (() => {
+        throw new TypeError(
+          `Route workflow ${input.workflowId} did not persist a snapshot for appendHistoryEventWithSnapshot.`
+        );
+      })()
+    };
+  }
+
+  async #appendHistoryEvent<
     Node extends WorkflowNodeId,
     Data = unknown,
   >(input: {
@@ -1008,10 +1058,6 @@ function assertProjectionWorkflowId(
   }
 }
 
-function normalizeIsoTimestamp(value: string | undefined): string | null {
-  return sanitizeText(value);
-}
-
 function sanitizeEventSequence(value: number, field: string): number {
   if (!Number.isInteger(value) || value < 0) {
     throw new TypeError(`${field} must be a non-negative integer.`);
@@ -1027,6 +1073,17 @@ function requireOptionalText(value: string | undefined, field: string): string {
   }
 
   return normalized;
+}
+
+function requireNullableRecord(
+  value: Record<string, unknown> | null | undefined,
+  field: string
+): Record<string, unknown> | null {
+  if (value === undefined) {
+    throw new TypeError(`${field} is required.`);
+  }
+
+  return value;
 }
 
 function sanitizeRequiredText(value: string | null | undefined, field: string): string {

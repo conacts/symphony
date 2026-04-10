@@ -7,8 +7,13 @@ import {
 import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type { SymphonyTracker } from "@symphony/tracker";
+import { z } from "zod";
 import { SymphonyRuntimePollScheduler } from "./poll-scheduler.js";
 import type { SymphonyRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
+
+const persistedRunMetadataSchema = z.object({
+  runMode: z.enum(["implementation", "rework", "approved_merge"])
+});
 
 export async function reconcilePersistedActiveRunsOnShutdown(input: {
   database: ReturnType<typeof initializeSymphonyDb>;
@@ -193,16 +198,5 @@ function readPersistedRunMode(metadataJson: string | null): SymphonyRunMode {
     throw new TypeError("Persisted active run is missing metadata.runMode.");
   }
 
-  const metadata = JSON.parse(metadataJson) as {
-    runMode?: unknown;
-  };
-  if (
-    metadata.runMode !== "implementation" &&
-    metadata.runMode !== "rework" &&
-    metadata.runMode !== "approved_merge"
-  ) {
-    throw new TypeError("Persisted active run is missing a supported metadata.runMode.");
-  }
-
-  return metadata.runMode;
+  return persistedRunMetadataSchema.parse(JSON.parse(metadataJson)).runMode;
 }

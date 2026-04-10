@@ -54,11 +54,11 @@ describe("route workflow store", () => {
       });
 
       const workflowId = await routeStore.createWorkflow({
-        workflowId: "workflow-300",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-300",
         routerName: "symphony-current-flow",
-        routerVersion: "1"
+        routerVersion: "1",
+        createdAt: "2026-04-09T22:59:00.000Z"
       });
 
       const persisted = await routeStore.recordRouteResult({
@@ -118,11 +118,11 @@ describe("route workflow store", () => {
       });
 
       const workflowId = await routeStore.createWorkflow({
-        workflowId: "workflow-301",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-301",
         routerName: "symphony-current-flow",
-        routerVersion: "1"
+        routerVersion: "1",
+        createdAt: "2026-04-09T22:59:00.000Z"
       });
 
       await routeStore.recordRouteResult({
@@ -133,7 +133,7 @@ describe("route workflow store", () => {
         result: buildRouteResult(workflowId)
       });
 
-      const appended = await routeStore.appendHistoryEvent<TestNode, TestData>({
+      const appended = await routeStore.appendHistoryEventWithSnapshot<TestNode, TestData>({
         workflowId,
         event: {
           kind: "command_settled",
@@ -177,11 +177,11 @@ describe("route workflow store", () => {
       });
 
       const workflowId = await routeStore.createWorkflow({
-        workflowId: "workflow-301A",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-301A",
         routerName: "symphony-current-flow",
-        routerVersion: "1"
+        routerVersion: "1",
+        createdAt: "2026-04-09T22:59:00.000Z"
       });
 
       await routeStore.recordRouteResult({
@@ -253,11 +253,11 @@ describe("route workflow store", () => {
       });
 
       const workflowId = await routeStore.createWorkflow({
-        workflowId: "workflow-301B",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-301B",
         routerName: "symphony-current-flow",
-        routerVersion: "1"
+        routerVersion: "1",
+        createdAt: "2026-04-09T22:59:00.000Z"
       });
 
       const hydrationState = await routeStore.loadWorkflowHydrationState<
@@ -294,20 +294,20 @@ describe("route workflow store", () => {
       });
 
       await routeStore.createWorkflow({
-        workflowId: "workflow-302-a",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-302",
         routerName: "router-a",
-        routerVersion: "1"
+        routerVersion: "1",
+        createdAt: "2026-04-09T22:59:00.000Z"
       });
 
       await expect(
         routeStore.createWorkflow({
-          workflowId: "workflow-302-b",
           repositoryKey: "openai/symphony",
           issueIdentifier: "SYM-302",
           routerName: "router-b",
-          routerVersion: "1"
+          routerVersion: "1",
+          createdAt: "2026-04-09T22:59:01.000Z"
         })
       ).rejects.toBeInstanceOf(SymphonyRouteWorkflowExistsError);
     } finally {
@@ -394,6 +394,7 @@ function buildRouteResult(
       {
         id: "command_tracker_bootstrapping",
         kind: "tracker.transition",
+        dedupeKey: null,
         payload: {
           state: "Bootstrapping"
         }
@@ -401,6 +402,7 @@ function buildRouteResult(
       {
         id: "command_dispatch_implementation",
         kind: "run.dispatch",
+        dedupeKey: null,
         payload: {
           runMode: "implementation"
         }
@@ -484,6 +486,7 @@ function buildProjection(input: {
       kind: commandId.startsWith("command_tracker_")
         ? "tracker.transition"
         : "run.dispatch",
+      dedupeKey: null,
       payload:
         commandId === "command_tracker_bootstrapping"
           ? {

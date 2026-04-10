@@ -41,8 +41,6 @@ export type SymphonyRuntimeRouteLifecycleService = {
   observeTrackerStateByIdentifier(input: {
     issueIdentifier: string;
     recordedAt: string;
-    runId?: string | null;
-    runMode?: SymphonyRunMode | null;
     onDispatchRequested?(
       input: SymphonyTrackerStateDispatchRequest
     ): Promise<void> | void;
@@ -68,6 +66,7 @@ export async function createRuntimeRouteLifecycleService(input: {
   now?: () => Date;
 }): Promise<SymphonyRuntimeRouteLifecycleService> {
   const routing = await createRuntimeCurrentFlowRouting({
+    trackerConfig: input.trackerConfig,
     now: input.now
   });
   const dispatchBootstrapRouter = await createRuntimeDispatchBootstrapRouter({
@@ -104,7 +103,10 @@ export async function createRuntimeRouteLifecycleService(input: {
   const observeTrackerStateByIdentifier: SymphonyRuntimeRouteLifecycleService["observeTrackerStateByIdentifier"] =
     async (observationInput) => {
       const observed = await trackerStateObservationRouter.observe(
-        observationInput
+        {
+          observationKind: "idle",
+          ...observationInput
+        }
       );
       return observed !== null;
     };
@@ -145,11 +147,15 @@ export async function createRuntimeRouteLifecycleService(input: {
         return false;
       }
 
-      return await observeTrackerStateByIdentifier({
+      const observed = await trackerStateObservationRouter.observe({
+        observationKind: "active",
         issueIdentifier: observationInput.issueIdentifier,
         recordedAt: observationInput.recordedAt,
+        runId: null,
         runMode: resolveActiveRunMode(hydration)
       });
+
+      return observed !== null;
     }
   };
 }

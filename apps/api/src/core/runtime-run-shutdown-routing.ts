@@ -1,5 +1,6 @@
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
+  createSymphonyCurrentFlowShutdownRequestedSignal,
   type WorkflowCommand
 } from "@symphony/router";
 import type {
@@ -55,23 +56,21 @@ export async function createRuntimeRunShutdownRouter(input: {
         );
       }
 
-      const result = await resumed.session.receiveAsync({
-        id: buildShutdownRequestedSignalId({
-          issue: shutdownInput.issue,
-          runMode: shutdownInput.runMode,
-          recordedAt: shutdownInput.recordedAt
-        }),
-        type: "runtime.shutdown_requested",
-        source: "runtime",
-        occurredAt: shutdownInput.recordedAt,
-        payload: {
+      const result = await resumed.session.receiveAsync(
+        createSymphonyCurrentFlowShutdownRequestedSignal({
+          id: buildShutdownRequestedSignalId({
+            issue: shutdownInput.issue,
+            runMode: shutdownInput.runMode,
+            recordedAt: shutdownInput.recordedAt
+          }),
+          occurredAt: shutdownInput.recordedAt,
           runId: shutdownInput.runId,
           runMode: shutdownInput.runMode,
-          reason: shutdownInput.reason
-        },
-        causationId: shutdownInput.runId,
-        correlationId: shutdownInput.issue.identifier
-      });
+          reason: shutdownInput.reason,
+          causationId: shutdownInput.runId,
+          correlationId: shutdownInput.issue.identifier
+        })
+      );
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
@@ -115,7 +114,7 @@ async function executePausedTransition(input: {
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState(input.command.payload);
+  const targetState = readTrackerTransitionState(input.command);
   if (targetState !== "Paused") {
     throw new TypeError(
       `Run shutdown routing only supports tracker transitions to Paused. Received ${String(targetState)}.`

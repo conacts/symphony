@@ -709,6 +709,18 @@ export class SymphonyOrchestrator {
         workspace,
         reason,
         runId,
+        ...(await this.#routeStartupFailure({
+          issue: preparedIssue,
+          runId,
+          runMode,
+          completion: {
+            kind: "startup_failure",
+            reason,
+            failureStage: startupFailureStage,
+            failureOrigin,
+            launchTarget
+          }
+        })),
         completion: {
           kind: "startup_failure",
           reason,
@@ -982,6 +994,12 @@ export class SymphonyOrchestrator {
         workspace: runningEntry.workspace,
         reason: resolvedCompletion.reason,
         runId: runningEntry.runId,
+        ...(await this.#routeStartupFailure({
+          issue: currentIssue ?? runningEntry.issue,
+          runId: runningEntry.runId,
+          runMode: runningEntry.runMode,
+          completion: resolvedCompletion
+        })),
         completion: resolvedCompletion
       });
       return;
@@ -1282,6 +1300,36 @@ export class SymphonyOrchestrator {
       completion: input.completion,
       recordedAt: this.#clock.now().toISOString()
     });
+  }
+
+  async #routeStartupFailure(input: {
+    issue: SymphonyTrackerIssue;
+    runId: string | null;
+    runMode: SymphonyRunMode;
+    completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
+  }): Promise<{
+    effectiveIssue?: SymphonyTrackerIssue;
+    stateTransition?: SymphonyFailureStateTransition;
+  }> {
+    if (!this.#runLifecycleRouter) {
+      return {};
+    }
+
+    const routed = await this.#routeRunCompletion({
+      issue: input.issue,
+      runId: input.runId,
+      runMode: input.runMode,
+      completion: input.completion
+    });
+
+    return {
+      effectiveIssue: routed.issue,
+      stateTransition: describeFailureStateTransition({
+        beforeIssue: input.issue,
+        afterIssue: routed.issue,
+        targetState: this.#config.tracker.startupFailureTransitionToState
+      })
+    };
   }
 
   async #activatePreparedIssue(input: {

@@ -230,6 +230,7 @@ describe("runtime route lifecycle service", () => {
 
     try {
       const routing = await createRuntimeCurrentFlowRouting({
+        trackerConfig: buildSymphonyRuntimePolicy().tracker,
         now: () => new Date("2026-04-10T14:10:00.000Z")
       });
 
@@ -292,6 +293,31 @@ describe("runtime route lifecycle service", () => {
       >(harness.issue.identifier);
       expect(hydration?.snapshot?.projection.currentNode).toBe("paused");
       expect(hydration?.snapshot?.projection.data.trackerState).toBe("Paused");
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("fails fast when current-flow tracker state contracts do not match the router", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      const trackerConfig = {
+        ...buildSymphonyRuntimePolicy().tracker,
+        startupFailureTransitionToState: "Startup Failed"
+      };
+
+      await expect(
+        createRuntimeRouteLifecycleService({
+          routeWorkflows: harness.routeWorkflows,
+          tracker: harness.tracker,
+          trackerConfig,
+          repositoryKey: "openai/symphony",
+          now: () => new Date("2026-04-10T14:25:00.000Z")
+        })
+      ).rejects.toThrow(/startupFailureTransitionToState/i);
     } finally {
       harness.close();
     }

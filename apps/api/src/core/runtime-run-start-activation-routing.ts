@@ -3,6 +3,7 @@ import type {
   SymphonyRunStartActivationRouter
 } from "@symphony/orchestrator";
 import {
+  createSymphonyCurrentFlowRunStartedSignal,
   type WorkflowCommand
 } from "@symphony/router";
 import type {
@@ -38,25 +39,20 @@ export async function createRuntimeRunStartActivationRouter(input: {
         );
       }
 
-      const result = await resumed.session.receiveAsync({
-        id: buildRunStartedSignalId({
-          issue: activationInput.issue,
-          runMode: activationInput.runMode,
-          recordedAt: activationInput.recordedAt
-        }),
-        type: "runtime.run_started",
-        source: "runtime",
-        occurredAt: activationInput.recordedAt,
-        payload: {
+      const result = await resumed.session.receiveAsync(
+        createSymphonyCurrentFlowRunStartedSignal({
+          id: buildRunStartedSignalId({
+            issue: activationInput.issue,
+            runMode: activationInput.runMode,
+            recordedAt: activationInput.recordedAt
+          }),
+          occurredAt: activationInput.recordedAt,
           runId: activationInput.runId,
           runMode: activationInput.runMode,
-          threadId: activationInput.threadId,
-          workerHost: activationInput.workerHost,
-          launchTarget: activationInput.launchTarget
-        },
-        causationId: activationInput.runId,
-        correlationId: activationInput.issue.identifier
-      });
+          causationId: activationInput.runId,
+          correlationId: activationInput.issue.identifier
+        })
+      );
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
@@ -101,7 +97,7 @@ async function executeInProgressTransition(input: {
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState(input.command.payload);
+  const targetState = readTrackerTransitionState(input.command);
   if (targetState !== "In Progress") {
     throw new TypeError(
       `Run start activation only supports tracker transitions to In Progress. Received ${String(targetState)}.`

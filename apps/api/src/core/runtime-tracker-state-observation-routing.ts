@@ -1,5 +1,7 @@
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
+  createSymphonyCurrentFlowTrackerStateObservedSignal,
+  parseSymphonyCurrentFlowTrackerState,
   type WorkflowCommand
 } from "@symphony/router";
 import type {
@@ -24,15 +26,26 @@ export type SymphonyTrackerStateDispatchRequest = {
   recordedAt: string;
 };
 
-export type SymphonyTrackerStateObservationInput = {
+export type SymphonyIdleTrackerStateObservationInput = {
+  observationKind: "idle";
   issueIdentifier: string;
   recordedAt: string;
-  runId?: string | null;
-  runMode?: SymphonyRunMode | null;
   onDispatchRequested?(
     input: SymphonyTrackerStateDispatchRequest
   ): Promise<void> | void;
 };
+
+export type SymphonyActiveTrackerStateObservationInput = {
+  observationKind: "active";
+  issueIdentifier: string;
+  recordedAt: string;
+  runId: string | null;
+  runMode: SymphonyRunMode;
+};
+
+export type SymphonyTrackerStateObservationInput =
+  | SymphonyIdleTrackerStateObservationInput
+  | SymphonyActiveTrackerStateObservationInput;
 
 export type SymphonyTrackerStateObservationResult = {
   issue: SymphonyTrackerIssue;
@@ -83,23 +96,23 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
         );
       }
 
-      const result = await resumed.session.receiveAsync({
-        id: buildTrackerStateObservedSignalId({
-          issue,
-          runMode: observationInput.runMode ?? null,
-          recordedAt: observationInput.recordedAt
-        }),
-        type: "tracker.state_observed",
-        source: "tracker",
-        occurredAt: observationInput.recordedAt,
-        payload: {
-          state: issue.state,
-          runId: observationInput.runId ?? null,
-          runMode: observationInput.runMode ?? null
-        },
-        causationId: observationInput.runId ?? null,
-        correlationId: issue.identifier
-      });
+      const observedRunId = readObservedRunId(observationInput);
+      const observedRunMode = readObservedRunMode(observationInput);
+      const result = await resumed.session.receiveAsync(
+        createSymphonyCurrentFlowTrackerStateObservedSignal({
+          id: buildTrackerStateObservedSignalId({
+            issue,
+            runMode: observedRunMode,
+            recordedAt: observationInput.recordedAt
+          }),
+          occurredAt: observationInput.recordedAt,
+          state: parseSymphonyCurrentFlowTrackerState(issue.state),
+          runId: observedRunId,
+          runMode: observedRunMode,
+          causationId: observedRunId,
+          correlationId: issue.identifier
+        })
+      );
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
@@ -136,9 +149,12 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
             recordedAt: observationInput.recordedAt,
             async execute(executedCommand) {
               const runMode = readObservedDispatchRunMode(executedCommand);
-              if (!observationInput.onDispatchRequested) {
+              if (
+                observationInput.observationKind !== "idle" ||
+                !observationInput.onDispatchRequested
+              ) {
                 throw new TypeError(
-                  "Tracker state observation emitted run.dispatch without a dispatch callback."
+                  "Idle tracker state observation emitted run.dispatch without a dispatch callback."
                 );
               }
 
@@ -171,13 +187,7 @@ async function executeTrackerTransition(input: {
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState(input.command.payload);
-  if (!targetState) {
-    throw new TypeError(
-      `Route command ${input.command.id} is missing a tracker transition state.`
-    );
-  }
-
+  const targetState = readTrackerTransitionState(input.command);
   await input.tracker.updateIssueState(input.issue.id, targetState);
   return {
     ...input.issue,
@@ -186,18 +196,7 @@ async function executeTrackerTransition(input: {
 }
 
 function readObservedDispatchRunMode(command: WorkflowCommand): SymphonyRunMode {
-  const runMode = readDispatchRunMode(command.payload);
-  if (
-    runMode !== "implementation" &&
-    runMode !== "rework" &&
-    runMode !== "approved_merge"
-  ) {
-    throw new TypeError(
-      `Route command ${command.id} is missing a supported dispatch run mode.`
-    );
-  }
-
-  return runMode;
+  return readDispatchRunMode(command);
 }
 
 function buildTrackerStateObservedSignalId(input: {
@@ -213,4 +212,20 @@ function buildTrackerStateObservedSignalId(input: {
     normalizeWorkflowToken(input.runMode ?? "none"),
     normalizeWorkflowToken(input.recordedAt)
   ].join("_");
+}
+
+function readObservedRunId(
+  observationInput: SymphonyTrackerStateObservationInput
+): string | null {
+  return observationInput.observationKind === "active"
+    ? observationInput.runId
+    : null;
+}
+
+function readObservedRunMode(
+  observationInput: SymphonyTrackerStateObservationInput
+): SymphonyRunMode | null {
+  return observationInput.observationKind === "active"
+    ? observationInput.runMode
+    : null;
 }

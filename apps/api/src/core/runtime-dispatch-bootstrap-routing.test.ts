@@ -172,6 +172,7 @@ async function createHarness(input: {
   });
 
   const routing = await createRuntimeCurrentFlowRouting({
+    trackerConfig: runtimePolicy.tracker,
     now: () => new Date("2026-04-10T10:00:00.000Z")
   });
   const router = await createRuntimeDispatchBootstrapRouter({

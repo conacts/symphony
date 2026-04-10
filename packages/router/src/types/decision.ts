@@ -12,6 +12,5 @@ export type WorkflowDecision<Node extends WorkflowNodeId = WorkflowNodeId> = {
   reasonCode: string;
   commands: WorkflowCommand[];
   trace: WorkflowTraceEntry[];
-  selectionMetadata?: Record<string, unknown> | null;
+  selectionMetadata: Record<string, unknown> | null;
 };
-

@@ -310,6 +310,7 @@ describe("symphony orchestrator", () => {
     const stoppedIssueIds: string[] = [];
     const lifecycleEvents: string[] = [];
     let finalizedCompletion: SymphonyAgentRuntimeCompletion | null = null;
+    const routedCompletions: SymphonyAgentRuntimeCompletion[] = [];
 
     const orchestrator = new SymphonyOrchestrator({
       config: buildSymphonyOrchestratorConfig({
@@ -343,6 +344,23 @@ describe("symphony orchestrator", () => {
           throw new Error("activation failed");
         }
       },
+      runLifecycleRouter: {
+        async observeIssueState(input) {
+          return {
+            issue: input.issue
+          };
+        },
+        async routeCompletion(input) {
+          routedCompletions.push(input.completion);
+          await tracker.updateIssueState(input.issue.id, "Failed");
+          return {
+            issue: {
+              ...input.issue,
+              state: "Failed"
+            }
+          };
+        }
+      },
       observer: {
         startRun() {
           return "run-1";
@@ -372,6 +390,12 @@ describe("symphony orchestrator", () => {
         failureStage: "runtime_session_start"
       })
     );
+    expect(routedCompletions).toEqual([
+      expect.objectContaining({
+        kind: "startup_failure",
+        failureStage: "runtime_session_start"
+      })
+    ]);
     expect(lifecycleEvents).toContain("runtime_startup_failed");
   });
 

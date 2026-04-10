@@ -1,5 +1,11 @@
 import type { WorkflowRouteResult, WorkflowSignal } from "../types/index.js";
-import { createSymphonyCurrentFlowRouterAsync } from "../symphony-current-flow-router.js";
+import {
+  createSymphonyCurrentFlowRouterAsync,
+  createSymphonyCurrentFlowRunStartedSignal,
+  createSymphonyCurrentFlowRuntimeCompletedSignal,
+  createSymphonyCurrentFlowRuntimeStartupFailureSignal,
+  createSymphonyCurrentFlowTrackerStateObservedSignal
+} from "../index.js";
 import type {
   SymphonyCurrentFlowCompletionKind,
   SymphonyCurrentFlowData,
@@ -7,7 +13,7 @@ import type {
   SymphonyCurrentFlowPolicy,
   SymphonyCurrentFlowRunMode,
   SymphonyCurrentFlowTrackerState
-} from "../symphony-current-flow-router.js";
+} from "../index.js";
 
 export type SymphonyCurrentFlowReplayFixture = {
   name: string;
@@ -170,7 +176,8 @@ export async function replaySymphonyCurrentFlowFixture(
       await session.settleCommandAsync({
         commandId: command.id,
         status: "succeeded",
-        recordedAt: `${signal.occurredAt ?? "2026-04-09T00:00:00.000Z"}`
+        payload: null,
+        recordedAt: signal.occurredAt
       });
     }
   }
@@ -193,8 +200,14 @@ function observeTrackerState(
   state: SymphonyCurrentFlowTrackerState,
   step: number
 ): WorkflowSignal {
-  return createSignal(id, step, "tracker.state_observed", "tracker", {
-    state
+  return createSymphonyCurrentFlowTrackerStateObservedSignal({
+    id,
+    occurredAt: buildOccurredAt(step),
+    state,
+    runId: null,
+    runMode: null,
+    causationId: null,
+    correlationId: null
   });
 }
 
@@ -203,8 +216,13 @@ function runtimeRunStarted(
   runMode: SymphonyCurrentFlowRunMode,
   step: number
 ): WorkflowSignal {
-  return createSignal(id, step, "runtime.run_started", "runtime", {
-    runMode
+  return createSymphonyCurrentFlowRunStartedSignal({
+    id,
+    occurredAt: buildOccurredAt(step),
+    runId: null,
+    runMode,
+    causationId: null,
+    correlationId: null
   });
 }
 
@@ -213,8 +231,18 @@ function runtimeCompleted(
   kind: Exclude<SymphonyCurrentFlowCompletionKind, "startup_failure">,
   step: number
 ): WorkflowSignal {
-  return createSignal(id, step, "runtime.completed", "runtime", {
-    kind
+  return createSymphonyCurrentFlowRuntimeCompletedSignal({
+    id,
+    occurredAt: buildOccurredAt(step),
+    kind,
+    runId: null,
+    runMode:
+      kind === "merged" || kind === "merge_blocked"
+        ? "approved_merge"
+        : "implementation",
+    reason: null,
+    causationId: null,
+    correlationId: null
   });
 }
 
@@ -222,25 +250,17 @@ function runtimeStartupFailure(
   id: string,
   step: number
 ): WorkflowSignal {
-  return createSignal(id, step, "runtime.startup_failure", "runtime", {
-    kind: "startup_failure"
-  });
-}
-
-function createSignal(
-  id: string,
-  step: number,
-  type: string,
-  source: WorkflowSignal["source"],
-  payload: NonNullable<WorkflowSignal["payload"]>
-): WorkflowSignal {
-  return {
+  return createSymphonyCurrentFlowRuntimeStartupFailureSignal({
     id,
-    type,
-    source,
     occurredAt: buildOccurredAt(step),
-    payload
-  };
+    runId: null,
+    runMode: "implementation",
+    reason: "startup failed",
+    failureStage: "runtime_session_start",
+    failureOrigin: "workspace_lifecycle",
+    causationId: null,
+    correlationId: null
+  });
 }
 
 function buildOccurredAt(step: number): string {

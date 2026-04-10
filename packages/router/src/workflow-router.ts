@@ -30,6 +30,7 @@ import type {
   WorkflowTransitionContext
 } from "./types/index.js";
 import type { WorkflowNodeId } from "./types/base.js";
+import { workflowSignalSchema } from "./types/schema.js";
 
 export type WorkflowRouterOptions = {
   now?: () => Date;
@@ -195,7 +196,7 @@ export class WorkflowRouter<
         tailHistory: [],
         policy: input.policy
       });
-      const normalizedSignal = this.#normalizeSignal(input.signal);
+      const normalizedSignal = yield* this.#parseSignal(input.signal);
       yield* this.#ensureSignalIdIsUniqueInProjection(
         projectionBefore,
         normalizedSignal.id
@@ -203,7 +204,7 @@ export class WorkflowRouter<
       const signalEvent: Extract<WorkflowJournalEvent<Node>, { kind: "signal_recorded" }> = {
         kind: "signal_recorded",
         signal: normalizedSignal,
-        recordedAt: normalizedSignal.occurredAt!
+        recordedAt: normalizedSignal.occurredAt
       };
 
       const { candidates, trace } = this.#collectCandidates({
@@ -420,7 +421,8 @@ export class WorkflowRouter<
       if (accepted) {
         trace.push({
           kind: "guard_passed",
-          ref: edge.id
+          ref: edge.id,
+          detail: null
         });
         candidates.push({
           edge,
@@ -431,7 +433,8 @@ export class WorkflowRouter<
       } else {
         trace.push({
           kind: "guard_failed",
-          ref: edge.id
+          ref: edge.id,
+          detail: null
         });
       }
     }
@@ -470,14 +473,14 @@ export class WorkflowRouter<
     ];
   }
 
-  #normalizeSignal(signal: WorkflowSignal): Required<WorkflowSignal> {
-    return {
-      ...signal,
-      id: signal.id?.trim() || this.#createId("signal"),
-      occurredAt: signal.occurredAt?.trim() || this.#isoNow(),
-      causationId: signal.causationId ?? null,
-      correlationId: signal.correlationId ?? null
-    };
+  #parseSignal(
+    signal: WorkflowSignal
+  ): Effect.Effect<WorkflowSignal, WorkflowRouterError, never> {
+    return Effect.try({
+      try: () => workflowSignalSchema.parse(signal),
+      catch: (error) =>
+        toWorkflowRouterError(error, "Workflow signal validation failed.")
+    });
   }
 
   #isoNow(): string {
@@ -486,14 +489,10 @@ export class WorkflowRouter<
 
   #ensureSignalIdIsUniqueInProjection(
     projection: WorkflowProjection<Node, Data>,
-    signalId: string | undefined
+    signalId: string
   ): Effect.Effect<void, WorkflowRouterError, never> {
     return Effect.try({
       try: () => {
-        if (!signalId) {
-          return;
-        }
-
         if (projection.recordedSignalIds.includes(signalId)) {
           throw new DuplicateSignalIdError({
             signalId

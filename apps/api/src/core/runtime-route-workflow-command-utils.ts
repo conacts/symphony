@@ -1,10 +1,12 @@
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
-import type {
-  WorkflowCommand,
-  WorkflowNodeId,
-  WorkflowPayload,
-  WorkflowProjection,
-  WorkflowSession
+import {
+  readSymphonyCurrentFlowDispatchCommand,
+  readSymphonyCurrentFlowTrackerTransitionCommand,
+  type WorkflowCommand,
+  type WorkflowNodeId,
+  type WorkflowPayload,
+  type WorkflowProjection,
+  type WorkflowSession
 } from "@symphony/router";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 
@@ -18,7 +20,7 @@ export async function settleRouteCommand<
   session: WorkflowSession<Node, Data, Policy>;
   commandId: string;
   status: "succeeded" | "failed";
-  payload?: WorkflowPayload;
+  payload: WorkflowPayload;
   recordedAt: string;
 }): Promise<WorkflowProjection<Node, Data>> {
   const projection = await input.session.settleCommandAsync({
@@ -61,6 +63,7 @@ export async function executeSettledRouteCommand<
       session: input.session,
       commandId: input.command.id,
       status: "succeeded",
+      payload: null,
       recordedAt: input.recordedAt
     });
     return result;
@@ -88,24 +91,26 @@ export function normalizeWorkflowToken(value: string): string {
     .replaceAll(/^_+|_+$/g, "");
 }
 
-export function readTrackerTransitionState(payload: WorkflowPayload): string | null {
-  if (payload === null) {
-    return null;
+export function readTrackerTransitionState(command: WorkflowCommand): string {
+  const trackerTransition = readSymphonyCurrentFlowTrackerTransitionCommand(
+    command
+  );
+  if (trackerTransition) {
+    return trackerTransition.payload.state;
   }
 
-  const state = payload["state"];
-  return typeof state === "string" ? state : null;
+  throw new TypeError(
+    `Route command is not a valid Symphony current-flow tracker.transition command: ${command.kind}.`
+  );
 }
 
-export function readDispatchRunMode(payload: WorkflowPayload): SymphonyRunMode | null {
-  if (payload === null) {
-    return null;
+export function readDispatchRunMode(command: WorkflowCommand): SymphonyRunMode {
+  const dispatchCommand = readSymphonyCurrentFlowDispatchCommand(command);
+  if (dispatchCommand) {
+    return dispatchCommand.payload.runMode;
   }
 
-  const runMode = payload["runMode"];
-  return runMode === "implementation" ||
-    runMode === "rework" ||
-    runMode === "approved_merge"
-    ? runMode
-    : null;
+  throw new TypeError(
+    `Route command is not a valid Symphony current-flow run.dispatch command: ${command.kind}.`
+  );
 }

@@ -69,6 +69,7 @@ describe("Symphony current-flow router fixture", () => {
       {
         id: "command_signal_todo_observed_tracker_bootstrapping",
         kind: "tracker.transition",
+        dedupeKey: null,
         payload: {
           state: "Bootstrapping"
         }
@@ -76,6 +77,7 @@ describe("Symphony current-flow router fixture", () => {
       {
         id: "command_signal_todo_observed_dispatch_implementation",
         kind: "run.dispatch",
+        dedupeKey: null,
         payload: {
           runMode: "implementation"
         }
@@ -103,7 +105,9 @@ describe("Symphony current-flow router fixture", () => {
           source: "tracker" as const,
           occurredAt: "2026-04-09T22:40:00.000Z",
           payload: {
-            state: "Todo"
+            state: "Todo",
+            runId: null,
+            runMode: null
           },
           causationId: null,
           correlationId: null
@@ -122,6 +126,7 @@ describe("Symphony current-flow router fixture", () => {
             {
               id: "command_signal_todo_observed_tracker_bootstrapping",
               kind: "tracker.transition",
+              dedupeKey: null,
               payload: {
                 state: "Bootstrapping"
               }
@@ -129,12 +134,14 @@ describe("Symphony current-flow router fixture", () => {
             {
               id: "command_signal_todo_observed_dispatch_implementation",
               kind: "run.dispatch",
+              dedupeKey: null,
               payload: {
                 runMode: "implementation"
               }
             }
           ],
-          trace: []
+          trace: [],
+          selectionMetadata: null
         }
       },
       {
@@ -144,6 +151,7 @@ describe("Symphony current-flow router fixture", () => {
         command: {
           id: "command_signal_todo_observed_tracker_bootstrapping",
           kind: "tracker.transition",
+          dedupeKey: null,
           payload: {
             state: "Bootstrapping"
           }
@@ -156,6 +164,7 @@ describe("Symphony current-flow router fixture", () => {
         command: {
           id: "command_signal_todo_observed_dispatch_implementation",
           kind: "run.dispatch",
+          dedupeKey: null,
           payload: {
             runMode: "implementation"
           }
@@ -184,6 +193,7 @@ describe("Symphony current-flow router fixture", () => {
           source: "runtime" as const,
           occurredAt: "2026-04-09T22:40:02.000Z",
           payload: {
+            runId: null,
             runMode: "implementation"
           },
           causationId: null,
@@ -203,12 +213,14 @@ describe("Symphony current-flow router fixture", () => {
             {
               id: "command_signal_implementation_started_tracker_in_progress",
               kind: "tracker.transition",
+              dedupeKey: null,
               payload: {
                 state: "In Progress"
               }
             }
           ],
-          trace: []
+          trace: [],
+          selectionMetadata: null
         }
       },
       {
@@ -218,6 +230,7 @@ describe("Symphony current-flow router fixture", () => {
         command: {
           id: "command_signal_implementation_started_tracker_in_progress",
           kind: "tracker.transition",
+          dedupeKey: null,
           payload: {
             state: "In Progress"
           }
@@ -242,8 +255,12 @@ describe("Symphony current-flow router fixture", () => {
           source: "tracker",
           occurredAt: "2026-04-09T22:45:00.000Z",
           payload: {
-            state: "Approved"
-          }
+            state: "Approved",
+            runId: null,
+            runMode: null
+          },
+          causationId: null,
+          correlationId: null
         },
         policy: {}
       })
@@ -290,7 +307,9 @@ describe("Symphony current-flow router fixture", () => {
           source: "tracker",
           occurredAt: "2026-04-09T22:40:00.000Z",
           payload: {
-            state: "Todo"
+            state: "Todo",
+            runId: null,
+            runMode: null
           },
           causationId: null,
           correlationId: null
@@ -316,8 +335,12 @@ describe("Symphony current-flow router fixture", () => {
       source: "tracker",
       occurredAt: "2026-04-09T22:50:00.000Z",
       payload: {
-        state: "Bootstrapping"
-      }
+        state: "Bootstrapping",
+        runId: null,
+        runMode: null
+      },
+      causationId: null,
+      correlationId: null
     });
 
     expect(result.decision.toNode).toBe("bootstrapping");
@@ -326,6 +349,7 @@ describe("Symphony current-flow router fixture", () => {
       {
         id: "command_signal_bootstrapping_reobserved_dispatch_implementation",
         kind: "run.dispatch",
+        dedupeKey: null,
         payload: {
           runMode: "implementation"
         }
@@ -356,7 +380,9 @@ describe("Symphony current-flow router fixture", () => {
               source: "tracker",
               occurredAt: "2026-04-09T22:55:00.000Z",
               payload: {
-                state: "Paused"
+                state: "Paused",
+                runId: null,
+                runMode: null
               },
               causationId: null,
               correlationId: null
@@ -383,8 +409,12 @@ describe("Symphony current-flow router fixture", () => {
           source: "tracker",
           occurredAt: "2026-04-09T23:00:00.000Z",
           payload: {
-            state: "Todo"
-          }
+            state: "Todo",
+            runId: null,
+            runMode: null
+          },
+          causationId: null,
+          correlationId: null
         },
         policy: {}
       })
@@ -396,6 +426,7 @@ describe("Symphony current-flow router fixture", () => {
       {
         id: "command_signal_todo_reopened_tracker_bootstrapping",
         kind: "tracker.transition",
+        dedupeKey: null,
         payload: {
           state: "Bootstrapping"
         }
@@ -403,6 +434,7 @@ describe("Symphony current-flow router fixture", () => {
       {
         id: "command_signal_todo_reopened_dispatch_implementation",
         kind: "run.dispatch",
+        dedupeKey: null,
         payload: {
           runMode: "implementation"
         }
@@ -433,7 +465,9 @@ describe("Symphony current-flow router fixture", () => {
               source: "tracker",
               occurredAt: "2026-04-09T23:00:00.000Z",
               payload: {
-                state: "Bootstrapping"
+                state: "Bootstrapping",
+                runId: null,
+                runMode: null
               },
               causationId: null,
               correlationId: "SYM-210"
@@ -482,6 +516,7 @@ describe("Symphony current-flow router fixture", () => {
                 {
                   id: "command_signal_run_started_tracker_in_progress",
                   kind: "tracker.transition",
+                  dedupeKey: null,
                   payload: {
                     state: "In Progress"
                   }
@@ -515,6 +550,7 @@ describe("Symphony current-flow router fixture", () => {
       {
         id: "command_signal_shutdown_requested_tracker_paused",
         kind: "tracker.transition",
+        dedupeKey: null,
         payload: {
           state: "Paused"
         }

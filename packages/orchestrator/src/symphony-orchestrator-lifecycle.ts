@@ -166,19 +166,26 @@ export async function handleStartupFailure(input: {
   reason: string;
   runId: string | null;
   completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
+  effectiveIssue?: SymphonyTrackerIssue;
+  stateTransition?: SymphonyFailureStateTransition;
 }): Promise<void> {
   const targetState = input.config.tracker.startupFailureTransitionToState;
-  let effectiveIssue = input.issue;
-  let transition: SymphonyFailureStateTransition = {
-    kind: "none"
-  };
+  let effectiveIssue = input.effectiveIssue ?? input.issue;
+  let transition: SymphonyFailureStateTransition =
+    input.stateTransition ?? {
+      kind: "none"
+    };
 
-  if (targetState) {
-    if (input.issue.state.trim().toLowerCase() === targetState.trim().toLowerCase()) {
-      transition = {
-        kind: "none"
-      };
-    } else {
+  if (input.stateTransition) {
+    await recordStartupFailureTransitionEvent({
+      observer: input.observer,
+      issue: input.issue,
+      effectiveIssue,
+      runId: input.runId,
+      transition
+    });
+  } else if (targetState) {
+    if (input.issue.state.trim().toLowerCase() !== targetState.trim().toLowerCase()) {
       try {
         await input.tracker.updateIssueState(input.issue.id, targetState);
         effectiveIssue = {
@@ -189,39 +196,22 @@ export async function handleStartupFailure(input: {
           kind: "moved",
           targetState
         };
-        await input.observer?.recordLifecycleEvent({
-          issue: {
-            ...effectiveIssue
-          },
-          runId: input.runId,
-          source: "tracker",
-          eventType: "startup_failure_transition",
-          message: `Issue moved to ${targetState} after startup failure.`,
-          payload: {
-            fromState: input.issue.state,
-            toState: targetState
-          }
-        });
       } catch (error) {
         transition = {
           kind: "failed",
           targetState,
           reason: error instanceof Error ? error.message : String(error)
         };
-        await input.observer?.recordLifecycleEvent({
-          issue: input.issue,
-          runId: input.runId,
-          source: "tracker",
-          eventType: "startup_failure_transition_failed",
-          message: `Issue could not be moved to ${targetState} after startup failure.`,
-          payload: {
-            fromState: input.issue.state,
-            toState: targetState,
-            reason: transition.reason
-          }
-        });
       }
     }
+
+    await recordStartupFailureTransitionEvent({
+      observer: input.observer,
+      issue: input.issue,
+      effectiveIssue,
+      runId: input.runId,
+      transition
+    });
   }
 
   const cleanupMode = workspaceCleanupModeForIssue({
@@ -247,7 +237,7 @@ export async function handleStartupFailure(input: {
     workspaceBackend: input.workspaceBackend,
     config: input.config,
     runnerEnv: input.runnerEnv,
-    issue: input.issue,
+    issue: effectiveIssue,
     runId: input.runId,
     workspace: input.workspace,
     workerHost: input.workerHost,
@@ -255,4 +245,42 @@ export async function handleStartupFailure(input: {
     mode: cleanupMode,
     startupFailure: input.completion
   });
+}
+
+async function recordStartupFailureTransitionEvent(input: {
+  observer: SymphonyOrchestratorObserver | null;
+  issue: SymphonyTrackerIssue;
+  effectiveIssue: SymphonyTrackerIssue;
+  runId: string | null;
+  transition: SymphonyFailureStateTransition;
+}): Promise<void> {
+  if (input.transition.kind === "moved") {
+    await input.observer?.recordLifecycleEvent({
+      issue: input.effectiveIssue,
+      runId: input.runId,
+      source: "tracker",
+      eventType: "startup_failure_transition",
+      message: `Issue moved to ${input.transition.targetState} after startup failure.`,
+      payload: {
+        fromState: input.issue.state,
+        toState: input.effectiveIssue.state
+      }
+    });
+    return;
+  }
+
+  if (input.transition.kind === "failed") {
+    await input.observer?.recordLifecycleEvent({
+      issue: input.issue,
+      runId: input.runId,
+      source: "tracker",
+      eventType: "startup_failure_transition_failed",
+      message: `Issue could not be moved to ${input.transition.targetState} after startup failure.`,
+      payload: {
+        fromState: input.issue.state,
+        toState: input.transition.targetState,
+        reason: input.transition.reason
+      }
+    });
+  }
 }

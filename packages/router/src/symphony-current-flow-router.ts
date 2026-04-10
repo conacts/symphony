@@ -6,8 +6,22 @@ import { createDeterministicStrategy } from "./router-deterministic-strategy.js"
 import type { WorkflowRouterDefinition } from "./router-definition.js";
 import { WorkflowEdge } from "./router-edge.js";
 import { WorkflowNode } from "./router-node.js";
+import {
+  createSymphonyCurrentFlowDispatchCommand,
+  createSymphonyCurrentFlowTrackerTransitionCommand,
+  readSymphonyCurrentFlowDispatchCommand,
+  readSymphonyCurrentFlowRuntimeCompletedSignal,
+  readSymphonyCurrentFlowRuntimeStartupFailureSignal,
+  readSymphonyCurrentFlowRunStartedSignal,
+  readSymphonyCurrentFlowShutdownRequestedSignal,
+  readSymphonyCurrentFlowTrackerStateObservedSignal,
+  readSymphonyCurrentFlowTrackerTransitionCommand,
+  type SymphonyCurrentFlowCompletionKind,
+  type SymphonyCurrentFlowRunMode,
+  type SymphonyCurrentFlowTrackerState
+} from "./symphony-current-flow-contract.js";
 import type { WorkflowRouterOptions } from "./workflow-router.js";
-import type { WorkflowPayload, WorkflowSignal } from "./types/index.js";
+import type { WorkflowCommand, WorkflowSignal } from "./types/index.js";
 
 export type SymphonyCurrentFlowNode =
   | "idle"
@@ -20,34 +34,6 @@ export type SymphonyCurrentFlowNode =
   | "paused"
   | "blocked"
   | "failed";
-
-export type SymphonyCurrentFlowTrackerState =
-  | "Todo"
-  | "Bootstrapping"
-  | "In Progress"
-  | "In Review"
-  | "Rework"
-  | "Approved"
-  | "Done"
-  | "Paused"
-  | "Blocked"
-  | "Failed";
-
-export type SymphonyCurrentFlowRunMode =
-  | "implementation"
-  | "rework"
-  | "approved_merge";
-
-export type SymphonyCurrentFlowCompletionKind =
-  | "merged"
-  | "blocked"
-  | "merge_blocked"
-  | "max_turns_reached"
-  | "rate_limited"
-  | "provider_transient"
-  | "stalled"
-  | "failure"
-  | "startup_failure";
 
 export type SymphonyCurrentFlowPolicy = Record<string, never>;
 
@@ -309,69 +295,14 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
       lastRuntimeOutcome: null
     }),
     reduceData: ({ data, event }) => {
-      if (event.kind === "signal_recorded") {
-        if (event.signal.type === "tracker.state_observed") {
-          const trackerState = readTrackerState(event.signal.payload);
-          if (trackerState !== null) {
-            return {
-              ...data,
-              trackerState,
-              lastObservedTrackerState: trackerState
-            };
-          }
-        }
-
-        if (event.signal.type === "runtime.run_started") {
-          const lastRunMode = readRunMode(event.signal.payload);
-          if (lastRunMode !== null) {
-            return {
-              ...data,
-              lastRunMode
-            };
-          }
-        }
-
-        if (event.signal.type === "runtime.completed") {
-          const lastRuntimeOutcome = readCompletionKind(event.signal.payload);
-          if (lastRuntimeOutcome !== null) {
-            return {
-              ...data,
-              lastRuntimeOutcome
-            };
-          }
-        }
-
-        if (event.signal.type === "runtime.startup_failure") {
-          return {
-            ...data,
-            lastRuntimeOutcome: "startup_failure"
-          };
-        }
+      switch (event.kind) {
+        case "signal_recorded":
+          return reduceSignalData(data, event.signal);
+        case "command_emitted":
+          return reduceCommandData(data, event.command);
+        default:
+          return data;
       }
-
-      if (event.kind === "command_emitted") {
-        if (event.command.kind === "tracker.transition") {
-          const trackerState = readTrackerState(event.command.payload);
-          if (trackerState !== null) {
-            return {
-              ...data,
-              trackerState
-            };
-          }
-        }
-
-        if (event.command.kind === "run.dispatch") {
-          const lastDispatchMode = readRunMode(event.command.payload);
-          if (lastDispatchMode !== null) {
-            return {
-              ...data,
-              lastDispatchMode
-            };
-          }
-        }
-      }
-
-      return data;
     }
   };
 }
@@ -397,9 +328,9 @@ export async function createSymphonyCurrentFlowRouterAsync(
 function buildBootstrappingEnterCommands(
   signal: WorkflowSignal
 ) {
-  const observedState = readTrackerState(signal.payload);
+  const observed = readSymphonyCurrentFlowTrackerStateObservedSignal(signal);
+  const observedState = observed?.payload.state ?? null;
   if (
-    signal.type !== "tracker.state_observed" ||
     observedState === null ||
     !["Todo", "Rework", "Bootstrapping"].includes(observedState)
   ) {
@@ -461,8 +392,8 @@ function isObservedTrackerState(
   state: SymphonyCurrentFlowTrackerState
 ) {
   return (
-    signal.type === "tracker.state_observed" &&
-    readTrackerState(signal.payload) === state
+    readSymphonyCurrentFlowTrackerStateObservedSignal(signal)?.payload.state ===
+    state
   );
 }
 
@@ -470,26 +401,19 @@ function isRunStarted(
   signal: WorkflowSignal,
   runMode: SymphonyCurrentFlowRunMode
 ) {
-  return (
-    signal.type === "runtime.run_started" &&
-    readRunMode(signal.payload) === runMode
-  );
+  return readSymphonyCurrentFlowRunStartedSignal(signal)?.payload.runMode === runMode;
 }
 
 function hasCompletionKind(
   signal: WorkflowSignal,
   kind: Exclude<SymphonyCurrentFlowCompletionKind, "startup_failure">
 ) {
-  return (
-    signal.type === "runtime.completed" &&
-    readCompletionKind(signal.payload) === kind
-  );
+  return readSymphonyCurrentFlowRuntimeCompletedSignal(signal)?.payload.kind === kind;
 }
 
 function isPausedOutcome(signal: WorkflowSignal) {
-  const kind = signal.type === "runtime.completed"
-    ? readCompletionKind(signal.payload)
-    : null;
+  const kind =
+    readSymphonyCurrentFlowRuntimeCompletedSignal(signal)?.payload.kind ?? null;
 
   return (
     kind === "failure" ||
@@ -501,9 +425,8 @@ function isPausedOutcome(signal: WorkflowSignal) {
 }
 
 function isBlockedMergeOutcome(signal: WorkflowSignal) {
-  const kind = signal.type === "runtime.completed"
-    ? readCompletionKind(signal.payload)
-    : null;
+  const kind =
+    readSymphonyCurrentFlowRuntimeCompletedSignal(signal)?.payload.kind ?? null;
 
   return (
     kind === "blocked" ||
@@ -515,7 +438,7 @@ function isBlockedMergeOutcome(signal: WorkflowSignal) {
 }
 
 function isShutdownRequested(signal: WorkflowSignal) {
-  return signal.type === "runtime.shutdown_requested";
+  return readSymphonyCurrentFlowShutdownRequestedSignal(signal) !== null;
 }
 
 function maybeCreateTrackerTransitionCommand(
@@ -531,26 +454,22 @@ function createDispatchCommand(
   signal: WorkflowSignal,
   runMode: SymphonyCurrentFlowRunMode
 ) {
-  return {
+  return createSymphonyCurrentFlowDispatchCommand({
     id: createCommandId(signal, `dispatch_${runMode}`),
-    kind: "run.dispatch",
-    payload: {
-      runMode
-    }
-  };
+    dedupeKey: null,
+    runMode
+  });
 }
 
 function createTrackerTransitionCommand(
   signal: WorkflowSignal,
   targetState: SymphonyCurrentFlowTrackerState
 ) {
-  return {
+  return createSymphonyCurrentFlowTrackerTransitionCommand({
     id: createCommandId(signal, `tracker_${normalizeToken(targetState)}`),
-    kind: "tracker.transition",
-    payload: {
-      state: targetState
-    }
-  };
+    dedupeKey: null,
+    state: targetState
+  });
 }
 
 function buildTerminalReentryEdges(
@@ -650,28 +569,6 @@ function normalizeToken(value: string) {
   return value.toLowerCase().replaceAll(/\s+/g, "_");
 }
 
-function readTrackerState(payload: WorkflowPayload) {
-  if (payload === null) {
-    return null;
-  }
-
-  const value = payload["state"];
-  return typeof value === "string"
-    ? (value as SymphonyCurrentFlowTrackerState)
-    : null;
-}
-
-function readRunMode(payload: WorkflowPayload) {
-  if (payload === null) {
-    return null;
-  }
-
-  const value = payload["runMode"];
-  return typeof value === "string"
-    ? (value as SymphonyCurrentFlowRunMode)
-    : null;
-}
-
 function resolveBootstrappingDispatchMode(input: {
   signal: WorkflowSignal;
   data: SymphonyCurrentFlowData;
@@ -688,14 +585,69 @@ function resolveBootstrappingDispatchMode(input: {
     ? "rework"
     : "implementation";
 }
-
-function readCompletionKind(payload: WorkflowPayload) {
-  if (payload === null) {
-    return null;
+function reduceSignalData(
+  data: SymphonyCurrentFlowData,
+  signal: WorkflowSignal
+): SymphonyCurrentFlowData {
+  const observedTrackerState =
+    readSymphonyCurrentFlowTrackerStateObservedSignal(signal)?.payload.state ??
+    null;
+  if (observedTrackerState !== null) {
+    return {
+      ...data,
+      trackerState: observedTrackerState,
+      lastObservedTrackerState: observedTrackerState
+    };
   }
 
-  const value = payload["kind"];
-  return typeof value === "string"
-    ? (value as Exclude<SymphonyCurrentFlowCompletionKind, "startup_failure">)
-    : null;
+  const startedRunMode =
+    readSymphonyCurrentFlowRunStartedSignal(signal)?.payload.runMode ?? null;
+  if (startedRunMode !== null) {
+    return {
+      ...data,
+      lastRunMode: startedRunMode
+    };
+  }
+
+  const completionKind =
+    readSymphonyCurrentFlowRuntimeCompletedSignal(signal)?.payload.kind ?? null;
+  if (completionKind !== null) {
+    return {
+      ...data,
+      lastRuntimeOutcome: completionKind
+    };
+  }
+
+  if (readSymphonyCurrentFlowRuntimeStartupFailureSignal(signal) !== null) {
+    return {
+      ...data,
+      lastRuntimeOutcome: "startup_failure"
+    };
+  }
+
+  return data;
+}
+
+function reduceCommandData(
+  data: SymphonyCurrentFlowData,
+  command: WorkflowCommand
+): SymphonyCurrentFlowData {
+  const trackerTransition =
+    readSymphonyCurrentFlowTrackerTransitionCommand(command);
+  if (trackerTransition) {
+    return {
+      ...data,
+      trackerState: trackerTransition.payload.state
+    };
+  }
+
+  const dispatchCommand = readSymphonyCurrentFlowDispatchCommand(command);
+  if (dispatchCommand) {
+    return {
+      ...data,
+      lastDispatchMode: dispatchCommand.payload.runMode
+    };
+  }
+
+  return data;
 }

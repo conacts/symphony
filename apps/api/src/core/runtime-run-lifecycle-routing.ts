@@ -4,7 +4,12 @@ import type {
   SymphonyRunLifecycleObservationResult,
   SymphonyRunLifecycleRouter
 } from "@symphony/orchestrator";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
+  createSymphonyCurrentFlowRuntimeCompletedSignal,
+  createSymphonyCurrentFlowRuntimeStartupFailureSignal,
+  createSymphonyCurrentFlowTrackerStateObservedSignal,
+  parseSymphonyCurrentFlowTrackerState,
   type WorkflowCommand,
   type WorkflowSession
 } from "@symphony/router";
@@ -45,23 +50,23 @@ export async function createRuntimeRunLifecycleRouter(input: {
         );
       }
 
-      const result = await resumed.session.receiveAsync({
-        id: buildRunningIssueObservedSignalId({
-          issue: observationInput.issue,
-          runMode: observationInput.runMode,
-          recordedAt: observationInput.recordedAt
-        }),
-        type: "tracker.state_observed",
-        source: "tracker",
-        occurredAt: observationInput.recordedAt,
-        payload: {
-          state: observationInput.issue.state,
+      const result = await resumed.session.receiveAsync(
+        createSymphonyCurrentFlowTrackerStateObservedSignal({
+          id: buildRunningIssueObservedSignalId({
+            issue: observationInput.issue,
+            runMode: observationInput.runMode,
+            recordedAt: observationInput.recordedAt
+          }),
+          occurredAt: observationInput.recordedAt,
+          state: parseSymphonyCurrentFlowTrackerState(
+            observationInput.issue.state
+          ),
           runId: observationInput.runId,
-          runMode: observationInput.runMode
-        },
-        causationId: observationInput.runId,
-        correlationId: observationInput.issue.identifier
-      });
+          runMode: observationInput.runMode,
+          causationId: observationInput.runId,
+          correlationId: observationInput.issue.identifier
+        })
+      );
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
@@ -173,13 +178,7 @@ async function executeTrackerTransition(input: {
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState(input.command.payload);
-  if (!targetState) {
-    throw new TypeError(
-      `Route command ${input.command.id} is missing a tracker transition state.`
-    );
-  }
-
+  const targetState = readTrackerTransitionState(input.command);
   await input.tracker.updateIssueState(input.issue.id, targetState);
   return {
     ...input.issue,
@@ -205,52 +204,42 @@ function buildRunningIssueObservedSignalId(input: {
 function buildCompletionSignal(input: {
   issue: SymphonyTrackerIssue;
   runId: string | null;
-  runMode: string;
+  runMode: SymphonyRunMode;
   completion: SymphonyAgentRuntimeCompletion;
   recordedAt: string;
 }) {
   if (input.completion.kind === "startup_failure") {
-    return {
+    return createSymphonyCurrentFlowRuntimeStartupFailureSignal({
       id: buildCompletionSignalId({
         issue: input.issue,
         completionKind: input.completion.kind,
         recordedAt: input.recordedAt
       }),
-      type: "runtime.startup_failure",
-      source: "runtime" as const,
       occurredAt: input.recordedAt,
-      payload: {
-        kind: input.completion.kind,
-        runId: input.runId,
-        runMode: input.runMode,
-        reason: input.completion.reason,
-        failureStage: input.completion.failureStage,
-        failureOrigin: input.completion.failureOrigin
-      },
+      runId: input.runId,
+      runMode: input.runMode,
+      reason: input.completion.reason,
+      failureStage: input.completion.failureStage,
+      failureOrigin: input.completion.failureOrigin,
       causationId: input.runId,
       correlationId: input.issue.identifier
-    };
+    });
   }
 
-  return {
+  return createSymphonyCurrentFlowRuntimeCompletedSignal({
     id: buildCompletionSignalId({
       issue: input.issue,
       completionKind: input.completion.kind,
       recordedAt: input.recordedAt
     }),
-    type: "runtime.completed",
-    source: "runtime" as const,
     occurredAt: input.recordedAt,
-    payload: {
-      kind: input.completion.kind,
-      runId: input.runId,
-      runMode: input.runMode,
-      reason:
-        "reason" in input.completion ? input.completion.reason : null
-    },
+    kind: input.completion.kind,
+    runId: input.runId,
+    runMode: input.runMode,
+    reason: "reason" in input.completion ? input.completion.reason : null,
     causationId: input.runId,
     correlationId: input.issue.identifier
-  };
+  });
 }
 
 function buildCompletionSignalId(input: {

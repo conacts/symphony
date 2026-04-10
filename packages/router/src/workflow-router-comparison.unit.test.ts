@@ -9,6 +9,7 @@ import {
   createWorkflowRouterTestBuilder,
   recordDecisionEvent
 } from "./testing/workflow-router-test-kit.js";
+import type { WorkflowSignal } from "./types/index.js";
 
 type ComparisonNode =
   | "queued"
@@ -32,7 +33,8 @@ const seededReviewHistory: WorkflowJournalEvent<ComparisonNode>[] = [
       edgeId: "seed_review",
       reasonCode: "seeded_review",
       commands: [],
-      trace: []
+      trace: [],
+      selectionMetadata: null
     },
     "2026-04-09T23:00:00.000Z"
   )
@@ -79,6 +81,20 @@ async function createReviewRouter() {
   );
 }
 
+function createComparisonSignal(
+  overrides: Partial<WorkflowSignal> & Pick<WorkflowSignal, "type" | "source" | "payload">
+): WorkflowSignal {
+  return {
+    id: overrides.id ?? "signal_comparison",
+    type: overrides.type,
+    source: overrides.source,
+    occurredAt: overrides.occurredAt ?? "2026-04-09T23:30:00.000Z",
+    causationId: overrides.causationId ?? null,
+    correlationId: overrides.correlationId ?? null,
+    payload: overrides.payload
+  };
+}
+
 describe("WorkflowRouterComparison", () => {
   it("records simulation steps while replaying a signal stream", async () => {
     const router = await createReviewRouter();
@@ -88,11 +104,11 @@ describe("WorkflowRouterComparison", () => {
         workflowId: "SYM-200",
         history: seededReviewHistory,
         signals: [
-          {
+          createComparisonSignal({
             type: "review.approved",
             source: "review",
             payload: null
-          }
+          })
         ],
         policy: {
           allowApproval: true
@@ -134,11 +150,11 @@ describe("WorkflowRouterComparison", () => {
       comparison.compare({
         workflowId: "SYM-201",
         signals: [
-          {
+          createComparisonSignal({
             type: "review.approved",
             source: "review",
             payload: null
-          }
+          })
         ]
       })
     );

@@ -7,6 +7,5 @@ export type WorkflowCommand<
   id: string;
   kind: Kind;
   payload: Payload;
-  dedupeKey?: string | null;
+  dedupeKey: string | null;
 };
-

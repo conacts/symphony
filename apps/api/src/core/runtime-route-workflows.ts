@@ -59,7 +59,7 @@ export type AppendedRouteCommandSettlement<
   Data = unknown,
 > = {
   historyEvent: RouteHistoryEventRecord<Node>;
-  snapshot: RouteProjectionSnapshotRecord<Node, Data> | null;
+  snapshot: RouteProjectionSnapshotRecord<Node, Data>;
 };
 
 export type SymphonyRouteWorkflowPort = {
@@ -71,8 +71,7 @@ export type SymphonyRouteWorkflowPort = {
     issueIdentifier: string;
     repositoryKey: string;
     router: WorkflowRouter<Node, Data, Policy>;
-    workflowId?: string;
-    createdAt?: string;
+    createdAt: string;
   }): Promise<EnsuredRouteWorkflow>;
   loadHydrationStateByWorkflowId<
     Node extends WorkflowNodeId = WorkflowNodeId,
@@ -95,7 +94,7 @@ export type SymphonyRouteWorkflowPort = {
   >(input: {
     workflowId: string;
     router: WorkflowRouter<Node, Data, Policy>;
-    policy?: Policy;
+    policy: Policy;
   }): Promise<RehydratedRouteWorkflowProjection<Node, Data, Policy> | null>;
   rehydrateProjectionByIssueIdentifier<
     Node extends WorkflowNodeId = WorkflowNodeId,
@@ -104,7 +103,7 @@ export type SymphonyRouteWorkflowPort = {
   >(input: {
     issueIdentifier: string;
     router: WorkflowRouter<Node, Data, Policy>;
-    policy?: Policy;
+    policy: Policy;
   }): Promise<RehydratedRouteWorkflowProjection<Node, Data, Policy> | null>;
   resumeSessionByWorkflowId<
     Node extends WorkflowNodeId = WorkflowNodeId,
@@ -113,7 +112,7 @@ export type SymphonyRouteWorkflowPort = {
   >(input: {
     workflowId: string;
     router: WorkflowRouter<Node, Data, Policy>;
-    policy?: Policy;
+    policy: Policy;
   }): Promise<ResumedRouteWorkflowSession<Node, Data, Policy> | null>;
   resumeSessionByIssueIdentifier<
     Node extends WorkflowNodeId = WorkflowNodeId,
@@ -122,7 +121,7 @@ export type SymphonyRouteWorkflowPort = {
   >(input: {
     issueIdentifier: string;
     router: WorkflowRouter<Node, Data, Policy>;
-    policy?: Policy;
+    policy: Policy;
   }): Promise<ResumedRouteWorkflowSession<Node, Data, Policy> | null>;
   recordRouteResult<
     Node extends WorkflowNodeId = WorkflowNodeId,
@@ -140,9 +139,9 @@ export type SymphonyRouteWorkflowPort = {
     workflowId: string;
     commandId: string;
     status: "succeeded" | "failed";
-    payload?: WorkflowPayload;
-    recordedAt?: string;
-    projection?: WorkflowProjection<Node, Data>;
+    payload: WorkflowPayload;
+    recordedAt: string;
+    projection: WorkflowProjection<Node, Data>;
   }): Promise<AppendedRouteCommandSettlement<Node, Data>>;
 };
 
@@ -158,8 +157,7 @@ export function createRouteWorkflowPort(input: {
       issueIdentifier: string;
       repositoryKey: string;
       router: WorkflowRouter<Node, Data, Policy>;
-      workflowId?: string;
-      createdAt?: string;
+      createdAt: string;
     }): Promise<EnsuredRouteWorkflow> {
       const existing = await input.routeWorkflowStore.getWorkflowForIssue(
         ensureInput.issueIdentifier
@@ -178,7 +176,6 @@ export function createRouteWorkflowPort(input: {
 
       try {
         const workflowId = await input.routeWorkflowStore.createWorkflow({
-          workflowId: ensureInput.workflowId,
           repositoryKey: ensureInput.repositoryKey,
           issueIdentifier: ensureInput.issueIdentifier,
           routerName: ensureInput.router.definition().name,
@@ -248,7 +245,7 @@ export function createRouteWorkflowPort(input: {
     >(rehydrationInput: {
       workflowId: string;
       router: WorkflowRouter<Node, Data, Policy>;
-      policy?: Policy;
+      policy: Policy;
     }): Promise<RehydratedRouteWorkflowProjection<Node, Data, Policy> | null> {
       const hydrationState = await input.routeWorkflowStore.loadWorkflowHydrationState<
         Node,
@@ -272,7 +269,7 @@ export function createRouteWorkflowPort(input: {
     >(rehydrationInput: {
       issueIdentifier: string;
       router: WorkflowRouter<Node, Data, Policy>;
-      policy?: Policy;
+      policy: Policy;
     }): Promise<RehydratedRouteWorkflowProjection<Node, Data, Policy> | null> {
       const hydrationState = await input.routeWorkflowStore.loadWorkflowHydrationStateByIssue<
         Node,
@@ -296,7 +293,7 @@ export function createRouteWorkflowPort(input: {
     >(resumeInput: {
       workflowId: string;
       router: WorkflowRouter<Node, Data, Policy>;
-      policy?: Policy;
+      policy: Policy;
     }): Promise<ResumedRouteWorkflowSession<Node, Data, Policy> | null> {
       const hydrationState = await input.routeWorkflowStore.loadWorkflowHydrationState<
         Node,
@@ -320,7 +317,7 @@ export function createRouteWorkflowPort(input: {
     >(resumeInput: {
       issueIdentifier: string;
       router: WorkflowRouter<Node, Data, Policy>;
-      policy?: Policy;
+      policy: Policy;
     }): Promise<ResumedRouteWorkflowSession<Node, Data, Policy> | null> {
       const hydrationState = await input.routeWorkflowStore.loadWorkflowHydrationStateByIssue<
         Node,
@@ -359,11 +356,11 @@ export function createRouteWorkflowPort(input: {
       workflowId: string;
       commandId: string;
       status: "succeeded" | "failed";
-      payload?: WorkflowPayload;
-      recordedAt?: string;
-      projection?: WorkflowProjection<Node, Data>;
+      payload: WorkflowPayload;
+      recordedAt: string;
+      projection: WorkflowProjection<Node, Data>;
     }): Promise<AppendedRouteCommandSettlement<Node, Data>> {
-      return await input.routeWorkflowStore.appendHistoryEvent({
+      return await input.routeWorkflowStore.appendHistoryEventWithSnapshot({
         workflowId: appendInput.workflowId,
         event: createCommandSettlementEvent<Node>({
           commandId: appendInput.commandId,
@@ -384,9 +381,12 @@ export async function rehydrateRouteWorkflowProjection<
 >(input: {
   hydrationState: RouteWorkflowHydrationState<Node, Data, Policy>;
   router: WorkflowRouter<Node, Data, Policy>;
-  policy?: Policy;
+  policy: Policy;
 }): Promise<RehydratedRouteWorkflowProjection<Node, Data, Policy>> {
-  const policy = resolveHydrationPolicy(input);
+  const policy = requireDefinedPolicy(
+    input.policy,
+    input.hydrationState.workflow.workflowId
+  );
   const tailHistory = toWorkflowHistory(input.hydrationState);
   const projection = input.hydrationState.snapshot
     ? await input.router.rehydrateAsync({
@@ -414,7 +414,7 @@ export async function resumeRouteWorkflowSession<
 >(input: {
   hydrationState: RouteWorkflowHydrationState<Node, Data, Policy>;
   router: WorkflowRouter<Node, Data, Policy>;
-  policy?: Policy;
+  policy: Policy;
 }): Promise<ResumedRouteWorkflowSession<Node, Data, Policy>> {
   const rehydratedProjection = await rehydrateRouteWorkflowProjection(input);
   const session = await input.router.resumeSessionAsync({
@@ -429,28 +429,6 @@ export async function resumeRouteWorkflowSession<
     session,
     policy: rehydratedProjection.policy
   };
-}
-
-function resolveHydrationPolicy<
-  Node extends WorkflowNodeId,
-  Data,
-  Policy,
->(input: {
-  hydrationState: RouteWorkflowHydrationState<Node, Data, Policy>;
-  policy?: Policy;
-}): Policy {
-  if (input.policy !== undefined) {
-    return input.policy;
-  }
-
-  const persistedPolicy = input.hydrationState.latestDecision?.policy;
-  if (persistedPolicy !== null && persistedPolicy !== undefined) {
-    return persistedPolicy;
-  }
-
-  throw new TypeError(
-    `Route workflow ${input.hydrationState.workflow.workflowId} requires an explicit policy because no persisted routing decision policy is available.`
-  );
 }
 
 function toWorkflowHistory<
@@ -468,16 +446,42 @@ function createCommandSettlementEvent<
 >(input: {
   commandId: string;
   status: "succeeded" | "failed";
-  payload?: WorkflowPayload;
-  recordedAt?: string;
+  payload: WorkflowPayload;
+  recordedAt: string;
 }): Extract<WorkflowJournalEvent<Node>, { kind: "command_settled" }> {
   return {
     kind: "command_settled",
-    commandId: input.commandId,
+    commandId: normalizeRequiredText(input.commandId, "commandId"),
     status: input.status,
-    payload: input.payload ?? null,
-    recordedAt: input.recordedAt ?? new Date().toISOString()
+    payload: input.payload,
+    recordedAt: normalizeRequiredText(input.recordedAt, "recordedAt")
   };
+}
+
+function requireDefinedPolicy<Policy>(
+  policy: Policy,
+  workflowId: string
+): Policy {
+  if (policy === undefined) {
+    throw new TypeError(
+      `Route workflow ${workflowId} requires an explicit routing policy.`
+    );
+  }
+
+  return policy;
+}
+
+function normalizeRequiredText(value: string, field: string): string {
+  if (typeof value !== "string") {
+    throw new TypeError(`${field} is required.`);
+  }
+
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    throw new TypeError(`${field} is required.`);
+  }
+
+  return normalized;
 }
 
 function assertWorkflowRouterCompatibility<

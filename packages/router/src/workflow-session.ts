@@ -1,5 +1,8 @@
 import { Effect } from "effect";
-import type { WorkflowRouterError } from "./router-errors.js";
+import {
+  toWorkflowRouterError,
+  type WorkflowRouterError
+} from "./router-errors.js";
 import type { WorkflowRouter } from "./workflow-router.js";
 import type {
   WorkflowHistory,
@@ -10,6 +13,7 @@ import type {
   WorkflowSignal
 } from "./types/index.js";
 import type { WorkflowNodeId } from "./types/base.js";
+import { workflowCommandSettlementInputSchema } from "./types/schema.js";
 
 export class WorkflowSession<
   Node extends WorkflowNodeId,
@@ -126,16 +130,21 @@ export class WorkflowSession<
   settleCommand(input: {
     commandId: string;
     status: "succeeded" | "failed";
-    payload?: WorkflowPayload;
-    recordedAt?: string;
+    payload: WorkflowPayload;
+    recordedAt: string;
   }): Effect.Effect<WorkflowProjection<Node, Data>, WorkflowRouterError, never> {
     return Effect.gen(this, function* () {
+      const settlement = yield* Effect.try({
+        try: () => workflowCommandSettlementInputSchema.parse(input),
+        catch: (error) =>
+          toWorkflowRouterError(error, "Workflow command settlement validation failed.")
+      });
       const event: WorkflowJournalEvent<Node> = {
         kind: "command_settled",
-        commandId: input.commandId,
-        status: input.status,
-        payload: input.payload ?? null,
-        recordedAt: input.recordedAt ?? new Date().toISOString()
+        commandId: settlement.commandId,
+        status: settlement.status,
+        payload: settlement.payload,
+        recordedAt: settlement.recordedAt
       };
 
       const nextProjection = yield* this.#router.rehydrate({
@@ -154,8 +163,8 @@ export class WorkflowSession<
   async settleCommandAsync(input: {
     commandId: string;
     status: "succeeded" | "failed";
-    payload?: WorkflowPayload;
-    recordedAt?: string;
+    payload: WorkflowPayload;
+    recordedAt: string;
   }): Promise<WorkflowProjection<Node, Data>> {
     return await Effect.runPromise(this.settleCommand(input));
   }

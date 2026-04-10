@@ -21,6 +21,5 @@ export type WorkflowTraceEntryKind =
 export type WorkflowTraceEntry = {
   kind: WorkflowTraceEntryKind;
   ref: string;
-  detail?: Record<string, unknown> | null;
+  detail: Record<string, unknown> | null;
 };
-

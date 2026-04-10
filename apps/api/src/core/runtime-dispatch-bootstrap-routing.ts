@@ -4,6 +4,8 @@ import {
   type SymphonyDispatchBootstrapRoutingResult
 } from "@symphony/orchestrator";
 import {
+  createSymphonyCurrentFlowTrackerStateObservedSignal,
+  parseSymphonyCurrentFlowTrackerState,
   type WorkflowCommand
 } from "@symphony/router";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
@@ -51,19 +53,21 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
       }
 
       const session = resumed.session;
-      const result = await session.receiveAsync({
-        id: buildTrackerObservedSignalId(routeInput.issue, routeInput.attempt, routeInput.startedAt),
-        type: "tracker.state_observed",
-        source: "tracker",
-        occurredAt: routeInput.startedAt,
-        payload: {
-          state: routeInput.issue.state,
-          attempt: routeInput.attempt,
-          preferredWorkerHost: routeInput.preferredWorkerHost
-        },
-        causationId: null,
-        correlationId: routeInput.issue.identifier
-      });
+      const result = await session.receiveAsync(
+        createSymphonyCurrentFlowTrackerStateObservedSignal({
+          id: buildTrackerObservedSignalId(
+            routeInput.issue,
+            routeInput.attempt,
+            routeInput.startedAt
+          ),
+          occurredAt: routeInput.startedAt,
+          state: parseSymphonyCurrentFlowTrackerState(routeInput.issue.state),
+          runId: null,
+          runMode: null,
+          causationId: null,
+          correlationId: routeInput.issue.identifier
+        })
+      );
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: ensured.workflow.workflowId,
@@ -102,14 +106,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
             command,
             recordedAt: routeInput.startedAt,
             async execute(executedCommand) {
-              const runMode = readDispatchRunMode(executedCommand.payload);
-              if (!runMode) {
-                throw new TypeError(
-                  `Dispatch command ${executedCommand.id} is missing a run mode.`
-                );
-              }
-
-              return runMode;
+              return readDispatchRunMode(executedCommand);
             }
           });
           continue;
@@ -143,7 +140,7 @@ async function executeTrackerTransitionCommand(input: {
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
 }) {
-  const targetState = readTrackerTransitionState(input.command.payload);
+  const targetState = readTrackerTransitionState(input.command);
   if (targetState !== "Bootstrapping") {
     throw new TypeError(
       `Dispatch bootstrap routing only supports tracker transitions to Bootstrapping. Received ${String(targetState)}.`

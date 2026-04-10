@@ -12,6 +12,7 @@ import {
   recordSignalEvent,
   settleCommandEvent
 } from "./testing/workflow-router-test-kit.js";
+import type { WorkflowSignal } from "./types/index.js";
 
 type TestNode =
   | "queued"
@@ -42,6 +43,7 @@ async function createTestRouter() {
           {
             id: "command_dispatch_implementation",
             kind: "dispatch",
+            dedupeKey: null,
             payload: {
               target: "implementation"
             }
@@ -66,6 +68,7 @@ async function createTestRouter() {
           {
             id: "command_audit_queued_to_implementation",
             kind: "audit",
+            dedupeKey: null,
             payload: {
               transition: "queued_to_implementation"
             }
@@ -105,6 +108,20 @@ async function createTestRouter() {
   );
 }
 
+function createTestSignal(
+  overrides: Partial<WorkflowSignal> & Pick<WorkflowSignal, "type" | "source" | "payload">
+): WorkflowSignal {
+  return {
+    id: overrides.id ?? "signal_fixed",
+    type: overrides.type,
+    source: overrides.source,
+    occurredAt: overrides.occurredAt ?? "2026-04-09T23:00:00.000Z",
+    causationId: overrides.causationId ?? null,
+    correlationId: overrides.correlationId ?? null,
+    payload: overrides.payload
+  };
+}
+
 describe("WorkflowRouter", () => {
   it("projects the initial node from an empty history", async () => {
     const router = await createTestRouter();
@@ -131,13 +148,13 @@ describe("WorkflowRouter", () => {
       router.receive({
         workflowId: "SYM-101",
         history: [],
-        signal: {
+        signal: createTestSignal({
           type: "tracker.state_changed",
           source: "tracker",
           payload: {
             state: "Todo"
           }
-        },
+        }),
         policy: {}
       })
     );
@@ -169,11 +186,11 @@ describe("WorkflowRouter", () => {
       router.receive({
         workflowId: "SYM-102",
         history: [],
-        signal: {
+        signal: createTestSignal({
           type: "operator.noop",
           source: "operator",
           payload: null
-        },
+        }),
         policy: {}
       })
     );
@@ -191,13 +208,13 @@ describe("WorkflowRouter", () => {
       router.receive({
         workflowId: "SYM-103",
         history: [],
-        signal: {
+        signal: createTestSignal({
           type: "tracker.state_changed",
           source: "tracker",
           payload: {
             state: "Todo"
           }
-        },
+        }),
         policy: {}
       })
     );
@@ -231,13 +248,13 @@ describe("WorkflowRouter", () => {
       router.receive({
         workflowId: "SYM-103A",
         history: [],
-        signal: {
+        signal: createTestSignal({
           type: "tracker.state_changed",
           source: "tracker",
           payload: {
             state: "Todo"
           }
-        },
+        }),
         policy: {}
       })
     );
@@ -278,13 +295,13 @@ describe("WorkflowRouter", () => {
       router.receive({
         workflowId: "SYM-103B",
         history: [],
-        signal: {
+        signal: createTestSignal({
           type: "tracker.state_changed",
           source: "tracker",
           payload: {
             state: "Todo"
           }
-        },
+        }),
         policy: {}
       })
     );
@@ -316,9 +333,12 @@ describe("WorkflowRouter", () => {
           id: "signal_duplicate",
           type: "tracker.state_changed",
           source: "tracker",
+          occurredAt: "2026-04-09T23:00:00.000Z",
           payload: {
             state: "Todo"
-          }
+          },
+          causationId: null,
+          correlationId: null
         },
         "2026-04-09T23:00:00.000Z"
       )
@@ -330,14 +350,14 @@ describe("WorkflowRouter", () => {
           router.receive({
             workflowId: "SYM-104",
             history,
-            signal: {
+            signal: createTestSignal({
               id: "signal_duplicate",
               type: "tracker.state_changed",
               source: "tracker",
               payload: {
                 state: "Todo"
               }
-            },
+            }),
             policy: {}
           })
         )
@@ -385,11 +405,11 @@ describe("WorkflowRouter", () => {
           router.receive({
             workflowId: "SYM-105",
             history: [],
-            signal: {
+            signal: createTestSignal({
               type: "router.test",
               source: "router",
               payload: null
-            },
+            }),
             policy: {}
           })
         )
@@ -433,11 +453,13 @@ describe("WorkflowRouter", () => {
 
     const result = await Effect.runPromise(
       session.receive({
-        type: "tracker.state_changed",
-        source: "tracker",
-        payload: {
-          state: "Todo"
-        }
+        ...createTestSignal({
+          type: "tracker.state_changed",
+          source: "tracker",
+          payload: {
+            state: "Todo"
+          }
+        })
       })
     );
 
@@ -457,18 +479,22 @@ describe("WorkflowRouter", () => {
 
     await Effect.runPromise(
       session.receive({
-        type: "tracker.state_changed",
-        source: "tracker",
-        payload: {
-          state: "Todo"
-        }
+        ...createTestSignal({
+          type: "tracker.state_changed",
+          source: "tracker",
+          payload: {
+            state: "Todo"
+          }
+        })
       })
     );
 
     const nextProjection = await Effect.runPromise(
       session.settleCommand({
         commandId: "command_audit_queued_to_implementation",
-        status: "succeeded"
+        status: "succeeded",
+        payload: null,
+        recordedAt: "2026-04-09T23:00:01.000Z"
       })
     );
 
@@ -484,14 +510,14 @@ describe("WorkflowRouter", () => {
       router.receive({
         workflowId: "SYM-109",
         history: [],
-        signal: {
+        signal: createTestSignal({
           id: "signal_resume_duplicate",
           type: "tracker.state_changed",
           source: "tracker",
           payload: {
             state: "Todo"
           }
-        },
+        }),
         policy: {}
       })
     );
@@ -507,12 +533,12 @@ describe("WorkflowRouter", () => {
     await expect(
       Effect.runPromise(
         Effect.flip(
-          resumedSession.receive({
+          resumedSession.receive(createTestSignal({
             id: "signal_resume_duplicate",
             type: "operator.noop",
             source: "operator",
             payload: null
-          })
+          }))
         )
       )
     ).resolves.toBeInstanceOf(DuplicateSignalIdError);
@@ -542,14 +568,14 @@ describe("WorkflowRouter", () => {
               lastSignal: null,
               lastDecision: null
             },
-            signal: {
+            signal: createTestSignal({
               id: "signal_resume_command_duplicate",
               type: "tracker.state_changed",
               source: "tracker",
               payload: {
                 state: "Todo"
               }
-            },
+            }),
             policy: {}
           })
         )

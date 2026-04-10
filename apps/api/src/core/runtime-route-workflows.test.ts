@@ -64,10 +64,10 @@ describe("runtime route workflows", () => {
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
-        workflowId: "workflow-410",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410",
-        router: await createSymphonyCurrentFlowRouterAsync()
+        router: await createSymphonyCurrentFlowRouterAsync(),
+        createdAt: "2026-04-10T00:29:00.000Z"
       });
       const workflowId = ensured.workflow.workflowId;
 
@@ -82,7 +82,8 @@ describe("runtime route workflows", () => {
       const ensuredAgain = await routeWorkflows.ensureWorkflowForIssue({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410",
-        router: await createSymphonyCurrentFlowRouterAsync()
+        router: await createSymphonyCurrentFlowRouterAsync(),
+        createdAt: "2026-04-10T00:29:30.000Z"
       });
 
       const byWorkflowId = await routeWorkflows.loadHydrationStateByWorkflowId<
@@ -133,18 +134,19 @@ describe("runtime route workflows", () => {
       });
 
       await routeWorkflowStore.createWorkflow({
-        workflowId: "workflow-410A",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410A",
         routerName: "custom-router",
-        routerVersion: "9"
+        routerVersion: "9",
+        createdAt: "2026-04-10T00:29:00.000Z"
       });
 
       await expect(
         routeWorkflows.ensureWorkflowForIssue({
           repositoryKey: "openai/symphony",
           issueIdentifier: "SYM-410A",
-          router: await createSymphonyCurrentFlowRouterAsync()
+          router: await createSymphonyCurrentFlowRouterAsync(),
+          createdAt: "2026-04-10T00:29:30.000Z"
         })
       ).rejects.toThrow(
         "is bound to router custom-router"
@@ -176,10 +178,10 @@ describe("runtime route workflows", () => {
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
-        workflowId: "workflow-411",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-411",
-        router: await createSymphonyCurrentFlowRouterAsync()
+        router: await createSymphonyCurrentFlowRouterAsync(),
+        createdAt: "2026-04-10T00:29:00.000Z"
       });
       const workflowId = ensured.workflow.workflowId;
 
@@ -216,7 +218,10 @@ describe("runtime route workflows", () => {
         TestPolicy
       >({
         workflowId,
-        router
+        router,
+        policy: {
+          mode: "implementation"
+        }
       });
 
       expect(rehydrated?.policy).toEqual({
@@ -253,10 +258,10 @@ describe("runtime route workflows", () => {
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
-        workflowId: "workflow-412",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-412",
-        router: await createSymphonyCurrentFlowRouterAsync()
+        router: await createSymphonyCurrentFlowRouterAsync(),
+        createdAt: "2026-04-10T00:29:00.000Z"
       });
       const workflowId = ensured.workflow.workflowId;
 
@@ -274,13 +279,20 @@ describe("runtime route workflows", () => {
         TestPolicy
       >({
         issueIdentifier: "SYM-412",
-        router
+        router,
+        policy: {
+          mode: "implementation"
+        }
       });
 
       const result = await resumed?.session.receiveAsync({
+        id: "signal_workflow_review_requested",
         type: "workflow.review_requested",
         source: "runtime",
-        payload: null
+        occurredAt: "2026-04-10T15:00:00.000Z",
+        payload: null,
+        causationId: null,
+        correlationId: "SYM-412"
       });
 
       expect(resumed?.projection.currentNode).toBe("bootstrapping");
@@ -291,7 +303,7 @@ describe("runtime route workflows", () => {
     }
   });
 
-  it("requires an explicit policy when a workflow has no persisted decision history", async () => {
+  it("fails fast when callers omit routing policy during rehydration", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-route-policy-"));
     tempDirectories.push(root);
 
@@ -313,10 +325,10 @@ describe("runtime route workflows", () => {
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
-        workflowId: "workflow-413",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-413",
-        router: await createSymphonyCurrentFlowRouterAsync()
+        router: await createSymphonyCurrentFlowRouterAsync(),
+        createdAt: "2026-04-10T00:29:00.000Z"
       });
       const workflowId = ensured.workflow.workflowId;
 
@@ -324,9 +336,9 @@ describe("runtime route workflows", () => {
         routeWorkflows.rehydrateProjectionByWorkflowId({
           workflowId,
           router
-        })
+        } as never)
       ).rejects.toThrow(
-        "requires an explicit policy because no persisted routing decision policy is available"
+        "requires an explicit routing policy"
       );
 
       const rehydrated = await routeWorkflows.rehydrateProjectionByWorkflowId<
@@ -414,6 +426,7 @@ function buildRouteResult(
       {
         id: "command_tracker_bootstrapping",
         kind: "tracker.transition",
+        dedupeKey: null,
         payload: {
           state: "Bootstrapping"
         }
@@ -421,6 +434,7 @@ function buildRouteResult(
       {
         id: "command_dispatch_implementation",
         kind: "run.dispatch",
+        dedupeKey: null,
         payload: {
           runMode: "implementation"
         }
@@ -545,6 +559,7 @@ function buildProjection(input: {
       kind: commandId.startsWith("command_tracker_")
         ? "tracker.transition"
         : "run.dispatch",
+      dedupeKey: null,
       payload:
         commandId === "command_tracker_bootstrapping"
           ? {
