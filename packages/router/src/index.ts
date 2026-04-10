@@ -47,6 +47,19 @@ export {
 export {
   WorkflowSession
 } from "./workflow-session.js";
+export {
+  createSymphonyCurrentFlowRouter,
+  createSymphonyCurrentFlowRouterAsync,
+  createSymphonyCurrentFlowRouterDefinition
+} from "./symphony-current-flow-router.js";
+export type {
+  SymphonyCurrentFlowCompletionKind,
+  SymphonyCurrentFlowData,
+  SymphonyCurrentFlowNode,
+  SymphonyCurrentFlowPolicy,
+  SymphonyCurrentFlowRunMode,
+  SymphonyCurrentFlowTrackerState
+} from "./symphony-current-flow-router.js";
 export type {
   RouterStrategy,
   WorkflowCandidateEdge,

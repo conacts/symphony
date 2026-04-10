@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { Effect } from "effect";
 import {
   createSymphonyCurrentFlowRouter,
+  createSymphonyCurrentFlowRouterAsync,
   type SymphonyCurrentFlowNode
-} from "./testing/symphony-current-flow-router.js";
+} from "./symphony-current-flow-router.js";
 import {
   replaySymphonyCurrentFlowFixture,
   symphonyCurrentFlowReplayFixtures
@@ -83,16 +84,14 @@ describe("Symphony current-flow router fixture", () => {
   });
 
   it("takes over an implementation run when the issue is moved to Approved", async () => {
-    const router = await Effect.runPromise(
-      createSymphonyCurrentFlowRouter({
-        now: () => new Date("2026-04-09T22:45:00.000Z"),
-        createId: (() => {
-          let counter = 0;
-          return (prefix: string) =>
-            `${prefix}_${String(++counter).padStart(4, "0")}`;
-        })()
-      })
-    );
+    const router = await createSymphonyCurrentFlowRouterAsync({
+      now: () => new Date("2026-04-09T22:45:00.000Z"),
+      createId: (() => {
+        let counter = 0;
+        return (prefix: string) =>
+          `${prefix}_${String(++counter).padStart(4, "0")}`;
+      })()
+    });
 
     const history = [
       {

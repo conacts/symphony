@@ -1,14 +1,27 @@
 import type {
+  RouteDecisionRecord,
+  RouteHistoryEventRecord,
+  RouteProjectionSnapshotRecord,
   RouteWorkflowHydrationState,
+  RouteWorkflowRecord,
   RouteWorkflowStore
 } from "@symphony/db";
+import { SymphonyRouteWorkflowExistsError } from "@symphony/db";
 import type {
+  WorkflowPayload,
   WorkflowHistory,
+  WorkflowJournalEvent,
   WorkflowNodeId,
   WorkflowProjection,
+  WorkflowRouteResult,
   WorkflowRouter,
   WorkflowSession
 } from "@symphony/router";
+
+export type EnsuredRouteWorkflow = {
+  workflow: RouteWorkflowRecord;
+  created: boolean;
+};
 
 export type RehydratedRouteWorkflowProjection<
   Node extends WorkflowNodeId = WorkflowNodeId,
@@ -31,7 +44,36 @@ export type ResumedRouteWorkflowSession<
   policy: Policy;
 };
 
+export type RecordedRouteWorkflowResult<
+  Node extends WorkflowNodeId = WorkflowNodeId,
+  Data = unknown,
+  Policy = unknown,
+> = {
+  history: RouteHistoryEventRecord<Node>[];
+  decision: RouteDecisionRecord<Node, Data, Policy>;
+  snapshot: RouteProjectionSnapshotRecord<Node, Data>;
+};
+
+export type AppendedRouteCommandSettlement<
+  Node extends WorkflowNodeId = WorkflowNodeId,
+  Data = unknown,
+> = {
+  historyEvent: RouteHistoryEventRecord<Node>;
+  snapshot: RouteProjectionSnapshotRecord<Node, Data> | null;
+};
+
 export type SymphonyRouteWorkflowPort = {
+  ensureWorkflowForIssue<
+    Node extends WorkflowNodeId = WorkflowNodeId,
+    Data = unknown,
+    Policy = unknown,
+  >(input: {
+    issueIdentifier: string;
+    repositoryKey: string;
+    router: WorkflowRouter<Node, Data, Policy>;
+    workflowId?: string;
+    createdAt?: string;
+  }): Promise<EnsuredRouteWorkflow>;
   loadHydrationStateByWorkflowId<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
@@ -82,12 +124,101 @@ export type SymphonyRouteWorkflowPort = {
     router: WorkflowRouter<Node, Data, Policy>;
     policy?: Policy;
   }): Promise<ResumedRouteWorkflowSession<Node, Data, Policy> | null>;
+  recordRouteResult<
+    Node extends WorkflowNodeId = WorkflowNodeId,
+    Data = unknown,
+    Policy = unknown,
+  >(input: {
+    workflowId: string;
+    policy: Policy;
+    result: WorkflowRouteResult<Node, Data>;
+  }): Promise<RecordedRouteWorkflowResult<Node, Data, Policy>>;
+  appendCommandSettlement<
+    Node extends WorkflowNodeId = WorkflowNodeId,
+    Data = unknown,
+  >(input: {
+    workflowId: string;
+    commandId: string;
+    status: "succeeded" | "failed";
+    payload?: WorkflowPayload;
+    recordedAt?: string;
+    projection?: WorkflowProjection<Node, Data>;
+  }): Promise<AppendedRouteCommandSettlement<Node, Data>>;
 };
 
 export function createRouteWorkflowPort(input: {
   routeWorkflowStore: RouteWorkflowStore;
 }): SymphonyRouteWorkflowPort {
   return {
+    async ensureWorkflowForIssue<
+      Node extends WorkflowNodeId = WorkflowNodeId,
+      Data = unknown,
+      Policy = unknown,
+    >(ensureInput: {
+      issueIdentifier: string;
+      repositoryKey: string;
+      router: WorkflowRouter<Node, Data, Policy>;
+      workflowId?: string;
+      createdAt?: string;
+    }): Promise<EnsuredRouteWorkflow> {
+      const existing = await input.routeWorkflowStore.getWorkflowForIssue(
+        ensureInput.issueIdentifier
+      );
+      if (existing) {
+        assertWorkflowRouterCompatibility({
+          workflow: existing,
+          repositoryKey: ensureInput.repositoryKey,
+          router: ensureInput.router
+        });
+        return {
+          workflow: existing,
+          created: false
+        };
+      }
+
+      try {
+        const workflowId = await input.routeWorkflowStore.createWorkflow({
+          workflowId: ensureInput.workflowId,
+          repositoryKey: ensureInput.repositoryKey,
+          issueIdentifier: ensureInput.issueIdentifier,
+          routerName: ensureInput.router.definition().name,
+          routerVersion: ensureInput.router.definition().version,
+          createdAt: ensureInput.createdAt
+        });
+        const workflow = await input.routeWorkflowStore.getWorkflow(workflowId);
+        if (!workflow) {
+          throw new TypeError(
+            `Route workflow ${workflowId} was created for issue ${ensureInput.issueIdentifier} but could not be loaded.`
+          );
+        }
+
+        return {
+          workflow,
+          created: true
+        };
+      } catch (error) {
+        if (!(error instanceof SymphonyRouteWorkflowExistsError)) {
+          throw error;
+        }
+
+        const workflow = await input.routeWorkflowStore.getWorkflowForIssue(
+          ensureInput.issueIdentifier
+        );
+        if (!workflow) {
+          throw error;
+        }
+
+        assertWorkflowRouterCompatibility({
+          workflow,
+          repositoryKey: ensureInput.repositoryKey,
+          router: ensureInput.router
+        });
+        return {
+          workflow,
+          created: false
+        };
+      }
+    },
     async loadHydrationStateByWorkflowId<
       Node extends WorkflowNodeId = WorkflowNodeId,
       Data = unknown,
@@ -205,6 +336,43 @@ export function createRouteWorkflowPort(input: {
         router: resumeInput.router,
         policy: resumeInput.policy
       });
+    },
+    async recordRouteResult<
+      Node extends WorkflowNodeId = WorkflowNodeId,
+      Data = unknown,
+      Policy = unknown,
+    >(recordInput: {
+      workflowId: string;
+      policy: Policy;
+      result: WorkflowRouteResult<Node, Data>;
+    }): Promise<RecordedRouteWorkflowResult<Node, Data, Policy>> {
+      return await input.routeWorkflowStore.recordRouteResult({
+        workflowId: recordInput.workflowId,
+        policy: recordInput.policy,
+        result: recordInput.result
+      });
+    },
+    async appendCommandSettlement<
+      Node extends WorkflowNodeId = WorkflowNodeId,
+      Data = unknown,
+    >(appendInput: {
+      workflowId: string;
+      commandId: string;
+      status: "succeeded" | "failed";
+      payload?: WorkflowPayload;
+      recordedAt?: string;
+      projection?: WorkflowProjection<Node, Data>;
+    }): Promise<AppendedRouteCommandSettlement<Node, Data>> {
+      return await input.routeWorkflowStore.appendHistoryEvent({
+        workflowId: appendInput.workflowId,
+        event: createCommandSettlementEvent<Node>({
+          commandId: appendInput.commandId,
+          status: appendInput.status,
+          payload: appendInput.payload,
+          recordedAt: appendInput.recordedAt
+        }),
+        projection: appendInput.projection
+      });
     }
   };
 }
@@ -293,4 +461,51 @@ function toWorkflowHistory<
   hydrationState: RouteWorkflowHydrationState<Node, Data, Policy>
 ): WorkflowHistory<Node> {
   return hydrationState.tailHistory.map((historyEvent) => historyEvent.event);
+}
+
+function createCommandSettlementEvent<
+  Node extends WorkflowNodeId,
+>(input: {
+  commandId: string;
+  status: "succeeded" | "failed";
+  payload?: WorkflowPayload;
+  recordedAt?: string;
+}): Extract<WorkflowJournalEvent<Node>, { kind: "command_settled" }> {
+  return {
+    kind: "command_settled",
+    commandId: input.commandId,
+    status: input.status,
+    payload: input.payload ?? null,
+    recordedAt: input.recordedAt ?? new Date().toISOString()
+  };
+}
+
+function assertWorkflowRouterCompatibility<
+  Node extends WorkflowNodeId,
+  Data,
+  Policy,
+>(input: {
+  workflow: RouteWorkflowRecord;
+  repositoryKey: string;
+  router: WorkflowRouter<Node, Data, Policy>;
+}) {
+  const definition = input.router.definition();
+
+  if (input.workflow.repositoryKey !== input.repositoryKey) {
+    throw new TypeError(
+      `Route workflow ${input.workflow.workflowId} is bound to repository ${input.workflow.repositoryKey}, but ${input.repositoryKey} was requested.`
+    );
+  }
+
+  if (input.workflow.routerName !== definition.name) {
+    throw new TypeError(
+      `Route workflow ${input.workflow.workflowId} is bound to router ${input.workflow.routerName}, but ${definition.name} was requested.`
+    );
+  }
+
+  if (input.workflow.routerVersion !== definition.version) {
+    throw new TypeError(
+      `Route workflow ${input.workflow.workflowId} is bound to router version ${input.workflow.routerVersion}, but ${definition.version} was requested.`
+    );
+  }
 }

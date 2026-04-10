@@ -1,6 +1,5 @@
-import { Effect } from "effect";
 import type { WorkflowRouteResult, WorkflowSignal } from "../types/index.js";
-import { createSymphonyCurrentFlowRouter } from "./symphony-current-flow-router.js";
+import { createSymphonyCurrentFlowRouterAsync } from "../symphony-current-flow-router.js";
 import type {
   SymphonyCurrentFlowCompletionKind,
   SymphonyCurrentFlowData,
@@ -8,7 +7,7 @@ import type {
   SymphonyCurrentFlowPolicy,
   SymphonyCurrentFlowRunMode,
   SymphonyCurrentFlowTrackerState
-} from "./symphony-current-flow-router.js";
+} from "../symphony-current-flow-router.js";
 
 export type SymphonyCurrentFlowReplayFixture = {
   name: string;
@@ -150,15 +149,13 @@ export async function replaySymphonyCurrentFlowFixture(
   fixture: SymphonyCurrentFlowReplayFixture,
   policy: SymphonyCurrentFlowPolicy = {}
 ): Promise<SymphonyCurrentFlowReplayResult> {
-  const router = await Effect.runPromise(
-    createSymphonyCurrentFlowRouter(createFixedRouterOptions())
+  const router = await createSymphonyCurrentFlowRouterAsync(
+    createFixedRouterOptions()
   );
-  const session = await Effect.runPromise(
-    router.startSession({
-      workflowId: fixture.workflowId,
-      policy
-    })
-  );
+  const session = await router.startSessionAsync({
+    workflowId: fixture.workflowId,
+    policy
+  });
 
   const results: WorkflowRouteResult<
     SymphonyCurrentFlowNode,
@@ -166,17 +163,15 @@ export async function replaySymphonyCurrentFlowFixture(
   >[] = [];
 
   for (const signal of fixture.signals) {
-    const result = await Effect.runPromise(session.receive(signal));
+    const result = await session.receiveAsync(signal);
     results.push(result);
 
     for (const command of result.decision.commands) {
-      await Effect.runPromise(
-        session.settleCommand({
-          commandId: command.id,
-          status: "succeeded",
-          recordedAt: `${signal.occurredAt ?? "2026-04-09T00:00:00.000Z"}`
-        })
-      );
+      await session.settleCommandAsync({
+        commandId: command.id,
+        status: "succeeded",
+        recordedAt: `${signal.occurredAt ?? "2026-04-09T00:00:00.000Z"}`
+      });
     }
   }
 

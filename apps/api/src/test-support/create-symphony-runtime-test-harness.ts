@@ -580,6 +580,9 @@ export async function createSymphonyRuntimeTestHarness(input: {
       }
     },
     routeWorkflows: {
+      async ensureWorkflowForIssue() {
+        throw new Error("Runtime test harness does not support route workflow writes.");
+      },
       async loadHydrationStateByWorkflowId() {
         return null;
       },
@@ -597,6 +600,12 @@ export async function createSymphonyRuntimeTestHarness(input: {
       },
       async resumeSessionByIssueIdentifier() {
         return null;
+      },
+      async recordRouteResult() {
+        throw new Error("Runtime test harness does not support route workflow writes.");
+      },
+      async appendCommandSettlement() {
+        throw new Error("Runtime test harness does not support route workflow writes.");
       }
     },
     health: {
