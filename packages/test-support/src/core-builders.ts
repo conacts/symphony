@@ -35,6 +35,15 @@ type SymphonyReworkHandoffFixture = {
   recordedAt: string;
 };
 
+type RuntimeMergeResultFixture = {
+  status: "merged" | "blocked";
+  summary: string;
+  prUrl: string | null;
+  mergeCommitSha: string | null;
+  blockingReason: string | null;
+  testsSummary: string | null;
+};
+
 export function buildSymphonyRuntimePolicy(
   overrides: Partial<SymphonyResolvedRuntimePolicy> = {}
 ): SymphonyResolvedRuntimePolicy {
@@ -213,6 +222,20 @@ export function buildSymphonyReworkHandoff(
     actorLogin: "chatgpt-codex-connector",
     feedbackBody: "Please rename this API and add the missing test coverage.",
     recordedAt: "2026-04-06T00:00:00.000Z",
+    ...overrides
+  };
+}
+
+export function buildRuntimeMergeResult(
+  overrides: Partial<RuntimeMergeResultFixture> = {}
+): RuntimeMergeResultFixture {
+  return {
+    status: "merged",
+    summary: "Merged the PR after syncing with main.",
+    prUrl: "https://github.com/openai/symphony/pull/123",
+    mergeCommitSha: "abc123",
+    blockingReason: null,
+    testsSummary: "pnpm test",
     ...overrides
   };
 }

@@ -631,7 +631,7 @@ describe("runtime tools", () => {
   });
 
   it("records a merged result for the active approved run", async () => {
-    const { database, issueTimelineStore } = await createRuntimeToolsTestContext({
+    const { database } = await createRuntimeToolsTestContext({
       issue: {
         id: "issue-321",
         identifier: "SYM-321"
@@ -652,7 +652,6 @@ describe("runtime tools", () => {
     const result = await executeMergeResultTool(
       {
         tracker,
-        issueTimelineStore,
         issue: {
           trackerIssueId: "issue-321",
           identifier: "SYM-321",
@@ -689,21 +688,11 @@ describe("runtime tools", () => {
       }
     ]);
 
-    const entries = await issueTimelineStore.listIssueTimeline("SYM-321");
-    expect(entries[0]).toEqual(
-      expect.objectContaining({
-        runId: "run-321",
-        turnId: "turn-321",
-        source: "runtime",
-        eventType: "merge_result_reported"
-      })
-    );
-
     database.close();
   });
 
   it("routes merged merge-result state transitions through the provided callback", async () => {
-    const { database, issueTimelineStore } = await createRuntimeToolsTestContext({
+    const { database } = await createRuntimeToolsTestContext({
       issue: {
         id: "issue-322",
         identifier: "SYM-322"
@@ -728,7 +717,6 @@ describe("runtime tools", () => {
     const result = await executeMergeResultTool(
       {
         tracker,
-        issueTimelineStore,
         issue: {
           trackerIssueId: "issue-322",
           identifier: "SYM-322",
@@ -778,7 +766,7 @@ describe("runtime tools", () => {
   });
 
   it("routes blocked merge-result state transitions through the provided callback", async () => {
-    const { database, issueTimelineStore } = await createRuntimeToolsTestContext({
+    const { database } = await createRuntimeToolsTestContext({
       issue: {
         id: "issue-323",
         identifier: "SYM-323"
@@ -803,7 +791,6 @@ describe("runtime tools", () => {
     const result = await executeMergeResultTool(
       {
         tracker,
-        issueTimelineStore,
         issue: {
           trackerIssueId: "issue-323",
           identifier: "SYM-323",
@@ -853,7 +840,7 @@ describe("runtime tools", () => {
   });
 
   it("rejects blocked merge results that omit the blocking reason", async () => {
-    const { database, issueTimelineStore } = await createRuntimeToolsTestContext({
+    const { database } = await createRuntimeToolsTestContext({
       issue: {
         id: "issue-654",
         identifier: "SYM-654"
@@ -866,7 +853,6 @@ describe("runtime tools", () => {
     const result = await executeMergeResultTool(
       {
         tracker: createMemorySymphonyTracker(),
-        issueTimelineStore,
         issue: {
           trackerIssueId: "issue-654",
           identifier: "SYM-654"

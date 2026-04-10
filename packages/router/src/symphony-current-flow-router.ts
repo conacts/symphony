@@ -21,6 +21,7 @@ import {
   readSymphonyCurrentFlowTrackerStateObservedSignal,
   readSymphonyCurrentFlowTrackerTransitionCommand,
   type SymphonyCurrentFlowCompletionKind,
+  type SymphonyCurrentFlowMergeResultRecord,
   type SymphonyCurrentFlowReviewReworkHandoff,
   type SymphonyCurrentFlowRunMode,
   type SymphonyCurrentFlowTrackerState
@@ -49,6 +50,7 @@ export type SymphonyCurrentFlowData = {
   lastDispatchMode: SymphonyCurrentFlowRunMode | null;
   lastRunMode: SymphonyCurrentFlowRunMode | null;
   lastRuntimeOutcome: SymphonyCurrentFlowCompletionKind | null;
+  latestMergeResult: SymphonyCurrentFlowMergeResultRecord | null;
   latestReworkHandoff: SymphonyCurrentFlowReviewReworkHandoff | null;
 };
 
@@ -367,6 +369,7 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
       lastDispatchMode: null,
       lastRunMode: null,
       lastRuntimeOutcome: null,
+      latestMergeResult: null,
       latestReworkHandoff: null
     }),
     reduceData: ({ data, event }) => {
@@ -491,8 +494,8 @@ function isMergeResultReported(
   status: "merged" | "blocked"
 ) {
   return (
-    readSymphonyCurrentFlowMergeResultReportedSignal(signal)?.payload.status ===
-    status
+    readSymphonyCurrentFlowMergeResultReportedSignal(signal)?.payload.mergeResult
+      .status === status
   );
 }
 
@@ -771,6 +774,15 @@ function reduceSignalData(
     return {
       ...data,
       latestReworkHandoff: reworkRequested.payload.handoff
+    };
+  }
+
+  const mergeResultReported =
+    readSymphonyCurrentFlowMergeResultReportedSignal(signal);
+  if (mergeResultReported !== null) {
+    return {
+      ...data,
+      latestMergeResult: mergeResultReported.payload.mergeResult
     };
   }
 

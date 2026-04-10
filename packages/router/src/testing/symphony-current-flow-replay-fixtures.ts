@@ -34,6 +34,7 @@ export type SymphonyCurrentFlowReplayFixture = {
     lastDispatchMode: SymphonyCurrentFlowRunMode | null;
     lastRunMode: SymphonyCurrentFlowRunMode | null;
     lastRuntimeOutcome: SymphonyCurrentFlowCompletionKind | null;
+    latestMergeResult?: SymphonyCurrentFlowData["latestMergeResult"];
     latestReworkHandoff?: SymphonyCurrentFlowData["latestReworkHandoff"];
   };
 };
@@ -179,7 +180,17 @@ export const symphonyCurrentFlowReplayFixtures: ReadonlyArray<SymphonyCurrentFlo
       trackerState: "Done",
       lastDispatchMode: "approved_merge",
       lastRunMode: "approved_merge",
-      lastRuntimeOutcome: null
+      lastRuntimeOutcome: null,
+      latestMergeResult: {
+        runId: "run-1",
+        status: "merged",
+        summary: "Merged the PR after syncing with main.",
+        prUrl: "https://github.com/openai/symphony/pull/123",
+        mergeCommitSha: "abc123",
+        blockingReason: null,
+        testsSummary: "pnpm test",
+        recordedAt: "2026-04-09T22:00:02.000Z"
+      }
     }
   },
   {
@@ -197,7 +208,17 @@ export const symphonyCurrentFlowReplayFixtures: ReadonlyArray<SymphonyCurrentFlo
       trackerState: "Blocked",
       lastDispatchMode: "approved_merge",
       lastRunMode: "approved_merge",
-      lastRuntimeOutcome: null
+      lastRuntimeOutcome: null,
+      latestMergeResult: {
+        runId: "run-1",
+        status: "blocked",
+        summary: "Merge blocked after main introduced conflicts.",
+        prUrl: "https://github.com/openai/symphony/pull/123",
+        mergeCommitSha: null,
+        blockingReason: "Conflicts in packages/workspace/src/docker-client.ts",
+        testsSummary: "pnpm test --filter @symphony/workspace",
+        recordedAt: "2026-04-09T22:00:02.000Z"
+      }
     }
   },
   {
@@ -439,8 +460,28 @@ function runtimeMergeResultReported(
   return createSymphonyCurrentFlowMergeResultReportedSignal({
     id,
     occurredAt: buildOccurredAt(step),
-    runId: "run-1",
-    status,
+    mergeResult:
+      status === "merged"
+        ? {
+            runId: "run-1",
+            status,
+            summary: "Merged the PR after syncing with main.",
+            prUrl: "https://github.com/openai/symphony/pull/123",
+            mergeCommitSha: "abc123",
+            blockingReason: null,
+            testsSummary: "pnpm test",
+            recordedAt: buildOccurredAt(step)
+          }
+        : {
+            runId: "run-1",
+            status,
+            summary: "Merge blocked after main introduced conflicts.",
+            prUrl: "https://github.com/openai/symphony/pull/123",
+            mergeCommitSha: null,
+            blockingReason: "Conflicts in packages/workspace/src/docker-client.ts",
+            testsSummary: "pnpm test --filter @symphony/workspace",
+            recordedAt: buildOccurredAt(step)
+          },
     causationId: "run-1",
     correlationId: null
   });

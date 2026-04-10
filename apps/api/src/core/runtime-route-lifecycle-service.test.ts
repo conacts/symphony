@@ -564,7 +564,14 @@ describe("runtime route lifecycle service", () => {
         issueIdentifier: harness.issue.identifier,
         runId: "run-1",
         recordedAt: "2026-04-10T14:12:40.000Z",
-        status: "merged"
+        mergeResult: {
+          status: "merged",
+          summary: "Merged the PR after syncing with main.",
+          prUrl: "https://github.com/openai/symphony/pull/123",
+          mergeCommitSha: "abc123",
+          blockingReason: null,
+          testsSummary: "pnpm test"
+        }
       });
 
       expect(routed).toBe(true);
@@ -577,6 +584,16 @@ describe("runtime route lifecycle service", () => {
       >(harness.issue.identifier);
       expect(hydration?.snapshot?.projection.currentNode).toBe("done");
       expect(hydration?.snapshot?.projection.data.trackerState).toBe("Done");
+      expect(hydration?.snapshot?.projection.data.latestMergeResult).toEqual({
+        runId: "run-1",
+        status: "merged",
+        summary: "Merged the PR after syncing with main.",
+        prUrl: "https://github.com/openai/symphony/pull/123",
+        mergeCommitSha: "abc123",
+        blockingReason: null,
+        testsSummary: "pnpm test",
+        recordedAt: "2026-04-10T14:12:40.000Z"
+      });
       expect(hydration?.snapshot?.projection.lastSignal?.type).toBe(
         "runtime.merge_result_reported"
       );
@@ -597,7 +614,14 @@ describe("runtime route lifecycle service", () => {
         issueIdentifier: harness.issue.identifier,
         runId: "run-1",
         recordedAt: "2026-04-10T14:12:50.000Z",
-        status: "blocked"
+        mergeResult: {
+          status: "blocked",
+          summary: "Merge blocked after main introduced conflicts.",
+          prUrl: "https://github.com/openai/symphony/pull/123",
+          mergeCommitSha: null,
+          blockingReason: "Conflicts in packages/workspace/src/docker-client.ts",
+          testsSummary: "pnpm test --filter @symphony/workspace"
+        }
       });
 
       expect(routed).toBe(true);
@@ -610,6 +634,16 @@ describe("runtime route lifecycle service", () => {
       >(harness.issue.identifier);
       expect(hydration?.snapshot?.projection.currentNode).toBe("blocked");
       expect(hydration?.snapshot?.projection.data.trackerState).toBe("Blocked");
+      expect(hydration?.snapshot?.projection.data.latestMergeResult).toEqual({
+        runId: "run-1",
+        status: "blocked",
+        summary: "Merge blocked after main introduced conflicts.",
+        prUrl: "https://github.com/openai/symphony/pull/123",
+        mergeCommitSha: null,
+        blockingReason: "Conflicts in packages/workspace/src/docker-client.ts",
+        testsSummary: "pnpm test --filter @symphony/workspace",
+        recordedAt: "2026-04-10T14:12:50.000Z"
+      });
       expect(hydration?.snapshot?.projection.lastSignal?.type).toBe(
         "runtime.merge_result_reported"
       );

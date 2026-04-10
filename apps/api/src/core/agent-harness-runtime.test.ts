@@ -9,7 +9,6 @@ import {
   createSqliteAgentAnalyticsStore,
   createRouteWorkflowStore,
   createSymphonyIssueDeliveryReportStore,
-  createSymphonyIssueTimelineStore,
   createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb,
   symphonySchema
@@ -20,15 +19,20 @@ import {
   type SymphonyReworkHandoff,
   symphonyHarnessPromptAppendix
 } from "@symphony/runtime-contract";
-import { runtimeMergeResultEventType } from "@symphony/runtime-tools";
+import type { RuntimeMergeResult } from "@symphony/runtime-tools";
 import {
+  createSymphonyCurrentFlowMergeResultReportedSignal,
   createSymphonyCurrentFlowReviewReworkRequestedSignal,
+  createSymphonyCurrentFlowRunStartedSignal,
   createSymphonyCurrentFlowTrackerStateObservedSignal,
   type SymphonyCurrentFlowData,
   type SymphonyCurrentFlowNode,
   type SymphonyCurrentFlowPolicy
 } from "@symphony/router";
-import { buildSymphonyReworkHandoff } from "@symphony/test-support";
+import {
+  buildRuntimeMergeResult,
+  buildSymphonyReworkHandoff
+} from "@symphony/test-support";
 import type {
   SymphonyTracker,
   SymphonyTrackerConfig,
@@ -1285,9 +1289,6 @@ done
     const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
-      repositoryKey: testRepositoryKey
-    });
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -1297,9 +1298,21 @@ done
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
     });
+    const loadLatestMergeResult = await buildWorkflowBackedMergeResultLoader({
+      db: database.db,
+      issueIdentifier: issue.identifier,
+      repositoryKey: testRepositoryKey,
+      trackerConfig: runtimePolicy.tracker,
+      runId,
+      mergeResults: [
+        {
+          recordedAt: "2026-04-10T16:35:00.000Z",
+          mergeResult: buildRuntimeMergeResult()
+        }
+      ]
+    });
 
     let completion: SymphonyAgentRuntimeCompletion | null = null;
-    let mergeResultRecorded = false;
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createSymphonyAgentRuntime({
@@ -1307,7 +1320,7 @@ done
         tracker,
         runStore,
         deliveryReports,
-        issueTimelineStore,
+        loadLatestMergeResult,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1320,28 +1333,7 @@ done
         hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
         callbacks: {
-          async onUpdate() {
-            if (mergeResultRecorded) {
-              return;
-            }
-
-            mergeResultRecorded = true;
-            await issueTimelineStore.record({
-              issueIdentifier: issue.identifier,
-              runId,
-              source: "runtime",
-              eventType: runtimeMergeResultEventType,
-              message: "Recorded merge completion for the active approved run.",
-              payload: {
-                status: "merged",
-                summary: "Merged the PR cleanly after syncing with main.",
-                prUrl: "https://github.com/openai/symphony/pull/123",
-                mergeCommitSha: "abc123",
-                blockingReason: null,
-                testsSummary: "pnpm test"
-              }
-            });
-          },
+          async onUpdate() {},
           async onComplete(_issueId, result) {
             completion = result;
             resolve();
@@ -1494,9 +1486,6 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
-      repositoryKey: testRepositoryKey
-    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
@@ -1516,9 +1505,27 @@ done
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
     });
+    const loadLatestMergeResult = await buildWorkflowBackedMergeResultLoader({
+      db: database.db,
+      issueIdentifier: issue.identifier,
+      repositoryKey: testRepositoryKey,
+      trackerConfig: runtimePolicy.tracker,
+      runId,
+      mergeResults: [
+        {
+          recordedAt: "2026-04-10T16:36:00.000Z",
+          mergeResult: buildRuntimeMergeResult({
+            status: "blocked",
+            summary: "Main branch introduced conflicts in the workspace package.",
+            mergeCommitSha: null,
+            blockingReason: "Conflicts in packages/workspace/src/docker-client.ts",
+            testsSummary: "pnpm test --filter @symphony/workspace"
+          })
+        }
+      ]
+    });
 
     let completion: SymphonyAgentRuntimeCompletion | null = null;
-    let mergeResultRecorded = false;
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createSymphonyAgentRuntime({
@@ -1526,7 +1533,7 @@ done
         tracker,
         runStore,
         deliveryReports,
-        issueTimelineStore,
+        loadLatestMergeResult,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1539,28 +1546,7 @@ done
         hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
         callbacks: {
-          async onUpdate() {
-            if (mergeResultRecorded) {
-              return;
-            }
-
-            mergeResultRecorded = true;
-            await issueTimelineStore.record({
-              issueIdentifier: issue.identifier,
-              runId,
-              source: "runtime",
-              eventType: runtimeMergeResultEventType,
-              message: "Recorded blocked merge result for the active approved run.",
-              payload: {
-                status: "blocked",
-                summary: "Main branch introduced conflicts in the workspace package.",
-                prUrl: "https://github.com/openai/symphony/pull/123",
-                mergeCommitSha: null,
-                blockingReason: "Conflicts in packages/workspace/src/docker-client.ts",
-                testsSummary: "pnpm test --filter @symphony/workspace"
-              }
-            });
-          },
+          async onUpdate() {},
           async onComplete(_issueId, result) {
             completion = result;
             resolve();
@@ -1612,9 +1598,6 @@ done
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
     });
-    const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
-      repositoryKey: testRepositoryKey
-    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
@@ -1634,9 +1617,21 @@ done
       workspacePath,
       startedAt: "2026-03-31T00:00:00.000Z"
     });
+    const loadLatestMergeResult = await buildWorkflowBackedMergeResultLoader({
+      db: database.db,
+      issueIdentifier: issue.identifier,
+      repositoryKey: testRepositoryKey,
+      trackerConfig: runtimePolicy.tracker,
+      runId,
+      mergeResults: [
+        {
+          recordedAt: "2026-04-10T16:37:00.000Z",
+          mergeResult: buildRuntimeMergeResult()
+        }
+      ]
+    });
 
     let completion: SymphonyAgentRuntimeCompletion | null = null;
-    let mergeResultRecorded = false;
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createSymphonyAgentRuntime({
@@ -1644,7 +1639,7 @@ done
         tracker,
         runStore,
         deliveryReports,
-        issueTimelineStore,
+        loadLatestMergeResult,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1657,28 +1652,7 @@ done
         hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
         callbacks: {
-          async onUpdate() {
-            if (mergeResultRecorded) {
-              return;
-            }
-
-            mergeResultRecorded = true;
-            await issueTimelineStore.record({
-              issueIdentifier: issue.identifier,
-              runId,
-              source: "runtime",
-              eventType: runtimeMergeResultEventType,
-              message: "Recorded merge completion for the active approved run.",
-              payload: {
-                status: "merged",
-                summary: "Merged the PR cleanly after syncing with main.",
-                prUrl: "https://github.com/openai/symphony/pull/123",
-                mergeCommitSha: "abc123",
-                blockingReason: null,
-                testsSummary: "pnpm test"
-              }
-            });
-          },
+          async onUpdate() {},
           async onComplete(_issueId, result) {
             completion = result;
             resolve();
@@ -2995,6 +2969,160 @@ async function buildWorkflowBackedReworkHandoffLoader(input: {
         SymphonyCurrentFlowPolicy
       >(issueIdentifier);
     return hydration?.snapshot?.projection.data.latestReworkHandoff ?? null;
+  };
+}
+
+async function buildWorkflowBackedMergeResultLoader(input: {
+  db: ReturnType<typeof initializeSymphonyDb>["db"];
+  issueIdentifier: string;
+  repositoryKey: string;
+  trackerConfig: SymphonyTrackerConfig;
+  runId: string;
+  mergeResults: Array<{
+    recordedAt: string;
+    mergeResult: RuntimeMergeResult;
+  }>;
+}): Promise<
+  (issueIdentifier: string, runId: string) => Promise<RuntimeMergeResult | null>
+> {
+  const routeWorkflows = createRouteWorkflowPort({
+    routeWorkflowStore: createRouteWorkflowStore(input.db)
+  });
+  const routing = await createRuntimeCurrentFlowRouting({
+    trackerConfig: input.trackerConfig,
+    now: () => new Date("2026-04-10T16:30:00.000Z")
+  });
+
+  await routeWorkflows.ensureWorkflowForIssue({
+    issueIdentifier: input.issueIdentifier,
+    repositoryKey: input.repositoryKey,
+    router: routing.router,
+    createdAt: "2026-04-10T16:30:00.000Z"
+  });
+
+  const approvedObservation = await routeWorkflows.resumeSessionByIssueIdentifier({
+    issueIdentifier: input.issueIdentifier,
+    router: routing.router,
+    policy: routing.policy
+  });
+  if (!approvedObservation) {
+    throw new TypeError(
+      `Route workflow could not be resumed for ${input.issueIdentifier} while seeding approved-merge test state.`
+    );
+  }
+
+  await routeWorkflows.recordRouteResult({
+    workflowId: approvedObservation.hydrationState.workflow.workflowId,
+    policy: routing.policy,
+    result: await approvedObservation.session.receiveAsync(
+      createSymphonyCurrentFlowTrackerStateObservedSignal({
+        id: `signal_approved_observed_${input.issueIdentifier.toLowerCase()}`,
+        occurredAt: "2026-04-10T16:30:00.000Z",
+        state: "Approved",
+        runId: null,
+        runMode: null,
+        causationId: null,
+        correlationId: input.issueIdentifier
+      })
+    )
+  });
+
+  const runStarted = await routeWorkflows.resumeSessionByIssueIdentifier<
+    SymphonyCurrentFlowNode,
+    SymphonyCurrentFlowData,
+    SymphonyCurrentFlowPolicy
+  >({
+    issueIdentifier: input.issueIdentifier,
+    router: routing.router,
+    policy: routing.policy
+  });
+  if (!runStarted) {
+    throw new TypeError(
+      `Route workflow could not be resumed for ${input.issueIdentifier} while seeding approved-merge run start.`
+    );
+  }
+
+  await routeWorkflows.recordRouteResult({
+    workflowId: runStarted.hydrationState.workflow.workflowId,
+    policy: routing.policy,
+    result: await runStarted.session.receiveAsync(
+      createSymphonyCurrentFlowRunStartedSignal({
+        id: `signal_approved_merge_started_${input.issueIdentifier.toLowerCase()}`,
+        occurredAt: "2026-04-10T16:30:01.000Z",
+        runId: input.runId,
+        runMode: "approved_merge",
+        causationId: input.runId,
+        correlationId: input.issueIdentifier
+      })
+    )
+  });
+
+  for (const entry of input.mergeResults) {
+    const resumed = await routeWorkflows.resumeSessionByIssueIdentifier<
+      SymphonyCurrentFlowNode,
+      SymphonyCurrentFlowData,
+      SymphonyCurrentFlowPolicy
+    >({
+      issueIdentifier: input.issueIdentifier,
+      router: routing.router,
+      policy: routing.policy
+    });
+    if (!resumed) {
+      throw new TypeError(
+        `Route workflow could not be resumed for ${input.issueIdentifier} while recording merge result ${entry.recordedAt}.`
+      );
+    }
+
+    await routeWorkflows.recordRouteResult({
+      workflowId: resumed.hydrationState.workflow.workflowId,
+      policy: routing.policy,
+      result: await resumed.session.receiveAsync(
+        createSymphonyCurrentFlowMergeResultReportedSignal({
+          id: [
+            "signal",
+            "merge_result_reported",
+            input.issueIdentifier.toLowerCase(),
+            entry.recordedAt
+          ].join("_"),
+          occurredAt: entry.recordedAt,
+          mergeResult: {
+            runId: input.runId,
+            status: entry.mergeResult.status,
+            summary: entry.mergeResult.summary,
+            prUrl: entry.mergeResult.prUrl,
+            mergeCommitSha: entry.mergeResult.mergeCommitSha,
+            blockingReason: entry.mergeResult.blockingReason,
+            testsSummary: entry.mergeResult.testsSummary,
+            recordedAt: entry.recordedAt
+          },
+          causationId: input.runId,
+          correlationId: input.issueIdentifier
+        })
+      )
+    });
+  }
+
+  return async (issueIdentifier, runId) => {
+    const hydration =
+      await routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(issueIdentifier);
+    const mergeResult = hydration?.snapshot?.projection.data.latestMergeResult ?? null;
+
+    if (!mergeResult || mergeResult.runId !== runId) {
+      return null;
+    }
+
+    return {
+      status: mergeResult.status,
+      summary: mergeResult.summary,
+      prUrl: mergeResult.prUrl,
+      mergeCommitSha: mergeResult.mergeCommitSha,
+      blockingReason: mergeResult.blockingReason,
+      testsSummary: mergeResult.testsSummary
+    };
   };
 }
 

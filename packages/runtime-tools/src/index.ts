@@ -1,12 +1,10 @@
 import type {
-  SymphonyIssueDeliveryReportStore,
-  SymphonyIssueTimelineStore
+  SymphonyIssueDeliveryReportStore
 } from "@symphony/db";
 import type { SymphonyTracker } from "@symphony/tracker";
 
 export const deliveryTransitionState = "In Review";
 export const blockedDeliveryTransitionState = "Blocked";
-export const runtimeMergeResultEventType = "merge_result_reported";
 
 export type RuntimeToolExecutionResult = {
   success: boolean;
@@ -327,7 +325,6 @@ export async function executeCancelTool(
 export async function executeMergeResultTool(
   executionContext: {
     tracker: SymphonyTracker;
-    issueTimelineStore: SymphonyIssueTimelineStore;
     issue: {
       trackerIssueId: string;
       identifier: string;
@@ -374,20 +371,6 @@ export async function executeMergeResultTool(
       executionContext.issue.trackerIssueId,
       renderMergeResultComment(mergeResult)
     );
-    await executionContext.issueTimelineStore.record({
-      issueIdentifier: executionContext.issue.identifier,
-      runId: executionContext.runId,
-      turnId: executionContext.turnId,
-      source: "runtime",
-      eventType: runtimeMergeResultEventType,
-      message:
-        mergeResult.status === "merged"
-          ? "Recorded merge completion for the active approved run."
-          : "Recorded blocked merge result for the active approved run.",
-      payload: toJsonValue({
-        ...mergeResult
-      })
-    });
     executionContext.onMergeResultRecorded?.(mergeResult);
 
     const targetState = resolveMergeResultTargetState({

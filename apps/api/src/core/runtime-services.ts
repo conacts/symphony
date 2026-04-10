@@ -43,6 +43,7 @@ import type {
   SymphonyCurrentFlowPolicy,
   SymphonyCurrentFlowStateRequestTargetState
 } from "@symphony/router";
+import { isSymphonyCurrentFlowMergeResultRecord } from "@symphony/router";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
@@ -81,7 +82,8 @@ import {
   executeCancelTool,
   executeDeliveryReportTool,
   executeMergeResultTool,
-  executeSpikeResultTool
+  executeSpikeResultTool,
+  type RuntimeMergeResult
 } from "@symphony/runtime-tools";
 import {
   reconcilePersistedActiveRunsOnShutdown,
@@ -418,11 +420,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       tracker,
       runStore,
       deliveryReports,
-      issueTimelineStore,
       loadLatestReworkHandoff: (issueIdentifier) =>
         loadLatestWorkflowReworkHandoff({
           routeWorkflows,
           issueIdentifier
+        }),
+      loadLatestMergeResult: (issueIdentifier, runId) =>
+        loadLatestWorkflowMergeResult({
+          routeWorkflows,
+          issueIdentifier,
+          runId
         }),
       agentAnalytics: agentAnalyticsStore,
       runtimeLogs: runtimeLogStore,
@@ -633,24 +640,38 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       };
       argumentsPayload: unknown;
     }) {
+      let recordedMergeResult: RuntimeMergeResult | null = null;
+
       return await executeMergeResultTool(
         {
           tracker,
-          issueTimelineStore,
           issue: input.issue,
           runId: input.runId,
           turnId: input.turnId,
           blockedTargetState: runtimePolicy.tracker.blockedTransitionToState,
+          onMergeResultRecorded(result) {
+            recordedMergeResult = result;
+          },
           async transitionIssueState(request) {
+            if (!recordedMergeResult) {
+              throw new TypeError(
+                `Merge-result routing requires a structured merge result before transitioning ${request.issueIdentifier}.`
+              );
+            }
+
             const status =
               request.targetState === "Done"
-                ? "merged"
+                ? recordedMergeResult.status === "merged"
+                  ? "merged"
+                  : null
                 : request.targetState === runtimePolicy.tracker.blockedTransitionToState
-                  ? "blocked"
+                  ? recordedMergeResult.status === "blocked"
+                    ? "blocked"
+                    : null
                   : null;
             if (!status) {
               throw new TypeError(
-                `Merge-result routing does not support target state ${request.targetState}.`
+                `Merge-result routing does not support target state ${request.targetState} for ${recordedMergeResult.status}.`
               );
             }
 
@@ -658,7 +679,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
               issueIdentifier: request.issueIdentifier,
               runId: input.runId,
               recordedAt: request.recordedAt,
-              status
+              mergeResult: recordedMergeResult
             });
             return {
               attempted: true,
@@ -1036,4 +1057,35 @@ async function loadLatestWorkflowReworkHandoff(input: {
   const handoff = hydration?.snapshot?.projection.data.latestReworkHandoff ?? null;
 
   return isSymphonyReworkHandoff(handoff) ? handoff : null;
+}
+
+async function loadLatestWorkflowMergeResult(input: {
+  routeWorkflows: SymphonyRouteWorkflowPort;
+  issueIdentifier: string;
+  runId: string;
+}): Promise<RuntimeMergeResult | null> {
+  const hydration =
+    await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      SymphonyCurrentFlowNode,
+      SymphonyCurrentFlowData,
+      SymphonyCurrentFlowPolicy
+    >(input.issueIdentifier);
+  const mergeResult = hydration?.snapshot?.projection.data.latestMergeResult ?? null;
+
+  if (!isSymphonyCurrentFlowMergeResultRecord(mergeResult)) {
+    return null;
+  }
+
+  if (mergeResult.runId !== input.runId) {
+    return null;
+  }
+
+  return {
+    status: mergeResult.status,
+    summary: mergeResult.summary,
+    prUrl: mergeResult.prUrl,
+    mergeCommitSha: mergeResult.mergeCommitSha,
+    blockingReason: mergeResult.blockingReason,
+    testsSummary: mergeResult.testsSummary
+  };
 }

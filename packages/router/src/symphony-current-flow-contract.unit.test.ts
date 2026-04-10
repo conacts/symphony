@@ -67,8 +67,16 @@ describe("Symphony current-flow contract", () => {
     const signal = createSymphonyCurrentFlowMergeResultReportedSignal({
       id: "signal_merge_result_reported",
       occurredAt: "2026-04-10T15:00:01.625Z",
-      runId: "run-300",
-      status: "merged",
+      mergeResult: {
+        runId: "run-300",
+        status: "merged",
+        summary: "Merged the PR after syncing with main.",
+        prUrl: "https://github.com/openai/symphony/pull/300",
+        mergeCommitSha: "abc123",
+        blockingReason: null,
+        testsSummary: "pnpm test",
+        recordedAt: "2026-04-10T15:00:01.625Z"
+      },
       causationId: "run-300",
       correlationId: "SYM-300"
     });
@@ -151,16 +159,14 @@ describe("Symphony current-flow contract", () => {
     ).toThrow(/Invalid Symphony current-flow runtime\.state_requested signal/);
   });
 
-  it("fails fast when merge-result reports omit the status", () => {
+  it("fails fast when merge-result reports omit the structured merge result", () => {
     expect(() =>
       readSymphonyCurrentFlowMergeResultReportedSignal({
         id: "signal_invalid_merge_result",
         type: "runtime.merge_result_reported",
         source: "runtime",
         occurredAt: "2026-04-10T15:00:02.250Z",
-        payload: {
-          runId: "run-300"
-        },
+        payload: {},
         causationId: "run-300",
         correlationId: "SYM-300"
       })

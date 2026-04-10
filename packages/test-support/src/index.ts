@@ -1,4 +1,5 @@
 export {
+  buildRuntimeMergeResult,
   buildSymphonyGithubIssueCommentEvent,
   buildSymphonyGithubReviewEvent,
   buildSymphonyOrchestratorSnapshot,

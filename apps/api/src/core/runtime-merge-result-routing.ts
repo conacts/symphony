@@ -8,6 +8,7 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
+import type { RuntimeMergeResult } from "@symphony/runtime-tools";
 import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import {
@@ -20,7 +21,7 @@ export type SymphonyMergeResultRoutingInput = {
   issue: SymphonyTrackerIssue;
   runId: string;
   recordedAt: string;
-  status: SymphonyCurrentFlowMergeResultStatus;
+  mergeResult: RuntimeMergeResult;
 };
 
 export type SymphonyMergeResultRoutingResult = {
@@ -60,12 +61,20 @@ export async function createRuntimeMergeResultRouter(input: {
         createSymphonyCurrentFlowMergeResultReportedSignal({
           id: buildMergeResultReportedSignalId({
             issue: mergeResultInput.issue,
-            status: mergeResultInput.status,
+            status: mergeResultInput.mergeResult.status,
             recordedAt: mergeResultInput.recordedAt
           }),
           occurredAt: mergeResultInput.recordedAt,
-          runId: mergeResultInput.runId,
-          status: mergeResultInput.status,
+          mergeResult: {
+            runId: mergeResultInput.runId,
+            status: mergeResultInput.mergeResult.status,
+            summary: mergeResultInput.mergeResult.summary,
+            prUrl: mergeResultInput.mergeResult.prUrl,
+            mergeCommitSha: mergeResultInput.mergeResult.mergeCommitSha,
+            blockingReason: mergeResultInput.mergeResult.blockingReason,
+            testsSummary: mergeResultInput.mergeResult.testsSummary,
+            recordedAt: mergeResultInput.recordedAt
+          },
           causationId: mergeResultInput.runId,
           correlationId: mergeResultInput.issue.identifier
         })
@@ -85,7 +94,7 @@ export async function createRuntimeMergeResultRouter(input: {
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
         recordedAt: mergeResultInput.recordedAt,
-        status: mergeResultInput.status
+        status: mergeResultInput.mergeResult.status
       });
 
       return {

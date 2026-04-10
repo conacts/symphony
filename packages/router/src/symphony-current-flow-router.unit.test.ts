@@ -51,6 +51,9 @@ describe("Symphony current-flow router fixture", () => {
       expect(replay.projection.data.lastRuntimeOutcome).toBe(
         fixture.expected.lastRuntimeOutcome
       );
+      expect(replay.projection.data.latestMergeResult).toEqual(
+        fixture.expected.latestMergeResult ?? null
+      );
       expect(replay.projection.data.latestReworkHandoff).toEqual(
         fixture.expected.latestReworkHandoff ?? null
       );
@@ -304,6 +307,7 @@ describe("Symphony current-flow router fixture", () => {
           lastDispatchMode: "implementation",
           lastRunMode: null,
           lastRuntimeOutcome: null,
+          latestMergeResult: null,
           latestReworkHandoff: null
         },
         lastSignal: {

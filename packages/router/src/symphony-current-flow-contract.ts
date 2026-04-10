@@ -94,6 +94,16 @@ export type SymphonyCurrentFlowRunMode = (typeof runModes)[number];
 export type SymphonyCurrentFlowDeliveryStatus = (typeof deliveryStatuses)[number];
 export type SymphonyCurrentFlowMergeResultStatus =
   (typeof mergeResultStatuses)[number];
+export type SymphonyCurrentFlowMergeResultRecord = {
+  runId: string;
+  status: SymphonyCurrentFlowMergeResultStatus;
+  summary: string;
+  prUrl: string | null;
+  mergeCommitSha: string | null;
+  blockingReason: string | null;
+  testsSummary: string | null;
+  recordedAt: string;
+};
 export type SymphonyCurrentFlowReviewTriggerKind =
   (typeof reviewTriggerKinds)[number];
 export type SymphonyCurrentFlowReviewReworkHandoff = {
@@ -136,6 +146,19 @@ const reviewReworkHandoffPayloadSchema = z
   })
   .strict();
 
+const mergeResultRecordSchema = z
+  .object({
+    runId: z.string().trim().min(1),
+    status: symphonyCurrentFlowMergeResultStatusSchema,
+    summary: z.string().trim().min(1),
+    prUrl: z.string().trim().min(1).nullable(),
+    mergeCommitSha: z.string().trim().min(1).nullable(),
+    blockingReason: z.string().trim().min(1).nullable(),
+    testsSummary: z.string().trim().min(1).nullable(),
+    recordedAt: z.string().trim().min(1)
+  })
+  .strict();
+
 const trackerStateObservedPayloadSchema = z
   .object({
     state: symphonyCurrentFlowTrackerStateSchema,
@@ -160,8 +183,7 @@ const deliveryReportedPayloadSchema = z
 
 const mergeResultReportedPayloadSchema = z
   .object({
-    runId: z.string().trim().min(1),
-    status: symphonyCurrentFlowMergeResultStatusSchema
+    mergeResult: mergeResultRecordSchema
   })
   .strict();
 
@@ -427,8 +449,7 @@ export function createSymphonyCurrentFlowDeliveryReportedSignal(input: {
 export function createSymphonyCurrentFlowMergeResultReportedSignal(input: {
   id: string;
   occurredAt: string;
-  runId: string;
-  status: SymphonyCurrentFlowMergeResultStatus;
+  mergeResult: SymphonyCurrentFlowMergeResultRecord;
   causationId: string | null;
   correlationId: string | null;
 }): SymphonyCurrentFlowMergeResultReportedSignal {
@@ -438,8 +459,7 @@ export function createSymphonyCurrentFlowMergeResultReportedSignal(input: {
     source: "runtime",
     occurredAt: input.occurredAt,
     payload: {
-      runId: input.runId,
-      status: input.status
+      mergeResult: input.mergeResult
     },
     causationId: input.causationId,
     correlationId: input.correlationId
@@ -597,6 +617,12 @@ export function createSymphonyCurrentFlowDispatchCommand(input: {
       runMode: input.runMode
     }
   });
+}
+
+export function isSymphonyCurrentFlowMergeResultRecord(
+  value: unknown
+): value is SymphonyCurrentFlowMergeResultRecord {
+  return mergeResultRecordSchema.safeParse(value).success;
 }
 
 export function parseSymphonyCurrentFlowTrackerState(

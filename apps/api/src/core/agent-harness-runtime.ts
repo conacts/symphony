@@ -27,7 +27,6 @@ import type {
 import type {
   AgentAnalyticsStore,
   SymphonyIssueDeliveryReportStore,
-  SymphonyIssueTimelineStore,
   SymphonyRuntimeLogStore,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
@@ -57,7 +56,6 @@ import {
 } from "./runtime-harness.js";
 import {
   deliveryTransitionState,
-  runtimeMergeResultEventType,
   type RuntimeDeliveryReportResult,
   type RuntimeMergeResult
 } from "@symphony/runtime-tools";
@@ -85,10 +83,13 @@ export function createSymphonyAgentRuntime(input: {
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
-  issueTimelineStore?: SymphonyIssueTimelineStore;
   loadLatestReworkHandoff?(
     issueIdentifier: string
   ): Promise<SymphonyReworkHandoff | null>;
+  loadLatestMergeResult?(
+    issueIdentifier: string,
+    runId: string
+  ): Promise<RuntimeMergeResult | null>;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -114,10 +115,13 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
-  issueTimelineStore?: SymphonyIssueTimelineStore;
   loadLatestReworkHandoff?(
     issueIdentifier: string
   ): Promise<SymphonyReworkHandoff | null>;
+  loadLatestMergeResult?(
+    issueIdentifier: string,
+    runId: string
+  ): Promise<RuntimeMergeResult | null>;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -161,8 +165,8 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
         tracker: input.tracker,
         runStore: input.runStore,
         deliveryReports: input.deliveryReports,
-        issueTimelineStore: input.issueTimelineStore,
         loadLatestReworkHandoff: input.loadLatestReworkHandoff,
+        loadLatestMergeResult: input.loadLatestMergeResult,
         agentAnalytics: input.agentAnalytics,
         runtimeLogs: input.runtimeLogs,
         runtimePolicy: runInput.runtimePolicy,
@@ -215,10 +219,13 @@ async function executeRun(input: {
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
-  issueTimelineStore?: SymphonyIssueTimelineStore;
   loadLatestReworkHandoff?(
     issueIdentifier: string
   ): Promise<SymphonyReworkHandoff | null>;
+  loadLatestMergeResult?(
+    issueIdentifier: string,
+    runId: string
+  ): Promise<RuntimeMergeResult | null>;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
@@ -597,9 +604,8 @@ async function executeRun(input: {
             input.deliveryReports,
             input.runId
           );
-        } else if (input.issueTimelineStore) {
-          mergeResult = await loadLatestMergeResultForRun(
-            input.issueTimelineStore,
+        } else if (input.loadLatestMergeResult) {
+          mergeResult = await input.loadLatestMergeResult(
             currentIssue.identifier,
             input.runId
           );
@@ -968,44 +974,6 @@ async function loadLatestDeliveryReportForRun(
   };
 }
 
-async function loadLatestMergeResultForRun(
-  issueTimelineStore: SymphonyIssueTimelineStore,
-  issueIdentifier: string,
-  runId: string
-): Promise<RuntimeMergeResult | null> {
-  const entries = await issueTimelineStore.listIssueTimeline(issueIdentifier, {
-    limit: 50
-  });
-  const matchingEntry = entries.find(
-    (entry) =>
-      entry.runId === runId && entry.eventType === runtimeMergeResultEventType
-  );
-
-  return matchingEntry ? parseMergeResult(matchingEntry.payload) : null;
-}
-
-function parseMergeResult(payload: JsonValue): RuntimeMergeResult | null {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return null;
-  }
-
-  const record = payload as Record<string, unknown>;
-  const status = getStringValue(record.status);
-  const summary = getStringValue(record.summary);
-  if ((status !== "merged" && status !== "blocked") || !summary) {
-    return null;
-  }
-
-  return {
-    status,
-    summary,
-    prUrl: getStringValue(record.prUrl),
-    mergeCommitSha: getStringValue(record.mergeCommitSha),
-    blockingReason: getStringValue(record.blockingReason),
-    testsSummary: getStringValue(record.testsSummary)
-  };
-}
-
 function mergeResultCompletion(
   mergeResult: RuntimeMergeResult,
   currentIssue: SymphonyTrackerIssue,
@@ -1050,10 +1018,6 @@ function mergeResultCompletion(
       mergeResult.blockingReason ??
       `Merge reported as blocked: ${mergeResult.summary}`
   };
-}
-
-function getStringValue(value: unknown): string | null {
-  return typeof value === "string" && value.trim() !== "" ? value : null;
 }
 
 function missingDeliveryReportCompletion(): SymphonyAgentRuntimeCompletion {

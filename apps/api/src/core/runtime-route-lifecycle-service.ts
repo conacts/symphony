@@ -7,6 +7,7 @@ import type {
   SymphonyReworkHandoff,
   SymphonyRunMode
 } from "@symphony/runtime-contract";
+import type { RuntimeMergeResult } from "@symphony/runtime-tools";
 import {
   createRuntimeCurrentFlowRouting
 } from "./runtime-current-flow-routing.js";
@@ -39,7 +40,6 @@ import {
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type {
   SymphonyCurrentFlowData,
-  SymphonyCurrentFlowMergeResultStatus,
   SymphonyCurrentFlowNode,
   SymphonyCurrentFlowPolicy,
   SymphonyCurrentFlowStateRequestKind,
@@ -70,7 +70,7 @@ export type SymphonyRuntimeRouteLifecycleService = {
     issueIdentifier: string;
     runId: string;
     recordedAt: string;
-    status: SymphonyCurrentFlowMergeResultStatus;
+    mergeResult: RuntimeMergeResult;
   }): Promise<boolean>;
   routeRuntimeStateRequest(input: {
     issueIdentifier: string;
@@ -282,7 +282,7 @@ export async function createRuntimeRouteLifecycleService(input: {
         issue,
         runId: mergeResultInput.runId,
         recordedAt: mergeResultInput.recordedAt,
-        status: mergeResultInput.status
+        mergeResult: mergeResultInput.mergeResult
       });
       return true;
     },
