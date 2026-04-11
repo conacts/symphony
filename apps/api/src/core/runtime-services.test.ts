@@ -6,7 +6,8 @@ import {
   createTempSymphonySqliteHarness,
   renderSymphonyRuntimeManifestSource
 } from "@symphony/test-support";
-import { initializeSymphonyDb } from "@symphony/db";
+import { createSymphonyIssueStore, initializeSymphonyDb } from "@symphony/db";
+import type { WorkflowSignal } from "@symphony/router";
 import {
   buildSymphonyTrackerIssue,
   type MemorySymphonyTracker
@@ -24,6 +25,7 @@ import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import { resolveDockerWorkspaceAuthContracts } from "./runtime-auth-contract.js";
 import { createSymphonyRuntimeTestHarness } from "../test-support/create-symphony-runtime-test-harness.js";
+import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
 import {
   buildBootstrapInstallLifecycleEvent,
   createRuntimeDbObserverTestSupport
@@ -824,6 +826,146 @@ describe("runtime services", () => {
     },
     runtimeServicesIntegrationTestTimeoutMs
   );
+
+  it(
+    "continues approved merge workflow routing after runtime services restart",
+    async () => {
+      const harness = await createSymphonyRuntimeAppServicesHarness();
+      let restartedServices: Awaited<
+        ReturnType<typeof loadDefaultSymphonyRuntimeAppServices>
+      > | null = null;
+
+      try {
+        const repositoryKey = harness.services.runtimePolicy.github.repo;
+        if (!repositoryKey) {
+          throw new TypeError(
+            "Runtime services restart proof requires runtimePolicy.github.repo."
+          );
+        }
+
+        const issue = buildSymphonyTrackerIssue({
+          id: "issue-restart-merge",
+          identifier: "SYM-MERGE",
+          state: "Approved"
+        });
+        const approvedRunId = "run-approved-merge-1";
+        const tracker = harness.services.tracker as MemorySymphonyTracker;
+        tracker.setIssues([issue]);
+
+        await seedCurrentFlowWorkflowHistory({
+          services: harness.services,
+          trackerConfig: harness.services.runtimePolicy.tracker,
+          repositoryKey,
+          issueIdentifier: issue.identifier,
+          trackerIssueId: issue.id,
+          dbFile: harness.env.dbFile,
+          createdAt: "2026-04-10T18:00:00.000Z",
+          signals: [
+            {
+              id: "signal_tracker_approved_observed",
+              signal: (routing) =>
+                routing.module.runtimeAdapter.createTrackerStateObservedSignal({
+                  id: "signal_tracker_approved_observed",
+                  occurredAt: "2026-04-10T18:00:00.000Z",
+                  trackerState: "Approved",
+                  runId: null,
+                  runMode: null,
+                  causationId: issue.identifier,
+                  correlationId: issue.identifier
+                })
+            },
+            {
+              id: "signal_approved_merge_started",
+              signal: (routing) =>
+                routing.module.runtimeAdapter.createRunStartedSignal({
+                  id: "signal_approved_merge_started",
+                  occurredAt: "2026-04-10T18:00:01.000Z",
+                  runId: approvedRunId,
+                  runMode: "approved_merge",
+                  causationId: approvedRunId,
+                  correlationId: issue.identifier
+                })
+            }
+          ]
+        });
+
+        const before =
+          await harness.services.routeWorkflows.loadHydrationStateByIssueIdentifier(
+            issue.identifier
+          );
+        expect(before?.snapshot?.projection.currentNode).toBe("approved_merge");
+        expect(before?.snapshot?.projection.data).toEqual(
+          expect.objectContaining({
+            trackerState: "In Progress",
+            lastObservedTrackerState: "Approved",
+            lastDispatchMode: "approved_merge",
+            lastRunMode: "approved_merge"
+          })
+        );
+
+        await harness.services.shutdown();
+
+        restartedServices = await loadDefaultSymphonyRuntimeAppServices(
+          harness.env,
+          harness.environmentSource,
+          harness.hostCommandEnvSource,
+          {
+            startPollScheduler: false,
+            startMachineLoadMonitor: false,
+            enableDockerPreflight: false
+          }
+        );
+        const restartedTracker = restartedServices.tracker as MemorySymphonyTracker;
+        restartedTracker.setIssues([issue]);
+
+        const result = await restartedServices.runtimeTools.submitMergeResult({
+          runId: approvedRunId,
+          turnId: null,
+          issue: {
+            trackerIssueId: issue.id,
+            identifier: issue.identifier,
+            state: issue.state
+          },
+          argumentsPayload: {
+            status: "merged",
+            summary: "Merged after restart.",
+            prUrl: "https://github.com/openai/symphony/pull/42",
+            mergeCommitSha: "abc123",
+            blockingReason: null,
+            testsSummary: "pnpm --filter @symphony/api test"
+          }
+        });
+
+        expect(result.success).toBe(true);
+
+        const after =
+          await restartedServices.routeWorkflows.loadHydrationStateByIssueIdentifier(
+            issue.identifier
+          );
+        expect(after?.snapshot?.projection.currentNode).toBe("done");
+        expect(after?.snapshot?.projection.data).toEqual(
+          expect.objectContaining({
+            trackerState: "Done",
+            latestMergeResult: {
+              runId: approvedRunId,
+              status: "merged",
+              summary: "Merged after restart.",
+              prUrl: "https://github.com/openai/symphony/pull/42",
+              mergeCommitSha: "abc123",
+              blockingReason: null,
+              testsSummary: "pnpm --filter @symphony/api test",
+              recordedAt: expect.any(String)
+            }
+          })
+        );
+        expect(restartedTracker.getIssue(issue.id)?.state).toBe("Done");
+      } finally {
+        await restartedServices?.shutdown();
+        await harness.cleanup();
+      }
+    },
+    runtimeServicesIntegrationTestTimeoutMs
+  );
 });
 
 async function waitFor(
@@ -934,6 +1076,69 @@ async function createRuntimeBootstrapFixture(input: {
       });
     }
   };
+}
+
+async function seedCurrentFlowWorkflowHistory(input: {
+  services: Awaited<ReturnType<typeof loadDefaultSymphonyRuntimeAppServices>>;
+  trackerConfig: SymphonyRuntimeAppServicesHarness["services"]["runtimePolicy"]["tracker"];
+  repositoryKey: string;
+  issueIdentifier: string;
+  trackerIssueId: string;
+  dbFile: string;
+  createdAt: string;
+  signals: Array<{
+    id: string;
+    signal(
+      routing: Awaited<ReturnType<typeof createRuntimeCurrentFlowRouting>>
+    ): WorkflowSignal;
+  }>;
+}): Promise<void> {
+  const routing = await createRuntimeCurrentFlowRouting({
+    trackerConfig: input.trackerConfig,
+    now: () => new Date(input.createdAt)
+  });
+  const database = initializeSymphonyDb({
+    dbFile: input.dbFile
+  });
+
+  try {
+    const issueStore = createSymphonyIssueStore(database.db);
+    await issueStore.upsert({
+      issueIdentifier: input.issueIdentifier,
+      trackerIssueId: input.trackerIssueId,
+      repositoryKey: input.repositoryKey
+    });
+
+    await input.services.routeWorkflows.ensureWorkflowForIssue({
+      issueIdentifier: input.issueIdentifier,
+      repositoryKey: input.repositoryKey,
+      routerPresetId: routing.presetId,
+      router: routing.router,
+      createdAt: input.createdAt
+    });
+
+    for (const entry of input.signals) {
+      const resumed =
+        await input.services.routeWorkflows.resumeSessionByIssueIdentifier({
+          issueIdentifier: input.issueIdentifier,
+          router: routing.router,
+          policy: routing.policy
+        });
+      if (!resumed) {
+        throw new TypeError(
+          `Route workflow could not be resumed for ${input.issueIdentifier} while recording ${entry.id}.`
+        );
+      }
+
+      await input.services.routeWorkflows.recordRouteResult({
+        workflowId: resumed.hydrationState.workflow.workflowId,
+        policy: routing.policy,
+        result: await resumed.session.receiveAsync(entry.signal(routing))
+      });
+    }
+  } finally {
+    database.close();
+  }
 }
 
 async function createMultiRepoRuntimeBootstrapFixture(): Promise<{

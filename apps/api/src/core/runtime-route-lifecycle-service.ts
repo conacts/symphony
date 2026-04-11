@@ -59,6 +59,16 @@ import type { SymphonyRuntimeWorkflowPresetSelection } from "./runtime-workflow-
 
 export type SymphonyRuntimeRouteLifecycleService = {
   workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
+  loadCurrentTrackerState(input: {
+    issueIdentifier: string;
+  }): Promise<string | null>;
+  loadLatestReworkHandoff(input: {
+    issueIdentifier: string;
+  }): Promise<SymphonyReworkHandoff | null>;
+  loadLatestMergeResult(input: {
+    issueIdentifier: string;
+    runId: string;
+  }): Promise<RuntimeMergeResult | null>;
   routeDeliveryReport(input: {
     issueIdentifier: string;
     runId: string;
@@ -316,10 +326,57 @@ export async function createRuntimeRouteLifecycleService(input: {
         reason: shutdownInput.reason
       });
       return true;
-    };
+  };
 
   return {
     workflowRoutingAdapter,
+    async loadCurrentTrackerState({ issueIdentifier }) {
+      const projection = await loadWorkflowProjectionByIssueIdentifier({
+        sessionLoader,
+        issueIdentifier
+      });
+      if (!projection) {
+        return null;
+      }
+
+      return projection.loaded.routing.module.runtimeAdapter.readTrackerStateFromProjection({
+        workflowId: projection.workflowId,
+        data: projection.data
+      });
+    },
+    async loadLatestReworkHandoff({ issueIdentifier }) {
+      const projection = await loadWorkflowProjectionByIssueIdentifier({
+        sessionLoader,
+        issueIdentifier
+      });
+      if (!projection) {
+        return null;
+      }
+
+      return projection.loaded.routing.module.runtimeAdapter.readLatestReworkHandoffFromProjection(
+        {
+          workflowId: projection.workflowId,
+          data: projection.data
+        }
+      );
+    },
+    async loadLatestMergeResult({ issueIdentifier, runId }) {
+      const projection = await loadWorkflowProjectionByIssueIdentifier({
+        sessionLoader,
+        issueIdentifier
+      });
+      if (!projection) {
+        return null;
+      }
+
+      return projection.loaded.routing.module.runtimeAdapter.readLatestMergeResultFromProjection(
+        {
+          workflowId: projection.workflowId,
+          data: projection.data,
+          runId
+        }
+      );
+    },
     async routeDeliveryReport(deliveryInput) {
       const issue = await input.tracker.fetchIssueByIdentifier(
         input.trackerConfig,
@@ -475,4 +532,26 @@ function resolveActiveRunMode(
     workflowId: hydration.hydrationState.workflow.workflowId,
     data: snapshot.projection.data
   });
+}
+
+async function loadWorkflowProjectionByIssueIdentifier(input: {
+  sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
+  issueIdentifier: string;
+}): Promise<{
+  loaded: SymphonyLoadedRuntimeWorkflowHydration;
+  workflowId: string;
+  data: unknown;
+} | null> {
+  const loaded = await input.sessionLoader.loadHydrationByIssueIdentifier({
+    issueIdentifier: input.issueIdentifier
+  });
+  if (!loaded?.hydrationState.snapshot) {
+    return null;
+  }
+
+  return {
+    loaded,
+    workflowId: loaded.hydrationState.workflow.workflowId,
+    data: loaded.hydrationState.snapshot.projection.data
+  };
 }

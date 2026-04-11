@@ -63,7 +63,6 @@ import { createRepositoryScopedLinearTracker } from "./runtime-linear-tracker-re
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
-import { createRuntimeWorkflowLifecycleReadPort } from "./runtime-workflow-lifecycle-read-port.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import {
@@ -260,9 +259,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     trackerConfig: runtimePolicy.tracker,
     now: undefined
   });
-  const workflowLifecycleRead = createRuntimeWorkflowLifecycleReadPort({
-    sessionLoader: workflowSessionLoader
-  });
   const routeLifecycle = await createRuntimeRouteLifecycleService({
     routeWorkflows,
     tracker,
@@ -430,16 +426,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runStore,
       deliveryReports,
       loadLatestReworkHandoff: (issueIdentifier) =>
-        workflowLifecycleRead.loadLatestReworkHandoff({
+        routeLifecycle.loadLatestReworkHandoff({
           issueIdentifier
         }),
       loadLatestMergeResult: (issueIdentifier, runId) =>
-        workflowLifecycleRead.loadLatestMergeResult({
+        routeLifecycle.loadLatestMergeResult({
           issueIdentifier,
           runId
         }),
       loadCurrentWorkflowTrackerState: (issueIdentifier) =>
-        workflowLifecycleRead.loadCurrentTrackerState({
+        routeLifecycle.loadCurrentTrackerState({
           issueIdentifier
         }),
       agentAnalytics: agentAnalyticsStore,
