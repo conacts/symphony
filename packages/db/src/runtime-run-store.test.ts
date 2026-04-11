@@ -6,9 +6,11 @@ import { initializeSymphonyDb } from "./client.js";
 import { SymphonyActiveRunExistsError } from "./errors.js";
 import { createSymphonyIssueDeliveryReportStore } from "./issue-delivery-reports.js";
 import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
+import { createSymphonyIssueStore } from "./issues.js";
 import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-store.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
 import { symphonySchema, symphonyRunsTable } from "./schema.js";
+import type { SymphonyRuntimeRunStartAttrs } from "./runtime-run-types.js";
 import { eq } from "drizzle-orm";
 
 const tempDirectories: string[] = [];
@@ -25,6 +27,23 @@ afterEach(async () => {
   );
 });
 
+async function recordSeededRunStarted(
+  db: ReturnType<typeof initializeSymphonyDb>["db"],
+  runStore: ReturnType<typeof createSqliteSymphonyRuntimeRunStore>,
+  attrs: SymphonyRuntimeRunStartAttrs
+): Promise<string> {
+  const issueStore = createSymphonyIssueStore(db);
+  await issueStore.upsert({
+    issueIdentifier: attrs.issueIdentifier,
+    trackerIssueId: attrs.trackerIssueId,
+    repositoryKey: attrs.repositoryKey,
+    latestRunStartedAt: null,
+    recordedAt: new Date(attrs.startedAt).toISOString()
+  });
+
+  return await runStore.recordRunStarted(attrs);
+}
+
 describe("runtime run delivery projections", () => {
   it("persists the internal run mode in run metadata", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-run-mode-"));
@@ -38,7 +57,7 @@ describe("runtime run delivery projections", () => {
     });
 
     try {
-      const runId = await runStore.recordRunStarted({
+      const runId = await recordSeededRunStarted(database.db, runStore, {
         runId: "run-mode-1",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-1",
@@ -66,6 +85,36 @@ describe("runtime run delivery projections", () => {
     }
   });
 
+  it("fails fast when a run starts without a canonical issue binding", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-run-binding-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      await expect(
+        runStore.recordRunStarted({
+          runId: "run-missing-binding-1",
+          repositoryKey: testRepositoryKey,
+          trackerIssueId: "issue-missing-binding-1",
+          issueIdentifier: "COL-199",
+          runMode: "implementation",
+          startedAt: "2026-04-05T18:00:00.000Z",
+          status: "running"
+        })
+      ).rejects.toThrow(
+        "Issue binding not found for run start: COL-199 in openai/symphony."
+      );
+    } finally {
+      database.close();
+    }
+  });
+
   it("surfaces latest delivery status on run and issue summaries", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-delivery-"));
     tempDirectories.push(root);
@@ -85,7 +134,7 @@ describe("runtime run delivery projections", () => {
     });
 
     try {
-      const runId = await runStore.recordRunStarted({
+      const runId = await recordSeededRunStarted(database.db, runStore, {
         runId: "run-1",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-1",
@@ -135,15 +184,15 @@ describe("runtime run delivery projections", () => {
       dbFile: path.join(root, "symphony.db")
     });
     const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
-        repositoryKey: testRepositoryKey
-      });
+      repositoryKey: testRepositoryKey
+    });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db,
       timelineStore: issueTimelineStore
     });
 
     try {
-      const runId = await runStore.recordRunStarted({
+      const runId = await recordSeededRunStarted(database.db, runStore, {
         runId: "run-events-1",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-events-1",
@@ -216,7 +265,7 @@ describe("runtime run delivery projections", () => {
     });
 
     try {
-      const runId = await runStore.recordRunStarted({
+      const runId = await recordSeededRunStarted(database.db, runStore, {
         runId: "run-context-1",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-context-1",
@@ -299,7 +348,7 @@ describe("runtime run delivery projections", () => {
     });
 
     try {
-      const firstRunId = await runStore.recordRunStarted({
+      const firstRunId = await recordSeededRunStarted(database.db, runStore, {
         runId: "run-active-1",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-active-1",
@@ -310,7 +359,7 @@ describe("runtime run delivery projections", () => {
       });
 
       await expect(
-        runStore.recordRunStarted({
+        recordSeededRunStarted(database.db, runStore, {
           runId: "run-active-2",
           repositoryKey: testRepositoryKey,
           trackerIssueId: "issue-active-1",
@@ -327,7 +376,7 @@ describe("runtime run delivery projections", () => {
       });
 
       await expect(
-        runStore.recordRunStarted({
+        recordSeededRunStarted(database.db, runStore, {
           runId: "run-active-3",
           repositoryKey: testRepositoryKey,
           trackerIssueId: "issue-active-1",
@@ -354,7 +403,7 @@ describe("runtime run delivery projections", () => {
     });
 
     try {
-      await runStore.recordRunStarted({
+      await recordSeededRunStarted(database.db, runStore, {
         runId: "run-binding-1",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-binding-1",
@@ -365,7 +414,7 @@ describe("runtime run delivery projections", () => {
       });
 
       await expect(
-        runStore.recordRunStarted({
+        recordSeededRunStarted(database.db, runStore, {
           runId: "run-binding-2",
           repositoryKey: "other/repo",
           trackerIssueId: "issue-binding-1",
@@ -379,7 +428,7 @@ describe("runtime run delivery projections", () => {
       );
 
       await expect(
-        runStore.recordRunStarted({
+        recordSeededRunStarted(database.db, runStore, {
           runId: "run-binding-3",
           repositoryKey: testRepositoryKey,
           trackerIssueId: "issue-binding-2",

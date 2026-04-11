@@ -723,6 +723,11 @@ export const symphonyTurnsTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    runFk: foreignKey({
+      columns: [table.runId],
+      foreignColumns: [symphonyRunsTable.runId],
+      name: "symphony_turns_run_fk"
+    }).onDelete("cascade"),
     statusCheck: check(
       "symphony_turns_status_check",
       sql`${table.status} in (${sqlEnum(turnStatusValues)})`

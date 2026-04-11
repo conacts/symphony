@@ -3,7 +3,9 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
+import { createSymphonyIssueStore } from "./issues.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
+import type { SymphonyRuntimeRunStartAttrs } from "./runtime-run-types.js";
 
 const tempDirectories: string[] = [];
 
@@ -17,6 +19,23 @@ afterEach(async () => {
     )
   );
 });
+
+async function recordSeededRunStarted(
+  db: ReturnType<typeof initializeSymphonyDb>["db"],
+  runStore: ReturnType<typeof createSqliteSymphonyRuntimeRunStore>,
+  attrs: SymphonyRuntimeRunStartAttrs
+): Promise<string> {
+  const issueStore = createSymphonyIssueStore(db);
+  await issueStore.upsert({
+    issueIdentifier: attrs.issueIdentifier,
+    trackerIssueId: attrs.trackerIssueId,
+    repositoryKey: attrs.repositoryKey,
+    latestRunStartedAt: null,
+    recordedAt: new Date(attrs.startedAt).toISOString()
+  });
+
+  return await runStore.recordRunStarted(attrs);
+}
 
 describe("db schema enforcement", () => {
   it("rejects runs whose repository binding does not match the canonical issue", async () => {
@@ -117,7 +136,7 @@ describe("db schema enforcement", () => {
     });
 
     try {
-      const runId = await runStore.recordRunStarted({
+      const runId = await recordSeededRunStarted(database.db, runStore, {
         runId: "run-701",
         repositoryKey: "openai/symphony",
         trackerIssueId: "tracker-701",
@@ -181,7 +200,7 @@ describe("db schema enforcement", () => {
     });
 
     try {
-      const runId = await runStore.recordRunStarted({
+      const runId = await recordSeededRunStarted(database.db, runStore, {
         runId: "run-701A",
         repositoryKey: "openai/symphony",
         trackerIssueId: "tracker-701A",
@@ -263,7 +282,7 @@ describe("db schema enforcement", () => {
     });
 
     try {
-      await runStore.recordRunStarted({
+      await recordSeededRunStarted(database.db, runStore, {
         runId: "run-702",
         repositoryKey: "openai/symphony",
         trackerIssueId: "tracker-702",

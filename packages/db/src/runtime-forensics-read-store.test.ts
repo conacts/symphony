@@ -4,8 +4,10 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
 import { createSymphonyIssueDeliveryReportStore } from "./issue-delivery-reports.js";
+import { createSymphonyIssueStore } from "./issues.js";
 import { createSqliteRuntimeForensicsReadStore } from "./runtime-forensics-read-store.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
+import type { SymphonyRuntimeRunStartAttrs } from "./runtime-run-types.js";
 
 const tempDirectories: string[] = [];
 const testRepositoryKey = "openai/symphony";
@@ -20,6 +22,23 @@ afterEach(async () => {
     )
   );
 });
+
+async function recordSeededRunStarted(
+  db: ReturnType<typeof initializeSymphonyDb>["db"],
+  runStore: ReturnType<typeof createSqliteSymphonyRuntimeRunStore>,
+  attrs: SymphonyRuntimeRunStartAttrs
+): Promise<string> {
+  const issueStore = createSymphonyIssueStore(db);
+  await issueStore.upsert({
+    issueIdentifier: attrs.issueIdentifier,
+    trackerIssueId: attrs.trackerIssueId,
+    repositoryKey: attrs.repositoryKey,
+    latestRunStartedAt: null,
+    recordedAt: new Date(attrs.startedAt).toISOString()
+  });
+
+  return await runStore.recordRunStarted(attrs);
+}
 
 describe("runtime forensics read store", () => {
   it("builds run detail from runtime-owned tables without analytics projections", async () => {
@@ -41,7 +60,7 @@ describe("runtime forensics read store", () => {
     });
 
     try {
-      const runId = await runStore.recordRunStarted({
+      const runId = await recordSeededRunStarted(database.db, runStore, {
         runId: "run-runtime-1",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-runtime-1",

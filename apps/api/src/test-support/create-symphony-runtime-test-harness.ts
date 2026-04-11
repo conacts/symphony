@@ -25,6 +25,7 @@ import {
   symphonyAgentPayloadOverflowTable,
   createSqliteAgentAnalyticsStore,
   createSqliteRuntimeForensicsReadStore,
+  createSymphonyIssueStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
@@ -218,6 +219,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
     db: database.db,
     timelineStore: issueTimelineStore
   });
+  const issueStore = createSymphonyIssueStore(database.db);
   const agentAnalyticsStore = createSqliteAgentAnalyticsStore({
     db: database.db
   });
@@ -226,6 +228,14 @@ export async function createSymphonyRuntimeTestHarness(input: {
   });
   const runtimeForensicsReadStore = createSqliteRuntimeForensicsReadStore({
     db: database.db
+  });
+
+  await issueStore.upsert({
+    issueIdentifier: issue.identifier,
+    trackerIssueId: issue.id,
+    repositoryKey,
+    latestRunStartedAt: null,
+    recordedAt: "2026-03-31T00:00:00.000Z"
   });
 
   const runId = await runStore.recordRunStarted(

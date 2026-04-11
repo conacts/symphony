@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
 import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
 import { createSymphonyIssueDeliveryReportStore } from "./issue-delivery-reports.js";
+import { createSymphonyIssueStore } from "./issues.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
+import type { SymphonyRuntimeRunStartAttrs } from "./runtime-run-types.js";
 
 const tempDirectories: string[] = [];
 const testRepositoryKey = "openai/symphony";
@@ -20,6 +22,23 @@ afterEach(async () => {
     )
   );
 });
+
+async function recordSeededRunStarted(
+  db: ReturnType<typeof initializeSymphonyDb>["db"],
+  runStore: ReturnType<typeof createSqliteSymphonyRuntimeRunStore>,
+  attrs: SymphonyRuntimeRunStartAttrs
+): Promise<string> {
+  const issueStore = createSymphonyIssueStore(db);
+  await issueStore.upsert({
+    issueIdentifier: attrs.issueIdentifier,
+    trackerIssueId: attrs.trackerIssueId,
+    repositoryKey: attrs.repositoryKey,
+    latestRunStartedAt: null,
+    recordedAt: new Date(attrs.startedAt).toISOString()
+  });
+
+  return await runStore.recordRunStarted(attrs);
+}
 
 describe("issue delivery report store", () => {
   it("records delivery reports and returns latest projections for the issue and run", async () => {
@@ -43,7 +62,7 @@ describe("issue delivery report store", () => {
     });
 
     try {
-      await runStore.recordRunStarted({
+      await recordSeededRunStarted(database.db, runStore, {
         runId: "run-1",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-157",
@@ -122,7 +141,7 @@ describe("issue delivery report store", () => {
     });
 
     try {
-      await runStore.recordRunStarted({
+      await recordSeededRunStarted(database.db, runStore, {
         runId: "run-invalid",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-invalid",
@@ -171,7 +190,7 @@ describe("issue delivery report store", () => {
     });
 
     try {
-      await runStore.recordRunStarted({
+      await recordSeededRunStarted(database.db, runStore, {
         runId: "run-prurl",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-prurl",

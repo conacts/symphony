@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
 import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-store.js";
 import { createSqliteAgentAnalyticsStore } from "./agent-analytics-store.js";
+import { createSymphonyIssueStore } from "./issues.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
+import type { SymphonyRuntimeRunStartAttrs } from "./runtime-run-types.js";
 import {
   symphonyAgentCommandExecutionsTable,
   symphonyAgentEventLogTable,
@@ -25,6 +27,23 @@ afterEach(async () => {
     )
   );
 });
+
+async function recordSeededRunStarted(
+  db: ReturnType<typeof initializeSymphonyDb>["db"],
+  runStore: ReturnType<typeof createSqliteSymphonyRuntimeRunStore>,
+  attrs: SymphonyRuntimeRunStartAttrs
+): Promise<string> {
+  const issueStore = createSymphonyIssueStore(db);
+  await issueStore.upsert({
+    issueIdentifier: attrs.issueIdentifier,
+    trackerIssueId: attrs.trackerIssueId,
+    repositoryKey: attrs.repositoryKey,
+    latestRunStartedAt: null,
+    recordedAt: new Date(attrs.startedAt).toISOString()
+  });
+
+  return await runStore.recordRunStarted(attrs);
+}
 
 describe("sqlite agent analytics store", () => {
   it("fails fast when the runtime run does not exist", async () => {
@@ -75,7 +94,7 @@ describe("sqlite agent analytics store", () => {
     });
 
     try {
-      const runId = await runStore.recordRunStarted({
+      const runId = await recordSeededRunStarted(database.db, runStore, {
         runId: "run-command",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-1",

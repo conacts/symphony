@@ -7,6 +7,7 @@ import {
   signSymphonyGitHubWebhook
 } from "@symphony/test-support";
 import {
+  createSymphonyIssueStore,
   createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
@@ -590,8 +591,16 @@ describe("@symphony/api app", () => {
       });
 
       try {
+        const issueStore = createSymphonyIssueStore(database.db);
         const runStore = createSqliteSymphonyRuntimeRunStore({
           db: database.db
+        });
+        await issueStore.upsert({
+          issueIdentifier: "COL-901",
+          trackerIssueId: "issue-runtime-only",
+          repositoryKey: "openai/symphony",
+          latestRunStartedAt: null,
+          recordedAt: "2026-04-09T12:00:00.000Z"
         });
         await runStore.recordRunStarted({
           runId: "run-runtime-only",

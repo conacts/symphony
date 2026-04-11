@@ -9,6 +9,7 @@ import {
   createSqliteAgentAnalyticsStore,
   createRouteWorkflowStore,
   createSymphonyIssueDeliveryReportStore,
+  createSymphonyIssueStore,
   createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb,
   symphonySchema
@@ -53,6 +54,20 @@ function createSymphonyAgentRuntime(
   return createRawSymphonyAgentRuntime({
     githubRepository: testRepositoryKey,
     ...input
+  });
+}
+
+async function seedCanonicalIssue(
+  db: ReturnType<typeof initializeSymphonyDb>["db"],
+  issue: SymphonyTrackerIssue
+): Promise<void> {
+  const issueStore = createSymphonyIssueStore(db);
+  await issueStore.upsert({
+    issueIdentifier: issue.identifier,
+    trackerIssueId: issue.id,
+    repositoryKey: testRepositoryKey,
+    latestRunStartedAt: null,
+    recordedAt: "2026-03-31T00:00:00.000Z"
   });
 }
 
@@ -116,6 +131,7 @@ describe("docker pi symphony agent runtime", () => {
     const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -293,6 +309,7 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -408,6 +425,7 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -518,6 +536,7 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -629,6 +648,7 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -879,6 +899,7 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -978,6 +999,7 @@ done
     const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -1091,6 +1113,7 @@ done
     const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -1195,6 +1218,7 @@ done
     const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -1302,6 +1326,7 @@ done
     const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -1417,6 +1442,7 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -1512,6 +1538,7 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -1626,6 +1653,7 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -1737,6 +1765,7 @@ done
     const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -2009,6 +2038,7 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -2249,6 +2279,7 @@ done
     const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,
@@ -2519,6 +2550,7 @@ exit 1
     const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
+    await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
       trackerIssueId: issue.id,

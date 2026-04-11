@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   createSymphonyIssueTimelineStore,
+  createSymphonyIssueStore,
   createSymphonyIssueDeliveryReportStore,
   createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
@@ -935,6 +936,15 @@ async function createRuntimeToolsTestContext(input: {
   const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db,
     timelineStore: issueTimelineStore
+  });
+  const issueStore = createSymphonyIssueStore(database.db);
+
+  await issueStore.upsert({
+    issueIdentifier: input.issue.identifier,
+    trackerIssueId: input.issue.id,
+    repositoryKey: testRepositoryKey,
+    latestRunStartedAt: null,
+    recordedAt: "2026-04-05T18:59:00.000Z"
   });
 
   await runStore.recordRunStarted({

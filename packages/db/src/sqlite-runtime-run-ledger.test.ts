@@ -3,6 +3,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
+import { createSymphonyIssueStore } from "./issues.js";
 import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
 import { createSqliteSymphonyRuntimeRunLedger } from "./sqlite-runtime-run-ledger.js";
 
@@ -19,6 +20,25 @@ afterEach(async () => {
     )
   );
 });
+
+async function seedIssueBinding(
+  db: ReturnType<typeof initializeSymphonyDb>["db"],
+  input: {
+    issueIdentifier: string;
+    trackerIssueId: string;
+    repositoryKey: string;
+    recordedAt: string;
+  }
+): Promise<void> {
+  const issueStore = createSymphonyIssueStore(db);
+  await issueStore.upsert({
+    issueIdentifier: input.issueIdentifier,
+    trackerIssueId: input.trackerIssueId,
+    repositoryKey: input.repositoryKey,
+    latestRunStartedAt: null,
+    recordedAt: input.recordedAt
+  });
+}
 
 describe("sqlite symphony runtime run ledger", () => {
   it("merges run metadata updates instead of overwriting earlier fields", async () => {
@@ -37,6 +57,13 @@ describe("sqlite symphony runtime run ledger", () => {
     });
 
     try {
+      await seedIssueBinding(database.db, {
+        issueIdentifier: "COL-META",
+        trackerIssueId: "issue-metadata",
+        repositoryKey: testRepositoryKey,
+        recordedAt: "2026-03-31T00:00:00.000Z"
+      });
+
       const runId = await journal.recordRunStarted(
         {
           trackerIssueId: "issue-metadata",
@@ -91,6 +118,13 @@ describe("sqlite symphony runtime run ledger", () => {
     });
 
     try {
+      await seedIssueBinding(database.db, {
+        issueIdentifier: "COL-TOKENS",
+        trackerIssueId: "issue-tokens",
+        repositoryKey: testRepositoryKey,
+        recordedAt: "2026-03-31T00:00:00.000Z"
+      });
+
       const runId = await ledger.recordRunStarted({
         trackerIssueId: "issue-tokens",
         issueIdentifier: "COL-TOKENS",

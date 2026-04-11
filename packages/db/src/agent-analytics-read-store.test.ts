@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { initializeSymphonyDb } from "./client.js";
 import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-store.js";
 import { createSqliteAgentAnalyticsStore } from "./agent-analytics-store.js";
+import { createSymphonyIssueStore } from "./issues.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
+import type { SymphonyRuntimeRunStartAttrs } from "./runtime-run-types.js";
 
 const tempDirectories: string[] = [];
 const testRepositoryKey = "openai/symphony";
@@ -20,6 +22,23 @@ afterEach(async () => {
     )
   );
 });
+
+async function recordSeededRunStarted(
+  db: ReturnType<typeof initializeSymphonyDb>["db"],
+  runStore: ReturnType<typeof createSqliteSymphonyRuntimeRunStore>,
+  attrs: SymphonyRuntimeRunStartAttrs
+): Promise<string> {
+  const issueStore = createSymphonyIssueStore(db);
+  await issueStore.upsert({
+    issueIdentifier: attrs.issueIdentifier,
+    trackerIssueId: attrs.trackerIssueId,
+    repositoryKey: attrs.repositoryKey,
+    latestRunStartedAt: null,
+    recordedAt: new Date(attrs.startedAt).toISOString()
+  });
+
+  return await runStore.recordRunStarted(attrs);
+}
 
 describe("sqlite agent analytics read store", () => {
   it("builds run summaries, detail, and artifacts from runtime authority plus artifact tables", async () => {
@@ -41,7 +60,7 @@ describe("sqlite agent analytics read store", () => {
     });
 
     try {
-      const runId = await runStore.recordRunStarted({
+      const runId = await recordSeededRunStarted(database.db, runStore, {
         runId: "run-agent",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-1",
@@ -239,7 +258,7 @@ describe("sqlite agent analytics read store", () => {
     });
 
     try {
-      const runId = await runStore.recordRunStarted({
+      const runId = await recordSeededRunStarted(database.db, runStore, {
         runId: "run-empty",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-empty",
@@ -319,7 +338,7 @@ describe("sqlite agent analytics read store", () => {
     });
 
     try {
-      await runStore.recordRunStarted({
+      await recordSeededRunStarted(database.db, runStore, {
         runId: "run-invalid",
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-invalid",
