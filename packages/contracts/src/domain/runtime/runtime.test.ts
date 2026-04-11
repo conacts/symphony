@@ -5,7 +5,9 @@ import {
   symphonyRuntimeRefreshRequestSchema,
   symphonyRuntimeRefreshResponseSchema,
   symphonyRuntimeStateResponseSchema,
-  symphonyRuntimeTrackerStateObservationResponseSchema
+  symphonyRuntimeTrackerStateObservationResponseSchema,
+  symphonyRuntimeWorkflowComparisonQuerySchema,
+  symphonyRuntimeWorkflowComparisonResponseSchema
 } from "./index.js";
 
 describe("symphony runtime contracts", () => {
@@ -295,6 +297,109 @@ describe("symphony runtime contracts", () => {
     });
 
     expect(parsed.ok).toBe(true);
+  });
+
+  it("parses the workflow comparison query", () => {
+    const parsed = symphonyRuntimeWorkflowComparisonQuerySchema.parse({
+      presetIds: ["current-flow", "auto-merge"]
+    });
+
+    expect(parsed.presetIds).toEqual(["current-flow", "auto-merge"]);
+  });
+
+  it("rejects duplicate workflow comparison preset ids", () => {
+    expect(() =>
+      symphonyRuntimeWorkflowComparisonQuerySchema.parse({
+        presetIds: ["current-flow", "current-flow"]
+      })
+    ).toThrow(/duplicate workflow comparison preset id/i);
+  });
+
+  it("parses the workflow comparison envelope", () => {
+    const parsed = symphonyRuntimeWorkflowComparisonResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      meta: {
+        durationMs: 4,
+        generatedAt: "2026-04-11T00:00:00.000Z"
+      },
+      data: {
+        workflow: {
+          workflowId: "workflow-1",
+          repositoryKey: "openai/symphony",
+          issueIdentifier: "SYM-420",
+          routerPresetId: "current-flow",
+          routerName: "current-flow",
+          routerVersion: "1",
+          insertedAt: "2026-04-11T00:00:00.000Z",
+          updatedAt: "2026-04-11T00:00:30.000Z"
+        },
+        replay: {
+          recordedEventCount: 3,
+          recordedSignalCount: 2,
+          signals: [
+            {
+              id: "signal-1",
+              type: "tracker.state_observed",
+              source: "tracker",
+              occurredAt: "2026-04-11T00:00:05.000Z",
+              causationId: null,
+              correlationId: null,
+              payload: {
+                trackerState: "Todo"
+              }
+            }
+          ]
+        },
+        comparedPresetIds: ["current-flow", "auto-merge"],
+        entries: [
+          {
+            candidateId: "current-flow",
+            finalNode: "review",
+            terminal: false,
+            pendingCommandCount: 1,
+            reasonCodes: ["todo_claimed_for_dispatch", "delivery_reported"]
+          },
+          {
+            candidateId: "auto-merge",
+            finalNode: "approved_merge",
+            terminal: false,
+            pendingCommandCount: 1,
+            reasonCodes: [
+              "todo_claimed_for_dispatch",
+              "delivery_reported_auto_approved"
+            ]
+          }
+        ],
+        summary: {
+          diverged: true,
+          finalNodeByCandidate: {
+            "current-flow": "review",
+            "auto-merge": "approved_merge"
+          },
+          reasonCodesByCandidate: {
+            "current-flow": [
+              "todo_claimed_for_dispatch",
+              "delivery_reported"
+            ],
+            "auto-merge": [
+              "todo_claimed_for_dispatch",
+              "delivery_reported_auto_approved"
+            ]
+          },
+          pendingCommandCountsByCandidate: {
+            "current-flow": 1,
+            "auto-merge": 1
+          }
+        }
+      }
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) {
+      throw new TypeError("Expected workflow comparison envelope to be successful.");
+    }
+    expect(parsed.data.summary.diverged).toBe(true);
   });
 
   it("parses the tracker state observation envelope", () => {

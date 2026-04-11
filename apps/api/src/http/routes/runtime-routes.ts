@@ -11,15 +11,19 @@ import {
   symphonyRuntimeRefreshResponseSchema,
   symphonyRuntimeStateResponseSchema,
   symphonyRuntimeTrackerStateObservationRequestSchema,
-  symphonyRuntimeTrackerStateObservationResponseSchema
+  symphonyRuntimeTrackerStateObservationResponseSchema,
+  symphonyRuntimeWorkflowComparisonQuerySchema,
+  symphonyRuntimeWorkflowComparisonResponseSchema
 } from "@symphony/contracts";
 import type { SymphonyRuntimeAppServices } from "../../core/runtime-app-types.js";
 import { createHttpError } from "../../core/errors.js";
 import { jsonOk } from "../../core/envelope.js";
+import { requireRuntimeRouterPresetId } from "../../core/runtime-workflow-presets.js";
 import { parseWithSchema } from "../../core/validation.js";
 import {
   serializeRuntimeIssue,
-  serializeRuntimeState
+  serializeRuntimeState,
+  serializeRuntimeWorkflowComparison
 } from "../serializers.js";
 import type { SymphonyRuntimeAppContextSchema } from "../context.js";
 
@@ -259,6 +263,47 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     return jsonOk(c, result);
   });
 
+  runtimeRoutes.get("/:issueIdentifier/workflow-comparison", async (c) => {
+    const path = parseWithSchema(symphonyRuntimeIssuePathSchema, c.req.param());
+    const searchParams = new URL(c.req.url).searchParams;
+    const requestedPresetIds = searchParams.getAll("presetId");
+    const query = parseWithSchema(symphonyRuntimeWorkflowComparisonQuerySchema, {
+      presetIds: requestedPresetIds.length > 0 ? requestedPresetIds : undefined
+    });
+    const presetIds = normalizeWorkflowComparisonPresetIds(query.presetIds);
+    const comparison = await services.workflowComparison.compareByIssueIdentifier({
+      issueIdentifier: path.issueIdentifier,
+      presetIds
+    });
+
+    if (!comparison) {
+      c.get("logger").warn("Runtime workflow comparison not found", {
+        issueIdentifier: path.issueIdentifier
+      });
+      throw createHttpError("NOT_FOUND", "Workflow comparison not found.");
+    }
+
+    const result = serializeRuntimeWorkflowComparison(comparison);
+
+    c.get("logger").debug("Returning runtime workflow comparison", {
+      issueIdentifier: path.issueIdentifier,
+      presetIds: result.comparedPresetIds,
+      diverged: result.summary.diverged
+    });
+
+    symphonyRuntimeWorkflowComparisonResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      data: result,
+      meta: {
+        durationMs: 0,
+        generatedAt: new Date().toISOString()
+      }
+    });
+
+    return jsonOk(c, result);
+  });
+
   runtimeRoutes.get("/:issueIdentifier", async (c) => {
     const path = parseWithSchema(symphonyRuntimeIssuePathSchema, c.req.param());
     const trackedIssue = await services.tracker.fetchIssueByIdentifier(
@@ -303,4 +348,24 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
   });
 
   return runtimeRoutes;
+}
+
+function normalizeWorkflowComparisonPresetIds(
+  presetIds: ReadonlyArray<string> | undefined
+): ReadonlyArray<string> | undefined {
+  if (!presetIds) {
+    return undefined;
+  }
+
+  return presetIds.map((presetId) => {
+    try {
+      requireRuntimeRouterPresetId(presetId);
+      return presetId;
+    } catch (error) {
+      throw createHttpError(
+        "VALIDATION_FAILED",
+        error instanceof Error ? error.message : "Validation failed."
+      );
+    }
+  });
 }

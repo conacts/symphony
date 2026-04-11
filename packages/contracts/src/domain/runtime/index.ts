@@ -2,6 +2,7 @@ export {
   symphonyRuntimeIssuePathSchema,
   symphonyRuntimeRefreshRequestSchema,
   symphonyRuntimeLogsQuerySchema,
+  symphonyRuntimeWorkflowComparisonQuerySchema,
   symphonyRuntimeTrackerStateObservationRequestSchema
 } from "./requests.js";
 export {
@@ -31,6 +32,10 @@ export {
   symphonyRuntimeIssueResultSchema,
   symphonyRuntimeRefreshResultSchema,
   symphonyRuntimeTrackerStateObservationResultSchema,
+  symphonyRuntimeWorkflowComparisonSignalSchema,
+  symphonyRuntimeWorkflowComparisonCandidateSchema,
+  symphonyRuntimeWorkflowComparisonSummarySchema,
+  symphonyRuntimeWorkflowComparisonResultSchema,
   symphonyRuntimeLogEntrySchema,
   symphonyRuntimeLogsResultSchema,
   symphonyRuntimeMachineLoadSnapshotSchema,
@@ -39,6 +44,7 @@ export {
   symphonyRuntimeIssueResponseSchema,
   symphonyRuntimeRefreshResponseSchema,
   symphonyRuntimeTrackerStateObservationResponseSchema,
+  symphonyRuntimeWorkflowComparisonResponseSchema,
   symphonyRuntimeLogsResponseSchema,
   symphonyRuntimeHealthResponseSchema
 } from "./responses.js";
@@ -47,6 +53,7 @@ export type {
   SymphonyRuntimeIssuePath,
   SymphonyRuntimeRefreshRequest,
   SymphonyRuntimeLogsQuery,
+  SymphonyRuntimeWorkflowComparisonQuery,
   SymphonyRuntimeTrackerStateObservationRequest
 } from "./requests.js";
 export type {
@@ -76,6 +83,10 @@ export type {
   SymphonyRuntimeIssueResult,
   SymphonyRuntimeRefreshResult,
   SymphonyRuntimeTrackerStateObservationResult,
+  SymphonyRuntimeWorkflowComparisonSignal,
+  SymphonyRuntimeWorkflowComparisonCandidate,
+  SymphonyRuntimeWorkflowComparisonSummary,
+  SymphonyRuntimeWorkflowComparisonResult,
   SymphonyRuntimeLogEntry,
   SymphonyRuntimeLogsResult,
   SymphonyRuntimeMachineLoadSnapshot,
