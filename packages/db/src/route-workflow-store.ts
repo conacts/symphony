@@ -38,6 +38,7 @@ export type RouteWorkflowRecord = {
   workflowId: string;
   repositoryKey: string;
   issueIdentifier: string;
+  routerPresetId: string;
   routerName: string;
   routerVersion: string;
   archivedAt: string | null;
@@ -119,6 +120,7 @@ export interface RouteWorkflowStore {
   createWorkflow(input: {
     repositoryKey: string;
     issueIdentifier: string;
+    routerPresetId: string;
     routerName: string;
     routerVersion: string;
     createdAt: string;
@@ -208,6 +210,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
   async createWorkflow(input: {
     repositoryKey: string;
     issueIdentifier: string;
+    routerPresetId: string;
     routerName: string;
     routerVersion: string;
     createdAt: string;
@@ -215,6 +218,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     const workflowId = randomUUID();
     const repositoryKey = sanitizeRequiredText(input.repositoryKey, "repositoryKey");
     const issueIdentifier = sanitizeRequiredText(input.issueIdentifier, "issueIdentifier");
+    const routerPresetId = sanitizeRequiredText(input.routerPresetId, "routerPresetId");
     const routerName = sanitizeRequiredText(input.routerName, "routerName");
     const routerVersion = sanitizeRequiredText(input.routerVersion, "routerVersion");
     const now = sanitizeRequiredText(input.createdAt, "createdAt");
@@ -225,6 +229,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
           workflowId,
           repositoryKey,
           issueIdentifier,
+          routerPresetId,
           routerName,
           routerVersion,
           archivedAt: null,
@@ -939,6 +944,7 @@ function mapWorkflowRow(
     workflowId: row.workflowId,
     repositoryKey: row.repositoryKey,
     issueIdentifier: row.issueIdentifier,
+    routerPresetId: row.routerPresetId,
     routerName: row.routerName,
     routerVersion: row.routerVersion,
     archivedAt: row.archivedAt ?? null,

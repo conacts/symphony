@@ -716,6 +716,7 @@ describe("runtime route lifecycle service", () => {
       await harness.routeWorkflows.ensureWorkflowForIssue({
         issueIdentifier: harness.issue.identifier,
         repositoryKey: "openai/symphony",
+        routerPresetId: routing.presetId,
         router: routing.router,
         createdAt: "2026-04-10T14:10:00.000Z"
       });

@@ -39,6 +39,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
       const ensured = await input.routeWorkflows.ensureWorkflowForIssue({
         issueIdentifier: routeInput.issue.identifier,
         repositoryKey: input.repositoryKey,
+        routerPresetId: input.routing.presetId,
         router,
         createdAt: routeInput.startedAt
       });

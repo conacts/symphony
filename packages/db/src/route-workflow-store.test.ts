@@ -56,6 +56,7 @@ describe("route workflow store", () => {
       const workflowId = await routeStore.createWorkflow({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-300",
+        routerPresetId: "current-flow",
         routerName: "symphony-current-flow",
         routerVersion: "1",
         createdAt: "2026-04-09T22:59:00.000Z"
@@ -79,6 +80,7 @@ describe("route workflow store", () => {
       );
 
       expect(workflow?.issueIdentifier).toBe("SYM-300");
+      expect(workflow?.routerPresetId).toBe("current-flow");
       expect(persisted.history.map((event) => event.eventSequence)).toEqual([1, 2, 3, 4]);
       expect(history.map((event) => event.kind)).toEqual([
         "signal_recorded",
@@ -120,6 +122,7 @@ describe("route workflow store", () => {
       const workflowId = await routeStore.createWorkflow({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-301",
+        routerPresetId: "current-flow",
         routerName: "symphony-current-flow",
         routerVersion: "1",
         createdAt: "2026-04-09T22:59:00.000Z"
@@ -179,6 +182,7 @@ describe("route workflow store", () => {
       const workflowId = await routeStore.createWorkflow({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-301A",
+        routerPresetId: "current-flow",
         routerName: "symphony-current-flow",
         routerVersion: "1",
         createdAt: "2026-04-09T22:59:00.000Z"
@@ -255,6 +259,7 @@ describe("route workflow store", () => {
       const workflowId = await routeStore.createWorkflow({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-301B",
+        routerPresetId: "current-flow",
         routerName: "symphony-current-flow",
         routerVersion: "1",
         createdAt: "2026-04-09T22:59:00.000Z"
@@ -296,6 +301,7 @@ describe("route workflow store", () => {
       await routeStore.createWorkflow({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-302",
+        routerPresetId: "current-flow",
         routerName: "router-a",
         routerVersion: "1",
         createdAt: "2026-04-09T22:59:00.000Z"
@@ -305,6 +311,7 @@ describe("route workflow store", () => {
         routeStore.createWorkflow({
           repositoryKey: "openai/symphony",
           issueIdentifier: "SYM-302",
+          routerPresetId: "alternate-flow",
           routerName: "router-b",
           routerVersion: "1",
           createdAt: "2026-04-09T22:59:01.000Z"

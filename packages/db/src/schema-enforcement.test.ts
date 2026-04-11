@@ -251,21 +251,82 @@ describe("db schema enforcement", () => {
           workflow_id,
           repository_key,
           issue_identifier,
+          router_preset_id,
           router_name,
           router_version,
           archived_at,
           inserted_at,
           updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?)
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         "workflow-703-a",
         "openai/symphony",
         "COL-703",
+        "current-flow",
         "router-a",
         "1",
         null,
         "2026-04-09T12:01:00.000Z",
         "2026-04-09T12:01:00.000Z"
+      );
+
+      expect(() =>
+        database.client.prepare(`
+          insert into route_workflows (
+            workflow_id,
+            repository_key,
+            issue_identifier,
+            router_preset_id,
+            router_name,
+            router_version,
+            archived_at,
+            inserted_at,
+            updated_at
+          ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          "workflow-703-b",
+          "openai/symphony",
+          "COL-703",
+          "alternate-flow",
+          "router-b",
+          "1",
+          null,
+          "2026-04-09T12:02:00.000Z",
+          "2026-04-09T12:02:00.000Z"
+        )
+      ).toThrow(
+        /route_workflows_live_issue_idx|UNIQUE constraint failed: route_workflows.issue_identifier/
+      );
+    } finally {
+      database.close();
+    }
+  });
+
+  it("requires router preset identity on persisted route workflows", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-schema-route-preset-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+
+    try {
+      database.client.prepare(`
+        insert into symphony_issues (
+          issue_identifier,
+          tracker_issue_id,
+          repository_key,
+          latest_run_started_at,
+          inserted_at,
+          updated_at
+        ) values (?, ?, ?, ?, ?, ?)
+      `).run(
+        "COL-703P",
+        "tracker-703P",
+        "openai/symphony",
+        "2026-04-09T12:00:00.000Z",
+        "2026-04-09T12:00:00.000Z",
+        "2026-04-09T12:00:00.000Z"
       );
 
       expect(() =>
@@ -281,18 +342,16 @@ describe("db schema enforcement", () => {
             updated_at
           ) values (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
-          "workflow-703-b",
+          "workflow-703P",
           "openai/symphony",
-          "COL-703",
-          "router-b",
+          "COL-703P",
+          "router-a",
           "1",
           null,
-          "2026-04-09T12:02:00.000Z",
-          "2026-04-09T12:02:00.000Z"
+          "2026-04-09T12:01:00.000Z",
+          "2026-04-09T12:01:00.000Z"
         )
-      ).toThrow(
-        /route_workflows_live_issue_idx|UNIQUE constraint failed: route_workflows.issue_identifier/
-      );
+      ).toThrow(/NOT NULL constraint failed: route_workflows\.router_preset_id/);
     } finally {
       database.close();
     }
@@ -330,16 +389,18 @@ describe("db schema enforcement", () => {
           workflow_id,
           repository_key,
           issue_identifier,
+          router_preset_id,
           router_name,
           router_version,
           archived_at,
           inserted_at,
           updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?)
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         "workflow-704",
         "openai/symphony",
         "COL-704",
+        "current-flow",
         "router-a",
         "1",
         null,

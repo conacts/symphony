@@ -81,6 +81,7 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
       await input.routeWorkflows.ensureWorkflowForIssue({
         issueIdentifier: issue.identifier,
         repositoryKey: input.repositoryKey,
+        routerPresetId: input.routing.presetId,
         router,
         createdAt: observationInput.recordedAt
       });

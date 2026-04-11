@@ -70,6 +70,7 @@ export type SymphonyRouteWorkflowPort = {
   >(input: {
     issueIdentifier: string;
     repositoryKey: string;
+    routerPresetId: string;
     router: WorkflowRouter<Node, Data, Policy>;
     createdAt: string;
   }): Promise<EnsuredRouteWorkflow>;
@@ -156,9 +157,14 @@ export function createRouteWorkflowPort(input: {
     >(ensureInput: {
       issueIdentifier: string;
       repositoryKey: string;
+      routerPresetId: string;
       router: WorkflowRouter<Node, Data, Policy>;
       createdAt: string;
     }): Promise<EnsuredRouteWorkflow> {
+      const routerPresetId = normalizeRequiredText(
+        ensureInput.routerPresetId,
+        "routerPresetId"
+      );
       const existing = await input.routeWorkflowStore.getWorkflowForIssue(
         ensureInput.issueIdentifier
       );
@@ -166,6 +172,7 @@ export function createRouteWorkflowPort(input: {
         assertWorkflowRouterCompatibility({
           workflow: existing,
           repositoryKey: ensureInput.repositoryKey,
+          routerPresetId,
           router: ensureInput.router
         });
         return {
@@ -178,6 +185,7 @@ export function createRouteWorkflowPort(input: {
         const workflowId = await input.routeWorkflowStore.createWorkflow({
           repositoryKey: ensureInput.repositoryKey,
           issueIdentifier: ensureInput.issueIdentifier,
+          routerPresetId,
           routerName: ensureInput.router.definition().name,
           routerVersion: ensureInput.router.definition().version,
           createdAt: ensureInput.createdAt
@@ -208,6 +216,7 @@ export function createRouteWorkflowPort(input: {
         assertWorkflowRouterCompatibility({
           workflow,
           repositoryKey: ensureInput.repositoryKey,
+          routerPresetId,
           router: ensureInput.router
         });
         return {
@@ -491,6 +500,7 @@ function assertWorkflowRouterCompatibility<
 >(input: {
   workflow: RouteWorkflowRecord;
   repositoryKey: string;
+  routerPresetId: string;
   router: WorkflowRouter<Node, Data, Policy>;
 }) {
   const definition = input.router.definition();
@@ -498,6 +508,12 @@ function assertWorkflowRouterCompatibility<
   if (input.workflow.repositoryKey !== input.repositoryKey) {
     throw new TypeError(
       `Route workflow ${input.workflow.workflowId} is bound to repository ${input.workflow.repositoryKey}, but ${input.repositoryKey} was requested.`
+    );
+  }
+
+  if (input.workflow.routerPresetId !== input.routerPresetId) {
+    throw new TypeError(
+      `Route workflow ${input.workflow.workflowId} is bound to router preset ${input.workflow.routerPresetId}, but ${input.routerPresetId} was requested.`
     );
   }
 

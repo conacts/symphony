@@ -2900,6 +2900,7 @@ async function buildWorkflowBackedReworkHandoffLoader(input: {
   await routeWorkflows.ensureWorkflowForIssue({
     issueIdentifier: input.issueIdentifier,
     repositoryKey: input.repositoryKey,
+    routerPresetId: routing.presetId,
     router: routing.router,
     createdAt: "2026-04-10T16:00:00.000Z"
   });
@@ -3002,6 +3003,7 @@ async function buildWorkflowBackedMergeResultLoader(input: {
   await routeWorkflows.ensureWorkflowForIssue({
     issueIdentifier: input.issueIdentifier,
     repositoryKey: input.repositoryKey,
+    routerPresetId: routing.presetId,
     router: routing.router,
     createdAt: "2026-04-10T16:30:00.000Z"
   });

@@ -961,6 +961,7 @@ export const routeWorkflowsTable = sqliteTable(
     workflowId: text("workflow_id").primaryKey(),
     repositoryKey: text("repository_key").notNull(),
     issueIdentifier: text("issue_identifier").notNull(),
+    routerPresetId: text("router_preset_id").notNull(),
     routerName: text("router_name").notNull(),
     routerVersion: text("router_version").notNull(),
     archivedAt: text("archived_at"),

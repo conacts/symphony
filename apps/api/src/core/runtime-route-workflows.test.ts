@@ -66,6 +66,7 @@ describe("runtime route workflows", () => {
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410",
+        routerPresetId: "current-flow",
         router: await createSymphonyCurrentFlowRouterAsync(),
         createdAt: "2026-04-10T00:29:00.000Z"
       });
@@ -82,6 +83,7 @@ describe("runtime route workflows", () => {
       const ensuredAgain = await routeWorkflows.ensureWorkflowForIssue({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410",
+        routerPresetId: "current-flow",
         router: await createSymphonyCurrentFlowRouterAsync(),
         createdAt: "2026-04-10T00:29:30.000Z"
       });
@@ -98,10 +100,12 @@ describe("runtime route workflows", () => {
       >("SYM-410");
 
       expect(ensured.created).toBe(true);
+      expect(ensured.workflow.routerPresetId).toBe("current-flow");
       expect(ensured.workflow.routerName).toBe("symphony-current-flow");
       expect(ensuredAgain.created).toBe(false);
       expect(recorded.decision.decisionId).toBe("decision_bootstrap");
       expect(byWorkflowId?.workflow.workflowId).toBe(workflowId);
+      expect(byWorkflowId?.workflow.routerPresetId).toBe("current-flow");
       expect(byWorkflowId?.snapshot?.projection.currentNode).toBe("bootstrapping");
       expect(byWorkflowId?.snapshot?.projection.recordedSignalIds).toEqual([
         "signal_todo_observed"
@@ -136,6 +140,7 @@ describe("runtime route workflows", () => {
       await routeWorkflowStore.createWorkflow({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410A",
+        routerPresetId: "current-flow",
         routerName: "custom-router",
         routerVersion: "9",
         createdAt: "2026-04-10T00:29:00.000Z"
@@ -145,12 +150,56 @@ describe("runtime route workflows", () => {
         routeWorkflows.ensureWorkflowForIssue({
           repositoryKey: "openai/symphony",
           issueIdentifier: "SYM-410A",
+          routerPresetId: "current-flow",
           router: await createSymphonyCurrentFlowRouterAsync(),
           createdAt: "2026-04-10T00:29:30.000Z"
         })
       ).rejects.toThrow(
         "is bound to router custom-router"
       );
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects workflow reuse when the stored router preset id does not match", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-route-preset-mismatch-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const routeWorkflowStore = createRouteWorkflowStore(database.db);
+    const routeWorkflows = createRouteWorkflowPort({
+      routeWorkflowStore
+    });
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-410B",
+        trackerIssueId: "tracker-410B",
+        repositoryKey: "openai/symphony"
+      });
+
+      await routeWorkflowStore.createWorkflow({
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-410B",
+        routerPresetId: "alternate-flow",
+        routerName: "symphony-current-flow",
+        routerVersion: "1",
+        createdAt: "2026-04-10T00:29:00.000Z"
+      });
+
+      await expect(
+        routeWorkflows.ensureWorkflowForIssue({
+          repositoryKey: "openai/symphony",
+          issueIdentifier: "SYM-410B",
+          routerPresetId: "current-flow",
+          router: await createSymphonyCurrentFlowRouterAsync(),
+          createdAt: "2026-04-10T00:29:30.000Z"
+        })
+      ).rejects.toThrow("is bound to router preset alternate-flow");
     } finally {
       database.close();
     }
@@ -180,6 +229,7 @@ describe("runtime route workflows", () => {
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-411",
+        routerPresetId: "current-flow",
         router: await createSymphonyCurrentFlowRouterAsync(),
         createdAt: "2026-04-10T00:29:00.000Z"
       });
@@ -260,6 +310,7 @@ describe("runtime route workflows", () => {
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-412",
+        routerPresetId: "current-flow",
         router: await createSymphonyCurrentFlowRouterAsync(),
         createdAt: "2026-04-10T00:29:00.000Z"
       });
@@ -327,6 +378,7 @@ describe("runtime route workflows", () => {
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-413",
+        routerPresetId: "current-flow",
         router: await createSymphonyCurrentFlowRouterAsync(),
         createdAt: "2026-04-10T00:29:00.000Z"
       });
