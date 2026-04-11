@@ -37,7 +37,6 @@ import {
   isTransientProviderError
 } from "./agent-harness-runtime.js";
 import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
-import { createRuntimeWorkflowLifecycleReadPort } from "./runtime-workflow-lifecycle-read-port.js";
 import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimePolicyForRoot } from "../test-support/create-symphony-runtime-test-harness.js";
@@ -2905,9 +2904,7 @@ async function buildWorkflowBackedReworkHandoffLoader(input: {
   }
 
   return async (issueIdentifier) => {
-    return await workflowLifecycle.lifecycleRead.loadLatestReworkHandoff({
-      issueIdentifier
-    });
+    return await workflowLifecycle.loadLatestReworkHandoff(issueIdentifier);
   };
 }
 
@@ -2951,10 +2948,7 @@ async function buildWorkflowBackedMergeResultLoader(input: {
   }
 
   return async (issueIdentifier, runId) => {
-    return await workflowLifecycle.lifecycleRead.loadLatestMergeResult({
-      issueIdentifier,
-      runId
-    });
+    return await workflowLifecycle.loadLatestMergeResult(issueIdentifier, runId);
   };
 }
 
@@ -2976,9 +2970,6 @@ async function createWorkflowBackedLifecycleHarness(input: {
     routeWorkflows,
     trackerConfig: input.trackerConfig,
     now: () => new Date(input.nowIso)
-  });
-  const lifecycleRead = createRuntimeWorkflowLifecycleReadPort({
-    sessionLoader
   });
 
   await routeWorkflows.ensureWorkflowForIssue({
@@ -3007,7 +2998,39 @@ async function createWorkflowBackedLifecycleHarness(input: {
   }
 
   return {
-    lifecycleRead,
+    async loadLatestReworkHandoff(issueIdentifier: string) {
+      const projection = await loadWorkflowProjectionByIssueIdentifier({
+        sessionLoader,
+        issueIdentifier
+      });
+      if (!projection) {
+        return null;
+      }
+
+      return projection.loaded.routing.module.runtimeAdapter.readLatestReworkHandoffFromProjection(
+        {
+          workflowId: projection.workflowId,
+          data: projection.data
+        }
+      );
+    },
+    async loadLatestMergeResult(issueIdentifier: string, runId: string) {
+      const projection = await loadWorkflowProjectionByIssueIdentifier({
+        sessionLoader,
+        issueIdentifier
+      });
+      if (!projection) {
+        return null;
+      }
+
+      return projection.loaded.routing.module.runtimeAdapter.readLatestMergeResultFromProjection(
+        {
+          workflowId: projection.workflowId,
+          data: projection.data,
+          runId
+        }
+      );
+    },
     async recordTrackerObserved(entry: {
       trackerState: string;
       recordedAt: string;
@@ -3073,6 +3096,26 @@ async function createWorkflowBackedLifecycleHarness(input: {
         `recording merge result ${entry.recordedAt}`
       );
     }
+  };
+}
+
+async function loadWorkflowProjectionByIssueIdentifier(input: {
+  sessionLoader: Awaited<
+    ReturnType<typeof createRuntimeWorkflowSessionLoader>
+  >;
+  issueIdentifier: string;
+}) {
+  const loaded = await input.sessionLoader.loadHydrationByIssueIdentifier({
+    issueIdentifier: input.issueIdentifier
+  });
+  if (!loaded?.hydrationState.snapshot) {
+    return null;
+  }
+
+  return {
+    loaded,
+    workflowId: loaded.hydrationState.workflow.workflowId,
+    data: loaded.hydrationState.snapshot.projection.data
   };
 }
 

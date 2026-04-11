@@ -71,13 +71,7 @@ import {
 import {
   createWorkflowDispatchTracker
 } from "./runtime-workflow-dispatch-tracker.js";
-import {
-  executeCancelTool,
-  executeDeliveryReportTool,
-  executeMergeResultTool,
-  executeSpikeResultTool,
-  type RuntimeMergeResult
-} from "@symphony/runtime-tools";
+import { createRuntimeToolsPort } from "./runtime-tools-port.js";
 import {
   reconcilePersistedActiveRunsOnShutdown,
   waitForPollSchedulerDrain
@@ -545,194 +539,14 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       };
     }
   } satisfies SymphonyRuntimeAppServices["trackerStateIngress"];
-  const runtimeTools = {
-    async recordDeliveryReport(input: {
-      runId: string;
-      turnId: string | null;
-      issue: {
-        trackerIssueId: string;
-        identifier: string;
-        state: string | null;
-      };
-      argumentsPayload: unknown;
-    }) {
-      return await executeDeliveryReportTool(
-        {
-          tracker,
-          deliveryReports,
-          issue: input.issue,
-          runId: input.runId,
-          turnId: input.turnId,
-          blockedTargetState: runtimePolicy.tracker.blockedTransitionToState,
-          async transitionIssueState(request) {
-            const status =
-              request.targetState === "In Review"
-                ? "completed"
-                : request.targetState === runtimePolicy.tracker.blockedTransitionToState
-                  ? "blocked"
-                  : null;
-            if (!status) {
-              throw new TypeError(
-                `Delivery routing does not support target state ${request.targetState}.`
-              );
-            }
-
-            const routed = await routeLifecycle.routeDeliveryReport({
-              issueIdentifier: request.issueIdentifier,
-              runId: input.runId,
-              recordedAt: request.recordedAt,
-              status
-            });
-            return {
-              attempted: true,
-              targetState: request.targetState,
-              success: routed,
-              reason: routed
-                ? null
-                : `Route workflow-backed delivery routing could not load ${request.issueIdentifier}.`
-            };
-          }
-        },
-        input.argumentsPayload
-      );
-    },
-    async submitSpikeResult(input: {
-      runId: string;
-      turnId: string | null;
-      issue: {
-        trackerIssueId: string;
-        identifier: string;
-        state: string | null;
-      };
-      argumentsPayload: unknown;
-    }) {
-      return await executeSpikeResultTool(
-        {
-          tracker,
-          issue: input.issue,
-          defaultTargetState: runtimePolicy.tracker.pauseTransitionToState,
-          async transitionIssueState(request) {
-            const routed = await routeLifecycle.routeRuntimeStateRequest({
-              issueIdentifier: request.issueIdentifier,
-              runId: input.runId,
-              recordedAt: request.recordedAt,
-              requestKind: "spike_result",
-              targetState: request.targetState
-            });
-            return {
-              attempted: true,
-              targetState: request.targetState,
-              success: routed,
-              reason: routed
-                ? null
-                : `Route workflow-backed spike routing could not load ${request.issueIdentifier}.`
-            };
-          }
-        },
-        input.argumentsPayload
-      );
-    },
-    async cancelIssue(input: {
-      runId: string;
-      turnId: string | null;
-      issue: {
-        trackerIssueId: string;
-        identifier: string;
-        state: string | null;
-      };
-      argumentsPayload: unknown;
-    }) {
-      return await executeCancelTool(
-        {
-          tracker,
-          issue: input.issue,
-          defaultTargetState: "Canceled",
-          async transitionIssueState(request) {
-            const routed = await routeLifecycle.routeRuntimeStateRequest({
-              issueIdentifier: request.issueIdentifier,
-              runId: input.runId,
-              recordedAt: request.recordedAt,
-              requestKind: "cancel",
-              targetState: request.targetState
-            });
-            return {
-              attempted: true,
-              targetState: request.targetState,
-              success: routed,
-              reason: routed
-                ? null
-                : `Route workflow-backed cancel routing could not load ${request.issueIdentifier}.`
-            };
-          }
-        },
-        input.argumentsPayload
-      );
-    },
-    async submitMergeResult(input: {
-      runId: string;
-      turnId: string | null;
-      issue: {
-        trackerIssueId: string;
-        identifier: string;
-        state: string | null;
-      };
-      argumentsPayload: unknown;
-    }) {
-      let recordedMergeResult: RuntimeMergeResult | null = null;
-
-      return await executeMergeResultTool(
-        {
-          tracker,
-          issue: input.issue,
-          runId: input.runId,
-          turnId: input.turnId,
-          blockedTargetState: runtimePolicy.tracker.blockedTransitionToState,
-          onMergeResultRecorded(result) {
-            recordedMergeResult = result;
-          },
-          async transitionIssueState(request) {
-            if (!recordedMergeResult) {
-              throw new TypeError(
-                `Merge-result routing requires a structured merge result before transitioning ${request.issueIdentifier}.`
-              );
-            }
-
-            const status =
-              request.targetState === "Done"
-                ? recordedMergeResult.status === "merged"
-                  ? "merged"
-                  : null
-                : request.targetState === runtimePolicy.tracker.blockedTransitionToState
-                  ? recordedMergeResult.status === "blocked"
-                    ? "blocked"
-                    : null
-                  : null;
-            if (!status) {
-              throw new TypeError(
-                `Merge-result routing does not support target state ${request.targetState} for ${recordedMergeResult.status}.`
-              );
-            }
-
-            const routed = await routeLifecycle.routeMergeResult({
-              issueIdentifier: request.issueIdentifier,
-              runId: input.runId,
-              recordedAt: request.recordedAt,
-              mergeResult: recordedMergeResult
-            });
-            return {
-              attempted: true,
-              targetState: request.targetState,
-              success: routed,
-              reason: routed
-                ? null
-                : `Route workflow-backed merge-result routing could not load ${request.issueIdentifier}.`
-            };
-          }
-        },
-        input.argumentsPayload
-      );
-    }
-  };
+  const runtimeTools = createRuntimeToolsPort({
+    tracker,
+    deliveryReports,
+    routeLifecycle,
+    blockedTargetState: runtimePolicy.tracker.blockedTransitionToState,
+    pauseTargetState: runtimePolicy.tracker.pauseTransitionToState,
+    canceledTargetState: "Canceled"
+  });
 
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({
     githubPolicy: runtimePolicy.github,

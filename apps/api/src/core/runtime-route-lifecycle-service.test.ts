@@ -182,6 +182,91 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("loads current tracker state and latest rework handoff from workflow history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToReview(harness);
+
+      expect(
+        await harness.service.loadCurrentTrackerState({
+          issueIdentifier: harness.issue.identifier
+        })
+      ).toBe("In Review");
+
+      const handoff = buildSymphonyReworkHandoff({
+        triggerKind: "changes_requested_review",
+        recordedAt: "2026-04-10T14:00:18.000Z"
+      });
+      await harness.service.routeReviewReworkRequest({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: handoff.recordedAt,
+        handoff,
+        onDispatchRequested: async () => {}
+      });
+
+      expect(
+        await harness.service.loadCurrentTrackerState({
+          issueIdentifier: harness.issue.identifier
+        })
+      ).toBe("Bootstrapping");
+      expect(
+        await harness.service.loadLatestReworkHandoff({
+          issueIdentifier: harness.issue.identifier
+        })
+      ).toEqual(handoff);
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("loads latest merge results only for the matching run id", async () => {
+    const harness = await createHarness({
+      state: "Approved"
+    });
+
+    try {
+      await advanceWorkflowToRunningApprovedMerge(harness);
+      await harness.service.routeMergeResult({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        recordedAt: "2026-04-10T14:12:40.000Z",
+        mergeResult: {
+          status: "merged",
+          summary: "Merged successfully",
+          prUrl: "https://github.com/openai/symphony/pull/1",
+          mergeCommitSha: "abc123",
+          blockingReason: null,
+          testsSummary: "green"
+        }
+      });
+
+      expect(
+        await harness.service.loadLatestMergeResult({
+          issueIdentifier: harness.issue.identifier,
+          runId: "run-1"
+        })
+      ).toEqual({
+        status: "merged",
+        summary: "Merged successfully",
+        prUrl: "https://github.com/openai/symphony/pull/1",
+        mergeCommitSha: "abc123",
+        blockingReason: null,
+        testsSummary: "green"
+      });
+      expect(
+        await harness.service.loadLatestMergeResult({
+          issueIdentifier: harness.issue.identifier,
+          runId: "run-2"
+        })
+      ).toBeNull();
+    } finally {
+      harness.close();
+    }
+  });
+
   it("observes non-running tracker states in batch before dispatch", async () => {
     const harness = await createHarness({
       state: "Todo"
