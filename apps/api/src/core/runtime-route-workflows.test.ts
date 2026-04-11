@@ -100,6 +100,11 @@ describe("runtime route workflows", () => {
         TestData,
         TestPolicy
       >("SYM-410");
+      const replayByWorkflowId = await routeWorkflows.loadReplayStateByWorkflowId<
+        TestNode
+      >(workflowId);
+      const replayByIssueIdentifier =
+        await routeWorkflows.loadReplayStateByIssueIdentifier<TestNode>("SYM-410");
 
       expect(ensured.created).toBe(true);
       expect(ensured.workflow.routerPresetId).toBe("current-flow");
@@ -114,6 +119,16 @@ describe("runtime route workflows", () => {
       ]);
       expect(byWorkflowId?.latestDecision?.decisionId).toBe("decision_bootstrap");
       expect(byIssueIdentifier).toEqual(byWorkflowId);
+      expect(replayByWorkflowId?.history.map((entry) => entry.kind)).toEqual([
+        "signal_recorded",
+        "decision_recorded",
+        "command_emitted",
+        "command_emitted"
+      ]);
+      expect(replayByWorkflowId?.signals.map((signal) => signal.id)).toEqual([
+        "signal_todo_observed"
+      ]);
+      expect(replayByIssueIdentifier).toEqual(replayByWorkflowId);
     } finally {
       database.close();
     }

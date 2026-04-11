@@ -15,6 +15,7 @@ import type {
   WorkflowProjection,
   WorkflowRouteResult,
   WorkflowRouter,
+  WorkflowSignal,
   WorkflowSession
 } from "@symphony/router";
 
@@ -62,6 +63,14 @@ export type AppendedRouteCommandSettlement<
   snapshot: RouteProjectionSnapshotRecord<Node, Data>;
 };
 
+export type RouteWorkflowReplayState<
+  Node extends WorkflowNodeId = WorkflowNodeId,
+> = {
+  workflow: RouteWorkflowRecord;
+  history: RouteHistoryEventRecord<Node>[];
+  signals: WorkflowSignal[];
+};
+
 export type SymphonyRouteWorkflowPort = {
   ensureWorkflowForIssue<
     Node extends WorkflowNodeId = WorkflowNodeId,
@@ -88,6 +97,12 @@ export type SymphonyRouteWorkflowPort = {
   >(
     issueIdentifier: string
   ): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null>;
+  loadReplayStateByWorkflowId<Node extends WorkflowNodeId = WorkflowNodeId>(
+    workflowId: string
+  ): Promise<RouteWorkflowReplayState<Node> | null>;
+  loadReplayStateByIssueIdentifier<Node extends WorkflowNodeId = WorkflowNodeId>(
+    issueIdentifier: string
+  ): Promise<RouteWorkflowReplayState<Node> | null>;
   rehydrateProjectionByWorkflowId<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
@@ -246,6 +261,38 @@ export function createRouteWorkflowPort(input: {
         Data,
         Policy
       >(issueIdentifier);
+    },
+    async loadReplayStateByWorkflowId<Node extends WorkflowNodeId = WorkflowNodeId>(
+      workflowId: string
+    ): Promise<RouteWorkflowReplayState<Node> | null> {
+      const workflow = await input.routeWorkflowStore.getWorkflow(workflowId);
+      if (!workflow) {
+        return null;
+      }
+
+      const history = await input.routeWorkflowStore.listHistory<Node>(workflowId);
+      return createRouteWorkflowReplayState({
+        workflow,
+        history
+      });
+    },
+    async loadReplayStateByIssueIdentifier<Node extends WorkflowNodeId = WorkflowNodeId>(
+      issueIdentifier: string
+    ): Promise<RouteWorkflowReplayState<Node> | null> {
+      const workflow = await input.routeWorkflowStore.getWorkflowForIssue(
+        issueIdentifier
+      );
+      if (!workflow) {
+        return null;
+      }
+
+      const history = await input.routeWorkflowStore.listHistory<Node>(
+        workflow.workflowId
+      );
+      return createRouteWorkflowReplayState({
+        workflow,
+        history
+      });
     },
     async rehydrateProjectionByWorkflowId<
       Node extends WorkflowNodeId = WorkflowNodeId,
@@ -452,6 +499,21 @@ function toWorkflowHistory<
   hydrationState: RouteWorkflowHydrationState<Node, Data, Policy>
 ): WorkflowHistory<Node> {
   return hydrationState.tailHistory.map((historyEvent) => historyEvent.event);
+}
+
+function createRouteWorkflowReplayState<Node extends WorkflowNodeId>(input: {
+  workflow: RouteWorkflowRecord;
+  history: RouteHistoryEventRecord<Node>[];
+}): RouteWorkflowReplayState<Node> {
+  return {
+    workflow: input.workflow,
+    history: input.history,
+    signals: input.history.flatMap((historyEvent) =>
+      historyEvent.event.kind === "signal_recorded"
+        ? [historyEvent.event.signal]
+        : []
+    )
+  };
 }
 
 function createCommandSettlementEvent<

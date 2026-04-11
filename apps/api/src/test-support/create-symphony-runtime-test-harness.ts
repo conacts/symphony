@@ -582,6 +582,12 @@ export async function createSymphonyRuntimeTestHarness(input: {
       async loadHydrationStateByIssueIdentifier() {
         return null;
       },
+      async loadReplayStateByWorkflowId() {
+        return null;
+      },
+      async loadReplayStateByIssueIdentifier() {
+        return null;
+      },
       async rehydrateProjectionByWorkflowId() {
         return null;
       },
