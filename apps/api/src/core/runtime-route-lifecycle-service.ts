@@ -12,7 +12,8 @@ import type {
 import type { RuntimeMergeResult } from "@symphony/runtime-tools";
 import {
   createRuntimeWorkflowSessionLoader,
-  type SymphonyLoadedRuntimeWorkflowHydration
+  type SymphonyLoadedRuntimeWorkflowHydration,
+  type SymphonyRuntimeWorkflowSessionLoader
 } from "./runtime-workflow-session-loader.js";
 import {
   selectRuntimeRouterPreset
@@ -60,7 +61,7 @@ import {
 } from "./runtime-state-request-routing.js";
 import type { SymphonyRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
 import {
-  parseRuntimeWorkflowLifecycleProjectionData,
+  readTrackerStateFromProjection,
   readActiveRunModeFromProjection
 } from "./runtime-workflow-lifecycle-data.js";
 
@@ -135,6 +136,7 @@ export async function createRuntimeRouteLifecycleService(input: {
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
   presetSelection: SymphonyRuntimeWorkflowPresetSelection;
+  sessionLoader?: SymphonyRuntimeWorkflowSessionLoader;
   now?: () => Date;
 }): Promise<SymphonyRuntimeRouteLifecycleService> {
   const routing = await selectRuntimeRouterPreset({
@@ -142,11 +144,13 @@ export async function createRuntimeRouteLifecycleService(input: {
     presetId: input.presetSelection.presetId,
     now: input.now
   });
-  const sessionLoader = await createRuntimeWorkflowSessionLoader({
-    routeWorkflows: input.routeWorkflows,
-    trackerConfig: input.trackerConfig,
-    now: input.now
-  });
+  const sessionLoader =
+    input.sessionLoader ??
+    (await createRuntimeWorkflowSessionLoader({
+      routeWorkflows: input.routeWorkflows,
+      trackerConfig: input.trackerConfig,
+      now: input.now
+    }));
   const dispatchBootstrapRouter = await createRuntimeDispatchBootstrapRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
@@ -446,10 +450,10 @@ function shouldObserveNonRunningTrackerState(input: {
   const snapshot = hydration?.hydrationState.snapshot;
   let hydratedState: string | null = null;
   if (hydration && snapshot) {
-    hydratedState = parseRuntimeWorkflowLifecycleProjectionData({
+    hydratedState = readTrackerStateFromProjection({
       workflowId: hydration.hydrationState.workflow.workflowId,
       data: snapshot.projection.data
-    }).trackerState;
+    });
   }
 
   if (hydratedState && normalizeIssueState(hydratedState) === observedState) {

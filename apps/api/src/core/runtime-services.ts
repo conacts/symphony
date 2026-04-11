@@ -21,10 +21,8 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import type {
-  SymphonyNormalizedRuntimeManifest,
-  SymphonyReworkHandoff
+  SymphonyNormalizedRuntimeManifest
 } from "@symphony/runtime-contract";
-import { isSymphonyReworkHandoff } from "@symphony/runtime-contract";
 import { createSymphonyLogger } from "@symphony/logger";
 import {
   HarnessSessionError
@@ -38,13 +36,7 @@ import {
   type DockerGitHubCliAuthContract,
   type DockerPiAuthContract
 } from "./runtime-auth-contract.js";
-import type {
-  SymphonyCurrentFlowData,
-  SymphonyCurrentFlowNode,
-  SymphonyCurrentFlowPolicy,
-  SymphonyCurrentFlowStateRequestTargetState
-} from "@symphony/router";
-import { isSymphonyCurrentFlowMergeResultRecord } from "@symphony/router";
+import type { SymphonyCurrentFlowStateRequestTargetState } from "@symphony/router";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
@@ -69,11 +61,10 @@ import { createAgentAnalyticsReadPort } from "./agent-analytics-read-port.js";
 import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { createRepositoryScopedWorkspaceBackend } from "./runtime-workspace-backend-selector.js";
 import { createRepositoryScopedLinearTracker } from "./runtime-linear-tracker-registry.js";
-import {
-  createRouteWorkflowPort,
-  type SymphonyRouteWorkflowPort
-} from "./runtime-route-workflows.js";
+import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
+import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
+import { createRuntimeWorkflowLifecycleReadPort } from "./runtime-workflow-lifecycle-read-port.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import {
@@ -265,12 +256,21 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const routeWorkflows = createRouteWorkflowPort({
     routeWorkflowStore
   });
+  const workflowSessionLoader = await createRuntimeWorkflowSessionLoader({
+    routeWorkflows,
+    trackerConfig: runtimePolicy.tracker,
+    now: undefined
+  });
+  const workflowLifecycleRead = createRuntimeWorkflowLifecycleReadPort({
+    sessionLoader: workflowSessionLoader
+  });
   const routeLifecycle = await createRuntimeRouteLifecycleService({
     routeWorkflows,
     tracker,
     trackerConfig: runtimePolicy.tracker,
     repositoryKey,
     presetSelection: workflowPresetSelection,
+    sessionLoader: workflowSessionLoader,
     now: undefined
   });
   const routeTrackerStateIngress = createRuntimeTrackerStateIngressPort({
@@ -431,19 +431,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       runStore,
       deliveryReports,
       loadLatestReworkHandoff: (issueIdentifier) =>
-        loadLatestWorkflowReworkHandoff({
-          routeWorkflows,
+        workflowLifecycleRead.loadLatestReworkHandoff({
           issueIdentifier
         }),
       loadLatestMergeResult: (issueIdentifier, runId) =>
-        loadLatestWorkflowMergeResult({
-          routeWorkflows,
+        workflowLifecycleRead.loadLatestMergeResult({
           issueIdentifier,
           runId
         }),
       loadCurrentWorkflowTrackerState: (issueIdentifier) =>
-        loadCurrentWorkflowTrackerState({
-          routeWorkflows,
+        workflowLifecycleRead.loadCurrentTrackerState({
           issueIdentifier
         }),
       agentAnalytics: agentAnalyticsStore,
@@ -1081,67 +1078,4 @@ function mapRuntimeStateRequestTargetState(
         `Runtime state-request routing does not support target state ${JSON.stringify(targetState)}.`
       );
   }
-}
-
-async function loadLatestWorkflowReworkHandoff(input: {
-  routeWorkflows: SymphonyRouteWorkflowPort;
-  issueIdentifier: string;
-}): Promise<SymphonyReworkHandoff | null> {
-  const hydration =
-    await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
-      SymphonyCurrentFlowNode,
-      SymphonyCurrentFlowData,
-      SymphonyCurrentFlowPolicy
-    >(input.issueIdentifier);
-  const handoff = hydration?.snapshot?.projection.data.latestReworkHandoff ?? null;
-
-  return isSymphonyReworkHandoff(handoff) ? handoff : null;
-}
-
-async function loadCurrentWorkflowTrackerState(input: {
-  routeWorkflows: SymphonyRouteWorkflowPort;
-  issueIdentifier: string;
-}): Promise<string | null> {
-  const hydration =
-    await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
-      SymphonyCurrentFlowNode,
-      SymphonyCurrentFlowData,
-      SymphonyCurrentFlowPolicy
-    >(input.issueIdentifier);
-  const trackerState = hydration?.snapshot?.projection.data.trackerState ?? null;
-
-  return typeof trackerState === "string" && trackerState.trim() !== ""
-    ? trackerState
-    : null;
-}
-
-async function loadLatestWorkflowMergeResult(input: {
-  routeWorkflows: SymphonyRouteWorkflowPort;
-  issueIdentifier: string;
-  runId: string;
-}): Promise<RuntimeMergeResult | null> {
-  const hydration =
-    await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
-      SymphonyCurrentFlowNode,
-      SymphonyCurrentFlowData,
-      SymphonyCurrentFlowPolicy
-    >(input.issueIdentifier);
-  const mergeResult = hydration?.snapshot?.projection.data.latestMergeResult ?? null;
-
-  if (!isSymphonyCurrentFlowMergeResultRecord(mergeResult)) {
-    return null;
-  }
-
-  if (mergeResult.runId !== input.runId) {
-    return null;
-  }
-
-  return {
-    status: mergeResult.status,
-    summary: mergeResult.summary,
-    prUrl: mergeResult.prUrl,
-    mergeCommitSha: mergeResult.mergeCommitSha,
-    blockingReason: mergeResult.blockingReason,
-    testsSummary: mergeResult.testsSummary
-  };
 }
