@@ -10,7 +10,13 @@ import {
   uniqueIndex
 } from "drizzle-orm/sqlite-core";
 import type { ThreadEvent } from "@symphony/agent-analytics";
-import type { SymphonyRuntimeRunMode } from "./runtime-run-types.js";
+import { symphonyRunOutcomeValues } from "@symphony/runtime-run-ledger";
+import type {
+  SymphonyRuntimeRunMode,
+  SymphonyRuntimeRunOutcome,
+  SymphonyRuntimeRunStatus,
+  SymphonyRuntimeTurnStatus
+} from "./runtime-run-types.js";
 
 const runStatusValues = [
   "dispatching",
@@ -24,26 +30,7 @@ const runStatusValues = [
   "stopped"
 ] as const;
 
-const runOutcomeValues = [
-  "completed",
-  "merged",
-  "blocked",
-  "merge_blocked",
-  "paused_max_turns",
-  "startup_failed",
-  "rate_limited",
-  "provider_transient",
-  "stalled",
-  "failed",
-  "runtime_shutdown",
-  "run_stopped_inactive",
-  "run_stopped_terminal",
-  "delivered",
-  "max_turns_reached",
-  "blocked_repo",
-  "blocked_merge",
-  "blocked_merge_max_turns"
-] as const;
+const runOutcomeValues = symphonyRunOutcomeValues;
 const runModeValues = [
   "implementation",
   "rework",
@@ -653,8 +640,8 @@ export const symphonyRunsTable = sqliteTable(
     issueIdentifier: text("issue_identifier").notNull(),
     attempt: integer("attempt"),
     runMode: text("run_mode").notNull().$type<SymphonyRuntimeRunMode>(),
-    status: text("status").notNull(),
-    outcome: text("outcome"),
+    status: text("status").notNull().$type<SymphonyRuntimeRunStatus>(),
+    outcome: text("outcome").$type<SymphonyRuntimeRunOutcome | null>(),
     workerHost: text("worker_host"),
     workspacePath: text("workspace_path"),
     startedAt: text("started_at").notNull(),
@@ -725,7 +712,7 @@ export const symphonyTurnsTable = sqliteTable(
     threadId: text("thread_id").notNull(),
     agentTurnId: text("agent_turn_id"),
     promptText: text("prompt_text").notNull(),
-    status: text("status").notNull(),
+    status: text("status").notNull().$type<SymphonyRuntimeTurnStatus>(),
     startedAt: text("started_at").notNull(),
     endedAt: text("ended_at"),
     usage: text("usage", { mode: "json" }).$type<Record<string, unknown> | null>(),

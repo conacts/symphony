@@ -10,7 +10,8 @@ export {
   symphonyForensicsIssueTimeRangeSchema,
   symphonyForensicsIssueSortBySchema,
   symphonyForensicsIssueSortDirectionSchema,
-  symphonyForensicsIssueFlagSchema
+  symphonyForensicsIssueFlagSchema,
+  symphonyForensicsRunOutcomeSchema
 } from "./requests.js";
 export {
   symphonyForensicsRunsQuerySchema
@@ -55,6 +56,7 @@ export type {
   SymphonyForensicsIssueSortBy,
   SymphonyForensicsIssueSortDirection,
   SymphonyForensicsIssueFlag,
+  SymphonyForensicsRunOutcome,
   SymphonyForensicsIssuePath,
   SymphonyForensicsIssueQuery,
   SymphonyForensicsIssueForensicsBundleQuery,

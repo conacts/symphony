@@ -69,6 +69,7 @@ import {
   buildRuntimeRunSummary,
   computeRuntimeRunTokenTotals,
   isProblemOutcome,
+  normalizeOptionalRuntimeRunOutcome,
   normalizeRuntimeTurnStatus
 } from "./runtime-run-summary.js";
 
@@ -699,7 +700,7 @@ function buildForensicsRunSummary(
     attempt: run.attempt,
     runMode: run.runMode,
     status: runtimeSummary.status,
-    outcome: run.outcome,
+    outcome: runtimeSummary.outcome,
     agentHarness: runtimeContext?.harness ?? null,
     agentStatus: normalizeAgentRunStatus(run.status),
     agentFailureKind: deriveFailureKind(run),
@@ -761,7 +762,8 @@ function deriveFailureKind(run: typeof symphonyRunsTable.$inferSelect): string |
     return run.errorClass;
   }
 
-  return run.outcome && isProblemOutcome(run.outcome) ? run.outcome : null;
+  const outcome = normalizeOptionalRuntimeRunOutcome(run.outcome);
+  return outcome && isProblemOutcome(outcome) ? outcome : null;
 }
 
 function buildUsage(legacyUsage: unknown): SymphonyAgentTurnRecord["usage"] {

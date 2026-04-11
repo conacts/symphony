@@ -27,6 +27,7 @@ import {
   buildRuntimeIssueSummary,
   buildRuntimeRunSummary,
   isProblemOutcome,
+  normalizeOptionalRuntimeRunOutcome as assertOptionalRuntimeRunOutcome,
   normalizeRuntimeRunStatus as assertRuntimeRunStatus,
   normalizeRuntimeTurnStatus as assertRuntimeTurnStatus
 } from "./runtime-run-summary.js";
@@ -494,6 +495,7 @@ function castRunRecord(
   return {
     ...run,
     status: assertRuntimeRunStatus(run.status),
+    outcome: assertOptionalRuntimeRunOutcome(run.outcome),
     repoStart: (run.repoStart ?? null) as SymphonyJsonObject | null,
     repoEnd: (run.repoEnd ?? null) as SymphonyJsonObject | null,
     metadata: (run.metadata ?? null) as SymphonyJsonObject | null

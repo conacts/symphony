@@ -38,6 +38,63 @@ async function recordSeededRunStarted(
 }
 
 describe("db schema enforcement", () => {
+  it("rejects runs with non-canonical outcomes at the DB layer", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-schema-run-outcome-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+
+    try {
+      database.client.prepare(`
+        insert into symphony_issues (
+          issue_identifier,
+          tracker_issue_id,
+          repository_key,
+          latest_run_started_at,
+          inserted_at,
+          updated_at
+        ) values (?, ?, ?, ?, ?, ?)
+      `).run(
+        "COL-699",
+        "tracker-699",
+        "openai/symphony",
+        "2026-04-09T12:00:00.000Z",
+        "2026-04-09T12:00:00.000Z",
+        "2026-04-09T12:00:00.000Z"
+      );
+
+      expect(() =>
+        database.client.prepare(`
+          insert into symphony_runs (
+            run_id,
+            repository_key,
+            issue_identifier,
+            run_mode,
+            status,
+            outcome,
+            started_at,
+            inserted_at,
+            updated_at
+          ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          "run-699",
+          "openai/symphony",
+          "COL-699",
+          "implementation",
+          "finished",
+          "done",
+          "2026-04-09T12:01:00.000Z",
+          "2026-04-09T12:01:00.000Z",
+          "2026-04-09T12:01:00.000Z"
+        )
+      ).toThrow(/CHECK constraint failed/);
+    } finally {
+      database.close();
+    }
+  });
+
   it("rejects runs whose repository binding does not match the canonical issue", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-schema-run-fk-"));
     tempDirectories.push(root);

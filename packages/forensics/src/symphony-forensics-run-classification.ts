@@ -1,9 +1,12 @@
-import type { SymphonyForensicsRunSummary } from "@symphony/contracts";
+import type {
+  SymphonyForensicsRunOutcome,
+  SymphonyForensicsRunSummary
+} from "@symphony/contracts";
 
-const symphonyCompletedRunOutcomes = new Set([
+const symphonyCompletedRunOutcomes = new Set<SymphonyForensicsRunOutcome>([
   "completed",
   "merged",
-  "done"
+  "delivered"
 ]);
 
 export function problemSummary(runs: SymphonyForensicsRunSummary[]): Record<string, number> {
@@ -17,10 +20,10 @@ export function problemSummary(runs: SymphonyForensicsRunSummary[]): Record<stri
   }, {});
 }
 
-export function isProblemOutcome(outcome: string | null): boolean {
+export function isProblemOutcome(outcome: SymphonyForensicsRunOutcome | null): boolean {
   return outcome !== null && !symphonyCompletedRunOutcomes.has(outcome);
 }
 
-export function isCompletedOutcome(outcome: string | null): boolean {
+export function isCompletedOutcome(outcome: SymphonyForensicsRunOutcome | null): boolean {
   return outcome !== null && symphonyCompletedRunOutcomes.has(outcome);
 }

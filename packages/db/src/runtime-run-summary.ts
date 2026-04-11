@@ -1,5 +1,6 @@
 import type {
   SymphonyIssueSummary,
+  SymphonyRunOutcome,
   SymphonyRunStatus,
   SymphonyRunSummary,
   SymphonyTurnStatus
@@ -60,7 +61,7 @@ export function buildRuntimeRunSummary(
     attempt: run.attempt,
     runMode: run.runMode,
     status: normalizeRuntimeRunStatus(run.status),
-    outcome: run.outcome,
+    outcome: normalizeOptionalRuntimeRunOutcome(run.outcome),
     workerHost: run.workerHost,
     workspacePath: run.workspacePath,
     startedAt: run.startedAt,
@@ -111,8 +112,12 @@ export function buildRuntimeIssueSummary(
     .filter((run) => run.issueIdentifier === issue.issueIdentifier)
     .sort((left, right) => compareDescendingTimestamps(left.startedAt, right.startedAt));
   const latestRun = issueRuns[0];
-  const latestProblemRun = issueRuns.find((run) => isProblemOutcome(run.outcome));
-  const lastCompletedRun = issueRuns.find((run) => isCompletedOutcome(run.outcome));
+  const latestProblemRun = issueRuns.find((run) =>
+    isProblemOutcome(normalizeOptionalRuntimeRunOutcome(run.outcome))
+  );
+  const lastCompletedRun = issueRuns.find((run) =>
+    isCompletedOutcome(normalizeOptionalRuntimeRunOutcome(run.outcome))
+  );
 
   return {
     trackerIssueId: issue.trackerIssueId,
@@ -121,10 +126,10 @@ export function buildRuntimeIssueSummary(
     latestRunStartedAt: issue.latestRunStartedAt ?? null,
     latestRunId: latestRun?.runId ?? null,
     latestRunStatus: latestRun ? normalizeRuntimeRunStatus(latestRun.status) : null,
-    latestRunOutcome: latestRun?.outcome ?? null,
+    latestRunOutcome: normalizeOptionalRuntimeRunOutcome(latestRun?.outcome),
     runCount: issueRuns.length,
-    latestProblemOutcome: latestProblemRun?.outcome ?? null,
-    lastCompletedOutcome: lastCompletedRun?.outcome ?? null,
+    latestProblemOutcome: normalizeOptionalRuntimeRunOutcome(latestProblemRun?.outcome),
+    lastCompletedOutcome: normalizeOptionalRuntimeRunOutcome(lastCompletedRun?.outcome),
     insertedAt: issue.insertedAt ?? null,
     updatedAt: issue.updatedAt ?? null
   };
@@ -183,12 +188,22 @@ function compareDescendingTimestamps(
   return rightTime - leftTime;
 }
 
-function isCompletedOutcome(outcome: string | null): boolean {
-  return outcome === "completed" || outcome === "merged" || outcome === "done";
+function isCompletedOutcome(outcome: SymphonyRunOutcome | null): boolean {
+  return outcome === "completed" || outcome === "merged" || outcome === "delivered";
 }
 
-export function isProblemOutcome(outcome: string | null): boolean {
-  return typeof outcome === "string" && !isCompletedOutcome(outcome);
+export function isProblemOutcome(outcome: SymphonyRunOutcome | null): boolean {
+  return outcome !== null && !isCompletedOutcome(outcome);
+}
+
+export function normalizeOptionalRuntimeRunOutcome(
+  outcome: string | null | undefined
+): SymphonyRunOutcome | null {
+  if (outcome === null || outcome === undefined) {
+    return null;
+  }
+
+  return normalizeRuntimeRunOutcome(outcome);
 }
 
 export function normalizeRuntimeRunStatus(status: string): SymphonyRunStatus {
@@ -205,6 +220,32 @@ export function normalizeRuntimeRunStatus(status: string): SymphonyRunStatus {
       return status;
     default:
       throw new TypeError(`Unknown runtime run status: ${status}`);
+  }
+}
+
+export function normalizeRuntimeRunOutcome(outcome: string): SymphonyRunOutcome {
+  switch (outcome) {
+    case "completed":
+    case "merged":
+    case "blocked":
+    case "merge_blocked":
+    case "paused_max_turns":
+    case "startup_failed":
+    case "rate_limited":
+    case "provider_transient":
+    case "stalled":
+    case "failed":
+    case "runtime_shutdown":
+    case "run_stopped_inactive":
+    case "run_stopped_terminal":
+    case "delivered":
+    case "max_turns_reached":
+    case "blocked_repo":
+    case "blocked_merge":
+    case "blocked_merge_max_turns":
+      return outcome;
+    default:
+      throw new TypeError(`Unknown runtime run outcome: ${outcome}`);
   }
 }
 

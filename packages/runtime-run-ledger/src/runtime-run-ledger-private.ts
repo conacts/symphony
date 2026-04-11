@@ -5,6 +5,7 @@ import type {
   SymphonyJsonObject,
   SymphonyJsonValue,
   SymphonyRunExport,
+  SymphonyRunOutcome,
   SymphonyRuntimeRunLedgerRunsOptions,
   SymphonyRuntimeRunLedgerDocument,
   SymphonyRunSummary,
@@ -17,7 +18,7 @@ import type { SymphonyAgentAnalyticsEvent } from "./agent-analytics-types.js";
 const symphonyCompletedRunOutcomes = new Set([
   "completed",
   "merged",
-  "done"
+  "delivered"
 ]);
 
 export function createEmptyRuntimeRunLedgerDocument(): SymphonyRuntimeRunLedgerDocument {
@@ -225,11 +226,11 @@ export function problemSummary(runs: SymphonyRunSummary[]): Record<string, numbe
 }
 
 export function isProblemOutcome(outcome: string | null): boolean {
-  return typeof outcome === "string" && !symphonyCompletedRunOutcomes.has(outcome);
+  return outcome !== null && !symphonyCompletedRunOutcomes.has(outcome);
 }
 
-export function isCompletedOutcome(outcome: string | null): boolean {
-  return typeof outcome === "string" && symphonyCompletedRunOutcomes.has(outcome);
+export function isCompletedOutcome(outcome: SymphonyRunOutcome | null): boolean {
+  return outcome !== null && symphonyCompletedRunOutcomes.has(outcome);
 }
 
 export function matchesRunFilters(

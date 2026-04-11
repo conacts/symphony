@@ -445,7 +445,7 @@ export function buildSymphonyForensicsIssueListResult(
         completedRunCount: 1,
         problemRunCount: 2,
         problemRate: 2 / 3,
-        latestProblemOutcome: "max_turns",
+        latestProblemOutcome: "paused_max_turns",
         lastCompletedOutcome: "completed",
         latestDeliveryStatus: "completed",
         latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
@@ -499,7 +499,7 @@ export function buildSymphonyForensicsIssueListResult(
     },
     facets: {
       repositories: [DEFAULT_REPOSITORY_KEY],
-      outcomes: ["completed", "max_turns", "rate_limited"],
+      outcomes: ["completed", "paused_max_turns", "rate_limited"],
       errorClasses: ["max_turns", "rate_limit_exceeded"]
     },
     ...overrides
@@ -564,7 +564,7 @@ export function buildSymphonyForensicsIssueDetailResult(
     ],
     summary: {
       runCount: 3,
-      latestProblemOutcome: "max_turns",
+      latestProblemOutcome: "paused_max_turns",
       lastCompletedOutcome: "completed",
       latestDeliveryStatus: "completed",
       latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
@@ -592,7 +592,7 @@ export function buildSymphonyForensicsProblemRunsResult(
         attempt: 1,
         runMode: "implementation",
         status: "finished",
-        outcome: "max_turns",
+        outcome: "paused_max_turns",
         agentHarness: "pi",
         agentStatus: "paused",
         agentFailureKind: "max_turns_reached",
@@ -638,7 +638,7 @@ export function buildSymphonyForensicsProblemRunsResult(
     },
     filters: {
       repo: null,
-      outcome: "max_turns",
+      outcome: "paused_max_turns",
       issueIdentifier: "",
       limit: 200
     },
@@ -659,7 +659,7 @@ export function buildSymphonyForensicsRunDetailResult(
       latestRunStatus: "finished",
       latestRunOutcome: "completed",
       runCount: 3,
-      latestProblemOutcome: "max_turns",
+      latestProblemOutcome: "paused_max_turns",
       lastCompletedOutcome: "completed",
       latestDeliveryStatus: "completed",
       latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",

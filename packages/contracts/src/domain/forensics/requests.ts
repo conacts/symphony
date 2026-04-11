@@ -14,6 +14,35 @@ const optionalFilterSchema = z.preprocess((value) => {
   return trimmed === "" ? undefined : trimmed;
 }, nonEmptyStringSchema.optional());
 
+export const symphonyForensicsRunOutcomeSchema = z.enum([
+  "completed",
+  "merged",
+  "blocked",
+  "merge_blocked",
+  "paused_max_turns",
+  "startup_failed",
+  "rate_limited",
+  "provider_transient",
+  "stalled",
+  "failed",
+  "runtime_shutdown",
+  "run_stopped_inactive",
+  "run_stopped_terminal",
+  "delivered",
+  "max_turns_reached",
+  "blocked_repo",
+  "blocked_merge",
+  "blocked_merge_max_turns"
+]);
+const optionalOutcomeFilterSchema = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed === "" ? undefined : trimmed;
+}, symphonyForensicsRunOutcomeSchema.optional());
+
 export const symphonyForensicsIssueTimeRangeSchema = z.enum([
   "all",
   "24h",
@@ -49,7 +78,7 @@ export const symphonyForensicsIssuesQuerySchema = z.strictObject({
   timeRange: symphonyForensicsIssueTimeRangeSchema.default("all"),
   startedAfter: isoTimestampSchema.optional(),
   startedBefore: isoTimestampSchema.optional(),
-  outcome: optionalFilterSchema,
+  outcome: optionalOutcomeFilterSchema,
   errorClass: optionalFilterSchema,
   hasFlag: z.string().optional(),
   sortBy: symphonyForensicsIssueSortBySchema.default("lastActive"),
@@ -84,7 +113,7 @@ export const symphonyForensicsRunPathSchema = z.strictObject({
 export const symphonyForensicsProblemRunsQuerySchema = z.strictObject({
   limit: positiveLimitSchema,
   repo: optionalFilterSchema,
-  outcome: optionalFilterSchema,
+  outcome: optionalOutcomeFilterSchema,
   issueIdentifier: optionalFilterSchema
 });
 
@@ -106,6 +135,7 @@ export type SymphonyForensicsIssueSortDirection = z.infer<
   typeof symphonyForensicsIssueSortDirectionSchema
 >;
 export type SymphonyForensicsIssueFlag = z.infer<typeof symphonyForensicsIssueFlagSchema>;
+export type SymphonyForensicsRunOutcome = z.infer<typeof symphonyForensicsRunOutcomeSchema>;
 export type SymphonyForensicsIssuePath = z.infer<typeof symphonyForensicsIssuePathSchema>;
 export type SymphonyForensicsIssueQuery = z.infer<typeof symphonyForensicsIssueQuerySchema>;
 export type SymphonyForensicsIssueForensicsBundleQuery = z.infer<

@@ -65,7 +65,7 @@ describe("symphony forensics success metrics", () => {
           runId: "run-5",
           issueIdentifier: "COL-4",
           startedAt: "2026-04-04T10:00:00.000Z",
-          outcome: "startup_failure",
+          outcome: "startup_failed",
           errorClass: "startup_failure",
           agentFailureKind: "startup_failure",
           errorMessage:

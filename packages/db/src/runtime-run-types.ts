@@ -1,4 +1,5 @@
 import type { JsonObject } from "@symphony/contracts";
+import type { SymphonyRunOutcome } from "@symphony/runtime-run-ledger";
 
 export type SymphonyRuntimeAgentUsage = {
   input_tokens: number;
@@ -21,6 +22,7 @@ export type SymphonyRuntimeRunMode =
   | "implementation"
   | "rework"
   | "approved_merge";
+export type SymphonyRuntimeRunOutcome = SymphonyRunOutcome;
 
 export type SymphonyRuntimeMachineLoadSummary = {
   sampleCount: number;
@@ -89,7 +91,7 @@ export type SymphonyRuntimeTurnFinishAttrs = {
 
 export type SymphonyRuntimeRunUpdateAttrs = {
   status?: SymphonyRuntimeRunStatus;
-  outcome?: string | null;
+  outcome?: SymphonyRunOutcome | null;
   runMode?: SymphonyRuntimeRunMode;
   workerHost?: string | null;
   workspacePath?: string | null;
@@ -107,7 +109,7 @@ export type SymphonyRuntimeRunUpdateAttrs = {
 
 export type SymphonyRuntimeRunFinishAttrs = {
   status: SymphonyRuntimeRunStatus;
-  outcome?: string | null;
+  outcome?: SymphonyRunOutcome | null;
   runMode?: SymphonyRuntimeRunMode;
   endedAt: Date | string;
   commitHashEnd?: string | null;

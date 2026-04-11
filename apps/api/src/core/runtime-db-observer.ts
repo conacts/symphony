@@ -12,6 +12,7 @@ import type {
   SymphonyIssueTimelineStore,
   SymphonyRuntimeLogStore,
   SymphonyRuntimeLogLevel,
+  SymphonyRuntimeRunOutcome,
   SymphonyRuntimeRunStatus,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
@@ -290,7 +291,7 @@ function completionStatus(
 
 function completionOutcome(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
-): string {
+): SymphonyRuntimeRunOutcome {
   switch (completion.kind) {
     case "delivered":
       return "completed";

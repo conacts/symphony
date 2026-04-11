@@ -285,7 +285,7 @@ function isMaxTurnsRun(run: SymphonyForensicsRunSummary): boolean {
 
 function isStartupFailureRun(run: SymphonyForensicsRunSummary): boolean {
   return (
-    typeof run.outcome === "string" && run.outcome.includes("startup_failure")
+    run.outcome === "startup_failed"
   ) || (
     typeof run.errorClass === "string" && run.errorClass.includes("startup_failure")
   ) || run.agentFailureKind === "startup_failure";

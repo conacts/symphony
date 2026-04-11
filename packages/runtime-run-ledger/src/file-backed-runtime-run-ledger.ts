@@ -312,7 +312,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
   ): Promise<SymphonyRunSummary[]> {
     return this.listRuns({
       limit: opts.limit,
-      outcome: normalizeOptionalFilter(opts.outcome),
+      outcome: opts.outcome,
       issueIdentifier: normalizeOptionalFilter(opts.issueIdentifier),
       problemOnly: true
     });

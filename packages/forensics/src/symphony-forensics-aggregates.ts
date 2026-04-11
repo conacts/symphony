@@ -2,6 +2,7 @@ import type {
   SymphonyForensicsIssueAggregate,
   SymphonyForensicsIssueFilters,
   SymphonyForensicsIssueFlag,
+  SymphonyForensicsRunOutcome,
   SymphonyForensicsIssueTotals,
   SymphonyForensicsRunSummary
 } from "./symphony-forensics-read-model.js";
@@ -237,8 +238,16 @@ export function compareIssueAggregates(
   return filters.sortDirection === "asc" ? comparison : comparison * -1;
 }
 
-export function collectDistinctValues(values: Array<string | null>): string[] {
-  return [...new Set(values.filter((value): value is string => value !== null))].sort();
+export function collectDistinctValues<T extends string>(values: Array<T | null>): T[] {
+  const distinct = new Set<T>();
+
+  for (const value of values) {
+    if (value !== null) {
+      distinct.add(value);
+    }
+  }
+
+  return [...distinct].sort();
 }
 
 export function countBy(values: Array<string | null>): Record<string, number> {
@@ -271,14 +280,14 @@ function compareDates(left: string | null, right: string | null): number {
   return leftMs > rightMs ? 1 : -1;
 }
 
-function isRateLimitedOutcome(outcome: string | null): boolean {
-  return typeof outcome === "string" && outcome.includes("rate_limit");
+function isRateLimitedOutcome(outcome: SymphonyForensicsRunOutcome | null): boolean {
+  return outcome === "rate_limited";
 }
 
-function isMaxTurnsOutcome(outcome: string | null): boolean {
-  return typeof outcome === "string" && outcome.includes("max_turn");
+function isMaxTurnsOutcome(outcome: SymphonyForensicsRunOutcome | null): boolean {
+  return outcome === "paused_max_turns" || outcome === "max_turns_reached";
 }
 
-function isStartupFailureOutcome(outcome: string | null): boolean {
-  return typeof outcome === "string" && outcome.includes("startup_failure");
+function isStartupFailureOutcome(outcome: SymphonyForensicsRunOutcome | null): boolean {
+  return outcome === "startup_failed";
 }

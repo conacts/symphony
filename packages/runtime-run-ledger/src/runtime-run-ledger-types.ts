@@ -43,6 +43,27 @@ export type SymphonyTurnStatus =
   | "completed"
   | "failed"
   | "stopped";
+export const symphonyRunOutcomeValues = [
+  "completed",
+  "merged",
+  "blocked",
+  "merge_blocked",
+  "paused_max_turns",
+  "startup_failed",
+  "rate_limited",
+  "provider_transient",
+  "stalled",
+  "failed",
+  "runtime_shutdown",
+  "run_stopped_inactive",
+  "run_stopped_terminal",
+  "delivered",
+  "max_turns_reached",
+  "blocked_repo",
+  "blocked_merge",
+  "blocked_merge_max_turns"
+] as const;
+export type SymphonyRunOutcome = (typeof symphonyRunOutcomeValues)[number];
 
 export type SymphonyRunRecord = {
   runId: string;
@@ -51,7 +72,7 @@ export type SymphonyRunRecord = {
   attempt: number | null;
   runMode: SymphonyRunMode;
   status: SymphonyRunStatus;
-  outcome: string | null;
+  outcome: SymphonyRunOutcome | null;
   workerHost: string | null;
   workspacePath: string | null;
   startedAt: SymphonyIsoTimestamp;
@@ -168,7 +189,7 @@ export type SymphonyTurnFinishAttrs = {
 
 export type SymphonyRunUpdateAttrs = {
   status?: SymphonyRunStatus;
-  outcome?: string | null;
+  outcome?: SymphonyRunOutcome | null;
   workerHost?: string | null;
   workspacePath?: string | null;
   startedAt?: Date | SymphonyIsoTimestamp | null;
@@ -184,7 +205,7 @@ export type SymphonyRunUpdateAttrs = {
 
 export type SymphonyRunFinishAttrs = {
   status?: SymphonyRunStatus;
-  outcome?: string | null;
+  outcome?: SymphonyRunOutcome | null;
   endedAt?: Date | SymphonyIsoTimestamp;
   commitHashEnd?: string | null;
   repoEnd?: SymphonyJsonObject | null;
@@ -200,10 +221,10 @@ export type SymphonyIssueSummary = {
   latestRunStartedAt: SymphonyIsoTimestamp | null;
   latestRunId: string | null;
   latestRunStatus: SymphonyRunStatus | null;
-  latestRunOutcome: string | null;
+  latestRunOutcome: SymphonyRunOutcome | null;
   runCount: number;
-  latestProblemOutcome: string | null;
-  lastCompletedOutcome: string | null;
+  latestProblemOutcome: SymphonyRunOutcome | null;
+  lastCompletedOutcome: SymphonyRunOutcome | null;
   insertedAt: SymphonyIsoTimestamp | null;
   updatedAt: SymphonyIsoTimestamp | null;
 };
@@ -216,7 +237,7 @@ export type SymphonyRunSummary = {
   attempt: number | null;
   runMode: SymphonyRunMode;
   status: SymphonyRunStatus;
-  outcome: string | null;
+  outcome: SymphonyRunOutcome | null;
   workerHost: string | null;
   workspacePath: string | null;
   startedAt: SymphonyIsoTimestamp;
@@ -252,7 +273,7 @@ export type SymphonyRuntimeRunLedgerListOptions = {
 
 export type SymphonyRuntimeRunLedgerRunsOptions = SymphonyRuntimeRunLedgerListOptions & {
   issueIdentifier?: string;
-  outcome?: string;
+  outcome?: SymphonyRunOutcome;
   errorClass?: string;
   startedAfter?: SymphonyIsoTimestamp;
   startedBefore?: SymphonyIsoTimestamp;
@@ -260,7 +281,7 @@ export type SymphonyRuntimeRunLedgerRunsOptions = SymphonyRuntimeRunLedgerListOp
 };
 
 export type SymphonyRuntimeRunLedgerProblemRunsOptions = SymphonyRuntimeRunLedgerListOptions & {
-  outcome?: string;
+  outcome?: SymphonyRunOutcome;
   issueIdentifier?: string;
 };
 

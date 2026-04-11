@@ -30,6 +30,7 @@ export type {
   SymphonyRuntimeMachineLoadSummary,
   SymphonyRuntimeRunContextAttrs,
   SymphonyRuntimeRunFinishAttrs,
+  SymphonyRuntimeRunOutcome,
   SymphonyRuntimeRunStatus,
   SymphonyRuntimeRunStartAttrs,
   SymphonyRuntimeRunUpdateAttrs,

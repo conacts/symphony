@@ -12,6 +12,7 @@ import type {
   SymphonyForensicsIssueTimeRange as ContractSymphonyForensicsIssueTimeRange,
   SymphonyForensicsIssueTimelineEntry as ContractSymphonyForensicsTimelineEntry,
   SymphonyForensicsIssuesQuery as ContractSymphonyForensicsIssuesQuery,
+  SymphonyForensicsRunOutcome as ContractSymphonyForensicsRunOutcome,
   SymphonyForensicsRunsQuery as ContractSymphonyForensicsRunsQuery,
   SymphonyForensicsProblemRunsResult as ContractSymphonyForensicsProblemRuns,
   SymphonyForensicsRunDetailResult,
@@ -48,6 +49,7 @@ export type SymphonyForensicsIssueFlag = ContractSymphonyForensicsIssueFlag;
 export type SymphonyForensicsIssueSortBy = ContractSymphonyForensicsIssueSortBy;
 export type SymphonyForensicsIssueSortDirection = ContractSymphonyForensicsIssueSortDirection;
 export type SymphonyForensicsIssueTimeRange = ContractSymphonyForensicsIssueTimeRange;
+export type SymphonyForensicsRunOutcome = ContractSymphonyForensicsRunOutcome;
 export type SymphonyForensicsIssuesQuery = Partial<
   Omit<ContractSymphonyForensicsIssuesQuery, "hasFlag">
 > & {
@@ -60,7 +62,7 @@ export type SymphonyForensicsIssueFilters = {
   timeRange: SymphonyForensicsIssueTimeRange;
   startedAfter: string | null;
   startedBefore: string | null;
-  outcome: string | null;
+  outcome: SymphonyForensicsRunOutcome | null;
   errorClass: string | null;
   hasFlags: SymphonyForensicsIssueFlag[];
   sortBy: SymphonyForensicsIssueSortBy;
