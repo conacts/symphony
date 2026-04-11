@@ -1,3 +1,3 @@
-import base from "../vitest-configs/src/base.ts";
+import base from "@symphony/vitest-configs/base";
 
 export default base;

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, mergeConfig } from "vitest/config";
-import base from "@symphony/vitest-configs/src/base.ts";
+import base from "@symphony/vitest-configs/base";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

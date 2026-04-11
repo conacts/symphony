@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@symphony/eslint-configs": "workspace:*",
+    "@symphony/vitest-configs": "workspace:*",
     "vitest": "^4.1.2"
   }
 }
