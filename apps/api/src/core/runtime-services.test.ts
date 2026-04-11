@@ -219,6 +219,109 @@ describe("runtime services", () => {
     }
   });
 
+  it("resolves workflow preset selection from the runtime manifest", async () => {
+    const fixture = await createRuntimeBootstrapFixture({
+      runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
+        schemaVersion: 1,
+        repositoryKey: "openai/symphony",
+        linear: {
+          teamKey: "SYM"
+        },
+        workspace: {
+          packageManager: "pnpm",
+          workingDirectory: "."
+        },
+        workflow: {
+          defaultRouterPreset: "current-flow"
+        },
+        env: {
+          host: {
+            required: [],
+            optional: []
+          },
+          inject: {}
+        },
+        lifecycle: {
+          bootstrap: [],
+          migrate: [],
+          verify: [
+            {
+              name: "verify",
+              run: "pnpm test"
+            }
+          ],
+          seed: [],
+          cleanup: []
+        }
+      }) as never)
+    });
+
+    try {
+      const bootstrap = await loadRuntimeServiceBootstrap({
+        env: fixture.env,
+        environmentSource: fixture.environmentSource
+      });
+
+      expect(bootstrap.workflowPresetSelection).toEqual({
+        presetId: "current-flow",
+        source: "runtime_manifest",
+        repositoryKey: "openai/symphony",
+        manifestPath: path.join(fixture.env.sourceRepo!, ".symphony", "runtime.ts")
+      });
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("fails fast when the runtime manifest requests an unknown workflow preset", async () => {
+    const fixture = await createRuntimeBootstrapFixture({
+      runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
+        schemaVersion: 1,
+        repositoryKey: "openai/symphony",
+        linear: {
+          teamKey: "SYM"
+        },
+        workspace: {
+          packageManager: "pnpm",
+          workingDirectory: "."
+        },
+        workflow: {
+          defaultRouterPreset: "missing"
+        },
+        env: {
+          host: {
+            required: [],
+            optional: []
+          },
+          inject: {}
+        },
+        lifecycle: {
+          bootstrap: [],
+          migrate: [],
+          verify: [
+            {
+              name: "verify",
+              run: "pnpm test"
+            }
+          ],
+          seed: [],
+          cleanup: []
+        }
+      }) as never)
+    });
+
+    try {
+      await expect(
+        loadRuntimeServiceBootstrap({
+          env: fixture.env,
+          environmentSource: fixture.environmentSource
+        })
+      ).rejects.toThrow(/invalid workflow preset/i);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("detects when docker-backed runs do not have Pi auth or a provider api key", async () => {
     const fixture = await createRuntimeBootstrapFixture();
 

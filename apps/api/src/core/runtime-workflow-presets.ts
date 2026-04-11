@@ -43,6 +43,21 @@ export function listRuntimeRouterPresetIds(): SymphonyRuntimeRouterPresetId[] {
   return runtimeWorkflowPresetRegistry.listPresetIds() as SymphonyRuntimeRouterPresetId[];
 }
 
+export function requireRuntimeRouterPresetId(
+  presetId: string
+): SymphonyRuntimeRouterPresetId {
+  const presetIds = listRuntimeRouterPresetIds();
+  if (presetIds.includes(presetId as SymphonyRuntimeRouterPresetId)) {
+    return presetId as SymphonyRuntimeRouterPresetId;
+  }
+
+  throw new TypeError(
+    `Unknown workflow router preset ${JSON.stringify(presetId)}. Expected one of ${presetIds
+      .map((registeredPresetId) => JSON.stringify(registeredPresetId))
+      .join(", ")}.`
+  );
+}
+
 export async function createRuntimeCurrentFlowRouting(input: {
   trackerConfig: SymphonyTrackerConfig;
   now?: () => Date;

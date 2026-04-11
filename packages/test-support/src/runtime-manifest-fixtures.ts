@@ -55,6 +55,7 @@ export function buildSymphonyRuntimeManifestInput(
       ...baseManifest.lifecycle,
       ...overrides.lifecycle
     },
+    workflow: overrides.workflow ?? baseManifest.workflow,
     pi: overrides.pi ?? baseManifest.pi,
     services: overrides.services ?? baseManifest.services
   };

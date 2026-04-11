@@ -121,6 +121,7 @@ export default defineSymphonyRuntime({
     expect(loaded.manifest.linear).toEqual({
       teamKey: "SYM"
     });
+    expect(loaded.manifest.workflow).toBeNull();
     expect(loaded.manifest.pi).toBeNull();
     expect(loaded.manifest.services.postgres).toEqual({
       type: "postgres",
@@ -297,6 +298,45 @@ export default defineSymphonyRuntime({
           auth: "subscription"
         }
       }
+    });
+  });
+
+  it("normalizes workflow preset selection from the runtime manifest", () => {
+    const manifest = normalizeSymphonyRuntimeManifest({
+      schemaVersion: 1,
+      repositoryKey: "openai/symphony",
+      linear: {
+        teamKey: "SYM"
+      },
+      workspace: {
+        packageManager: "pnpm"
+      },
+      workflow: {
+        defaultRouterPreset: "current-flow"
+      },
+      env: {
+        host: {
+          required: [],
+          optional: []
+        },
+        inject: {}
+      },
+      lifecycle: {
+        bootstrap: [],
+        migrate: [],
+        verify: [
+          {
+            name: "verify",
+            run: "pnpm test"
+          }
+        ],
+        seed: [],
+        cleanup: []
+      }
+    });
+
+    expect(manifest.workflow).toEqual({
+      defaultRouterPreset: "current-flow"
     });
   });
 

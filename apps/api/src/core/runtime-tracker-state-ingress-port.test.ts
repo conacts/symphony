@@ -19,6 +19,7 @@ import {
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createRuntimeTrackerStateIngressPort } from "./runtime-tracker-state-ingress-port.js";
+import { createDefaultRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
 
 const tempDirectories: string[] = [];
 
@@ -222,6 +223,7 @@ async function createHarness(input: {
     tracker,
     trackerConfig: runtimePolicy.tracker,
     repositoryKey: "openai/symphony",
+    presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
     now: () => new Date("2026-04-10T15:00:00.000Z")
   });
   const ingress = createRuntimeTrackerStateIngressPort({

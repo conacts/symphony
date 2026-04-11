@@ -38,6 +38,7 @@ import {
   piPresetKeys,
   piReasoningLevels,
   repositoryKeyPattern,
+  workflowKeys,
   workspaceKeys,
   workspacePackageManagers
 } from "./runtime-manifest-validation-shared.js";
@@ -86,6 +87,7 @@ function parseRuntimeManifest(
   const linear = parseLinearBinding(record.linear, issues);
   const workspace = parseWorkspace(record.workspace, issues);
   const services = parseServices(record.services, issues);
+  const workflow = parseWorkflow(record.workflow, issues);
   const pi = parsePi(record.pi, issues);
   const env = parseEnv(record.env, issues);
   const lifecycle = parseLifecycle(record.lifecycle, issues);
@@ -105,6 +107,7 @@ function parseRuntimeManifest(
     linear,
     workspace,
     services: services.normalized,
+    workflow,
     pi,
     env,
     lifecycle
@@ -283,6 +286,39 @@ function parsePi(
   return {
     defaultPreset: defaultPreset as SymphonyRuntimePiPresetName,
     presets
+  };
+}
+
+function parseWorkflow(
+  value: unknown,
+  issues: SymphonyRuntimeManifestIssue[]
+): SymphonyNormalizedRuntimeManifest["workflow"] {
+  if (value === undefined) {
+    return null;
+  }
+
+  const checkpoint = startIssueCheckpoint(issues);
+  const record = readStrictRecord(value, ["workflow"], issues, "workflow");
+
+  if (!record) {
+    return null;
+  }
+
+  rejectUnknownKeys(record, workflowKeys, ["workflow"], issues);
+  const defaultRouterPreset = readRequiredString(
+    record,
+    "defaultRouterPreset",
+    ["workflow", "defaultRouterPreset"],
+    issues,
+    "workflow.defaultRouterPreset"
+  );
+
+  if (!defaultRouterPreset || hasIssuesSince(issues, checkpoint)) {
+    return null;
+  }
+
+  return {
+    defaultRouterPreset
   };
 }
 

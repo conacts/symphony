@@ -126,6 +126,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     validatedRuntimeManifests,
     primaryRepository,
     selectedRuntimeManifestEntry,
+    workflowPresetSelection,
     promptContract,
     promptTemplate
   } = await loadRuntimeServiceBootstrap({
@@ -269,6 +270,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     tracker,
     trackerConfig: runtimePolicy.tracker,
     repositoryKey,
+    presetSelection: workflowPresetSelection,
     now: undefined
   });
   const routeTrackerStateIngress = createRuntimeTrackerStateIngressPort({

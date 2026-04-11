@@ -106,6 +106,10 @@ export type SymphonyRuntimeLinearBinding = {
   teamKey: string;
 };
 
+export type SymphonyRuntimeWorkflowConfig = {
+  defaultRouterPreset: string;
+};
+
 export type SymphonyRuntimePiPresetName = "basic" | "advanced" | "premium";
 export type SymphonyRuntimePiAuthMode = "provider" | "subscription";
 
@@ -126,6 +130,7 @@ export type SymphonyRuntimeManifest = {
   linear: SymphonyRuntimeLinearBinding;
   workspace: SymphonyRuntimeWorkspace;
   services?: Record<string, SymphonyRuntimeService>;
+  workflow?: SymphonyRuntimeWorkflowConfig;
   pi?: SymphonyRuntimePiConfig;
   env: SymphonyRuntimeEnv;
   lifecycle: SymphonyRuntimeLifecycle;
@@ -168,6 +173,7 @@ export type SymphonyNormalizedRuntimeManifest = {
   };
   workspace: SymphonyNormalizedRuntimeWorkspace;
   services: Record<string, SymphonyNormalizedRuntimeService>;
+  workflow: SymphonyRuntimeWorkflowConfig | null;
   pi: SymphonyRuntimePiConfig | null;
   env: SymphonyRuntimeEnv;
   lifecycle: {

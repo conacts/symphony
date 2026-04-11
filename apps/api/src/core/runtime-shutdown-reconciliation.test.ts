@@ -19,6 +19,7 @@ import { createMemorySymphonyTracker } from "@symphony/tracker";
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { reconcilePersistedActiveRunsOnShutdown } from "./runtime-shutdown-reconciliation.js";
+import { createDefaultRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
 
 const tempDirectories: string[] = [];
 
@@ -74,6 +75,7 @@ describe("runtime shutdown reconciliation", () => {
         tracker,
         trackerConfig: runtimePolicy.tracker,
         repositoryKey: "openai/symphony",
+        presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
         now: () => new Date("2026-04-10T14:30:00.000Z")
       });
 

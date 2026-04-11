@@ -14,6 +14,7 @@ export const manifestTopLevelKeys = new Set([
   "linear",
   "workspace",
   "services",
+  "workflow",
   "pi",
   "env",
   "lifecycle"
@@ -21,6 +22,7 @@ export const manifestTopLevelKeys = new Set([
 
 export const linearKeys = new Set(["teamKey"]);
 export const workspaceKeys = new Set(["packageManager", "workingDirectory"]);
+export const workflowKeys = new Set(["defaultRouterPreset"]);
 export const piKeys = new Set(["defaultPreset", "presets"]);
 export const piPresetKeys = new Set(["model", "reasoningEffort", "auth"]);
 export const lifecycleKeys = new Set([

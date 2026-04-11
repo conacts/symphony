@@ -390,6 +390,7 @@ function buildAdmittedRepository(
           workingDirectory: "."
         },
         services: {},
+        workflow: null,
         pi: null,
         env: {
           host: {

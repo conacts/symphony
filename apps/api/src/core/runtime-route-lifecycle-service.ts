@@ -60,6 +60,7 @@ import {
 import {
   createRuntimeStateRequestRouter
 } from "./runtime-state-request-routing.js";
+import type { SymphonyRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
 
 export type SymphonyRuntimeRouteLifecycleService = {
   workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
@@ -131,12 +132,12 @@ export async function createRuntimeRouteLifecycleService(input: {
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
-  routerPresetId?: string;
+  presetSelection: SymphonyRuntimeWorkflowPresetSelection;
   now?: () => Date;
 }): Promise<SymphonyRuntimeRouteLifecycleService> {
   const routing = await selectRuntimeRouterPreset({
     trackerConfig: input.trackerConfig,
-    presetId: input.routerPresetId,
+    presetId: input.presetSelection.presetId,
     now: input.now
   });
   const sessionLoader = await createRuntimeCurrentFlowSessionLoader({

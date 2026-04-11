@@ -14,6 +14,10 @@ import { validateSourceRepoRuntimeManifest } from "./runtime-manifest-startup-va
 import { loadSymphonyRuntimePolicyConfig } from "./runtime-policy-config.js";
 import { loadAdmittedRuntimeRepositories } from "./runtime-admitted-repositories.js";
 import { resolveRepositoryForLinearScope } from "./runtime-repository-routing.js";
+import {
+  resolveRuntimeWorkflowPresetSelection,
+  type SymphonyRuntimeWorkflowPresetSelection
+} from "./runtime-workflow-preset-selection.js";
 
 type RuntimeServiceBootstrapResult = {
   runtimePolicy: SymphonyResolvedRuntimePolicy;
@@ -30,6 +34,7 @@ type RuntimeServiceBootstrapResult = {
         summary: Record<string, unknown>;
       }
     | null;
+  workflowPresetSelection: SymphonyRuntimeWorkflowPresetSelection;
   promptContract: SymphonyLoadedPromptContract;
   promptTemplate: SymphonyLoadedRuntimePromptTemplate;
 };
@@ -76,6 +81,9 @@ export async function loadRuntimeServiceBootstrap(input: {
   const promptContract =
     primaryRepository?.promptContract ??
     (await loadAdmittedRuntimeRepositories([process.cwd()]))[0].promptContract;
+  const workflowPresetSelection = resolveRuntimeWorkflowPresetSelection({
+    runtimeManifest: selectedRuntimeManifestEntry?.runtimeManifest ?? null
+  });
 
   return {
     runtimePolicy,
@@ -84,6 +92,7 @@ export async function loadRuntimeServiceBootstrap(input: {
     validatedRuntimeManifests,
     primaryRepository,
     selectedRuntimeManifestEntry,
+    workflowPresetSelection,
     promptContract,
     promptTemplate: {
       prompt: promptContract.template.trim(),

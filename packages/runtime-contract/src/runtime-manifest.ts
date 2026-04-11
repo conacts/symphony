@@ -36,6 +36,7 @@ export type {
   SymphonyRuntimeManifestInput,
   SymphonyRuntimeManifestLoadOptions,
   SymphonyRuntimeManifestValidationOptions,
+  SymphonyRuntimeWorkflowConfig,
   SymphonyRuntimePiConfig,
   SymphonyRuntimePiAuthMode,
   SymphonyRuntimePiPreset,
