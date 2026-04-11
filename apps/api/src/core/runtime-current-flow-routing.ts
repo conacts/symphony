@@ -5,9 +5,13 @@ import {
   type SymphonyCurrentFlowData,
   type SymphonyCurrentFlowNode,
   type SymphonyCurrentFlowPolicy,
-  type WorkflowRouter
+  type WorkflowNodeId,
+  type WorkflowRouter,
+  type WorkflowRouterPreset
 } from "@symphony/router";
 import type { SymphonyTrackerConfig } from "@symphony/tracker";
+
+declare const runtimeRouterPresetModuleBrand: unique symbol;
 
 export type SymphonyRuntimeCurrentFlowRouter = WorkflowRouter<
   SymphonyCurrentFlowNode,
@@ -15,8 +19,33 @@ export type SymphonyRuntimeCurrentFlowRouter = WorkflowRouter<
   SymphonyCurrentFlowPolicy
 >;
 
+export type SymphonyRuntimeRouterPresetModule<
+  PresetId extends string,
+  Node extends WorkflowNodeId,
+  Data,
+  Policy,
+> = {
+  presetId: PresetId;
+  preset: WorkflowRouterPreset<Node, Data, Policy>;
+  assertTrackerContract(input: {
+    trackerConfig: SymphonyTrackerConfig;
+  }): void;
+  readonly [runtimeRouterPresetModuleBrand]?: {
+    node: Node;
+    data: Data;
+    policy: Policy;
+  };
+};
+
+const currentFlowRuntimeRouterPresetModule =
+  createCurrentFlowRuntimeRouterPresetModule();
+
+const runtimeRouterPresetModules = {
+  "current-flow": currentFlowRuntimeRouterPresetModule
+} as const;
+
 const runtimeRouterPresets = {
-  "current-flow": createSymphonyCurrentFlowRouterPreset()
+  "current-flow": currentFlowRuntimeRouterPresetModule.preset
 } as const;
 
 export const runtimeRouterPresetRegistry =
@@ -24,20 +53,76 @@ export const runtimeRouterPresetRegistry =
 
 export type SymphonyRuntimeRouterPresetId = keyof typeof runtimeRouterPresets;
 
-export type SymphonyRuntimeCurrentFlowRouting = ResolvedWorkflowRouterPreset<
-  "current-flow",
-  SymphonyCurrentFlowNode,
-  SymphonyCurrentFlowData,
-  SymphonyCurrentFlowPolicy
->;
+type RuntimeRouterPresetModuleById<PresetId extends SymphonyRuntimeRouterPresetId> =
+  (typeof runtimeRouterPresetModules)[PresetId];
+
+type RuntimeRouterPresetModuleNode<
+  Module extends {
+    readonly [runtimeRouterPresetModuleBrand]?: unknown;
+  },
+> = RuntimeRouterPresetModuleMetadata<Module> extends {
+  node: infer Node;
+}
+  ? Node extends WorkflowNodeId
+    ? Node
+    : never
+  : never;
+
+type RuntimeRouterPresetModuleData<
+  Module extends {
+    readonly [runtimeRouterPresetModuleBrand]?: unknown;
+  },
+> = RuntimeRouterPresetModuleMetadata<Module> extends {
+  data: infer Data;
+}
+  ? Data
+  : never;
+
+type RuntimeRouterPresetModulePolicy<
+  Module extends {
+    readonly [runtimeRouterPresetModuleBrand]?: unknown;
+  },
+> = RuntimeRouterPresetModuleMetadata<Module> extends {
+  policy: infer Policy;
+}
+  ? Policy
+  : never;
+
+type RuntimeRouterPresetModuleMetadata<
+  Module extends {
+    readonly [runtimeRouterPresetModuleBrand]?: unknown;
+  },
+> = Module extends {
+  readonly [runtimeRouterPresetModuleBrand]?: infer Metadata;
+}
+  ? NonNullable<Metadata>
+  : never;
+
+export type SymphonyResolvedRuntimeRouterPreset<
+  PresetId extends SymphonyRuntimeRouterPresetId,
+> = ResolvedWorkflowRouterPreset<
+  PresetId,
+  RuntimeRouterPresetModuleNode<RuntimeRouterPresetModuleById<PresetId>>,
+  RuntimeRouterPresetModuleData<RuntimeRouterPresetModuleById<PresetId>>,
+  RuntimeRouterPresetModulePolicy<RuntimeRouterPresetModuleById<PresetId>>
+> & {
+  module: RuntimeRouterPresetModuleById<PresetId>;
+};
+
+export type SymphonyRuntimeRouterPresetSelection = {
+  [PresetId in SymphonyRuntimeRouterPresetId]: SymphonyResolvedRuntimeRouterPreset<PresetId>;
+}[SymphonyRuntimeRouterPresetId];
+
+export type SymphonyRuntimeCurrentFlowRouting =
+  SymphonyResolvedRuntimeRouterPreset<"current-flow">;
 
 export async function createRuntimeCurrentFlowRouting(input: {
   trackerConfig: SymphonyTrackerConfig;
   now?: () => Date;
 }): Promise<SymphonyRuntimeCurrentFlowRouting> {
-  return await selectRuntimeRouterPreset({
-    trackerConfig: input.trackerConfig,
+  return await resolveRuntimeRouterPreset({
     presetId: "current-flow",
+    trackerConfig: input.trackerConfig,
     now: input.now
   });
 }
@@ -50,7 +135,7 @@ export async function selectRuntimeRouterPreset(input: {
   trackerConfig: SymphonyTrackerConfig;
   presetId?: string;
   now?: () => Date;
-}): Promise<SymphonyRuntimeCurrentFlowRouting> {
+}): Promise<SymphonyRuntimeRouterPresetSelection> {
   const requestedPresetId = input.presetId ?? "current-flow";
 
   if (!runtimeRouterPresetRegistry.hasPresetId(requestedPresetId)) {
@@ -61,32 +146,58 @@ export async function selectRuntimeRouterPreset(input: {
     );
   }
 
-  const presetId: SymphonyRuntimeRouterPresetId = requestedPresetId;
-  assertTrackerContractForRuntimeRouterPreset({
-    presetId,
+  return await resolveRuntimeRouterPreset({
+    presetId: requestedPresetId,
+    trackerConfig: input.trackerConfig,
+    now: input.now
+  });
+}
+
+async function resolveRuntimeRouterPreset<
+  PresetId extends SymphonyRuntimeRouterPresetId,
+>(input: {
+  presetId: PresetId;
+  trackerConfig: SymphonyTrackerConfig;
+  now?: () => Date;
+}): Promise<SymphonyResolvedRuntimeRouterPreset<PresetId>> {
+  const module = runtimeRouterPresetModules[input.presetId];
+  module.assertTrackerContract({
     trackerConfig: input.trackerConfig
   });
 
-  const resolvedPreset = await runtimeRouterPresetRegistry.resolvePreset(presetId, {
+  const resolvedPreset = await runtimeRouterPresetRegistry.resolvePreset(input.presetId, {
     now: input.now
   });
 
-  return resolvedPreset as SymphonyRuntimeCurrentFlowRouting;
-}
-
-function assertTrackerContractForRuntimeRouterPreset(input: {
-  presetId: SymphonyRuntimeRouterPresetId;
-  trackerConfig: SymphonyTrackerConfig;
-}): void {
-  switch (input.presetId) {
-    case "current-flow":
-      assertCurrentFlowTrackerContract(input.trackerConfig);
-      return;
-  }
+  return {
+    ...resolvedPreset,
+    module
+  } as SymphonyResolvedRuntimeRouterPreset<PresetId>;
 }
 
 export function createRuntimeRouterPresetRegistry() {
   return runtimeRouterPresetRegistry;
+}
+
+export function getRuntimeRouterPresetModule<
+  PresetId extends SymphonyRuntimeRouterPresetId,
+>(presetId: PresetId): RuntimeRouterPresetModuleById<PresetId> {
+  return runtimeRouterPresetModules[presetId];
+}
+
+function createCurrentFlowRuntimeRouterPresetModule(): SymphonyRuntimeRouterPresetModule<
+  "current-flow",
+  SymphonyCurrentFlowNode,
+  SymphonyCurrentFlowData,
+  SymphonyCurrentFlowPolicy
+> {
+  return {
+    presetId: "current-flow",
+    preset: createSymphonyCurrentFlowRouterPreset(),
+    assertTrackerContract(input) {
+      assertCurrentFlowTrackerContract(input.trackerConfig);
+    }
+  };
 }
 
 function assertCurrentFlowTrackerContract(

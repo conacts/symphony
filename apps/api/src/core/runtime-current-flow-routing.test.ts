@@ -18,6 +18,7 @@ describe("runtime router preset selection", () => {
     });
 
     expect(routing.presetId).toBe("current-flow");
+    expect(routing.module.presetId).toBe("current-flow");
     expect(routing.router.definition().name).toBe("symphony-current-flow");
     expect(routing.router.definition().version).toBe("1");
     expect(routing.policy).toEqual({});
@@ -32,5 +33,21 @@ describe("runtime router preset selection", () => {
         presetId: "missing"
       })
     ).rejects.toThrow(/Unknown workflow router preset/);
+  });
+
+  it("fails fast when the selected preset tracker contract is invalid", async () => {
+    const runtimePolicy = buildSymphonyRuntimePolicy();
+
+    await expect(
+      selectRuntimeRouterPreset({
+        trackerConfig: {
+          ...runtimePolicy.tracker,
+          claimTransitionToState: "In Progress"
+        },
+        presetId: "current-flow"
+      })
+    ).rejects.toThrow(
+      /Current-flow routing requires tracker\.claimTransitionToState/
+    );
   });
 });
