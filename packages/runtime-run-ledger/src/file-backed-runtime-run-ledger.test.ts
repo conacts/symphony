@@ -61,8 +61,10 @@ describe("file-backed symphony runtime run ledger", () => {
 
     expect(issues[0]?.issueIdentifier).toBe("COL-123");
     expect(runs[0]?.runId).toBe(runId);
+    expect(runs[0]?.runMode).toBe("implementation");
     expect(problemRuns[0]?.outcome).toBe("paused_max_turns");
     expect(exportPayload?.issue.issueIdentifier).toBe("COL-123");
+    expect(exportPayload?.run.runMode).toBe("implementation");
     expect(exportPayload?.run.commitHashStart).toBe("abc123");
     expect(exportPayload?.run.commitHashEnd).toBe("def456");
     expect(exportPayload?.turns).toHaveLength(1);

@@ -22,6 +22,7 @@ export type {
   SymphonyRunJournalRunsOptions,
   SymphonyRunExport,
   SymphonyRunFinishAttrs,
+  SymphonyRunMode,
   SymphonyRuntimeRunLedger,
   SymphonyRuntimeRunLedgerDocument,
   SymphonyRuntimeRunLedgerListOptions,

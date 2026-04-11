@@ -27,11 +27,14 @@ export type SymphonyIssueRecord = {
   updatedAt: SymphonyIsoTimestamp;
 };
 
+export type SymphonyRunMode = "implementation" | "rework" | "approved_merge";
+
 export type SymphonyRunRecord = {
   runId: string;
   repositoryKey: string;
   issueIdentifier: string;
   attempt: number | null;
+  runMode: SymphonyRunMode;
   status: string;
   outcome: string | null;
   workerHost: string | null;
@@ -97,7 +100,7 @@ export type SymphonyRunStartAttrs = {
   issueIdentifier: string;
   runId: string;
   attempt?: number | null;
-  runMode: "implementation" | "rework" | "approved_merge";
+  runMode: SymphonyRunMode;
   status?: string;
   workerHost?: string | null;
   workspacePath?: string | null;
@@ -196,6 +199,7 @@ export type SymphonyRunSummary = {
   trackerIssueId: string;
   issueIdentifier: string;
   attempt: number | null;
+  runMode: SymphonyRunMode;
   status: string | null;
   outcome: string | null;
   workerHost: string | null;

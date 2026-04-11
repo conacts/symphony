@@ -196,6 +196,7 @@ describe("sqlite agent analytics read store", () => {
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-1",
         issueIdentifier: "COL-157",
+        runMode: "implementation",
         status: "finished",
         outcome: "completed",
         agentHarness: "pi",
@@ -206,6 +207,7 @@ describe("sqlite agent analytics read store", () => {
       expect(problemRuns).toHaveLength(0);
       expect(detail?.run).toMatchObject({
         runId,
+        runMode: "implementation",
         threadId: "thread-1",
         processId: "pi-process-123",
         providerId: "openrouter",

@@ -56,6 +56,7 @@ export function buildRuntimeRunSummary(
     trackerIssueId: issue.trackerIssueId,
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
+    runMode: run.runMode,
     status: run.status,
     outcome: run.outcome,
     workerHost: run.workerHost,

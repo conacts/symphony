@@ -696,6 +696,7 @@ function buildForensicsRunSummary(
     trackerIssueId: issue.trackerIssueId,
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
+    runMode: run.runMode,
     status: run.status,
     outcome: run.outcome,
     agentHarness: runtimeContext?.harness ?? null,

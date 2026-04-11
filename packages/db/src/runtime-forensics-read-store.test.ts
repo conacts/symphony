@@ -157,6 +157,7 @@ describe("runtime forensics read store", () => {
       expect(summary).toMatchObject({
         runId,
         issueIdentifier: "COL-410",
+        runMode: "implementation",
         eventCount: 2,
         turnCount: 1,
         agentHarness: "pi",
@@ -167,6 +168,7 @@ describe("runtime forensics read store", () => {
       });
       expect(detail?.run).toMatchObject({
         runId,
+        runMode: "implementation",
         threadId: "thread-runtime-1",
         processId: "4242",
         providerId: "openrouter",

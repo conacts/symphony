@@ -93,6 +93,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
         repositoryKey,
         issueIdentifier: attrs.issueIdentifier,
         attempt: attrs.attempt ?? null,
+        runMode: attrs.runMode,
         status: attrs.status ?? "running",
         outcome: null,
         workerHost: attrs.workerHost ?? null,
