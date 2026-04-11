@@ -13,19 +13,19 @@
   ],
   "references": [
     {
-      "path": "../orchestrator"
+      "path": "../orchestrator/tsconfig.build.json"
     },
     {
-      "path": "../review"
+      "path": "../review/tsconfig.build.json"
     },
     {
-      "path": "../runtime-policy"
+      "path": "../runtime-policy/tsconfig.build.json"
     },
     {
-      "path": "../tracker"
+      "path": "../tracker/tsconfig.build.json"
     },
     {
-      "path": "../workspace"
+      "path": "../workspace/tsconfig.build.json"
     }
   ]
 }

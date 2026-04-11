@@ -10,13 +10,13 @@
   "exclude": ["dist", "node_modules"],
   "references": [
     {
-      "path": "../agent-analytics"
+      "path": "../agent-analytics/tsconfig.build.json"
     },
     {
-      "path": "../orchestrator"
+      "path": "../orchestrator/tsconfig.build.json"
     },
     {
-      "path": "../tracker"
+      "path": "../tracker/tsconfig.build.json"
     }
   ]
 }

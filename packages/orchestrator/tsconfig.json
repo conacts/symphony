@@ -13,13 +13,13 @@
   ],
   "references": [
     {
-      "path": "../runtime-contract"
+      "path": "../runtime-contract/tsconfig.build.json"
     },
     {
-      "path": "../tracker"
+      "path": "../tracker/tsconfig.build.json"
     },
     {
-      "path": "../workspace"
+      "path": "../workspace/tsconfig.build.json"
     }
   ]
 }

@@ -13,7 +13,7 @@
   ],
   "references": [
     {
-      "path": "../tracker"
+      "path": "../tracker/tsconfig.build.json"
     }
   ]
 }

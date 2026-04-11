@@ -8,7 +8,7 @@
   },
   "references": [
     {
-      "path": "../agent-analytics"
+      "path": "../agent-analytics/tsconfig.build.json"
     },
     {
       "path": "../errors"

@@ -13,10 +13,10 @@
   ],
   "references": [
     {
-      "path": "../db"
+      "path": "../db/tsconfig.build.json"
     },
     {
-      "path": "../runtime-contract"
+      "path": "../runtime-contract/tsconfig.build.json"
     }
   ]
 }

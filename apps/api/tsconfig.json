@@ -8,58 +8,58 @@
   },
   "references": [
     {
-      "path": "../../packages/env"
+      "path": "../../packages/env/tsconfig.build.json"
     },
     {
       "path": "../../packages/errors"
     },
     {
-      "path": "../../packages/logger"
+      "path": "../../packages/logger/tsconfig.build.json"
     },
     {
-      "path": "../../packages/agent-harnesses"
+      "path": "../../packages/agent-harnesses/tsconfig.build.json"
     },
     {
-      "path": "../../packages/contracts"
+      "path": "../../packages/contracts/tsconfig.build.json"
     },
     {
-      "path": "../../packages/agent-analytics"
+      "path": "../../packages/agent-analytics/tsconfig.build.json"
     },
     {
-      "path": "../../packages/db"
+      "path": "../../packages/db/tsconfig.build.json"
     },
     {
-      "path": "../../packages/forensics"
+      "path": "../../packages/forensics/tsconfig.build.json"
     },
     {
-      "path": "../../packages/github-review"
+      "path": "../../packages/github-review/tsconfig.build.json"
     },
     {
-      "path": "../../packages/orchestrator"
+      "path": "../../packages/orchestrator/tsconfig.build.json"
     },
     {
-      "path": "../../packages/router"
+      "path": "../../packages/router/tsconfig.build.json"
     },
     {
-      "path": "../../packages/runtime-contract"
+      "path": "../../packages/runtime-contract/tsconfig.build.json"
     },
     {
-      "path": "../../packages/runtime"
+      "path": "../../packages/runtime/tsconfig.build.json"
     },
     {
-      "path": "../../packages/runtime-policy"
+      "path": "../../packages/runtime-policy/tsconfig.build.json"
     },
     {
-      "path": "../../packages/runtime-tools"
+      "path": "../../packages/runtime-tools/tsconfig.build.json"
     },
     {
       "path": "../../packages/test-support"
     },
     {
-      "path": "../../packages/tracker"
+      "path": "../../packages/tracker/tsconfig.build.json"
     },
     {
-      "path": "../../packages/workspace"
+      "path": "../../packages/workspace/tsconfig.build.json"
     }
   ],
   "include": ["src/**/*.ts"]

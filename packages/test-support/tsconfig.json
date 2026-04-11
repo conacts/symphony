@@ -8,28 +8,28 @@
   },
   "references": [
     {
-      "path": "../contracts"
+      "path": "../contracts/tsconfig.build.json"
     },
     {
-      "path": "../db"
+      "path": "../db/tsconfig.build.json"
     },
     {
-      "path": "../github-review"
+      "path": "../github-review/tsconfig.build.json"
     },
     {
-      "path": "../orchestrator"
+      "path": "../orchestrator/tsconfig.build.json"
     },
     {
-      "path": "../runtime-contract"
+      "path": "../runtime-contract/tsconfig.build.json"
     },
     {
-      "path": "../runtime-policy"
+      "path": "../runtime-policy/tsconfig.build.json"
     },
     {
-      "path": "../tracker"
+      "path": "../tracker/tsconfig.build.json"
     },
     {
-      "path": "../workspace"
+      "path": "../workspace/tsconfig.build.json"
     }
   ],
   "include": ["src/**/*.ts"]
