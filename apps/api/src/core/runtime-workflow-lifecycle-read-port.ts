@@ -1,11 +1,6 @@
 import type { SymphonyReworkHandoff } from "@symphony/runtime-contract";
 import type { RuntimeMergeResult } from "@symphony/runtime-tools";
 import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
-import {
-  readLatestMergeResultFromProjection,
-  readLatestReworkHandoffFromProjection,
-  readTrackerStateFromProjection
-} from "./runtime-workflow-lifecycle-data.js";
 
 export type SymphonyRuntimeWorkflowLifecycleReadPort = {
   loadCurrentTrackerState(input: {
@@ -32,7 +27,7 @@ export function createRuntimeWorkflowLifecycleReadPort(input: {
         return null;
       }
 
-      return readTrackerStateFromProjection({
+      return loaded.routing.module.runtimeAdapter.readTrackerStateFromProjection({
         workflowId: loaded.hydrationState.workflow.workflowId,
         data: loaded.hydrationState.snapshot.projection.data
       });
@@ -45,7 +40,7 @@ export function createRuntimeWorkflowLifecycleReadPort(input: {
         return null;
       }
 
-      return readLatestReworkHandoffFromProjection({
+      return loaded.routing.module.runtimeAdapter.readLatestReworkHandoffFromProjection({
         workflowId: loaded.hydrationState.workflow.workflowId,
         data: loaded.hydrationState.snapshot.projection.data
       });
@@ -58,7 +53,7 @@ export function createRuntimeWorkflowLifecycleReadPort(input: {
         return null;
       }
 
-      return readLatestMergeResultFromProjection({
+      return loaded.routing.module.runtimeAdapter.readLatestMergeResultFromProjection({
         workflowId: loaded.hydrationState.workflow.workflowId,
         data: loaded.hydrationState.snapshot.projection.data,
         runId

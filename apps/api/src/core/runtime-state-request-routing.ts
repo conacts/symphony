@@ -1,6 +1,4 @@
 import {
-  type SymphonyCurrentFlowStateRequestKind,
-  type SymphonyCurrentFlowStateRequestTargetState,
   type WorkflowCommand,
   type WorkflowSession
 } from "@symphony/router";
@@ -21,8 +19,8 @@ export type SymphonyRuntimeStateRequestRoutingInput = {
   issue: SymphonyTrackerIssue;
   runId: string;
   recordedAt: string;
-  requestKind: SymphonyCurrentFlowStateRequestKind;
-  targetState: SymphonyCurrentFlowStateRequestTargetState;
+  requestKind: string;
+  targetState: string;
 };
 
 export type SymphonyRuntimeStateRequestRoutingResult = {
@@ -106,7 +104,7 @@ async function executeRequestedStateCommands(input: {
   session: WorkflowSession<string, unknown, unknown>;
   recordedAt: string;
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
-  targetState: SymphonyCurrentFlowStateRequestTargetState;
+  targetState: string;
 }): Promise<SymphonyTrackerIssue> {
   let currentIssue = input.issue;
 
@@ -143,7 +141,7 @@ async function executeRequestedTrackerTransition(input: {
   command: WorkflowCommand;
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
-  targetState: SymphonyCurrentFlowStateRequestTargetState;
+  targetState: string;
 }): Promise<SymphonyTrackerIssue> {
   const targetState = readTrackerTransitionState({
     adapter: input.presetAdapter,
@@ -164,8 +162,8 @@ async function executeRequestedTrackerTransition(input: {
 
 function buildStateRequestedSignalId(input: {
   issue: SymphonyTrackerIssue;
-  requestKind: SymphonyCurrentFlowStateRequestKind;
-  targetState: SymphonyCurrentFlowStateRequestTargetState;
+  requestKind: string;
+  targetState: string;
   recordedAt: string;
 }) {
   return [

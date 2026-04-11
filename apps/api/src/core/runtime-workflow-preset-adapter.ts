@@ -103,6 +103,27 @@ export type SymphonyRuntimeWorkflowPresetAdapter = {
   createShutdownRequestedSignal(
     input: SymphonyRuntimeShutdownRequestedSignalInput
   ): WorkflowSignal;
+  readTrackerStateFromProjection(input: {
+    workflowId: string;
+    data: unknown;
+  }): string | null;
+  readLastDispatchModeFromProjection(input: {
+    workflowId: string;
+    data: unknown;
+  }): SymphonyRunMode | null;
+  readActiveRunModeFromProjection(input: {
+    workflowId: string;
+    data: unknown;
+  }): SymphonyRunMode;
+  readLatestReworkHandoffFromProjection(input: {
+    workflowId: string;
+    data: unknown;
+  }): SymphonyReworkHandoff | null;
+  readLatestMergeResultFromProjection(input: {
+    workflowId: string;
+    data: unknown;
+    runId: string;
+  }): RuntimeMergeResult | null;
   readTrackerTransitionState(command: WorkflowCommand): string;
   readDispatchRunMode(command: WorkflowCommand): SymphonyRunMode;
 };

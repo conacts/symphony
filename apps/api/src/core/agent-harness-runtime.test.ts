@@ -21,13 +21,7 @@ import {
 } from "@symphony/runtime-contract";
 import type { RuntimeMergeResult } from "@symphony/runtime-tools";
 import {
-  createSymphonyCurrentFlowMergeResultReportedSignal,
-  createSymphonyCurrentFlowReviewReworkRequestedSignal,
-  createSymphonyCurrentFlowRunStartedSignal,
-  createSymphonyCurrentFlowTrackerStateObservedSignal,
-  type SymphonyCurrentFlowData,
-  type SymphonyCurrentFlowNode,
-  type SymphonyCurrentFlowPolicy
+  type WorkflowSignal
 } from "@symphony/router";
 import {
   buildRuntimeMergeResult,
@@ -43,6 +37,8 @@ import {
   isTransientProviderError
 } from "./agent-harness-runtime.js";
 import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
+import { createRuntimeWorkflowLifecycleReadPort } from "./runtime-workflow-lifecycle-read-port.js";
+import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimePolicyForRoot } from "../test-support/create-symphony-runtime-test-harness.js";
 
@@ -2889,93 +2885,29 @@ async function buildWorkflowBackedReworkHandoffLoader(input: {
   trackerConfig: SymphonyTrackerConfig;
   handoffs: SymphonyReworkHandoff[];
 }): Promise<(issueIdentifier: string) => Promise<SymphonyReworkHandoff | null>> {
-  const routeWorkflows = createRouteWorkflowPort({
-    routeWorkflowStore: createRouteWorkflowStore(input.db)
-  });
-  const routing = await createRuntimeCurrentFlowRouting({
-    trackerConfig: input.trackerConfig,
-    now: () => new Date("2026-04-10T16:00:00.000Z")
-  });
-
-  await routeWorkflows.ensureWorkflowForIssue({
+  const workflowLifecycle = await createWorkflowBackedLifecycleHarness({
+    db: input.db,
     issueIdentifier: input.issueIdentifier,
     repositoryKey: input.repositoryKey,
-    routerPresetId: routing.presetId,
-    router: routing.router,
-    createdAt: "2026-04-10T16:00:00.000Z"
+    trackerConfig: input.trackerConfig,
+    nowIso: "2026-04-10T16:00:00.000Z"
   });
 
-  const reviewObservation = await routeWorkflows.resumeSessionByIssueIdentifier({
-    issueIdentifier: input.issueIdentifier,
-    router: routing.router,
-    policy: routing.policy
-  });
-  if (!reviewObservation) {
-    throw new TypeError(
-      `Route workflow could not be resumed for ${input.issueIdentifier} while seeding rework handoff test state.`
-    );
-  }
-
-  await routeWorkflows.recordRouteResult({
-    workflowId: reviewObservation.hydrationState.workflow.workflowId,
-    policy: routing.policy,
-    result: await reviewObservation.session.receiveAsync(
-      createSymphonyCurrentFlowTrackerStateObservedSignal({
-        id: `signal_review_observed_${input.issueIdentifier.toLowerCase()}`,
-        occurredAt: "2026-04-10T16:00:00.000Z",
-        state: "In Review",
-        runId: null,
-        runMode: null,
-        causationId: null,
-        correlationId: input.issueIdentifier
-      })
-    )
+  await workflowLifecycle.recordTrackerObserved({
+    trackerState: "In Review",
+    recordedAt: "2026-04-10T16:00:00.000Z"
   });
 
   for (const handoff of input.handoffs) {
-    const resumed = await routeWorkflows.resumeSessionByIssueIdentifier<
-      SymphonyCurrentFlowNode,
-      SymphonyCurrentFlowData,
-      SymphonyCurrentFlowPolicy
-    >({
-      issueIdentifier: input.issueIdentifier,
-      router: routing.router,
-      policy: routing.policy
-    });
-    if (!resumed) {
-      throw new TypeError(
-        `Route workflow could not be resumed for ${input.issueIdentifier} while recording rework handoff ${handoff.recordedAt}.`
-      );
-    }
-
-    await routeWorkflows.recordRouteResult({
-      workflowId: resumed.hydrationState.workflow.workflowId,
-      policy: routing.policy,
-      result: await resumed.session.receiveAsync(
-        createSymphonyCurrentFlowReviewReworkRequestedSignal({
-          id: [
-            "signal",
-            "review_rework_requested",
-            input.issueIdentifier.toLowerCase(),
-            handoff.recordedAt
-          ].join("_"),
-          occurredAt: handoff.recordedAt,
-          handoff,
-          causationId: input.issueIdentifier,
-          correlationId: input.issueIdentifier
-        })
-      )
+    await workflowLifecycle.recordReviewReworkRequested({
+      handoff
     });
   }
 
   return async (issueIdentifier) => {
-    const hydration =
-      await routeWorkflows.loadHydrationStateByIssueIdentifier<
-        SymphonyCurrentFlowNode,
-        SymphonyCurrentFlowData,
-        SymphonyCurrentFlowPolicy
-      >(issueIdentifier);
-    return hydration?.snapshot?.projection.data.latestReworkHandoff ?? null;
+    return await workflowLifecycle.lifecycleRead.loadLatestReworkHandoff({
+      issueIdentifier
+    });
   };
 }
 
@@ -2992,12 +2924,61 @@ async function buildWorkflowBackedMergeResultLoader(input: {
 }): Promise<
   (issueIdentifier: string, runId: string) => Promise<RuntimeMergeResult | null>
 > {
+  const workflowLifecycle = await createWorkflowBackedLifecycleHarness({
+    db: input.db,
+    issueIdentifier: input.issueIdentifier,
+    repositoryKey: input.repositoryKey,
+    trackerConfig: input.trackerConfig,
+    nowIso: "2026-04-10T16:30:00.000Z"
+  });
+
+  await workflowLifecycle.recordTrackerObserved({
+    trackerState: "Approved",
+    recordedAt: "2026-04-10T16:30:00.000Z"
+  });
+  await workflowLifecycle.recordRunStarted({
+    runId: input.runId,
+    runMode: "approved_merge",
+    recordedAt: "2026-04-10T16:30:01.000Z"
+  });
+
+  for (const entry of input.mergeResults) {
+    await workflowLifecycle.recordMergeResult({
+      runId: input.runId,
+      recordedAt: entry.recordedAt,
+      mergeResult: entry.mergeResult
+    });
+  }
+
+  return async (issueIdentifier, runId) => {
+    return await workflowLifecycle.lifecycleRead.loadLatestMergeResult({
+      issueIdentifier,
+      runId
+    });
+  };
+}
+
+async function createWorkflowBackedLifecycleHarness(input: {
+  db: ReturnType<typeof initializeSymphonyDb>["db"];
+  issueIdentifier: string;
+  repositoryKey: string;
+  trackerConfig: SymphonyTrackerConfig;
+  nowIso: string;
+}) {
   const routeWorkflows = createRouteWorkflowPort({
     routeWorkflowStore: createRouteWorkflowStore(input.db)
   });
   const routing = await createRuntimeCurrentFlowRouting({
     trackerConfig: input.trackerConfig,
-    now: () => new Date("2026-04-10T16:30:00.000Z")
+    now: () => new Date(input.nowIso)
+  });
+  const sessionLoader = await createRuntimeWorkflowSessionLoader({
+    routeWorkflows,
+    trackerConfig: input.trackerConfig,
+    now: () => new Date(input.nowIso)
+  });
+  const lifecycleRead = createRuntimeWorkflowLifecycleReadPort({
+    sessionLoader
   });
 
   await routeWorkflows.ensureWorkflowForIssue({
@@ -3005,132 +2986,93 @@ async function buildWorkflowBackedMergeResultLoader(input: {
     repositoryKey: input.repositoryKey,
     routerPresetId: routing.presetId,
     router: routing.router,
-    createdAt: "2026-04-10T16:30:00.000Z"
+    createdAt: input.nowIso
   });
 
-  const approvedObservation = await routeWorkflows.resumeSessionByIssueIdentifier({
-    issueIdentifier: input.issueIdentifier,
-    router: routing.router,
-    policy: routing.policy
-  });
-  if (!approvedObservation) {
-    throw new TypeError(
-      `Route workflow could not be resumed for ${input.issueIdentifier} while seeding approved-merge test state.`
-    );
-  }
-
-  await routeWorkflows.recordRouteResult({
-    workflowId: approvedObservation.hydrationState.workflow.workflowId,
-    policy: routing.policy,
-    result: await approvedObservation.session.receiveAsync(
-      createSymphonyCurrentFlowTrackerStateObservedSignal({
-        id: `signal_approved_observed_${input.issueIdentifier.toLowerCase()}`,
-        occurredAt: "2026-04-10T16:30:00.000Z",
-        state: "Approved",
-        runId: null,
-        runMode: null,
-        causationId: null,
-        correlationId: input.issueIdentifier
-      })
-    )
-  });
-
-  const runStarted = await routeWorkflows.resumeSessionByIssueIdentifier<
-    SymphonyCurrentFlowNode,
-    SymphonyCurrentFlowData,
-    SymphonyCurrentFlowPolicy
-  >({
-    issueIdentifier: input.issueIdentifier,
-    router: routing.router,
-    policy: routing.policy
-  });
-  if (!runStarted) {
-    throw new TypeError(
-      `Route workflow could not be resumed for ${input.issueIdentifier} while seeding approved-merge run start.`
-    );
-  }
-
-  await routeWorkflows.recordRouteResult({
-    workflowId: runStarted.hydrationState.workflow.workflowId,
-    policy: routing.policy,
-    result: await runStarted.session.receiveAsync(
-      createSymphonyCurrentFlowRunStartedSignal({
-        id: `signal_approved_merge_started_${input.issueIdentifier.toLowerCase()}`,
-        occurredAt: "2026-04-10T16:30:01.000Z",
-        runId: input.runId,
-        runMode: "approved_merge",
-        causationId: input.runId,
-        correlationId: input.issueIdentifier
-      })
-    )
-  });
-
-  for (const entry of input.mergeResults) {
-    const resumed = await routeWorkflows.resumeSessionByIssueIdentifier<
-      SymphonyCurrentFlowNode,
-      SymphonyCurrentFlowData,
-      SymphonyCurrentFlowPolicy
-    >({
-      issueIdentifier: input.issueIdentifier,
-      router: routing.router,
-      policy: routing.policy
+  async function recordSignal(signal: WorkflowSignal, context: string) {
+    const loaded = await sessionLoader.resumeByIssueIdentifier({
+      issueIdentifier: input.issueIdentifier
     });
-    if (!resumed) {
+    if (!loaded) {
       throw new TypeError(
-        `Route workflow could not be resumed for ${input.issueIdentifier} while recording merge result ${entry.recordedAt}.`
+        `Route workflow could not be resumed for ${input.issueIdentifier} while ${context}.`
       );
     }
 
     await routeWorkflows.recordRouteResult({
-      workflowId: resumed.hydrationState.workflow.workflowId,
-      policy: routing.policy,
-      result: await resumed.session.receiveAsync(
-        createSymphonyCurrentFlowMergeResultReportedSignal({
-          id: [
-            "signal",
-            "merge_result_reported",
-            input.issueIdentifier.toLowerCase(),
-            entry.recordedAt
-          ].join("_"),
-          occurredAt: entry.recordedAt,
-          mergeResult: {
-            runId: input.runId,
-            status: entry.mergeResult.status,
-            summary: entry.mergeResult.summary,
-            prUrl: entry.mergeResult.prUrl,
-            mergeCommitSha: entry.mergeResult.mergeCommitSha,
-            blockingReason: entry.mergeResult.blockingReason,
-            testsSummary: entry.mergeResult.testsSummary,
-            recordedAt: entry.recordedAt
-          },
-          causationId: input.runId,
-          correlationId: input.issueIdentifier
-        })
-      )
+      workflowId: loaded.resumed.hydrationState.workflow.workflowId,
+      policy: loaded.routing.policy,
+      result: await loaded.resumed.session.receiveAsync(signal)
     });
   }
 
-  return async (issueIdentifier, runId) => {
-    const hydration =
-      await routeWorkflows.loadHydrationStateByIssueIdentifier<
-        SymphonyCurrentFlowNode,
-        SymphonyCurrentFlowData,
-        SymphonyCurrentFlowPolicy
-      >(issueIdentifier);
-    const mergeResult = hydration?.snapshot?.projection.data.latestMergeResult ?? null;
-
-    if (!mergeResult || mergeResult.runId !== runId) {
-      return null;
+  return {
+    lifecycleRead,
+    async recordTrackerObserved(entry: {
+      trackerState: string;
+      recordedAt: string;
+    }) {
+      await recordSignal(
+        routing.module.runtimeAdapter.createTrackerStateObservedSignal({
+          id: `signal_tracker_state_observed_${entry.recordedAt}`,
+          occurredAt: entry.recordedAt,
+          trackerState: entry.trackerState,
+          runId: null,
+          runMode: null,
+          causationId: null,
+          correlationId: input.issueIdentifier
+        }),
+        `recording tracker observation ${entry.recordedAt}`
+      );
+    },
+    async recordReviewReworkRequested(entry: {
+      handoff: SymphonyReworkHandoff;
+    }) {
+      await recordSignal(
+        routing.module.runtimeAdapter.createReviewReworkRequestedSignal({
+          id: `signal_review_rework_requested_${entry.handoff.recordedAt}`,
+          occurredAt: entry.handoff.recordedAt,
+          handoff: entry.handoff,
+          causationId: input.issueIdentifier,
+          correlationId: input.issueIdentifier
+        }),
+        `recording rework handoff ${entry.handoff.recordedAt}`
+      );
+    },
+    async recordRunStarted(entry: {
+      runId: string;
+      runMode: "implementation" | "rework" | "approved_merge";
+      recordedAt: string;
+    }) {
+      await recordSignal(
+        routing.module.runtimeAdapter.createRunStartedSignal({
+          id: `signal_run_started_${entry.recordedAt}`,
+          occurredAt: entry.recordedAt,
+          runId: entry.runId,
+          runMode: entry.runMode,
+          causationId: entry.runId,
+          correlationId: input.issueIdentifier
+        }),
+        `recording run start ${entry.recordedAt}`
+      );
+    },
+    async recordMergeResult(entry: {
+      runId: string;
+      recordedAt: string;
+      mergeResult: RuntimeMergeResult;
+    }) {
+      await recordSignal(
+        routing.module.runtimeAdapter.createMergeResultReportedSignal({
+          id: `signal_merge_result_reported_${entry.recordedAt}`,
+          occurredAt: entry.recordedAt,
+          runId: entry.runId,
+          mergeResult: entry.mergeResult,
+          causationId: entry.runId,
+          correlationId: input.issueIdentifier
+        }),
+        `recording merge result ${entry.recordedAt}`
+      );
     }
-
-    return {
-      status: mergeResult.status,
-      summary: mergeResult.summary,
-      prUrl: mergeResult.prUrl,
-      mergeCommitSha: mergeResult.mergeCommitSha,
-      blockingReason: mergeResult.blockingReason,
-      testsSummary: mergeResult.testsSummary
-    };
   };
 }
 

@@ -23,6 +23,13 @@ import {
 import type { SymphonyTrackerConfig } from "@symphony/tracker";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import type { SymphonyRuntimeWorkflowPresetModule } from "./runtime-workflow-preset-registry.js";
+import {
+  readRuntimeCurrentFlowActiveRunModeFromProjection,
+  readRuntimeCurrentFlowLastDispatchModeFromProjection,
+  readRuntimeCurrentFlowLatestMergeResultFromProjection,
+  readRuntimeCurrentFlowLatestReworkHandoffFromProjection,
+  readRuntimeCurrentFlowTrackerStateFromProjection
+} from "./runtime-current-flow-lifecycle-data.js";
 
 export type SymphonyRuntimeCurrentFlowRouter = WorkflowRouter<
   SymphonyCurrentFlowNode,
@@ -233,6 +240,21 @@ function createCurrentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWorkflo
         causationId: input.causationId,
         correlationId: input.correlationId
       });
+    },
+    readTrackerStateFromProjection(input) {
+      return readRuntimeCurrentFlowTrackerStateFromProjection(input);
+    },
+    readLastDispatchModeFromProjection(input) {
+      return readRuntimeCurrentFlowLastDispatchModeFromProjection(input);
+    },
+    readActiveRunModeFromProjection(input) {
+      return readRuntimeCurrentFlowActiveRunModeFromProjection(input);
+    },
+    readLatestReworkHandoffFromProjection(input) {
+      return readRuntimeCurrentFlowLatestReworkHandoffFromProjection(input);
+    },
+    readLatestMergeResultFromProjection(input) {
+      return readRuntimeCurrentFlowLatestMergeResultFromProjection(input);
     },
     readTrackerTransitionState(command) {
       const trackerTransition =

@@ -36,7 +36,6 @@ import {
   type DockerGitHubCliAuthContract,
   type DockerPiAuthContract
 } from "./runtime-auth-contract.js";
-import type { SymphonyCurrentFlowStateRequestTargetState } from "@symphony/router";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
@@ -617,15 +616,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           issue: input.issue,
           defaultTargetState: runtimePolicy.tracker.pauseTransitionToState,
           async transitionIssueState(request) {
-            const targetState = mapRuntimeStateRequestTargetState(
-              request.targetState
-            );
             const routed = await routeLifecycle.routeRuntimeStateRequest({
               issueIdentifier: request.issueIdentifier,
               runId: input.runId,
               recordedAt: request.recordedAt,
               requestKind: "spike_result",
-              targetState
+              targetState: request.targetState
             });
             return {
               attempted: true,
@@ -656,15 +652,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           issue: input.issue,
           defaultTargetState: "Canceled",
           async transitionIssueState(request) {
-            const targetState = mapRuntimeStateRequestTargetState(
-              request.targetState
-            );
             const routed = await routeLifecycle.routeRuntimeStateRequest({
               issueIdentifier: request.issueIdentifier,
               runId: input.runId,
               recordedAt: request.recordedAt,
               requestKind: "cancel",
-              targetState
+              targetState: request.targetState
             });
             return {
               attempted: true,
@@ -1062,20 +1055,4 @@ async function preflightDockerWorkspaceBackendSelection(input: {
     shell: input.shell,
     timeoutMs: defaultSymphonyDockerWorkspacePreflightTimeoutMs
   });
-}
-
-function mapRuntimeStateRequestTargetState(
-  targetState: string
-): SymphonyCurrentFlowStateRequestTargetState {
-  switch (targetState) {
-    case "Paused":
-    case "Blocked":
-    case "Failed":
-    case "Canceled":
-      return targetState;
-    default:
-      throw new TypeError(
-        `Runtime state-request routing does not support target state ${JSON.stringify(targetState)}.`
-      );
-  }
 }

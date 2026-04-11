@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildSymphonyRuntimePolicy } from "@symphony/test-support";
+import {
+  buildSymphonyReworkHandoff,
+  buildSymphonyRuntimePolicy
+} from "@symphony/test-support";
 import {
   getDefaultRuntimeRouterPresetId,
   listRuntimeRouterPresetIds,
@@ -73,5 +76,93 @@ describe("runtime router preset selection", () => {
     ).rejects.toThrow(
       /Current-flow routing requires tracker\.claimTransitionToState/
     );
+  });
+
+  it("reads persisted lifecycle values through the preset adapter", async () => {
+    const runtimePolicy = buildSymphonyRuntimePolicy();
+    const routing = await selectRuntimeRouterPreset({
+      trackerConfig: runtimePolicy.tracker,
+      presetId: "current-flow",
+      now: () => new Date("2026-04-10T00:00:00.000Z")
+    });
+    const handoff = buildSymphonyReworkHandoff({
+      triggerKind: "changes_requested_review",
+      recordedAt: "2026-04-10T00:05:00.000Z"
+    });
+
+    expect(
+      routing.module.runtimeAdapter.readTrackerStateFromProjection({
+        workflowId: "workflow-1",
+        data: {
+          trackerState: "Approved",
+          lastDispatchMode: "approved_merge",
+          lastRunMode: null,
+          latestReworkHandoff: handoff,
+          latestMergeResult: {
+            runId: "run-1",
+            status: "merged",
+            summary: "Merged successfully",
+            prUrl: "https://github.com/openai/symphony/pull/1",
+            mergeCommitSha: "abc123",
+            blockingReason: null,
+            testsSummary: "green",
+            recordedAt: "2026-04-10T00:06:00.000Z"
+          }
+        }
+      })
+    ).toBe("Approved");
+    expect(
+      routing.module.runtimeAdapter.readActiveRunModeFromProjection({
+        workflowId: "workflow-1",
+        data: {
+          trackerState: "Approved",
+          lastDispatchMode: "approved_merge",
+          lastRunMode: null,
+          latestReworkHandoff: handoff,
+          latestMergeResult: null
+        }
+      })
+    ).toBe("approved_merge");
+    expect(
+      routing.module.runtimeAdapter.readLatestReworkHandoffFromProjection({
+        workflowId: "workflow-1",
+        data: {
+          trackerState: "In Review",
+          lastDispatchMode: "implementation",
+          lastRunMode: null,
+          latestReworkHandoff: handoff,
+          latestMergeResult: null
+        }
+      })
+    ).toEqual(handoff);
+    expect(
+      routing.module.runtimeAdapter.readLatestMergeResultFromProjection({
+        workflowId: "workflow-1",
+        runId: "run-1",
+        data: {
+          trackerState: "Approved",
+          lastDispatchMode: "approved_merge",
+          lastRunMode: "approved_merge",
+          latestReworkHandoff: null,
+          latestMergeResult: {
+            runId: "run-1",
+            status: "merged",
+            summary: "Merged successfully",
+            prUrl: "https://github.com/openai/symphony/pull/1",
+            mergeCommitSha: "abc123",
+            blockingReason: null,
+            testsSummary: "green",
+            recordedAt: "2026-04-10T00:06:00.000Z"
+          }
+        }
+      })
+    ).toEqual({
+      status: "merged",
+      summary: "Merged successfully",
+      prUrl: "https://github.com/openai/symphony/pull/1",
+      mergeCommitSha: "abc123",
+      blockingReason: null,
+      testsSummary: "green"
+    });
   });
 });

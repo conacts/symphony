@@ -22,9 +22,6 @@ import {
   readDispatchRunMode,
   readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
-import {
-  readLastDispatchModeFromProjection
-} from "./runtime-workflow-lifecycle-data.js";
 
 export async function createRuntimeDispatchBootstrapRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
@@ -128,11 +125,11 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
       }
 
       selectedRunMode ??=
-        readLastDispatchModeFromProjection({
+        presetAdapter.readLastDispatchModeFromProjection({
           workflowId: ensured.workflow.workflowId,
           data: resumed.projection.data
         }) ??
-        readLastDispatchModeFromProjection({
+        presetAdapter.readLastDispatchModeFromProjection({
           workflowId: ensured.workflow.workflowId,
           data: result.projectionAfter.data
         });

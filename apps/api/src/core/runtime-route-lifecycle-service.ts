@@ -46,10 +46,6 @@ import {
 } from "./runtime-tracker-state-observation-routing.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type {
-  SymphonyCurrentFlowStateRequestKind,
-  SymphonyCurrentFlowStateRequestTargetState
-} from "@symphony/router";
-import type {
   SymphonyTracker,
   SymphonyTrackerConfig
 } from "@symphony/tracker";
@@ -60,10 +56,6 @@ import {
   createRuntimeStateRequestRouter
 } from "./runtime-state-request-routing.js";
 import type { SymphonyRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
-import {
-  readTrackerStateFromProjection,
-  readActiveRunModeFromProjection
-} from "./runtime-workflow-lifecycle-data.js";
 
 export type SymphonyRuntimeRouteLifecycleService = {
   workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
@@ -83,8 +75,8 @@ export type SymphonyRuntimeRouteLifecycleService = {
     issueIdentifier: string;
     runId: string;
     recordedAt: string;
-    requestKind: SymphonyCurrentFlowStateRequestKind;
-    targetState: SymphonyCurrentFlowStateRequestTargetState;
+    requestKind: string;
+    targetState: string;
   }): Promise<boolean>;
   routeReviewReworkRequest(input: {
     issueIdentifier: string;
@@ -450,7 +442,7 @@ function shouldObserveNonRunningTrackerState(input: {
   const snapshot = hydration?.hydrationState.snapshot;
   let hydratedState: string | null = null;
   if (hydration && snapshot) {
-    hydratedState = readTrackerStateFromProjection({
+    hydratedState = hydration.routing.module.runtimeAdapter.readTrackerStateFromProjection({
       workflowId: hydration.hydrationState.workflow.workflowId,
       data: snapshot.projection.data
     });
@@ -479,7 +471,7 @@ function resolveActiveRunMode(
     );
   }
 
-  return readActiveRunModeFromProjection({
+  return hydration.routing.module.runtimeAdapter.readActiveRunModeFromProjection({
     workflowId: hydration.hydrationState.workflow.workflowId,
     data: snapshot.projection.data
   });
