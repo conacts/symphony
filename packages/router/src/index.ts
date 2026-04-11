@@ -56,6 +56,17 @@ export {
   WorkflowSession
 } from "./workflow-session.js";
 export {
+  createSymphonyAutoMergeFlowRouter,
+  createSymphonyAutoMergeFlowRouterAsync,
+  createSymphonyAutoMergeFlowRouterPreset,
+  createSymphonyAutoMergeFlowRouterDefinition
+} from "./symphony-auto-merge-flow-router.js";
+export type {
+  SymphonyAutoMergeFlowData,
+  SymphonyAutoMergeFlowNode,
+  SymphonyAutoMergeFlowPolicy
+} from "./symphony-auto-merge-flow-router.js";
+export {
   createSymphonyCurrentFlowRouter,
   createSymphonyCurrentFlowRouterAsync,
   createSymphonyCurrentFlowRouterPreset,

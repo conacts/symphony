@@ -109,4 +109,55 @@ describe("runtime workflow preset selection", () => {
       })
     ).toThrow(/selects an invalid workflow preset/i);
   });
+
+  it("accepts alternate built-in workflow presets from the runtime manifest", () => {
+    expect(
+      resolveRuntimeWorkflowPresetSelection({
+        runtimeManifest: {
+          repoRoot: "/tmp/source-repo",
+          manifestPath: "/tmp/source-repo/.symphony/runtime.ts",
+          manifest: {
+            schemaVersion: 1,
+            repositoryKey: "openai/symphony",
+            linear: {
+              teamKey: "SYM"
+            },
+            workspace: {
+              packageManager: "pnpm",
+              workingDirectory: "."
+            },
+            services: {},
+            workflow: {
+              defaultRouterPreset: "auto-merge"
+            },
+            pi: null,
+            env: {
+              host: {
+                required: [],
+                optional: []
+              },
+              inject: {}
+            },
+            lifecycle: {
+              bootstrap: [],
+              migrate: [],
+              verify: [
+                {
+                  name: "verify",
+                  run: "pnpm test"
+                }
+              ],
+              seed: [],
+              cleanup: []
+            }
+          }
+        }
+      })
+    ).toEqual({
+      presetId: "auto-merge",
+      source: "runtime_manifest",
+      repositoryKey: "openai/symphony",
+      manifestPath: "/tmp/source-repo/.symphony/runtime.ts"
+    });
+  });
 });

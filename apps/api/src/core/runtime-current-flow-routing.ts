@@ -1,4 +1,5 @@
 import {
+  type WorkflowRouterPreset,
   createSymphonyCurrentFlowDeliveryReportedSignal,
   createSymphonyCurrentFlowMergeResultReportedSignal,
   createSymphonyCurrentFlowReviewReworkRequestedSignal,
@@ -38,17 +39,29 @@ export type SymphonyRuntimeCurrentFlowRouter = WorkflowRouter<
 >;
 
 export const runtimeCurrentFlowRuntimeRouterPresetModule =
-  createCurrentFlowRuntimeRouterPresetModule();
+  createRuntimeCurrentFlowPresetModule({
+    presetId: "current-flow",
+    preset: createSymphonyCurrentFlowRouterPreset()
+  });
 
-function createCurrentFlowRuntimeRouterPresetModule(): SymphonyRuntimeWorkflowPresetModule<
-  "current-flow",
+export function createRuntimeCurrentFlowPresetModule<
+  PresetId extends string,
+>(input: {
+  presetId: PresetId;
+  preset: WorkflowRouterPreset<
+    SymphonyCurrentFlowNode,
+    SymphonyCurrentFlowData,
+    SymphonyCurrentFlowPolicy
+  >;
+}): SymphonyRuntimeWorkflowPresetModule<
+  PresetId,
   SymphonyCurrentFlowNode,
   SymphonyCurrentFlowData,
   SymphonyCurrentFlowPolicy
 > {
   return {
-    presetId: "current-flow",
-    preset: createSymphonyCurrentFlowRouterPreset(),
+    presetId: input.presetId,
+    preset: input.preset,
     runtimeAdapter: createCurrentFlowRuntimeWorkflowPresetAdapter(),
     assertTrackerContract(input) {
       assertCurrentFlowTrackerContract(input.trackerConfig);

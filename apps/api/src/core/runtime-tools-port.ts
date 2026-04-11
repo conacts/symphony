@@ -12,6 +12,7 @@ import {
 } from "@symphony/runtime-tools";
 import type { SymphonyRuntimeToolsPort } from "./runtime-app-types.js";
 import type { SymphonyRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
+import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 
 type RuntimeToolsRouteLifecycle = Pick<
   SymphonyRuntimeRouteLifecycleService,
@@ -25,6 +26,9 @@ export function createRuntimeToolsPort(input: {
   blockedTargetState: string | null;
   pauseTargetState: string | null;
   canceledTargetState: string;
+  onDispatchRequested?(
+    input: SymphonyTrackerStateDispatchRequest
+  ): Promise<void> | void;
 }): SymphonyRuntimeToolsPort {
   return {
     async recordDeliveryReport(toolInput) {
@@ -45,7 +49,8 @@ export function createRuntimeToolsPort(input: {
               issueIdentifier: request.issueIdentifier,
               runId: toolInput.runId,
               recordedAt: request.recordedAt,
-              status
+              status,
+              onDispatchRequested: input.onDispatchRequested
             });
 
             return buildRoutedTransitionResult({

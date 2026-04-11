@@ -563,7 +563,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     routeLifecycle,
     blockedTargetState: runtimePolicy.tracker.blockedTransitionToState,
     pauseTargetState: runtimePolicy.tracker.pauseTransitionToState,
-    canceledTargetState: "Canceled"
+    canceledTargetState: "Canceled",
+    onDispatchRequested: dispatchObservedIssue
   });
 
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({

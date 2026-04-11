@@ -6,9 +6,11 @@ import type {
 import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
+import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import {
   executeSettledRouteCommand,
   normalizeWorkflowToken,
+  readDispatchRunMode,
   readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
 
@@ -19,6 +21,9 @@ export type SymphonyDeliveryRoutingInput = {
   runId: string;
   recordedAt: string;
   status: SymphonyDeliveryStatus;
+  onDispatchRequested?(
+    input: SymphonyTrackerStateDispatchRequest
+  ): Promise<void> | void;
 };
 
 export type SymphonyDeliveryRoutingResult = {
@@ -81,7 +86,8 @@ export async function createRuntimeDeliveryRouter(input: {
         session: resumed.session,
         recordedAt: deliveryInput.recordedAt,
         presetAdapter,
-        status: deliveryInput.status
+        status: deliveryInput.status,
+        onDispatchRequested: deliveryInput.onDispatchRequested
       });
 
       return {
@@ -101,32 +107,80 @@ async function executeDeliveryCommands(input: {
   recordedAt: string;
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   status: SymphonyDeliveryStatus;
+  onDispatchRequested?(
+    input: SymphonyTrackerStateDispatchRequest
+  ): Promise<void> | void;
 }): Promise<SymphonyTrackerIssue> {
   let currentIssue = input.issue;
 
   for (const command of input.commands) {
-    if (command.kind !== "tracker.transition") {
+    if (command.kind === "tracker.transition") {
+      currentIssue = await executeSettledRouteCommand({
+        routeWorkflows: input.routeWorkflows,
+        workflowId: input.workflowId,
+        session: input.session,
+        command,
+        recordedAt: input.recordedAt,
+        async execute(executedCommand) {
+          return await executeDeliveryTrackerTransition({
+            presetAdapter: input.presetAdapter,
+            command: executedCommand,
+            issue: currentIssue,
+            tracker: input.tracker,
+            status: input.status
+          });
+        }
+      });
+      continue;
+    }
+
+    if (command.kind === "run.dispatch") {
+      await executeSettledRouteCommand({
+        routeWorkflows: input.routeWorkflows,
+        workflowId: input.workflowId,
+        session: input.session,
+        command,
+        recordedAt: input.recordedAt,
+        async execute(executedCommand) {
+          if (input.status !== "completed") {
+            throw new TypeError(
+              `Delivery routing only supports run.dispatch for completed delivery reports. Received ${input.status}.`
+            );
+          }
+
+          const runMode = readDispatchRunMode({
+            adapter: input.presetAdapter,
+            command: executedCommand
+          });
+          if (runMode !== "approved_merge") {
+            throw new TypeError(
+              `Delivery routing only supports run.dispatch approved_merge for completed delivery reports. Received ${runMode}.`
+            );
+          }
+
+          if (!input.onDispatchRequested) {
+            throw new TypeError(
+              "Delivery routing emitted run.dispatch without a dispatch callback."
+            );
+          }
+
+          await input.onDispatchRequested({
+            workflowId: input.workflowId,
+            commandId: executedCommand.id,
+            issue: currentIssue,
+            runMode,
+            recordedAt: input.recordedAt
+          });
+        }
+      });
+      continue;
+    }
+
+    {
       throw new TypeError(
         `Delivery routing does not support command kind ${command.kind}.`
       );
     }
-
-    currentIssue = await executeSettledRouteCommand({
-      routeWorkflows: input.routeWorkflows,
-      workflowId: input.workflowId,
-      session: input.session,
-      command,
-      recordedAt: input.recordedAt,
-      async execute(executedCommand) {
-        return await executeDeliveryTrackerTransition({
-          presetAdapter: input.presetAdapter,
-          command: executedCommand,
-          issue: currentIssue,
-          tracker: input.tracker,
-          status: input.status
-        });
-      }
-    });
   }
 
   return currentIssue;
@@ -143,22 +197,22 @@ async function executeDeliveryTrackerTransition(input: {
     adapter: input.presetAdapter,
     command: input.command
   });
-  const expectedTargetState =
+  const expectedTargetStates =
     input.status === "completed"
-      ? "In Review"
+      ? ["In Review", "Approved"]
       : input.status === "blocked"
-        ? "Blocked"
-        : null;
+        ? ["Blocked"]
+        : [];
 
-  if (!expectedTargetState) {
+  if (expectedTargetStates.length === 0) {
     throw new TypeError(
       `Delivery routing only supports explicit tracker transitions for completed or blocked delivery statuses. Received ${input.status}.`
     );
   }
 
-  if (targetState !== expectedTargetState) {
+  if (!expectedTargetStates.includes(targetState)) {
     throw new TypeError(
-      `Delivery routing only supports tracker transitions to ${expectedTargetState} for ${input.status} delivery reports. Received ${String(targetState)}.`
+      `Delivery routing only supports tracker transitions to ${expectedTargetStates.join(" or ")} for ${input.status} delivery reports. Received ${String(targetState)}.`
     );
   }
 

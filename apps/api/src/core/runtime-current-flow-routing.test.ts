@@ -14,25 +14,35 @@ import {
 } from "@symphony/router";
 
 describe("runtime router preset selection", () => {
-  it("lists and resolves the registered current-flow preset", async () => {
+  it("lists and resolves the registered workflow presets", async () => {
     const runtimePolicy = buildSymphonyRuntimePolicy();
 
-    expect(listRuntimeRouterPresetIds()).toEqual(["current-flow"]);
+    expect(listRuntimeRouterPresetIds()).toEqual(["auto-merge", "current-flow"]);
     expect(getDefaultRuntimeRouterPresetId()).toBe("current-flow");
 
-    const routing = await selectRuntimeRouterPreset({
+    const currentFlowRouting = await selectRuntimeRouterPreset({
       trackerConfig: runtimePolicy.tracker,
       presetId: "current-flow",
       now: () => new Date("2026-04-10T00:00:00.000Z")
     });
+    const autoMergeRouting = await selectRuntimeRouterPreset({
+      trackerConfig: runtimePolicy.tracker,
+      presetId: "auto-merge",
+      now: () => new Date("2026-04-10T00:00:00.000Z")
+    });
 
-    expect(routing.presetId).toBe("current-flow");
-    expect(routing.module.presetId).toBe("current-flow");
-    expect(routing.router.definition().name).toBe("symphony-current-flow");
-    expect(routing.router.definition().version).toBe("1");
-    expect(routing.policy).toEqual({});
+    expect(currentFlowRouting.presetId).toBe("current-flow");
+    expect(currentFlowRouting.module.presetId).toBe("current-flow");
+    expect(currentFlowRouting.router.definition().name).toBe("symphony-current-flow");
+    expect(currentFlowRouting.router.definition().version).toBe("1");
+    expect(currentFlowRouting.policy).toEqual({});
+    expect(autoMergeRouting.presetId).toBe("auto-merge");
+    expect(autoMergeRouting.module.presetId).toBe("auto-merge");
+    expect(autoMergeRouting.router.definition().name).toBe("symphony-auto-merge-flow");
+    expect(autoMergeRouting.router.definition().version).toBe("1");
+    expect(autoMergeRouting.policy).toEqual({});
     expect(
-      routing.module.runtimeAdapter.readTrackerTransitionState(
+      currentFlowRouting.module.runtimeAdapter.readTrackerTransitionState(
         createSymphonyCurrentFlowTrackerTransitionCommand({
           id: "command_tracker_bootstrapping",
           dedupeKey: null,
@@ -41,7 +51,7 @@ describe("runtime router preset selection", () => {
       )
     ).toBe("Bootstrapping");
     expect(
-      routing.module.runtimeAdapter.readDispatchRunMode(
+      currentFlowRouting.module.runtimeAdapter.readDispatchRunMode(
         createSymphonyCurrentFlowDispatchCommand({
           id: "command_dispatch_implementation",
           dedupeKey: null,

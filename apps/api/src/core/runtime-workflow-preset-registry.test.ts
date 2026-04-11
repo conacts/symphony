@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
+import { runtimeAutoMergeRuntimeRouterPresetModule } from "./runtime-auto-merge-routing.js";
 import { runtimeCurrentFlowRuntimeRouterPresetModule } from "./runtime-current-flow-routing.js";
 import { createSymphonyRuntimeWorkflowPresetRegistry } from "./runtime-workflow-preset-registry.js";
 
 describe("runtime workflow preset registry", () => {
+  it("lists multiple registered preset ids", () => {
+    const registry = createSymphonyRuntimeWorkflowPresetRegistry({
+      defaultPresetId: "current-flow",
+      modules: {
+        "auto-merge": runtimeAutoMergeRuntimeRouterPresetModule,
+        "current-flow": runtimeCurrentFlowRuntimeRouterPresetModule
+      }
+    });
+
+    expect(registry.listPresetIds()).toEqual(["auto-merge", "current-flow"]);
+  });
+
   it("fails fast when the default preset id is not registered", () => {
     const modules = {
       "current-flow": runtimeCurrentFlowRuntimeRouterPresetModule

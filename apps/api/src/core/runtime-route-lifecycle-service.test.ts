@@ -18,7 +18,10 @@ import {
   buildSymphonyTrackerIssue
 } from "@symphony/test-support";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
-import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
+import {
+  createRuntimeCurrentFlowRouting,
+  type SymphonyRuntimeRouterPresetId
+} from "./runtime-workflow-presets.js";
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createDefaultRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
@@ -634,6 +637,61 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("auto-merge delivery reports can approve and dispatch merge work through the same host seam", async () => {
+    const harness = await createHarness({
+      state: "Todo",
+      presetId: "auto-merge"
+    });
+
+    try {
+      await advanceWorkflowToRunningImplementation(harness);
+      const dispatchRequests: Array<{
+        workflowId: string;
+        issueState: string;
+        runMode: string;
+      }> = [];
+
+      const routed = await harness.service.routeDeliveryReport({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        recordedAt: "2026-04-10T14:12:05.000Z",
+        status: "completed",
+        onDispatchRequested: async (input) => {
+          dispatchRequests.push({
+            workflowId: input.workflowId,
+            issueState: input.issue.state,
+            runMode: input.runMode
+          });
+        }
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Approved");
+      expect(dispatchRequests).toEqual([
+        {
+          workflowId: expect.any(String),
+          issueState: "Approved",
+          runMode: "approved_merge"
+        }
+      ]);
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.workflow.routerPresetId).toBe("auto-merge");
+      expect(hydration?.workflow.routerName).toBe("symphony-auto-merge-flow");
+      expect(hydration?.snapshot?.projection.currentNode).toBe("approved_merge");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Approved");
+      expect(hydration?.snapshot?.projection.lastSignal?.type).toBe(
+        "runtime.delivery_reported"
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
   it("routes blocked delivery reports through route history for active implementation runs", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -1027,6 +1085,7 @@ describe("runtime route lifecycle service", () => {
 
 async function createHarness(input: {
   state: "Todo" | "Approved";
+  presetId?: SymphonyRuntimeRouterPresetId;
 }) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-route-lifecycle-service-"));
   tempDirectories.push(root);
@@ -1059,7 +1118,10 @@ async function createHarness(input: {
       tracker,
       trackerConfig: runtimePolicy.tracker,
       repositoryKey: "openai/symphony",
-      presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+      presetSelection: {
+        ...createDefaultRuntimeWorkflowPresetSelection(),
+        presetId: input.presetId ?? "current-flow"
+      },
       now: () => new Date(nowIso)
     });
   }

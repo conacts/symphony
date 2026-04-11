@@ -74,6 +74,9 @@ export type SymphonyRuntimeRouteLifecycleService = {
     runId: string;
     recordedAt: string;
     status: SymphonyDeliveryStatus;
+    onDispatchRequested?(
+      input: SymphonyTrackerStateDispatchRequest
+    ): Promise<void> | void;
   }): Promise<boolean>;
   routeMergeResult(input: {
     issueIdentifier: string;
@@ -390,7 +393,8 @@ export async function createRuntimeRouteLifecycleService(input: {
         issue,
         runId: deliveryInput.runId,
         recordedAt: deliveryInput.recordedAt,
-        status: deliveryInput.status
+        status: deliveryInput.status,
+        onDispatchRequested: deliveryInput.onDispatchRequested
       });
       return true;
     },

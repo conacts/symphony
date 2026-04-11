@@ -8,7 +8,10 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
-import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
+import {
+  createRuntimeAutoMergeRouting,
+  createRuntimeCurrentFlowRouting
+} from "./runtime-workflow-presets.js";
 import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 
@@ -47,6 +50,34 @@ describe("runtime workflow session loader", () => {
       expect(loaded?.resumed.hydrationState.workflow.workflowId).toBe(
         ensured.workflow.workflowId
       );
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("resumes alternate preset workflows from stored workflow identity", async () => {
+    const harness = await createHarness();
+
+    try {
+      const routing = await createRuntimeAutoMergeRouting({
+        trackerConfig: harness.runtimePolicy.tracker,
+        now: () => new Date("2026-04-10T16:02:00.000Z")
+      });
+      const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
+        issueIdentifier: harness.issue.identifier,
+        repositoryKey: "openai/symphony",
+        routerPresetId: routing.presetId,
+        router: routing.router,
+        createdAt: "2026-04-10T16:02:00.000Z"
+      });
+
+      const loaded = await harness.sessionLoader.resumeByWorkflowId({
+        workflowId: ensured.workflow.workflowId
+      });
+
+      expect(loaded).not.toBeNull();
+      expect(loaded?.routing.presetId).toBe("auto-merge");
+      expect(loaded?.routing.router.definition().name).toBe("symphony-auto-merge-flow");
     } finally {
       harness.close();
     }
@@ -149,6 +180,7 @@ async function createHarness() {
   return {
     database,
     issue,
+    runtimePolicy,
     routeWorkflows,
     routing,
     sessionLoader,
