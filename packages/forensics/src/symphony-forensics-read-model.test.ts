@@ -248,6 +248,7 @@ function createRunSummary(
     trackerIssueId: "issue-1",
     issueIdentifier: "COL-157",
     attempt: 1,
+    runMode: "implementation",
     status: "finished",
     outcome: "paused_max_turns",
     agentHarness: "pi",

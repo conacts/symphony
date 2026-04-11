@@ -23,6 +23,7 @@ export type {
   SymphonyRunExport,
   SymphonyRunFinishAttrs,
   SymphonyRunMode,
+  SymphonyRunStatus,
   SymphonyRuntimeRunLedger,
   SymphonyRuntimeRunLedgerDocument,
   SymphonyRuntimeRunLedgerListOptions,
@@ -36,5 +37,6 @@ export type {
   SymphonyTurnFinishAttrs,
   SymphonyTurnRecord,
   SymphonyTurnStartAttrs,
+  SymphonyTurnStatus,
   SymphonyTurnUpdateAttrs
 } from "./runtime-run-ledger-types.js";

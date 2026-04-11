@@ -28,6 +28,21 @@ export type SymphonyIssueRecord = {
 };
 
 export type SymphonyRunMode = "implementation" | "rework" | "approved_merge";
+export type SymphonyRunStatus =
+  | "dispatching"
+  | "running"
+  | "finished"
+  | "paused"
+  | "failed"
+  | "startup_failed"
+  | "rate_limited"
+  | "stalled"
+  | "stopped";
+export type SymphonyTurnStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "stopped";
 
 export type SymphonyRunRecord = {
   runId: string;
@@ -35,7 +50,7 @@ export type SymphonyRunRecord = {
   issueIdentifier: string;
   attempt: number | null;
   runMode: SymphonyRunMode;
-  status: string;
+  status: SymphonyRunStatus;
   outcome: string | null;
   workerHost: string | null;
   workspacePath: string | null;
@@ -59,7 +74,7 @@ export type SymphonyTurnRecord = {
   threadId: string;
   agentTurnId: string | null;
   promptText: string;
-  status: string;
+  status: SymphonyTurnStatus;
   startedAt: SymphonyIsoTimestamp;
   endedAt: SymphonyIsoTimestamp | null;
   usage: SymphonyAgentUsage | null;
@@ -101,7 +116,7 @@ export type SymphonyRunStartAttrs = {
   runId: string;
   attempt?: number | null;
   runMode: SymphonyRunMode;
-  status?: string;
+  status?: SymphonyRunStatus;
   workerHost?: string | null;
   workspacePath?: string | null;
   startedAt: Date | SymphonyIsoTimestamp;
@@ -116,7 +131,7 @@ export type SymphonyTurnStartAttrs = {
   threadId: string;
   agentTurnId?: string | null;
   promptText: string;
-  status?: string;
+  status?: SymphonyTurnStatus;
   startedAt: Date | SymphonyIsoTimestamp;
   metadata?: SymphonyJsonObject | null;
 };
@@ -133,7 +148,7 @@ export type SymphonyEventAttrs = {
 };
 
 export type SymphonyTurnUpdateAttrs = {
-  status?: string;
+  status?: SymphonyTurnStatus;
   startedAt?: Date | SymphonyIsoTimestamp | null;
   endedAt?: Date | SymphonyIsoTimestamp | null;
   threadId?: string;
@@ -143,7 +158,7 @@ export type SymphonyTurnUpdateAttrs = {
 };
 
 export type SymphonyTurnFinishAttrs = {
-  status?: string;
+  status?: SymphonyTurnStatus;
   endedAt?: Date | SymphonyIsoTimestamp;
   threadId?: string;
   agentTurnId?: string | null;
@@ -152,7 +167,7 @@ export type SymphonyTurnFinishAttrs = {
 };
 
 export type SymphonyRunUpdateAttrs = {
-  status?: string;
+  status?: SymphonyRunStatus;
   outcome?: string | null;
   workerHost?: string | null;
   workspacePath?: string | null;
@@ -168,7 +183,7 @@ export type SymphonyRunUpdateAttrs = {
 };
 
 export type SymphonyRunFinishAttrs = {
-  status?: string;
+  status?: SymphonyRunStatus;
   outcome?: string | null;
   endedAt?: Date | SymphonyIsoTimestamp;
   commitHashEnd?: string | null;
@@ -184,7 +199,7 @@ export type SymphonyIssueSummary = {
   issueIdentifier: string;
   latestRunStartedAt: SymphonyIsoTimestamp | null;
   latestRunId: string | null;
-  latestRunStatus: string | null;
+  latestRunStatus: SymphonyRunStatus | null;
   latestRunOutcome: string | null;
   runCount: number;
   latestProblemOutcome: string | null;
@@ -200,7 +215,7 @@ export type SymphonyRunSummary = {
   issueIdentifier: string;
   attempt: number | null;
   runMode: SymphonyRunMode;
-  status: string | null;
+  status: SymphonyRunStatus;
   outcome: string | null;
   workerHost: string | null;
   workspacePath: string | null;

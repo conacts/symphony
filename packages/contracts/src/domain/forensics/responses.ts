@@ -21,17 +21,34 @@ import {
   symphonyRuntimeLogEntrySchema
 } from "../runtime/responses.js";
 
-const terminalRunStatuses = new Set([
+const symphonyForensicsRuntimeRunStatusSchema = z.enum([
+  "dispatching",
+  "running",
   "finished",
-  "completed",
-  "failed",
   "paused",
+  "failed",
   "startup_failed",
   "rate_limited",
-  "stalled"
+  "stalled",
+  "stopped"
+]);
+const terminalRunStatuses = new Set([
+  "finished",
+  "paused",
+  "failed",
+  "startup_failed",
+  "rate_limited",
+  "stalled",
+  "stopped"
 ]);
 
-const terminalTurnStatuses = new Set(["completed", "failed"]);
+const symphonyForensicsRuntimeTurnStatusSchema = z.enum([
+  "running",
+  "completed",
+  "failed",
+  "stopped"
+]);
+const terminalTurnStatuses = new Set(["completed", "failed", "stopped"]);
 const symphonyAgentRunStatusSchema = z.enum([
   "dispatching",
   "running",
@@ -82,7 +99,7 @@ export const symphonyForensicsIssueSummarySchema = z.strictObject({
   issueIdentifier: nonEmptyStringSchema,
   latestRunStartedAt: isoTimestampSchema.nullable(),
   latestRunId: nullableNonEmptyStringSchema,
-  latestRunStatus: nullableNonEmptyStringSchema,
+  latestRunStatus: symphonyForensicsRuntimeRunStatusSchema.nullable(),
   latestRunOutcome: nullableNonEmptyStringSchema,
   runCount: z.number().int().nonnegative(),
   completedRunCount: z.number().int().nonnegative(),
@@ -122,7 +139,7 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   issueIdentifier: nonEmptyStringSchema,
   attempt: z.number().int().nonnegative().nullable(),
   runMode: z.enum(["implementation", "rework", "approved_merge"]),
-  status: nonEmptyStringSchema,
+  status: symphonyForensicsRuntimeRunStatusSchema,
   outcome: nullableNonEmptyStringSchema,
   agentHarness: symphonyForensicsActiveHarnessSchema.nullable().default(null),
   agentStatus: symphonyAgentRunStatusSchema.nullable(),
@@ -296,7 +313,7 @@ const symphonyForensicsIssueExportSchema = z.strictObject({
   issueIdentifier: nonEmptyStringSchema,
   latestRunStartedAt: isoTimestampSchema.nullable(),
   latestRunId: nullableNonEmptyStringSchema,
-  latestRunStatus: nullableNonEmptyStringSchema,
+  latestRunStatus: symphonyForensicsRuntimeRunStatusSchema.nullable(),
   latestRunOutcome: nullableNonEmptyStringSchema,
   runCount: z.number().int().nonnegative(),
   latestProblemOutcome: nullableNonEmptyStringSchema,
@@ -363,7 +380,7 @@ const symphonyForensicsTurnSchema = z.strictObject({
   threadId: nonEmptyStringSchema,
   agentTurnId: nullableNonEmptyStringSchema,
   promptText: nonEmptyStringSchema,
-  status: nonEmptyStringSchema,
+  status: symphonyForensicsRuntimeTurnStatusSchema,
   startedAt: isoTimestampSchema,
   endedAt: isoTimestampSchema.nullable(),
   usage: symphonyAgentUsageSchema.nullable(),

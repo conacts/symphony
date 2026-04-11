@@ -26,7 +26,9 @@ import {
 import {
   buildRuntimeIssueSummary,
   buildRuntimeRunSummary,
-  isProblemOutcome
+  isProblemOutcome,
+  normalizeRuntimeRunStatus as assertRuntimeRunStatus,
+  normalizeRuntimeTurnStatus as assertRuntimeTurnStatus
 } from "./runtime-run-summary.js";
 import {
   symphonyEventsTable,
@@ -491,6 +493,7 @@ function castRunRecord(
 ): SymphonyRunExport["run"] {
   return {
     ...run,
+    status: assertRuntimeRunStatus(run.status),
     repoStart: (run.repoStart ?? null) as SymphonyJsonObject | null,
     repoEnd: (run.repoEnd ?? null) as SymphonyJsonObject | null,
     metadata: (run.metadata ?? null) as SymphonyJsonObject | null
@@ -505,6 +508,7 @@ function castTurnExport(
 ): SymphonyRunExport["turns"][number] {
   return {
     ...turn,
+    status: assertRuntimeTurnStatus(turn.status),
     threadId: turn.threadId,
     agentTurnId: turn.agentTurnId ?? null,
     usage: (turn.usage ?? null) as {

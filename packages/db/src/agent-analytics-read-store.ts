@@ -68,7 +68,8 @@ import {
   buildRuntimeIssueSummary,
   buildRuntimeRunSummary,
   computeRuntimeRunTokenTotals,
-  isProblemOutcome
+  isProblemOutcome,
+  normalizeRuntimeTurnStatus
 } from "./runtime-run-summary.js";
 
 type SymphonyDbShape = typeof import("./schema.js").symphonySchema;
@@ -697,7 +698,7 @@ function buildForensicsRunSummary(
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
     runMode: run.runMode,
-    status: run.status,
+    status: runtimeSummary.status,
     outcome: run.outcome,
     agentHarness: runtimeContext?.harness ?? null,
     agentStatus: normalizeAgentRunStatus(run.status),
@@ -1738,6 +1739,7 @@ function mapForensicsTurnRecord(
 
   return {
     ...turn,
+    status: normalizeRuntimeTurnStatus(turn.status),
     threadId,
     usage: buildUsage(turn.usage),
     metadata: castJsonObject(turn.metadata)

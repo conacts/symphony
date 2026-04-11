@@ -1,6 +1,8 @@
 import type {
   SymphonyIssueSummary,
-  SymphonyRunSummary
+  SymphonyRunStatus,
+  SymphonyRunSummary,
+  SymphonyTurnStatus
 } from "@symphony/runtime-run-ledger";
 import {
   symphonyEventsTable,
@@ -57,7 +59,7 @@ export function buildRuntimeRunSummary(
     issueIdentifier: run.issueIdentifier,
     attempt: run.attempt,
     runMode: run.runMode,
-    status: run.status,
+    status: normalizeRuntimeRunStatus(run.status),
     outcome: run.outcome,
     workerHost: run.workerHost,
     workspacePath: run.workspacePath,
@@ -118,7 +120,7 @@ export function buildRuntimeIssueSummary(
     issueIdentifier: issue.issueIdentifier,
     latestRunStartedAt: issue.latestRunStartedAt ?? null,
     latestRunId: latestRun?.runId ?? null,
-    latestRunStatus: latestRun?.status ?? null,
+    latestRunStatus: latestRun ? normalizeRuntimeRunStatus(latestRun.status) : null,
     latestRunOutcome: latestRun?.outcome ?? null,
     runCount: issueRuns.length,
     latestProblemOutcome: latestProblemRun?.outcome ?? null,
@@ -187,4 +189,33 @@ function isCompletedOutcome(outcome: string | null): boolean {
 
 export function isProblemOutcome(outcome: string | null): boolean {
   return typeof outcome === "string" && !isCompletedOutcome(outcome);
+}
+
+export function normalizeRuntimeRunStatus(status: string): SymphonyRunStatus {
+  switch (status) {
+    case "dispatching":
+    case "running":
+    case "finished":
+    case "paused":
+    case "failed":
+    case "startup_failed":
+    case "rate_limited":
+    case "stalled":
+    case "stopped":
+      return status;
+    default:
+      throw new TypeError(`Unknown runtime run status: ${status}`);
+  }
+}
+
+export function normalizeRuntimeTurnStatus(status: string): SymphonyTurnStatus {
+  switch (status) {
+    case "running":
+    case "completed":
+    case "failed":
+    case "stopped":
+      return status;
+    default:
+      throw new TypeError(`Unknown runtime turn status: ${status}`);
+  }
 }
