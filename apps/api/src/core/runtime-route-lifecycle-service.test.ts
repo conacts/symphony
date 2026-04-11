@@ -422,6 +422,52 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("continues active issue routing after service restart from persisted workflow history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
+        issue: harness.issue,
+        attempt: 1,
+        preferredWorkerHost: null,
+        startedAt: "2026-04-10T14:00:00.000Z"
+      });
+      const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
+      await harness.service.workflowRoutingAdapter.activateRunStart({
+        issue: bootstrappingIssue!,
+        runId: "run-1",
+        runMode: "implementation",
+        threadId: "thread-1",
+        workerHost: null,
+        launchTarget: null,
+        recordedAt: "2026-04-10T14:00:05.000Z"
+      });
+
+      await harness.restartService("2026-04-10T14:00:06.000Z");
+      await harness.tracker.updateIssueState(harness.issue.id, "In Review");
+
+      const observed = await harness.service.observeActiveIssueStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:00:10.000Z"
+      });
+
+      expect(observed).toBe(true);
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("review");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("In Review");
+      expect(hydration?.latestDecision?.reasonCode).toBe("delivery_recorded");
+    } finally {
+      harness.close();
+    }
+  });
+
   it("returns false when no route workflow exists for the issue", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -654,6 +700,67 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("continues review rework routing after service restart from persisted review history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToReview(harness);
+      await harness.restartService("2026-04-10T14:12:55.000Z");
+
+      const dispatchRequests: Array<{
+        workflowId: string;
+        issueState: string;
+        runMode: string;
+      }> = [];
+
+      const routed = await harness.service.routeReviewReworkRequest({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:13:00.000Z",
+        handoff: buildSymphonyReworkHandoff({
+          triggerKind: "changes_requested_review",
+          recordedAt: "2026-04-10T14:13:00.000Z"
+        }),
+        onDispatchRequested: async (input) => {
+          dispatchRequests.push({
+            workflowId: input.workflowId,
+            issueState: input.issue.state,
+            runMode: input.runMode
+          });
+        }
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
+      expect(dispatchRequests).toEqual([
+        {
+          workflowId: expect.any(String),
+          issueState: "Bootstrapping",
+          runMode: "rework"
+        }
+      ]);
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("bootstrapping");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Bootstrapping");
+      expect(hydration?.snapshot?.projection.data.lastDispatchMode).toBe("rework");
+      expect(hydration?.snapshot?.projection.data.latestReworkHandoff).toEqual(
+        expect.objectContaining({
+          triggerKind: "changes_requested_review",
+          recordedAt: "2026-04-10T14:13:00.000Z"
+        })
+      );
+      expect(hydration?.latestDecision?.reasonCode).toBe("review_requested_rework");
+    } finally {
+      harness.close();
+    }
+  });
+
   it("routes blocked merge results into Blocked through route history", async () => {
     const harness = await createHarness({
       state: "Approved"
@@ -859,20 +966,30 @@ async function createHarness(input: {
     repositoryKey: "openai/symphony"
   });
 
-  const service = await createRuntimeRouteLifecycleService({
-    routeWorkflows,
-    tracker,
-    trackerConfig: runtimePolicy.tracker,
-    repositoryKey: "openai/symphony",
-    presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
-    now: () => new Date("2026-04-10T14:00:00.000Z")
-  });
+  async function buildService(nowIso: string) {
+    return await createRuntimeRouteLifecycleService({
+      routeWorkflows,
+      tracker,
+      trackerConfig: runtimePolicy.tracker,
+      repositoryKey: "openai/symphony",
+      presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+      now: () => new Date(nowIso)
+    });
+  }
+
+  let service = await buildService("2026-04-10T14:00:00.000Z");
 
   return {
     issue,
     tracker,
     routeWorkflows,
-    service,
+    get service() {
+      return service;
+    },
+    async restartService(nowIso: string) {
+      service = await buildService(nowIso);
+      return service;
+    },
     close() {
       database.close();
     }
