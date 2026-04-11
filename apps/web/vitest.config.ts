@@ -14,11 +14,7 @@ export default mergeConfig(
     },
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "./src"),
-        "@symphony/contracts": path.resolve(
-          __dirname,
-          "../../packages/contracts/src/index.ts"
-        )
+        "@": path.resolve(__dirname, "./src")
       }
     },
     test: {
