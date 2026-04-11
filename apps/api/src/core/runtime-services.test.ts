@@ -965,6 +965,100 @@ describe("runtime services", () => {
     },
     runtimeServicesIntegrationTestTimeoutMs
   );
+
+  it(
+    "exposes workflow comparison through runtime services",
+    async () => {
+      const harness = await createSymphonyRuntimeAppServicesHarness();
+      harnesses.push(harness);
+
+      try {
+        const repositoryKey = harness.services.runtimePolicy.github.repo;
+        if (!repositoryKey) {
+          throw new TypeError(
+            "Runtime workflow comparison service test requires runtimePolicy.github.repo."
+          );
+        }
+
+        const issue = buildSymphonyTrackerIssue({
+          id: "issue-compare-flow",
+          identifier: "SYM-COMPARE",
+          state: "Todo"
+        });
+        const tracker = harness.services.tracker as MemorySymphonyTracker;
+        tracker.setIssues([issue]);
+
+        await seedCurrentFlowWorkflowHistory({
+          services: harness.services,
+          trackerConfig: harness.services.runtimePolicy.tracker,
+          repositoryKey,
+          issueIdentifier: issue.identifier,
+          trackerIssueId: issue.id,
+          dbFile: harness.env.dbFile,
+          createdAt: "2026-04-11T12:00:00.000Z",
+          signals: [
+            {
+              id: "signal_todo_observed",
+              signal: (routing) =>
+                routing.module.runtimeAdapter.createTrackerStateObservedSignal({
+                  id: "signal_todo_observed",
+                  occurredAt: "2026-04-11T12:01:00.000Z",
+                  trackerState: "Todo",
+                  runId: null,
+                  runMode: null,
+                  causationId: null,
+                  correlationId: null
+                })
+            },
+            {
+              id: "signal_implementation_started",
+              signal: (routing) =>
+                routing.module.runtimeAdapter.createRunStartedSignal({
+                  id: "signal_implementation_started",
+                  occurredAt: "2026-04-11T12:01:10.000Z",
+                  runId: "run-compare-1",
+                  runMode: "implementation",
+                  causationId: null,
+                  correlationId: null
+                })
+            },
+            {
+              id: "signal_delivery_completed",
+              signal: (routing) =>
+                routing.module.runtimeAdapter.createDeliveryReportedSignal({
+                  id: "signal_delivery_completed",
+                  occurredAt: "2026-04-11T12:01:20.000Z",
+                  runId: "run-compare-1",
+                  status: "completed",
+                  causationId: null,
+                  correlationId: null
+                })
+            }
+          ]
+        });
+
+        const comparison =
+          await harness.services.workflowComparison.compareByIssueIdentifier({
+            issueIdentifier: issue.identifier,
+            presetIds: ["current-flow", "auto-merge"]
+          });
+
+        expect(comparison?.replay.workflow.issueIdentifier).toBe(issue.identifier);
+        expect(comparison?.comparedPresetIds).toEqual([
+          "current-flow",
+          "auto-merge"
+        ]);
+        expect(comparison?.comparison.summary.diverged).toBe(true);
+        expect(comparison?.comparison.summary.finalNodeByCandidate).toEqual({
+          "current-flow": "review",
+          "auto-merge": "approved_merge"
+        });
+      } finally {
+        await harness.cleanup();
+      }
+    },
+    runtimeServicesIntegrationTestTimeoutMs
+  );
 });
 
 async function waitFor(

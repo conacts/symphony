@@ -572,6 +572,14 @@ export async function createSymphonyRuntimeTestHarness(input: {
         };
       }
     },
+    workflowComparison: {
+      async compareByWorkflowId() {
+        return null;
+      },
+      async compareByIssueIdentifier() {
+        return null;
+      }
+    },
     routeWorkflows: {
       async ensureWorkflowForIssue() {
         throw new Error("Runtime test harness does not support route workflow writes.");

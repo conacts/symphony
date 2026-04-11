@@ -66,6 +66,10 @@ import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-l
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import {
+  compareRuntimeWorkflowByIssueIdentifier,
+  compareRuntimeWorkflowByWorkflowId
+} from "./runtime-workflow-comparison.js";
+import {
   createRuntimeTrackerStateIngressPort
 } from "./runtime-tracker-state-ingress-port.js";
 import {
@@ -566,6 +570,30 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     canceledTargetState: "Canceled",
     onDispatchRequested: dispatchObservedIssue
   });
+  const workflowComparison = {
+    async compareByWorkflowId(input: {
+      workflowId: string;
+      presetIds?: ReadonlyArray<string>;
+    }) {
+      return await compareRuntimeWorkflowByWorkflowId({
+        workflowId: input.workflowId,
+        routeWorkflows,
+        trackerConfig: runtimePolicy.tracker,
+        presetIds: input.presetIds
+      });
+    },
+    async compareByIssueIdentifier(input: {
+      issueIdentifier: string;
+      presetIds?: ReadonlyArray<string>;
+    }) {
+      return await compareRuntimeWorkflowByIssueIdentifier({
+        issueIdentifier: input.issueIdentifier,
+        routeWorkflows,
+        trackerConfig: runtimePolicy.tracker,
+        presetIds: input.presetIds
+      });
+    }
+  } satisfies SymphonyRuntimeAppServices["workflowComparison"];
 
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({
     githubPolicy: runtimePolicy.github,
@@ -709,6 +737,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     health,
     trackerStateIngress,
     runtimeTools,
+    workflowComparison,
     routeWorkflows,
     githubReviewIngress,
     realtime,

@@ -35,6 +35,9 @@ import type { SymphonyRuntimePollSchedulerSnapshot } from "./poll-scheduler.js";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 import type { RuntimeToolExecutionResult } from "@symphony/runtime-tools";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import type {
+  SymphonyRuntimeWorkflowComparison
+} from "./runtime-workflow-comparison.js";
 
 export type SymphonyRuntimeOrchestratorPort = {
   snapshot(): SymphonyOrchestratorSnapshot;
@@ -127,6 +130,17 @@ export type SymphonyRuntimeToolsPort = {
   }): Promise<RuntimeToolExecutionResult>;
 };
 
+export type SymphonyRuntimeWorkflowComparisonPort = {
+  compareByWorkflowId(input: {
+    workflowId: string;
+    presetIds?: ReadonlyArray<string>;
+  }): Promise<SymphonyRuntimeWorkflowComparison | null>;
+  compareByIssueIdentifier(input: {
+    issueIdentifier: string;
+    presetIds?: ReadonlyArray<string>;
+  }): Promise<SymphonyRuntimeWorkflowComparison | null>;
+};
+
 export type SymphonyAgentAnalyticsReadPort = {
   hasRun(
     runId: SymphonyAgentRunQuery["runId"]
@@ -182,6 +196,7 @@ export type SymphonyRuntimeAppServices = {
   health: SymphonyRuntimeHealthPort;
   trackerStateIngress: SymphonyRuntimeTrackerObservationPort;
   runtimeTools: SymphonyRuntimeToolsPort;
+  workflowComparison: SymphonyRuntimeWorkflowComparisonPort;
   routeWorkflows: SymphonyRouteWorkflowPort;
   githubReviewIngress: SymphonyGitHubReviewIngressPort;
   realtime: SymphonyRealtimeHub;
