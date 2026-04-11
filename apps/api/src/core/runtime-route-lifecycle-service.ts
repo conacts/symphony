@@ -101,13 +101,6 @@ export type SymphonyRuntimeRouteLifecycleService = {
       input: SymphonyTrackerStateDispatchRequest
     ): Promise<void> | void;
   }): Promise<SymphonyTrackerStateObservation | null>;
-  observeTrackerStateByIdentifier(input: {
-    issueIdentifier: string;
-    recordedAt: string;
-    onDispatchRequested?(
-      input: SymphonyTrackerStateDispatchRequest
-    ): Promise<void> | void;
-  }): Promise<SymphonyObservedTrackerState | null>;
   routeShutdownPause(input: {
     issueIdentifier: string;
     runId: string;
@@ -280,21 +273,6 @@ export async function createRuntimeRouteLifecycleService(input: {
         observed: true
       };
     };
-  const observeTrackerStateByIdentifier: SymphonyRuntimeRouteLifecycleService["observeTrackerStateByIdentifier"] =
-    async (observationInput) => {
-      const observed = await trackerStateObservationRouter.observe(
-        {
-          observationKind: "idle",
-          ...observationInput
-        }
-      );
-      return observed
-        ? {
-            issueIdentifier: observed.issue.identifier,
-            trackerState: observed.issue.state
-          }
-        : null;
-    };
   const routeShutdownPause: SymphonyRuntimeRouteLifecycleService["routeShutdownPause"] =
     async (shutdownInput) => {
       const issue = await input.tracker.fetchIssueByIdentifier(
@@ -392,7 +370,6 @@ export async function createRuntimeRouteLifecycleService(input: {
     },
     observeNonRunningTrackerStates,
     observeNonRunningTrackerStateByIdentifier,
-    observeTrackerStateByIdentifier,
     routeShutdownPause,
     async observeActiveIssueStateByIdentifier(observationInput) {
       const hydration =

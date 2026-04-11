@@ -90,6 +90,9 @@ export function createSymphonyAgentRuntime(input: {
     issueIdentifier: string,
     runId: string
   ): Promise<RuntimeMergeResult | null>;
+  loadCurrentWorkflowTrackerState?(
+    issueIdentifier: string
+  ): Promise<string | null>;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -122,6 +125,9 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
     issueIdentifier: string,
     runId: string
   ): Promise<RuntimeMergeResult | null>;
+  loadCurrentWorkflowTrackerState?(
+    issueIdentifier: string
+  ): Promise<string | null>;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -167,6 +173,7 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
         deliveryReports: input.deliveryReports,
         loadLatestReworkHandoff: input.loadLatestReworkHandoff,
         loadLatestMergeResult: input.loadLatestMergeResult,
+        loadCurrentWorkflowTrackerState: input.loadCurrentWorkflowTrackerState,
         agentAnalytics: input.agentAnalytics,
         runtimeLogs: input.runtimeLogs,
         runtimePolicy: runInput.runtimePolicy,
@@ -226,6 +233,9 @@ async function executeRun(input: {
     issueIdentifier: string,
     runId: string
   ): Promise<RuntimeMergeResult | null>;
+  loadCurrentWorkflowTrackerState?(
+    issueIdentifier: string
+  ): Promise<string | null>;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
@@ -613,12 +623,6 @@ async function executeRun(input: {
       }
 
       if (deliveryReport) {
-        const refreshedIssue = await refreshIssueState(
-          input.tracker,
-          input.runtimePolicy,
-          currentIssue
-        );
-        currentIssue = refreshedIssue ?? currentIssue;
         break;
       }
 
@@ -657,20 +661,28 @@ async function executeRun(input: {
       }
 
       if (deliveryReport) {
+        const authoritativeState = await loadCompletionTrackerState({
+          tracker: input.tracker,
+          runtimePolicy: input.runtimePolicy,
+          issue: currentIssue,
+          loadCurrentWorkflowTrackerState: input.loadCurrentWorkflowTrackerState,
+          completionKind: "delivery_report"
+        });
         await input.callbacks.onComplete(
           input.issue.id,
-          deliveryCompletion(deliveryReport, currentIssue, input.runtimePolicy)
+          deliveryCompletion(deliveryReport, authoritativeState, input.runtimePolicy)
         );
       } else if (mergeResult) {
-        const refreshedIssue = await refreshIssueState(
-          input.tracker,
-          input.runtimePolicy,
-          currentIssue
-        );
-        currentIssue = refreshedIssue ?? currentIssue;
+        const authoritativeState = await loadCompletionTrackerState({
+          tracker: input.tracker,
+          runtimePolicy: input.runtimePolicy,
+          issue: currentIssue,
+          loadCurrentWorkflowTrackerState: input.loadCurrentWorkflowTrackerState,
+          completionKind: "merge_result"
+        });
         await input.callbacks.onComplete(
           input.issue.id,
-          mergeResultCompletion(mergeResult, currentIssue, input.runtimePolicy)
+          mergeResultCompletion(mergeResult, authoritativeState, input.runtimePolicy)
         );
       } else if (maxTurnsReached) {
         await input.callbacks.onComplete(input.issue.id, {
@@ -862,18 +874,18 @@ function describeLaunchTarget(target: SymphonyRuntimeLaunchTarget): JsonObject {
 
 function deliveryCompletion(
   deliveryReport: RuntimeDeliveryReportResult,
-  currentIssue: SymphonyTrackerIssue,
+  currentState: string,
   runtimePolicy: SymphonyAgentRuntimeConfig
 ): SymphonyAgentRuntimeCompletion {
   switch (deliveryReport.status) {
     case "completed":
-      if (!matchesIssueState(currentIssue.state, deliveryTransitionState)) {
+      if (!matchesIssueState(currentState, deliveryTransitionState)) {
         return {
           kind: "failure",
           reason: buildUnexpectedDeliveryStateReason(
             deliveryReport.status,
             deliveryTransitionState,
-            currentIssue.state
+            currentState
           )
         };
       }
@@ -884,7 +896,7 @@ function deliveryCompletion(
     case "blocked":
       if (
         !matchesIssueState(
-          currentIssue.state,
+          currentState,
           runtimePolicy.tracker.blockedTransitionToState
         )
       ) {
@@ -893,7 +905,7 @@ function deliveryCompletion(
           reason: buildUnexpectedDeliveryStateReason(
             deliveryReport.status,
             runtimePolicy.tracker.blockedTransitionToState,
-            currentIssue.state
+            currentState
           )
         };
       }
@@ -976,17 +988,17 @@ async function loadLatestDeliveryReportForRun(
 
 function mergeResultCompletion(
   mergeResult: RuntimeMergeResult,
-  currentIssue: SymphonyTrackerIssue,
+  currentState: string,
   runtimePolicy: SymphonyAgentRuntimeConfig
 ): SymphonyAgentRuntimeCompletion {
   if (mergeResult.status === "merged") {
-    if (!matchesIssueState(currentIssue.state, "Done")) {
+    if (!matchesIssueState(currentState, "Done")) {
       return {
         kind: "failure",
         reason: buildUnexpectedMergeResultStateReason(
           mergeResult.status,
           "Done",
-          currentIssue.state
+          currentState
         )
       };
     }
@@ -998,7 +1010,7 @@ function mergeResultCompletion(
 
   if (
     !matchesIssueState(
-      currentIssue.state,
+      currentState,
       runtimePolicy.tracker.blockedTransitionToState
     )
   ) {
@@ -1007,7 +1019,7 @@ function mergeResultCompletion(
       reason: buildUnexpectedMergeResultStateReason(
         mergeResult.status,
         runtimePolicy.tracker.blockedTransitionToState,
-        currentIssue.state
+        currentState
       )
     };
   }
@@ -1054,6 +1066,37 @@ async function refreshIssueState(
   ]);
 
   return refreshed[0] ?? null;
+}
+
+async function loadCompletionTrackerState(input: {
+  tracker: SymphonyTracker;
+  runtimePolicy: SymphonyAgentRuntimeConfig;
+  issue: SymphonyTrackerIssue;
+  loadCurrentWorkflowTrackerState?(
+    issueIdentifier: string
+  ): Promise<string | null>;
+  completionKind: ExplicitCompletionRequirement;
+}): Promise<string> {
+  if (input.loadCurrentWorkflowTrackerState) {
+    const workflowState = await input.loadCurrentWorkflowTrackerState(
+      input.issue.identifier
+    );
+    if (!workflowState) {
+      throw new TypeError(
+        `Workflow history is missing the current tracker state for ${input.issue.identifier} after ${input.completionKind}.`
+      );
+    }
+
+    return workflowState;
+  }
+
+  const refreshedIssue = await refreshIssueState(
+    input.tracker,
+    input.runtimePolicy,
+    input.issue
+  );
+
+  return refreshedIssue?.state ?? input.issue.state;
 }
 
 function isActiveIssueState(

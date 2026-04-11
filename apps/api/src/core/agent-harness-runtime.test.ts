@@ -282,7 +282,7 @@ done
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createStateTracker(issue, "In Review");
+    const tracker = createStateTracker(issue, "In Progress");
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
@@ -396,7 +396,7 @@ done
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createStateTracker(issue, "In Review");
+    const tracker = createStateTracker(issue, "In Progress");
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
@@ -430,6 +430,7 @@ done
         tracker,
         runStore,
         deliveryReports,
+        loadCurrentWorkflowTrackerState: async () => "In Review",
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -502,7 +503,7 @@ done
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createStateTracker(issue, "In Progress");
+    const tracker = createStateTracker(issue, "In Review");
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
@@ -536,6 +537,7 @@ done
         tracker,
         runStore,
         deliveryReports,
+        loadCurrentWorkflowTrackerState: async () => "In Progress",
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -609,7 +611,7 @@ done
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createStateTracker(issue, "Blocked");
+    const tracker = createStateTracker(issue, "In Progress");
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
@@ -643,6 +645,7 @@ done
         tracker,
         runStore,
         deliveryReports,
+        loadCurrentWorkflowTrackerState: async () => "Blocked",
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1062,7 +1065,7 @@ done
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createDoneTracker(issue);
+    const tracker = createStateTracker(issue, "In Progress");
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
@@ -1165,7 +1168,7 @@ done
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createDoneTracker(issue);
+    const tracker = createStateTracker(issue, "In Progress");
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
@@ -1271,7 +1274,7 @@ done
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createDoneTracker(issue);
+    const tracker = createStateTracker(issue, "In Progress");
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
@@ -1321,6 +1324,7 @@ done
         runStore,
         deliveryReports,
         loadLatestMergeResult,
+        loadCurrentWorkflowTrackerState: async () => "Done",
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1481,7 +1485,7 @@ done
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createStateTracker(issue, "Blocked");
+    const tracker = createStateTracker(issue, "In Progress");
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
@@ -1534,6 +1538,7 @@ done
         runStore,
         deliveryReports,
         loadLatestMergeResult,
+        loadCurrentWorkflowTrackerState: async () => "Blocked",
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1593,7 +1598,7 @@ done
     const issue = buildSymphonyRuntimeTrackerIssue({
       state: "In Progress"
     });
-    const tracker = createStateTracker(issue, "In Progress");
+    const tracker = createDoneTracker(issue);
     const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
     const database = initializeSymphonyDb({
       dbFile: path.join(root, "symphony.db")
@@ -1640,6 +1645,7 @@ done
         runStore,
         deliveryReports,
         loadLatestMergeResult,
+        loadCurrentWorkflowTrackerState: async () => "In Progress",
         agentAnalytics,
         runtimeLogs: {
           async record() {

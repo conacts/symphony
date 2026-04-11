@@ -44,14 +44,15 @@ describe("runtime route lifecycle service", () => {
     try {
       await harness.tracker.updateIssueState(harness.issue.id, "In Review");
 
-      const observed = await harness.service.observeTrackerStateByIdentifier({
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
         issueIdentifier: harness.issue.identifier,
         recordedAt: "2026-04-10T13:59:59.000Z"
       });
 
       expect(observed).toEqual({
         issueIdentifier: harness.issue.identifier,
-        trackerState: "In Review"
+        trackerState: "In Review",
+        observed: true
       });
 
       const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
@@ -80,7 +81,7 @@ describe("runtime route lifecycle service", () => {
         runMode: string;
       }> = [];
 
-      const observed = await harness.service.observeTrackerStateByIdentifier({
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
         issueIdentifier: harness.issue.identifier,
         recordedAt: "2026-04-10T14:00:15.000Z",
         onDispatchRequested: async (input) => {
@@ -94,7 +95,8 @@ describe("runtime route lifecycle service", () => {
 
       expect(observed).toEqual({
         issueIdentifier: harness.issue.identifier,
-        trackerState: "Bootstrapping"
+        trackerState: "Bootstrapping",
+        observed: true
       });
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
       expect(dispatchRequests).toEqual([
@@ -339,7 +341,7 @@ describe("runtime route lifecycle service", () => {
       await harness.tracker.updateIssueState(harness.issue.id, "Rework");
 
       await expect(
-        harness.service.observeTrackerStateByIdentifier({
+        harness.service.observeNonRunningTrackerStateByIdentifier({
           issueIdentifier: harness.issue.identifier,
           recordedAt: "2026-04-10T14:00:20.000Z"
         })

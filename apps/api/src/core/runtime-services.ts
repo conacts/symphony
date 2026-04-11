@@ -439,6 +439,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           issueIdentifier,
           runId
         }),
+      loadCurrentWorkflowTrackerState: (issueIdentifier) =>
+        loadCurrentWorkflowTrackerState({
+          routeWorkflows,
+          issueIdentifier
+        }),
       agentAnalytics: agentAnalyticsStore,
       runtimeLogs: runtimeLogStore,
       hostCommandEnvSource,
@@ -1091,6 +1096,23 @@ async function loadLatestWorkflowReworkHandoff(input: {
   const handoff = hydration?.snapshot?.projection.data.latestReworkHandoff ?? null;
 
   return isSymphonyReworkHandoff(handoff) ? handoff : null;
+}
+
+async function loadCurrentWorkflowTrackerState(input: {
+  routeWorkflows: SymphonyRouteWorkflowPort;
+  issueIdentifier: string;
+}): Promise<string | null> {
+  const hydration =
+    await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      SymphonyCurrentFlowNode,
+      SymphonyCurrentFlowData,
+      SymphonyCurrentFlowPolicy
+    >(input.issueIdentifier);
+  const trackerState = hydration?.snapshot?.projection.data.trackerState ?? null;
+
+  return typeof trackerState === "string" && trackerState.trim() !== ""
+    ? trackerState
+    : null;
 }
 
 async function loadLatestWorkflowMergeResult(input: {
