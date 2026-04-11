@@ -10,7 +10,7 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
-import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
+import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import {
   executeSettledRouteCommand,
@@ -21,25 +21,21 @@ import {
 export async function createRuntimeRunStartActivationRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
-  routing: SymphonyRuntimeCurrentFlowRouting;
+  sessionLoader: SymphonyRuntimeCurrentFlowSessionLoader;
 }) {
-  const { router, policy } = input.routing;
-
   return {
     async activate(
       activationInput: SymphonyRunStartActivationInput
     ): Promise<SymphonyRunStartActivationResult> {
-      const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
-        issueIdentifier: activationInput.issue.identifier,
-        router,
-        policy
+      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
+        issueIdentifier: activationInput.issue.identifier
       });
-
-      if (!resumed) {
+      if (!loaded) {
         throw new TypeError(
           `Route workflow could not be resumed for ${activationInput.issue.identifier} at run start.`
         );
       }
+      const { resumed } = loaded;
 
       const result = await resumed.session.receiveAsync(
         createSymphonyCurrentFlowRunStartedSignal({
@@ -58,7 +54,7 @@ export async function createRuntimeRunStartActivationRouter(input: {
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
-        policy,
+        policy: loaded.routing.policy,
         result
       });
 

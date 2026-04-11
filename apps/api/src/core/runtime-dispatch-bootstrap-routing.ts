@@ -14,6 +14,7 @@ import type {
   SymphonyTrackerConfig,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
+import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import {
@@ -29,8 +30,9 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
   routing: SymphonyRuntimeCurrentFlowRouting;
+  sessionLoader: SymphonyRuntimeCurrentFlowSessionLoader;
 }) {
-  const { router, policy } = input.routing;
+  const { router } = input.routing;
 
   return {
     async route(
@@ -43,17 +45,15 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
         router,
         createdAt: routeInput.startedAt
       });
-      const resumed = await input.routeWorkflows.resumeSessionByWorkflowId({
-        workflowId: ensured.workflow.workflowId,
-        router,
-        policy
+      const loaded = await input.sessionLoader.resumeByWorkflowId({
+        workflowId: ensured.workflow.workflowId
       });
-
-      if (!resumed) {
+      if (!loaded) {
         throw new TypeError(
           `Route workflow ${ensured.workflow.workflowId} could not be resumed for ${routeInput.issue.identifier}.`
         );
       }
+      const { resumed } = loaded;
 
       const session = resumed.session;
       const result = await session.receiveAsync(
@@ -74,7 +74,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: ensured.workflow.workflowId,
-        policy,
+        policy: loaded.routing.policy,
         result
       });
 

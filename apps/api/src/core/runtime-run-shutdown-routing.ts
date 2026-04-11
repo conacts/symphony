@@ -7,7 +7,7 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
-import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
+import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import {
   executeSettledRouteCommand,
@@ -36,25 +36,21 @@ export type SymphonyRunShutdownRouter = {
 export async function createRuntimeRunShutdownRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
-  routing: SymphonyRuntimeCurrentFlowRouting;
+  sessionLoader: SymphonyRuntimeCurrentFlowSessionLoader;
 }): Promise<SymphonyRunShutdownRouter> {
-  const { router, policy } = input.routing;
-
   return {
     async routeShutdown(
       shutdownInput
     ): Promise<SymphonyRunShutdownRoutingResult> {
-      const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
-        issueIdentifier: shutdownInput.issue.identifier,
-        router,
-        policy
+      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
+        issueIdentifier: shutdownInput.issue.identifier
       });
-
-      if (!resumed) {
+      if (!loaded) {
         throw new TypeError(
           `Route workflow could not be resumed for ${shutdownInput.issue.identifier} during shutdown routing.`
         );
       }
+      const { resumed } = loaded;
 
       const result = await resumed.session.receiveAsync(
         createSymphonyCurrentFlowShutdownRequestedSignal({
@@ -74,7 +70,7 @@ export async function createRuntimeRunShutdownRouter(input: {
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
-        policy,
+        policy: loaded.routing.policy,
         result
       });
 

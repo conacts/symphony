@@ -9,6 +9,7 @@ import type {
   SymphonyTrackerConfig,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
+import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import {
@@ -63,8 +64,9 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
   routing: SymphonyRuntimeCurrentFlowRouting;
+  sessionLoader: SymphonyRuntimeCurrentFlowSessionLoader;
 }): Promise<SymphonyTrackerStateObservationRouter> {
-  const { router, policy } = input.routing;
+  const { router } = input.routing;
 
   return {
     async observe(
@@ -78,7 +80,7 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
         return null;
       }
 
-      await input.routeWorkflows.ensureWorkflowForIssue({
+      const ensured = await input.routeWorkflows.ensureWorkflowForIssue({
         issueIdentifier: issue.identifier,
         repositoryKey: input.repositoryKey,
         routerPresetId: input.routing.presetId,
@@ -86,16 +88,15 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
         createdAt: observationInput.recordedAt
       });
 
-      const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
-        issueIdentifier: issue.identifier,
-        router,
-        policy
+      const loaded = await input.sessionLoader.resumeByWorkflowId({
+        workflowId: ensured.workflow.workflowId
       });
-      if (!resumed) {
+      if (!loaded) {
         throw new TypeError(
           `Route workflow could not be resumed for ${issue.identifier} during tracker state observation.`
         );
       }
+      const { resumed } = loaded;
 
       const observedRunId = readObservedRunId(observationInput);
       const observedRunMode = readObservedRunMode(observationInput);
@@ -117,7 +118,7 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
-        policy,
+        policy: loaded.routing.policy,
         result
       });
 

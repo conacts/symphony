@@ -229,8 +229,8 @@ describe("runtime route workflows", () => {
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-411",
-        routerPresetId: "current-flow",
-        router: await createSymphonyCurrentFlowRouterAsync(),
+        routerPresetId: "test-flow",
+        router,
         createdAt: "2026-04-10T00:29:00.000Z"
       });
       const workflowId = ensured.workflow.workflowId;
@@ -310,8 +310,8 @@ describe("runtime route workflows", () => {
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-412",
-        routerPresetId: "current-flow",
-        router: await createSymphonyCurrentFlowRouterAsync(),
+        routerPresetId: "test-flow",
+        router,
         createdAt: "2026-04-10T00:29:00.000Z"
       });
       const workflowId = ensured.workflow.workflowId;
@@ -378,8 +378,8 @@ describe("runtime route workflows", () => {
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-413",
-        routerPresetId: "current-flow",
-        router: await createSymphonyCurrentFlowRouterAsync(),
+        routerPresetId: "test-flow",
+        router,
         createdAt: "2026-04-10T00:29:00.000Z"
       });
       const workflowId = ensured.workflow.workflowId;

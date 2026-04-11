@@ -8,7 +8,7 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
-import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
+import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import {
@@ -40,25 +40,21 @@ export type SymphonyReviewReworkRouter = {
 export async function createRuntimeReviewReworkRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
-  routing: SymphonyRuntimeCurrentFlowRouting;
+  sessionLoader: SymphonyRuntimeCurrentFlowSessionLoader;
 }): Promise<SymphonyReviewReworkRouter> {
-  const { router, policy } = input.routing;
-
   return {
     async routeReviewRework(
       reviewInput
     ): Promise<SymphonyReviewReworkRoutingResult> {
-      const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
-        issueIdentifier: reviewInput.issue.identifier,
-        router,
-        policy
+      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
+        issueIdentifier: reviewInput.issue.identifier
       });
-
-      if (!resumed) {
+      if (!loaded) {
         throw new TypeError(
           `Route workflow could not be resumed for ${reviewInput.issue.identifier} during review rework routing.`
         );
       }
+      const { resumed } = loaded;
 
       const result = await resumed.session.receiveAsync(
         createSymphonyCurrentFlowReviewReworkRequestedSignal({
@@ -76,7 +72,7 @@ export async function createRuntimeReviewReworkRouter(input: {
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
-        policy,
+        policy: loaded.routing.policy,
         result
       });
 

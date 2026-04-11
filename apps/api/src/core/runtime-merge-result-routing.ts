@@ -9,7 +9,7 @@ import type {
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type { RuntimeMergeResult } from "@symphony/runtime-tools";
-import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
+import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import {
   executeSettledRouteCommand,
@@ -37,25 +37,21 @@ export type SymphonyMergeResultRouter = {
 export async function createRuntimeMergeResultRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
-  routing: SymphonyRuntimeCurrentFlowRouting;
+  sessionLoader: SymphonyRuntimeCurrentFlowSessionLoader;
 }): Promise<SymphonyMergeResultRouter> {
-  const { router, policy } = input.routing;
-
   return {
     async routeMergeResult(
       mergeResultInput
     ): Promise<SymphonyMergeResultRoutingResult> {
-      const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
-        issueIdentifier: mergeResultInput.issue.identifier,
-        router,
-        policy
+      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
+        issueIdentifier: mergeResultInput.issue.identifier
       });
-
-      if (!resumed) {
+      if (!loaded) {
         throw new TypeError(
           `Route workflow could not be resumed for ${mergeResultInput.issue.identifier} during merge-result routing.`
         );
       }
+      const { resumed } = loaded;
 
       const result = await resumed.session.receiveAsync(
         createSymphonyCurrentFlowMergeResultReportedSignal({
@@ -82,7 +78,7 @@ export async function createRuntimeMergeResultRouter(input: {
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
-        policy,
+        policy: loaded.routing.policy,
         result
       });
 

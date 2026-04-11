@@ -11,6 +11,9 @@ import type {
 } from "@symphony/runtime-contract";
 import type { RuntimeMergeResult } from "@symphony/runtime-tools";
 import {
+  createRuntimeCurrentFlowSessionLoader
+} from "./runtime-current-flow-session-loader.js";
+import {
   selectRuntimeRouterPreset
 } from "./runtime-current-flow-routing.js";
 import {
@@ -136,23 +139,29 @@ export async function createRuntimeRouteLifecycleService(input: {
     presetId: input.routerPresetId,
     now: input.now
   });
+  const sessionLoader = await createRuntimeCurrentFlowSessionLoader({
+    routeWorkflows: input.routeWorkflows,
+    trackerConfig: input.trackerConfig,
+    now: input.now
+  });
   const dispatchBootstrapRouter = await createRuntimeDispatchBootstrapRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
     trackerConfig: input.trackerConfig,
     repositoryKey: input.repositoryKey,
-    routing
+    routing,
+    sessionLoader
   });
   const runStartActivationRouter =
     await createRuntimeRunStartActivationRouter({
       routeWorkflows: input.routeWorkflows,
       tracker: input.tracker,
-      routing
+      sessionLoader
     });
   const runLifecycleRouter = await createRuntimeRunLifecycleRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
-    routing
+    sessionLoader
   });
   const workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter = {
     async routeDispatchBootstrap(
@@ -177,27 +186,27 @@ export async function createRuntimeRouteLifecycleService(input: {
   const deliveryRouter = await createRuntimeDeliveryRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
-    routing
+    sessionLoader
   });
   const mergeResultRouter = await createRuntimeMergeResultRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
-    routing
+    sessionLoader
   });
   const reviewReworkRouter = await createRuntimeReviewReworkRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
-    routing
+    sessionLoader
   });
   const stateRequestRouter = await createRuntimeStateRequestRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
-    routing
+    sessionLoader
   });
   const runShutdownRouter = await createRuntimeRunShutdownRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
-    routing
+    sessionLoader
   });
   const trackerStateObservationRouter =
     await createRuntimeTrackerStateObservationRouter({
@@ -205,7 +214,8 @@ export async function createRuntimeRouteLifecycleService(input: {
       tracker: input.tracker,
       trackerConfig: input.trackerConfig,
       repositoryKey: input.repositoryKey,
-      routing
+      routing,
+      sessionLoader
     });
   const observeNonRunningTrackerStates: SymphonyRuntimeRouteLifecycleService["observeNonRunningTrackerStates"] =
     async (observationInput) => {

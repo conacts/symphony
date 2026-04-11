@@ -15,6 +15,7 @@ import type {
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
 import { createRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
+import { createRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import { createRuntimeDispatchBootstrapRouter } from "./runtime-dispatch-bootstrap-routing.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createRuntimeRunStartActivationRouter } from "./runtime-run-start-activation-routing.js";
@@ -172,17 +173,23 @@ async function createHarness(input: {
     trackerConfig: runtimePolicy.tracker,
     now: () => new Date("2026-04-10T11:00:00.000Z")
   });
+  const sessionLoader = await createRuntimeCurrentFlowSessionLoader({
+    routeWorkflows,
+    trackerConfig: runtimePolicy.tracker,
+    now: () => new Date("2026-04-10T11:00:00.000Z")
+  });
   const dispatchBootstrapRouter = await createRuntimeDispatchBootstrapRouter({
     routeWorkflows,
     tracker,
     trackerConfig: runtimePolicy.tracker,
     repositoryKey: "openai/symphony",
-    routing
+    routing,
+    sessionLoader
   });
   const runStartActivationRouter = await createRuntimeRunStartActivationRouter({
     routeWorkflows,
     tracker,
-    routing
+    sessionLoader
   });
 
   return {

@@ -392,6 +392,10 @@ export async function rehydrateRouteWorkflowProjection<
   router: WorkflowRouter<Node, Data, Policy>;
   policy: Policy;
 }): Promise<RehydratedRouteWorkflowProjection<Node, Data, Policy>> {
+  assertStoredWorkflowRouterDefinition({
+    workflow: input.hydrationState.workflow,
+    router: input.router
+  });
   const policy = requireDefinedPolicy(
     input.policy,
     input.hydrationState.workflow.workflowId
@@ -503,8 +507,6 @@ function assertWorkflowRouterCompatibility<
   routerPresetId: string;
   router: WorkflowRouter<Node, Data, Policy>;
 }) {
-  const definition = input.router.definition();
-
   if (input.workflow.repositoryKey !== input.repositoryKey) {
     throw new TypeError(
       `Route workflow ${input.workflow.workflowId} is bound to repository ${input.workflow.repositoryKey}, but ${input.repositoryKey} was requested.`
@@ -516,6 +518,19 @@ function assertWorkflowRouterCompatibility<
       `Route workflow ${input.workflow.workflowId} is bound to router preset ${input.workflow.routerPresetId}, but ${input.routerPresetId} was requested.`
     );
   }
+
+  assertStoredWorkflowRouterDefinition(input);
+}
+
+function assertStoredWorkflowRouterDefinition<
+  Node extends WorkflowNodeId,
+  Data,
+  Policy,
+>(input: {
+  workflow: Pick<RouteWorkflowRecord, "workflowId" | "routerName" | "routerVersion">;
+  router: WorkflowRouter<Node, Data, Policy>;
+}) {
+  const definition = input.router.definition();
 
   if (input.workflow.routerName !== definition.name) {
     throw new TypeError(

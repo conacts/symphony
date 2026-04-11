@@ -9,6 +9,7 @@ import {
   type WorkflowRouter,
   type WorkflowRouterPreset
 } from "@symphony/router";
+import type { RouteWorkflowRecord } from "@symphony/db";
 import type { SymphonyTrackerConfig } from "@symphony/tracker";
 
 declare const runtimeRouterPresetModuleBrand: unique symbol;
@@ -116,6 +117,11 @@ export type SymphonyRuntimeRouterPresetSelection = {
 export type SymphonyRuntimeCurrentFlowRouting =
   SymphonyResolvedRuntimeRouterPreset<"current-flow">;
 
+export type SymphonyStoredRouteWorkflowRouterBinding = Pick<
+  RouteWorkflowRecord,
+  "workflowId" | "routerPresetId" | "routerName" | "routerVersion"
+>;
+
 export async function createRuntimeCurrentFlowRouting(input: {
   trackerConfig: SymphonyTrackerConfig;
   now?: () => Date;
@@ -151,6 +157,31 @@ export async function selectRuntimeRouterPreset(input: {
     trackerConfig: input.trackerConfig,
     now: input.now
   });
+}
+
+export async function resolveStoredRuntimeCurrentFlowRouting(input: {
+  trackerConfig: SymphonyTrackerConfig;
+  workflow: SymphonyStoredRouteWorkflowRouterBinding;
+  now?: () => Date;
+}): Promise<SymphonyRuntimeCurrentFlowRouting> {
+  const routing = await selectRuntimeRouterPreset({
+    trackerConfig: input.trackerConfig,
+    presetId: input.workflow.routerPresetId,
+    now: input.now
+  });
+
+  if (routing.presetId !== "current-flow") {
+    throw new TypeError(
+      `Route workflow ${input.workflow.workflowId} is bound to router preset ${input.workflow.routerPresetId}, but the current-flow runtime only supports "current-flow".`
+    );
+  }
+
+  assertStoredRuntimeRouterDefinition({
+    workflow: input.workflow,
+    router: routing.router
+  });
+
+  return routing;
 }
 
 async function resolveRuntimeRouterPreset<
@@ -271,4 +302,27 @@ function assertTrackerStateIncluded(
   throw new TypeError(
     `Current-flow routing requires tracker.${fieldName} to include ${JSON.stringify(expectedState)}. Received ${JSON.stringify(states)}.`
   );
+}
+
+function assertStoredRuntimeRouterDefinition<
+  Node extends WorkflowNodeId,
+  Data,
+  Policy,
+>(input: {
+  workflow: SymphonyStoredRouteWorkflowRouterBinding;
+  router: WorkflowRouter<Node, Data, Policy>;
+}): void {
+  const definition = input.router.definition();
+
+  if (input.workflow.routerName !== definition.name) {
+    throw new TypeError(
+      `Route workflow ${input.workflow.workflowId} is bound to router ${input.workflow.routerName}, but ${definition.name} was resolved from preset ${input.workflow.routerPresetId}.`
+    );
+  }
+
+  if (input.workflow.routerVersion !== definition.version) {
+    throw new TypeError(
+      `Route workflow ${input.workflow.workflowId} is bound to router version ${input.workflow.routerVersion}, but ${definition.version} was resolved from preset ${input.workflow.routerPresetId}.`
+    );
+  }
 }

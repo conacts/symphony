@@ -18,9 +18,7 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
-import type {
-  SymphonyRuntimeCurrentFlowRouting
-} from "./runtime-current-flow-routing.js";
+import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import {
   executeSettledRouteCommand,
@@ -31,25 +29,21 @@ import {
 export async function createRuntimeRunLifecycleRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
-  routing: SymphonyRuntimeCurrentFlowRouting;
+  sessionLoader: SymphonyRuntimeCurrentFlowSessionLoader;
 }) {
-  const { router, policy } = input.routing;
-
   return {
     async observeIssueState(
       observationInput: SymphonyRunLifecycleObservationInput
     ): Promise<SymphonyRunLifecycleObservationResult> {
-      const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
-        issueIdentifier: observationInput.issue.identifier,
-        router,
-        policy
+      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
+        issueIdentifier: observationInput.issue.identifier
       });
-
-      if (!resumed) {
+      if (!loaded) {
         throw new TypeError(
           `Route workflow could not be resumed for ${observationInput.issue.identifier} during running issue observation.`
         );
       }
+      const { resumed } = loaded;
 
       const result = await resumed.session.receiveAsync(
         createSymphonyCurrentFlowTrackerStateObservedSignal({
@@ -71,7 +65,7 @@ export async function createRuntimeRunLifecycleRouter(input: {
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
-        policy,
+        policy: loaded.routing.policy,
         result
       });
 
@@ -95,17 +89,15 @@ export async function createRuntimeRunLifecycleRouter(input: {
     async routeCompletion(
       completionInput: SymphonyRunLifecycleCompletionInput
     ): Promise<SymphonyRunLifecycleCompletionResult> {
-      const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
-        issueIdentifier: completionInput.issue.identifier,
-        router,
-        policy
+      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
+        issueIdentifier: completionInput.issue.identifier
       });
-
-      if (!resumed) {
+      if (!loaded) {
         throw new TypeError(
           `Route workflow could not be resumed for ${completionInput.issue.identifier} during run completion routing.`
         );
       }
+      const { resumed } = loaded;
 
       const result = await resumed.session.receiveAsync(
         buildCompletionSignal(completionInput)
@@ -113,7 +105,7 @@ export async function createRuntimeRunLifecycleRouter(input: {
 
       await input.routeWorkflows.recordRouteResult({
         workflowId: resumed.hydrationState.workflow.workflowId,
-        policy,
+        policy: loaded.routing.policy,
         result
       });
 
