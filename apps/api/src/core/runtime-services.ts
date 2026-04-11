@@ -76,6 +76,9 @@ import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-se
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import {
+  createRuntimeTrackerStateIngressPort
+} from "./runtime-tracker-state-ingress-port.js";
+import {
   createWorkflowDispatchTracker
 } from "./runtime-workflow-dispatch-tracker.js";
 import {
@@ -266,6 +269,10 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     trackerConfig: runtimePolicy.tracker,
     repositoryKey,
     now: undefined
+  });
+  const trackerStateIngress = createRuntimeTrackerStateIngressPort({
+    routeLifecycle,
+    runtimeLogStore
   });
   const runtimeTracker = createWorkflowDispatchTracker({
     tracker
@@ -478,7 +485,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runtimeLogs: runtimeLogStore,
     realtime,
     async beforePollCycle(snapshot) {
-      await routeLifecycle.observeNonRunningTrackerStates({
+      await trackerStateIngress.observeNonRunning({
         claimedIssueIds: snapshot.claimedIssueIds,
         recordedAt: new Date().toISOString(),
         onDispatchRequested: dispatchObservedIssue

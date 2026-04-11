@@ -49,7 +49,10 @@ describe("runtime route lifecycle service", () => {
         recordedAt: "2026-04-10T13:59:59.000Z"
       });
 
-      expect(observed).toBe(true);
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        trackerState: "In Review"
+      });
 
       const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
         SymphonyCurrentFlowNode,
@@ -89,7 +92,10 @@ describe("runtime route lifecycle service", () => {
         }
       });
 
-      expect(observed).toBe(true);
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        trackerState: "Bootstrapping"
+      });
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
       expect(dispatchRequests).toEqual([
         {
@@ -185,7 +191,7 @@ describe("runtime route lifecycle service", () => {
         runMode: string;
       }> = [];
 
-      const observedCount = await harness.service.observeNonRunningTrackerStates({
+      const observedIssues = await harness.service.observeNonRunningTrackerStates({
         claimedIssueIds: [],
         recordedAt: "2026-04-10T14:00:12.000Z",
         onDispatchRequested: async (input) => {
@@ -197,7 +203,12 @@ describe("runtime route lifecycle service", () => {
         }
       });
 
-      expect(observedCount).toBe(1);
+      expect(observedIssues).toEqual([
+        {
+          issueIdentifier: harness.issue.identifier,
+          trackerState: "Bootstrapping"
+        }
+      ]);
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
       expect(dispatchRequests).toEqual([
         {
@@ -235,7 +246,7 @@ describe("runtime route lifecycle service", () => {
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
       >(harness.issue.identifier);
-      const observedCount = await harness.service.observeNonRunningTrackerStates({
+      const observedIssues = await harness.service.observeNonRunningTrackerStates({
         claimedIssueIds: [],
         recordedAt: "2026-04-10T14:00:11.000Z",
         onDispatchRequested: async () => {}
@@ -246,7 +257,7 @@ describe("runtime route lifecycle service", () => {
         SymphonyCurrentFlowPolicy
       >(harness.issue.identifier);
 
-      expect(observedCount).toBe(0);
+      expect(observedIssues).toEqual([]);
       expect(after?.snapshot?.eventSequence).toBe(before?.snapshot?.eventSequence ?? null);
       expect(after?.snapshot?.projection.currentNode).toBe("review");
       expect(after?.snapshot?.projection.data.trackerState).toBe("In Review");
@@ -261,13 +272,13 @@ describe("runtime route lifecycle service", () => {
     });
 
     try {
-      const observedCount = await harness.service.observeNonRunningTrackerStates({
+      const observedIssues = await harness.service.observeNonRunningTrackerStates({
         claimedIssueIds: [harness.issue.id],
         recordedAt: "2026-04-10T14:00:12.000Z",
         onDispatchRequested: async () => {}
       });
 
-      expect(observedCount).toBe(0);
+      expect(observedIssues).toEqual([]);
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Todo");
 
       const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
