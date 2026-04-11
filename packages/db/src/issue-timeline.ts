@@ -55,15 +55,26 @@ export function createSymphonyIssueTimelineStore(
   return {
     async record(input) {
       const entryId = randomUUID();
+      const issueIdentifier = sanitizeRequiredText(
+        input.issueIdentifier,
+        "issueIdentifier"
+      );
+      const eventType = sanitizeRequiredText(input.eventType, "eventType");
       const recordedAt = input.recordedAt ?? new Date().toISOString();
+
+      requireIssueTimelineBinding({
+        db,
+        issueIdentifier,
+        repositoryKey
+      });
 
       db.insert(symphonyIssueTimelineTable).values({
         entryId,
-        issueIdentifier: input.issueIdentifier,
+        issueIdentifier,
         runId: input.runId ?? null,
         turnId: input.turnId ?? null,
         source: input.source,
-        eventType: input.eventType,
+        eventType,
         message: input.message ?? null,
         payload: input.payload ?? null,
         recordedAt,
@@ -141,6 +152,30 @@ function normalizeSource(value: string): SymphonyIssueTimelineSource {
       return value;
     default:
       throw new TypeError(`Unknown issue timeline source: ${value}`);
+  }
+}
+
+function requireIssueTimelineBinding(input: {
+  db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
+  issueIdentifier: string;
+  repositoryKey: string;
+}): void {
+  const issue = input.db
+    .select()
+    .from(symphonyIssuesTable)
+    .where(eq(symphonyIssuesTable.issueIdentifier, input.issueIdentifier))
+    .get();
+
+  if (!issue) {
+    throw new TypeError(
+      `Issue timeline issue not found: ${input.issueIdentifier}`
+    );
+  }
+
+  if (issue.repositoryKey !== input.repositoryKey) {
+    throw new TypeError(
+      `Issue timeline repository mismatch for ${input.issueIdentifier}: ${issue.repositoryKey} is not ${input.repositoryKey}.`
+    );
   }
 }
 

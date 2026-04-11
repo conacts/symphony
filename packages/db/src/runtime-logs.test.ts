@@ -21,6 +21,71 @@ afterEach(async () => {
 });
 
 describe("runtime log store", () => {
+  it("fails fast when recording against a missing canonical issue parent", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-logs-record-missing-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runtimeLogStore = createSymphonyRuntimeLogStore(database.db, {
+      repositoryKey
+    });
+
+    try {
+      await expect(
+        runtimeLogStore.record({
+          level: "info",
+          source: "runtime",
+          eventType: "runtime_session_started",
+          message: "Started session.",
+          issueIdentifier: "SYM-700",
+          recordedAt: "2026-04-11T04:09:00.000Z"
+        })
+      ).rejects.toThrow("Runtime log issue not found: SYM-700");
+    } finally {
+      database.close();
+    }
+  });
+
+  it("fails fast when recording against an issue bound to another repository", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-logs-record-repo-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const runtimeLogStore = createSymphonyRuntimeLogStore(database.db, {
+      repositoryKey
+    });
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-700R",
+        trackerIssueId: "tracker-700R",
+        repositoryKey: "other/repo",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-11T04:09:30.000Z"
+      });
+
+      await expect(
+        runtimeLogStore.record({
+          level: "info",
+          source: "runtime",
+          eventType: "runtime_session_started",
+          message: "Started session.",
+          issueIdentifier: "SYM-700R",
+          recordedAt: "2026-04-11T04:09:31.000Z"
+        })
+      ).rejects.toThrow(
+        "Runtime log repository mismatch for SYM-700R: other/repo is not openai/symphony."
+      );
+    } finally {
+      database.close();
+    }
+  });
+
   it("loads tracker issue ids from the canonical issue parent", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-logs-parent-"));
     tempDirectories.push(root);

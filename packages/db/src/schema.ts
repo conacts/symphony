@@ -814,6 +814,11 @@ export const symphonyIssueTimelineTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
+    issueFk: foreignKey({
+      columns: [table.issueIdentifier],
+      foreignColumns: [symphonyIssuesTable.issueIdentifier],
+      name: "symphony_issue_timeline_issue_fk"
+    }).onDelete("restrict"),
     sourceCheck: check(
       "symphony_issue_timeline_source_check",
       sql`${table.source} in (${sqlEnum(issueTimelineSourceValues)})`
@@ -822,6 +827,16 @@ export const symphonyIssueTimelineTable = sqliteTable(
       "symphony_issue_timeline_turn_requires_run_check",
       sql`${table.turnId} is null or ${table.runId} is not null`
     ),
+    runFk: foreignKey({
+      columns: [table.runId],
+      foreignColumns: [symphonyRunsTable.runId],
+      name: "symphony_issue_timeline_run_fk"
+    }).onDelete("set null"),
+    turnFk: foreignKey({
+      columns: [table.turnId],
+      foreignColumns: [symphonyTurnsTable.turnId],
+      name: "symphony_issue_timeline_turn_fk"
+    }).onDelete("set null"),
     runTurnFk: foreignKey({
       columns: [table.runId, table.turnId],
       foreignColumns: [symphonyTurnsTable.runId, symphonyTurnsTable.turnId],
@@ -916,6 +931,16 @@ export const symphonyRuntimeLogsTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
+    issueBindingFk: foreignKey({
+      columns: [table.issueIdentifier, table.repositoryKey],
+      foreignColumns: [symphonyIssuesTable.issueIdentifier, symphonyIssuesTable.repositoryKey],
+      name: "symphony_runtime_logs_issue_binding_fk"
+    }).onDelete("restrict"),
+    runFk: foreignKey({
+      columns: [table.runId],
+      foreignColumns: [symphonyRunsTable.runId],
+      name: "symphony_runtime_logs_run_fk"
+    }).onDelete("set null"),
     levelCheck: check(
       "symphony_runtime_logs_level_check",
       sql`${table.level} in (${sqlEnum(runtimeLogLevelValues)})`

@@ -21,6 +21,67 @@ afterEach(async () => {
 });
 
 describe("issue timeline store", () => {
+  it("fails fast when recording against a missing canonical issue parent", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-issue-timeline-record-missing-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const timelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey
+    });
+
+    try {
+      await expect(
+        timelineStore.record({
+          issueIdentifier: "SYM-600",
+          source: "runtime",
+          eventType: "runtime_session_started",
+          recordedAt: "2026-04-11T03:59:00.000Z"
+        })
+      ).rejects.toThrow("Issue timeline issue not found: SYM-600");
+    } finally {
+      database.close();
+    }
+  });
+
+  it("fails fast when recording against an issue bound to another repository", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-issue-timeline-record-repo-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const timelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey
+    });
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-600R",
+        trackerIssueId: "tracker-600R",
+        repositoryKey: "other/repo",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-11T03:59:30.000Z"
+      });
+
+      await expect(
+        timelineStore.record({
+          issueIdentifier: "SYM-600R",
+          source: "runtime",
+          eventType: "runtime_session_started",
+          recordedAt: "2026-04-11T03:59:31.000Z"
+        })
+      ).rejects.toThrow(
+        "Issue timeline repository mismatch for SYM-600R: other/repo is not openai/symphony."
+      );
+    } finally {
+      database.close();
+    }
+  });
+
   it("returns an empty list for an existing issue with no timeline entries", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-issue-timeline-empty-"));
     tempDirectories.push(root);

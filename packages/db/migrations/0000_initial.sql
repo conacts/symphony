@@ -194,7 +194,7 @@ CREATE TABLE IF NOT EXISTS symphony_issue_timeline_entries (
   payload TEXT,
   recorded_at TEXT NOT NULL,
   inserted_at TEXT NOT NULL,
-  FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE CASCADE,
+  FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE RESTRICT,
   FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE SET NULL,
   FOREIGN KEY (turn_id) REFERENCES symphony_turns(turn_id) ON DELETE SET NULL,
   FOREIGN KEY (run_id, turn_id) REFERENCES symphony_turns(run_id, turn_id) ON DELETE SET NULL,
@@ -223,7 +223,9 @@ CREATE TABLE IF NOT EXISTS symphony_runtime_logs (
   payload TEXT,
   recorded_at TEXT NOT NULL,
   inserted_at TEXT NOT NULL,
-  FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE SET NULL,
+  FOREIGN KEY (issue_identifier, repository_key)
+    REFERENCES symphony_issues(issue_identifier, repository_key)
+    ON DELETE RESTRICT,
   FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE SET NULL,
   CHECK (level IN ('debug', 'info', 'warn', 'error'))
 );

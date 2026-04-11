@@ -157,8 +157,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     repositoryKey
   });
   const runStore = createSqliteSymphonyRuntimeRunStore({
-    db: database.db,
-    timelineStore: issueTimelineStore
+    db: database.db
   });
   const deliveryReports = createSymphonyIssueDeliveryReportStore({
     db: database.db,
@@ -261,10 +260,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     presetSelection: workflowPresetSelection,
     sessionLoader: workflowSessionLoader,
     now: undefined
-  });
-  const routeTrackerStateIngress = createRuntimeTrackerStateIngressPort({
-    routeLifecycle,
-    runtimeLogStore
   });
   const runtimeTracker = createWorkflowDispatchTracker({
     tracker
@@ -471,6 +466,18 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       recordedAt: new Date().toISOString()
     });
   };
+  const ensureTrackedIssueIdentity = async (issueIdentifier: string) => {
+    const trackedIssue = await tracker.fetchIssueByIdentifier(
+      runtimePolicy.tracker,
+      issueIdentifier
+    );
+    if (!trackedIssue) {
+      return false;
+    }
+
+    await seedTrackedIssueIdentity(trackedIssue);
+    return true;
+  };
   const dispatchObservedIssue = async (
     request: SymphonyTrackerStateDispatchRequest
   ) => {
@@ -478,8 +485,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       throw new TypeError("Runtime orchestrator port is not initialized.");
     }
 
+    await seedTrackedIssueIdentity(request.issue);
     await orchestratorPortRef.dispatchRoutedIssue(request);
   };
+  const routeTrackerStateIngress = createRuntimeTrackerStateIngressPort({
+    routeLifecycle,
+    runtimeLogStore,
+    async ensureIssueBinding({ issueIdentifier }) {
+      return await ensureTrackedIssueIdentity(issueIdentifier);
+    }
+  });
   const orchestratorPort = createRuntimeOrchestratorPort({
     runtime,
     logger,
@@ -720,8 +735,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
               tracker,
               runtimePolicy,
               runStore,
-              issueTimelineStore,
-              runtimeLogStore,
               routeLifecycle,
               shutdownReason
             });

@@ -403,6 +403,108 @@ describe("db schema enforcement", () => {
     }
   });
 
+  it("rejects orphaned issue timeline rows at the DB layer", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-schema-issue-timeline-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+
+    try {
+      expect(() =>
+        database.client.prepare(`
+          insert into symphony_issue_timeline_entries (
+            entry_id,
+            issue_identifier,
+            run_id,
+            turn_id,
+            source,
+            event_type,
+            message,
+            payload,
+            recorded_at,
+            inserted_at
+          ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          "timeline-705",
+          "COL-705",
+          null,
+          null,
+          "runtime",
+          "runtime_session_started",
+          "Started session.",
+          null,
+          "2026-04-09T12:05:00.000Z",
+          "2026-04-09T12:05:00.000Z"
+        )
+      ).toThrow(/FOREIGN KEY constraint failed/);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects runtime log rows whose repository binding does not match the canonical issue", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-schema-runtime-log-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+
+    try {
+      database.client.prepare(`
+        insert into symphony_issues (
+          issue_identifier,
+          tracker_issue_id,
+          repository_key,
+          latest_run_started_at,
+          inserted_at,
+          updated_at
+        ) values (?, ?, ?, ?, ?, ?)
+      `).run(
+        "COL-706",
+        "tracker-706",
+        "openai/symphony",
+        null,
+        "2026-04-09T12:06:00.000Z",
+        "2026-04-09T12:06:00.000Z"
+      );
+
+      expect(() =>
+        database.client.prepare(`
+          insert into symphony_runtime_logs (
+            entry_id,
+            repository_key,
+            level,
+            source,
+            event_type,
+            message,
+            issue_identifier,
+            run_id,
+            payload,
+            recorded_at,
+            inserted_at
+          ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          "runtime-log-706",
+          "other/repo",
+          "info",
+          "runtime",
+          "runtime_session_started",
+          "Started session.",
+          "COL-706",
+          null,
+          null,
+          "2026-04-09T12:06:30.000Z",
+          "2026-04-09T12:06:30.000Z"
+        )
+      ).toThrow(/FOREIGN KEY constraint failed/);
+    } finally {
+      database.close();
+    }
+  });
+
   it("requires router preset identity on persisted route workflows", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-schema-route-preset-"));
     tempDirectories.push(root);

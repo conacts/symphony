@@ -20,14 +20,13 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
   tracker: SymphonyTracker;
   runtimePolicy: SymphonyResolvedRuntimePolicy;
   runStore: ReturnType<typeof createSqliteSymphonyRuntimeRunStore>;
-  issueTimelineStore: ReturnType<typeof createSymphonyIssueTimelineStore>;
-  runtimeLogStore: ReturnType<typeof createSymphonyRuntimeLogStore>;
   routeLifecycle: Pick<SymphonyRuntimeRouteLifecycleService, "routeShutdownPause">;
   shutdownReason: string;
 }): Promise<number> {
   const endedAt = new Date().toISOString();
   const activeRuns = input.database.client.prepare(`
     select runs.run_id as runId,
+           runs.repository_key as repositoryKey,
            issues.tracker_issue_id as trackerIssueId,
            runs.issue_identifier as issueIdentifier,
            runs.status as status,
@@ -38,6 +37,7 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
     where status in ('dispatching', 'running')
   `).all() as Array<{
     runId: string;
+    repositoryKey: string;
     trackerIssueId: string;
     issueIdentifier: string;
     status: "dispatching" | "running";
@@ -56,6 +56,8 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
   const trackedIssuesById = new Map(
     trackedIssues.map((issue) => [issue.id, issue] as const)
   );
+  const issueTimelineStores = new Map<string, ReturnType<typeof createSymphonyIssueTimelineStore>>();
+  const runtimeLogStores = new Map<string, ReturnType<typeof createSymphonyRuntimeLogStore>>();
 
   for (const run of activeRuns) {
     const trackedIssue = trackedIssuesById.get(run.trackerIssueId) ?? null;
@@ -99,7 +101,14 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
       }
     });
 
-    await input.issueTimelineStore.record({
+    const issueTimelineStore =
+      issueTimelineStores.get(run.repositoryKey) ??
+      createAndCacheIssueTimelineStore({
+        cache: issueTimelineStores,
+        db: input.database.db,
+        repositoryKey: run.repositoryKey
+      });
+    await issueTimelineStore.record({
       issueIdentifier: run.issueIdentifier,
       runId: run.runId,
       source: "runtime",
@@ -112,7 +121,14 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
       recordedAt: endedAt
     });
 
-    await input.runtimeLogStore.record({
+    const runtimeLogStore =
+      runtimeLogStores.get(run.repositoryKey) ??
+      createAndCacheRuntimeLogStore({
+        cache: runtimeLogStores,
+        db: input.database.db,
+        repositoryKey: run.repositoryKey
+      });
+    await runtimeLogStore.record({
       level: "warn",
       source: "runtime",
       eventType: "runtime_shutdown_reconciled_run",
@@ -183,4 +199,28 @@ function readPersistedRunMode(metadataJson: string | null): SymphonyRunMode {
   }
 
   return persistedRunMetadataSchema.parse(JSON.parse(metadataJson)).runMode;
+}
+
+function createAndCacheIssueTimelineStore(input: {
+  cache: Map<string, ReturnType<typeof createSymphonyIssueTimelineStore>>;
+  db: ReturnType<typeof initializeSymphonyDb>["db"];
+  repositoryKey: string;
+}) {
+  const store = createSymphonyIssueTimelineStore(input.db, {
+    repositoryKey: input.repositoryKey
+  });
+  input.cache.set(input.repositoryKey, store);
+  return store;
+}
+
+function createAndCacheRuntimeLogStore(input: {
+  cache: Map<string, ReturnType<typeof createSymphonyRuntimeLogStore>>;
+  db: ReturnType<typeof initializeSymphonyDb>["db"];
+  repositoryKey: string;
+}) {
+  const store = createSymphonyRuntimeLogStore(input.db, {
+    repositoryKey: input.repositoryKey
+  });
+  input.cache.set(input.repositoryKey, store);
+  return store;
 }

@@ -7,7 +7,6 @@ import {
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyIssueStore,
   createSymphonyIssueTimelineStore,
-  createSymphonyRuntimeLogStore,
   initializeSymphonyDb
 } from "@symphony/db";
 import {
@@ -49,9 +48,6 @@ describe("runtime shutdown reconciliation", () => {
     const routeWorkflowStore = createRouteWorkflowStore(database.db);
     const routeWorkflows = createRouteWorkflowPort({
       routeWorkflowStore
-    });
-    const runtimeLogStore = createSymphonyRuntimeLogStore(database.db, {
-      repositoryKey: "openai/symphony"
     });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db,
@@ -115,8 +111,6 @@ describe("runtime shutdown reconciliation", () => {
         tracker,
         runtimePolicy,
         runStore,
-        issueTimelineStore,
-        runtimeLogStore,
         routeLifecycle,
         shutdownReason: "runtime_shutdown"
       });

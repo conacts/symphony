@@ -48,16 +48,31 @@ export function createSymphonyRuntimeLogStore(
   return {
     async record(input) {
       const entryId = randomUUID();
+      const source = sanitizeRequiredText(input.source, "source");
+      const eventType = sanitizeRequiredText(input.eventType, "eventType");
+      const message = sanitizeRequiredText(input.message, "message");
+      const issueIdentifier =
+        input.issueIdentifier === undefined || input.issueIdentifier === null
+          ? null
+          : sanitizeRequiredText(input.issueIdentifier, "issueIdentifier");
       const recordedAt = input.recordedAt ?? new Date().toISOString();
+
+      if (issueIdentifier) {
+        requireRuntimeLogIssueBinding({
+          db,
+          issueIdentifier,
+          repositoryKey
+        });
+      }
 
       db.insert(symphonyRuntimeLogsTable).values({
         entryId,
         repositoryKey,
         level: input.level,
-        source: input.source,
-        eventType: input.eventType,
-        message: input.message,
-        issueIdentifier: input.issueIdentifier ?? null,
+        source,
+        eventType,
+        message,
+        issueIdentifier,
         runId: input.runId ?? null,
         payload: input.payload ?? null,
         recordedAt,
@@ -139,6 +154,30 @@ function requireRuntimeLogIssue(
   }
 
   return issue;
+}
+
+function requireRuntimeLogIssueBinding(input: {
+  db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
+  issueIdentifier: string;
+  repositoryKey: string;
+}) {
+  const issue = input.db
+    .select()
+    .from(symphonyIssuesTable)
+    .where(eq(symphonyIssuesTable.issueIdentifier, input.issueIdentifier))
+    .get();
+
+  if (!issue) {
+    throw new TypeError(
+      `Runtime log issue not found: ${input.issueIdentifier}`
+    );
+  }
+
+  if (issue.repositoryKey !== input.repositoryKey) {
+    throw new TypeError(
+      `Runtime log repository mismatch for ${input.issueIdentifier}: ${issue.repositoryKey} is not ${input.repositoryKey}.`
+    );
+  }
 }
 
 function normalizeLimit(limit: number | undefined, fallback: number): number {
