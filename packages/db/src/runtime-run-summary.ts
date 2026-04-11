@@ -189,7 +189,7 @@ function compareDescendingTimestamps(
 }
 
 function isCompletedOutcome(outcome: SymphonyRunOutcome | null): boolean {
-  return outcome === "completed" || outcome === "merged" || outcome === "delivered";
+  return outcome === "completed" || outcome === "merged";
 }
 
 export function isProblemOutcome(outcome: SymphonyRunOutcome | null): boolean {
@@ -238,11 +238,6 @@ export function normalizeRuntimeRunOutcome(outcome: string): SymphonyRunOutcome 
     case "runtime_shutdown":
     case "run_stopped_inactive":
     case "run_stopped_terminal":
-    case "delivered":
-    case "max_turns_reached":
-    case "blocked_repo":
-    case "blocked_merge":
-    case "blocked_merge_max_turns":
       return outcome;
     default:
       throw new TypeError(`Unknown runtime run outcome: ${outcome}`);

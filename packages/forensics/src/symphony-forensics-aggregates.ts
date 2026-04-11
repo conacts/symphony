@@ -285,7 +285,7 @@ function isRateLimitedOutcome(outcome: SymphonyForensicsRunOutcome | null): bool
 }
 
 function isMaxTurnsOutcome(outcome: SymphonyForensicsRunOutcome | null): boolean {
-  return outcome === "paused_max_turns" || outcome === "max_turns_reached";
+  return outcome === "paused_max_turns";
 }
 
 function isStartupFailureOutcome(outcome: SymphonyForensicsRunOutcome | null): boolean {

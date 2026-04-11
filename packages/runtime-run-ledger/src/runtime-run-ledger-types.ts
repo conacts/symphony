@@ -56,12 +56,7 @@ export const symphonyRunOutcomeValues = [
   "failed",
   "runtime_shutdown",
   "run_stopped_inactive",
-  "run_stopped_terminal",
-  "delivered",
-  "max_turns_reached",
-  "blocked_repo",
-  "blocked_merge",
-  "blocked_merge_max_turns"
+  "run_stopped_terminal"
 ] as const;
 export type SymphonyRunOutcome = (typeof symphonyRunOutcomeValues)[number];
 

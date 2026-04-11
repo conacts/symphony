@@ -5,8 +5,7 @@ import type {
 
 const symphonyCompletedRunOutcomes = new Set<SymphonyForensicsRunOutcome>([
   "completed",
-  "merged",
-  "delivered"
+  "merged"
 ]);
 
 export function problemSummary(runs: SymphonyForensicsRunSummary[]): Record<string, number> {

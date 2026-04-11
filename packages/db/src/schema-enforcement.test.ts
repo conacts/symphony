@@ -84,7 +84,7 @@ describe("db schema enforcement", () => {
           "COL-699",
           "implementation",
           "finished",
-          "done",
+          "delivered",
           "2026-04-09T12:01:00.000Z",
           "2026-04-09T12:01:00.000Z",
           "2026-04-09T12:01:00.000Z"

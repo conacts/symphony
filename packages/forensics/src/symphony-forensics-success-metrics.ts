@@ -277,7 +277,6 @@ function isRateLimitedRun(run: SymphonyForensicsRunSummary): boolean {
 function isMaxTurnsRun(run: SymphonyForensicsRunSummary): boolean {
   return (
     run.outcome === "paused_max_turns" ||
-    run.outcome === "max_turns_reached" ||
     run.errorClass === "max_turns_reached" ||
     run.agentFailureKind === "max_turns_reached"
   );

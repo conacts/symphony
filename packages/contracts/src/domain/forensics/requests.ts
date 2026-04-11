@@ -27,12 +27,7 @@ export const symphonyForensicsRunOutcomeSchema = z.enum([
   "failed",
   "runtime_shutdown",
   "run_stopped_inactive",
-  "run_stopped_terminal",
-  "delivered",
-  "max_turns_reached",
-  "blocked_repo",
-  "blocked_merge",
-  "blocked_merge_max_turns"
+  "run_stopped_terminal"
 ]);
 const optionalOutcomeFilterSchema = z.preprocess((value) => {
   if (typeof value !== "string") {
