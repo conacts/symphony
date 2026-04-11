@@ -1,14 +1,12 @@
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
-import {
-  createSymphonyCurrentFlowShutdownRequestedSignal,
-  type WorkflowCommand
-} from "@symphony/router";
+import { type WorkflowCommand } from "@symphony/router";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
   executeSettledRouteCommand,
   normalizeWorkflowToken,
@@ -51,9 +49,10 @@ export async function createRuntimeRunShutdownRouter(input: {
         );
       }
       const { resumed } = loaded;
+      const presetAdapter = loaded.routing.module.runtimeAdapter;
 
       const result = await resumed.session.receiveAsync(
-        createSymphonyCurrentFlowShutdownRequestedSignal({
+        presetAdapter.createShutdownRequestedSignal({
           id: buildShutdownRequestedSignalId({
             issue: shutdownInput.issue,
             runMode: shutdownInput.runMode,
@@ -90,6 +89,7 @@ export async function createRuntimeRunShutdownRouter(input: {
           recordedAt: shutdownInput.recordedAt,
           async execute(executedCommand) {
             return await executePausedTransition({
+              presetAdapter,
               command: executedCommand,
               issue: pausedIssue,
               tracker: input.tracker
@@ -106,11 +106,15 @@ export async function createRuntimeRunShutdownRouter(input: {
 }
 
 async function executePausedTransition(input: {
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState(input.command);
+  const targetState = readTrackerTransitionState({
+    adapter: input.presetAdapter,
+    command: input.command
+  });
   if (targetState !== "Paused") {
     throw new TypeError(
       `Run shutdown routing only supports tracker transitions to Paused. Received ${String(targetState)}.`

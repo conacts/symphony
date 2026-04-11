@@ -4,8 +4,6 @@ import {
   type SymphonyDispatchBootstrapRoutingResult
 } from "@symphony/orchestrator";
 import {
-  createSymphonyCurrentFlowTrackerStateObservedSignal,
-  parseSymphonyCurrentFlowTrackerState,
   type WorkflowCommand
 } from "@symphony/router";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
@@ -17,6 +15,7 @@ import type {
 import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
   executeSettledRouteCommand,
   normalizeWorkflowToken,
@@ -33,6 +32,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
   sessionLoader: SymphonyRuntimeCurrentFlowSessionLoader;
 }) {
   const { router } = input.routing;
+  const presetAdapter = input.routing.module.runtimeAdapter;
 
   return {
     async route(
@@ -57,14 +57,14 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
 
       const session = resumed.session;
       const result = await session.receiveAsync(
-        createSymphonyCurrentFlowTrackerStateObservedSignal({
+        presetAdapter.createTrackerStateObservedSignal({
           id: buildTrackerObservedSignalId(
             routeInput.issue,
             routeInput.attempt,
             routeInput.startedAt
           ),
           occurredAt: routeInput.startedAt,
-          state: parseSymphonyCurrentFlowTrackerState(routeInput.issue.state),
+          trackerState: routeInput.issue.state,
           runId: null,
           runMode: null,
           causationId: null,
@@ -91,6 +91,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
             recordedAt: routeInput.startedAt,
             async execute(executedCommand) {
               return await executeTrackerTransitionCommand({
+                presetAdapter,
                 command: executedCommand,
                 issue: preparedIssue,
                 tracker: input.tracker,
@@ -109,7 +110,10 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
             command,
             recordedAt: routeInput.startedAt,
             async execute(executedCommand) {
-              return readDispatchRunMode(executedCommand);
+              return readDispatchRunMode({
+                adapter: presetAdapter,
+                command: executedCommand
+              });
             }
           });
           continue;
@@ -138,12 +142,16 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
 }
 
 async function executeTrackerTransitionCommand(input: {
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
 }) {
-  const targetState = readTrackerTransitionState(input.command);
+  const targetState = readTrackerTransitionState({
+    adapter: input.presetAdapter,
+    command: input.command
+  });
   if (targetState !== "Bootstrapping") {
     throw new TypeError(
       `Dispatch bootstrap routing only supports tracker transitions to Bootstrapping. Received ${String(targetState)}.`

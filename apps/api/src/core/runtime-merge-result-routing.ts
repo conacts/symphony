@@ -1,5 +1,4 @@
 import {
-  createSymphonyCurrentFlowMergeResultReportedSignal,
   type SymphonyCurrentFlowMergeResultStatus,
   type WorkflowCommand,
   type WorkflowSession
@@ -11,6 +10,7 @@ import type {
 import type { RuntimeMergeResult } from "@symphony/runtime-tools";
 import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
   executeSettledRouteCommand,
   normalizeWorkflowToken,
@@ -52,25 +52,18 @@ export async function createRuntimeMergeResultRouter(input: {
         );
       }
       const { resumed } = loaded;
+      const presetAdapter = loaded.routing.module.runtimeAdapter;
 
       const result = await resumed.session.receiveAsync(
-        createSymphonyCurrentFlowMergeResultReportedSignal({
+        presetAdapter.createMergeResultReportedSignal({
           id: buildMergeResultReportedSignalId({
             issue: mergeResultInput.issue,
             status: mergeResultInput.mergeResult.status,
             recordedAt: mergeResultInput.recordedAt
           }),
           occurredAt: mergeResultInput.recordedAt,
-          mergeResult: {
-            runId: mergeResultInput.runId,
-            status: mergeResultInput.mergeResult.status,
-            summary: mergeResultInput.mergeResult.summary,
-            prUrl: mergeResultInput.mergeResult.prUrl,
-            mergeCommitSha: mergeResultInput.mergeResult.mergeCommitSha,
-            blockingReason: mergeResultInput.mergeResult.blockingReason,
-            testsSummary: mergeResultInput.mergeResult.testsSummary,
-            recordedAt: mergeResultInput.recordedAt
-          },
+          runId: mergeResultInput.runId,
+          mergeResult: mergeResultInput.mergeResult,
           causationId: mergeResultInput.runId,
           correlationId: mergeResultInput.issue.identifier
         })
@@ -90,6 +83,7 @@ export async function createRuntimeMergeResultRouter(input: {
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
         recordedAt: mergeResultInput.recordedAt,
+        presetAdapter,
         status: mergeResultInput.mergeResult.status
       });
 
@@ -108,6 +102,7 @@ async function executeMergeResultCommands(input: {
   workflowId: string;
   session: WorkflowSession<string, unknown, unknown>;
   recordedAt: string;
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   status: SymphonyCurrentFlowMergeResultStatus;
 }): Promise<SymphonyTrackerIssue> {
   let currentIssue = input.issue;
@@ -127,6 +122,7 @@ async function executeMergeResultCommands(input: {
       recordedAt: input.recordedAt,
       async execute(executedCommand) {
         return await executeMergeResultTrackerTransition({
+          presetAdapter: input.presetAdapter,
           command: executedCommand,
           issue: currentIssue,
           tracker: input.tracker,
@@ -140,12 +136,16 @@ async function executeMergeResultCommands(input: {
 }
 
 async function executeMergeResultTrackerTransition(input: {
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   status: SymphonyCurrentFlowMergeResultStatus;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState(input.command);
+  const targetState = readTrackerTransitionState({
+    adapter: input.presetAdapter,
+    command: input.command
+  });
   const expectedTargetState = input.status === "merged" ? "Done" : "Blocked";
 
   if (targetState !== expectedTargetState) {

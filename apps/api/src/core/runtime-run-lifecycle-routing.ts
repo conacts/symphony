@@ -7,10 +7,6 @@ import type {
 } from "@symphony/orchestrator";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
-  createSymphonyCurrentFlowRuntimeCompletedSignal,
-  createSymphonyCurrentFlowRuntimeStartupFailureSignal,
-  createSymphonyCurrentFlowTrackerStateObservedSignal,
-  parseSymphonyCurrentFlowTrackerState,
   type WorkflowCommand,
   type WorkflowSession
 } from "@symphony/router";
@@ -20,6 +16,7 @@ import type {
 } from "@symphony/tracker";
 import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
   executeSettledRouteCommand,
   normalizeWorkflowToken,
@@ -44,18 +41,17 @@ export async function createRuntimeRunLifecycleRouter(input: {
         );
       }
       const { resumed } = loaded;
+      const presetAdapter = loaded.routing.module.runtimeAdapter;
 
       const result = await resumed.session.receiveAsync(
-        createSymphonyCurrentFlowTrackerStateObservedSignal({
+        presetAdapter.createTrackerStateObservedSignal({
           id: buildRunningIssueObservedSignalId({
             issue: observationInput.issue,
             runMode: observationInput.runMode,
             recordedAt: observationInput.recordedAt
           }),
           occurredAt: observationInput.recordedAt,
-          state: parseSymphonyCurrentFlowTrackerState(
-            observationInput.issue.state
-          ),
+          trackerState: observationInput.issue.state,
           runId: observationInput.runId,
           runMode: observationInput.runMode,
           causationId: observationInput.runId,
@@ -77,6 +73,7 @@ export async function createRuntimeRunLifecycleRouter(input: {
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
         recordedAt: observationInput.recordedAt,
+        presetAdapter,
         unsupportedCommandErrorPrefix:
           "Run lifecycle observation does not support command kind"
       });
@@ -98,9 +95,13 @@ export async function createRuntimeRunLifecycleRouter(input: {
         );
       }
       const { resumed } = loaded;
+      const presetAdapter = loaded.routing.module.runtimeAdapter;
 
       const result = await resumed.session.receiveAsync(
-        buildCompletionSignal(completionInput)
+        buildCompletionSignal({
+          presetAdapter,
+          ...completionInput
+        })
       );
 
       await input.routeWorkflows.recordRouteResult({
@@ -117,6 +118,7 @@ export async function createRuntimeRunLifecycleRouter(input: {
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
         recordedAt: completionInput.recordedAt,
+        presetAdapter,
         unsupportedCommandErrorPrefix:
           "Run completion routing does not support command kind"
       });
@@ -136,6 +138,7 @@ async function executeTrackerTransitionCommands(input: {
   workflowId: string;
   session: WorkflowSession<string, unknown, unknown>;
   recordedAt: string;
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   unsupportedCommandErrorPrefix: string;
 }): Promise<SymphonyTrackerIssue> {
   let currentIssue = input.issue;
@@ -155,6 +158,7 @@ async function executeTrackerTransitionCommands(input: {
       recordedAt: input.recordedAt,
       async execute(executedCommand) {
         return await executeTrackerTransition({
+          presetAdapter: input.presetAdapter,
           command: executedCommand,
           issue: currentIssue,
           tracker: input.tracker
@@ -167,11 +171,15 @@ async function executeTrackerTransitionCommands(input: {
 }
 
 async function executeTrackerTransition(input: {
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState(input.command);
+  const targetState = readTrackerTransitionState({
+    adapter: input.presetAdapter,
+    command: input.command
+  });
   await input.tracker.updateIssueState(input.issue.id, targetState);
   return {
     ...input.issue,
@@ -195,41 +203,23 @@ function buildRunningIssueObservedSignalId(input: {
 }
 
 function buildCompletionSignal(input: {
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   issue: SymphonyTrackerIssue;
   runId: string | null;
   runMode: SymphonyRunMode;
   completion: SymphonyAgentRuntimeCompletion;
   recordedAt: string;
 }) {
-  if (input.completion.kind === "startup_failure") {
-    return createSymphonyCurrentFlowRuntimeStartupFailureSignal({
-      id: buildCompletionSignalId({
-        issue: input.issue,
-        completionKind: input.completion.kind,
-        recordedAt: input.recordedAt
-      }),
-      occurredAt: input.recordedAt,
-      runId: input.runId,
-      runMode: input.runMode,
-      reason: input.completion.reason,
-      failureStage: input.completion.failureStage,
-      failureOrigin: input.completion.failureOrigin,
-      causationId: input.runId,
-      correlationId: input.issue.identifier
-    });
-  }
-
-  return createSymphonyCurrentFlowRuntimeCompletedSignal({
+  return input.presetAdapter.createRuntimeCompletionSignal({
     id: buildCompletionSignalId({
       issue: input.issue,
       completionKind: input.completion.kind,
       recordedAt: input.recordedAt
     }),
     occurredAt: input.recordedAt,
-    kind: input.completion.kind,
     runId: input.runId,
     runMode: input.runMode,
-    reason: "reason" in input.completion ? input.completion.reason : null,
+    completion: input.completion,
     causationId: input.runId,
     correlationId: input.issue.identifier
   });

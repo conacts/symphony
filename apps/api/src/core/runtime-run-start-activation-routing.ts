@@ -2,16 +2,14 @@ import type {
   SymphonyRunStartActivationInput,
   SymphonyRunStartActivationResult
 } from "@symphony/orchestrator";
-import {
-  createSymphonyCurrentFlowRunStartedSignal,
-  type WorkflowCommand
-} from "@symphony/router";
+import { type WorkflowCommand } from "@symphony/router";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
   executeSettledRouteCommand,
   normalizeWorkflowToken,
@@ -36,9 +34,10 @@ export async function createRuntimeRunStartActivationRouter(input: {
         );
       }
       const { resumed } = loaded;
+      const presetAdapter = loaded.routing.module.runtimeAdapter;
 
       const result = await resumed.session.receiveAsync(
-        createSymphonyCurrentFlowRunStartedSignal({
+        presetAdapter.createRunStartedSignal({
           id: buildRunStartedSignalId({
             issue: activationInput.issue,
             runMode: activationInput.runMode,
@@ -69,6 +68,7 @@ export async function createRuntimeRunStartActivationRouter(input: {
             recordedAt: activationInput.recordedAt,
             async execute(executedCommand) {
               return await executeInProgressTransition({
+                presetAdapter,
                 command: executedCommand,
                 issue: activatedIssue,
                 tracker: input.tracker
@@ -91,11 +91,15 @@ export async function createRuntimeRunStartActivationRouter(input: {
 }
 
 async function executeInProgressTransition(input: {
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState(input.command);
+  const targetState = readTrackerTransitionState({
+    adapter: input.presetAdapter,
+    command: input.command
+  });
   if (targetState !== "In Progress") {
     throw new TypeError(
       `Run start activation only supports tracker transitions to In Progress. Received ${String(targetState)}.`

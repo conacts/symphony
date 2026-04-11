@@ -1,7 +1,5 @@
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
-  readSymphonyCurrentFlowDispatchCommand,
-  readSymphonyCurrentFlowTrackerTransitionCommand,
   type WorkflowCommand,
   type WorkflowNodeId,
   type WorkflowPayload,
@@ -9,6 +7,7 @@ import {
   type WorkflowSession
 } from "@symphony/router";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 
 export async function settleRouteCommand<
   Node extends WorkflowNodeId,
@@ -91,26 +90,16 @@ export function normalizeWorkflowToken(value: string): string {
     .replaceAll(/^_+|_+$/g, "");
 }
 
-export function readTrackerTransitionState(command: WorkflowCommand): string {
-  const trackerTransition = readSymphonyCurrentFlowTrackerTransitionCommand(
-    command
-  );
-  if (trackerTransition) {
-    return trackerTransition.payload.state;
-  }
-
-  throw new TypeError(
-    `Route command is not a valid Symphony current-flow tracker.transition command: ${command.kind}.`
-  );
+export function readTrackerTransitionState(input: {
+  adapter: SymphonyRuntimeWorkflowPresetAdapter;
+  command: WorkflowCommand;
+}): string {
+  return input.adapter.readTrackerTransitionState(input.command);
 }
 
-export function readDispatchRunMode(command: WorkflowCommand): SymphonyRunMode {
-  const dispatchCommand = readSymphonyCurrentFlowDispatchCommand(command);
-  if (dispatchCommand) {
-    return dispatchCommand.payload.runMode;
-  }
-
-  throw new TypeError(
-    `Route command is not a valid Symphony current-flow run.dispatch command: ${command.kind}.`
-  );
+export function readDispatchRunMode(input: {
+  adapter: SymphonyRuntimeWorkflowPresetAdapter;
+  command: WorkflowCommand;
+}): SymphonyRunMode {
+  return input.adapter.readDispatchRunMode(input.command);
 }

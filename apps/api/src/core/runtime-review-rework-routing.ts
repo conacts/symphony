@@ -1,8 +1,4 @@
-import {
-  createSymphonyCurrentFlowReviewReworkRequestedSignal,
-  type WorkflowCommand,
-  type WorkflowSession
-} from "@symphony/router";
+import { type WorkflowCommand, type WorkflowSession } from "@symphony/router";
 import type { SymphonyReworkHandoff } from "@symphony/runtime-contract";
 import type {
   SymphonyTracker,
@@ -11,6 +7,7 @@ import type {
 import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
+import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
   executeSettledRouteCommand,
   normalizeWorkflowToken,
@@ -55,9 +52,10 @@ export async function createRuntimeReviewReworkRouter(input: {
         );
       }
       const { resumed } = loaded;
+      const presetAdapter = loaded.routing.module.runtimeAdapter;
 
       const result = await resumed.session.receiveAsync(
-        createSymphonyCurrentFlowReviewReworkRequestedSignal({
+        presetAdapter.createReviewReworkRequestedSignal({
           id: buildReviewReworkRequestedSignalId({
             issue: reviewInput.issue,
             handoff: reviewInput.handoff,
@@ -84,6 +82,7 @@ export async function createRuntimeReviewReworkRouter(input: {
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
         recordedAt: reviewInput.recordedAt,
+        presetAdapter,
         onDispatchRequested: reviewInput.onDispatchRequested
       });
 
@@ -102,6 +101,7 @@ async function executeReviewReworkCommands(input: {
   workflowId: string;
   session: WorkflowSession<string, unknown, unknown>;
   recordedAt: string;
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   onDispatchRequested?(
     input: SymphonyTrackerStateDispatchRequest
   ): Promise<void> | void;
@@ -118,6 +118,7 @@ async function executeReviewReworkCommands(input: {
         recordedAt: input.recordedAt,
         async execute(executedCommand) {
           return await executeTrackerTransition({
+            presetAdapter: input.presetAdapter,
             command: executedCommand,
             issue: currentIssue,
             tracker: input.tracker
@@ -145,7 +146,10 @@ async function executeReviewReworkCommands(input: {
             workflowId: input.workflowId,
             commandId: executedCommand.id,
             issue: currentIssue,
-            runMode: readDispatchRunMode(executedCommand),
+            runMode: readDispatchRunMode({
+              adapter: input.presetAdapter,
+              command: executedCommand
+            }),
             recordedAt: input.recordedAt
           });
         }
@@ -162,11 +166,15 @@ async function executeReviewReworkCommands(input: {
 }
 
 async function executeTrackerTransition(input: {
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState(input.command);
+  const targetState = readTrackerTransitionState({
+    adapter: input.presetAdapter,
+    command: input.command
+  });
   if (targetState !== "Rework" && targetState !== "Bootstrapping") {
     throw new TypeError(
       `Review rework routing only supports tracker transitions to Rework or Bootstrapping. Received ${String(targetState)}.`

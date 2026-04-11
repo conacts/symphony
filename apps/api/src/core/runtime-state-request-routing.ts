@@ -1,5 +1,4 @@
 import {
-  createSymphonyCurrentFlowStateRequestedSignal,
   type SymphonyCurrentFlowStateRequestKind,
   type SymphonyCurrentFlowStateRequestTargetState,
   type WorkflowCommand,
@@ -11,6 +10,7 @@ import type {
 } from "@symphony/tracker";
 import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
   executeSettledRouteCommand,
   normalizeWorkflowToken,
@@ -53,9 +53,10 @@ export async function createRuntimeStateRequestRouter(input: {
         );
       }
       const { resumed } = loaded;
+      const presetAdapter = loaded.routing.module.runtimeAdapter;
 
       const result = await resumed.session.receiveAsync(
-        createSymphonyCurrentFlowStateRequestedSignal({
+        presetAdapter.createStateRequestedSignal({
           id: buildStateRequestedSignalId({
             issue: stateRequestInput.issue,
             requestKind: stateRequestInput.requestKind,
@@ -85,6 +86,7 @@ export async function createRuntimeStateRequestRouter(input: {
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
         recordedAt: stateRequestInput.recordedAt,
+        presetAdapter,
         targetState: stateRequestInput.targetState
       });
 
@@ -103,6 +105,7 @@ async function executeRequestedStateCommands(input: {
   workflowId: string;
   session: WorkflowSession<string, unknown, unknown>;
   recordedAt: string;
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   targetState: SymphonyCurrentFlowStateRequestTargetState;
 }): Promise<SymphonyTrackerIssue> {
   let currentIssue = input.issue;
@@ -122,6 +125,7 @@ async function executeRequestedStateCommands(input: {
       recordedAt: input.recordedAt,
       async execute(executedCommand) {
         return await executeRequestedTrackerTransition({
+          presetAdapter: input.presetAdapter,
           command: executedCommand,
           issue: currentIssue,
           tracker: input.tracker,
@@ -135,12 +139,16 @@ async function executeRequestedStateCommands(input: {
 }
 
 async function executeRequestedTrackerTransition(input: {
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   targetState: SymphonyCurrentFlowStateRequestTargetState;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState(input.command);
+  const targetState = readTrackerTransitionState({
+    adapter: input.presetAdapter,
+    command: input.command
+  });
   if (targetState !== input.targetState) {
     throw new TypeError(
       `Runtime state-request routing expected tracker transition to ${input.targetState}. Received ${String(targetState)}.`

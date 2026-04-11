@@ -1,14 +1,11 @@
-import {
-  createSymphonyCurrentFlowDeliveryReportedSignal,
-  type WorkflowCommand,
-  type WorkflowSession
-} from "@symphony/router";
+import { type WorkflowCommand, type WorkflowSession } from "@symphony/router";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
   executeSettledRouteCommand,
   normalizeWorkflowToken,
@@ -52,9 +49,10 @@ export async function createRuntimeDeliveryRouter(input: {
         );
       }
       const { resumed } = loaded;
+      const presetAdapter = loaded.routing.module.runtimeAdapter;
 
       const result = await resumed.session.receiveAsync(
-        createSymphonyCurrentFlowDeliveryReportedSignal({
+        presetAdapter.createDeliveryReportedSignal({
           id: buildDeliveryReportedSignalId({
             issue: deliveryInput.issue,
             status: deliveryInput.status,
@@ -82,6 +80,7 @@ export async function createRuntimeDeliveryRouter(input: {
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
         recordedAt: deliveryInput.recordedAt,
+        presetAdapter,
         status: deliveryInput.status
       });
 
@@ -100,6 +99,7 @@ async function executeDeliveryCommands(input: {
   workflowId: string;
   session: WorkflowSession<string, unknown, unknown>;
   recordedAt: string;
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   status: SymphonyDeliveryStatus;
 }): Promise<SymphonyTrackerIssue> {
   let currentIssue = input.issue;
@@ -119,6 +119,7 @@ async function executeDeliveryCommands(input: {
       recordedAt: input.recordedAt,
       async execute(executedCommand) {
         return await executeDeliveryTrackerTransition({
+          presetAdapter: input.presetAdapter,
           command: executedCommand,
           issue: currentIssue,
           tracker: input.tracker,
@@ -132,12 +133,16 @@ async function executeDeliveryCommands(input: {
 }
 
 async function executeDeliveryTrackerTransition(input: {
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   status: SymphonyDeliveryStatus;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState(input.command);
+  const targetState = readTrackerTransitionState({
+    adapter: input.presetAdapter,
+    command: input.command
+  });
   const expectedTargetState =
     input.status === "completed"
       ? "In Review"
