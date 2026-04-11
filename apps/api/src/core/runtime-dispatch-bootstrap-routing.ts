@@ -1,6 +1,6 @@
 import {
   prepareIssueForDispatch,
-  type SymphonyDispatchBootstrapRouter,
+  type SymphonyDispatchBootstrapRoutingInput,
   type SymphonyDispatchBootstrapRoutingResult
 } from "@symphony/orchestrator";
 import {
@@ -29,11 +29,13 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
   routing: SymphonyRuntimeCurrentFlowRouting;
-}) : Promise<SymphonyDispatchBootstrapRouter> {
+}) {
   const { router, policy } = input.routing;
 
   return {
-    async route(routeInput): Promise<SymphonyDispatchBootstrapRoutingResult> {
+    async route(
+      routeInput: SymphonyDispatchBootstrapRoutingInput
+    ): Promise<SymphonyDispatchBootstrapRoutingResult> {
       const ensured = await input.routeWorkflows.ensureWorkflowForIssue({
         issueIdentifier: routeInput.issue.identifier,
         repositoryKey: input.repositoryKey,

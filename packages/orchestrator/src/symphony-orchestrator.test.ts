@@ -5,7 +5,10 @@ import {
   SymphonyOrchestrator as BaseSymphonyOrchestrator
 } from "./symphony-orchestrator.js";
 import { SymphonyDispatchRefusedError } from "./symphony-orchestrator-errors.js";
-import type { SymphonyAgentRuntimeCompletion } from "./symphony-orchestrator-types.js";
+import type {
+  SymphonyAgentRuntimeCompletion,
+  SymphonyWorkflowRoutingAdapter
+} from "./symphony-orchestrator-types.js";
 import { SymphonyRuntimeManifestError } from "@symphony/runtime-contract";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type {
@@ -47,23 +50,16 @@ class SymphonyOrchestrator extends BaseSymphonyOrchestrator {
   constructor(
     input: Omit<
       SymphonyOrchestratorInput,
-      "dispatchBootstrapRouter" | "runStartActivationRouter" | "runLifecycleRouter"
+      "workflowRoutingAdapter"
     > &
-      Partial<
-        Pick<
-          SymphonyOrchestratorInput,
-          "dispatchBootstrapRouter" | "runStartActivationRouter" | "runLifecycleRouter"
-        >
-      >
+      Partial<{
+        workflowRoutingAdapter: Partial<SymphonyWorkflowRoutingAdapter>;
+      }>
   ) {
     const routing = createTestOrchestratorRoutingAdapters({
       config: input.config,
       tracker: input.tracker,
-      overrides: {
-        dispatchBootstrapRouter: input.dispatchBootstrapRouter,
-        runStartActivationRouter: input.runStartActivationRouter,
-        runLifecycleRouter: input.runLifecycleRouter
-      }
+      overrides: input.workflowRoutingAdapter
     });
 
     super({
@@ -199,8 +195,8 @@ describe("symphony orchestrator", () => {
           };
         }
       }),
-      dispatchBootstrapRouter: {
-        async route() {
+      workflowRoutingAdapter: {
+        async routeDispatchBootstrap() {
           await tracker.updateIssueState(issue.id, "Bootstrapping");
           return {
             issue: {
@@ -250,8 +246,8 @@ describe("symphony orchestrator", () => {
           };
         }
       }),
-      dispatchBootstrapRouter: {
-        async route() {
+      workflowRoutingAdapter: {
+        async routeDispatchBootstrap() {
           throw new Error("dispatch bootstrap router should not be called");
         }
       },
@@ -300,8 +296,8 @@ describe("symphony orchestrator", () => {
           };
         }
       }),
-      runStartActivationRouter: {
-        async activate(input) {
+      workflowRoutingAdapter: {
+        async activateRunStart(input) {
           await tracker.updateIssueState(input.issue.id, "In Progress");
           return {
             issue: {
@@ -374,18 +370,16 @@ describe("symphony orchestrator", () => {
           stoppedIssueIds.push(stoppedIssue.id);
         }
       }),
-      runStartActivationRouter: {
-        async activate() {
+      workflowRoutingAdapter: {
+        async activateRunStart() {
           throw new Error("activation failed");
-        }
-      },
-      runLifecycleRouter: {
-        async observeIssueState(input) {
+        },
+        async observeRunningIssueState(input) {
           return {
             issue: input.issue
           };
         },
-        async routeCompletion(input) {
+        async routeRunCompletion(input) {
           routedCompletions.push(input.completion);
           await tracker.updateIssueState(input.issue.id, "Failed");
           return {
@@ -463,14 +457,14 @@ describe("symphony orchestrator", () => {
           stoppedIssueIds.push(stoppedIssue.id);
         }
       }),
-      runLifecycleRouter: {
-        async observeIssueState(input) {
+      workflowRoutingAdapter: {
+        async observeRunningIssueState(input) {
           observedStates.push(input.issue.state);
           return {
             issue: input.issue
           };
         },
-        async routeCompletion(input) {
+        async routeRunCompletion(input) {
           return {
             issue: input.issue
           };
@@ -516,13 +510,13 @@ describe("symphony orchestrator", () => {
         })
       }),
       agentRuntime: createAgentRuntime(),
-      runLifecycleRouter: {
-        async observeIssueState(input) {
+      workflowRoutingAdapter: {
+        async observeRunningIssueState(input) {
           return {
             issue: input.issue
           };
         },
-        async routeCompletion(input) {
+        async routeRunCompletion(input) {
           routedCompletions.push(input.completion.kind);
           await tracker.updateIssueState(input.issue.id, "Blocked");
           return {
@@ -596,13 +590,13 @@ describe("symphony orchestrator", () => {
         })
       }),
       agentRuntime: createAgentRuntime(),
-      runLifecycleRouter: {
-        async observeIssueState(input) {
+      workflowRoutingAdapter: {
+        async observeRunningIssueState(input) {
           return {
             issue: input.issue
           };
         },
-        async routeCompletion(input) {
+        async routeRunCompletion(input) {
           routedCompletions.push(input.completion.kind);
           await tracker.updateIssueState(input.issue.id, "Done");
           return {
@@ -1986,13 +1980,13 @@ describe("symphony orchestrator", () => {
         })
       }),
       agentRuntime: createAgentRuntime(),
-      runLifecycleRouter: {
-        observeIssueState(input) {
+      workflowRoutingAdapter: {
+        observeRunningIssueState(input) {
           return {
             issue: input.issue
           };
         },
-        async routeCompletion(input) {
+        async routeRunCompletion(input) {
           await tracker.updateIssueState(input.issue.id, "Paused");
           return {
             issue: {

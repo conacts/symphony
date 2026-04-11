@@ -384,14 +384,14 @@ describe("runtime route lifecycle service", () => {
     });
 
     try {
-      await harness.service.dispatchBootstrapRouter.route({
+      await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
         issue: harness.issue,
         attempt: 1,
         preferredWorkerHost: null,
         startedAt: "2026-04-10T14:00:00.000Z"
       });
       const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
-      await harness.service.runStartActivationRouter.activate({
+      await harness.service.workflowRoutingAdapter.activateRunStart({
         issue: bootstrappingIssue!,
         runId: "run-1",
         runMode: "implementation",
@@ -444,7 +444,7 @@ describe("runtime route lifecycle service", () => {
     });
 
     try {
-      await harness.service.dispatchBootstrapRouter.route({
+      await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
         issue: harness.issue,
         attempt: 1,
         preferredWorkerHost: null,
@@ -737,14 +737,14 @@ describe("runtime route lifecycle service", () => {
     });
 
     try {
-      await harness.service.dispatchBootstrapRouter.route({
+      await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
         issue: harness.issue,
         attempt: 1,
         preferredWorkerHost: null,
         startedAt: "2026-04-10T14:20:00.000Z"
       });
       const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
-      await harness.service.runStartActivationRouter.activate({
+      await harness.service.workflowRoutingAdapter.activateRunStart({
         issue: bootstrappingIssue!,
         runId: "run-1",
         runMode: "implementation",
@@ -874,14 +874,14 @@ async function createHarness(input: {
 }
 
 async function advanceWorkflowToReview(harness: Awaited<ReturnType<typeof createHarness>>) {
-  await harness.service.dispatchBootstrapRouter.route({
+  await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
     issue: harness.issue,
     attempt: 1,
     preferredWorkerHost: null,
     startedAt: "2026-04-10T14:00:00.000Z"
   });
   const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
-  await harness.service.runStartActivationRouter.activate({
+  await harness.service.workflowRoutingAdapter.activateRunStart({
     issue: bootstrappingIssue!,
     runId: "run-1",
     runMode: "implementation",
@@ -901,14 +901,14 @@ async function advanceWorkflowToReview(harness: Awaited<ReturnType<typeof create
 async function advanceWorkflowToRunningImplementation(
   harness: Awaited<ReturnType<typeof createHarness>>
 ) {
-  await harness.service.dispatchBootstrapRouter.route({
+  await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
     issue: harness.issue,
     attempt: 1,
     preferredWorkerHost: null,
     startedAt: "2026-04-10T14:11:00.000Z"
   });
   const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
-  await harness.service.runStartActivationRouter.activate({
+  await harness.service.workflowRoutingAdapter.activateRunStart({
     issue: bootstrappingIssue!,
     runId: "run-1",
     runMode: "implementation",
@@ -922,14 +922,14 @@ async function advanceWorkflowToRunningImplementation(
 async function advanceWorkflowToRunningApprovedMerge(
   harness: Awaited<ReturnType<typeof createHarness>>
 ) {
-  await harness.service.dispatchBootstrapRouter.route({
+  await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
     issue: harness.issue,
     attempt: 1,
     preferredWorkerHost: null,
     startedAt: "2026-04-10T14:12:00.000Z"
   });
   const approvedIssue = harness.tracker.getIssue(harness.issue.id);
-  await harness.service.runStartActivationRouter.activate({
+  await harness.service.workflowRoutingAdapter.activateRunStart({
     issue: approvedIssue!,
     runId: "run-1",
     runMode: "approved_merge",

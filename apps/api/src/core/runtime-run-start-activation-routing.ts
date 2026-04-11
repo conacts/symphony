@@ -1,6 +1,6 @@
 import type {
-  SymphonyRunStartActivationResult,
-  SymphonyRunStartActivationRouter
+  SymphonyRunStartActivationInput,
+  SymphonyRunStartActivationResult
 } from "@symphony/orchestrator";
 import {
   createSymphonyCurrentFlowRunStartedSignal,
@@ -22,11 +22,13 @@ export async function createRuntimeRunStartActivationRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
   routing: SymphonyRuntimeCurrentFlowRouting;
-}): Promise<SymphonyRunStartActivationRouter> {
+}) {
   const { router, policy } = input.routing;
 
   return {
-    async activate(activationInput): Promise<SymphonyRunStartActivationResult> {
+    async activate(
+      activationInput: SymphonyRunStartActivationInput
+    ): Promise<SymphonyRunStartActivationResult> {
       const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
         issueIdentifier: activationInput.issue.identifier,
         router,

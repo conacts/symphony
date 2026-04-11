@@ -246,14 +246,14 @@ async function advanceWorkflowToReview(harness: {
   routeLifecycle: Awaited<ReturnType<typeof createRuntimeRouteLifecycleService>>;
   tracker: ReturnType<typeof createMemorySymphonyTracker>;
 }) {
-  await harness.routeLifecycle.dispatchBootstrapRouter.route({
+  await harness.routeLifecycle.workflowRoutingAdapter.routeDispatchBootstrap({
     issue: harness.issue,
     attempt: 1,
     preferredWorkerHost: null,
     startedAt: "2026-04-10T15:00:01.000Z"
   });
   const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
-  await harness.routeLifecycle.runStartActivationRouter.activate({
+  await harness.routeLifecycle.workflowRoutingAdapter.activateRunStart({
     issue: bootstrappingIssue!,
     runId: "run-1",
     runMode: "implementation",

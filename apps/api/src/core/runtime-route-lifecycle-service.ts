@@ -1,7 +1,9 @@
 import type {
-  SymphonyDispatchBootstrapRouter,
-  SymphonyRunLifecycleRouter,
-  SymphonyRunStartActivationRouter
+  SymphonyDispatchBootstrapRoutingInput,
+  SymphonyRunLifecycleCompletionInput,
+  SymphonyRunLifecycleObservationInput,
+  SymphonyRunStartActivationInput,
+  SymphonyWorkflowRoutingAdapter
 } from "@symphony/orchestrator";
 import type {
   SymphonyReworkHandoff,
@@ -57,9 +59,7 @@ import {
 } from "./runtime-state-request-routing.js";
 
 export type SymphonyRuntimeRouteLifecycleService = {
-  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
-  runStartActivationRouter: SymphonyRunStartActivationRouter;
-  runLifecycleRouter: SymphonyRunLifecycleRouter;
+  workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
   routeDeliveryReport(input: {
     issueIdentifier: string;
     runId: string;
@@ -152,6 +152,26 @@ export async function createRuntimeRouteLifecycleService(input: {
     tracker: input.tracker,
     routing
   });
+  const workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter = {
+    async routeDispatchBootstrap(
+      routeInput: SymphonyDispatchBootstrapRoutingInput
+    ) {
+      return await dispatchBootstrapRouter.route(routeInput);
+    },
+    async activateRunStart(activationInput: SymphonyRunStartActivationInput) {
+      return await runStartActivationRouter.activate(activationInput);
+    },
+    async observeRunningIssueState(
+      observationInput: SymphonyRunLifecycleObservationInput
+    ) {
+      return await runLifecycleRouter.observeIssueState(observationInput);
+    },
+    async routeRunCompletion(
+      completionInput: SymphonyRunLifecycleCompletionInput
+    ) {
+      return await runLifecycleRouter.routeCompletion(completionInput);
+    }
+  };
   const deliveryRouter = await createRuntimeDeliveryRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
@@ -294,9 +314,7 @@ export async function createRuntimeRouteLifecycleService(input: {
     };
 
   return {
-    dispatchBootstrapRouter,
-    runStartActivationRouter,
-    runLifecycleRouter,
+    workflowRoutingAdapter,
     async routeDeliveryReport(deliveryInput) {
       const issue = await input.tracker.fetchIssueByIdentifier(
         input.trackerConfig,

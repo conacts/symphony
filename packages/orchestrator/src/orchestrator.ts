@@ -25,7 +25,6 @@ export type {
   SymphonyAgentMessage,
   SymphonyAgentTotals,
   SymphonyClock,
-  SymphonyDispatchBootstrapRouter,
   SymphonyDispatchBootstrapRoutingInput,
   SymphonyDispatchBootstrapRoutingResult,
   SymphonyDispatchingEntry,
@@ -38,14 +37,13 @@ export type {
   SymphonyRunLifecycleCompletionResult,
   SymphonyRunLifecycleObservationInput,
   SymphonyRunLifecycleObservationResult,
-  SymphonyRunLifecycleRouter,
   SymphonyRunStartActivationInput,
   SymphonyRunStartActivationResult,
-  SymphonyRunStartActivationRouter,
   SymphonyRetryEntry,
   SymphonyRunningEntry,
   SymphonyStartupFailureOrigin,
-  SymphonyStartupFailureStage
+  SymphonyStartupFailureStage,
+  SymphonyWorkflowRoutingAdapter
 } from "./symphony-orchestrator-types.js";
 export type {
   SymphonyAgentRuntimeConfig,

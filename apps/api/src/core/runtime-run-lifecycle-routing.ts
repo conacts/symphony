@@ -1,8 +1,9 @@
 import type {
   SymphonyAgentRuntimeCompletion,
+  SymphonyRunLifecycleCompletionInput,
   SymphonyRunLifecycleCompletionResult,
-  SymphonyRunLifecycleObservationResult,
-  SymphonyRunLifecycleRouter
+  SymphonyRunLifecycleObservationInput,
+  SymphonyRunLifecycleObservationResult
 } from "@symphony/orchestrator";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
@@ -31,12 +32,12 @@ export async function createRuntimeRunLifecycleRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
   routing: SymphonyRuntimeCurrentFlowRouting;
-}): Promise<SymphonyRunLifecycleRouter> {
+}) {
   const { router, policy } = input.routing;
 
   return {
     async observeIssueState(
-      observationInput
+      observationInput: SymphonyRunLifecycleObservationInput
     ): Promise<SymphonyRunLifecycleObservationResult> {
       const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
         issueIdentifier: observationInput.issue.identifier,
@@ -92,7 +93,7 @@ export async function createRuntimeRunLifecycleRouter(input: {
     },
 
     async routeCompletion(
-      completionInput
+      completionInput: SymphonyRunLifecycleCompletionInput
     ): Promise<SymphonyRunLifecycleCompletionResult> {
       const resumed = await input.routeWorkflows.resumeSessionByIssueIdentifier({
         issueIdentifier: completionInput.issue.identifier,

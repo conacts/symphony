@@ -16,9 +16,7 @@ import type {
 } from "./orchestrator-config.js";
 import type {
   SymphonyAgentRuntimeCompletion,
-  SymphonyDispatchBootstrapRouter,
-  SymphonyRunLifecycleRouter,
-  SymphonyRunStartActivationRouter
+  SymphonyWorkflowRoutingAdapter
 } from "./symphony-orchestrator-types.js";
 import { prepareIssueForDispatch } from "./symphony-orchestrator.js";
 
@@ -148,63 +146,55 @@ export function buildSymphonyOrchestratorConfig(overrides: {
 export function createTestOrchestratorRoutingAdapters(input: {
   config: SymphonyOrchestratorConfig;
   tracker: SymphonyTracker;
-  overrides?: Partial<{
-    dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
-    runStartActivationRouter: SymphonyRunStartActivationRouter;
-    runLifecycleRouter: SymphonyRunLifecycleRouter;
-  }>;
+  overrides?: Partial<SymphonyWorkflowRoutingAdapter>;
 }): {
-  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
-  runStartActivationRouter: SymphonyRunStartActivationRouter;
-  runLifecycleRouter: SymphonyRunLifecycleRouter;
+  workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
 } {
+  const defaultWorkflowRoutingAdapter: SymphonyWorkflowRoutingAdapter = {
+    async routeDispatchBootstrap(routeInput) {
+      return {
+        issue: await prepareIssueForDispatch(
+          input.config,
+          input.tracker,
+          routeInput.issue
+        ),
+        runMode: deriveSymphonyRunMode(routeInput.issue.state)
+      };
+    },
+    async activateRunStart(activationInput) {
+      return {
+        issue: await transitionIssueStateIfNeeded(
+          input.tracker,
+          activationInput.issue,
+          resolveActivationTargetState(activationInput)
+        )
+      };
+    },
+    async observeRunningIssueState(observationInput) {
+      return {
+        issue: observationInput.issue
+      };
+    },
+    async routeRunCompletion(completionInput) {
+      return {
+        issue: await transitionIssueStateIfNeeded(
+          input.tracker,
+          completionInput.issue,
+          resolveCompletionTargetState({
+            config: input.config,
+            completion: completionInput.completion,
+            runMode: completionInput.runMode
+          })
+        )
+      };
+    }
+  };
+
   return {
-    dispatchBootstrapRouter:
-      input.overrides?.dispatchBootstrapRouter ?? {
-        async route(routeInput) {
-          return {
-            issue: await prepareIssueForDispatch(
-              input.config,
-              input.tracker,
-              routeInput.issue
-            ),
-            runMode: deriveSymphonyRunMode(routeInput.issue.state)
-          };
-        }
-      },
-    runStartActivationRouter:
-      input.overrides?.runStartActivationRouter ?? {
-        async activate(activationInput) {
-          return {
-            issue: await transitionIssueStateIfNeeded(
-              input.tracker,
-              activationInput.issue,
-              resolveActivationTargetState(activationInput)
-            )
-          };
-        }
-      },
-    runLifecycleRouter:
-      input.overrides?.runLifecycleRouter ?? {
-        async observeIssueState(observationInput) {
-          return {
-            issue: observationInput.issue
-          };
-        },
-        async routeCompletion(completionInput) {
-          return {
-            issue: await transitionIssueStateIfNeeded(
-              input.tracker,
-              completionInput.issue,
-              resolveCompletionTargetState({
-                config: input.config,
-                completion: completionInput.completion,
-                runMode: completionInput.runMode
-              })
-            )
-          };
-        }
-      }
+    workflowRoutingAdapter: {
+      ...defaultWorkflowRoutingAdapter,
+      ...input.overrides
+    }
   };
 }
 

@@ -6,9 +6,9 @@ import {
 import { claimTransitionCommentBody } from "./symphony-orchestrator-comments.js";
 import type {
   SymphonyAgentRuntimeUpdate,
-  SymphonyDispatchBootstrapRouter,
   SymphonyDispatchBootstrapRoutingResult,
-  SymphonyRunningEntry
+  SymphonyRunningEntry,
+  SymphonyWorkflowRoutingAdapter
 } from "./symphony-orchestrator-types.js";
 import type {
   AgentRuntimeLaunchTarget
@@ -59,7 +59,7 @@ export async function resolveDispatchBootstrap(input: {
   preferredWorkerHost: string | null;
   startedAt: string;
   runModeOverride?: SymphonyRunMode;
-  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
+  workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
 }): Promise<SymphonyDispatchBootstrapRoutingResult> {
   if (input.runModeOverride) {
     return {
@@ -72,7 +72,7 @@ export async function resolveDispatchBootstrap(input: {
     };
   }
 
-  return await input.dispatchBootstrapRouter.route({
+  return await input.workflowRoutingAdapter.routeDispatchBootstrap({
     issue: input.issue,
     attempt: input.attempt,
     preferredWorkerHost: input.preferredWorkerHost,

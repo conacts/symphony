@@ -77,14 +77,14 @@ describe("runtime shutdown reconciliation", () => {
         now: () => new Date("2026-04-10T14:30:00.000Z")
       });
 
-      await routeLifecycle.dispatchBootstrapRouter.route({
+      await routeLifecycle.workflowRoutingAdapter.routeDispatchBootstrap({
         issue,
         attempt: 1,
         preferredWorkerHost: null,
         startedAt: "2026-04-10T14:30:00.000Z"
       });
       const bootstrappingIssue = tracker.getIssue(issue.id);
-      await routeLifecycle.runStartActivationRouter.activate({
+      await routeLifecycle.workflowRoutingAdapter.activateRunStart({
         issue: bootstrappingIssue!,
         runId: "run-1",
         runMode: "implementation",

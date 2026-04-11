@@ -105,14 +105,6 @@ export type SymphonyDispatchBootstrapRoutingResult = {
   runMode: SymphonyRunMode;
 };
 
-export interface SymphonyDispatchBootstrapRouter {
-  route(
-    input: SymphonyDispatchBootstrapRoutingInput
-  ):
-    | Promise<SymphonyDispatchBootstrapRoutingResult>
-    | SymphonyDispatchBootstrapRoutingResult;
-}
-
 export type SymphonyRunStartActivationInput = {
   issue: SymphonyTrackerIssue;
   runId: string | null;
@@ -126,14 +118,6 @@ export type SymphonyRunStartActivationInput = {
 export type SymphonyRunStartActivationResult = {
   issue: SymphonyTrackerIssue;
 };
-
-export interface SymphonyRunStartActivationRouter {
-  activate(
-    input: SymphonyRunStartActivationInput
-  ):
-    | Promise<SymphonyRunStartActivationResult>
-    | SymphonyRunStartActivationResult;
-}
 
 export type SymphonyRunLifecycleObservationInput = {
   issue: SymphonyTrackerIssue;
@@ -158,13 +142,23 @@ export type SymphonyRunLifecycleCompletionResult = {
   issue: SymphonyTrackerIssue;
 };
 
-export interface SymphonyRunLifecycleRouter {
-  observeIssueState(
+export interface SymphonyWorkflowRoutingAdapter {
+  routeDispatchBootstrap(
+    input: SymphonyDispatchBootstrapRoutingInput
+  ):
+    | Promise<SymphonyDispatchBootstrapRoutingResult>
+    | SymphonyDispatchBootstrapRoutingResult;
+  activateRunStart(
+    input: SymphonyRunStartActivationInput
+  ):
+    | Promise<SymphonyRunStartActivationResult>
+    | SymphonyRunStartActivationResult;
+  observeRunningIssueState(
     input: SymphonyRunLifecycleObservationInput
   ):
     | Promise<SymphonyRunLifecycleObservationResult>
     | SymphonyRunLifecycleObservationResult;
-  routeCompletion(
+  routeRunCompletion(
     input: SymphonyRunLifecycleCompletionInput
   ):
     | Promise<SymphonyRunLifecycleCompletionResult>

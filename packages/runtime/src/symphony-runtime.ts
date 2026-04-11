@@ -5,10 +5,8 @@ import {
   type SymphonyAgentRuntimeCompletion,
   type SymphonyAgentRuntimeUpdate,
   type SymphonyClock,
-  type SymphonyDispatchBootstrapRouter,
   type SymphonyOrchestratorObserver,
-  type SymphonyRunStartActivationRouter,
-  type SymphonyRunLifecycleRouter,
+  type SymphonyWorkflowRoutingAdapter,
   type SymphonyOrchestratorSnapshot
 } from "@symphony/orchestrator";
 import {
@@ -77,9 +75,7 @@ export function createSymphonyRuntime<
   observer?: SymphonyOrchestratorObserver;
   clock?: SymphonyClock;
   runnerEnv?: Record<string, string | undefined>;
-  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
-  runStartActivationRouter: SymphonyRunStartActivationRouter;
-  runLifecycleRouter: SymphonyRunLifecycleRouter;
+  workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
 }): SymphonyRuntime<Request, Reviewed, Published> {
   const reviewProvider = input.reviewProvider ?? null;
   const reviewPublisher = input.reviewPublisher ?? null;
@@ -92,9 +88,7 @@ export function createSymphonyRuntime<
     observer: input.observer,
     clock: input.clock,
     runnerEnv: input.runnerEnv,
-    dispatchBootstrapRouter: input.dispatchBootstrapRouter,
-    runStartActivationRouter: input.runStartActivationRouter,
-    runLifecycleRouter: input.runLifecycleRouter
+    workflowRoutingAdapter: input.workflowRoutingAdapter
   });
   const publishReview = async (
     review: PublishReviewInput<Reviewed>
@@ -176,29 +170,13 @@ function requireReviewPublisher<Input extends ReviewResult, Published>(
 }
 
 function assertLifecycleRoutingConfigured(input: {
-  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter | null | undefined;
-  runStartActivationRouter: SymphonyRunStartActivationRouter | null | undefined;
-  runLifecycleRouter: SymphonyRunLifecycleRouter | null | undefined;
+  workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter | null | undefined;
 }): asserts input is {
-  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
-  runStartActivationRouter: SymphonyRunStartActivationRouter;
-  runLifecycleRouter: SymphonyRunLifecycleRouter;
+  workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
 } {
-  if (!input.dispatchBootstrapRouter) {
+  if (!input.workflowRoutingAdapter) {
     throw new TypeError(
-      "Symphony runtime requires a dispatch bootstrap router."
-    );
-  }
-
-  if (!input.runStartActivationRouter) {
-    throw new TypeError(
-      "Symphony runtime requires a run-start activation router."
-    );
-  }
-
-  if (!input.runLifecycleRouter) {
-    throw new TypeError(
-      "Symphony runtime requires a run lifecycle router."
+      "Symphony runtime requires a workflow routing adapter."
     );
   }
 }

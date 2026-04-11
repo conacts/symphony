@@ -5,9 +5,7 @@ import {
 } from "@symphony/test-support";
 import {
   createAgentRuntime,
-  type SymphonyDispatchBootstrapRouter,
-  type SymphonyRunLifecycleRouter,
-  type SymphonyRunStartActivationRouter
+  type SymphonyWorkflowRoutingAdapter
 } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { createSymphonyRuntime } from "./symphony-runtime.js";
@@ -34,32 +32,26 @@ const inertTracker = {
 };
 
 const inertLifecycleRouting: {
-  dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
-  runStartActivationRouter: SymphonyRunStartActivationRouter;
-  runLifecycleRouter: SymphonyRunLifecycleRouter;
+  workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
 } = {
-  dispatchBootstrapRouter: {
-    route(input: { issue: SymphonyTrackerIssue }) {
+  workflowRoutingAdapter: {
+    routeDispatchBootstrap(input: { issue: SymphonyTrackerIssue }) {
       return {
         issue: input.issue,
         runMode: "implementation" as const
       };
-    }
-  },
-  runStartActivationRouter: {
-    activate(input: { issue: SymphonyTrackerIssue }) {
-      return {
-        issue: input.issue
-      };
-    }
-  },
-  runLifecycleRouter: {
-    observeIssueState(input: { issue: SymphonyTrackerIssue }) {
+    },
+    activateRunStart(input: { issue: SymphonyTrackerIssue }) {
       return {
         issue: input.issue
       };
     },
-    routeCompletion(input: { issue: SymphonyTrackerIssue }) {
+    observeRunningIssueState(input: { issue: SymphonyTrackerIssue }) {
+      return {
+        issue: input.issue
+      };
+    },
+    routeRunCompletion(input: { issue: SymphonyTrackerIssue }) {
       return {
         issue: input.issue
       };
@@ -168,10 +160,8 @@ describe("symphony runtime review seam", () => {
           },
           async stopRun() {}
         }),
-        dispatchBootstrapRouter: undefined as never,
-        runStartActivationRouter: inertLifecycleRouting.runStartActivationRouter,
-        runLifecycleRouter: inertLifecycleRouting.runLifecycleRouter
+        workflowRoutingAdapter: undefined as never
       })
-    ).toThrow(/dispatch bootstrap router/i);
+    ).toThrow(/workflow routing adapter/i);
   });
 });

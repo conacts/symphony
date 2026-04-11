@@ -63,13 +63,11 @@ import type {
   SymphonyAgentRuntimeUpdate,
   SymphonyClock,
   SymphonyDispatchStopRequest,
-  SymphonyDispatchBootstrapRouter,
   SymphonyOrchestratorObserver,
   SymphonyOrchestratorSnapshot,
-  SymphonyRunLifecycleRouter,
   SymphonyOrchestratorState,
-  SymphonyRunStartActivationRouter,
-  SymphonyStartupFailureStage
+  SymphonyStartupFailureStage,
+  SymphonyWorkflowRoutingAdapter
 } from "./symphony-orchestrator-types.js";
 
 const maxProviderTransientRetries = 3;
@@ -85,9 +83,7 @@ export class SymphonyOrchestrator {
   readonly #observer: SymphonyOrchestratorObserver | null;
   readonly #clock: SymphonyClock;
   readonly #runnerEnv: Record<string, string | undefined> | undefined;
-  readonly #dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
-  readonly #runStartActivationRouter: SymphonyRunStartActivationRouter;
-  readonly #runLifecycleRouter: SymphonyRunLifecycleRouter;
+  readonly #workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
   #state: SymphonyOrchestratorState;
 
   constructor(input: {
@@ -98,9 +94,7 @@ export class SymphonyOrchestrator {
     observer?: SymphonyOrchestratorObserver;
     clock?: SymphonyClock;
     runnerEnv?: Record<string, string | undefined>;
-    dispatchBootstrapRouter: SymphonyDispatchBootstrapRouter;
-    runStartActivationRouter: SymphonyRunStartActivationRouter;
-    runLifecycleRouter: SymphonyRunLifecycleRouter;
+    workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
   }) {
     this.#config = input.config;
     this.#tracker = input.tracker;
@@ -109,9 +103,7 @@ export class SymphonyOrchestrator {
     this.#observer = input.observer ?? null;
     this.#clock = input.clock ?? systemClock;
     this.#runnerEnv = input.runnerEnv;
-    this.#dispatchBootstrapRouter = input.dispatchBootstrapRouter;
-    this.#runStartActivationRouter = input.runStartActivationRouter;
-    this.#runLifecycleRouter = input.runLifecycleRouter;
+    this.#workflowRoutingAdapter = input.workflowRoutingAdapter;
     this.#state = createSymphonyOrchestratorState(
       input.config,
       this.#clock
@@ -322,7 +314,7 @@ export class SymphonyOrchestrator {
       preferredWorkerHost,
       startedAt,
       runModeOverride,
-      dispatchBootstrapRouter: this.#dispatchBootstrapRouter
+      workflowRoutingAdapter: this.#workflowRoutingAdapter
     });
     const runMode = bootstrap.runMode;
     this.#state.dispatching[issue.id] = {
@@ -1310,7 +1302,7 @@ export class SymphonyOrchestrator {
     runId: string | null;
     runMode: SymphonyRunMode;
   }): Promise<SymphonyTrackerIssue> {
-    const observed = await this.#runLifecycleRouter.observeIssueState({
+    const observed = await this.#workflowRoutingAdapter.observeRunningIssueState({
       issue: input.issue,
       runId: input.runId,
       runMode: input.runMode,
@@ -1328,7 +1320,7 @@ export class SymphonyOrchestrator {
   }): Promise<{
     issue: SymphonyTrackerIssue;
   }> {
-    return await this.#runLifecycleRouter.routeCompletion({
+    return await this.#workflowRoutingAdapter.routeRunCompletion({
       issue: input.issue,
       runId: input.runId,
       runMode: input.runMode,
@@ -1439,7 +1431,7 @@ export class SymphonyOrchestrator {
     workerHost: string | null;
     launchTarget: AgentRuntimeLaunchTarget | null;
   }): Promise<SymphonyTrackerIssue> {
-    const activated = await this.#runStartActivationRouter.activate({
+    const activated = await this.#workflowRoutingAdapter.activateRunStart({
       issue: input.issue,
       runId: input.runId,
       runMode: input.runMode,

@@ -470,9 +470,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     observer,
     agentRuntime,
     runnerEnv: environmentSource,
-    dispatchBootstrapRouter: routeLifecycle.dispatchBootstrapRouter,
-    runStartActivationRouter: routeLifecycle.runStartActivationRouter,
-    runLifecycleRouter: routeLifecycle.runLifecycleRouter
+    workflowRoutingAdapter: routeLifecycle.workflowRoutingAdapter
   });
   runtimeRef = runtime;
   let orchestratorPortRef: SymphonyRuntimeAppServices["orchestrator"] | null = null;
