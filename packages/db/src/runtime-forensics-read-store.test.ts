@@ -53,12 +53,15 @@ describe("runtime forensics read store", () => {
       });
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-runtime-1",
+        turnSequence: 1,
         promptText: "Implement the requested change.",
         status: "running",
         threadId: "thread-runtime-1",
         startedAt: "2026-04-09T03:00:01.000Z"
       });
       await runStore.recordEvent(runId, turnId, {
+        eventId: "event-runtime-1",
+        eventSequence: 1,
         eventType: "session.started",
         recordedAt: "2026-04-09T03:00:02.000Z",
         threadId: "thread-runtime-1",
@@ -74,6 +77,8 @@ describe("runtime forensics read store", () => {
         summary: "Runtime session started."
       });
       await runStore.recordEvent(runId, turnId, {
+        eventId: "event-runtime-2",
+        eventSequence: 2,
         eventType: "item.completed",
         recordedAt: "2026-04-09T03:00:03.000Z",
         threadId: "thread-runtime-1",
@@ -103,10 +108,12 @@ describe("runtime forensics read store", () => {
         endedAt: "2026-04-09T03:00:05.000Z"
       });
       await deliveryStore.record({
+        reportId: "report-runtime-1",
         runId,
         status: "completed",
         summary: "Opened the PR.",
         prUrl: "https://github.com/example/repo/pull/410",
+        source: "runtime",
         reportedAt: "2026-04-09T03:00:06.000Z"
       });
       await runStore.upsertRunContext(runId, {

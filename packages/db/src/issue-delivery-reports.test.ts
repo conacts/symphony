@@ -61,13 +61,16 @@ describe("issue delivery report store", () => {
         startedAt: "2026-04-05T17:59:30.000Z"
       });
       await store.record({
+        reportId: "report-1",
         runId: "run-1",
         status: "blocked",
         summary: "Blocked on auth.",
         blockingReason: "Missing OpenRouter credentials.",
+        source: "runtime",
         reportedAt: "2026-04-05T18:00:00.000Z"
       });
       const completedId = await store.record({
+        reportId: "report-2",
         runId: "run-1",
         turnId: "turn-1",
         status: "completed",
@@ -76,6 +79,7 @@ describe("issue delivery report store", () => {
         prNumber: "157",
         branchName: "symphony/col-157",
         testsSummary: "pnpm verify:precommit",
+        source: "pi",
         reportedAt: "2026-04-05T18:05:00.000Z"
       });
 
@@ -128,9 +132,11 @@ describe("issue delivery report store", () => {
         startedAt: "2026-04-05T17:59:00.000Z"
       });
       const reportId = await store.record({
+        reportId: "report-invalid",
         runId: "run-invalid",
         status: "partial",
         summary: "Still working.",
+        source: "runtime",
         reportedAt: "2026-04-05T18:05:00.000Z"
       });
 
@@ -177,9 +183,11 @@ describe("issue delivery report store", () => {
 
       await expect(
         store.record({
+          reportId: "report-prurl",
           runId: "run-prurl",
           status: "completed",
           summary: "Opened the PR.",
+          source: "pi",
           reportedAt: "2026-04-05T18:05:00.000Z"
         })
       ).rejects.toThrow("Completed delivery reports require prUrl.");

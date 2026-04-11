@@ -250,6 +250,7 @@ describe("sqlite agent analytics read store", () => {
       });
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-empty",
+        turnSequence: 1,
         promptText: "Wait for work.",
         status: "running",
         startedAt: "2026-04-03T20:37:39.000Z",

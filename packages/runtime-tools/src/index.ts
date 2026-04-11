@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   SymphonyIssueDeliveryReportStore
 } from "@symphony/db";
@@ -130,7 +131,10 @@ export async function executeDeliveryReportTool(
   }
 
   try {
+    const reportedAt = new Date().toISOString();
+    const generatedReportId = randomUUID();
     const reportId = await executionContext.deliveryReports.record({
+      reportId: generatedReportId,
       runId: executionContext.runId,
       turnId: executionContext.turnId,
       status: deliveryArguments.status,
@@ -141,7 +145,8 @@ export async function executeDeliveryReportTool(
       blockingReason: deliveryArguments.blockingReason,
       testsSummary: deliveryArguments.testsSummary,
       source: "pi",
-      payload: toJsonValue(deliveryArguments.rawPayload)
+      payload: toJsonValue(deliveryArguments.rawPayload),
+      reportedAt
     });
 
     const deliveryResult: RuntimeDeliveryReportResult = {

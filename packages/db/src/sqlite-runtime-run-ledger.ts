@@ -104,7 +104,7 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
     return this.#runtimeRunStore.recordTurnStarted(runId, {
       turnId: attrs.turnId,
       turnSequence: attrs.turnSequence,
-      threadId: attrs.threadId ?? undefined,
+      threadId: attrs.threadId,
       agentTurnId: attrs.agentTurnId,
       promptText: attrs.promptText,
       startedAt: attrs.startedAt,

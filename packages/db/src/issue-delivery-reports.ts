@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import type { JsonValue } from "@symphony/contracts";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
@@ -10,6 +9,7 @@ import {
 } from "./schema.js";
 
 export type SymphonyIssueDeliveryStatus = "completed" | "blocked" | "partial";
+export type SymphonyIssueDeliverySource = "pi" | "runtime";
 
 export type SymphonyIssueDeliveryReportRecord = {
   reportId: string;
@@ -25,7 +25,7 @@ export type SymphonyIssueDeliveryReportRecord = {
   branchName: string | null;
   blockingReason: string | null;
   testsSummary: string | null;
-  source: string;
+  source: SymphonyIssueDeliverySource;
   payload: JsonValue;
   reportedAt: string;
   insertedAt: string;
@@ -33,6 +33,7 @@ export type SymphonyIssueDeliveryReportRecord = {
 
 export interface SymphonyIssueDeliveryReportStore {
   record(input: {
+    reportId: string;
     runId: string;
     turnId?: string | null;
     status: SymphonyIssueDeliveryStatus;
@@ -42,9 +43,9 @@ export interface SymphonyIssueDeliveryReportStore {
     branchName?: string | null;
     blockingReason?: string | null;
     testsSummary?: string | null;
-    source?: string;
+    source: SymphonyIssueDeliverySource;
     payload?: JsonValue;
-    reportedAt?: string;
+    reportedAt: string;
   }): Promise<string>;
   listForIssue(
     issueIdentifier: string,
@@ -91,6 +92,7 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
   }
 
   async record(input: {
+    reportId: string;
     runId: string;
     turnId?: string | null;
     status: SymphonyIssueDeliveryStatus;
@@ -100,13 +102,13 @@ class SqliteSymphonyIssueDeliveryReportStore implements SymphonyIssueDeliveryRep
     branchName?: string | null;
     blockingReason?: string | null;
     testsSummary?: string | null;
-    source?: string;
+    source: SymphonyIssueDeliverySource;
     payload?: JsonValue;
-    reportedAt?: string;
+    reportedAt: string;
   }): Promise<string> {
-    const reportId = randomUUID();
-    const reportedAt = normalizeIsoTimestamp(input.reportedAt) ?? new Date().toISOString();
-    const source = sanitizeText(input.source) ?? "pi";
+    const reportId = sanitizeRequiredText(input.reportId, "reportId");
+    const reportedAt = requireIsoTimestamp(input.reportedAt, "reportedAt");
+    const source = input.source;
     const summary = sanitizeRequiredText(input.summary, "summary");
     const prUrl = sanitizeText(input.prUrl);
     const blockingReason = sanitizeText(input.blockingReason);
@@ -278,7 +280,7 @@ function mapDeliveryReportRecord(
     branchName: row.branchName ?? null,
     blockingReason: row.blockingReason ?? null,
     testsSummary: row.testsSummary ?? null,
-    source: row.source,
+    source: normalizeSource(row.source),
     payload: (row.payloadJson ?? null) as JsonValue,
     reportedAt: row.reportedAt,
     insertedAt: row.insertedAt
@@ -293,6 +295,16 @@ function normalizeStatus(value: string): SymphonyIssueDeliveryStatus {
       return value;
     default:
       throw new TypeError(`Unknown delivery report status: ${value}`);
+  }
+}
+
+function normalizeSource(value: string): SymphonyIssueDeliverySource {
+  switch (value) {
+    case "pi":
+    case "runtime":
+      return value;
+    default:
+      throw new TypeError(`Unknown delivery report source: ${value}`);
   }
 }
 
@@ -328,14 +340,11 @@ function normalizeLimit(limit: number | undefined, fallback: number): number {
     : fallback;
 }
 
-function normalizeIsoTimestamp(value: string | undefined): string | null {
-  if (typeof value !== "string" || value.trim() === "") {
-    return null;
-  }
-
-  const parsed = Date.parse(value);
+function requireIsoTimestamp(value: string, field: string): string {
+  const normalized = sanitizeRequiredText(value, field);
+  const parsed = Date.parse(normalized);
   if (Number.isNaN(parsed)) {
-    return null;
+    throw new TypeError(`Delivery report ${field} must be a valid ISO timestamp.`);
   }
 
   return new Date(parsed).toISOString();

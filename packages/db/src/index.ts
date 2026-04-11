@@ -69,6 +69,7 @@ export {
 } from "./issue-delivery-reports.js";
 export type {
   SymphonyIssueDeliveryReportRecord,
+  SymphonyIssueDeliverySource,
   SymphonyIssueDeliveryReportStore,
   SymphonyIssueDeliveryStatus
 } from "./issue-delivery-reports.js";

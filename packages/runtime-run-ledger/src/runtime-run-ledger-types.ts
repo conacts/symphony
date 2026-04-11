@@ -95,37 +95,37 @@ export type SymphonyRunStartAttrs = {
   repositoryKey: string;
   trackerIssueId: string;
   issueIdentifier: string;
-  runId?: string;
+  runId: string;
   attempt?: number | null;
   runMode: "implementation" | "rework" | "approved_merge";
   status?: string;
   workerHost?: string | null;
   workspacePath?: string | null;
-  startedAt?: Date | SymphonyIsoTimestamp;
+  startedAt: Date | SymphonyIsoTimestamp;
   commitHashStart?: string | null;
   repoStart?: SymphonyJsonObject | null;
   metadata?: SymphonyJsonObject | null;
 };
 
 export type SymphonyTurnStartAttrs = {
-  turnId?: string;
-  turnSequence?: number;
-  threadId?: string;
+  turnId: string;
+  turnSequence: number;
+  threadId: string;
   agentTurnId?: string | null;
   promptText: string;
   status?: string;
-  startedAt?: Date | SymphonyIsoTimestamp;
+  startedAt: Date | SymphonyIsoTimestamp;
   metadata?: SymphonyJsonObject | null;
 };
 
 export type SymphonyEventAttrs = {
-  eventId?: string;
-  eventSequence?: number;
+  eventId: string;
+  eventSequence: number;
   eventType: SymphonyAgentAnalyticsEventType;
-  recordedAt?: Date | SymphonyIsoTimestamp;
+  recordedAt: Date | SymphonyIsoTimestamp;
   payload: SymphonyAgentAnalyticsEvent;
   summary?: string | null;
-  threadId?: string | null;
+  threadId: string;
   agentTurnId?: string | null;
 };
 

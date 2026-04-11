@@ -131,7 +131,9 @@ async function createHarness() {
   await issueStore.upsert({
     issueIdentifier: issue.identifier,
     trackerIssueId: issue.id,
-    repositoryKey: "openai/symphony"
+    repositoryKey: "openai/symphony",
+    latestRunStartedAt: null,
+    recordedAt: "2026-04-10T00:11:59.000Z"
   });
 
   const routing = await createRuntimeCurrentFlowRouting({

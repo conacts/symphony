@@ -466,7 +466,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     await issueStore.upsert({
       issueIdentifier: issue.identifier,
       trackerIssueId: issue.id,
-      repositoryKey
+      repositoryKey,
+      latestRunStartedAt: null,
+      recordedAt: new Date().toISOString()
     });
   };
   const dispatchObservedIssue = async (

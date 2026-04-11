@@ -213,7 +213,9 @@ async function createObserverHarness() {
   await issueStore.upsert({
     issueIdentifier: issue.identifier,
     trackerIssueId: issue.id,
-    repositoryKey
+    repositoryKey,
+    latestRunStartedAt: null,
+    recordedAt: "2026-04-09T21:54:00.000Z"
   });
 
   const issueTimelineStore = createSymphonyIssueTimelineStore(sqlite.database.db, {

@@ -7,7 +7,8 @@ export interface SymphonyIssueStore {
     issueIdentifier: string;
     trackerIssueId: string;
     repositoryKey: string;
-    latestRunStartedAt?: string | null;
+    latestRunStartedAt: string | null;
+    recordedAt: string;
   }): Promise<void>;
 }
 
@@ -28,8 +29,11 @@ export function createSymphonyIssueStore(
         input.repositoryKey,
         "repositoryKey"
       );
-      const latestRunStartedAt = sanitizeText(input.latestRunStartedAt);
-      const now = new Date().toISOString();
+      const latestRunStartedAt = normalizeOptionalIsoTimestamp(
+        input.latestRunStartedAt,
+        "latestRunStartedAt"
+      );
+      const recordedAt = requireIsoTimestamp(input.recordedAt, "recordedAt");
       const existing = db
         .select()
         .from(symphonyIssuesTable)
@@ -43,22 +47,32 @@ export function createSymphonyIssueStore(
             trackerIssueId,
             repositoryKey,
             latestRunStartedAt,
-            insertedAt: now,
-            updatedAt: now
+            insertedAt: recordedAt,
+            updatedAt: recordedAt
           })
           .run();
         return;
       }
 
+      if (existing.repositoryKey !== repositoryKey) {
+        throw new TypeError(
+          `Issue ${issueIdentifier} is already bound to repository ${existing.repositoryKey}, not ${repositoryKey}.`
+        );
+      }
+
+      if (existing.trackerIssueId !== trackerIssueId) {
+        throw new TypeError(
+          `Issue ${issueIdentifier} is already bound to tracker issue ${existing.trackerIssueId}, not ${trackerIssueId}.`
+        );
+      }
+
       db.update(symphonyIssuesTable)
         .set({
-          trackerIssueId,
-          repositoryKey,
           latestRunStartedAt:
             latestRunStartedAt && isLaterTimestamp(latestRunStartedAt, existing.latestRunStartedAt)
               ? latestRunStartedAt
               : existing.latestRunStartedAt,
-          updatedAt: now
+          updatedAt: recordedAt
         })
         .where(eq(symphonyIssuesTable.issueIdentifier, issueIdentifier))
         .run();
@@ -93,4 +107,26 @@ function isLaterTimestamp(
   }
 
   return candidate.localeCompare(current) > 0;
+}
+
+function normalizeOptionalIsoTimestamp(
+  value: string | null,
+  field: string
+): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  return requireIsoTimestamp(value, field);
+}
+
+function requireIsoTimestamp(value: string, field: string): string {
+  const normalized = sanitizeRequiredText(value, field);
+  const parsed = Date.parse(normalized);
+
+  if (Number.isNaN(parsed)) {
+    throw new TypeError(`${field} must be a valid ISO timestamp.`);
+  }
+
+  return new Date(parsed).toISOString();
 }

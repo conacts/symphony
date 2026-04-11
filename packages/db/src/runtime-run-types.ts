@@ -45,26 +45,26 @@ export type SymphonyRuntimeRunStartAttrs = {
   repositoryKey: string;
   trackerIssueId: string;
   issueIdentifier: string;
-  runId?: string;
+  runId: string;
   attempt?: number | null;
   runMode: SymphonyRuntimeRunMode;
   status: SymphonyRuntimeRunStatus;
   workerHost?: string | null;
   workspacePath?: string | null;
-  startedAt?: Date | string;
+  startedAt: Date | string;
   commitHashStart?: string | null;
   repoStart?: JsonObject | null;
   metadata?: JsonObject | null;
 };
 
 export type SymphonyRuntimeTurnStartAttrs = {
-  turnId?: string;
-  turnSequence?: number;
-  threadId?: string;
+  turnId: string;
+  turnSequence: number;
+  threadId: string;
   agentTurnId?: string | null;
   promptText: string;
   status: SymphonyRuntimeTurnStatus;
-  startedAt?: Date | string;
+  startedAt: Date | string;
   metadata?: JsonObject | null;
 };
 
@@ -120,7 +120,7 @@ export type SymphonyRuntimeRunFinishAttrs = {
 
 export type SymphonyRuntimeRunContextAttrs = {
   harnessKind?: "pi" | null;
-  threadId?: string;
+  threadId: string;
   processId?: string | null;
   model?: string | null;
   reasoningEffort?: string | null;

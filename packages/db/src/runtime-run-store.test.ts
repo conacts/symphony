@@ -103,10 +103,12 @@ describe("runtime run delivery projections", () => {
         endedAt: "2026-04-05T19:10:00.000Z"
       });
       await deliveryStore.record({
+        reportId: "report-run-1",
         runId,
         status: "completed",
         summary: "Opened the PR.",
         prUrl: "https://github.com/example/repo/pull/157",
+        source: "runtime",
         reportedAt: "2026-04-05T19:11:00.000Z"
       });
 
@@ -152,6 +154,7 @@ describe("runtime run delivery projections", () => {
       });
       const turnId = await runStore.recordTurnStarted(runId, {
         turnId: "turn-events-1",
+        turnSequence: 1,
         promptText: "Investigate the event stream.",
         status: "running",
         threadId: "thread-events-1",
@@ -160,6 +163,8 @@ describe("runtime run delivery projections", () => {
       const timelineBefore = await issueTimelineStore.listIssueTimeline("COL-310");
 
       await runStore.recordEvent(runId, turnId, {
+        eventId: "event-runtime-session-started-1",
+        eventSequence: 1,
         eventType: "session.started",
         recordedAt: "2026-04-08T21:00:02.000Z",
         summary: "runtime session started",

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   SymphonyOrchestratorObserver
 } from "@symphony/orchestrator";
@@ -36,10 +37,12 @@ export function createDbBackedOrchestratorObserver(input: {
       let runId: string;
 
       try {
+        runId = randomUUID();
         runId = await input.runStore.recordRunStarted({
           repositoryKey,
           trackerIssueId: issue.id,
           issueIdentifier: issue.identifier,
+          runId,
           attempt,
           runMode,
           status: "dispatching",

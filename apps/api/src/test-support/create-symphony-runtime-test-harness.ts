@@ -266,6 +266,8 @@ export async function createSymphonyRuntimeTestHarness(input: {
     }
   });
   await runStore.recordEvent(runId, turnId, {
+    eventId: "event-123-session-started",
+    eventSequence: 1,
     eventType: "session.started",
     recordedAt: "2026-03-31T00:00:00.000Z",
     threadId: "thread-123",
@@ -281,6 +283,8 @@ export async function createSymphonyRuntimeTestHarness(input: {
     summary: "Runtime session started."
   });
   await runStore.recordEvent(runId, turnId, {
+    eventId: "event-123-thread-started",
+    eventSequence: 2,
     eventType: "thread.started",
     recordedAt: "2026-03-31T00:00:00.000Z",
     threadId: "thread-123",
@@ -291,6 +295,8 @@ export async function createSymphonyRuntimeTestHarness(input: {
     summary: "Thread started."
   });
   await runStore.recordEvent(runId, turnId, {
+    eventId: "event-123-item-completed",
+    eventSequence: 3,
     eventType: "item.completed",
     recordedAt: "2026-03-31T00:00:01.000Z",
     threadId: "thread-123",
@@ -305,6 +311,8 @@ export async function createSymphonyRuntimeTestHarness(input: {
     summary: "agent_message completed."
   });
   await runStore.recordEvent(runId, turnId, {
+    eventId: "event-123-turn-completed",
+    eventSequence: 4,
     eventType: "turn.completed",
     recordedAt: "2026-03-31T00:00:02.000Z",
     threadId: "thread-123",

@@ -60,7 +60,9 @@ describe("runtime route workflows", () => {
       await issueStore.upsert({
         issueIdentifier: "SYM-410",
         trackerIssueId: "tracker-410",
-        repositoryKey: "openai/symphony"
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T00:28:00.000Z"
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
@@ -134,7 +136,9 @@ describe("runtime route workflows", () => {
       await issueStore.upsert({
         issueIdentifier: "SYM-410A",
         trackerIssueId: "tracker-410A",
-        repositoryKey: "openai/symphony"
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T00:28:00.000Z"
       });
 
       await routeWorkflowStore.createWorkflow({
@@ -179,7 +183,9 @@ describe("runtime route workflows", () => {
       await issueStore.upsert({
         issueIdentifier: "SYM-410B",
         trackerIssueId: "tracker-410B",
-        repositoryKey: "openai/symphony"
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T00:28:00.000Z"
       });
 
       await routeWorkflowStore.createWorkflow({
@@ -223,7 +229,9 @@ describe("runtime route workflows", () => {
       await issueStore.upsert({
         issueIdentifier: "SYM-411",
         trackerIssueId: "tracker-411",
-        repositoryKey: "openai/symphony"
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T00:30:00.000Z"
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
@@ -304,7 +312,9 @@ describe("runtime route workflows", () => {
       await issueStore.upsert({
         issueIdentifier: "SYM-412",
         trackerIssueId: "tracker-412",
-        repositoryKey: "openai/symphony"
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T00:31:00.000Z"
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
@@ -372,7 +382,9 @@ describe("runtime route workflows", () => {
       await issueStore.upsert({
         issueIdentifier: "SYM-413",
         trackerIssueId: "tracker-413",
-        repositoryKey: "openai/symphony"
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T00:32:00.000Z"
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({

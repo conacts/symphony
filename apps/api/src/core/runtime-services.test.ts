@@ -1106,7 +1106,9 @@ async function seedCurrentFlowWorkflowHistory(input: {
     await issueStore.upsert({
       issueIdentifier: input.issueIdentifier,
       trackerIssueId: input.trackerIssueId,
-      repositoryKey: input.repositoryKey
+      repositoryKey: input.repositoryKey,
+      latestRunStartedAt: null,
+      recordedAt: "2026-04-09T23:59:00.000Z"
     });
 
     await input.services.routeWorkflows.ensureWorkflowForIssue({

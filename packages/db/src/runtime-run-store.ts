@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type {
@@ -63,9 +62,9 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
   }
 
   async recordRunStarted(attrs: SymphonyRuntimeRunStartAttrs): Promise<string> {
-    const runId = attrs.runId ?? randomUUID();
+    const runId = sanitizeRequiredText(attrs.runId, "runId");
     const now = isoNow();
-    const startedAt = normalizeIsoTimestamp(attrs.startedAt) ?? now;
+    const startedAt = requireIsoTimestamp(attrs.startedAt, "startedAt");
     const repositoryKey = sanitizeRequiredText(attrs.repositoryKey, "repositoryKey");
     const metadata = withRunModeMetadata(attrs.metadata, attrs.runMode);
 
@@ -213,7 +212,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
   }
 
   async recordTurnStarted(runId: string, attrs: SymphonyRuntimeTurnStartAttrs): Promise<string> {
-    const turnId = attrs.turnId ?? randomUUID();
+    const turnId = sanitizeRequiredText(attrs.turnId, "turnId");
     const now = isoNow();
     const run = this.#db
       .select()
@@ -225,18 +224,8 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       throw new TypeError(`Run not found for turn start: ${runId}`);
     }
 
-    const lastTurn = this.#db
-      .select({
-        turnSequence: symphonyTurnsTable.turnSequence
-      })
-      .from(symphonyTurnsTable)
-      .where(eq(symphonyTurnsTable.runId, runId))
-      .orderBy(desc(symphonyTurnsTable.turnSequence))
-      .limit(1)
-      .get();
-
-    const turnSequence = attrs.turnSequence ?? (lastTurn?.turnSequence ?? 0) + 1;
-    const startedAt = normalizeIsoTimestamp(attrs.startedAt) ?? now;
+    const turnSequence = attrs.turnSequence;
+    const startedAt = requireIsoTimestamp(attrs.startedAt, "startedAt");
     const promptText = sanitizeText(attrs.promptText);
     const threadId = sanitizeText(attrs.threadId);
 
@@ -296,8 +285,8 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     this.#db.update(symphonyTurnsTable)
       .set({
         status: attrs.status ?? existing.status,
-        startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? existing.startedAt,
-        endedAt: normalizeIsoTimestamp(attrs.endedAt) ?? existing.endedAt,
+        startedAt: normalizeOptionalIsoTimestamp(attrs.startedAt, "startedAt") ?? existing.startedAt,
+        endedAt: normalizeOptionalIsoTimestamp(attrs.endedAt, "endedAt") ?? existing.endedAt,
         threadId: sanitizeText(attrs.threadId) ?? existing.threadId,
         agentTurnId: attrs.agentTurnId ?? existing.agentTurnId,
         usage: sanitizeUsage(attrs.usage) ?? existing.usage,
@@ -309,7 +298,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
   }
 
   async recordEvent(runId: string, turnId: string, attrs: SymphonyEventAttrs): Promise<string> {
-    const eventId = attrs.eventId ?? randomUUID();
+    const eventId = sanitizeRequiredText(attrs.eventId, "eventId");
     const run = this.#db
       .select()
       .from(symphonyRunsTable)
@@ -335,20 +324,10 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       throw new TypeError(`Turn not found for event: ${turnId}`);
     }
 
-    const lastEvent = this.#db
-      .select({
-        eventSequence: symphonyEventsTable.eventSequence
-      })
-      .from(symphonyEventsTable)
-      .where(eq(symphonyEventsTable.turnId, turnId))
-      .orderBy(desc(symphonyEventsTable.eventSequence))
-      .limit(1)
-      .get();
-
-    const eventSequence = attrs.eventSequence ?? (lastEvent?.eventSequence ?? 0) + 1;
+    const eventSequence = attrs.eventSequence;
     const truncatedPayload = truncatePayload(attrs.payload, this.#payloadMaxBytes);
-    const recordedAt = normalizeIsoTimestamp(attrs.recordedAt) ?? isoNow();
-    const threadId = sanitizeText(attrs.threadId) ?? turn.threadId;
+    const recordedAt = requireIsoTimestamp(attrs.recordedAt, "recordedAt");
+    const threadId = sanitizeRequiredText(attrs.threadId, "threadId");
 
     this.#db.insert(symphonyEventsTable)
       .values({
@@ -390,11 +369,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       .where(eq(symphonyRunRuntimeContextTable.runId, runId))
       .get();
     const now = isoNow();
-    const threadId = sanitizeText(attrs.threadId) ?? existing?.threadId ?? null;
-
-    if (!threadId) {
-      throw new TypeError(`Runtime context thread id is required for run ${runId}`);
-    }
+    const threadId = sanitizeRequiredText(attrs.threadId, "threadId");
 
     const nextValues = {
       harnessKind: sanitizeHarnessKind(attrs.harnessKind) ?? existing?.harnessKind ?? null,
@@ -463,8 +438,8 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
           outcome: attrs.outcome ?? existing.outcome,
           workerHost: attrs.workerHost ?? existing.workerHost,
           workspacePath: attrs.workspacePath ?? existing.workspacePath,
-          startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? existing.startedAt,
-          endedAt: normalizeIsoTimestamp(attrs.endedAt) ?? existing.endedAt,
+          startedAt: normalizeOptionalIsoTimestamp(attrs.startedAt, "startedAt") ?? existing.startedAt,
+          endedAt: normalizeOptionalIsoTimestamp(attrs.endedAt, "endedAt") ?? existing.endedAt,
           commitHashStart: attrs.commitHashStart ?? existing.commitHashStart,
           commitHashEnd: attrs.commitHashEnd ?? existing.commitHashEnd,
           repoStart: sanitizeJsonObject(attrs.repoStart) ?? existing.repoStart,
@@ -547,7 +522,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         errorClass: attrs.errorClass ?? null,
         errorMessage: attrs.errorMessage ?? null
       },
-      recordedAt: normalizeIsoTimestamp(attrs.endedAt) ?? isoNow()
+      recordedAt: requireIsoTimestamp(attrs.endedAt, "endedAt")
     });
   }
 
@@ -621,18 +596,6 @@ function withRunModeMetadata(
   });
 }
 
-function normalizeIsoTimestamp(value: Date | string | null | undefined): string | null {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  if (typeof value === "string" && value.trim() !== "") {
-    return value;
-  }
-
-  return null;
-}
-
 function isoNow(now = new Date()): string {
   return now.toISOString();
 }
@@ -663,6 +626,32 @@ function sanitizeRequiredText(value: string | null | undefined, field: string): 
   }
 
   return normalized;
+}
+
+function normalizeOptionalIsoTimestamp(
+  value: Date | string | null | undefined,
+  field: string
+): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return requireIsoTimestamp(value, field);
+}
+
+function requireIsoTimestamp(value: Date | string, field: string): string {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  const normalized = sanitizeRequiredText(value, field);
+  const parsed = Date.parse(normalized);
+
+  if (Number.isNaN(parsed)) {
+    throw new TypeError(`${field} must be a valid ISO timestamp.`);
+  }
+
+  return new Date(parsed).toISOString();
 }
 
 function sanitizeHarnessKind(value: "pi" | null | undefined): "pi" | null {

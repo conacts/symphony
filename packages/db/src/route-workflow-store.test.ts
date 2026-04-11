@@ -50,7 +50,9 @@ describe("route workflow store", () => {
       await issueStore.upsert({
         issueIdentifier: "SYM-300",
         trackerIssueId: "tracker-300",
-        repositoryKey: "openai/symphony"
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-09T22:58:00.000Z"
       });
 
       const workflowId = await routeStore.createWorkflow({
@@ -116,7 +118,9 @@ describe("route workflow store", () => {
       await issueStore.upsert({
         issueIdentifier: "SYM-301",
         trackerIssueId: "tracker-301",
-        repositoryKey: "openai/symphony"
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-09T22:58:00.000Z"
       });
 
       const workflowId = await routeStore.createWorkflow({
@@ -176,7 +180,9 @@ describe("route workflow store", () => {
       await issueStore.upsert({
         issueIdentifier: "SYM-301A",
         trackerIssueId: "tracker-301A",
-        repositoryKey: "openai/symphony"
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-09T22:58:00.000Z"
       });
 
       const workflowId = await routeStore.createWorkflow({
@@ -253,7 +259,9 @@ describe("route workflow store", () => {
       await issueStore.upsert({
         issueIdentifier: "SYM-301B",
         trackerIssueId: "tracker-301B",
-        repositoryKey: "openai/symphony"
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-09T22:58:00.000Z"
       });
 
       const workflowId = await routeStore.createWorkflow({
@@ -295,7 +303,9 @@ describe("route workflow store", () => {
       await issueStore.upsert({
         issueIdentifier: "SYM-302",
         trackerIssueId: "tracker-302",
-        repositoryKey: "openai/symphony"
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-09T22:58:00.000Z"
       });
 
       await routeStore.createWorkflow({

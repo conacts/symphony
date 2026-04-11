@@ -324,6 +324,7 @@ export function buildSymphonyRunStartAttrs(
     repositoryKey: "openai/symphony",
     trackerIssueId: `issue-${fixtureCounter}`,
     issueIdentifier: `COL-${fixtureCounter}`,
+    runId: `run-${fixtureCounter}`,
     attempt: 1,
     runMode: "implementation",
     status: "running",
@@ -347,6 +348,7 @@ export function buildSymphonyTurnStartAttrs(
   fixtureCounter += 1;
 
   return {
+    turnId: `turn-${fixtureCounter}`,
     turnSequence: 1,
     threadId: `thread-${fixtureCounter}`,
     agentTurnId: `turn-${fixtureCounter}`,

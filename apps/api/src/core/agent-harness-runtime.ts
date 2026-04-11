@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type {
   AgentRuntime,
@@ -436,13 +437,22 @@ async function executeRun(input: {
               runMode: input.runMode
             });
 
+      const persistedTurnStartedAt = new Date().toISOString();
       persistedTurnId = input.runId
         ? await input.runStore.recordTurnStarted(input.runId, {
+            turnId: randomUUID(),
+            turnSequence: turnNumber,
             threadId: session.threadId,
             promptText: prompt,
-            status: "running"
+            status: "running",
+            startedAt: persistedTurnStartedAt
           })
         : null;
+      let persistedEventSequence = 0;
+      const nextPersistedEventMetadata = () => ({
+        eventId: randomUUID(),
+        eventSequence: (persistedEventSequence += 1)
+      });
 
       if (
         input.runId &&
@@ -460,6 +470,7 @@ async function executeRun(input: {
 
         if (sessionStartedEvent) {
           await input.runStore.recordEvent(input.runId, persistedTurnId, {
+            ...nextPersistedEventMetadata(),
             eventType: sessionStartedEvent.type,
             recordedAt: new Date().toISOString(),
             payload: sessionStartedEvent,
@@ -527,6 +538,7 @@ async function executeRun(input: {
 
             if (canonicalEvent) {
               await input.runStore.recordEvent(input.runId, persistedTurnId, {
+                ...nextPersistedEventMetadata(),
                 eventType: canonicalEvent.type,
                 recordedAt: timestamp,
                 payload: canonicalEvent,

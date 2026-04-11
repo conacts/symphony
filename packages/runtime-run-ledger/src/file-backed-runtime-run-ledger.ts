@@ -71,11 +71,11 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
   }
 
   async recordRunStarted(attrs: SymphonyRunStartAttrs): Promise<string> {
-    const runId = attrs.runId ?? randomUUID();
+    const runId = sanitizeRequiredText(attrs.runId, "runId");
 
     await this.#mutate(async (document) => {
       const now = isoNow();
-      const startedAt = normalizeIsoTimestamp(attrs.startedAt) ?? now;
+      const startedAt = requireIsoTimestamp(attrs.startedAt, "startedAt");
       const repositoryKey = sanitizeRequiredText(attrs.repositoryKey, "repositoryKey");
 
       const nextIssue = upsertIssueRecord(document.issues, {
@@ -115,7 +115,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
   }
 
   async recordTurnStarted(runId: string, attrs: SymphonyTurnStartAttrs): Promise<string> {
-    const turnId = attrs.turnId ?? randomUUID();
+    const turnId = sanitizeRequiredText(attrs.turnId, "turnId");
 
     await this.#mutate(async (document) => {
       const run = findRunRecord(document.runs, runId);
@@ -124,12 +124,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       }
 
       const now = isoNow();
-      const nextSequence =
-        attrs.turnSequence ??
-        document.turns
-          .filter((turn) => turn.runId === runId)
-          .reduce((max, turn) => Math.max(max, turn.turnSequence), 0) +
-          1;
+      const nextSequence = attrs.turnSequence;
       const threadId =
         typeof attrs.threadId === "string" ? attrs.threadId.trim() : "";
 
@@ -145,7 +140,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
         agentTurnId: attrs.agentTurnId ?? null,
         promptText: sanitizeText(attrs.promptText),
         status: attrs.status ?? "running",
-        startedAt: normalizeIsoTimestamp(attrs.startedAt) ?? now,
+        startedAt: requireIsoTimestamp(attrs.startedAt, "startedAt"),
         endedAt: null,
         usage: null,
         metadata: sanitizeJsonObject(attrs.metadata),
@@ -158,7 +153,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
   }
 
   async recordEvent(runId: string, turnId: string, attrs: SymphonyEventAttrs): Promise<string> {
-    const eventId = attrs.eventId ?? randomUUID();
+    const eventId = sanitizeRequiredText(attrs.eventId, "eventId");
 
     await this.#mutate(async (document) => {
       const run = findRunRecord(document.runs, runId);
@@ -172,12 +167,7 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       }
 
       const now = isoNow();
-      const nextSequence =
-        attrs.eventSequence ??
-        document.events
-          .filter((event) => event.turnId === turnId)
-          .reduce((max, event) => Math.max(max, event.eventSequence), 0) +
-          1;
+      const nextSequence = attrs.eventSequence;
 
       const truncatedPayload = truncatePayload(attrs.payload, this.payloadMaxBytes);
 
@@ -189,12 +179,12 @@ class FileBackedSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
         eventType: attrs.eventType,
         itemType: deriveItemType(truncatedPayload.payload),
         itemStatus: deriveItemStatus(truncatedPayload.payload),
-        recordedAt: normalizeIsoTimestamp(attrs.recordedAt) ?? now,
+        recordedAt: requireIsoTimestamp(attrs.recordedAt, "recordedAt"),
         payload: truncatedPayload.payload,
         payloadTruncated: truncatedPayload.payloadTruncated,
         payloadBytes: truncatedPayload.payloadBytes,
         summary: attrs.summary ? sanitizeText(attrs.summary) : null,
-        threadId: attrs.threadId ?? turn.threadId,
+        threadId: sanitizeRequiredText(attrs.threadId, "threadId"),
         agentTurnId: attrs.agentTurnId ?? null,
         insertedAt: now
       });
@@ -499,6 +489,19 @@ function sanitizeRequiredText(value: string | null | undefined, field: string): 
 
   if (!normalized) {
     throw new TypeError(`${field} is required.`);
+  }
+
+  return normalized;
+}
+
+function requireIsoTimestamp(value: Date | string, field: string): string {
+  const normalized =
+    value instanceof Date
+      ? value.toISOString()
+      : normalizeIsoTimestamp(sanitizeRequiredText(value, field));
+
+  if (!normalized) {
+    throw new TypeError(`${field} must be a valid ISO timestamp.`);
   }
 
   return normalized;
