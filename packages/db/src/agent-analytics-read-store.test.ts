@@ -325,6 +325,69 @@ describe("sqlite agent analytics read store", () => {
     }
   });
 
+  it("fails fast when runtime context is missing for detail and artifact reads", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-missing-context-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const readStore = createSqliteAgentAnalyticsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await recordSeededRunStarted(database.db, runStore, {
+        runId: "run-agent-missing-context",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-2",
+        issueIdentifier: "COL-158",
+        runMode: "implementation",
+        startedAt: "2026-04-03T20:37:38.949Z",
+        status: "running",
+        workerHost: "worker-1",
+        workspacePath: "/tmp/workspaces/COL-158"
+      });
+      const turnId = await runStore.recordTurnStarted(runId, {
+        turnId: "turn-2",
+        turnSequence: 1,
+        promptText: "Inspect the workspace",
+        status: "running",
+        startedAt: "2026-04-03T20:37:39.000Z",
+        threadId: "thread-2",
+        agentTurnId: "provider-turn-2"
+      });
+      await runStore.finalizeTurn(turnId, {
+        status: "completed",
+        endedAt: "2026-04-03T20:37:40.000Z",
+        threadId: "thread-2",
+        agentTurnId: "provider-turn-2",
+        usage: {
+          input_tokens: 5,
+          cached_input_tokens: 0,
+          output_tokens: 5
+        }
+      });
+      await runStore.finalizeRun(runId, {
+        status: "finished",
+        outcome: "completed",
+        endedAt: "2026-04-03T20:37:41.000Z"
+      });
+
+      await expect(readStore.fetchRunDetail(runId)).rejects.toThrow(
+        "Run run-agent-missing-context is missing canonical runtime context."
+      );
+      await expect(readStore.fetchRunArtifacts(runId)).rejects.toThrow(
+        "Run run-agent-missing-context is missing canonical runtime context."
+      );
+    } finally {
+      database.close();
+    }
+  });
+
   it("fails fast when a runtime run loses its canonical issue row", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-read-invalid-"));
     tempDirectories.push(root);

@@ -400,7 +400,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   }
   const observer = createDbBackedOrchestratorObserver({
     admittedRepositories,
-    defaultRepositoryKey: repositoryKey,
     runStore,
     issueTimelineStore,
     runtimeLogs: runtimeLogStore,

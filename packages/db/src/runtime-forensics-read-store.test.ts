@@ -186,4 +186,56 @@ describe("runtime forensics read store", () => {
       database.close();
     }
   });
+
+  it("fails fast when runtime context is missing for run detail reads", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-forensics-missing-context-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const readStore = createSqliteRuntimeForensicsReadStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await recordSeededRunStarted(database.db, runStore, {
+        runId: "run-runtime-missing-context",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-runtime-missing-context",
+        issueIdentifier: "COL-411",
+        runMode: "implementation",
+        status: "running",
+        workspacePath: "/tmp/COL-411",
+        startedAt: "2026-04-09T03:10:00.000Z"
+      });
+      const turnId = await runStore.recordTurnStarted(runId, {
+        turnId: "turn-runtime-missing-context",
+        turnSequence: 1,
+        promptText: "Implement the requested change.",
+        status: "running",
+        threadId: "thread-runtime-missing-context",
+        startedAt: "2026-04-09T03:10:01.000Z"
+      });
+      await runStore.finalizeTurn(turnId, {
+        status: "completed",
+        endedAt: "2026-04-09T03:10:02.000Z",
+        threadId: "thread-runtime-missing-context"
+      });
+      await runStore.finalizeRun(runId, {
+        status: "finished",
+        outcome: "completed",
+        endedAt: "2026-04-09T03:10:03.000Z"
+      });
+
+      await expect(readStore.fetchRunDetail(runId)).rejects.toThrow(
+        "Run run-runtime-missing-context is missing canonical runtime context."
+      );
+    } finally {
+      database.close();
+    }
+  });
 });

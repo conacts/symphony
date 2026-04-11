@@ -160,6 +160,19 @@ describe("runtime run delivery projections", () => {
         source: "runtime",
         reportedAt: "2026-04-05T19:11:00.000Z"
       });
+      await runStore.upsertRunContext(runId, {
+        harnessKind: "pi",
+        threadId: "thread-run-1",
+        processId: "4242",
+        model: "gpt-5.4",
+        reasoningEffort: "high",
+        profile: null,
+        providerId: "openrouter",
+        providerName: "OpenRouter",
+        authMode: "api_key_env",
+        providerEnvKey: "OPENROUTER_API_KEY",
+        launchTarget: null
+      });
 
       const [run] = await readStore.listRuns({
         issueIdentifier: "COL-157"

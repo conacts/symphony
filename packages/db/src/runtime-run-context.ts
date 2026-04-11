@@ -3,7 +3,7 @@ import { symphonyRunRuntimeContextTable } from "./schema.js";
 
 export type SymphonyRuntimeRunContext = {
   harness: "pi" | null;
-  threadId: string | null;
+  threadId: string;
   processId: string | null;
   model: string | null;
   reasoningEffort: string | null;
@@ -15,22 +15,6 @@ export type SymphonyRuntimeRunContext = {
   launchTarget: SymphonyRuntimeLaunchTarget | null;
 };
 
-function emptyRuntimeRunContext(): SymphonyRuntimeRunContext {
-  return {
-    harness: null,
-    threadId: null,
-    processId: null,
-    model: null,
-    reasoningEffort: null,
-    profile: null,
-    providerId: null,
-    providerName: null,
-    authMode: null,
-    providerEnvKey: null,
-    launchTarget: null
-  };
-}
-
 export function buildRuntimeRunContextMap(
   rows: Array<typeof symphonyRunRuntimeContextTable.$inferSelect>
 ): Map<string, SymphonyRuntimeRunContext> {
@@ -38,15 +22,11 @@ export function buildRuntimeRunContextMap(
 }
 
 export function mapRuntimeRunContextRow(
-  row: typeof symphonyRunRuntimeContextTable.$inferSelect | null | undefined
+  row: typeof symphonyRunRuntimeContextTable.$inferSelect
 ): SymphonyRuntimeRunContext {
-  if (!row) {
-    return emptyRuntimeRunContext();
-  }
-
   return {
     harness: normalizeHarnessKind(row.harnessKind),
-    threadId: row.threadId ?? null,
+    threadId: row.threadId,
     processId: row.processId ?? null,
     model: row.model ?? null,
     reasoningEffort: row.reasoningEffort ?? null,
@@ -57,6 +37,17 @@ export function mapRuntimeRunContextRow(
     providerEnvKey: row.providerEnvKey ?? null,
     launchTarget: normalizeLaunchTarget(row.launchTarget)
   };
+}
+
+export function requireRuntimeRunContextRow(
+  row: typeof symphonyRunRuntimeContextTable.$inferSelect | null | undefined,
+  subject: string
+): SymphonyRuntimeRunContext {
+  if (row) {
+    return mapRuntimeRunContextRow(row);
+  }
+
+  throw new TypeError(`${subject} is missing canonical runtime context.`);
 }
 
 function normalizeHarnessKind(value: string | null | undefined): "pi" | null {

@@ -21,6 +21,22 @@ afterEach(async () => {
 });
 
 describe("runtime db observer", () => {
+  it("fails closed when no admitted repositories are available for run start", async () => {
+    const harness = await createObserverHarness();
+
+    await expect(
+      harness.observer.startRun({
+        issue: harness.issue,
+        attempt: 1,
+        harness: "pi",
+        workspace: null,
+        workerHost: "worker-1",
+        startedAt: "2026-04-09T22:10:00.000Z",
+        runMode: "implementation"
+      })
+    ).rejects.toThrow("At least one admitted repository is required.");
+  });
+
   it("mirrors bootstrap lifecycle step events into runtime logs", async () => {
     const harness = await createObserverHarness();
     const recordedAt = "2026-04-09T22:00:00.000Z";
@@ -240,7 +256,6 @@ async function createObserverHarness() {
 
   const observer = createDbBackedOrchestratorObserver({
     admittedRepositories: [],
-    defaultRepositoryKey: repositoryKey,
     runStore,
     issueTimelineStore,
     runtimeLogs: runtimeLogStore

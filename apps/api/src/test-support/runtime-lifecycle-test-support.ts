@@ -31,7 +31,6 @@ export function createRuntimeDbObserverTestSupport(input: {
     runStore,
     observer: createDbBackedOrchestratorObserver({
       admittedRepositories: [],
-      defaultRepositoryKey: input.repositoryKey,
       runStore,
       issueTimelineStore,
       runtimeLogs: runtimeLogStore

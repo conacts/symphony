@@ -18,7 +18,7 @@ import {
 } from "./schema.js";
 import {
   buildRuntimeRunContextMap,
-  mapRuntimeRunContextRow,
+  requireRuntimeRunContextRow,
   type SymphonyRuntimeRunContext
 } from "./runtime-run-context.js";
 import {
@@ -210,7 +210,10 @@ class SqliteRuntimeForensicsReadStore implements SymphonyRuntimeForensicsReadSto
 
     const resolvedIssue = requireIssueRecord(issue, runId, run.issueIdentifier);
 
-    const runtimeContext = mapRuntimeRunContextRow(runtimeContextRow);
+    const runtimeContext = requireRuntimeRunContextRow(
+      runtimeContextRow,
+      `Run ${runId}`
+    );
     const latestRunDelivery = issueDeliveryRows.find((row) => row.runId === runId) ?? null;
     const turnEventsByTurnId = groupRowsByTurnId(events);
     const mappedTurns = turns.map((turn) =>
@@ -232,7 +235,7 @@ class SqliteRuntimeForensicsReadStore implements SymphonyRuntimeForensicsReadSto
       issue: buildForensicsIssueExport(resolvedIssue, issueRuns, issueDeliveryRows),
       run: {
         ...runSummary,
-        threadId: runtimeContext.threadId ?? deriveRunThreadId(turns, events),
+        threadId: runtimeContext.threadId,
         processId: runtimeContext.processId,
         providerId: runtimeContext.providerId,
         providerName: runtimeContext.providerName,
@@ -476,35 +479,6 @@ function mapTurnUsage(value: unknown): ForensicsTurn["usage"] {
   };
 }
 
-function deriveRunThreadId(
-  turns: Array<typeof symphonyTurnsTable.$inferSelect>,
-  events: Array<typeof symphonyEventsTable.$inferSelect>
-): string | null {
-  const turnThreadId = turns.find((turn) => turn.threadId)?.threadId ?? null;
-  if (turnThreadId) {
-    return turnThreadId;
-  }
-
-  const eventThreadId = events.find((event) => event.threadId)?.threadId ?? null;
-  if (eventThreadId) {
-    return eventThreadId;
-  }
-
-  const sessionEvent = events.find(
-    (event) =>
-      event.eventType === "session.started" &&
-      event.payload &&
-      typeof event.payload === "object" &&
-      !Array.isArray(event.payload)
-  );
-  const payload =
-    sessionEvent?.payload && typeof sessionEvent.payload === "object" && !Array.isArray(sessionEvent.payload)
-      ? (sessionEvent.payload as Record<string, unknown>)
-      : null;
-
-  return getNonEmptyString(payload?.thread_id ?? null);
-}
-
 function deriveFailureKind(run: typeof symphonyRunsTable.$inferSelect): string | null {
   if (run.errorClass) {
     return run.errorClass;
@@ -733,8 +707,4 @@ function matchesRunFilters(
   }
 
   return true;
-}
-
-function getNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value !== "" ? value : null;
 }

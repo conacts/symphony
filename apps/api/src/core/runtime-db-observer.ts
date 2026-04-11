@@ -23,7 +23,6 @@ import { resolveIssueRepository } from "./runtime-repository-routing.js";
 
 export function createDbBackedOrchestratorObserver(input: {
   admittedRepositories: AdmittedRuntimeRepository[];
-  defaultRepositoryKey: string;
   runStore: SymphonyRuntimeRunStore;
   issueTimelineStore: SymphonyIssueTimelineStore;
   runtimeLogs: SymphonyRuntimeLogStore;
@@ -31,10 +30,10 @@ export function createDbBackedOrchestratorObserver(input: {
 }): SymphonyOrchestratorObserver {
   return {
     async startRun({ issue, attempt, workspace, workerHost, startedAt, runMode }) {
-      const repositoryKey =
-        input.admittedRepositories.length > 0
-          ? resolveIssueRepository(input.admittedRepositories, issue).repositoryKey
-          : input.defaultRepositoryKey;
+      const repositoryKey = resolveIssueRepository(
+        input.admittedRepositories,
+        issue
+      ).repositoryKey;
       let runId: string;
 
       try {
