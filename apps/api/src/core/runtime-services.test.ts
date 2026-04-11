@@ -8,12 +8,17 @@ import {
 } from "@symphony/test-support";
 import { initializeSymphonyDb } from "@symphony/db";
 import {
+  buildSymphonyTrackerIssue,
+  type MemorySymphonyTracker
+} from "@symphony/tracker";
+import {
   createSymphonyRuntimeAppServicesHarness,
   type SymphonyRuntimeAppServicesHarness
 } from "../test-support/create-symphony-runtime-app-services-harness.js";
 import {
   applyRuntimeManifestPiPolicy,
-  buildWorkspaceBackendPayload
+  buildWorkspaceBackendPayload,
+  loadDefaultSymphonyRuntimeAppServices
 } from "./runtime-services.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
@@ -724,6 +729,98 @@ describe("runtime services", () => {
       expect(turn.status).toBe("stopped");
 
       verifyDb.close();
+    },
+    runtimeServicesIntegrationTestTimeoutMs
+  );
+
+  it(
+    "reuses persisted workflow history after runtime services restart for explicit tracker ingress",
+    async () => {
+      const harness = await createSymphonyRuntimeAppServicesHarness();
+      let restartedServices: Awaited<
+        ReturnType<typeof loadDefaultSymphonyRuntimeAppServices>
+      > | null = null;
+
+      try {
+        const issue = buildSymphonyTrackerIssue({
+          id: "issue-restart-review",
+          identifier: "SYM-RESTART",
+          state: "In Review"
+        });
+        const tracker = harness.services.tracker as MemorySymphonyTracker;
+        tracker.setIssues([issue]);
+
+        const firstObservation =
+          await harness.services.trackerStateIngress.observeNonRunningIssue({
+            issueIdentifier: issue.identifier
+          });
+        expect(firstObservation).toEqual(
+          expect.objectContaining({
+            issueIdentifier: issue.identifier,
+            trackerState: "In Review",
+            observed: true,
+            recordedAt: expect.any(String)
+          })
+        );
+
+        const before =
+          await harness.services.routeWorkflows.loadHydrationStateByIssueIdentifier(
+            issue.identifier
+          );
+        const beforeEventSequence = before?.snapshot?.eventSequence ?? null;
+
+        expect(before?.snapshot?.projection.currentNode).toBe("review");
+        expect(before?.snapshot?.projection.data).toEqual(
+          expect.objectContaining({
+            trackerState: "In Review"
+          })
+        );
+
+        await harness.services.shutdown();
+
+        restartedServices = await loadDefaultSymphonyRuntimeAppServices(
+          harness.env,
+          harness.environmentSource,
+          harness.hostCommandEnvSource,
+          {
+            startPollScheduler: false,
+            startMachineLoadMonitor: false,
+            enableDockerPreflight: false
+          }
+        );
+        const restartedTracker = restartedServices.tracker as MemorySymphonyTracker;
+        restartedTracker.setIssues([issue]);
+
+        const secondObservation =
+          await restartedServices.trackerStateIngress.observeNonRunningIssue({
+            issueIdentifier: issue.identifier
+          });
+        expect(secondObservation).toEqual(
+          expect.objectContaining({
+            issueIdentifier: issue.identifier,
+            trackerState: "In Review",
+            observed: false,
+            recordedAt: expect.any(String)
+          })
+        );
+
+        const after =
+          await restartedServices.routeWorkflows.loadHydrationStateByIssueIdentifier(
+            issue.identifier
+          );
+        expect(after?.snapshot?.eventSequence ?? null).toBe(beforeEventSequence);
+        expect(after?.snapshot?.projection.currentNode).toBe("review");
+
+        const runtimeLogs = await restartedServices.runtimeLogs.list({
+          issueIdentifier: issue.identifier
+        });
+        expect(runtimeLogs.logs.map((entry) => entry.eventType)).toEqual(
+          expect.arrayContaining(["tracker_state_ingress_skipped"])
+        );
+      } finally {
+        await restartedServices?.shutdown();
+        await harness.cleanup();
+      }
     },
     runtimeServicesIntegrationTestTimeoutMs
   );
