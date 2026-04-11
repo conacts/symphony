@@ -127,6 +127,144 @@ describe("@symphony/api app", () => {
     expect(refreshPayload.data.operations).toEqual(["poll", "reconcile"]);
   });
 
+  it(
+    "observes explicit non-running tracker state changes through workflow history",
+    async () => {
+      const harness = await createSymphonyRuntimeAppServicesHarness();
+      harnesses.push(harness);
+
+      const tracker = harness.services.tracker as MemorySymphonyTracker;
+      tracker.setIssues([
+        buildSymphonyTrackerIssue({
+          identifier: "COL-777",
+          state: "Todo",
+          branchName: "symphony/COL-777"
+        })
+      ]);
+      const routedDispatches: Array<{
+        workflowId: string;
+        commandId: string;
+        issueIdentifier: string;
+        runMode: string;
+      }> = [];
+      harness.services.orchestrator.dispatchRoutedIssue = async (input) => {
+        routedDispatches.push({
+          workflowId: input.workflowId,
+          commandId: input.commandId,
+          issueIdentifier: input.issue.identifier,
+          runMode: input.runMode
+        });
+      };
+
+      const app = createSymphonyRuntimeApp(harness.services);
+      const firstResponse = await app.request(
+        "/api/v1/internal/tracker-state/non-running/observe",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json"
+          },
+          body: JSON.stringify({
+            issueIdentifier: "COL-777"
+          })
+        }
+      );
+      const firstPayload = await responseJson<{
+        data: {
+          issueIdentifier: string;
+          trackerState: string;
+          observed: boolean;
+          recordedAt: string;
+        };
+      }>(firstResponse);
+
+      const hydration =
+        await harness.services.routeWorkflows.loadHydrationStateByIssueIdentifier<
+          SymphonyCurrentFlowNode,
+          SymphonyCurrentFlowData,
+          SymphonyCurrentFlowPolicy
+        >("COL-777");
+
+      const secondResponse = await app.request(
+        "/api/v1/internal/tracker-state/non-running/observe",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json"
+          },
+          body: JSON.stringify({
+            issueIdentifier: "COL-777"
+          })
+        }
+      );
+      const secondPayload = await responseJson<{
+        data: {
+          issueIdentifier: string;
+          trackerState: string;
+          observed: boolean;
+          recordedAt: string;
+        };
+      }>(secondResponse);
+
+      expect(firstResponse.status).toBe(200);
+      expect(firstPayload.data.issueIdentifier).toBe("COL-777");
+      expect(firstPayload.data.trackerState).toBe("Bootstrapping");
+      expect(firstPayload.data.observed).toBe(true);
+      expect(firstPayload.data.recordedAt).toBeTruthy();
+      expect(routedDispatches).toEqual([
+        {
+          workflowId: expect.any(String),
+          commandId: expect.any(String),
+          issueIdentifier: "COL-777",
+          runMode: "implementation"
+        }
+      ]);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("bootstrapping");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Bootstrapping");
+
+      expect(secondResponse.status).toBe(200);
+      expect(secondPayload.data).toEqual({
+        issueIdentifier: "COL-777",
+        trackerState: "Bootstrapping",
+        observed: false,
+        recordedAt: expect.any(String)
+      });
+      expect(routedDispatches).toHaveLength(1);
+    },
+    runtimeHttpIntegrationTestTimeoutMs
+  );
+
+  it(
+    "returns 404 when explicit tracker state observation targets a missing issue",
+    async () => {
+      const harness = await createSymphonyRuntimeAppServicesHarness();
+      harnesses.push(harness);
+
+      const app = createSymphonyRuntimeApp(harness.services);
+      const response = await app.request(
+        "/api/v1/internal/tracker-state/non-running/observe",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json"
+          },
+          body: JSON.stringify({
+            issueIdentifier: "COL-404"
+          })
+        }
+      );
+      const payload = await responseJson<{
+        error: {
+          code: string;
+        };
+      }>(response);
+
+      expect(response.status).toBe(404);
+      expect(payload.error.code).toBe("NOT_FOUND");
+    },
+    runtimeHttpIntegrationTestTimeoutMs
+  );
+
   it("serves mirrored bootstrap lifecycle runtime logs in the forensics bundle", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {

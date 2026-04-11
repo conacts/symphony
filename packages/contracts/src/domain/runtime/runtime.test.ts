@@ -4,7 +4,8 @@ import {
   symphonyRuntimeIssueResponseSchema,
   symphonyRuntimeRefreshRequestSchema,
   symphonyRuntimeRefreshResponseSchema,
-  symphonyRuntimeStateResponseSchema
+  symphonyRuntimeStateResponseSchema,
+  symphonyRuntimeTrackerStateObservationResponseSchema
 } from "./index.js";
 
 describe("symphony runtime contracts", () => {
@@ -290,6 +291,25 @@ describe("symphony runtime contracts", () => {
               "Pi selection is label-driven. Use model:<preset> for repo-defined tiers or model:<model> for a direct model override."
           }
         }
+      }
+    });
+
+    expect(parsed.ok).toBe(true);
+  });
+
+  it("parses the tracker state observation envelope", () => {
+    const parsed = symphonyRuntimeTrackerStateObservationResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      meta: {
+        durationMs: 1,
+        generatedAt: "2026-04-10T00:00:00.000Z"
+      },
+      data: {
+        issueIdentifier: "COL-157",
+        trackerState: "Bootstrapping",
+        observed: true,
+        recordedAt: "2026-04-10T00:00:00.000Z"
       }
     });
 

@@ -94,6 +94,13 @@ export type SymphonyRuntimeRouteLifecycleService = {
       input: SymphonyTrackerStateDispatchRequest
     ): Promise<void> | void;
   }): Promise<SymphonyObservedTrackerState[]>;
+  observeNonRunningTrackerStateByIdentifier(input: {
+    issueIdentifier: string;
+    recordedAt: string;
+    onDispatchRequested?(
+      input: SymphonyTrackerStateDispatchRequest
+    ): Promise<void> | void;
+  }): Promise<SymphonyTrackerStateObservation | null>;
   observeTrackerStateByIdentifier(input: {
     issueIdentifier: string;
     recordedAt: string;
@@ -117,6 +124,10 @@ export type SymphonyRuntimeRouteLifecycleService = {
 export type SymphonyObservedTrackerState = {
   issueIdentifier: string;
   trackerState: string;
+};
+
+export type SymphonyTrackerStateObservation = SymphonyObservedTrackerState & {
+  observed: boolean;
 };
 
 export async function createRuntimeRouteLifecycleService(input: {
@@ -225,6 +236,49 @@ export async function createRuntimeRouteLifecycleService(input: {
       }
 
       return observedIssues;
+    };
+  const observeNonRunningTrackerStateByIdentifier: SymphonyRuntimeRouteLifecycleService["observeNonRunningTrackerStateByIdentifier"] =
+    async (observationInput) => {
+      const issue = await input.tracker.fetchIssueByIdentifier(
+        input.trackerConfig,
+        observationInput.issueIdentifier
+      );
+      if (!issue) {
+        return null;
+      }
+
+      const hydration =
+        await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
+          SymphonyCurrentFlowNode,
+          SymphonyCurrentFlowData,
+          SymphonyCurrentFlowPolicy
+        >(issue.identifier);
+      if (
+        !shouldObserveNonRunningTrackerState({
+          issue,
+          hydration
+        })
+      ) {
+        return {
+          issueIdentifier: issue.identifier,
+          trackerState: issue.state,
+          observed: false
+        };
+      }
+
+      const observed = await trackerStateObservationRouter.observe({
+        observationKind: "idle",
+        ...observationInput
+      });
+      if (!observed) {
+        return null;
+      }
+
+      return {
+        issueIdentifier: observed.issue.identifier,
+        trackerState: observed.issue.state,
+        observed: true
+      };
     };
   const observeTrackerStateByIdentifier: SymphonyRuntimeRouteLifecycleService["observeTrackerStateByIdentifier"] =
     async (observationInput) => {
@@ -337,6 +391,7 @@ export async function createRuntimeRouteLifecycleService(input: {
       return true;
     },
     observeNonRunningTrackerStates,
+    observeNonRunningTrackerStateByIdentifier,
     observeTrackerStateByIdentifier,
     routeShutdownPause,
     async observeActiveIssueStateByIdentifier(observationInput) {

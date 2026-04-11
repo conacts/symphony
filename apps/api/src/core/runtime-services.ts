@@ -29,6 +29,7 @@ import { createSymphonyLogger } from "@symphony/logger";
 import {
   HarnessSessionError
 } from "@symphony/agent-harnesses";
+import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import {
   type SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
@@ -270,7 +271,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     repositoryKey,
     now: undefined
   });
-  const trackerStateIngress = createRuntimeTrackerStateIngressPort({
+  const routeTrackerStateIngress = createRuntimeTrackerStateIngressPort({
     routeLifecycle,
     runtimeLogStore
   });
@@ -470,6 +471,13 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
   runtimeRef = runtime;
   let orchestratorPortRef: SymphonyRuntimeAppServices["orchestrator"] | null = null;
+  const seedTrackedIssueIdentity = async (issue: SymphonyTrackerIssue) => {
+    await issueStore.upsert({
+      issueIdentifier: issue.identifier,
+      trackerIssueId: issue.id,
+      repositoryKey
+    });
+  };
   const dispatchObservedIssue = async (
     request: SymphonyTrackerStateDispatchRequest
   ) => {
@@ -485,7 +493,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runtimeLogs: runtimeLogStore,
     realtime,
     async beforePollCycle(snapshot) {
-      await trackerStateIngress.observeNonRunning({
+      await routeTrackerStateIngress.observeNonRunning({
         claimedIssueIds: snapshot.claimedIssueIds,
         recordedAt: new Date().toISOString(),
         onDispatchRequested: dispatchObservedIssue
@@ -508,6 +516,38 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     readPollSchedulerSnapshot: () => pollScheduler?.snapshot() ?? null,
     readMachineLoadSnapshot: () => machineLoad.snapshot()
   });
+  const trackerStateIngress = {
+    async observeNonRunningIssue(input: { issueIdentifier: string }) {
+      const trackedIssue = await tracker.fetchIssueByIdentifier(
+        runtimePolicy.tracker,
+        input.issueIdentifier
+      );
+      if (!trackedIssue) {
+        return null;
+      }
+
+      await seedTrackedIssueIdentity(trackedIssue);
+      const recordedAt = new Date().toISOString();
+      const observation =
+        await routeTrackerStateIngress.observeNonRunningByIdentifier({
+          issueIdentifier: trackedIssue.identifier,
+          recordedAt,
+          onDispatchRequested: dispatchObservedIssue
+        });
+      if (!observation) {
+        throw new TypeError(
+          `Tracker state ingress lost ${trackedIssue.identifier} after seeding the canonical issue identity.`
+        );
+      }
+
+      return {
+        issueIdentifier: observation.issueIdentifier,
+        trackerState: observation.trackerState,
+        observed: observation.observed,
+        recordedAt
+      };
+    }
+  } satisfies SymphonyRuntimeAppServices["trackerStateIngress"];
   const runtimeTools = {
     async recordDeliveryReport(input: {
       runId: string;
@@ -758,11 +798,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           : null;
 
       if (seededTrackedIssue) {
-        await issueStore.upsert({
-          issueIdentifier: seededTrackedIssue.identifier,
-          trackerIssueId: seededTrackedIssue.id,
-          repositoryKey
-        });
+        await seedTrackedIssueIdentity(seededTrackedIssue);
       }
 
       if (result.status !== "ignored" && issueIdentifier) {
@@ -847,6 +883,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     issueTimeline,
     runtimeLogs,
     health,
+    trackerStateIngress,
     runtimeTools,
     routeWorkflows,
     githubReviewIngress,

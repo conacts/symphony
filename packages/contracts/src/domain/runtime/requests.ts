@@ -11,6 +11,9 @@ export const symphonyRuntimeLogsQuerySchema = z.strictObject({
   repo: nonEmptyStringSchema.optional(),
   issueIdentifier: nonEmptyStringSchema.optional()
 });
+export const symphonyRuntimeTrackerStateObservationRequestSchema = z.strictObject({
+  issueIdentifier: nonEmptyStringSchema
+});
 
 export type SymphonyRuntimeIssuePath = z.infer<typeof symphonyRuntimeIssuePathSchema>;
 export type SymphonyRuntimeRefreshRequest = z.infer<
@@ -18,4 +21,7 @@ export type SymphonyRuntimeRefreshRequest = z.infer<
 >;
 export type SymphonyRuntimeLogsQuery = z.infer<
   typeof symphonyRuntimeLogsQuerySchema
+>;
+export type SymphonyRuntimeTrackerStateObservationRequest = z.infer<
+  typeof symphonyRuntimeTrackerStateObservationRequestSchema
 >;

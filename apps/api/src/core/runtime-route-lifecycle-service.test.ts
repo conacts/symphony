@@ -266,6 +266,43 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("skips duplicate explicit non-running observations that are already reflected in route history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToReview(harness);
+
+      const before = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:00:11.500Z",
+        onDispatchRequested: async () => {}
+      });
+      const after = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        trackerState: "In Review",
+        observed: false
+      });
+      expect(after?.snapshot?.eventSequence).toBe(before?.snapshot?.eventSequence ?? null);
+      expect(after?.snapshot?.projection.currentNode).toBe("review");
+      expect(after?.snapshot?.projection.data.trackerState).toBe("In Review");
+    } finally {
+      harness.close();
+    }
+  });
+
   it("skips claimed issues during non-running tracker observation", async () => {
     const harness = await createHarness({
       state: "Todo"

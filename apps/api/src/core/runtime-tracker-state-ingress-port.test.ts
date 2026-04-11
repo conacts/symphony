@@ -117,7 +117,7 @@ describe("runtime tracker state ingress port", () => {
       await harness.tracker.updateIssueState(harness.issue.id, "Rework");
 
       await expect(
-        harness.ingress.observeByIdentifier({
+        harness.ingress.observeNonRunningByIdentifier({
           issueIdentifier: harness.issue.identifier,
           recordedAt: "2026-04-10T15:00:10.000Z"
         })
@@ -133,11 +133,52 @@ describe("runtime tracker state ingress port", () => {
             eventType: "tracker_state_ingress_failed",
             issueIdentifier: harness.issue.identifier,
             payload: expect.objectContaining({
-              scope: "issue_identifier",
+              scope: "non_running_issue_identifier",
               error: expect.stringContaining(
                 "Idle tracker state observation emitted run.dispatch without a dispatch callback."
               )
             })
+          })
+        ])
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("records skipped explicit non-running observations that are already reflected in workflow history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToReview(harness);
+
+      const observation = await harness.ingress.observeNonRunningByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T15:00:11.000Z",
+        onDispatchRequested: async () => {}
+      });
+
+      expect(observation).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        trackerState: "In Review",
+        observed: false
+      });
+
+      const logs = await harness.runtimeLogStore.list({
+        issueIdentifier: harness.issue.identifier
+      });
+      expect(logs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            source: "tracker_state_ingress",
+            eventType: "tracker_state_ingress_skipped",
+            issueIdentifier: harness.issue.identifier,
+            payload: {
+              scope: "non_running_issue_identifier",
+              trackerState: "In Review"
+            }
           })
         ])
       );

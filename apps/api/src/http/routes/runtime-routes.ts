@@ -9,7 +9,9 @@ import {
   symphonyRuntimeRefreshRequestSchema,
   symphonyRuntimeIssueResponseSchema,
   symphonyRuntimeRefreshResponseSchema,
-  symphonyRuntimeStateResponseSchema
+  symphonyRuntimeStateResponseSchema,
+  symphonyRuntimeTrackerStateObservationRequestSchema,
+  symphonyRuntimeTrackerStateObservationResponseSchema
 } from "@symphony/contracts";
 import type { SymphonyRuntimeAppServices } from "../../core/runtime-app-types.js";
 import { createHttpError } from "../../core/errors.js";
@@ -132,6 +134,41 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     return jsonOk(c, result, {
       status: 202
     });
+  });
+
+  runtimeRoutes.post("/internal/tracker-state/non-running/observe", async (c) => {
+    const payload = parseWithSchema(
+      symphonyRuntimeTrackerStateObservationRequestSchema,
+      await c.req.json()
+    );
+    const result = await services.trackerStateIngress.observeNonRunningIssue({
+      issueIdentifier: payload.issueIdentifier
+    });
+
+    if (!result) {
+      c.get("logger").warn("Tracker state observation issue not found", {
+        issueIdentifier: payload.issueIdentifier
+      });
+      throw createHttpError("NOT_FOUND", "Issue not found.");
+    }
+
+    c.get("logger").info("Observed non-running tracker state through runtime API", {
+      issueIdentifier: result.issueIdentifier,
+      trackerState: result.trackerState,
+      observed: result.observed
+    });
+
+    symphonyRuntimeTrackerStateObservationResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      data: result,
+      meta: {
+        durationMs: 0,
+        generatedAt: new Date().toISOString()
+      }
+    });
+
+    return jsonOk(c, result);
   });
 
   runtimeRoutes.post("/internal/runtime-tools/finish", async (c) => {

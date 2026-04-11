@@ -19,7 +19,8 @@ import type {
   SymphonyRuntimeHealthResult,
   SymphonyRuntimeMachineLoadSnapshot,
   SymphonyRuntimeLogsResult,
-  SymphonyRuntimeRefreshResult
+  SymphonyRuntimeRefreshResult,
+  SymphonyRuntimeTrackerStateObservationResult
 } from "@symphony/contracts";
 import type { SymphonyLogger } from "@symphony/logger";
 import type {
@@ -75,6 +76,12 @@ export type SymphonyRuntimeLogsPort = {
 
 export type SymphonyRuntimeHealthPort = {
   snapshot(): SymphonyRuntimeHealthResult;
+};
+
+export type SymphonyRuntimeTrackerObservationPort = {
+  observeNonRunningIssue(input: {
+    issueIdentifier: string;
+  }): Promise<SymphonyRuntimeTrackerStateObservationResult | null>;
 };
 
 export type SymphonyRuntimeToolsPort = {
@@ -173,6 +180,7 @@ export type SymphonyRuntimeAppServices = {
   issueTimeline: SymphonyIssueTimelinePort;
   runtimeLogs: SymphonyRuntimeLogsPort;
   health: SymphonyRuntimeHealthPort;
+  trackerStateIngress: SymphonyRuntimeTrackerObservationPort;
   runtimeTools: SymphonyRuntimeToolsPort;
   routeWorkflows: SymphonyRouteWorkflowPort;
   githubReviewIngress: SymphonyGitHubReviewIngressPort;

@@ -345,6 +345,13 @@ export const symphonyRuntimeRefreshResultSchema = z.strictObject({
   operations: z.tuple([z.literal("poll"), z.literal("reconcile")])
 });
 
+export const symphonyRuntimeTrackerStateObservationResultSchema = z.strictObject({
+  issueIdentifier: nonEmptyStringSchema,
+  trackerState: nonEmptyStringSchema,
+  observed: z.boolean(),
+  recordedAt: isoTimestampSchema
+});
+
 export const symphonyRuntimeLogsResultSchema = z.strictObject({
   logs: z.array(symphonyRuntimeLogEntrySchema),
   filters: z.strictObject({
@@ -392,6 +399,9 @@ export const symphonyRuntimeIssueResponseSchema = createEnvelopeSchema(
 );
 export const symphonyRuntimeRefreshResponseSchema = createEnvelopeSchema(
   symphonyRuntimeRefreshResultSchema
+);
+export const symphonyRuntimeTrackerStateObservationResponseSchema = createEnvelopeSchema(
+  symphonyRuntimeTrackerStateObservationResultSchema
 );
 export const symphonyRuntimeLogsResponseSchema = createEnvelopeSchema(
   symphonyRuntimeLogsResultSchema
@@ -455,6 +465,9 @@ export type SymphonyRuntimeTrackedIssue = z.infer<typeof symphonyRuntimeTrackedI
 export type SymphonyRuntimeIssueOperator = z.infer<typeof symphonyRuntimeIssueOperatorSchema>;
 export type SymphonyRuntimeIssueResult = z.infer<typeof symphonyRuntimeIssueResultSchema>;
 export type SymphonyRuntimeRefreshResult = z.infer<typeof symphonyRuntimeRefreshResultSchema>;
+export type SymphonyRuntimeTrackerStateObservationResult = z.infer<
+  typeof symphonyRuntimeTrackerStateObservationResultSchema
+>;
 export type SymphonyRuntimeLogEntry = z.infer<typeof symphonyRuntimeLogEntrySchema>;
 export type SymphonyRuntimeLogsResult = z.infer<typeof symphonyRuntimeLogsResultSchema>;
 export type SymphonyRuntimeMachineLoadSnapshot = z.infer<

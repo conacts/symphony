@@ -642,6 +642,11 @@ export async function createSymphonyRuntimeTestHarness(input: {
         };
       }
     },
+    trackerStateIngress: {
+      async observeNonRunningIssue() {
+        return null;
+      }
+    },
     githubReviewIngress: createSymphonyGitHubReviewIngressService({
       githubPolicy: runtimePolicy.github,
       reviewProcessor: new SymphonyGithubReviewProcessor({
