@@ -14,7 +14,7 @@ import type {
 } from "@symphony/router";
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
-import { createRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
+import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
 import { createRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import { createRuntimeDispatchBootstrapRouter } from "./runtime-dispatch-bootstrap-routing.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";

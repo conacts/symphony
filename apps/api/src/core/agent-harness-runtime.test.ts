@@ -42,7 +42,7 @@ import {
   createSymphonyAgentRuntime as createRawSymphonyAgentRuntime,
   isTransientProviderError
 } from "./agent-harness-runtime.js";
-import { createRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
+import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { buildSymphonyRuntimeTrackerIssue, buildSymphonyRuntimePolicyForRoot } from "../test-support/create-symphony-runtime-test-harness.js";
 

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildSymphonyRuntimePolicy } from "@symphony/test-support";
 import {
+  getDefaultRuntimeRouterPresetId,
   listRuntimeRouterPresetIds,
   selectRuntimeRouterPreset
-} from "./runtime-current-flow-routing.js";
+} from "./runtime-workflow-presets.js";
 import {
   createSymphonyCurrentFlowDispatchCommand,
   createSymphonyCurrentFlowTrackerTransitionCommand
@@ -14,6 +15,7 @@ describe("runtime router preset selection", () => {
     const runtimePolicy = buildSymphonyRuntimePolicy();
 
     expect(listRuntimeRouterPresetIds()).toEqual(["current-flow"]);
+    expect(getDefaultRuntimeRouterPresetId()).toBe("current-flow");
 
     const routing = await selectRuntimeRouterPreset({
       trackerConfig: runtimePolicy.tracker,

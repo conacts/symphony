@@ -13,7 +13,7 @@ import type {
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
-import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
+import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {

@@ -15,7 +15,7 @@ import {
 } from "./runtime-current-flow-session-loader.js";
 import {
   selectRuntimeRouterPreset
-} from "./runtime-current-flow-routing.js";
+} from "./runtime-workflow-presets.js";
 import {
   createRuntimeDispatchBootstrapRouter
 } from "./runtime-dispatch-bootstrap-routing.js";

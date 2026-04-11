@@ -8,7 +8,7 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
-import { createRuntimeCurrentFlowRouting } from "./runtime-current-flow-routing.js";
+import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
 import { createRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 

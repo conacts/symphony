@@ -8,7 +8,7 @@ import type { SymphonyTrackerConfig } from "@symphony/tracker";
 import {
   resolveStoredRuntimeCurrentFlowRouting,
   type SymphonyRuntimeCurrentFlowRouting
-} from "./runtime-current-flow-routing.js";
+} from "./runtime-workflow-presets.js";
 import {
   resumeRouteWorkflowSession,
   type ResumedRouteWorkflowSession,
