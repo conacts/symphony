@@ -11,7 +11,7 @@ import type {
 } from "@symphony/runtime-contract";
 import type { RuntimeMergeResult } from "@symphony/runtime-tools";
 import {
-  createRuntimeCurrentFlowRouting
+  selectRuntimeRouterPreset
 } from "./runtime-current-flow-routing.js";
 import {
   createRuntimeDispatchBootstrapRouter
@@ -128,10 +128,12 @@ export async function createRuntimeRouteLifecycleService(input: {
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
+  routerPresetId?: string;
   now?: () => Date;
 }): Promise<SymphonyRuntimeRouteLifecycleService> {
-  const routing = await createRuntimeCurrentFlowRouting({
+  const routing = await selectRuntimeRouterPreset({
     trackerConfig: input.trackerConfig,
+    presetId: input.routerPresetId,
     now: input.now
   });
   const dispatchBootstrapRouter = await createRuntimeDispatchBootstrapRouter({

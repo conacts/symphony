@@ -28,6 +28,7 @@ import {
 } from "./symphony-current-flow-contract.js";
 import type { WorkflowRouterOptions } from "./workflow-router.js";
 import type { WorkflowCommand, WorkflowSignal } from "./types/index.js";
+import type { WorkflowRouterPreset } from "./router-preset-registry.js";
 
 export type SymphonyCurrentFlowNode =
   | "idle"
@@ -53,6 +54,8 @@ export type SymphonyCurrentFlowData = {
   latestMergeResult: SymphonyCurrentFlowMergeResultRecord | null;
   latestReworkHandoff: SymphonyCurrentFlowReviewReworkHandoff | null;
 };
+
+const symphonyCurrentFlowPolicy = Object.freeze({}) as SymphonyCurrentFlowPolicy;
 
 export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefinition<
   SymphonyCurrentFlowNode,
@@ -401,6 +404,21 @@ export async function createSymphonyCurrentFlowRouterAsync(
     createSymphonyCurrentFlowRouterDefinition(),
     options
   );
+}
+
+export function createSymphonyCurrentFlowRouterPreset(): WorkflowRouterPreset<
+  SymphonyCurrentFlowNode,
+  SymphonyCurrentFlowData,
+  SymphonyCurrentFlowPolicy
+> {
+  return {
+    async createRouter(input = {}) {
+      return await createSymphonyCurrentFlowRouterAsync(input);
+    },
+    createPolicy() {
+      return symphonyCurrentFlowPolicy;
+    }
+  };
 }
 
 function buildBootstrappingEnterCommands(

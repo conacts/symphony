@@ -826,10 +826,20 @@ describe("runtime route lifecycle service", () => {
       harness.close();
     }
   });
+
+  it("fails fast when an unknown router preset is selected", async () => {
+    await expect(
+      createHarness({
+        state: "Todo",
+        routerPresetId: "missing"
+      })
+    ).rejects.toThrow(/Unknown workflow router preset/);
+  });
 });
 
 async function createHarness(input: {
   state: "Todo" | "Approved";
+  routerPresetId?: string;
 }) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-route-lifecycle-service-"));
   tempDirectories.push(root);
@@ -859,6 +869,7 @@ async function createHarness(input: {
     tracker,
     trackerConfig: runtimePolicy.tracker,
     repositoryKey: "openai/symphony",
+    routerPresetId: input.routerPresetId,
     now: () => new Date("2026-04-10T14:00:00.000Z")
   });
 

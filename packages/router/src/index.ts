@@ -41,6 +41,14 @@ export {
 } from "./workflow-router.js";
 export type { WorkflowRouterOptions } from "./workflow-router.js";
 export {
+  createWorkflowRouterPresetRegistry,
+  WorkflowRouterPresetRegistry
+} from "./router-preset-registry.js";
+export type {
+  ResolvedWorkflowRouterPreset,
+  WorkflowRouterPreset
+} from "./router-preset-registry.js";
+export {
   WorkflowRouterComparison,
   createWorkflowRouterComparison
 } from "./workflow-router-comparison.js";
@@ -50,6 +58,7 @@ export {
 export {
   createSymphonyCurrentFlowRouter,
   createSymphonyCurrentFlowRouterAsync,
+  createSymphonyCurrentFlowRouterPreset,
   createSymphonyCurrentFlowRouterDefinition
 } from "./symphony-current-flow-router.js";
 export type {
