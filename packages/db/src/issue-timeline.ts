@@ -75,11 +75,15 @@ export function createSymphonyIssueTimelineStore(
 
     async listIssueTimeline(issueIdentifier, input = {}) {
       const limit = normalizeLimit(input.limit, 200);
+      const normalizedIssueIdentifier = sanitizeRequiredText(
+        issueIdentifier,
+        "issueIdentifier"
+      );
 
       const rows = db
         .select()
         .from(symphonyIssueTimelineTable)
-        .where(eq(symphonyIssueTimelineTable.issueIdentifier, issueIdentifier))
+        .where(eq(symphonyIssueTimelineTable.issueIdentifier, normalizedIssueIdentifier))
         .orderBy(desc(symphonyIssueTimelineTable.recordedAt))
         .limit(limit)
         .all();
@@ -87,10 +91,20 @@ export function createSymphonyIssueTimelineStore(
       const issue = db
         .select()
         .from(symphonyIssuesTable)
-        .where(eq(symphonyIssuesTable.issueIdentifier, issueIdentifier))
+        .where(eq(symphonyIssuesTable.issueIdentifier, normalizedIssueIdentifier))
         .get();
 
-      if (!issue || issue.repositoryKey !== repositoryKey) {
+      if (!issue) {
+        if (rows.length === 0) {
+          return [];
+        }
+
+        throw new TypeError(
+          `Issue timeline issue not found: ${normalizedIssueIdentifier}`
+        );
+      }
+
+      if (issue.repositoryKey !== repositoryKey) {
         return [];
       }
 

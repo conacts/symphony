@@ -152,4 +152,36 @@ describe("issue store", () => {
       database.close();
     }
   });
+
+  it("loads canonical issue identity by identifier", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-issue-store-fetch-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-503",
+        trackerIssueId: "tracker-503",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: "2026-04-10T04:30:00.000Z",
+        recordedAt: "2026-04-10T04:31:00.000Z"
+      });
+
+      await expect(issueStore.fetchByIdentifier("SYM-503")).resolves.toEqual({
+        issueIdentifier: "SYM-503",
+        trackerIssueId: "tracker-503",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: "2026-04-10T04:30:00.000Z",
+        insertedAt: "2026-04-10T04:31:00.000Z",
+        updatedAt: "2026-04-10T04:31:00.000Z"
+      });
+      await expect(issueStore.fetchByIdentifier("SYM-404")).resolves.toBeNull();
+    } finally {
+      database.close();
+    }
+  });
 });

@@ -34,6 +34,10 @@ import {
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import { createAgentAnalyticsReadPort } from "../core/agent-analytics-read-port.js";
 import { createSymphonyGitHubReviewIngressService } from "../core/github-review-ingress.js";
+import {
+  createIssueTimelinePort,
+  createRuntimeLogsPort
+} from "../core/runtime-observability-ports.js";
 import type {
   SymphonyLoadedRuntimePromptTemplate,
   SymphonyRuntimeAppServices
@@ -511,45 +515,13 @@ export async function createSymphonyRuntimeTestHarness(input: {
         });
       }
     }),
-    issueTimeline: {
-      async list({ issueIdentifier, limit, repo }) {
-        const entries = await issueTimelineStore.listIssueTimeline(
-          issueIdentifier,
-          {
-            limit
-          }
-        );
-
-        return entries.length === 0
-          ? null
-          : {
-              repositoryKey: entries[0].repositoryKey,
-              issueIdentifier,
-              entries,
-              filters: {
-                limit: limit ?? null,
-                repo: repo ?? null
-              }
-            };
-      }
-    },
-    runtimeLogs: {
-      async list(input = {}) {
-        const logs = await runtimeLogStore.list({
-          limit: input.limit,
-          issueIdentifier: input.issueIdentifier
-        });
-
-        return {
-          logs,
-          filters: {
-            limit: input.limit ?? null,
-            repo: input.repo ?? null,
-            issueIdentifier: input.issueIdentifier ?? null
-          }
-        };
-      }
-    },
+    issueTimeline: createIssueTimelinePort({
+      issueTimelineStore,
+      issueStore
+    }),
+    runtimeLogs: createRuntimeLogsPort({
+      runtimeLogStore
+    }),
     runtimeTools: {
       async recordDeliveryReport() {
         return {

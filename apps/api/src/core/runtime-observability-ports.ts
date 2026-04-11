@@ -6,29 +6,38 @@ import type {
 } from "./runtime-app-types.js";
 import type {
   SymphonyIssueTimelineStore,
+  SymphonyIssueStore,
   SymphonyRuntimeLogStore
 } from "@symphony/db";
 
 export function createIssueTimelinePort(input: {
   issueTimelineStore: SymphonyIssueTimelineStore;
+  issueStore: SymphonyIssueStore;
 }): SymphonyIssueTimelinePort {
   return {
     async list({ issueIdentifier, limit, repo }) {
+      const issue = await input.issueStore.fetchByIdentifier(issueIdentifier);
+      if (!issue) {
+        return null;
+      }
+
+      if (repo && issue.repositoryKey !== repo) {
+        return null;
+      }
+
       const entries = await input.issueTimelineStore.listIssueTimeline(issueIdentifier, {
         limit
       });
 
-      return entries.length === 0
-        ? null
-        : {
-            repositoryKey: entries[0].repositoryKey,
-            issueIdentifier,
-            entries,
-            filters: {
-              limit: limit ?? null,
-              repo: repo ?? null
-            }
-          };
+      return {
+        repositoryKey: issue.repositoryKey,
+        issueIdentifier,
+        entries,
+        filters: {
+          limit: limit ?? null,
+          repo: repo ?? null
+        }
+      };
     }
   };
 }

@@ -2,7 +2,17 @@ import { eq } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { symphonyIssuesTable } from "./schema.js";
 
+export type SymphonyIssueRecord = {
+  issueIdentifier: string;
+  trackerIssueId: string;
+  repositoryKey: string;
+  latestRunStartedAt: string | null;
+  insertedAt: string;
+  updatedAt: string;
+};
+
 export interface SymphonyIssueStore {
+  fetchByIdentifier(issueIdentifier: string): Promise<SymphonyIssueRecord | null>;
   upsert(input: {
     issueIdentifier: string;
     trackerIssueId: string;
@@ -16,6 +26,31 @@ export function createSymphonyIssueStore(
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>
 ): SymphonyIssueStore {
   return {
+    async fetchByIdentifier(issueIdentifier) {
+      const normalizedIssueIdentifier = sanitizeRequiredText(
+        issueIdentifier,
+        "issueIdentifier"
+      );
+      const row = db
+        .select()
+        .from(symphonyIssuesTable)
+        .where(eq(symphonyIssuesTable.issueIdentifier, normalizedIssueIdentifier))
+        .get();
+
+      if (!row) {
+        return null;
+      }
+
+      return {
+        issueIdentifier: row.issueIdentifier,
+        trackerIssueId: row.trackerIssueId,
+        repositoryKey: row.repositoryKey,
+        latestRunStartedAt: row.latestRunStartedAt ?? null,
+        insertedAt: row.insertedAt,
+        updatedAt: row.updatedAt
+      };
+    },
+
     async upsert(input) {
       const issueIdentifier = sanitizeRequiredText(
         input.issueIdentifier,

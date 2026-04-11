@@ -96,23 +96,49 @@ export function createSymphonyRuntimeLogStore(
         ).map((row) => [row.issueIdentifier, row] as const)
       );
 
-      return rows.map((row) => ({
-        entryId: row.entryId,
-        repositoryKey: row.repositoryKey,
-        level: normalizeLevel(row.level),
-        source: row.source,
-        eventType: row.eventType,
-        message: row.message,
-        trackerIssueId: row.issueIdentifier
-          ? issueMap.get(row.issueIdentifier)?.trackerIssueId ?? null
-          : null,
-        issueIdentifier: row.issueIdentifier ?? null,
-        runId: row.runId ?? null,
-        payload: (row.payload ?? null) as JsonValue,
-        recordedAt: row.recordedAt
-      }));
+      return rows.map((row) => {
+        const issue = requireRuntimeLogIssue(row, issueMap);
+
+        return {
+          entryId: row.entryId,
+          repositoryKey: row.repositoryKey,
+          level: normalizeLevel(row.level),
+          source: row.source,
+          eventType: row.eventType,
+          message: row.message,
+          trackerIssueId: issue?.trackerIssueId ?? null,
+          issueIdentifier: row.issueIdentifier ?? null,
+          runId: row.runId ?? null,
+          payload: (row.payload ?? null) as JsonValue,
+          recordedAt: row.recordedAt
+        };
+      });
     }
   };
+}
+
+function requireRuntimeLogIssue(
+  row: typeof symphonyRuntimeLogsTable.$inferSelect,
+  issueMap: Map<string, typeof symphonyIssuesTable.$inferSelect>
+) {
+  if (!row.issueIdentifier) {
+    return null;
+  }
+
+  const issue = issueMap.get(row.issueIdentifier);
+  if (!issue) {
+    throw new TypeError(
+      `Runtime log issue not found for ${row.entryId}: ${row.issueIdentifier}`
+    );
+  }
+
+  if (issue.repositoryKey !== row.repositoryKey) {
+    throw new TypeError(
+      `Runtime log repository mismatch for ${row.entryId}: ${row.issueIdentifier} is bound to ${issue.repositoryKey}, not ${row.repositoryKey}.`
+    );
+  }
+
+  return issue;
 }
 
 function normalizeLimit(limit: number | undefined, fallback: number): number {

@@ -982,6 +982,43 @@ describe("@symphony/api app", () => {
     expect(timelinePayload.data.entries[0]?.eventType).toBe("retry_scheduled");
   });
 
+  it("returns an empty timeline for an existing issue with no timeline entries", async () => {
+    const harness = await createSymphonyRuntimeAppServicesHarness();
+    harnesses.push(harness);
+
+    const database = initializeSymphonyDb({
+      dbFile: harness.env.dbFile
+    });
+
+    try {
+      const issueStore = createSymphonyIssueStore(database.db);
+      await issueStore.upsert({
+        issueIdentifier: "COL-EMPTY",
+        trackerIssueId: "issue-empty",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-11T05:00:00.000Z"
+      });
+    } finally {
+      database.close();
+    }
+
+    const app = createSymphonyRuntimeApp(harness.services);
+    const response = await app.request("/api/v1/issues/COL-EMPTY/timeline");
+    const payload = await responseJson<{
+      data: {
+        repositoryKey: string;
+        issueIdentifier: string;
+        entries: unknown[];
+      };
+    }>(response);
+
+    expect(response.status).toBe(200);
+    expect(payload.data.repositoryKey).toBe("openai/symphony");
+    expect(payload.data.issueIdentifier).toBe("COL-EMPTY");
+    expect(payload.data.entries).toEqual([]);
+  });
+
   it("fails closed on invalid params and ingests GitHub review events", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {

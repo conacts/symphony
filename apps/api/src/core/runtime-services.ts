@@ -498,7 +498,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   let pollScheduler: SymphonyRuntimePollScheduler | null = null;
   let shutdownPromise: Promise<void> | null = null;
   const issueTimeline = createIssueTimelinePort({
-    issueTimelineStore
+    issueTimelineStore,
+    issueStore
   });
   const runtimeLogs = createRuntimeLogsPort({
     runtimeLogStore
