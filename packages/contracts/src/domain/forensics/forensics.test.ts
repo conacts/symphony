@@ -129,6 +129,92 @@ describe("symphony forensics contracts", () => {
     expect(parsed.ok).toBe(true);
   });
 
+  it("requires canonical runtime thread ids on concrete run detail records", () => {
+    expect(() =>
+      symphonyForensicsRunDetailResponseSchema.parse({
+        schemaVersion: "1",
+        ok: true,
+        meta: {
+          durationMs: 1,
+          generatedAt: "2026-03-31T00:00:00.000Z"
+        },
+        data: {
+          issue: {
+            repositoryKey: REPOSITORY_KEY,
+            trackerIssueId: "issue-1",
+            issueIdentifier: "COL-157",
+            latestRunStartedAt: "2026-03-31T00:00:00.000Z",
+            latestRunId: "run-1",
+            latestRunStatus: "finished",
+            latestRunOutcome: "completed",
+            runCount: 1,
+            latestProblemOutcome: null,
+            lastCompletedOutcome: "completed",
+            latestDeliveryStatus: "completed",
+            latestDeliveryReportedAt: "2026-03-31T00:02:00.000Z",
+            latestDeliveryRunId: "run-1",
+            latestDeliveryPrUrl: "https://github.com/example/repo/pull/157",
+            deliveredRunCount: 1,
+            insertedAt: "2026-03-31T00:00:00.000Z",
+            updatedAt: "2026-03-31T00:00:00.000Z"
+          },
+          run: {
+            runId: "run-1",
+            repositoryKey: REPOSITORY_KEY,
+            trackerIssueId: "issue-1",
+            issueIdentifier: "COL-157",
+            attempt: 1,
+            runMode: "implementation",
+            status: "finished",
+            outcome: "completed",
+            agentStatus: "completed",
+            agentFailureKind: null,
+            agentFailureOrigin: null,
+            agentFailureMessagePreview: null,
+            model: "xiaomi/mimo-v2-pro",
+            workerHost: "docker-host",
+            workspacePath: "/tmp/COL-157",
+            startedAt: "2026-03-31T00:00:00.000Z",
+            endedAt: "2026-03-31T00:01:00.000Z",
+            commitHashStart: null,
+            commitHashEnd: null,
+            threadId: null,
+            processId: null,
+            providerId: null,
+            providerName: null,
+            reasoningEffort: null,
+            profile: null,
+            authMode: null,
+            providerEnvKey: null,
+            launchTarget: null,
+            turnCount: 0,
+            eventCount: 0,
+            lastEventType: null,
+            lastEventAt: null,
+            durationSeconds: 60,
+            inputTokens: 0,
+            cachedInputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            deliveryStatus: null,
+            deliveryReportedAt: null,
+            deliveryPrUrl: null,
+            machineLoad: null,
+            repoStart: null,
+            repoEnd: null,
+            metadata: null,
+            errorClass: null,
+            errorMessage: null,
+            insertedAt: "2026-03-31T00:00:00.000Z",
+            updatedAt: "2026-03-31T00:01:00.000Z"
+          },
+          deliveryReport: null,
+          turns: []
+        }
+      })
+    ).toThrow(/threadId/i);
+  });
+
   it("parses the success metrics envelope", () => {
     const parsed = symphonyForensicsSuccessMetricsResponseSchema.parse({
       schemaVersion: "1",
@@ -402,7 +488,7 @@ describe("symphony forensics contracts", () => {
             endedAt: "2026-03-31T00:01:00.000Z",
             commitHashStart: null,
             commitHashEnd: null,
-            threadId: null,
+            threadId: "thread-1",
             processId: null,
             providerId: null,
             providerName: null,
@@ -488,7 +574,7 @@ describe("symphony forensics contracts", () => {
             endedAt: "2026-03-31T00:01:00.000Z",
             commitHashStart: null,
             commitHashEnd: null,
-            threadId: null,
+            threadId: "thread-1",
             processId: null,
             providerId: null,
             providerName: null,

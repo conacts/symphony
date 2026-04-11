@@ -22,8 +22,8 @@ type RuntimeIssueRow = {
   trackerIssueId: string;
   repositoryKey: string;
   latestRunStartedAt: string | null;
-  insertedAt: string | null;
-  updatedAt: string | null;
+  insertedAt: string;
+  updatedAt: string;
 };
 
 type SymphonyRuntimeTokenTotals = {
@@ -130,8 +130,8 @@ export function buildRuntimeIssueSummary(
     runCount: issueRuns.length,
     latestProblemOutcome: normalizeOptionalRuntimeRunOutcome(latestProblemRun?.outcome),
     lastCompletedOutcome: normalizeOptionalRuntimeRunOutcome(lastCompletedRun?.outcome),
-    insertedAt: issue.insertedAt ?? null,
-    updatedAt: issue.updatedAt ?? null
+    insertedAt: issue.insertedAt,
+    updatedAt: issue.updatedAt
   };
 }
 

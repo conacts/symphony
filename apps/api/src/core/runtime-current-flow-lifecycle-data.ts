@@ -62,13 +62,6 @@ export function readRuntimeCurrentFlowActiveRunModeFromProjection(input: {
     return parseSymphonyCurrentFlowRunMode(projectionData.lastRunMode);
   }
 
-  const lastDispatchMode = readRuntimeCurrentFlowLastDispatchModeFromProjection(
-    input
-  );
-  if (lastDispatchMode !== null) {
-    return lastDispatchMode;
-  }
-
   throw new TypeError(
     `Route workflow ${input.workflowId} is missing an active run mode.`
   );

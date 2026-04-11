@@ -82,11 +82,147 @@ describe("agent analytics contracts", () => {
     ).not.toThrow();
   });
 
-  it("rejects invalid agent analytics statuses", () => {
+  it("requires canonical runtime thread ids and start timestamps", () => {
     expect(() =>
       symphonyAgentRunRecordSchema.parse({
         runId: "run-1",
         threadId: null,
+        trackerIssueId: "issue-1",
+        issueIdentifier: "COL-1",
+        startedAt: "2026-04-03T20:37:38.000Z",
+        endedAt: null,
+        status: "running",
+        failureKind: null,
+        failureOrigin: null,
+        failureMessagePreview: null,
+        finalTurnId: null,
+        lastAgentMessageItemId: null,
+        lastAgentMessagePreview: null,
+        lastAgentMessageOverflowId: null,
+        inputTokens: 0,
+        cachedInputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        turnCount: 0,
+        itemCount: 0,
+        commandCount: 0,
+        toolCallCount: 0,
+        fileChangeCount: 0,
+        agentMessageCount: 0,
+        reasoningCount: 0,
+        errorCount: 0,
+        latestEventAt: null,
+        latestEventType: null,
+        insertedAt: "2026-04-03T20:37:38.000Z",
+        updatedAt: "2026-04-03T20:37:38.000Z"
+      })
+    ).toThrow(/threadId/i);
+
+    expect(() =>
+      symphonyAgentRunRecordSchema.parse({
+        runId: "run-1",
+        threadId: "thread-1",
+        trackerIssueId: "issue-1",
+        issueIdentifier: "COL-1",
+        startedAt: null,
+        endedAt: null,
+        status: "running",
+        failureKind: null,
+        failureOrigin: null,
+        failureMessagePreview: null,
+        finalTurnId: null,
+        lastAgentMessageItemId: null,
+        lastAgentMessagePreview: null,
+        lastAgentMessageOverflowId: null,
+        inputTokens: 0,
+        cachedInputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        turnCount: 0,
+        itemCount: 0,
+        commandCount: 0,
+        toolCallCount: 0,
+        fileChangeCount: 0,
+        agentMessageCount: 0,
+        reasoningCount: 0,
+        errorCount: 0,
+        latestEventAt: null,
+        latestEventType: null,
+        insertedAt: "2026-04-03T20:37:38.000Z",
+        updatedAt: "2026-04-03T20:37:38.000Z"
+      })
+    ).toThrow(/startedAt/i);
+
+    expect(() =>
+      symphonyAgentTurnRecordSchema.parse({
+        turnId: "turn-1",
+        runId: "run-1",
+        threadId: null,
+        startedAt: "2026-04-03T20:37:38.000Z",
+        endedAt: null,
+        status: "running",
+        failureKind: null,
+        failureMessagePreview: null,
+        lastAgentMessageItemId: null,
+        lastAgentMessagePreview: null,
+        lastAgentMessageOverflowId: null,
+        inputTokens: 0,
+        cachedInputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        usage: null,
+        itemCount: 0,
+        commandCount: 0,
+        toolCallCount: 0,
+        fileChangeCount: 0,
+        agentMessageCount: 0,
+        reasoningCount: 0,
+        errorCount: 0,
+        latestEventAt: null,
+        latestEventType: null,
+        insertedAt: "2026-04-03T20:37:38.000Z",
+        updatedAt: "2026-04-03T20:37:38.000Z"
+      })
+    ).toThrow(/threadId/i);
+
+    expect(() =>
+      symphonyAgentTurnRecordSchema.parse({
+        turnId: "turn-1",
+        runId: "run-1",
+        threadId: "thread-1",
+        startedAt: null,
+        endedAt: null,
+        status: "running",
+        failureKind: null,
+        failureMessagePreview: null,
+        lastAgentMessageItemId: null,
+        lastAgentMessagePreview: null,
+        lastAgentMessageOverflowId: null,
+        inputTokens: 0,
+        cachedInputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        usage: null,
+        itemCount: 0,
+        commandCount: 0,
+        toolCallCount: 0,
+        fileChangeCount: 0,
+        agentMessageCount: 0,
+        reasoningCount: 0,
+        errorCount: 0,
+        latestEventAt: null,
+        latestEventType: null,
+        insertedAt: "2026-04-03T20:37:38.000Z",
+        updatedAt: "2026-04-03T20:37:38.000Z"
+      })
+    ).toThrow(/startedAt/i);
+  });
+
+  it("rejects invalid agent analytics statuses", () => {
+    expect(() =>
+      symphonyAgentRunRecordSchema.parse({
+        runId: "run-1",
+        threadId: "thread-1",
         trackerIssueId: "issue-1",
         issueIdentifier: "COL-1",
         startedAt: "2026-04-03T20:37:38.000Z",
@@ -145,7 +281,7 @@ describe("agent analytics contracts", () => {
     expect(() =>
       symphonyAgentRunRecordSchema.parse({
         runId: "run-1",
-        threadId: null,
+        threadId: "thread-1",
         trackerIssueId: "issue-1",
         issueIdentifier: "COL-1",
         startedAt: "2026-04-03T20:37:38.000Z",
@@ -181,7 +317,7 @@ describe("agent analytics contracts", () => {
       symphonyAgentTurnRecordSchema.parse({
         turnId: "turn-1",
         runId: "run-1",
-        threadId: null,
+        threadId: "thread-1",
         startedAt: "2026-04-03T20:37:38.000Z",
         endedAt: null,
         status: "failed",

@@ -324,12 +324,12 @@ const symphonyForensicsIssueExportSchema = z.strictObject({
   latestDeliveryRunId: nullableNonEmptyStringSchema,
   latestDeliveryPrUrl: nullableNonEmptyStringSchema,
   deliveredRunCount: z.number().int().nonnegative(),
-  insertedAt: isoTimestampSchema.nullable(),
-  updatedAt: isoTimestampSchema.nullable()
+  insertedAt: isoTimestampSchema,
+  updatedAt: isoTimestampSchema
 });
 
 const symphonyForensicsRunDetailSchema = symphonyForensicsRunSummarySchema.safeExtend({
-  threadId: nullableNonEmptyStringSchema,
+  threadId: nonEmptyStringSchema,
   processId: nullableNonEmptyStringSchema,
   providerId: nullableNonEmptyStringSchema,
   providerName: nullableNonEmptyStringSchema,

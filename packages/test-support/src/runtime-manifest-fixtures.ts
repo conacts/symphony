@@ -31,6 +31,9 @@ export function buildSymphonyRuntimeManifestInput(
       ],
       seed: [],
       cleanup: []
+    },
+    workflow: {
+      defaultRouterPreset: "current-flow"
     }
   };
 
@@ -55,7 +58,10 @@ export function buildSymphonyRuntimeManifestInput(
       ...baseManifest.lifecycle,
       ...overrides.lifecycle
     },
-    workflow: overrides.workflow ?? baseManifest.workflow,
+    workflow:
+      Object.prototype.hasOwnProperty.call(overrides, "workflow")
+        ? overrides.workflow
+        : baseManifest.workflow,
     pi: overrides.pi ?? baseManifest.pi,
     services: overrides.services ?? baseManifest.services
   };

@@ -1,16 +1,57 @@
 import { describe, expect, it } from "vitest";
-import {
-  createDefaultRuntimeWorkflowPresetSelection,
-  resolveRuntimeWorkflowPresetSelection
-} from "./runtime-workflow-preset-selection.js";
+import { resolveRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
 
 describe("runtime workflow preset selection", () => {
-  it("falls back to the registry default when no runtime manifest is selected", () => {
-    expect(
+  it("fails fast when no runtime manifest is selected", () => {
+    expect(() =>
       resolveRuntimeWorkflowPresetSelection({
         runtimeManifest: null
       })
-    ).toEqual(createDefaultRuntimeWorkflowPresetSelection());
+    ).toThrow(/requires a runtime manifest/i);
+  });
+
+  it("fails fast when the runtime manifest does not define workflow configuration", () => {
+    expect(() =>
+      resolveRuntimeWorkflowPresetSelection({
+        runtimeManifest: {
+          repoRoot: "/tmp/source-repo",
+          manifestPath: "/tmp/source-repo/.symphony/runtime.ts",
+          manifest: {
+            schemaVersion: 1,
+            repositoryKey: "openai/symphony",
+            linear: {
+              teamKey: "SYM"
+            },
+            workspace: {
+              packageManager: "pnpm",
+              workingDirectory: "."
+            },
+            services: {},
+            workflow: null,
+            pi: null,
+            env: {
+              host: {
+                required: [],
+                optional: []
+              },
+              inject: {}
+            },
+            lifecycle: {
+              bootstrap: [],
+              migrate: [],
+              verify: [
+                {
+                  name: "verify",
+                  run: "pnpm test"
+                }
+              ],
+              seed: [],
+              cleanup: []
+            }
+          }
+        }
+      })
+    ).toThrow(/does not define workflow configuration/i);
   });
 
   it("uses the preset declared by the runtime manifest", () => {

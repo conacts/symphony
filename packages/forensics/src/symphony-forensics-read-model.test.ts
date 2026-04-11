@@ -302,8 +302,8 @@ function createRunDetail(
       latestDeliveryRunId: run.runId,
       latestDeliveryPrUrl: "https://github.com/example/repo/pull/157",
       deliveredRunCount: 1,
-      insertedAt: null,
-      updatedAt: null
+      insertedAt: "2026-03-31T00:00:00.000Z",
+      updatedAt: "2026-03-31T00:00:00.000Z"
     },
     run: {
       ...run,

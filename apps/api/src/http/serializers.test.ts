@@ -107,6 +107,94 @@ describe("runtime serializers", () => {
     expect(serialized?.operator.pi.selectedModel).toBe("gpt-5.4");
   });
 
+  it("fails fast when a live runtime entry is missing its prepared workspace", () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const snapshot = buildSymphonyOrchestratorSnapshot({
+      running: [
+        {
+          issue,
+          workspace: null
+        }
+      ]
+    });
+
+    expect(() =>
+      serializeRuntimeState(snapshot, [])
+    ).toThrowError("Cannot serialize runtime workspace without a prepared workspace.");
+  });
+
+  it("fails fast when retry runtime state lacks canonical tracker issue data", () => {
+    const snapshot = buildSymphonyOrchestratorSnapshot({
+      retrying: [
+        {
+          identifier: "COL-999",
+          issueId: "issue-999",
+          workspace: {
+            issueIdentifier: "COL-999",
+            workspaceKey: "COL-999",
+            backendKind: "docker",
+            prepareDisposition: "created",
+            containerDisposition: "started",
+            networkDisposition: "created",
+            afterCreateHookOutcome: "skipped",
+            executionTarget: {
+              kind: "container",
+              workspacePath: "/workspace",
+              containerId: "container-999",
+              containerName: "symphony-col-999",
+              hostPath: null,
+              shell: "sh",
+              user: "1000:1000"
+            },
+            materialization: {
+              kind: "volume",
+              volumeName: "symphony-col-999",
+              containerPath: "/workspace",
+              hostPath: null
+            },
+            networkName: "symphony-network-col-999",
+            services: [],
+            envBundle: {
+              source: "ambient",
+              values: {},
+              summary: {
+                source: "ambient",
+                injectedKeys: [],
+                requiredHostKeys: [],
+                optionalHostKeys: [],
+                repoEnvPath: null,
+                projectedRepoKeys: [],
+                requiredRepoKeys: [],
+                optionalRepoKeys: [],
+                staticBindingKeys: [],
+                runtimeBindingKeys: [],
+                serviceBindingKeys: []
+              }
+            },
+            manifestLifecycle: null,
+            path: null,
+            created: false,
+            workerHost: "docker-host"
+          }
+        }
+      ]
+    });
+
+    expect(() =>
+      serializeRuntimeIssue(
+        snapshot,
+        buildSymphonyRuntimePolicy().github.repo,
+        "COL-999",
+        null,
+        buildSymphonyRuntimePolicy().pi
+      )
+    ).toThrowError(
+      "Cannot serialize runtime issue COL-999 without canonical tracker issue data."
+    );
+  });
+
   it("preserves execution-target metadata for container-backed workspaces", () => {
     const issue = buildSymphonyTrackerIssue({
       state: "In Progress"

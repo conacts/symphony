@@ -121,7 +121,7 @@ describe("runtime router preset selection", () => {
         }
       })
     ).toBe("Approved");
-    expect(
+    expect(() =>
       routing.module.runtimeAdapter.readActiveRunModeFromProjection({
         workflowId: "workflow-1",
         data: {
@@ -132,7 +132,7 @@ describe("runtime router preset selection", () => {
           latestMergeResult: null
         }
       })
-    ).toBe("approved_merge");
+    ).toThrow(/missing an active run mode/);
     expect(
       routing.module.runtimeAdapter.readLatestReworkHandoffFromProjection({
         workflowId: "workflow-1",

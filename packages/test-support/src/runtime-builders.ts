@@ -714,7 +714,7 @@ export function buildSymphonyForensicsRunDetailResult(
         hadHighMemory: false,
         hadHighDisk: false
       },
-      threadId: null,
+      threadId: "thread_123",
       processId: null,
       providerId: null,
       providerName: null,

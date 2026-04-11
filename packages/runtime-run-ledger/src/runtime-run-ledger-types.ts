@@ -220,8 +220,8 @@ export type SymphonyIssueSummary = {
   runCount: number;
   latestProblemOutcome: SymphonyRunOutcome | null;
   lastCompletedOutcome: SymphonyRunOutcome | null;
-  insertedAt: SymphonyIsoTimestamp | null;
-  updatedAt: SymphonyIsoTimestamp | null;
+  insertedAt: SymphonyIsoTimestamp;
+  updatedAt: SymphonyIsoTimestamp;
 };
 
 export type SymphonyRunSummary = {

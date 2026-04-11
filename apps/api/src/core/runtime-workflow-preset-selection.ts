@@ -25,10 +25,18 @@ export function resolveRuntimeWorkflowPresetSelection(input: {
   runtimeManifest: SymphonyLoadedRuntimeManifest | null;
 }): SymphonyRuntimeWorkflowPresetSelection {
   const runtimeManifest = input.runtimeManifest;
-  const workflowConfig = runtimeManifest?.manifest.workflow ?? null;
+  if (!runtimeManifest) {
+    throw new TypeError(
+      "Runtime workflow preset selection requires a runtime manifest."
+    );
+  }
 
-  if (!runtimeManifest || !workflowConfig) {
-    return createDefaultRuntimeWorkflowPresetSelection();
+  const workflowConfig = runtimeManifest.manifest.workflow;
+
+  if (!workflowConfig) {
+    throw new TypeError(
+      `Runtime manifest ${runtimeManifest.manifestPath} does not define workflow configuration.`
+    );
   }
 
   try {

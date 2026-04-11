@@ -179,8 +179,8 @@ export function buildIssueSummary(
     runCount: issueRuns.length,
     latestProblemOutcome: latestProblemRun?.outcome ?? null,
     lastCompletedOutcome: lastCompletedRun?.outcome ?? null,
-    insertedAt: issue.insertedAt ?? null,
-    updatedAt: issue.updatedAt ?? null
+    insertedAt: issue.insertedAt,
+    updatedAt: issue.updatedAt
   };
 }
 

@@ -456,6 +456,14 @@ export async function createRuntimeRouteLifecycleService(input: {
     observeNonRunningTrackerStateByIdentifier,
     routeShutdownPause,
     async observeActiveIssueStateByIdentifier(observationInput) {
+      const issue = await input.tracker.fetchIssueByIdentifier(
+        input.trackerConfig,
+        observationInput.issueIdentifier
+      );
+      if (!issue) {
+        return false;
+      }
+
       const hydration = await sessionLoader.loadHydrationByIssueIdentifier({
         issueIdentifier: observationInput.issueIdentifier
       });

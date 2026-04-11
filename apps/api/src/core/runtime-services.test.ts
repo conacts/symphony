@@ -472,6 +472,9 @@ describe("runtime services", () => {
           packageManager: "pnpm",
           workingDirectory: "."
         },
+        workflow: {
+          defaultRouterPreset: "current-flow"
+        },
         pi: {
           defaultPreset: "basic",
           presets: {
@@ -1352,6 +1355,9 @@ function buildRuntimeManifest(input: {
     workspace: {
       packageManager: "pnpm",
       workingDirectory: "."
+    },
+    workflow: {
+      defaultRouterPreset: "current-flow"
     },
     pi: {
       defaultPreset: input.defaultPreset,

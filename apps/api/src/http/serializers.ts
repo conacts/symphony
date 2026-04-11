@@ -63,7 +63,8 @@ export function serializeRuntimeState(
       workspace: serializeRuntimeWorkspace(
         entry.workspace,
         entry.workerHost,
-        entry.workspacePath
+        entry.workspacePath,
+        true
       ),
       launchTarget: serializeRuntimeLaunchTarget(entry.launchTarget),
       turnCount: entry.turnCount,
@@ -88,7 +89,8 @@ export function serializeRuntimeState(
       workspace: serializeRuntimeWorkspace(
         entry.workspace,
         entry.workerHost,
-        entry.workspacePath
+        entry.workspacePath,
+        true
       ),
       launchTarget: serializeRuntimeLaunchTarget(entry.launchTarget)
     })),
@@ -115,27 +117,12 @@ export function serializeRuntimeIssue(
     return null;
   }
 
-  const tracked =
-    trackedIssue ??
-    running?.issue ?? {
-      id: retry?.issueId ?? issueIdentifier,
-      identifier: issueIdentifier,
-      title: issueIdentifier,
-      description: null,
-      priority: null,
-      state: "Retrying",
-      branchName: issueBranchName(issueIdentifier),
-      url: null,
-      projectId: null,
-      projectName: null,
-      teamKey: null,
-      assigneeId: null,
-      blockedBy: [],
-      labels: [],
-      assignedToWorker: true,
-      createdAt: null,
-      updatedAt: null
-    };
+  const tracked = trackedIssue ?? running?.issue ?? null;
+  if (!tracked) {
+    throw new Error(
+      `Cannot serialize runtime issue ${issueIdentifier} without canonical tracker issue data.`
+    );
+  }
   const branchName = tracked.branchName ?? issueBranchName(issueIdentifier);
   const githubPullRequestSearchUrl = buildGitHubPullRequestSearchUrl(
     githubRepository,
@@ -154,7 +141,8 @@ export function serializeRuntimeIssue(
     workspace: serializeRuntimeWorkspace(
       workspace,
       running?.workerHost ?? retry?.workerHost ?? null,
-      running?.workspacePath ?? retry?.workspacePath ?? null
+      running?.workspacePath ?? retry?.workspacePath ?? null,
+      Boolean(running || retry)
     ),
     attempts: {
       restartCount: Math.max((retry?.attempt ?? 0) - 1, 0),
@@ -277,9 +265,16 @@ function serializeRuntimeWorkflowSignalPayload(
 function serializeRuntimeWorkspace(
   workspace: SymphonyOrchestratorSnapshot["running"][number]["workspace"] | null,
   workerHost: string | null,
-  compatibilityPath: string | null
+  compatibilityPath: string | null,
+  requirePreparedWorkspace: boolean
 ): SymphonyRuntimeIssueResult["workspace"] {
   if (!workspace) {
+    if (requirePreparedWorkspace) {
+      throw new Error(
+        "Cannot serialize runtime workspace without a prepared workspace."
+      );
+    }
+
     return {
       backendKind: null,
       workerHost,
