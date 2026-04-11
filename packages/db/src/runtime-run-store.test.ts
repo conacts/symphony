@@ -45,7 +45,7 @@ async function recordSeededRunStarted(
 }
 
 describe("runtime run delivery projections", () => {
-  it("persists the internal run mode in run metadata", async () => {
+  it("persists the internal run mode in a dedicated run column", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-run-mode-"));
     tempDirectories.push(root);
 
@@ -76,9 +76,9 @@ describe("runtime run delivery projections", () => {
         .where(eq(symphonyRunsTable.runId, runId))
         .get();
 
-      expect(storedRun?.metadata).toMatchObject({
-        source: "test",
-        runMode: "rework"
+      expect(storedRun?.runMode).toBe("rework");
+      expect(storedRun?.metadata).toEqual({
+        source: "test"
       });
     } finally {
       database.close();

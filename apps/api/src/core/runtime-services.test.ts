@@ -655,23 +655,22 @@ describe("runtime services", () => {
     );
       seedDb.client.prepare(`
       insert into symphony_runs (
-        run_id, repository_key, issue_identifier, attempt, status, outcome, worker_host,
+        run_id, repository_key, issue_identifier, attempt, run_mode, status, outcome, worker_host,
         workspace_path, started_at, ended_at, metadata, error_class, error_message, inserted_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       "run-shutdown",
       "owner/repo",
       "COL-SHUTDOWN",
       1,
+      "implementation",
       "running",
       null,
       null,
       "/tmp/workspace",
       seededAt,
       null,
-      JSON.stringify({
-        runMode: "implementation"
-      }),
+      null,
       null,
       null,
       seededAt,

@@ -71,15 +71,17 @@ describe("db schema enforcement", () => {
             run_id,
             repository_key,
             issue_identifier,
+            run_mode,
             status,
             started_at,
             inserted_at,
             updated_at
-          ) values (?, ?, ?, ?, ?, ?, ?)
+          ) values (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           "run-700",
           "other/repo",
           "COL-700",
+          "implementation",
           "running",
           "2026-04-09T12:01:00.000Z",
           "2026-04-09T12:01:00.000Z",
@@ -298,15 +300,17 @@ describe("db schema enforcement", () => {
             run_id,
             repository_key,
             issue_identifier,
+            run_mode,
             status,
             started_at,
             inserted_at,
             updated_at
-          ) values (?, ?, ?, ?, ?, ?, ?)
+          ) values (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           "run-703",
           "openai/symphony",
           "COL-702",
+          "implementation",
           "dispatching",
           "2026-04-09T12:04:00.000Z",
           "2026-04-09T12:04:00.000Z",
@@ -315,6 +319,61 @@ describe("db schema enforcement", () => {
       ).toThrow(
         /symphony_runs_one_active_run_per_issue_idx|UNIQUE constraint failed: symphony_runs.issue_identifier/
       );
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects runs with an invalid run mode at the DB layer", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-schema-run-mode-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+
+    try {
+      database.client.prepare(`
+        insert into symphony_issues (
+          issue_identifier,
+          tracker_issue_id,
+          repository_key,
+          latest_run_started_at,
+          inserted_at,
+          updated_at
+        ) values (?, ?, ?, ?, ?, ?)
+      `).run(
+        "COL-702A",
+        "tracker-702A",
+        "openai/symphony",
+        "2026-04-09T12:00:00.000Z",
+        "2026-04-09T12:00:00.000Z",
+        "2026-04-09T12:00:00.000Z"
+      );
+
+      expect(() =>
+        database.client.prepare(`
+          insert into symphony_runs (
+            run_id,
+            repository_key,
+            issue_identifier,
+            run_mode,
+            status,
+            started_at,
+            inserted_at,
+            updated_at
+          ) values (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          "run-702A",
+          "openai/symphony",
+          "COL-702A",
+          "deploy",
+          "running",
+          "2026-04-09T12:01:00.000Z",
+          "2026-04-09T12:01:00.000Z",
+          "2026-04-09T12:01:00.000Z"
+        )
+      ).toThrow(/CHECK constraint failed/);
     } finally {
       database.close();
     }

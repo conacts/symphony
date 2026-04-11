@@ -24,6 +24,13 @@ CREATE TABLE IF NOT EXISTS symphony_runs (
   repository_key TEXT NOT NULL,
   issue_identifier TEXT NOT NULL,
   attempt INTEGER,
+  run_mode TEXT NOT NULL CHECK (
+    run_mode IN (
+      'implementation',
+      'rework',
+      'approved_merge'
+    )
+  ),
   status TEXT NOT NULL CHECK (
     status IN (
       'dispatching',

@@ -93,7 +93,6 @@ describe("sqlite symphony runtime run ledger", () => {
       const exportPayload = await journal.fetchRunExport(runId);
 
       expect(exportPayload?.run.metadata).toEqual({
-        runMode: "implementation",
         runtime: "typescript",
         threadId: "thread-123"
       });

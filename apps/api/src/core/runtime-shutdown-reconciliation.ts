@@ -11,9 +11,7 @@ import { z } from "zod";
 import { SymphonyRuntimePollScheduler } from "./poll-scheduler.js";
 import type { SymphonyRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 
-const persistedRunMetadataSchema = z.object({
-  runMode: z.enum(["implementation", "rework", "approved_merge"])
-});
+const persistedRunModeSchema = z.enum(["implementation", "rework", "approved_merge"]);
 
 export async function reconcilePersistedActiveRunsOnShutdown(input: {
   database: ReturnType<typeof initializeSymphonyDb>;
@@ -30,7 +28,7 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
            issues.tracker_issue_id as trackerIssueId,
            runs.issue_identifier as issueIdentifier,
            runs.status as status,
-           runs.metadata as metadataJson
+           runs.run_mode as runMode
     from symphony_runs runs
     inner join symphony_issues issues
       on issues.issue_identifier = runs.issue_identifier
@@ -41,7 +39,7 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
     trackerIssueId: string;
     issueIdentifier: string;
     status: "dispatching" | "running";
-    metadataJson: string | null;
+    runMode: string | null;
   }>;
 
   if (activeRuns.length === 0) {
@@ -65,7 +63,7 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
     await reconcileTrackerIssueOnShutdown({
       routeLifecycle: input.routeLifecycle,
       trackedIssue,
-      runMode: readPersistedRunMode(run.metadataJson),
+      runMode: readPersistedRunMode(run.runMode),
       runId: run.runId,
       endedAt,
       shutdownReason: input.shutdownReason
@@ -193,12 +191,12 @@ async function reconcileTrackerIssueOnShutdown(input: {
   }
 }
 
-function readPersistedRunMode(metadataJson: string | null): SymphonyRunMode {
-  if (!metadataJson) {
-    throw new TypeError("Persisted active run is missing metadata.runMode.");
+function readPersistedRunMode(runMode: string | null): SymphonyRunMode {
+  if (!runMode) {
+    throw new TypeError("Persisted active run is missing run_mode.");
   }
 
-  return persistedRunMetadataSchema.parse(JSON.parse(metadataJson)).runMode;
+  return persistedRunModeSchema.parse(runMode);
 }
 
 function createAndCacheIssueTimelineStore(input: {

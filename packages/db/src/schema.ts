@@ -10,6 +10,7 @@ import {
   uniqueIndex
 } from "drizzle-orm/sqlite-core";
 import type { ThreadEvent } from "@symphony/agent-analytics";
+import type { SymphonyRuntimeRunMode } from "./runtime-run-types.js";
 
 const runStatusValues = [
   "dispatching",
@@ -42,6 +43,11 @@ const runOutcomeValues = [
   "blocked_repo",
   "blocked_merge",
   "blocked_merge_max_turns"
+] as const;
+const runModeValues = [
+  "implementation",
+  "rework",
+  "approved_merge"
 ] as const;
 
 const turnStatusValues = ["running", "completed", "failed", "stopped"] as const;
@@ -646,6 +652,7 @@ export const symphonyRunsTable = sqliteTable(
     repositoryKey: text("repository_key").notNull(),
     issueIdentifier: text("issue_identifier").notNull(),
     attempt: integer("attempt"),
+    runMode: text("run_mode").notNull().$type<SymphonyRuntimeRunMode>(),
     status: text("status").notNull(),
     outcome: text("outcome"),
     workerHost: text("worker_host"),
@@ -689,6 +696,10 @@ export const symphonyRunsTable = sqliteTable(
     attemptCheck: check(
       "symphony_runs_attempt_check",
       sql`${table.attempt} is null or ${table.attempt} >= 1`
+    ),
+    runModeCheck: check(
+      "symphony_runs_run_mode_check",
+      sql`${table.runMode} in (${sqlEnum(runModeValues)})`
     ),
     issueRunIdIdx: uniqueIndex("symphony_runs_issue_run_id_idx").on(
       table.issueIdentifier,

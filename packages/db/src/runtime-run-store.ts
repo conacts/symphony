@@ -18,7 +18,6 @@ import { SymphonyActiveRunExistsError } from "./errors.js";
 import type {
   SymphonyRuntimeMachineLoadSummary,
   SymphonyRuntimeRunContextAttrs,
-  SymphonyRuntimeRunMode,
   SymphonyRuntimeRunFinishAttrs,
   SymphonyRuntimeRunStartAttrs,
   SymphonyRuntimeRunUpdateAttrs,
@@ -66,7 +65,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     const now = isoNow();
     const startedAt = requireIsoTimestamp(attrs.startedAt, "startedAt");
     const repositoryKey = sanitizeRequiredText(attrs.repositoryKey, "repositoryKey");
-    const metadata = withRunModeMetadata(attrs.metadata, attrs.runMode);
+    const metadata = sanitizeJsonObject(attrs.metadata);
 
     try {
       this.#db.transaction((tx) => {
@@ -137,6 +136,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
             repositoryKey,
             issueIdentifier: attrs.issueIdentifier,
             attempt: attrs.attempt ?? null,
+            runMode: attrs.runMode,
             status: attrs.status,
             outcome: null,
             workerHost: attrs.workerHost ?? null,
@@ -429,6 +429,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         .set({
           status: attrs.status ?? existing.status,
           outcome: attrs.outcome ?? existing.outcome,
+          runMode: attrs.runMode ?? existing.runMode,
           workerHost: attrs.workerHost ?? existing.workerHost,
           workspacePath: attrs.workspacePath ?? existing.workspacePath,
           startedAt: normalizeOptionalIsoTimestamp(attrs.startedAt, "startedAt") ?? existing.startedAt,
@@ -437,10 +438,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
           commitHashEnd: attrs.commitHashEnd ?? existing.commitHashEnd,
           repoStart: sanitizeJsonObject(attrs.repoStart) ?? existing.repoStart,
           repoEnd: sanitizeJsonObject(attrs.repoEnd) ?? existing.repoEnd,
-          metadata: mergeSanitizedJsonObjects(
-            existing.metadata,
-            withRunModeMetadata(attrs.metadata, attrs.runMode)
-          ),
+          metadata: mergeSanitizedJsonObjects(existing.metadata, attrs.metadata),
           errorClass: attrs.errorClass ? sanitizeText(attrs.errorClass) : existing.errorClass,
           errorMessage:
             attrs.errorMessage ? sanitizeText(attrs.errorMessage) : existing.errorMessage,
@@ -492,6 +490,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     await this.updateRun(runId, {
       status: attrs.status,
       outcome: attrs.outcome ?? null,
+      runMode: attrs.runMode,
       endedAt: attrs.endedAt,
       commitHashEnd: attrs.commitHashEnd,
       repoEnd: attrs.repoEnd,
@@ -573,20 +572,6 @@ function isActiveRunConstraintError(error: unknown): boolean {
     error.message.includes("symphony_runs_one_active_run_per_issue_idx") ||
     error.message.includes("UNIQUE constraint failed: symphony_runs.issue_identifier")
   );
-}
-
-function withRunModeMetadata(
-  metadata: Record<string, unknown> | null | undefined,
-  runMode: SymphonyRuntimeRunMode | null | undefined
-): Record<string, unknown> | null {
-  if (!runMode) {
-    return sanitizeJsonObject(metadata);
-  }
-
-  return sanitizeJsonObject({
-    ...(metadata ?? {}),
-    runMode
-  });
 }
 
 function isoNow(now = new Date()): string {
