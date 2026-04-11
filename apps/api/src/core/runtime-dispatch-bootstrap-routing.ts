@@ -12,8 +12,8 @@ import type {
   SymphonyTrackerConfig,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
-import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
-import type { SymphonyRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
+import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
+import type { SymphonyRuntimeRouterPresetSelection } from "./runtime-workflow-presets.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
@@ -22,14 +22,17 @@ import {
   readDispatchRunMode,
   readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
+import {
+  readLastDispatchModeFromProjection
+} from "./runtime-workflow-lifecycle-data.js";
 
 export async function createRuntimeDispatchBootstrapRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
-  routing: SymphonyRuntimeCurrentFlowRouting;
-  sessionLoader: SymphonyRuntimeCurrentFlowSessionLoader;
+  routing: SymphonyRuntimeRouterPresetSelection;
+  sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
 }) {
   const { router } = input.routing;
   const presetAdapter = input.routing.module.runtimeAdapter;
@@ -125,8 +128,14 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
       }
 
       selectedRunMode ??=
-        resumed.projection.data.lastDispatchMode ??
-        result.projectionAfter.data.lastDispatchMode;
+        readLastDispatchModeFromProjection({
+          workflowId: ensured.workflow.workflowId,
+          data: resumed.projection.data
+        }) ??
+        readLastDispatchModeFromProjection({
+          workflowId: ensured.workflow.workflowId,
+          data: result.projectionAfter.data
+        });
       if (!selectedRunMode) {
         throw new TypeError(
           `Route workflow ${ensured.workflow.workflowId} did not produce a dispatch run mode for ${routeInput.issue.identifier}.`

@@ -15,7 +15,7 @@ import type {
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
 import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
-import { createRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
+import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import { createRuntimeDispatchBootstrapRouter } from "./runtime-dispatch-bootstrap-routing.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createRuntimeRunLifecycleRouter } from "./runtime-run-lifecycle-routing.js";
@@ -244,7 +244,7 @@ async function createHarness(input: {
     trackerConfig: runtimePolicy.tracker,
     now: () => new Date("2026-04-10T12:00:00.000Z")
   });
-  const sessionLoader = await createRuntimeCurrentFlowSessionLoader({
+  const sessionLoader = await createRuntimeWorkflowSessionLoader({
     routeWorkflows,
     trackerConfig: runtimePolicy.tracker,
     now: () => new Date("2026-04-10T12:00:00.000Z")

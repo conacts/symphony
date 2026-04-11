@@ -9,7 +9,7 @@ import {
 } from "@symphony/db";
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
 import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
-import { createRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
+import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 
 const tempDirectories: string[] = [];
@@ -25,8 +25,8 @@ afterEach(async () => {
   );
 });
 
-describe("runtime current-flow session loader", () => {
-  it("resumes persisted current-flow workflows from stored workflow identity", async () => {
+describe("runtime workflow session loader", () => {
+  it("resumes persisted workflows from stored workflow identity", async () => {
     const harness = await createHarness();
 
     try {
@@ -138,7 +138,7 @@ async function createHarness() {
     trackerConfig: runtimePolicy.tracker,
     now: () => new Date("2026-04-10T16:00:00.000Z")
   });
-  const sessionLoader = await createRuntimeCurrentFlowSessionLoader({
+  const sessionLoader = await createRuntimeWorkflowSessionLoader({
     routeWorkflows,
     trackerConfig: runtimePolicy.tracker,
     now: () => new Date("2026-04-10T16:00:00.000Z")

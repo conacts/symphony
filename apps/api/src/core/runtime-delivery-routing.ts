@@ -3,7 +3,7 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
-import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
+import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
@@ -34,7 +34,7 @@ export type SymphonyDeliveryRouter = {
 export async function createRuntimeDeliveryRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
-  sessionLoader: SymphonyRuntimeCurrentFlowSessionLoader;
+  sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
 }): Promise<SymphonyDeliveryRouter> {
   return {
     async routeDelivery(

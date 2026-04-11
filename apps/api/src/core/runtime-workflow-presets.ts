@@ -84,19 +84,3 @@ export async function resolveStoredRuntimeRouterPreset(input: {
 }): Promise<SymphonyRuntimeRouterPresetSelection> {
   return await runtimeWorkflowPresetRegistry.resolveStoredWorkflow(input);
 }
-
-export async function resolveStoredRuntimeCurrentFlowRouting(input: {
-  trackerConfig: SymphonyTrackerConfig;
-  workflow: SymphonyStoredRouteWorkflowRouterBinding;
-  now?: () => Date;
-}): Promise<SymphonyRuntimeCurrentFlowRouting> {
-  const routing = await resolveStoredRuntimeRouterPreset(input);
-
-  if (routing.presetId !== "current-flow") {
-    throw new TypeError(
-      `Route workflow ${input.workflow.workflowId} is bound to router preset ${input.workflow.routerPresetId}, but the current-flow runtime only supports "current-flow".`
-    );
-  }
-
-  return routing;
-}

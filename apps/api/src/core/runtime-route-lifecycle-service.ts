@@ -11,8 +11,9 @@ import type {
 } from "@symphony/runtime-contract";
 import type { RuntimeMergeResult } from "@symphony/runtime-tools";
 import {
-  createRuntimeCurrentFlowSessionLoader
-} from "./runtime-current-flow-session-loader.js";
+  createRuntimeWorkflowSessionLoader,
+  type SymphonyLoadedRuntimeWorkflowHydration
+} from "./runtime-workflow-session-loader.js";
 import {
   selectRuntimeRouterPreset
 } from "./runtime-workflow-presets.js";
@@ -44,9 +45,6 @@ import {
 } from "./runtime-tracker-state-observation-routing.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type {
-  SymphonyCurrentFlowData,
-  SymphonyCurrentFlowNode,
-  SymphonyCurrentFlowPolicy,
   SymphonyCurrentFlowStateRequestKind,
   SymphonyCurrentFlowStateRequestTargetState
 } from "@symphony/router";
@@ -61,6 +59,10 @@ import {
   createRuntimeStateRequestRouter
 } from "./runtime-state-request-routing.js";
 import type { SymphonyRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
+import {
+  parseRuntimeWorkflowLifecycleProjectionData,
+  readActiveRunModeFromProjection
+} from "./runtime-workflow-lifecycle-data.js";
 
 export type SymphonyRuntimeRouteLifecycleService = {
   workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
@@ -140,7 +142,7 @@ export async function createRuntimeRouteLifecycleService(input: {
     presetId: input.presetSelection.presetId,
     now: input.now
   });
-  const sessionLoader = await createRuntimeCurrentFlowSessionLoader({
+  const sessionLoader = await createRuntimeWorkflowSessionLoader({
     routeWorkflows: input.routeWorkflows,
     trackerConfig: input.trackerConfig,
     now: input.now
@@ -232,12 +234,9 @@ export async function createRuntimeRouteLifecycleService(input: {
       const observedIssues: SymphonyObservedTrackerState[] = [];
 
       for (const issue of issues) {
-        const hydration =
-          await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
-            SymphonyCurrentFlowNode,
-            SymphonyCurrentFlowData,
-            SymphonyCurrentFlowPolicy
-          >(issue.identifier);
+        const hydration = await sessionLoader.loadHydrationByIssueIdentifier({
+          issueIdentifier: issue.identifier
+        });
         if (
           !shouldObserveNonRunningTrackerState({
             issue,
@@ -273,12 +272,9 @@ export async function createRuntimeRouteLifecycleService(input: {
         return null;
       }
 
-      const hydration =
-        await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
-          SymphonyCurrentFlowNode,
-          SymphonyCurrentFlowData,
-          SymphonyCurrentFlowPolicy
-        >(issue.identifier);
+      const hydration = await sessionLoader.loadHydrationByIssueIdentifier({
+        issueIdentifier: issue.identifier
+      });
       if (
         !shouldObserveNonRunningTrackerState({
           issue,
@@ -403,12 +399,9 @@ export async function createRuntimeRouteLifecycleService(input: {
     observeNonRunningTrackerStateByIdentifier,
     routeShutdownPause,
     async observeActiveIssueStateByIdentifier(observationInput) {
-      const hydration =
-        await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
-          SymphonyCurrentFlowNode,
-          SymphonyCurrentFlowData,
-          SymphonyCurrentFlowPolicy
-        >(observationInput.issueIdentifier);
+      const hydration = await sessionLoader.loadHydrationByIssueIdentifier({
+        issueIdentifier: observationInput.issueIdentifier
+      });
       if (!hydration) {
         return false;
       }
@@ -446,16 +439,18 @@ function shouldObserveNonRunningTrackerState(input: {
   issue: {
     state: string;
   };
-  hydration: {
-    snapshot: {
-      projection: {
-        data: SymphonyCurrentFlowData;
-      };
-    } | null;
-  } | null;
+  hydration: SymphonyLoadedRuntimeWorkflowHydration | null;
 }): boolean {
   const observedState = normalizeIssueState(input.issue.state);
-  const hydratedState = input.hydration?.snapshot?.projection.data.trackerState;
+  const hydration = input.hydration;
+  const snapshot = hydration?.hydrationState.snapshot;
+  let hydratedState: string | null = null;
+  if (hydration && snapshot) {
+    hydratedState = parseRuntimeWorkflowLifecycleProjectionData({
+      workflowId: hydration.hydrationState.workflow.workflowId,
+      data: snapshot.projection.data
+    }).trackerState;
+  }
 
   if (hydratedState && normalizeIssueState(hydratedState) === observedState) {
     return false;
@@ -471,26 +466,17 @@ function shouldObserveNonRunningTrackerState(input: {
 }
 
 function resolveActiveRunMode(
-  hydration: {
-    workflow: {
-      workflowId: string;
-    };
-    snapshot: {
-      projection: {
-        data: SymphonyCurrentFlowData;
-      };
-    } | null;
-  }
+  hydration: SymphonyLoadedRuntimeWorkflowHydration
 ): SymphonyRunMode {
-  const data = hydration.snapshot?.projection.data;
-  if (data?.lastRunMode) {
-    return data.lastRunMode;
-  }
-  if (data?.lastDispatchMode) {
-    return data.lastDispatchMode;
+  const snapshot = hydration.hydrationState.snapshot;
+  if (!snapshot) {
+    throw new TypeError(
+      `Route workflow ${hydration.hydrationState.workflow.workflowId} is missing an active run mode.`
+    );
   }
 
-  throw new TypeError(
-    `Route workflow ${hydration.workflow.workflowId} is missing an active run mode.`
-  );
+  return readActiveRunModeFromProjection({
+    workflowId: hydration.hydrationState.workflow.workflowId,
+    data: snapshot.projection.data
+  });
 }

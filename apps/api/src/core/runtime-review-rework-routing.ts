@@ -4,7 +4,7 @@ import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
-import type { SymphonyRuntimeCurrentFlowSessionLoader } from "./runtime-current-flow-session-loader.js";
+import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
@@ -37,7 +37,7 @@ export type SymphonyReviewReworkRouter = {
 export async function createRuntimeReviewReworkRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
-  sessionLoader: SymphonyRuntimeCurrentFlowSessionLoader;
+  sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
 }): Promise<SymphonyReviewReworkRouter> {
   return {
     async routeReviewRework(
