@@ -690,6 +690,10 @@ export const symphonyRunsTable = sqliteTable(
       "symphony_runs_attempt_check",
       sql`${table.attempt} is null or ${table.attempt} >= 1`
     ),
+    issueRunIdIdx: uniqueIndex("symphony_runs_issue_run_id_idx").on(
+      table.issueIdentifier,
+      table.runId
+    ),
     oneActiveRunPerIssueIdx: uniqueIndex(
       "symphony_runs_one_active_run_per_issue_idx"
     )
@@ -866,6 +870,11 @@ export const symphonyIssueDeliveryReportsTable = sqliteTable(
       "symphony_issue_delivery_reports_blocked_reason_check",
       sql`${table.status} != 'blocked' or ${table.blockingReason} is not null`
     ),
+    issueRunFk: foreignKey({
+      columns: [table.issueIdentifier, table.runId],
+      foreignColumns: [symphonyRunsTable.issueIdentifier, symphonyRunsTable.runId],
+      name: "symphony_issue_delivery_reports_issue_run_fk"
+    }).onDelete("cascade"),
     runTurnFk: foreignKey({
       columns: [table.runId, table.turnId],
       foreignColumns: [symphonyTurnsTable.runId, symphonyTurnsTable.turnId],
@@ -938,6 +947,11 @@ export const symphonyRunRuntimeContextTable = sqliteTable(
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    runFk: foreignKey({
+      columns: [table.runId],
+      foreignColumns: [symphonyRunsTable.runId],
+      name: "symphony_run_runtime_context_run_fk"
+    }).onDelete("cascade"),
     harnessKindCheck: check(
       "symphony_run_runtime_context_harness_kind_check",
       sql`${table.harnessKind} is null or ${table.harnessKind} in (${sqlEnum(harnessKindValues)})`
@@ -1022,6 +1036,59 @@ export const routeHistoryEventsTable = sqliteTable(
       "route_history_events_signal_source_check",
       sql`${table.signalSource} is null or ${table.signalSource} in (${sqlEnum(routeSignalSourceValues)})`
     ),
+    signalRecordedShapeCheck: check(
+      "route_history_events_signal_recorded_shape_check",
+      sql`${table.kind} != 'signal_recorded' or (
+        ${table.signalId} is not null and
+        ${table.signalType} is not null and
+        ${table.signalSource} is not null and
+        ${table.decisionId} is null and
+        ${table.commandId} is null and
+        ${table.fromNode} is null and
+        ${table.toNode} is null and
+        ${table.edgeId} is null and
+        ${table.reasonCode} is null
+      )`
+    ),
+    decisionRecordedShapeCheck: check(
+      "route_history_events_decision_recorded_shape_check",
+      sql`${table.kind} != 'decision_recorded' or (
+        ${table.signalId} is null and
+        ${table.signalType} is null and
+        ${table.signalSource} is null and
+        ${table.decisionId} is not null and
+        ${table.commandId} is null and
+        ${table.reasonCode} is not null
+      )`
+    ),
+    commandEmittedShapeCheck: check(
+      "route_history_events_command_emitted_shape_check",
+      sql`${table.kind} != 'command_emitted' or (
+        ${table.signalId} is null and
+        ${table.signalType} is null and
+        ${table.signalSource} is null and
+        ${table.decisionId} is not null and
+        ${table.commandId} is not null and
+        ${table.fromNode} is null and
+        ${table.toNode} is null and
+        ${table.edgeId} is null and
+        ${table.reasonCode} is null
+      )`
+    ),
+    commandSettledShapeCheck: check(
+      "route_history_events_command_settled_shape_check",
+      sql`${table.kind} != 'command_settled' or (
+        ${table.signalId} is null and
+        ${table.signalType} is null and
+        ${table.signalSource} is null and
+        ${table.decisionId} is null and
+        ${table.commandId} is not null and
+        ${table.fromNode} is null and
+        ${table.toNode} is null and
+        ${table.edgeId} is null and
+        ${table.reasonCode} is null
+      )`
+    ),
     workflowSequenceIdx: uniqueIndex("route_history_events_workflow_sequence_idx").on(
       table.workflowId,
       table.eventSequence
@@ -1035,6 +1102,11 @@ export const routeHistoryEventsTable = sqliteTable(
     workflowCommandIdIdx: uniqueIndex("route_history_events_workflow_command_id_idx")
       .on(table.workflowId, table.commandId)
       .where(sql`${table.commandId} is not null and ${table.kind} = 'command_emitted'`),
+    workflowCommandSettlementIdIdx: uniqueIndex(
+      "route_history_events_workflow_command_settlement_id_idx"
+    )
+      .on(table.workflowId, table.commandId)
+      .where(sql`${table.commandId} is not null and ${table.kind} = 'command_settled'`),
     workflowRecordedAtIdx: index("route_history_events_workflow_recorded_at_idx").on(
       table.workflowId,
       table.recordedAt
