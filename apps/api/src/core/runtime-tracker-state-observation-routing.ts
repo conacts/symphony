@@ -12,6 +12,7 @@ import type { SymphonyRuntimeRouterPresetSelection } from "./runtime-workflow-pr
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
+  createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
   normalizeWorkflowToken,
   readDispatchRunMode,
@@ -100,6 +101,12 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
       const { resumed } = loaded;
       const presetAdapter = loaded.routing.module.runtimeAdapter;
       const observedTrackerState = issue.state;
+      const loadSettlementSession = createRouteCommandSettlementSessionLoader({
+        sessionLoader: input.sessionLoader,
+        workflowId: resumed.hydrationState.workflow.workflowId,
+        failureContext:
+          "while settling tracker-state observation route commands"
+      });
 
       const observedRunId = readObservedRunId(observationInput);
       const observedRunMode = readObservedRunMode(observationInput);
@@ -133,6 +140,7 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
             routeWorkflows: input.routeWorkflows,
             workflowId: resumed.hydrationState.workflow.workflowId,
             session: resumed.session,
+            loadSettlementSession,
             command,
             recordedAt: observationInput.recordedAt,
             async execute(executedCommand) {
@@ -152,6 +160,7 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
             routeWorkflows: input.routeWorkflows,
             workflowId: resumed.hydrationState.workflow.workflowId,
             session: resumed.session,
+            loadSettlementSession,
             command,
             recordedAt: observationInput.recordedAt,
             async execute(executedCommand) {

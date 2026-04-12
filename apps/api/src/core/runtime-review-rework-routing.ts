@@ -9,6 +9,7 @@ import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
+  createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
   normalizeWorkflowToken,
   readDispatchRunMode,
@@ -81,6 +82,11 @@ export async function createRuntimeReviewReworkRouter(input: {
         routeWorkflows: input.routeWorkflows,
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
+        loadSettlementSession: createRouteCommandSettlementSessionLoader({
+          sessionLoader: input.sessionLoader,
+          workflowId: resumed.hydrationState.workflow.workflowId,
+          failureContext: "while settling review-rework route commands"
+        }),
         recordedAt: reviewInput.recordedAt,
         presetAdapter,
         onDispatchRequested: reviewInput.onDispatchRequested
@@ -100,6 +106,7 @@ async function executeReviewReworkCommands(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
   session: WorkflowSession<string, unknown, unknown>;
+  loadSettlementSession: () => Promise<WorkflowSession<string, unknown, unknown>>;
   recordedAt: string;
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   onDispatchRequested?(
@@ -114,6 +121,7 @@ async function executeReviewReworkCommands(input: {
         routeWorkflows: input.routeWorkflows,
         workflowId: input.workflowId,
         session: input.session,
+        loadSettlementSession: input.loadSettlementSession,
         command,
         recordedAt: input.recordedAt,
         async execute(executedCommand) {
@@ -133,6 +141,7 @@ async function executeReviewReworkCommands(input: {
         routeWorkflows: input.routeWorkflows,
         workflowId: input.workflowId,
         session: input.session,
+        loadSettlementSession: input.loadSettlementSession,
         command,
         recordedAt: input.recordedAt,
         async execute(executedCommand) {

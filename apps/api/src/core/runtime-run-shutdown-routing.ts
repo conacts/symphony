@@ -8,6 +8,7 @@ import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-se
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
+  createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
   normalizeWorkflowToken,
   readTrackerTransitionState
@@ -74,6 +75,11 @@ export async function createRuntimeRunShutdownRouter(input: {
       });
 
       let pausedIssue = shutdownInput.issue;
+      const loadSettlementSession = createRouteCommandSettlementSessionLoader({
+        sessionLoader: input.sessionLoader,
+        workflowId: resumed.hydrationState.workflow.workflowId,
+        failureContext: "while settling shutdown route commands"
+      });
       for (const command of result.decision.commands) {
         if (command.kind !== "tracker.transition") {
           throw new TypeError(
@@ -85,6 +91,7 @@ export async function createRuntimeRunShutdownRouter(input: {
           routeWorkflows: input.routeWorkflows,
           workflowId: resumed.hydrationState.workflow.workflowId,
           session: resumed.session,
+          loadSettlementSession,
           command,
           recordedAt: shutdownInput.recordedAt,
           async execute(executedCommand) {

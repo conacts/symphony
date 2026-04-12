@@ -17,6 +17,7 @@ import type { SymphonyRuntimeRouterPresetSelection } from "./runtime-workflow-pr
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
+  createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
   normalizeWorkflowToken,
   readDispatchRunMode,
@@ -80,6 +81,12 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
 
       let preparedIssue = routeInput.issue;
       let selectedRunMode: SymphonyRunMode | null = null;
+      const loadSettlementSession = createRouteCommandSettlementSessionLoader({
+        sessionLoader: input.sessionLoader,
+        workflowId: ensured.workflow.workflowId,
+        failureContext:
+          "while settling dispatch-bootstrap route commands"
+      });
 
       for (const command of result.decision.commands) {
         if (command.kind === "tracker.transition") {
@@ -87,6 +94,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
             routeWorkflows: input.routeWorkflows,
             workflowId: ensured.workflow.workflowId,
             session,
+            loadSettlementSession,
             command,
             recordedAt: routeInput.startedAt,
             async execute(executedCommand) {
@@ -107,6 +115,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
             routeWorkflows: input.routeWorkflows,
             workflowId: ensured.workflow.workflowId,
             session,
+            loadSettlementSession,
             command,
             recordedAt: routeInput.startedAt,
             async execute(executedCommand) {
@@ -124,15 +133,6 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
         );
       }
 
-      selectedRunMode ??=
-        presetAdapter.readLastDispatchModeFromProjection({
-          workflowId: ensured.workflow.workflowId,
-          data: resumed.projection.data
-        }) ??
-        presetAdapter.readLastDispatchModeFromProjection({
-          workflowId: ensured.workflow.workflowId,
-          data: result.projectionAfter.data
-        });
       if (!selectedRunMode) {
         throw new TypeError(
           `Route workflow ${ensured.workflow.workflowId} did not produce a dispatch run mode for ${routeInput.issue.identifier}.`

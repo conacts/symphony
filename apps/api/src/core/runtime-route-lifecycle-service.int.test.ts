@@ -168,6 +168,67 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("does not let a late dispatch settlement regress workflow state after dispatch immediately activates a run", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:00:05.000Z",
+        onDispatchRequested: async (input) => {
+          await harness.service.workflowRoutingAdapter.activateRunStart({
+            issue: input.issue,
+            runId: "run-dispatch-activation",
+            runMode: input.runMode,
+            recordedAt: "2026-04-10T14:00:06.000Z",
+            threadId: "thread-dispatch-activation",
+            workerHost: null,
+            launchTarget: null
+          });
+        }
+      });
+
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        observedTrackerState: "Todo",
+        workflowTrackerState: "In Progress",
+        observed: true
+      });
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Progress");
+
+      const workflowLifecycle = await harness.service.loadWorkflowLifecycleView({
+        issueIdentifier: harness.issue.identifier
+      });
+      expect(workflowLifecycle).toEqual({
+        workflowId: expect.any(String),
+        trackerState: "In Progress",
+        latestReworkHandoff: null,
+        latestMergeResult: null
+      });
+
+      const hydration =
+        await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+          SymphonyCurrentFlowNode,
+          SymphonyCurrentFlowData,
+          SymphonyCurrentFlowPolicy
+        >(harness.issue.identifier);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("implementation");
+      expect(hydration?.snapshot?.projection.pendingCommands).toEqual([]);
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("In Progress");
+      expect(hydration?.snapshot?.projection.data.lastDispatchMode).toBe(
+        "implementation"
+      );
+      expect(hydration?.snapshot?.projection.data.lastDispatchStatus).toBe(
+        "succeeded"
+      );
+      expect(hydration?.tailHistory).toEqual([]);
+    } finally {
+      harness.close();
+    }
+  });
+
   it("routes explicit review rework requests through route history and requests dispatch", async () => {
     const harness = await createHarness({
       state: "Todo"

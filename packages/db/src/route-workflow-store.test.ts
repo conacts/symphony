@@ -152,7 +152,15 @@ describe("route workflow store", () => {
         projection: buildProjection({
           workflowId,
           phase: "bootstrapping",
-          pendingCommandIds: ["command_dispatch_implementation"]
+          pendingCommandIds: ["command_dispatch_implementation"],
+          recordedSignalIds: ["signal_todo_observed"],
+          emittedCommandIds: [
+            "command_tracker_bootstrapping",
+            "command_dispatch_implementation"
+          ],
+          lastSignal: buildRouteResult(workflowId).signalEvent.signal,
+          lastDecision: buildRouteResult(workflowId).decision,
+          sequence: 5
         })
       });
 
@@ -494,6 +502,7 @@ function buildProjection(input: {
   emittedCommandIds?: string[];
   lastSignal?: WorkflowProjection<TestNode, TestData>["lastSignal"];
   lastDecision?: WorkflowProjection<TestNode, TestData>["lastDecision"];
+  sequence?: number;
 }): WorkflowProjection<TestNode, TestData> {
   return {
     workflowId: input.workflowId,
@@ -516,7 +525,7 @@ function buildProjection(input: {
     recordedSignalIds: input.recordedSignalIds ?? [],
     emittedCommandIds: input.emittedCommandIds ?? input.pendingCommandIds,
     terminal: false,
-    sequence: input.pendingCommandIds.length,
+    sequence: input.sequence ?? input.pendingCommandIds.length,
     data: {
       phase: input.phase
     },

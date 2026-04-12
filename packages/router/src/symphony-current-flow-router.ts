@@ -27,7 +27,11 @@ import {
   type SymphonyCurrentFlowTrackerState
 } from "./symphony-current-flow-contract.js";
 import type { WorkflowRouterOptions } from "./workflow-router.js";
-import type { WorkflowCommand, WorkflowSignal } from "./types/index.js";
+import type {
+  WorkflowCommand,
+  WorkflowJournalEvent,
+  WorkflowSignal
+} from "./types/index.js";
 import type { WorkflowRouterPreset } from "./router-preset-registry.js";
 
 export type SymphonyCurrentFlowNode =
@@ -47,8 +51,10 @@ export type SymphonyCurrentFlowPolicy = Record<string, never>;
 
 export type SymphonyCurrentFlowData = {
   trackerState: SymphonyCurrentFlowTrackerState | null;
+  confirmedTrackerState: SymphonyCurrentFlowTrackerState | null;
   lastObservedTrackerState: SymphonyCurrentFlowTrackerState | null;
   lastDispatchMode: SymphonyCurrentFlowRunMode | null;
+  lastDispatchStatus: "pending" | "succeeded" | "failed" | null;
   lastRunMode: SymphonyCurrentFlowRunMode | null;
   lastRuntimeOutcome: SymphonyCurrentFlowCompletionKind | null;
   latestMergeResult: SymphonyCurrentFlowMergeResultRecord | null;
@@ -368,19 +374,27 @@ export function createSymphonyCurrentFlowRouterDefinition(): WorkflowRouterDefin
     strategy: createDeterministicStrategy(),
     createInitialData: () => ({
       trackerState: null,
+      confirmedTrackerState: null,
       lastObservedTrackerState: null,
       lastDispatchMode: null,
+      lastDispatchStatus: null,
       lastRunMode: null,
       lastRuntimeOutcome: null,
       latestMergeResult: null,
       latestReworkHandoff: null
     }),
-    reduceData: ({ data, event }) => {
+    reduceData: ({ data, event, projection }) => {
       switch (event.kind) {
         case "signal_recorded":
           return reduceSignalData(data, event.signal);
         case "command_emitted":
           return reduceCommandData(data, event.command);
+        case "command_settled":
+          return reduceCommandSettlementData({
+            data,
+            event,
+            projection
+          });
         default:
           return data;
       }
@@ -773,6 +787,7 @@ function reduceSignalData(
     return {
       ...data,
       trackerState: observedTrackerState,
+      confirmedTrackerState: observedTrackerState,
       lastObservedTrackerState: observedTrackerState
     };
   }
@@ -840,9 +855,55 @@ function reduceCommandData(
   if (dispatchCommand) {
     return {
       ...data,
-      lastDispatchMode: dispatchCommand.payload.runMode
+      lastDispatchMode: dispatchCommand.payload.runMode,
+      lastDispatchStatus: "pending"
     };
   }
 
   return data;
+}
+
+function reduceCommandSettlementData(input: {
+  data: SymphonyCurrentFlowData;
+  event: Extract<
+    WorkflowJournalEvent<SymphonyCurrentFlowNode>,
+    { kind: "command_settled" }
+  >;
+  projection: {
+    pendingCommands: WorkflowCommand[];
+  };
+}) {
+  const pendingCommand = input.projection.pendingCommands.find(
+    (command) => command.id === input.event.commandId
+  );
+  if (!pendingCommand) {
+    return input.data;
+  }
+
+  const trackerTransition =
+    readSymphonyCurrentFlowTrackerTransitionCommand(pendingCommand);
+  if (trackerTransition) {
+    if (input.event.status === "succeeded") {
+      return {
+        ...input.data,
+        trackerState: trackerTransition.payload.state,
+        confirmedTrackerState: trackerTransition.payload.state
+      };
+    }
+
+    return {
+      ...input.data,
+      trackerState: input.data.confirmedTrackerState
+    };
+  }
+
+  const dispatchCommand = readSymphonyCurrentFlowDispatchCommand(pendingCommand);
+  if (dispatchCommand) {
+    return {
+      ...input.data,
+      lastDispatchStatus: input.event.status
+    };
+  }
+
+  return input.data;
 }

@@ -637,29 +637,43 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
 
       let snapshot: RouteProjectionSnapshotRecord<Node, Data> | null = null;
       if (input.projection) {
+        const currentSnapshotRow = tx
+          .select()
+          .from(routeProjectionSnapshotsTable)
+          .where(eq(routeProjectionSnapshotsTable.workflowId, workflowId))
+          .get();
+        const currentSnapshot = currentSnapshotRow
+          ? mapSnapshotRow<Node, Data>(currentSnapshotRow)
+          : null;
         const nextSnapshot = buildSnapshotRecord({
           workflowId,
           eventSequence,
           projection: input.projection,
           updatedAt: now
         });
-
-        tx.insert(routeProjectionSnapshotsTable)
-          .values(nextSnapshot.insert)
-          .onConflictDoUpdate({
-            target: routeProjectionSnapshotsTable.workflowId,
-            set: {
-              eventSequence: nextSnapshot.insert.eventSequence,
-              currentNode: nextSnapshot.insert.currentNode,
-              terminal: nextSnapshot.insert.terminal,
-              lastSignalId: nextSnapshot.insert.lastSignalId,
-              lastDecisionId: nextSnapshot.insert.lastDecisionId,
-              projectionJson: nextSnapshot.insert.projectionJson,
-              updatedAt: nextSnapshot.insert.updatedAt
-            }
-          })
-          .run();
-        snapshot = nextSnapshot.record;
+        if (
+          currentSnapshot &&
+          currentSnapshot.projection.sequence > nextSnapshot.record.projection.sequence
+        ) {
+          snapshot = currentSnapshot;
+        } else {
+          tx.insert(routeProjectionSnapshotsTable)
+            .values(nextSnapshot.insert)
+            .onConflictDoUpdate({
+              target: routeProjectionSnapshotsTable.workflowId,
+              set: {
+                eventSequence: nextSnapshot.insert.eventSequence,
+                currentNode: nextSnapshot.insert.currentNode,
+                terminal: nextSnapshot.insert.terminal,
+                lastSignalId: nextSnapshot.insert.lastSignalId,
+                lastDecisionId: nextSnapshot.insert.lastDecisionId,
+                projectionJson: nextSnapshot.insert.projectionJson,
+                updatedAt: nextSnapshot.insert.updatedAt
+              }
+            })
+            .run();
+          snapshot = nextSnapshot.record;
+        }
       }
 
       tx.update(routeWorkflowsTable)

@@ -18,6 +18,7 @@ import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-se
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
+  createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
   normalizeWorkflowToken,
   readTrackerTransitionState
@@ -74,6 +75,12 @@ export async function createRuntimeRunLifecycleRouter(input: {
         routeWorkflows: input.routeWorkflows,
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
+        loadSettlementSession: createRouteCommandSettlementSessionLoader({
+          sessionLoader: input.sessionLoader,
+          workflowId: resumed.hydrationState.workflow.workflowId,
+          failureContext:
+            "while settling run-lifecycle observation route commands"
+        }),
         recordedAt: observationInput.recordedAt,
         presetAdapter,
         unsupportedCommandErrorPrefix:
@@ -119,6 +126,11 @@ export async function createRuntimeRunLifecycleRouter(input: {
         routeWorkflows: input.routeWorkflows,
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
+        loadSettlementSession: createRouteCommandSettlementSessionLoader({
+          sessionLoader: input.sessionLoader,
+          workflowId: resumed.hydrationState.workflow.workflowId,
+          failureContext: "while settling run-completion route commands"
+        }),
         recordedAt: completionInput.recordedAt,
         presetAdapter,
         unsupportedCommandErrorPrefix:
@@ -139,6 +151,7 @@ async function executeTrackerTransitionCommands(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
   session: WorkflowSession<string, unknown, unknown>;
+  loadSettlementSession: () => Promise<WorkflowSession<string, unknown, unknown>>;
   recordedAt: string;
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   unsupportedCommandErrorPrefix: string;
@@ -156,6 +169,7 @@ async function executeTrackerTransitionCommands(input: {
       routeWorkflows: input.routeWorkflows,
       workflowId: input.workflowId,
       session: input.session,
+      loadSettlementSession: input.loadSettlementSession,
       command,
       recordedAt: input.recordedAt,
       async execute(executedCommand) {

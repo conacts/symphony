@@ -11,6 +11,7 @@ import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-se
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
+  createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
   normalizeWorkflowToken,
   readTrackerTransitionState
@@ -58,12 +59,19 @@ export async function createRuntimeRunStartActivationRouter(input: {
       });
 
       let activatedIssue = activationInput.issue;
+      const loadSettlementSession = createRouteCommandSettlementSessionLoader({
+        sessionLoader: input.sessionLoader,
+        workflowId: resumed.hydrationState.workflow.workflowId,
+        failureContext:
+          "while settling run-start activation route commands"
+      });
       for (const command of result.decision.commands) {
         if (command.kind === "tracker.transition") {
           activatedIssue = await executeSettledRouteCommand({
             routeWorkflows: input.routeWorkflows,
             workflowId: resumed.hydrationState.workflow.workflowId,
             session: resumed.session,
+            loadSettlementSession,
             command,
             recordedAt: activationInput.recordedAt,
             async execute(executedCommand) {

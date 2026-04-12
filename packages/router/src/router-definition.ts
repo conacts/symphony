@@ -7,7 +7,8 @@ import type { WorkflowEdge } from "./router-edge.js";
 import type { WorkflowNode } from "./router-node.js";
 import type { RouterStrategy } from "./router-strategy.js";
 import type {
-  WorkflowJournalEvent
+  WorkflowJournalEvent,
+  WorkflowProjection
 } from "./types/index.js";
 import type { WorkflowNodeId } from "./types/base.js";
 
@@ -18,6 +19,7 @@ export type WorkflowDataReducer<
 > = (input: {
   data: Data;
   event: WorkflowJournalEvent<Node>;
+  projection: WorkflowProjection<Node, Data>;
   policy: Policy;
 }) => Data;
 

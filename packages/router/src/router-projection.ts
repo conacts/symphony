@@ -115,6 +115,7 @@ function applyWorkflowHistory<
         ? input.definition.reduceData({
             data: projection.data,
             event,
+            projection,
             policy: input.policy
           })
         : projection.data

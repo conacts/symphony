@@ -12,6 +12,7 @@ import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-se
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
+  createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
   normalizeWorkflowToken,
   readTrackerTransitionState
@@ -82,6 +83,11 @@ export async function createRuntimeMergeResultRouter(input: {
         routeWorkflows: input.routeWorkflows,
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
+        loadSettlementSession: createRouteCommandSettlementSessionLoader({
+          sessionLoader: input.sessionLoader,
+          workflowId: resumed.hydrationState.workflow.workflowId,
+          failureContext: "while settling merge-result route commands"
+        }),
         recordedAt: mergeResultInput.recordedAt,
         presetAdapter,
         status: mergeResultInput.mergeResult.status
@@ -101,6 +107,7 @@ async function executeMergeResultCommands(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
   session: WorkflowSession<string, unknown, unknown>;
+  loadSettlementSession: () => Promise<WorkflowSession<string, unknown, unknown>>;
   recordedAt: string;
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   status: SymphonyCurrentFlowMergeResultStatus;
@@ -118,6 +125,7 @@ async function executeMergeResultCommands(input: {
       routeWorkflows: input.routeWorkflows,
       workflowId: input.workflowId,
       session: input.session,
+      loadSettlementSession: input.loadSettlementSession,
       command,
       recordedAt: input.recordedAt,
       async execute(executedCommand) {

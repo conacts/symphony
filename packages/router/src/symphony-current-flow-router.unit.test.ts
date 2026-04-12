@@ -303,8 +303,10 @@ describe("Symphony current-flow router fixture", () => {
         sequence: 6,
         data: {
           trackerState: "Bootstrapping",
+          confirmedTrackerState: "Todo",
           lastObservedTrackerState: "Todo",
           lastDispatchMode: "implementation",
+          lastDispatchStatus: "succeeded",
           lastRunMode: null,
           lastRuntimeOutcome: null,
           latestMergeResult: null,
@@ -717,6 +719,141 @@ describe("Symphony current-flow router fixture", () => {
         }
       }
     ]);
+  });
+
+  it("repairs optimistic tracker state when a tracker transition settlement fails", async () => {
+    const router = await createSymphonyCurrentFlowRouterAsync({
+      now: () => new Date("2026-04-10T00:00:00.000Z"),
+      createId: (() => {
+        let counter = 0;
+        return (prefix: string) =>
+          `${prefix}_${String(++counter).padStart(4, "0")}`;
+      })()
+    });
+    const session = await router.startSessionAsync({
+      workflowId: "SYM-211",
+      policy: {}
+    });
+
+    const result = await session.receiveAsync({
+      id: "signal_todo_observed",
+      type: "tracker.state_observed",
+      source: "tracker",
+      occurredAt: "2026-04-10T00:00:00.000Z",
+      payload: {
+        state: "Todo",
+        runId: null,
+        runMode: null
+      },
+      causationId: null,
+      correlationId: "SYM-211"
+    });
+
+    expect(result.projectionAfter.data.trackerState).toBe("Bootstrapping");
+    expect(result.projectionAfter.data.confirmedTrackerState).toBe("Todo");
+
+    await session.settleCommandAsync({
+      commandId: "command_signal_todo_observed_tracker_bootstrapping",
+      status: "failed",
+      payload: {
+        error: "tracker rejected Bootstrapping transition"
+      },
+      recordedAt: "2026-04-10T00:00:01.000Z"
+    });
+
+    expect(session.projection().data.trackerState).toBe("Todo");
+    expect(session.projection().data.confirmedTrackerState).toBe("Todo");
+  });
+
+  it("records failed dispatch settlements without pretending the dispatch succeeded", async () => {
+    const router = await createSymphonyCurrentFlowRouterAsync({
+      now: () => new Date("2026-04-10T00:05:00.000Z"),
+      createId: (() => {
+        let counter = 0;
+        return (prefix: string) =>
+          `${prefix}_${String(++counter).padStart(4, "0")}`;
+      })()
+    });
+    const session = await router.startSessionAsync({
+      workflowId: "SYM-212",
+      policy: {}
+    });
+
+    await session.receiveAsync({
+      id: "signal_todo_observed",
+      type: "tracker.state_observed",
+      source: "tracker",
+      occurredAt: "2026-04-10T00:05:00.000Z",
+      payload: {
+        state: "Todo",
+        runId: null,
+        runMode: null
+      },
+      causationId: null,
+      correlationId: "SYM-212"
+    });
+
+    expect(session.projection().data.lastDispatchMode).toBe("implementation");
+    expect(session.projection().data.lastDispatchStatus).toBe("pending");
+
+    await session.settleCommandAsync({
+      commandId: "command_signal_todo_observed_dispatch_implementation",
+      status: "failed",
+      payload: {
+        error: "dispatch host rejected launch"
+      },
+      recordedAt: "2026-04-10T00:05:01.000Z"
+    });
+
+    expect(session.projection().data.lastDispatchMode).toBe("implementation");
+    expect(session.projection().data.lastDispatchStatus).toBe("failed");
+  });
+
+  it("records successful settlements as confirmed workflow state", async () => {
+    const router = await createSymphonyCurrentFlowRouterAsync({
+      now: () => new Date("2026-04-10T00:10:00.000Z"),
+      createId: (() => {
+        let counter = 0;
+        return (prefix: string) =>
+          `${prefix}_${String(++counter).padStart(4, "0")}`;
+      })()
+    });
+    const session = await router.startSessionAsync({
+      workflowId: "SYM-213",
+      policy: {}
+    });
+
+    await session.receiveAsync({
+      id: "signal_todo_observed",
+      type: "tracker.state_observed",
+      source: "tracker",
+      occurredAt: "2026-04-10T00:10:00.000Z",
+      payload: {
+        state: "Todo",
+        runId: null,
+        runMode: null
+      },
+      causationId: null,
+      correlationId: "SYM-213"
+    });
+
+    await session.settleCommandAsync({
+      commandId: "command_signal_todo_observed_tracker_bootstrapping",
+      status: "succeeded",
+      payload: null,
+      recordedAt: "2026-04-10T00:10:01.000Z"
+    });
+    await session.settleCommandAsync({
+      commandId: "command_signal_todo_observed_dispatch_implementation",
+      status: "succeeded",
+      payload: null,
+      recordedAt: "2026-04-10T00:10:02.000Z"
+    });
+
+    expect(session.projection().data.trackerState).toBe("Bootstrapping");
+    expect(session.projection().data.confirmedTrackerState).toBe("Bootstrapping");
+    expect(session.projection().data.lastDispatchMode).toBe("implementation");
+    expect(session.projection().data.lastDispatchStatus).toBe("succeeded");
   });
 
   it("routes merge-result reports through an explicit runtime signal before runtime completion is observed", async () => {

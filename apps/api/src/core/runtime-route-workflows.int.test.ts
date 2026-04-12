@@ -8,11 +8,16 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import {
+  createSymphonyCurrentFlowRunStartedSignal,
+  createSymphonyCurrentFlowTrackerStateObservedSignal,
   createSymphonyCurrentFlowRouterAsync,
   createDeterministicStrategy,
   createWorkflowRouterAsync,
   WorkflowEdge,
   WorkflowNode,
+  type SymphonyCurrentFlowData,
+  type SymphonyCurrentFlowNode,
+  type SymphonyCurrentFlowPolicy,
   type WorkflowRouter
 } from "@symphony/router";
 import type {
@@ -304,6 +309,184 @@ describe("runtime route workflows", () => {
       expect(rehydrated?.projection.pendingCommands.map((command) => command.id)).toEqual([
         "command_dispatch_implementation"
       ]);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("does not let a stale command settlement overwrite a newer workflow snapshot", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-route-stale-settlement-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const routeWorkflowStore = createRouteWorkflowStore(database.db);
+    const routeWorkflows = createRouteWorkflowPort({
+      routeWorkflowStore
+    });
+    const router = await createSymphonyCurrentFlowRouterAsync({
+      now: () => new Date("2026-04-10T00:30:00.000Z"),
+      createId: (() => {
+        let counter = 0;
+        return (prefix: string) =>
+          `${prefix}_${String(++counter).padStart(4, "0")}`;
+      })()
+    });
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-411A",
+        trackerIssueId: "tracker-411A",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T00:29:00.000Z"
+      });
+
+      const ensured = await routeWorkflows.ensureWorkflowForIssue({
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-411A",
+        routerPresetId: "current-flow",
+        router,
+        createdAt: "2026-04-10T00:29:30.000Z"
+      });
+      const workflowId = ensured.workflow.workflowId;
+      const initialSession = await router.startSessionAsync({
+        workflowId,
+        policy: {}
+      });
+
+      const bootstrapResult = await initialSession.receiveAsync(
+        createSymphonyCurrentFlowTrackerStateObservedSignal({
+          id: "signal_todo_observed",
+          occurredAt: "2026-04-10T00:30:00.000Z",
+          state: "Todo",
+          runId: null,
+          runMode: null,
+          causationId: null,
+          correlationId: "SYM-411A"
+        })
+      );
+      await routeWorkflows.recordRouteResult({
+        workflowId,
+        policy: {},
+        result: bootstrapResult
+      });
+
+      const trackerTransitionCommand = bootstrapResult.decision.commands.find(
+        (command) => command.kind === "tracker.transition"
+      );
+      const dispatchCommand = bootstrapResult.decision.commands.find(
+        (command) => command.kind === "run.dispatch"
+      );
+      if (!trackerTransitionCommand || !dispatchCommand) {
+        throw new TypeError("Expected current-flow bootstrap to emit tracker and dispatch commands.");
+      }
+
+      const trackerSettledProjection = await initialSession.settleCommandAsync({
+        commandId: trackerTransitionCommand.id,
+        status: "succeeded",
+        payload: null,
+        recordedAt: "2026-04-10T00:30:01.000Z"
+      });
+      await routeWorkflows.appendCommandSettlement({
+        workflowId,
+        commandId: trackerTransitionCommand.id,
+        status: "succeeded",
+        payload: null,
+        recordedAt: "2026-04-10T00:30:01.000Z",
+        projection: trackerSettledProjection
+      });
+
+      const resumed = await routeWorkflows.resumeSessionByWorkflowId<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        workflowId,
+        router,
+        policy: {}
+      });
+      if (!resumed) {
+        throw new TypeError(`Expected resumed workflow session for ${workflowId}.`);
+      }
+
+      const runStartedResult = await resumed.session.receiveAsync(
+        createSymphonyCurrentFlowRunStartedSignal({
+          id: "signal_run_started",
+          occurredAt: "2026-04-10T00:30:02.000Z",
+          runId: "run-411A",
+          runMode: "implementation",
+          causationId: "run-411A",
+          correlationId: "SYM-411A"
+        })
+      );
+      await routeWorkflows.recordRouteResult({
+        workflowId,
+        policy: {},
+        result: runStartedResult
+      });
+      const inProgressCommand = runStartedResult.decision.commands.find(
+        (command) => command.kind === "tracker.transition"
+      );
+      if (!inProgressCommand) {
+        throw new TypeError("Expected run start activation to emit an In Progress tracker transition.");
+      }
+      const runStartedSettledProjection = await resumed.session.settleCommandAsync({
+        commandId: inProgressCommand.id,
+        status: "succeeded",
+        payload: null,
+        recordedAt: "2026-04-10T00:30:02.500Z"
+      });
+      await routeWorkflows.appendCommandSettlement({
+        workflowId,
+        commandId: inProgressCommand.id,
+        status: "succeeded",
+        payload: null,
+        recordedAt: "2026-04-10T00:30:02.500Z",
+        projection: runStartedSettledProjection
+      });
+
+      const staleDispatchProjection = await initialSession.settleCommandAsync({
+        commandId: dispatchCommand.id,
+        status: "succeeded",
+        payload: null,
+        recordedAt: "2026-04-10T00:30:03.000Z"
+      });
+      await routeWorkflows.appendCommandSettlement({
+        workflowId,
+        commandId: dispatchCommand.id,
+        status: "succeeded",
+        payload: null,
+        recordedAt: "2026-04-10T00:30:03.000Z",
+        projection: staleDispatchProjection
+      });
+
+      const hydration = await routeWorkflows.loadHydrationStateByWorkflowId<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(workflowId);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("implementation");
+      expect(hydration?.snapshot?.projection.data.trackerState).toBe("In Progress");
+      expect(hydration?.tailHistory.map((entry) => entry.kind)).toEqual([
+        "command_settled"
+      ]);
+      expect(hydration?.tailHistory[0]?.commandId).toBe(dispatchCommand.id);
+
+      const rehydrated = await routeWorkflows.rehydrateProjectionByWorkflowId<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        workflowId,
+        router,
+        policy: {}
+      });
+      expect(rehydrated?.projection.currentNode).toBe("implementation");
+      expect(rehydrated?.projection.pendingCommands).toEqual([]);
+      expect(rehydrated?.projection.data.lastDispatchStatus).toBe("succeeded");
     } finally {
       database.close();
     }
