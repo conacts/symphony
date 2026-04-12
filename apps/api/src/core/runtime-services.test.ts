@@ -30,6 +30,7 @@ import {
   buildBootstrapInstallLifecycleEvent,
   createRuntimeDbObserverTestSupport
 } from "../test-support/runtime-lifecycle-test-support.js";
+import { expectRouteWorkflowAuthorityProof } from "../test-support/route-workflow-authority-test-support.js";
 
 const harnesses: SymphonyRuntimeAppServicesHarness[] = [];
 const tempDirectories: string[] = [];
@@ -767,18 +768,21 @@ describe("runtime services", () => {
           })
         );
 
-        const before =
-          await harness.services.routeWorkflows.loadHydrationStateByIssueIdentifier(
-            issue.identifier
-          );
-        const beforeEventSequence = before?.snapshot?.eventSequence ?? null;
-
-        expect(before?.snapshot?.projection.currentNode).toBe("review");
-        expect(before?.snapshot?.projection.data).toEqual(
-          expect.objectContaining({
-            trackerState: "In Review"
-          })
-        );
+        const beforeProof = await expectRouteWorkflowAuthorityProof({
+          routeWorkflows: harness.services.routeWorkflows,
+          issueIdentifier: issue.identifier,
+          currentNode: "review",
+          reasonCode: "review_observed",
+          signalType: "tracker.state_observed",
+          assertData(data) {
+            expect(data).toEqual(
+              expect.objectContaining({
+                trackerState: "In Review"
+              })
+            );
+          }
+        });
+        const beforeEventSequence = beforeProof.snapshot.eventSequence;
 
         await harness.services.shutdown();
 
@@ -808,12 +812,21 @@ describe("runtime services", () => {
           })
         );
 
-        const after =
-          await restartedServices.routeWorkflows.loadHydrationStateByIssueIdentifier(
-            issue.identifier
-          );
-        expect(after?.snapshot?.eventSequence ?? null).toBe(beforeEventSequence);
-        expect(after?.snapshot?.projection.currentNode).toBe("review");
+        const afterProof = await expectRouteWorkflowAuthorityProof({
+          routeWorkflows: restartedServices.routeWorkflows,
+          issueIdentifier: issue.identifier,
+          currentNode: "review",
+          reasonCode: "review_observed",
+          signalType: "tracker.state_observed",
+          assertData(data) {
+            expect(data).toEqual(
+              expect.objectContaining({
+                trackerState: "In Review"
+              })
+            );
+          }
+        });
+        expect(afterProof.snapshot.eventSequence).toBe(beforeEventSequence);
 
         const runtimeLogs = await restartedServices.runtimeLogs.list({
           issueIdentifier: issue.identifier
@@ -851,6 +864,10 @@ describe("runtime services", () => {
           state: "Approved"
         });
         const approvedRunId = "run-approved-merge-1";
+        const seededPendingCommandIds = [
+          "command_signal_tracker_approved_observed_dispatch_approved_merge",
+          "command_signal_approved_merge_started_tracker_in_progress"
+        ];
         const tracker = harness.services.tracker as MemorySymphonyTracker;
         tracker.setIssues([issue]);
 
@@ -891,19 +908,24 @@ describe("runtime services", () => {
           ]
         });
 
-        const before =
-          await harness.services.routeWorkflows.loadHydrationStateByIssueIdentifier(
-            issue.identifier
-          );
-        expect(before?.snapshot?.projection.currentNode).toBe("approved_merge");
-        expect(before?.snapshot?.projection.data).toEqual(
-          expect.objectContaining({
-            trackerState: "In Progress",
-            lastObservedTrackerState: "Approved",
-            lastDispatchMode: "approved_merge",
-            lastRunMode: "approved_merge"
-          })
-        );
+        await expectRouteWorkflowAuthorityProof({
+          routeWorkflows: harness.services.routeWorkflows,
+          issueIdentifier: issue.identifier,
+          currentNode: "approved_merge",
+          reasonCode: "approved_merge_started",
+          signalType: "runtime.run_started",
+          pendingCommandIds: seededPendingCommandIds,
+          assertData(data) {
+            expect(data).toEqual(
+              expect.objectContaining({
+                trackerState: "In Progress",
+                lastObservedTrackerState: "Approved",
+                lastDispatchMode: "approved_merge",
+                lastRunMode: "approved_merge"
+              })
+            );
+          }
+        });
 
         await harness.services.shutdown();
 
@@ -940,26 +962,31 @@ describe("runtime services", () => {
 
         expect(result.success).toBe(true);
 
-        const after =
-          await restartedServices.routeWorkflows.loadHydrationStateByIssueIdentifier(
-            issue.identifier
-          );
-        expect(after?.snapshot?.projection.currentNode).toBe("done");
-        expect(after?.snapshot?.projection.data).toEqual(
-          expect.objectContaining({
-            trackerState: "Done",
-            latestMergeResult: {
-              runId: approvedRunId,
-              status: "merged",
-              summary: "Merged after restart.",
-              prUrl: "https://github.com/openai/symphony/pull/42",
-              mergeCommitSha: "abc123",
-              blockingReason: null,
-              testsSummary: "pnpm --filter @symphony/api test",
-              recordedAt: expect.any(String)
-            }
-          })
-        );
+        await expectRouteWorkflowAuthorityProof({
+          routeWorkflows: restartedServices.routeWorkflows,
+          issueIdentifier: issue.identifier,
+          currentNode: "done",
+          reasonCode: "merge_result_reported",
+          signalType: "runtime.merge_result_reported",
+          pendingCommandIds: seededPendingCommandIds,
+          assertData(data) {
+            expect(data).toEqual(
+              expect.objectContaining({
+                trackerState: "Done",
+                latestMergeResult: {
+                  runId: approvedRunId,
+                  status: "merged",
+                  summary: "Merged after restart.",
+                  prUrl: "https://github.com/openai/symphony/pull/42",
+                  mergeCommitSha: "abc123",
+                  blockingReason: null,
+                  testsSummary: "pnpm --filter @symphony/api test",
+                  recordedAt: expect.any(String)
+                }
+              })
+            );
+          }
+        });
         expect(restartedTracker.getIssue(issue.id)?.state).toBe("Done");
       } finally {
         await restartedServices?.shutdown();

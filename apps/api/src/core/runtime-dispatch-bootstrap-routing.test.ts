@@ -14,6 +14,7 @@ import type {
 } from "@symphony/router";
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
+import { expectRouteWorkflowAuthorityProof } from "../test-support/route-workflow-authority-test-support.js";
 import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
 import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import { createRuntimeDispatchBootstrapRouter } from "./runtime-dispatch-bootstrap-routing.js";
@@ -63,15 +64,20 @@ describe("runtime dispatch bootstrap routing", () => {
         ])
       );
 
-      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      await expectRouteWorkflowAuthorityProof<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
-      >(harness.issue.identifier);
-      expect(hydration?.snapshot?.projection.currentNode).toBe("bootstrapping");
-      expect(hydration?.snapshot?.projection.pendingCommands).toEqual([]);
-      expect(hydration?.snapshot?.projection.data.lastDispatchMode).toBe("implementation");
-      expect(hydration?.latestDecision?.reasonCode).toBe("todo_claimed_for_dispatch");
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "bootstrapping",
+        reasonCode: "todo_claimed_for_dispatch",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.lastDispatchMode).toBe("implementation");
+        }
+      });
     } finally {
       harness.close();
     }
@@ -103,13 +109,20 @@ describe("runtime dispatch bootstrap routing", () => {
       expect(result.issue.state).toBe("Bootstrapping");
       expect(result.runMode).toBe("implementation");
 
-      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      await expectRouteWorkflowAuthorityProof<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
-      >(harness.issue.identifier);
-      expect(hydration?.latestDecision?.reasonCode).toBe("bootstrapping_redispatched");
-      expect(hydration?.snapshot?.projection.data.lastDispatchMode).toBe("implementation");
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "bootstrapping",
+        reasonCode: "bootstrapping_redispatched",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.lastDispatchMode).toBe("implementation");
+        }
+      });
     } finally {
       harness.close();
     }
@@ -132,14 +145,20 @@ describe("runtime dispatch bootstrap routing", () => {
       expect(result.runMode).toBe("approved_merge");
       expect(harness.tracker.listOperations()).toEqual([]);
 
-      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      await expectRouteWorkflowAuthorityProof<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
-      >(harness.issue.identifier);
-      expect(hydration?.snapshot?.projection.currentNode).toBe("approved_merge");
-      expect(hydration?.snapshot?.projection.data.lastDispatchMode).toBe("approved_merge");
-      expect(hydration?.latestDecision?.reasonCode).toBe("approved_merge_requested");
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "approved_merge",
+        reasonCode: "approved_merge_requested",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.lastDispatchMode).toBe("approved_merge");
+        }
+      });
     } finally {
       harness.close();
     }

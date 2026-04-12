@@ -15,6 +15,7 @@ import {
   buildSymphonyTrackerIssue
 } from "@symphony/test-support";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
+import { expectRouteWorkflowAuthorityProof } from "../test-support/route-workflow-authority-test-support.js";
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { reconcilePersistedActiveRunsOnShutdown } from "./runtime-shutdown-reconciliation.js";
@@ -118,10 +119,13 @@ describe("runtime shutdown reconciliation", () => {
       expect(reconciled).toBe(1);
       expect(tracker.getIssue(issue.id)?.state).toBe("Paused");
 
-      const hydration = await routeWorkflows.loadHydrationStateByIssueIdentifier(
-        issue.identifier
-      );
-      expect(hydration?.snapshot?.projection.currentNode).toBe("paused");
+      await expectRouteWorkflowAuthorityProof({
+        routeWorkflows,
+        issueIdentifier: issue.identifier,
+        currentNode: "paused",
+        reasonCode: "implementation_shutdown_paused",
+        signalType: "runtime.shutdown_requested"
+      });
 
       const issueTimeline = await issueTimelineStore.listIssueTimeline(
         issue.identifier,

@@ -14,6 +14,7 @@ import type {
 } from "@symphony/router";
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
+import { expectRouteWorkflowAuthorityProof } from "../test-support/route-workflow-authority-test-support.js";
 import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
 import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import { createRuntimeDispatchBootstrapRouter } from "./runtime-dispatch-bootstrap-routing.js";
@@ -55,14 +56,20 @@ describe("runtime run lifecycle routing", () => {
       expect(inProgressIssue.state).toBe("In Progress");
       expect(result.issue.state).toBe("In Review");
 
-      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      await expectRouteWorkflowAuthorityProof<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
-      >(harness.issue.identifier);
-      expect(hydration?.snapshot?.projection.currentNode).toBe("review");
-      expect(hydration?.snapshot?.projection.data.trackerState).toBe("In Review");
-      expect(hydration?.latestDecision?.reasonCode).toBe("delivery_recorded");
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "review",
+        reasonCode: "delivery_recorded",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("In Review");
+        }
+      });
     } finally {
       harness.close();
     }
@@ -87,15 +94,20 @@ describe("runtime run lifecycle routing", () => {
 
       expect(result.issue.state).toBe("Approved");
 
-      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      await expectRouteWorkflowAuthorityProof<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
-      >(harness.issue.identifier);
-      expect(hydration?.snapshot?.projection.currentNode).toBe("approved_merge");
-      expect(hydration?.snapshot?.projection.pendingCommands).toEqual([]);
-      expect(hydration?.snapshot?.projection.data.lastDispatchMode).toBe("implementation");
-      expect(hydration?.latestDecision?.reasonCode).toBe("approved_merge_takeover");
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "approved_merge",
+        reasonCode: "approved_merge_takeover",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.lastDispatchMode).toBe("implementation");
+        }
+      });
     } finally {
       harness.close();
     }
@@ -123,14 +135,19 @@ describe("runtime run lifecycle routing", () => {
       expect(result.issue.state).toBe("Blocked");
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Blocked");
 
-      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      await expectRouteWorkflowAuthorityProof<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
-      >(harness.issue.identifier);
-      expect(hydration?.snapshot?.projection.currentNode).toBe("blocked");
-      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Blocked");
-      expect(hydration?.latestDecision?.reasonCode).toBe("implementation_blocked");
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "blocked",
+        reasonCode: "implementation_blocked",
+        assertData(data) {
+          expect(data.trackerState).toBe("Blocked");
+        }
+      });
     } finally {
       harness.close();
     }
@@ -157,14 +174,19 @@ describe("runtime run lifecycle routing", () => {
       expect(result.issue.state).toBe("Done");
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Done");
 
-      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      await expectRouteWorkflowAuthorityProof<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
-      >(harness.issue.identifier);
-      expect(hydration?.snapshot?.projection.currentNode).toBe("done");
-      expect(hydration?.snapshot?.projection.data.trackerState).toBe("Done");
-      expect(hydration?.latestDecision?.reasonCode).toBe("merge_completed");
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "done",
+        reasonCode: "merge_completed",
+        assertData(data) {
+          expect(data.trackerState).toBe("Done");
+        }
+      });
     } finally {
       harness.close();
     }
@@ -200,14 +222,19 @@ describe("runtime run lifecycle routing", () => {
       expect(result.issue.state).toBe("Failed");
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Failed");
 
-      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      await expectRouteWorkflowAuthorityProof<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
-      >(harness.issue.identifier);
-      expect(hydration?.snapshot?.projection.currentNode).toBe("failed");
-      expect(hydration?.snapshot?.projection.data.lastRuntimeOutcome).toBe("startup_failure");
-      expect(hydration?.latestDecision?.reasonCode).toBe("startup_failure");
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "failed",
+        reasonCode: "startup_failure",
+        assertData(data) {
+          expect(data.lastRuntimeOutcome).toBe("startup_failure");
+        }
+      });
     } finally {
       harness.close();
     }
