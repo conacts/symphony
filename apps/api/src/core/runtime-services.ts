@@ -82,6 +82,9 @@ import {
   waitForPollSchedulerDrain
 } from "./runtime-shutdown-reconciliation.js";
 import { resolveIssueRepository } from "./runtime-repository-routing.js";
+import type {
+  SymphonyRuntimeBootstrapRepositorySource
+} from "./runtime-bootstrap-contract.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -91,6 +94,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     startPollScheduler?: boolean;
     startMachineLoadMonitor?: boolean;
     enableDockerPreflight?: boolean;
+    repositorySource?: SymphonyRuntimeBootstrapRepositorySource;
+    workflowPresetOverride?: string | null;
   } = {}
 ): Promise<SymphonyRuntimeAppServices> {
   const startPollScheduler = options.startPollScheduler ?? true;
@@ -111,21 +116,29 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const {
     runtimePolicy: loadedRuntimePolicy,
     harnessProviderEnvKey,
+    bootstrapBinding,
+    repositoryBindingCatalog,
     admittedRepositories,
     primaryRepository,
     selectedRuntimeManifestEntry,
-    workflowPresetSelection,
     promptContract,
     promptTemplate
   } = await loadRuntimeServiceBootstrap({
     env,
-    environmentSource
+    environmentSource,
+    repositorySource: options.repositorySource,
+    workflowPresetOverride: options.workflowPresetOverride ?? null
   });
   let runtimePolicy = loadedRuntimePolicy;
 
   logger.info("Loaded runtime prompt contract and platform policy", {
     trackerKind: runtimePolicy.tracker.kind,
     promptPath: promptContract.promptPath,
+    repositorySource: bootstrapBinding.repositorySource.source,
+    admittedRepositoryCount: bootstrapBinding.repositorySource.sourceRepos.length,
+    defaultRepositoryKey: bootstrapBinding.defaultRepositoryKey,
+    workflowPresetId: bootstrapBinding.presetSelection.presetId,
+    workflowPresetSource: bootstrapBinding.presetSelection.source,
     workspaceRoot: runtimePolicy.workspace.root,
     pollIntervalMs: runtimePolicy.polling.intervalMs,
     maxConcurrentAgents: runtimePolicy.agent.maxConcurrentAgents
@@ -250,7 +263,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     routeWorkflowStore
   });
   const resolveTrackedIssueRepositoryKey = (issue: SymphonyTrackerIssue) =>
-    resolveIssueRepository(admittedRepositories, issue).repositoryKey;
+    resolveIssueRepository(
+      admittedRepositories,
+      issue,
+      repositoryBindingCatalog
+    ).repositoryKey;
   const seedTrackedIssueIdentity = async (issue: SymphonyTrackerIssue) => {
     await issueStore.upsert({
       issueIdentifier: issue.identifier,
@@ -269,10 +286,10 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     routeWorkflows,
     tracker,
     trackerConfig: runtimePolicy.tracker,
-    repositoryKey,
+    repositoryKey: bootstrapBinding.defaultRepositoryKey,
     resolveIssueRepositoryKey: resolveTrackedIssueRepositoryKey,
     ensureIssueIdentity: seedTrackedIssueIdentity,
-    presetSelection: workflowPresetSelection,
+    presetSelection: bootstrapBinding.presetSelection,
     sessionLoader: workflowSessionLoader,
     now: undefined
   });
@@ -696,6 +713,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
   return {
     logger,
+    bootstrapBinding,
     admittedRepositories,
     promptTemplate,
     promptContract,

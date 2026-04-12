@@ -95,10 +95,764 @@ const routeSignalSourceValues = [
   "operator",
   "router"
 ] as const;
+const externalAuthProviderValues = ["github", "linear", "vercel"] as const;
+const externalIntegrationProviderValues = ["github", "linear"] as const;
+const organizationMembershipRoleValues = [
+  "owner",
+  "admin",
+  "member"
+] as const;
+const repositoryBindingSourceValues = [
+  "manual",
+  "bootstrap",
+  "sync"
+] as const;
+const repositoryBindingStatusValues = ["active", "inactive"] as const;
+
+export type SymphonyExternalAuthProvider =
+  (typeof externalAuthProviderValues)[number];
+export type SymphonyExternalIntegrationProvider =
+  (typeof externalIntegrationProviderValues)[number];
+export type SymphonyOrganizationMembershipRole =
+  (typeof organizationMembershipRoleValues)[number];
+export type SymphonyRepositoryBindingSource =
+  (typeof repositoryBindingSourceValues)[number];
+export type SymphonyRepositoryBindingStatus =
+  (typeof repositoryBindingStatusValues)[number];
 
 function sqlEnum(values: readonly string[]) {
   return sql.raw(values.map((value) => `'${value}'`).join(", "));
 }
+
+export const symphonyUsersTable = sqliteTable(
+  "symphony_users",
+  {
+    userId: text("user_id").primaryKey(),
+    handle: text("handle").notNull(),
+    displayName: text("display_name").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    handleCheck: check(
+      "symphony_users_handle_check",
+      sql`length(trim(${table.handle})) > 0`
+    ),
+    displayNameCheck: check(
+      "symphony_users_display_name_check",
+      sql`length(trim(${table.displayName})) > 0`
+    ),
+    handleIdx: uniqueIndex("symphony_users_handle_idx").on(table.handle)
+  })
+);
+
+export const symphonyOrganizationsTable = sqliteTable(
+  "symphony_organizations",
+  {
+    organizationId: text("organization_id").primaryKey(),
+    organizationSlug: text("organization_slug").notNull(),
+    displayName: text("display_name").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    organizationSlugCheck: check(
+      "symphony_organizations_organization_slug_check",
+      sql`length(trim(${table.organizationSlug})) > 0`
+    ),
+    displayNameCheck: check(
+      "symphony_organizations_display_name_check",
+      sql`length(trim(${table.displayName})) > 0`
+    ),
+    organizationSlugIdx: uniqueIndex("symphony_organizations_slug_idx").on(
+      table.organizationSlug
+    )
+  })
+);
+
+export const symphonyOrganizationMembershipsTable = sqliteTable(
+  "symphony_organization_memberships",
+  {
+    organizationId: text("organization_id").notNull(),
+    userId: text("user_id").notNull(),
+    role: text("role").notNull().$type<SymphonyOrganizationMembershipRole>(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.organizationId, table.userId],
+      name: "symphony_organization_memberships_pk"
+    }),
+    organizationFk: foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [symphonyOrganizationsTable.organizationId],
+      name: "symphony_organization_memberships_organization_fk"
+    }).onDelete("cascade"),
+    userFk: foreignKey({
+      columns: [table.userId],
+      foreignColumns: [symphonyUsersTable.userId],
+      name: "symphony_organization_memberships_user_fk"
+    }).onDelete("cascade"),
+    roleCheck: check(
+      "symphony_organization_memberships_role_check",
+      sql`${table.role} in (${sqlEnum(organizationMembershipRoleValues)})`
+    ),
+    organizationIdIdx: index("symphony_organization_memberships_organization_id_idx").on(
+      table.organizationId
+    ),
+    userIdIdx: index("symphony_organization_memberships_user_id_idx").on(
+      table.userId
+    )
+  })
+);
+
+export const symphonyExternalAuthBindingsTable = sqliteTable(
+  "symphony_external_auth_bindings",
+  {
+    bindingId: text("binding_id").primaryKey(),
+    userId: text("user_id").notNull(),
+    provider: text("provider").notNull().$type<SymphonyExternalAuthProvider>(),
+    providerAccountId: text("provider_account_id").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    bindingIdCheck: check(
+      "symphony_external_auth_bindings_binding_id_check",
+      sql`length(trim(${table.bindingId})) > 0`
+    ),
+    providerCheck: check(
+      "symphony_external_auth_bindings_provider_check",
+      sql`${table.provider} in (${sqlEnum(externalAuthProviderValues)})`
+    ),
+    providerAccountIdCheck: check(
+      "symphony_external_auth_bindings_provider_account_id_check",
+      sql`length(trim(${table.providerAccountId})) > 0`
+    ),
+    userFk: foreignKey({
+      columns: [table.userId],
+      foreignColumns: [symphonyUsersTable.userId],
+      name: "symphony_external_auth_bindings_user_fk"
+    }).onDelete("cascade"),
+    userProviderIdx: uniqueIndex("symphony_external_auth_bindings_user_provider_idx").on(
+      table.userId,
+      table.provider
+    ),
+    providerAccountIdx: uniqueIndex(
+      "symphony_external_auth_bindings_provider_account_idx"
+    ).on(table.provider, table.providerAccountId),
+    providerIdx: index("symphony_external_auth_bindings_provider_idx").on(
+      table.provider
+    )
+  })
+);
+
+export const symphonyGitHubInstallationIdentitiesTable = sqliteTable(
+  "symphony_github_installation_identities",
+  {
+    githubInstallationIdentityId: text(
+      "github_installation_identity_id"
+    ).primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    provider: text("provider")
+      .notNull()
+      .$type<SymphonyExternalIntegrationProvider>(),
+    githubInstallationId: text("github_installation_id").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    githubInstallationIdentityIdCheck: check(
+      "symphony_github_installation_identities_github_installation_identity_id_check",
+      sql`length(trim(${table.githubInstallationIdentityId})) > 0`
+    ),
+    organizationIdCheck: check(
+      "symphony_github_installation_identities_organization_id_check",
+      sql`length(trim(${table.organizationId})) > 0`
+    ),
+    organizationFk: foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [symphonyOrganizationsTable.organizationId],
+      name: "symphony_github_installation_identities_organization_fk"
+    }).onDelete("cascade"),
+    providerCheck: check(
+      "symphony_github_installation_identities_provider_check",
+      sql`${table.provider} in (${sqlEnum(["github"] as const)})`
+    ),
+    githubInstallationIdCheck: check(
+      "symphony_github_installation_identities_github_installation_id_check",
+      sql`length(trim(${table.githubInstallationId})) > 0`
+    ),
+    organizationGitHubInstallationIdx: uniqueIndex(
+      "symphony_github_installation_identities_organization_installation_idx"
+    ).on(table.organizationId, table.githubInstallationId),
+    organizationInstallationIdentityIdx: uniqueIndex(
+      "symphony_github_installation_identities_organization_identity_idx"
+    ).on(table.organizationId, table.githubInstallationIdentityId),
+    organizationIdIdx: index(
+      "symphony_github_installation_identities_organization_id_idx"
+    ).on(table.organizationId)
+  })
+);
+
+export const symphonyGitHubRepositoryIdentitiesTable = sqliteTable(
+  "symphony_github_repository_identities",
+  {
+    githubRepositoryIdentityId: text("github_repository_identity_id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    githubInstallationIdentityId: text("github_installation_identity_id").notNull(),
+    provider: text("provider")
+      .notNull()
+      .$type<SymphonyExternalIntegrationProvider>(),
+    repositoryKey: text("repository_key").notNull(),
+    githubRepositoryId: text("github_repository_id").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    githubRepositoryIdentityIdCheck: check(
+      "symphony_github_repository_identities_github_repository_identity_id_check",
+      sql`length(trim(${table.githubRepositoryIdentityId})) > 0`
+    ),
+    organizationIdCheck: check(
+      "symphony_github_repository_identities_organization_id_check",
+      sql`length(trim(${table.organizationId})) > 0`
+    ),
+    githubInstallationIdentityIdCheck: check(
+      "symphony_github_repository_identities_github_installation_identity_id_check",
+      sql`length(trim(${table.githubInstallationIdentityId})) > 0`
+    ),
+    organizationFk: foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [symphonyOrganizationsTable.organizationId],
+      name: "symphony_github_repository_identities_organization_fk"
+    }).onDelete("cascade"),
+    organizationGitHubInstallationFk: foreignKey({
+      columns: [table.organizationId, table.githubInstallationIdentityId],
+      foreignColumns: [
+        symphonyGitHubInstallationIdentitiesTable.organizationId,
+        symphonyGitHubInstallationIdentitiesTable.githubInstallationIdentityId
+      ],
+      name: "symphony_github_repository_identities_organization_installation_fk"
+    }).onDelete("cascade"),
+    providerCheck: check(
+      "symphony_github_repository_identities_provider_check",
+      sql`${table.provider} in (${sqlEnum(["github"] as const)})`
+    ),
+    repositoryKeyCheck: check(
+      "symphony_github_repository_identities_repository_key_check",
+      sql`length(trim(${table.repositoryKey})) > 0`
+    ),
+    githubRepositoryIdCheck: check(
+      "symphony_github_repository_identities_github_repository_id_check",
+      sql`length(trim(${table.githubRepositoryId})) > 0`
+    ),
+    repositoryKeyIdx: uniqueIndex(
+      "symphony_github_repository_identities_repository_key_idx"
+    ).on(table.repositoryKey),
+    organizationGitHubRepositoryIdx: uniqueIndex(
+      "symphony_github_repository_identities_organization_repository_idx"
+    ).on(table.organizationId, table.githubRepositoryId),
+    organizationRepositoryIdentityIdx: uniqueIndex(
+      "symphony_github_repository_identities_organization_identity_idx"
+    ).on(table.organizationId, table.githubRepositoryIdentityId),
+    organizationInstallationRepositoryIdentityIdx: uniqueIndex(
+      "symphony_github_repository_identities_organization_installation_identity_idx"
+    ).on(
+      table.organizationId,
+      table.githubInstallationIdentityId,
+      table.githubRepositoryIdentityId
+    ),
+    organizationIdIdx: index(
+      "symphony_github_repository_identities_organization_id_idx"
+    ).on(table.organizationId),
+    githubInstallationIdentityIdIdx: index(
+      "symphony_github_repository_identities_github_installation_identity_id_idx"
+    ).on(table.githubInstallationIdentityId)
+  })
+);
+
+export const symphonyLinearWorkspaceIdentitiesTable = sqliteTable(
+  "symphony_linear_workspace_identities",
+  {
+    linearWorkspaceIdentityId: text("linear_workspace_identity_id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    provider: text("provider")
+      .notNull()
+      .$type<SymphonyExternalIntegrationProvider>(),
+    linearWorkspaceId: text("linear_workspace_id").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    linearWorkspaceIdentityIdCheck: check(
+      "symphony_linear_workspace_identities_linear_workspace_identity_id_check",
+      sql`length(trim(${table.linearWorkspaceIdentityId})) > 0`
+    ),
+    organizationIdCheck: check(
+      "symphony_linear_workspace_identities_organization_id_check",
+      sql`length(trim(${table.organizationId})) > 0`
+    ),
+    organizationFk: foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [symphonyOrganizationsTable.organizationId],
+      name: "symphony_linear_workspace_identities_organization_fk"
+    }).onDelete("cascade"),
+    providerCheck: check(
+      "symphony_linear_workspace_identities_provider_check",
+      sql`${table.provider} in (${sqlEnum(["linear"] as const)})`
+    ),
+    linearWorkspaceIdCheck: check(
+      "symphony_linear_workspace_identities_linear_workspace_id_check",
+      sql`length(trim(${table.linearWorkspaceId})) > 0`
+    ),
+    organizationLinearWorkspaceIdx: uniqueIndex(
+      "symphony_linear_workspace_identities_organization_workspace_idx"
+    ).on(table.organizationId, table.linearWorkspaceId),
+    organizationWorkspaceIdentityIdx: uniqueIndex(
+      "symphony_linear_workspace_identities_organization_identity_idx"
+    ).on(table.organizationId, table.linearWorkspaceIdentityId),
+    organizationIdIdx: index(
+      "symphony_linear_workspace_identities_organization_id_idx"
+    ).on(table.organizationId)
+  })
+);
+
+export const symphonyLinearTeamIdentitiesTable = sqliteTable(
+  "symphony_linear_team_identities",
+  {
+    linearTeamIdentityId: text("linear_team_identity_id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    linearWorkspaceIdentityId: text("linear_workspace_identity_id").notNull(),
+    provider: text("provider")
+      .notNull()
+      .$type<SymphonyExternalIntegrationProvider>(),
+    linearTeamKey: text("linear_team_key").notNull(),
+    linearTeamId: text("linear_team_id").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    linearTeamIdentityIdCheck: check(
+      "symphony_linear_team_identities_linear_team_identity_id_check",
+      sql`length(trim(${table.linearTeamIdentityId})) > 0`
+    ),
+    organizationIdCheck: check(
+      "symphony_linear_team_identities_organization_id_check",
+      sql`length(trim(${table.organizationId})) > 0`
+    ),
+    linearWorkspaceIdentityIdCheck: check(
+      "symphony_linear_team_identities_linear_workspace_identity_id_check",
+      sql`length(trim(${table.linearWorkspaceIdentityId})) > 0`
+    ),
+    organizationFk: foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [symphonyOrganizationsTable.organizationId],
+      name: "symphony_linear_team_identities_organization_fk"
+    }).onDelete("cascade"),
+    organizationLinearWorkspaceFk: foreignKey({
+      columns: [table.organizationId, table.linearWorkspaceIdentityId],
+      foreignColumns: [
+        symphonyLinearWorkspaceIdentitiesTable.organizationId,
+        symphonyLinearWorkspaceIdentitiesTable.linearWorkspaceIdentityId
+      ],
+      name: "symphony_linear_team_identities_organization_workspace_fk"
+    }).onDelete("cascade"),
+    providerCheck: check(
+      "symphony_linear_team_identities_provider_check",
+      sql`${table.provider} in (${sqlEnum(["linear"] as const)})`
+    ),
+    linearTeamKeyCheck: check(
+      "symphony_linear_team_identities_linear_team_key_check",
+      sql`length(trim(${table.linearTeamKey})) > 0`
+    ),
+    linearTeamIdCheck: check(
+      "symphony_linear_team_identities_linear_team_id_check",
+      sql`length(trim(${table.linearTeamId})) > 0`
+    ),
+    organizationWorkspaceTeamKeyIdx: uniqueIndex(
+      "symphony_linear_team_identities_organization_workspace_team_key_idx"
+    ).on(
+      table.organizationId,
+      table.linearWorkspaceIdentityId,
+      table.linearTeamKey
+    ),
+    organizationLinearTeamIdx: uniqueIndex(
+      "symphony_linear_team_identities_organization_team_idx"
+    ).on(table.organizationId, table.linearTeamId),
+    organizationWorkspaceTeamIdentityIdx: uniqueIndex(
+      "symphony_linear_team_identities_organization_workspace_identity_idx"
+    ).on(
+      table.organizationId,
+      table.linearWorkspaceIdentityId,
+      table.linearTeamIdentityId
+    ),
+    organizationIdIdx: index("symphony_linear_team_identities_organization_id_idx").on(
+      table.organizationId
+    ),
+    linearWorkspaceIdentityIdIdx: index(
+      "symphony_linear_team_identities_linear_workspace_identity_id_idx"
+    ).on(table.linearWorkspaceIdentityId)
+  })
+);
+
+export const symphonyLinearProjectIdentitiesTable = sqliteTable(
+  "symphony_linear_project_identities",
+  {
+    linearProjectIdentityId: text("linear_project_identity_id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    linearWorkspaceIdentityId: text("linear_workspace_identity_id").notNull(),
+    provider: text("provider")
+      .notNull()
+      .$type<SymphonyExternalIntegrationProvider>(),
+    linearProjectId: text("linear_project_id").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    linearProjectIdentityIdCheck: check(
+      "symphony_linear_project_identities_linear_project_identity_id_check",
+      sql`length(trim(${table.linearProjectIdentityId})) > 0`
+    ),
+    organizationIdCheck: check(
+      "symphony_linear_project_identities_organization_id_check",
+      sql`length(trim(${table.organizationId})) > 0`
+    ),
+    linearWorkspaceIdentityIdCheck: check(
+      "symphony_linear_project_identities_linear_workspace_identity_id_check",
+      sql`length(trim(${table.linearWorkspaceIdentityId})) > 0`
+    ),
+    organizationFk: foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [symphonyOrganizationsTable.organizationId],
+      name: "symphony_linear_project_identities_organization_fk"
+    }).onDelete("cascade"),
+    organizationLinearWorkspaceFk: foreignKey({
+      columns: [table.organizationId, table.linearWorkspaceIdentityId],
+      foreignColumns: [
+        symphonyLinearWorkspaceIdentitiesTable.organizationId,
+        symphonyLinearWorkspaceIdentitiesTable.linearWorkspaceIdentityId
+      ],
+      name: "symphony_linear_project_identities_organization_workspace_fk"
+    }).onDelete("cascade"),
+    providerCheck: check(
+      "symphony_linear_project_identities_provider_check",
+      sql`${table.provider} in (${sqlEnum(["linear"] as const)})`
+    ),
+    linearProjectIdCheck: check(
+      "symphony_linear_project_identities_linear_project_id_check",
+      sql`length(trim(${table.linearProjectId})) > 0`
+    ),
+    organizationLinearProjectIdx: uniqueIndex(
+      "symphony_linear_project_identities_organization_project_idx"
+    ).on(table.organizationId, table.linearProjectId),
+    organizationWorkspaceProjectIdentityIdx: uniqueIndex(
+      "symphony_linear_project_identities_organization_workspace_identity_idx"
+    ).on(
+      table.organizationId,
+      table.linearWorkspaceIdentityId,
+      table.linearProjectIdentityId
+    ),
+    organizationIdIdx: index(
+      "symphony_linear_project_identities_organization_id_idx"
+    ).on(table.organizationId),
+    linearWorkspaceIdentityIdIdx: index(
+      "symphony_linear_project_identities_linear_workspace_identity_id_idx"
+    ).on(table.linearWorkspaceIdentityId)
+  })
+);
+
+export const symphonyRepositoryWorkspaceBindingsTable = sqliteTable(
+  "symphony_repository_workspace_bindings",
+  {
+    repositoryWorkspaceBindingId: text("repository_workspace_binding_id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    githubInstallationIdentityId: text("github_installation_identity_id").notNull(),
+    githubRepositoryIdentityId: text("github_repository_identity_id").notNull(),
+    linearWorkspaceIdentityId: text("linear_workspace_identity_id").notNull(),
+    source: text("source").notNull().$type<SymphonyRepositoryBindingSource>(),
+    status: text("status").notNull().$type<SymphonyRepositoryBindingStatus>(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    repositoryWorkspaceBindingIdCheck: check(
+      "symphony_repository_workspace_bindings_repository_workspace_binding_id_check",
+      sql`length(trim(${table.repositoryWorkspaceBindingId})) > 0`
+    ),
+    organizationIdCheck: check(
+      "symphony_repository_workspace_bindings_organization_id_check",
+      sql`length(trim(${table.organizationId})) > 0`
+    ),
+    githubInstallationIdentityIdCheck: check(
+      "symphony_repository_workspace_bindings_github_installation_identity_id_check",
+      sql`length(trim(${table.githubInstallationIdentityId})) > 0`
+    ),
+    githubRepositoryIdentityIdCheck: check(
+      "symphony_repository_workspace_bindings_github_repository_identity_id_check",
+      sql`length(trim(${table.githubRepositoryIdentityId})) > 0`
+    ),
+    linearWorkspaceIdentityIdCheck: check(
+      "symphony_repository_workspace_bindings_linear_workspace_identity_id_check",
+      sql`length(trim(${table.linearWorkspaceIdentityId})) > 0`
+    ),
+    organizationFk: foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [symphonyOrganizationsTable.organizationId],
+      name: "symphony_repository_workspace_bindings_organization_fk"
+    }).onDelete("cascade"),
+    organizationGitHubInstallationFk: foreignKey({
+      columns: [table.organizationId, table.githubInstallationIdentityId],
+      foreignColumns: [
+        symphonyGitHubInstallationIdentitiesTable.organizationId,
+        symphonyGitHubInstallationIdentitiesTable.githubInstallationIdentityId
+      ],
+      name: "symphony_repository_workspace_bindings_organization_installation_fk"
+    }).onDelete("cascade"),
+    organizationGitHubRepositoryFk: foreignKey({
+      columns: [
+        table.organizationId,
+        table.githubInstallationIdentityId,
+        table.githubRepositoryIdentityId
+      ],
+      foreignColumns: [
+        symphonyGitHubRepositoryIdentitiesTable.organizationId,
+        symphonyGitHubRepositoryIdentitiesTable.githubInstallationIdentityId,
+        symphonyGitHubRepositoryIdentitiesTable.githubRepositoryIdentityId
+      ],
+      name: "symphony_repository_workspace_bindings_organization_repository_fk"
+    }).onDelete("cascade"),
+    organizationLinearWorkspaceFk: foreignKey({
+      columns: [table.organizationId, table.linearWorkspaceIdentityId],
+      foreignColumns: [
+        symphonyLinearWorkspaceIdentitiesTable.organizationId,
+        symphonyLinearWorkspaceIdentitiesTable.linearWorkspaceIdentityId
+      ],
+      name: "symphony_repository_workspace_bindings_organization_workspace_fk"
+    }).onDelete("cascade"),
+    sourceCheck: check(
+      "symphony_repository_workspace_bindings_source_check",
+      sql`${table.source} in (${sqlEnum(repositoryBindingSourceValues)})`
+    ),
+    statusCheck: check(
+      "symphony_repository_workspace_bindings_status_check",
+      sql`${table.status} in (${sqlEnum(repositoryBindingStatusValues)})`
+    ),
+    organizationRepositoryWorkspaceIdx: uniqueIndex(
+      "symphony_repository_workspace_bindings_organization_repository_workspace_idx"
+    ).on(
+      table.organizationId,
+      table.githubRepositoryIdentityId,
+      table.linearWorkspaceIdentityId
+    ),
+    organizationBindingIdentityIdx: uniqueIndex(
+      "symphony_repository_workspace_bindings_organization_identity_idx"
+    ).on(table.organizationId, table.repositoryWorkspaceBindingId),
+    organizationBindingWorkspaceIdx: uniqueIndex(
+      "symphony_repository_workspace_bindings_organization_workspace_identity_idx"
+    ).on(
+      table.organizationId,
+      table.repositoryWorkspaceBindingId,
+      table.linearWorkspaceIdentityId
+    ),
+    organizationIdIdx: index(
+      "symphony_repository_workspace_bindings_organization_id_idx"
+    ).on(table.organizationId),
+    githubRepositoryIdentityIdIdx: index(
+      "symphony_repository_workspace_bindings_github_repository_identity_id_idx"
+    ).on(table.githubRepositoryIdentityId),
+    linearWorkspaceIdentityIdIdx: index(
+      "symphony_repository_workspace_bindings_linear_workspace_identity_id_idx"
+    ).on(table.linearWorkspaceIdentityId),
+    statusIdx: index("symphony_repository_workspace_bindings_status_idx").on(
+      table.status
+    )
+  })
+);
+
+export const symphonyRepositoryTeamBindingsTable = sqliteTable(
+  "symphony_repository_team_bindings",
+  {
+    repositoryTeamBindingId: text("repository_team_binding_id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    repositoryWorkspaceBindingId: text("repository_workspace_binding_id").notNull(),
+    linearWorkspaceIdentityId: text("linear_workspace_identity_id").notNull(),
+    linearTeamIdentityId: text("linear_team_identity_id").notNull(),
+    source: text("source").notNull().$type<SymphonyRepositoryBindingSource>(),
+    status: text("status").notNull().$type<SymphonyRepositoryBindingStatus>(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    repositoryTeamBindingIdCheck: check(
+      "symphony_repository_team_bindings_repository_team_binding_id_check",
+      sql`length(trim(${table.repositoryTeamBindingId})) > 0`
+    ),
+    organizationIdCheck: check(
+      "symphony_repository_team_bindings_organization_id_check",
+      sql`length(trim(${table.organizationId})) > 0`
+    ),
+    repositoryWorkspaceBindingIdCheck: check(
+      "symphony_repository_team_bindings_repository_workspace_binding_id_check",
+      sql`length(trim(${table.repositoryWorkspaceBindingId})) > 0`
+    ),
+    linearWorkspaceIdentityIdCheck: check(
+      "symphony_repository_team_bindings_linear_workspace_identity_id_check",
+      sql`length(trim(${table.linearWorkspaceIdentityId})) > 0`
+    ),
+    linearTeamIdentityIdCheck: check(
+      "symphony_repository_team_bindings_linear_team_identity_id_check",
+      sql`length(trim(${table.linearTeamIdentityId})) > 0`
+    ),
+    organizationFk: foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [symphonyOrganizationsTable.organizationId],
+      name: "symphony_repository_team_bindings_organization_fk"
+    }).onDelete("cascade"),
+    organizationRepositoryWorkspaceFk: foreignKey({
+      columns: [
+        table.organizationId,
+        table.repositoryWorkspaceBindingId,
+        table.linearWorkspaceIdentityId
+      ],
+      foreignColumns: [
+        symphonyRepositoryWorkspaceBindingsTable.organizationId,
+        symphonyRepositoryWorkspaceBindingsTable.repositoryWorkspaceBindingId,
+        symphonyRepositoryWorkspaceBindingsTable.linearWorkspaceIdentityId
+      ],
+      name: "symphony_repository_team_bindings_organization_workspace_binding_fk"
+    }).onDelete("cascade"),
+    organizationLinearTeamFk: foreignKey({
+      columns: [
+        table.organizationId,
+        table.linearWorkspaceIdentityId,
+        table.linearTeamIdentityId
+      ],
+      foreignColumns: [
+        symphonyLinearTeamIdentitiesTable.organizationId,
+        symphonyLinearTeamIdentitiesTable.linearWorkspaceIdentityId,
+        symphonyLinearTeamIdentitiesTable.linearTeamIdentityId
+      ],
+      name: "symphony_repository_team_bindings_organization_team_fk"
+    }).onDelete("cascade"),
+    sourceCheck: check(
+      "symphony_repository_team_bindings_source_check",
+      sql`${table.source} in (${sqlEnum(repositoryBindingSourceValues)})`
+    ),
+    statusCheck: check(
+      "symphony_repository_team_bindings_status_check",
+      sql`${table.status} in (${sqlEnum(repositoryBindingStatusValues)})`
+    ),
+    organizationTeamIdx: uniqueIndex(
+      "symphony_repository_team_bindings_organization_team_idx"
+    ).on(table.organizationId, table.linearTeamIdentityId),
+    organizationBindingIdentityIdx: uniqueIndex(
+      "symphony_repository_team_bindings_organization_identity_idx"
+    ).on(table.organizationId, table.repositoryTeamBindingId),
+    repositoryWorkspaceBindingIdIdx: index(
+      "symphony_repository_team_bindings_repository_workspace_binding_id_idx"
+    ).on(table.repositoryWorkspaceBindingId),
+    linearTeamIdentityIdIdx: index(
+      "symphony_repository_team_bindings_linear_team_identity_id_idx"
+    ).on(table.linearTeamIdentityId),
+    statusIdx: index("symphony_repository_team_bindings_status_idx").on(
+      table.status
+    )
+  })
+);
+
+export const symphonyRepositoryProjectBindingsTable = sqliteTable(
+  "symphony_repository_project_bindings",
+  {
+    repositoryProjectBindingId: text("repository_project_binding_id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    repositoryWorkspaceBindingId: text("repository_workspace_binding_id").notNull(),
+    linearWorkspaceIdentityId: text("linear_workspace_identity_id").notNull(),
+    linearProjectIdentityId: text("linear_project_identity_id").notNull(),
+    source: text("source").notNull().$type<SymphonyRepositoryBindingSource>(),
+    status: text("status").notNull().$type<SymphonyRepositoryBindingStatus>(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    repositoryProjectBindingIdCheck: check(
+      "symphony_repository_project_bindings_repository_project_binding_id_check",
+      sql`length(trim(${table.repositoryProjectBindingId})) > 0`
+    ),
+    organizationIdCheck: check(
+      "symphony_repository_project_bindings_organization_id_check",
+      sql`length(trim(${table.organizationId})) > 0`
+    ),
+    repositoryWorkspaceBindingIdCheck: check(
+      "symphony_repository_project_bindings_repository_workspace_binding_id_check",
+      sql`length(trim(${table.repositoryWorkspaceBindingId})) > 0`
+    ),
+    linearWorkspaceIdentityIdCheck: check(
+      "symphony_repository_project_bindings_linear_workspace_identity_id_check",
+      sql`length(trim(${table.linearWorkspaceIdentityId})) > 0`
+    ),
+    linearProjectIdentityIdCheck: check(
+      "symphony_repository_project_bindings_linear_project_identity_id_check",
+      sql`length(trim(${table.linearProjectIdentityId})) > 0`
+    ),
+    organizationFk: foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [symphonyOrganizationsTable.organizationId],
+      name: "symphony_repository_project_bindings_organization_fk"
+    }).onDelete("cascade"),
+    organizationRepositoryWorkspaceFk: foreignKey({
+      columns: [
+        table.organizationId,
+        table.repositoryWorkspaceBindingId,
+        table.linearWorkspaceIdentityId
+      ],
+      foreignColumns: [
+        symphonyRepositoryWorkspaceBindingsTable.organizationId,
+        symphonyRepositoryWorkspaceBindingsTable.repositoryWorkspaceBindingId,
+        symphonyRepositoryWorkspaceBindingsTable.linearWorkspaceIdentityId
+      ],
+      name: "symphony_repository_project_bindings_organization_workspace_binding_fk"
+    }).onDelete("cascade"),
+    organizationLinearProjectFk: foreignKey({
+      columns: [
+        table.organizationId,
+        table.linearWorkspaceIdentityId,
+        table.linearProjectIdentityId
+      ],
+      foreignColumns: [
+        symphonyLinearProjectIdentitiesTable.organizationId,
+        symphonyLinearProjectIdentitiesTable.linearWorkspaceIdentityId,
+        symphonyLinearProjectIdentitiesTable.linearProjectIdentityId
+      ],
+      name: "symphony_repository_project_bindings_organization_project_fk"
+    }).onDelete("cascade"),
+    sourceCheck: check(
+      "symphony_repository_project_bindings_source_check",
+      sql`${table.source} in (${sqlEnum(repositoryBindingSourceValues)})`
+    ),
+    statusCheck: check(
+      "symphony_repository_project_bindings_status_check",
+      sql`${table.status} in (${sqlEnum(repositoryBindingStatusValues)})`
+    ),
+    organizationProjectIdx: uniqueIndex(
+      "symphony_repository_project_bindings_organization_project_idx"
+    ).on(table.organizationId, table.linearProjectIdentityId),
+    organizationBindingIdentityIdx: uniqueIndex(
+      "symphony_repository_project_bindings_organization_identity_idx"
+    ).on(table.organizationId, table.repositoryProjectBindingId),
+    repositoryWorkspaceBindingIdIdx: index(
+      "symphony_repository_project_bindings_repository_workspace_binding_id_idx"
+    ).on(table.repositoryWorkspaceBindingId),
+    linearProjectIdentityIdIdx: index(
+      "symphony_repository_project_bindings_linear_project_identity_id_idx"
+    ).on(table.linearProjectIdentityId),
+    statusIdx: index("symphony_repository_project_bindings_status_idx").on(
+      table.status
+    )
+  })
+);
+
 export const symphonyAgentEventLogTable = sqliteTable(
   "symphony_agent_event_log",
   {
@@ -1316,6 +2070,18 @@ export const symphonyAgentTaskSnapshotItemsTable = sqliteTable(
 );
 
 export const symphonySchema = {
+  symphonyUsersTable,
+  symphonyOrganizationsTable,
+  symphonyOrganizationMembershipsTable,
+  symphonyExternalAuthBindingsTable,
+  symphonyGitHubInstallationIdentitiesTable,
+  symphonyGitHubRepositoryIdentitiesTable,
+  symphonyLinearWorkspaceIdentitiesTable,
+  symphonyLinearTeamIdentitiesTable,
+  symphonyLinearProjectIdentitiesTable,
+  symphonyRepositoryWorkspaceBindingsTable,
+  symphonyRepositoryTeamBindingsTable,
+  symphonyRepositoryProjectBindingsTable,
   symphonyAgentEventLogTable,
   symphonyAgentPayloadOverflowTable,
   symphonyAgentItemsTable,

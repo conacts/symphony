@@ -3,7 +3,7 @@ import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createSqliteAgentAnalyticsReadStore,
   createSqliteAgentAnalyticsStore,
@@ -15,7 +15,11 @@ import {
   symphonySchema
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
-import type { SymphonyAgentRuntimeCompletion } from "@symphony/orchestrator";
+import {
+  createSymphonyWorkerSessionContract,
+  type SymphonyAgentRuntimeCompletion,
+  type SymphonyWorkerSessionContract
+} from "@symphony/orchestrator";
 import {
   type SymphonyReworkHandoff,
   symphonyHarnessPromptAppendix
@@ -106,6 +110,48 @@ function buildWorkflowLifecycleView(input: {
   };
 }
 
+function buildWorkerSessionContract() {
+  const startSession = vi.fn(
+    async (input: Parameters<SymphonyWorkerSessionContract["startSession"]>[0]) => ({
+      ...input,
+      kind: "session_started" as const
+    })
+  );
+  const recordObservation = vi.fn(
+    async (
+      input: Parameters<SymphonyWorkerSessionContract["recordObservation"]>[0]
+    ) => ({
+      ...input,
+      kind: "session_observation_recorded" as const
+    })
+  );
+  const stopSession = vi.fn(
+    async (input: Parameters<SymphonyWorkerSessionContract["stopSession"]>[0]) => ({
+      ...input,
+      kind: "session_stopped" as const
+    })
+  );
+  const completeSession = vi.fn(
+    async (input: Parameters<SymphonyWorkerSessionContract["completeSession"]>[0]) => ({
+      ...input,
+      kind: "session_completed" as const
+    })
+  );
+
+  return {
+    contract: createSymphonyWorkerSessionContract({
+      startSession,
+      recordObservation,
+      stopSession,
+      completeSession
+    }),
+    startSession,
+    recordObservation,
+    stopSession,
+    completeSession
+  };
+}
+
 async function seedCanonicalIssue(
   db: ReturnType<typeof initializeSymphonyDb>["db"],
   issue: SymphonyTrackerIssue
@@ -180,6 +226,7 @@ describe("docker pi symphony agent runtime", () => {
     const agentReadStore = createSqliteAgentAnalyticsReadStore({
       db: database.db
     });
+    const workerSessionContract = buildWorkerSessionContract();
     await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
@@ -205,6 +252,7 @@ describe("docker pi symphony agent runtime", () => {
         runStore,
         deliveryReports,
         agentAnalytics,
+        workerSessionContract: workerSessionContract.contract,
         runtimeLogs: {
           async record() {
             return "log-1";
@@ -252,6 +300,35 @@ describe("docker pi symphony agent runtime", () => {
       kind: "failure",
       reason: expect.stringContaining("symphony tool finish")
     });
+    expect(workerSessionContract.startSession).toHaveBeenCalledTimes(1);
+    expect(workerSessionContract.startSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "pi-session-1",
+        issueId: issue.id,
+        runId,
+        attempt: 1,
+        runMode: "rework",
+        workerHost: null,
+        startedAt: expect.any(String)
+      })
+    );
+    expect(
+      workerSessionContract.recordObservation.mock.calls.map(
+        ([input]: [{ eventType: string }]) => input.eventType
+      )
+    ).toContain("thread.started");
+    expect(workerSessionContract.completeSession).toHaveBeenCalledTimes(1);
+    expect(workerSessionContract.completeSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "pi-session-1",
+        issueId: issue.id,
+        runId,
+        attempt: 1,
+        runMode: "rework",
+        status: "failed",
+        reason: expect.stringContaining("symphony tool finish")
+      })
+    );
     expect(updates).toContain("thread.started");
     expect(updates).toContain("item.completed");
 
@@ -358,6 +435,7 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
+    const workerSessionContract = buildWorkerSessionContract();
     await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
@@ -474,6 +552,7 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
+    const workerSessionContract = buildWorkerSessionContract();
     await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
@@ -500,6 +579,7 @@ done
             trackerState: "In Review"
           }),
         agentAnalytics,
+        workerSessionContract: workerSessionContract.contract,
         runtimeLogs: {
           async record() {
             return "log-1";
@@ -550,6 +630,17 @@ done
     expect(completion).toEqual({
       kind: "delivered"
     });
+    expect(workerSessionContract.completeSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "pi-session-1",
+        issueId: issue.id,
+        runId,
+        attempt: 1,
+        runMode: "implementation",
+        status: "completed",
+        reason: null
+      })
+    );
 
     database.close();
   });
@@ -588,6 +679,7 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
+    const workerSessionContract = buildWorkerSessionContract();
     await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
@@ -614,6 +706,7 @@ done
             trackerState: "In Progress"
           }),
         agentAnalytics,
+        workerSessionContract: workerSessionContract.contract,
         runtimeLogs: {
           async record() {
             return "log-1";
@@ -665,6 +758,18 @@ done
       kind: "failure",
       reason: expect.stringContaining("did not reach `In Review`")
     });
+    expect(workerSessionContract.startSession).toHaveBeenCalledTimes(1);
+    expect(workerSessionContract.completeSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "pi-session-1",
+        issueId: issue.id,
+        runId,
+        attempt: 1,
+        runMode: "implementation",
+        status: "failed",
+        reason: expect.stringContaining("did not reach `In Review`")
+      })
+    );
 
     database.close();
   });

@@ -7,7 +7,7 @@ import {
 
 export type SymphonyRuntimeWorkflowPresetSelection = {
   presetId: SymphonyRuntimeRouterPresetId;
-  source: "registry_default" | "runtime_manifest";
+  source: "registry_default" | "runtime_manifest" | "bootstrap_override";
   repositoryKey: string | null;
   manifestPath: string | null;
 };
@@ -23,12 +23,33 @@ export function createDefaultRuntimeWorkflowPresetSelection(): SymphonyRuntimeWo
 
 export function resolveRuntimeWorkflowPresetSelection(input: {
   runtimeManifest: SymphonyLoadedRuntimeManifest | null;
+  overridePresetId?: string | null;
 }): SymphonyRuntimeWorkflowPresetSelection {
   const runtimeManifest = input.runtimeManifest;
   if (!runtimeManifest) {
     throw new TypeError(
       "Runtime workflow preset selection requires a runtime manifest."
     );
+  }
+
+  if (input.overridePresetId) {
+    try {
+      return {
+        presetId: requireRuntimeRouterPresetId(input.overridePresetId),
+        source: "bootstrap_override",
+        repositoryKey: runtimeManifest.manifest.repositoryKey,
+        manifestPath: runtimeManifest.manifestPath
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unknown workflow router preset.";
+      throw new TypeError(
+        `Runtime bootstrap requested an invalid workflow preset ${JSON.stringify(input.overridePresetId)}. ${message}`,
+        {
+          cause: error
+        }
+      );
+    }
   }
 
   const workflowConfig = runtimeManifest.manifest.workflow;

@@ -469,6 +469,23 @@ export async function createSymphonyRuntimeTestHarness(input: {
 
   const services: SymphonyRuntimeAppServices = {
     logger: createSilentSymphonyLogger("@symphony/api.test"),
+    bootstrapBinding: {
+      kind: "workflow_binding",
+      repositorySource: {
+        kind: "admitted_source_repositories",
+        source: "explicit",
+        sourceRepos: []
+      },
+      defaultRepositoryKey: "openai/symphony",
+      manifestPath: null,
+      bindingScope: null,
+      presetSelection: {
+        presetId: "current-flow",
+        source: "registry_default",
+        repositoryKey: null,
+        manifestPath: null
+      }
+    },
     admittedRepositories: [],
     promptTemplate,
     promptContract: {

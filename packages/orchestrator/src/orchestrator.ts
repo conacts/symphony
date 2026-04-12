@@ -2,6 +2,9 @@ export {
   createAgentRuntime
 } from "./agent-runtime.js";
 export {
+  createSymphonyWorkerSessionContract
+} from "./worker-session-contract.js";
+export {
   prepareIssueForDispatch,
   SymphonyOrchestrator
 } from "./symphony-orchestrator.js";
@@ -19,6 +22,19 @@ export type {
   AgentRuntimeLaunchTarget,
   AgentStopInput
 } from "./agent-runtime.js";
+export type {
+  SymphonyWorkerSessionCompletionInput,
+  SymphonyWorkerSessionCompletionRecord,
+  SymphonyWorkerSessionCompletionStatus,
+  SymphonyWorkerSessionContract,
+  SymphonyWorkerSessionIdentity,
+  SymphonyWorkerSessionObservationInput,
+  SymphonyWorkerSessionObservationRecord,
+  SymphonyWorkerSessionStartInput,
+  SymphonyWorkerSessionStartRecord,
+  SymphonyWorkerSessionStopInput,
+  SymphonyWorkerSessionStopRecord
+} from "./worker-session-contract.js";
 export type {
   SymphonyAgentRuntimeCompletion,
   SymphonyAgentRuntimeUpdate,

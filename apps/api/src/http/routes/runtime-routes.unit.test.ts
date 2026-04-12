@@ -315,6 +315,23 @@ function createRuntimeServicesStub(
 
   return {
     logger,
+    bootstrapBinding: {
+      kind: "workflow_binding",
+      repositorySource: {
+        kind: "admitted_source_repositories",
+        source: "explicit",
+        sourceRepos: []
+      },
+      defaultRepositoryKey: "openai/symphony",
+      manifestPath: null,
+      bindingScope: null,
+      presetSelection: {
+        presetId: "current-flow",
+        source: "registry_default",
+        repositoryKey: null,
+        manifestPath: null
+      }
+    },
     admittedRepositories: [],
     promptTemplate: {
       prompt: "prompt",

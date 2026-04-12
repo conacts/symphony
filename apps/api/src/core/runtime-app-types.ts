@@ -36,6 +36,9 @@ import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.
 import type { RuntimeToolExecutionResult } from "@symphony/runtime-tools";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type {
+  SymphonyRuntimeBootstrapBinding
+} from "./runtime-bootstrap-contract.js";
+import type {
   SymphonyRuntimeWorkflowComparison
 } from "./runtime-workflow-comparison.js";
 import type {
@@ -189,6 +192,7 @@ export type SymphonyLoadedRuntimePromptTemplate = {
 
 export type SymphonyRuntimeAppServices = {
   logger: SymphonyLogger;
+  bootstrapBinding: SymphonyRuntimeBootstrapBinding;
   admittedRepositories: AdmittedRuntimeRepository[];
   promptTemplate: SymphonyLoadedRuntimePromptTemplate;
   promptContract: SymphonyLoadedPromptContract;

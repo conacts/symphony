@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import type { SymphonyWorkspaceBindingCatalog } from "@symphony/db";
 import { buildSymphonyTrackerIssue } from "@symphony/tracker";
 import {
   resolveIssueRepository,
+  resolveRepositoryForPersistedBindingScope,
   resolveRepositoryForLinearScope,
   resolveWorkspaceRepository
 } from "./runtime-repository-routing.js";
@@ -85,6 +87,25 @@ describe("runtime repository routing", () => {
     expect(repository.repositoryKey).toBe("conacts/symphony");
   });
 
+  it("rejects a single admitted repo when persisted binding scope does not match the issue", () => {
+    expect(() =>
+      resolveIssueRepository(
+        [buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" })],
+        buildSymphonyTrackerIssue({
+          identifier: "COL-106",
+          teamKey: "COL",
+          projectId: "project-coldets",
+          labels: []
+        }),
+        {
+          organizationId: "org_001",
+          linearWorkspaceIdentityId: "linear_workspace_identity_001",
+          repositories: [buildBindingCatalog().repositories[0]!]
+        }
+      )
+    ).toThrowError(/persisted binding scope/i);
+  });
+
   it("resolves the process default repository from the Linear tracker binding", () => {
     const repository = resolveRepositoryForLinearScope(
       [
@@ -95,6 +116,75 @@ describe("runtime repository routing", () => {
         teamKey: "COL"
       }
     );
+
+    expect(repository.repositoryKey).toBe("conacts/coldets-v2");
+  });
+
+  it("routes issues by persisted project binding before team binding", () => {
+    const repository = resolveIssueRepository(
+      [
+        buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
+        buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
+      ],
+      buildSymphonyTrackerIssue({
+        identifier: "COL-201",
+        teamKey: "SYM",
+        projectId: "project-coldets",
+        labels: []
+      }),
+      buildBindingCatalog()
+    );
+
+    expect(repository.repositoryKey).toBe("conacts/coldets-v2");
+  });
+
+  it("rejects persisted binding catalogs that match multiple repositories for the same team", () => {
+    expect(() =>
+      resolveIssueRepository(
+        [
+          buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
+          buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
+        ],
+        buildSymphonyTrackerIssue({
+          identifier: "SYM-301",
+          teamKey: "SYM",
+          labels: []
+        }),
+        {
+          organizationId: "org_001",
+          linearWorkspaceIdentityId: "linear_workspace_identity_001",
+          repositories: [
+            buildBindingCatalog().repositories[0]!,
+            {
+              ...buildBindingCatalog().repositories[1]!,
+              teamBindings: [
+                ...buildBindingCatalog().repositories[1]!.teamBindings,
+                {
+                  repositoryTeamBindingId: "repository_team_binding_duplicate",
+                  linearTeamIdentityId: "linear_team_identity_duplicate",
+                  linearTeamId: "linear_team_duplicate",
+                  linearTeamKey: "SYM",
+                  source: "manual"
+                }
+              ]
+            }
+          ]
+        }
+      )
+    ).toThrowError(/matches multiple repositories for team/i);
+  });
+
+  it("resolves the process default repository from the persisted binding scope", () => {
+    const repository = resolveRepositoryForPersistedBindingScope({
+      admittedRepositories: [
+        buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
+        buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
+      ],
+      bindingCatalog: buildBindingCatalog(),
+      tracker: {
+        teamKey: "COL"
+      }
+    });
 
     expect(repository.repositoryKey).toBe("conacts/coldets-v2");
   });
@@ -175,5 +265,64 @@ function buildAdmittedRepository(
         }
       }
     }
+  };
+}
+
+function buildBindingCatalog(): SymphonyWorkspaceBindingCatalog {
+  return {
+    organizationId: "org_001",
+    linearWorkspaceIdentityId: "linear_workspace_identity_001",
+    repositories: [
+      {
+        repositoryWorkspaceBindingId: "repository_workspace_binding_symphony",
+        githubInstallationIdentityId: "github_installation_identity_001",
+        githubRepositoryIdentityId: "github_repository_identity_symphony",
+        repositoryKey: "conacts/symphony",
+        linearWorkspaceIdentityId: "linear_workspace_identity_001",
+        source: "bootstrap",
+        teamBindings: [
+          {
+            repositoryTeamBindingId: "repository_team_binding_symphony",
+            linearTeamIdentityId: "linear_team_identity_symphony",
+            linearTeamId: "linear_team_symphony",
+            linearTeamKey: "SYM",
+            source: "bootstrap"
+          }
+        ],
+        projectBindings: [
+          {
+            repositoryProjectBindingId: "repository_project_binding_symphony",
+            linearProjectIdentityId: "linear_project_identity_symphony",
+            linearProjectId: "project-symphony",
+            source: "bootstrap"
+          }
+        ]
+      },
+      {
+        repositoryWorkspaceBindingId: "repository_workspace_binding_coldets",
+        githubInstallationIdentityId: "github_installation_identity_001",
+        githubRepositoryIdentityId: "github_repository_identity_coldets",
+        repositoryKey: "conacts/coldets-v2",
+        linearWorkspaceIdentityId: "linear_workspace_identity_001",
+        source: "bootstrap",
+        teamBindings: [
+          {
+            repositoryTeamBindingId: "repository_team_binding_coldets",
+            linearTeamIdentityId: "linear_team_identity_coldets",
+            linearTeamId: "linear_team_coldets",
+            linearTeamKey: "COL",
+            source: "bootstrap"
+          }
+        ],
+        projectBindings: [
+          {
+            repositoryProjectBindingId: "repository_project_binding_coldets",
+            linearProjectIdentityId: "linear_project_identity_coldets",
+            linearProjectId: "project-coldets",
+            source: "bootstrap"
+          }
+        ]
+      }
+    ]
   };
 }

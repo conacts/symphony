@@ -2,12 +2,16 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type {
+  SymphonyWorkerSessionContract,
   AgentRuntime,
   SymphonyAgentRuntimeCompletion,
   SymphonyAgentRuntimeConfig,
   SymphonyAgentRuntimeUpdate,
   SymphonyStartupFailureOrigin,
   SymphonyStartupFailureStage
+} from "@symphony/orchestrator";
+import {
+  createSymphonyWorkerSessionContract
 } from "@symphony/orchestrator";
 import {
   formatSymphonyReworkHandoffSection,
@@ -105,11 +109,16 @@ export function createSymphonyAgentRuntime(input: {
   harnessLaunchEnv?: Record<string, string>;
   harnessAuthMode?: string | null;
   harnessProviderEnvKey?: string | null;
+  workerSessionContract?: SymphonyWorkerSessionContract;
   logger: SymphonyLogger;
   callbacks: RunCallbacks;
 }): AgentRuntime {
+  const workerSessionContract =
+    input.workerSessionContract ?? createDefaultWorkerSessionContract();
+
   return createHarnessBackedSymphonyAgentRuntime({
     ...input,
+    workerSessionContract,
     harness: createPiRuntimeHarness()
   });
 }
@@ -132,6 +141,7 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
   harnessLaunchEnv?: Record<string, string>;
   harnessAuthMode?: string | null;
   harnessProviderEnvKey?: string | null;
+  workerSessionContract: SymphonyWorkerSessionContract;
   logger: SymphonyLogger;
   callbacks: RunCallbacks;
 }): AgentRuntime {
@@ -183,6 +193,7 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
         harnessLaunchEnv: input.harnessLaunchEnv ?? {},
         harnessAuthMode: input.harnessAuthMode ?? null,
         harnessProviderEnvKey: input.harnessProviderEnvKey ?? null,
+        workerSessionContract: input.workerSessionContract,
         callbacks: input.callbacks,
         issue: runInput.issue,
         runId: runInput.runId,
@@ -233,6 +244,7 @@ async function executeRun(input: {
   harnessLaunchEnv: Record<string, string>;
   harnessAuthMode: string | null;
   harnessProviderEnvKey: string | null;
+  workerSessionContract: SymphonyWorkerSessionContract;
   callbacks: RunCallbacks;
   issue: SymphonyTrackerIssue;
   runId: string | null;
@@ -254,6 +266,7 @@ async function executeRun(input: {
   let mergeResult: RuntimeMergeResult | null = null;
   let commandResourceMonitor: CommandResourceMonitor | null = null;
   let recordedCanonicalSessionStart = false;
+  let workerSessionId: string | null = null;
   const explicitCompletionRequirement = resolveExplicitCompletionRequirement(
     input.runMode
   );
@@ -317,7 +330,17 @@ async function executeRun(input: {
       issue: input.issue,
       logger: input.logger
     });
+    await input.workerSessionContract.startSession({
+      sessionId: session.threadId,
+      issueId: input.issue.id,
+      runId: input.runId,
+      attempt: input.attempt,
+      runMode: input.runMode,
+      startedAt: new Date().toISOString(),
+      workerHost: input.workspace.workerHost ?? null
+    });
     input.activeRun.client = session.client;
+    workerSessionId = session.threadId;
     sessionProviderId = session.providerId;
     sessionProviderName = session.providerName;
     commandResourceMonitor = new CommandResourceMonitor(session.processId);
@@ -519,6 +542,16 @@ async function executeRun(input: {
             agentRuntimeProcessId:
               getString(message, "agent_app_server_pid") ?? session.processId
           });
+          await input.workerSessionContract.recordObservation({
+            sessionId: session.threadId,
+            issueId: input.issue.id,
+            runId: input.runId,
+            attempt: input.attempt,
+            runMode: input.runMode,
+            recordedAt: timestamp,
+            eventType: eventName,
+            payload: asJsonObject(runtimePayload)
+          });
 
           if (input.runId && persistedTurnId) {
             if (turnUsage) {
@@ -673,6 +706,20 @@ async function executeRun(input: {
           loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
           failureContext: "after delivery_report"
         });
+        await recordWorkerSessionCompletion({
+          workerSessionContract: input.workerSessionContract,
+          sessionId: session.threadId,
+          issueId: input.issue.id,
+          runId: input.runId,
+          attempt: input.attempt,
+          runMode: input.runMode,
+          completion: deliveryCompletion(
+            deliveryReport,
+            authoritativeState,
+            input.runtimePolicy
+          ),
+          recordedAt: new Date().toISOString()
+        });
         await input.callbacks.onComplete(
           input.issue.id,
           deliveryCompletion(deliveryReport, authoritativeState, input.runtimePolicy)
@@ -684,20 +731,59 @@ async function executeRun(input: {
           loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
           failureContext: "after merge_result"
         });
+        await recordWorkerSessionCompletion({
+          workerSessionContract: input.workerSessionContract,
+          sessionId: session.threadId,
+          issueId: input.issue.id,
+          runId: input.runId,
+          attempt: input.attempt,
+          runMode: input.runMode,
+          completion: mergeResultCompletion(
+            mergeResult,
+            authoritativeState,
+            input.runtimePolicy
+          ),
+          recordedAt: new Date().toISOString()
+        });
         await input.callbacks.onComplete(
           input.issue.id,
           mergeResultCompletion(mergeResult, authoritativeState, input.runtimePolicy)
         );
       } else if (maxTurnsReached) {
+        await recordWorkerSessionCompletion({
+          workerSessionContract: input.workerSessionContract,
+          sessionId: session.threadId,
+          issueId: input.issue.id,
+          runId: input.runId,
+          attempt: input.attempt,
+          runMode: input.runMode,
+          completion: {
+            kind: "max_turns_reached",
+            reason: `Reached the configured ${input.runtimePolicy.agent.maxTurns}-turn limit while the issue remained active.`,
+            maxTurns: input.runtimePolicy.agent.maxTurns
+          },
+          recordedAt: new Date().toISOString()
+        });
         await input.callbacks.onComplete(input.issue.id, {
           kind: "max_turns_reached",
           reason: `Reached the configured ${input.runtimePolicy.agent.maxTurns}-turn limit while the issue remained active.`,
           maxTurns: input.runtimePolicy.agent.maxTurns
         });
       } else {
+        const completion = missingExplicitCompletion(explicitCompletionRequirement);
+        await recordWorkerSessionCompletion({
+          workerSessionContract: input.workerSessionContract,
+          sessionId: session.threadId,
+          issueId: input.issue.id,
+          runId: input.runId,
+          attempt: input.attempt,
+          runMode: input.runMode,
+          completion,
+          recordedAt: new Date().toISOString()
+        });
         await input.callbacks.onComplete(
           input.issue.id,
-          missingExplicitCompletion(explicitCompletionRequirement)
+          completion
         );
       }
     }
@@ -763,6 +849,20 @@ async function executeRun(input: {
       }
     });
 
+    await recordWorkerSessionCompletion({
+      workerSessionContract: input.workerSessionContract,
+      sessionId: workerSessionId,
+      issueId: input.issue.id,
+      runId: input.runId,
+      attempt: input.attempt,
+      runMode: input.runMode,
+      completion: {
+        kind: "failure",
+        reason
+      },
+      recordedAt: new Date().toISOString()
+    });
+
     await input.callbacks.onComplete(input.issue.id, {
       ...(startupFailure
         ? {
@@ -812,6 +912,86 @@ async function executeRun(input: {
     }
     input.activeRun.client?.close();
   }
+}
+
+function createDefaultWorkerSessionContract(): SymphonyWorkerSessionContract {
+  return createSymphonyWorkerSessionContract({
+    startSession: async (input) => ({
+      ...input,
+      kind: "session_started"
+    }),
+    recordObservation: async (input) => ({
+      ...input,
+      kind: "session_observation_recorded"
+    }),
+    stopSession: async (input) => ({
+      ...input,
+      kind: "session_stopped"
+    }),
+    completeSession: async (input) => ({
+      ...input,
+      kind: "session_completed"
+    })
+  });
+}
+
+async function recordWorkerSessionCompletion(input: {
+  workerSessionContract: SymphonyWorkerSessionContract;
+  sessionId: string | null;
+  issueId: string;
+  runId: string | null;
+  attempt: number;
+  runMode: SymphonyRunMode;
+  completion: SymphonyAgentRuntimeCompletion;
+  recordedAt: string;
+}): Promise<void> {
+  if (!input.sessionId) {
+    return;
+  }
+
+  await input.workerSessionContract.completeSession({
+    sessionId: input.sessionId,
+    issueId: input.issueId,
+    runId: input.runId,
+    attempt: input.attempt,
+    runMode: input.runMode,
+    recordedAt: input.recordedAt,
+    status: completionStatusForRuntimeCompletion(input.completion),
+    reason: completionReasonForRuntimeCompletion(input.completion)
+  });
+}
+
+function completionStatusForRuntimeCompletion(
+  completion: SymphonyAgentRuntimeCompletion
+): "completed" | "failed" | "cancelled" {
+  switch (completion.kind) {
+    case "failure":
+    case "startup_failure":
+    case "rate_limited":
+    case "provider_transient":
+      return "failed";
+    default:
+      return "completed";
+  }
+}
+
+function completionReasonForRuntimeCompletion(
+  completion: SymphonyAgentRuntimeCompletion
+): string | null {
+  switch (completion.kind) {
+    case "failure":
+    case "startup_failure":
+    case "rate_limited":
+    case "provider_transient":
+      return completion.reason;
+    default:
+      return null;
+  }
+}
+
+function asJsonObject(value: unknown): JsonObject | null {
+  const record = asRecord(value);
+  return record ? (record as JsonObject) : null;
 }
 
 function buildRuntimeApiBaseUrl(

@@ -105,6 +105,58 @@ describe("runtime workflow preset selection", () => {
     });
   });
 
+  it("prefers an explicit bootstrap preset override over the runtime manifest", () => {
+    expect(
+      resolveRuntimeWorkflowPresetSelection({
+        runtimeManifest: {
+          repoRoot: "/tmp/source-repo",
+          manifestPath: "/tmp/source-repo/.symphony/runtime.ts",
+          manifest: {
+            schemaVersion: 1,
+            repositoryKey: "openai/symphony",
+            linear: {
+              teamKey: "SYM"
+            },
+            workspace: {
+              packageManager: "pnpm",
+              workingDirectory: "."
+            },
+            services: {},
+            workflow: {
+              defaultRouterPreset: "current-flow"
+            },
+            pi: null,
+            env: {
+              host: {
+                required: [],
+                optional: []
+              },
+              inject: {}
+            },
+            lifecycle: {
+              bootstrap: [],
+              migrate: [],
+              verify: [
+                {
+                  name: "verify",
+                  run: "pnpm test"
+                }
+              ],
+              seed: [],
+              cleanup: []
+            }
+          }
+        },
+        overridePresetId: "auto-merge"
+      })
+    ).toEqual({
+      presetId: "auto-merge",
+      source: "bootstrap_override",
+      repositoryKey: "openai/symphony",
+      manifestPath: "/tmp/source-repo/.symphony/runtime.ts"
+    });
+  });
+
   it("fails fast when the runtime manifest requests an unknown preset", () => {
     expect(() =>
       resolveRuntimeWorkflowPresetSelection({
@@ -149,6 +201,53 @@ describe("runtime workflow preset selection", () => {
         }
       })
     ).toThrow(/selects an invalid workflow preset/i);
+  });
+
+  it("fails fast when the bootstrap override requests an unknown preset", () => {
+    expect(() =>
+      resolveRuntimeWorkflowPresetSelection({
+        runtimeManifest: {
+          repoRoot: "/tmp/source-repo",
+          manifestPath: "/tmp/source-repo/.symphony/runtime.ts",
+          manifest: {
+            schemaVersion: 1,
+            repositoryKey: "openai/symphony",
+            linear: {
+              teamKey: "SYM"
+            },
+            workspace: {
+              packageManager: "pnpm",
+              workingDirectory: "."
+            },
+            services: {},
+            workflow: {
+              defaultRouterPreset: "current-flow"
+            },
+            pi: null,
+            env: {
+              host: {
+                required: [],
+                optional: []
+              },
+              inject: {}
+            },
+            lifecycle: {
+              bootstrap: [],
+              migrate: [],
+              verify: [
+                {
+                  name: "verify",
+                  run: "pnpm test"
+                }
+              ],
+              seed: [],
+              cleanup: []
+            }
+          }
+        },
+        overridePresetId: "missing"
+      })
+    ).toThrow(/bootstrap requested an invalid workflow preset/i);
   });
 
   it("accepts alternate built-in workflow presets from the runtime manifest", () => {

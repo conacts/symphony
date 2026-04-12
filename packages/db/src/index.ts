@@ -100,7 +100,39 @@ export type {
   SymphonyGitHubIngressJournal,
   SymphonyGitHubIngressRecordStatus
 } from "./github-ingress-journal.js";
-export { symphonySchema, symphonyAgentPayloadOverflowTable } from "./schema.js";
+export {
+  createSymphonyRepositoryBindingStore
+} from "./repository-bindings.js";
+export type {
+  SymphonyRepositoryProjectBindingRecord,
+  SymphonyRepositoryTeamBindingRecord,
+  SymphonyRepositoryWorkspaceBindingRecord,
+  SymphonyRepositoryBindingStore,
+  SymphonyWorkspaceBindingCatalog
+} from "./repository-bindings.js";
+export {
+  symphonySchema,
+  symphonyAgentPayloadOverflowTable,
+  symphonyUsersTable,
+  symphonyOrganizationsTable,
+  symphonyOrganizationMembershipsTable,
+  symphonyExternalAuthBindingsTable,
+  symphonyGitHubInstallationIdentitiesTable,
+  symphonyGitHubRepositoryIdentitiesTable,
+  symphonyLinearWorkspaceIdentitiesTable,
+  symphonyLinearTeamIdentitiesTable,
+  symphonyLinearProjectIdentitiesTable,
+  symphonyRepositoryWorkspaceBindingsTable,
+  symphonyRepositoryTeamBindingsTable,
+  symphonyRepositoryProjectBindingsTable
+} from "./schema.js";
+export type {
+  SymphonyExternalAuthProvider,
+  SymphonyExternalIntegrationProvider,
+  SymphonyOrganizationMembershipRole,
+  SymphonyRepositoryBindingSource,
+  SymphonyRepositoryBindingStatus
+} from "./schema.js";
 export {
   copySymphonyDbSnapshot,
   buildRuntimeDbSnapshotContainerPath,

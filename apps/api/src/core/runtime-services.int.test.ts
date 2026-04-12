@@ -6,7 +6,19 @@ import {
   createTempSymphonySqliteHarness,
   renderSymphonyRuntimeManifestSource
 } from "@symphony/test-support";
-import { createSymphonyIssueStore, initializeSymphonyDb } from "@symphony/db";
+import {
+  createSymphonyIssueStore,
+  initializeSymphonyDb,
+  symphonyGitHubInstallationIdentitiesTable,
+  symphonyGitHubRepositoryIdentitiesTable,
+  symphonyLinearProjectIdentitiesTable,
+  symphonyLinearTeamIdentitiesTable,
+  symphonyLinearWorkspaceIdentitiesTable,
+  symphonyOrganizationsTable,
+  symphonyRepositoryProjectBindingsTable,
+  symphonyRepositoryTeamBindingsTable,
+  symphonyRepositoryWorkspaceBindingsTable
+} from "@symphony/db";
 import type { WorkflowSignal } from "@symphony/router";
 import {
   buildSymphonyTrackerIssue,
@@ -22,7 +34,10 @@ import {
   loadDefaultSymphonyRuntimeAppServices
 } from "./runtime-services.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
-import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
+import {
+  loadRuntimeServiceBootstrap,
+  type SymphonyRuntimeBootstrapRepositorySource
+} from "./runtime-service-bootstrap.js";
 import { resolveDockerWorkspaceAuthContracts } from "./runtime-auth-contract.js";
 import { createSymphonyRuntimeTestHarness } from "../test-support/create-symphony-runtime-test-harness.js";
 import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
@@ -304,6 +319,61 @@ describe("runtime services", () => {
     }
   });
 
+  it("prefers an explicit bootstrap workflow preset override", async () => {
+    const fixture = await createRuntimeBootstrapFixture({
+      runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
+        schemaVersion: 1,
+        repositoryKey: "openai/symphony",
+        linear: {
+          teamKey: "SYM"
+        },
+        workspace: {
+          packageManager: "pnpm",
+          workingDirectory: "."
+        },
+        workflow: {
+          defaultRouterPreset: "current-flow"
+        },
+        env: {
+          host: {
+            required: [],
+            optional: []
+          },
+          inject: {}
+        },
+        lifecycle: {
+          bootstrap: [],
+          migrate: [],
+          verify: [
+            {
+              name: "verify",
+              run: "pnpm test"
+            }
+          ],
+          seed: [],
+          cleanup: []
+        }
+      }) as never)
+    });
+
+    try {
+      const bootstrap = await loadRuntimeServiceBootstrap({
+        env: fixture.env,
+        environmentSource: fixture.environmentSource,
+        workflowPresetOverride: "auto-merge"
+      });
+
+      expect(bootstrap.workflowPresetSelection).toEqual({
+        presetId: "auto-merge",
+        source: "bootstrap_override",
+        repositoryKey: "openai/symphony",
+        manifestPath: path.join(fixture.env.sourceRepo!, ".symphony", "runtime.ts")
+      });
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("fails fast when the runtime manifest requests an unknown workflow preset", async () => {
     const fixture = await createRuntimeBootstrapFixture({
       runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
@@ -349,6 +419,107 @@ describe("runtime services", () => {
         })
       ).rejects.toThrow(/invalid workflow preset/i);
     } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("accepts an explicit bootstrap repository source instead of env admission", async () => {
+    const fixture = await createRuntimeBootstrapFixture();
+
+    const explicitRepositorySource: SymphonyRuntimeBootstrapRepositorySource = {
+      kind: "admitted_source_repositories",
+      source: "explicit",
+      sourceRepos: [fixture.env.sourceRepo!]
+    };
+    const bootstrapEnv = {
+      ...fixture.env,
+      sourceRepo: null,
+      sourceRepos: []
+    } satisfies SymphonyRuntimeAppEnv;
+    const bootstrapEnvironmentSource = {
+      ...fixture.environmentSource,
+      SYMPHONY_SOURCE_REPO: undefined,
+      SYMPHONY_SOURCE_REPOS: undefined
+    };
+    const hostCommandEnvSource = {
+      OPENAI_API_KEY: "test-openai-api-key",
+      OPENROUTER_API_KEY: "test-openrouter-api-key"
+    };
+
+    try {
+      const bootstrap = await loadRuntimeServiceBootstrap({
+        env: bootstrapEnv,
+        environmentSource: bootstrapEnvironmentSource,
+        repositorySource: explicitRepositorySource
+      });
+
+      expect(bootstrap.repositorySource).toEqual(explicitRepositorySource);
+      expect(bootstrap.admittedRepositories).toHaveLength(1);
+      expect(bootstrap.primaryRepository.repositoryKey).toBe("openai/symphony");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("forwards explicit bootstrap repository and preset overrides through full service loading", async () => {
+    const fixture = await createRuntimeBootstrapFixture();
+
+    const explicitRepositorySource: SymphonyRuntimeBootstrapRepositorySource = {
+      kind: "admitted_source_repositories",
+      source: "explicit",
+      sourceRepos: [fixture.env.sourceRepo!]
+    };
+    const bootstrapEnv = {
+      ...fixture.env,
+      sourceRepo: null,
+      sourceRepos: []
+    } satisfies SymphonyRuntimeAppEnv;
+    const bootstrapEnvironmentSource = {
+      ...fixture.environmentSource,
+      SYMPHONY_SOURCE_REPO: undefined,
+      SYMPHONY_SOURCE_REPOS: undefined
+    };
+    const hostCommandEnvSource = {
+      OPENAI_API_KEY: "test-openai-api-key",
+      OPENROUTER_API_KEY: "test-openrouter-api-key"
+    };
+
+    let services:
+      | Awaited<ReturnType<typeof loadDefaultSymphonyRuntimeAppServices>>
+      | null = null;
+
+    try {
+      services = await loadDefaultSymphonyRuntimeAppServices(
+        bootstrapEnv,
+        bootstrapEnvironmentSource,
+        hostCommandEnvSource,
+        {
+          startPollScheduler: false,
+          startMachineLoadMonitor: false,
+          enableDockerPreflight: false,
+          repositorySource: explicitRepositorySource,
+          workflowPresetOverride: "auto-merge"
+        }
+      );
+
+      expect(services.bootstrapBinding).toEqual({
+        kind: "workflow_binding",
+        repositorySource: explicitRepositorySource,
+        defaultRepositoryKey: "openai/symphony",
+        manifestPath: path.join(fixture.env.sourceRepo!, ".symphony", "runtime.ts"),
+        bindingScope: null,
+        presetSelection: {
+          presetId: "auto-merge",
+          source: "bootstrap_override",
+          repositoryKey: "openai/symphony",
+          manifestPath: path.join(fixture.env.sourceRepo!, ".symphony", "runtime.ts")
+        }
+      });
+      expect(services.admittedRepositories.map((repository) => repository.repositoryKey)).toEqual([
+        "openai/symphony"
+      ]);
+    } finally {
+      await services?.shutdown();
       await fixture.cleanup();
     }
   });
@@ -483,6 +654,121 @@ describe("runtime services", () => {
     },
     runtimeServicesIntegrationTestTimeoutMs
   );
+
+  it(
+    "scopes admitted repositories through the persisted workspace binding catalog",
+    async () => {
+      const fixture = await createMultiRepoRuntimeBootstrapFixture();
+      const persistedRepositorySource: SymphonyRuntimeBootstrapRepositorySource = {
+        kind: "persisted_workspace_bindings",
+        source: "database",
+        sourceRepos: [...fixture.env.sourceRepos],
+        bindingScope: {
+          organizationId: "org_100",
+          linearWorkspaceIdentityId: "linear_workspace_identity_org_100"
+        }
+      };
+
+      try {
+        await seedPersistedWorkspaceBindingCatalog({
+          dbFile: fixture.env.dbFile,
+          organizationId: "org_100",
+          linearWorkspaceIdentityId: "linear_workspace_identity_org_100",
+          repositories: [
+            {
+              repositoryKey: "conacts/symphony",
+              githubRepositoryIdentityId: "github_repository_identity_symphony",
+              githubRepositoryId: "github_repository_symphony",
+              linearTeamIdentityId: "linear_team_identity_symphony",
+              linearTeamId: "linear_team_symphony",
+              linearTeamKey: "SYM",
+              linearProjectIdentityId: "linear_project_identity_symphony",
+              linearProjectId: "project-symphony",
+              repositoryWorkspaceBindingId: "repository_workspace_binding_symphony"
+            },
+            {
+              repositoryKey: "conacts/coldets-v2",
+              githubRepositoryIdentityId: "github_repository_identity_coldets",
+              githubRepositoryId: "github_repository_coldets",
+              linearTeamIdentityId: "linear_team_identity_coldets",
+              linearTeamId: "linear_team_coldets",
+              linearTeamKey: "COL",
+              linearProjectIdentityId: "linear_project_identity_coldets",
+              linearProjectId: "project-coldets",
+              repositoryWorkspaceBindingId: "repository_workspace_binding_coldets"
+            }
+          ]
+        });
+
+        const bootstrap = await loadRuntimeServiceBootstrap({
+          env: fixture.env,
+          environmentSource: fixture.environmentSource,
+          repositorySource: persistedRepositorySource
+        });
+
+        expect(bootstrap.admittedRepositories.map((repository) => repository.repositoryKey)).toEqual([
+          "conacts/symphony",
+          "conacts/coldets-v2"
+        ]);
+        expect(bootstrap.primaryRepository.repositoryKey).toBe("conacts/coldets-v2");
+        expect(bootstrap.bootstrapBinding.bindingScope).toEqual(
+          persistedRepositorySource.bindingScope
+        );
+        expect(
+          bootstrap.repositoryBindingCatalog?.repositories.map(
+            (repository) => repository.repositoryKey
+          )
+        ).toEqual(["conacts/symphony", "conacts/coldets-v2"]);
+      } finally {
+        await fixture.cleanup();
+      }
+    },
+    runtimeServicesIntegrationTestTimeoutMs
+  );
+
+  it("fails fast when persisted workspace bindings do not cover every admitted source repository", async () => {
+    const fixture = await createMultiRepoRuntimeBootstrapFixture();
+    const persistedRepositorySource: SymphonyRuntimeBootstrapRepositorySource = {
+      kind: "persisted_workspace_bindings",
+      source: "database",
+      sourceRepos: [...fixture.env.sourceRepos],
+      bindingScope: {
+        organizationId: "org_101",
+        linearWorkspaceIdentityId: "linear_workspace_identity_org_101"
+      }
+    };
+
+    try {
+      await seedPersistedWorkspaceBindingCatalog({
+        dbFile: fixture.env.dbFile,
+        organizationId: "org_101",
+        linearWorkspaceIdentityId: "linear_workspace_identity_org_101",
+        repositories: [
+          {
+            repositoryKey: "conacts/coldets-v2",
+            githubRepositoryIdentityId: "github_repository_identity_coldets",
+            githubRepositoryId: "github_repository_coldets",
+            linearTeamIdentityId: "linear_team_identity_coldets",
+            linearTeamId: "linear_team_coldets",
+            linearTeamKey: "COL",
+            linearProjectIdentityId: "linear_project_identity_coldets",
+            linearProjectId: "project-coldets",
+            repositoryWorkspaceBindingId: "repository_workspace_binding_coldets"
+          }
+        ]
+      });
+
+      await expect(
+        loadRuntimeServiceBootstrap({
+          env: fixture.env,
+          environmentSource: fixture.environmentSource,
+          repositorySource: persistedRepositorySource
+        })
+      ).rejects.toThrow(/does not admit repositories/i);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
 
   it("merges repo-defined Pi presets from the runtime manifest into the active policy", async () => {
     const fixture = await createRuntimeBootstrapFixture({
@@ -1192,6 +1478,128 @@ async function createMultiRepoRuntimeBootstrapFixture(): Promise<{
       await sqlite.cleanup();
     }
   };
+}
+
+async function seedPersistedWorkspaceBindingCatalog(input: {
+  dbFile: string;
+  organizationId: string;
+  linearWorkspaceIdentityId: string;
+  repositories: Array<{
+    repositoryKey: string;
+    githubRepositoryIdentityId: string;
+    githubRepositoryId: string;
+    linearTeamIdentityId: string;
+    linearTeamId: string;
+    linearTeamKey: string;
+    linearProjectIdentityId: string;
+    linearProjectId: string;
+    repositoryWorkspaceBindingId: string;
+  }>;
+}): Promise<void> {
+  const database = initializeSymphonyDb({
+    dbFile: input.dbFile
+  });
+  const now = "2026-04-12T18:30:00.000Z";
+
+  try {
+    database.db.insert(symphonyOrganizationsTable).values({
+      organizationId: input.organizationId,
+      organizationSlug: input.organizationId,
+      displayName: input.organizationId,
+      insertedAt: now,
+      updatedAt: now
+    }).run();
+
+    database.db.insert(symphonyGitHubInstallationIdentitiesTable).values({
+      githubInstallationIdentityId: `github_installation_identity_${input.organizationId}`,
+      organizationId: input.organizationId,
+      provider: "github",
+      githubInstallationId: `github_installation_${input.organizationId}`,
+      insertedAt: now,
+      updatedAt: now
+    }).run();
+
+    database.db.insert(symphonyLinearWorkspaceIdentitiesTable).values({
+      linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+      organizationId: input.organizationId,
+      provider: "linear",
+      linearWorkspaceId: `linear_workspace_${input.organizationId}`,
+      insertedAt: now,
+      updatedAt: now
+    }).run();
+
+    for (const repository of input.repositories) {
+      database.db.insert(symphonyGitHubRepositoryIdentitiesTable).values({
+        githubRepositoryIdentityId: repository.githubRepositoryIdentityId,
+        organizationId: input.organizationId,
+        githubInstallationIdentityId: `github_installation_identity_${input.organizationId}`,
+        provider: "github",
+        repositoryKey: repository.repositoryKey,
+        githubRepositoryId: repository.githubRepositoryId,
+        insertedAt: now,
+        updatedAt: now
+      }).run();
+
+      database.db.insert(symphonyLinearTeamIdentitiesTable).values({
+        linearTeamIdentityId: repository.linearTeamIdentityId,
+        organizationId: input.organizationId,
+        linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+        provider: "linear",
+        linearTeamKey: repository.linearTeamKey,
+        linearTeamId: repository.linearTeamId,
+        insertedAt: now,
+        updatedAt: now
+      }).run();
+
+      database.db.insert(symphonyLinearProjectIdentitiesTable).values({
+        linearProjectIdentityId: repository.linearProjectIdentityId,
+        organizationId: input.organizationId,
+        linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+        provider: "linear",
+        linearProjectId: repository.linearProjectId,
+        insertedAt: now,
+        updatedAt: now
+      }).run();
+
+      database.db.insert(symphonyRepositoryWorkspaceBindingsTable).values({
+        repositoryWorkspaceBindingId: repository.repositoryWorkspaceBindingId,
+        organizationId: input.organizationId,
+        githubInstallationIdentityId: `github_installation_identity_${input.organizationId}`,
+        githubRepositoryIdentityId: repository.githubRepositoryIdentityId,
+        linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+        source: "bootstrap",
+        status: "active",
+        insertedAt: now,
+        updatedAt: now
+      }).run();
+
+      database.db.insert(symphonyRepositoryTeamBindingsTable).values({
+        repositoryTeamBindingId: `repository_team_binding_${repository.linearTeamIdentityId}`,
+        organizationId: input.organizationId,
+        repositoryWorkspaceBindingId: repository.repositoryWorkspaceBindingId,
+        linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+        linearTeamIdentityId: repository.linearTeamIdentityId,
+        source: "bootstrap",
+        status: "active",
+        insertedAt: now,
+        updatedAt: now
+      }).run();
+
+      database.db.insert(symphonyRepositoryProjectBindingsTable).values({
+        repositoryProjectBindingId: `repository_project_binding_${repository.linearProjectIdentityId}`,
+        organizationId: input.organizationId,
+        repositoryWorkspaceBindingId: repository.repositoryWorkspaceBindingId,
+        linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+        linearProjectIdentityId: repository.linearProjectIdentityId,
+        source: "bootstrap",
+        status: "active",
+        insertedAt: now,
+        updatedAt: now
+      }).run();
+    }
+  } finally {
+    database.close();
+  }
 }
 
 async function writeRuntimeRepositoryFixture(input: {
