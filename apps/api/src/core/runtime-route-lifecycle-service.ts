@@ -503,7 +503,17 @@ export async function createRuntimeRouteLifecycleService(input: {
         runMode: resolveActiveRunMode(hydration)
       });
 
-      return observed !== null;
+      if (!observed) {
+        return false;
+      }
+
+      await loadRequiredWorkflowLifecycleView({
+        issueIdentifier: observed.issue.identifier,
+        failureContext:
+          "after active tracker state observation recorded an observed transition"
+      });
+
+      return true;
     }
   };
 }

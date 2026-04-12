@@ -11,10 +11,12 @@ import {
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type { SymphonyRuntimeAppServices } from "../core/runtime-app-types.js";
+import { createRuntimeRouteLifecycleService } from "../core/runtime-route-lifecycle-service.js";
 import { createRuntimeRunLifecycleRouter } from "../core/runtime-run-lifecycle-routing.js";
 import { createRuntimeRunStartActivationRouter } from "../core/runtime-run-start-activation-routing.js";
 import { loadDefaultSymphonyRuntimeAppServices } from "../core/runtime-services.js";
 import { createRuntimeWorkflowSessionLoader } from "../core/runtime-workflow-session-loader.js";
+import { createDefaultRuntimeWorkflowPresetSelection } from "../core/runtime-workflow-preset-selection.js";
 import {
   createSymphonyRuntimeAppServicesHarness,
   type SymphonyRuntimeAppServicesHarness
@@ -34,6 +36,10 @@ type RuntimeRunStartActivationRouter = Awaited<
 
 type RuntimeRunLifecycleRouter = Awaited<
   ReturnType<typeof createRuntimeRunLifecycleRouter>
+>;
+
+type RuntimeRouteLifecycleService = Awaited<
+  ReturnType<typeof createRuntimeRouteLifecycleService>
 >;
 
 export class RuntimeRoutedLifecycleProofHarness {
@@ -63,6 +69,7 @@ export class RuntimeRoutedLifecycleProofHarness {
   #services: SymphonyRuntimeAppServices;
   #runStartActivationRouter: RuntimeRunStartActivationRouter | null = null;
   #runLifecycleRouter: RuntimeRunLifecycleRouter | null = null;
+  #routeLifecycleService: RuntimeRouteLifecycleService | null = null;
   #dispatchQueue: RoutedDispatchRequest[] = [];
 
   private constructor(input: {
@@ -144,6 +151,17 @@ export class RuntimeRoutedLifecycleProofHarness {
     return await this.#services.trackerStateIngress.observeNonRunningIssue({
       issueIdentifier: this.#issueSeed.identifier
     });
+  }
+
+  async observeActiveIssueState(input: {
+    recordedAt: string;
+  }): Promise<boolean> {
+    return await this.requiredRouteLifecycleService().observeActiveIssueStateByIdentifier(
+      {
+        issueIdentifier: this.#issueSeed.identifier,
+        recordedAt: input.recordedAt
+      }
+    );
   }
 
   async activateNextDispatch(input: {
@@ -354,6 +372,14 @@ export class RuntimeRoutedLifecycleProofHarness {
       tracker: this.#services.tracker,
       sessionLoader
     });
+    this.#routeLifecycleService = await createRuntimeRouteLifecycleService({
+      routeWorkflows: this.#services.routeWorkflows,
+      tracker: this.#services.tracker,
+      trackerConfig: this.#services.runtimePolicy.tracker,
+      repositoryKey: this.requireRepositoryKey(),
+      presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+      sessionLoader
+    });
   }
 
   private installDispatchCapture(): void {
@@ -374,6 +400,13 @@ export class RuntimeRoutedLifecycleProofHarness {
       throw new TypeError("Run-lifecycle router is not initialized.");
     }
     return this.#runLifecycleRouter;
+  }
+
+  private requiredRouteLifecycleService(): RuntimeRouteLifecycleService {
+    if (!this.#routeLifecycleService) {
+      throw new TypeError("Route lifecycle service is not initialized.");
+    }
+    return this.#routeLifecycleService;
   }
 
   private memoryTracker(): MemorySymphonyTracker {

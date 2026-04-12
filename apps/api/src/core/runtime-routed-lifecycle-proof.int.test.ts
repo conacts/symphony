@@ -436,6 +436,110 @@ describe("runtime routed lifecycle proof", () => {
   );
 
   it(
+    "reopens a restarted implementation run from observed review state through workflow history",
+    async () => {
+      const harness = await RuntimeRoutedLifecycleProofHarness.create({
+        issueId: "issue-routed-active-review-proof",
+        issueIdentifier: "SYM-ROUTED-ACTIVE-REVIEW",
+        trackerState: "Todo"
+      });
+      harnesses.push(harness);
+
+      await harness.observeNonRunningIssue();
+      await harness.activateNextDispatch({
+        runId: "run-active-review-proof-1",
+        recordedAt: "2026-04-12T11:15:05.000Z"
+      });
+
+      await harness.restart({
+        trackerState: "In Progress"
+      });
+      await harness.setTrackerState("In Review");
+
+      const observed = await harness.observeActiveIssueState({
+        recordedAt: "2026-04-12T11:15:10.000Z"
+      });
+      expect(observed).toBe(true);
+      expect(harness.queuedDispatches()).toHaveLength(0);
+
+      await expectCurrentFlowAuthority(harness, {
+        currentNode: "review",
+        reasonCode: "paused_reopened_from_review",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("In Review");
+          expect(data.lastDispatchMode).toBe("implementation");
+          expect(data.lastRunMode).toBe("implementation");
+        }
+      });
+      expect((await harness.loadLifecycleView()).trackerState).toBe("In Review");
+    },
+    runtimeRoutedLifecycleProofTimeoutMs
+  );
+
+  it(
+    "reopens restarted approved-merge runs from observed approved state through workflow history",
+    async () => {
+      const harness = await RuntimeRoutedLifecycleProofHarness.create({
+        issueId: "issue-routed-active-approved-proof",
+        issueIdentifier: "SYM-ROUTED-ACTIVE-APPROVED",
+        trackerState: "Todo"
+      });
+      harnesses.push(harness);
+
+      await advanceToRunningApprovedMerge(harness);
+
+      await harness.restart({
+        trackerState: "In Progress"
+      });
+      await harness.setTrackerState("Approved");
+
+      const firstObserved = await harness.observeActiveIssueState({
+        recordedAt: "2026-04-12T11:25:10.000Z"
+      });
+      expect(firstObserved).toBe(true);
+      expect(harness.queuedDispatches()).toHaveLength(0);
+
+      const firstProof = await expectCurrentFlowAuthority(harness, {
+        currentNode: "approved_merge",
+        reasonCode: "paused_reopened_from_approved",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("Approved");
+          expect(data.lastDispatchMode).toBe("approved_merge");
+          expect(data.lastRunMode).toBe("approved_merge");
+        }
+      });
+      expect((await harness.loadLifecycleView()).trackerState).toBe("Approved");
+
+      await harness.restart({
+        trackerState: "Approved"
+      });
+
+      const secondObserved = await harness.observeActiveIssueState({
+        recordedAt: "2026-04-12T11:25:15.000Z"
+      });
+      expect(secondObserved).toBe(true);
+      expect(harness.queuedDispatches()).toHaveLength(0);
+
+      const secondProof = await expectCurrentFlowAuthority(harness, {
+        currentNode: "approved_merge",
+        reasonCode: "approved_merge_redispatched",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("Approved");
+          expect(data.lastDispatchMode).toBe("approved_merge");
+          expect(data.lastRunMode).toBe("approved_merge");
+        }
+      });
+      expect(secondProof.snapshot.eventSequence).toBeGreaterThan(
+        firstProof.snapshot.eventSequence
+      );
+    },
+    runtimeRoutedLifecycleProofTimeoutMs
+  );
+
+  it(
     "reopens a blocked workflow after restart and resumes routed implementation",
     async () => {
       const harness = await RuntimeRoutedLifecycleProofHarness.create({
@@ -615,4 +719,44 @@ function expectQueuedDispatch(
       recordedAt: expect.any(String)
     })
   ]);
+}
+
+async function advanceToRunningApprovedMerge(
+  harness: RuntimeRoutedLifecycleProofHarness
+): Promise<void> {
+  await harness.observeNonRunningIssue();
+  await harness.activateNextDispatch({
+    runId: "run-active-approved-proof-implementation",
+    recordedAt: "2026-04-12T11:25:00.000Z"
+  });
+
+  const implementationDelivery = await harness.recordDeliveryReport({
+    runId: "run-active-approved-proof-implementation",
+    summary: "Implementation delivery is ready for approval.",
+    prUrl: "https://github.com/openai/symphony/pull/201",
+    testsSummary: "pnpm --filter @symphony/api test"
+  });
+  expect(implementationDelivery.success).toBe(true);
+
+  await harness.setTrackerState("Approved");
+  const approvedObservation = await harness.observeNonRunningIssue();
+  expect(approvedObservation).toEqual(
+    expect.objectContaining({
+      issueIdentifier: harness.issueIdentifier,
+      observedTrackerState: "Approved",
+      workflowTrackerState: "Approved",
+      observed: true,
+      recordedAt: expect.any(String)
+    })
+  );
+  expectQueuedDispatch(harness, {
+    runMode: "approved_merge",
+    issueState: "Approved"
+  });
+
+  await harness.activateNextDispatch({
+    runId: "run-active-approved-proof-merge",
+    recordedAt: "2026-04-12T11:25:05.000Z"
+  });
+  harness.clearDispatchQueue();
 }
