@@ -3,8 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { RouteHistoryEventRecord } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
-import { buildSymphonyTrackerIssue } from "@symphony/test-support";
-import { buildSymphonyRuntimePolicy } from "@symphony/test-support";
+import {
+  buildSymphonyOrchestratorSnapshot,
+  buildSymphonyRuntimePolicy,
+  buildSymphonyTrackerIssue
+} from "@symphony/test-support";
 import type {
   WorkflowCommand,
   WorkflowDecision,
@@ -182,6 +185,50 @@ describe("runtime routes", () => {
     expect(loadCurrentWorkflowTrackerState).toHaveBeenCalledWith({
       issueIdentifier: "COL-123"
     });
+  });
+
+  it("fails fast when a live runtime issue lacks workflow-authoritative tracker state", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      identifier: "COL-123",
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const app = createRuntimeRoutesTestApp({
+      tracker,
+      orchestrator: {
+        snapshot: vi.fn().mockReturnValue(
+          buildSymphonyOrchestratorSnapshot({
+            running: [
+              {
+                issue
+              }
+            ],
+            retrying: []
+          })
+        ),
+        runPollCycle: vi.fn(),
+        isPollCycleInFlight: vi.fn().mockReturnValue(false),
+        requestRefresh: vi.fn(),
+        dispatchRoutedIssue: vi.fn()
+      },
+      workflowRead: {
+        loadCurrentWorkflowTrackerState: vi.fn().mockResolvedValue(null)
+      }
+    });
+
+    const response = await app.request("/api/v1/COL-123");
+    const payload = (await response.json()) as {
+      error: {
+        code: string;
+        message: string;
+      };
+    };
+
+    expect(response.status).toBe(500);
+    expect(payload.error.code).toBe("UNKNOWN");
+    expect(payload.error.message).toBe(
+      "Runtime issue COL-123 is missing workflow-authoritative tracker state."
+    );
   });
 });
 

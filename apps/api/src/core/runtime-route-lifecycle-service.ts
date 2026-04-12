@@ -334,7 +334,7 @@ export async function createRuntimeRouteLifecycleService(input: {
   return {
     workflowRoutingAdapter,
     async loadCurrentTrackerState({ issueIdentifier }) {
-      const projection = await loadWorkflowProjectionByIssueIdentifier({
+      const projection = await loadReadableWorkflowProjectionByIssueIdentifier({
         sessionLoader,
         issueIdentifier
       });
@@ -342,13 +342,21 @@ export async function createRuntimeRouteLifecycleService(input: {
         return null;
       }
 
-      return projection.loaded.routing.module.runtimeAdapter.readTrackerStateFromProjection({
-        workflowId: projection.workflowId,
-        data: projection.data
-      });
+      const trackerState =
+        projection.loaded.routing.module.runtimeAdapter.readTrackerStateFromProjection({
+          workflowId: projection.workflowId,
+          data: projection.data
+        });
+      if (!trackerState) {
+        throw new TypeError(
+          `Route workflow ${projection.workflowId} cannot project the current tracker state for ${issueIdentifier}.`
+        );
+      }
+
+      return trackerState;
     },
     async loadLatestReworkHandoff({ issueIdentifier }) {
-      const projection = await loadWorkflowProjectionByIssueIdentifier({
+      const projection = await loadReadableWorkflowProjectionByIssueIdentifier({
         sessionLoader,
         issueIdentifier
       });
@@ -364,7 +372,7 @@ export async function createRuntimeRouteLifecycleService(input: {
       );
     },
     async loadLatestMergeResult({ issueIdentifier, runId }) {
-      const projection = await loadWorkflowProjectionByIssueIdentifier({
+      const projection = await loadReadableWorkflowProjectionByIssueIdentifier({
         sessionLoader,
         issueIdentifier
       });
@@ -564,7 +572,7 @@ function resolveActiveRunMode(
   });
 }
 
-async function loadWorkflowProjectionByIssueIdentifier(input: {
+async function loadReadableWorkflowProjectionByIssueIdentifier(input: {
   sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
   issueIdentifier: string;
 }): Promise<{
@@ -575,13 +583,20 @@ async function loadWorkflowProjectionByIssueIdentifier(input: {
   const loaded = await input.sessionLoader.loadHydrationByIssueIdentifier({
     issueIdentifier: input.issueIdentifier
   });
-  if (!loaded?.hydrationState.snapshot) {
+  if (!loaded) {
     return null;
+  }
+
+  const snapshot = loaded.hydrationState.snapshot;
+  if (!snapshot) {
+    throw new TypeError(
+      `Route workflow ${loaded.hydrationState.workflow.workflowId} is missing a readable projection snapshot for ${input.issueIdentifier}.`
+    );
   }
 
   return {
     loaded,
     workflowId: loaded.hydrationState.workflow.workflowId,
-    data: loaded.hydrationState.snapshot.projection.data
+    data: snapshot.projection.data
   };
 }

@@ -244,6 +244,72 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("returns null for workflow-backed reads when no workflow exists yet", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      expect(
+        await harness.service.loadCurrentTrackerState({
+          issueIdentifier: harness.issue.identifier
+        })
+      ).toBeNull();
+      expect(
+        await harness.service.loadLatestReworkHandoff({
+          issueIdentifier: harness.issue.identifier
+        })
+      ).toBeNull();
+      expect(
+        await harness.service.loadLatestMergeResult({
+          issueIdentifier: harness.issue.identifier,
+          runId: "run-1"
+        })
+      ).toBeNull();
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("fails fast when a persisted workflow exists without a readable snapshot", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      const routing = await createRuntimeCurrentFlowRouting({
+        trackerConfig: buildSymphonyRuntimePolicy().tracker,
+        now: () => new Date("2026-04-10T14:00:00.000Z")
+      });
+      await harness.routeWorkflows.ensureWorkflowForIssue({
+        issueIdentifier: harness.issue.identifier,
+        repositoryKey: "openai/symphony",
+        routerPresetId: routing.presetId,
+        router: routing.router,
+        createdAt: "2026-04-10T14:00:00.000Z"
+      });
+
+      await expect(
+        harness.service.loadCurrentTrackerState({
+          issueIdentifier: harness.issue.identifier
+        })
+      ).rejects.toThrow(/missing a readable projection snapshot/i);
+      await expect(
+        harness.service.loadLatestReworkHandoff({
+          issueIdentifier: harness.issue.identifier
+        })
+      ).rejects.toThrow(/missing a readable projection snapshot/i);
+      await expect(
+        harness.service.loadLatestMergeResult({
+          issueIdentifier: harness.issue.identifier,
+          runId: "run-1"
+        })
+      ).rejects.toThrow(/missing a readable projection snapshot/i);
+    } finally {
+      harness.close();
+    }
+  });
+
   it("loads latest merge results only for the matching run id", async () => {
     const harness = await createHarness({
       state: "Approved"

@@ -130,6 +130,33 @@ describe("runtime serializers", () => {
     expect(serialized?.tracked.state).toBe("Approved");
   });
 
+  it("fails fast when a workflow-backed runtime issue is missing workflow-authoritative tracker state", () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const snapshot = buildSymphonyOrchestratorSnapshot({
+      running: [
+        {
+          issue
+        }
+      ],
+      retrying: []
+    });
+
+    expect(() =>
+      serializeRuntimeIssue(
+        snapshot,
+        buildSymphonyRuntimePolicy().github.repo,
+        issue.identifier,
+        issue,
+        null,
+        buildSymphonyRuntimePolicy().pi
+      )
+    ).toThrowError(
+      `Runtime issue ${issue.identifier} is missing workflow-authoritative tracker state.`
+    );
+  });
+
   it("fails fast when a live runtime entry is missing its prepared workspace", () => {
     const issue = buildSymphonyTrackerIssue({
       state: "In Progress"
@@ -338,7 +365,7 @@ describe("runtime serializers", () => {
       buildSymphonyRuntimePolicy().github.repo,
       issue.identifier,
       issue,
-      null,
+      "In Progress",
       buildSymphonyRuntimePolicy().pi
     );
 

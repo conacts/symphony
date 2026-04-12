@@ -48,11 +48,29 @@ const originalPath = process.env.PATH;
 const originalOpenRouterKey = process.env.OPENROUTER_API_KEY;
 const testRepositoryKey = "openai/symphony";
 
+type RawSymphonyAgentRuntimeInput = Parameters<
+  typeof createRawSymphonyAgentRuntime
+>[0];
+type RawWorkflowLifecycleReaders = Pick<
+  RawSymphonyAgentRuntimeInput,
+  | "loadLatestReworkHandoff"
+  | "loadLatestMergeResult"
+  | "loadCurrentWorkflowTrackerState"
+>;
+type TestSymphonyAgentRuntimeInput = Omit<
+  RawSymphonyAgentRuntimeInput,
+  "githubRepository" | keyof RawWorkflowLifecycleReaders
+> &
+  Partial<RawWorkflowLifecycleReaders>;
+
 function createSymphonyAgentRuntime(
-  input: Parameters<typeof createRawSymphonyAgentRuntime>[0]
+  input: TestSymphonyAgentRuntimeInput
 ) {
   return createRawSymphonyAgentRuntime({
     githubRepository: testRepositoryKey,
+    loadLatestReworkHandoff: async () => null,
+    loadLatestMergeResult: async () => null,
+    loadCurrentWorkflowTrackerState: async () => null,
     ...input
   });
 }
@@ -609,6 +627,118 @@ done
     expect(completion).toEqual({
       kind: "failure",
       reason: expect.stringContaining("did not reach `In Review`")
+    });
+
+    database.close();
+  });
+
+  it("fails fast when workflow history cannot provide the current tracker state after delivery", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-missing-workflow-state-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createStateTracker(issue, "In Review");
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db,
+      repositoryKey: testRepositoryKey
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    await seedCanonicalIssue(database.db, issue);
+    const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
+      issueIdentifier: issue.identifier,
+      runId: [issue.identifier, "run"].join("-"),
+      runMode: "implementation",
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    let completion: SymphonyAgentRuntimeCompletion | null = null;
+    let deliveryRecorded = false;
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
+        tracker,
+        runStore,
+        deliveryReports,
+        loadCurrentWorkflowTrackerState: async () => null,
+        agentAnalytics,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            if (deliveryRecorded) {
+              return;
+            }
+
+            deliveryRecorded = true;
+            await deliveryReports.record({
+              runId,
+              reportId: [runId, "delivery"].join("-"),
+              reportedAt: "2026-03-31T00:05:00.000Z",
+              status: "completed",
+              summary: "Opened the PR and finished the requested work.",
+              prUrl: "https://github.com/openai/symphony/pull/123",
+              branchName: "symphony/col-123",
+              source: "pi"
+            });
+          },
+          async onComplete(_issueId, result) {
+            completion = result;
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runMode: "implementation",
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    expect(completion).toEqual({
+      kind: "failure",
+      reason: `Workflow history is missing the current tracker state for ${issue.identifier} after delivery_report.`
     });
 
     database.close();

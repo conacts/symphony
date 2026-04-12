@@ -195,6 +195,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
   rootPrefix?: string;
   snapshot?: Partial<SymphonyOrchestratorSnapshot>;
   runtimePolicy?: Partial<SymphonyResolvedRuntimePolicy>;
+  workflowTrackerState?: string | null;
 } = {}): Promise<SymphonyRuntimeTestHarness> {
   const root = await mkdtemp(
     path.join(tmpdir(), input.rootPrefix ?? "symphony-runtime-test-")
@@ -652,8 +653,30 @@ export async function createSymphonyRuntimeTestHarness(input: {
       }
     },
     workflowRead: {
-      async loadCurrentWorkflowTrackerState() {
-        return null;
+      async loadCurrentWorkflowTrackerState({ issueIdentifier }) {
+        if (input.workflowTrackerState !== undefined) {
+          return input.workflowTrackerState;
+        }
+
+        const runningIssue = snapshot.running.find(
+          (entry) => entry.issue.identifier === issueIdentifier
+        )?.issue;
+        if (runningIssue) {
+          return runningIssue.state;
+        }
+
+        const retryingIssue = snapshot.retrying.find(
+          (entry) => entry.identifier === issueIdentifier
+        );
+        if (retryingIssue) {
+          return tracker.getIssue(retryingIssue.issueId)?.state ?? null;
+        }
+
+        const trackedIssue = tracker.fetchIssueByIdentifier(
+          runtimePolicy.tracker,
+          issueIdentifier
+        );
+        return (await trackedIssue)?.state ?? null;
       }
     },
     githubReviewIngress: createSymphonyGitHubReviewIngressService({

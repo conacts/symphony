@@ -130,7 +130,12 @@ export function serializeRuntimeIssue(
     branchName
   );
   const workspace = running?.workspace ?? retry?.workspace ?? null;
-  const canonicalTrackerState = workflowTrackerState ?? tracked.state;
+  const canonicalTrackerState = resolveRuntimeIssueTrackerState({
+    issueIdentifier,
+    trackedState: tracked.state,
+    workflowTrackerState,
+    hasWorkflowBackedRuntimeEntry: Boolean(running || retry)
+  });
   const selectedModel = resolvePiIssueModel(
     tracked,
     piSelectionPolicy
@@ -206,6 +211,32 @@ export function serializeRuntimeIssue(
       }
     }
   };
+}
+
+function resolveRuntimeIssueTrackerState(input: {
+  issueIdentifier: string;
+  trackedState: string;
+  workflowTrackerState: string | null;
+  hasWorkflowBackedRuntimeEntry: boolean;
+}): string {
+  if (input.workflowTrackerState === null) {
+    if (input.hasWorkflowBackedRuntimeEntry) {
+      throw new Error(
+        `Runtime issue ${input.issueIdentifier} is missing workflow-authoritative tracker state.`
+      );
+    }
+
+    return input.trackedState;
+  }
+
+  const workflowTrackerState = input.workflowTrackerState.trim();
+  if (workflowTrackerState === "") {
+    throw new Error(
+      `Runtime issue ${input.issueIdentifier} has an empty workflow-authoritative tracker state.`
+    );
+  }
+
+  return input.workflowTrackerState;
 }
 
 export function serializeRuntimeWorkflowComparison(

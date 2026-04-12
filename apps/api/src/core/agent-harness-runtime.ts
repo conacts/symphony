@@ -75,6 +75,19 @@ type ActiveRun = {
   client: HarnessSessionClient | null;
 };
 
+type WorkflowLifecycleReaders = {
+  loadLatestReworkHandoff(
+    issueIdentifier: string
+  ): Promise<SymphonyReworkHandoff | null>;
+  loadLatestMergeResult(
+    issueIdentifier: string,
+    runId: string
+  ): Promise<RuntimeMergeResult | null>;
+  loadCurrentWorkflowTrackerState(
+    issueIdentifier: string
+  ): Promise<string | null>;
+};
+
 export function createSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
   admittedRepositories?: AdmittedRuntimeRepository[];
@@ -84,16 +97,9 @@ export function createSymphonyAgentRuntime(input: {
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
-  loadLatestReworkHandoff?(
-    issueIdentifier: string
-  ): Promise<SymphonyReworkHandoff | null>;
-  loadLatestMergeResult?(
-    issueIdentifier: string,
-    runId: string
-  ): Promise<RuntimeMergeResult | null>;
-  loadCurrentWorkflowTrackerState?(
-    issueIdentifier: string
-  ): Promise<string | null>;
+  loadLatestReworkHandoff: WorkflowLifecycleReaders["loadLatestReworkHandoff"];
+  loadLatestMergeResult: WorkflowLifecycleReaders["loadLatestMergeResult"];
+  loadCurrentWorkflowTrackerState: WorkflowLifecycleReaders["loadCurrentWorkflowTrackerState"];
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -119,16 +125,9 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
-  loadLatestReworkHandoff?(
-    issueIdentifier: string
-  ): Promise<SymphonyReworkHandoff | null>;
-  loadLatestMergeResult?(
-    issueIdentifier: string,
-    runId: string
-  ): Promise<RuntimeMergeResult | null>;
-  loadCurrentWorkflowTrackerState?(
-    issueIdentifier: string
-  ): Promise<string | null>;
+  loadLatestReworkHandoff: WorkflowLifecycleReaders["loadLatestReworkHandoff"];
+  loadLatestMergeResult: WorkflowLifecycleReaders["loadLatestMergeResult"];
+  loadCurrentWorkflowTrackerState: WorkflowLifecycleReaders["loadCurrentWorkflowTrackerState"];
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -227,16 +226,9 @@ async function executeRun(input: {
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
-  loadLatestReworkHandoff?(
-    issueIdentifier: string
-  ): Promise<SymphonyReworkHandoff | null>;
-  loadLatestMergeResult?(
-    issueIdentifier: string,
-    runId: string
-  ): Promise<RuntimeMergeResult | null>;
-  loadCurrentWorkflowTrackerState?(
-    issueIdentifier: string
-  ): Promise<string | null>;
+  loadLatestReworkHandoff: WorkflowLifecycleReaders["loadLatestReworkHandoff"];
+  loadLatestMergeResult: WorkflowLifecycleReaders["loadLatestMergeResult"];
+  loadCurrentWorkflowTrackerState: WorkflowLifecycleReaders["loadCurrentWorkflowTrackerState"];
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
@@ -270,7 +262,7 @@ async function executeRun(input: {
     input.runMode
   );
   const latestReworkHandoff =
-    input.runMode === "rework" && input.loadLatestReworkHandoff
+    input.runMode === "rework"
       ? await input.loadLatestReworkHandoff(input.issue.identifier)
       : null;
   const repositoryKey = resolveRuntimeRepositoryKey({
@@ -626,7 +618,7 @@ async function executeRun(input: {
             input.deliveryReports,
             input.runId
           );
-        } else if (input.loadLatestMergeResult) {
+        } else {
           mergeResult = await input.loadLatestMergeResult(
             currentIssue.identifier,
             input.runId
@@ -674,9 +666,7 @@ async function executeRun(input: {
 
       if (deliveryReport) {
         const authoritativeState = await loadCompletionTrackerState({
-          tracker: input.tracker,
-          runtimePolicy: input.runtimePolicy,
-          issue: currentIssue,
+          issueIdentifier: currentIssue.identifier,
           loadCurrentWorkflowTrackerState: input.loadCurrentWorkflowTrackerState,
           completionKind: "delivery_report"
         });
@@ -686,9 +676,7 @@ async function executeRun(input: {
         );
       } else if (mergeResult) {
         const authoritativeState = await loadCompletionTrackerState({
-          tracker: input.tracker,
-          runtimePolicy: input.runtimePolicy,
-          issue: currentIssue,
+          issueIdentifier: currentIssue.identifier,
           loadCurrentWorkflowTrackerState: input.loadCurrentWorkflowTrackerState,
           completionKind: "merge_result"
         });
@@ -1081,34 +1069,20 @@ async function refreshIssueState(
 }
 
 async function loadCompletionTrackerState(input: {
-  tracker: SymphonyTracker;
-  runtimePolicy: SymphonyAgentRuntimeConfig;
-  issue: SymphonyTrackerIssue;
-  loadCurrentWorkflowTrackerState?(
-    issueIdentifier: string
-  ): Promise<string | null>;
+  issueIdentifier: string;
+  loadCurrentWorkflowTrackerState: WorkflowLifecycleReaders["loadCurrentWorkflowTrackerState"];
   completionKind: ExplicitCompletionRequirement;
 }): Promise<string> {
-  if (input.loadCurrentWorkflowTrackerState) {
-    const workflowState = await input.loadCurrentWorkflowTrackerState(
-      input.issue.identifier
+  const workflowState = await input.loadCurrentWorkflowTrackerState(
+    input.issueIdentifier
+  );
+  if (!workflowState) {
+    throw new TypeError(
+      `Workflow history is missing the current tracker state for ${input.issueIdentifier} after ${input.completionKind}.`
     );
-    if (!workflowState) {
-      throw new TypeError(
-        `Workflow history is missing the current tracker state for ${input.issue.identifier} after ${input.completionKind}.`
-      );
-    }
-
-    return workflowState;
   }
 
-  const refreshedIssue = await refreshIssueState(
-    input.tracker,
-    input.runtimePolicy,
-    input.issue
-  );
-
-  return refreshedIssue?.state ?? input.issue.state;
+  return workflowState;
 }
 
 function isActiveIssueState(
