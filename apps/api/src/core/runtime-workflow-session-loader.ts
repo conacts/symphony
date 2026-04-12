@@ -8,9 +8,11 @@ import {
 import {
   resumeRouteWorkflowSession,
   type RouteWorkflowBindingScope,
-  type ResumedRouteWorkflowSession,
   type SymphonyRouteWorkflowPort
 } from "./runtime-route-workflows.js";
+import type {
+  SymphonyRuntimeWorkflowReceiveSession
+} from "./runtime-workflow-session-types.js";
 
 type RuntimeWorkflowNode = WorkflowNodeId;
 type RuntimeWorkflowData = unknown;
@@ -32,11 +34,18 @@ export type SymphonyLoadedRuntimeWorkflowHydration = {
 
 export type SymphonyLoadedRuntimeWorkflowSession = {
   routing: SymphonyRuntimeRouterPresetSelection;
-  resumed: ResumedRouteWorkflowSession<
-    RuntimeWorkflowNode,
-    RuntimeWorkflowData,
-    RuntimeWorkflowPolicy
-  >;
+  resumed: {
+    hydrationState: RouteWorkflowHydrationState<
+      RuntimeWorkflowNode,
+      RuntimeWorkflowData,
+      RuntimeWorkflowPolicy
+    >;
+    session: SymphonyRuntimeWorkflowReceiveSession<
+      RuntimeWorkflowNode,
+      RuntimeWorkflowData,
+      RuntimeWorkflowPolicy
+    >;
+  };
 };
 
 export type SymphonyRuntimeWorkflowSessionLoader = {
@@ -219,6 +228,9 @@ async function resumeLoadedRuntimeWorkflowSession(input: {
 
   return {
     routing: input.loaded.routing,
-    resumed
+    resumed: {
+      hydrationState: resumed.hydrationState,
+      session: resumed.session
+    }
   };
 }

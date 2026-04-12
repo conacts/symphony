@@ -59,6 +59,9 @@ import {
 import {
   createRuntimeStateRequestRouter
 } from "./runtime-state-request-routing.js";
+import {
+  buildNonRunningTrackerIngressPolicy
+} from "./runtime-route-lifecycle-policy.js";
 import type { SymphonyRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
 import type {
   SymphonyRuntimeWorkflowLifecycleView
@@ -268,22 +271,17 @@ export async function createRuntimeRouteLifecycleService(input: {
       routing,
       sessionLoader
     });
-  const nonRunningTrackerSeedStates = buildNonRunningTrackerSeedStates({
+  const nonRunningTrackerIngressPolicy = buildNonRunningTrackerIngressPolicy({
     trackerConfig: input.trackerConfig,
-    requiredSeedStates: routing.module.requiredNonRunningTrackerSeedStates
+    presetRequiredSeedStates: routing.module.requiredNonRunningTrackerSeedStates
   });
-  const nonRunningTrackerObservableStates =
-    buildNonRunningTrackerObservableStates({
-      trackerConfig: input.trackerConfig,
-      seedStates: nonRunningTrackerSeedStates
-    });
   const observeNonRunningTrackerStates: SymphonyRuntimeRouteLifecycleService["observeNonRunningTrackerStates"] =
     async (observationInput) => {
       const claimedIssueIds = new Set(observationInput.claimedIssueIds);
       const issues = (
         await input.tracker.fetchIssuesByStates(
           input.trackerConfig,
-          nonRunningTrackerObservableStates
+          nonRunningTrackerIngressPolicy.observableStates
         )
       )
         .filter((issue) => !claimedIssueIds.has(issue.id))
@@ -298,7 +296,7 @@ export async function createRuntimeRouteLifecycleService(input: {
         const disposition = classifyNonRunningTrackerIngressDisposition({
           issue,
           hydration,
-          seedStates: nonRunningTrackerSeedStates
+          seedStates: nonRunningTrackerIngressPolicy.seedStates
         });
         if (disposition.disposition !== "observe") {
           continue;
@@ -342,7 +340,7 @@ export async function createRuntimeRouteLifecycleService(input: {
       const disposition = classifyNonRunningTrackerIngressDisposition({
         issue,
         hydration,
-        seedStates: nonRunningTrackerSeedStates
+        seedStates: nonRunningTrackerIngressPolicy.seedStates
       });
 
       if (disposition.disposition === "skip") {
@@ -553,51 +551,6 @@ export async function createRuntimeRouteLifecycleService(input: {
       return true;
     }
   };
-}
-
-function buildNonRunningTrackerSeedStates(input: {
-  trackerConfig: SymphonyTrackerConfig;
-  requiredSeedStates: readonly string[];
-}): string[] {
-  return mergeTrackerStates([
-    ...input.trackerConfig.dispatchableStates,
-    ...input.requiredSeedStates
-  ]);
-}
-
-function buildNonRunningTrackerObservableStates(input: {
-  trackerConfig: SymphonyTrackerConfig;
-  seedStates: readonly string[];
-}): string[] {
-  return mergeTrackerStates([
-    ...input.seedStates,
-    ...input.trackerConfig.terminalStates,
-    input.trackerConfig.pauseTransitionToState,
-    input.trackerConfig.blockedTransitionToState,
-    input.trackerConfig.startupFailureTransitionToState
-  ]);
-}
-
-function mergeTrackerStates(states: ReadonlyArray<string | null | undefined>): string[] {
-  const mergedStates: string[] = [];
-  const seenStates = new Set<string>();
-
-  for (const state of states) {
-    if (typeof state !== "string") {
-      continue;
-    }
-
-    const trimmedState = state.trim();
-    const normalizedState = normalizeIssueState(trimmedState);
-    if (normalizedState.length === 0 || seenStates.has(normalizedState)) {
-      continue;
-    }
-
-    seenStates.add(normalizedState);
-    mergedStates.push(trimmedState);
-  }
-
-  return mergedStates;
 }
 
 function classifyNonRunningTrackerIngressDisposition(input: {

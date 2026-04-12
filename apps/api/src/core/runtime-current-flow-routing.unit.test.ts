@@ -95,12 +95,12 @@ describe("runtime router preset selection", () => {
       selectRuntimeRouterPreset({
         trackerConfig: {
           ...runtimePolicy.tracker,
-          claimTransitionToState: " bootstrapping ",
-          startupFailureTransitionToState: " failed ",
+          claimTransitionToState: " BootStrapping ",
+          startupFailureTransitionToState: " FAILED ",
           pauseTransitionToState: " paused ",
-          blockedTransitionToState: " blocked ",
-          claimTransitionFromStates: [" todo ", " rework "],
-          terminalStates: [" done ", " canceled "]
+          blockedTransitionToState: " bLoCkEd ",
+          claimTransitionFromStates: [" ToDo ", " rEwOrK "],
+          terminalStates: [" DoNe ", " cAnCeLeD "]
         },
         presetId: "current-flow"
       })

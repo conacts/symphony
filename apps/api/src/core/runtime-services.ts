@@ -16,8 +16,6 @@ import {
   createSymphonyIssueStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyGitHubIngressJournal,
-  createSymphonyIssueTimelineStore,
-  createSymphonyRuntimeLogStore,
   initializeSymphonyDb
 } from "@symphony/db";
 import type {
@@ -83,6 +81,10 @@ import {
 } from "./runtime-shutdown-reconciliation.js";
 import { resolveIssueRepositorySelection } from "./runtime-repository-routing.js";
 import { buildRuntimeConfigSnapshot } from "./runtime-config-snapshot.js";
+import {
+  createRepositoryAwareIssueTimelineStore,
+  createRepositoryAwareRuntimeLogStore
+} from "./runtime-observability-store-routing.js";
 import type {
   SymphonyRuntimeBootstrapRepositorySource
 } from "./runtime-bootstrap-contract.js";
@@ -165,13 +167,22 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       `Primary admitted repository ${primaryRepository.repositoryKey} does not match runtime repository ${repositoryKey}.`
     );
   }
-  const issueTimelineStore = createSymphonyIssueTimelineStore(database.db, {
-    repositoryKey
-  });
   const issueStore = createSymphonyIssueStore(database.db);
   const routeWorkflowStore = createRouteWorkflowStore(database.db);
-  const runtimeLogStore = createSymphonyRuntimeLogStore(database.db, {
-    repositoryKey
+  const issueTimelineStore = createRepositoryAwareIssueTimelineStore({
+    db: database.db,
+    issueStore,
+    defaultRepositoryKey: repositoryKey,
+    bindingScope: bootstrapBinding.bindingScope
+  });
+  const runtimeLogStore = createRepositoryAwareRuntimeLogStore({
+    db: database.db,
+    issueStore,
+    defaultRepositoryKey: repositoryKey,
+    repositoryKeys: admittedRepositories.map(
+      (repository) => repository.repositoryKey
+    ),
+    bindingScope: bootstrapBinding.bindingScope
   });
   const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db
@@ -555,7 +566,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   let shutdownPromise: Promise<void> | null = null;
   const issueTimeline = createIssueTimelinePort({
     issueTimelineStore,
-    issueStore
+    issueStore,
+    bindingScope: bootstrapBinding.bindingScope
   });
   const runtimeLogs = createRuntimeLogsPort({
     runtimeLogStore
@@ -618,6 +630,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
         issueIdentifier: input.issueIdentifier,
         routeWorkflows,
         trackerConfig: runtimePolicy.tracker,
+        bindingScope: bootstrapBinding.bindingScope,
         presetIds: input.presetIds
       });
     }

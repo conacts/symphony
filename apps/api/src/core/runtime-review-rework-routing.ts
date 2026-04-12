@@ -1,4 +1,4 @@
-import { type WorkflowCommand, type WorkflowSession } from "@symphony/router";
+import { type WorkflowCommand } from "@symphony/router";
 import type { SymphonyReworkHandoff } from "@symphony/runtime-contract";
 import type {
   SymphonyTracker,
@@ -8,6 +8,9 @@ import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-se
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
+import type {
+  SymphonyRuntimeWorkflowSettlementSession
+} from "./runtime-workflow-session-types.js";
 import {
   createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
@@ -105,8 +108,10 @@ async function executeReviewReworkCommands(input: {
   tracker: SymphonyTracker;
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
-  session: WorkflowSession<string, unknown, unknown>;
-  loadSettlementSession: () => Promise<WorkflowSession<string, unknown, unknown>>;
+  session: SymphonyRuntimeWorkflowSettlementSession<string, unknown, unknown>;
+  loadSettlementSession: () => Promise<
+    SymphonyRuntimeWorkflowSettlementSession<string, unknown, unknown>
+  >;
   recordedAt: string;
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   onDispatchRequested?(

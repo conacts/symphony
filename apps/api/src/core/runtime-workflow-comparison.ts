@@ -10,6 +10,7 @@ import type {
   RouteWorkflowReplayState,
   SymphonyRouteWorkflowPort
 } from "./runtime-route-workflows.js";
+import type { SymphonyRuntimePersistedWorkspaceBindingScope } from "./runtime-bootstrap-contract.js";
 import {
   listRuntimeRouterPresetIds,
   requireRuntimeRouterPresetId,
@@ -61,12 +62,18 @@ export async function compareRuntimeWorkflowByIssueIdentifier(input: {
   issueIdentifier: string;
   routeWorkflows: SymphonyRouteWorkflowPort;
   trackerConfig: SymphonyTrackerConfig;
+  bindingScope?: SymphonyRuntimePersistedWorkspaceBindingScope | null;
   presetIds?: ReadonlyArray<string>;
   now?: () => Date;
 }): Promise<SymphonyRuntimeWorkflowComparison | null> {
-  const replay = await input.routeWorkflows.loadReplayStateByIssueIdentifier(
-    input.issueIdentifier
-  );
+  const replay = input.bindingScope
+    ? await input.routeWorkflows.loadReplayStateByScopedIssue({
+        issueIdentifier: input.issueIdentifier,
+        bindingScope: input.bindingScope
+      })
+    : await input.routeWorkflows.loadReplayStateByIssueIdentifier(
+        input.issueIdentifier
+      );
   if (!replay) {
     return null;
   }

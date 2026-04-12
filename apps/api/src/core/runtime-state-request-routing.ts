@@ -1,6 +1,5 @@
 import {
-  type WorkflowCommand,
-  type WorkflowSession
+  type WorkflowCommand
 } from "@symphony/router";
 import type {
   SymphonyTracker,
@@ -9,6 +8,9 @@ import type {
 import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
+import type {
+  SymphonyRuntimeWorkflowSettlementSession
+} from "./runtime-workflow-session-types.js";
 import {
   createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
@@ -108,8 +110,10 @@ async function executeRequestedStateCommands(input: {
   tracker: SymphonyTracker;
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
-  session: WorkflowSession<string, unknown, unknown>;
-  loadSettlementSession: () => Promise<WorkflowSession<string, unknown, unknown>>;
+  session: SymphonyRuntimeWorkflowSettlementSession<string, unknown, unknown>;
+  loadSettlementSession: () => Promise<
+    SymphonyRuntimeWorkflowSettlementSession<string, unknown, unknown>
+  >;
   recordedAt: string;
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   targetState: string;

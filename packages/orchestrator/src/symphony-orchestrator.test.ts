@@ -2332,7 +2332,7 @@ describe("symphony orchestrator", () => {
     });
   });
 
-  it("describes runtime failures as stopped when the pause transition fails", async () => {
+  it("fails run completion when pause routing cannot record the lifecycle transition", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
         ...buildSymphonyOrchestratorConfig().tracker,
@@ -2345,6 +2345,7 @@ describe("symphony orchestrator", () => {
     });
     const baseTracker = createMemorySymphonyTracker([issue]);
     const lifecycleEvents: string[] = [];
+    let finalized = false;
     const tracker = baseTracker;
     const updateIssueState = baseTracker.updateIssueState.bind(baseTracker);
     tracker.updateIssueState = async (issueId: string, stateName: string) => {
@@ -2375,6 +2376,7 @@ describe("symphony orchestrator", () => {
           return;
         },
         finalizeRun() {
+          finalized = true;
           return;
         }
       },
@@ -2385,29 +2387,23 @@ describe("symphony orchestrator", () => {
     });
 
     await orchestrator.dispatchIssue(issue, 1);
-    await orchestrator.handleRunCompletion(issue.id, {
-      kind: "failure",
-      reason: "agent exited"
-    });
+    const stateBeforeCompletion = baseTracker.getIssue(issue.id)?.state;
 
-    expect(baseTracker.getIssue(issue.id)?.state).toBe("In Progress");
-    expect(baseTracker.listOperations()).toEqual(
-      expect.arrayContaining([
-        {
-          kind: "comment",
-          issueId: issue.id,
-          body: expect.stringContaining("Symphony agent stopped after a runtime failure.")
-        },
-        {
-          kind: "comment",
-          issueId: issue.id,
-          body: expect.stringContaining(
-            "The issue is currently in `In Progress`. Manual state cleanup may be required before the ticket is requeued."
-          )
-        }
-      ])
-    );
-    expect(lifecycleEvents).toContain("workspace_preserved_after_run");
+    await expect(
+      orchestrator.handleRunCompletion(issue.id, {
+        kind: "failure",
+        reason: "agent exited"
+      })
+    ).rejects.toThrow("tracker unavailable");
+
+    expect(finalized).toBe(false);
+    expect(baseTracker.getIssue(issue.id)?.state).toBe(stateBeforeCompletion);
+    expect(baseTracker.listOperations()).not.toContainEqual({
+      kind: "comment",
+      issueId: issue.id,
+      body: expect.stringContaining("Symphony agent stopped after a runtime failure.")
+    });
+    expect(lifecycleEvents).not.toContain("workspace_preserved_after_run");
     expectNoTrackerTransitionLifecycleEvents(lifecycleEvents);
   });
 

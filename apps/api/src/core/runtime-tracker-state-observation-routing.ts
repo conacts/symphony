@@ -1,7 +1,6 @@
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
-  type WorkflowCommand,
-  type WorkflowSession
+  type WorkflowCommand
 } from "@symphony/router";
 import type {
   SymphonyTracker,
@@ -15,6 +14,9 @@ import type {
   SymphonyRouteWorkflowPort
 } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
+import type {
+  SymphonyRuntimeWorkflowSettlementSession
+} from "./runtime-workflow-session-types.js";
 import {
   createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
@@ -63,6 +65,10 @@ export type SymphonyTrackerStateObservationRouter = {
     input: SymphonyTrackerStateObservationInput
   ): Promise<SymphonyTrackerStateObservationResult | null>;
 };
+
+type SupportedTrackerObservationCommand = WorkflowCommand<
+  "tracker.transition" | "run.dispatch"
+>;
 
 export async function createRuntimeTrackerStateObservationRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
@@ -189,8 +195,10 @@ async function executeObservationCommands(input: {
   commands: WorkflowCommand[];
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
-  session: WorkflowSession<string, unknown, unknown>;
-  loadSettlementSession: () => Promise<WorkflowSession<string, unknown, unknown>>;
+  session: SymphonyRuntimeWorkflowSettlementSession<string, unknown, unknown>;
+  loadSettlementSession: () => Promise<
+    SymphonyRuntimeWorkflowSettlementSession<string, unknown, unknown>
+  >;
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
@@ -200,6 +208,8 @@ async function executeObservationCommands(input: {
   let currentIssue = input.issue;
 
   for (const command of input.commands) {
+    assertSupportedObservationCommand(command);
+
     switch (command.kind) {
       case "tracker.transition":
         currentIssue = await executeSettledRouteCommand({
@@ -239,8 +249,6 @@ async function executeObservationCommands(input: {
           }
         });
         break;
-      default:
-        throwUnsupportedObservationCommand(command.kind);
     }
   }
 
@@ -356,8 +364,20 @@ function throwUnsupportedObservationCommand(
   commandKind: WorkflowCommand["kind"]
 ): never {
   throw new TypeError(
-    `Tracker state observation does not support command kind ${commandKind}.`
+    `Tracker state observation only supports tracker.transition and run.dispatch commands. Received ${commandKind}.`
   );
+}
+
+function assertSupportedObservationCommand(
+  command: WorkflowCommand
+): asserts command is SupportedTrackerObservationCommand {
+  switch (command.kind) {
+    case "tracker.transition":
+    case "run.dispatch":
+      return;
+    default:
+      throwUnsupportedObservationCommand(command.kind);
+  }
 }
 
 function assertUnsupportedObservationInput(

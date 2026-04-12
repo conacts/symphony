@@ -3,12 +3,14 @@ import {
   type WorkflowCommand,
   type WorkflowNodeId,
   type WorkflowPayload,
-  type WorkflowProjection,
-  type WorkflowSession
+  type WorkflowProjection
 } from "@symphony/router";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
+import type {
+  SymphonyRuntimeWorkflowSettlementSession
+} from "./runtime-workflow-session-types.js";
 
 export async function settleRouteCommand<
   Node extends WorkflowNodeId,
@@ -17,8 +19,10 @@ export async function settleRouteCommand<
 >(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
-  session: WorkflowSession<Node, Data, Policy>;
-  loadSettlementSession?: () => Promise<WorkflowSession<Node, Data, Policy>>;
+  session: SymphonyRuntimeWorkflowSettlementSession<Node, Data, Policy>;
+  loadSettlementSession?: () => Promise<
+    SymphonyRuntimeWorkflowSettlementSession<Node, Data, Policy>
+  >;
   commandId: string;
   status: "succeeded" | "failed";
   payload: WorkflowPayload;
@@ -59,14 +63,44 @@ export async function executeSettledRouteCommand<
 >(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
-  session: WorkflowSession<Node, Data, Policy>;
-  loadSettlementSession?: () => Promise<WorkflowSession<Node, Data, Policy>>;
+  session: SymphonyRuntimeWorkflowSettlementSession<Node, Data, Policy>;
+  loadSettlementSession?: () => Promise<
+    SymphonyRuntimeWorkflowSettlementSession<Node, Data, Policy>
+  >;
   command: WorkflowCommand;
   recordedAt: string;
   execute(command: WorkflowCommand): Promise<Result>;
 }): Promise<Result> {
+  let result: Result;
+
   try {
-    const result = await input.execute(input.command);
+    result = await input.execute(input.command);
+  } catch (error) {
+    try {
+      await settleRouteCommand({
+        routeWorkflows: input.routeWorkflows,
+        workflowId: input.workflowId,
+        session: input.session,
+        loadSettlementSession: input.loadSettlementSession,
+        commandId: input.command.id,
+        status: "failed",
+        payload: {
+          error: String(error)
+        },
+        recordedAt: input.recordedAt
+      });
+    } catch (settlementError) {
+      throw new Error(
+        `Route workflow ${input.workflowId} failed command ${input.command.id} and could not record the failed settlement. Original command error: ${String(error)}`,
+        {
+          cause: settlementError
+        }
+      );
+    }
+    throw error;
+  }
+
+  try {
     await settleRouteCommand({
       routeWorkflows: input.routeWorkflows,
       workflowId: input.workflowId,
@@ -77,22 +111,16 @@ export async function executeSettledRouteCommand<
       payload: null,
       recordedAt: input.recordedAt
     });
-    return result;
   } catch (error) {
-    await settleRouteCommand({
-      routeWorkflows: input.routeWorkflows,
-      workflowId: input.workflowId,
-      session: input.session,
-      loadSettlementSession: input.loadSettlementSession,
-      commandId: input.command.id,
-      status: "failed",
-      payload: {
-        error: String(error)
-      },
-      recordedAt: input.recordedAt
-    });
-    throw error;
+    throw new Error(
+      `Route workflow ${input.workflowId} executed command ${input.command.id} successfully but could not record the settlement.`,
+      {
+        cause: error
+      }
+    );
   }
+
+  return result;
 }
 
 export function normalizeWorkflowToken(value: string): string {
@@ -107,7 +135,7 @@ export function createRouteCommandSettlementSessionLoader(input: {
   sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
   workflowId: string;
   failureContext: string;
-}): () => Promise<WorkflowSession<string, unknown, unknown>> {
+}): () => Promise<SymphonyRuntimeWorkflowSettlementSession<string, unknown, unknown>> {
   return async () => {
     const loaded = await input.sessionLoader.resumeByWorkflowId({
       workflowId: input.workflowId

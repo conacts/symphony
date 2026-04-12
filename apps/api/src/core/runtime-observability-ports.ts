@@ -4,6 +4,7 @@ import type {
   SymphonyRuntimeLogsPort,
   RuntimeHealthPortInput
 } from "./runtime-app-types.js";
+import type { SymphonyRuntimePersistedWorkspaceBindingScope } from "./runtime-bootstrap-contract.js";
 import type {
   SymphonyIssueTimelineStore,
   SymphonyIssueStore,
@@ -13,10 +14,16 @@ import type {
 export function createIssueTimelinePort(input: {
   issueTimelineStore: SymphonyIssueTimelineStore;
   issueStore: SymphonyIssueStore;
+  bindingScope?: SymphonyRuntimePersistedWorkspaceBindingScope | null;
 }): SymphonyIssueTimelinePort {
   return {
     async list({ issueIdentifier, limit, repo }) {
-      const issue = await input.issueStore.fetchByIdentifier(issueIdentifier);
+      const issue = input.bindingScope
+        ? await input.issueStore.fetchByScopedIdentifier({
+            issueIdentifier,
+            bindingScope: input.bindingScope
+          })
+        : await input.issueStore.fetchByIdentifier(issueIdentifier);
       if (!issue) {
         return null;
       }

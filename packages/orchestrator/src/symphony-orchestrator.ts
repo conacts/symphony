@@ -640,7 +640,7 @@ export class SymphonyOrchestrator {
         manifestLifecycle:
           manifestLifecycleFailure?.manifestLifecycle ?? null
       };
-      const routedStartupFailure = await this.#routeCompletionWithRecovery({
+      const routedStartupFailure = await this.#routeStartupFailureWithRecovery({
         issue: preparedIssue,
         runId,
         runMode,
@@ -775,7 +775,7 @@ export class SymphonyOrchestrator {
       return;
     }
 
-    const routedCompletion = await this.#routeCompletionWithRecovery({
+    const routedCompletion = await this.#routeCompletionWithAllowedFallbacks({
       issue: completionIssueBeforeRouting,
       runId: runningEntry.runId,
       runMode: runningEntry.runMode,
@@ -798,7 +798,7 @@ export class SymphonyOrchestrator {
     }
 
     if (resolvedCompletion.kind !== completion.kind) {
-      const reroutedCompletion = await this.#routeCompletionWithRecovery({
+      const reroutedCompletion = await this.#routeCompletionWithAllowedFallbacks({
         issue: currentIssue,
         runId: runningEntry.runId,
         runMode: runningEntry.runMode,
@@ -1025,7 +1025,7 @@ export class SymphonyOrchestrator {
     });
   }
 
-  async #routeCompletionWithRecovery(input: {
+  async #routeCompletionWithAllowedFallbacks(input: {
     issue: SymphonyTrackerIssue;
     runId: string | null;
     runMode: SymphonyRunMode;
@@ -1064,7 +1064,7 @@ export class SymphonyOrchestrator {
         };
       }
 
-      if (!isRecoverableCompletionRoutingFailure(input.completion)) {
+      if (input.completion.kind !== "startup_failure") {
         throw error;
       }
 
@@ -1073,6 +1073,23 @@ export class SymphonyOrchestrator {
         completion: input.completion
       };
     }
+  }
+
+  async #routeStartupFailureWithRecovery(input: {
+    issue: SymphonyTrackerIssue;
+    runId: string | null;
+    runMode: SymphonyRunMode;
+    completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
+  }): Promise<{
+    issue: SymphonyTrackerIssue;
+    completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
+  }> {
+    const routed = await this.#routeCompletionWithAllowedFallbacks(input);
+    assertStartupFailureCompletion(routed.completion);
+    return {
+      issue: routed.issue,
+      completion: routed.completion
+    };
   }
 
   async #activateStartedIssue(input: {
@@ -1794,25 +1811,6 @@ function mergeDispatchStopRequests(
   }
 
   return next.reason === "terminal" ? next : current;
-}
-
-function isRecoverableCompletionRoutingFailure(
-  completion: SymphonyAgentRuntimeCompletion
-): boolean {
-  switch (completion.kind) {
-    case "blocked":
-    case "failure":
-    case "max_turns_reached":
-    case "merge_blocked":
-    case "provider_transient":
-    case "rate_limited":
-    case "stalled":
-    case "startup_failure":
-      return true;
-    case "delivered":
-    case "merged":
-      return false;
-  }
 }
 
 function assertStartupFailureCompletion(

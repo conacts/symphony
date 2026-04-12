@@ -18,6 +18,10 @@ import {
 } from "@symphony/test-support";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 import { createDbBackedOrchestratorObserver } from "./runtime-db-observer.js";
+import {
+  createRepositoryAwareIssueTimelineStore,
+  createRepositoryAwareRuntimeLogStore
+} from "./runtime-observability-store-routing.js";
 import { buildBootstrapInstallLifecycleEvent } from "../test-support/runtime-lifecycle-test-support.js";
 
 const repositoryKey = "openai/symphony";
@@ -270,6 +274,121 @@ describe("runtime db observer", () => {
 
     expect(storedRun?.organizationId).toBe("org-1");
     expect(storedRun?.linearWorkspaceIdentityId).toBe("workspace-1");
+  });
+
+  it("routes lifecycle observability writes through the issue-resolved repository in multi-repo runtimes", async () => {
+    const sqlite = await createTempSymphonySqliteHarness({
+      rootPrefix: "symphony-runtime-db-observer-multi-repo-"
+    });
+    sqliteHarnesses.push(sqlite);
+    const issueStore = createSymphonyIssueStore(sqlite.database.db);
+    const issue = buildSymphonyTrackerIssue({
+      id: "issue-coldets-1",
+      identifier: "COL-901",
+      state: "Bootstrapping",
+      teamKey: "COL"
+    });
+
+    await issueStore.upsert({
+      issueIdentifier: issue.identifier,
+      trackerIssueId: issue.id,
+      repositoryKey: "conacts/coldets-v2",
+      latestRunStartedAt: null,
+      recordedAt: "2026-04-12T22:30:00.000Z"
+    });
+
+    const timelineStore = createRepositoryAwareIssueTimelineStore({
+      db: sqlite.database.db,
+      issueStore,
+      defaultRepositoryKey: "conacts/symphony"
+    });
+    const runtimeLogStore = createRepositoryAwareRuntimeLogStore({
+      db: sqlite.database.db,
+      issueStore,
+      defaultRepositoryKey: "conacts/symphony",
+      repositoryKeys: ["conacts/symphony", "conacts/coldets-v2"]
+    });
+    const coldetsTimelineStore = createSymphonyIssueTimelineStore(sqlite.database.db, {
+      repositoryKey: "conacts/coldets-v2"
+    });
+    const defaultTimelineStore = createSymphonyIssueTimelineStore(sqlite.database.db, {
+      repositoryKey
+    });
+    const coldetsRuntimeLogStore = createSymphonyRuntimeLogStore(sqlite.database.db, {
+      repositoryKey: "conacts/coldets-v2"
+    });
+    const defaultRuntimeLogStore = createSymphonyRuntimeLogStore(sqlite.database.db, {
+      repositoryKey
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: sqlite.database.db,
+      timelineStore
+    });
+    const observer = createDbBackedOrchestratorObserver({
+      admittedRepositories: [
+        {
+          repositoryKey,
+          repoRoot: "/tmp/openai-symphony",
+          linearBinding: {
+            teamKey: "SYM"
+          }
+        },
+        {
+          repositoryKey: "conacts/coldets-v2",
+          repoRoot: "/tmp/conacts-coldets",
+          linearBinding: {
+            teamKey: "COL"
+          }
+        }
+      ] as AdmittedRuntimeRepository[],
+      runStore,
+      issueTimelineStore: timelineStore,
+      runtimeLogs: runtimeLogStore
+    });
+
+    await observer.recordLifecycleEvent({
+      issue,
+      runId: null,
+      source: "workspace",
+      eventType: "workspace_manifest_phase_started",
+      message: "Manifest lifecycle phase bootstrap started.",
+      payload: {
+        manifestLifecycle: {
+          phase: "bootstrap",
+          status: "running"
+        }
+      },
+      recordedAt: "2026-04-12T22:30:01.000Z"
+    });
+
+    await expect(
+      coldetsTimelineStore.listIssueTimeline(issue.identifier)
+    ).resolves.toEqual([
+      expect.objectContaining({
+        repositoryKey: "conacts/coldets-v2",
+        issueIdentifier: issue.identifier,
+        eventType: "workspace_manifest_phase_started"
+      })
+    ]);
+    await expect(
+      defaultTimelineStore.listIssueTimeline(issue.identifier)
+    ).resolves.toEqual([]);
+    await expect(
+      coldetsRuntimeLogStore.list({
+        issueIdentifier: issue.identifier
+      })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        repositoryKey: "conacts/coldets-v2",
+        issueIdentifier: issue.identifier,
+        eventType: "workspace_manifest_phase_started"
+      })
+    ]);
+    await expect(
+      defaultRuntimeLogStore.list({
+        issueIdentifier: issue.identifier
+      })
+    ).resolves.toEqual([]);
   });
 });
 
