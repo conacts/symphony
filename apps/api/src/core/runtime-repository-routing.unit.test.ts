@@ -3,6 +3,7 @@ import type { SymphonyWorkspaceBindingCatalog } from "@symphony/db";
 import { buildSymphonyTrackerIssue } from "@symphony/tracker";
 import {
   resolveIssueRepository,
+  resolveIssueRepositorySelection,
   resolveRepositoryForPersistedBindingScope,
   resolveRepositoryForLinearScope,
   resolveWorkspaceRepository
@@ -136,6 +137,31 @@ describe("runtime repository routing", () => {
     );
 
     expect(repository.repositoryKey).toBe("conacts/coldets-v2");
+  });
+
+  it("returns the hosted repository workspace binding alongside persisted issue routing", () => {
+    const selection = resolveIssueRepositorySelection(
+      [
+        buildAdmittedRepository("conacts/symphony", { teamKey: "SYM" }),
+        buildAdmittedRepository("conacts/coldets-v2", { teamKey: "COL" })
+      ],
+      buildSymphonyTrackerIssue({
+        identifier: "COL-202",
+        teamKey: "SYM",
+        projectId: "project-coldets",
+        labels: []
+      }),
+      buildBindingCatalog()
+    );
+
+    expect(selection.repository.repositoryKey).toBe("conacts/coldets-v2");
+    expect(selection.repositoryWorkspaceBinding).toEqual(
+      expect.objectContaining({
+        repositoryWorkspaceBindingId: "repository_workspace_binding_coldets",
+        githubRepositoryIdentityId: "github_repository_identity_coldets",
+        repositoryKey: "conacts/coldets-v2"
+      })
+    );
   });
 
   it("rejects persisted binding catalogs that match multiple repositories for the same team", () => {

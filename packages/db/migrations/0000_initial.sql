@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS symphony_issues (
   repository_key TEXT NOT NULL,
   organization_id TEXT,
   linear_workspace_identity_id TEXT,
+  repository_workspace_binding_id TEXT,
   latest_run_started_at TEXT,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -13,9 +14,29 @@ CREATE TABLE IF NOT EXISTS symphony_issues (
     length(trim(linear_workspace_identity_id)) > 0
   ),
   CHECK (
+    repository_workspace_binding_id IS NULL OR
+    length(trim(repository_workspace_binding_id)) > 0
+  ),
+  CHECK (
     (organization_id IS NULL AND linear_workspace_identity_id IS NULL) OR
     (organization_id IS NOT NULL AND linear_workspace_identity_id IS NOT NULL)
+  ),
+  CHECK (
+    repository_workspace_binding_id IS NULL OR
+    (organization_id IS NOT NULL AND linear_workspace_identity_id IS NOT NULL)
+  ),
+  FOREIGN KEY (
+    organization_id,
+    repository_workspace_binding_id,
+    linear_workspace_identity_id
   )
+    REFERENCES symphony_repository_workspace_bindings(
+      organization_id,
+      repository_workspace_binding_id,
+      linear_workspace_identity_id
+    )
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS symphony_issues_issue_identifier_idx
@@ -32,6 +53,9 @@ CREATE INDEX IF NOT EXISTS symphony_issues_organization_id_idx
 
 CREATE INDEX IF NOT EXISTS symphony_issues_linear_workspace_identity_id_idx
   ON symphony_issues (linear_workspace_identity_id);
+
+CREATE INDEX IF NOT EXISTS symphony_issues_repository_workspace_binding_id_idx
+  ON symphony_issues (repository_workspace_binding_id);
 
 CREATE INDEX IF NOT EXISTS symphony_issues_latest_run_started_at_idx
   ON symphony_issues (latest_run_started_at);

@@ -9,7 +9,15 @@ import { createSymphonyIssueTimelineStore } from "./issue-timeline.js";
 import { createSymphonyIssueStore } from "./issues.js";
 import { createSqliteAgentAnalyticsReadStore } from "./agent-analytics-read-store.js";
 import { createSqliteSymphonyRuntimeRunStore } from "./runtime-run-store.js";
-import { symphonySchema, symphonyRunsTable } from "./schema.js";
+import {
+  symphonyGitHubInstallationIdentitiesTable,
+  symphonyGitHubRepositoryIdentitiesTable,
+  symphonyLinearWorkspaceIdentitiesTable,
+  symphonyOrganizationsTable,
+  symphonyRepositoryWorkspaceBindingsTable,
+  symphonySchema,
+  symphonyRunsTable
+} from "./schema.js";
 import type { SymphonyRuntimeRunStartAttrs } from "./runtime-run-types.js";
 import { eq } from "drizzle-orm";
 
@@ -33,16 +41,100 @@ async function recordSeededRunStarted(
   attrs: SymphonyRuntimeRunStartAttrs
 ): Promise<string> {
   const issueStore = createSymphonyIssueStore(db);
-  await issueStore.upsert({
-    issueIdentifier: attrs.issueIdentifier,
-    trackerIssueId: attrs.trackerIssueId,
-    repositoryKey: attrs.repositoryKey,
-    bindingScope: attrs.bindingScope ?? null,
-    latestRunStartedAt: null,
-    recordedAt: new Date(attrs.startedAt).toISOString()
-  });
+  const repositoryWorkspaceBindingId =
+    attrs.bindingScope === undefined || attrs.bindingScope === null
+      ? null
+      : seedHostedRepositoryWorkspaceBinding({
+          db,
+          organizationId: attrs.bindingScope.organizationId,
+          linearWorkspaceIdentityId: attrs.bindingScope.linearWorkspaceIdentityId,
+          repositoryKey: attrs.repositoryKey,
+          recordedAt: new Date(attrs.startedAt).toISOString()
+        });
+  await issueStore.upsert(
+    repositoryWorkspaceBindingId === null
+      ? {
+          issueIdentifier: attrs.issueIdentifier,
+          trackerIssueId: attrs.trackerIssueId,
+          repositoryKey: attrs.repositoryKey,
+          latestRunStartedAt: null,
+          recordedAt: new Date(attrs.startedAt).toISOString()
+        }
+      : {
+          issueIdentifier: attrs.issueIdentifier,
+          trackerIssueId: attrs.trackerIssueId,
+          repositoryKey: attrs.repositoryKey,
+          bindingScope: attrs.bindingScope!,
+          repositoryWorkspaceBindingId,
+          latestRunStartedAt: null,
+          recordedAt: new Date(attrs.startedAt).toISOString()
+        }
+  );
 
   return await runStore.recordRunStarted(attrs);
+}
+
+function seedHostedRepositoryWorkspaceBinding(input: {
+  db: ReturnType<typeof initializeSymphonyDb>["db"];
+  organizationId: string;
+  linearWorkspaceIdentityId: string;
+  repositoryKey: string;
+  recordedAt: string;
+}): string {
+  const repositoryWorkspaceBindingId = `binding_${input.organizationId}_${input.linearWorkspaceIdentityId}`;
+  const githubRepositoryIdentityId = `github_repo_${input.organizationId}_${input.linearWorkspaceIdentityId}`;
+  const githubInstallationIdentityId = `github_installation_${input.organizationId}`;
+
+  input.db.insert(symphonyOrganizationsTable).values({
+    organizationId: input.organizationId,
+    organizationSlug: input.organizationId,
+    displayName: input.organizationId,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.db.insert(symphonyGitHubInstallationIdentitiesTable).values({
+    githubInstallationIdentityId,
+    organizationId: input.organizationId,
+    provider: "github",
+    githubInstallationId: `${githubInstallationIdentityId}_id`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.db.insert(symphonyGitHubRepositoryIdentitiesTable).values({
+    githubRepositoryIdentityId,
+    organizationId: input.organizationId,
+    githubInstallationIdentityId,
+    provider: "github",
+    repositoryKey: input.repositoryKey,
+    githubRepositoryId: `${githubRepositoryIdentityId}_id`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.db.insert(symphonyLinearWorkspaceIdentitiesTable).values({
+    linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+    organizationId: input.organizationId,
+    provider: "linear",
+    linearWorkspaceId: `${input.linearWorkspaceIdentityId}_id`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.db.insert(symphonyRepositoryWorkspaceBindingsTable).values({
+    repositoryWorkspaceBindingId,
+    organizationId: input.organizationId,
+    githubInstallationIdentityId,
+    githubRepositoryIdentityId,
+    linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+    source: "bootstrap",
+    status: "active",
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  return repositoryWorkspaceBindingId;
 }
 
 describe("runtime run delivery projections", () => {
@@ -258,6 +350,13 @@ describe("runtime run delivery projections", () => {
           organizationId: "org-1",
           linearWorkspaceIdentityId: "workspace-1"
         },
+        repositoryWorkspaceBindingId: seedHostedRepositoryWorkspaceBinding({
+          db: database.db,
+          organizationId: "org-1",
+          linearWorkspaceIdentityId: "workspace-1",
+          repositoryKey: testRepositoryKey,
+          recordedAt: "2026-04-05T19:09:00.000Z"
+        }),
         latestRunStartedAt: null,
         recordedAt: "2026-04-05T19:10:00.000Z"
       });

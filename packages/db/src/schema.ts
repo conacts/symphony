@@ -1367,6 +1367,7 @@ export const symphonyIssuesTable = sqliteTable(
     repositoryKey: text("repository_key").notNull(),
     organizationId: text("organization_id"),
     linearWorkspaceIdentityId: text("linear_workspace_identity_id"),
+    repositoryWorkspaceBindingId: text("repository_workspace_binding_id"),
     latestRunStartedAt: text("latest_run_started_at"),
     insertedAt: text("inserted_at").notNull(),
     updatedAt: text("updated_at").notNull()
@@ -1380,10 +1381,31 @@ export const symphonyIssuesTable = sqliteTable(
       "symphony_issues_linear_workspace_identity_id_check",
       sql`${table.linearWorkspaceIdentityId} is null or length(trim(${table.linearWorkspaceIdentityId})) > 0`
     ),
+    repositoryWorkspaceBindingIdCheck: check(
+      "symphony_issues_repository_workspace_binding_id_check",
+      sql`${table.repositoryWorkspaceBindingId} is null or length(trim(${table.repositoryWorkspaceBindingId})) > 0`
+    ),
     bindingScopeShapeCheck: check(
       "symphony_issues_binding_scope_shape_check",
       sql`(${table.organizationId} is null and ${table.linearWorkspaceIdentityId} is null) or (${table.organizationId} is not null and ${table.linearWorkspaceIdentityId} is not null)`
     ),
+    hostedRepositoryBindingShapeCheck: check(
+      "symphony_issues_hosted_repository_binding_shape_check",
+      sql`${table.repositoryWorkspaceBindingId} is null or (${table.organizationId} is not null and ${table.linearWorkspaceIdentityId} is not null)`
+    ),
+    hostedRepositoryBindingFk: foreignKey({
+      columns: [
+        table.organizationId,
+        table.repositoryWorkspaceBindingId,
+        table.linearWorkspaceIdentityId
+      ],
+      foreignColumns: [
+        symphonyRepositoryWorkspaceBindingsTable.organizationId,
+        symphonyRepositoryWorkspaceBindingsTable.repositoryWorkspaceBindingId,
+        symphonyRepositoryWorkspaceBindingsTable.linearWorkspaceIdentityId
+      ],
+      name: "symphony_issues_hosted_repository_binding_fk"
+    }).onDelete("restrict").onUpdate("cascade"),
     issueIdentifierIdx: uniqueIndex("symphony_issues_issue_identifier_idx").on(
       table.issueIdentifier
     ),
@@ -1396,6 +1418,9 @@ export const symphonyIssuesTable = sqliteTable(
     linearWorkspaceIdentityIdIdx: index(
       "symphony_issues_linear_workspace_identity_id_idx"
     ).on(table.linearWorkspaceIdentityId),
+    repositoryWorkspaceBindingIdIdx: index(
+      "symphony_issues_repository_workspace_binding_id_idx"
+    ).on(table.repositoryWorkspaceBindingId),
     latestRunStartedAtIdx: index("symphony_issues_latest_run_started_at_idx").on(
       table.latestRunStartedAt
     )

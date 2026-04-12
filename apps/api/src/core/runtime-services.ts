@@ -81,7 +81,7 @@ import {
   reconcilePersistedActiveRunsOnShutdown,
   waitForPollSchedulerDrain
 } from "./runtime-shutdown-reconciliation.js";
-import { resolveIssueRepository } from "./runtime-repository-routing.js";
+import { resolveIssueRepositorySelection } from "./runtime-repository-routing.js";
 import type {
   SymphonyRuntimeBootstrapRepositorySource
 } from "./runtime-bootstrap-contract.js";
@@ -262,21 +262,44 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const routeWorkflows = createRouteWorkflowPort({
     routeWorkflowStore
   });
-  const resolveTrackedIssueRepositoryKey = (issue: SymphonyTrackerIssue) =>
-    resolveIssueRepository(
+  const resolveTrackedIssueRepositorySelection = (issue: SymphonyTrackerIssue) =>
+    resolveIssueRepositorySelection(
       admittedRepositories,
       issue,
       repositoryBindingCatalog
-    ).repositoryKey;
+    );
+  const resolveTrackedIssueRepositoryKey = (issue: SymphonyTrackerIssue) =>
+    resolveTrackedIssueRepositorySelection(issue).repository.repositoryKey;
   const seedTrackedIssueIdentity = async (issue: SymphonyTrackerIssue) => {
-    await issueStore.upsert({
-      issueIdentifier: issue.identifier,
-      trackerIssueId: issue.id,
-      repositoryKey: resolveTrackedIssueRepositoryKey(issue),
-      bindingScope: bootstrapBinding.bindingScope,
-      latestRunStartedAt: null,
-      recordedAt: new Date().toISOString()
-    });
+    const resolvedRepository = resolveTrackedIssueRepositorySelection(issue);
+    const repositoryWorkspaceBindingId =
+      resolvedRepository.repositoryWorkspaceBinding?.repositoryWorkspaceBindingId ??
+      null;
+    await issueStore.upsert(
+      bootstrapBinding.bindingScope === null
+        ? {
+            issueIdentifier: issue.identifier,
+            trackerIssueId: issue.id,
+            repositoryKey: resolvedRepository.repository.repositoryKey,
+            latestRunStartedAt: null,
+            recordedAt: new Date().toISOString()
+          }
+        : {
+            issueIdentifier: issue.identifier,
+            trackerIssueId: issue.id,
+            repositoryKey: resolvedRepository.repository.repositoryKey,
+            bindingScope: bootstrapBinding.bindingScope,
+            repositoryWorkspaceBindingId:
+              repositoryWorkspaceBindingId ??
+              (() => {
+                throw new TypeError(
+                  `Hosted issue ${issue.identifier} requires a repository workspace binding id.`
+                );
+              })(),
+            latestRunStartedAt: null,
+            recordedAt: new Date().toISOString()
+          }
+    );
   };
   const workflowSessionLoader = await createRuntimeWorkflowSessionLoader({
     routeWorkflows,

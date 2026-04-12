@@ -4,6 +4,11 @@ import {
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
   createSqliteSymphonyRuntimeRunStore,
+  symphonyGitHubInstallationIdentitiesTable,
+  symphonyGitHubRepositoryIdentitiesTable,
+  symphonyLinearWorkspaceIdentitiesTable,
+  symphonyOrganizationsTable,
+  symphonyRepositoryWorkspaceBindingsTable,
   type SymphonyLifecycleBindingScope
 } from "@symphony/db";
 import {
@@ -282,15 +287,36 @@ async function createObserverHarness(input?: {
     identifier: "SYM-101",
     state: "Bootstrapping"
   });
+  const repositoryWorkspaceBindingId =
+    input?.bindingScope === undefined || input.bindingScope === null
+      ? null
+      : seedHostedRepositoryWorkspaceBinding({
+          sqlite,
+          organizationId: input.bindingScope.organizationId,
+          linearWorkspaceIdentityId: input.bindingScope.linearWorkspaceIdentityId,
+          repositoryKey,
+          recordedAt: "2026-04-09T21:53:00.000Z"
+        });
   const issueStore = createSymphonyIssueStore(sqlite.database.db);
-  await issueStore.upsert({
-    issueIdentifier: issue.identifier,
-    trackerIssueId: issue.id,
-    repositoryKey,
-    bindingScope: input?.bindingScope ?? null,
-    latestRunStartedAt: null,
-    recordedAt: "2026-04-09T21:54:00.000Z"
-  });
+  await issueStore.upsert(
+    repositoryWorkspaceBindingId === null
+      ? {
+          issueIdentifier: issue.identifier,
+          trackerIssueId: issue.id,
+          repositoryKey,
+          latestRunStartedAt: null,
+          recordedAt: "2026-04-09T21:54:00.000Z"
+        }
+      : {
+          issueIdentifier: issue.identifier,
+          trackerIssueId: issue.id,
+          repositoryKey,
+          bindingScope: input!.bindingScope!,
+          repositoryWorkspaceBindingId,
+          latestRunStartedAt: null,
+          recordedAt: "2026-04-09T21:54:00.000Z"
+        }
+  );
 
   const issueTimelineStore = createSymphonyIssueTimelineStore(sqlite.database.db, {
     repositoryKey
@@ -337,4 +363,67 @@ async function createObserverHarness(input?: {
     issueTimelineStore,
     runtimeLogStore
   };
+}
+
+function seedHostedRepositoryWorkspaceBinding(input: {
+  sqlite: SymphonyTempSqliteHarness;
+  organizationId: string;
+  linearWorkspaceIdentityId: string;
+  repositoryKey: string;
+  recordedAt: string;
+}): string {
+  const repositoryWorkspaceBindingId = `binding_${input.organizationId}_${input.linearWorkspaceIdentityId}`;
+  const githubRepositoryIdentityId = `github_repo_${input.organizationId}_${input.linearWorkspaceIdentityId}`;
+  const githubInstallationIdentityId = `github_installation_${input.organizationId}`;
+
+  input.sqlite.database.db.insert(symphonyOrganizationsTable).values({
+    organizationId: input.organizationId,
+    organizationSlug: input.organizationId,
+    displayName: input.organizationId,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.sqlite.database.db.insert(symphonyGitHubInstallationIdentitiesTable).values({
+    githubInstallationIdentityId,
+    organizationId: input.organizationId,
+    provider: "github",
+    githubInstallationId: `${githubInstallationIdentityId}_id`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.sqlite.database.db.insert(symphonyGitHubRepositoryIdentitiesTable).values({
+    githubRepositoryIdentityId,
+    organizationId: input.organizationId,
+    githubInstallationIdentityId,
+    provider: "github",
+    repositoryKey: input.repositoryKey,
+    githubRepositoryId: `${githubRepositoryIdentityId}_id`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.sqlite.database.db.insert(symphonyLinearWorkspaceIdentitiesTable).values({
+    linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+    organizationId: input.organizationId,
+    provider: "linear",
+    linearWorkspaceId: `${input.linearWorkspaceIdentityId}_id`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.sqlite.database.db.insert(symphonyRepositoryWorkspaceBindingsTable).values({
+    repositoryWorkspaceBindingId,
+    organizationId: input.organizationId,
+    githubInstallationIdentityId,
+    githubRepositoryIdentityId,
+    linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+    source: "bootstrap",
+    status: "active",
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  return repositoryWorkspaceBindingId;
 }

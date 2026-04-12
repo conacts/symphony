@@ -721,6 +721,104 @@ describe("runtime services", () => {
     runtimeServicesIntegrationTestTimeoutMs
   );
 
+  it(
+    "persists the hosted repository workspace binding on seeded issue identity",
+    async () => {
+      const harness = await createSymphonyRuntimeAppServicesHarness({
+        startPollScheduler: false,
+        startMachineLoadMonitor: false,
+        enableDockerPreflight: false
+      });
+      harnesses.push(harness);
+      const repositorySource: SymphonyRuntimeBootstrapRepositorySource = {
+        kind: "persisted_workspace_bindings",
+        source: "database",
+        sourceRepos: [...harness.env.sourceRepos],
+        bindingScope: {
+          organizationId: "org_200",
+          linearWorkspaceIdentityId: "linear_workspace_identity_org_200"
+        }
+      };
+      let hostedServices: Awaited<
+        ReturnType<typeof loadDefaultSymphonyRuntimeAppServices>
+      > | null = null;
+
+      try {
+        await seedPersistedWorkspaceBindingCatalog({
+          dbFile: harness.env.dbFile,
+          organizationId: "org_200",
+          linearWorkspaceIdentityId: "linear_workspace_identity_org_200",
+          repositories: [
+            {
+              repositoryKey: "openai/symphony",
+              githubRepositoryIdentityId: "github_repository_identity_symphony",
+              githubRepositoryId: "github_repository_symphony",
+              linearTeamIdentityId: "linear_team_identity_symphony",
+              linearTeamId: "linear_team_symphony",
+              linearTeamKey: "SYM",
+              linearProjectIdentityId: "linear_project_identity_symphony",
+              linearProjectId: "project-symphony",
+              repositoryWorkspaceBindingId: "repository_workspace_binding_symphony"
+            }
+          ]
+        });
+
+        hostedServices = await loadDefaultSymphonyRuntimeAppServices(
+          harness.env,
+          harness.environmentSource,
+          harness.hostCommandEnvSource,
+          {
+            startPollScheduler: false,
+            startMachineLoadMonitor: false,
+            enableDockerPreflight: false,
+            repositorySource
+          }
+        );
+
+        const tracker = hostedServices.tracker as MemorySymphonyTracker;
+        tracker.setIssues([
+          buildSymphonyTrackerIssue({
+            id: "issue-hosted-binding-1",
+            identifier: "SYM-900",
+            teamKey: "SYM",
+            state: "Todo"
+          })
+        ]);
+
+        await hostedServices.trackerStateIngress.observeNonRunningIssue({
+          issueIdentifier: "SYM-900"
+        });
+
+        const verifyDb = initializeSymphonyDb({
+          dbFile: harness.env.dbFile
+        });
+
+        try {
+          const row = verifyDb.client.prepare(`
+            select
+              issue_identifier as issueIdentifier,
+              repository_workspace_binding_id as repositoryWorkspaceBindingId
+            from symphony_issues
+            where tracker_issue_id = ?
+          `).get("issue-hosted-binding-1") as {
+            issueIdentifier: string;
+            repositoryWorkspaceBindingId: string | null;
+          } | undefined;
+
+          expect(row).toEqual({
+            issueIdentifier: "SYM-900",
+            repositoryWorkspaceBindingId: "repository_workspace_binding_symphony"
+          });
+        } finally {
+          verifyDb.close();
+        }
+      } finally {
+        await hostedServices?.shutdown();
+      }
+    },
+    runtimeServicesIntegrationTestTimeoutMs
+  );
+
   it("fails fast when persisted workspace bindings do not cover every admitted source repository", async () => {
     const fixture = await createMultiRepoRuntimeBootstrapFixture();
     const persistedRepositorySource: SymphonyRuntimeBootstrapRepositorySource = {

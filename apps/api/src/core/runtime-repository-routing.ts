@@ -2,7 +2,10 @@ import {
   resolveSymphonyRepositoryLabel,
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
-import type { SymphonyWorkspaceBindingCatalog } from "@symphony/db";
+import type {
+  SymphonyRepositoryWorkspaceBindingRecord,
+  SymphonyWorkspaceBindingCatalog
+} from "@symphony/db";
 import type { SymphonyTrackerRuntimePolicy } from "@symphony/runtime-policy";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 
@@ -11,21 +14,38 @@ type RuntimeRepositoryIssue = Pick<
   "identifier" | "labels" | "projectId" | "teamKey"
 >;
 
+export type ResolvedRuntimeIssueRepository = {
+  repository: AdmittedRuntimeRepository;
+  repositoryWorkspaceBinding: SymphonyRepositoryWorkspaceBindingRecord | null;
+};
+
 export function resolveIssueRepository(
   admittedRepositories: AdmittedRuntimeRepository[],
   issue: RuntimeRepositoryIssue,
   bindingCatalog: SymphonyWorkspaceBindingCatalog | null = null
 ): AdmittedRuntimeRepository {
+  return resolveIssueRepositorySelection(
+    admittedRepositories,
+    issue,
+    bindingCatalog
+  ).repository;
+}
+
+export function resolveIssueRepositorySelection(
+  admittedRepositories: AdmittedRuntimeRepository[],
+  issue: RuntimeRepositoryIssue,
+  bindingCatalog: SymphonyWorkspaceBindingCatalog | null = null
+): ResolvedRuntimeIssueRepository {
   const defaultRepository = admittedRepositories[0];
   if (!defaultRepository) {
     throw new TypeError("At least one admitted repository is required.");
   }
 
   const labeledRepository = resolveLabeledRepository(admittedRepositories, issue);
-  const boundRepository =
+  const boundSelection =
     bindingCatalog === null
-      ? resolveRepositoryByManifestLinearScope(admittedRepositories, issue)
-      : resolveRepositoryByPersistedBindingCatalog({
+      ? resolveRepositoryByManifestLinearScopeSelection(admittedRepositories, issue)
+      : resolveRepositoryByPersistedBindingCatalogSelection({
           admittedRepositories,
           issue,
           bindingCatalog
@@ -43,15 +63,30 @@ export function resolveIssueRepository(
       );
     }
 
-    if (bindingCatalog !== null && !boundRepository && !labeledRepository) {
+    if (bindingCatalog !== null && !boundSelection) {
       throw new TypeError(
         `Issue ${issue.identifier} does not match any admitted repository by persisted binding scope.`
       );
     }
 
-    return defaultRepository;
+    if (
+      labeledRepository &&
+      boundSelection &&
+      labeledRepository.repositoryKey !== boundSelection.repository.repositoryKey
+    ) {
+      throw new TypeError(
+        `Issue ${issue.identifier} has conflicting repository routing between persisted binding scope and repo label.`
+      );
+    }
+
+    return (
+      boundSelection ?? {
+        repository: defaultRepository,
+        repositoryWorkspaceBinding: null
+      }
+    );
   }
-  if (!boundRepository) {
+  if (!boundSelection) {
     throw new TypeError(
       `Issue ${issue.identifier} does not match any admitted repository by ${
         bindingCatalog === null ? "Linear scope" : "persisted binding scope"
@@ -61,14 +96,16 @@ export function resolveIssueRepository(
 
   if (
     labeledRepository &&
-    labeledRepository.repositoryKey !== boundRepository.repositoryKey
+    labeledRepository.repositoryKey !== boundSelection.repository.repositoryKey
   ) {
     throw new TypeError(
-      `Issue ${issue.identifier} has conflicting repository routing between Linear scope and repo label.`
+      `Issue ${issue.identifier} has conflicting repository routing between ${
+        bindingCatalog === null ? "Linear scope" : "persisted binding scope"
+      } and repo label.`
     );
   }
 
-  return boundRepository;
+  return boundSelection;
 }
 
 export function resolveWorkspaceRepository(
@@ -157,11 +194,17 @@ export function resolveRepositoryForPersistedBindingScope(input: {
     );
   }
 
-  const repositoryKey = resolveRepositoryKeyByPersistedBindingScope({
+  const repositoryWorkspaceBinding = resolveRepositoryBindingByPersistedBindingScope({
     bindingCatalog: input.bindingCatalog,
     teamKey: input.tracker.teamKey,
     projectId: null
   });
+  if (!repositoryWorkspaceBinding) {
+    throw new TypeError(
+      "Persisted workspace binding scope does not match any admitted repository."
+    );
+  }
+  const repositoryKey = repositoryWorkspaceBinding.repositoryKey;
   const matchedRepository = input.admittedRepositories.find(
     (repository) => repository.repositoryKey === repositoryKey
   );
@@ -200,10 +243,10 @@ function resolveLabeledRepository(
   return matchedRepository;
 }
 
-function resolveRepositoryByManifestLinearScope(
+function resolveRepositoryByManifestLinearScopeSelection(
   admittedRepositories: AdmittedRuntimeRepository[],
   issue: RuntimeRepositoryIssue
-): AdmittedRuntimeRepository | null {
+): ResolvedRuntimeIssueRepository | null {
   const boundRepositories = admittedRepositories.filter((repository) =>
     repositoryMatchesLinearIssue(repository, issue)
   );
@@ -214,42 +257,52 @@ function resolveRepositoryByManifestLinearScope(
     );
   }
 
-  return boundRepositories[0] ?? null;
+  const repository = boundRepositories[0] ?? null;
+  return repository
+    ? {
+        repository,
+        repositoryWorkspaceBinding: null
+      }
+    : null;
 }
 
-function resolveRepositoryByPersistedBindingCatalog(input: {
+function resolveRepositoryByPersistedBindingCatalogSelection(input: {
   admittedRepositories: AdmittedRuntimeRepository[];
   issue: RuntimeRepositoryIssue;
   bindingCatalog: SymphonyWorkspaceBindingCatalog;
-}): AdmittedRuntimeRepository | null {
-  const repositoryKey = resolveRepositoryKeyByPersistedBindingScope({
+}): ResolvedRuntimeIssueRepository | null {
+  const repositoryWorkspaceBinding = resolveRepositoryBindingByPersistedBindingScope({
     bindingCatalog: input.bindingCatalog,
     teamKey: input.issue.teamKey,
     projectId: input.issue.projectId
   });
-  if (!repositoryKey) {
+  if (!repositoryWorkspaceBinding) {
     return null;
   }
 
   const matchedRepository = input.admittedRepositories.find(
-    (repository) => repository.repositoryKey === repositoryKey
+    (repository) =>
+      repository.repositoryKey === repositoryWorkspaceBinding.repositoryKey
   );
   if (!matchedRepository) {
     throw new TypeError(
       `Persisted workspace binding selected repository ${JSON.stringify(
-        repositoryKey
+        repositoryWorkspaceBinding.repositoryKey
       )}, but that repository is not admitted.`
     );
   }
 
-  return matchedRepository;
+  return {
+    repository: matchedRepository,
+    repositoryWorkspaceBinding
+  };
 }
 
-function resolveRepositoryKeyByPersistedBindingScope(input: {
+function resolveRepositoryBindingByPersistedBindingScope(input: {
   bindingCatalog: SymphonyWorkspaceBindingCatalog;
   teamKey: string | null;
   projectId: string | null;
-}): string | null {
+}): SymphonyRepositoryWorkspaceBindingRecord | null {
   const projectId = sanitizeOptionalText(input.projectId);
   if (projectId) {
     const projectMatches = input.bindingCatalog.repositories.filter((repository) =>
@@ -265,7 +318,7 @@ function resolveRepositoryKeyByPersistedBindingScope(input: {
       );
     }
     if (projectMatches.length === 1) {
-      return projectMatches[0]!.repositoryKey;
+      return projectMatches[0]!;
     }
   }
 
@@ -288,7 +341,7 @@ function resolveRepositoryKeyByPersistedBindingScope(input: {
     );
   }
 
-  return teamMatches[0]?.repositoryKey ?? null;
+  return teamMatches[0] ?? null;
 }
 
 function repositoryMatchesLinearIssue(

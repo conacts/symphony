@@ -13,10 +13,31 @@ export type SymphonyIssueRecord = {
   issueIdentifier: string;
   repositoryKey: string;
   bindingScope: SymphonyLifecycleBindingScope | null;
+  repositoryWorkspaceBindingId: string | null;
   latestRunStartedAt: string | null;
   insertedAt: string;
   updatedAt: string;
 };
+
+export type SymphonyIssueUpsertInput =
+  | {
+      issueIdentifier: string;
+      trackerIssueId: string;
+      repositoryKey: string;
+      bindingScope?: null | undefined;
+      repositoryWorkspaceBindingId?: null | undefined;
+      latestRunStartedAt: string | null;
+      recordedAt: string;
+    }
+  | {
+      issueIdentifier: string;
+      trackerIssueId: string;
+      repositoryKey: string;
+      bindingScope: SymphonyLifecycleBindingScope;
+      repositoryWorkspaceBindingId: string;
+      latestRunStartedAt: string | null;
+      recordedAt: string;
+    };
 
 export interface SymphonyIssueStore {
   fetchByIdentifier(issueIdentifier: string): Promise<SymphonyIssueRecord | null>;
@@ -25,14 +46,7 @@ export interface SymphonyIssueStore {
     issueIdentifier: string;
     bindingScope: SymphonyLifecycleBindingScope;
   }): Promise<SymphonyIssueRecord | null>;
-  upsert(input: {
-    issueIdentifier: string;
-    trackerIssueId: string;
-    repositoryKey: string;
-    bindingScope?: SymphonyLifecycleBindingScope | null;
-    latestRunStartedAt: string | null;
-    recordedAt: string;
-  }): Promise<void>;
+  upsert(input: SymphonyIssueUpsertInput): Promise<void>;
 }
 
 export function createSymphonyIssueStore(
@@ -66,7 +80,7 @@ export function createSymphonyIssueStore(
       return record;
     },
 
-    async upsert(input) {
+    async upsert(input: SymphonyIssueUpsertInput) {
       const issueIdentifier = sanitizeRequiredText(
         input.issueIdentifier,
         "issueIdentifier"
@@ -80,11 +94,26 @@ export function createSymphonyIssueStore(
         "repositoryKey"
       );
       const bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
+      const repositoryWorkspaceBindingId = sanitizeText(
+        input.repositoryWorkspaceBindingId
+      );
       const latestRunStartedAt = normalizeOptionalIsoTimestamp(
         input.latestRunStartedAt,
         "latestRunStartedAt"
       );
       const recordedAt = requireIsoTimestamp(input.recordedAt, "recordedAt");
+
+      if (bindingScope === null && repositoryWorkspaceBindingId !== null) {
+        throw new TypeError(
+          `Issue ${issueIdentifier} cannot bind hosted repository workspace ${repositoryWorkspaceBindingId} without a hosted workspace scope.`
+        );
+      }
+      if (bindingScope !== null && repositoryWorkspaceBindingId === null) {
+        throw new TypeError(
+          `Issue ${issueIdentifier} requires repositoryWorkspaceBindingId for hosted workspace ${bindingScope.organizationId}/${bindingScope.linearWorkspaceIdentityId}.`
+        );
+      }
+
       const existing = db
         .select()
         .from(symphonyIssuesTable)
@@ -111,6 +140,7 @@ export function createSymphonyIssueStore(
             organizationId: bindingScope?.organizationId ?? null,
             linearWorkspaceIdentityId:
               bindingScope?.linearWorkspaceIdentityId ?? null,
+            repositoryWorkspaceBindingId,
             latestRunStartedAt,
             insertedAt: recordedAt,
             updatedAt: recordedAt
@@ -136,6 +166,15 @@ export function createSymphonyIssueStore(
         );
       }
 
+      if (
+        existing.repositoryWorkspaceBindingId !== null &&
+        existing.repositoryWorkspaceBindingId !== repositoryWorkspaceBindingId
+      ) {
+        throw new TypeError(
+          `Issue ${existing.issueIdentifier} is already bound to hosted repository workspace ${existing.repositoryWorkspaceBindingId}, not ${repositoryWorkspaceBindingId ?? "null"}.`
+        );
+      }
+
       if (existing.issueIdentifier !== issueIdentifier) {
         const conflictingIssueIdentifier = db
           .select()
@@ -152,6 +191,8 @@ export function createSymphonyIssueStore(
       db.update(symphonyIssuesTable)
         .set({
           issueIdentifier,
+          repositoryWorkspaceBindingId:
+            existing.repositoryWorkspaceBindingId ?? repositoryWorkspaceBindingId,
           latestRunStartedAt:
             latestRunStartedAt && isLaterTimestamp(latestRunStartedAt, existing.latestRunStartedAt)
               ? latestRunStartedAt
@@ -276,6 +317,7 @@ function mapIssueRow(
       linearWorkspaceIdentityId: row.linearWorkspaceIdentityId,
       owner: `Issue ${row.issueIdentifier}`
     }),
+    repositoryWorkspaceBindingId: row.repositoryWorkspaceBindingId ?? null,
     latestRunStartedAt: row.latestRunStartedAt ?? null,
     insertedAt: row.insertedAt,
     updatedAt: row.updatedAt
