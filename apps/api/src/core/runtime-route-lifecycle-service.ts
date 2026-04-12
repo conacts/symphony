@@ -125,6 +125,7 @@ export type SymphonyRuntimeRouteLifecycleService = {
 
 export type SymphonyObservedTrackerState = {
   issueIdentifier: string;
+  // This is the tracker state observed at ingress time, not a workflow projection.
   trackerState: string;
 };
 
@@ -244,7 +245,7 @@ export async function createRuntimeRouteLifecycleService(input: {
           issueIdentifier: issue.identifier
         });
         if (
-          !shouldObserveNonRunningTrackerState({
+          !shouldIngressObservedNonRunningTrackerState({
             issue,
             hydration
           })
@@ -282,7 +283,7 @@ export async function createRuntimeRouteLifecycleService(input: {
         issueIdentifier: issue.identifier
       });
       if (
-        !shouldObserveNonRunningTrackerState({
+        !shouldIngressObservedNonRunningTrackerState({
           issue,
           hydration
         })
@@ -467,24 +468,28 @@ const nonRunningTrackerObservationStates = [
   "Failed"
 ] as const;
 
-function shouldObserveNonRunningTrackerState(input: {
+function shouldIngressObservedNonRunningTrackerState(input: {
   issue: {
     state: string;
   };
   hydration: SymphonyLoadedRuntimeWorkflowHydration | null;
 }): boolean {
-  const observedState = normalizeIssueState(input.issue.state);
+  const observedTrackerState = normalizeIssueState(input.issue.state);
   const hydration = input.hydration;
   const snapshot = hydration?.hydrationState.snapshot;
-  let hydratedState: string | null = null;
+  let projectedWorkflowTrackerState: string | null = null;
   if (hydration && snapshot) {
-    hydratedState = hydration.routing.module.runtimeAdapter.readTrackerStateFromProjection({
-      workflowId: hydration.hydrationState.workflow.workflowId,
-      data: snapshot.projection.data
-    });
+    projectedWorkflowTrackerState =
+      hydration.routing.module.runtimeAdapter.readTrackerStateFromProjection({
+        workflowId: hydration.hydrationState.workflow.workflowId,
+        data: snapshot.projection.data
+      });
   }
 
-  if (hydratedState && normalizeIssueState(hydratedState) === observedState) {
+  if (
+    projectedWorkflowTrackerState &&
+    normalizeIssueState(projectedWorkflowTrackerState) === observedTrackerState
+  ) {
     if (!hydration || !snapshot) {
       return false;
     }
@@ -501,6 +506,8 @@ function shouldObserveNonRunningTrackerState(input: {
         workflowId: hydration.hydrationState.workflow.workflowId,
         currentNode,
         data: snapshot.projection.data,
+        // This is the externally observed tracker state being compared against
+        // unchanged workflow state to decide whether ingress should still emit.
         trackerState: input.issue.state
       }
     );
@@ -511,7 +518,7 @@ function shouldObserveNonRunningTrackerState(input: {
   }
 
   return nonRunningTrackerSeedStates.some(
-    (state) => normalizeIssueState(state) === observedState
+    (state) => normalizeIssueState(state) === observedTrackerState
   );
 }
 

@@ -48,6 +48,8 @@ export type SymphonyTrackerStateObservationInput =
   | SymphonyActiveTrackerStateObservationInput;
 
 export type SymphonyTrackerStateObservationResult = {
+  // The returned issue reflects any tracker.transition commands emitted from
+  // the observed external tracker state signal.
   issue: SymphonyTrackerIssue;
 };
 
@@ -97,18 +99,20 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
       }
       const { resumed } = loaded;
       const presetAdapter = loaded.routing.module.runtimeAdapter;
+      const observedTrackerState = issue.state;
 
       const observedRunId = readObservedRunId(observationInput);
       const observedRunMode = readObservedRunMode(observationInput);
       const result = await resumed.session.receiveAsync(
         presetAdapter.createTrackerStateObservedSignal({
-          id: buildTrackerStateObservedSignalId({
-            issue,
+          id: buildObservedTrackerStateSignalId({
+            issueId: issue.id,
+            observedTrackerState,
             runMode: observedRunMode,
             recordedAt: observationInput.recordedAt
           }),
           occurredAt: observationInput.recordedAt,
-          trackerState: issue.state,
+          trackerState: observedTrackerState,
           runId: observedRunId,
           runMode: observedRunMode,
           causationId: observedRunId,
@@ -205,16 +209,17 @@ async function executeTrackerTransition(input: {
   };
 }
 
-function buildTrackerStateObservedSignalId(input: {
-  issue: SymphonyTrackerIssue;
+function buildObservedTrackerStateSignalId(input: {
+  issueId: string;
+  observedTrackerState: string;
   runMode: SymphonyRunMode | null;
   recordedAt: string;
 }) {
   return [
     "signal",
     "tracker_state_observed",
-    normalizeWorkflowToken(input.issue.id),
-    normalizeWorkflowToken(input.issue.state),
+    normalizeWorkflowToken(input.issueId),
+    normalizeWorkflowToken(input.observedTrackerState),
     normalizeWorkflowToken(input.runMode ?? "none"),
     normalizeWorkflowToken(input.recordedAt)
   ].join("_");

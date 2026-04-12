@@ -42,16 +42,18 @@ export async function createRuntimeRunLifecycleRouter(input: {
       }
       const { resumed } = loaded;
       const presetAdapter = loaded.routing.module.runtimeAdapter;
+      const observedTrackerState = observationInput.issue.state;
 
       const result = await resumed.session.receiveAsync(
         presetAdapter.createTrackerStateObservedSignal({
-          id: buildRunningIssueObservedSignalId({
-            issue: observationInput.issue,
+          id: buildRunningTrackerStateObservedSignalId({
+            issueId: observationInput.issue.id,
+            observedTrackerState,
             runMode: observationInput.runMode,
             recordedAt: observationInput.recordedAt
           }),
           occurredAt: observationInput.recordedAt,
-          trackerState: observationInput.issue.state,
+          trackerState: observedTrackerState,
           runId: observationInput.runId,
           runMode: observationInput.runMode,
           causationId: observationInput.runId,
@@ -187,16 +189,17 @@ async function executeTrackerTransition(input: {
   };
 }
 
-function buildRunningIssueObservedSignalId(input: {
-  issue: SymphonyTrackerIssue;
+function buildRunningTrackerStateObservedSignalId(input: {
+  issueId: string;
+  observedTrackerState: string;
   runMode: string;
   recordedAt: string;
 }) {
   return [
     "signal",
-    "running_issue_observed",
-    normalizeWorkflowToken(input.issue.id),
-    normalizeWorkflowToken(input.issue.state),
+    "running_tracker_state_observed",
+    normalizeWorkflowToken(input.issueId),
+    normalizeWorkflowToken(input.observedTrackerState),
     normalizeWorkflowToken(input.runMode),
     normalizeWorkflowToken(input.recordedAt)
   ].join("_");
