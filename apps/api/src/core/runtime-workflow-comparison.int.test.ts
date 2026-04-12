@@ -129,6 +129,7 @@ async function createHarness() {
     trackerConfig: runtimePolicy.tracker
   });
   const ensured = await routeWorkflows.ensureWorkflowForIssue({
+    trackerIssueId: issue.id,
     repositoryKey,
     issueIdentifier: issue.identifier,
     routerPresetId: routing.presetId,

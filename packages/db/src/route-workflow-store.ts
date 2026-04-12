@@ -22,6 +22,7 @@ import {
   SymphonyRouteWorkflowNotFoundError
 } from "./errors.js";
 import {
+  assertMatchingLifecycleBindingScope,
   mapLifecycleBindingScope,
   normalizeLifecycleBindingScope,
   type SymphonyLifecycleBindingScope
@@ -30,7 +31,8 @@ import {
   routeDecisionsTable,
   routeHistoryEventsTable,
   routeProjectionSnapshotsTable,
-  routeWorkflowsTable
+  routeWorkflowsTable,
+  symphonyIssuesTable
 } from "./schema.js";
 
 type RouteHistoryEventKind =
@@ -43,9 +45,33 @@ export type RouteWorkflowBindingScope = SymphonyLifecycleBindingScope;
 
 export type RouteWorkflowRecord = {
   workflowId: string;
+  trackerIssueId: string;
   repositoryKey: string;
   issueIdentifier: string;
   bindingScope: RouteWorkflowBindingScope | null;
+  routerPresetId: string;
+  routerName: string;
+  routerVersion: string;
+  archivedAt: string | null;
+  insertedAt: string;
+  updatedAt: string;
+};
+
+type CanonicalIssueBindingRow = {
+  trackerIssueId: string;
+  issueIdentifier: string;
+  repositoryKey: string;
+  organizationId: string | null;
+  linearWorkspaceIdentityId: string | null;
+};
+
+type RouteWorkflowRecordRow = {
+  workflowId: string;
+  trackerIssueId: string;
+  repositoryKey: string;
+  issueIdentifier: string;
+  organizationId: string | null;
+  linearWorkspaceIdentityId: string | null;
   routerPresetId: string;
   routerName: string;
   routerVersion: string;
@@ -126,6 +152,7 @@ export type RouteWorkflowHydrationState<
 
 export interface RouteWorkflowStore {
   createWorkflow(input: {
+    trackerIssueId: string;
     repositoryKey: string;
     issueIdentifier: string;
     bindingScope?: RouteWorkflowBindingScope | null;
@@ -135,6 +162,7 @@ export interface RouteWorkflowStore {
     createdAt: string;
   }): Promise<string>;
   getWorkflow(workflowId: string): Promise<RouteWorkflowRecord | null>;
+  getWorkflowForTrackerIssueId(trackerIssueId: string): Promise<RouteWorkflowRecord | null>;
   getWorkflowForIssue(issueIdentifier: string): Promise<RouteWorkflowRecord | null>;
   getWorkflowForScopedIssue(input: {
     issueIdentifier: string;
@@ -229,6 +257,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
   }
 
   async createWorkflow(input: {
+    trackerIssueId: string;
     repositoryKey: string;
     issueIdentifier: string;
     bindingScope?: RouteWorkflowBindingScope | null;
@@ -238,6 +267,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     createdAt: string;
   }): Promise<string> {
     const workflowId = randomUUID();
+    const trackerIssueId = sanitizeRequiredText(input.trackerIssueId, "trackerIssueId");
     const repositoryKey = sanitizeRequiredText(input.repositoryKey, "repositoryKey");
     const issueIdentifier = sanitizeRequiredText(input.issueIdentifier, "issueIdentifier");
     const bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
@@ -245,15 +275,29 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     const routerName = sanitizeRequiredText(input.routerName, "routerName");
     const routerVersion = sanitizeRequiredText(input.routerVersion, "routerVersion");
     const now = sanitizeRequiredText(input.createdAt, "createdAt");
+    const canonicalIssue = this.#selectCanonicalIssueBindingByTrackerIssueId({
+      trackerIssueId
+    });
+
+    if (!canonicalIssue) {
+      throw new TypeError(
+        `Issue binding not found for route workflow create: ${trackerIssueId}.`
+      );
+    }
+
+    assertCanonicalWorkflowIssueCompatibility({
+      trackerIssueId,
+      issueIdentifier,
+      repositoryKey,
+      bindingScope,
+      issue: canonicalIssue
+    });
 
     try {
       this.#db.insert(routeWorkflowsTable)
         .values({
           workflowId,
-          repositoryKey,
-          issueIdentifier,
-          organizationId: bindingScope?.organizationId ?? null,
-          linearWorkspaceIdentityId: bindingScope?.linearWorkspaceIdentityId ?? null,
+          trackerIssueId,
           routerPresetId,
           routerName,
           routerVersion,
@@ -264,14 +308,13 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
         .run();
     } catch (error) {
       if (isLiveWorkflowConstraintError(error)) {
-        const existing = this.#selectLiveWorkflowByIssue({
-          issueIdentifier,
-          bindingScope
-        });
+        const existing = this.#selectLiveWorkflowRecordByTrackerIssueId(
+          trackerIssueId
+        );
 
         if (existing) {
           throw new SymphonyRouteWorkflowExistsError({
-            issueIdentifier,
+            issueIdentifier: existing.issueIdentifier,
             existingWorkflowId: existing.workflowId
           });
         }
@@ -284,17 +327,25 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
   }
 
   async getWorkflow(workflowId: string): Promise<RouteWorkflowRecord | null> {
-    const row = this.#db
-      .select()
-      .from(routeWorkflowsTable)
-      .where(eq(routeWorkflowsTable.workflowId, sanitizeRequiredText(workflowId, "workflowId")))
-      .get();
+    const row = this.#selectWorkflowRecordByWorkflowId(
+      sanitizeRequiredText(workflowId, "workflowId")
+    );
+
+    return row ? mapWorkflowRow(row) : null;
+  }
+
+  async getWorkflowForTrackerIssueId(
+    trackerIssueId: string
+  ): Promise<RouteWorkflowRecord | null> {
+    const row = this.#selectLiveWorkflowRecordByTrackerIssueId(
+      sanitizeRequiredText(trackerIssueId, "trackerIssueId")
+    );
 
     return row ? mapWorkflowRow(row) : null;
   }
 
   async getWorkflowForIssue(issueIdentifier: string): Promise<RouteWorkflowRecord | null> {
-    const row = this.#selectLiveWorkflowByIssue({
+    const row = this.#selectLiveWorkflowRecordByIssue({
       issueIdentifier,
       bindingScope: null
     });
@@ -306,7 +357,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     issueIdentifier: string;
     bindingScope: RouteWorkflowBindingScope;
   }): Promise<RouteWorkflowRecord | null> {
-    const row = this.#selectLiveWorkflowByIssue({
+    const row = this.#selectLiveWorkflowRecordByIssue({
       issueIdentifier: input.issueIdentifier,
       bindingScope: input.bindingScope
     });
@@ -405,11 +456,10 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     const normalizedWorkflowId = sanitizeRequiredText(workflowId, "workflowId");
 
     return this.#db.transaction((tx) => {
-      const workflowRow = tx
-        .select()
-        .from(routeWorkflowsTable)
-        .where(eq(routeWorkflowsTable.workflowId, normalizedWorkflowId))
-        .get();
+      const workflowRow = this.#selectWorkflowRecordByWorkflowId(
+        normalizedWorkflowId,
+        tx
+      );
 
       if (!workflowRow) {
         return null;
@@ -425,7 +475,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     Policy = unknown,
   >(issueIdentifier: string): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null> {
     return this.#db.transaction((tx) => {
-      const workflowRow = this.#selectLiveWorkflowByIssue(
+      const workflowRow = this.#selectLiveWorkflowRecordByIssue(
         {
           issueIdentifier,
           bindingScope: null
@@ -450,7 +500,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     bindingScope: RouteWorkflowBindingScope;
   }): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null> {
     return this.#db.transaction((tx) => {
-      const workflowRow = this.#selectLiveWorkflowByIssue(input, tx);
+      const workflowRow = this.#selectLiveWorkflowRecordByIssue(input, tx);
 
       if (!workflowRow) {
         return null;
@@ -724,13 +774,95 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     });
   }
 
-  #selectLiveWorkflowByIssue(
+  #selectCanonicalIssueBindingByTrackerIssueId(
+    input: {
+      trackerIssueId: string;
+    },
+    db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema> = this.#db
+  ): CanonicalIssueBindingRow | undefined {
+    const trackerIssueId = sanitizeRequiredText(input.trackerIssueId, "trackerIssueId");
+
+    return db
+      .select({
+        trackerIssueId: symphonyIssuesTable.trackerIssueId,
+        issueIdentifier: symphonyIssuesTable.issueIdentifier,
+        repositoryKey: symphonyIssuesTable.repositoryKey,
+        organizationId: symphonyIssuesTable.organizationId,
+        linearWorkspaceIdentityId: symphonyIssuesTable.linearWorkspaceIdentityId
+      })
+      .from(symphonyIssuesTable)
+      .where(eq(symphonyIssuesTable.trackerIssueId, trackerIssueId))
+      .get();
+  }
+
+  #selectWorkflowRecordByWorkflowId(
+    workflowId: string,
+    db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema> = this.#db
+  ): RouteWorkflowRecordRow | undefined {
+    return db
+      .select({
+        workflowId: routeWorkflowsTable.workflowId,
+        trackerIssueId: routeWorkflowsTable.trackerIssueId,
+        repositoryKey: symphonyIssuesTable.repositoryKey,
+        issueIdentifier: symphonyIssuesTable.issueIdentifier,
+        organizationId: symphonyIssuesTable.organizationId,
+        linearWorkspaceIdentityId: symphonyIssuesTable.linearWorkspaceIdentityId,
+        routerPresetId: routeWorkflowsTable.routerPresetId,
+        routerName: routeWorkflowsTable.routerName,
+        routerVersion: routeWorkflowsTable.routerVersion,
+        archivedAt: routeWorkflowsTable.archivedAt,
+        insertedAt: routeWorkflowsTable.insertedAt,
+        updatedAt: routeWorkflowsTable.updatedAt
+      })
+      .from(routeWorkflowsTable)
+      .innerJoin(
+        symphonyIssuesTable,
+        eq(routeWorkflowsTable.trackerIssueId, symphonyIssuesTable.trackerIssueId)
+      )
+      .where(eq(routeWorkflowsTable.workflowId, workflowId))
+      .get();
+  }
+
+  #selectLiveWorkflowRecordByTrackerIssueId(
+    trackerIssueId: string,
+    db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema> = this.#db
+  ): RouteWorkflowRecordRow | undefined {
+    return db
+      .select({
+        workflowId: routeWorkflowsTable.workflowId,
+        trackerIssueId: routeWorkflowsTable.trackerIssueId,
+        repositoryKey: symphonyIssuesTable.repositoryKey,
+        issueIdentifier: symphonyIssuesTable.issueIdentifier,
+        organizationId: symphonyIssuesTable.organizationId,
+        linearWorkspaceIdentityId: symphonyIssuesTable.linearWorkspaceIdentityId,
+        routerPresetId: routeWorkflowsTable.routerPresetId,
+        routerName: routeWorkflowsTable.routerName,
+        routerVersion: routeWorkflowsTable.routerVersion,
+        archivedAt: routeWorkflowsTable.archivedAt,
+        insertedAt: routeWorkflowsTable.insertedAt,
+        updatedAt: routeWorkflowsTable.updatedAt
+      })
+      .from(routeWorkflowsTable)
+      .innerJoin(
+        symphonyIssuesTable,
+        eq(routeWorkflowsTable.trackerIssueId, symphonyIssuesTable.trackerIssueId)
+      )
+      .where(
+        and(
+          eq(routeWorkflowsTable.trackerIssueId, trackerIssueId),
+          isNull(routeWorkflowsTable.archivedAt)
+        )
+      )
+      .get();
+  }
+
+  #selectLiveWorkflowRecordByIssue(
     input: {
       issueIdentifier: string;
       bindingScope: RouteWorkflowBindingScope | null;
     },
     db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema> = this.#db
-  ): typeof routeWorkflowsTable.$inferSelect | undefined {
+  ): RouteWorkflowRecordRow | undefined {
     const issueIdentifier = sanitizeRequiredText(
       input.issueIdentifier,
       "issueIdentifier"
@@ -739,24 +871,41 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
 
     const whereClause = bindingScope
       ? and(
-          eq(routeWorkflowsTable.issueIdentifier, issueIdentifier),
-          eq(routeWorkflowsTable.organizationId, bindingScope.organizationId),
+          eq(symphonyIssuesTable.issueIdentifier, issueIdentifier),
+          eq(symphonyIssuesTable.organizationId, bindingScope.organizationId),
           eq(
-            routeWorkflowsTable.linearWorkspaceIdentityId,
+            symphonyIssuesTable.linearWorkspaceIdentityId,
             bindingScope.linearWorkspaceIdentityId
           ),
           isNull(routeWorkflowsTable.archivedAt)
         )
       : and(
-          eq(routeWorkflowsTable.issueIdentifier, issueIdentifier),
-          isNull(routeWorkflowsTable.organizationId),
-          isNull(routeWorkflowsTable.linearWorkspaceIdentityId),
+          eq(symphonyIssuesTable.issueIdentifier, issueIdentifier),
+          isNull(symphonyIssuesTable.organizationId),
+          isNull(symphonyIssuesTable.linearWorkspaceIdentityId),
           isNull(routeWorkflowsTable.archivedAt)
         );
 
     return db
-      .select()
+      .select({
+        workflowId: routeWorkflowsTable.workflowId,
+        trackerIssueId: routeWorkflowsTable.trackerIssueId,
+        repositoryKey: symphonyIssuesTable.repositoryKey,
+        issueIdentifier: symphonyIssuesTable.issueIdentifier,
+        organizationId: symphonyIssuesTable.organizationId,
+        linearWorkspaceIdentityId: symphonyIssuesTable.linearWorkspaceIdentityId,
+        routerPresetId: routeWorkflowsTable.routerPresetId,
+        routerName: routeWorkflowsTable.routerName,
+        routerVersion: routeWorkflowsTable.routerVersion,
+        archivedAt: routeWorkflowsTable.archivedAt,
+        insertedAt: routeWorkflowsTable.insertedAt,
+        updatedAt: routeWorkflowsTable.updatedAt
+      })
       .from(routeWorkflowsTable)
+      .innerJoin(
+        symphonyIssuesTable,
+        eq(routeWorkflowsTable.trackerIssueId, symphonyIssuesTable.trackerIssueId)
+      )
       .where(whereClause)
       .get();
   }
@@ -803,7 +952,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     Policy,
   >(
     tx: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>,
-    workflowRow: typeof routeWorkflowsTable.$inferSelect
+    workflowRow: RouteWorkflowRecordRow
   ): RouteWorkflowHydrationState<Node, Data, Policy> {
     const workflow = mapWorkflowRow(workflowRow);
     const snapshotRow = tx
@@ -1022,11 +1171,10 @@ function requireSignalId<Node extends WorkflowNodeId>(
   return requireOptionalText(signalEvent.signal.id, "signal.id");
 }
 
-function mapWorkflowRow(
-  row: typeof routeWorkflowsTable.$inferSelect
-): RouteWorkflowRecord {
+function mapWorkflowRow(row: RouteWorkflowRecordRow): RouteWorkflowRecord {
   return {
     workflowId: row.workflowId,
+    trackerIssueId: row.trackerIssueId,
     repositoryKey: row.repositoryKey,
     issueIdentifier: row.issueIdentifier,
     bindingScope: mapLifecycleBindingScope({
@@ -1203,8 +1351,44 @@ function sanitizeText(value: string | null | undefined): string | null {
 function isLiveWorkflowConstraintError(error: unknown): boolean {
   return (
     error instanceof Error &&
-    /route_workflows_live_unscoped_issue_idx|route_workflows_live_scoped_issue_idx|UNIQUE constraint failed: route_workflows.issue_identifier|UNIQUE constraint failed: route_workflows.organization_id, route_workflows.linear_workspace_identity_id, route_workflows.issue_identifier/.test(
+    /route_workflows_live_tracker_issue_idx|UNIQUE constraint failed: route_workflows.tracker_issue_id/.test(
       error.message
     )
   );
+}
+
+function assertCanonicalWorkflowIssueCompatibility(input: {
+  trackerIssueId: string;
+  issueIdentifier: string;
+  repositoryKey: string;
+  bindingScope: RouteWorkflowBindingScope | null;
+  issue: CanonicalIssueBindingRow;
+}) {
+  if (input.issue.trackerIssueId !== input.trackerIssueId) {
+    throw new TypeError(
+      `Route workflow issue binding ${input.issue.trackerIssueId} does not match requested tracker issue ${input.trackerIssueId}.`
+    );
+  }
+
+  if (input.issue.issueIdentifier !== input.issueIdentifier) {
+    throw new TypeError(
+      `Tracker issue ${input.trackerIssueId} is already bound to issue identifier ${input.issue.issueIdentifier}, not ${input.issueIdentifier}.`
+    );
+  }
+
+  if (input.issue.repositoryKey !== input.repositoryKey) {
+    throw new TypeError(
+      `Issue ${input.issue.issueIdentifier} is already bound to repository ${input.issue.repositoryKey}, not ${input.repositoryKey}.`
+    );
+  }
+
+  assertMatchingLifecycleBindingScope({
+    owner: `Issue ${input.issue.issueIdentifier}`,
+    actual: mapLifecycleBindingScope({
+      organizationId: input.issue.organizationId,
+      linearWorkspaceIdentityId: input.issue.linearWorkspaceIdentityId,
+      owner: `Issue ${input.issue.issueIdentifier}`
+    }),
+    expected: input.bindingScope
+  });
 }

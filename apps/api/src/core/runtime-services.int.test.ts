@@ -1453,6 +1453,7 @@ async function seedCurrentFlowWorkflowHistory(input: {
     });
 
     await input.services.routeWorkflows.ensureWorkflowForIssue({
+      trackerIssueId: input.trackerIssueId,
       issueIdentifier: input.issueIdentifier,
       repositoryKey: input.repositoryKey,
       routerPresetId: routing.presetId,

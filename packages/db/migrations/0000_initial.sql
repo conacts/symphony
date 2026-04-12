@@ -800,58 +800,26 @@ CREATE INDEX IF NOT EXISTS symphony_run_runtime_context_thread_id_idx
 
 CREATE TABLE IF NOT EXISTS route_workflows (
   workflow_id TEXT PRIMARY KEY NOT NULL,
-  repository_key TEXT NOT NULL,
-  issue_identifier TEXT NOT NULL,
-  organization_id TEXT,
-  linear_workspace_identity_id TEXT,
+  tracker_issue_id TEXT NOT NULL,
   router_preset_id TEXT NOT NULL,
   router_name TEXT NOT NULL,
   router_version TEXT NOT NULL,
   archived_at TEXT,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  FOREIGN KEY (issue_identifier, repository_key)
-    REFERENCES symphony_issues(issue_identifier, repository_key)
+  FOREIGN KEY (tracker_issue_id)
+    REFERENCES symphony_issues(tracker_issue_id)
     ON DELETE RESTRICT
     ON UPDATE CASCADE,
-  CHECK (organization_id IS NULL OR length(trim(organization_id)) > 0),
-  CHECK (
-    linear_workspace_identity_id IS NULL OR
-    length(trim(linear_workspace_identity_id)) > 0
-  ),
-  CHECK (
-    (organization_id IS NULL AND linear_workspace_identity_id IS NULL) OR
-    (organization_id IS NOT NULL AND linear_workspace_identity_id IS NOT NULL)
-  )
+  CHECK (length(trim(tracker_issue_id)) > 0)
 );
 
-CREATE INDEX IF NOT EXISTS route_workflows_repository_key_idx
-  ON route_workflows (repository_key);
+CREATE INDEX IF NOT EXISTS route_workflows_tracker_issue_id_idx
+  ON route_workflows (tracker_issue_id);
 
-CREATE INDEX IF NOT EXISTS route_workflows_issue_identifier_idx
-  ON route_workflows (issue_identifier);
-
-CREATE INDEX IF NOT EXISTS route_workflows_organization_id_idx
-  ON route_workflows (organization_id);
-
-CREATE INDEX IF NOT EXISTS route_workflows_linear_workspace_identity_id_idx
-  ON route_workflows (linear_workspace_identity_id);
-
-CREATE UNIQUE INDEX IF NOT EXISTS route_workflows_live_unscoped_issue_idx
-  ON route_workflows (issue_identifier)
-  WHERE archived_at IS NULL
-    AND organization_id IS NULL
-    AND linear_workspace_identity_id IS NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS route_workflows_live_scoped_issue_idx
-  ON route_workflows (
-    organization_id,
-    linear_workspace_identity_id,
-    issue_identifier
-  )
-  WHERE archived_at IS NULL
-    AND organization_id IS NOT NULL
-    AND linear_workspace_identity_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS route_workflows_live_tracker_issue_idx
+  ON route_workflows (tracker_issue_id)
+  WHERE archived_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS route_history_events (
   event_id TEXT PRIMARY KEY NOT NULL,

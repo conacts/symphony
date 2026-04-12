@@ -52,6 +52,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
       const repositoryKey =
         input.resolveIssueRepositoryKey?.(routeInput.issue) ?? input.repositoryKey;
       const ensured = await input.routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: routeInput.issue.id,
         issueIdentifier: routeInput.issue.identifier,
         repositoryKey,
         bindingScope: input.bindingScope ?? null,

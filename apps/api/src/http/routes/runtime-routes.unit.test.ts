@@ -555,6 +555,7 @@ function buildWorkflowComparisonFixture(): SymphonyRuntimeWorkflowComparison {
     replay: {
       workflow: {
         workflowId,
+        trackerIssueId: "tracker-420",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-420",
         bindingScope: null,

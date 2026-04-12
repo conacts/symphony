@@ -80,6 +80,7 @@ export type SymphonyRouteWorkflowPort = {
     Data = unknown,
     Policy = unknown,
   >(input: {
+    trackerIssueId: string;
     issueIdentifier: string;
     repositoryKey: string;
     bindingScope?: RouteWorkflowBindingScope | null;
@@ -206,6 +207,7 @@ export function createRouteWorkflowPort(input: {
       Data = unknown,
       Policy = unknown,
     >(ensureInput: {
+      trackerIssueId: string;
       issueIdentifier: string;
       repositoryKey: string;
       bindingScope?: RouteWorkflowBindingScope | null;
@@ -220,17 +222,13 @@ export function createRouteWorkflowPort(input: {
       const bindingScope = normalizeRouteWorkflowBindingScope(
         ensureInput.bindingScope
       );
-      const existing = bindingScope
-        ? await input.routeWorkflowStore.getWorkflowForScopedIssue({
-            issueIdentifier: ensureInput.issueIdentifier,
-            bindingScope
-          })
-        : await input.routeWorkflowStore.getWorkflowForIssue(
-            ensureInput.issueIdentifier
-          );
+      const existing = await input.routeWorkflowStore.getWorkflowForTrackerIssueId(
+        ensureInput.trackerIssueId
+      );
       if (existing) {
         assertWorkflowRouterCompatibility({
           workflow: existing,
+          issueIdentifier: ensureInput.issueIdentifier,
           repositoryKey: ensureInput.repositoryKey,
           bindingScope,
           routerPresetId,
@@ -244,6 +242,7 @@ export function createRouteWorkflowPort(input: {
 
       try {
         const workflowId = await input.routeWorkflowStore.createWorkflow({
+          trackerIssueId: ensureInput.trackerIssueId,
           repositoryKey: ensureInput.repositoryKey,
           issueIdentifier: ensureInput.issueIdentifier,
           bindingScope,
@@ -268,20 +267,16 @@ export function createRouteWorkflowPort(input: {
           throw error;
         }
 
-        const workflow = bindingScope
-          ? await input.routeWorkflowStore.getWorkflowForScopedIssue({
-              issueIdentifier: ensureInput.issueIdentifier,
-              bindingScope
-            })
-          : await input.routeWorkflowStore.getWorkflowForIssue(
-              ensureInput.issueIdentifier
-            );
+        const workflow = await input.routeWorkflowStore.getWorkflowForTrackerIssueId(
+          ensureInput.trackerIssueId
+        );
         if (!workflow) {
           throw error;
         }
 
         assertWorkflowRouterCompatibility({
           workflow,
+          issueIdentifier: ensureInput.issueIdentifier,
           repositoryKey: ensureInput.repositoryKey,
           bindingScope,
           routerPresetId,
@@ -711,11 +706,18 @@ function assertWorkflowRouterCompatibility<
   Policy,
 >(input: {
   workflow: RouteWorkflowRecord;
+  issueIdentifier: string;
   repositoryKey: string;
   bindingScope: RouteWorkflowBindingScope | null;
   routerPresetId: string;
   router: WorkflowRouter<Node, Data, Policy>;
 }) {
+  if (input.workflow.issueIdentifier !== input.issueIdentifier) {
+    throw new TypeError(
+      `Route workflow ${input.workflow.workflowId} is bound to issue identifier ${input.workflow.issueIdentifier}, but ${input.issueIdentifier} was requested.`
+    );
+  }
+
   assertWorkflowBindingScopeCompatibility({
     workflow: input.workflow,
     bindingScope: input.bindingScope

@@ -5,7 +5,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createRouteWorkflowStore,
   createSymphonyIssueStore,
-  initializeSymphonyDb
+  initializeSymphonyDb,
+  symphonyGitHubInstallationIdentitiesTable,
+  symphonyGitHubRepositoryIdentitiesTable,
+  symphonyLinearWorkspaceIdentitiesTable,
+  symphonyOrganizationsTable,
+  symphonyRepositoryWorkspaceBindingsTable
 } from "@symphony/db";
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
 import {
@@ -28,12 +33,72 @@ afterEach(async () => {
   );
 });
 
+function seedHostedRepositoryWorkspaceBinding(input: {
+  database: ReturnType<typeof initializeSymphonyDb>;
+  organizationId: string;
+  linearWorkspaceIdentityId: string;
+  repositoryWorkspaceBindingId: string;
+  githubRepositoryIdentityId: string;
+  repositoryKey: string;
+  recordedAt: string;
+}) {
+  input.database.db.insert(symphonyOrganizationsTable).values({
+    organizationId: input.organizationId,
+    organizationSlug: input.organizationId,
+    displayName: input.organizationId,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.database.db.insert(symphonyGitHubInstallationIdentitiesTable).values({
+    githubInstallationIdentityId: `${input.organizationId}_installation_identity`,
+    organizationId: input.organizationId,
+    provider: "github",
+    githubInstallationId: `${input.organizationId}_installation`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.database.db.insert(symphonyGitHubRepositoryIdentitiesTable).values({
+    githubRepositoryIdentityId: input.githubRepositoryIdentityId,
+    organizationId: input.organizationId,
+    githubInstallationIdentityId: `${input.organizationId}_installation_identity`,
+    provider: "github",
+    repositoryKey: input.repositoryKey,
+    githubRepositoryId: `${input.githubRepositoryIdentityId}_repo`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.database.db.insert(symphonyLinearWorkspaceIdentitiesTable).values({
+    linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+    organizationId: input.organizationId,
+    provider: "linear",
+    linearWorkspaceId: `${input.linearWorkspaceIdentityId}_workspace`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.database.db.insert(symphonyRepositoryWorkspaceBindingsTable).values({
+    repositoryWorkspaceBindingId: input.repositoryWorkspaceBindingId,
+    organizationId: input.organizationId,
+    githubInstallationIdentityId: `${input.organizationId}_installation_identity`,
+    githubRepositoryIdentityId: input.githubRepositoryIdentityId,
+    linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+    source: "bootstrap",
+    status: "active",
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+}
+
 describe("runtime workflow session loader", () => {
   it("resumes persisted workflows from stored workflow identity", async () => {
     const harness = await createHarness();
 
     try {
       const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         routerPresetId: harness.routing.presetId,
@@ -64,6 +129,7 @@ describe("runtime workflow session loader", () => {
         now: () => new Date("2026-04-10T16:02:00.000Z")
       });
       const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         routerPresetId: routing.presetId,
@@ -88,6 +154,7 @@ describe("runtime workflow session loader", () => {
 
     try {
       const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         routerPresetId: harness.routing.presetId,
@@ -116,6 +183,7 @@ describe("runtime workflow session loader", () => {
 
     try {
       const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         routerPresetId: harness.routing.presetId,
@@ -149,6 +217,7 @@ describe("runtime workflow session loader", () => {
 
     try {
       const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         bindingScope: {
@@ -210,13 +279,37 @@ async function createHarness(input?: {
     state: "Todo"
   });
 
-  await issueStore.upsert({
-    issueIdentifier: issue.identifier,
-    trackerIssueId: issue.id,
-    repositoryKey: "openai/symphony",
-    latestRunStartedAt: null,
-    recordedAt: "2026-04-10T00:11:59.000Z"
-  });
+  if (input?.bindingScope) {
+    seedHostedRepositoryWorkspaceBinding({
+      database,
+      organizationId: input.bindingScope.organizationId,
+      linearWorkspaceIdentityId: input.bindingScope.linearWorkspaceIdentityId,
+      repositoryWorkspaceBindingId: "repository_workspace_binding_001",
+      githubRepositoryIdentityId: "github_repository_identity_001",
+      repositoryKey: "openai/symphony",
+      recordedAt: "2026-04-10T00:11:58.000Z"
+    });
+  }
+
+  await issueStore.upsert(
+    input?.bindingScope
+      ? {
+          issueIdentifier: issue.identifier,
+          trackerIssueId: issue.id,
+          repositoryKey: "openai/symphony",
+          bindingScope: input.bindingScope,
+          repositoryWorkspaceBindingId: "repository_workspace_binding_001",
+          latestRunStartedAt: null,
+          recordedAt: "2026-04-10T00:11:59.000Z"
+        }
+      : {
+          issueIdentifier: issue.identifier,
+          trackerIssueId: issue.id,
+          repositoryKey: "openai/symphony",
+          latestRunStartedAt: null,
+          recordedAt: "2026-04-10T00:11:59.000Z"
+        }
+  );
 
   const routing = await createRuntimeCurrentFlowRouting({
     trackerConfig: runtimePolicy.tracker,

@@ -3427,6 +3427,14 @@ async function createWorkflowBackedLifecycleHarness(input: {
   trackerConfig: SymphonyTrackerConfig;
   nowIso: string;
 }) {
+  const issueStore = createSymphonyIssueStore(input.db);
+  const issue = await issueStore.fetchByIdentifier(input.issueIdentifier);
+  if (!issue) {
+    throw new TypeError(
+      `Expected canonical issue binding for ${input.issueIdentifier} before creating workflow-backed lifecycle harness.`
+    );
+  }
+
   const routeWorkflows = createRouteWorkflowPort({
     routeWorkflowStore: createRouteWorkflowStore(input.db)
   });
@@ -3441,6 +3449,7 @@ async function createWorkflowBackedLifecycleHarness(input: {
   });
 
   await routeWorkflows.ensureWorkflowForIssue({
+    trackerIssueId: issue.trackerIssueId,
     issueIdentifier: input.issueIdentifier,
     repositoryKey: input.repositoryKey,
     routerPresetId: routing.presetId,

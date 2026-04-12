@@ -427,6 +427,7 @@ describe("runtime route lifecycle service", () => {
         now: () => new Date("2026-04-10T14:00:00.000Z")
       });
       await harness.routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         routerPresetId: routing.presetId,
@@ -1577,6 +1578,7 @@ describe("runtime route lifecycle service", () => {
       });
 
       await harness.routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         routerPresetId: routing.presetId,

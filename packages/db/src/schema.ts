@@ -1827,10 +1827,7 @@ export const routeWorkflowsTable = sqliteTable(
   "route_workflows",
   {
     workflowId: text("workflow_id").primaryKey(),
-    repositoryKey: text("repository_key").notNull(),
-    issueIdentifier: text("issue_identifier").notNull(),
-    organizationId: text("organization_id"),
-    linearWorkspaceIdentityId: text("linear_workspace_identity_id"),
+    trackerIssueId: text("tracker_issue_id").notNull(),
     routerPresetId: text("router_preset_id").notNull(),
     routerName: text("router_name").notNull(),
     routerVersion: text("router_version").notNull(),
@@ -1840,46 +1837,20 @@ export const routeWorkflowsTable = sqliteTable(
   },
   (table) => ({
     issueBindingFk: foreignKey({
-      columns: [table.issueIdentifier, table.repositoryKey],
-      foreignColumns: [symphonyIssuesTable.issueIdentifier, symphonyIssuesTable.repositoryKey],
+      columns: [table.trackerIssueId],
+      foreignColumns: [symphonyIssuesTable.trackerIssueId],
       name: "route_workflows_issue_binding_fk"
     }).onDelete("restrict").onUpdate("cascade"),
-    organizationIdCheck: check(
-      "route_workflows_organization_id_check",
-      sql`${table.organizationId} is null or length(trim(${table.organizationId})) > 0`
+    trackerIssueIdCheck: check(
+      "route_workflows_tracker_issue_id_check",
+      sql`length(trim(${table.trackerIssueId})) > 0`
     ),
-    linearWorkspaceIdentityIdCheck: check(
-      "route_workflows_linear_workspace_identity_id_check",
-      sql`${table.linearWorkspaceIdentityId} is null or length(trim(${table.linearWorkspaceIdentityId})) > 0`
+    trackerIssueIdIdx: index("route_workflows_tracker_issue_id_idx").on(
+      table.trackerIssueId
     ),
-    bindingScopeShapeCheck: check(
-      "route_workflows_binding_scope_shape_check",
-      sql`(${table.organizationId} is null and ${table.linearWorkspaceIdentityId} is null) or (${table.organizationId} is not null and ${table.linearWorkspaceIdentityId} is not null)`
-    ),
-    repositoryKeyIdx: index("route_workflows_repository_key_idx").on(table.repositoryKey),
-    issueIdentifierIdx: index("route_workflows_issue_identifier_idx").on(
-      table.issueIdentifier
-    ),
-    organizationIdIdx: index("route_workflows_organization_id_idx").on(
-      table.organizationId
-    ),
-    linearWorkspaceIdentityIdIdx: index(
-      "route_workflows_linear_workspace_identity_id_idx"
-    ).on(table.linearWorkspaceIdentityId),
-    liveUnscopedIssueIdx: uniqueIndex("route_workflows_live_unscoped_issue_idx")
-      .on(table.issueIdentifier)
-      .where(
-        sql`${table.archivedAt} is null and ${table.organizationId} is null and ${table.linearWorkspaceIdentityId} is null`
-      ),
-    liveScopedIssueIdx: uniqueIndex("route_workflows_live_scoped_issue_idx")
-      .on(
-        table.organizationId,
-        table.linearWorkspaceIdentityId,
-        table.issueIdentifier
-      )
-      .where(
-        sql`${table.archivedAt} is null and ${table.organizationId} is not null and ${table.linearWorkspaceIdentityId} is not null`
-      )
+    liveTrackerIssueIdx: uniqueIndex("route_workflows_live_tracker_issue_idx")
+      .on(table.trackerIssueId)
+      .where(sql`${table.archivedAt} is null`)
   })
 );
 

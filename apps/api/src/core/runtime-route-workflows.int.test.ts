@@ -5,7 +5,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createRouteWorkflowStore,
   createSymphonyIssueStore,
-  initializeSymphonyDb
+  initializeSymphonyDb,
+  symphonyGitHubInstallationIdentitiesTable,
+  symphonyGitHubRepositoryIdentitiesTable,
+  symphonyLinearWorkspaceIdentitiesTable,
+  symphonyOrganizationsTable,
+  symphonyRepositoryWorkspaceBindingsTable
 } from "@symphony/db";
 import {
   createSymphonyCurrentFlowRunStartedSignal,
@@ -39,6 +44,65 @@ afterEach(async () => {
   );
 });
 
+function seedHostedRepositoryWorkspaceBinding(input: {
+  database: ReturnType<typeof initializeSymphonyDb>;
+  organizationId: string;
+  linearWorkspaceIdentityId: string;
+  repositoryWorkspaceBindingId: string;
+  githubRepositoryIdentityId: string;
+  repositoryKey: string;
+  recordedAt: string;
+}) {
+  input.database.db.insert(symphonyOrganizationsTable).values({
+    organizationId: input.organizationId,
+    organizationSlug: input.organizationId,
+    displayName: input.organizationId,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.database.db.insert(symphonyGitHubInstallationIdentitiesTable).values({
+    githubInstallationIdentityId: `${input.organizationId}_installation_identity`,
+    organizationId: input.organizationId,
+    provider: "github",
+    githubInstallationId: `${input.organizationId}_installation`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.database.db.insert(symphonyGitHubRepositoryIdentitiesTable).values({
+    githubRepositoryIdentityId: input.githubRepositoryIdentityId,
+    organizationId: input.organizationId,
+    githubInstallationIdentityId: `${input.organizationId}_installation_identity`,
+    provider: "github",
+    repositoryKey: input.repositoryKey,
+    githubRepositoryId: `${input.githubRepositoryIdentityId}_repo`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.database.db.insert(symphonyLinearWorkspaceIdentitiesTable).values({
+    linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+    organizationId: input.organizationId,
+    provider: "linear",
+    linearWorkspaceId: `${input.linearWorkspaceIdentityId}_workspace`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.database.db.insert(symphonyRepositoryWorkspaceBindingsTable).values({
+    repositoryWorkspaceBindingId: input.repositoryWorkspaceBindingId,
+    organizationId: input.organizationId,
+    githubInstallationIdentityId: `${input.organizationId}_installation_identity`,
+    githubRepositoryIdentityId: input.githubRepositoryIdentityId,
+    linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+    source: "bootstrap",
+    status: "active",
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+}
+
 type TestNode = "idle" | "bootstrapping" | "review";
 type TestData = {
   phase: TestNode;
@@ -71,6 +135,7 @@ describe("runtime route workflows", () => {
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: "tracker-410",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410",
         routerPresetId: "current-flow",
@@ -88,6 +153,7 @@ describe("runtime route workflows", () => {
       });
 
       const ensuredAgain = await routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: "tracker-410",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410",
         routerPresetId: "current-flow",
@@ -153,15 +219,31 @@ describe("runtime route workflows", () => {
     });
 
     try {
+      seedHostedRepositoryWorkspaceBinding({
+        database,
+        organizationId: "org_001",
+        linearWorkspaceIdentityId: "linear_workspace_identity_001",
+        repositoryWorkspaceBindingId: "repository_workspace_binding_001",
+        githubRepositoryIdentityId: "github_repository_identity_001",
+        repositoryKey: "openai/symphony",
+        recordedAt: "2026-04-10T00:27:00.000Z"
+      });
+
       await issueStore.upsert({
         issueIdentifier: "SYM-410S",
         trackerIssueId: "tracker-410S",
         repositoryKey: "openai/symphony",
+        bindingScope: {
+          organizationId: "org_001",
+          linearWorkspaceIdentityId: "linear_workspace_identity_001"
+        },
+        repositoryWorkspaceBindingId: "repository_workspace_binding_001",
         latestRunStartedAt: null,
         recordedAt: "2026-04-10T00:28:00.000Z"
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: "tracker-410S",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410S",
         bindingScope: {
@@ -244,6 +326,7 @@ describe("runtime route workflows", () => {
       });
 
       await routeWorkflowStore.createWorkflow({
+        trackerIssueId: "tracker-410A",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410A",
         routerPresetId: "current-flow",
@@ -254,6 +337,7 @@ describe("runtime route workflows", () => {
 
       await expect(
         routeWorkflows.ensureWorkflowForIssue({
+          trackerIssueId: "tracker-410A",
           repositoryKey: "openai/symphony",
           issueIdentifier: "SYM-410A",
           routerPresetId: "current-flow",
@@ -291,6 +375,7 @@ describe("runtime route workflows", () => {
       });
 
       await routeWorkflowStore.createWorkflow({
+        trackerIssueId: "tracker-410B",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410B",
         routerPresetId: "alternate-flow",
@@ -301,6 +386,7 @@ describe("runtime route workflows", () => {
 
       await expect(
         routeWorkflows.ensureWorkflowForIssue({
+          trackerIssueId: "tracker-410B",
           repositoryKey: "openai/symphony",
           issueIdentifier: "SYM-410B",
           routerPresetId: "current-flow",
@@ -337,6 +423,7 @@ describe("runtime route workflows", () => {
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: "tracker-411",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-411",
         routerPresetId: "test-flow",
@@ -427,6 +514,7 @@ describe("runtime route workflows", () => {
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: "tracker-411A",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-411A",
         routerPresetId: "current-flow",
@@ -598,6 +686,7 @@ describe("runtime route workflows", () => {
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: "tracker-412",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-412",
         routerPresetId: "test-flow",
@@ -668,6 +757,7 @@ describe("runtime route workflows", () => {
       });
 
       const ensured = await routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: "tracker-413",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-413",
         routerPresetId: "test-flow",
