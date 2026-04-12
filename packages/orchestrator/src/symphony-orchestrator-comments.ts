@@ -53,7 +53,7 @@ export function buildFailureCommentBody(
     failureCommentDetailBlock(failureCommentDetails(reason, outcome, options)),
     failureCommentWorkspacePolicyLine(options.workspaceCleanupMode),
     "",
-    ...failureCommentFollowUpLines(outcome, options.stateTransition)
+    ...failureCommentFollowUpLines(issue, outcome, options.stateTransition)
   ]
     .filter((line): line is string => typeof line === "string" && line !== "")
     .join("\n");
@@ -230,11 +230,12 @@ function failureCommentWorkspacePolicyLine(
 }
 
 function failureCommentFollowUpLines(
+  issue: SymphonyTrackerIssue,
   outcome: string,
   transition: SymphonyFailureStateTransition | undefined
 ): string[] {
   if (outcome === "startup_failed") {
-    return startupFailureFollowUpLines(transition);
+    return startupFailureFollowUpLines(issue);
   }
 
   if (outcome === "blocked_repo") {
@@ -254,25 +255,18 @@ function failureCommentFollowUpLines(
 }
 
 function startupFailureFollowUpLines(
-  transition: SymphonyFailureStateTransition | undefined
+  issue: SymphonyTrackerIssue
 ): string[] {
-  if (transition?.kind === "moved") {
+  if (normalizeStateName(issue.state) === "failed") {
     return [
       "Symphony did not retry automatically.",
-      `Symphony moved the issue to \`${transition.targetState}\`. After fixing the startup problem, move it back to \`Todo\` to request another run.`
-    ];
-  }
-
-  if (transition?.kind === "failed") {
-    return [
-      "Symphony did not retry automatically.",
-      `Symphony could not move the issue to \`${transition.targetState}\`, so manual state cleanup is required before the ticket is requeued.`
+      `The issue is currently in \`${issue.state}\`. After fixing the startup problem, move it back to \`Todo\` to request another run.`
     ];
   }
 
   return [
     "Symphony did not retry automatically.",
-    "After fixing the startup problem, move the issue back to `Todo` to request another run."
+    `The issue is currently in \`${issue.state}\`. Manual state cleanup may be required before the ticket is requeued.`
   ];
 }
 
@@ -487,4 +481,8 @@ function rateLimitReason(reason: string): boolean {
     normalized.includes("too many requests") ||
     normalized.includes("rate_limit_exceeded")
   );
+}
+
+function normalizeStateName(state: string): string {
+  return state.trim().toLowerCase();
 }

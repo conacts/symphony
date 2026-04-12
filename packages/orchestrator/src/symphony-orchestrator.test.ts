@@ -426,7 +426,6 @@ describe("symphony orchestrator", () => {
       })
     ]);
     expect(lifecycleEvents).toContain("runtime_startup_failed");
-    expect(lifecycleEvents).toContain("startup_failure_transition");
   });
 
   it("routes running issue state changes through the lifecycle router before stopping the run", async () => {
@@ -2289,7 +2288,7 @@ describe("symphony orchestrator", () => {
     expect(lifecycleEvents).toContain("workspace_preserved_after_run");
   });
 
-  it("formats startup-failure comments with moved-state guidance", async () => {
+  it("formats startup-failure comments with routed-state guidance", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
         ...buildSymphonyOrchestratorConfig().tracker,
@@ -2342,7 +2341,7 @@ describe("symphony orchestrator", () => {
     expect(tracker.listOperations()).toContainEqual({
       kind: "comment",
       issueId: "issue-123",
-      body: expect.stringContaining("Symphony moved the issue to `Failed`.")
+      body: expect.stringContaining("The issue is currently in `Failed`.")
     });
   });
 
@@ -2403,7 +2402,7 @@ describe("symphony orchestrator", () => {
     expect(lifecycleEvents).toContain("docker_container_stopped");
   });
 
-  it("formats startup-failure comments with manual cleanup guidance when transition fails", async () => {
+  it("formats startup-failure comments with manual cleanup guidance when routing leaves the issue unchanged", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
         ...buildSymphonyOrchestratorConfig().tracker,
@@ -2465,7 +2464,7 @@ describe("symphony orchestrator", () => {
     });
 
     expect(comments[0]).toContain(
-      "Symphony could not move the issue to `Failed`, so manual state cleanup is required before the ticket is requeued."
+      "The issue is currently in `In Progress`. Manual state cleanup may be required before the ticket is requeued."
     );
   });
 

@@ -9,20 +9,18 @@ describe("buildFailureCommentBody", () => {
 
   it("includes the preserve workspace policy in startup failure comments", () => {
     const comment = buildFailureCommentBody(
-      issue,
+      buildSymphonyTrackerIssue({
+        state: "Failed"
+      }),
       "workspace hook `before_run` exited with status 1.",
       "startup_failed",
       {
-        stateTransition: {
-          kind: "moved",
-          targetState: "Failed"
-        },
         workspaceCleanupMode: "preserve"
       }
     );
 
     expect(comment).toContain("Workspace policy: preserve.");
-    expect(comment).toContain("Symphony moved the issue to `Failed`.");
+    expect(comment).toContain("The issue is currently in `Failed`.");
   });
 
   it("includes the destroy workspace policy when cleanup is terminal", () => {

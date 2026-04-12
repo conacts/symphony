@@ -688,23 +688,24 @@ export class SymphonyOrchestrator {
         workspaceBackend: this.#workspaceBackend,
         observer: this.#observer,
         runnerEnv: this.#runnerEnv,
-        issue: preparedIssue,
         workerHost: preferredWorkerHost,
         workspace,
         reason,
         runId,
-        ...(await this.#routeStartupFailure({
-          issue: preparedIssue,
-          runId,
-          runMode,
-          completion: {
-            kind: "startup_failure",
-            reason,
-            failureStage: startupFailureStage,
-            failureOrigin,
-            launchTarget
-          }
-        })),
+        effectiveIssue: (
+          await this.#routeCompletionWithRecovery({
+            issue: preparedIssue,
+            runId,
+            runMode,
+            completion: {
+              kind: "startup_failure",
+              reason,
+              failureStage: startupFailureStage,
+              failureOrigin,
+              launchTarget
+            }
+          })
+        ).issue,
         completion: {
           kind: "startup_failure",
           reason,
@@ -988,18 +989,11 @@ export class SymphonyOrchestrator {
         workspaceBackend: this.#workspaceBackend,
         observer: this.#observer,
         runnerEnv: this.#runnerEnv,
-        issue: completionIssueBeforeRouting,
         workerHost: runningEntry.workerHost,
         workspace: runningEntry.workspace,
         reason: resolvedCompletion.reason,
         runId: runningEntry.runId,
-        ...(await this.#routeStartupFailure({
-          issue: completionIssueBeforeRouting,
-          routedIssue: currentIssue,
-          runId: runningEntry.runId,
-          runMode: runningEntry.runMode,
-          completion: resolvedCompletion
-        })),
+        effectiveIssue: currentIssue,
         completion: resolvedCompletion
       });
       return;
@@ -1390,37 +1384,6 @@ export class SymphonyOrchestrator {
         completion: input.completion
       };
     }
-  }
-
-  async #routeStartupFailure(input: {
-    issue: SymphonyTrackerIssue;
-    routedIssue?: SymphonyTrackerIssue;
-    runId: string | null;
-    runMode: SymphonyRunMode;
-    completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
-  }): Promise<{
-    effectiveIssue: SymphonyTrackerIssue;
-    stateTransition: SymphonyFailureStateTransition;
-  }> {
-    const routedIssue =
-      input.routedIssue ??
-      (
-        await this.#routeRunCompletion({
-          issue: input.issue,
-          runId: input.runId,
-          runMode: input.runMode,
-          completion: input.completion
-        })
-      ).issue;
-
-    return {
-      effectiveIssue: routedIssue,
-      stateTransition: describeFailureStateTransition({
-        beforeIssue: input.issue,
-        afterIssue: routedIssue,
-        targetState: this.#config.tracker.startupFailureTransitionToState
-      })
-    };
   }
 
   async #activateStartedIssue(input: {

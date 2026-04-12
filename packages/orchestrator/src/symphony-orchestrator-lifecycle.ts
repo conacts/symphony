@@ -160,25 +160,14 @@ export async function handleStartupFailure(input: {
   workspaceBackend: WorkspaceBackend;
   observer: SymphonyOrchestratorObserver | null;
   runnerEnv: Record<string, string | undefined> | undefined;
-  issue: SymphonyTrackerIssue;
   workerHost: string | null;
   workspace: PreparedWorkspace | null;
   reason: string;
   runId: string | null;
   completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
   effectiveIssue: SymphonyTrackerIssue;
-  stateTransition: SymphonyFailureStateTransition;
 }): Promise<void> {
   const effectiveIssue = input.effectiveIssue;
-  const transition = input.stateTransition;
-
-  await recordStartupFailureTransitionEvent({
-    observer: input.observer,
-    issue: input.issue,
-    effectiveIssue,
-    runId: input.runId,
-    transition
-  });
 
   const cleanupMode = workspaceCleanupModeForIssue({
     issue: effectiveIssue,
@@ -188,12 +177,11 @@ export async function handleStartupFailure(input: {
   await leaveFailureComment({
     tracker: input.tracker,
     observer: input.observer,
-    issue: input.issue,
+    issue: effectiveIssue,
     reason: input.reason,
     outcome: "startup_failed",
     runId: input.runId,
     options: {
-      stateTransition: transition,
       workspaceCleanupMode: cleanupMode
     }
   });
@@ -211,49 +199,4 @@ export async function handleStartupFailure(input: {
     mode: cleanupMode,
     startupFailure: input.completion
   });
-}
-
-async function recordStartupFailureTransitionEvent(input: {
-  observer: SymphonyOrchestratorObserver | null;
-  issue: SymphonyTrackerIssue;
-  effectiveIssue: SymphonyTrackerIssue;
-  runId: string | null;
-  transition: SymphonyFailureStateTransition;
-}): Promise<void> {
-  switch (input.transition.kind) {
-    case "none":
-      return;
-    case "moved":
-      await input.observer?.recordLifecycleEvent({
-        issue: input.effectiveIssue,
-        runId: input.runId,
-        source: "tracker",
-        eventType: "startup_failure_transition",
-        message: `Issue moved to ${input.transition.targetState} after startup failure.`,
-        payload: {
-          fromState: input.issue.state,
-          toState: input.effectiveIssue.state
-        }
-      });
-      return;
-    case "failed":
-      await input.observer?.recordLifecycleEvent({
-        issue: input.issue,
-        runId: input.runId,
-        source: "tracker",
-        eventType: "startup_failure_transition_failed",
-        message: `Issue could not be moved to ${input.transition.targetState} after startup failure.`,
-        payload: {
-          fromState: input.issue.state,
-          toState: input.transition.targetState,
-          reason: input.transition.reason
-        }
-      });
-      return;
-  }
-
-  const exhaustiveTransition: never = input.transition;
-  throw new TypeError(
-    `Unhandled startup failure transition: ${JSON.stringify(exhaustiveTransition)}`
-  );
 }
