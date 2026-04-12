@@ -175,11 +175,63 @@ describe("issue store", () => {
         issueIdentifier: "SYM-503",
         trackerIssueId: "tracker-503",
         repositoryKey: "openai/symphony",
+        bindingScope: null,
         latestRunStartedAt: "2026-04-10T04:30:00.000Z",
         insertedAt: "2026-04-10T04:31:00.000Z",
         updatedAt: "2026-04-10T04:31:00.000Z"
       });
       await expect(issueStore.fetchByIdentifier("SYM-404")).resolves.toBeNull();
+    } finally {
+      database.close();
+    }
+  });
+
+  it("records hosted workspace scope and requires scoped reads to match", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-issue-store-scoped-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-504",
+        trackerIssueId: "tracker-504",
+        repositoryKey: "openai/symphony",
+        bindingScope: {
+          organizationId: "org-1",
+          linearWorkspaceIdentityId: "workspace-1"
+        },
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T04:40:00.000Z"
+      });
+
+      await expect(
+        issueStore.fetchByScopedIdentifier({
+          issueIdentifier: "SYM-504",
+          bindingScope: {
+            organizationId: "org-1",
+            linearWorkspaceIdentityId: "workspace-1"
+          }
+        })
+      ).resolves.toEqual({
+        issueIdentifier: "SYM-504",
+        trackerIssueId: "tracker-504",
+        repositoryKey: "openai/symphony",
+        bindingScope: {
+          organizationId: "org-1",
+          linearWorkspaceIdentityId: "workspace-1"
+        },
+        latestRunStartedAt: null,
+        insertedAt: "2026-04-10T04:40:00.000Z",
+        updatedAt: "2026-04-10T04:40:00.000Z"
+      });
+
+      await expect(issueStore.fetchByIdentifier("SYM-504")).rejects.toThrow(
+        "Issue SYM-504 is scoped to hosted workspace org-1/workspace-1, not the unscoped lifecycle path."
+      );
     } finally {
       database.close();
     }

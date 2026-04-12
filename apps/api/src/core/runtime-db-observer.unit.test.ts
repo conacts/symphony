@@ -3,13 +3,15 @@ import {
   createSymphonyIssueStore,
   createSymphonyIssueTimelineStore,
   createSymphonyRuntimeLogStore,
-  createSqliteSymphonyRuntimeRunStore
+  createSqliteSymphonyRuntimeRunStore,
+  type SymphonyLifecycleBindingScope
 } from "@symphony/db";
 import {
   buildSymphonyTrackerIssue,
   createTempSymphonySqliteHarness,
   type SymphonyTempSqliteHarness
 } from "@symphony/test-support";
+import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
 import { createDbBackedOrchestratorObserver } from "./runtime-db-observer.js";
 import { buildBootstrapInstallLifecycleEvent } from "../test-support/runtime-lifecycle-test-support.js";
 
@@ -212,9 +214,64 @@ describe("runtime db observer", () => {
       })
     );
   });
+
+  it("threads hosted workspace scope into run-start persistence", async () => {
+    const harness = await createObserverHarness({
+      seedActiveRun: false,
+      bindingScope: {
+        organizationId: "org-1",
+        linearWorkspaceIdentityId: "workspace-1"
+      }
+    });
+    const observer = createDbBackedOrchestratorObserver({
+      admittedRepositories: [
+        {
+          repositoryKey,
+          repoRoot: "/tmp/openai-symphony",
+          linearBinding: {
+            teamKey: harness.issue.teamKey
+          }
+        }
+      ] as AdmittedRuntimeRepository[],
+      bindingScope: {
+        organizationId: "org-1",
+        linearWorkspaceIdentityId: "workspace-1"
+      },
+      runStore: harness.runStore,
+      issueTimelineStore: harness.issueTimelineStore,
+      runtimeLogs: harness.runtimeLogStore
+    });
+
+    const runId = await observer.startRun({
+      issue: harness.issue,
+      attempt: 2,
+      harness: "pi",
+      workspace: null,
+      workerHost: "worker-1",
+      startedAt: "2026-04-09T22:10:00.000Z",
+      runMode: "implementation"
+    });
+
+    const storedRun = harness.sqlite.database.client.prepare(`
+      select
+        organization_id as organizationId,
+        linear_workspace_identity_id as linearWorkspaceIdentityId
+      from symphony_runs
+      where run_id = ?
+    `).get(runId) as {
+      organizationId: string | null;
+      linearWorkspaceIdentityId: string | null;
+    };
+
+    expect(storedRun?.organizationId).toBe("org-1");
+    expect(storedRun?.linearWorkspaceIdentityId).toBe("workspace-1");
+  });
 });
 
-async function createObserverHarness() {
+async function createObserverHarness(input?: {
+  seedActiveRun?: boolean;
+  bindingScope?: SymphonyLifecycleBindingScope | null;
+}) {
   const sqlite = await createTempSymphonySqliteHarness({
     rootPrefix: "symphony-runtime-db-observer-"
   });
@@ -230,6 +287,7 @@ async function createObserverHarness() {
     issueIdentifier: issue.identifier,
     trackerIssueId: issue.id,
     repositoryKey,
+    bindingScope: input?.bindingScope ?? null,
     latestRunStartedAt: null,
     recordedAt: "2026-04-09T21:54:00.000Z"
   });
@@ -248,23 +306,34 @@ async function createObserverHarness() {
     repositoryKey,
     trackerIssueId: issue.id,
     issueIdentifier: issue.identifier,
+    bindingScope: input?.bindingScope ?? null,
     runId: "run-1",
     runMode: "implementation",
     status: "dispatching",
     startedAt: "2026-04-09T21:55:00.000Z"
   });
+  if (input?.seedActiveRun === false) {
+    await runStore.finalizeRun(runId, {
+      status: "stopped",
+      outcome: "run_stopped_terminal",
+      endedAt: "2026-04-09T21:56:00.000Z"
+    });
+  }
 
   const observer = createDbBackedOrchestratorObserver({
     admittedRepositories: [],
+    bindingScope: input?.bindingScope ?? null,
     runStore,
     issueTimelineStore,
     runtimeLogs: runtimeLogStore
   });
 
   return {
+    sqlite,
     issue,
     runId,
     observer,
+    runStore,
     issueTimelineStore,
     runtimeLogStore
   };

@@ -2,9 +2,20 @@ CREATE TABLE IF NOT EXISTS symphony_issues (
   issue_identifier TEXT PRIMARY KEY NOT NULL,
   tracker_issue_id TEXT NOT NULL UNIQUE,
   repository_key TEXT NOT NULL,
+  organization_id TEXT,
+  linear_workspace_identity_id TEXT,
   latest_run_started_at TEXT,
   inserted_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  CHECK (organization_id IS NULL OR length(trim(organization_id)) > 0),
+  CHECK (
+    linear_workspace_identity_id IS NULL OR
+    length(trim(linear_workspace_identity_id)) > 0
+  ),
+  CHECK (
+    (organization_id IS NULL AND linear_workspace_identity_id IS NULL) OR
+    (organization_id IS NOT NULL AND linear_workspace_identity_id IS NOT NULL)
+  )
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS symphony_issues_tracker_issue_id_idx
@@ -16,6 +27,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS symphony_issues_issue_repository_key_idx
 CREATE INDEX IF NOT EXISTS symphony_issues_repository_key_idx
   ON symphony_issues (repository_key);
 
+CREATE INDEX IF NOT EXISTS symphony_issues_organization_id_idx
+  ON symphony_issues (organization_id);
+
+CREATE INDEX IF NOT EXISTS symphony_issues_linear_workspace_identity_id_idx
+  ON symphony_issues (linear_workspace_identity_id);
+
 CREATE INDEX IF NOT EXISTS symphony_issues_latest_run_started_at_idx
   ON symphony_issues (latest_run_started_at);
 
@@ -23,6 +40,8 @@ CREATE TABLE IF NOT EXISTS symphony_runs (
   run_id TEXT PRIMARY KEY NOT NULL,
   repository_key TEXT NOT NULL,
   issue_identifier TEXT NOT NULL,
+  organization_id TEXT,
+  linear_workspace_identity_id TEXT,
   attempt INTEGER,
   run_mode TEXT NOT NULL CHECK (
     run_mode IN (
@@ -69,6 +88,15 @@ CREATE TABLE IF NOT EXISTS symphony_runs (
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (issue_identifier, repository_key) REFERENCES symphony_issues(issue_identifier, repository_key) ON DELETE RESTRICT,
+  CHECK (organization_id IS NULL OR length(trim(organization_id)) > 0),
+  CHECK (
+    linear_workspace_identity_id IS NULL OR
+    length(trim(linear_workspace_identity_id)) > 0
+  ),
+  CHECK (
+    (organization_id IS NULL AND linear_workspace_identity_id IS NULL) OR
+    (organization_id IS NOT NULL AND linear_workspace_identity_id IS NOT NULL)
+  ),
   CHECK (attempt IS NULL OR attempt >= 1),
   CHECK (
     outcome IS NULL OR outcome IN (
@@ -92,6 +120,12 @@ CREATE TABLE IF NOT EXISTS symphony_runs (
 CREATE INDEX IF NOT EXISTS symphony_runs_repository_key_idx
   ON symphony_runs (repository_key);
 
+CREATE INDEX IF NOT EXISTS symphony_runs_organization_id_idx
+  ON symphony_runs (organization_id);
+
+CREATE INDEX IF NOT EXISTS symphony_runs_linear_workspace_identity_id_idx
+  ON symphony_runs (linear_workspace_identity_id);
+
 CREATE INDEX IF NOT EXISTS symphony_runs_issue_identifier_idx
   ON symphony_runs (issue_identifier);
 
@@ -101,9 +135,23 @@ CREATE INDEX IF NOT EXISTS symphony_runs_started_at_idx
 CREATE UNIQUE INDEX IF NOT EXISTS symphony_runs_issue_run_id_idx
   ON symphony_runs (issue_identifier, run_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS symphony_runs_one_active_run_per_issue_idx
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_runs_one_active_unscoped_run_per_issue_idx
   ON symphony_runs (issue_identifier)
-  WHERE status IN ('dispatching', 'running');
+  WHERE
+    status IN ('dispatching', 'running') AND
+    organization_id IS NULL AND
+    linear_workspace_identity_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_runs_one_active_scoped_run_per_issue_idx
+  ON symphony_runs (
+    organization_id,
+    linear_workspace_identity_id,
+    issue_identifier
+  )
+  WHERE
+    status IN ('dispatching', 'running') AND
+    organization_id IS NOT NULL AND
+    linear_workspace_identity_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS symphony_turns (
   turn_id TEXT PRIMARY KEY NOT NULL,

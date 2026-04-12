@@ -10,6 +10,7 @@ import type { JsonValue } from "@symphony/contracts";
 import type {
   SymphonyActiveRunExistsError,
   SymphonyIssueTimelineStore,
+  SymphonyLifecycleBindingScope,
   SymphonyRuntimeLogStore,
   SymphonyRuntimeLogLevel,
   SymphonyRuntimeRunOutcome,
@@ -23,6 +24,7 @@ import { resolveIssueRepository } from "./runtime-repository-routing.js";
 
 export function createDbBackedOrchestratorObserver(input: {
   admittedRepositories: AdmittedRuntimeRepository[];
+  bindingScope?: SymphonyLifecycleBindingScope | null;
   runStore: SymphonyRuntimeRunStore;
   issueTimelineStore: SymphonyIssueTimelineStore;
   runtimeLogs: SymphonyRuntimeLogStore;
@@ -42,6 +44,7 @@ export function createDbBackedOrchestratorObserver(input: {
           repositoryKey,
           trackerIssueId: issue.id,
           issueIdentifier: issue.identifier,
+          bindingScope: input.bindingScope ?? null,
           runId,
           attempt,
           runMode,

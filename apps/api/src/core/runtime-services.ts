@@ -273,6 +273,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       issueIdentifier: issue.identifier,
       trackerIssueId: issue.id,
       repositoryKey: resolveTrackedIssueRepositoryKey(issue),
+      bindingScope: bootstrapBinding.bindingScope,
       latestRunStartedAt: null,
       recordedAt: new Date().toISOString()
     });
@@ -413,6 +414,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   }
   const observer = createDbBackedOrchestratorObserver({
     admittedRepositories,
+    bindingScope: bootstrapBinding.bindingScope,
     runStore,
     issueTimelineStore,
     runtimeLogs: runtimeLogStore,

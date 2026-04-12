@@ -1,5 +1,6 @@
 import type { JsonObject } from "@symphony/contracts";
 import type { SymphonyRunOutcome } from "@symphony/runtime-run-ledger";
+import type { SymphonyLifecycleBindingScope } from "./lifecycle-binding-scope.js";
 
 export type SymphonyRuntimeAgentUsage = {
   input_tokens: number;
@@ -47,6 +48,7 @@ export type SymphonyRuntimeRunStartAttrs = {
   repositoryKey: string;
   trackerIssueId: string;
   issueIdentifier: string;
+  bindingScope?: SymphonyLifecycleBindingScope | null;
   runId: string;
   attempt?: number | null;
   runMode: SymphonyRuntimeRunMode;

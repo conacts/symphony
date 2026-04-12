@@ -22,6 +22,11 @@ import {
   SymphonyRouteWorkflowNotFoundError
 } from "./errors.js";
 import {
+  mapLifecycleBindingScope,
+  normalizeLifecycleBindingScope,
+  type SymphonyLifecycleBindingScope
+} from "./lifecycle-binding-scope.js";
+import {
   routeDecisionsTable,
   routeHistoryEventsTable,
   routeProjectionSnapshotsTable,
@@ -34,10 +39,7 @@ type RouteHistoryEventKind =
   | "command_emitted"
   | "command_settled";
 
-export type RouteWorkflowBindingScope = {
-  organizationId: string;
-  linearWorkspaceIdentityId: string;
-};
+export type RouteWorkflowBindingScope = SymphonyLifecycleBindingScope;
 
 export type RouteWorkflowRecord = {
   workflowId: string;
@@ -238,7 +240,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     const workflowId = randomUUID();
     const repositoryKey = sanitizeRequiredText(input.repositoryKey, "repositoryKey");
     const issueIdentifier = sanitizeRequiredText(input.issueIdentifier, "issueIdentifier");
-    const bindingScope = normalizeRouteWorkflowBindingScope(input.bindingScope);
+    const bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
     const routerPresetId = sanitizeRequiredText(input.routerPresetId, "routerPresetId");
     const routerName = sanitizeRequiredText(input.routerName, "routerName");
     const routerVersion = sanitizeRequiredText(input.routerVersion, "routerVersion");
@@ -733,7 +735,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
       input.issueIdentifier,
       "issueIdentifier"
     );
-    const bindingScope = normalizeRouteWorkflowBindingScope(input.bindingScope);
+    const bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
 
     const whereClause = bindingScope
       ? and(
@@ -1023,26 +1025,15 @@ function requireSignalId<Node extends WorkflowNodeId>(
 function mapWorkflowRow(
   row: typeof routeWorkflowsTable.$inferSelect
 ): RouteWorkflowRecord {
-  const organizationId = sanitizeText(row.organizationId);
-  const linearWorkspaceIdentityId = sanitizeText(row.linearWorkspaceIdentityId);
-
-  if (Boolean(organizationId) !== Boolean(linearWorkspaceIdentityId)) {
-    throw new TypeError(
-      `Route workflow ${row.workflowId} has an invalid persisted binding scope.`
-    );
-  }
-
   return {
     workflowId: row.workflowId,
     repositoryKey: row.repositoryKey,
     issueIdentifier: row.issueIdentifier,
-    bindingScope:
-      organizationId && linearWorkspaceIdentityId
-        ? {
-            organizationId,
-            linearWorkspaceIdentityId
-          }
-        : null,
+    bindingScope: mapLifecycleBindingScope({
+      organizationId: row.organizationId,
+      linearWorkspaceIdentityId: row.linearWorkspaceIdentityId,
+      owner: `Route workflow ${row.workflowId}`
+    }),
     routerPresetId: row.routerPresetId,
     routerName: row.routerName,
     routerVersion: row.routerVersion,
@@ -1207,22 +1198,6 @@ function sanitizeText(value: string | null | undefined): string | null {
 
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
-}
-
-function normalizeRouteWorkflowBindingScope(
-  value: RouteWorkflowBindingScope | null | undefined
-): RouteWorkflowBindingScope | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  return {
-    organizationId: sanitizeRequiredText(value.organizationId, "bindingScope.organizationId"),
-    linearWorkspaceIdentityId: sanitizeRequiredText(
-      value.linearWorkspaceIdentityId,
-      "bindingScope.linearWorkspaceIdentityId"
-    )
-  };
 }
 
 function isLiveWorkflowConstraintError(error: unknown): boolean {

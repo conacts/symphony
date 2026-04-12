@@ -1365,11 +1365,25 @@ export const symphonyIssuesTable = sqliteTable(
     issueIdentifier: text("issue_identifier").primaryKey(),
     trackerIssueId: text("tracker_issue_id").notNull(),
     repositoryKey: text("repository_key").notNull(),
+    organizationId: text("organization_id"),
+    linearWorkspaceIdentityId: text("linear_workspace_identity_id"),
     latestRunStartedAt: text("latest_run_started_at"),
     insertedAt: text("inserted_at").notNull(),
     updatedAt: text("updated_at").notNull()
   },
   (table) => ({
+    organizationIdCheck: check(
+      "symphony_issues_organization_id_check",
+      sql`${table.organizationId} is null or length(trim(${table.organizationId})) > 0`
+    ),
+    linearWorkspaceIdentityIdCheck: check(
+      "symphony_issues_linear_workspace_identity_id_check",
+      sql`${table.linearWorkspaceIdentityId} is null or length(trim(${table.linearWorkspaceIdentityId})) > 0`
+    ),
+    bindingScopeShapeCheck: check(
+      "symphony_issues_binding_scope_shape_check",
+      sql`(${table.organizationId} is null and ${table.linearWorkspaceIdentityId} is null) or (${table.organizationId} is not null and ${table.linearWorkspaceIdentityId} is not null)`
+    ),
     trackerIssueIdIdx: uniqueIndex("symphony_issues_tracker_issue_id_idx").on(
       table.trackerIssueId
     ),
@@ -1378,6 +1392,10 @@ export const symphonyIssuesTable = sqliteTable(
       table.repositoryKey
     ),
     repositoryKeyIdx: index("symphony_issues_repository_key_idx").on(table.repositoryKey),
+    organizationIdIdx: index("symphony_issues_organization_id_idx").on(table.organizationId),
+    linearWorkspaceIdentityIdIdx: index(
+      "symphony_issues_linear_workspace_identity_id_idx"
+    ).on(table.linearWorkspaceIdentityId),
     latestRunStartedAtIdx: index("symphony_issues_latest_run_started_at_idx").on(
       table.latestRunStartedAt
     )
@@ -1390,6 +1408,8 @@ export const symphonyRunsTable = sqliteTable(
     runId: text("run_id").primaryKey(),
     repositoryKey: text("repository_key").notNull(),
     issueIdentifier: text("issue_identifier").notNull(),
+    organizationId: text("organization_id"),
+    linearWorkspaceIdentityId: text("linear_workspace_identity_id"),
     attempt: integer("attempt"),
     runMode: text("run_mode").notNull().$type<SymphonyRuntimeRunMode>(),
     status: text("status").notNull().$type<SymphonyRuntimeRunStatus>(),
@@ -1424,6 +1444,18 @@ export const symphonyRunsTable = sqliteTable(
       foreignColumns: [symphonyIssuesTable.issueIdentifier, symphonyIssuesTable.repositoryKey],
       name: "symphony_runs_issue_binding_fk"
     }).onDelete("restrict"),
+    organizationIdCheck: check(
+      "symphony_runs_organization_id_check",
+      sql`${table.organizationId} is null or length(trim(${table.organizationId})) > 0`
+    ),
+    linearWorkspaceIdentityIdCheck: check(
+      "symphony_runs_linear_workspace_identity_id_check",
+      sql`${table.linearWorkspaceIdentityId} is null or length(trim(${table.linearWorkspaceIdentityId})) > 0`
+    ),
+    bindingScopeShapeCheck: check(
+      "symphony_runs_binding_scope_shape_check",
+      sql`(${table.organizationId} is null and ${table.linearWorkspaceIdentityId} is null) or (${table.organizationId} is not null and ${table.linearWorkspaceIdentityId} is not null)`
+    ),
     statusCheck: check(
       "symphony_runs_status_check",
       sql`${table.status} in (${sqlEnum(runStatusValues)})`
@@ -1444,12 +1476,29 @@ export const symphonyRunsTable = sqliteTable(
       table.issueIdentifier,
       table.runId
     ),
-    oneActiveRunPerIssueIdx: uniqueIndex(
-      "symphony_runs_one_active_run_per_issue_idx"
+    oneActiveUnscopedRunPerIssueIdx: uniqueIndex(
+      "symphony_runs_one_active_unscoped_run_per_issue_idx"
     )
       .on(table.issueIdentifier)
-      .where(sql`${table.status} in ('dispatching', 'running')`),
+      .where(
+        sql`${table.status} in ('dispatching', 'running') and ${table.organizationId} is null and ${table.linearWorkspaceIdentityId} is null`
+      ),
+    oneActiveScopedRunPerIssueIdx: uniqueIndex(
+      "symphony_runs_one_active_scoped_run_per_issue_idx"
+    )
+      .on(
+        table.organizationId,
+        table.linearWorkspaceIdentityId,
+        table.issueIdentifier
+      )
+      .where(
+        sql`${table.status} in ('dispatching', 'running') and ${table.organizationId} is not null and ${table.linearWorkspaceIdentityId} is not null`
+      ),
     repositoryKeyIdx: index("symphony_runs_repository_key_idx").on(table.repositoryKey),
+    organizationIdIdx: index("symphony_runs_organization_id_idx").on(table.organizationId),
+    linearWorkspaceIdentityIdIdx: index(
+      "symphony_runs_linear_workspace_identity_id_idx"
+    ).on(table.linearWorkspaceIdentityId),
     issueIdentifierIdx: index("symphony_runs_issue_identifier_idx").on(table.issueIdentifier),
     startedAtIdx: index("symphony_runs_started_at_idx").on(table.startedAt)
   })

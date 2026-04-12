@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type {
   SymphonyAgentAnalyticsEvent,
@@ -15,6 +15,12 @@ import {
   symphonyTurnsTable
 } from "./schema.js";
 import { SymphonyActiveRunExistsError } from "./errors.js";
+import {
+  assertMatchingLifecycleBindingScope,
+  mapLifecycleBindingScope,
+  normalizeLifecycleBindingScope,
+  type SymphonyLifecycleBindingScope
+} from "./lifecycle-binding-scope.js";
 import type {
   SymphonyRuntimeMachineLoadSummary,
   SymphonyRuntimeRunContextAttrs,
@@ -65,6 +71,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     const now = isoNow();
     const startedAt = requireIsoTimestamp(attrs.startedAt, "startedAt");
     const repositoryKey = sanitizeRequiredText(attrs.repositoryKey, "repositoryKey");
+    const bindingScope = normalizeLifecycleBindingScope(attrs.bindingScope);
     const metadata = sanitizeJsonObject(attrs.metadata);
 
     try {
@@ -93,6 +100,16 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
           );
         }
 
+        assertMatchingLifecycleBindingScope({
+          owner: `Issue ${attrs.issueIdentifier}`,
+          actual: mapLifecycleBindingScope({
+            organizationId: existingIssue.organizationId,
+            linearWorkspaceIdentityId: existingIssue.linearWorkspaceIdentityId,
+            owner: `Issue ${attrs.issueIdentifier}`
+          }),
+          expected: bindingScope
+        });
+
         tx.update(symphonyIssuesTable)
           .set({
             latestRunStartedAt:
@@ -112,10 +129,11 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
             })
             .from(symphonyRunsTable)
             .where(
-              and(
-                eq(symphonyRunsTable.issueIdentifier, attrs.issueIdentifier),
-                inArray(symphonyRunsTable.status, activeRunStatuses)
-              )
+              buildScopedIssueRunWhere({
+                issueIdentifier: attrs.issueIdentifier,
+                bindingScope,
+                includeActiveStatusFilter: true
+              })
             )
             .orderBy(desc(symphonyRunsTable.startedAt), desc(symphonyRunsTable.insertedAt))
             .limit(1)
@@ -135,6 +153,9 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
             runId,
             repositoryKey,
             issueIdentifier: attrs.issueIdentifier,
+            organizationId: bindingScope?.organizationId ?? null,
+            linearWorkspaceIdentityId:
+              bindingScope?.linearWorkspaceIdentityId ?? null,
             attempt: attrs.attempt ?? null,
             runMode: attrs.runMode,
             status: attrs.status,
@@ -172,7 +193,8 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
 
       if (isActiveRunStatus(attrs.status) && isActiveRunConstraintError(error)) {
         const existingActiveRun = this.#findActiveRunByIssueIdentifier(
-          attrs.issueIdentifier
+          attrs.issueIdentifier,
+          bindingScope
         );
 
         if (existingActiveRun) {
@@ -527,7 +549,10 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
     );
   }
 
-  #findActiveRunByIssueIdentifier(issueIdentifier: string): {
+  #findActiveRunByIssueIdentifier(
+    issueIdentifier: string,
+    bindingScope: SymphonyLifecycleBindingScope | null
+  ): {
     runId: string;
     status: string;
   } | null {
@@ -538,10 +563,11 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
       })
       .from(symphonyRunsTable)
       .where(
-        and(
-          eq(symphonyRunsTable.issueIdentifier, issueIdentifier),
-          inArray(symphonyRunsTable.status, activeRunStatuses)
-        )
+        buildScopedIssueRunWhere({
+          issueIdentifier,
+          bindingScope,
+          includeActiveStatusFilter: true
+        })
       )
       .orderBy(desc(symphonyRunsTable.startedAt), desc(symphonyRunsTable.insertedAt))
       .limit(1)
@@ -569,13 +595,43 @@ function isActiveRunConstraintError(error: unknown): boolean {
   }
 
   return (
+    error.message.includes("symphony_runs_one_active_unscoped_run_per_issue_idx") ||
+    error.message.includes("symphony_runs_one_active_scoped_run_per_issue_idx") ||
     error.message.includes("symphony_runs_one_active_run_per_issue_idx") ||
-    error.message.includes("UNIQUE constraint failed: symphony_runs.issue_identifier")
+    error.message.includes("UNIQUE constraint failed: symphony_runs.issue_identifier") ||
+    error.message.includes(
+      "UNIQUE constraint failed: symphony_runs.organization_id, symphony_runs.linear_workspace_identity_id, symphony_runs.issue_identifier"
+    )
   );
 }
 
 function isoNow(now = new Date()): string {
   return now.toISOString();
+}
+
+function buildScopedIssueRunWhere(input: {
+  issueIdentifier: string;
+  bindingScope: SymphonyLifecycleBindingScope | null;
+  includeActiveStatusFilter: boolean;
+}) {
+  const bindingScopeWhere = input.bindingScope
+    ? and(
+        eq(symphonyRunsTable.issueIdentifier, input.issueIdentifier),
+        eq(symphonyRunsTable.organizationId, input.bindingScope.organizationId),
+        eq(
+          symphonyRunsTable.linearWorkspaceIdentityId,
+          input.bindingScope.linearWorkspaceIdentityId
+        )
+      )
+    : and(
+        eq(symphonyRunsTable.issueIdentifier, input.issueIdentifier),
+        isNull(symphonyRunsTable.organizationId),
+        isNull(symphonyRunsTable.linearWorkspaceIdentityId)
+      );
+
+  return input.includeActiveStatusFilter
+    ? and(bindingScopeWhere, inArray(symphonyRunsTable.status, activeRunStatuses))
+    : bindingScopeWhere;
 }
 
 function compareDescendingTimestamps(

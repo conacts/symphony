@@ -37,6 +37,7 @@ async function recordSeededRunStarted(
     issueIdentifier: attrs.issueIdentifier,
     trackerIssueId: attrs.trackerIssueId,
     repositoryKey: attrs.repositoryKey,
+    bindingScope: attrs.bindingScope ?? null,
     latestRunStartedAt: null,
     recordedAt: new Date(attrs.startedAt).toISOString()
   });
@@ -109,6 +110,92 @@ describe("runtime run delivery projections", () => {
         })
       ).rejects.toThrow(
         "Issue binding not found for run start: COL-199 in openai/symphony."
+      );
+    } finally {
+      database.close();
+    }
+  });
+
+  it("persists hosted workspace scope on scoped run starts", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-run-scoped-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await recordSeededRunStarted(database.db, runStore, {
+        runId: "run-scoped-1",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-scoped-1",
+        issueIdentifier: "COL-201",
+        bindingScope: {
+          organizationId: "org-1",
+          linearWorkspaceIdentityId: "workspace-1"
+        },
+        runMode: "implementation",
+        startedAt: "2026-04-05T19:05:00.000Z",
+        status: "running"
+      });
+
+      const storedRun = database.db
+        .select()
+        .from(symphonyRunsTable)
+        .where(eq(symphonyRunsTable.runId, runId))
+        .get();
+
+      expect(storedRun?.organizationId).toBe("org-1");
+      expect(storedRun?.linearWorkspaceIdentityId).toBe("workspace-1");
+    } finally {
+      database.close();
+    }
+  });
+
+  it("fails fast when a scoped run start does not match the canonical issue scope", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-run-scope-mismatch-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "COL-202",
+        trackerIssueId: "issue-scoped-mismatch-1",
+        repositoryKey: testRepositoryKey,
+        bindingScope: {
+          organizationId: "org-1",
+          linearWorkspaceIdentityId: "workspace-1"
+        },
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-05T19:10:00.000Z"
+      });
+
+      await expect(
+        runStore.recordRunStarted({
+          runId: "run-scoped-mismatch-1",
+          repositoryKey: testRepositoryKey,
+          trackerIssueId: "issue-scoped-mismatch-1",
+          issueIdentifier: "COL-202",
+          bindingScope: {
+            organizationId: "org-2",
+            linearWorkspaceIdentityId: "workspace-2"
+          },
+          runMode: "implementation",
+          startedAt: "2026-04-05T19:11:00.000Z",
+          status: "running"
+        })
+      ).rejects.toThrow(
+        "Issue COL-202 is scoped to hosted workspace org-1/workspace-1, not org-2/workspace-2."
       );
     } finally {
       database.close();

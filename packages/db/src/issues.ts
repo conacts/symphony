@@ -1,11 +1,18 @@
 import { eq } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import {
+  assertMatchingLifecycleBindingScope,
+  mapLifecycleBindingScope,
+  normalizeLifecycleBindingScope,
+  type SymphonyLifecycleBindingScope
+} from "./lifecycle-binding-scope.js";
 import { symphonyIssuesTable } from "./schema.js";
 
 export type SymphonyIssueRecord = {
   issueIdentifier: string;
   trackerIssueId: string;
   repositoryKey: string;
+  bindingScope: SymphonyLifecycleBindingScope | null;
   latestRunStartedAt: string | null;
   insertedAt: string;
   updatedAt: string;
@@ -13,10 +20,15 @@ export type SymphonyIssueRecord = {
 
 export interface SymphonyIssueStore {
   fetchByIdentifier(issueIdentifier: string): Promise<SymphonyIssueRecord | null>;
+  fetchByScopedIdentifier(input: {
+    issueIdentifier: string;
+    bindingScope: SymphonyLifecycleBindingScope;
+  }): Promise<SymphonyIssueRecord | null>;
   upsert(input: {
     issueIdentifier: string;
     trackerIssueId: string;
     repositoryKey: string;
+    bindingScope?: SymphonyLifecycleBindingScope | null;
     latestRunStartedAt: string | null;
     recordedAt: string;
   }): Promise<void>;
@@ -41,14 +53,38 @@ export function createSymphonyIssueStore(
         return null;
       }
 
-      return {
-        issueIdentifier: row.issueIdentifier,
-        trackerIssueId: row.trackerIssueId,
-        repositoryKey: row.repositoryKey,
-        latestRunStartedAt: row.latestRunStartedAt ?? null,
-        insertedAt: row.insertedAt,
-        updatedAt: row.updatedAt
-      };
+      const record = mapIssueRow(row);
+      assertMatchingLifecycleBindingScope({
+        owner: `Issue ${record.issueIdentifier}`,
+        actual: record.bindingScope,
+        expected: null
+      });
+      return record;
+    },
+
+    async fetchByScopedIdentifier(input) {
+      const normalizedIssueIdentifier = sanitizeRequiredText(
+        input.issueIdentifier,
+        "issueIdentifier"
+      );
+      const bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
+      const row = db
+        .select()
+        .from(symphonyIssuesTable)
+        .where(eq(symphonyIssuesTable.issueIdentifier, normalizedIssueIdentifier))
+        .get();
+
+      if (!row) {
+        return null;
+      }
+
+      const record = mapIssueRow(row);
+      assertMatchingLifecycleBindingScope({
+        owner: `Issue ${record.issueIdentifier}`,
+        actual: record.bindingScope,
+        expected: bindingScope
+      });
+      return record;
     },
 
     async upsert(input) {
@@ -64,6 +100,7 @@ export function createSymphonyIssueStore(
         input.repositoryKey,
         "repositoryKey"
       );
+      const bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
       const latestRunStartedAt = normalizeOptionalIsoTimestamp(
         input.latestRunStartedAt,
         "latestRunStartedAt"
@@ -81,6 +118,9 @@ export function createSymphonyIssueStore(
             issueIdentifier,
             trackerIssueId,
             repositoryKey,
+            organizationId: bindingScope?.organizationId ?? null,
+            linearWorkspaceIdentityId:
+              bindingScope?.linearWorkspaceIdentityId ?? null,
             latestRunStartedAt,
             insertedAt: recordedAt,
             updatedAt: recordedAt
@@ -88,6 +128,17 @@ export function createSymphonyIssueStore(
           .run();
         return;
       }
+
+      const existingBindingScope = mapLifecycleBindingScope({
+        organizationId: existing.organizationId,
+        linearWorkspaceIdentityId: existing.linearWorkspaceIdentityId,
+        owner: `Issue ${issueIdentifier}`
+      });
+      assertMatchingLifecycleBindingScope({
+        owner: `Issue ${issueIdentifier}`,
+        actual: existingBindingScope,
+        expected: bindingScope
+      });
 
       if (existing.repositoryKey !== repositoryKey) {
         throw new TypeError(
@@ -164,4 +215,22 @@ function requireIsoTimestamp(value: string, field: string): string {
   }
 
   return new Date(parsed).toISOString();
+}
+
+function mapIssueRow(
+  row: typeof symphonyIssuesTable.$inferSelect
+): SymphonyIssueRecord {
+  return {
+    issueIdentifier: row.issueIdentifier,
+    trackerIssueId: row.trackerIssueId,
+    repositoryKey: row.repositoryKey,
+    bindingScope: mapLifecycleBindingScope({
+      organizationId: row.organizationId,
+      linearWorkspaceIdentityId: row.linearWorkspaceIdentityId,
+      owner: `Issue ${row.issueIdentifier}`
+    }),
+    latestRunStartedAt: row.latestRunStartedAt ?? null,
+    insertedAt: row.insertedAt,
+    updatedAt: row.updatedAt
+  };
 }

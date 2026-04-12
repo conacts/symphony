@@ -39,6 +39,14 @@ export type {
   SymphonyRuntimeTurnStartAttrs,
   SymphonyRuntimeTurnUpdateAttrs
 } from "./runtime-run-types.js";
+export type {
+  SymphonyLifecycleBindingScope
+} from "./lifecycle-binding-scope.js";
+export {
+  assertMatchingLifecycleBindingScope,
+  mapLifecycleBindingScope,
+  normalizeLifecycleBindingScope
+} from "./lifecycle-binding-scope.js";
 export {
   createSqliteAgentAnalyticsStore
 } from "./agent-analytics-store.js";
