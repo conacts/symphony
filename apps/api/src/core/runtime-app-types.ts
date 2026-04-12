@@ -87,6 +87,12 @@ export type SymphonyRuntimeTrackerObservationPort = {
   }): Promise<SymphonyRuntimeTrackerStateObservationResult | null>;
 };
 
+export type SymphonyRuntimeWorkflowReadPort = {
+  loadCurrentWorkflowTrackerState(input: {
+    issueIdentifier: string;
+  }): Promise<string | null>;
+};
+
 export type SymphonyRuntimeToolsPort = {
   recordDeliveryReport(input: {
     runId: string;
@@ -195,6 +201,7 @@ export type SymphonyRuntimeAppServices = {
   runtimeLogs: SymphonyRuntimeLogsPort;
   health: SymphonyRuntimeHealthPort;
   trackerStateIngress: SymphonyRuntimeTrackerObservationPort;
+  workflowRead: SymphonyRuntimeWorkflowReadPort;
   runtimeTools: SymphonyRuntimeToolsPort;
   workflowComparison: SymphonyRuntimeWorkflowComparisonPort;
   routeWorkflows: SymphonyRouteWorkflowPort;

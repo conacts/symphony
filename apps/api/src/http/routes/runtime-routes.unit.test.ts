@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { RouteHistoryEventRecord } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
+import { buildSymphonyTrackerIssue } from "@symphony/test-support";
+import { buildSymphonyRuntimePolicy } from "@symphony/test-support";
 import type {
   WorkflowCommand,
   WorkflowDecision,
@@ -149,6 +151,38 @@ describe("runtime routes", () => {
     expect(payload.error.code).toBe("VALIDATION_FAILED");
     expect(compareByIssueIdentifier).not.toHaveBeenCalled();
   });
+
+  it("prefers workflow-authoritative tracker state for runtime issue details", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      identifier: "COL-123",
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const loadCurrentWorkflowTrackerState = vi
+      .fn<SymphonyRuntimeAppServices["workflowRead"]["loadCurrentWorkflowTrackerState"]>()
+      .mockResolvedValue("Approved");
+    const app = createRuntimeRoutesTestApp({
+      tracker,
+      workflowRead: {
+        loadCurrentWorkflowTrackerState
+      }
+    });
+
+    const response = await app.request("/api/v1/COL-123");
+    const payload = (await response.json()) as {
+      data: {
+        tracked: {
+          state: string;
+        };
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.data.tracked.state).toBe("Approved");
+    expect(loadCurrentWorkflowTrackerState).toHaveBeenCalledWith({
+      issueIdentifier: "COL-123"
+    });
+  });
 });
 
 function createRuntimeRoutesTestApp(
@@ -177,6 +211,7 @@ function createRuntimeServicesStub(
   overrides: Partial<SymphonyRuntimeAppServices>
 ): SymphonyRuntimeAppServices {
   const logger = createSilentSymphonyLogger("@symphony/api.runtime-routes.unit");
+  const runtimePolicy = buildSymphonyRuntimePolicy();
 
   return {
     logger,
@@ -187,12 +222,7 @@ function createRuntimeServicesStub(
       sourcePath: "/tmp/prompt.md"
     },
     promptContract: {} as SymphonyRuntimeAppServices["promptContract"],
-    runtimePolicy: {
-      tracker: {},
-      github: {
-        repo: "openai/symphony"
-      }
-    } as SymphonyRuntimeAppServices["runtimePolicy"],
+    runtimePolicy,
     tracker: createMemorySymphonyTracker(),
     orchestrator: {
       snapshot: vi.fn().mockReturnValue({
@@ -263,6 +293,9 @@ function createRuntimeServicesStub(
     },
     trackerStateIngress: {
       observeNonRunningIssue: vi.fn().mockResolvedValue(null)
+    },
+    workflowRead: {
+      loadCurrentWorkflowTrackerState: vi.fn().mockResolvedValue(null)
     },
     runtimeTools: {
       recordDeliveryReport: vi.fn(),

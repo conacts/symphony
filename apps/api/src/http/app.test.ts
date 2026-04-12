@@ -218,6 +218,12 @@ describe("@symphony/api app", () => {
           commandId: expect.any(String),
           issueIdentifier: "COL-777",
           runMode: "implementation"
+        },
+        {
+          workflowId: expect.any(String),
+          commandId: expect.any(String),
+          issueIdentifier: "COL-777",
+          runMode: "implementation"
         }
       ]);
       expect(hydration?.snapshot?.projection.currentNode).toBe("bootstrapping");
@@ -227,10 +233,10 @@ describe("@symphony/api app", () => {
       expect(secondPayload.data).toEqual({
         issueIdentifier: "COL-777",
         trackerState: "Bootstrapping",
-        observed: false,
+        observed: true,
         recordedAt: expect.any(String)
       });
-      expect(routedDispatches).toHaveLength(1);
+      expect(routedDispatches).toHaveLength(2);
     },
     runtimeHttpIntegrationTestTimeoutMs
   );

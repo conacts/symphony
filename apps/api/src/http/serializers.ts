@@ -104,6 +104,7 @@ export function serializeRuntimeIssue(
   githubRepository: string | null,
   issueIdentifier: string,
   trackedIssue: SymphonyTrackerIssue | null,
+  workflowTrackerState: string | null,
   piSelectionPolicy: RuntimeIssuePiSelectionPolicy
 ): SymphonyRuntimeIssueResult | null {
   const running = snapshot.running.find(
@@ -129,6 +130,7 @@ export function serializeRuntimeIssue(
     branchName
   );
   const workspace = running?.workspace ?? retry?.workspace ?? null;
+  const canonicalTrackerState = workflowTrackerState ?? tracked.state;
   const selectedModel = resolvePiIssueModel(
     tracked,
     piSelectionPolicy
@@ -155,7 +157,7 @@ export function serializeRuntimeIssue(
           threadId: running.threadId,
           launchTarget: serializeRuntimeLaunchTarget(running.launchTarget),
           turnCount: running.turnCount,
-          state: running.issue.state,
+          state: canonicalTrackerState,
           startedAt: running.startedAt,
           lastEvent: running.lastAgentEvent,
           lastMessage: summarizeMessage(running.lastAgentMessage?.message ?? null),
@@ -180,7 +182,7 @@ export function serializeRuntimeIssue(
     lastError: retry?.error ?? null,
     tracked: {
       title: tracked.title,
-      state: tracked.state,
+      state: canonicalTrackerState,
       branchName: tracked.branchName,
       url: tracked.url,
       projectName: tracked.projectName,

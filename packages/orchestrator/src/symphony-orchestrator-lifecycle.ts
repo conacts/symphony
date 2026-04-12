@@ -10,10 +10,7 @@ import type {
   WorkspaceBackend,
   WorkspaceCleanupMode
 } from "@symphony/workspace";
-import {
-  buildFailureCommentBody,
-  type SymphonyFailureStateTransition
-} from "./symphony-orchestrator-comments.js";
+import { buildFailureCommentBody } from "./symphony-orchestrator-comments.js";
 import {
   buildWorkspaceLifecyclePayload,
   createWorkspaceLifecycleRecorder,
@@ -48,7 +45,7 @@ export async function leaveFailureComment(input: {
   runId: string | null;
   options?: {
     rateLimits?: JsonObject | null;
-    stateTransition?: SymphonyFailureStateTransition;
+    expectedTrackerState?: string | null;
     workspaceCleanupMode?: WorkspaceCleanupMode | null;
   };
 }): Promise<void> {
@@ -162,26 +159,24 @@ export async function handleStartupFailure(input: {
   runnerEnv: Record<string, string | undefined> | undefined;
   workerHost: string | null;
   workspace: PreparedWorkspace | null;
-  reason: string;
   runId: string | null;
+  issue: SymphonyTrackerIssue;
   completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
-  effectiveIssue: SymphonyTrackerIssue;
 }): Promise<void> {
-  const effectiveIssue = input.effectiveIssue;
-
   const cleanupMode = workspaceCleanupModeForIssue({
-    issue: effectiveIssue,
+    issue: input.issue,
     tracker: input.config.tracker
   });
 
   await leaveFailureComment({
     tracker: input.tracker,
     observer: input.observer,
-    issue: effectiveIssue,
-    reason: input.reason,
+    issue: input.issue,
+    reason: input.completion.reason,
     outcome: "startup_failed",
     runId: input.runId,
     options: {
+      expectedTrackerState: input.config.tracker.startupFailureTransitionToState,
       workspaceCleanupMode: cleanupMode
     }
   });
@@ -191,7 +186,7 @@ export async function handleStartupFailure(input: {
     workspaceBackend: input.workspaceBackend,
     config: input.config,
     runnerEnv: input.runnerEnv,
-    issue: effectiveIssue,
+    issue: input.issue,
     runId: input.runId,
     workspace: input.workspace,
     workerHost: input.workerHost,

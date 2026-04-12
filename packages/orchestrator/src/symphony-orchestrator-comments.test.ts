@@ -15,6 +15,7 @@ describe("buildFailureCommentBody", () => {
       "workspace hook `before_run` exited with status 1.",
       "startup_failed",
       {
+        expectedTrackerState: "Failed",
         workspaceCleanupMode: "preserve"
       }
     );
@@ -42,18 +43,19 @@ describe("buildFailureCommentBody", () => {
       "agent exited",
       "paused_failure",
       {
-        stateTransition: {
-          kind: "failed",
-          targetState: "Paused",
-          reason: "Tracker state remained `In Progress`."
-        },
+        expectedTrackerState: "Paused",
         workspaceCleanupMode: "preserve"
       }
     );
 
     expect(comment).toContain("Symphony agent stopped after a runtime failure.");
     expect(comment).not.toContain("Symphony agent paused after a runtime failure.");
-    expect(comment).toContain("Symphony could not move the issue to `Paused`");
+    expect(comment).toContain(
+      "Tracker state mismatch: expected `Paused`, actual `In Progress`."
+    );
+    expect(comment).toContain(
+      "The issue is currently in `In Progress`. Manual state cleanup may be required before the ticket is requeued."
+    );
   });
 
   it("uses stopped wording for rate-limit comments when the pause transition fails", () => {
@@ -62,11 +64,7 @@ describe("buildFailureCommentBody", () => {
       "rate_limit_exceeded",
       "rate_limited",
       {
-        stateTransition: {
-          kind: "failed",
-          targetState: "Paused",
-          reason: "Tracker state remained `In Progress`."
-        },
+        expectedTrackerState: "Paused",
         workspaceCleanupMode: "preserve"
       }
     );
@@ -77,34 +75,32 @@ describe("buildFailureCommentBody", () => {
 
   it("formats blocked implementation comments with blocker guidance", () => {
     const comment = buildFailureCommentBody(
-      issue,
+      buildSymphonyTrackerIssue({
+        state: "Blocked"
+      }),
       "Integration tests require a missing seed fixture.",
       "blocked_repo",
       {
-        stateTransition: {
-          kind: "moved",
-          targetState: "Blocked"
-        },
+        expectedTrackerState: "Blocked",
         workspaceCleanupMode: "preserve"
       }
     );
 
     expect(comment).toContain("Symphony agent reported a repo or workspace blocker.");
     expect(comment).toContain("Workspace policy: preserve.");
-    expect(comment).toContain("Symphony moved the issue to `Blocked`.");
+    expect(comment).toContain("The issue is currently in `Blocked`.");
     expect(comment).toContain("move it back to `Todo`");
   });
 
   it("formats blocked merge comments with merge rerun guidance", () => {
     const comment = buildFailureCommentBody(
-      issue,
+      buildSymphonyTrackerIssue({
+        state: "Blocked"
+      }),
       "Conflicts in packages/workspace/src/docker-client.ts",
       "blocked_merge",
       {
-        stateTransition: {
-          kind: "moved",
-          targetState: "Blocked"
-        },
+        expectedTrackerState: "Blocked",
         workspaceCleanupMode: "preserve"
       }
     );

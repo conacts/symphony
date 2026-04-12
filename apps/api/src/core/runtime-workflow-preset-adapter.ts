@@ -107,6 +107,12 @@ export type SymphonyRuntimeWorkflowPresetAdapter = {
     workflowId: string;
     data: unknown;
   }): string | null;
+  shouldObserveUnchangedIdleTrackerState(input: {
+    workflowId: string;
+    currentNode: string;
+    data: unknown;
+    trackerState: string;
+  }): boolean;
   readLastDispatchModeFromProjection(input: {
     workflowId: string;
     data: unknown;

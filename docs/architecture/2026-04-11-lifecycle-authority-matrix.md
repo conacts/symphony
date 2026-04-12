@@ -76,7 +76,7 @@ out explicitly.
 | Dispatch bootstrap | `workflowRoutingAdapter.routeDispatchBootstrap` in `runtime-dispatch-bootstrap-routing.ts` | `createTrackerStateObservedSignal` with ingress-specific id prefix `signal_dispatch_bootstrap_*` | `tracker.transition` to `Bootstrapping`; `run.dispatch` to select the first run mode | `recordRouteResult` plus `executeSettledRouteCommand` for tracker transition and dispatch selection | Snapshot-derived tracker state plus `readLastDispatchModeFromProjection` | Routed and authoritative |
 | Run start activation | `workflowRoutingAdapter.activateRunStart` in `runtime-run-start-activation-routing.ts` | `createRunStartedSignal` with id prefix `signal_run_started_*` | `tracker.transition` to `In Progress` | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state | Routed and authoritative |
 | Running issue observation | `workflowRoutingAdapter.observeRunningIssueState` in `runtime-run-lifecycle-routing.ts` | `createTrackerStateObservedSignal` with id prefix `signal_running_issue_observed_*` | `tracker.transition` only | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state | Routed and authoritative |
-| Runtime completion | `workflowRoutingAdapter.routeRunCompletion` in `runtime-run-lifecycle-routing.ts` | `createRuntimeCompletionSignal` with id prefix `signal_run_completed_*` | `tracker.transition` only | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state, plus preset-specific projection data | Routed for normal completion surfaces |
+| Runtime completion | `workflowRoutingAdapter.routeRunCompletion` in `runtime-run-lifecycle-routing.ts` | `createRuntimeCompletionSignal` with id prefix `signal_run_completed_*` | `tracker.transition` only | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state, plus preset-specific projection data | Routed and authoritative, including startup failure |
 | Non-running tracker observation, batch | `createRuntimeTrackerStateIngressPort().observeNonRunning` before each poll cycle | `createTrackerStateObservedSignal` with id prefix `signal_tracker_state_observed_*` | `tracker.transition`; optional `run.dispatch` when idle observation should start work | `recordRouteResult` plus `executeSettledRouteCommand`; dispatch callback hands off to orchestrator after settlement | Snapshot-derived tracker state through `loadCurrentTrackerState` and preset adapter readers | Routed and first-class |
 | Non-running tracker observation, single issue | `createRuntimeTrackerStateIngressPort().observeNonRunningByIdentifier` and `trackerStateIngress.observeNonRunningIssue` | `createTrackerStateObservedSignal` with id prefix `signal_tracker_state_observed_*` | `tracker.transition`; optional `run.dispatch` | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state through the route lifecycle service | Routed and first-class |
 | Active tracker observation by identifier | `routeLifecycle.observeActiveIssueStateByIdentifier` in `runtime-route-lifecycle-service.ts` | `createTrackerStateObservedSignal` with id prefix `signal_tracker_state_observed_*` | `tracker.transition` only | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived active run mode through `readActiveRunModeFromProjection` | Routed recovery surface |
@@ -86,8 +86,6 @@ out explicitly.
 | Runtime state request, spike/cancel class | Runtime tools port `submitSpikeResult` and `cancelIssue` through `runtime-tools-port.ts` and `runtime-state-request-routing.ts` | `createStateRequestedSignal` with id prefix `signal_state_requested_*` | `tracker.transition` only, and it must match the requested target state exactly | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state | Routed and authoritative |
 | Shutdown pause | `routeLifecycle.routeShutdownPause` through `runtime-run-shutdown-routing.ts` | `createShutdownRequestedSignal` with id prefix `signal_shutdown_requested_*` | `tracker.transition` to `Paused` only | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state | Routed and authoritative |
 | Persisted active-run shutdown recovery | `reconcilePersistedActiveRunsOnShutdown` in `runtime-shutdown-reconciliation.ts` | Delegates to `routeShutdownPause`; no separate lifecycle signal family today | Router handles workflow pause; shutdown reconciler finalizes `symphony_runs` and turn records locally | Workflow settlement happens through routed shutdown; run-store finalization remains runtime execution-domain work | Workflow truth from route history; execution truth from `symphony_runs` | Acceptable split authority |
-| Startup failure transition | `handleStartupFailure` in `packages/orchestrator/src/symphony-orchestrator-lifecycle.ts` | No routed signal today | Direct tracker transition decision is still produced outside the workflow journal | Lifecycle event logging only; no routed command settlement | Tracker plus orchestrator observer logs | Remaining authority gap |
-
 ## Notes Per Surface
 
 ### Shared Tracker Observation Signal
@@ -149,20 +147,7 @@ The projection remains Symphony's internal lifecycle read source.
 
 The matrix makes the remaining cutover work explicit.
 
-### 1. Route startup failure through workflow history
-
-`handleStartupFailure` is the clearest remaining lifecycle authority gap.
-
-It still:
-
-- records lifecycle events in the orchestrator observer
-- relies on a precomputed tracker transition
-- does not emit a routed lifecycle signal
-- does not settle its transition through the workflow journal
-
-That should become a proper routed ingress instead of an orchestrator-local special case.
-
-### 2. Keep timeline and runtime logs projection-only
+### 1. Keep timeline and runtime logs projection-only
 
 Timeline events and runtime logs still matter for diagnostics, but they should remain descriptive.
 
@@ -171,7 +156,7 @@ They should never be required to reconstruct why a workflow changed state.
 If reconstructing a lifecycle transition requires reading runtime logs, then workflow history is
 still incomplete.
 
-### 3. Keep preset modules as the only source of routing variation
+### 2. Keep preset modules as the only source of routing variation
 
 The host ingress layer should stay thin.
 

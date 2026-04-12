@@ -593,6 +593,401 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("continues startup-failure recovery after service restart from persisted failed history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToFailedStartup(harness);
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "failed",
+        reasonCode: "startup_failure",
+        signalType: "runtime.startup_failure",
+        assertData(data) {
+          expect(data.trackerState).toBe("Failed");
+          expect(data.lastRuntimeOutcome).toBe("startup_failure");
+        }
+      });
+
+      await harness.restartService("2026-04-10T14:00:06.000Z");
+
+      expect(
+        await harness.service.loadCurrentTrackerState({
+          issueIdentifier: harness.issue.identifier
+        })
+      ).toBe("Failed");
+
+      await harness.tracker.updateIssueState(harness.issue.id, "Todo");
+      const dispatchRequests: Array<{
+        workflowId: string;
+        issueState: string;
+        runMode: string;
+      }> = [];
+
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:00:10.000Z",
+        onDispatchRequested: async (input) => {
+          dispatchRequests.push({
+            workflowId: input.workflowId,
+            issueState: input.issue.state,
+            runMode: input.runMode
+          });
+        }
+      });
+
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        trackerState: "Bootstrapping",
+        observed: true
+      });
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
+      expect(dispatchRequests).toEqual([
+        {
+          workflowId: expect.any(String),
+          issueState: "Bootstrapping",
+          runMode: "implementation"
+        }
+      ]);
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "bootstrapping",
+        reasonCode: "failed_reopened_from_todo",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("Bootstrapping");
+          expect(data.lastDispatchMode).toBe("implementation");
+          expect(data.lastRuntimeOutcome).toBe("startup_failure");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("continues bootstrapping redispatch after service restart from persisted bootstrapping history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      const routed = await advanceWorkflowToBootstrapping(
+        harness,
+        "2026-04-10T14:00:00.000Z"
+      );
+
+      expect(routed.runMode).toBe("implementation");
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "bootstrapping",
+        reasonCode: "todo_claimed_for_dispatch",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("Bootstrapping");
+          expect(data.lastDispatchMode).toBe("implementation");
+        }
+      });
+
+      await harness.restartService("2026-04-10T14:00:07.000Z");
+
+      expect(
+        await harness.service.loadCurrentTrackerState({
+          issueIdentifier: harness.issue.identifier
+        })
+      ).toBe("Bootstrapping");
+
+      const dispatchRequests: Array<{
+        workflowId: string;
+        issueState: string;
+        runMode: string;
+      }> = [];
+
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:00:10.000Z",
+        onDispatchRequested: async (input) => {
+          dispatchRequests.push({
+            workflowId: input.workflowId,
+            issueState: input.issue.state,
+            runMode: input.runMode
+          });
+        }
+      });
+
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        trackerState: "Bootstrapping",
+        observed: true
+      });
+      expect(dispatchRequests).toEqual([
+        {
+          workflowId: expect.any(String),
+          issueState: "Bootstrapping",
+          runMode: "implementation"
+        }
+      ]);
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "bootstrapping",
+        reasonCode: "bootstrapping_redispatched",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("Bootstrapping");
+          expect(data.lastDispatchMode).toBe("implementation");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("continues approved-merge redispatch after service restart from persisted approved history", async () => {
+    const harness = await createHarness({
+      state: "Todo",
+      presetId: "auto-merge"
+    });
+
+    try {
+      await advanceWorkflowToAutoApprovedMerge(harness);
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "approved_merge",
+        reasonCode: "delivery_reported_auto_approved",
+        signalType: "runtime.delivery_reported",
+        assertData(data) {
+          expect(data.trackerState).toBe("Approved");
+          expect(data.lastDispatchMode).toBe("approved_merge");
+        }
+      });
+
+      await harness.restartService("2026-04-10T14:12:07.000Z");
+
+      expect(
+        await harness.service.loadCurrentTrackerState({
+          issueIdentifier: harness.issue.identifier
+        })
+      ).toBe("Approved");
+
+      const dispatchRequests: Array<{
+        workflowId: string;
+        issueState: string;
+        runMode: string;
+      }> = [];
+
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:12:10.000Z",
+        onDispatchRequested: async (input) => {
+          dispatchRequests.push({
+            workflowId: input.workflowId,
+            issueState: input.issue.state,
+            runMode: input.runMode
+          });
+        }
+      });
+
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        trackerState: "Approved",
+        observed: true
+      });
+      expect(dispatchRequests).toEqual([
+        {
+          workflowId: expect.any(String),
+          issueState: "Approved",
+          runMode: "approved_merge"
+        }
+      ]);
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "approved_merge",
+        reasonCode: "approved_merge_redispatched",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("Approved");
+          expect(data.lastDispatchMode).toBe("approved_merge");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("continues paused recovery after service restart from persisted paused history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToPaused(harness);
+
+      await harness.restartService("2026-04-10T14:12:25.000Z");
+
+      expect(
+        await harness.service.loadCurrentTrackerState({
+          issueIdentifier: harness.issue.identifier
+        })
+      ).toBe("Paused");
+
+      await harness.tracker.updateIssueState(harness.issue.id, "Todo");
+      const dispatchRequests: Array<{
+        workflowId: string;
+        issueState: string;
+        runMode: string;
+      }> = [];
+
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:12:30.000Z",
+        onDispatchRequested: async (input) => {
+          dispatchRequests.push({
+            workflowId: input.workflowId,
+            issueState: input.issue.state,
+            runMode: input.runMode
+          });
+        }
+      });
+
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        trackerState: "Bootstrapping",
+        observed: true
+      });
+      expect(dispatchRequests).toEqual([
+        {
+          workflowId: expect.any(String),
+          issueState: "Bootstrapping",
+          runMode: "implementation"
+        }
+      ]);
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "bootstrapping",
+        reasonCode: "paused_reopened_from_todo",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("Bootstrapping");
+          expect(data.lastDispatchMode).toBe("implementation");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("continues blocked recovery after service restart from persisted blocked history", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToBlocked(harness);
+
+      await harness.restartService("2026-04-10T14:12:15.000Z");
+
+      expect(
+        await harness.service.loadCurrentTrackerState({
+          issueIdentifier: harness.issue.identifier
+        })
+      ).toBe("Blocked");
+
+      await harness.tracker.updateIssueState(harness.issue.id, "Todo");
+      const dispatchRequests: Array<{
+        workflowId: string;
+        issueState: string;
+        runMode: string;
+      }> = [];
+
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:12:20.000Z",
+        onDispatchRequested: async (input) => {
+          dispatchRequests.push({
+            workflowId: input.workflowId,
+            issueState: input.issue.state,
+            runMode: input.runMode
+          });
+        }
+      });
+
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        trackerState: "Bootstrapping",
+        observed: true
+      });
+      expect(dispatchRequests).toEqual([
+        {
+          workflowId: expect.any(String),
+          issueState: "Bootstrapping",
+          runMode: "implementation"
+        }
+      ]);
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "bootstrapping",
+        reasonCode: "blocked_reopened_from_todo",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("Bootstrapping");
+          expect(data.lastDispatchMode).toBe("implementation");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
   it("returns false when no route workflow exists for the issue", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -1227,12 +1622,10 @@ async function createHarness(input: {
 }
 
 async function advanceWorkflowToReview(harness: Awaited<ReturnType<typeof createHarness>>) {
-  await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
-    issue: harness.issue,
-    attempt: 1,
-    preferredWorkerHost: null,
-    startedAt: "2026-04-10T14:00:00.000Z"
-  });
+  await advanceWorkflowToBootstrapping(
+    harness,
+    "2026-04-10T14:00:00.000Z"
+  );
   const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
   await harness.service.workflowRoutingAdapter.activateRunStart({
     issue: bootstrappingIssue!,
@@ -1254,12 +1647,10 @@ async function advanceWorkflowToReview(harness: Awaited<ReturnType<typeof create
 async function advanceWorkflowToRunningImplementation(
   harness: Awaited<ReturnType<typeof createHarness>>
 ) {
-  await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
-    issue: harness.issue,
-    attempt: 1,
-    preferredWorkerHost: null,
-    startedAt: "2026-04-10T14:11:00.000Z"
-  });
+  await advanceWorkflowToBootstrapping(
+    harness,
+    "2026-04-10T14:11:00.000Z"
+  );
   const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
   await harness.service.workflowRoutingAdapter.activateRunStart({
     issue: bootstrappingIssue!,
@@ -1272,15 +1663,85 @@ async function advanceWorkflowToRunningImplementation(
   });
 }
 
-async function advanceWorkflowToRunningApprovedMerge(
-  harness: Awaited<ReturnType<typeof createHarness>>
+async function advanceWorkflowToBootstrapping(
+  harness: Awaited<ReturnType<typeof createHarness>>,
+  startedAt: string
 ) {
-  await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
+  return await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
     issue: harness.issue,
     attempt: 1,
     preferredWorkerHost: null,
-    startedAt: "2026-04-10T14:12:00.000Z"
+    startedAt
   });
+}
+
+async function advanceWorkflowToFailedStartup(
+  harness: Awaited<ReturnType<typeof createHarness>>
+) {
+  await advanceWorkflowToBootstrapping(
+    harness,
+    "2026-04-10T14:00:00.000Z"
+  );
+  const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
+  await harness.service.workflowRoutingAdapter.routeRunCompletion({
+    issue: bootstrappingIssue!,
+    runId: "run-1",
+    runMode: "implementation",
+    completion: {
+      kind: "startup_failure",
+      reason: "activation failed",
+      failureStage: "runtime_session_start",
+      failureOrigin: "workspace_lifecycle"
+    },
+    recordedAt: "2026-04-10T14:00:05.000Z"
+  });
+}
+
+async function advanceWorkflowToBlocked(
+  harness: Awaited<ReturnType<typeof createHarness>>
+) {
+  await advanceWorkflowToRunningImplementation(harness);
+  await harness.service.routeDeliveryReport({
+    issueIdentifier: harness.issue.identifier,
+    runId: "run-1",
+    recordedAt: "2026-04-10T14:12:10.000Z",
+    status: "blocked"
+  });
+}
+
+async function advanceWorkflowToPaused(
+  harness: Awaited<ReturnType<typeof createHarness>>
+) {
+  await advanceWorkflowToRunningImplementation(harness);
+  await harness.service.routeRuntimeStateRequest({
+    issueIdentifier: harness.issue.identifier,
+    runId: "run-1",
+    recordedAt: "2026-04-10T14:12:20.000Z",
+    requestKind: "spike_result",
+    targetState: "Paused"
+  });
+}
+
+async function advanceWorkflowToAutoApprovedMerge(
+  harness: Awaited<ReturnType<typeof createHarness>>
+) {
+  await advanceWorkflowToRunningImplementation(harness);
+  await harness.service.routeDeliveryReport({
+    issueIdentifier: harness.issue.identifier,
+    runId: "run-1",
+    recordedAt: "2026-04-10T14:12:05.000Z",
+    status: "completed",
+    onDispatchRequested: async () => {}
+  });
+}
+
+async function advanceWorkflowToRunningApprovedMerge(
+  harness: Awaited<ReturnType<typeof createHarness>>
+) {
+  await advanceWorkflowToBootstrapping(
+    harness,
+    "2026-04-10T14:12:00.000Z"
+  );
   const approvedIssue = harness.tracker.getIssue(harness.issue.id);
   await harness.service.workflowRoutingAdapter.activateRunStart({
     issue: approvedIssue!,

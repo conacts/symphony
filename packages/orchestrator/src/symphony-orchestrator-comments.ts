@@ -6,23 +6,9 @@ import {
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
 
-export type SymphonyFailureStateTransition =
-  | {
-      kind: "none";
-    }
-  | {
-      kind: "moved";
-      targetState: string;
-    }
-  | {
-      kind: "failed";
-      targetState: string;
-      reason: string;
-    };
-
 type SymphonyFailureCommentOptions = {
   rateLimits?: JsonObject | null;
-  stateTransition?: SymphonyFailureStateTransition;
+  expectedTrackerState?: string | null;
   workspaceCleanupMode?: WorkspaceCleanupMode | null;
 };
 
@@ -47,13 +33,15 @@ export function buildFailureCommentBody(
   options: SymphonyFailureCommentOptions = {}
 ): string {
   return [
-    failureCommentTitle(outcome, reason, options.stateTransition),
+    failureCommentTitle(issue, outcome, reason, options.expectedTrackerState),
     "",
     `Summary: ${failureCommentSummary(outcome, reason)}`,
-    failureCommentDetailBlock(failureCommentDetails(reason, outcome, options)),
+    failureCommentDetailBlock(
+      failureCommentDetails(issue, reason, outcome, options)
+    ),
     failureCommentWorkspacePolicyLine(options.workspaceCleanupMode),
     "",
-    ...failureCommentFollowUpLines(issue, outcome, options.stateTransition)
+    ...failureCommentFollowUpLines(issue, outcome, options.expectedTrackerState)
   ]
     .filter((line): line is string => typeof line === "string" && line !== "")
     .join("\n");
@@ -68,34 +56,35 @@ function truncateReason(reason: string, maxLength = 1_000): string {
 }
 
 function failureCommentTitle(
+  issue: SymphonyTrackerIssue,
   outcome: string,
   reason: string,
-  transition: SymphonyFailureStateTransition | undefined
+  expectedTrackerState: string | null | undefined
 ): string {
   if (outcome === "startup_failed") {
     return "Symphony agent startup failed.";
   }
 
   if (outcome === "paused_max_turns") {
-    return pauseTransitionSucceeded(transition)
+    return issueMatchesExpectedTrackerState(issue, expectedTrackerState)
       ? "Symphony agent paused after reaching max turns."
       : "Symphony agent stopped after reaching max turns.";
   }
 
   if (outcome === "paused_stalled") {
-    return pauseTransitionSucceeded(transition)
+    return issueMatchesExpectedTrackerState(issue, expectedTrackerState)
       ? "Symphony agent paused after the run stalled."
       : "Symphony agent stopped after the run stalled.";
   }
 
   if (outcome === "paused_provider_transient") {
-    return pauseTransitionSucceeded(transition)
+    return issueMatchesExpectedTrackerState(issue, expectedTrackerState)
       ? "Symphony agent paused after repeated transient provider failures."
       : "Symphony agent stopped after repeated transient provider failures.";
   }
 
   if (outcome === "paused_failure") {
-    return pauseTransitionSucceeded(transition)
+    return issueMatchesExpectedTrackerState(issue, expectedTrackerState)
       ? "Symphony agent paused after a runtime failure."
       : "Symphony agent stopped after a runtime failure.";
   }
@@ -121,7 +110,7 @@ function failureCommentTitle(
   }
 
   if (outcome === "rate_limited" || rateLimitReason(reason)) {
-    return pauseTransitionSucceeded(transition)
+    return issueMatchesExpectedTrackerState(issue, expectedTrackerState)
       ? "Symphony agent paused after hitting a Pi rate limit."
       : "Symphony agent stopped after hitting a Pi rate limit.";
   }
@@ -174,6 +163,7 @@ function failureCommentSummary(outcome: string, reason: string): string {
 }
 
 function failureCommentDetails(
+  issue: SymphonyTrackerIssue,
   reason: string,
   outcome: string,
   options: SymphonyFailureCommentOptions
@@ -188,11 +178,12 @@ function failureCommentDetails(
     details.push(primaryDetail);
   }
 
-  const transitionDetail = startupFailureTransitionDetail(
-    options.stateTransition
+  const trackerStateDetail = trackerStateMismatchDetail(
+    issue,
+    options.expectedTrackerState
   );
-  if (transitionDetail) {
-    details.push(transitionDetail);
+  if (trackerStateDetail) {
+    details.push(trackerStateDetail);
   }
 
   const rateLimitDetail = formatRateLimitDetail(reason, outcome, options.rateLimits);
@@ -232,14 +223,14 @@ function failureCommentWorkspacePolicyLine(
 function failureCommentFollowUpLines(
   issue: SymphonyTrackerIssue,
   outcome: string,
-  transition: SymphonyFailureStateTransition | undefined
+  expectedTrackerState: string | null | undefined
 ): string[] {
   if (outcome === "startup_failed") {
-    return startupFailureFollowUpLines(issue);
+    return startupFailureFollowUpLines(issue, expectedTrackerState);
   }
 
   if (outcome === "blocked_repo") {
-    return blockedFollowUpLines(transition);
+    return blockedFollowUpLines(issue, expectedTrackerState);
   }
 
   if (
@@ -248,135 +239,141 @@ function failureCommentFollowUpLines(
     outcome === "blocked_merge_stalled" ||
     outcome === "blocked_merge_failure"
   ) {
-    return blockedMergeFollowUpLines(transition);
+    return blockedMergeFollowUpLines(issue, expectedTrackerState);
   }
 
-  return pausedFailureFollowUpLines(outcome, transition);
+  return pausedFailureFollowUpLines(issue, outcome, expectedTrackerState);
 }
 
 function startupFailureFollowUpLines(
-  issue: SymphonyTrackerIssue
+  issue: SymphonyTrackerIssue,
+  expectedTrackerState: string | null | undefined
 ): string[] {
-  if (normalizeStateName(issue.state) === "failed") {
-    return [
-      "Symphony did not retry automatically.",
-      `The issue is currently in \`${issue.state}\`. After fixing the startup problem, move it back to \`Todo\` to request another run.`
-    ];
-  }
-
-  return [
-    "Symphony did not retry automatically.",
-    `The issue is currently in \`${issue.state}\`. Manual state cleanup may be required before the ticket is requeued.`
-  ];
+  return routedTrackerStateFollowUpLines({
+    issue,
+    expectedTrackerState,
+    firstLine: "Symphony did not retry automatically.",
+    rerunInstruction:
+      "After fixing the startup problem, move it back to `Todo` to request another run.",
+    manualCleanupInstruction:
+      "Manual state cleanup may be required before the ticket is requeued.",
+    fallbackInstruction:
+      "After fixing the startup problem, move the issue back to `Todo` to request another run."
+  });
 }
 
 function blockedFollowUpLines(
-  transition: SymphonyFailureStateTransition | undefined
+  issue: SymphonyTrackerIssue,
+  expectedTrackerState: string | null | undefined
 ): string[] {
-  if (transition?.kind === "moved") {
-    return [
-      "Symphony did not retry automatically.",
-      `Symphony moved the issue to \`${transition.targetState}\`. After resolving the repo or workspace blocker, move it back to \`Todo\` to request another run.`
-    ];
-  }
-
-  if (transition?.kind === "failed") {
-    return [
-      "Symphony did not retry automatically.",
-      `Symphony could not move the issue to \`${transition.targetState}\`, so manual state cleanup is required before the ticket is requeued.`
-    ];
-  }
-
-  return [
-    "Symphony did not retry automatically.",
-    "After resolving the repo or workspace blocker, move the issue back to `Todo` to request another run."
-  ];
+  return routedTrackerStateFollowUpLines({
+    issue,
+    expectedTrackerState,
+    firstLine: "Symphony did not retry automatically.",
+    rerunInstruction:
+      "After resolving the repo or workspace blocker, move it back to `Todo` to request another run.",
+    manualCleanupInstruction:
+      "Manual state cleanup may be required before the ticket is requeued.",
+    fallbackInstruction:
+      "After resolving the repo or workspace blocker, move the issue back to `Todo` to request another run."
+  });
 }
 
 function blockedMergeFollowUpLines(
-  transition: SymphonyFailureStateTransition | undefined
+  issue: SymphonyTrackerIssue,
+  expectedTrackerState: string | null | undefined
 ): string[] {
-  if (transition?.kind === "moved") {
-    return [
-      "Symphony did not retry automatically.",
-      `Symphony moved the issue to \`${transition.targetState}\`. After resolving the merge problem, move it back to \`Approved\` to request another merge run.`
-    ];
-  }
-
-  if (transition?.kind === "failed") {
-    return [
-      "Symphony did not retry automatically.",
-      `Symphony could not move the issue to \`${transition.targetState}\`, so manual state cleanup is required before the merge is retried.`
-    ];
-  }
-
-  return [
-    "Symphony did not retry automatically.",
-    "After resolving the merge problem, move the issue back to `Approved` to request another merge run."
-  ];
+  return routedTrackerStateFollowUpLines({
+    issue,
+    expectedTrackerState,
+    firstLine: "Symphony did not retry automatically.",
+    rerunInstruction:
+      "After resolving the merge problem, move it back to `Approved` to request another merge run.",
+    manualCleanupInstruction:
+      "Manual state cleanup may be required before the merge is retried.",
+    fallbackInstruction:
+      "After resolving the merge problem, move the issue back to `Approved` to request another merge run."
+  });
 }
 
 function pausedFailureFollowUpLines(
+  issue: SymphonyTrackerIssue,
   outcome: string,
-  transition: SymphonyFailureStateTransition | undefined
+  expectedTrackerState: string | null | undefined
 ): string[] {
-  if (outcome === "paused_provider_transient" && transition?.kind === "moved") {
-    return [
-      "Automatic retries were exhausted.",
-      `Symphony moved the issue to \`${transition.targetState}\`. After resolving the orchestration or provider problem, move it back to \`Todo\` to request another run.`
-    ];
-  }
-
-  if (outcome === "paused_provider_transient" && transition?.kind === "failed") {
-    return [
-      "Automatic retries were exhausted.",
-      `Symphony could not move the issue to \`${transition.targetState}\`, so manual state cleanup is required before the ticket is requeued.`
-    ];
-  }
-
-  if (outcome === "paused_provider_transient") {
-    return [
-      "Automatic retries were exhausted.",
+  return routedTrackerStateFollowUpLines({
+    issue,
+    expectedTrackerState,
+    firstLine:
+      outcome === "paused_provider_transient"
+        ? "Automatic retries were exhausted."
+        : "Symphony did not retry automatically.",
+    rerunInstruction:
+      "After resolving the orchestration or provider problem, move it back to `Todo` to request another run.",
+    manualCleanupInstruction:
+      "Manual state cleanup may be required before the ticket is requeued.",
+    fallbackInstruction:
       "After resolving the orchestration or provider problem, move the issue back to `Todo` to request another run."
-    ];
+  });
+}
+
+function routedTrackerStateFollowUpLines(input: {
+  issue: SymphonyTrackerIssue;
+  expectedTrackerState: string | null | undefined;
+  firstLine: string;
+  rerunInstruction: string;
+  manualCleanupInstruction: string;
+  fallbackInstruction: string;
+}): string[] {
+  if (!hasExpectedTrackerState(input.expectedTrackerState)) {
+    return [input.firstLine, input.fallbackInstruction];
   }
 
-  if (transition?.kind === "moved") {
+  if (issueMatchesExpectedTrackerState(input.issue, input.expectedTrackerState)) {
     return [
-      "Symphony did not retry automatically.",
-      `Symphony moved the issue to \`${transition.targetState}\`. After resolving the orchestration or provider problem, move it back to \`Todo\` to request another run.`
-    ];
-  }
-
-  if (transition?.kind === "failed") {
-    return [
-      "Symphony did not retry automatically.",
-      `Symphony could not move the issue to \`${transition.targetState}\`, so manual state cleanup is required before the ticket is requeued.`
+      input.firstLine,
+      `The issue is currently in \`${input.issue.state}\`. ${input.rerunInstruction}`
     ];
   }
 
   return [
-    "Symphony did not retry automatically.",
-    "After resolving the orchestration or provider problem, move the issue back to `Todo` to request another run."
+    input.firstLine,
+    `The issue is currently in \`${input.issue.state}\`. ${input.manualCleanupInstruction}`
   ];
 }
 
-function startupFailureTransitionDetail(
-  transition: SymphonyFailureStateTransition | undefined
+function trackerStateMismatchDetail(
+  issue: SymphonyTrackerIssue,
+  expectedTrackerState: string | null | undefined
 ): string | null {
-  if (transition?.kind !== "failed") {
+  if (
+    !hasExpectedTrackerState(expectedTrackerState) ||
+    issueMatchesExpectedTrackerState(issue, expectedTrackerState)
+  ) {
     return null;
   }
 
-  return truncateReason(
-    `State transition to \`${transition.targetState}\` failed:\n${transition.reason}`
+  return `Tracker state mismatch: expected \`${expectedTrackerState}\`, actual \`${issue.state}\`.`;
+}
+
+function issueMatchesExpectedTrackerState(
+  issue: SymphonyTrackerIssue,
+  expectedTrackerState: string | null | undefined
+): boolean {
+  return (
+    hasExpectedTrackerState(expectedTrackerState) &&
+    normalizeStateName(issue.state) === normalizeStateName(expectedTrackerState)
   );
 }
 
-function pauseTransitionSucceeded(
-  transition: SymphonyFailureStateTransition | undefined
-): boolean {
-  return transition?.kind === "moved";
+function hasExpectedTrackerState(
+  expectedTrackerState: string | null | undefined
+): expectedTrackerState is string {
+  return (
+    expectedTrackerState !== null &&
+    expectedTrackerState !== undefined &&
+    expectedTrackerState.trim() !== ""
+  );
 }
 
 function formatRateLimitDetail(

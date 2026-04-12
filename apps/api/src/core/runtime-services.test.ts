@@ -843,6 +843,492 @@ describe("runtime services", () => {
   );
 
   it(
+    "redispatches persisted bootstrapping workflow history after runtime services restart",
+    async () => {
+      const harness = await createSymphonyRuntimeAppServicesHarness();
+      let restartedServices: Awaited<
+        ReturnType<typeof loadDefaultSymphonyRuntimeAppServices>
+      > | null = null;
+
+      try {
+        const issue = buildSymphonyTrackerIssue({
+          id: "issue-restart-bootstrapping",
+          identifier: "SYM-BOOT",
+          state: "Todo"
+        });
+        const tracker = harness.services.tracker as MemorySymphonyTracker;
+        tracker.setIssues([issue]);
+        const firstDispatches: Array<{
+          workflowId: string;
+          issueIdentifier: string;
+          runMode: string;
+        }> = [];
+        harness.services.orchestrator.dispatchRoutedIssue = async (input) => {
+          firstDispatches.push({
+            workflowId: input.workflowId,
+            issueIdentifier: input.issue.identifier,
+            runMode: input.runMode
+          });
+        };
+
+        const firstObservation =
+          await harness.services.trackerStateIngress.observeNonRunningIssue({
+            issueIdentifier: issue.identifier
+          });
+        expect(firstObservation).toEqual(
+          expect.objectContaining({
+            issueIdentifier: issue.identifier,
+            trackerState: "Bootstrapping",
+            observed: true,
+            recordedAt: expect.any(String)
+          })
+        );
+        expect(firstDispatches).toEqual([
+          {
+            workflowId: expect.any(String),
+            issueIdentifier: issue.identifier,
+            runMode: "implementation"
+          }
+        ]);
+
+        await expectRouteWorkflowAuthorityProof({
+          routeWorkflows: harness.services.routeWorkflows,
+          issueIdentifier: issue.identifier,
+          currentNode: "bootstrapping",
+          reasonCode: "todo_claimed_for_dispatch",
+          signalType: "tracker.state_observed",
+          assertData(data) {
+            expect(data).toEqual(
+              expect.objectContaining({
+                trackerState: "Bootstrapping",
+                lastDispatchMode: "implementation"
+              })
+            );
+          }
+        });
+
+        await harness.services.shutdown();
+
+        restartedServices = await loadDefaultSymphonyRuntimeAppServices(
+          harness.env,
+          harness.environmentSource,
+          harness.hostCommandEnvSource,
+          {
+            startPollScheduler: false,
+            startMachineLoadMonitor: false,
+            enableDockerPreflight: false
+          }
+        );
+        const restartedTracker = restartedServices.tracker as MemorySymphonyTracker;
+        restartedTracker.setIssues([
+          {
+            ...issue,
+            state: "Bootstrapping"
+          }
+        ]);
+        const restartedDispatches: Array<{
+          workflowId: string;
+          issueIdentifier: string;
+          runMode: string;
+        }> = [];
+        restartedServices.orchestrator.dispatchRoutedIssue = async (input) => {
+          restartedDispatches.push({
+            workflowId: input.workflowId,
+            issueIdentifier: input.issue.identifier,
+            runMode: input.runMode
+          });
+        };
+
+        const secondObservation =
+          await restartedServices.trackerStateIngress.observeNonRunningIssue({
+            issueIdentifier: issue.identifier
+          });
+        expect(secondObservation).toEqual(
+          expect.objectContaining({
+            issueIdentifier: issue.identifier,
+            trackerState: "Bootstrapping",
+            observed: true,
+            recordedAt: expect.any(String)
+          })
+        );
+        expect(restartedDispatches).toEqual([
+          {
+            workflowId: expect.any(String),
+            issueIdentifier: issue.identifier,
+            runMode: "implementation"
+          }
+        ]);
+
+        await expectRouteWorkflowAuthorityProof({
+          routeWorkflows: restartedServices.routeWorkflows,
+          issueIdentifier: issue.identifier,
+          currentNode: "bootstrapping",
+          reasonCode: "bootstrapping_redispatched",
+          signalType: "tracker.state_observed",
+          assertData(data) {
+            expect(data).toEqual(
+              expect.objectContaining({
+                trackerState: "Bootstrapping",
+                lastDispatchMode: "implementation"
+              })
+            );
+          }
+        });
+      } finally {
+        await restartedServices?.shutdown();
+        await harness.cleanup();
+      }
+    },
+    runtimeServicesIntegrationTestTimeoutMs
+  );
+
+  it(
+    "reopens paused workflow history through tracker ingress after runtime services restart",
+    async () => {
+      const harness = await createSymphonyRuntimeAppServicesHarness();
+      let restartedServices: Awaited<
+        ReturnType<typeof loadDefaultSymphonyRuntimeAppServices>
+      > | null = null;
+
+      try {
+        const repositoryKey = harness.services.runtimePolicy.github.repo;
+        if (!repositoryKey) {
+          throw new TypeError(
+            "Runtime services paused restart proof requires runtimePolicy.github.repo."
+          );
+        }
+
+        const issue = buildSymphonyTrackerIssue({
+          id: "issue-restart-paused",
+          identifier: "SYM-PAUSED",
+          state: "Paused"
+        });
+        const tracker = harness.services.tracker as MemorySymphonyTracker;
+        tracker.setIssues([issue]);
+
+        await seedCurrentFlowWorkflowHistory({
+          services: harness.services,
+          trackerConfig: harness.services.runtimePolicy.tracker,
+          repositoryKey,
+          issueIdentifier: issue.identifier,
+          trackerIssueId: issue.id,
+          dbFile: harness.env.dbFile,
+          createdAt: "2026-04-10T18:10:00.000Z",
+          signals: [
+            {
+              id: "signal_todo_observed",
+              signal: (routing) =>
+                routing.module.runtimeAdapter.createTrackerStateObservedSignal({
+                  id: "signal_todo_observed",
+                  occurredAt: "2026-04-10T18:10:00.000Z",
+                  trackerState: "Todo",
+                  runId: null,
+                  runMode: null,
+                  causationId: null,
+                  correlationId: issue.identifier
+                })
+            },
+            {
+              id: "signal_implementation_started",
+              signal: (routing) =>
+                routing.module.runtimeAdapter.createRunStartedSignal({
+                  id: "signal_implementation_started",
+                  occurredAt: "2026-04-10T18:10:01.000Z",
+                  runId: "run-paused-1",
+                  runMode: "implementation",
+                  causationId: "run-paused-1",
+                  correlationId: issue.identifier
+                })
+            },
+            {
+              id: "signal_paused_requested",
+              signal: (routing) =>
+                routing.module.runtimeAdapter.createStateRequestedSignal({
+                  id: "signal_paused_requested",
+                  occurredAt: "2026-04-10T18:10:02.000Z",
+                  runId: "run-paused-1",
+                  requestKind: "spike_result",
+                  targetState: "Paused",
+                  causationId: "run-paused-1",
+                  correlationId: issue.identifier
+                })
+            }
+          ]
+        });
+        const pausedPendingCommandIds = [
+          "command_signal_todo_observed_tracker_bootstrapping",
+          "command_signal_todo_observed_dispatch_implementation",
+          "command_signal_implementation_started_tracker_in_progress",
+          "command_signal_paused_requested_tracker_paused"
+        ];
+
+        await expectRouteWorkflowAuthorityProof({
+          routeWorkflows: harness.services.routeWorkflows,
+          issueIdentifier: issue.identifier,
+          currentNode: "paused",
+          reasonCode: "implementation_state_requested_paused",
+          signalType: "runtime.state_requested",
+          pendingCommandIds: pausedPendingCommandIds,
+          assertData(data) {
+            expect(data).toEqual(
+              expect.objectContaining({
+                trackerState: "Paused",
+                lastDispatchMode: "implementation"
+              })
+            );
+          }
+        });
+
+        await harness.services.shutdown();
+
+        restartedServices = await loadDefaultSymphonyRuntimeAppServices(
+          harness.env,
+          harness.environmentSource,
+          harness.hostCommandEnvSource,
+          {
+            startPollScheduler: false,
+            startMachineLoadMonitor: false,
+            enableDockerPreflight: false
+          }
+        );
+        const restartedTracker = restartedServices.tracker as MemorySymphonyTracker;
+        restartedTracker.setIssues([
+          {
+            ...issue,
+            state: "Todo"
+          }
+        ]);
+        const routedDispatches: Array<{
+          workflowId: string;
+          issueIdentifier: string;
+          runMode: string;
+        }> = [];
+        restartedServices.orchestrator.dispatchRoutedIssue = async (input) => {
+          routedDispatches.push({
+            workflowId: input.workflowId,
+            issueIdentifier: input.issue.identifier,
+            runMode: input.runMode
+          });
+        };
+
+        const observation =
+          await restartedServices.trackerStateIngress.observeNonRunningIssue({
+            issueIdentifier: issue.identifier
+          });
+        expect(observation).toEqual(
+          expect.objectContaining({
+            issueIdentifier: issue.identifier,
+            trackerState: "Bootstrapping",
+            observed: true,
+            recordedAt: expect.any(String)
+          })
+        );
+        expect(routedDispatches).toEqual([
+          {
+            workflowId: expect.any(String),
+            issueIdentifier: issue.identifier,
+            runMode: "implementation"
+          }
+        ]);
+
+        await expectRouteWorkflowAuthorityProof({
+          routeWorkflows: restartedServices.routeWorkflows,
+          issueIdentifier: issue.identifier,
+          currentNode: "bootstrapping",
+          reasonCode: "paused_reopened_from_todo",
+          signalType: "tracker.state_observed",
+          pendingCommandIds: pausedPendingCommandIds,
+          assertData(data) {
+            expect(data).toEqual(
+              expect.objectContaining({
+                trackerState: "Bootstrapping",
+                lastDispatchMode: "implementation"
+              })
+            );
+          }
+        });
+      } finally {
+        await restartedServices?.shutdown();
+        await harness.cleanup();
+      }
+    },
+    runtimeServicesIntegrationTestTimeoutMs
+  );
+
+  it(
+    "reopens blocked workflow history through tracker ingress after runtime services restart",
+    async () => {
+      const harness = await createSymphonyRuntimeAppServicesHarness();
+      let restartedServices: Awaited<
+        ReturnType<typeof loadDefaultSymphonyRuntimeAppServices>
+      > | null = null;
+
+      try {
+        const repositoryKey = harness.services.runtimePolicy.github.repo;
+        if (!repositoryKey) {
+          throw new TypeError(
+            "Runtime services blocked restart proof requires runtimePolicy.github.repo."
+          );
+        }
+
+        const issue = buildSymphonyTrackerIssue({
+          id: "issue-restart-blocked",
+          identifier: "SYM-BLOCKED",
+          state: "Blocked"
+        });
+        const tracker = harness.services.tracker as MemorySymphonyTracker;
+        tracker.setIssues([issue]);
+
+        await seedCurrentFlowWorkflowHistory({
+          services: harness.services,
+          trackerConfig: harness.services.runtimePolicy.tracker,
+          repositoryKey,
+          issueIdentifier: issue.identifier,
+          trackerIssueId: issue.id,
+          dbFile: harness.env.dbFile,
+          createdAt: "2026-04-10T18:20:00.000Z",
+          signals: [
+            {
+              id: "signal_todo_observed",
+              signal: (routing) =>
+                routing.module.runtimeAdapter.createTrackerStateObservedSignal({
+                  id: "signal_todo_observed",
+                  occurredAt: "2026-04-10T18:20:00.000Z",
+                  trackerState: "Todo",
+                  runId: null,
+                  runMode: null,
+                  causationId: null,
+                  correlationId: issue.identifier
+                })
+            },
+            {
+              id: "signal_implementation_started",
+              signal: (routing) =>
+                routing.module.runtimeAdapter.createRunStartedSignal({
+                  id: "signal_implementation_started",
+                  occurredAt: "2026-04-10T18:20:01.000Z",
+                  runId: "run-blocked-1",
+                  runMode: "implementation",
+                  causationId: "run-blocked-1",
+                  correlationId: issue.identifier
+                })
+            },
+            {
+              id: "signal_blocked_requested",
+              signal: (routing) =>
+                routing.module.runtimeAdapter.createStateRequestedSignal({
+                  id: "signal_blocked_requested",
+                  occurredAt: "2026-04-10T18:20:02.000Z",
+                  runId: "run-blocked-1",
+                  requestKind: "spike_result",
+                  targetState: "Blocked",
+                  causationId: "run-blocked-1",
+                  correlationId: issue.identifier
+                })
+            }
+          ]
+        });
+        const blockedPendingCommandIds = [
+          "command_signal_todo_observed_tracker_bootstrapping",
+          "command_signal_todo_observed_dispatch_implementation",
+          "command_signal_implementation_started_tracker_in_progress",
+          "command_signal_blocked_requested_tracker_blocked"
+        ];
+
+        await expectRouteWorkflowAuthorityProof({
+          routeWorkflows: harness.services.routeWorkflows,
+          issueIdentifier: issue.identifier,
+          currentNode: "blocked",
+          reasonCode: "implementation_state_requested_blocked",
+          signalType: "runtime.state_requested",
+          pendingCommandIds: blockedPendingCommandIds,
+          assertData(data) {
+            expect(data).toEqual(
+              expect.objectContaining({
+                trackerState: "Blocked",
+                lastDispatchMode: "implementation"
+              })
+            );
+          }
+        });
+
+        await harness.services.shutdown();
+
+        restartedServices = await loadDefaultSymphonyRuntimeAppServices(
+          harness.env,
+          harness.environmentSource,
+          harness.hostCommandEnvSource,
+          {
+            startPollScheduler: false,
+            startMachineLoadMonitor: false,
+            enableDockerPreflight: false
+          }
+        );
+        const restartedTracker = restartedServices.tracker as MemorySymphonyTracker;
+        restartedTracker.setIssues([
+          {
+            ...issue,
+            state: "Todo"
+          }
+        ]);
+        const routedDispatches: Array<{
+          workflowId: string;
+          issueIdentifier: string;
+          runMode: string;
+        }> = [];
+        restartedServices.orchestrator.dispatchRoutedIssue = async (input) => {
+          routedDispatches.push({
+            workflowId: input.workflowId,
+            issueIdentifier: input.issue.identifier,
+            runMode: input.runMode
+          });
+        };
+
+        const observation =
+          await restartedServices.trackerStateIngress.observeNonRunningIssue({
+            issueIdentifier: issue.identifier
+          });
+        expect(observation).toEqual(
+          expect.objectContaining({
+            issueIdentifier: issue.identifier,
+            trackerState: "Bootstrapping",
+            observed: true,
+            recordedAt: expect.any(String)
+          })
+        );
+        expect(routedDispatches).toEqual([
+          {
+            workflowId: expect.any(String),
+            issueIdentifier: issue.identifier,
+            runMode: "implementation"
+          }
+        ]);
+
+        await expectRouteWorkflowAuthorityProof({
+          routeWorkflows: restartedServices.routeWorkflows,
+          issueIdentifier: issue.identifier,
+          currentNode: "bootstrapping",
+          reasonCode: "blocked_reopened_from_todo",
+          signalType: "tracker.state_observed",
+          pendingCommandIds: blockedPendingCommandIds,
+          assertData(data) {
+            expect(data).toEqual(
+              expect.objectContaining({
+                trackerState: "Bootstrapping",
+                lastDispatchMode: "implementation"
+              })
+            );
+          }
+        });
+      } finally {
+        await restartedServices?.shutdown();
+        await harness.cleanup();
+      }
+    },
+    runtimeServicesIntegrationTestTimeoutMs
+  );
+
+  it(
     "continues approved merge workflow routing after runtime services restart",
     async () => {
       const harness = await createSymphonyRuntimeAppServicesHarness();

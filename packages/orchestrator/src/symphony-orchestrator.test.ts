@@ -330,7 +330,7 @@ describe("symphony orchestrator", () => {
     expect(startRunStates).toEqual(["Bootstrapping"]);
     expect(tracker.getIssue(issue.id)?.state).toBe("In Progress");
     expect(orchestrator.snapshot().running[0]?.issue.state).toBe("In Progress");
-    expect(lifecycleEvents).toContain("bootstrap_transition");
+    expectNoTrackerTransitionLifecycleEvents(lifecycleEvents);
   });
 
   it("treats run-start activation failures as runtime_session_start startup failures", async () => {
@@ -340,6 +340,8 @@ describe("symphony orchestrator", () => {
     const tracker = createMemorySymphonyTracker([issue]);
     const stoppedIssueIds: string[] = [];
     const lifecycleEvents: string[] = [];
+    const runtimeStartupFailureIssueStates: string[] = [];
+    const finalizedIssueStates: string[] = [];
     let finalizedCompletion: SymphonyAgentRuntimeCompletion | null = null;
     const routedCompletions: SymphonyAgentRuntimeCompletion[] = [];
 
@@ -396,10 +398,14 @@ describe("symphony orchestrator", () => {
         },
         recordLifecycleEvent(input) {
           lifecycleEvents.push(input.eventType);
+          if (input.eventType === "runtime_startup_failed") {
+            runtimeStartupFailureIssueStates.push(input.issue.state);
+          }
           return;
         },
         finalizeRun(input) {
           finalizedCompletion = input.completion;
+          finalizedIssueStates.push(input.issue.state);
           return;
         }
       },
@@ -425,6 +431,8 @@ describe("symphony orchestrator", () => {
         failureStage: "runtime_session_start"
       })
     ]);
+    expect(runtimeStartupFailureIssueStates).toEqual(["Failed"]);
+    expect(finalizedIssueStates).toEqual(["Failed"]);
     expect(lifecycleEvents).toContain("runtime_startup_failed");
   });
 
@@ -552,7 +560,7 @@ describe("symphony orchestrator", () => {
 
     expect(routedCompletions).toEqual(["blocked"]);
     expect(tracker.getIssue(issue.id)?.state).toBe("Blocked");
-    expect(lifecycleEvents).toContain("blocked_transition");
+    expectNoTrackerTransitionLifecycleEvents(lifecycleEvents);
     expect(
       tracker
         .listOperations()
@@ -631,8 +639,7 @@ describe("symphony orchestrator", () => {
 
     expect(routedCompletions).toEqual(["merged"]);
     expect(tracker.getIssue(issue.id)?.state).toBe("Done");
-    expect(lifecycleEvents).toContain("approved_merge_transition");
-    expect(lifecycleEvents).toContain("done_transition");
+    expectNoTrackerTransitionLifecycleEvents(lifecycleEvents);
     expect(
       tracker
         .listOperations()
@@ -962,16 +969,15 @@ describe("symphony orchestrator", () => {
     expect(lifecycleEvents).toEqual(
       expect.arrayContaining([
         "dispatch_started",
-        "claim_transition",
         "workspace_prepare_started",
         "workspace_prepare_completed",
         "workspace_before_run_started",
         "workspace_before_run_completed",
-        "bootstrap_transition",
         "runtime_launch_starting",
         "runtime_launch_requested"
       ])
     );
+    expectNoTrackerTransitionLifecycleEvents(lifecycleEvents);
   });
 
   it("refuses duplicate dispatch starts without failing the poll cycle", async () => {
@@ -1188,15 +1194,11 @@ describe("symphony orchestrator", () => {
     });
 
     expect(lifecycleEvents).toContainEqual({
-      eventType: "pause_transition",
-      runId: "run-1",
-      issueIdentifier: "COL-123"
-    });
-    expect(lifecycleEvents).toContainEqual({
       eventType: "workspace_preserved_after_run",
       runId: "run-1",
       issueIdentifier: "COL-123"
     });
+    expectNoTrackerTransitionLifecycleEvents(lifecycleEvents);
   });
 
   it("preserves the workspace after delivery moves the issue into In Review", async () => {
@@ -1451,6 +1453,8 @@ describe("symphony orchestrator", () => {
     });
     const tracker = createMemorySymphonyTracker([issue]);
     const lifecycleEvents: string[] = [];
+    const runtimeStartupFailureIssueStates: string[] = [];
+    const finalizedIssueStates: string[] = [];
 
     const orchestrator = new SymphonyOrchestrator({
       config,
@@ -1480,9 +1484,13 @@ describe("symphony orchestrator", () => {
         },
         recordLifecycleEvent(input) {
           lifecycleEvents.push(input.eventType);
+          if (input.eventType === "runtime_startup_failed") {
+            runtimeStartupFailureIssueStates.push(input.issue.state);
+          }
           return;
         },
-        finalizeRun() {
+        finalizeRun(input) {
+          finalizedIssueStates.push(input.issue.state);
           return;
         }
       },
@@ -2280,12 +2288,14 @@ describe("symphony orchestrator", () => {
         {
           kind: "comment",
           issueId: issue.id,
-          body: expect.stringContaining("Symphony could not move the issue to `Paused`")
+          body: expect.stringContaining(
+            "The issue is currently in `In Progress`. Manual state cleanup may be required before the ticket is requeued."
+          )
         }
       ])
     );
-    expect(lifecycleEvents).toContain("pause_transition_failed");
     expect(lifecycleEvents).toContain("workspace_preserved_after_run");
+    expectNoTrackerTransitionLifecycleEvents(lifecycleEvents);
   });
 
   it("formats startup-failure comments with routed-state guidance", async () => {
@@ -2359,6 +2369,8 @@ describe("symphony orchestrator", () => {
     });
     const tracker = createMemorySymphonyTracker([issue]);
     const lifecycleEvents: string[] = [];
+    const runtimeStartupFailureIssueStates: string[] = [];
+    const finalizedIssueStates: string[] = [];
 
     const orchestrator = new SymphonyOrchestrator({
       config,
@@ -2377,9 +2389,13 @@ describe("symphony orchestrator", () => {
         },
         recordLifecycleEvent(input) {
           lifecycleEvents.push(input.eventType);
+          if (input.eventType === "runtime_startup_failed") {
+            runtimeStartupFailureIssueStates.push(input.issue.state);
+          }
           return;
         },
-        finalizeRun() {
+        finalizeRun(input) {
+          finalizedIssueStates.push(input.issue.state);
           return;
         }
       },
@@ -2400,6 +2416,8 @@ describe("symphony orchestrator", () => {
 
     expect(lifecycleEvents).toContain("workspace_cleanup_completed");
     expect(lifecycleEvents).toContain("docker_container_stopped");
+    expect(runtimeStartupFailureIssueStates).toEqual(["Failed"]);
+    expect(finalizedIssueStates).toEqual(["Failed"]);
   });
 
   it("formats startup-failure comments with manual cleanup guidance when routing leaves the issue unchanged", async () => {
@@ -2638,8 +2656,8 @@ describe("symphony orchestrator", () => {
         issueId: harness.issue.id,
         stateName: "Paused"
       });
-      expect(harness.lifecycleEvents).toContain("pause_transition");
       expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");
+      expectNoTrackerTransitionLifecycleEvents(harness.lifecycleEvents);
     });
 
     it("moves blocked implementation runs into Blocked and leaves blocker guidance", async () => {
@@ -2681,8 +2699,8 @@ describe("symphony orchestrator", () => {
           }
         ])
       );
-      expect(harness.lifecycleEvents).toContain("blocked_transition");
       expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");
+      expectNoTrackerTransitionLifecycleEvents(harness.lifecycleEvents);
     });
 
     it("dispatches Approved issues in approved_merge mode and completes them into Done", async () => {
@@ -2711,10 +2729,9 @@ describe("symphony orchestrator", () => {
         })
       ]);
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Done");
-      expect(harness.lifecycleEvents).toContain("approved_merge_transition");
-      expect(harness.lifecycleEvents).toContain("done_transition");
       expect(harness.lifecycleEvents).toContain("workspace_cleanup_completed");
       expect(harness.lifecycleEvents).toContain("workspace_destroyed_after_run");
+      expectNoTrackerTransitionLifecycleEvents(harness.lifecycleEvents);
     });
 
     it("downgrades merged approved runs when the Done transition fails", async () => {
@@ -2793,9 +2810,7 @@ describe("symphony orchestrator", () => {
           }
         ])
       );
-      expect(lifecycleEvents).toContain("approved_merge_transition");
-      expect(lifecycleEvents).toContain("done_transition_failed");
-      expect(lifecycleEvents).toContain("blocked_transition");
+      expectNoTrackerTransitionLifecycleEvents(lifecycleEvents);
     });
 
     it("moves failed approved merge runs into Blocked", async () => {
@@ -2837,9 +2852,8 @@ describe("symphony orchestrator", () => {
           }
         ])
       );
-      expect(harness.lifecycleEvents).toContain("approved_merge_transition");
-      expect(harness.lifecycleEvents).toContain("blocked_transition");
       expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");
+      expectNoTrackerTransitionLifecycleEvents(harness.lifecycleEvents);
     });
 
     it("moves explicit blocked merge results into Blocked and leaves merge rerun guidance", async () => {
@@ -2876,9 +2890,8 @@ describe("symphony orchestrator", () => {
           }
         ])
       );
-      expect(harness.lifecycleEvents).toContain("approved_merge_transition");
-      expect(harness.lifecycleEvents).toContain("blocked_transition");
       expect(harness.lifecycleEvents).toContain("workspace_preserved_after_run");
+      expectNoTrackerTransitionLifecycleEvents(harness.lifecycleEvents);
     });
 
     it("stops implementation runs that move into Approved so merge mode can take over", async () => {
@@ -2961,6 +2974,30 @@ describe("symphony orchestrator", () => {
     });
   });
 });
+
+const trackerTransitionLifecycleEvents = [
+  "claim_transition",
+  "bootstrap_transition",
+  "approved_merge_transition",
+  "pause_transition",
+  "pause_transition_failed",
+  "blocked_transition",
+  "blocked_transition_failed",
+  "done_transition",
+  "done_transition_failed"
+] as const;
+
+function expectNoTrackerTransitionLifecycleEvents(
+  events: string[] | Array<{ eventType: string }>
+): void {
+  const eventTypes = events.map((event) =>
+    typeof event === "string" ? event : event.eventType
+  );
+
+  expect(eventTypes).toEqual(
+    expect.not.arrayContaining([...trackerTransitionLifecycleEvents])
+  );
+}
 
 function createFlowHarness(input: {
   issue?: Parameters<typeof buildSymphonyTrackerIssue>[0];

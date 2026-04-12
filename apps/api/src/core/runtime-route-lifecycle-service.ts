@@ -518,7 +518,25 @@ function shouldObserveNonRunningTrackerState(input: {
   }
 
   if (hydratedState && normalizeIssueState(hydratedState) === observedState) {
-    return false;
+    if (!hydration || !snapshot) {
+      return false;
+    }
+
+    const currentNode = snapshot.projection.currentNode;
+    if (!currentNode) {
+      throw new TypeError(
+        `Route workflow ${hydration.hydrationState.workflow.workflowId} is missing a current node during idle tracker observation.`
+      );
+    }
+
+    return hydration.routing.module.runtimeAdapter.shouldObserveUnchangedIdleTrackerState(
+      {
+        workflowId: hydration.hydrationState.workflow.workflowId,
+        currentNode,
+        data: snapshot.projection.data,
+        trackerState: input.issue.state
+      }
+    );
   }
 
   if (input.hydration) {

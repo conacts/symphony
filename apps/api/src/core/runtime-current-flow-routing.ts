@@ -257,6 +257,12 @@ function createCurrentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWorkflo
     readTrackerStateFromProjection(input) {
       return readRuntimeCurrentFlowTrackerStateFromProjection(input);
     },
+    shouldObserveUnchangedIdleTrackerState(input) {
+      return shouldObserveUnchangedCurrentFlowIdleTrackerState({
+        currentNode: input.currentNode,
+        trackerState: input.trackerState
+      });
+    },
     readLastDispatchModeFromProjection(input) {
       return readRuntimeCurrentFlowLastDispatchModeFromProjection(input);
     },
@@ -291,4 +297,27 @@ function createCurrentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWorkflo
       );
     }
   };
+}
+
+function shouldObserveUnchangedCurrentFlowIdleTrackerState(input: {
+  currentNode: string;
+  trackerState: string;
+}): boolean {
+  const trackerState = parseSymphonyCurrentFlowTrackerState(input.trackerState);
+
+  if (
+    input.currentNode === "bootstrapping" &&
+    trackerState === "Bootstrapping"
+  ) {
+    return true;
+  }
+
+  if (
+    input.currentNode === "approved_merge" &&
+    trackerState === "Approved"
+  ) {
+    return true;
+  }
+
+  return false;
 }

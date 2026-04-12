@@ -1,3 +1,4 @@
+import type { JsonObject } from "@symphony/contracts";
 import {
   issueMatchesDispatchableState,
   issueMatchesTerminalState,
@@ -57,7 +58,6 @@ import {
   recordDockerContainerPrepareEvent
 } from "./symphony-orchestrator-workspace.js";
 import type { SymphonyOrchestratorConfig } from "./orchestrator-config.js";
-import type { SymphonyFailureStateTransition } from "./symphony-orchestrator-comments.js";
 import type {
   SymphonyAgentRuntimeCompletion,
   SymphonyAgentRuntimeUpdate,
@@ -370,7 +370,6 @@ export class SymphonyOrchestrator {
         recordedAt: startedAt
       });
 
-      const dispatchSourceIssue = issue;
       preparedIssue = await this.#checkpointDispatchEligibility(issue.id);
       this.#setDispatchingEntry(issue.id, {
         issue: preparedIssue
@@ -388,21 +387,6 @@ export class SymphonyOrchestrator {
         }
       ).branchName =
         preparedIssue.branchName ?? issueBranchName(preparedIssue.identifier);
-
-      if (dispatchSourceIssue.state !== preparedIssue.state) {
-        await this.#observer?.recordLifecycleEvent({
-          issue: preparedIssue,
-          runId,
-          source: "tracker",
-          eventType: "claim_transition",
-          message: `Issue moved from ${dispatchSourceIssue.state} to ${preparedIssue.state}.`,
-          payload: {
-            fromState: dispatchSourceIssue.state,
-            toState: preparedIssue.state
-          },
-          recordedAt: startedAt
-        });
-      }
 
       startupFailureStage = "runtime_launch";
       assertPiRuntimeHarness(this.#config.runtime.agent.harness);
@@ -634,85 +618,42 @@ export class SymphonyOrchestrator {
       );
       const manifestLifecycleFailure =
         extractWorkspaceManifestLifecycleFailure(error);
-
-      await this.#observer?.recordLifecycleEvent({
+      const startupFailureCompletion: Extract<
+        SymphonyAgentRuntimeCompletion,
+        { kind: "startup_failure" }
+      > = {
+        kind: "startup_failure",
+        reason,
+        failureStage: startupFailureStage,
+        failureOrigin,
+        launchTarget,
+        manifestLifecyclePhase:
+          manifestLifecycleFailure?.manifestLifecyclePhase ?? null,
+        manifestLifecycleStepName:
+          manifestLifecycleFailure?.manifestLifecycleStepName ?? null,
+        manifestLifecycle:
+          manifestLifecycleFailure?.manifestLifecycle ?? null
+      };
+      const routedStartupFailure = await this.#routeCompletionWithRecovery({
         issue: preparedIssue,
         runId,
-        source: "orchestrator",
-        eventType: "runtime_startup_failed",
-        message: "Dispatch failed before the agent run became active.",
-        payload: {
-          reason,
-          failureStage: startupFailureStage,
-          failureOrigin,
-          manifestLifecyclePhase:
-            manifestLifecycleFailure?.manifestLifecyclePhase ?? null,
-          manifestLifecycleStepName:
-            manifestLifecycleFailure?.manifestLifecycleStepName ?? null,
-          manifestLifecycle:
-            manifestLifecycleFailure?.manifestLifecycle ?? null,
-          launchTarget,
-          workspace: buildWorkspaceLifecyclePayload(workspace)
-        }
+        runMode,
+        completion: startupFailureCompletion
       });
+      assertStartupFailureCompletion(routedStartupFailure.completion);
 
-      await this.#observer?.finalizeRun({
-        issue: preparedIssue,
+      await this.#finalizeStartupFailure({
+        issue: routedStartupFailure.issue,
         runId,
-        completion: {
-          kind: "startup_failure",
-          reason,
-          failureStage: startupFailureStage,
-          failureOrigin,
-          launchTarget,
-          manifestLifecyclePhase:
-            manifestLifecycleFailure?.manifestLifecyclePhase ?? null,
-          manifestLifecycleStepName:
-            manifestLifecycleFailure?.manifestLifecycleStepName ?? null,
-          manifestLifecycle:
-            manifestLifecycleFailure?.manifestLifecycle ?? null
-        },
+        completion: routedStartupFailure.completion,
         workerHost: preferredWorkerHost,
         workspace,
         startedAt,
-        endedAt: this.#clock.now().toISOString(),
+        startupFailureMessage: "Dispatch failed before the agent run became active.",
         turnCount: 0,
         inputTokens: 0,
         outputTokens: 0,
         totalTokens: 0
-      });
-
-      await handleStartupFailure({
-        config: this.#config,
-        tracker: this.#tracker,
-        workspaceBackend: this.#workspaceBackend,
-        observer: this.#observer,
-        runnerEnv: this.#runnerEnv,
-        workerHost: preferredWorkerHost,
-        workspace,
-        reason,
-        runId,
-        effectiveIssue: (
-          await this.#routeCompletionWithRecovery({
-            issue: preparedIssue,
-            runId,
-            runMode,
-            completion: {
-              kind: "startup_failure",
-              reason,
-              failureStage: startupFailureStage,
-              failureOrigin,
-              launchTarget
-            }
-          })
-        ).issue,
-        completion: {
-          kind: "startup_failure",
-          reason,
-          failureStage: startupFailureStage,
-          failureOrigin,
-          launchTarget
-        }
       });
     }
   }
@@ -809,9 +750,7 @@ export class SymphonyOrchestrator {
       resolvedCompletion.kind === "merged"
     ) {
       const mergeResolution = await this.#resolveApprovedMergeSuccess({
-        runningEntry,
         completion,
-        beforeIssue: completionIssueBeforeRouting,
         currentIssue
       });
       currentIssue = mergeResolution.currentIssue;
@@ -829,66 +768,36 @@ export class SymphonyOrchestrator {
       resolvedCompletion = reroutedCompletion.completion;
     }
 
-    await this.#observer?.finalizeRun({
-      issue: runningEntry.issue,
-      runId: runningEntry.runId,
-      completion: resolvedCompletion,
-      workerHost: runningEntry.workerHost,
-      workspace: runningEntry.workspace,
-      startedAt: runningEntry.startedAt,
-      endedAt: this.#clock.now().toISOString(),
-      turnCount: runningEntry.turnCount,
-      inputTokens: runningEntry.agentInputTokens,
-      outputTokens: runningEntry.agentOutputTokens,
-      totalTokens: runningEntry.agentTotalTokens
-    });
+    if (resolvedCompletion.kind !== "startup_failure") {
+      await this.#observer?.finalizeRun({
+        issue: runningEntry.issue,
+        runId: runningEntry.runId,
+        completion: resolvedCompletion,
+        workerHost: runningEntry.workerHost,
+        workspace: runningEntry.workspace,
+        startedAt: runningEntry.startedAt,
+        endedAt: this.#clock.now().toISOString(),
+        turnCount: runningEntry.turnCount,
+        inputTokens: runningEntry.agentInputTokens,
+        outputTokens: runningEntry.agentOutputTokens,
+        totalTokens: runningEntry.agentTotalTokens
+      });
+    }
     const cleanupMode = workspaceCleanupModeForIssue({
       issue: currentIssue,
       tracker: this.#config.tracker
     });
 
     if (resolvedCompletion.kind === "blocked") {
-      const blockedIssueBefore = completionIssueBeforeRouting;
-      currentIssue = await this.#applyCompletionTrackerTransition({
-        beforeIssue: blockedIssueBefore,
+      await this.#handleRoutedFailureOutcome({
         routedIssue: currentIssue,
-        targetState: this.#config.tracker.blockedTransitionToState,
-        runId: runningEntry.runId,
-        eventType: "blocked_transition",
-        message: "Issue moved to Blocked after the run reported a repo or workspace blocker.",
-        payload: {
-          reason: resolvedCompletion.reason,
-          completionKind: resolvedCompletion.kind
-        }
-      });
-      const blockedCleanupMode = workspaceCleanupModeForIssue({
-        issue: currentIssue,
-        tracker: this.#config.tracker
-      });
-      await leaveFailureComment({
-        tracker: this.#tracker,
-        observer: this.#observer,
-        issue: currentIssue,
-        reason: resolvedCompletion.reason,
-        outcome: "blocked_repo",
-        runId: runningEntry.runId,
-        options: {
-          stateTransition: describeFailureStateTransition({
-            beforeIssue: blockedIssueBefore,
-            afterIssue: currentIssue,
-            targetState: this.#config.tracker.blockedTransitionToState
-          }),
-          workspaceCleanupMode: blockedCleanupMode
-        }
-      });
-
-      await this.#cleanupStoppedRun({
-        issue: currentIssue,
         runId: runningEntry.runId,
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
+        reason: resolvedCompletion.reason,
         completionKind: resolvedCompletion.kind,
-        mode: blockedCleanupMode
+        commentOutcome: "blocked_repo",
+        transitionTargetState: this.#config.tracker.blockedTransitionToState,
       });
       return;
     }
@@ -906,46 +815,24 @@ export class SymphonyOrchestrator {
         await this.#handleApprovedMergeCompletion({
           runningEntry,
           completion: resolvedCompletion,
-          beforeIssue: completionIssueBeforeRouting,
           currentIssue
         });
         return;
       }
 
       if (resolvedCompletion.kind === "max_turns_reached") {
-        const pausedIssueBefore = completionIssueBeforeRouting;
-        currentIssue = await this.#applyCompletionTrackerTransition({
-          beforeIssue: pausedIssueBefore,
+        await this.#handleRoutedFailureOutcome({
           routedIssue: currentIssue,
-          targetState: this.#config.tracker.pauseTransitionToState,
           runId: runningEntry.runId,
-          eventType: "pause_transition",
-          message: "Issue moved to the paused state after hitting the max-turn limit.",
-          payload: {
-            reason: resolvedCompletion.reason
-          }
-        });
-        const pausedCleanupMode = workspaceCleanupModeForIssue({
-          issue: currentIssue,
-          tracker: this.#config.tracker
-        });
-        await leaveFailureComment({
-          tracker: this.#tracker,
-          observer: this.#observer,
-          issue: currentIssue,
+          workspace: runningEntry.workspace,
+          workerHost: runningEntry.workerHost,
           reason: resolvedCompletion.reason,
-          outcome: "paused_max_turns",
-          runId: runningEntry.runId,
-          options: {
-            rateLimits: runningEntry.lastRateLimits,
-            stateTransition: describeFailureStateTransition({
-              beforeIssue: pausedIssueBefore,
-              afterIssue: currentIssue,
-              targetState: this.#config.tracker.pauseTransitionToState
-            }),
-            workspaceCleanupMode: pausedCleanupMode
-          }
+          completionKind: resolvedCompletion.kind,
+          commentOutcome: "paused_max_turns",
+          transitionTargetState: this.#config.tracker.pauseTransitionToState,
+          rateLimits: runningEntry.lastRateLimits
         });
+        return;
       }
 
       await this.#cleanupStoppedRun({
@@ -954,47 +841,25 @@ export class SymphonyOrchestrator {
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
         completionKind: resolvedCompletion.kind,
-        mode:
-          resolvedCompletion.kind === "max_turns_reached"
-            ? workspaceCleanupModeForIssue({
-                issue: currentIssue,
-                tracker: this.#config.tracker
-              })
-            : cleanupMode
+        mode: cleanupMode
       });
       return;
     }
 
     if (resolvedCompletion.kind === "startup_failure") {
-      await this.#observer?.recordLifecycleEvent({
-        issue: runningEntry.issue,
+      assertStartupFailureCompletion(resolvedCompletion);
+      await this.#finalizeStartupFailure({
+        issue: currentIssue,
         runId: runningEntry.runId,
-        source: "runtime",
-        eventType: "runtime_startup_failed",
-        message: "Agent runtime startup failed before the run became active.",
-        payload: {
-          reason: resolvedCompletion.reason,
-          failureStage: resolvedCompletion.failureStage,
-          failureOrigin: resolvedCompletion.failureOrigin,
-          manifestLifecyclePhase: resolvedCompletion.manifestLifecyclePhase ?? null,
-          manifestLifecycleStepName: resolvedCompletion.manifestLifecycleStepName ?? null,
-          manifestLifecycle: resolvedCompletion.manifestLifecycle ?? null,
-          launchTarget: resolvedCompletion.launchTarget ?? runningEntry.launchTarget ?? null,
-          workspace: buildWorkspaceLifecyclePayload(runningEntry.workspace)
-        }
-      });
-      await handleStartupFailure({
-        config: this.#config,
-        tracker: this.#tracker,
-        workspaceBackend: this.#workspaceBackend,
-        observer: this.#observer,
-        runnerEnv: this.#runnerEnv,
+        completion: resolvedCompletion,
         workerHost: runningEntry.workerHost,
         workspace: runningEntry.workspace,
-        reason: resolvedCompletion.reason,
-        runId: runningEntry.runId,
-        effectiveIssue: currentIssue,
-        completion: resolvedCompletion
+        startedAt: runningEntry.startedAt,
+        startupFailureMessage: "Agent runtime startup failed before the run became active.",
+        turnCount: runningEntry.turnCount,
+        inputTokens: runningEntry.agentInputTokens,
+        outputTokens: runningEntry.agentOutputTokens,
+        totalTokens: runningEntry.agentTotalTokens
       });
       return;
     }
@@ -1019,48 +884,15 @@ export class SymphonyOrchestrator {
       runningEntry.runMode === "approved_merge" &&
       resolvedCompletion.kind === "merge_blocked"
     ) {
-      const blockedIssueBefore = completionIssueBeforeRouting;
-      currentIssue = await this.#applyCompletionTrackerTransition({
-        beforeIssue: blockedIssueBefore,
+      await this.#handleRoutedFailureOutcome({
         routedIssue: currentIssue,
-        targetState: this.#config.tracker.blockedTransitionToState,
-        runId: runningEntry.runId,
-        eventType: "blocked_transition",
-        message: "Issue moved to Blocked after merge automation reported a blocked merge result.",
-        payload: {
-          reason: resolvedCompletion.reason,
-          completionKind: resolvedCompletion.kind,
-          runMode: runningEntry.runMode
-        }
-      });
-      const blockedCleanupMode = workspaceCleanupModeForIssue({
-        issue: currentIssue,
-        tracker: this.#config.tracker
-      });
-      await leaveFailureComment({
-        tracker: this.#tracker,
-        observer: this.#observer,
-        issue: currentIssue,
-        reason: resolvedCompletion.reason,
-        outcome: "blocked_merge",
-        runId: runningEntry.runId,
-        options: {
-          stateTransition: describeFailureStateTransition({
-            beforeIssue: blockedIssueBefore,
-            afterIssue: currentIssue,
-            targetState: this.#config.tracker.blockedTransitionToState
-          }),
-          workspaceCleanupMode: blockedCleanupMode
-        }
-      });
-
-      await this.#cleanupStoppedRun({
-        issue: currentIssue,
         runId: runningEntry.runId,
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
+        reason: resolvedCompletion.reason,
         completionKind: resolvedCompletion.kind,
-        mode: blockedCleanupMode
+        commentOutcome: "blocked_merge",
+        transitionTargetState: this.#config.tracker.blockedTransitionToState,
       });
       return;
     }
@@ -1069,90 +901,30 @@ export class SymphonyOrchestrator {
       runningEntry.runMode === "approved_merge" &&
       (resolvedCompletion.kind === "failure" || resolvedCompletion.kind === "stalled")
     ) {
-      const blockedIssueBefore = completionIssueBeforeRouting;
-      currentIssue = await this.#applyCompletionTrackerTransition({
-        beforeIssue: blockedIssueBefore,
+      await this.#handleRoutedFailureOutcome({
         routedIssue: currentIssue,
-        targetState: this.#config.tracker.blockedTransitionToState,
-        runId: runningEntry.runId,
-        eventType: "blocked_transition",
-        message:
-          resolvedCompletion.kind === "stalled"
-            ? "Issue moved to Blocked after merge automation stalled."
-            : "Issue moved to Blocked after merge automation could not complete safely.",
-        payload: {
-          reason: resolvedCompletion.reason,
-          completionKind: resolvedCompletion.kind,
-          runMode: runningEntry.runMode
-        }
-      });
-      const blockedCleanupMode = workspaceCleanupModeForIssue({
-        issue: currentIssue,
-        tracker: this.#config.tracker
-      });
-
-      await leaveFailureComment({
-        tracker: this.#tracker,
-        observer: this.#observer,
-        issue: currentIssue,
-        reason: resolvedCompletion.reason,
-        outcome:
-          resolvedCompletion.kind === "stalled"
-            ? "blocked_merge_stalled"
-            : "blocked_merge_failure",
-        runId: runningEntry.runId,
-        options: {
-          stateTransition: describeFailureStateTransition({
-            beforeIssue: blockedIssueBefore,
-            afterIssue: currentIssue,
-            targetState: this.#config.tracker.blockedTransitionToState
-          }),
-          workspaceCleanupMode: blockedCleanupMode
-        }
-      });
-
-      await this.#cleanupStoppedRun({
-        issue: currentIssue,
         runId: runningEntry.runId,
         workspace: runningEntry.workspace,
         workerHost: runningEntry.workerHost,
+        reason: resolvedCompletion.reason,
         completionKind: resolvedCompletion.kind,
-        mode: blockedCleanupMode
+        commentOutcome:
+          resolvedCompletion.kind === "stalled"
+            ? "blocked_merge_stalled"
+            : "blocked_merge_failure",
+        transitionTargetState: this.#config.tracker.blockedTransitionToState,
       });
       return;
     }
 
-    const pausedIssueBefore = completionIssueBeforeRouting;
-    currentIssue = await this.#applyCompletionTrackerTransition({
-      beforeIssue: pausedIssueBefore,
+    await this.#handleRoutedFailureOutcome({
       routedIssue: currentIssue,
-      targetState: this.#config.tracker.pauseTransitionToState,
       runId: runningEntry.runId,
-      eventType: "pause_transition",
-      message:
-        resolvedCompletion.kind === "rate_limited"
-          ? "Issue moved to the paused state after a provider rate limit."
-          : resolvedCompletion.kind === "provider_transient"
-            ? "Issue moved to the paused state after transient provider failures exhausted the retry budget."
-          : resolvedCompletion.kind === "stalled"
-            ? "Issue moved to the paused state after the run stalled."
-            : "Issue moved to the paused state after a runtime failure.",
-      payload: {
-        reason: resolvedCompletion.reason,
-        completionKind: resolvedCompletion.kind
-      }
-    });
-    const pausedCleanupMode = workspaceCleanupModeForIssue({
-      issue: currentIssue,
-      tracker: this.#config.tracker
-    });
-
-    await leaveFailureComment({
-      tracker: this.#tracker,
-      observer: this.#observer,
-      issue: currentIssue,
+      workspace: runningEntry.workspace,
+      workerHost: runningEntry.workerHost,
       reason: resolvedCompletion.reason,
-      outcome:
+      completionKind: resolvedCompletion.kind,
+      commentOutcome:
         resolvedCompletion.kind === "rate_limited"
           ? "rate_limited"
           : resolvedCompletion.kind === "provider_transient"
@@ -1160,124 +932,10 @@ export class SymphonyOrchestrator {
           : resolvedCompletion.kind === "stalled"
             ? "paused_stalled"
             : "paused_failure",
-      runId: runningEntry.runId,
-      options: {
-        rateLimits: runningEntry.lastRateLimits,
-        stateTransition: describeFailureStateTransition({
-          beforeIssue: pausedIssueBefore,
-          afterIssue: currentIssue,
-          targetState: this.#config.tracker.pauseTransitionToState
-        }),
-        workspaceCleanupMode: pausedCleanupMode
-      }
+      transitionTargetState: this.#config.tracker.pauseTransitionToState,
+      rateLimits: runningEntry.lastRateLimits
     });
-
-    await this.#cleanupStoppedRun({
-      issue: currentIssue,
-      runId: runningEntry.runId,
-      workspace: runningEntry.workspace,
-      workerHost: runningEntry.workerHost,
-      completionKind: resolvedCompletion.kind,
-      mode: workspaceCleanupModeForIssue({
-        issue: currentIssue,
-        tracker: this.#config.tracker
-      })
-    });
-  }
-
-  async #applyCompletionTrackerTransition(input: {
-    beforeIssue: SymphonyTrackerIssue;
-    routedIssue: SymphonyTrackerIssue;
-    targetState: string | null;
-    runId: string | null;
-    eventType: string;
-    message: string;
-    payload?: Record<string, unknown>;
-  }): Promise<SymphonyTrackerIssue> {
-    if (
-      !input.targetState ||
-      normalizeStateName(input.routedIssue.state) !==
-        normalizeStateName(input.targetState)
-    ) {
-      if (input.targetState) {
-        await this.#recordTrackerTransitionFailureEvent({
-          beforeIssue: input.beforeIssue,
-          issue: input.routedIssue,
-          targetState: input.targetState,
-          runId: input.runId,
-          eventType: input.eventType,
-          payload: input.payload,
-          reason: `Tracker state remained \`${input.routedIssue.state}\`.`
-        });
-      }
-
-      return input.routedIssue;
-    }
-
-    await this.#recordTrackerTransitionEvent({
-      beforeIssue: input.beforeIssue,
-      afterIssue: input.routedIssue,
-      runId: input.runId,
-      eventType: input.eventType,
-      message: input.message,
-      payload: input.payload
-    });
-
-    return input.routedIssue;
-  }
-
-  async #recordTrackerTransitionEvent(input: {
-    beforeIssue: SymphonyTrackerIssue;
-    afterIssue: SymphonyTrackerIssue;
-    runId: string | null;
-    eventType: string;
-    message: string;
-    payload?: Record<string, unknown>;
-  }): Promise<void> {
-    if (
-      normalizeStateName(input.beforeIssue.state) ===
-      normalizeStateName(input.afterIssue.state)
-    ) {
-      return;
-    }
-
-    await this.#observer?.recordLifecycleEvent({
-      issue: input.afterIssue,
-      runId: input.runId,
-      source: "tracker",
-      eventType: input.eventType,
-      message: input.message,
-      payload: {
-        fromState: input.beforeIssue.state,
-        toState: input.afterIssue.state,
-        ...(input.payload ?? {})
-      }
-    });
-  }
-
-  async #recordTrackerTransitionFailureEvent(input: {
-    beforeIssue: SymphonyTrackerIssue;
-    issue: SymphonyTrackerIssue;
-    targetState: string;
-    runId: string | null;
-    eventType: string;
-    reason: string;
-    payload?: Record<string, unknown>;
-  }): Promise<void> {
-    await this.#observer?.recordLifecycleEvent({
-      issue: input.issue,
-      runId: input.runId,
-      source: "tracker",
-      eventType: `${input.eventType}_failed`,
-      message: `Failed to move issue to ${input.targetState}.`,
-      payload: {
-        fromState: input.beforeIssue.state,
-        toState: input.targetState,
-        actualState: input.issue.state,
-        reason: input.reason,
-        ...(input.payload ?? {})
-      }
-    });
+    return;
   }
 
   async #refreshIssue(
@@ -1351,19 +1009,6 @@ export class SymphonyOrchestrator {
         input.runMode === "approved_merge" &&
         input.completion.kind === "merged"
       ) {
-        await this.#recordTrackerTransitionFailureEvent({
-          beforeIssue: input.issue,
-          issue: input.issue,
-          targetState: "Done",
-          runId: input.runId,
-          eventType: "done_transition",
-          reason,
-          payload: {
-            completionKind: input.completion.kind,
-            runMode: input.runMode
-          }
-        });
-
         return {
           issue: input.issue,
           completion: {
@@ -1404,67 +1049,7 @@ export class SymphonyOrchestrator {
       recordedAt: this.#clock.now().toISOString()
     });
 
-    await this.#recordRunStartActivationTransition({
-      issue: input.issue,
-      activatedIssue: activated.issue,
-      runId: input.runId,
-      runMode: input.runMode
-    });
-
     return activated.issue;
-  }
-
-  async #recordRunStartActivationTransition(input: {
-    issue: SymphonyTrackerIssue;
-    activatedIssue: SymphonyTrackerIssue;
-    runId: string | null;
-    runMode: SymphonyRunMode;
-  }): Promise<void> {
-    const fromState = normalizeStateName(input.issue.state);
-    const toState = normalizeStateName(input.activatedIssue.state);
-
-    if (fromState === toState) {
-      return;
-    }
-
-    if (fromState === "bootstrapping" && toState === "in progress") {
-      await this.#observer?.recordLifecycleEvent({
-        issue: input.activatedIssue,
-        runId: input.runId,
-        source: "tracker",
-        eventType: "bootstrap_transition",
-        message: "Issue moved from Bootstrapping to In Progress.",
-        payload: {
-          fromState: input.issue.state,
-          toState: input.activatedIssue.state
-        }
-      });
-      return;
-    }
-
-    if (
-      input.runMode === "approved_merge" &&
-      fromState === "approved" &&
-      toState === "in progress"
-    ) {
-      await this.#observer?.recordLifecycleEvent({
-        issue: input.activatedIssue,
-        runId: input.runId,
-        source: "tracker",
-        eventType: "approved_merge_transition",
-        message: "Issue moved from Approved to In Progress for merge automation.",
-        payload: {
-          fromState: input.issue.state,
-          toState: input.activatedIssue.state,
-          runMode: input.runMode
-        }
-      });
-      return;
-    }
-
-    throw new TypeError(
-      `Unexpected run-start activation transition from ${input.issue.state} to ${input.activatedIssue.state}.`
-    );
   }
 
   async #handleApprovedMergeCompletion(input: {
@@ -1473,46 +1058,22 @@ export class SymphonyOrchestrator {
       SymphonyAgentRuntimeCompletion,
       { kind: "merged" | "max_turns_reached" }
     >;
-    beforeIssue: SymphonyTrackerIssue;
     currentIssue: SymphonyTrackerIssue;
   }): Promise<void> {
     let finalIssue = input.currentIssue;
 
     if (input.completion.kind === "max_turns_reached") {
-      const blockedIssueBefore = input.beforeIssue;
-      finalIssue = await this.#applyCompletionTrackerTransition({
-        beforeIssue: blockedIssueBefore,
+      await this.#handleRoutedFailureOutcome({
         routedIssue: finalIssue,
-        targetState: this.#config.tracker.blockedTransitionToState,
         runId: input.runningEntry.runId,
-        eventType: "blocked_transition",
-        message: "Issue moved to Blocked after merge automation hit the max-turn limit.",
-        payload: {
-          reason: input.completion.reason,
-          completionKind: input.completion.kind,
-          runMode: input.runningEntry.runMode
-        }
-      });
-
-      await leaveFailureComment({
-        tracker: this.#tracker,
-        observer: this.#observer,
-        issue: finalIssue,
+        workspace: input.runningEntry.workspace,
+        workerHost: input.runningEntry.workerHost,
         reason: input.completion.reason,
-        outcome: "blocked_merge_max_turns",
-        runId: input.runningEntry.runId,
-        options: {
-          stateTransition: describeFailureStateTransition({
-            beforeIssue: blockedIssueBefore,
-            afterIssue: finalIssue,
-            targetState: this.#config.tracker.blockedTransitionToState
-          }),
-          workspaceCleanupMode: workspaceCleanupModeForIssue({
-            issue: finalIssue,
-            tracker: this.#config.tracker
-          })
-        }
+        completionKind: input.completion.kind,
+        commentOutcome: "blocked_merge_max_turns",
+        transitionTargetState: this.#config.tracker.blockedTransitionToState,
       });
+      return;
     }
 
     await this.#cleanupStoppedRun({
@@ -1529,57 +1090,132 @@ export class SymphonyOrchestrator {
   }
 
   async #resolveApprovedMergeSuccess(input: {
-    runningEntry: SymphonyOrchestratorState["running"][string];
     completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "merged" }>;
-    beforeIssue: SymphonyTrackerIssue;
     currentIssue: SymphonyTrackerIssue;
   }): Promise<{
     currentIssue: SymphonyTrackerIssue;
     completion: SymphonyAgentRuntimeCompletion;
   }> {
     const targetState = "Done";
-
-    try {
-      const finalIssue = await this.#applyCompletionTrackerTransition({
-        beforeIssue: input.beforeIssue,
-        routedIssue: input.currentIssue,
-        targetState,
-        runId: input.runningEntry.runId,
-        eventType: "done_transition",
-        message: "Issue moved to Done after merge automation completed successfully.",
-        payload: {
-          completionKind: input.completion.kind,
-          runMode: input.runningEntry.runMode
-        }
-      });
-
-      if (normalizeStateName(finalIssue.state) !== normalizeStateName(targetState)) {
-        return {
-          currentIssue: finalIssue,
-          completion: {
-            kind: "failure",
-            reason:
-              `Merge was recorded as merged, but Symphony could not move the issue to \`${targetState}\`: ` +
-              `tracker state remained \`${finalIssue.state}\``
-          }
-        };
-      }
-
-      return {
-        currentIssue: finalIssue,
-        completion: input.completion
-      };
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-
+    if (
+      normalizeStateName(input.currentIssue.state) !== normalizeStateName(targetState)
+    ) {
       return {
         currentIssue: input.currentIssue,
         completion: {
           kind: "failure",
-          reason: `Merge was recorded as merged, but Symphony could not move the issue to \`Done\`: ${reason}`
+          reason:
+            `Merge was recorded as merged, but Symphony could not move the issue to \`${targetState}\`: ` +
+            `tracker state remained \`${input.currentIssue.state}\``
         }
       };
     }
+
+    return {
+      currentIssue: input.currentIssue,
+      completion: input.completion
+    };
+  }
+
+  async #handleRoutedFailureOutcome(input: {
+    routedIssue: SymphonyTrackerIssue;
+    runId: string | null;
+    workspace: PreparedWorkspace | null;
+    workerHost: string | null;
+    reason: string;
+    completionKind: SymphonyAgentRuntimeCompletion["kind"];
+    commentOutcome: string;
+    transitionTargetState: string | null;
+    rateLimits?: JsonObject | null;
+  }): Promise<void> {
+    const finalIssue = input.routedIssue;
+    const cleanupMode = workspaceCleanupModeForIssue({
+      issue: finalIssue,
+      tracker: this.#config.tracker
+    });
+
+    await leaveFailureComment({
+      tracker: this.#tracker,
+      observer: this.#observer,
+      issue: finalIssue,
+      reason: input.reason,
+      outcome: input.commentOutcome,
+      runId: input.runId,
+      options: {
+        rateLimits: input.rateLimits,
+        expectedTrackerState: input.transitionTargetState,
+        workspaceCleanupMode: cleanupMode
+      }
+    });
+
+    await this.#cleanupStoppedRun({
+      issue: finalIssue,
+      runId: input.runId,
+      workspace: input.workspace,
+      workerHost: input.workerHost,
+      completionKind: input.completionKind,
+      mode: cleanupMode
+    });
+  }
+
+  async #finalizeStartupFailure(input: {
+    issue: SymphonyTrackerIssue;
+    runId: string | null;
+    completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }>;
+    workerHost: string | null;
+    workspace: PreparedWorkspace | null;
+    startedAt: string;
+    startupFailureMessage: string;
+    turnCount: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  }): Promise<void> {
+    await this.#observer?.recordLifecycleEvent({
+      issue: input.issue,
+      runId: input.runId,
+      source: "runtime",
+      eventType: "runtime_startup_failed",
+      message: input.startupFailureMessage,
+      payload: {
+        reason: input.completion.reason,
+        failureStage: input.completion.failureStage,
+        failureOrigin: input.completion.failureOrigin,
+        manifestLifecyclePhase: input.completion.manifestLifecyclePhase ?? null,
+        manifestLifecycleStepName:
+          input.completion.manifestLifecycleStepName ?? null,
+        manifestLifecycle: input.completion.manifestLifecycle ?? null,
+        launchTarget: input.completion.launchTarget ?? null,
+        workspace: buildWorkspaceLifecyclePayload(input.workspace)
+      }
+    });
+
+    await this.#observer?.finalizeRun({
+      issue: input.issue,
+      runId: input.runId,
+      completion: input.completion,
+      workerHost: input.workerHost,
+      workspace: input.workspace,
+      startedAt: input.startedAt,
+      endedAt: this.#clock.now().toISOString(),
+      turnCount: input.turnCount,
+      inputTokens: input.inputTokens,
+      outputTokens: input.outputTokens,
+      totalTokens: input.totalTokens
+    });
+
+    await handleStartupFailure({
+      config: this.#config,
+      tracker: this.#tracker,
+      workspaceBackend: this.#workspaceBackend,
+      observer: this.#observer,
+      runnerEnv: this.#runnerEnv,
+      workerHost: input.workerHost,
+      workspace: input.workspace,
+      runId: input.runId,
+      issue: input.issue,
+      completion: input.completion
+    });
   }
 
   async #dispatchDueRetries(): Promise<void> {
@@ -2113,33 +1749,23 @@ function isRecoverableCompletionRoutingFailure(
   }
 }
 
-function normalizeStateName(state: string | null | undefined): string {
-  return state?.trim().toLowerCase() ?? "";
+function assertStartupFailureCompletion(
+  completion: SymphonyAgentRuntimeCompletion
+): asserts completion is Extract<
+  SymphonyAgentRuntimeCompletion,
+  { kind: "startup_failure" }
+> {
+  if (completion.kind === "startup_failure") {
+    return;
+  }
+
+  throw new TypeError(
+    `Expected startup_failure completion. Received ${completion.kind}.`
+  );
 }
 
-function describeFailureStateTransition(input: {
-  beforeIssue: SymphonyTrackerIssue;
-  afterIssue: SymphonyTrackerIssue;
-  targetState: string | null;
-}): SymphonyFailureStateTransition {
-  if (!input.targetState) {
-    return {
-      kind: "none"
-    };
-  }
-
-  if (normalizeStateName(input.afterIssue.state) === normalizeStateName(input.targetState)) {
-    return {
-      kind: "moved",
-      targetState: input.targetState
-    };
-  }
-
-  return {
-    kind: "failed",
-    targetState: input.targetState,
-    reason: `Tracker state remained \`${input.afterIssue.state}\`.`
-  };
+function normalizeStateName(state: string | null | undefined): string {
+  return state?.trim().toLowerCase() ?? "";
 }
 
 function assertPiRuntimeHarness(

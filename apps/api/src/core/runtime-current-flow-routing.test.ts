@@ -121,6 +121,48 @@ describe("runtime router preset selection", () => {
         }
       })
     ).toBe("Approved");
+    expect(
+      routing.module.runtimeAdapter.shouldObserveUnchangedIdleTrackerState({
+        workflowId: "workflow-1",
+        currentNode: "approved_merge",
+        trackerState: "Approved",
+        data: {
+          trackerState: "Approved",
+          lastDispatchMode: "approved_merge",
+          lastRunMode: null,
+          latestReworkHandoff: null,
+          latestMergeResult: null
+        }
+      })
+    ).toBe(true);
+    expect(
+      routing.module.runtimeAdapter.shouldObserveUnchangedIdleTrackerState({
+        workflowId: "workflow-2",
+        currentNode: "bootstrapping",
+        trackerState: "Bootstrapping",
+        data: {
+          trackerState: "Bootstrapping",
+          lastDispatchMode: "implementation",
+          lastRunMode: null,
+          latestReworkHandoff: null,
+          latestMergeResult: null
+        }
+      })
+    ).toBe(true);
+    expect(
+      routing.module.runtimeAdapter.shouldObserveUnchangedIdleTrackerState({
+        workflowId: "workflow-3",
+        currentNode: "review",
+        trackerState: "In Review",
+        data: {
+          trackerState: "In Review",
+          lastDispatchMode: "implementation",
+          lastRunMode: null,
+          latestReworkHandoff: null,
+          latestMergeResult: null
+        }
+      })
+    ).toBe(false);
     expect(() =>
       routing.module.runtimeAdapter.readActiveRunModeFromProjection({
         workflowId: "workflow-1",

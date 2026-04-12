@@ -560,6 +560,13 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       };
     }
   } satisfies SymphonyRuntimeAppServices["trackerStateIngress"];
+  const workflowRead = {
+    async loadCurrentWorkflowTrackerState(input: { issueIdentifier: string }) {
+      return await routeLifecycle.loadCurrentTrackerState({
+        issueIdentifier: input.issueIdentifier
+      });
+    }
+  } satisfies SymphonyRuntimeAppServices["workflowRead"];
   const runtimeTools = createRuntimeToolsPort({
     tracker,
     deliveryReports,
@@ -735,6 +742,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runtimeLogs,
     health,
     trackerStateIngress,
+    workflowRead,
     runtimeTools,
     workflowComparison,
     routeWorkflows,

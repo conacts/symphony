@@ -651,6 +651,11 @@ export async function createSymphonyRuntimeTestHarness(input: {
         return null;
       }
     },
+    workflowRead: {
+      async loadCurrentWorkflowTrackerState() {
+        return null;
+      }
+    },
     githubReviewIngress: createSymphonyGitHubReviewIngressService({
       githubPolicy: runtimePolicy.github,
       reviewProcessor: new SymphonyGithubReviewProcessor({

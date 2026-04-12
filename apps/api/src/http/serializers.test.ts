@@ -51,6 +51,7 @@ describe("runtime serializers", () => {
       runtimePolicy.github.repo,
       issue.identifier,
       issue,
+      null,
       runtimePolicy.pi
     );
 
@@ -101,10 +102,32 @@ describe("runtime serializers", () => {
       runtimePolicy.github.repo,
       issue.identifier,
       issue,
+      null,
       runtimePolicy.pi
     );
 
     expect(serialized?.operator.pi.selectedModel).toBe("gpt-5.4");
+  });
+
+  it("prefers workflow-authoritative tracker state when serializing runtime issues", () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const snapshot = buildSymphonyOrchestratorSnapshot({
+      running: [],
+      retrying: []
+    });
+
+    const serialized = serializeRuntimeIssue(
+      snapshot,
+      buildSymphonyRuntimePolicy().github.repo,
+      issue.identifier,
+      issue,
+      "Approved",
+      buildSymphonyRuntimePolicy().pi
+    );
+
+    expect(serialized?.tracked.state).toBe("Approved");
   });
 
   it("fails fast when a live runtime entry is missing its prepared workspace", () => {
@@ -187,6 +210,7 @@ describe("runtime serializers", () => {
         snapshot,
         buildSymphonyRuntimePolicy().github.repo,
         "COL-999",
+        null,
         null,
         buildSymphonyRuntimePolicy().pi
       )
@@ -314,6 +338,7 @@ describe("runtime serializers", () => {
       buildSymphonyRuntimePolicy().github.repo,
       issue.identifier,
       issue,
+      null,
       buildSymphonyRuntimePolicy().pi
     );
 
@@ -402,6 +427,7 @@ describe("runtime serializers", () => {
       buildSymphonyRuntimePolicy().github.repo,
       issue.identifier,
       issue,
+      null,
       buildSymphonyRuntimePolicy().pi
     );
 
