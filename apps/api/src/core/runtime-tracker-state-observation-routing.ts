@@ -1,6 +1,7 @@
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
-  type WorkflowCommand
+  type WorkflowCommand,
+  type WorkflowSession
 } from "@symphony/router";
 import type {
   SymphonyTracker,
@@ -147,53 +148,18 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
         result
       });
 
-      let currentIssue = issue;
-      for (const command of result.decision.commands) {
-        switch (command.kind) {
-          case "tracker.transition":
-            currentIssue = await executeSettledRouteCommand({
-              routeWorkflows: input.routeWorkflows,
-              workflowId: resumed.hydrationState.workflow.workflowId,
-              session: resumed.session,
-              loadSettlementSession,
-              command,
-              recordedAt: observationInput.recordedAt,
-              async execute(executedCommand) {
-                return await executeTrackerTransition({
-                  presetAdapter,
-                  command: executedCommand,
-                  issue: currentIssue,
-                  tracker: input.tracker
-                });
-              }
-            });
-            break;
-          case "run.dispatch":
-            await executeSettledRouteCommand({
-              routeWorkflows: input.routeWorkflows,
-              workflowId: resumed.hydrationState.workflow.workflowId,
-              session: resumed.session,
-              loadSettlementSession,
-              command,
-              recordedAt: observationInput.recordedAt,
-              async execute(executedCommand) {
-                await executeObservedDispatch({
-                  workflowId: resumed.hydrationState.workflow.workflowId,
-                  observationInput,
-                  issue: currentIssue,
-                  presetAdapter,
-                  command: executedCommand,
-                  recordedAt: observationInput.recordedAt
-                });
-              }
-            });
-            break;
-          default:
-            throw new TypeError(
-              `Tracker state observation does not support command kind ${command.kind}.`
-            );
-        }
-      }
+      const currentIssue = await executeObservationCommands({
+        commands: result.decision.commands,
+        routeWorkflows: input.routeWorkflows,
+        workflowId: resumed.hydrationState.workflow.workflowId,
+        session: resumed.session,
+        loadSettlementSession,
+        issue,
+        tracker: input.tracker,
+        presetAdapter,
+        observationInput,
+        recordedAt: observationInput.recordedAt
+      });
 
       return {
         issue: currentIssue
@@ -219,6 +185,68 @@ async function executeTrackerTransition(input: {
   };
 }
 
+async function executeObservationCommands(input: {
+  commands: WorkflowCommand[];
+  routeWorkflows: SymphonyRouteWorkflowPort;
+  workflowId: string;
+  session: WorkflowSession<string, unknown, unknown>;
+  loadSettlementSession: () => Promise<WorkflowSession<string, unknown, unknown>>;
+  issue: SymphonyTrackerIssue;
+  tracker: SymphonyTracker;
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
+  observationInput: SymphonyTrackerStateObservationInput;
+  recordedAt: string;
+}): Promise<SymphonyTrackerIssue> {
+  let currentIssue = input.issue;
+
+  for (const command of input.commands) {
+    switch (command.kind) {
+      case "tracker.transition":
+        currentIssue = await executeSettledRouteCommand({
+          routeWorkflows: input.routeWorkflows,
+          workflowId: input.workflowId,
+          session: input.session,
+          loadSettlementSession: input.loadSettlementSession,
+          command,
+          recordedAt: input.recordedAt,
+          async execute(executedCommand) {
+            return await executeTrackerTransition({
+              presetAdapter: input.presetAdapter,
+              command: executedCommand,
+              issue: currentIssue,
+              tracker: input.tracker
+            });
+          }
+        });
+        break;
+      case "run.dispatch":
+        await executeSettledRouteCommand({
+          routeWorkflows: input.routeWorkflows,
+          workflowId: input.workflowId,
+          session: input.session,
+          loadSettlementSession: input.loadSettlementSession,
+          command,
+          recordedAt: input.recordedAt,
+          async execute(executedCommand) {
+            await executeObservedDispatch({
+              workflowId: input.workflowId,
+              observationInput: input.observationInput,
+              issue: currentIssue,
+              presetAdapter: input.presetAdapter,
+              command: executedCommand,
+              recordedAt: input.recordedAt
+            });
+          }
+        });
+        break;
+      default:
+        throwUnsupportedObservationCommand(command.kind);
+    }
+  }
+
+  return currentIssue;
+}
+
 async function executeObservedDispatch(input: {
   workflowId: string;
   observationInput: SymphonyTrackerStateObservationInput;
@@ -232,27 +260,25 @@ async function executeObservedDispatch(input: {
     command: input.command
   });
 
-  if (input.observationInput.observationKind === "idle") {
-    if (!input.observationInput.onDispatchRequested) {
-      throw new TypeError(
-        "Idle tracker state observation emitted run.dispatch without a dispatch callback."
-      );
-    }
-
-    await input.observationInput.onDispatchRequested({
-      workflowId: input.workflowId,
-      commandId: input.command.id,
-      issue: input.issue,
-      runMode,
-      recordedAt: input.recordedAt
-    });
-    return;
-  }
-
-  if (runMode !== input.observationInput.runMode) {
-    throw new TypeError(
-      `Active tracker state observation only supports run.dispatch for active run mode ${input.observationInput.runMode}. Received ${runMode}.`
-    );
+  switch (input.observationInput.observationKind) {
+    case "idle":
+      await requestIdleObservedDispatch({
+        workflowId: input.workflowId,
+        observationInput: input.observationInput,
+        issue: input.issue,
+        runMode,
+        commandId: input.command.id,
+        recordedAt: input.recordedAt
+      });
+      return;
+    case "active":
+      settleActiveObservedDispatch({
+        observationInput: input.observationInput,
+        runMode
+      });
+      return;
+    default:
+      assertUnsupportedObservationInput(input.observationInput);
   }
 }
 
@@ -286,4 +312,60 @@ function readObservedRunMode(
   return observationInput.observationKind === "active"
     ? observationInput.runMode
     : null;
+}
+
+async function requestIdleObservedDispatch(input: {
+  workflowId: string;
+  observationInput: SymphonyIdleTrackerStateObservationInput;
+  issue: SymphonyTrackerIssue;
+  runMode: SymphonyRunMode;
+  commandId: string;
+  recordedAt: string;
+}) {
+  if (!input.observationInput.onDispatchRequested) {
+    throw new TypeError(
+      "Idle tracker state observation emitted run.dispatch without a dispatch callback."
+    );
+  }
+
+  await input.observationInput.onDispatchRequested({
+    workflowId: input.workflowId,
+    commandId: input.commandId,
+    issue: input.issue,
+    runMode: input.runMode,
+    recordedAt: input.recordedAt
+  });
+}
+
+function settleActiveObservedDispatch(input: {
+  observationInput: SymphonyActiveTrackerStateObservationInput;
+  runMode: SymphonyRunMode;
+}) {
+  if (input.runMode !== input.observationInput.runMode) {
+    throw new TypeError(
+      `Active tracker state observation only supports run.dispatch for active run mode ${input.observationInput.runMode}. Received ${input.runMode}.`
+    );
+  }
+
+  // Active observation is confirming tracker drift against an already running
+  // workflow. A same-mode run.dispatch is settled in workflow history, not sent
+  // back through the external dispatch callback surface.
+}
+
+function throwUnsupportedObservationCommand(
+  commandKind: WorkflowCommand["kind"]
+): never {
+  throw new TypeError(
+    `Tracker state observation does not support command kind ${commandKind}.`
+  );
+}
+
+function assertUnsupportedObservationInput(
+  observationInput: never
+): never {
+  throw new TypeError(
+    `Tracker state observation does not support observation kind ${String(
+      (observationInput as SymphonyTrackerStateObservationInput).observationKind
+    )}.`
+  );
 }

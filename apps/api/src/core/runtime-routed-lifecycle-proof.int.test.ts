@@ -510,6 +510,7 @@ describe("runtime routed lifecycle proof", () => {
           expect(data.lastRunMode).toBe("approved_merge");
         }
       });
+      expectSucceededRedispatchSettlement(firstProof);
       expect((await harness.loadLifecycleView()).trackerState).toBe("Approved");
 
       await harness.restart({
@@ -532,6 +533,7 @@ describe("runtime routed lifecycle proof", () => {
           expect(data.lastRunMode).toBe("approved_merge");
         }
       });
+      expectSucceededRedispatchSettlement(secondProof);
       expect(secondProof.snapshot.eventSequence).toBeGreaterThan(
         firstProof.snapshot.eventSequence
       );
@@ -719,6 +721,24 @@ function expectQueuedDispatch(
       recordedAt: expect.any(String)
     })
   ]);
+}
+
+function expectSucceededRedispatchSettlement(
+  proof: Awaited<ReturnType<typeof expectCurrentFlowAuthority>>
+) {
+  expect(proof.latestDecision.commands).toEqual([
+    expect.objectContaining({
+      kind: "run.dispatch"
+    })
+  ]);
+  expect(proof.latestSettlementEvents).toHaveLength(1);
+  if (proof.latestSettlementEvents[0]?.event.kind !== "command_settled") {
+    throw new TypeError("Expected redispatch settlement event.");
+  }
+  expect(proof.latestSettlementEvents[0].event.status).toBe("succeeded");
+  expect(proof.latestSettlementEvents[0].commandId).toBe(
+    proof.latestDecision.commands[0]?.id ?? null
+  );
 }
 
 async function advanceToRunningApprovedMerge(
