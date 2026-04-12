@@ -177,8 +177,9 @@ describe("@symphony/api app", () => {
         data: {
           issueIdentifier: string;
           observedTrackerState: string;
-          workflowTrackerState: string;
+          workflowTrackerState: string | null;
           observed: boolean;
+          disposition: "observed" | "skipped" | "ignored";
           recordedAt: string;
         };
       }>(firstResponse);
@@ -206,8 +207,9 @@ describe("@symphony/api app", () => {
         data: {
           issueIdentifier: string;
           observedTrackerState: string;
-          workflowTrackerState: string;
+          workflowTrackerState: string | null;
           observed: boolean;
+          disposition: "observed" | "skipped" | "ignored";
           recordedAt: string;
         };
       }>(secondResponse);
@@ -217,6 +219,7 @@ describe("@symphony/api app", () => {
       expect(firstPayload.data.observedTrackerState).toBe("Todo");
       expect(firstPayload.data.workflowTrackerState).toBe("Bootstrapping");
       expect(firstPayload.data.observed).toBe(true);
+      expect(firstPayload.data.disposition).toBe("observed");
       expect(firstPayload.data.recordedAt).toBeTruthy();
       expect(routedDispatches).toEqual([
         {
@@ -241,6 +244,7 @@ describe("@symphony/api app", () => {
         observedTrackerState: "Bootstrapping",
         workflowTrackerState: "Bootstrapping",
         observed: true,
+        disposition: "observed",
         recordedAt: expect.any(String)
       });
       expect(routedDispatches).toHaveLength(2);

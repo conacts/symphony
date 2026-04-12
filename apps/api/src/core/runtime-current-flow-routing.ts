@@ -66,7 +66,7 @@ export function createRuntimeCurrentFlowPresetModule<
     presetId: input.presetId,
     preset: input.preset,
     runtimeAdapter: createCurrentFlowRuntimeWorkflowPresetAdapter(),
-    requiredNonRunningTrackerObservationStates: [
+    requiredNonRunningTrackerSeedStates: [
       "Bootstrapping",
       "In Review",
       "Approved"

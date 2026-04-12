@@ -28,7 +28,7 @@ export type SymphonyRuntimeWorkflowPresetModule<
   presetId: PresetId;
   preset: WorkflowRouterPreset<Node, Data, Policy>;
   runtimeAdapter: SymphonyRuntimeWorkflowPresetAdapter;
-  requiredNonRunningTrackerObservationStates: readonly string[];
+  requiredNonRunningTrackerSeedStates: readonly string[];
   assertTrackerContract(input: {
     trackerConfig: SymphonyTrackerConfig;
   }): void;
@@ -48,7 +48,7 @@ type RuntimeWorkflowPresetModuleLike = {
   presetId: string;
   preset: RuntimeWorkflowRouterPresetLike;
   runtimeAdapter: SymphonyRuntimeWorkflowPresetAdapter;
-  requiredNonRunningTrackerObservationStates: readonly string[];
+  requiredNonRunningTrackerSeedStates: readonly string[];
   assertTrackerContract(input: {
     trackerConfig: SymphonyTrackerConfig;
   }): void;

@@ -403,11 +403,18 @@ export const symphonyRuntimeRefreshResultSchema = z.strictObject({
   operations: z.tuple([z.literal("poll"), z.literal("reconcile")])
 });
 
+export const symphonyRuntimeTrackerStateObservationDispositionSchema = z.enum([
+  "observed",
+  "skipped",
+  "ignored"
+]);
+
 export const symphonyRuntimeTrackerStateObservationResultSchema = z.strictObject({
   issueIdentifier: nonEmptyStringSchema,
   observedTrackerState: nonEmptyStringSchema,
-  workflowTrackerState: nonEmptyStringSchema,
+  workflowTrackerState: nullableNonEmptyStringSchema,
   observed: z.boolean(),
+  disposition: symphonyRuntimeTrackerStateObservationDispositionSchema,
   recordedAt: isoTimestampSchema
 });
 
@@ -527,6 +534,9 @@ export type SymphonyRuntimeTrackedIssue = z.infer<typeof symphonyRuntimeTrackedI
 export type SymphonyRuntimeIssueOperator = z.infer<typeof symphonyRuntimeIssueOperatorSchema>;
 export type SymphonyRuntimeIssueResult = z.infer<typeof symphonyRuntimeIssueResultSchema>;
 export type SymphonyRuntimeRefreshResult = z.infer<typeof symphonyRuntimeRefreshResultSchema>;
+export type SymphonyRuntimeTrackerStateObservationDisposition = z.infer<
+  typeof symphonyRuntimeTrackerStateObservationDispositionSchema
+>;
 export type SymphonyRuntimeTrackerStateObservationResult = z.infer<
   typeof symphonyRuntimeTrackerStateObservationResultSchema
 >;

@@ -134,9 +134,33 @@ export type SymphonyTrackerStateIngressRecord = {
 };
 
 export type SymphonyTrackerStateIngressObservation =
-  SymphonyTrackerStateIngressRecord & {
-  observed: boolean;
-};
+  | (SymphonyTrackerStateIngressRecord & {
+      observed: true;
+      disposition: "observed";
+    })
+  | (SymphonyTrackerStateIngressRecord & {
+      observed: false;
+      disposition: "skipped";
+    })
+  | {
+      issueIdentifier: string;
+      observedTrackerState: string;
+      workflowTrackerState: null;
+      observed: false;
+      disposition: "ignored";
+    };
+
+type NonRunningTrackerIngressDisposition =
+  | {
+      disposition: "observe";
+    }
+  | {
+      disposition: "skip";
+      workflowTrackerState: string;
+    }
+  | {
+      disposition: "ignore";
+    };
 
 export async function createRuntimeRouteLifecycleService(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
@@ -246,10 +270,10 @@ export async function createRuntimeRouteLifecycleService(input: {
     });
   const nonRunningTrackerSeedStates = buildNonRunningTrackerSeedStates({
     trackerConfig: input.trackerConfig,
-    requiredStates: routing.module.requiredNonRunningTrackerObservationStates
+    requiredSeedStates: routing.module.requiredNonRunningTrackerSeedStates
   });
-  const nonRunningTrackerObservationStates =
-    buildNonRunningTrackerObservationStates({
+  const nonRunningTrackerObservableStates =
+    buildNonRunningTrackerObservableStates({
       trackerConfig: input.trackerConfig,
       seedStates: nonRunningTrackerSeedStates
     });
@@ -259,7 +283,7 @@ export async function createRuntimeRouteLifecycleService(input: {
       const issues = (
         await input.tracker.fetchIssuesByStates(
           input.trackerConfig,
-          nonRunningTrackerObservationStates
+          nonRunningTrackerObservableStates
         )
       )
         .filter((issue) => !claimedIssueIds.has(issue.id))
@@ -271,13 +295,12 @@ export async function createRuntimeRouteLifecycleService(input: {
         const hydration = await sessionLoader.loadHydrationByIssueIdentifier({
           issueIdentifier: issue.identifier
         });
-        if (
-          !shouldIngressObservedNonRunningTrackerState({
-            issue,
-            hydration,
-            seedStates: nonRunningTrackerSeedStates
-          })
-        ) {
+        const disposition = classifyNonRunningTrackerIngressDisposition({
+          issue,
+          hydration,
+          seedStates: nonRunningTrackerSeedStates
+        });
+        if (disposition.disposition !== "observe") {
           continue;
         }
 
@@ -316,23 +339,29 @@ export async function createRuntimeRouteLifecycleService(input: {
       const hydration = await sessionLoader.loadHydrationByIssueIdentifier({
         issueIdentifier: issue.identifier
       });
-      if (
-        !shouldIngressObservedNonRunningTrackerState({
-          issue,
-          hydration,
-          seedStates: nonRunningTrackerSeedStates
-        })
-      ) {
-        const workflowLifecycle = await loadRequiredWorkflowLifecycleView({
-          issueIdentifier: issue.identifier,
-          failureContext:
-            "after non-running tracker state ingress confirmed workflow state already matched the observed tracker state"
-        });
+      const disposition = classifyNonRunningTrackerIngressDisposition({
+        issue,
+        hydration,
+        seedStates: nonRunningTrackerSeedStates
+      });
+
+      if (disposition.disposition === "skip") {
         return {
           issueIdentifier: issue.identifier,
           observedTrackerState: issue.state,
-          workflowTrackerState: workflowLifecycle.trackerState,
-          observed: false
+          workflowTrackerState: disposition.workflowTrackerState,
+          observed: false,
+          disposition: "skipped"
+        };
+      }
+
+      if (disposition.disposition === "ignore") {
+        return {
+          issueIdentifier: issue.identifier,
+          observedTrackerState: issue.state,
+          workflowTrackerState: null,
+          observed: false,
+          disposition: "ignored"
         };
       }
 
@@ -355,7 +384,8 @@ export async function createRuntimeRouteLifecycleService(input: {
         issueIdentifier: observed.issue.identifier,
         observedTrackerState,
         workflowTrackerState: workflowLifecycle.trackerState,
-        observed: true
+        observed: true,
+        disposition: "observed"
       };
     };
   const routeShutdownPause: SymphonyRuntimeRouteLifecycleService["routeShutdownPause"] =
@@ -376,7 +406,7 @@ export async function createRuntimeRouteLifecycleService(input: {
         reason: shutdownInput.reason
       });
       return true;
-  };
+    };
   const loadWorkflowLifecycleView: SymphonyRuntimeRouteLifecycleService["loadWorkflowLifecycleView"] =
     async ({ issueIdentifier, runId = null }) => {
       const projection = await loadReadableWorkflowProjectionByIssueIdentifier({
@@ -527,15 +557,15 @@ export async function createRuntimeRouteLifecycleService(input: {
 
 function buildNonRunningTrackerSeedStates(input: {
   trackerConfig: SymphonyTrackerConfig;
-  requiredStates: readonly string[];
+  requiredSeedStates: readonly string[];
 }): string[] {
   return mergeTrackerStates([
     ...input.trackerConfig.dispatchableStates,
-    ...input.requiredStates
+    ...input.requiredSeedStates
   ]);
 }
 
-function buildNonRunningTrackerObservationStates(input: {
+function buildNonRunningTrackerObservableStates(input: {
   trackerConfig: SymphonyTrackerConfig;
   seedStates: readonly string[];
 }): string[] {
@@ -570,59 +600,82 @@ function mergeTrackerStates(states: ReadonlyArray<string | null | undefined>): s
   return mergedStates;
 }
 
-function shouldIngressObservedNonRunningTrackerState(input: {
+function classifyNonRunningTrackerIngressDisposition(input: {
   issue: {
     state: string;
   };
   hydration: SymphonyLoadedRuntimeWorkflowHydration | null;
   seedStates: readonly string[];
-}): boolean {
+}): NonRunningTrackerIngressDisposition {
   const observedTrackerState = normalizeIssueState(input.issue.state);
   const hydration = input.hydration;
   const snapshot = hydration?.hydrationState.snapshot;
-  let projectedWorkflowTrackerState: string | null = null;
   if (hydration && snapshot) {
-    projectedWorkflowTrackerState =
+    const projectedWorkflowTrackerState =
       hydration.routing.module.runtimeAdapter.readTrackerStateFromProjection({
         workflowId: hydration.hydrationState.workflow.workflowId,
         data: snapshot.projection.data
       });
-  }
-
-  if (
-    projectedWorkflowTrackerState &&
-    normalizeIssueState(projectedWorkflowTrackerState) === observedTrackerState
-  ) {
-    if (!hydration || !snapshot) {
-      return false;
-    }
-
-    const currentNode = snapshot.projection.currentNode;
-    if (!currentNode) {
+    if (!projectedWorkflowTrackerState) {
       throw new TypeError(
-        `Route workflow ${hydration.hydrationState.workflow.workflowId} is missing a current node during idle tracker observation.`
+        `Route workflow ${hydration.hydrationState.workflow.workflowId} cannot project the current tracker state during idle tracker observation.`
       );
     }
 
-    return hydration.routing.module.runtimeAdapter.shouldObserveUnchangedIdleTrackerState(
-      {
-        workflowId: hydration.hydrationState.workflow.workflowId,
-        currentNode,
-        data: snapshot.projection.data,
-        // This is the externally observed tracker state being compared against
-        // unchanged workflow state to decide whether ingress should still emit.
-        trackerState: input.issue.state
+    if (
+      normalizeIssueState(projectedWorkflowTrackerState) === observedTrackerState
+    ) {
+      const currentNode = snapshot.projection.currentNode;
+      if (!currentNode) {
+        throw new TypeError(
+          `Route workflow ${hydration.hydrationState.workflow.workflowId} is missing a current node during idle tracker observation.`
+        );
       }
-    );
+
+      if (
+        hydration.routing.module.runtimeAdapter.shouldObserveUnchangedIdleTrackerState(
+          {
+            workflowId: hydration.hydrationState.workflow.workflowId,
+            currentNode,
+            data: snapshot.projection.data,
+            // This is the externally observed tracker state being compared
+            // against unchanged workflow state to decide whether ingress
+            // should still emit.
+            trackerState: input.issue.state
+          }
+        )
+      ) {
+        return {
+          disposition: "observe"
+        };
+      }
+
+      return {
+        disposition: "skip",
+        workflowTrackerState: projectedWorkflowTrackerState
+      };
+    }
   }
 
   if (input.hydration) {
-    return true;
+    return {
+      disposition: "observe"
+    };
   }
 
-  return input.seedStates.some(
-    (state) => normalizeIssueState(state) === observedTrackerState
-  );
+  if (
+    input.seedStates.some(
+      (state) => normalizeIssueState(state) === observedTrackerState
+    )
+  ) {
+    return {
+      disposition: "observe"
+    };
+  }
+
+  return {
+    disposition: "ignore"
+  };
 }
 
 function resolveActiveRunMode(

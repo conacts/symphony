@@ -165,7 +165,8 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       issueIdentifier: result.issueIdentifier,
       observedTrackerState: result.observedTrackerState,
       workflowTrackerState: result.workflowTrackerState,
-      observed: result.observed
+      observed: result.observed,
+      disposition: result.disposition
     });
 
     symphonyRuntimeTrackerStateObservationResponseSchema.parse({

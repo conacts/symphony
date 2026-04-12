@@ -101,7 +101,8 @@ describe("runtime route lifecycle service", () => {
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "In Review",
         workflowTrackerState: "In Review",
-        observed: true
+        observed: true,
+        disposition: "observed"
       });
       expect(await harness.issueStore.fetchByIdentifier(harness.issue.identifier)).toEqual(
         expect.objectContaining({
@@ -140,7 +141,8 @@ describe("runtime route lifecycle service", () => {
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "In Review",
         workflowTrackerState: "In Review",
-        observed: true
+        observed: true,
+        disposition: "observed"
       });
 
       await expectRouteWorkflowAuthorityProof<
@@ -192,7 +194,8 @@ describe("runtime route lifecycle service", () => {
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Rework",
         workflowTrackerState: "Bootstrapping",
-        observed: true
+        observed: true,
+        disposition: "observed"
       });
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
       expect(dispatchRequests).toEqual([
@@ -249,7 +252,8 @@ describe("runtime route lifecycle service", () => {
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Todo",
         workflowTrackerState: "In Progress",
-        observed: true
+        observed: true,
+        disposition: "observed"
       });
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Progress");
 
@@ -609,6 +613,44 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("ignores explicit non-running observations for states outside the workflow seed policy", async () => {
+    const runtimePolicy = buildSymphonyRuntimePolicy();
+    const harness = await createHarness({
+      state: "Rework",
+      trackerConfig: {
+        ...runtimePolicy.tracker,
+        dispatchableStates: ["Todo"]
+      }
+    });
+
+    try {
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:00:12.100Z",
+        onDispatchRequested: async () => {}
+      });
+
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        observedTrackerState: "Rework",
+        workflowTrackerState: null,
+        observed: false,
+        disposition: "ignored"
+      });
+
+      const hydration =
+        await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+          SymphonyCurrentFlowNode,
+          SymphonyCurrentFlowData,
+          SymphonyCurrentFlowPolicy
+        >(harness.issue.identifier);
+      expect(hydration).toBeNull();
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Rework");
+    } finally {
+      harness.close();
+    }
+  });
+
   it("still observes preset-required Approved state even when it is not dispatchable", async () => {
     const runtimePolicy = buildSymphonyRuntimePolicy();
     const harness = await createHarness({
@@ -734,7 +776,8 @@ describe("runtime route lifecycle service", () => {
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "In Review",
         workflowTrackerState: "In Review",
-        observed: false
+        observed: false,
+        disposition: "skipped"
       });
       expect(after?.snapshot?.eventSequence).toBe(before?.snapshot?.eventSequence ?? null);
       expect(after?.snapshot?.projection.currentNode).toBe("review");
@@ -1015,7 +1058,8 @@ describe("runtime route lifecycle service", () => {
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Todo",
         workflowTrackerState: "Bootstrapping",
-        observed: true
+        observed: true,
+        disposition: "observed"
       });
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
       expect(dispatchRequests).toEqual([
@@ -1101,7 +1145,8 @@ describe("runtime route lifecycle service", () => {
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Approved",
         workflowTrackerState: "Approved",
-        observed: true
+        observed: true,
+        disposition: "observed"
       });
       expect(dispatchRequests).toEqual([
         {

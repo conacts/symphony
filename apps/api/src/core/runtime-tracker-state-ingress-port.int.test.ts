@@ -204,7 +204,8 @@ describe("runtime tracker state ingress port", () => {
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "In Review",
         workflowTrackerState: "In Review",
-        observed: false
+        observed: false,
+        disposition: "skipped"
       });
 
       const logs = await harness.runtimeLogStore.list({
@@ -219,7 +220,56 @@ describe("runtime tracker state ingress port", () => {
             payload: {
               scope: "non_running_issue_identifier",
               observedTrackerState: "In Review",
-              workflowTrackerState: "In Review"
+              workflowTrackerState: "In Review",
+              disposition: "skipped"
+            }
+          })
+        ])
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("records ignored explicit non-running observations that are outside the workflow seed policy", async () => {
+    const runtimePolicy = buildSymphonyRuntimePolicy();
+    const harness = await createHarness({
+      state: "Rework",
+      trackerConfig: {
+        ...runtimePolicy.tracker,
+        dispatchableStates: ["Todo"]
+      }
+    });
+
+    try {
+      const observation = await harness.ingress.observeNonRunningByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T15:00:12.000Z",
+        onDispatchRequested: async () => {}
+      });
+
+      expect(observation).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        observedTrackerState: "Rework",
+        workflowTrackerState: null,
+        observed: false,
+        disposition: "ignored"
+      });
+
+      const logs = await harness.runtimeLogStore.list({
+        issueIdentifier: harness.issue.identifier
+      });
+      expect(logs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            source: "tracker_state_ingress",
+            eventType: "tracker_state_ingress_ignored",
+            issueIdentifier: harness.issue.identifier,
+            payload: {
+              scope: "non_running_issue_identifier",
+              observedTrackerState: "Rework",
+              workflowTrackerState: null,
+              disposition: "ignored"
             }
           })
         ])
@@ -231,8 +281,9 @@ describe("runtime tracker state ingress port", () => {
 });
 
 async function createHarness(input: {
-  state: "Todo";
+  state: "Todo" | "Rework";
   seedIssueIdentity?: boolean;
+  trackerConfig?: ReturnType<typeof buildSymphonyRuntimePolicy>["tracker"];
 }) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-tracker-state-ingress-"));
   tempDirectories.push(root);
@@ -246,6 +297,7 @@ async function createHarness(input: {
     routeWorkflowStore
   });
   const runtimePolicy = buildSymphonyRuntimePolicy();
+  const trackerConfig = input.trackerConfig ?? runtimePolicy.tracker;
   const issue = buildSymphonyTrackerIssue({
     state: input.state
   });
@@ -267,7 +319,7 @@ async function createHarness(input: {
   const routeLifecycle = await createRuntimeRouteLifecycleService({
     routeWorkflows,
     tracker,
-    trackerConfig: runtimePolicy.tracker,
+    trackerConfig,
     repositoryKey: "openai/symphony",
     async ensureIssueIdentity(observedIssue) {
       await issueStore.upsert({

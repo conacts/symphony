@@ -573,6 +573,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
         observedTrackerState: observation.observedTrackerState,
         workflowTrackerState: observation.workflowTrackerState,
         observed: observation.observed,
+        disposition: observation.disposition,
         recordedAt
       };
     }

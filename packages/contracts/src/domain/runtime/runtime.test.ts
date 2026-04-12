@@ -415,7 +415,29 @@ describe("symphony runtime contracts", () => {
         observedTrackerState: "Rework",
         workflowTrackerState: "Bootstrapping",
         observed: true,
+        disposition: "observed",
         recordedAt: "2026-04-10T00:00:00.000Z"
+      }
+    });
+
+    expect(parsed.ok).toBe(true);
+  });
+
+  it("parses ignored tracker state observations with no workflow tracker state", () => {
+    const parsed = symphonyRuntimeTrackerStateObservationResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      meta: {
+        durationMs: 1,
+        generatedAt: "2026-04-10T00:00:00.000Z"
+      },
+      data: {
+        issueIdentifier: "COL-158",
+        observedTrackerState: "Rework",
+        workflowTrackerState: null,
+        observed: false,
+        disposition: "ignored",
+        recordedAt: "2026-04-10T00:00:01.000Z"
       }
     });
 

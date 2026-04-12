@@ -123,17 +123,14 @@ export function createRuntimeTrackerStateIngressPort(input: {
         await input.runtimeLogStore.record({
           level: "info",
           source: "tracker_state_ingress",
-          eventType: observedIssue.observed
-            ? "tracker_state_ingress_observed"
-            : "tracker_state_ingress_skipped",
-          message: observedIssue.observed
-            ? "Observed non-running tracker state through workflow history ingress."
-            : "Skipped non-running tracker state ingress because workflow history already reflects the tracker state.",
+          eventType: readTrackerStateIngressEventType(observedIssue),
+          message: readTrackerStateIngressMessage(observedIssue),
           issueIdentifier: observedIssue.issueIdentifier,
           payload: {
             scope: "non_running_issue_identifier",
             observedTrackerState: observedIssue.observedTrackerState,
-            workflowTrackerState: observedIssue.workflowTrackerState
+            workflowTrackerState: observedIssue.workflowTrackerState,
+            disposition: observedIssue.disposition
           },
           recordedAt: observationInput.recordedAt
         });
@@ -161,4 +158,30 @@ export function createRuntimeTrackerStateIngressPort(input: {
 
 function stringifyError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function readTrackerStateIngressEventType(
+  observation: SymphonyTrackerStateIngressObservation
+): "tracker_state_ingress_observed" | "tracker_state_ingress_skipped" | "tracker_state_ingress_ignored" {
+  switch (observation.disposition) {
+    case "observed":
+      return "tracker_state_ingress_observed";
+    case "skipped":
+      return "tracker_state_ingress_skipped";
+    case "ignored":
+      return "tracker_state_ingress_ignored";
+  }
+}
+
+function readTrackerStateIngressMessage(
+  observation: SymphonyTrackerStateIngressObservation
+): string {
+  switch (observation.disposition) {
+    case "observed":
+      return "Observed non-running tracker state through workflow history ingress.";
+    case "skipped":
+      return "Skipped non-running tracker state ingress because workflow history already reflects the tracker state.";
+    case "ignored":
+      return "Ignored non-running tracker state ingress because the tracker state is outside the workflow seed policy.";
+  }
 }
