@@ -18,6 +18,12 @@ export type AdmittedRuntimeRepository = {
 export async function loadAdmittedRuntimeRepositories(
   sourceRepos: string[]
 ): Promise<AdmittedRuntimeRepository[]> {
+  if (sourceRepos.length === 0) {
+    throw new TypeError(
+      "Symphony runtime bootstrap requires at least one admitted source repository."
+    );
+  }
+
   const admittedRepositories: AdmittedRuntimeRepository[] = [];
   const seenRepositoryKeys = new Set<string>();
 

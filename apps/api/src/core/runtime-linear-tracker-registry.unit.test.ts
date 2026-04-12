@@ -11,6 +11,31 @@ import type {
 } from "@symphony/tracker";
 
 describe("repository linear tracker registry", () => {
+  it("fails fast when a linear tracker is created without admitted repositories", () => {
+    const trackerConfig: SymphonyTrackerConfig = {
+      kind: "linear",
+      endpoint: "https://api.linear.app/graphql",
+      apiKey: "shared-linear-token",
+      teamKey: "SYM",
+      excludedProjectIds: [],
+      assignee: null,
+      dispatchableStates: ["Todo"],
+      terminalStates: ["Done"],
+      claimTransitionToState: "Bootstrapping",
+      claimTransitionFromStates: ["Todo"],
+      startupFailureTransitionToState: "Failed",
+      pauseTransitionToState: "Paused",
+      blockedTransitionToState: "Blocked"
+    };
+
+    expect(() =>
+      createRepositoryScopedLinearTracker({
+        trackerTemplate: trackerConfig,
+        admittedRepositories: []
+      })
+    ).toThrowError(/requires at least one admitted repository/i);
+  });
+
   it("fans out fetches and routes mutations to the resolved repository", async () => {
     const calls: Array<{
       repositoryKey: string;

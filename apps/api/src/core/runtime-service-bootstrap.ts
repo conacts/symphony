@@ -27,13 +27,11 @@ type RuntimeServiceBootstrapResult = {
     runtimeManifest: SymphonyLoadedRuntimeManifest;
     summary: Record<string, unknown>;
   }>;
-  primaryRepository: AdmittedRuntimeRepository | null;
-  selectedRuntimeManifestEntry:
-    | {
-        runtimeManifest: SymphonyLoadedRuntimeManifest;
-        summary: Record<string, unknown>;
-      }
-    | null;
+  primaryRepository: AdmittedRuntimeRepository;
+  selectedRuntimeManifestEntry: {
+    runtimeManifest: SymphonyLoadedRuntimeManifest;
+    summary: Record<string, unknown>;
+  };
   workflowPresetSelection: SymphonyRuntimeWorkflowPresetSelection;
   promptContract: SymphonyLoadedPromptContract;
   promptTemplate: SymphonyLoadedRuntimePromptTemplate;
@@ -56,33 +54,39 @@ export async function loadRuntimeServiceBootstrap(input: {
   }
 
   const harnessProviderEnvKey = resolveHarnessProviderEnvKey(runtimePolicy);
-  const admittedRepositories =
-    input.env.sourceRepos.length > 0
-      ? await loadAdmittedRuntimeRepositories(input.env.sourceRepos)
-      : [];
-  const validatedRuntimeManifests =
-    input.env.sourceRepos.length > 0
-      ? await Promise.all(
-          input.env.sourceRepos.map((sourceRepo) =>
-            validateSourceRepoRuntimeManifest(sourceRepo, input.environmentSource)
-          )
-        )
-      : [];
-  const primaryRepository =
-    admittedRepositories.length > 0
-      ? resolveRepositoryForLinearScope(admittedRepositories, runtimePolicy.tracker)
-      : null;
-  const selectedRuntimeManifestEntry = primaryRepository
-    ? validatedRuntimeManifests.find(
-        (candidate) =>
-          candidate.runtimeManifest.repoRoot === primaryRepository.repoRoot
-      ) ?? null
-    : null;
-  const promptContract =
-    primaryRepository?.promptContract ??
-    (await loadAdmittedRuntimeRepositories([process.cwd()]))[0].promptContract;
+  if (input.env.sourceRepos.length === 0) {
+    throw new TypeError(
+      "Symphony runtime bootstrap requires at least one admitted source repository. Configure SYMPHONY_SOURCE_REPOS."
+    );
+  }
+
+  const admittedRepositories = await loadAdmittedRuntimeRepositories(
+    input.env.sourceRepos
+  );
+  const validatedRuntimeManifests = await Promise.all(
+    input.env.sourceRepos.map((sourceRepo) =>
+      validateSourceRepoRuntimeManifest(sourceRepo, input.environmentSource)
+    )
+  );
+  const primaryRepository = resolveRepositoryForLinearScope(
+    admittedRepositories,
+    runtimePolicy.tracker
+  );
+  const selectedRuntimeManifestEntry =
+    validatedRuntimeManifests.find(
+      (candidate) =>
+        candidate.runtimeManifest.repoRoot === primaryRepository.repoRoot
+    ) ??
+    (() => {
+      throw new TypeError(
+        `Validated runtime manifest missing for primary repository ${JSON.stringify(
+          primaryRepository.repositoryKey
+        )}.`
+      );
+    })();
+  const promptContract = primaryRepository.promptContract;
   const workflowPresetSelection = resolveRuntimeWorkflowPresetSelection({
-    runtimeManifest: selectedRuntimeManifestEntry?.runtimeManifest ?? null
+    runtimeManifest: selectedRuntimeManifestEntry.runtimeManifest
   });
 
   return {

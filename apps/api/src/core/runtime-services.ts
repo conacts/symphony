@@ -112,7 +112,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runtimePolicy: loadedRuntimePolicy,
     harnessProviderEnvKey,
     admittedRepositories,
-    validatedRuntimeManifests,
     primaryRepository,
     selectedRuntimeManifestEntry,
     workflowPresetSelection,
@@ -132,16 +131,14 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     maxConcurrentAgents: runtimePolicy.agent.maxConcurrentAgents
   });
 
-  if (selectedRuntimeManifestEntry) {
-    runtimePolicy = applyRuntimeManifestPiPolicy(
-      runtimePolicy,
-      selectedRuntimeManifestEntry.runtimeManifest.manifest
-    );
-    logger.info(
-      "Validated source-repo runtime manifest",
-      selectedRuntimeManifestEntry.summary
-    );
-  }
+  runtimePolicy = applyRuntimeManifestPiPolicy(
+    runtimePolicy,
+    selectedRuntimeManifestEntry.runtimeManifest.manifest
+  );
+  logger.info(
+    "Validated source-repo runtime manifest",
+    selectedRuntimeManifestEntry.summary
+  );
 
   const database = initializeSymphonyDb({
     dbFile: env.dbFile
@@ -149,7 +146,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const repositoryKey = resolveRuntimeRepositoryKey({
     githubRepo: runtimePolicy.github.repo
   });
-  if (primaryRepository && primaryRepository.repositoryKey !== repositoryKey) {
+  if (primaryRepository.repositoryKey !== repositoryKey) {
     throw new TypeError(
       `Primary admitted repository ${primaryRepository.repositoryKey} does not match runtime repository ${repositoryKey}.`
     );
@@ -207,8 +204,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
   const tracker = createRepositoryScopedLinearTracker({
     trackerTemplate: runtimePolicy.tracker,
-    admittedRepositories,
-    primaryRepositoryKey: repositoryKey
+    admittedRepositories
   });
   if (runtimePolicy.tracker.kind === "memory") {
     logger.warn("Using in-memory tracker placeholder");
@@ -284,51 +280,34 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     tracker
   });
 
-  const workspaceBackendSelections =
-    admittedRepositories.length > 0
-      ? admittedRepositories.map((repository) => ({
-          repositoryKey: repository.repositoryKey,
-          selection: createRuntimeWorkspaceBackend(
-            {
-              ...env,
-              sourceRepo: repository.repoRoot
-            },
-            {
-              dockerHostFileMounts: dockerAuth.mounts,
-              dockerContainerEnv: {
-                ...dockerGitHubCliAuth.launchEnv,
-                ...dockerLinearLaunchEnv
-              },
-              runtimeManifest: repository.runtimeManifest
-            }
-          )
-        }))
-      : [
-          {
-            repositoryKey,
-            selection: createRuntimeWorkspaceBackend(env, {
-              dockerHostFileMounts: dockerAuth.mounts,
-              dockerContainerEnv: {
-                ...dockerGitHubCliAuth.launchEnv,
-                ...dockerLinearLaunchEnv
-              },
-              runtimeManifest: validatedRuntimeManifests[0]?.runtimeManifest ?? null
-            })
-          }
-        ];
+  const workspaceBackendSelections = admittedRepositories.map((repository) => ({
+    repositoryKey: repository.repositoryKey,
+    selection: createRuntimeWorkspaceBackend(
+      {
+        ...env,
+        sourceRepo: repository.repoRoot
+      },
+      {
+        dockerHostFileMounts: dockerAuth.mounts,
+        dockerContainerEnv: {
+          ...dockerGitHubCliAuth.launchEnv,
+          ...dockerLinearLaunchEnv
+        },
+        runtimeManifest: repository.runtimeManifest
+      }
+    )
+  }));
   const workspaceBackendSelection =
-    primaryRepository
-      ? workspaceBackendSelections.find(
-          (entry) => entry.repositoryKey === primaryRepository.repositoryKey
-        )?.selection ??
-        (() => {
-          throw new TypeError(
-            `Workspace backend selection missing for repository ${JSON.stringify(
-              primaryRepository.repositoryKey
-            )}.`
-          );
-        })()
-      : workspaceBackendSelections[0].selection;
+    workspaceBackendSelections.find(
+      (entry) => entry.repositoryKey === primaryRepository.repositoryKey
+    )?.selection ??
+    (() => {
+      throw new TypeError(
+        `Workspace backend selection missing for repository ${JSON.stringify(
+          primaryRepository.repositoryKey
+        )}.`
+      );
+    })();
   const workspaceBackendsByRepository = new Map(
     workspaceBackendSelections.map((entry) => [entry.repositoryKey, entry.selection.backend])
   );

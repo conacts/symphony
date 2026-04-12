@@ -175,6 +175,30 @@ describe("runtime services", () => {
     }
   });
 
+  it("fails fast when no admitted source repositories are configured", async () => {
+    const fixture = await createRuntimeBootstrapFixture({
+      env: {
+        sourceRepo: null,
+        sourceRepos: []
+      },
+      environmentSource: {
+        SYMPHONY_SOURCE_REPO: undefined,
+        SYMPHONY_SOURCE_REPOS: undefined
+      }
+    });
+
+    try {
+      await expect(
+        loadRuntimeServiceBootstrap({
+          env: fixture.env,
+          environmentSource: fixture.environmentSource
+        })
+      ).rejects.toThrowError(/requires at least one admitted source repository/i);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("fails fast when required host env from the runtime manifest is missing", async () => {
     const fixture = await createRuntimeBootstrapFixture({
       runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
@@ -433,7 +457,7 @@ describe("runtime services", () => {
           env: fixture.env,
           environmentSource: fixture.environmentSource
         });
-        const runtimeManifest = bootstrap.selectedRuntimeManifestEntry?.runtimeManifest.manifest;
+        const runtimeManifest = bootstrap.selectedRuntimeManifestEntry.runtimeManifest.manifest;
 
         expect(
           bootstrap.admittedRepositories.map((repository) => repository.repositoryKey)
@@ -524,7 +548,7 @@ describe("runtime services", () => {
         env: fixture.env,
         environmentSource: fixture.environmentSource
       });
-      const runtimeManifest = bootstrap.selectedRuntimeManifestEntry?.runtimeManifest.manifest;
+      const runtimeManifest = bootstrap.selectedRuntimeManifestEntry.runtimeManifest.manifest;
 
       expect(runtimeManifest).not.toBeNull();
 

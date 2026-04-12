@@ -11,6 +11,7 @@ export function createWorkflowDispatchTracker(input: {
     async fetchCandidateIssues(
       _config: SymphonyTrackerConfig
     ): Promise<SymphonyTrackerIssue[]> {
+      void _config;
       // Workflow-authoritative dispatch is driven by explicit tracker ingress.
       // Candidate discovery must stay empty so the poll loop cannot reintroduce
       // tracker-side lifecycle authority.
