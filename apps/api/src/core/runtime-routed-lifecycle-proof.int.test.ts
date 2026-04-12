@@ -713,7 +713,7 @@ function expectQueuedDispatch(
       workflowId: expect.any(String),
       commandId: expect.any(String),
       runMode: input.runMode,
-      issue: expect.objectContaining({
+      trackerIssue: expect.objectContaining({
         id: harness.issueId,
         identifier: harness.issueIdentifier,
         state: input.issueState

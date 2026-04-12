@@ -19,6 +19,8 @@ import {
 } from "@symphony/test-support";
 import {
   createMemorySymphonyTracker,
+  type MemorySymphonyTracker,
+  type SymphonyTracker,
   type SymphonyTrackerConfig
 } from "@symphony/tracker";
 import { expectRouteWorkflowAuthorityProof } from "../test-support/route-workflow-authority-test-support.js";
@@ -184,7 +186,7 @@ describe("runtime route lifecycle service", () => {
         onDispatchRequested: async (input) => {
           dispatchRequests.push({
             workflowId: input.workflowId,
-            issueState: input.issue.state,
+            issueState: input.trackerIssue.state,
             runMode: input.runMode
           });
         }
@@ -237,7 +239,7 @@ describe("runtime route lifecycle service", () => {
         recordedAt: "2026-04-10T14:00:05.000Z",
         onDispatchRequested: async (input) => {
           await harness.service.workflowRoutingAdapter.activateRunStart({
-            issue: input.issue,
+            issue: input.trackerIssue,
             runId: "run-dispatch-activation",
             runMode: input.runMode,
             recordedAt: "2026-04-10T14:00:06.000Z",
@@ -311,7 +313,7 @@ describe("runtime route lifecycle service", () => {
         onDispatchRequested: async (input) => {
           dispatchRequests.push({
             workflowId: input.workflowId,
-            issueState: input.issue.state,
+            issueState: input.trackerIssue.state,
             runMode: input.runMode
           });
         }
@@ -540,7 +542,7 @@ describe("runtime route lifecycle service", () => {
         onDispatchRequested: async (input) => {
           dispatchRequests.push({
             workflowId: input.workflowId,
-            issueState: input.issue.state,
+            issueState: input.trackerIssue.state,
             runMode: input.runMode
           });
         }
@@ -674,7 +676,7 @@ describe("runtime route lifecycle service", () => {
         onDispatchRequested: async (input) => {
           dispatchRequests.push({
             workflowId: input.workflowId,
-            issueState: input.issue.state,
+            issueState: input.trackerIssue.state,
             runMode: input.runMode
           });
         }
@@ -910,6 +912,73 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("observes active issue state changes through a single tracker lookup", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
+        issue: harness.issue,
+        attempt: 1,
+        preferredWorkerHost: null,
+        startedAt: "2026-04-10T14:00:00.000Z"
+      });
+      const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
+      await harness.service.workflowRoutingAdapter.activateRunStart({
+        issue: bootstrappingIssue!,
+        runId: "run-1",
+        runMode: "implementation",
+        threadId: "thread-1",
+        workerHost: null,
+        launchTarget: null,
+        recordedAt: "2026-04-10T14:00:05.000Z"
+      });
+
+      await harness.tracker.updateIssueState(harness.issue.id, "In Review");
+      const serviceWithSingleIssueLookup =
+        await createRuntimeRouteLifecycleService({
+          routeWorkflows: harness.routeWorkflows,
+          tracker: createTrackerWithIssueLookupLimit({
+            tracker: harness.tracker,
+            maxIssueLookups: 1,
+            failureMessage:
+              "Active tracker observation must not refetch the same issue twice."
+          }),
+          trackerConfig: buildSymphonyRuntimePolicy().tracker,
+          repositoryKey: "openai/symphony",
+          presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+          now: () => new Date("2026-04-10T14:00:06.000Z")
+        });
+
+      const observed = await serviceWithSingleIssueLookup.observeActiveIssueStateByIdentifier(
+        {
+          issueIdentifier: harness.issue.identifier,
+          recordedAt: "2026-04-10T14:00:10.000Z"
+        }
+      );
+
+      expect(observed).toBe(true);
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "review",
+        reasonCode: "delivery_recorded",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("In Review");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
   it("continues active issue routing after service restart from persisted workflow history", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -1048,7 +1117,7 @@ describe("runtime route lifecycle service", () => {
         onDispatchRequested: async (input) => {
           dispatchRequests.push({
             workflowId: input.workflowId,
-            issueState: input.issue.state,
+            issueState: input.trackerIssue.state,
             runMode: input.runMode
           });
         }
@@ -1135,7 +1204,7 @@ describe("runtime route lifecycle service", () => {
         onDispatchRequested: async (input) => {
           dispatchRequests.push({
             workflowId: input.workflowId,
-            issueState: input.issue.state,
+            issueState: input.trackerIssue.state,
             runMode: input.runMode
           });
         }
@@ -1264,6 +1333,48 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("routes delivery reports without refetching tracker issues once workflow history is active", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToRunningImplementation(harness);
+      const serviceWithoutIssueLookup =
+        await createServiceWithoutTrackerIssueLookup({
+          harness,
+          nowIso: "2026-04-10T14:12:01.000Z"
+        });
+
+      const routed = await serviceWithoutIssueLookup.routeDeliveryReport({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        recordedAt: "2026-04-10T14:12:02.000Z",
+        status: "completed"
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Review");
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "review",
+        reasonCode: "delivery_reported",
+        signalType: "runtime.delivery_reported",
+        assertData(data) {
+          expect(data.trackerState).toBe("In Review");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
   it("auto-merge delivery reports can approve and dispatch merge work through the same host seam", async () => {
     const harness = await createHarness({
       state: "Todo",
@@ -1286,7 +1397,7 @@ describe("runtime route lifecycle service", () => {
         onDispatchRequested: async (input) => {
           dispatchRequests.push({
             workflowId: input.workflowId,
-            issueState: input.issue.state,
+            issueState: input.trackerIssue.state,
             runMode: input.runMode
           });
         }
@@ -1372,6 +1483,49 @@ describe("runtime route lifecycle service", () => {
         issueIdentifier: harness.issue.identifier,
         runId: "run-1",
         recordedAt: "2026-04-10T14:12:20.000Z",
+        requestKind: "spike_result",
+        targetState: "Paused"
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Paused");
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "paused",
+        reasonCode: "implementation_state_requested_paused",
+        signalType: "runtime.state_requested",
+        assertData(data) {
+          expect(data.trackerState).toBe("Paused");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("routes state requests without refetching tracker issues once workflow history is active", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToRunningImplementation(harness);
+      const serviceWithoutIssueLookup =
+        await createServiceWithoutTrackerIssueLookup({
+          harness,
+          nowIso: "2026-04-10T14:12:21.000Z"
+        });
+
+      const routed = await serviceWithoutIssueLookup.routeRuntimeStateRequest({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        recordedAt: "2026-04-10T14:12:22.000Z",
         requestKind: "spike_result",
         targetState: "Paused"
       });
@@ -1490,6 +1644,55 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("routes merge results without refetching tracker issues once workflow history is active", async () => {
+    const harness = await createHarness({
+      state: "Approved"
+    });
+
+    try {
+      await advanceWorkflowToRunningApprovedMerge(harness);
+      const serviceWithoutIssueLookup =
+        await createServiceWithoutTrackerIssueLookup({
+          harness,
+          nowIso: "2026-04-10T14:12:41.000Z"
+        });
+
+      const routed = await serviceWithoutIssueLookup.routeMergeResult({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        recordedAt: "2026-04-10T14:12:42.000Z",
+        mergeResult: {
+          status: "merged",
+          summary: "Merged after workflow-backed route execution.",
+          prUrl: "https://github.com/openai/symphony/pull/456",
+          mergeCommitSha: "def456",
+          blockingReason: null,
+          testsSummary: "pnpm test"
+        }
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Done");
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "done",
+        reasonCode: "merge_result_reported",
+        signalType: "runtime.merge_result_reported",
+        assertData(data) {
+          expect(data.trackerState).toBe("Done");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
   it("continues review rework routing after service restart from persisted review history", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -1515,7 +1718,7 @@ describe("runtime route lifecycle service", () => {
         onDispatchRequested: async (input) => {
           dispatchRequests.push({
             workflowId: input.workflowId,
-            issueState: input.issue.state,
+            issueState: input.trackerIssue.state,
             runMode: input.runMode
           });
         }
@@ -1695,6 +1898,64 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("routes shutdown pauses without refetching tracker issues once workflow history is active", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
+        issue: harness.issue,
+        attempt: 1,
+        preferredWorkerHost: null,
+        startedAt: "2026-04-10T14:20:20.000Z"
+      });
+      const bootstrappingIssue = harness.tracker.getIssue(harness.issue.id);
+      await harness.service.workflowRoutingAdapter.activateRunStart({
+        issue: bootstrappingIssue!,
+        runId: "run-1",
+        runMode: "implementation",
+        threadId: "thread-1",
+        workerHost: null,
+        launchTarget: null,
+        recordedAt: "2026-04-10T14:20:25.000Z"
+      });
+      const serviceWithoutIssueLookup =
+        await createServiceWithoutTrackerIssueLookup({
+          harness,
+          nowIso: "2026-04-10T14:20:26.000Z"
+        });
+
+      const routed = await serviceWithoutIssueLookup.routeShutdownPause({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1",
+        runMode: "implementation",
+        recordedAt: "2026-04-10T14:20:27.000Z",
+        reason: "runtime_shutdown"
+      });
+
+      expect(routed).toBe(true);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Paused");
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "paused",
+        reasonCode: "implementation_shutdown_paused",
+        signalType: "runtime.shutdown_requested",
+        assertData(data) {
+          expect(data.trackerState).toBe("Paused");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
   it("fails fast when current-flow tracker state contracts do not match the router", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -1747,6 +2008,65 @@ describe("runtime route lifecycle service", () => {
     }
   });
 });
+
+async function createServiceWithoutTrackerIssueLookup(input: {
+  harness: Awaited<ReturnType<typeof createHarness>>;
+  nowIso: string;
+}) {
+  return await createRuntimeRouteLifecycleService({
+    routeWorkflows: input.harness.routeWorkflows,
+    tracker: createTrackerWithoutIssueLookup(input.harness.tracker),
+    trackerConfig: buildSymphonyRuntimePolicy().tracker,
+    repositoryKey: "openai/symphony",
+    presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+    now: () => new Date(input.nowIso)
+  });
+}
+
+function createTrackerWithoutIssueLookup(
+  tracker: MemorySymphonyTracker
+): SymphonyTracker {
+  return createTrackerWithIssueLookupLimit({
+    tracker,
+    maxIssueLookups: 0,
+    failureMessage:
+      "Workflow-authoritative lifecycle routing must not refetch tracker issues."
+  });
+}
+
+function createTrackerWithIssueLookupLimit(input: {
+  tracker: MemorySymphonyTracker;
+  maxIssueLookups: number;
+  failureMessage: string;
+}): SymphonyTracker {
+  let issueLookups = 0;
+
+  return {
+    async fetchCandidateIssues(config) {
+      return await input.tracker.fetchCandidateIssues(config);
+    },
+    async fetchIssuesByStates(config, states) {
+      return await input.tracker.fetchIssuesByStates(config, states);
+    },
+    async fetchIssueStatesByIds(config, issueIds) {
+      return await input.tracker.fetchIssueStatesByIds(config, issueIds);
+    },
+    async fetchIssueByIdentifier(config, issueIdentifier) {
+      issueLookups += 1;
+      if (issueLookups > input.maxIssueLookups) {
+        throw new TypeError(input.failureMessage);
+      }
+
+      return await input.tracker.fetchIssueByIdentifier(config, issueIdentifier);
+    },
+    async createComment(issueId, body) {
+      await input.tracker.createComment(issueId, body);
+    },
+    async updateIssueState(issueId, stateName) {
+      await input.tracker.updateIssueState(issueId, stateName);
+    }
+  };
+}
 
 async function createHarness(input: {
   state: string;

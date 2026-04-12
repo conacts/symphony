@@ -272,6 +272,7 @@ export async function createRuntimeRouteLifecycleService(input: {
       sessionLoader
     });
   const nonRunningTrackerIngressPolicy = buildNonRunningTrackerIngressPolicy({
+    presetId: routing.module.presetId,
     trackerConfig: input.trackerConfig,
     presetRequiredSeedStates: routing.module.requiredNonRunningTrackerSeedStates
   });
@@ -388,16 +389,17 @@ export async function createRuntimeRouteLifecycleService(input: {
     };
   const routeShutdownPause: SymphonyRuntimeRouteLifecycleService["routeShutdownPause"] =
     async (shutdownInput) => {
-      const issue = await input.tracker.fetchIssueByIdentifier(
-        input.trackerConfig,
-        shutdownInput.issueIdentifier
-      );
-      if (!issue) {
+      const projectedIssue = await loadWorkflowProjectedLifecycleIssue({
+        sessionLoader,
+        issueIdentifier: shutdownInput.issueIdentifier,
+        failureContext: "during shutdown routing"
+      });
+      if (!projectedIssue) {
         return false;
       }
 
       await runShutdownRouter.routeShutdown({
-        issue,
+        projectedIssue,
         runId: shutdownInput.runId,
         runMode: shutdownInput.runMode,
         recordedAt: shutdownInput.recordedAt,
@@ -440,16 +442,17 @@ export async function createRuntimeRouteLifecycleService(input: {
     workflowRoutingAdapter,
     loadWorkflowLifecycleView,
     async routeDeliveryReport(deliveryInput) {
-      const issue = await input.tracker.fetchIssueByIdentifier(
-        input.trackerConfig,
-        deliveryInput.issueIdentifier
-      );
-      if (!issue) {
+      const projectedIssue = await loadWorkflowProjectedLifecycleIssue({
+        sessionLoader,
+        issueIdentifier: deliveryInput.issueIdentifier,
+        failureContext: "during delivery routing"
+      });
+      if (!projectedIssue) {
         return false;
       }
 
       await deliveryRouter.routeDelivery({
-        issue,
+        projectedIssue,
         runId: deliveryInput.runId,
         recordedAt: deliveryInput.recordedAt,
         status: deliveryInput.status,
@@ -458,16 +461,17 @@ export async function createRuntimeRouteLifecycleService(input: {
       return true;
     },
     async routeMergeResult(mergeResultInput) {
-      const issue = await input.tracker.fetchIssueByIdentifier(
-        input.trackerConfig,
-        mergeResultInput.issueIdentifier
-      );
-      if (!issue) {
+      const projectedIssue = await loadWorkflowProjectedLifecycleIssue({
+        sessionLoader,
+        issueIdentifier: mergeResultInput.issueIdentifier,
+        failureContext: "during merge-result routing"
+      });
+      if (!projectedIssue) {
         return false;
       }
 
       await mergeResultRouter.routeMergeResult({
-        issue,
+        projectedIssue,
         runId: mergeResultInput.runId,
         recordedAt: mergeResultInput.recordedAt,
         mergeResult: mergeResultInput.mergeResult
@@ -475,16 +479,17 @@ export async function createRuntimeRouteLifecycleService(input: {
       return true;
     },
     async routeRuntimeStateRequest(stateRequestInput) {
-      const issue = await input.tracker.fetchIssueByIdentifier(
-        input.trackerConfig,
-        stateRequestInput.issueIdentifier
-      );
-      if (!issue) {
+      const projectedIssue = await loadWorkflowProjectedLifecycleIssue({
+        sessionLoader,
+        issueIdentifier: stateRequestInput.issueIdentifier,
+        failureContext: "during runtime state-request routing"
+      });
+      if (!projectedIssue) {
         return false;
       }
 
       await stateRequestRouter.routeStateRequest({
-        issue,
+        projectedIssue,
         runId: stateRequestInput.runId,
         recordedAt: stateRequestInput.recordedAt,
         requestKind: stateRequestInput.requestKind,
@@ -504,7 +509,7 @@ export async function createRuntimeRouteLifecycleService(input: {
       }
 
       await reviewReworkRouter.routeReviewRework({
-        issue: observed.issue,
+        observedTrackerIssue: observed.issue,
         recordedAt: reviewReworkInput.recordedAt,
         handoff: reviewReworkInput.handoff,
         onDispatchRequested: reviewReworkInput.onDispatchRequested
@@ -515,27 +520,29 @@ export async function createRuntimeRouteLifecycleService(input: {
     observeNonRunningTrackerStateByIdentifier,
     routeShutdownPause,
     async observeActiveIssueStateByIdentifier(observationInput) {
-      const issue = await input.tracker.fetchIssueByIdentifier(
+      const observedTrackerIssue = await input.tracker.fetchIssueByIdentifier(
         input.trackerConfig,
         observationInput.issueIdentifier
       );
-      if (!issue) {
+      if (!observedTrackerIssue) {
         return false;
       }
 
-      const hydration = await sessionLoader.loadHydrationByIssueIdentifier({
+      const activeRunMode = await loadActiveObservationRunMode({
+        sessionLoader,
         issueIdentifier: observationInput.issueIdentifier
       });
-      if (!hydration) {
+      if (!activeRunMode) {
         return false;
       }
 
       const observed = await trackerStateObservationRouter.observe({
         observationKind: "active",
         issueIdentifier: observationInput.issueIdentifier,
+        observedTrackerIssue,
         recordedAt: observationInput.recordedAt,
         runId: null,
-        runMode: resolveActiveRunMode(hydration)
+        runMode: activeRunMode
       });
 
       if (!observed) {
@@ -688,6 +695,83 @@ function readWorkflowLifecycleViewFromProjection(input: {
               runId: input.runId
             }
           )
+  };
+}
+
+async function loadActiveObservationRunMode(input: {
+  sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
+  issueIdentifier: string;
+}): Promise<SymphonyRunMode | null> {
+  const hydration = await input.sessionLoader.loadHydrationByIssueIdentifier({
+    issueIdentifier: input.issueIdentifier
+  });
+  if (!hydration) {
+    return null;
+  }
+
+  return resolveActiveRunMode(hydration);
+}
+
+async function loadWorkflowProjectedLifecycleIssue(input: {
+  sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
+  issueIdentifier: string;
+  failureContext: string;
+}): Promise<SymphonyTrackerIssue | null> {
+  const loaded = await input.sessionLoader.loadHydrationByIssueIdentifier({
+    issueIdentifier: input.issueIdentifier
+  });
+  if (!loaded) {
+    return null;
+  }
+
+  const snapshot = loaded.hydrationState.snapshot;
+  if (!snapshot) {
+    throw new TypeError(
+      `Route workflow ${loaded.hydrationState.workflow.workflowId} is missing a readable projection snapshot for ${input.issueIdentifier} ${input.failureContext}.`
+    );
+  }
+
+  const trackerState =
+    loaded.routing.module.runtimeAdapter.readTrackerStateFromProjection({
+      workflowId: loaded.hydrationState.workflow.workflowId,
+      data: snapshot.projection.data
+    });
+  if (!trackerState) {
+    throw new TypeError(
+      `Route workflow ${loaded.hydrationState.workflow.workflowId} cannot project the current tracker state for ${input.issueIdentifier} ${input.failureContext}.`
+    );
+  }
+
+  return createWorkflowProjectedLifecycleIssue({
+    trackerIssueId: loaded.hydrationState.workflow.trackerIssueId,
+    issueIdentifier: input.issueIdentifier,
+    trackerState
+  });
+}
+
+function createWorkflowProjectedLifecycleIssue(input: {
+  trackerIssueId: string;
+  issueIdentifier: string;
+  trackerState: string;
+}): SymphonyTrackerIssue {
+  return {
+    id: input.trackerIssueId,
+    identifier: input.issueIdentifier,
+    title: input.issueIdentifier,
+    description: null,
+    priority: null,
+    state: input.trackerState,
+    branchName: null,
+    url: null,
+    projectId: null,
+    projectName: null,
+    teamKey: null,
+    assigneeId: null,
+    blockedBy: [],
+    labels: [],
+    assignedToWorker: false,
+    createdAt: null,
+    updatedAt: null
   };
 }
 

@@ -54,7 +54,7 @@ export type SymphonyRuntimeOrchestratorPort = {
   dispatchRoutedIssue(input: {
     workflowId: string;
     commandId: string;
-    issue: SymphonyTrackerIssue;
+    trackerIssue: SymphonyTrackerIssue;
     runMode: SymphonyRunMode;
     recordedAt: string;
   }): Promise<void>;

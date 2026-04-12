@@ -21,14 +21,14 @@ import {
 } from "./runtime-route-workflow-command-utils.js";
 
 export type SymphonyMergeResultRoutingInput = {
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   runId: string;
   recordedAt: string;
   mergeResult: RuntimeMergeResult;
 };
 
 export type SymphonyMergeResultRoutingResult = {
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
 };
 
 export type SymphonyMergeResultRouter = {
@@ -47,11 +47,11 @@ export async function createRuntimeMergeResultRouter(input: {
       mergeResultInput
     ): Promise<SymphonyMergeResultRoutingResult> {
       const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: mergeResultInput.issue.identifier
+        issueIdentifier: mergeResultInput.projectedIssue.identifier
       });
       if (!loaded) {
         throw new TypeError(
-          `Route workflow could not be resumed for ${mergeResultInput.issue.identifier} during merge-result routing.`
+          `Route workflow could not be resumed for ${mergeResultInput.projectedIssue.identifier} during merge-result routing.`
         );
       }
       const { resumed } = loaded;
@@ -60,7 +60,7 @@ export async function createRuntimeMergeResultRouter(input: {
       const result = await resumed.session.receiveAsync(
         presetAdapter.createMergeResultReportedSignal({
           id: buildMergeResultReportedSignalId({
-            issue: mergeResultInput.issue,
+            projectedIssue: mergeResultInput.projectedIssue,
             status: mergeResultInput.mergeResult.status,
             recordedAt: mergeResultInput.recordedAt
           }),
@@ -68,7 +68,7 @@ export async function createRuntimeMergeResultRouter(input: {
           runId: mergeResultInput.runId,
           mergeResult: mergeResultInput.mergeResult,
           causationId: mergeResultInput.runId,
-          correlationId: mergeResultInput.issue.identifier
+          correlationId: mergeResultInput.projectedIssue.identifier
         })
       );
 
@@ -80,7 +80,7 @@ export async function createRuntimeMergeResultRouter(input: {
 
       const routedIssue = await executeMergeResultCommands({
         commands: result.decision.commands,
-        issue: mergeResultInput.issue,
+        projectedIssue: mergeResultInput.projectedIssue,
         tracker: input.tracker,
         routeWorkflows: input.routeWorkflows,
         workflowId: resumed.hydrationState.workflow.workflowId,
@@ -96,7 +96,7 @@ export async function createRuntimeMergeResultRouter(input: {
       });
 
       return {
-        issue: routedIssue
+        projectedIssue: routedIssue
       };
     }
   };
@@ -104,7 +104,7 @@ export async function createRuntimeMergeResultRouter(input: {
 
 async function executeMergeResultCommands(input: {
   commands: WorkflowCommand[];
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
@@ -116,7 +116,7 @@ async function executeMergeResultCommands(input: {
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   status: SymphonyCurrentFlowMergeResultStatus;
 }): Promise<SymphonyTrackerIssue> {
-  let currentIssue = input.issue;
+  let currentProjectedIssue = input.projectedIssue;
 
   for (const command of input.commands) {
     if (command.kind !== "tracker.transition") {
@@ -125,7 +125,7 @@ async function executeMergeResultCommands(input: {
       );
     }
 
-    currentIssue = await executeSettledRouteCommand({
+    currentProjectedIssue = await executeSettledRouteCommand({
       routeWorkflows: input.routeWorkflows,
       workflowId: input.workflowId,
       session: input.session,
@@ -136,7 +136,7 @@ async function executeMergeResultCommands(input: {
         return await executeMergeResultTrackerTransition({
           presetAdapter: input.presetAdapter,
           command: executedCommand,
-          issue: currentIssue,
+          projectedIssue: currentProjectedIssue,
           tracker: input.tracker,
           status: input.status
         });
@@ -144,13 +144,13 @@ async function executeMergeResultCommands(input: {
     });
   }
 
-  return currentIssue;
+  return currentProjectedIssue;
 }
 
 async function executeMergeResultTrackerTransition(input: {
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   status: SymphonyCurrentFlowMergeResultStatus;
 }): Promise<SymphonyTrackerIssue> {
@@ -166,22 +166,22 @@ async function executeMergeResultTrackerTransition(input: {
     );
   }
 
-  await input.tracker.updateIssueState(input.issue.id, targetState);
+  await input.tracker.updateIssueState(input.projectedIssue.id, targetState);
   return {
-    ...input.issue,
+    ...input.projectedIssue,
     state: targetState
   };
 }
 
 function buildMergeResultReportedSignalId(input: {
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   status: SymphonyCurrentFlowMergeResultStatus;
   recordedAt: string;
 }) {
   return [
     "signal",
     "merge_result_reported",
-    normalizeWorkflowToken(input.issue.id),
+    normalizeWorkflowToken(input.projectedIssue.id),
     normalizeWorkflowToken(input.status),
     normalizeWorkflowToken(input.recordedAt)
   ].join("_");

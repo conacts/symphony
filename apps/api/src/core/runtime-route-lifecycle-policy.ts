@@ -9,20 +9,22 @@ export type SymphonyNonRunningTrackerIngressPolicy = {
 };
 
 export function buildNonRunningTrackerIngressPolicy(input: {
+  presetId: string;
   trackerConfig: SymphonyTrackerConfig;
   presetRequiredSeedStates: readonly string[];
 }): SymphonyNonRunningTrackerIngressPolicy {
-  const dispatchableSeedStates = mergeTrackerStates(
+  const dispatchableSeedStates = mergeTrackerPolicyStates(
     input.trackerConfig.dispatchableStates
   );
-  const presetRequiredSeedStates = mergeTrackerStates(
-    input.presetRequiredSeedStates
-  );
-  const seedStates = mergeTrackerStates([
+  const presetRequiredSeedStates = normalizePresetRequiredSeedStates({
+    presetId: input.presetId,
+    states: input.presetRequiredSeedStates
+  });
+  const seedStates = mergeTrackerPolicyStates([
     ...dispatchableSeedStates,
     ...presetRequiredSeedStates
   ]);
-  const observableStates = mergeTrackerStates([
+  const observableStates = mergeTrackerPolicyStates([
     ...seedStates,
     ...input.trackerConfig.terminalStates,
     input.trackerConfig.pauseTransitionToState,
@@ -38,7 +40,7 @@ export function buildNonRunningTrackerIngressPolicy(input: {
   };
 }
 
-function mergeTrackerStates(
+function mergeTrackerPolicyStates(
   states: ReadonlyArray<string | null | undefined>
 ): string[] {
   const mergedStates: string[] = [];
@@ -60,4 +62,35 @@ function mergeTrackerStates(
   }
 
   return mergedStates;
+}
+
+function normalizePresetRequiredSeedStates(input: {
+  presetId: string;
+  states: readonly string[];
+}): string[] {
+  const normalizedStates: string[] = [];
+  const seenStates = new Map<string, string>();
+
+  for (const rawState of input.states) {
+    const state = rawState.trim();
+    const normalizedState = normalizeIssueState(state);
+
+    if (normalizedState.length === 0) {
+      throw new TypeError(
+        `Runtime workflow preset ${JSON.stringify(input.presetId)} declares an empty required non-running tracker seed state.`
+      );
+    }
+
+    const existingState = seenStates.get(normalizedState);
+    if (existingState) {
+      throw new TypeError(
+        `Runtime workflow preset ${JSON.stringify(input.presetId)} declares duplicate required non-running tracker seed states ${JSON.stringify(existingState)} and ${JSON.stringify(rawState)}.`
+      );
+    }
+
+    seenStates.set(normalizedState, state);
+    normalizedStates.push(state);
+  }
+
+  return normalizedStates;
 }

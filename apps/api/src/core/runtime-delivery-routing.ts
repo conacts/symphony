@@ -21,7 +21,7 @@ import {
 export type SymphonyDeliveryStatus = "completed" | "blocked" | "partial";
 
 export type SymphonyDeliveryRoutingInput = {
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   runId: string;
   recordedAt: string;
   status: SymphonyDeliveryStatus;
@@ -31,7 +31,7 @@ export type SymphonyDeliveryRoutingInput = {
 };
 
 export type SymphonyDeliveryRoutingResult = {
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
 };
 
 export type SymphonyDeliveryRouter = {
@@ -50,11 +50,11 @@ export async function createRuntimeDeliveryRouter(input: {
       deliveryInput
     ): Promise<SymphonyDeliveryRoutingResult> {
       const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: deliveryInput.issue.identifier
+        issueIdentifier: deliveryInput.projectedIssue.identifier
       });
       if (!loaded) {
         throw new TypeError(
-          `Route workflow could not be resumed for ${deliveryInput.issue.identifier} during delivery routing.`
+          `Route workflow could not be resumed for ${deliveryInput.projectedIssue.identifier} during delivery routing.`
         );
       }
       const { resumed } = loaded;
@@ -63,7 +63,7 @@ export async function createRuntimeDeliveryRouter(input: {
       const result = await resumed.session.receiveAsync(
         presetAdapter.createDeliveryReportedSignal({
           id: buildDeliveryReportedSignalId({
-            issue: deliveryInput.issue,
+            projectedIssue: deliveryInput.projectedIssue,
             status: deliveryInput.status,
             recordedAt: deliveryInput.recordedAt
           }),
@@ -71,7 +71,7 @@ export async function createRuntimeDeliveryRouter(input: {
           runId: deliveryInput.runId,
           status: deliveryInput.status,
           causationId: deliveryInput.runId,
-          correlationId: deliveryInput.issue.identifier
+          correlationId: deliveryInput.projectedIssue.identifier
         })
       );
 
@@ -83,7 +83,7 @@ export async function createRuntimeDeliveryRouter(input: {
 
       const routedIssue = await executeDeliveryCommands({
         commands: result.decision.commands,
-        issue: deliveryInput.issue,
+        projectedIssue: deliveryInput.projectedIssue,
         tracker: input.tracker,
         routeWorkflows: input.routeWorkflows,
         workflowId: resumed.hydrationState.workflow.workflowId,
@@ -100,7 +100,7 @@ export async function createRuntimeDeliveryRouter(input: {
       });
 
       return {
-        issue: routedIssue
+        projectedIssue: routedIssue
       };
     }
   };
@@ -108,7 +108,7 @@ export async function createRuntimeDeliveryRouter(input: {
 
 async function executeDeliveryCommands(input: {
   commands: WorkflowCommand[];
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
@@ -123,11 +123,11 @@ async function executeDeliveryCommands(input: {
     input: SymphonyTrackerStateDispatchRequest
   ): Promise<void> | void;
 }): Promise<SymphonyTrackerIssue> {
-  let currentIssue = input.issue;
+  let currentProjectedIssue = input.projectedIssue;
 
   for (const command of input.commands) {
     if (command.kind === "tracker.transition") {
-      currentIssue = await executeSettledRouteCommand({
+      currentProjectedIssue = await executeSettledRouteCommand({
         routeWorkflows: input.routeWorkflows,
         workflowId: input.workflowId,
         session: input.session,
@@ -138,7 +138,7 @@ async function executeDeliveryCommands(input: {
           return await executeDeliveryTrackerTransition({
             presetAdapter: input.presetAdapter,
             command: executedCommand,
-            issue: currentIssue,
+            projectedIssue: currentProjectedIssue,
             tracker: input.tracker,
             status: input.status
           });
@@ -181,7 +181,7 @@ async function executeDeliveryCommands(input: {
           await input.onDispatchRequested({
             workflowId: input.workflowId,
             commandId: executedCommand.id,
-            issue: currentIssue,
+            trackerIssue: currentProjectedIssue,
             runMode,
             recordedAt: input.recordedAt
           });
@@ -197,13 +197,13 @@ async function executeDeliveryCommands(input: {
     }
   }
 
-  return currentIssue;
+  return currentProjectedIssue;
 }
 
 async function executeDeliveryTrackerTransition(input: {
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   status: SymphonyDeliveryStatus;
 }): Promise<SymphonyTrackerIssue> {
@@ -230,22 +230,22 @@ async function executeDeliveryTrackerTransition(input: {
     );
   }
 
-  await input.tracker.updateIssueState(input.issue.id, targetState);
+  await input.tracker.updateIssueState(input.projectedIssue.id, targetState);
   return {
-    ...input.issue,
+    ...input.projectedIssue,
     state: targetState
   };
 }
 
 function buildDeliveryReportedSignalId(input: {
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   status: SymphonyDeliveryStatus;
   recordedAt: string;
 }) {
   return [
     "signal",
     "delivery_reported",
-    normalizeWorkflowToken(input.issue.id),
+    normalizeWorkflowToken(input.projectedIssue.id),
     normalizeWorkflowToken(input.status),
     normalizeWorkflowToken(input.recordedAt)
   ].join("_");

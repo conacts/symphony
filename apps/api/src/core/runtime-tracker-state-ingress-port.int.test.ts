@@ -89,7 +89,7 @@ describe("runtime tracker state ingress port", () => {
         onDispatchRequested: async (input) => {
           dispatchRequests.push({
             workflowId: input.workflowId,
-            issueState: input.issue.state,
+            issueState: input.trackerIssue.state,
             runMode: input.runMode
           });
         }

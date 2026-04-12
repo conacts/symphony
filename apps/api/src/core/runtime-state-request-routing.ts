@@ -19,7 +19,7 @@ import {
 } from "./runtime-route-workflow-command-utils.js";
 
 export type SymphonyRuntimeStateRequestRoutingInput = {
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   runId: string;
   recordedAt: string;
   requestKind: string;
@@ -27,7 +27,7 @@ export type SymphonyRuntimeStateRequestRoutingInput = {
 };
 
 export type SymphonyRuntimeStateRequestRoutingResult = {
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
 };
 
 export type SymphonyRuntimeStateRequestRouter = {
@@ -46,11 +46,11 @@ export async function createRuntimeStateRequestRouter(input: {
       stateRequestInput
     ): Promise<SymphonyRuntimeStateRequestRoutingResult> {
       const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: stateRequestInput.issue.identifier
+        issueIdentifier: stateRequestInput.projectedIssue.identifier
       });
       if (!loaded) {
         throw new TypeError(
-          `Route workflow could not be resumed for ${stateRequestInput.issue.identifier} during runtime state-request routing.`
+          `Route workflow could not be resumed for ${stateRequestInput.projectedIssue.identifier} during runtime state-request routing.`
         );
       }
       const { resumed } = loaded;
@@ -59,7 +59,7 @@ export async function createRuntimeStateRequestRouter(input: {
       const result = await resumed.session.receiveAsync(
         presetAdapter.createStateRequestedSignal({
           id: buildStateRequestedSignalId({
-            issue: stateRequestInput.issue,
+            projectedIssue: stateRequestInput.projectedIssue,
             requestKind: stateRequestInput.requestKind,
             targetState: stateRequestInput.targetState,
             recordedAt: stateRequestInput.recordedAt
@@ -69,7 +69,7 @@ export async function createRuntimeStateRequestRouter(input: {
           requestKind: stateRequestInput.requestKind,
           targetState: stateRequestInput.targetState,
           causationId: stateRequestInput.runId,
-          correlationId: stateRequestInput.issue.identifier
+          correlationId: stateRequestInput.projectedIssue.identifier
         })
       );
 
@@ -81,7 +81,7 @@ export async function createRuntimeStateRequestRouter(input: {
 
       const routedIssue = await executeRequestedStateCommands({
         commands: result.decision.commands,
-        issue: stateRequestInput.issue,
+        projectedIssue: stateRequestInput.projectedIssue,
         tracker: input.tracker,
         routeWorkflows: input.routeWorkflows,
         workflowId: resumed.hydrationState.workflow.workflowId,
@@ -98,7 +98,7 @@ export async function createRuntimeStateRequestRouter(input: {
       });
 
       return {
-        issue: routedIssue
+        projectedIssue: routedIssue
       };
     }
   };
@@ -106,7 +106,7 @@ export async function createRuntimeStateRequestRouter(input: {
 
 async function executeRequestedStateCommands(input: {
   commands: WorkflowCommand[];
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
@@ -118,7 +118,7 @@ async function executeRequestedStateCommands(input: {
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   targetState: string;
 }): Promise<SymphonyTrackerIssue> {
-  let currentIssue = input.issue;
+  let currentProjectedIssue = input.projectedIssue;
 
   for (const command of input.commands) {
     if (command.kind !== "tracker.transition") {
@@ -127,7 +127,7 @@ async function executeRequestedStateCommands(input: {
       );
     }
 
-    currentIssue = await executeSettledRouteCommand({
+    currentProjectedIssue = await executeSettledRouteCommand({
       routeWorkflows: input.routeWorkflows,
       workflowId: input.workflowId,
       session: input.session,
@@ -138,7 +138,7 @@ async function executeRequestedStateCommands(input: {
         return await executeRequestedTrackerTransition({
           presetAdapter: input.presetAdapter,
           command: executedCommand,
-          issue: currentIssue,
+          projectedIssue: currentProjectedIssue,
           tracker: input.tracker,
           targetState: input.targetState
         });
@@ -146,13 +146,13 @@ async function executeRequestedStateCommands(input: {
     });
   }
 
-  return currentIssue;
+  return currentProjectedIssue;
 }
 
 async function executeRequestedTrackerTransition(input: {
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   targetState: string;
 }): Promise<SymphonyTrackerIssue> {
@@ -166,15 +166,15 @@ async function executeRequestedTrackerTransition(input: {
     );
   }
 
-  await input.tracker.updateIssueState(input.issue.id, targetState);
+  await input.tracker.updateIssueState(input.projectedIssue.id, targetState);
   return {
-    ...input.issue,
+    ...input.projectedIssue,
     state: targetState
   };
 }
 
 function buildStateRequestedSignalId(input: {
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   requestKind: string;
   targetState: string;
   recordedAt: string;
@@ -182,7 +182,7 @@ function buildStateRequestedSignalId(input: {
   return [
     "signal",
     "state_requested",
-    normalizeWorkflowToken(input.issue.id),
+    normalizeWorkflowToken(input.projectedIssue.id),
     normalizeWorkflowToken(input.requestKind),
     normalizeWorkflowToken(input.targetState),
     normalizeWorkflowToken(input.recordedAt)

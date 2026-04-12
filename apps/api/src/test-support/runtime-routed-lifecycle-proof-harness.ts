@@ -172,7 +172,7 @@ export class RuntimeRoutedLifecycleProofHarness {
     const request = this.takeNextDispatch();
     const router = this.requiredRunStartActivationRouter();
     const activated = await router.activate({
-      issue: request.issue,
+      issue: request.trackerIssue,
       runId: input.runId,
       runMode: request.runMode,
       threadId: input.threadId ?? `thread-${input.runId}`,
@@ -481,7 +481,7 @@ export class RuntimeRoutedLifecycleProofHarness {
 function cloneDispatchRequest(input: RoutedDispatchRequest): RoutedDispatchRequest {
   return {
     ...input,
-    issue: cloneIssue(input.issue)
+    trackerIssue: cloneIssue(input.trackerIssue)
   };
 }
 

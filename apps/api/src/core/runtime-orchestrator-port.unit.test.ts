@@ -101,7 +101,7 @@ describe("runtime orchestrator port", () => {
     await port.dispatchRoutedIssue({
       workflowId: "workflow-123",
       commandId: "command-123",
-      issue,
+      trackerIssue: issue,
       runMode: "rework",
       recordedAt: "2026-04-10T18:00:00.000Z"
     });
@@ -135,7 +135,7 @@ describe("runtime orchestrator port", () => {
     await port.dispatchRoutedIssue({
       workflowId: "workflow-123",
       commandId: "command-123",
-      issue,
+      trackerIssue: issue,
       runMode: "implementation",
       recordedAt: "2026-04-10T18:01:00.000Z"
     });
@@ -252,7 +252,7 @@ describe("runtime orchestrator port", () => {
     await port.dispatchRoutedIssue({
       workflowId: "workflow-123",
       commandId: "command-123",
-      issue,
+      trackerIssue: issue,
       runMode: "implementation",
       recordedAt: "2026-04-10T18:02:00.000Z"
     });

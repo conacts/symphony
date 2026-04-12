@@ -182,7 +182,7 @@ describe("@symphony/api app", () => {
         routedDispatches.push({
           workflowId: input.workflowId,
           commandId: input.commandId,
-          issueIdentifier: input.issue.identifier,
+          issueIdentifier: input.trackerIssue.identifier,
           runMode: input.runMode
         });
       };
@@ -1210,7 +1210,7 @@ describe("@symphony/api app", () => {
         routedDispatches.push({
           workflowId: input.workflowId,
           commandId: input.commandId,
-          issueIdentifier: input.issue.identifier,
+          issueIdentifier: input.trackerIssue.identifier,
           runMode: input.runMode
         });
       };

@@ -15,7 +15,7 @@ import {
 } from "./runtime-route-workflow-command-utils.js";
 
 export type SymphonyRunShutdownRoutingInput = {
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   runId: string;
   runMode: SymphonyRunMode;
   recordedAt: string;
@@ -23,7 +23,7 @@ export type SymphonyRunShutdownRoutingInput = {
 };
 
 export type SymphonyRunShutdownRoutingResult = {
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
 };
 
 export type SymphonyRunShutdownRouter = {
@@ -42,11 +42,11 @@ export async function createRuntimeRunShutdownRouter(input: {
       shutdownInput
     ): Promise<SymphonyRunShutdownRoutingResult> {
       const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: shutdownInput.issue.identifier
+        issueIdentifier: shutdownInput.projectedIssue.identifier
       });
       if (!loaded) {
         throw new TypeError(
-          `Route workflow could not be resumed for ${shutdownInput.issue.identifier} during shutdown routing.`
+          `Route workflow could not be resumed for ${shutdownInput.projectedIssue.identifier} during shutdown routing.`
         );
       }
       const { resumed } = loaded;
@@ -55,7 +55,7 @@ export async function createRuntimeRunShutdownRouter(input: {
       const result = await resumed.session.receiveAsync(
         presetAdapter.createShutdownRequestedSignal({
           id: buildShutdownRequestedSignalId({
-            issue: shutdownInput.issue,
+            projectedIssue: shutdownInput.projectedIssue,
             runMode: shutdownInput.runMode,
             recordedAt: shutdownInput.recordedAt
           }),
@@ -64,7 +64,7 @@ export async function createRuntimeRunShutdownRouter(input: {
           runMode: shutdownInput.runMode,
           reason: shutdownInput.reason,
           causationId: shutdownInput.runId,
-          correlationId: shutdownInput.issue.identifier
+          correlationId: shutdownInput.projectedIssue.identifier
         })
       );
 
@@ -74,7 +74,7 @@ export async function createRuntimeRunShutdownRouter(input: {
         result
       });
 
-      let pausedIssue = shutdownInput.issue;
+      let pausedProjectedIssue = shutdownInput.projectedIssue;
       const loadSettlementSession = createRouteCommandSettlementSessionLoader({
         sessionLoader: input.sessionLoader,
         workflowId: resumed.hydrationState.workflow.workflowId,
@@ -87,7 +87,7 @@ export async function createRuntimeRunShutdownRouter(input: {
           );
         }
 
-        pausedIssue = await executeSettledRouteCommand({
+        pausedProjectedIssue = await executeSettledRouteCommand({
           routeWorkflows: input.routeWorkflows,
           workflowId: resumed.hydrationState.workflow.workflowId,
           session: resumed.session,
@@ -98,7 +98,7 @@ export async function createRuntimeRunShutdownRouter(input: {
             return await executePausedTransition({
               presetAdapter,
               command: executedCommand,
-              issue: pausedIssue,
+              projectedIssue: pausedProjectedIssue,
               tracker: input.tracker
             });
           }
@@ -106,7 +106,7 @@ export async function createRuntimeRunShutdownRouter(input: {
       }
 
       return {
-        issue: pausedIssue
+        projectedIssue: pausedProjectedIssue
       };
     }
   };
@@ -115,7 +115,7 @@ export async function createRuntimeRunShutdownRouter(input: {
 async function executePausedTransition(input: {
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
 }): Promise<SymphonyTrackerIssue> {
   const targetState = readTrackerTransitionState({
@@ -128,22 +128,22 @@ async function executePausedTransition(input: {
     );
   }
 
-  await input.tracker.updateIssueState(input.issue.id, targetState);
+  await input.tracker.updateIssueState(input.projectedIssue.id, targetState);
   return {
-    ...input.issue,
+    ...input.projectedIssue,
     state: targetState
   };
 }
 
 function buildShutdownRequestedSignalId(input: {
-  issue: SymphonyTrackerIssue;
+  projectedIssue: SymphonyTrackerIssue;
   runMode: SymphonyRunMode;
   recordedAt: string;
 }) {
   return [
     "signal",
     "shutdown_requested",
-    normalizeWorkflowToken(input.issue.id),
+    normalizeWorkflowToken(input.projectedIssue.id),
     normalizeWorkflowToken(input.runMode),
     normalizeWorkflowToken(input.recordedAt)
   ].join("_");

@@ -20,7 +20,7 @@ import {
 } from "./runtime-route-workflow-command-utils.js";
 
 export type SymphonyReviewReworkRoutingInput = {
-  issue: SymphonyTrackerIssue;
+  observedTrackerIssue: SymphonyTrackerIssue;
   recordedAt: string;
   handoff: SymphonyReworkHandoff;
   onDispatchRequested?(
@@ -29,7 +29,7 @@ export type SymphonyReviewReworkRoutingInput = {
 };
 
 export type SymphonyReviewReworkRoutingResult = {
-  issue: SymphonyTrackerIssue;
+  observedTrackerIssue: SymphonyTrackerIssue;
 };
 
 export type SymphonyReviewReworkRouter = {
@@ -48,11 +48,11 @@ export async function createRuntimeReviewReworkRouter(input: {
       reviewInput
     ): Promise<SymphonyReviewReworkRoutingResult> {
       const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: reviewInput.issue.identifier
+        issueIdentifier: reviewInput.observedTrackerIssue.identifier
       });
       if (!loaded) {
         throw new TypeError(
-          `Route workflow could not be resumed for ${reviewInput.issue.identifier} during review rework routing.`
+          `Route workflow could not be resumed for ${reviewInput.observedTrackerIssue.identifier} during review rework routing.`
         );
       }
       const { resumed } = loaded;
@@ -61,14 +61,14 @@ export async function createRuntimeReviewReworkRouter(input: {
       const result = await resumed.session.receiveAsync(
         presetAdapter.createReviewReworkRequestedSignal({
           id: buildReviewReworkRequestedSignalId({
-            issue: reviewInput.issue,
+            observedTrackerIssue: reviewInput.observedTrackerIssue,
             handoff: reviewInput.handoff,
             recordedAt: reviewInput.recordedAt
           }),
           occurredAt: reviewInput.recordedAt,
           handoff: reviewInput.handoff,
-          causationId: reviewInput.issue.identifier,
-          correlationId: reviewInput.issue.identifier
+          causationId: reviewInput.observedTrackerIssue.identifier,
+          correlationId: reviewInput.observedTrackerIssue.identifier
         })
       );
 
@@ -80,7 +80,7 @@ export async function createRuntimeReviewReworkRouter(input: {
 
       const routedIssue = await executeReviewReworkCommands({
         commands: result.decision.commands,
-        issue: reviewInput.issue,
+        observedTrackerIssue: reviewInput.observedTrackerIssue,
         tracker: input.tracker,
         routeWorkflows: input.routeWorkflows,
         workflowId: resumed.hydrationState.workflow.workflowId,
@@ -96,7 +96,7 @@ export async function createRuntimeReviewReworkRouter(input: {
       });
 
       return {
-        issue: routedIssue
+        observedTrackerIssue: routedIssue
       };
     }
   };
@@ -104,7 +104,7 @@ export async function createRuntimeReviewReworkRouter(input: {
 
 async function executeReviewReworkCommands(input: {
   commands: WorkflowCommand[];
-  issue: SymphonyTrackerIssue;
+  observedTrackerIssue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   routeWorkflows: SymphonyRouteWorkflowPort;
   workflowId: string;
@@ -118,11 +118,11 @@ async function executeReviewReworkCommands(input: {
     input: SymphonyTrackerStateDispatchRequest
   ): Promise<void> | void;
 }): Promise<SymphonyTrackerIssue> {
-  let currentIssue = input.issue;
+  let currentObservedTrackerIssue = input.observedTrackerIssue;
 
   for (const command of input.commands) {
     if (command.kind === "tracker.transition") {
-      currentIssue = await executeSettledRouteCommand({
+      currentObservedTrackerIssue = await executeSettledRouteCommand({
         routeWorkflows: input.routeWorkflows,
         workflowId: input.workflowId,
         session: input.session,
@@ -133,7 +133,7 @@ async function executeReviewReworkCommands(input: {
           return await executeTrackerTransition({
             presetAdapter: input.presetAdapter,
             command: executedCommand,
-            issue: currentIssue,
+            issue: currentObservedTrackerIssue,
             tracker: input.tracker
           });
         }
@@ -159,7 +159,7 @@ async function executeReviewReworkCommands(input: {
           await input.onDispatchRequested({
             workflowId: input.workflowId,
             commandId: executedCommand.id,
-            issue: currentIssue,
+            trackerIssue: currentObservedTrackerIssue,
             runMode: readDispatchRunMode({
               adapter: input.presetAdapter,
               command: executedCommand
@@ -176,7 +176,7 @@ async function executeReviewReworkCommands(input: {
     );
   }
 
-  return currentIssue;
+  return currentObservedTrackerIssue;
 }
 
 async function executeTrackerTransition(input: {
@@ -203,14 +203,14 @@ async function executeTrackerTransition(input: {
 }
 
 function buildReviewReworkRequestedSignalId(input: {
-  issue: SymphonyTrackerIssue;
+  observedTrackerIssue: SymphonyTrackerIssue;
   handoff: SymphonyReworkHandoff;
   recordedAt: string;
 }) {
   return [
     "signal",
     "review_rework_requested",
-    normalizeWorkflowToken(input.issue.id),
+    normalizeWorkflowToken(input.observedTrackerIssue.id),
     normalizeWorkflowToken(input.handoff.triggerKind),
     normalizeWorkflowToken(input.recordedAt)
   ].join("_");

@@ -28,7 +28,7 @@ import {
 export type SymphonyTrackerStateDispatchRequest = {
   workflowId: string;
   commandId: string;
-  issue: SymphonyTrackerIssue;
+  trackerIssue: SymphonyTrackerIssue;
   runMode: SymphonyRunMode;
   recordedAt: string;
 };
@@ -37,6 +37,7 @@ export type SymphonyIdleTrackerStateObservationInput = {
   observationKind: "idle";
   issueIdentifier: string;
   recordedAt: string;
+  observedTrackerIssue?: SymphonyTrackerIssue;
   onDispatchRequested?(
     input: SymphonyTrackerStateDispatchRequest
   ): Promise<void> | void;
@@ -46,6 +47,7 @@ export type SymphonyActiveTrackerStateObservationInput = {
   observationKind: "active";
   issueIdentifier: string;
   recordedAt: string;
+  observedTrackerIssue?: SymphonyTrackerIssue;
   runId: string | null;
   runMode: SymphonyRunMode;
 };
@@ -89,21 +91,30 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
     async observe(
       observationInput
     ): Promise<SymphonyTrackerStateObservationResult | null> {
-      const issue = await input.tracker.fetchIssueByIdentifier(
-        input.trackerConfig,
-        observationInput.issueIdentifier
-      );
-      if (!issue) {
+      const observedTrackerIssue =
+        observationInput.observedTrackerIssue ??
+        (await input.tracker.fetchIssueByIdentifier(
+          input.trackerConfig,
+          observationInput.issueIdentifier
+        ));
+      if (!observedTrackerIssue) {
         return null;
       }
 
-      await input.ensureIssueIdentity?.(issue);
+      if (observedTrackerIssue.identifier !== observationInput.issueIdentifier) {
+        throw new TypeError(
+          `Tracker observation received preloaded issue ${JSON.stringify(observedTrackerIssue.identifier)} for requested issue ${JSON.stringify(observationInput.issueIdentifier)}.`
+        );
+      }
+
+      await input.ensureIssueIdentity?.(observedTrackerIssue);
 
       const repositoryKey =
-        input.resolveIssueRepositoryKey?.(issue) ?? input.repositoryKey;
+        input.resolveIssueRepositoryKey?.(observedTrackerIssue) ??
+        input.repositoryKey;
       const ensured = await input.routeWorkflows.ensureWorkflowForIssue({
-        trackerIssueId: issue.id,
-        issueIdentifier: issue.identifier,
+        trackerIssueId: observedTrackerIssue.id,
+        issueIdentifier: observedTrackerIssue.identifier,
         repositoryKey,
         bindingScope: input.bindingScope ?? null,
         routerPresetId: input.routing.presetId,
@@ -116,12 +127,12 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
       });
       if (!loaded) {
         throw new TypeError(
-          `Route workflow could not be resumed for ${issue.identifier} during tracker state observation.`
+          `Route workflow could not be resumed for ${observedTrackerIssue.identifier} during tracker state observation.`
         );
       }
       const { resumed } = loaded;
       const presetAdapter = loaded.routing.module.runtimeAdapter;
-      const observedTrackerState = issue.state;
+      const observedTrackerState = observedTrackerIssue.state;
       const loadSettlementSession = createRouteCommandSettlementSessionLoader({
         sessionLoader: input.sessionLoader,
         workflowId: resumed.hydrationState.workflow.workflowId,
@@ -134,7 +145,7 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
       const result = await resumed.session.receiveAsync(
         presetAdapter.createTrackerStateObservedSignal({
           id: buildObservedTrackerStateSignalId({
-            issueId: issue.id,
+            issueId: observedTrackerIssue.id,
             observedTrackerState,
             runMode: observedRunMode,
             recordedAt: observationInput.recordedAt
@@ -144,7 +155,7 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
           runId: observedRunId,
           runMode: observedRunMode,
           causationId: observedRunId,
-          correlationId: issue.identifier
+          correlationId: observedTrackerIssue.identifier
         })
       );
 
@@ -160,7 +171,7 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
         loadSettlementSession,
-        issue,
+        observedTrackerIssue,
         tracker: input.tracker,
         presetAdapter,
         observationInput,
@@ -177,16 +188,16 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
 async function executeTrackerTransition(input: {
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
-  issue: SymphonyTrackerIssue;
+  trackerIssue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
 }): Promise<SymphonyTrackerIssue> {
   const targetState = readTrackerTransitionState({
     adapter: input.presetAdapter,
     command: input.command
   });
-  await input.tracker.updateIssueState(input.issue.id, targetState);
+  await input.tracker.updateIssueState(input.trackerIssue.id, targetState);
   return {
-    ...input.issue,
+    ...input.trackerIssue,
     state: targetState
   };
 }
@@ -199,13 +210,13 @@ async function executeObservationCommands(input: {
   loadSettlementSession: () => Promise<
     SymphonyRuntimeWorkflowSettlementSession<string, unknown, unknown>
   >;
-  issue: SymphonyTrackerIssue;
+  observedTrackerIssue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   observationInput: SymphonyTrackerStateObservationInput;
   recordedAt: string;
 }): Promise<SymphonyTrackerIssue> {
-  let currentIssue = input.issue;
+  let currentIssue = input.observedTrackerIssue;
 
   for (const command of input.commands) {
     assertSupportedObservationCommand(command);
@@ -223,7 +234,7 @@ async function executeObservationCommands(input: {
             return await executeTrackerTransition({
               presetAdapter: input.presetAdapter,
               command: executedCommand,
-              issue: currentIssue,
+              trackerIssue: currentIssue,
               tracker: input.tracker
             });
           }
@@ -241,7 +252,7 @@ async function executeObservationCommands(input: {
             await executeObservedDispatch({
               workflowId: input.workflowId,
               observationInput: input.observationInput,
-              issue: currentIssue,
+              trackerIssue: currentIssue,
               presetAdapter: input.presetAdapter,
               command: executedCommand,
               recordedAt: input.recordedAt
@@ -258,7 +269,7 @@ async function executeObservationCommands(input: {
 async function executeObservedDispatch(input: {
   workflowId: string;
   observationInput: SymphonyTrackerStateObservationInput;
-  issue: SymphonyTrackerIssue;
+  trackerIssue: SymphonyTrackerIssue;
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   command: WorkflowCommand;
   recordedAt: string;
@@ -273,7 +284,7 @@ async function executeObservedDispatch(input: {
       await requestIdleObservedDispatch({
         workflowId: input.workflowId,
         observationInput: input.observationInput,
-        issue: input.issue,
+        trackerIssue: input.trackerIssue,
         runMode,
         commandId: input.command.id,
         recordedAt: input.recordedAt
@@ -325,7 +336,7 @@ function readObservedRunMode(
 async function requestIdleObservedDispatch(input: {
   workflowId: string;
   observationInput: SymphonyIdleTrackerStateObservationInput;
-  issue: SymphonyTrackerIssue;
+  trackerIssue: SymphonyTrackerIssue;
   runMode: SymphonyRunMode;
   commandId: string;
   recordedAt: string;
@@ -339,7 +350,7 @@ async function requestIdleObservedDispatch(input: {
   await input.observationInput.onDispatchRequested({
     workflowId: input.workflowId,
     commandId: input.commandId,
-    issue: input.issue,
+    trackerIssue: input.trackerIssue,
     runMode: input.runMode,
     recordedAt: input.recordedAt
   });
