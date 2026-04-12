@@ -186,6 +186,84 @@ describe("issue store", () => {
     }
   });
 
+  it("loads canonical issue identity by tracker issue id", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-issue-store-fetch-tracker-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-503T",
+        trackerIssueId: "tracker-503T",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: "2026-04-10T04:32:00.000Z",
+        recordedAt: "2026-04-10T04:33:00.000Z"
+      });
+
+      await expect(
+        issueStore.fetchByTrackerIssueId("tracker-503T")
+      ).resolves.toEqual({
+        trackerIssueId: "tracker-503T",
+        issueIdentifier: "SYM-503T",
+        repositoryKey: "openai/symphony",
+        bindingScope: null,
+        latestRunStartedAt: "2026-04-10T04:32:00.000Z",
+        insertedAt: "2026-04-10T04:33:00.000Z",
+        updatedAt: "2026-04-10T04:33:00.000Z"
+      });
+      await expect(issueStore.fetchByTrackerIssueId("tracker-404")).resolves.toBeNull();
+    } finally {
+      database.close();
+    }
+  });
+
+  it("updates the identifier for an existing tracker issue instead of forking the canonical row", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-issue-store-rename-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-505",
+        trackerIssueId: "tracker-505",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T04:50:00.000Z"
+      });
+
+      await issueStore.upsert({
+        issueIdentifier: "SYM-505-RENAMED",
+        trackerIssueId: "tracker-505",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: "2026-04-10T04:55:00.000Z",
+        recordedAt: "2026-04-10T04:56:00.000Z"
+      });
+
+      await expect(issueStore.fetchByIdentifier("SYM-505")).resolves.toBeNull();
+      await expect(
+        issueStore.fetchByTrackerIssueId("tracker-505")
+      ).resolves.toEqual({
+        trackerIssueId: "tracker-505",
+        issueIdentifier: "SYM-505-RENAMED",
+        repositoryKey: "openai/symphony",
+        bindingScope: null,
+        latestRunStartedAt: "2026-04-10T04:55:00.000Z",
+        insertedAt: "2026-04-10T04:50:00.000Z",
+        updatedAt: "2026-04-10T04:56:00.000Z"
+      });
+    } finally {
+      database.close();
+    }
+  });
+
   it("records hosted workspace scope and requires scoped reads to match", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-issue-store-scoped-"));
     tempDirectories.push(root);

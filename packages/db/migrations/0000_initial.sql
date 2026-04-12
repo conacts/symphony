@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS symphony_issues (
-  issue_identifier TEXT PRIMARY KEY NOT NULL,
-  tracker_issue_id TEXT NOT NULL UNIQUE,
+  tracker_issue_id TEXT PRIMARY KEY NOT NULL,
+  issue_identifier TEXT NOT NULL,
   repository_key TEXT NOT NULL,
   organization_id TEXT,
   linear_workspace_identity_id TEXT,
@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS symphony_issues (
   )
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS symphony_issues_tracker_issue_id_idx
-  ON symphony_issues (tracker_issue_id);
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_issues_issue_identifier_idx
+  ON symphony_issues (issue_identifier);
 
 CREATE UNIQUE INDEX IF NOT EXISTS symphony_issues_issue_repository_key_idx
   ON symphony_issues (issue_identifier, repository_key);
@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS symphony_runs (
   machine_load_had_high_disk INTEGER,
   inserted_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  FOREIGN KEY (issue_identifier, repository_key) REFERENCES symphony_issues(issue_identifier, repository_key) ON DELETE RESTRICT,
+  FOREIGN KEY (issue_identifier, repository_key) REFERENCES symphony_issues(issue_identifier, repository_key) ON DELETE RESTRICT ON UPDATE CASCADE,
   CHECK (organization_id IS NULL OR length(trim(organization_id)) > 0),
   CHECK (
     linear_workspace_identity_id IS NULL OR
@@ -244,7 +244,7 @@ CREATE TABLE IF NOT EXISTS symphony_issue_timeline_entries (
   payload TEXT,
   recorded_at TEXT NOT NULL,
   inserted_at TEXT NOT NULL,
-  FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE RESTRICT,
+  FOREIGN KEY (issue_identifier) REFERENCES symphony_issues(issue_identifier) ON DELETE RESTRICT ON UPDATE CASCADE,
   FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE SET NULL,
   FOREIGN KEY (turn_id) REFERENCES symphony_turns(turn_id) ON DELETE SET NULL,
   FOREIGN KEY (run_id, turn_id) REFERENCES symphony_turns(run_id, turn_id) ON DELETE SET NULL,
@@ -275,7 +275,8 @@ CREATE TABLE IF NOT EXISTS symphony_runtime_logs (
   inserted_at TEXT NOT NULL,
   FOREIGN KEY (issue_identifier, repository_key)
     REFERENCES symphony_issues(issue_identifier, repository_key)
-    ON DELETE RESTRICT,
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE,
   FOREIGN KEY (run_id) REFERENCES symphony_runs(run_id) ON DELETE SET NULL,
   CHECK (level IN ('debug', 'info', 'warn', 'error'))
 );
@@ -727,7 +728,10 @@ CREATE TABLE IF NOT EXISTS symphony_issue_delivery_reports (
   payload_json TEXT,
   reported_at TEXT NOT NULL,
   inserted_at TEXT NOT NULL,
-  FOREIGN KEY (issue_identifier, run_id) REFERENCES symphony_runs(issue_identifier, run_id) ON DELETE CASCADE,
+  FOREIGN KEY (issue_identifier, run_id)
+    REFERENCES symphony_runs(issue_identifier, run_id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
   FOREIGN KEY (run_id, turn_id) REFERENCES symphony_turns(run_id, turn_id) ON DELETE CASCADE,
   CHECK (source IN ('pi', 'runtime')),
   CHECK (status != 'completed' OR pr_url IS NOT NULL),
@@ -784,7 +788,8 @@ CREATE TABLE IF NOT EXISTS route_workflows (
   updated_at TEXT NOT NULL,
   FOREIGN KEY (issue_identifier, repository_key)
     REFERENCES symphony_issues(issue_identifier, repository_key)
-    ON DELETE RESTRICT,
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE,
   CHECK (organization_id IS NULL OR length(trim(organization_id)) > 0),
   CHECK (
     linear_workspace_identity_id IS NULL OR

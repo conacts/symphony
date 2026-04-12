@@ -79,24 +79,35 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
         const existingIssue = tx
           .select()
           .from(symphonyIssuesTable)
-          .where(eq(symphonyIssuesTable.issueIdentifier, attrs.issueIdentifier))
+          .where(eq(symphonyIssuesTable.trackerIssueId, attrs.trackerIssueId))
           .get();
 
         if (!existingIssue) {
+          const conflictingIssueIdentifier = tx
+            .select()
+            .from(symphonyIssuesTable)
+            .where(eq(symphonyIssuesTable.issueIdentifier, attrs.issueIdentifier))
+            .get();
+          if (conflictingIssueIdentifier) {
+            throw new TypeError(
+              `Issue ${attrs.issueIdentifier} is already bound to tracker issue ${conflictingIssueIdentifier.trackerIssueId}, not ${attrs.trackerIssueId}.`
+            );
+          }
+
           throw new TypeError(
             `Issue binding not found for run start: ${attrs.issueIdentifier} in ${repositoryKey}.`
+          );
+        }
+
+        if (existingIssue.issueIdentifier !== attrs.issueIdentifier) {
+          throw new TypeError(
+            `Tracker issue ${attrs.trackerIssueId} is already bound to issue identifier ${existingIssue.issueIdentifier}, not ${attrs.issueIdentifier}.`
           );
         }
 
         if (existingIssue.repositoryKey !== repositoryKey) {
           throw new TypeError(
             `Issue ${attrs.issueIdentifier} is already bound to repository ${existingIssue.repositoryKey}, not ${repositoryKey}.`
-          );
-        }
-
-        if (existingIssue.trackerIssueId !== attrs.trackerIssueId) {
-          throw new TypeError(
-            `Issue ${attrs.issueIdentifier} is already bound to tracker issue ${existingIssue.trackerIssueId}, not ${attrs.trackerIssueId}.`
           );
         }
 
@@ -118,7 +129,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
                 : startedAt,
             updatedAt: now
           })
-          .where(eq(symphonyIssuesTable.issueIdentifier, attrs.issueIdentifier))
+          .where(eq(symphonyIssuesTable.trackerIssueId, attrs.trackerIssueId))
           .run();
 
         if (isActiveRunStatus(attrs.status)) {

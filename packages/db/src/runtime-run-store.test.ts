@@ -116,6 +116,45 @@ describe("runtime run delivery projections", () => {
     }
   });
 
+  it("fails fast when a run start uses a stale issue identifier for the canonical tracker issue", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-run-stale-identifier-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "COL-199-RENAMED",
+        trackerIssueId: "issue-stale-1",
+        repositoryKey: testRepositoryKey,
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-05T18:00:00.000Z"
+      });
+
+      await expect(
+        runStore.recordRunStarted({
+          runId: "run-stale-identifier-1",
+          repositoryKey: testRepositoryKey,
+          trackerIssueId: "issue-stale-1",
+          issueIdentifier: "COL-199",
+          runMode: "implementation",
+          startedAt: "2026-04-05T18:01:00.000Z",
+          status: "running"
+        })
+      ).rejects.toThrow(
+        "Tracker issue issue-stale-1 is already bound to issue identifier COL-199-RENAMED, not COL-199."
+      );
+    } finally {
+      database.close();
+    }
+  });
+
   it("persists hosted workspace scope on scoped run starts", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-run-scoped-"));
     tempDirectories.push(root);
@@ -150,6 +189,49 @@ describe("runtime run delivery projections", () => {
 
       expect(storedRun?.organizationId).toBe("org-1");
       expect(storedRun?.linearWorkspaceIdentityId).toBe("workspace-1");
+    } finally {
+      database.close();
+    }
+  });
+
+  it("cascades issue identifier updates into existing run rows", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-run-rename-cascade-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+
+    try {
+      const runId = await recordSeededRunStarted(database.db, runStore, {
+        runId: "run-rename-cascade-1",
+        repositoryKey: testRepositoryKey,
+        trackerIssueId: "issue-rename-cascade-1",
+        issueIdentifier: "COL-201A",
+        runMode: "implementation",
+        startedAt: "2026-04-05T19:06:00.000Z",
+        status: "running"
+      });
+
+      await issueStore.upsert({
+        issueIdentifier: "COL-201B",
+        trackerIssueId: "issue-rename-cascade-1",
+        repositoryKey: testRepositoryKey,
+        latestRunStartedAt: "2026-04-05T19:06:00.000Z",
+        recordedAt: "2026-04-05T19:07:00.000Z"
+      });
+
+      const storedRun = database.db
+        .select()
+        .from(symphonyRunsTable)
+        .where(eq(symphonyRunsTable.runId, runId))
+        .get();
+
+      expect(storedRun?.issueIdentifier).toBe("COL-201B");
     } finally {
       database.close();
     }

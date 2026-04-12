@@ -1362,8 +1362,8 @@ export const symphonyAgentFileChangesTable = sqliteTable(
 export const symphonyIssuesTable = sqliteTable(
   "symphony_issues",
   {
-    issueIdentifier: text("issue_identifier").primaryKey(),
-    trackerIssueId: text("tracker_issue_id").notNull(),
+    trackerIssueId: text("tracker_issue_id").primaryKey(),
+    issueIdentifier: text("issue_identifier").notNull(),
     repositoryKey: text("repository_key").notNull(),
     organizationId: text("organization_id"),
     linearWorkspaceIdentityId: text("linear_workspace_identity_id"),
@@ -1384,8 +1384,8 @@ export const symphonyIssuesTable = sqliteTable(
       "symphony_issues_binding_scope_shape_check",
       sql`(${table.organizationId} is null and ${table.linearWorkspaceIdentityId} is null) or (${table.organizationId} is not null and ${table.linearWorkspaceIdentityId} is not null)`
     ),
-    trackerIssueIdIdx: uniqueIndex("symphony_issues_tracker_issue_id_idx").on(
-      table.trackerIssueId
+    issueIdentifierIdx: uniqueIndex("symphony_issues_issue_identifier_idx").on(
+      table.issueIdentifier
     ),
     issueRepositoryKeyIdx: uniqueIndex("symphony_issues_issue_repository_key_idx").on(
       table.issueIdentifier,
@@ -1443,7 +1443,7 @@ export const symphonyRunsTable = sqliteTable(
       columns: [table.issueIdentifier, table.repositoryKey],
       foreignColumns: [symphonyIssuesTable.issueIdentifier, symphonyIssuesTable.repositoryKey],
       name: "symphony_runs_issue_binding_fk"
-    }).onDelete("restrict"),
+    }).onDelete("restrict").onUpdate("cascade"),
     organizationIdCheck: check(
       "symphony_runs_organization_id_check",
       sql`${table.organizationId} is null or length(trim(${table.organizationId})) > 0`
@@ -1617,7 +1617,7 @@ export const symphonyIssueTimelineTable = sqliteTable(
       columns: [table.issueIdentifier],
       foreignColumns: [symphonyIssuesTable.issueIdentifier],
       name: "symphony_issue_timeline_issue_fk"
-    }).onDelete("restrict"),
+    }).onDelete("restrict").onUpdate("cascade"),
     sourceCheck: check(
       "symphony_issue_timeline_source_check",
       sql`${table.source} in (${sqlEnum(issueTimelineSourceValues)})`
@@ -1693,7 +1693,7 @@ export const symphonyIssueDeliveryReportsTable = sqliteTable(
       columns: [table.issueIdentifier, table.runId],
       foreignColumns: [symphonyRunsTable.issueIdentifier, symphonyRunsTable.runId],
       name: "symphony_issue_delivery_reports_issue_run_fk"
-    }).onDelete("cascade"),
+    }).onDelete("cascade").onUpdate("cascade"),
     runTurnFk: foreignKey({
       columns: [table.runId, table.turnId],
       foreignColumns: [symphonyTurnsTable.runId, symphonyTurnsTable.turnId],
@@ -1734,7 +1734,7 @@ export const symphonyRuntimeLogsTable = sqliteTable(
       columns: [table.issueIdentifier, table.repositoryKey],
       foreignColumns: [symphonyIssuesTable.issueIdentifier, symphonyIssuesTable.repositoryKey],
       name: "symphony_runtime_logs_issue_binding_fk"
-    }).onDelete("restrict"),
+    }).onDelete("restrict").onUpdate("cascade"),
     runFk: foreignKey({
       columns: [table.runId],
       foreignColumns: [symphonyRunsTable.runId],
@@ -1818,7 +1818,7 @@ export const routeWorkflowsTable = sqliteTable(
       columns: [table.issueIdentifier, table.repositoryKey],
       foreignColumns: [symphonyIssuesTable.issueIdentifier, symphonyIssuesTable.repositoryKey],
       name: "route_workflows_issue_binding_fk"
-    }).onDelete("restrict"),
+    }).onDelete("restrict").onUpdate("cascade"),
     organizationIdCheck: check(
       "route_workflows_organization_id_check",
       sql`${table.organizationId} is null or length(trim(${table.organizationId})) > 0`

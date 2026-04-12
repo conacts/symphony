@@ -379,6 +379,58 @@ describe("route workflow store", () => {
     }
   });
 
+  it("cascades issue identifier updates into existing workflow rows", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-route-rename-cascade-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const routeStore = createRouteWorkflowStore(database.db);
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-301C",
+        trackerIssueId: "tracker-301C",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-09T22:58:00.000Z"
+      });
+
+      const workflowId = await routeStore.createWorkflow({
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-301C",
+        routerPresetId: "current-flow",
+        routerName: "symphony-current-flow",
+        routerVersion: "1",
+        createdAt: "2026-04-09T22:59:00.000Z"
+      });
+
+      await issueStore.upsert({
+        issueIdentifier: "SYM-301C-RENAMED",
+        trackerIssueId: "tracker-301C",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-09T23:00:00.000Z"
+      });
+
+      await expect(routeStore.getWorkflowForIssue("SYM-301C")).resolves.toBeNull();
+      await expect(routeStore.getWorkflow(workflowId)).resolves.toMatchObject({
+        workflowId,
+        issueIdentifier: "SYM-301C-RENAMED"
+      });
+      await expect(
+        routeStore.getWorkflowForIssue("SYM-301C-RENAMED")
+      ).resolves.toMatchObject({
+        workflowId,
+        issueIdentifier: "SYM-301C-RENAMED"
+      });
+    } finally {
+      database.close();
+    }
+  });
+
   it("raises an explicit error when a second active workflow is created for the same issue", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-route-duplicate-"));
     tempDirectories.push(root);
