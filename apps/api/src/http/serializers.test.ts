@@ -9,6 +9,7 @@ import {
   serializeRuntimeState
 } from "./serializers.js";
 import type { AdmittedRuntimeRepository } from "../core/runtime-admitted-repositories.js";
+import { buildBindMountPreparedWorkspace } from "../test-support/create-symphony-runtime-test-harness.js";
 
 describe("runtime serializers", () => {
   it("resolves Pi preset labels from runtime policy defaults", () => {
@@ -137,7 +138,12 @@ describe("runtime serializers", () => {
     const snapshot = buildSymphonyOrchestratorSnapshot({
       running: [
         {
-          issue
+          issue,
+          workspace: buildBindMountPreparedWorkspace(
+            issue.identifier,
+            `/tmp/symphony-${issue.identifier}`
+          ),
+          workspacePath: `/tmp/symphony-${issue.identifier}`
         }
       ],
       retrying: []
@@ -171,8 +177,57 @@ describe("runtime serializers", () => {
     });
 
     expect(() =>
-      serializeRuntimeState(snapshot, [])
+      serializeRuntimeState(
+        snapshot,
+        [],
+        new Map([[issue.identifier, "In Progress"]])
+      )
     ).toThrowError("Cannot serialize runtime workspace without a prepared workspace.");
+  });
+
+  it("prefers workflow-authoritative tracker state when serializing runtime state", () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const snapshot = buildSymphonyOrchestratorSnapshot({
+      running: [
+        {
+          issue,
+          workspace: buildBindMountPreparedWorkspace(
+            issue.identifier,
+            `/tmp/symphony-${issue.identifier}`
+          ),
+          workspacePath: `/tmp/symphony-${issue.identifier}`
+        }
+      ],
+      retrying: []
+    });
+
+    const serialized = serializeRuntimeState(
+      snapshot,
+      [],
+      new Map([[issue.identifier, "Approved"]])
+    );
+
+    expect(serialized.running[0]?.state).toBe("Approved");
+  });
+
+  it("fails fast when a running runtime entry is missing workflow-authoritative tracker state", () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const snapshot = buildSymphonyOrchestratorSnapshot({
+      running: [
+        {
+          issue
+        }
+      ],
+      retrying: []
+    });
+
+    expect(() => serializeRuntimeState(snapshot, [])).toThrowError(
+      `Runtime issue ${issue.identifier} is missing workflow-authoritative tracker state.`
+    );
   });
 
   it("fails fast when retry runtime state lacks canonical tracker issue data", () => {

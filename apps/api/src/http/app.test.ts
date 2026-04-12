@@ -92,10 +92,11 @@ describe("@symphony/api app", () => {
   it("serves the runtime state and refresh surfaces", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {
-        state: "In Review",
+        state: "In Progress",
         teamKey: "COL",
         projectId: "project-1"
-      }
+      },
+      workflowTrackerState: "Approved"
     });
     harnesses.push(harness);
 
@@ -108,6 +109,7 @@ describe("@symphony/api app", () => {
       data: {
         running: Array<{
           threadId: string | null;
+          state: string;
         }>;
       };
     }>(stateResponse);
@@ -121,6 +123,7 @@ describe("@symphony/api app", () => {
 
     expect(stateResponse.status).toBe(200);
     expect(statePayload.data.running[0]?.threadId).toBe("thread-live");
+    expect(statePayload.data.running[0]?.state).toBe("Approved");
 
     expect(refreshResponse.status).toBe(202);
     expect(refreshPayload.data.queued).toBe(true);

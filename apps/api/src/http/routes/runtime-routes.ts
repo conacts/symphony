@@ -43,10 +43,15 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
   const cancelRequestSchema = deliveryReportRequestSchema;
   const mergeResultRequestSchema = deliveryReportRequestSchema;
 
-  runtimeRoutes.get("/state", (c) => {
+  runtimeRoutes.get("/state", async (c) => {
+    const snapshot = services.orchestrator.snapshot();
     const result = serializeRuntimeState(
-      services.orchestrator.snapshot(),
-      services.admittedRepositories
+      snapshot,
+      services.admittedRepositories,
+      await loadRunningWorkflowTrackerStates({
+        snapshot,
+        workflowRead: services.workflowRead
+      })
     );
     c.get("logger").debug("Returning runtime state", {
       runningCount: result.counts.running,
@@ -354,6 +359,30 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
   });
 
   return runtimeRoutes;
+}
+
+async function loadRunningWorkflowTrackerStates(input: {
+  snapshot: ReturnType<SymphonyRuntimeAppServices["orchestrator"]["snapshot"]>;
+  workflowRead: SymphonyRuntimeAppServices["workflowRead"];
+}): Promise<Map<string, string>> {
+  const issueIdentifiers = [
+    ...new Set(input.snapshot.running.map((entry) => entry.issue.identifier))
+  ];
+  const workflowTrackerStatesByIssueIdentifier = new Map<string, string>();
+
+  for (const issueIdentifier of issueIdentifiers) {
+    const workflowLifecycle = await input.workflowRead.loadWorkflowLifecycleView({
+      issueIdentifier
+    });
+    if (workflowLifecycle) {
+      workflowTrackerStatesByIssueIdentifier.set(
+        issueIdentifier,
+        workflowLifecycle.trackerState
+      );
+    }
+  }
+
+  return workflowTrackerStatesByIssueIdentifier;
 }
 
 function normalizeWorkflowComparisonPresetIds(

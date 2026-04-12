@@ -37,7 +37,8 @@ type RuntimeIssuePiSelectionPolicy = {
 
 export function serializeRuntimeState(
   snapshot: SymphonyOrchestratorSnapshot,
-  admittedRepositories: AdmittedRuntimeRepository[] = []
+  admittedRepositories: AdmittedRuntimeRepository[] = [],
+  workflowTrackerStatesByIssueIdentifier: ReadonlyMap<string, string> = new Map()
 ): SymphonyRuntimeStateResult {
   return {
     counts: {
@@ -56,7 +57,13 @@ export function serializeRuntimeState(
     running: snapshot.running.map((entry) => ({
       trackerIssueId: entry.issueId,
       issueIdentifier: entry.issue.identifier,
-      state: entry.issue.state,
+      state: resolveRuntimeIssueTrackerState({
+        issueIdentifier: entry.issue.identifier,
+        trackedState: entry.issue.state,
+        workflowTrackerState:
+          workflowTrackerStatesByIssueIdentifier.get(entry.issue.identifier) ?? null,
+        hasWorkflowBackedRuntimeEntry: true
+      }),
       workerHost: entry.workerHost,
       workspacePath: entry.workspacePath,
       threadId: entry.threadId,
