@@ -43,6 +43,7 @@ export interface SymphonyRuntime<
   > | null;
   snapshot(): SymphonyOrchestratorSnapshot;
   runPollCycle(): Promise<SymphonyOrchestratorSnapshot>;
+  shouldDispatchIssue(issue: SymphonyTrackerIssue): boolean;
   dispatchIssue(
     issue: SymphonyTrackerIssue,
     attempt: number,
@@ -118,6 +119,9 @@ export function createSymphonyRuntime<
     },
     async runPollCycle() {
       return await orchestrator.runPollCycle();
+    },
+    shouldDispatchIssue(issue) {
+      return orchestrator.shouldDispatchIssue(issue);
     },
     async dispatchIssue(issue, attempt, preferredWorkerHost = null, runModeOverride) {
       await orchestrator.dispatchIssue(

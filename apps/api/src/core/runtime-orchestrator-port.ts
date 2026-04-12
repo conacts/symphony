@@ -15,7 +15,7 @@ import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 export function createRuntimeOrchestratorPort(input: {
   runtime: Pick<
     SymphonyRuntimeDriver,
-    "snapshot" | "runPollCycle" | "dispatchIssue"
+    "snapshot" | "runPollCycle" | "dispatchIssue" | "shouldDispatchIssue"
   >;
   logger: SymphonyLogger;
   runtimeLogs: SymphonyRuntimeLogStore;
@@ -111,7 +111,8 @@ export function createRuntimeOrchestratorPort(input: {
         await inFlightPollCycle;
       }
 
-      const claimedIssueIds = new Set(input.runtime.snapshot().claimedIssueIds);
+      const currentSnapshot = input.runtime.snapshot();
+      const claimedIssueIds = new Set(currentSnapshot.claimedIssueIds);
       if (claimedIssueIds.has(dispatchInput.issue.id)) {
         await input.runtimeLogs.record({
           level: "info",
@@ -123,6 +124,27 @@ export function createRuntimeOrchestratorPort(input: {
             workflowId: dispatchInput.workflowId,
             commandId: dispatchInput.commandId,
             runMode: dispatchInput.runMode
+          },
+          recordedAt: dispatchInput.recordedAt
+        });
+        return;
+      }
+
+      if (!input.runtime.shouldDispatchIssue(dispatchInput.issue)) {
+        await input.runtimeLogs.record({
+          level: "info",
+          source: "runtime",
+          eventType: "routed_dispatch_skipped_ineligible",
+          message:
+            "Skipped routed dispatch because the issue is not dispatchable under the current orchestrator state.",
+          issueIdentifier: dispatchInput.issue.identifier,
+          payload: {
+            workflowId: dispatchInput.workflowId,
+            commandId: dispatchInput.commandId,
+            runMode: dispatchInput.runMode,
+            runningCount: currentSnapshot.running.length,
+            claimedCount: currentSnapshot.claimedIssueIds.length,
+            maxConcurrentAgents: currentSnapshot.maxConcurrentAgents
           },
           recordedAt: dispatchInput.recordedAt
         });
@@ -175,21 +197,22 @@ export function createRuntimeOrchestratorPort(input: {
 
       const snapshotBeforePreparation = input.runtime.snapshot();
       inFlightPollCycle = (async () => {
-        runningBeforePollCycle = true;
         try {
-          await input.beforePollCycle?.(snapshotBeforePreparation);
-        } finally {
-          runningBeforePollCycle = false;
-        }
-        const previousSnapshot = input.runtime.snapshot();
-        const previousWorkflowTrackerStates =
-          await input.loadRunningWorkflowTrackerStates(previousSnapshot);
-        input.logger.info("Starting orchestrator poll cycle", {
-          runningCount: previousSnapshot.running.length,
-          retryingCount: previousSnapshot.retrying.length
-        });
+          runningBeforePollCycle = true;
+          try {
+            await input.beforePollCycle?.(snapshotBeforePreparation);
+          } finally {
+            runningBeforePollCycle = false;
+          }
 
-        try {
+          const previousSnapshot = input.runtime.snapshot();
+          const previousWorkflowTrackerStates =
+            await input.loadRunningWorkflowTrackerStates(previousSnapshot);
+          input.logger.info("Starting orchestrator poll cycle", {
+            runningCount: previousSnapshot.running.length,
+            retryingCount: previousSnapshot.retrying.length
+          });
+
           const nextSnapshot = await input.runtime.runPollCycle();
           const nextWorkflowTrackerStates =
             await input.loadRunningWorkflowTrackerStates(nextSnapshot);
@@ -242,6 +265,7 @@ export function createRuntimeOrchestratorPort(input: {
 type SymphonyRuntimeDriver = {
   snapshot(): SymphonyOrchestratorSnapshot;
   runPollCycle(): Promise<SymphonyOrchestratorSnapshot>;
+  shouldDispatchIssue(issue: SymphonyTrackerIssue): boolean;
   dispatchIssue(
     issue: SymphonyTrackerIssue,
     attempt: number,

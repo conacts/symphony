@@ -15,6 +15,7 @@ describe("runtime orchestrator port", () => {
     });
     const runtime = {
       snapshot: vi.fn(() => snapshot),
+      shouldDispatchIssue: vi.fn(() => true),
       dispatchIssue: vi.fn(async () => {}),
       runPollCycle: vi.fn(async () => {
         calls.push("run");
@@ -50,6 +51,7 @@ describe("runtime orchestrator port", () => {
     });
     const runtime = {
       snapshot: vi.fn(() => snapshot),
+      shouldDispatchIssue: vi.fn(() => true),
       dispatchIssue: vi.fn(async () => {}),
       runPollCycle: vi.fn(async () => await pendingPoll)
     };
@@ -81,6 +83,7 @@ describe("runtime orchestrator port", () => {
     const snapshot = buildSymphonyOrchestratorSnapshot();
     const runtime = {
       snapshot: vi.fn(() => snapshot),
+      shouldDispatchIssue: vi.fn(() => true),
       dispatchIssue: vi.fn(async () => {}),
       runPollCycle: vi.fn(async () => snapshot)
     };
@@ -113,6 +116,7 @@ describe("runtime orchestrator port", () => {
     });
     const runtime = {
       snapshot: vi.fn(() => snapshot),
+      shouldDispatchIssue: vi.fn(() => true),
       dispatchIssue: vi.fn(async () => {}),
       runPollCycle: vi.fn(async () => snapshot)
     };
@@ -140,6 +144,124 @@ describe("runtime orchestrator port", () => {
     expect(runtimeLogs.record).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: "routed_dispatch_skipped_claimed",
+        issueIdentifier: issue.identifier
+      })
+    );
+  });
+
+  it("clears the in-flight latch after a before-poll failure so the next poll can run", async () => {
+    const snapshot = buildSymphonyOrchestratorSnapshot();
+    const runtime = {
+      snapshot: vi.fn(() => snapshot),
+      shouldDispatchIssue: vi.fn(() => true),
+      dispatchIssue: vi.fn(async () => {}),
+      runPollCycle: vi.fn(async () => snapshot)
+    };
+    const beforePollCycle = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(new Error("before poll failed"))
+      .mockResolvedValueOnce();
+
+    const port = createRuntimeOrchestratorPort({
+      runtime,
+      logger: createSilentSymphonyLogger("@symphony/api.runtime-orchestrator-port.test"),
+      runtimeLogs: {
+        record: vi.fn(async () => {})
+      } as never,
+      realtime: createSymphonyRealtimeHub(),
+      loadRunningWorkflowTrackerStates,
+      beforePollCycle
+    });
+
+    await expect(port.runPollCycle()).rejects.toThrow("before poll failed");
+    expect(port.isPollCycleInFlight()).toBe(false);
+
+    await expect(port.runPollCycle()).resolves.toBe(snapshot);
+    expect(beforePollCycle).toHaveBeenCalledTimes(2);
+    expect(runtime.runPollCycle).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the in-flight latch after workflow tracker-state preload failure", async () => {
+    const snapshot = buildSymphonyOrchestratorSnapshot();
+    const runtime = {
+      snapshot: vi.fn(() => snapshot),
+      shouldDispatchIssue: vi.fn(() => true),
+      dispatchIssue: vi.fn(async () => {}),
+      runPollCycle: vi.fn(async () => snapshot)
+    };
+    const loadStates = vi
+      .fn<
+        (
+          currentSnapshot: ReturnType<typeof buildSymphonyOrchestratorSnapshot>
+        ) => Promise<Map<string, string>>
+      >()
+      .mockRejectedValueOnce(new Error("preload failed"))
+      .mockResolvedValue(new Map());
+
+    const port = createRuntimeOrchestratorPort({
+      runtime,
+      logger: createSilentSymphonyLogger("@symphony/api.runtime-orchestrator-port.test"),
+      runtimeLogs: {
+        record: vi.fn(async () => {})
+      } as never,
+      realtime: createSymphonyRealtimeHub(),
+      loadRunningWorkflowTrackerStates: loadStates
+    });
+
+    await expect(port.runPollCycle()).rejects.toThrow("preload failed");
+    expect(port.isPollCycleInFlight()).toBe(false);
+
+    await expect(port.runPollCycle()).resolves.toBe(snapshot);
+    expect(runtime.runPollCycle).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips routed dispatch when the orchestrator reports no dispatch capacity", async () => {
+    const issue = buildSymphonyTrackerIssue();
+    const snapshot = buildSymphonyOrchestratorSnapshot({
+      running: [
+        {
+          issue: buildSymphonyTrackerIssue({
+            id: "issue-running",
+            identifier: "COL-2"
+          }),
+          runId: "run-1",
+          runMode: "implementation",
+          startedAt: "2026-04-10T18:00:00.000Z"
+        }
+      ],
+      maxConcurrentAgents: 1
+    });
+    const runtimeLogs = {
+      record: vi.fn(async () => {})
+    };
+    const runtime = {
+      snapshot: vi.fn(() => snapshot),
+      shouldDispatchIssue: vi.fn(() => false),
+      dispatchIssue: vi.fn(async () => {}),
+      runPollCycle: vi.fn(async () => snapshot)
+    };
+
+    const port = createRuntimeOrchestratorPort({
+      runtime,
+      logger: createSilentSymphonyLogger("@symphony/api.runtime-orchestrator-port.test"),
+      runtimeLogs: runtimeLogs as never,
+      realtime: createSymphonyRealtimeHub(),
+      loadRunningWorkflowTrackerStates
+    });
+
+    await port.dispatchRoutedIssue({
+      workflowId: "workflow-123",
+      commandId: "command-123",
+      issue,
+      runMode: "implementation",
+      recordedAt: "2026-04-10T18:02:00.000Z"
+    });
+
+    expect(runtime.dispatchIssue).not.toHaveBeenCalled();
+    expect(runtime.shouldDispatchIssue).toHaveBeenCalledWith(issue);
+    expect(runtimeLogs.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "routed_dispatch_skipped_ineligible",
         issueIdentifier: issue.identifier
       })
     );

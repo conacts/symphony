@@ -306,16 +306,22 @@ export class SymphonyOrchestrator {
     this.#state.claimed.add(issue.id);
 
     const startedAt = this.#clock.now().toISOString();
-    const bootstrap = await resolveDispatchBootstrap({
-      config: this.#config,
-      tracker: this.#tracker,
-      issue,
-      attempt,
-      preferredWorkerHost,
-      startedAt,
-      runModeOverride,
-      workflowRoutingAdapter: this.#workflowRoutingAdapter
-    });
+    let bootstrap: Awaited<ReturnType<typeof resolveDispatchBootstrap>>;
+    try {
+      bootstrap = await resolveDispatchBootstrap({
+        config: this.#config,
+        tracker: this.#tracker,
+        issue,
+        attempt,
+        preferredWorkerHost,
+        startedAt,
+        runModeOverride,
+        workflowRoutingAdapter: this.#workflowRoutingAdapter
+      });
+    } catch (error) {
+      this.#state.claimed.delete(issue.id);
+      throw error;
+    }
     const runMode = bootstrap.runMode;
     this.#state.dispatching[issue.id] = {
       issue: bootstrap.issue,
@@ -735,6 +741,40 @@ export class SymphonyOrchestrator {
     }
 
     const completionIssueBeforeRouting = refreshedIssue ?? runningEntry.issue;
+    const shouldRetryProviderTransient =
+      completion.kind === "provider_transient" &&
+      this.#shouldRetryTransientProviderFailure({
+        issue: completionIssueBeforeRouting,
+        runMode: runningEntry.runMode,
+        completion,
+        retryAttempt: runningEntry.retryAttempt
+      });
+    if (shouldRetryProviderTransient) {
+      await this.#observer?.finalizeRun({
+        issue: runningEntry.issue,
+        runId: runningEntry.runId,
+        completion,
+        workerHost: runningEntry.workerHost,
+        workspace: runningEntry.workspace,
+        startedAt: runningEntry.startedAt,
+        endedAt: this.#clock.now().toISOString(),
+        turnCount: runningEntry.turnCount,
+        inputTokens: runningEntry.agentInputTokens,
+        outputTokens: runningEntry.agentOutputTokens,
+        totalTokens: runningEntry.agentTotalTokens
+      });
+      await this.#scheduleTransientProviderRetry(runningEntry, completion.reason);
+      await this.#cleanupStoppedRun({
+        issue: completionIssueBeforeRouting,
+        runId: runningEntry.runId,
+        workspace: runningEntry.workspace,
+        workerHost: runningEntry.workerHost,
+        completionKind: completion.kind,
+        mode: "preserve"
+      });
+      return;
+    }
+
     const routedCompletion = await this.#routeCompletionWithRecovery({
       issue: completionIssueBeforeRouting,
       runId: runningEntry.runId,
@@ -865,8 +905,12 @@ export class SymphonyOrchestrator {
     }
 
     if (
-      resolvedCompletion.kind === "provider_transient" &&
-      runningEntry.retryAttempt < maxProviderTransientRetries
+      this.#shouldRetryTransientProviderFailure({
+        issue: currentIssue,
+        runMode: runningEntry.runMode,
+        completion: resolvedCompletion,
+        retryAttempt: runningEntry.retryAttempt
+      })
     ) {
       await this.#scheduleTransientProviderRetry(runningEntry, resolvedCompletion.reason);
       await this.#cleanupStoppedRun({
@@ -1286,6 +1330,28 @@ export class SymphonyOrchestrator {
         reason
       }
     });
+  }
+
+  #shouldRetryTransientProviderFailure(input: {
+    issue: SymphonyTrackerIssue;
+    runMode: SymphonyRunMode;
+    completion: SymphonyAgentRuntimeCompletion;
+    retryAttempt: number;
+  }): input is {
+    issue: SymphonyTrackerIssue;
+    runMode: SymphonyRunMode;
+    completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "provider_transient" }>;
+    retryAttempt: number;
+  } {
+    return (
+      input.completion.kind === "provider_transient" &&
+      input.retryAttempt < maxProviderTransientRetries &&
+      canIssueContinueRun({
+        issue: input.issue,
+        runMode: input.runMode,
+        tracker: this.#config.tracker
+      })
+    );
   }
 
   async #cleanupStoppedRun(input: {

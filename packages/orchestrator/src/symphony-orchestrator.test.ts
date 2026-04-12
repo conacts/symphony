@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createSymphonyOrchestratorState,
   prepareIssueForDispatch,
@@ -261,6 +261,61 @@ describe("symphony orchestrator", () => {
 
     expect(startRuns).toEqual(["rework"]);
     expect(tracker.getIssue(issue.id)?.state).toBe("In Progress");
+  });
+
+  it("releases the claim when bootstrap routing fails before dispatch state is established", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "Todo"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const routeDispatchBootstrap = vi
+      .fn<SymphonyWorkflowRoutingAdapter["routeDispatchBootstrap"]>()
+      .mockRejectedValueOnce(new Error("bootstrap routing failed"))
+      .mockImplementationOnce(async (input) => {
+        await tracker.updateIssueState(input.issue.id, "Bootstrapping");
+        return {
+          issue: {
+            ...input.issue,
+            state: "Bootstrapping"
+          },
+          runMode: "implementation"
+        };
+      });
+
+    const orchestrator = new SymphonyOrchestrator({
+      config: buildSymphonyOrchestratorConfig({
+        tracker: {
+          claimTransitionToState: null,
+          claimTransitionFromStates: []
+        }
+      }),
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      workflowRoutingAdapter: {
+        routeDispatchBootstrap
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await expect(orchestrator.dispatchIssue(issue, 1)).rejects.toThrow(
+      "bootstrap routing failed"
+    );
+    expect(orchestrator.snapshot().claimedIssueIds).toEqual([]);
+    expect(Object.keys(orchestrator.state.dispatching)).toEqual([]);
+
+    await expect(orchestrator.dispatchIssue(issue, 1)).resolves.toBeUndefined();
+    expect(routeDispatchBootstrap).toHaveBeenCalledTimes(2);
+    expect(orchestrator.snapshot().running[0]?.issue.id).toBe(issue.id);
   });
 
   it("activates started runs through the run-start activation router", async () => {
@@ -1964,6 +2019,64 @@ describe("symphony orchestrator", () => {
       issueId: "issue-123",
       body: expect.stringContaining("Automatic retries were exhausted.")
     });
+
+    currentNowMs = orchestrator.snapshot().retrying[0]?.dueAtMs ?? currentNowMs;
+    await orchestrator.runPollCycle();
+
+    expect(orchestrator.snapshot().retrying).toHaveLength(0);
+    expect(orchestrator.snapshot().running[0]?.retryAttempt).toBe(2);
+  });
+
+  it("does not route retryable transient provider failures into a paused state before redispatch", async () => {
+    const config = buildSymphonyOrchestratorConfig();
+    const issue = buildSymphonyTrackerIssue();
+    const tracker = createMemorySymphonyTracker([issue]);
+    const routeRunCompletion = vi
+      .fn<SymphonyWorkflowRoutingAdapter["routeRunCompletion"]>()
+      .mockImplementation(async (input) => {
+        await tracker.updateIssueState(input.issue.id, "Paused");
+        return {
+          issue: {
+            ...input.issue,
+            state: "Paused"
+          }
+        };
+      });
+    let currentNowMs = Date.parse("2026-03-31T00:00:00.000Z");
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      workflowRoutingAdapter: {
+        routeRunCompletion
+      },
+      clock: {
+        now: () => new Date(currentNowMs),
+        nowMs: () => currentNowMs
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 1);
+    await orchestrator.handleRunCompletion("issue-123", {
+      kind: "provider_transient",
+      reason: "unexpected status 502 Bad Gateway"
+    });
+
+    expect(routeRunCompletion).not.toHaveBeenCalled();
+    expect(tracker.listOperations()).not.toContainEqual({
+      kind: "update_state",
+      issueId: "issue-123",
+      stateName: "Paused"
+    });
+    expect(orchestrator.snapshot().retrying).toHaveLength(1);
 
     currentNowMs = orchestrator.snapshot().retrying[0]?.dueAtMs ?? currentNowMs;
     await orchestrator.runPollCycle();
