@@ -113,6 +113,71 @@ describe("runtime run lifecycle routing", () => {
     }
   });
 
+  it("records approved-merge redispatch when an active merge run observes Approved again", async () => {
+    const harness = await createHarness({
+      state: "Approved"
+    });
+
+    try {
+      await startApprovedMergeRun(harness);
+      await harness.tracker.updateIssueState(harness.issue.id, "Approved");
+      const approvedIssue = harness.tracker.getIssue(harness.issue.id);
+
+      const result = await harness.runLifecycleRouter.observeIssueState({
+        issue: approvedIssue!,
+        runId: "run-approved-merge",
+        runMode: "approved_merge",
+        recordedAt: "2026-04-10T12:15:10.000Z"
+      });
+
+      expect(result.issue.state).toBe("Approved");
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Approved");
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "approved_merge",
+        reasonCode: "approved_merge_redispatched",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("Approved");
+          expect(data.lastDispatchMode).toBe("approved_merge");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("fails fast when active observation emits redispatch for a different run mode", async () => {
+    const harness = await createHarness({
+      state: "Approved"
+    });
+
+    try {
+      await startApprovedMergeRun(harness);
+      await harness.tracker.updateIssueState(harness.issue.id, "Approved");
+      const approvedIssue = harness.tracker.getIssue(harness.issue.id);
+
+      await expect(
+        harness.runLifecycleRouter.observeIssueState({
+          issue: approvedIssue!,
+          runId: "run-approved-merge",
+          runMode: "implementation",
+          recordedAt: "2026-04-10T12:15:10.000Z"
+        })
+      ).rejects.toThrow(
+        /only supports run\.dispatch for active run mode implementation/i
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
   it("routes blocked implementation completions into Blocked through persisted route history", async () => {
     const harness = await createHarness({
       state: "Todo"

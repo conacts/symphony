@@ -143,63 +143,50 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
 
       let currentIssue = issue;
       for (const command of result.decision.commands) {
-        if (command.kind === "tracker.transition") {
-          currentIssue = await executeSettledRouteCommand({
-            routeWorkflows: input.routeWorkflows,
-            workflowId: resumed.hydrationState.workflow.workflowId,
-            session: resumed.session,
-            loadSettlementSession,
-            command,
-            recordedAt: observationInput.recordedAt,
-            async execute(executedCommand) {
-              return await executeTrackerTransition({
-                presetAdapter,
-                command: executedCommand,
-                issue: currentIssue,
-                tracker: input.tracker
-              });
-            }
-          });
-          continue;
-        }
-
-        if (command.kind === "run.dispatch") {
-          await executeSettledRouteCommand({
-            routeWorkflows: input.routeWorkflows,
-            workflowId: resumed.hydrationState.workflow.workflowId,
-            session: resumed.session,
-            loadSettlementSession,
-            command,
-            recordedAt: observationInput.recordedAt,
-            async execute(executedCommand) {
-              const runMode = readDispatchRunMode({
-                adapter: presetAdapter,
-                command: executedCommand
-              });
-              if (
-                observationInput.observationKind !== "idle" ||
-                !observationInput.onDispatchRequested
-              ) {
-                throw new TypeError(
-                  "Idle tracker state observation emitted run.dispatch without a dispatch callback."
-                );
+        switch (command.kind) {
+          case "tracker.transition":
+            currentIssue = await executeSettledRouteCommand({
+              routeWorkflows: input.routeWorkflows,
+              workflowId: resumed.hydrationState.workflow.workflowId,
+              session: resumed.session,
+              loadSettlementSession,
+              command,
+              recordedAt: observationInput.recordedAt,
+              async execute(executedCommand) {
+                return await executeTrackerTransition({
+                  presetAdapter,
+                  command: executedCommand,
+                  issue: currentIssue,
+                  tracker: input.tracker
+                });
               }
-
-              await observationInput.onDispatchRequested({
-                workflowId: resumed.hydrationState.workflow.workflowId,
-                commandId: executedCommand.id,
-                issue: currentIssue,
-                runMode,
-                recordedAt: observationInput.recordedAt
-              });
-            }
-          });
-          continue;
+            });
+            break;
+          case "run.dispatch":
+            await executeSettledRouteCommand({
+              routeWorkflows: input.routeWorkflows,
+              workflowId: resumed.hydrationState.workflow.workflowId,
+              session: resumed.session,
+              loadSettlementSession,
+              command,
+              recordedAt: observationInput.recordedAt,
+              async execute(executedCommand) {
+                await executeObservedDispatch({
+                  workflowId: resumed.hydrationState.workflow.workflowId,
+                  observationInput,
+                  issue: currentIssue,
+                  presetAdapter,
+                  command: executedCommand,
+                  recordedAt: observationInput.recordedAt
+                });
+              }
+            });
+            break;
+          default:
+            throw new TypeError(
+              `Tracker state observation does not support command kind ${command.kind}.`
+            );
         }
-
-        throw new TypeError(
-          `Tracker state observation does not support command kind ${command.kind}.`
-        );
       }
 
       return {
@@ -224,6 +211,43 @@ async function executeTrackerTransition(input: {
     ...input.issue,
     state: targetState
   };
+}
+
+async function executeObservedDispatch(input: {
+  workflowId: string;
+  observationInput: SymphonyTrackerStateObservationInput;
+  issue: SymphonyTrackerIssue;
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
+  command: WorkflowCommand;
+  recordedAt: string;
+}): Promise<void> {
+  const runMode = readDispatchRunMode({
+    adapter: input.presetAdapter,
+    command: input.command
+  });
+
+  if (input.observationInput.observationKind === "idle") {
+    if (!input.observationInput.onDispatchRequested) {
+      throw new TypeError(
+        "Idle tracker state observation emitted run.dispatch without a dispatch callback."
+      );
+    }
+
+    await input.observationInput.onDispatchRequested({
+      workflowId: input.workflowId,
+      commandId: input.command.id,
+      issue: input.issue,
+      runMode,
+      recordedAt: input.recordedAt
+    });
+    return;
+  }
+
+  if (runMode !== input.observationInput.runMode) {
+    throw new TypeError(
+      `Active tracker state observation only supports run.dispatch for active run mode ${input.observationInput.runMode}. Received ${runMode}.`
+    );
+  }
 }
 
 function buildObservedTrackerStateSignalId(input: {

@@ -820,6 +820,48 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("continues approved-merge active observation after service restart when tracker state drifts back to Approved", async () => {
+    const harness = await createHarness({
+      state: "Approved"
+    });
+
+    try {
+      await advanceWorkflowToRunningApprovedMerge(harness);
+      await harness.restartService("2026-04-10T14:12:06.000Z");
+      await harness.tracker.updateIssueState(harness.issue.id, "Approved");
+
+      const observed = await harness.service.observeActiveIssueStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T14:12:10.000Z"
+      });
+
+      expect(observed).toBe(true);
+      await expectWorkflowTrackerState({
+        harness,
+        trackerState: "Approved"
+      });
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "approved_merge",
+        reasonCode: "approved_merge_redispatched",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("Approved");
+          expect(data.lastDispatchMode).toBe("approved_merge");
+          expect(data.lastRunMode).toBe("approved_merge");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
   it("continues startup-failure recovery after service restart from persisted failed history", async () => {
     const harness = await createHarness({
       state: "Todo"

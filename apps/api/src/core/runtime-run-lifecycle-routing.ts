@@ -83,8 +83,7 @@ export async function createRuntimeRunLifecycleRouter(input: {
         }),
         recordedAt: observationInput.recordedAt,
         presetAdapter,
-        unsupportedCommandErrorPrefix:
-          "Run lifecycle observation does not support command kind"
+        activeRunMode: observationInput.runMode
       });
 
       return {
@@ -132,9 +131,7 @@ export async function createRuntimeRunLifecycleRouter(input: {
           failureContext: "while settling run-completion route commands"
         }),
         recordedAt: completionInput.recordedAt,
-        presetAdapter,
-        unsupportedCommandErrorPrefix:
-          "Run completion routing does not support command kind"
+        presetAdapter
       });
 
       return {
@@ -154,33 +151,55 @@ async function executeTrackerTransitionCommands(input: {
   loadSettlementSession: () => Promise<WorkflowSession<string, unknown, unknown>>;
   recordedAt: string;
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
-  unsupportedCommandErrorPrefix: string;
+  activeRunMode?: SymphonyRunMode;
 }): Promise<SymphonyTrackerIssue> {
   let currentIssue = input.issue;
 
   for (const command of input.commands) {
-    if (command.kind !== "tracker.transition") {
-      throw new TypeError(
-        `${input.unsupportedCommandErrorPrefix} ${command.kind}.`
-      );
-    }
-
-    currentIssue = await executeSettledRouteCommand({
-      routeWorkflows: input.routeWorkflows,
-      workflowId: input.workflowId,
-      session: input.session,
-      loadSettlementSession: input.loadSettlementSession,
-      command,
-      recordedAt: input.recordedAt,
-      async execute(executedCommand) {
-        return await executeTrackerTransition({
-          presetAdapter: input.presetAdapter,
-          command: executedCommand,
-          issue: currentIssue,
-          tracker: input.tracker
+    switch (command.kind) {
+      case "tracker.transition":
+        currentIssue = await executeSettledRouteCommand({
+          routeWorkflows: input.routeWorkflows,
+          workflowId: input.workflowId,
+          session: input.session,
+          loadSettlementSession: input.loadSettlementSession,
+          command,
+          recordedAt: input.recordedAt,
+          async execute(executedCommand) {
+            return await executeTrackerTransition({
+              presetAdapter: input.presetAdapter,
+              command: executedCommand,
+              issue: currentIssue,
+              tracker: input.tracker
+            });
+          }
         });
-      }
-    });
+        break;
+      case "run.dispatch":
+        await executeSettledRouteCommand({
+          routeWorkflows: input.routeWorkflows,
+          workflowId: input.workflowId,
+          session: input.session,
+          loadSettlementSession: input.loadSettlementSession,
+          command,
+          recordedAt: input.recordedAt,
+          async execute(executedCommand) {
+            await executeObservedDispatch({
+              presetAdapter: input.presetAdapter,
+              command: executedCommand,
+              activeRunMode: input.activeRunMode
+            });
+          }
+        });
+        break;
+      default:
+        throw new TypeError(
+          buildUnsupportedCommandErrorMessage({
+            commandKind: command.kind,
+            activeRunMode: input.activeRunMode
+          })
+        );
+    }
   }
 
   return currentIssue;
@@ -201,6 +220,36 @@ async function executeTrackerTransition(input: {
     ...input.issue,
     state: targetState
   };
+}
+
+async function executeObservedDispatch(input: {
+  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
+  command: WorkflowCommand;
+  activeRunMode?: SymphonyRunMode;
+}): Promise<void> {
+  if (!input.activeRunMode) {
+    throw new TypeError(
+      "Run completion routing does not support run.dispatch commands."
+    );
+  }
+
+  const dispatchRunMode = input.presetAdapter.readDispatchRunMode(input.command);
+  if (dispatchRunMode !== input.activeRunMode) {
+    throw new TypeError(
+      `Run lifecycle observation only supports run.dispatch for active run mode ${input.activeRunMode}. Received ${dispatchRunMode}.`
+    );
+  }
+}
+
+function buildUnsupportedCommandErrorMessage(input: {
+  commandKind: WorkflowCommand["kind"];
+  activeRunMode?: SymphonyRunMode;
+}) {
+  if (!input.activeRunMode) {
+    return `Run completion routing does not support command kind ${input.commandKind}.`;
+  }
+
+  return `Run lifecycle observation does not support command kind ${input.commandKind}.`;
 }
 
 function buildRunningTrackerStateObservedSignalId(input: {
