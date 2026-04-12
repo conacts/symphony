@@ -23,6 +23,11 @@ export function createRuntimeOrchestratorPort(input: {
   beforePollCycle?(
     snapshot: SymphonyOrchestratorSnapshot
   ): Promise<void> | void;
+  loadRunningWorkflowTrackerStates(
+    snapshot: SymphonyOrchestratorSnapshot
+  ):
+    | Promise<ReadonlyMap<string, string>>
+    | ReadonlyMap<string, string>;
 }): SymphonyRuntimeOrchestratorPort {
   let inFlightPollCycle: Promise<SymphonyOrchestratorSnapshot> | null = null;
   let runningBeforePollCycle = false;
@@ -177,6 +182,8 @@ export function createRuntimeOrchestratorPort(input: {
           runningBeforePollCycle = false;
         }
         const previousSnapshot = input.runtime.snapshot();
+        const previousWorkflowTrackerStates =
+          await input.loadRunningWorkflowTrackerStates(previousSnapshot);
         input.logger.info("Starting orchestrator poll cycle", {
           runningCount: previousSnapshot.running.length,
           retryingCount: previousSnapshot.retrying.length
@@ -184,9 +191,15 @@ export function createRuntimeOrchestratorPort(input: {
 
         try {
           const nextSnapshot = await input.runtime.runPollCycle();
+          const nextWorkflowTrackerStates =
+            await input.loadRunningWorkflowTrackerStates(nextSnapshot);
           const changed = snapshotRequiresRealtimeInvalidation(
             previousSnapshot,
-            nextSnapshot
+            nextSnapshot,
+            {
+              before: previousWorkflowTrackerStates,
+              after: nextWorkflowTrackerStates
+            }
           );
 
           input.logger.info("Finished orchestrator poll cycle", {
@@ -199,7 +212,11 @@ export function createRuntimeOrchestratorPort(input: {
             input.realtime,
             previousSnapshot,
             nextSnapshot,
-            input.logger
+            input.logger,
+            {
+              before: previousWorkflowTrackerStates,
+              after: nextWorkflowTrackerStates
+            }
           );
           return nextSnapshot;
         } catch (error) {

@@ -84,13 +84,22 @@ describe("runtime realtime diff", () => {
       }
     };
 
-    expect(snapshotRequiresRealtimeInvalidation(before, after)).toBe(true);
+    expect(
+      snapshotRequiresRealtimeInvalidation(before, after, {
+        before: buildWorkflowTrackerStates(before),
+        after: buildWorkflowTrackerStates(after)
+      })
+    ).toBe(true);
 
     publishRealtimeSnapshotDiff(
       realtime,
       before,
       after,
-      createSilentSymphonyLogger("@symphony/api.runtime-realtime-diff.test")
+      createSilentSymphonyLogger("@symphony/api.runtime-realtime-diff.test"),
+      {
+        before: buildWorkflowTrackerStates(before),
+        after: buildWorkflowTrackerStates(after)
+      }
     );
 
     expect(publishedRuns).toEqual([
@@ -203,6 +212,121 @@ describe("runtime realtime diff", () => {
       ]
     });
 
-    expect(snapshotRequiresRealtimeInvalidation(before, after)).toBe(true);
+    expect(
+      snapshotRequiresRealtimeInvalidation(before, after, {
+        before: buildWorkflowTrackerStates(before),
+        after: buildWorkflowTrackerStates(after)
+      })
+    ).toBe(true);
+  });
+
+  it("ignores raw snapshot tracker state changes when workflow state is unchanged", () => {
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const before = buildSymphonyOrchestratorSnapshot({
+      running: [
+        {
+          workspace: buildBindMountPreparedWorkspace(
+            issue.identifier,
+            `/tmp/symphony-${issue.identifier}`
+          ),
+          issueId: issue.id,
+          issue,
+          runId: "run-123",
+          threadId: "thread-live",
+          workerHost: null,
+          launchTarget: null,
+          workspacePath: `/tmp/symphony-${issue.identifier}`,
+          retryAttempt: 0,
+          turnCount: 1,
+          lastAgentMessage: null,
+          lastAgentTimestamp: "2026-03-31T00:00:01.000Z",
+          lastAgentEvent: "turn_completed",
+          agentInputTokens: 12,
+          agentOutputTokens: 4,
+          agentTotalTokens: 16,
+          agentLastReportedInputTokens: 12,
+          agentLastReportedOutputTokens: 4,
+          agentLastReportedTotalTokens: 16,
+          lastRateLimits: null,
+          agentRuntimeProcessId: "4242",
+          startedAt: "2026-03-31T00:00:00.000Z",
+          runtimeSeconds: 12
+        }
+      ]
+    });
+    const afterIssue = buildSymphonyRuntimeTrackerIssue({
+      ...issue,
+      state: "Approved"
+    });
+    const after = buildSymphonyOrchestratorSnapshot({
+      running: [
+        {
+          ...before.running[0]!,
+          issue: afterIssue
+        }
+      ]
+    });
+
+    expect(
+      snapshotRequiresRealtimeInvalidation(before, after, {
+        before: new Map([[issue.identifier, "In Progress"]]),
+        after: new Map([[issue.identifier, "In Progress"]])
+      })
+    ).toBe(false);
+  });
+
+  it("invalidates when workflow-authoritative tracker state changes", () => {
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const snapshot = buildSymphonyOrchestratorSnapshot({
+      running: [
+        {
+          workspace: buildBindMountPreparedWorkspace(
+            issue.identifier,
+            `/tmp/symphony-${issue.identifier}`
+          ),
+          issueId: issue.id,
+          issue,
+          runId: "run-123",
+          threadId: "thread-live",
+          workerHost: null,
+          launchTarget: null,
+          workspacePath: `/tmp/symphony-${issue.identifier}`,
+          retryAttempt: 0,
+          turnCount: 1,
+          lastAgentMessage: null,
+          lastAgentTimestamp: "2026-03-31T00:00:01.000Z",
+          lastAgentEvent: "turn_completed",
+          agentInputTokens: 12,
+          agentOutputTokens: 4,
+          agentTotalTokens: 16,
+          agentLastReportedInputTokens: 12,
+          agentLastReportedOutputTokens: 4,
+          agentLastReportedTotalTokens: 16,
+          lastRateLimits: null,
+          agentRuntimeProcessId: "4242",
+          startedAt: "2026-03-31T00:00:00.000Z",
+          runtimeSeconds: 12
+        }
+      ]
+    });
+
+    expect(
+      snapshotRequiresRealtimeInvalidation(snapshot, snapshot, {
+        before: new Map([[issue.identifier, "In Progress"]]),
+        after: new Map([[issue.identifier, "Approved"]])
+      })
+    ).toBe(true);
   });
 });
+
+function buildWorkflowTrackerStates(
+  snapshot: ReturnType<typeof buildSymphonyOrchestratorSnapshot>
+): Map<string, string> {
+  return new Map(
+    snapshot.running.map((entry) => [entry.issue.identifier, entry.issue.state])
+  );
+}

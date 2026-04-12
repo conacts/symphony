@@ -76,6 +76,7 @@ import {
   createWorkflowDispatchTracker
 } from "./runtime-workflow-dispatch-tracker.js";
 import { createRuntimeToolsPort } from "./runtime-tools-port.js";
+import { loadRunningWorkflowTrackerStates } from "./runtime-workflow-tracker-state.js";
 import {
   reconcilePersistedActiveRunsOnShutdown,
   waitForPollSchedulerDrain
@@ -495,11 +496,28 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       return await ensureTrackedIssueIdentity(issueIdentifier);
     }
   });
+  const loadWorkflowLifecycleView = (input: {
+    issueIdentifier: string;
+    runId?: string | null;
+  }) =>
+    routeLifecycle.loadWorkflowLifecycleView({
+      issueIdentifier: input.issueIdentifier,
+      runId: input.runId ?? null
+    });
+  const workflowRead = {
+    loadWorkflowLifecycleView
+  } satisfies SymphonyRuntimeAppServices["workflowRead"];
   const orchestratorPort = createRuntimeOrchestratorPort({
     runtime,
     logger,
     runtimeLogs: runtimeLogStore,
     realtime,
+    async loadRunningWorkflowTrackerStates(snapshot) {
+      return await loadRunningWorkflowTrackerStates({
+        snapshot,
+        workflowRead
+      });
+    },
     async beforePollCycle(snapshot) {
       await routeTrackerStateIngress.observeNonRunning({
         claimedIssueIds: snapshot.claimedIssueIds,
@@ -557,17 +575,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       };
     }
   } satisfies SymphonyRuntimeAppServices["trackerStateIngress"];
-  const workflowRead = {
-    async loadWorkflowLifecycleView(input: {
-      issueIdentifier: string;
-      runId?: string | null;
-    }) {
-      return await routeLifecycle.loadWorkflowLifecycleView({
-        issueIdentifier: input.issueIdentifier,
-        runId: input.runId ?? null
-      });
-    }
-  } satisfies SymphonyRuntimeAppServices["workflowRead"];
   const runtimeTools = createRuntimeToolsPort({
     tracker,
     deliveryReports,

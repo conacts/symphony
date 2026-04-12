@@ -32,6 +32,7 @@ describe("runtime orchestrator port", () => {
         record: vi.fn(async () => {})
       } as never,
       realtime: createSymphonyRealtimeHub(),
+      loadRunningWorkflowTrackerStates,
       beforePollCycle
     });
 
@@ -61,6 +62,7 @@ describe("runtime orchestrator port", () => {
         record: vi.fn(async () => {})
       } as never,
       realtime: createSymphonyRealtimeHub(),
+      loadRunningWorkflowTrackerStates,
       beforePollCycle
     });
 
@@ -89,7 +91,8 @@ describe("runtime orchestrator port", () => {
       runtimeLogs: {
         record: vi.fn(async () => {})
       } as never,
-      realtime: createSymphonyRealtimeHub()
+      realtime: createSymphonyRealtimeHub(),
+      loadRunningWorkflowTrackerStates
     });
 
     await port.dispatchRoutedIssue({
@@ -121,7 +124,8 @@ describe("runtime orchestrator port", () => {
       runtime,
       logger: createSilentSymphonyLogger("@symphony/api.runtime-orchestrator-port.test"),
       runtimeLogs: runtimeLogs as never,
-      realtime: createSymphonyRealtimeHub()
+      realtime: createSymphonyRealtimeHub(),
+      loadRunningWorkflowTrackerStates
     });
 
     await port.dispatchRoutedIssue({
@@ -141,3 +145,11 @@ describe("runtime orchestrator port", () => {
     );
   });
 });
+
+async function loadRunningWorkflowTrackerStates(
+  snapshot: ReturnType<typeof buildSymphonyOrchestratorSnapshot>
+): Promise<Map<string, string>> {
+  return new Map(
+    snapshot.running.map((entry) => [entry.issue.identifier, entry.issue.state])
+  );
+}

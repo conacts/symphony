@@ -2,14 +2,30 @@ import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import { summarizePreparedWorkspace } from "@symphony/workspace";
 import type { SymphonyLogger } from "@symphony/logger";
 import type { SymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
+import {
+  resolveRuntimeIssueTrackerState,
+  type RuntimeWorkflowTrackerStatesByIssueIdentifier
+} from "./runtime-workflow-tracker-state.js";
+
+type RuntimeRealtimeWorkflowTrackerStates = {
+  before: RuntimeWorkflowTrackerStatesByIssueIdentifier;
+  after: RuntimeWorkflowTrackerStatesByIssueIdentifier;
+};
 
 export function publishRealtimeSnapshotDiff(
   realtime: SymphonyRealtimeHub,
   before: SymphonyOrchestratorSnapshot,
   after: SymphonyOrchestratorSnapshot,
-  logger: SymphonyLogger
+  logger: SymphonyLogger,
+  workflowTrackerStates: RuntimeRealtimeWorkflowTrackerStates
 ): void {
-  if (!snapshotRequiresRealtimeInvalidation(before, after)) {
+  if (
+    !snapshotRequiresRealtimeInvalidation(
+      before,
+      after,
+      workflowTrackerStates
+    )
+  ) {
     logger.debug("Skipped realtime invalidation because snapshot did not change");
     return;
   }
@@ -59,21 +75,34 @@ export function publishRealtimeSnapshotDiff(
 
 export function snapshotRequiresRealtimeInvalidation(
   before: SymphonyOrchestratorSnapshot,
-  after: SymphonyOrchestratorSnapshot
+  after: SymphonyOrchestratorSnapshot,
+  workflowTrackerStates: RuntimeRealtimeWorkflowTrackerStates
 ): boolean {
   return (
-    JSON.stringify(buildRealtimeComparableSnapshot(before)) !==
-    JSON.stringify(buildRealtimeComparableSnapshot(after))
+    JSON.stringify(
+      buildRealtimeComparableSnapshot(before, workflowTrackerStates.before)
+    ) !==
+    JSON.stringify(
+      buildRealtimeComparableSnapshot(after, workflowTrackerStates.after)
+    )
   );
 }
 
 function buildRealtimeComparableSnapshot(
-  snapshot: SymphonyOrchestratorSnapshot
+  snapshot: SymphonyOrchestratorSnapshot,
+  workflowTrackerStatesByIssueIdentifier: RuntimeWorkflowTrackerStatesByIssueIdentifier
 ): Record<string, unknown> {
   return {
     running: snapshot.running.map((entry) => ({
       issueId: entry.issueId,
-      issue: entry.issue,
+      issueIdentifier: entry.issue.identifier,
+      trackerState: resolveRuntimeIssueTrackerState({
+        issueIdentifier: entry.issue.identifier,
+        trackedState: entry.issue.state,
+        workflowTrackerState:
+          workflowTrackerStatesByIssueIdentifier.get(entry.issue.identifier) ?? null,
+        hasWorkflowBackedRuntimeEntry: true
+      }),
       runId: entry.runId,
       threadId: entry.threadId,
       workerHost: entry.workerHost,

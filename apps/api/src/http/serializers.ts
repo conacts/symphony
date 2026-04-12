@@ -21,6 +21,7 @@ import {
   resolvePiIssueModel
 } from "../core/agent-app-server-launch.js";
 import type { AdmittedRuntimeRepository } from "../core/runtime-admitted-repositories.js";
+import { resolveRuntimeIssueTrackerState } from "../core/runtime-workflow-tracker-state.js";
 import type { SymphonyRuntimeWorkflowComparison } from "../core/runtime-workflow-comparison.js";
 
 type RuntimeIssuePiSelectionPolicy = {
@@ -218,32 +219,6 @@ export function serializeRuntimeIssue(
       }
     }
   };
-}
-
-function resolveRuntimeIssueTrackerState(input: {
-  issueIdentifier: string;
-  trackedState: string;
-  workflowTrackerState: string | null;
-  hasWorkflowBackedRuntimeEntry: boolean;
-}): string {
-  if (input.workflowTrackerState === null) {
-    if (input.hasWorkflowBackedRuntimeEntry) {
-      throw new Error(
-        `Runtime issue ${input.issueIdentifier} is missing workflow-authoritative tracker state.`
-      );
-    }
-
-    return input.trackedState;
-  }
-
-  const workflowTrackerState = input.workflowTrackerState.trim();
-  if (workflowTrackerState === "") {
-    throw new Error(
-      `Runtime issue ${input.issueIdentifier} has an empty workflow-authoritative tracker state.`
-    );
-  }
-
-  return input.workflowTrackerState;
 }
 
 export function serializeRuntimeWorkflowComparison(

@@ -19,6 +19,7 @@ import type { SymphonyRuntimeAppServices } from "../../core/runtime-app-types.js
 import { createHttpError } from "../../core/errors.js";
 import { jsonOk } from "../../core/envelope.js";
 import { requireRuntimeRouterPresetId } from "../../core/runtime-workflow-presets.js";
+import { loadRunningWorkflowTrackerStates } from "../../core/runtime-workflow-tracker-state.js";
 import { parseWithSchema } from "../../core/validation.js";
 import {
   serializeRuntimeIssue,
@@ -360,31 +361,6 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
 
   return runtimeRoutes;
 }
-
-async function loadRunningWorkflowTrackerStates(input: {
-  snapshot: ReturnType<SymphonyRuntimeAppServices["orchestrator"]["snapshot"]>;
-  workflowRead: SymphonyRuntimeAppServices["workflowRead"];
-}): Promise<Map<string, string>> {
-  const issueIdentifiers = [
-    ...new Set(input.snapshot.running.map((entry) => entry.issue.identifier))
-  ];
-  const workflowTrackerStatesByIssueIdentifier = new Map<string, string>();
-
-  for (const issueIdentifier of issueIdentifiers) {
-    const workflowLifecycle = await input.workflowRead.loadWorkflowLifecycleView({
-      issueIdentifier
-    });
-    if (workflowLifecycle) {
-      workflowTrackerStatesByIssueIdentifier.set(
-        issueIdentifier,
-        workflowLifecycle.trackerState
-      );
-    }
-  }
-
-  return workflowTrackerStatesByIssueIdentifier;
-}
-
 function normalizeWorkflowComparisonPresetIds(
   presetIds: ReadonlyArray<string> | undefined
 ): ReadonlyArray<string> | undefined {
