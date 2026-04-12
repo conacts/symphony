@@ -237,13 +237,22 @@ export async function createRuntimeRouteLifecycleService(input: {
       routing,
       sessionLoader
     });
+  const nonRunningTrackerSeedStates = buildNonRunningTrackerSeedStates({
+    trackerConfig: input.trackerConfig,
+    requiredStates: routing.module.requiredNonRunningTrackerObservationStates
+  });
+  const nonRunningTrackerObservationStates =
+    buildNonRunningTrackerObservationStates({
+      trackerConfig: input.trackerConfig,
+      seedStates: nonRunningTrackerSeedStates
+    });
   const observeNonRunningTrackerStates: SymphonyRuntimeRouteLifecycleService["observeNonRunningTrackerStates"] =
     async (observationInput) => {
       const claimedIssueIds = new Set(observationInput.claimedIssueIds);
       const issues = (
         await input.tracker.fetchIssuesByStates(
           input.trackerConfig,
-          [...nonRunningTrackerObservationStates]
+          nonRunningTrackerObservationStates
         )
       )
         .filter((issue) => !claimedIssueIds.has(issue.id))
@@ -258,7 +267,8 @@ export async function createRuntimeRouteLifecycleService(input: {
         if (
           !shouldIngressObservedNonRunningTrackerState({
             issue,
-            hydration
+            hydration,
+            seedStates: nonRunningTrackerSeedStates
           })
         ) {
           continue;
@@ -302,7 +312,8 @@ export async function createRuntimeRouteLifecycleService(input: {
       if (
         !shouldIngressObservedNonRunningTrackerState({
           issue,
-          hydration
+          hydration,
+          seedStates: nonRunningTrackerSeedStates
         })
       ) {
         const workflowLifecycle = await loadRequiredWorkflowLifecycleView({
@@ -497,27 +508,57 @@ export async function createRuntimeRouteLifecycleService(input: {
   };
 }
 
-const nonRunningTrackerSeedStates = [
-  "Todo",
-  "Bootstrapping",
-  "In Review",
-  "Rework",
-  "Approved"
-] as const;
+function buildNonRunningTrackerSeedStates(input: {
+  trackerConfig: SymphonyTrackerConfig;
+  requiredStates: readonly string[];
+}): string[] {
+  return mergeTrackerStates([
+    ...input.trackerConfig.dispatchableStates,
+    ...input.requiredStates
+  ]);
+}
 
-const nonRunningTrackerObservationStates = [
-  ...nonRunningTrackerSeedStates,
-  "Canceled",
-  "Paused",
-  "Blocked",
-  "Failed"
-] as const;
+function buildNonRunningTrackerObservationStates(input: {
+  trackerConfig: SymphonyTrackerConfig;
+  seedStates: readonly string[];
+}): string[] {
+  return mergeTrackerStates([
+    ...input.seedStates,
+    ...input.trackerConfig.terminalStates,
+    input.trackerConfig.pauseTransitionToState,
+    input.trackerConfig.blockedTransitionToState,
+    input.trackerConfig.startupFailureTransitionToState
+  ]);
+}
+
+function mergeTrackerStates(states: ReadonlyArray<string | null | undefined>): string[] {
+  const mergedStates: string[] = [];
+  const seenStates = new Set<string>();
+
+  for (const state of states) {
+    if (typeof state !== "string") {
+      continue;
+    }
+
+    const trimmedState = state.trim();
+    const normalizedState = normalizeIssueState(trimmedState);
+    if (normalizedState.length === 0 || seenStates.has(normalizedState)) {
+      continue;
+    }
+
+    seenStates.add(normalizedState);
+    mergedStates.push(trimmedState);
+  }
+
+  return mergedStates;
+}
 
 function shouldIngressObservedNonRunningTrackerState(input: {
   issue: {
     state: string;
   };
   hydration: SymphonyLoadedRuntimeWorkflowHydration | null;
+  seedStates: readonly string[];
 }): boolean {
   const observedTrackerState = normalizeIssueState(input.issue.state);
   const hydration = input.hydration;
@@ -562,7 +603,7 @@ function shouldIngressObservedNonRunningTrackerState(input: {
     return true;
   }
 
-  return nonRunningTrackerSeedStates.some(
+  return input.seedStates.some(
     (state) => normalizeIssueState(state) === observedTrackerState
   );
 }

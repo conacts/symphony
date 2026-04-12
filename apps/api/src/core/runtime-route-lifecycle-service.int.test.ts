@@ -17,7 +17,10 @@ import {
   buildSymphonyRuntimePolicy,
   buildSymphonyTrackerIssue
 } from "@symphony/test-support";
-import { createMemorySymphonyTracker } from "@symphony/tracker";
+import {
+  createMemorySymphonyTracker,
+  type SymphonyTrackerConfig
+} from "@symphony/tracker";
 import { expectRouteWorkflowAuthorityProof } from "../test-support/route-workflow-authority-test-support.js";
 import {
   createRuntimeCurrentFlowRouting,
@@ -567,6 +570,101 @@ describe("runtime route lifecycle service", () => {
         assertData(data) {
           expect(data.trackerState).toBe("Bootstrapping");
           expect(data.lastDispatchMode).toBe("implementation");
+        }
+      });
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("respects configured dispatchable states when batching non-running observations", async () => {
+    const runtimePolicy = buildSymphonyRuntimePolicy();
+    const harness = await createHarness({
+      state: "Rework",
+      trackerConfig: {
+        ...runtimePolicy.tracker,
+        dispatchableStates: ["Todo"]
+      }
+    });
+
+    try {
+      const observedIssues = await harness.service.observeNonRunningTrackerStates({
+        claimedIssueIds: [],
+        recordedAt: "2026-04-10T14:00:12.000Z",
+        onDispatchRequested: async () => {}
+      });
+
+      expect(observedIssues).toEqual([]);
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Rework");
+
+      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >(harness.issue.identifier);
+      expect(hydration).toBeNull();
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("still observes preset-required Approved state even when it is not dispatchable", async () => {
+    const runtimePolicy = buildSymphonyRuntimePolicy();
+    const harness = await createHarness({
+      state: "Approved",
+      trackerConfig: {
+        ...runtimePolicy.tracker,
+        dispatchableStates: ["Todo", "Rework"]
+      }
+    });
+
+    try {
+      const dispatchRequests: Array<{
+        workflowId: string;
+        issueState: string;
+        runMode: string;
+      }> = [];
+
+      const observedIssues = await harness.service.observeNonRunningTrackerStates({
+        claimedIssueIds: [],
+        recordedAt: "2026-04-10T14:00:12.000Z",
+        onDispatchRequested: async (input) => {
+          dispatchRequests.push({
+            workflowId: input.workflowId,
+            issueState: input.issue.state,
+            runMode: input.runMode
+          });
+        }
+      });
+
+      expect(observedIssues).toEqual([
+        {
+          issueIdentifier: harness.issue.identifier,
+          observedTrackerState: "Approved",
+          workflowTrackerState: "Approved"
+        }
+      ]);
+      expect(dispatchRequests).toEqual([
+        {
+          workflowId: expect.any(String),
+          issueState: "Approved",
+          runMode: "approved_merge"
+        }
+      ]);
+
+      await expectRouteWorkflowAuthorityProof<
+        SymphonyCurrentFlowNode,
+        SymphonyCurrentFlowData,
+        SymphonyCurrentFlowPolicy
+      >({
+        routeWorkflows: harness.routeWorkflows,
+        issueIdentifier: harness.issue.identifier,
+        currentNode: "approved_merge",
+        reasonCode: "approved_merge_requested",
+        signalType: "tracker.state_observed",
+        assertData(data) {
+          expect(data.trackerState).toBe("Approved");
+          expect(data.lastDispatchMode).toBe("approved_merge");
         }
       });
     } finally {
@@ -1604,11 +1702,12 @@ describe("runtime route lifecycle service", () => {
 });
 
 async function createHarness(input: {
-  state: "Todo" | "Approved";
+  state: string;
   issue?: ReturnType<typeof buildSymphonyTrackerIssue>;
   repositoryKey?: string;
   presetId?: SymphonyRuntimeRouterPresetId;
   seedIssueIdentity?: boolean;
+  trackerConfig?: SymphonyTrackerConfig;
   resolveIssueRepositoryKey?(issue: ReturnType<typeof buildSymphonyTrackerIssue>): string;
 }) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-route-lifecycle-service-"));
@@ -1623,6 +1722,7 @@ async function createHarness(input: {
     routeWorkflowStore
   });
   const runtimePolicy = buildSymphonyRuntimePolicy();
+  const trackerConfig = input.trackerConfig ?? runtimePolicy.tracker;
   const issue =
     input.issue ??
     buildSymphonyTrackerIssue({
@@ -1645,7 +1745,7 @@ async function createHarness(input: {
     return await createRuntimeRouteLifecycleService({
       routeWorkflows,
       tracker,
-      trackerConfig: runtimePolicy.tracker,
+      trackerConfig,
       repositoryKey,
       resolveIssueRepositoryKey: input.resolveIssueRepositoryKey,
       async ensureIssueIdentity(observedIssue) {

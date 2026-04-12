@@ -21,7 +21,10 @@ import {
   type SymphonyCurrentFlowPolicy,
   type WorkflowRouter
 } from "@symphony/router";
-import type { SymphonyTrackerConfig } from "@symphony/tracker";
+import {
+  normalizeIssueState,
+  type SymphonyTrackerConfig
+} from "@symphony/tracker";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import type { SymphonyRuntimeWorkflowPresetModule } from "./runtime-workflow-preset-registry.js";
 import {
@@ -63,6 +66,11 @@ export function createRuntimeCurrentFlowPresetModule<
     presetId: input.presetId,
     preset: input.preset,
     runtimeAdapter: createCurrentFlowRuntimeWorkflowPresetAdapter(),
+    requiredNonRunningTrackerObservationStates: [
+      "Bootstrapping",
+      "In Review",
+      "Approved"
+    ],
     assertTrackerContract(input) {
       assertCurrentFlowTrackerContract(input.trackerConfig);
     }
@@ -119,7 +127,7 @@ function assertTrackerStateValue(
   value: string | null,
   expected: string
 ): void {
-  if (value === expected) {
+  if (normalizeIssueState(value) === normalizeIssueState(expected)) {
     return;
   }
 
@@ -133,7 +141,11 @@ function assertTrackerStateIncluded(
   states: string[],
   expectedState: string
 ): void {
-  if (states.includes(expectedState)) {
+  if (
+    states.some(
+      (state) => normalizeIssueState(state) === normalizeIssueState(expectedState)
+    )
+  ) {
     return;
   }
 

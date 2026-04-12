@@ -88,6 +88,27 @@ describe("runtime router preset selection", () => {
     );
   });
 
+  it("accepts semantically equivalent tracker contract state variants", async () => {
+    const runtimePolicy = buildSymphonyRuntimePolicy();
+
+    await expect(
+      selectRuntimeRouterPreset({
+        trackerConfig: {
+          ...runtimePolicy.tracker,
+          claimTransitionToState: " bootstrapping ",
+          startupFailureTransitionToState: " failed ",
+          pauseTransitionToState: " paused ",
+          blockedTransitionToState: " blocked ",
+          claimTransitionFromStates: [" todo ", " rework "],
+          terminalStates: [" done ", " canceled "]
+        },
+        presetId: "current-flow"
+      })
+    ).resolves.toMatchObject({
+      presetId: "current-flow"
+    });
+  });
+
   it("reads persisted lifecycle values through the preset adapter", async () => {
     const runtimePolicy = buildSymphonyRuntimePolicy();
     const routing = await selectRuntimeRouterPreset({
