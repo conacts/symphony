@@ -3,6 +3,7 @@ import { z } from "zod";
 import { resolveHarnessModelRuntimePolicy } from "@symphony/agent-harnesses";
 import {
   symphonyRuntimeHealthResponseSchema,
+  symphonyRuntimeConfigResponseSchema,
   symphonyRuntimeIssuePathSchema,
   symphonyRuntimeLogsQuerySchema,
   symphonyRuntimeLogsResponseSchema,
@@ -59,6 +60,29 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     });
 
     symphonyRuntimeStateResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      data: result,
+      meta: {
+        durationMs: 0,
+        generatedAt: new Date().toISOString()
+      }
+    });
+
+    return jsonOk(c, result);
+  });
+
+  runtimeRoutes.get("/runtime/config", (c) => {
+    const result = services.runtimeConfig;
+
+    c.get("logger").debug("Returning runtime config snapshot", {
+      repositorySourceKind: result.bootstrap.repositorySource.kind,
+      admittedRepositoryCount: result.admittedRepositories.length,
+      bindingCatalogPresent: result.bindingCatalog !== null,
+      presetId: result.bootstrap.presetSelection.presetId
+    });
+
+    symphonyRuntimeConfigResponseSchema.parse({
       schemaVersion: "1",
       ok: true,
       data: result,

@@ -457,7 +457,6 @@ function classifyFailureType(
 
   if (
     outcome === "paused_max_turns" ||
-    outcome === "max_turns_reached" ||
     failureKind === "max_turns_reached" ||
     errorClass === "max_turns_reached" ||
     errorClass === "max_turns"

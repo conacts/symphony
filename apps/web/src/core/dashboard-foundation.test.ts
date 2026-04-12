@@ -26,6 +26,9 @@ describe("dashboard foundation", () => {
     expect(runtimeSurface.healthUrl).toBe(
       "https://runtime.symphony.local/api/v1/health"
     );
+    expect(runtimeSurface.runtimeConfigUrl).toBe(
+      "https://runtime.symphony.local/api/v1/runtime/config"
+    );
     expect(runtimeSurface.runtimeLogsUrl).toBe(
       "https://runtime.symphony.local/api/v1/runtime/logs"
     );
@@ -41,13 +44,14 @@ describe("dashboard foundation", () => {
 
     expect(foundation.contractsPackageName).toBe("@symphony/contracts");
     expect(foundation.schemaVersion).toBe("1");
-    expect(foundation.navigation).toHaveLength(5);
+    expect(foundation.navigation).toHaveLength(6);
     expect(foundation.navigation.map((item) => item.href)).toEqual([
       "/",
       "/analysis/failures",
       "/analysis/tokens",
       "/issues",
-      "/runtime/health"
+      "/runtime/health",
+      "/runtime/config"
     ]);
     expect(foundation.websocketUrl).toBe("ws://127.0.0.1:4500/api/v1/ws");
     expect(foundation.runtimeSurface.stateUrl).toBe(
@@ -61,6 +65,9 @@ describe("dashboard foundation", () => {
     );
     expect(foundation.runtimeSurface.healthUrl).toBe(
       "http://127.0.0.1:4500/api/v1/health"
+    );
+    expect(foundation.runtimeSurface.runtimeConfigUrl).toBe(
+      "http://127.0.0.1:4500/api/v1/runtime/config"
     );
     expect(foundation.runtimeSurface.runtimeLogsUrl).toBe(
       "http://127.0.0.1:4500/api/v1/runtime/logs"

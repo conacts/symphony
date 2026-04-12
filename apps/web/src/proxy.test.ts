@@ -56,6 +56,22 @@ describe("web proxy", () => {
     expect(payload.data.issues.length).toBeGreaterThan(0);
   });
 
+  it("serves the runtime config endpoint from mock data when mock runtime is enabled", async () => {
+    process.env.NEXT_PUBLIC_SYMPHONY_USE_MOCK_RUNTIME = "true";
+
+    const response = buildMockProxyResponse({
+      method: "GET",
+      url: "http://localhost:3000/api/v1/runtime/config"
+    });
+
+    expect(response).not.toBeNull();
+    expect(response?.status).toBe(200);
+
+    const payload = await response!.json();
+    expect(payload.ok).toBe(true);
+    expect(payload.data.bootstrap.presetSelection.presetId).toBe("current-flow");
+  });
+
   it("returns a mock 501 response for unsupported mock-runtime endpoints", async () => {
     process.env.NEXT_PUBLIC_SYMPHONY_USE_MOCK_RUNTIME = "true";
 

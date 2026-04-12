@@ -11,6 +11,7 @@ import {
   buildMockProblemRunsResult,
   buildMockRunDetailResult,
   buildMockRuntimeHealthResult,
+  buildMockRuntimeConfigResult,
   buildMockRuntimeIssueResult,
   buildMockRuntimeLogsResult,
   buildMockRuntimeRefreshResult,
@@ -54,6 +55,10 @@ export function buildMockProxyResponse(
 
   if (request.method === "GET" && pathname === "/api/v1/health") {
     return NextResponse.json(createMockEnvelope(buildMockRuntimeHealthResult()));
+  }
+
+  if (request.method === "GET" && pathname === "/api/v1/runtime/config") {
+    return NextResponse.json(createMockEnvelope(buildMockRuntimeConfigResult()));
   }
 
   if (request.method === "GET" && pathname === "/api/v1/runtime/logs") {

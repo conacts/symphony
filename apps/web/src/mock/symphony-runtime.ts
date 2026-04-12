@@ -9,6 +9,7 @@ import type {
   SymphonyForensicsRunDetailResult,
   SymphonyForensicsRunSummary,
   SymphonyRuntimeHealthResult,
+  SymphonyRuntimeConfigResult,
   SymphonyRuntimeIssueResult,
   SymphonyRuntimeLogEntry,
   SymphonyRuntimeLogsResult,
@@ -45,7 +46,7 @@ const rawMockIssueTemplates = [
     completedRunCount: 1,
     problemRunCount: 2,
     problemRate: 2 / 3,
-    latestProblemOutcome: "max_turns",
+    latestProblemOutcome: "paused_max_turns",
     lastCompletedOutcome: "completed",
     latestDeliveryStatus: "completed",
     latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
@@ -76,7 +77,7 @@ const rawMockIssueTemplates = [
     issueIdentifier: "COL-166",
     latestRunStartedAt: "2026-03-31T19:10:00.000Z",
     latestRunId: "run_456",
-    latestRunStatus: "retrying",
+    latestRunStatus: "rate_limited",
     latestRunOutcome: "rate_limited",
     runCount: 4,
     completedRunCount: 1,
@@ -114,12 +115,12 @@ const rawMockIssueTemplates = [
     latestRunStartedAt: "2026-03-31T17:25:00.000Z",
     latestRunId: "run_789",
     latestRunStatus: "finished",
-    latestRunOutcome: "startup_failure",
+    latestRunOutcome: "startup_failed",
     runCount: 2,
     completedRunCount: 0,
     problemRunCount: 2,
     problemRate: 1,
-    latestProblemOutcome: "startup_failure",
+    latestProblemOutcome: "startup_failed",
     lastCompletedOutcome: null,
     latestDeliveryStatus: null,
     latestDeliveryReportedAt: null,
@@ -187,7 +188,7 @@ const rawMockIssueTemplates = [
     issueIdentifier: "COL-169",
     latestRunStartedAt: "2026-03-29T14:15:00.000Z",
     latestRunId: "run_345",
-    latestRunStatus: "retrying",
+    latestRunStatus: "rate_limited",
     latestRunOutcome: "rate_limited",
     runCount: 4,
     completedRunCount: 2,
@@ -269,6 +270,7 @@ function withMockAgentRunSummary(
     | "agentFailureMessagePreview"
     | "cachedInputTokens"
     | "repositoryKey"
+    | "runMode"
     | "machineLoad"
     | "deliveryStatus"
     | "deliveryReportedAt"
@@ -278,10 +280,11 @@ function withMockAgentRunSummary(
   return {
     ...run,
     repositoryKey: DEFAULT_REPOSITORY_KEY,
+    runMode: "implementation",
     agentHarness: "pi",
     model: "xiaomi/mimo-v2-pro",
     agentStatus:
-      run.status === "retrying"
+      run.status === "rate_limited"
         ? "failed"
         : run.outcome === "completed"
           ? "completed"
@@ -345,7 +348,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       issueIdentifier: "COL-165",
       attempt: 2,
       status: "finished",
-      outcome: "max_turns",
+      outcome: "paused_max_turns",
       workerHost: "worker-a",
       workspacePath: "/tmp/workspaces/col-165",
       startedAt: "2026-03-31T17:40:00.000Z",
@@ -394,7 +397,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       trackerIssueId: "issue_456",
       issueIdentifier: "COL-166",
       attempt: 4,
-      status: "retrying",
+      status: "rate_limited",
       outcome: "rate_limited",
       workerHost: "worker-b",
       workspacePath: "/tmp/workspaces/col-166",
@@ -445,7 +448,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       issueIdentifier: "COL-167",
       attempt: 2,
       status: "finished",
-      outcome: "startup_failure",
+      outcome: "startup_failed",
       workerHost: "worker-c",
       workspacePath: "/tmp/workspaces/col-167",
       startedAt: "2026-03-31T17:25:00.000Z",
@@ -469,7 +472,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       issueIdentifier: "COL-167",
       attempt: 1,
       status: "finished",
-      outcome: "startup_failure",
+      outcome: "startup_failed",
       workerHost: "worker-c",
       workspacePath: "/tmp/workspaces/col-167",
       startedAt: "2026-03-31T17:20:00.000Z",
@@ -519,7 +522,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       issueIdentifier: "COL-168",
       attempt: 2,
       status: "finished",
-      outcome: "max_turns",
+      outcome: "paused_max_turns",
       workerHost: "worker-d",
       workspacePath: "/tmp/workspaces/col-168",
       startedAt: "2026-03-30T15:55:00.000Z",
@@ -544,7 +547,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
       trackerIssueId: "issue_345",
       issueIdentifier: "COL-169",
       attempt: 2,
-      status: "retrying",
+      status: "rate_limited",
       outcome: "rate_limited",
       workerHost: "worker-e",
       workspacePath: "/tmp/workspaces/col-169",
@@ -1190,6 +1193,100 @@ export function buildMockRuntimeRefreshResult(): SymphonyRuntimeRefreshResult {
   });
 }
 
+export function buildMockRuntimeConfigResult(): SymphonyRuntimeConfigResult {
+  return {
+    runtime: {
+      repositoryKey: "openai/symphony",
+      githubRepository: "openai/symphony",
+      trackerKind: "linear",
+      trackerTeamKey: "COL",
+      agentHarness: "pi",
+      workspaceRoot: "/tmp/symphony-workspaces"
+    },
+    credentials: {
+      linearApiKeyConfigured: true,
+      githubCliAuthMode: "env",
+      githubCliAuthEnvKey: "GITHUB_TOKEN",
+      piAuthMode: "provider_env",
+      piProviderEnvKey: "OPENAI_API_KEY"
+    },
+    bootstrap: {
+      kind: "workflow_binding",
+      repositorySource: {
+        kind: "persisted_workspace_bindings",
+        source: "database",
+        sourceRepos: [
+          "/Users/connorsheehan/junction/symphony",
+          "/Users/connorsheehan/junction/coldets"
+        ],
+        bindingScope: {
+          organizationId: "org_local",
+          linearWorkspaceIdentityId: "linear_workspace_local"
+        }
+      },
+      defaultRepositoryKey: "openai/symphony",
+      manifestPath: "/Users/connorsheehan/junction/symphony/.symphony/runtime.ts",
+      bindingScope: {
+        organizationId: "org_local",
+        linearWorkspaceIdentityId: "linear_workspace_local"
+      },
+      presetSelection: {
+        presetId: "current-flow",
+        source: "runtime_manifest",
+        repositoryKey: "openai/symphony",
+        manifestPath: "/Users/connorsheehan/junction/symphony/.symphony/runtime.ts"
+      }
+    },
+    admittedRepositories: [
+      {
+        repositoryKey: "openai/symphony",
+        repoRoot: "/Users/connorsheehan/junction/symphony",
+        linearTeamKey: "COL",
+        manifestPath: "/Users/connorsheehan/junction/symphony/.symphony/runtime.ts",
+        promptPath: "/Users/connorsheehan/junction/symphony/.symphony/prompt.md"
+      },
+      {
+        repositoryKey: "openai/coldets",
+        repoRoot: "/Users/connorsheehan/junction/coldets",
+        linearTeamKey: "COL",
+        manifestPath: "/Users/connorsheehan/junction/coldets/.symphony/runtime.ts",
+        promptPath: "/Users/connorsheehan/junction/coldets/.symphony/prompt.md"
+      }
+    ],
+    bindingCatalog: {
+      organizationId: "org_local",
+      linearWorkspaceIdentityId: "linear_workspace_local",
+      repositories: [
+        {
+          repositoryWorkspaceBindingId: "repository_workspace_binding_symphony",
+          githubInstallationIdentityId: "github_installation_identity_local",
+          githubRepositoryIdentityId: "github_repository_identity_symphony",
+          repositoryKey: "openai/symphony",
+          linearWorkspaceIdentityId: "linear_workspace_local",
+          source: "manual",
+          teamBindings: [
+            {
+              repositoryTeamBindingId: "repository_team_binding_symphony",
+              linearTeamIdentityId: "linear_team_identity_col",
+              linearTeamId: "team_col",
+              linearTeamKey: "COL",
+              source: "manual"
+            }
+          ],
+          projectBindings: [
+            {
+              repositoryProjectBindingId: "repository_project_binding_symphony",
+              linearProjectIdentityId: "linear_project_identity_symphony",
+              linearProjectId: "project_symphony",
+              source: "bootstrap"
+            }
+          ]
+        }
+      ]
+    }
+  };
+}
+
 export function buildMockRuntimeHealthResult(): SymphonyRuntimeHealthResult {
   return buildSymphonyRuntimeHealthResult({
     poller: {
@@ -1242,7 +1339,10 @@ export function buildMockIssueListResult(
       outcomes: uniqueValues(
         mockIssues.flatMap((issue) =>
           [issue.latestRunOutcome, issue.latestProblemOutcome, issue.lastCompletedOutcome].filter(
-            (value): value is string => value !== null
+            (
+              value
+            ): value is NonNullable<SymphonyForensicsIssueSummary["latestRunOutcome"]> =>
+              value !== null
           )
         )
       ),
@@ -1336,7 +1436,7 @@ export function buildMockProblemRunsResult(
 ): SymphonyForensicsProblemRunsResult {
   const limit = parsePositiveInt(input.get("limit")) ?? 200;
   const issueIdentifier = input.get("issueIdentifier");
-  const outcome = input.get("outcome");
+  const outcome = parseOutcomeFilter(input.get("outcome"));
   const runs = Object.values(mockRunsByIssueIdentifier)
     .flat()
     .filter((run) => run.outcome !== "completed")
@@ -1380,25 +1480,7 @@ export function buildMockRunDetailResult(
 
   if (runId === "run_123") {
     return buildSymphonyForensicsRunDetailResult({
-      issue: {
-        repositoryKey: issue.repositoryKey,
-        trackerIssueId: issue.trackerIssueId,
-        issueIdentifier: issue.issueIdentifier,
-        latestRunStartedAt: issue.latestRunStartedAt,
-        latestRunId: issue.latestRunId,
-        latestRunStatus: issue.latestRunStatus,
-        latestRunOutcome: issue.latestRunOutcome,
-        runCount: issue.runCount,
-        latestProblemOutcome: issue.latestProblemOutcome,
-        lastCompletedOutcome: issue.lastCompletedOutcome,
-        latestDeliveryStatus: issue.latestDeliveryStatus,
-        latestDeliveryReportedAt: issue.latestDeliveryReportedAt,
-        latestDeliveryRunId: issue.latestDeliveryRunId,
-        latestDeliveryPrUrl: issue.latestDeliveryPrUrl,
-        deliveredRunCount: issue.deliveredRunCount,
-        insertedAt: issue.insertedAt,
-        updatedAt: issue.updatedAt
-      }
+      issue: toRunDetailIssueSummary(issue)
     });
   }
 
@@ -1418,25 +1500,7 @@ export function buildMockRunDetailResult(
   );
 
   return buildSymphonyForensicsRunDetailResult({
-    issue: {
-      repositoryKey: issue.repositoryKey,
-      trackerIssueId: issue.trackerIssueId,
-      issueIdentifier: issue.issueIdentifier,
-      latestRunStartedAt: issue.latestRunStartedAt,
-      latestRunId: issue.latestRunId,
-      latestRunStatus: issue.latestRunStatus,
-      latestRunOutcome: issue.latestRunOutcome,
-      runCount: issue.runCount,
-      latestProblemOutcome: issue.latestProblemOutcome,
-      lastCompletedOutcome: issue.lastCompletedOutcome,
-      latestDeliveryStatus: issue.latestDeliveryStatus,
-      latestDeliveryReportedAt: issue.latestDeliveryReportedAt,
-      latestDeliveryRunId: issue.latestDeliveryRunId,
-      latestDeliveryPrUrl: issue.latestDeliveryPrUrl,
-      deliveredRunCount: issue.deliveredRunCount,
-      insertedAt: issue.insertedAt,
-      updatedAt: issue.updatedAt
-    },
+    issue: toRunDetailIssueSummary(issue),
     run: {
       ...run,
       threadId: `thread_${run.runId}`,
@@ -1543,7 +1607,7 @@ function buildIssueFilters(input: URLSearchParams): SymphonyForensicsIssueFilter
     timeRange: parseTimeRange(input.get("timeRange")),
     startedAfter: toNullableString(input.get("startedAfter")),
     startedBefore: toNullableString(input.get("startedBefore")),
-    outcome: toNullableString(input.get("outcome")),
+    outcome: parseOutcomeFilter(input.get("outcome")),
     errorClass: toNullableString(input.get("errorClass")),
     hasFlags: parseCsv(input.get("hasFlag")) as SymphonyForensicsIssueFilters["hasFlags"],
     sortBy: parseSortBy(input.get("sortBy")),
@@ -1702,6 +1766,30 @@ function parsePositiveInt(value: string | null) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function toRunDetailIssueSummary(
+  issue: SymphonyForensicsIssueSummary
+): SymphonyForensicsRunDetailResult["issue"] {
+  return {
+    repositoryKey: issue.repositoryKey,
+    trackerIssueId: issue.trackerIssueId,
+    issueIdentifier: issue.issueIdentifier,
+    latestRunStartedAt: issue.latestRunStartedAt,
+    latestRunId: issue.latestRunId,
+    latestRunStatus: issue.latestRunStatus,
+    latestRunOutcome: issue.latestRunOutcome,
+    runCount: issue.runCount,
+    latestProblemOutcome: issue.latestProblemOutcome,
+    lastCompletedOutcome: issue.lastCompletedOutcome,
+    latestDeliveryStatus: issue.latestDeliveryStatus,
+    latestDeliveryReportedAt: issue.latestDeliveryReportedAt,
+    latestDeliveryRunId: issue.latestDeliveryRunId,
+    latestDeliveryPrUrl: issue.latestDeliveryPrUrl,
+    deliveredRunCount: issue.deliveredRunCount,
+    insertedAt: requireIssueTimestamp(issue.insertedAt, issue.issueIdentifier, "insertedAt"),
+    updatedAt: requireIssueTimestamp(issue.updatedAt, issue.issueIdentifier, "updatedAt")
+  };
+}
+
 function parseCsv(value: string | null) {
   if (!value) {
     return [];
@@ -1722,7 +1810,19 @@ function toNullableString(value: string | null) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function uniqueValues(values: string[]) {
+function requireIssueTimestamp(
+  value: string | null,
+  issueIdentifier: string,
+  field: "insertedAt" | "updatedAt"
+): string {
+  if (value === null) {
+    throw new TypeError(`Mock issue ${issueIdentifier} is missing required ${field}.`);
+  }
+
+  return value;
+}
+
+function uniqueValues<T extends string>(values: T[]): T[] {
   return [...new Set(values)];
 }
 
@@ -1746,6 +1846,29 @@ function parseSortBy(value: string | null): SymphonyForensicsIssueFilters["sortB
   }
 
   return "lastActive";
+}
+
+function parseOutcomeFilter(
+  value: string | null
+): SymphonyForensicsIssueFilters["outcome"] {
+  switch (value) {
+    case "completed":
+    case "merged":
+    case "blocked":
+    case "merge_blocked":
+    case "paused_max_turns":
+    case "startup_failed":
+    case "rate_limited":
+    case "provider_transient":
+    case "stalled":
+    case "failed":
+    case "runtime_shutdown":
+    case "run_stopped_inactive":
+    case "run_stopped_terminal":
+      return value;
+    default:
+      return null;
+  }
 }
 
 function parseSortDirection(

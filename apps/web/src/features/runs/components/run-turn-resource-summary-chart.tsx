@@ -46,20 +46,20 @@ export function RunTurnResourceSummaryChart(input: {
   const hottestRow = [...input.rows].sort((left, right) => right.peakCpuPercent - left.peakCpuPercent)[0] ?? null;
 
   return (
-    <Card className="border-border/70">
+    <Card className="flex h-full min-h-[300px] flex-col border-border/70">
       <CardHeader className="space-y-1">
         <CardTitle>Turn resource pressure</CardTitle>
         <CardDescription>
           Peak command CPU, memory, and process pressure summarized at the turn level.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex min-h-0 flex-1">
         {input.rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No per-command resource profile was captured for this run.
           </p>
         ) : (
-          <div className="space-y-4">
+          <div className="flex w-full flex-1 flex-col gap-4">
             {hottestRow ? (
               <div className="grid gap-3 sm:grid-cols-3">
                 <MetricCard
@@ -84,7 +84,7 @@ export function RunTurnResourceSummaryChart(input: {
               </div>
             ) : null}
 
-            <ChartContainer className="h-80 w-full" config={chartConfig}>
+            <ChartContainer className="min-h-64 w-full flex-1" config={chartConfig}>
               <ComposedChart accessibilityLayer data={input.rows} margin={{ left: 12, right: 12 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="turnLabel" tickLine={false} axisLine={false} tickMargin={8} />

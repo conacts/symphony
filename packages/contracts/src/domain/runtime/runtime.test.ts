@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  symphonyRuntimeConfigResponseSchema,
   symphonyRuntimeIssuePathSchema,
   symphonyRuntimeIssueResponseSchema,
   symphonyRuntimeRefreshRequestSchema,
@@ -580,6 +581,100 @@ describe("symphony runtime contracts", () => {
 
     expect(request).toEqual({});
     expect(response.ok).toBe(true);
+  });
+
+  it("parses the runtime config envelope", () => {
+    const parsed = symphonyRuntimeConfigResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      meta: {
+        durationMs: 0,
+        generatedAt: "2026-04-12T00:00:00.000Z"
+      },
+      data: {
+        runtime: {
+          repositoryKey: "openai/symphony",
+          githubRepository: "openai/symphony",
+          trackerKind: "linear",
+          trackerTeamKey: "COL",
+          agentHarness: "pi",
+          workspaceRoot: "/tmp/symphony-workspaces"
+        },
+        credentials: {
+          linearApiKeyConfigured: true,
+          githubCliAuthMode: "env",
+          githubCliAuthEnvKey: "GITHUB_TOKEN",
+          piAuthMode: "provider_env",
+          piProviderEnvKey: "OPENAI_API_KEY"
+        },
+        bootstrap: {
+          kind: "workflow_binding",
+          repositorySource: {
+            kind: "persisted_workspace_bindings",
+            source: "database",
+            sourceRepos: ["/Users/example/symphony"],
+            bindingScope: {
+              organizationId: "org_123",
+              linearWorkspaceIdentityId: "workspace_123"
+            }
+          },
+          defaultRepositoryKey: "openai/symphony",
+          manifestPath: "/Users/example/symphony/.symphony/runtime.ts",
+          bindingScope: {
+            organizationId: "org_123",
+            linearWorkspaceIdentityId: "workspace_123"
+          },
+          presetSelection: {
+            presetId: "current-flow",
+            source: "runtime_manifest",
+            repositoryKey: "openai/symphony",
+            manifestPath: "/Users/example/symphony/.symphony/runtime.ts"
+          }
+        },
+        admittedRepositories: [
+          {
+            repositoryKey: "openai/symphony",
+            repoRoot: "/Users/example/symphony",
+            linearTeamKey: "COL",
+            manifestPath: "/Users/example/symphony/.symphony/runtime.ts",
+            promptPath: "/Users/example/symphony/.symphony/prompt.md"
+          }
+        ],
+        bindingCatalog: {
+          organizationId: "org_123",
+          linearWorkspaceIdentityId: "workspace_123",
+          repositories: [
+            {
+              repositoryWorkspaceBindingId: "binding_123",
+              githubInstallationIdentityId: "gh_installation_123",
+              githubRepositoryIdentityId: "gh_repo_123",
+              repositoryKey: "openai/symphony",
+              linearWorkspaceIdentityId: "workspace_123",
+              source: "manual",
+              teamBindings: [
+                {
+                  repositoryTeamBindingId: "team_binding_123",
+                  linearTeamIdentityId: "linear_team_123",
+                  linearTeamId: "team_id_123",
+                  linearTeamKey: "COL",
+                  source: "manual"
+                }
+              ],
+              projectBindings: [
+                {
+                  repositoryProjectBindingId: "project_binding_123",
+                  linearProjectIdentityId: "linear_project_123",
+                  linearProjectId: "project_id_123",
+                  source: "bootstrap"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    });
+
+    expect(parsed.ok).toBe(true);
   });
 
   it("rejects blank runtime issue identifiers", () => {

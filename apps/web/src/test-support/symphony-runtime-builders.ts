@@ -414,7 +414,7 @@ export function buildSymphonyForensicsIssueListResult(
         completedRunCount: 1,
         problemRunCount: 2,
         problemRate: 2 / 3,
-        latestProblemOutcome: "max_turns",
+        latestProblemOutcome: "paused_max_turns",
         lastCompletedOutcome: "completed",
         latestDeliveryStatus: "completed",
         latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
@@ -484,7 +484,7 @@ export function buildSymphonyForensicsIssueListResult(
         issueIdentifier: "COL-169",
         latestRunStartedAt: "2026-03-29T14:15:00.000Z",
         latestRunId: "run_345",
-        latestRunStatus: "retrying",
+        latestRunStatus: "rate_limited",
         latestRunOutcome: "rate_limited",
         runCount: 4,
         completedRunCount: 2,
@@ -523,12 +523,12 @@ export function buildSymphonyForensicsIssueListResult(
         latestRunStartedAt: "2026-03-28T11:10:00.000Z",
         latestRunId: "run_456",
         latestRunStatus: "finished",
-        latestRunOutcome: "startup_failure",
+        latestRunOutcome: "startup_failed",
         runCount: 2,
         completedRunCount: 0,
         problemRunCount: 2,
         problemRate: 1,
-        latestProblemOutcome: "startup_failure",
+        latestProblemOutcome: "startup_failed",
         lastCompletedOutcome: null,
         latestDeliveryStatus: null,
         latestDeliveryReportedAt: null,
@@ -582,7 +582,7 @@ export function buildSymphonyForensicsIssueListResult(
     },
     facets: {
       repositories: [DEFAULT_REPOSITORY_KEY, "symphony/agents", "symphony/runtime"],
-      outcomes: ["completed", "max_turns", "rate_limited", "startup_failure"],
+      outcomes: ["completed", "paused_max_turns", "rate_limited", "startup_failed"],
       errorClasses: ["max_turns", "rate_limit_exceeded", "workspace_boot_failure"]
     },
     ...overrides
@@ -602,6 +602,7 @@ export function buildSymphonyForensicsIssueDetailResult(
         trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         attempt: 1,
+        runMode: "implementation",
         status: "finished",
         outcome: "completed",
         agentHarness: "pi",
@@ -646,7 +647,7 @@ export function buildSymphonyForensicsIssueDetailResult(
     ],
     summary: {
       runCount: 3,
-      latestProblemOutcome: "max_turns",
+      latestProblemOutcome: "paused_max_turns",
       lastCompletedOutcome: "completed",
       latestDeliveryStatus: "completed",
       latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
@@ -706,7 +707,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
     distributions: {
       outcomes: {
         completed: 1,
-        max_turns: 2
+        paused_max_turns: 2
       },
       errorClasses: {
         max_turns: 2
@@ -719,7 +720,7 @@ export function buildSymphonyForensicsIssueForensicsBundleResult(
     latestFailure: {
       runId: "run_12345678",
       startedAt: "2026-03-31T18:00:00.000Z",
-      outcome: "max_turns",
+      outcome: "paused_max_turns",
       errorClass: "max_turns",
       errorMessage: "Reached max turns before completion.",
       timelineEntries: [
@@ -805,8 +806,9 @@ export function buildSymphonyForensicsProblemRunsResult(
         trackerIssueId: "issue_123",
         issueIdentifier: "COL-165",
         attempt: 1,
+        runMode: "implementation",
         status: "finished",
-        outcome: "max_turns",
+        outcome: "paused_max_turns",
         agentHarness: "pi",
         agentStatus: "failed",
         agentFailureKind: "max_turns",
@@ -848,11 +850,11 @@ export function buildSymphonyForensicsProblemRunsResult(
       }
     ],
     problemSummary: {
-      max_turns: 2
+      paused_max_turns: 2
     },
     filters: {
       repo: null,
-      outcome: "max_turns",
+      outcome: "paused_max_turns",
       issueIdentifier: "",
       limit: 200
     },
@@ -953,7 +955,7 @@ export function buildSymphonyForensicsRunDetailResult(
       latestRunStatus: "finished",
       latestRunOutcome: "completed",
       runCount: 3,
-      latestProblemOutcome: "max_turns",
+      latestProblemOutcome: "paused_max_turns",
       lastCompletedOutcome: "completed",
       latestDeliveryStatus: "completed",
       latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
@@ -969,6 +971,7 @@ export function buildSymphonyForensicsRunDetailResult(
       trackerIssueId: "issue_123",
       issueIdentifier: "COL-165",
       attempt: 1,
+      runMode: "implementation",
       status: "finished",
       outcome: "completed",
       agentHarness: "pi",

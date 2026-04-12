@@ -495,6 +495,45 @@ export async function createSymphonyRuntimeTestHarness(input: {
       variables: []
     },
     runtimePolicy,
+    runtimeConfig: {
+      runtime: {
+        repositoryKey: "openai/symphony",
+        githubRepository: "openai/symphony",
+        trackerKind: runtimePolicy.tracker.kind,
+        trackerTeamKey:
+          runtimePolicy.tracker.kind === "linear"
+            ? runtimePolicy.tracker.teamKey
+            : null,
+        agentHarness: runtimePolicy.agent.harness,
+        workspaceRoot: runtimePolicy.workspace.root
+      },
+      credentials: {
+        linearApiKeyConfigured: true,
+        githubCliAuthMode: "env",
+        githubCliAuthEnvKey: "GITHUB_TOKEN",
+        piAuthMode: "provider_env",
+        piProviderEnvKey: "OPENAI_API_KEY"
+      },
+      bootstrap: {
+        kind: "workflow_binding",
+        repositorySource: {
+          kind: "admitted_source_repositories",
+          source: "explicit",
+          sourceRepos: []
+        },
+        defaultRepositoryKey: "openai/symphony",
+        manifestPath: null,
+        bindingScope: null,
+        presetSelection: {
+          presetId: "current-flow",
+          source: "registry_default",
+          repositoryKey: null,
+          manifestPath: null
+        }
+      },
+      admittedRepositories: [],
+      bindingCatalog: null
+    },
     tracker,
     orchestrator: {
       snapshot() {

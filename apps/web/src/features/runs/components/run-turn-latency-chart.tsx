@@ -47,7 +47,7 @@ export function RunTurnLatencyChart(input: {
   rows: AgentRunViewModel["turnLatency"]["rows"];
 }) {
   return (
-    <Card className="h-full border-border/70">
+    <Card className="flex h-full min-h-[300px] flex-col border-border/70">
       <CardHeader>
         <CardTitle>Turn latency breakdown</CardTitle>
         <CardDescription>

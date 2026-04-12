@@ -6,7 +6,8 @@ import {
   ActivityIcon,
   ChartColumnIncreasingIcon,
   FolderKanbanIcon,
-  LayoutDashboardIcon
+  LayoutDashboardIcon,
+  Settings2Icon
 } from "lucide-react";
 import {
   SidebarGroup,
@@ -27,7 +28,8 @@ const navigationIcons = {
   "Failure analysis": ChartColumnIncreasingIcon,
   "Token analysis": ChartColumnIncreasingIcon,
   Issues: FolderKanbanIcon,
-  "Runtime health": ActivityIcon
+  "Runtime health": ActivityIcon,
+  "Runtime config": Settings2Icon
 } as const;
 
 export function DashboardNavigation(input: {

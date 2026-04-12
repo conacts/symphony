@@ -26,6 +26,34 @@ import type { SymphonyRuntimeAppContextSchema } from "../context.js";
 import { createRuntimeRoutes } from "./runtime-routes.js";
 
 describe("runtime routes", () => {
+  it("serves the runtime config snapshot", async () => {
+    const app = createRuntimeRoutesTestApp();
+
+    const response = await app.request("/api/v1/runtime/config");
+    const payload = (await response.json()) as {
+      data: {
+        runtime: {
+          repositoryKey: string;
+          trackerKind: string;
+        };
+        bootstrap: {
+          presetSelection: {
+            presetId: string;
+          };
+        };
+        admittedRepositories: Array<{
+          repositoryKey: string;
+        }>;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.data.runtime.repositoryKey).toBe("openai/symphony");
+    expect(payload.data.runtime.trackerKind).toBe("linear");
+    expect(payload.data.bootstrap.presetSelection.presetId).toBe("current-flow");
+    expect(payload.data.admittedRepositories).toEqual([]);
+  });
+
   it("serves workflow comparison results through the issue route", async () => {
     const compareByIssueIdentifier = vi.fn<
       SymphonyRuntimeAppServices["workflowComparison"]["compareByIssueIdentifier"]
@@ -340,6 +368,42 @@ function createRuntimeServicesStub(
     },
     promptContract: {} as SymphonyRuntimeAppServices["promptContract"],
     runtimePolicy,
+    runtimeConfig: {
+      runtime: {
+        repositoryKey: "openai/symphony",
+        githubRepository: "openai/symphony",
+        trackerKind: runtimePolicy.tracker.kind,
+        trackerTeamKey: null,
+        agentHarness: runtimePolicy.agent.harness,
+        workspaceRoot: runtimePolicy.workspace.root
+      },
+      credentials: {
+        linearApiKeyConfigured: true,
+        githubCliAuthMode: "env",
+        githubCliAuthEnvKey: "GITHUB_TOKEN",
+        piAuthMode: "provider_env",
+        piProviderEnvKey: "OPENAI_API_KEY"
+      },
+      bootstrap: {
+        kind: "workflow_binding",
+        repositorySource: {
+          kind: "admitted_source_repositories",
+          source: "explicit",
+          sourceRepos: []
+        },
+        defaultRepositoryKey: "openai/symphony",
+        manifestPath: null,
+        bindingScope: null,
+        presetSelection: {
+          presetId: "current-flow",
+          source: "registry_default",
+          repositoryKey: null,
+          manifestPath: null
+        }
+      },
+      admittedRepositories: [],
+      bindingCatalog: null
+    },
     tracker: createMemorySymphonyTracker(),
     orchestrator: {
       snapshot: vi.fn().mockReturnValue({

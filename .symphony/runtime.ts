@@ -54,6 +54,9 @@ export default defineSymphonyRuntime({
       }
     }
   },
+  workflow: {
+    defaultRouterPreset: "current-flow"
+  },
   lifecycle: {
     bootstrap: [
       {

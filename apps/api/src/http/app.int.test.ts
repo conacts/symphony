@@ -51,6 +51,7 @@ describe("@symphony/api app", () => {
 
       const app = createSymphonyRuntimeApp(harness.services);
       const stateResponse = await app.request("/api/v1/state");
+      const configResponse = await app.request("/api/v1/runtime/config");
       const healthResponse = await app.request("/api/v1/health");
       const refreshResponse = await app.request("/api/v1/refresh", {
         method: "POST"
@@ -68,6 +69,22 @@ describe("@symphony/api app", () => {
           healthy: boolean;
         };
       }>(healthResponse);
+      const configPayload = await responseJson<{
+        data: {
+          runtime: {
+            repositoryKey: string;
+            githubRepository: string;
+          };
+          bootstrap: {
+            presetSelection: {
+              presetId: string;
+            };
+          };
+          admittedRepositories: Array<{
+            repositoryKey: string;
+          }>;
+        };
+      }>(configResponse);
       const refreshPayload = await responseJson<{
         data: {
           queued: boolean;
@@ -82,6 +99,16 @@ describe("@symphony/api app", () => {
 
       expect(healthResponse.status).toBe(200);
       expect(healthPayload.data.healthy).toBe(true);
+
+      expect(configResponse.status).toBe(200);
+      expect(configPayload.data.runtime.repositoryKey).toBe("openai/symphony");
+      expect(configPayload.data.runtime.githubRepository).toBe("openai/symphony");
+      expect(configPayload.data.bootstrap.presetSelection.presetId).toBe(
+        "current-flow"
+      );
+      expect(configPayload.data.admittedRepositories.map((entry) => entry.repositoryKey)).toEqual([
+        "openai/symphony"
+      ]);
 
       expect(refreshResponse.status).toBe(202);
       expect(refreshPayload.data.queued).toBe(true);

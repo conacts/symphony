@@ -43,6 +43,7 @@ export type SymphonyDashboardFoundationModel = {
     issuesUrl: string;
     problemRunsUrl: string;
     healthUrl: string;
+    runtimeConfigUrl: string;
     runtimeLogsUrl: string;
   };
   connection: {
@@ -69,6 +70,7 @@ export function buildSymphonyRuntimeSurfaceUrls(runtimeBaseUrl: string) {
     issuesUrl: createRuntimeUrl("/api/v1/issues", runtimeBaseUrl),
     problemRunsUrl: createRuntimeUrl("/api/v1/problem-runs", runtimeBaseUrl),
     healthUrl: createRuntimeUrl("/api/v1/health", runtimeBaseUrl),
+    runtimeConfigUrl: createRuntimeUrl("/api/v1/runtime/config", runtimeBaseUrl),
     runtimeLogsUrl: createRuntimeUrl("/api/v1/runtime/logs", runtimeBaseUrl),
     websocketUrl: createRuntimeWebsocketUrl("/api/v1/ws", runtimeBaseUrl)
   };
@@ -93,6 +95,7 @@ export function buildSymphonyDashboardFoundation(
       issuesUrl: runtimeSurface.issuesUrl,
       problemRunsUrl: runtimeSurface.problemRunsUrl,
       healthUrl: runtimeSurface.healthUrl,
+      runtimeConfigUrl: runtimeSurface.runtimeConfigUrl,
       runtimeLogsUrl: runtimeSurface.runtimeLogsUrl
     },
     connection: {
@@ -131,6 +134,13 @@ export function buildSymphonyDashboardFoundation(
         label: "Runtime health",
         description: "Check the runtime poller, DB readiness, and recent scheduler state.",
         readiness: "available"
+      },
+      {
+        href: "/runtime/config",
+        label: "Runtime config",
+        description:
+          "Inspect the local runtime bootstrap, admitted repositories, preset selection, and binding scope.",
+        readiness: "available"
       }
     ],
     actionSurfaces: [
@@ -149,6 +159,10 @@ export function buildSymphonyDashboardFoundation(
       {
         label: "Runtime health",
         href: runtimeSurface.healthUrl
+      },
+      {
+        label: "Runtime config",
+        href: runtimeSurface.runtimeConfigUrl
       },
       {
         label: "Runtime logs",

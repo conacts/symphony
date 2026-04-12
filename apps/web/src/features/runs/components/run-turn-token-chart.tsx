@@ -39,7 +39,7 @@ export function RunTurnTokenChart(input: {
   rows: AgentRunViewModel["turnTokens"]["rows"];
 }) {
   return (
-    <Card className="h-full border-border/70">
+    <Card className="flex h-full min-h-[300px] flex-col border-border/70">
       <CardHeader className="space-y-1">
         <CardTitle>Turn token load</CardTitle>
         <CardDescription>

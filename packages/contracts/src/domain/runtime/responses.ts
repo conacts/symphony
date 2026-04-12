@@ -184,6 +184,129 @@ export const symphonyRuntimeStateResultSchema = z.strictObject({
   rateLimits: jsonObjectSchema.nullable()
 });
 
+const symphonyRuntimeRepositoryBindingSourceSchema = z.enum([
+  "manual",
+  "bootstrap",
+  "sync"
+]);
+
+const symphonyRuntimeGitHubCliAuthModeSchema = z.enum([
+  "env",
+  "mount",
+  "none"
+]);
+
+const symphonyRuntimePiAuthModeSchema = z.enum([
+  "provider_env",
+  "auth_json",
+  "none"
+]);
+
+export const symphonyRuntimeWorkflowPresetSelectionSchema = z.strictObject({
+  presetId: nonEmptyStringSchema,
+  source: z.enum([
+    "registry_default",
+    "runtime_manifest",
+    "bootstrap_override"
+  ]),
+  repositoryKey: nullableNonEmptyStringSchema,
+  manifestPath: nullableNonEmptyStringSchema
+});
+
+export const symphonyRuntimeBindingScopeSchema = z.strictObject({
+  organizationId: nonEmptyStringSchema,
+  linearWorkspaceIdentityId: nonEmptyStringSchema
+});
+
+export const symphonyRuntimeBootstrapRepositorySourceSchema =
+  z.discriminatedUnion("kind", [
+    z.strictObject({
+      kind: z.literal("admitted_source_repositories"),
+      source: z.enum(["environment", "explicit"]),
+      sourceRepos: z.array(nonEmptyStringSchema)
+    }),
+    z.strictObject({
+      kind: z.literal("persisted_workspace_bindings"),
+      source: z.literal("database"),
+      sourceRepos: z.array(nonEmptyStringSchema),
+      bindingScope: symphonyRuntimeBindingScopeSchema
+    })
+  ]);
+
+export const symphonyRuntimeBootstrapBindingSchema = z.strictObject({
+  kind: z.literal("workflow_binding"),
+  repositorySource: symphonyRuntimeBootstrapRepositorySourceSchema,
+  defaultRepositoryKey: nonEmptyStringSchema,
+  manifestPath: nullableNonEmptyStringSchema,
+  bindingScope: symphonyRuntimeBindingScopeSchema.nullable(),
+  presetSelection: symphonyRuntimeWorkflowPresetSelectionSchema
+});
+
+export const symphonyRuntimeConfigRuntimeSchema = z.strictObject({
+  repositoryKey: nonEmptyStringSchema,
+  githubRepository: nonEmptyStringSchema,
+  trackerKind: z.enum(["linear", "memory"]),
+  trackerTeamKey: nullableNonEmptyStringSchema,
+  agentHarness: nonEmptyStringSchema,
+  workspaceRoot: nonEmptyStringSchema
+});
+
+export const symphonyRuntimeConfigCredentialsSchema = z.strictObject({
+  linearApiKeyConfigured: z.boolean(),
+  githubCliAuthMode: symphonyRuntimeGitHubCliAuthModeSchema,
+  githubCliAuthEnvKey: nullableNonEmptyStringSchema,
+  piAuthMode: symphonyRuntimePiAuthModeSchema,
+  piProviderEnvKey: nullableNonEmptyStringSchema
+});
+
+export const symphonyRuntimeConfigRepositorySchema = z.strictObject({
+  repositoryKey: nonEmptyStringSchema,
+  repoRoot: nonEmptyStringSchema,
+  linearTeamKey: nonEmptyStringSchema,
+  manifestPath: nonEmptyStringSchema,
+  promptPath: nonEmptyStringSchema
+});
+
+export const symphonyRuntimeConfigRepositoryTeamBindingSchema = z.strictObject({
+  repositoryTeamBindingId: nonEmptyStringSchema,
+  linearTeamIdentityId: nonEmptyStringSchema,
+  linearTeamId: nonEmptyStringSchema,
+  linearTeamKey: nonEmptyStringSchema,
+  source: symphonyRuntimeRepositoryBindingSourceSchema
+});
+
+export const symphonyRuntimeConfigRepositoryProjectBindingSchema = z.strictObject({
+  repositoryProjectBindingId: nonEmptyStringSchema,
+  linearProjectIdentityId: nonEmptyStringSchema,
+  linearProjectId: nonEmptyStringSchema,
+  source: symphonyRuntimeRepositoryBindingSourceSchema
+});
+
+export const symphonyRuntimeConfigWorkspaceBindingRepositorySchema = z.strictObject({
+  repositoryWorkspaceBindingId: nonEmptyStringSchema,
+  githubInstallationIdentityId: nonEmptyStringSchema,
+  githubRepositoryIdentityId: nonEmptyStringSchema,
+  repositoryKey: nonEmptyStringSchema,
+  linearWorkspaceIdentityId: nonEmptyStringSchema,
+  source: symphonyRuntimeRepositoryBindingSourceSchema,
+  teamBindings: z.array(symphonyRuntimeConfigRepositoryTeamBindingSchema),
+  projectBindings: z.array(symphonyRuntimeConfigRepositoryProjectBindingSchema)
+});
+
+export const symphonyRuntimeConfigWorkspaceBindingCatalogSchema = z.strictObject({
+  organizationId: nonEmptyStringSchema,
+  linearWorkspaceIdentityId: nonEmptyStringSchema,
+  repositories: z.array(symphonyRuntimeConfigWorkspaceBindingRepositorySchema)
+});
+
+export const symphonyRuntimeConfigResultSchema = z.strictObject({
+  runtime: symphonyRuntimeConfigRuntimeSchema,
+  credentials: symphonyRuntimeConfigCredentialsSchema,
+  bootstrap: symphonyRuntimeBootstrapBindingSchema,
+  admittedRepositories: z.array(symphonyRuntimeConfigRepositorySchema),
+  bindingCatalog: symphonyRuntimeConfigWorkspaceBindingCatalogSchema.nullable()
+});
+
 export const symphonyRuntimeWorkspaceExecutionTargetSchema = z.discriminatedUnion(
   "kind",
   [
@@ -478,12 +601,51 @@ export const symphonyRuntimeLogsResponseSchema = createEnvelopeSchema(
 export const symphonyRuntimeHealthResponseSchema = createEnvelopeSchema(
   symphonyRuntimeHealthResultSchema
 );
+export const symphonyRuntimeConfigResponseSchema = createEnvelopeSchema(
+  symphonyRuntimeConfigResultSchema
+);
 
 export type SymphonyRuntimeTokenTotals = z.infer<typeof symphonyRuntimeTokenTotalsSchema>;
 export type SymphonyRuntimeAgentTotals = z.infer<typeof symphonyRuntimeAgentTotalsSchema>;
 export type SymphonyRuntimeRunningEntry = z.infer<typeof symphonyRuntimeRunningEntrySchema>;
 export type SymphonyRuntimeRetryEntry = z.infer<typeof symphonyRuntimeRetryEntrySchema>;
 export type SymphonyRuntimeStateResult = z.infer<typeof symphonyRuntimeStateResultSchema>;
+export type SymphonyRuntimeWorkflowPresetSelection = z.infer<
+  typeof symphonyRuntimeWorkflowPresetSelectionSchema
+>;
+export type SymphonyRuntimeBindingScope = z.infer<
+  typeof symphonyRuntimeBindingScopeSchema
+>;
+export type SymphonyRuntimeBootstrapRepositorySource = z.infer<
+  typeof symphonyRuntimeBootstrapRepositorySourceSchema
+>;
+export type SymphonyRuntimeBootstrapBinding = z.infer<
+  typeof symphonyRuntimeBootstrapBindingSchema
+>;
+export type SymphonyRuntimeConfigRuntime = z.infer<
+  typeof symphonyRuntimeConfigRuntimeSchema
+>;
+export type SymphonyRuntimeConfigCredentials = z.infer<
+  typeof symphonyRuntimeConfigCredentialsSchema
+>;
+export type SymphonyRuntimeConfigRepository = z.infer<
+  typeof symphonyRuntimeConfigRepositorySchema
+>;
+export type SymphonyRuntimeConfigRepositoryTeamBinding = z.infer<
+  typeof symphonyRuntimeConfigRepositoryTeamBindingSchema
+>;
+export type SymphonyRuntimeConfigRepositoryProjectBinding = z.infer<
+  typeof symphonyRuntimeConfigRepositoryProjectBindingSchema
+>;
+export type SymphonyRuntimeConfigWorkspaceBindingRepository = z.infer<
+  typeof symphonyRuntimeConfigWorkspaceBindingRepositorySchema
+>;
+export type SymphonyRuntimeConfigWorkspaceBindingCatalog = z.infer<
+  typeof symphonyRuntimeConfigWorkspaceBindingCatalogSchema
+>;
+export type SymphonyRuntimeConfigResult = z.infer<
+  typeof symphonyRuntimeConfigResultSchema
+>;
 export type SymphonyRuntimeWorkspaceExecutionTargetKind = z.infer<
   typeof symphonyRuntimeWorkspaceExecutionTargetKindSchema
 >;

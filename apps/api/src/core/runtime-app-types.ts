@@ -18,6 +18,7 @@ import type {
   SymphonyForensicsIssueTimelineResult,
   SymphonyRuntimeHealthResult,
   SymphonyRuntimeMachineLoadSnapshot,
+  SymphonyRuntimeConfigResult,
   SymphonyRuntimeLogsResult,
   SymphonyRuntimeRefreshResult,
   SymphonyRuntimeTrackerStateObservationResult
@@ -197,6 +198,7 @@ export type SymphonyRuntimeAppServices = {
   promptTemplate: SymphonyLoadedRuntimePromptTemplate;
   promptContract: SymphonyLoadedPromptContract;
   runtimePolicy: SymphonyResolvedRuntimePolicy;
+  runtimeConfig: SymphonyRuntimeConfigResult;
   tracker: SymphonyTracker;
   orchestrator: SymphonyRuntimeOrchestratorPort;
   agentAnalytics: SymphonyAgentAnalyticsReadPort;

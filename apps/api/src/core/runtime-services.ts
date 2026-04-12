@@ -82,6 +82,7 @@ import {
   waitForPollSchedulerDrain
 } from "./runtime-shutdown-reconciliation.js";
 import { resolveIssueRepositorySelection } from "./runtime-repository-routing.js";
+import { buildRuntimeConfigSnapshot } from "./runtime-config-snapshot.js";
 import type {
   SymphonyRuntimeBootstrapRepositorySource
 } from "./runtime-bootstrap-contract.js";
@@ -258,6 +259,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       "Docker-backed Symphony workspaces require Pi auth. Provide ~/.pi/agent/auth.json for subscription auth, or set the configured provider API key env on the host."
     );
   }
+
+  const runtimeConfig = buildRuntimeConfigSnapshot({
+    runtimePolicy,
+    bootstrapBinding,
+    admittedRepositories,
+    bindingCatalog: repositoryBindingCatalog,
+    dockerGitHubCliAuth,
+    dockerLinearLaunchEnv,
+    dockerPiAuth
+  });
 
   const routeWorkflows = createRouteWorkflowPort({
     routeWorkflowStore
@@ -746,6 +757,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     promptTemplate,
     promptContract,
     runtimePolicy,
+    runtimeConfig,
     tracker,
     orchestrator: orchestratorPort,
     agentAnalytics: agentAnalyticsRead,
