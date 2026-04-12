@@ -608,10 +608,16 @@ export async function createSymphonyRuntimeTestHarness(input: {
       async loadHydrationStateByIssueIdentifier() {
         return null;
       },
+      async loadHydrationStateByScopedIssue() {
+        return null;
+      },
       async loadReplayStateByWorkflowId() {
         return null;
       },
       async loadReplayStateByIssueIdentifier() {
+        return null;
+      },
+      async loadReplayStateByScopedIssue() {
         return null;
       },
       async rehydrateProjectionByWorkflowId() {
@@ -620,10 +626,16 @@ export async function createSymphonyRuntimeTestHarness(input: {
       async rehydrateProjectionByIssueIdentifier() {
         return null;
       },
+      async rehydrateProjectionByScopedIssue() {
+        return null;
+      },
       async resumeSessionByWorkflowId() {
         return null;
       },
       async resumeSessionByIssueIdentifier() {
+        return null;
+      },
+      async resumeSessionByScopedIssue() {
         return null;
       },
       async recordRouteResult() {

@@ -138,9 +138,60 @@ describe("runtime workflow session loader", () => {
       harness.close();
     }
   });
+
+  it("uses the configured workspace scope for issue-based workflow hydration", async () => {
+    const harness = await createHarness({
+      bindingScope: {
+        organizationId: "org_001",
+        linearWorkspaceIdentityId: "linear_workspace_identity_001"
+      }
+    });
+
+    try {
+      const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
+        issueIdentifier: harness.issue.identifier,
+        repositoryKey: "openai/symphony",
+        bindingScope: {
+          organizationId: "org_001",
+          linearWorkspaceIdentityId: "linear_workspace_identity_001"
+        },
+        routerPresetId: harness.routing.presetId,
+        router: harness.routing.router,
+        createdAt: "2026-04-10T16:12:00.000Z"
+      });
+
+      const loaded = await harness.sessionLoader.resumeByIssueIdentifier({
+        issueIdentifier: harness.issue.identifier
+      });
+      const unscopedLoader = await createRuntimeWorkflowSessionLoader({
+        routeWorkflows: harness.routeWorkflows,
+        trackerConfig: harness.runtimePolicy.tracker,
+        now: () => new Date("2026-04-10T16:12:00.000Z")
+      });
+      const unscoped = await unscopedLoader.resumeByIssueIdentifier({
+        issueIdentifier: harness.issue.identifier
+      });
+
+      expect(loaded?.resumed.hydrationState.workflow.workflowId).toBe(
+        ensured.workflow.workflowId
+      );
+      expect(loaded?.resumed.hydrationState.workflow.bindingScope).toEqual({
+        organizationId: "org_001",
+        linearWorkspaceIdentityId: "linear_workspace_identity_001"
+      });
+      expect(unscoped).toBeNull();
+    } finally {
+      harness.close();
+    }
+  });
 });
 
-async function createHarness() {
+async function createHarness(input?: {
+  bindingScope?: {
+    organizationId: string;
+    linearWorkspaceIdentityId: string;
+  } | null;
+}) {
   const root = await mkdtemp(
     path.join(tmpdir(), "symphony-current-flow-session-loader-")
   );
@@ -174,6 +225,7 @@ async function createHarness() {
   const sessionLoader = await createRuntimeWorkflowSessionLoader({
     routeWorkflows,
     trackerConfig: runtimePolicy.tracker,
+    bindingScope: input?.bindingScope ?? null,
     now: () => new Date("2026-04-10T16:00:00.000Z")
   });
 

@@ -280,6 +280,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const workflowSessionLoader = await createRuntimeWorkflowSessionLoader({
     routeWorkflows,
     trackerConfig: runtimePolicy.tracker,
+    bindingScope: bootstrapBinding.bindingScope,
     now: undefined
   });
   const routeLifecycle = await createRuntimeRouteLifecycleService({
@@ -287,6 +288,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     tracker,
     trackerConfig: runtimePolicy.tracker,
     repositoryKey: bootstrapBinding.defaultRepositoryKey,
+    workflowBindingScope: bootstrapBinding.bindingScope,
     resolveIssueRepositoryKey: resolveTrackedIssueRepositoryKey,
     ensureIssueIdentity: seedTrackedIssueIdentity,
     presetSelection: bootstrapBinding.presetSelection,

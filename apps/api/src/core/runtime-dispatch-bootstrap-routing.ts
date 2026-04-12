@@ -14,7 +14,10 @@ import type {
 } from "@symphony/tracker";
 import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import type { SymphonyRuntimeRouterPresetSelection } from "./runtime-workflow-presets.js";
-import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import type {
+  RouteWorkflowBindingScope,
+  SymphonyRouteWorkflowPort
+} from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
   createRouteCommandSettlementSessionLoader,
@@ -29,6 +32,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
+  bindingScope?: RouteWorkflowBindingScope | null;
   resolveIssueRepositoryKey?(issue: SymphonyTrackerIssue): string;
   ensureIssueIdentity?(
     issue: SymphonyTrackerIssue
@@ -50,6 +54,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
       const ensured = await input.routeWorkflows.ensureWorkflowForIssue({
         issueIdentifier: routeInput.issue.identifier,
         repositoryKey,
+        bindingScope: input.bindingScope ?? null,
         routerPresetId: input.routing.presetId,
         router,
         createdAt: routeInput.startedAt

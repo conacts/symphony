@@ -253,6 +253,88 @@ describe("route workflow store", () => {
     }
   });
 
+  it("keeps hosted workflows isolated from the unscoped issue lookup path", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-route-scoped-hydration-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const routeStore = createRouteWorkflowStore(database.db);
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-301S",
+        trackerIssueId: "tracker-301S",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-09T22:58:00.000Z"
+      });
+
+      const workflowId = await routeStore.createWorkflow({
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-301S",
+        bindingScope: {
+          organizationId: "org_001",
+          linearWorkspaceIdentityId: "linear_workspace_identity_001"
+        },
+        routerPresetId: "current-flow",
+        routerName: "symphony-current-flow",
+        routerVersion: "1",
+        createdAt: "2026-04-09T22:59:00.000Z"
+      });
+
+      await routeStore.recordRouteResult({
+        workflowId,
+        policy: {
+          mode: "implementation"
+        },
+        result: buildRouteResult(workflowId)
+      });
+
+      const unscopedWorkflow = await routeStore.getWorkflowForIssue("SYM-301S");
+      const scopedWorkflow = await routeStore.getWorkflowForScopedIssue({
+        issueIdentifier: "SYM-301S",
+        bindingScope: {
+          organizationId: "org_001",
+          linearWorkspaceIdentityId: "linear_workspace_identity_001"
+        }
+      });
+      const unscopedHydration = await routeStore.loadWorkflowHydrationStateByIssue<
+        TestNode,
+        TestData,
+        TestPolicy
+      >("SYM-301S");
+      const scopedHydration = await routeStore.loadWorkflowHydrationStateByScopedIssue<
+        TestNode,
+        TestData,
+        TestPolicy
+      >({
+        issueIdentifier: "SYM-301S",
+        bindingScope: {
+          organizationId: "org_001",
+          linearWorkspaceIdentityId: "linear_workspace_identity_001"
+        }
+      });
+
+      expect(unscopedWorkflow).toBeNull();
+      expect(unscopedHydration).toBeNull();
+      expect(scopedWorkflow?.workflowId).toBe(workflowId);
+      expect(scopedWorkflow?.bindingScope).toEqual({
+        organizationId: "org_001",
+        linearWorkspaceIdentityId: "linear_workspace_identity_001"
+      });
+      expect(scopedHydration?.workflow.workflowId).toBe(workflowId);
+      expect(scopedHydration?.workflow.bindingScope).toEqual({
+        organizationId: "org_001",
+        linearWorkspaceIdentityId: "linear_workspace_identity_001"
+      });
+    } finally {
+      database.close();
+    }
+  });
+
   it("loads empty hydration state for a workflow before any route history exists", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-route-empty-hydration-"));
     tempDirectories.push(root);

@@ -44,7 +44,10 @@ import {
   createRuntimeTrackerStateObservationRouter,
   type SymphonyTrackerStateDispatchRequest
 } from "./runtime-tracker-state-observation-routing.js";
-import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import type {
+  RouteWorkflowBindingScope,
+  SymphonyRouteWorkflowPort
+} from "./runtime-route-workflows.js";
 import type {
   SymphonyTracker,
   SymphonyTrackerConfig,
@@ -140,6 +143,7 @@ export async function createRuntimeRouteLifecycleService(input: {
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
+  workflowBindingScope?: RouteWorkflowBindingScope | null;
   resolveIssueRepositoryKey?(issue: SymphonyTrackerIssue): string;
   ensureIssueIdentity?(
     issue: SymphonyTrackerIssue
@@ -158,6 +162,7 @@ export async function createRuntimeRouteLifecycleService(input: {
     (await createRuntimeWorkflowSessionLoader({
       routeWorkflows: input.routeWorkflows,
       trackerConfig: input.trackerConfig,
+      bindingScope: input.workflowBindingScope ?? null,
       now: input.now
     }));
   const dispatchBootstrapRouter = await createRuntimeDispatchBootstrapRouter({
@@ -165,6 +170,7 @@ export async function createRuntimeRouteLifecycleService(input: {
     tracker: input.tracker,
     trackerConfig: input.trackerConfig,
     repositoryKey: input.repositoryKey,
+    bindingScope: input.workflowBindingScope ?? null,
     resolveIssueRepositoryKey: input.resolveIssueRepositoryKey,
     ensureIssueIdentity: input.ensureIssueIdentity,
     routing,
@@ -232,6 +238,7 @@ export async function createRuntimeRouteLifecycleService(input: {
       tracker: input.tracker,
       trackerConfig: input.trackerConfig,
       repositoryKey: input.repositoryKey,
+      bindingScope: input.workflowBindingScope ?? null,
       resolveIssueRepositoryKey: input.resolveIssueRepositoryKey,
       ensureIssueIdentity: input.ensureIssueIdentity,
       routing,

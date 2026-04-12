@@ -373,6 +373,24 @@ function createStaticSessionLoader(input: {
       hydrationState
     } satisfies SymphonyLoadedRuntimeWorkflowHydration;
   };
+  const loadHydrationByScopedIssue = async (inputByScope: {
+    issueIdentifier: string;
+    bindingScope: {
+      organizationId: string;
+      linearWorkspaceIdentityId: string;
+    };
+  }) => {
+    const hydrationState =
+      await input.routeWorkflows.loadHydrationStateByScopedIssue(inputByScope);
+    if (!hydrationState) {
+      return null;
+    }
+
+    return {
+      routing: input.routing,
+      hydrationState
+    } satisfies SymphonyLoadedRuntimeWorkflowHydration;
+  };
 
   return {
     async loadHydrationByWorkflowId({ workflowId }) {
@@ -380,6 +398,9 @@ function createStaticSessionLoader(input: {
     },
     async loadHydrationByIssueIdentifier({ issueIdentifier }) {
       return await loadHydrationByIssueIdentifier(issueIdentifier);
+    },
+    async loadHydrationByScopedIssue(scopedInput) {
+      return await loadHydrationByScopedIssue(scopedInput);
     },
     async resumeByWorkflowId({ workflowId }) {
       const loaded = await loadHydrationByWorkflowId(workflowId);
@@ -398,6 +419,21 @@ function createStaticSessionLoader(input: {
     },
     async resumeByIssueIdentifier({ issueIdentifier }) {
       const loaded = await loadHydrationByIssueIdentifier(issueIdentifier);
+      if (!loaded) {
+        return null;
+      }
+
+      return {
+        routing: input.routing,
+        resumed: await resumeRouteWorkflowSession({
+          hydrationState: loaded.hydrationState,
+          router: input.routing.router as never,
+          policy: input.routing.policy as never
+        })
+      } satisfies SymphonyLoadedRuntimeWorkflowSession;
+    },
+    async resumeByScopedIssue(scopedInput) {
+      const loaded = await loadHydrationByScopedIssue(scopedInput);
       if (!loaded) {
         return null;
       }

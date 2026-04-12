@@ -557,6 +557,7 @@ function buildWorkflowComparisonFixture(): SymphonyRuntimeWorkflowComparison {
         workflowId,
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-420",
+        bindingScope: null,
         routerPresetId: "current-flow",
         routerName: "current-flow",
         routerVersion: "1",

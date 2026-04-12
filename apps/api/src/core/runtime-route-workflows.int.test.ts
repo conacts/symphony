@@ -139,6 +139,88 @@ describe("runtime route workflows", () => {
     }
   });
 
+  it("loads hosted workflows only through the matching workspace scope", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-route-scoped-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const routeWorkflowStore = createRouteWorkflowStore(database.db);
+    const routeWorkflows = createRouteWorkflowPort({
+      routeWorkflowStore
+    });
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-410S",
+        trackerIssueId: "tracker-410S",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T00:28:00.000Z"
+      });
+
+      const ensured = await routeWorkflows.ensureWorkflowForIssue({
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-410S",
+        bindingScope: {
+          organizationId: "org_001",
+          linearWorkspaceIdentityId: "linear_workspace_identity_001"
+        },
+        routerPresetId: "current-flow",
+        router: await createSymphonyCurrentFlowRouterAsync(),
+        createdAt: "2026-04-10T00:29:00.000Z"
+      });
+
+      await routeWorkflows.recordRouteResult({
+        workflowId: ensured.workflow.workflowId,
+        policy: {
+          mode: "implementation"
+        },
+        result: buildRouteResult(ensured.workflow.workflowId)
+      });
+
+      const unscopedHydration =
+        await routeWorkflows.loadHydrationStateByIssueIdentifier<
+          TestNode,
+          TestData,
+          TestPolicy
+        >("SYM-410S");
+      const scopedHydration = await routeWorkflows.loadHydrationStateByScopedIssue<
+        TestNode,
+        TestData,
+        TestPolicy
+      >({
+        issueIdentifier: "SYM-410S",
+        bindingScope: {
+          organizationId: "org_001",
+          linearWorkspaceIdentityId: "linear_workspace_identity_001"
+        }
+      });
+      const replayByScope = await routeWorkflows.loadReplayStateByScopedIssue<TestNode>({
+        issueIdentifier: "SYM-410S",
+        bindingScope: {
+          organizationId: "org_001",
+          linearWorkspaceIdentityId: "linear_workspace_identity_001"
+        }
+      });
+
+      expect(unscopedHydration).toBeNull();
+      expect(scopedHydration?.workflow.bindingScope).toEqual({
+        organizationId: "org_001",
+        linearWorkspaceIdentityId: "linear_workspace_identity_001"
+      });
+      expect(replayByScope?.workflow.workflowId).toBe(ensured.workflow.workflowId);
+      expect(replayByScope?.workflow.bindingScope).toEqual({
+        organizationId: "org_001",
+        linearWorkspaceIdentityId: "linear_workspace_identity_001"
+      });
+    } finally {
+      database.close();
+    }
+  });
+
   it("rejects workflow reuse when the existing router metadata does not match", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-route-mismatch-"));
     tempDirectories.push(root);
