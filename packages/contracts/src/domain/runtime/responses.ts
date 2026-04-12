@@ -405,7 +405,8 @@ export const symphonyRuntimeRefreshResultSchema = z.strictObject({
 
 export const symphonyRuntimeTrackerStateObservationResultSchema = z.strictObject({
   issueIdentifier: nonEmptyStringSchema,
-  trackerState: nonEmptyStringSchema,
+  observedTrackerState: nonEmptyStringSchema,
+  workflowTrackerState: nonEmptyStringSchema,
   observed: z.boolean(),
   recordedAt: isoTimestampSchema
 });

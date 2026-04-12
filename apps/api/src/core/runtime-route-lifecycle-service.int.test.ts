@@ -83,7 +83,8 @@ describe("runtime route lifecycle service", () => {
 
       expect(observed).toEqual({
         issueIdentifier: harness.issue.identifier,
-        trackerState: "In Review",
+        observedTrackerState: "In Review",
+        workflowTrackerState: "In Review",
         observed: true
       });
 
@@ -134,7 +135,8 @@ describe("runtime route lifecycle service", () => {
 
       expect(observed).toEqual({
         issueIdentifier: harness.issue.identifier,
-        trackerState: "Bootstrapping",
+        observedTrackerState: "Rework",
+        workflowTrackerState: "Bootstrapping",
         observed: true
       });
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
@@ -426,7 +428,8 @@ describe("runtime route lifecycle service", () => {
       expect(observedIssues).toEqual([
         {
           issueIdentifier: harness.issue.identifier,
-          trackerState: "Bootstrapping"
+          observedTrackerState: "Todo",
+          workflowTrackerState: "Bootstrapping"
         }
       ]);
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
@@ -517,7 +520,8 @@ describe("runtime route lifecycle service", () => {
 
       expect(observed).toEqual({
         issueIdentifier: harness.issue.identifier,
-        trackerState: "In Review",
+        observedTrackerState: "In Review",
+        workflowTrackerState: "In Review",
         observed: false
       });
       expect(after?.snapshot?.eventSequence).toBe(before?.snapshot?.eventSequence ?? null);
@@ -755,7 +759,8 @@ describe("runtime route lifecycle service", () => {
 
       expect(observed).toEqual({
         issueIdentifier: harness.issue.identifier,
-        trackerState: "Bootstrapping",
+        observedTrackerState: "Todo",
+        workflowTrackerState: "Bootstrapping",
         observed: true
       });
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
@@ -840,7 +845,8 @@ describe("runtime route lifecycle service", () => {
 
       expect(observed).toEqual({
         issueIdentifier: harness.issue.identifier,
-        trackerState: "Approved",
+        observedTrackerState: "Approved",
+        workflowTrackerState: "Approved",
         observed: true
       });
       expect(dispatchRequests).toEqual([

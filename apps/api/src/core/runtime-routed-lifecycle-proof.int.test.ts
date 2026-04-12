@@ -38,7 +38,8 @@ describe("runtime routed lifecycle proof", () => {
       expect(firstObservation).toEqual(
         expect.objectContaining({
           issueIdentifier: harness.issueIdentifier,
-          trackerState: "Bootstrapping",
+          observedTrackerState: "Todo",
+          workflowTrackerState: "Bootstrapping",
           observed: true,
           recordedAt: expect.any(String)
         })
@@ -68,7 +69,8 @@ describe("runtime routed lifecycle proof", () => {
       expect(redispatchedBootstrappingObservation).toEqual(
         expect.objectContaining({
           issueIdentifier: harness.issueIdentifier,
-          trackerState: "Bootstrapping",
+          observedTrackerState: "Bootstrapping",
+          workflowTrackerState: "Bootstrapping",
           observed: true,
           recordedAt: expect.any(String)
         })
@@ -132,7 +134,8 @@ describe("runtime routed lifecycle proof", () => {
       expect(reviewObservation).toEqual(
         expect.objectContaining({
           issueIdentifier: harness.issueIdentifier,
-          trackerState: "In Review",
+          observedTrackerState: "In Review",
+          workflowTrackerState: "In Review",
           observed: false,
           recordedAt: expect.any(String)
         })
@@ -157,7 +160,8 @@ describe("runtime routed lifecycle proof", () => {
       expect(reworkObservation).toEqual(
         expect.objectContaining({
           issueIdentifier: harness.issueIdentifier,
-          trackerState: "Bootstrapping",
+          observedTrackerState: "Rework",
+          workflowTrackerState: "Bootstrapping",
           observed: true,
           recordedAt: expect.any(String)
         })
@@ -185,7 +189,8 @@ describe("runtime routed lifecycle proof", () => {
       expect(reworkRedispatchObservation).toEqual(
         expect.objectContaining({
           issueIdentifier: harness.issueIdentifier,
-          trackerState: "Bootstrapping",
+          observedTrackerState: "Bootstrapping",
+          workflowTrackerState: "Bootstrapping",
           observed: true,
           recordedAt: expect.any(String)
         })
@@ -246,7 +251,8 @@ describe("runtime routed lifecycle proof", () => {
       expect(approvedObservation).toEqual(
         expect.objectContaining({
           issueIdentifier: harness.issueIdentifier,
-          trackerState: "Approved",
+          observedTrackerState: "Approved",
+          workflowTrackerState: "Approved",
           observed: true,
           recordedAt: expect.any(String)
         })
@@ -275,7 +281,8 @@ describe("runtime routed lifecycle proof", () => {
       expect(approvedRedispatchObservation).toEqual(
         expect.objectContaining({
           issueIdentifier: harness.issueIdentifier,
-          trackerState: "Approved",
+          observedTrackerState: "Approved",
+          workflowTrackerState: "Approved",
           observed: true,
           recordedAt: expect.any(String)
         })
@@ -389,7 +396,8 @@ describe("runtime routed lifecycle proof", () => {
       expect(reopenedObservation).toEqual(
         expect.objectContaining({
           issueIdentifier: harness.issueIdentifier,
-          trackerState: "Bootstrapping",
+          observedTrackerState: "Todo",
+          workflowTrackerState: "Bootstrapping",
           observed: true,
           recordedAt: expect.any(String)
         })
@@ -470,7 +478,8 @@ describe("runtime routed lifecycle proof", () => {
       expect(reopenedObservation).toEqual(
         expect.objectContaining({
           issueIdentifier: harness.issueIdentifier,
-          trackerState: "Bootstrapping",
+          observedTrackerState: "Todo",
+          workflowTrackerState: "Bootstrapping",
           observed: true,
           recordedAt: expect.any(String)
         })
@@ -546,7 +555,8 @@ describe("runtime routed lifecycle proof", () => {
       expect(failedObservation).toEqual(
         expect.objectContaining({
           issueIdentifier: harness.issueIdentifier,
-          trackerState: "Failed",
+          observedTrackerState: "Failed",
+          workflowTrackerState: "Failed",
           observed: false,
           recordedAt: expect.any(String)
         })

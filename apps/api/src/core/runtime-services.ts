@@ -569,7 +569,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
       return {
         issueIdentifier: observation.issueIdentifier,
-        trackerState: observation.trackerState,
+        observedTrackerState: observation.observedTrackerState,
+        workflowTrackerState: observation.workflowTrackerState,
         observed: observation.observed,
         recordedAt
       };

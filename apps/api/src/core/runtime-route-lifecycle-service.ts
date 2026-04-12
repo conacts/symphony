@@ -102,14 +102,14 @@ export type SymphonyRuntimeRouteLifecycleService = {
     onDispatchRequested?(
       input: SymphonyTrackerStateDispatchRequest
     ): Promise<void> | void;
-  }): Promise<SymphonyObservedTrackerState[]>;
+  }): Promise<SymphonyTrackerStateIngressRecord[]>;
   observeNonRunningTrackerStateByIdentifier(input: {
     issueIdentifier: string;
     recordedAt: string;
     onDispatchRequested?(
       input: SymphonyTrackerStateDispatchRequest
     ): Promise<void> | void;
-  }): Promise<SymphonyTrackerStateObservation | null>;
+  }): Promise<SymphonyTrackerStateIngressObservation | null>;
   routeShutdownPause(input: {
     issueIdentifier: string;
     runId: string;
@@ -123,13 +123,14 @@ export type SymphonyRuntimeRouteLifecycleService = {
   }): Promise<boolean>;
 };
 
-export type SymphonyObservedTrackerState = {
+export type SymphonyTrackerStateIngressRecord = {
   issueIdentifier: string;
-  // This is the tracker state observed at ingress time, not a workflow projection.
-  trackerState: string;
+  observedTrackerState: string;
+  workflowTrackerState: string;
 };
 
-export type SymphonyTrackerStateObservation = SymphonyObservedTrackerState & {
+export type SymphonyTrackerStateIngressObservation =
+  SymphonyTrackerStateIngressRecord & {
   observed: boolean;
 };
 
@@ -238,9 +239,10 @@ export async function createRuntimeRouteLifecycleService(input: {
       )
         .filter((issue) => !claimedIssueIds.has(issue.id))
         .sort((left, right) => left.identifier.localeCompare(right.identifier));
-      const observedIssues: SymphonyObservedTrackerState[] = [];
+      const observedIssues: SymphonyTrackerStateIngressRecord[] = [];
 
       for (const issue of issues) {
+        const observedTrackerState = issue.state;
         const hydration = await sessionLoader.loadHydrationByIssueIdentifier({
           issueIdentifier: issue.identifier
         });
@@ -260,9 +262,15 @@ export async function createRuntimeRouteLifecycleService(input: {
           onDispatchRequested: observationInput.onDispatchRequested
         });
         if (observed) {
+          const workflowLifecycle = await loadRequiredWorkflowLifecycleView({
+            issueIdentifier: observed.issue.identifier,
+            failureContext:
+              "after non-running tracker state ingress recorded an observed transition"
+          });
           observedIssues.push({
             issueIdentifier: observed.issue.identifier,
-            trackerState: observed.issue.state
+            observedTrackerState,
+            workflowTrackerState: workflowLifecycle.trackerState
           });
         }
       }
@@ -288,13 +296,20 @@ export async function createRuntimeRouteLifecycleService(input: {
           hydration
         })
       ) {
+        const workflowLifecycle = await loadRequiredWorkflowLifecycleView({
+          issueIdentifier: issue.identifier,
+          failureContext:
+            "after non-running tracker state ingress confirmed workflow state already matched the observed tracker state"
+        });
         return {
           issueIdentifier: issue.identifier,
-          trackerState: issue.state,
+          observedTrackerState: issue.state,
+          workflowTrackerState: workflowLifecycle.trackerState,
           observed: false
         };
       }
 
+      const observedTrackerState = issue.state;
       const observed = await trackerStateObservationRouter.observe({
         observationKind: "idle",
         ...observationInput
@@ -303,9 +318,16 @@ export async function createRuntimeRouteLifecycleService(input: {
         return null;
       }
 
+      const workflowLifecycle = await loadRequiredWorkflowLifecycleView({
+        issueIdentifier: observed.issue.identifier,
+        failureContext:
+          "after non-running tracker state ingress recorded an observed transition"
+      });
+
       return {
         issueIdentifier: observed.issue.identifier,
-        trackerState: observed.issue.state,
+        observedTrackerState,
+        workflowTrackerState: workflowLifecycle.trackerState,
         observed: true
       };
     };
@@ -344,6 +366,20 @@ export async function createRuntimeRouteLifecycleService(input: {
         runId
       });
     };
+  const loadRequiredWorkflowLifecycleView = async (input: {
+    issueIdentifier: string;
+    failureContext: string;
+  }): Promise<SymphonyRuntimeWorkflowLifecycleView> => {
+    const workflowLifecycle = await loadWorkflowLifecycleView({
+      issueIdentifier: input.issueIdentifier
+    });
+    if (!workflowLifecycle) {
+      throw new TypeError(
+        `Workflow lifecycle view is missing for ${input.issueIdentifier} ${input.failureContext}.`
+      );
+    }
+    return workflowLifecycle;
+  };
 
   return {
     workflowRoutingAdapter,

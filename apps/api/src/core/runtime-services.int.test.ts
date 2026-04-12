@@ -761,7 +761,8 @@ describe("runtime services", () => {
         expect(firstObservation).toEqual(
           expect.objectContaining({
             issueIdentifier: issue.identifier,
-            trackerState: "In Review",
+            observedTrackerState: "In Review",
+            workflowTrackerState: "In Review",
             observed: true,
             recordedAt: expect.any(String)
           })
@@ -789,7 +790,8 @@ describe("runtime services", () => {
         expect(secondObservation).toEqual(
           expect.objectContaining({
             issueIdentifier: issue.identifier,
-            trackerState: "In Review",
+            observedTrackerState: "In Review",
+            workflowTrackerState: "In Review",
             observed: false,
             recordedAt: expect.any(String)
           })

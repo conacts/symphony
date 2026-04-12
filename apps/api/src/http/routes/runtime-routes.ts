@@ -163,7 +163,8 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
 
     c.get("logger").info("Observed non-running tracker state through runtime API", {
       issueIdentifier: result.issueIdentifier,
-      trackerState: result.trackerState,
+      observedTrackerState: result.observedTrackerState,
+      workflowTrackerState: result.workflowTrackerState,
       observed: result.observed
     });
 

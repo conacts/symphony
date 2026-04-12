@@ -412,7 +412,8 @@ describe("symphony runtime contracts", () => {
       },
       data: {
         issueIdentifier: "COL-157",
-        trackerState: "Bootstrapping",
+        observedTrackerState: "Rework",
+        workflowTrackerState: "Bootstrapping",
         observed: true,
         recordedAt: "2026-04-10T00:00:00.000Z"
       }

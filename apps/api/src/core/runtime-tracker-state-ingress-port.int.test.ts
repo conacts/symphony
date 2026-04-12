@@ -62,7 +62,8 @@ describe("runtime tracker state ingress port", () => {
       expect(observedIssues).toEqual([
         {
           issueIdentifier: harness.issue.identifier,
-          trackerState: "Bootstrapping"
+          observedTrackerState: "Todo",
+          workflowTrackerState: "Bootstrapping"
         }
       ]);
       expect(dispatchRequests).toEqual([
@@ -82,7 +83,8 @@ describe("runtime tracker state ingress port", () => {
             issueIdentifier: harness.issue.identifier,
             payload: expect.objectContaining({
               scope: "non_running_batch",
-              trackerState: "Bootstrapping",
+              observedTrackerState: "Todo",
+              workflowTrackerState: "Bootstrapping",
               claimedIssueCount: 0
             })
           }),
@@ -96,7 +98,8 @@ describe("runtime tracker state ingress port", () => {
               observedIssues: [
                 {
                   issueIdentifier: harness.issue.identifier,
-                  trackerState: "Bootstrapping"
+                  observedTrackerState: "Todo",
+                  workflowTrackerState: "Bootstrapping"
                 }
               ]
             }
@@ -163,7 +166,8 @@ describe("runtime tracker state ingress port", () => {
 
       expect(observation).toEqual({
         issueIdentifier: harness.issue.identifier,
-        trackerState: "In Review",
+        observedTrackerState: "In Review",
+        workflowTrackerState: "In Review",
         observed: false
       });
 
@@ -178,7 +182,8 @@ describe("runtime tracker state ingress port", () => {
             issueIdentifier: harness.issue.identifier,
             payload: {
               scope: "non_running_issue_identifier",
-              trackerState: "In Review"
+              observedTrackerState: "In Review",
+              workflowTrackerState: "In Review"
             }
           })
         ])

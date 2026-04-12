@@ -176,7 +176,8 @@ describe("@symphony/api app", () => {
       const firstPayload = await responseJson<{
         data: {
           issueIdentifier: string;
-          trackerState: string;
+          observedTrackerState: string;
+          workflowTrackerState: string;
           observed: boolean;
           recordedAt: string;
         };
@@ -204,7 +205,8 @@ describe("@symphony/api app", () => {
       const secondPayload = await responseJson<{
         data: {
           issueIdentifier: string;
-          trackerState: string;
+          observedTrackerState: string;
+          workflowTrackerState: string;
           observed: boolean;
           recordedAt: string;
         };
@@ -212,7 +214,8 @@ describe("@symphony/api app", () => {
 
       expect(firstResponse.status).toBe(200);
       expect(firstPayload.data.issueIdentifier).toBe("COL-777");
-      expect(firstPayload.data.trackerState).toBe("Bootstrapping");
+      expect(firstPayload.data.observedTrackerState).toBe("Todo");
+      expect(firstPayload.data.workflowTrackerState).toBe("Bootstrapping");
       expect(firstPayload.data.observed).toBe(true);
       expect(firstPayload.data.recordedAt).toBeTruthy();
       expect(routedDispatches).toEqual([
@@ -235,7 +238,8 @@ describe("@symphony/api app", () => {
       expect(secondResponse.status).toBe(200);
       expect(secondPayload.data).toEqual({
         issueIdentifier: "COL-777",
-        trackerState: "Bootstrapping",
+        observedTrackerState: "Bootstrapping",
+        workflowTrackerState: "Bootstrapping",
         observed: true,
         recordedAt: expect.any(String)
       });

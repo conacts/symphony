@@ -1,8 +1,8 @@
 import type { SymphonyRuntimeLogStore } from "@symphony/db";
 import type {
-  SymphonyObservedTrackerState,
   SymphonyRuntimeRouteLifecycleService,
-  SymphonyTrackerStateObservation
+  SymphonyTrackerStateIngressObservation,
+  SymphonyTrackerStateIngressRecord
 } from "./runtime-route-lifecycle-service.js";
 import type {
   SymphonyTrackerStateDispatchRequest
@@ -15,14 +15,14 @@ export type SymphonyTrackerStateIngressPort = {
     onDispatchRequested?(
       input: SymphonyTrackerStateDispatchRequest
     ): Promise<void> | void;
-  }): Promise<SymphonyObservedTrackerState[]>;
+  }): Promise<SymphonyTrackerStateIngressRecord[]>;
   observeNonRunningByIdentifier(input: {
     issueIdentifier: string;
     recordedAt: string;
     onDispatchRequested?(
       input: SymphonyTrackerStateDispatchRequest
     ): Promise<void> | void;
-  }): Promise<SymphonyTrackerStateObservation | null>;
+  }): Promise<SymphonyTrackerStateIngressObservation | null>;
 };
 
 export function createRuntimeTrackerStateIngressPort(input: {
@@ -59,7 +59,8 @@ export function createRuntimeTrackerStateIngressPort(input: {
             issueIdentifier,
             payload: {
               scope: "non_running_batch",
-              trackerState: observedIssue.trackerState,
+              observedTrackerState: observedIssue.observedTrackerState,
+              workflowTrackerState: observedIssue.workflowTrackerState,
               claimedIssueCount: observationInput.claimedIssueIds.length,
               ...(issueIdentifier
                 ? {}
@@ -83,7 +84,8 @@ export function createRuntimeTrackerStateIngressPort(input: {
               claimedIssueCount: observationInput.claimedIssueIds.length,
               observedIssues: observedIssues.map((observedIssue) => ({
                 issueIdentifier: observedIssue.issueIdentifier,
-                trackerState: observedIssue.trackerState
+                observedTrackerState: observedIssue.observedTrackerState,
+                workflowTrackerState: observedIssue.workflowTrackerState
               }))
             },
             recordedAt: observationInput.recordedAt
@@ -159,7 +161,8 @@ export function createRuntimeTrackerStateIngressPort(input: {
           issueIdentifier,
           payload: {
             scope: "non_running_issue_identifier",
-            trackerState: observedIssue.trackerState,
+            observedTrackerState: observedIssue.observedTrackerState,
+            workflowTrackerState: observedIssue.workflowTrackerState,
             ...(issueIdentifier
               ? {}
               : {
