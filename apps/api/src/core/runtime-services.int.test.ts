@@ -441,11 +441,6 @@ describe("runtime services", () => {
       SYMPHONY_SOURCE_REPO: undefined,
       SYMPHONY_SOURCE_REPOS: undefined
     };
-    const hostCommandEnvSource = {
-      OPENAI_API_KEY: "test-openai-api-key",
-      OPENROUTER_API_KEY: "test-openrouter-api-key"
-    };
-
     try {
       const bootstrap = await loadRuntimeServiceBootstrap({
         env: bootstrapEnv,

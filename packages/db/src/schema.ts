@@ -96,7 +96,6 @@ const routeSignalSourceValues = [
   "router"
 ] as const;
 const externalAuthProviderValues = ["github", "linear", "vercel"] as const;
-const externalIntegrationProviderValues = ["github", "linear"] as const;
 const organizationMembershipRoleValues = [
   "owner",
   "admin",
@@ -111,8 +110,7 @@ const repositoryBindingStatusValues = ["active", "inactive"] as const;
 
 export type SymphonyExternalAuthProvider =
   (typeof externalAuthProviderValues)[number];
-export type SymphonyExternalIntegrationProvider =
-  (typeof externalIntegrationProviderValues)[number];
+export type SymphonyExternalIntegrationProvider = "github" | "linear";
 export type SymphonyOrganizationMembershipRole =
   (typeof organizationMembershipRoleValues)[number];
 export type SymphonyRepositoryBindingSource =

@@ -435,7 +435,6 @@ done
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
-    const workerSessionContract = buildWorkerSessionContract();
     await seedCanonicalIssue(database.db, issue);
     const runId = await runStore.recordRunStarted({
       repositoryKey: testRepositoryKey,
