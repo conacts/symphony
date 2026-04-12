@@ -8,6 +8,7 @@ import {
   buildSymphonyRuntimePolicy,
   buildSymphonyTrackerIssue
 } from "@symphony/test-support";
+import { buildBindMountPreparedWorkspace } from "../../test-support/create-symphony-runtime-test-harness.js";
 import type {
   WorkflowCommand,
   WorkflowDecision,
@@ -190,6 +191,53 @@ describe("runtime routes", () => {
     expect(loadWorkflowLifecycleView).toHaveBeenCalledWith({
       issueIdentifier: "COL-123"
     });
+  });
+
+  it("fails fast when runtime state serialization sees a live entry without workflow-authoritative tracker state", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      identifier: "COL-123",
+      state: "In Progress"
+    });
+    const app = createRuntimeRoutesTestApp({
+      orchestrator: {
+        snapshot: vi.fn().mockReturnValue(
+          buildSymphonyOrchestratorSnapshot({
+            running: [
+              {
+                issue,
+                workspace: buildBindMountPreparedWorkspace(
+                  issue.identifier,
+                  `/tmp/symphony-${issue.identifier}`
+                ),
+                workspacePath: `/tmp/symphony-${issue.identifier}`
+              }
+            ],
+            retrying: []
+          })
+        ),
+        runPollCycle: vi.fn(),
+        isPollCycleInFlight: vi.fn().mockReturnValue(false),
+        requestRefresh: vi.fn(),
+        dispatchRoutedIssue: vi.fn()
+      },
+      workflowRead: {
+        loadWorkflowLifecycleView: vi.fn().mockResolvedValue(null)
+      }
+    });
+
+    const response = await app.request("/api/v1/state");
+    const payload = (await response.json()) as {
+      error: {
+        code: string;
+        message: string;
+      };
+    };
+
+    expect(response.status).toBe(500);
+    expect(payload.error.code).toBe("UNKNOWN");
+    expect(payload.error.message).toBe(
+      "Runtime issue COL-123 is missing workflow-authoritative tracker state."
+    );
   });
 
   it("fails fast when a live runtime issue lacks workflow-authoritative tracker state", async () => {

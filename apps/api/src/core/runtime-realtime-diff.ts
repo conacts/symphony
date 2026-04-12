@@ -3,7 +3,7 @@ import { summarizePreparedWorkspace } from "@symphony/workspace";
 import type { SymphonyLogger } from "@symphony/logger";
 import type { SymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 import {
-  resolveRuntimeIssueTrackerState,
+  requireWorkflowTrackerState,
   type RuntimeWorkflowTrackerStatesByIssueIdentifier
 } from "./runtime-workflow-tracker-state.js";
 
@@ -96,12 +96,10 @@ function buildRealtimeComparableSnapshot(
     running: snapshot.running.map((entry) => ({
       issueId: entry.issueId,
       issueIdentifier: entry.issue.identifier,
-      trackerState: resolveRuntimeIssueTrackerState({
+      trackerState: requireWorkflowTrackerState({
         issueIdentifier: entry.issue.identifier,
-        trackedState: entry.issue.state,
         workflowTrackerState:
-          workflowTrackerStatesByIssueIdentifier.get(entry.issue.identifier) ?? null,
-        hasWorkflowBackedRuntimeEntry: true
+          workflowTrackerStatesByIssueIdentifier.get(entry.issue.identifier) ?? null
       }),
       runId: entry.runId,
       threadId: entry.threadId,

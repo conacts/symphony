@@ -192,8 +192,7 @@ export class RuntimeRoutedLifecycleProofHarness {
       turnId: null,
       issue: {
         trackerIssueId: issue.id,
-        identifier: issue.identifier,
-        state: issue.state
+        identifier: issue.identifier
       },
       argumentsPayload: {
         status: input.status ?? "completed",
@@ -237,8 +236,7 @@ export class RuntimeRoutedLifecycleProofHarness {
       turnId: null,
       issue: {
         trackerIssueId: issue.id,
-        identifier: issue.identifier,
-        state: issue.state
+        identifier: issue.identifier
       },
       argumentsPayload: {
         summary: input.summary,
@@ -273,8 +271,7 @@ export class RuntimeRoutedLifecycleProofHarness {
       turnId: null,
       issue: {
         trackerIssueId: issue.id,
-        identifier: issue.identifier,
-        state: issue.state
+        identifier: issue.identifier
       },
       argumentsPayload: {
         status: input.status,

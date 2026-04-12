@@ -150,7 +150,6 @@ describe("tool spike-result command", () => {
             SYMPHONY_RUN_ID: "run-456",
             SYMPHONY_TRACKER_ISSUE_ID: "issue-456",
             SYMPHONY_ISSUE_IDENTIFIER: "COL-456",
-            SYMPHONY_ISSUE_STATE: "In Progress",
             SYMPHONY_TURN_ID: "turn-456"
           }
         );
@@ -159,6 +158,7 @@ describe("tool spike-result command", () => {
         expect(requestBody).toContain('"runId":"run-456"');
         expect(requestBody).toContain('"trackerIssueId":"issue-456"');
         expect(requestBody).toContain('"summary":"Documented the spike result."');
+        expect(requestBody).not.toContain('"state":"In Progress"');
       } finally {
         await new Promise<void>((resolve, reject) =>
           server.close((error) => (error ? reject(error) : resolve()))

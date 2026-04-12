@@ -36,14 +36,31 @@ export function resolveRuntimeIssueTrackerState(input: {
   workflowTrackerState: string | null;
   hasWorkflowBackedRuntimeEntry: boolean;
 }): string {
-  if (input.workflowTrackerState === null) {
-    if (input.hasWorkflowBackedRuntimeEntry) {
-      throw new Error(
-        `Runtime issue ${input.issueIdentifier} is missing workflow-authoritative tracker state.`
-      );
-    }
+  if (input.workflowTrackerState !== null || input.hasWorkflowBackedRuntimeEntry) {
+    return requireWorkflowTrackerState({
+      issueIdentifier: input.issueIdentifier,
+      workflowTrackerState: input.workflowTrackerState
+    });
+  }
 
-    return input.trackedState;
+  const trackedState = input.trackedState.trim();
+  if (trackedState === "") {
+    throw new Error(
+      `Runtime issue ${input.issueIdentifier} has an empty tracked tracker state.`
+    );
+  }
+
+  return trackedState;
+}
+
+export function requireWorkflowTrackerState(input: {
+  issueIdentifier: string;
+  workflowTrackerState: string | null;
+}): string {
+  if (input.workflowTrackerState === null) {
+    throw new Error(
+      `Runtime issue ${input.issueIdentifier} is missing workflow-authoritative tracker state.`
+    );
   }
 
   const workflowTrackerState = input.workflowTrackerState.trim();
@@ -53,5 +70,5 @@ export function resolveRuntimeIssueTrackerState(input: {
     );
   }
 
-  return input.workflowTrackerState;
+  return workflowTrackerState;
 }

@@ -104,7 +104,6 @@ export type SymphonyRuntimeToolsPort = {
     issue: {
       trackerIssueId: string;
       identifier: string;
-      state: string | null;
     };
     argumentsPayload: unknown;
   }): Promise<RuntimeToolExecutionResult>;
@@ -114,7 +113,6 @@ export type SymphonyRuntimeToolsPort = {
     issue: {
       trackerIssueId: string;
       identifier: string;
-      state: string | null;
     };
     argumentsPayload: unknown;
   }): Promise<RuntimeToolExecutionResult>;
@@ -124,7 +122,6 @@ export type SymphonyRuntimeToolsPort = {
     issue: {
       trackerIssueId: string;
       identifier: string;
-      state: string | null;
     };
     argumentsPayload: unknown;
   }): Promise<RuntimeToolExecutionResult>;
@@ -134,7 +131,6 @@ export type SymphonyRuntimeToolsPort = {
     issue: {
       trackerIssueId: string;
       identifier: string;
-      state: string | null;
     };
     argumentsPayload: unknown;
   }): Promise<RuntimeToolExecutionResult>;

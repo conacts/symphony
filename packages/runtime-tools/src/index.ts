@@ -52,7 +52,6 @@ type RuntimeToolIssueStateTransitionCallbackInput = {
 type RuntimeToolIssueStateTransitionRequest = {
   issueIdentifier: string;
   trackerIssueId: string;
-  currentState: string | null;
   targetState: string;
   recordedAt: string;
 };
@@ -101,7 +100,6 @@ export async function executeDeliveryReportTool(
     issue: {
       trackerIssueId: string;
       identifier: string;
-      state?: string | null;
     };
     runId: string | null;
     turnId: string | null;
@@ -199,7 +197,6 @@ export async function executeSpikeResultTool(
     issue: {
       trackerIssueId: string;
       identifier: string;
-      state?: string | null;
     };
     defaultTargetState: string | null;
     transitionIssueState(
@@ -270,7 +267,6 @@ export async function executeCancelTool(
     issue: {
       trackerIssueId: string;
       identifier: string;
-      state?: string | null;
     };
     defaultTargetState: string;
     transitionIssueState(
@@ -333,7 +329,6 @@ export async function executeMergeResultTool(
     issue: {
       trackerIssueId: string;
       identifier: string;
-      state?: string | null;
     };
     runId: string | null;
     turnId: string | null;
@@ -638,7 +633,6 @@ async function transitionDeliveryIssueStateIfNeeded(
     issue: {
       trackerIssueId: string;
       identifier: string;
-      state?: string | null;
     };
     blockedTargetState?: string | null;
     transitionIssueState(
@@ -705,16 +699,6 @@ async function transitionIssueStateIfNeeded(
   },
   targetState: string
 ): Promise<DeliveryTransitionResult> {
-  const currentState = normalizeOptionalText(executionContext.issue.state);
-  if (currentState?.toLowerCase() === targetState.toLowerCase()) {
-    return {
-      attempted: false,
-      targetState,
-      success: true,
-      reason: null
-    };
-  }
-
   const recordedAt = new Date().toISOString();
   if (!executionContext.transitionIssueState) {
     throw new TypeError(
@@ -725,7 +709,6 @@ async function transitionIssueStateIfNeeded(
   return await executionContext.transitionIssueState({
     issueIdentifier: executionContext.issue.identifier,
     trackerIssueId: executionContext.issue.trackerIssueId,
-    currentState,
     targetState,
     recordedAt
   });

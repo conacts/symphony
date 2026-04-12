@@ -21,7 +21,10 @@ import {
   resolvePiIssueModel
 } from "../core/agent-app-server-launch.js";
 import type { AdmittedRuntimeRepository } from "../core/runtime-admitted-repositories.js";
-import { resolveRuntimeIssueTrackerState } from "../core/runtime-workflow-tracker-state.js";
+import {
+  requireWorkflowTrackerState,
+  resolveRuntimeIssueTrackerState
+} from "../core/runtime-workflow-tracker-state.js";
 import type { SymphonyRuntimeWorkflowComparison } from "../core/runtime-workflow-comparison.js";
 
 type RuntimeIssuePiSelectionPolicy = {
@@ -58,12 +61,10 @@ export function serializeRuntimeState(
     running: snapshot.running.map((entry) => ({
       trackerIssueId: entry.issueId,
       issueIdentifier: entry.issue.identifier,
-      state: resolveRuntimeIssueTrackerState({
+      state: requireWorkflowTrackerState({
         issueIdentifier: entry.issue.identifier,
-        trackedState: entry.issue.state,
         workflowTrackerState:
-          workflowTrackerStatesByIssueIdentifier.get(entry.issue.identifier) ?? null,
-        hasWorkflowBackedRuntimeEntry: true
+          workflowTrackerStatesByIssueIdentifier.get(entry.issue.identifier) ?? null
       }),
       workerHost: entry.workerHost,
       workspacePath: entry.workspacePath,

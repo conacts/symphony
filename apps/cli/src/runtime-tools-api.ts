@@ -15,7 +15,6 @@ export async function postRuntimeToolRequest(input: {
   issue: {
     trackerIssueId: string;
     identifier: string;
-    state: string | null;
   };
   argumentsPayload: unknown;
 }): Promise<RuntimeToolApiResult> {

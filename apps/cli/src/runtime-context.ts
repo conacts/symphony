@@ -3,7 +3,6 @@ type SymphonyCliCommandContext = {
   issue: {
     trackerIssueId: string;
     identifier: string;
-    state: string | null;
   };
   turnId: string | null;
   apiBaseUrl: string;
@@ -23,12 +22,10 @@ export function loadCliCommandContext(
 function readCliIssueContext(env: Record<string, string | undefined>): {
   trackerIssueId: string;
   identifier: string;
-  state: string | null;
 } {
   return {
     trackerIssueId: readRequired(env, "SYMPHONY_TRACKER_ISSUE_ID"),
-    identifier: readRequired(env, "SYMPHONY_ISSUE_IDENTIFIER"),
-    state: readOptional(env, "SYMPHONY_ISSUE_STATE")
+    identifier: readRequired(env, "SYMPHONY_ISSUE_IDENTIFIER")
   };
 }
 

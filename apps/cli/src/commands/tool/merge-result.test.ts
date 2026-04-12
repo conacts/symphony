@@ -121,7 +121,6 @@ describe("tool merge-result command", () => {
             SYMPHONY_RUN_ID: "run-456",
             SYMPHONY_TRACKER_ISSUE_ID: "issue-456",
             SYMPHONY_ISSUE_IDENTIFIER: "COL-456",
-            SYMPHONY_ISSUE_STATE: "In Progress",
             SYMPHONY_TURN_ID: "turn-456"
           }
         );
@@ -133,6 +132,7 @@ describe("tool merge-result command", () => {
         expect(requestBody).toContain(
           '"blockingReason":"Conflicts in packages/workspace/src/docker-client.ts"'
         );
+        expect(requestBody).not.toContain('"state":"In Progress"');
       } finally {
         await new Promise<void>((resolve, reject) =>
           server.close((error) => (error ? reject(error) : resolve()))

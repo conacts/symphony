@@ -35,8 +35,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     turnId: z.string().trim().min(1).nullable().optional(),
     issue: z.strictObject({
       trackerIssueId: z.string().trim().min(1),
-      identifier: z.string().trim().min(1),
-      state: z.string().trim().min(1).nullable().optional()
+      identifier: z.string().trim().min(1)
     }),
     arguments: z.unknown()
   });
@@ -188,8 +187,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       turnId: payload.turnId ?? null,
       issue: {
         trackerIssueId: payload.issue.trackerIssueId,
-        identifier: payload.issue.identifier,
-        state: payload.issue.state ?? null
+        identifier: payload.issue.identifier
       },
       argumentsPayload: payload.arguments
     });
@@ -210,8 +208,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       turnId: payload.turnId ?? null,
       issue: {
         trackerIssueId: payload.issue.trackerIssueId,
-        identifier: payload.issue.identifier,
-        state: payload.issue.state ?? null
+        identifier: payload.issue.identifier
       },
       argumentsPayload: payload.arguments
     });
@@ -232,8 +229,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       turnId: payload.turnId ?? null,
       issue: {
         trackerIssueId: payload.issue.trackerIssueId,
-        identifier: payload.issue.identifier,
-        state: payload.issue.state ?? null
+        identifier: payload.issue.identifier
       },
       argumentsPayload: payload.arguments
     });
@@ -254,8 +250,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       turnId: payload.turnId ?? null,
       issue: {
         trackerIssueId: payload.issue.trackerIssueId,
-        identifier: payload.issue.identifier,
-        state: payload.issue.state ?? null
+        identifier: payload.issue.identifier
       },
       argumentsPayload: payload.arguments
     });

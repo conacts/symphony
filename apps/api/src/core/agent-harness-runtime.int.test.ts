@@ -2661,6 +2661,9 @@ done
     expect(await readFile(fakeDockerEnvLog, "utf8")).toContain(
       "SYMPHONY_API_BASE_URL=http://host.docker.internal:4400/api/v1/internal/runtime-tools"
     );
+    expect(await readFile(fakeDockerEnvLog, "utf8")).not.toContain(
+      "SYMPHONY_ISSUE_STATE="
+    );
     expect(runtimeLogPayloads).toContainEqual(
       expect.objectContaining({
         launchTarget: expect.objectContaining({

@@ -73,8 +73,7 @@ describe("runtime tools", () => {
         deliveryReports,
         issue: {
           trackerIssueId: "issue-123",
-          identifier: "COL-123",
-          state: "In Progress"
+          identifier: "COL-123"
         },
         runId: "run-123",
         turnId: "turn-123",
@@ -144,8 +143,7 @@ describe("runtime tools", () => {
         deliveryReports,
         issue: {
           trackerIssueId: "issue-150",
-          identifier: "COL-150",
-          state: "In Progress"
+          identifier: "COL-150"
         },
         runId: "run-150",
         turnId: "turn-150",
@@ -192,8 +190,7 @@ describe("runtime tools", () => {
         deliveryReports,
         issue: {
           trackerIssueId: "issue-151",
-          identifier: "COL-151",
-          state: "In Progress"
+          identifier: "COL-151"
         },
         runId: "run-151",
         turnId: "turn-151",
@@ -232,7 +229,6 @@ describe("runtime tools", () => {
     const transitionRequests: Array<{
       issueIdentifier: string;
       targetState: string;
-      currentState: string | null;
     }> = [];
     const tracker = {
       async fetchCandidateIssues() {
@@ -261,16 +257,14 @@ describe("runtime tools", () => {
         deliveryReports,
         issue: {
           trackerIssueId: "issue-152",
-          identifier: "COL-152",
-          state: "In Progress"
+          identifier: "COL-152"
         },
         runId: "run-152",
         turnId: "turn-152",
         async transitionIssueState(request) {
           transitionRequests.push({
             issueIdentifier: request.issueIdentifier,
-            targetState: request.targetState,
-            currentState: request.currentState
+            targetState: request.targetState
           });
           return {
             attempted: true,
@@ -291,8 +285,7 @@ describe("runtime tools", () => {
     expect(transitionRequests).toEqual([
       {
         issueIdentifier: "COL-152",
-        targetState: "In Review",
-        currentState: "In Progress"
+        targetState: "In Review"
       }
     ]);
 
@@ -352,8 +345,7 @@ describe("runtime tools", () => {
         deliveryReports,
         issue: {
           trackerIssueId: "issue-123",
-          identifier: "COL-123",
-          state: "In Progress"
+          identifier: "COL-123"
         },
         runId: "run-123",
         turnId: "turn-123",
@@ -399,8 +391,7 @@ describe("runtime tools", () => {
         deliveryReports,
         issue: {
           trackerIssueId: "issue-124",
-          identifier: "COL-124",
-          state: "In Progress"
+          identifier: "COL-124"
         },
         runId: "run-124",
         turnId: "turn-124",
@@ -441,8 +432,7 @@ describe("runtime tools", () => {
         tracker,
         issue: {
           trackerIssueId: "issue-456",
-          identifier: "SYM-456",
-          state: "In Progress"
+          identifier: "SYM-456"
         },
         defaultTargetState: "Paused",
         transitionIssueState: createSuccessfulIssueStateTransition(tracker)
@@ -481,7 +471,6 @@ describe("runtime tools", () => {
     const transitionRequests: Array<{
       issueIdentifier: string;
       targetState: string;
-      currentState: string | null;
     }> = [];
 
     const result = await executeSpikeResultTool(
@@ -489,15 +478,13 @@ describe("runtime tools", () => {
         tracker,
         issue: {
           trackerIssueId: "issue-457",
-          identifier: "SYM-457",
-          state: "In Progress"
+          identifier: "SYM-457"
         },
         defaultTargetState: "Paused",
         async transitionIssueState(request) {
           transitionRequests.push({
             issueIdentifier: request.issueIdentifier,
-            targetState: request.targetState,
-            currentState: request.currentState
+            targetState: request.targetState
           });
           return {
             attempted: true,
@@ -517,8 +504,7 @@ describe("runtime tools", () => {
     expect(transitionRequests).toEqual([
       {
         issueIdentifier: "SYM-457",
-        targetState: "Paused",
-        currentState: "In Progress"
+        targetState: "Paused"
       }
     ]);
     expect(tracker.listOperations()).toEqual([
@@ -543,8 +529,7 @@ describe("runtime tools", () => {
         tracker,
         issue: {
           trackerIssueId: "issue-789",
-          identifier: "SYM-789",
-          state: "In Progress"
+          identifier: "SYM-789"
         },
         defaultTargetState: "Canceled",
         transitionIssueState: createSuccessfulIssueStateTransition(tracker)
@@ -583,7 +568,6 @@ describe("runtime tools", () => {
     const transitionRequests: Array<{
       issueIdentifier: string;
       targetState: string;
-      currentState: string | null;
     }> = [];
 
     const result = await executeCancelTool(
@@ -591,15 +575,13 @@ describe("runtime tools", () => {
         tracker,
         issue: {
           trackerIssueId: "issue-790",
-          identifier: "SYM-790",
-          state: "In Progress"
+          identifier: "SYM-790"
         },
         defaultTargetState: "Canceled",
         async transitionIssueState(request) {
           transitionRequests.push({
             issueIdentifier: request.issueIdentifier,
-            targetState: request.targetState,
-            currentState: request.currentState
+            targetState: request.targetState
           });
           return {
             attempted: true,
@@ -618,8 +600,7 @@ describe("runtime tools", () => {
     expect(transitionRequests).toEqual([
       {
         issueIdentifier: "SYM-790",
-        targetState: "Canceled",
-        currentState: "In Progress"
+        targetState: "Canceled"
       }
     ]);
     expect(tracker.listOperations()).toEqual([
@@ -655,8 +636,7 @@ describe("runtime tools", () => {
         tracker,
         issue: {
           trackerIssueId: "issue-321",
-          identifier: "SYM-321",
-          state: "In Progress"
+          identifier: "SYM-321"
         },
         runId: "run-321",
         turnId: "turn-321",
@@ -712,7 +692,6 @@ describe("runtime tools", () => {
     const transitionRequests: Array<{
       issueIdentifier: string;
       targetState: string;
-      currentState: string | null;
     }> = [];
 
     const result = await executeMergeResultTool(
@@ -720,16 +699,14 @@ describe("runtime tools", () => {
         tracker,
         issue: {
           trackerIssueId: "issue-322",
-          identifier: "SYM-322",
-          state: "In Progress"
+          identifier: "SYM-322"
         },
         runId: "run-322",
         turnId: "turn-322",
         async transitionIssueState(request) {
           transitionRequests.push({
             issueIdentifier: request.issueIdentifier,
-            targetState: request.targetState,
-            currentState: request.currentState
+            targetState: request.targetState
           });
           return {
             attempted: true,
@@ -751,8 +728,7 @@ describe("runtime tools", () => {
     expect(transitionRequests).toEqual([
       {
         issueIdentifier: "SYM-322",
-        targetState: "Done",
-        currentState: "In Progress"
+        targetState: "Done"
       }
     ]);
     expect(tracker.listOperations()).toEqual([
@@ -786,7 +762,6 @@ describe("runtime tools", () => {
     const transitionRequests: Array<{
       issueIdentifier: string;
       targetState: string;
-      currentState: string | null;
     }> = [];
 
     const result = await executeMergeResultTool(
@@ -794,8 +769,7 @@ describe("runtime tools", () => {
         tracker,
         issue: {
           trackerIssueId: "issue-323",
-          identifier: "SYM-323",
-          state: "In Progress"
+          identifier: "SYM-323"
         },
         runId: "run-323",
         turnId: "turn-323",
@@ -803,8 +777,7 @@ describe("runtime tools", () => {
         async transitionIssueState(request) {
           transitionRequests.push({
             issueIdentifier: request.issueIdentifier,
-            targetState: request.targetState,
-            currentState: request.currentState
+            targetState: request.targetState
           });
           return {
             attempted: true,
@@ -825,8 +798,7 @@ describe("runtime tools", () => {
     expect(transitionRequests).toEqual([
       {
         issueIdentifier: "SYM-323",
-        targetState: "Blocked",
-        currentState: "In Progress"
+        targetState: "Blocked"
       }
     ]);
     expect(tracker.listOperations()).toEqual([
@@ -890,8 +862,7 @@ describe("runtime tools", () => {
         tracker,
         issue: {
           trackerIssueId: "issue-900",
-          identifier: "SYM-900",
-          state: "In Progress"
+          identifier: "SYM-900"
         },
         defaultTargetState: "Paused",
         transitionIssueState: undefined as never

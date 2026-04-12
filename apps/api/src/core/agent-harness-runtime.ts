@@ -310,7 +310,6 @@ async function executeRun(input: {
         SYMPHONY_REPOSITORY_KEY: repositoryKey,
         SYMPHONY_ISSUE_IDENTIFIER: input.issue.identifier,
         SYMPHONY_TRACKER_ISSUE_ID: input.issue.id,
-        SYMPHONY_ISSUE_STATE: input.issue.state ?? "",
         ...(input.runId ? { SYMPHONY_RUN_ID: input.runId } : {}),
       },
       hostCommandEnvSource: input.hostCommandEnvSource,

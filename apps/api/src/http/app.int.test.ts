@@ -709,8 +709,7 @@ describe("@symphony/api app", () => {
           turnId: "turn-123",
           issue: {
             trackerIssueId: "issue-123",
-            identifier: "COL-123",
-            state: "In Progress"
+            identifier: "COL-123"
           },
           arguments: {
             status: "partial",
@@ -741,8 +740,7 @@ describe("@symphony/api app", () => {
           turnId: "turn-123",
           issue: {
             trackerIssueId: "issue-123",
-            identifier: "COL-123",
-            state: "In Progress"
+            identifier: "COL-123"
           },
           arguments: {
             summary: "Documented the spike recommendation.",
@@ -774,8 +772,7 @@ describe("@symphony/api app", () => {
           turnId: "turn-123",
           issue: {
             trackerIssueId: "issue-123",
-            identifier: "COL-123",
-            state: "In Progress"
+            identifier: "COL-123"
           },
           arguments: {
             reason: "Cancel this issue because the requirements changed."
@@ -805,8 +802,7 @@ describe("@symphony/api app", () => {
           turnId: "turn-123",
           issue: {
             trackerIssueId: "issue-123",
-            identifier: "COL-123",
-            state: "In Progress"
+            identifier: "COL-123"
           },
           arguments: {
             status: "merged",
@@ -824,6 +820,36 @@ describe("@symphony/api app", () => {
       expect(response.status).toBe(200);
       expect(payload.data.success).toBe(true);
       expect(payload.data.output).toContain('"ok":true');
+    });
+
+    it("rejects legacy runtime-tools payloads that still send issue.state", async () => {
+      const response = await app.request("/api/v1/internal/runtime-tools/finish", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          runId: "run-123",
+          turnId: "turn-123",
+          issue: {
+            trackerIssueId: "issue-123",
+            identifier: "COL-123",
+            state: "In Progress"
+          },
+          arguments: {
+            status: "partial",
+            summary: "Partial delivery."
+          }
+        })
+      });
+      const payload = await responseJson<{
+        error: {
+          code: string;
+        };
+      }>(response);
+
+      expect(response.status).toBe(400);
+      expect(payload.error.code).toBe("VALIDATION_FAILED");
     });
 
     it("serves runtime issue details", async () => {

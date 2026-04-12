@@ -321,6 +321,53 @@ describe("runtime realtime diff", () => {
       })
     ).toBe(true);
   });
+
+  it("fails fast when a running entry lacks workflow-authoritative tracker state", () => {
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const snapshot = buildSymphonyOrchestratorSnapshot({
+      running: [
+        {
+          workspace: buildBindMountPreparedWorkspace(
+            issue.identifier,
+            `/tmp/symphony-${issue.identifier}`
+          ),
+          issueId: issue.id,
+          issue,
+          runId: "run-123",
+          threadId: "thread-live",
+          workerHost: null,
+          launchTarget: null,
+          workspacePath: `/tmp/symphony-${issue.identifier}`,
+          retryAttempt: 0,
+          turnCount: 1,
+          lastAgentMessage: null,
+          lastAgentTimestamp: "2026-03-31T00:00:01.000Z",
+          lastAgentEvent: "turn_completed",
+          agentInputTokens: 12,
+          agentOutputTokens: 4,
+          agentTotalTokens: 16,
+          agentLastReportedInputTokens: 12,
+          agentLastReportedOutputTokens: 4,
+          agentLastReportedTotalTokens: 16,
+          lastRateLimits: null,
+          agentRuntimeProcessId: "4242",
+          startedAt: "2026-03-31T00:00:00.000Z",
+          runtimeSeconds: 12
+        }
+      ]
+    });
+
+    expect(() =>
+      snapshotRequiresRealtimeInvalidation(snapshot, snapshot, {
+        before: new Map(),
+        after: new Map()
+      })
+    ).toThrowError(
+      `Runtime issue ${issue.identifier} is missing workflow-authoritative tracker state.`
+    );
+  });
 });
 
 function buildWorkflowTrackerStates(
