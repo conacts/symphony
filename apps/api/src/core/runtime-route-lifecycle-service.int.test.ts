@@ -68,6 +68,58 @@ async function expectWorkflowTrackerState(input: {
 }
 
 describe("runtime route lifecycle service", () => {
+  it("binds first observed workflow to the issue-resolved repository in multi-repo setups", async () => {
+    const harness = await createHarness({
+      state: "Todo",
+      repositoryKey: "conacts/coldets-v2",
+      issue: buildSymphonyTrackerIssue({
+        id: "issue-observed-sym",
+        identifier: "SYM-OBSERVED",
+        state: "In Review",
+        teamKey: "SYM"
+      }),
+      seedIssueIdentity: false,
+      resolveIssueRepositoryKey() {
+        return "conacts/symphony";
+      }
+    });
+
+    try {
+      expect(
+        await harness.issueStore.fetchByIdentifier(harness.issue.identifier)
+      ).toBeNull();
+
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T13:59:58.000Z"
+      });
+
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        observedTrackerState: "In Review",
+        workflowTrackerState: "In Review",
+        observed: true
+      });
+      expect(await harness.issueStore.fetchByIdentifier(harness.issue.identifier)).toEqual(
+        expect.objectContaining({
+          issueIdentifier: harness.issue.identifier,
+          trackerIssueId: harness.issue.id,
+          repositoryKey: "conacts/symphony"
+        })
+      );
+
+      const hydration =
+        await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+          SymphonyCurrentFlowNode,
+          SymphonyCurrentFlowData,
+          SymphonyCurrentFlowPolicy
+        >(harness.issue.identifier);
+      expect(hydration?.workflow.repositoryKey).toBe("conacts/symphony");
+    } finally {
+      harness.close();
+    }
+  });
+
   it("creates a route workflow on first tracker-state observation", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -1511,7 +1563,11 @@ describe("runtime route lifecycle service", () => {
 
 async function createHarness(input: {
   state: "Todo" | "Approved";
+  issue?: ReturnType<typeof buildSymphonyTrackerIssue>;
+  repositoryKey?: string;
   presetId?: SymphonyRuntimeRouterPresetId;
+  seedIssueIdentity?: boolean;
+  resolveIssueRepositoryKey?(issue: ReturnType<typeof buildSymphonyTrackerIssue>): string;
 }) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-route-lifecycle-service-"));
   tempDirectories.push(root);
@@ -1525,25 +1581,42 @@ async function createHarness(input: {
     routeWorkflowStore
   });
   const runtimePolicy = buildSymphonyRuntimePolicy();
-  const issue = buildSymphonyTrackerIssue({
-    state: input.state
-  });
+  const issue =
+    input.issue ??
+    buildSymphonyTrackerIssue({
+      state: input.state
+    });
   const tracker = createMemorySymphonyTracker([issue]);
+  const repositoryKey = input.repositoryKey ?? "openai/symphony";
 
-  await issueStore.upsert({
-    issueIdentifier: issue.identifier,
-    trackerIssueId: issue.id,
-    repositoryKey: "openai/symphony",
-    latestRunStartedAt: null,
-    recordedAt: "2026-04-10T00:32:59.000Z"
-  });
+  if (input.seedIssueIdentity ?? true) {
+    await issueStore.upsert({
+      issueIdentifier: issue.identifier,
+      trackerIssueId: issue.id,
+      repositoryKey,
+      latestRunStartedAt: null,
+      recordedAt: "2026-04-10T00:32:59.000Z"
+    });
+  }
 
   async function buildService(nowIso: string) {
     return await createRuntimeRouteLifecycleService({
       routeWorkflows,
       tracker,
       trackerConfig: runtimePolicy.tracker,
-      repositoryKey: "openai/symphony",
+      repositoryKey,
+      resolveIssueRepositoryKey: input.resolveIssueRepositoryKey,
+      async ensureIssueIdentity(observedIssue) {
+        const resolvedRepositoryKey =
+          input.resolveIssueRepositoryKey?.(observedIssue) ?? repositoryKey;
+        await issueStore.upsert({
+          issueIdentifier: observedIssue.identifier,
+          trackerIssueId: observedIssue.id,
+          repositoryKey: resolvedRepositoryKey,
+          latestRunStartedAt: null,
+          recordedAt: nowIso
+        });
+      },
       presetSelection: {
         ...createDefaultRuntimeWorkflowPresetSelection(),
         presetId: input.presetId ?? "current-flow"
@@ -1556,6 +1629,7 @@ async function createHarness(input: {
 
   return {
     issue,
+    issueStore,
     tracker,
     routeWorkflows,
     get service() {

@@ -32,11 +32,6 @@ export function createRuntimeTrackerStateIngressPort(input: {
     | "observeNonRunningTrackerStateByIdentifier"
   >;
   runtimeLogStore: SymphonyRuntimeLogStore;
-  ensureIssueBinding?(
-    input: {
-      issueIdentifier: string;
-    }
-  ): Promise<boolean> | boolean;
 }): SymphonyTrackerStateIngressPort {
   return {
     async observeNonRunning(observationInput) {
@@ -45,28 +40,18 @@ export function createRuntimeTrackerStateIngressPort(input: {
           await input.routeLifecycle.observeNonRunningTrackerStates(observationInput);
 
         for (const observedIssue of observedIssues) {
-          const issueIdentifier = await resolveRecordedIssueIdentifier({
-            ensureIssueBinding: input.ensureIssueBinding,
-            issueIdentifier: observedIssue.issueIdentifier
-          });
-
           await input.runtimeLogStore.record({
             level: "info",
             source: "tracker_state_ingress",
             eventType: "tracker_state_ingress_observed",
             message:
               "Observed non-running tracker state through workflow history ingress.",
-            issueIdentifier,
+            issueIdentifier: observedIssue.issueIdentifier,
             payload: {
               scope: "non_running_batch",
               observedTrackerState: observedIssue.observedTrackerState,
               workflowTrackerState: observedIssue.workflowTrackerState,
-              claimedIssueCount: observationInput.claimedIssueIds.length,
-              ...(issueIdentifier
-                ? {}
-                : {
-                    requestedIssueIdentifier: observedIssue.issueIdentifier
-                  })
+              claimedIssueCount: observationInput.claimedIssueIds.length
             },
             recordedAt: observationInput.recordedAt
           });
@@ -119,35 +104,21 @@ export function createRuntimeTrackerStateIngressPort(input: {
           );
 
         if (!observedIssue) {
-          const issueIdentifier = await resolveRecordedIssueIdentifier({
-            ensureIssueBinding: input.ensureIssueBinding,
-            issueIdentifier: observationInput.issueIdentifier
-          });
-
           await input.runtimeLogStore.record({
             level: "warn",
             source: "tracker_state_ingress",
             eventType: "tracker_state_ingress_missing",
             message:
               "Skipped tracker state ingress because the tracker issue could not be found.",
-            issueIdentifier,
+            issueIdentifier: null,
             payload: {
               scope: "non_running_issue_identifier",
-              ...(issueIdentifier
-                ? {}
-                : {
-                    requestedIssueIdentifier: observationInput.issueIdentifier
-                  })
+              requestedIssueIdentifier: observationInput.issueIdentifier
             },
             recordedAt: observationInput.recordedAt
           });
           return null;
         }
-
-        const issueIdentifier = await resolveRecordedIssueIdentifier({
-          ensureIssueBinding: input.ensureIssueBinding,
-          issueIdentifier: observationInput.issueIdentifier
-        });
 
         await input.runtimeLogStore.record({
           level: "info",
@@ -158,42 +129,27 @@ export function createRuntimeTrackerStateIngressPort(input: {
           message: observedIssue.observed
             ? "Observed non-running tracker state through workflow history ingress."
             : "Skipped non-running tracker state ingress because workflow history already reflects the tracker state.",
-          issueIdentifier,
+          issueIdentifier: observedIssue.issueIdentifier,
           payload: {
             scope: "non_running_issue_identifier",
             observedTrackerState: observedIssue.observedTrackerState,
-            workflowTrackerState: observedIssue.workflowTrackerState,
-            ...(issueIdentifier
-              ? {}
-              : {
-                  requestedIssueIdentifier: observationInput.issueIdentifier
-                })
+            workflowTrackerState: observedIssue.workflowTrackerState
           },
           recordedAt: observationInput.recordedAt
         });
 
         return observedIssue;
       } catch (error) {
-        const issueIdentifier = await resolveRecordedIssueIdentifier({
-          ensureIssueBinding: input.ensureIssueBinding,
-          issueIdentifier: observationInput.issueIdentifier
-        });
-
         await input.runtimeLogStore.record({
           level: "error",
           source: "tracker_state_ingress",
           eventType: "tracker_state_ingress_failed",
           message:
             "Failed to observe non-running tracker state through workflow history ingress.",
-          issueIdentifier,
+          issueIdentifier: observationInput.issueIdentifier,
           payload: {
             scope: "non_running_issue_identifier",
-            error: stringifyError(error),
-            ...(issueIdentifier
-              ? {}
-              : {
-                  requestedIssueIdentifier: observationInput.issueIdentifier
-                })
+            error: stringifyError(error)
           },
           recordedAt: observationInput.recordedAt
         });
@@ -205,23 +161,4 @@ export function createRuntimeTrackerStateIngressPort(input: {
 
 function stringifyError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-async function resolveRecordedIssueIdentifier(input: {
-  ensureIssueBinding?(
-    input: {
-      issueIdentifier: string;
-    }
-  ): Promise<boolean> | boolean;
-  issueIdentifier: string;
-}): Promise<string | null> {
-  if (!input.ensureIssueBinding) {
-    return input.issueIdentifier;
-  }
-
-  return (await input.ensureIssueBinding({
-    issueIdentifier: input.issueIdentifier
-  }))
-    ? input.issueIdentifier
-    : null;
 }

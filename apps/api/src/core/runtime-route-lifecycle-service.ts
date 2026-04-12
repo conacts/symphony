@@ -47,7 +47,8 @@ import {
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type {
   SymphonyTracker,
-  SymphonyTrackerConfig
+  SymphonyTrackerConfig,
+  SymphonyTrackerIssue
 } from "@symphony/tracker";
 import {
   normalizeIssueState
@@ -139,6 +140,10 @@ export async function createRuntimeRouteLifecycleService(input: {
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
+  resolveIssueRepositoryKey?(issue: SymphonyTrackerIssue): string;
+  ensureIssueIdentity?(
+    issue: SymphonyTrackerIssue
+  ): Promise<void> | void;
   presetSelection: SymphonyRuntimeWorkflowPresetSelection;
   sessionLoader?: SymphonyRuntimeWorkflowSessionLoader;
   now?: () => Date;
@@ -160,6 +165,8 @@ export async function createRuntimeRouteLifecycleService(input: {
     tracker: input.tracker,
     trackerConfig: input.trackerConfig,
     repositoryKey: input.repositoryKey,
+    resolveIssueRepositoryKey: input.resolveIssueRepositoryKey,
+    ensureIssueIdentity: input.ensureIssueIdentity,
     routing,
     sessionLoader
   });
@@ -225,6 +232,8 @@ export async function createRuntimeRouteLifecycleService(input: {
       tracker: input.tracker,
       trackerConfig: input.trackerConfig,
       repositoryKey: input.repositoryKey,
+      resolveIssueRepositoryKey: input.resolveIssueRepositoryKey,
+      ensureIssueIdentity: input.ensureIssueIdentity,
       routing,
       sessionLoader
     });

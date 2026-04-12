@@ -65,6 +65,10 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
+  resolveIssueRepositoryKey?(issue: SymphonyTrackerIssue): string;
+  ensureIssueIdentity?(
+    issue: SymphonyTrackerIssue
+  ): Promise<void> | void;
   routing: SymphonyRuntimeRouterPresetSelection;
   sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
 }): Promise<SymphonyTrackerStateObservationRouter> {
@@ -82,9 +86,13 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
         return null;
       }
 
+      await input.ensureIssueIdentity?.(issue);
+
+      const repositoryKey =
+        input.resolveIssueRepositoryKey?.(issue) ?? input.repositoryKey;
       const ensured = await input.routeWorkflows.ensureWorkflowForIssue({
         issueIdentifier: issue.identifier,
-        repositoryKey: input.repositoryKey,
+        repositoryKey,
         routerPresetId: input.routing.presetId,
         router,
         createdAt: observationInput.recordedAt

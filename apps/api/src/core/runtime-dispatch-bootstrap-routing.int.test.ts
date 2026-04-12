@@ -53,6 +53,56 @@ afterEach(async () => {
 });
 
 describe("runtime dispatch bootstrap routing", () => {
+  it("binds first dispatch workflow to the issue-resolved repository in multi-repo setups", async () => {
+    const harness = await createHarness({
+      state: "Todo",
+      repositoryKey: "conacts/coldets-v2",
+      issue: buildSymphonyTrackerIssue({
+        id: "issue-bootstrap-sym",
+        identifier: "SYM-BOOTSTRAP",
+        state: "Todo",
+        teamKey: "SYM"
+      }),
+      seedIssueIdentity: false,
+      resolveIssueRepositoryKey() {
+        return "conacts/symphony";
+      }
+    });
+
+    try {
+      expect(
+        await harness.issueStore.fetchByIdentifier(harness.issue.identifier)
+      ).toBeNull();
+
+      const result = await harness.router.route({
+        issue: harness.issue,
+        attempt: 1,
+        preferredWorkerHost: null,
+        startedAt: "2026-04-10T09:59:59.000Z"
+      });
+
+      expect(result.issue.state).toBe("Bootstrapping");
+      expect(result.runMode).toBe("implementation");
+      expect(await harness.issueStore.fetchByIdentifier(harness.issue.identifier)).toEqual(
+        expect.objectContaining({
+          issueIdentifier: harness.issue.identifier,
+          trackerIssueId: harness.issue.id,
+          repositoryKey: "conacts/symphony"
+        })
+      );
+
+      const hydration =
+        await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+          SymphonyCurrentFlowNode,
+          SymphonyCurrentFlowData,
+          SymphonyCurrentFlowPolicy
+        >(harness.issue.identifier);
+      expect(hydration?.workflow.repositoryKey).toBe("conacts/symphony");
+    } finally {
+      harness.close();
+    }
+  });
+
   it("routes Todo work into Bootstrapping and selects implementation mode", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -206,7 +256,11 @@ describe("runtime dispatch bootstrap routing", () => {
 
 async function createHarness(input: {
   state: "Todo" | "Approved";
+  issue?: ReturnType<typeof buildSymphonyTrackerIssue>;
+  repositoryKey?: string;
   routing?: SymphonyRuntimeRouterPresetSelection;
+  seedIssueIdentity?: boolean;
+  resolveIssueRepositoryKey?(issue: ReturnType<typeof buildSymphonyTrackerIssue>): string;
 }) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-dispatch-bootstrap-router-"));
   tempDirectories.push(root);
@@ -220,18 +274,23 @@ async function createHarness(input: {
     routeWorkflowStore
   });
   const runtimePolicy = buildSymphonyRuntimePolicy();
-  const issue = buildSymphonyTrackerIssue({
-    state: input.state
-  });
+  const issue =
+    input.issue ??
+    buildSymphonyTrackerIssue({
+      state: input.state
+    });
   const tracker = createMemorySymphonyTracker([issue]);
+  const repositoryKey = input.repositoryKey ?? "openai/symphony";
 
-  await issueStore.upsert({
-    issueIdentifier: issue.identifier,
-    trackerIssueId: issue.id,
-    repositoryKey: "openai/symphony",
-    latestRunStartedAt: null,
-    recordedAt: "2026-04-10T00:00:59.000Z"
-  });
+  if (input.seedIssueIdentity ?? true) {
+    await issueStore.upsert({
+      issueIdentifier: issue.identifier,
+      trackerIssueId: issue.id,
+      repositoryKey,
+      latestRunStartedAt: null,
+      recordedAt: "2026-04-10T00:00:59.000Z"
+    });
+  }
 
   const routing =
     input.routing ??
@@ -254,13 +313,26 @@ async function createHarness(input: {
     routeWorkflows,
     tracker,
     trackerConfig: runtimePolicy.tracker,
-    repositoryKey: "openai/symphony",
+    repositoryKey,
+    resolveIssueRepositoryKey: input.resolveIssueRepositoryKey,
+    async ensureIssueIdentity(observedIssue) {
+      const resolvedRepositoryKey =
+        input.resolveIssueRepositoryKey?.(observedIssue) ?? repositoryKey;
+      await issueStore.upsert({
+        issueIdentifier: observedIssue.identifier,
+        trackerIssueId: observedIssue.id,
+        repositoryKey: resolvedRepositoryKey,
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T00:00:59.000Z"
+      });
+    },
     routing,
     sessionLoader
   });
 
   return {
     issue,
+    issueStore,
     tracker,
     routeWorkflows,
     router,

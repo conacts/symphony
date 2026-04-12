@@ -29,6 +29,10 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
   repositoryKey: string;
+  resolveIssueRepositoryKey?(issue: SymphonyTrackerIssue): string;
+  ensureIssueIdentity?(
+    issue: SymphonyTrackerIssue
+  ): Promise<void> | void;
   routing: SymphonyRuntimeRouterPresetSelection;
   sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
 }) {
@@ -39,9 +43,13 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
     async route(
       routeInput: SymphonyDispatchBootstrapRoutingInput
     ): Promise<SymphonyDispatchBootstrapRoutingResult> {
+      await input.ensureIssueIdentity?.(routeInput.issue);
+
+      const repositoryKey =
+        input.resolveIssueRepositoryKey?.(routeInput.issue) ?? input.repositoryKey;
       const ensured = await input.routeWorkflows.ensureWorkflowForIssue({
         issueIdentifier: routeInput.issue.identifier,
-        repositoryKey: input.repositoryKey,
+        repositoryKey,
         routerPresetId: input.routing.presetId,
         router,
         createdAt: routeInput.startedAt

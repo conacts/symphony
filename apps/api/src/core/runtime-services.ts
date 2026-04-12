@@ -81,6 +81,7 @@ import {
   reconcilePersistedActiveRunsOnShutdown,
   waitForPollSchedulerDrain
 } from "./runtime-shutdown-reconciliation.js";
+import { resolveIssueRepository } from "./runtime-repository-routing.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -252,6 +253,17 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const routeWorkflows = createRouteWorkflowPort({
     routeWorkflowStore
   });
+  const resolveTrackedIssueRepositoryKey = (issue: SymphonyTrackerIssue) =>
+    resolveIssueRepository(admittedRepositories, issue).repositoryKey;
+  const seedTrackedIssueIdentity = async (issue: SymphonyTrackerIssue) => {
+    await issueStore.upsert({
+      issueIdentifier: issue.identifier,
+      trackerIssueId: issue.id,
+      repositoryKey: resolveTrackedIssueRepositoryKey(issue),
+      latestRunStartedAt: null,
+      recordedAt: new Date().toISOString()
+    });
+  };
   const workflowSessionLoader = await createRuntimeWorkflowSessionLoader({
     routeWorkflows,
     trackerConfig: runtimePolicy.tracker,
@@ -262,6 +274,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     tracker,
     trackerConfig: runtimePolicy.tracker,
     repositoryKey,
+    resolveIssueRepositoryKey: resolveTrackedIssueRepositoryKey,
+    ensureIssueIdentity: seedTrackedIssueIdentity,
     presetSelection: workflowPresetSelection,
     sessionLoader: workflowSessionLoader,
     now: undefined
@@ -458,27 +472,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
   runtimeRef = runtime;
   let orchestratorPortRef: SymphonyRuntimeAppServices["orchestrator"] | null = null;
-  const seedTrackedIssueIdentity = async (issue: SymphonyTrackerIssue) => {
-    await issueStore.upsert({
-      issueIdentifier: issue.identifier,
-      trackerIssueId: issue.id,
-      repositoryKey,
-      latestRunStartedAt: null,
-      recordedAt: new Date().toISOString()
-    });
-  };
-  const ensureTrackedIssueIdentity = async (issueIdentifier: string) => {
-    const trackedIssue = await tracker.fetchIssueByIdentifier(
-      runtimePolicy.tracker,
-      issueIdentifier
-    );
-    if (!trackedIssue) {
-      return false;
-    }
-
-    await seedTrackedIssueIdentity(trackedIssue);
-    return true;
-  };
   const dispatchObservedIssue = async (
     request: SymphonyTrackerStateDispatchRequest
   ) => {
@@ -486,15 +479,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       throw new TypeError("Runtime orchestrator port is not initialized.");
     }
 
-    await seedTrackedIssueIdentity(request.issue);
     await orchestratorPortRef.dispatchRoutedIssue(request);
   };
   const routeTrackerStateIngress = createRuntimeTrackerStateIngressPort({
     routeLifecycle,
-    runtimeLogStore,
-    async ensureIssueBinding({ issueIdentifier }) {
-      return await ensureTrackedIssueIdentity(issueIdentifier);
-    }
+    runtimeLogStore
   });
   const loadWorkflowLifecycleView = (input: {
     issueIdentifier: string;
@@ -545,26 +534,15 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
   const trackerStateIngress = {
     async observeNonRunningIssue(input: { issueIdentifier: string }) {
-      const trackedIssue = await tracker.fetchIssueByIdentifier(
-        runtimePolicy.tracker,
-        input.issueIdentifier
-      );
-      if (!trackedIssue) {
-        return null;
-      }
-
-      await seedTrackedIssueIdentity(trackedIssue);
       const recordedAt = new Date().toISOString();
       const observation =
         await routeTrackerStateIngress.observeNonRunningByIdentifier({
-          issueIdentifier: trackedIssue.identifier,
+          issueIdentifier: input.issueIdentifier,
           recordedAt,
           onDispatchRequested: dispatchObservedIssue
         });
       if (!observation) {
-        throw new TypeError(
-          `Tracker state ingress lost ${trackedIssue.identifier} after seeding the canonical issue identity.`
-        );
+        return null;
       }
 
       return {

@@ -35,6 +35,42 @@ afterEach(async () => {
 });
 
 describe("runtime tracker state ingress port", () => {
+  it("seeds canonical issue identity before first batch observation creates workflow state", async () => {
+    const harness = await createHarness({
+      state: "Todo",
+      seedIssueIdentity: false
+    });
+
+    try {
+      expect(
+        await harness.issueStore.fetchByIdentifier(harness.issue.identifier)
+      ).toBeNull();
+
+      const observedIssues = await harness.ingress.observeNonRunning({
+        claimedIssueIds: [],
+        recordedAt: "2026-04-10T14:59:59.000Z",
+        onDispatchRequested: async () => {}
+      });
+
+      expect(observedIssues).toEqual([
+        {
+          issueIdentifier: harness.issue.identifier,
+          observedTrackerState: "Todo",
+          workflowTrackerState: "Bootstrapping"
+        }
+      ]);
+      expect(await harness.issueStore.fetchByIdentifier(harness.issue.identifier)).toEqual(
+        expect.objectContaining({
+          issueIdentifier: harness.issue.identifier,
+          trackerIssueId: harness.issue.id,
+          repositoryKey: "openai/symphony"
+        })
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
   it("records observed non-running tracker state changes in runtime logs", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -196,6 +232,7 @@ describe("runtime tracker state ingress port", () => {
 
 async function createHarness(input: {
   state: "Todo";
+  seedIssueIdentity?: boolean;
 }) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-tracker-state-ingress-"));
   tempDirectories.push(root);
@@ -217,19 +254,30 @@ async function createHarness(input: {
     repositoryKey: "openai/symphony"
   });
 
-  await issueStore.upsert({
-    issueIdentifier: issue.identifier,
-    trackerIssueId: issue.id,
-    repositoryKey: "openai/symphony",
-    latestRunStartedAt: null,
-    recordedAt: "2026-04-10T00:19:59.000Z"
-  });
+  if (input.seedIssueIdentity ?? true) {
+    await issueStore.upsert({
+      issueIdentifier: issue.identifier,
+      trackerIssueId: issue.id,
+      repositoryKey: "openai/symphony",
+      latestRunStartedAt: null,
+      recordedAt: "2026-04-10T00:19:59.000Z"
+    });
+  }
 
   const routeLifecycle = await createRuntimeRouteLifecycleService({
     routeWorkflows,
     tracker,
     trackerConfig: runtimePolicy.tracker,
     repositoryKey: "openai/symphony",
+    async ensureIssueIdentity(observedIssue) {
+      await issueStore.upsert({
+        issueIdentifier: observedIssue.identifier,
+        trackerIssueId: observedIssue.id,
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T00:19:59.000Z"
+      });
+    },
     presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
     now: () => new Date("2026-04-10T15:00:00.000Z")
   });
@@ -240,6 +288,7 @@ async function createHarness(input: {
 
   return {
     issue,
+    issueStore,
     ingress,
     routeLifecycle,
     runtimeLogStore,
