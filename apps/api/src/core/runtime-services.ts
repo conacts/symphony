@@ -417,18 +417,15 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       tracker,
       runStore,
       deliveryReports,
-      loadLatestReworkHandoff: (issueIdentifier) =>
-        routeLifecycle.loadLatestReworkHandoff({
-          issueIdentifier
-        }),
-      loadLatestMergeResult: (issueIdentifier, runId) =>
-        routeLifecycle.loadLatestMergeResult({
+      loadWorkflowLifecycleView: ({ issueIdentifier, runId = null }) =>
+        routeLifecycle.loadWorkflowLifecycleView({
           issueIdentifier,
           runId
         }),
-      loadCurrentWorkflowTrackerState: (issueIdentifier) =>
-        routeLifecycle.loadCurrentTrackerState({
-          issueIdentifier
+      observeActiveWorkflowIssueState: ({ issueIdentifier, recordedAt }) =>
+        routeLifecycle.observeActiveIssueStateByIdentifier({
+          issueIdentifier,
+          recordedAt
         }),
       agentAnalytics: agentAnalyticsStore,
       runtimeLogs: runtimeLogStore,
@@ -561,9 +558,13 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     }
   } satisfies SymphonyRuntimeAppServices["trackerStateIngress"];
   const workflowRead = {
-    async loadCurrentWorkflowTrackerState(input: { issueIdentifier: string }) {
-      return await routeLifecycle.loadCurrentTrackerState({
-        issueIdentifier: input.issueIdentifier
+    async loadWorkflowLifecycleView(input: {
+      issueIdentifier: string;
+      runId?: string | null;
+    }) {
+      return await routeLifecycle.loadWorkflowLifecycleView({
+        issueIdentifier: input.issueIdentifier,
+        runId: input.runId ?? null
       });
     }
   } satisfies SymphonyRuntimeAppServices["workflowRead"];
@@ -769,8 +770,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           const reconciledPersistedRuns =
             await reconcilePersistedActiveRunsOnShutdown({
               database,
-              tracker,
-              runtimePolicy,
               runStore,
               routeLifecycle,
               shutdownReason

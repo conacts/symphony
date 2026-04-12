@@ -310,10 +310,9 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       services.runtimePolicy.tracker,
       path.issueIdentifier
     );
-    const workflowTrackerState =
-      await services.workflowRead.loadCurrentWorkflowTrackerState({
-        issueIdentifier: path.issueIdentifier
-      });
+    const workflowLifecycle = await services.workflowRead.loadWorkflowLifecycleView({
+      issueIdentifier: path.issueIdentifier
+    });
     const piSelectionPolicy = resolveHarnessModelRuntimePolicy(
       services.runtimePolicy
     );
@@ -322,7 +321,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       services.runtimePolicy.github.repo,
       path.issueIdentifier,
       trackedIssue,
-      workflowTrackerState,
+      workflowLifecycle?.trackerState ?? null,
       piSelectionPolicy
     );
 
@@ -337,7 +336,8 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       issueIdentifier: path.issueIdentifier,
       status: result.status,
       trackedIssueFound: trackedIssue !== null,
-      workflowTrackerState
+      workflowId: workflowLifecycle?.workflowId ?? null,
+      workflowTrackerState: workflowLifecycle?.trackerState ?? null
     });
 
     symphonyRuntimeIssueResponseSchema.parse({

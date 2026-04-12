@@ -13,7 +13,6 @@ import {
   formatSymphonyReworkHandoffSection,
   renderSymphonyPromptContract,
   type SymphonyLoadedPromptContract,
-  type SymphonyReworkHandoff,
   type SymphonyRunMode
 } from "@symphony/runtime-contract";
 import type { JsonObject, JsonValue } from "@symphony/contracts";
@@ -61,6 +60,9 @@ import {
   type RuntimeMergeResult
 } from "@symphony/runtime-tools";
 import { CommandResourceMonitor } from "./command-resource-monitor.js";
+import type {
+  SymphonyRuntimeWorkflowLifecycleView
+} from "./runtime-workflow-lifecycle-view.js";
 
 type RunCallbacks = {
   onUpdate(issueId: string, update: SymphonyAgentRuntimeUpdate): void | Promise<void>;
@@ -76,16 +78,14 @@ type ActiveRun = {
 };
 
 type WorkflowLifecycleReaders = {
-  loadLatestReworkHandoff(
-    issueIdentifier: string
-  ): Promise<SymphonyReworkHandoff | null>;
-  loadLatestMergeResult(
-    issueIdentifier: string,
-    runId: string
-  ): Promise<RuntimeMergeResult | null>;
-  loadCurrentWorkflowTrackerState(
-    issueIdentifier: string
-  ): Promise<string | null>;
+  loadWorkflowLifecycleView(input: {
+    issueIdentifier: string;
+    runId?: string | null;
+  }): Promise<SymphonyRuntimeWorkflowLifecycleView | null>;
+  observeActiveWorkflowIssueState(input: {
+    issueIdentifier: string;
+    recordedAt: string;
+  }): Promise<boolean>;
 };
 
 export function createSymphonyAgentRuntime(input: {
@@ -97,9 +97,8 @@ export function createSymphonyAgentRuntime(input: {
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
-  loadLatestReworkHandoff: WorkflowLifecycleReaders["loadLatestReworkHandoff"];
-  loadLatestMergeResult: WorkflowLifecycleReaders["loadLatestMergeResult"];
-  loadCurrentWorkflowTrackerState: WorkflowLifecycleReaders["loadCurrentWorkflowTrackerState"];
+  loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
+  observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -125,9 +124,8 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
-  loadLatestReworkHandoff: WorkflowLifecycleReaders["loadLatestReworkHandoff"];
-  loadLatestMergeResult: WorkflowLifecycleReaders["loadLatestMergeResult"];
-  loadCurrentWorkflowTrackerState: WorkflowLifecycleReaders["loadCurrentWorkflowTrackerState"];
+  loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
+  observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -171,9 +169,8 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
         tracker: input.tracker,
         runStore: input.runStore,
         deliveryReports: input.deliveryReports,
-        loadLatestReworkHandoff: input.loadLatestReworkHandoff,
-        loadLatestMergeResult: input.loadLatestMergeResult,
-        loadCurrentWorkflowTrackerState: input.loadCurrentWorkflowTrackerState,
+        loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
+        observeActiveWorkflowIssueState: input.observeActiveWorkflowIssueState,
         agentAnalytics: input.agentAnalytics,
         runtimeLogs: input.runtimeLogs,
         runtimePolicy: runInput.runtimePolicy,
@@ -226,9 +223,8 @@ async function executeRun(input: {
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
   deliveryReports: SymphonyIssueDeliveryReportStore;
-  loadLatestReworkHandoff: WorkflowLifecycleReaders["loadLatestReworkHandoff"];
-  loadLatestMergeResult: WorkflowLifecycleReaders["loadLatestMergeResult"];
-  loadCurrentWorkflowTrackerState: WorkflowLifecycleReaders["loadCurrentWorkflowTrackerState"];
+  loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
+  observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
@@ -263,7 +259,11 @@ async function executeRun(input: {
   );
   const latestReworkHandoff =
     input.runMode === "rework"
-      ? await input.loadLatestReworkHandoff(input.issue.identifier)
+      ? (
+          await input.loadWorkflowLifecycleView({
+            issueIdentifier: input.issue.identifier
+          })
+        )?.latestReworkHandoff ?? null
       : null;
   const repositoryKey = resolveRuntimeRepositoryKey({
     githubRepo: input.githubRepository
@@ -619,10 +619,13 @@ async function executeRun(input: {
             input.runId
           );
         } else {
-          mergeResult = await input.loadLatestMergeResult(
-            currentIssue.identifier,
-            input.runId
-          );
+          mergeResult =
+            (
+              await input.loadWorkflowLifecycleView({
+                issueIdentifier: currentIssue.identifier,
+                runId: input.runId
+              })
+            )?.latestMergeResult ?? null;
         }
       }
 
@@ -634,13 +637,14 @@ async function executeRun(input: {
         break;
       }
 
-      const refreshedIssue = await refreshIssueState(
-        input.tracker,
-        input.runtimePolicy,
-        currentIssue
-      );
+      const refreshedIssue = await observeActiveIssueStateThroughWorkflow({
+        issue: currentIssue,
+        recordedAt: new Date().toISOString(),
+        observeActiveWorkflowIssueState: input.observeActiveWorkflowIssueState,
+        loadWorkflowLifecycleView: input.loadWorkflowLifecycleView
+      });
 
-      if (!refreshedIssue || !isActiveIssueState(input.runtimePolicy, refreshedIssue.state)) {
+      if (!isActiveIssueState(input.runtimePolicy, refreshedIssue.state)) {
         break;
       }
 
@@ -665,20 +669,21 @@ async function executeRun(input: {
       }
 
       if (deliveryReport) {
-        const authoritativeState = await loadCompletionTrackerState({
+        const authoritativeState = await loadRequiredWorkflowTrackerState({
           issueIdentifier: currentIssue.identifier,
-          loadCurrentWorkflowTrackerState: input.loadCurrentWorkflowTrackerState,
-          completionKind: "delivery_report"
+          loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
+          failureContext: "after delivery_report"
         });
         await input.callbacks.onComplete(
           input.issue.id,
           deliveryCompletion(deliveryReport, authoritativeState, input.runtimePolicy)
         );
       } else if (mergeResult) {
-        const authoritativeState = await loadCompletionTrackerState({
+        const authoritativeState = await loadRequiredWorkflowTrackerState({
           issueIdentifier: currentIssue.identifier,
-          loadCurrentWorkflowTrackerState: input.loadCurrentWorkflowTrackerState,
-          completionKind: "merge_result"
+          runId: input.runId,
+          loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
+          failureContext: "after merge_result"
         });
         await input.callbacks.onComplete(
           input.issue.id,
@@ -1056,29 +1061,46 @@ function missingExplicitCompletion(
     : missingDeliveryReportCompletion();
 }
 
-async function refreshIssueState(
-  tracker: SymphonyTracker,
-  runtimePolicy: SymphonyAgentRuntimeConfig,
-  issue: SymphonyTrackerIssue
-): Promise<SymphonyTrackerIssue | null> {
-  const refreshed = await tracker.fetchIssueStatesByIds(runtimePolicy.tracker, [
-    issue.id
-  ]);
+async function observeActiveIssueStateThroughWorkflow(input: {
+  issue: SymphonyTrackerIssue;
+  recordedAt: string;
+  observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
+  loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
+}): Promise<SymphonyTrackerIssue> {
+  const observed = await input.observeActiveWorkflowIssueState({
+    issueIdentifier: input.issue.identifier,
+    recordedAt: input.recordedAt
+  });
+  if (!observed) {
+    throw new TypeError(
+      `Workflow-backed active issue observation could not be recorded for ${input.issue.identifier}.`
+    );
+  }
 
-  return refreshed[0] ?? null;
+  return {
+    ...input.issue,
+    state: await loadRequiredWorkflowTrackerState({
+      issueIdentifier: input.issue.identifier,
+      loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
+      failureContext: `while observing active issue ${input.issue.identifier}`
+    })
+  };
 }
 
-async function loadCompletionTrackerState(input: {
+async function loadRequiredWorkflowTrackerState(input: {
   issueIdentifier: string;
-  loadCurrentWorkflowTrackerState: WorkflowLifecycleReaders["loadCurrentWorkflowTrackerState"];
-  completionKind: ExplicitCompletionRequirement;
+  runId?: string | null;
+  loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
+  failureContext: string;
 }): Promise<string> {
-  const workflowState = await input.loadCurrentWorkflowTrackerState(
-    input.issueIdentifier
-  );
-  if (!workflowState) {
+  const workflowLifecycle = await input.loadWorkflowLifecycleView({
+    issueIdentifier: input.issueIdentifier,
+    runId: input.runId ?? null
+  });
+  const workflowState = workflowLifecycle?.trackerState ?? null;
+  if (workflowState === null) {
     throw new TypeError(
-      `Workflow history is missing the current tracker state for ${input.issueIdentifier} after ${input.completionKind}.`
+      `Workflow history is missing the current tracker state for ${input.issueIdentifier} ${input.failureContext}.`
     );
   }
 

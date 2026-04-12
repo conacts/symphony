@@ -161,13 +161,18 @@ describe("runtime routes", () => {
       state: "In Progress"
     });
     const tracker = createMemorySymphonyTracker([issue]);
-    const loadCurrentWorkflowTrackerState = vi
-      .fn<SymphonyRuntimeAppServices["workflowRead"]["loadCurrentWorkflowTrackerState"]>()
-      .mockResolvedValue("Approved");
+    const loadWorkflowLifecycleView = vi
+      .fn<SymphonyRuntimeAppServices["workflowRead"]["loadWorkflowLifecycleView"]>()
+      .mockResolvedValue({
+        workflowId: "workflow-123",
+        trackerState: "Approved",
+        latestReworkHandoff: null,
+        latestMergeResult: null
+      });
     const app = createRuntimeRoutesTestApp({
       tracker,
       workflowRead: {
-        loadCurrentWorkflowTrackerState
+        loadWorkflowLifecycleView
       }
     });
 
@@ -182,7 +187,7 @@ describe("runtime routes", () => {
 
     expect(response.status).toBe(200);
     expect(payload.data.tracked.state).toBe("Approved");
-    expect(loadCurrentWorkflowTrackerState).toHaveBeenCalledWith({
+    expect(loadWorkflowLifecycleView).toHaveBeenCalledWith({
       issueIdentifier: "COL-123"
     });
   });
@@ -212,7 +217,7 @@ describe("runtime routes", () => {
         dispatchRoutedIssue: vi.fn()
       },
       workflowRead: {
-        loadCurrentWorkflowTrackerState: vi.fn().mockResolvedValue(null)
+        loadWorkflowLifecycleView: vi.fn().mockResolvedValue(null)
       }
     });
 
@@ -342,7 +347,7 @@ function createRuntimeServicesStub(
       observeNonRunningIssue: vi.fn().mockResolvedValue(null)
     },
     workflowRead: {
-      loadCurrentWorkflowTrackerState: vi.fn().mockResolvedValue(null)
+      loadWorkflowLifecycleView: vi.fn().mockResolvedValue(null)
     },
     runtimeTools: {
       recordDeliveryReport: vi.fn(),

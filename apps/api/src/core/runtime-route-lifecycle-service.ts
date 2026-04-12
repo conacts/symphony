@@ -56,19 +56,16 @@ import {
   createRuntimeStateRequestRouter
 } from "./runtime-state-request-routing.js";
 import type { SymphonyRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
+import type {
+  SymphonyRuntimeWorkflowLifecycleView
+} from "./runtime-workflow-lifecycle-view.js";
 
 export type SymphonyRuntimeRouteLifecycleService = {
   workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
-  loadCurrentTrackerState(input: {
+  loadWorkflowLifecycleView(input: {
     issueIdentifier: string;
-  }): Promise<string | null>;
-  loadLatestReworkHandoff(input: {
-    issueIdentifier: string;
-  }): Promise<SymphonyReworkHandoff | null>;
-  loadLatestMergeResult(input: {
-    issueIdentifier: string;
-    runId: string;
-  }): Promise<RuntimeMergeResult | null>;
+    runId?: string | null;
+  }): Promise<SymphonyRuntimeWorkflowLifecycleView | null>;
   routeDeliveryReport(input: {
     issueIdentifier: string;
     runId: string;
@@ -330,64 +327,26 @@ export async function createRuntimeRouteLifecycleService(input: {
       });
       return true;
   };
+  const loadWorkflowLifecycleView: SymphonyRuntimeRouteLifecycleService["loadWorkflowLifecycleView"] =
+    async ({ issueIdentifier, runId = null }) => {
+      const projection = await loadReadableWorkflowProjectionByIssueIdentifier({
+        sessionLoader,
+        issueIdentifier
+      });
+      if (!projection) {
+        return null;
+      }
+
+      return readWorkflowLifecycleViewFromProjection({
+        projection,
+        issueIdentifier,
+        runId
+      });
+    };
 
   return {
     workflowRoutingAdapter,
-    async loadCurrentTrackerState({ issueIdentifier }) {
-      const projection = await loadReadableWorkflowProjectionByIssueIdentifier({
-        sessionLoader,
-        issueIdentifier
-      });
-      if (!projection) {
-        return null;
-      }
-
-      const trackerState =
-        projection.loaded.routing.module.runtimeAdapter.readTrackerStateFromProjection({
-          workflowId: projection.workflowId,
-          data: projection.data
-        });
-      if (!trackerState) {
-        throw new TypeError(
-          `Route workflow ${projection.workflowId} cannot project the current tracker state for ${issueIdentifier}.`
-        );
-      }
-
-      return trackerState;
-    },
-    async loadLatestReworkHandoff({ issueIdentifier }) {
-      const projection = await loadReadableWorkflowProjectionByIssueIdentifier({
-        sessionLoader,
-        issueIdentifier
-      });
-      if (!projection) {
-        return null;
-      }
-
-      return projection.loaded.routing.module.runtimeAdapter.readLatestReworkHandoffFromProjection(
-        {
-          workflowId: projection.workflowId,
-          data: projection.data
-        }
-      );
-    },
-    async loadLatestMergeResult({ issueIdentifier, runId }) {
-      const projection = await loadReadableWorkflowProjectionByIssueIdentifier({
-        sessionLoader,
-        issueIdentifier
-      });
-      if (!projection) {
-        return null;
-      }
-
-      return projection.loaded.routing.module.runtimeAdapter.readLatestMergeResultFromProjection(
-        {
-          workflowId: projection.workflowId,
-          data: projection.data,
-          runId
-        }
-      );
-    },
+    loadWorkflowLifecycleView,
     async routeDeliveryReport(deliveryInput) {
       const issue = await input.tracker.fetchIssueByIdentifier(
         input.trackerConfig,
@@ -570,6 +529,50 @@ function resolveActiveRunMode(
     workflowId: hydration.hydrationState.workflow.workflowId,
     data: snapshot.projection.data
   });
+}
+
+function readWorkflowLifecycleViewFromProjection(input: {
+  projection: {
+    loaded: SymphonyLoadedRuntimeWorkflowHydration;
+    workflowId: string;
+    data: unknown;
+  };
+  issueIdentifier: string;
+  runId: string | null;
+}): SymphonyRuntimeWorkflowLifecycleView {
+  const { projection } = input;
+  const trackerState =
+    projection.loaded.routing.module.runtimeAdapter.readTrackerStateFromProjection({
+      workflowId: projection.workflowId,
+      data: projection.data
+    });
+  if (!trackerState) {
+    throw new TypeError(
+      `Route workflow ${projection.workflowId} cannot project the current tracker state for ${input.issueIdentifier}.`
+    );
+  }
+
+  return {
+    workflowId: projection.workflowId,
+    trackerState,
+    latestReworkHandoff:
+      projection.loaded.routing.module.runtimeAdapter.readLatestReworkHandoffFromProjection(
+        {
+          workflowId: projection.workflowId,
+          data: projection.data
+        }
+      ),
+    latestMergeResult:
+      input.runId === null
+        ? null
+        : projection.loaded.routing.module.runtimeAdapter.readLatestMergeResultFromProjection(
+            {
+              workflowId: projection.workflowId,
+              data: projection.data,
+              runId: input.runId
+            }
+          )
+  };
 }
 
 async function loadReadableWorkflowProjectionByIssueIdentifier(input: {

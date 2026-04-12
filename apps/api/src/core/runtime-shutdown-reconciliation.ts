@@ -4,9 +4,7 @@ import {
   createSymphonyRuntimeLogStore,
   initializeSymphonyDb
 } from "@symphony/db";
-import type { SymphonyResolvedRuntimePolicy } from "@symphony/runtime-policy";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
-import type { SymphonyTracker } from "@symphony/tracker";
 import { z } from "zod";
 import { SymphonyRuntimePollScheduler } from "./poll-scheduler.js";
 import type { SymphonyRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
@@ -15,28 +13,25 @@ const persistedRunModeSchema = z.enum(["implementation", "rework", "approved_mer
 
 export async function reconcilePersistedActiveRunsOnShutdown(input: {
   database: ReturnType<typeof initializeSymphonyDb>;
-  tracker: SymphonyTracker;
-  runtimePolicy: SymphonyResolvedRuntimePolicy;
   runStore: ReturnType<typeof createSqliteSymphonyRuntimeRunStore>;
   routeLifecycle: Pick<SymphonyRuntimeRouteLifecycleService, "routeShutdownPause">;
   shutdownReason: string;
 }): Promise<number> {
   const endedAt = new Date().toISOString();
+  // Shutdown recovery only needs the persisted run identity plus issueIdentifier.
+  // Lifecycle routing resolves the current tracker issue through workflow-backed routing,
+  // so this query no longer joins symphony_issues or preloads tracker-owned state.
   const activeRuns = input.database.client.prepare(`
     select runs.run_id as runId,
            runs.repository_key as repositoryKey,
-           issues.tracker_issue_id as trackerIssueId,
            runs.issue_identifier as issueIdentifier,
            runs.status as status,
            runs.run_mode as runMode
     from symphony_runs runs
-    inner join symphony_issues issues
-      on issues.issue_identifier = runs.issue_identifier
     where status in ('dispatching', 'running')
   `).all() as Array<{
     runId: string;
     repositoryKey: string;
-    trackerIssueId: string;
     issueIdentifier: string;
     status: "dispatching" | "running";
     runMode: string | null;
@@ -45,24 +40,13 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
   if (activeRuns.length === 0) {
     return 0;
   }
-
-  const issueIds = [...new Set(activeRuns.map((run) => run.trackerIssueId))];
-  const trackedIssues = await input.tracker.fetchIssueStatesByIds(
-    input.runtimePolicy.tracker,
-    issueIds
-  );
-  const trackedIssuesById = new Map(
-    trackedIssues.map((issue) => [issue.id, issue] as const)
-  );
   const issueTimelineStores = new Map<string, ReturnType<typeof createSymphonyIssueTimelineStore>>();
   const runtimeLogStores = new Map<string, ReturnType<typeof createSymphonyRuntimeLogStore>>();
 
   for (const run of activeRuns) {
-    const trackedIssue = trackedIssuesById.get(run.trackerIssueId) ?? null;
-
     await reconcileTrackerIssueOnShutdown({
       routeLifecycle: input.routeLifecycle,
-      trackedIssue,
+      issueIdentifier: run.issueIdentifier,
       runMode: readPersistedRunMode(run.runMode),
       runId: run.runId,
       endedAt,
@@ -165,19 +149,15 @@ export async function waitForPollSchedulerDrain(
 
 async function reconcileTrackerIssueOnShutdown(input: {
   routeLifecycle: Pick<SymphonyRuntimeRouteLifecycleService, "routeShutdownPause">;
-  trackedIssue: Awaited<ReturnType<SymphonyTracker["fetchIssueStatesByIds"]>>[number] | null;
+  issueIdentifier: string;
   runMode: SymphonyRunMode;
   runId: string;
   endedAt: string;
   shutdownReason: string;
 }): Promise<void> {
-  if (!input.trackedIssue) {
-    return;
-  }
-
   try {
     const routed = await input.routeLifecycle.routeShutdownPause({
-      issueIdentifier: input.trackedIssue.identifier,
+      issueIdentifier: input.issueIdentifier,
       runId: input.runId,
       runMode: input.runMode,
       recordedAt: input.endedAt,

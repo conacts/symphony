@@ -653,30 +653,43 @@ export async function createSymphonyRuntimeTestHarness(input: {
       }
     },
     workflowRead: {
-      async loadCurrentWorkflowTrackerState({ issueIdentifier }) {
-        if (input.workflowTrackerState !== undefined) {
-          return input.workflowTrackerState;
+      async loadWorkflowLifecycleView({ issueIdentifier }) {
+        const trackerState = await (async () => {
+          if (input.workflowTrackerState !== undefined) {
+            return input.workflowTrackerState;
+          }
+
+          const runningIssue = snapshot.running.find(
+            (entry) => entry.issue.identifier === issueIdentifier
+          )?.issue;
+          if (runningIssue) {
+            return runningIssue.state;
+          }
+
+          const retryingIssue = snapshot.retrying.find(
+            (entry) => entry.identifier === issueIdentifier
+          );
+          if (retryingIssue) {
+            return tracker.getIssue(retryingIssue.issueId)?.state ?? null;
+          }
+
+          const trackedIssue = tracker.fetchIssueByIdentifier(
+            runtimePolicy.tracker,
+            issueIdentifier
+          );
+          return (await trackedIssue)?.state ?? null;
+        })();
+
+        if (trackerState === null) {
+          return null;
         }
 
-        const runningIssue = snapshot.running.find(
-          (entry) => entry.issue.identifier === issueIdentifier
-        )?.issue;
-        if (runningIssue) {
-          return runningIssue.state;
-        }
-
-        const retryingIssue = snapshot.retrying.find(
-          (entry) => entry.identifier === issueIdentifier
-        );
-        if (retryingIssue) {
-          return tracker.getIssue(retryingIssue.issueId)?.state ?? null;
-        }
-
-        const trackedIssue = tracker.fetchIssueByIdentifier(
-          runtimePolicy.tracker,
-          issueIdentifier
-        );
-        return (await trackedIssue)?.state ?? null;
+        return {
+          workflowId: `workflow-${issueIdentifier}`,
+          trackerState,
+          latestReworkHandoff: null,
+          latestMergeResult: null
+        };
       }
     },
     githubReviewIngress: createSymphonyGitHubReviewIngressService({

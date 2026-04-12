@@ -109,8 +109,6 @@ describe("runtime shutdown reconciliation", () => {
 
       const reconciled = await reconcilePersistedActiveRunsOnShutdown({
         database,
-        tracker,
-        runtimePolicy,
         runStore,
         routeLifecycle,
         shutdownReason: "runtime_shutdown"

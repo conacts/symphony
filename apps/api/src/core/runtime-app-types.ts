@@ -38,6 +38,9 @@ import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type {
   SymphonyRuntimeWorkflowComparison
 } from "./runtime-workflow-comparison.js";
+import type {
+  SymphonyRuntimeWorkflowLifecycleView
+} from "./runtime-workflow-lifecycle-view.js";
 
 export type SymphonyRuntimeOrchestratorPort = {
   snapshot(): SymphonyOrchestratorSnapshot;
@@ -88,9 +91,10 @@ export type SymphonyRuntimeTrackerObservationPort = {
 };
 
 export type SymphonyRuntimeWorkflowReadPort = {
-  loadCurrentWorkflowTrackerState(input: {
+  loadWorkflowLifecycleView(input: {
     issueIdentifier: string;
-  }): Promise<string | null>;
+    runId?: string | null;
+  }): Promise<SymphonyRuntimeWorkflowLifecycleView | null>;
 };
 
 export type SymphonyRuntimeToolsPort = {

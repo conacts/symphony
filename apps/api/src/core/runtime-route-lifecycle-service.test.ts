@@ -40,6 +40,33 @@ afterEach(async () => {
   );
 });
 
+async function loadRequiredWorkflowLifecycleView(input: {
+  harness: Awaited<ReturnType<typeof createHarness>>;
+  runId?: string | null;
+}) {
+  const workflowLifecycle = await input.harness.service.loadWorkflowLifecycleView({
+    issueIdentifier: input.harness.issue.identifier,
+    runId: input.runId ?? null
+  });
+  expect(workflowLifecycle).not.toBeNull();
+  return workflowLifecycle!;
+}
+
+async function expectWorkflowTrackerState(input: {
+  harness: Awaited<ReturnType<typeof createHarness>>;
+  trackerState: string;
+  runId?: string | null;
+}) {
+  expect(
+    (
+      await loadRequiredWorkflowLifecycleView({
+        harness: input.harness,
+        runId: input.runId ?? null
+      })
+    ).trackerState
+  ).toBe(input.trackerState);
+}
+
 describe("runtime route lifecycle service", () => {
   it("creates a route workflow on first tracker-state observation", async () => {
     const harness = await createHarness({
@@ -204,7 +231,7 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
-  it("loads current tracker state and latest rework handoff from workflow history", async () => {
+  it("loads workflow lifecycle views from workflow history", async () => {
     const harness = await createHarness({
       state: "Todo"
     });
@@ -213,10 +240,15 @@ describe("runtime route lifecycle service", () => {
       await advanceWorkflowToReview(harness);
 
       expect(
-        await harness.service.loadCurrentTrackerState({
+        await harness.service.loadWorkflowLifecycleView({
           issueIdentifier: harness.issue.identifier
         })
-      ).toBe("In Review");
+      ).toEqual({
+        workflowId: expect.any(String),
+        trackerState: "In Review",
+        latestReworkHandoff: null,
+        latestMergeResult: null
+      });
 
       const handoff = buildSymphonyReworkHandoff({
         triggerKind: "changes_requested_review",
@@ -230,15 +262,15 @@ describe("runtime route lifecycle service", () => {
       });
 
       expect(
-        await harness.service.loadCurrentTrackerState({
+        await harness.service.loadWorkflowLifecycleView({
           issueIdentifier: harness.issue.identifier
         })
-      ).toBe("Bootstrapping");
-      expect(
-        await harness.service.loadLatestReworkHandoff({
-          issueIdentifier: harness.issue.identifier
-        })
-      ).toEqual(handoff);
+      ).toEqual({
+        workflowId: expect.any(String),
+        trackerState: "Bootstrapping",
+        latestReworkHandoff: handoff,
+        latestMergeResult: null
+      });
     } finally {
       harness.close();
     }
@@ -251,17 +283,12 @@ describe("runtime route lifecycle service", () => {
 
     try {
       expect(
-        await harness.service.loadCurrentTrackerState({
+        await harness.service.loadWorkflowLifecycleView({
           issueIdentifier: harness.issue.identifier
         })
       ).toBeNull();
       expect(
-        await harness.service.loadLatestReworkHandoff({
-          issueIdentifier: harness.issue.identifier
-        })
-      ).toBeNull();
-      expect(
-        await harness.service.loadLatestMergeResult({
+        await harness.service.loadWorkflowLifecycleView({
           issueIdentifier: harness.issue.identifier,
           runId: "run-1"
         })
@@ -290,17 +317,12 @@ describe("runtime route lifecycle service", () => {
       });
 
       await expect(
-        harness.service.loadCurrentTrackerState({
+        harness.service.loadWorkflowLifecycleView({
           issueIdentifier: harness.issue.identifier
         })
       ).rejects.toThrow(/missing a readable projection snapshot/i);
       await expect(
-        harness.service.loadLatestReworkHandoff({
-          issueIdentifier: harness.issue.identifier
-        })
-      ).rejects.toThrow(/missing a readable projection snapshot/i);
-      await expect(
-        harness.service.loadLatestMergeResult({
+        harness.service.loadWorkflowLifecycleView({
           issueIdentifier: harness.issue.identifier,
           runId: "run-1"
         })
@@ -332,10 +354,30 @@ describe("runtime route lifecycle service", () => {
       });
 
       expect(
-        await harness.service.loadLatestMergeResult({
+        await harness.service.loadWorkflowLifecycleView({
           issueIdentifier: harness.issue.identifier,
           runId: "run-1"
         })
+      ).toEqual({
+        workflowId: expect.any(String),
+        trackerState: "Done",
+        latestReworkHandoff: null,
+        latestMergeResult: {
+          status: "merged",
+          summary: "Merged successfully",
+          prUrl: "https://github.com/openai/symphony/pull/1",
+          mergeCommitSha: "abc123",
+          blockingReason: null,
+          testsSummary: "green"
+        }
+      });
+      expect(
+        (
+          await loadRequiredWorkflowLifecycleView({
+            harness,
+            runId: "run-1"
+          })
+        ).latestMergeResult
       ).toEqual({
         status: "merged",
         summary: "Merged successfully",
@@ -345,10 +387,12 @@ describe("runtime route lifecycle service", () => {
         testsSummary: "green"
       });
       expect(
-        await harness.service.loadLatestMergeResult({
-          issueIdentifier: harness.issue.identifier,
-          runId: "run-2"
-        })
+        (
+          await loadRequiredWorkflowLifecycleView({
+            harness,
+            runId: "run-2"
+          })
+        ).latestMergeResult
       ).toBeNull();
     } finally {
       harness.close();
@@ -685,11 +729,10 @@ describe("runtime route lifecycle service", () => {
 
       await harness.restartService("2026-04-10T14:00:06.000Z");
 
-      expect(
-        await harness.service.loadCurrentTrackerState({
-          issueIdentifier: harness.issue.identifier
-        })
-      ).toBe("Failed");
+      await expectWorkflowTrackerState({
+        harness,
+        trackerState: "Failed"
+      });
 
       await harness.tracker.updateIssueState(harness.issue.id, "Todo");
       const dispatchRequests: Array<{
@@ -777,11 +820,10 @@ describe("runtime route lifecycle service", () => {
 
       await harness.restartService("2026-04-10T14:00:07.000Z");
 
-      expect(
-        await harness.service.loadCurrentTrackerState({
-          issueIdentifier: harness.issue.identifier
-        })
-      ).toBe("Bootstrapping");
+      await expectWorkflowTrackerState({
+        harness,
+        trackerState: "Bootstrapping"
+      });
 
       const dispatchRequests: Array<{
         workflowId: string;
@@ -861,11 +903,10 @@ describe("runtime route lifecycle service", () => {
 
       await harness.restartService("2026-04-10T14:12:07.000Z");
 
-      expect(
-        await harness.service.loadCurrentTrackerState({
-          issueIdentifier: harness.issue.identifier
-        })
-      ).toBe("Approved");
+      await expectWorkflowTrackerState({
+        harness,
+        trackerState: "Approved"
+      });
 
       const dispatchRequests: Array<{
         workflowId: string;
@@ -928,11 +969,10 @@ describe("runtime route lifecycle service", () => {
 
       await harness.restartService("2026-04-10T14:12:25.000Z");
 
-      expect(
-        await harness.service.loadCurrentTrackerState({
-          issueIdentifier: harness.issue.identifier
-        })
-      ).toBe("Paused");
+      await expectWorkflowTrackerState({
+        harness,
+        trackerState: "Paused"
+      });
 
       await harness.tracker.updateIssueState(harness.issue.id, "Todo");
       const dispatchRequests: Array<{
@@ -996,11 +1036,10 @@ describe("runtime route lifecycle service", () => {
 
       await harness.restartService("2026-04-10T14:12:15.000Z");
 
-      expect(
-        await harness.service.loadCurrentTrackerState({
-          issueIdentifier: harness.issue.identifier
-        })
-      ).toBe("Blocked");
+      await expectWorkflowTrackerState({
+        harness,
+        trackerState: "Blocked"
+      });
 
       await harness.tracker.updateIssueState(harness.issue.id, "Todo");
       const dispatchRequests: Array<{
