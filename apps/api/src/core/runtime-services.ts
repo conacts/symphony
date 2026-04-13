@@ -74,6 +74,9 @@ import {
   createSymphonyCapabilityPlanningService
 } from "./symphony-capability-planning.js";
 import {
+  createSymphonyCapabilityExecutionService
+} from "./symphony-capability-execution.js";
+import {
   createWorkflowDispatchTracker
 } from "./runtime-workflow-dispatch-tracker.js";
 import { createRuntimeToolsPort } from "./runtime-tools-port.js";
@@ -91,6 +94,9 @@ import {
 import type {
   SymphonyRuntimeBootstrapRepositorySource
 } from "./runtime-bootstrap-contract.js";
+import {
+  createSymphonyInProcessCapabilityExecutionEngine
+} from "./symphony-in-process-capability-execution.js";
 
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
@@ -641,6 +647,13 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const capabilityPlanning = createSymphonyCapabilityPlanningService({
     routeWorkflowStore
   });
+  const capabilityExecution = createSymphonyCapabilityExecutionService({
+    capabilityPlanning,
+    routeWorkflowStore,
+    routeWorkflows,
+    sessionLoader: workflowSessionLoader,
+    engine: createSymphonyInProcessCapabilityExecutionEngine()
+  });
 
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({
     githubPolicy: runtimePolicy.github,
@@ -789,6 +802,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runtimeTools,
     workflowComparison,
     capabilityPlanning,
+    capabilityExecution,
     routeWorkflows,
     githubReviewIngress,
     realtime,

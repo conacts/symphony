@@ -487,6 +487,9 @@ function createRuntimeServicesStub(
     capabilityPlanning: {
       planByWorkflowId: vi.fn()
     } as SymphonyRuntimeAppServices["capabilityPlanning"],
+    capabilityExecution: {
+      advanceByWorkflowId: vi.fn()
+    } as SymphonyRuntimeAppServices["capabilityExecution"],
     workflowComparison: {
       compareByWorkflowId: vi.fn().mockResolvedValue(null),
       compareByIssueIdentifier: vi.fn().mockResolvedValue(null)
