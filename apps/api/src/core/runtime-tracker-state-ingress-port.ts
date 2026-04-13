@@ -47,7 +47,7 @@ export function createRuntimeTrackerStateIngressPort(input: {
             message:
               "Observed non-running tracker state through workflow history ingress.",
             trackerIssueId: observedIssue.trackerIssueId,
-            issueIdentifier: observedIssue.issueIdentifier,
+            trackerIssueKey: observedIssue.issueIdentifier,
             payload: {
               scope: "non_running_batch",
               observedTrackerState: observedIssue.observedTrackerState,
@@ -70,7 +70,7 @@ export function createRuntimeTrackerStateIngressPort(input: {
               claimedIssueCount: observationInput.claimedIssueIds.length,
               observedIssues: observedIssues.map((observedIssue) => ({
                 trackerIssueId: observedIssue.trackerIssueId,
-                issueIdentifier: observedIssue.issueIdentifier,
+                trackerIssueKey: observedIssue.issueIdentifier,
                 observedTrackerState: observedIssue.observedTrackerState,
                 workflowTrackerState: observedIssue.workflowTrackerState
               }))
@@ -112,7 +112,7 @@ export function createRuntimeTrackerStateIngressPort(input: {
             eventType: "tracker_state_ingress_missing",
             message:
               "Skipped tracker state ingress because the tracker issue could not be found.",
-            issueIdentifier: null,
+            trackerIssueKey: null,
             payload: {
               scope: "non_running_issue_identifier",
               requestedIssueIdentifier: observationInput.issueIdentifier
@@ -128,7 +128,7 @@ export function createRuntimeTrackerStateIngressPort(input: {
           eventType: readTrackerStateIngressEventType(observedIssue),
           message: readTrackerStateIngressMessage(observedIssue),
           trackerIssueId: observedIssue.trackerIssueId,
-          issueIdentifier: observedIssue.issueIdentifier,
+          trackerIssueKey: observedIssue.issueIdentifier,
           payload: {
             scope: "non_running_issue_identifier",
             observedTrackerState: observedIssue.observedTrackerState,

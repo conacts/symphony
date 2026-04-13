@@ -122,7 +122,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     const result = await services.runtimeLogs.list({
       limit: query.limit,
       repo: query.repo,
-      issueIdentifier: query.trackerIssueKey
+      trackerIssueKey: query.trackerIssueKey
     });
 
     c.get("logger").debug("Returning runtime logs", {
@@ -175,7 +175,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       await c.req.json()
     );
     const result = await services.trackerStateIngress.observeNonRunningIssue({
-      issueIdentifier: payload.trackerIssueKey
+      trackerIssueKey: payload.trackerIssueKey
     });
 
     if (!result) {
@@ -298,8 +298,8 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       presetIds: requestedPresetIds.length > 0 ? requestedPresetIds : undefined
     });
     const presetIds = normalizeWorkflowComparisonPresetIds(query.presetIds);
-    const comparison = await services.workflowComparison.compareByIssueIdentifier({
-      issueIdentifier: path.trackerIssueKey,
+    const comparison = await services.workflowComparison.compareByTrackerIssueKey({
+      trackerIssueKey: path.trackerIssueKey,
       presetIds
     });
 
@@ -338,7 +338,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       path.trackerIssueKey
     );
     const workflowLifecycle = await services.workflowRead.loadWorkflowLifecycleView({
-      issueIdentifier: path.trackerIssueKey
+      trackerIssueKey: path.trackerIssueKey
     });
     const piSelectionPolicy = resolveHarnessModelRuntimePolicy(
       services.runtimePolicy

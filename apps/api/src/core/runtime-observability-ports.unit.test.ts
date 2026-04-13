@@ -11,8 +11,8 @@ import {
 
 describe("runtime observability ports", () => {
   it("uses scoped issue lookup for issue timeline reads when a binding scope is configured", async () => {
-    const fetchByIdentifier = vi.fn();
-    const fetchByScopedIdentifier = vi.fn().mockResolvedValue({
+    const fetchByTrackerIssueKey = vi.fn();
+    const fetchByScopedTrackerIssueKey = vi.fn().mockResolvedValue({
       repositoryKey: "repo-secondary"
     });
     const listIssueTimeline = vi.fn().mockResolvedValue([]);
@@ -22,8 +22,8 @@ describe("runtime observability ports", () => {
         listIssueTimeline
       }),
       issueStore: createIssueStoreDouble({
-        fetchByIdentifier,
-        fetchByScopedIdentifier
+        fetchByTrackerIssueKey,
+        fetchByScopedTrackerIssueKey
       }),
       bindingScope: {
         organizationId: "org-1",
@@ -32,18 +32,18 @@ describe("runtime observability ports", () => {
     });
 
     const result = await port.list({
-      issueIdentifier: "SYM-420",
+      trackerIssueKey: "SYM-420",
       limit: 25
     });
 
-    expect(fetchByScopedIdentifier).toHaveBeenCalledWith({
-      issueIdentifier: "SYM-420",
+    expect(fetchByScopedTrackerIssueKey).toHaveBeenCalledWith({
+      trackerIssueKey: "SYM-420",
       bindingScope: {
         organizationId: "org-1",
         linearWorkspaceIdentityId: "ws-1"
       }
     });
-    expect(fetchByIdentifier).not.toHaveBeenCalled();
+    expect(fetchByTrackerIssueKey).not.toHaveBeenCalled();
     expect(listIssueTimeline).toHaveBeenCalledWith("SYM-420", {
       limit: 25
     });
@@ -59,27 +59,27 @@ describe("runtime observability ports", () => {
   });
 
   it("keeps unscoped issue lookup for issue timeline reads when no binding scope is configured", async () => {
-    const fetchByIdentifier = vi.fn().mockResolvedValue({
+    const fetchByTrackerIssueKey = vi.fn().mockResolvedValue({
       repositoryKey: "repo-primary"
     });
-    const fetchByScopedIdentifier = vi.fn();
+    const fetchByScopedTrackerIssueKey = vi.fn();
 
     const port = createIssueTimelinePort({
       issueTimelineStore: createIssueTimelineStoreDouble({
         listIssueTimeline: vi.fn().mockResolvedValue([])
       }),
       issueStore: createIssueStoreDouble({
-        fetchByIdentifier,
-        fetchByScopedIdentifier
+        fetchByTrackerIssueKey,
+        fetchByScopedTrackerIssueKey
       })
     });
 
     await port.list({
-      issueIdentifier: "SYM-421"
+      trackerIssueKey: "SYM-421"
     });
 
-    expect(fetchByIdentifier).toHaveBeenCalledWith("SYM-421");
-    expect(fetchByScopedIdentifier).not.toHaveBeenCalled();
+    expect(fetchByTrackerIssueKey).toHaveBeenCalledWith("SYM-421");
+    expect(fetchByScopedTrackerIssueKey).not.toHaveBeenCalled();
   });
 
   it("forwards repository filters when listing runtime logs", async () => {
@@ -94,13 +94,13 @@ describe("runtime observability ports", () => {
     const result = await port.list({
       limit: 50,
       repo: "repo-secondary",
-      issueIdentifier: "SYM-422"
+      trackerIssueKey: "SYM-422"
     });
 
     expect(list).toHaveBeenCalledWith({
       limit: 50,
       repo: "repo-secondary",
-      issueIdentifier: "SYM-422"
+      trackerIssueKey: "SYM-422"
     });
     expect(result).toEqual({
       logs: [],
@@ -123,13 +123,13 @@ function createIssueTimelineStoreDouble(input: {
 }
 
 function createIssueStoreDouble(input: {
-  fetchByIdentifier: SymphonyIssueStore["fetchByIdentifier"];
-  fetchByScopedIdentifier: SymphonyIssueStore["fetchByScopedIdentifier"];
+  fetchByTrackerIssueKey: SymphonyIssueStore["fetchByTrackerIssueKey"];
+  fetchByScopedTrackerIssueKey: SymphonyIssueStore["fetchByScopedTrackerIssueKey"];
 }): SymphonyIssueStore {
   return {
-    fetchByIdentifier: input.fetchByIdentifier,
+    fetchByTrackerIssueKey: input.fetchByTrackerIssueKey,
     fetchByTrackerIssueId: vi.fn(),
-    fetchByScopedIdentifier: input.fetchByScopedIdentifier,
+    fetchByScopedTrackerIssueKey: input.fetchByScopedTrackerIssueKey,
     upsert: vi.fn()
   };
 }

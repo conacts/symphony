@@ -41,7 +41,7 @@ import type { SymphonyRuntimeRunStatus, SymphonyRuntimeTurnStatus } from "./runt
 import type { SymphonyLifecycleBindingScope } from "./lifecycle-binding-scope.js";
 import { normalizeLifecycleBindingScope } from "./lifecycle-binding-scope.js";
 import {
-  loadIssueRecordByIdentifier,
+  loadIssueRecordByTrackerIssueKey,
   loadIssueRecordMapByTrackerIssueId
 } from "./issue-record-lookup.js";
 
@@ -515,15 +515,15 @@ function matchesRunFilters(
 function resolveTrackerIssueIdFilter(
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>,
   bindingScope: SymphonyLifecycleBindingScope | null,
-  issueIdentifier: string | undefined
+  trackerIssueKey: string | undefined
 ): string | null | undefined {
-  if (!issueIdentifier) {
+  if (!trackerIssueKey) {
     return undefined;
   }
 
   return (
-    loadIssueRecordByIdentifier(db, {
-      issueIdentifier,
+    loadIssueRecordByTrackerIssueKey(db, {
+      trackerIssueKey,
       bindingScope
     })?.trackerIssueId ?? null
   );

@@ -293,8 +293,8 @@ export async function createRuntimeRouteLifecycleService(input: {
 
       for (const issue of issues) {
         const observedTrackerState = issue.state;
-        const hydration = await sessionLoader.loadHydrationByIssueIdentifier({
-          issueIdentifier: issue.identifier
+        const hydration = await sessionLoader.loadHydrationByTrackerIssueKey({
+          trackerIssueKey: issue.identifier
         });
         const disposition = classifyNonRunningTrackerIngressDisposition({
           issue,
@@ -338,8 +338,8 @@ export async function createRuntimeRouteLifecycleService(input: {
         return null;
       }
 
-      const hydration = await sessionLoader.loadHydrationByIssueIdentifier({
-        issueIdentifier: issue.identifier
+      const hydration = await sessionLoader.loadHydrationByTrackerIssueKey({
+        trackerIssueKey: issue.identifier
       });
       const disposition = classifyNonRunningTrackerIngressDisposition({
         issue,
@@ -708,8 +708,8 @@ async function loadActiveObservationRunMode(input: {
   sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
   issueIdentifier: string;
 }): Promise<SymphonyRunMode | null> {
-  const hydration = await input.sessionLoader.loadHydrationByIssueIdentifier({
-    issueIdentifier: input.issueIdentifier
+  const hydration = await input.sessionLoader.loadHydrationByTrackerIssueKey({
+    trackerIssueKey: input.issueIdentifier
   });
   if (!hydration) {
     return null;
@@ -723,8 +723,8 @@ async function loadWorkflowProjectedLifecycleIssue(input: {
   issueIdentifier: string;
   failureContext: string;
 }): Promise<SymphonyTrackerIssue | null> {
-  const loaded = await input.sessionLoader.loadHydrationByIssueIdentifier({
-    issueIdentifier: input.issueIdentifier
+  const loaded = await input.sessionLoader.loadHydrationByTrackerIssueKey({
+    trackerIssueKey: input.issueIdentifier
   });
   if (!loaded) {
     return null;
@@ -789,8 +789,8 @@ async function loadReadableWorkflowProjectionByIssueIdentifier(input: {
   workflowId: string;
   data: unknown;
 } | null> {
-  const loaded = await input.sessionLoader.loadHydrationByIssueIdentifier({
-    issueIdentifier: input.issueIdentifier
+  const loaded = await input.sessionLoader.loadHydrationByTrackerIssueKey({
+    trackerIssueKey: input.issueIdentifier
   });
   if (!loaded) {
     return null;

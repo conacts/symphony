@@ -41,8 +41,8 @@ export async function createRuntimeRunLifecycleRouter(input: {
     async observeIssueState(
       observationInput: SymphonyRunLifecycleObservationInput
     ): Promise<SymphonyRunLifecycleObservationResult> {
-      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: observationInput.issue.identifier
+      const loaded = await input.sessionLoader.resumeByTrackerIssueKey({
+        trackerIssueKey: observationInput.issue.identifier
       });
       if (!loaded) {
         throw new TypeError(
@@ -102,8 +102,8 @@ export async function createRuntimeRunLifecycleRouter(input: {
     async routeCompletion(
       completionInput: SymphonyRunLifecycleCompletionInput
     ): Promise<SymphonyRunLifecycleCompletionResult> {
-      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: completionInput.issue.identifier
+      const loaded = await input.sessionLoader.resumeByTrackerIssueKey({
+        trackerIssueKey: completionInput.issue.identifier
       });
       if (!loaded) {
         throw new TypeError(

@@ -176,7 +176,7 @@ async function createHarness(input: {
   const tracker = createMemorySymphonyTracker([issue]);
 
   await issueStore.upsert({
-    issueIdentifier: issue.identifier,
+    trackerIssueKey: issue.identifier,
     trackerIssueId: issue.id,
     repositoryKey: "openai/symphony",
     latestRunStartedAt: null,

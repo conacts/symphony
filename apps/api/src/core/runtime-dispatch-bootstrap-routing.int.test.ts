@@ -71,7 +71,7 @@ describe("runtime dispatch bootstrap routing", () => {
 
     try {
       expect(
-        await harness.issueStore.fetchByIdentifier(harness.issue.identifier)
+        await harness.issueStore.fetchByTrackerIssueKey(harness.issue.identifier)
       ).toBeNull();
 
       const result = await harness.router.route({
@@ -83,16 +83,16 @@ describe("runtime dispatch bootstrap routing", () => {
 
       expect(result.issue.state).toBe("Bootstrapping");
       expect(result.runMode).toBe("implementation");
-      expect(await harness.issueStore.fetchByIdentifier(harness.issue.identifier)).toEqual(
+      expect(await harness.issueStore.fetchByTrackerIssueKey(harness.issue.identifier)).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issue.identifier,
+          trackerIssueKey: harness.issue.identifier,
           trackerIssueId: harness.issue.id,
           repositoryKey: "conacts/symphony"
         })
       );
 
       const hydration =
-        await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        await harness.routeWorkflows.loadHydrationStateByTrackerIssueKey<
           SymphonyCurrentFlowNode,
           SymphonyCurrentFlowData,
           SymphonyCurrentFlowPolicy
@@ -284,7 +284,7 @@ async function createHarness(input: {
 
   if (input.seedIssueIdentity ?? true) {
     await issueStore.upsert({
-      issueIdentifier: issue.identifier,
+      trackerIssueKey: issue.identifier,
       trackerIssueId: issue.id,
       repositoryKey,
       latestRunStartedAt: null,
@@ -319,7 +319,7 @@ async function createHarness(input: {
       const resolvedRepositoryKey =
         input.resolveIssueRepositoryKey?.(observedIssue) ?? repositoryKey;
       await issueStore.upsert({
-        issueIdentifier: observedIssue.identifier,
+        trackerIssueKey: observedIssue.identifier,
         trackerIssueId: observedIssue.id,
         repositoryKey: resolvedRepositoryKey,
         latestRunStartedAt: null,
@@ -359,10 +359,10 @@ function createStaticSessionLoader(input: {
     } satisfies SymphonyLoadedRuntimeWorkflowHydration;
   };
 
-  const loadHydrationByIssueIdentifier = async (issueIdentifier: string) => {
+  const loadHydrationByTrackerIssueKey = async (trackerIssueKey: string) => {
     const hydrationState =
-      await input.routeWorkflows.loadHydrationStateByIssueIdentifier(
-        issueIdentifier
+      await input.routeWorkflows.loadHydrationStateByTrackerIssueKey(
+        trackerIssueKey
       );
     if (!hydrationState) {
       return null;
@@ -373,15 +373,15 @@ function createStaticSessionLoader(input: {
       hydrationState
     } satisfies SymphonyLoadedRuntimeWorkflowHydration;
   };
-  const loadHydrationByScopedIssue = async (inputByScope: {
-    issueIdentifier: string;
+  const loadHydrationByScopedTrackerIssueKey = async (inputByScope: {
+    trackerIssueKey: string;
     bindingScope: {
       organizationId: string;
       linearWorkspaceIdentityId: string;
     };
   }) => {
     const hydrationState =
-      await input.routeWorkflows.loadHydrationStateByScopedIssue(inputByScope);
+      await input.routeWorkflows.loadHydrationStateByScopedTrackerIssueKey(inputByScope);
     if (!hydrationState) {
       return null;
     }
@@ -396,11 +396,11 @@ function createStaticSessionLoader(input: {
     async loadHydrationByWorkflowId({ workflowId }) {
       return await loadHydrationByWorkflowId(workflowId);
     },
-    async loadHydrationByIssueIdentifier({ issueIdentifier }) {
-      return await loadHydrationByIssueIdentifier(issueIdentifier);
+    async loadHydrationByTrackerIssueKey({ trackerIssueKey }) {
+      return await loadHydrationByTrackerIssueKey(trackerIssueKey);
     },
-    async loadHydrationByScopedIssue(scopedInput) {
-      return await loadHydrationByScopedIssue(scopedInput);
+    async loadHydrationByScopedTrackerIssueKey(scopedInput) {
+      return await loadHydrationByScopedTrackerIssueKey(scopedInput);
     },
     async resumeByWorkflowId({ workflowId }) {
       const loaded = await loadHydrationByWorkflowId(workflowId);
@@ -417,8 +417,8 @@ function createStaticSessionLoader(input: {
         })
       } satisfies SymphonyLoadedRuntimeWorkflowSession;
     },
-    async resumeByIssueIdentifier({ issueIdentifier }) {
-      const loaded = await loadHydrationByIssueIdentifier(issueIdentifier);
+    async resumeByTrackerIssueKey({ trackerIssueKey }) {
+      const loaded = await loadHydrationByTrackerIssueKey(trackerIssueKey);
       if (!loaded) {
         return null;
       }
@@ -432,8 +432,8 @@ function createStaticSessionLoader(input: {
         })
       } satisfies SymphonyLoadedRuntimeWorkflowSession;
     },
-    async resumeByScopedIssue(scopedInput) {
-      const loaded = await loadHydrationByScopedIssue(scopedInput);
+    async resumeByScopedTrackerIssueKey(scopedInput) {
+      const loaded = await loadHydrationByScopedTrackerIssueKey(scopedInput);
       if (!loaded) {
         return null;
       }

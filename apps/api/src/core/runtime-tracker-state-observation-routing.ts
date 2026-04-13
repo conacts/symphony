@@ -114,7 +114,7 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
         input.repositoryKey;
       const ensured = await input.routeWorkflows.ensureWorkflowForIssue({
         trackerIssueId: observedTrackerIssue.id,
-        issueIdentifier: observedTrackerIssue.identifier,
+        trackerIssueKey: observedTrackerIssue.identifier,
         repositoryKey,
         bindingScope: input.bindingScope ?? null,
         routerPresetId: input.routing.presetId,

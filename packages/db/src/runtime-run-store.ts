@@ -155,7 +155,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
 
           if (existingActiveRun) {
             throw new SymphonyActiveRunExistsError({
-              issueIdentifier: attrs.issueIdentifier,
+              trackerIssueKey: attrs.issueIdentifier,
               existingRunId: existingActiveRun.runId,
               existingStatus: assertActiveRunStatus(existingActiveRun.status)
             });
@@ -212,7 +212,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
 
         if (existingActiveRun) {
           throw new SymphonyActiveRunExistsError({
-            issueIdentifier: attrs.issueIdentifier,
+            trackerIssueKey: attrs.issueIdentifier,
             existingRunId: existingActiveRun.runId,
             existingStatus: assertActiveRunStatus(existingActiveRun.status)
           });
@@ -224,7 +224,7 @@ class SqliteSymphonyRuntimeRunStore implements SymphonyRuntimeRunStore {
 
     await this.#timelineStoreFor(repositoryKey).record({
       trackerIssueId: attrs.trackerIssueId,
-      issueIdentifier: attrs.issueIdentifier,
+      trackerIssueKey: attrs.issueIdentifier,
       runId,
       source: "orchestrator",
       eventType: "run_started",

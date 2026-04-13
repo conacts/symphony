@@ -47,8 +47,8 @@ export async function createRuntimeReviewReworkRouter(input: {
     async routeReviewRework(
       reviewInput
     ): Promise<SymphonyReviewReworkRoutingResult> {
-      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: reviewInput.observedTrackerIssue.identifier
+      const loaded = await input.sessionLoader.resumeByTrackerIssueKey({
+        trackerIssueKey: reviewInput.observedTrackerIssue.identifier
       });
       if (!loaded) {
         throw new TypeError(

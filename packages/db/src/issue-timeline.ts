@@ -6,7 +6,7 @@ import type { SymphonyLifecycleBindingScope } from "./lifecycle-binding-scope.js
 import { normalizeLifecycleBindingScope } from "./lifecycle-binding-scope.js";
 import {
   loadIssueRecordMapByTrackerIssueId,
-  requireIssueRecordByIdentifierForRepository,
+  requireIssueRecordByTrackerIssueKeyForRepository,
   requireIssueRecordByTrackerIssueIdForRepository
 } from "./issue-record-lookup.js";
 import { symphonyIssueTimelineTable } from "./schema.js";
@@ -22,7 +22,7 @@ export type SymphonyIssueTimelineEntry = {
   entryId: string;
   repositoryKey: string;
   trackerIssueId: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   runId: string | null;
   turnId: string | null;
   source: SymphonyIssueTimelineSource;
@@ -35,7 +35,7 @@ export type SymphonyIssueTimelineEntry = {
 export interface SymphonyIssueTimelineStore {
   record(input: {
     trackerIssueId: string;
-    issueIdentifier?: string | null;
+    trackerIssueKey?: string | null;
     runId?: string | null;
     turnId?: string | null;
     source: SymphonyIssueTimelineSource;
@@ -45,7 +45,7 @@ export interface SymphonyIssueTimelineStore {
     recordedAt?: string;
   }): Promise<string>;
   listIssueTimeline(
-    issueIdentifier: string,
+    trackerIssueKey: string,
     input?: {
       limit?: number;
     }
@@ -72,7 +72,7 @@ export function createSymphonyIssueTimelineStore(
         owner: "Issue timeline",
         repositoryKey,
         trackerIssueId: input.trackerIssueId,
-        issueIdentifier: input.issueIdentifier
+        trackerIssueKey: input.trackerIssueKey
       });
 
       db.insert(symphonyIssueTimelineTable)
@@ -93,13 +93,13 @@ export function createSymphonyIssueTimelineStore(
       return entryId;
     },
 
-    async listIssueTimeline(issueIdentifier, input = {}) {
+    async listIssueTimeline(trackerIssueKey, input = {}) {
       const limit = normalizeLimit(input.limit, 200);
       const issue = loadTimelineIssueOrNull({
         db,
         repositoryKey,
         bindingScope,
-        issueIdentifier
+        trackerIssueKey
       });
 
       if (!issue) {
@@ -122,7 +122,7 @@ export function createSymphonyIssueTimelineStore(
           entryId: row.entryId,
           repositoryKey: timelineIssue.repositoryKey,
           trackerIssueId: timelineIssue.trackerIssueId,
-          issueIdentifier: timelineIssue.issueIdentifier,
+          trackerIssueKey: timelineIssue.issueIdentifier,
           runId: row.runId ?? null,
           turnId: row.turnId ?? null,
           source: normalizeSource(row.source),
@@ -159,20 +159,20 @@ function loadTimelineIssueOrNull(input: {
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   repositoryKey: string;
   bindingScope: SymphonyLifecycleBindingScope | null;
-  issueIdentifier: string;
+  trackerIssueKey: string;
 }) {
   try {
-    return requireIssueRecordByIdentifierForRepository({
+    return requireIssueRecordByTrackerIssueKeyForRepository({
       db: input.db,
       owner: "Issue timeline",
       repositoryKey: input.repositoryKey,
       bindingScope: input.bindingScope,
-      issueIdentifier: input.issueIdentifier
+      trackerIssueKey: input.trackerIssueKey
     });
   } catch (error) {
     if (
       error instanceof TypeError &&
-      error.message === `Issue timeline issue not found: ${input.issueIdentifier.trim()}`
+      error.message === `Issue timeline issue not found: ${input.trackerIssueKey.trim()}`
     ) {
       return null;
     }

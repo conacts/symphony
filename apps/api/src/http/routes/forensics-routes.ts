@@ -157,7 +157,7 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
       c.req.query()
     );
     const result = await services.issueTimeline.list({
-      issueIdentifier: path.trackerIssueKey,
+      trackerIssueKey: path.trackerIssueKey,
       repo: query.repo,
       limit: query.limit
     });

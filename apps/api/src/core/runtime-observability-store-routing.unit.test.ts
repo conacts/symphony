@@ -38,7 +38,7 @@ describe("runtime observability store routing", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "COL-801",
+        trackerIssueKey: "COL-801",
         trackerIssueId: "tracker-col-801",
         repositoryKey: "conacts/coldets-v2",
         latestRunStartedAt: null,
@@ -53,7 +53,7 @@ describe("runtime observability store routing", () => {
 
       await timelineStore.record({
         trackerIssueId: "tracker-col-801",
-        issueIdentifier: "COL-801",
+        trackerIssueKey: "COL-801",
         source: "runtime",
         eventType: "runtime_session_started",
         message: "Started session.",
@@ -64,7 +64,7 @@ describe("runtime observability store routing", () => {
         timelineStore.listIssueTimeline("COL-801")
       ).resolves.toEqual([
         expect.objectContaining({
-          issueIdentifier: "COL-801",
+          trackerIssueKey: "COL-801",
           trackerIssueId: "tracker-col-801",
           repositoryKey: "conacts/coldets-v2",
           eventType: "runtime_session_started"
@@ -88,7 +88,7 @@ describe("runtime observability store routing", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "COL-802",
+        trackerIssueKey: "COL-802",
         trackerIssueId: "tracker-col-802",
         repositoryKey: "conacts/coldets-v2",
         latestRunStartedAt: null,
@@ -115,17 +115,17 @@ describe("runtime observability store routing", () => {
         eventType: "tracker_state_ingress_observed",
         message: "Observed tracker state.",
         trackerIssueId: "tracker-col-802",
-        issueIdentifier: "COL-802",
+        trackerIssueKey: "COL-802",
         recordedAt: "2026-04-12T22:21:02.000Z"
       });
 
       await expect(
         runtimeLogStore.list({
-          issueIdentifier: "COL-802"
+          trackerIssueKey: "COL-802"
         })
       ).resolves.toEqual([
         expect.objectContaining({
-          issueIdentifier: "COL-802",
+          trackerIssueKey: "COL-802",
           trackerIssueId: "tracker-col-802",
           repositoryKey: "conacts/coldets-v2",
           eventType: "tracker_state_ingress_observed"
@@ -135,12 +135,12 @@ describe("runtime observability store routing", () => {
       await expect(runtimeLogStore.list()).resolves.toEqual([
         expect.objectContaining({
           repositoryKey: "conacts/coldets-v2",
-          issueIdentifier: "COL-802",
+          trackerIssueKey: "COL-802",
           eventType: "tracker_state_ingress_observed"
         }),
         expect.objectContaining({
           repositoryKey: "conacts/symphony",
-          issueIdentifier: null,
+          trackerIssueKey: null,
           eventType: "runtime_bootstrap_completed"
         })
       ]);
@@ -152,7 +152,7 @@ describe("runtime observability store routing", () => {
       ).resolves.toEqual([
         expect.objectContaining({
           repositoryKey: "conacts/coldets-v2",
-          issueIdentifier: "COL-802",
+          trackerIssueKey: "COL-802",
           eventType: "tracker_state_ingress_observed"
         })
       ]);
@@ -174,7 +174,7 @@ describe("runtime observability store routing", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "COL-803",
+        trackerIssueKey: "COL-803",
         trackerIssueId: "tracker-col-803",
         repositoryKey: "conacts/coldets-v2",
         latestRunStartedAt: null,
@@ -200,7 +200,7 @@ describe("runtime observability store routing", () => {
       await expect(runtimeLogStore.list()).resolves.toEqual([
         expect.objectContaining({
           repositoryKey: "conacts/coldets-v2",
-          issueIdentifier: "COL-803",
+          trackerIssueKey: "COL-803",
           trackerIssueId: "tracker-col-803",
           eventType: "runtime_issue_reconciled"
         })

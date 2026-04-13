@@ -120,7 +120,7 @@ export function createRuntimeOrchestratorPort(input: {
         eventType: "routed_dispatch_skipped_claimed",
         message: "Skipped routed dispatch because the issue is already claimed.",
         trackerIssueId: dispatchInput.trackerIssue.id,
-        issueIdentifier: dispatchInput.trackerIssue.identifier,
+        trackerIssueKey: dispatchInput.trackerIssue.identifier,
         payload: {
             workflowId: dispatchInput.workflowId,
             commandId: dispatchInput.commandId,
@@ -139,7 +139,7 @@ export function createRuntimeOrchestratorPort(input: {
           message:
             "Skipped routed dispatch because the issue is not dispatchable under the current orchestrator state.",
           trackerIssueId: dispatchInput.trackerIssue.id,
-          issueIdentifier: dispatchInput.trackerIssue.identifier,
+          trackerIssueKey: dispatchInput.trackerIssue.identifier,
           payload: {
             workflowId: dispatchInput.workflowId,
             commandId: dispatchInput.commandId,
@@ -166,7 +166,7 @@ export function createRuntimeOrchestratorPort(input: {
           eventType: "routed_dispatch_started",
           message: "Started routed issue dispatch directly from workflow history.",
           trackerIssueId: dispatchInput.trackerIssue.id,
-          issueIdentifier: dispatchInput.trackerIssue.identifier,
+          trackerIssueKey: dispatchInput.trackerIssue.identifier,
           payload: {
             workflowId: dispatchInput.workflowId,
             commandId: dispatchInput.commandId,
@@ -181,7 +181,7 @@ export function createRuntimeOrchestratorPort(input: {
           eventType: "routed_dispatch_failed",
           message: "Routed issue dispatch failed.",
           trackerIssueId: dispatchInput.trackerIssue.id,
-          issueIdentifier: dispatchInput.trackerIssue.identifier,
+          trackerIssueKey: dispatchInput.trackerIssue.identifier,
           payload: {
             workflowId: dispatchInput.workflowId,
             commandId: dispatchInput.commandId,

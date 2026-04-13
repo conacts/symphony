@@ -52,21 +52,21 @@ export type SymphonyRuntimeWorkflowSessionLoader = {
   loadHydrationByWorkflowId(input: {
     workflowId: string;
   }): Promise<SymphonyLoadedRuntimeWorkflowHydration | null>;
-  loadHydrationByIssueIdentifier(input: {
-    issueIdentifier: string;
+  loadHydrationByTrackerIssueKey(input: {
+    trackerIssueKey: string;
   }): Promise<SymphonyLoadedRuntimeWorkflowHydration | null>;
-  loadHydrationByScopedIssue(input: {
-    issueIdentifier: string;
+  loadHydrationByScopedTrackerIssueKey(input: {
+    trackerIssueKey: string;
     bindingScope: RouteWorkflowBindingScope;
   }): Promise<SymphonyLoadedRuntimeWorkflowHydration | null>;
   resumeByWorkflowId(input: {
     workflowId: string;
   }): Promise<SymphonyLoadedRuntimeWorkflowSession | null>;
-  resumeByIssueIdentifier(input: {
-    issueIdentifier: string;
+  resumeByTrackerIssueKey(input: {
+    trackerIssueKey: string;
   }): Promise<SymphonyLoadedRuntimeWorkflowSession | null>;
-  resumeByScopedIssue(input: {
-    issueIdentifier: string;
+  resumeByScopedTrackerIssueKey(input: {
+    trackerIssueKey: string;
     bindingScope: RouteWorkflowBindingScope;
   }): Promise<SymphonyLoadedRuntimeWorkflowSession | null>;
 };
@@ -95,22 +95,22 @@ export async function createRuntimeWorkflowSessionLoader(input: {
         now: input.now
       });
     };
-  const loadHydrationByIssueIdentifier: SymphonyRuntimeWorkflowSessionLoader["loadHydrationByIssueIdentifier"] =
-    async ({ issueIdentifier }) => {
+  const loadHydrationByTrackerIssueKey: SymphonyRuntimeWorkflowSessionLoader["loadHydrationByTrackerIssueKey"] =
+    async ({ trackerIssueKey }) => {
       const hydrationState = input.bindingScope
-        ? await input.routeWorkflows.loadHydrationStateByScopedIssue<
+        ? await input.routeWorkflows.loadHydrationStateByScopedTrackerIssueKey<
             RuntimeWorkflowNode,
             RuntimeWorkflowData,
             RuntimeWorkflowPolicy
           >({
-            issueIdentifier,
+            trackerIssueKey,
             bindingScope: input.bindingScope
           })
-        : await input.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        : await input.routeWorkflows.loadHydrationStateByTrackerIssueKey<
             RuntimeWorkflowNode,
             RuntimeWorkflowData,
             RuntimeWorkflowPolicy
-          >(issueIdentifier);
+          >(trackerIssueKey);
       if (!hydrationState) {
         return null;
       }
@@ -121,15 +121,15 @@ export async function createRuntimeWorkflowSessionLoader(input: {
         now: input.now
       });
     };
-  const loadHydrationByScopedIssue: SymphonyRuntimeWorkflowSessionLoader["loadHydrationByScopedIssue"] =
-    async ({ issueIdentifier, bindingScope }) => {
+  const loadHydrationByScopedTrackerIssueKey: SymphonyRuntimeWorkflowSessionLoader["loadHydrationByScopedTrackerIssueKey"] =
+    async ({ trackerIssueKey, bindingScope }) => {
       const hydrationState =
-        await input.routeWorkflows.loadHydrationStateByScopedIssue<
+        await input.routeWorkflows.loadHydrationStateByScopedTrackerIssueKey<
           RuntimeWorkflowNode,
           RuntimeWorkflowData,
           RuntimeWorkflowPolicy
         >({
-          issueIdentifier,
+          trackerIssueKey,
           bindingScope
         });
       if (!hydrationState) {
@@ -145,8 +145,8 @@ export async function createRuntimeWorkflowSessionLoader(input: {
 
   return {
     loadHydrationByWorkflowId,
-    loadHydrationByIssueIdentifier,
-    loadHydrationByScopedIssue,
+    loadHydrationByTrackerIssueKey,
+    loadHydrationByScopedTrackerIssueKey,
     async resumeByWorkflowId({
       workflowId
     }): Promise<SymphonyLoadedRuntimeWorkflowSession | null> {
@@ -161,11 +161,11 @@ export async function createRuntimeWorkflowSessionLoader(input: {
         loaded
       });
     },
-    async resumeByIssueIdentifier({
-      issueIdentifier
+    async resumeByTrackerIssueKey({
+      trackerIssueKey
     }): Promise<SymphonyLoadedRuntimeWorkflowSession | null> {
-      const loaded = await loadHydrationByIssueIdentifier({
-        issueIdentifier
+      const loaded = await loadHydrationByTrackerIssueKey({
+        trackerIssueKey
       });
       if (!loaded) {
         return null;
@@ -175,12 +175,12 @@ export async function createRuntimeWorkflowSessionLoader(input: {
         loaded
       });
     },
-    async resumeByScopedIssue({
-      issueIdentifier,
+    async resumeByScopedTrackerIssueKey({
+      trackerIssueKey,
       bindingScope
     }): Promise<SymphonyLoadedRuntimeWorkflowSession | null> {
-      const loaded = await loadHydrationByScopedIssue({
-        issueIdentifier,
+      const loaded = await loadHydrationByScopedTrackerIssueKey({
+        trackerIssueKey,
         bindingScope
       });
       if (!loaded) {

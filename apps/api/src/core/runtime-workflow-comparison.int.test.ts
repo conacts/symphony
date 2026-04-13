@@ -118,7 +118,7 @@ async function createHarness() {
     state: "Todo"
   });
   await issueStore.upsert({
-    issueIdentifier: issue.identifier,
+    trackerIssueKey: issue.identifier,
     trackerIssueId: issue.id,
     repositoryKey,
     latestRunStartedAt: null,
@@ -131,7 +131,7 @@ async function createHarness() {
   const ensured = await routeWorkflows.ensureWorkflowForIssue({
     trackerIssueId: issue.id,
     repositoryKey,
-    issueIdentifier: issue.identifier,
+    trackerIssueKey: issue.identifier,
     routerPresetId: routing.presetId,
     router: routing.router,
     createdAt: "2026-04-11T12:00:01.000Z"

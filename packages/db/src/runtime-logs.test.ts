@@ -39,11 +39,11 @@ describe("runtime log store", () => {
           source: "runtime",
           eventType: "runtime_session_started",
           message: "Started session.",
-          issueIdentifier: "SYM-699",
+          trackerIssueKey: "SYM-699",
           recordedAt: "2026-04-11T04:08:00.000Z"
         } as never)
       ).rejects.toThrow(
-        "Runtime log trackerIssueId is required when issueIdentifier is provided."
+        "Runtime log trackerIssueId is required when trackerIssueKey is provided."
       );
     } finally {
       database.close();
@@ -69,7 +69,7 @@ describe("runtime log store", () => {
           eventType: "runtime_session_started",
           message: "Started session.",
           trackerIssueId: "tracker-700",
-          issueIdentifier: "SYM-700",
+          trackerIssueKey: "SYM-700",
           recordedAt: "2026-04-11T04:09:00.000Z"
         })
       ).rejects.toThrow("Runtime log issue not found: tracker-700");
@@ -92,7 +92,7 @@ describe("runtime log store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-700R",
+        trackerIssueKey: "SYM-700R",
         trackerIssueId: "tracker-700R",
         repositoryKey: "other/repo",
         latestRunStartedAt: null,
@@ -106,7 +106,7 @@ describe("runtime log store", () => {
           eventType: "runtime_session_started",
           message: "Started session.",
           trackerIssueId: "tracker-700R",
-          issueIdentifier: "SYM-700R",
+          trackerIssueKey: "SYM-700R",
           recordedAt: "2026-04-11T04:09:31.000Z"
         })
       ).rejects.toThrow(
@@ -131,7 +131,7 @@ describe("runtime log store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-701",
+        trackerIssueKey: "SYM-701",
         trackerIssueId: "tracker-701",
         repositoryKey,
         latestRunStartedAt: null,
@@ -143,17 +143,17 @@ describe("runtime log store", () => {
         eventType: "runtime_session_started",
         message: "Started session.",
         trackerIssueId: "tracker-701",
-        issueIdentifier: "SYM-701",
+        trackerIssueKey: "SYM-701",
         recordedAt: "2026-04-11T04:11:00.000Z"
       });
 
       await expect(
         runtimeLogStore.list({
-          issueIdentifier: "SYM-701"
+          trackerIssueKey: "SYM-701"
         })
       ).resolves.toEqual([
         expect.objectContaining({
-          issueIdentifier: "SYM-701",
+          trackerIssueKey: "SYM-701",
           trackerIssueId: "tracker-701",
           repositoryKey,
           eventType: "runtime_session_started"
@@ -178,7 +178,7 @@ describe("runtime log store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-702",
+        trackerIssueKey: "SYM-702",
         trackerIssueId: "tracker-702",
         repositoryKey,
         latestRunStartedAt: null,
@@ -190,7 +190,7 @@ describe("runtime log store", () => {
         eventType: "runtime_session_failed",
         message: "Failed session.",
         trackerIssueId: "tracker-702",
-        issueIdentifier: "SYM-702",
+        trackerIssueKey: "SYM-702",
         recordedAt: "2026-04-11T04:16:00.000Z"
       });
 
@@ -203,7 +203,7 @@ describe("runtime log store", () => {
 
       await expect(
         runtimeLogStore.list({
-          issueIdentifier: "SYM-702"
+          trackerIssueKey: "SYM-702"
         })
       ).resolves.toEqual([]);
     } finally {

@@ -27,7 +27,7 @@ async function recordSeededRunStarted(
 ): Promise<string> {
   const issueStore = createSymphonyIssueStore(db);
   await issueStore.upsert({
-    issueIdentifier: attrs.issueIdentifier,
+    trackerIssueKey: attrs.issueIdentifier,
     trackerIssueId: attrs.trackerIssueId,
     repositoryKey: attrs.repositoryKey,
     latestRunStartedAt: null,

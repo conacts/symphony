@@ -144,7 +144,7 @@ describe("runtime orchestrator port", () => {
     expect(runtimeLogs.record).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: "routed_dispatch_skipped_claimed",
-        issueIdentifier: issue.identifier
+        trackerIssueKey: issue.identifier
       })
     );
   });
@@ -262,7 +262,7 @@ describe("runtime orchestrator port", () => {
     expect(runtimeLogs.record).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: "routed_dispatch_skipped_ineligible",
-        issueIdentifier: issue.identifier
+        trackerIssueKey: issue.identifier
       })
     );
   });

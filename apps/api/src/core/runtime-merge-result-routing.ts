@@ -46,8 +46,8 @@ export async function createRuntimeMergeResultRouter(input: {
     async routeMergeResult(
       mergeResultInput
     ): Promise<SymphonyMergeResultRoutingResult> {
-      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: mergeResultInput.projectedIssue.identifier
+      const loaded = await input.sessionLoader.resumeByTrackerIssueKey({
+        trackerIssueKey: mergeResultInput.projectedIssue.identifier
       });
       if (!loaded) {
         throw new TypeError(

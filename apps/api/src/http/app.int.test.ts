@@ -212,7 +212,7 @@ describe("@symphony/api app", () => {
       }>(firstResponse);
 
       const hydration =
-        await harness.services.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        await harness.services.routeWorkflows.loadHydrationStateByTrackerIssueKey<
           SymphonyCurrentFlowNode,
           SymphonyCurrentFlowData,
           SymphonyCurrentFlowPolicy
@@ -640,7 +640,7 @@ describe("@symphony/api app", () => {
           db: database.db
         });
         await issueStore.upsert({
-          issueIdentifier: "COL-901",
+          trackerIssueKey: "COL-901",
           trackerIssueId: "issue-runtime-only",
           repositoryKey: "openai/symphony",
           latestRunStartedAt: null,
@@ -1063,7 +1063,7 @@ describe("@symphony/api app", () => {
     try {
       const issueStore = createSymphonyIssueStore(database.db);
       await issueStore.upsert({
-        issueIdentifier: "COL-EMPTY",
+        trackerIssueKey: "COL-EMPTY",
         trackerIssueId: "issue-empty",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -1234,16 +1234,16 @@ describe("@symphony/api app", () => {
         "COL-123"
       );
       const workflowHydration =
-        await harness.services.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        await harness.services.routeWorkflows.loadHydrationStateByTrackerIssueKey<
           SymphonyCurrentFlowNode,
           SymphonyCurrentFlowData,
           SymphonyCurrentFlowPolicy
         >("COL-123");
       const issueTimeline = await harness.services.issueTimeline.list({
-        issueIdentifier: "COL-123"
+        trackerIssueKey: "COL-123"
       });
       const runtimeLogs = await harness.services.runtimeLogs.list({
-        issueIdentifier: "COL-123"
+        trackerIssueKey: "COL-123"
       });
 
       expect(ingressResponse.status).toBe(202);

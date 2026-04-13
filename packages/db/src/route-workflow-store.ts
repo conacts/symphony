@@ -47,7 +47,7 @@ export type RouteWorkflowRecord = {
   workflowId: string;
   trackerIssueId: string;
   repositoryKey: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   bindingScope: RouteWorkflowBindingScope | null;
   routerPresetId: string;
   routerName: string;
@@ -59,7 +59,7 @@ export type RouteWorkflowRecord = {
 
 type CanonicalIssueBindingRow = {
   trackerIssueId: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   repositoryKey: string;
   organizationId: string | null;
   linearWorkspaceIdentityId: string | null;
@@ -69,7 +69,7 @@ type RouteWorkflowRecordRow = {
   workflowId: string;
   trackerIssueId: string;
   repositoryKey: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   organizationId: string | null;
   linearWorkspaceIdentityId: string | null;
   routerPresetId: string;
@@ -154,7 +154,7 @@ export interface RouteWorkflowStore {
   createWorkflow(input: {
     trackerIssueId: string;
     repositoryKey: string;
-    issueIdentifier: string;
+    trackerIssueKey: string;
     bindingScope?: RouteWorkflowBindingScope | null;
     routerPresetId: string;
     routerName: string;
@@ -163,9 +163,9 @@ export interface RouteWorkflowStore {
   }): Promise<string>;
   getWorkflow(workflowId: string): Promise<RouteWorkflowRecord | null>;
   getWorkflowForTrackerIssueId(trackerIssueId: string): Promise<RouteWorkflowRecord | null>;
-  getWorkflowForIssue(issueIdentifier: string): Promise<RouteWorkflowRecord | null>;
-  getWorkflowForScopedIssue(input: {
-    issueIdentifier: string;
+  getWorkflowForTrackerIssueKey(trackerIssueKey: string): Promise<RouteWorkflowRecord | null>;
+  getWorkflowForScopedTrackerIssueKey(input: {
+    trackerIssueKey: string;
     bindingScope: RouteWorkflowBindingScope;
   }): Promise<RouteWorkflowRecord | null>;
   listHistory<Node extends WorkflowNodeId = WorkflowNodeId>(
@@ -194,17 +194,17 @@ export interface RouteWorkflowStore {
     Data = unknown,
     Policy = unknown,
   >(workflowId: string): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null>;
-  loadWorkflowHydrationStateByIssue<
+  loadWorkflowHydrationStateByTrackerIssueKey<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
     Policy = unknown,
-  >(issueIdentifier: string): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null>;
-  loadWorkflowHydrationStateByScopedIssue<
+  >(trackerIssueKey: string): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null>;
+  loadWorkflowHydrationStateByScopedTrackerIssueKey<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
     Policy = unknown,
   >(input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     bindingScope: RouteWorkflowBindingScope;
   }): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null>;
   recordRouteResult<
@@ -259,7 +259,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
   async createWorkflow(input: {
     trackerIssueId: string;
     repositoryKey: string;
-    issueIdentifier: string;
+    trackerIssueKey: string;
     bindingScope?: RouteWorkflowBindingScope | null;
     routerPresetId: string;
     routerName: string;
@@ -269,7 +269,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     const workflowId = randomUUID();
     const trackerIssueId = sanitizeRequiredText(input.trackerIssueId, "trackerIssueId");
     const repositoryKey = sanitizeRequiredText(input.repositoryKey, "repositoryKey");
-    const issueIdentifier = sanitizeRequiredText(input.issueIdentifier, "issueIdentifier");
+    const trackerIssueKey = sanitizeRequiredText(input.trackerIssueKey, "trackerIssueKey");
     const bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
     const routerPresetId = sanitizeRequiredText(input.routerPresetId, "routerPresetId");
     const routerName = sanitizeRequiredText(input.routerName, "routerName");
@@ -287,7 +287,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
 
     assertCanonicalWorkflowIssueCompatibility({
       trackerIssueId,
-      issueIdentifier,
+      trackerIssueKey,
       repositoryKey,
       bindingScope,
       issue: canonicalIssue
@@ -314,7 +314,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
 
         if (existing) {
           throw new SymphonyRouteWorkflowExistsError({
-            issueIdentifier: existing.issueIdentifier,
+            trackerIssueKey: existing.trackerIssueKey,
             existingWorkflowId: existing.workflowId
           });
         }
@@ -344,21 +344,21 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     return row ? mapWorkflowRow(row) : null;
   }
 
-  async getWorkflowForIssue(issueIdentifier: string): Promise<RouteWorkflowRecord | null> {
-    const row = this.#selectLiveWorkflowRecordByIssue({
-      issueIdentifier,
+  async getWorkflowForTrackerIssueKey(trackerIssueKey: string): Promise<RouteWorkflowRecord | null> {
+    const row = this.#selectLiveWorkflowRecordByTrackerIssueKey({
+      trackerIssueKey,
       bindingScope: null
     });
 
     return row ? mapWorkflowRow(row) : null;
   }
 
-  async getWorkflowForScopedIssue(input: {
-    issueIdentifier: string;
+  async getWorkflowForScopedTrackerIssueKey(input: {
+    trackerIssueKey: string;
     bindingScope: RouteWorkflowBindingScope;
   }): Promise<RouteWorkflowRecord | null> {
-    const row = this.#selectLiveWorkflowRecordByIssue({
-      issueIdentifier: input.issueIdentifier,
+    const row = this.#selectLiveWorkflowRecordByTrackerIssueKey({
+      trackerIssueKey: input.trackerIssueKey,
       bindingScope: input.bindingScope
     });
 
@@ -469,15 +469,15 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     });
   }
 
-  async loadWorkflowHydrationStateByIssue<
+  async loadWorkflowHydrationStateByTrackerIssueKey<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
     Policy = unknown,
-  >(issueIdentifier: string): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null> {
+  >(trackerIssueKey: string): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null> {
     return this.#db.transaction((tx) => {
-      const workflowRow = this.#selectLiveWorkflowRecordByIssue(
+      const workflowRow = this.#selectLiveWorkflowRecordByTrackerIssueKey(
         {
-          issueIdentifier,
+          trackerIssueKey,
           bindingScope: null
         },
         tx
@@ -491,16 +491,16 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     });
   }
 
-  async loadWorkflowHydrationStateByScopedIssue<
+  async loadWorkflowHydrationStateByScopedTrackerIssueKey<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
     Policy = unknown,
   >(input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     bindingScope: RouteWorkflowBindingScope;
   }): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null> {
     return this.#db.transaction((tx) => {
-      const workflowRow = this.#selectLiveWorkflowRecordByIssue(input, tx);
+      const workflowRow = this.#selectLiveWorkflowRecordByTrackerIssueKey(input, tx);
 
       if (!workflowRow) {
         return null;
@@ -785,7 +785,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     return db
       .select({
         trackerIssueId: symphonyIssuesTable.trackerIssueId,
-        issueIdentifier: symphonyIssuesTable.issueIdentifier,
+        trackerIssueKey: symphonyIssuesTable.issueIdentifier,
         repositoryKey: symphonyIssuesTable.repositoryKey,
         organizationId: symphonyIssuesTable.organizationId,
         linearWorkspaceIdentityId: symphonyIssuesTable.linearWorkspaceIdentityId
@@ -804,7 +804,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
         workflowId: routeWorkflowsTable.workflowId,
         trackerIssueId: routeWorkflowsTable.trackerIssueId,
         repositoryKey: symphonyIssuesTable.repositoryKey,
-        issueIdentifier: symphonyIssuesTable.issueIdentifier,
+        trackerIssueKey: symphonyIssuesTable.issueIdentifier,
         organizationId: symphonyIssuesTable.organizationId,
         linearWorkspaceIdentityId: symphonyIssuesTable.linearWorkspaceIdentityId,
         routerPresetId: routeWorkflowsTable.routerPresetId,
@@ -832,7 +832,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
         workflowId: routeWorkflowsTable.workflowId,
         trackerIssueId: routeWorkflowsTable.trackerIssueId,
         repositoryKey: symphonyIssuesTable.repositoryKey,
-        issueIdentifier: symphonyIssuesTable.issueIdentifier,
+        trackerIssueKey: symphonyIssuesTable.issueIdentifier,
         organizationId: symphonyIssuesTable.organizationId,
         linearWorkspaceIdentityId: symphonyIssuesTable.linearWorkspaceIdentityId,
         routerPresetId: routeWorkflowsTable.routerPresetId,
@@ -856,22 +856,22 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
       .get();
   }
 
-  #selectLiveWorkflowRecordByIssue(
+  #selectLiveWorkflowRecordByTrackerIssueKey(
     input: {
-      issueIdentifier: string;
+      trackerIssueKey: string;
       bindingScope: RouteWorkflowBindingScope | null;
     },
     db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema> = this.#db
   ): RouteWorkflowRecordRow | undefined {
-    const issueIdentifier = sanitizeRequiredText(
-      input.issueIdentifier,
-      "issueIdentifier"
+    const trackerIssueKey = sanitizeRequiredText(
+      input.trackerIssueKey,
+      "trackerIssueKey"
     );
     const bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
 
     const whereClause = bindingScope
       ? and(
-          eq(symphonyIssuesTable.issueIdentifier, issueIdentifier),
+          eq(symphonyIssuesTable.issueIdentifier, trackerIssueKey),
           eq(symphonyIssuesTable.organizationId, bindingScope.organizationId),
           eq(
             symphonyIssuesTable.linearWorkspaceIdentityId,
@@ -880,7 +880,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
           isNull(routeWorkflowsTable.archivedAt)
         )
       : and(
-          eq(symphonyIssuesTable.issueIdentifier, issueIdentifier),
+          eq(symphonyIssuesTable.issueIdentifier, trackerIssueKey),
           isNull(symphonyIssuesTable.organizationId),
           isNull(symphonyIssuesTable.linearWorkspaceIdentityId),
           isNull(routeWorkflowsTable.archivedAt)
@@ -891,7 +891,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
         workflowId: routeWorkflowsTable.workflowId,
         trackerIssueId: routeWorkflowsTable.trackerIssueId,
         repositoryKey: symphonyIssuesTable.repositoryKey,
-        issueIdentifier: symphonyIssuesTable.issueIdentifier,
+        trackerIssueKey: symphonyIssuesTable.issueIdentifier,
         organizationId: symphonyIssuesTable.organizationId,
         linearWorkspaceIdentityId: symphonyIssuesTable.linearWorkspaceIdentityId,
         routerPresetId: routeWorkflowsTable.routerPresetId,
@@ -1176,7 +1176,7 @@ function mapWorkflowRow(row: RouteWorkflowRecordRow): RouteWorkflowRecord {
     workflowId: row.workflowId,
     trackerIssueId: row.trackerIssueId,
     repositoryKey: row.repositoryKey,
-    issueIdentifier: row.issueIdentifier,
+    trackerIssueKey: row.trackerIssueKey,
     bindingScope: mapLifecycleBindingScope({
       organizationId: row.organizationId,
       linearWorkspaceIdentityId: row.linearWorkspaceIdentityId,
@@ -1359,7 +1359,7 @@ function isLiveWorkflowConstraintError(error: unknown): boolean {
 
 function assertCanonicalWorkflowIssueCompatibility(input: {
   trackerIssueId: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   repositoryKey: string;
   bindingScope: RouteWorkflowBindingScope | null;
   issue: CanonicalIssueBindingRow;
@@ -1370,24 +1370,24 @@ function assertCanonicalWorkflowIssueCompatibility(input: {
     );
   }
 
-  if (input.issue.issueIdentifier !== input.issueIdentifier) {
+  if (input.issue.trackerIssueKey !== input.trackerIssueKey) {
     throw new TypeError(
-      `Tracker issue ${input.trackerIssueId} is already bound to issue identifier ${input.issue.issueIdentifier}, not ${input.issueIdentifier}.`
+      `Tracker issue ${input.trackerIssueId} is already bound to issue identifier ${input.issue.trackerIssueKey}, not ${input.trackerIssueKey}.`
     );
   }
 
   if (input.issue.repositoryKey !== input.repositoryKey) {
     throw new TypeError(
-      `Issue ${input.issue.issueIdentifier} is already bound to repository ${input.issue.repositoryKey}, not ${input.repositoryKey}.`
+      `Issue ${input.issue.trackerIssueKey} is already bound to repository ${input.issue.repositoryKey}, not ${input.repositoryKey}.`
     );
   }
 
   assertMatchingLifecycleBindingScope({
-    owner: `Issue ${input.issue.issueIdentifier}`,
+    owner: `Issue ${input.issue.trackerIssueKey}`,
     actual: mapLifecycleBindingScope({
       organizationId: input.issue.organizationId,
       linearWorkspaceIdentityId: input.issue.linearWorkspaceIdentityId,
-      owner: `Issue ${input.issue.issueIdentifier}`
+      owner: `Issue ${input.issue.trackerIssueKey}`
     }),
     expected: input.bindingScope
   });

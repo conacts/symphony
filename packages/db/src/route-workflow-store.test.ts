@@ -114,7 +114,7 @@ describe("route workflow store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-300",
+        trackerIssueKey: "SYM-300",
         trackerIssueId: "tracker-300",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -124,7 +124,7 @@ describe("route workflow store", () => {
       const workflowId = await routeStore.createWorkflow({
         trackerIssueId: "tracker-300",
         repositoryKey: "openai/symphony",
-        issueIdentifier: "SYM-300",
+        trackerIssueKey: "SYM-300",
         routerPresetId: "current-flow",
         routerName: "symphony-current-flow",
         routerVersion: "1",
@@ -148,7 +148,7 @@ describe("route workflow store", () => {
         workflowId
       );
 
-      expect(workflow?.issueIdentifier).toBe("SYM-300");
+      expect(workflow?.trackerIssueKey).toBe("SYM-300");
       expect(workflow?.routerPresetId).toBe("current-flow");
       expect(persisted.history.map((event) => event.eventSequence)).toEqual([1, 2, 3, 4]);
       expect(history.map((event) => event.kind)).toEqual([
@@ -183,7 +183,7 @@ describe("route workflow store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-301",
+        trackerIssueKey: "SYM-301",
         trackerIssueId: "tracker-301",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -193,7 +193,7 @@ describe("route workflow store", () => {
       const workflowId = await routeStore.createWorkflow({
         trackerIssueId: "tracker-301",
         repositoryKey: "openai/symphony",
-        issueIdentifier: "SYM-301",
+        trackerIssueKey: "SYM-301",
         routerPresetId: "current-flow",
         routerName: "symphony-current-flow",
         routerVersion: "1",
@@ -254,7 +254,7 @@ describe("route workflow store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-301A",
+        trackerIssueKey: "SYM-301A",
         trackerIssueId: "tracker-301A",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -264,7 +264,7 @@ describe("route workflow store", () => {
       const workflowId = await routeStore.createWorkflow({
         trackerIssueId: "tracker-301A",
         repositoryKey: "openai/symphony",
-        issueIdentifier: "SYM-301A",
+        trackerIssueKey: "SYM-301A",
         routerPresetId: "current-flow",
         routerName: "symphony-current-flow",
         routerVersion: "1",
@@ -299,7 +299,7 @@ describe("route workflow store", () => {
         TestData,
         TestPolicy
       >(workflowId);
-      const hydrationStateByIssue = await routeStore.loadWorkflowHydrationStateByIssue<
+      const hydrationStateByIssue = await routeStore.loadWorkflowHydrationStateByTrackerIssueKey<
         TestNode,
         TestData,
         TestPolicy
@@ -344,7 +344,7 @@ describe("route workflow store", () => {
       });
 
       await issueStore.upsert({
-        issueIdentifier: "SYM-301S",
+        trackerIssueKey: "SYM-301S",
         trackerIssueId: "tracker-301S",
         repositoryKey: "openai/symphony",
         bindingScope: {
@@ -359,7 +359,7 @@ describe("route workflow store", () => {
       const workflowId = await routeStore.createWorkflow({
         trackerIssueId: "tracker-301S",
         repositoryKey: "openai/symphony",
-        issueIdentifier: "SYM-301S",
+        trackerIssueKey: "SYM-301S",
         bindingScope: {
           organizationId: "org_001",
           linearWorkspaceIdentityId: "linear_workspace_identity_001"
@@ -378,25 +378,25 @@ describe("route workflow store", () => {
         result: buildRouteResult(workflowId)
       });
 
-      const unscopedWorkflow = await routeStore.getWorkflowForIssue("SYM-301S");
-      const scopedWorkflow = await routeStore.getWorkflowForScopedIssue({
-        issueIdentifier: "SYM-301S",
+      const unscopedWorkflow = await routeStore.getWorkflowForTrackerIssueKey("SYM-301S");
+      const scopedWorkflow = await routeStore.getWorkflowForScopedTrackerIssueKey({
+        trackerIssueKey: "SYM-301S",
         bindingScope: {
           organizationId: "org_001",
           linearWorkspaceIdentityId: "linear_workspace_identity_001"
         }
       });
-      const unscopedHydration = await routeStore.loadWorkflowHydrationStateByIssue<
+      const unscopedHydration = await routeStore.loadWorkflowHydrationStateByTrackerIssueKey<
         TestNode,
         TestData,
         TestPolicy
       >("SYM-301S");
-      const scopedHydration = await routeStore.loadWorkflowHydrationStateByScopedIssue<
+      const scopedHydration = await routeStore.loadWorkflowHydrationStateByScopedTrackerIssueKey<
         TestNode,
         TestData,
         TestPolicy
       >({
-        issueIdentifier: "SYM-301S",
+        trackerIssueKey: "SYM-301S",
         bindingScope: {
           organizationId: "org_001",
           linearWorkspaceIdentityId: "linear_workspace_identity_001"
@@ -432,7 +432,7 @@ describe("route workflow store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-301B",
+        trackerIssueKey: "SYM-301B",
         trackerIssueId: "tracker-301B",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -442,7 +442,7 @@ describe("route workflow store", () => {
       const workflowId = await routeStore.createWorkflow({
         trackerIssueId: "tracker-301B",
         repositoryKey: "openai/symphony",
-        issueIdentifier: "SYM-301B",
+        trackerIssueKey: "SYM-301B",
         routerPresetId: "current-flow",
         routerName: "symphony-current-flow",
         routerVersion: "1",
@@ -465,7 +465,7 @@ describe("route workflow store", () => {
     }
   });
 
-  it("cascades issue identifier updates into existing workflow rows", async () => {
+  it("cascades tracker issue key updates into existing workflow rows", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-route-rename-cascade-"));
     tempDirectories.push(root);
 
@@ -477,7 +477,7 @@ describe("route workflow store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-301C",
+        trackerIssueKey: "SYM-301C",
         trackerIssueId: "tracker-301C",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -487,7 +487,7 @@ describe("route workflow store", () => {
       const workflowId = await routeStore.createWorkflow({
         trackerIssueId: "tracker-301C",
         repositoryKey: "openai/symphony",
-        issueIdentifier: "SYM-301C",
+        trackerIssueKey: "SYM-301C",
         routerPresetId: "current-flow",
         routerName: "symphony-current-flow",
         routerVersion: "1",
@@ -495,23 +495,23 @@ describe("route workflow store", () => {
       });
 
       await issueStore.upsert({
-        issueIdentifier: "SYM-301C-RENAMED",
+        trackerIssueKey: "SYM-301C-RENAMED",
         trackerIssueId: "tracker-301C",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
         recordedAt: "2026-04-09T23:00:00.000Z"
       });
 
-      await expect(routeStore.getWorkflowForIssue("SYM-301C")).resolves.toBeNull();
+      await expect(routeStore.getWorkflowForTrackerIssueKey("SYM-301C")).resolves.toBeNull();
       await expect(routeStore.getWorkflow(workflowId)).resolves.toMatchObject({
         workflowId,
-        issueIdentifier: "SYM-301C-RENAMED"
+        trackerIssueKey: "SYM-301C-RENAMED"
       });
       await expect(
-        routeStore.getWorkflowForIssue("SYM-301C-RENAMED")
+        routeStore.getWorkflowForTrackerIssueKey("SYM-301C-RENAMED")
       ).resolves.toMatchObject({
         workflowId,
-        issueIdentifier: "SYM-301C-RENAMED"
+        trackerIssueKey: "SYM-301C-RENAMED"
       });
     } finally {
       database.close();
@@ -530,7 +530,7 @@ describe("route workflow store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-302",
+        trackerIssueKey: "SYM-302",
         trackerIssueId: "tracker-302",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -540,7 +540,7 @@ describe("route workflow store", () => {
       await routeStore.createWorkflow({
         trackerIssueId: "tracker-302",
         repositoryKey: "openai/symphony",
-        issueIdentifier: "SYM-302",
+        trackerIssueKey: "SYM-302",
         routerPresetId: "current-flow",
         routerName: "router-a",
         routerVersion: "1",
@@ -551,7 +551,7 @@ describe("route workflow store", () => {
         routeStore.createWorkflow({
           trackerIssueId: "tracker-302",
           repositoryKey: "openai/symphony",
-          issueIdentifier: "SYM-302",
+          trackerIssueKey: "SYM-302",
           routerPresetId: "alternate-flow",
           routerName: "router-b",
           routerVersion: "1",
@@ -603,7 +603,7 @@ describe("route workflow store", () => {
         )
       ).resolves.toBeNull();
       await expect(
-        routeStore.loadWorkflowHydrationStateByIssue<TestNode, TestData, TestPolicy>(
+        routeStore.loadWorkflowHydrationStateByTrackerIssueKey<TestNode, TestData, TestPolicy>(
           "SYM-MISSING"
         )
       ).resolves.toBeNull();

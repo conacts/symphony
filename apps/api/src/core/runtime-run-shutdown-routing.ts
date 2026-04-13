@@ -41,8 +41,8 @@ export async function createRuntimeRunShutdownRouter(input: {
     async routeShutdown(
       shutdownInput
     ): Promise<SymphonyRunShutdownRoutingResult> {
-      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: shutdownInput.projectedIssue.identifier
+      const loaded = await input.sessionLoader.resumeByTrackerIssueKey({
+        trackerIssueKey: shutdownInput.projectedIssue.identifier
       });
       if (!loaded) {
         throw new TypeError(

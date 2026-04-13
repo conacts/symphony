@@ -112,7 +112,7 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
       });
     await issueTimelineStore.record({
       trackerIssueId: run.trackerIssueId,
-      issueIdentifier: run.issueIdentifier,
+      trackerIssueKey: run.issueIdentifier,
       runId: run.runId,
       source: "runtime",
       eventType: "runtime_shutdown_reconciled",
@@ -138,7 +138,7 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
       eventType: "runtime_shutdown_reconciled_run",
       message: "Reconciled an active persisted run during shutdown.",
       trackerIssueId: run.trackerIssueId,
-      issueIdentifier: run.issueIdentifier,
+      trackerIssueKey: run.issueIdentifier,
       runId: run.runId,
       payload: {
         previousStatus: run.status

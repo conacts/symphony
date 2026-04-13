@@ -54,14 +54,14 @@ async function recordSeededRunStarted(
   await issueStore.upsert(
     repositoryWorkspaceBindingId === null
       ? {
-          issueIdentifier: attrs.issueIdentifier,
+          trackerIssueKey: attrs.issueIdentifier,
           trackerIssueId: attrs.trackerIssueId,
           repositoryKey: attrs.repositoryKey,
           latestRunStartedAt: null,
           recordedAt: new Date(attrs.startedAt).toISOString()
         }
       : {
-          issueIdentifier: attrs.issueIdentifier,
+          trackerIssueKey: attrs.issueIdentifier,
           trackerIssueId: attrs.trackerIssueId,
           repositoryKey: attrs.repositoryKey,
           bindingScope: attrs.bindingScope!,
@@ -222,7 +222,7 @@ describe("runtime run delivery projections", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "COL-199-RENAMED",
+        trackerIssueKey: "COL-199-RENAMED",
         trackerIssueId: "issue-stale-1",
         repositoryKey: testRepositoryKey,
         latestRunStartedAt: null,
@@ -310,7 +310,7 @@ describe("runtime run delivery projections", () => {
       });
 
       await issueStore.upsert({
-        issueIdentifier: "COL-201B",
+        trackerIssueKey: "COL-201B",
         trackerIssueId: "issue-rename-cascade-1",
         repositoryKey: testRepositoryKey,
         latestRunStartedAt: "2026-04-05T19:06:00.000Z",
@@ -333,7 +333,7 @@ describe("runtime run delivery projections", () => {
         issueStore.fetchByTrackerIssueId("issue-rename-cascade-1")
       ).resolves.toEqual(
         expect.objectContaining({
-          issueIdentifier: "COL-201B"
+          trackerIssueKey: "COL-201B"
         })
       );
     } finally {
@@ -355,7 +355,7 @@ describe("runtime run delivery projections", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "COL-202",
+        trackerIssueKey: "COL-202",
         trackerIssueId: "issue-scoped-mismatch-1",
         repositoryKey: testRepositoryKey,
         bindingScope: {

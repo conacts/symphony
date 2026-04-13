@@ -67,7 +67,7 @@ describe("runtime shutdown reconciliation", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: issue.identifier,
+        trackerIssueKey: issue.identifier,
         trackerIssueId: issue.id,
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -181,7 +181,7 @@ describe("runtime shutdown reconciliation", () => {
       });
 
       await issueStore.upsert({
-        issueIdentifier: "SYM-600",
+        trackerIssueKey: "SYM-600",
         trackerIssueId: "tracker-600",
         repositoryKey: "openai/symphony",
         bindingScope: {
@@ -193,7 +193,7 @@ describe("runtime shutdown reconciliation", () => {
         recordedAt: "2026-04-10T14:31:00.000Z"
       });
       await issueStore.upsert({
-        issueIdentifier: "SYM-601",
+        trackerIssueKey: "SYM-601",
         trackerIssueId: "tracker-601",
         repositoryKey: "openai/coldets",
         bindingScope: {

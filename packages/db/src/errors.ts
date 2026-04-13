@@ -17,7 +17,7 @@ export class SymphonyDbMigrationError extends SymphonyDbError {
 }
 
 export class SymphonyActiveRunExistsError extends SymphonyDbError {
-  readonly issueIdentifier: string;
+  readonly trackerIssueKey: string;
   readonly existingRunId: string;
   readonly existingStatus: Extract<
     SymphonyRuntimeRunStatus,
@@ -25,33 +25,33 @@ export class SymphonyActiveRunExistsError extends SymphonyDbError {
   >;
 
   constructor(input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     existingRunId: string;
     existingStatus: Extract<SymphonyRuntimeRunStatus, "dispatching" | "running">;
   }) {
     super(
-      `Issue ${input.issueIdentifier} already has active run ${input.existingRunId} (${input.existingStatus}).`
+      `Issue ${input.trackerIssueKey} already has active run ${input.existingRunId} (${input.existingStatus}).`
     );
     this.name = "SymphonyActiveRunExistsError";
-    this.issueIdentifier = input.issueIdentifier;
+    this.trackerIssueKey = input.trackerIssueKey;
     this.existingRunId = input.existingRunId;
     this.existingStatus = input.existingStatus;
   }
 }
 
 export class SymphonyRouteWorkflowExistsError extends SymphonyDbError {
-  readonly issueIdentifier: string;
+  readonly trackerIssueKey: string;
   readonly existingWorkflowId: string;
 
   constructor(input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     existingWorkflowId: string;
   }) {
     super(
-      `Issue ${input.issueIdentifier} already has active route workflow ${input.existingWorkflowId}.`
+      `Issue ${input.trackerIssueKey} already has active route workflow ${input.existingWorkflowId}.`
     );
     this.name = "SymphonyRouteWorkflowExistsError";
-    this.issueIdentifier = input.issueIdentifier;
+    this.trackerIssueKey = input.trackerIssueKey;
     this.existingWorkflowId = input.existingWorkflowId;
   }
 }

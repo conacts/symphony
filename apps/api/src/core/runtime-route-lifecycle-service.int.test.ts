@@ -91,7 +91,7 @@ describe("runtime route lifecycle service", () => {
 
     try {
       expect(
-        await harness.issueStore.fetchByIdentifier(harness.issue.identifier)
+        await harness.issueStore.fetchByTrackerIssueKey(harness.issue.identifier)
       ).toBeNull();
 
       const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
@@ -107,16 +107,16 @@ describe("runtime route lifecycle service", () => {
         observed: true,
         disposition: "observed"
       });
-      expect(await harness.issueStore.fetchByIdentifier(harness.issue.identifier)).toEqual(
+      expect(await harness.issueStore.fetchByTrackerIssueKey(harness.issue.identifier)).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issue.identifier,
+          trackerIssueKey: harness.issue.identifier,
           trackerIssueId: harness.issue.id,
           repositoryKey: "conacts/symphony"
         })
       );
 
       const hydration =
-        await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        await harness.routeWorkflows.loadHydrationStateByTrackerIssueKey<
           SymphonyCurrentFlowNode,
           SymphonyCurrentFlowData,
           SymphonyCurrentFlowPolicy
@@ -274,7 +274,7 @@ describe("runtime route lifecycle service", () => {
       });
 
       const hydration =
-        await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        await harness.routeWorkflows.loadHydrationStateByTrackerIssueKey<
           SymphonyCurrentFlowNode,
           SymphonyCurrentFlowData,
           SymphonyCurrentFlowPolicy
@@ -438,7 +438,7 @@ describe("runtime route lifecycle service", () => {
       });
       await harness.routeWorkflows.ensureWorkflowForIssue({
         trackerIssueId: harness.issue.id,
-        issueIdentifier: harness.issue.identifier,
+        trackerIssueKey: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         routerPresetId: routing.presetId,
         router: routing.router,
@@ -609,7 +609,7 @@ describe("runtime route lifecycle service", () => {
       expect(observedIssues).toEqual([]);
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Rework");
 
-      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      const hydration = await harness.routeWorkflows.loadHydrationStateByTrackerIssueKey<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
@@ -647,7 +647,7 @@ describe("runtime route lifecycle service", () => {
       });
 
       const hydration =
-        await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        await harness.routeWorkflows.loadHydrationStateByTrackerIssueKey<
           SymphonyCurrentFlowNode,
           SymphonyCurrentFlowData,
           SymphonyCurrentFlowPolicy
@@ -732,7 +732,7 @@ describe("runtime route lifecycle service", () => {
     try {
       await advanceWorkflowToReview(harness);
 
-      const before = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      const before = await harness.routeWorkflows.loadHydrationStateByTrackerIssueKey<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
@@ -742,7 +742,7 @@ describe("runtime route lifecycle service", () => {
         recordedAt: "2026-04-10T14:00:11.000Z",
         onDispatchRequested: async () => {}
       });
-      const after = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      const after = await harness.routeWorkflows.loadHydrationStateByTrackerIssueKey<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
@@ -765,7 +765,7 @@ describe("runtime route lifecycle service", () => {
     try {
       await advanceWorkflowToReview(harness);
 
-      const before = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      const before = await harness.routeWorkflows.loadHydrationStateByTrackerIssueKey<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
@@ -775,7 +775,7 @@ describe("runtime route lifecycle service", () => {
         recordedAt: "2026-04-10T14:00:11.500Z",
         onDispatchRequested: async () => {}
       });
-      const after = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      const after = await harness.routeWorkflows.loadHydrationStateByTrackerIssueKey<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
@@ -812,7 +812,7 @@ describe("runtime route lifecycle service", () => {
       expect(observedIssues).toEqual([]);
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Todo");
 
-      const hydration = await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+      const hydration = await harness.routeWorkflows.loadHydrationStateByTrackerIssueKey<
         SymphonyCurrentFlowNode,
         SymphonyCurrentFlowData,
         SymphonyCurrentFlowPolicy
@@ -1837,7 +1837,7 @@ describe("runtime route lifecycle service", () => {
 
       await harness.routeWorkflows.ensureWorkflowForIssue({
         trackerIssueId: harness.issue.id,
-        issueIdentifier: harness.issue.identifier,
+        trackerIssueKey: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         routerPresetId: routing.presetId,
         router: routing.router,
@@ -2110,7 +2110,7 @@ async function createHarness(input: {
 
   if (input.seedIssueIdentity ?? true) {
     await issueStore.upsert({
-      issueIdentifier: issue.identifier,
+      trackerIssueKey: issue.identifier,
       trackerIssueId: issue.id,
       repositoryKey,
       latestRunStartedAt: null,
@@ -2129,7 +2129,7 @@ async function createHarness(input: {
         const resolvedRepositoryKey =
           input.resolveIssueRepositoryKey?.(observedIssue) ?? repositoryKey;
         await issueStore.upsert({
-          issueIdentifier: observedIssue.identifier,
+          trackerIssueKey: observedIssue.identifier,
           trackerIssueId: observedIssue.id,
           repositoryKey: resolvedRepositoryKey,
           latestRunStartedAt: null,

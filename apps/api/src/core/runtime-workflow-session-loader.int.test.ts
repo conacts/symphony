@@ -99,7 +99,7 @@ describe("runtime workflow session loader", () => {
     try {
       const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
         trackerIssueId: harness.issue.id,
-        issueIdentifier: harness.issue.identifier,
+        trackerIssueKey: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         routerPresetId: harness.routing.presetId,
         router: harness.routing.router,
@@ -130,7 +130,7 @@ describe("runtime workflow session loader", () => {
       });
       const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
         trackerIssueId: harness.issue.id,
-        issueIdentifier: harness.issue.identifier,
+        trackerIssueKey: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         routerPresetId: routing.presetId,
         router: routing.router,
@@ -155,7 +155,7 @@ describe("runtime workflow session loader", () => {
     try {
       const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
         trackerIssueId: harness.issue.id,
-        issueIdentifier: harness.issue.identifier,
+        trackerIssueKey: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         routerPresetId: harness.routing.presetId,
         router: harness.routing.router,
@@ -169,8 +169,8 @@ describe("runtime workflow session loader", () => {
         .run("missing", ensured.workflow.workflowId);
 
       await expect(
-        harness.sessionLoader.resumeByIssueIdentifier({
-          issueIdentifier: harness.issue.identifier
+        harness.sessionLoader.resumeByTrackerIssueKey({
+          trackerIssueKey: harness.issue.identifier
         })
       ).rejects.toThrow(/Unknown workflow router preset/);
     } finally {
@@ -184,7 +184,7 @@ describe("runtime workflow session loader", () => {
     try {
       const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
         trackerIssueId: harness.issue.id,
-        issueIdentifier: harness.issue.identifier,
+        trackerIssueKey: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         routerPresetId: harness.routing.presetId,
         router: harness.routing.router,
@@ -198,8 +198,8 @@ describe("runtime workflow session loader", () => {
         .run("999", ensured.workflow.workflowId);
 
       await expect(
-        harness.sessionLoader.resumeByIssueIdentifier({
-          issueIdentifier: harness.issue.identifier
+        harness.sessionLoader.resumeByTrackerIssueKey({
+          trackerIssueKey: harness.issue.identifier
         })
       ).rejects.toThrow(/bound to router version/);
     } finally {
@@ -218,7 +218,7 @@ describe("runtime workflow session loader", () => {
     try {
       const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
         trackerIssueId: harness.issue.id,
-        issueIdentifier: harness.issue.identifier,
+        trackerIssueKey: harness.issue.identifier,
         repositoryKey: "openai/symphony",
         bindingScope: {
           organizationId: "org_001",
@@ -229,16 +229,16 @@ describe("runtime workflow session loader", () => {
         createdAt: "2026-04-10T16:12:00.000Z"
       });
 
-      const loaded = await harness.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: harness.issue.identifier
+      const loaded = await harness.sessionLoader.resumeByTrackerIssueKey({
+        trackerIssueKey: harness.issue.identifier
       });
       const unscopedLoader = await createRuntimeWorkflowSessionLoader({
         routeWorkflows: harness.routeWorkflows,
         trackerConfig: harness.runtimePolicy.tracker,
         now: () => new Date("2026-04-10T16:12:00.000Z")
       });
-      const unscoped = await unscopedLoader.resumeByIssueIdentifier({
-        issueIdentifier: harness.issue.identifier
+      const unscoped = await unscopedLoader.resumeByTrackerIssueKey({
+        trackerIssueKey: harness.issue.identifier
       });
 
       expect(loaded?.resumed.hydrationState.workflow.workflowId).toBe(
@@ -294,7 +294,7 @@ async function createHarness(input?: {
   await issueStore.upsert(
     input?.bindingScope
       ? {
-          issueIdentifier: issue.identifier,
+          trackerIssueKey: issue.identifier,
           trackerIssueId: issue.id,
           repositoryKey: "openai/symphony",
           bindingScope: input.bindingScope,
@@ -303,7 +303,7 @@ async function createHarness(input?: {
           recordedAt: "2026-04-10T00:11:59.000Z"
         }
       : {
-          issueIdentifier: issue.identifier,
+          trackerIssueKey: issue.identifier,
           trackerIssueId: issue.id,
           repositoryKey: "openai/symphony",
           latestRunStartedAt: null,

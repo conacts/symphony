@@ -3,13 +3,13 @@ import { RunTurnDetailLiveScreen } from "@/features/runs/components/run-turn-det
 
 export default async function IssueRunTurnDetailPage(input: {
   params: Promise<{
-    issueIdentifier: string;
+    trackerIssueKey: string;
     runId: string;
     turnId: string;
   }>;
 }): Promise<ReactElement> {
   const {
-    issueIdentifier: _trackerIssueKey,
+    trackerIssueKey: _trackerIssueKey,
     runId,
     turnId
   } = await input.params;

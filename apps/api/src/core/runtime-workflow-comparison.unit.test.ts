@@ -7,26 +7,26 @@ import type {
 import type { RouteWorkflowRecord } from "@symphony/db";
 import { createSymphonyCurrentFlowTrackerStateObservedSignal } from "@symphony/router";
 import { buildSymphonyRuntimePolicy } from "@symphony/test-support";
-import { compareRuntimeWorkflowByIssueIdentifier } from "./runtime-workflow-comparison.js";
+import { compareRuntimeWorkflowByTrackerIssueKey } from "./runtime-workflow-comparison.js";
 
 describe("runtime workflow comparison", () => {
   it("loads replay by scoped issue when a hosted workspace scope is configured", async () => {
-    const loadReplayStateByIssueIdentifier = vi.fn();
-    const loadReplayStateByScopedIssueSpy = vi.fn().mockResolvedValue(buildReplayState());
-    const loadReplayStateByScopedIssue: SymphonyRouteWorkflowPort["loadReplayStateByScopedIssue"] =
+    const loadReplayStateByTrackerIssueKey = vi.fn();
+    const loadReplayStateByScopedTrackerIssueKeySpy = vi.fn().mockResolvedValue(buildReplayState());
+    const loadReplayStateByScopedTrackerIssueKey: SymphonyRouteWorkflowPort["loadReplayStateByScopedTrackerIssueKey"] =
       async <Node extends string>(input: {
-        issueIdentifier: string;
+        trackerIssueKey: string;
         bindingScope: RouteWorkflowBindingScope;
       }): Promise<RouteWorkflowReplayState<Node>> => {
-        await loadReplayStateByScopedIssueSpy(input);
+        await loadReplayStateByScopedTrackerIssueKeySpy(input);
         return buildReplayState<Node>();
       };
 
-    const comparison = await compareRuntimeWorkflowByIssueIdentifier({
-      issueIdentifier: "SYM-420",
+    const comparison = await compareRuntimeWorkflowByTrackerIssueKey({
+      trackerIssueKey: "SYM-420",
       routeWorkflows: createRouteWorkflowPortDouble({
-        loadReplayStateByIssueIdentifier,
-        loadReplayStateByScopedIssue
+        loadReplayStateByTrackerIssueKey,
+        loadReplayStateByScopedTrackerIssueKey
       }),
       trackerConfig: buildSymphonyRuntimePolicy().tracker,
       bindingScope: {
@@ -36,45 +36,45 @@ describe("runtime workflow comparison", () => {
       presetIds: ["current-flow"]
     });
 
-    expect(loadReplayStateByScopedIssueSpy).toHaveBeenCalledWith({
-      issueIdentifier: "SYM-420",
+    expect(loadReplayStateByScopedTrackerIssueKeySpy).toHaveBeenCalledWith({
+      trackerIssueKey: "SYM-420",
       bindingScope: {
         organizationId: "org-1",
         linearWorkspaceIdentityId: "ws-1"
       }
     });
-    expect(loadReplayStateByIssueIdentifier).not.toHaveBeenCalled();
-    expect(comparison?.replay.workflow.issueIdentifier).toBe("SYM-420");
+    expect(loadReplayStateByTrackerIssueKey).not.toHaveBeenCalled();
+    expect(comparison?.replay.workflow.trackerIssueKey).toBe("SYM-420");
     expect(comparison?.comparedPresetIds).toEqual(["current-flow"]);
   });
 
   it("keeps unscoped replay loading when no hosted workspace scope is configured", async () => {
-    const loadReplayStateByIssueIdentifierSpy = vi
+    const loadReplayStateByTrackerIssueKeySpy = vi
       .fn()
       .mockResolvedValue(buildReplayState());
-    const loadReplayStateByIssueIdentifier: SymphonyRouteWorkflowPort["loadReplayStateByIssueIdentifier"] =
+    const loadReplayStateByTrackerIssueKey: SymphonyRouteWorkflowPort["loadReplayStateByTrackerIssueKey"] =
       async <Node extends string>(
-        issueIdentifier: string
+        trackerIssueKey: string
       ): Promise<RouteWorkflowReplayState<Node>> => {
-        await loadReplayStateByIssueIdentifierSpy(issueIdentifier);
+        await loadReplayStateByTrackerIssueKeySpy(trackerIssueKey);
         return buildReplayState<Node>();
       };
-    const loadReplayStateByScopedIssueSpy = vi.fn();
-    const loadReplayStateByScopedIssue: SymphonyRouteWorkflowPort["loadReplayStateByScopedIssue"] =
-      async (input) => await loadReplayStateByScopedIssueSpy(input);
+    const loadReplayStateByScopedTrackerIssueKeySpy = vi.fn();
+    const loadReplayStateByScopedTrackerIssueKey: SymphonyRouteWorkflowPort["loadReplayStateByScopedTrackerIssueKey"] =
+      async (input) => await loadReplayStateByScopedTrackerIssueKeySpy(input);
 
-    await compareRuntimeWorkflowByIssueIdentifier({
-      issueIdentifier: "SYM-421",
+    await compareRuntimeWorkflowByTrackerIssueKey({
+      trackerIssueKey: "SYM-421",
       routeWorkflows: createRouteWorkflowPortDouble({
-        loadReplayStateByIssueIdentifier,
-        loadReplayStateByScopedIssue
+        loadReplayStateByTrackerIssueKey,
+        loadReplayStateByScopedTrackerIssueKey
       }),
       trackerConfig: buildSymphonyRuntimePolicy().tracker,
       presetIds: ["current-flow"]
     });
 
-    expect(loadReplayStateByIssueIdentifierSpy).toHaveBeenCalledWith("SYM-421");
-    expect(loadReplayStateByScopedIssueSpy).not.toHaveBeenCalled();
+    expect(loadReplayStateByTrackerIssueKeySpy).toHaveBeenCalledWith("SYM-421");
+    expect(loadReplayStateByScopedTrackerIssueKeySpy).not.toHaveBeenCalled();
   });
 });
 
@@ -84,7 +84,7 @@ function buildReplayState<Node extends string = string>(): RouteWorkflowReplaySt
       workflowId: "workflow-420",
       trackerIssueId: "tracker-420",
       repositoryKey: "repo-secondary",
-      issueIdentifier: "SYM-420",
+      trackerIssueKey: "SYM-420",
       bindingScope: {
         organizationId: "org-1",
         linearWorkspaceIdentityId: "ws-1"
@@ -112,23 +112,23 @@ function buildReplayState<Node extends string = string>(): RouteWorkflowReplaySt
 }
 
 function createRouteWorkflowPortDouble(input: {
-  loadReplayStateByIssueIdentifier: SymphonyRouteWorkflowPort["loadReplayStateByIssueIdentifier"];
-  loadReplayStateByScopedIssue: SymphonyRouteWorkflowPort["loadReplayStateByScopedIssue"];
+  loadReplayStateByTrackerIssueKey: SymphonyRouteWorkflowPort["loadReplayStateByTrackerIssueKey"];
+  loadReplayStateByScopedTrackerIssueKey: SymphonyRouteWorkflowPort["loadReplayStateByScopedTrackerIssueKey"];
 }): SymphonyRouteWorkflowPort {
   return {
     ensureWorkflowForIssue: vi.fn(),
     loadHydrationStateByWorkflowId: vi.fn(),
-    loadHydrationStateByIssueIdentifier: vi.fn(),
-    loadHydrationStateByScopedIssue: vi.fn(),
+    loadHydrationStateByTrackerIssueKey: vi.fn(),
+    loadHydrationStateByScopedTrackerIssueKey: vi.fn(),
     loadReplayStateByWorkflowId: vi.fn(),
-    loadReplayStateByIssueIdentifier: input.loadReplayStateByIssueIdentifier,
-    loadReplayStateByScopedIssue: input.loadReplayStateByScopedIssue,
+    loadReplayStateByTrackerIssueKey: input.loadReplayStateByTrackerIssueKey,
+    loadReplayStateByScopedTrackerIssueKey: input.loadReplayStateByScopedTrackerIssueKey,
     rehydrateProjectionByWorkflowId: vi.fn(),
-    rehydrateProjectionByIssueIdentifier: vi.fn(),
-    rehydrateProjectionByScopedIssue: vi.fn(),
+    rehydrateProjectionByTrackerIssueKey: vi.fn(),
+    rehydrateProjectionByScopedTrackerIssueKey: vi.fn(),
     resumeSessionByWorkflowId: vi.fn(),
-    resumeSessionByIssueIdentifier: vi.fn(),
-    resumeSessionByScopedIssue: vi.fn(),
+    resumeSessionByTrackerIssueKey: vi.fn(),
+    resumeSessionByScopedTrackerIssueKey: vi.fn(),
     recordRouteResult: vi.fn(),
     appendCommandSettlement: vi.fn()
   };

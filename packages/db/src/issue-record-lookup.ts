@@ -25,16 +25,16 @@ export function loadIssueRecordByTrackerIssueId(
   );
 }
 
-export function loadIssueRecordByIdentifier(
+export function loadIssueRecordByTrackerIssueKey(
   db: BetterSQLite3Database<SymphonyDbShape>,
   input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     bindingScope?: SymphonyLifecycleBindingScope | null;
   }
 ): SymphonyIssueRow | null {
-  const issueIdentifier = sanitizeRequiredText(
-    input.issueIdentifier,
-    "issueIdentifier"
+  const trackerIssueKey = sanitizeRequiredText(
+    input.trackerIssueKey,
+    "trackerIssueKey"
   );
   const bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
 
@@ -45,12 +45,12 @@ export function loadIssueRecordByIdentifier(
       .where(
         bindingScope === null
           ? and(
-              eq(symphonyIssuesTable.issueIdentifier, issueIdentifier),
+              eq(symphonyIssuesTable.issueIdentifier, trackerIssueKey),
               isNull(symphonyIssuesTable.organizationId),
               isNull(symphonyIssuesTable.linearWorkspaceIdentityId)
             )
           : and(
-              eq(symphonyIssuesTable.issueIdentifier, issueIdentifier),
+              eq(symphonyIssuesTable.issueIdentifier, trackerIssueKey),
               eq(symphonyIssuesTable.organizationId, bindingScope.organizationId),
               eq(
                 symphonyIssuesTable.linearWorkspaceIdentityId,
@@ -67,10 +67,10 @@ export function requireIssueRecordByTrackerIssueIdForRepository(input: {
   owner: string;
   repositoryKey: string;
   trackerIssueId: string;
-  issueIdentifier?: string | null;
+  trackerIssueKey?: string | null;
 }): SymphonyIssueRow {
   const trackerIssueId = sanitizeRequiredText(input.trackerIssueId, "trackerIssueId");
-  const issueIdentifier = sanitizeOptionalText(input.issueIdentifier);
+  const trackerIssueKey = sanitizeOptionalText(input.trackerIssueKey);
   const issue = loadIssueRecordByTrackerIssueId(input.db, trackerIssueId);
 
   if (!issue) {
@@ -79,9 +79,9 @@ export function requireIssueRecordByTrackerIssueIdForRepository(input: {
     );
   }
 
-  if (issueIdentifier !== null && issue.issueIdentifier !== issueIdentifier) {
+  if (trackerIssueKey !== null && issue.issueIdentifier !== trackerIssueKey) {
     throw new TypeError(
-      `${input.owner} issue identifier mismatch for ${issue.trackerIssueId}: ${issue.issueIdentifier} is not ${issueIdentifier}.`
+      `${input.owner} tracker issue key mismatch for ${issue.trackerIssueId}: ${issue.issueIdentifier} is not ${trackerIssueKey}.`
     );
   }
 
@@ -94,24 +94,24 @@ export function requireIssueRecordByTrackerIssueIdForRepository(input: {
   return issue;
 }
 
-export function requireIssueRecordByIdentifierForRepository(input: {
+export function requireIssueRecordByTrackerIssueKeyForRepository(input: {
   db: BetterSQLite3Database<SymphonyDbShape>;
   owner: string;
   repositoryKey: string;
   bindingScope?: SymphonyLifecycleBindingScope | null;
-  issueIdentifier: string;
+  trackerIssueKey: string;
 }): SymphonyIssueRow {
-  const issueIdentifier = sanitizeRequiredText(
-    input.issueIdentifier,
-    "issueIdentifier"
+  const trackerIssueKey = sanitizeRequiredText(
+    input.trackerIssueKey,
+    "trackerIssueKey"
   );
-  const issue = loadIssueRecordByIdentifier(input.db, {
-    issueIdentifier,
+  const issue = loadIssueRecordByTrackerIssueKey(input.db, {
+    trackerIssueKey,
     bindingScope: input.bindingScope ?? null
   });
 
   if (!issue) {
-    throw new TypeError(`${input.owner} issue not found: ${issueIdentifier}`);
+    throw new TypeError(`${input.owner} issue not found: ${trackerIssueKey}`);
   }
 
   if (issue.repositoryKey !== sanitizeRequiredText(input.repositoryKey, "repositoryKey")) {

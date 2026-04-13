@@ -77,7 +77,7 @@ import {
 import type { SymphonyLifecycleBindingScope } from "./lifecycle-binding-scope.js";
 import { normalizeLifecycleBindingScope } from "./lifecycle-binding-scope.js";
 import {
-  loadIssueRecordByIdentifier,
+  loadIssueRecordByTrackerIssueKey,
   loadIssueRecordMapByTrackerIssueId
 } from "./issue-record-lookup.js";
 
@@ -256,8 +256,8 @@ class SqliteAgentAnalyticsReadStore implements AgentAnalyticsReadStore {
     }
 
     return (
-      loadIssueRecordByIdentifier(this.#db, {
-        issueIdentifier: trackerIssueKey,
+      loadIssueRecordByTrackerIssueKey(this.#db, {
+        trackerIssueKey,
         bindingScope: this.#bindingScope
       })?.trackerIssueId ?? null
     );

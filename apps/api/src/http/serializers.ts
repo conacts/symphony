@@ -229,7 +229,7 @@ export function serializeRuntimeWorkflowComparison(
     workflow: {
       workflowId: comparison.replay.workflow.workflowId,
       repositoryKey: comparison.replay.workflow.repositoryKey,
-      trackerIssueKey: comparison.replay.workflow.issueIdentifier,
+      trackerIssueKey: comparison.replay.workflow.trackerIssueKey,
       routerPresetId: comparison.replay.workflow.routerPresetId,
       routerName: comparison.replay.workflow.routerName,
       routerVersion: comparison.replay.workflow.routerVersion,

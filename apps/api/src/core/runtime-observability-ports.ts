@@ -17,13 +17,13 @@ export function createIssueTimelinePort(input: {
   bindingScope?: SymphonyRuntimePersistedWorkspaceBindingScope | null;
 }): SymphonyIssueTimelinePort {
   return {
-    async list({ issueIdentifier, limit, repo }) {
+    async list({ trackerIssueKey, limit, repo }) {
       const issue = input.bindingScope
-        ? await input.issueStore.fetchByScopedIdentifier({
-            issueIdentifier,
+        ? await input.issueStore.fetchByScopedTrackerIssueKey({
+            trackerIssueKey,
             bindingScope: input.bindingScope
           })
-        : await input.issueStore.fetchByIdentifier(issueIdentifier);
+        : await input.issueStore.fetchByTrackerIssueKey(trackerIssueKey);
       if (!issue) {
         return null;
       }
@@ -32,14 +32,14 @@ export function createIssueTimelinePort(input: {
         return null;
       }
 
-      const entries = await input.issueTimelineStore.listIssueTimeline(issueIdentifier, {
+      const entries = await input.issueTimelineStore.listIssueTimeline(trackerIssueKey, {
         limit
       });
 
       return {
         repositoryKey: issue.repositoryKey,
-        trackerIssueKey: issueIdentifier,
-        entries: entries.map(mapTrackerIssueKeyField),
+        trackerIssueKey,
+        entries,
         filters: {
           limit: limit ?? null,
           repo: repo ?? null
@@ -57,15 +57,15 @@ export function createRuntimeLogsPort(input: {
       const logs = await input.runtimeLogStore.list({
         limit: query.limit,
         repo: query.repo,
-        issueIdentifier: query.issueIdentifier
+        trackerIssueKey: query.trackerIssueKey
       });
 
       return {
-        logs: logs.map(mapNullableTrackerIssueKeyField),
+        logs,
         filters: {
           limit: query.limit ?? null,
           repo: logs[0]?.repositoryKey ?? query.repo ?? null,
-          trackerIssueKey: query.issueIdentifier ?? null
+          trackerIssueKey: query.trackerIssueKey ?? null
         }
       };
     }
@@ -103,25 +103,5 @@ function buildIdlePollerSnapshot(intervalMs: number) {
     lastCompletedAt: null,
     lastSucceededAt: null,
     lastError: null
-  };
-}
-
-function mapTrackerIssueKeyField<T extends { issueIdentifier: string }>(
-  input: T
-): Omit<T, "issueIdentifier"> & { trackerIssueKey: string } {
-  const { issueIdentifier, ...rest } = input;
-  return {
-    ...rest,
-    trackerIssueKey: issueIdentifier
-  };
-}
-
-function mapNullableTrackerIssueKeyField<T extends { issueIdentifier: string | null }>(
-  input: T
-): Omit<T, "issueIdentifier"> & { trackerIssueKey: string | null } {
-  const { issueIdentifier, ...rest } = input;
-  return {
-    ...rest,
-    trackerIssueKey: issueIdentifier
   };
 }

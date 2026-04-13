@@ -49,8 +49,8 @@ export async function createRuntimeDeliveryRouter(input: {
     async routeDelivery(
       deliveryInput
     ): Promise<SymphonyDeliveryRoutingResult> {
-      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: deliveryInput.projectedIssue.identifier
+      const loaded = await input.sessionLoader.resumeByTrackerIssueKey({
+        trackerIssueKey: deliveryInput.projectedIssue.identifier
       });
       if (!loaded) {
         throw new TypeError(

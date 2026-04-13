@@ -8,7 +8,7 @@ import {
 } from "./lifecycle-binding-scope.js";
 import {
   loadIssueRecordMapByTrackerIssueId,
-  requireIssueRecordByIdentifierForRepository,
+  requireIssueRecordByTrackerIssueKeyForRepository,
   requireIssueRecordByTrackerIssueIdForRepository
 } from "./issue-record-lookup.js";
 import { symphonyIssuesTable, symphonyRuntimeLogsTable } from "./schema.js";
@@ -23,7 +23,7 @@ export type SymphonyRuntimeLogEntry = {
   eventType: string;
   message: string;
   trackerIssueId: string | null;
-  issueIdentifier: string | null;
+  trackerIssueKey: string | null;
   runId: string | null;
   payload: JsonValue;
   recordedAt: string;
@@ -38,7 +38,7 @@ export interface SymphonyRuntimeLogStore {
           eventType: string;
           message: string;
           trackerIssueId: string;
-          issueIdentifier?: string | null;
+          trackerIssueKey?: string | null;
           runId?: string | null;
           payload?: JsonValue;
           recordedAt?: string;
@@ -49,7 +49,7 @@ export interface SymphonyRuntimeLogStore {
           eventType: string;
           message: string;
           trackerIssueId?: null | undefined;
-          issueIdentifier?: null | undefined;
+          trackerIssueKey?: null | undefined;
           runId?: string | null;
           payload?: JsonValue;
           recordedAt?: string;
@@ -58,7 +58,7 @@ export interface SymphonyRuntimeLogStore {
   list(input?: {
     limit?: number;
     repo?: string;
-    issueIdentifier?: string;
+    trackerIssueKey?: string;
   }): Promise<SymphonyRuntimeLogEntry[]>;
 }
 
@@ -79,23 +79,23 @@ export function createSymphonyRuntimeLogStore(
       const eventType = sanitizeRequiredText(input.eventType, "eventType");
       const message = sanitizeRequiredText(input.message, "message");
       const trackerIssueId = sanitizeText(input.trackerIssueId);
-      const issueIdentifier =
-        input.issueIdentifier === undefined || input.issueIdentifier === null
+      const trackerIssueKey =
+        input.trackerIssueKey === undefined || input.trackerIssueKey === null
           ? null
-          : sanitizeRequiredText(input.issueIdentifier, "issueIdentifier");
+          : sanitizeRequiredText(input.trackerIssueKey, "trackerIssueKey");
       const recordedAt = input.recordedAt ?? new Date().toISOString();
       const issue =
         trackerIssueId
           ? requireRuntimeLogIssueBinding({
               db,
               trackerIssueId,
-              issueIdentifier,
+              trackerIssueKey,
               repositoryKey
             })
-          : issueIdentifier
+          : trackerIssueKey
             ? (() => {
                 throw new TypeError(
-                  "Runtime log trackerIssueId is required when issueIdentifier is provided."
+                  "Runtime log trackerIssueId is required when trackerIssueKey is provided."
                 );
               })()
           : null;
@@ -129,13 +129,13 @@ export function createSymphonyRuntimeLogStore(
         .orderBy(desc(symphonyRuntimeLogsTable.recordedAt))
         .limit(limit);
 
-      const rows = input.issueIdentifier
+      const rows = input.trackerIssueKey
         ? (() => {
             const issue = loadRuntimeLogIssueOrNull({
               db,
               repositoryKey,
               bindingScope,
-              issueIdentifier: input.issueIdentifier
+              trackerIssueKey: input.trackerIssueKey
             });
             if (!issue) {
               return [];
@@ -168,7 +168,7 @@ export function createSymphonyRuntimeLogStore(
           eventType: row.eventType,
           message: row.message,
           trackerIssueId: issue?.trackerIssueId ?? null,
-          issueIdentifier: issue?.issueIdentifier ?? null,
+          trackerIssueKey: issue?.issueIdentifier ?? null,
           runId: row.runId ?? null,
           payload: (row.payload ?? null) as JsonValue,
           recordedAt: row.recordedAt
@@ -205,7 +205,7 @@ function requireRuntimeLogIssue(
 function requireRuntimeLogIssueBinding(input: {
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   trackerIssueId: string;
-  issueIdentifier: string | null;
+  trackerIssueKey: string | null;
   repositoryKey: string;
 }) {
   return requireIssueRecordByTrackerIssueIdForRepository({
@@ -213,7 +213,7 @@ function requireRuntimeLogIssueBinding(input: {
     owner: "Runtime log",
     repositoryKey: input.repositoryKey,
     trackerIssueId: input.trackerIssueId,
-    issueIdentifier: input.issueIdentifier
+    trackerIssueKey: input.trackerIssueKey
   });
 }
 
@@ -221,20 +221,20 @@ function loadRuntimeLogIssueOrNull(input: {
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   repositoryKey: string;
   bindingScope: SymphonyLifecycleBindingScope | null;
-  issueIdentifier: string;
+  trackerIssueKey: string;
 }) {
   try {
-    return requireIssueRecordByIdentifierForRepository({
+    return requireIssueRecordByTrackerIssueKeyForRepository({
       db: input.db,
       owner: "Runtime log",
-      issueIdentifier: input.issueIdentifier,
+      trackerIssueKey: input.trackerIssueKey,
       repositoryKey: input.repositoryKey,
       bindingScope: input.bindingScope
     });
   } catch (error) {
     if (
       error instanceof TypeError &&
-      error.message === `Runtime log issue not found: ${input.issueIdentifier.trim()}`
+      error.message === `Runtime log issue not found: ${input.trackerIssueKey.trim()}`
     ) {
       return null;
     }

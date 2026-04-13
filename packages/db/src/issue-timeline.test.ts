@@ -35,7 +35,7 @@ describe("issue timeline store", () => {
     try {
       await expect(
         timelineStore.record({
-          issueIdentifier: "SYM-599",
+          trackerIssueKey: "SYM-599",
           source: "runtime",
           eventType: "runtime_session_started",
           recordedAt: "2026-04-11T03:58:00.000Z"
@@ -61,7 +61,7 @@ describe("issue timeline store", () => {
       await expect(
         timelineStore.record({
           trackerIssueId: "tracker-600",
-          issueIdentifier: "SYM-600",
+          trackerIssueKey: "SYM-600",
           source: "runtime",
           eventType: "runtime_session_started",
           recordedAt: "2026-04-11T03:59:00.000Z"
@@ -86,7 +86,7 @@ describe("issue timeline store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-600R",
+        trackerIssueKey: "SYM-600R",
         trackerIssueId: "tracker-600R",
         repositoryKey: "other/repo",
         latestRunStartedAt: null,
@@ -96,7 +96,7 @@ describe("issue timeline store", () => {
       await expect(
         timelineStore.record({
           trackerIssueId: "tracker-600R",
-          issueIdentifier: "SYM-600R",
+          trackerIssueKey: "SYM-600R",
           source: "runtime",
           eventType: "runtime_session_started",
           recordedAt: "2026-04-11T03:59:31.000Z"
@@ -123,7 +123,7 @@ describe("issue timeline store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-601",
+        trackerIssueKey: "SYM-601",
         trackerIssueId: "tracker-601",
         repositoryKey,
         latestRunStartedAt: null,
@@ -152,7 +152,7 @@ describe("issue timeline store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-602",
+        trackerIssueKey: "SYM-602",
         trackerIssueId: "tracker-602",
         repositoryKey,
         latestRunStartedAt: null,
@@ -160,7 +160,7 @@ describe("issue timeline store", () => {
       });
       await timelineStore.record({
         trackerIssueId: "tracker-602",
-        issueIdentifier: "SYM-602",
+        trackerIssueKey: "SYM-602",
         source: "runtime",
         eventType: "runtime_session_started",
         message: "Started session.",

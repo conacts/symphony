@@ -12,7 +12,7 @@ import {
 
 export type SymphonyIssueRecord = {
   trackerIssueId: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   repositoryKey: string;
   bindingScope: SymphonyLifecycleBindingScope | null;
   repositoryWorkspaceBindingId: string | null;
@@ -23,7 +23,7 @@ export type SymphonyIssueRecord = {
 
 export type SymphonyIssueUpsertInput =
   | {
-      issueIdentifier: string;
+      trackerIssueKey: string;
       trackerIssueId: string;
       repositoryKey: string;
       bindingScope?: null | undefined;
@@ -32,7 +32,7 @@ export type SymphonyIssueUpsertInput =
       recordedAt: string;
     }
   | {
-      issueIdentifier: string;
+      trackerIssueKey: string;
       trackerIssueId: string;
       repositoryKey: string;
       bindingScope: SymphonyLifecycleBindingScope;
@@ -42,10 +42,12 @@ export type SymphonyIssueUpsertInput =
     };
 
 export interface SymphonyIssueStore {
-  fetchByIdentifier(issueIdentifier: string): Promise<SymphonyIssueRecord | null>;
+  fetchByTrackerIssueKey(
+    trackerIssueKey: string
+  ): Promise<SymphonyIssueRecord | null>;
   fetchByTrackerIssueId(trackerIssueId: string): Promise<SymphonyIssueRecord | null>;
-  fetchByScopedIdentifier(input: {
-    issueIdentifier: string;
+  fetchByScopedTrackerIssueKey(input: {
+    trackerIssueKey: string;
     bindingScope: SymphonyLifecycleBindingScope;
   }): Promise<SymphonyIssueRecord | null>;
   upsert(input: SymphonyIssueUpsertInput): Promise<void>;
@@ -55,23 +57,27 @@ export function createSymphonyIssueStore(
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>
 ): SymphonyIssueStore {
   return {
-    async fetchByIdentifier(issueIdentifier) {
-      return loadIssueByIdentifier(db, issueIdentifier, null);
+    async fetchByTrackerIssueKey(trackerIssueKey) {
+      return loadIssueByTrackerIssueKey(db, trackerIssueKey, null);
     },
 
     async fetchByTrackerIssueId(trackerIssueId) {
       return loadIssueByTrackerIssueId(db, trackerIssueId);
     },
 
-    async fetchByScopedIdentifier(input) {
+    async fetchByScopedTrackerIssueKey(input) {
       const bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
-      return loadIssueByIdentifier(db, input.issueIdentifier, bindingScope);
+      return loadIssueByTrackerIssueKey(
+        db,
+        input.trackerIssueKey,
+        bindingScope
+      );
     },
 
     async upsert(input: SymphonyIssueUpsertInput) {
-      const issueIdentifier = sanitizeRequiredText(
-        input.issueIdentifier,
-        "issueIdentifier"
+      const trackerIssueKey = sanitizeRequiredText(
+        input.trackerIssueKey,
+        "trackerIssueKey"
       );
       const trackerIssueId = sanitizeRequiredText(
         input.trackerIssueId,
@@ -93,12 +99,12 @@ export function createSymphonyIssueStore(
 
       if (bindingScope === null && repositoryWorkspaceBindingId !== null) {
         throw new TypeError(
-          `Issue ${issueIdentifier} cannot bind hosted repository workspace ${repositoryWorkspaceBindingId} without a hosted workspace scope.`
+          `Issue ${trackerIssueKey} cannot bind hosted repository workspace ${repositoryWorkspaceBindingId} without a hosted workspace scope.`
         );
       }
       if (bindingScope !== null && repositoryWorkspaceBindingId === null) {
         throw new TypeError(
-          `Issue ${issueIdentifier} requires repositoryWorkspaceBindingId for hosted workspace ${bindingScope.organizationId}/${bindingScope.linearWorkspaceIdentityId}.`
+          `Issue ${trackerIssueKey} requires repositoryWorkspaceBindingId for hosted workspace ${bindingScope.organizationId}/${bindingScope.linearWorkspaceIdentityId}.`
         );
       }
 
@@ -109,21 +115,21 @@ export function createSymphonyIssueStore(
         .get();
 
       if (!existing) {
-        const conflictingIssueIdentifier = loadIssueByIdentifier(
+        const conflictingIssueRecord = loadIssueByTrackerIssueKey(
           db,
-          issueIdentifier,
+          trackerIssueKey,
           bindingScope
         );
-        if (conflictingIssueIdentifier) {
+        if (conflictingIssueRecord) {
           throw new TypeError(
-            `Issue ${issueIdentifier} is already bound to tracker issue ${conflictingIssueIdentifier.trackerIssueId}, not ${trackerIssueId}.`
+            `Issue ${trackerIssueKey} is already bound to tracker issue ${conflictingIssueRecord.trackerIssueId}, not ${trackerIssueId}.`
           );
         }
 
         db.insert(symphonyIssuesTable)
           .values({
             trackerIssueId,
-            issueIdentifier,
+            issueIdentifier: trackerIssueKey,
             repositoryKey,
             organizationId: bindingScope?.organizationId ?? null,
             linearWorkspaceIdentityId:
@@ -140,10 +146,10 @@ export function createSymphonyIssueStore(
       const existingBindingScope = mapLifecycleBindingScope({
         organizationId: existing.organizationId,
         linearWorkspaceIdentityId: existing.linearWorkspaceIdentityId,
-        owner: `Issue ${issueIdentifier}`
+        owner: `Issue ${trackerIssueKey}`
       });
       assertMatchingLifecycleBindingScope({
-        owner: `Issue ${issueIdentifier}`,
+        owner: `Issue ${trackerIssueKey}`,
         actual: existingBindingScope,
         expected: bindingScope
       });
@@ -163,22 +169,22 @@ export function createSymphonyIssueStore(
         );
       }
 
-      if (existing.issueIdentifier !== issueIdentifier) {
-        const conflictingIssueIdentifier = loadIssueByIdentifier(
+      if (existing.issueIdentifier !== trackerIssueKey) {
+        const conflictingIssueRecord = loadIssueByTrackerIssueKey(
           db,
-          issueIdentifier,
+          trackerIssueKey,
           bindingScope
         );
-        if (conflictingIssueIdentifier) {
+        if (conflictingIssueRecord) {
           throw new TypeError(
-            `Issue ${issueIdentifier} is already bound to tracker issue ${conflictingIssueIdentifier.trackerIssueId}, not ${trackerIssueId}.`
+            `Issue ${trackerIssueKey} is already bound to tracker issue ${conflictingIssueRecord.trackerIssueId}, not ${trackerIssueId}.`
           );
         }
       }
 
       db.update(symphonyIssuesTable)
         .set({
-          issueIdentifier,
+          issueIdentifier: trackerIssueKey,
           repositoryWorkspaceBindingId:
             existing.repositoryWorkspaceBindingId ?? repositoryWorkspaceBindingId,
           latestRunStartedAt:
@@ -194,14 +200,14 @@ export function createSymphonyIssueStore(
   };
 }
 
-function loadIssueByIdentifier(
+function loadIssueByTrackerIssueKey(
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>,
-  issueIdentifier: string,
+  trackerIssueKey: string,
   bindingScope: SymphonyLifecycleBindingScope | null
 ): SymphonyIssueRecord | null {
-  const normalizedIssueIdentifier = sanitizeRequiredText(
-    issueIdentifier,
-    "issueIdentifier"
+  const normalizedTrackerIssueKey = sanitizeRequiredText(
+    trackerIssueKey,
+    "trackerIssueKey"
   );
   const row = db
     .select()
@@ -209,12 +215,12 @@ function loadIssueByIdentifier(
     .where(
       bindingScope === null
         ? and(
-            eq(symphonyIssuesTable.issueIdentifier, normalizedIssueIdentifier),
+            eq(symphonyIssuesTable.issueIdentifier, normalizedTrackerIssueKey),
             isNull(symphonyIssuesTable.organizationId),
             isNull(symphonyIssuesTable.linearWorkspaceIdentityId)
           )
         : and(
-            eq(symphonyIssuesTable.issueIdentifier, normalizedIssueIdentifier),
+            eq(symphonyIssuesTable.issueIdentifier, normalizedTrackerIssueKey),
             eq(symphonyIssuesTable.organizationId, bindingScope.organizationId),
             eq(
               symphonyIssuesTable.linearWorkspaceIdentityId,
@@ -300,7 +306,7 @@ function mapIssueRow(
 ): SymphonyIssueRecord {
   return {
     trackerIssueId: row.trackerIssueId,
-    issueIdentifier: row.issueIdentifier,
+    trackerIssueKey: row.issueIdentifier,
     repositoryKey: row.repositoryKey,
     bindingScope: mapLifecycleBindingScope({
       organizationId: row.organizationId,

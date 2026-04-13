@@ -10,7 +10,7 @@ import {
 } from "@symphony/db";
 
 type SymphonyResolvedIssueRecord = Awaited<
-  ReturnType<SymphonyIssueStore["fetchByIdentifier"]>
+  ReturnType<SymphonyIssueStore["fetchByTrackerIssueKey"]>
 >;
 
 export function createRepositoryAwareIssueTimelineStore(input: {
@@ -42,28 +42,28 @@ export function createRepositoryAwareIssueTimelineStore(input: {
         bindingScope: input.bindingScope ?? null,
         owner: "Issue timeline",
         trackerIssueId: recordInput.trackerIssueId ?? null,
-        issueIdentifier: recordInput.issueIdentifier ?? null
+        trackerIssueKey: recordInput.trackerIssueKey ?? null
       });
 
       return await storeFor(issue.repositoryKey).record({
         ...recordInput,
-        issueIdentifier: issue.issueIdentifier,
+        trackerIssueKey: issue.trackerIssueKey,
         trackerIssueId: issue.trackerIssueId
       });
     },
 
-    async listIssueTimeline(issueIdentifier, query) {
+    async listIssueTimeline(trackerIssueKey, query) {
       const issue = await loadIssueRecord({
         issueStore: input.issueStore,
         bindingScope: input.bindingScope ?? null,
-        issueIdentifier
+        trackerIssueKey
       });
       if (!issue) {
         return [];
       }
 
       return await storeFor(issue.repositoryKey).listIssueTimeline(
-        issue.issueIdentifier,
+        issue.trackerIssueKey,
         query
       );
     }
@@ -109,22 +109,22 @@ export function createRepositoryAwareRuntimeLogStore(input: {
         bindingScope: input.bindingScope ?? null,
         owner: "Runtime log",
         trackerIssueId: recordInput.trackerIssueId ?? null,
-        issueIdentifier: recordInput.issueIdentifier ?? null
+        trackerIssueKey: recordInput.trackerIssueKey ?? null
       });
 
       return await storeFor(issue.repositoryKey).record({
         ...recordInput,
-        issueIdentifier: issue.issueIdentifier,
+        trackerIssueKey: issue.trackerIssueKey,
         trackerIssueId: issue.trackerIssueId
       });
     },
 
     async list(query = {}) {
-      if (query.issueIdentifier) {
+      if (query.trackerIssueKey) {
         const issue = await loadIssueRecord({
           issueStore: input.issueStore,
           bindingScope: input.bindingScope ?? null,
-          issueIdentifier: query.issueIdentifier
+          trackerIssueKey: query.trackerIssueKey
         });
         if (!issue) {
           return [];
@@ -133,7 +133,7 @@ export function createRepositoryAwareRuntimeLogStore(input: {
         return await storeFor(issue.repositoryKey).list({
           limit: query.limit,
           repo: query.repo,
-          issueIdentifier: issue.issueIdentifier
+          trackerIssueKey: issue.trackerIssueKey
         });
       }
 
@@ -169,7 +169,7 @@ async function requireIssueRecord(input: {
   bindingScope: SymphonyLifecycleBindingScope | null;
   owner: string;
   trackerIssueId: string | null;
-  issueIdentifier?: string | null;
+  trackerIssueKey?: string | null;
 }): Promise<NonNullable<SymphonyResolvedIssueRecord>> {
   const trackerIssueId = normalizeOptionalText(input.trackerIssueId);
   if (!trackerIssueId) {
@@ -184,12 +184,12 @@ async function requireIssueRecord(input: {
   }
 
   if (
-    input.issueIdentifier !== undefined &&
-    input.issueIdentifier !== null &&
-    issue.issueIdentifier !== input.issueIdentifier
+    input.trackerIssueKey !== undefined &&
+    input.trackerIssueKey !== null &&
+    issue.trackerIssueKey !== input.trackerIssueKey
   ) {
     throw new TypeError(
-      `${input.owner} issue identifier mismatch for ${issue.trackerIssueId}: ${issue.issueIdentifier} is not ${input.issueIdentifier}.`
+      `${input.owner} tracker issue key mismatch for ${issue.trackerIssueId}: ${issue.trackerIssueKey} is not ${input.trackerIssueKey}.`
     );
   }
 
@@ -199,28 +199,28 @@ async function requireIssueRecord(input: {
 async function loadIssueRecord(input: {
   issueStore: SymphonyIssueStore;
   bindingScope: SymphonyLifecycleBindingScope | null;
-  issueIdentifier?: string | null;
+  trackerIssueKey?: string | null;
   trackerIssueId?: string | null;
 }): Promise<SymphonyResolvedIssueRecord> {
   const trackerIssueId = normalizeOptionalText(input.trackerIssueId);
-  const issueIdentifier = normalizeOptionalText(input.issueIdentifier);
+  const trackerIssueKey = normalizeOptionalText(input.trackerIssueKey);
 
   if (trackerIssueId) {
     return await input.issueStore.fetchByTrackerIssueId(trackerIssueId);
   }
 
-  if (!issueIdentifier) {
+  if (!trackerIssueKey) {
     return null;
   }
 
   if (input.bindingScope) {
-    return await input.issueStore.fetchByScopedIdentifier({
-      issueIdentifier,
+    return await input.issueStore.fetchByScopedTrackerIssueKey({
+      trackerIssueKey,
       bindingScope: input.bindingScope
     });
   }
 
-  return await input.issueStore.fetchByIdentifier(issueIdentifier);
+  return await input.issueStore.fetchByTrackerIssueKey(trackerIssueKey);
 }
 
 function normalizeOptionalText(value: string | null | undefined): string | null {

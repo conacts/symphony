@@ -158,7 +158,7 @@ async function seedCanonicalIssue(
 ): Promise<void> {
   const issueStore = createSymphonyIssueStore(db);
   await issueStore.upsert({
-    issueIdentifier: issue.identifier,
+    trackerIssueKey: issue.identifier,
     trackerIssueId: issue.id,
     repositoryKey: testRepositoryKey,
     latestRunStartedAt: null,
@@ -3428,7 +3428,7 @@ async function createWorkflowBackedLifecycleHarness(input: {
   nowIso: string;
 }) {
   const issueStore = createSymphonyIssueStore(input.db);
-  const issue = await issueStore.fetchByIdentifier(input.issueIdentifier);
+  const issue = await issueStore.fetchByTrackerIssueKey(input.issueIdentifier);
   if (!issue) {
     throw new TypeError(
       `Expected canonical issue binding for ${input.issueIdentifier} before creating workflow-backed lifecycle harness.`
@@ -3450,7 +3450,7 @@ async function createWorkflowBackedLifecycleHarness(input: {
 
   await routeWorkflows.ensureWorkflowForIssue({
     trackerIssueId: issue.trackerIssueId,
-    issueIdentifier: input.issueIdentifier,
+    trackerIssueKey: input.issueIdentifier,
     repositoryKey: input.repositoryKey,
     routerPresetId: routing.presetId,
     router: routing.router,
@@ -3458,8 +3458,8 @@ async function createWorkflowBackedLifecycleHarness(input: {
   });
 
   async function recordSignal(signal: WorkflowSignal, context: string) {
-    const loaded = await sessionLoader.resumeByIssueIdentifier({
-      issueIdentifier: input.issueIdentifier
+    const loaded = await sessionLoader.resumeByTrackerIssueKey({
+      trackerIssueKey: input.issueIdentifier
     });
     if (!loaded) {
       throw new TypeError(
@@ -3609,8 +3609,8 @@ async function loadWorkflowProjectionByIssueIdentifier(input: {
   >;
   issueIdentifier: string;
 }) {
-  const loaded = await input.sessionLoader.loadHydrationByIssueIdentifier({
-    issueIdentifier: input.issueIdentifier
+  const loaded = await input.sessionLoader.loadHydrationByTrackerIssueKey({
+    trackerIssueKey: input.issueIdentifier
   });
   if (!loaded?.hydrationState.snapshot) {
     return null;

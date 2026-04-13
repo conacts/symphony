@@ -10,18 +10,18 @@ export async function loadRunningWorkflowTrackerStates(input: {
   snapshot: SymphonyOrchestratorSnapshot;
   workflowRead: Pick<SymphonyRuntimeWorkflowReadPort, "loadWorkflowLifecycleView">;
 }): Promise<Map<string, string>> {
-  const issueIdentifiers = [
+  const trackerIssueKeys = [
     ...new Set(input.snapshot.running.map((entry) => entry.issue.identifier))
   ];
   const workflowTrackerStatesByIssueIdentifier = new Map<string, string>();
 
-  for (const issueIdentifier of issueIdentifiers) {
+  for (const trackerIssueKey of trackerIssueKeys) {
     const workflowLifecycle = await input.workflowRead.loadWorkflowLifecycleView({
-      issueIdentifier
+      trackerIssueKey
     });
     if (workflowLifecycle) {
       workflowTrackerStatesByIssueIdentifier.set(
-        issueIdentifier,
+        trackerIssueKey,
         workflowLifecycle.trackerState
       );
     }
