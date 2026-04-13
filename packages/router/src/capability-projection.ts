@@ -1,4 +1,13 @@
-import { z } from "zod";
+import {
+  readSymphonyCapabilityBlockedSignal,
+  readSymphonyCapabilityChangesRequestedSignal,
+  readSymphonyCapabilityCompletedSignal,
+  readSymphonyCapabilityFailedSignal,
+  readSymphonyCapabilityStartedSignal,
+  readSymphonyWorkflowClarificationAnsweredSignal,
+  readSymphonyWorkflowClarificationRequestedSignal,
+  readSymphonyWorkflowCompletionGateEvaluatedSignal
+} from "./symphony-capability-contract.js";
 import type {
   WorkflowCapabilityAttempt,
   WorkflowCapabilityEpochEvidence,
@@ -6,190 +15,12 @@ import type {
   WorkflowCapabilityId,
   WorkflowCapabilityPhase,
   WorkflowCapabilityProjection,
-  WorkflowClarificationQuestion,
   WorkflowClarificationRequest,
   WorkflowCompletionReadiness,
   WorkflowEvidenceRecord,
   WorkflowHistory,
   WorkflowModelProfileId
 } from "./types/index.js";
-import { workflowSignalSchema } from "./types/schema.js";
-
-const requiredTextSchema = z.string().trim().min(1);
-const nullableTextSchema = requiredTextSchema.nullable();
-const nonNegativeIntegerSchema = z.number().int().nonnegative();
-const positiveIntegerSchema = z.number().int().positive();
-const completionReadinessSchema = z.enum([
-  "not_ready",
-  "ready_for_manual_completion",
-  "ready_for_auto_completion"
-]);
-
-const evidenceRecordSchema = z
-  .object({
-    evidenceId: requiredTextSchema,
-    summary: requiredTextSchema,
-    artifacts: z.array(
-      z
-        .object({
-          label: requiredTextSchema,
-          uri: nullableTextSchema
-        })
-        .strict()
-    )
-  })
-  .strict();
-
-const capabilityExecutionIdentityPayloadSchema = z
-  .object({
-    workflowId: requiredTextSchema,
-    executionId: requiredTextSchema,
-    capabilityId: requiredTextSchema,
-    modelProfileId: requiredTextSchema,
-    workEpoch: nonNegativeIntegerSchema,
-    attempt: positiveIntegerSchema,
-    summary: requiredTextSchema
-  })
-  .strict();
-
-const capabilityStartedSignalSchema = workflowSignalSchema
-  .extend({
-    type: z.literal("capability.started"),
-    source: z.union([
-      z.literal("runtime"),
-      z.literal("router"),
-      z.literal("operator")
-    ]),
-    payload: capabilityExecutionIdentityPayloadSchema
-  })
-  .strict();
-
-const capabilityCompletedSignalSchema = workflowSignalSchema
-  .extend({
-    type: z.literal("capability.completed"),
-    source: z.union([
-      z.literal("runtime"),
-      z.literal("router"),
-      z.literal("operator")
-    ]),
-    payload: capabilityExecutionIdentityPayloadSchema
-      .extend({
-        evidenceProduced: z.array(evidenceRecordSchema)
-      })
-      .strict()
-  })
-  .strict();
-
-const capabilityChangesRequestedSignalSchema = workflowSignalSchema
-  .extend({
-    type: z.literal("capability.changes_requested"),
-    source: z.union([
-      z.literal("runtime"),
-      z.literal("review"),
-      z.literal("operator")
-    ]),
-    payload: capabilityExecutionIdentityPayloadSchema
-      .extend({
-        findings: z.array(requiredTextSchema)
-      })
-      .strict()
-  })
-  .strict();
-
-const capabilityFailedSignalSchema = workflowSignalSchema
-  .extend({
-    type: z.literal("capability.failed"),
-    source: z.union([
-      z.literal("runtime"),
-      z.literal("router"),
-      z.literal("operator")
-    ]),
-    payload: capabilityExecutionIdentityPayloadSchema
-      .extend({
-        retryable: z.boolean(),
-        reasonCode: requiredTextSchema,
-        failureKind: requiredTextSchema
-      })
-      .strict()
-  })
-  .strict();
-
-const capabilityBlockedSignalSchema = workflowSignalSchema
-  .extend({
-    type: z.literal("capability.blocked"),
-    source: z.union([
-      z.literal("runtime"),
-      z.literal("router"),
-      z.literal("operator")
-    ]),
-    payload: capabilityExecutionIdentityPayloadSchema
-      .extend({
-        reasonCode: requiredTextSchema
-      })
-      .strict()
-  })
-  .strict();
-
-const clarificationQuestionSchema = z
-  .object({
-    id: requiredTextSchema,
-    prompt: requiredTextSchema,
-    context: nullableTextSchema
-  })
-  .strict();
-
-const clarificationRequestedSignalSchema = workflowSignalSchema
-  .extend({
-    type: z.literal("workflow.clarification_requested"),
-    source: z.union([
-      z.literal("runtime"),
-      z.literal("router"),
-      z.literal("operator")
-    ]),
-    payload: z
-      .object({
-        workflowId: requiredTextSchema,
-        requestId: requiredTextSchema,
-        raisedByCapabilityId: nullableTextSchema,
-        workEpoch: nonNegativeIntegerSchema,
-        summary: requiredTextSchema,
-        questions: z.array(clarificationQuestionSchema).min(1)
-      })
-      .strict()
-  })
-  .strict();
-
-const clarificationAnsweredSignalSchema = workflowSignalSchema
-  .extend({
-    type: z.literal("workflow.clarification_answered"),
-    source: z.union([z.literal("operator"), z.literal("router")]),
-    payload: z
-      .object({
-        workflowId: requiredTextSchema,
-        requestId: requiredTextSchema,
-        answeredAt: requiredTextSchema,
-        answers: z.record(z.string(), z.unknown())
-      })
-      .strict()
-  })
-  .strict();
-
-const completionGateEvaluatedSignalSchema = workflowSignalSchema
-  .extend({
-    type: z.literal("workflow.completion_gate_evaluated"),
-    source: z.union([z.literal("router"), z.literal("operator")]),
-    payload: z
-      .object({
-        workflowId: requiredTextSchema,
-        workEpoch: nonNegativeIntegerSchema,
-        result: completionReadinessSchema,
-        satisfiedEvidenceIds: z.array(requiredTextSchema),
-        missingEvidenceIds: z.array(requiredTextSchema),
-        reasons: z.array(requiredTextSchema)
-      })
-      .strict()
-  })
-  .strict();
 
 type ProjectionAttempt<
   CapabilityId extends WorkflowCapabilityId,
@@ -229,7 +60,10 @@ export function projectWorkflowCapabilityProjection<
     const signal = event.signal;
     switch (signal.type) {
       case "capability.started": {
-        const parsed = capabilityStartedSignalSchema.parse(signal);
+        const parsed = readSymphonyCapabilityStartedSignal(signal);
+        if (!parsed) {
+          return;
+        }
         assertSignalWorkflowId(parsed.payload.workflowId, input.workflowId, parsed.type);
         if (attemptsByExecutionId.has(parsed.payload.executionId)) {
           throw new TypeError(
@@ -259,7 +93,10 @@ export function projectWorkflowCapabilityProjection<
         break;
       }
       case "capability.completed": {
-        const parsed = capabilityCompletedSignalSchema.parse(signal);
+        const parsed = readSymphonyCapabilityCompletedSignal(signal);
+        if (!parsed) {
+          return;
+        }
         assertSignalWorkflowId(parsed.payload.workflowId, input.workflowId, parsed.type);
         const attempt = requireAttemptIdentity({
           attemptsByExecutionId,
@@ -286,7 +123,10 @@ export function projectWorkflowCapabilityProjection<
         break;
       }
       case "capability.changes_requested": {
-        const parsed = capabilityChangesRequestedSignalSchema.parse(signal);
+        const parsed = readSymphonyCapabilityChangesRequestedSignal(signal);
+        if (!parsed) {
+          return;
+        }
         assertSignalWorkflowId(parsed.payload.workflowId, input.workflowId, parsed.type);
         const attempt = requireAttemptIdentity({
           attemptsByExecutionId,
@@ -303,7 +143,10 @@ export function projectWorkflowCapabilityProjection<
         break;
       }
       case "capability.failed": {
-        const parsed = capabilityFailedSignalSchema.parse(signal);
+        const parsed = readSymphonyCapabilityFailedSignal(signal);
+        if (!parsed) {
+          return;
+        }
         assertSignalWorkflowId(parsed.payload.workflowId, input.workflowId, parsed.type);
         const attempt = requireAttemptIdentity({
           attemptsByExecutionId,
@@ -323,7 +166,10 @@ export function projectWorkflowCapabilityProjection<
         break;
       }
       case "capability.blocked": {
-        const parsed = capabilityBlockedSignalSchema.parse(signal);
+        const parsed = readSymphonyCapabilityBlockedSignal(signal);
+        if (!parsed) {
+          return;
+        }
         assertSignalWorkflowId(parsed.payload.workflowId, input.workflowId, parsed.type);
         const attempt = requireAttemptIdentity({
           attemptsByExecutionId,
@@ -342,7 +188,10 @@ export function projectWorkflowCapabilityProjection<
         break;
       }
       case "workflow.clarification_requested": {
-        const parsed = clarificationRequestedSignalSchema.parse(signal);
+        const parsed = readSymphonyWorkflowClarificationRequestedSignal(signal);
+        if (!parsed) {
+          return;
+        }
         assertSignalWorkflowId(parsed.payload.workflowId, input.workflowId, parsed.type);
         if (openClarifications.has(parsed.payload.requestId)) {
           throw new TypeError(
@@ -355,7 +204,7 @@ export function projectWorkflowCapabilityProjection<
           raisedByCapabilityId: parsed.payload.raisedByCapabilityId as CapabilityId | null,
           workEpoch: parsed.payload.workEpoch,
           summary: parsed.payload.summary,
-          questions: parsed.payload.questions as WorkflowClarificationQuestion[]
+          questions: parsed.payload.questions
         });
 
         const matchingAttempt = findLatestOpenAttemptForClarification({
@@ -373,7 +222,10 @@ export function projectWorkflowCapabilityProjection<
         break;
       }
       case "workflow.clarification_answered": {
-        const parsed = clarificationAnsweredSignalSchema.parse(signal);
+        const parsed = readSymphonyWorkflowClarificationAnsweredSignal(signal);
+        if (!parsed) {
+          return;
+        }
         assertSignalWorkflowId(parsed.payload.workflowId, input.workflowId, parsed.type);
         if (!openClarifications.has(parsed.payload.requestId)) {
           throw new TypeError(
@@ -386,7 +238,10 @@ export function projectWorkflowCapabilityProjection<
         break;
       }
       case "workflow.completion_gate_evaluated": {
-        const parsed = completionGateEvaluatedSignalSchema.parse(signal);
+        const parsed = readSymphonyWorkflowCompletionGateEvaluatedSignal(signal);
+        if (!parsed) {
+          return;
+        }
         assertSignalWorkflowId(parsed.payload.workflowId, input.workflowId, parsed.type);
         completionReadiness =
           parsed.payload.workEpoch === currentWorkEpoch && openClarifications.size === 0 && blockedReason === null
