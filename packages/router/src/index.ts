@@ -2,6 +2,9 @@ export {
   buildWorkflowCapabilityCandidates
 } from "./capability-candidate-builder.js";
 export {
+  executeWorkflowCapabilityCommand
+} from "./capability-execution-engine.js";
+export {
   createWorkflowCapabilityPlanner
 } from "./capability-planner.js";
 export {
@@ -253,6 +256,7 @@ export type {
   WorkflowCapabilityRouteStrategy,
   WorkflowCapabilityExecutionCommand,
   WorkflowCapabilityExecutionCommandPayload,
+  WorkflowCapabilityExecutionEngine,
   WorkflowCapabilityExecutionResult,
   WorkflowCapabilityExecutionResultBlocked,
   WorkflowCapabilityExecutionResultChangesRequested,

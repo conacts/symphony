@@ -321,6 +321,17 @@ export type WorkflowCapabilityExecutionResult<
   | WorkflowCapabilityExecutionResultFailed<CapabilityId, ProfileId>
   | WorkflowCapabilityExecutionResultBlocked<CapabilityId, ProfileId>;
 
+export interface WorkflowCapabilityExecutionEngine<
+  Contract extends WorkflowTicketExecutionContract = WorkflowTicketExecutionContract,
+  CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+> {
+  execute(
+    command: WorkflowCapabilityExecutionCommand<Contract, CapabilityId, ProfileId>
+  ): Promise<WorkflowCapabilityExecutionResult<CapabilityId, EvidenceId, ProfileId>>;
+}
+
 export type WorkflowCapabilityAttemptStatus =
   | "planned"
   | "started"

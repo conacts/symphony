@@ -24,6 +24,7 @@ export type {
   WorkflowCapabilityRouteStrategy,
   WorkflowCapabilityExecutionCommand,
   WorkflowCapabilityExecutionCommandPayload,
+  WorkflowCapabilityExecutionEngine,
   WorkflowCapabilityExecutionResult,
   WorkflowCapabilityExecutionResultBlocked,
   WorkflowCapabilityExecutionResultChangesRequested,
