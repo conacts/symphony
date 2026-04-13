@@ -20,6 +20,8 @@ export type {
   WorkflowCapabilityCandidate,
   WorkflowCapabilityDefinition,
   WorkflowCapabilityDecision,
+  WorkflowCapabilityRouteSelection,
+  WorkflowCapabilityRouteStrategy,
   WorkflowCapabilityExecutionCommand,
   WorkflowCapabilityExecutionCommandPayload,
   WorkflowCapabilityExecutionResult,

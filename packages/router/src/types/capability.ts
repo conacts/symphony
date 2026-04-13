@@ -187,6 +187,32 @@ export type WorkflowCapabilityDecision<
   decidedAt: string;
 };
 
+export type WorkflowCapabilityRouteSelection<
+  CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+  ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+> = {
+  candidate: WorkflowCapabilityCandidate<CapabilityId, ProfileId>;
+  decision: WorkflowCapabilityDecision<CapabilityId, ProfileId>;
+};
+
+export interface WorkflowCapabilityRouteStrategy<
+  CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+> {
+  readonly kind: string;
+  select(input: {
+    candidates: WorkflowCapabilityCandidate<CapabilityId, ProfileId>[];
+    resolvedPolicy: WorkflowResolvedRoutingPolicy<
+      CapabilityId,
+      EvidenceId,
+      ProfileId
+    >;
+    decisionId: string;
+    decidedAt: string;
+  }): WorkflowCapabilityRouteSelection<CapabilityId, ProfileId> | null;
+}
+
 export type WorkflowCapabilityExecutionCommandPayload<
   Contract extends WorkflowTicketExecutionContract = WorkflowTicketExecutionContract,
   CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
