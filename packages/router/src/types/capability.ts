@@ -297,6 +297,7 @@ export type WorkflowCapabilityExecutionResult<
 export type WorkflowCapabilityAttemptStatus =
   | "planned"
   | "started"
+  | "clarification_requested"
   | "completed"
   | "changes_requested"
   | "failed"
@@ -340,6 +341,24 @@ export type WorkflowCompletionGateEvaluation<
   reasons: string[];
 };
 
+export type WorkflowCapabilityEpochStatus<
+  CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+> = {
+  workEpoch: number;
+  stale: boolean;
+  attempts: WorkflowCapabilityAttempt<CapabilityId, EvidenceId, ProfileId>[];
+};
+
+export type WorkflowCapabilityEpochEvidence<
+  EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+> = {
+  workEpoch: number;
+  stale: boolean;
+  evidence: WorkflowEvidenceRecord<EvidenceId>[];
+};
+
 export type WorkflowCapabilityProjection<
   CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
   EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
@@ -351,6 +370,12 @@ export type WorkflowCapabilityProjection<
   pendingClarification: WorkflowClarificationRequest<CapabilityId> | null;
   blockedReason: string | null;
   latestAttempts: WorkflowCapabilityAttempt<CapabilityId, EvidenceId, ProfileId>[];
+  capabilityStatusesByEpoch: WorkflowCapabilityEpochStatus<
+    CapabilityId,
+    EvidenceId,
+    ProfileId
+  >[];
+  evidenceByEpoch: WorkflowCapabilityEpochEvidence<EvidenceId>[];
   completionReadiness: WorkflowCompletionReadiness;
 };
 

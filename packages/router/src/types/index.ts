@@ -28,6 +28,8 @@ export type {
   WorkflowCapabilityExecutionResultClarificationRequested,
   WorkflowCapabilityExecutionResultCompleted,
   WorkflowCapabilityExecutionResultFailed,
+  WorkflowCapabilityEpochEvidence,
+  WorkflowCapabilityEpochStatus,
   WorkflowCapabilityId,
   WorkflowCapabilityPhase,
   WorkflowCapabilityPlan,

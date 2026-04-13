@@ -1,4 +1,7 @@
 export {
+  projectWorkflowCapabilityProjection
+} from "./capability-projection.js";
+export {
   createWorkflowCapabilityRegistry,
   WorkflowCapabilityRegistry
 } from "./capability-registry.js";
@@ -204,6 +207,8 @@ export type {
   WorkflowCapabilityExecutionResultClarificationRequested,
   WorkflowCapabilityExecutionResultCompleted,
   WorkflowCapabilityExecutionResultFailed,
+  WorkflowCapabilityEpochEvidence,
+  WorkflowCapabilityEpochStatus,
   WorkflowCapabilityId,
   WorkflowCapabilityPhase,
   WorkflowCapabilityPlan,
