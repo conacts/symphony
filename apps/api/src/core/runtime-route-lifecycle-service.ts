@@ -66,6 +66,9 @@ import type { SymphonyRuntimeWorkflowPresetSelection } from "./runtime-workflow-
 import type {
   SymphonyRuntimeWorkflowLifecycleView
 } from "./runtime-workflow-lifecycle-view.js";
+import type {
+  SymphonyCapabilityDispatchAuthorityService
+} from "./symphony-capability-dispatch-authority.js";
 
 export type SymphonyRuntimeRouteLifecycleService = {
   workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
@@ -177,6 +180,7 @@ export async function createRuntimeRouteLifecycleService(input: {
   ): Promise<void> | void;
   presetSelection: SymphonyRuntimeWorkflowPresetSelection;
   sessionLoader?: SymphonyRuntimeWorkflowSessionLoader;
+  capabilityDispatchAuthority?: SymphonyCapabilityDispatchAuthorityService | null;
   now?: () => Date;
 }): Promise<SymphonyRuntimeRouteLifecycleService> {
   const routing = await selectRuntimeRouterPreset({
@@ -201,7 +205,8 @@ export async function createRuntimeRouteLifecycleService(input: {
     resolveIssueRepositoryKey: input.resolveIssueRepositoryKey,
     ensureIssueIdentity: input.ensureIssueIdentity,
     routing,
-    sessionLoader
+    sessionLoader,
+    capabilityDispatchAuthority: input.capabilityDispatchAuthority ?? null
   });
   const runStartActivationRouter =
     await createRuntimeRunStartActivationRouter({
@@ -307,7 +312,11 @@ export async function createRuntimeRouteLifecycleService(input: {
           observationKind: "idle",
           issueIdentifier: issue.identifier,
           recordedAt: observationInput.recordedAt,
-          onDispatchRequested: observationInput.onDispatchRequested
+          onDispatchRequested: createDispatchRequestHandler({
+            externalCallback: observationInput.onDispatchRequested,
+            missingCallbackMessage:
+              "Idle tracker state observation emitted run.dispatch without a dispatch callback."
+          })
         });
         if (observed) {
           const workflowLifecycle = await loadRequiredWorkflowLifecycleView({
@@ -367,7 +376,12 @@ export async function createRuntimeRouteLifecycleService(input: {
       const observedTrackerState = issue.state;
       const observed = await trackerStateObservationRouter.observe({
         observationKind: "idle",
-        ...observationInput
+        ...observationInput,
+        onDispatchRequested: createDispatchRequestHandler({
+          externalCallback: observationInput.onDispatchRequested,
+          missingCallbackMessage:
+            "Idle tracker state observation emitted run.dispatch without a dispatch callback."
+        })
       });
       if (!observed) {
         return null;
@@ -437,6 +451,35 @@ export async function createRuntimeRouteLifecycleService(input: {
     }
     return workflowLifecycle;
   };
+  const createDispatchRequestHandler = (handlerInput: {
+    externalCallback?(
+      input: SymphonyTrackerStateDispatchRequest
+    ): Promise<void> | void;
+    missingCallbackMessage: string;
+  }) => {
+    if (
+      !handlerInput.externalCallback &&
+      !input.capabilityDispatchAuthority
+    ) {
+      return undefined;
+    }
+
+    return async (dispatchRequest: SymphonyTrackerStateDispatchRequest) => {
+      const handled =
+        await input.capabilityDispatchAuthority?.handleDispatchRequest(
+          dispatchRequest
+        );
+      if (handled === "handled_in_process") {
+        return;
+      }
+
+      if (!handlerInput.externalCallback) {
+        throw new TypeError(handlerInput.missingCallbackMessage);
+      }
+
+      await handlerInput.externalCallback(dispatchRequest);
+    };
+  };
 
   return {
     workflowRoutingAdapter,
@@ -456,7 +499,11 @@ export async function createRuntimeRouteLifecycleService(input: {
         runId: deliveryInput.runId,
         recordedAt: deliveryInput.recordedAt,
         status: deliveryInput.status,
-        onDispatchRequested: deliveryInput.onDispatchRequested
+        onDispatchRequested: createDispatchRequestHandler({
+          externalCallback: deliveryInput.onDispatchRequested,
+          missingCallbackMessage:
+            "Delivery routing emitted run.dispatch without a dispatch callback."
+        })
       });
       return true;
     },
@@ -502,7 +549,11 @@ export async function createRuntimeRouteLifecycleService(input: {
         observationKind: "idle",
         issueIdentifier: reviewReworkInput.issueIdentifier,
         recordedAt: reviewReworkInput.recordedAt,
-        onDispatchRequested: reviewReworkInput.onDispatchRequested
+        onDispatchRequested: createDispatchRequestHandler({
+          externalCallback: reviewReworkInput.onDispatchRequested,
+          missingCallbackMessage:
+            "Idle tracker state observation emitted run.dispatch without a dispatch callback."
+        })
       });
       if (!observed) {
         return false;
@@ -512,7 +563,11 @@ export async function createRuntimeRouteLifecycleService(input: {
         observedTrackerIssue: observed.issue,
         recordedAt: reviewReworkInput.recordedAt,
         handoff: reviewReworkInput.handoff,
-        onDispatchRequested: reviewReworkInput.onDispatchRequested
+        onDispatchRequested: createDispatchRequestHandler({
+          externalCallback: reviewReworkInput.onDispatchRequested,
+          missingCallbackMessage:
+            "Review rework routing emitted run.dispatch without a dispatch callback."
+        })
       });
       return true;
     },

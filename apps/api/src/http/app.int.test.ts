@@ -248,20 +248,7 @@ describe("@symphony/api app", () => {
       expect(firstPayload.data.observed).toBe(true);
       expect(firstPayload.data.disposition).toBe("observed");
       expect(firstPayload.data.recordedAt).toBeTruthy();
-      expect(routedDispatches).toEqual([
-        {
-          workflowId: expect.any(String),
-          commandId: expect.any(String),
-          issueIdentifier: "COL-777",
-          runMode: "implementation"
-        },
-        {
-          workflowId: expect.any(String),
-          commandId: expect.any(String),
-          issueIdentifier: "COL-777",
-          runMode: "implementation"
-        }
-      ]);
+      expect(routedDispatches).toEqual([]);
       expect(hydration?.snapshot?.projection.currentNode).toBe("bootstrapping");
       expect(hydration?.snapshot?.projection.data.trackerState).toBe("Bootstrapping");
 
@@ -274,7 +261,7 @@ describe("@symphony/api app", () => {
         disposition: "observed",
         recordedAt: expect.any(String)
       });
-      expect(routedDispatches).toHaveLength(2);
+      expect(routedDispatches).toHaveLength(0);
     },
     runtimeHttpIntegrationTestTimeoutMs
   );
@@ -1248,14 +1235,7 @@ describe("@symphony/api app", () => {
 
       expect(ingressResponse.status).toBe(202);
       expect(trackedIssue?.state).toBe("Bootstrapping");
-      expect(routedDispatches).toEqual([
-        {
-          workflowId: expect.any(String),
-          commandId: expect.any(String),
-          issueIdentifier: "COL-123",
-          runMode: "rework"
-        }
-      ]);
+      expect(routedDispatches).toEqual([]);
       expect(workflowHydration?.snapshot?.projection.data.latestReworkHandoff).toEqual(
         expect.objectContaining({
           source: "github_review",

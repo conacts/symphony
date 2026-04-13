@@ -322,6 +322,10 @@ export class SymphonyOrchestrator {
       this.#state.claimed.delete(issue.id);
       throw error;
     }
+    if (bootstrap.dispatchHandling === "handled_in_process") {
+      this.#state.claimed.delete(issue.id);
+      return;
+    }
     const runMode = bootstrap.runMode;
     this.#state.dispatching[issue.id] = {
       issue: bootstrap.issue,

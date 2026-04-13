@@ -219,6 +219,59 @@ describe("symphony orchestrator", () => {
     expect(orchestrator.snapshot().running[0]?.issue.state).toBe("In Progress");
   });
 
+  it("does not start an agent run when bootstrap routing handles work in process", async () => {
+    const config = buildSymphonyOrchestratorConfig({
+      tracker: {
+        claimTransitionToState: null,
+        claimTransitionFromStates: []
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "Todo"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const startRun = vi.fn();
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime({
+        startRun
+      }),
+      workflowRoutingAdapter: {
+        async routeDispatchBootstrap() {
+          await tracker.updateIssueState(issue.id, "Bootstrapping");
+          return {
+            issue: {
+              ...issue,
+              state: "Bootstrapping"
+            },
+            runMode: "implementation",
+            dispatchHandling: "handled_in_process"
+          };
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 1);
+
+    expect(startRun).not.toHaveBeenCalled();
+    expect(orchestrator.snapshot().running).toEqual([]);
+    expect(orchestrator.snapshot().claimedIssueIds).toEqual([]);
+    expect(tracker.getIssue(issue.id)?.state).toBe("Bootstrapping");
+  });
+
   it("bypasses the dispatch bootstrap router when a run mode override is provided", async () => {
     const issue = buildSymphonyTrackerIssue({
       state: "Rework"

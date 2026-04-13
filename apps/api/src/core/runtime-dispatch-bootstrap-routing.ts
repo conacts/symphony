@@ -19,6 +19,9 @@ import type {
   SymphonyRouteWorkflowPort
 } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
+import type {
+  SymphonyCapabilityDispatchAuthorityService
+} from "./symphony-capability-dispatch-authority.js";
 import {
   createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
@@ -39,6 +42,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
   ): Promise<void> | void;
   routing: SymphonyRuntimeRouterPresetSelection;
   sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
+  capabilityDispatchAuthority?: SymphonyCapabilityDispatchAuthorityService | null;
 }) {
   const { router } = input.routing;
   const presetAdapter = input.routing.module.runtimeAdapter;
@@ -94,7 +98,10 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
       });
 
       let preparedIssue = routeInput.issue;
-      let selectedRunMode: SymphonyRunMode | null = null;
+      let selectedDispatchRequest: {
+        commandId: string;
+        runMode: SymphonyRunMode;
+      } | null = null;
       const loadSettlementSession = createRouteCommandSettlementSessionLoader({
         sessionLoader: input.sessionLoader,
         workflowId: ensured.workflow.workflowId,
@@ -125,7 +132,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
         }
 
         if (command.kind === "run.dispatch") {
-          selectedRunMode = await executeSettledRouteCommand({
+          selectedDispatchRequest = await executeSettledRouteCommand({
             routeWorkflows: input.routeWorkflows,
             workflowId: ensured.workflow.workflowId,
             session,
@@ -133,10 +140,13 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
             command,
             recordedAt: routeInput.startedAt,
             async execute(executedCommand) {
-              return readDispatchRunMode({
-                adapter: presetAdapter,
-                command: executedCommand
-              });
+              return {
+                commandId: executedCommand.id,
+                runMode: readDispatchRunMode({
+                  adapter: presetAdapter,
+                  command: executedCommand
+                })
+              };
             }
           });
           continue;
@@ -147,15 +157,28 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
         );
       }
 
-      if (!selectedRunMode) {
+      if (!selectedDispatchRequest) {
         throw new TypeError(
           `Route workflow ${ensured.workflow.workflowId} did not produce a dispatch run mode for ${routeInput.issue.identifier}.`
         );
       }
 
+      const dispatchHandling =
+        await input.capabilityDispatchAuthority?.handleDispatchRequest({
+          workflowId: ensured.workflow.workflowId,
+          commandId: selectedDispatchRequest.commandId,
+          trackerIssue: preparedIssue,
+          runMode: selectedDispatchRequest.runMode,
+          recordedAt: routeInput.startedAt
+        });
+
       return {
         issue: preparedIssue,
-        runMode: selectedRunMode
+        runMode: selectedDispatchRequest.runMode,
+        dispatchHandling:
+          dispatchHandling === "handled_in_process"
+            ? "handled_in_process"
+            : "external_run"
       };
     }
   };

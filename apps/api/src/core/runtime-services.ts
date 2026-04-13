@@ -77,6 +77,12 @@ import {
   createSymphonyCapabilityExecutionService
 } from "./symphony-capability-execution.js";
 import {
+  createSymphonyCapabilityContractIntake
+} from "./symphony-capability-contract-intake.js";
+import {
+  createSymphonyCapabilityDispatchAuthorityService
+} from "./symphony-capability-dispatch-authority.js";
+import {
   createWorkflowDispatchTracker
 } from "./runtime-workflow-dispatch-tracker.js";
 import { createRuntimeToolsPort } from "./runtime-tools-port.js";
@@ -338,6 +344,25 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     bindingScope: bootstrapBinding.bindingScope,
     now: undefined
   });
+  const capabilityPlanning = createSymphonyCapabilityPlanningService({
+    routeWorkflowStore
+  });
+  const capabilityExecution = createSymphonyCapabilityExecutionService({
+    capabilityPlanning,
+    routeWorkflowStore,
+    routeWorkflows,
+    sessionLoader: workflowSessionLoader,
+    engine: createSymphonyInProcessCapabilityExecutionEngine()
+  });
+  const capabilityContractIntake = createSymphonyCapabilityContractIntake({
+    routeWorkflows
+  });
+  const capabilityDispatchAuthority =
+    createSymphonyCapabilityDispatchAuthorityService({
+      sessionLoader: workflowSessionLoader,
+      contractIntake: capabilityContractIntake,
+      capabilityExecution
+    });
   const routeLifecycle = await createRuntimeRouteLifecycleService({
     routeWorkflows,
     tracker,
@@ -348,6 +373,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     ensureIssueIdentity: seedTrackedIssueIdentity,
     presetSelection: bootstrapBinding.presetSelection,
     sessionLoader: workflowSessionLoader,
+    capabilityDispatchAuthority,
     now: undefined
   });
   const runtimeTracker = createWorkflowDispatchTracker({
@@ -644,17 +670,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       });
     }
   } satisfies SymphonyRuntimeAppServices["workflowComparison"];
-  const capabilityPlanning = createSymphonyCapabilityPlanningService({
-    routeWorkflowStore
-  });
-  const capabilityExecution = createSymphonyCapabilityExecutionService({
-    capabilityPlanning,
-    routeWorkflowStore,
-    routeWorkflows,
-    sessionLoader: workflowSessionLoader,
-    engine: createSymphonyInProcessCapabilityExecutionEngine()
-  });
-
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({
     githubPolicy: runtimePolicy.github,
     admittedRepositories: admittedRepositories.map((entry) => entry.repositoryKey),

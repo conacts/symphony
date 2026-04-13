@@ -103,6 +103,7 @@ export type SymphonyDispatchBootstrapRoutingInput = {
 export type SymphonyDispatchBootstrapRoutingResult = {
   issue: SymphonyTrackerIssue;
   runMode: SymphonyRunMode;
+  dispatchHandling?: "external_run" | "handled_in_process";
 };
 
 export type SymphonyRunStartActivationInput = {
