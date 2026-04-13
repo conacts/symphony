@@ -1,4 +1,12 @@
 export {
+  createWorkflowCapabilityRegistry,
+  WorkflowCapabilityRegistry
+} from "./capability-registry.js";
+export {
+  createWorkflowModelProfileRegistry,
+  WorkflowModelProfileRegistry
+} from "./model-profile-registry.js";
+export {
   createWorkflowRouter,
   createWorkflowRouterAsync
 } from "./router-builder.js";
@@ -53,6 +61,9 @@ export {
   createWorkflowRouterComparison
 } from "./workflow-router-comparison.js";
 export {
+  resolveWorkflowRoutingPolicy
+} from "./routing-policy-resolver.js";
+export {
   WorkflowSession
 } from "./workflow-session.js";
 export {
@@ -72,6 +83,44 @@ export {
   createSymphonyCurrentFlowRouterPreset,
   createSymphonyCurrentFlowRouterDefinition
 } from "./symphony-current-flow-router.js";
+export {
+  createSymphonyCapabilityExecutionCommand,
+  createSymphonyTicketExecutionContract,
+  parseSymphonyCapabilityEvidenceId,
+  parseSymphonyCapabilityId,
+  parseSymphonyCapabilityModelProfileId,
+  parseSymphonyCapabilityPhase,
+  readSymphonyCapabilityExecutionCommand,
+  readSymphonyTicketExecutionContract,
+  symphonyCapabilityClarificationModeSchema,
+  symphonyCapabilityCompletionModeSchema,
+  symphonyCapabilityDefinitionSchema,
+  symphonyCapabilityEvidenceIdSchema,
+  symphonyCapabilityExecutionCommandSchema,
+  symphonyCapabilityIdSchema,
+  symphonyCapabilityMergePolicySchema,
+  symphonyCapabilityModelProfileIdSchema,
+  symphonyCapabilityPhaseSchema,
+  symphonyCapabilityReviewStrictnessSchema,
+  symphonyCapabilityRoutingDirectivesSchema,
+  symphonyModelProfileDefinitionSchema,
+  symphonyTicketExecutionContractSchema
+} from "./symphony-capability-contract.js";
+export type {
+  SymphonyCapabilityClarificationMode,
+  SymphonyCapabilityCompletionMode,
+  SymphonyCapabilityEvidenceId,
+  SymphonyCapabilityId,
+  SymphonyCapabilityMergePolicy,
+  SymphonyCapabilityModelProfileId,
+  SymphonyCapabilityPhase,
+  SymphonyCapabilityReviewStrictness,
+  SymphonyWorkflowCapabilityDefinition,
+  SymphonyWorkflowCapabilityExecutionCommand,
+  SymphonyWorkflowCapabilityExecutionCommandPayload,
+  SymphonyWorkflowRoutingDirectives,
+  SymphonyWorkflowTicketExecutionContract
+} from "./symphony-capability-contract.js";
 export type {
   SymphonyCurrentFlowData,
   SymphonyCurrentFlowNode,
@@ -136,6 +185,53 @@ export type {
   SymphonyCurrentFlowTrackerStateObservedSignal,
   SymphonyCurrentFlowTrackerTransitionCommand
 } from "./symphony-current-flow-contract.js";
+export type {
+  WorkflowEvidenceArtifactReference,
+  WorkflowEvidenceId,
+  WorkflowEvidenceRecord,
+  WorkflowModelProfileDefinition,
+  WorkflowModelProfileId,
+  WorkflowCapabilityAttempt,
+  WorkflowCapabilityAttemptStatus,
+  WorkflowCapabilityCandidate,
+  WorkflowCapabilityDecision,
+  WorkflowCapabilityDefinition,
+  WorkflowCapabilityExecutionCommand,
+  WorkflowCapabilityExecutionCommandPayload,
+  WorkflowCapabilityExecutionResult,
+  WorkflowCapabilityExecutionResultBlocked,
+  WorkflowCapabilityExecutionResultChangesRequested,
+  WorkflowCapabilityExecutionResultClarificationRequested,
+  WorkflowCapabilityExecutionResultCompleted,
+  WorkflowCapabilityExecutionResultFailed,
+  WorkflowCapabilityId,
+  WorkflowCapabilityPhase,
+  WorkflowCapabilityPlan,
+  WorkflowCapabilityPlanAwaitingInput,
+  WorkflowCapabilityPlanBlocked,
+  WorkflowCapabilityPlanExecute,
+  WorkflowCapabilityPlanReady,
+  WorkflowCapabilityPlanner,
+  WorkflowCapabilityPlannerInput,
+  WorkflowCapabilityPreset,
+  WorkflowCapabilityProjection,
+  WorkflowClarificationMode,
+  WorkflowClarificationPolicy,
+  WorkflowClarificationQuestion,
+  WorkflowClarificationRequest,
+  WorkflowCompletionGateEvaluation,
+  WorkflowCompletionMode,
+  WorkflowCompletionPolicy,
+  WorkflowCompletionReadiness,
+  WorkflowMergePolicy,
+  WorkflowResolvedRoutingPolicy,
+  WorkflowReviewStrictness,
+  WorkflowRoutingDirectives,
+  WorkflowRoutingDirectiveOverrides,
+  WorkflowRoutingPolicyOverrides,
+  WorkflowRoutingPolicyResolutionInput,
+  WorkflowTicketExecutionContract
+} from "./types/index.js";
 export type {
   RouterStrategy,
   WorkflowCandidateEdge,
