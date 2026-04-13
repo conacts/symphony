@@ -484,6 +484,9 @@ function createRuntimeServicesStub(
       cancelIssue: vi.fn(),
       submitMergeResult: vi.fn()
     } as SymphonyRuntimeAppServices["runtimeTools"],
+    capabilityPlanning: {
+      planByWorkflowId: vi.fn()
+    } as SymphonyRuntimeAppServices["capabilityPlanning"],
     workflowComparison: {
       compareByWorkflowId: vi.fn().mockResolvedValue(null),
       compareByIssueIdentifier: vi.fn().mockResolvedValue(null)

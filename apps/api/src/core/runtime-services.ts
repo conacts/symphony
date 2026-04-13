@@ -71,6 +71,9 @@ import {
   createRuntimeTrackerStateIngressPort
 } from "./runtime-tracker-state-ingress-port.js";
 import {
+  createSymphonyCapabilityPlanningService
+} from "./symphony-capability-planning.js";
+import {
   createWorkflowDispatchTracker
 } from "./runtime-workflow-dispatch-tracker.js";
 import { createRuntimeToolsPort } from "./runtime-tools-port.js";
@@ -635,6 +638,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       });
     }
   } satisfies SymphonyRuntimeAppServices["workflowComparison"];
+  const capabilityPlanning = createSymphonyCapabilityPlanningService({
+    routeWorkflowStore
+  });
 
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({
     githubPolicy: runtimePolicy.github,
@@ -782,6 +788,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     workflowRead,
     runtimeTools,
     workflowComparison,
+    capabilityPlanning,
     routeWorkflows,
     githubReviewIngress,
     realtime,

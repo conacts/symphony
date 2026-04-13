@@ -629,6 +629,13 @@ export async function createSymphonyRuntimeTestHarness(input: {
         };
       }
     },
+    capabilityPlanning: {
+      async planByWorkflowId() {
+        throw new Error(
+          "Runtime test harness does not support capability planning."
+        );
+      }
+    },
     workflowComparison: {
       async compareByWorkflowId() {
         return null;

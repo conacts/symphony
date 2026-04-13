@@ -94,6 +94,9 @@ export {
   createRouteWorkflowStore
 } from "./route-workflow-store.js";
 export type {
+  RouteWorkflowCapabilityPlannerCommandRecord,
+  RouteWorkflowCapabilityPlannerDecisionRecord,
+  RouteWorkflowCapabilityPlannerPlanKind,
   RouteDecisionRecord,
   RouteWorkflowExecutionContractRecord,
   RouteWorkflowBindingScope,

@@ -7,6 +7,7 @@ import type {
   WorkflowRouteResult
 } from "@symphony/router";
 import {
+  createSymphonyCapabilityExecutionCommand,
   createSymphonyTicketExecutionContract
 } from "@symphony/router";
 import {
@@ -429,6 +430,203 @@ describe("route workflow store", () => {
         insertedAt: "2026-04-13T06:02:00.000Z"
       });
       expect(loaded).toEqual(saved);
+      expect(await routeStore.listHistory(workflowId)).toEqual([]);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("persists capability planner decisions and emitted commands separately from workflow history", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-route-capability-plan-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const routeStore = createRouteWorkflowStore(database.db);
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-313",
+        trackerIssueId: "tracker-313",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-13T06:05:00.000Z"
+      });
+
+      const workflowId = await routeStore.createWorkflow({
+        trackerIssueId: "tracker-313",
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-313",
+        routerPresetId: "current-flow",
+        routerName: "symphony-current-flow",
+        routerVersion: "1",
+        createdAt: "2026-04-13T06:06:00.000Z"
+      });
+
+      const contract = await routeStore.saveExecutionContract({
+        workflowId,
+        contract: createSymphonyTicketExecutionContract({
+          contractId: "contract_workflow_313",
+          workflowId,
+          issueIdentifier: "SYM-313",
+          repositoryKey: "openai/symphony",
+          summary: "Persist the first capability planner decision.",
+          objective: "Compute and persist the first deterministic capability plan.",
+          doneDefinition: "A planner decision and capability command are stored together.",
+          mergePolicy: "manual",
+          routingDirectives: {
+            requiredCapabilityIds: ["implement.spec", "critic.code_review"],
+            preferredCapabilityIds: [],
+            forbiddenCapabilityIds: ["critic.browser_test"],
+            requiredEvidenceIds: ["change_set", "code_review_report"],
+            allowedModelProfileIds: [
+              "builder_fast",
+              "builder_deep",
+              "critic_strict",
+              "critic_adversarial"
+            ],
+            completionPolicy: {
+              mode: "manual"
+            },
+            clarificationPolicy: {
+              mode: "required"
+            },
+            reviewStrictness: "strict",
+            maxRetryCount: 2
+          },
+          createdAt: "2026-04-13T06:07:00.000Z",
+          updatedAt: "2026-04-13T06:07:00.000Z"
+        }),
+        recordedAt: "2026-04-13T06:07:00.000Z"
+      });
+
+      const command = createSymphonyCapabilityExecutionCommand({
+        id: "command_capability_execute_313",
+        dedupeKey: "workflow-313:implement.spec:1",
+        workflowId,
+        capabilityId: "implement.spec",
+        modelProfileId: "builder_fast",
+        contract: {
+          contractId: contract.contractId,
+          workflowId: contract.workflowId,
+          issueIdentifier: contract.issueIdentifier,
+          repositoryKey: contract.repositoryKey,
+          summary: contract.summary,
+          objective: contract.objective,
+          doneDefinition: contract.doneDefinition,
+          mergePolicy: contract.mergePolicy,
+          routingDirectives: {
+            requiredCapabilityIds: [...contract.routingDirectives.requiredCapabilityIds],
+            preferredCapabilityIds: [...contract.routingDirectives.preferredCapabilityIds],
+            forbiddenCapabilityIds: [...contract.routingDirectives.forbiddenCapabilityIds],
+            requiredEvidenceIds: [...contract.routingDirectives.requiredEvidenceIds],
+            allowedModelProfileIds: [...contract.routingDirectives.allowedModelProfileIds],
+            completionPolicy: {
+              mode: contract.routingDirectives.completionPolicy.mode
+            },
+            clarificationPolicy: {
+              mode: contract.routingDirectives.clarificationPolicy.mode
+            },
+            reviewStrictness: contract.routingDirectives.reviewStrictness,
+            maxRetryCount: contract.routingDirectives.maxRetryCount
+          },
+          createdAt: contract.createdAt,
+          updatedAt: contract.updatedAt
+        },
+        executionInput: null
+      });
+      const saved = await routeStore.saveCapabilityPlannerDecision({
+        workflowId,
+        decisionId: "capability_plan_decision_313",
+        contract,
+        historyEventSequence: 0,
+        lifecycleProjectionSequence: 0,
+        lifecycleCurrentNode: null,
+        plan: {
+          kind: "execute",
+          candidate: {
+            capabilityId: "implement.spec",
+            phase: "implementing",
+            workEpoch: 1,
+            priority: 100,
+            required: true,
+            preferred: false,
+            allowedModelProfileIds: ["builder_fast", "builder_deep"],
+            reason: "Implementation is the first required capability."
+          },
+          decision: {
+            decisionId: "capability_plan_decision_313",
+            capabilityId: "implement.spec",
+            modelProfileId: "builder_fast",
+            workEpoch: 1,
+            rationale: "Implementation is the first required capability.",
+            decidedAt: "2026-04-13T06:08:00.000Z"
+          }
+        },
+        command,
+        recordedAt: "2026-04-13T06:08:00.000Z"
+      });
+
+      const loadedDecision = await routeStore.getCapabilityPlannerDecisionForState({
+        workflowId,
+        historyEventSequence: 0,
+        contractUpdatedAt: contract.updatedAt
+      });
+      const loadedCommand = await routeStore.getCapabilityPlannerCommandByDecisionId(
+        saved.decision.decisionId
+      );
+      const allCommands = await routeStore.listCapabilityPlannerCommands(workflowId);
+
+      expect(saved.decision).toEqual({
+        decisionId: "capability_plan_decision_313",
+        workflowId,
+        contractId: "contract_workflow_313",
+        contractUpdatedAt: "2026-04-13T06:07:00.000Z",
+        historyEventSequence: 0,
+        lifecycleProjectionSequence: 0,
+        lifecycleCurrentNode: null,
+        planKind: "execute",
+        plan: {
+          kind: "execute",
+          candidate: {
+            capabilityId: "implement.spec",
+            phase: "implementing",
+            workEpoch: 1,
+            priority: 100,
+            required: true,
+            preferred: false,
+            allowedModelProfileIds: ["builder_fast", "builder_deep"],
+            reason: "Implementation is the first required capability."
+          },
+          decision: {
+            decisionId: "capability_plan_decision_313",
+            capabilityId: "implement.spec",
+            modelProfileId: "builder_fast",
+            workEpoch: 1,
+            rationale: "Implementation is the first required capability.",
+            decidedAt: "2026-04-13T06:08:00.000Z"
+          }
+        },
+        recordedAt: "2026-04-13T06:08:00.000Z",
+        insertedAt: "2026-04-13T06:08:00.000Z"
+      });
+      expect(saved.command).toEqual({
+        commandId: "command_capability_execute_313",
+        workflowId,
+        decisionId: "capability_plan_decision_313",
+        contractId: "contract_workflow_313",
+        historyEventSequence: 0,
+        dedupeKey: "workflow-313:implement.spec:1",
+        kind: "capability.execute",
+        command,
+        emittedAt: "2026-04-13T06:08:00.000Z",
+        insertedAt: "2026-04-13T06:08:00.000Z"
+      });
+      expect(loadedDecision).toEqual(saved.decision);
+      expect(loadedCommand).toEqual(saved.command);
+      expect(allCommands).toEqual([saved.command]);
       expect(await routeStore.listHistory(workflowId)).toEqual([]);
     } finally {
       database.close();
