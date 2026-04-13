@@ -100,10 +100,14 @@ export type SymphonyDispatchBootstrapRoutingInput = {
   startedAt: string;
 };
 
+export type SymphonyDispatchHandling =
+  | "external_run"
+  | "handled_in_process";
+
 export type SymphonyDispatchBootstrapRoutingResult = {
   issue: SymphonyTrackerIssue;
   runMode: SymphonyRunMode;
-  dispatchHandling?: "external_run" | "handled_in_process";
+  dispatchHandling: SymphonyDispatchHandling;
 };
 
 export type SymphonyRunStartActivationInput = {

@@ -1,3 +1,6 @@
+import type {
+  SymphonyDispatchHandling
+} from "@symphony/orchestrator";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
@@ -16,14 +19,10 @@ const capabilityManagedRunModes = new Set<SymphonyRunMode>([
   "rework"
 ]);
 
-export type SymphonyCapabilityDispatchHandling =
-  | "handled_in_process"
-  | "not_handled";
-
 export type SymphonyCapabilityDispatchAuthorityService = {
   handleDispatchRequest(
     input: SymphonyTrackerStateDispatchRequest
-  ): Promise<SymphonyCapabilityDispatchHandling>;
+  ): Promise<SymphonyDispatchHandling>;
 };
 
 export function createSymphonyCapabilityDispatchAuthorityService(input: {
@@ -37,7 +36,7 @@ export function createSymphonyCapabilityDispatchAuthorityService(input: {
   return {
     async handleDispatchRequest(dispatchInput) {
       if (!capabilityManagedRunModes.has(dispatchInput.runMode)) {
-        return "not_handled";
+        return "external_run";
       }
 
       await ensureExecutionContract({

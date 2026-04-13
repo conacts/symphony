@@ -38,7 +38,8 @@ const inertLifecycleRouting: {
     routeDispatchBootstrap(input: { issue: SymphonyTrackerIssue }) {
       return {
         issue: input.issue,
-        runMode: "implementation" as const
+        runMode: "implementation" as const,
+        dispatchHandling: "external_run" as const
       };
     },
     activateRunStart(input: { issue: SymphonyTrackerIssue }) {

@@ -203,7 +203,8 @@ describe("symphony orchestrator", () => {
               ...issue,
               state: "Bootstrapping"
             },
-            runMode: "rework"
+            runMode: "rework",
+            dispatchHandling: "external_run"
           };
         }
       },
@@ -331,7 +332,8 @@ describe("symphony orchestrator", () => {
             ...input.issue,
             state: "Bootstrapping"
           },
-          runMode: "implementation"
+          runMode: "implementation",
+          dispatchHandling: "external_run"
         };
       });
 

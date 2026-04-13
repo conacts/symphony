@@ -45,12 +45,6 @@ import type {
 import type {
   SymphonyRuntimeWorkflowLifecycleView
 } from "./runtime-workflow-lifecycle-view.js";
-import type {
-  SymphonyCapabilityPlanningService
-} from "./symphony-capability-planning.js";
-import type {
-  SymphonyCapabilityExecutionService
-} from "./symphony-capability-execution.js";
 
 export type SymphonyRuntimeOrchestratorPort = {
   snapshot(): SymphonyOrchestratorSnapshot;
@@ -216,8 +210,6 @@ export type SymphonyRuntimeAppServices = {
   workflowRead: SymphonyRuntimeWorkflowReadPort;
   runtimeTools: SymphonyRuntimeToolsPort;
   workflowComparison: SymphonyRuntimeWorkflowComparisonPort;
-  capabilityPlanning: SymphonyCapabilityPlanningService;
-  capabilityExecution: SymphonyCapabilityExecutionService;
   routeWorkflows: SymphonyRouteWorkflowPort;
   githubReviewIngress: SymphonyGitHubReviewIngressPort;
   realtime: SymphonyRealtimeHub;

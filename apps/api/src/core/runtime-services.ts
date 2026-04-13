@@ -816,8 +816,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     workflowRead,
     runtimeTools,
     workflowComparison,
-    capabilityPlanning,
-    capabilityExecution,
     routeWorkflows,
     githubReviewIngress,
     realtime,

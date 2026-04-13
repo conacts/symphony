@@ -42,7 +42,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
   ): Promise<void> | void;
   routing: SymphonyRuntimeRouterPresetSelection;
   sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
-  capabilityDispatchAuthority?: SymphonyCapabilityDispatchAuthorityService | null;
+  capabilityDispatchAuthority: SymphonyCapabilityDispatchAuthorityService;
 }) {
   const { router } = input.routing;
   const presetAdapter = input.routing.module.runtimeAdapter;
@@ -164,7 +164,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
       }
 
       const dispatchHandling =
-        await input.capabilityDispatchAuthority?.handleDispatchRequest({
+        await input.capabilityDispatchAuthority.handleDispatchRequest({
           workflowId: ensured.workflow.workflowId,
           commandId: selectedDispatchRequest.commandId,
           trackerIssue: preparedIssue,
@@ -175,10 +175,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
       return {
         issue: preparedIssue,
         runMode: selectedDispatchRequest.runMode,
-        dispatchHandling:
-          dispatchHandling === "handled_in_process"
-            ? "handled_in_process"
-            : "external_run"
+        dispatchHandling
       };
     }
   };

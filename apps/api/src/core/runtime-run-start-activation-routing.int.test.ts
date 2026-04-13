@@ -14,6 +14,7 @@ import type {
 } from "@symphony/router";
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
+import { createExternalRunDispatchAuthority } from "../test-support/runtime-dispatch-authority-stub.js";
 import { expectRouteWorkflowAuthorityProof } from "../test-support/route-workflow-authority-test-support.js";
 import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
 import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
@@ -198,7 +199,8 @@ async function createHarness(input: {
     trackerConfig: runtimePolicy.tracker,
     repositoryKey: "openai/symphony",
     routing,
-    sessionLoader
+    sessionLoader,
+    capabilityDispatchAuthority: createExternalRunDispatchAuthority()
   });
   const runStartActivationRouter = await createRuntimeRunStartActivationRouter({
     routeWorkflows,

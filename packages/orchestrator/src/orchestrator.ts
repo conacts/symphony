@@ -41,6 +41,7 @@ export type {
   SymphonyAgentMessage,
   SymphonyAgentTotals,
   SymphonyClock,
+  SymphonyDispatchHandling,
   SymphonyDispatchBootstrapRoutingInput,
   SymphonyDispatchBootstrapRoutingResult,
   SymphonyDispatchingEntry,

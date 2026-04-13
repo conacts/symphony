@@ -15,6 +15,7 @@ import {
   buildSymphonyTrackerIssue
 } from "@symphony/test-support";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
+import { createExternalRunDispatchAuthority } from "../test-support/runtime-dispatch-authority-stub.js";
 import { expectRouteWorkflowAuthorityProof } from "../test-support/route-workflow-authority-test-support.js";
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
@@ -75,6 +76,7 @@ describe("runtime shutdown reconciliation", () => {
         trackerConfig: runtimePolicy.tracker,
         repositoryKey: "openai/symphony",
         presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+        capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
         now: () => new Date("2026-04-10T14:30:00.000Z")
       });
 

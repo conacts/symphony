@@ -16,6 +16,7 @@ import {
   createMemorySymphonyTracker,
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
+import { createExternalRunDispatchAuthority } from "../test-support/runtime-dispatch-authority-stub.js";
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createRuntimeTrackerStateIngressPort } from "./runtime-tracker-state-ingress-port.js";
@@ -331,6 +332,7 @@ async function createHarness(input: {
       });
     },
     presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+    capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
     now: () => new Date("2026-04-10T15:00:00.000Z")
   });
   const ingress = createRuntimeTrackerStateIngressPort({

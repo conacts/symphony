@@ -180,7 +180,7 @@ export async function createRuntimeRouteLifecycleService(input: {
   ): Promise<void> | void;
   presetSelection: SymphonyRuntimeWorkflowPresetSelection;
   sessionLoader?: SymphonyRuntimeWorkflowSessionLoader;
-  capabilityDispatchAuthority?: SymphonyCapabilityDispatchAuthorityService | null;
+  capabilityDispatchAuthority: SymphonyCapabilityDispatchAuthorityService;
   now?: () => Date;
 }): Promise<SymphonyRuntimeRouteLifecycleService> {
   const routing = await selectRuntimeRouterPreset({
@@ -206,7 +206,7 @@ export async function createRuntimeRouteLifecycleService(input: {
     ensureIssueIdentity: input.ensureIssueIdentity,
     routing,
     sessionLoader,
-    capabilityDispatchAuthority: input.capabilityDispatchAuthority ?? null
+    capabilityDispatchAuthority: input.capabilityDispatchAuthority
   });
   const runStartActivationRouter =
     await createRuntimeRunStartActivationRouter({
@@ -457,16 +457,9 @@ export async function createRuntimeRouteLifecycleService(input: {
     ): Promise<void> | void;
     missingCallbackMessage: string;
   }) => {
-    if (
-      !handlerInput.externalCallback &&
-      !input.capabilityDispatchAuthority
-    ) {
-      return undefined;
-    }
-
     return async (dispatchRequest: SymphonyTrackerStateDispatchRequest) => {
       const handled =
-        await input.capabilityDispatchAuthority?.handleDispatchRequest(
+        await input.capabilityDispatchAuthority.handleDispatchRequest(
           dispatchRequest
         );
       if (handled === "handled_in_process") {

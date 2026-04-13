@@ -158,7 +158,8 @@ export function createTestOrchestratorRoutingAdapters(input: {
           input.tracker,
           routeInput.issue
         ),
-        runMode: deriveSymphonyRunMode(routeInput.issue.state)
+        runMode: deriveSymphonyRunMode(routeInput.issue.state),
+        dispatchHandling: "external_run"
       };
     },
     async activateRunStart(activationInput) {

@@ -23,6 +23,7 @@ import {
   type SymphonyTracker,
   type SymphonyTrackerConfig
 } from "@symphony/tracker";
+import { createExternalRunDispatchAuthority } from "../test-support/runtime-dispatch-authority-stub.js";
 import { expectRouteWorkflowAuthorityProof } from "../test-support/route-workflow-authority-test-support.js";
 import {
   createRuntimeCurrentFlowRouting,
@@ -948,6 +949,7 @@ describe("runtime route lifecycle service", () => {
           trackerConfig: buildSymphonyRuntimePolicy().tracker,
           repositoryKey: "openai/symphony",
           presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+          capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
           now: () => new Date("2026-04-10T14:00:06.000Z")
         });
 
@@ -1282,6 +1284,7 @@ describe("runtime route lifecycle service", () => {
         trackerConfig: buildSymphonyRuntimePolicy().tracker,
         repositoryKey: "openai/symphony",
         presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+        capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
         now: () => new Date("2026-04-10T14:06:00.000Z")
       });
 
@@ -1974,6 +1977,7 @@ describe("runtime route lifecycle service", () => {
           trackerConfig,
           repositoryKey: "openai/symphony",
           presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+          capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
           now: () => new Date("2026-04-10T14:25:00.000Z")
         })
       ).rejects.toThrow(/startupFailureTransitionToState/i);
@@ -2000,6 +2004,7 @@ describe("runtime route lifecycle service", () => {
           trackerConfig,
           repositoryKey: "openai/symphony",
           presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+          capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
           now: () => new Date("2026-04-10T14:26:00.000Z")
         })
       ).rejects.toThrow(/terminalStates/i);
@@ -2019,6 +2024,7 @@ async function createServiceWithoutTrackerIssueLookup(input: {
     trackerConfig: buildSymphonyRuntimePolicy().tracker,
     repositoryKey: "openai/symphony",
     presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+    capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
     now: () => new Date(input.nowIso)
   });
 }
@@ -2130,6 +2136,7 @@ async function createHarness(input: {
         ...createDefaultRuntimeWorkflowPresetSelection(),
         presetId: input.presetId ?? "current-flow"
       },
+      capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
       now: () => new Date(nowIso)
     });
   }
