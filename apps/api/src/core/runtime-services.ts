@@ -185,37 +185,43 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     bindingScope: bootstrapBinding.bindingScope
   });
   const runStore = createSqliteSymphonyRuntimeRunStore({
-    db: database.db
+    db: database.db,
+    bindingScope: bootstrapBinding.bindingScope
   });
   const deliveryReports = createSymphonyIssueDeliveryReportStore({
     db: database.db,
     timelineStore: issueTimelineStore,
-    repositoryKey
+    repositoryKey,
+    bindingScope: bootstrapBinding.bindingScope
   });
   const agentAnalyticsStore = createSqliteAgentAnalyticsStore({
     db: database.db
   });
   const agentAnalyticsReadStore = createSqliteAgentAnalyticsReadStore({
-    db: database.db
+    db: database.db,
+    bindingScope: bootstrapBinding.bindingScope
   });
   const runtimeForensicsReadStore = createSqliteRuntimeForensicsReadStore({
-    db: database.db
+    db: database.db,
+    bindingScope: bootstrapBinding.bindingScope
   });
   const agentAnalyticsRead = createAgentAnalyticsReadPort(agentAnalyticsReadStore);
   const forensics = createSymphonyForensicsReadModel({
     runStore: runtimeForensicsReadStore,
     async listIssueTimeline(input) {
-      return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
+      const entries = await issueTimelineStore.listIssueTimeline(input.trackerIssueKey, {
         limit: input.limit
       });
+      return entries.map(mapTrackerIssueKeyField);
     },
     async listRuntimeLogs(input) {
-      return runtimeLogStore.list({
+      const logs = await runtimeLogStore.list({
         limit: input.limit,
-        issueIdentifier: input.issueIdentifier
+        issueIdentifier: input.trackerIssueKey
       });
+      return logs.map(mapNullableTrackerIssueKeyField);
     }
-  });
+  }) satisfies SymphonyRuntimeAppServices["forensics"];
 
   await runtimeLogStore.record({
     level: "info",
@@ -592,7 +598,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       }
 
       return {
-        issueIdentifier: observation.issueIdentifier,
+        trackerIssueKey: observation.issueIdentifier,
         observedTrackerState: observation.observedTrackerState,
         workflowTrackerState: observation.workflowTrackerState,
         observed: observation.observed,
@@ -715,14 +721,25 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           ? await tracker.fetchIssueByIdentifier(runtimePolicy.tracker, issueIdentifier)
           : null;
 
-      await runtimeLogStore.record({
-        level: "info",
-        source: "github_review_ingress",
-        eventType: "github_review_ingress_processed",
-        message: "Processed GitHub review ingress event.",
-        issueIdentifier: trackedIssue?.identifier ?? null,
-        payload: result
-      });
+      await runtimeLogStore.record(
+        trackedIssue
+          ? {
+              level: "info",
+              source: "github_review_ingress",
+              eventType: "github_review_ingress_processed",
+              message: "Processed GitHub review ingress event.",
+              trackerIssueId: trackedIssue.id,
+              issueIdentifier: trackedIssue.identifier,
+              payload: result
+            }
+          : {
+              level: "info",
+              source: "github_review_ingress",
+              eventType: "github_review_ingress_processed",
+              message: "Processed GitHub review ingress event.",
+              payload: result
+            }
+      );
       realtime.publishSnapshotUpdated();
       realtime.publishProblemRunsUpdated();
 
@@ -808,7 +825,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
               database,
               runStore,
               routeLifecycle,
-              shutdownReason
+              shutdownReason,
+              bindingScope: bootstrapBinding.bindingScope
             });
 
           logger.info("Shutdown reconciled active runtime work", {
@@ -823,6 +841,26 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
       return await shutdownPromise;
     }
+  };
+}
+
+function mapTrackerIssueKeyField<T extends { issueIdentifier: string }>(
+  input: T
+): Omit<T, "issueIdentifier"> & { trackerIssueKey: string } {
+  const { issueIdentifier, ...rest } = input;
+  return {
+    ...rest,
+    trackerIssueKey: issueIdentifier
+  };
+}
+
+function mapNullableTrackerIssueKeyField<T extends { issueIdentifier: string | null }>(
+  input: T
+): Omit<T, "issueIdentifier"> & { trackerIssueKey: string | null } {
+  const { issueIdentifier, ...rest } = input;
+  return {
+    ...rest,
+    trackerIssueKey: issueIdentifier
   };
 }
 

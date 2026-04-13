@@ -7,7 +7,7 @@ export default async function IssueActivityPage(input: {
     issueIdentifier: string;
   }>;
 }): Promise<ReactElement> {
-  const { issueIdentifier } = await input.params;
+  const { issueIdentifier: trackerIssueKey } = await input.params;
 
-  return <IssueActivityLiveScreen issueIdentifier={issueIdentifier} />;
+  return <IssueActivityLiveScreen trackerIssueKey={trackerIssueKey} />;
 }

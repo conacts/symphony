@@ -167,7 +167,7 @@ describe("issue delivery report store", () => {
       database.client.pragma("foreign_keys = ON");
 
       await expect(store.fetchLatestForRun("run-invalid")).rejects.toThrow(
-        `Issue not found for delivery report ${reportId}: COL-999`
+        `Delivery report ${reportId} issue not found: issue-invalid`
       );
     } finally {
       database.close();

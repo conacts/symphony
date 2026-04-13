@@ -71,7 +71,7 @@ describe("runtime routes", () => {
     const payload = (await response.json()) as {
       data: {
         workflow: {
-          issueIdentifier: string;
+          trackerIssueKey: string;
           routerPresetId: string;
         };
         replay: {
@@ -91,7 +91,7 @@ describe("runtime routes", () => {
       issueIdentifier: "SYM-420",
       presetIds: ["current-flow", "auto-merge"]
     });
-    expect(payload.data.workflow.issueIdentifier).toBe("SYM-420");
+    expect(payload.data.workflow.trackerIssueKey).toBe("SYM-420");
     expect(payload.data.workflow.routerPresetId).toBe("current-flow");
     expect(payload.data.replay.recordedEventCount).toBe(3);
     expect(payload.data.replay.recordedSignalCount).toBe(3);
@@ -449,7 +449,7 @@ function createRuntimeServicesStub(
         filters: {
           limit: null,
           repo: null,
-          issueIdentifier: null
+          trackerIssueKey: null
         }
       })
     },

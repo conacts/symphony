@@ -371,6 +371,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
   await runStore.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
   await runStore.finalizeRun(runId, buildSymphonyRunFinishAttrs());
   await issueTimelineStore.record({
+    trackerIssueId: issue.id,
     issueIdentifier: issue.identifier,
     runId,
     source: "orchestrator",
@@ -385,6 +386,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
     source: "runtime",
     eventType: "db_initialized",
     message: "Initialized Symphony DB.",
+    trackerIssueId: issue.id,
     issueIdentifier: issue.identifier,
     runId,
     payload: null
@@ -394,6 +396,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
     source: "agent_runtime",
     eventType: "runtime_session_started",
     message: "Started the agent harness session.",
+    trackerIssueId: issue.id,
     issueIdentifier: issue.identifier,
     runId,
     payload: {
@@ -561,15 +564,20 @@ export async function createSymphonyRuntimeTestHarness(input: {
     forensics: createSymphonyForensicsReadModel({
       runStore: runtimeForensicsReadStore,
       async listIssueTimeline(input) {
-        return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
-          limit: input.limit
-        });
+        const entries = await issueTimelineStore.listIssueTimeline(
+          input.trackerIssueKey,
+          {
+            limit: input.limit
+          }
+        );
+        return entries.map(mapTrackerIssueKeyField);
       },
       async listRuntimeLogs(input) {
-        return runtimeLogStore.list({
+        const logs = await runtimeLogStore.list({
           limit: input.limit,
-          issueIdentifier: input.issueIdentifier
+          issueIdentifier: input.trackerIssueKey
         });
+        return logs.map(mapNullableTrackerIssueKeyField);
       }
     }),
     issueTimeline: createIssueTimelinePort({
@@ -800,6 +808,26 @@ export async function createSymphonyRuntimeTestHarness(input: {
     snapshot,
     promptTemplate,
     runtimePolicy
+  };
+}
+
+function mapTrackerIssueKeyField<T extends { issueIdentifier: string }>(
+  input: T
+): Omit<T, "issueIdentifier"> & { trackerIssueKey: string } {
+  const { issueIdentifier, ...rest } = input;
+  return {
+    ...rest,
+    trackerIssueKey: issueIdentifier
+  };
+}
+
+function mapNullableTrackerIssueKeyField<T extends { issueIdentifier: string | null }>(
+  input: T
+): Omit<T, "issueIdentifier"> & { trackerIssueKey: string | null } {
+  const { issueIdentifier, ...rest } = input;
+  return {
+    ...rest,
+    trackerIssueKey: issueIdentifier
   };
 }
 

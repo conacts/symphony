@@ -25,7 +25,7 @@ const optionalOutcomeFilterSchema = z.preprocess((value) => {
 export const symphonyForensicsRunsQuerySchema = z.strictObject({
   limit: positiveLimitSchema.optional(),
   repo: optionalFilterSchema,
-  issueIdentifier: optionalFilterSchema,
+  trackerIssueKey: optionalFilterSchema,
   startedAfter: isoTimestampSchema.optional(),
   startedBefore: isoTimestampSchema.optional(),
   outcome: optionalOutcomeFilterSchema,

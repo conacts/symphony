@@ -75,7 +75,7 @@ function SlowTurnTooltip(input: {
       )}
     >
       <div className="font-medium">
-        {row.issueIdentifier} · {row.turnLabel}
+        {row.trackerIssueKey} · {row.turnLabel}
       </div>
       <TooltipStat label="Wall-clock" value={row.wallClockMs} />
       <TooltipStat label="Reasoning" value={row.reasoningMs} />

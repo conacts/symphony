@@ -67,7 +67,7 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
     .sort((left, right) => right.runCount - left.runCount)
     .slice(0, 6)
     .map((issue) => ({
-      issueIdentifier: issue.issueIdentifier,
+      trackerIssueKey: issue.trackerIssueKey,
       completedRunCount: issue.completedRunCount,
       problemRunCount: issue.problemRunCount
     }));
@@ -81,7 +81,7 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
     )
     .slice(0, 6)
     .map((issue) => ({
-      issueIdentifier: issue.issueIdentifier,
+      trackerIssueKey: issue.trackerIssueKey,
       retryCount: issue.retryCount,
       rateLimitedCount: issue.rateLimitedCount,
       maxTurnsCount: issue.maxTurnsCount
@@ -110,8 +110,8 @@ export function buildIssueIndexViewModel(input: SymphonyForensicsIssueListResult
     pressureChartRows,
     rows: input.issues.map((issue) => ({
       repositoryKey: issue.repositoryKey,
-      issueIdentifier: issue.issueIdentifier,
-      issueHref: buildIssueHref(issue.issueIdentifier, {
+      trackerIssueKey: issue.trackerIssueKey,
+      issueHref: buildIssueHref(issue.trackerIssueKey, {
         repo: issue.repositoryKey
       }),
       runCount: formatCount(issue.runCount),
@@ -324,7 +324,7 @@ export function buildIssueDetailViewModel(
     ],
     recentFailureRows: problemRuns.slice(0, 3).map((run) => ({
       runId: run.runId,
-      runHref: buildIssueRunHref(input.issueIdentifier, run.runId, {
+      runHref: buildIssueRunHref(input.trackerIssueKey, run.runId, {
         repo: input.repositoryKey
       }),
       outcome: formatOutcomeLabel(run.outcome),
@@ -334,7 +334,7 @@ export function buildIssueDetailViewModel(
     })),
     rows: input.runs.map((run) => ({
       runId: run.runId,
-      runHref: buildIssueRunHref(input.issueIdentifier, run.runId, {
+      runHref: buildIssueRunHref(input.trackerIssueKey, run.runId, {
         repo: input.repositoryKey
       }),
       startedAtIso: run.startedAt,

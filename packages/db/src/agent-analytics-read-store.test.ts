@@ -195,7 +195,7 @@ describe("sqlite agent analytics read store", () => {
         runId,
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-1",
-        issueIdentifier: "COL-157",
+        trackerIssueKey: "COL-157",
         runMode: "implementation",
         status: "finished",
         outcome: "completed",
@@ -421,7 +421,7 @@ describe("sqlite agent analytics read store", () => {
       database.client.pragma("foreign_keys = ON");
 
       await expect(readStore.listRuns()).rejects.toThrow(
-        "Run run-invalid is missing canonical issue COL-999."
+        "Run run-invalid is missing canonical issue issue-invalid."
       );
     } finally {
       database.close();

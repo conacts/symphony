@@ -288,6 +288,7 @@ async function executeRun(input: {
       source: "agent_runtime",
       eventType: "runtime_launch_target_resolved",
       message: "Resolved the agent runtime launch target.",
+      trackerIssueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {
@@ -362,6 +363,7 @@ async function executeRun(input: {
       source: "agent_runtime",
       eventType: "runtime_session_started",
       message: "Started the agent harness session.",
+      trackerIssueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {
@@ -832,6 +834,7 @@ async function executeRun(input: {
       message: startupFailure
         ? "Agent runtime startup failed."
         : "Agent runtime execution failed.",
+      trackerIssueId: input.issue.id,
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {

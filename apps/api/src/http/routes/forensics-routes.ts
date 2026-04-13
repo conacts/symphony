@@ -98,14 +98,14 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
     });
   });
 
-  forensicsRoutes.get("/issues/:issueIdentifier/forensics-bundle", async (c) => {
+  forensicsRoutes.get("/issues/:trackerIssueKey/forensics-bundle", async (c) => {
     const path = parseWithSchema(symphonyForensicsIssuePathSchema, c.req.param());
     const query = parseWithSchema(
       symphonyForensicsIssueForensicsBundleQuerySchema,
       c.req.query()
     );
     const result = await services.forensics.issueForensicsBundle(
-      path.issueIdentifier,
+      path.trackerIssueKey,
       {
         limit: query.limit,
         repo: query.repo,
@@ -125,13 +125,13 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
 
     if (!result) {
       c.get("logger").warn("Forensics issue bundle not found", {
-        issueIdentifier: path.issueIdentifier
+        trackerIssueKey: path.trackerIssueKey
       });
       throw createHttpError("NOT_FOUND", "Issue not found.");
     }
 
     c.get("logger").debug("Returning forensics issue bundle", {
-      issueIdentifier: path.issueIdentifier,
+      trackerIssueKey: path.trackerIssueKey,
       runCount: result.recentRuns.length,
       timelineCount: result.timeline.length,
       runtimeLogCount: result.runtimeLogs.length
@@ -150,27 +150,27 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
     return jsonOk(c, result);
   });
 
-  forensicsRoutes.get("/issues/:issueIdentifier/timeline", async (c) => {
+  forensicsRoutes.get("/issues/:trackerIssueKey/timeline", async (c) => {
     const path = parseWithSchema(symphonyForensicsIssuePathSchema, c.req.param());
     const query = parseWithSchema(
       symphonyForensicsIssueTimelineQuerySchema,
       c.req.query()
     );
     const result = await services.issueTimeline.list({
-      issueIdentifier: path.issueIdentifier,
+      issueIdentifier: path.trackerIssueKey,
       repo: query.repo,
       limit: query.limit
     });
 
     if (!result) {
       c.get("logger").warn("Forensics issue timeline not found", {
-        issueIdentifier: path.issueIdentifier
+        trackerIssueKey: path.trackerIssueKey
       });
       throw createHttpError("NOT_FOUND", "Issue not found.");
     }
 
     c.get("logger").debug("Returning forensics issue timeline", {
-      issueIdentifier: path.issueIdentifier,
+      trackerIssueKey: path.trackerIssueKey,
       count: result.entries.length
     });
 
@@ -189,23 +189,23 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
     });
   });
 
-  forensicsRoutes.get("/issues/:issueIdentifier", async (c) => {
+  forensicsRoutes.get("/issues/:trackerIssueKey", async (c) => {
     const path = parseWithSchema(symphonyForensicsIssuePathSchema, c.req.param());
     const query = parseWithSchema(symphonyForensicsIssueQuerySchema, c.req.query());
-    const result = await services.forensics.issueDetail(path.issueIdentifier, {
+    const result = await services.forensics.issueDetail(path.trackerIssueKey, {
       limit: query.limit,
       repo: query.repo
     });
 
     if (!result) {
       c.get("logger").warn("Forensics issue detail not found", {
-        issueIdentifier: path.issueIdentifier
+        trackerIssueKey: path.trackerIssueKey
       });
       throw createHttpError("NOT_FOUND", "Issue not found.");
     }
 
     c.get("logger").debug("Returning forensics issue detail", {
-      issueIdentifier: path.issueIdentifier,
+      trackerIssueKey: path.trackerIssueKey,
       runCount: result.runs.length
     });
 
@@ -263,12 +263,12 @@ export function createForensicsRoutes(services: SymphonyRuntimeAppServices) {
       limit: query.limit,
       repo: query.repo,
       outcome: query.outcome,
-      issueIdentifier: query.issueIdentifier
+      trackerIssueKey: query.trackerIssueKey
     });
 
     c.get("logger").debug("Returning problem runs", {
       count: result.problemRuns.length,
-      issueIdentifier: query.issueIdentifier ?? null,
+      trackerIssueKey: query.trackerIssueKey ?? null,
       outcome: query.outcome ?? null
     });
 

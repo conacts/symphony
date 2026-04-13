@@ -339,13 +339,13 @@ export function IssueIndexView(input: {
                     </TableHeader>
                     <TableBody>
                       {inventoryRows.map((row) => (
-                        <TableRow key={`${row.repositoryKey}:${row.issueIdentifier}`}>
+                        <TableRow key={`${row.repositoryKey}:${row.trackerIssueKey}`}>
                           <TableCell className="font-medium">
                             <Link
                               href={row.issueHref}
                               className="w-fit underline-offset-4 hover:underline focus-visible:underline"
                             >
-                              {row.issueIdentifier}
+                              {row.trackerIssueKey}
                             </Link>
                           </TableCell>
                           <TableCell>{row.runCount}</TableCell>

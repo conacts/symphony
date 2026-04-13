@@ -17,9 +17,9 @@ describe("runtime summary view model", () => {
         sampledRuns: [
           {
             repositoryKey: "symphony",
-            issueIdentifier: "COL-165",
+            trackerIssueKey: "COL-165",
             run: {
-              issueIdentifier: "COL-165",
+              trackerIssueKey: "COL-165",
               runId: "run_123"
             } as never,
             artifacts: buildSymphonyAgentRunArtifactsResult()
@@ -37,12 +37,12 @@ describe("runtime summary view model", () => {
     expect(runtimeSummary.runningRows[0]?.runtimeAndTurns).toBe("2m 0s / 4 turns");
     expect(runtimeSummary.retryRows[0]?.error).toBe("Worker disconnected");
     expect(runtimeSummary.tokenChartRows[0]).toEqual({
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       inputTokens: 120,
       outputTokens: 80
     });
     expect(runtimeSummary.retryChartRows[0]).toEqual({
-      issueIdentifier: "COL-166",
+      trackerIssueKey: "COL-166",
       attempt: 2
     });
     expect(runtimeSummary.rateLimitRows[0]).toEqual({

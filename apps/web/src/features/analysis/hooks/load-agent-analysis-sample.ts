@@ -14,7 +14,7 @@ export type AgentAnalysisSampleResource = {
   issueIndex: SymphonyForensicsIssueListResult;
   sampledRuns: Array<{
     repositoryKey: string;
-    issueIdentifier: string;
+    trackerIssueKey: string;
     run: SymphonyForensicsIssueDetailResult["runs"][number];
     artifacts: SymphonyAgentRunArtifactsResult;
   }>;
@@ -36,7 +36,7 @@ export async function loadAgentAnalysisSample(
   const issueDetails = await Promise.all(
     issueIndex.issues.slice(0, ISSUE_SAMPLE_LIMIT).map(async (issue) => {
       try {
-        return await fetchIssueDetail(runtimeBaseUrl, issue.issueIdentifier, {
+        return await fetchIssueDetail(runtimeBaseUrl, issue.trackerIssueKey, {
           limit: RUNS_PER_ISSUE,
           repo: issue.repositoryKey
         });
@@ -50,7 +50,7 @@ export async function loadAgentAnalysisSample(
       detail
         ? detail.runs.map((run) => ({
             repositoryKey: detail.repositoryKey,
-            issueIdentifier: detail.issueIdentifier,
+            trackerIssueKey: detail.trackerIssueKey,
             run
           }))
         : []
@@ -67,7 +67,7 @@ export async function loadAgentAnalysisSample(
 
         return {
           repositoryKey: sampledRun.repositoryKey,
-          issueIdentifier: sampledRun.issueIdentifier,
+          trackerIssueKey: sampledRun.trackerIssueKey,
           run: sampledRun.run,
           artifacts
         };

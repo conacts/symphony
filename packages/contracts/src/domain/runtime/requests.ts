@@ -2,14 +2,14 @@ import { z } from "zod";
 import { nonEmptyStringSchema } from "../../core/shared.js";
 
 export const symphonyRuntimeIssuePathSchema = z.strictObject({
-  issueIdentifier: nonEmptyStringSchema
+  trackerIssueKey: nonEmptyStringSchema
 });
 
 export const symphonyRuntimeRefreshRequestSchema = z.strictObject({});
 export const symphonyRuntimeLogsQuerySchema = z.strictObject({
   limit: z.coerce.number().int().positive().optional(),
   repo: nonEmptyStringSchema.optional(),
-  issueIdentifier: nonEmptyStringSchema.optional()
+  trackerIssueKey: nonEmptyStringSchema.optional()
 });
 export const symphonyRuntimeWorkflowComparisonQuerySchema = z
   .strictObject({
@@ -36,7 +36,7 @@ export const symphonyRuntimeWorkflowComparisonQuerySchema = z
     }
   });
 export const symphonyRuntimeTrackerStateObservationRequestSchema = z.strictObject({
-  issueIdentifier: nonEmptyStringSchema
+  trackerIssueKey: nonEmptyStringSchema
 });
 
 export type SymphonyRuntimeIssuePath = z.infer<typeof symphonyRuntimeIssuePathSchema>;

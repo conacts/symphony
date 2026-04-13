@@ -13,52 +13,52 @@ export function buildIssuesHref(scope?: ControlPlaneRepoScope): string {
 }
 
 export function buildIssueHref(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   scope?: ControlPlaneRepoScope
 ): string {
-  return buildRepoScopedHref(`/issues/${encodeURIComponent(issueIdentifier)}`, scope);
+  return buildRepoScopedHref(`/issues/${encodeURIComponent(trackerIssueKey)}`, scope);
 }
 
 export function buildIssueTimelineHref(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   scope?: ControlPlaneRepoScope
 ): string {
   return buildRepoScopedHref(
-    `/issues/${encodeURIComponent(issueIdentifier)}/timeline`,
+    `/issues/${encodeURIComponent(trackerIssueKey)}/timeline`,
     scope
   );
 }
 
 export function buildIssueRunHref(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   runId: string,
   scope?: ControlPlaneRepoScope
 ): string {
   return buildRepoScopedHref(
-    `/issues/${encodeURIComponent(issueIdentifier)}/runs/${encodeURIComponent(runId)}`,
+    `/issues/${encodeURIComponent(trackerIssueKey)}/runs/${encodeURIComponent(runId)}`,
     scope
   );
 }
 
 export function buildIssueRunTurnsHref(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   runId: string,
   scope?: ControlPlaneRepoScope
 ): string {
   return buildRepoScopedHref(
-    `/issues/${encodeURIComponent(issueIdentifier)}/runs/${encodeURIComponent(runId)}/turns`,
+    `/issues/${encodeURIComponent(trackerIssueKey)}/runs/${encodeURIComponent(runId)}/turns`,
     scope
   );
 }
 
 export function buildIssueRunTurnHref(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   runId: string,
   turnId: string,
   scope?: ControlPlaneRepoScope
 ): string {
   return buildRepoScopedHref(
-    `/issues/${encodeURIComponent(issueIdentifier)}/runs/${encodeURIComponent(runId)}/turns/${encodeURIComponent(turnId)}`,
+    `/issues/${encodeURIComponent(trackerIssueKey)}/runs/${encodeURIComponent(runId)}/turns/${encodeURIComponent(turnId)}`,
     scope
   );
 }
@@ -71,55 +71,55 @@ export function buildRunTranscriptHref(
 }
 
 export function buildIssueBreadcrumbRoutes(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   scope?: ControlPlaneRepoScope
 ): ControlPlaneBreadcrumbRoute[] {
   return [
     { label: "Issues", href: buildIssuesHref(scope) },
-    { label: issueIdentifier, href: buildIssueHref(issueIdentifier, scope) }
+    { label: trackerIssueKey, href: buildIssueHref(trackerIssueKey, scope) }
   ];
 }
 
 export function buildIssueTimelineBreadcrumbRoutes(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   scope?: ControlPlaneRepoScope
 ): ControlPlaneBreadcrumbRoute[] {
   return [
-    ...buildIssueBreadcrumbRoutes(issueIdentifier, scope),
-    { label: "Timeline", href: buildIssueTimelineHref(issueIdentifier, scope) }
+    ...buildIssueBreadcrumbRoutes(trackerIssueKey, scope),
+    { label: "Timeline", href: buildIssueTimelineHref(trackerIssueKey, scope) }
   ];
 }
 
 export function buildIssueRunBreadcrumbRoutes(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   runId: string,
   scope?: ControlPlaneRepoScope
 ): ControlPlaneBreadcrumbRoute[] {
   return [
-    ...buildIssueBreadcrumbRoutes(issueIdentifier, scope),
-    { label: runId, href: buildIssueRunHref(issueIdentifier, runId, scope) }
+    ...buildIssueBreadcrumbRoutes(trackerIssueKey, scope),
+    { label: runId, href: buildIssueRunHref(trackerIssueKey, runId, scope) }
   ];
 }
 
 export function buildIssueRunTurnsBreadcrumbRoutes(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   runId: string,
   scope?: ControlPlaneRepoScope
 ): ControlPlaneBreadcrumbRoute[] {
   return [
-    ...buildIssueRunBreadcrumbRoutes(issueIdentifier, runId, scope),
-    { label: "Turns", href: buildIssueRunTurnsHref(issueIdentifier, runId, scope) }
+    ...buildIssueRunBreadcrumbRoutes(trackerIssueKey, runId, scope),
+    { label: "Turns", href: buildIssueRunTurnsHref(trackerIssueKey, runId, scope) }
   ];
 }
 
 export function buildIssueRunTurnBreadcrumbRoutes(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   runId: string,
   turnId: string,
   scope?: ControlPlaneRepoScope
 ): ControlPlaneBreadcrumbRoute[] {
   return [
-    ...buildIssueRunTurnsBreadcrumbRoutes(issueIdentifier, runId, scope),
-    { label: turnId, href: buildIssueRunTurnHref(issueIdentifier, runId, turnId, scope) }
+    ...buildIssueRunTurnsBreadcrumbRoutes(trackerIssueKey, runId, scope),
+    { label: turnId, href: buildIssueRunTurnHref(trackerIssueKey, runId, turnId, scope) }
   ];
 }

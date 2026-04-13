@@ -10,10 +10,10 @@ import { createRuntimeUrl } from "@/core/runtime-url";
 
 export async function fetchRuntimeIssue(
   runtimeBaseUrl: string,
-  issueIdentifier: string,
+  trackerIssueKey: string,
   fetchImpl: typeof fetch = fetch
 ): Promise<SymphonyRuntimeIssueResult | null> {
-  const endpoint = createRuntimeUrl(`/api/v1/${issueIdentifier}`, runtimeBaseUrl);
+  const endpoint = createRuntimeUrl(`/api/v1/${trackerIssueKey}`, runtimeBaseUrl);
   const response = await fetchImpl(endpoint, {
     headers: {
       accept: "application/json"
@@ -65,14 +65,14 @@ export async function requestRuntimeRefresh(
 
 export function shouldRefreshRuntimeIssue(
   message: SymphonyRealtimeServerMessage,
-  issueIdentifier: string
+  trackerIssueKey: string
 ): boolean {
   if (
     message.type === "issue.updated" &&
-    message.issueIdentifier === issueIdentifier
+    message.trackerIssueKey === trackerIssueKey
   ) {
     return true;
   }
 
-  return messageInvalidatesPath(message, `/api/v1/${issueIdentifier}`);
+  return messageInvalidatesPath(message, `/api/v1/${trackerIssueKey}`);
 }

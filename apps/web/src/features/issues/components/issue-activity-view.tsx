@@ -19,7 +19,7 @@ export function IssueActivityView(input: {
   connection: RuntimeSummaryConnectionState;
   error: string | null;
   issueActivity: SymphonyForensicsIssueForensicsBundleResult | null;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   loading: boolean;
 }) {
   const viewModel = input.issueActivity

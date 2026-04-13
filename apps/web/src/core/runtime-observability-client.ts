@@ -37,13 +37,13 @@ export async function fetchRuntimeLogs(
   runtimeBaseUrl: string,
   input: {
     limit?: number;
-    issueIdentifier?: string;
+    trackerIssueKey?: string;
   } = {},
   fetchImpl: typeof fetch = fetch
 ): Promise<SymphonyRuntimeLogsResult> {
   const endpoint = createRuntimeUrl("/api/v1/runtime/logs", runtimeBaseUrl, {
     limit: input.limit ? String(input.limit) : undefined,
-    issueIdentifier: input.issueIdentifier
+    trackerIssueKey: input.trackerIssueKey
   });
   const response = await fetchImpl(endpoint, {
     headers: {

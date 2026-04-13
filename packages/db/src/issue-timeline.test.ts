@@ -21,6 +21,31 @@ afterEach(async () => {
 });
 
 describe("issue timeline store", () => {
+  it("requires tracker issue ids for issue-scoped writes", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-issue-timeline-write-contract-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const timelineStore = createSymphonyIssueTimelineStore(database.db, {
+      repositoryKey
+    });
+
+    try {
+      await expect(
+        timelineStore.record({
+          issueIdentifier: "SYM-599",
+          source: "runtime",
+          eventType: "runtime_session_started",
+          recordedAt: "2026-04-11T03:58:00.000Z"
+        } as never)
+      ).rejects.toThrow("trackerIssueId is required.");
+    } finally {
+      database.close();
+    }
+  });
+
   it("fails fast when recording against a missing canonical issue parent", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-issue-timeline-record-missing-"));
     tempDirectories.push(root);
@@ -35,12 +60,13 @@ describe("issue timeline store", () => {
     try {
       await expect(
         timelineStore.record({
+          trackerIssueId: "tracker-600",
           issueIdentifier: "SYM-600",
           source: "runtime",
           eventType: "runtime_session_started",
           recordedAt: "2026-04-11T03:59:00.000Z"
         })
-      ).rejects.toThrow("Issue timeline issue not found: SYM-600");
+      ).rejects.toThrow("Issue timeline issue not found: tracker-600");
     } finally {
       database.close();
     }
@@ -69,6 +95,7 @@ describe("issue timeline store", () => {
 
       await expect(
         timelineStore.record({
+          trackerIssueId: "tracker-600R",
           issueIdentifier: "SYM-600R",
           source: "runtime",
           eventType: "runtime_session_started",
@@ -111,7 +138,7 @@ describe("issue timeline store", () => {
     }
   });
 
-  it("fails fast when timeline rows lose their canonical issue parent", async () => {
+  it("returns an empty issue-scoped list when timeline rows lose their canonical issue parent", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-issue-timeline-missing-"));
     tempDirectories.push(root);
 
@@ -132,6 +159,7 @@ describe("issue timeline store", () => {
         recordedAt: "2026-04-11T04:05:00.000Z"
       });
       await timelineStore.record({
+        trackerIssueId: "tracker-602",
         issueIdentifier: "SYM-602",
         source: "runtime",
         eventType: "runtime_session_started",
@@ -148,7 +176,7 @@ describe("issue timeline store", () => {
 
       await expect(
         timelineStore.listIssueTimeline("SYM-602")
-      ).rejects.toThrow("Issue timeline issue not found: SYM-602");
+      ).resolves.toEqual([]);
     } finally {
       database.close();
     }

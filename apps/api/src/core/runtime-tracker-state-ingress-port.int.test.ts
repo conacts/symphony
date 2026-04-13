@@ -54,6 +54,7 @@ describe("runtime tracker state ingress port", () => {
 
       expect(observedIssues).toEqual([
         {
+          trackerIssueId: harness.issue.id,
           issueIdentifier: harness.issue.identifier,
           observedTrackerState: "Todo",
           workflowTrackerState: "Bootstrapping"
@@ -97,6 +98,7 @@ describe("runtime tracker state ingress port", () => {
 
       expect(observedIssues).toEqual([
         {
+          trackerIssueId: harness.issue.id,
           issueIdentifier: harness.issue.identifier,
           observedTrackerState: "Todo",
           workflowTrackerState: "Bootstrapping"
@@ -133,6 +135,7 @@ describe("runtime tracker state ingress port", () => {
               claimedIssueCount: 0,
               observedIssues: [
                 {
+                  trackerIssueId: harness.issue.id,
                   issueIdentifier: harness.issue.identifier,
                   observedTrackerState: "Todo",
                   workflowTrackerState: "Bootstrapping"
@@ -163,17 +166,16 @@ describe("runtime tracker state ingress port", () => {
         })
       ).rejects.toThrow(/run\.dispatch without a dispatch callback/i);
 
-      const logs = await harness.runtimeLogStore.list({
-        issueIdentifier: harness.issue.identifier
-      });
+      const logs = await harness.runtimeLogStore.list();
       expect(logs).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             source: "tracker_state_ingress",
             eventType: "tracker_state_ingress_failed",
-            issueIdentifier: harness.issue.identifier,
+            issueIdentifier: null,
             payload: expect.objectContaining({
               scope: "non_running_issue_identifier",
+              requestedIssueIdentifier: harness.issue.identifier,
               error: expect.stringContaining(
                 "Idle tracker state observation emitted run.dispatch without a dispatch callback."
               )
@@ -201,6 +203,7 @@ describe("runtime tracker state ingress port", () => {
       });
 
       expect(observation).toEqual({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "In Review",
         workflowTrackerState: "In Review",
@@ -249,6 +252,7 @@ describe("runtime tracker state ingress port", () => {
       });
 
       expect(observation).toEqual({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Rework",
         workflowTrackerState: null,

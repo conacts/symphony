@@ -452,7 +452,7 @@ describe("agent run view model", () => {
       runArtifacts
     });
 
-    expect(viewModel.issueIdentifier).toBe("COL-165");
+    expect(viewModel.trackerIssueKey).toBe("COL-165");
     expect(viewModel.metrics[0]?.value).toBe("Finished");
     expect(viewModel.metrics[1]?.value).toBe("Completed");
     expect(viewModel.harnessLabel).toBe("Pi");

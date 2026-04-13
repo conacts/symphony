@@ -81,7 +81,7 @@ export const symphonyForensicsIssuesQuerySchema = z.strictObject({
 });
 
 export const symphonyForensicsIssuePathSchema = z.strictObject({
-  issueIdentifier: nonEmptyStringSchema
+  trackerIssueKey: nonEmptyStringSchema
 });
 
 export const symphonyForensicsIssueQuerySchema = z.strictObject({
@@ -109,7 +109,7 @@ export const symphonyForensicsProblemRunsQuerySchema = z.strictObject({
   limit: positiveLimitSchema,
   repo: optionalFilterSchema,
   outcome: optionalOutcomeFilterSchema,
-  issueIdentifier: optionalFilterSchema
+  trackerIssueKey: optionalFilterSchema
 });
 
 export const symphonyForensicsSuccessMetricsQuerySchema = z.strictObject({

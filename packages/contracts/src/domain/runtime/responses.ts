@@ -136,7 +136,7 @@ export const symphonyRuntimeWorkspaceManifestLifecycleSchema = z.strictObject({
 
 export const symphonyRuntimeRunningEntrySchema = z.strictObject({
   trackerIssueId: nonEmptyStringSchema,
-  issueIdentifier: nonEmptyStringSchema,
+  trackerIssueKey: nonEmptyStringSchema,
   state: nonEmptyStringSchema,
   workerHost: nullableNonEmptyStringSchema,
   workspacePath: nullableNonEmptyStringSchema,
@@ -153,7 +153,7 @@ export const symphonyRuntimeRunningEntrySchema = z.strictObject({
 
 export const symphonyRuntimeRetryEntrySchema = z.strictObject({
   trackerIssueId: nonEmptyStringSchema,
-  issueIdentifier: nonEmptyStringSchema,
+  trackerIssueKey: nonEmptyStringSchema,
   attempt: z.number().int().positive(),
   dueAt: isoTimestampSchema.nullable(),
   error: nullableNonEmptyStringSchema,
@@ -415,7 +415,7 @@ export const symphonyRuntimeLogEntrySchema = z.strictObject({
   eventType: nonEmptyStringSchema,
   message: nonEmptyStringSchema,
   trackerIssueId: nullableNonEmptyStringSchema,
-  issueIdentifier: nullableNonEmptyStringSchema,
+  trackerIssueKey: nullableNonEmptyStringSchema,
   runId: nullableNonEmptyStringSchema,
   payload: jsonValueSchema,
   recordedAt: isoTimestampSchema
@@ -462,7 +462,7 @@ export const symphonyRuntimeWorkflowComparisonResultSchema = z.strictObject({
   workflow: z.strictObject({
     workflowId: nonEmptyStringSchema,
     repositoryKey: nonEmptyStringSchema,
-    issueIdentifier: nonEmptyStringSchema,
+    trackerIssueKey: nonEmptyStringSchema,
     routerPresetId: nonEmptyStringSchema,
     routerName: nonEmptyStringSchema,
     routerVersion: nonEmptyStringSchema,
@@ -507,7 +507,7 @@ export const symphonyRuntimeIssueOperatorSchema = z.strictObject({
 });
 
 export const symphonyRuntimeIssueResultSchema = z.strictObject({
-  issueIdentifier: nonEmptyStringSchema,
+  trackerIssueKey: nonEmptyStringSchema,
   trackerIssueId: nonEmptyStringSchema,
   status: symphonyRuntimeIssueStatusSchema,
   workspace: symphonyRuntimeWorkspaceSchema,
@@ -533,7 +533,7 @@ export const symphonyRuntimeTrackerStateObservationDispositionSchema = z.enum([
 ]);
 
 export const symphonyRuntimeTrackerStateObservationResultSchema = z.strictObject({
-  issueIdentifier: nonEmptyStringSchema,
+  trackerIssueKey: nonEmptyStringSchema,
   observedTrackerState: nonEmptyStringSchema,
   workflowTrackerState: nullableNonEmptyStringSchema,
   observed: z.boolean(),
@@ -546,7 +546,7 @@ export const symphonyRuntimeLogsResultSchema = z.strictObject({
   filters: z.strictObject({
     limit: z.number().int().positive().nullable(),
     repo: nullableNonEmptyStringSchema,
-    issueIdentifier: nullableNonEmptyStringSchema
+    trackerIssueKey: nullableNonEmptyStringSchema
   })
 });
 

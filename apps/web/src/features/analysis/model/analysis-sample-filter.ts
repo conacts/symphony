@@ -66,7 +66,7 @@ export function buildAnalysisFilterOptions(
 }
 
 export function countSampledIssues(input: AgentAnalysisSampleResource): number {
-  return new Set(input.sampledRuns.map((sampledRun) => sampledRun.issueIdentifier)).size
+  return new Set(input.sampledRuns.map((sampledRun) => sampledRun.trackerIssueKey)).size
 }
 
 function isActiveHarness(harness: string): boolean {

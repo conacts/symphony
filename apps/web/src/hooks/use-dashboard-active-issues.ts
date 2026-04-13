@@ -8,18 +8,18 @@ export function collectActiveIssueDescriptors(
   }
 
   const running = runtimeSummary.running.map((issue) => ({
-    issueIdentifier: issue.issueIdentifier,
+    trackerIssueKey: issue.trackerIssueKey,
     fallbackState: issue.state ?? "In Progress"
   }));
   const retrying = runtimeSummary.retrying
     .filter(
       (issue) =>
         !runtimeSummary.running.some(
-          (runningIssue) => runningIssue.issueIdentifier === issue.issueIdentifier
+          (runningIssue) => runningIssue.trackerIssueKey === issue.trackerIssueKey
         )
     )
     .map((issue) => ({
-      issueIdentifier: issue.issueIdentifier,
+      trackerIssueKey: issue.trackerIssueKey,
       fallbackState: "Retrying"
     }));
 

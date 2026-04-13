@@ -26,7 +26,7 @@ describe("runtime health view", () => {
               eventType: "cycle_started",
               message: "Poller cycle started.",
               trackerIssueId: null,
-              issueIdentifier: null,
+              trackerIssueKey: null,
               runId: null,
               payload: null,
               recordedAt: "2026-03-31T18:02:00.000Z"
@@ -39,7 +39,7 @@ describe("runtime health view", () => {
               eventType: "task_queue_state",
               message: "Queue state refreshed.",
               trackerIssueId: "issue_123",
-              issueIdentifier: "COL-165",
+              trackerIssueKey: "COL-165",
               runId: "run_123",
               payload: { state: "idle" },
               recordedAt: "2026-03-31T18:03:00.000Z"
@@ -52,7 +52,7 @@ describe("runtime health view", () => {
               eventType: "worker_connection_retry",
               message: "Worker reconnected after retry.",
               trackerIssueId: "issue_456",
-              issueIdentifier: "COL-166",
+              trackerIssueKey: "COL-166",
               runId: "run_456",
               payload: null,
               recordedAt: "2026-03-31T18:04:00.000Z"
@@ -65,7 +65,7 @@ describe("runtime health view", () => {
               eventType: "runtime_snapshot_failed",
               message: "Runtime snapshot failed to refresh.",
               trackerIssueId: null,
-              issueIdentifier: null,
+              trackerIssueKey: null,
               runId: null,
               payload: { reason: "timeout" },
               recordedAt: "2026-03-31T18:05:00.000Z"

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import {
   assertMatchingLifecycleBindingScope,
@@ -6,7 +6,9 @@ import {
   normalizeLifecycleBindingScope,
   type SymphonyLifecycleBindingScope
 } from "./lifecycle-binding-scope.js";
-import { symphonyIssuesTable } from "./schema.js";
+import {
+  symphonyIssuesTable
+} from "./schema.js";
 
 export type SymphonyIssueRecord = {
   trackerIssueId: string;
@@ -54,30 +56,16 @@ export function createSymphonyIssueStore(
 ): SymphonyIssueStore {
   return {
     async fetchByIdentifier(issueIdentifier) {
-      return requireUnscopedIssueRecord(
-        loadIssueByIdentifier(db, issueIdentifier)
-      );
+      return loadIssueByIdentifier(db, issueIdentifier, null);
     },
 
     async fetchByTrackerIssueId(trackerIssueId) {
-      return requireUnscopedIssueRecord(
-        loadIssueByTrackerIssueId(db, trackerIssueId)
-      );
+      return loadIssueByTrackerIssueId(db, trackerIssueId);
     },
 
     async fetchByScopedIdentifier(input) {
       const bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
-      const record = loadIssueByIdentifier(db, input.issueIdentifier);
-      if (!record) {
-        return null;
-      }
-
-      assertMatchingLifecycleBindingScope({
-        owner: `Issue ${record.issueIdentifier}`,
-        actual: record.bindingScope,
-        expected: bindingScope
-      });
-      return record;
+      return loadIssueByIdentifier(db, input.issueIdentifier, bindingScope);
     },
 
     async upsert(input: SymphonyIssueUpsertInput) {
@@ -121,11 +109,11 @@ export function createSymphonyIssueStore(
         .get();
 
       if (!existing) {
-        const conflictingIssueIdentifier = db
-          .select()
-          .from(symphonyIssuesTable)
-          .where(eq(symphonyIssuesTable.issueIdentifier, issueIdentifier))
-          .get();
+        const conflictingIssueIdentifier = loadIssueByIdentifier(
+          db,
+          issueIdentifier,
+          bindingScope
+        );
         if (conflictingIssueIdentifier) {
           throw new TypeError(
             `Issue ${issueIdentifier} is already bound to tracker issue ${conflictingIssueIdentifier.trackerIssueId}, not ${trackerIssueId}.`
@@ -176,11 +164,11 @@ export function createSymphonyIssueStore(
       }
 
       if (existing.issueIdentifier !== issueIdentifier) {
-        const conflictingIssueIdentifier = db
-          .select()
-          .from(symphonyIssuesTable)
-          .where(eq(symphonyIssuesTable.issueIdentifier, issueIdentifier))
-          .get();
+        const conflictingIssueIdentifier = loadIssueByIdentifier(
+          db,
+          issueIdentifier,
+          bindingScope
+        );
         if (conflictingIssueIdentifier) {
           throw new TypeError(
             `Issue ${issueIdentifier} is already bound to tracker issue ${conflictingIssueIdentifier.trackerIssueId}, not ${trackerIssueId}.`
@@ -201,13 +189,15 @@ export function createSymphonyIssueStore(
         })
         .where(eq(symphonyIssuesTable.trackerIssueId, trackerIssueId))
         .run();
+
     }
   };
 }
 
 function loadIssueByIdentifier(
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>,
-  issueIdentifier: string
+  issueIdentifier: string,
+  bindingScope: SymphonyLifecycleBindingScope | null
 ): SymphonyIssueRecord | null {
   const normalizedIssueIdentifier = sanitizeRequiredText(
     issueIdentifier,
@@ -216,7 +206,22 @@ function loadIssueByIdentifier(
   const row = db
     .select()
     .from(symphonyIssuesTable)
-    .where(eq(symphonyIssuesTable.issueIdentifier, normalizedIssueIdentifier))
+    .where(
+      bindingScope === null
+        ? and(
+            eq(symphonyIssuesTable.issueIdentifier, normalizedIssueIdentifier),
+            isNull(symphonyIssuesTable.organizationId),
+            isNull(symphonyIssuesTable.linearWorkspaceIdentityId)
+          )
+        : and(
+            eq(symphonyIssuesTable.issueIdentifier, normalizedIssueIdentifier),
+            eq(symphonyIssuesTable.organizationId, bindingScope.organizationId),
+            eq(
+              symphonyIssuesTable.linearWorkspaceIdentityId,
+              bindingScope.linearWorkspaceIdentityId
+            )
+          )
+    )
     .get();
 
   return row ? mapIssueRow(row) : null;
@@ -237,21 +242,6 @@ function loadIssueByTrackerIssueId(
     .get();
 
   return row ? mapIssueRow(row) : null;
-}
-
-function requireUnscopedIssueRecord(
-  record: SymphonyIssueRecord | null
-): SymphonyIssueRecord | null {
-  if (!record) {
-    return null;
-  }
-
-  assertMatchingLifecycleBindingScope({
-    owner: `Issue ${record.issueIdentifier}`,
-    actual: record.bindingScope,
-    expected: null
-  });
-  return record;
 }
 
 function sanitizeRequiredText(value: string | null | undefined, field: string): string {

@@ -18,18 +18,18 @@ describe("analysis sample filter", () => {
       sampledRuns: [
         {
           repositoryKey: "symphony",
-          issueIdentifier: "COL-165",
+          trackerIssueKey: "COL-165",
           run: buildSymphonyForensicsIssueDetailResult().runs[0]!,
           artifacts: buildSymphonyAgentRunArtifactsResult()
         },
         {
           repositoryKey: "symphony",
-          issueIdentifier: "COL-166",
+          trackerIssueKey: "COL-166",
           run: {
             ...buildSymphonyForensicsIssueDetailResult().runs[0]!,
             runId: "run_456",
             trackerIssueId: "issue_456",
-            issueIdentifier: "COL-166",
+            trackerIssueKey: "COL-166",
             agentHarness: "pi",
             model: "gpt-5.4"
           },
@@ -38,7 +38,7 @@ describe("analysis sample filter", () => {
               ...buildSymphonyAgentRunArtifactsResult().run,
               runId: "run_456",
               trackerIssueId: "issue_456",
-              issueIdentifier: "COL-166",
+              trackerIssueKey: "COL-166",
               harnessKind: "pi",
               providerId: "openai",
               providerName: "OpenAI",
@@ -59,7 +59,7 @@ describe("analysis sample filter", () => {
     const options = buildAnalysisFilterOptions(resource);
 
     expect(filtered.sampledRuns).toHaveLength(1);
-    expect(filtered.sampledRuns[0]?.issueIdentifier).toBe("COL-166");
+    expect(filtered.sampledRuns[0]?.trackerIssueKey).toBe("COL-166");
     expect(countSampledIssues(filtered)).toBe(1);
     expect(options.harnesses.map((option) => option.label)).toEqual([
       "PI"

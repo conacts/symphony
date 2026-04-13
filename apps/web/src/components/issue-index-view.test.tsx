@@ -32,7 +32,7 @@ function buildPagedIssueIndexResult() {
     return {
       ...template,
       trackerIssueId: `issue_${issueNumber}`,
-      issueIdentifier: `COL-${issueNumber}`,
+      trackerIssueKey: `COL-${issueNumber}`,
       latestRunStartedAt: startedAt,
       latestRunId: `run_${issueNumber}`,
       latestDeliveryRunId:

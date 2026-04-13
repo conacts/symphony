@@ -31,14 +31,14 @@ export function useDashboardIssues(input: {
 
     return scopedRows.map((issue) => ({
       repositoryKey: issue.repositoryKey,
-      issueIdentifier: issue.issueIdentifier,
-      title: issue.issueIdentifier,
+      trackerIssueKey: issue.trackerIssueKey,
+      title: issue.trackerIssueKey,
       state:
         issue.latestRunStatus ??
         issue.latestRunOutcome ??
         issue.latestProblemOutcome ??
         "Recorded",
-      href: buildIssueHref(issue.issueIdentifier, {
+      href: buildIssueHref(issue.trackerIssueKey, {
         repo: issue.repositoryKey
       })
     }));

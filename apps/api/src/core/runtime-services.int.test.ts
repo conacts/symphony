@@ -160,7 +160,7 @@ describe("runtime services", () => {
       expect(bundle?.runtimeLogs).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            issueIdentifier: harness.issue.identifier,
+            trackerIssueKey: harness.issue.identifier,
             runId: null,
             source: "workspace",
             eventType: "workspace_manifest_step_started",
@@ -1061,13 +1061,13 @@ describe("runtime services", () => {
     );
       seedDb.client.prepare(`
       insert into symphony_runs (
-        run_id, repository_key, issue_identifier, attempt, run_mode, status, outcome, worker_host,
+        run_id, tracker_issue_id, repository_key, attempt, run_mode, status, outcome, worker_host,
         workspace_path, started_at, ended_at, metadata, error_class, error_message, inserted_at, updated_at
       ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       "run-shutdown",
+      "issue-shutdown",
       "owner/repo",
-      "COL-SHUTDOWN",
       1,
       "implementation",
       "running",
@@ -1163,7 +1163,7 @@ describe("runtime services", () => {
           });
         expect(firstObservation).toEqual(
           expect.objectContaining({
-            issueIdentifier: issue.identifier,
+            trackerIssueKey: issue.identifier,
             observedTrackerState: "In Review",
             workflowTrackerState: "In Review",
             observed: true,
@@ -1192,7 +1192,7 @@ describe("runtime services", () => {
           });
         expect(secondObservation).toEqual(
           expect.objectContaining({
-            issueIdentifier: issue.identifier,
+            trackerIssueKey: issue.identifier,
             observedTrackerState: "In Review",
             workflowTrackerState: "In Review",
             observed: false,

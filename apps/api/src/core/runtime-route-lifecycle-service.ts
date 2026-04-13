@@ -131,6 +131,7 @@ export type SymphonyRuntimeRouteLifecycleService = {
 };
 
 export type SymphonyTrackerStateIngressRecord = {
+  trackerIssueId: string;
   issueIdentifier: string;
   observedTrackerState: string;
   workflowTrackerState: string;
@@ -146,6 +147,7 @@ export type SymphonyTrackerStateIngressObservation =
       disposition: "skipped";
     })
   | {
+      trackerIssueId: string;
       issueIdentifier: string;
       observedTrackerState: string;
       workflowTrackerState: null;
@@ -316,6 +318,7 @@ export async function createRuntimeRouteLifecycleService(input: {
               "after non-running tracker state ingress recorded an observed transition"
           });
           observedIssues.push({
+            trackerIssueId: observed.issue.id,
             issueIdentifier: observed.issue.identifier,
             observedTrackerState,
             workflowTrackerState: workflowLifecycle.trackerState
@@ -346,6 +349,7 @@ export async function createRuntimeRouteLifecycleService(input: {
 
       if (disposition.disposition === "skip") {
         return {
+          trackerIssueId: issue.id,
           issueIdentifier: issue.identifier,
           observedTrackerState: issue.state,
           workflowTrackerState: disposition.workflowTrackerState,
@@ -356,6 +360,7 @@ export async function createRuntimeRouteLifecycleService(input: {
 
       if (disposition.disposition === "ignore") {
         return {
+          trackerIssueId: issue.id,
           issueIdentifier: issue.identifier,
           observedTrackerState: issue.state,
           workflowTrackerState: null,
@@ -380,6 +385,7 @@ export async function createRuntimeRouteLifecycleService(input: {
       });
 
       return {
+        trackerIssueId: observed.issue.id,
         issueIdentifier: observed.issue.identifier,
         observedTrackerState,
         workflowTrackerState: workflowLifecycle.trackerState,

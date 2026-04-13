@@ -103,7 +103,7 @@ function buildDailySuccessMetrics(runs: SymphonyForensicsRunSummary[]): Symphony
     const startedKey = calendarDate(run.startedAt);
     if (startedKey) {
       const startedRow = ensureDailyRow(rows, startedKey);
-      startedRow.startedIssues.add(run.issueIdentifier);
+      startedRow.startedIssues.add(run.trackerIssueKey);
       startedRow.startedRunCount += 1;
       startedRow.totalTokens += run.totalTokens;
       if (isMaxTurnsRun(run)) {
@@ -121,7 +121,7 @@ function buildDailySuccessMetrics(runs: SymphonyForensicsRunSummary[]): Symphony
       run.deliveryStatus === "completed" ? calendarDate(run.deliveryReportedAt) : null;
     if (deliveryKey) {
       const deliveryRow = ensureDailyRow(rows, deliveryKey);
-      deliveryRow.deliveredIssues.add(run.issueIdentifier);
+      deliveryRow.deliveredIssues.add(run.trackerIssueKey);
       deliveryRow.deliveredRunCount += 1;
     }
   }
@@ -164,7 +164,7 @@ function buildIssueSuccessMetrics(runs: SymphonyForensicsRunSummary[]) {
     null;
 
   return {
-    issueIdentifier: runs[0]?.issueIdentifier ?? "[missing-issue-identifier]",
+    trackerIssueKey: runs[0]?.trackerIssueKey ?? "[missing-tracker-issue-key]",
     runCount: runs.length,
     totalTokens,
     totalCachedInputTokens,

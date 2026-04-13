@@ -12,7 +12,7 @@ describe("performance analysis view model", () => {
       sampledRuns: [
         {
           repositoryKey: "symphony",
-          issueIdentifier: "COL-165",
+          trackerIssueKey: "COL-165",
           run: {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
             runId: "run_a"

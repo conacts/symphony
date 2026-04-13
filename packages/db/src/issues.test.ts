@@ -388,9 +388,7 @@ describe("issue store", () => {
         updatedAt: "2026-04-10T04:40:00.000Z"
       });
 
-      await expect(issueStore.fetchByIdentifier("SYM-504")).rejects.toThrow(
-        "Issue SYM-504 is scoped to hosted workspace org-1/workspace-1, not the unscoped lifecycle path."
-      );
+      await expect(issueStore.fetchByIdentifier("SYM-504")).resolves.toBeNull();
     } finally {
       database.close();
     }

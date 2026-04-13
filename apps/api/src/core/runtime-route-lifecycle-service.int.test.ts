@@ -100,6 +100,7 @@ describe("runtime route lifecycle service", () => {
       });
 
       expect(observed).toEqual({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "In Review",
         workflowTrackerState: "In Review",
@@ -140,6 +141,7 @@ describe("runtime route lifecycle service", () => {
       });
 
       expect(observed).toEqual({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "In Review",
         workflowTrackerState: "In Review",
@@ -193,6 +195,7 @@ describe("runtime route lifecycle service", () => {
       });
 
       expect(observed).toEqual({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Rework",
         workflowTrackerState: "Bootstrapping",
@@ -251,6 +254,7 @@ describe("runtime route lifecycle service", () => {
       });
 
       expect(observed).toEqual({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Todo",
         workflowTrackerState: "In Progress",
@@ -550,6 +554,7 @@ describe("runtime route lifecycle service", () => {
 
       expect(observedIssues).toEqual([
         {
+          trackerIssueId: harness.issue.id,
           issueIdentifier: harness.issue.identifier,
           observedTrackerState: "Todo",
           workflowTrackerState: "Bootstrapping"
@@ -633,6 +638,7 @@ describe("runtime route lifecycle service", () => {
       });
 
       expect(observed).toEqual({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Rework",
         workflowTrackerState: null,
@@ -684,6 +690,7 @@ describe("runtime route lifecycle service", () => {
 
       expect(observedIssues).toEqual([
         {
+          trackerIssueId: harness.issue.id,
           issueIdentifier: harness.issue.identifier,
           observedTrackerState: "Approved",
           workflowTrackerState: "Approved"
@@ -775,6 +782,7 @@ describe("runtime route lifecycle service", () => {
       >(harness.issue.identifier);
 
       expect(observed).toEqual({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "In Review",
         workflowTrackerState: "In Review",
@@ -1124,6 +1132,7 @@ describe("runtime route lifecycle service", () => {
       });
 
       expect(observed).toEqual({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Todo",
         workflowTrackerState: "Bootstrapping",
@@ -1211,6 +1220,7 @@ describe("runtime route lifecycle service", () => {
       });
 
       expect(observed).toEqual({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Approved",
         workflowTrackerState: "Approved",

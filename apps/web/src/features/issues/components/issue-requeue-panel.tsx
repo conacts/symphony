@@ -15,7 +15,7 @@ export function IssueRequeuePanel(input: {
   error: string | null;
   issueDetail: SymphonyForensicsIssueDetailResult | null;
   issue: SymphonyRuntimeIssueResult | null;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   loading: boolean;
 }) {
   const piConfig = input.issue?.operator.pi ?? null;
@@ -30,7 +30,7 @@ export function IssueRequeuePanel(input: {
         })[0]?.startedAt ?? null
     : null;
   const timelineHref = input.issueDetail
-    ? buildIssueTimelineHref(input.issueIdentifier, {
+    ? buildIssueTimelineHref(input.trackerIssueKey, {
         repo: input.issueDetail.repositoryKey
       })
     : null;
@@ -55,7 +55,7 @@ export function IssueRequeuePanel(input: {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0 flex-1">
           <h1 className="text-3xl font-semibold tracking-tight">
-            {input.issue?.tracked.title ?? input.issueIdentifier}
+            {input.issue?.tracked.title ?? input.trackerIssueKey}
           </h1>
 
           {input.issue ? (

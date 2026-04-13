@@ -175,14 +175,14 @@ describe("@symphony/api app", () => {
       const routedDispatches: Array<{
         workflowId: string;
         commandId: string;
-        issueIdentifier: string;
+        trackerIssueKey: string;
         runMode: string;
       }> = [];
       harness.services.orchestrator.dispatchRoutedIssue = async (input) => {
         routedDispatches.push({
           workflowId: input.workflowId,
           commandId: input.commandId,
-          issueIdentifier: input.trackerIssue.identifier,
+          trackerIssueKey: input.trackerIssue.identifier,
           runMode: input.runMode
         });
       };
@@ -196,13 +196,13 @@ describe("@symphony/api app", () => {
             "content-type": "application/json"
           },
           body: JSON.stringify({
-            issueIdentifier: "COL-777"
+            trackerIssueKey: "COL-777"
           })
         }
       );
       const firstPayload = await responseJson<{
         data: {
-          issueIdentifier: string;
+          trackerIssueKey: string;
           observedTrackerState: string;
           workflowTrackerState: string | null;
           observed: boolean;
@@ -226,13 +226,13 @@ describe("@symphony/api app", () => {
             "content-type": "application/json"
           },
           body: JSON.stringify({
-            issueIdentifier: "COL-777"
+            trackerIssueKey: "COL-777"
           })
         }
       );
       const secondPayload = await responseJson<{
         data: {
-          issueIdentifier: string;
+          trackerIssueKey: string;
           observedTrackerState: string;
           workflowTrackerState: string | null;
           observed: boolean;
@@ -242,7 +242,7 @@ describe("@symphony/api app", () => {
       }>(secondResponse);
 
       expect(firstResponse.status).toBe(200);
-      expect(firstPayload.data.issueIdentifier).toBe("COL-777");
+      expect(firstPayload.data.trackerIssueKey).toBe("COL-777");
       expect(firstPayload.data.observedTrackerState).toBe("Todo");
       expect(firstPayload.data.workflowTrackerState).toBe("Bootstrapping");
       expect(firstPayload.data.observed).toBe(true);
@@ -252,13 +252,13 @@ describe("@symphony/api app", () => {
         {
           workflowId: expect.any(String),
           commandId: expect.any(String),
-          issueIdentifier: "COL-777",
+          trackerIssueKey: "COL-777",
           runMode: "implementation"
         },
         {
           workflowId: expect.any(String),
           commandId: expect.any(String),
-          issueIdentifier: "COL-777",
+          trackerIssueKey: "COL-777",
           runMode: "implementation"
         }
       ]);
@@ -267,7 +267,7 @@ describe("@symphony/api app", () => {
 
       expect(secondResponse.status).toBe(200);
       expect(secondPayload.data).toEqual({
-        issueIdentifier: "COL-777",
+        trackerIssueKey: "COL-777",
         observedTrackerState: "Bootstrapping",
         workflowTrackerState: "Bootstrapping",
         observed: true,
@@ -294,7 +294,7 @@ describe("@symphony/api app", () => {
             "content-type": "application/json"
           },
           body: JSON.stringify({
-            issueIdentifier: "COL-404"
+            trackerIssueKey: "COL-404"
           })
         }
       );
@@ -345,7 +345,7 @@ describe("@symphony/api app", () => {
           eventType: string;
         }>;
         runtimeLogs: Array<{
-          issueIdentifier: string;
+          trackerIssueKey: string;
           runId: string | null;
           source: string;
           eventType: string;
@@ -365,7 +365,7 @@ describe("@symphony/api app", () => {
     expect(payload.data.runtimeLogs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          issueIdentifier: harness.issue.identifier,
+          trackerIssueKey: harness.issue.identifier,
           runId: null,
           source: "workspace",
           eventType: "workspace_manifest_step_started",
@@ -404,7 +404,7 @@ describe("@symphony/api app", () => {
       const issuesPayload = await responseJson<{
         data: {
           issues: Array<{
-            issueIdentifier: string;
+            trackerIssueKey: string;
           }>;
           totals: {
             issueCount: number;
@@ -413,13 +413,13 @@ describe("@symphony/api app", () => {
       }>(issuesResponse);
       const issueDetailPayload = await responseJson<{
         data: {
-          issueIdentifier: string;
+          trackerIssueKey: string;
         };
       }>(issueDetailResponse);
       const issueBundlePayload = await responseJson<{
         data: {
           issue: {
-            issueIdentifier: string;
+            trackerIssueKey: string;
           };
           recentRuns: unknown[];
         };
@@ -449,14 +449,14 @@ describe("@symphony/api app", () => {
       }>(problemRunsResponse);
 
       expect(issuesResponse.status).toBe(200);
-      expect(issuesPayload.data.issues[0]?.issueIdentifier).toBe("COL-123");
+      expect(issuesPayload.data.issues[0]?.trackerIssueKey).toBe("COL-123");
       expect(issuesPayload.data.totals.issueCount).toBeGreaterThanOrEqual(1);
 
       expect(issueDetailResponse.status).toBe(200);
-      expect(issueDetailPayload.data.issueIdentifier).toBe("COL-123");
+      expect(issueDetailPayload.data.trackerIssueKey).toBe("COL-123");
 
       expect(issueBundleResponse.status).toBe(200);
-      expect(issueBundlePayload.data.issue.issueIdentifier).toBe("COL-123");
+      expect(issueBundlePayload.data.issue.trackerIssueKey).toBe("COL-123");
       expect(Array.isArray(issueBundlePayload.data.recentRuns)).toBe(true);
 
       expect(successMetricsResponse.status).toBe(200);
@@ -891,7 +891,7 @@ describe("@symphony/api app", () => {
       const runtimeIssueResponse = await app.request("/api/v1/COL-123");
       const runtimeIssuePayload = await responseJson<{
         data: {
-          issueIdentifier: string;
+          trackerIssueKey: string;
           workspace: {
             backendKind: string | null;
             workerHost: string | null;
@@ -925,7 +925,7 @@ describe("@symphony/api app", () => {
       }>(runtimeIssueResponse);
 
       expect(runtimeIssueResponse.status).toBe(200);
-      expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");
+      expect(runtimeIssuePayload.data.trackerIssueKey).toBe("COL-123");
       expect(runtimeIssuePayload.data.workspace.backendKind).toBe("docker");
       expect(runtimeIssuePayload.data.workspace.workerHost).toBeNull();
       expect(runtimeIssuePayload.data.workspace.hostPath).toContain("/symphony-COL-123");
@@ -962,7 +962,7 @@ describe("@symphony/api app", () => {
     const runtimeIssueResponse = await app.request("/api/v1/COL-123");
     const runtimeIssuePayload = await responseJson<{
       data: {
-        issueIdentifier: string;
+        trackerIssueKey: string;
         status: string;
         workspace: {
           backendKind: string | null;
@@ -988,7 +988,7 @@ describe("@symphony/api app", () => {
     }>(runtimeIssueResponse);
 
     expect(runtimeIssueResponse.status).toBe(200);
-    expect(runtimeIssuePayload.data.issueIdentifier).toBe("COL-123");
+    expect(runtimeIssuePayload.data.trackerIssueKey).toBe("COL-123");
     expect(runtimeIssuePayload.data.status).toBe("tracked");
     expect(runtimeIssuePayload.data.workspace.backendKind).toBeNull();
     expect(runtimeIssuePayload.data.workspace.workerHost).toBeNull();
@@ -1078,14 +1078,14 @@ describe("@symphony/api app", () => {
     const payload = await responseJson<{
       data: {
         repositoryKey: string;
-        issueIdentifier: string;
+        trackerIssueKey: string;
         entries: unknown[];
       };
     }>(response);
 
     expect(response.status).toBe(200);
     expect(payload.data.repositoryKey).toBe("openai/symphony");
-    expect(payload.data.issueIdentifier).toBe("COL-EMPTY");
+    expect(payload.data.trackerIssueKey).toBe("COL-EMPTY");
     expect(payload.data.entries).toEqual([]);
   });
 
@@ -1203,14 +1203,14 @@ describe("@symphony/api app", () => {
       const routedDispatches: Array<{
         workflowId: string;
         commandId: string;
-        issueIdentifier: string;
+        trackerIssueKey: string;
         runMode: string;
       }> = [];
       harness.services.orchestrator.dispatchRoutedIssue = async (input) => {
         routedDispatches.push({
           workflowId: input.workflowId,
           commandId: input.commandId,
-          issueIdentifier: input.trackerIssue.identifier,
+          trackerIssueKey: input.trackerIssue.identifier,
           runMode: input.runMode
         });
       };
@@ -1252,7 +1252,7 @@ describe("@symphony/api app", () => {
         {
           workflowId: expect.any(String),
           commandId: expect.any(String),
-          issueIdentifier: "COL-123",
+          trackerIssueKey: "COL-123",
           runMode: "rework"
         }
       ]);
@@ -1280,7 +1280,7 @@ describe("@symphony/api app", () => {
       expect(runtimeLogs.logs).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            issueIdentifier: "COL-123",
+            trackerIssueKey: "COL-123",
             source: "github_review_ingress",
             eventType: "github_review_ingress_processed",
             message: "Processed GitHub review ingress event.",

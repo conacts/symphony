@@ -26,7 +26,7 @@ describe("forensics client", () => {
             {
               repositoryKey: "symphony",
               trackerIssueId: "issue_123",
-              issueIdentifier: "COL-165",
+              trackerIssueKey: "COL-165",
               latestRunStartedAt: "2026-03-31T18:00:00.000Z",
               latestRunId: "run_123",
               latestRunStatus: "finished",
@@ -35,7 +35,7 @@ describe("forensics client", () => {
               completedRunCount: 1,
               problemRunCount: 2,
               problemRate: 2 / 3,
-              latestProblemOutcome: "max_turns",
+              latestProblemOutcome: "paused_max_turns",
               lastCompletedOutcome: "completed",
               latestDeliveryStatus: "completed",
               latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
@@ -89,7 +89,7 @@ describe("forensics client", () => {
           },
           facets: {
             repositories: ["symphony"],
-            outcomes: ["completed", "max_turns"],
+            outcomes: ["completed", "paused_max_turns"],
             errorClasses: ["max_turns"]
           }
         },
@@ -106,7 +106,7 @@ describe("forensics client", () => {
       fetchImpl as typeof fetch
     );
 
-    expect(issueIndex.issues[0]?.issueIdentifier).toBe("COL-165");
+    expect(issueIndex.issues[0]?.trackerIssueKey).toBe("COL-165");
     expect(issueIndex.totals.problemRunCount).toBe(2);
   });
 
@@ -120,11 +120,11 @@ describe("forensics client", () => {
           ok: true,
           data: {
             repositoryKey: "symphony",
-            issueIdentifier: "COL-165",
+            trackerIssueKey: "COL-165",
             runs: [],
             summary: {
               runCount: 3,
-              latestProblemOutcome: "max_turns",
+              latestProblemOutcome: "paused_max_turns",
               lastCompletedOutcome: "completed",
               latestDeliveryStatus: "completed",
               latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
@@ -184,41 +184,41 @@ describe("forensics client", () => {
             issue: {
               repositoryKey: "symphony",
               trackerIssueId: "issue_123",
-              issueIdentifier: "COL-165",
-            latestRunStartedAt: "2026-03-31T18:00:00.000Z",
-            latestRunId: "run_123",
-            latestRunStatus: "finished",
-            latestRunOutcome: "completed",
-            runCount: 3,
-            completedRunCount: 1,
-            problemRunCount: 2,
-            problemRate: 2 / 3,
-            latestProblemOutcome: "max_turns",
-            lastCompletedOutcome: "completed",
-            latestDeliveryStatus: "completed",
-            latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
-            latestDeliveryRunId: "run_123",
-            latestDeliveryPrUrl: "https://github.com/example/repo/pull/165",
-            deliveredRunCount: 1,
-            retryCount: 2,
-            latestRetryAttempt: 3,
-            rateLimitedCount: 1,
-            maxTurnsCount: 1,
-            startupFailureCount: 0,
-            totalInputTokens: 6000,
-            totalCachedInputTokens: 1200,
-            totalOutputTokens: 2500,
-            totalTokens: 9700,
-            avgDurationSeconds: 420,
-            avgTurns: 5,
-            avgEvents: 10,
-            latestErrorClass: "max_turns",
-            latestErrorMessage: "Reached max turns.",
-            latestActivityAt: "2026-03-31T18:05:00.000Z",
-            flags: ["max_turns", "many_retries"],
-            insertedAt: "2026-03-31T18:00:00.000Z",
-            updatedAt: "2026-03-31T18:05:00.000Z"
-          },
+              trackerIssueKey: "COL-165",
+              latestRunStartedAt: "2026-03-31T18:00:00.000Z",
+              latestRunId: "run_123",
+              latestRunStatus: "finished",
+              latestRunOutcome: "completed",
+              runCount: 3,
+              completedRunCount: 1,
+              problemRunCount: 2,
+              problemRate: 2 / 3,
+              latestProblemOutcome: "paused_max_turns",
+              lastCompletedOutcome: "completed",
+              latestDeliveryStatus: "completed",
+              latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
+              latestDeliveryRunId: "run_123",
+              latestDeliveryPrUrl: "https://github.com/example/repo/pull/165",
+              deliveredRunCount: 1,
+              retryCount: 2,
+              latestRetryAttempt: 3,
+              rateLimitedCount: 1,
+              maxTurnsCount: 1,
+              startupFailureCount: 0,
+              totalInputTokens: 6000,
+              totalCachedInputTokens: 1200,
+              totalOutputTokens: 2500,
+              totalTokens: 9700,
+              avgDurationSeconds: 420,
+              avgTurns: 5,
+              avgEvents: 10,
+              latestErrorClass: "max_turns",
+              latestErrorMessage: "Reached max turns.",
+              latestActivityAt: "2026-03-31T18:05:00.000Z",
+              flags: ["max_turns", "many_retries"],
+              insertedAt: "2026-03-31T18:00:00.000Z",
+              updatedAt: "2026-03-31T18:05:00.000Z"
+            },
           recentRuns: [],
           distributions: {
             outcomes: {},
@@ -255,7 +255,7 @@ describe("forensics client", () => {
       fetchImpl as typeof fetch
     );
 
-    expect(bundle.issue.issueIdentifier).toBe("COL-165");
+    expect(bundle.issue.trackerIssueKey).toBe("COL-165");
     expect(bundle.filters.timeRange).toBe("all");
   });
 
@@ -291,7 +291,7 @@ describe("forensics client", () => {
       shouldRefreshIssueIndex({
         type: "issue.updated",
         channel: "issues",
-        issueIdentifier: "COL-165",
+        trackerIssueKey: "COL-165",
         generatedAt: "2026-03-31T18:00:00.000Z",
         invalidate: ["/api/v1/issues"]
       })
@@ -302,7 +302,7 @@ describe("forensics client", () => {
           type: "run.updated",
           channel: "runs",
           runId: "run_123",
-          issueIdentifier: "COL-165",
+          trackerIssueKey: "COL-165",
           generatedAt: "2026-03-31T18:00:00.000Z",
           invalidate: ["/api/v1/runs/run_123", "/api/v1/issues/COL-165"]
         },
@@ -315,7 +315,7 @@ describe("forensics client", () => {
           type: "run.updated",
           channel: "runs",
           runId: "run_123",
-          issueIdentifier: "COL-165",
+          trackerIssueKey: "COL-165",
           generatedAt: "2026-03-31T18:00:00.000Z",
           invalidate: ["/api/v1/runs/run_123"]
         },

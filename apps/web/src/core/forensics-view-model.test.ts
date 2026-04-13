@@ -11,7 +11,7 @@ describe("forensics view model", () => {
         {
           repositoryKey: "symphony",
           trackerIssueId: "issue_123",
-          issueIdentifier: "COL-165",
+          trackerIssueKey: "COL-165",
           latestRunStartedAt: "2026-03-31T18:00:00.000Z",
           latestRunId: "run_123",
           latestRunStatus: "finished",
@@ -83,12 +83,12 @@ describe("forensics view model", () => {
     expect(issueIndex.summaryCards[0]?.label).toBe("Total issues");
     expect(issueIndex.summaryCards[3]?.value).toBe("33.3%");
     expect(issueIndex.outcomeChartRows[0]).toEqual({
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       completedRunCount: 1,
       problemRunCount: 2
     });
     expect(issueIndex.pressureChartRows[0]).toEqual({
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       retryCount: 2,
       rateLimitedCount: 1,
       maxTurnsCount: 1
@@ -103,13 +103,13 @@ describe("forensics view model", () => {
   it("formats the issue drilldown rows", () => {
     const issueDetail = buildIssueDetailViewModel({
       repositoryKey: "symphony",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       runs: [
         {
           repositoryKey: "symphony",
           runId: "run_123",
           trackerIssueId: "issue_123",
-          issueIdentifier: "COL-165",
+          trackerIssueKey: "COL-165",
           attempt: 1,
           status: "finished",
           outcome: "completed",
@@ -183,13 +183,13 @@ describe("forensics view model", () => {
   it("rolls run machine-load summaries up into issue machine-load cards", () => {
     const issueDetail = buildIssueDetailViewModel({
       repositoryKey: "symphony",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       runs: [
         {
           repositoryKey: "symphony",
           runId: "run_123",
           trackerIssueId: "issue_123",
-          issueIdentifier: "COL-165",
+          trackerIssueKey: "COL-165",
           attempt: 1,
           status: "finished",
           outcome: "completed",
@@ -236,7 +236,7 @@ describe("forensics view model", () => {
           repositoryKey: "symphony",
           runId: "run_124",
           trackerIssueId: "issue_123",
-          issueIdentifier: "COL-165",
+          trackerIssueKey: "COL-165",
           attempt: 2,
           status: "failed",
           outcome: "failed",
@@ -338,13 +338,13 @@ describe("forensics view model", () => {
   it("falls back to unique run labels when attempts are missing", () => {
     const issueDetail = buildIssueDetailViewModel({
       repositoryKey: "symphony",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       runs: [
         {
           repositoryKey: "symphony",
           runId: "564d183f-24ed-4c4f-be2e-06b15d2782b0",
           trackerIssueId: "issue_123",
-          issueIdentifier: "COL-165",
+          trackerIssueKey: "COL-165",
           attempt: null,
           status: "stopped",
           outcome: "run_stopped_terminal",
@@ -380,7 +380,7 @@ describe("forensics view model", () => {
           repositoryKey: "symphony",
           runId: "b2122cb9-5748-4d41-92b3-29eb082ce99b",
           trackerIssueId: "issue_123",
-          issueIdentifier: "COL-165",
+          trackerIssueKey: "COL-165",
           attempt: null,
           status: "stopped",
           outcome: "run_stopped_inactive",

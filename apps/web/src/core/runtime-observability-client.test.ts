@@ -74,7 +74,7 @@ describe("runtime observability client", () => {
       shouldRefreshRuntimeLogs({
         type: "issue.updated",
         channel: "issues",
-        issueIdentifier: "COL-165",
+        trackerIssueKey: "COL-165",
         generatedAt: "2026-03-31T18:05:00.000Z",
         invalidate: ["/api/v1/issues/COL-165"]
       })

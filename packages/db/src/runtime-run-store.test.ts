@@ -323,7 +323,19 @@ describe("runtime run delivery projections", () => {
         .where(eq(symphonyRunsTable.runId, runId))
         .get();
 
-      expect(storedRun?.issueIdentifier).toBe("COL-201B");
+      expect(storedRun).toEqual(
+        expect.objectContaining({
+          runId,
+          trackerIssueId: "issue-rename-cascade-1"
+        })
+      );
+      await expect(
+        issueStore.fetchByTrackerIssueId("issue-rename-cascade-1")
+      ).resolves.toEqual(
+        expect.objectContaining({
+          issueIdentifier: "COL-201B"
+        })
+      );
     } finally {
       database.close();
     }
@@ -443,7 +455,7 @@ describe("runtime run delivery projections", () => {
       });
 
       const [run] = await readStore.listRuns({
-        issueIdentifier: "COL-157"
+        trackerIssueKey: "COL-157"
       });
       const detail = await readStore.fetchRunDetail(runId);
 

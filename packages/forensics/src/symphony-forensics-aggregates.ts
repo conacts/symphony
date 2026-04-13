@@ -94,7 +94,7 @@ export function buildIssueAggregate(
   return {
     repositoryKey: firstRun.repositoryKey,
     trackerIssueId: firstRun.trackerIssueId,
-    issueIdentifier: firstRun.issueIdentifier,
+    trackerIssueKey: firstRun.trackerIssueKey,
     latestRunStartedAt: latestRun?.startedAt ?? null,
     latestRunId: latestRun?.runId ?? null,
     latestRunStatus: latestRun?.status ?? null,
@@ -170,7 +170,7 @@ export function groupRunsByIssue(
   const grouped = new Map<string, SymphonyForensicsRunSummary[]>();
 
   for (const run of runs) {
-    const issueKey = `${run.repositoryKey}\u0000${run.issueIdentifier}`;
+    const issueKey = `${run.repositoryKey}\u0000${run.trackerIssueKey}`;
     const existingRuns = grouped.get(issueKey);
 
     if (existingRuns) {
@@ -232,7 +232,7 @@ export function compareIssueAggregates(
   }
 
   if (comparison === 0) {
-    comparison = left.issueIdentifier.localeCompare(right.issueIdentifier);
+    comparison = left.trackerIssueKey.localeCompare(right.trackerIssueKey);
   }
 
   return filters.sortDirection === "asc" ? comparison : comparison * -1;

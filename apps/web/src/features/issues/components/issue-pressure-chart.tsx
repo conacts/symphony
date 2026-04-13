@@ -35,7 +35,7 @@ const issuePressureChartConfig = {
 
 export function IssuePressureChart(input: {
   rows: Array<{
-    issueIdentifier: string;
+    trackerIssueKey: string;
     retryCount: number;
     rateLimitedCount: number;
     maxTurnsCount: number;
@@ -59,7 +59,7 @@ export function IssuePressureChart(input: {
             <BarChart accessibilityLayer data={input.rows} margin={{ left: 12, right: 12 }}>
               <CartesianGrid vertical={false} />
               <XAxis
-                dataKey="issueIdentifier"
+                dataKey="trackerIssueKey"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}

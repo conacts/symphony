@@ -67,7 +67,7 @@ describe("@symphony/api realtime websocket", () => {
       }),
       expect.objectContaining({
         type: "issue.updated",
-        issueIdentifier: "COL-123"
+        trackerIssueKey: "COL-123"
       }),
       expect.objectContaining({
         type: "problem-runs.updated",

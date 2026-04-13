@@ -37,7 +37,7 @@ describe("issue activity view", () => {
         connection={buildSymphonyDashboardConnectionState()}
         error={null}
         issueActivity={buildSymphonyForensicsIssueForensicsBundleResult()}
-        issueIdentifier="COL-165"
+        trackerIssueKey="COL-165"
         loading={false}
       />
     );
@@ -66,7 +66,7 @@ describe("issue activity view", () => {
               eventType: "workspace_manifest_step_started",
               message: "Manifest lifecycle step bootstrap/install started.",
               trackerIssueId: "issue_123",
-              issueIdentifier: "COL-165",
+              trackerIssueKey: "COL-165",
               runId: "run_12345678",
               payload: {
                 manifestLifecycle: {
@@ -81,7 +81,7 @@ describe("issue activity view", () => {
             }
           ]
         })}
-        issueIdentifier="COL-165"
+        trackerIssueKey="COL-165"
         loading={false}
       />
     );
@@ -106,7 +106,7 @@ describe("issue activity view", () => {
               entryId: "timeline-bootstrap",
               repositoryKey: "openai/symphony",
               trackerIssueId: "issue_123",
-              issueIdentifier: "COL-165",
+              trackerIssueKey: "COL-165",
               runId: "run_12345678",
               turnId: null,
               source: "workspace",
@@ -130,7 +130,7 @@ describe("issue activity view", () => {
               eventType: "workspace_manifest_step_started",
               message: "Manifest lifecycle step bootstrap/install started.",
               trackerIssueId: "issue_123",
-              issueIdentifier: "COL-165",
+              trackerIssueKey: "COL-165",
               runId: "run_12345678",
               payload: {
                 manifestLifecycle: {
@@ -142,7 +142,7 @@ describe("issue activity view", () => {
             }
           ]
         })}
-        issueIdentifier="COL-165"
+        trackerIssueKey="COL-165"
         loading={false}
       />
     );

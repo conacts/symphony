@@ -372,7 +372,9 @@ describe("runtime db observer", () => {
     ]);
     await expect(
       defaultTimelineStore.listIssueTimeline(issue.identifier)
-    ).resolves.toEqual([]);
+    ).rejects.toThrow(
+      "Issue timeline repository mismatch for COL-901: conacts/coldets-v2 is not openai/symphony."
+    );
     await expect(
       coldetsRuntimeLogStore.list({
         issueIdentifier: issue.identifier
@@ -388,7 +390,9 @@ describe("runtime db observer", () => {
       defaultRuntimeLogStore.list({
         issueIdentifier: issue.identifier
       })
-    ).resolves.toEqual([]);
+    ).rejects.toThrow(
+      "Runtime log repository mismatch for"
+    );
   });
 });
 

@@ -38,8 +38,8 @@ export function createIssueTimelinePort(input: {
 
       return {
         repositoryKey: issue.repositoryKey,
-        issueIdentifier,
-        entries,
+        trackerIssueKey: issueIdentifier,
+        entries: entries.map(mapTrackerIssueKeyField),
         filters: {
           limit: limit ?? null,
           repo: repo ?? null
@@ -56,15 +56,16 @@ export function createRuntimeLogsPort(input: {
     async list(query = {}) {
       const logs = await input.runtimeLogStore.list({
         limit: query.limit,
+        repo: query.repo,
         issueIdentifier: query.issueIdentifier
       });
 
       return {
-        logs,
+        logs: logs.map(mapNullableTrackerIssueKeyField),
         filters: {
           limit: query.limit ?? null,
           repo: logs[0]?.repositoryKey ?? query.repo ?? null,
-          issueIdentifier: query.issueIdentifier ?? null
+          trackerIssueKey: query.issueIdentifier ?? null
         }
       };
     }
@@ -102,5 +103,25 @@ function buildIdlePollerSnapshot(intervalMs: number) {
     lastCompletedAt: null,
     lastSucceededAt: null,
     lastError: null
+  };
+}
+
+function mapTrackerIssueKeyField<T extends { issueIdentifier: string }>(
+  input: T
+): Omit<T, "issueIdentifier"> & { trackerIssueKey: string } {
+  const { issueIdentifier, ...rest } = input;
+  return {
+    ...rest,
+    trackerIssueKey: issueIdentifier
+  };
+}
+
+function mapNullableTrackerIssueKeyField<T extends { issueIdentifier: string | null }>(
+  input: T
+): Omit<T, "issueIdentifier"> & { trackerIssueKey: string | null } {
+  const { issueIdentifier, ...rest } = input;
+  return {
+    ...rest,
+    trackerIssueKey: issueIdentifier
   };
 }

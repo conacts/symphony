@@ -7,7 +7,7 @@ export default async function IssueRunDetailPage(input: {
     runId: string;
   }>;
 }): Promise<ReactElement> {
-  const { runId } = await input.params;
+  const { issueIdentifier: _trackerIssueKey, runId } = await input.params;
 
   return <RunTurnsLiveScreen runId={runId} />;
 }

@@ -60,7 +60,7 @@ export function serializeRuntimeState(
         : undefined,
     running: snapshot.running.map((entry) => ({
       trackerIssueId: entry.issueId,
-      issueIdentifier: entry.issue.identifier,
+      trackerIssueKey: entry.issue.identifier,
       state: requireWorkflowTrackerState({
         issueIdentifier: entry.issue.identifier,
         workflowTrackerState:
@@ -89,7 +89,7 @@ export function serializeRuntimeState(
     })),
     retrying: snapshot.retrying.map((entry) => ({
       trackerIssueId: entry.issueId,
-      issueIdentifier: entry.identifier,
+      trackerIssueKey: entry.identifier,
       attempt: entry.attempt,
       dueAt: new Date(entry.dueAtMs).toISOString(),
       error: entry.error,
@@ -111,16 +111,16 @@ export function serializeRuntimeState(
 export function serializeRuntimeIssue(
   snapshot: SymphonyOrchestratorSnapshot,
   githubRepository: string | null,
-  issueIdentifier: string,
+  trackerIssueKey: string,
   trackedIssue: SymphonyTrackerIssue | null,
   workflowTrackerState: string | null,
   piSelectionPolicy: RuntimeIssuePiSelectionPolicy
 ): SymphonyRuntimeIssueResult | null {
   const running = snapshot.running.find(
-    (entry) => entry.issue.identifier === issueIdentifier
+    (entry) => entry.issue.identifier === trackerIssueKey
   );
   const retry = snapshot.retrying.find(
-    (entry) => entry.identifier === issueIdentifier
+    (entry) => entry.identifier === trackerIssueKey
   );
 
   if (!running && !retry && !trackedIssue) {
@@ -130,17 +130,17 @@ export function serializeRuntimeIssue(
   const tracked = trackedIssue ?? running?.issue ?? null;
   if (!tracked) {
     throw new Error(
-      `Cannot serialize runtime issue ${issueIdentifier} without canonical tracker issue data.`
+      `Cannot serialize runtime issue ${trackerIssueKey} without canonical tracker issue data.`
     );
   }
-  const branchName = tracked.branchName ?? issueBranchName(issueIdentifier);
+  const branchName = tracked.branchName ?? issueBranchName(trackerIssueKey);
   const githubPullRequestSearchUrl = buildGitHubPullRequestSearchUrl(
     githubRepository,
     branchName
   );
   const workspace = running?.workspace ?? retry?.workspace ?? null;
   const canonicalTrackerState = resolveRuntimeIssueTrackerState({
-    issueIdentifier,
+    issueIdentifier: trackerIssueKey,
     trackedState: tracked.state,
     workflowTrackerState,
     hasWorkflowBackedRuntimeEntry: Boolean(running || retry)
@@ -151,7 +151,7 @@ export function serializeRuntimeIssue(
   );
 
   return {
-    issueIdentifier,
+    trackerIssueKey,
     trackerIssueId: running?.issueId ?? retry?.issueId ?? tracked.id,
     status: running ? "running" : retry ? "retrying" : "tracked",
     workspace: serializeRuntimeWorkspace(
@@ -229,7 +229,7 @@ export function serializeRuntimeWorkflowComparison(
     workflow: {
       workflowId: comparison.replay.workflow.workflowId,
       repositoryKey: comparison.replay.workflow.repositoryKey,
-      issueIdentifier: comparison.replay.workflow.issueIdentifier,
+      trackerIssueKey: comparison.replay.workflow.issueIdentifier,
       routerPresetId: comparison.replay.workflow.routerPresetId,
       routerName: comparison.replay.workflow.routerName,
       routerVersion: comparison.replay.workflow.routerVersion,

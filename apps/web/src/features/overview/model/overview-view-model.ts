@@ -20,12 +20,12 @@ export type RuntimeSummaryViewModel = {
     detail: string;
   }>;
   tokenChartRows: Array<{
-    issueIdentifier: string;
+    trackerIssueKey: string;
     inputTokens: number;
     outputTokens: number;
   }>;
   retryChartRows: Array<{
-    issueIdentifier: string;
+    trackerIssueKey: string;
     attempt: number;
   }>;
   rateLimitRows: Array<{
@@ -33,7 +33,7 @@ export type RuntimeSummaryViewModel = {
     value: string;
   }>;
   runningRows: Array<{
-    issueIdentifier: string;
+    trackerIssueKey: string;
     state: string;
     threadId: string | null;
     execution: string;
@@ -42,7 +42,7 @@ export type RuntimeSummaryViewModel = {
     tokenSummary: string;
   }>;
   retryRows: Array<{
-    issueIdentifier: string;
+    trackerIssueKey: string;
     execution: string;
     attempt: string;
     dueAt: string;
@@ -116,19 +116,19 @@ export function buildRuntimeSummaryViewModel(
       }
     ],
     tokenChartRows: runtimeSummary.running.map((entry) => ({
-      issueIdentifier: entry.issueIdentifier,
+      trackerIssueKey: entry.trackerIssueKey,
       inputTokens: entry.tokens.inputTokens,
       outputTokens: entry.tokens.outputTokens
     })),
     retryChartRows: runtimeSummary.retrying
       .map((entry) => ({
-        issueIdentifier: entry.issueIdentifier,
+        trackerIssueKey: entry.trackerIssueKey,
         attempt: entry.attempt
       }))
       .sort((left, right) => right.attempt - left.attempt),
     rateLimitRows: buildRateLimitRows(runtimeSummary.rateLimits),
     runningRows: runtimeSummary.running.map((entry) => ({
-      issueIdentifier: entry.issueIdentifier,
+      trackerIssueKey: entry.trackerIssueKey,
       state: formatStatusLabel(entry.state),
       threadId: entry.threadId ?? null,
       execution: formatExecution(entry.workspace, entry.launchTarget),
@@ -141,7 +141,7 @@ export function buildRuntimeSummaryViewModel(
       tokenSummary: `Total ${formatCount(entry.tokens.totalTokens)} · In ${formatCount(entry.tokens.inputTokens)} / Out ${formatCount(entry.tokens.outputTokens)}`
     })),
     retryRows: runtimeSummary.retrying.map((entry) => ({
-      issueIdentifier: entry.issueIdentifier,
+      trackerIssueKey: entry.trackerIssueKey,
       execution: formatExecution(entry.workspace, entry.launchTarget),
       attempt: String(entry.attempt),
       dueAt: formatTimestamp(entry.dueAt),
@@ -272,7 +272,7 @@ function buildPiTelemetryCards(
   }
 
   const sampledIssueCount = new Set(
-    analysisSample.sampledRuns.map((sampledRun) => sampledRun.issueIdentifier)
+    analysisSample.sampledRuns.map((sampledRun) => sampledRun.trackerIssueKey)
   ).size;
   const totals = analysisSample.sampledRuns.reduce(
     (aggregate, sampledRun) => {

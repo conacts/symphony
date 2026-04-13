@@ -39,37 +39,37 @@ export function publishRealtimeSnapshotDiff(
   realtime.publishSnapshotUpdated();
   realtime.publishProblemRunsUpdated();
 
-  const issueIdentifiers = new Set<string>();
+  const trackerIssueKeys = new Set<string>();
   const runs = new Map<string, string | undefined>();
 
   for (const entry of before.running) {
-    issueIdentifiers.add(entry.issue.identifier);
+    trackerIssueKeys.add(entry.issue.identifier);
     if (entry.runId) {
       runs.set(entry.runId, entry.issue.identifier);
     }
   }
 
   for (const entry of before.retrying) {
-    issueIdentifiers.add(entry.identifier);
+    trackerIssueKeys.add(entry.identifier);
   }
 
   for (const entry of after.running) {
-    issueIdentifiers.add(entry.issue.identifier);
+    trackerIssueKeys.add(entry.issue.identifier);
     if (entry.runId) {
       runs.set(entry.runId, entry.issue.identifier);
     }
   }
 
   for (const entry of after.retrying) {
-    issueIdentifiers.add(entry.identifier);
+    trackerIssueKeys.add(entry.identifier);
   }
 
-  for (const issueIdentifier of issueIdentifiers) {
-    realtime.publishIssueUpdated(issueIdentifier);
+  for (const trackerIssueKey of trackerIssueKeys) {
+    realtime.publishIssueUpdated(trackerIssueKey);
   }
 
-  for (const [runId, issueIdentifier] of runs) {
-    realtime.publishRunUpdated(runId, issueIdentifier);
+  for (const [runId, trackerIssueKey] of runs) {
+    realtime.publishRunUpdated(runId, trackerIssueKey);
   }
 }
 
@@ -95,7 +95,7 @@ function buildRealtimeComparableSnapshot(
   return {
     running: snapshot.running.map((entry) => ({
       issueId: entry.issueId,
-      issueIdentifier: entry.issue.identifier,
+      trackerIssueKey: entry.issue.identifier,
       trackerState: requireWorkflowTrackerState({
         issueIdentifier: entry.issue.identifier,
         workflowTrackerState:

@@ -51,7 +51,7 @@ export type {
 
 export type AgentRunViewModel = {
   harnessLabel: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   runId: string;
   runTitle: string;
   routes: {
@@ -220,22 +220,22 @@ export function buildAgentRunViewModel(input: {
       : run.totalTokens > 0
         ? run.totalTokens
         : fallbackTokenTotals.totalTokens;
-  const issueIdentifier = input.runDetail.issue.issueIdentifier;
+  const trackerIssueKey = input.runDetail.issue.trackerIssueKey;
   const repositoryKey = input.runDetail.issue.repositoryKey;
   const routeScope = {
     repo: repositoryKey
   };
-  const runHref = buildIssueRunHref(issueIdentifier, run.runId, routeScope);
-  const turnsHref = buildIssueRunTurnsHref(issueIdentifier, run.runId, routeScope);
+  const runHref = buildIssueRunHref(trackerIssueKey, run.runId, routeScope);
+  const turnsHref = buildIssueRunTurnsHref(trackerIssueKey, run.runId, routeScope);
   const transcriptHref = buildRunTranscriptHref(run.runId, routeScope);
 
   return {
     harnessLabel,
-    issueIdentifier,
+    trackerIssueKey,
     runId: run.runId,
-    runTitle: `${issueIdentifier} · ${run.runId}`,
+    runTitle: `${trackerIssueKey} · ${run.runId}`,
     routes: {
-      issueHref: buildIssueHref(issueIdentifier, routeScope),
+      issueHref: buildIssueHref(trackerIssueKey, routeScope),
       runHref,
       turnsHref,
       transcriptHref
@@ -344,7 +344,7 @@ export function buildAgentRunViewModel(input: {
     turnRows: transcriptTurns.map((turn) => ({
       turnId: turn.turnId,
       turnSequence: turn.turnSequence,
-      href: buildIssueRunTurnHref(issueIdentifier, run.runId, turn.turnId, routeScope),
+      href: buildIssueRunTurnHref(trackerIssueKey, run.runId, turn.turnId, routeScope),
       startedAtIso: turn.startedAtIso,
       startedAt: turn.startedAt,
       endedAtIso: turn.endedAtIso,
