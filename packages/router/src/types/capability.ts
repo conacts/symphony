@@ -3,6 +3,7 @@ import type {
   WorkflowEvidenceId,
   WorkflowEvidenceRecord
 } from "./evidence.js";
+import type { WorkflowHistory } from "./journal.js";
 import type {
   WorkflowModelProfileDefinition,
   WorkflowModelProfileId
@@ -462,24 +463,43 @@ export type WorkflowCapabilityPreset<
   >;
 };
 
+export type WorkflowCapabilityPlannerConfiguration<
+  CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+> = {
+  capabilityDefinitions: WorkflowCapabilityDefinition<
+    CapabilityId,
+    EvidenceId,
+    ProfileId
+  >[];
+  modelProfiles: WorkflowModelProfileDefinition<ProfileId>[];
+  presetPolicy: WorkflowResolvedRoutingPolicy<
+    CapabilityId,
+    EvidenceId,
+    ProfileId
+  >;
+  routeStrategy?: WorkflowCapabilityRouteStrategy<
+    CapabilityId,
+    EvidenceId,
+    ProfileId
+  >;
+};
+
 export type WorkflowCapabilityPlannerInput<
   CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
   EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
   ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
 > = {
   contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
-  resolvedPolicy: WorkflowResolvedRoutingPolicy<
+  history: WorkflowHistory;
+  userDefaults?: WorkflowRoutingPolicyOverrides<
     CapabilityId,
     EvidenceId,
     ProfileId
-  >;
-  projection: WorkflowCapabilityProjection<
-    CapabilityId,
-    EvidenceId,
-    ProfileId
-  >;
-  candidates: WorkflowCapabilityCandidate<CapabilityId, ProfileId>[];
-  completionGate: WorkflowCompletionGateEvaluation<CapabilityId, EvidenceId>;
+  > | null;
+  decisionId: string;
+  decidedAt: string;
 };
 
 export type WorkflowCapabilityPlanner<

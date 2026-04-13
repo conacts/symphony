@@ -2,6 +2,9 @@ export {
   buildWorkflowCapabilityCandidates
 } from "./capability-candidate-builder.js";
 export {
+  createWorkflowCapabilityPlanner
+} from "./capability-planner.js";
+export {
   createDeterministicWorkflowCapabilityRouteStrategy,
   selectDeterministicWorkflowCapabilityRoute
 } from "./capability-route-strategy.js";
@@ -229,6 +232,7 @@ export type {
   WorkflowCapabilityPlanExecute,
   WorkflowCapabilityPlanReady,
   WorkflowCapabilityPlanner,
+  WorkflowCapabilityPlannerConfiguration,
   WorkflowCapabilityPlannerInput,
   WorkflowCapabilityPreset,
   WorkflowCapabilityProjection,

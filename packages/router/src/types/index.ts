@@ -40,6 +40,7 @@ export type {
   WorkflowCapabilityPlanExecute,
   WorkflowCapabilityPlanReady,
   WorkflowCapabilityPlanner,
+  WorkflowCapabilityPlannerConfiguration,
   WorkflowCapabilityPlannerInput,
   WorkflowCapabilityPreset,
   WorkflowCapabilityProjection,
