@@ -2053,6 +2053,88 @@ export const routeProjectionSnapshotsTable = sqliteTable(
   })
 );
 
+export const routeWorkflowExecutionContractsTable = sqliteTable(
+  "route_workflow_execution_contracts",
+  {
+    workflowId: text("workflow_id").primaryKey(),
+    contractId: text("contract_id").notNull(),
+    summary: text("summary").notNull(),
+    objective: text("objective").notNull(),
+    doneDefinition: text("done_definition").notNull(),
+    mergePolicy: text("merge_policy").notNull(),
+    requiredCapabilityIdsJson: text("required_capability_ids_json", {
+      mode: "json"
+    }).notNull().$type<unknown>(),
+    preferredCapabilityIdsJson: text("preferred_capability_ids_json", {
+      mode: "json"
+    }).notNull().$type<unknown>(),
+    forbiddenCapabilityIdsJson: text("forbidden_capability_ids_json", {
+      mode: "json"
+    }).notNull().$type<unknown>(),
+    requiredEvidenceIdsJson: text("required_evidence_ids_json", {
+      mode: "json"
+    }).notNull().$type<unknown>(),
+    allowedModelProfileIdsJson: text("allowed_model_profile_ids_json", {
+      mode: "json"
+    }).notNull().$type<unknown>(),
+    completionMode: text("completion_mode").notNull(),
+    clarificationMode: text("clarification_mode").notNull(),
+    reviewStrictness: text("review_strictness").notNull(),
+    maxRetryCount: integer("max_retry_count").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
+  },
+  (table) => ({
+    workflowFk: foreignKey({
+      columns: [table.workflowId],
+      foreignColumns: [routeWorkflowsTable.workflowId],
+      name: "route_workflow_execution_contracts_workflow_fk"
+    }).onDelete("cascade"),
+    contractIdCheck: check(
+      "route_workflow_execution_contracts_contract_id_check",
+      sql`length(trim(${table.contractId})) > 0`
+    ),
+    summaryCheck: check(
+      "route_workflow_execution_contracts_summary_check",
+      sql`length(trim(${table.summary})) > 0`
+    ),
+    objectiveCheck: check(
+      "route_workflow_execution_contracts_objective_check",
+      sql`length(trim(${table.objective})) > 0`
+    ),
+    doneDefinitionCheck: check(
+      "route_workflow_execution_contracts_done_definition_check",
+      sql`length(trim(${table.doneDefinition})) > 0`
+    ),
+    mergePolicyCheck: check(
+      "route_workflow_execution_contracts_merge_policy_check",
+      sql`${table.mergePolicy} in (${sqlEnum(["manual", "auto_merge"] as const)})`
+    ),
+    completionModeCheck: check(
+      "route_workflow_execution_contracts_completion_mode_check",
+      sql`${table.completionMode} in (${sqlEnum(["manual", "auto"] as const)})`
+    ),
+    clarificationModeCheck: check(
+      "route_workflow_execution_contracts_clarification_mode_check",
+      sql`${table.clarificationMode} in (${sqlEnum(["required", "best_effort"] as const)})`
+    ),
+    reviewStrictnessCheck: check(
+      "route_workflow_execution_contracts_review_strictness_check",
+      sql`${table.reviewStrictness} in (${sqlEnum(["standard", "strict", "adversarial"] as const)})`
+    ),
+    maxRetryCountCheck: check(
+      "route_workflow_execution_contracts_max_retry_count_check",
+      sql`${table.maxRetryCount} >= 0`
+    ),
+    contractIdIdx: uniqueIndex(
+      "route_workflow_execution_contracts_contract_id_idx"
+    ).on(table.contractId),
+    updatedAtIdx: index(
+      "route_workflow_execution_contracts_updated_at_idx"
+    ).on(table.updatedAt)
+  })
+);
+
 export const symphonyGitHubIngressTable = sqliteTable(
   "symphony_github_ingress",
   {
@@ -2184,6 +2266,7 @@ export const symphonySchema = {
   routeHistoryEventsTable,
   routeDecisionsTable,
   routeProjectionSnapshotsTable,
+  routeWorkflowExecutionContractsTable,
   symphonyGitHubIngressTable,
   symphonyMigrationStateTable
 };

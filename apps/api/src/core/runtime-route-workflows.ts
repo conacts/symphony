@@ -1,5 +1,6 @@
 import type {
   RouteDecisionRecord,
+  RouteWorkflowExecutionContractRecord,
   RouteWorkflowBindingScope,
   RouteHistoryEventRecord,
   RouteProjectionSnapshotRecord,
@@ -10,14 +11,18 @@ import type {
 import { SymphonyRouteWorkflowExistsError } from "@symphony/db";
 import type {
   WorkflowPayload,
+  WorkflowCapabilityId,
+  WorkflowEvidenceId,
   WorkflowHistory,
   WorkflowJournalEvent,
+  WorkflowModelProfileId,
   WorkflowNodeId,
   WorkflowProjection,
   WorkflowRouteResult,
   WorkflowRouter,
   WorkflowSignal,
-  WorkflowSession
+  WorkflowSession,
+  WorkflowTicketExecutionContract
 } from "@symphony/router";
 
 export type EnsuredRouteWorkflow = {
@@ -176,6 +181,24 @@ export type SymphonyRouteWorkflowPort = {
     router: WorkflowRouter<Node, Data, Policy>;
     policy: Policy;
   }): Promise<ResumedRouteWorkflowSession<Node, Data, Policy> | null>;
+  loadExecutionContractByWorkflowId<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(
+    workflowId: string
+  ): Promise<
+    RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId> | null
+  >;
+  saveExecutionContract<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(input: {
+    workflowId: string;
+    contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
+    recordedAt: string;
+  }): Promise<RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId>>;
   recordRouteResult<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
@@ -529,6 +552,36 @@ export function createRouteWorkflowPort(input: {
         hydrationState,
         router: resumeInput.router,
         policy: resumeInput.policy
+      });
+    },
+    async loadExecutionContractByWorkflowId<
+      CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+      EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+      ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+    >(
+      workflowId: string
+    ): Promise<
+      RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId> | null
+    > {
+      return await input.routeWorkflowStore.getExecutionContract<
+        CapabilityId,
+        EvidenceId,
+        ProfileId
+      >(workflowId);
+    },
+    async saveExecutionContract<
+      CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+      EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+      ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+    >(saveInput: {
+      workflowId: string;
+      contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
+      recordedAt: string;
+    }): Promise<RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId>> {
+      return await input.routeWorkflowStore.saveExecutionContract({
+        workflowId: saveInput.workflowId,
+        contract: saveInput.contract,
+        recordedAt: saveInput.recordedAt
       });
     },
     async recordRouteResult<

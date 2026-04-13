@@ -7,6 +7,9 @@ import type {
   WorkflowRouteResult
 } from "@symphony/router";
 import {
+  createSymphonyTicketExecutionContract
+} from "@symphony/router";
+import {
   SymphonyRouteWorkflowExistsError,
   SymphonyRouteWorkflowNotFoundError
 } from "./errors.js";
@@ -317,6 +320,116 @@ describe("route workflow store", () => {
       expect(hydrationState?.latestDecision?.decisionId).toBe("decision_bootstrap");
 
       expect(hydrationStateByIssue).toEqual(hydrationState);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("persists canonical execution contracts separately from workflow history", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-route-contract-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const routeStore = createRouteWorkflowStore(database.db);
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-312",
+        trackerIssueId: "tracker-312",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-13T06:00:00.000Z"
+      });
+
+      const workflowId = await routeStore.createWorkflow({
+        trackerIssueId: "tracker-312",
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-312",
+        routerPresetId: "current-flow",
+        routerName: "symphony-current-flow",
+        routerVersion: "1",
+        createdAt: "2026-04-13T06:01:00.000Z"
+      });
+
+      const saved = await routeStore.saveExecutionContract({
+        workflowId,
+        contract: createSymphonyTicketExecutionContract({
+          contractId: "contract_workflow_312",
+          workflowId,
+          issueIdentifier: "SYM-312",
+          repositoryKey: "openai/symphony",
+          summary: "Persist the first workflow execution contract.",
+          objective: "Create a durable API-side capability contract artifact.",
+          doneDefinition:
+            "The canonical contract is stored in control-plane data and can be reloaded.",
+          mergePolicy: "manual",
+          routingDirectives: {
+            requiredCapabilityIds: ["implement.spec", "critic.code_review"],
+            preferredCapabilityIds: ["critic.adversarial_tests"],
+            forbiddenCapabilityIds: ["critic.browser_test"],
+            requiredEvidenceIds: ["change_set", "code_review_report"],
+            allowedModelProfileIds: [
+              "builder_fast",
+              "builder_deep",
+              "critic_strict",
+              "critic_adversarial"
+            ],
+            completionPolicy: {
+              mode: "manual"
+            },
+            clarificationPolicy: {
+              mode: "required"
+            },
+            reviewStrictness: "strict",
+            maxRetryCount: 2
+          },
+          createdAt: "2026-04-13T06:02:00.000Z",
+          updatedAt: "2026-04-13T06:02:00.000Z"
+        }),
+        recordedAt: "2026-04-13T06:02:00.000Z"
+      });
+
+      const loaded = await routeStore.getExecutionContract(workflowId);
+
+      expect(saved).toEqual({
+        contractId: "contract_workflow_312",
+        workflowId,
+        issueIdentifier: "SYM-312",
+        repositoryKey: "openai/symphony",
+        summary: "Persist the first workflow execution contract.",
+        objective: "Create a durable API-side capability contract artifact.",
+        doneDefinition:
+          "The canonical contract is stored in control-plane data and can be reloaded.",
+        mergePolicy: "manual",
+        routingDirectives: {
+          requiredCapabilityIds: ["implement.spec", "critic.code_review"],
+          preferredCapabilityIds: ["critic.adversarial_tests"],
+          forbiddenCapabilityIds: ["critic.browser_test"],
+          requiredEvidenceIds: ["change_set", "code_review_report"],
+          allowedModelProfileIds: [
+            "builder_fast",
+            "builder_deep",
+            "critic_strict",
+            "critic_adversarial"
+          ],
+          completionPolicy: {
+            mode: "manual"
+          },
+          clarificationPolicy: {
+            mode: "required"
+          },
+          reviewStrictness: "strict",
+          maxRetryCount: 2
+        },
+        createdAt: "2026-04-13T06:02:00.000Z",
+        updatedAt: "2026-04-13T06:02:00.000Z",
+        insertedAt: "2026-04-13T06:02:00.000Z"
+      });
+      expect(loaded).toEqual(saved);
+      expect(await routeStore.listHistory(workflowId)).toEqual([]);
     } finally {
       database.close();
     }

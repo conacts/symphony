@@ -10,11 +10,15 @@ import {
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type {
   WorkflowCommand,
+  WorkflowCapabilityId,
+  WorkflowEvidenceId,
   WorkflowJournalEvent,
+  WorkflowModelProfileId,
   WorkflowNodeId,
   WorkflowProjection,
   WorkflowRouteResult,
   WorkflowSignalSource,
+  WorkflowTicketExecutionContract,
   WorkflowTraceEntry
 } from "@symphony/router";
 import {
@@ -31,6 +35,7 @@ import {
   routeDecisionsTable,
   routeHistoryEventsTable,
   routeProjectionSnapshotsTable,
+  routeWorkflowExecutionContractsTable,
   routeWorkflowsTable,
   symphonyIssuesTable
 } from "./schema.js";
@@ -76,6 +81,28 @@ type RouteWorkflowRecordRow = {
   routerName: string;
   routerVersion: string;
   archivedAt: string | null;
+  insertedAt: string;
+  updatedAt: string;
+};
+
+type RouteWorkflowExecutionContractRow = {
+  workflowId: string;
+  contractId: string;
+  issueIdentifier: string;
+  repositoryKey: string;
+  summary: string;
+  objective: string;
+  doneDefinition: string;
+  mergePolicy: string;
+  requiredCapabilityIdsJson: unknown;
+  preferredCapabilityIdsJson: unknown;
+  forbiddenCapabilityIdsJson: unknown;
+  requiredEvidenceIdsJson: unknown;
+  allowedModelProfileIdsJson: unknown;
+  completionMode: string;
+  clarificationMode: string;
+  reviewStrictness: string;
+  maxRetryCount: number;
   insertedAt: string;
   updatedAt: string;
 };
@@ -138,6 +165,14 @@ export type RouteProjectionSnapshotRecord<
   updatedAt: string;
 };
 
+export type RouteWorkflowExecutionContractRecord<
+  CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+> = WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId> & {
+  insertedAt: string;
+};
+
 export type RouteWorkflowHydrationState<
   Node extends WorkflowNodeId = WorkflowNodeId,
   Data = unknown,
@@ -162,6 +197,15 @@ export interface RouteWorkflowStore {
     createdAt: string;
   }): Promise<string>;
   getWorkflow(workflowId: string): Promise<RouteWorkflowRecord | null>;
+  getExecutionContract<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(
+    workflowId: string
+  ): Promise<
+    RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId> | null
+  >;
   getWorkflowForTrackerIssueId(trackerIssueId: string): Promise<RouteWorkflowRecord | null>;
   getWorkflowForIssue(issueIdentifier: string): Promise<RouteWorkflowRecord | null>;
   getWorkflowForScopedIssue(input: {
@@ -239,6 +283,15 @@ export interface RouteWorkflowStore {
     historyEvent: RouteHistoryEventRecord<Node>;
     snapshot: RouteProjectionSnapshotRecord<Node, Data>;
   }>;
+  saveExecutionContract<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(input: {
+    workflowId: string;
+    contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
+    recordedAt: string;
+  }): Promise<RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId>>;
 }
 
 export function createRouteWorkflowStore(
@@ -332,6 +385,24 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     );
 
     return row ? mapWorkflowRow(row) : null;
+  }
+
+  async getExecutionContract<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(
+    workflowId: string
+  ): Promise<
+    RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId> | null
+  > {
+    const row = this.#selectExecutionContractByWorkflowId(
+      sanitizeRequiredText(workflowId, "workflowId")
+    );
+
+    return row
+      ? mapExecutionContractRow<CapabilityId, EvidenceId, ProfileId>(row)
+      : null;
   }
 
   async getWorkflowForTrackerIssueId(
@@ -688,6 +759,127 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     };
   }
 
+  async saveExecutionContract<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(input: {
+    workflowId: string;
+    contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
+    recordedAt: string;
+  }): Promise<RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId>> {
+    const workflowId = sanitizeRequiredText(input.workflowId, "workflowId");
+    const contract = input.contract;
+    const recordedAt = sanitizeRequiredText(input.recordedAt, "recordedAt");
+
+    if (sanitizeRequiredText(contract.workflowId, "contract.workflowId") !== workflowId) {
+      throw new TypeError(
+        `Execution contract workflowId ${contract.workflowId} does not match route workflow ${workflowId}.`
+      );
+    }
+
+    const contractId = sanitizeRequiredText(contract.contractId, "contract.contractId");
+    const summary = sanitizeRequiredText(contract.summary, "contract.summary");
+    const objective = sanitizeRequiredText(contract.objective, "contract.objective");
+    const doneDefinition = sanitizeRequiredText(
+      contract.doneDefinition,
+      "contract.doneDefinition"
+    );
+    const existing = this.#selectExecutionContractByWorkflowId(workflowId);
+
+    if (existing && existing.contractId !== contractId) {
+      throw new TypeError(
+        `Route workflow ${workflowId} already has execution contract ${existing.contractId}, not ${contractId}.`
+      );
+    }
+
+    const requiredCapabilityIds = requireStringArray(
+      contract.routingDirectives.requiredCapabilityIds,
+      "contract.routingDirectives.requiredCapabilityIds"
+    );
+    const preferredCapabilityIds = requireStringArray(
+      contract.routingDirectives.preferredCapabilityIds,
+      "contract.routingDirectives.preferredCapabilityIds"
+    );
+    const forbiddenCapabilityIds = requireStringArray(
+      contract.routingDirectives.forbiddenCapabilityIds,
+      "contract.routingDirectives.forbiddenCapabilityIds"
+    );
+    const requiredEvidenceIds = requireStringArray(
+      contract.routingDirectives.requiredEvidenceIds,
+      "contract.routingDirectives.requiredEvidenceIds"
+    );
+    const allowedModelProfileIds = requireStringArray(
+      contract.routingDirectives.allowedModelProfileIds,
+      "contract.routingDirectives.allowedModelProfileIds"
+    );
+    const maxRetryCount = sanitizeNonNegativeInteger(
+      contract.routingDirectives.maxRetryCount,
+      "contract.routingDirectives.maxRetryCount"
+    );
+
+    this.#db.transaction((tx) => {
+      this.#requireWorkflow(tx, workflowId);
+
+      tx.insert(routeWorkflowExecutionContractsTable)
+        .values({
+          workflowId,
+          contractId,
+          summary,
+          objective,
+          doneDefinition,
+          mergePolicy: contract.mergePolicy,
+          requiredCapabilityIdsJson: requiredCapabilityIds,
+          preferredCapabilityIdsJson: preferredCapabilityIds,
+          forbiddenCapabilityIdsJson: forbiddenCapabilityIds,
+          requiredEvidenceIdsJson: requiredEvidenceIds,
+          allowedModelProfileIdsJson: allowedModelProfileIds,
+          completionMode: contract.routingDirectives.completionPolicy.mode,
+          clarificationMode: contract.routingDirectives.clarificationPolicy.mode,
+          reviewStrictness: contract.routingDirectives.reviewStrictness,
+          maxRetryCount,
+          insertedAt: existing?.insertedAt ?? recordedAt,
+          updatedAt: recordedAt
+        })
+        .onConflictDoUpdate({
+          target: routeWorkflowExecutionContractsTable.workflowId,
+          set: {
+            summary,
+            objective,
+            doneDefinition,
+            mergePolicy: contract.mergePolicy,
+            requiredCapabilityIdsJson: requiredCapabilityIds,
+            preferredCapabilityIdsJson: preferredCapabilityIds,
+            forbiddenCapabilityIdsJson: forbiddenCapabilityIds,
+            requiredEvidenceIdsJson: requiredEvidenceIds,
+            allowedModelProfileIdsJson: allowedModelProfileIds,
+            completionMode: contract.routingDirectives.completionPolicy.mode,
+            clarificationMode: contract.routingDirectives.clarificationPolicy.mode,
+            reviewStrictness: contract.routingDirectives.reviewStrictness,
+            maxRetryCount,
+            updatedAt: recordedAt
+          }
+        })
+        .run();
+
+      tx.update(routeWorkflowsTable)
+        .set({
+          updatedAt: recordedAt
+        })
+        .where(eq(routeWorkflowsTable.workflowId, workflowId))
+        .run();
+    });
+
+    const saved = this.#selectExecutionContractByWorkflowId(workflowId);
+    if (!saved) {
+      throw new TypeError(
+        `Route workflow ${workflowId} did not persist an execution contract.`
+      );
+    }
+
+    return mapExecutionContractRow<CapabilityId, EvidenceId, ProfileId>(saved);
+  }
+
   async #appendHistoryEvent<
     Node extends WorkflowNodeId,
     Data = unknown,
@@ -907,6 +1099,53 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
         eq(routeWorkflowsTable.trackerIssueId, symphonyIssuesTable.trackerIssueId)
       )
       .where(whereClause)
+      .get();
+  }
+
+  #selectExecutionContractByWorkflowId(
+    workflowId: string,
+    db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema> = this.#db
+  ): RouteWorkflowExecutionContractRow | undefined {
+    return db
+      .select({
+        workflowId: routeWorkflowExecutionContractsTable.workflowId,
+        contractId: routeWorkflowExecutionContractsTable.contractId,
+        issueIdentifier: symphonyIssuesTable.issueIdentifier,
+        repositoryKey: symphonyIssuesTable.repositoryKey,
+        summary: routeWorkflowExecutionContractsTable.summary,
+        objective: routeWorkflowExecutionContractsTable.objective,
+        doneDefinition: routeWorkflowExecutionContractsTable.doneDefinition,
+        mergePolicy: routeWorkflowExecutionContractsTable.mergePolicy,
+        requiredCapabilityIdsJson:
+          routeWorkflowExecutionContractsTable.requiredCapabilityIdsJson,
+        preferredCapabilityIdsJson:
+          routeWorkflowExecutionContractsTable.preferredCapabilityIdsJson,
+        forbiddenCapabilityIdsJson:
+          routeWorkflowExecutionContractsTable.forbiddenCapabilityIdsJson,
+        requiredEvidenceIdsJson:
+          routeWorkflowExecutionContractsTable.requiredEvidenceIdsJson,
+        allowedModelProfileIdsJson:
+          routeWorkflowExecutionContractsTable.allowedModelProfileIdsJson,
+        completionMode: routeWorkflowExecutionContractsTable.completionMode,
+        clarificationMode: routeWorkflowExecutionContractsTable.clarificationMode,
+        reviewStrictness: routeWorkflowExecutionContractsTable.reviewStrictness,
+        maxRetryCount: routeWorkflowExecutionContractsTable.maxRetryCount,
+        insertedAt: routeWorkflowExecutionContractsTable.insertedAt,
+        updatedAt: routeWorkflowExecutionContractsTable.updatedAt
+      })
+      .from(routeWorkflowExecutionContractsTable)
+      .innerJoin(
+        routeWorkflowsTable,
+        eq(
+          routeWorkflowExecutionContractsTable.workflowId,
+          routeWorkflowsTable.workflowId
+        )
+      )
+      .innerJoin(
+        symphonyIssuesTable,
+        eq(routeWorkflowsTable.trackerIssueId, symphonyIssuesTable.trackerIssueId)
+      )
+      .where(eq(routeWorkflowExecutionContractsTable.workflowId, workflowId))
       .get();
   }
 
@@ -1259,6 +1498,74 @@ function mapSnapshotRow<
   };
 }
 
+function mapExecutionContractRow<
+  CapabilityId extends WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId,
+>(
+  row: RouteWorkflowExecutionContractRow
+): RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId> {
+  return {
+    contractId: row.contractId,
+    workflowId: row.workflowId,
+    issueIdentifier: row.issueIdentifier,
+    repositoryKey: row.repositoryKey,
+    summary: row.summary,
+    objective: row.objective,
+    doneDefinition: row.doneDefinition,
+    mergePolicy: row.mergePolicy as RouteWorkflowExecutionContractRecord<
+      CapabilityId,
+      EvidenceId,
+      ProfileId
+    >["mergePolicy"],
+    routingDirectives: {
+      requiredCapabilityIds: requireJsonStringArray<CapabilityId>(
+        row.requiredCapabilityIdsJson,
+        "requiredCapabilityIdsJson"
+      ),
+      preferredCapabilityIds: requireJsonStringArray<CapabilityId>(
+        row.preferredCapabilityIdsJson,
+        "preferredCapabilityIdsJson"
+      ),
+      forbiddenCapabilityIds: requireJsonStringArray<CapabilityId>(
+        row.forbiddenCapabilityIdsJson,
+        "forbiddenCapabilityIdsJson"
+      ),
+      requiredEvidenceIds: requireJsonStringArray<EvidenceId>(
+        row.requiredEvidenceIdsJson,
+        "requiredEvidenceIdsJson"
+      ),
+      allowedModelProfileIds: requireJsonStringArray<ProfileId>(
+        row.allowedModelProfileIdsJson,
+        "allowedModelProfileIdsJson"
+      ),
+      completionPolicy: {
+        mode: row.completionMode as RouteWorkflowExecutionContractRecord<
+          CapabilityId,
+          EvidenceId,
+          ProfileId
+        >["routingDirectives"]["completionPolicy"]["mode"]
+      },
+      clarificationPolicy: {
+        mode: row.clarificationMode as RouteWorkflowExecutionContractRecord<
+          CapabilityId,
+          EvidenceId,
+          ProfileId
+        >["routingDirectives"]["clarificationPolicy"]["mode"]
+      },
+      reviewStrictness: row.reviewStrictness as RouteWorkflowExecutionContractRecord<
+        CapabilityId,
+        EvidenceId,
+        ProfileId
+      >["routingDirectives"]["reviewStrictness"],
+      maxRetryCount: sanitizeNonNegativeInteger(row.maxRetryCount, "maxRetryCount")
+    },
+    createdAt: row.insertedAt,
+    updatedAt: row.updatedAt,
+    insertedAt: row.insertedAt
+  };
+}
+
 function normalizeRouteHistoryEventKind(value: string): RouteHistoryEventKind {
   switch (value) {
     case "signal_recorded":
@@ -1325,6 +1632,40 @@ function requireNullableRecord(
 ): Record<string, unknown> | null {
   if (value === undefined) {
     throw new TypeError(`${field} is required.`);
+  }
+
+  return value;
+}
+
+function requireStringArray(value: string[], field: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${field} must be an array.`);
+  }
+
+  return value.map((entry, index) =>
+    sanitizeRequiredText(entry, `${field}[${index}]`)
+  );
+}
+
+function requireJsonStringArray<Value extends string>(
+  value: unknown,
+  field: string
+): Value[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${field} must be a JSON array.`);
+  }
+
+  return value.map((entry, index) =>
+    sanitizeRequiredText(
+      typeof entry === "string" ? entry : null,
+      `${field}[${index}]`
+    ) as Value
+  );
+}
+
+function sanitizeNonNegativeInteger(value: number, field: string): number {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new TypeError(`${field} must be a non-negative integer.`);
   }
 
   return value;

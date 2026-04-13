@@ -95,6 +95,7 @@ export {
 } from "./route-workflow-store.js";
 export type {
   RouteDecisionRecord,
+  RouteWorkflowExecutionContractRecord,
   RouteWorkflowBindingScope,
   RouteHistoryEventRecord,
   RouteProjectionSnapshotRecord,

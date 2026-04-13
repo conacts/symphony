@@ -174,6 +174,8 @@ function createCommandHarness(input: {
       resumeSessionByWorkflowId: vi.fn(),
       resumeSessionByIssueIdentifier: vi.fn(),
       resumeSessionByScopedIssue: vi.fn(),
+      loadExecutionContractByWorkflowId: vi.fn(),
+      saveExecutionContract: vi.fn(),
       recordRouteResult: vi.fn().mockResolvedValue(undefined),
       appendCommandSettlement
     } as SymphonyRouteWorkflowPort,
