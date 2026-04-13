@@ -8,6 +8,9 @@ export {
   createWorkflowCapabilityPlanner
 } from "./capability-planner.js";
 export {
+  createSymphonyCapabilityPreset
+} from "./symphony-capability-preset.js";
+export {
   createDeterministicWorkflowCapabilityRouteStrategy,
   selectDeterministicWorkflowCapabilityRoute
 } from "./capability-route-strategy.js";
@@ -155,6 +158,10 @@ export {
   symphonyWorkflowCompletionGateEvaluatedSignalSchema
 } from "./symphony-capability-contract.js";
 export type {
+  SymphonyCapabilityPresetPolicyId,
+  SymphonyWorkflowCapabilityPreset
+} from "./symphony-capability-preset.js";
+export type {
   SymphonyCapabilityClarificationMode,
   SymphonyCapabilityCompletionMode,
   SymphonyCapabilityEvidenceId,
@@ -174,6 +181,7 @@ export type {
   SymphonyWorkflowClarificationAnsweredSignal,
   SymphonyWorkflowClarificationRequestedSignal,
   SymphonyWorkflowCompletionGateEvaluatedSignal,
+  SymphonyWorkflowModelProfileDefinition,
   SymphonyWorkflowRoutingDirectives,
   SymphonyWorkflowTicketExecutionContract
 } from "./symphony-capability-contract.js";

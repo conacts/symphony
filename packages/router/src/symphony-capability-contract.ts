@@ -5,7 +5,8 @@ import type {
   WorkflowCapabilityExecutionCommandPayload,
   WorkflowCapabilityDefinition,
   WorkflowRoutingDirectives,
-  WorkflowTicketExecutionContract
+  WorkflowTicketExecutionContract,
+  WorkflowModelProfileDefinition
 } from "./types/index.js";
 import { workflowSignalSchema } from "./types/schema.js";
 
@@ -429,6 +430,9 @@ export type SymphonyWorkflowCapabilityDefinition = WorkflowCapabilityDefinition<
   SymphonyCapabilityEvidenceId,
   SymphonyCapabilityModelProfileId
 >;
+
+export type SymphonyWorkflowModelProfileDefinition =
+  WorkflowModelProfileDefinition<SymphonyCapabilityModelProfileId>;
 
 export type SymphonyWorkflowCapabilityExecutionCommandPayload =
   WorkflowCapabilityExecutionCommandPayload<

@@ -466,7 +466,7 @@ export type WorkflowCapabilityPreset<
     EvidenceId,
     ProfileId
   >[];
-  modelProfiles: ProfileId[];
+  modelProfiles: WorkflowModelProfileDefinition<ProfileId>[];
   defaultPolicy: WorkflowResolvedRoutingPolicy<
     CapabilityId,
     EvidenceId,
