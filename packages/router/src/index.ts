@@ -2,6 +2,9 @@ export {
   projectWorkflowCapabilityProjection
 } from "./capability-projection.js";
 export {
+  evaluateWorkflowCompletionGate
+} from "./completion-gate.js";
+export {
   createWorkflowCapabilityRegistry,
   WorkflowCapabilityRegistry
 } from "./capability-registry.js";
