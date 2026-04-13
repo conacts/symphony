@@ -478,11 +478,7 @@ function isCapabilityAttemptActive<
 >(
   attempt: WorkflowCapabilityAttempt<CapabilityId, EvidenceId, ProfileId>
 ): boolean {
-  return (
-    attempt.status === "planned" ||
-    attempt.status === "started" ||
-    attempt.status === "clarification_requested"
-  );
+  return attempt.status === "planned" || attempt.status === "started";
 }
 
 function buildImplementationReason<

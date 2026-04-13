@@ -540,6 +540,7 @@ describe("route workflow store", () => {
       const saved = await routeStore.saveCapabilityPlannerDecision({
         workflowId,
         decisionId: "capability_plan_decision_313",
+        policyId: "default",
         contract,
         historyEventSequence: 0,
         lifecycleProjectionSequence: 0,
@@ -572,7 +573,8 @@ describe("route workflow store", () => {
       const loadedDecision = await routeStore.getCapabilityPlannerDecisionForState({
         workflowId,
         historyEventSequence: 0,
-        contractUpdatedAt: contract.updatedAt
+        contractUpdatedAt: contract.updatedAt,
+        policyId: "default"
       });
       const loadedCommand = await routeStore.getCapabilityPlannerCommandByDecisionId(
         saved.decision.decisionId
@@ -584,6 +586,7 @@ describe("route workflow store", () => {
         workflowId,
         contractId: "contract_workflow_313",
         contractUpdatedAt: "2026-04-13T06:07:00.000Z",
+        policyId: "default",
         historyEventSequence: 0,
         lifecycleProjectionSequence: 0,
         lifecycleCurrentNode: null,
@@ -628,6 +631,132 @@ describe("route workflow store", () => {
       expect(loadedCommand).toEqual(saved.command);
       expect(allCommands).toEqual([saved.command]);
       expect(await routeStore.listHistory(workflowId)).toEqual([]);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("keeps planner decisions isolated by policy id for the same workflow state", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-route-capability-plan-policy-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const routeStore = createRouteWorkflowStore(database.db);
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-313B",
+        trackerIssueId: "tracker-313B",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-13T06:09:00.000Z"
+      });
+
+      const workflowId = await routeStore.createWorkflow({
+        trackerIssueId: "tracker-313B",
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-313B",
+        routerPresetId: "current-flow",
+        routerName: "symphony-current-flow",
+        routerVersion: "1",
+        createdAt: "2026-04-13T06:10:00.000Z"
+      });
+
+      const contract = await routeStore.saveExecutionContract({
+        workflowId,
+        contract: createSymphonyTicketExecutionContract({
+          contractId: "contract_workflow_313B",
+          workflowId,
+          issueIdentifier: "SYM-313B",
+          repositoryKey: "openai/symphony",
+          summary: "Persist policy-qualified planner decisions.",
+          objective: "Allow multiple planner decisions for one workflow state when policies differ.",
+          doneDefinition: "Each policy lookup resolves its own planner decision.",
+          mergePolicy: "manual",
+          routingDirectives: {
+            requiredCapabilityIds: ["implement.spec", "critic.code_review"],
+            preferredCapabilityIds: [],
+            forbiddenCapabilityIds: ["critic.browser_test"],
+            requiredEvidenceIds: ["change_set", "code_review_report"],
+            allowedModelProfileIds: [
+              "builder_fast",
+              "builder_deep",
+              "critic_strict",
+              "critic_adversarial"
+            ],
+            completionPolicy: {
+              mode: "manual"
+            },
+            clarificationPolicy: {
+              mode: "required"
+            },
+            reviewStrictness: "strict",
+            maxRetryCount: 2
+          },
+          createdAt: "2026-04-13T06:11:00.000Z",
+          updatedAt: "2026-04-13T06:11:00.000Z"
+        }),
+        recordedAt: "2026-04-13T06:11:00.000Z"
+      });
+
+      const defaultDecision = await routeStore.saveCapabilityPlannerDecision({
+        workflowId,
+        decisionId: "capability_plan_decision_313B_default",
+        policyId: "default",
+        contract,
+        historyEventSequence: 0,
+        lifecycleProjectionSequence: 0,
+        lifecycleCurrentNode: null,
+        plan: {
+          kind: "ready_for_manual_completion",
+          evaluation: {
+            workEpoch: 1,
+            result: "ready_for_manual_completion",
+            satisfiedCapabilityIds: ["implement.spec", "critic.code_review"],
+            missingCapabilityIds: [],
+            satisfiedEvidenceIds: ["change_set", "code_review_report"],
+            missingEvidenceIds: [],
+            reasons: ["All required evidence is present."]
+          }
+        },
+        recordedAt: "2026-04-13T06:12:00.000Z"
+      });
+      const strictDecision = await routeStore.saveCapabilityPlannerDecision({
+        workflowId,
+        decisionId: "capability_plan_decision_313B_backend",
+        policyId: "backend_strict",
+        contract,
+        historyEventSequence: 0,
+        lifecycleProjectionSequence: 0,
+        lifecycleCurrentNode: null,
+        plan: {
+          kind: "blocked",
+          reason: "Await adversarial verification."
+        },
+        recordedAt: "2026-04-13T06:13:00.000Z"
+      });
+
+      const loadedDefault = await routeStore.getCapabilityPlannerDecisionForState({
+        workflowId,
+        historyEventSequence: 0,
+        contractUpdatedAt: contract.updatedAt,
+        policyId: "default"
+      });
+      const loadedStrict = await routeStore.getCapabilityPlannerDecisionForState({
+        workflowId,
+        historyEventSequence: 0,
+        contractUpdatedAt: contract.updatedAt,
+        policyId: "backend_strict"
+      });
+
+      expect(defaultDecision.command).toBeNull();
+      expect(strictDecision.command).toBeNull();
+      expect(loadedDefault).toEqual(defaultDecision.decision);
+      expect(loadedStrict).toEqual(strictDecision.decision);
+      expect(loadedDefault?.decisionId).not.toBe(loadedStrict?.decisionId);
     } finally {
       database.close();
     }

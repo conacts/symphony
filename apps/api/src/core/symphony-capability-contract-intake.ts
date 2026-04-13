@@ -297,14 +297,13 @@ function parseMaxRetryCountSection(
   }
 
   const normalized = requireNonEmptyText(body, "max retry count");
-  const parsed = Number.parseInt(normalized, 10);
-  if (!Number.isInteger(parsed) || parsed < 0) {
+  if (!/^(0|[1-9]\d*)$/.test(normalized)) {
     throw new TypeError(
       `Invalid max retry count ${JSON.stringify(normalized)}. Expected a non-negative integer.`
     );
   }
 
-  return parsed;
+  return Number(normalized);
 }
 
 function parseSchemaValue<Output>(

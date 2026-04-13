@@ -8,6 +8,8 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import {
+  createSymphonyCapabilityCompletedSignal,
+  createSymphonyCapabilityStartedSignal,
   createSymphonyCurrentFlowRouterAsync,
   createSymphonyCurrentFlowTrackerStateObservedSignal
 } from "@symphony/router";
@@ -69,6 +71,7 @@ describe("Symphony capability planning", () => {
           workflowId: seeded.workflowId,
           contractId: seeded.contract.contractId,
           contractUpdatedAt: seeded.contract.updatedAt,
+          policyId: "default",
           historyEventSequence: history.at(-1)?.eventSequence ?? 0,
           lifecycleProjectionSequence: hydration?.snapshot?.projection.sequence ?? 0,
           lifecycleCurrentNode: hydration?.snapshot?.projection.currentNode ?? null,
@@ -112,7 +115,8 @@ describe("Symphony capability planning", () => {
         await harness.routeWorkflowStore.getCapabilityPlannerDecisionForState({
           workflowId: seeded.workflowId,
           historyEventSequence: history.at(-1)?.eventSequence ?? 0,
-          contractUpdatedAt: seeded.contract.updatedAt
+          contractUpdatedAt: seeded.contract.updatedAt,
+          policyId: "default"
         });
       const persistedCommand =
         await harness.routeWorkflowStore.getCapabilityPlannerCommandByDecisionId(
@@ -138,7 +142,8 @@ describe("Symphony capability planning", () => {
     try {
       const first = await harness.planning.planByWorkflowId({
         workflowId: seeded.workflowId,
-        recordedAt: "2026-04-13T07:05:00.000Z"
+        recordedAt: "2026-04-13T07:05:00.000Z",
+        policyId: "default"
       });
       harness.close();
 
@@ -146,7 +151,8 @@ describe("Symphony capability planning", () => {
       try {
         const second = await reopened.planning.planByWorkflowId({
           workflowId: seeded.workflowId,
-          recordedAt: "2026-04-13T07:06:00.000Z"
+          recordedAt: "2026-04-13T07:06:00.000Z",
+          policyId: "default"
         });
         const commands = await reopened.routeWorkflowStore.listCapabilityPlannerCommands(
           seeded.workflowId
@@ -163,6 +169,88 @@ describe("Symphony capability planning", () => {
     } catch (error) {
       harness.close();
       throw error;
+    }
+  });
+
+  it("does not reuse persisted planner decisions across policy ids for the same workflow state", async () => {
+    const harness = await createHarness();
+    const seeded = await seedPlannerFixture(harness);
+
+    try {
+      await recordCapabilityCompletion({
+        harness,
+        workflowId: seeded.workflowId,
+        issueIdentifier: seeded.contract.issueIdentifier,
+        capabilityId: "implement.spec",
+        modelProfileId: "builder_fast",
+        evidenceId: "change_set",
+        executionId: "exec_impl_1",
+        workEpoch: 1,
+        attempt: 1,
+        recordedAt: "2026-04-13T07:07:00.000Z"
+      });
+      await recordCapabilityCompletion({
+        harness,
+        workflowId: seeded.workflowId,
+        issueIdentifier: seeded.contract.issueIdentifier,
+        capabilityId: "critic.code_review",
+        modelProfileId: "critic_strict",
+        evidenceId: "code_review_report",
+        executionId: "exec_review_1",
+        workEpoch: 1,
+        attempt: 1,
+        recordedAt: "2026-04-13T07:08:00.000Z"
+      });
+
+      const history = await harness.routeWorkflowStore.listHistory(seeded.workflowId);
+      const historyEventSequence = history.at(-1)?.eventSequence ?? 0;
+      const defaultPlan = await harness.planning.planByWorkflowId({
+        workflowId: seeded.workflowId,
+        recordedAt: "2026-04-13T07:09:00.000Z",
+        policyId: "default"
+      });
+      const strictPlan = await harness.planning.planByWorkflowId({
+        workflowId: seeded.workflowId,
+        recordedAt: "2026-04-13T07:10:00.000Z",
+        policyId: "backend_strict"
+      });
+      const persistedDefault =
+        await harness.routeWorkflowStore.getCapabilityPlannerDecisionForState({
+          workflowId: seeded.workflowId,
+          historyEventSequence,
+          contractUpdatedAt: seeded.contract.updatedAt,
+          policyId: "default"
+        });
+      const persistedStrict =
+        await harness.routeWorkflowStore.getCapabilityPlannerDecisionForState({
+          workflowId: seeded.workflowId,
+          historyEventSequence,
+          contractUpdatedAt: seeded.contract.updatedAt,
+          policyId: "backend_strict"
+        });
+
+      expect(defaultPlan.reused).toBe(false);
+      expect(defaultPlan.plan.kind).toBe("ready_for_manual_completion");
+      expect(defaultPlan.command).toBeNull();
+      expect(defaultPlan.decision.policyId).toBe("default");
+
+      expect(strictPlan.reused).toBe(false);
+      expect(strictPlan.plan).toEqual(
+        expect.objectContaining({
+          kind: "execute",
+          decision: expect.objectContaining({
+            capabilityId: "critic.adversarial_tests",
+            workEpoch: 1
+          })
+        })
+      );
+      expect(strictPlan.decision.policyId).toBe("backend_strict");
+      expect(strictPlan.command?.command.dedupeKey).toContain(":backend_strict:");
+      expect(persistedDefault?.decisionId).toBe(defaultPlan.decision.decisionId);
+      expect(persistedStrict?.decisionId).toBe(strictPlan.decision.decisionId);
+      expect(persistedDefault?.decisionId).not.toBe(persistedStrict?.decisionId);
+    } finally {
+      harness.close();
     }
   });
 });
@@ -256,6 +344,73 @@ async function seedPlannerFixture(
     issue,
     contract
   };
+}
+
+async function recordCapabilityCompletion(input: {
+  harness: Awaited<ReturnType<typeof openHarness>>;
+  workflowId: string;
+  issueIdentifier: string;
+  capabilityId: "implement.spec" | "critic.code_review";
+  modelProfileId: "builder_fast" | "critic_strict";
+  evidenceId: "change_set" | "code_review_report";
+  executionId: string;
+  workEpoch: number;
+  attempt: number;
+  recordedAt: string;
+}) {
+  await input.harness.routeWorkflowStore.appendHistoryEvent({
+    workflowId: input.workflowId,
+    event: {
+      kind: "signal_recorded",
+      recordedAt: input.recordedAt,
+      signal: createSymphonyCapabilityStartedSignal({
+        id: `signal_started_${input.executionId}`,
+        occurredAt: input.recordedAt,
+        source: "runtime",
+        workflowId: input.workflowId,
+        executionId: input.executionId,
+        capabilityId: input.capabilityId,
+        modelProfileId: input.modelProfileId,
+        workEpoch: input.workEpoch,
+        attempt: input.attempt,
+        summary: `Started ${input.capabilityId}.`,
+        causationId: null,
+        correlationId: input.issueIdentifier
+      })
+    }
+  });
+  await input.harness.routeWorkflowStore.appendHistoryEvent({
+    workflowId: input.workflowId,
+    event: {
+      kind: "signal_recorded",
+      recordedAt: incrementIsoTimestamp(input.recordedAt, 1),
+      signal: createSymphonyCapabilityCompletedSignal({
+        id: `signal_completed_${input.executionId}`,
+        occurredAt: incrementIsoTimestamp(input.recordedAt, 1),
+        source: "runtime",
+        workflowId: input.workflowId,
+        executionId: input.executionId,
+        capabilityId: input.capabilityId,
+        modelProfileId: input.modelProfileId,
+        workEpoch: input.workEpoch,
+        attempt: input.attempt,
+        summary: `Completed ${input.capabilityId}.`,
+        evidenceProduced: [
+          {
+            evidenceId: input.evidenceId,
+            summary: `Produced ${input.evidenceId}.`,
+            artifacts: []
+          }
+        ],
+        causationId: null,
+        correlationId: input.issueIdentifier
+      })
+    }
+  });
+}
+
+function incrementIsoTimestamp(value: string, seconds: number): string {
+  return new Date(Date.parse(value) + seconds * 1000).toISOString();
 }
 
 function buildIssue() {

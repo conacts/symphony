@@ -132,6 +132,38 @@ describe("routing policy resolver", () => {
     ).toThrow(/no admissible capability can produce it/i);
   });
 
+  it("fails fast when the merged policy requires a disabled capability", () => {
+    expect(() =>
+      resolveWorkflowRoutingPolicy({
+        capabilityDefinitions,
+        modelProfiles,
+        presetPolicy: createPresetPolicy({
+          requiredCapabilityIds: ["implement.spec", "critic.browser_test"],
+          preferredCapabilityIds: [],
+          forbiddenCapabilityIds: [],
+          requiredEvidenceIds: ["change_set"],
+          allowedModelProfileIds: ["builder_fast", "critic_browser"]
+        })
+      })
+    ).toThrow(/disabled by default/i);
+  });
+
+  it("fails fast when required evidence can only be produced by a disabled capability", () => {
+    expect(() =>
+      resolveWorkflowRoutingPolicy({
+        capabilityDefinitions,
+        modelProfiles,
+        presetPolicy: createPresetPolicy({
+          requiredCapabilityIds: ["implement.spec"],
+          preferredCapabilityIds: [],
+          forbiddenCapabilityIds: [],
+          requiredEvidenceIds: ["change_set", "browser_test_report"],
+          allowedModelProfileIds: ["builder_fast", "critic_browser"]
+        })
+      })
+    ).toThrow(/no admissible capability can produce it/i);
+  });
+
   it("preserves preset hard requirements even when a ticket tries to weaken them", () => {
     const resolved = resolveWorkflowRoutingPolicy({
       capabilityDefinitions,

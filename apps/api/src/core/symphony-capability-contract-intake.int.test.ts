@@ -124,6 +124,31 @@ describe("Symphony capability contract intake", () => {
     }
   });
 
+  it("rejects malformed max retry count sections", async () => {
+    for (const maxRetryCount of ["1.5", "2abc"]) {
+      const harness = await createHarness({
+        issue: buildIssue({
+          description: createDescription({
+            maxRetryCount
+          })
+        })
+      });
+
+      try {
+        await expect(
+          harness.intake.createAndPersistForWorkflow({
+            workflowId: harness.workflowId,
+            issue: harness.issue,
+            repositoryKey: "openai/symphony",
+            recordedAt: "2026-04-13T06:13:30.000Z"
+          })
+        ).rejects.toThrow(/invalid max retry count/i);
+      } finally {
+        harness.close();
+      }
+    }
+  });
+
   it("persists a valid canonical execution contract", async () => {
     const harness = await createHarness();
 
@@ -241,6 +266,7 @@ function createDescription(input: {
   objective?: string | null;
   doneDefinition?: string | null;
   mergePolicy?: string | null;
+  maxRetryCount?: string | null;
 } = {}) {
   const sections: string[] = [];
 
@@ -263,6 +289,11 @@ function createDescription(input: {
   if (input.mergePolicy !== null) {
     sections.push("## Merge Policy");
     sections.push(input.mergePolicy ?? "manual");
+  }
+
+  if (input.maxRetryCount !== null && input.maxRetryCount !== undefined) {
+    sections.push("## Max Retry Count");
+    sections.push(input.maxRetryCount);
   }
 
   return sections.join("\n\n");

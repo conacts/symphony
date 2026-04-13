@@ -60,6 +60,7 @@ export function createSymphonyCapabilityPlanningService(input: {
     async planByWorkflowId(planInput) {
       const workflowId = requireNonEmptyText(planInput.workflowId, "workflowId");
       const recordedAt = requireNonEmptyText(planInput.recordedAt, "recordedAt");
+      const policyId = planInput.policyId ?? "default";
       const hydrationState =
         await input.routeWorkflowStore.loadWorkflowHydrationState(workflowId);
       if (!hydrationState) {
@@ -90,7 +91,8 @@ export function createSymphonyCapabilityPlanningService(input: {
         >({
           workflowId,
           historyEventSequence,
-          contractUpdatedAt: contract.updatedAt
+          contractUpdatedAt: contract.updatedAt,
+          policyId
         });
       if (existingDecision) {
         const command = await loadCommandForDecision({
@@ -108,7 +110,7 @@ export function createSymphonyCapabilityPlanningService(input: {
       }
 
       const preset = createSymphonyCapabilityPreset({
-        policyId: planInput.policyId ?? "default"
+        policyId
       });
       const planner = createWorkflowCapabilityPlanner({
         capabilityDefinitions: preset.capabilities,
@@ -118,7 +120,8 @@ export function createSymphonyCapabilityPlanningService(input: {
       const decisionId = buildPlannerDecisionId({
         workflowId,
         historyEventSequence,
-        contractUpdatedAt: contract.updatedAt
+        contractUpdatedAt: contract.updatedAt,
+        policyId
       });
       const plan = planner.plan({
         contract,
@@ -130,12 +133,14 @@ export function createSymphonyCapabilityPlanningService(input: {
         decisionId,
         workflowId,
         historyEventSequence,
+        policyId,
         contract,
         plan
       });
       const persisted = await input.routeWorkflowStore.saveCapabilityPlannerDecision({
         workflowId,
         decisionId,
+        policyId,
         contract,
         historyEventSequence,
         lifecycleProjectionSequence:
@@ -184,6 +189,7 @@ function buildPlannerCommand(input: {
   decisionId: string;
   workflowId: string;
   historyEventSequence: number;
+  policyId: SymphonyCapabilityPresetPolicyId;
   contract: RouteWorkflowExecutionContractRecord<
     SymphonyCapabilityId,
     SymphonyCapabilityEvidenceId,
@@ -205,6 +211,7 @@ function buildPlannerCommand(input: {
       workflowId: input.workflowId,
       historyEventSequence: input.historyEventSequence,
       contractUpdatedAt: input.contract.updatedAt,
+      policyId: input.policyId,
       capabilityId: input.plan.decision.capabilityId,
       workEpoch: input.plan.decision.workEpoch
     }),
@@ -220,12 +227,14 @@ function buildPlannerDecisionId(input: {
   workflowId: string;
   historyEventSequence: number;
   contractUpdatedAt: string;
+  policyId: SymphonyCapabilityPresetPolicyId;
 }): string {
   return [
     "capability_plan",
     normalizeWorkflowToken(input.workflowId),
     String(input.historyEventSequence),
-    normalizeWorkflowToken(input.contractUpdatedAt)
+    normalizeWorkflowToken(input.contractUpdatedAt),
+    normalizeWorkflowToken(input.policyId)
   ].join("_");
 }
 
@@ -237,6 +246,7 @@ function buildPlannerDedupeKey(input: {
   workflowId: string;
   historyEventSequence: number;
   contractUpdatedAt: string;
+  policyId: SymphonyCapabilityPresetPolicyId;
   capabilityId: SymphonyCapabilityId;
   workEpoch: number;
 }): string {
@@ -244,6 +254,7 @@ function buildPlannerDedupeKey(input: {
     input.workflowId,
     String(input.historyEventSequence),
     input.contractUpdatedAt,
+    input.policyId,
     input.capabilityId,
     String(input.workEpoch)
   ].join(":");

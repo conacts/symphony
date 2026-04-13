@@ -97,9 +97,9 @@ function requireCurrentEpochCapabilityStatus<
   }
 
   for (const status of input.statuses) {
-    if (status.workEpoch !== input.workEpoch && !status.stale) {
+    if (status.workEpoch < input.workEpoch && !status.stale) {
       throw new TypeError(
-        `Completion gate projection marked non-current capability status epoch ${status.workEpoch} as non-stale.`
+        `Completion gate projection marked stale capability status epoch ${status.workEpoch} as non-stale.`
       );
     }
   }
@@ -130,9 +130,9 @@ function requireCurrentEpochEvidenceStatus<
   }
 
   for (const entry of input.evidenceByEpoch) {
-    if (entry.workEpoch !== input.workEpoch && !entry.stale) {
+    if (entry.workEpoch < input.workEpoch && !entry.stale) {
       throw new TypeError(
-        `Completion gate projection marked non-current evidence epoch ${entry.workEpoch} as non-stale.`
+        `Completion gate projection marked stale evidence epoch ${entry.workEpoch} as non-stale.`
       );
     }
   }

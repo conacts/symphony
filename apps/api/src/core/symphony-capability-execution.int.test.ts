@@ -203,4 +203,69 @@ describe("Symphony capability execution", () => {
       "capability.failed"
     ]);
   });
+
+  it("retries the same capability after clarification is answered", async () => {
+    harness = await CapabilityRouterProofHarness.create({
+      createEngine: () =>
+        createCapabilityScenarioExecutionEngine({
+          outcomes: {
+            "implement.spec:1:1": "clarification_requested",
+            "implement.spec:1:2": "failed"
+          }
+        })
+    });
+
+    const clarificationAdvance = await harness.advance({
+      recordedAt: "2026-04-13T08:40:00.000Z"
+    });
+    await harness.answerPendingClarification({
+      recordedAt: "2026-04-13T08:41:00.000Z",
+      answers: {
+        question_1: "Prove the strict JSON response contract."
+      }
+    });
+    const resumedAdvance = await harness.advance({
+      recordedAt: "2026-04-13T08:42:00.000Z"
+    });
+    const projection = await harness.projection();
+
+    expect(clarificationAdvance.kind).toBe("executed");
+    if (clarificationAdvance.kind !== "executed") {
+      throw new TypeError("Expected clarification execution to run.");
+    }
+
+    expect(resumedAdvance.kind).toBe("executed");
+    if (resumedAdvance.kind !== "executed") {
+      throw new TypeError("Expected resumed execution to run.");
+    }
+
+    expect(resumedAdvance.planning.plan).toEqual(
+      expect.objectContaining({
+        kind: "execute",
+        decision: expect.objectContaining({
+          capabilityId: "implement.spec",
+          workEpoch: 1
+        })
+      })
+    );
+    expect(resumedAdvance.execution.result).toEqual(
+      expect.objectContaining({
+        kind: "failed",
+        capabilityId: "implement.spec",
+        workEpoch: 1,
+        attempt: 2,
+        retryable: true
+      })
+    );
+    expect(resumedAdvance.nextPlanning.plan).toEqual(
+      expect.objectContaining({
+        kind: "execute",
+        decision: expect.objectContaining({
+          capabilityId: "implement.spec",
+          workEpoch: 1
+        })
+      })
+    );
+    expect(projection.pendingClarification).toBeNull();
+  });
 });

@@ -70,6 +70,46 @@ describe("completion gate", () => {
     );
   });
 
+  it("ignores future work epochs while completion still evaluates the current epoch", () => {
+    const evaluation = evaluateWorkflowCompletionGate({
+      resolvedPolicy: createResolvedPolicy({
+        requiredCapabilityIds: ["implement.spec"],
+        requiredEvidenceIds: ["change_set"]
+      }),
+      projection: createProjection({
+        workEpoch: 0,
+        phase: "implementing",
+        capabilityStatusesByEpoch: [
+          {
+            workEpoch: 1,
+            stale: false,
+            attempts: [
+              startedAttempt({
+                capabilityId: "implement.spec",
+                executionId: "exec_impl_1",
+                modelProfileId: "builder_fast",
+                workEpoch: 1
+              })
+            ]
+          }
+        ],
+        evidenceByEpoch: [],
+        latestAttempts: [
+          startedAttempt({
+            capabilityId: "implement.spec",
+            executionId: "exec_impl_1",
+            modelProfileId: "builder_fast",
+            workEpoch: 1
+          })
+        ]
+      })
+    });
+
+    expect(evaluation.result).toBe("not_ready");
+    expect(evaluation.missingCapabilityIds).toEqual(["implement.spec"]);
+    expect(evaluation.missingEvidenceIds).toEqual(["change_set"]);
+  });
+
   it("returns not_ready while clarification is pending even when proof requirements are satisfied", () => {
     const evaluation = evaluateWorkflowCompletionGate({
       resolvedPolicy: createResolvedPolicy({

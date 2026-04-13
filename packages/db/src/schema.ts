@@ -2142,6 +2142,7 @@ export const routeWorkflowCapabilityPlannerDecisionsTable = sqliteTable(
     workflowId: text("workflow_id").notNull(),
     contractId: text("contract_id").notNull(),
     contractUpdatedAt: text("contract_updated_at").notNull(),
+    policyId: text("policy_id").notNull(),
     historyEventSequence: integer("history_event_sequence").notNull(),
     lifecycleProjectionSequence: integer("lifecycle_projection_sequence").notNull(),
     lifecycleCurrentNode: text("lifecycle_current_node"),
@@ -2168,6 +2169,10 @@ export const routeWorkflowCapabilityPlannerDecisionsTable = sqliteTable(
       "route_workflow_capability_planner_decisions_contract_updated_at_check",
       sql`length(trim(${table.contractUpdatedAt})) > 0`
     ),
+    policyIdCheck: check(
+      "route_workflow_capability_planner_decisions_policy_id_check",
+      sql`length(trim(${table.policyId})) > 0`
+    ),
     historyEventSequenceCheck: check(
       "route_workflow_capability_planner_decisions_history_event_sequence_check",
       sql`${table.historyEventSequence} >= 0`
@@ -2188,7 +2193,12 @@ export const routeWorkflowCapabilityPlannerDecisionsTable = sqliteTable(
     ),
     workflowBasisIdx: uniqueIndex(
       "route_workflow_capability_planner_decisions_workflow_basis_idx"
-    ).on(table.workflowId, table.historyEventSequence, table.contractUpdatedAt),
+    ).on(
+      table.workflowId,
+      table.historyEventSequence,
+      table.contractUpdatedAt,
+      table.policyId
+    ),
     workflowRecordedAtIdx: index(
       "route_workflow_capability_planner_decisions_workflow_recorded_at_idx"
     ).on(table.workflowId, table.recordedAt)

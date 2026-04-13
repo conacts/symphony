@@ -180,6 +180,38 @@ describe("capability candidate builder", () => {
     expect(candidates).toEqual([]);
   });
 
+  it("re-emits implementation after clarification is answered", () => {
+    const candidates = buildWorkflowCapabilityCandidates({
+      capabilityDefinitions: capabilityDefinitions,
+      resolvedPolicy: createResolvedPolicy(),
+      projection: createProjection({
+        phase: "implementing",
+        workEpoch: 0,
+        capabilityStatusesByEpoch: [
+          {
+            workEpoch: 1,
+            stale: false,
+            attempts: [
+              clarificationRequestedAttempt({
+                capabilityId: "implement.spec",
+                executionId: "exec_impl_1",
+                modelProfileId: "builder_fast"
+              })
+            ]
+          }
+        ]
+      })
+    });
+
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        capabilityId: "implement.spec",
+        workEpoch: 1,
+        required: true
+      })
+    ]);
+  });
+
   it("yields no candidates while the workflow is blocked", () => {
     const candidates = buildWorkflowCapabilityCandidates({
       capabilityDefinitions: capabilityDefinitions,
@@ -439,6 +471,30 @@ function changesRequestedAttempt(input: {
     summary: `Changes requested by ${input.capabilityId}.`,
     startedAt: "2026-04-12T23:00:00.000Z",
     completedAt: "2026-04-12T23:01:00.000Z",
+    retryable: null,
+    reasonCode: null,
+    failureKind: null,
+    evidenceProduced: []
+  };
+}
+
+function clarificationRequestedAttempt(input: {
+  capabilityId: string;
+  executionId: string;
+  modelProfileId: string;
+  workEpoch?: number;
+  attempt?: number;
+}): WorkflowCapabilityAttempt<string, string, string> {
+  return {
+    executionId: input.executionId,
+    capabilityId: input.capabilityId,
+    modelProfileId: input.modelProfileId,
+    workEpoch: input.workEpoch ?? 1,
+    attempt: input.attempt ?? 1,
+    status: "clarification_requested",
+    summary: `Clarification requested by ${input.capabilityId}.`,
+    startedAt: "2026-04-12T23:00:00.000Z",
+    completedAt: null,
     retryable: null,
     reasonCode: null,
     failureKind: null,

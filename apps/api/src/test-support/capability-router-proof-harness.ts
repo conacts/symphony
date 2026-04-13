@@ -9,6 +9,7 @@ import {
   type RouteWorkflowStore
 } from "@symphony/db";
 import {
+  createSymphonyWorkflowClarificationAnsweredSignal,
   createSymphonyCurrentFlowRouterAsync,
   createSymphonyCurrentFlowTrackerStateObservedSignal,
   projectWorkflowCapabilityProjection,
@@ -28,7 +29,8 @@ import {
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { createRouteWorkflowPort, type SymphonyRouteWorkflowPort } from "../core/runtime-route-workflows.js";
 import {
-  createRuntimeWorkflowSessionLoader
+  createRuntimeWorkflowSessionLoader,
+  type SymphonyRuntimeWorkflowSessionLoader
 } from "../core/runtime-workflow-session-loader.js";
 import {
   createSymphonyCapabilityContractIntake
@@ -62,6 +64,7 @@ type HarnessRuntime = {
   database: ReturnType<typeof initializeSymphonyDb>;
   routeWorkflowStore: RouteWorkflowStore;
   routeWorkflows: SymphonyRouteWorkflowPort;
+  sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
   planning: ReturnType<typeof createSymphonyCapabilityPlanningService>;
   execution: ReturnType<typeof createSymphonyCapabilityExecutionService>;
 };
@@ -170,6 +173,47 @@ export class CapabilityRouterProofHarness {
     });
   }
 
+  async answerPendingClarification(input: {
+    recordedAt: string;
+    answers?: Record<string, unknown>;
+  }) {
+    const projection = await this.projection();
+    const pendingClarification = projection.pendingClarification;
+    if (!pendingClarification) {
+      throw new TypeError("Capability proof harness has no pending clarification.");
+    }
+
+    const resumed = await this.runtime().sessionLoader.resumeByWorkflowId({
+      workflowId: this.workflowId
+    });
+    if (!resumed) {
+      throw new TypeError(
+        `Capability proof harness could not resume workflow ${this.workflowId} to answer clarification.`
+      );
+    }
+
+    const signal = createSymphonyWorkflowClarificationAnsweredSignal({
+      id: `signal_clarification_answered_${pendingClarification.requestId}`,
+      occurredAt: input.recordedAt,
+      source: "operator",
+      workflowId: this.workflowId,
+      requestId: pendingClarification.requestId,
+      answeredAt: input.recordedAt,
+      answers: input.answers ?? {
+        question_1: "Proceed with the strict backend behavior."
+      },
+      causationId: null,
+      correlationId: this.#issue.identifier
+    });
+    const result = await resumed.resumed.session.receiveAsync(signal);
+
+    return await this.routeWorkflows.recordRouteResult({
+      workflowId: this.workflowId,
+      policy: resumed.routing.policy,
+      result
+    });
+  }
+
   async history() {
     return await this.routeWorkflowStore.listHistory(this.workflowId);
   }
@@ -260,6 +304,7 @@ export class CapabilityRouterProofHarness {
       database,
       routeWorkflowStore,
       routeWorkflows,
+      sessionLoader,
       planning,
       execution: createSymphonyCapabilityExecutionService({
         capabilityPlanning: planning,

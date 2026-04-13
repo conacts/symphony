@@ -127,6 +127,12 @@ export function resolveWorkflowRoutingPolicy<
       continue;
     }
 
+    if (!capability.enabledByDefault) {
+      throw new TypeError(
+        `Resolved routing policy requires capability ${JSON.stringify(capabilityId)} but it is disabled by default.`
+      );
+    }
+
     const supportedAllowedProfiles = capability.supportedModelProfileIds.filter(
       (profileId) => allowedModelProfileIds.includes(profileId)
     );
@@ -149,6 +155,7 @@ export function resolveWorkflowRoutingPolicy<
 
     const admissibleSupportingCapabilities = supportingCapabilities.filter(
       (definition) =>
+        definition.enabledByDefault &&
         !forbiddenCapabilityIds.includes(definition.id) &&
         definition.supportedModelProfileIds.some((profileId) =>
           allowedModelProfileIds.includes(profileId)

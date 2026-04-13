@@ -116,6 +116,7 @@ type RouteWorkflowCapabilityPlannerDecisionRow = {
   workflowId: string;
   contractId: string;
   contractUpdatedAt: string;
+  policyId: string;
   historyEventSequence: number;
   lifecycleProjectionSequence: number;
   lifecycleCurrentNode: string | null;
@@ -220,6 +221,7 @@ export type RouteWorkflowCapabilityPlannerDecisionRecord<
   workflowId: string;
   contractId: string;
   contractUpdatedAt: string;
+  policyId: string;
   historyEventSequence: number;
   lifecycleProjectionSequence: number;
   lifecycleCurrentNode: string | null;
@@ -287,6 +289,7 @@ export interface RouteWorkflowStore {
     workflowId: string;
     historyEventSequence: number;
     contractUpdatedAt: string;
+    policyId: string;
   }): Promise<
     RouteWorkflowCapabilityPlannerDecisionRecord<CapabilityId, EvidenceId, ProfileId> | null
   >;
@@ -397,6 +400,7 @@ export interface RouteWorkflowStore {
   >(input: {
     workflowId: string;
     decisionId: string;
+    policyId: string;
     contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
     historyEventSequence: number;
     lifecycleProjectionSequence: number;
@@ -541,6 +545,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     workflowId: string;
     historyEventSequence: number;
     contractUpdatedAt: string;
+    policyId: string;
   }): Promise<
     RouteWorkflowCapabilityPlannerDecisionRecord<CapabilityId, EvidenceId, ProfileId> | null
   > {
@@ -553,7 +558,8 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
       contractUpdatedAt: sanitizeRequiredText(
         input.contractUpdatedAt,
         "contractUpdatedAt"
-      )
+      ),
+      policyId: sanitizeRequiredText(input.policyId, "policyId")
     });
 
     return row
@@ -1091,6 +1097,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
   >(input: {
     workflowId: string;
     decisionId: string;
+    policyId: string;
     contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
     historyEventSequence: number;
     lifecycleProjectionSequence: number;
@@ -1116,6 +1123,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
   }> {
     const workflowId = sanitizeRequiredText(input.workflowId, "workflowId");
     const decisionId = sanitizeRequiredText(input.decisionId, "decisionId");
+    const policyId = sanitizeRequiredText(input.policyId, "policyId");
     const contract = input.contract;
     const recordedAt = sanitizeRequiredText(input.recordedAt, "recordedAt");
 
@@ -1201,7 +1209,8 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
         {
           workflowId,
           historyEventSequence,
-          contractUpdatedAt
+          contractUpdatedAt,
+          policyId
         },
         tx
       );
@@ -1240,6 +1249,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
           workflowId,
           contractId,
           contractUpdatedAt,
+          policyId,
           historyEventSequence,
           lifecycleProjectionSequence,
           lifecycleCurrentNode,
@@ -1301,6 +1311,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
           workflowId,
           contractId,
           contractUpdatedAt,
+          policyId,
           historyEventSequence,
           lifecycleProjectionSequence,
           lifecycleCurrentNode,
@@ -1588,6 +1599,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
       workflowId: string;
       historyEventSequence: number;
       contractUpdatedAt: string;
+      policyId: string;
     },
     db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema> = this.#db
   ): RouteWorkflowCapabilityPlannerDecisionRow | undefined {
@@ -1597,6 +1609,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
         workflowId: routeWorkflowCapabilityPlannerDecisionsTable.workflowId,
         contractId: routeWorkflowCapabilityPlannerDecisionsTable.contractId,
         contractUpdatedAt: routeWorkflowCapabilityPlannerDecisionsTable.contractUpdatedAt,
+        policyId: routeWorkflowCapabilityPlannerDecisionsTable.policyId,
         historyEventSequence:
           routeWorkflowCapabilityPlannerDecisionsTable.historyEventSequence,
         lifecycleProjectionSequence:
@@ -1619,7 +1632,8 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
           eq(
             routeWorkflowCapabilityPlannerDecisionsTable.contractUpdatedAt,
             input.contractUpdatedAt
-          )
+          ),
+          eq(routeWorkflowCapabilityPlannerDecisionsTable.policyId, input.policyId)
         )
       )
       .get();
@@ -2089,6 +2103,7 @@ function mapCapabilityPlannerDecisionRow<
     workflowId: row.workflowId,
     contractId: row.contractId,
     contractUpdatedAt: row.contractUpdatedAt,
+    policyId: sanitizeRequiredText(row.policyId, "policyId"),
     historyEventSequence: sanitizeEventSequence(
       row.historyEventSequence,
       "historyEventSequence"
