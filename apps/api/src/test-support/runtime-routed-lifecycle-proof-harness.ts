@@ -149,7 +149,7 @@ export class RuntimeRoutedLifecycleProofHarness {
 
   async observeNonRunningIssue(): Promise<ObserveNonRunningIssueResult> {
     return await this.#services.trackerStateIngress.observeNonRunningIssue({
-      issueIdentifier: this.#issueSeed.identifier
+      trackerIssueKey: this.#issueSeed.identifier
     });
   }
 
@@ -339,7 +339,7 @@ export class RuntimeRoutedLifecycleProofHarness {
     runId?: string | null;
   } = {}) {
     const lifecycle = await this.#services.workflowRead.loadWorkflowLifecycleView({
-      issueIdentifier: this.#issueSeed.identifier,
+      trackerIssueKey: this.#issueSeed.identifier,
       runId: input.runId ?? null
     });
     if (!lifecycle) {

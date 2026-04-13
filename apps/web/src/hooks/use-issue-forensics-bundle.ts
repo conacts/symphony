@@ -9,18 +9,18 @@ import {
 export function useIssueForensicsBundle(input: {
   runtimeBaseUrl: string;
   websocketUrl: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   repo?: string;
 }) {
   return useRealtimeResource({
     loadResource: () =>
-      fetchIssueForensicsBundle(input.runtimeBaseUrl, input.issueIdentifier, {
+      fetchIssueForensicsBundle(input.runtimeBaseUrl, input.trackerIssueKey, {
         repo: input.repo
       }),
     websocketUrl: input.websocketUrl,
     channels: ["issues", "runs"],
     shouldRefresh: (message) =>
-      shouldRefreshIssueForensicsBundle(message, input.issueIdentifier),
-    refreshKey: `${input.runtimeBaseUrl}:issues:${input.issueIdentifier}:${input.repo ?? "all"}:bundle`
+      shouldRefreshIssueForensicsBundle(message, input.trackerIssueKey),
+    refreshKey: `${input.runtimeBaseUrl}:issues:${input.trackerIssueKey}:${input.repo ?? "all"}:bundle`
   });
 }

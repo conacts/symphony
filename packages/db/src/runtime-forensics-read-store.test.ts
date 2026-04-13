@@ -30,7 +30,7 @@ async function recordSeededRunStarted(
 ): Promise<string> {
   const issueStore = createSymphonyIssueStore(db);
   await issueStore.upsert({
-    issueIdentifier: attrs.issueIdentifier,
+    trackerIssueKey: attrs.issueIdentifier,
     trackerIssueId: attrs.trackerIssueId,
     repositoryKey: attrs.repositoryKey,
     latestRunStartedAt: null,
@@ -150,13 +150,13 @@ describe("runtime forensics read store", () => {
       });
 
       const [summary] = await readStore.listRuns({
-        issueIdentifier: "COL-410"
+        trackerIssueKey: "COL-410"
       });
       const detail = await readStore.fetchRunDetail(runId);
 
       expect(summary).toMatchObject({
         runId,
-        issueIdentifier: "COL-410",
+        trackerIssueKey: "COL-410",
         runMode: "implementation",
         eventCount: 2,
         turnCount: 1,

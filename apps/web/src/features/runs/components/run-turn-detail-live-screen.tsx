@@ -101,7 +101,7 @@ export function RunTurnDetailLiveScreen(input: {
       breadcrumbs={
         runState.resource
           ? buildIssueRunTurnBreadcrumbRoutes(
-              runState.resource.runDetail.issue.issueIdentifier,
+              runState.resource.runDetail.issue.trackerIssueKey,
               runState.resource.runDetail.run.runId,
               input.turnId
             )

@@ -122,12 +122,12 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     const result = await services.runtimeLogs.list({
       limit: query.limit,
       repo: query.repo,
-      issueIdentifier: query.issueIdentifier
+      trackerIssueKey: query.trackerIssueKey
     });
 
     c.get("logger").debug("Returning runtime logs", {
       count: result.logs.length,
-      issueIdentifier: query.issueIdentifier ?? null
+      trackerIssueKey: query.trackerIssueKey ?? null
     });
 
     symphonyRuntimeLogsResponseSchema.parse({
@@ -175,18 +175,18 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       await c.req.json()
     );
     const result = await services.trackerStateIngress.observeNonRunningIssue({
-      issueIdentifier: payload.issueIdentifier
+      trackerIssueKey: payload.trackerIssueKey
     });
 
     if (!result) {
       c.get("logger").warn("Tracker state observation issue not found", {
-        issueIdentifier: payload.issueIdentifier
+        trackerIssueKey: payload.trackerIssueKey
       });
       throw createHttpError("NOT_FOUND", "Issue not found.");
     }
 
     c.get("logger").info("Observed non-running tracker state through runtime API", {
-      issueIdentifier: result.issueIdentifier,
+      trackerIssueKey: result.trackerIssueKey,
       observedTrackerState: result.observedTrackerState,
       workflowTrackerState: result.workflowTrackerState,
       observed: result.observed,
@@ -220,7 +220,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
 
     c.get("logger").info("Recorded delivery report through the runtime tools API", {
       runId: payload.runId,
-      issueIdentifier: payload.issue.identifier,
+      trackerIssueKey: payload.issue.identifier,
       success: result.success
     });
 
@@ -241,7 +241,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
 
     c.get("logger").info("Submitted spike result through the runtime tools API", {
       runId: payload.runId,
-      issueIdentifier: payload.issue.identifier,
+      trackerIssueKey: payload.issue.identifier,
       success: result.success
     });
 
@@ -262,7 +262,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
 
     c.get("logger").info("Canceled issue through the runtime tools API", {
       runId: payload.runId,
-      issueIdentifier: payload.issue.identifier,
+      trackerIssueKey: payload.issue.identifier,
       success: result.success
     });
 
@@ -283,14 +283,14 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
 
     c.get("logger").info("Recorded merge result through the runtime tools API", {
       runId: payload.runId,
-      issueIdentifier: payload.issue.identifier,
+      trackerIssueKey: payload.issue.identifier,
       success: result.success
     });
 
     return jsonOk(c, result);
   });
 
-  runtimeRoutes.get("/:issueIdentifier/workflow-comparison", async (c) => {
+  runtimeRoutes.get("/:trackerIssueKey/workflow-comparison", async (c) => {
     const path = parseWithSchema(symphonyRuntimeIssuePathSchema, c.req.param());
     const searchParams = new URL(c.req.url).searchParams;
     const requestedPresetIds = searchParams.getAll("presetId");
@@ -298,14 +298,14 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       presetIds: requestedPresetIds.length > 0 ? requestedPresetIds : undefined
     });
     const presetIds = normalizeWorkflowComparisonPresetIds(query.presetIds);
-    const comparison = await services.workflowComparison.compareByIssueIdentifier({
-      issueIdentifier: path.issueIdentifier,
+    const comparison = await services.workflowComparison.compareByTrackerIssueKey({
+      trackerIssueKey: path.trackerIssueKey,
       presetIds
     });
 
     if (!comparison) {
       c.get("logger").warn("Runtime workflow comparison not found", {
-        issueIdentifier: path.issueIdentifier
+        trackerIssueKey: path.trackerIssueKey
       });
       throw createHttpError("NOT_FOUND", "Workflow comparison not found.");
     }
@@ -313,7 +313,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     const result = serializeRuntimeWorkflowComparison(comparison);
 
     c.get("logger").debug("Returning runtime workflow comparison", {
-      issueIdentifier: path.issueIdentifier,
+      trackerIssueKey: path.trackerIssueKey,
       presetIds: result.comparedPresetIds,
       diverged: result.summary.diverged
     });
@@ -331,14 +331,14 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     return jsonOk(c, result);
   });
 
-  runtimeRoutes.get("/:issueIdentifier", async (c) => {
+  runtimeRoutes.get("/:trackerIssueKey", async (c) => {
     const path = parseWithSchema(symphonyRuntimeIssuePathSchema, c.req.param());
     const trackedIssue = await services.tracker.fetchIssueByIdentifier(
       services.runtimePolicy.tracker,
-      path.issueIdentifier
+      path.trackerIssueKey
     );
     const workflowLifecycle = await services.workflowRead.loadWorkflowLifecycleView({
-      issueIdentifier: path.issueIdentifier
+      trackerIssueKey: path.trackerIssueKey
     });
     const piSelectionPolicy = resolveHarnessModelRuntimePolicy(
       services.runtimePolicy
@@ -346,7 +346,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     const result = serializeRuntimeIssue(
       services.orchestrator.snapshot(),
       services.runtimePolicy.github.repo,
-      path.issueIdentifier,
+      path.trackerIssueKey,
       trackedIssue,
       workflowLifecycle?.trackerState ?? null,
       piSelectionPolicy
@@ -354,13 +354,13 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
 
     if (!result) {
       c.get("logger").warn("Runtime issue not found", {
-        issueIdentifier: path.issueIdentifier
+        trackerIssueKey: path.trackerIssueKey
       });
       throw createHttpError("NOT_FOUND", "Issue not found.");
     }
 
     c.get("logger").debug("Returning runtime issue detail", {
-      issueIdentifier: path.issueIdentifier,
+      trackerIssueKey: path.trackerIssueKey,
       status: result.status,
       trackedIssueFound: trackedIssue !== null,
       workflowId: workflowLifecycle?.workflowId ?? null,

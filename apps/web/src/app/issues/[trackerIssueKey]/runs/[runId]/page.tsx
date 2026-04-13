@@ -3,11 +3,11 @@ import { RunTurnsLiveScreen } from "@/features/runs/components/run-turns-live-sc
 
 export default async function IssueRunDetailPage(input: {
   params: Promise<{
-    issueIdentifier: string;
+    trackerIssueKey: string;
     runId: string;
   }>;
 }): Promise<ReactElement> {
-  const { runId } = await input.params;
+  const { trackerIssueKey: _trackerIssueKey, runId } = await input.params;
 
   return <RunTurnsLiveScreen runId={runId} />;
 }

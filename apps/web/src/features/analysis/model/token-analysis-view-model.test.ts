@@ -12,7 +12,7 @@ describe("token analysis view model", () => {
       sampledRuns: [
         {
           repositoryKey: "symphony",
-          issueIdentifier: "COL-165",
+          trackerIssueKey: "COL-165",
           run: {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
             runId: "run_123",
@@ -25,11 +25,11 @@ describe("token analysis view model", () => {
         },
         {
           repositoryKey: "symphony",
-          issueIdentifier: "COL-166",
+          trackerIssueKey: "COL-166",
           run: {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
             runId: "run_456",
-            issueIdentifier: "COL-166",
+            trackerIssueKey: "COL-166",
             inputTokens: 500,
             outputTokens: 120,
             totalTokens: 620,
@@ -38,7 +38,7 @@ describe("token analysis view model", () => {
           artifacts: buildSymphonyAgentRunArtifactsResult({
             run: {
               ...buildSymphonyAgentRunArtifactsResult().run,
-              issueIdentifier: "COL-166"
+              trackerIssueKey: "COL-166"
             },
             turns: [
               {
@@ -75,7 +75,7 @@ describe("token analysis view model", () => {
     });
     expect(viewModel.runTokenRows[0]?.totalTokens).toBe(620);
     expect(viewModel.turnTokenRows[0]?.totalTokens).toBe(620);
-    expect(viewModel.issueTokenRows[0]?.issueIdentifier).toBe("COL-166");
+    expect(viewModel.issueTokenRows[0]?.trackerIssueKey).toBe("COL-166");
     expect(viewModel.spotlight.hottestIssue).toBe("COL-166");
   });
 });

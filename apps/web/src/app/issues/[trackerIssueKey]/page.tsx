@@ -4,10 +4,10 @@ import { IssueDetailLiveScreen } from "@/features/issues/components/issue-detail
 
 export default async function IssueDetailPage(input: {
   params: Promise<{
-    issueIdentifier: string;
+    trackerIssueKey: string;
   }>;
 }): Promise<ReactElement> {
-  const { issueIdentifier } = await input.params;
+  const { trackerIssueKey } = await input.params;
 
-  return <IssueDetailLiveScreen issueIdentifier={issueIdentifier} />;
+  return <IssueDetailLiveScreen trackerIssueKey={trackerIssueKey} />;
 }

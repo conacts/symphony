@@ -32,7 +32,7 @@ async function seedIssueBinding(
 ): Promise<void> {
   const issueStore = createSymphonyIssueStore(db);
   await issueStore.upsert({
-    issueIdentifier: input.issueIdentifier,
+    trackerIssueKey: input.issueIdentifier,
     trackerIssueId: input.trackerIssueId,
     repositoryKey: input.repositoryKey,
     latestRunStartedAt: null,

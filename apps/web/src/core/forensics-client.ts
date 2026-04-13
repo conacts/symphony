@@ -58,12 +58,12 @@ export async function fetchIssueIndex(
 
 export async function fetchIssueForensicsBundle(
   runtimeBaseUrl: string,
-  issueIdentifier: string,
+  trackerIssueKey: string,
   input: Partial<SymphonyForensicsIssueForensicsBundleQuery> = {},
   fetchImpl: typeof fetch = fetch
 ): Promise<SymphonyForensicsIssueForensicsBundleResult> {
   const endpoint = createRuntimeUrl(
-    `/api/v1/issues/${issueIdentifier}/forensics-bundle`,
+    `/api/v1/issues/${trackerIssueKey}/forensics-bundle`,
     runtimeBaseUrl,
     {
       limit: input.limit ? String(input.limit) : undefined,
@@ -105,7 +105,7 @@ export async function fetchIssueForensicsBundle(
 
 export async function fetchIssueDetail(
   runtimeBaseUrl: string,
-  issueIdentifier: string,
+  trackerIssueKey: string,
   input: {
     limit?: number;
     repo?: string;
@@ -113,7 +113,7 @@ export async function fetchIssueDetail(
   fetchImpl: typeof fetch = fetch
 ): Promise<SymphonyForensicsIssueDetailResult> {
   const endpoint = createRuntimeUrl(
-    `/api/v1/issues/${issueIdentifier}`,
+    `/api/v1/issues/${trackerIssueKey}`,
     runtimeBaseUrl,
     {
       limit: String(input.limit ?? 200),
@@ -207,16 +207,16 @@ export function shouldRefreshIssueIndex(
 
 export function shouldRefreshIssueDetail(
   message: SymphonyRealtimeServerMessage,
-  issueIdentifier: string
+  trackerIssueKey: string
 ): boolean {
   if (
     message.type === "issue.updated" &&
-    message.issueIdentifier === issueIdentifier
+    message.trackerIssueKey === trackerIssueKey
   ) {
     return true;
   }
 
-  return messageInvalidatesPath(message, `/api/v1/issues/${issueIdentifier}`);
+  return messageInvalidatesPath(message, `/api/v1/issues/${trackerIssueKey}`);
 }
 
 export function shouldRefreshRunDetail(
@@ -228,21 +228,21 @@ export function shouldRefreshRunDetail(
 
 export function shouldRefreshIssueForensicsBundle(
   message: SymphonyRealtimeServerMessage,
-  issueIdentifier: string
+  trackerIssueKey: string
 ): boolean {
   if (
     message.type === "issue.updated" &&
-    message.issueIdentifier === issueIdentifier
+    message.trackerIssueKey === trackerIssueKey
   ) {
     return true;
   }
 
   if (
     message.type === "run.updated" &&
-    message.issueIdentifier === issueIdentifier
+    message.trackerIssueKey === trackerIssueKey
   ) {
     return true;
   }
 
-  return messageInvalidatesPath(message, `/api/v1/issues/${issueIdentifier}`);
+  return messageInvalidatesPath(message, `/api/v1/issues/${trackerIssueKey}`);
 }

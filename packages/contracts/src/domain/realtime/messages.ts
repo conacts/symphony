@@ -40,7 +40,7 @@ export const symphonyRealtimeSnapshotUpdatedMessageSchema = z.strictObject({
 export const symphonyRealtimeIssueUpdatedMessageSchema = z.strictObject({
   type: z.literal("issue.updated"),
   channel: z.literal("issues"),
-  issueIdentifier: nonEmptyStringSchema,
+  trackerIssueKey: nonEmptyStringSchema,
   generatedAt: isoTimestampSchema,
   invalidate: z.array(z.string()).min(1)
 });
@@ -49,7 +49,7 @@ export const symphonyRealtimeRunUpdatedMessageSchema = z.strictObject({
   type: z.literal("run.updated"),
   channel: z.literal("runs"),
   runId: nonEmptyStringSchema,
-  issueIdentifier: nonEmptyStringSchema.optional(),
+  trackerIssueKey: nonEmptyStringSchema.optional(),
   generatedAt: isoTimestampSchema,
   invalidate: z.array(z.string()).min(1)
 });

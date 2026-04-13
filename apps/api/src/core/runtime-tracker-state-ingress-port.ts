@@ -46,7 +46,8 @@ export function createRuntimeTrackerStateIngressPort(input: {
             eventType: "tracker_state_ingress_observed",
             message:
               "Observed non-running tracker state through workflow history ingress.",
-            issueIdentifier: observedIssue.issueIdentifier,
+            trackerIssueId: observedIssue.trackerIssueId,
+            trackerIssueKey: observedIssue.issueIdentifier,
             payload: {
               scope: "non_running_batch",
               observedTrackerState: observedIssue.observedTrackerState,
@@ -68,7 +69,8 @@ export function createRuntimeTrackerStateIngressPort(input: {
               observedCount: observedIssues.length,
               claimedIssueCount: observationInput.claimedIssueIds.length,
               observedIssues: observedIssues.map((observedIssue) => ({
-                issueIdentifier: observedIssue.issueIdentifier,
+                trackerIssueId: observedIssue.trackerIssueId,
+                trackerIssueKey: observedIssue.issueIdentifier,
                 observedTrackerState: observedIssue.observedTrackerState,
                 workflowTrackerState: observedIssue.workflowTrackerState
               }))
@@ -110,7 +112,7 @@ export function createRuntimeTrackerStateIngressPort(input: {
             eventType: "tracker_state_ingress_missing",
             message:
               "Skipped tracker state ingress because the tracker issue could not be found.",
-            issueIdentifier: null,
+            trackerIssueKey: null,
             payload: {
               scope: "non_running_issue_identifier",
               requestedIssueIdentifier: observationInput.issueIdentifier
@@ -125,7 +127,8 @@ export function createRuntimeTrackerStateIngressPort(input: {
           source: "tracker_state_ingress",
           eventType: readTrackerStateIngressEventType(observedIssue),
           message: readTrackerStateIngressMessage(observedIssue),
-          issueIdentifier: observedIssue.issueIdentifier,
+          trackerIssueId: observedIssue.trackerIssueId,
+          trackerIssueKey: observedIssue.issueIdentifier,
           payload: {
             scope: "non_running_issue_identifier",
             observedTrackerState: observedIssue.observedTrackerState,
@@ -143,9 +146,9 @@ export function createRuntimeTrackerStateIngressPort(input: {
           eventType: "tracker_state_ingress_failed",
           message:
             "Failed to observe non-running tracker state through workflow history ingress.",
-          issueIdentifier: observationInput.issueIdentifier,
           payload: {
             scope: "non_running_issue_identifier",
+            requestedIssueIdentifier: observationInput.issueIdentifier,
             error: stringifyError(error)
           },
           recordedAt: observationInput.recordedAt

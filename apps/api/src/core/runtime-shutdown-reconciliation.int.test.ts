@@ -1,13 +1,18 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createRouteWorkflowStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyIssueStore,
   createSymphonyIssueTimelineStore,
-  initializeSymphonyDb
+  initializeSymphonyDb,
+  symphonyGitHubInstallationIdentitiesTable,
+  symphonyGitHubRepositoryIdentitiesTable,
+  symphonyLinearWorkspaceIdentitiesTable,
+  symphonyOrganizationsTable,
+  symphonyRepositoryWorkspaceBindingsTable
 } from "@symphony/db";
 import {
   buildSymphonyRunStartAttrs,
@@ -62,7 +67,7 @@ describe("runtime shutdown reconciliation", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: issue.identifier,
+        trackerIssueKey: issue.identifier,
         trackerIssueId: issue.id,
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -111,7 +116,8 @@ describe("runtime shutdown reconciliation", () => {
         database,
         runStore,
         routeLifecycle,
-        shutdownReason: "runtime_shutdown"
+        shutdownReason: "runtime_shutdown",
+        bindingScope: null
       });
 
       expect(reconciled).toBe(1);
@@ -138,4 +144,197 @@ describe("runtime shutdown reconciliation", () => {
       database.close();
     }
   });
+
+  it("only reconciles persisted active runs inside the active hosted workspace scope", async () => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), "symphony-runtime-shutdown-scoped-")
+    );
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const routeShutdownPause = vi.fn().mockResolvedValue(false);
+
+    try {
+      seedHostedRepositoryWorkspaceBinding({
+        database,
+        organizationId: "org-1",
+        linearWorkspaceIdentityId: "workspace-1",
+        repositoryWorkspaceBindingId: "binding-1",
+        githubRepositoryIdentityId: "github-repo-1",
+        repositoryKey: "openai/symphony",
+        recordedAt: "2026-04-10T14:30:00.000Z"
+      });
+      seedHostedRepositoryWorkspaceBinding({
+        database,
+        organizationId: "org-2",
+        linearWorkspaceIdentityId: "workspace-2",
+        repositoryWorkspaceBindingId: "binding-2",
+        githubRepositoryIdentityId: "github-repo-2",
+        repositoryKey: "openai/coldets",
+        recordedAt: "2026-04-10T14:30:00.000Z"
+      });
+
+      await issueStore.upsert({
+        trackerIssueKey: "SYM-600",
+        trackerIssueId: "tracker-600",
+        repositoryKey: "openai/symphony",
+        bindingScope: {
+          organizationId: "org-1",
+          linearWorkspaceIdentityId: "workspace-1"
+        },
+        repositoryWorkspaceBindingId: "binding-1",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T14:31:00.000Z"
+      });
+      await issueStore.upsert({
+        trackerIssueKey: "SYM-601",
+        trackerIssueId: "tracker-601",
+        repositoryKey: "openai/coldets",
+        bindingScope: {
+          organizationId: "org-2",
+          linearWorkspaceIdentityId: "workspace-2"
+        },
+        repositoryWorkspaceBindingId: "binding-2",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T14:31:00.000Z"
+      });
+
+      await runStore.recordRunStarted(
+        buildSymphonyRunStartAttrs({
+          repositoryKey: "openai/symphony",
+          trackerIssueId: "tracker-600",
+          issueIdentifier: "SYM-600",
+          runId: "run-600",
+          bindingScope: {
+            organizationId: "org-1",
+            linearWorkspaceIdentityId: "workspace-1"
+          },
+          startedAt: "2026-04-10T14:32:00.000Z"
+        })
+      );
+      await runStore.recordRunStarted(
+        buildSymphonyRunStartAttrs({
+          repositoryKey: "openai/coldets",
+          trackerIssueId: "tracker-601",
+          issueIdentifier: "SYM-601",
+          runId: "run-601",
+          bindingScope: {
+            organizationId: "org-2",
+            linearWorkspaceIdentityId: "workspace-2"
+          },
+          startedAt: "2026-04-10T14:33:00.000Z"
+        })
+      );
+
+      const reconciled = await reconcilePersistedActiveRunsOnShutdown({
+        database,
+        runStore,
+        routeLifecycle: {
+          routeShutdownPause
+        },
+        shutdownReason: "runtime_shutdown",
+        bindingScope: {
+          organizationId: "org-1",
+          linearWorkspaceIdentityId: "workspace-1"
+        }
+      });
+
+      expect(reconciled).toBe(1);
+      expect(routeShutdownPause).toHaveBeenCalledTimes(1);
+      expect(routeShutdownPause).toHaveBeenCalledWith({
+        issueIdentifier: "SYM-600",
+        runId: "run-600",
+        runMode: "implementation",
+        recordedAt: expect.any(String),
+        reason: "runtime_shutdown"
+      });
+
+      const runs = database.client.prepare(`
+        select run_id as runId, status
+        from symphony_runs
+        order by run_id asc
+      `).all() as Array<{
+        runId: string;
+        status: string;
+      }>;
+
+      expect(runs).toEqual([
+        {
+          runId: "run-600",
+          status: "paused"
+        },
+        {
+          runId: "run-601",
+          status: "running"
+        }
+      ]);
+    } finally {
+      database.close();
+    }
+  });
 });
+
+function seedHostedRepositoryWorkspaceBinding(input: {
+  database: ReturnType<typeof initializeSymphonyDb>;
+  organizationId: string;
+  linearWorkspaceIdentityId: string;
+  repositoryWorkspaceBindingId: string;
+  githubRepositoryIdentityId: string;
+  repositoryKey: string;
+  recordedAt: string;
+}) {
+  input.database.db.insert(symphonyOrganizationsTable).values({
+    organizationId: input.organizationId,
+    organizationSlug: input.organizationId,
+    displayName: input.organizationId,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.database.db.insert(symphonyGitHubInstallationIdentitiesTable).values({
+    githubInstallationIdentityId: `${input.organizationId}_installation_identity`,
+    organizationId: input.organizationId,
+    provider: "github",
+    githubInstallationId: `${input.organizationId}_installation`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.database.db.insert(symphonyGitHubRepositoryIdentitiesTable).values({
+    githubRepositoryIdentityId: input.githubRepositoryIdentityId,
+    organizationId: input.organizationId,
+    githubInstallationIdentityId: `${input.organizationId}_installation_identity`,
+    provider: "github",
+    repositoryKey: input.repositoryKey,
+    githubRepositoryId: `${input.githubRepositoryIdentityId}_repo`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.database.db.insert(symphonyLinearWorkspaceIdentitiesTable).values({
+    linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+    organizationId: input.organizationId,
+    provider: "linear",
+    linearWorkspaceId: `${input.linearWorkspaceIdentityId}_workspace`,
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+
+  input.database.db.insert(symphonyRepositoryWorkspaceBindingsTable).values({
+    repositoryWorkspaceBindingId: input.repositoryWorkspaceBindingId,
+    organizationId: input.organizationId,
+    githubInstallationIdentityId: `${input.organizationId}_installation_identity`,
+    githubRepositoryIdentityId: input.githubRepositoryIdentityId,
+    linearWorkspaceIdentityId: input.linearWorkspaceIdentityId,
+    source: "bootstrap",
+    status: "active",
+    insertedAt: input.recordedAt,
+    updatedAt: input.recordedAt
+  }).onConflictDoNothing().run();
+}

@@ -37,7 +37,7 @@ describe("runtime routed lifecycle proof", () => {
       const firstObservation = await harness.observeNonRunningIssue();
       expect(firstObservation).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issueIdentifier,
+          trackerIssueKey: harness.issueIdentifier,
           observedTrackerState: "Todo",
           workflowTrackerState: "Bootstrapping",
           observed: true,
@@ -68,7 +68,7 @@ describe("runtime routed lifecycle proof", () => {
         await harness.observeNonRunningIssue();
       expect(redispatchedBootstrappingObservation).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issueIdentifier,
+          trackerIssueKey: harness.issueIdentifier,
           observedTrackerState: "Bootstrapping",
           workflowTrackerState: "Bootstrapping",
           observed: true,
@@ -133,7 +133,7 @@ describe("runtime routed lifecycle proof", () => {
       const reviewObservation = await harness.observeNonRunningIssue();
       expect(reviewObservation).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issueIdentifier,
+          trackerIssueKey: harness.issueIdentifier,
           observedTrackerState: "In Review",
           workflowTrackerState: "In Review",
           observed: false,
@@ -159,7 +159,7 @@ describe("runtime routed lifecycle proof", () => {
       const reworkObservation = await harness.observeNonRunningIssue();
       expect(reworkObservation).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issueIdentifier,
+          trackerIssueKey: harness.issueIdentifier,
           observedTrackerState: "Rework",
           workflowTrackerState: "Bootstrapping",
           observed: true,
@@ -188,7 +188,7 @@ describe("runtime routed lifecycle proof", () => {
       const reworkRedispatchObservation = await harness.observeNonRunningIssue();
       expect(reworkRedispatchObservation).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issueIdentifier,
+          trackerIssueKey: harness.issueIdentifier,
           observedTrackerState: "Bootstrapping",
           workflowTrackerState: "Bootstrapping",
           observed: true,
@@ -250,7 +250,7 @@ describe("runtime routed lifecycle proof", () => {
       const approvedObservation = await harness.observeNonRunningIssue();
       expect(approvedObservation).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issueIdentifier,
+          trackerIssueKey: harness.issueIdentifier,
           observedTrackerState: "Approved",
           workflowTrackerState: "Approved",
           observed: true,
@@ -280,7 +280,7 @@ describe("runtime routed lifecycle proof", () => {
       const approvedRedispatchObservation = await harness.observeNonRunningIssue();
       expect(approvedRedispatchObservation).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issueIdentifier,
+          trackerIssueKey: harness.issueIdentifier,
           observedTrackerState: "Approved",
           workflowTrackerState: "Approved",
           observed: true,
@@ -395,7 +395,7 @@ describe("runtime routed lifecycle proof", () => {
       const reopenedObservation = await harness.observeNonRunningIssue();
       expect(reopenedObservation).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issueIdentifier,
+          trackerIssueKey: harness.issueIdentifier,
           observedTrackerState: "Todo",
           workflowTrackerState: "Bootstrapping",
           observed: true,
@@ -583,7 +583,7 @@ describe("runtime routed lifecycle proof", () => {
       const reopenedObservation = await harness.observeNonRunningIssue();
       expect(reopenedObservation).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issueIdentifier,
+          trackerIssueKey: harness.issueIdentifier,
           observedTrackerState: "Todo",
           workflowTrackerState: "Bootstrapping",
           observed: true,
@@ -660,7 +660,7 @@ describe("runtime routed lifecycle proof", () => {
       const failedObservation = await harness.observeNonRunningIssue();
       expect(failedObservation).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issueIdentifier,
+          trackerIssueKey: harness.issueIdentifier,
           observedTrackerState: "Failed",
           workflowTrackerState: "Failed",
           observed: false,
@@ -762,7 +762,7 @@ async function advanceToRunningApprovedMerge(
   const approvedObservation = await harness.observeNonRunningIssue();
   expect(approvedObservation).toEqual(
     expect.objectContaining({
-      issueIdentifier: harness.issueIdentifier,
+      trackerIssueKey: harness.issueIdentifier,
       observedTrackerState: "Approved",
       workflowTrackerState: "Approved",
       observed: true,

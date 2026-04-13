@@ -24,7 +24,7 @@ export type SymphonyDashboardNavigationItem = {
 };
 
 export type SymphonyDashboardActiveIssue = {
-  issueIdentifier: string;
+  trackerIssueKey: string;
   title: string;
   state: string;
   href: string;

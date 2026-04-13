@@ -112,7 +112,7 @@ export type SymphonyForensicsRuntimeLogEntry = {
   eventType: string;
   message: string;
   trackerIssueId: string | null;
-  issueIdentifier: string | null;
+  trackerIssueKey: string | null;
   runId: string | null;
   payload: JsonValue;
   recordedAt: string;
@@ -128,12 +128,12 @@ export type SymphonyForensicsIssueForensicsBundleQuery =
 export type SymphonyForensicsReadModelDependencies = {
   runStore: SymphonyForensicsRunStore;
   listIssueTimeline?: (input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     repositoryKey: string;
     limit?: number;
   }) => Promise<SymphonyForensicsTimelineEntry[]>;
   listRuntimeLogs?: (input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     repositoryKey: string;
     limit?: number;
   }) => Promise<SymphonyForensicsRuntimeLogEntry[]>;
@@ -142,7 +142,7 @@ export type SymphonyForensicsReadModelDependencies = {
 export interface SymphonyForensicsRunStore {
   listRuns(opts?: SymphonyForensicsRunsQuery): Promise<SymphonyForensicsRunSummary[]>;
   listRunsForIssue(
-    issueIdentifier: string,
+    trackerIssueKey: string,
     opts?: SymphonyForensicsIssueDetailQuery
   ): Promise<SymphonyForensicsRunSummary[]>;
   listProblemRuns(
@@ -154,11 +154,11 @@ export interface SymphonyForensicsRunStore {
 export interface SymphonyForensicsReadModel {
   issues(opts?: SymphonyForensicsIssuesQuery): Promise<SymphonyForensicsIssueList>;
   issueDetail(
-    issueIdentifier: string,
+    trackerIssueKey: string,
     opts?: SymphonyForensicsIssueDetailQuery
   ): Promise<SymphonyForensicsIssueDetail | null>;
   issueForensicsBundle(
-    issueIdentifier: string,
+    trackerIssueKey: string,
     opts?: SymphonyForensicsIssueForensicsBundleQuery
   ): Promise<SymphonyForensicsIssueForensicsBundle | null>;
   successMetrics(
@@ -212,8 +212,8 @@ export function createSymphonyForensicsReadModel(
       };
     },
 
-    async issueDetail(issueIdentifier, opts = {}) {
-      const runs = await deps.runStore.listRunsForIssue(issueIdentifier, opts);
+    async issueDetail(trackerIssueKey, opts = {}) {
+      const runs = await deps.runStore.listRunsForIssue(trackerIssueKey, opts);
       if (runs.length === 0) {
         return null;
       }
@@ -234,7 +234,7 @@ export function createSymphonyForensicsReadModel(
 
       return {
         repositoryKey,
-        issueIdentifier,
+        trackerIssueKey,
         runs,
         summary: {
           runCount: runs.length,
@@ -253,13 +253,13 @@ export function createSymphonyForensicsReadModel(
       };
     },
 
-    async issueForensicsBundle(issueIdentifier, opts = {}) {
+    async issueForensicsBundle(trackerIssueKey, opts = {}) {
       const filters = normalizeFilters(opts);
       const [runs, timelineEntries, runtimeLogs] = await Promise.all([
         deps.runStore.listRuns({
           limit: allRowsLimit,
           repo: filters.repo ?? undefined,
-          issueIdentifier,
+          trackerIssueKey,
           startedAfter: filters.startedAfter ?? undefined,
           startedBefore: filters.startedBefore ?? undefined,
           outcome: filters.outcome ?? undefined,
@@ -268,7 +268,7 @@ export function createSymphonyForensicsReadModel(
         deps.listIssueTimeline
           ? filters.repo
             ? deps.listIssueTimeline({
-                issueIdentifier,
+                trackerIssueKey,
                 repositoryKey: filters.repo,
                 limit: opts.timelineLimit ?? allRowsLimit
               })
@@ -277,7 +277,7 @@ export function createSymphonyForensicsReadModel(
         deps.listRuntimeLogs
           ? filters.repo
             ? deps.listRuntimeLogs({
-                issueIdentifier,
+                trackerIssueKey,
                 repositoryKey: filters.repo,
                 limit: opts.runtimeLogLimit ?? allRowsLimit
               })
@@ -360,7 +360,7 @@ export function createSymphonyForensicsReadModel(
         filters: {
           repo: opts.repo ?? null,
           outcome: opts.outcome ?? null,
-          issueIdentifier: opts.issueIdentifier ?? null,
+          trackerIssueKey: opts.trackerIssueKey ?? null,
           limit: opts.limit ?? null
         }
       };

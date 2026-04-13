@@ -45,8 +45,8 @@ export async function createRuntimeStateRequestRouter(input: {
     async routeStateRequest(
       stateRequestInput
     ): Promise<SymphonyRuntimeStateRequestRoutingResult> {
-      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: stateRequestInput.projectedIssue.identifier
+      const loaded = await input.sessionLoader.resumeByTrackerIssueKey({
+        trackerIssueKey: stateRequestInput.projectedIssue.identifier
       });
       if (!loaded) {
         throw new TypeError(

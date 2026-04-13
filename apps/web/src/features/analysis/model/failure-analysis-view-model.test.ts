@@ -16,7 +16,7 @@ describe("failure analysis view model", () => {
         issues: [
           {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
-            issueIdentifier: "COL-165",
+            trackerIssueKey: "COL-165",
             latestProblemOutcome: "max_turns",
             latestErrorClass: "max_turns",
             latestErrorMessage: "Reached max turns before completion.",
@@ -26,7 +26,7 @@ describe("failure analysis view model", () => {
           {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
             trackerIssueId: "issue_456",
-            issueIdentifier: "COL-166",
+            trackerIssueKey: "COL-166",
             latestProblemOutcome: "startup_failure",
             latestErrorClass: "workspace_boot_failure",
             latestErrorMessage: "Workspace bootstrap failed.",
@@ -37,7 +37,7 @@ describe("failure analysis view model", () => {
           {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
             trackerIssueId: "issue_789",
-            issueIdentifier: "COL-167",
+            trackerIssueKey: "COL-167",
             latestProblemOutcome: "startup_failure",
             latestErrorClass: "workspace_boot_failure",
             latestErrorMessage: "Workspace bootstrap failed again.",
@@ -74,7 +74,7 @@ describe("failure analysis view model", () => {
       errorClass: "Workspace boot failure",
       issueCount: 2
     });
-    expect(viewModel.hotspotRows[0]?.issueIdentifier).toBe("COL-166");
+    expect(viewModel.hotspotRows[0]?.trackerIssueKey).toBe("COL-166");
     expect(viewModel.hotspotRows[0]?.latestProblemOutcome).toBe("Startup Failure");
     expect(viewModel.hotspotRows[0]?.latestErrorClass).toBe("Workspace boot failure");
     expect(viewModel.hotspotRows[0]?.problemRuns).toBe("3");
@@ -88,7 +88,7 @@ describe("failure analysis view model", () => {
         sampledRuns: [
           {
             repositoryKey: "symphony",
-            issueIdentifier: "COL-165",
+            trackerIssueKey: "COL-165",
             run: {
               ...buildSymphonyForensicsIssueDetailResult().runs[0]!,
               runId: "run_a",
@@ -101,7 +101,7 @@ describe("failure analysis view model", () => {
           },
           {
             repositoryKey: "symphony",
-            issueIdentifier: "COL-165",
+            trackerIssueKey: "COL-165",
             run: {
               ...buildSymphonyForensicsIssueDetailResult().runs[0]!,
               runId: "run_b",
@@ -119,12 +119,12 @@ describe("failure analysis view model", () => {
           },
           {
             repositoryKey: "symphony",
-            issueIdentifier: "COL-166",
+            trackerIssueKey: "COL-166",
             run: {
               ...buildSymphonyForensicsIssueDetailResult().runs[0]!,
               runId: "run_c",
               trackerIssueId: "issue_456",
-              issueIdentifier: "COL-166",
+              trackerIssueKey: "COL-166",
               outcome: "startup_failed",
               errorClass: "startup_failure_runtime_prepare",
               errorMessage: "Workspace failed to boot.",
@@ -135,7 +135,7 @@ describe("failure analysis view model", () => {
                 ...buildSymphonyAgentRunArtifactsResult().run,
                 runId: "run_c",
                 trackerIssueId: "issue_456",
-                issueIdentifier: "COL-166"
+                trackerIssueKey: "COL-166"
               }
             })
           }
@@ -171,7 +171,7 @@ describe("failure analysis view model", () => {
       providerTransientFailures: 0,
       otherFailures: 0
     });
-    expect(viewModel.hotspotRows[0]?.issueIdentifier).toBe("COL-165");
+    expect(viewModel.hotspotRows[0]?.trackerIssueKey).toBe("COL-165");
     expect(viewModel.hotspotRows[0]?.retries).toBe("1");
   });
 });

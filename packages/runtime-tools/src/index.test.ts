@@ -106,7 +106,7 @@ describe("runtime tools", () => {
     expect(reports).toHaveLength(1);
     expect(reports[0]).toEqual(
       expect.objectContaining({
-        issueIdentifier: "COL-123",
+        trackerIssueKey: "COL-123",
         runId: "run-123",
         turnId: "turn-123",
         status: "completed",
@@ -911,7 +911,7 @@ async function createRuntimeToolsTestContext(input: {
   const issueStore = createSymphonyIssueStore(database.db);
 
   await issueStore.upsert({
-    issueIdentifier: input.issue.identifier,
+    trackerIssueKey: input.issue.identifier,
     trackerIssueId: input.issue.id,
     repositoryKey: testRepositoryKey,
     latestRunStartedAt: null,

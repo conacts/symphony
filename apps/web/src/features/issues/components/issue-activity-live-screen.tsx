@@ -10,12 +10,12 @@ import { ControlPlanePage } from "@/features/shared/components/control-plane-pag
 import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 
-export function IssueActivityLiveScreen(input: { issueIdentifier: string }) {
+export function IssueActivityLiveScreen(input: { trackerIssueKey: string }) {
   const model = useControlPlaneModel();
   const issueActivityState = useIssueForensicsBundle({
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl,
-    issueIdentifier: input.issueIdentifier
+    trackerIssueKey: input.trackerIssueKey
   });
   const connection = useMemo(
     () =>
@@ -30,13 +30,13 @@ export function IssueActivityLiveScreen(input: { issueIdentifier: string }) {
   return (
     <ControlPlanePage
       connection={connection}
-      breadcrumbs={buildIssueTimelineBreadcrumbRoutes(input.issueIdentifier)}
+      breadcrumbs={buildIssueTimelineBreadcrumbRoutes(input.trackerIssueKey)}
     >
       <IssueActivityView
         connection={connection}
         error={issueActivityState.error}
         issueActivity={issueActivityState.resource}
-        issueIdentifier={input.issueIdentifier}
+        trackerIssueKey={input.trackerIssueKey}
         loading={issueActivityState.loading}
       />
     </ControlPlanePage>

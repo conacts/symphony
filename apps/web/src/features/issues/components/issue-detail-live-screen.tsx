@@ -12,20 +12,20 @@ import { ControlPlanePage } from "@/features/shared/components/control-plane-pag
 import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
 
-export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
+export function IssueDetailLiveScreen(input: { trackerIssueKey: string }) {
   const model = useControlPlaneModel();
   const searchParams = useSearchParams();
   const repo = readRepoScopeFromSearchParams(searchParams);
   const issueDetailState = useIssueDetail({
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl,
-    issueIdentifier: input.issueIdentifier,
+    trackerIssueKey: input.trackerIssueKey,
     repo
   });
   const runtimeIssueState = useRuntimeIssue({
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl,
-    issueIdentifier: input.issueIdentifier
+    trackerIssueKey: input.trackerIssueKey
   });
   const connection = useMemo(
     () =>
@@ -40,14 +40,14 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
   return (
     <ControlPlanePage
       connection={connection}
-      breadcrumbs={buildIssueBreadcrumbRoutes(input.issueIdentifier, { repo })}
+      breadcrumbs={buildIssueBreadcrumbRoutes(input.trackerIssueKey, { repo })}
     >
       <div className="flex flex-col gap-8">
         <IssueRequeuePanel
           error={runtimeIssueState.error}
           issue={runtimeIssueState.resource}
           issueDetail={issueDetailState.resource}
-          issueIdentifier={input.issueIdentifier}
+          trackerIssueKey={input.trackerIssueKey}
           loading={runtimeIssueState.loading}
         />
         <IssueDetailView

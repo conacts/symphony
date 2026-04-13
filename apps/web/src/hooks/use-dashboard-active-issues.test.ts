@@ -8,11 +8,11 @@ describe("useDashboardActiveIssues helpers", () => {
 
     expect(collectActiveIssueDescriptors(runtimeSummary)).toEqual([
       {
-        issueIdentifier: "COL-165",
+        trackerIssueKey: "COL-165",
         fallbackState: "In Progress"
       },
       {
-        issueIdentifier: "COL-166",
+        trackerIssueKey: "COL-166",
         fallbackState: "Retrying"
       }
     ]);
@@ -22,14 +22,14 @@ describe("useDashboardActiveIssues helpers", () => {
     const runtimeSummary = buildSymphonyRuntimeStateResult({
       retrying: [
         {
-          issueIdentifier: "COL-165"
+          trackerIssueKey: "COL-165"
         }
       ]
     });
 
     expect(collectActiveIssueDescriptors(runtimeSummary)).toEqual([
       {
-        issueIdentifier: "COL-165",
+        trackerIssueKey: "COL-165",
         fallbackState: "In Progress"
       }
     ]);

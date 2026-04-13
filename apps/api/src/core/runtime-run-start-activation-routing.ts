@@ -26,8 +26,8 @@ export async function createRuntimeRunStartActivationRouter(input: {
     async activate(
       activationInput: SymphonyRunStartActivationInput
     ): Promise<SymphonyRunStartActivationResult> {
-      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: activationInput.issue.identifier
+      const loaded = await input.sessionLoader.resumeByTrackerIssueKey({
+        trackerIssueKey: activationInput.issue.identifier
       });
       if (!loaded) {
         throw new TypeError(

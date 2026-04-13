@@ -1406,10 +1406,25 @@ export const symphonyIssuesTable = sqliteTable(
       ],
       name: "symphony_issues_hosted_repository_binding_fk"
     }).onDelete("restrict").onUpdate("cascade"),
-    issueIdentifierIdx: uniqueIndex("symphony_issues_issue_identifier_idx").on(
-      table.issueIdentifier
-    ),
-    issueRepositoryKeyIdx: uniqueIndex("symphony_issues_issue_repository_key_idx").on(
+    unscopedIssueIdentifierIdx: uniqueIndex(
+      "symphony_issues_unscoped_issue_identifier_idx"
+    )
+      .on(table.issueIdentifier)
+      .where(
+        sql`${table.organizationId} is null and ${table.linearWorkspaceIdentityId} is null`
+      ),
+    scopedIssueIdentifierIdx: uniqueIndex(
+      "symphony_issues_scoped_issue_identifier_idx"
+    )
+      .on(
+        table.organizationId,
+        table.linearWorkspaceIdentityId,
+        table.issueIdentifier
+      )
+      .where(
+        sql`${table.organizationId} is not null and ${table.linearWorkspaceIdentityId} is not null`
+      ),
+    issueRepositoryKeyIdx: index("symphony_issues_issue_repository_key_idx").on(
       table.issueIdentifier,
       table.repositoryKey
     ),
@@ -1431,8 +1446,8 @@ export const symphonyRunsTable = sqliteTable(
   "symphony_runs",
   {
     runId: text("run_id").primaryKey(),
+    trackerIssueId: text("tracker_issue_id").notNull(),
     repositoryKey: text("repository_key").notNull(),
-    issueIdentifier: text("issue_identifier").notNull(),
     organizationId: text("organization_id"),
     linearWorkspaceIdentityId: text("linear_workspace_identity_id"),
     attempt: integer("attempt"),
@@ -1465,8 +1480,8 @@ export const symphonyRunsTable = sqliteTable(
   },
   (table) => ({
     issueBindingFk: foreignKey({
-      columns: [table.issueIdentifier, table.repositoryKey],
-      foreignColumns: [symphonyIssuesTable.issueIdentifier, symphonyIssuesTable.repositoryKey],
+      columns: [table.trackerIssueId],
+      foreignColumns: [symphonyIssuesTable.trackerIssueId],
       name: "symphony_runs_issue_binding_fk"
     }).onDelete("restrict").onUpdate("cascade"),
     organizationIdCheck: check(
@@ -1498,33 +1513,20 @@ export const symphonyRunsTable = sqliteTable(
       sql`${table.runMode} in (${sqlEnum(runModeValues)})`
     ),
     issueRunIdIdx: uniqueIndex("symphony_runs_issue_run_id_idx").on(
-      table.issueIdentifier,
+      table.trackerIssueId,
       table.runId
     ),
-    oneActiveUnscopedRunPerIssueIdx: uniqueIndex(
-      "symphony_runs_one_active_unscoped_run_per_issue_idx"
+    oneActiveRunPerIssueIdx: uniqueIndex(
+      "symphony_runs_one_active_run_per_issue_idx"
     )
-      .on(table.issueIdentifier)
-      .where(
-        sql`${table.status} in ('dispatching', 'running') and ${table.organizationId} is null and ${table.linearWorkspaceIdentityId} is null`
-      ),
-    oneActiveScopedRunPerIssueIdx: uniqueIndex(
-      "symphony_runs_one_active_scoped_run_per_issue_idx"
-    )
-      .on(
-        table.organizationId,
-        table.linearWorkspaceIdentityId,
-        table.issueIdentifier
-      )
-      .where(
-        sql`${table.status} in ('dispatching', 'running') and ${table.organizationId} is not null and ${table.linearWorkspaceIdentityId} is not null`
-      ),
+      .on(table.trackerIssueId)
+      .where(sql`${table.status} in ('dispatching', 'running')`),
+    trackerIssueIdIdx: index("symphony_runs_tracker_issue_id_idx").on(table.trackerIssueId),
     repositoryKeyIdx: index("symphony_runs_repository_key_idx").on(table.repositoryKey),
     organizationIdIdx: index("symphony_runs_organization_id_idx").on(table.organizationId),
     linearWorkspaceIdentityIdIdx: index(
       "symphony_runs_linear_workspace_identity_id_idx"
     ).on(table.linearWorkspaceIdentityId),
-    issueIdentifierIdx: index("symphony_runs_issue_identifier_idx").on(table.issueIdentifier),
     startedAtIdx: index("symphony_runs_started_at_idx").on(table.startedAt)
   })
 );
@@ -1627,7 +1629,7 @@ export const symphonyIssueTimelineTable = sqliteTable(
   "symphony_issue_timeline_entries",
   {
     entryId: text("entry_id").primaryKey(),
-    issueIdentifier: text("issue_identifier").notNull(),
+    trackerIssueId: text("tracker_issue_id").notNull(),
     runId: text("run_id"),
     turnId: text("turn_id"),
     source: text("source").notNull(),
@@ -1639,8 +1641,8 @@ export const symphonyIssueTimelineTable = sqliteTable(
   },
   (table) => ({
     issueFk: foreignKey({
-      columns: [table.issueIdentifier],
-      foreignColumns: [symphonyIssuesTable.issueIdentifier],
+      columns: [table.trackerIssueId],
+      foreignColumns: [symphonyIssuesTable.trackerIssueId],
       name: "symphony_issue_timeline_issue_fk"
     }).onDelete("restrict").onUpdate("cascade"),
     sourceCheck: check(
@@ -1666,8 +1668,8 @@ export const symphonyIssueTimelineTable = sqliteTable(
       foreignColumns: [symphonyTurnsTable.runId, symphonyTurnsTable.turnId],
       name: "symphony_issue_timeline_run_turn_fk"
     }).onDelete("set null"),
-    issueIdentifierIdx: index("symphony_issue_timeline_issue_identifier_idx").on(
-      table.issueIdentifier
+    trackerIssueIdIdx: index("symphony_issue_timeline_tracker_issue_id_idx").on(
+      table.trackerIssueId
     ),
     runIdIdx: index("symphony_issue_timeline_run_id_idx").on(
       table.runId
@@ -1682,7 +1684,7 @@ export const symphonyIssueDeliveryReportsTable = sqliteTable(
   "symphony_issue_delivery_reports",
   {
     reportId: text("report_id").primaryKey(),
-    issueIdentifier: text("issue_identifier").notNull(),
+    trackerIssueId: text("tracker_issue_id").notNull(),
     runId: text("run_id").notNull(),
     turnId: text("turn_id"),
     status: text("status").notNull(),
@@ -1698,6 +1700,11 @@ export const symphonyIssueDeliveryReportsTable = sqliteTable(
     insertedAt: text("inserted_at").notNull()
   },
   (table) => ({
+    issueFk: foreignKey({
+      columns: [table.trackerIssueId],
+      foreignColumns: [symphonyIssuesTable.trackerIssueId],
+      name: "symphony_issue_delivery_reports_issue_fk"
+    }).onDelete("restrict").onUpdate("cascade"),
     statusCheck: check(
       "symphony_issue_delivery_reports_status_check",
       sql`${table.status} in (${sqlEnum(deliveryReportStatusValues)})`
@@ -1714,20 +1721,19 @@ export const symphonyIssueDeliveryReportsTable = sqliteTable(
       "symphony_issue_delivery_reports_blocked_reason_check",
       sql`${table.status} != 'blocked' or ${table.blockingReason} is not null`
     ),
-    issueRunFk: foreignKey({
-      columns: [table.issueIdentifier, table.runId],
-      foreignColumns: [symphonyRunsTable.issueIdentifier, symphonyRunsTable.runId],
-      name: "symphony_issue_delivery_reports_issue_run_fk"
+    runFk: foreignKey({
+      columns: [table.runId],
+      foreignColumns: [symphonyRunsTable.runId],
+      name: "symphony_issue_delivery_reports_run_fk"
     }).onDelete("cascade").onUpdate("cascade"),
     runTurnFk: foreignKey({
       columns: [table.runId, table.turnId],
       foreignColumns: [symphonyTurnsTable.runId, symphonyTurnsTable.turnId],
       name: "symphony_issue_delivery_reports_run_turn_fk"
     }).onDelete("cascade"),
-    issueIdentifierReportedAtIdx: index("symphony_issue_delivery_reports_issue_identifier_idx").on(
-      table.issueIdentifier,
-      table.reportedAt
-    ),
+    trackerIssueIdReportedAtIdx: index(
+      "symphony_issue_delivery_reports_tracker_issue_id_idx"
+    ).on(table.trackerIssueId, table.reportedAt),
     runIdReportedAtIdx: index("symphony_issue_delivery_reports_run_id_idx").on(
       table.runId,
       table.reportedAt
@@ -1748,7 +1754,7 @@ export const symphonyRuntimeLogsTable = sqliteTable(
     source: text("source").notNull(),
     eventType: text("event_type").notNull(),
     message: text("message").notNull(),
-    issueIdentifier: text("issue_identifier"),
+    trackerIssueId: text("tracker_issue_id"),
     runId: text("run_id"),
     payload: text("payload", { mode: "json" }).$type<unknown>(),
     recordedAt: text("recorded_at").notNull(),
@@ -1756,8 +1762,8 @@ export const symphonyRuntimeLogsTable = sqliteTable(
   },
   (table) => ({
     issueBindingFk: foreignKey({
-      columns: [table.issueIdentifier, table.repositoryKey],
-      foreignColumns: [symphonyIssuesTable.issueIdentifier, symphonyIssuesTable.repositoryKey],
+      columns: [table.trackerIssueId],
+      foreignColumns: [symphonyIssuesTable.trackerIssueId],
       name: "symphony_runtime_logs_issue_binding_fk"
     }).onDelete("restrict").onUpdate("cascade"),
     runFk: foreignKey({
@@ -1775,9 +1781,8 @@ export const symphonyRuntimeLogsTable = sqliteTable(
     recordedAtIdx: index("symphony_runtime_logs_recorded_at_idx").on(
       table.recordedAt
     ),
-    repositoryIssueIdentifierIdx: index("symphony_runtime_logs_repository_issue_identifier_idx").on(
-      table.repositoryKey,
-      table.issueIdentifier
+    trackerIssueIdIdx: index("symphony_runtime_logs_tracker_issue_id_idx").on(
+      table.trackerIssueId
     )
   })
 );

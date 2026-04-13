@@ -27,7 +27,7 @@ async function recordSeededRunStarted(
 ): Promise<string> {
   const issueStore = createSymphonyIssueStore(db);
   await issueStore.upsert({
-    issueIdentifier: attrs.issueIdentifier,
+    trackerIssueKey: attrs.issueIdentifier,
     trackerIssueId: attrs.trackerIssueId,
     repositoryKey: attrs.repositoryKey,
     latestRunStartedAt: null,
@@ -69,8 +69,8 @@ describe("db schema enforcement", () => {
         database.client.prepare(`
           insert into symphony_runs (
             run_id,
+            tracker_issue_id,
             repository_key,
-            issue_identifier,
             run_mode,
             status,
             outcome,
@@ -80,8 +80,8 @@ describe("db schema enforcement", () => {
           ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           "run-699",
+          "tracker-699",
           "openai/symphony",
-          "COL-699",
           "implementation",
           "finished",
           "delivered",
@@ -126,8 +126,8 @@ describe("db schema enforcement", () => {
         database.client.prepare(`
           insert into symphony_runs (
             run_id,
+            tracker_issue_id,
             repository_key,
-            issue_identifier,
             run_mode,
             status,
             started_at,
@@ -136,15 +136,15 @@ describe("db schema enforcement", () => {
           ) values (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           "run-700",
+          "tracker-700",
           "other/repo",
-          "COL-700",
           "implementation",
           "running",
           "2026-04-09T12:01:00.000Z",
           "2026-04-09T12:01:00.000Z",
           "2026-04-09T12:01:00.000Z"
         )
-      ).toThrow(/FOREIGN KEY constraint failed/);
+      ).toThrow(/symphony_runs_issue_binding_mismatch/);
     } finally {
       database.close();
     }
@@ -209,7 +209,7 @@ describe("db schema enforcement", () => {
         database.client.prepare(`
           insert into symphony_issue_delivery_reports (
             report_id,
-            issue_identifier,
+            tracker_issue_id,
             run_id,
             turn_id,
             status,
@@ -226,7 +226,7 @@ describe("db schema enforcement", () => {
           ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           "report-701",
-          "COL-701",
+          "tracker-701",
           runId,
           null,
           "completed",
@@ -291,7 +291,7 @@ describe("db schema enforcement", () => {
         database.client.prepare(`
           insert into symphony_issue_delivery_reports (
             report_id,
-            issue_identifier,
+            tracker_issue_id,
             run_id,
             turn_id,
             status,
@@ -308,7 +308,7 @@ describe("db schema enforcement", () => {
           ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           "report-701A",
-          "COL-701B",
+          "tracker-701B",
           runId,
           null,
           "partial",
@@ -323,7 +323,7 @@ describe("db schema enforcement", () => {
           "2026-04-09T12:04:00.000Z",
           "2026-04-09T12:04:00.000Z"
         )
-      ).toThrow(/FOREIGN KEY constraint failed/);
+      ).toThrow(/symphony_issue_delivery_reports_issue_binding_mismatch/);
     } finally {
       database.close();
     }
@@ -355,8 +355,8 @@ describe("db schema enforcement", () => {
         database.client.prepare(`
           insert into symphony_runs (
             run_id,
+            tracker_issue_id,
             repository_key,
-            issue_identifier,
             run_mode,
             status,
             started_at,
@@ -365,8 +365,8 @@ describe("db schema enforcement", () => {
           ) values (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           "run-703",
+          "tracker-702",
           "openai/symphony",
-          "COL-702",
           "implementation",
           "dispatching",
           "2026-04-09T12:04:00.000Z",
@@ -374,7 +374,7 @@ describe("db schema enforcement", () => {
           "2026-04-09T12:04:00.000Z"
         )
       ).toThrow(
-        /symphony_runs_one_active_run_per_issue_idx|UNIQUE constraint failed: symphony_runs.issue_identifier/
+        /symphony_runs_one_active_run_per_issue_idx|UNIQUE constraint failed: symphony_runs.tracker_issue_id/
       );
     } finally {
       database.close();
@@ -412,8 +412,8 @@ describe("db schema enforcement", () => {
         database.client.prepare(`
           insert into symphony_runs (
             run_id,
+            tracker_issue_id,
             repository_key,
-            issue_identifier,
             run_mode,
             status,
             started_at,
@@ -422,8 +422,8 @@ describe("db schema enforcement", () => {
           ) values (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           "run-702A",
+          "tracker-702A",
           "openai/symphony",
-          "COL-702A",
           "deploy",
           "running",
           "2026-04-09T12:01:00.000Z",
@@ -528,7 +528,7 @@ describe("db schema enforcement", () => {
         database.client.prepare(`
           insert into symphony_issue_timeline_entries (
             entry_id,
-            issue_identifier,
+            tracker_issue_id,
             run_id,
             turn_id,
             source,
@@ -540,7 +540,7 @@ describe("db schema enforcement", () => {
           ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           "timeline-705",
-          "COL-705",
+          "tracker-705",
           null,
           null,
           "runtime",
@@ -592,7 +592,7 @@ describe("db schema enforcement", () => {
             source,
             event_type,
             message,
-            issue_identifier,
+            tracker_issue_id,
             run_id,
             payload,
             recorded_at,
@@ -605,13 +605,13 @@ describe("db schema enforcement", () => {
           "runtime",
           "runtime_session_started",
           "Started session.",
-          "COL-706",
+          "tracker-706",
           null,
           null,
           "2026-04-09T12:06:30.000Z",
           "2026-04-09T12:06:30.000Z"
         )
-      ).toThrow(/FOREIGN KEY constraint failed/);
+      ).toThrow(/symphony_runtime_logs_issue_binding_mismatch/);
     } finally {
       database.close();
     }

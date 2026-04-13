@@ -70,7 +70,7 @@ export type SymphonyGitHubReviewIngressPort = {
 
 export type SymphonyIssueTimelinePort = {
   list(input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     repo?: string;
     limit?: number;
   }): Promise<SymphonyForensicsIssueTimelineResult | null>;
@@ -80,7 +80,7 @@ export type SymphonyRuntimeLogsPort = {
   list(input?: {
     limit?: number;
     repo?: string;
-    issueIdentifier?: string;
+    trackerIssueKey?: string;
   }): Promise<SymphonyRuntimeLogsResult>;
 };
 
@@ -90,13 +90,13 @@ export type SymphonyRuntimeHealthPort = {
 
 export type SymphonyRuntimeTrackerObservationPort = {
   observeNonRunningIssue(input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
   }): Promise<SymphonyRuntimeTrackerStateObservationResult | null>;
 };
 
 export type SymphonyRuntimeWorkflowReadPort = {
   loadWorkflowLifecycleView(input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     runId?: string | null;
   }): Promise<SymphonyRuntimeWorkflowLifecycleView | null>;
 };
@@ -145,8 +145,8 @@ export type SymphonyRuntimeWorkflowComparisonPort = {
     workflowId: string;
     presetIds?: ReadonlyArray<string>;
   }): Promise<SymphonyRuntimeWorkflowComparison | null>;
-  compareByIssueIdentifier(input: {
-    issueIdentifier: string;
+  compareByTrackerIssueKey(input: {
+    trackerIssueKey: string;
     presetIds?: ReadonlyArray<string>;
   }): Promise<SymphonyRuntimeWorkflowComparison | null>;
 };

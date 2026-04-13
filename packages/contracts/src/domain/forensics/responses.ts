@@ -79,7 +79,7 @@ export const symphonyForensicsDeliveryReportSchema = z.strictObject({
   reportId: nonEmptyStringSchema,
   repositoryKey: nonEmptyStringSchema,
   trackerIssueId: nonEmptyStringSchema,
-  issueIdentifier: nonEmptyStringSchema,
+  trackerIssueKey: nonEmptyStringSchema,
   runId: nonEmptyStringSchema,
   turnId: nullableNonEmptyStringSchema,
   status: symphonyForensicsDeliveryStatusSchema,
@@ -97,7 +97,7 @@ export const symphonyForensicsDeliveryReportSchema = z.strictObject({
 export const symphonyForensicsIssueSummarySchema = z.strictObject({
   repositoryKey: nonEmptyStringSchema,
   trackerIssueId: nonEmptyStringSchema,
-  issueIdentifier: nonEmptyStringSchema,
+  trackerIssueKey: nonEmptyStringSchema,
   latestRunStartedAt: isoTimestampSchema.nullable(),
   latestRunId: nullableNonEmptyStringSchema,
   latestRunStatus: symphonyForensicsRuntimeRunStatusSchema.nullable(),
@@ -137,7 +137,7 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   runId: nonEmptyStringSchema,
   repositoryKey: nonEmptyStringSchema,
   trackerIssueId: nonEmptyStringSchema,
-  issueIdentifier: nonEmptyStringSchema,
+  trackerIssueKey: nonEmptyStringSchema,
   attempt: z.number().int().nonnegative().nullable(),
   runMode: z.enum(["implementation", "rework", "approved_merge"]),
   status: symphonyForensicsRuntimeRunStatusSchema,
@@ -260,7 +260,7 @@ export const symphonyForensicsIssueListResultSchema = z.strictObject({
 
 export const symphonyForensicsIssueDetailResultSchema = z.strictObject({
   repositoryKey: nonEmptyStringSchema,
-  issueIdentifier: nonEmptyStringSchema,
+  trackerIssueKey: nonEmptyStringSchema,
   runs: z.array(symphonyForensicsRunSummarySchema),
   summary: z.strictObject({
     runCount: z.number().int().nonnegative(),
@@ -281,7 +281,7 @@ export const symphonyForensicsIssueTimelineEntrySchema = z.strictObject({
   entryId: nonEmptyStringSchema,
   repositoryKey: nonEmptyStringSchema,
   trackerIssueId: nonEmptyStringSchema,
-  issueIdentifier: nonEmptyStringSchema,
+  trackerIssueKey: nonEmptyStringSchema,
   runId: nullableNonEmptyStringSchema,
   turnId: nullableNonEmptyStringSchema,
   source: symphonyForensicsTimelineSourceSchema,
@@ -300,7 +300,7 @@ export const symphonyForensicsIssueTimelineEntrySchema = z.strictObject({
 
 export const symphonyForensicsIssueTimelineResultSchema = z.strictObject({
   repositoryKey: nonEmptyStringSchema,
-  issueIdentifier: nonEmptyStringSchema,
+  trackerIssueKey: nonEmptyStringSchema,
   entries: z.array(symphonyForensicsIssueTimelineEntrySchema),
   filters: z.strictObject({
     limit: z.number().int().positive().nullable(),
@@ -311,7 +311,7 @@ export const symphonyForensicsIssueTimelineResultSchema = z.strictObject({
 const symphonyForensicsIssueExportSchema = z.strictObject({
   repositoryKey: nonEmptyStringSchema,
   trackerIssueId: nonEmptyStringSchema,
-  issueIdentifier: nonEmptyStringSchema,
+  trackerIssueKey: nonEmptyStringSchema,
   latestRunStartedAt: isoTimestampSchema.nullable(),
   latestRunId: nullableNonEmptyStringSchema,
   latestRunStatus: symphonyForensicsRuntimeRunStatusSchema.nullable(),
@@ -422,7 +422,7 @@ export const symphonyForensicsProblemRunsResultSchema = z.strictObject({
   filters: z.strictObject({
     repo: nullableNonEmptyStringSchema,
     outcome: symphonyForensicsRunOutcomeSchema.nullable(),
-    issueIdentifier: nullableNonEmptyStringSchema,
+    trackerIssueKey: nullableNonEmptyStringSchema,
     limit: z.number().int().positive().nullable()
   })
 });

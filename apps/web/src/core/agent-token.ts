@@ -7,7 +7,7 @@ type AgentTurnTokenRow = {
   turnId: string;
   turnSequence: number;
   turnLabel: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   runId: string;
   inputTokens: number;
   cachedInputTokens: number;
@@ -68,7 +68,7 @@ export function buildAgentTurnTokenRows(input: {
         turnId: turn.turnId,
         turnSequence: turnSequenceMap.get(turn.turnId) ?? index + 1,
         turnLabel: `Turn ${turnSequenceMap.get(turn.turnId) ?? index + 1}`,
-        issueIdentifier: input.runArtifacts.run.issueIdentifier,
+        trackerIssueKey: input.runArtifacts.run.trackerIssueKey,
         runId: turn.runId,
         inputTokens,
         cachedInputTokens,

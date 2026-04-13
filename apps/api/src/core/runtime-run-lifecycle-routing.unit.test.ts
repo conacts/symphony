@@ -175,24 +175,24 @@ function createCommandHarness(command: WorkflowCommand): {
     routeWorkflows: {
       ensureWorkflowForIssue: vi.fn(),
       loadHydrationStateByWorkflowId: vi.fn(),
-      loadHydrationStateByIssueIdentifier: vi.fn(),
-      loadHydrationStateByScopedIssue: vi.fn(),
+      loadHydrationStateByTrackerIssueKey: vi.fn(),
+      loadHydrationStateByScopedTrackerIssueKey: vi.fn(),
       loadReplayStateByWorkflowId: vi.fn(),
-      loadReplayStateByIssueIdentifier: vi.fn(),
-      loadReplayStateByScopedIssue: vi.fn(),
+      loadReplayStateByTrackerIssueKey: vi.fn(),
+      loadReplayStateByScopedTrackerIssueKey: vi.fn(),
       rehydrateProjectionByWorkflowId: vi.fn(),
-      rehydrateProjectionByIssueIdentifier: vi.fn(),
-      rehydrateProjectionByScopedIssue: vi.fn(),
+      rehydrateProjectionByTrackerIssueKey: vi.fn(),
+      rehydrateProjectionByScopedTrackerIssueKey: vi.fn(),
       resumeSessionByWorkflowId: vi.fn(),
-      resumeSessionByIssueIdentifier: vi.fn(),
-      resumeSessionByScopedIssue: vi.fn(),
+      resumeSessionByTrackerIssueKey: vi.fn(),
+      resumeSessionByScopedTrackerIssueKey: vi.fn(),
       recordRouteResult: vi.fn().mockResolvedValue(undefined),
       appendCommandSettlement
     } as SymphonyRouteWorkflowPort,
     sessionLoader: {
       loadHydrationByWorkflowId: vi.fn(),
-      loadHydrationByIssueIdentifier: vi.fn(),
-      loadHydrationByScopedIssue: vi.fn(),
+      loadHydrationByTrackerIssueKey: vi.fn(),
+      loadHydrationByScopedTrackerIssueKey: vi.fn(),
       resumeByWorkflowId: vi.fn().mockResolvedValue({
         routing,
         resumed: {
@@ -204,7 +204,7 @@ function createCommandHarness(command: WorkflowCommand): {
           session
         }
       }),
-      resumeByIssueIdentifier: vi.fn().mockResolvedValue({
+      resumeByTrackerIssueKey: vi.fn().mockResolvedValue({
         routing,
         resumed: {
           hydrationState: {
@@ -215,7 +215,7 @@ function createCommandHarness(command: WorkflowCommand): {
           session
         }
       }),
-      resumeByScopedIssue: vi.fn()
+      resumeByScopedTrackerIssueKey: vi.fn()
     } as SymphonyRuntimeWorkflowSessionLoader,
     settleCommandAsync,
     appendCommandSettlement

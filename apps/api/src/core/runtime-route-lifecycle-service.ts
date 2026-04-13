@@ -131,6 +131,7 @@ export type SymphonyRuntimeRouteLifecycleService = {
 };
 
 export type SymphonyTrackerStateIngressRecord = {
+  trackerIssueId: string;
   issueIdentifier: string;
   observedTrackerState: string;
   workflowTrackerState: string;
@@ -146,6 +147,7 @@ export type SymphonyTrackerStateIngressObservation =
       disposition: "skipped";
     })
   | {
+      trackerIssueId: string;
       issueIdentifier: string;
       observedTrackerState: string;
       workflowTrackerState: null;
@@ -291,8 +293,8 @@ export async function createRuntimeRouteLifecycleService(input: {
 
       for (const issue of issues) {
         const observedTrackerState = issue.state;
-        const hydration = await sessionLoader.loadHydrationByIssueIdentifier({
-          issueIdentifier: issue.identifier
+        const hydration = await sessionLoader.loadHydrationByTrackerIssueKey({
+          trackerIssueKey: issue.identifier
         });
         const disposition = classifyNonRunningTrackerIngressDisposition({
           issue,
@@ -316,6 +318,7 @@ export async function createRuntimeRouteLifecycleService(input: {
               "after non-running tracker state ingress recorded an observed transition"
           });
           observedIssues.push({
+            trackerIssueId: observed.issue.id,
             issueIdentifier: observed.issue.identifier,
             observedTrackerState,
             workflowTrackerState: workflowLifecycle.trackerState
@@ -335,8 +338,8 @@ export async function createRuntimeRouteLifecycleService(input: {
         return null;
       }
 
-      const hydration = await sessionLoader.loadHydrationByIssueIdentifier({
-        issueIdentifier: issue.identifier
+      const hydration = await sessionLoader.loadHydrationByTrackerIssueKey({
+        trackerIssueKey: issue.identifier
       });
       const disposition = classifyNonRunningTrackerIngressDisposition({
         issue,
@@ -346,6 +349,7 @@ export async function createRuntimeRouteLifecycleService(input: {
 
       if (disposition.disposition === "skip") {
         return {
+          trackerIssueId: issue.id,
           issueIdentifier: issue.identifier,
           observedTrackerState: issue.state,
           workflowTrackerState: disposition.workflowTrackerState,
@@ -356,6 +360,7 @@ export async function createRuntimeRouteLifecycleService(input: {
 
       if (disposition.disposition === "ignore") {
         return {
+          trackerIssueId: issue.id,
           issueIdentifier: issue.identifier,
           observedTrackerState: issue.state,
           workflowTrackerState: null,
@@ -380,6 +385,7 @@ export async function createRuntimeRouteLifecycleService(input: {
       });
 
       return {
+        trackerIssueId: observed.issue.id,
         issueIdentifier: observed.issue.identifier,
         observedTrackerState,
         workflowTrackerState: workflowLifecycle.trackerState,
@@ -702,8 +708,8 @@ async function loadActiveObservationRunMode(input: {
   sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
   issueIdentifier: string;
 }): Promise<SymphonyRunMode | null> {
-  const hydration = await input.sessionLoader.loadHydrationByIssueIdentifier({
-    issueIdentifier: input.issueIdentifier
+  const hydration = await input.sessionLoader.loadHydrationByTrackerIssueKey({
+    trackerIssueKey: input.issueIdentifier
   });
   if (!hydration) {
     return null;
@@ -717,8 +723,8 @@ async function loadWorkflowProjectedLifecycleIssue(input: {
   issueIdentifier: string;
   failureContext: string;
 }): Promise<SymphonyTrackerIssue | null> {
-  const loaded = await input.sessionLoader.loadHydrationByIssueIdentifier({
-    issueIdentifier: input.issueIdentifier
+  const loaded = await input.sessionLoader.loadHydrationByTrackerIssueKey({
+    trackerIssueKey: input.issueIdentifier
   });
   if (!loaded) {
     return null;
@@ -783,8 +789,8 @@ async function loadReadableWorkflowProjectionByIssueIdentifier(input: {
   workflowId: string;
   data: unknown;
 } | null> {
-  const loaded = await input.sessionLoader.loadHydrationByIssueIdentifier({
-    issueIdentifier: input.issueIdentifier
+  const loaded = await input.sessionLoader.loadHydrationByTrackerIssueKey({
+    trackerIssueKey: input.issueIdentifier
   });
   if (!loaded) {
     return null;

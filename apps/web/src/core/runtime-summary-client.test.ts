@@ -28,7 +28,7 @@ describe("runtime summary client", () => {
     );
 
     expect(runtimeSummary.counts.running).toBe(1);
-    expect(runtimeSummary.running[0]?.issueIdentifier).toBe("COL-165");
+    expect(runtimeSummary.running[0]?.trackerIssueKey).toBe("COL-165");
     expect(runtimeSummary.retrying[0]?.attempt).toBe(2);
     expect(runtimeSummary.agentTotals.totalTokens).toBe(200);
   });
@@ -55,7 +55,7 @@ describe("runtime summary client", () => {
       JSON.stringify({
         type: "issue.updated",
         channel: "issues",
-        issueIdentifier: "COL-165",
+        trackerIssueKey: "COL-165",
         generatedAt: "2026-03-31T18:00:00.000Z",
         invalidate: ["/api/v1/issues/COL-165"]
       })

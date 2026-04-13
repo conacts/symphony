@@ -25,8 +25,8 @@ export interface SymphonyRealtimeHub {
   closeConnection(connectionId: string): void;
   handleClientMessage(connectionId: string, rawMessage: string): void;
   publishSnapshotUpdated(): void;
-  publishIssueUpdated(issueIdentifier: string): void;
-  publishRunUpdated(runId: string, issueIdentifier?: string): void;
+  publishIssueUpdated(trackerIssueKey: string): void;
+  publishRunUpdated(runId: string, trackerIssueKey?: string): void;
   publishProblemRunsUpdated(): void;
   connectionCount(): number;
 }
@@ -193,29 +193,29 @@ export function createSymphonyRealtimeHub(
       }));
     },
 
-    publishIssueUpdated(issueIdentifier) {
+    publishIssueUpdated(trackerIssueKey) {
       publishToChannel("issues", () => ({
         type: "issue.updated",
         channel: "issues",
-        issueIdentifier,
+        trackerIssueKey,
         generatedAt: clock.now().toISOString(),
         invalidate: [
-          `/api/v1/issues/${issueIdentifier}`,
-          `/api/v1/${issueIdentifier}`,
+          `/api/v1/issues/${trackerIssueKey}`,
+          `/api/v1/${trackerIssueKey}`,
           "/api/v1/issues"
         ]
       }));
     },
 
-    publishRunUpdated(runId, issueIdentifier) {
+    publishRunUpdated(runId, trackerIssueKey) {
       publishToChannel("runs", () => ({
         type: "run.updated",
         channel: "runs",
         runId,
-        issueIdentifier,
+        trackerIssueKey,
         generatedAt: clock.now().toISOString(),
-        invalidate: issueIdentifier
-          ? [`/api/v1/runs/${runId}`, `/api/v1/issues/${issueIdentifier}`]
+        invalidate: trackerIssueKey
+          ? [`/api/v1/runs/${runId}`, `/api/v1/issues/${trackerIssueKey}`]
           : [`/api/v1/runs/${runId}`]
       }));
     },

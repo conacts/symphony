@@ -164,7 +164,8 @@ export function createDbBackedOrchestratorObserver(input: {
       }
 
       await input.issueTimelineStore.record({
-        issueIdentifier: issue.identifier,
+        trackerIssueId: issue.id,
+        trackerIssueKey: issue.identifier,
         runId,
         source,
         eventType,
@@ -178,7 +179,8 @@ export function createDbBackedOrchestratorObserver(input: {
         source,
         eventType,
         message: message ?? eventType,
-        issueIdentifier: issue.identifier,
+        trackerIssueId: issue.id,
+        trackerIssueKey: issue.identifier,
         runId,
         payload: normalizedPayload,
         recordedAt

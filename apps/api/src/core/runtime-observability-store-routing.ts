@@ -9,6 +9,10 @@ import {
   type SymphonyRuntimeLogStore
 } from "@symphony/db";
 
+type SymphonyResolvedIssueRecord = Awaited<
+  ReturnType<SymphonyIssueStore["fetchByTrackerIssueKey"]>
+>;
+
 export function createRepositoryAwareIssueTimelineStore(input: {
   db: SymphonyDb["db"];
   issueStore: SymphonyIssueStore;
@@ -24,38 +28,44 @@ export function createRepositoryAwareIssueTimelineStore(input: {
     }
 
     const store = createSymphonyIssueTimelineStore(input.db, {
-      repositoryKey
+      repositoryKey,
+      bindingScope: input.bindingScope ?? null
     });
     storeCache.set(repositoryKey, store);
     return store;
   };
-  const defaultStore = storeFor(input.defaultRepositoryKey);
 
   return {
     async record(recordInput) {
-      const store =
-        (await resolveIssueTimelineStoreForIssueIdentifier({
-          issueStore: input.issueStore,
-          bindingScope: input.bindingScope ?? null,
-          issueIdentifier: recordInput.issueIdentifier,
-          defaultStore,
-          storeFor
-        })) ?? defaultStore;
+      const issue = await requireIssueRecord({
+        issueStore: input.issueStore,
+        bindingScope: input.bindingScope ?? null,
+        owner: "Issue timeline",
+        trackerIssueId: recordInput.trackerIssueId ?? null,
+        trackerIssueKey: recordInput.trackerIssueKey ?? null
+      });
 
-      return await store.record(recordInput);
+      return await storeFor(issue.repositoryKey).record({
+        ...recordInput,
+        trackerIssueKey: issue.trackerIssueKey,
+        trackerIssueId: issue.trackerIssueId
+      });
     },
 
-    async listIssueTimeline(issueIdentifier, query) {
-      const store =
-        (await resolveIssueTimelineStoreForIssueIdentifier({
-          issueStore: input.issueStore,
-          bindingScope: input.bindingScope ?? null,
-          issueIdentifier,
-          defaultStore,
-          storeFor
-        })) ?? defaultStore;
+    async listIssueTimeline(trackerIssueKey, query) {
+      const issue = await loadIssueRecord({
+        issueStore: input.issueStore,
+        bindingScope: input.bindingScope ?? null,
+        trackerIssueKey
+      });
+      if (!issue) {
+        return [];
+      }
 
-      return await store.listIssueTimeline(issueIdentifier, query);
+      return await storeFor(issue.repositoryKey).listIssueTimeline(
+        issue.trackerIssueKey,
+        query
+      );
     }
   };
 }
@@ -76,7 +86,8 @@ export function createRepositoryAwareRuntimeLogStore(input: {
     }
 
     const store = createSymphonyRuntimeLogStore(input.db, {
-      repositoryKey
+      repositoryKey,
+      bindingScope: input.bindingScope ?? null
     });
     storeCache.set(repositoryKey, store);
     return store;
@@ -85,47 +96,62 @@ export function createRepositoryAwareRuntimeLogStore(input: {
 
   return {
     async record(recordInput) {
-      if (recordInput.issueIdentifier === undefined || recordInput.issueIdentifier === null) {
+      const hasIssueScope =
+        recordInput.trackerIssueId !== undefined &&
+        recordInput.trackerIssueId !== null;
+
+      if (!hasIssueScope) {
         return await defaultStore.record(recordInput);
       }
 
-      const store =
-        (await resolveRuntimeLogStoreForIssueIdentifier({
-          issueStore: input.issueStore,
-          bindingScope: input.bindingScope ?? null,
-          issueIdentifier: recordInput.issueIdentifier,
-          defaultStore,
-          storeFor
-        })) ?? defaultStore;
+      const issue = await requireIssueRecord({
+        issueStore: input.issueStore,
+        bindingScope: input.bindingScope ?? null,
+        owner: "Runtime log",
+        trackerIssueId: recordInput.trackerIssueId ?? null,
+        trackerIssueKey: recordInput.trackerIssueKey ?? null
+      });
 
-      return await store.record(recordInput);
+      return await storeFor(issue.repositoryKey).record({
+        ...recordInput,
+        trackerIssueKey: issue.trackerIssueKey,
+        trackerIssueId: issue.trackerIssueId
+      });
     },
 
     async list(query = {}) {
-      if (query.issueIdentifier) {
-        const store =
-          (await resolveRuntimeLogStoreForIssueIdentifier({
-            issueStore: input.issueStore,
-            bindingScope: input.bindingScope ?? null,
-            issueIdentifier: query.issueIdentifier,
-            defaultStore,
-            storeFor
-          })) ?? defaultStore;
+      if (query.trackerIssueKey) {
+        const issue = await loadIssueRecord({
+          issueStore: input.issueStore,
+          bindingScope: input.bindingScope ?? null,
+          trackerIssueKey: query.trackerIssueKey
+        });
+        if (!issue) {
+          return [];
+        }
 
-        return await store.list(query);
+        return await storeFor(issue.repositoryKey).list({
+          limit: query.limit,
+          repo: query.repo,
+          trackerIssueKey: issue.trackerIssueKey
+        });
       }
 
       const limit = normalizeLimit(query.limit, 200);
-      const repositoryKeys = collectRepositoryKeys({
-        defaultRepositoryKey: input.defaultRepositoryKey,
-        configuredRepositoryKeys: input.repositoryKeys ?? [],
-        cachedRepositoryKeys: [...storeCache.keys()]
-      });
+      const repositoryKeys =
+        query.repo === undefined
+          ? collectRepositoryKeys({
+              defaultRepositoryKey: input.defaultRepositoryKey,
+              configuredRepositoryKeys: input.repositoryKeys ?? [],
+              cachedRepositoryKeys: [...storeCache.keys()]
+            })
+          : [query.repo];
       const entries = (
         await Promise.all(
           repositoryKeys.map((repositoryKey) =>
             storeFor(repositoryKey).list({
-              limit
+              limit,
+              repo: query.repo
             })
           )
         )
@@ -138,57 +164,72 @@ export function createRepositoryAwareRuntimeLogStore(input: {
   };
 }
 
-async function resolveIssueTimelineStoreForIssueIdentifier(input: {
+async function requireIssueRecord(input: {
   issueStore: SymphonyIssueStore;
   bindingScope: SymphonyLifecycleBindingScope | null;
-  issueIdentifier: string;
-  defaultStore: SymphonyIssueTimelineStore;
-  storeFor(repositoryKey: string): SymphonyIssueTimelineStore;
-}): Promise<SymphonyIssueTimelineStore | null> {
-  const issue = await loadIssueRecord({
-    issueStore: input.issueStore,
-    bindingScope: input.bindingScope,
-    issueIdentifier: input.issueIdentifier
-  });
-  if (!issue) {
-    return input.defaultStore;
+  owner: string;
+  trackerIssueId: string | null;
+  trackerIssueKey?: string | null;
+}): Promise<NonNullable<SymphonyResolvedIssueRecord>> {
+  const trackerIssueId = normalizeOptionalText(input.trackerIssueId);
+  if (!trackerIssueId) {
+    throw new TypeError(`${input.owner} trackerIssueId is required.`);
   }
 
-  return input.storeFor(issue.repositoryKey);
-}
-
-async function resolveRuntimeLogStoreForIssueIdentifier(input: {
-  issueStore: SymphonyIssueStore;
-  bindingScope: SymphonyLifecycleBindingScope | null;
-  issueIdentifier: string;
-  defaultStore: SymphonyRuntimeLogStore;
-  storeFor(repositoryKey: string): SymphonyRuntimeLogStore;
-}): Promise<SymphonyRuntimeLogStore | null> {
-  const issue = await loadIssueRecord({
-    issueStore: input.issueStore,
-    bindingScope: input.bindingScope,
-    issueIdentifier: input.issueIdentifier
-  });
+  const issue = await input.issueStore.fetchByTrackerIssueId(trackerIssueId);
   if (!issue) {
-    return input.defaultStore;
+    throw new TypeError(
+      `${input.owner} issue not found: ${trackerIssueId}`
+    );
   }
 
-  return input.storeFor(issue.repositoryKey);
+  if (
+    input.trackerIssueKey !== undefined &&
+    input.trackerIssueKey !== null &&
+    issue.trackerIssueKey !== input.trackerIssueKey
+  ) {
+    throw new TypeError(
+      `${input.owner} tracker issue key mismatch for ${issue.trackerIssueId}: ${issue.trackerIssueKey} is not ${input.trackerIssueKey}.`
+    );
+  }
+
+  return issue;
 }
 
 async function loadIssueRecord(input: {
   issueStore: SymphonyIssueStore;
   bindingScope: SymphonyLifecycleBindingScope | null;
-  issueIdentifier: string;
-}) {
+  trackerIssueKey?: string | null;
+  trackerIssueId?: string | null;
+}): Promise<SymphonyResolvedIssueRecord> {
+  const trackerIssueId = normalizeOptionalText(input.trackerIssueId);
+  const trackerIssueKey = normalizeOptionalText(input.trackerIssueKey);
+
+  if (trackerIssueId) {
+    return await input.issueStore.fetchByTrackerIssueId(trackerIssueId);
+  }
+
+  if (!trackerIssueKey) {
+    return null;
+  }
+
   if (input.bindingScope) {
-    return await input.issueStore.fetchByScopedIdentifier({
-      issueIdentifier: input.issueIdentifier,
+    return await input.issueStore.fetchByScopedTrackerIssueKey({
+      trackerIssueKey,
       bindingScope: input.bindingScope
     });
   }
 
-  return await input.issueStore.fetchByIdentifier(input.issueIdentifier);
+  return await input.issueStore.fetchByTrackerIssueKey(trackerIssueKey);
+}
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function collectRepositoryKeys(input: {

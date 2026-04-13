@@ -96,7 +96,7 @@ describe("issue store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-500",
+        trackerIssueKey: "SYM-500",
         trackerIssueId: "tracker-500",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -104,7 +104,7 @@ describe("issue store", () => {
       });
 
       await issueStore.upsert({
-        issueIdentifier: "SYM-500",
+        trackerIssueKey: "SYM-500",
         trackerIssueId: "tracker-500",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: "2026-04-10T04:05:00.000Z",
@@ -112,7 +112,7 @@ describe("issue store", () => {
       });
 
       await issueStore.upsert({
-        issueIdentifier: "SYM-500",
+        trackerIssueKey: "SYM-500",
         trackerIssueId: "tracker-500",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: "2026-04-10T04:04:00.000Z",
@@ -162,7 +162,7 @@ describe("issue store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-501",
+        trackerIssueKey: "SYM-501",
         trackerIssueId: "tracker-501",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -171,7 +171,7 @@ describe("issue store", () => {
 
       await expect(
         issueStore.upsert({
-          issueIdentifier: "SYM-501",
+          trackerIssueKey: "SYM-501",
           trackerIssueId: "tracker-501",
           repositoryKey: "openai/other-repo",
           latestRunStartedAt: null,
@@ -196,7 +196,7 @@ describe("issue store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-502",
+        trackerIssueKey: "SYM-502",
         trackerIssueId: "tracker-502",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -205,7 +205,7 @@ describe("issue store", () => {
 
       await expect(
         issueStore.upsert({
-          issueIdentifier: "SYM-502",
+          trackerIssueKey: "SYM-502",
           trackerIssueId: "tracker-502B",
           repositoryKey: "openai/symphony",
           latestRunStartedAt: null,
@@ -230,15 +230,15 @@ describe("issue store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-503",
+        trackerIssueKey: "SYM-503",
         trackerIssueId: "tracker-503",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: "2026-04-10T04:30:00.000Z",
         recordedAt: "2026-04-10T04:31:00.000Z"
       });
 
-      await expect(issueStore.fetchByIdentifier("SYM-503")).resolves.toEqual({
-        issueIdentifier: "SYM-503",
+      await expect(issueStore.fetchByTrackerIssueKey("SYM-503")).resolves.toEqual({
+        trackerIssueKey: "SYM-503",
         trackerIssueId: "tracker-503",
         repositoryKey: "openai/symphony",
         bindingScope: null,
@@ -247,7 +247,7 @@ describe("issue store", () => {
         insertedAt: "2026-04-10T04:31:00.000Z",
         updatedAt: "2026-04-10T04:31:00.000Z"
       });
-      await expect(issueStore.fetchByIdentifier("SYM-404")).resolves.toBeNull();
+      await expect(issueStore.fetchByTrackerIssueKey("SYM-404")).resolves.toBeNull();
     } finally {
       database.close();
     }
@@ -264,7 +264,7 @@ describe("issue store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-503T",
+        trackerIssueKey: "SYM-503T",
         trackerIssueId: "tracker-503T",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: "2026-04-10T04:32:00.000Z",
@@ -275,7 +275,7 @@ describe("issue store", () => {
         issueStore.fetchByTrackerIssueId("tracker-503T")
       ).resolves.toEqual({
         trackerIssueId: "tracker-503T",
-        issueIdentifier: "SYM-503T",
+        trackerIssueKey: "SYM-503T",
         repositoryKey: "openai/symphony",
         bindingScope: null,
         repositoryWorkspaceBindingId: null,
@@ -300,7 +300,7 @@ describe("issue store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-505",
+        trackerIssueKey: "SYM-505",
         trackerIssueId: "tracker-505",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,
@@ -308,19 +308,19 @@ describe("issue store", () => {
       });
 
       await issueStore.upsert({
-        issueIdentifier: "SYM-505-RENAMED",
+        trackerIssueKey: "SYM-505-RENAMED",
         trackerIssueId: "tracker-505",
         repositoryKey: "openai/symphony",
         latestRunStartedAt: "2026-04-10T04:55:00.000Z",
         recordedAt: "2026-04-10T04:56:00.000Z"
       });
 
-      await expect(issueStore.fetchByIdentifier("SYM-505")).resolves.toBeNull();
+      await expect(issueStore.fetchByTrackerIssueKey("SYM-505")).resolves.toBeNull();
       await expect(
         issueStore.fetchByTrackerIssueId("tracker-505")
       ).resolves.toEqual({
         trackerIssueId: "tracker-505",
-        issueIdentifier: "SYM-505-RENAMED",
+        trackerIssueKey: "SYM-505-RENAMED",
         repositoryKey: "openai/symphony",
         bindingScope: null,
         repositoryWorkspaceBindingId: null,
@@ -354,7 +354,7 @@ describe("issue store", () => {
       });
 
       await issueStore.upsert({
-        issueIdentifier: "SYM-504",
+        trackerIssueKey: "SYM-504",
         trackerIssueId: "tracker-504",
         repositoryKey: "openai/symphony",
         bindingScope: {
@@ -367,15 +367,15 @@ describe("issue store", () => {
       });
 
       await expect(
-        issueStore.fetchByScopedIdentifier({
-          issueIdentifier: "SYM-504",
+        issueStore.fetchByScopedTrackerIssueKey({
+          trackerIssueKey: "SYM-504",
           bindingScope: {
             organizationId: "org-1",
             linearWorkspaceIdentityId: "workspace-1"
           }
         })
       ).resolves.toEqual({
-        issueIdentifier: "SYM-504",
+        trackerIssueKey: "SYM-504",
         trackerIssueId: "tracker-504",
         repositoryKey: "openai/symphony",
         bindingScope: {
@@ -388,9 +388,7 @@ describe("issue store", () => {
         updatedAt: "2026-04-10T04:40:00.000Z"
       });
 
-      await expect(issueStore.fetchByIdentifier("SYM-504")).rejects.toThrow(
-        "Issue SYM-504 is scoped to hosted workspace org-1/workspace-1, not the unscoped lifecycle path."
-      );
+      await expect(issueStore.fetchByTrackerIssueKey("SYM-504")).resolves.toBeNull();
     } finally {
       database.close();
     }
@@ -417,7 +415,7 @@ describe("issue store", () => {
       });
 
       await issueStore.upsert({
-        issueIdentifier: "SYM-506",
+        trackerIssueKey: "SYM-506",
         trackerIssueId: "tracker-506",
         repositoryKey: "openai/symphony",
         bindingScope: {
@@ -431,7 +429,7 @@ describe("issue store", () => {
 
       await expect(
         issueStore.upsert({
-          issueIdentifier: "SYM-506",
+          trackerIssueKey: "SYM-506",
           trackerIssueId: "tracker-506",
           repositoryKey: "openai/symphony",
           bindingScope: {

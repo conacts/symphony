@@ -44,7 +44,7 @@ export type TokenAnalysisViewModel = {
     outputTokens: number;
   }>;
   issueTokenRows: Array<{
-    issueIdentifier: string;
+    trackerIssueKey: string;
     totalTokens: number;
     inputTokens: number;
     outputTokens: number;
@@ -75,7 +75,7 @@ export function buildTokenAnalysisViewModel(
   const issueTotals = new Map<
     string,
     {
-      issueIdentifier: string;
+      trackerIssueKey: string;
       inputTokens: number;
       outputTokens: number;
       totalTokens: number;
@@ -108,7 +108,7 @@ export function buildTokenAnalysisViewModel(
       inputTokens: tokenTotals.inputTokens,
       cachedInputTokens: tokenTotals.cachedInputTokens,
       outputTokens: tokenTotals.outputTokens,
-      issueIdentifier: sampledRun.issueIdentifier,
+      trackerIssueKey: sampledRun.trackerIssueKey,
       startedAt: sampledRun.run.startedAt,
       runId: sampledRun.run.runId
       };
@@ -117,15 +117,15 @@ export function buildTokenAnalysisViewModel(
 
   for (const run of runTokenRows) {
     const day = run.startedAt.slice(0, 10);
-    const current = issueTotals.get(run.issueIdentifier);
+    const current = issueTotals.get(run.trackerIssueKey);
 
     if (current) {
       current.inputTokens += run.inputTokens;
       current.outputTokens += run.outputTokens;
       current.totalTokens += run.totalTokens;
     } else {
-      issueTotals.set(run.issueIdentifier, {
-        issueIdentifier: run.issueIdentifier,
+      issueTotals.set(run.trackerIssueKey, {
+        trackerIssueKey: run.trackerIssueKey,
         inputTokens: run.inputTokens,
         outputTokens: run.outputTokens,
         totalTokens: run.totalTokens
@@ -209,7 +209,7 @@ export function buildTokenAnalysisViewModel(
       },
       {
         label: "Heaviest issue",
-        value: hottestIssue?.issueIdentifier ?? "n/a",
+        value: hottestIssue?.trackerIssueKey ?? "n/a",
         detail: hottestIssue
           ? `${formatCount(hottestIssue.totalTokens)} total tokens across sampled runs.`
           : "No issue token hotspot is available yet."
@@ -225,7 +225,7 @@ export function buildTokenAnalysisViewModel(
       .sort((left, right) => right.totalTokens - left.totalTokens)
       .slice(0, 8)
       .map((row) => ({
-        turnLabel: `${row.issueIdentifier} · ${row.turnLabel}`,
+        turnLabel: `${row.trackerIssueKey} · ${row.turnLabel}`,
         totalTokens: row.totalTokens,
         inputTokens: row.inputTokens,
         cachedInputTokens: row.cachedInputTokens,
@@ -233,31 +233,31 @@ export function buildTokenAnalysisViewModel(
       })),
     issueTokenRows,
     hotspotRows: runTokenRows.slice(0, 10).map((row) => ({
-      scope: row.issueIdentifier,
+      scope: row.trackerIssueKey,
       label: row.runLabel,
       totalTokens: formatCount(row.totalTokens),
       inputTokens: formatCount(row.inputTokens),
       outputTokens: formatCount(row.outputTokens),
       startedAt: formatTimestamp(row.startedAt),
-      runHref: buildIssueRunHref(row.issueIdentifier, row.runId, {
+      runHref: buildIssueRunHref(row.trackerIssueKey, row.runId, {
         repo: row.repositoryKey
       }),
-      issueHref: buildIssueHref(row.issueIdentifier, {
+      issueHref: buildIssueHref(row.trackerIssueKey, {
         repo: row.repositoryKey
       })
     })),
     spotlight: {
-      heaviestRun: heaviestRun ? `${heaviestRun.issueIdentifier} · ${heaviestRun.runLabel}` : "n/a",
+      heaviestRun: heaviestRun ? `${heaviestRun.trackerIssueKey} · ${heaviestRun.runLabel}` : "n/a",
       heaviestRunDetail: heaviestRun
         ? `${formatCount(heaviestRun.totalTokens)} total tokens with ${formatCount(heaviestRun.inputTokens)} input and ${formatCount(heaviestRun.outputTokens)} output tokens.`
         : "No run token hotspot is available yet.",
       heaviestTurn: heaviestTurn
-        ? `${heaviestTurn.issueIdentifier} · ${heaviestTurn.turnLabel}`
+        ? `${heaviestTurn.trackerIssueKey} · ${heaviestTurn.turnLabel}`
         : "n/a",
       heaviestTurnDetail: heaviestTurn
         ? `${formatCount(heaviestTurn.totalTokens)} total tokens with ${formatCount(heaviestTurn.cachedInputTokens)} cached input tokens.`
         : "No turn token hotspot is available yet.",
-      hottestIssue: hottestIssue?.issueIdentifier ?? "n/a",
+      hottestIssue: hottestIssue?.trackerIssueKey ?? "n/a",
       hottestIssueDetail: hottestIssue
         ? `${formatCount(hottestIssue.totalTokens)} total tokens across sampled runs.`
         : "No issue token hotspot is available yet."

@@ -4,10 +4,10 @@ import { IssueActivityLiveScreen } from "@/features/issues/components/issue-acti
 
 export default async function IssueActivityPage(input: {
   params: Promise<{
-    issueIdentifier: string;
+    trackerIssueKey: string;
   }>;
 }): Promise<ReactElement> {
-  const { issueIdentifier } = await input.params;
+  const { trackerIssueKey } = await input.params;
 
-  return <IssueActivityLiveScreen issueIdentifier={issueIdentifier} />;
+  return <IssueActivityLiveScreen trackerIssueKey={trackerIssueKey} />;
 }

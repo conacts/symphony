@@ -33,7 +33,7 @@ export function RunTranscriptLiveScreen(input: { runId: string }) {
       breadcrumbs={
         runState.resource
           ? buildIssueRunBreadcrumbRoutes(
-              runState.resource.runDetail.issue.issueIdentifier,
+              runState.resource.runDetail.issue.trackerIssueKey,
               runState.resource.runDetail.run.runId
             )
           : []

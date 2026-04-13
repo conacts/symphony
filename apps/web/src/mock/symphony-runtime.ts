@@ -37,7 +37,7 @@ const DEFAULT_REPOSITORY_KEY = "symphony";
 const rawMockIssueTemplates = [
   {
     trackerIssueId: "issue_123",
-    issueIdentifier: "COL-165",
+    trackerIssueKey: "COL-165",
     latestRunStartedAt: "2026-03-31T18:00:00.000Z",
     latestRunId: "run_123",
     latestRunStatus: "finished",
@@ -74,7 +74,7 @@ const rawMockIssueTemplates = [
   },
   {
     trackerIssueId: "issue_456",
-    issueIdentifier: "COL-166",
+    trackerIssueKey: "COL-166",
     latestRunStartedAt: "2026-03-31T19:10:00.000Z",
     latestRunId: "run_456",
     latestRunStatus: "rate_limited",
@@ -111,7 +111,7 @@ const rawMockIssueTemplates = [
   },
   {
     trackerIssueId: "issue_789",
-    issueIdentifier: "COL-167",
+    trackerIssueKey: "COL-167",
     latestRunStartedAt: "2026-03-31T17:25:00.000Z",
     latestRunId: "run_789",
     latestRunStatus: "finished",
@@ -148,7 +148,7 @@ const rawMockIssueTemplates = [
   },
   {
     trackerIssueId: "issue_234",
-    issueIdentifier: "COL-168",
+    trackerIssueKey: "COL-168",
     latestRunStartedAt: "2026-03-30T16:20:00.000Z",
     latestRunId: "run_234",
     latestRunStatus: "finished",
@@ -185,7 +185,7 @@ const rawMockIssueTemplates = [
   },
   {
     trackerIssueId: "issue_345",
-    issueIdentifier: "COL-169",
+    trackerIssueKey: "COL-169",
     latestRunStartedAt: "2026-03-29T14:15:00.000Z",
     latestRunId: "run_345",
     latestRunStatus: "rate_limited",
@@ -236,7 +236,7 @@ const rawMockIssues = [
     return {
       ...issue,
       trackerIssueId: `issue_${issueNumber}`,
-      issueIdentifier: `COL-${issueNumber}`,
+      trackerIssueKey: `COL-${issueNumber}`,
       latestRunStartedAt: shiftedStart,
       latestRunId: `run_${issueNumber}`,
       latestDeliveryReportedAt:
@@ -299,7 +299,7 @@ function withMockAgentRunSummary(
       run.outcome === "completed" ? "2026-03-31T18:06:00.000Z" : null,
     deliveryPrUrl:
       run.outcome === "completed"
-        ? `https://github.com/example/repo/pull/${run.issueIdentifier.replace("COL-", "")}`
+        ? `https://github.com/example/repo/pull/${run.trackerIssueKey.replace("COL-", "")}`
         : null,
     machineLoad: {
       sampleCount: 6,
@@ -321,7 +321,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     withMockAgentRunSummary({
       runId: "run_123",
       trackerIssueId: "issue_123",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       attempt: 3,
       status: "finished",
       outcome: "completed",
@@ -345,7 +345,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     withMockAgentRunSummary({
       runId: "run_122",
       trackerIssueId: "issue_123",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       attempt: 2,
       status: "finished",
       outcome: "paused_max_turns",
@@ -369,7 +369,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     withMockAgentRunSummary({
       runId: "run_121",
       trackerIssueId: "issue_123",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       attempt: 1,
       status: "finished",
       outcome: "rate_limited",
@@ -395,7 +395,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     withMockAgentRunSummary({
       runId: "run_456",
       trackerIssueId: "issue_456",
-      issueIdentifier: "COL-166",
+      trackerIssueKey: "COL-166",
       attempt: 4,
       status: "rate_limited",
       outcome: "rate_limited",
@@ -419,7 +419,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     withMockAgentRunSummary({
       runId: "run_455",
       trackerIssueId: "issue_456",
-      issueIdentifier: "COL-166",
+      trackerIssueKey: "COL-166",
       attempt: 3,
       status: "finished",
       outcome: "completed",
@@ -445,7 +445,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     withMockAgentRunSummary({
       runId: "run_789",
       trackerIssueId: "issue_789",
-      issueIdentifier: "COL-167",
+      trackerIssueKey: "COL-167",
       attempt: 2,
       status: "finished",
       outcome: "startup_failed",
@@ -469,7 +469,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     withMockAgentRunSummary({
       runId: "run_788",
       trackerIssueId: "issue_789",
-      issueIdentifier: "COL-167",
+      trackerIssueKey: "COL-167",
       attempt: 1,
       status: "finished",
       outcome: "startup_failed",
@@ -495,7 +495,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     withMockAgentRunSummary({
       runId: "run_234",
       trackerIssueId: "issue_234",
-      issueIdentifier: "COL-168",
+      trackerIssueKey: "COL-168",
       attempt: 3,
       status: "finished",
       outcome: "completed",
@@ -519,7 +519,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     withMockAgentRunSummary({
       runId: "run_233",
       trackerIssueId: "issue_234",
-      issueIdentifier: "COL-168",
+      trackerIssueKey: "COL-168",
       attempt: 2,
       status: "finished",
       outcome: "paused_max_turns",
@@ -545,7 +545,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     withMockAgentRunSummary({
       runId: "run_345",
       trackerIssueId: "issue_345",
-      issueIdentifier: "COL-169",
+      trackerIssueKey: "COL-169",
       attempt: 2,
       status: "rate_limited",
       outcome: "rate_limited",
@@ -569,7 +569,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
     withMockAgentRunSummary({
       runId: "run_344",
       trackerIssueId: "issue_345",
-      issueIdentifier: "COL-169",
+      trackerIssueKey: "COL-169",
       attempt: 1,
       status: "finished",
       outcome: "completed",
@@ -595,7 +595,7 @@ const mockRunsByIssueIdentifier: Record<string, SymphonyForensicsRunSummary[]> =
 
 const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> = {
   "COL-165": buildSymphonyRuntimeIssueResult({
-    issueIdentifier: "COL-165",
+    trackerIssueKey: "COL-165",
     trackerIssueId: "issue_123",
     workspace: buildRuntimeWorkspace("/tmp/workspaces/col-165", "worker-a"),
     tracked: {
@@ -625,7 +625,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
     }
   }),
   "COL-166": buildSymphonyRuntimeIssueResult({
-    issueIdentifier: "COL-166",
+    trackerIssueKey: "COL-166",
     trackerIssueId: "issue_456",
     status: "retrying",
     workspace: buildDockerRuntimeWorkspace({
@@ -666,7 +666,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
     }
   }),
   "COL-167": buildSymphonyRuntimeIssueResult({
-    issueIdentifier: "COL-167",
+    trackerIssueKey: "COL-167",
     trackerIssueId: "issue_789",
     workspace: buildRuntimeWorkspace("/tmp/workspaces/col-167", "worker-c"),
     tracked: {
@@ -696,7 +696,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
     }
   }),
   "COL-168": buildSymphonyRuntimeIssueResult({
-    issueIdentifier: "COL-168",
+    trackerIssueKey: "COL-168",
     trackerIssueId: "issue_234",
     workspace: buildRuntimeWorkspace("/tmp/workspaces/col-168", "worker-d"),
     tracked: {
@@ -726,7 +726,7 @@ const mockRuntimeIssueByIdentifier: Record<string, SymphonyRuntimeIssueResult> =
     }
   }),
   "COL-169": buildSymphonyRuntimeIssueResult({
-    issueIdentifier: "COL-169",
+    trackerIssueKey: "COL-169",
     trackerIssueId: "issue_345",
     status: "retrying",
     workspace: buildDockerRuntimeWorkspace({
@@ -922,7 +922,7 @@ const mockRuntimeLogsByIssueIdentifier: Record<string, SymphonyRuntimeLogEntry[]
       eventType: "run.started",
       message: "Started run run_123.",
       trackerIssueId: "issue_123",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       runId: "run_123",
       payload: {
         workerHost: "worker-a"
@@ -937,7 +937,7 @@ const mockRuntimeLogsByIssueIdentifier: Record<string, SymphonyRuntimeLogEntry[]
       eventType: "retry.recovered",
       message: "Recovered from prior max-turns failure.",
       trackerIssueId: "issue_123",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       runId: "run_123",
       payload: null,
       recordedAt: "2026-03-31T18:03:00.000Z"
@@ -952,7 +952,7 @@ const mockRuntimeLogsByIssueIdentifier: Record<string, SymphonyRuntimeLogEntry[]
       eventType: "retry.scheduled",
       message: "Scheduled retry after upstream rate limit.",
       trackerIssueId: "issue_456",
-      issueIdentifier: "COL-166",
+      trackerIssueKey: "COL-166",
       runId: "run_456",
       payload: {
         dueAt: "2026-03-31T19:21:00.000Z"
@@ -969,7 +969,7 @@ const mockRuntimeLogsByIssueIdentifier: Record<string, SymphonyRuntimeLogEntry[]
       eventType: "workspace.bootstrap.failed",
       message: "Workspace bootstrap failed during dependency install.",
       trackerIssueId: "issue_789",
-      issueIdentifier: "COL-167",
+      trackerIssueKey: "COL-167",
       runId: "run_789",
       payload: {
         step: "pnpm install"
@@ -985,7 +985,7 @@ const mockTimelineByIssueIdentifier: Record<string, SymphonyForensicsIssueTimeli
       entryId: "timeline_165_1",
       repositoryKey: DEFAULT_REPOSITORY_KEY,
       trackerIssueId: "issue_123",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       runId: "run_123",
       turnId: null,
       source: "orchestrator",
@@ -1000,7 +1000,7 @@ const mockTimelineByIssueIdentifier: Record<string, SymphonyForensicsIssueTimeli
       entryId: "timeline_165_2",
       repositoryKey: DEFAULT_REPOSITORY_KEY,
       trackerIssueId: "issue_123",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       runId: "run_123",
       turnId: "turn_123",
       source: "agent",
@@ -1017,7 +1017,7 @@ const mockTimelineByIssueIdentifier: Record<string, SymphonyForensicsIssueTimeli
       entryId: "timeline_166_1",
       repositoryKey: DEFAULT_REPOSITORY_KEY,
       trackerIssueId: "issue_456",
-      issueIdentifier: "COL-166",
+      trackerIssueKey: "COL-166",
       runId: "run_456",
       turnId: null,
       source: "runtime",
@@ -1034,7 +1034,7 @@ const mockTimelineByIssueIdentifier: Record<string, SymphonyForensicsIssueTimeli
       entryId: "timeline_167_1",
       repositoryKey: DEFAULT_REPOSITORY_KEY,
       trackerIssueId: "issue_789",
-      issueIdentifier: "COL-167",
+      trackerIssueKey: "COL-167",
       runId: "run_789",
       turnId: null,
       source: "workspace",
@@ -1063,7 +1063,7 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
     running: [
       {
         trackerIssueId: "issue_123",
-        issueIdentifier: "COL-165",
+        trackerIssueKey: "COL-165",
         state: "In Progress",
         workerHost: "worker-a",
         workspacePath: "/tmp/workspaces/col-165",
@@ -1083,7 +1083,7 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
       },
       {
         trackerIssueId: "issue_789",
-        issueIdentifier: "COL-167",
+        trackerIssueKey: "COL-167",
         state: "Bootstrapping",
         workerHost: "worker-c",
         workspacePath: "/tmp/workspaces/col-167",
@@ -1103,7 +1103,7 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
       },
       {
         trackerIssueId: "issue_234",
-        issueIdentifier: "COL-168",
+        trackerIssueKey: "COL-168",
         state: "In Progress",
         workerHost: "worker-d",
         workspacePath: "/tmp/workspaces/col-168",
@@ -1125,7 +1125,7 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
     retrying: [
       {
         trackerIssueId: "issue_456",
-        issueIdentifier: "COL-166",
+        trackerIssueKey: "COL-166",
         attempt: 2,
         dueAt: "2026-03-31T19:21:00.000Z",
         error: "Upstream rate limit reached.",
@@ -1149,7 +1149,7 @@ export function buildMockRuntimeStateResult(): SymphonyRuntimeStateResult {
       },
       {
         trackerIssueId: "issue_345",
-        issueIdentifier: "COL-169",
+        trackerIssueKey: "COL-169",
         attempt: 2,
         dueAt: "2026-03-29T14:28:00.000Z",
         error: "Upstream rate limit reached.",
@@ -1301,10 +1301,10 @@ export function buildMockRuntimeHealthResult(): SymphonyRuntimeHealthResult {
 export function buildMockRuntimeLogsResult(
   input: URLSearchParams
 ): SymphonyRuntimeLogsResult {
-  const issueIdentifier = input.get("issueIdentifier");
+  const trackerIssueKey = input.get("trackerIssueKey");
   const limit = parsePositiveInt(input.get("limit")) ?? 200;
-  const allLogs = issueIdentifier
-    ? (mockRuntimeLogsByIssueIdentifier[issueIdentifier] ?? [])
+  const allLogs = trackerIssueKey
+    ? (mockRuntimeLogsByIssueIdentifier[trackerIssueKey] ?? [])
     : Object.values(mockRuntimeLogsByIssueIdentifier).flat();
 
   return buildSymphonyRuntimeLogsResult({
@@ -1315,7 +1315,7 @@ export function buildMockRuntimeLogsResult(
     filters: {
       limit,
       repo: null,
-      issueIdentifier
+      trackerIssueKey
     }
   });
 }
@@ -1356,21 +1356,21 @@ export function buildMockIssueListResult(
 }
 
 export function buildMockIssueDetailResult(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   input: URLSearchParams
 ): SymphonyForensicsIssueDetailResult | null {
-  const issue = findIssue(issueIdentifier);
+  const issue = findIssue(trackerIssueKey);
 
   if (!issue) {
     return null;
   }
 
   const limit = parsePositiveInt(input.get("limit")) ?? 200;
-  const runs = (mockRunsByIssueIdentifier[issueIdentifier] ?? []).slice(0, limit);
+  const runs = (mockRunsByIssueIdentifier[trackerIssueKey] ?? []).slice(0, limit);
 
   return {
     repositoryKey: issue.repositoryKey,
-    issueIdentifier,
+    trackerIssueKey,
     runs,
     summary: {
       runCount: issue.runCount,
@@ -1389,19 +1389,19 @@ export function buildMockIssueDetailResult(
 }
 
 export function buildMockIssueForensicsBundleResult(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   input: URLSearchParams
 ): SymphonyForensicsIssueForensicsBundleResult | null {
-  const issue = findIssue(issueIdentifier);
+  const issue = findIssue(trackerIssueKey);
 
   if (!issue) {
     return null;
   }
 
   const filters = buildIssueFilters(input);
-  const recentRuns = mockRunsByIssueIdentifier[issueIdentifier] ?? [];
-  const timeline = mockTimelineByIssueIdentifier[issueIdentifier] ?? [];
-  const runtimeLogs = mockRuntimeLogsByIssueIdentifier[issueIdentifier] ?? [];
+  const recentRuns = mockRunsByIssueIdentifier[trackerIssueKey] ?? [];
+  const timeline = mockTimelineByIssueIdentifier[trackerIssueKey] ?? [];
+  const runtimeLogs = mockRuntimeLogsByIssueIdentifier[trackerIssueKey] ?? [];
   const latestFailureRun = recentRuns.find((run) => run.outcome !== "completed") ?? null;
 
   return {
@@ -1435,13 +1435,13 @@ export function buildMockProblemRunsResult(
   input: URLSearchParams
 ): SymphonyForensicsProblemRunsResult {
   const limit = parsePositiveInt(input.get("limit")) ?? 200;
-  const issueIdentifier = input.get("issueIdentifier");
+  const trackerIssueKey = input.get("trackerIssueKey");
   const outcome = parseOutcomeFilter(input.get("outcome"));
   const runs = Object.values(mockRunsByIssueIdentifier)
     .flat()
     .filter((run) => run.outcome !== "completed")
     .filter((run) =>
-      issueIdentifier ? run.issueIdentifier === issueIdentifier : true
+      trackerIssueKey ? run.trackerIssueKey === trackerIssueKey : true
     )
     .filter((run) => (outcome ? run.outcome === outcome : true))
     .sort((left, right) => compareTimestamps(right.startedAt, left.startedAt))
@@ -1459,7 +1459,7 @@ export function buildMockProblemRunsResult(
     filters: {
       repo: null,
       outcome,
-      issueIdentifier,
+      trackerIssueKey,
       limit
     }
   });
@@ -1469,7 +1469,7 @@ export function buildMockRunDetailResult(
   runId: string
 ): SymphonyForensicsRunDetailResult | null {
   const issue = mockIssues.find((candidate) =>
-    (mockRunsByIssueIdentifier[candidate.issueIdentifier] ?? []).some(
+    (mockRunsByIssueIdentifier[candidate.trackerIssueKey] ?? []).some(
       (run) => run.runId === runId
     )
   );
@@ -1484,7 +1484,7 @@ export function buildMockRunDetailResult(
     });
   }
 
-  const run = (mockRunsByIssueIdentifier[issue.issueIdentifier] ?? []).find(
+  const run = (mockRunsByIssueIdentifier[issue.trackerIssueKey] ?? []).find(
     (candidate) => candidate.runId === runId
   );
 
@@ -1513,19 +1513,19 @@ export function buildMockRunDetailResult(
       providerEnvKey: "OPENROUTER_API_KEY",
       launchTarget: {
         kind: "container",
-        hostLaunchPath: `/tmp/workspaces/${issue.issueIdentifier.toLowerCase()}`,
-        hostWorkspacePath: `/tmp/workspaces/${issue.issueIdentifier.toLowerCase()}`,
+        hostLaunchPath: `/tmp/workspaces/${issue.trackerIssueKey.toLowerCase()}`,
+        hostWorkspacePath: `/tmp/workspaces/${issue.trackerIssueKey.toLowerCase()}`,
         runtimeWorkspacePath: "/workspace",
         containerId: `container_${run.runId}`,
-        containerName: `symphony-${issue.issueIdentifier.toLowerCase()}`,
+        containerName: `symphony-${issue.trackerIssueKey.toLowerCase()}`,
         shell: "sh",
         user: "1000:1000"
       },
       repoStart: {
-        branch: `symphony/${issue.issueIdentifier}`
+        branch: `symphony/${issue.trackerIssueKey}`
       },
       repoEnd: {
-        branch: `symphony/${issue.issueIdentifier}`
+        branch: `symphony/${issue.trackerIssueKey}`
       },
       metadata: {
         mocked: true
@@ -1540,7 +1540,7 @@ export function buildMockRunDetailResult(
         turnSequence: 1,
         agentTurnId: null,
         threadId: `thread_${run.runId}`,
-        promptText: `Investigate ${issue.issueIdentifier}`,
+        promptText: `Investigate ${issue.trackerIssueKey}`,
         status: "completed",
         startedAt: run.startedAt,
         endedAt: runEndedAt,
@@ -1583,9 +1583,9 @@ export function buildMockRunDetailResult(
 }
 
 export function buildMockRuntimeIssueResult(
-  issueIdentifier: string
+  trackerIssueKey: string
 ): SymphonyRuntimeIssueResult | null {
-  return mockRuntimeIssueByIdentifier[issueIdentifier] ?? null;
+  return mockRuntimeIssueByIdentifier[trackerIssueKey] ?? null;
 }
 
 export function createMockEnvelope<T>(data: T) {
@@ -1753,8 +1753,8 @@ function buildDistribution(values: Array<string | null>) {
   }, {});
 }
 
-function findIssue(issueIdentifier: string) {
-  return mockIssues.find((issue) => issue.issueIdentifier === issueIdentifier) ?? null;
+function findIssue(trackerIssueKey: string) {
+  return mockIssues.find((issue) => issue.trackerIssueKey === trackerIssueKey) ?? null;
 }
 
 function parsePositiveInt(value: string | null) {
@@ -1772,7 +1772,7 @@ function toRunDetailIssueSummary(
   return {
     repositoryKey: issue.repositoryKey,
     trackerIssueId: issue.trackerIssueId,
-    issueIdentifier: issue.issueIdentifier,
+    trackerIssueKey: issue.trackerIssueKey,
     latestRunStartedAt: issue.latestRunStartedAt,
     latestRunId: issue.latestRunId,
     latestRunStatus: issue.latestRunStatus,
@@ -1785,8 +1785,8 @@ function toRunDetailIssueSummary(
     latestDeliveryRunId: issue.latestDeliveryRunId,
     latestDeliveryPrUrl: issue.latestDeliveryPrUrl,
     deliveredRunCount: issue.deliveredRunCount,
-    insertedAt: requireIssueTimestamp(issue.insertedAt, issue.issueIdentifier, "insertedAt"),
-    updatedAt: requireIssueTimestamp(issue.updatedAt, issue.issueIdentifier, "updatedAt")
+    insertedAt: requireIssueTimestamp(issue.insertedAt, issue.trackerIssueKey, "insertedAt"),
+    updatedAt: requireIssueTimestamp(issue.updatedAt, issue.trackerIssueKey, "updatedAt")
   };
 }
 
@@ -1812,11 +1812,11 @@ function toNullableString(value: string | null) {
 
 function requireIssueTimestamp(
   value: string | null,
-  issueIdentifier: string,
+  trackerIssueKey: string,
   field: "insertedAt" | "updatedAt"
 ): string {
   if (value === null) {
-    throw new TypeError(`Mock issue ${issueIdentifier} is missing required ${field}.`);
+    throw new TypeError(`Mock issue ${trackerIssueKey} is missing required ${field}.`);
   }
 
   return value;

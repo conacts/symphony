@@ -13,7 +13,7 @@ import type {
 
 type AuthorityPort = Pick<
   SymphonyRouteWorkflowPort,
-  "loadHydrationStateByIssueIdentifier" | "loadReplayStateByIssueIdentifier"
+  "loadHydrationStateByTrackerIssueKey" | "loadReplayStateByTrackerIssueKey"
 >;
 
 export type RouteWorkflowAuthorityProof<
@@ -154,11 +154,11 @@ async function loadRouteWorkflowAuthorityProof<
   issueIdentifier: string;
 }): Promise<RouteWorkflowAuthorityProof<Node, Data, Policy>> {
   const hydration =
-    await input.routeWorkflows.loadHydrationStateByIssueIdentifier<Node, Data, Policy>(
+    await input.routeWorkflows.loadHydrationStateByTrackerIssueKey<Node, Data, Policy>(
       input.issueIdentifier
     );
   const replay =
-    await input.routeWorkflows.loadReplayStateByIssueIdentifier<Node>(
+    await input.routeWorkflows.loadReplayStateByTrackerIssueKey<Node>(
       input.issueIdentifier
     );
 

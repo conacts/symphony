@@ -23,7 +23,7 @@ type PerformanceAnalysisResource = {
   issueIndex: SymphonyForensicsIssueListResult;
   sampledRuns: Array<{
     repositoryKey: string;
-    issueIdentifier: string;
+    trackerIssueKey: string;
     run: SymphonyForensicsIssueDetailResult["runs"][number];
     artifacts: SymphonyAgentRunArtifactsResult;
   }>;
@@ -58,7 +58,7 @@ export type PerformanceAnalysisViewModel = {
   }>;
   slowTurnRows: Array<{
     turnLabel: string;
-    issueIdentifier: string;
+    trackerIssueKey: string;
     runHref: string;
     issueHref: string;
     wallClock: string;
@@ -134,7 +134,7 @@ export function buildPerformanceAnalysisViewModel(
         failed: command.status !== "completed",
         recordedAt: command.completedAt ?? command.updatedAt,
         repositoryKey: sampledRun.repositoryKey,
-        issueIdentifier: sampledRun.issueIdentifier,
+        trackerIssueKey: sampledRun.trackerIssueKey,
         runId: sampledRun.run.runId
       });
       updateAggregate(hotspotMap, `command:${command.command}`, {
@@ -145,7 +145,7 @@ export function buildPerformanceAnalysisViewModel(
         failed: command.status !== "completed",
         recordedAt: command.completedAt ?? command.updatedAt,
         repositoryKey: sampledRun.repositoryKey,
-        issueIdentifier: sampledRun.issueIdentifier,
+        trackerIssueKey: sampledRun.trackerIssueKey,
         runId: sampledRun.run.runId
       });
     }
@@ -161,7 +161,7 @@ export function buildPerformanceAnalysisViewModel(
         failed: tool.status !== "completed",
         recordedAt: tool.completedAt ?? tool.updatedAt,
         repositoryKey: sampledRun.repositoryKey,
-        issueIdentifier: sampledRun.issueIdentifier,
+        trackerIssueKey: sampledRun.trackerIssueKey,
         runId: sampledRun.run.runId
       });
       updateAggregate(hotspotMap, `tool:${toolLabel}`, {
@@ -172,7 +172,7 @@ export function buildPerformanceAnalysisViewModel(
         failed: tool.status !== "completed",
         recordedAt: tool.completedAt ?? tool.updatedAt,
         repositoryKey: sampledRun.repositoryKey,
-        issueIdentifier: sampledRun.issueIdentifier,
+        trackerIssueKey: sampledRun.trackerIssueKey,
         runId: sampledRun.run.runId
       });
     }
@@ -270,11 +270,11 @@ export function buildPerformanceAnalysisViewModel(
     .slice(0, 8)
     .map((row) => ({
       turnLabel: row.turnLabel,
-      issueIdentifier: row.issueIdentifier,
-      runHref: buildIssueRunHref(row.issueIdentifier, row.runId, {
+      trackerIssueKey: row.trackerIssueKey,
+      runHref: buildIssueRunHref(row.trackerIssueKey, row.runId, {
         repo: row.repositoryKey
       }),
-      issueHref: buildIssueHref(row.issueIdentifier, {
+      issueHref: buildIssueHref(row.trackerIssueKey, {
         repo: row.repositoryKey
       }),
       wallClock: formatDurationMilliseconds(row.wallClockMs),
@@ -328,7 +328,7 @@ export function buildPerformanceAnalysisViewModel(
       },
       {
         label: "Slowest turn",
-        value: slowestTurn ? `${slowestTurn.issueIdentifier} · ${slowestTurn.turnLabel}` : "n/a",
+        value: slowestTurn ? `${slowestTurn.trackerIssueKey} · ${slowestTurn.turnLabel}` : "n/a",
         detail: slowestTurn
           ? `${formatDurationMilliseconds(slowestTurn.wallClockMs)} wall-clock time.`
           : "No slow-turn signal is available yet."
@@ -358,7 +358,7 @@ export function buildPerformanceAnalysisViewModel(
         : "No tool failure data is available yet."
       ,
       slowestTurn: slowestTurn
-        ? `${slowestTurn.issueIdentifier} · ${slowestTurn.turnLabel}`
+        ? `${slowestTurn.trackerIssueKey} · ${slowestTurn.turnLabel}`
         : "n/a",
       slowestTurnDetail: slowestTurn
         ? `${formatDurationMilliseconds(slowestTurn.wallClockMs)} wall-clock time with ${formatDurationMilliseconds(
@@ -380,7 +380,7 @@ function updateAggregate(
     failed: boolean;
     recordedAt: string | null;
     repositoryKey: string;
-    issueIdentifier: string;
+    trackerIssueKey: string;
     runId: string;
   }
 ) {
@@ -395,7 +395,7 @@ function updateAggregate(
     if ((input.recordedAt ?? "") >= (current.latestRecordedAt ?? "")) {
       current.latestRecordedAt = input.recordedAt;
       current.latestRepositoryKey = input.repositoryKey;
-      current.latestIssueIdentifier = input.issueIdentifier;
+      current.latestIssueIdentifier = input.trackerIssueKey;
       current.latestRunId = input.runId;
     }
 
@@ -412,7 +412,7 @@ function updateAggregate(
     maxDurationMs: input.durationMs,
     latestRecordedAt: input.recordedAt,
     latestRepositoryKey: input.repositoryKey,
-    latestIssueIdentifier: input.issueIdentifier,
+    latestIssueIdentifier: input.trackerIssueKey,
     latestRunId: input.runId
   });
 }

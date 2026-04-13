@@ -164,7 +164,7 @@ export function buildSymphonyRuntimeStateResult(
   const running = (overrides.running ?? [
     {
       trackerIssueId: "issue_123",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       state: "In Progress",
       workerHost: "worker-b",
       workspacePath: "/tmp/workspaces/col-165",
@@ -184,7 +184,7 @@ export function buildSymphonyRuntimeStateResult(
     }
   ]).map((entry): RuntimeRunningEntry => ({
     trackerIssueId: "issue_123",
-    issueIdentifier: "COL-165",
+    trackerIssueKey: "COL-165",
     state: "In Progress",
     workerHost: "worker-b",
     workspacePath: "/tmp/workspaces/col-165",
@@ -212,7 +212,7 @@ export function buildSymphonyRuntimeStateResult(
   const retrying = (overrides.retrying ?? [
     {
       trackerIssueId: "issue_456",
-      issueIdentifier: "COL-166",
+      trackerIssueKey: "COL-166",
       attempt: 2,
       dueAt: "2026-03-31T18:05:00.000Z",
       error: "Worker disconnected",
@@ -223,7 +223,7 @@ export function buildSymphonyRuntimeStateResult(
     }
   ]).map((entry): RuntimeRetryEntry => ({
     trackerIssueId: "issue_456",
-    issueIdentifier: "COL-166",
+    trackerIssueKey: "COL-166",
     attempt: 2,
     dueAt: "2026-03-31T18:05:00.000Z",
     error: "Worker disconnected",
@@ -357,7 +357,7 @@ export function buildSymphonyRuntimeIssueResult(
   };
 
   return {
-    issueIdentifier: "COL-167",
+    trackerIssueKey: "COL-167",
     trackerIssueId: "issue-167",
     status: "running",
     workspace: {
@@ -436,7 +436,7 @@ export function buildSymphonyForensicsIssueListResult(
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
         trackerIssueId: "issue_123",
-        issueIdentifier: "COL-165",
+        trackerIssueKey: "COL-165",
         latestRunStartedAt: "2026-03-31T18:00:00.000Z",
         latestRunId: "run_123",
         latestRunStatus: "finished",
@@ -511,13 +511,13 @@ export function buildSymphonyForensicsIssueDetailResult(
 ): SymphonyForensicsIssueDetailResult {
   return {
     repositoryKey: DEFAULT_REPOSITORY_KEY,
-    issueIdentifier: "COL-165",
+    trackerIssueKey: "COL-165",
     runs: [
       {
         repositoryKey: DEFAULT_REPOSITORY_KEY,
         runId: "run_12345678",
         trackerIssueId: "issue_123",
-        issueIdentifier: "COL-165",
+        trackerIssueKey: "COL-165",
         attempt: 1,
         runMode: "implementation",
         status: "finished",
@@ -588,7 +588,7 @@ export function buildSymphonyForensicsProblemRunsResult(
         repositoryKey: DEFAULT_REPOSITORY_KEY,
         runId: "run_12345678",
         trackerIssueId: "issue_123",
-        issueIdentifier: "COL-165",
+        trackerIssueKey: "COL-165",
         attempt: 1,
         runMode: "implementation",
         status: "finished",
@@ -639,7 +639,7 @@ export function buildSymphonyForensicsProblemRunsResult(
     filters: {
       repo: null,
       outcome: "paused_max_turns",
-      issueIdentifier: "",
+      trackerIssueKey: "",
       limit: 200
     },
     ...overrides
@@ -653,7 +653,7 @@ export function buildSymphonyForensicsRunDetailResult(
     issue: {
       repositoryKey: DEFAULT_REPOSITORY_KEY,
       trackerIssueId: "issue_123",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       latestRunStartedAt: "2026-03-31T18:00:00.000Z",
       latestRunId: "run_123",
       latestRunStatus: "finished",
@@ -673,7 +673,7 @@ export function buildSymphonyForensicsRunDetailResult(
       repositoryKey: DEFAULT_REPOSITORY_KEY,
       runId: "run_123",
       trackerIssueId: "issue_123",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       attempt: 1,
       runMode: "implementation",
       status: "finished",
@@ -735,7 +735,7 @@ export function buildSymphonyForensicsRunDetailResult(
       reportId: "delivery_123",
       repositoryKey: DEFAULT_REPOSITORY_KEY,
       trackerIssueId: "issue_123",
-      issueIdentifier: "COL-165",
+      trackerIssueKey: "COL-165",
       runId: "run_123",
       turnId: "turn_123",
       status: "completed",

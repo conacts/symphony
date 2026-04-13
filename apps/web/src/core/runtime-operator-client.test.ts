@@ -41,7 +41,7 @@ describe("runtime operator client", () => {
     await expect(
       fetchRuntimeIssue("https://runtime.symphony.local", "COL-167", fetchIssue)
     ).resolves.toMatchObject({
-      issueIdentifier: "COL-167",
+      trackerIssueKey: "COL-167",
       operator: {
         requeueCommand: "/rework",
         pi: {
@@ -92,7 +92,7 @@ describe("runtime operator client", () => {
         {
           type: "issue.updated",
           channel: "issues",
-          issueIdentifier: "COL-167",
+          trackerIssueKey: "COL-167",
           generatedAt: "2026-03-31T18:05:00.000Z",
           invalidate: ["/api/v1/COL-167", "/api/v1/issues/COL-167"]
         },
@@ -104,7 +104,7 @@ describe("runtime operator client", () => {
         {
           type: "issue.updated",
           channel: "issues",
-          issueIdentifier: "COL-168",
+          trackerIssueKey: "COL-168",
           generatedAt: "2026-03-31T18:05:00.000Z",
           invalidate: ["/api/v1/COL-168", "/api/v1/issues/COL-168"]
         },

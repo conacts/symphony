@@ -25,7 +25,7 @@ describe("symphony runtime contracts", () => {
         running: [
           {
             trackerIssueId: "issue-1",
-            issueIdentifier: "COL-157",
+            trackerIssueKey: "COL-157",
             state: "In Progress",
             workerHost: "docker-host",
             workspacePath: "/tmp/COL-157",
@@ -124,7 +124,7 @@ describe("symphony runtime contracts", () => {
         retrying: [
           {
             trackerIssueId: "issue-2",
-            issueIdentifier: "COL-158",
+            trackerIssueKey: "COL-158",
             attempt: 2,
             dueAt: "2026-03-31T00:00:05.000Z",
             error: "no available orchestrator slots",
@@ -160,7 +160,7 @@ describe("symphony runtime contracts", () => {
         generatedAt: "2026-03-31T00:00:00.000Z"
       },
       data: {
-        issueIdentifier: "COL-157",
+        trackerIssueKey: "COL-157",
         trackerIssueId: "issue-1",
         status: "running",
         workspace: {
@@ -328,7 +328,7 @@ describe("symphony runtime contracts", () => {
         workflow: {
           workflowId: "workflow-1",
           repositoryKey: "openai/symphony",
-          issueIdentifier: "SYM-420",
+          trackerIssueKey: "SYM-420",
           routerPresetId: "current-flow",
           routerName: "current-flow",
           routerVersion: "1",
@@ -412,7 +412,7 @@ describe("symphony runtime contracts", () => {
         generatedAt: "2026-04-10T00:00:00.000Z"
       },
       data: {
-        issueIdentifier: "COL-157",
+        trackerIssueKey: "COL-157",
         observedTrackerState: "Rework",
         workflowTrackerState: "Bootstrapping",
         observed: true,
@@ -433,7 +433,7 @@ describe("symphony runtime contracts", () => {
         generatedAt: "2026-04-10T00:00:00.000Z"
       },
       data: {
-        issueIdentifier: "COL-158",
+        trackerIssueKey: "COL-158",
         observedTrackerState: "Rework",
         workflowTrackerState: null,
         observed: false,
@@ -454,7 +454,7 @@ describe("symphony runtime contracts", () => {
         generatedAt: "2026-03-31T00:00:00.000Z"
       },
       data: {
-        issueIdentifier: "COL-106",
+        trackerIssueKey: "COL-106",
         trackerIssueId: "issue-106",
         status: "tracked",
         workspace: {
@@ -535,7 +535,7 @@ describe("symphony runtime contracts", () => {
           running: [
             {
               trackerIssueId: "issue-1",
-              issueIdentifier: "COL-157",
+              trackerIssueKey: "COL-157",
               state: "In Progress",
               workspace: null,
               launchTarget: null,
@@ -680,7 +680,7 @@ describe("symphony runtime contracts", () => {
   it("rejects blank runtime issue identifiers", () => {
     expect(() =>
       symphonyRuntimeIssuePathSchema.parse({
-        issueIdentifier: "   "
+        trackerIssueKey: "   "
       })
     ).toThrowError();
   });

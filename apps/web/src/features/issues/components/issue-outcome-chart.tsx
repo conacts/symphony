@@ -31,7 +31,7 @@ const issueOutcomeChartConfig = {
 
 export function IssueOutcomeChart(input: {
   rows: Array<{
-    issueIdentifier: string;
+    trackerIssueKey: string;
     completedRunCount: number;
     problemRunCount: number;
   }>;
@@ -54,7 +54,7 @@ export function IssueOutcomeChart(input: {
             <BarChart accessibilityLayer data={input.rows} margin={{ left: 12, right: 12 }}>
               <CartesianGrid vertical={false} />
               <XAxis
-                dataKey="issueIdentifier"
+                dataKey="trackerIssueKey"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}

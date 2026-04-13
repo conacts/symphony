@@ -74,18 +74,21 @@ export type RouteWorkflowReplayState<
   signals: WorkflowSignal[];
 };
 
+type PersistedRouteWorkflowRouter = {
+  definition(): {
+    name: string;
+    version: string;
+  };
+};
+
 export type SymphonyRouteWorkflowPort = {
-  ensureWorkflowForIssue<
-    Node extends WorkflowNodeId = WorkflowNodeId,
-    Data = unknown,
-    Policy = unknown,
-  >(input: {
+  ensureWorkflowForIssue(input: {
     trackerIssueId: string;
-    issueIdentifier: string;
+    trackerIssueKey: string;
     repositoryKey: string;
     bindingScope?: RouteWorkflowBindingScope | null;
     routerPresetId: string;
-    router: WorkflowRouter<Node, Data, Policy>;
+    router: PersistedRouteWorkflowRouter;
     createdAt: string;
   }): Promise<EnsuredRouteWorkflow>;
   loadHydrationStateByWorkflowId<
@@ -95,29 +98,29 @@ export type SymphonyRouteWorkflowPort = {
   >(
     workflowId: string
   ): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null>;
-  loadHydrationStateByIssueIdentifier<
+  loadHydrationStateByTrackerIssueKey<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
     Policy = unknown,
   >(
-    issueIdentifier: string
+    trackerIssueKey: string
   ): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null>;
-  loadHydrationStateByScopedIssue<
+  loadHydrationStateByScopedTrackerIssueKey<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
     Policy = unknown,
   >(input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     bindingScope: RouteWorkflowBindingScope;
   }): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null>;
   loadReplayStateByWorkflowId<Node extends WorkflowNodeId = WorkflowNodeId>(
     workflowId: string
   ): Promise<RouteWorkflowReplayState<Node> | null>;
-  loadReplayStateByIssueIdentifier<Node extends WorkflowNodeId = WorkflowNodeId>(
-    issueIdentifier: string
+  loadReplayStateByTrackerIssueKey<Node extends WorkflowNodeId = WorkflowNodeId>(
+    trackerIssueKey: string
   ): Promise<RouteWorkflowReplayState<Node> | null>;
-  loadReplayStateByScopedIssue<Node extends WorkflowNodeId = WorkflowNodeId>(input: {
-    issueIdentifier: string;
+  loadReplayStateByScopedTrackerIssueKey<Node extends WorkflowNodeId = WorkflowNodeId>(input: {
+    trackerIssueKey: string;
     bindingScope: RouteWorkflowBindingScope;
   }): Promise<RouteWorkflowReplayState<Node> | null>;
   rehydrateProjectionByWorkflowId<
@@ -129,21 +132,21 @@ export type SymphonyRouteWorkflowPort = {
     router: WorkflowRouter<Node, Data, Policy>;
     policy: Policy;
   }): Promise<RehydratedRouteWorkflowProjection<Node, Data, Policy> | null>;
-  rehydrateProjectionByIssueIdentifier<
+  rehydrateProjectionByTrackerIssueKey<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
     Policy = unknown,
   >(input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     router: WorkflowRouter<Node, Data, Policy>;
     policy: Policy;
   }): Promise<RehydratedRouteWorkflowProjection<Node, Data, Policy> | null>;
-  rehydrateProjectionByScopedIssue<
+  rehydrateProjectionByScopedTrackerIssueKey<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
     Policy = unknown,
   >(input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     bindingScope: RouteWorkflowBindingScope;
     router: WorkflowRouter<Node, Data, Policy>;
     policy: Policy;
@@ -157,21 +160,21 @@ export type SymphonyRouteWorkflowPort = {
     router: WorkflowRouter<Node, Data, Policy>;
     policy: Policy;
   }): Promise<ResumedRouteWorkflowSession<Node, Data, Policy> | null>;
-  resumeSessionByIssueIdentifier<
+  resumeSessionByTrackerIssueKey<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
     Policy = unknown,
   >(input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     router: WorkflowRouter<Node, Data, Policy>;
     policy: Policy;
   }): Promise<ResumedRouteWorkflowSession<Node, Data, Policy> | null>;
-  resumeSessionByScopedIssue<
+  resumeSessionByScopedTrackerIssueKey<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
     Policy = unknown,
   >(input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     bindingScope: RouteWorkflowBindingScope;
     router: WorkflowRouter<Node, Data, Policy>;
     policy: Policy;
@@ -202,17 +205,13 @@ export function createRouteWorkflowPort(input: {
   routeWorkflowStore: RouteWorkflowStore;
 }): SymphonyRouteWorkflowPort {
   return {
-    async ensureWorkflowForIssue<
-      Node extends WorkflowNodeId = WorkflowNodeId,
-      Data = unknown,
-      Policy = unknown,
-    >(ensureInput: {
+    async ensureWorkflowForIssue(ensureInput: {
       trackerIssueId: string;
-      issueIdentifier: string;
+      trackerIssueKey: string;
       repositoryKey: string;
       bindingScope?: RouteWorkflowBindingScope | null;
       routerPresetId: string;
-      router: WorkflowRouter<Node, Data, Policy>;
+      router: PersistedRouteWorkflowRouter;
       createdAt: string;
     }): Promise<EnsuredRouteWorkflow> {
       const routerPresetId = normalizeRequiredText(
@@ -228,7 +227,7 @@ export function createRouteWorkflowPort(input: {
       if (existing) {
         assertWorkflowRouterCompatibility({
           workflow: existing,
-          issueIdentifier: ensureInput.issueIdentifier,
+          trackerIssueKey: ensureInput.trackerIssueKey,
           repositoryKey: ensureInput.repositoryKey,
           bindingScope,
           routerPresetId,
@@ -244,7 +243,7 @@ export function createRouteWorkflowPort(input: {
         const workflowId = await input.routeWorkflowStore.createWorkflow({
           trackerIssueId: ensureInput.trackerIssueId,
           repositoryKey: ensureInput.repositoryKey,
-          issueIdentifier: ensureInput.issueIdentifier,
+          trackerIssueKey: ensureInput.trackerIssueKey,
           bindingScope,
           routerPresetId,
           routerName: ensureInput.router.definition().name,
@@ -254,7 +253,7 @@ export function createRouteWorkflowPort(input: {
         const workflow = await input.routeWorkflowStore.getWorkflow(workflowId);
         if (!workflow) {
           throw new TypeError(
-            `Route workflow ${workflowId} was created for issue ${ensureInput.issueIdentifier} but could not be loaded.`
+            `Route workflow ${workflowId} was created for issue ${ensureInput.trackerIssueKey} but could not be loaded.`
           );
         }
 
@@ -276,7 +275,7 @@ export function createRouteWorkflowPort(input: {
 
         assertWorkflowRouterCompatibility({
           workflow,
-          issueIdentifier: ensureInput.issueIdentifier,
+          trackerIssueKey: ensureInput.trackerIssueKey,
           repositoryKey: ensureInput.repositoryKey,
           bindingScope,
           routerPresetId,
@@ -297,28 +296,28 @@ export function createRouteWorkflowPort(input: {
         workflowId
       );
     },
-    async loadHydrationStateByIssueIdentifier<
+    async loadHydrationStateByTrackerIssueKey<
       Node extends WorkflowNodeId = WorkflowNodeId,
       Data = unknown,
       Policy = unknown,
     >(
-      issueIdentifier: string
+      trackerIssueKey: string
     ): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null> {
-      return await input.routeWorkflowStore.loadWorkflowHydrationStateByIssue<
+      return await input.routeWorkflowStore.loadWorkflowHydrationStateByTrackerIssueKey<
         Node,
         Data,
         Policy
-      >(issueIdentifier);
+      >(trackerIssueKey);
     },
-    async loadHydrationStateByScopedIssue<
+    async loadHydrationStateByScopedTrackerIssueKey<
       Node extends WorkflowNodeId = WorkflowNodeId,
       Data = unknown,
       Policy = unknown,
     >(scopedInput: {
-      issueIdentifier: string;
+      trackerIssueKey: string;
       bindingScope: RouteWorkflowBindingScope;
     }): Promise<RouteWorkflowHydrationState<Node, Data, Policy> | null> {
-      return await input.routeWorkflowStore.loadWorkflowHydrationStateByScopedIssue<
+      return await input.routeWorkflowStore.loadWorkflowHydrationStateByScopedTrackerIssueKey<
         Node,
         Data,
         Policy
@@ -338,11 +337,11 @@ export function createRouteWorkflowPort(input: {
         history
       });
     },
-    async loadReplayStateByIssueIdentifier<Node extends WorkflowNodeId = WorkflowNodeId>(
-      issueIdentifier: string
+    async loadReplayStateByTrackerIssueKey<Node extends WorkflowNodeId = WorkflowNodeId>(
+      trackerIssueKey: string
     ): Promise<RouteWorkflowReplayState<Node> | null> {
-      const workflow = await input.routeWorkflowStore.getWorkflowForIssue(
-        issueIdentifier
+      const workflow = await input.routeWorkflowStore.getWorkflowForTrackerIssueKey(
+        trackerIssueKey
       );
       if (!workflow) {
         return null;
@@ -356,13 +355,13 @@ export function createRouteWorkflowPort(input: {
         history
       });
     },
-    async loadReplayStateByScopedIssue<Node extends WorkflowNodeId = WorkflowNodeId>(
+    async loadReplayStateByScopedTrackerIssueKey<Node extends WorkflowNodeId = WorkflowNodeId>(
       scopedInput: {
-        issueIdentifier: string;
+        trackerIssueKey: string;
         bindingScope: RouteWorkflowBindingScope;
       }
     ): Promise<RouteWorkflowReplayState<Node> | null> {
-      const workflow = await input.routeWorkflowStore.getWorkflowForScopedIssue(
+      const workflow = await input.routeWorkflowStore.getWorkflowForScopedTrackerIssueKey(
         scopedInput
       );
       if (!workflow) {
@@ -401,20 +400,20 @@ export function createRouteWorkflowPort(input: {
         policy: rehydrationInput.policy
       });
     },
-    async rehydrateProjectionByIssueIdentifier<
+    async rehydrateProjectionByTrackerIssueKey<
       Node extends WorkflowNodeId = WorkflowNodeId,
       Data = unknown,
       Policy = unknown,
     >(rehydrationInput: {
-      issueIdentifier: string;
+      trackerIssueKey: string;
       router: WorkflowRouter<Node, Data, Policy>;
       policy: Policy;
     }): Promise<RehydratedRouteWorkflowProjection<Node, Data, Policy> | null> {
-      const hydrationState = await input.routeWorkflowStore.loadWorkflowHydrationStateByIssue<
+      const hydrationState = await input.routeWorkflowStore.loadWorkflowHydrationStateByTrackerIssueKey<
         Node,
         Data,
         Policy
-      >(rehydrationInput.issueIdentifier);
+      >(rehydrationInput.trackerIssueKey);
       if (!hydrationState) {
         return null;
       }
@@ -425,23 +424,23 @@ export function createRouteWorkflowPort(input: {
         policy: rehydrationInput.policy
       });
     },
-    async rehydrateProjectionByScopedIssue<
+    async rehydrateProjectionByScopedTrackerIssueKey<
       Node extends WorkflowNodeId = WorkflowNodeId,
       Data = unknown,
       Policy = unknown,
     >(rehydrationInput: {
-      issueIdentifier: string;
+      trackerIssueKey: string;
       bindingScope: RouteWorkflowBindingScope;
       router: WorkflowRouter<Node, Data, Policy>;
       policy: Policy;
     }): Promise<RehydratedRouteWorkflowProjection<Node, Data, Policy> | null> {
       const hydrationState =
-        await input.routeWorkflowStore.loadWorkflowHydrationStateByScopedIssue<
+        await input.routeWorkflowStore.loadWorkflowHydrationStateByScopedTrackerIssueKey<
           Node,
           Data,
           Policy
         >({
-          issueIdentifier: rehydrationInput.issueIdentifier,
+          trackerIssueKey: rehydrationInput.trackerIssueKey,
           bindingScope: rehydrationInput.bindingScope
         });
       if (!hydrationState) {
@@ -478,20 +477,20 @@ export function createRouteWorkflowPort(input: {
         policy: resumeInput.policy
       });
     },
-    async resumeSessionByIssueIdentifier<
+    async resumeSessionByTrackerIssueKey<
       Node extends WorkflowNodeId = WorkflowNodeId,
       Data = unknown,
       Policy = unknown,
     >(resumeInput: {
-      issueIdentifier: string;
+      trackerIssueKey: string;
       router: WorkflowRouter<Node, Data, Policy>;
       policy: Policy;
     }): Promise<ResumedRouteWorkflowSession<Node, Data, Policy> | null> {
-      const hydrationState = await input.routeWorkflowStore.loadWorkflowHydrationStateByIssue<
+      const hydrationState = await input.routeWorkflowStore.loadWorkflowHydrationStateByTrackerIssueKey<
         Node,
         Data,
         Policy
-      >(resumeInput.issueIdentifier);
+      >(resumeInput.trackerIssueKey);
       if (!hydrationState) {
         return null;
       }
@@ -502,23 +501,23 @@ export function createRouteWorkflowPort(input: {
         policy: resumeInput.policy
       });
     },
-    async resumeSessionByScopedIssue<
+    async resumeSessionByScopedTrackerIssueKey<
       Node extends WorkflowNodeId = WorkflowNodeId,
       Data = unknown,
       Policy = unknown,
     >(resumeInput: {
-      issueIdentifier: string;
+      trackerIssueKey: string;
       bindingScope: RouteWorkflowBindingScope;
       router: WorkflowRouter<Node, Data, Policy>;
       policy: Policy;
     }): Promise<ResumedRouteWorkflowSession<Node, Data, Policy> | null> {
       const hydrationState =
-        await input.routeWorkflowStore.loadWorkflowHydrationStateByScopedIssue<
+        await input.routeWorkflowStore.loadWorkflowHydrationStateByScopedTrackerIssueKey<
           Node,
           Data,
           Policy
         >({
-          issueIdentifier: resumeInput.issueIdentifier,
+          trackerIssueKey: resumeInput.trackerIssueKey,
           bindingScope: resumeInput.bindingScope
         });
       if (!hydrationState) {
@@ -700,21 +699,17 @@ function normalizeRequiredText(value: string, field: string): string {
   return normalized;
 }
 
-function assertWorkflowRouterCompatibility<
-  Node extends WorkflowNodeId,
-  Data,
-  Policy,
->(input: {
+function assertWorkflowRouterCompatibility(input: {
   workflow: RouteWorkflowRecord;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   repositoryKey: string;
   bindingScope: RouteWorkflowBindingScope | null;
   routerPresetId: string;
-  router: WorkflowRouter<Node, Data, Policy>;
+  router: PersistedRouteWorkflowRouter;
 }) {
-  if (input.workflow.issueIdentifier !== input.issueIdentifier) {
+  if (input.workflow.trackerIssueKey !== input.trackerIssueKey) {
     throw new TypeError(
-      `Route workflow ${input.workflow.workflowId} is bound to issue identifier ${input.workflow.issueIdentifier}, but ${input.issueIdentifier} was requested.`
+      `Route workflow ${input.workflow.workflowId} is bound to issue identifier ${input.workflow.trackerIssueKey}, but ${input.trackerIssueKey} was requested.`
     );
   }
 
@@ -738,13 +733,9 @@ function assertWorkflowRouterCompatibility<
   assertStoredWorkflowRouterDefinition(input);
 }
 
-function assertStoredWorkflowRouterDefinition<
-  Node extends WorkflowNodeId,
-  Data,
-  Policy,
->(input: {
+function assertStoredWorkflowRouterDefinition(input: {
   workflow: Pick<RouteWorkflowRecord, "workflowId" | "routerName" | "routerVersion">;
-  router: WorkflowRouter<Node, Data, Policy>;
+  router: PersistedRouteWorkflowRouter;
 }) {
   const definition = input.router.definition();
 

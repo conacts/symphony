@@ -68,7 +68,7 @@ describe("runtime db observer", () => {
     ).toBe(true);
 
     const runtimeLogs = await harness.runtimeLogStore.list({
-      issueIdentifier: harness.issue.identifier
+      trackerIssueKey: harness.issue.identifier
     });
     expect(runtimeLogs).toContainEqual(
       expect.objectContaining({
@@ -76,7 +76,7 @@ describe("runtime db observer", () => {
         source: "workspace",
         eventType: "workspace_manifest_step_started",
         message: "Manifest lifecycle step bootstrap/install started.",
-        issueIdentifier: harness.issue.identifier,
+        trackerIssueKey: harness.issue.identifier,
         runId: harness.runId,
         recordedAt,
         payload: {
@@ -112,7 +112,7 @@ describe("runtime db observer", () => {
     });
 
     const runtimeLogs = await harness.runtimeLogStore.list({
-      issueIdentifier: harness.issue.identifier
+      trackerIssueKey: harness.issue.identifier
     });
     expect(runtimeLogs).toContainEqual(
       expect.objectContaining({
@@ -120,7 +120,7 @@ describe("runtime db observer", () => {
         source: "workspace",
         eventType: "workspace_manifest_phase_started",
         message: "Manifest lifecycle phase bootstrap started.",
-        issueIdentifier: harness.issue.identifier,
+        trackerIssueKey: harness.issue.identifier,
         runId: null,
         recordedAt,
         payload: {
@@ -161,14 +161,14 @@ describe("runtime db observer", () => {
     });
 
     const runtimeLogs = await harness.runtimeLogStore.list({
-      issueIdentifier: harness.issue.identifier
+      trackerIssueKey: harness.issue.identifier
     });
     expect(runtimeLogs).toContainEqual(
       expect.objectContaining({
         level: "error",
         source: "orchestrator",
         eventType: "runtime_startup_failed",
-        issueIdentifier: harness.issue.identifier,
+        trackerIssueKey: harness.issue.identifier,
         runId: harness.runId,
         payload: expect.objectContaining({
           reason: "workspace bootstrap failed",
@@ -202,7 +202,7 @@ describe("runtime db observer", () => {
     });
 
     const runtimeLogs = await harness.runtimeLogStore.list({
-      issueIdentifier: harness.issue.identifier
+      trackerIssueKey: harness.issue.identifier
     });
     expect(runtimeLogs).toContainEqual(
       expect.objectContaining({
@@ -210,7 +210,7 @@ describe("runtime db observer", () => {
         source: "orchestrator",
         eventType: "runtime_launch_requested",
         message: "Requested launch of the runtime worker.",
-        issueIdentifier: harness.issue.identifier,
+        trackerIssueKey: harness.issue.identifier,
         runId: harness.runId,
         recordedAt,
         payload: {
@@ -290,7 +290,7 @@ describe("runtime db observer", () => {
     });
 
     await issueStore.upsert({
-      issueIdentifier: issue.identifier,
+      trackerIssueKey: issue.identifier,
       trackerIssueId: issue.id,
       repositoryKey: "conacts/coldets-v2",
       latestRunStartedAt: null,
@@ -366,29 +366,33 @@ describe("runtime db observer", () => {
     ).resolves.toEqual([
       expect.objectContaining({
         repositoryKey: "conacts/coldets-v2",
-        issueIdentifier: issue.identifier,
+        trackerIssueKey: issue.identifier,
         eventType: "workspace_manifest_phase_started"
       })
     ]);
     await expect(
       defaultTimelineStore.listIssueTimeline(issue.identifier)
-    ).resolves.toEqual([]);
+    ).rejects.toThrow(
+      "Issue timeline repository mismatch for COL-901: conacts/coldets-v2 is not openai/symphony."
+    );
     await expect(
       coldetsRuntimeLogStore.list({
-        issueIdentifier: issue.identifier
+        trackerIssueKey: issue.identifier
       })
     ).resolves.toEqual([
       expect.objectContaining({
         repositoryKey: "conacts/coldets-v2",
-        issueIdentifier: issue.identifier,
+        trackerIssueKey: issue.identifier,
         eventType: "workspace_manifest_phase_started"
       })
     ]);
     await expect(
       defaultRuntimeLogStore.list({
-        issueIdentifier: issue.identifier
+        trackerIssueKey: issue.identifier
       })
-    ).resolves.toEqual([]);
+    ).rejects.toThrow(
+      "Runtime log repository mismatch for"
+    );
   });
 });
 
@@ -420,14 +424,14 @@ async function createObserverHarness(input?: {
   await issueStore.upsert(
     repositoryWorkspaceBindingId === null
       ? {
-          issueIdentifier: issue.identifier,
+          trackerIssueKey: issue.identifier,
           trackerIssueId: issue.id,
           repositoryKey,
           latestRunStartedAt: null,
           recordedAt: "2026-04-09T21:54:00.000Z"
         }
       : {
-          issueIdentifier: issue.identifier,
+          trackerIssueKey: issue.identifier,
           trackerIssueId: issue.id,
           repositoryKey,
           bindingScope: input!.bindingScope!,

@@ -11,7 +11,7 @@ describe("symphony forensics success metrics", () => {
       runs: [
         createRun({
           runId: "run-1",
-          issueIdentifier: "COL-1",
+          trackerIssueKey: "COL-1",
           startedAt: "2026-04-01T10:00:00.000Z",
           deliveryStatus: "completed",
           deliveryReportedAt: "2026-04-01T10:20:00.000Z",
@@ -21,7 +21,7 @@ describe("symphony forensics success metrics", () => {
         }),
         createRun({
           runId: "run-2",
-          issueIdentifier: "COL-2",
+          trackerIssueKey: "COL-2",
           startedAt: "2026-04-02T10:00:00.000Z",
           outcome: "paused_max_turns",
           errorClass: "max_turns_reached",
@@ -31,7 +31,7 @@ describe("symphony forensics success metrics", () => {
         }),
         createRun({
           runId: "run-3",
-          issueIdentifier: "COL-3",
+          trackerIssueKey: "COL-3",
           startedAt: "2026-04-03T10:00:00.000Z",
           deliveryStatus: "partial",
           deliveryReportedAt: "2026-04-03T10:05:00.000Z",
@@ -52,7 +52,7 @@ describe("symphony forensics success metrics", () => {
         }),
         createRun({
           runId: "run-4",
-          issueIdentifier: "COL-1",
+          trackerIssueKey: "COL-1",
           attempt: 2,
           startedAt: "2026-04-01T10:10:00.000Z",
           deliveryStatus: "completed",
@@ -63,7 +63,7 @@ describe("symphony forensics success metrics", () => {
         }),
         createRun({
           runId: "run-5",
-          issueIdentifier: "COL-4",
+          trackerIssueKey: "COL-4",
           startedAt: "2026-04-04T10:00:00.000Z",
           outcome: "startup_failed",
           errorClass: "startup_failure",
@@ -75,7 +75,7 @@ describe("symphony forensics success metrics", () => {
         }),
         createRun({
           runId: "run-6",
-          issueIdentifier: "COL-5",
+          trackerIssueKey: "COL-5",
           startedAt: "2026-04-05T10:00:00.000Z",
           outcome: "rate_limited",
           errorClass: "rate_limited",
@@ -177,7 +177,7 @@ function createRun(
   return {
     runId: "run-1",
     trackerIssueId: "issue-1",
-    issueIdentifier: "COL-1",
+    trackerIssueKey: "COL-1",
     attempt: 1,
     status: "finished",
     outcome: "completed",

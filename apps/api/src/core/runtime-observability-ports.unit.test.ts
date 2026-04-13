@@ -1,11 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
-import type { SymphonyIssueStore, SymphonyIssueTimelineStore } from "@symphony/db";
-import { createIssueTimelinePort } from "./runtime-observability-ports.js";
+import type {
+  SymphonyIssueStore,
+  SymphonyIssueTimelineStore,
+  SymphonyRuntimeLogStore
+} from "@symphony/db";
+import {
+  createIssueTimelinePort,
+  createRuntimeLogsPort
+} from "./runtime-observability-ports.js";
 
 describe("runtime observability ports", () => {
   it("uses scoped issue lookup for issue timeline reads when a binding scope is configured", async () => {
-    const fetchByIdentifier = vi.fn();
-    const fetchByScopedIdentifier = vi.fn().mockResolvedValue({
+    const fetchByTrackerIssueKey = vi.fn();
+    const fetchByScopedTrackerIssueKey = vi.fn().mockResolvedValue({
       repositoryKey: "repo-secondary"
     });
     const listIssueTimeline = vi.fn().mockResolvedValue([]);
@@ -15,8 +22,8 @@ describe("runtime observability ports", () => {
         listIssueTimeline
       }),
       issueStore: createIssueStoreDouble({
-        fetchByIdentifier,
-        fetchByScopedIdentifier
+        fetchByTrackerIssueKey,
+        fetchByScopedTrackerIssueKey
       }),
       bindingScope: {
         organizationId: "org-1",
@@ -25,24 +32,24 @@ describe("runtime observability ports", () => {
     });
 
     const result = await port.list({
-      issueIdentifier: "SYM-420",
+      trackerIssueKey: "SYM-420",
       limit: 25
     });
 
-    expect(fetchByScopedIdentifier).toHaveBeenCalledWith({
-      issueIdentifier: "SYM-420",
+    expect(fetchByScopedTrackerIssueKey).toHaveBeenCalledWith({
+      trackerIssueKey: "SYM-420",
       bindingScope: {
         organizationId: "org-1",
         linearWorkspaceIdentityId: "ws-1"
       }
     });
-    expect(fetchByIdentifier).not.toHaveBeenCalled();
+    expect(fetchByTrackerIssueKey).not.toHaveBeenCalled();
     expect(listIssueTimeline).toHaveBeenCalledWith("SYM-420", {
       limit: 25
     });
     expect(result).toEqual({
       repositoryKey: "repo-secondary",
-      issueIdentifier: "SYM-420",
+      trackerIssueKey: "SYM-420",
       entries: [],
       filters: {
         limit: 25,
@@ -52,27 +59,57 @@ describe("runtime observability ports", () => {
   });
 
   it("keeps unscoped issue lookup for issue timeline reads when no binding scope is configured", async () => {
-    const fetchByIdentifier = vi.fn().mockResolvedValue({
+    const fetchByTrackerIssueKey = vi.fn().mockResolvedValue({
       repositoryKey: "repo-primary"
     });
-    const fetchByScopedIdentifier = vi.fn();
+    const fetchByScopedTrackerIssueKey = vi.fn();
 
     const port = createIssueTimelinePort({
       issueTimelineStore: createIssueTimelineStoreDouble({
         listIssueTimeline: vi.fn().mockResolvedValue([])
       }),
       issueStore: createIssueStoreDouble({
-        fetchByIdentifier,
-        fetchByScopedIdentifier
+        fetchByTrackerIssueKey,
+        fetchByScopedTrackerIssueKey
       })
     });
 
     await port.list({
-      issueIdentifier: "SYM-421"
+      trackerIssueKey: "SYM-421"
     });
 
-    expect(fetchByIdentifier).toHaveBeenCalledWith("SYM-421");
-    expect(fetchByScopedIdentifier).not.toHaveBeenCalled();
+    expect(fetchByTrackerIssueKey).toHaveBeenCalledWith("SYM-421");
+    expect(fetchByScopedTrackerIssueKey).not.toHaveBeenCalled();
+  });
+
+  it("forwards repository filters when listing runtime logs", async () => {
+    const list = vi.fn().mockResolvedValue([]);
+
+    const port = createRuntimeLogsPort({
+      runtimeLogStore: createRuntimeLogStoreDouble({
+        list
+      })
+    });
+
+    const result = await port.list({
+      limit: 50,
+      repo: "repo-secondary",
+      trackerIssueKey: "SYM-422"
+    });
+
+    expect(list).toHaveBeenCalledWith({
+      limit: 50,
+      repo: "repo-secondary",
+      trackerIssueKey: "SYM-422"
+    });
+    expect(result).toEqual({
+      logs: [],
+      filters: {
+        limit: 50,
+        repo: "repo-secondary",
+        trackerIssueKey: "SYM-422"
+      }
+    });
   });
 });
 
@@ -86,13 +123,22 @@ function createIssueTimelineStoreDouble(input: {
 }
 
 function createIssueStoreDouble(input: {
-  fetchByIdentifier: SymphonyIssueStore["fetchByIdentifier"];
-  fetchByScopedIdentifier: SymphonyIssueStore["fetchByScopedIdentifier"];
+  fetchByTrackerIssueKey: SymphonyIssueStore["fetchByTrackerIssueKey"];
+  fetchByScopedTrackerIssueKey: SymphonyIssueStore["fetchByScopedTrackerIssueKey"];
 }): SymphonyIssueStore {
   return {
-    fetchByIdentifier: input.fetchByIdentifier,
+    fetchByTrackerIssueKey: input.fetchByTrackerIssueKey,
     fetchByTrackerIssueId: vi.fn(),
-    fetchByScopedIdentifier: input.fetchByScopedIdentifier,
+    fetchByScopedTrackerIssueKey: input.fetchByScopedTrackerIssueKey,
     upsert: vi.fn()
+  };
+}
+
+function createRuntimeLogStoreDouble(input: {
+  list: SymphonyRuntimeLogStore["list"];
+}): SymphonyRuntimeLogStore {
+  return {
+    record: vi.fn(),
+    list: input.list
   };
 }

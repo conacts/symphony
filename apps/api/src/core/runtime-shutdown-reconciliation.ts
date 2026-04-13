@@ -7,6 +7,7 @@ import {
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import { z } from "zod";
 import { SymphonyRuntimePollScheduler } from "./poll-scheduler.js";
+import type { SymphonyRuntimePersistedWorkspaceBindingScope } from "./runtime-bootstrap-contract.js";
 import type { SymphonyRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 
 const persistedRunModeSchema = z.enum(["implementation", "rework", "approved_merge"]);
@@ -16,22 +17,40 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
   runStore: ReturnType<typeof createSqliteSymphonyRuntimeRunStore>;
   routeLifecycle: Pick<SymphonyRuntimeRouteLifecycleService, "routeShutdownPause">;
   shutdownReason: string;
+  bindingScope?: SymphonyRuntimePersistedWorkspaceBindingScope | null;
 }): Promise<number> {
   const endedAt = new Date().toISOString();
-  // Shutdown recovery only needs the persisted run identity plus issueIdentifier.
-  // Lifecycle routing resolves the current tracker issue through workflow-backed routing,
-  // so this query no longer joins symphony_issues or preloads tracker-owned state.
-  const activeRuns = input.database.client.prepare(`
+  const bindingScope = input.bindingScope ?? null;
+  // Shutdown reconciliation is scoped to the current runtime binding domain.
+  // This runtime should only pause runs that belong to its own lifecycle authority.
+  const activeRunsStatement = input.database.client.prepare(`
     select runs.run_id as runId,
            runs.repository_key as repositoryKey,
-           runs.issue_identifier as issueIdentifier,
+           runs.tracker_issue_id as trackerIssueId,
+           issues.issue_identifier as issueIdentifier,
            runs.status as status,
            runs.run_mode as runMode
     from symphony_runs runs
-    where status in ('dispatching', 'running')
-  `).all() as Array<{
+    inner join symphony_issues issues
+      on issues.tracker_issue_id = runs.tracker_issue_id
+    where status in ('dispatching', 'running') and
+          ${
+            bindingScope === null
+              ? "runs.organization_id is null and runs.linear_workspace_identity_id is null"
+              : "runs.organization_id = ? and runs.linear_workspace_identity_id = ?"
+          }
+  `);
+  const activeRuns = (
+    bindingScope === null
+      ? activeRunsStatement.all()
+      : activeRunsStatement.all(
+          bindingScope.organizationId,
+          bindingScope.linearWorkspaceIdentityId
+        )
+  ) as Array<{
     runId: string;
     repositoryKey: string;
+    trackerIssueId: string;
     issueIdentifier: string;
     status: "dispatching" | "running";
     runMode: string | null;
@@ -88,10 +107,12 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
       createAndCacheIssueTimelineStore({
         cache: issueTimelineStores,
         db: input.database.db,
-        repositoryKey: run.repositoryKey
+        repositoryKey: run.repositoryKey,
+        bindingScope
       });
     await issueTimelineStore.record({
-      issueIdentifier: run.issueIdentifier,
+      trackerIssueId: run.trackerIssueId,
+      trackerIssueKey: run.issueIdentifier,
       runId: run.runId,
       source: "runtime",
       eventType: "runtime_shutdown_reconciled",
@@ -108,14 +129,16 @@ export async function reconcilePersistedActiveRunsOnShutdown(input: {
       createAndCacheRuntimeLogStore({
         cache: runtimeLogStores,
         db: input.database.db,
-        repositoryKey: run.repositoryKey
+        repositoryKey: run.repositoryKey,
+        bindingScope
       });
     await runtimeLogStore.record({
       level: "warn",
       source: "runtime",
       eventType: "runtime_shutdown_reconciled_run",
       message: "Reconciled an active persisted run during shutdown.",
-      issueIdentifier: run.issueIdentifier,
+      trackerIssueId: run.trackerIssueId,
+      trackerIssueKey: run.issueIdentifier,
       runId: run.runId,
       payload: {
         previousStatus: run.status
@@ -183,9 +206,11 @@ function createAndCacheIssueTimelineStore(input: {
   cache: Map<string, ReturnType<typeof createSymphonyIssueTimelineStore>>;
   db: ReturnType<typeof initializeSymphonyDb>["db"];
   repositoryKey: string;
+  bindingScope: SymphonyRuntimePersistedWorkspaceBindingScope | null;
 }) {
   const store = createSymphonyIssueTimelineStore(input.db, {
-    repositoryKey: input.repositoryKey
+    repositoryKey: input.repositoryKey,
+    bindingScope: input.bindingScope
   });
   input.cache.set(input.repositoryKey, store);
   return store;
@@ -195,9 +220,11 @@ function createAndCacheRuntimeLogStore(input: {
   cache: Map<string, ReturnType<typeof createSymphonyRuntimeLogStore>>;
   db: ReturnType<typeof initializeSymphonyDb>["db"];
   repositoryKey: string;
+  bindingScope: SymphonyRuntimePersistedWorkspaceBindingScope | null;
 }) {
   const store = createSymphonyRuntimeLogStore(input.db, {
-    repositoryKey: input.repositoryKey
+    repositoryKey: input.repositoryKey,
+    bindingScope: input.bindingScope
   });
   input.cache.set(input.repositoryKey, store);
   return store;

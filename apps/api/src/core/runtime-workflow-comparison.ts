@@ -58,8 +58,8 @@ export async function compareRuntimeWorkflowByWorkflowId(input: {
   });
 }
 
-export async function compareRuntimeWorkflowByIssueIdentifier(input: {
-  issueIdentifier: string;
+export async function compareRuntimeWorkflowByTrackerIssueKey(input: {
+  trackerIssueKey: string;
   routeWorkflows: SymphonyRouteWorkflowPort;
   trackerConfig: SymphonyTrackerConfig;
   bindingScope?: SymphonyRuntimePersistedWorkspaceBindingScope | null;
@@ -67,12 +67,12 @@ export async function compareRuntimeWorkflowByIssueIdentifier(input: {
   now?: () => Date;
 }): Promise<SymphonyRuntimeWorkflowComparison | null> {
   const replay = input.bindingScope
-    ? await input.routeWorkflows.loadReplayStateByScopedIssue({
-        issueIdentifier: input.issueIdentifier,
+    ? await input.routeWorkflows.loadReplayStateByScopedTrackerIssueKey({
+        trackerIssueKey: input.trackerIssueKey,
         bindingScope: input.bindingScope
       })
-    : await input.routeWorkflows.loadReplayStateByIssueIdentifier(
-        input.issueIdentifier
+    : await input.routeWorkflows.loadReplayStateByTrackerIssueKey(
+        input.trackerIssueKey
       );
   if (!replay) {
     return null;

@@ -9,18 +9,18 @@ import {
 export function useIssueDetail(input: {
   runtimeBaseUrl: string;
   websocketUrl: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   repo?: string;
 }) {
   return useRealtimeResource({
     loadResource: () =>
-      fetchIssueDetail(input.runtimeBaseUrl, input.issueIdentifier, {
+      fetchIssueDetail(input.runtimeBaseUrl, input.trackerIssueKey, {
         repo: input.repo
       }),
     websocketUrl: input.websocketUrl,
     channels: ["issues", "runs"],
     shouldRefresh: (message) =>
-      shouldRefreshIssueDetail(message, input.issueIdentifier),
-    refreshKey: `${input.runtimeBaseUrl}:issues:${input.issueIdentifier}:${input.repo ?? "all"}`
+      shouldRefreshIssueDetail(message, input.trackerIssueKey),
+    refreshKey: `${input.runtimeBaseUrl}:issues:${input.trackerIssueKey}:${input.repo ?? "all"}`
   });
 }

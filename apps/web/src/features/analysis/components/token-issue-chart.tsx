@@ -45,7 +45,7 @@ export function TokenIssueChart(input: {
           <ChartContainer className="h-72 w-full" config={chartConfig}>
             <BarChart accessibilityLayer data={input.rows} margin={{ left: 12, right: 12 }}>
               <CartesianGrid vertical={false} />
-              <XAxis dataKey="issueIdentifier" tickLine={false} axisLine={false} tickMargin={8} />
+              <XAxis dataKey="trackerIssueKey" tickLine={false} axisLine={false} tickMargin={8} />
               <ChartTooltip cursor={false} content={<TokenTooltipContent />} />
               <Bar dataKey="totalTokens" fill="var(--color-totalTokens)" radius={4} />
             </BarChart>
@@ -61,7 +61,7 @@ function TokenTooltipContent(input: {
   payload?: Array<{
     payload?: {
       totalTokens?: number;
-      issueIdentifier?: string;
+      trackerIssueKey?: string;
     };
   }>;
 }) {
@@ -77,7 +77,7 @@ function TokenTooltipContent(input: {
         "grid min-w-44 gap-1.5 rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl"
       )}
     >
-      <div className="font-medium">{row.issueIdentifier ?? "Tokens"}</div>
+      <div className="font-medium">{row.trackerIssueKey ?? "Tokens"}</div>
       <TooltipStat label="Total" value={row.totalTokens ?? 0} />
     </div>
   );

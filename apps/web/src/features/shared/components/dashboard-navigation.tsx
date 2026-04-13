@@ -93,7 +93,7 @@ export function DashboardNavigation(input: {
               </SidebarMenuItem>
             ) : (
               input.issues.map((issue) => (
-                <SidebarMenuItem key={`${issue.href}:${issue.issueIdentifier}`}>
+                <SidebarMenuItem key={`${issue.href}:${issue.trackerIssueKey}`}>
                   <SidebarMenuButton
                     asChild
                     isActive={pathname === issue.href}

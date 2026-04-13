@@ -422,12 +422,12 @@ function buildLoudestSourceLabel(
 function buildScopeLabel(
   entry: SymphonyRuntimeLogsResult["logs"][number]
 ) {
-  if (entry.issueIdentifier && entry.runId) {
-    return `${entry.issueIdentifier} · Run ${entry.runId}`;
+  if (entry.trackerIssueKey && entry.runId) {
+    return `${entry.trackerIssueKey} · Run ${entry.runId}`;
   }
 
-  if (entry.issueIdentifier) {
-    return entry.issueIdentifier;
+  if (entry.trackerIssueKey) {
+    return entry.trackerIssueKey;
   }
 
   if (entry.runId) {

@@ -105,7 +105,7 @@ describe("runtime services", () => {
 
       const runtimeLogs = await services.runtimeLogs.list();
       const routeWorkflowHydration =
-        await services.routeWorkflows.loadHydrationStateByIssueIdentifier(
+        await services.routeWorkflows.loadHydrationStateByTrackerIssueKey(
           "SYM-404"
         );
 
@@ -160,7 +160,7 @@ describe("runtime services", () => {
       expect(bundle?.runtimeLogs).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            issueIdentifier: harness.issue.identifier,
+            trackerIssueKey: harness.issue.identifier,
             runId: null,
             source: "workspace",
             eventType: "workspace_manifest_step_started",
@@ -786,7 +786,7 @@ describe("runtime services", () => {
         ]);
 
         await hostedServices.trackerStateIngress.observeNonRunningIssue({
-          issueIdentifier: "SYM-900"
+          trackerIssueKey: "SYM-900"
         });
 
         const verifyDb = initializeSymphonyDb({
@@ -1061,13 +1061,13 @@ describe("runtime services", () => {
     );
       seedDb.client.prepare(`
       insert into symphony_runs (
-        run_id, repository_key, issue_identifier, attempt, run_mode, status, outcome, worker_host,
+        run_id, tracker_issue_id, repository_key, attempt, run_mode, status, outcome, worker_host,
         workspace_path, started_at, ended_at, metadata, error_class, error_message, inserted_at, updated_at
       ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       "run-shutdown",
+      "issue-shutdown",
       "owner/repo",
-      "COL-SHUTDOWN",
       1,
       "implementation",
       "running",
@@ -1159,11 +1159,11 @@ describe("runtime services", () => {
 
         const firstObservation =
           await harness.services.trackerStateIngress.observeNonRunningIssue({
-            issueIdentifier: issue.identifier
+            trackerIssueKey: issue.identifier
           });
         expect(firstObservation).toEqual(
           expect.objectContaining({
-            issueIdentifier: issue.identifier,
+            trackerIssueKey: issue.identifier,
             observedTrackerState: "In Review",
             workflowTrackerState: "In Review",
             observed: true,
@@ -1188,11 +1188,11 @@ describe("runtime services", () => {
 
         const secondObservation =
           await restartedServices.trackerStateIngress.observeNonRunningIssue({
-            issueIdentifier: issue.identifier
+            trackerIssueKey: issue.identifier
           });
         expect(secondObservation).toEqual(
           expect.objectContaining({
-            issueIdentifier: issue.identifier,
+            trackerIssueKey: issue.identifier,
             observedTrackerState: "In Review",
             workflowTrackerState: "In Review",
             observed: false,
@@ -1201,7 +1201,7 @@ describe("runtime services", () => {
         );
 
         const runtimeLogs = await restartedServices.runtimeLogs.list({
-          issueIdentifier: issue.identifier
+          trackerIssueKey: issue.identifier
         });
         expect(runtimeLogs.logs.map((entry) => entry.eventType)).toEqual(
           expect.arrayContaining(["tracker_state_ingress_skipped"])
@@ -1286,12 +1286,12 @@ describe("runtime services", () => {
         });
 
         const comparison =
-          await harness.services.workflowComparison.compareByIssueIdentifier({
-            issueIdentifier: issue.identifier,
+          await harness.services.workflowComparison.compareByTrackerIssueKey({
+            trackerIssueKey: issue.identifier,
             presetIds: ["current-flow", "auto-merge"]
           });
 
-        expect(comparison?.replay.workflow.issueIdentifier).toBe(issue.identifier);
+        expect(comparison?.replay.workflow.trackerIssueKey).toBe(issue.identifier);
         expect(comparison?.comparedPresetIds).toEqual([
           "current-flow",
           "auto-merge"
@@ -1445,7 +1445,7 @@ async function seedCurrentFlowWorkflowHistory(input: {
   try {
     const issueStore = createSymphonyIssueStore(database.db);
     await issueStore.upsert({
-      issueIdentifier: input.issueIdentifier,
+      trackerIssueKey: input.issueIdentifier,
       trackerIssueId: input.trackerIssueId,
       repositoryKey: input.repositoryKey,
       latestRunStartedAt: null,
@@ -1454,7 +1454,7 @@ async function seedCurrentFlowWorkflowHistory(input: {
 
     await input.services.routeWorkflows.ensureWorkflowForIssue({
       trackerIssueId: input.trackerIssueId,
-      issueIdentifier: input.issueIdentifier,
+      trackerIssueKey: input.issueIdentifier,
       repositoryKey: input.repositoryKey,
       routerPresetId: routing.presetId,
       router: routing.router,
@@ -1463,8 +1463,8 @@ async function seedCurrentFlowWorkflowHistory(input: {
 
     for (const entry of input.signals) {
       const resumed =
-        await input.services.routeWorkflows.resumeSessionByIssueIdentifier({
-          issueIdentifier: input.issueIdentifier,
+        await input.services.routeWorkflows.resumeSessionByTrackerIssueKey({
+          trackerIssueKey: input.issueIdentifier,
           router: routing.router,
           policy: routing.policy
         });

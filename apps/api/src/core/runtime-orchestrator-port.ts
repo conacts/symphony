@@ -114,13 +114,14 @@ export function createRuntimeOrchestratorPort(input: {
       const currentSnapshot = input.runtime.snapshot();
       const claimedIssueIds = new Set(currentSnapshot.claimedIssueIds);
       if (claimedIssueIds.has(dispatchInput.trackerIssue.id)) {
-        await input.runtimeLogs.record({
-          level: "info",
-          source: "runtime",
-          eventType: "routed_dispatch_skipped_claimed",
-          message: "Skipped routed dispatch because the issue is already claimed.",
-          issueIdentifier: dispatchInput.trackerIssue.identifier,
-          payload: {
+      await input.runtimeLogs.record({
+        level: "info",
+        source: "runtime",
+        eventType: "routed_dispatch_skipped_claimed",
+        message: "Skipped routed dispatch because the issue is already claimed.",
+        trackerIssueId: dispatchInput.trackerIssue.id,
+        trackerIssueKey: dispatchInput.trackerIssue.identifier,
+        payload: {
             workflowId: dispatchInput.workflowId,
             commandId: dispatchInput.commandId,
             runMode: dispatchInput.runMode
@@ -137,7 +138,8 @@ export function createRuntimeOrchestratorPort(input: {
           eventType: "routed_dispatch_skipped_ineligible",
           message:
             "Skipped routed dispatch because the issue is not dispatchable under the current orchestrator state.",
-          issueIdentifier: dispatchInput.trackerIssue.identifier,
+          trackerIssueId: dispatchInput.trackerIssue.id,
+          trackerIssueKey: dispatchInput.trackerIssue.identifier,
           payload: {
             workflowId: dispatchInput.workflowId,
             commandId: dispatchInput.commandId,
@@ -163,7 +165,8 @@ export function createRuntimeOrchestratorPort(input: {
           source: "runtime",
           eventType: "routed_dispatch_started",
           message: "Started routed issue dispatch directly from workflow history.",
-          issueIdentifier: dispatchInput.trackerIssue.identifier,
+          trackerIssueId: dispatchInput.trackerIssue.id,
+          trackerIssueKey: dispatchInput.trackerIssue.identifier,
           payload: {
             workflowId: dispatchInput.workflowId,
             commandId: dispatchInput.commandId,
@@ -177,7 +180,8 @@ export function createRuntimeOrchestratorPort(input: {
           source: "runtime",
           eventType: "routed_dispatch_failed",
           message: "Routed issue dispatch failed.",
-          issueIdentifier: dispatchInput.trackerIssue.identifier,
+          trackerIssueId: dispatchInput.trackerIssue.id,
+          trackerIssueKey: dispatchInput.trackerIssue.identifier,
           payload: {
             workflowId: dispatchInput.workflowId,
             commandId: dispatchInput.commandId,

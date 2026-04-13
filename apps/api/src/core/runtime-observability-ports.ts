@@ -17,13 +17,13 @@ export function createIssueTimelinePort(input: {
   bindingScope?: SymphonyRuntimePersistedWorkspaceBindingScope | null;
 }): SymphonyIssueTimelinePort {
   return {
-    async list({ issueIdentifier, limit, repo }) {
+    async list({ trackerIssueKey, limit, repo }) {
       const issue = input.bindingScope
-        ? await input.issueStore.fetchByScopedIdentifier({
-            issueIdentifier,
+        ? await input.issueStore.fetchByScopedTrackerIssueKey({
+            trackerIssueKey,
             bindingScope: input.bindingScope
           })
-        : await input.issueStore.fetchByIdentifier(issueIdentifier);
+        : await input.issueStore.fetchByTrackerIssueKey(trackerIssueKey);
       if (!issue) {
         return null;
       }
@@ -32,13 +32,13 @@ export function createIssueTimelinePort(input: {
         return null;
       }
 
-      const entries = await input.issueTimelineStore.listIssueTimeline(issueIdentifier, {
+      const entries = await input.issueTimelineStore.listIssueTimeline(trackerIssueKey, {
         limit
       });
 
       return {
         repositoryKey: issue.repositoryKey,
-        issueIdentifier,
+        trackerIssueKey,
         entries,
         filters: {
           limit: limit ?? null,
@@ -56,7 +56,8 @@ export function createRuntimeLogsPort(input: {
     async list(query = {}) {
       const logs = await input.runtimeLogStore.list({
         limit: query.limit,
-        issueIdentifier: query.issueIdentifier
+        repo: query.repo,
+        trackerIssueKey: query.trackerIssueKey
       });
 
       return {
@@ -64,7 +65,7 @@ export function createRuntimeLogsPort(input: {
         filters: {
           limit: query.limit ?? null,
           repo: logs[0]?.repositoryKey ?? query.repo ?? null,
-          issueIdentifier: query.issueIdentifier ?? null
+          trackerIssueKey: query.trackerIssueKey ?? null
         }
       };
     }

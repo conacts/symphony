@@ -43,7 +43,7 @@ describe("runtime tracker state ingress port", () => {
 
     try {
       expect(
-        await harness.issueStore.fetchByIdentifier(harness.issue.identifier)
+        await harness.issueStore.fetchByTrackerIssueKey(harness.issue.identifier)
       ).toBeNull();
 
       const observedIssues = await harness.ingress.observeNonRunning({
@@ -54,14 +54,15 @@ describe("runtime tracker state ingress port", () => {
 
       expect(observedIssues).toEqual([
         {
+          trackerIssueId: harness.issue.id,
           issueIdentifier: harness.issue.identifier,
           observedTrackerState: "Todo",
           workflowTrackerState: "Bootstrapping"
         }
       ]);
-      expect(await harness.issueStore.fetchByIdentifier(harness.issue.identifier)).toEqual(
+      expect(await harness.issueStore.fetchByTrackerIssueKey(harness.issue.identifier)).toEqual(
         expect.objectContaining({
-          issueIdentifier: harness.issue.identifier,
+          trackerIssueKey: harness.issue.identifier,
           trackerIssueId: harness.issue.id,
           repositoryKey: "openai/symphony"
         })
@@ -97,6 +98,7 @@ describe("runtime tracker state ingress port", () => {
 
       expect(observedIssues).toEqual([
         {
+          trackerIssueId: harness.issue.id,
           issueIdentifier: harness.issue.identifier,
           observedTrackerState: "Todo",
           workflowTrackerState: "Bootstrapping"
@@ -116,7 +118,7 @@ describe("runtime tracker state ingress port", () => {
           expect.objectContaining({
             source: "tracker_state_ingress",
             eventType: "tracker_state_ingress_observed",
-            issueIdentifier: harness.issue.identifier,
+            trackerIssueKey: harness.issue.identifier,
             payload: expect.objectContaining({
               scope: "non_running_batch",
               observedTrackerState: "Todo",
@@ -127,13 +129,14 @@ describe("runtime tracker state ingress port", () => {
           expect.objectContaining({
             source: "tracker_state_ingress",
             eventType: "tracker_state_ingress_batch_completed",
-            issueIdentifier: null,
+            trackerIssueKey: null,
             payload: {
               observedCount: 1,
               claimedIssueCount: 0,
               observedIssues: [
                 {
-                  issueIdentifier: harness.issue.identifier,
+                  trackerIssueId: harness.issue.id,
+                  trackerIssueKey: harness.issue.identifier,
                   observedTrackerState: "Todo",
                   workflowTrackerState: "Bootstrapping"
                 }
@@ -163,17 +166,16 @@ describe("runtime tracker state ingress port", () => {
         })
       ).rejects.toThrow(/run\.dispatch without a dispatch callback/i);
 
-      const logs = await harness.runtimeLogStore.list({
-        issueIdentifier: harness.issue.identifier
-      });
+      const logs = await harness.runtimeLogStore.list();
       expect(logs).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             source: "tracker_state_ingress",
             eventType: "tracker_state_ingress_failed",
-            issueIdentifier: harness.issue.identifier,
+            trackerIssueKey: null,
             payload: expect.objectContaining({
               scope: "non_running_issue_identifier",
+              requestedIssueIdentifier: harness.issue.identifier,
               error: expect.stringContaining(
                 "Idle tracker state observation emitted run.dispatch without a dispatch callback."
               )
@@ -201,6 +203,7 @@ describe("runtime tracker state ingress port", () => {
       });
 
       expect(observation).toEqual({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "In Review",
         workflowTrackerState: "In Review",
@@ -209,14 +212,14 @@ describe("runtime tracker state ingress port", () => {
       });
 
       const logs = await harness.runtimeLogStore.list({
-        issueIdentifier: harness.issue.identifier
+        trackerIssueKey: harness.issue.identifier
       });
       expect(logs).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             source: "tracker_state_ingress",
             eventType: "tracker_state_ingress_skipped",
-            issueIdentifier: harness.issue.identifier,
+            trackerIssueKey: harness.issue.identifier,
             payload: {
               scope: "non_running_issue_identifier",
               observedTrackerState: "In Review",
@@ -249,6 +252,7 @@ describe("runtime tracker state ingress port", () => {
       });
 
       expect(observation).toEqual({
+        trackerIssueId: harness.issue.id,
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Rework",
         workflowTrackerState: null,
@@ -257,14 +261,14 @@ describe("runtime tracker state ingress port", () => {
       });
 
       const logs = await harness.runtimeLogStore.list({
-        issueIdentifier: harness.issue.identifier
+        trackerIssueKey: harness.issue.identifier
       });
       expect(logs).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             source: "tracker_state_ingress",
             eventType: "tracker_state_ingress_ignored",
-            issueIdentifier: harness.issue.identifier,
+            trackerIssueKey: harness.issue.identifier,
             payload: {
               scope: "non_running_issue_identifier",
               observedTrackerState: "Rework",
@@ -308,7 +312,7 @@ async function createHarness(input: {
 
   if (input.seedIssueIdentity ?? true) {
     await issueStore.upsert({
-      issueIdentifier: issue.identifier,
+      trackerIssueKey: issue.identifier,
       trackerIssueId: issue.id,
       repositoryKey: "openai/symphony",
       latestRunStartedAt: null,
@@ -323,7 +327,7 @@ async function createHarness(input: {
     repositoryKey: "openai/symphony",
     async ensureIssueIdentity(observedIssue) {
       await issueStore.upsert({
-        issueIdentifier: observedIssue.identifier,
+        trackerIssueKey: observedIssue.identifier,
         trackerIssueId: observedIssue.id,
         repositoryKey: "openai/symphony",
         latestRunStartedAt: null,

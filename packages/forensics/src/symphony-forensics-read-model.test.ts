@@ -38,11 +38,11 @@ describe("symphony forensics read model", () => {
       limit: 200
     });
 
-    expect(issues.issues[0]?.issueIdentifier).toBe("COL-157");
+    expect(issues.issues[0]?.trackerIssueKey).toBe("COL-157");
     expect(issues.totals.issueCount).toBe(1);
     expect(issueDetail?.summary.runCount).toBe(1);
     expect(issueDetail?.summary.latestDeliveryStatus).toBe("completed");
-    expect(issueBundle?.issue.issueIdentifier).toBe("COL-157");
+    expect(issueBundle?.issue.trackerIssueKey).toBe("COL-157");
     expect(issueBundle?.issue.latestDeliveryStatus).toBe("completed");
     expect(resolvedRunDetail?.run.runId).toBe(run.runId);
     expect(resolvedRunDetail?.deliveryReport?.prUrl).toBe(
@@ -106,7 +106,7 @@ describe("symphony forensics read model", () => {
     const issues = await readModel.issues();
     const bundle = await readModel.issueForensicsBundle("COL-157");
 
-    expect(issues.issues[0]?.issueIdentifier).toBe("COL-157");
+    expect(issues.issues[0]?.trackerIssueKey).toBe("COL-157");
     expect(issues.issues[0]?.runCount).toBe(2);
     expect(issues.issues[0]?.deliveredRunCount).toBe(1);
     expect(issues.issues[0]?.flags).toContain("rate_limited");
@@ -129,7 +129,7 @@ describe("symphony forensics read model", () => {
     const failedRun = createRunSummary({
       runId: "run-failure",
       trackerIssueId: "issue-2",
-      issueIdentifier: "COL-158",
+      trackerIssueKey: "COL-158",
       outcome: "startup_failed",
       errorClass: "startup_failure",
       errorMessage:
@@ -188,7 +188,7 @@ function createRunStore(input: {
             return false;
           }
 
-          if (opts.issueIdentifier && run.issueIdentifier !== opts.issueIdentifier) {
+          if (opts.trackerIssueKey && run.trackerIssueKey !== opts.trackerIssueKey) {
             return false;
           }
 
@@ -217,9 +217,9 @@ function createRunStore(input: {
         .slice(0, opts.limit ?? runs.length);
     },
 
-    async listRunsForIssue(issueIdentifier: string, opts: SymphonyForensicsIssueDetailQuery = {}) {
+    async listRunsForIssue(trackerIssueKey: string, opts: SymphonyForensicsIssueDetailQuery = {}) {
       return runs
-        .filter((run) => run.issueIdentifier === issueIdentifier)
+        .filter((run) => run.trackerIssueKey === trackerIssueKey)
         .filter((run) => (opts.repo ? run.repositoryKey === opts.repo : true))
         .slice(0, opts.limit ?? runs.length);
     },
@@ -228,7 +228,7 @@ function createRunStore(input: {
       return runs
         .filter((run) => run.outcome !== "completed")
         .filter((run) => (opts.repo ? run.repositoryKey === opts.repo : true))
-        .filter((run) => (opts.issueIdentifier ? run.issueIdentifier === opts.issueIdentifier : true))
+        .filter((run) => (opts.trackerIssueKey ? run.trackerIssueKey === opts.trackerIssueKey : true))
         .filter((run) => (opts.outcome ? run.outcome === opts.outcome : true))
         .slice(0, opts.limit ?? runs.length);
     },
@@ -246,7 +246,7 @@ function createRunSummary(
     runId: "run-1",
     repositoryKey: "symphony",
     trackerIssueId: "issue-1",
-    issueIdentifier: "COL-157",
+    trackerIssueKey: "COL-157",
     attempt: 1,
     runMode: "implementation",
     status: "finished",
@@ -289,7 +289,7 @@ function createRunDetail(
     issue: {
       repositoryKey: "symphony",
       trackerIssueId: run.trackerIssueId,
-      issueIdentifier: run.issueIdentifier,
+      trackerIssueKey: run.trackerIssueKey,
       latestRunStartedAt: run.startedAt,
       latestRunId: run.runId,
       latestRunStatus: run.status,
@@ -341,7 +341,7 @@ function createRunDetail(
       reportId: "report-1",
       repositoryKey: "symphony",
       trackerIssueId: run.trackerIssueId,
-      issueIdentifier: run.issueIdentifier,
+      trackerIssueKey: run.trackerIssueKey,
       runId: run.runId,
       turnId: "turn-1",
       status: "completed",

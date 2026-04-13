@@ -9,15 +9,15 @@ import {
 export function useRuntimeIssue(input: {
   runtimeBaseUrl: string;
   websocketUrl: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
 }) {
   return useRealtimeResource({
     loadResource: async () =>
-      fetchRuntimeIssue(input.runtimeBaseUrl, input.issueIdentifier),
+      fetchRuntimeIssue(input.runtimeBaseUrl, input.trackerIssueKey),
     websocketUrl: input.websocketUrl,
     channels: ["issues"],
     shouldRefresh: (message) =>
-      shouldRefreshRuntimeIssue(message, input.issueIdentifier),
-    refreshKey: `${input.runtimeBaseUrl}:runtime-issue:${input.issueIdentifier}`
+      shouldRefreshRuntimeIssue(message, input.trackerIssueKey),
+    refreshKey: `${input.runtimeBaseUrl}:runtime-issue:${input.trackerIssueKey}`
   });
 }

@@ -163,24 +163,24 @@ function createCommandHarness(input: {
         }
       }),
       loadHydrationStateByWorkflowId: vi.fn(),
-      loadHydrationStateByIssueIdentifier: vi.fn(),
-      loadHydrationStateByScopedIssue: vi.fn(),
+      loadHydrationStateByTrackerIssueKey: vi.fn(),
+      loadHydrationStateByScopedTrackerIssueKey: vi.fn(),
       loadReplayStateByWorkflowId: vi.fn(),
-      loadReplayStateByIssueIdentifier: vi.fn(),
-      loadReplayStateByScopedIssue: vi.fn(),
+      loadReplayStateByTrackerIssueKey: vi.fn(),
+      loadReplayStateByScopedTrackerIssueKey: vi.fn(),
       rehydrateProjectionByWorkflowId: vi.fn(),
-      rehydrateProjectionByIssueIdentifier: vi.fn(),
-      rehydrateProjectionByScopedIssue: vi.fn(),
+      rehydrateProjectionByTrackerIssueKey: vi.fn(),
+      rehydrateProjectionByScopedTrackerIssueKey: vi.fn(),
       resumeSessionByWorkflowId: vi.fn(),
-      resumeSessionByIssueIdentifier: vi.fn(),
-      resumeSessionByScopedIssue: vi.fn(),
+      resumeSessionByTrackerIssueKey: vi.fn(),
+      resumeSessionByScopedTrackerIssueKey: vi.fn(),
       recordRouteResult: vi.fn().mockResolvedValue(undefined),
       appendCommandSettlement
     } as SymphonyRouteWorkflowPort,
     sessionLoader: {
       loadHydrationByWorkflowId: vi.fn(),
-      loadHydrationByIssueIdentifier: vi.fn(),
-      loadHydrationByScopedIssue: vi.fn(),
+      loadHydrationByTrackerIssueKey: vi.fn(),
+      loadHydrationByScopedTrackerIssueKey: vi.fn(),
       resumeByWorkflowId: vi.fn().mockResolvedValue({
         routing: buildRoutingSelection({
           dispatchRunMode: "approved_merge"
@@ -194,8 +194,8 @@ function createCommandHarness(input: {
           session
         }
       }),
-      resumeByIssueIdentifier: vi.fn(),
-      resumeByScopedIssue: vi.fn()
+      resumeByTrackerIssueKey: vi.fn(),
+      resumeByScopedTrackerIssueKey: vi.fn()
     } as SymphonyRuntimeWorkflowSessionLoader,
     settleCommandAsync,
     appendCommandSettlement

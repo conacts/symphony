@@ -57,7 +57,7 @@ export function buildRuntimeRunSummary(
     runId: run.runId,
     repositoryKey: run.repositoryKey,
     trackerIssueId: issue.trackerIssueId,
-    issueIdentifier: run.issueIdentifier,
+    issueIdentifier: issue.issueIdentifier,
     attempt: run.attempt,
     runMode: run.runMode,
     status: normalizeRuntimeRunStatus(run.status),
@@ -109,7 +109,7 @@ export function buildRuntimeIssueSummary(
   runs: RuntimeRunRow[]
 ): SymphonyIssueSummary {
   const issueRuns = runs
-    .filter((run) => run.issueIdentifier === issue.issueIdentifier)
+    .filter((run) => run.trackerIssueId === issue.trackerIssueId)
     .sort((left, right) => compareDescendingTimestamps(left.startedAt, right.startedAt));
   const latestRun = issueRuns[0];
   const latestProblemRun = issueRuns.find((run) =>

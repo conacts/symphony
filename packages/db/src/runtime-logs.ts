@@ -1,7 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { JsonValue } from "@symphony/contracts";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import {
+  normalizeLifecycleBindingScope,
+  type SymphonyLifecycleBindingScope
+} from "./lifecycle-binding-scope.js";
+import {
+  loadIssueRecordMapByTrackerIssueId,
+  requireIssueRecordByTrackerIssueKeyForRepository,
+  requireIssueRecordByTrackerIssueIdForRepository
+} from "./issue-record-lookup.js";
 import { symphonyIssuesTable, symphonyRuntimeLogsTable } from "./schema.js";
 
 export type SymphonyRuntimeLogLevel = "debug" | "info" | "warn" | "error";
@@ -14,26 +23,42 @@ export type SymphonyRuntimeLogEntry = {
   eventType: string;
   message: string;
   trackerIssueId: string | null;
-  issueIdentifier: string | null;
+  trackerIssueKey: string | null;
   runId: string | null;
   payload: JsonValue;
   recordedAt: string;
 };
 
 export interface SymphonyRuntimeLogStore {
-  record(input: {
-    level: SymphonyRuntimeLogLevel;
-    source: string;
-    eventType: string;
-    message: string;
-    issueIdentifier?: string | null;
-    runId?: string | null;
-    payload?: JsonValue;
-    recordedAt?: string;
-  }): Promise<string>;
+  record(
+    input:
+      | {
+          level: SymphonyRuntimeLogLevel;
+          source: string;
+          eventType: string;
+          message: string;
+          trackerIssueId: string;
+          trackerIssueKey?: string | null;
+          runId?: string | null;
+          payload?: JsonValue;
+          recordedAt?: string;
+        }
+      | {
+          level: SymphonyRuntimeLogLevel;
+          source: string;
+          eventType: string;
+          message: string;
+          trackerIssueId?: null | undefined;
+          trackerIssueKey?: null | undefined;
+          runId?: string | null;
+          payload?: JsonValue;
+          recordedAt?: string;
+        }
+  ): Promise<string>;
   list(input?: {
     limit?: number;
-    issueIdentifier?: string;
+    repo?: string;
+    trackerIssueKey?: string;
   }): Promise<SymphonyRuntimeLogEntry[]>;
 }
 
@@ -41,9 +66,11 @@ export function createSymphonyRuntimeLogStore(
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>,
   input: {
     repositoryKey: string;
+    bindingScope?: SymphonyLifecycleBindingScope | null;
   }
 ): SymphonyRuntimeLogStore {
   const repositoryKey = sanitizeRequiredText(input.repositoryKey, "repositoryKey");
+  const bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
 
   return {
     async record(input) {
@@ -51,19 +78,27 @@ export function createSymphonyRuntimeLogStore(
       const source = sanitizeRequiredText(input.source, "source");
       const eventType = sanitizeRequiredText(input.eventType, "eventType");
       const message = sanitizeRequiredText(input.message, "message");
-      const issueIdentifier =
-        input.issueIdentifier === undefined || input.issueIdentifier === null
+      const trackerIssueId = sanitizeText(input.trackerIssueId);
+      const trackerIssueKey =
+        input.trackerIssueKey === undefined || input.trackerIssueKey === null
           ? null
-          : sanitizeRequiredText(input.issueIdentifier, "issueIdentifier");
+          : sanitizeRequiredText(input.trackerIssueKey, "trackerIssueKey");
       const recordedAt = input.recordedAt ?? new Date().toISOString();
-
-      if (issueIdentifier) {
-        requireRuntimeLogIssueBinding({
-          db,
-          issueIdentifier,
-          repositoryKey
-        });
-      }
+      const issue =
+        trackerIssueId
+          ? requireRuntimeLogIssueBinding({
+              db,
+              trackerIssueId,
+              trackerIssueKey,
+              repositoryKey
+            })
+          : trackerIssueKey
+            ? (() => {
+                throw new TypeError(
+                  "Runtime log trackerIssueId is required when trackerIssueKey is provided."
+                );
+              })()
+          : null;
 
       db.insert(symphonyRuntimeLogsTable).values({
         entryId,
@@ -72,7 +107,7 @@ export function createSymphonyRuntimeLogStore(
         source,
         eventType,
         message,
-        issueIdentifier,
+        trackerIssueId: issue?.trackerIssueId ?? null,
         runId: input.runId ?? null,
         payload: input.payload ?? null,
         recordedAt,
@@ -84,32 +119,43 @@ export function createSymphonyRuntimeLogStore(
 
     async list(input = {}) {
       const limit = normalizeLimit(input.limit, 200);
+      if (input.repo && input.repo !== repositoryKey) {
+        return [];
+      }
+
       const query = db
         .select()
         .from(symphonyRuntimeLogsTable)
         .orderBy(desc(symphonyRuntimeLogsTable.recordedAt))
         .limit(limit);
 
-      const rows = input.issueIdentifier
-        ? query.where(
-            and(
-              eq(symphonyRuntimeLogsTable.repositoryKey, repositoryKey),
-              eq(symphonyRuntimeLogsTable.issueIdentifier, input.issueIdentifier)
-            )
-          ).all()
+      const rows = input.trackerIssueKey
+        ? (() => {
+            const issue = loadRuntimeLogIssueOrNull({
+              db,
+              repositoryKey,
+              bindingScope,
+              trackerIssueKey: input.trackerIssueKey
+            });
+            if (!issue) {
+              return [];
+            }
+
+            return query
+              .where(
+                and(
+                  eq(symphonyRuntimeLogsTable.repositoryKey, repositoryKey),
+                  eq(symphonyRuntimeLogsTable.trackerIssueId, issue.trackerIssueId)
+                )
+              )
+              .all();
+          })()
         : query.where(eq(symphonyRuntimeLogsTable.repositoryKey, repositoryKey)).all();
 
-      const issueIdentifiers = [...new Set(rows.flatMap((row) => row.issueIdentifier ?? []))];
-      const issueMap = new Map(
-        (issueIdentifiers.length === 0
-          ? []
-          : db
-              .select()
-              .from(symphonyIssuesTable)
-              .where(inArray(symphonyIssuesTable.issueIdentifier, issueIdentifiers))
-              .all()
-        ).map((row) => [row.issueIdentifier, row] as const)
-      );
+      const trackerIssueIds = [...new Set(
+        rows.flatMap((row) => (row.trackerIssueId ? [row.trackerIssueId] : []))
+      )];
+      const issueMap = loadIssueRecordMapByTrackerIssueId(db, trackerIssueIds);
 
       return rows.map((row) => {
         const issue = requireRuntimeLogIssue(row, issueMap);
@@ -122,7 +168,7 @@ export function createSymphonyRuntimeLogStore(
           eventType: row.eventType,
           message: row.message,
           trackerIssueId: issue?.trackerIssueId ?? null,
-          issueIdentifier: row.issueIdentifier ?? null,
+          trackerIssueKey: issue?.issueIdentifier ?? null,
           runId: row.runId ?? null,
           payload: (row.payload ?? null) as JsonValue,
           recordedAt: row.recordedAt
@@ -136,20 +182,20 @@ function requireRuntimeLogIssue(
   row: typeof symphonyRuntimeLogsTable.$inferSelect,
   issueMap: Map<string, typeof symphonyIssuesTable.$inferSelect>
 ) {
-  if (!row.issueIdentifier) {
+  if (!row.trackerIssueId) {
     return null;
   }
 
-  const issue = issueMap.get(row.issueIdentifier);
+  const issue = issueMap.get(row.trackerIssueId);
   if (!issue) {
     throw new TypeError(
-      `Runtime log issue not found for ${row.entryId}: ${row.issueIdentifier}`
+      `Runtime log issue not found for ${row.entryId}: ${row.trackerIssueId}`
     );
   }
 
   if (issue.repositoryKey !== row.repositoryKey) {
     throw new TypeError(
-      `Runtime log repository mismatch for ${row.entryId}: ${row.issueIdentifier} is bound to ${issue.repositoryKey}, not ${row.repositoryKey}.`
+      `Runtime log repository mismatch for ${row.entryId}: ${issue.issueIdentifier} is bound to ${issue.repositoryKey}, not ${row.repositoryKey}.`
     );
   }
 
@@ -158,25 +204,42 @@ function requireRuntimeLogIssue(
 
 function requireRuntimeLogIssueBinding(input: {
   db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
-  issueIdentifier: string;
+  trackerIssueId: string;
+  trackerIssueKey: string | null;
   repositoryKey: string;
 }) {
-  const issue = input.db
-    .select()
-    .from(symphonyIssuesTable)
-    .where(eq(symphonyIssuesTable.issueIdentifier, input.issueIdentifier))
-    .get();
+  return requireIssueRecordByTrackerIssueIdForRepository({
+    db: input.db,
+    owner: "Runtime log",
+    repositoryKey: input.repositoryKey,
+    trackerIssueId: input.trackerIssueId,
+    trackerIssueKey: input.trackerIssueKey
+  });
+}
 
-  if (!issue) {
-    throw new TypeError(
-      `Runtime log issue not found: ${input.issueIdentifier}`
-    );
-  }
+function loadRuntimeLogIssueOrNull(input: {
+  db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
+  repositoryKey: string;
+  bindingScope: SymphonyLifecycleBindingScope | null;
+  trackerIssueKey: string;
+}) {
+  try {
+    return requireIssueRecordByTrackerIssueKeyForRepository({
+      db: input.db,
+      owner: "Runtime log",
+      trackerIssueKey: input.trackerIssueKey,
+      repositoryKey: input.repositoryKey,
+      bindingScope: input.bindingScope
+    });
+  } catch (error) {
+    if (
+      error instanceof TypeError &&
+      error.message === `Runtime log issue not found: ${input.trackerIssueKey.trim()}`
+    ) {
+      return null;
+    }
 
-  if (issue.repositoryKey !== input.repositoryKey) {
-    throw new TypeError(
-      `Runtime log repository mismatch for ${input.issueIdentifier}: ${issue.repositoryKey} is not ${input.repositoryKey}.`
-    );
+    throw error;
   }
 }
 

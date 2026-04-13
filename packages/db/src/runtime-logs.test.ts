@@ -21,6 +21,35 @@ afterEach(async () => {
 });
 
 describe("runtime log store", () => {
+  it("requires tracker issue ids for issue-scoped writes", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-logs-write-contract-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runtimeLogStore = createSymphonyRuntimeLogStore(database.db, {
+      repositoryKey
+    });
+
+    try {
+      await expect(
+        runtimeLogStore.record({
+          level: "info",
+          source: "runtime",
+          eventType: "runtime_session_started",
+          message: "Started session.",
+          trackerIssueKey: "SYM-699",
+          recordedAt: "2026-04-11T04:08:00.000Z"
+        } as never)
+      ).rejects.toThrow(
+        "Runtime log trackerIssueId is required when trackerIssueKey is provided."
+      );
+    } finally {
+      database.close();
+    }
+  });
+
   it("fails fast when recording against a missing canonical issue parent", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-logs-record-missing-"));
     tempDirectories.push(root);
@@ -39,10 +68,11 @@ describe("runtime log store", () => {
           source: "runtime",
           eventType: "runtime_session_started",
           message: "Started session.",
-          issueIdentifier: "SYM-700",
+          trackerIssueId: "tracker-700",
+          trackerIssueKey: "SYM-700",
           recordedAt: "2026-04-11T04:09:00.000Z"
         })
-      ).rejects.toThrow("Runtime log issue not found: SYM-700");
+      ).rejects.toThrow("Runtime log issue not found: tracker-700");
     } finally {
       database.close();
     }
@@ -62,7 +92,7 @@ describe("runtime log store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-700R",
+        trackerIssueKey: "SYM-700R",
         trackerIssueId: "tracker-700R",
         repositoryKey: "other/repo",
         latestRunStartedAt: null,
@@ -75,7 +105,8 @@ describe("runtime log store", () => {
           source: "runtime",
           eventType: "runtime_session_started",
           message: "Started session.",
-          issueIdentifier: "SYM-700R",
+          trackerIssueId: "tracker-700R",
+          trackerIssueKey: "SYM-700R",
           recordedAt: "2026-04-11T04:09:31.000Z"
         })
       ).rejects.toThrow(
@@ -100,7 +131,7 @@ describe("runtime log store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-701",
+        trackerIssueKey: "SYM-701",
         trackerIssueId: "tracker-701",
         repositoryKey,
         latestRunStartedAt: null,
@@ -111,17 +142,18 @@ describe("runtime log store", () => {
         source: "runtime",
         eventType: "runtime_session_started",
         message: "Started session.",
-        issueIdentifier: "SYM-701",
+        trackerIssueId: "tracker-701",
+        trackerIssueKey: "SYM-701",
         recordedAt: "2026-04-11T04:11:00.000Z"
       });
 
       await expect(
         runtimeLogStore.list({
-          issueIdentifier: "SYM-701"
+          trackerIssueKey: "SYM-701"
         })
       ).resolves.toEqual([
         expect.objectContaining({
-          issueIdentifier: "SYM-701",
+          trackerIssueKey: "SYM-701",
           trackerIssueId: "tracker-701",
           repositoryKey,
           eventType: "runtime_session_started"
@@ -132,7 +164,7 @@ describe("runtime log store", () => {
     }
   });
 
-  it("fails fast when runtime logs lose their canonical issue parent", async () => {
+  it("returns an empty issue-scoped list when runtime logs lose their canonical issue parent", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-logs-missing-"));
     tempDirectories.push(root);
 
@@ -146,18 +178,19 @@ describe("runtime log store", () => {
 
     try {
       await issueStore.upsert({
-        issueIdentifier: "SYM-702",
+        trackerIssueKey: "SYM-702",
         trackerIssueId: "tracker-702",
         repositoryKey,
         latestRunStartedAt: null,
         recordedAt: "2026-04-11T04:15:00.000Z"
       });
-      const entryId = await runtimeLogStore.record({
+      await runtimeLogStore.record({
         level: "warn",
         source: "runtime",
         eventType: "runtime_session_failed",
         message: "Failed session.",
-        issueIdentifier: "SYM-702",
+        trackerIssueId: "tracker-702",
+        trackerIssueKey: "SYM-702",
         recordedAt: "2026-04-11T04:16:00.000Z"
       });
 
@@ -170,11 +203,9 @@ describe("runtime log store", () => {
 
       await expect(
         runtimeLogStore.list({
-          issueIdentifier: "SYM-702"
+          trackerIssueKey: "SYM-702"
         })
-      ).rejects.toThrow(
-        `Runtime log issue not found for ${entryId}: SYM-702`
-      );
+      ).resolves.toEqual([]);
     } finally {
       database.close();
     }

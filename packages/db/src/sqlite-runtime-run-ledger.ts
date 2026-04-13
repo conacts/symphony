@@ -38,6 +38,12 @@ import {
   symphonyTurnsTable
 } from "./schema.js";
 import type { SymphonyRuntimeRunStatus, SymphonyRuntimeTurnStatus } from "./runtime-run-types.js";
+import type { SymphonyLifecycleBindingScope } from "./lifecycle-binding-scope.js";
+import { normalizeLifecycleBindingScope } from "./lifecycle-binding-scope.js";
+import {
+  loadIssueRecordByTrackerIssueKey,
+  loadIssueRecordMapByTrackerIssueId
+} from "./issue-record-lookup.js";
 
 const defaultRetentionDays = 90;
 const defaultPayloadMaxBytes = 64 * 1024;
@@ -59,6 +65,7 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
   readonly #db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
   readonly #timelineStore: SymphonyIssueTimelineStore | null;
   readonly #runtimeRunStore: SymphonyRuntimeRunStore;
+  readonly #bindingScope: SymphonyLifecycleBindingScope | null;
 
   constructor(input: {
     db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>;
@@ -66,13 +73,16 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
     retentionDays?: number;
     payloadMaxBytes?: number;
     dbFile: string;
+    bindingScope?: SymphonyLifecycleBindingScope | null;
   }) {
     this.#db = input.db;
     this.#timelineStore = input.timelineStore ?? null;
+    this.#bindingScope = normalizeLifecycleBindingScope(input.bindingScope);
     this.#runtimeRunStore = createSqliteSymphonyRuntimeRunStore({
       db: input.db,
       timelineStore: this.#timelineStore ?? undefined,
-      payloadMaxBytes: input.payloadMaxBytes
+      payloadMaxBytes: input.payloadMaxBytes,
+      bindingScope: this.#bindingScope
     });
     this.dbFile = input.dbFile;
     this.retentionDays = normalizePositiveInteger(
@@ -138,7 +148,7 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
       .get()?.payload ?? attrs.payload) as JsonValue;
 
     await this.#timelineStoreFor(run.repositoryKey).record({
-      issueIdentifier: run.issueIdentifier,
+      trackerIssueId: run.trackerIssueId,
       runId,
       turnId,
       source: "agent",
@@ -199,7 +209,7 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
     });
 
     await this.#timelineStoreFor(existing.repositoryKey).record({
-      issueIdentifier: existing.issueIdentifier,
+      trackerIssueId: existing.trackerIssueId,
       runId,
       source: "orchestrator",
       eventType: "run_finalized",
@@ -231,23 +241,36 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
 
   async listRuns(opts: SymphonyRuntimeRunLedgerRunsOptions = {}): Promise<SymphonyRunSummary[]> {
     const limit = normalizeLimit(opts.limit, 200);
+    const trackerIssueIdFilter = resolveTrackerIssueIdFilter(
+      this.#db,
+      this.#bindingScope,
+      opts.issueIdentifier
+    );
+    if (opts.issueIdentifier && trackerIssueIdFilter === null) {
+      return [];
+    }
     const runs = this.#db
       .select()
       .from(symphonyRunsTable)
       .orderBy(desc(symphonyRunsTable.startedAt))
       .all();
-    const issues = this.#db.select().from(symphonyIssuesTable).all();
+    const issues = [
+      ...loadIssueRecordMapByTrackerIssueId(
+        this.#db,
+        runs.map((run) => run.trackerIssueId)
+      ).values()
+    ];
     const turns = this.#db.select().from(symphonyTurnsTable).all();
     const events = this.#db.select().from(symphonyEventsTable).all();
-    const issueByIdentifier = new Map(
-      issues.map((issue) => [issue.issueIdentifier, issue] as const)
+    const issueByTrackerIssueId = new Map(
+      issues.map((issue) => [issue.trackerIssueId, issue] as const)
     );
 
     return runs
-      .filter((run) => matchesRunFilters(run, opts))
+      .filter((run) => matchesRunFilters(run, opts, trackerIssueIdFilter))
       .slice(0, limit)
       .flatMap((run) => {
-        const issue = issueByIdentifier.get(run.issueIdentifier);
+        const issue = issueByTrackerIssueId.get(run.trackerIssueId);
         return issue ? [buildRuntimeRunSummary(issue, run, turns, events)] : [];
       });
   }
@@ -287,7 +310,7 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
     const issue = this.#db
       .select()
       .from(symphonyIssuesTable)
-      .where(eq(symphonyIssuesTable.issueIdentifier, run.issueIdentifier))
+      .where(eq(symphonyIssuesTable.trackerIssueId, run.trackerIssueId))
       .get();
 
     if (!issue) {
@@ -316,7 +339,7 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
 
     return {
       issue: buildRuntimeIssueSummary(issue, [run]),
-      run: castRunRecord(run),
+      run: castRunRecord(run, issue.issueIdentifier),
       turns: exportedTurns.map((turn) => castTurnExport(turn))
     };
   }
@@ -326,12 +349,17 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
     const cutoffIso = new Date(cutoffMs).toISOString();
 
     const retainedRuns = this.#db
-      .select({ runId: symphonyRunsTable.runId, issueIdentifier: symphonyRunsTable.issueIdentifier })
+      .select({
+        runId: symphonyRunsTable.runId,
+        trackerIssueId: symphonyRunsTable.trackerIssueId
+      })
       .from(symphonyRunsTable)
       .where(sql`${symphonyRunsTable.startedAt} >= ${cutoffIso}`)
       .all();
     const retainedRunIds = new Set(retainedRuns.map((row) => row.runId));
-    const retainedIssueIdentifiers = new Set(retainedRuns.map((row) => row.issueIdentifier));
+    const retainedTrackerIssueIds = new Set(
+      retainedRuns.map((row) => row.trackerIssueId)
+    );
 
     const allTurns = this.#db.select().from(symphonyTurnsTable).all();
     const allEvents = this.#db.select().from(symphonyEventsTable).all();
@@ -361,9 +389,9 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
     }
 
     for (const issue of this.#db.select().from(symphonyIssuesTable).all()) {
-      if (!retainedIssueIdentifiers.has(issue.issueIdentifier)) {
+      if (!retainedTrackerIssueIds.has(issue.trackerIssueId)) {
         this.#db.delete(symphonyIssuesTable)
-          .where(eq(symphonyIssuesTable.issueIdentifier, issue.issueIdentifier))
+          .where(eq(symphonyIssuesTable.trackerIssueId, issue.trackerIssueId))
           .run();
       }
     }
@@ -373,7 +401,8 @@ class SqliteSymphonyRuntimeRunLedger implements SymphonyRuntimeRunLedger {
     return (
       this.#timelineStore ??
       createSymphonyIssueTimelineStore(this.#db, {
-        repositoryKey
+        repositoryKey,
+        bindingScope: this.#bindingScope
       })
     );
   }
@@ -440,9 +469,13 @@ function normalizeRuntimeTurnStatus(
 
 function matchesRunFilters(
   run: typeof symphonyRunsTable.$inferSelect,
-  opts: SymphonyRuntimeRunLedgerRunsOptions
+  opts: SymphonyRuntimeRunLedgerRunsOptions,
+  trackerIssueIdFilter: string | null | undefined
 ): boolean {
-  if (opts.issueIdentifier && run.issueIdentifier !== opts.issueIdentifier) {
+  if (
+    trackerIssueIdFilter !== undefined &&
+    run.trackerIssueId !== trackerIssueIdFilter
+  ) {
     return false;
   }
 
@@ -479,6 +512,23 @@ function matchesRunFilters(
   return true;
 }
 
+function resolveTrackerIssueIdFilter(
+  db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema>,
+  bindingScope: SymphonyLifecycleBindingScope | null,
+  trackerIssueKey: string | undefined
+): string | null | undefined {
+  if (!trackerIssueKey) {
+    return undefined;
+  }
+
+  return (
+    loadIssueRecordByTrackerIssueKey(db, {
+      trackerIssueKey,
+      bindingScope
+    })?.trackerIssueId ?? null
+  );
+}
+
 function sanitizeText(value: string): string {
   return value
     .replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer [REDACTED]")
@@ -490,10 +540,12 @@ function sanitizeText(value: string): string {
 }
 
 function castRunRecord(
-  run: typeof symphonyRunsTable.$inferSelect
+  run: typeof symphonyRunsTable.$inferSelect,
+  issueIdentifier: string
 ): SymphonyRunExport["run"] {
   return {
     ...run,
+    issueIdentifier,
     status: assertRuntimeRunStatus(run.status),
     outcome: assertOptionalRuntimeRunOutcome(run.outcome),
     repoStart: (run.repoStart ?? null) as SymphonyJsonObject | null,

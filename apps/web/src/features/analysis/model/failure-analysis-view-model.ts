@@ -35,7 +35,7 @@ export type FailureAnalysisViewModel = {
     issueCount: number;
   }>;
   hotspotRows: Array<{
-    issueIdentifier: string;
+    trackerIssueKey: string;
     issueHref: string;
     latestProblemOutcome: string;
     latestErrorClass: string;
@@ -116,8 +116,8 @@ export function buildFailureAnalysisViewModel(
       )
       .slice(0, 8)
       .map((issue) => ({
-        issueIdentifier: issue.issueIdentifier,
-        issueHref: buildIssueHref(issue.issueIdentifier, {
+        trackerIssueKey: issue.trackerIssueKey,
+        issueHref: buildIssueHref(issue.trackerIssueKey, {
           repo: issue.repositoryKey
         }),
         latestProblemOutcome: formatOutcomeLabel(issue.latestProblemOutcome),
@@ -159,18 +159,18 @@ export function buildFailureAnalysisViewModelFromSample(
   >();
 
   for (const sampledRun of input.sampledRuns) {
-    const current = issueRuns.get(sampledRun.issueIdentifier);
+    const current = issueRuns.get(sampledRun.trackerIssueKey);
 
     if (current) {
       current.push(sampledRun);
       continue;
     }
 
-    issueRuns.set(sampledRun.issueIdentifier, [sampledRun]);
+    issueRuns.set(sampledRun.trackerIssueKey, [sampledRun]);
   }
 
   const issueRows = Array.from(issueRuns.entries())
-    .map(([issueIdentifier, sampledRuns]) => buildFailureIssueRow(issueIdentifier, sampledRuns))
+    .map(([trackerIssueKey, sampledRuns]) => buildFailureIssueRow(trackerIssueKey, sampledRuns))
     .filter(isFailureIssueRow);
   const timeSeriesRows = buildFailureTimeSeriesRows(
     input.sampledRuns,
@@ -182,7 +182,7 @@ export function buildFailureAnalysisViewModelFromSample(
   );
   const failureTypeCounts = countFailureTypeFrequency(problemRuns);
   const totalProblemRuns = problemRuns.length;
-  const affectedIssues = new Set(problemRuns.map((sampledRun) => sampledRun.issueIdentifier));
+  const affectedIssues = new Set(problemRuns.map((sampledRun) => sampledRun.trackerIssueKey));
   const dominantFailureType = failureTypeCounts[0];
   const failureModeRows = countIssueFrequency(issueRows, (issue) => issue.latestProblemOutcome)
     .map(([outcome, issueCount]) => ({
@@ -231,8 +231,8 @@ export function buildFailureAnalysisViewModelFromSample(
       )
       .slice(0, 8)
       .map((issue) => ({
-        issueIdentifier: issue.issueIdentifier,
-        issueHref: buildIssueHref(issue.issueIdentifier, {
+        trackerIssueKey: issue.trackerIssueKey,
+        issueHref: buildIssueHref(issue.trackerIssueKey, {
           repo: issue.repositoryKey
         }),
         latestProblemOutcome: formatOutcomeLabel(issue.latestProblemOutcome),
@@ -508,11 +508,11 @@ function countIssueFrequency<T>(
 }
 
 function buildFailureIssueRow(
-  issueIdentifier: string,
+  trackerIssueKey: string,
   sampledRuns: AgentAnalysisSampleResource["sampledRuns"]
 ): {
   repositoryKey: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   latestProblemOutcome: string | null;
   latestErrorClass: string | null;
   latestErrorMessage: string | null;
@@ -540,7 +540,7 @@ function buildFailureIssueRow(
       latestRun?.repositoryKey ??
       latestProblemRun?.repositoryKey ??
       DEFAULT_REPOSITORY_KEY,
-    issueIdentifier,
+    trackerIssueKey,
     latestProblemOutcome: latestProblemRun?.outcome ?? latestFailureKind,
     latestErrorClass: latestProblemRun?.errorClass ?? latestFailureKind,
     latestErrorMessage: latestProblemRun?.errorMessage ?? latestFailureMessage,

@@ -55,13 +55,13 @@ describe("runtime routes", () => {
   });
 
   it("serves workflow comparison results through the issue route", async () => {
-    const compareByIssueIdentifier = vi.fn<
-      SymphonyRuntimeAppServices["workflowComparison"]["compareByIssueIdentifier"]
+    const compareByTrackerIssueKey = vi.fn<
+      SymphonyRuntimeAppServices["workflowComparison"]["compareByTrackerIssueKey"]
     >().mockResolvedValue(buildWorkflowComparisonFixture());
     const app = createRuntimeRoutesTestApp({
       workflowComparison: {
         compareByWorkflowId: vi.fn().mockResolvedValue(null),
-        compareByIssueIdentifier
+        compareByTrackerIssueKey
       }
     });
 
@@ -71,7 +71,7 @@ describe("runtime routes", () => {
     const payload = (await response.json()) as {
       data: {
         workflow: {
-          issueIdentifier: string;
+          trackerIssueKey: string;
           routerPresetId: string;
         };
         replay: {
@@ -87,11 +87,11 @@ describe("runtime routes", () => {
     };
 
     expect(response.status).toBe(200);
-    expect(compareByIssueIdentifier).toHaveBeenCalledWith({
-      issueIdentifier: "SYM-420",
+    expect(compareByTrackerIssueKey).toHaveBeenCalledWith({
+      trackerIssueKey: "SYM-420",
       presetIds: ["current-flow", "auto-merge"]
     });
-    expect(payload.data.workflow.issueIdentifier).toBe("SYM-420");
+    expect(payload.data.workflow.trackerIssueKey).toBe("SYM-420");
     expect(payload.data.workflow.routerPresetId).toBe("current-flow");
     expect(payload.data.replay.recordedEventCount).toBe(3);
     expect(payload.data.replay.recordedSignalCount).toBe(3);
@@ -107,13 +107,13 @@ describe("runtime routes", () => {
   });
 
   it("returns 404 when no persisted workflow exists for the issue", async () => {
-    const compareByIssueIdentifier = vi.fn<
-      SymphonyRuntimeAppServices["workflowComparison"]["compareByIssueIdentifier"]
+    const compareByTrackerIssueKey = vi.fn<
+      SymphonyRuntimeAppServices["workflowComparison"]["compareByTrackerIssueKey"]
     >().mockResolvedValue(null);
     const app = createRuntimeRoutesTestApp({
       workflowComparison: {
         compareByWorkflowId: vi.fn().mockResolvedValue(null),
-        compareByIssueIdentifier
+        compareByTrackerIssueKey
       }
     });
 
@@ -126,20 +126,20 @@ describe("runtime routes", () => {
 
     expect(response.status).toBe(404);
     expect(payload.error.code).toBe("NOT_FOUND");
-    expect(compareByIssueIdentifier).toHaveBeenCalledWith({
-      issueIdentifier: "SYM-404",
+    expect(compareByTrackerIssueKey).toHaveBeenCalledWith({
+      trackerIssueKey: "SYM-404",
       presetIds: undefined
     });
   });
 
   it("fails fast on unknown workflow comparison preset ids", async () => {
-    const compareByIssueIdentifier = vi.fn<
-      SymphonyRuntimeAppServices["workflowComparison"]["compareByIssueIdentifier"]
+    const compareByTrackerIssueKey = vi.fn<
+      SymphonyRuntimeAppServices["workflowComparison"]["compareByTrackerIssueKey"]
     >().mockResolvedValue(null);
     const app = createRuntimeRoutesTestApp({
       workflowComparison: {
         compareByWorkflowId: vi.fn().mockResolvedValue(null),
-        compareByIssueIdentifier
+        compareByTrackerIssueKey
       }
     });
 
@@ -156,17 +156,17 @@ describe("runtime routes", () => {
     expect(response.status).toBe(400);
     expect(payload.error.code).toBe("VALIDATION_FAILED");
     expect(payload.error.message).toMatch(/unknown workflow router preset/i);
-    expect(compareByIssueIdentifier).not.toHaveBeenCalled();
+    expect(compareByTrackerIssueKey).not.toHaveBeenCalled();
   });
 
   it("fails fast on duplicate workflow comparison preset ids", async () => {
-    const compareByIssueIdentifier = vi.fn<
-      SymphonyRuntimeAppServices["workflowComparison"]["compareByIssueIdentifier"]
+    const compareByTrackerIssueKey = vi.fn<
+      SymphonyRuntimeAppServices["workflowComparison"]["compareByTrackerIssueKey"]
     >().mockResolvedValue(null);
     const app = createRuntimeRoutesTestApp({
       workflowComparison: {
         compareByWorkflowId: vi.fn().mockResolvedValue(null),
-        compareByIssueIdentifier
+        compareByTrackerIssueKey
       }
     });
 
@@ -181,7 +181,7 @@ describe("runtime routes", () => {
 
     expect(response.status).toBe(400);
     expect(payload.error.code).toBe("VALIDATION_FAILED");
-    expect(compareByIssueIdentifier).not.toHaveBeenCalled();
+    expect(compareByTrackerIssueKey).not.toHaveBeenCalled();
   });
 
   it("prefers workflow-authoritative tracker state for runtime issue details", async () => {
@@ -217,7 +217,7 @@ describe("runtime routes", () => {
     expect(response.status).toBe(200);
     expect(payload.data.tracked.state).toBe("Approved");
     expect(loadWorkflowLifecycleView).toHaveBeenCalledWith({
-      issueIdentifier: "COL-123"
+      trackerIssueKey: "COL-123"
     });
   });
 
@@ -449,7 +449,7 @@ function createRuntimeServicesStub(
         filters: {
           limit: null,
           repo: null,
-          issueIdentifier: null
+          trackerIssueKey: null
         }
       })
     },
@@ -486,7 +486,7 @@ function createRuntimeServicesStub(
     } as SymphonyRuntimeAppServices["runtimeTools"],
     workflowComparison: {
       compareByWorkflowId: vi.fn().mockResolvedValue(null),
-      compareByIssueIdentifier: vi.fn().mockResolvedValue(null)
+      compareByTrackerIssueKey: vi.fn().mockResolvedValue(null)
     },
     routeWorkflows: {} as SymphonyRuntimeAppServices["routeWorkflows"],
     githubReviewIngress: {
@@ -621,7 +621,7 @@ function buildWorkflowComparisonFixture(): SymphonyRuntimeWorkflowComparison {
         workflowId,
         trackerIssueId: "tracker-420",
         repositoryKey: "openai/symphony",
-        issueIdentifier: "SYM-420",
+        trackerIssueKey: "SYM-420",
         bindingScope: null,
         routerPresetId: "current-flow",
         routerName: "current-flow",

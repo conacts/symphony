@@ -64,7 +64,7 @@ import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-l
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import {
-  compareRuntimeWorkflowByIssueIdentifier,
+  compareRuntimeWorkflowByTrackerIssueKey,
   compareRuntimeWorkflowByWorkflowId
 } from "./runtime-workflow-comparison.js";
 import {
@@ -185,37 +185,41 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     bindingScope: bootstrapBinding.bindingScope
   });
   const runStore = createSqliteSymphonyRuntimeRunStore({
-    db: database.db
+    db: database.db,
+    bindingScope: bootstrapBinding.bindingScope
   });
   const deliveryReports = createSymphonyIssueDeliveryReportStore({
     db: database.db,
     timelineStore: issueTimelineStore,
-    repositoryKey
+    repositoryKey,
+    bindingScope: bootstrapBinding.bindingScope
   });
   const agentAnalyticsStore = createSqliteAgentAnalyticsStore({
     db: database.db
   });
   const agentAnalyticsReadStore = createSqliteAgentAnalyticsReadStore({
-    db: database.db
+    db: database.db,
+    bindingScope: bootstrapBinding.bindingScope
   });
   const runtimeForensicsReadStore = createSqliteRuntimeForensicsReadStore({
-    db: database.db
+    db: database.db,
+    bindingScope: bootstrapBinding.bindingScope
   });
   const agentAnalyticsRead = createAgentAnalyticsReadPort(agentAnalyticsReadStore);
   const forensics = createSymphonyForensicsReadModel({
     runStore: runtimeForensicsReadStore,
     async listIssueTimeline(input) {
-      return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
+      return await issueTimelineStore.listIssueTimeline(input.trackerIssueKey, {
         limit: input.limit
       });
     },
     async listRuntimeLogs(input) {
-      return runtimeLogStore.list({
+      return await runtimeLogStore.list({
         limit: input.limit,
-        issueIdentifier: input.issueIdentifier
+        trackerIssueKey: input.trackerIssueKey
       });
     }
-  });
+  }) satisfies SymphonyRuntimeAppServices["forensics"];
 
   await runtimeLogStore.record({
     level: "info",
@@ -300,14 +304,14 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     await issueStore.upsert(
       bootstrapBinding.bindingScope === null
         ? {
-            issueIdentifier: issue.identifier,
+            trackerIssueKey: issue.identifier,
             trackerIssueId: issue.id,
             repositoryKey: resolvedRepository.repository.repositoryKey,
             latestRunStartedAt: null,
             recordedAt: new Date().toISOString()
           }
         : {
-            issueIdentifier: issue.identifier,
+            trackerIssueKey: issue.identifier,
             trackerIssueId: issue.id,
             repositoryKey: resolvedRepository.repository.repositoryKey,
             bindingScope: bootstrapBinding.bindingScope,
@@ -531,11 +535,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     runtimeLogStore
   });
   const loadWorkflowLifecycleView = (input: {
-    issueIdentifier: string;
+    trackerIssueKey: string;
     runId?: string | null;
   }) =>
     routeLifecycle.loadWorkflowLifecycleView({
-      issueIdentifier: input.issueIdentifier,
+      issueIdentifier: input.trackerIssueKey,
       runId: input.runId ?? null
     });
   const workflowRead = {
@@ -579,11 +583,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     readMachineLoadSnapshot: () => machineLoad.snapshot()
   });
   const trackerStateIngress = {
-    async observeNonRunningIssue(input: { issueIdentifier: string }) {
+    async observeNonRunningIssue(input: { trackerIssueKey: string }) {
       const recordedAt = new Date().toISOString();
       const observation =
         await routeTrackerStateIngress.observeNonRunningByIdentifier({
-          issueIdentifier: input.issueIdentifier,
+          issueIdentifier: input.trackerIssueKey,
           recordedAt,
           onDispatchRequested: dispatchObservedIssue
         });
@@ -592,7 +596,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       }
 
       return {
-        issueIdentifier: observation.issueIdentifier,
+        trackerIssueKey: observation.issueIdentifier,
         observedTrackerState: observation.observedTrackerState,
         workflowTrackerState: observation.workflowTrackerState,
         observed: observation.observed,
@@ -622,12 +626,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
         presetIds: input.presetIds
       });
     },
-    async compareByIssueIdentifier(input: {
-      issueIdentifier: string;
+    async compareByTrackerIssueKey(input: {
+      trackerIssueKey: string;
       presetIds?: ReadonlyArray<string>;
     }) {
-      return await compareRuntimeWorkflowByIssueIdentifier({
-        issueIdentifier: input.issueIdentifier,
+      return await compareRuntimeWorkflowByTrackerIssueKey({
+        trackerIssueKey: input.trackerIssueKey,
         routeWorkflows,
         trackerConfig: runtimePolicy.tracker,
         bindingScope: bootstrapBinding.bindingScope,
@@ -715,14 +719,25 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           ? await tracker.fetchIssueByIdentifier(runtimePolicy.tracker, issueIdentifier)
           : null;
 
-      await runtimeLogStore.record({
-        level: "info",
-        source: "github_review_ingress",
-        eventType: "github_review_ingress_processed",
-        message: "Processed GitHub review ingress event.",
-        issueIdentifier: trackedIssue?.identifier ?? null,
-        payload: result
-      });
+      await runtimeLogStore.record(
+        trackedIssue
+          ? {
+              level: "info",
+              source: "github_review_ingress",
+              eventType: "github_review_ingress_processed",
+              message: "Processed GitHub review ingress event.",
+              trackerIssueId: trackedIssue.id,
+              trackerIssueKey: trackedIssue.identifier,
+              payload: result
+            }
+          : {
+              level: "info",
+              source: "github_review_ingress",
+              eventType: "github_review_ingress_processed",
+              message: "Processed GitHub review ingress event.",
+              payload: result
+            }
+      );
       realtime.publishSnapshotUpdated();
       realtime.publishProblemRunsUpdated();
 
@@ -808,7 +823,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
               database,
               runStore,
               routeLifecycle,
-              shutdownReason
+              shutdownReason,
+              bindingScope: bootstrapBinding.bindingScope
             });
 
           logger.info("Shutdown reconciled active runtime work", {

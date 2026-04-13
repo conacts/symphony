@@ -236,7 +236,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
   });
 
   await issueStore.upsert({
-    issueIdentifier: issue.identifier,
+    trackerIssueKey: issue.identifier,
     trackerIssueId: issue.id,
     repositoryKey,
     latestRunStartedAt: null,
@@ -371,7 +371,8 @@ export async function createSymphonyRuntimeTestHarness(input: {
   await runStore.finalizeTurn(turnId, buildSymphonyTurnFinishAttrs());
   await runStore.finalizeRun(runId, buildSymphonyRunFinishAttrs());
   await issueTimelineStore.record({
-    issueIdentifier: issue.identifier,
+    trackerIssueId: issue.id,
+    trackerIssueKey: issue.identifier,
     runId,
     source: "orchestrator",
     eventType: "retry_scheduled",
@@ -385,7 +386,8 @@ export async function createSymphonyRuntimeTestHarness(input: {
     source: "runtime",
     eventType: "db_initialized",
     message: "Initialized Symphony DB.",
-    issueIdentifier: issue.identifier,
+    trackerIssueId: issue.id,
+    trackerIssueKey: issue.identifier,
     runId,
     payload: null
   });
@@ -394,7 +396,8 @@ export async function createSymphonyRuntimeTestHarness(input: {
     source: "agent_runtime",
     eventType: "runtime_session_started",
     message: "Started the agent harness session.",
-    issueIdentifier: issue.identifier,
+    trackerIssueId: issue.id,
+    trackerIssueKey: issue.identifier,
     runId,
     payload: {
       threadId: "thread-123",
@@ -561,14 +564,17 @@ export async function createSymphonyRuntimeTestHarness(input: {
     forensics: createSymphonyForensicsReadModel({
       runStore: runtimeForensicsReadStore,
       async listIssueTimeline(input) {
-        return issueTimelineStore.listIssueTimeline(input.issueIdentifier, {
-          limit: input.limit
-        });
+        return await issueTimelineStore.listIssueTimeline(
+          input.trackerIssueKey,
+          {
+            limit: input.limit
+          }
+        );
       },
       async listRuntimeLogs(input) {
-        return runtimeLogStore.list({
+        return await runtimeLogStore.list({
           limit: input.limit,
-          issueIdentifier: input.issueIdentifier
+          trackerIssueKey: input.trackerIssueKey
         });
       }
     }),
@@ -633,7 +639,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
       async compareByWorkflowId() {
         return null;
       },
-      async compareByIssueIdentifier() {
+      async compareByTrackerIssueKey() {
         return null;
       }
     },
@@ -644,37 +650,37 @@ export async function createSymphonyRuntimeTestHarness(input: {
       async loadHydrationStateByWorkflowId() {
         return null;
       },
-      async loadHydrationStateByIssueIdentifier() {
+      async loadHydrationStateByTrackerIssueKey() {
         return null;
       },
-      async loadHydrationStateByScopedIssue() {
+      async loadHydrationStateByScopedTrackerIssueKey() {
         return null;
       },
       async loadReplayStateByWorkflowId() {
         return null;
       },
-      async loadReplayStateByIssueIdentifier() {
+      async loadReplayStateByTrackerIssueKey() {
         return null;
       },
-      async loadReplayStateByScopedIssue() {
+      async loadReplayStateByScopedTrackerIssueKey() {
         return null;
       },
       async rehydrateProjectionByWorkflowId() {
         return null;
       },
-      async rehydrateProjectionByIssueIdentifier() {
+      async rehydrateProjectionByTrackerIssueKey() {
         return null;
       },
-      async rehydrateProjectionByScopedIssue() {
+      async rehydrateProjectionByScopedTrackerIssueKey() {
         return null;
       },
       async resumeSessionByWorkflowId() {
         return null;
       },
-      async resumeSessionByIssueIdentifier() {
+      async resumeSessionByTrackerIssueKey() {
         return null;
       },
-      async resumeSessionByScopedIssue() {
+      async resumeSessionByScopedTrackerIssueKey() {
         return null;
       },
       async recordRouteResult() {
@@ -721,21 +727,21 @@ export async function createSymphonyRuntimeTestHarness(input: {
       }
     },
     workflowRead: {
-      async loadWorkflowLifecycleView({ issueIdentifier }) {
+      async loadWorkflowLifecycleView({ trackerIssueKey }) {
         const trackerState = await (async () => {
           if (input.workflowTrackerState !== undefined) {
             return input.workflowTrackerState;
           }
 
           const runningIssue = snapshot.running.find(
-            (entry) => entry.issue.identifier === issueIdentifier
+            (entry) => entry.issue.identifier === trackerIssueKey
           )?.issue;
           if (runningIssue) {
             return runningIssue.state;
           }
 
           const retryingIssue = snapshot.retrying.find(
-            (entry) => entry.identifier === issueIdentifier
+            (entry) => entry.identifier === trackerIssueKey
           );
           if (retryingIssue) {
             return tracker.getIssue(retryingIssue.issueId)?.state ?? null;
@@ -743,7 +749,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
 
           const trackedIssue = tracker.fetchIssueByIdentifier(
             runtimePolicy.tracker,
-            issueIdentifier
+            trackerIssueKey
           );
           return (await trackedIssue)?.state ?? null;
         })();
@@ -753,7 +759,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
         }
 
         return {
-          workflowId: `workflow-${issueIdentifier}`,
+          workflowId: `workflow-${trackerIssueKey}`,
           trackerState,
           latestReworkHandoff: null,
           latestMergeResult: null

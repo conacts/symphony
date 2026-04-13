@@ -9,7 +9,7 @@ type AgentTurnLatencyRow = {
   turnSequence: number;
   turnLabel: string;
   status: string;
-  issueIdentifier: string;
+  trackerIssueKey: string;
   runId: string;
   wallClockMs: number;
   reasoningMs: number;
@@ -58,7 +58,7 @@ export function buildAgentTurnLatencyRows(input: {
         turnSequence: turnSequenceMap.get(turn.turnId)?.turnSequence ?? index + 1,
         turnLabel: `Turn ${turnSequenceMap.get(turn.turnId)?.turnSequence ?? index + 1}`,
         status: turn.status,
-        issueIdentifier: input.runArtifacts.run.issueIdentifier,
+        trackerIssueKey: input.runArtifacts.run.trackerIssueKey,
         runId: turn.runId,
         wallClockMs,
         reasoningMs,

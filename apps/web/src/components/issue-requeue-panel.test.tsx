@@ -12,7 +12,7 @@ describe("issue requeue panel", () => {
         error={null}
         issueDetail={buildSymphonyForensicsIssueDetailResult()}
         issue={buildSymphonyRuntimeIssueResult()}
-        issueIdentifier="COL-167"
+        trackerIssueKey="COL-167"
         loading={false}
       />
     );
@@ -33,7 +33,7 @@ describe("issue requeue panel", () => {
         error="Runtime issue request failed with 404."
         issueDetail={null}
         issue={null}
-        issueIdentifier="COL-167"
+        trackerIssueKey="COL-167"
         loading={false}
       />
     );
