@@ -1,4 +1,7 @@
 export {
+  buildWorkflowCapabilityCandidates
+} from "./capability-candidate-builder.js";
+export {
   projectWorkflowCapabilityProjection
 } from "./capability-projection.js";
 export {
