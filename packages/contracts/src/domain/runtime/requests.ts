@@ -18,30 +18,6 @@ export const symphonyRuntimeWorkflowObservabilityQuerySchema = z.strictObject({
   historyLimit: z.coerce.number().int().positive().optional(),
   decisionLimit: z.coerce.number().int().positive().optional()
 });
-export const symphonyRuntimeWorkflowComparisonQuerySchema = z
-  .strictObject({
-    presetIds: z.array(nonEmptyStringSchema).nonempty().optional()
-  })
-  .superRefine((input, context) => {
-    if (!input.presetIds) {
-      return;
-    }
-
-    const seenPresetIds = new Set<string>();
-
-    for (const presetId of input.presetIds) {
-      if (seenPresetIds.has(presetId)) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["presetIds"],
-          message: `Duplicate workflow comparison preset id: ${presetId}.`
-        });
-        return;
-      }
-
-      seenPresetIds.add(presetId);
-    }
-  });
 export const symphonyRuntimeTrackerStateObservationRequestSchema = z.strictObject({
   issueIdentifier: nonEmptyStringSchema
 });
@@ -67,9 +43,6 @@ export type SymphonyRuntimeLogsQuery = z.infer<
 >;
 export type SymphonyRuntimeWorkflowObservabilityQuery = z.infer<
   typeof symphonyRuntimeWorkflowObservabilityQuerySchema
->;
-export type SymphonyRuntimeWorkflowComparisonQuery = z.infer<
-  typeof symphonyRuntimeWorkflowComparisonQuerySchema
 >;
 export type SymphonyRuntimeTrackerStateObservationRequest = z.infer<
   typeof symphonyRuntimeTrackerStateObservationRequestSchema

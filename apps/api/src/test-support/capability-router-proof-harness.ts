@@ -10,7 +10,6 @@ import {
 } from "@symphony/db";
 import {
   createSymphonyWorkflowClarificationAnsweredSignal,
-  createSymphonyCurrentFlowRouterAsync,
   createSymphonyIntelligentFlowRouterAsync,
   createSymphonyCurrentFlowTrackerStateObservedSignal,
   createSymphonyIntelligentFlowDefaultModuleRegistry,
@@ -91,7 +90,7 @@ type HarnessRuntime = {
 export class CapabilityRouterProofHarness {
   static async create(input: {
     createEngine?: CapabilityEngineFactory;
-    presetId?: "current-flow" | "intelligent-flow";
+    presetId?: "intelligent-flow";
     policyId?: SymphonyCapabilityPresetPolicyId;
     intelligentFlowSelector?: SymphonyIntelligentFlowSelector | null;
     intelligentFlowModuleRegistry?:
@@ -122,7 +121,7 @@ export class CapabilityRouterProofHarness {
   readonly #root: string;
   readonly #issue: SymphonyTrackerIssue;
   readonly #createEngine: CapabilityEngineFactory;
-  readonly #presetId: "current-flow" | "intelligent-flow";
+  readonly #presetId: "intelligent-flow";
   readonly #policyId: SymphonyCapabilityPresetPolicyId;
   readonly #intelligentFlowSelector: SymphonyIntelligentFlowSelector | null;
   readonly #intelligentFlowModuleRegistry:
@@ -143,7 +142,7 @@ export class CapabilityRouterProofHarness {
   private constructor(input: {
     root: string;
     createEngine?: CapabilityEngineFactory;
-    presetId?: "current-flow" | "intelligent-flow";
+    presetId?: "intelligent-flow";
     policyId?: SymphonyCapabilityPresetPolicyId;
     intelligentFlowSelector?: SymphonyIntelligentFlowSelector | null;
     intelligentFlowModuleRegistry?:
@@ -157,7 +156,7 @@ export class CapabilityRouterProofHarness {
     this.#issue = input.issue ?? buildProofIssue();
     this.#createEngine =
       input.createEngine ?? (() => createCapabilityScenarioExecutionEngine());
-    this.#presetId = input.presetId ?? "current-flow";
+    this.#presetId = input.presetId ?? "intelligent-flow";
     this.#policyId = input.policyId ?? "default";
     this.#intelligentFlowSelector = input.intelligentFlowSelector ?? null;
     this.#intelligentFlowModuleRegistry =
@@ -282,7 +281,7 @@ export class CapabilityRouterProofHarness {
     recordedAt: string;
     state: SymphonyCurrentFlowTrackerState;
     runId?: string | null;
-    runMode?: "implementation" | "rework" | "approved_merge" | null;
+    runMode?: "implementation" | "rework" | null;
   }) {
     const resumed = await this.runtime().sessionLoader.resumeByWorkflowId({
       workflowId: this.workflowId
@@ -351,7 +350,7 @@ export class CapabilityRouterProofHarness {
     return {
       currentNode: hydration.snapshot.projection.currentNode,
       pendingCommandIds: hydration.snapshot.projection.pendingCommands.map(
-        (command) => command.id
+        (command: { id: string }) => command.id
       )
     };
   }
@@ -427,71 +426,37 @@ export class CapabilityRouterProofHarness {
       recordedAt: "2026-04-13T09:00:00.000Z"
     });
 
-    if (this.#presetId === "intelligent-flow") {
-      const router = await createSymphonyIntelligentFlowRouterAsync();
-      const ensured = await this.routeWorkflows.ensureWorkflowForIssue({
-        trackerIssueId: this.#issue.id,
-        issueIdentifier: this.#issue.identifier,
-        repositoryKey: "openai/symphony",
-        routerPresetId: this.#presetId,
-        router,
-        createdAt: "2026-04-13T09:00:30.000Z"
-      });
-      this.#workflowId = ensured.workflow.workflowId;
+    const router = await createSymphonyIntelligentFlowRouterAsync();
+    const ensured = await this.routeWorkflows.ensureWorkflowForIssue({
+      trackerIssueId: this.#issue.id,
+      issueIdentifier: this.#issue.identifier,
+      repositoryKey: "openai/symphony",
+      routerPresetId: this.#presetId,
+      router,
+      createdAt: "2026-04-13T09:00:30.000Z"
+    });
+    this.#workflowId = ensured.workflow.workflowId;
 
-      const session = await router.startSessionAsync({
-        workflowId: this.workflowId,
-        policy: {}
-      });
-      const bootstrapResult = await session.receiveAsync(
-        createSymphonyCurrentFlowTrackerStateObservedSignal({
-          id: "signal_todo_observed_capability_router_proof",
-          occurredAt: "2026-04-13T09:01:00.000Z",
-          state: "Todo",
-          runId: null,
-          runMode: null,
-          causationId: null,
-          correlationId: this.#issue.identifier
-        })
-      );
-      await this.routeWorkflows.recordRouteResult({
-        workflowId: this.workflowId,
-        policy: {},
-        result: bootstrapResult
-      });
-    } else {
-      const router = await createSymphonyCurrentFlowRouterAsync();
-      const ensured = await this.routeWorkflows.ensureWorkflowForIssue({
-        trackerIssueId: this.#issue.id,
-        issueIdentifier: this.#issue.identifier,
-        repositoryKey: "openai/symphony",
-        routerPresetId: this.#presetId,
-        router,
-        createdAt: "2026-04-13T09:00:30.000Z"
-      });
-      this.#workflowId = ensured.workflow.workflowId;
-
-      const session = await router.startSessionAsync({
-        workflowId: this.workflowId,
-        policy: {}
-      });
-      const bootstrapResult = await session.receiveAsync(
-        createSymphonyCurrentFlowTrackerStateObservedSignal({
-          id: "signal_todo_observed_capability_router_proof",
-          occurredAt: "2026-04-13T09:01:00.000Z",
-          state: "Todo",
-          runId: null,
-          runMode: null,
-          causationId: null,
-          correlationId: this.#issue.identifier
-        })
-      );
-      await this.routeWorkflows.recordRouteResult({
-        workflowId: this.workflowId,
-        policy: {},
-        result: bootstrapResult
-      });
-    }
+    const session = await router.startSessionAsync({
+      workflowId: this.workflowId,
+      policy: {}
+    });
+    const bootstrapResult = await session.receiveAsync(
+      createSymphonyCurrentFlowTrackerStateObservedSignal({
+        id: "signal_todo_observed_capability_router_proof",
+        occurredAt: "2026-04-13T09:01:00.000Z",
+        state: "Todo",
+        runId: null,
+        runMode: null,
+        causationId: null,
+        correlationId: this.#issue.identifier
+      })
+    );
+    await this.routeWorkflows.recordRouteResult({
+      workflowId: this.workflowId,
+      policy: {},
+      result: bootstrapResult
+    });
 
     if (this.#createContract) {
       this.#contract = await this.routeWorkflows.saveExecutionContract({

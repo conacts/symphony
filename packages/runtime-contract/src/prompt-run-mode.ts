@@ -1,7 +1,4 @@
-export type SymphonyRunMode =
-  | "implementation"
-  | "rework"
-  | "approved_merge";
+export type SymphonyRunMode = "implementation" | "rework";
 
 export function deriveSymphonyRunMode(
   issueState: string | null | undefined
@@ -10,10 +7,6 @@ export function deriveSymphonyRunMode(
 
   if (normalizedState === "rework") {
     return "rework";
-  }
-
-  if (normalizedState === "approved") {
-    return "approved_merge";
   }
 
   return "implementation";

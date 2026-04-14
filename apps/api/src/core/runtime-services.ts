@@ -63,10 +63,6 @@ import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-l
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import {
-  compareRuntimeWorkflowByIssueIdentifier,
-  compareRuntimeWorkflowByWorkflowId
-} from "./runtime-workflow-comparison.js";
-import {
   createRuntimeWorkflowObservabilityService
 } from "./runtime-workflow-observability.js";
 import {
@@ -659,31 +655,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       };
     }
   } satisfies SymphonyRuntimeAppServices["trackerStateIngress"];
-  const workflowComparison = {
-    async compareByWorkflowId(input: {
-      workflowId: string;
-      presetIds?: ReadonlyArray<string>;
-    }) {
-      return await compareRuntimeWorkflowByWorkflowId({
-        workflowId: input.workflowId,
-        routeWorkflows,
-        trackerConfig: runtimePolicy.tracker,
-        presetIds: input.presetIds
-      });
-    },
-    async compareByIssueIdentifier(input: {
-      issueIdentifier: string;
-      presetIds?: ReadonlyArray<string>;
-    }) {
-      return await compareRuntimeWorkflowByIssueIdentifier({
-        issueIdentifier: input.issueIdentifier,
-        routeWorkflows,
-        trackerConfig: runtimePolicy.tracker,
-        bindingScope: bootstrapBinding.bindingScope,
-        presetIds: input.presetIds
-      });
-    }
-  } satisfies SymphonyRuntimeAppServices["workflowComparison"];
   const workflowObservability = createRuntimeWorkflowObservabilityService({
     routeWorkflowStore,
     workflowRead,
@@ -845,7 +816,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     workflowRead,
     capabilityOperator,
     workflowObservability,
-    workflowComparison,
     routeWorkflows,
     githubReviewIngress,
     realtime,

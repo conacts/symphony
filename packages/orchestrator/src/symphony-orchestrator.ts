@@ -789,19 +789,6 @@ export class SymphonyOrchestrator {
     let currentIssue = routedCompletion.issue;
     let continueWithRunMode = routedCompletion.continueWithRunMode;
 
-    if (
-      runningEntry.runMode === "approved_merge" &&
-      completion.kind === "merged" &&
-      resolvedCompletion.kind === "merged"
-    ) {
-      const mergeResolution = await this.#resolveApprovedMergeSuccess({
-        completion,
-        currentIssue
-      });
-      currentIssue = mergeResolution.currentIssue;
-      resolvedCompletion = mergeResolution.completion;
-    }
-
     if (resolvedCompletion.kind !== completion.kind) {
       const reroutedCompletion = await this.#routeCompletionWithAllowedFallbacks({
         issue: currentIssue,
@@ -853,19 +840,6 @@ export class SymphonyOrchestrator {
       resolvedCompletion.kind === "merged" ||
       resolvedCompletion.kind === "max_turns_reached"
     ) {
-      if (
-        runningEntry.runMode === "approved_merge" &&
-        (resolvedCompletion.kind === "merged" ||
-          resolvedCompletion.kind === "max_turns_reached")
-      ) {
-        await this.#handleApprovedMergeCompletion({
-          runningEntry,
-          completion: resolvedCompletion,
-          currentIssue
-        });
-        return;
-      }
-
       if (resolvedCompletion.kind === "max_turns_reached") {
         await this.#handleRoutedFailureOutcome({
           routedIssue: currentIssue,
@@ -936,43 +910,6 @@ export class SymphonyOrchestrator {
         workerHost: runningEntry.workerHost,
         completionKind: resolvedCompletion.kind,
         mode: "preserve"
-      });
-      return;
-    }
-
-    if (
-      runningEntry.runMode === "approved_merge" &&
-      resolvedCompletion.kind === "merge_blocked"
-    ) {
-      await this.#handleRoutedFailureOutcome({
-        routedIssue: currentIssue,
-        runId: runningEntry.runId,
-        workspace: runningEntry.workspace,
-        workerHost: runningEntry.workerHost,
-        reason: resolvedCompletion.reason,
-        completionKind: resolvedCompletion.kind,
-        commentOutcome: "blocked_merge",
-        transitionTargetState: this.#config.tracker.blockedTransitionToState,
-      });
-      return;
-    }
-
-    if (
-      runningEntry.runMode === "approved_merge" &&
-      (resolvedCompletion.kind === "failure" || resolvedCompletion.kind === "stalled")
-    ) {
-      await this.#handleRoutedFailureOutcome({
-        routedIssue: currentIssue,
-        runId: runningEntry.runId,
-        workspace: runningEntry.workspace,
-        workerHost: runningEntry.workerHost,
-        reason: resolvedCompletion.reason,
-        completionKind: resolvedCompletion.kind,
-        commentOutcome:
-          resolvedCompletion.kind === "stalled"
-            ? "blocked_merge_stalled"
-            : "blocked_merge_failure",
-        transitionTargetState: this.#config.tracker.blockedTransitionToState,
       });
       return;
     }
@@ -1065,24 +1002,6 @@ export class SymphonyOrchestrator {
         continueWithRunMode: routed.continueWithRunMode ?? null
       };
     } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-
-      if (
-        input.runMode === "approved_merge" &&
-        input.completion.kind === "merged"
-      ) {
-        return {
-          issue: input.issue,
-          completion: {
-            kind: "failure",
-            reason:
-              "Merge was recorded as merged, but Symphony could not move the issue to `Done`: " +
-              reason
-          },
-          continueWithRunMode: null
-        };
-      }
-
       if (input.completion.kind !== "startup_failure") {
         throw error;
       }
@@ -1131,71 +1050,6 @@ export class SymphonyOrchestrator {
     });
 
     return activated.issue;
-  }
-
-  async #handleApprovedMergeCompletion(input: {
-    runningEntry: SymphonyOrchestratorState["running"][string];
-    completion: Extract<
-      SymphonyAgentRuntimeCompletion,
-      { kind: "merged" | "max_turns_reached" }
-    >;
-    currentIssue: SymphonyTrackerIssue;
-  }): Promise<void> {
-    let finalIssue = input.currentIssue;
-
-    if (input.completion.kind === "max_turns_reached") {
-      await this.#handleRoutedFailureOutcome({
-        routedIssue: finalIssue,
-        runId: input.runningEntry.runId,
-        workspace: input.runningEntry.workspace,
-        workerHost: input.runningEntry.workerHost,
-        reason: input.completion.reason,
-        completionKind: input.completion.kind,
-        commentOutcome: "blocked_merge_max_turns",
-        transitionTargetState: this.#config.tracker.blockedTransitionToState,
-      });
-      return;
-    }
-
-    await this.#cleanupStoppedRun({
-      issue: finalIssue,
-      runId: input.runningEntry.runId,
-      workspace: input.runningEntry.workspace,
-      workerHost: input.runningEntry.workerHost,
-      completionKind: input.completion.kind,
-      mode: workspaceCleanupModeForIssue({
-        issue: finalIssue,
-        tracker: this.#config.tracker
-      })
-    });
-  }
-
-  async #resolveApprovedMergeSuccess(input: {
-    completion: Extract<SymphonyAgentRuntimeCompletion, { kind: "merged" }>;
-    currentIssue: SymphonyTrackerIssue;
-  }): Promise<{
-    currentIssue: SymphonyTrackerIssue;
-    completion: SymphonyAgentRuntimeCompletion;
-  }> {
-    const targetState = "Done";
-    if (
-      normalizeStateName(input.currentIssue.state) !== normalizeStateName(targetState)
-    ) {
-      return {
-        currentIssue: input.currentIssue,
-        completion: {
-          kind: "failure",
-          reason:
-            `Merge was recorded as merged, but Symphony could not move the issue to \`${targetState}\`: ` +
-            `tracker state remained \`${input.currentIssue.state}\``
-        }
-      };
-    }
-
-    return {
-      currentIssue: input.currentIssue,
-      completion: input.completion
-    };
   }
 
   async #handleRoutedFailureOutcome(input: {
@@ -1780,10 +1634,6 @@ function canIssueContinueRun(input: {
   }
 
   const normalizedState = normalizeStateName(input.issue.state);
-  if (input.runMode === "approved_merge") {
-    return normalizedState === "approved" || normalizedState === "in progress";
-  }
-
   return normalizedState !== "approved";
 }
 

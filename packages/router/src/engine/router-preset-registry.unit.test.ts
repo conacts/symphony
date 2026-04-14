@@ -3,30 +3,30 @@ import {
   WorkflowRouterPresetRegistry
 } from "./router-preset-registry.js";
 import {
-  createSymphonyCurrentFlowRouterPreset
-} from "../presets/current-flow/symphony-current-flow-router.js";
+  createSymphonyIntelligentFlowRouterPreset
+} from "../presets/intelligent-flow/symphony-intelligent-flow-router.js";
 
 describe("workflow router preset registry", () => {
   it("lists and resolves registered presets", async () => {
     const registry = new WorkflowRouterPresetRegistry({
-      "current-flow": createSymphonyCurrentFlowRouterPreset()
+      "intelligent-flow": createSymphonyIntelligentFlowRouterPreset()
     });
 
-    expect(registry.listPresetIds()).toEqual(["current-flow"]);
+    expect(registry.listPresetIds()).toEqual(["intelligent-flow"]);
 
-    const resolved = await registry.resolvePreset("current-flow", {
+    const resolved = await registry.resolvePreset("intelligent-flow", {
       now: () => new Date("2026-04-10T00:00:00.000Z")
     });
 
-    expect(resolved.presetId).toBe("current-flow");
-    expect(resolved.router.definition().name).toBe("symphony-current-flow");
+    expect(resolved.presetId).toBe("intelligent-flow");
+    expect(resolved.router.definition().name).toBe("symphony-intelligent-flow");
     expect(resolved.router.definition().version).toBe("1");
     expect(resolved.policy).toEqual({});
   });
 
   it("fails fast when a requested preset id is not registered", () => {
     const registry = new WorkflowRouterPresetRegistry({
-      "current-flow": createSymphonyCurrentFlowRouterPreset()
+      "intelligent-flow": createSymphonyIntelligentFlowRouterPreset()
     });
 
     expect(() => registry.requirePresetId("missing")).toThrow(

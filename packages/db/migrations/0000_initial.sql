@@ -70,8 +70,7 @@ CREATE TABLE IF NOT EXISTS symphony_runs (
   run_mode TEXT NOT NULL CHECK (
     run_mode IN (
       'implementation',
-      'rework',
-      'approved_merge'
+      'rework'
     )
   ),
   status TEXT NOT NULL CHECK (

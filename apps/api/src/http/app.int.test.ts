@@ -12,9 +12,9 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import type {
-  SymphonyCurrentFlowData,
-  SymphonyCurrentFlowNode,
-  SymphonyCurrentFlowPolicy
+  SymphonyIntelligentFlowData,
+  SymphonyIntelligentFlowNode,
+  SymphonyIntelligentFlowPolicy
 } from "@symphony/router";
 import type { MemorySymphonyTracker } from "@symphony/tracker";
 import { createSymphonyRuntimeApp } from "./app.js";
@@ -213,9 +213,9 @@ describe("@symphony/api app", () => {
 
       const hydration =
         await harness.services.routeWorkflows.loadHydrationStateByIssueIdentifier<
-          SymphonyCurrentFlowNode,
-          SymphonyCurrentFlowData,
-          SymphonyCurrentFlowPolicy
+          SymphonyIntelligentFlowNode,
+          SymphonyIntelligentFlowData,
+          SymphonyIntelligentFlowPolicy
         >("COL-777");
 
       const secondResponse = await app.request(

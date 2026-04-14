@@ -440,45 +440,6 @@ export const symphonyRuntimeWorkflowComparisonSignalSchema = z.strictObject({
   payload: jsonValueSchema
 });
 
-export const symphonyRuntimeWorkflowComparisonCandidateSchema = z.strictObject({
-  candidateId: nonEmptyStringSchema,
-  finalNode: nullableNonEmptyStringSchema,
-  terminal: z.boolean(),
-  pendingCommandCount: z.number().int().nonnegative(),
-  reasonCodes: z.array(nonEmptyStringSchema)
-});
-
-export const symphonyRuntimeWorkflowComparisonSummarySchema = z.strictObject({
-  diverged: z.boolean(),
-  finalNodeByCandidate: z.record(nonEmptyStringSchema, nullableNonEmptyStringSchema),
-  reasonCodesByCandidate: z.record(nonEmptyStringSchema, z.array(nonEmptyStringSchema)),
-  pendingCommandCountsByCandidate: z.record(
-    nonEmptyStringSchema,
-    z.number().int().nonnegative()
-  )
-});
-
-export const symphonyRuntimeWorkflowComparisonResultSchema = z.strictObject({
-  workflow: z.strictObject({
-    workflowId: nonEmptyStringSchema,
-    repositoryKey: nonEmptyStringSchema,
-    issueIdentifier: nonEmptyStringSchema,
-    routerPresetId: nonEmptyStringSchema,
-    routerName: nonEmptyStringSchema,
-    routerVersion: nonEmptyStringSchema,
-    insertedAt: isoTimestampSchema,
-    updatedAt: isoTimestampSchema
-  }),
-  replay: z.strictObject({
-    recordedEventCount: z.number().int().nonnegative(),
-    recordedSignalCount: z.number().int().nonnegative(),
-    signals: z.array(symphonyRuntimeWorkflowComparisonSignalSchema)
-  }),
-  comparedPresetIds: z.array(nonEmptyStringSchema).nonempty(),
-  entries: z.array(symphonyRuntimeWorkflowComparisonCandidateSchema).nonempty(),
-  summary: symphonyRuntimeWorkflowComparisonSummarySchema
-});
-
 export const symphonyRuntimeWorkflowDescriptorSchema = z.strictObject({
   workflowId: nonEmptyStringSchema,
   trackerIssueId: nonEmptyStringSchema,
@@ -847,9 +808,6 @@ export const symphonyRuntimeTrackerStateObservationResponseSchema = createEnvelo
 export const symphonyRuntimeWorkflowObservabilityResponseSchema = createEnvelopeSchema(
   symphonyRuntimeWorkflowObservabilityResultSchema
 );
-export const symphonyRuntimeWorkflowComparisonResponseSchema = createEnvelopeSchema(
-  symphonyRuntimeWorkflowComparisonResultSchema
-);
 export const symphonyRuntimeLogsResponseSchema = createEnvelopeSchema(
   symphonyRuntimeLogsResultSchema
 );
@@ -975,12 +933,6 @@ export type SymphonyRuntimeTrackerStateObservationResult = z.infer<
 export type SymphonyRuntimeWorkflowComparisonSignal = z.infer<
   typeof symphonyRuntimeWorkflowComparisonSignalSchema
 >;
-export type SymphonyRuntimeWorkflowComparisonCandidate = z.infer<
-  typeof symphonyRuntimeWorkflowComparisonCandidateSchema
->;
-export type SymphonyRuntimeWorkflowComparisonSummary = z.infer<
-  typeof symphonyRuntimeWorkflowComparisonSummarySchema
->;
 export type SymphonyRuntimeWorkflowDescriptor = z.infer<
   typeof symphonyRuntimeWorkflowDescriptorSchema
 >;
@@ -1028,9 +980,6 @@ export type SymphonyRuntimeWorkflowModuleObservation = z.infer<
 >;
 export type SymphonyRuntimeWorkflowObservabilityResult = z.infer<
   typeof symphonyRuntimeWorkflowObservabilityResultSchema
->;
-export type SymphonyRuntimeWorkflowComparisonResult = z.infer<
-  typeof symphonyRuntimeWorkflowComparisonResultSchema
 >;
 export type SymphonyRuntimeLogEntry = z.infer<typeof symphonyRuntimeLogEntrySchema>;
 export type SymphonyRuntimeLogsResult = z.infer<typeof symphonyRuntimeLogsResultSchema>;

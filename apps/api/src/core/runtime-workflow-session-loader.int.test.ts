@@ -14,8 +14,7 @@ import {
 } from "@symphony/db";
 import { buildSymphonyRuntimePolicy, buildSymphonyTrackerIssue } from "@symphony/test-support";
 import {
-  createRuntimeAutoMergeRouting,
-  createRuntimeCurrentFlowRouting
+  createRuntimeIntelligentFlowRouting
 } from "./runtime-workflow-presets.js";
 import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
@@ -111,39 +110,10 @@ describe("runtime workflow session loader", () => {
       });
 
       expect(loaded).not.toBeNull();
-      expect(loaded?.routing.presetId).toBe("current-flow");
+      expect(loaded?.routing.presetId).toBe("intelligent-flow");
       expect(loaded?.resumed.hydrationState.workflow.workflowId).toBe(
         ensured.workflow.workflowId
       );
-    } finally {
-      harness.close();
-    }
-  });
-
-  it("resumes alternate preset workflows from stored workflow identity", async () => {
-    const harness = await createHarness();
-
-    try {
-      const routing = await createRuntimeAutoMergeRouting({
-        trackerConfig: harness.runtimePolicy.tracker,
-        now: () => new Date("2026-04-10T16:02:00.000Z")
-      });
-      const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
-        trackerIssueId: harness.issue.id,
-        issueIdentifier: harness.issue.identifier,
-        repositoryKey: "openai/symphony",
-        routerPresetId: routing.presetId,
-        router: routing.router,
-        createdAt: "2026-04-10T16:02:00.000Z"
-      });
-
-      const loaded = await harness.sessionLoader.resumeByWorkflowId({
-        workflowId: ensured.workflow.workflowId
-      });
-
-      expect(loaded).not.toBeNull();
-      expect(loaded?.routing.presetId).toBe("auto-merge");
-      expect(loaded?.routing.router.definition().name).toBe("symphony-auto-merge-flow");
     } finally {
       harness.close();
     }
@@ -262,7 +232,7 @@ async function createHarness(input?: {
   } | null;
 }) {
   const root = await mkdtemp(
-    path.join(tmpdir(), "symphony-current-flow-session-loader-")
+    path.join(tmpdir(), "symphony-intelligent-flow-session-loader-")
   );
   tempDirectories.push(root);
 
@@ -311,7 +281,7 @@ async function createHarness(input?: {
         }
   );
 
-  const routing = await createRuntimeCurrentFlowRouting({
+  const routing = await createRuntimeIntelligentFlowRouting({
     trackerConfig: runtimePolicy.tracker,
     now: () => new Date("2026-04-10T16:00:00.000Z")
   });

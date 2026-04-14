@@ -228,13 +228,6 @@ function resolveActivationTargetState(input: {
     return "In Progress";
   }
 
-  if (
-    input.runMode === "approved_merge" &&
-    normalizedState === "approved"
-  ) {
-    return "In Progress";
-  }
-
   return null;
 }
 
@@ -253,21 +246,6 @@ function resolveCompletionTargetState(input: {
 
   if (input.completion.kind === "blocked") {
     return input.config.tracker.blockedTransitionToState;
-  }
-
-  if (input.runMode === "approved_merge") {
-    if (input.completion.kind === "merged") {
-      return "Done";
-    }
-
-    if (
-      input.completion.kind === "merge_blocked" ||
-      input.completion.kind === "failure" ||
-      input.completion.kind === "stalled" ||
-      input.completion.kind === "max_turns_reached"
-    ) {
-      return input.config.tracker.blockedTransitionToState;
-    }
   }
 
   if (

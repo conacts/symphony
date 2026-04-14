@@ -77,7 +77,7 @@ export async function createRouteLifecycleGoldenPathHarness(input: {
     repositoryKey,
     presetSelection: {
       ...createDefaultRuntimeWorkflowPresetSelection(),
-      presetId: input.presetId ?? "current-flow"
+      presetId: input.presetId ?? "intelligent-flow"
     },
     capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
     routeWorkflowStore,

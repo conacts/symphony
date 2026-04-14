@@ -27,7 +27,7 @@ export type SymphonyIssueRecord = {
   updatedAt: SymphonyIsoTimestamp;
 };
 
-export type SymphonyRunMode = "implementation" | "rework" | "approved_merge";
+export type SymphonyRunMode = "implementation" | "rework";
 export type SymphonyRunStatus =
   | "dispatching"
   | "running"

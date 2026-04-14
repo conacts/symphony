@@ -1,13 +1,7 @@
 import type { SymphonyTrackerConfig } from "@symphony/tracker";
 import {
-  runtimeAutoMergeRuntimeRouterPresetModule
-} from "./runtime-auto-merge-routing.js";
-import {
   runtimeIntelligentFlowRuntimeRouterPresetModule
 } from "./runtime-intelligent-flow-routing.js";
-import {
-  runtimeCurrentFlowRuntimeRouterPresetModule
-} from "./runtime-current-flow-routing.js";
 import {
   createSymphonyRuntimeWorkflowPresetRegistry,
   type SymphonyResolvedRuntimeWorkflowPreset,
@@ -16,16 +10,11 @@ import {
 } from "./runtime-workflow-preset-registry.js";
 
 const runtimeWorkflowPresetModules = {
-  "auto-merge": runtimeAutoMergeRuntimeRouterPresetModule,
-  "current-flow": runtimeCurrentFlowRuntimeRouterPresetModule,
   "intelligent-flow": runtimeIntelligentFlowRuntimeRouterPresetModule
 } as const;
 
 const runtimeWorkflowPresetRegistry =
   createSymphonyRuntimeWorkflowPresetRegistry({
-    // Intelligent-flow is the only live runtime preset. Legacy presets remain
-    // registered here solely so persisted workflows can still be resumed for
-    // replay/comparison and explicit lower-level tests.
     defaultPresetId: "intelligent-flow",
     modules: runtimeWorkflowPresetModules
   });
@@ -50,10 +39,6 @@ export type SymphonyResolvedRuntimeRouterPreset<
 export type SymphonyRuntimeRouterPresetSelection =
   SymphonyRuntimeWorkflowPresetSelection<typeof runtimeWorkflowPresetModules>;
 
-export type SymphonyRuntimeCurrentFlowRouting =
-  SymphonyResolvedRuntimeRouterPreset<"current-flow">;
-export type SymphonyRuntimeAutoMergeRouting =
-  SymphonyResolvedRuntimeRouterPreset<"auto-merge">;
 export type SymphonyRuntimeIntelligentFlowRouting =
   SymphonyResolvedRuntimeRouterPreset<"intelligent-flow">;
 
@@ -90,28 +75,6 @@ export function isOperationalRuntimeRouterPresetId(
   return operationalRuntimeRouterPresetIds.includes(
     presetId as SymphonyOperationalRuntimeRouterPresetId
   );
-}
-
-export async function createRuntimeCurrentFlowRouting(input: {
-  trackerConfig: SymphonyTrackerConfig;
-  now?: () => Date;
-}): Promise<SymphonyRuntimeCurrentFlowRouting> {
-  return await runtimeWorkflowPresetRegistry.resolvePreset({
-    presetId: "current-flow",
-    trackerConfig: input.trackerConfig,
-    now: input.now
-  });
-}
-
-export async function createRuntimeAutoMergeRouting(input: {
-  trackerConfig: SymphonyTrackerConfig;
-  now?: () => Date;
-}): Promise<SymphonyRuntimeAutoMergeRouting> {
-  return await runtimeWorkflowPresetRegistry.resolvePreset({
-    presetId: "auto-merge",
-    trackerConfig: input.trackerConfig,
-    now: input.now
-  });
 }
 
 export async function createRuntimeIntelligentFlowRouting(input: {

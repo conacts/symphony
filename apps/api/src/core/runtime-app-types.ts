@@ -42,9 +42,6 @@ import type {
   SymphonyRuntimeBootstrapBinding
 } from "./runtime-bootstrap-contract.js";
 import type {
-  SymphonyRuntimeWorkflowComparison
-} from "./runtime-workflow-comparison.js";
-import type {
   SymphonyRuntimeWorkflowLifecycleView
 } from "./runtime-workflow-lifecycle-view.js";
 
@@ -114,17 +111,6 @@ export type SymphonyRuntimeCapabilityOperatorPort = {
     requestId: string;
     answers: Record<string, string>;
   }): Promise<SymphonyRuntimeClarificationAnswerResult>;
-};
-
-export type SymphonyRuntimeWorkflowComparisonPort = {
-  compareByWorkflowId(input: {
-    workflowId: string;
-    presetIds?: ReadonlyArray<string>;
-  }): Promise<SymphonyRuntimeWorkflowComparison | null>;
-  compareByIssueIdentifier(input: {
-    issueIdentifier: string;
-    presetIds?: ReadonlyArray<string>;
-  }): Promise<SymphonyRuntimeWorkflowComparison | null>;
 };
 
 export type SymphonyRuntimeWorkflowObservabilityPort = {
@@ -201,7 +187,6 @@ export type SymphonyRuntimeAppServices = {
   workflowRead: SymphonyRuntimeWorkflowReadPort;
   capabilityOperator: SymphonyRuntimeCapabilityOperatorPort;
   workflowObservability: SymphonyRuntimeWorkflowObservabilityPort;
-  workflowComparison: SymphonyRuntimeWorkflowComparisonPort;
   routeWorkflows: SymphonyRouteWorkflowPort;
   githubReviewIngress: SymphonyGitHubReviewIngressPort;
   realtime: SymphonyRealtimeHub;

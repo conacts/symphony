@@ -10,7 +10,6 @@ import {
 import {
   createSymphonyCapabilityCompletedSignal,
   createSymphonyCapabilityStartedSignal,
-  createSymphonyCurrentFlowRouterAsync,
   createSymphonyIntelligentFlowRouterAsync,
   createSymphonyCurrentFlowTrackerStateObservedSignal,
   type WorkflowRouter,
@@ -663,7 +662,7 @@ async function seedPlannerFixture(
     });
   }
 
-  const router = await createSymphonyCurrentFlowRouterAsync();
+  const router = await createSymphonyIntelligentFlowRouterAsync();
 
   return await seedPlannerFixtureWithRouter({
     harness,

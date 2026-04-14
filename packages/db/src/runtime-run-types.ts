@@ -19,10 +19,7 @@ export type SymphonyRuntimeRunStatus =
   | "stalled"
   | "stopped";
 
-export type SymphonyRuntimeRunMode =
-  | "implementation"
-  | "rework"
-  | "approved_merge";
+export type SymphonyRuntimeRunMode = "implementation" | "rework";
 export type SymphonyRuntimeRunOutcome = SymphonyRunOutcome;
 
 export type SymphonyRuntimeMachineLoadSummary = {

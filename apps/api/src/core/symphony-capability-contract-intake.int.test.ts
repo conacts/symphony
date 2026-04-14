@@ -8,7 +8,7 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import {
-  createSymphonyCurrentFlowRouterAsync
+  createSymphonyIntelligentFlowRouterAsync
 } from "@symphony/router";
 import {
   buildSymphonyTrackerIssue
@@ -231,8 +231,8 @@ async function createHarness(input: {
     trackerIssueId: issue.id,
     issueIdentifier: issue.identifier,
     repositoryKey: "openai/symphony",
-    routerPresetId: "current-flow",
-    router: await createSymphonyCurrentFlowRouterAsync(),
+    routerPresetId: "intelligent-flow",
+    router: await createSymphonyIntelligentFlowRouterAsync(),
     createdAt: "2026-04-13T06:06:00.000Z"
   });
 

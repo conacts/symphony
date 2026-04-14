@@ -23,15 +23,15 @@ describe("symphony continuation prompt", () => {
     expect(prompt).toContain("final fenced `json` block");
   });
 
-  it("switches completion guidance for approved merge continuation turns", () => {
+  it("uses rework-specific continuation guidance on rework turns", () => {
     const prompt = buildSymphonyContinuationPrompt({
       turnNumber: 2,
       maxTurns: 20,
-      runMode: "approved_merge"
+      runMode: "rework"
     });
 
-    expect(prompt).toContain("Approved merge is no longer a supported live run mode");
-    expect(prompt).toContain("blocked terminal module result");
+    expect(prompt).toContain("read the latest Linear comment context");
+    expect(prompt).toContain("address the current feedback instead of stale assumptions");
   });
 
   it("uses terminal module-result guidance for capability-managed continuation turns", () => {

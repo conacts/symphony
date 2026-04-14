@@ -167,25 +167,16 @@ async function executeDeliveryCommands(input: {
             adapter: input.presetAdapter,
             command: executedCommand
           });
-          if (runMode !== "approved_merge") {
-            throw new TypeError(
-              `Delivery routing only supports run.dispatch approved_merge for completed delivery reports. Received ${runMode}.`
-            );
-          }
+          void runMode;
+          throw new TypeError(
+            "Delivery routing no longer supports run.dispatch commands for completed delivery reports."
+          );
 
           if (!input.onDispatchRequested) {
             throw new TypeError(
               "Delivery routing emitted run.dispatch without a dispatch callback."
             );
           }
-
-          await input.onDispatchRequested({
-            workflowId: input.workflowId,
-            commandId: executedCommand.id,
-            trackerIssue: currentProjectedIssue,
-            runMode,
-            recordedAt: input.recordedAt
-          });
         }
       });
       continue;

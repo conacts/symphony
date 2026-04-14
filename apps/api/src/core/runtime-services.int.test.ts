@@ -7,7 +7,6 @@ import {
   renderSymphonyRuntimeManifestSource
 } from "@symphony/test-support";
 import {
-  createSymphonyIssueStore,
   initializeSymphonyDb,
   symphonyGitHubInstallationIdentitiesTable,
   symphonyGitHubRepositoryIdentitiesTable,
@@ -19,7 +18,6 @@ import {
   symphonyRepositoryTeamBindingsTable,
   symphonyRepositoryWorkspaceBindingsTable
 } from "@symphony/db";
-import type { WorkflowSignal } from "@symphony/router";
 import {
   buildSymphonyTrackerIssue,
   type MemorySymphonyTracker
@@ -41,7 +39,6 @@ import {
 } from "./runtime-service-bootstrap.js";
 import { resolveDockerWorkspaceAuthContracts } from "./runtime-auth-contract.js";
 import { createSymphonyRuntimeTestHarness } from "../test-support/create-symphony-runtime-test-harness.js";
-import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
 import {
   buildBootstrapInstallLifecycleEvent,
   createRuntimeDbObserverTestSupport
@@ -419,7 +416,7 @@ describe("runtime services", () => {
           environmentSource: fixture.environmentSource,
           workflowPresetOverride: "auto-merge"
         })
-      ).rejects.toThrow(/does not support workflow preset "auto-merge"/i);
+      ).rejects.toThrow(/invalid workflow preset "auto-merge"/i);
     } finally {
       await fixture.cleanup();
     }
@@ -1316,99 +1313,6 @@ describe("runtime services", () => {
     runtimeServicesIntegrationTestTimeoutMs
   );
 
-  it(
-    "exposes workflow comparison through runtime services",
-    async () => {
-      const harness = await createSymphonyRuntimeAppServicesHarness();
-      harnesses.push(harness);
-
-      try {
-        const repositoryKey = harness.services.runtimePolicy.github.repo;
-        if (!repositoryKey) {
-          throw new TypeError(
-            "Runtime workflow comparison service test requires runtimePolicy.github.repo."
-          );
-        }
-
-        const issue = buildSymphonyTrackerIssue({
-          id: "issue-compare-flow",
-          identifier: "SYM-COMPARE",
-          state: "Todo"
-        });
-        const tracker = harness.services.tracker as MemorySymphonyTracker;
-        tracker.setIssues([issue]);
-
-        await seedCurrentFlowWorkflowHistory({
-          services: harness.services,
-          trackerConfig: harness.services.runtimePolicy.tracker,
-          repositoryKey,
-          issueIdentifier: issue.identifier,
-          trackerIssueId: issue.id,
-          dbFile: harness.env.dbFile,
-          createdAt: "2026-04-11T12:00:00.000Z",
-          signals: [
-            {
-              id: "signal_todo_observed",
-              signal: (routing) =>
-                routing.module.runtimeAdapter.createTrackerStateObservedSignal({
-                  id: "signal_todo_observed",
-                  occurredAt: "2026-04-11T12:01:00.000Z",
-                  trackerState: "Todo",
-                  runId: null,
-                  runMode: null,
-                  causationId: null,
-                  correlationId: null
-                })
-            },
-            {
-              id: "signal_implementation_started",
-              signal: (routing) =>
-                routing.module.runtimeAdapter.createRunStartedSignal({
-                  id: "signal_implementation_started",
-                  occurredAt: "2026-04-11T12:01:10.000Z",
-                  runId: "run-compare-1",
-                  runMode: "implementation",
-                  causationId: null,
-                  correlationId: null
-                })
-            },
-            {
-              id: "signal_delivery_completed",
-              signal: (routing) =>
-                routing.module.runtimeAdapter.createDeliveryReportedSignal({
-                  id: "signal_delivery_completed",
-                  occurredAt: "2026-04-11T12:01:20.000Z",
-                  runId: "run-compare-1",
-                  status: "completed",
-                  causationId: null,
-                  correlationId: null
-                })
-            }
-          ]
-        });
-
-        const comparison =
-          await harness.services.workflowComparison.compareByIssueIdentifier({
-            issueIdentifier: issue.identifier,
-            presetIds: ["current-flow", "auto-merge"]
-          });
-
-        expect(comparison?.replay.workflow.issueIdentifier).toBe(issue.identifier);
-        expect(comparison?.comparedPresetIds).toEqual([
-          "current-flow",
-          "auto-merge"
-        ]);
-        expect(comparison?.comparison.summary.diverged).toBe(true);
-        expect(comparison?.comparison.summary.finalNodeByCandidate).toEqual({
-          "current-flow": "review",
-          "auto-merge": "approved_merge"
-        });
-      } finally {
-        await harness.cleanup();
-      }
-    },
-    runtimeServicesIntegrationTestTimeoutMs
-  );
 });
 
 async function waitFor(
@@ -1519,72 +1423,6 @@ async function createRuntimeBootstrapFixture(input: {
       });
     }
   };
-}
-
-async function seedCurrentFlowWorkflowHistory(input: {
-  services: Awaited<ReturnType<typeof loadDefaultSymphonyRuntimeAppServices>>;
-  trackerConfig: SymphonyRuntimeAppServicesHarness["services"]["runtimePolicy"]["tracker"];
-  repositoryKey: string;
-  issueIdentifier: string;
-  trackerIssueId: string;
-  dbFile: string;
-  createdAt: string;
-  signals: Array<{
-    id: string;
-    signal(
-      routing: Awaited<ReturnType<typeof createRuntimeCurrentFlowRouting>>
-    ): WorkflowSignal;
-  }>;
-}): Promise<void> {
-  const routing = await createRuntimeCurrentFlowRouting({
-    trackerConfig: input.trackerConfig,
-    now: () => new Date(input.createdAt)
-  });
-  const database = initializeSymphonyDb({
-    dbFile: input.dbFile
-  });
-
-  try {
-    const issueStore = createSymphonyIssueStore(database.db);
-    await issueStore.upsert({
-      issueIdentifier: input.issueIdentifier,
-      trackerIssueId: input.trackerIssueId,
-      repositoryKey: input.repositoryKey,
-      latestRunStartedAt: null,
-      recordedAt: "2026-04-09T23:59:00.000Z"
-    });
-
-    await input.services.routeWorkflows.ensureWorkflowForIssue({
-      trackerIssueId: input.trackerIssueId,
-      issueIdentifier: input.issueIdentifier,
-      repositoryKey: input.repositoryKey,
-      routerPresetId: routing.presetId,
-      router: routing.router,
-      createdAt: input.createdAt
-    });
-
-    for (const entry of input.signals) {
-      const resumed =
-        await input.services.routeWorkflows.resumeSessionByIssueIdentifier({
-          issueIdentifier: input.issueIdentifier,
-          router: routing.router,
-          policy: routing.policy
-        });
-      if (!resumed) {
-        throw new TypeError(
-          `Route workflow could not be resumed for ${input.issueIdentifier} while recording ${entry.id}.`
-        );
-      }
-
-      await input.services.routeWorkflows.recordRouteResult({
-        workflowId: resumed.hydrationState.workflow.workflowId,
-        policy: routing.policy,
-        result: await resumed.session.receiveAsync(entry.signal(routing))
-      });
-    }
-  } finally {
-    database.close();
-  }
 }
 
 async function createMultiRepoRuntimeBootstrapFixture(): Promise<{

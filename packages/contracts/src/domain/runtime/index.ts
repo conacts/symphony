@@ -4,7 +4,6 @@ export {
   symphonyRuntimeRefreshRequestSchema,
   symphonyRuntimeLogsQuerySchema,
   symphonyRuntimeWorkflowObservabilityQuerySchema,
-  symphonyRuntimeWorkflowComparisonQuerySchema,
   symphonyRuntimeTrackerStateObservationRequestSchema,
   symphonyRuntimeClarificationAnswerRequestSchema
 } from "./requests.js";
@@ -67,9 +66,6 @@ export {
   symphonyRuntimeWorkflowModuleObservationSchema,
   symphonyRuntimeWorkflowObservabilityResultSchema,
   symphonyRuntimeWorkflowComparisonSignalSchema,
-  symphonyRuntimeWorkflowComparisonCandidateSchema,
-  symphonyRuntimeWorkflowComparisonSummarySchema,
-  symphonyRuntimeWorkflowComparisonResultSchema,
   symphonyRuntimeLogEntrySchema,
   symphonyRuntimeLogsResultSchema,
   symphonyRuntimeMachineLoadSnapshotSchema,
@@ -80,7 +76,6 @@ export {
   symphonyRuntimeClarificationAnswerResponseSchema,
   symphonyRuntimeTrackerStateObservationResponseSchema,
   symphonyRuntimeWorkflowObservabilityResponseSchema,
-  symphonyRuntimeWorkflowComparisonResponseSchema,
   symphonyRuntimeLogsResponseSchema,
   symphonyRuntimeHealthResponseSchema,
   symphonyRuntimeConfigResponseSchema
@@ -92,7 +87,6 @@ export type {
   SymphonyRuntimeRefreshRequest,
   SymphonyRuntimeLogsQuery,
   SymphonyRuntimeWorkflowObservabilityQuery,
-  SymphonyRuntimeWorkflowComparisonQuery,
   SymphonyRuntimeTrackerStateObservationRequest,
   SymphonyRuntimeClarificationAnswerRequest
 } from "./requests.js";
@@ -158,9 +152,6 @@ export type {
   SymphonyRuntimeWorkflowModuleObservation,
   SymphonyRuntimeWorkflowObservabilityResult,
   SymphonyRuntimeWorkflowComparisonSignal,
-  SymphonyRuntimeWorkflowComparisonCandidate,
-  SymphonyRuntimeWorkflowComparisonSummary,
-  SymphonyRuntimeWorkflowComparisonResult,
   SymphonyRuntimeLogEntry,
   SymphonyRuntimeLogsResult,
   SymphonyRuntimeMachineLoadSnapshot,

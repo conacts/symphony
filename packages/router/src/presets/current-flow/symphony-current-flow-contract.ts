@@ -29,8 +29,7 @@ const trackerStates = [
 
 const runModes = [
   "implementation",
-  "rework",
-  "approved_merge"
+  "rework"
 ] as const;
 
 const deliveryStatuses = [

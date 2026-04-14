@@ -15,13 +15,6 @@ export function buildSymphonyRunModeSection(
         "- Address the requested feedback before taking on any new work.",
         "- Keep the patch scoped to the requested revisions."
       ].join("\n");
-    case "approved_merge":
-      return [
-        "Current run mode: Approved Merge (Unsupported)",
-        "- Approved merge is no longer a supported live run mode in Symphony.",
-        "- Do not merge or try to emulate the removed CLI merge flow.",
-        "- Stop and report the unsupported state through a structured blocked terminal module result."
-      ].join("\n");
     default:
       return [
         "Current run mode: Implementation",
@@ -40,14 +33,6 @@ export function buildSymphonyContinuationCompletionGuidance(
   runMode: SymphonyRunMode,
   completionContract: SymphonyPromptCompletionContract = "module_result"
 ): string[] {
-  if (runMode === "approved_merge") {
-    return [
-      "- Approved merge is no longer a supported live run mode.",
-      "- Do not attempt to finish the removed merge path.",
-      "- End the run with a blocked terminal module result that explains the unsupported run mode."
-    ];
-  }
-
   if (completionContract === "module_result") {
     return [
       "- End the run by emitting exactly one final fenced `json` block and nothing after it.",

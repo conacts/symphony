@@ -31,11 +31,7 @@ const runStatusValues = [
 ] as const;
 
 const runOutcomeValues = symphonyRunOutcomeValues;
-const runModeValues = [
-  "implementation",
-  "rework",
-  "approved_merge"
-] as const;
+const runModeValues = ["implementation", "rework"] as const;
 
 const turnStatusValues = ["running", "completed", "failed", "stopped"] as const;
 const eventItemTypeValues = [

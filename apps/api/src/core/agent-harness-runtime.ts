@@ -267,18 +267,15 @@ async function executeRun(input: {
   let maxTurnsReached = false;
   let sessionProviderId: string | null = null;
   let sessionProviderName: string | null = null;
-  let mergeResult: RuntimeMergeResult | null = null;
   let commandResourceMonitor: CommandResourceMonitor | null = null;
   let recordedCanonicalSessionStart = false;
   let workerSessionId: string | null = null;
   let latestCompletedAgentMessageText: string | null = null;
-  const capabilityManagedRun =
-    input.runMode !== "approved_merge" &&
-    (await input.isCapabilityManagedRun({
-      issueIdentifier: input.issue.identifier,
-      runId: input.runId,
-      runMode: input.runMode
-    }));
+  const capabilityManagedRun = await input.isCapabilityManagedRun({
+    issueIdentifier: input.issue.identifier,
+    runId: input.runId,
+    runMode: input.runMode
+  });
   const explicitCompletionRequirement = resolveExplicitCompletionRequirement(
     input.runMode,
     capabilityManagedRun
@@ -662,20 +659,6 @@ async function executeRun(input: {
         persistedTurnId = null;
       }
 
-      if (input.runId && explicitCompletionRequirement === "merge_result") {
-        mergeResult =
-          (
-            await input.loadWorkflowLifecycleView({
-              issueIdentifier: currentIssue.identifier,
-              runId: input.runId
-            })
-          )?.latestMergeResult ?? null;
-      }
-
-      if (mergeResult) {
-        break;
-      }
-
       if (explicitCompletionRequirement === "none") {
         break;
       }
@@ -711,32 +694,7 @@ async function executeRun(input: {
         });
       }
 
-      if (mergeResult) {
-        const authoritativeState = await loadRequiredWorkflowTrackerState({
-          issueIdentifier: currentIssue.identifier,
-          runId: input.runId,
-          loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
-          failureContext: "after merge_result"
-        });
-        await recordWorkerSessionCompletion({
-          workerSessionContract: input.workerSessionContract,
-          sessionId: session.threadId,
-          issueId: input.issue.id,
-          runId: input.runId,
-          attempt: input.attempt,
-          runMode: input.runMode,
-          completion: mergeResultCompletion(
-            mergeResult,
-            authoritativeState,
-            input.runtimePolicy
-          ),
-          recordedAt: new Date().toISOString()
-        });
-        await input.callbacks.onComplete(
-          input.issue.id,
-          mergeResultCompletion(mergeResult, authoritativeState, input.runtimePolicy)
-        );
-      } else if (explicitCompletionRequirement === "none") {
+      if (explicitCompletionRequirement === "none") {
         const completion = capabilityManagedRunCompletion({
           latestCompletedAgentMessageText
         });
@@ -1076,64 +1034,13 @@ function buildUnexpectedMergeResultStateReason(
 
 type ExplicitCompletionRequirement =
   | "none"
-  | "delivery_report"
-  | "merge_result";
+  | "delivery_report";
 
 function resolveExplicitCompletionRequirement(
   runMode: SymphonyRunMode,
   capabilityManagedRun: boolean
 ): ExplicitCompletionRequirement {
-  if (runMode === "approved_merge") {
-    return "merge_result";
-  }
-
   return capabilityManagedRun ? "none" : "delivery_report";
-}
-
-function mergeResultCompletion(
-  mergeResult: RuntimeMergeResult,
-  currentState: string,
-  runtimePolicy: SymphonyAgentRuntimeConfig
-): SymphonyAgentRuntimeCompletion {
-  if (mergeResult.status === "merged") {
-    if (!matchesIssueState(currentState, "Done")) {
-      return {
-        kind: "failure",
-        reason: buildUnexpectedMergeResultStateReason(
-          mergeResult.status,
-          "Done",
-          currentState
-        )
-      };
-    }
-
-    return {
-      kind: "merged"
-    };
-  }
-
-  if (
-    !matchesIssueState(
-      currentState,
-      runtimePolicy.tracker.blockedTransitionToState
-    )
-  ) {
-    return {
-      kind: "failure",
-      reason: buildUnexpectedMergeResultStateReason(
-        mergeResult.status,
-        runtimePolicy.tracker.blockedTransitionToState,
-        currentState
-      )
-    };
-  }
-
-  return {
-    kind: "merge_blocked",
-    reason:
-      mergeResult.blockingReason ??
-      `Merge reported as blocked: ${mergeResult.summary}`
-  };
 }
 
 function missingDeliveryReportCompletion(): SymphonyAgentRuntimeCompletion {
@@ -1199,20 +1106,10 @@ function capabilityManagedRunCompletion(input: {
   return implicitCapabilityRunCompletion();
 }
 
-function missingMergeResultCompletion(): SymphonyAgentRuntimeCompletion {
-  return {
-    kind: "failure",
-    reason:
-      "Approved merge run ended without recording the merge result explicitly through `pnpm exec symphony tool merge-result ...`. Merge success or a blocked merge outcome must be reported before the run can complete."
-  };
-}
-
 function missingExplicitCompletion(
   requirement: ExplicitCompletionRequirement
 ): SymphonyAgentRuntimeCompletion {
-  return requirement === "merge_result"
-    ? missingMergeResultCompletion()
-    : missingDeliveryReportCompletion();
+  return missingDeliveryReportCompletion();
 }
 
 async function observeActiveIssueStateThroughWorkflow(input: {

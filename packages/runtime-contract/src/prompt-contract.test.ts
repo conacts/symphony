@@ -252,10 +252,10 @@ describe("prompt contract", () => {
     );
   });
 
-  it("renders the approved merge run-mode section when the payload requests it", () => {
+  it("renders the rework run-mode section when the payload requests it", () => {
     const payload = {
       ...buildMockSymphonyPromptContractPayload(),
-      run_mode: "approved_merge" as const
+      run_mode: "rework" as const
     };
 
     expect(
@@ -265,10 +265,10 @@ describe("prompt contract", () => {
       })
     ).toBe(
       [
-        "Current run mode: Approved Merge (Unsupported)",
-        "- Approved merge is no longer a supported live run mode in Symphony.",
-        "- Do not merge or try to emulate the removed CLI merge flow.",
-        "- Stop and report the unsupported state through a structured blocked terminal module result.",
+        "Current run mode: Rework",
+        "- Read the latest Linear rework note and any relevant GitHub review comment context first.",
+        "- Address the requested feedback before taking on any new work.",
+        "- Keep the patch scoped to the requested revisions.",
         "",
         symphonyHarnessPromptAppendix,
         ""

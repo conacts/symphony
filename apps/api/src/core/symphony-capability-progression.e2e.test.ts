@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type {
-  SymphonyCurrentFlowData,
-  SymphonyCurrentFlowNode,
-  SymphonyCurrentFlowPolicy
+  SymphonyIntelligentFlowData,
+  SymphonyIntelligentFlowNode,
+  SymphonyIntelligentFlowPolicy
 } from "@symphony/router";
 import { createSymphonyCapabilityContractIntake } from "./symphony-capability-contract-intake.js";
 import {
@@ -87,11 +87,11 @@ describe("capability progression golden paths", () => {
 
     const hydration =
       await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
-        SymphonyCurrentFlowNode,
-        SymphonyCurrentFlowData,
-        SymphonyCurrentFlowPolicy
+        SymphonyIntelligentFlowNode,
+        SymphonyIntelligentFlowData,
+        SymphonyIntelligentFlowPolicy
       >(harness.issue.identifier);
-    expect(hydration?.snapshot?.projection.currentNode).toBe("implementation");
+    expect(hydration?.snapshot?.projection.currentNode).toBe("active");
 
     const signalTypes = await listRecordedWorkflowSignalTypes(harness, workflowId);
     expect(signalTypes).toEqual(

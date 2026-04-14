@@ -264,7 +264,7 @@ function normalizeTrackerConfig(
   const tracker = getNestedRecord(value);
   const dispatchableStates = normalizeStringArray(
     tracker.dispatchableStates ?? tracker.activeStates,
-    ["Todo", "Bootstrapping", "In Progress", "Rework", "Approved"]
+    ["Todo", "Bootstrapping", "In Progress", "Rework"]
   );
 
   return {

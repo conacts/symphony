@@ -58,9 +58,11 @@ export async function expectRouteWorkflowAuthorityProof<
   });
 
   expect(proof.snapshot.projection.currentNode).toBe(input.currentNode);
-  expect(proof.snapshot.projection.pendingCommands.map((command) => command.id)).toEqual(
-    pendingCommandIds
-  );
+  expect(
+    proof.snapshot.projection.pendingCommands.map(
+      (command: { id: string }) => command.id
+    )
+  ).toEqual(pendingCommandIds);
 
   if (input.reasonCode !== undefined) {
     expect(proof.latestDecision.reasonCode).toBe(input.reasonCode);

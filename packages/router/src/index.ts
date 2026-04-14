@@ -89,23 +89,6 @@ export {
   WorkflowSession
 } from "./engine/workflow-session.js";
 export {
-  createSymphonyAutoMergeFlowRouter,
-  createSymphonyAutoMergeFlowRouterAsync,
-  createSymphonyAutoMergeFlowRouterPreset,
-  createSymphonyAutoMergeFlowRouterDefinition
-} from "./presets/auto-merge/symphony-auto-merge-flow-router.js";
-export type {
-  SymphonyAutoMergeFlowData,
-  SymphonyAutoMergeFlowNode,
-  SymphonyAutoMergeFlowPolicy
-} from "./presets/auto-merge/symphony-auto-merge-flow-router.js";
-export {
-  createSymphonyCurrentFlowRouter,
-  createSymphonyCurrentFlowRouterAsync,
-  createSymphonyCurrentFlowRouterPreset,
-  createSymphonyCurrentFlowRouterDefinition
-} from "./presets/current-flow/symphony-current-flow-router.js";
-export {
   createSymphonyIntelligentFlowRouter,
   createSymphonyIntelligentFlowRouterAsync,
   createSymphonyIntelligentFlowRouterPreset,
@@ -276,11 +259,6 @@ export type {
   SymphonyIntelligentFlowPlanningPreparationResult,
   SymphonyIntelligentFlowPlanningSelectionContext
 } from "./presets/intelligent-flow/symphony-intelligent-flow-deterministic-planner.js";
-export type {
-  SymphonyCurrentFlowData,
-  SymphonyCurrentFlowNode,
-  SymphonyCurrentFlowPolicy
-} from "./presets/current-flow/symphony-current-flow-router.js";
 export type {
   SymphonyIntelligentFlowData,
   SymphonyIntelligentFlowNode,
