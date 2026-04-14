@@ -6,12 +6,14 @@ import type {
 } from "@symphony/db";
 import {
   createSymphonyCapabilityExecutionCommand,
+  planSymphonyIntelligentFlowDeterministically,
   createSymphonyCapabilityPreset,
   createWorkflowCapabilityPlanner,
   type SymphonyCapabilityPresetPolicyId,
   type SymphonyCapabilityEvidenceId,
   type SymphonyCapabilityId,
   type SymphonyCapabilityModelProfileId,
+  type SymphonyIntelligentFlowLifecycleState,
   type SymphonyWorkflowTicketExecutionContract,
   type WorkflowCapabilityPlan
 } from "@symphony/router";
@@ -123,12 +125,25 @@ export function createSymphonyCapabilityPlanningService(input: {
         contractUpdatedAt: contract.updatedAt,
         policyId
       });
-      const plan = planner.plan({
-        contract,
-        history: history.map((entry) => entry.event),
-        decisionId,
-        decidedAt: recordedAt
-      });
+      const plan =
+        hydrationState.workflow.routerPresetId === "intelligent-flow"
+          ? planSymphonyIntelligentFlowDeterministically({
+              contract,
+              history: history.map((entry) => entry.event),
+              lifecycleState: resolveIntelligentFlowPlanningLifecycleState({
+                workflowId,
+                currentNode: hydrationState.snapshot?.projection.currentNode ?? null
+              }),
+              decisionId,
+              decidedAt: recordedAt,
+              policyId
+            })
+          : planner.plan({
+              contract,
+              history: history.map((entry) => entry.event),
+              decisionId,
+              decidedAt: recordedAt
+            });
       const command = buildPlannerCommand({
         decisionId,
         workflowId,
@@ -160,6 +175,33 @@ export function createSymphonyCapabilityPlanningService(input: {
       };
     }
   };
+}
+
+function resolveIntelligentFlowPlanningLifecycleState(input: {
+  workflowId: string;
+  currentNode: string | null;
+}): SymphonyIntelligentFlowLifecycleState {
+  if (input.currentNode === null) {
+    throw new TypeError(
+      `Intelligent-flow capability planning requires a lifecycle node for workflow ${input.workflowId}.`
+    );
+  }
+
+  switch (input.currentNode) {
+    case "queued":
+    case "claimed":
+    case "active":
+    case "awaiting_input":
+    case "blocked":
+    case "paused":
+    case "failed":
+    case "done":
+      return input.currentNode;
+    default:
+      throw new TypeError(
+        `Intelligent-flow capability planning cannot use lifecycle node ${JSON.stringify(input.currentNode)} for workflow ${input.workflowId}.`
+      );
+  }
 }
 
 async function loadCommandForDecision(input: {

@@ -120,6 +120,10 @@ export {
   buildSymphonyIntelligentFlowAdmissibilitySnapshot
 } from "./symphony-intelligent-flow-admissibility.js";
 export {
+  planSymphonyIntelligentFlowDeterministically,
+  selectSymphonyIntelligentFlowDeterministicCapabilityRoute
+} from "./symphony-intelligent-flow-deterministic-planner.js";
+export {
   createSymphonyCapabilityBlockedSignal,
   createSymphonyCapabilityChangesRequestedSignal,
   createSymphonyCapabilityCompletedSignal,
@@ -261,6 +265,9 @@ export type {
   SymphonyIntelligentFlowModuleAttemptStatus,
   SymphonyIntelligentFlowResolvedRoutingPolicy
 } from "./symphony-intelligent-flow-admissibility.js";
+export type {
+  SymphonyIntelligentFlowDeterministicCapabilityRouteSelection
+} from "./symphony-intelligent-flow-deterministic-planner.js";
 export type {
   SymphonyCurrentFlowData,
   SymphonyCurrentFlowNode,

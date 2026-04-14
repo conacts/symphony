@@ -11,7 +11,10 @@ import {
   createSymphonyCapabilityCompletedSignal,
   createSymphonyCapabilityStartedSignal,
   createSymphonyCurrentFlowRouterAsync,
-  createSymphonyCurrentFlowTrackerStateObservedSignal
+  createSymphonyIntelligentFlowRouterAsync,
+  createSymphonyCurrentFlowTrackerStateObservedSignal,
+  type WorkflowRouter,
+  type WorkflowNodeId
 } from "@symphony/router";
 import {
   buildSymphonyTrackerIssue
@@ -253,6 +256,81 @@ describe("Symphony capability planning", () => {
       harness.close();
     }
   });
+
+  it("uses intelligent-flow admissibility to select implement.spec first", async () => {
+    const harness = await createHarness();
+    const seeded = await seedPlannerFixture(harness, {
+      presetId: "intelligent-flow"
+    });
+
+    try {
+      const result = await harness.planning.planByWorkflowId({
+        workflowId: seeded.workflowId,
+        recordedAt: "2026-04-13T07:11:00.000Z"
+      });
+
+      expect(result.plan).toEqual({
+        kind: "execute",
+        candidate: expect.objectContaining({
+          capabilityId: "implement.spec",
+          phase: "implementing",
+          workEpoch: 1
+        }),
+        decision: expect.objectContaining({
+          capabilityId: "implement.spec",
+          modelProfileId: "builder_fast",
+          workEpoch: 1
+        })
+      });
+      expect(result.command?.command.payload.capabilityId).toBe("implement.spec");
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("uses intelligent-flow admissibility to select critic.code_review after implementation", async () => {
+    const harness = await createHarness();
+    const seeded = await seedPlannerFixture(harness, {
+      presetId: "intelligent-flow"
+    });
+
+    try {
+      await recordCapabilityCompletion({
+        harness,
+        workflowId: seeded.workflowId,
+        issueIdentifier: seeded.contract.issueIdentifier,
+        capabilityId: "implement.spec",
+        modelProfileId: "builder_fast",
+        evidenceId: "change_set",
+        executionId: "exec_impl_1",
+        workEpoch: 1,
+        attempt: 1,
+        recordedAt: "2026-04-13T07:12:00.000Z"
+      });
+
+      const result = await harness.planning.planByWorkflowId({
+        workflowId: seeded.workflowId,
+        recordedAt: "2026-04-13T07:13:00.000Z"
+      });
+
+      expect(result.plan).toEqual({
+        kind: "execute",
+        candidate: expect.objectContaining({
+          capabilityId: "critic.code_review",
+          phase: "verifying",
+          workEpoch: 1
+        }),
+        decision: expect.objectContaining({
+          capabilityId: "critic.code_review",
+          modelProfileId: "critic_strict",
+          workEpoch: 1
+        })
+      });
+      expect(result.command?.command.payload.capabilityId).toBe("critic.code_review");
+    } finally {
+      harness.close();
+    }
+  });
 });
 
 async function createHarness() {
@@ -289,10 +367,13 @@ async function openHarness(root: string) {
 }
 
 async function seedPlannerFixture(
-  harness: Awaited<ReturnType<typeof openHarness>>
+  harness: Awaited<ReturnType<typeof openHarness>>,
+  input: {
+    presetId?: "current-flow" | "intelligent-flow";
+  } = {}
 ) {
   const issue = buildIssue();
-  const router = await createSymphonyCurrentFlowRouterAsync();
+  const presetId = input.presetId ?? "current-flow";
 
   await harness.issueStore.upsert({
     issueIdentifier: issue.identifier,
@@ -302,16 +383,46 @@ async function seedPlannerFixture(
     recordedAt: "2026-04-13T07:00:00.000Z"
   });
 
-  const ensured = await harness.routeWorkflows.ensureWorkflowForIssue({
-    trackerIssueId: issue.id,
-    issueIdentifier: issue.identifier,
+  if (presetId === "intelligent-flow") {
+    const router = await createSymphonyIntelligentFlowRouterAsync();
+
+    return await seedPlannerFixtureWithRouter({
+      harness,
+      issue,
+      routerPresetId: presetId,
+      router
+    });
+  }
+
+  const router = await createSymphonyCurrentFlowRouterAsync();
+
+  return await seedPlannerFixtureWithRouter({
+    harness,
+    issue,
+    routerPresetId: presetId,
+    router
+  });
+}
+
+async function seedPlannerFixtureWithRouter<
+  Node extends WorkflowNodeId,
+  Data,
+>(input: {
+  harness: Awaited<ReturnType<typeof openHarness>>;
+  issue: ReturnType<typeof buildIssue>;
+  routerPresetId: "current-flow" | "intelligent-flow";
+  router: WorkflowRouter<Node, Data, Record<string, never>>;
+}) {
+  const ensured = await input.harness.routeWorkflows.ensureWorkflowForIssue({
+    trackerIssueId: input.issue.id,
+    issueIdentifier: input.issue.identifier,
     repositoryKey: "openai/symphony",
-    routerPresetId: "current-flow",
-    router,
+    routerPresetId: input.routerPresetId,
+    router: input.router,
     createdAt: "2026-04-13T07:00:30.000Z"
   });
   const workflowId = ensured.workflow.workflowId;
-  const session = await router.startSessionAsync({
+  const session = await input.router.startSessionAsync({
     workflowId,
     policy: {}
   });
@@ -323,25 +434,25 @@ async function seedPlannerFixture(
       runId: null,
       runMode: null,
       causationId: null,
-      correlationId: issue.identifier
+      correlationId: input.issue.identifier
     })
   );
-  await harness.routeWorkflows.recordRouteResult({
+  await input.harness.routeWorkflows.recordRouteResult({
     workflowId,
     policy: {},
     result: bootstrapResult
   });
 
-  const contract = await harness.intake.createAndPersistForWorkflow({
+  const contract = await input.harness.intake.createAndPersistForWorkflow({
     workflowId,
-    issue,
+    issue: input.issue,
     repositoryKey: "openai/symphony",
     recordedAt: "2026-04-13T07:02:00.000Z"
   });
 
   return {
     workflowId,
-    issue,
+    issue: input.issue,
     contract
   };
 }
