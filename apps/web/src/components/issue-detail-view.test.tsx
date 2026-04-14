@@ -139,9 +139,10 @@ describe("issue detail view", () => {
     );
 
     expect(html).toContain("Workflow observability");
-    expect(html).toContain("Route graph");
-    expect(html).toContain("Node run narrative");
-    expect(html).toContain("Decision log");
+    expect(html).toContain("Current module");
+    expect(html).toContain("Router decision");
+    expect(html).toContain("Recent module runs");
+    expect(html).toContain("Run logs");
     expect(html).toContain("Live runtime snapshot");
     expect(html).toContain("Dogfooding");
     expect(html).toContain("Manual Completion");
@@ -164,8 +165,8 @@ describe("issue detail view", () => {
     );
 
     expect(html).toContain("Workflow observability");
-    expect(html).toContain("Signals");
-    expect(html).toContain("Workflow event feed");
+    expect(html).toContain("Current module");
+    expect(html).toContain("Recent module runs");
     expect(html).not.toContain("Issue detail unavailable");
   });
 });
