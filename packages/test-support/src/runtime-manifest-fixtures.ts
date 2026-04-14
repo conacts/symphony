@@ -33,7 +33,7 @@ export function buildSymphonyRuntimeManifestInput(
       cleanup: []
     },
     workflow: {
-      defaultRouterPreset: "current-flow"
+      defaultRouterPreset: "intelligent-flow"
     }
   };
 

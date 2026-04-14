@@ -950,7 +950,10 @@ describe("runtime route lifecycle service", () => {
           }),
           trackerConfig: buildSymphonyRuntimePolicy().tracker,
           repositoryKey: "openai/symphony",
-          presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+          presetSelection: {
+            ...createDefaultRuntimeWorkflowPresetSelection(),
+            presetId: "current-flow"
+          },
           capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
           now: () => new Date("2026-04-10T14:00:06.000Z")
         });

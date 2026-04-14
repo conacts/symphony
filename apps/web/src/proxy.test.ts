@@ -69,7 +69,7 @@ describe("web proxy", () => {
 
     const payload = await response!.json();
     expect(payload.ok).toBe(true);
-    expect(payload.data.bootstrap.presetSelection.presetId).toBe("current-flow");
+    expect(payload.data.bootstrap.presetSelection.presetId).toBe("intelligent-flow");
   });
 
   it("returns a mock 501 response for unsupported mock-runtime endpoints", async () => {

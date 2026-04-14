@@ -20,6 +20,7 @@ import { createExternalRunDispatchAuthority } from "../test-support/runtime-disp
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createRuntimeTrackerStateIngressPort } from "./runtime-tracker-state-ingress-port.js";
+import type { SymphonyRuntimeRouterPresetId } from "./runtime-workflow-presets.js";
 import { createDefaultRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
 
 const tempDirectories: string[] = [];
@@ -150,7 +151,8 @@ describe("runtime tracker state ingress port", () => {
 
   it("records failures when explicit tracker observation emits dispatch without a callback", async () => {
     const harness = await createHarness({
-      state: "Todo"
+      state: "Todo",
+      presetId: "current-flow"
     });
 
     try {
@@ -285,6 +287,7 @@ async function createHarness(input: {
   state: "Todo" | "Rework";
   seedIssueIdentity?: boolean;
   trackerConfig?: ReturnType<typeof buildSymphonyRuntimePolicy>["tracker"];
+  presetId?: SymphonyRuntimeRouterPresetId;
 }) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-tracker-state-ingress-"));
   tempDirectories.push(root);
@@ -331,7 +334,10 @@ async function createHarness(input: {
         recordedAt: "2026-04-10T00:19:59.000Z"
       });
     },
-    presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+    presetSelection: {
+      ...createDefaultRuntimeWorkflowPresetSelection(),
+      presetId: input.presetId ?? "intelligent-flow"
+    },
     capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
     now: () => new Date("2026-04-10T15:00:00.000Z")
   });

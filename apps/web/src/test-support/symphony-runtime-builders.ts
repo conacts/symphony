@@ -433,8 +433,8 @@ export function buildSymphonyRuntimeWorkflowObservabilityResult(
       repositoryKey: DEFAULT_REPOSITORY_KEY,
       issueIdentifier: "COL-167",
       bindingScope: null,
-      routerPresetId: "current-flow",
-      routerName: "current-flow",
+      routerPresetId: "intelligent-flow",
+      routerName: "intelligent-flow",
       routerVersion: "1",
       archivedAt: null,
       insertedAt: "2026-04-13T18:00:00.000Z",
@@ -729,7 +729,7 @@ export function buildSymphonyRuntimeWorkflowObservabilityResult(
         edgeId: "bootstrapping_to_implementation",
         reasonCode: "delivery_reported",
         policy: {
-          presetId: "current-flow"
+          presetId: "intelligent-flow"
         },
         projectionBefore: {
           currentNode: "bootstrapping",

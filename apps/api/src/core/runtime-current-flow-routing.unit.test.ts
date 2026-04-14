@@ -22,7 +22,7 @@ describe("runtime router preset selection", () => {
       "current-flow",
       "intelligent-flow"
     ]);
-    expect(getDefaultRuntimeRouterPresetId()).toBe("current-flow");
+    expect(getDefaultRuntimeRouterPresetId()).toBe("intelligent-flow");
 
     const currentFlowRouting = await selectRuntimeRouterPreset({
       trackerConfig: runtimePolicy.tracker,

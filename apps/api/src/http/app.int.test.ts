@@ -104,7 +104,7 @@ describe("@symphony/api app", () => {
       expect(configPayload.data.runtime.repositoryKey).toBe("openai/symphony");
       expect(configPayload.data.runtime.githubRepository).toBe("openai/symphony");
       expect(configPayload.data.bootstrap.presetSelection.presetId).toBe(
-        "current-flow"
+        "intelligent-flow"
       );
       expect(configPayload.data.admittedRepositories.map((entry) => entry.repositoryKey)).toEqual([
         "openai/symphony"
@@ -263,7 +263,7 @@ describe("@symphony/api app", () => {
           runMode: "implementation"
         }
       ]);
-      expect(hydration?.snapshot?.projection.currentNode).toBe("bootstrapping");
+      expect(hydration?.snapshot?.projection.currentNode).toBe("claimed");
       expect(hydration?.snapshot?.projection.data.trackerState).toBe("Bootstrapping");
 
       expect(secondResponse.status).toBe(200);

@@ -39,7 +39,7 @@ describe("runtime config client", () => {
             manifestPath: "/Users/example/symphony/.symphony/runtime.ts",
             bindingScope: null,
             presetSelection: {
-              presetId: "current-flow",
+              presetId: "intelligent-flow",
               source: "runtime_manifest",
               repositoryKey: "openai/symphony",
               manifestPath: "/Users/example/symphony/.symphony/runtime.ts"
@@ -67,7 +67,7 @@ describe("runtime config client", () => {
         cache: "no-store"
       })
     );
-    expect(result.bootstrap.presetSelection.presetId).toBe("current-flow");
+    expect(result.bootstrap.presetSelection.presetId).toBe("intelligent-flow");
     expect(result.admittedRepositories[0]?.repositoryKey).toBe("openai/symphony");
   });
 });

@@ -51,7 +51,7 @@ describe("runtime routes", () => {
     expect(response.status).toBe(200);
     expect(payload.data.runtime.repositoryKey).toBe("openai/symphony");
     expect(payload.data.runtime.trackerKind).toBe("linear");
-    expect(payload.data.bootstrap.presetSelection.presetId).toBe("current-flow");
+    expect(payload.data.bootstrap.presetSelection.presetId).toBe("intelligent-flow");
     expect(payload.data.admittedRepositories).toEqual([]);
   });
 
@@ -624,7 +624,7 @@ function createRuntimeServicesStub(
       manifestPath: null,
       bindingScope: null,
       presetSelection: {
-        presetId: "current-flow",
+        presetId: "intelligent-flow",
         source: "registry_default",
         repositoryKey: null,
         manifestPath: null
@@ -665,7 +665,7 @@ function createRuntimeServicesStub(
         manifestPath: null,
         bindingScope: null,
         presetSelection: {
-          presetId: "current-flow",
+          presetId: "intelligent-flow",
           source: "registry_default",
           repositoryKey: null,
           manifestPath: null

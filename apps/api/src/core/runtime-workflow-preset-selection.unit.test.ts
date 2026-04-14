@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { resolveRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
+import {
+  createDefaultRuntimeWorkflowPresetSelection,
+  resolveRuntimeWorkflowPresetSelection
+} from "./runtime-workflow-preset-selection.js";
 
 describe("runtime workflow preset selection", () => {
+  it("uses intelligent-flow as the registry default", () => {
+    expect(createDefaultRuntimeWorkflowPresetSelection()).toEqual({
+      presetId: "intelligent-flow",
+      source: "registry_default",
+      repositoryKey: null,
+      manifestPath: null
+    });
+  });
+
   it("fails fast when no runtime manifest is selected", () => {
     expect(() =>
       resolveRuntimeWorkflowPresetSelection({

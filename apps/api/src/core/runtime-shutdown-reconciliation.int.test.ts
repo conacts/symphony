@@ -123,7 +123,7 @@ describe("runtime shutdown reconciliation", () => {
         routeWorkflows,
         issueIdentifier: issue.identifier,
         currentNode: "paused",
-        reasonCode: "implementation_shutdown_paused",
+        reasonCode: "active_shutdown_paused",
         signalType: "runtime.shutdown_requested"
       });
 

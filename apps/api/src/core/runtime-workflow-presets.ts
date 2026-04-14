@@ -23,7 +23,10 @@ const runtimeWorkflowPresetModules = {
 
 const runtimeWorkflowPresetRegistry =
   createSymphonyRuntimeWorkflowPresetRegistry({
-    defaultPresetId: "current-flow",
+    // Intelligent-flow is the default for new workflows. current-flow remains
+    // registered for explicit replay/comparison and because auto-merge still
+    // reuses its contract until that legacy path is extracted.
+    defaultPresetId: "intelligent-flow",
     modules: runtimeWorkflowPresetModules
   });
 

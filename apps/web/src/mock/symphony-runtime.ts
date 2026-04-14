@@ -1231,7 +1231,7 @@ export function buildMockRuntimeConfigResult(): SymphonyRuntimeConfigResult {
         linearWorkspaceIdentityId: "linear_workspace_local"
       },
       presetSelection: {
-        presetId: "current-flow",
+        presetId: "intelligent-flow",
         source: "runtime_manifest",
         repositoryKey: "openai/symphony",
         manifestPath: "/Users/connorsheehan/junction/symphony/.symphony/runtime.ts"
