@@ -98,6 +98,7 @@ export class PiRpcClient implements HarnessSessionClient {
     let accumulatedUsage: HarnessTurnResult["usage"] = null;
     let sawQueueUpdate = false;
     let sawMeaningfulProjection = false;
+    let sawTurnEnd = false;
     const eventTrace: PiTurnEventTraceEntry[] = [];
 
     if (!this.#threadStartedEmitted) {
@@ -147,7 +148,42 @@ export class PiRpcClient implements HarnessSessionClient {
     }
 
     while (true) {
-      const rawEvent = await this.#process.awaitEvent(input.turnTimeoutMs);
+      const waitTimeoutMs = sawTurnEnd
+        ? Math.min(input.turnTimeoutMs, 500)
+        : input.turnTimeoutMs;
+      let rawEvent: Record<string, unknown>;
+      try {
+        rawEvent = await this.#process.awaitEvent(waitTimeoutMs);
+      } catch (error) {
+        if (
+          error instanceof HarnessSessionError &&
+          error.code === "pi_turn_timeout" &&
+          sawTurnEnd
+        ) {
+          const continuation = await this.#resolveContinuationCommand();
+          turnContext.continuationState = continuation.state;
+
+          if (
+            !continuation.state.isStreaming &&
+            continuation.state.pendingMessageCount === 0
+          ) {
+            return finalizeCompletedTurn({
+              session,
+              turnId,
+              usage: accumulatedUsage,
+              sawMeaningfulProjection,
+              sawQueueUpdate,
+              buildTurnFailure: (code, message, extras) =>
+                this.#buildTurnFailure(code, message, turnContext, extras)
+              });
+          }
+
+          sawTurnEnd = false;
+          continue;
+        }
+
+        throw error;
+      }
       const event = decodePiRuntimeEvent(rawEvent);
       const eventType =
         event?.type === "unknown"
@@ -160,8 +196,12 @@ export class PiRpcClient implements HarnessSessionClient {
         turnSequence,
         event: eventSummary
       });
+      if (event?.type !== "turn_end" && eventType !== "agent_end") {
+        sawTurnEnd = false;
+      }
 
       if (event?.type === "turn_end") {
+        sawTurnEnd = true;
         const usage = piAnalyticsAdapter.extractTurnUsage({
           event
         });
@@ -247,24 +287,16 @@ export class PiRpcClient implements HarnessSessionClient {
       }
 
       if (eventType === "agent_end") {
-        if (!accumulatedUsage && !sawMeaningfulProjection) {
-          throw this.#buildTurnFailure(
-            sawQueueUpdate ? "pi_queue_only_turn" : "pi_no_progress_turn",
-            sawQueueUpdate
-              ? "Pi ended the turn after emitting only queue/todo updates with no measurable work."
-              : "Pi ended the turn without usage or meaningful projected work.",
-            turnContext,
-            {
-              failureEvent: eventSummary,
-            }
-          );
-        }
-
-        return {
-          threadId: session.threadId,
+        return finalizeCompletedTurn({
+          session,
           turnId,
-          usage: accumulatedUsage
-        };
+          usage: accumulatedUsage,
+          sawMeaningfulProjection,
+          sawQueueUpdate,
+          failureEvent: eventSummary,
+          buildTurnFailure: (code, message, extras) =>
+            this.#buildTurnFailure(code, message, turnContext, extras)
+        });
       }
     }
   }
@@ -519,6 +551,42 @@ function defaultPromptFailureMessage(commandType: PiTurnCommand["type"]): string
   return commandType === "prompt"
     ? "Pi RPC prompt command failed."
     : "Pi RPC follow_up command failed.";
+}
+
+function finalizeCompletedTurn(input: {
+  session: HarnessSession;
+  turnId: string;
+  usage: HarnessTurnResult["usage"];
+  sawMeaningfulProjection: boolean;
+  sawQueueUpdate: boolean;
+  failureEvent?: PiTurnEventTraceEntry;
+  buildTurnFailure(
+    code: string,
+    message: string,
+    extras?: {
+      failureEvent?: PiTurnEventTraceEntry;
+      promptResponse?: unknown;
+    }
+  ): HarnessSessionError;
+}): HarnessTurnResult {
+  if (!input.usage && !input.sawMeaningfulProjection) {
+    throw input.buildTurnFailure(
+      input.sawQueueUpdate ? "pi_queue_only_turn" : "pi_no_progress_turn",
+      input.sawQueueUpdate
+        ? "Pi ended the turn after emitting only queue/todo updates with no measurable work."
+        : "Pi ended the turn without usage or meaningful projected work."
+      ,
+      {
+        failureEvent: input.failureEvent
+      }
+    );
+  }
+
+  return {
+    threadId: input.session.threadId,
+    turnId: input.turnId,
+    usage: input.usage
+  };
 }
 
 function summarizeUsage(

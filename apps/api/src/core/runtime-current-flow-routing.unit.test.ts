@@ -17,7 +17,11 @@ describe("runtime router preset selection", () => {
   it("lists and resolves the registered workflow presets", async () => {
     const runtimePolicy = buildSymphonyRuntimePolicy();
 
-    expect(listRuntimeRouterPresetIds()).toEqual(["auto-merge", "current-flow"]);
+    expect(listRuntimeRouterPresetIds()).toEqual([
+      "auto-merge",
+      "current-flow",
+      "intelligent-flow"
+    ]);
     expect(getDefaultRuntimeRouterPresetId()).toBe("current-flow");
 
     const currentFlowRouting = await selectRuntimeRouterPreset({
@@ -28,6 +32,11 @@ describe("runtime router preset selection", () => {
     const autoMergeRouting = await selectRuntimeRouterPreset({
       trackerConfig: runtimePolicy.tracker,
       presetId: "auto-merge",
+      now: () => new Date("2026-04-10T00:00:00.000Z")
+    });
+    const intelligentFlowRouting = await selectRuntimeRouterPreset({
+      trackerConfig: runtimePolicy.tracker,
+      presetId: "intelligent-flow",
       now: () => new Date("2026-04-10T00:00:00.000Z")
     });
 
@@ -41,6 +50,13 @@ describe("runtime router preset selection", () => {
     expect(autoMergeRouting.router.definition().name).toBe("symphony-auto-merge-flow");
     expect(autoMergeRouting.router.definition().version).toBe("1");
     expect(autoMergeRouting.policy).toEqual({});
+    expect(intelligentFlowRouting.presetId).toBe("intelligent-flow");
+    expect(intelligentFlowRouting.module.presetId).toBe("intelligent-flow");
+    expect(intelligentFlowRouting.router.definition().name).toBe(
+      "symphony-intelligent-flow"
+    );
+    expect(intelligentFlowRouting.router.definition().version).toBe("1");
+    expect(intelligentFlowRouting.policy).toEqual({});
     expect(
       currentFlowRouting.module.runtimeAdapter.readTrackerTransitionState(
         createSymphonyCurrentFlowTrackerTransitionCommand({
@@ -59,6 +75,15 @@ describe("runtime router preset selection", () => {
         })
       )
     ).toBe("implementation");
+    expect(
+      intelligentFlowRouting.module.runtimeAdapter.readDispatchRunMode(
+        createSymphonyCurrentFlowDispatchCommand({
+          id: "command_dispatch_rework",
+          dedupeKey: null,
+          runMode: "rework"
+        })
+      )
+    ).toBe("rework");
   });
 
   it("fails fast when a preset id is not registered", async () => {
@@ -113,7 +138,7 @@ describe("runtime router preset selection", () => {
     const runtimePolicy = buildSymphonyRuntimePolicy();
     const routing = await selectRuntimeRouterPreset({
       trackerConfig: runtimePolicy.tracker,
-      presetId: "current-flow",
+      presetId: "intelligent-flow",
       now: () => new Date("2026-04-10T00:00:00.000Z")
     });
     const handoff = buildSymphonyReworkHandoff({
@@ -145,21 +170,7 @@ describe("runtime router preset selection", () => {
     expect(
       routing.module.runtimeAdapter.shouldObserveUnchangedIdleTrackerState({
         workflowId: "workflow-1",
-        currentNode: "approved_merge",
-        trackerState: "Approved",
-        data: {
-          trackerState: "Approved",
-          lastDispatchMode: "approved_merge",
-          lastRunMode: null,
-          latestReworkHandoff: null,
-          latestMergeResult: null
-        }
-      })
-    ).toBe(true);
-    expect(
-      routing.module.runtimeAdapter.shouldObserveUnchangedIdleTrackerState({
-        workflowId: "workflow-2",
-        currentNode: "bootstrapping",
+        currentNode: "claimed",
         trackerState: "Bootstrapping",
         data: {
           trackerState: "Bootstrapping",
@@ -172,8 +183,8 @@ describe("runtime router preset selection", () => {
     ).toBe(true);
     expect(
       routing.module.runtimeAdapter.shouldObserveUnchangedIdleTrackerState({
-        workflowId: "workflow-3",
-        currentNode: "review",
+        workflowId: "workflow-2",
+        currentNode: "active",
         trackerState: "In Review",
         data: {
           trackerState: "In Review",

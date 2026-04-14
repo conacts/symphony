@@ -32,6 +32,8 @@ import {
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createDefaultRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
+import { createSymphonyCapabilityPlanningService } from "./symphony-capability-planning.js";
+import { createSymphonyCapabilityContractIntake } from "./symphony-capability-contract-intake.js";
 
 const tempDirectories: string[] = [];
 
@@ -1336,6 +1338,85 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
+  it("continues capability-managed implementation runs instead of routing them straight to review", async () => {
+    const harness = await createHarness({
+      state: "Todo"
+    });
+
+    try {
+      await advanceWorkflowToRunningImplementation(harness);
+      const hydration =
+        await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+          SymphonyCurrentFlowNode,
+          SymphonyCurrentFlowData,
+          SymphonyCurrentFlowPolicy
+        >(harness.issue.identifier);
+      expect(hydration).not.toBeNull();
+      const workflowId = hydration!.workflow.workflowId;
+      const contractIntake = createSymphonyCapabilityContractIntake({
+        routeWorkflows: harness.routeWorkflows
+      });
+      await contractIntake.createAndPersistForWorkflow({
+        workflowId,
+        issue: harness.issue,
+        repositoryKey: "openai/symphony",
+        recordedAt: "2026-04-10T14:11:29.000Z"
+      });
+      const inProgressIssue = harness.tracker.getIssue(harness.issue.id);
+      expect(inProgressIssue?.state).toBe("In Progress");
+
+      const routed = await harness.service.workflowRoutingAdapter.routeRunCompletion({
+        issue: inProgressIssue!,
+        runId: "run-1",
+        runMode: "implementation",
+        completion: {
+          kind: "delivered"
+        },
+        recordedAt: "2026-04-10T14:11:30.000Z"
+      });
+
+      expect(routed).toEqual({
+        issue: expect.objectContaining({
+          id: harness.issue.id,
+          state: "In Progress"
+        }),
+        continueWithRunMode: "implementation"
+      });
+
+      const capabilityPlanning = createSymphonyCapabilityPlanningService({
+        routeWorkflowStore: harness.routeWorkflowStore
+      });
+      const nextPlanning = await capabilityPlanning.planByWorkflowId({
+        workflowId,
+        recordedAt: "2026-04-10T14:11:32.000Z"
+      });
+      expect(nextPlanning.plan).toEqual(
+        expect.objectContaining({
+          kind: "execute",
+          decision: expect.objectContaining({
+            capabilityId: "critic.code_review",
+            workEpoch: 1
+          })
+        })
+      );
+      expect(
+        (await harness.routeWorkflowStore.listHistory(workflowId))
+          .flatMap((entry) =>
+            entry.event.kind === "signal_recorded"
+              ? [entry.signalType ?? entry.event.signal.type]
+              : []
+          )
+      ).toEqual(
+        expect.arrayContaining([
+          "capability.started",
+          "capability.completed"
+        ])
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
   it("routes delivery reports without refetching tracker issues once workflow history is active", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -2094,6 +2175,9 @@ async function createHarness(input: {
   const routeWorkflows = createRouteWorkflowPort({
     routeWorkflowStore
   });
+  const capabilityPlanning = createSymphonyCapabilityPlanningService({
+    routeWorkflowStore
+  });
   const runtimePolicy = buildSymphonyRuntimePolicy();
   const trackerConfig = input.trackerConfig ?? runtimePolicy.tracker;
   const issue =
@@ -2137,6 +2221,8 @@ async function createHarness(input: {
         presetId: input.presetId ?? "current-flow"
       },
       capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
+      routeWorkflowStore,
+      capabilityPlanning,
       now: () => new Date(nowIso)
     });
   }
@@ -2147,6 +2233,7 @@ async function createHarness(input: {
     issue,
     issueStore,
     tracker,
+    routeWorkflowStore,
     routeWorkflows,
     get service() {
       return service;

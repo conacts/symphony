@@ -1,4 +1,5 @@
 export {
   buildSymphonyRuntimeIssueResult,
-  buildSymphonyRuntimeRefreshResult
+  buildSymphonyRuntimeRefreshResult,
+  buildSymphonyRuntimeWorkflowObservabilityResult
 } from "./symphony-runtime-builders";

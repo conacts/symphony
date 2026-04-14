@@ -1,9 +1,12 @@
 export {
   symphonyRuntimeIssuePathSchema,
+  symphonyRuntimeWorkflowPathSchema,
   symphonyRuntimeRefreshRequestSchema,
   symphonyRuntimeLogsQuerySchema,
+  symphonyRuntimeWorkflowObservabilityQuerySchema,
   symphonyRuntimeWorkflowComparisonQuerySchema,
-  symphonyRuntimeTrackerStateObservationRequestSchema
+  symphonyRuntimeTrackerStateObservationRequestSchema,
+  symphonyRuntimeClarificationAnswerRequestSchema
 } from "./requests.js";
 export {
   symphonyRuntimeTokenTotalsSchema,
@@ -41,10 +44,20 @@ export {
   symphonyRuntimeLaunchTargetSchema,
   symphonyRuntimeTrackedIssueSchema,
   symphonyRuntimeIssueOperatorSchema,
+  symphonyRuntimeIssueCapabilityStateSchema,
+  symphonyRuntimeClarificationAnswerResultSchema,
   symphonyRuntimeIssueResultSchema,
   symphonyRuntimeRefreshResultSchema,
   symphonyRuntimeTrackerStateObservationDispositionSchema,
   symphonyRuntimeTrackerStateObservationResultSchema,
+  symphonyRuntimeWorkflowDescriptorSchema,
+  symphonyRuntimeWorkflowSnapshotSchema,
+  symphonyRuntimeWorkflowReplaySummarySchema,
+  symphonyRuntimeWorkflowHistoryEventSchema,
+  symphonyRuntimeWorkflowDecisionCommandSettlementSchema,
+  symphonyRuntimeWorkflowDecisionCommandSchema,
+  symphonyRuntimeWorkflowDecisionSchema,
+  symphonyRuntimeWorkflowObservabilityResultSchema,
   symphonyRuntimeWorkflowComparisonSignalSchema,
   symphonyRuntimeWorkflowComparisonCandidateSchema,
   symphonyRuntimeWorkflowComparisonSummarySchema,
@@ -56,7 +69,9 @@ export {
   symphonyRuntimeStateResponseSchema,
   symphonyRuntimeIssueResponseSchema,
   symphonyRuntimeRefreshResponseSchema,
+  symphonyRuntimeClarificationAnswerResponseSchema,
   symphonyRuntimeTrackerStateObservationResponseSchema,
+  symphonyRuntimeWorkflowObservabilityResponseSchema,
   symphonyRuntimeWorkflowComparisonResponseSchema,
   symphonyRuntimeLogsResponseSchema,
   symphonyRuntimeHealthResponseSchema,
@@ -65,10 +80,13 @@ export {
 
 export type {
   SymphonyRuntimeIssuePath,
+  SymphonyRuntimeWorkflowPath,
   SymphonyRuntimeRefreshRequest,
   SymphonyRuntimeLogsQuery,
+  SymphonyRuntimeWorkflowObservabilityQuery,
   SymphonyRuntimeWorkflowComparisonQuery,
-  SymphonyRuntimeTrackerStateObservationRequest
+  SymphonyRuntimeTrackerStateObservationRequest,
+  SymphonyRuntimeClarificationAnswerRequest
 } from "./requests.js";
 export type {
   SymphonyRuntimeTokenTotals,
@@ -106,10 +124,23 @@ export type {
   SymphonyRuntimeLaunchTarget,
   SymphonyRuntimeTrackedIssue,
   SymphonyRuntimeIssueOperator,
+  SymphonyRuntimeIssueClarificationQuestion,
+  SymphonyRuntimeIssuePendingClarification,
+  SymphonyRuntimeIssueCapabilityCompletion,
+  SymphonyRuntimeIssueCapabilityState,
   SymphonyRuntimeIssueResult,
   SymphonyRuntimeRefreshResult,
+  SymphonyRuntimeClarificationAnswerResult,
   SymphonyRuntimeTrackerStateObservationDisposition,
   SymphonyRuntimeTrackerStateObservationResult,
+  SymphonyRuntimeWorkflowDescriptor,
+  SymphonyRuntimeWorkflowSnapshot,
+  SymphonyRuntimeWorkflowReplaySummary,
+  SymphonyRuntimeWorkflowHistoryEvent,
+  SymphonyRuntimeWorkflowDecisionCommandSettlement,
+  SymphonyRuntimeWorkflowDecisionCommand,
+  SymphonyRuntimeWorkflowDecision,
+  SymphonyRuntimeWorkflowObservabilityResult,
   SymphonyRuntimeWorkflowComparisonSignal,
   SymphonyRuntimeWorkflowComparisonCandidate,
   SymphonyRuntimeWorkflowComparisonSummary,

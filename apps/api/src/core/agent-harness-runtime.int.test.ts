@@ -62,6 +62,7 @@ type RawWorkflowLifecycleReaders = Pick<
   RawSymphonyAgentRuntimeInput,
   | "loadWorkflowLifecycleView"
   | "observeActiveWorkflowIssueState"
+  | "isCapabilityManagedRun"
 >;
 type TestSymphonyAgentRuntimeInput = Omit<
   RawSymphonyAgentRuntimeInput,
@@ -92,6 +93,7 @@ function createSymphonyAgentRuntime(
       });
     },
     observeActiveWorkflowIssueState: async () => true,
+    isCapabilityManagedRun: async () => false,
     ...input
   });
 }
@@ -253,6 +255,7 @@ describe("docker pi symphony agent runtime", () => {
         deliveryReports,
         agentAnalytics,
         workerSessionContract: workerSessionContract.contract,
+        isCapabilityManagedRun: async () => true,
         runtimeLogs: {
           async record() {
             return "log-1";
@@ -297,8 +300,7 @@ describe("docker pi symphony agent runtime", () => {
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "failure",
-      reason: expect.stringContaining("symphony tool finish")
+      kind: "delivered"
     });
     expect(workerSessionContract.startSession).toHaveBeenCalledTimes(1);
     expect(workerSessionContract.startSession).toHaveBeenCalledWith(
@@ -325,8 +327,8 @@ describe("docker pi symphony agent runtime", () => {
         runId,
         attempt: 1,
         runMode: "rework",
-        status: "failed",
-        reason: expect.stringContaining("symphony tool finish")
+        status: "completed",
+        reason: null
       })
     );
     expect(updates).toContain("thread.started");
@@ -455,6 +457,7 @@ done
         tracker,
         runStore,
         deliveryReports,
+        isCapabilityManagedRun: async () => true,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1139,7 +1142,7 @@ done
     database.close();
   });
 
-  it("fails persisted native Pi RPC runs that never emit an explicit delivery report", async () => {
+  it("completes persisted native Pi RPC runs without requiring an explicit delivery report", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-report-"));
     tempRoots.push(root);
 
@@ -1193,6 +1196,7 @@ done
         tracker,
         runStore,
         deliveryReports,
+        isCapabilityManagedRun: async () => true,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1228,8 +1232,7 @@ done
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "failure",
-      reason: expect.stringContaining("symphony tool finish")
+      kind: "delivered"
     });
     expect(await deliveryReports.listForRun(runId)).toEqual([]);
 
@@ -2234,8 +2237,7 @@ done
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "failure",
-      reason: expect.stringContaining("symphony tool finish")
+      kind: "delivered"
     });
 
     database.close();
@@ -2710,6 +2712,7 @@ done
         tracker,
         runStore,
         deliveryReports,
+        isCapabilityManagedRun: async () => true,
         agentAnalytics,
         runtimeLogs: {
           async record(input) {
@@ -2746,8 +2749,7 @@ done
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "failure",
-      reason: expect.stringContaining("symphony tool finish")
+      kind: "delivered"
     });
 
     const fakeDockerInvocation = JSON.parse(
@@ -2982,6 +2984,7 @@ exit 1
         tracker,
         runStore,
         deliveryReports,
+        isCapabilityManagedRun: async () => true,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -3017,8 +3020,7 @@ exit 1
     await completionPromise;
 
     expect(completion).toEqual({
-      kind: "failure",
-      reason: expect.stringContaining("symphony tool finish")
+      kind: "delivered"
     });
 
     const dockerInvocations = (await readFile(fakeDockerLog, "utf8"))

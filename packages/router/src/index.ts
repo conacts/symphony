@@ -106,6 +106,20 @@ export {
   createSymphonyCurrentFlowRouterDefinition
 } from "./symphony-current-flow-router.js";
 export {
+  createSymphonyIntelligentFlowRouter,
+  createSymphonyIntelligentFlowRouterAsync,
+  createSymphonyIntelligentFlowRouterPreset,
+  createSymphonyIntelligentFlowRouterDefinition
+} from "./symphony-intelligent-flow-router.js";
+export {
+  createSymphonyIntelligentFlowDefaultModuleRegistry,
+  createSymphonyIntelligentFlowModuleRegistry,
+  SymphonyIntelligentFlowModuleRegistry
+} from "./symphony-intelligent-flow-module-registry.js";
+export {
+  buildSymphonyIntelligentFlowAdmissibilitySnapshot
+} from "./symphony-intelligent-flow-admissibility.js";
+export {
   createSymphonyCapabilityBlockedSignal,
   createSymphonyCapabilityChangesRequestedSignal,
   createSymphonyCapabilityCompletedSignal,
@@ -185,11 +199,78 @@ export type {
   SymphonyWorkflowRoutingDirectives,
   SymphonyWorkflowTicketExecutionContract
 } from "./symphony-capability-contract.js";
+export {
+  createSymphonyIntelligentFlowModuleDefinition,
+  createSymphonyIntelligentFlowRuntimeSupport,
+  createSymphonyIntelligentFlowRouterDecision,
+  isSymphonyIntelligentFlowModuleRuntimeSupported,
+  listSymphonyIntelligentFlowDefaultModuleDefinitions,
+  parseSymphonyIntelligentFlowEvidenceId,
+  parseSymphonyIntelligentFlowLifecycleState,
+  parseSymphonyIntelligentFlowModuleId,
+  parseSymphonyIntelligentFlowRuntimeSupportFlagId,
+  parseSymphonyIntelligentFlowSelectionMode,
+  readSymphonyIntelligentFlowAdmissibilitySnapshot,
+  readSymphonyIntelligentFlowModuleDefinition,
+  readSymphonyIntelligentFlowRuntimeSupport,
+  readSymphonyIntelligentFlowRouterDecision,
+  readSymphonyIntelligentFlowSelectionResponse,
+  supportsIntelligentFlowModelProfile,
+  symphonyIntelligentFlowAdmissibilitySnapshotSchema,
+  symphonyIntelligentFlowAdmissibleCandidateSchema,
+  symphonyIntelligentFlowAdmissibleReasonCodeSchema,
+  symphonyIntelligentFlowDefaultModuleDefinitions,
+  symphonyIntelligentFlowDefaultRuntimeSupport,
+  symphonyIntelligentFlowEvidenceIdSchema,
+  symphonyIntelligentFlowExecutionKindSchema,
+  symphonyIntelligentFlowLifecycleStateSchema,
+  symphonyIntelligentFlowModuleDefinitionSchema,
+  symphonyIntelligentFlowModuleIdSchema,
+  symphonyIntelligentFlowModuleOutcomeKindSchema,
+  symphonyIntelligentFlowModulePhaseSchema,
+  symphonyIntelligentFlowRejectedCandidateSchema,
+  symphonyIntelligentFlowRejectedReasonCodeSchema,
+  symphonyIntelligentFlowRuntimeSupportFlagIdSchema,
+  symphonyIntelligentFlowRuntimeSupportSchema,
+  symphonyIntelligentFlowRouterDecisionSchema,
+  symphonyIntelligentFlowSelectionModeSchema,
+  symphonyIntelligentFlowSelectionResponseSchema
+} from "./symphony-intelligent-flow-contract.js";
+export type {
+  SymphonyIntelligentFlowAdmissibilitySnapshot,
+  SymphonyIntelligentFlowAdmissibleCandidate,
+  SymphonyIntelligentFlowAdmissibleReasonCode,
+  SymphonyIntelligentFlowEvidenceId,
+  SymphonyIntelligentFlowExecutionKind,
+  SymphonyIntelligentFlowLifecycleState,
+  SymphonyIntelligentFlowModuleDefinition,
+  SymphonyIntelligentFlowModuleId,
+  SymphonyIntelligentFlowModuleOutcomeKind,
+  SymphonyIntelligentFlowModulePhase,
+  SymphonyIntelligentFlowRejectedCandidate,
+  SymphonyIntelligentFlowRejectedReasonCode,
+  SymphonyIntelligentFlowRuntimeSupport,
+  SymphonyIntelligentFlowRuntimeSupportFlagId,
+  SymphonyIntelligentFlowRouterDecision,
+  SymphonyIntelligentFlowSelectionMode,
+  SymphonyIntelligentFlowSelectionResponse
+} from "./symphony-intelligent-flow-contract.js";
+export type {
+  SymphonyIntelligentFlowCapabilityProjection,
+  SymphonyIntelligentFlowModuleAttempt,
+  SymphonyIntelligentFlowModuleAttemptStatus,
+  SymphonyIntelligentFlowResolvedRoutingPolicy
+} from "./symphony-intelligent-flow-admissibility.js";
 export type {
   SymphonyCurrentFlowData,
   SymphonyCurrentFlowNode,
   SymphonyCurrentFlowPolicy
 } from "./symphony-current-flow-router.js";
+export type {
+  SymphonyIntelligentFlowData,
+  SymphonyIntelligentFlowNode,
+  SymphonyIntelligentFlowPolicy
+} from "./symphony-intelligent-flow-router.js";
 export {
   createSymphonyCurrentFlowDispatchCommand,
   createSymphonyCurrentFlowDeliveryReportedSignal,

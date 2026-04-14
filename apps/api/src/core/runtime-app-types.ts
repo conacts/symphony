@@ -18,10 +18,13 @@ import type {
   SymphonyForensicsIssueTimelineResult,
   SymphonyRuntimeHealthResult,
   SymphonyRuntimeMachineLoadSnapshot,
+  SymphonyRuntimeClarificationAnswerResult,
+  SymphonyRuntimeIssueCapabilityState,
   SymphonyRuntimeConfigResult,
   SymphonyRuntimeLogsResult,
   SymphonyRuntimeRefreshResult,
-  SymphonyRuntimeTrackerStateObservationResult
+  SymphonyRuntimeTrackerStateObservationResult,
+  SymphonyRuntimeWorkflowObservabilityResult
 } from "@symphony/contracts";
 import type { SymphonyLogger } from "@symphony/logger";
 import type {
@@ -101,6 +104,19 @@ export type SymphonyRuntimeWorkflowReadPort = {
   }): Promise<SymphonyRuntimeWorkflowLifecycleView | null>;
 };
 
+export type SymphonyRuntimeCapabilityOperatorPort = {
+  inspectByIssueIdentifier(input: {
+    issueIdentifier: string;
+    recordedAt: string;
+  }): Promise<SymphonyRuntimeIssueCapabilityState | null>;
+  answerPendingClarificationByWorkflowId(input: {
+    workflowId: string;
+    recordedAt: string;
+    requestId: string;
+    answers: Record<string, string>;
+  }): Promise<SymphonyRuntimeClarificationAnswerResult>;
+};
+
 export type SymphonyRuntimeToolsPort = {
   recordDeliveryReport(input: {
     runId: string;
@@ -149,6 +165,21 @@ export type SymphonyRuntimeWorkflowComparisonPort = {
     issueIdentifier: string;
     presetIds?: ReadonlyArray<string>;
   }): Promise<SymphonyRuntimeWorkflowComparison | null>;
+};
+
+export type SymphonyRuntimeWorkflowObservabilityPort = {
+  loadByWorkflowId(input: {
+    workflowId: string;
+    recordedAt: string;
+    historyLimit?: number;
+    decisionLimit?: number;
+  }): Promise<SymphonyRuntimeWorkflowObservabilityResult | null>;
+  loadByIssueIdentifier(input: {
+    issueIdentifier: string;
+    recordedAt: string;
+    historyLimit?: number;
+    decisionLimit?: number;
+  }): Promise<SymphonyRuntimeWorkflowObservabilityResult | null>;
 };
 
 export type SymphonyAgentAnalyticsReadPort = {
@@ -208,7 +239,9 @@ export type SymphonyRuntimeAppServices = {
   health: SymphonyRuntimeHealthPort;
   trackerStateIngress: SymphonyRuntimeTrackerObservationPort;
   workflowRead: SymphonyRuntimeWorkflowReadPort;
+  capabilityOperator: SymphonyRuntimeCapabilityOperatorPort;
   runtimeTools: SymphonyRuntimeToolsPort;
+  workflowObservability: SymphonyRuntimeWorkflowObservabilityPort;
   workflowComparison: SymphonyRuntimeWorkflowComparisonPort;
   routeWorkflows: SymphonyRouteWorkflowPort;
   githubReviewIngress: SymphonyGitHubReviewIngressPort;

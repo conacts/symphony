@@ -1,6 +1,8 @@
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
-  type WorkflowCommand
+  type WorkflowCommand,
+  type WorkflowNodeId,
+  type WorkflowRouter
 } from "@symphony/router";
 import type {
   SymphonyTracker,
@@ -24,6 +26,8 @@ import {
   readDispatchRunMode,
   readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
+
+type RuntimeWorkflowRouter = WorkflowRouter<WorkflowNodeId, unknown, unknown>;
 
 export type SymphonyTrackerStateDispatchRequest = {
   workflowId: string;
@@ -85,7 +89,7 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
   routing: SymphonyRuntimeRouterPresetSelection;
   sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
 }): Promise<SymphonyTrackerStateObservationRouter> {
-  const { router } = input.routing;
+  const router = input.routing.router as RuntimeWorkflowRouter;
 
   return {
     async observe(

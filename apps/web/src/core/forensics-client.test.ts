@@ -35,7 +35,7 @@ describe("forensics client", () => {
               completedRunCount: 1,
               problemRunCount: 2,
               problemRate: 2 / 3,
-              latestProblemOutcome: "max_turns",
+              latestProblemOutcome: "paused_max_turns",
               lastCompletedOutcome: "completed",
               latestDeliveryStatus: "completed",
               latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
@@ -89,7 +89,7 @@ describe("forensics client", () => {
           },
           facets: {
             repositories: ["symphony"],
-            outcomes: ["completed", "max_turns"],
+            outcomes: ["completed", "paused_max_turns"],
             errorClasses: ["max_turns"]
           }
         },
@@ -124,7 +124,7 @@ describe("forensics client", () => {
             runs: [],
             summary: {
               runCount: 3,
-              latestProblemOutcome: "max_turns",
+              latestProblemOutcome: "paused_max_turns",
               lastCompletedOutcome: "completed",
               latestDeliveryStatus: "completed",
               latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
@@ -169,8 +169,25 @@ describe("forensics client", () => {
       fetchImpl as typeof fetch
     );
 
-    expect(issueDetail.summary.runCount).toBe(3);
+    expect(issueDetail).not.toBeNull();
+    expect(issueDetail?.summary.runCount).toBe(3);
     expect(runDetail.run.runId).toBe("run_123");
+  });
+
+  it("returns null when the issue detail endpoint reports 404", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404
+    });
+
+    const issueDetail = await fetchIssueDetail(
+      "http://127.0.0.1:4400",
+      "COL-404",
+      {},
+      fetchImpl as typeof fetch
+    );
+
+    expect(issueDetail).toBeNull();
   });
 
   it("parses the issue forensic bundle envelope", async () => {
@@ -193,7 +210,7 @@ describe("forensics client", () => {
             completedRunCount: 1,
             problemRunCount: 2,
             problemRate: 2 / 3,
-            latestProblemOutcome: "max_turns",
+            latestProblemOutcome: "paused_max_turns",
             lastCompletedOutcome: "completed",
             latestDeliveryStatus: "completed",
             latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",

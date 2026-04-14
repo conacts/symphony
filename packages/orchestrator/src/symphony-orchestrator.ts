@@ -787,6 +787,7 @@ export class SymphonyOrchestrator {
     });
     let resolvedCompletion = routedCompletion.completion;
     let currentIssue = routedCompletion.issue;
+    let continueWithRunMode = routedCompletion.continueWithRunMode;
 
     if (
       runningEntry.runMode === "approved_merge" &&
@@ -810,6 +811,7 @@ export class SymphonyOrchestrator {
       });
       currentIssue = reroutedCompletion.issue;
       resolvedCompletion = reroutedCompletion.completion;
+      continueWithRunMode = reroutedCompletion.continueWithRunMode;
     }
 
     if (resolvedCompletion.kind !== "startup_failure") {
@@ -887,6 +889,16 @@ export class SymphonyOrchestrator {
         completionKind: resolvedCompletion.kind,
         mode: cleanupMode
       });
+
+      if (continueWithRunMode) {
+        await this.dispatchIssue(
+          currentIssue,
+          1,
+          runningEntry.workerHost,
+          continueWithRunMode
+        );
+      }
+
       return;
     }
 
@@ -1019,6 +1031,7 @@ export class SymphonyOrchestrator {
     completion: SymphonyAgentRuntimeCompletion;
   }): Promise<{
     issue: SymphonyTrackerIssue;
+    continueWithRunMode?: SymphonyRunMode | null;
   }> {
     return await this.#workflowRoutingAdapter.routeRunCompletion({
       issue: input.issue,
@@ -1037,18 +1050,19 @@ export class SymphonyOrchestrator {
   }): Promise<{
     issue: SymphonyTrackerIssue;
     completion: SymphonyAgentRuntimeCompletion;
+    continueWithRunMode: SymphonyRunMode | null;
   }> {
     try {
-      return {
-        issue: (
-          await this.#routeRunCompletion({
-            issue: input.issue,
-            runId: input.runId,
-            runMode: input.runMode,
-            completion: input.completion
-          })
-        ).issue,
+      const routed = await this.#routeRunCompletion({
+        issue: input.issue,
+        runId: input.runId,
+        runMode: input.runMode,
         completion: input.completion
+      });
+      return {
+        issue: routed.issue,
+        completion: input.completion,
+        continueWithRunMode: routed.continueWithRunMode ?? null
       };
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
@@ -1064,7 +1078,8 @@ export class SymphonyOrchestrator {
             reason:
               "Merge was recorded as merged, but Symphony could not move the issue to `Done`: " +
               reason
-          }
+          },
+          continueWithRunMode: null
         };
       }
 
@@ -1074,7 +1089,8 @@ export class SymphonyOrchestrator {
 
       return {
         issue: input.issue,
-        completion: input.completion
+        completion: input.completion,
+        continueWithRunMode: null
       };
     }
   }

@@ -8,6 +8,7 @@ import {
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type {
+  SymphonyRuntimeIssueCapabilityState,
   SymphonyRuntimeWorkflowComparisonSignal,
   SymphonyRuntimeIssueResult,
   SymphonyRuntimeLaunchTarget,
@@ -114,7 +115,8 @@ export function serializeRuntimeIssue(
   issueIdentifier: string,
   trackedIssue: SymphonyTrackerIssue | null,
   workflowTrackerState: string | null,
-  piSelectionPolicy: RuntimeIssuePiSelectionPolicy
+  piSelectionPolicy: RuntimeIssuePiSelectionPolicy,
+  capability: SymphonyRuntimeIssueCapabilityState | null = null
 ): SymphonyRuntimeIssueResult | null {
   const running = snapshot.running.find(
     (entry) => entry.issue.identifier === issueIdentifier
@@ -217,7 +219,8 @@ export function serializeRuntimeIssue(
         modelOverrideLabelPrefix: piModelLabelPrefix,
         selectionHelpText:
           `Pi selection is label-driven. Use ${piModelLabelPrefix}<preset> for repo-defined tiers or ${piModelLabelPrefix}<model> for a direct model override.`
-      }
+      },
+      capability
     }
   };
 }

@@ -1,3 +1,4 @@
+import type { RouteWorkflowStore } from "@symphony/db";
 import type {
   SymphonyDispatchBootstrapRoutingInput,
   SymphonyRunLifecycleCompletionInput,
@@ -69,6 +70,12 @@ import type {
 import type {
   SymphonyCapabilityDispatchAuthorityService
 } from "./symphony-capability-dispatch-authority.js";
+import type {
+  SymphonyCapabilityPlanningService
+} from "./symphony-capability-planning.js";
+import {
+  createSymphonyCapabilityRunCompletionService
+} from "./symphony-capability-run-completion.js";
 
 export type SymphonyRuntimeRouteLifecycleService = {
   workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
@@ -180,6 +187,8 @@ export async function createRuntimeRouteLifecycleService(input: {
   ): Promise<void> | void;
   presetSelection: SymphonyRuntimeWorkflowPresetSelection;
   sessionLoader?: SymphonyRuntimeWorkflowSessionLoader;
+  routeWorkflowStore?: RouteWorkflowStore;
+  capabilityPlanning?: SymphonyCapabilityPlanningService;
   capabilityDispatchAuthority: SymphonyCapabilityDispatchAuthorityService;
   now?: () => Date;
 }): Promise<SymphonyRuntimeRouteLifecycleService> {
@@ -219,26 +228,6 @@ export async function createRuntimeRouteLifecycleService(input: {
     tracker: input.tracker,
     sessionLoader
   });
-  const workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter = {
-    async routeDispatchBootstrap(
-      routeInput: SymphonyDispatchBootstrapRoutingInput
-    ) {
-      return await dispatchBootstrapRouter.route(routeInput);
-    },
-    async activateRunStart(activationInput: SymphonyRunStartActivationInput) {
-      return await runStartActivationRouter.activate(activationInput);
-    },
-    async observeRunningIssueState(
-      observationInput: SymphonyRunLifecycleObservationInput
-    ) {
-      return await runLifecycleRouter.observeIssueState(observationInput);
-    },
-    async routeRunCompletion(
-      completionInput: SymphonyRunLifecycleCompletionInput
-    ) {
-      return await runLifecycleRouter.routeCompletion(completionInput);
-    }
-  };
   const deliveryRouter = await createRuntimeDeliveryRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
@@ -276,6 +265,84 @@ export async function createRuntimeRouteLifecycleService(input: {
       routing,
       sessionLoader
     });
+  const capabilityRunCompletion =
+    input.routeWorkflowStore && input.capabilityPlanning
+      ? createSymphonyCapabilityRunCompletionService({
+          routeWorkflowStore: input.routeWorkflowStore,
+          routeWorkflows: input.routeWorkflows,
+          sessionLoader,
+          capabilityPlanning: input.capabilityPlanning
+        })
+      : null;
+  const workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter = {
+    async routeDispatchBootstrap(
+      routeInput: SymphonyDispatchBootstrapRoutingInput
+    ) {
+      return await dispatchBootstrapRouter.route(routeInput);
+    },
+    async activateRunStart(activationInput: SymphonyRunStartActivationInput) {
+      return await runStartActivationRouter.activate(activationInput);
+    },
+    async observeRunningIssueState(
+      observationInput: SymphonyRunLifecycleObservationInput
+    ) {
+      return await runLifecycleRouter.observeIssueState(observationInput);
+    },
+    async routeRunCompletion(
+      completionInput: SymphonyRunLifecycleCompletionInput
+    ) {
+      if (capabilityRunCompletion) {
+        const capabilityResult =
+          await capabilityRunCompletion.handleRunCompletion({
+            issueIdentifier: completionInput.issue.identifier,
+            runMode: completionInput.runMode,
+            completion: completionInput.completion,
+            recordedAt: completionInput.recordedAt
+          });
+
+        switch (capabilityResult.kind) {
+          case "continued":
+            return {
+              issue: completionInput.issue,
+              continueWithRunMode: capabilityResult.continueWithRunMode
+            };
+          case "ready_for_completion": {
+            if (!completionInput.runId) {
+              throw new TypeError(
+                `Capability-managed completion for ${completionInput.issue.identifier} requires a run id to route delivery.`
+              );
+            }
+
+            let continueWithRunMode: SymphonyRunMode | null = null;
+            const routedDelivery = await deliveryRouter.routeDelivery({
+              projectedIssue: completionInput.issue,
+              runId: completionInput.runId,
+              recordedAt: completionInput.recordedAt,
+              status: "completed",
+              onDispatchRequested: async (dispatchRequest) => {
+                continueWithRunMode = dispatchRequest.runMode;
+              }
+            });
+
+            return {
+              issue: routedDelivery.projectedIssue,
+              continueWithRunMode
+            };
+          }
+          case "awaiting_input":
+          case "blocked":
+            return {
+              issue: completionInput.issue
+            };
+          case "failure_recorded":
+          case "not_handled":
+            break;
+        }
+      }
+
+      return await runLifecycleRouter.routeCompletion(completionInput);
+    }
+  };
   const nonRunningTrackerIngressPolicy = buildNonRunningTrackerIngressPolicy({
     presetId: routing.module.presetId,
     trackerConfig: input.trackerConfig,

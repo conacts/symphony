@@ -41,4 +41,50 @@ describe("issue requeue panel", () => {
     expect(html).toContain("Runtime issue context unavailable");
     expect(html).toContain("404");
   });
+
+  it("renders pending capability clarification prompts", () => {
+    const html = renderToStaticMarkup(
+      <IssueRequeuePanel
+        error={null}
+        issueDetail={buildSymphonyForensicsIssueDetailResult()}
+        issue={buildSymphonyRuntimeIssueResult({
+          operator: {
+            capability: {
+              workflowId: "workflow-167",
+              contractId: "contract-167",
+              policyId: "default",
+              planKind: "awaiting_input",
+              summary: "Need a repository-scope clarification before continuing.",
+              decidedAt: "2026-04-13T18:00:00.000Z",
+              capabilityId: "implement.spec",
+              modelProfileId: null,
+              workEpoch: 1,
+              completion: null,
+              pendingClarification: {
+                requestId: "clarification-167",
+                raisedByCapabilityId: "implement.spec",
+                workEpoch: 1,
+                summary: "Need a repository-scope clarification before continuing.",
+                answerPath: "/api/v1/COL-167/clarification-answer",
+                questions: [
+                  {
+                    id: "repo_scope",
+                    prompt: "Should this change stay backend-only?",
+                    context: "The current contract is ambiguous."
+                  }
+                ]
+              }
+            }
+          }
+        })}
+        issueIdentifier="COL-167"
+        loading={false}
+      />
+    );
+
+    expect(html).toContain("Capability Router");
+    expect(html).toContain("Awaiting Input");
+    expect(html).toContain("Should this change stay backend-only?");
+    expect(html).toContain("Submit Clarification");
+  });
 });

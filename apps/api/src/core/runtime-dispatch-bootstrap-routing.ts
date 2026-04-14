@@ -4,7 +4,9 @@ import {
   type SymphonyDispatchBootstrapRoutingResult
 } from "@symphony/orchestrator";
 import {
-  type WorkflowCommand
+  type WorkflowCommand,
+  type WorkflowNodeId,
+  type WorkflowRouter
 } from "@symphony/router";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type {
@@ -30,6 +32,8 @@ import {
   readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
 
+type RuntimeWorkflowRouter = WorkflowRouter<WorkflowNodeId, unknown, unknown>;
+
 export async function createRuntimeDispatchBootstrapRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
@@ -44,7 +48,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
   sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
   capabilityDispatchAuthority: SymphonyCapabilityDispatchAuthorityService;
 }) {
-  const { router } = input.routing;
+  const router = input.routing.router as RuntimeWorkflowRouter;
   const presetAdapter = input.routing.module.runtimeAdapter;
 
   return {

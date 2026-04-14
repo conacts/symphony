@@ -683,6 +683,74 @@ describe("symphony orchestrator", () => {
     ).toHaveLength(1);
   });
 
+  it("redispatches the next capability run after a successful capability-managed completion", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const startedRunModes: string[] = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      config: buildSymphonyOrchestratorConfig({
+        tracker: {
+          claimTransitionToState: null,
+          claimTransitionFromStates: []
+        }
+      }),
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime({
+        async startRun(input) {
+          startedRunModes.push(input.runMode);
+          return {
+            threadId: `thread-${startedRunModes.length}`,
+            workerHost: "worker-1",
+            launchTarget: null
+          };
+        }
+      }),
+      workflowRoutingAdapter: {
+        async observeRunningIssueState(input) {
+          return {
+            issue: input.issue
+          };
+        },
+        async routeRunCompletion(input) {
+          return {
+            issue: input.issue,
+            continueWithRunMode:
+              input.runMode === "implementation" &&
+              input.completion.kind === "delivered"
+                ? "implementation"
+                : null
+          };
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:00.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:00.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 1, null, "implementation");
+    await orchestrator.handleRunCompletion(issue.id, {
+      kind: "delivered"
+    });
+
+    expect(startedRunModes).toEqual([
+      "implementation",
+      "implementation"
+    ]);
+    expect(orchestrator.snapshot().running).toHaveLength(1);
+    expect(orchestrator.snapshot().running[0]?.runMode).toBe("implementation");
+  });
+
   it("routes approved merge completions through the lifecycle router before final cleanup", async () => {
     const issue = buildSymphonyTrackerIssue({
       state: "Approved"

@@ -90,6 +90,11 @@ type WorkflowLifecycleReaders = {
     issueIdentifier: string;
     recordedAt: string;
   }): Promise<boolean>;
+  isCapabilityManagedRun?(input: {
+    issueIdentifier: string;
+    runId?: string | null;
+    runMode: SymphonyRunMode;
+  }): Promise<boolean>;
 };
 
 export function createSymphonyAgentRuntime(input: {
@@ -103,6 +108,7 @@ export function createSymphonyAgentRuntime(input: {
   deliveryReports: SymphonyIssueDeliveryReportStore;
   loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
   observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
+  isCapabilityManagedRun?: WorkflowLifecycleReaders["isCapabilityManagedRun"];
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -135,6 +141,7 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
   deliveryReports: SymphonyIssueDeliveryReportStore;
   loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
   observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
+  isCapabilityManagedRun?: WorkflowLifecycleReaders["isCapabilityManagedRun"];
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -181,6 +188,9 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
         deliveryReports: input.deliveryReports,
         loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
         observeActiveWorkflowIssueState: input.observeActiveWorkflowIssueState,
+        isCapabilityManagedRun:
+          input.isCapabilityManagedRun ??
+          (async () => false),
         agentAnalytics: input.agentAnalytics,
         runtimeLogs: input.runtimeLogs,
         runtimePolicy: runInput.runtimePolicy,
@@ -236,6 +246,9 @@ async function executeRun(input: {
   deliveryReports: SymphonyIssueDeliveryReportStore;
   loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
   observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
+  isCapabilityManagedRun: NonNullable<
+    WorkflowLifecycleReaders["isCapabilityManagedRun"]
+  >;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
@@ -267,8 +280,16 @@ async function executeRun(input: {
   let commandResourceMonitor: CommandResourceMonitor | null = null;
   let recordedCanonicalSessionStart = false;
   let workerSessionId: string | null = null;
+  const capabilityManagedRun =
+    input.runMode !== "approved_merge" &&
+    (await input.isCapabilityManagedRun({
+      issueIdentifier: input.issue.identifier,
+      runId: input.runId,
+      runMode: input.runMode
+    }));
   const explicitCompletionRequirement = resolveExplicitCompletionRequirement(
-    input.runMode
+    input.runMode,
+    capabilityManagedRun
   );
   const latestReworkHandoff =
     input.runMode === "rework"
@@ -669,6 +690,10 @@ async function executeRun(input: {
         break;
       }
 
+      if (explicitCompletionRequirement === "none") {
+        break;
+      }
+
       const refreshedIssue = await observeActiveIssueStateThroughWorkflow({
         issue: currentIssue,
         recordedAt: new Date().toISOString(),
@@ -748,6 +773,22 @@ async function executeRun(input: {
         await input.callbacks.onComplete(
           input.issue.id,
           mergeResultCompletion(mergeResult, authoritativeState, input.runtimePolicy)
+        );
+      } else if (explicitCompletionRequirement === "none") {
+        const completion = implicitCapabilityRunCompletion();
+        await recordWorkerSessionCompletion({
+          workerSessionContract: input.workerSessionContract,
+          sessionId: session.threadId,
+          issueId: input.issue.id,
+          runId: input.runId,
+          attempt: input.attempt,
+          runMode: input.runMode,
+          completion,
+          recordedAt: new Date().toISOString()
+        });
+        await input.callbacks.onComplete(
+          input.issue.id,
+          completion
         );
       } else if (maxTurnsReached) {
         await recordWorkerSessionCompletion({
@@ -1143,13 +1184,19 @@ function buildUnexpectedMergeResultStateReason(
 }
 
 type ExplicitCompletionRequirement =
+  | "none"
   | "delivery_report"
   | "merge_result";
 
 function resolveExplicitCompletionRequirement(
-  runMode: SymphonyRunMode
+  runMode: SymphonyRunMode,
+  capabilityManagedRun: boolean
 ): ExplicitCompletionRequirement {
-  return runMode === "approved_merge" ? "merge_result" : "delivery_report";
+  if (runMode === "approved_merge") {
+    return "merge_result";
+  }
+
+  return capabilityManagedRun ? "none" : "delivery_report";
 }
 
 async function loadLatestDeliveryReportForRun(
@@ -1221,6 +1268,12 @@ function missingDeliveryReportCompletion(): SymphonyAgentRuntimeCompletion {
     kind: "failure",
     reason:
       "Run ended without recording delivery explicitly through `pnpm exec symphony tool finish ...`. Delivery success must be reported before the run can complete."
+  };
+}
+
+function implicitCapabilityRunCompletion(): SymphonyAgentRuntimeCompletion {
+  return {
+    kind: "delivered"
   };
 }
 

@@ -405,6 +405,176 @@ describe("PiRpcClient", () => {
     ).toBe(false);
   });
 
+  it("finishes a turn after turn_end when Pi goes idle without emitting agent_end", async () => {
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    const stdin = new PassThrough();
+    let buffer = "";
+    let getStateCount = 0;
+
+    stdin.on("data", (chunk: Buffer | string) => {
+      buffer += chunk.toString();
+
+      while (true) {
+        const newlineIndex = buffer.indexOf("\n");
+        if (newlineIndex === -1) {
+          break;
+        }
+
+        const line = buffer.slice(0, newlineIndex);
+        buffer = buffer.slice(newlineIndex + 1);
+        const message = JSON.parse(line) as Record<string, unknown>;
+
+        if (message.type === "get_state") {
+          getStateCount += 1;
+          stdout.write(
+            `${JSON.stringify({
+              id: message.id,
+              type: "response",
+              command: "get_state",
+              success: true,
+              data:
+                getStateCount === 1
+                  ? {
+                      sessionId: "pi-session-1",
+                      model: {
+                        id: "xiaomi/mimo-v2-pro",
+                        provider: "openrouter"
+                      }
+                    }
+                  : {
+                      sessionId: "pi-session-1",
+                      isStreaming: false,
+                      pendingMessageCount: 0,
+                      messageCount: 1
+                    }
+            })}\n`
+          );
+          continue;
+        }
+
+        if (message.type === "prompt") {
+          stdout.write(
+            `${JSON.stringify({
+              id: message.id,
+              type: "response",
+              command: "prompt",
+              success: true
+            })}\n`
+          );
+          stdout.write('{"type":"agent_start"}\n');
+          stdout.write('{"type":"turn_start"}\n');
+          stdout.write(
+            `${JSON.stringify({
+              type: "message_end",
+              message: {
+                role: "assistant",
+                responseId: "resp-idle",
+                content: [
+                  {
+                    type: "text",
+                    text: "Implemented the requested change."
+                  }
+                ]
+              }
+            })}\n`
+          );
+          stdout.write(
+            `${JSON.stringify({
+              type: "turn_end",
+              message: {
+                usage: {
+                  input: 8,
+                  output: 3,
+                  cacheRead: 1
+                }
+              }
+            })}\n`
+          );
+        }
+      }
+    });
+
+    const child = Object.assign(new EventEmitter(), {
+      stdout,
+      stderr,
+      stdin,
+      pid: 9878,
+      kill: vi.fn(),
+      exitCode: null
+    });
+    spawnMock.mockReturnValue(child);
+
+    const runtimePolicy = buildSymphonyRuntimePolicy({
+      agent: {
+        ...buildSymphonyRuntimePolicy().agent,
+        harness: "pi"
+      },
+      workspace: {
+        ...buildSymphonyRuntimePolicy().workspace,
+        root: "/tmp/symphony-pi-test"
+      },
+      pi: {
+        ...buildSymphonyRuntimePolicy().pi,
+        defaultModel: "xiaomi/mimo-v2-pro",
+        defaultReasoningEffort: "medium",
+        provider: {
+          id: "openrouter",
+          name: "OpenRouter",
+          baseUrl: "https://openrouter.ai/api/v1",
+          envKey: "OPENROUTER_API_KEY",
+          supportsWebsockets: false,
+          wireApi: "responses"
+        }
+      }
+    });
+    const session = await PiRpcClient.startSession({
+      launchTarget: {
+        kind: "container",
+        hostLaunchPath: "/tmp/symphony-pi-test/workspace",
+        hostWorkspacePath: "/tmp/symphony-pi-test/workspace",
+        runtimeWorkspacePath: "/workspace",
+        containerId: "container-1",
+        containerName: "symphony-workspace",
+        shell: "/bin/bash",
+        user: "1000:1000"
+      },
+      env: {
+        OPENROUTER_API_KEY: "test-key"
+      },
+      hostCommandEnvSource: {
+        PATH: process.env.PATH
+      },
+      runtimePolicy,
+      issue: buildSymphonyTrackerIssue(),
+      logger: {
+        debug: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn()
+      }
+    });
+
+    const result = await session.client.runTurn(session, {
+      prompt: "Implement the change",
+      title: "Implement the change",
+      sandboxPolicy: null,
+      toolExecutor: vi.fn(),
+      onMessage: vi.fn(),
+      turnTimeoutMs: 1_000
+    });
+
+    expect(result).toEqual({
+      threadId: "pi-session-1",
+      turnId: "pi-turn-1",
+      usage: {
+        input_tokens: 8,
+        cached_input_tokens: 1,
+        output_tokens: 3
+      }
+    });
+    expect(getStateCount).toBe(2);
+  });
+
   it("preserves shell-based Symphony completion commands as command executions", async () => {
     const stdout = new PassThrough();
     const stderr = new PassThrough();

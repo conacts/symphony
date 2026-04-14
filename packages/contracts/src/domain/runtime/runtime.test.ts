@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  symphonyRuntimeClarificationAnswerRequestSchema,
+  symphonyRuntimeClarificationAnswerResponseSchema,
   symphonyRuntimeConfigResponseSchema,
   symphonyRuntimeIssuePathSchema,
   symphonyRuntimeIssueResponseSchema,
@@ -7,8 +9,11 @@ import {
   symphonyRuntimeRefreshResponseSchema,
   symphonyRuntimeStateResponseSchema,
   symphonyRuntimeTrackerStateObservationResponseSchema,
+  symphonyRuntimeWorkflowObservabilityQuerySchema,
+  symphonyRuntimeWorkflowObservabilityResponseSchema,
   symphonyRuntimeWorkflowComparisonQuerySchema,
-  symphonyRuntimeWorkflowComparisonResponseSchema
+  symphonyRuntimeWorkflowComparisonResponseSchema,
+  symphonyRuntimeWorkflowPathSchema
 } from "./index.js";
 
 describe("symphony runtime contracts", () => {
@@ -292,7 +297,8 @@ describe("symphony runtime contracts", () => {
             modelOverrideLabelPrefix: "model:",
             selectionHelpText:
               "Pi selection is label-driven. Use model:<preset> for repo-defined tiers or model:<model> for a direct model override."
-          }
+          },
+          capability: null
         }
       }
     });
@@ -306,6 +312,20 @@ describe("symphony runtime contracts", () => {
     });
 
     expect(parsed.presetIds).toEqual(["current-flow", "auto-merge"]);
+  });
+
+  it("parses the workflow observability path and query", () => {
+    const path = symphonyRuntimeWorkflowPathSchema.parse({
+      workflowId: "workflow-420"
+    });
+    const query = symphonyRuntimeWorkflowObservabilityQuerySchema.parse({
+      historyLimit: "50",
+      decisionLimit: "10"
+    });
+
+    expect(path.workflowId).toBe("workflow-420");
+    expect(query.historyLimit).toBe(50);
+    expect(query.decisionLimit).toBe(10);
   });
 
   it("rejects duplicate workflow comparison preset ids", () => {
@@ -401,6 +421,181 @@ describe("symphony runtime contracts", () => {
       throw new TypeError("Expected workflow comparison envelope to be successful.");
     }
     expect(parsed.data.summary.diverged).toBe(true);
+  });
+
+  it("parses the workflow observability envelope", () => {
+    const parsed = symphonyRuntimeWorkflowObservabilityResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      meta: {
+        durationMs: 3,
+        generatedAt: "2026-04-13T20:00:00.000Z"
+      },
+      data: {
+        workflow: {
+          workflowId: "workflow-420",
+          trackerIssueId: "issue-420",
+          repositoryKey: "openai/symphony",
+          issueIdentifier: "SYM-420",
+          bindingScope: null,
+          routerPresetId: "current-flow",
+          routerName: "current-flow",
+          routerVersion: "1",
+          archivedAt: null,
+          insertedAt: "2026-04-13T19:00:00.000Z",
+          updatedAt: "2026-04-13T19:30:00.000Z"
+        },
+        trackerState: "In Progress",
+        capability: {
+          workflowId: "workflow-420",
+          contractId: "contract-420",
+          policyId: "default",
+          planKind: "execute",
+          summary: "Next capability execution is implement.spec.",
+          decidedAt: "2026-04-13T19:30:00.000Z",
+          capabilityId: "implement.spec",
+          modelProfileId: "builder_fast",
+          workEpoch: 2,
+          pendingClarification: null,
+          completion: null
+        },
+        snapshot: {
+          eventSequence: 6,
+          currentNode: "implementation",
+          terminal: false,
+          lastSignalId: "signal-6",
+          lastDecisionId: "decision-3",
+          pendingCommandCount: 1,
+          projection: {
+            currentNode: "implementation",
+            terminal: false,
+            pendingCommands: [
+              {
+                id: "command-1",
+                kind: "dispatch.implementation",
+                payload: {
+                  issueIdentifier: "SYM-420"
+                },
+                dedupeKey: null
+              }
+            ]
+          }
+        },
+        replay: {
+          recordedEventCount: 6,
+          recordedSignalCount: 2,
+          recordedDecisionCount: 2,
+          recordedCommandCount: 1,
+          settledCommandCount: 1,
+          signals: [
+            {
+              id: "signal-1",
+              type: "tracker.state_observed",
+              source: "tracker",
+              occurredAt: "2026-04-13T19:00:01.000Z",
+              causationId: null,
+              correlationId: null,
+              payload: {
+                trackerState: "Todo"
+              }
+            }
+          ]
+        },
+        history: [
+          {
+            eventId: "event-1",
+            eventSequence: 1,
+            kind: "signal_recorded",
+            recordedAt: "2026-04-13T19:00:01.000Z",
+            signalId: "signal-1",
+            signalType: "tracker.state_observed",
+            signalSource: "tracker",
+            decisionId: null,
+            commandId: null,
+            fromNode: null,
+            toNode: null,
+            edgeId: null,
+            reasonCode: null,
+            event: {
+              kind: "signal_recorded",
+              recordedAt: "2026-04-13T19:00:01.000Z",
+              signal: {
+                id: "signal-1",
+                type: "tracker.state_observed",
+                source: "tracker",
+                occurredAt: "2026-04-13T19:00:01.000Z",
+                causationId: null,
+                correlationId: null,
+                payload: {
+                  trackerState: "Todo"
+                }
+              }
+            }
+          }
+        ],
+        decisions: [
+          {
+            decisionId: "decision-3",
+            eventSequence: 6,
+            signalId: "signal-6",
+            fromNode: "bootstrapping",
+            toNode: "implementation",
+            edgeId: "bootstrapping_to_implementation",
+            reasonCode: "dispatch_implementation",
+            policy: {
+              presetId: "current-flow"
+            },
+            projectionBefore: {
+              currentNode: "bootstrapping"
+            },
+            projectionAfter: {
+              currentNode: "implementation"
+            },
+            commands: [
+              {
+                commandId: "command-1",
+                kind: "dispatch.implementation",
+                dedupeKey: null,
+                payload: {
+                  issueIdentifier: "SYM-420"
+                },
+                settled: {
+                  eventId: "event-7",
+                  eventSequence: 7,
+                  recordedAt: "2026-04-13T19:00:05.000Z",
+                  status: "succeeded",
+                  payload: {
+                    dispatched: true
+                  }
+                }
+              }
+            ],
+            trace: [
+              {
+                message: "Todo moved into implementation dispatch."
+              }
+            ],
+            selectionMetadata: {
+              score: 1
+            },
+            recordedAt: "2026-04-13T19:00:04.000Z",
+            insertedAt: "2026-04-13T19:00:04.000Z"
+          }
+        ],
+        filters: {
+          historyLimit: 50,
+          decisionLimit: 10
+        }
+      }
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) {
+      throw new TypeError("Expected workflow observability envelope to be successful.");
+    }
+
+    expect(parsed.data.snapshot?.currentNode).toBe("implementation");
+    expect(parsed.data.decisions[0]?.commands[0]?.settled?.status).toBe("succeeded");
   });
 
   it("parses the tracker state observation envelope", () => {
@@ -513,12 +708,61 @@ describe("symphony runtime contracts", () => {
             modelOverrideLabelPrefix: "model:",
             selectionHelpText:
               "Pi selection is label-driven. Use model:<preset> for repo-defined tiers or model:<model> for a direct model override."
-          }
+          },
+          capability: null
         }
       }
     });
 
     expect(parsed.ok).toBe(true);
+  });
+
+  it("parses clarification answer requests", () => {
+    const parsed = symphonyRuntimeClarificationAnswerRequestSchema.parse({
+      requestId: "clarification_123",
+      answers: {
+        repo_scope: "Proceed with backend-only changes."
+      }
+    });
+
+    expect(parsed.answers.repo_scope).toBe("Proceed with backend-only changes.");
+  });
+
+  it("parses clarification answer responses", () => {
+    const parsed = symphonyRuntimeClarificationAnswerResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      meta: {
+        durationMs: 2,
+        generatedAt: "2026-04-13T18:00:00.000Z"
+      },
+      data: {
+        issueIdentifier: "COL-157",
+        workflowId: "workflow-157",
+        requestId: "clarification_123",
+        answeredAt: "2026-04-13T18:00:00.000Z",
+        capability: {
+          workflowId: "workflow-157",
+          contractId: "contract-157",
+          policyId: "default",
+          planKind: "execute",
+          summary: "Next capability execution is implement.spec.",
+          decidedAt: "2026-04-13T18:00:01.000Z",
+          capabilityId: "implement.spec",
+          modelProfileId: "builder_fast",
+          workEpoch: 1,
+          pendingClarification: null,
+          completion: null
+        }
+      }
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) {
+      throw new TypeError("Expected clarification answer response to parse.");
+    }
+
+    expect(parsed.data.capability.planKind).toBe("execute");
   });
 
   it("rejects runtime entries that omit nullable state fields", () => {

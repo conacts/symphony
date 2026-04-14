@@ -131,6 +131,57 @@ describe("runtime serializers", () => {
     expect(serialized?.tracked.state).toBe("Approved");
   });
 
+  it("includes capability operator state when provided", () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+
+    const serialized = serializeRuntimeIssue(
+      buildSymphonyOrchestratorSnapshot({
+        running: [],
+        retrying: []
+      }),
+      buildSymphonyRuntimePolicy().github.repo,
+      issue.identifier,
+      issue,
+      "In Progress",
+      buildSymphonyRuntimePolicy().pi,
+      {
+        workflowId: "workflow-157",
+        contractId: "contract-157",
+        policyId: "default",
+        planKind: "awaiting_input",
+        summary: "Need clarification before continuing implement.spec.",
+        decidedAt: "2026-04-13T18:00:00.000Z",
+        capabilityId: "implement.spec",
+        modelProfileId: null,
+        workEpoch: 1,
+        completion: null,
+        pendingClarification: {
+          requestId: "clarify_157",
+          raisedByCapabilityId: "implement.spec",
+          workEpoch: 1,
+          summary: "Need clarification before continuing implement.spec.",
+          answerPath: "/api/v1/COL-157/clarification-answer",
+          questions: [
+            {
+              id: "question_1",
+              prompt: "What behavior should this capability prove?",
+              context: null
+            }
+          ]
+        }
+      }
+    );
+
+    expect(serialized?.operator.capability).toEqual(
+      expect.objectContaining({
+        planKind: "awaiting_input",
+        capabilityId: "implement.spec"
+      })
+    );
+  });
+
   it("fails fast when a workflow-backed runtime issue is missing workflow-authoritative tracker state", () => {
     const issue = buildSymphonyTrackerIssue({
       state: "In Progress"

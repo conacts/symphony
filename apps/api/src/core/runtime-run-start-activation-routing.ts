@@ -26,75 +26,97 @@ export async function createRuntimeRunStartActivationRouter(input: {
     async activate(
       activationInput: SymphonyRunStartActivationInput
     ): Promise<SymphonyRunStartActivationResult> {
-      const loaded = await input.sessionLoader.resumeByIssueIdentifier({
-        issueIdentifier: activationInput.issue.identifier
-      });
-      if (!loaded) {
-        throw new TypeError(
-          `Route workflow could not be resumed for ${activationInput.issue.identifier} at run start.`
-        );
-      }
-      const { resumed } = loaded;
-      const presetAdapter = loaded.routing.module.runtimeAdapter;
-
-      const result = await resumed.session.receiveAsync(
-        presetAdapter.createRunStartedSignal({
-          id: buildRunStartedSignalId({
-            issue: activationInput.issue,
-            runMode: activationInput.runMode,
-            recordedAt: activationInput.recordedAt
-          }),
-          occurredAt: activationInput.recordedAt,
-          runId: activationInput.runId,
-          runMode: activationInput.runMode,
-          causationId: activationInput.runId,
-          correlationId: activationInput.issue.identifier
-        })
-      );
-
-      await input.routeWorkflows.recordRouteResult({
-        workflowId: resumed.hydrationState.workflow.workflowId,
-        policy: loaded.routing.policy,
-        result
-      });
-
-      let activatedIssue = activationInput.issue;
-      const loadSettlementSession = createRouteCommandSettlementSessionLoader({
+      return await activateRuntimeRunStart({
+        routeWorkflows: input.routeWorkflows,
+        tracker: input.tracker,
         sessionLoader: input.sessionLoader,
-        workflowId: resumed.hydrationState.workflow.workflowId,
-        failureContext:
-          "while settling run-start activation route commands"
+        activationInput
       });
-      for (const command of result.decision.commands) {
-        if (command.kind === "tracker.transition") {
-          activatedIssue = await executeSettledRouteCommand({
-            routeWorkflows: input.routeWorkflows,
-            workflowId: resumed.hydrationState.workflow.workflowId,
-            session: resumed.session,
-            loadSettlementSession,
-            command,
-            recordedAt: activationInput.recordedAt,
-            async execute(executedCommand) {
-              return await executeInProgressTransition({
-                presetAdapter,
-                command: executedCommand,
-                issue: activatedIssue,
-                tracker: input.tracker
-              });
-            }
-          });
-          continue;
-        }
-
-        throw new TypeError(
-          `Run start activation router does not support command kind ${command.kind}.`
-        );
-      }
-
-      return {
-        issue: activatedIssue
-      };
     }
+  };
+}
+
+export async function activateRuntimeRunStart(input: {
+  routeWorkflows: SymphonyRouteWorkflowPort;
+  tracker: SymphonyTracker;
+  sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
+  activationInput: SymphonyRunStartActivationInput;
+  signalId?: string;
+  causationId?: string | null;
+  correlationId?: string | null;
+  settlementFailureContext?: string;
+}): Promise<SymphonyRunStartActivationResult> {
+  const loaded = await input.sessionLoader.resumeByIssueIdentifier({
+    issueIdentifier: input.activationInput.issue.identifier
+  });
+  if (!loaded) {
+    throw new TypeError(
+      `Route workflow could not be resumed for ${input.activationInput.issue.identifier} at run start.`
+    );
+  }
+  const { resumed } = loaded;
+  const presetAdapter = loaded.routing.module.runtimeAdapter;
+
+  const result = await resumed.session.receiveAsync(
+    presetAdapter.createRunStartedSignal({
+      id:
+        input.signalId ??
+        buildRunStartedSignalId({
+          issue: input.activationInput.issue,
+          runMode: input.activationInput.runMode,
+          recordedAt: input.activationInput.recordedAt
+        }),
+      occurredAt: input.activationInput.recordedAt,
+      runId: input.activationInput.runId,
+      runMode: input.activationInput.runMode,
+      causationId: input.causationId ?? input.activationInput.runId,
+      correlationId:
+        input.correlationId ?? input.activationInput.issue.identifier
+    })
+  );
+
+  await input.routeWorkflows.recordRouteResult({
+    workflowId: resumed.hydrationState.workflow.workflowId,
+    policy: loaded.routing.policy,
+    result
+  });
+
+  let activatedIssue = input.activationInput.issue;
+  const loadSettlementSession = createRouteCommandSettlementSessionLoader({
+    sessionLoader: input.sessionLoader,
+    workflowId: resumed.hydrationState.workflow.workflowId,
+    failureContext:
+      input.settlementFailureContext ??
+      "while settling run-start activation route commands"
+  });
+  for (const command of result.decision.commands) {
+    if (command.kind === "tracker.transition") {
+      activatedIssue = await executeSettledRouteCommand({
+        routeWorkflows: input.routeWorkflows,
+        workflowId: resumed.hydrationState.workflow.workflowId,
+        session: resumed.session,
+        loadSettlementSession,
+        command,
+        recordedAt: input.activationInput.recordedAt,
+        async execute(executedCommand) {
+          return await executeInProgressTransition({
+            presetAdapter,
+            command: executedCommand,
+            issue: activatedIssue,
+            tracker: input.tracker
+          });
+        }
+      });
+      continue;
+    }
+
+    throw new TypeError(
+      `Run start activation router does not support command kind ${command.kind}.`
+    );
+  }
+
+  return {
+    issue: activatedIssue
   };
 }
 

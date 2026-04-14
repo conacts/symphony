@@ -45,6 +45,19 @@ export type SymphonyCapabilityContractIntake = {
   >;
 };
 
+export class SymphonyCapabilityContractIntakeValidationError extends TypeError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "SymphonyCapabilityContractIntakeValidationError";
+  }
+}
+
+export function isSymphonyCapabilityContractIntakeValidationError(
+  error: unknown
+): error is SymphonyCapabilityContractIntakeValidationError {
+  return error instanceof SymphonyCapabilityContractIntakeValidationError;
+}
+
 export function createSymphonyCapabilityContractIntake(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
 }): SymphonyCapabilityContractIntake {
@@ -71,79 +84,16 @@ export function createSymphonyCapabilityContractIntake(input: {
           SymphonyCapabilityEvidenceId,
           SymphonyCapabilityModelProfileId
         >(workflowId);
-
-      const objective = requireSection(sections, "objective", "objective");
-      const doneDefinition = requireSection(
-        sections,
-        "done definition",
-        "done definition"
-      );
-      const mergePolicy = parseMergePolicy(
-        requireSection(sections, "merge policy", "merge policy")
-      );
-
-      const contract = createSymphonyTicketExecutionContract({
-        contractId: existingContract?.contractId ?? buildContractId(workflowId),
+      const contract = buildExecutionContract({
         workflowId,
         issueIdentifier,
         repositoryKey,
         summary,
-        objective,
-        doneDefinition,
-        mergePolicy,
-        routingDirectives: {
-          requiredCapabilityIds: parseCapabilityIdListSection(
-            sections,
-            "required capabilities",
-            preset.defaultPolicy.requiredCapabilityIds
-          ),
-          preferredCapabilityIds: parseCapabilityIdListSection(
-            sections,
-            "preferred capabilities",
-            preset.defaultPolicy.preferredCapabilityIds
-          ),
-          forbiddenCapabilityIds: parseCapabilityIdListSection(
-            sections,
-            "forbidden capabilities",
-            preset.defaultPolicy.forbiddenCapabilityIds
-          ),
-          requiredEvidenceIds: parseEvidenceIdListSection(
-            sections,
-            "required evidence",
-            preset.defaultPolicy.requiredEvidenceIds
-          ),
-          allowedModelProfileIds: parseModelProfileIdListSection(
-            sections,
-            "allowed model profiles",
-            preset.defaultPolicy.allowedModelProfileIds
-          ),
-          completionPolicy: {
-            mode: parseCompletionModeSection(
-              sections,
-              "completion mode",
-              preset.defaultPolicy.completionPolicy.mode
-            )
-          },
-          clarificationPolicy: {
-            mode: parseClarificationModeSection(
-              sections,
-              "clarification mode",
-              preset.defaultPolicy.clarificationPolicy.mode
-            )
-          },
-          reviewStrictness: parseReviewStrictnessSection(
-            sections,
-            "review strictness",
-            preset.defaultPolicy.reviewStrictness
-          ),
-          maxRetryCount: parseMaxRetryCountSection(
-            sections,
-            "max retry count",
-            preset.defaultPolicy.maxRetryCount
-          )
-        },
-        createdAt: existingContract?.createdAt ?? recordedAt,
-        updatedAt: recordedAt
+        recordedAt,
+        existingContractId: existingContract?.contractId ?? null,
+        existingCreatedAt: existingContract?.createdAt ?? null,
+        preset,
+        sections
       });
 
       return await input.routeWorkflows.saveExecutionContract({
@@ -164,6 +114,101 @@ export function createSymphonyCapabilityContractIntake(input: {
 
 function buildContractId(workflowId: string): string {
   return `contract_${normalizeWorkflowToken(workflowId)}`;
+}
+
+function buildExecutionContract(input: {
+  workflowId: string;
+  issueIdentifier: string;
+  repositoryKey: string;
+  summary: string;
+  recordedAt: string;
+  existingContractId: string | null;
+  existingCreatedAt: string | null;
+  preset: ReturnType<typeof createSymphonyCapabilityPreset>;
+  sections: Map<string, string>;
+}) {
+  try {
+    const objective = requireSection(input.sections, "objective", "objective");
+    const doneDefinition = requireSection(
+      input.sections,
+      "done definition",
+      "done definition"
+    );
+    const mergePolicy = parseMergePolicy(
+      requireSection(input.sections, "merge policy", "merge policy")
+    );
+
+    return createSymphonyTicketExecutionContract({
+      contractId: input.existingContractId ?? buildContractId(input.workflowId),
+      workflowId: input.workflowId,
+      issueIdentifier: input.issueIdentifier,
+      repositoryKey: input.repositoryKey,
+      summary: input.summary,
+      objective,
+      doneDefinition,
+      mergePolicy,
+      routingDirectives: {
+        requiredCapabilityIds: parseCapabilityIdListSection(
+          input.sections,
+          "required capabilities",
+          input.preset.defaultPolicy.requiredCapabilityIds
+        ),
+        preferredCapabilityIds: parseCapabilityIdListSection(
+          input.sections,
+          "preferred capabilities",
+          input.preset.defaultPolicy.preferredCapabilityIds
+        ),
+        forbiddenCapabilityIds: parseCapabilityIdListSection(
+          input.sections,
+          "forbidden capabilities",
+          input.preset.defaultPolicy.forbiddenCapabilityIds
+        ),
+        requiredEvidenceIds: parseEvidenceIdListSection(
+          input.sections,
+          "required evidence",
+          input.preset.defaultPolicy.requiredEvidenceIds
+        ),
+        allowedModelProfileIds: parseModelProfileIdListSection(
+          input.sections,
+          "allowed model profiles",
+          input.preset.defaultPolicy.allowedModelProfileIds
+        ),
+        completionPolicy: {
+          mode: parseCompletionModeSection(
+            input.sections,
+            "completion mode",
+            input.preset.defaultPolicy.completionPolicy.mode
+          )
+        },
+        clarificationPolicy: {
+          mode: parseClarificationModeSection(
+            input.sections,
+            "clarification mode",
+            input.preset.defaultPolicy.clarificationPolicy.mode
+          )
+        },
+        reviewStrictness: parseReviewStrictnessSection(
+          input.sections,
+          "review strictness",
+          input.preset.defaultPolicy.reviewStrictness
+        ),
+        maxRetryCount: parseMaxRetryCountSection(
+          input.sections,
+          "max retry count",
+          input.preset.defaultPolicy.maxRetryCount
+        )
+      },
+      createdAt: input.existingCreatedAt ?? input.recordedAt,
+      updatedAt: input.recordedAt
+    });
+  } catch (error) {
+    throw new SymphonyCapabilityContractIntakeValidationError(
+      error instanceof Error ? error.message : String(error),
+      {
+        cause: error
+      }
+    );
+  }
 }
 
 function requireSection(

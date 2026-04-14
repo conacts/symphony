@@ -35,6 +35,7 @@ export type SymphonyStartupFailureOrigin =
   | "image_tooling_contract"
   | "docker_backend_contract"
   | "pi_auth_contract"
+  | "capability_contract_intake"
   | "runtime_launch"
   | "pi_startup";
 
@@ -145,6 +146,7 @@ export type SymphonyRunLifecycleCompletionInput = {
 
 export type SymphonyRunLifecycleCompletionResult = {
   issue: SymphonyTrackerIssue;
+  continueWithRunMode?: SymphonyRunMode | null;
 };
 
 export interface SymphonyWorkflowRoutingAdapter {

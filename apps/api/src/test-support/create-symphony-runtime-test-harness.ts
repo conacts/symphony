@@ -766,6 +766,24 @@ export async function createSymphonyRuntimeTestHarness(input: {
         };
       }
     },
+    capabilityOperator: {
+      async inspectByIssueIdentifier() {
+        return null;
+      },
+      async answerPendingClarificationByWorkflowId() {
+        throw new Error(
+          "Runtime test harness does not support capability clarification answers."
+        );
+      }
+    },
+    workflowObservability: {
+      async loadByWorkflowId() {
+        return null;
+      },
+      async loadByIssueIdentifier() {
+        return null;
+      }
+    },
     githubReviewIngress: createSymphonyGitHubReviewIngressService({
       githubPolicy: runtimePolicy.github,
       reviewProcessor: new SymphonyGithubReviewProcessor({

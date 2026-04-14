@@ -278,11 +278,16 @@ export function buildSymphonyRuntimeRefreshResult(
 
 export function buildSymphonyRuntimeIssueResult(
   overrides: Partial<
-    Omit<SymphonyRuntimeIssueResult, "workspace" | "running" | "retry">
+    Omit<SymphonyRuntimeIssueResult, "workspace" | "running" | "retry" | "operator">
   > & {
     workspace?: Partial<SymphonyRuntimeIssueResult["workspace"]>;
     running?: Partial<NonNullable<SymphonyRuntimeIssueResult["running"]>> | null;
     retry?: Partial<NonNullable<SymphonyRuntimeIssueResult["retry"]>> | null;
+    operator?: Partial<
+      Omit<SymphonyRuntimeIssueResult["operator"], "pi">
+    > & {
+      pi?: Partial<SymphonyRuntimeIssueResult["operator"]["pi"]>;
+    };
   } = {}
 ): SymphonyRuntimeIssueResult {
   const defaultWorkspace: SymphonyRuntimeIssueResult["workspace"] = {
@@ -355,6 +360,29 @@ export function buildSymphonyRuntimeIssueResult(
       totalTokens: 20
     }
   };
+  const defaultOperator: SymphonyRuntimeIssueResult["operator"] = {
+    refreshPath: "/api/v1/refresh",
+    refreshDelegatesTo: ["poll", "reconcile"],
+    githubPullRequestSearchUrl:
+      "https://github.com/openai/symphony/pulls?q=is%3Apr+head%3Asymphony%2FCOL-167",
+    requeueDelegatesTo: ["linear", "github_rework_comment"],
+    requeueCommand: "/rework",
+    requeueHelpText:
+      "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
+    pi: {
+      defaultModel: "xiaomi/mimo-v2-pro",
+      selectedModel: "xiaomi/mimo-v2-pro",
+      availableModels: [
+        "xiaomi/mimo-v2-pro",
+        "gpt-5.4",
+        "gpt-5.4-mini"
+      ],
+      modelOverrideLabelPrefix: "model:",
+      selectionHelpText:
+        "Pi selection is label-driven. Use model:<preset> for repo-defined tiers or model:<model> for a direct model override."
+    },
+    capability: null
+  };
 
   return {
     issueIdentifier: "COL-167",
@@ -398,31 +426,28 @@ export function buildSymphonyRuntimeIssueResult(
       projectName: "Symphony",
       teamKey: "COL"
     },
-    operator: {
-      refreshPath: "/api/v1/refresh",
-      refreshDelegatesTo: ["poll", "reconcile"],
-      githubPullRequestSearchUrl:
-        "https://github.com/openai/symphony/pulls?q=is%3Apr+head%3Asymphony%2FCOL-167",
-      requeueDelegatesTo: ["linear", "github_rework_comment"],
-      requeueCommand: "/rework",
-      requeueHelpText:
-        "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
-      pi: {
-        defaultModel: "xiaomi/mimo-v2-pro",
-        selectedModel: "xiaomi/mimo-v2-pro",
-        availableModels: [
-          "xiaomi/mimo-v2-pro",
-          "gpt-5.4",
-          "gpt-5.4-mini"
-        ],
-        modelOverrideLabelPrefix: "model:",
-        selectionHelpText:
-          "Pi selection is label-driven. Use model:<preset> for repo-defined tiers or model:<model> for a direct model override."
-      }
-    },
+    operator:
+      overrides.operator === undefined
+        ? defaultOperator
+        : {
+            ...defaultOperator,
+            ...overrides.operator,
+            pi: {
+              ...defaultOperator.pi,
+              ...overrides.operator.pi
+            },
+            capability:
+              overrides.operator.capability === undefined
+                ? defaultOperator.capability
+                : overrides.operator.capability
+          },
     ...Object.fromEntries(
       Object.entries(overrides).filter(
-        ([key]) => key !== "workspace" && key !== "running" && key !== "retry"
+        ([key]) =>
+          key !== "workspace" &&
+          key !== "running" &&
+          key !== "retry" &&
+          key !== "operator"
       )
     )
   };

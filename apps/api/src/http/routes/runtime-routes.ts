@@ -3,6 +3,8 @@ import { z } from "zod";
 import { resolveHarnessModelRuntimePolicy } from "@symphony/agent-harnesses";
 import {
   symphonyRuntimeHealthResponseSchema,
+  symphonyRuntimeClarificationAnswerRequestSchema,
+  symphonyRuntimeClarificationAnswerResponseSchema,
   symphonyRuntimeConfigResponseSchema,
   symphonyRuntimeIssuePathSchema,
   symphonyRuntimeLogsQuerySchema,
@@ -13,8 +15,11 @@ import {
   symphonyRuntimeStateResponseSchema,
   symphonyRuntimeTrackerStateObservationRequestSchema,
   symphonyRuntimeTrackerStateObservationResponseSchema,
+  symphonyRuntimeWorkflowObservabilityQuerySchema,
+  symphonyRuntimeWorkflowObservabilityResponseSchema,
   symphonyRuntimeWorkflowComparisonQuerySchema,
-  symphonyRuntimeWorkflowComparisonResponseSchema
+  symphonyRuntimeWorkflowComparisonResponseSchema,
+  symphonyRuntimeWorkflowPathSchema
 } from "@symphony/contracts";
 import type { SymphonyRuntimeAppServices } from "../../core/runtime-app-types.js";
 import { createHttpError } from "../../core/errors.js";
@@ -331,8 +336,174 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     return jsonOk(c, result);
   });
 
+  runtimeRoutes.get("/workflows/:workflowId/observability", async (c) => {
+    const path = parseWithSchema(symphonyRuntimeWorkflowPathSchema, c.req.param());
+    const query = parseWithSchema(
+      symphonyRuntimeWorkflowObservabilityQuerySchema,
+      c.req.query()
+    );
+    const result = await services.workflowObservability.loadByWorkflowId({
+      workflowId: path.workflowId,
+      recordedAt: new Date().toISOString(),
+      historyLimit: query.historyLimit,
+      decisionLimit: query.decisionLimit
+    });
+
+    if (!result) {
+      c.get("logger").warn("Runtime workflow observability not found", {
+        workflowId: path.workflowId
+      });
+      throw createHttpError("NOT_FOUND", "Workflow observability not found.");
+    }
+
+    c.get("logger").debug("Returning runtime workflow observability by workflow id", {
+      workflowId: result.workflow.workflowId,
+      issueIdentifier: result.workflow.issueIdentifier,
+      currentNode: result.snapshot?.currentNode ?? null
+    });
+
+    symphonyRuntimeWorkflowObservabilityResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      data: result,
+      meta: {
+        durationMs: 0,
+        generatedAt: new Date().toISOString()
+      }
+    });
+
+    return jsonOk(c, result);
+  });
+
+  runtimeRoutes.get("/:issueIdentifier/workflow-observability", async (c) => {
+    const path = parseWithSchema(symphonyRuntimeIssuePathSchema, c.req.param());
+    const query = parseWithSchema(
+      symphonyRuntimeWorkflowObservabilityQuerySchema,
+      c.req.query()
+    );
+    const result = await services.workflowObservability.loadByIssueIdentifier({
+      issueIdentifier: path.issueIdentifier,
+      recordedAt: new Date().toISOString(),
+      historyLimit: query.historyLimit,
+      decisionLimit: query.decisionLimit
+    });
+
+    if (!result) {
+      c.get("logger").warn("Runtime workflow observability not found", {
+        issueIdentifier: path.issueIdentifier
+      });
+      throw createHttpError("NOT_FOUND", "Workflow observability not found.");
+    }
+
+    c.get("logger").debug("Returning runtime workflow observability by issue", {
+      workflowId: result.workflow.workflowId,
+      issueIdentifier: result.workflow.issueIdentifier,
+      currentNode: result.snapshot?.currentNode ?? null
+    });
+
+    symphonyRuntimeWorkflowObservabilityResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      data: result,
+      meta: {
+        durationMs: 0,
+        generatedAt: new Date().toISOString()
+      }
+    });
+
+    return jsonOk(c, result);
+  });
+
+  runtimeRoutes.post("/:issueIdentifier/clarification-answer", async (c) => {
+    const path = parseWithSchema(symphonyRuntimeIssuePathSchema, c.req.param());
+    const payload = parseWithSchema(
+      symphonyRuntimeClarificationAnswerRequestSchema,
+      await c.req.json()
+    );
+    const recordedAt = new Date().toISOString();
+    const capability = await services.capabilityOperator.inspectByIssueIdentifier({
+      issueIdentifier: path.issueIdentifier,
+      recordedAt
+    });
+
+    if (!capability) {
+      c.get("logger").warn("Capability operator state not found for issue", {
+        issueIdentifier: path.issueIdentifier
+      });
+      throw createHttpError("NOT_FOUND", "Capability operator state not found.");
+    }
+
+    if (
+      capability.planKind !== "awaiting_input" ||
+      capability.pendingClarification === null
+    ) {
+      throw createHttpError(
+        "VALIDATION_FAILED",
+        "Issue is not waiting on a clarification answer."
+      );
+    }
+
+    if (payload.requestId !== capability.pendingClarification.requestId) {
+      throw createHttpError(
+        "VALIDATION_FAILED",
+        `Clarification request ${payload.requestId} is no longer current for ${path.issueIdentifier}.`
+      );
+    }
+
+    const requiredQuestionIds = new Set(
+      capability.pendingClarification.questions.map((question) => question.id)
+    );
+    for (const questionId of requiredQuestionIds) {
+      if (!(questionId in payload.answers)) {
+        throw createHttpError(
+          "VALIDATION_FAILED",
+          `Missing clarification answer for question ${questionId}.`
+        );
+      }
+    }
+
+    for (const questionId of Object.keys(payload.answers)) {
+      if (!requiredQuestionIds.has(questionId)) {
+        throw createHttpError(
+          "VALIDATION_FAILED",
+          `Unexpected clarification answer key ${questionId}.`
+        );
+      }
+    }
+
+    const result =
+      await services.capabilityOperator.answerPendingClarificationByWorkflowId({
+        workflowId: capability.workflowId,
+        recordedAt,
+        requestId: payload.requestId,
+        answers: payload.answers
+      });
+
+    c.get("logger").info("Recorded capability clarification answer", {
+      issueIdentifier: result.issueIdentifier,
+      workflowId: result.workflowId,
+      requestId: result.requestId,
+      nextPlanKind: result.capability.planKind
+    });
+
+    services.realtime.publishIssueUpdated(result.issueIdentifier);
+
+    symphonyRuntimeClarificationAnswerResponseSchema.parse({
+      schemaVersion: "1",
+      ok: true,
+      data: result,
+      meta: {
+        durationMs: 0,
+        generatedAt: new Date().toISOString()
+      }
+    });
+
+    return jsonOk(c, result);
+  });
+
   runtimeRoutes.get("/:issueIdentifier", async (c) => {
     const path = parseWithSchema(symphonyRuntimeIssuePathSchema, c.req.param());
+    const recordedAt = new Date().toISOString();
     const trackedIssue = await services.tracker.fetchIssueByIdentifier(
       services.runtimePolicy.tracker,
       path.issueIdentifier
@@ -343,13 +514,18 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     const piSelectionPolicy = resolveHarnessModelRuntimePolicy(
       services.runtimePolicy
     );
+    const capability = await services.capabilityOperator.inspectByIssueIdentifier({
+      issueIdentifier: path.issueIdentifier,
+      recordedAt
+    });
     const result = serializeRuntimeIssue(
       services.orchestrator.snapshot(),
       services.runtimePolicy.github.repo,
       path.issueIdentifier,
       trackedIssue,
       workflowLifecycle?.trackerState ?? null,
-      piSelectionPolicy
+      piSelectionPolicy,
+      capability
     );
 
     if (!result) {

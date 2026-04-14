@@ -68,14 +68,17 @@ import {
   compareRuntimeWorkflowByWorkflowId
 } from "./runtime-workflow-comparison.js";
 import {
+  createRuntimeWorkflowObservabilityService
+} from "./runtime-workflow-observability.js";
+import {
   createRuntimeTrackerStateIngressPort
 } from "./runtime-tracker-state-ingress-port.js";
 import {
   createSymphonyCapabilityPlanningService
 } from "./symphony-capability-planning.js";
 import {
-  createSymphonyCapabilityExecutionService
-} from "./symphony-capability-execution.js";
+  createSymphonyCapabilityOperatorService
+} from "./symphony-capability-operator.js";
 import {
   createSymphonyCapabilityContractIntake
 } from "./symphony-capability-contract-intake.js";
@@ -100,10 +103,6 @@ import {
 import type {
   SymphonyRuntimeBootstrapRepositorySource
 } from "./runtime-bootstrap-contract.js";
-import {
-  createSymphonyInProcessCapabilityExecutionEngine
-} from "./symphony-in-process-capability-execution.js";
-
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
   environmentSource: Record<string, string | undefined>,
@@ -347,12 +346,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const capabilityPlanning = createSymphonyCapabilityPlanningService({
     routeWorkflowStore
   });
-  const capabilityExecution = createSymphonyCapabilityExecutionService({
-    capabilityPlanning,
+  const capabilityOperator = createSymphonyCapabilityOperatorService({
     routeWorkflowStore,
     routeWorkflows,
     sessionLoader: workflowSessionLoader,
-    engine: createSymphonyInProcessCapabilityExecutionEngine()
+    capabilityPlanning
   });
   const capabilityContractIntake = createSymphonyCapabilityContractIntake({
     routeWorkflows
@@ -360,9 +358,26 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const capabilityDispatchAuthority =
     createSymphonyCapabilityDispatchAuthorityService({
       sessionLoader: workflowSessionLoader,
+      routeWorkflows,
+      tracker,
       contractIntake: capabilityContractIntake,
-      capabilityExecution
+      capabilityPlanning
     });
+  const isCapabilityManagedRun = async (input: {
+    issueIdentifier: string;
+  }) => {
+    const hydration = await workflowSessionLoader.loadHydrationByIssueIdentifier({
+      issueIdentifier: input.issueIdentifier
+    });
+    if (!hydration) {
+      return false;
+    }
+
+    const contract = await routeWorkflowStore.getExecutionContract(
+      hydration.hydrationState.workflow.workflowId
+    );
+    return contract !== null;
+  };
   const routeLifecycle = await createRuntimeRouteLifecycleService({
     routeWorkflows,
     tracker,
@@ -373,6 +388,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     ensureIssueIdentity: seedTrackedIssueIdentity,
     presetSelection: bootstrapBinding.presetSelection,
     sessionLoader: workflowSessionLoader,
+    routeWorkflowStore,
+    capabilityPlanning,
     capabilityDispatchAuthority,
     now: undefined
   });
@@ -522,6 +539,10 @@ export async function loadDefaultSymphonyRuntimeAppServices(
           issueIdentifier,
           recordedAt
         }),
+      isCapabilityManagedRun: ({ issueIdentifier }) =>
+        isCapabilityManagedRun({
+          issueIdentifier
+        }),
       agentAnalytics: agentAnalyticsStore,
       runtimeLogs: runtimeLogStore,
       hostCommandEnvSource,
@@ -670,6 +691,12 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       });
     }
   } satisfies SymphonyRuntimeAppServices["workflowComparison"];
+  const workflowObservability = createRuntimeWorkflowObservabilityService({
+    routeWorkflowStore,
+    workflowRead,
+    capabilityOperator,
+    bindingScope: bootstrapBinding.bindingScope
+  });
   const githubReviewIngress = createSymphonyGitHubReviewIngressService({
     githubPolicy: runtimePolicy.github,
     admittedRepositories: admittedRepositories.map((entry) => entry.repositoryKey),
@@ -814,7 +841,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     health,
     trackerStateIngress,
     workflowRead,
+    capabilityOperator,
     runtimeTools,
+    workflowObservability,
     workflowComparison,
     routeWorkflows,
     githubReviewIngress,

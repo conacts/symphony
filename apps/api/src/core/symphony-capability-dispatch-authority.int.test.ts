@@ -29,17 +29,14 @@ import {
   createSymphonyCapabilityPlanningService
 } from "./symphony-capability-planning.js";
 import {
-  createSymphonyCapabilityExecutionService
-} from "./symphony-capability-execution.js";
-import {
   createSymphonyCapabilityContractIntake
 } from "./symphony-capability-contract-intake.js";
 import {
   createSymphonyCapabilityDispatchAuthorityService
 } from "./symphony-capability-dispatch-authority.js";
 import {
-  createSymphonyInProcessCapabilityExecutionEngine
-} from "./symphony-in-process-capability-execution.js";
+  createExternalRunDispatchAuthority
+} from "../test-support/runtime-dispatch-authority-stub.js";
 
 const tempDirectories: string[] = [];
 
@@ -55,15 +52,27 @@ afterEach(async () => {
 });
 
 describe("Symphony capability dispatch authority", () => {
-  it("handles Todo capability routing without an external dispatch callback", async () => {
+  it("keeps Todo capability routing in bootstrapping until an external run starts", async () => {
     const harness = await createHarness({
       state: "Todo"
     });
 
     try {
+      const dispatchRequests: Array<{
+        workflowId: string;
+        issueState: string;
+        runMode: string;
+      }> = [];
       const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
         issueIdentifier: harness.issue.identifier,
-        recordedAt: "2026-04-13T08:00:00.000Z"
+        recordedAt: "2026-04-13T08:00:00.000Z",
+        onDispatchRequested: async (input) => {
+          dispatchRequests.push({
+            workflowId: input.workflowId,
+            issueState: input.trackerIssue.state,
+            runMode: input.runMode
+          });
+        }
       });
       const workflowId = await harness.requireWorkflowId();
       const commands =
@@ -85,16 +94,22 @@ describe("Symphony capability dispatch authority", () => {
           repositoryKey: "openai/symphony"
         })
       );
+      expect(dispatchRequests).toEqual([
+        {
+          workflowId,
+          issueState: "Bootstrapping",
+          runMode: "implementation"
+        }
+      ]);
       expect(commands.map((command) => command.command.payload.capabilityId)).toEqual([
-        "implement.spec",
-        "critic.code_review"
+        "implement.spec"
       ]);
     } finally {
       harness.close();
     }
   });
 
-  it("handles review rework routing without an external dispatch callback", async () => {
+  it("keeps review rework routing in bootstrapping until an external run starts", async () => {
     const harness = await createHarness({
       state: "In Review"
     });
@@ -110,7 +125,8 @@ describe("Symphony capability dispatch authority", () => {
         handoff: buildSymphonyReworkHandoff({
           triggerKind: "changes_requested_review",
           recordedAt: "2026-04-13T08:05:10.000Z"
-        })
+        }),
+        onDispatchRequested: async () => {}
       });
       const workflowId = await harness.requireWorkflowId();
       const commands =
@@ -126,8 +142,7 @@ describe("Symphony capability dispatch authority", () => {
       expect(routed).toBe(true);
       expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
       expect(commands.map((command) => command.command.payload.capabilityId)).toEqual([
-        "implement.spec",
-        "critic.code_review"
+        "implement.spec"
       ]);
     } finally {
       harness.close();
@@ -136,24 +151,34 @@ describe("Symphony capability dispatch authority", () => {
 
   it("keeps bootstrap redispatch under planner authority after restart", async () => {
     const harness = await createHarness({
-      state: "Todo"
+      state: "Todo",
+      dispatchAuthorityMode: "external"
     });
 
     try {
-      await harness.service.observeNonRunningTrackerStateByIdentifier({
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
         issueIdentifier: harness.issue.identifier,
-        recordedAt: "2026-04-13T08:10:00.000Z"
+        recordedAt: "2026-04-13T08:10:00.000Z",
+        onDispatchRequested: async () => {}
       });
-      const workflowId = await harness.requireWorkflowId();
-      const commandsBefore =
-        await harness.routeWorkflowStore.listCapabilityPlannerCommands(workflowId);
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        observedTrackerState: "Todo",
+        workflowTrackerState: "Bootstrapping",
+        observed: true,
+        disposition: "observed"
+      });
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
 
-      await harness.restartService("2026-04-13T08:10:05.000Z");
+      await harness.restartService("2026-04-13T08:10:05.000Z", "capability");
+      const workflowId = await harness.requireWorkflowId();
 
       const bootstrappingIssue =
         harness.tracker.getIssue(harness.issue.id) ??
         (() => {
-          throw new TypeError("Expected Bootstrapping tracker issue after capability routing.");
+          throw new TypeError(
+            "Expected tracker issue before capability redispatch."
+          );
         })();
       const routed = await harness.service.workflowRoutingAdapter.routeDispatchBootstrap({
         issue: bootstrappingIssue,
@@ -164,10 +189,75 @@ describe("Symphony capability dispatch authority", () => {
       const commandsAfter =
         await harness.routeWorkflowStore.listCapabilityPlannerCommands(workflowId);
 
-      expect(routed.issue.state).toBe("Bootstrapping");
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
       expect(routed.runMode).toBe("implementation");
-      expect(routed.dispatchHandling).toBe("handled_in_process");
-      expect(commandsAfter).toEqual(commandsBefore);
+      expect(routed.dispatchHandling).toBe("external_run");
+      expect(commandsAfter.map((command) => command.command.payload.capabilityId)).toEqual([
+        "implement.spec"
+      ]);
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("fails malformed capability contracts once and does not keep redispatching bootstrapping work", async () => {
+    const harness = await createHarness({
+      state: "Todo",
+      description: buildCapabilityTicketDescription({
+        objective: null
+      })
+    });
+
+    try {
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-13T08:15:00.000Z"
+      });
+      const workflowId = await harness.requireWorkflowId();
+      const contract = await harness.routeWorkflowStore.getExecutionContract(workflowId);
+      const commands =
+        await harness.routeWorkflowStore.listCapabilityPlannerCommands(workflowId);
+      const hydration =
+        await harness.routeWorkflowStore.loadWorkflowHydrationState(workflowId);
+      const trackerOperations = harness.tracker.listOperations();
+      const failureComment = trackerOperations.find(
+        (operation) => operation.kind === "comment"
+      );
+      const repeated = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-13T08:15:05.000Z"
+      });
+
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        observedTrackerState: "Todo",
+        workflowTrackerState: "Failed",
+        observed: true,
+        disposition: "observed"
+      });
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Failed");
+      expect(contract).toBeNull();
+      expect(commands).toEqual([]);
+      expect(hydration?.snapshot?.projection.currentNode).toBe("failed");
+      expect(failureComment).toEqual(
+        expect.objectContaining({
+          kind: "comment",
+          issueId: harness.issue.id,
+          body: expect.stringContaining("ticket contract was not strong enough")
+        })
+      );
+      expect(failureComment?.body).toContain("`objective is required.`");
+      expect(failureComment?.body).toContain("`## Objective`");
+      expect(failureComment?.body).toContain("`## Done Definition`");
+      expect(failureComment?.body).toContain("`## Merge Policy`");
+      expect(failureComment?.body).toContain("move the issue back to `Todo`");
+      expect(repeated).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        observedTrackerState: "Failed",
+        workflowTrackerState: "Failed",
+        observed: false,
+        disposition: "skipped"
+      });
     } finally {
       harness.close();
     }
@@ -176,6 +266,8 @@ describe("Symphony capability dispatch authority", () => {
 
 async function createHarness(input: {
   state: string;
+  description?: string;
+  dispatchAuthorityMode?: "capability" | "external";
 }) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-capability-dispatch-"));
   tempDirectories.push(root);
@@ -191,7 +283,7 @@ async function createHarness(input: {
   const runtimePolicy = buildSymphonyRuntimePolicy();
   const issue = buildSymphonyTrackerIssue({
     state: input.state,
-    description: buildCapabilityTicketDescription()
+    description: input.description ?? buildCapabilityTicketDescription()
   });
   const tracker = createMemorySymphonyTracker([issue]);
 
@@ -203,7 +295,10 @@ async function createHarness(input: {
     recordedAt: "2026-04-13T07:59:00.000Z"
   });
 
-  async function buildService(nowIso: string) {
+  async function buildService(
+    nowIso: string,
+    dispatchAuthorityMode: "capability" | "external"
+  ) {
     const sessionLoader = await createRuntimeWorkflowSessionLoader({
       routeWorkflows,
       trackerConfig: runtimePolicy.tracker,
@@ -212,22 +307,19 @@ async function createHarness(input: {
     const capabilityPlanning = createSymphonyCapabilityPlanningService({
       routeWorkflowStore
     });
-    const capabilityExecution = createSymphonyCapabilityExecutionService({
-      capabilityPlanning,
-      routeWorkflowStore,
-      routeWorkflows,
-      sessionLoader,
-      engine: createSymphonyInProcessCapabilityExecutionEngine()
-    });
     const contractIntake = createSymphonyCapabilityContractIntake({
       routeWorkflows
     });
     const capabilityDispatchAuthority =
-      createSymphonyCapabilityDispatchAuthorityService({
-        sessionLoader,
-        contractIntake,
-        capabilityExecution
-      });
+      dispatchAuthorityMode === "external"
+        ? createExternalRunDispatchAuthority()
+        : createSymphonyCapabilityDispatchAuthorityService({
+          sessionLoader,
+          routeWorkflows,
+          tracker,
+          contractIntake,
+          capabilityPlanning
+        });
 
     return await createRuntimeRouteLifecycleService({
       routeWorkflows,
@@ -250,7 +342,10 @@ async function createHarness(input: {
     });
   }
 
-  let service = await buildService("2026-04-13T08:00:00.000Z");
+  let service = await buildService(
+    "2026-04-13T08:00:00.000Z",
+    input.dispatchAuthorityMode ?? "capability"
+  );
 
   return {
     issue,
@@ -259,8 +354,11 @@ async function createHarness(input: {
     get service() {
       return service;
     },
-    async restartService(nowIso: string) {
-      service = await buildService(nowIso);
+    async restartService(
+      nowIso: string,
+      dispatchAuthorityMode: "capability" | "external" = "capability"
+    ) {
+      service = await buildService(nowIso, dispatchAuthorityMode);
       return service;
     },
     async requireWorkflowId() {
@@ -279,16 +377,38 @@ async function createHarness(input: {
   };
 }
 
-function buildCapabilityTicketDescription(): string {
-  return [
-    "## Objective",
-    "Implement the requested slice through the capability router.",
-    "",
-    "## Done Definition",
-    "- The capability planner owns the next executable work.",
-    "- Control-plane history records every planner-visible state change.",
-    "",
-    "## Merge Policy",
-    "manual"
-  ].join("\n");
+function buildCapabilityTicketDescription(input: {
+  objective?: string | null;
+  doneDefinition?: string | null;
+  mergePolicy?: string | null;
+} = {}): string {
+  const sections: string[] = [];
+
+  if (input.objective !== null) {
+    sections.push("## Objective");
+    sections.push(
+      input.objective ??
+        "Implement the requested slice through the capability router."
+    );
+    sections.push("");
+  }
+
+  if (input.doneDefinition !== null) {
+    sections.push("## Done Definition");
+    sections.push(
+      input.doneDefinition ??
+        [
+          "- The capability planner owns the next executable work.",
+          "- Control-plane history records every planner-visible state change."
+        ].join("\n")
+    );
+    sections.push("");
+  }
+
+  if (input.mergePolicy !== null) {
+    sections.push("## Merge Policy");
+    sections.push(input.mergePolicy ?? "manual");
+  }
+
+  return sections.join("\n");
 }
