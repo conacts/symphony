@@ -20,7 +20,10 @@ import { createExternalRunDispatchAuthority } from "../test-support/runtime-disp
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createRuntimeTrackerStateIngressPort } from "./runtime-tracker-state-ingress-port.js";
-import type { SymphonyRuntimeRouterPresetId } from "./runtime-workflow-presets.js";
+import {
+  createRuntimeCurrentFlowRouting,
+  type SymphonyRuntimeRouterPresetId
+} from "./runtime-workflow-presets.js";
 import { createDefaultRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
 
 const tempDirectories: string[] = [];
@@ -234,6 +237,56 @@ describe("runtime tracker state ingress port", () => {
     }
   });
 
+  it("replaces an incompatible live workflow during idle observation", async () => {
+    const harness = await createHarness({
+      state: "Todo",
+      presetId: "intelligent-flow"
+    });
+
+    try {
+      const legacyRouting = await createRuntimeCurrentFlowRouting({
+        trackerConfig: harness.trackerConfig,
+        now: () => new Date("2026-04-10T14:59:58.000Z")
+      });
+      const previousWorkflow = await harness.routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: harness.issue.id,
+        issueIdentifier: harness.issue.identifier,
+        repositoryKey: "openai/symphony",
+        routerPresetId: legacyRouting.presetId,
+        router: legacyRouting.router,
+        createdAt: "2026-04-10T14:59:58.000Z"
+      });
+
+      const observation = await harness.ingress.observeNonRunningByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-10T15:00:12.000Z",
+        onDispatchRequested: async () => {}
+      });
+      const replacedWorkflow =
+        await harness.routeWorkflows.loadHydrationStateByIssueIdentifier(
+          harness.issue.identifier
+        );
+      const archivedWorkflow = await harness.routeWorkflowStore.getWorkflow(
+        previousWorkflow.workflow.workflowId
+      );
+
+      expect(observation).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        observedTrackerState: "Todo",
+        workflowTrackerState: "Bootstrapping",
+        observed: true,
+        disposition: "observed"
+      });
+      expect(replacedWorkflow?.workflow.routerPresetId).toBe("intelligent-flow");
+      expect(replacedWorkflow?.workflow.workflowId).not.toBe(
+        previousWorkflow.workflow.workflowId
+      );
+      expect(archivedWorkflow?.archivedAt).toBe("2026-04-10T15:00:12.000Z");
+    } finally {
+      harness.close();
+    }
+  });
+
   it("records ignored explicit non-running observations that are outside the workflow seed policy", async () => {
     const runtimePolicy = buildSymphonyRuntimePolicy();
     const harness = await createHarness({
@@ -351,7 +404,10 @@ async function createHarness(input: {
     issueStore,
     ingress,
     routeLifecycle,
+    routeWorkflowStore,
+    routeWorkflows,
     runtimeLogStore,
+    trackerConfig,
     tracker,
     close() {
       database.close();

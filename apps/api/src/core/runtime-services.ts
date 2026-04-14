@@ -349,7 +349,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const intelligentFlowSelector =
     createSymphonyIntelligentFlowSelectorFromEnvironment({
       configSource: environmentSource,
-      secretSource: hostCommandEnvSource
+      secretSource: hostCommandEnvSource,
+      fallbackModel: runtimePolicy.agentRuntime.defaultModel
     });
   const capabilityPlanning = createSymphonyCapabilityPlanningService({
     routeWorkflowStore,
@@ -415,10 +416,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       },
       {
         dockerHostFileMounts: dockerAuth.mounts,
-        dockerContainerEnv: {
-          ...dockerGitHubCliAuth.launchEnv,
-          ...dockerLinearLaunchEnv
-        },
+        dockerContainerEnv: buildDockerWorkspaceContainerEnv({
+          dockerGitHubCliAuth,
+          dockerLinearLaunchEnv,
+          dockerPiAuth
+        }),
         runtimeManifest: repository.runtimeManifest
       }
     )
@@ -976,6 +978,24 @@ export function buildWorkspaceBackendPayload(input: {
     dockerPiProviderEnvMounted:
       dockerPiAuth.providerEnvKey !== null &&
       Object.prototype.hasOwnProperty.call(dockerPiAuth.launchEnv, dockerPiAuth.providerEnvKey)
+  };
+}
+
+export function buildDockerWorkspaceContainerEnv(input: {
+  dockerGitHubCliAuth: DockerGitHubCliAuthContract;
+  dockerLinearLaunchEnv: Record<string, string>;
+  dockerPiAuth: DockerPiAuthContract;
+}): Record<string, string> {
+  const {
+    dockerGitHubCliAuth,
+    dockerLinearLaunchEnv,
+    dockerPiAuth
+  } = input;
+
+  return {
+    ...dockerGitHubCliAuth.launchEnv,
+    ...dockerPiAuth.launchEnv,
+    ...dockerLinearLaunchEnv
   };
 }
 

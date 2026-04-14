@@ -399,6 +399,64 @@ describe("runtime route workflows", () => {
     }
   });
 
+  it("archives an incompatible live workflow and creates a replacement when requested", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-route-preset-replace-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const routeWorkflowStore = createRouteWorkflowStore(database.db);
+    const routeWorkflows = createRouteWorkflowPort({
+      routeWorkflowStore
+    });
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-410C",
+        trackerIssueId: "tracker-410C",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T00:28:00.000Z"
+      });
+
+      const previousWorkflowId = await routeWorkflowStore.createWorkflow({
+        trackerIssueId: "tracker-410C",
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-410C",
+        routerPresetId: "current-flow",
+        routerName: "symphony-current-flow",
+        routerVersion: "1",
+        createdAt: "2026-04-10T00:29:00.000Z"
+      });
+
+      const ensured = await routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: "tracker-410C",
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-410C",
+        routerPresetId: "test-flow",
+        router: await createTestRouter(),
+        createdAt: "2026-04-10T00:29:30.000Z",
+        replaceIncompatibleLiveWorkflow: true
+      });
+
+      const archivedWorkflow = await routeWorkflowStore.getWorkflow(previousWorkflowId);
+      const liveWorkflow = await routeWorkflowStore.getWorkflowForTrackerIssueId(
+        "tracker-410C"
+      );
+
+      expect(ensured.created).toBe(true);
+      expect(ensured.workflow.workflowId).not.toBe(previousWorkflowId);
+      expect(ensured.workflow.routerPresetId).toBe("test-flow");
+      expect(archivedWorkflow?.archivedAt).toBe("2026-04-10T00:29:30.000Z");
+      expect(liveWorkflow?.workflowId).toBe(ensured.workflow.workflowId);
+      expect(liveWorkflow?.routerPresetId).toBe("test-flow");
+    } finally {
+      database.close();
+    }
+  });
+
   it("rehydrates a persisted projection from the latest snapshot plus tail history", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-route-rehydrate-"));
     tempDirectories.push(root);

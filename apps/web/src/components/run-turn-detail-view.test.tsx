@@ -42,11 +42,49 @@ describe("run turn detail view", () => {
     expect(html).toContain("Task complete.");
     expect(html).toContain("80 tokens");
     expect(html).toContain("240 tokens");
-    expect(html).toContain("90-second timeout");
+    expect(html).toContain("90-second limit");
     expect(html).not.toContain("Openrouter / Responses");
     expect(html).not.toContain("Turn transcript");
     expect(html).not.toContain("Single-turn drilldown");
     expect(html).not.toContain("Total 240");
+  });
+
+  it("renders a real timeout label only when the command actually timed out", () => {
+    const runArtifacts = buildSymphonyAgentRunArtifactsResult();
+    const command = runArtifacts.commandExecutions[0];
+
+    if (!command) {
+      throw new TypeError("Expected the fixture to include a command execution.");
+    }
+
+    const commandItem = runArtifacts.items.find((item) => item.itemId === command.itemId);
+
+    if (!commandItem) {
+      throw new TypeError("Expected the fixture to include a matching command item.");
+    }
+
+    command.status = "failed";
+    command.exitCode = null;
+    command.outputPreview = "Command timed out after 90 seconds";
+    commandItem.finalStatus = "failed";
+    commandItem.latestPreview = "Command timed out after 90 seconds";
+
+    const html = renderToStaticMarkup(
+      <RunTurnDetailView
+        error={null}
+        loading={false}
+        resource={{
+          runDetail: buildSymphonyForensicsRunDetailResult(),
+          runArtifacts,
+          agentError: null
+        }}
+        turnId="turn_123"
+        onOpenOverflow={vi.fn()}
+      />
+    );
+
+    expect(html).toContain("Timed out after 90 seconds");
+    expect(html).not.toContain("90-second limit");
   });
 
   it("shows an empty resource state when commands have no sampled profiles", () => {

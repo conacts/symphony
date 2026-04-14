@@ -66,7 +66,8 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
         bindingScope: input.bindingScope ?? null,
         routerPresetId: input.routing.presetId,
         router,
-        createdAt: routeInput.startedAt
+        createdAt: routeInput.startedAt,
+        replaceIncompatibleLiveWorkflow: true
       });
       const loaded = await input.sessionLoader.resumeByWorkflowId({
         workflowId: ensured.workflow.workflowId

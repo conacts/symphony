@@ -274,6 +274,10 @@ export interface RouteWorkflowStore {
     routerVersion: string;
     createdAt: string;
   }): Promise<string>;
+  archiveWorkflow(input: {
+    workflowId: string;
+    archivedAt: string;
+  }): Promise<boolean>;
   getWorkflow(workflowId: string): Promise<RouteWorkflowRecord | null>;
   getExecutionContract<
     CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
@@ -513,6 +517,28 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     }
 
     return workflowId;
+  }
+
+  async archiveWorkflow(input: {
+    workflowId: string;
+    archivedAt: string;
+  }): Promise<boolean> {
+    const workflowId = sanitizeRequiredText(input.workflowId, "workflowId");
+    const archivedAt = sanitizeRequiredText(input.archivedAt, "archivedAt");
+    const result = this.#db.update(routeWorkflowsTable)
+      .set({
+        archivedAt,
+        updatedAt: archivedAt
+      })
+      .where(
+        and(
+          eq(routeWorkflowsTable.workflowId, workflowId),
+          isNull(routeWorkflowsTable.archivedAt)
+        )
+      )
+      .run();
+
+    return result.changes > 0;
   }
 
   async getWorkflow(workflowId: string): Promise<RouteWorkflowRecord | null> {

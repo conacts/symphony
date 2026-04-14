@@ -25,11 +25,12 @@ export type SymphonyIntelligentFlowSelector = {
 export function createSymphonyIntelligentFlowSelectorFromEnvironment(input: {
   configSource: Record<string, string | undefined>;
   secretSource: Record<string, string | undefined>;
+  fallbackModel?: string | null;
   fetchImpl?: typeof fetch;
 }): SymphonyIntelligentFlowSelector | null {
-  const model = readOptionalText(
-    input.configSource.SYMPHONY_INTELLIGENT_FLOW_SELECTOR_MODEL
-  );
+  const model =
+    readOptionalText(input.configSource.SYMPHONY_INTELLIGENT_FLOW_SELECTOR_MODEL) ??
+    readOptionalText(input.fallbackModel);
   if (model === null) {
     return null;
   }
@@ -38,7 +39,7 @@ export function createSymphonyIntelligentFlowSelectorFromEnvironment(input: {
     input.configSource.SYMPHONY_INTELLIGENT_FLOW_SELECTOR_API_KEY_ENV_KEY
   );
   const apiKeyEnvKey =
-    configuredApiKeyEnvKey ?? inferSelectorApiKeyEnvKey(input.secretSource);
+    configuredApiKeyEnvKey ?? inferSelectorApiKeyEnvKey(input.secretSource, model);
 
   if (apiKeyEnvKey === null) {
     return createFailingSymphonyIntelligentFlowSelector(
@@ -257,8 +258,16 @@ function createFailingSymphonyIntelligentFlowSelector(
 }
 
 function inferSelectorApiKeyEnvKey(
-  secretSource: Record<string, string | undefined>
+  secretSource: Record<string, string | undefined>,
+  model: string
 ): string | null {
+  if (
+    model.includes("/") &&
+    readOptionalText(secretSource.OPENROUTER_API_KEY) !== null
+  ) {
+    return "OPENROUTER_API_KEY";
+  }
+
   if (readOptionalText(secretSource.OPENAI_API_KEY) !== null) {
     return "OPENAI_API_KEY";
   }
@@ -369,7 +378,7 @@ function parsePositiveInteger(value: string | undefined): number | null {
   return Number.parseInt(normalized, 10);
 }
 
-function readOptionalText(value: string | undefined): string | null {
+function readOptionalText(value: string | null | undefined): string | null {
   if (typeof value !== "string") {
     return null;
   }

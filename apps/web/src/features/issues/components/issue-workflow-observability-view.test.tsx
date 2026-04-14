@@ -206,6 +206,51 @@ describe("issue workflow observability view", () => {
               selectionMetadata: null,
               recordedAt: "2026-04-13T19:00:01.000Z",
               insertedAt: "2026-04-13T19:00:01.000Z"
+            },
+            {
+              decisionId: "decision_2",
+              eventSequence: 2,
+              signalId: "signal_2",
+              fromNode: "active",
+              toNode: "active",
+              edgeId: "active_to_active",
+              reasonCode: "active_selected_code_review",
+              policy: {
+                presetId: "intelligent-flow"
+              },
+              projectionBefore: {
+                currentNode: "active",
+                currentModule: "implement.spec"
+              },
+              projectionAfter: {
+                currentNode: "active",
+                currentModule: "critic.code_review"
+              },
+              commands: [
+                {
+                  commandId: "execution_2",
+                  kind: "capability.execute",
+                  dedupeKey: null,
+                  payload: {
+                    workflowId: "workflow-167",
+                    capabilityId: "critic.code_review"
+                  },
+                  settled: null
+                }
+              ],
+              trace: [
+                {
+                  kind: "candidate_considered",
+                  moduleId: "critic.code_review",
+                  score: 1
+                }
+              ],
+              selectionMetadata: {
+                selectedModuleId: "critic.code_review",
+                selectionMode: "deterministic"
+              },
+              recordedAt: "2026-04-13T19:00:05.000Z",
+              insertedAt: "2026-04-13T19:00:05.000Z"
             }
           ]
         })}
@@ -226,6 +271,13 @@ describe("issue workflow observability view", () => {
     expect(html).toContain("Selected");
     expect(html).toContain("Command settled");
     expect(html).toContain("Evidence");
+    expect(html).toContain("Decision internals");
+    expect(html).toContain("Projection before");
+    expect(html).toContain("Projection after");
+    expect(html).toContain("Selection metadata");
+    expect(html).toContain("Workflow event log");
+    expect(html).toContain("Recorded payload");
+    expect(html).toContain("signal_todo_observed");
   });
 
   it("renders helpful empty states when no module details exist yet", () => {
@@ -235,7 +287,9 @@ describe("issue workflow observability view", () => {
         workflow={buildSymphonyRuntimeWorkflowObservabilityResult({
           currentModule: null,
           routerDecision: null,
-          recentModuleRuns: []
+          recentModuleRuns: [],
+          history: [],
+          decisions: []
         })}
       />
     );
@@ -246,5 +300,6 @@ describe("issue workflow observability view", () => {
     );
     expect(html).toContain("No module runs have started for this workflow yet.");
     expect(html).toContain("Per-run logs will appear once a module attempt starts.");
+    expect(html).toContain("No workflow events have been recorded for this issue yet.");
   });
 });

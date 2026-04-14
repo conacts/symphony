@@ -8,6 +8,7 @@ import {
 } from "@symphony/router";
 import {
   createOpenAiCompatibleSymphonyIntelligentFlowSelector,
+  createSymphonyIntelligentFlowSelectorFromEnvironment,
   createSymphonyIntelligentFlowSelectionPrompt
 } from "./symphony-intelligent-flow-selector.js";
 
@@ -108,6 +109,74 @@ describe("Symphony intelligent-flow selector", () => {
         context
       })
     ).rejects.toThrow(/not valid JSON/i);
+  });
+
+  it("uses the runtime fallback model and openrouter credentials for slash models", async () => {
+    const context = createPreparedSelectionContext();
+    let capturedRequest:
+      | {
+          url: string;
+          authorization: string | null;
+          body: Record<string, unknown>;
+        }
+      | null = null;
+
+    const selector = createSymphonyIntelligentFlowSelectorFromEnvironment({
+      configSource: {},
+      secretSource: {
+        OPENAI_API_KEY: "openai-test-key",
+        OPENROUTER_API_KEY: "openrouter-test-key"
+      },
+      fallbackModel: "xiaomi/mimo-v2-pro",
+      fetchImpl: async (url, init) => {
+        capturedRequest = {
+          url: String(url),
+          authorization: new Headers(init?.headers).get("authorization"),
+          body: JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>
+        };
+
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    selectedModuleId: "critic.code_review",
+                    reason:
+                      "Use the premium selector model to choose the next verification step.",
+                    confidence: 0.74,
+                    deferToDeterministicFallback: false
+                  })
+                }
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json"
+            }
+          }
+        );
+      }
+    });
+
+    expect(selector).not.toBeNull();
+
+    const result = await selector!.select({
+      context
+    });
+
+    expect(result.model).toBe("xiaomi/mimo-v2-pro");
+    expect(result.providerBaseUrl).toBe("https://openrouter.ai/api/v1");
+    expect(result.response.selectedModuleId).toBe("critic.code_review");
+    expect(capturedRequest).toMatchObject({
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      authorization: "Bearer openrouter-test-key",
+      body: {
+        model: "xiaomi/mimo-v2-pro"
+      }
+    });
   });
 });
 

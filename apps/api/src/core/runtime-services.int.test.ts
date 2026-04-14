@@ -30,6 +30,7 @@ import {
 } from "../test-support/create-symphony-runtime-app-services-harness.js";
 import {
   applyRuntimeManifestPiPolicy,
+  buildDockerWorkspaceContainerEnv,
   buildWorkspaceBackendPayload,
   loadDefaultSymphonyRuntimeAppServices
 } from "./runtime-services.js";
@@ -1002,6 +1003,42 @@ describe("runtime services", () => {
         dockerPiProviderEnvMounted: true
       })
     );
+  });
+
+  it("builds workspace container envs with provider env injection", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-pi-env-"));
+    tempDirectories.push(root);
+    const home = path.join(root, "home");
+    await mkdir(path.join(home, ".pi", "agent"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(home, ".pi", "agent", "auth.json"),
+      '{"ok":true}\n'
+    );
+
+    const dockerAuth = resolveDockerWorkspaceAuthContracts(
+      {
+        HOME: home,
+        OPENROUTER_API_KEY: "test-openrouter-api-key"
+      },
+      {
+        preferredApiKeyEnvKey: "OPENROUTER_API_KEY"
+      }
+    );
+
+    expect(
+      buildDockerWorkspaceContainerEnv({
+        dockerGitHubCliAuth: dockerAuth.githubCli,
+        dockerLinearLaunchEnv: {
+          LINEAR_API_KEY: "test-linear-api-key"
+        },
+        dockerPiAuth: dockerAuth.pi
+      })
+    ).toEqual({
+      OPENROUTER_API_KEY: "test-openrouter-api-key",
+      LINEAR_API_KEY: "test-linear-api-key"
+    });
   });
 
   it("builds workspace backend payloads that prefer GH_TOKEN env injection", () => {

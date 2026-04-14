@@ -5,6 +5,7 @@ Symphony keeps durable documentation in the smallest set of places that can stay
 ## Canonical Docs
 
 - Product shape: [`../symphony/SPEC.md`](../symphony/SPEC.md)
+- Intelligent-flow target truth: [`architecture/2026-04-14-intelligent-flow-golden-truth.md`](architecture/2026-04-14-intelligent-flow-golden-truth.md)
 - Repo contract authoring: [`../packages/runtime-contract/README.md`](../packages/runtime-contract/README.md)
 - Runtime/operator setup: [`architecture/symphony-runtime-operations.md`](architecture/symphony-runtime-operations.md)
 - Accepted decisions: [`adr/`](adr/)

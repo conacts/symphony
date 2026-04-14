@@ -56,6 +56,12 @@ export function createSymphonyCapabilityOperatorService(input: {
       }
 
       const workflowId = loaded.hydrationState.workflow.workflowId;
+      const lifecycleNode =
+        loaded.hydrationState.snapshot?.projection.currentNode ?? null;
+      if (!isCapabilityInspectableLifecycleNode(lifecycleNode)) {
+        return null;
+      }
+
       const contract =
         await input.routeWorkflowStore.getExecutionContract<
           SymphonyCapabilityId,
@@ -257,4 +263,19 @@ function requireNonEmptyText(value: string, field: string): string {
   }
 
   return normalized;
+}
+
+function isCapabilityInspectableLifecycleNode(
+  lifecycleNode: string | null
+): lifecycleNode is "queued" | "claimed" | "active" | "awaiting_input" | "blocked" {
+  switch (lifecycleNode) {
+    case "queued":
+    case "claimed":
+    case "active":
+    case "awaiting_input":
+    case "blocked":
+      return true;
+    default:
+      return false;
+  }
 }

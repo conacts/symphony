@@ -32,6 +32,8 @@ type WorkflowRecentModuleRun =
   SymphonyRuntimeWorkflowObservabilityResult["recentModuleRuns"][number];
 type WorkflowDecision =
   SymphonyRuntimeWorkflowObservabilityResult["decisions"][number];
+type WorkflowHistoryEntry =
+  SymphonyRuntimeWorkflowObservabilityResult["history"][number];
 type WorkflowRouterDecision = NonNullable<
   SymphonyRuntimeWorkflowObservabilityResult["routerDecision"]
 >;
@@ -54,6 +56,10 @@ export function IssueWorkflowObservabilityView(input: {
   const decisionsById = new Map(
     input.workflow.decisions.map((decision) => [decision.decisionId, decision] as const)
   );
+  const rawRouterDecision =
+    routerDecision === null
+      ? null
+      : (decisionsById.get(routerDecision.decisionId) ?? null);
   const latestRun = recentRuns[0] ?? null;
 
   return (
@@ -126,7 +132,10 @@ export function IssueWorkflowObservabilityView(input: {
           currentModule={currentModule}
           selectedModel={selectedModel}
         />
-        <RouterDecisionCard routerDecision={routerDecision} />
+        <RouterDecisionCard
+          routerDecision={routerDecision}
+          rawDecision={rawRouterDecision}
+        />
       </section>
 
       <Card>
@@ -223,6 +232,8 @@ export function IssueWorkflowObservabilityView(input: {
           )}
         </CardContent>
       </Card>
+
+      <WorkflowEventLogCard history={input.workflow.history} />
     </div>
   );
 }
@@ -276,10 +287,13 @@ function CurrentModuleCard(input: {
             <p className="text-sm text-muted-foreground">
               {input.currentModule.summary}
             </p>
+            <p className="text-sm text-muted-foreground">
+              {input.currentModule.module.description}
+            </p>
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <DetailBlock label="Model" value={modelLabel} />
           <DetailBlock
             label="Selected"
@@ -313,6 +327,22 @@ function CurrentModuleCard(input: {
                 : "Still active"
             }
           />
+          <DetailBlock
+            label="Execution kind"
+            value={formatStatusLabel(input.currentModule.module.executionKind)}
+          />
+          <DetailBlock
+            label="Runtime support"
+            value={input.currentModule.module.runtimeSupported ? "Supported" : "Unavailable"}
+          />
+          <DetailBlock
+            label="Requires evidence"
+            value={formatEvidenceIdList(input.currentModule.module.requiresEvidenceIds)}
+          />
+          <DetailBlock
+            label="Produces evidence"
+            value={formatEvidenceIdList(input.currentModule.module.producesEvidenceIds)}
+          />
         </div>
 
         {input.currentModule.decision ? (
@@ -342,6 +372,7 @@ function CurrentModuleCard(input: {
 
 function RouterDecisionCard(input: {
   routerDecision: WorkflowRouterDecision | null;
+  rawDecision: WorkflowDecision | null;
 }) {
   return (
     <Card>
@@ -410,6 +441,77 @@ function RouterDecisionCard(input: {
               title={`Rejected candidates (${formatCount(input.routerDecision.rejectedCandidates.length)})`}
               candidates={input.routerDecision.rejectedCandidates}
             />
+
+            {input.rawDecision ? (
+              <div className="space-y-3">
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Decision internals
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <DetailBlock
+                    label="Decision id"
+                    value={input.rawDecision.decisionId}
+                  />
+                  <DetailBlock
+                    label="Event sequence"
+                    value={String(input.rawDecision.eventSequence)}
+                  />
+                  <DetailBlock
+                    label="Signal id"
+                    value={input.rawDecision.signalId}
+                  />
+                  <DetailBlock
+                    label="From node"
+                    value={input.rawDecision.fromNode ?? "n/a"}
+                  />
+                  <DetailBlock
+                    label="To node"
+                    value={input.rawDecision.toNode ?? "n/a"}
+                  />
+                  <DetailBlock
+                    label="Edge"
+                    value={input.rawDecision.edgeId ?? "n/a"}
+                  />
+                  <DetailBlock
+                    label="Commands"
+                    value={formatCount(input.rawDecision.commands.length)}
+                  />
+                  <DetailBlock
+                    label="Trace entries"
+                    value={formatCount(input.rawDecision.trace.length)}
+                  />
+                  <DetailBlock
+                    label="Inserted"
+                    value={formatTimestamp(input.rawDecision.insertedAt)}
+                  />
+                </div>
+
+                <VerboseJsonBlock
+                  label="Projection before"
+                  value={input.rawDecision.projectionBefore}
+                />
+                <VerboseJsonBlock
+                  label="Projection after"
+                  value={input.rawDecision.projectionAfter}
+                />
+                <VerboseJsonBlock
+                  label="Commands"
+                  value={input.rawDecision.commands}
+                />
+                {input.rawDecision.selectionMetadata ? (
+                  <VerboseJsonBlock
+                    label="Selection metadata"
+                    value={input.rawDecision.selectionMetadata}
+                  />
+                ) : null}
+                {input.rawDecision.trace.length > 0 ? (
+                  <VerboseJsonBlock
+                    label="Decision trace"
+                    value={input.rawDecision.trace}
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </>
         ) : (
           <p className="text-sm text-muted-foreground">
@@ -440,6 +542,9 @@ function ModuleRunCard(input: {
             {input.run.module.summary}
           </p>
           <p className="text-sm text-muted-foreground">{input.run.summary}</p>
+          <p className="text-sm text-muted-foreground">
+            {input.run.module.description}
+          </p>
         </div>
         <div className="text-right text-xs text-muted-foreground">
           <p>{buildModuleAttemptLabel(input.run)}</p>
@@ -447,7 +552,7 @@ function ModuleRunCard(input: {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <DetailBlock
           label="Model"
           value={input.run.modelProfileId ?? "n/a"}
@@ -469,6 +574,18 @@ function ModuleRunCard(input: {
           value={
             input.run.reasonCode ? formatStatusLabel(input.run.reasonCode) : "n/a"
           }
+        />
+        <DetailBlock
+          label="Execution kind"
+          value={formatStatusLabel(input.run.module.executionKind)}
+        />
+        <DetailBlock
+          label="Requires evidence"
+          value={formatEvidenceIdList(input.run.module.requiresEvidenceIds)}
+        />
+        <DetailBlock
+          label="Produces evidence"
+          value={formatEvidenceIdList(input.run.module.producesEvidenceIds)}
         />
       </div>
 
@@ -561,6 +678,105 @@ function EvidenceList(input: {
   );
 }
 
+function WorkflowEventLogCard(input: {
+  history: ReadonlyArray<WorkflowHistoryEntry>;
+}) {
+  const orderedHistory = [...input.history].sort(
+    (left, right) => right.eventSequence - left.eventSequence
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Workflow event log</CardTitle>
+        <CardDescription>
+          Raw workflow events in reverse chronological order, including router
+          and command payloads.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {orderedHistory.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No workflow events have been recorded for this issue yet.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {orderedHistory.map((event) => (
+              <div
+                key={event.eventId}
+                className="rounded-xl border border-border/70 p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">
+                        #{event.eventSequence}
+                      </Badge>
+                      <Badge variant="outline">
+                        {formatStatusLabel(event.kind)}
+                      </Badge>
+                      {event.signalType ? (
+                        <Badge variant="outline" className="font-mono">
+                          {event.signalType}
+                        </Badge>
+                      ) : null}
+                      {event.commandId ? (
+                        <Badge variant="outline" className="font-mono">
+                          {event.commandId}
+                        </Badge>
+                      ) : null}
+                      {event.decisionId ? (
+                        <Badge variant="outline" className="font-mono">
+                          {event.decisionId}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">
+                        {buildHistoryEventSummary(event)}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {buildHistoryEventDetail(event)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-muted-foreground">
+                    <p>{formatTimestamp(event.recordedAt)}</p>
+                    <p className="font-mono">{event.eventId}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <DetailBlock
+                    label="Reason"
+                    value={event.reasonCode ? formatStatusLabel(event.reasonCode) : "n/a"}
+                  />
+                  <DetailBlock
+                    label="Signal source"
+                    value={event.signalSource ? formatStatusLabel(event.signalSource) : "n/a"}
+                  />
+                  <DetailBlock
+                    label="From -> to"
+                    value={buildHistoryTransitionLabel(event)}
+                  />
+                  <DetailBlock
+                    label="Edge"
+                    value={event.edgeId ?? "n/a"}
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <VerboseJsonBlock label="Recorded payload" value={event.event} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function SummaryCard(input: {
   label: string;
   value: string;
@@ -608,6 +824,22 @@ function RunLogEntry(input: {
         </span>
       </div>
       <p className="mt-2 text-sm text-muted-foreground">{input.entry.detail}</p>
+    </div>
+  );
+}
+
+function VerboseJsonBlock(input: {
+  label: string;
+  value: unknown;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+        {input.label}
+      </p>
+      <pre className="overflow-x-auto rounded-xl border border-border/70 bg-muted/20 p-3 text-xs leading-5 text-foreground">
+        {JSON.stringify(input.value, null, 2)}
+      </pre>
     </div>
   );
 }
@@ -719,4 +951,57 @@ function buildModuleAttemptLabel(run: WorkflowRecentModuleRun): string {
 
 function buildModuleRunKey(run: WorkflowRecentModuleRun): string {
   return run.executionId ?? `${run.module.moduleId}:${run.workEpoch}:${run.attempt ?? "selected"}`;
+}
+
+function formatEvidenceIdList(evidenceIds: ReadonlyArray<string>): string {
+  if (evidenceIds.length === 0) {
+    return "None";
+  }
+
+  return evidenceIds.map((evidenceId) => formatLabel(evidenceId)).join(", ");
+}
+
+function buildHistoryTransitionLabel(event: WorkflowHistoryEntry): string {
+  if (event.fromNode === null && event.toNode === null) {
+    return "n/a";
+  }
+
+  return `${event.fromNode ?? "?"} -> ${event.toNode ?? "?"}`;
+}
+
+function buildHistoryEventSummary(event: WorkflowHistoryEntry): string {
+  switch (event.kind) {
+    case "signal_recorded":
+      return event.signalType
+        ? `Signal recorded: ${event.signalType}`
+        : "Signal recorded";
+    case "decision_recorded":
+      return event.decisionId
+        ? `Router decision recorded: ${event.decisionId}`
+        : "Router decision recorded";
+    case "command_emitted":
+      return event.commandId
+        ? `Command emitted: ${event.commandId}`
+        : "Command emitted";
+    case "command_settled":
+      return event.commandId
+        ? `Command settled: ${event.commandId}`
+        : "Command settled";
+  }
+}
+
+function buildHistoryEventDetail(event: WorkflowHistoryEntry): string {
+  const details = [
+    buildHistoryTransitionLabel(event) === "n/a"
+      ? null
+      : `Route ${buildHistoryTransitionLabel(event)}`,
+    event.reasonCode ? formatStatusLabel(event.reasonCode) : null,
+    event.signalSource ? `Source ${formatStatusLabel(event.signalSource)}` : null
+  ].filter((value): value is string => value !== null);
+
+  if (details.length === 0) {
+    return "Raw event payload shown below.";
+  }
+
+  return details.join(" · ");
 }

@@ -123,7 +123,9 @@ export async function createRuntimeTrackerStateObservationRouter(input: {
         bindingScope: input.bindingScope ?? null,
         routerPresetId: input.routing.presetId,
         router,
-        createdAt: observationInput.recordedAt
+        createdAt: observationInput.recordedAt,
+        replaceIncompatibleLiveWorkflow:
+          observationInput.observationKind === "idle"
       });
 
       const loaded = await input.sessionLoader.resumeByWorkflowId({
