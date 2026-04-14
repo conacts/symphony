@@ -155,8 +155,8 @@ Example:
 - default admitted repo: `conacts/symphony`
 - team mapping: `SYM -> conacts/symphony`, `COL -> conacts/coldets-v2`
 - issue label `repo:conacts/coldets-v2` routes the issue into the Coldets repo
-- GitHub webhook repository `conacts/coldets-v2` verifies against that repo's secret and rework flow
-  stays attached to that repo's runs and timeline entries
+- GitHub webhook repository `conacts/coldets-v2` verifies against that repo's secret and runtime
+  routing stays attached to that repo's runs and timeline entries
 
 ## Lifecycle Expectations
 
@@ -191,22 +191,27 @@ stopped.
 
 ## Run Behavior
 
-- workspaces are preserved across `In Review`, `Blocked`, `Paused`, and `Failed` unless an explicit reset is required
+- workspaces are preserved across `Blocked`, `Paused`, and `Failed` unless an explicit reset is required
 - `Done` and `Canceled` destroy the workspace after final artifact capture
-- implementation and rework runs must report completion through `pnpm exec symphony tool finish ...`
-- approved merge runs must report completion through `pnpm exec symphony tool merge-result ...`
-- merge success ends in `Done`; blocked merge automation ends in `Blocked`
+- intelligent-flow runs complete by emitting a structured terminal module result in the run output
+- the host derives routed delivery or state-request signals from that terminal result
+- there is no approved-merge execution phase in the active intelligent-flow product path
 
 ## State Semantics
 
 - `Bootstrapping` is runtime-owned setup before normal work
+- `Todo` is the operator queue that requests bootstrapping
+- `In Progress` means the run has actually started
 - `Paused` is a platform/provider interruption
 - `Failed` is a platform-owned refusal or setup failure
-- `Blocked` is a repo/agent-owned stop, including blocked merge outcomes
-- `Approved` is merge-only execution
+- `Blocked` is a repo/agent-owned stop
+- `Done` and `Canceled` are terminal
+- `In Review`, `Rework`, and `Approved` are legacy tracker states and are not part of the active intelligent-flow path
 
-The accepted state and run-mode contract lives in
-[`../adr/2026-04-08-run-mode-and-issue-state-contract.md`](../adr/2026-04-08-run-mode-and-issue-state-contract.md).
+The active intelligent-flow lifecycle contract lives in:
+
+- [`2026-04-14-intelligent-flow-golden-truth.md`](2026-04-14-intelligent-flow-golden-truth.md)
+- [`symphony-linear-ticket-lifecycle.md`](symphony-linear-ticket-lifecycle.md)
 
 ## Dashboard Scope
 

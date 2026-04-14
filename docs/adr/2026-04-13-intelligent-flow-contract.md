@@ -2,20 +2,15 @@
 
 Date: 2026-04-13
 
-Status: Proposed
+Status: Accepted
 
 ## Context
 
-Symphony currently has two overlapping orchestration layers:
+Symphony currently has a router-owned workflow lifecycle plus a bounded module-selection layer.
 
-- a coarse workflow router that owns issue lifecycle transitions
-- a capability planner that chooses bounded work inside implementation and rework
+The contract needs to freeze what intelligent-flow means after the implementation-first cleanup.
 
-That split is operationally useful but product-coherent only up to a point.
-
-The long-term product target is a router that chooses the next bounded module for the ticket while preserving a durable, replayable control plane.
-
-Before implementing that behavior, we need a frozen contract for:
+Before treating the preset as the operational default, we need a frozen contract for:
 
 - the thin lifecycle shell
 - intelligent-flow modules
@@ -24,9 +19,9 @@ Before implementing that behavior, we need a frozen contract for:
 
 ## Decision
 
-We will introduce a new intelligent-flow contract in the router package.
+We standardize the intelligent-flow contract in the router package.
 
-This contract freezes the target model before runtime integration.
+This contract freezes the live intelligent-flow model.
 
 ### Lifecycle Shell
 
@@ -55,7 +50,6 @@ Initial module ids frozen by the contract are:
 - `critic.code_review`
 - `critic.adversarial_tests`
 - `critic.browser_test`
-- `merge.execute`
 - `blocked.report`
 
 Modules are defined with strict fields including:
@@ -109,31 +103,35 @@ A router decision is persisted and must include:
 
 The selected module must appear in the admissible candidate set.
 
+The contract deliberately does not include:
+
+- `merge.execute`
+- an `approved_merge` lifecycle phase
+- review-rework lifecycle loops
+
 ## Consequences
 
 ### Positive
 
-- the target product model is explicit
-- later implementation slices can build against strong schemas
-- tests can freeze invariants before runtime changes land
-- the UI and read model can align around modules instead of legacy states
+- the active product model is explicit
+- runtime and read models can align around one lifecycle shell
+- tests can freeze invariants around structured module routing
+- merge/rework-era semantics stop leaking into intelligent-flow by default
 
 ### Negative
 
-- this adds new contract surface before runtime wiring exists
-- there will be a temporary period where intelligent-flow contracts exist without a full preset implementation
+- verifier modules still exist in the contract even though the golden path remains implementation-first
+- browser testing remains disabled by default until runtime support is explicit
 
 ### Neutral
 
-- current-flow remains intact for now
-- this ADR does not change live routing behavior by itself
+- the lifecycle shell remains thinner than historical tracker workflows
+- this ADR is implemented by the live intelligent-flow preset
 
 ## Follow-Up
 
 The next slices should:
 
-1. register an `intelligent-flow` preset skeleton
-2. implement deterministic admissibility against this contract
-3. add persisted router decisions
-4. add LLM-backed selection with deterministic fallback
-5. represent module attempts as first-class runs
+1. harden deterministic and LLM-selected module choice against real replay fixtures
+2. keep observability centered on module attempts as first-class runs
+3. continue deleting legacy current-flow and CLI-era compatibility surface

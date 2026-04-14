@@ -32,9 +32,12 @@ Minimum env:
 The dashboard currently covers:
 
 - runtime summary
-- issue, run, and problem-run forensics
+- issue and workflow observability
+- run detail and event narrative
 - refresh now
-- requeue affordances that point back to GitHub `/rework` and Linear
+
+The current UI goal is legibility over flourish. It should make the active workflow state, current
+run, router decision, and log narrative easy to inspect without adding new orchestration behavior.
 
 The dashboard is downstream of the core orchestration work. It is useful for observability, but it
 is not part of the critical path for the repo-contract and Docker-runtime replacement cut.

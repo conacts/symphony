@@ -2,7 +2,7 @@
 
 Date: 2026-04-14
 
-Status: Active target architecture
+Status: Active target architecture aligned with the implementation-first cleanup
 
 Audience:
 
@@ -49,9 +49,13 @@ If existing code conflicts with this document, the code is wrong unless a later 
 
 ## Core Thesis
 
-Symphony should become a router-first development control plane with one primary execution module:
+Symphony should operate as a router-first development control plane whose primary execution module is:
 
 - `implement.spec`
+
+The contract may still define bounded follow-up verifier or reporting modules, but those are
+follow-up modules inside the same lifecycle shell, not separate workflow phases like `rework`,
+`approved_merge`, or `merge.execute`.
 
 The router chooses whether to:
 
@@ -152,25 +156,33 @@ The workflow is not the workspace.
 
 A router-owned lifecycle state.
 
-Initial route states for the simplified system:
+Current intelligent-flow route states are:
 
 - `queued`
-- `executing`
+- `claimed`
+- `active`
 - `awaiting_input`
 - `blocked`
+- `paused`
+- `failed`
 - `done`
 
 These are not modules.
+
+The UI may collapse `claimed` and `active` into a simpler "executing" presentation, but the router
+contract keeps them distinct.
 
 ### Module
 
 A bounded executable unit chosen by the router.
 
-Phase one keeps exactly one execution module:
+Phase one requires exactly one primary implementation module:
 
 - `implement.spec`
 
-Future modules may exist later, but they are outside the initial truth surface.
+The current contract may retain bounded verification and reporting modules, but they only exist as
+follow-up modules inside intelligent-flow. They do not reintroduce review, rework, or merge as
+first-class lifecycle phases.
 
 ### Run
 
@@ -397,18 +409,26 @@ The router does not own:
 
 ### Phase-One Router Policy
 
-The only executable module is:
+The default path must start with:
 
 - `implement.spec`
 
-The router should never select:
+The contract may permit bounded follow-up modules that consume implementation evidence, such as:
 
-- review modules
-- browser test modules
+- `critic.code_review`
+- `critic.adversarial_tests`
+- `critic.browser_test` when runtime support is explicitly enabled
+- `blocked.report`
+
+The router should never reintroduce:
+
 - merge modules
 - PR modules
+- review-rework lifecycle phases
+- approved-merge lifecycle phases
 
-Those modules are out of scope until the golden path is stable.
+The browser module remains optional and must stay disabled unless runtime support and policy allow
+it.
 
 ## Timeout And Stall Truth
 
@@ -569,21 +589,27 @@ These features are outside the phase-one golden path and should be removed or di
 
 ## Phase-One Module Surface
 
-The only active execution module in phase one is:
+The required execution module in phase one is:
 
 - `implement.spec`
 
-The following are explicitly deferred:
+The current contract may still define bounded follow-up modules:
 
-- code review modules
-- browser test modules
-- adversarial test modules
+- `critic.code_review`
+- `critic.adversarial_tests`
+- `critic.browser_test` when explicitly enabled
+- `blocked.report`
+
+The following are explicitly removed from the intelligent-flow lifecycle:
+
 - PR modules
 - merge modules
+- `approved_merge`
+- review-rework routing loops
 
 This is not a statement that those modules are bad.
 
-This is a statement that they are not required to prove the product.
+This is a statement that they are not part of the active lifecycle shell we are standardizing.
 
 ## E2E Replay Strategy
 

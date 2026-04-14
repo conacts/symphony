@@ -13,7 +13,7 @@ The goal is to keep execution boundaries explicit:
 - `Failed` is platform-owned
 - `Blocked` is agent/repo-owned
 - `Done` and `Canceled` are terminal
-- `Approved` is active only for merge execution
+- legacy review/merge tracker states do not define the intelligent-flow golden path
 
 ## State Contract
 
@@ -22,13 +22,10 @@ The goal is to keep execution boundaries explicit:
 - `Todo`
 - `Bootstrapping`
 - `In Progress`
-- `Rework`
-- `Approved`
 
 ### Non-Dispatch States
 
 - `Backlog`
-- `In Review`
 - `Blocked`
 - `Paused`
 - `Failed`
@@ -37,6 +34,16 @@ The goal is to keep execution boundaries explicit:
 
 - `Done`
 - `Canceled`
+
+### Legacy States
+
+- `In Review`
+- `Rework`
+- `Approved`
+
+These states may still exist in a Linear workflow for historical reasons, but they are not part of
+the active intelligent-flow lifecycle. If an issue lands there, move it deliberately to `Todo`,
+`Done`, or another current state instead of expecting Symphony to route from them automatically.
 
 ## State Meanings
 
@@ -64,27 +71,6 @@ preconditions, and preparing the box for the first agent turn.
 Active implementation state.
 
 This begins only when the agent is actually ready to start working.
-
-### `In Review`
-
-Human review handoff state.
-
-Symphony does not dispatch from `In Review`. Review comments may inform the next run, but they do
-not automatically wake the issue unless the admitted requeue path explicitly moves it back to
-`Rework`.
-
-### `Rework`
-
-Explicit implementation requeue state after review.
-
-Use this when another coding pass is wanted.
-
-### `Approved`
-
-Merge-only execution state.
-
-Use this when the implementation is accepted and the remaining work is final branch/merge
-execution. `Approved` is active, but it is not a general implementation state.
 
 ### `Blocked`
 
@@ -152,26 +138,23 @@ Human-owned transitions:
 - `Paused -> Todo`
 - `Failed -> Todo`
 - `Blocked -> Todo`
-- `In Review -> Rework`
-- `In Review -> Approved`
+- `In Review -> Todo`
+- `Rework -> Todo`
+- `Approved -> Todo`
 - any move to `Done`
 - any move to `Canceled`
 
 Symphony-owned transitions:
 
 - `Todo -> Bootstrapping`
-- `Rework -> Bootstrapping`
 - `Bootstrapping -> In Progress`
 - `Bootstrapping -> Failed`
 - `Bootstrapping -> Paused`
 - `In Progress -> Paused`
-- `Approved -> Done`
-- `Approved -> In Review`
-
-Agent-owned transitions:
-
 - `In Progress -> Blocked`
-- `In Progress -> In Review`
+- `In Progress -> Done`
+
+There is no intelligent-flow-owned transition into `In Review`, `Rework`, or `Approved`.
 
 ## Comment Policy
 
