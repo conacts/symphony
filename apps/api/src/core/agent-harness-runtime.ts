@@ -55,6 +55,9 @@ import {
   buildSymphonyContinuationPrompt
 } from "./symphony-prompt.js";
 import {
+  parseSymphonyImplementationModuleResultMessage
+} from "./symphony-implementation-module-result.js";
+import {
   createPiRuntimeHarness,
   type SymphonyRuntimeHarness
 } from "./runtime-harness.js";
@@ -280,6 +283,7 @@ async function executeRun(input: {
   let commandResourceMonitor: CommandResourceMonitor | null = null;
   let recordedCanonicalSessionStart = false;
   let workerSessionId: string | null = null;
+  let latestCompletedAgentMessageText: string | null = null;
   const capabilityManagedRun =
     input.runMode !== "approved_merge" &&
     (await input.isCapabilityManagedRun({
@@ -454,6 +458,7 @@ async function executeRun(input: {
         },
         attempt: input.attempt,
         run_mode: input.runMode,
+        completion_contract: capabilityManagedRun ? "module_result" : "finish_tool",
         handoff_section: formatSymphonyReworkHandoffSection(latestReworkHandoff)
       };
 
@@ -469,7 +474,10 @@ async function executeRun(input: {
           : buildSymphonyContinuationPrompt({
               turnNumber,
               maxTurns: input.runtimePolicy.agent.maxTurns,
-              runMode: input.runMode
+              runMode: input.runMode,
+              completionContract: capabilityManagedRun
+                ? "module_result"
+                : "finish_tool"
             });
 
       const persistedTurnStartedAt = new Date().toISOString();
@@ -553,6 +561,13 @@ async function executeRun(input: {
             session.threadId;
           const canonicalEvent =
             (threadEvent as CanonicalRuntimeEventPayload | null) ?? sessionStartedEvent;
+
+          if (
+            threadEvent?.type === "item.completed" &&
+            threadEvent.item.type === "agent_message"
+          ) {
+            latestCompletedAgentMessageText = threadEvent.item.text;
+          }
 
           await input.callbacks.onUpdate(currentIssue.id, {
             event: eventName,
@@ -775,7 +790,9 @@ async function executeRun(input: {
           mergeResultCompletion(mergeResult, authoritativeState, input.runtimePolicy)
         );
       } else if (explicitCompletionRequirement === "none") {
-        const completion = implicitCapabilityRunCompletion();
+        const completion = capabilityManagedRunCompletion({
+          latestCompletedAgentMessageText
+        });
         await recordWorkerSessionCompletion({
           workerSessionContract: input.workerSessionContract,
           sessionId: session.threadId,
@@ -1010,6 +1027,8 @@ function completionStatusForRuntimeCompletion(
     case "startup_failure":
     case "rate_limited":
     case "provider_transient":
+    case "invalid_result":
+    case "missing_terminal_result":
       return "failed";
     default:
       return "completed";
@@ -1024,6 +1043,8 @@ function completionReasonForRuntimeCompletion(
     case "startup_failure":
     case "rate_limited":
     case "provider_transient":
+    case "invalid_result":
+    case "missing_terminal_result":
       return completion.reason;
     default:
       return null;
@@ -1273,8 +1294,57 @@ function missingDeliveryReportCompletion(): SymphonyAgentRuntimeCompletion {
 
 function implicitCapabilityRunCompletion(): SymphonyAgentRuntimeCompletion {
   return {
-    kind: "delivered"
+    kind: "missing_terminal_result",
+    reason:
+      "Capability-managed run ended without a structured terminal module result."
   };
+}
+
+function capabilityManagedRunCompletion(input: {
+  latestCompletedAgentMessageText: string | null;
+}): SymphonyAgentRuntimeCompletion {
+  const parsed = parseSymphonyImplementationModuleResultMessage({
+    messageText: input.latestCompletedAgentMessageText
+  });
+
+  switch (parsed.kind) {
+    case "parsed":
+      switch (parsed.result.outcome) {
+        case "completed":
+          return {
+            kind: "delivered",
+            moduleResult: parsed.result
+          };
+        case "awaiting_input":
+          return {
+            kind: "awaiting_input",
+            reason: parsed.result.summary,
+            prompt:
+              parsed.result.nextInputPrompt ??
+              "Capability-managed run requires explicit user input.",
+            moduleResult: parsed.result
+          };
+        case "blocked":
+          return {
+            kind: "blocked",
+            reason: parsed.result.blockers.join("; "),
+            moduleResult: parsed.result
+          };
+      }
+      break;
+    case "invalid_result":
+      return {
+        kind: "invalid_result",
+        reason: parsed.reason
+      };
+    case "missing_terminal_result":
+      return {
+        kind: "missing_terminal_result",
+        reason: parsed.reason
+      };
+  }
+
+  return implicitCapabilityRunCompletion();
 }
 
 function missingMergeResultCompletion(): SymphonyAgentRuntimeCompletion {

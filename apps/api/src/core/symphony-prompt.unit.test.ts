@@ -35,4 +35,19 @@ describe("symphony continuation prompt", () => {
     expect(prompt).toContain("pnpm exec symphony tool merge-result --status blocked");
     expect(prompt).not.toContain("move the issue to `In Review`");
   });
+
+  it("uses terminal module-result guidance for capability-managed continuation turns", () => {
+    const prompt = buildSymphonyContinuationPrompt({
+      turnNumber: 2,
+      maxTurns: 20,
+      runMode: "implementation",
+      completionContract: "module_result"
+    });
+
+    expect(prompt).toContain("terminal module result");
+    expect(prompt).toContain("End the run by emitting exactly one final fenced `json` block");
+    expect(prompt).toContain("outcome: \"awaiting_input\"");
+    expect(prompt).not.toContain("move the issue to `In Review`");
+    expect(prompt).toContain("Do not call `pnpm exec symphony tool finish ...`");
+  });
 });

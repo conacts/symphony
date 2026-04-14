@@ -267,8 +267,19 @@ function requireNonEmptyText(value: string, field: string): string {
 
 function isCapabilityInspectableLifecycleNode(
   lifecycleNode: string | null
-): lifecycleNode is "queued" | "claimed" | "active" | "awaiting_input" | "blocked" {
+): lifecycleNode is
+  | "bootstrapping"
+  | "implementation"
+  | "review"
+  | "queued"
+  | "claimed"
+  | "active"
+  | "awaiting_input"
+  | "blocked" {
   switch (lifecycleNode) {
+    case "bootstrapping":
+    case "implementation":
+    case "review":
     case "queued":
     case "claimed":
     case "active":

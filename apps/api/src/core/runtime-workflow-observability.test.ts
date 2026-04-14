@@ -292,6 +292,7 @@ function createRouteWorkflowStoreStub(
   const routeWorkflowStore = {
     createWorkflow: vi.fn(),
     getWorkflow: vi.fn().mockResolvedValue(null),
+    archiveWorkflow: vi.fn().mockResolvedValue(false),
     getExecutionContract: vi.fn().mockResolvedValue(null),
     getCapabilityPlannerDecisionForState: vi.fn().mockResolvedValue(null),
     getCapabilityPlannerCommandByDecisionId: vi.fn().mockResolvedValue(null),

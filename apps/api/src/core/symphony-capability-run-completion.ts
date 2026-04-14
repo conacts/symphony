@@ -1,10 +1,15 @@
 import type { RouteWorkflowStore } from "@symphony/db";
 import type { SymphonyAgentRuntimeCompletion } from "@symphony/orchestrator";
-import type { SymphonyRunMode } from "@symphony/runtime-contract";
+import type {
+  SymphonyImplementationModuleResult,
+  SymphonyRunMode
+} from "@symphony/runtime-contract";
 import {
+  createSymphonyCapabilityBlockedSignal,
   createSymphonyCapabilityStartedSignal,
   createSymphonyCapabilityCompletedSignal,
   createSymphonyCapabilityFailedSignal,
+  createSymphonyWorkflowClarificationRequestedSignal,
   projectWorkflowCapabilityProjection,
   type SymphonyCapabilityEvidenceId,
   type SymphonyCapabilityId,
@@ -168,24 +173,34 @@ export function createSymphonyCapabilityRunCompletionService(input: {
         recordedAt: replannedAt
       });
 
-      if (completionInput.completion.kind !== "delivered") {
-        return {
-          kind: "failure_recorded",
-          nextPlanning
-        };
-      }
-
-      switch (nextPlanning.plan.kind) {
-        case "execute":
+      switch (completionInput.completion.kind) {
+        case "delivered":
+          switch (nextPlanning.plan.kind) {
+            case "execute":
+              return {
+                kind: "continued",
+                nextPlanning,
+                continueWithRunMode: completionInput.runMode
+              };
+            case "ready_for_manual_completion":
+            case "ready_for_auto_completion":
+              return {
+                kind: "ready_for_completion",
+                nextPlanning
+              };
+            case "awaiting_input":
+              return {
+                kind: "awaiting_input",
+                nextPlanning
+              };
+            case "blocked":
+              return {
+                kind: "blocked",
+                nextPlanning
+              };
+          }
           return {
-            kind: "continued",
-            nextPlanning,
-            continueWithRunMode: completionInput.runMode
-          };
-        case "ready_for_manual_completion":
-        case "ready_for_auto_completion":
-          return {
-            kind: "ready_for_completion",
+            kind: "failure_recorded",
             nextPlanning
           };
         case "awaiting_input":
@@ -196,6 +211,11 @@ export function createSymphonyCapabilityRunCompletionService(input: {
         case "blocked":
           return {
             kind: "blocked",
+            nextPlanning
+          };
+        default:
+          return {
+            kind: "failure_recorded",
             nextPlanning
           };
       }
@@ -316,21 +336,6 @@ function mapEvidenceId(
   );
 }
 
-function buildEvidenceSummary(capabilityId: SymphonyCapabilityId): string {
-  switch (capabilityId) {
-    case "implement.spec":
-      return "Produced the implementation change set.";
-    case "critic.code_review":
-      return "Produced the code review report.";
-    case "critic.adversarial_tests":
-      return "Produced the adversarial test report.";
-  }
-
-  throw new TypeError(
-    `Capability run completion is missing an evidence summary for ${JSON.stringify(capabilityId)}.`
-  );
-}
-
 function buildStartedSummary(capabilityId: SymphonyCapabilityId): string {
   return `Started ${capabilityId}.`;
 }
@@ -374,6 +379,7 @@ function createTerminalSignal(input: {
     })();
 
   if (input.completion.kind === "delivered") {
+    const moduleResult = input.completion.moduleResult ?? null;
     return createSymphonyCapabilityCompletedSignal({
       id: buildCapabilitySignalId({
         workflowId: input.workflowId,
@@ -389,14 +395,71 @@ function createTerminalSignal(input: {
       modelProfileId: decision.modelProfileId,
       workEpoch: decision.workEpoch,
       attempt: input.attempt,
-      summary: `Completed ${decision.capabilityId}.`,
+      summary:
+        moduleResult?.summary ?? `Completed ${decision.capabilityId}.`,
       evidenceProduced: [
         {
           evidenceId: mapEvidenceId(decision.capabilityId),
-          summary: buildEvidenceSummary(decision.capabilityId),
-          artifacts: []
+          summary: buildEvidenceSummary({
+            capabilityId: decision.capabilityId,
+            moduleResult
+          }),
+          artifacts: buildEvidenceArtifacts(moduleResult)
         }
       ],
+      causationId: command.id,
+      correlationId: input.planning.contract.issueIdentifier
+    });
+  }
+
+  if (input.completion.kind === "awaiting_input") {
+    const moduleResult = input.completion.moduleResult;
+    return createSymphonyWorkflowClarificationRequestedSignal({
+      id: buildCapabilitySignalId({
+        workflowId: input.workflowId,
+        executionId: command.id,
+        signalKind: "clarification_requested",
+        recordedAt: input.recordedAt
+      }),
+      occurredAt: input.recordedAt,
+      source: "runtime",
+      workflowId: input.workflowId,
+      requestId: `clarification_${normalizeWorkflowToken(command.id)}`,
+      raisedByCapabilityId: decision.capabilityId,
+      workEpoch: decision.workEpoch,
+      summary: moduleResult.summary,
+      questions: [
+        {
+          id: "required_input",
+          prompt: input.completion.prompt,
+          context: moduleResult.evidence.notes
+        }
+      ],
+      causationId: command.id,
+      correlationId: input.planning.contract.issueIdentifier
+    });
+  }
+
+  if (input.completion.kind === "blocked") {
+    return createSymphonyCapabilityBlockedSignal({
+      id: buildCapabilitySignalId({
+        workflowId: input.workflowId,
+        executionId: command.id,
+        signalKind: "blocked",
+        recordedAt: input.recordedAt
+      }),
+      occurredAt: input.recordedAt,
+      source: "runtime",
+      workflowId: input.workflowId,
+      executionId: command.id,
+      capabilityId: decision.capabilityId,
+      modelProfileId: decision.modelProfileId,
+      workEpoch: decision.workEpoch,
+      attempt: input.attempt,
+      summary:
+        input.completion.moduleResult?.summary ??
+        `Blocked ${decision.capabilityId}.`,
+      reasonCode: "runtime_module_blocked",
       causationId: command.id,
       correlationId: input.planning.contract.issueIdentifier
     });
@@ -434,7 +497,12 @@ function createTerminalSignal(input: {
 function buildCapabilitySignalId(input: {
   workflowId: string;
   executionId: string;
-  signalKind: "started" | "completed" | "failed";
+  signalKind:
+    | "started"
+    | "completed"
+    | "failed"
+    | "blocked"
+    | "clarification_requested";
   recordedAt: string;
 }) {
   return [
@@ -444,6 +512,48 @@ function buildCapabilitySignalId(input: {
     normalizeWorkflowToken(input.executionId),
     normalizeWorkflowToken(input.recordedAt)
   ].join("_");
+}
+
+function buildEvidenceSummary(input: {
+  capabilityId: SymphonyCapabilityId;
+  moduleResult: SymphonyImplementationModuleResult | null;
+}): string {
+  const notes = input.moduleResult?.evidence.notes?.trim() ?? "";
+  if (notes !== "") {
+    return notes;
+  }
+
+  switch (input.capabilityId) {
+    case "implement.spec":
+      return "Produced the implementation change set.";
+    case "critic.code_review":
+      return "Produced the code review report.";
+    case "critic.adversarial_tests":
+      return "Produced the adversarial test report.";
+  }
+
+  throw new TypeError(
+    `Capability run completion is missing an evidence summary for ${JSON.stringify(input.capabilityId)}.`
+  );
+}
+
+function buildEvidenceArtifacts(
+  moduleResult: SymphonyImplementationModuleResult | null
+) {
+  if (!moduleResult) {
+    return [];
+  }
+
+  return [
+    ...moduleResult.evidence.filesChanged.map((path: string) => ({
+      label: `file:${path}`,
+      uri: null
+    })),
+    ...moduleResult.evidence.verification.map((verification) => ({
+      label: `${verification.status}:${verification.command}`,
+      uri: null
+    }))
+  ];
 }
 
 async function recordSignal(input: {

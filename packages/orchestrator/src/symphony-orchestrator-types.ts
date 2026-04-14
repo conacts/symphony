@@ -2,7 +2,10 @@ import type {
   AgentRuntimeLaunchTarget
 } from "./agent-runtime.js";
 import type { JsonObject } from "@symphony/contracts";
-import type { SymphonyRunMode } from "@symphony/runtime-contract";
+import type {
+  SymphonyImplementationModuleResult,
+  SymphonyRunMode
+} from "@symphony/runtime-contract";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type {
   PreparedWorkspace,
@@ -201,9 +204,22 @@ export type SymphonyOrchestratorState = {
 };
 
 export type SymphonyAgentRuntimeCompletion =
-  | { kind: "delivered" }
+  | {
+      kind: "delivered";
+      moduleResult?: SymphonyImplementationModuleResult | null;
+    }
   | { kind: "merged" }
-  | { kind: "blocked"; reason: string }
+  | {
+      kind: "awaiting_input";
+      reason: string;
+      prompt: string;
+      moduleResult: SymphonyImplementationModuleResult;
+    }
+  | {
+      kind: "blocked";
+      reason: string;
+      moduleResult?: SymphonyImplementationModuleResult | null;
+    }
   | { kind: "merge_blocked"; reason: string }
   | { kind: "max_turns_reached"; reason: string; maxTurns: number }
   | {
@@ -219,6 +235,8 @@ export type SymphonyAgentRuntimeCompletion =
   | { kind: "rate_limited"; reason: string }
   | { kind: "provider_transient"; reason: string }
   | { kind: "stalled"; reason: string }
+  | { kind: "invalid_result"; reason: string }
+  | { kind: "missing_terminal_result"; reason: string }
   | { kind: "failure"; reason: string };
 
 export type SymphonyAgentRuntimeUpdate = {

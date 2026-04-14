@@ -229,6 +229,28 @@ describe("prompt contract", () => {
     );
   });
 
+  it("renders the capability-managed completion contract for module-result runs", () => {
+    const payload = {
+      ...buildMockSymphonyPromptContractPayload(),
+      completion_contract: "module_result" as const
+    };
+
+    const rendered = renderSymphonyPromptContract({
+      template: "{{ run_mode_section }}",
+      payload
+    });
+
+    expect(rendered).toContain(
+      "This is a capability-managed run. End the run with a structured terminal module result"
+    );
+    expect(rendered).toContain(
+      "Capability-managed implementation and rework runs complete through a structured terminal module result"
+    );
+    expect(rendered).not.toContain(
+      "`pnpm exec symphony tool finish ...`: Record delivery for implementation or rework runs"
+    );
+  });
+
   it("renders the approved merge run-mode section when the payload requests it", () => {
     const payload = {
       ...buildMockSymphonyPromptContractPayload(),

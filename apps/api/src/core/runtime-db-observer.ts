@@ -272,6 +272,8 @@ function completionStatus(
     case "delivered":
     case "merged":
       return "finished";
+    case "awaiting_input":
+      return "paused";
     case "blocked":
       return "failed";
     case "merge_blocked":
@@ -286,6 +288,8 @@ function completionStatus(
       return "failed";
     case "stalled":
       return "stalled";
+    case "invalid_result":
+    case "missing_terminal_result":
     case "failure":
       return "failed";
   }
@@ -299,6 +303,8 @@ function completionOutcome(
       return "completed";
     case "merged":
       return "merged";
+    case "awaiting_input":
+      return "failed";
     case "blocked":
       return "blocked";
     case "merge_blocked":
@@ -313,6 +319,8 @@ function completionOutcome(
       return "provider_transient";
     case "stalled":
       return "stalled";
+    case "invalid_result":
+    case "missing_terminal_result":
     case "failure":
       return "failed";
   }
@@ -332,6 +340,8 @@ function completionErrorClass(
       return "delivered";
     case "merged":
       return "merged";
+    case "awaiting_input":
+      return "awaiting_input";
     default:
       return completion.kind;
   }

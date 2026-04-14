@@ -195,7 +195,7 @@ function createCurrentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWorkflo
       return createSymphonyCurrentFlowRuntimeCompletedSignal({
         id: input.id,
         occurredAt: input.occurredAt,
-        kind: input.completion.kind,
+        kind: normalizeLegacyRuntimeCompletionKind(input.completion.kind),
         runId: input.runId,
         runMode: input.runMode,
         reason: "reason" in input.completion ? input.completion.reason : null,
@@ -309,6 +309,23 @@ function createCurrentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWorkflo
       );
     }
   };
+}
+
+function normalizeLegacyRuntimeCompletionKind(
+  kind:
+    | Parameters<typeof createSymphonyCurrentFlowRuntimeCompletedSignal>[0]["kind"]
+    | "awaiting_input"
+    | "invalid_result"
+    | "missing_terminal_result"
+): Parameters<typeof createSymphonyCurrentFlowRuntimeCompletedSignal>[0]["kind"] {
+  switch (kind) {
+    case "awaiting_input":
+    case "invalid_result":
+    case "missing_terminal_result":
+      return "failure";
+    default:
+      return kind;
+  }
 }
 
 function shouldObserveUnchangedCurrentFlowIdleTrackerState(input: {

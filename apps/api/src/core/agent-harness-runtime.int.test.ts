@@ -21,8 +21,8 @@ import {
   type SymphonyWorkerSessionContract
 } from "@symphony/orchestrator";
 import {
+  buildSymphonyHarnessPromptAppendix,
   type SymphonyReworkHandoff,
-  symphonyHarnessPromptAppendix
 } from "@symphony/runtime-contract";
 import type { RuntimeMergeResult } from "@symphony/runtime-tools";
 import {
@@ -299,9 +299,11 @@ describe("docker pi symphony agent runtime", () => {
 
     await completionPromise;
 
-    expect(completion).toEqual({
-      kind: "delivered"
-    });
+    expect(completion).toEqual(
+      expect.objectContaining({
+        kind: "delivered"
+      })
+    );
     expect(workerSessionContract.startSession).toHaveBeenCalledTimes(1);
     expect(workerSessionContract.startSession).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -337,7 +339,9 @@ describe("docker pi symphony agent runtime", () => {
     const runDetail = await agentReadStore.fetchRunDetail(runId);
     expect(runDetail?.turns).toHaveLength(1);
     expect(runDetail?.turns[0]?.promptText).toBe(
-      `You are working on COL-123 in symphony on main.\n\n${symphonyHarnessPromptAppendix}`
+      `You are working on COL-123 in symphony on main.\n\n${buildSymphonyHarnessPromptAppendix({
+        completionContract: "module_result"
+      })}`
     );
     expect(
       runDetail?.turns[0]?.events.map((event: { eventType: string }) => event.eventType)
@@ -629,9 +633,11 @@ done
 
     await completionPromise;
 
-    expect(completion).toEqual({
-      kind: "delivered"
-    });
+    expect(completion).toEqual(
+      expect.objectContaining({
+        kind: "delivered"
+      })
+    );
     expect(workerSessionContract.completeSession).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: "pi-session-1",
@@ -1231,9 +1237,11 @@ done
 
     await completionPromise;
 
-    expect(completion).toEqual({
-      kind: "delivered"
-    });
+    expect(completion).toEqual(
+      expect.objectContaining({
+        kind: "delivered"
+      })
+    );
     expect(await deliveryReports.listForRun(runId)).toEqual([]);
 
     database.close();
@@ -2236,9 +2244,11 @@ done
 
     await completionPromise;
 
-    expect(completion).toEqual({
-      kind: "delivered"
-    });
+    expect(completion).toEqual(
+      expect.objectContaining({
+        kind: "delivered"
+      })
+    );
 
     database.close();
   });
@@ -2748,9 +2758,11 @@ done
 
     await completionPromise;
 
-    expect(completion).toEqual({
-      kind: "delivered"
-    });
+    expect(completion).toEqual(
+      expect.objectContaining({
+        kind: "delivered"
+      })
+    );
 
     const fakeDockerInvocation = JSON.parse(
       await readFile(fakeDockerLog, "utf8")
@@ -3019,9 +3031,11 @@ exit 1
 
     await completionPromise;
 
-    expect(completion).toEqual({
-      kind: "delivered"
-    });
+    expect(completion).toEqual(
+      expect.objectContaining({
+        kind: "delivered"
+      })
+    );
 
     const dockerInvocations = (await readFile(fakeDockerLog, "utf8"))
       .trim()
@@ -3100,6 +3114,24 @@ function createStateTracker(
 }
 
 async function writeFakePiBinary(piBinary: string, script?: string): Promise<void> {
+  const completedModuleResultEvent = JSON.stringify({
+    type: "message_end",
+    message: {
+      responseId: "msg-1",
+      role: "assistant",
+      content: [
+        {
+          type: "text",
+          text: buildCompletedImplementationModuleResultMessageText()
+        }
+      ],
+      usage: {
+        input: 5,
+        cacheRead: 0,
+        output: 2
+      }
+    }
+  });
   await writeFile(
     piBinary,
     script ??
@@ -3117,7 +3149,7 @@ while IFS= read -r line; do
 
   if [ "$command" = "prompt" ]; then
     printf '%s\\n' '{"id":"'"$id"'","type":"response","success":true}'
-    printf '%s\\n' '{"type":"message_end","message":{"responseId":"msg-1","role":"assistant","content":[{"type":"text","text":"ok"}],"usage":{"input":5,"cacheRead":0,"output":2}}}'
+    printf '%s\\n' '${completedModuleResultEvent}'
     printf '%s\\n' '{"type":"agent_end"}'
     continue
   fi
@@ -3125,6 +3157,37 @@ done
 `
     );
   await chmod(piBinary, 0o755);
+}
+
+function buildCompletedImplementationModuleResultMessageText(): string {
+  return [
+    "```json",
+    JSON.stringify(
+      {
+        schemaVersion: "1",
+        moduleId: "implement.spec",
+        outcome: "completed",
+        summary: "Implemented the requested issue behavior.",
+        evidence: {
+          filesChanged: ["apps/api/src/example.ts"],
+          verification: [
+            {
+              command: "pnpm exec vitest run",
+              status: "passed",
+              details: null
+            }
+          ],
+          notes: "Scoped the implementation to the requested surface."
+        },
+        requestedState: "done",
+        nextInputPrompt: null,
+        blockers: []
+      },
+      null,
+      2
+    ),
+    "```"
+  ].join("\n");
 }
 
 async function writeFakePiAppServerBinary(
