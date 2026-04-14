@@ -279,7 +279,7 @@ describe("runtime services", () => {
           workingDirectory: "."
         },
         workflow: {
-          defaultRouterPreset: "current-flow"
+          defaultRouterPreset: "intelligent-flow"
         },
         env: {
           host: {
@@ -310,7 +310,7 @@ describe("runtime services", () => {
       });
 
       expect(bootstrap.workflowPresetSelection).toEqual({
-        presetId: "current-flow",
+        presetId: "intelligent-flow",
         source: "runtime_manifest",
         repositoryKey: "openai/symphony",
         manifestPath: path.join(fixture.env.sourceRepo!, ".symphony", "runtime.ts")
@@ -333,7 +333,7 @@ describe("runtime services", () => {
           workingDirectory: "."
         },
         workflow: {
-          defaultRouterPreset: "current-flow"
+          defaultRouterPreset: "intelligent-flow"
         },
         env: {
           host: {
@@ -877,7 +877,7 @@ describe("runtime services", () => {
           workingDirectory: "."
         },
         workflow: {
-          defaultRouterPreset: "current-flow"
+          defaultRouterPreset: "intelligent-flow"
         },
         pi: {
           defaultPreset: "basic",
@@ -1762,7 +1762,7 @@ function buildRuntimeManifest(input: {
       workingDirectory: "."
     },
     workflow: {
-      defaultRouterPreset: "current-flow"
+      defaultRouterPreset: "intelligent-flow"
     },
     pi: {
       defaultPreset: input.defaultPreset,

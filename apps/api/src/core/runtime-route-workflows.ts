@@ -849,7 +849,6 @@ function readWorkflowRouterCompatibilityError<
 
   return readStoredWorkflowRouterDefinitionError(input);
 }
-
 function readStoredWorkflowRouterDefinitionError<
   Node extends WorkflowNodeId,
   Data,

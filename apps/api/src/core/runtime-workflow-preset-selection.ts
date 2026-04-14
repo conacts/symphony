@@ -34,8 +34,13 @@ export function resolveRuntimeWorkflowPresetSelection(input: {
 
   if (input.overridePresetId) {
     try {
+      const presetId = requireRuntimeRouterPresetId(input.overridePresetId);
+      assertOperationalRuntimeRouterPresetId(presetId, {
+        source: "bootstrap override",
+        manifestPath: runtimeManifest.manifestPath
+      });
       return {
-        presetId: requireRuntimeRouterPresetId(input.overridePresetId),
+        presetId,
         source: "bootstrap_override",
         repositoryKey: runtimeManifest.manifest.repositoryKey,
         manifestPath: runtimeManifest.manifestPath
@@ -61,8 +66,13 @@ export function resolveRuntimeWorkflowPresetSelection(input: {
   }
 
   try {
+    const presetId = requireRuntimeRouterPresetId(workflowConfig.defaultRouterPreset);
+    assertOperationalRuntimeRouterPresetId(presetId, {
+      source: "runtime manifest",
+      manifestPath: runtimeManifest.manifestPath
+    });
     return {
-      presetId: requireRuntimeRouterPresetId(workflowConfig.defaultRouterPreset),
+      presetId,
       source: "runtime_manifest",
       repositoryKey: runtimeManifest.manifest.repositoryKey,
       manifestPath: runtimeManifest.manifestPath
@@ -75,6 +85,20 @@ export function resolveRuntimeWorkflowPresetSelection(input: {
       {
         cause: error
       }
+    );
+  }
+}
+
+function assertOperationalRuntimeRouterPresetId(
+  presetId: SymphonyRuntimeRouterPresetId,
+  input: {
+    source: string;
+    manifestPath: string;
+  }
+): void {
+  if (presetId === "current-flow") {
+    throw new TypeError(
+      `Live runtime does not support workflow preset ${JSON.stringify(presetId)} from ${input.source} ${input.manifestPath}. Use "intelligent-flow" instead.`
     );
   }
 }
