@@ -234,7 +234,7 @@ export function renderSymphonyPromptContract(input: {
 
   return appendSymphonyHarnessPromptAppendix(
     withFallbackHandoffSection,
-    input.payload.completion_contract ?? "finish_tool"
+    input.payload.completion_contract ?? "module_result"
   );
 }
 
@@ -263,7 +263,7 @@ export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContract
     },
     attempt: 1,
     run_mode: "implementation",
-    completion_contract: "finish_tool",
+    completion_contract: "module_result",
     run_mode_section: null,
     handoff_section: null
   };
@@ -335,7 +335,7 @@ function buildPromptRunModeSection(
 ): string {
   return buildSymphonyRunModeSection(
     payload.run_mode,
-    payload.completion_contract ?? "finish_tool"
+    payload.completion_contract ?? "module_result"
   );
 }
 

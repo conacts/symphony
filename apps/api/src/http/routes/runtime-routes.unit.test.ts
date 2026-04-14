@@ -752,12 +752,6 @@ function createRuntimeServicesStub(
       inspectByIssueIdentifier: vi.fn().mockResolvedValue(null),
       answerPendingClarificationByWorkflowId: vi.fn()
     },
-    runtimeTools: {
-      recordDeliveryReport: vi.fn(),
-      submitSpikeResult: vi.fn(),
-      cancelIssue: vi.fn(),
-      submitMergeResult: vi.fn()
-    } as SymphonyRuntimeAppServices["runtimeTools"],
     workflowObservability: {
       loadByWorkflowId: vi.fn().mockResolvedValue(null),
       loadByIssueIdentifier: vi.fn().mockResolvedValue(null)

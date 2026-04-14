@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { resolveHarnessModelRuntimePolicy } from "@symphony/agent-harnesses";
 import {
   symphonyRuntimeHealthResponseSchema,
@@ -36,18 +35,6 @@ import type { SymphonyRuntimeAppContextSchema } from "../context.js";
 
 export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
   const runtimeRoutes = new Hono<SymphonyRuntimeAppContextSchema>();
-  const deliveryReportRequestSchema = z.strictObject({
-    runId: z.string().trim().min(1),
-    turnId: z.string().trim().min(1).nullable().optional(),
-    issue: z.strictObject({
-      trackerIssueId: z.string().trim().min(1),
-      identifier: z.string().trim().min(1)
-    }),
-    arguments: z.unknown()
-  });
-  const spikeResultRequestSchema = deliveryReportRequestSchema;
-  const cancelRequestSchema = deliveryReportRequestSchema;
-  const mergeResultRequestSchema = deliveryReportRequestSchema;
 
   runtimeRoutes.get("/state", async (c) => {
     const snapshot = services.orchestrator.snapshot();
@@ -206,90 +193,6 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
         durationMs: 0,
         generatedAt: new Date().toISOString()
       }
-    });
-
-    return jsonOk(c, result);
-  });
-
-  runtimeRoutes.post("/internal/runtime-tools/finish", async (c) => {
-    const payload = parseWithSchema(deliveryReportRequestSchema, await c.req.json());
-    const result = await services.runtimeTools.recordDeliveryReport({
-      runId: payload.runId,
-      turnId: payload.turnId ?? null,
-      issue: {
-        trackerIssueId: payload.issue.trackerIssueId,
-        identifier: payload.issue.identifier
-      },
-      argumentsPayload: payload.arguments
-    });
-
-    c.get("logger").info("Recorded delivery report through the runtime tools API", {
-      runId: payload.runId,
-      issueIdentifier: payload.issue.identifier,
-      success: result.success
-    });
-
-    return jsonOk(c, result);
-  });
-
-  runtimeRoutes.post("/internal/runtime-tools/spike-result", async (c) => {
-    const payload = parseWithSchema(spikeResultRequestSchema, await c.req.json());
-    const result = await services.runtimeTools.submitSpikeResult({
-      runId: payload.runId,
-      turnId: payload.turnId ?? null,
-      issue: {
-        trackerIssueId: payload.issue.trackerIssueId,
-        identifier: payload.issue.identifier
-      },
-      argumentsPayload: payload.arguments
-    });
-
-    c.get("logger").info("Submitted spike result through the runtime tools API", {
-      runId: payload.runId,
-      issueIdentifier: payload.issue.identifier,
-      success: result.success
-    });
-
-    return jsonOk(c, result);
-  });
-
-  runtimeRoutes.post("/internal/runtime-tools/cancel", async (c) => {
-    const payload = parseWithSchema(cancelRequestSchema, await c.req.json());
-    const result = await services.runtimeTools.cancelIssue({
-      runId: payload.runId,
-      turnId: payload.turnId ?? null,
-      issue: {
-        trackerIssueId: payload.issue.trackerIssueId,
-        identifier: payload.issue.identifier
-      },
-      argumentsPayload: payload.arguments
-    });
-
-    c.get("logger").info("Canceled issue through the runtime tools API", {
-      runId: payload.runId,
-      issueIdentifier: payload.issue.identifier,
-      success: result.success
-    });
-
-    return jsonOk(c, result);
-  });
-
-  runtimeRoutes.post("/internal/runtime-tools/merge-result", async (c) => {
-    const payload = parseWithSchema(mergeResultRequestSchema, await c.req.json());
-    const result = await services.runtimeTools.submitMergeResult({
-      runId: payload.runId,
-      turnId: payload.turnId ?? null,
-      issue: {
-        trackerIssueId: payload.issue.trackerIssueId,
-        identifier: payload.issue.identifier
-      },
-      argumentsPayload: payload.arguments
-    });
-
-    c.get("logger").info("Recorded merge result through the runtime tools API", {
-      runId: payload.runId,
-      issueIdentifier: payload.issue.identifier,
-      success: result.success
     });
 
     return jsonOk(c, result);

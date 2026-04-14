@@ -73,6 +73,7 @@ describe("prompt contract", () => {
         "Current run mode: Implementation",
         "- Complete the requested ticket work in the current workspace.",
         "- Keep the patch targeted and move directly toward a review-ready result.",
+        "- End the run with a structured terminal module result.",
         "",
         symphonyHarnessPromptAppendix,
         ""
@@ -85,10 +86,10 @@ describe("prompt contract", () => {
       "Prefer built-in Pi tools for reading, searching, and editing files."
     );
     expect(symphonyHarnessPromptAppendix).toContain(
-      "`pnpm exec symphony tool finish ...`: Record delivery for implementation or rework runs"
+      "No legacy Symphony CLI completion command is available in this runtime."
     );
     expect(symphonyHarnessPromptAppendix).toContain(
-      "`pnpm exec symphony tool merge-result ...`: Record the explicit outcome of an approved merge run."
+      "Implementation and rework runs complete through a structured terminal module result."
     );
   });
 
@@ -241,10 +242,10 @@ describe("prompt contract", () => {
     });
 
     expect(rendered).toContain(
-      "This is a capability-managed run. End the run with a structured terminal module result"
+      "End the run with a structured terminal module result."
     );
     expect(rendered).toContain(
-      "Capability-managed implementation and rework runs complete through a structured terminal module result"
+      "Implementation and rework runs complete through a structured terminal module result."
     );
     expect(rendered).not.toContain(
       "`pnpm exec symphony tool finish ...`: Record delivery for implementation or rework runs"
@@ -264,12 +265,10 @@ describe("prompt contract", () => {
       })
     ).toBe(
       [
-        "Current run mode: Approved Merge",
-        "- This run is for merge completion, not normal feature development.",
-        "- Update the branch from the latest `main` and resolve conflicts conservatively.",
-        "- Run the required verification and merge only if the branch is clean.",
-        "- If the merge succeeds, report it with `pnpm exec symphony tool merge-result --status merged ...`.",
-        "- If conflicts or verification failures cannot be resolved safely, report the blocked result with `pnpm exec symphony tool merge-result --status blocked ...`.",
+        "Current run mode: Approved Merge (Unsupported)",
+        "- Approved merge is no longer a supported live run mode in Symphony.",
+        "- Do not merge or try to emulate the removed CLI merge flow.",
+        "- Stop and report the unsupported state through a structured blocked terminal module result.",
         "",
         symphonyHarnessPromptAppendix,
         ""

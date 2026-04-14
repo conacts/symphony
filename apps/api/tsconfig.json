@@ -50,9 +50,6 @@
       "path": "../../packages/runtime-policy/tsconfig.build.json"
     },
     {
-      "path": "../../packages/runtime-tools/tsconfig.build.json"
-    },
-    {
       "path": "../../packages/test-support"
     },
     {

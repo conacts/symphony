@@ -37,7 +37,6 @@ import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import type { SymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 import type { SymphonyRuntimePollSchedulerSnapshot } from "./poll-scheduler.js";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
-import type { RuntimeToolExecutionResult } from "@symphony/runtime-tools";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type {
   SymphonyRuntimeBootstrapBinding
@@ -115,45 +114,6 @@ export type SymphonyRuntimeCapabilityOperatorPort = {
     requestId: string;
     answers: Record<string, string>;
   }): Promise<SymphonyRuntimeClarificationAnswerResult>;
-};
-
-export type SymphonyRuntimeToolsPort = {
-  recordDeliveryReport(input: {
-    runId: string;
-    turnId: string | null;
-    issue: {
-      trackerIssueId: string;
-      identifier: string;
-    };
-    argumentsPayload: unknown;
-  }): Promise<RuntimeToolExecutionResult>;
-  submitSpikeResult(input: {
-    runId: string;
-    turnId: string | null;
-    issue: {
-      trackerIssueId: string;
-      identifier: string;
-    };
-    argumentsPayload: unknown;
-  }): Promise<RuntimeToolExecutionResult>;
-  cancelIssue(input: {
-    runId: string;
-    turnId: string | null;
-    issue: {
-      trackerIssueId: string;
-      identifier: string;
-    };
-    argumentsPayload: unknown;
-  }): Promise<RuntimeToolExecutionResult>;
-  submitMergeResult(input: {
-    runId: string;
-    turnId: string | null;
-    issue: {
-      trackerIssueId: string;
-      identifier: string;
-    };
-    argumentsPayload: unknown;
-  }): Promise<RuntimeToolExecutionResult>;
 };
 
 export type SymphonyRuntimeWorkflowComparisonPort = {
@@ -240,7 +200,6 @@ export type SymphonyRuntimeAppServices = {
   trackerStateIngress: SymphonyRuntimeTrackerObservationPort;
   workflowRead: SymphonyRuntimeWorkflowReadPort;
   capabilityOperator: SymphonyRuntimeCapabilityOperatorPort;
-  runtimeTools: SymphonyRuntimeToolsPort;
   workflowObservability: SymphonyRuntimeWorkflowObservabilityPort;
   workflowComparison: SymphonyRuntimeWorkflowComparisonPort;
   routeWorkflows: SymphonyRouteWorkflowPort;

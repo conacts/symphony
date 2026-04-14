@@ -17,8 +17,9 @@ Stay in that directory. Do not search for or `cd` into another copy of the repos
 ## Completion Boundary
 
 - This run is not complete until Symphony records the required explicit result.
-- For implementation or rework runs, use `pnpm exec symphony tool finish ...` as the required completion step.
-- For approved merge runs, use `pnpm exec symphony tool merge-result ...` as the required completion step.
+- End the run by emitting exactly one final fenced `json` block and nothing after it.
+- The terminal result must include `schemaVersion`, `moduleId`, `outcome`, `summary`, `evidence`, `requestedState`, `nextInputPrompt`, and `blockers`.
+- Use `moduleId: "implement.spec"` for the live implementation path.
 - Do not manually move the issue to `In Review` through other Linear paths as the normal
   completion mechanism.
 - A build, test run, commit, push, PR, or summary message is intermediate progress, not
@@ -52,9 +53,9 @@ Suggested issue branch: {{ issue.branch_name }}
 - When behavior changes, add or update tests that reproduce the exact bug or flow.
 - Use shell commands for tests, builds, git, and package-manager operations.
 - Use Pi-native tools for file reads and edits whenever they are available.
-- Use the mode-appropriate Symphony completion command when the run is actually complete or blocked.
+- Use the structured terminal module result only when the run is actually complete, blocked, or awaiting explicit user input.
 - Do not search for `LINEAR_API_KEY` or try to move the issue to `In Review` manually as a substitute
-  for the required Symphony completion command.
+  for the required terminal module result.
 
 ## Run Mode
 

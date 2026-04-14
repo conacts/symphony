@@ -1,6 +1,6 @@
 import type { SymphonyAgentRuntimeCompletion } from "@symphony/orchestrator";
 import type { SymphonyReworkHandoff, SymphonyRunMode } from "@symphony/runtime-contract";
-import type { RuntimeMergeResult } from "@symphony/runtime-tools";
+import type { RuntimeMergeResult } from "./runtime-result-types.js";
 import type { WorkflowCommand, WorkflowSignal } from "@symphony/router";
 
 export type SymphonyRuntimeTrackerStateObservedSignalInput = {

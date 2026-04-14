@@ -19,8 +19,8 @@ describe("symphony continuation prompt", () => {
     expect(prompt).toContain("use them instead of searching for `LINEAR_API_KEY`");
     expect(prompt).toContain("read the latest Linear comment context");
     expect(prompt).toContain("Never move the issue to `Done`");
-    expect(prompt).toContain("advance the workflow");
-    expect(prompt).toContain("pnpm exec symphony tool finish");
+    expect(prompt).toContain("terminal module result");
+    expect(prompt).toContain("final fenced `json` block");
   });
 
   it("switches completion guidance for approved merge continuation turns", () => {
@@ -30,10 +30,8 @@ describe("symphony continuation prompt", () => {
       runMode: "approved_merge"
     });
 
-    expect(prompt).toContain("approved merge run");
-    expect(prompt).toContain("pnpm exec symphony tool merge-result --status merged");
-    expect(prompt).toContain("pnpm exec symphony tool merge-result --status blocked");
-    expect(prompt).not.toContain("advance the workflow");
+    expect(prompt).toContain("Approved merge is no longer a supported live run mode");
+    expect(prompt).toContain("blocked terminal module result");
   });
 
   it("uses terminal module-result guidance for capability-managed continuation turns", () => {
@@ -48,6 +46,5 @@ describe("symphony continuation prompt", () => {
     expect(prompt).toContain("End the run by emitting exactly one final fenced `json` block");
     expect(prompt).toContain("outcome: \"awaiting_input\"");
     expect(prompt).not.toContain("advance the workflow");
-    expect(prompt).toContain("Do not call `pnpm exec symphony tool finish ...`");
   });
 });

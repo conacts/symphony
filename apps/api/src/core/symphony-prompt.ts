@@ -10,7 +10,7 @@ export function buildSymphonyContinuationPrompt(input: {
   runMode: SymphonyRunMode;
   completionContract?: SymphonyPromptCompletionContract;
 }): string {
-  const completionContract = input.completionContract ?? "finish_tool";
+  const completionContract = input.completionContract ?? "module_result";
   const stopRule =
     completionContract === "module_result"
       ? "- Only stop when you can emit a valid terminal module result with `outcome: \"completed\"`, `outcome: \"awaiting_input\"`, or `outcome: \"blocked\"`, or when the runtime itself fails hard."

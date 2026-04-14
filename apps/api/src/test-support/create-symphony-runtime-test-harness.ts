@@ -579,56 +579,6 @@ export async function createSymphonyRuntimeTestHarness(input: {
     runtimeLogs: createRuntimeLogsPort({
       runtimeLogStore
     }),
-    runtimeTools: {
-      async recordDeliveryReport() {
-        return {
-          success: true,
-          output: JSON.stringify({ ok: true }),
-          contentItems: [
-            {
-              type: "inputText",
-              text: JSON.stringify({ ok: true })
-            }
-          ]
-        };
-      },
-      async submitSpikeResult() {
-        return {
-          success: true,
-          output: JSON.stringify({ ok: true }),
-          contentItems: [
-            {
-              type: "inputText",
-              text: JSON.stringify({ ok: true })
-            }
-          ]
-        };
-      },
-      async cancelIssue() {
-        return {
-          success: true,
-          output: JSON.stringify({ ok: true }),
-          contentItems: [
-            {
-              type: "inputText",
-              text: JSON.stringify({ ok: true })
-            }
-          ]
-        };
-      },
-      async submitMergeResult() {
-        return {
-          success: true,
-          output: JSON.stringify({ ok: true }),
-          contentItems: [
-            {
-              type: "inputText",
-              text: JSON.stringify({ ok: true })
-            }
-          ]
-        };
-      }
-    },
     workflowComparison: {
       async compareByWorkflowId() {
         return null;

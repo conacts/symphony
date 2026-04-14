@@ -5,7 +5,7 @@ export const symphonyHarnessPromptAppendix = buildSymphonyHarnessPromptAppendix(
 
 export function buildSymphonyRunModeSection(
   runMode: SymphonyRunMode,
-  completionContract: SymphonyPromptCompletionContract = "finish_tool"
+  completionContract: SymphonyPromptCompletionContract = "module_result"
 ): string {
   switch (runMode) {
     case "rework":
@@ -17,12 +17,10 @@ export function buildSymphonyRunModeSection(
       ].join("\n");
     case "approved_merge":
       return [
-        "Current run mode: Approved Merge",
-        "- This run is for merge completion, not normal feature development.",
-        "- Update the branch from the latest `main` and resolve conflicts conservatively.",
-        "- Run the required verification and merge only if the branch is clean.",
-        "- If the merge succeeds, report it with `pnpm exec symphony tool merge-result --status merged ...`.",
-        "- If conflicts or verification failures cannot be resolved safely, report the blocked result with `pnpm exec symphony tool merge-result --status blocked ...`."
+        "Current run mode: Approved Merge (Unsupported)",
+        "- Approved merge is no longer a supported live run mode in Symphony.",
+        "- Do not merge or try to emulate the removed CLI merge flow.",
+        "- Stop and report the unsupported state through a structured blocked terminal module result."
       ].join("\n");
     default:
       return [
@@ -31,7 +29,7 @@ export function buildSymphonyRunModeSection(
         "- Keep the patch targeted and move directly toward a review-ready result.",
         ...(completionContract === "module_result"
           ? [
-              "- This is a capability-managed run. End the run with a structured terminal module result instead of `pnpm exec symphony tool finish ...`."
+              "- End the run with a structured terminal module result."
             ]
           : [])
       ].join("\n");
@@ -40,19 +38,18 @@ export function buildSymphonyRunModeSection(
 
 export function buildSymphonyContinuationCompletionGuidance(
   runMode: SymphonyRunMode,
-  completionContract: SymphonyPromptCompletionContract = "finish_tool"
+  completionContract: SymphonyPromptCompletionContract = "module_result"
 ): string[] {
   if (runMode === "approved_merge") {
     return [
-      "- This is an approved merge run. Continue merge completion work instead of reopening normal feature development.",
-      "- Once the branch is merged cleanly, run `pnpm exec symphony tool merge-result --status merged ...` immediately in the same turn.",
-      "- If conflicts or verification failures cannot be resolved safely, run `pnpm exec symphony tool merge-result --status blocked ...` with the concrete blocking reason before ending the run."
+      "- Approved merge is no longer a supported live run mode.",
+      "- Do not attempt to finish the removed merge path.",
+      "- End the run with a blocked terminal module result that explains the unsupported run mode."
     ];
   }
 
   if (completionContract === "module_result") {
     return [
-      "- This is a capability-managed run. Do not call `pnpm exec symphony tool finish ...`.",
       "- End the run by emitting exactly one final fenced `json` block and nothing after it.",
       "- The terminal result object must include `schemaVersion`, `moduleId`, `outcome`, `summary`, `evidence`, `requestedState`, `nextInputPrompt`, and `blockers`.",
       "- Use `moduleId: \"implement.spec\"` for this phase of intelligent-flow.",
@@ -62,50 +59,32 @@ export function buildSymphonyContinuationCompletionGuidance(
     ];
   }
 
-  return [
-    "- Once the requested work is delivered and the PR is opened, run `pnpm exec symphony tool finish ...` immediately in the same turn. Symphony will record delivery, advance the workflow, and that should usually end the run.",
-    "- Do not keep taking extra turns after the PR is open and delivery is reported unless there is a concrete unresolved failure in the same run."
-  ];
+  return [];
 }
 
 export function buildSymphonyHarnessPromptAppendix(input?: {
   completionContract?: SymphonyPromptCompletionContract;
 }): string {
-  const completionContract = input?.completionContract ?? "finish_tool";
+  const completionContract = input?.completionContract ?? "module_result";
   const projectRuntimeTools =
     completionContract === "module_result"
       ? [
-          "`pnpm exec symphony tool merge-result ...`: Record the explicit outcome of an approved merge run. Use `merged` for a clean merge and `blocked` when conflicts or verification failures could not be resolved safely."
+          "No legacy Symphony CLI completion command is available in this runtime.",
+          "Runs complete only through a structured terminal module result."
         ]
-      : [
-          "`pnpm exec symphony tool finish ...`: Record delivery for implementation or rework runs, advance the workflow, and end the run.",
-          "`pnpm exec symphony tool merge-result ...`: Record the explicit outcome of an approved merge run. Use `merged` for a clean merge and `blocked` when conflicts or verification failures could not be resolved safely."
-        ];
-  const runtimeExpectations =
-    completionContract === "module_result"
-      ? [
-          "The active Linear workspace for this repository is `symphony-harness`.",
-          "Treat Linear as the source of truth for issue status, review feedback, and delivery state.",
-          "Capability-managed implementation and rework runs complete through a structured terminal module result, not `pnpm exec symphony tool finish ...`.",
-          "The final assistant message for a capability-managed implementation or rework run must be exactly one fenced `json` block.",
-          "That terminal result must carry the authoritative `outcome`, `summary`, `evidence`, `requestedState`, `nextInputPrompt`, and `blockers` fields.",
-          "Use `outcome: \"completed\"` only when the requested implementation work is actually done.",
-          "Use `outcome: \"awaiting_input\"` only when the run cannot continue without explicit user input.",
-          "Use `outcome: \"blocked\"` only for a true external blocker outside the run's authority.",
-          "Approved merge runs still complete through `pnpm exec symphony tool merge-result ...`.",
-          "Never move the issue to `Done` yourself from the agent runtime.",
-          "Do not add extra prose after the final terminal result JSON block."
-        ]
-      : [
-          "The active Linear workspace for this repository is `symphony-harness`.",
-          "Treat Linear as the source of truth for issue status, review feedback, and delivery state.",
-          "Treat the mode-specific Symphony CLI command as the explicit completion boundary for every run.",
-          "Implementation and rework runs complete through `pnpm exec symphony tool finish ...`.",
-          "Approved merge runs complete through `pnpm exec symphony tool merge-result ...`.",
-          "The finish command records delivery and advances the workflow for you.",
-          "Never move the issue to `Done` yourself from the agent runtime.",
-          "If the work is blocked or only partially delivered, call `pnpm exec symphony tool finish ...` with the matching status and the concrete reason before ending the run."
-        ];
+      : [];
+  const runtimeExpectations = [
+    "The active Linear workspace for this repository is `symphony-harness`.",
+    "Treat Linear as the source of truth for issue status, review feedback, and delivery state.",
+    "Implementation and rework runs complete through a structured terminal module result.",
+    "The final assistant message for an implementation or rework run must be exactly one fenced `json` block.",
+    "That terminal result must carry the authoritative `outcome`, `summary`, `evidence`, `requestedState`, `nextInputPrompt`, and `blockers` fields.",
+    "Use `outcome: \"completed\"` only when the requested implementation work is actually done.",
+    "Use `outcome: \"awaiting_input\"` only when the run cannot continue without explicit user input.",
+    "Use `outcome: \"blocked\"` only for a true external blocker outside the run's authority.",
+    "Never move the issue to `Done` yourself from the agent runtime.",
+    "Do not add extra prose after the final terminal result JSON block."
+  ];
 
   return [
     "## Symphony harness guidance",

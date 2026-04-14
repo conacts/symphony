@@ -1,5 +1,5 @@
 import type { SymphonyReworkHandoff } from "@symphony/runtime-contract";
-import type { RuntimeMergeResult } from "@symphony/runtime-tools";
+import type { RuntimeMergeResult } from "./runtime-result-types.js";
 
 export type SymphonyRuntimeWorkflowLifecycleView = {
   workflowId: string;

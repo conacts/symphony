@@ -24,7 +24,7 @@ import {
   buildSymphonyHarnessPromptAppendix,
   type SymphonyReworkHandoff,
 } from "@symphony/runtime-contract";
-import type { RuntimeMergeResult } from "@symphony/runtime-tools";
+import type { RuntimeMergeResult } from "./runtime-result-types.js";
 import {
   type WorkflowSignal
 } from "@symphony/router";
@@ -218,10 +218,6 @@ describe("docker pi symphony agent runtime", () => {
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -252,7 +248,6 @@ describe("docker pi symphony agent runtime", () => {
         ),
         tracker,
         runStore,
-        deliveryReports,
         agentAnalytics,
         workerSessionContract: workerSessionContract.contract,
         isCapabilityManagedRun: async () => true,
@@ -434,10 +429,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -460,7 +451,6 @@ done
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
-        deliveryReports,
         isCapabilityManagedRun: async () => true,
         agentAnalytics,
         runtimeLogs: {
@@ -521,397 +511,7 @@ done
     database.close();
   });
 
-  it("completes implementation runs when delivery is recorded through persisted run state", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-"));
-    tempRoots.push(root);
-
-    const workspacePath = path.join(root, "workspace");
-    await mkdir(workspacePath, {
-      recursive: true
-    });
-    await initializeGitWorkspace(workspacePath);
-
-    const fakePi = path.join(root, "pi");
-    await writeFakePiBinary(fakePi);
-    const fakeDocker = path.join(root, "docker");
-    await writeFakeDockerBinary(
-      fakeDocker,
-      path.join(root, "fake-docker-log.json")
-    );
-    process.env.PATH = `${root}:${originalPath ?? ""}`;
-
-    const issue = buildSymphonyRuntimeTrackerIssue({
-      state: "In Progress"
-    });
-    const tracker = createStateTracker(issue, "In Progress");
-    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
-    const database = initializeSymphonyDb({
-      dbFile: path.join(root, "symphony.db")
-    });
-    const runStore = createSqliteSymphonyRuntimeRunStore({
-      db: database.db
-    });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
-    const agentAnalytics = createSqliteAgentAnalyticsStore({
-      db: database.db
-    });
-    const workerSessionContract = buildWorkerSessionContract();
-    await seedCanonicalIssue(database.db, issue);
-    const runId = await runStore.recordRunStarted({
-      repositoryKey: testRepositoryKey,
-      trackerIssueId: issue.id,
-      issueIdentifier: issue.identifier,
-      runId: [issue.identifier, "run"].join("-"),
-      runMode: "implementation",
-      status: "dispatching",
-      workspacePath,
-      startedAt: "2026-03-31T00:00:00.000Z"
-    });
-
-    let completion: SymphonyAgentRuntimeCompletion | null = null;
-    let deliveryRecorded = false;
-
-    const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createSymphonyAgentRuntime({
-        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
-        tracker,
-        runStore,
-        deliveryReports,
-        loadWorkflowLifecycleView: async () =>
-          buildWorkflowLifecycleView({
-            trackerState: "In Review"
-          }),
-        agentAnalytics,
-        workerSessionContract: workerSessionContract.contract,
-        runtimeLogs: {
-          async record() {
-            return "log-1";
-          },
-          async list() {
-            return [];
-          }
-        },
-        hostCommandEnvSource: process.env,
-        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
-        callbacks: {
-          async onUpdate() {
-            if (deliveryRecorded) {
-              return;
-            }
-
-            deliveryRecorded = true;
-            await deliveryReports.record({
-              runId,
-              reportId: [runId, "delivery"].join("-"),
-              reportedAt: "2026-03-31T00:05:00.000Z",
-              status: "completed",
-              summary: "Opened the PR and finished the requested work.",
-              prUrl: "https://github.com/openai/symphony/pull/123",
-              branchName: "symphony/col-123",
-              source: "pi"
-            });
-          },
-          async onComplete(_issueId, result) {
-            completion = result;
-            resolve();
-          }
-        }
-      });
-
-      void runtime.startRun({
-        issue,
-        runId,
-        attempt: 1,
-        runMode: "implementation",
-        runtimePolicy,
-        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
-      });
-    });
-
-    await completionPromise;
-
-    expect(completion).toEqual(
-      expect.objectContaining({
-        kind: "delivered"
-      })
-    );
-    expect(workerSessionContract.completeSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sessionId: "pi-session-1",
-        issueId: issue.id,
-        runId,
-        attempt: 1,
-        runMode: "implementation",
-        status: "completed",
-        reason: null
-      })
-    );
-
-    database.close();
-  });
-
-  it("accepts completed delivery reports when the workflow closes directly into Done", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-done-"));
-    tempRoots.push(root);
-
-    const workspacePath = path.join(root, "workspace");
-    await mkdir(workspacePath, {
-      recursive: true
-    });
-    await initializeGitWorkspace(workspacePath);
-
-    const fakePi = path.join(root, "pi");
-    await writeFakePiBinary(fakePi);
-    const fakeDocker = path.join(root, "docker");
-    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
-    process.env.PATH = `${root}:${originalPath ?? ""}`;
-
-    const issue = buildSymphonyRuntimeTrackerIssue({
-      state: "In Progress"
-    });
-    const tracker = createStateTracker(issue, "Done");
-    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
-    const database = initializeSymphonyDb({
-      dbFile: path.join(root, "symphony.db")
-    });
-    const runStore = createSqliteSymphonyRuntimeRunStore({
-      db: database.db
-    });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
-    const agentAnalytics = createSqliteAgentAnalyticsStore({
-      db: database.db
-    });
-    const workerSessionContract = buildWorkerSessionContract();
-    await seedCanonicalIssue(database.db, issue);
-    const runId = await runStore.recordRunStarted({
-      repositoryKey: testRepositoryKey,
-      trackerIssueId: issue.id,
-      issueIdentifier: issue.identifier,
-      runId: [issue.identifier, "run"].join("-"),
-      runMode: "implementation",
-      status: "dispatching",
-      workspacePath,
-      startedAt: "2026-03-31T00:00:00.000Z"
-    });
-
-    let completion: SymphonyAgentRuntimeCompletion | null = null;
-    let deliveryRecorded = false;
-
-    const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createSymphonyAgentRuntime({
-        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
-        tracker,
-        runStore,
-        deliveryReports,
-        loadWorkflowLifecycleView: async () =>
-          buildWorkflowLifecycleView({
-            trackerState: "Done"
-          }),
-        agentAnalytics,
-        workerSessionContract: workerSessionContract.contract,
-        runtimeLogs: {
-          async record() {
-            return "log-1";
-          },
-          async list() {
-            return [];
-          }
-        },
-        hostCommandEnvSource: process.env,
-        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
-        callbacks: {
-          async onUpdate() {
-            if (deliveryRecorded) {
-              return;
-            }
-
-            deliveryRecorded = true;
-            await deliveryReports.record({
-              runId,
-              reportId: [runId, "delivery"].join("-"),
-              reportedAt: "2026-03-31T00:05:00.000Z",
-              status: "completed",
-              summary: "Opened the PR and finished the requested work.",
-              prUrl: "https://github.com/openai/symphony/pull/123",
-              branchName: "symphony/col-123",
-              source: "pi"
-            });
-          },
-          async onComplete(_issueId, result) {
-            completion = result;
-            resolve();
-          }
-        }
-      });
-
-      void runtime.startRun({
-        issue,
-        runId,
-        attempt: 1,
-        runMode: "implementation",
-        runtimePolicy,
-        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
-      });
-    });
-
-    await completionPromise;
-
-    expect(completion).toEqual(
-      expect.objectContaining({
-        kind: "delivered"
-      })
-    );
-    expect(workerSessionContract.completeSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sessionId: "pi-session-1",
-        issueId: issue.id,
-        runId,
-        attempt: 1,
-        runMode: "implementation",
-        status: "completed",
-        reason: null
-      })
-    );
-
-    database.close();
-  });
-
-  it("fails completed delivery reports that never reach a valid delivery terminal state", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-transition-"));
-    tempRoots.push(root);
-
-    const workspacePath = path.join(root, "workspace");
-    await mkdir(workspacePath, {
-      recursive: true
-    });
-    await initializeGitWorkspace(workspacePath);
-
-    const fakePi = path.join(root, "pi");
-    await writeFakePiBinary(fakePi);
-    const fakeDocker = path.join(root, "docker");
-    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
-    process.env.PATH = `${root}:${originalPath ?? ""}`;
-
-    const issue = buildSymphonyRuntimeTrackerIssue({
-      state: "In Progress"
-    });
-    const tracker = createStateTracker(issue, "In Review");
-    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
-    const database = initializeSymphonyDb({
-      dbFile: path.join(root, "symphony.db")
-    });
-    const runStore = createSqliteSymphonyRuntimeRunStore({
-      db: database.db
-    });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
-    const agentAnalytics = createSqliteAgentAnalyticsStore({
-      db: database.db
-    });
-    const workerSessionContract = buildWorkerSessionContract();
-    await seedCanonicalIssue(database.db, issue);
-    const runId = await runStore.recordRunStarted({
-      repositoryKey: testRepositoryKey,
-      trackerIssueId: issue.id,
-      issueIdentifier: issue.identifier,
-      runId: [issue.identifier, "run"].join("-"),
-      runMode: "implementation",
-      status: "dispatching",
-      workspacePath,
-      startedAt: "2026-03-31T00:00:00.000Z"
-    });
-
-    let completion: SymphonyAgentRuntimeCompletion | null = null;
-    let deliveryRecorded = false;
-
-    const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createSymphonyAgentRuntime({
-        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
-        tracker,
-        runStore,
-        deliveryReports,
-        loadWorkflowLifecycleView: async () =>
-          buildWorkflowLifecycleView({
-            trackerState: "In Progress"
-          }),
-        agentAnalytics,
-        workerSessionContract: workerSessionContract.contract,
-        runtimeLogs: {
-          async record() {
-            return "log-1";
-          },
-          async list() {
-            return [];
-          }
-        },
-        hostCommandEnvSource: process.env,
-        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
-        callbacks: {
-          async onUpdate() {
-            if (deliveryRecorded) {
-              return;
-            }
-
-            deliveryRecorded = true;
-            await deliveryReports.record({
-              runId,
-              reportId: [runId, "delivery"].join("-"),
-              reportedAt: "2026-03-31T00:05:00.000Z",
-              status: "completed",
-              summary: "Opened the PR and finished the requested work.",
-              prUrl: "https://github.com/openai/symphony/pull/123",
-              branchName: "symphony/col-123",
-              source: "pi"
-            });
-          },
-          async onComplete(_issueId, result) {
-            completion = result;
-            resolve();
-          }
-        }
-      });
-
-      void runtime.startRun({
-        issue,
-        runId,
-        attempt: 1,
-        runMode: "implementation",
-        runtimePolicy,
-        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
-      });
-    });
-
-    await completionPromise;
-
-    expect(completion).toEqual({
-      kind: "failure",
-      reason: expect.stringContaining("one of `In Review`, `Approved`, `Done`")
-    });
-    expect(workerSessionContract.startSession).toHaveBeenCalledTimes(1);
-    expect(workerSessionContract.completeSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sessionId: "pi-session-1",
-        issueId: issue.id,
-        runId,
-        attempt: 1,
-        runMode: "implementation",
-        status: "failed",
-        reason: expect.stringContaining("one of `In Review`, `Approved`, `Done`")
-      })
-    );
-
-    database.close();
-  });
-
-  it("fails fast when workflow history cannot provide the current tracker state after delivery", async () => {
+  it("fails fast when workflow history cannot provide the current tracker state during active observation", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-missing-workflow-state-"));
     tempRoots.push(root);
 
@@ -938,10 +538,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -958,14 +554,12 @@ done
     });
 
     let completion: SymphonyAgentRuntimeCompletion | null = null;
-    let deliveryRecorded = false;
 
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
-        deliveryReports,
         loadWorkflowLifecycleView: async () => null,
         agentAnalytics,
         runtimeLogs: {
@@ -979,23 +573,7 @@ done
         hostCommandEnvSource: process.env,
         logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
         callbacks: {
-          async onUpdate() {
-            if (deliveryRecorded) {
-              return;
-            }
-
-            deliveryRecorded = true;
-            await deliveryReports.record({
-              runId,
-              reportId: [runId, "delivery"].join("-"),
-              reportedAt: "2026-03-31T00:05:00.000Z",
-              status: "completed",
-              summary: "Opened the PR and finished the requested work.",
-              prUrl: "https://github.com/openai/symphony/pull/123",
-              branchName: "symphony/col-123",
-              source: "pi"
-            });
-          },
+          async onUpdate() {},
           async onComplete(_issueId, result) {
             completion = result;
             resolve();
@@ -1017,121 +595,7 @@ done
 
     expect(completion).toEqual({
       kind: "failure",
-      reason: `Workflow history is missing the current tracker state for ${issue.identifier} after delivery_report.`
-    });
-
-    database.close();
-  });
-
-  it("emits blocked when a delivery report records a repo-owned blocker", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-blocked-"));
-    tempRoots.push(root);
-
-    const workspacePath = path.join(root, "workspace");
-    await mkdir(workspacePath, {
-      recursive: true
-    });
-    await initializeGitWorkspace(workspacePath);
-
-    const fakePi = path.join(root, "pi");
-    await writeFakePiBinary(fakePi);
-    const fakeDocker = path.join(root, "docker");
-    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
-    process.env.PATH = `${root}:${originalPath ?? ""}`;
-
-    const issue = buildSymphonyRuntimeTrackerIssue({
-      state: "In Progress"
-    });
-    const tracker = createStateTracker(issue, "In Progress");
-    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
-    const database = initializeSymphonyDb({
-      dbFile: path.join(root, "symphony.db")
-    });
-    const runStore = createSqliteSymphonyRuntimeRunStore({
-      db: database.db
-    });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
-    const agentAnalytics = createSqliteAgentAnalyticsStore({
-      db: database.db
-    });
-    await seedCanonicalIssue(database.db, issue);
-    const runId = await runStore.recordRunStarted({
-      repositoryKey: testRepositoryKey,
-      trackerIssueId: issue.id,
-      issueIdentifier: issue.identifier,
-      runId: [issue.identifier, "run"].join("-"),
-      runMode: "implementation",
-      status: "dispatching",
-      workspacePath,
-      startedAt: "2026-03-31T00:00:00.000Z"
-    });
-
-    let completion: SymphonyAgentRuntimeCompletion | null = null;
-    let deliveryRecorded = false;
-
-    const completionPromise = new Promise<void>((resolve) => {
-      const runtime = createSymphonyAgentRuntime({
-        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
-        tracker,
-        runStore,
-        deliveryReports,
-        loadWorkflowLifecycleView: async () =>
-          buildWorkflowLifecycleView({
-            trackerState: "Blocked"
-          }),
-        agentAnalytics,
-        runtimeLogs: {
-          async record() {
-            return "log-1";
-          },
-          async list() {
-            return [];
-          }
-        },
-        hostCommandEnvSource: process.env,
-        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
-        callbacks: {
-          async onUpdate() {
-            if (deliveryRecorded) {
-              return;
-            }
-
-            deliveryRecorded = true;
-            await deliveryReports.record({
-              runId,
-              reportId: [runId, "delivery"].join("-"),
-              reportedAt: "2026-03-31T00:05:00.000Z",
-              status: "blocked",
-              summary: "Blocked by a repository-owned environment contract.",
-              blockingReason: "Missing required repo credentials for integration tests.",
-              source: "pi"
-            });
-          },
-          async onComplete(_issueId, result) {
-            completion = result;
-            resolve();
-          }
-        }
-      });
-
-      void runtime.startRun({
-        issue,
-        runId,
-        attempt: 1,
-        runMode: "implementation",
-        runtimePolicy,
-        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
-      });
-    });
-
-    await completionPromise;
-
-    expect(completion).toEqual({
-      kind: "blocked",
-      reason: "Missing required repo credentials for integration tests."
+      reason: `Workflow history is missing the current tracker state for ${issue.identifier} while observing active issue ${issue.identifier}.`
     });
 
     database.close();
@@ -1191,10 +655,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -1207,7 +667,6 @@ done
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
-        deliveryReports,
         agentAnalytics,
         runtimeLogs: {
           async record(input) {
@@ -1277,7 +736,7 @@ done
     database.close();
   });
 
-  it("completes persisted native Pi RPC runs without requiring an explicit delivery report", async () => {
+  it("completes persisted native Pi RPC runs without requiring a legacy delivery report", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-report-"));
     tempRoots.push(root);
 
@@ -1330,7 +789,6 @@ done
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
-        deliveryReports,
         isCapabilityManagedRun: async () => true,
         agentAnalytics,
         runtimeLogs: {
@@ -1403,10 +861,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -1441,7 +895,6 @@ done
         ),
         tracker,
         runStore,
-        deliveryReports,
         loadWorkflowLifecycleView,
         agentAnalytics,
         runtimeLogs: {
@@ -1518,10 +971,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -1548,7 +997,6 @@ done
         ),
         tracker,
         runStore,
-        deliveryReports,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1623,10 +1071,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -1661,7 +1105,6 @@ done
         ),
         tracker,
         runStore,
-        deliveryReports,
         loadWorkflowLifecycleView,
         agentAnalytics,
         runtimeLogs: {
@@ -1705,7 +1148,7 @@ done
     database.close();
   });
 
-  it("uses the explicit run mode when it differs from the visible issue state", async () => {
+  it("renders unsupported approved-merge guidance when the explicit run mode differs from the visible issue state", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-run-mode-"));
     tempRoots.push(root);
 
@@ -1731,10 +1174,6 @@ done
     });
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
-    });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
     });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
@@ -1775,7 +1214,6 @@ done
         promptContract: buildPromptContract(root, "{{ run_mode_section }}"),
         tracker,
         runStore,
-        deliveryReports,
         loadWorkflowLifecycleView,
         agentAnalytics,
         runtimeLogs: {
@@ -1818,7 +1256,10 @@ done
       "Current run mode: Approved Merge"
     );
     expect(runDetail?.turns[0]?.promptText).toContain(
-      "This run is for merge completion, not normal feature development."
+      "Approved merge is no longer a supported live run mode in Symphony."
+    );
+    expect(runDetail?.turns[0]?.promptText).toContain(
+      "Stop and report the unsupported state through a structured blocked terminal module result."
     );
 
     database.close();
@@ -1851,10 +1292,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -1877,7 +1314,6 @@ done
         promptContract: buildPromptContract(root, "{{ run_mode_section }}"),
         tracker,
         runStore,
-        deliveryReports,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -1947,10 +1383,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -1993,7 +1425,6 @@ done
         promptContract: buildPromptContract(root, "{{ run_mode_section }}"),
         tracker,
         runStore,
-        deliveryReports,
         loadWorkflowLifecycleView,
         agentAnalytics,
         runtimeLogs: {
@@ -2062,10 +1493,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -2096,7 +1523,6 @@ done
         promptContract: buildPromptContract(root, "{{ run_mode_section }}"),
         tracker,
         runStore,
-        deliveryReports,
         loadWorkflowLifecycleView,
         agentAnalytics,
         runtimeLogs: {
@@ -2165,10 +1591,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -2216,7 +1638,6 @@ done
         ),
         tracker,
         runStore,
-        deliveryReports,
         loadWorkflowLifecycleView,
         agentAnalytics,
         runtimeLogs: {
@@ -2323,10 +1744,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -2338,7 +1755,6 @@ done
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker: createDoneTracker(issue),
         runStore,
-        deliveryReports,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -2439,10 +1855,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -2465,7 +1877,6 @@ done
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
-        deliveryReports,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -2578,10 +1989,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -2604,7 +2011,6 @@ done
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
-        deliveryReports,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -2703,10 +2109,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -2718,7 +2120,6 @@ done
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
-        deliveryReports,
         agentAnalytics,
         runtimeLogs: {
           async record() {
@@ -2819,10 +2220,6 @@ done
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -2847,10 +2244,8 @@ done
     const completionPromise = new Promise<void>((resolve) => {
       const runtime = createSymphonyAgentRuntime({
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
-        apiPort: 4_400,
         tracker,
         runStore,
-        deliveryReports,
         isCapabilityManagedRun: async () => true,
         agentAnalytics,
         runtimeLogs: {
@@ -2905,8 +2300,8 @@ done
       containerName: "symphony-col-123-container",
       workdir: "/workspace"
     });
-    expect(await readFile(fakeDockerEnvLog, "utf8")).toContain(
-      "SYMPHONY_API_BASE_URL=http://host.docker.internal:4400/api/v1/internal/runtime-tools"
+    expect(await readFile(fakeDockerEnvLog, "utf8")).not.toContain(
+      "SYMPHONY_API_BASE_URL="
     );
     expect(await readFile(fakeDockerEnvLog, "utf8")).not.toContain(
       "SYMPHONY_ISSUE_STATE="
@@ -2980,10 +2375,6 @@ exit 1
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -2996,7 +2387,6 @@ exit 1
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker: createDoneTracker(issue),
         runStore,
-        deliveryReports,
         agentAnalytics,
         runtimeLogs: {
           async record(input) {
@@ -3095,10 +2485,6 @@ exit 1
     const runStore = createSqliteSymphonyRuntimeRunStore({
       db: database.db
     });
-    const deliveryReports = createSymphonyIssueDeliveryReportStore({
-      db: database.db,
-      repositoryKey: testRepositoryKey
-    });
     const agentAnalytics = createSqliteAgentAnalyticsStore({
       db: database.db
     });
@@ -3124,7 +2510,6 @@ exit 1
         promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
         tracker,
         runStore,
-        deliveryReports,
         isCapabilityManagedRun: async () => true,
         agentAnalytics,
         runtimeLogs: {

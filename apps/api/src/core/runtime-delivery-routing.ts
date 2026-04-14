@@ -1,5 +1,5 @@
 import { type WorkflowCommand } from "@symphony/router";
-import { completedDeliveryTransitionStates } from "@symphony/runtime-tools";
+import { completedDeliveryTransitionStates } from "./runtime-result-types.js";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue

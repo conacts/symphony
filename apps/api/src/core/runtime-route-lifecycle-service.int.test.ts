@@ -1194,91 +1194,6 @@ describe("runtime route lifecycle service", () => {
     }
   });
 
-  it("continues approved-merge redispatch after service restart from persisted approved history", async () => {
-    const harness = await createHarness({
-      state: "Todo",
-      presetId: "auto-merge"
-    });
-
-    try {
-      await advanceWorkflowToAutoApprovedMerge(harness);
-
-      await expectRouteWorkflowAuthorityProof<
-        SymphonyCurrentFlowNode,
-        SymphonyCurrentFlowData,
-        SymphonyCurrentFlowPolicy
-      >({
-        routeWorkflows: harness.routeWorkflows,
-        issueIdentifier: harness.issue.identifier,
-        currentNode: "approved_merge",
-        reasonCode: "delivery_reported_auto_approved",
-        signalType: "runtime.delivery_reported",
-        assertData(data) {
-          expect(data.trackerState).toBe("Approved");
-          expect(data.lastDispatchMode).toBe("approved_merge");
-        }
-      });
-
-      await harness.restartService("2026-04-10T14:12:07.000Z");
-
-      await expectWorkflowTrackerState({
-        harness,
-        trackerState: "Approved"
-      });
-
-      const dispatchRequests: Array<{
-        workflowId: string;
-        issueState: string;
-        runMode: string;
-      }> = [];
-
-      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
-        issueIdentifier: harness.issue.identifier,
-        recordedAt: "2026-04-10T14:12:10.000Z",
-        onDispatchRequested: async (input) => {
-          dispatchRequests.push({
-            workflowId: input.workflowId,
-            issueState: input.trackerIssue.state,
-            runMode: input.runMode
-          });
-        }
-      });
-
-      expect(observed).toEqual({
-        issueIdentifier: harness.issue.identifier,
-        observedTrackerState: "Approved",
-        workflowTrackerState: "Approved",
-        observed: true,
-        disposition: "observed"
-      });
-      expect(dispatchRequests).toEqual([
-        {
-          workflowId: expect.any(String),
-          issueState: "Approved",
-          runMode: "approved_merge"
-        }
-      ]);
-
-      await expectRouteWorkflowAuthorityProof<
-        SymphonyCurrentFlowNode,
-        SymphonyCurrentFlowData,
-        SymphonyCurrentFlowPolicy
-      >({
-        routeWorkflows: harness.routeWorkflows,
-        issueIdentifier: harness.issue.identifier,
-        currentNode: "approved_merge",
-        reasonCode: "approved_merge_redispatched",
-        signalType: "tracker.state_observed",
-        assertData(data) {
-          expect(data.trackerState).toBe("Approved");
-          expect(data.lastDispatchMode).toBe("approved_merge");
-        }
-      });
-    } finally {
-      harness.close();
-    }
-  });
-
   it("returns false when no route workflow exists for the issue", async () => {
     const harness = await createHarness({
       state: "Todo"
@@ -1326,43 +1241,6 @@ describe("runtime route lifecycle service", () => {
       });
 
       expect(observed).toBe(false);
-    } finally {
-      harness.close();
-    }
-  });
-
-  it("routes delivery reports through route history for active implementation runs", async () => {
-    const harness = await createHarness({
-      state: "Todo"
-    });
-
-    try {
-      await advanceWorkflowToRunningImplementation(harness);
-
-      const routed = await harness.service.routeDeliveryReport({
-        issueIdentifier: harness.issue.identifier,
-        runId: "run-1",
-        recordedAt: "2026-04-10T14:12:00.000Z",
-        status: "completed"
-      });
-
-      expect(routed).toBe(true);
-      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Review");
-
-      await expectRouteWorkflowAuthorityProof<
-        SymphonyCurrentFlowNode,
-        SymphonyCurrentFlowData,
-        SymphonyCurrentFlowPolicy
-      >({
-        routeWorkflows: harness.routeWorkflows,
-        issueIdentifier: harness.issue.identifier,
-        currentNode: "review",
-        reasonCode: "delivery_reported",
-        signalType: "runtime.delivery_reported",
-        assertData(data) {
-          expect(data.trackerState).toBe("In Review");
-        }
-      });
     } finally {
       harness.close();
     }
@@ -1442,107 +1320,6 @@ describe("runtime route lifecycle service", () => {
           "capability.completed"
         ])
       );
-    } finally {
-      harness.close();
-    }
-  });
-
-  it("routes delivery reports without refetching tracker issues once workflow history is active", async () => {
-    const harness = await createHarness({
-      state: "Todo"
-    });
-
-    try {
-      await advanceWorkflowToRunningImplementation(harness);
-      const serviceWithoutIssueLookup =
-        await createServiceWithoutTrackerIssueLookup({
-          harness,
-          nowIso: "2026-04-10T14:12:01.000Z"
-        });
-
-      const routed = await serviceWithoutIssueLookup.routeDeliveryReport({
-        issueIdentifier: harness.issue.identifier,
-        runId: "run-1",
-        recordedAt: "2026-04-10T14:12:02.000Z",
-        status: "completed"
-      });
-
-      expect(routed).toBe(true);
-      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Review");
-
-      await expectRouteWorkflowAuthorityProof<
-        SymphonyCurrentFlowNode,
-        SymphonyCurrentFlowData,
-        SymphonyCurrentFlowPolicy
-      >({
-        routeWorkflows: harness.routeWorkflows,
-        issueIdentifier: harness.issue.identifier,
-        currentNode: "review",
-        reasonCode: "delivery_reported",
-        signalType: "runtime.delivery_reported",
-        assertData(data) {
-          expect(data.trackerState).toBe("In Review");
-        }
-      });
-    } finally {
-      harness.close();
-    }
-  });
-
-  it("auto-merge delivery reports can approve and dispatch merge work through the same host seam", async () => {
-    const harness = await createHarness({
-      state: "Todo",
-      presetId: "auto-merge"
-    });
-
-    try {
-      await advanceWorkflowToRunningImplementation(harness);
-      const dispatchRequests: Array<{
-        workflowId: string;
-        issueState: string;
-        runMode: string;
-      }> = [];
-
-      const routed = await harness.service.routeDeliveryReport({
-        issueIdentifier: harness.issue.identifier,
-        runId: "run-1",
-        recordedAt: "2026-04-10T14:12:05.000Z",
-        status: "completed",
-        onDispatchRequested: async (input) => {
-          dispatchRequests.push({
-            workflowId: input.workflowId,
-            issueState: input.trackerIssue.state,
-            runMode: input.runMode
-          });
-        }
-      });
-
-      expect(routed).toBe(true);
-      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Approved");
-      expect(dispatchRequests).toEqual([
-        {
-          workflowId: expect.any(String),
-          issueState: "Approved",
-          runMode: "approved_merge"
-        }
-      ]);
-
-      const proof = await expectRouteWorkflowAuthorityProof<
-        SymphonyCurrentFlowNode,
-        SymphonyCurrentFlowData,
-        SymphonyCurrentFlowPolicy
-      >({
-        routeWorkflows: harness.routeWorkflows,
-        issueIdentifier: harness.issue.identifier,
-        currentNode: "approved_merge",
-        reasonCode: "delivery_reported_auto_approved",
-        signalType: "runtime.delivery_reported",
-        assertData(data) {
-          expect(data.trackerState).toBe("Approved");
-        }
-      });
-      expect(proof.hydration.workflow.routerPresetId).toBe("auto-merge");
-      expect(proof.hydration.workflow.routerName).toBe("symphony-auto-merge-flow");
     } finally {
       harness.close();
     }
@@ -2356,19 +2133,6 @@ async function advanceWorkflowToFailedStartup(
       failureOrigin: "workspace_lifecycle"
     },
     recordedAt: "2026-04-10T14:00:05.000Z"
-  });
-}
-
-async function advanceWorkflowToAutoApprovedMerge(
-  harness: Awaited<ReturnType<typeof createHarness>>
-) {
-  await advanceWorkflowToRunningImplementation(harness);
-  await harness.service.routeDeliveryReport({
-    issueIdentifier: harness.issue.identifier,
-    runId: "run-1",
-    recordedAt: "2026-04-10T14:12:05.000Z",
-    status: "completed",
-    onDispatchRequested: async () => {}
   });
 }
 

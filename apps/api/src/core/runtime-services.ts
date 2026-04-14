@@ -12,7 +12,6 @@ import {
   createSqliteAgentAnalyticsStore,
   createRouteWorkflowStore,
   createSqliteRuntimeForensicsReadStore,
-  createSymphonyIssueDeliveryReportStore,
   createSymphonyIssueStore,
   createSqliteSymphonyRuntimeRunStore,
   createSymphonyGitHubIngressJournal,
@@ -91,7 +90,6 @@ import {
 import {
   createWorkflowDispatchTracker
 } from "./runtime-workflow-dispatch-tracker.js";
-import { createRuntimeToolsPort } from "./runtime-tools-port.js";
 import { loadRunningWorkflowTrackerStates } from "./runtime-workflow-tracker-state.js";
 import {
   reconcilePersistedActiveRunsOnShutdown,
@@ -203,11 +201,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
   const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db
-  });
-  const deliveryReports = createSymphonyIssueDeliveryReportStore({
-    db: database.db,
-    timelineStore: issueTimelineStore,
-    repositoryKey
   });
   const agentAnalyticsStore = createSqliteAgentAnalyticsStore({
     db: database.db
@@ -536,10 +529,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     createSymphonyAgentRuntime({
       promptContract,
       admittedRepositories,
-      apiPort: env.port,
       tracker,
       runStore,
-      deliveryReports,
       loadWorkflowLifecycleView: ({ issueIdentifier, runId = null }) =>
         routeLifecycle.loadWorkflowLifecycleView({
           issueIdentifier,
@@ -668,15 +659,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       };
     }
   } satisfies SymphonyRuntimeAppServices["trackerStateIngress"];
-  const runtimeTools = createRuntimeToolsPort({
-    tracker,
-    deliveryReports,
-    routeLifecycle,
-    blockedTargetState: runtimePolicy.tracker.blockedTransitionToState,
-    pauseTargetState: runtimePolicy.tracker.pauseTransitionToState,
-    canceledTargetState: "Canceled",
-    onDispatchRequested: dispatchObservedIssue
-  });
   const workflowComparison = {
     async compareByWorkflowId(input: {
       workflowId: string;
@@ -862,7 +844,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     trackerStateIngress,
     workflowRead,
     capabilityOperator,
-    runtimeTools,
     workflowObservability,
     workflowComparison,
     routeWorkflows,

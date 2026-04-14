@@ -30,7 +30,6 @@ import type {
 } from "@symphony/tracker";
 import type {
   AgentAnalyticsStore,
-  SymphonyIssueDeliveryReportStore,
   SymphonyRuntimeLogStore,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
@@ -62,11 +61,8 @@ import {
   type SymphonyRuntimeHarness
 } from "./runtime-harness.js";
 import {
-  completedDeliveryTransitionStates,
-  isCompletedDeliveryTransitionState,
-  type RuntimeDeliveryReportResult,
   type RuntimeMergeResult
-} from "@symphony/runtime-tools";
+} from "./runtime-result-types.js";
 import { CommandResourceMonitor } from "./command-resource-monitor.js";
 import type {
   SymphonyRuntimeWorkflowLifecycleView
@@ -105,11 +101,9 @@ export function createSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
   admittedRepositories?: AdmittedRuntimeRepository[];
   runtimeWorkingDirectory?: string;
-  apiPort?: number;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
-  deliveryReports: SymphonyIssueDeliveryReportStore;
   loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
   observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
   isCapabilityManagedRun?: WorkflowLifecycleReaders["isCapabilityManagedRun"];
@@ -138,11 +132,9 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
   admittedRepositories?: AdmittedRuntimeRepository[];
   runtimeWorkingDirectory?: string;
-  apiPort?: number;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
-  deliveryReports: SymphonyIssueDeliveryReportStore;
   loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
   observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
   isCapabilityManagedRun?: WorkflowLifecycleReaders["isCapabilityManagedRun"];
@@ -185,11 +177,9 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
           selectedRepository?.promptContract.template ?? input.promptContract.template,
         harness: input.harness,
         promptContract: selectedRepository?.promptContract ?? input.promptContract,
-        apiPort: input.apiPort,
         githubRepository: repositoryKey,
         tracker: input.tracker,
         runStore: input.runStore,
-        deliveryReports: input.deliveryReports,
         loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
         observeActiveWorkflowIssueState: input.observeActiveWorkflowIssueState,
         isCapabilityManagedRun:
@@ -243,11 +233,9 @@ async function executeRun(input: {
   promptTemplate: string;
   harness: SymphonyRuntimeHarness;
   promptContract: SymphonyLoadedPromptContract;
-  apiPort?: number;
   githubRepository: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
-  deliveryReports: SymphonyIssueDeliveryReportStore;
   loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
   observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
   isCapabilityManagedRun: NonNullable<
@@ -279,7 +267,6 @@ async function executeRun(input: {
   let maxTurnsReached = false;
   let sessionProviderId: string | null = null;
   let sessionProviderName: string | null = null;
-  let deliveryReport: RuntimeDeliveryReportResult | null = null;
   let mergeResult: RuntimeMergeResult | null = null;
   let commandResourceMonitor: CommandResourceMonitor | null = null;
   let recordedCanonicalSessionStart = false;
@@ -342,10 +329,6 @@ async function executeRun(input: {
         CLICOLOR_FORCE: "0",
         ...input.workspace.envBundle.values,
         ...input.harnessLaunchEnv,
-        SYMPHONY_API_BASE_URL:
-          input.apiPort !== undefined
-            ? buildRuntimeApiBaseUrl(input.launchTarget, input.apiPort)
-            : "",
         SYMPHONY_REPOSITORY_KEY: repositoryKey,
         SYMPHONY_ISSUE_IDENTIFIER: input.issue.identifier,
         SYMPHONY_TRACKER_ISSUE_ID: input.issue.id,
@@ -459,7 +442,7 @@ async function executeRun(input: {
         },
         attempt: input.attempt,
         run_mode: input.runMode,
-        completion_contract: capabilityManagedRun ? "module_result" : "finish_tool",
+        completion_contract: "module_result",
         handoff_section: formatSymphonyReworkHandoffSection(latestReworkHandoff)
       };
 
@@ -476,9 +459,7 @@ async function executeRun(input: {
               turnNumber,
               maxTurns: input.runtimePolicy.agent.maxTurns,
               runMode: input.runMode,
-              completionContract: capabilityManagedRun
-                ? "module_result"
-                : "finish_tool"
+              completionContract: "module_result"
             });
 
       const persistedTurnStartedAt = new Date().toISOString();
@@ -681,25 +662,14 @@ async function executeRun(input: {
         persistedTurnId = null;
       }
 
-      if (input.runId) {
-        if (explicitCompletionRequirement === "delivery_report") {
-          deliveryReport = await loadLatestDeliveryReportForRun(
-            input.deliveryReports,
-            input.runId
-          );
-        } else {
-          mergeResult =
-            (
-              await input.loadWorkflowLifecycleView({
-                issueIdentifier: currentIssue.identifier,
-                runId: input.runId
-              })
-            )?.latestMergeResult ?? null;
-        }
-      }
-
-      if (deliveryReport) {
-        break;
+      if (input.runId && explicitCompletionRequirement === "merge_result") {
+        mergeResult =
+          (
+            await input.loadWorkflowLifecycleView({
+              issueIdentifier: currentIssue.identifier,
+              runId: input.runId
+            })
+          )?.latestMergeResult ?? null;
       }
 
       if (mergeResult) {
@@ -741,31 +711,7 @@ async function executeRun(input: {
         });
       }
 
-      if (deliveryReport) {
-        const authoritativeState = await loadRequiredWorkflowTrackerState({
-          issueIdentifier: currentIssue.identifier,
-          loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
-          failureContext: "after delivery_report"
-        });
-        await recordWorkerSessionCompletion({
-          workerSessionContract: input.workerSessionContract,
-          sessionId: session.threadId,
-          issueId: input.issue.id,
-          runId: input.runId,
-          attempt: input.attempt,
-          runMode: input.runMode,
-          completion: deliveryCompletion(
-            deliveryReport,
-            authoritativeState,
-            input.runtimePolicy
-          ),
-          recordedAt: new Date().toISOString()
-        });
-        await input.callbacks.onComplete(
-          input.issue.id,
-          deliveryCompletion(deliveryReport, authoritativeState, input.runtimePolicy)
-        );
-      } else if (mergeResult) {
+      if (mergeResult) {
         const authoritativeState = await loadRequiredWorkflowTrackerState({
           issueIdentifier: currentIssue.identifier,
           runId: input.runId,
@@ -1057,18 +1003,6 @@ function asJsonObject(value: unknown): JsonObject | null {
   return record ? (record as JsonObject) : null;
 }
 
-function buildRuntimeApiBaseUrl(
-  launchTarget: SymphonyRuntimeLaunchTarget,
-  apiPort: number
-): string {
-  switch (launchTarget.kind) {
-    case "container":
-      return `http://host.docker.internal:${apiPort}/api/v1/internal/runtime-tools`;
-    default:
-      return `http://127.0.0.1:${apiPort}/api/v1/internal/runtime-tools`;
-  }
-}
-
 function resolvePromptRepoName(
   configuredGitHubRepo: string | null,
   repoRoot: string
@@ -1119,59 +1053,6 @@ function describeLaunchTarget(target: SymphonyRuntimeLaunchTarget): JsonObject {
   };
 }
 
-function deliveryCompletion(
-  deliveryReport: RuntimeDeliveryReportResult,
-  currentState: string,
-  runtimePolicy: SymphonyAgentRuntimeConfig
-): SymphonyAgentRuntimeCompletion {
-  switch (deliveryReport.status) {
-    case "completed":
-      if (!isCompletedDeliveryTransitionState(currentState)) {
-        return {
-          kind: "failure",
-          reason: buildUnexpectedDeliveryStateReason(
-            deliveryReport.status,
-            completedDeliveryTransitionStates,
-            currentState
-          )
-        };
-      }
-
-      return {
-        kind: "delivered"
-      };
-    case "blocked":
-      if (
-        !matchesIssueState(
-          currentState,
-          runtimePolicy.tracker.blockedTransitionToState
-        )
-      ) {
-        return {
-          kind: "failure",
-          reason: buildUnexpectedDeliveryStateReason(
-            deliveryReport.status,
-            runtimePolicy.tracker.blockedTransitionToState,
-            currentState
-          )
-        };
-      }
-
-      return {
-        kind: "blocked",
-        reason:
-          deliveryReport.blockingReason ??
-          `Delivery reported as blocked: ${deliveryReport.summary}`
-      };
-    case "partial":
-    default:
-      return {
-        kind: "failure",
-        reason: `Delivery reported as partial: ${deliveryReport.summary}`
-      };
-  }
-}
-
 function matchesIssueState(actualState: string, expectedState: string | null): boolean {
   const normalizedActual = actualState.trim().toLowerCase();
   const normalizedExpected = expectedState?.trim().toLowerCase();
@@ -1179,18 +1060,6 @@ function matchesIssueState(actualState: string, expectedState: string | null): b
   return normalizedExpected !== undefined && normalizedExpected !== null
     ? normalizedActual === normalizedExpected
     : false;
-}
-
-function buildUnexpectedDeliveryStateReason(
-  deliveryStatus: RuntimeDeliveryReportResult["status"],
-  expectedState: readonly string[] | string | null,
-  actualState: string
-): string {
-  const expected = formatExpectedTerminalStates(expectedState);
-
-  return deliveryStatus === "completed"
-    ? `Delivery was recorded as completed, but the issue did not reach ${expected}. Current state: \`${actualState}\`.`
-    : `Delivery was recorded as blocked, but the issue did not reach ${expected}. Current state: \`${actualState}\`.`;
 }
 
 function buildUnexpectedMergeResultStateReason(
@@ -1203,32 +1072,6 @@ function buildUnexpectedMergeResultStateReason(
   return mergeStatus === "merged"
     ? `Merge was recorded as merged, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`
     : `Merge was recorded as blocked, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`;
-}
-
-function formatExpectedTerminalStates(
-  expectedState: readonly string[] | string | null
-): string {
-  if (typeof expectedState === "string") {
-    const normalizedExpected = expectedState.trim();
-    return normalizedExpected ? `\`${normalizedExpected}\`` : "the expected terminal state";
-  }
-
-  if (Array.isArray(expectedState)) {
-    const normalizedStates = expectedState
-      .map((state) => state.trim())
-      .filter((state) => state.length > 0);
-    if (normalizedStates.length === 0) {
-      return "one of the expected terminal states";
-    }
-
-    if (normalizedStates.length === 1) {
-      return `\`${normalizedStates[0]}\``;
-    }
-
-    return `one of ${normalizedStates.map((state) => `\`${state}\``).join(", ")}`;
-  }
-
-  return "the expected terminal state";
 }
 
 type ExplicitCompletionRequirement =
@@ -1245,24 +1088,6 @@ function resolveExplicitCompletionRequirement(
   }
 
   return capabilityManagedRun ? "none" : "delivery_report";
-}
-
-async function loadLatestDeliveryReportForRun(
-  deliveryReports: SymphonyIssueDeliveryReportStore,
-  runId: string
-): Promise<RuntimeDeliveryReportResult | null> {
-  const persistedReport = await deliveryReports.fetchLatestForRun(runId);
-  if (!persistedReport) {
-    return null;
-  }
-
-  return {
-    reportId: persistedReport.reportId,
-    status: persistedReport.status,
-    summary: persistedReport.summary,
-    prUrl: persistedReport.prUrl,
-    blockingReason: persistedReport.blockingReason
-  };
 }
 
 function mergeResultCompletion(
