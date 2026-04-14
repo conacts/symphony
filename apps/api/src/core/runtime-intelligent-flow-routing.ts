@@ -1,8 +1,6 @@
 import {
   type WorkflowRouterPreset,
   createSymphonyIntelligentFlowDeliveryReportedSignal,
-  createSymphonyIntelligentFlowMergeResultReportedSignal,
-  createSymphonyIntelligentFlowReviewReworkRequestedSignal,
   createSymphonyIntelligentFlowRunStartedSignal,
   createSymphonyIntelligentFlowRuntimeCompletedSignal,
   createSymphonyIntelligentFlowRuntimeStartupFailureSignal,
@@ -30,8 +28,6 @@ import type { SymphonyRuntimeWorkflowPresetModule } from "./runtime-workflow-pre
 import {
   readRuntimeIntelligentFlowActiveRunModeFromProjection,
   readRuntimeIntelligentFlowLastDispatchModeFromProjection,
-  readRuntimeIntelligentFlowLatestMergeResultFromProjection,
-  readRuntimeIntelligentFlowLatestReworkHandoffFromProjection,
   readRuntimeIntelligentFlowTrackerStateFromProjection
 } from "./runtime-intelligent-flow-lifecycle-data.js";
 
@@ -100,11 +96,6 @@ function assertIntelligentFlowTrackerContract(
     "claimTransitionFromStates",
     trackerConfig.claimTransitionFromStates,
     "Todo"
-  );
-  assertTrackerStateIncluded(
-    "claimTransitionFromStates",
-    trackerConfig.claimTransitionFromStates,
-    "Rework"
   );
   assertTrackerStateIncluded(
     "terminalStates",
@@ -209,33 +200,6 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
         correlationId: input.correlationId
       });
     },
-    createMergeResultReportedSignal(input) {
-      return createSymphonyIntelligentFlowMergeResultReportedSignal({
-        id: input.id,
-        occurredAt: input.occurredAt,
-        mergeResult: {
-          runId: input.runId,
-          status: input.mergeResult.status,
-          summary: input.mergeResult.summary,
-          prUrl: input.mergeResult.prUrl,
-          mergeCommitSha: input.mergeResult.mergeCommitSha,
-          blockingReason: input.mergeResult.blockingReason,
-          testsSummary: input.mergeResult.testsSummary,
-          recordedAt: input.occurredAt
-        },
-        causationId: input.causationId,
-        correlationId: input.correlationId
-      });
-    },
-    createReviewReworkRequestedSignal(input) {
-      return createSymphonyIntelligentFlowReviewReworkRequestedSignal({
-        id: input.id,
-        occurredAt: input.occurredAt,
-        handoff: input.handoff,
-        causationId: input.causationId,
-        correlationId: input.correlationId
-      });
-    },
     createStateRequestedSignal(input) {
       return createSymphonyIntelligentFlowStateRequestedSignal({
         id: input.id,
@@ -275,12 +239,6 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
     readActiveRunModeFromProjection(input) {
       return readRuntimeIntelligentFlowActiveRunModeFromProjection(input);
     },
-    readLatestReworkHandoffFromProjection(input) {
-      return readRuntimeIntelligentFlowLatestReworkHandoffFromProjection(input);
-    },
-    readLatestMergeResultFromProjection(input) {
-      return readRuntimeIntelligentFlowLatestMergeResultFromProjection(input);
-    },
     readTrackerTransitionState(command) {
       const trackerTransition =
         readSymphonyIntelligentFlowTrackerTransitionCommand(command);
@@ -308,11 +266,17 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
 function normalizeLegacyRuntimeCompletionKind(
   kind:
     | Parameters<typeof createSymphonyIntelligentFlowRuntimeCompletedSignal>[0]["kind"]
+    | "merged"
+    | "merge_blocked"
     | "awaiting_input"
     | "invalid_result"
     | "missing_terminal_result"
 ): Parameters<typeof createSymphonyIntelligentFlowRuntimeCompletedSignal>[0]["kind"] {
   switch (kind) {
+    case "merged":
+      return "delivered";
+    case "merge_blocked":
+      return "blocked";
     case "awaiting_input":
     case "invalid_result":
     case "missing_terminal_result":

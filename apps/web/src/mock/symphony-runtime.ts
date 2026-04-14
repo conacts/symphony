@@ -1853,9 +1853,13 @@ function parseOutcomeFilter(
 ): SymphonyForensicsIssueFilters["outcome"] {
   switch (value) {
     case "completed":
+      return value;
     case "merged":
+      return "completed";
     case "blocked":
+      return value;
     case "merge_blocked":
+      return "blocked";
     case "paused_max_turns":
     case "startup_failed":
     case "rate_limited":

@@ -15,8 +15,6 @@ import {
   createSymphonyIntelligentFlowDispatchCommand,
   createSymphonyIntelligentFlowTrackerTransitionCommand,
   readSymphonyIntelligentFlowDeliveryReportedSignal,
-  readSymphonyIntelligentFlowMergeResultReportedSignal,
-  readSymphonyIntelligentFlowReviewReworkRequestedSignal,
   readSymphonyIntelligentFlowRunStartedSignal,
   readSymphonyIntelligentFlowRuntimeCompletedSignal,
   readSymphonyIntelligentFlowRuntimeStartupFailureSignal,
@@ -26,8 +24,6 @@ import {
   readSymphonyIntelligentFlowDispatchCommand,
   readSymphonyIntelligentFlowTrackerTransitionCommand,
   type SymphonyIntelligentFlowCompletionKind,
-  type SymphonyIntelligentFlowMergeResultRecord,
-  type SymphonyIntelligentFlowReviewReworkHandoff,
   type SymphonyIntelligentFlowRunMode,
   type SymphonyIntelligentFlowTrackerState
 } from "./symphony-intelligent-flow-lifecycle-contract.js";
@@ -55,8 +51,6 @@ export type SymphonyIntelligentFlowData = {
   lastDispatchStatus: "pending" | "succeeded" | "failed" | null;
   lastRunMode: SymphonyIntelligentFlowRunMode | null;
   lastRuntimeOutcome: SymphonyIntelligentFlowCompletionKind | null;
-  latestMergeResult: SymphonyIntelligentFlowMergeResultRecord | null;
-  latestReworkHandoff: SymphonyIntelligentFlowReviewReworkHandoff | null;
 };
 
 const symphonyIntelligentFlowPolicy = Object.freeze({}) as SymphonyIntelligentFlowPolicy;
@@ -103,7 +97,7 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         to: "claimed",
         reasonCode: "queued_claimed_from_todo",
         guard: ({ signal }) => isObservedTrackerState(signal, "Todo"),
-        commands: ({ signal }) => buildClaimCommands(signal, "implementation")
+        commands: ({ signal }) => buildClaimCommands(signal)
       }),
       new WorkflowEdge({
         id: "queued_rework_to_claimed",
@@ -111,7 +105,7 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         to: "claimed",
         reasonCode: "queued_claimed_from_rework",
         guard: ({ signal }) => isObservedTrackerState(signal, "Rework"),
-        commands: ({ signal }) => buildClaimCommands(signal, "rework")
+        commands: ({ signal }) => buildClaimCommands(signal)
       }),
       new WorkflowEdge({
         id: "queued_bootstrapping_to_claimed",
@@ -119,8 +113,7 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         to: "claimed",
         reasonCode: "queued_claimed_from_bootstrapping",
         guard: ({ signal }) => isObservedTrackerState(signal, "Bootstrapping"),
-        commands: (context) =>
-          buildBootstrappingRedispatchCommands(context.signal, context.projection.data)
+        commands: (context) => buildBootstrappingRedispatchCommands(context.signal)
       }),
       new WorkflowEdge({
         id: "queued_in_progress_to_active",
@@ -136,8 +129,7 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         to: "claimed",
         reasonCode: "claimed_redispatched",
         guard: ({ signal }) => isObservedTrackerState(signal, "Bootstrapping"),
-        commands: (context) =>
-          buildBootstrappingRedispatchCommands(context.signal, context.projection.data)
+        commands: (context) => buildBootstrappingRedispatchCommands(context.signal)
       }),
       new WorkflowEdge({
         id: "claimed_run_started_to_active",
@@ -198,13 +190,6 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         guard: ({ signal }) => isClarificationRequested(signal)
       }),
       new WorkflowEdge({
-        id: "active_runtime_merged_to_done",
-        from: "active",
-        to: "done",
-        reasonCode: "active_runtime_merged",
-        guard: ({ signal }) => hasCompletionKind(signal, "merged")
-      }),
-      new WorkflowEdge({
         id: "active_runtime_blocked_to_blocked",
         from: "active",
         to: "blocked",
@@ -247,7 +232,7 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         to: "claimed",
         reasonCode: "awaiting_input_requeued_from_todo",
         guard: ({ signal }) => isObservedTrackerState(signal, "Todo"),
-        commands: ({ signal }) => buildClaimCommands(signal, "implementation")
+        commands: ({ signal }) => buildClaimCommands(signal)
       }),
       new WorkflowEdge({
         id: "awaiting_input_rework_to_claimed",
@@ -255,7 +240,7 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         to: "claimed",
         reasonCode: "awaiting_input_requeued_from_rework",
         guard: ({ signal }) => isObservedTrackerState(signal, "Rework"),
-        commands: ({ signal }) => buildClaimCommands(signal, "rework")
+        commands: ({ signal }) => buildClaimCommands(signal)
       }),
       new WorkflowEdge({
         id: "awaiting_input_bootstrapping_to_claimed",
@@ -263,8 +248,7 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         to: "claimed",
         reasonCode: "awaiting_input_claimed_from_bootstrapping",
         guard: ({ signal }) => isObservedTrackerState(signal, "Bootstrapping"),
-        commands: (context) =>
-          buildBootstrappingRedispatchCommands(context.signal, context.projection.data)
+        commands: (context) => buildBootstrappingRedispatchCommands(context.signal)
       }),
       new WorkflowEdge({
         id: "awaiting_input_clarification_answered_to_claimed",
@@ -295,9 +279,7 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
       lastDispatchMode: null,
       lastDispatchStatus: null,
       lastRunMode: null,
-      lastRuntimeOutcome: null,
-      latestMergeResult: null,
-      latestReworkHandoff: null
+      lastRuntimeOutcome: null
     }),
     reduceData: ({ data, event, projection }) => {
       switch (event.kind) {
@@ -384,13 +366,6 @@ function isStateRequested(
   );
 }
 
-function hasCompletionKind(
-  signal: WorkflowSignal,
-  kind: Exclude<SymphonyIntelligentFlowCompletionKind, "startup_failure">
-) {
-  return readSymphonyIntelligentFlowRuntimeCompletedSignal(signal)?.payload.kind === kind;
-}
-
 function isPausedOutcome(signal: WorkflowSignal) {
   const kind = readSymphonyIntelligentFlowRuntimeCompletedSignal(signal)?.payload.kind ?? null;
   return (
@@ -404,7 +379,7 @@ function isPausedOutcome(signal: WorkflowSignal) {
 
 function isBlockedOutcome(signal: WorkflowSignal) {
   const kind = readSymphonyIntelligentFlowRuntimeCompletedSignal(signal)?.payload.kind ?? null;
-  return kind === "blocked" || kind === "merge_blocked";
+  return kind === "blocked";
 }
 
 function isCapabilityBlocked(signal: WorkflowSignal) {
@@ -447,27 +422,18 @@ function createTrackerTransitionCommand(
 }
 
 function buildClaimCommands(
-  signal: WorkflowSignal,
-  runMode: Extract<SymphonyIntelligentFlowRunMode, "implementation" | "rework">
+  signal: WorkflowSignal
 ) {
   return [
     ...maybeCreateTrackerTransitionCommand(signal, "Bootstrapping"),
-    createDispatchCommand(signal, runMode)
+    createDispatchCommand(signal, "implementation")
   ];
 }
 
 function buildBootstrappingRedispatchCommands(
-  signal: WorkflowSignal,
-  data: SymphonyIntelligentFlowData
+  signal: WorkflowSignal
 ) {
-  const runMode =
-    data.lastDispatchMode === "implementation" || data.lastDispatchMode === "rework"
-      ? data.lastDispatchMode
-      : data.lastObservedTrackerState === "Rework"
-        ? "rework"
-        : "implementation";
-
-  return [createDispatchCommand(signal, runMode)];
+  return [createDispatchCommand(signal, "implementation")];
 }
 
 function resolveClosedTrackerState(
@@ -475,7 +441,6 @@ function resolveClosedTrackerState(
 ): Extract<SymphonyIntelligentFlowTrackerState, "Done" | "Canceled"> | null {
   if (
     isObservedTrackerState(signal, "Done") ||
-    hasCompletionKind(signal, "merged") ||
     isDeliveryReported(signal, "completed")
   ) {
     return "Done";
@@ -502,7 +467,7 @@ function buildTerminalReentryEdges(
       to: "claimed",
       reasonCode: `${from}_reopened_from_todo`,
       guard: ({ signal }) => isObservedTrackerState(signal, "Todo"),
-      commands: ({ signal }) => buildClaimCommands(signal, "implementation")
+      commands: ({ signal }) => buildClaimCommands(signal)
     }),
     new WorkflowEdge({
       id: `${from}_rework_to_claimed`,
@@ -510,7 +475,7 @@ function buildTerminalReentryEdges(
       to: "claimed",
       reasonCode: `${from}_reopened_from_rework`,
       guard: ({ signal }) => isObservedTrackerState(signal, "Rework"),
-      commands: ({ signal }) => buildClaimCommands(signal, "rework")
+      commands: ({ signal }) => buildClaimCommands(signal)
     }),
     new WorkflowEdge({
       id: `${from}_bootstrapping_to_claimed`,
@@ -518,8 +483,7 @@ function buildTerminalReentryEdges(
       to: "claimed",
       reasonCode: `${from}_reopened_from_bootstrapping`,
       guard: ({ signal }) => isObservedTrackerState(signal, "Bootstrapping"),
-      commands: (context) =>
-        buildBootstrappingRedispatchCommands(context.signal, context.projection.data)
+      commands: (context) => buildBootstrappingRedispatchCommands(context.signal)
     }),
     new WorkflowEdge({
       id: `${from}_in_progress_to_active`,
@@ -649,22 +613,6 @@ function reduceSignalData(
     return {
       ...data,
       lastRunMode: startedRunMode
-    };
-  }
-
-  const reworkRequested = readSymphonyIntelligentFlowReviewReworkRequestedSignal(signal);
-  if (reworkRequested !== null) {
-    return {
-      ...data,
-      latestReworkHandoff: reworkRequested.payload.handoff
-    };
-  }
-
-  const mergeResultReported = readSymphonyIntelligentFlowMergeResultReportedSignal(signal);
-  if (mergeResultReported !== null) {
-    return {
-      ...data,
-      latestMergeResult: mergeResultReported.payload.mergeResult
     };
   }
 

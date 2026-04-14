@@ -164,9 +164,7 @@ describe("runtime routes", () => {
       .fn<SymphonyRuntimeAppServices["workflowRead"]["loadWorkflowLifecycleView"]>()
       .mockResolvedValue({
         workflowId: "workflow-123",
-        trackerState: "Bootstrapping",
-        latestReworkHandoff: null,
-        latestMergeResult: null
+        trackerState: "Bootstrapping"
       });
     const app = createRuntimeRoutesTestApp({
       tracker,

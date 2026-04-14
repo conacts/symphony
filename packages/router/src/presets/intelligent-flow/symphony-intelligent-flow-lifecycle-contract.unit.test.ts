@@ -2,16 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   createSymphonyIntelligentFlowDispatchCommand,
   createSymphonyIntelligentFlowDeliveryReportedSignal,
-  createSymphonyIntelligentFlowMergeResultReportedSignal,
-  createSymphonyIntelligentFlowReviewReworkRequestedSignal,
   createSymphonyIntelligentFlowRunStartedSignal,
   createSymphonyIntelligentFlowStateRequestedSignal,
   createSymphonyIntelligentFlowTrackerStateObservedSignal,
   createSymphonyIntelligentFlowTrackerTransitionCommand,
   readSymphonyIntelligentFlowDispatchCommand,
   readSymphonyIntelligentFlowDeliveryReportedSignal,
-  readSymphonyIntelligentFlowMergeResultReportedSignal,
-  readSymphonyIntelligentFlowReviewReworkRequestedSignal,
   readSymphonyIntelligentFlowRunStartedSignal,
   readSymphonyIntelligentFlowStateRequestedSignal,
   readSymphonyIntelligentFlowTrackerStateObservedSignal,
@@ -61,54 +57,6 @@ describe("Symphony intelligent-flow lifecycle contract", () => {
 
     expect(readSymphonyIntelligentFlowDeliveryReportedSignal(signal)).toEqual(signal);
     expect(readSymphonyIntelligentFlowRunStartedSignal(signal)).toBeNull();
-  });
-
-  it("builds and reads runtime merge-result reports with strict required fields", () => {
-    const signal = createSymphonyIntelligentFlowMergeResultReportedSignal({
-      id: "signal_merge_result_reported",
-      occurredAt: "2026-04-10T15:00:01.625Z",
-      mergeResult: {
-        runId: "run-300",
-        status: "merged",
-        summary: "Merged the PR after syncing with main.",
-        prUrl: "https://github.com/openai/symphony/pull/300",
-        mergeCommitSha: "abc123",
-        blockingReason: null,
-        testsSummary: "pnpm test",
-        recordedAt: "2026-04-10T15:00:01.625Z"
-      },
-      causationId: "run-300",
-      correlationId: "SYM-300"
-    });
-
-    expect(readSymphonyIntelligentFlowMergeResultReportedSignal(signal)).toEqual(
-      signal
-    );
-    expect(readSymphonyIntelligentFlowDeliveryReportedSignal(signal)).toBeNull();
-  });
-
-  it("builds and reads review rework requests with strict required fields", () => {
-    const signal = createSymphonyIntelligentFlowReviewReworkRequestedSignal({
-      id: "signal_review_rework_requested",
-      occurredAt: "2026-04-10T15:00:01.700Z",
-      handoff: {
-        source: "github_review",
-        triggerKind: "changes_requested_review",
-        reviewContextUrl:
-          "https://github.com/openai/symphony/pull/123#pullrequestreview-555",
-        pullRequestUrl: "https://github.com/openai/symphony/pull/123",
-        actorLogin: "reviewer",
-        feedbackBody: "Please rename this API.",
-        recordedAt: "2026-04-10T15:00:01.700Z"
-      },
-      causationId: "review-300",
-      correlationId: "SYM-300"
-    });
-
-    expect(readSymphonyIntelligentFlowReviewReworkRequestedSignal(signal)).toEqual(
-      signal
-    );
-    expect(readSymphonyIntelligentFlowMergeResultReportedSignal(signal)).toBeNull();
   });
 
   it("builds and reads runtime state requests with strict required fields", () => {
@@ -163,37 +111,6 @@ describe("Symphony intelligent-flow lifecycle contract", () => {
     );
   });
 
-  it("fails fast when merge-result reports omit the structured merge result", () => {
-    expect(() =>
-      readSymphonyIntelligentFlowMergeResultReportedSignal({
-        id: "signal_invalid_merge_result",
-        type: "runtime.merge_result_reported",
-        source: "runtime",
-        occurredAt: "2026-04-10T15:00:02.250Z",
-        payload: {},
-        causationId: "run-300",
-        correlationId: "SYM-300"
-      })
-    ).toThrow(
-      /Invalid Symphony intelligent-flow lifecycle runtime\.merge_result_reported signal/
-    );
-  });
-
-  it("fails fast when review rework requests omit the structured handoff", () => {
-    expect(() =>
-      readSymphonyIntelligentFlowReviewReworkRequestedSignal({
-        id: "signal_invalid_review_rework",
-        type: "review.rework_requested",
-        source: "review",
-        occurredAt: "2026-04-10T15:00:02.375Z",
-        payload: {},
-        causationId: "review-300",
-        correlationId: "SYM-300"
-      })
-    ).toThrow(
-      /Invalid Symphony intelligent-flow lifecycle review\.rework_requested signal/
-    );
-  });
 
   it("fails fast when run.dispatch payload is malformed", () => {
     expect(() =>

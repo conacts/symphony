@@ -4,8 +4,7 @@ import type {
 } from "@symphony/contracts";
 
 const symphonyCompletedRunOutcomes = new Set<SymphonyForensicsRunOutcome>([
-  "completed",
-  "merged"
+  "completed"
 ]);
 
 export function problemSummary(runs: SymphonyForensicsRunSummary[]): Record<string, number> {

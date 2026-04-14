@@ -208,7 +208,6 @@ export type SymphonyAgentRuntimeCompletion =
       kind: "delivered";
       moduleResult?: SymphonyImplementationModuleResult | null;
     }
-  | { kind: "merged" }
   | {
       kind: "awaiting_input";
       reason: string;
@@ -220,7 +219,6 @@ export type SymphonyAgentRuntimeCompletion =
       reason: string;
       moduleResult?: SymphonyImplementationModuleResult | null;
     }
-  | { kind: "merge_blocked"; reason: string }
   | { kind: "max_turns_reached"; reason: string; maxTurns: number }
   | {
       kind: "startup_failure";

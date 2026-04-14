@@ -31,10 +31,7 @@ import type {
   SymphonyCapabilityPlanningService
 } from "./symphony-capability-planning.js";
 
-const capabilityManagedRunModes = new Set<SymphonyRunMode>([
-  "implementation",
-  "rework"
-]);
+const capabilityManagedRunModes = new Set<SymphonyRunMode>(["implementation"]);
 
 export type SymphonyCapabilityRunCompletionResult =
   | {

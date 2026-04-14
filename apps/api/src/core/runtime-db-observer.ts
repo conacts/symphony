@@ -236,7 +236,11 @@ export function createDbBackedOrchestratorObserver(input: {
         errorClass:
           isSuccessfulCompletion(completion) ? null : completionErrorClass(completion),
         errorMessage:
-          isSuccessfulCompletion(completion) ? null : completion.reason
+          isSuccessfulCompletion(completion)
+            ? null
+            : "reason" in completion
+              ? completion.reason
+              : null
       });
 
     }
@@ -260,22 +264,21 @@ function isSuccessfulCompletion(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
 ): completion is Extract<
   Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"],
-  { kind: "delivered" | "merged" }
+  { kind: "delivered" }
 > {
-  return completion.kind === "delivered" || completion.kind === "merged";
+  return completion.kind === "delivered";
 }
 
 function completionStatus(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
 ): SymphonyRuntimeRunStatus {
-  switch (completion.kind) {
+  switch (completion.kind as string) {
     case "delivered":
     case "merged":
       return "finished";
     case "awaiting_input":
       return "paused";
     case "blocked":
-      return "failed";
     case "merge_blocked":
       return "failed";
     case "max_turns_reached":
@@ -292,23 +295,23 @@ function completionStatus(
     case "missing_terminal_result":
     case "failure":
       return "failed";
+    default:
+      return "failed";
   }
 }
 
 function completionOutcome(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
 ): SymphonyRuntimeRunOutcome {
-  switch (completion.kind) {
+  switch (completion.kind as string) {
     case "delivered":
-      return "completed";
     case "merged":
-      return "merged";
+      return "completed";
     case "awaiting_input":
       return "failed";
     case "blocked":
-      return "blocked";
     case "merge_blocked":
-      return "merge_blocked";
+      return "blocked";
     case "max_turns_reached":
       return "paused_max_turns";
     case "startup_failure":
@@ -323,23 +326,26 @@ function completionOutcome(
     case "missing_terminal_result":
     case "failure":
       return "failed";
+    default:
+      return "failed";
   }
 }
 
 function completionErrorClass(
   completion: Parameters<SymphonyOrchestratorObserver["finalizeRun"]>[0]["completion"]
 ): string {
-  switch (completion.kind) {
-    case "startup_failure":
-      return completion.manifestLifecyclePhase
-        ? `startup_failure_${completion.failureOrigin}_${completion.failureStage}_${completion.manifestLifecyclePhase}`
-        : `startup_failure_${completion.failureOrigin}_${completion.failureStage}`;
+  if (completion.kind === "startup_failure") {
+    return completion.manifestLifecyclePhase
+      ? `startup_failure_${completion.failureOrigin}_${completion.failureStage}_${completion.manifestLifecyclePhase}`
+      : `startup_failure_${completion.failureOrigin}_${completion.failureStage}`;
+  }
+
+  switch (completion.kind as string) {
     case "max_turns_reached":
       return "max_turns_reached";
     case "delivered":
-      return "delivered";
     case "merged":
-      return "merged";
+      return "delivered";
     case "awaiting_input":
       return "awaiting_input";
     default:

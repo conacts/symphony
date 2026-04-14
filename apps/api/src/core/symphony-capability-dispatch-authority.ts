@@ -36,10 +36,7 @@ import {
   isSymphonyCapabilityContractIntakeValidationError
 } from "./symphony-capability-contract-intake.js";
 
-const capabilityManagedRunModes = new Set<SymphonyRunMode>([
-  "implementation",
-  "rework"
-]);
+const capabilityManagedRunModes = new Set<SymphonyRunMode>(["implementation"]);
 
 export type SymphonyCapabilityDispatchAuthorityService = {
   handleDispatchRequest(

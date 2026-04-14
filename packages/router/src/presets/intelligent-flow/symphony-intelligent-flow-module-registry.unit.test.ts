@@ -17,14 +17,12 @@ describe("Symphony intelligent-flow module registry", () => {
       "critic.code_review",
       "critic.adversarial_tests",
       "critic.browser_test",
-      "merge.execute",
       "blocked.report"
     ]);
     expect(registry.listAvailableModuleIds()).toEqual([
       "implement.spec",
       "critic.code_review",
       "critic.adversarial_tests",
-      "merge.execute",
       "blocked.report"
     ]);
     expect(
@@ -77,19 +75,19 @@ describe("Symphony intelligent-flow module registry", () => {
       requiresNoPendingClarification: true,
       canRunWhenBlocked: false
     });
-    const brokenMergeModule = createSymphonyIntelligentFlowModuleDefinition({
-      id: "merge.execute",
-      phase: "merging",
-      summary: "Attempt the merge.",
+    const brokenReportModule = createSymphonyIntelligentFlowModuleDefinition({
+      id: "blocked.report",
+      phase: "reporting",
+      summary: "Record the blocked condition.",
       description: "Requires missing evidence to prove validation works.",
       executionKind: "system",
       enabledByDefault: true,
       supportedModelProfileIds: [],
-      producesEvidenceIds: ["merge_result_record"],
+      producesEvidenceIds: [],
       requiresEvidenceIds: ["browser_test_report"],
       requiredRuntimeSupportFlags: [],
       allowedLifecycleStates: ["active"],
-      allowedOutcomeKinds: ["merged"],
+      allowedOutcomeKinds: ["blocked"],
       requiresNoPendingClarification: true,
       canRunWhenBlocked: false
     });
@@ -97,7 +95,7 @@ describe("Symphony intelligent-flow module registry", () => {
     expect(
       () =>
         createSymphonyIntelligentFlowModuleRegistry({
-          definitions: [implementModule, brokenMergeModule]
+          definitions: [implementModule, brokenReportModule]
         })
     ).toThrow(/requires evidence .*browser_test_report.*no registered module produces it/i);
   });

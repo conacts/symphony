@@ -701,24 +701,7 @@ function readWorkflowLifecycleViewFromProjection(input: {
 
   return {
     workflowId: projection.workflowId,
-    trackerState,
-    latestReworkHandoff:
-      projection.loaded.routing.module.runtimeAdapter.readLatestReworkHandoffFromProjection(
-        {
-          workflowId: projection.workflowId,
-          data: projection.data
-        }
-      ),
-    latestMergeResult:
-      input.runId === null
-        ? null
-        : projection.loaded.routing.module.runtimeAdapter.readLatestMergeResultFromProjection(
-            {
-              workflowId: projection.workflowId,
-              data: projection.data,
-              runId: input.runId
-            }
-          )
+    trackerState
   };
 }
 

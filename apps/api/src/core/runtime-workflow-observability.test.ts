@@ -34,9 +34,7 @@ describe("runtime workflow observability", () => {
     const workflowRead: SymphonyRuntimeWorkflowReadPort = {
       loadWorkflowLifecycleView: vi.fn().mockResolvedValue({
         workflowId: workflow.workflowId,
-        trackerState: "In Progress",
-        latestReworkHandoff: null,
-        latestMergeResult: null
+        trackerState: "In Progress"
       })
     };
     const capabilityOperator: SymphonyRuntimeCapabilityOperatorPort = {
@@ -114,9 +112,7 @@ describe("runtime workflow observability", () => {
     const workflowRead: SymphonyRuntimeWorkflowReadPort = {
       loadWorkflowLifecycleView: vi.fn().mockResolvedValue({
         workflowId: workflow.workflowId,
-        trackerState: "In Progress",
-        latestReworkHandoff: null,
-        latestMergeResult: null
+        trackerState: "In Progress"
       })
     };
     const capabilityOperator: SymphonyRuntimeCapabilityOperatorPort = {

@@ -89,7 +89,7 @@ describe("prompt contract", () => {
       "No legacy Symphony CLI completion command is available in this runtime."
     );
     expect(symphonyHarnessPromptAppendix).toContain(
-      "Implementation and rework runs complete through a structured terminal module result."
+      "Runs complete through a structured terminal module result."
     );
   });
 
@@ -202,7 +202,7 @@ describe("prompt contract", () => {
     );
   });
 
-  it("renders the rework run-mode section when the issue is in Rework", () => {
+  it("renders the implementation run-mode section even when the issue is in Rework", () => {
     const payload = {
       ...buildMockSymphonyPromptContractPayload(),
       run_mode: "rework" as const,
@@ -219,10 +219,10 @@ describe("prompt contract", () => {
       })
     ).toBe(
       [
-        "Current run mode: Rework",
-        "- Read the latest Linear rework note and any relevant GitHub review comment context first.",
-        "- Address the requested feedback before taking on any new work.",
-        "- Keep the patch scoped to the requested revisions.",
+        "Current run mode: Implementation",
+        "- Complete the requested ticket work in the current workspace.",
+        "- Keep the patch targeted and move directly toward a review-ready result.",
+        "- End the run with a structured terminal module result.",
         "",
         symphonyHarnessPromptAppendix,
         ""
@@ -245,14 +245,14 @@ describe("prompt contract", () => {
       "End the run with a structured terminal module result."
     );
     expect(rendered).toContain(
-      "Implementation and rework runs complete through a structured terminal module result."
+      "Runs complete through a structured terminal module result."
     );
     expect(rendered).not.toContain(
       "`pnpm exec symphony tool finish ...`: Record delivery for implementation or rework runs"
     );
   });
 
-  it("renders the rework run-mode section when the payload requests it", () => {
+  it("renders the implementation run-mode section when the payload requests rework", () => {
     const payload = {
       ...buildMockSymphonyPromptContractPayload(),
       run_mode: "rework" as const
@@ -265,10 +265,10 @@ describe("prompt contract", () => {
       })
     ).toBe(
       [
-        "Current run mode: Rework",
-        "- Read the latest Linear rework note and any relevant GitHub review comment context first.",
-        "- Address the requested feedback before taking on any new work.",
-        "- Keep the patch scoped to the requested revisions.",
+        "Current run mode: Implementation",
+        "- Complete the requested ticket work in the current workspace.",
+        "- Keep the patch targeted and move directly toward a review-ready result.",
+        "- End the run with a structured terminal module result.",
         "",
         symphonyHarnessPromptAppendix,
         ""

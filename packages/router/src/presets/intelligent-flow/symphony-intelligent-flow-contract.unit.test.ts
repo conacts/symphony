@@ -75,18 +75,18 @@ describe("Symphony intelligent-flow contract", () => {
   it("fails fast when a system module declares model profiles", () => {
     expect(() =>
       createSymphonyIntelligentFlowModuleDefinition({
-        id: "merge.execute",
-        phase: "merging",
-        summary: "Broken merge module",
+        id: "blocked.report",
+        phase: "reporting",
+        summary: "Broken reporting module",
         description: "System module must not declare model profiles.",
         executionKind: "system",
         enabledByDefault: true,
         supportedModelProfileIds: ["critic_strict"],
-        producesEvidenceIds: ["merge_result_record"],
+        producesEvidenceIds: [],
         requiresEvidenceIds: ["change_set"],
         requiredRuntimeSupportFlags: [],
         allowedLifecycleStates: ["active"],
-        allowedOutcomeKinds: ["merged"],
+        allowedOutcomeKinds: ["blocked"],
         requiresNoPendingClarification: true,
         canRunWhenBlocked: false
       })
@@ -112,27 +112,6 @@ describe("Symphony intelligent-flow contract", () => {
         canRunWhenBlocked: false
       })
     ).toThrow(/must not allow the blocked lifecycle state/i);
-  });
-
-  it("fails fast when a non-merging module declares merge outcomes", () => {
-    expect(() =>
-      createSymphonyIntelligentFlowModuleDefinition({
-        id: "blocked.report",
-        phase: "reporting",
-        summary: "Broken reporting module",
-        description: "Only merging modules can return merged outcomes.",
-        executionKind: "system",
-        enabledByDefault: true,
-        supportedModelProfileIds: [],
-        producesEvidenceIds: [],
-        requiresEvidenceIds: [],
-        requiredRuntimeSupportFlags: [],
-        allowedLifecycleStates: ["active"],
-        allowedOutcomeKinds: ["merged"],
-        requiresNoPendingClarification: true,
-        canRunWhenBlocked: false
-      })
-    ).toThrow(/only merging modules may declare merged or merge_blocked outcomes/i);
   });
 
   it("reads strict admissibility snapshots and rejects duplicated module ids", () => {
@@ -350,11 +329,6 @@ describe("Symphony intelligent-flow contract", () => {
         expect.objectContaining({
           id: "implement.spec",
           executionKind: "agent"
-        }),
-        expect.objectContaining({
-          id: "merge.execute",
-          executionKind: "system",
-          phase: "merging"
         }),
         expect.objectContaining({
           id: "critic.browser_test",

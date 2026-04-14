@@ -1,22 +1,14 @@
-import type {
-  SymphonyReworkHandoff,
-  SymphonyRunMode
-} from "@symphony/runtime-contract";
-import { isSymphonyReworkHandoff } from "@symphony/runtime-contract";
-import type { RuntimeMergeResult } from "./runtime-result-types.js";
 import {
-  isSymphonyIntelligentFlowMergeResultRecord,
   parseSymphonyIntelligentFlowRunMode,
   parseSymphonyIntelligentFlowTrackerState
 } from "@symphony/router";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import { z } from "zod";
 
 const runtimeIntelligentFlowLifecycleProjectionDataSchema = z.object({
   trackerState: z.string().nullable(),
   lastDispatchMode: z.string().nullable(),
-  lastRunMode: z.string().nullable(),
-  latestMergeResult: z.unknown().nullable(),
-  latestReworkHandoff: z.unknown().nullable()
+  lastRunMode: z.string().nullable()
 });
 
 type RuntimeIntelligentFlowLifecycleProjectionData = z.infer<
@@ -78,54 +70,4 @@ export function readRuntimeIntelligentFlowLastDispatchModeFromProjection(input: 
   }
 
   return parseSymphonyIntelligentFlowRunMode(lastDispatchMode);
-}
-
-export function readRuntimeIntelligentFlowLatestReworkHandoffFromProjection(input: {
-  workflowId: string;
-  data: unknown;
-}): SymphonyReworkHandoff | null {
-  const handoff =
-    parseRuntimeIntelligentFlowLifecycleProjectionData(input).latestReworkHandoff;
-  if (handoff === null) {
-    return null;
-  }
-
-  if (isSymphonyReworkHandoff(handoff)) {
-    return handoff;
-  }
-
-  throw new TypeError(
-    `Route workflow ${input.workflowId} has invalid intelligent-flow lifecycle rework handoff data.`
-  );
-}
-
-export function readRuntimeIntelligentFlowLatestMergeResultFromProjection(input: {
-  workflowId: string;
-  data: unknown;
-  runId: string;
-}): RuntimeMergeResult | null {
-  const mergeResult =
-    parseRuntimeIntelligentFlowLifecycleProjectionData(input).latestMergeResult;
-  if (mergeResult === null) {
-    return null;
-  }
-
-  if (!isSymphonyIntelligentFlowMergeResultRecord(mergeResult)) {
-    throw new TypeError(
-      `Route workflow ${input.workflowId} has invalid intelligent-flow lifecycle merge-result data.`
-    );
-  }
-
-  if (mergeResult.runId !== input.runId) {
-    return null;
-  }
-
-  return {
-    status: mergeResult.status,
-    summary: mergeResult.summary,
-    prUrl: mergeResult.prUrl,
-    mergeCommitSha: mergeResult.mergeCommitSha,
-    blockingReason: mergeResult.blockingReason,
-    testsSummary: mergeResult.testsSummary
-  };
 }

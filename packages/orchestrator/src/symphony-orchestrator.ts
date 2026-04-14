@@ -837,7 +837,6 @@ export class SymphonyOrchestrator {
 
     if (
       resolvedCompletion.kind === "delivered" ||
-      resolvedCompletion.kind === "merged" ||
       resolvedCompletion.kind === "max_turns_reached"
     ) {
       if (resolvedCompletion.kind === "max_turns_reached") {

@@ -7,26 +7,17 @@ export function buildSymphonyRunModeSection(
   runMode: SymphonyRunMode,
   completionContract: SymphonyPromptCompletionContract = "module_result"
 ): string {
-  switch (runMode) {
-    case "rework":
-      return [
-        "Current run mode: Rework",
-        "- Read the latest Linear rework note and any relevant GitHub review comment context first.",
-        "- Address the requested feedback before taking on any new work.",
-        "- Keep the patch scoped to the requested revisions."
-      ].join("\n");
-    default:
-      return [
-        "Current run mode: Implementation",
-        "- Complete the requested ticket work in the current workspace.",
-        "- Keep the patch targeted and move directly toward a review-ready result.",
-        ...(completionContract === "module_result"
-          ? [
-              "- End the run with a structured terminal module result."
-            ]
-          : [])
-      ].join("\n");
-  }
+  void runMode;
+  return [
+    "Current run mode: Implementation",
+    "- Complete the requested ticket work in the current workspace.",
+    "- Keep the patch targeted and move directly toward a review-ready result.",
+    ...(completionContract === "module_result"
+      ? [
+          "- End the run with a structured terminal module result."
+        ]
+      : [])
+  ].join("\n");
 }
 
 export function buildSymphonyContinuationCompletionGuidance(
@@ -61,8 +52,8 @@ export function buildSymphonyHarnessPromptAppendix(input?: {
   const runtimeExpectations = [
     "The active Linear workspace for this repository is `symphony-harness`.",
     "Treat Linear as the source of truth for issue status, review feedback, and delivery state.",
-    "Implementation and rework runs complete through a structured terminal module result.",
-    "The final assistant message for an implementation or rework run must be exactly one fenced `json` block.",
+    "Runs complete through a structured terminal module result.",
+    "The final assistant message for a run must be exactly one fenced `json` block.",
     "That terminal result must carry the authoritative `outcome`, `summary`, `evidence`, `requestedState`, `nextInputPrompt`, and `blockers` fields.",
     "Use `outcome: \"completed\"` only when the requested implementation work is actually done.",
     "Use `outcome: \"awaiting_input\"` only when the run cannot continue without explicit user input.",
@@ -87,8 +78,7 @@ export function buildSymphonyHarnessPromptAppendix(input?: {
       "Prefer built-in Pi tools for reading, searching, and editing files. Use shell primarily for execution tasks like tests, builds, git, and package-manager commands.",
       "Keep file operations targeted and avoid broad recursive shell reads when PI-native tool calls can provide the same information.",
       "If Symphony exposes built-in Linear tools in this runtime, use them instead of searching for `LINEAR_API_KEY` in shell startup files or the workspace.",
-      "If the `linear` CLI is available in the host or workspace runner, prefer it over ad hoc shell scripts for direct Linear inspection.",
-      "If the issue is in `Rework`, or review feedback is already present, read the latest Linear comment context and any relevant PR review feedback before editing so the run addresses the newest feedback."
+      "If the `linear` CLI is available in the host or workspace runner, prefer it over ad hoc shell scripts for direct Linear inspection."
     ])
   ].join("\n");
 }

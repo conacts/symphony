@@ -1,4 +1,3 @@
-import { evaluateWorkflowCompletionGate } from "../../capability/completion-gate.js";
 import type { SymphonyIntelligentFlowModuleRegistry } from "./symphony-intelligent-flow-module-registry.js";
 import {
   readSymphonyIntelligentFlowAdmissibilitySnapshot,
@@ -26,7 +25,6 @@ const IMPLEMENT_SPEC_MODULE_ID = "implement.spec";
 const CODE_REVIEW_MODULE_ID = "critic.code_review";
 const ADVERSARIAL_TESTS_MODULE_ID = "critic.adversarial_tests";
 const BROWSER_TEST_MODULE_ID = "critic.browser_test";
-const MERGE_EXECUTE_MODULE_ID = "merge.execute";
 const BLOCKED_REPORT_MODULE_ID = "blocked.report";
 
 const capabilityBackedModuleIds = new Set<SymphonyIntelligentFlowModuleId>([
@@ -44,8 +42,7 @@ const activeAttemptStatuses = new Set<SymphonyIntelligentFlowModuleAttemptStatus
 const retryableAttemptStatuses = new Set<SymphonyIntelligentFlowModuleAttemptStatus>([
   "failed",
   "blocked",
-  "paused",
-  "merge_blocked"
+  "paused"
 ]);
 
 const admissibleReasonPriority: Record<
@@ -64,8 +61,7 @@ const modulePriority: Record<SymphonyIntelligentFlowModuleId, number> = {
   [IMPLEMENT_SPEC_MODULE_ID]: 10,
   [CODE_REVIEW_MODULE_ID]: 20,
   [ADVERSARIAL_TESTS_MODULE_ID]: 30,
-  [BROWSER_TEST_MODULE_ID]: 40,
-  [MERGE_EXECUTE_MODULE_ID]: 50
+  [BROWSER_TEST_MODULE_ID]: 40
 };
 
 export type SymphonyIntelligentFlowResolvedRoutingPolicy =
@@ -90,9 +86,7 @@ export type SymphonyIntelligentFlowModuleAttemptStatus =
   | "changes_requested"
   | "failed"
   | "blocked"
-  | "paused"
-  | "merged"
-  | "merge_blocked";
+  | "paused";
 
 export type SymphonyIntelligentFlowModuleAttempt = {
   moduleId: SymphonyIntelligentFlowModuleId;
@@ -116,11 +110,6 @@ export function buildSymphonyIntelligentFlowAdmissibilitySnapshot(input: {
   const latestAttemptsByModuleId = createLatestAttemptMap(
     input.moduleAttempts ?? deriveCapabilityModuleAttempts(input.projection)
   );
-  const completionGate = evaluateWorkflowCompletionGate({
-    resolvedPolicy: input.resolvedPolicy,
-    projection: input.projection
-  });
-
   const admissible: SymphonyIntelligentFlowAdmissibleCandidate[] = [];
   const rejected: SymphonyIntelligentFlowRejectedCandidate[] = [];
 
@@ -133,7 +122,6 @@ export function buildSymphonyIntelligentFlowAdmissibilitySnapshot(input: {
       currentEvidenceIds,
       missingRequiredEvidenceIds,
       latestAttemptsByModuleId,
-      completionGate,
       moduleRegistry: input.moduleRegistry
     });
 
@@ -199,7 +187,6 @@ function evaluateModuleAdmissibility(input: {
     SymphonyIntelligentFlowModuleId,
     SymphonyIntelligentFlowModuleAttempt
   >;
-  completionGate: ReturnType<typeof evaluateWorkflowCompletionGate>;
   moduleRegistry: SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>;
 }): ModuleAdmissibilityEvaluation {
   const latestAttempt = input.latestAttemptsByModuleId.get(input.definition.id) ?? null;
@@ -329,12 +316,6 @@ function evaluateModuleAdmissibility(input: {
         projection: input.projection,
         currentEvidenceIds: input.currentEvidenceIds
       });
-    case MERGE_EXECUTE_MODULE_ID:
-      return evaluateMergeModule({
-        latestAttempt,
-        resolvedPolicy: input.resolvedPolicy,
-        completionGate: input.completionGate
-      });
     case BLOCKED_REPORT_MODULE_ID:
       return evaluateBlockedReportModule({
         latestAttempt,
@@ -420,8 +401,7 @@ function evaluateVerifierModule(input: {
 
   if (
     input.latestAttempt?.workEpoch === input.projection.workEpoch &&
-    (input.latestAttempt.status === "completed" ||
-      input.latestAttempt.status === "merged")
+    input.latestAttempt.status === "completed"
   ) {
     return reject(
       "already_satisfied",
@@ -466,49 +446,6 @@ function evaluateVerifierModule(input: {
   return reject(
     "missing_required_evidence",
     `${input.definition.id} requires implementation evidence before it can run.`
-  );
-}
-
-function evaluateMergeModule(input: {
-  latestAttempt: SymphonyIntelligentFlowModuleAttempt | null;
-  resolvedPolicy: SymphonyIntelligentFlowResolvedRoutingPolicy;
-  completionGate: ReturnType<typeof evaluateWorkflowCompletionGate>;
-}): ModuleAdmissibilityEvaluation {
-  if (input.resolvedPolicy.mergePolicy !== "auto_merge") {
-    return reject(
-      "already_satisfied",
-      `${MERGE_EXECUTE_MODULE_ID} is inactive because the resolved merge policy is manual.`
-    );
-  }
-
-  if (isRetryableLatestAttempt(input.latestAttempt, input.completionGate.workEpoch)) {
-    return admit(
-      "recovery_retry",
-      `${MERGE_EXECUTE_MODULE_ID} must retry after the latest merge attempt did not complete successfully.`
-    );
-  }
-
-  if (
-    input.latestAttempt?.workEpoch === input.completionGate.workEpoch &&
-    (input.latestAttempt.status === "completed" ||
-      input.latestAttempt.status === "merged")
-  ) {
-    return reject(
-      "already_satisfied",
-      `${MERGE_EXECUTE_MODULE_ID} already completed for work epoch ${input.completionGate.workEpoch}.`
-    );
-  }
-
-  if (input.completionGate.result === "not_ready") {
-    return reject(
-      "missing_required_evidence",
-      input.completionGate.reasons.join(" ")
-    );
-  }
-
-  return admit(
-    "completion_follow_up",
-    `${MERGE_EXECUTE_MODULE_ID} is admissible because the workflow is completion-ready.`
   );
 }
 

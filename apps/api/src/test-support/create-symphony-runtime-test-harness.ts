@@ -702,9 +702,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
 
         return {
           workflowId: `workflow-${issueIdentifier}`,
-          trackerState,
-          latestReworkHandoff: null,
-          latestMergeResult: null
+          trackerState
         };
       }
     },

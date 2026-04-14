@@ -122,9 +122,6 @@ describe("Symphony intelligent-flow admissibility", () => {
     expect(findRejected(snapshot, "critic.adversarial_tests")).toMatchObject({
       reasonCode: "already_satisfied"
     });
-    expect(findRejected(snapshot, "merge.execute")).toMatchObject({
-      reasonCode: "missing_required_evidence"
-    });
   });
 
   it("blocks forward work while clarification is pending", () => {
@@ -184,71 +181,6 @@ describe("Symphony intelligent-flow admissibility", () => {
     });
     expect(findRejected(snapshot, "blocked.report")).toMatchObject({
       reasonCode: "blocked_by_lifecycle"
-    });
-  });
-
-  it("admits merge.execute only when auto-merge is enabled and the workflow is completion-ready", () => {
-    const snapshot = buildSymphonyIntelligentFlowAdmissibilitySnapshot({
-      lifecycleState: "active",
-      moduleRegistry: createSymphonyIntelligentFlowDefaultModuleRegistry(),
-      resolvedPolicy: createResolvedPolicy({
-        requiredCapabilityIds: ["implement.spec", "critic.code_review"],
-        requiredEvidenceIds: ["change_set", "code_review_report"],
-        mergePolicy: "auto_merge",
-        completionPolicy: {
-          mode: "auto"
-        }
-      }),
-      projection: createProjection({
-        phase: "verifying",
-        workEpoch: 1,
-        capabilityStatusesByEpoch: [
-          {
-            workEpoch: 1,
-            stale: false,
-            attempts: [
-              completedCapabilityAttempt({
-                capabilityId: "implement.spec",
-                executionId: "exec_impl_1"
-              }),
-              completedCapabilityAttempt({
-                capabilityId: "critic.code_review",
-                executionId: "exec_review_1",
-                modelProfileId: "critic_strict"
-              })
-            ]
-          }
-        ],
-        evidenceByEpoch: [
-          {
-            workEpoch: 1,
-            stale: false,
-            evidence: [
-              {
-                evidenceId: "change_set",
-                summary: "Implementation diff recorded.",
-                artifacts: []
-              },
-              {
-                evidenceId: "code_review_report",
-                summary: "Code review report recorded.",
-                artifacts: []
-              }
-            ]
-          }
-        ]
-      })
-    });
-
-    expect(snapshot.admissible).toEqual([
-      expect.objectContaining({
-        moduleId: "merge.execute",
-        rank: 0,
-        reasonCode: "completion_follow_up"
-      })
-    ]);
-    expect(findRejected(snapshot, "implement.spec")).toMatchObject({
-      reasonCode: "already_satisfied"
     });
   });
 

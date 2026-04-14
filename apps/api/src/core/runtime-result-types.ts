@@ -17,15 +17,6 @@ export type RuntimeDeliveryReportResult = {
   blockingReason: string | null;
 };
 
-export type RuntimeMergeResult = {
-  status: "merged" | "blocked";
-  summary: string;
-  prUrl: string | null;
-  mergeCommitSha: string | null;
-  blockingReason: string | null;
-  testsSummary: string | null;
-};
-
 export function isCompletedDeliveryTransitionState(
   targetState: string | null | undefined
 ): boolean {

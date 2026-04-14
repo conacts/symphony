@@ -14,7 +14,6 @@ import {
   createSymphonyWorkerSessionContract
 } from "@symphony/orchestrator";
 import {
-  formatSymphonyReworkHandoffSection,
   renderSymphonyPromptContract,
   type SymphonyLoadedPromptContract,
   type SymphonyRunMode
@@ -277,14 +276,6 @@ async function executeRun(input: {
     input.runMode,
     capabilityManagedRun
   );
-  const latestReworkHandoff =
-    input.runMode === "rework"
-      ? (
-          await input.loadWorkflowLifecycleView({
-            issueIdentifier: input.issue.identifier
-          })
-        )?.latestReworkHandoff ?? null
-      : null;
   const repositoryKey = resolveRuntimeRepositoryKey({
     githubRepo: input.githubRepository
   });
@@ -436,8 +427,7 @@ async function executeRun(input: {
         },
         attempt: input.attempt,
         run_mode: input.runMode,
-        completion_contract: "module_result",
-        handoff_section: formatSymphonyReworkHandoffSection(latestReworkHandoff)
+        completion_contract: "module_result"
       };
 
       const prompt =

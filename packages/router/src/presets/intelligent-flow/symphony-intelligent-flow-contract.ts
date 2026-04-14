@@ -22,7 +22,6 @@ const symphonyIntelligentFlowLifecycleStates = [
 const symphonyIntelligentFlowModulePhases = [
   "implementing",
   "verifying",
-  "merging",
   "reporting"
 ] as const;
 
@@ -31,7 +30,6 @@ const symphonyIntelligentFlowModuleIds = [
   "critic.code_review",
   "critic.adversarial_tests",
   "critic.browser_test",
-  "merge.execute",
   "blocked.report"
 ] as const;
 
@@ -39,8 +37,7 @@ const symphonyIntelligentFlowEvidenceIds = [
   "change_set",
   "code_review_report",
   "adversarial_test_report",
-  "browser_test_report",
-  "merge_result_record"
+  "browser_test_report"
 ] as const;
 
 const symphonyIntelligentFlowRuntimeSupportFlagIds = [
@@ -58,9 +55,7 @@ const symphonyIntelligentFlowModuleOutcomeKinds = [
   "clarification_requested",
   "blocked",
   "failed",
-  "paused",
-  "merged",
-  "merge_blocked"
+  "paused"
 ] as const;
 
 const symphonyIntelligentFlowAdmissibleReasonCodes = [
@@ -240,17 +235,6 @@ export const symphonyIntelligentFlowModuleDefinitionSchema = z
       });
     }
 
-    const hasMergeOutcome = value.allowedOutcomeKinds.some(
-      (outcome) => outcome === "merged" || outcome === "merge_blocked"
-    );
-    if (hasMergeOutcome && value.phase !== "merging") {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "Only merging modules may declare merged or merge_blocked outcomes.",
-        path: ["allowedOutcomeKinds"]
-      });
-    }
   });
 
 export const symphonyIntelligentFlowRuntimeSupportSchema = z
@@ -600,23 +584,6 @@ export const symphonyIntelligentFlowDefaultModuleDefinitions = Object.freeze([
       "failed",
       "paused"
     ],
-    requiresNoPendingClarification: true,
-    canRunWhenBlocked: false
-  }),
-  createSymphonyIntelligentFlowModuleDefinition({
-    id: "merge.execute",
-    phase: "merging",
-    summary: "Execute the merge boundary once the workflow is completion-ready.",
-    description:
-      "Performs the final merge step and records merged or merge_blocked outcomes.",
-    executionKind: "system",
-    enabledByDefault: true,
-    supportedModelProfileIds: [],
-    producesEvidenceIds: ["merge_result_record"],
-    requiresEvidenceIds: ["change_set", "code_review_report"],
-    requiredRuntimeSupportFlags: [],
-    allowedLifecycleStates: ["active"],
-    allowedOutcomeKinds: ["merged", "merge_blocked"],
     requiresNoPendingClarification: true,
     canRunWhenBlocked: false
   }),

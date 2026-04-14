@@ -45,9 +45,7 @@ export type SymphonyTurnStatus =
   | "stopped";
 export const symphonyRunOutcomeValues = [
   "completed",
-  "merged",
   "blocked",
-  "merge_blocked",
   "paused_max_turns",
   "startup_failed",
   "rate_limited",
