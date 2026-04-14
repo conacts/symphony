@@ -1188,7 +1188,7 @@ describe("@symphony/api app", () => {
   });
 
   it(
-    "persists a structured rework handoff and routes requeued issues back into bootstrapping",
+    "accepts GitHub rework ingress and leaves intelligent-flow issues in review",
     async () => {
       const harness = await createSymphonyRuntimeAppServicesHarness();
       harnesses.push(harness);
@@ -1234,12 +1234,6 @@ describe("@symphony/api app", () => {
         harness.runtimePolicy.tracker,
         "COL-123"
       );
-      const workflowHydration =
-        await harness.services.routeWorkflows.loadHydrationStateByIssueIdentifier<
-          SymphonyCurrentFlowNode,
-          SymphonyCurrentFlowData,
-          SymphonyCurrentFlowPolicy
-        >("COL-123");
       const issueTimeline = await harness.services.issueTimeline.list({
         issueIdentifier: "COL-123"
       });
@@ -1248,26 +1242,8 @@ describe("@symphony/api app", () => {
       });
 
       expect(ingressResponse.status).toBe(202);
-      expect(trackedIssue?.state).toBe("Bootstrapping");
-      expect(routedDispatches).toEqual([
-        {
-          workflowId: expect.any(String),
-          commandId: expect.any(String),
-          issueIdentifier: "COL-123",
-          runMode: "rework"
-        }
-      ]);
-      expect(workflowHydration?.snapshot?.projection.data.latestReworkHandoff).toEqual(
-        expect.objectContaining({
-          source: "github_review",
-          triggerKind: "changes_requested_review",
-          actorLogin: "reviewer",
-          pullRequestUrl: "https://github.com/openai/symphony/pull/123",
-          reviewContextUrl:
-            "https://github.com/openai/symphony/pull/123#pullrequestreview-999",
-          feedbackBody: null
-        })
-      );
+      expect(trackedIssue?.state).toBe("In Review");
+      expect(routedDispatches).toEqual([]);
       expect(
         issueTimeline?.entries.some(
           (entry) => entry.message === "Stored rework handoff for the next run."

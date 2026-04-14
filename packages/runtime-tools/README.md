@@ -34,7 +34,7 @@ The CLI flags live in `apps/cli`, but the normalized payload rules and behaviora
 - requires an active persisted run
 - accepts `completed`, `blocked`, or `partial`
 - records the delivery report
-- moves the issue to `In Review` only when status is `completed`
+- routes completed delivery into the workflow's router-owned next state, which may be `In Review`, `Approved`, or `Done`
 
 `merge-result`
 

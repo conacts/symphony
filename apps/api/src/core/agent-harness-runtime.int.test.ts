@@ -653,7 +653,136 @@ done
     database.close();
   });
 
-  it("fails completed delivery reports that never move the issue to In Review", async () => {
+  it("accepts completed delivery reports when the workflow closes directly into Done", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-done-"));
+    tempRoots.push(root);
+
+    const workspacePath = path.join(root, "workspace");
+    await mkdir(workspacePath, {
+      recursive: true
+    });
+    await initializeGitWorkspace(workspacePath);
+
+    const fakePi = path.join(root, "pi");
+    await writeFakePiBinary(fakePi);
+    const fakeDocker = path.join(root, "docker");
+    await writeFakeDockerBinary(fakeDocker, path.join(root, "fake-docker-log.json"));
+    process.env.PATH = `${root}:${originalPath ?? ""}`;
+
+    const issue = buildSymphonyRuntimeTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createStateTracker(issue, "Done");
+    const runtimePolicy = buildSymphonyRuntimePolicyForRoot(root);
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const runStore = createSqliteSymphonyRuntimeRunStore({
+      db: database.db
+    });
+    const deliveryReports = createSymphonyIssueDeliveryReportStore({
+      db: database.db,
+      repositoryKey: testRepositoryKey
+    });
+    const agentAnalytics = createSqliteAgentAnalyticsStore({
+      db: database.db
+    });
+    const workerSessionContract = buildWorkerSessionContract();
+    await seedCanonicalIssue(database.db, issue);
+    const runId = await runStore.recordRunStarted({
+      repositoryKey: testRepositoryKey,
+      trackerIssueId: issue.id,
+      issueIdentifier: issue.identifier,
+      runId: [issue.identifier, "run"].join("-"),
+      runMode: "implementation",
+      status: "dispatching",
+      workspacePath,
+      startedAt: "2026-03-31T00:00:00.000Z"
+    });
+
+    let completion: SymphonyAgentRuntimeCompletion | null = null;
+    let deliveryRecorded = false;
+
+    const completionPromise = new Promise<void>((resolve) => {
+      const runtime = createSymphonyAgentRuntime({
+        promptContract: buildPromptContract(root, "You are working on {{ issue.identifier }}."),
+        tracker,
+        runStore,
+        deliveryReports,
+        loadWorkflowLifecycleView: async () =>
+          buildWorkflowLifecycleView({
+            trackerState: "Done"
+          }),
+        agentAnalytics,
+        workerSessionContract: workerSessionContract.contract,
+        runtimeLogs: {
+          async record() {
+            return "log-1";
+          },
+          async list() {
+            return [];
+          }
+        },
+        hostCommandEnvSource: process.env,
+        logger: createSilentSymphonyLogger("@symphony/api.test.pi-runtime"),
+        callbacks: {
+          async onUpdate() {
+            if (deliveryRecorded) {
+              return;
+            }
+
+            deliveryRecorded = true;
+            await deliveryReports.record({
+              runId,
+              reportId: [runId, "delivery"].join("-"),
+              reportedAt: "2026-03-31T00:05:00.000Z",
+              status: "completed",
+              summary: "Opened the PR and finished the requested work.",
+              prUrl: "https://github.com/openai/symphony/pull/123",
+              branchName: "symphony/col-123",
+              source: "pi"
+            });
+          },
+          async onComplete(_issueId, result) {
+            completion = result;
+            resolve();
+          }
+        }
+      });
+
+      void runtime.startRun({
+        issue,
+        runId,
+        attempt: 1,
+        runMode: "implementation",
+        runtimePolicy,
+        workspace: buildBindMountPreparedWorkspace(issue.identifier, workspacePath)
+      });
+    });
+
+    await completionPromise;
+
+    expect(completion).toEqual(
+      expect.objectContaining({
+        kind: "delivered"
+      })
+    );
+    expect(workerSessionContract.completeSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "pi-session-1",
+        issueId: issue.id,
+        runId,
+        attempt: 1,
+        runMode: "implementation",
+        status: "completed",
+        reason: null
+      })
+    );
+
+    database.close();
+  });
+
+  it("fails completed delivery reports that never reach a valid delivery terminal state", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "symphony-agent-runtime-delivery-transition-"));
     tempRoots.push(root);
 
@@ -764,7 +893,7 @@ done
 
     expect(completion).toEqual({
       kind: "failure",
-      reason: expect.stringContaining("did not reach `In Review`")
+      reason: expect.stringContaining("one of `In Review`, `Approved`, `Done`")
     });
     expect(workerSessionContract.startSession).toHaveBeenCalledTimes(1);
     expect(workerSessionContract.completeSession).toHaveBeenCalledWith(
@@ -775,7 +904,7 @@ done
         attempt: 1,
         runMode: "implementation",
         status: "failed",
-        reason: expect.stringContaining("did not reach `In Review`")
+        reason: expect.stringContaining("one of `In Review`, `Approved`, `Done`")
       })
     );
 

@@ -76,6 +76,33 @@ async function expectWorkflowTrackerState(input: {
 }
 
 describe("runtime route lifecycle service", () => {
+  it("rejects merge-result routing for the live intelligent-flow lifecycle", async () => {
+    const harness = await createHarness({
+      state: "Todo",
+      presetId: "intelligent-flow"
+    });
+
+    try {
+      await expect(
+        harness.service.routeMergeResult({
+          issueIdentifier: harness.issue.identifier,
+          runId: "run-1",
+          recordedAt: "2026-04-10T13:59:58.000Z",
+          mergeResult: {
+            status: "merged",
+            summary: "Merged successfully.",
+            prUrl: "https://github.com/openai/symphony/pull/1",
+            mergeCommitSha: "abc123",
+            blockingReason: null,
+            testsSummary: "green"
+          }
+        })
+      ).rejects.toThrow(/does not support merge-result routing/i);
+    } finally {
+      harness.close();
+    }
+  });
+
   it("binds first observed workflow to the issue-resolved repository in multi-repo setups", async () => {
     const harness = await createHarness({
       state: "Todo",
@@ -2107,7 +2134,10 @@ async function createServiceWithoutTrackerIssueLookup(input: {
     tracker: createTrackerWithoutIssueLookup(input.harness.tracker),
     trackerConfig: buildSymphonyRuntimePolicy().tracker,
     repositoryKey: "openai/symphony",
-    presetSelection: createDefaultRuntimeWorkflowPresetSelection(),
+    presetSelection: {
+      ...createDefaultRuntimeWorkflowPresetSelection(),
+      presetId: input.harness.presetId
+    },
     capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
     now: () => new Date(input.nowIso)
   });
@@ -2231,9 +2261,11 @@ async function createHarness(input: {
   }
 
   let service = await buildService("2026-04-10T14:00:00.000Z");
+  const presetId = input.presetId ?? "current-flow";
 
   return {
     issue,
+    presetId,
     issueStore,
     tracker,
     routeWorkflowStore,

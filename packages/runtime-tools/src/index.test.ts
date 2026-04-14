@@ -14,9 +14,11 @@ import {
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
 import {
+  completedDeliveryTransitionStates,
   executeCancelTool,
   executeDeliveryReportTool,
   executeMergeResultTool,
+  isCompletedDeliveryTransitionState,
   executeSpikeResultTool
 } from "./index.js";
 
@@ -35,6 +37,18 @@ afterEach(async () => {
 });
 
 describe("runtime tools", () => {
+  it("recognizes every router-supported completed delivery terminal state", () => {
+    expect(completedDeliveryTransitionStates).toEqual([
+      "In Review",
+      "Approved",
+      "Done"
+    ]);
+    expect(isCompletedDeliveryTransitionState("In Review")).toBe(true);
+    expect(isCompletedDeliveryTransitionState("Approved")).toBe(true);
+    expect(isCompletedDeliveryTransitionState("Done")).toBe(true);
+    expect(isCompletedDeliveryTransitionState("Blocked")).toBe(false);
+  });
+
   it("records completed delivery reports against the active run and turn", async () => {
     const { database, deliveryReports } = await createRuntimeToolsTestContext({
       issue: {

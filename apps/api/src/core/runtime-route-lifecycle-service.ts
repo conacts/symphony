@@ -568,6 +568,10 @@ export async function createRuntimeRouteLifecycleService(input: {
       return true;
     },
     async routeMergeResult(mergeResultInput) {
+      assertLegacyFollowUpRoutingUnsupported({
+        presetId: routing.presetId,
+        routeKind: "merge-result"
+      });
       const projectedIssue = await loadWorkflowProjectedLifecycleIssue({
         sessionLoader,
         issueIdentifier: mergeResultInput.issueIdentifier,
@@ -605,6 +609,10 @@ export async function createRuntimeRouteLifecycleService(input: {
       return true;
     },
     async routeReviewReworkRequest(reviewReworkInput) {
+      assertLegacyFollowUpRoutingUnsupported({
+        presetId: routing.presetId,
+        routeKind: "review-rework"
+      });
       const observed = await trackerStateObservationRouter.observe({
         observationKind: "idle",
         issueIdentifier: reviewReworkInput.issueIdentifier,
@@ -767,6 +775,19 @@ function resolveActiveRunMode(
     workflowId: hydration.hydrationState.workflow.workflowId,
     data: snapshot.projection.data
   });
+}
+
+function assertLegacyFollowUpRoutingUnsupported(input: {
+  presetId: string;
+  routeKind: "merge-result" | "review-rework";
+}): void {
+  if (input.presetId !== "intelligent-flow") {
+    return;
+  }
+
+  throw new TypeError(
+    `Live intelligent-flow does not support ${input.routeKind} routing. Delivery completion is terminal and follow-up work must be selected through capability planning instead.`
+  );
 }
 
 function readWorkflowLifecycleViewFromProjection(input: {

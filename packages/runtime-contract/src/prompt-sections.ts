@@ -63,7 +63,7 @@ export function buildSymphonyContinuationCompletionGuidance(
   }
 
   return [
-    "- Once the requested work is delivered and the PR is opened, run `pnpm exec symphony tool finish ...` immediately in the same turn. Symphony will record delivery, move the issue to `In Review`, and that should usually end the run.",
+    "- Once the requested work is delivered and the PR is opened, run `pnpm exec symphony tool finish ...` immediately in the same turn. Symphony will record delivery, advance the workflow, and that should usually end the run.",
     "- Do not keep taking extra turns after the PR is open and delivery is reported unless there is a concrete unresolved failure in the same run."
   ];
 }
@@ -78,7 +78,7 @@ export function buildSymphonyHarnessPromptAppendix(input?: {
           "`pnpm exec symphony tool merge-result ...`: Record the explicit outcome of an approved merge run. Use `merged` for a clean merge and `blocked` when conflicts or verification failures could not be resolved safely."
         ]
       : [
-          "`pnpm exec symphony tool finish ...`: Record delivery for implementation or rework runs, move the issue to `In Review`, and end the run.",
+          "`pnpm exec symphony tool finish ...`: Record delivery for implementation or rework runs, advance the workflow, and end the run.",
           "`pnpm exec symphony tool merge-result ...`: Record the explicit outcome of an approved merge run. Use `merged` for a clean merge and `blocked` when conflicts or verification failures could not be resolved safely."
         ];
   const runtimeExpectations =
@@ -102,7 +102,7 @@ export function buildSymphonyHarnessPromptAppendix(input?: {
           "Treat the mode-specific Symphony CLI command as the explicit completion boundary for every run.",
           "Implementation and rework runs complete through `pnpm exec symphony tool finish ...`.",
           "Approved merge runs complete through `pnpm exec symphony tool merge-result ...`.",
-          "The finish command records delivery and moves the issue to `In Review` for you.",
+          "The finish command records delivery and advances the workflow for you.",
           "Never move the issue to `Done` yourself from the agent runtime.",
           "If the work is blocked or only partially delivered, call `pnpm exec symphony tool finish ...` with the matching status and the concrete reason before ending the run."
         ];

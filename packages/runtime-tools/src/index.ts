@@ -5,6 +5,11 @@ import type {
 import type { SymphonyTracker } from "@symphony/tracker";
 
 export const deliveryTransitionState = "In Review";
+export const completedDeliveryTransitionStates = [
+  "In Review",
+  "Approved",
+  "Done"
+] as const;
 export const blockedDeliveryTransitionState = "Blocked";
 
 export type RuntimeToolExecutionResult = {
@@ -89,6 +94,19 @@ type NormalizedMergeResultArguments = {
   testsSummary: string | null;
   rawPayload: unknown;
 };
+
+export function isCompletedDeliveryTransitionState(
+  targetState: string | null | undefined
+): boolean {
+  const normalizedTargetState = normalizeOptionalText(targetState)?.toLowerCase();
+  if (!normalizedTargetState) {
+    return false;
+  }
+
+  return completedDeliveryTransitionStates.some(
+    (state) => state.toLowerCase() === normalizedTargetState
+  );
+}
 
 /**
  * Record the explicit delivery boundary for implementation and rework runs.

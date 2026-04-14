@@ -62,7 +62,8 @@ import {
   type SymphonyRuntimeHarness
 } from "./runtime-harness.js";
 import {
-  deliveryTransitionState,
+  completedDeliveryTransitionStates,
+  isCompletedDeliveryTransitionState,
   type RuntimeDeliveryReportResult,
   type RuntimeMergeResult
 } from "@symphony/runtime-tools";
@@ -1125,12 +1126,12 @@ function deliveryCompletion(
 ): SymphonyAgentRuntimeCompletion {
   switch (deliveryReport.status) {
     case "completed":
-      if (!matchesIssueState(currentState, deliveryTransitionState)) {
+      if (!isCompletedDeliveryTransitionState(currentState)) {
         return {
           kind: "failure",
           reason: buildUnexpectedDeliveryStateReason(
             deliveryReport.status,
-            deliveryTransitionState,
+            completedDeliveryTransitionStates,
             currentState
           )
         };
@@ -1182,14 +1183,14 @@ function matchesIssueState(actualState: string, expectedState: string | null): b
 
 function buildUnexpectedDeliveryStateReason(
   deliveryStatus: RuntimeDeliveryReportResult["status"],
-  expectedState: string | null,
+  expectedState: readonly string[] | string | null,
   actualState: string
 ): string {
-  const expected = expectedState?.trim() || "the expected terminal state";
+  const expected = formatExpectedTerminalStates(expectedState);
 
   return deliveryStatus === "completed"
-    ? `Delivery was recorded as completed, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`
-    : `Delivery was recorded as blocked, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`;
+    ? `Delivery was recorded as completed, but the issue did not reach ${expected}. Current state: \`${actualState}\`.`
+    : `Delivery was recorded as blocked, but the issue did not reach ${expected}. Current state: \`${actualState}\`.`;
 }
 
 function buildUnexpectedMergeResultStateReason(
@@ -1202,6 +1203,32 @@ function buildUnexpectedMergeResultStateReason(
   return mergeStatus === "merged"
     ? `Merge was recorded as merged, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`
     : `Merge was recorded as blocked, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`;
+}
+
+function formatExpectedTerminalStates(
+  expectedState: readonly string[] | string | null
+): string {
+  if (typeof expectedState === "string") {
+    const normalizedExpected = expectedState.trim();
+    return normalizedExpected ? `\`${normalizedExpected}\`` : "the expected terminal state";
+  }
+
+  if (Array.isArray(expectedState)) {
+    const normalizedStates = expectedState
+      .map((state) => state.trim())
+      .filter((state) => state.length > 0);
+    if (normalizedStates.length === 0) {
+      return "one of the expected terminal states";
+    }
+
+    if (normalizedStates.length === 1) {
+      return `\`${normalizedStates[0]}\``;
+    }
+
+    return `one of ${normalizedStates.map((state) => `\`${state}\``).join(", ")}`;
+  }
+
+  return "the expected terminal state";
 }
 
 type ExplicitCompletionRequirement =

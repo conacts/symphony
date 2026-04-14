@@ -6,7 +6,6 @@ import {
 } from "../../capability/symphony-capability-contract.js";
 import {
   createSymphonyCurrentFlowDeliveryReportedSignal,
-  createSymphonyCurrentFlowReviewReworkRequestedSignal,
   createSymphonyCurrentFlowRunStartedSignal,
   createSymphonyCurrentFlowTrackerStateObservedSignal
 } from "../current-flow/symphony-current-flow-contract.js";
@@ -126,7 +125,7 @@ describe("Symphony intelligent-flow router", () => {
     ]);
   });
 
-  it("keeps completed delivery inside the active shell while transitioning the tracker to In Review", async () => {
+  it("closes completed delivery into done and transitions the tracker to Done", async () => {
     const router = await createSymphonyIntelligentFlowRouterAsync({
       now: () => new Date("2026-04-13T23:10:00.000Z"),
       createId: buildCreateId()
@@ -170,87 +169,15 @@ describe("Symphony intelligent-flow router", () => {
     );
 
     expect(result.decision.fromNode).toBe("active");
-    expect(result.decision.toNode).toBe("active");
-    expect(result.decision.reasonCode).toBe("active_delivery_recorded");
+    expect(result.decision.toNode).toBe("done");
+    expect(result.decision.reasonCode).toBe("active_delivery_completed");
     expect(result.decision.commands).toEqual([
       {
-        id: "command_signal_delivery_reported_tracker_in_review",
+        id: "command_signal_delivery_reported_tracker_done",
         kind: "tracker.transition",
         dedupeKey: null,
         payload: {
-          state: "In Review"
-        }
-      }
-    ]);
-  });
-
-  it("requeues active work into claimed when review requests rework", async () => {
-    const router = await createSymphonyIntelligentFlowRouterAsync({
-      now: () => new Date("2026-04-13T23:15:00.000Z"),
-      createId: buildCreateId()
-    });
-    const session = await router.startSessionAsync({
-      workflowId: "SYM-INT-704",
-      policy: {}
-    });
-
-    await session.receiveAsync(
-      createSymphonyCurrentFlowTrackerStateObservedSignal({
-        id: "signal_review_observed",
-        occurredAt: "2026-04-13T23:14:59.000Z",
-        state: "In Review",
-        runId: null,
-        runMode: null,
-        causationId: null,
-        correlationId: "SYM-INT-704"
-      })
-    );
-
-    const result = await session.receiveAsync(
-      createSymphonyCurrentFlowReviewReworkRequestedSignal({
-        id: "signal_review_rework_requested",
-        occurredAt: "2026-04-13T23:15:00.000Z",
-        handoff: {
-          source: "github_review",
-          triggerKind: "changes_requested_review",
-          reviewContextUrl:
-            "https://github.com/openai/symphony/pull/123#pullrequestreview-456",
-          pullRequestUrl: "https://github.com/openai/symphony/pull/123",
-          actorLogin: "reviewer",
-          feedbackBody: "Address the requested review changes.",
-          recordedAt: "2026-04-13T23:15:00.000Z"
-        },
-        causationId: "review-1",
-        correlationId: "SYM-INT-704"
-      })
-    );
-
-    expect(result.decision.fromNode).toBe("active");
-    expect(result.decision.toNode).toBe("claimed");
-    expect(result.decision.reasonCode).toBe("active_requested_rework");
-    expect(result.decision.commands).toEqual([
-      {
-        id: "command_signal_review_rework_requested_tracker_rework",
-        kind: "tracker.transition",
-        dedupeKey: null,
-        payload: {
-          state: "Rework"
-        }
-      },
-      {
-        id: "command_signal_review_rework_requested_tracker_bootstrapping",
-        kind: "tracker.transition",
-        dedupeKey: null,
-        payload: {
-          state: "Bootstrapping"
-        }
-      },
-      {
-        id: "command_signal_review_rework_requested_dispatch_rework",
-        kind: "run.dispatch",
-        dedupeKey: null,
-        payload: {
-          runMode: "rework"
+          state: "Done"
         }
       }
     ]);

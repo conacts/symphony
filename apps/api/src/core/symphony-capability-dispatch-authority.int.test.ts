@@ -109,41 +109,23 @@ describe("Symphony capability dispatch authority", () => {
     }
   });
 
-  it("keeps review rework routing in bootstrapping until an external run starts", async () => {
+  it("rejects review rework routing for the live intelligent-flow lifecycle", async () => {
     const harness = await createHarness({
       state: "In Review"
     });
 
     try {
-      const seeded = await harness.service.observeNonRunningTrackerStateByIdentifier({
-        issueIdentifier: harness.issue.identifier,
-        recordedAt: "2026-04-13T08:05:00.000Z"
-      });
-      const routed = await harness.service.routeReviewReworkRequest({
-        issueIdentifier: harness.issue.identifier,
-        recordedAt: "2026-04-13T08:05:10.000Z",
-        handoff: buildSymphonyReworkHandoff({
-          triggerKind: "changes_requested_review",
-          recordedAt: "2026-04-13T08:05:10.000Z"
-        }),
-        onDispatchRequested: async () => {}
-      });
-      const workflowId = await harness.requireWorkflowId();
-      const commands =
-        await harness.routeWorkflowStore.listCapabilityPlannerCommands(workflowId);
-
-      expect(seeded).toEqual({
-        issueIdentifier: harness.issue.identifier,
-        observedTrackerState: "In Review",
-        workflowTrackerState: "In Review",
-        observed: true,
-        disposition: "observed"
-      });
-      expect(routed).toBe(true);
-      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
-      expect(commands.map((command) => command.command.payload.capabilityId)).toEqual([
-        "implement.spec"
-      ]);
+      await expect(
+        harness.service.routeReviewReworkRequest({
+          issueIdentifier: harness.issue.identifier,
+          recordedAt: "2026-04-13T08:05:10.000Z",
+          handoff: buildSymphonyReworkHandoff({
+            triggerKind: "changes_requested_review",
+            recordedAt: "2026-04-13T08:05:10.000Z"
+          }),
+          onDispatchRequested: async () => {}
+        })
+      ).rejects.toThrow(/does not support review-rework routing/i);
     } finally {
       harness.close();
     }

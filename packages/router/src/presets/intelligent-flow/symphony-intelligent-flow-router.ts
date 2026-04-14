@@ -129,20 +129,6 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         reasonCode: "active_observed_in_progress",
         guard: ({ signal }) => isObservedTrackerState(signal, "In Progress")
       }),
-      new WorkflowEdge({
-        id: "queued_review_to_active",
-        from: "queued",
-        to: "active",
-        reasonCode: "active_observed_review",
-        guard: ({ signal }) => isObservedTrackerState(signal, "In Review")
-      }),
-      new WorkflowEdge({
-        id: "queued_approved_to_active",
-        from: "queued",
-        to: "active",
-        reasonCode: "active_observed_approved",
-        guard: ({ signal }) => isObservedTrackerState(signal, "Approved")
-      }),
       ...buildObservedTerminalEdges("queued"),
       new WorkflowEdge({
         id: "claimed_bootstrapping_to_claimed",
@@ -182,20 +168,6 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         guard: ({ signal }) => isObservedTrackerState(signal, "In Progress")
       }),
       new WorkflowEdge({
-        id: "claimed_review_to_active",
-        from: "claimed",
-        to: "active",
-        reasonCode: "active_observed_review",
-        guard: ({ signal }) => isObservedTrackerState(signal, "In Review")
-      }),
-      new WorkflowEdge({
-        id: "claimed_approved_to_active",
-        from: "claimed",
-        to: "active",
-        reasonCode: "active_observed_approved",
-        guard: ({ signal }) => isObservedTrackerState(signal, "Approved")
-      }),
-      new WorkflowEdge({
         id: "claimed_startup_failure_to_failed",
         from: "claimed",
         to: "failed",
@@ -205,24 +177,11 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
       ...buildRequestedTerminalEdges("claimed"),
       ...buildObservedTerminalEdges("claimed"),
       new WorkflowEdge({
-        id: "active_review_rework_requested_to_claimed",
+        id: "active_delivery_completed_to_done",
         from: "active",
-        to: "claimed",
-        reasonCode: "active_requested_rework",
-        guard: ({ signal }) => isReviewReworkRequested(signal),
-        commands: ({ signal }) => [
-          createTrackerTransitionCommand(signal, "Rework"),
-          createTrackerTransitionCommand(signal, "Bootstrapping"),
-          createDispatchCommand(signal, "rework")
-        ]
-      }),
-      new WorkflowEdge({
-        id: "active_delivery_completed_to_active",
-        from: "active",
-        to: "active",
-        reasonCode: "active_delivery_recorded",
-        guard: ({ signal }) => isDeliveryReported(signal, "completed"),
-        commands: ({ signal }) => maybeCreateTrackerTransitionCommand(signal, "In Review")
+        to: "done",
+        reasonCode: "active_delivery_completed",
+        guard: ({ signal }) => isDeliveryReported(signal, "completed")
       }),
       new WorkflowEdge({
         id: "active_delivery_blocked_to_blocked",
@@ -239,25 +198,11 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         guard: ({ signal }) => isClarificationRequested(signal)
       }),
       new WorkflowEdge({
-        id: "active_merge_result_done_to_done",
-        from: "active",
-        to: "done",
-        reasonCode: "active_merge_result_done",
-        guard: ({ signal }) => isMergeResultReported(signal, "merged")
-      }),
-      new WorkflowEdge({
         id: "active_runtime_merged_to_done",
         from: "active",
         to: "done",
         reasonCode: "active_runtime_merged",
         guard: ({ signal }) => hasCompletionKind(signal, "merged")
-      }),
-      new WorkflowEdge({
-        id: "active_merge_result_blocked_to_blocked",
-        from: "active",
-        to: "blocked",
-        reasonCode: "active_merge_result_blocked",
-        guard: ({ signal }) => isMergeResultReported(signal, "blocked")
       }),
       new WorkflowEdge({
         id: "active_runtime_blocked_to_blocked",
@@ -293,20 +238,6 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         to: "active",
         reasonCode: "active_reconfirmed_in_progress",
         guard: ({ signal }) => isObservedTrackerState(signal, "In Progress")
-      }),
-      new WorkflowEdge({
-        id: "active_observed_review_to_active",
-        from: "active",
-        to: "active",
-        reasonCode: "active_reconfirmed_review",
-        guard: ({ signal }) => isObservedTrackerState(signal, "In Review")
-      }),
-      new WorkflowEdge({
-        id: "active_observed_approved_to_active",
-        from: "active",
-        to: "active",
-        reasonCode: "active_reconfirmed_approved",
-        guard: ({ signal }) => isObservedTrackerState(signal, "Approved")
       }),
       ...buildRequestedTerminalEdges("active"),
       ...buildObservedTerminalEdges("active"),
@@ -348,20 +279,6 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         to: "active",
         reasonCode: "awaiting_input_resumed_in_progress",
         guard: ({ signal }) => isObservedTrackerState(signal, "In Progress")
-      }),
-      new WorkflowEdge({
-        id: "awaiting_input_review_to_active",
-        from: "awaiting_input",
-        to: "active",
-        reasonCode: "awaiting_input_resumed_review",
-        guard: ({ signal }) => isObservedTrackerState(signal, "In Review")
-      }),
-      new WorkflowEdge({
-        id: "awaiting_input_approved_to_active",
-        from: "awaiting_input",
-        to: "active",
-        reasonCode: "awaiting_input_resumed_approved",
-        guard: ({ signal }) => isObservedTrackerState(signal, "Approved")
       }),
       ...buildRequestedTerminalEdges("awaiting_input"),
       ...buildObservedTerminalEdges("awaiting_input"),
@@ -448,20 +365,6 @@ function isDeliveryReported(
   status: "completed" | "blocked"
 ) {
   return readSymphonyCurrentFlowDeliveryReportedSignal(signal)?.payload.status === status;
-}
-
-function isMergeResultReported(
-  signal: WorkflowSignal,
-  status: "merged" | "blocked"
-) {
-  return (
-    readSymphonyCurrentFlowMergeResultReportedSignal(signal)?.payload.mergeResult.status ===
-    status
-  );
-}
-
-function isReviewReworkRequested(signal: WorkflowSignal) {
-  return readSymphonyCurrentFlowReviewReworkRequestedSignal(signal) !== null;
 }
 
 function isClarificationRequested(signal: WorkflowSignal) {
@@ -570,16 +473,16 @@ function buildBootstrappingRedispatchCommands(
 function resolveClosedTrackerState(
   signal: WorkflowSignal
 ): Extract<SymphonyCurrentFlowTrackerState, "Done" | "Canceled"> | null {
-  if (isObservedTrackerState(signal, "Done") || hasCompletionKind(signal, "merged")) {
+  if (
+    isObservedTrackerState(signal, "Done") ||
+    hasCompletionKind(signal, "merged") ||
+    isDeliveryReported(signal, "completed")
+  ) {
     return "Done";
   }
 
   if (isObservedTrackerState(signal, "Canceled") || isStateRequested(signal, "Canceled")) {
     return "Canceled";
-  }
-
-  if (isMergeResultReported(signal, "merged")) {
-    return "Done";
   }
 
   return null;
@@ -624,20 +527,6 @@ function buildTerminalReentryEdges(
       to: "active",
       reasonCode: `${from}_reopened_from_in_progress`,
       guard: ({ signal }) => isObservedTrackerState(signal, "In Progress")
-    }),
-    new WorkflowEdge({
-      id: `${from}_review_to_active`,
-      from,
-      to: "active",
-      reasonCode: `${from}_reopened_from_review`,
-      guard: ({ signal }) => isObservedTrackerState(signal, "In Review")
-    }),
-    new WorkflowEdge({
-      id: `${from}_approved_to_active`,
-      from,
-      to: "active",
-      reasonCode: `${from}_reopened_from_approved`,
-      guard: ({ signal }) => isObservedTrackerState(signal, "Approved")
     })
   ];
 }

@@ -154,10 +154,10 @@ describe("runtime workflow preset selection", () => {
             }
           }
         },
-        overridePresetId: "auto-merge"
+        overridePresetId: "intelligent-flow"
       })
     ).toEqual({
-      presetId: "auto-merge",
+      presetId: "intelligent-flow",
       source: "bootstrap_override",
       repositoryKey: "openai/symphony",
       manifestPath: "/tmp/source-repo/.symphony/runtime.ts"
@@ -257,8 +257,8 @@ describe("runtime workflow preset selection", () => {
     ).toThrow(/bootstrap requested an invalid workflow preset/i);
   });
 
-  it("accepts alternate built-in workflow presets from the runtime manifest", () => {
-    expect(
+  it("rejects auto-merge in the live runtime manifest", () => {
+    expect(() =>
       resolveRuntimeWorkflowPresetSelection({
         runtimeManifest: {
           repoRoot: "/tmp/source-repo",
@@ -300,12 +300,54 @@ describe("runtime workflow preset selection", () => {
           }
         }
       })
-    ).toEqual({
-      presetId: "auto-merge",
-      source: "runtime_manifest",
-      repositoryKey: "openai/symphony",
-      manifestPath: "/tmp/source-repo/.symphony/runtime.ts"
-    });
+    ).toThrow(/does not support workflow preset "auto-merge"/i);
+  });
+
+  it("rejects auto-merge bootstrap overrides in the live runtime", () => {
+    expect(() =>
+      resolveRuntimeWorkflowPresetSelection({
+        runtimeManifest: {
+          repoRoot: "/tmp/source-repo",
+          manifestPath: "/tmp/source-repo/.symphony/runtime.ts",
+          manifest: {
+            schemaVersion: 1,
+            repositoryKey: "openai/symphony",
+            linear: {
+              teamKey: "SYM"
+            },
+            workspace: {
+              packageManager: "pnpm",
+              workingDirectory: "."
+            },
+            services: {},
+            workflow: {
+              defaultRouterPreset: "intelligent-flow"
+            },
+            pi: null,
+            env: {
+              host: {
+                required: [],
+                optional: []
+              },
+              inject: {}
+            },
+            lifecycle: {
+              bootstrap: [],
+              migrate: [],
+              verify: [
+                {
+                  name: "verify",
+                  run: "pnpm test"
+                }
+              ],
+              seed: [],
+              cleanup: []
+            }
+          }
+        },
+        overridePresetId: "auto-merge"
+      })
+    ).toThrow(/does not support workflow preset "auto-merge"/i);
   });
 
   it("rejects current-flow bootstrap overrides in the live runtime", () => {
@@ -326,7 +368,7 @@ describe("runtime workflow preset selection", () => {
             },
             services: {},
             workflow: {
-              defaultRouterPreset: "auto-merge"
+              defaultRouterPreset: "intelligent-flow"
             },
             pi: null,
             env: {

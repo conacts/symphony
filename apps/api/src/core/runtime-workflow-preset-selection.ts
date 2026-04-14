@@ -1,6 +1,8 @@
 import type { SymphonyLoadedRuntimeManifest } from "@symphony/runtime-contract";
 import {
   getDefaultRuntimeRouterPresetId,
+  isOperationalRuntimeRouterPresetId,
+  listOperationalRuntimeRouterPresetIds,
   requireRuntimeRouterPresetId,
   type SymphonyRuntimeRouterPresetId
 } from "./runtime-workflow-presets.js";
@@ -96,9 +98,12 @@ function assertOperationalRuntimeRouterPresetId(
     manifestPath: string;
   }
 ): void {
-  if (presetId === "current-flow") {
+  if (!isOperationalRuntimeRouterPresetId(presetId)) {
+    const supportedPresetIds = listOperationalRuntimeRouterPresetIds()
+      .map((supportedPresetId) => JSON.stringify(supportedPresetId))
+      .join(", ");
     throw new TypeError(
-      `Live runtime does not support workflow preset ${JSON.stringify(presetId)} from ${input.source} ${input.manifestPath}. Use "intelligent-flow" instead.`
+      `Live runtime does not support workflow preset ${JSON.stringify(presetId)} from ${input.source} ${input.manifestPath}. Supported live presets: ${supportedPresetIds}.`
     );
   }
 }

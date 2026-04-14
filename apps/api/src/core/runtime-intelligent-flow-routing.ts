@@ -66,11 +66,7 @@ export function createRuntimeIntelligentFlowPresetModule<
     presetId: input.presetId,
     preset: input.preset,
     runtimeAdapter: createIntelligentFlowRuntimeWorkflowPresetAdapter(),
-    requiredNonRunningTrackerSeedStates: [
-      "Bootstrapping",
-      "In Review",
-      "Approved"
-    ],
+    requiredNonRunningTrackerSeedStates: ["Bootstrapping"],
     assertTrackerContract(input) {
       assertIntelligentFlowTrackerContract(input.trackerConfig);
     }

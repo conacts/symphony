@@ -3,11 +3,11 @@ import type {
 } from "@symphony/db";
 import type { SymphonyTracker } from "@symphony/tracker";
 import {
-  deliveryTransitionState,
   executeCancelTool,
   executeDeliveryReportTool,
   executeMergeResultTool,
   executeSpikeResultTool,
+  isCompletedDeliveryTransitionState,
   type RuntimeMergeResult
 } from "@symphony/runtime-tools";
 import type { SymphonyRuntimeToolsPort } from "./runtime-app-types.js";
@@ -168,7 +168,7 @@ function resolveDeliveryStatus(input: {
   targetState: string;
   blockedTargetState: string | null;
 }): "completed" | "blocked" {
-  if (input.targetState === deliveryTransitionState) {
+  if (isCompletedDeliveryTransitionState(input.targetState)) {
     return "completed";
   }
 

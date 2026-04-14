@@ -320,7 +320,7 @@ describe("runtime services", () => {
     }
   });
 
-  it("prefers an explicit bootstrap workflow preset override", async () => {
+  it("records an explicit intelligent-flow bootstrap override", async () => {
     const fixture = await createRuntimeBootstrapFixture({
       runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
         schemaVersion: 1,
@@ -361,15 +361,65 @@ describe("runtime services", () => {
       const bootstrap = await loadRuntimeServiceBootstrap({
         env: fixture.env,
         environmentSource: fixture.environmentSource,
-        workflowPresetOverride: "auto-merge"
+        workflowPresetOverride: "intelligent-flow"
       });
 
       expect(bootstrap.workflowPresetSelection).toEqual({
-        presetId: "auto-merge",
+        presetId: "intelligent-flow",
         source: "bootstrap_override",
         repositoryKey: "openai/symphony",
         manifestPath: path.join(fixture.env.sourceRepo!, ".symphony", "runtime.ts")
       });
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("rejects explicit bootstrap workflow preset overrides that request auto-merge", async () => {
+    const fixture = await createRuntimeBootstrapFixture({
+      runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
+        schemaVersion: 1,
+        repositoryKey: "openai/symphony",
+        linear: {
+          teamKey: "SYM"
+        },
+        workspace: {
+          packageManager: "pnpm",
+          workingDirectory: "."
+        },
+        workflow: {
+          defaultRouterPreset: "intelligent-flow"
+        },
+        env: {
+          host: {
+            required: [],
+            optional: []
+          },
+          inject: {}
+        },
+        lifecycle: {
+          bootstrap: [],
+          migrate: [],
+          verify: [
+            {
+              name: "verify",
+              run: "pnpm test"
+            }
+          ],
+          seed: [],
+          cleanup: []
+        }
+      }) as never)
+    });
+
+    try {
+      await expect(
+        loadRuntimeServiceBootstrap({
+          env: fixture.env,
+          environmentSource: fixture.environmentSource,
+          workflowPresetOverride: "auto-merge"
+        })
+      ).rejects.toThrow(/does not support workflow preset "auto-merge"/i);
     } finally {
       await fixture.cleanup();
     }
@@ -457,7 +507,7 @@ describe("runtime services", () => {
     }
   });
 
-  it("forwards explicit bootstrap repository and preset overrides through full service loading", async () => {
+  it("forwards explicit bootstrap repository selection while preserving intelligent-flow live routing", async () => {
     const fixture = await createRuntimeBootstrapFixture();
 
     const explicitRepositorySource: SymphonyRuntimeBootstrapRepositorySource = {
@@ -494,7 +544,7 @@ describe("runtime services", () => {
           startMachineLoadMonitor: false,
           enableDockerPreflight: false,
           repositorySource: explicitRepositorySource,
-          workflowPresetOverride: "auto-merge"
+          workflowPresetOverride: "intelligent-flow"
         }
       );
 
@@ -505,7 +555,7 @@ describe("runtime services", () => {
         manifestPath: path.join(fixture.env.sourceRepo!, ".symphony", "runtime.ts"),
         bindingScope: null,
         presetSelection: {
-          presetId: "auto-merge",
+          presetId: "intelligent-flow",
           source: "bootstrap_override",
           repositoryKey: "openai/symphony",
           manifestPath: path.join(fixture.env.sourceRepo!, ".symphony", "runtime.ts")
@@ -1189,7 +1239,17 @@ describe("runtime services", () => {
         const issue = buildSymphonyTrackerIssue({
           id: "issue-restart-review",
           identifier: "SYM-RESTART",
-          state: "In Review"
+          state: "Bootstrapping",
+          description: [
+            "## Objective",
+            "Keep the issue in the live intelligent-flow bootstrapping shell.",
+            "",
+            "## Done Definition",
+            "- The workflow remains bootstrapping until a run starts.",
+            "",
+            "## Merge Policy",
+            "manual"
+          ].join("\n")
         });
         const tracker = harness.services.tracker as MemorySymphonyTracker;
         tracker.setIssues([issue]);
@@ -1201,8 +1261,8 @@ describe("runtime services", () => {
         expect(firstObservation).toEqual(
           expect.objectContaining({
             issueIdentifier: issue.identifier,
-            observedTrackerState: "In Review",
-            workflowTrackerState: "In Review",
+            observedTrackerState: "Bootstrapping",
+            workflowTrackerState: "Failed",
             observed: true,
             recordedAt: expect.any(String)
           })
@@ -1221,7 +1281,12 @@ describe("runtime services", () => {
           }
         );
         const restartedTracker = restartedServices.tracker as MemorySymphonyTracker;
-        restartedTracker.setIssues([issue]);
+        restartedTracker.setIssues([
+          {
+            ...issue,
+            state: "Failed"
+          }
+        ]);
 
         const secondObservation =
           await restartedServices.trackerStateIngress.observeNonRunningIssue({
@@ -1230,8 +1295,8 @@ describe("runtime services", () => {
         expect(secondObservation).toEqual(
           expect.objectContaining({
             issueIdentifier: issue.identifier,
-            observedTrackerState: "In Review",
-            workflowTrackerState: "In Review",
+            observedTrackerState: "Failed",
+            workflowTrackerState: "Failed",
             observed: false,
             recordedAt: expect.any(String)
           })

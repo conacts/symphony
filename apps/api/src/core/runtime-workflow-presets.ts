@@ -23,15 +23,22 @@ const runtimeWorkflowPresetModules = {
 
 const runtimeWorkflowPresetRegistry =
   createSymphonyRuntimeWorkflowPresetRegistry({
-    // Intelligent-flow is the default for new workflows. current-flow remains
-    // registered for explicit replay/comparison and because auto-merge still
-    // reuses its contract until that legacy path is extracted.
+    // Intelligent-flow is the only live runtime preset. Legacy presets remain
+    // registered here solely so persisted workflows can still be resumed for
+    // replay/comparison and explicit lower-level tests.
     defaultPresetId: "intelligent-flow",
     modules: runtimeWorkflowPresetModules
   });
 
 export type SymphonyRuntimeRouterPresetId =
   keyof typeof runtimeWorkflowPresetModules;
+
+export const operationalRuntimeRouterPresetIds = [
+  "intelligent-flow"
+] as const satisfies readonly SymphonyRuntimeRouterPresetId[];
+
+export type SymphonyOperationalRuntimeRouterPresetId =
+  (typeof operationalRuntimeRouterPresetIds)[number];
 
 export type SymphonyResolvedRuntimeRouterPreset<
   PresetId extends SymphonyRuntimeRouterPresetId,
@@ -58,6 +65,10 @@ export function listRuntimeRouterPresetIds(): SymphonyRuntimeRouterPresetId[] {
   return runtimeWorkflowPresetRegistry.listPresetIds() as SymphonyRuntimeRouterPresetId[];
 }
 
+export function listOperationalRuntimeRouterPresetIds(): SymphonyOperationalRuntimeRouterPresetId[] {
+  return [...operationalRuntimeRouterPresetIds];
+}
+
 export function requireRuntimeRouterPresetId(
   presetId: string
 ): SymphonyRuntimeRouterPresetId {
@@ -70,6 +81,14 @@ export function requireRuntimeRouterPresetId(
     `Unknown workflow router preset ${JSON.stringify(presetId)}. Expected one of ${presetIds
       .map((registeredPresetId) => JSON.stringify(registeredPresetId))
       .join(", ")}.`
+  );
+}
+
+export function isOperationalRuntimeRouterPresetId(
+  presetId: SymphonyRuntimeRouterPresetId
+): presetId is SymphonyOperationalRuntimeRouterPresetId {
+  return operationalRuntimeRouterPresetIds.includes(
+    presetId as SymphonyOperationalRuntimeRouterPresetId
   );
 }
 

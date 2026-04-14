@@ -1,4 +1,5 @@
 import { type WorkflowCommand } from "@symphony/router";
+import { completedDeliveryTransitionStates } from "@symphony/runtime-tools";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
@@ -213,7 +214,7 @@ async function executeDeliveryTrackerTransition(input: {
   });
   const expectedTargetStates =
     input.status === "completed"
-      ? ["In Review", "Approved"]
+      ? [...completedDeliveryTransitionStates]
       : input.status === "blocked"
         ? ["Blocked"]
         : [];
