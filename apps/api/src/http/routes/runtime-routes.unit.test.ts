@@ -1035,6 +1035,37 @@ function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabili
         }
       ]
     },
+    routerDecision: null,
+    currentModule: {
+      executionId: null,
+      module: {
+        moduleId: "implement.spec",
+        phase: "implementing",
+        executionKind: "agent",
+        summary: "Implement the requested ticket slice.",
+        description:
+          "Produces the canonical change set for the current work epoch.",
+        enabledByDefault: true,
+        runtimeSupported: true,
+        supportedModelProfileIds: ["builder_fast", "builder_deep"],
+        producesEvidenceIds: ["change_set"],
+        requiresEvidenceIds: []
+      },
+      workEpoch: 2,
+      attempt: null,
+      state: "selected",
+      summary: "Next capability execution is implement.spec.",
+      modelProfileId: "builder_fast",
+      selectedAt: "2026-04-11T12:01:20.000Z",
+      startedAt: null,
+      completedAt: null,
+      retryable: null,
+      reasonCode: null,
+      failureKind: null,
+      evidenceProduced: [],
+      decision: null
+    },
+    recentModuleRuns: [],
     history: [
       {
         eventId: "history_1",

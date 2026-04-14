@@ -556,6 +556,37 @@ export function buildSymphonyRuntimeWorkflowObservabilityResult(
         }
       ]
     },
+    routerDecision: null,
+    currentModule: {
+      executionId: null,
+      module: {
+        moduleId: "implement.spec",
+        phase: "implementing",
+        executionKind: "agent",
+        summary: "Implement the requested ticket slice.",
+        description:
+          "Produces the canonical change set for the current work epoch.",
+        enabledByDefault: true,
+        runtimeSupported: true,
+        supportedModelProfileIds: ["builder_fast", "builder_deep"],
+        producesEvidenceIds: ["change_set"],
+        requiresEvidenceIds: []
+      },
+      workEpoch: 2,
+      attempt: null,
+      state: "selected",
+      summary: "Next capability execution is implement.spec.",
+      modelProfileId: "builder_fast",
+      selectedAt: "2026-04-13T18:07:00.000Z",
+      startedAt: null,
+      completedAt: null,
+      retryable: null,
+      reasonCode: null,
+      failureKind: null,
+      evidenceProduced: [],
+      decision: null
+    },
+    recentModuleRuns: [],
     history: [
       {
         eventId: "event-1",

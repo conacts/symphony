@@ -10,10 +10,18 @@ import {
   type SymphonyRuntimeWorkflowComparisonSignal,
   type SymphonyRuntimeWorkflowObservabilityResult
 } from "@symphony/contracts";
+import {
+  createSymphonyIntelligentFlowDefaultModuleRegistry,
+  projectWorkflowCapabilityProjection,
+  readSymphonyIntelligentFlowRouterDecision
+} from "@symphony/router";
 import type {
   SymphonyRuntimeCapabilityOperatorPort,
   SymphonyRuntimeWorkflowReadPort
 } from "./runtime-app-types.js";
+
+const intelligentFlowModuleRegistry =
+  createSymphonyIntelligentFlowDefaultModuleRegistry();
 
 type RuntimeWorkflowObservabilityService = {
   loadByWorkflowId(input: {
@@ -96,6 +104,10 @@ async function buildObservabilityResult(input: {
   const latestHistory = takeTail(history, input.historyLimit);
   const latestDecisions = takeTail(decisions, input.decisionLimit);
   const settlementsByCommandId = buildSettlementsByCommandId(history);
+  const capabilityProjection = projectWorkflowCapabilityProjection({
+    workflowId: input.workflow.workflowId,
+    history: history.map((event) => event.event)
+  });
   const signals = history.flatMap((event) => {
     if (event.kind !== "signal_recorded") {
       return [];
@@ -122,6 +134,17 @@ async function buildObservabilityResult(input: {
           Promise.resolve<string | null>(null),
           Promise.resolve<SymphonyRuntimeIssueCapabilityState | null>(null)
         ]);
+  const routerDecision = buildRouterDecisionSummary(decisions);
+  const recentModuleRuns = buildRecentModuleRuns({
+    decisions,
+    capabilityProjection
+  });
+  const currentModule = buildCurrentModuleSummary({
+    capability,
+    capabilityProjection,
+    recentModuleRuns,
+    routerDecision
+  });
 
   return {
     workflow: {
@@ -160,6 +183,9 @@ async function buildObservabilityResult(input: {
         .length,
       signals
     },
+    routerDecision,
+    currentModule,
+    recentModuleRuns,
     history: latestHistory.map((event) => ({
       eventId: event.eventId,
       eventSequence: event.eventSequence,
@@ -186,6 +212,203 @@ async function buildObservabilityResult(input: {
   };
 }
 
+function buildRouterDecisionSummary(
+  decisions: ReadonlyArray<RouteDecisionRecord>
+): SymphonyRuntimeWorkflowObservabilityResult["routerDecision"] {
+  const latestDecision = [...decisions]
+    .sort((left, right) => right.eventSequence - left.eventSequence)
+    .find((decision) => readIntelligentFlowRouterDecisionOrNull(decision.selectionMetadata));
+  if (!latestDecision) {
+    return null;
+  }
+
+  const routerDecision = readIntelligentFlowRouterDecisionOrNull(
+    latestDecision.selectionMetadata
+  );
+  if (!routerDecision) {
+    return null;
+  }
+
+  return {
+    decisionId: routerDecision.decisionId,
+    recordedAt: routerDecision.recordedAt,
+    policyId: routerDecision.policyId,
+    reasonCode: latestDecision.reasonCode,
+    selectionMode: routerDecision.selectionMode,
+    selectionSummary: routerDecision.selectionSummary,
+    selectionRationale: routerDecision.selectionRationale,
+    confidence: routerDecision.confidence,
+    fallbackReason: routerDecision.fallbackReason,
+    selectedModule: serializeModule(routerDecision.selectedModuleId),
+    admissibleCandidates: routerDecision.candidateSet.admissible.map((candidate) => ({
+      module: serializeModule(candidate.moduleId),
+      rank: candidate.rank,
+      reasonCode: candidate.reasonCode,
+      summary: candidate.summary,
+      selected: candidate.moduleId === routerDecision.selectedModuleId
+    })),
+    rejectedCandidates: routerDecision.candidateSet.rejected.map((candidate) => ({
+      module: serializeModule(candidate.moduleId),
+      rank: null,
+      reasonCode: candidate.reasonCode,
+      summary: candidate.summary,
+      selected: false
+    }))
+  };
+}
+
+function buildRecentModuleRuns(input: {
+  decisions: ReadonlyArray<RouteDecisionRecord>;
+  capabilityProjection: ReturnType<typeof projectWorkflowCapabilityProjection>;
+}): SymphonyRuntimeWorkflowObservabilityResult["recentModuleRuns"] {
+  const decisionByExecutionId = buildModuleDecisionByExecutionId(input.decisions);
+  const pendingClarification = input.capabilityProjection.pendingClarification;
+  const attempts = input.capabilityProjection.capabilityStatusesByEpoch.flatMap(
+    (epoch) => epoch.attempts
+  );
+
+  return attempts
+    .map((attempt) => {
+      const decision = decisionByExecutionId.get(attempt.executionId) ?? null;
+
+      return {
+        executionId: attempt.executionId,
+        module: serializeModule(attempt.capabilityId),
+        workEpoch: attempt.workEpoch,
+        attempt: attempt.attempt,
+        state: toModuleObservationState(attempt.status),
+        summary: resolveAttemptSummary({
+          attempt,
+          pendingClarification
+        }),
+        modelProfileId: attempt.modelProfileId,
+        selectedAt: decision?.recordedAt ?? attempt.startedAt,
+        startedAt: attempt.startedAt,
+        completedAt: attempt.completedAt,
+        retryable: attempt.retryable,
+        reasonCode: attempt.reasonCode,
+        failureKind: attempt.failureKind,
+        evidenceProduced: attempt.evidenceProduced.map((evidence) => ({
+          evidenceId: evidence.evidenceId,
+          summary: evidence.summary,
+          artifacts: evidence.artifacts.map((artifact) => ({
+            label: artifact.label,
+            uri: artifact.uri
+          }))
+        })),
+        decision
+      };
+    })
+    .sort(compareModuleRunRecency)
+    .slice(0, 10);
+}
+
+function buildCurrentModuleSummary(input: {
+  capability: SymphonyRuntimeIssueCapabilityState | null;
+  capabilityProjection: ReturnType<typeof projectWorkflowCapabilityProjection>;
+  recentModuleRuns: SymphonyRuntimeWorkflowObservabilityResult["recentModuleRuns"];
+  routerDecision: SymphonyRuntimeWorkflowObservabilityResult["routerDecision"];
+}): SymphonyRuntimeWorkflowObservabilityResult["currentModule"] {
+  if (
+    input.capability?.planKind === "execute" &&
+    input.capability.capabilityId !== null &&
+    input.capability.workEpoch !== null
+  ) {
+    return {
+      executionId: null,
+      module: serializeModule(input.capability.capabilityId),
+      workEpoch: input.capability.workEpoch,
+      attempt: null,
+      state: "selected",
+      summary: input.capability.summary,
+      modelProfileId: input.capability.modelProfileId,
+      selectedAt: input.capability.decidedAt,
+      startedAt: null,
+      completedAt: null,
+      retryable: null,
+      reasonCode: null,
+      failureKind: null,
+      evidenceProduced: [],
+      decision:
+        input.routerDecision?.selectedModule.moduleId ===
+        input.capability.capabilityId
+          ? {
+              decisionId: input.routerDecision.decisionId,
+              recordedAt: input.routerDecision.recordedAt,
+              reasonCode: input.routerDecision.reasonCode,
+              selectionMode: input.routerDecision.selectionMode,
+              selectionSummary: input.routerDecision.selectionSummary,
+              selectionRationale: input.routerDecision.selectionRationale
+            }
+          : null
+    };
+  }
+
+  if (
+    input.capability?.planKind === "awaiting_input" &&
+    input.capability.pendingClarification?.raisedByCapabilityId !== null &&
+    input.capability.workEpoch !== null
+  ) {
+    const pendingClarification = input.capability.pendingClarification;
+    if (
+      pendingClarification === null ||
+      pendingClarification.raisedByCapabilityId === null
+    ) {
+      throw new TypeError(
+        "Awaiting-input capability observability requires a raisedByCapabilityId."
+      );
+    }
+
+    const matchingRun = findLatestModuleRun(input.recentModuleRuns, {
+      moduleId: pendingClarification.raisedByCapabilityId,
+      workEpoch: input.capability.workEpoch
+    });
+    if (matchingRun) {
+      return {
+        ...matchingRun,
+        summary: pendingClarification.summary
+      };
+    }
+
+    return {
+      executionId: null,
+      module: serializeModule(pendingClarification.raisedByCapabilityId),
+      workEpoch: input.capability.workEpoch,
+      attempt: null,
+      state: "clarification_requested",
+      summary: pendingClarification.summary,
+      modelProfileId: null,
+      selectedAt: input.capability.decidedAt,
+      startedAt: null,
+      completedAt: null,
+      retryable: null,
+      reasonCode: null,
+      failureKind: null,
+      evidenceProduced: [],
+      decision: null
+    };
+  }
+
+  if (input.capability?.planKind === "blocked") {
+    const blockedRun = input.recentModuleRuns.find((run) => run.state === "blocked");
+    if (blockedRun) {
+      return {
+        ...blockedRun,
+        summary: input.capability.summary
+      };
+    }
+  }
+
+  return (
+    input.recentModuleRuns.find(
+      (run) =>
+        run.state === "started" ||
+        run.state === "clarification_requested" ||
+        run.state === "blocked"
+    ) ?? null
+  );
+}
+
 async function loadLiveWorkflow(
   routeWorkflowStore: RouteWorkflowStore,
   workflow: RouteWorkflowRecord
@@ -207,6 +430,151 @@ function takeTail<T>(
   }
 
   return entries.slice(-limit);
+}
+
+function serializeModule(
+  moduleId: string
+): SymphonyRuntimeWorkflowObservabilityResult["recentModuleRuns"][number]["module"] {
+  if (!intelligentFlowModuleRegistry.hasModuleId(moduleId)) {
+    throw new TypeError(
+      `Unknown intelligent-flow module ${JSON.stringify(moduleId)} in workflow observability.`
+    );
+  }
+
+  const definition = intelligentFlowModuleRegistry.getModuleDefinition(moduleId);
+
+  return {
+    moduleId: definition.id,
+    phase: definition.phase,
+    executionKind: definition.executionKind,
+    summary: definition.summary,
+    description: definition.description,
+    enabledByDefault: definition.enabledByDefault,
+    runtimeSupported: intelligentFlowModuleRegistry.isModuleRuntimeSupported({
+      moduleId: definition.id
+    }),
+    supportedModelProfileIds: [...definition.supportedModelProfileIds],
+    producesEvidenceIds: [...definition.producesEvidenceIds],
+    requiresEvidenceIds: [...definition.requiresEvidenceIds]
+  };
+}
+
+function buildModuleDecisionByExecutionId(
+  decisions: ReadonlyArray<RouteDecisionRecord>
+): Map<
+  string,
+  SymphonyRuntimeWorkflowObservabilityResult["recentModuleRuns"][number]["decision"]
+> {
+  const decisionByExecutionId = new Map<
+    string,
+    SymphonyRuntimeWorkflowObservabilityResult["recentModuleRuns"][number]["decision"]
+  >();
+
+  for (const decision of decisions) {
+    const intelligentFlowDecision = readIntelligentFlowRouterDecisionOrNull(
+      decision.selectionMetadata
+    );
+    const decisionSummary = {
+      decisionId: decision.decisionId,
+      recordedAt: decision.recordedAt,
+      reasonCode: decision.reasonCode,
+      selectionMode: intelligentFlowDecision?.selectionMode ?? null,
+      selectionSummary: intelligentFlowDecision?.selectionSummary ?? null,
+      selectionRationale: intelligentFlowDecision?.selectionRationale ?? null
+    } satisfies NonNullable<
+      SymphonyRuntimeWorkflowObservabilityResult["recentModuleRuns"][number]["decision"]
+    >;
+
+    for (const command of decision.commands) {
+      if (command.kind !== "capability.execute") {
+        continue;
+      }
+
+      if (decisionByExecutionId.has(command.id)) {
+        throw new TypeError(
+          `Module observability recorded duplicate capability.execute decision for execution ${JSON.stringify(command.id)}.`
+        );
+      }
+
+      decisionByExecutionId.set(command.id, decisionSummary);
+    }
+  }
+
+  return decisionByExecutionId;
+}
+
+function readIntelligentFlowRouterDecisionOrNull(
+  value: Record<string, unknown> | null
+) {
+  if (value === null) {
+    return null;
+  }
+
+  try {
+    return readSymphonyIntelligentFlowRouterDecision(value);
+  } catch {
+    return null;
+  }
+}
+
+function resolveAttemptSummary(input: {
+  attempt: ReturnType<typeof projectWorkflowCapabilityProjection>["latestAttempts"][number];
+  pendingClarification: ReturnType<typeof projectWorkflowCapabilityProjection>["pendingClarification"];
+}): string {
+  if (
+    input.attempt.status === "clarification_requested" &&
+    input.pendingClarification !== null &&
+    input.pendingClarification.raisedByCapabilityId === input.attempt.capabilityId &&
+    input.pendingClarification.workEpoch === input.attempt.workEpoch
+  ) {
+    return input.pendingClarification.summary;
+  }
+
+  return input.attempt.summary;
+}
+
+function toModuleObservationState(
+  status: ReturnType<typeof projectWorkflowCapabilityProjection>["latestAttempts"][number]["status"]
+): SymphonyRuntimeWorkflowObservabilityResult["recentModuleRuns"][number]["state"] {
+  if (status === "planned") {
+    throw new TypeError(
+      "Workflow observability cannot expose a persisted module run in planned state."
+    );
+  }
+
+  return status;
+}
+
+function compareModuleRunRecency(
+  left: SymphonyRuntimeWorkflowObservabilityResult["recentModuleRuns"][number],
+  right: SymphonyRuntimeWorkflowObservabilityResult["recentModuleRuns"][number]
+): number {
+  const leftAt = left.completedAt ?? left.startedAt ?? left.selectedAt;
+  const rightAt = right.completedAt ?? right.startedAt ?? right.selectedAt;
+  if (leftAt !== rightAt) {
+    return rightAt.localeCompare(leftAt);
+  }
+
+  if (left.workEpoch !== right.workEpoch) {
+    return right.workEpoch - left.workEpoch;
+  }
+
+  return (right.attempt ?? 0) - (left.attempt ?? 0);
+}
+
+function findLatestModuleRun(
+  runs: SymphonyRuntimeWorkflowObservabilityResult["recentModuleRuns"],
+  input: {
+    moduleId: string;
+    workEpoch: number;
+  }
+): SymphonyRuntimeWorkflowObservabilityResult["recentModuleRuns"][number] | null {
+  return (
+    runs.find(
+      (run) =>
+        run.module.moduleId === input.moduleId && run.workEpoch === input.workEpoch
+    ) ?? null
+  );
 }
 
 function serializeSignal(

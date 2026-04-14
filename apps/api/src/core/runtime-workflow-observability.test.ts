@@ -6,6 +6,11 @@ import type {
   RouteWorkflowRecord,
   RouteWorkflowStore
 } from "@symphony/db";
+import {
+  createSymphonyCapabilityCompletedSignal,
+  createSymphonyCapabilityStartedSignal,
+  type WorkflowSignal
+} from "@symphony/router";
 import { createRuntimeWorkflowObservabilityService } from "./runtime-workflow-observability.js";
 import type {
   SymphonyRuntimeCapabilityOperatorPort,
@@ -68,6 +73,10 @@ describe("runtime workflow observability", () => {
     expect(result?.capability?.planKind).toBe("execute");
     expect(result?.snapshot?.pendingCommandCount).toBe(1);
     expect(result?.replay.recordedDecisionCount).toBe(1);
+    expect(result?.routerDecision).toBeNull();
+    expect(result?.currentModule?.module.moduleId).toBe("implement.spec");
+    expect(result?.currentModule?.state).toBe("selected");
+    expect(result?.recentModuleRuns).toEqual([]);
     expect(result?.history).toHaveLength(4);
     expect(result?.decisions[0]?.commands[0]?.settled).toEqual({
       eventId: "event_4",
@@ -85,6 +94,156 @@ describe("runtime workflow observability", () => {
       issueIdentifier: workflow.issueIdentifier,
       recordedAt: "2026-04-13T19:00:04.000Z"
     });
+  });
+
+  it("projects router decisions and capability attempts into module observability", async () => {
+    const workflow = buildWorkflowRecord({
+      routerPresetId: "intelligent-flow",
+      routerName: "symphony-intelligent-flow"
+    });
+    const history = buildCapabilityAttemptHistory();
+    const decisions = buildIntelligentFlowDecisions();
+    const routeWorkflowStore = createRouteWorkflowStoreStub({
+      getWorkflowForIssue: vi.fn().mockResolvedValue(workflow),
+      getWorkflowForScopedIssue: vi.fn().mockResolvedValue(null),
+      getWorkflow: vi.fn().mockResolvedValue(null),
+      listHistory: vi.fn().mockResolvedValue(history),
+      listDecisions: vi.fn().mockResolvedValue(decisions),
+      getLatestSnapshot: vi.fn().mockResolvedValue(buildSnapshot())
+    });
+    const workflowRead: SymphonyRuntimeWorkflowReadPort = {
+      loadWorkflowLifecycleView: vi.fn().mockResolvedValue({
+        workflowId: workflow.workflowId,
+        trackerState: "In Progress",
+        latestReworkHandoff: null,
+        latestMergeResult: null
+      })
+    };
+    const capabilityOperator: SymphonyRuntimeCapabilityOperatorPort = {
+      inspectByIssueIdentifier: vi.fn().mockResolvedValue({
+        workflowId: workflow.workflowId,
+        contractId: "contract-1",
+        policyId: "default",
+        planKind: "execute",
+        summary: "Next capability execution is critic.code_review.",
+        decidedAt: "2026-04-13T19:00:05.000Z",
+        capabilityId: "critic.code_review",
+        modelProfileId: "critic_strict",
+        workEpoch: 1,
+        pendingClarification: null,
+        completion: null
+      }),
+      answerPendingClarificationByWorkflowId: vi.fn()
+    };
+    const service = createRuntimeWorkflowObservabilityService({
+      routeWorkflowStore,
+      workflowRead,
+      capabilityOperator
+    });
+
+    const result = await service.loadByIssueIdentifier({
+      issueIdentifier: workflow.issueIdentifier,
+      recordedAt: "2026-04-13T19:00:06.000Z"
+    });
+
+    expect(result?.routerDecision).toEqual({
+      decisionId: "decision_2",
+      recordedAt: "2026-04-13T19:00:05.000Z",
+      policyId: "default",
+      reasonCode: "active_selected_code_review",
+      selectionMode: "deterministic",
+      selectionSummary: "Code review is the next admissible verification module.",
+      selectionRationale:
+        "Implementation produced the required change_set evidence, so critic.code_review is next.",
+      confidence: null,
+      fallbackReason: null,
+      selectedModule: expect.objectContaining({
+        moduleId: "critic.code_review",
+        phase: "verifying"
+      }),
+      admissibleCandidates: expect.arrayContaining([
+        expect.objectContaining({
+          module: expect.objectContaining({
+            moduleId: "critic.code_review"
+          }),
+          rank: 0,
+          selected: true
+        })
+      ]),
+      rejectedCandidates: expect.arrayContaining([
+        expect.objectContaining({
+          module: expect.objectContaining({
+            moduleId: "critic.browser_test"
+          }),
+          selected: false
+        })
+      ])
+    });
+    expect(result?.currentModule).toEqual({
+      executionId: null,
+      module: expect.objectContaining({
+        moduleId: "critic.code_review",
+        phase: "verifying"
+      }),
+      workEpoch: 1,
+      attempt: null,
+      state: "selected",
+      summary: "Next capability execution is critic.code_review.",
+      modelProfileId: "critic_strict",
+      selectedAt: "2026-04-13T19:00:05.000Z",
+      startedAt: null,
+      completedAt: null,
+      retryable: null,
+      reasonCode: null,
+      failureKind: null,
+      evidenceProduced: [],
+      decision: {
+        decisionId: "decision_2",
+        recordedAt: "2026-04-13T19:00:05.000Z",
+        reasonCode: "active_selected_code_review",
+        selectionMode: "deterministic",
+        selectionSummary: "Code review is the next admissible verification module.",
+        selectionRationale:
+          "Implementation produced the required change_set evidence, so critic.code_review is next."
+      }
+    });
+    expect(result?.recentModuleRuns).toEqual([
+      {
+        executionId: "execution_1",
+        module: expect.objectContaining({
+          moduleId: "implement.spec",
+          phase: "implementing"
+        }),
+        workEpoch: 1,
+        attempt: 1,
+        state: "completed",
+        summary: "Implemented the requested workflow observability slice.",
+        modelProfileId: "builder_fast",
+        selectedAt: "2026-04-13T19:00:01.000Z",
+        startedAt: "2026-04-13T19:00:02.000Z",
+        completedAt: "2026-04-13T19:00:04.000Z",
+        retryable: null,
+        reasonCode: null,
+        failureKind: null,
+        evidenceProduced: [
+          {
+            evidenceId: "change_set",
+            summary: "Code changes were produced.",
+            artifacts: []
+          }
+        ],
+        decision: {
+          decisionId: "decision_1",
+          recordedAt: "2026-04-13T19:00:01.000Z",
+          reasonCode: "active_selected_implementation",
+          selectionMode: "deterministic",
+          selectionSummary:
+            "Implementation is the first admissible module for this work epoch.",
+          selectionRationale:
+            "The workflow has no change_set evidence yet, so implement.spec must run first."
+        }
+      }
+    ]);
   });
 
   it("does not read live-only state for a non-current workflow id", async () => {
@@ -424,6 +583,188 @@ function buildDecisions(): RouteDecisionRecord[] {
   ];
 }
 
+function buildIntelligentFlowDecisions(): RouteDecisionRecord[] {
+  return [
+    {
+      decisionId: "decision_1",
+      workflowId: "workflow-1",
+      eventSequence: 2,
+      signalId: "signal_router_selected_implementation",
+      fromNode: "claimed",
+      toNode: "active",
+      edgeId: "claimed_run_started_to_active",
+      reasonCode: "active_selected_implementation",
+      policy: {
+        presetId: "intelligent-flow"
+      },
+      projectionBefore: buildTestProjection("claimed", 1),
+      projectionAfter: buildTestProjection("active", 2),
+      commands: [
+        {
+          id: "execution_1",
+          kind: "capability.execute",
+          payload: {
+            workflowId: "workflow-1",
+            capabilityId: "implement.spec",
+            modelProfileId: "builder_fast"
+          },
+          dedupeKey: null
+        }
+      ],
+      trace: [],
+      selectionMetadata: {
+        decisionId: "decision_1",
+        workflowId: "workflow-1",
+        policyId: "default",
+        recordedAt: "2026-04-13T19:00:01.000Z",
+        candidateSet: {
+          admissible: [
+            {
+              moduleId: "implement.spec",
+              rank: 0,
+              reasonCode: "required_by_contract",
+              summary:
+                "Implementation is the first admissible module for this work epoch."
+            }
+          ],
+          rejected: [
+            {
+              moduleId: "critic.code_review",
+              reasonCode: "missing_required_evidence",
+              summary: "critic.code_review requires the change_set evidence."
+            }
+          ]
+        },
+        selectedModuleId: "implement.spec",
+        selectionMode: "deterministic",
+        selectionSummary:
+          "Implementation is the first admissible module for this work epoch.",
+        selectionRationale:
+          "The workflow has no change_set evidence yet, so implement.spec must run first.",
+        confidence: null,
+        inputProjectionFingerprint: "projection-1",
+        fallbackReason: null
+      },
+      recordedAt: "2026-04-13T19:00:01.000Z",
+      insertedAt: "2026-04-13T19:00:01.000Z"
+    },
+    {
+      decisionId: "decision_2",
+      workflowId: "workflow-1",
+      eventSequence: 5,
+      signalId: "signal_router_selected_code_review",
+      fromNode: "active",
+      toNode: "active",
+      edgeId: "active_selected_code_review",
+      reasonCode: "active_selected_code_review",
+      policy: {
+        presetId: "intelligent-flow"
+      },
+      projectionBefore: buildTestProjection("active", 4),
+      projectionAfter: buildTestProjection("active", 5),
+      commands: [
+        {
+          id: "execution_2",
+          kind: "capability.execute",
+          payload: {
+            workflowId: "workflow-1",
+            capabilityId: "critic.code_review",
+            modelProfileId: "critic_strict"
+          },
+          dedupeKey: null
+        }
+      ],
+      trace: [],
+      selectionMetadata: {
+        decisionId: "decision_2",
+        workflowId: "workflow-1",
+        policyId: "default",
+        recordedAt: "2026-04-13T19:00:05.000Z",
+        candidateSet: {
+          admissible: [
+            {
+              moduleId: "critic.code_review",
+              rank: 0,
+              reasonCode: "required_by_contract",
+              summary:
+                "Code review is the next admissible verification module."
+            }
+          ],
+          rejected: [
+            {
+              moduleId: "critic.browser_test",
+              reasonCode: "disabled_by_default",
+              summary: "critic.browser_test is disabled in the current runtime."
+            }
+          ]
+        },
+        selectedModuleId: "critic.code_review",
+        selectionMode: "deterministic",
+        selectionSummary:
+          "Code review is the next admissible verification module.",
+        selectionRationale:
+          "Implementation produced the required change_set evidence, so critic.code_review is next.",
+        confidence: null,
+        inputProjectionFingerprint: "projection-2",
+        fallbackReason: null
+      },
+      recordedAt: "2026-04-13T19:00:05.000Z",
+      insertedAt: "2026-04-13T19:00:05.000Z"
+    }
+  ];
+}
+
+function buildCapabilityAttemptHistory(): RouteHistoryEventRecord[] {
+  const startedSignal = createSymphonyCapabilityStartedSignal({
+    id: "signal_capability_started",
+    occurredAt: "2026-04-13T19:00:02.000Z",
+    source: "runtime",
+    workflowId: "workflow-1",
+    executionId: "execution_1",
+    capabilityId: "implement.spec",
+    modelProfileId: "builder_fast",
+    workEpoch: 1,
+    attempt: 1,
+    summary: "Started implementation for workflow observability.",
+    causationId: "execution_1",
+    correlationId: "SYM-420"
+  });
+  const completedSignal = createSymphonyCapabilityCompletedSignal({
+    id: "signal_capability_completed",
+    occurredAt: "2026-04-13T19:00:04.000Z",
+    source: "runtime",
+    workflowId: "workflow-1",
+    executionId: "execution_1",
+    capabilityId: "implement.spec",
+    modelProfileId: "builder_fast",
+    workEpoch: 1,
+    attempt: 1,
+    summary: "Implemented the requested workflow observability slice.",
+    evidenceProduced: [
+      {
+        evidenceId: "change_set",
+        summary: "Code changes were produced.",
+        artifacts: []
+      }
+    ],
+    causationId: "execution_1",
+    correlationId: "SYM-420"
+  });
+
+  return [
+    buildSignalRecordedHistoryEvent({
+      eventId: "event_started",
+      eventSequence: 3,
+      signal: startedSignal
+    }),
+    buildSignalRecordedHistoryEvent({
+      eventId: "event_completed",
+      eventSequence: 4,
+      signal: completedSignal
+    })
+  ];
+}
+
 function buildSnapshot(): RouteProjectionSnapshotRecord {
   return {
     workflowId: "workflow-1",
@@ -482,5 +823,49 @@ function buildSnapshot(): RouteProjectionSnapshotRecord {
       }
     },
     updatedAt: "2026-04-13T19:00:03.000Z"
+  };
+}
+
+function buildSignalRecordedHistoryEvent(input: {
+  eventId: string;
+  eventSequence: number;
+  signal: WorkflowSignal;
+}): RouteHistoryEventRecord {
+  return {
+    eventId: input.eventId,
+    workflowId: "workflow-1",
+    eventSequence: input.eventSequence,
+    kind: "signal_recorded",
+    recordedAt: input.signal.occurredAt,
+    signalId: input.signal.id,
+    signalType: input.signal.type,
+    signalSource: input.signal.source,
+    decisionId: null,
+    commandId: null,
+    fromNode: null,
+    toNode: null,
+    edgeId: null,
+    reasonCode: null,
+    event: {
+      kind: "signal_recorded",
+      recordedAt: input.signal.occurredAt,
+      signal: input.signal
+    },
+    insertedAt: input.signal.occurredAt
+  };
+}
+
+function buildTestProjection(currentNode: string, sequence: number) {
+  return {
+    workflowId: "workflow-1",
+    sequence,
+    currentNode,
+    terminal: false,
+    pendingCommands: [],
+    recordedSignalIds: [],
+    emittedCommandIds: [],
+    data: {},
+    lastSignal: null,
+    lastDecision: null
   };
 }
