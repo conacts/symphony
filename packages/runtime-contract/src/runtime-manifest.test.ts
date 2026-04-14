@@ -312,7 +312,7 @@ export default defineSymphonyRuntime({
         packageManager: "pnpm"
       },
       workflow: {
-        defaultRouterPreset: "current-flow"
+        defaultRouterPreset: "intelligent-flow"
       },
       env: {
         host: {
@@ -336,7 +336,7 @@ export default defineSymphonyRuntime({
     });
 
     expect(manifest.workflow).toEqual({
-      defaultRouterPreset: "current-flow"
+      defaultRouterPreset: "intelligent-flow"
     });
   });
 

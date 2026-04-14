@@ -123,7 +123,7 @@ describe("@symphony/api app", () => {
         teamKey: "COL",
         projectId: "project-1"
       },
-      workflowTrackerState: "Approved"
+      workflowTrackerState: "Bootstrapping"
     });
     harnesses.push(harness);
 
@@ -150,7 +150,7 @@ describe("@symphony/api app", () => {
 
     expect(stateResponse.status).toBe(200);
     expect(statePayload.data.running[0]?.threadId).toBe("thread-live");
-    expect(statePayload.data.running[0]?.state).toBe("Approved");
+    expect(statePayload.data.running[0]?.state).toBe("Bootstrapping");
 
     expect(refreshResponse.status).toBe(202);
     expect(refreshPayload.data.queued).toBe(true);

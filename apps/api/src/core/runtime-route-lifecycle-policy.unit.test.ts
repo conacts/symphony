@@ -7,7 +7,7 @@ describe("runtime route lifecycle policy", () => {
     const runtimePolicy = buildSymphonyRuntimePolicy();
 
     const policy = buildNonRunningTrackerIngressPolicy({
-      presetId: "current-flow",
+      presetId: "intelligent-flow",
       trackerConfig: {
         ...runtimePolicy.tracker,
         dispatchableStates: [" Todo ", "Rework", "todo"]
@@ -15,7 +15,7 @@ describe("runtime route lifecycle policy", () => {
       presetRequiredSeedStates: [
         " Bootstrapping ",
         " In Review ",
-        "approved"
+        "blocked"
       ]
     });
 
@@ -23,14 +23,14 @@ describe("runtime route lifecycle policy", () => {
     expect(policy.presetRequiredSeedStates).toEqual([
       "Bootstrapping",
       "In Review",
-      "approved"
+      "blocked"
     ]);
     expect(policy.seedStates).toEqual([
       "Todo",
       "Rework",
       "Bootstrapping",
       "In Review",
-      "approved"
+      "blocked"
     ]);
   });
 
@@ -38,7 +38,7 @@ describe("runtime route lifecycle policy", () => {
     const runtimePolicy = buildSymphonyRuntimePolicy();
 
     const policy = buildNonRunningTrackerIngressPolicy({
-      presetId: "current-flow",
+      presetId: "intelligent-flow",
       trackerConfig: {
         ...runtimePolicy.tracker,
         dispatchableStates: ["Todo"],
@@ -47,13 +47,13 @@ describe("runtime route lifecycle policy", () => {
         blockedTransitionToState: "Blocked",
         startupFailureTransitionToState: " failed "
       },
-      presetRequiredSeedStates: ["Approved"]
+      presetRequiredSeedStates: ["Bootstrapping"]
     });
 
-    expect(policy.seedStates).toEqual(["Todo", "Approved"]);
+    expect(policy.seedStates).toEqual(["Todo", "Bootstrapping"]);
     expect(policy.observableStates).toEqual([
       "Todo",
-      "Approved",
+      "Bootstrapping",
       "done",
       "Canceled",
       "paused",
@@ -67,9 +67,9 @@ describe("runtime route lifecycle policy", () => {
 
     expect(() =>
       buildNonRunningTrackerIngressPolicy({
-        presetId: "current-flow",
+        presetId: "intelligent-flow",
         trackerConfig: runtimePolicy.tracker,
-        presetRequiredSeedStates: ["Approved", "   "]
+        presetRequiredSeedStates: ["Bootstrapping", "   "]
       })
     ).toThrow(/declares an empty required non-running tracker seed state/i);
   });
@@ -79,9 +79,9 @@ describe("runtime route lifecycle policy", () => {
 
     expect(() =>
       buildNonRunningTrackerIngressPolicy({
-        presetId: "current-flow",
+        presetId: "intelligent-flow",
         trackerConfig: runtimePolicy.tracker,
-        presetRequiredSeedStates: [" Approved ", "approved"]
+        presetRequiredSeedStates: [" Bootstrapping ", "bootstrapping"]
       })
     ).toThrow(/declares duplicate required non-running tracker seed states/i);
   });

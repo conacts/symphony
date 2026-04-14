@@ -477,7 +477,7 @@ describe("db schema enforcement", () => {
       `).run(
         "workflow-703-a",
         "tracker-703",
-        "current-flow",
+        "intelligent-flow",
         "router-a",
         "1",
         null,
@@ -711,7 +711,7 @@ describe("db schema enforcement", () => {
       `).run(
         "workflow-704",
         "tracker-704",
-        "current-flow",
+        "intelligent-flow",
         "router-a",
         "1",
         null,
@@ -921,7 +921,7 @@ describe("db schema enforcement", () => {
       `).run(
         "workflow-705",
         "tracker-705",
-        "current-flow",
+        "intelligent-flow",
         "router-a",
         "1",
         null,
@@ -1030,7 +1030,7 @@ describe("db schema enforcement", () => {
       `).run(
         "workflow-706",
         "tracker-706",
-        "current-flow",
+        "intelligent-flow",
         "router-a",
         "1",
         null,

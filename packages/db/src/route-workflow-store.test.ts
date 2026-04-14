@@ -130,8 +130,8 @@ describe("route workflow store", () => {
         trackerIssueId: "tracker-300",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-300",
-        routerPresetId: "current-flow",
-        routerName: "symphony-current-flow",
+        routerPresetId: "intelligent-flow",
+        routerName: "symphony-intelligent-flow",
         routerVersion: "1",
         createdAt: "2026-04-09T22:59:00.000Z"
       });
@@ -154,7 +154,7 @@ describe("route workflow store", () => {
       );
 
       expect(workflow?.issueIdentifier).toBe("SYM-300");
-      expect(workflow?.routerPresetId).toBe("current-flow");
+      expect(workflow?.routerPresetId).toBe("intelligent-flow");
       expect(persisted.history.map((event) => event.eventSequence)).toEqual([1, 2, 3, 4]);
       expect(history.map((event) => event.kind)).toEqual([
         "signal_recorded",
@@ -199,8 +199,8 @@ describe("route workflow store", () => {
         trackerIssueId: "tracker-301",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-301",
-        routerPresetId: "current-flow",
-        routerName: "symphony-current-flow",
+        routerPresetId: "intelligent-flow",
+        routerName: "symphony-intelligent-flow",
         routerVersion: "1",
         createdAt: "2026-04-09T22:59:00.000Z"
       });
@@ -270,8 +270,8 @@ describe("route workflow store", () => {
         trackerIssueId: "tracker-301A",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-301A",
-        routerPresetId: "current-flow",
-        routerName: "symphony-current-flow",
+        routerPresetId: "intelligent-flow",
+        routerName: "symphony-intelligent-flow",
         routerVersion: "1",
         createdAt: "2026-04-09T22:59:00.000Z"
       });
@@ -350,8 +350,8 @@ describe("route workflow store", () => {
         trackerIssueId: "tracker-312",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-312",
-        routerPresetId: "current-flow",
-        routerName: "symphony-current-flow",
+        routerPresetId: "intelligent-flow",
+        routerName: "symphony-intelligent-flow",
         routerVersion: "1",
         createdAt: "2026-04-13T06:01:00.000Z"
       });
@@ -460,8 +460,8 @@ describe("route workflow store", () => {
         trackerIssueId: "tracker-313",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-313",
-        routerPresetId: "current-flow",
-        routerName: "symphony-current-flow",
+        routerPresetId: "intelligent-flow",
+        routerName: "symphony-intelligent-flow",
         routerVersion: "1",
         createdAt: "2026-04-13T06:06:00.000Z"
       });
@@ -661,8 +661,8 @@ describe("route workflow store", () => {
         trackerIssueId: "tracker-313B",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-313B",
-        routerPresetId: "current-flow",
-        routerName: "symphony-current-flow",
+        routerPresetId: "intelligent-flow",
+        routerName: "symphony-intelligent-flow",
         routerVersion: "1",
         createdAt: "2026-04-13T06:10:00.000Z"
       });
@@ -1004,8 +1004,8 @@ describe("route workflow store", () => {
           organizationId: "org_001",
           linearWorkspaceIdentityId: "linear_workspace_identity_001"
         },
-        routerPresetId: "current-flow",
-        routerName: "symphony-current-flow",
+        routerPresetId: "intelligent-flow",
+        routerName: "symphony-intelligent-flow",
         routerVersion: "1",
         createdAt: "2026-04-09T22:59:00.000Z"
       });
@@ -1083,8 +1083,8 @@ describe("route workflow store", () => {
         trackerIssueId: "tracker-301B",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-301B",
-        routerPresetId: "current-flow",
-        routerName: "symphony-current-flow",
+        routerPresetId: "intelligent-flow",
+        routerName: "symphony-intelligent-flow",
         routerVersion: "1",
         createdAt: "2026-04-09T22:59:00.000Z"
       });
@@ -1128,8 +1128,8 @@ describe("route workflow store", () => {
         trackerIssueId: "tracker-301C",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-301C",
-        routerPresetId: "current-flow",
-        routerName: "symphony-current-flow",
+        routerPresetId: "intelligent-flow",
+        routerName: "symphony-intelligent-flow",
         routerVersion: "1",
         createdAt: "2026-04-09T22:59:00.000Z"
       });
@@ -1181,7 +1181,7 @@ describe("route workflow store", () => {
         trackerIssueId: "tracker-302",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-302",
-        routerPresetId: "current-flow",
+        routerPresetId: "intelligent-flow",
         routerName: "router-a",
         routerVersion: "1",
         createdAt: "2026-04-09T22:59:00.000Z"

@@ -124,11 +124,11 @@ describe("runtime serializers", () => {
       buildSymphonyRuntimePolicy().github.repo,
       issue.identifier,
       issue,
-      "Approved",
+      "Bootstrapping",
       buildSymphonyRuntimePolicy().pi
     );
 
-    expect(serialized?.tracked.state).toBe("Approved");
+    expect(serialized?.tracked.state).toBe("Bootstrapping");
   });
 
   it("includes capability operator state when provided", () => {
@@ -257,10 +257,10 @@ describe("runtime serializers", () => {
     const serialized = serializeRuntimeState(
       snapshot,
       [],
-      new Map([[issue.identifier, "Approved"]])
+      new Map([[issue.identifier, "Bootstrapping"]])
     );
 
-    expect(serialized.running[0]?.state).toBe("Approved");
+    expect(serialized.running[0]?.state).toBe("Bootstrapping");
   });
 
   it("fails fast when a running runtime entry is missing workflow-authoritative tracker state", () => {

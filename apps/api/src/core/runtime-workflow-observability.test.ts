@@ -328,8 +328,8 @@ function buildWorkflowRecord(
     repositoryKey: "openai/symphony",
     issueIdentifier: "SYM-420",
     bindingScope: null,
-    routerPresetId: "current-flow",
-    routerName: "current-flow",
+    routerPresetId: "intelligent-flow",
+    routerName: "symphony-intelligent-flow",
     routerVersion: "1",
     archivedAt: null,
     insertedAt: "2026-04-13T19:00:00.000Z",
@@ -483,7 +483,7 @@ function buildDecisions(): RouteDecisionRecord[] {
       edgeId: "bootstrapping_to_implementation",
       reasonCode: "dispatch_implementation",
       policy: {
-        presetId: "current-flow"
+        presetId: "intelligent-flow"
       },
       projectionBefore: {
         workflowId: "workflow-1",

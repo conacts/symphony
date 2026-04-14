@@ -19,7 +19,6 @@ const trackerStates = [
   "In Progress",
   "In Review",
   "Rework",
-  "Approved",
   "Done",
   "Canceled",
   "Paused",

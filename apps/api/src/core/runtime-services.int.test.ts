@@ -372,7 +372,7 @@ describe("runtime services", () => {
     }
   });
 
-  it("rejects explicit bootstrap workflow preset overrides that request auto-merge", async () => {
+  it("rejects explicit bootstrap workflow preset overrides that request an invalid preset", async () => {
     const fixture = await createRuntimeBootstrapFixture({
       runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
         schemaVersion: 1,
@@ -414,9 +414,9 @@ describe("runtime services", () => {
         loadRuntimeServiceBootstrap({
           env: fixture.env,
           environmentSource: fixture.environmentSource,
-          workflowPresetOverride: "auto-merge"
+          workflowPresetOverride: "missing"
         })
-      ).rejects.toThrow(/invalid workflow preset "auto-merge"/i);
+      ).rejects.toThrow(/invalid workflow preset/i);
     } finally {
       await fixture.cleanup();
     }

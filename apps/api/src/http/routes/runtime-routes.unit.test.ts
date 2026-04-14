@@ -86,7 +86,7 @@ describe("runtime routes", () => {
     });
     expect(payload.data.workflow.workflowId).toBe("workflow-1");
     expect(payload.data.workflow.issueIdentifier).toBe("SYM-420");
-    expect(payload.data.snapshot?.currentNode).toBe("implementation");
+    expect(payload.data.snapshot?.currentNode).toBe("active");
     expect(payload.data.decisions[0]?.commands[0]?.settled?.status).toBe(
       "succeeded"
     );
@@ -164,7 +164,7 @@ describe("runtime routes", () => {
       .fn<SymphonyRuntimeAppServices["workflowRead"]["loadWorkflowLifecycleView"]>()
       .mockResolvedValue({
         workflowId: "workflow-123",
-        trackerState: "Approved",
+        trackerState: "Bootstrapping",
         latestReworkHandoff: null,
         latestMergeResult: null
       });
@@ -185,7 +185,7 @@ describe("runtime routes", () => {
     };
 
     expect(response.status).toBe(200);
-    expect(payload.data.tracked.state).toBe("Approved");
+    expect(payload.data.tracked.state).toBe("Bootstrapping");
     expect(loadWorkflowLifecycleView).toHaveBeenCalledWith({
       issueIdentifier: "COL-123"
     });
@@ -642,8 +642,8 @@ function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabili
       repositoryKey: "openai/symphony",
       issueIdentifier: "SYM-420",
       bindingScope: null,
-      routerPresetId: "current-flow",
-      routerName: "current-flow",
+      routerPresetId: "intelligent-flow",
+      routerName: "symphony-intelligent-flow",
       routerVersion: "1",
       archivedAt: null,
       insertedAt: "2026-04-11T12:00:00.000Z",
@@ -665,13 +665,13 @@ function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabili
     },
     snapshot: {
       eventSequence: 4,
-      currentNode: "implementation",
+      currentNode: "active",
       terminal: false,
       lastSignalId: "signal_delivery_completed",
       lastDecisionId: "decision_delivery_reported",
       pendingCommandCount: 1,
       projection: {
-        currentNode: "implementation",
+        currentNode: "active",
         terminal: false,
         pendingCommands: [
           {
@@ -790,18 +790,18 @@ function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabili
         decisionId: "decision_delivery_reported",
         commandId: null,
         fromNode: "bootstrapping",
-        toNode: "implementation",
-        edgeId: "bootstrapping_to_implementation",
-        reasonCode: "delivery_reported",
+        toNode: "active",
+        edgeId: "claimed_run_started_to_active",
+        reasonCode: "active_selected_implementation",
         event: {
           kind: "decision_recorded",
           recordedAt: "2026-04-11T12:01:20.000Z",
           decision: {
             id: "decision_delivery_reported",
             fromNode: "bootstrapping",
-            toNode: "implementation",
-            edgeId: "bootstrapping_to_implementation",
-            reasonCode: "delivery_reported",
+            toNode: "active",
+            edgeId: "claimed_run_started_to_active",
+            reasonCode: "active_selected_implementation",
             commands: [
               {
                 id: "command-review",
@@ -822,17 +822,17 @@ function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabili
         eventSequence: 2,
         signalId: "signal_delivery_completed",
         fromNode: "bootstrapping",
-        toNode: "implementation",
-        edgeId: "bootstrapping_to_implementation",
-        reasonCode: "delivery_reported",
+        toNode: "active",
+        edgeId: "claimed_run_started_to_active",
+        reasonCode: "active_selected_implementation",
         policy: {
-          presetId: "current-flow"
+          presetId: "intelligent-flow"
         },
         projectionBefore: {
-          currentNode: "bootstrapping"
+          currentNode: "claimed"
         },
         projectionAfter: {
-          currentNode: "implementation"
+          currentNode: "active"
         },
         commands: [
           {
@@ -855,7 +855,7 @@ function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabili
         ],
         trace: [
           {
-            message: "Delivery report advanced workflow into implementation review."
+            message: "Router selected implement.spec and advanced the lifecycle into active execution."
           }
         ],
         selectionMetadata: {
