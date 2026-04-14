@@ -77,6 +77,9 @@ import {
   createSymphonyCapabilityPlanningService
 } from "./symphony-capability-planning.js";
 import {
+  createSymphonyIntelligentFlowSelectorFromEnvironment
+} from "./symphony-intelligent-flow-selector.js";
+import {
   createSymphonyCapabilityOperatorService
 } from "./symphony-capability-operator.js";
 import {
@@ -343,8 +346,14 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     bindingScope: bootstrapBinding.bindingScope,
     now: undefined
   });
+  const intelligentFlowSelector =
+    createSymphonyIntelligentFlowSelectorFromEnvironment({
+      configSource: environmentSource,
+      secretSource: hostCommandEnvSource
+    });
   const capabilityPlanning = createSymphonyCapabilityPlanningService({
-    routeWorkflowStore
+    routeWorkflowStore,
+    intelligentFlowSelector
   });
   const capabilityOperator = createSymphonyCapabilityOperatorService({
     routeWorkflowStore,

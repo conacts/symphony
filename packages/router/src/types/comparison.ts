@@ -2,7 +2,7 @@ import type { WorkflowNodeId } from "./base.js";
 import type { WorkflowHistory } from "./journal.js";
 import type { WorkflowSignal } from "./signal.js";
 import type { WorkflowSimulationResult } from "./simulation.js";
-import type { WorkflowRouter } from "../workflow-router.js";
+import type { WorkflowRouter } from "../engine/workflow-router.js";
 
 export type WorkflowRouterCandidate<
   Node extends WorkflowNodeId,

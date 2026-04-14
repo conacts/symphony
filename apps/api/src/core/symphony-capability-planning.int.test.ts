@@ -26,6 +26,9 @@ import {
 import {
   createSymphonyCapabilityPlanningService
 } from "./symphony-capability-planning.js";
+import type {
+  SymphonyIntelligentFlowSelector
+} from "./symphony-intelligent-flow-selector.js";
 
 const tempDirectories: string[] = [];
 
@@ -382,6 +385,180 @@ describe("Symphony capability planning", () => {
     }
   });
 
+  it("accepts a valid intelligent-flow selector choice when multiple executable modules are admissible", async () => {
+    const harness = await createHarness({
+      intelligentFlowSelector: {
+        async select() {
+          return {
+            response: {
+              selectedModuleId: "critic.adversarial_tests",
+              reason:
+                "Adversarial verification should run first because the strict backend policy requires that missing evidence.",
+              confidence: 0.86,
+              deferToDeterministicFallback: false
+            },
+            model: "test-router-selector",
+            providerBaseUrl: "https://selector.test/v1",
+            rawResponse: {
+              ok: true
+            }
+          };
+        }
+      }
+    });
+    const seeded = await seedPlannerFixture(harness, {
+      presetId: "intelligent-flow"
+    });
+
+    try {
+      await recordCapabilityCompletion({
+        harness,
+        workflowId: seeded.workflowId,
+        issueIdentifier: seeded.contract.issueIdentifier,
+        capabilityId: "implement.spec",
+        modelProfileId: "builder_fast",
+        evidenceId: "change_set",
+        executionId: "exec_impl_selector_valid",
+        workEpoch: 1,
+        attempt: 1,
+        recordedAt: "2026-04-13T07:13:30.000Z"
+      });
+
+      const result = await harness.planning.planByWorkflowId({
+        workflowId: seeded.workflowId,
+        recordedAt: "2026-04-13T07:14:00.000Z",
+        policyId: "backend_strict"
+      });
+
+      expect(result.plan).toEqual({
+        kind: "execute",
+        candidate: expect.objectContaining({
+          capabilityId: "critic.adversarial_tests",
+          phase: "verifying",
+          workEpoch: 1
+        }),
+        decision: expect.objectContaining({
+          capabilityId: "critic.adversarial_tests",
+          modelProfileId: "critic_adversarial",
+          workEpoch: 1
+        })
+      });
+      expect(result.decision.intelligentFlowRouterDecision).toEqual(
+        expect.objectContaining({
+          selectedModuleId: "critic.adversarial_tests",
+          selectionMode: "llm_selected",
+          selectionSummary:
+            "Adversarial verification should run first because the strict backend policy requires that missing evidence.",
+          confidence: 0.86,
+          fallbackReason: null,
+          candidateSet: expect.objectContaining({
+            admissible: expect.arrayContaining([
+              expect.objectContaining({
+                moduleId: "critic.code_review",
+                rank: 0
+              }),
+              expect.objectContaining({
+                moduleId: "critic.adversarial_tests",
+                rank: 1
+              })
+            ])
+          })
+        })
+      );
+      expect(result.command?.command.payload.capabilityId).toBe(
+        "critic.adversarial_tests"
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("falls back to the deterministic intelligent-flow choice when the selector returns a rejected module", async () => {
+    const harness = await createHarness({
+      intelligentFlowSelector: {
+        async select() {
+          return {
+            response: {
+              selectedModuleId: "critic.browser_test",
+              reason: "Browser verification seems safest.",
+              confidence: 0.65,
+              deferToDeterministicFallback: false
+            },
+            model: "test-router-selector",
+            providerBaseUrl: "https://selector.test/v1",
+            rawResponse: {
+              ok: true
+            }
+          };
+        }
+      }
+    });
+    const seeded = await seedPlannerFixture(harness, {
+      presetId: "intelligent-flow"
+    });
+
+    try {
+      await recordCapabilityCompletion({
+        harness,
+        workflowId: seeded.workflowId,
+        issueIdentifier: seeded.contract.issueIdentifier,
+        capabilityId: "implement.spec",
+        modelProfileId: "builder_fast",
+        evidenceId: "change_set",
+        executionId: "exec_impl_selector_invalid",
+        workEpoch: 1,
+        attempt: 1,
+        recordedAt: "2026-04-13T07:15:30.000Z"
+      });
+
+      const result = await harness.planning.planByWorkflowId({
+        workflowId: seeded.workflowId,
+        recordedAt: "2026-04-13T07:16:00.000Z",
+        policyId: "backend_strict"
+      });
+
+      expect(result.plan).toEqual({
+        kind: "execute",
+        candidate: expect.objectContaining({
+          capabilityId: "critic.code_review",
+          phase: "verifying",
+          workEpoch: 1
+        }),
+        decision: expect.objectContaining({
+          capabilityId: "critic.code_review",
+          modelProfileId: "critic_strict",
+          workEpoch: 1
+        })
+      });
+      expect(result.decision.intelligentFlowRouterDecision).toEqual(
+        expect.objectContaining({
+          selectedModuleId: "critic.code_review",
+          selectionMode: "fallback_default",
+          confidence: null,
+          fallbackReason: expect.stringContaining("critic.browser_test"),
+          selectionRationale: expect.stringContaining(
+            "Intelligent-flow selector fell back to the deterministic default."
+          ),
+          candidateSet: expect.objectContaining({
+            admissible: expect.arrayContaining([
+              expect.objectContaining({
+                moduleId: "critic.code_review",
+                rank: 0
+              }),
+              expect.objectContaining({
+                moduleId: "critic.adversarial_tests",
+                rank: 1
+              })
+            ])
+          })
+        })
+      );
+      expect(result.command?.command.payload.capabilityId).toBe("critic.code_review");
+    } finally {
+      harness.close();
+    }
+  });
+
   it("reuses the persisted intelligent-flow router decision after restart", async () => {
     const harness = await createHarness();
     const seeded = await seedPlannerFixture(harness, {
@@ -417,13 +594,20 @@ describe("Symphony capability planning", () => {
   });
 });
 
-async function createHarness() {
+async function createHarness(input: {
+  intelligentFlowSelector?: SymphonyIntelligentFlowSelector | null;
+} = {}) {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-capability-planning-"));
   tempDirectories.push(root);
-  return await openHarness(root);
+  return await openHarness(root, input);
 }
 
-async function openHarness(root: string) {
+async function openHarness(
+  root: string,
+  input: {
+    intelligentFlowSelector?: SymphonyIntelligentFlowSelector | null;
+  } = {}
+) {
   const database = initializeSymphonyDb({
     dbFile: path.join(root, "symphony.db")
   });
@@ -442,7 +626,8 @@ async function openHarness(root: string) {
       routeWorkflows
     }),
     planning: createSymphonyCapabilityPlanningService({
-      routeWorkflowStore
+      routeWorkflowStore,
+      intelligentFlowSelector: input.intelligentFlowSelector ?? null
     }),
     close() {
       database.close();

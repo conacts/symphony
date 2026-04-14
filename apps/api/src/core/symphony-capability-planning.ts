@@ -5,19 +5,28 @@ import type {
   RouteWorkflowStore
 } from "@symphony/db";
 import {
+  createSymphonyIntelligentFlowRouterDecisionForCapabilityRouteSelection,
   createSymphonyCapabilityExecutionCommand,
   createSymphonyCapabilityPreset,
-  resolveSymphonyIntelligentFlowDeterministicPlan,
+  createSymphonyIntelligentFlowDefaultModuleRegistry,
   createWorkflowCapabilityPlanner,
+  prepareSymphonyIntelligentFlowPlanning,
+  selectSymphonyIntelligentFlowCapabilityRoute,
+  type SymphonyIntelligentFlowModuleRegistry,
+  type SymphonyIntelligentFlowModuleDefinition,
   type SymphonyCapabilityPresetPolicyId,
   type SymphonyCapabilityEvidenceId,
   type SymphonyCapabilityId,
   type SymphonyCapabilityModelProfileId,
   type SymphonyIntelligentFlowLifecycleState,
   type SymphonyWorkflowTicketExecutionContract,
-  type WorkflowCapabilityPlan
+  type WorkflowCapabilityPlan,
+  type WorkflowHistory
 } from "@symphony/router";
 import { normalizeWorkflowToken } from "./runtime-route-workflow-command-utils.js";
+import type {
+  SymphonyIntelligentFlowSelector
+} from "./symphony-intelligent-flow-selector.js";
 
 type SymphonyCapabilityPlannerDecisionRecord = RouteWorkflowCapabilityPlannerDecisionRecord<
   SymphonyCapabilityId,
@@ -57,6 +66,11 @@ export type SymphonyCapabilityPlanningService = {
 
 export function createSymphonyCapabilityPlanningService(input: {
   routeWorkflowStore: RouteWorkflowStore;
+  intelligentFlowSelector?: SymphonyIntelligentFlowSelector | null;
+  intelligentFlowModuleRegistry?:
+    | SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>
+    | null;
+  createIntelligentFlowCapabilityPreset?: typeof createSymphonyCapabilityPreset;
 }): SymphonyCapabilityPlanningService {
   return {
     async planByWorkflowId(planInput) {
@@ -111,14 +125,7 @@ export function createSymphonyCapabilityPlanningService(input: {
         };
       }
 
-      const preset = createSymphonyCapabilityPreset({
-        policyId
-      });
-      const planner = createWorkflowCapabilityPlanner({
-        capabilityDefinitions: preset.capabilities,
-        modelProfiles: preset.modelProfiles,
-        presetPolicy: preset.defaultPolicy
-      });
+      const historyEvents = history.map((entry) => entry.event);
       const decisionId = buildPlannerDecisionId({
         workflowId,
         historyEventSequence,
@@ -127,23 +134,38 @@ export function createSymphonyCapabilityPlanningService(input: {
       });
       const intelligentFlowPlanning =
         hydrationState.workflow.routerPresetId === "intelligent-flow"
-          ? resolveSymphonyIntelligentFlowDeterministicPlan({
+          ? await resolveIntelligentFlowPlanning({
               contract,
-              history: history.map((entry) => entry.event),
+              history: historyEvents,
               lifecycleState: resolveIntelligentFlowPlanningLifecycleState({
                 workflowId,
                 currentNode: hydrationState.snapshot?.projection.currentNode ?? null
               }),
               decisionId,
               decidedAt: recordedAt,
-              policyId
+              policyId,
+              intelligentFlowSelector: input.intelligentFlowSelector ?? null,
+              intelligentFlowModuleRegistry:
+                input.intelligentFlowModuleRegistry ??
+                createSymphonyIntelligentFlowDefaultModuleRegistry(),
+              createCapabilityPreset:
+                input.createIntelligentFlowCapabilityPreset ??
+                createSymphonyCapabilityPreset
             })
           : null;
+      const preset = createSymphonyCapabilityPreset({
+        policyId
+      });
+      const planner = createWorkflowCapabilityPlanner({
+        capabilityDefinitions: preset.capabilities,
+        modelProfiles: preset.modelProfiles,
+        presetPolicy: preset.defaultPolicy
+      });
       const plan =
         intelligentFlowPlanning?.plan ??
         planner.plan({
           contract,
-          history: history.map((entry) => entry.event),
+          history: historyEvents,
           decisionId,
           decidedAt: recordedAt
         });
@@ -207,6 +229,199 @@ function resolveIntelligentFlowPlanningLifecycleState(input: {
         `Intelligent-flow capability planning cannot use lifecycle node ${JSON.stringify(input.currentNode)} for workflow ${input.workflowId}.`
       );
   }
+}
+
+async function resolveIntelligentFlowPlanning(input: {
+  contract: RouteWorkflowExecutionContractRecord<
+    SymphonyCapabilityId,
+    SymphonyCapabilityEvidenceId,
+    SymphonyCapabilityModelProfileId
+  >;
+  history: WorkflowHistory;
+  lifecycleState: SymphonyIntelligentFlowLifecycleState;
+  decisionId: string;
+  decidedAt: string;
+  policyId: SymphonyCapabilityPresetPolicyId;
+  intelligentFlowSelector: SymphonyIntelligentFlowSelector | null;
+  intelligentFlowModuleRegistry: SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>;
+  createCapabilityPreset: typeof createSymphonyCapabilityPreset;
+}): Promise<{
+  plan: WorkflowCapabilityPlan<
+    SymphonyCapabilityId,
+    SymphonyCapabilityEvidenceId,
+    SymphonyCapabilityModelProfileId
+  >;
+  routerDecision:
+    | SymphonyCapabilityPlannerDecisionRecord["intelligentFlowRouterDecision"]
+    | null;
+}> {
+  const prepared = prepareSymphonyIntelligentFlowPlanning({
+    contract: input.contract,
+    history: input.history,
+    lifecycleState: input.lifecycleState,
+    policyId: input.policyId,
+    moduleRegistry: input.intelligentFlowModuleRegistry,
+    createCapabilityPreset: input.createCapabilityPreset
+  });
+  if (prepared.kind === "terminal") {
+    return {
+      plan: prepared.plan,
+      routerDecision: prepared.routerDecision
+    };
+  }
+
+  const deterministicSelection = selectSymphonyIntelligentFlowCapabilityRoute({
+    context: prepared.context,
+    decisionId: input.decisionId,
+    decidedAt: input.decidedAt
+  });
+  if (input.intelligentFlowSelector === null) {
+    return {
+      plan: {
+        kind: "execute",
+        candidate: deterministicSelection.candidate,
+        decision: deterministicSelection.decision
+      },
+      routerDecision:
+        createSymphonyIntelligentFlowRouterDecisionForCapabilityRouteSelection({
+          context: prepared.context,
+          selection: deterministicSelection,
+          selectionMode: "deterministic",
+          selectionSummary: deterministicSelection.candidate.reason,
+          selectionRationale: deterministicSelection.decision.rationale,
+          confidence: null,
+          fallbackReason: null
+        })
+    };
+  }
+
+  try {
+    const selectorResult = await input.intelligentFlowSelector.select({
+      context: prepared.context
+    });
+    if (selectorResult.response.deferToDeterministicFallback) {
+      return buildIntelligentFlowFallbackResult({
+        context: prepared.context,
+        decisionId: input.decisionId,
+        decidedAt: input.decidedAt,
+        deterministicSelection,
+        fallbackReason: `Selector deferred to deterministic fallback: ${selectorResult.response.reason}`
+      });
+    }
+
+    const selected = selectSymphonyIntelligentFlowCapabilityRoute({
+      context: prepared.context,
+      decisionId: input.decisionId,
+      decidedAt: input.decidedAt,
+      selectedModuleId: requireExecutableCapabilityModuleId(
+        selectorResult.response.selectedModuleId
+      )
+    });
+    const selectedRationale = [
+      `Intelligent-flow selector model ${JSON.stringify(
+        selectorResult.model
+      )} chose ${JSON.stringify(
+        selectorResult.response.selectedModuleId
+      )} via ${JSON.stringify(selectorResult.providerBaseUrl)}.`,
+      selectorResult.response.reason,
+      selected.decision.rationale
+    ].join(" ");
+    const llmSelected = overrideSelectionRationale(selected, selectedRationale);
+
+    return {
+      plan: {
+        kind: "execute",
+        candidate: llmSelected.candidate,
+        decision: llmSelected.decision
+      },
+      routerDecision:
+        createSymphonyIntelligentFlowRouterDecisionForCapabilityRouteSelection({
+          context: prepared.context,
+          selection: llmSelected,
+          selectionMode: "llm_selected",
+          selectionSummary: selectorResult.response.reason,
+          selectionRationale: llmSelected.decision.rationale,
+          confidence: selectorResult.response.confidence,
+          fallbackReason: null
+        })
+    };
+  } catch (error) {
+    return buildIntelligentFlowFallbackResult({
+      context: prepared.context,
+      decisionId: input.decisionId,
+      decidedAt: input.decidedAt,
+      deterministicSelection,
+      fallbackReason: `Selector response was rejected: ${toErrorMessage(error)}`
+    });
+  }
+}
+
+function buildIntelligentFlowFallbackResult(input: {
+  context: Parameters<
+    typeof createSymphonyIntelligentFlowRouterDecisionForCapabilityRouteSelection
+  >[0]["context"];
+  decisionId: string;
+  decidedAt: string;
+  deterministicSelection: ReturnType<
+    typeof selectSymphonyIntelligentFlowCapabilityRoute
+  >;
+  fallbackReason: string;
+}): {
+  plan: WorkflowCapabilityPlan<
+    SymphonyCapabilityId,
+    SymphonyCapabilityEvidenceId,
+    SymphonyCapabilityModelProfileId
+  >;
+  routerDecision: SymphonyCapabilityPlannerDecisionRecord["intelligentFlowRouterDecision"];
+} {
+  const fallbackReason = requireNonEmptyText(
+    input.fallbackReason,
+    "fallbackReason"
+  );
+  const selection = overrideSelectionRationale(
+    selectSymphonyIntelligentFlowCapabilityRoute({
+      context: input.context,
+      decisionId: input.decisionId,
+      decidedAt: input.decidedAt,
+      selectedModuleId: input.deterministicSelection.decision.capabilityId
+    }),
+    [
+      "Intelligent-flow selector fell back to the deterministic default.",
+      fallbackReason,
+      input.deterministicSelection.decision.rationale
+    ].join(" ")
+  );
+
+  return {
+    plan: {
+      kind: "execute",
+      candidate: selection.candidate,
+      decision: selection.decision
+    },
+    routerDecision:
+      createSymphonyIntelligentFlowRouterDecisionForCapabilityRouteSelection({
+        context: input.context,
+        selection,
+        selectionMode: "fallback_default",
+        selectionSummary: selection.candidate.reason,
+        selectionRationale: selection.decision.rationale,
+        confidence: null,
+        fallbackReason
+      })
+  };
+}
+
+function overrideSelectionRationale(
+  selection: ReturnType<typeof selectSymphonyIntelligentFlowCapabilityRoute>,
+  rationale: string
+) {
+  return {
+    ...selection,
+    decision: {
+      ...selection.decision,
+      rationale: requireNonEmptyText(rationale, "selectionRationale")
+    }
+  };
 }
 
 async function loadCommandForDecision(input: {
@@ -341,6 +556,30 @@ function toExecutionCommandContract(
     createdAt: contract.createdAt,
     updatedAt: contract.updatedAt
   };
+}
+
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+function requireExecutableCapabilityModuleId(
+  moduleId: string
+): SymphonyCapabilityId {
+  switch (moduleId) {
+    case "implement.spec":
+    case "critic.code_review":
+    case "critic.adversarial_tests":
+    case "critic.browser_test":
+      return moduleId;
+    default:
+      throw new TypeError(
+        `Intelligent-flow selector chose non-executable module ${JSON.stringify(moduleId)}.`
+      );
+  }
 }
 
 function requireNonEmptyText(value: string, field: string): string {

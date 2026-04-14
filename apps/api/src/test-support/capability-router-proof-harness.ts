@@ -11,11 +11,18 @@ import {
 import {
   createSymphonyWorkflowClarificationAnsweredSignal,
   createSymphonyCurrentFlowRouterAsync,
+  createSymphonyIntelligentFlowRouterAsync,
   createSymphonyCurrentFlowTrackerStateObservedSignal,
+  createSymphonyIntelligentFlowDefaultModuleRegistry,
   projectWorkflowCapabilityProjection,
+  type SymphonyCurrentFlowTrackerState,
+  type SymphonyIntelligentFlowModuleDefinition,
+  type SymphonyIntelligentFlowModuleRegistry,
   type SymphonyCapabilityEvidenceId,
   type SymphonyCapabilityId,
   type SymphonyCapabilityModelProfileId,
+  type SymphonyCapabilityPresetPolicyId,
+  createSymphonyCapabilityPreset,
   type SymphonyWorkflowCapabilityExecutionCommand,
   type SymphonyWorkflowTicketExecutionContract,
   type WorkflowCapabilityExecutionEngine,
@@ -43,11 +50,15 @@ import {
   createSymphonyCapabilityPlanningService,
   type SymphonyCapabilityPlanningResult
 } from "../core/symphony-capability-planning.js";
+import type {
+  SymphonyIntelligentFlowSelector
+} from "../core/symphony-intelligent-flow-selector.js";
 
 export type CapabilityScenarioOutcome =
   | "completed"
   | "changes_requested"
   | "clarification_requested"
+  | "blocked"
   | "failed";
 
 export type CapabilityScenarioOutcomeKey =
@@ -59,6 +70,14 @@ type CapabilityEngineFactory = () => WorkflowCapabilityExecutionEngine<
   SymphonyCapabilityEvidenceId,
   SymphonyCapabilityModelProfileId
 >;
+type CapabilityPresetFactory = typeof createSymphonyCapabilityPreset;
+
+type CapabilityContractFactory = (input: {
+  workflowId: string;
+  issue: SymphonyTrackerIssue;
+  repositoryKey: string;
+  recordedAt: string;
+}) => SymphonyWorkflowTicketExecutionContract;
 
 type HarnessRuntime = {
   database: ReturnType<typeof initializeSymphonyDb>;
@@ -72,11 +91,28 @@ type HarnessRuntime = {
 export class CapabilityRouterProofHarness {
   static async create(input: {
     createEngine?: CapabilityEngineFactory;
+    presetId?: "current-flow" | "intelligent-flow";
+    policyId?: SymphonyCapabilityPresetPolicyId;
+    intelligentFlowSelector?: SymphonyIntelligentFlowSelector | null;
+    intelligentFlowModuleRegistry?:
+      | SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>
+      | null;
+    createIntelligentFlowCapabilityPreset?: CapabilityPresetFactory;
+    createContract?: CapabilityContractFactory;
+    issue?: SymphonyTrackerIssue;
   } = {}): Promise<CapabilityRouterProofHarness> {
     const root = await mkdtemp(path.join(tmpdir(), "capability-router-proof-"));
     const harness = new CapabilityRouterProofHarness({
       root,
-      createEngine: input.createEngine
+      createEngine: input.createEngine,
+      presetId: input.presetId,
+      policyId: input.policyId,
+      intelligentFlowSelector: input.intelligentFlowSelector,
+      intelligentFlowModuleRegistry: input.intelligentFlowModuleRegistry,
+      createIntelligentFlowCapabilityPreset:
+        input.createIntelligentFlowCapabilityPreset,
+      createContract: input.createContract,
+      issue: input.issue
     });
     await harness.openRuntime();
     await harness.seedWorkflow();
@@ -86,6 +122,16 @@ export class CapabilityRouterProofHarness {
   readonly #root: string;
   readonly #issue: SymphonyTrackerIssue;
   readonly #createEngine: CapabilityEngineFactory;
+  readonly #presetId: "current-flow" | "intelligent-flow";
+  readonly #policyId: SymphonyCapabilityPresetPolicyId;
+  readonly #intelligentFlowSelector: SymphonyIntelligentFlowSelector | null;
+  readonly #intelligentFlowModuleRegistry:
+    | SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>
+    | null;
+  readonly #createIntelligentFlowCapabilityPreset:
+    | CapabilityPresetFactory
+    | null;
+  readonly #createContract: CapabilityContractFactory | null;
   #runtime: HarnessRuntime | null = null;
   #workflowId: string | null = null;
   #contract: RouteWorkflowExecutionContractRecord<
@@ -97,11 +143,29 @@ export class CapabilityRouterProofHarness {
   private constructor(input: {
     root: string;
     createEngine?: CapabilityEngineFactory;
+    presetId?: "current-flow" | "intelligent-flow";
+    policyId?: SymphonyCapabilityPresetPolicyId;
+    intelligentFlowSelector?: SymphonyIntelligentFlowSelector | null;
+    intelligentFlowModuleRegistry?:
+      | SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>
+      | null;
+    createIntelligentFlowCapabilityPreset?: CapabilityPresetFactory | null;
+    createContract?: CapabilityContractFactory;
+    issue?: SymphonyTrackerIssue;
   }) {
     this.#root = input.root;
-    this.#issue = buildProofIssue();
+    this.#issue = input.issue ?? buildProofIssue();
     this.#createEngine =
       input.createEngine ?? (() => createCapabilityScenarioExecutionEngine());
+    this.#presetId = input.presetId ?? "current-flow";
+    this.#policyId = input.policyId ?? "default";
+    this.#intelligentFlowSelector = input.intelligentFlowSelector ?? null;
+    this.#intelligentFlowModuleRegistry =
+      input.intelligentFlowModuleRegistry ??
+      createSymphonyIntelligentFlowDefaultModuleRegistry();
+    this.#createIntelligentFlowCapabilityPreset =
+      input.createIntelligentFlowCapabilityPreset ?? null;
+    this.#createContract = input.createContract ?? null;
   }
 
   get issue(): SymphonyTrackerIssue {
@@ -214,6 +278,39 @@ export class CapabilityRouterProofHarness {
     });
   }
 
+  async observeTrackerState(input: {
+    recordedAt: string;
+    state: SymphonyCurrentFlowTrackerState;
+    runId?: string | null;
+    runMode?: "implementation" | "rework" | "approved_merge" | null;
+  }) {
+    const resumed = await this.runtime().sessionLoader.resumeByWorkflowId({
+      workflowId: this.workflowId
+    });
+    if (!resumed) {
+      throw new TypeError(
+        `Capability proof harness could not resume workflow ${this.workflowId} to observe tracker state ${JSON.stringify(input.state)}.`
+      );
+    }
+
+    const signal = createSymphonyCurrentFlowTrackerStateObservedSignal({
+      id: `signal_tracker_state_observed_${normalizeToken(input.state)}_${normalizeToken(input.recordedAt)}`,
+      occurredAt: input.recordedAt,
+      state: input.state,
+      runId: input.runId ?? null,
+      runMode: input.runMode ?? null,
+      causationId: null,
+      correlationId: this.#issue.identifier
+    });
+    const result = await resumed.resumed.session.receiveAsync(signal);
+
+    return await this.routeWorkflows.recordRouteResult({
+      workflowId: this.workflowId,
+      policy: resumed.routing.policy,
+      result
+    });
+  }
+
   async history() {
     return await this.routeWorkflowStore.listHistory(this.workflowId);
   }
@@ -297,7 +394,11 @@ export class CapabilityRouterProofHarness {
       trackerConfig: runtimePolicy.tracker
     });
     const planning = createSymphonyCapabilityPlanningService({
-      routeWorkflowStore
+      routeWorkflowStore,
+      intelligentFlowSelector: this.#intelligentFlowSelector,
+      intelligentFlowModuleRegistry: this.#intelligentFlowModuleRegistry,
+      createIntelligentFlowCapabilityPreset:
+        this.#createIntelligentFlowCapabilityPreset ?? undefined
     });
 
     this.#runtime = {
@@ -326,37 +427,85 @@ export class CapabilityRouterProofHarness {
       recordedAt: "2026-04-13T09:00:00.000Z"
     });
 
-    const router = await createSymphonyCurrentFlowRouterAsync();
-    const ensured = await this.routeWorkflows.ensureWorkflowForIssue({
-      trackerIssueId: this.#issue.id,
-      issueIdentifier: this.#issue.identifier,
-      repositoryKey: "openai/symphony",
-      routerPresetId: "current-flow",
-      router,
-      createdAt: "2026-04-13T09:00:30.000Z"
-    });
-    this.#workflowId = ensured.workflow.workflowId;
+    if (this.#presetId === "intelligent-flow") {
+      const router = await createSymphonyIntelligentFlowRouterAsync();
+      const ensured = await this.routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: this.#issue.id,
+        issueIdentifier: this.#issue.identifier,
+        repositoryKey: "openai/symphony",
+        routerPresetId: this.#presetId,
+        router,
+        createdAt: "2026-04-13T09:00:30.000Z"
+      });
+      this.#workflowId = ensured.workflow.workflowId;
 
-    const session = await router.startSessionAsync({
-      workflowId: this.workflowId,
-      policy: {}
-    });
-    const bootstrapResult = await session.receiveAsync(
-      createSymphonyCurrentFlowTrackerStateObservedSignal({
-        id: "signal_todo_observed_capability_router_proof",
-        occurredAt: "2026-04-13T09:01:00.000Z",
-        state: "Todo",
-        runId: null,
-        runMode: null,
-        causationId: null,
-        correlationId: this.#issue.identifier
-      })
-    );
-    await this.routeWorkflows.recordRouteResult({
-      workflowId: this.workflowId,
-      policy: {},
-      result: bootstrapResult
-    });
+      const session = await router.startSessionAsync({
+        workflowId: this.workflowId,
+        policy: {}
+      });
+      const bootstrapResult = await session.receiveAsync(
+        createSymphonyCurrentFlowTrackerStateObservedSignal({
+          id: "signal_todo_observed_capability_router_proof",
+          occurredAt: "2026-04-13T09:01:00.000Z",
+          state: "Todo",
+          runId: null,
+          runMode: null,
+          causationId: null,
+          correlationId: this.#issue.identifier
+        })
+      );
+      await this.routeWorkflows.recordRouteResult({
+        workflowId: this.workflowId,
+        policy: {},
+        result: bootstrapResult
+      });
+    } else {
+      const router = await createSymphonyCurrentFlowRouterAsync();
+      const ensured = await this.routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: this.#issue.id,
+        issueIdentifier: this.#issue.identifier,
+        repositoryKey: "openai/symphony",
+        routerPresetId: this.#presetId,
+        router,
+        createdAt: "2026-04-13T09:00:30.000Z"
+      });
+      this.#workflowId = ensured.workflow.workflowId;
+
+      const session = await router.startSessionAsync({
+        workflowId: this.workflowId,
+        policy: {}
+      });
+      const bootstrapResult = await session.receiveAsync(
+        createSymphonyCurrentFlowTrackerStateObservedSignal({
+          id: "signal_todo_observed_capability_router_proof",
+          occurredAt: "2026-04-13T09:01:00.000Z",
+          state: "Todo",
+          runId: null,
+          runMode: null,
+          causationId: null,
+          correlationId: this.#issue.identifier
+        })
+      );
+      await this.routeWorkflows.recordRouteResult({
+        workflowId: this.workflowId,
+        policy: {},
+        result: bootstrapResult
+      });
+    }
+
+    if (this.#createContract) {
+      this.#contract = await this.routeWorkflows.saveExecutionContract({
+        workflowId: this.workflowId,
+        contract: this.#createContract({
+          workflowId: this.workflowId,
+          issue: this.#issue,
+          repositoryKey: "openai/symphony",
+          recordedAt: "2026-04-13T09:02:00.000Z"
+        }),
+        recordedAt: "2026-04-13T09:02:00.000Z"
+      });
+      return;
+    }
 
     const intake = createSymphonyCapabilityContractIntake({
       routeWorkflows: this.routeWorkflows
@@ -365,7 +514,8 @@ export class CapabilityRouterProofHarness {
       workflowId: this.workflowId,
       issue: this.#issue,
       repositoryKey: "openai/symphony",
-      recordedAt: "2026-04-13T09:02:00.000Z"
+      recordedAt: "2026-04-13T09:02:00.000Z",
+      policyId: this.#policyId
     });
   }
 }
@@ -439,6 +589,17 @@ export function createCapabilityScenarioExecutionEngine(input: {
                 }
               ]
             }
+          };
+        case "blocked":
+          return {
+            kind: "blocked",
+            executionId: command.id,
+            capabilityId: command.payload.capabilityId,
+            modelProfileId: command.payload.modelProfileId,
+            workEpoch: context.workEpoch,
+            attempt: context.attempt,
+            summary: `Blocked while executing ${command.payload.capabilityId}.`,
+            reasonCode: "external_dependency"
           };
         case "failed":
           return {
@@ -525,4 +686,8 @@ function buildProofIssue() {
       "manual"
     ].join("\n")
   });
+}
+
+function normalizeToken(value: string) {
+  return value.toLowerCase().replaceAll(/[^a-z0-9]+/g, "_");
 }

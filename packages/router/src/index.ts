@@ -1,44 +1,44 @@
 export {
   buildWorkflowCapabilityCandidates
-} from "./capability-candidate-builder.js";
+} from "./capability/capability-candidate-builder.js";
 export {
   executeWorkflowCapabilityCommand
-} from "./capability-execution-engine.js";
+} from "./capability/capability-execution-engine.js";
 export {
   createWorkflowCapabilityPlanner
-} from "./capability-planner.js";
+} from "./capability/capability-planner.js";
 export {
   createSymphonyCapabilityPreset
-} from "./symphony-capability-preset.js";
+} from "./capability/symphony-capability-preset.js";
 export {
   createDeterministicWorkflowCapabilityRouteStrategy,
   selectDeterministicWorkflowCapabilityRoute
-} from "./capability-route-strategy.js";
+} from "./capability/capability-route-strategy.js";
 export {
   projectWorkflowCapabilityProjection
-} from "./capability-projection.js";
+} from "./capability/capability-projection.js";
 export {
   evaluateWorkflowCompletionGate
-} from "./completion-gate.js";
+} from "./capability/completion-gate.js";
 export {
   createWorkflowCapabilityRegistry,
   WorkflowCapabilityRegistry
-} from "./capability-registry.js";
+} from "./capability/capability-registry.js";
 export {
   createWorkflowModelProfileRegistry,
   WorkflowModelProfileRegistry
-} from "./model-profile-registry.js";
+} from "./capability/model-profile-registry.js";
 export {
   createWorkflowRouter,
   createWorkflowRouterAsync
-} from "./router-builder.js";
+} from "./engine/router-builder.js";
 export {
   createDeterministicStrategy
-} from "./router-deterministic-strategy.js";
+} from "./engine/router-deterministic-strategy.js";
 export type {
   WorkflowDataReducer,
   WorkflowRouterDefinition
-} from "./router-definition.js";
+} from "./engine/router-definition.js";
 export {
   AmbiguousTransitionError,
   DuplicateCommandIdError,
@@ -48,82 +48,85 @@ export {
   ProjectionCorruptedError,
   UnknownEdgeSelectionError,
   UnknownNodeError
-} from "./router-errors.js";
-export type { WorkflowRouterError } from "./router-errors.js";
+} from "./engine/router-errors.js";
+export type { WorkflowRouterError } from "./engine/router-errors.js";
 export {
   WorkflowEdge
-} from "./router-edge.js";
+} from "./engine/router-edge.js";
 export type {
   WorkflowEdgeCommandFactory,
   WorkflowEdgeFrom,
   WorkflowEdgeGuard,
   WorkflowEdgeOptions
-} from "./router-edge.js";
+} from "./engine/router-edge.js";
 export {
   WorkflowNode
-} from "./router-node.js";
+} from "./engine/router-node.js";
 export type {
   WorkflowNodeCommandFactory,
   WorkflowNodeOptions
-} from "./router-node.js";
+} from "./engine/router-node.js";
 export {
   WorkflowRouter
-} from "./workflow-router.js";
-export type { WorkflowRouterOptions } from "./workflow-router.js";
+} from "./engine/workflow-router.js";
+export type { WorkflowRouterOptions } from "./engine/workflow-router.js";
 export {
   createWorkflowRouterPresetRegistry,
   WorkflowRouterPresetRegistry
-} from "./router-preset-registry.js";
+} from "./engine/router-preset-registry.js";
 export type {
   ResolvedWorkflowRouterPreset,
   WorkflowRouterPreset
-} from "./router-preset-registry.js";
+} from "./engine/router-preset-registry.js";
 export {
   WorkflowRouterComparison,
   createWorkflowRouterComparison
-} from "./workflow-router-comparison.js";
+} from "./engine/workflow-router-comparison.js";
 export {
   resolveWorkflowRoutingPolicy
-} from "./routing-policy-resolver.js";
+} from "./capability/routing-policy-resolver.js";
 export {
   WorkflowSession
-} from "./workflow-session.js";
+} from "./engine/workflow-session.js";
 export {
   createSymphonyAutoMergeFlowRouter,
   createSymphonyAutoMergeFlowRouterAsync,
   createSymphonyAutoMergeFlowRouterPreset,
   createSymphonyAutoMergeFlowRouterDefinition
-} from "./symphony-auto-merge-flow-router.js";
+} from "./presets/auto-merge/symphony-auto-merge-flow-router.js";
 export type {
   SymphonyAutoMergeFlowData,
   SymphonyAutoMergeFlowNode,
   SymphonyAutoMergeFlowPolicy
-} from "./symphony-auto-merge-flow-router.js";
+} from "./presets/auto-merge/symphony-auto-merge-flow-router.js";
 export {
   createSymphonyCurrentFlowRouter,
   createSymphonyCurrentFlowRouterAsync,
   createSymphonyCurrentFlowRouterPreset,
   createSymphonyCurrentFlowRouterDefinition
-} from "./symphony-current-flow-router.js";
+} from "./presets/current-flow/symphony-current-flow-router.js";
 export {
   createSymphonyIntelligentFlowRouter,
   createSymphonyIntelligentFlowRouterAsync,
   createSymphonyIntelligentFlowRouterPreset,
   createSymphonyIntelligentFlowRouterDefinition
-} from "./symphony-intelligent-flow-router.js";
+} from "./presets/intelligent-flow/symphony-intelligent-flow-router.js";
 export {
   createSymphonyIntelligentFlowDefaultModuleRegistry,
   createSymphonyIntelligentFlowModuleRegistry,
   SymphonyIntelligentFlowModuleRegistry
-} from "./symphony-intelligent-flow-module-registry.js";
+} from "./presets/intelligent-flow/symphony-intelligent-flow-module-registry.js";
 export {
   buildSymphonyIntelligentFlowAdmissibilitySnapshot
-} from "./symphony-intelligent-flow-admissibility.js";
+} from "./presets/intelligent-flow/symphony-intelligent-flow-admissibility.js";
 export {
+  createSymphonyIntelligentFlowRouterDecisionForCapabilityRouteSelection,
+  prepareSymphonyIntelligentFlowPlanning,
   resolveSymphonyIntelligentFlowDeterministicPlan,
   planSymphonyIntelligentFlowDeterministically,
+  selectSymphonyIntelligentFlowCapabilityRoute,
   selectSymphonyIntelligentFlowDeterministicCapabilityRoute
-} from "./symphony-intelligent-flow-deterministic-planner.js";
+} from "./presets/intelligent-flow/symphony-intelligent-flow-deterministic-planner.js";
 export {
   createSymphonyCapabilityBlockedSignal,
   createSymphonyCapabilityChangesRequestedSignal,
@@ -175,11 +178,11 @@ export {
   symphonyWorkflowClarificationAnsweredSignalSchema,
   symphonyWorkflowClarificationRequestedSignalSchema,
   symphonyWorkflowCompletionGateEvaluatedSignalSchema
-} from "./symphony-capability-contract.js";
+} from "./capability/symphony-capability-contract.js";
 export type {
   SymphonyCapabilityPresetPolicyId,
   SymphonyWorkflowCapabilityPreset
-} from "./symphony-capability-preset.js";
+} from "./capability/symphony-capability-preset.js";
 export type {
   SymphonyCapabilityClarificationMode,
   SymphonyCapabilityCompletionMode,
@@ -203,7 +206,7 @@ export type {
   SymphonyWorkflowModelProfileDefinition,
   SymphonyWorkflowRoutingDirectives,
   SymphonyWorkflowTicketExecutionContract
-} from "./symphony-capability-contract.js";
+} from "./capability/symphony-capability-contract.js";
 export {
   createSymphonyIntelligentFlowModuleDefinition,
   createSymphonyIntelligentFlowRuntimeSupport,
@@ -240,7 +243,7 @@ export {
   symphonyIntelligentFlowRouterDecisionSchema,
   symphonyIntelligentFlowSelectionModeSchema,
   symphonyIntelligentFlowSelectionResponseSchema
-} from "./symphony-intelligent-flow-contract.js";
+} from "./presets/intelligent-flow/symphony-intelligent-flow-contract.js";
 export type {
   SymphonyIntelligentFlowAdmissibilitySnapshot,
   SymphonyIntelligentFlowAdmissibleCandidate,
@@ -259,27 +262,30 @@ export type {
   SymphonyIntelligentFlowRouterDecision,
   SymphonyIntelligentFlowSelectionMode,
   SymphonyIntelligentFlowSelectionResponse
-} from "./symphony-intelligent-flow-contract.js";
+} from "./presets/intelligent-flow/symphony-intelligent-flow-contract.js";
 export type {
   SymphonyIntelligentFlowCapabilityProjection,
   SymphonyIntelligentFlowModuleAttempt,
   SymphonyIntelligentFlowModuleAttemptStatus,
   SymphonyIntelligentFlowResolvedRoutingPolicy
-} from "./symphony-intelligent-flow-admissibility.js";
+} from "./presets/intelligent-flow/symphony-intelligent-flow-admissibility.js";
 export type {
+  SymphonyIntelligentFlowCapabilitySelectionContext,
   SymphonyIntelligentFlowDeterministicPlanningResult,
-  SymphonyIntelligentFlowDeterministicCapabilityRouteSelection
-} from "./symphony-intelligent-flow-deterministic-planner.js";
+  SymphonyIntelligentFlowDeterministicCapabilityRouteSelection,
+  SymphonyIntelligentFlowPlanningPreparationResult,
+  SymphonyIntelligentFlowPlanningSelectionContext
+} from "./presets/intelligent-flow/symphony-intelligent-flow-deterministic-planner.js";
 export type {
   SymphonyCurrentFlowData,
   SymphonyCurrentFlowNode,
   SymphonyCurrentFlowPolicy
-} from "./symphony-current-flow-router.js";
+} from "./presets/current-flow/symphony-current-flow-router.js";
 export type {
   SymphonyIntelligentFlowData,
   SymphonyIntelligentFlowNode,
   SymphonyIntelligentFlowPolicy
-} from "./symphony-intelligent-flow-router.js";
+} from "./presets/intelligent-flow/symphony-intelligent-flow-router.js";
 export {
   createSymphonyCurrentFlowDispatchCommand,
   createSymphonyCurrentFlowDeliveryReportedSignal,
@@ -315,7 +321,7 @@ export {
   symphonyCurrentFlowNonStartupCompletionKindSchema,
   symphonyCurrentFlowRunModeSchema,
   symphonyCurrentFlowTrackerStateSchema
-} from "./symphony-current-flow-contract.js";
+} from "./presets/current-flow/symphony-current-flow-contract.js";
 export type {
   SymphonyCurrentFlowCompletionKind,
   SymphonyCurrentFlowDeliveryReportedSignal,
@@ -338,7 +344,7 @@ export type {
   SymphonyCurrentFlowTrackerState,
   SymphonyCurrentFlowTrackerStateObservedSignal,
   SymphonyCurrentFlowTrackerTransitionCommand
-} from "./symphony-current-flow-contract.js";
+} from "./presets/current-flow/symphony-current-flow-contract.js";
 export type {
   WorkflowEvidenceArtifactReference,
   WorkflowEvidenceId,
@@ -396,7 +402,7 @@ export type {
   RouterStrategy,
   WorkflowCandidateEdge,
   WorkflowRouteSelection
-} from "./router-strategy.js";
+} from "./engine/router-strategy.js";
 export type {
   WorkflowCommand,
   WorkflowDecision,

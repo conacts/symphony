@@ -2,27 +2,27 @@ import { Effect } from "effect";
 import {
   InvalidRouterDefinitionError,
   type WorkflowRouterError
-} from "../router-errors.js";
+} from "../engine/router-errors.js";
 import type {
   WorkflowDataReducer,
   WorkflowRouterDefinition
-} from "../router-definition.js";
+} from "../engine/router-definition.js";
 import {
   WorkflowEdge,
   type WorkflowEdgeOptions
-} from "../router-edge.js";
+} from "../engine/router-edge.js";
 import {
   WorkflowNode,
   type WorkflowNodeOptions
-} from "../router-node.js";
+} from "../engine/router-node.js";
 import {
   createDeterministicStrategy
-} from "../router-deterministic-strategy.js";
-import type { RouterStrategy } from "../router-strategy.js";
+} from "../engine/router-deterministic-strategy.js";
+import type { RouterStrategy } from "../engine/router-strategy.js";
 import {
   WorkflowRouter,
   type WorkflowRouterOptions
-} from "../workflow-router.js";
+} from "../engine/workflow-router.js";
 import type {
   WorkflowDecision,
   WorkflowJournalEvent,
