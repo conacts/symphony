@@ -67,7 +67,7 @@ describe("Symphony capability execution", () => {
     );
   });
 
-  it("records retryable failures without corrupting current-flow authority", async () => {
+  it("records retryable failures without corrupting intelligent-flow authority", async () => {
     harness = await CapabilityRouterProofHarness.create({
       createEngine: () =>
         createCapabilityScenarioExecutionEngine({

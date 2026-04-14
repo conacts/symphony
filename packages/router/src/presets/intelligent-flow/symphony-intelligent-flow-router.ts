@@ -12,25 +12,25 @@ import {
   readSymphonyWorkflowClarificationRequestedSignal
 } from "../../capability/symphony-capability-contract.js";
 import {
-  createSymphonyCurrentFlowDispatchCommand,
-  createSymphonyCurrentFlowTrackerTransitionCommand,
-  readSymphonyCurrentFlowDeliveryReportedSignal,
-  readSymphonyCurrentFlowMergeResultReportedSignal,
-  readSymphonyCurrentFlowReviewReworkRequestedSignal,
-  readSymphonyCurrentFlowRunStartedSignal,
-  readSymphonyCurrentFlowRuntimeCompletedSignal,
-  readSymphonyCurrentFlowRuntimeStartupFailureSignal,
-  readSymphonyCurrentFlowShutdownRequestedSignal,
-  readSymphonyCurrentFlowStateRequestedSignal,
-  readSymphonyCurrentFlowTrackerStateObservedSignal,
-  readSymphonyCurrentFlowDispatchCommand,
-  readSymphonyCurrentFlowTrackerTransitionCommand,
-  type SymphonyCurrentFlowCompletionKind,
-  type SymphonyCurrentFlowMergeResultRecord,
-  type SymphonyCurrentFlowReviewReworkHandoff,
-  type SymphonyCurrentFlowRunMode,
-  type SymphonyCurrentFlowTrackerState
-} from "../current-flow/symphony-current-flow-contract.js";
+  createSymphonyIntelligentFlowDispatchCommand,
+  createSymphonyIntelligentFlowTrackerTransitionCommand,
+  readSymphonyIntelligentFlowDeliveryReportedSignal,
+  readSymphonyIntelligentFlowMergeResultReportedSignal,
+  readSymphonyIntelligentFlowReviewReworkRequestedSignal,
+  readSymphonyIntelligentFlowRunStartedSignal,
+  readSymphonyIntelligentFlowRuntimeCompletedSignal,
+  readSymphonyIntelligentFlowRuntimeStartupFailureSignal,
+  readSymphonyIntelligentFlowShutdownRequestedSignal,
+  readSymphonyIntelligentFlowStateRequestedSignal,
+  readSymphonyIntelligentFlowTrackerStateObservedSignal,
+  readSymphonyIntelligentFlowDispatchCommand,
+  readSymphonyIntelligentFlowTrackerTransitionCommand,
+  type SymphonyIntelligentFlowCompletionKind,
+  type SymphonyIntelligentFlowMergeResultRecord,
+  type SymphonyIntelligentFlowReviewReworkHandoff,
+  type SymphonyIntelligentFlowRunMode,
+  type SymphonyIntelligentFlowTrackerState
+} from "./symphony-intelligent-flow-lifecycle-contract.js";
 import type { WorkflowRouterOptions } from "../../engine/workflow-router.js";
 import type {
   WorkflowCommand,
@@ -48,15 +48,15 @@ export type SymphonyIntelligentFlowNode =
 export type SymphonyIntelligentFlowPolicy = Record<string, never>;
 
 export type SymphonyIntelligentFlowData = {
-  trackerState: SymphonyCurrentFlowTrackerState | null;
-  confirmedTrackerState: SymphonyCurrentFlowTrackerState | null;
-  lastObservedTrackerState: SymphonyCurrentFlowTrackerState | null;
-  lastDispatchMode: SymphonyCurrentFlowRunMode | null;
+  trackerState: SymphonyIntelligentFlowTrackerState | null;
+  confirmedTrackerState: SymphonyIntelligentFlowTrackerState | null;
+  lastObservedTrackerState: SymphonyIntelligentFlowTrackerState | null;
+  lastDispatchMode: SymphonyIntelligentFlowRunMode | null;
   lastDispatchStatus: "pending" | "succeeded" | "failed" | null;
-  lastRunMode: SymphonyCurrentFlowRunMode | null;
-  lastRuntimeOutcome: SymphonyCurrentFlowCompletionKind | null;
-  latestMergeResult: SymphonyCurrentFlowMergeResultRecord | null;
-  latestReworkHandoff: SymphonyCurrentFlowReviewReworkHandoff | null;
+  lastRunMode: SymphonyIntelligentFlowRunMode | null;
+  lastRuntimeOutcome: SymphonyIntelligentFlowCompletionKind | null;
+  latestMergeResult: SymphonyIntelligentFlowMergeResultRecord | null;
+  latestReworkHandoff: SymphonyIntelligentFlowReviewReworkHandoff | null;
 };
 
 const symphonyIntelligentFlowPolicy = Object.freeze({}) as SymphonyIntelligentFlowPolicy;
@@ -75,7 +75,7 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
       new WorkflowNode("claimed"),
       new WorkflowNode("active", {
         enter: ({ signal }) =>
-          readSymphonyCurrentFlowRunStartedSignal(signal) !== null
+          readSymphonyIntelligentFlowRunStartedSignal(signal) !== null
             ? maybeCreateTrackerTransitionCommand(signal, "In Progress")
             : []
       }),
@@ -144,7 +144,7 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         from: "claimed",
         to: "active",
         reasonCode: "active_run_started",
-        guard: ({ signal }) => readSymphonyCurrentFlowRunStartedSignal(signal) !== null
+        guard: ({ signal }) => readSymphonyIntelligentFlowRunStartedSignal(signal) !== null
       }),
       new WorkflowEdge({
         id: "claimed_clarification_requested_to_awaiting_input",
@@ -172,7 +172,7 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         from: "claimed",
         to: "failed",
         reasonCode: "claimed_startup_failure",
-        guard: ({ signal }) => readSymphonyCurrentFlowRuntimeStartupFailureSignal(signal) !== null
+        guard: ({ signal }) => readSymphonyIntelligentFlowRuntimeStartupFailureSignal(signal) !== null
       }),
       ...buildRequestedTerminalEdges("claimed"),
       ...buildObservedTerminalEdges("claimed"),
@@ -353,10 +353,10 @@ export function createSymphonyIntelligentFlowRouterPreset(): WorkflowRouterPrese
 
 function isObservedTrackerState(
   signal: WorkflowSignal,
-  state: SymphonyCurrentFlowTrackerState
+  state: SymphonyIntelligentFlowTrackerState
 ) {
   return (
-    readSymphonyCurrentFlowTrackerStateObservedSignal(signal)?.payload.state === state
+    readSymphonyIntelligentFlowTrackerStateObservedSignal(signal)?.payload.state === state
   );
 }
 
@@ -364,7 +364,7 @@ function isDeliveryReported(
   signal: WorkflowSignal,
   status: "completed" | "blocked"
 ) {
-  return readSymphonyCurrentFlowDeliveryReportedSignal(signal)?.payload.status === status;
+  return readSymphonyIntelligentFlowDeliveryReportedSignal(signal)?.payload.status === status;
 }
 
 function isClarificationRequested(signal: WorkflowSignal) {
@@ -380,19 +380,19 @@ function isStateRequested(
   targetState: "Paused" | "Blocked" | "Failed" | "Canceled"
 ) {
   return (
-    readSymphonyCurrentFlowStateRequestedSignal(signal)?.payload.targetState === targetState
+    readSymphonyIntelligentFlowStateRequestedSignal(signal)?.payload.targetState === targetState
   );
 }
 
 function hasCompletionKind(
   signal: WorkflowSignal,
-  kind: Exclude<SymphonyCurrentFlowCompletionKind, "startup_failure">
+  kind: Exclude<SymphonyIntelligentFlowCompletionKind, "startup_failure">
 ) {
-  return readSymphonyCurrentFlowRuntimeCompletedSignal(signal)?.payload.kind === kind;
+  return readSymphonyIntelligentFlowRuntimeCompletedSignal(signal)?.payload.kind === kind;
 }
 
 function isPausedOutcome(signal: WorkflowSignal) {
-  const kind = readSymphonyCurrentFlowRuntimeCompletedSignal(signal)?.payload.kind ?? null;
+  const kind = readSymphonyIntelligentFlowRuntimeCompletedSignal(signal)?.payload.kind ?? null;
   return (
     kind === "failure" ||
     kind === "rate_limited" ||
@@ -403,7 +403,7 @@ function isPausedOutcome(signal: WorkflowSignal) {
 }
 
 function isBlockedOutcome(signal: WorkflowSignal) {
-  const kind = readSymphonyCurrentFlowRuntimeCompletedSignal(signal)?.payload.kind ?? null;
+  const kind = readSymphonyIntelligentFlowRuntimeCompletedSignal(signal)?.payload.kind ?? null;
   return kind === "blocked" || kind === "merge_blocked";
 }
 
@@ -412,12 +412,12 @@ function isCapabilityBlocked(signal: WorkflowSignal) {
 }
 
 function isShutdownRequested(signal: WorkflowSignal) {
-  return readSymphonyCurrentFlowShutdownRequestedSignal(signal) !== null;
+  return readSymphonyIntelligentFlowShutdownRequestedSignal(signal) !== null;
 }
 
 function maybeCreateTrackerTransitionCommand(
   signal: WorkflowSignal,
-  targetState: SymphonyCurrentFlowTrackerState
+  targetState: SymphonyIntelligentFlowTrackerState
 ) {
   return isObservedTrackerState(signal, targetState)
     ? []
@@ -426,9 +426,9 @@ function maybeCreateTrackerTransitionCommand(
 
 function createDispatchCommand(
   signal: WorkflowSignal,
-  runMode: SymphonyCurrentFlowRunMode
+  runMode: SymphonyIntelligentFlowRunMode
 ) {
-  return createSymphonyCurrentFlowDispatchCommand({
+  return createSymphonyIntelligentFlowDispatchCommand({
     id: createCommandId(signal, `dispatch_${runMode}`),
     dedupeKey: null,
     runMode
@@ -437,9 +437,9 @@ function createDispatchCommand(
 
 function createTrackerTransitionCommand(
   signal: WorkflowSignal,
-  targetState: SymphonyCurrentFlowTrackerState
+  targetState: SymphonyIntelligentFlowTrackerState
 ) {
-  return createSymphonyCurrentFlowTrackerTransitionCommand({
+  return createSymphonyIntelligentFlowTrackerTransitionCommand({
     id: createCommandId(signal, `tracker_${normalizeToken(targetState)}`),
     dedupeKey: null,
     state: targetState
@@ -448,7 +448,7 @@ function createTrackerTransitionCommand(
 
 function buildClaimCommands(
   signal: WorkflowSignal,
-  runMode: Extract<SymphonyCurrentFlowRunMode, "implementation" | "rework">
+  runMode: Extract<SymphonyIntelligentFlowRunMode, "implementation" | "rework">
 ) {
   return [
     ...maybeCreateTrackerTransitionCommand(signal, "Bootstrapping"),
@@ -472,7 +472,7 @@ function buildBootstrappingRedispatchCommands(
 
 function resolveClosedTrackerState(
   signal: WorkflowSignal
-): Extract<SymphonyCurrentFlowTrackerState, "Done" | "Canceled"> | null {
+): Extract<SymphonyIntelligentFlowTrackerState, "Done" | "Canceled"> | null {
   if (
     isObservedTrackerState(signal, "Done") ||
     hasCompletionKind(signal, "merged") ||
@@ -634,7 +634,7 @@ function reduceSignalData(
   signal: WorkflowSignal
 ): SymphonyIntelligentFlowData {
   const observedTrackerState =
-    readSymphonyCurrentFlowTrackerStateObservedSignal(signal)?.payload.state ?? null;
+    readSymphonyIntelligentFlowTrackerStateObservedSignal(signal)?.payload.state ?? null;
   if (observedTrackerState !== null) {
     return {
       ...data,
@@ -644,7 +644,7 @@ function reduceSignalData(
     };
   }
 
-  const startedRunMode = readSymphonyCurrentFlowRunStartedSignal(signal)?.payload.runMode ?? null;
+  const startedRunMode = readSymphonyIntelligentFlowRunStartedSignal(signal)?.payload.runMode ?? null;
   if (startedRunMode !== null) {
     return {
       ...data,
@@ -652,7 +652,7 @@ function reduceSignalData(
     };
   }
 
-  const reworkRequested = readSymphonyCurrentFlowReviewReworkRequestedSignal(signal);
+  const reworkRequested = readSymphonyIntelligentFlowReviewReworkRequestedSignal(signal);
   if (reworkRequested !== null) {
     return {
       ...data,
@@ -660,7 +660,7 @@ function reduceSignalData(
     };
   }
 
-  const mergeResultReported = readSymphonyCurrentFlowMergeResultReportedSignal(signal);
+  const mergeResultReported = readSymphonyIntelligentFlowMergeResultReportedSignal(signal);
   if (mergeResultReported !== null) {
     return {
       ...data,
@@ -669,7 +669,7 @@ function reduceSignalData(
   }
 
   const completionKind =
-    readSymphonyCurrentFlowRuntimeCompletedSignal(signal)?.payload.kind ?? null;
+    readSymphonyIntelligentFlowRuntimeCompletedSignal(signal)?.payload.kind ?? null;
   if (completionKind !== null) {
     return {
       ...data,
@@ -677,7 +677,7 @@ function reduceSignalData(
     };
   }
 
-  if (readSymphonyCurrentFlowRuntimeStartupFailureSignal(signal) !== null) {
+  if (readSymphonyIntelligentFlowRuntimeStartupFailureSignal(signal) !== null) {
     return {
       ...data,
       lastRuntimeOutcome: "startup_failure"
@@ -691,7 +691,7 @@ function reduceCommandData(
   data: SymphonyIntelligentFlowData,
   command: WorkflowCommand
 ): SymphonyIntelligentFlowData {
-  const trackerTransition = readSymphonyCurrentFlowTrackerTransitionCommand(command);
+  const trackerTransition = readSymphonyIntelligentFlowTrackerTransitionCommand(command);
   if (trackerTransition) {
     return {
       ...data,
@@ -699,7 +699,7 @@ function reduceCommandData(
     };
   }
 
-  const dispatchCommand = readSymphonyCurrentFlowDispatchCommand(command);
+  const dispatchCommand = readSymphonyIntelligentFlowDispatchCommand(command);
   if (dispatchCommand) {
     return {
       ...data,
@@ -728,7 +728,7 @@ function reduceCommandSettlementData(input: {
     return input.data;
   }
 
-  const trackerTransition = readSymphonyCurrentFlowTrackerTransitionCommand(pendingCommand);
+  const trackerTransition = readSymphonyIntelligentFlowTrackerTransitionCommand(pendingCommand);
   if (trackerTransition) {
     if (input.event.status === "succeeded") {
       return {
@@ -744,7 +744,7 @@ function reduceCommandSettlementData(input: {
     };
   }
 
-  const dispatchCommand = readSymphonyCurrentFlowDispatchCommand(pendingCommand);
+  const dispatchCommand = readSymphonyIntelligentFlowDispatchCommand(pendingCommand);
   if (dispatchCommand) {
     return {
       ...input.data,

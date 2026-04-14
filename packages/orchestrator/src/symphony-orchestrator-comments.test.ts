@@ -92,7 +92,7 @@ describe("buildFailureCommentBody", () => {
     expect(comment).toContain("move it back to `Todo`");
   });
 
-  it("formats blocked merge comments with merge rerun guidance", () => {
+  it("formats blocked merge comments with Todo requeue guidance", () => {
     const comment = buildFailureCommentBody(
       buildSymphonyTrackerIssue({
         state: "Blocked"
@@ -106,6 +106,6 @@ describe("buildFailureCommentBody", () => {
     );
 
     expect(comment).toContain("Symphony merge automation reported a merge blocker.");
-    expect(comment).toContain("move it back to `Approved`");
+    expect(comment).toContain("move it back to `Todo`");
   });
 });

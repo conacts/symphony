@@ -13,8 +13,8 @@ import {
   symphonyRepositoryWorkspaceBindingsTable
 } from "@symphony/db";
 import {
-  createSymphonyCurrentFlowRunStartedSignal,
-  createSymphonyCurrentFlowTrackerStateObservedSignal,
+  createSymphonyIntelligentFlowRunStartedSignal,
+  createSymphonyIntelligentFlowTrackerStateObservedSignal,
   createSymphonyIntelligentFlowRouterAsync,
   createDeterministicStrategy,
   createWorkflowRouterAsync,
@@ -586,7 +586,7 @@ describe("runtime route workflows", () => {
       });
 
       const bootstrapResult = await initialSession.receiveAsync(
-        createSymphonyCurrentFlowTrackerStateObservedSignal({
+        createSymphonyIntelligentFlowTrackerStateObservedSignal({
           id: "signal_todo_observed",
           occurredAt: "2026-04-10T00:30:00.000Z",
           state: "Todo",
@@ -643,7 +643,7 @@ describe("runtime route workflows", () => {
       }
 
       const runStartedResult = await resumed.session.receiveAsync(
-        createSymphonyCurrentFlowRunStartedSignal({
+        createSymphonyIntelligentFlowRunStartedSignal({
           id: "signal_run_started",
           occurredAt: "2026-04-10T00:30:02.000Z",
           runId: "run-411A",

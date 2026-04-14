@@ -5,10 +5,10 @@ import {
   createSymphonyWorkflowClarificationRequestedSignal
 } from "../../capability/symphony-capability-contract.js";
 import {
-  createSymphonyCurrentFlowDeliveryReportedSignal,
-  createSymphonyCurrentFlowRunStartedSignal,
-  createSymphonyCurrentFlowTrackerStateObservedSignal
-} from "../current-flow/symphony-current-flow-contract.js";
+  createSymphonyIntelligentFlowDeliveryReportedSignal,
+  createSymphonyIntelligentFlowRunStartedSignal,
+  createSymphonyIntelligentFlowTrackerStateObservedSignal
+} from "./symphony-intelligent-flow-lifecycle-contract.js";
 import {
   createSymphonyIntelligentFlowRouterAsync
 } from "./symphony-intelligent-flow-router.js";
@@ -43,7 +43,7 @@ describe("Symphony intelligent-flow router", () => {
     });
 
     const result = await session.receiveAsync(
-      createSymphonyCurrentFlowTrackerStateObservedSignal({
+      createSymphonyIntelligentFlowTrackerStateObservedSignal({
         id: "signal_todo_observed",
         occurredAt: "2026-04-13T22:59:58.000Z",
         state: "Todo",
@@ -88,7 +88,7 @@ describe("Symphony intelligent-flow router", () => {
     });
 
     await session.receiveAsync(
-      createSymphonyCurrentFlowTrackerStateObservedSignal({
+      createSymphonyIntelligentFlowTrackerStateObservedSignal({
         id: "signal_todo_observed",
         occurredAt: "2026-04-13T23:04:58.000Z",
         state: "Todo",
@@ -100,7 +100,7 @@ describe("Symphony intelligent-flow router", () => {
     );
 
     const result = await session.receiveAsync(
-      createSymphonyCurrentFlowRunStartedSignal({
+      createSymphonyIntelligentFlowRunStartedSignal({
         id: "signal_implementation_started",
         occurredAt: "2026-04-13T23:04:59.000Z",
         runId: "run-1",
@@ -136,7 +136,7 @@ describe("Symphony intelligent-flow router", () => {
     });
 
     await session.receiveAsync(
-      createSymphonyCurrentFlowTrackerStateObservedSignal({
+      createSymphonyIntelligentFlowTrackerStateObservedSignal({
         id: "signal_todo_observed",
         occurredAt: "2026-04-13T23:09:58.000Z",
         state: "Todo",
@@ -147,7 +147,7 @@ describe("Symphony intelligent-flow router", () => {
       })
     );
     await session.receiveAsync(
-      createSymphonyCurrentFlowRunStartedSignal({
+      createSymphonyIntelligentFlowRunStartedSignal({
         id: "signal_implementation_started",
         occurredAt: "2026-04-13T23:09:59.000Z",
         runId: "run-1",
@@ -158,7 +158,7 @@ describe("Symphony intelligent-flow router", () => {
     );
 
     const result = await session.receiveAsync(
-      createSymphonyCurrentFlowDeliveryReportedSignal({
+      createSymphonyIntelligentFlowDeliveryReportedSignal({
         id: "signal_delivery_reported",
         occurredAt: "2026-04-13T23:10:00.000Z",
         runId: "run-1",
@@ -194,7 +194,7 @@ describe("Symphony intelligent-flow router", () => {
     });
 
     await session.receiveAsync(
-      createSymphonyCurrentFlowTrackerStateObservedSignal({
+      createSymphonyIntelligentFlowTrackerStateObservedSignal({
         id: "signal_todo_observed",
         occurredAt: "2026-04-13T23:19:57.000Z",
         state: "Todo",
@@ -205,7 +205,7 @@ describe("Symphony intelligent-flow router", () => {
       })
     );
     await session.receiveAsync(
-      createSymphonyCurrentFlowRunStartedSignal({
+      createSymphonyIntelligentFlowRunStartedSignal({
         id: "signal_implementation_started",
         occurredAt: "2026-04-13T23:19:58.000Z",
         runId: "run-1",
@@ -279,7 +279,7 @@ describe("Symphony intelligent-flow router", () => {
     });
 
     await session.receiveAsync(
-      createSymphonyCurrentFlowTrackerStateObservedSignal({
+      createSymphonyIntelligentFlowTrackerStateObservedSignal({
         id: "signal_todo_observed",
         occurredAt: "2026-04-13T23:24:57.000Z",
         state: "Todo",
@@ -290,7 +290,7 @@ describe("Symphony intelligent-flow router", () => {
       })
     );
     await session.receiveAsync(
-      createSymphonyCurrentFlowRunStartedSignal({
+      createSymphonyIntelligentFlowRunStartedSignal({
         id: "signal_implementation_started",
         occurredAt: "2026-04-13T23:24:58.000Z",
         runId: "run-1",

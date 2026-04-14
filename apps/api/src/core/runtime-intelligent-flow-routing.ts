@@ -1,21 +1,21 @@
 import {
   type WorkflowRouterPreset,
-  createSymphonyCurrentFlowDeliveryReportedSignal,
-  createSymphonyCurrentFlowMergeResultReportedSignal,
-  createSymphonyCurrentFlowReviewReworkRequestedSignal,
-  createSymphonyCurrentFlowRunStartedSignal,
-  createSymphonyCurrentFlowRuntimeCompletedSignal,
-  createSymphonyCurrentFlowRuntimeStartupFailureSignal,
-  createSymphonyCurrentFlowShutdownRequestedSignal,
-  createSymphonyCurrentFlowStateRequestedSignal,
-  createSymphonyCurrentFlowTrackerStateObservedSignal,
+  createSymphonyIntelligentFlowDeliveryReportedSignal,
+  createSymphonyIntelligentFlowMergeResultReportedSignal,
+  createSymphonyIntelligentFlowReviewReworkRequestedSignal,
+  createSymphonyIntelligentFlowRunStartedSignal,
+  createSymphonyIntelligentFlowRuntimeCompletedSignal,
+  createSymphonyIntelligentFlowRuntimeStartupFailureSignal,
+  createSymphonyIntelligentFlowShutdownRequestedSignal,
+  createSymphonyIntelligentFlowStateRequestedSignal,
+  createSymphonyIntelligentFlowTrackerStateObservedSignal,
   createSymphonyIntelligentFlowRouterPreset,
-  parseSymphonyCurrentFlowTrackerState,
-  readSymphonyCurrentFlowDispatchCommand,
-  readSymphonyCurrentFlowTrackerTransitionCommand,
-  symphonyCurrentFlowDeliveryStatusSchema,
-  symphonyCurrentFlowStateRequestKindSchema,
-  symphonyCurrentFlowStateRequestTargetStateSchema,
+  parseSymphonyIntelligentFlowTrackerState,
+  readSymphonyIntelligentFlowDispatchCommand,
+  readSymphonyIntelligentFlowTrackerTransitionCommand,
+  symphonyIntelligentFlowDeliveryStatusSchema,
+  symphonyIntelligentFlowStateRequestKindSchema,
+  symphonyIntelligentFlowStateRequestTargetStateSchema,
   type SymphonyIntelligentFlowData,
   type SymphonyIntelligentFlowNode,
   type SymphonyIntelligentFlowPolicy,
@@ -153,10 +153,10 @@ function assertTrackerStateIncluded(
 function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWorkflowPresetAdapter {
   return {
     createTrackerStateObservedSignal(input) {
-      return createSymphonyCurrentFlowTrackerStateObservedSignal({
+      return createSymphonyIntelligentFlowTrackerStateObservedSignal({
         id: input.id,
         occurredAt: input.occurredAt,
-        state: parseSymphonyCurrentFlowTrackerState(input.trackerState),
+        state: parseSymphonyIntelligentFlowTrackerState(input.trackerState),
         runId: input.runId,
         runMode: input.runMode,
         causationId: input.causationId,
@@ -164,7 +164,7 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
       });
     },
     createRunStartedSignal(input) {
-      return createSymphonyCurrentFlowRunStartedSignal({
+      return createSymphonyIntelligentFlowRunStartedSignal({
         id: input.id,
         occurredAt: input.occurredAt,
         runId: input.runId,
@@ -175,7 +175,7 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
     },
     createRuntimeCompletionSignal(input) {
       if (input.completion.kind === "startup_failure") {
-        return createSymphonyCurrentFlowRuntimeStartupFailureSignal({
+        return createSymphonyIntelligentFlowRuntimeStartupFailureSignal({
           id: input.id,
           occurredAt: input.occurredAt,
           runId: input.runId,
@@ -188,7 +188,7 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
         });
       }
 
-      return createSymphonyCurrentFlowRuntimeCompletedSignal({
+      return createSymphonyIntelligentFlowRuntimeCompletedSignal({
         id: input.id,
         occurredAt: input.occurredAt,
         kind: normalizeLegacyRuntimeCompletionKind(input.completion.kind),
@@ -200,17 +200,17 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
       });
     },
     createDeliveryReportedSignal(input) {
-      return createSymphonyCurrentFlowDeliveryReportedSignal({
+      return createSymphonyIntelligentFlowDeliveryReportedSignal({
         id: input.id,
         occurredAt: input.occurredAt,
         runId: input.runId,
-        status: symphonyCurrentFlowDeliveryStatusSchema.parse(input.status),
+        status: symphonyIntelligentFlowDeliveryStatusSchema.parse(input.status),
         causationId: input.causationId,
         correlationId: input.correlationId
       });
     },
     createMergeResultReportedSignal(input) {
-      return createSymphonyCurrentFlowMergeResultReportedSignal({
+      return createSymphonyIntelligentFlowMergeResultReportedSignal({
         id: input.id,
         occurredAt: input.occurredAt,
         mergeResult: {
@@ -228,7 +228,7 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
       });
     },
     createReviewReworkRequestedSignal(input) {
-      return createSymphonyCurrentFlowReviewReworkRequestedSignal({
+      return createSymphonyIntelligentFlowReviewReworkRequestedSignal({
         id: input.id,
         occurredAt: input.occurredAt,
         handoff: input.handoff,
@@ -237,14 +237,14 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
       });
     },
     createStateRequestedSignal(input) {
-      return createSymphonyCurrentFlowStateRequestedSignal({
+      return createSymphonyIntelligentFlowStateRequestedSignal({
         id: input.id,
         occurredAt: input.occurredAt,
         runId: input.runId,
-        requestKind: symphonyCurrentFlowStateRequestKindSchema.parse(
+        requestKind: symphonyIntelligentFlowStateRequestKindSchema.parse(
           input.requestKind
         ),
-        targetState: symphonyCurrentFlowStateRequestTargetStateSchema.parse(
+        targetState: symphonyIntelligentFlowStateRequestTargetStateSchema.parse(
           input.targetState
         ),
         causationId: input.causationId,
@@ -252,7 +252,7 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
       });
     },
     createShutdownRequestedSignal(input) {
-      return createSymphonyCurrentFlowShutdownRequestedSignal({
+      return createSymphonyIntelligentFlowShutdownRequestedSignal({
         id: input.id,
         occurredAt: input.occurredAt,
         runId: input.runId,
@@ -266,7 +266,7 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
       return readRuntimeIntelligentFlowTrackerStateFromProjection(input);
     },
     shouldObserveUnchangedIdleTrackerState(input) {
-      const trackerState = parseSymphonyCurrentFlowTrackerState(input.trackerState);
+      const trackerState = parseSymphonyIntelligentFlowTrackerState(input.trackerState);
       return input.currentNode === "claimed" && trackerState === "Bootstrapping";
     },
     readLastDispatchModeFromProjection(input) {
@@ -283,7 +283,7 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
     },
     readTrackerTransitionState(command) {
       const trackerTransition =
-        readSymphonyCurrentFlowTrackerTransitionCommand(command);
+        readSymphonyIntelligentFlowTrackerTransitionCommand(command);
       if (trackerTransition) {
         return trackerTransition.payload.state;
       }
@@ -293,7 +293,7 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
       );
     },
     readDispatchRunMode(command) {
-      const dispatchCommand = readSymphonyCurrentFlowDispatchCommand(command);
+      const dispatchCommand = readSymphonyIntelligentFlowDispatchCommand(command);
       if (dispatchCommand) {
         return dispatchCommand.payload.runMode;
       }
@@ -307,11 +307,11 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
 
 function normalizeLegacyRuntimeCompletionKind(
   kind:
-    | Parameters<typeof createSymphonyCurrentFlowRuntimeCompletedSignal>[0]["kind"]
+    | Parameters<typeof createSymphonyIntelligentFlowRuntimeCompletedSignal>[0]["kind"]
     | "awaiting_input"
     | "invalid_result"
     | "missing_terminal_result"
-): Parameters<typeof createSymphonyCurrentFlowRuntimeCompletedSignal>[0]["kind"] {
+): Parameters<typeof createSymphonyIntelligentFlowRuntimeCompletedSignal>[0]["kind"] {
   switch (kind) {
     case "awaiting_input":
     case "invalid_result":

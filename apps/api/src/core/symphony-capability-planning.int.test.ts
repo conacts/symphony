@@ -11,7 +11,7 @@ import {
   createSymphonyCapabilityCompletedSignal,
   createSymphonyCapabilityStartedSignal,
   createSymphonyIntelligentFlowRouterAsync,
-  createSymphonyCurrentFlowTrackerStateObservedSignal,
+  createSymphonyIntelligentFlowTrackerStateObservedSignal,
   type WorkflowRouter,
   type WorkflowNodeId
 } from "@symphony/router";
@@ -637,11 +637,11 @@ async function openHarness(
 async function seedPlannerFixture(
   harness: Awaited<ReturnType<typeof openHarness>>,
   input: {
-    presetId?: "current-flow" | "intelligent-flow";
+    presetId?: "intelligent-flow";
   } = {}
 ) {
   const issue = buildIssue();
-  const presetId = input.presetId ?? "current-flow";
+  const presetId = input.presetId ?? "intelligent-flow";
 
   await harness.issueStore.upsert({
     issueIdentifier: issue.identifier,
@@ -650,17 +650,6 @@ async function seedPlannerFixture(
     latestRunStartedAt: null,
     recordedAt: "2026-04-13T07:00:00.000Z"
   });
-
-  if (presetId === "intelligent-flow") {
-    const router = await createSymphonyIntelligentFlowRouterAsync();
-
-    return await seedPlannerFixtureWithRouter({
-      harness,
-      issue,
-      routerPresetId: presetId,
-      router
-    });
-  }
 
   const router = await createSymphonyIntelligentFlowRouterAsync();
 
@@ -678,7 +667,7 @@ async function seedPlannerFixtureWithRouter<
 >(input: {
   harness: Awaited<ReturnType<typeof openHarness>>;
   issue: ReturnType<typeof buildIssue>;
-  routerPresetId: "current-flow" | "intelligent-flow";
+  routerPresetId: "intelligent-flow";
   router: WorkflowRouter<Node, Data, Record<string, never>>;
 }) {
   const ensured = await input.harness.routeWorkflows.ensureWorkflowForIssue({
@@ -695,7 +684,7 @@ async function seedPlannerFixtureWithRouter<
     policy: {}
   });
   const bootstrapResult = await session.receiveAsync(
-    createSymphonyCurrentFlowTrackerStateObservedSignal({
+    createSymphonyIntelligentFlowTrackerStateObservedSignal({
       id: "signal_todo_observed_planner",
       occurredAt: "2026-04-13T07:01:00.000Z",
       state: "Todo",

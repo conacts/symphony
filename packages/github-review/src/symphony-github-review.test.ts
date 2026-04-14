@@ -23,7 +23,7 @@ function buildSymphonyGitHubReviewPolicyConfig(
       teamKey: "COL",
       excludedProjectIds: [],
       assignee: null,
-      dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework", "Approved"],
+      dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework"],
       terminalStates: ["Canceled", "Done"],
       claimTransitionToState: "Bootstrapping",
       claimTransitionFromStates: ["Todo", "Rework"],

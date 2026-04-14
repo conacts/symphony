@@ -5,9 +5,9 @@ import type {
 import { isSymphonyReworkHandoff } from "@symphony/runtime-contract";
 import type { RuntimeMergeResult } from "./runtime-result-types.js";
 import {
-  isSymphonyCurrentFlowMergeResultRecord,
-  parseSymphonyCurrentFlowRunMode,
-  parseSymphonyCurrentFlowTrackerState
+  isSymphonyIntelligentFlowMergeResultRecord,
+  parseSymphonyIntelligentFlowRunMode,
+  parseSymphonyIntelligentFlowTrackerState
 } from "@symphony/router";
 import { z } from "zod";
 
@@ -49,7 +49,7 @@ export function readRuntimeIntelligentFlowTrackerStateFromProjection(input: {
     return null;
   }
 
-  return parseSymphonyCurrentFlowTrackerState(trackerState);
+  return parseSymphonyIntelligentFlowTrackerState(trackerState);
 }
 
 export function readRuntimeIntelligentFlowActiveRunModeFromProjection(input: {
@@ -59,7 +59,7 @@ export function readRuntimeIntelligentFlowActiveRunModeFromProjection(input: {
   const projectionData = parseRuntimeIntelligentFlowLifecycleProjectionData(input);
 
   if (projectionData.lastRunMode !== null) {
-    return parseSymphonyCurrentFlowRunMode(projectionData.lastRunMode);
+    return parseSymphonyIntelligentFlowRunMode(projectionData.lastRunMode);
   }
 
   throw new TypeError(
@@ -77,7 +77,7 @@ export function readRuntimeIntelligentFlowLastDispatchModeFromProjection(input: 
     return null;
   }
 
-  return parseSymphonyCurrentFlowRunMode(lastDispatchMode);
+  return parseSymphonyIntelligentFlowRunMode(lastDispatchMode);
 }
 
 export function readRuntimeIntelligentFlowLatestReworkHandoffFromProjection(input: {
@@ -110,7 +110,7 @@ export function readRuntimeIntelligentFlowLatestMergeResultFromProjection(input:
     return null;
   }
 
-  if (!isSymphonyCurrentFlowMergeResultRecord(mergeResult)) {
+  if (!isSymphonyIntelligentFlowMergeResultRecord(mergeResult)) {
     throw new TypeError(
       `Route workflow ${input.workflowId} has invalid intelligent-flow lifecycle merge-result data.`
     );

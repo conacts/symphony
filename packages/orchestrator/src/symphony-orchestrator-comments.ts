@@ -288,11 +288,11 @@ function blockedMergeFollowUpLines(
     expectedTrackerState,
     firstLine: "Symphony did not retry automatically.",
     rerunInstruction:
-      "After resolving the merge problem, move it back to `Approved` to request another merge run.",
+      "After resolving the merge problem, move it back to `Todo` to request another run.",
     manualCleanupInstruction:
-      "Manual state cleanup may be required before the merge is retried.",
+      "Manual state cleanup may be required before the ticket is requeued.",
     fallbackInstruction:
-      "After resolving the merge problem, move the issue back to `Approved` to request another merge run."
+      "After resolving the merge problem, move the issue back to `Todo` to request another run."
   });
 }
 

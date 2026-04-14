@@ -26,8 +26,7 @@ const defaultDispatchableStates = [
   "Todo",
   "Bootstrapping",
   "In Progress",
-  "Rework",
-  "Approved"
+  "Rework"
 ];
 const defaultTerminalStates = ["Canceled", "Done"];
 const defaultClaimTransitionFromStates = ["Todo", "Rework"];

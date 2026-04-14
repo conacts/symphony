@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createSymphonyCapabilityOperatorService } from "./symphony-capability-operator.js";
 
 describe("Symphony capability operator service", () => {
-  it("inspects planner state for current-flow implementation shells", async () => {
+  it("inspects planner state for intelligent-flow implementation shells", async () => {
     const routeWorkflowStore = {
       getExecutionContract: vi.fn().mockResolvedValue({
         issueIdentifier: "SYM-18"

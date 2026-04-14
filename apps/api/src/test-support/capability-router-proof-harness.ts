@@ -11,10 +11,10 @@ import {
 import {
   createSymphonyWorkflowClarificationAnsweredSignal,
   createSymphonyIntelligentFlowRouterAsync,
-  createSymphonyCurrentFlowTrackerStateObservedSignal,
+  createSymphonyIntelligentFlowTrackerStateObservedSignal,
   createSymphonyIntelligentFlowDefaultModuleRegistry,
   projectWorkflowCapabilityProjection,
-  type SymphonyCurrentFlowTrackerState,
+  type SymphonyIntelligentFlowTrackerState,
   type SymphonyIntelligentFlowModuleDefinition,
   type SymphonyIntelligentFlowModuleRegistry,
   type SymphonyCapabilityEvidenceId,
@@ -279,7 +279,7 @@ export class CapabilityRouterProofHarness {
 
   async observeTrackerState(input: {
     recordedAt: string;
-    state: SymphonyCurrentFlowTrackerState;
+    state: SymphonyIntelligentFlowTrackerState;
     runId?: string | null;
     runMode?: "implementation" | "rework" | null;
   }) {
@@ -292,7 +292,7 @@ export class CapabilityRouterProofHarness {
       );
     }
 
-    const signal = createSymphonyCurrentFlowTrackerStateObservedSignal({
+    const signal = createSymphonyIntelligentFlowTrackerStateObservedSignal({
       id: `signal_tracker_state_observed_${normalizeToken(input.state)}_${normalizeToken(input.recordedAt)}`,
       occurredAt: input.recordedAt,
       state: input.state,
@@ -442,7 +442,7 @@ export class CapabilityRouterProofHarness {
       policy: {}
     });
     const bootstrapResult = await session.receiveAsync(
-      createSymphonyCurrentFlowTrackerStateObservedSignal({
+      createSymphonyIntelligentFlowTrackerStateObservedSignal({
         id: "signal_todo_observed_capability_router_proof",
         occurredAt: "2026-04-13T09:01:00.000Z",
         state: "Todo",

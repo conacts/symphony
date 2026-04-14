@@ -1,26 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
-  createSymphonyCurrentFlowDispatchCommand,
-  createSymphonyCurrentFlowDeliveryReportedSignal,
-  createSymphonyCurrentFlowMergeResultReportedSignal,
-  createSymphonyCurrentFlowReviewReworkRequestedSignal,
-  createSymphonyCurrentFlowRunStartedSignal,
-  createSymphonyCurrentFlowStateRequestedSignal,
-  createSymphonyCurrentFlowTrackerStateObservedSignal,
-  createSymphonyCurrentFlowTrackerTransitionCommand,
-  readSymphonyCurrentFlowDispatchCommand,
-  readSymphonyCurrentFlowDeliveryReportedSignal,
-  readSymphonyCurrentFlowMergeResultReportedSignal,
-  readSymphonyCurrentFlowReviewReworkRequestedSignal,
-  readSymphonyCurrentFlowRunStartedSignal,
-  readSymphonyCurrentFlowStateRequestedSignal,
-  readSymphonyCurrentFlowTrackerStateObservedSignal,
-  readSymphonyCurrentFlowTrackerTransitionCommand
-} from "./symphony-current-flow-contract.js";
+  createSymphonyIntelligentFlowDispatchCommand,
+  createSymphonyIntelligentFlowDeliveryReportedSignal,
+  createSymphonyIntelligentFlowMergeResultReportedSignal,
+  createSymphonyIntelligentFlowReviewReworkRequestedSignal,
+  createSymphonyIntelligentFlowRunStartedSignal,
+  createSymphonyIntelligentFlowStateRequestedSignal,
+  createSymphonyIntelligentFlowTrackerStateObservedSignal,
+  createSymphonyIntelligentFlowTrackerTransitionCommand,
+  readSymphonyIntelligentFlowDispatchCommand,
+  readSymphonyIntelligentFlowDeliveryReportedSignal,
+  readSymphonyIntelligentFlowMergeResultReportedSignal,
+  readSymphonyIntelligentFlowReviewReworkRequestedSignal,
+  readSymphonyIntelligentFlowRunStartedSignal,
+  readSymphonyIntelligentFlowStateRequestedSignal,
+  readSymphonyIntelligentFlowTrackerStateObservedSignal,
+  readSymphonyIntelligentFlowTrackerTransitionCommand
+} from "./symphony-intelligent-flow-lifecycle-contract.js";
 
-describe("Symphony current-flow contract", () => {
+describe("Symphony intelligent-flow lifecycle contract", () => {
   it("builds and reads tracker observations with explicit null run context", () => {
-    const signal = createSymphonyCurrentFlowTrackerStateObservedSignal({
+    const signal = createSymphonyIntelligentFlowTrackerStateObservedSignal({
       id: "signal_todo_observed",
       occurredAt: "2026-04-10T15:00:00.000Z",
       state: "Todo",
@@ -30,13 +30,13 @@ describe("Symphony current-flow contract", () => {
       correlationId: "SYM-300"
     });
 
-    expect(readSymphonyCurrentFlowTrackerStateObservedSignal(signal)).toEqual(
+    expect(readSymphonyIntelligentFlowTrackerStateObservedSignal(signal)).toEqual(
       signal
     );
   });
 
   it("returns null when reading a different signal type", () => {
-    const signal = createSymphonyCurrentFlowRunStartedSignal({
+    const signal = createSymphonyIntelligentFlowRunStartedSignal({
       id: "signal_run_started",
       occurredAt: "2026-04-10T15:00:01.000Z",
       runId: "run-300",
@@ -45,12 +45,12 @@ describe("Symphony current-flow contract", () => {
       correlationId: "SYM-300"
     });
 
-    expect(readSymphonyCurrentFlowTrackerStateObservedSignal(signal)).toBeNull();
-    expect(readSymphonyCurrentFlowRunStartedSignal(signal)).toEqual(signal);
+    expect(readSymphonyIntelligentFlowTrackerStateObservedSignal(signal)).toBeNull();
+    expect(readSymphonyIntelligentFlowRunStartedSignal(signal)).toEqual(signal);
   });
 
   it("builds and reads runtime delivery reports with strict required fields", () => {
-    const signal = createSymphonyCurrentFlowDeliveryReportedSignal({
+    const signal = createSymphonyIntelligentFlowDeliveryReportedSignal({
       id: "signal_delivery_reported",
       occurredAt: "2026-04-10T15:00:01.500Z",
       runId: "run-300",
@@ -59,12 +59,12 @@ describe("Symphony current-flow contract", () => {
       correlationId: "SYM-300"
     });
 
-    expect(readSymphonyCurrentFlowDeliveryReportedSignal(signal)).toEqual(signal);
-    expect(readSymphonyCurrentFlowRunStartedSignal(signal)).toBeNull();
+    expect(readSymphonyIntelligentFlowDeliveryReportedSignal(signal)).toEqual(signal);
+    expect(readSymphonyIntelligentFlowRunStartedSignal(signal)).toBeNull();
   });
 
   it("builds and reads runtime merge-result reports with strict required fields", () => {
-    const signal = createSymphonyCurrentFlowMergeResultReportedSignal({
+    const signal = createSymphonyIntelligentFlowMergeResultReportedSignal({
       id: "signal_merge_result_reported",
       occurredAt: "2026-04-10T15:00:01.625Z",
       mergeResult: {
@@ -81,14 +81,14 @@ describe("Symphony current-flow contract", () => {
       correlationId: "SYM-300"
     });
 
-    expect(readSymphonyCurrentFlowMergeResultReportedSignal(signal)).toEqual(
+    expect(readSymphonyIntelligentFlowMergeResultReportedSignal(signal)).toEqual(
       signal
     );
-    expect(readSymphonyCurrentFlowDeliveryReportedSignal(signal)).toBeNull();
+    expect(readSymphonyIntelligentFlowDeliveryReportedSignal(signal)).toBeNull();
   });
 
   it("builds and reads review rework requests with strict required fields", () => {
-    const signal = createSymphonyCurrentFlowReviewReworkRequestedSignal({
+    const signal = createSymphonyIntelligentFlowReviewReworkRequestedSignal({
       id: "signal_review_rework_requested",
       occurredAt: "2026-04-10T15:00:01.700Z",
       handoff: {
@@ -105,14 +105,14 @@ describe("Symphony current-flow contract", () => {
       correlationId: "SYM-300"
     });
 
-    expect(readSymphonyCurrentFlowReviewReworkRequestedSignal(signal)).toEqual(
+    expect(readSymphonyIntelligentFlowReviewReworkRequestedSignal(signal)).toEqual(
       signal
     );
-    expect(readSymphonyCurrentFlowMergeResultReportedSignal(signal)).toBeNull();
+    expect(readSymphonyIntelligentFlowMergeResultReportedSignal(signal)).toBeNull();
   });
 
   it("builds and reads runtime state requests with strict required fields", () => {
-    const signal = createSymphonyCurrentFlowStateRequestedSignal({
+    const signal = createSymphonyIntelligentFlowStateRequestedSignal({
       id: "signal_state_requested",
       occurredAt: "2026-04-10T15:00:01.750Z",
       runId: "run-300",
@@ -122,13 +122,13 @@ describe("Symphony current-flow contract", () => {
       correlationId: "SYM-300"
     });
 
-    expect(readSymphonyCurrentFlowStateRequestedSignal(signal)).toEqual(signal);
-    expect(readSymphonyCurrentFlowDeliveryReportedSignal(signal)).toBeNull();
+    expect(readSymphonyIntelligentFlowStateRequestedSignal(signal)).toEqual(signal);
+    expect(readSymphonyIntelligentFlowDeliveryReportedSignal(signal)).toBeNull();
   });
 
   it("fails fast when tracker observations omit required null fields", () => {
     expect(() =>
-      readSymphonyCurrentFlowTrackerStateObservedSignal({
+      readSymphonyIntelligentFlowTrackerStateObservedSignal({
         id: "signal_invalid_tracker_state",
         type: "tracker.state_observed",
         source: "tracker",
@@ -139,12 +139,14 @@ describe("Symphony current-flow contract", () => {
         causationId: null,
         correlationId: "SYM-300"
       })
-    ).toThrow(/Invalid Symphony current-flow tracker\.state_observed signal/);
+    ).toThrow(
+      /Invalid Symphony intelligent-flow lifecycle tracker\.state_observed signal/
+    );
   });
 
   it("fails fast when runtime state requests omit the terminal target state", () => {
     expect(() =>
-      readSymphonyCurrentFlowStateRequestedSignal({
+      readSymphonyIntelligentFlowStateRequestedSignal({
         id: "signal_invalid_state_request",
         type: "runtime.state_requested",
         source: "runtime",
@@ -156,12 +158,14 @@ describe("Symphony current-flow contract", () => {
         causationId: "run-300",
         correlationId: "SYM-300"
       })
-    ).toThrow(/Invalid Symphony current-flow runtime\.state_requested signal/);
+    ).toThrow(
+      /Invalid Symphony intelligent-flow lifecycle runtime\.state_requested signal/
+    );
   });
 
   it("fails fast when merge-result reports omit the structured merge result", () => {
     expect(() =>
-      readSymphonyCurrentFlowMergeResultReportedSignal({
+      readSymphonyIntelligentFlowMergeResultReportedSignal({
         id: "signal_invalid_merge_result",
         type: "runtime.merge_result_reported",
         source: "runtime",
@@ -171,13 +175,13 @@ describe("Symphony current-flow contract", () => {
         correlationId: "SYM-300"
       })
     ).toThrow(
-      /Invalid Symphony current-flow runtime\.merge_result_reported signal/
+      /Invalid Symphony intelligent-flow lifecycle runtime\.merge_result_reported signal/
     );
   });
 
   it("fails fast when review rework requests omit the structured handoff", () => {
     expect(() =>
-      readSymphonyCurrentFlowReviewReworkRequestedSignal({
+      readSymphonyIntelligentFlowReviewReworkRequestedSignal({
         id: "signal_invalid_review_rework",
         type: "review.rework_requested",
         source: "review",
@@ -186,12 +190,14 @@ describe("Symphony current-flow contract", () => {
         causationId: "review-300",
         correlationId: "SYM-300"
       })
-    ).toThrow(/Invalid Symphony current-flow review\.rework_requested signal/);
+    ).toThrow(
+      /Invalid Symphony intelligent-flow lifecycle review\.rework_requested signal/
+    );
   });
 
   it("fails fast when run.dispatch payload is malformed", () => {
     expect(() =>
-      readSymphonyCurrentFlowDispatchCommand({
+      readSymphonyIntelligentFlowDispatchCommand({
         id: "command_dispatch_invalid",
         kind: "run.dispatch",
         dedupeKey: null,
@@ -199,23 +205,25 @@ describe("Symphony current-flow contract", () => {
           runMode: "deploy"
         }
       })
-    ).toThrow(/Invalid Symphony current-flow run\.dispatch command/);
+    ).toThrow(
+      /Invalid Symphony intelligent-flow lifecycle run\.dispatch command/
+    );
   });
 
   it("reads strict tracker and dispatch commands", () => {
-    const trackerTransition = createSymphonyCurrentFlowTrackerTransitionCommand({
+    const trackerTransition = createSymphonyIntelligentFlowTrackerTransitionCommand({
       id: "command_tracker_paused",
       state: "Paused",
       dedupeKey: null
     });
-    const dispatch = createSymphonyCurrentFlowDispatchCommand({
+    const dispatch = createSymphonyIntelligentFlowDispatchCommand({
       id: "command_dispatch_rework",
       runMode: "rework",
       dedupeKey: null
     });
 
-    expect(readSymphonyCurrentFlowTrackerTransitionCommand(trackerTransition))
+    expect(readSymphonyIntelligentFlowTrackerTransitionCommand(trackerTransition))
       .toEqual(trackerTransition);
-    expect(readSymphonyCurrentFlowDispatchCommand(dispatch)).toEqual(dispatch);
+    expect(readSymphonyIntelligentFlowDispatchCommand(dispatch)).toEqual(dispatch);
   });
 });
