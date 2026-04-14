@@ -8,6 +8,7 @@ import type {
 } from "@symphony/router";
 import {
   createSymphonyCapabilityExecutionCommand,
+  createSymphonyIntelligentFlowRouterDecision,
   createSymphonyTicketExecutionContract
 } from "@symphony/router";
 import {
@@ -612,6 +613,7 @@ describe("route workflow store", () => {
             decidedAt: "2026-04-13T06:08:00.000Z"
           }
         },
+        intelligentFlowRouterDecision: null,
         recordedAt: "2026-04-13T06:08:00.000Z",
         insertedAt: "2026-04-13T06:08:00.000Z"
       });
@@ -756,7 +758,205 @@ describe("route workflow store", () => {
       expect(strictDecision.command).toBeNull();
       expect(loadedDefault).toEqual(defaultDecision.decision);
       expect(loadedStrict).toEqual(strictDecision.decision);
+      expect(loadedDefault?.intelligentFlowRouterDecision).toBeNull();
+      expect(loadedStrict?.intelligentFlowRouterDecision).toBeNull();
       expect(loadedDefault?.decisionId).not.toBe(loadedStrict?.decisionId);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("persists intelligent-flow router decisions with candidate sets for replay", async () => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), "symphony-route-capability-plan-intelligent-flow-")
+    );
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const routeStore = createRouteWorkflowStore(database.db);
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-313C",
+        trackerIssueId: "tracker-313C",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-13T06:14:00.000Z"
+      });
+
+      const workflowId = await routeStore.createWorkflow({
+        trackerIssueId: "tracker-313C",
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-313C",
+        routerPresetId: "intelligent-flow",
+        routerName: "symphony-intelligent-flow",
+        routerVersion: "1",
+        createdAt: "2026-04-13T06:15:00.000Z"
+      });
+
+      const contract = await routeStore.saveExecutionContract({
+        workflowId,
+        contract: createSymphonyTicketExecutionContract({
+          contractId: "contract_workflow_313C",
+          workflowId,
+          issueIdentifier: "SYM-313C",
+          repositoryKey: "openai/symphony",
+          summary: "Persist intelligent-flow planner decisions.",
+          objective: "Store the admissible candidate set with the selected module.",
+          doneDefinition: "The intelligent-flow router decision is replayable after restart.",
+          mergePolicy: "manual",
+          routingDirectives: {
+            requiredCapabilityIds: ["implement.spec", "critic.code_review"],
+            preferredCapabilityIds: [],
+            forbiddenCapabilityIds: ["critic.browser_test"],
+            requiredEvidenceIds: ["change_set", "code_review_report"],
+            allowedModelProfileIds: [
+              "builder_fast",
+              "builder_deep",
+              "critic_strict",
+              "critic_adversarial"
+            ],
+            completionPolicy: {
+              mode: "manual"
+            },
+            clarificationPolicy: {
+              mode: "required"
+            },
+            reviewStrictness: "strict",
+            maxRetryCount: 2
+          },
+          createdAt: "2026-04-13T06:16:00.000Z",
+          updatedAt: "2026-04-13T06:16:00.000Z"
+        }),
+        recordedAt: "2026-04-13T06:16:00.000Z"
+      });
+
+      const command = createSymphonyCapabilityExecutionCommand({
+        id: "command_capability_execute_313C",
+        dedupeKey: "workflow-313C:implement.spec:1",
+        workflowId,
+        capabilityId: "implement.spec",
+        modelProfileId: "builder_fast",
+        contract: {
+          contractId: contract.contractId,
+          workflowId: contract.workflowId,
+          issueIdentifier: contract.issueIdentifier,
+          repositoryKey: contract.repositoryKey,
+          summary: contract.summary,
+          objective: contract.objective,
+          doneDefinition: contract.doneDefinition,
+          mergePolicy: contract.mergePolicy,
+          routingDirectives: {
+            requiredCapabilityIds: [...contract.routingDirectives.requiredCapabilityIds],
+            preferredCapabilityIds: [...contract.routingDirectives.preferredCapabilityIds],
+            forbiddenCapabilityIds: [...contract.routingDirectives.forbiddenCapabilityIds],
+            requiredEvidenceIds: [...contract.routingDirectives.requiredEvidenceIds],
+            allowedModelProfileIds: [...contract.routingDirectives.allowedModelProfileIds],
+            completionPolicy: {
+              mode: contract.routingDirectives.completionPolicy.mode
+            },
+            clarificationPolicy: {
+              mode: contract.routingDirectives.clarificationPolicy.mode
+            },
+            reviewStrictness: contract.routingDirectives.reviewStrictness,
+            maxRetryCount: contract.routingDirectives.maxRetryCount
+          },
+          createdAt: contract.createdAt,
+          updatedAt: contract.updatedAt
+        },
+        executionInput: null
+      });
+      const intelligentFlowRouterDecision = createSymphonyIntelligentFlowRouterDecision({
+        decisionId: "capability_plan_decision_313C",
+        workflowId,
+        policyId: "default",
+        recordedAt: "2026-04-13T06:17:00.000Z",
+        candidateSet: {
+          admissible: [
+            {
+              moduleId: "implement.spec",
+              rank: 0,
+              reasonCode: "required_by_contract",
+              summary: "implement.spec must produce the initial change set for work epoch 1."
+            },
+            {
+              moduleId: "critic.code_review",
+              rank: 1,
+              reasonCode: "verification_follow_up",
+              summary: "critic.code_review follows implementation evidence."
+            }
+          ],
+          rejected: [
+            {
+              moduleId: "critic.browser_test",
+              reasonCode: "disabled_by_default",
+              summary: "critic.browser_test is disabled by default."
+            }
+          ]
+        },
+        selectedModuleId: "implement.spec",
+        selectionMode: "deterministic",
+        selectionSummary:
+          "implement.spec must produce the initial change set for work epoch 1.",
+        selectionRationale:
+          'Selected intelligent-flow module "implement.spec" at admissibility rank 0 with model profile "builder_fast". implement.spec must produce the initial change set for work epoch 1.',
+        confidence: null,
+        inputProjectionFingerprint:
+          'workflow="workflow-313C"|lifecycle="active"|phase="implementing"',
+        fallbackReason: null
+      });
+      const saved = await routeStore.saveCapabilityPlannerDecision({
+        workflowId,
+        decisionId: "capability_plan_decision_313C",
+        policyId: "default",
+        contract,
+        historyEventSequence: 0,
+        lifecycleProjectionSequence: 0,
+        lifecycleCurrentNode: "active",
+        plan: {
+          kind: "execute",
+          candidate: {
+            capabilityId: "implement.spec",
+            phase: "implementing",
+            workEpoch: 1,
+            priority: 2,
+            required: true,
+            preferred: false,
+            allowedModelProfileIds: ["builder_fast", "builder_deep"],
+            reason: "implement.spec must produce the initial change set for work epoch 1."
+          },
+          decision: {
+            decisionId: "capability_plan_decision_313C",
+            capabilityId: "implement.spec",
+            modelProfileId: "builder_fast",
+            workEpoch: 1,
+            rationale:
+              'Selected intelligent-flow module "implement.spec" at admissibility rank 0 with model profile "builder_fast". implement.spec must produce the initial change set for work epoch 1.',
+            decidedAt: "2026-04-13T06:17:00.000Z"
+          }
+        },
+        intelligentFlowRouterDecision,
+        command,
+        recordedAt: "2026-04-13T06:17:00.000Z"
+      });
+
+      const loaded = await routeStore.getCapabilityPlannerDecisionForState({
+        workflowId,
+        historyEventSequence: 0,
+        contractUpdatedAt: contract.updatedAt,
+        policyId: "default"
+      });
+
+      expect(saved.decision.intelligentFlowRouterDecision).toEqual(
+        intelligentFlowRouterDecision
+      );
+      expect(loaded?.intelligentFlowRouterDecision).toEqual(
+        intelligentFlowRouterDecision
+      );
+      expect(loaded).toEqual(saved.decision);
     } finally {
       database.close();
     }

@@ -2148,6 +2148,10 @@ export const routeWorkflowCapabilityPlannerDecisionsTable = sqliteTable(
     lifecycleCurrentNode: text("lifecycle_current_node"),
     planKind: text("plan_kind").notNull(),
     planJson: text("plan_json", { mode: "json" }).notNull().$type<unknown>(),
+    intelligentFlowRouterDecisionJson: text(
+      "intelligent_flow_router_decision_json",
+      { mode: "json" }
+    ).$type<unknown | null>(),
     recordedAt: text("recorded_at").notNull(),
     insertedAt: text("inserted_at").notNull()
   },

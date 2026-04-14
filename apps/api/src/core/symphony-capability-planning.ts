@@ -6,8 +6,8 @@ import type {
 } from "@symphony/db";
 import {
   createSymphonyCapabilityExecutionCommand,
-  planSymphonyIntelligentFlowDeterministically,
   createSymphonyCapabilityPreset,
+  resolveSymphonyIntelligentFlowDeterministicPlan,
   createWorkflowCapabilityPlanner,
   type SymphonyCapabilityPresetPolicyId,
   type SymphonyCapabilityEvidenceId,
@@ -125,9 +125,9 @@ export function createSymphonyCapabilityPlanningService(input: {
         contractUpdatedAt: contract.updatedAt,
         policyId
       });
-      const plan =
+      const intelligentFlowPlanning =
         hydrationState.workflow.routerPresetId === "intelligent-flow"
-          ? planSymphonyIntelligentFlowDeterministically({
+          ? resolveSymphonyIntelligentFlowDeterministicPlan({
               contract,
               history: history.map((entry) => entry.event),
               lifecycleState: resolveIntelligentFlowPlanningLifecycleState({
@@ -138,12 +138,15 @@ export function createSymphonyCapabilityPlanningService(input: {
               decidedAt: recordedAt,
               policyId
             })
-          : planner.plan({
-              contract,
-              history: history.map((entry) => entry.event),
-              decisionId,
-              decidedAt: recordedAt
-            });
+          : null;
+      const plan =
+        intelligentFlowPlanning?.plan ??
+        planner.plan({
+          contract,
+          history: history.map((entry) => entry.event),
+          decisionId,
+          decidedAt: recordedAt
+        });
       const command = buildPlannerCommand({
         decisionId,
         workflowId,
@@ -162,6 +165,8 @@ export function createSymphonyCapabilityPlanningService(input: {
           hydrationState.snapshot?.projection.sequence ?? 0,
         lifecycleCurrentNode: hydrationState.snapshot?.projection.currentNode ?? null,
         plan,
+        intelligentFlowRouterDecision:
+          intelligentFlowPlanning?.routerDecision ?? null,
         command,
         recordedAt
       });

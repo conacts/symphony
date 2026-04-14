@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type {
+  SymphonyIntelligentFlowRouterDecision,
   WorkflowCommand,
   WorkflowCapabilityExecutionCommand,
   WorkflowCapabilityId,
@@ -122,6 +123,7 @@ type RouteWorkflowCapabilityPlannerDecisionRow = {
   lifecycleCurrentNode: string | null;
   planKind: string;
   planJson: unknown;
+  intelligentFlowRouterDecisionJson: unknown;
   recordedAt: string;
   insertedAt: string;
 };
@@ -227,6 +229,7 @@ export type RouteWorkflowCapabilityPlannerDecisionRecord<
   lifecycleCurrentNode: string | null;
   planKind: RouteWorkflowCapabilityPlannerPlanKind;
   plan: WorkflowCapabilityPlan<CapabilityId, EvidenceId, ProfileId>;
+  intelligentFlowRouterDecision: SymphonyIntelligentFlowRouterDecision | null;
   recordedAt: string;
   insertedAt: string;
 };
@@ -406,6 +409,7 @@ export interface RouteWorkflowStore {
     lifecycleProjectionSequence: number;
     lifecycleCurrentNode: string | null;
     plan: WorkflowCapabilityPlan<CapabilityId, EvidenceId, ProfileId>;
+    intelligentFlowRouterDecision?: SymphonyIntelligentFlowRouterDecision | null;
     command?: WorkflowCapabilityExecutionCommand<
       WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>,
       CapabilityId,
@@ -1103,6 +1107,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     lifecycleProjectionSequence: number;
     lifecycleCurrentNode: string | null;
     plan: WorkflowCapabilityPlan<CapabilityId, EvidenceId, ProfileId>;
+    intelligentFlowRouterDecision?: SymphonyIntelligentFlowRouterDecision | null;
     command?: WorkflowCapabilityExecutionCommand<
       WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>,
       CapabilityId,
@@ -1148,6 +1153,17 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     );
     const lifecycleCurrentNode = sanitizeOptionalText(input.lifecycleCurrentNode);
     const planKind = sanitizeCapabilityPlannerPlanKind(input.plan.kind);
+    const intelligentFlowRouterDecision =
+      input.intelligentFlowRouterDecision === undefined
+        ? null
+        : validateIntelligentFlowRouterDecision({
+            decision: input.intelligentFlowRouterDecision,
+            decisionId,
+            workflowId,
+            policyId,
+            recordedAt,
+            plan: input.plan
+          });
 
     if (planKind === "execute") {
       if (!input.command) {
@@ -1255,6 +1271,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
           lifecycleCurrentNode,
           planKind,
           planJson: input.plan,
+          intelligentFlowRouterDecisionJson: intelligentFlowRouterDecision,
           recordedAt,
           insertedAt: recordedAt
         })
@@ -1317,6 +1334,7 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
           lifecycleCurrentNode,
           planKind,
           plan: input.plan,
+          intelligentFlowRouterDecision,
           recordedAt,
           insertedAt: recordedAt
         },
@@ -1618,6 +1636,8 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
           routeWorkflowCapabilityPlannerDecisionsTable.lifecycleCurrentNode,
         planKind: routeWorkflowCapabilityPlannerDecisionsTable.planKind,
         planJson: routeWorkflowCapabilityPlannerDecisionsTable.planJson,
+        intelligentFlowRouterDecisionJson:
+          routeWorkflowCapabilityPlannerDecisionsTable.intelligentFlowRouterDecisionJson,
         recordedAt: routeWorkflowCapabilityPlannerDecisionsTable.recordedAt,
         insertedAt: routeWorkflowCapabilityPlannerDecisionsTable.insertedAt
       })
@@ -2115,9 +2135,265 @@ function mapCapabilityPlannerDecisionRow<
     lifecycleCurrentNode: row.lifecycleCurrentNode ?? null,
     planKind,
     plan,
+    intelligentFlowRouterDecision:
+      row.intelligentFlowRouterDecisionJson === null
+        ? null
+        : readStoredIntelligentFlowRouterDecision(
+            row.intelligentFlowRouterDecisionJson
+          ),
     recordedAt: row.recordedAt,
     insertedAt: row.insertedAt
   };
+}
+
+function validateIntelligentFlowRouterDecision<
+  CapabilityId extends WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId,
+>(input: {
+  decision: SymphonyIntelligentFlowRouterDecision | null;
+  decisionId: string;
+  workflowId: string;
+  policyId: string;
+  recordedAt: string;
+  plan: WorkflowCapabilityPlan<CapabilityId, EvidenceId, ProfileId>;
+}): SymphonyIntelligentFlowRouterDecision | null {
+  if (input.decision === null) {
+    return null;
+  }
+
+  const decision = readStoredIntelligentFlowRouterDecision(input.decision);
+  if (decision.decisionId !== input.decisionId) {
+    throw new TypeError(
+      `Intelligent-flow router decision ${decision.decisionId} does not match planner decision ${input.decisionId}.`
+    );
+  }
+  if (decision.workflowId !== input.workflowId) {
+    throw new TypeError(
+      `Intelligent-flow router decision workflow ${decision.workflowId} does not match route workflow ${input.workflowId}.`
+    );
+  }
+  if (decision.policyId !== input.policyId) {
+    throw new TypeError(
+      `Intelligent-flow router decision policy ${decision.policyId} does not match planner policy ${input.policyId}.`
+    );
+  }
+  if (decision.recordedAt !== input.recordedAt) {
+    throw new TypeError(
+      `Intelligent-flow router decision recordedAt ${decision.recordedAt} does not match planner recordedAt ${input.recordedAt}.`
+    );
+  }
+  if (input.plan.kind !== "execute") {
+    throw new TypeError(
+      `Intelligent-flow router decision ${decision.decisionId} requires an execute planner decision.`
+    );
+  }
+  if (decision.selectedModuleId !== input.plan.candidate.capabilityId) {
+    throw new TypeError(
+      `Intelligent-flow router decision selected module ${decision.selectedModuleId} does not match execute candidate ${input.plan.candidate.capabilityId}.`
+    );
+  }
+  if (decision.selectionRationale !== input.plan.decision.rationale) {
+    throw new TypeError(
+      `Intelligent-flow router decision rationale does not match planner decision ${input.plan.decision.decisionId}.`
+    );
+  }
+
+  return decision;
+}
+
+function readStoredIntelligentFlowRouterDecision(
+  value: unknown
+): SymphonyIntelligentFlowRouterDecision {
+  if (!isRecord(value)) {
+    throw new TypeError("Stored intelligent-flow router decision must be an object.");
+  }
+
+  const candidateSetValue = value.candidateSet;
+  if (!isRecord(candidateSetValue)) {
+    throw new TypeError("Stored intelligent-flow router decision candidateSet is required.");
+  }
+
+  const admissible = readStoredIntelligentFlowCandidateArray(
+    candidateSetValue.admissible,
+    "admissible"
+  );
+  const rejected = readStoredIntelligentFlowCandidateArray(
+    candidateSetValue.rejected,
+    "rejected"
+  );
+  const selectedModuleId = sanitizeRequiredText(
+    readStoredRecordText(value, "selectedModuleId"),
+    "selectedModuleId"
+  ) as SymphonyIntelligentFlowRouterDecision["selectedModuleId"];
+  const selectionMode = readStoredIntelligentFlowSelectionMode(
+    value.selectionMode
+  );
+  const confidence = readStoredIntelligentFlowConfidence(value.confidence);
+  const fallbackReason = readStoredNullableText(value.fallbackReason, "fallbackReason");
+
+  if (!admissible.some((candidate) => candidate.moduleId === selectedModuleId)) {
+    throw new TypeError(
+      `Stored intelligent-flow router decision selected module ${selectedModuleId} must appear in the admissible candidate set.`
+    );
+  }
+  if (selectionMode === "llm_selected" && confidence === null) {
+    throw new TypeError(
+      "Stored intelligent-flow router decision requires confidence for llm_selected mode."
+    );
+  }
+  if (selectionMode === "fallback_default" && fallbackReason === null) {
+    throw new TypeError(
+      "Stored intelligent-flow router decision requires a fallback reason for fallback_default mode."
+    );
+  }
+
+  return {
+    decisionId: sanitizeRequiredText(readStoredRecordText(value, "decisionId"), "decisionId"),
+    workflowId: sanitizeRequiredText(readStoredRecordText(value, "workflowId"), "workflowId"),
+    policyId: sanitizeRequiredText(readStoredRecordText(value, "policyId"), "policyId"),
+    recordedAt: sanitizeRequiredText(readStoredRecordText(value, "recordedAt"), "recordedAt"),
+    candidateSet: {
+      admissible: admissible as SymphonyIntelligentFlowRouterDecision["candidateSet"]["admissible"],
+      rejected: rejected as SymphonyIntelligentFlowRouterDecision["candidateSet"]["rejected"]
+    },
+    selectedModuleId,
+    selectionMode,
+    selectionSummary: sanitizeRequiredText(
+      readStoredRecordText(value, "selectionSummary"),
+      "selectionSummary"
+    ),
+    selectionRationale: sanitizeRequiredText(
+      readStoredRecordText(value, "selectionRationale"),
+      "selectionRationale"
+    ),
+    confidence,
+    inputProjectionFingerprint: sanitizeRequiredText(
+      readStoredRecordText(value, "inputProjectionFingerprint"),
+      "inputProjectionFingerprint"
+    ),
+    fallbackReason
+  };
+}
+
+function readStoredIntelligentFlowCandidateArray(
+  value: unknown,
+  field: "admissible" | "rejected"
+) {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`Stored intelligent-flow candidate set ${field} must be an array.`);
+  }
+
+  return value.map((candidate, index) => {
+    if (!isRecord(candidate)) {
+      throw new TypeError(
+        `Stored intelligent-flow candidate ${field}[${index}] must be an object.`
+      );
+    }
+
+    const moduleId = sanitizeRequiredText(
+      readStoredRecordText(candidate, "moduleId"),
+      `${field}[${index}].moduleId`
+    );
+    const reasonCode = sanitizeRequiredText(
+      readStoredRecordText(candidate, "reasonCode"),
+      `${field}[${index}].reasonCode`
+    );
+    const summary = sanitizeRequiredText(
+      readStoredRecordText(candidate, "summary"),
+      `${field}[${index}].summary`
+    );
+
+    if (field === "admissible") {
+      const rank = sanitizeEventSequence(
+        readStoredRecordInteger(candidate, "rank"),
+        `${field}[${index}].rank`
+      );
+
+      return {
+        moduleId,
+        rank,
+        reasonCode,
+        summary
+      };
+    }
+
+    return {
+      moduleId,
+      reasonCode,
+      summary
+    };
+  });
+}
+
+function readStoredIntelligentFlowSelectionMode(
+  value: unknown
+): SymphonyIntelligentFlowRouterDecision["selectionMode"] {
+  const selectionMode = sanitizeRequiredText(
+    readStoredScalarText(value, "selectionMode"),
+    "selectionMode"
+  );
+  switch (selectionMode) {
+    case "deterministic":
+    case "llm_selected":
+    case "fallback_default":
+    case "reused_cached_decision":
+      return selectionMode;
+    default:
+      throw new TypeError(
+        `Stored intelligent-flow router decision has unknown selection mode ${selectionMode}.`
+      );
+  }
+}
+
+function readStoredIntelligentFlowConfidence(value: unknown): number | null {
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+    throw new TypeError("Stored intelligent-flow router decision confidence must be 0-1.");
+  }
+
+  return value;
+}
+
+function readStoredNullableText(value: unknown, field: string): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  return sanitizeRequiredText(readStoredScalarText(value, field), field);
+}
+
+function readStoredRecordText(
+  value: Record<string, unknown>,
+  field: string
+): string {
+  return readStoredScalarText(value[field], field);
+}
+
+function readStoredRecordInteger(
+  value: Record<string, unknown>,
+  field: string
+): number {
+  const raw = value[field];
+  if (typeof raw !== "number" || !Number.isInteger(raw)) {
+    throw new TypeError(`Stored intelligent-flow router decision ${field} must be an integer.`);
+  }
+
+  return raw;
+}
+
+function readStoredScalarText(value: unknown, field: string): string {
+  if (typeof value !== "string") {
+    throw new TypeError(`Stored intelligent-flow router decision ${field} must be text.`);
+  }
+
+  return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function mapCapabilityPlannerCommandRow<

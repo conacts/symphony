@@ -120,6 +120,7 @@ export {
   buildSymphonyIntelligentFlowAdmissibilitySnapshot
 } from "./symphony-intelligent-flow-admissibility.js";
 export {
+  resolveSymphonyIntelligentFlowDeterministicPlan,
   planSymphonyIntelligentFlowDeterministically,
   selectSymphonyIntelligentFlowDeterministicCapabilityRoute
 } from "./symphony-intelligent-flow-deterministic-planner.js";
@@ -266,6 +267,7 @@ export type {
   SymphonyIntelligentFlowResolvedRoutingPolicy
 } from "./symphony-intelligent-flow-admissibility.js";
 export type {
+  SymphonyIntelligentFlowDeterministicPlanningResult,
   SymphonyIntelligentFlowDeterministicCapabilityRouteSelection
 } from "./symphony-intelligent-flow-deterministic-planner.js";
 export type {

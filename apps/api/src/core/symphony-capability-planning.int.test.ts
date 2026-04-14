@@ -282,6 +282,37 @@ describe("Symphony capability planning", () => {
           workEpoch: 1
         })
       });
+      expect(result.decision.intelligentFlowRouterDecision).toEqual(
+        expect.objectContaining({
+          decisionId: result.decision.decisionId,
+          workflowId: seeded.workflowId,
+          policyId: "default",
+          selectedModuleId: "implement.spec",
+          selectionMode: "deterministic",
+          selectionSummary:
+            "implement.spec must produce the initial change set for work epoch 1.",
+          selectionRationale:
+            result.plan.kind === "execute" ? result.plan.decision.rationale : expect.any(String),
+          candidateSet: expect.objectContaining({
+            admissible: expect.arrayContaining([
+              expect.objectContaining({
+                moduleId: "implement.spec",
+                rank: 0,
+                reasonCode: "required_by_contract"
+              })
+            ]),
+            rejected: expect.arrayContaining([
+              expect.objectContaining({
+                moduleId: "critic.browser_test",
+                reasonCode: "disabled_by_default"
+              })
+            ])
+          }),
+          inputProjectionFingerprint: expect.any(String),
+          confidence: null,
+          fallbackReason: null
+        })
+      );
       expect(result.command?.command.payload.capabilityId).toBe("implement.spec");
     } finally {
       harness.close();
@@ -326,9 +357,62 @@ describe("Symphony capability planning", () => {
           workEpoch: 1
         })
       });
+      expect(result.decision.intelligentFlowRouterDecision).toEqual(
+        expect.objectContaining({
+          selectedModuleId: "critic.code_review",
+          selectionMode: "deterministic",
+          selectionSummary:
+            'critic.code_review must produce missing evidence "code_review_report".',
+          selectionRationale:
+            result.plan.kind === "execute" ? result.plan.decision.rationale : expect.any(String),
+          candidateSet: expect.objectContaining({
+            admissible: expect.arrayContaining([
+              expect.objectContaining({
+                moduleId: "critic.code_review",
+                rank: 0,
+                reasonCode: "required_by_contract"
+              })
+            ])
+          })
+        })
+      );
       expect(result.command?.command.payload.capabilityId).toBe("critic.code_review");
     } finally {
       harness.close();
+    }
+  });
+
+  it("reuses the persisted intelligent-flow router decision after restart", async () => {
+    const harness = await createHarness();
+    const seeded = await seedPlannerFixture(harness, {
+      presetId: "intelligent-flow"
+    });
+
+    try {
+      const first = await harness.planning.planByWorkflowId({
+        workflowId: seeded.workflowId,
+        recordedAt: "2026-04-13T07:14:00.000Z"
+      });
+      harness.close();
+
+      const reopened = await openHarness(harness.root);
+      try {
+        const second = await reopened.planning.planByWorkflowId({
+          workflowId: seeded.workflowId,
+          recordedAt: "2026-04-13T07:15:00.000Z"
+        });
+
+        expect(first.decision.intelligentFlowRouterDecision).not.toBeNull();
+        expect(second.reused).toBe(true);
+        expect(second.plan).toEqual(first.plan);
+        expect(second.decision).toEqual(first.decision);
+        expect(second.command).toEqual(first.command);
+      } finally {
+        reopened.close();
+      }
+    } catch (error) {
+      harness.close();
+      throw error;
     }
   });
 });

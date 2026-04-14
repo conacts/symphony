@@ -17,6 +17,10 @@ import type {
   SymphonyWorkflowTicketExecutionContract
 } from "./symphony-capability-contract.js";
 import {
+  createSymphonyIntelligentFlowRouterDecision,
+  type SymphonyIntelligentFlowRouterDecision
+} from "./symphony-intelligent-flow-contract.js";
+import {
   createSymphonyIntelligentFlowDefaultModuleRegistry,
   type SymphonyIntelligentFlowModuleRegistry
 } from "./symphony-intelligent-flow-module-registry.js";
@@ -47,6 +51,16 @@ type CapabilityBackedModuleDefinition = SymphonyIntelligentFlowModuleDefinition 
   id: SymphonyCapabilityId;
 };
 
+type SymphonyIntelligentFlowDeterministicPlannerInput = {
+  contract: SymphonyWorkflowTicketExecutionContract;
+  history: WorkflowHistory;
+  lifecycleState: SymphonyIntelligentFlowLifecycleState;
+  decisionId: string;
+  decidedAt: string;
+  policyId?: SymphonyCapabilityPresetPolicyId;
+  moduleRegistry?: SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>;
+};
+
 export type SymphonyIntelligentFlowDeterministicCapabilityRouteSelection = {
   candidateSet: SymphonyIntelligentFlowAdmissibilitySnapshot;
   candidate: WorkflowCapabilityCandidate<
@@ -62,19 +76,21 @@ export type SymphonyIntelligentFlowDeterministicCapabilityRouteSelection = {
   resolvedPolicy: SymphonyIntelligentFlowResolvedRoutingPolicy;
 };
 
-export function planSymphonyIntelligentFlowDeterministically(input: {
-  contract: SymphonyWorkflowTicketExecutionContract;
-  history: WorkflowHistory;
-  lifecycleState: SymphonyIntelligentFlowLifecycleState;
-  decisionId: string;
-  decidedAt: string;
-  policyId?: SymphonyCapabilityPresetPolicyId;
-  moduleRegistry?: SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>;
-}): WorkflowCapabilityPlan<
-  SymphonyCapabilityId,
-  SymphonyCapabilityEvidenceId,
-  SymphonyCapabilityModelProfileId
-> {
+export type SymphonyIntelligentFlowDeterministicPlanningResult = {
+  plan: WorkflowCapabilityPlan<
+    SymphonyCapabilityId,
+    SymphonyCapabilityEvidenceId,
+    SymphonyCapabilityModelProfileId
+  >;
+  routerDecision: SymphonyIntelligentFlowRouterDecision | null;
+};
+
+export function resolveSymphonyIntelligentFlowDeterministicPlan(
+  input: SymphonyIntelligentFlowDeterministicPlannerInput
+): SymphonyIntelligentFlowDeterministicPlanningResult {
+  const normalizedLifecycleState = normalizePlanningLifecycleState(input.lifecycleState);
+  const moduleRegistry =
+    input.moduleRegistry ?? createSymphonyIntelligentFlowDefaultModuleRegistry();
   const preset = createSymphonyCapabilityPreset({
     policyId: input.policyId
   });
@@ -95,15 +111,21 @@ export function planSymphonyIntelligentFlowDeterministically(input: {
 
   if (projection.pendingClarification !== null) {
     return {
-      kind: "awaiting_input",
-      clarification: projection.pendingClarification
+      plan: {
+        kind: "awaiting_input",
+        clarification: projection.pendingClarification
+      },
+      routerDecision: null
     };
   }
 
   if (projection.blockedReason !== null) {
     return {
-      kind: "blocked",
-      reason: projection.blockedReason
+      plan: {
+        kind: "blocked",
+        reason: projection.blockedReason
+      },
+      routerDecision: null
     };
   }
 
@@ -116,27 +138,46 @@ export function planSymphonyIntelligentFlowDeterministically(input: {
     completionGate.result === "ready_for_auto_completion"
   ) {
     return {
-      kind: completionGate.result,
-      evaluation: completionGate
+      plan: {
+        kind: completionGate.result,
+        evaluation: completionGate
+      },
+      routerDecision: null
     };
   }
 
   const selection = selectSymphonyIntelligentFlowDeterministicCapabilityRoute({
     resolvedPolicy,
     projection,
-    lifecycleState: normalizePlanningLifecycleState(input.lifecycleState),
+    lifecycleState: normalizedLifecycleState,
     decisionId: input.decisionId,
     decidedAt: input.decidedAt,
-    moduleRegistry:
-      input.moduleRegistry ??
-      createSymphonyIntelligentFlowDefaultModuleRegistry()
+    moduleRegistry
   });
 
   return {
-    kind: "execute",
-    candidate: selection.candidate,
-    decision: selection.decision
+    plan: {
+      kind: "execute",
+      candidate: selection.candidate,
+      decision: selection.decision
+    },
+    routerDecision: buildSymphonyIntelligentFlowDeterministicRouterDecision({
+      contract: input.contract,
+      policyId: input.policyId ?? "default",
+      lifecycleState: normalizedLifecycleState,
+      selection
+    })
   };
+}
+
+export function planSymphonyIntelligentFlowDeterministically(
+  input: SymphonyIntelligentFlowDeterministicPlannerInput
+): WorkflowCapabilityPlan<
+  SymphonyCapabilityId,
+  SymphonyCapabilityEvidenceId,
+  SymphonyCapabilityModelProfileId
+> {
+  return resolveSymphonyIntelligentFlowDeterministicPlan(input).plan;
 }
 
 export function selectSymphonyIntelligentFlowDeterministicCapabilityRoute(input: {
@@ -386,6 +427,101 @@ function buildDeterministicRationale(input: {
   )} at admissibility rank ${input.rank} with model profile ${JSON.stringify(
     input.modelProfileId
   )}. ${input.reason}`;
+}
+
+function buildSymphonyIntelligentFlowDeterministicRouterDecision(input: {
+  contract: SymphonyWorkflowTicketExecutionContract;
+  policyId: SymphonyCapabilityPresetPolicyId;
+  lifecycleState: SymphonyIntelligentFlowLifecycleState;
+  selection: SymphonyIntelligentFlowDeterministicCapabilityRouteSelection;
+}): SymphonyIntelligentFlowRouterDecision {
+  return createSymphonyIntelligentFlowRouterDecision({
+    decisionId: input.selection.decision.decisionId,
+    workflowId: input.contract.workflowId,
+    policyId: input.policyId,
+    recordedAt: input.selection.decision.decidedAt,
+    candidateSet: input.selection.candidateSet,
+    selectedModuleId: input.selection.module.id,
+    selectionMode: "deterministic",
+    selectionSummary: input.selection.candidate.reason,
+    selectionRationale: input.selection.decision.rationale,
+    confidence: null,
+    inputProjectionFingerprint: buildProjectionFingerprint({
+      lifecycleState: input.lifecycleState,
+      projection: input.selection.projection,
+      resolvedPolicy: input.selection.resolvedPolicy
+    }),
+    fallbackReason: null
+  });
+}
+
+function buildProjectionFingerprint(input: {
+  lifecycleState: SymphonyIntelligentFlowLifecycleState;
+  projection: SymphonyIntelligentFlowCapabilityProjection;
+  resolvedPolicy: SymphonyIntelligentFlowResolvedRoutingPolicy;
+}): string {
+  return [
+    `workflow=${JSON.stringify(input.projection.workflowId)}`,
+    `lifecycle=${JSON.stringify(input.lifecycleState)}`,
+    `phase=${JSON.stringify(input.projection.phase)}`,
+    `workEpoch=${input.projection.workEpoch}`,
+    `pendingClarification=${JSON.stringify(
+      input.projection.pendingClarification
+        ? {
+            requestId: input.projection.pendingClarification.requestId,
+            raisedByCapabilityId:
+              input.projection.pendingClarification.raisedByCapabilityId,
+            workEpoch: input.projection.pendingClarification.workEpoch
+          }
+        : null
+    )}`,
+    `blockedReason=${JSON.stringify(input.projection.blockedReason)}`,
+    `completion=${JSON.stringify(input.projection.completionReadiness)}`,
+    `latestAttempts=${JSON.stringify(
+      input.projection.latestAttempts.map((attempt) => ({
+        capabilityId: attempt.capabilityId,
+        modelProfileId: attempt.modelProfileId,
+        workEpoch: attempt.workEpoch,
+        attempt: attempt.attempt,
+        status: attempt.status,
+        retryable: attempt.retryable,
+        reasonCode: attempt.reasonCode,
+        failureKind: attempt.failureKind,
+        evidenceProduced: attempt.evidenceProduced.map((evidence) => evidence.evidenceId)
+      }))
+    )}`,
+    `capabilityStatuses=${JSON.stringify(
+      input.projection.capabilityStatusesByEpoch.map((epoch) => ({
+        workEpoch: epoch.workEpoch,
+        stale: epoch.stale,
+        attempts: epoch.attempts.map((attempt) => ({
+          capabilityId: attempt.capabilityId,
+          modelProfileId: attempt.modelProfileId,
+          workEpoch: attempt.workEpoch,
+          attempt: attempt.attempt,
+          status: attempt.status
+        }))
+      }))
+    )}`,
+    `evidenceByEpoch=${JSON.stringify(
+      input.projection.evidenceByEpoch.map((epoch) => ({
+        workEpoch: epoch.workEpoch,
+        stale: epoch.stale,
+        evidenceIds: epoch.evidence.map((evidence) => evidence.evidenceId)
+      }))
+    )}`,
+    `policy=${JSON.stringify({
+      requiredCapabilityIds: input.resolvedPolicy.requiredCapabilityIds,
+      preferredCapabilityIds: input.resolvedPolicy.preferredCapabilityIds,
+      forbiddenCapabilityIds: input.resolvedPolicy.forbiddenCapabilityIds,
+      requiredEvidenceIds: input.resolvedPolicy.requiredEvidenceIds,
+      allowedModelProfileIds: input.resolvedPolicy.allowedModelProfileIds,
+      completionMode: input.resolvedPolicy.completionPolicy.mode,
+      clarificationMode: input.resolvedPolicy.clarificationPolicy.mode,
+      reviewStrictness: input.resolvedPolicy.reviewStrictness,
+      maxRetryCount: input.resolvedPolicy.maxRetryCount
+    })}`
+  ].join("|");
 }
 
 function requireNonEmptyText(value: string, field: string): string {
