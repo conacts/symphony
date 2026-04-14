@@ -128,7 +128,6 @@ export type SymphonyGitHubRuntimePolicy = {
   statePath: string | null;
   allowedReviewLogins: string[];
   allowedReviewCommentLogins: string[];
-  allowedReworkCommentLogins: string[];
 };
 export type SymphonyWorkflowGitHubConfig = SymphonyGitHubRuntimePolicy;
 
@@ -264,7 +263,7 @@ function normalizeTrackerConfig(
   const tracker = getNestedRecord(value);
   const dispatchableStates = normalizeStringArray(
     tracker.dispatchableStates ?? tracker.activeStates,
-    ["Todo", "Bootstrapping", "In Progress", "Rework"]
+    ["Todo", "Bootstrapping", "In Progress"]
   );
 
   return {
@@ -568,10 +567,6 @@ function normalizeGitHubConfig(
     allowedReviewLogins: normalizeStringArray(github.allowedReviewLogins, []),
     allowedReviewCommentLogins: normalizeStringArray(
       github.allowedReviewCommentLogins,
-      []
-    ),
-    allowedReworkCommentLogins: normalizeStringArray(
-      github.allowedReworkCommentLogins,
       []
     )
   };

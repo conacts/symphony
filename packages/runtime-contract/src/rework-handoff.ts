@@ -1,8 +1,7 @@
 export type SymphonyReworkHandoffSource = "github_review";
 export const symphonyReworkHandoffTriggerKinds = [
   "changes_requested_review",
-  "review_comment",
-  "manual_rework_comment"
+  "review_comment"
 ] as const;
 
 export type SymphonyReworkHandoffTriggerKind =

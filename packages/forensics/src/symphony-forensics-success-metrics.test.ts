@@ -69,7 +69,7 @@ describe("symphony forensics success metrics", () => {
           errorClass: "startup_failure",
           agentFailureKind: "startup_failure",
           errorMessage:
-            "Run ended without recording delivery explicitly through pnpm exec symphony tool finish ...",
+            "Run ended without recording an explicit terminal result. Non-capability-managed runs must report completion before the run can complete.",
           totalTokens: 10,
           cachedInputTokens: 0
         }),

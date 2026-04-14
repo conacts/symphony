@@ -4,7 +4,6 @@ import type {
   SymphonyGitHubReviewSignal
 } from "./symphony-github-review-types.js";
 
-const reworkCommandPattern = /^\/rework(?:\s+(?<context>[\s\S]+))?$/u;
 const defaultReviewCommentLogins = new Set([
   "chatgpt-codex-connector",
   "chatgpt-codex-connector[bot]"
@@ -36,35 +35,9 @@ export function extractSymphonyGithubReviewSignal(
     return null;
   }
 
-  const allowedLogins = new Set(
-    policyConfig.github.allowedReworkCommentLogins
-  );
   const allowedReviewCommentLogins = new Set(
     policyConfig.github.allowedReviewCommentLogins
   );
-  const parsed = parseReworkCommand(event.payload.commentBody);
-
-  if (
-    parsed &&
-    event.payload.authorLogin &&
-    allowedLogins.has(event.payload.authorLogin) &&
-    event.payload.pullRequestUrl
-  ) {
-      return {
-        kind: "manual_rework_comment",
-        issueIdentifier: null,
-        repository: event.repository,
-        issueNumber: event.payload.issueNumber,
-        pullRequestUrl: event.payload.pullRequestUrl,
-        pullRequestHtmlUrl: null,
-        commentHtmlUrl: event.payload.commentHtmlUrl,
-        headSha: null,
-        authorLogin: event.payload.authorLogin,
-        commentId: event.payload.commentId,
-        feedbackBody: event.payload.commentBody,
-        operatorContext: parsed
-      };
-  }
 
   if (
     shouldAcceptReviewComment(
@@ -103,16 +76,6 @@ export function issueIdentifierFromBranch(branchName: string | null): string | n
 
   const issueIdentifier = branchName.slice("symphony/".length).trim();
   return issueIdentifier === "" ? null : issueIdentifier;
-}
-
-function parseReworkCommand(body: string): string | null {
-  const match = reworkCommandPattern.exec(body.trim());
-  if (!match) {
-    return null;
-  }
-
-  const context = match.groups?.context?.trim();
-  return context ? context : null;
 }
 
 function shouldAcceptReviewComment(

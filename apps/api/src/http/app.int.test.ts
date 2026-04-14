@@ -762,7 +762,6 @@ describe("@symphony/api app", () => {
           };
           operator: {
             githubPullRequestSearchUrl: string | null;
-            requeueCommand: string;
             pi: {
               defaultModel: string | null;
               selectedModel: string | null;
@@ -783,7 +782,6 @@ describe("@symphony/api app", () => {
       expect(runtimeIssuePayload.data.operator.githubPullRequestSearchUrl).toContain(
         "github.com/openai/symphony/pulls"
       );
-      expect(runtimeIssuePayload.data.operator.requeueCommand).toBe("/rework");
       expect(runtimeIssuePayload.data.operator.pi.defaultModel).toBe(
         "xiaomi/mimo-v2-pro"
       );
@@ -999,7 +997,7 @@ describe("@symphony/api app", () => {
     expect(invalidItemsPayload.error.code).toBe("VALIDATION_FAILED");
   });
 
-  it("accepts raw GitHub issue_comment /rework webhooks", async () => {
+  it("accepts raw GitHub issue_comment webhooks", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {
         state: "In Review"

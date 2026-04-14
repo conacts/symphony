@@ -647,11 +647,6 @@ export const symphonyRuntimeIssueOperatorSchema = z.strictObject({
   refreshPath: nonEmptyStringSchema,
   refreshDelegatesTo: z.tuple([z.literal("poll"), z.literal("reconcile")]),
   githubPullRequestSearchUrl: z.string().url().nullable(),
-  requeueDelegatesTo: z
-    .array(z.enum(["linear", "github_rework_comment"]))
-    .nonempty(),
-  requeueCommand: nonEmptyStringSchema,
-  requeueHelpText: nonEmptyStringSchema,
   pi: z.strictObject({
     defaultModel: nullableNonEmptyStringSchema,
     selectedModel: nullableNonEmptyStringSchema,

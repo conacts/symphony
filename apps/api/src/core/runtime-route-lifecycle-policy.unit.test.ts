@@ -10,7 +10,7 @@ describe("runtime route lifecycle policy", () => {
       presetId: "intelligent-flow",
       trackerConfig: {
         ...runtimePolicy.tracker,
-        dispatchableStates: [" Todo ", "Rework", "todo"]
+        dispatchableStates: [" Todo ", "In Progress", "todo"]
       },
       presetRequiredSeedStates: [
         " Bootstrapping ",
@@ -19,7 +19,7 @@ describe("runtime route lifecycle policy", () => {
       ]
     });
 
-    expect(policy.dispatchableSeedStates).toEqual(["Todo", "Rework"]);
+    expect(policy.dispatchableSeedStates).toEqual(["Todo", "In Progress"]);
     expect(policy.presetRequiredSeedStates).toEqual([
       "Bootstrapping",
       "In Review",
@@ -27,7 +27,7 @@ describe("runtime route lifecycle policy", () => {
     ]);
     expect(policy.seedStates).toEqual([
       "Todo",
-      "Rework",
+      "In Progress",
       "Bootstrapping",
       "In Review",
       "blocked"

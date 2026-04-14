@@ -365,10 +365,6 @@ export function buildSymphonyRuntimeIssueResult(
     refreshDelegatesTo: ["poll", "reconcile"],
     githubPullRequestSearchUrl:
       "https://github.com/openai/symphony/pulls?q=is%3Apr+head%3Asymphony%2FCOL-167",
-    requeueDelegatesTo: ["linear", "github_rework_comment"],
-    requeueCommand: "/rework",
-    requeueHelpText:
-      "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
     pi: {
       defaultModel: "xiaomi/mimo-v2-pro",
       selectedModel: "xiaomi/mimo-v2-pro",

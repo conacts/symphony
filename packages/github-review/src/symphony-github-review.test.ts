@@ -23,10 +23,10 @@ function buildSymphonyGitHubReviewPolicyConfig(
       teamKey: "COL",
       excludedProjectIds: [],
       assignee: null,
-      dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework"],
+      dispatchableStates: ["Todo", "Bootstrapping", "In Progress"],
       terminalStates: ["Canceled", "Done"],
       claimTransitionToState: "Bootstrapping",
-      claimTransitionFromStates: ["Todo", "Rework"],
+      claimTransitionFromStates: ["Todo"],
       startupFailureTransitionToState: "Failed",
       pauseTransitionToState: "Paused",
       blockedTransitionToState: "Blocked",
@@ -35,7 +35,6 @@ function buildSymphonyGitHubReviewPolicyConfig(
     github: {
       allowedReviewLogins: [],
       allowedReviewCommentLogins: [],
-      allowedReworkCommentLogins: [],
       ...overrides.github
     }
   };
@@ -127,7 +126,7 @@ function buildSymphonyGithubIssueCommentEvent(
       : {
           issueNumber: 123,
           commentId: 456,
-          commentBody: "/rework Please address the feedback.",
+          commentBody: "Please address the feedback before the next run.",
           authorLogin: "reviewer",
           pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
           commentHtmlUrl: "https://github.com/openai/symphony/pull/123#issuecomment-456"
@@ -168,28 +167,21 @@ function buildSymphonyGithubPullRequestReviewCommentEvent(
 }
 
 describe("symphony github review policy", () => {
-  it("accepts changes_requested reviews and manual /rework comments from allowed logins", () => {
+  it("accepts changes_requested reviews from allowed logins", () => {
     const baseConfig = buildSymphonyGitHubReviewPolicyConfig();
     const policyConfig = buildSymphonyGitHubReviewPolicyConfig({
-      tracker: baseConfig.tracker,
       github: {
         ...baseConfig.github,
-        allowedReviewLogins: ["reviewer"],
-        allowedReworkCommentLogins: ["reviewer"]
+        allowedReviewLogins: ["reviewer"]
       }
     });
 
-    const reviewSignal = extractSymphonyGithubReviewSignal(
+    const signal = extractSymphonyGithubReviewSignal(
       policyConfig,
       buildSymphonyGithubReviewEvent()
     );
-    const commentSignal = extractSymphonyGithubReviewSignal(
-      policyConfig,
-      buildSymphonyGithubIssueCommentEvent()
-    );
 
-    expect(reviewSignal?.kind).toBe("changes_requested_review");
-    expect(commentSignal?.kind).toBe("manual_rework_comment");
+    expect(signal?.kind).toBe("changes_requested_review");
   });
 
   it("accepts plain review comments from allowed review-comment logins", () => {
@@ -273,11 +265,9 @@ describe("symphony github review policy", () => {
   it("emits a rework handoff for issues already in review without mutating tracker state", async () => {
     const baseConfig = buildSymphonyGitHubReviewPolicyConfig();
     const policyConfig = buildSymphonyGitHubReviewPolicyConfig({
-      tracker: baseConfig.tracker,
       github: {
         ...baseConfig.github,
-        allowedReviewLogins: ["reviewer"],
-        allowedReworkCommentLogins: ["reviewer"]
+        allowedReviewLogins: ["reviewer"]
       }
     });
 
@@ -321,7 +311,6 @@ describe("symphony github review policy", () => {
   it("skips auto requeue when the issue is opted out", async () => {
     const baseConfig = buildSymphonyGitHubReviewPolicyConfig();
     const policyConfig = buildSymphonyGitHubReviewPolicyConfig({
-      tracker: baseConfig.tracker,
       github: {
         ...baseConfig.github,
         allowedReviewLogins: ["reviewer"]
@@ -353,75 +342,9 @@ describe("symphony github review policy", () => {
     });
   });
 
-  it("acknowledges successful manual /rework requests on GitHub", async () => {
-    const baseConfig = buildSymphonyGitHubReviewPolicyConfig();
-    const policyConfig = buildSymphonyGitHubReviewPolicyConfig({
-      tracker: baseConfig.tracker,
-      github: {
-        ...baseConfig.github,
-        allowedReworkCommentLogins: ["reviewer"]
-      }
-    });
-
-    const tracker = createMemorySymphonyTracker([
-      buildSymphonyTrackerIssue({
-        state: "In Review"
-      })
-    ]);
-    const githubComments: Array<{
-      repository: string;
-      issueNumber: number;
-      body: string;
-    }> = [];
-
-    const processor = new SymphonyGithubReviewProcessor({
-      policyConfig,
-      tracker,
-      pullRequestResolver: {
-        async fetchPullRequest() {
-          return {
-            headRef: "symphony/COL-123",
-            htmlUrl: "https://github.com/openai/symphony/pull/123"
-          };
-        },
-        async createIssueComment(repository, issueNumber, body) {
-          githubComments.push({
-            repository,
-            issueNumber,
-            body
-          });
-        }
-      }
-    });
-
-    const result = await processor.processEvent(buildSymphonyGithubIssueCommentEvent());
-
-    expect(result).toMatchObject({
-      status: "requeued",
-      issueIdentifier: "COL-123",
-      handoff: {
-        source: "github_review",
-        triggerKind: "manual_rework_comment",
-        actorLogin: "reviewer",
-        reviewContextUrl:
-          "https://github.com/openai/symphony/pull/123#issuecomment-456",
-        feedbackBody: "Please address the feedback."
-      }
-    });
-    expect(githubComments).toEqual([
-      {
-        repository: "openai/symphony",
-        issueNumber: 123,
-        body: "Queued rework via Symphony."
-      }
-    ]);
-    expect(tracker.listOperations()).toEqual([]);
-  });
-
   it("requeues issues in review from allowed review-comment logins", async () => {
     const baseConfig = buildSymphonyGitHubReviewPolicyConfig();
     const policyConfig = buildSymphonyGitHubReviewPolicyConfig({
-      tracker: baseConfig.tracker,
       github: {
         ...baseConfig.github,
         allowedReviewCommentLogins: ["chatgpt-codex-connector"]
@@ -565,45 +488,6 @@ describe("symphony github review policy", () => {
       }
     });
     expect(tracker.listOperations()).toEqual([]);
-  });
-
-  it("does not claim manual /rework was queued when no Symphony issue matches", async () => {
-    const baseConfig = buildSymphonyGitHubReviewPolicyConfig();
-    const policyConfig = buildSymphonyGitHubReviewPolicyConfig({
-      tracker: baseConfig.tracker,
-      github: {
-        ...baseConfig.github,
-        allowedReworkCommentLogins: ["reviewer"]
-      }
-    });
-
-    const tracker = createMemorySymphonyTracker([]);
-    const githubComments: string[] = [];
-
-    const processor = new SymphonyGithubReviewProcessor({
-      policyConfig,
-      tracker,
-      pullRequestResolver: {
-        async fetchPullRequest() {
-          return {
-            headRef: "symphony/COL-404",
-            htmlUrl: "https://github.com/openai/symphony/pull/404"
-          };
-        },
-        async createIssueComment(_repository, _issueNumber, body) {
-          githubComments.push(body);
-        }
-      }
-    });
-
-    const result = await processor.processEvent(buildSymphonyGithubIssueCommentEvent());
-
-    expect(result).toEqual({
-      status: "skipped",
-      issueIdentifier: "COL-404",
-      reason: "issue_not_found"
-    });
-    expect(githubComments).toEqual([]);
   });
 
   it("does not post a GitHub acknowledgement when the linked issue is no longer in review", async () => {

@@ -25,11 +25,10 @@ const defaultLinearEndpoint = "https://api.linear.app/graphql";
 const defaultDispatchableStates = [
   "Todo",
   "Bootstrapping",
-  "In Progress",
-  "Rework"
+  "In Progress"
 ];
 const defaultTerminalStates = ["Canceled", "Done"];
-const defaultClaimTransitionFromStates = ["Todo", "Rework"];
+const defaultClaimTransitionFromStates = ["Todo"];
 const defaultAllowedOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
 
 export function loadSymphonyRuntimePolicyConfig(input: {
@@ -164,8 +163,6 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       statePath: githubStatePath,
       allowedReviewLogins:
         readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS) ?? [],
-      allowedReworkCommentLogins:
-        readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS) ?? [],
       ...(readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS)
         ? {
             allowedReviewCommentLogins:

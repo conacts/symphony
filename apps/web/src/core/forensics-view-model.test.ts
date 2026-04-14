@@ -20,7 +20,7 @@ describe("forensics view model", () => {
           completedRunCount: 1,
           problemRunCount: 2,
           problemRate: 2 / 3,
-          latestProblemOutcome: "max_turns",
+          latestProblemOutcome: "paused_max_turns",
           lastCompletedOutcome: "completed",
           latestDeliveryStatus: "completed",
           latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
@@ -74,7 +74,7 @@ describe("forensics view model", () => {
       },
       facets: {
         repositories: ["symphony"],
-        outcomes: ["completed", "max_turns"],
+        outcomes: ["completed", "paused_max_turns"],
         errorClasses: ["max_turns"]
       }
     });
@@ -111,6 +111,7 @@ describe("forensics view model", () => {
           trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           attempt: 1,
+          runMode: "implementation",
           status: "finished",
           outcome: "completed",
           agentHarness: "pi",
@@ -144,7 +145,7 @@ describe("forensics view model", () => {
       ],
       summary: {
         runCount: 3,
-        latestProblemOutcome: "max_turns",
+        latestProblemOutcome: "paused_max_turns",
         lastCompletedOutcome: "completed",
         latestDeliveryStatus: "completed",
         latestDeliveryReportedAt: "2026-03-31T18:06:00.000Z",
@@ -191,6 +192,7 @@ describe("forensics view model", () => {
           trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           attempt: 1,
+          runMode: "implementation",
           status: "finished",
           outcome: "completed",
           agentHarness: "pi",
@@ -238,6 +240,7 @@ describe("forensics view model", () => {
           trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           attempt: 2,
+          runMode: "implementation",
           status: "failed",
           outcome: "failed",
           agentHarness: "pi",
@@ -346,6 +349,7 @@ describe("forensics view model", () => {
           trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           attempt: null,
+          runMode: "implementation",
           status: "stopped",
           outcome: "run_stopped_terminal",
           agentHarness: "pi",
@@ -382,6 +386,7 @@ describe("forensics view model", () => {
           trackerIssueId: "issue_123",
           issueIdentifier: "COL-165",
           attempt: null,
+          runMode: "implementation",
           status: "stopped",
           outcome: "run_stopped_inactive",
           agentHarness: "pi",

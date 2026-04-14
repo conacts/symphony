@@ -82,7 +82,7 @@ describe("symphony github review ingress contracts", () => {
       },
       comment: {
         id: 456,
-        body: "/rework please retry",
+        body: "Please address the feedback before the next run.",
         created_at: "2026-04-01T07:41:59.000Z",
         user: {
           login: "reviewer",

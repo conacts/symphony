@@ -203,10 +203,6 @@ export function serializeRuntimeIssue(
       refreshPath: "/api/v1/refresh",
       refreshDelegatesTo: ["poll", "reconcile"],
       githubPullRequestSearchUrl,
-      requeueDelegatesTo: ["linear", "github_rework_comment"],
-      requeueCommand: "/rework",
-      requeueHelpText:
-        "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
       pi: {
         defaultModel: piSelectionPolicy.defaultModel,
         selectedModel,

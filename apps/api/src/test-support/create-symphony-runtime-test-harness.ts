@@ -172,7 +172,6 @@ export function buildSymphonyRuntimePolicyForRoot(
       webhookSecret: "secret",
       statePath: path.join(root, "github-state.json"),
       allowedReviewLogins: ["reviewer"],
-      allowedReworkCommentLogins: ["reviewer"],
       ...(allowedReviewCommentLogins
         ? {
             allowedReviewCommentLogins

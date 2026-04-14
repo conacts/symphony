@@ -280,10 +280,6 @@ describe("symphony runtime contracts", () => {
           refreshDelegatesTo: ["poll", "reconcile"],
           githubPullRequestSearchUrl:
             "https://github.com/openai/symphony/pulls?q=is%3Apr+head%3Asymphony%2FCOL-157",
-          requeueDelegatesTo: ["linear", "github_rework_comment"],
-          requeueCommand: "/rework",
-          requeueHelpText:
-            "Use /rework on the PR or move the Linear issue back into a dispatchable state.",
           pi: {
             defaultModel: "xiaomi/mimo-v2-pro",
             selectedModel: "xiaomi/mimo-v2-pro",
@@ -619,10 +615,6 @@ describe("symphony runtime contracts", () => {
           refreshDelegatesTo: ["poll", "reconcile"],
           githubPullRequestSearchUrl:
             "https://github.com/openai/symphony/pulls?q=is%3Apr+head%3Asymphony%2FCOL-106",
-          requeueDelegatesTo: ["linear", "github_rework_comment"],
-          requeueCommand: "/rework",
-          requeueHelpText:
-            "Use /rework on the PR or move the Linear issue back into a dispatchable state.",
           pi: {
             defaultModel: "xiaomi/mimo-v2-pro",
             selectedModel: "xiaomi/mimo-v2-pro",

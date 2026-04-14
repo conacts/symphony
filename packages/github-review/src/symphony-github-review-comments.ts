@@ -4,7 +4,7 @@ export function buildSymphonyGitHubReviewContextUrl(
   signal: SymphonyGitHubReviewSignal
 ): string {
   if (
-    (signal.kind === "manual_rework_comment" || signal.kind === "review_comment") &&
+    signal.kind === "review_comment" &&
     signal.repository &&
     signal.issueNumber > 0 &&
     signal.commentId > 0

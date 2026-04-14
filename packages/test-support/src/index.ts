@@ -1,13 +1,12 @@
 export {
-  buildRuntimeMergeResult,
   buildSymphonyGithubIssueCommentEvent,
   buildSymphonyGithubReviewEvent,
   buildSymphonyOrchestratorSnapshot,
-  buildSymphonyReworkHandoff,
   buildSymphonyRunFinishAttrs,
   buildSymphonyRunStartAttrs,
   buildSymphonyTrackerIssue,
   buildSymphonyTurnFinishAttrs,
+  buildRuntimeMergeResult,
   buildSymphonyTurnStartAttrs,
   buildSymphonyRuntimePolicy
 } from "./core-builders.js";
@@ -22,9 +21,9 @@ export {
 } from "./github-builders.js";
 export type {
   SymphonyGitHubIngressRequestFixture,
-  SymphonyManualReworkIngressFixture
+  SymphonyGitHubIssueCommentIngressFixture
 } from "./github-review-flow-builders.js";
-export { buildSymphonyManualReworkIngressFixture } from "./github-review-flow-builders.js";
+export { buildSymphonyGitHubIssueCommentIngressFixture } from "./github-review-flow-builders.js";
 export {
   buildSymphonyForensicsIssueDetailResult,
   buildSymphonyForensicsIssueListResult,

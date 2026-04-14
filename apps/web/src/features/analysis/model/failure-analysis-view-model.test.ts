@@ -17,7 +17,7 @@ describe("failure analysis view model", () => {
           {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
             issueIdentifier: "COL-165",
-            latestProblemOutcome: "max_turns",
+            latestProblemOutcome: "paused_max_turns",
             latestErrorClass: "max_turns",
             latestErrorMessage: "Reached max turns before completion.",
             problemRunCount: 2,
@@ -27,7 +27,7 @@ describe("failure analysis view model", () => {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
             trackerIssueId: "issue_456",
             issueIdentifier: "COL-166",
-            latestProblemOutcome: "startup_failure",
+            latestProblemOutcome: "startup_failed",
             latestErrorClass: "workspace_boot_failure",
             latestErrorMessage: "Workspace bootstrap failed.",
             problemRunCount: 3,
@@ -38,7 +38,7 @@ describe("failure analysis view model", () => {
             ...buildSymphonyForensicsIssueListResult().issues[0]!,
             trackerIssueId: "issue_789",
             issueIdentifier: "COL-167",
-            latestProblemOutcome: "startup_failure",
+            latestProblemOutcome: "startup_failed",
             latestErrorClass: "workspace_boot_failure",
             latestErrorMessage: "Workspace bootstrap failed again.",
             problemRunCount: 1,
@@ -67,7 +67,7 @@ describe("failure analysis view model", () => {
     expect(viewModel.summaryCards[1]?.value).toBe("3");
     expect(viewModel.summaryCards[2]?.value).toBe("75%");
     expect(viewModel.failureModeRows[0]).toEqual({
-      outcome: "Startup Failure",
+      outcome: "Startup failed",
       issueCount: 2
     });
     expect(viewModel.errorClassRows[0]).toEqual({
@@ -75,7 +75,7 @@ describe("failure analysis view model", () => {
       issueCount: 2
     });
     expect(viewModel.hotspotRows[0]?.issueIdentifier).toBe("COL-166");
-    expect(viewModel.hotspotRows[0]?.latestProblemOutcome).toBe("Startup Failure");
+    expect(viewModel.hotspotRows[0]?.latestProblemOutcome).toBe("Startup failed");
     expect(viewModel.hotspotRows[0]?.latestErrorClass).toBe("Workspace boot failure");
     expect(viewModel.hotspotRows[0]?.problemRuns).toBe("3");
     expect(viewModel.timeSeriesRows).toHaveLength(0);
@@ -105,7 +105,7 @@ describe("failure analysis view model", () => {
             run: {
               ...buildSymphonyForensicsIssueDetailResult().runs[0]!,
               runId: "run_b",
-              outcome: "max_turns",
+              outcome: "paused_max_turns",
               errorClass: "max_turns",
               errorMessage: "Reached max turns before completion.",
               startedAt: "2026-03-30T19:00:00.000Z"

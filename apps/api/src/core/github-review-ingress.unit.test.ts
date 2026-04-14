@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
 import {
-  buildSymphonyManualReworkIngressFixture
+  buildSymphonyGitHubIssueCommentIngressFixture
 } from "@symphony/test-support";
 import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 
 describe("github review ingress", () => {
-  it("processes a manual /rework webhook once and suppresses semantic duplicates", async () => {
-    const fixture = buildSymphonyManualReworkIngressFixture();
+  it("processes a review-comment webhook once and suppresses semantic duplicates", async () => {
+    const fixture = buildSymphonyGitHubIssueCommentIngressFixture();
     const processedResults: Array<{
       status: string;
       issueIdentifier?: string | null;

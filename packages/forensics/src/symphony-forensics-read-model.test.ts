@@ -133,7 +133,7 @@ describe("symphony forensics read model", () => {
       outcome: "startup_failed",
       errorClass: "startup_failure",
       errorMessage:
-        "Run ended without recording delivery explicitly through `pnpm exec symphony tool finish ...`.",
+        "Run ended without recording an explicit terminal result. Non-capability-managed runs must report completion before the run can complete.",
       deliveryStatus: null,
       deliveryReportedAt: null,
       deliveryPrUrl: null,

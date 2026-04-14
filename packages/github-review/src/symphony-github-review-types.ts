@@ -4,7 +4,6 @@ import type { SymphonyReworkHandoff } from "@symphony/runtime-contract";
 export type SymphonyGitHubReviewConfig = {
   allowedReviewLogins: string[];
   allowedReviewCommentLogins: string[];
-  allowedReworkCommentLogins: string[];
 };
 
 export type SymphonyGitHubReviewPolicyConfig = {
@@ -75,21 +74,7 @@ export type SymphonyGitHubReviewSignal =
       authorLogin: string | null;
       commentId: number;
       feedbackBody: string | null;
-      operatorContext: string | null;
-    }
-  | {
-      kind: "manual_rework_comment";
-      issueIdentifier: string | null;
-      repository: string;
-      issueNumber: number;
-      pullRequestUrl: string | null;
-      pullRequestHtmlUrl: string | null;
-      commentHtmlUrl: string | null;
-      headSha: null;
-      authorLogin: string | null;
-      commentId: number;
-      feedbackBody: string | null;
-      operatorContext: string | null;
+      operatorContext: null;
     };
 
 export type SymphonyGitHubPullRequestResolver = {

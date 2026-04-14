@@ -272,10 +272,8 @@ async function executeRun(input: {
     runId: input.runId,
     runMode: input.runMode
   });
-  const explicitCompletionRequirement = resolveExplicitCompletionRequirement(
-    input.runMode,
-    capabilityManagedRun
-  );
+  const explicitCompletionRequirement =
+    resolveExplicitCompletionRequirement(capabilityManagedRun);
   const repositoryKey = resolveRuntimeRepositoryKey({
     githubRepo: input.githubRepository
   });
@@ -1000,20 +998,19 @@ function describeLaunchTarget(target: SymphonyRuntimeLaunchTarget): JsonObject {
 
 type ExplicitCompletionRequirement =
   | "none"
-  | "delivery_report";
+  | "terminal_result";
 
 function resolveExplicitCompletionRequirement(
-  runMode: SymphonyRunMode,
   capabilityManagedRun: boolean
 ): ExplicitCompletionRequirement {
-  return capabilityManagedRun ? "none" : "delivery_report";
+  return capabilityManagedRun ? "none" : "terminal_result";
 }
 
-function missingDeliveryReportCompletion(): SymphonyAgentRuntimeCompletion {
+function missingTerminalResultCompletion(): SymphonyAgentRuntimeCompletion {
   return {
     kind: "failure",
     reason:
-      "Run ended without recording delivery explicitly through `pnpm exec symphony tool finish ...`. Delivery success must be reported before the run can complete."
+      "Run ended without recording an explicit terminal result. Non-capability-managed runs must report completion before the run can complete."
   };
 }
 
@@ -1073,7 +1070,7 @@ function capabilityManagedRunCompletion(input: {
 }
 
 function missingExplicitCompletion(): SymphonyAgentRuntimeCompletion {
-  return missingDeliveryReportCompletion();
+  return missingTerminalResultCompletion();
 }
 
 async function observeActiveIssueStateThroughWorkflow(input: {

@@ -20,7 +20,7 @@ export type SymphonyGitHubIngressRequestFixture = {
   rawBody: string;
 };
 
-export type SymphonyManualReworkIngressFixture = {
+export type SymphonyGitHubIssueCommentIngressFixture = {
   issue: ReturnType<typeof buildSymphonyTrackerIssue>;
   runtimePolicy: SymphonyResolvedRuntimePolicy;
   tracker: ReturnType<typeof createMemorySymphonyTracker>;
@@ -28,10 +28,10 @@ export type SymphonyManualReworkIngressFixture = {
   duplicateRequest: SymphonyGitHubIngressRequestFixture;
 };
 
-export function buildSymphonyManualReworkIngressFixture(input: {
+export function buildSymphonyGitHubIssueCommentIngressFixture(input: {
   issueOverrides?: Partial<ReturnType<typeof buildSymphonyTrackerIssue>>;
   runtimePolicyOverrides?: Partial<SymphonyResolvedRuntimePolicy>;
-} = {}): SymphonyManualReworkIngressFixture {
+} = {}): SymphonyGitHubIssueCommentIngressFixture {
   const issue = buildSymphonyTrackerIssue({
     state: "In Review",
     branchName: "symphony/COL-123",
@@ -45,7 +45,7 @@ export function buildSymphonyManualReworkIngressFixture(input: {
       ...baseRuntimePolicy.github,
       repo: "openai/symphony",
       webhookSecret: "secret",
-      allowedReworkCommentLogins: ["reviewer"],
+      allowedReviewCommentLogins: ["reviewer"],
       ...input.runtimePolicyOverrides?.github
     }
   };

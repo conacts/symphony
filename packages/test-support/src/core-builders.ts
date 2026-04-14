@@ -19,21 +19,10 @@ import {
   defaultSymphonyPiPresetName,
   type SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
-import type { SymphonyReworkHandoffTriggerKind } from "@symphony/runtime-contract";
 
 export { buildSymphonyTrackerIssue } from "@symphony/tracker";
 
 let fixtureCounter = 0;
-
-type SymphonyReworkHandoffFixture = {
-  source: "github_review";
-  triggerKind: SymphonyReworkHandoffTriggerKind;
-  reviewContextUrl: string | null;
-  pullRequestUrl: string | null;
-  actorLogin: string | null;
-  feedbackBody: string | null;
-  recordedAt: string;
-};
 
 type RuntimeMergeResultFixture = {
   status: "merged" | "blocked";
@@ -63,10 +52,10 @@ export function buildSymphonyRuntimePolicy(
       teamKey: "COL",
       excludedProjectIds: [],
       assignee: null,
-      dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework"],
+      dispatchableStates: ["Todo", "Bootstrapping", "In Progress"],
       terminalStates: ["Canceled", "Done"],
       claimTransitionToState: "Bootstrapping",
-      claimTransitionFromStates: ["Todo", "Rework"],
+      claimTransitionFromStates: ["Todo"],
       startupFailureTransitionToState: "Failed",
       pauseTransitionToState: "Paused",
       blockedTransitionToState: "Blocked",
@@ -155,7 +144,6 @@ export function buildSymphonyRuntimePolicy(
       statePath: githubStatePath,
       allowedReviewLogins: [],
       allowedReviewCommentLogins: [],
-      allowedReworkCommentLogins: [],
       ...overrides.github
     }
   };
@@ -197,7 +185,7 @@ export function buildSymphonyGithubIssueCommentEvent(
       : {
           issueNumber: 123,
           commentId: 456,
-          commentBody: "/rework Please address the feedback.",
+          commentBody: "Please address the feedback before the next run.",
           authorLogin: "reviewer",
           pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
           commentHtmlUrl: "https://github.com/openai/symphony/pull/123#issuecomment-456"
@@ -208,21 +196,6 @@ export function buildSymphonyGithubIssueCommentEvent(
     repository: "openai/symphony",
     ...overrides,
     payload
-  };
-}
-
-export function buildSymphonyReworkHandoff(
-  overrides: Partial<SymphonyReworkHandoffFixture> = {}
-): SymphonyReworkHandoffFixture {
-  return {
-    source: "github_review",
-    triggerKind: "review_comment",
-    reviewContextUrl: "https://github.com/openai/symphony/pull/123#pullrequestreview-456",
-    pullRequestUrl: "https://github.com/openai/symphony/pull/123",
-    actorLogin: "chatgpt-codex-connector",
-    feedbackBody: "Please rename this API and add the missing test coverage.",
-    recordedAt: "2026-04-06T00:00:00.000Z",
-    ...overrides
   };
 }
 
