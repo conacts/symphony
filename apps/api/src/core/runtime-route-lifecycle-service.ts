@@ -6,11 +6,7 @@ import type {
   SymphonyRunStartActivationInput,
   SymphonyWorkflowRoutingAdapter
 } from "@symphony/orchestrator";
-import type {
-  SymphonyReworkHandoff,
-  SymphonyRunMode
-} from "@symphony/runtime-contract";
-import type { RuntimeMergeResult } from "./runtime-result-types.js";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
   createRuntimeWorkflowSessionLoader,
   type SymphonyLoadedRuntimeWorkflowHydration,
@@ -26,12 +22,6 @@ import {
   createRuntimeDeliveryRouter,
   type SymphonyDeliveryStatus
 } from "./runtime-delivery-routing.js";
-import {
-  createRuntimeMergeResultRouter
-} from "./runtime-merge-result-routing.js";
-import {
-  createRuntimeReviewReworkRouter
-} from "./runtime-review-rework-routing.js";
 import {
   createRuntimeRunLifecycleRouter
 } from "./runtime-run-lifecycle-routing.js";
@@ -88,15 +78,6 @@ export type SymphonyRuntimeRouteLifecycleService = {
     runId: string;
     recordedAt: string;
     status: SymphonyDeliveryStatus;
-    onDispatchRequested?(
-      input: SymphonyTrackerStateDispatchRequest
-    ): Promise<void> | void;
-  }): Promise<boolean>;
-  routeMergeResult(input: {
-    issueIdentifier: string;
-    runId: string;
-    recordedAt: string;
-    mergeResult: RuntimeMergeResult;
   }): Promise<boolean>;
   routeRuntimeStateRequest(input: {
     issueIdentifier: string;
@@ -104,14 +85,6 @@ export type SymphonyRuntimeRouteLifecycleService = {
     recordedAt: string;
     requestKind: string;
     targetState: string;
-  }): Promise<boolean>;
-  routeReviewReworkRequest(input: {
-    issueIdentifier: string;
-    recordedAt: string;
-    handoff: SymphonyReworkHandoff;
-    onDispatchRequested?(
-      input: SymphonyTrackerStateDispatchRequest
-    ): Promise<void> | void;
   }): Promise<boolean>;
   observeNonRunningTrackerStates(input: {
     claimedIssueIds: string[];
@@ -233,16 +206,6 @@ export async function createRuntimeRouteLifecycleService(input: {
     tracker: input.tracker,
     sessionLoader
   });
-  const mergeResultRouter = await createRuntimeMergeResultRouter({
-    routeWorkflows: input.routeWorkflows,
-    tracker: input.tracker,
-    sessionLoader
-  });
-  const reviewReworkRouter = await createRuntimeReviewReworkRouter({
-    routeWorkflows: input.routeWorkflows,
-    tracker: input.tracker,
-    sessionLoader
-  });
   const stateRequestRouter = await createRuntimeStateRequestRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
@@ -313,20 +276,16 @@ export async function createRuntimeRouteLifecycleService(input: {
               );
             }
 
-            let continueWithRunMode: SymphonyRunMode | null = null;
             const routedDelivery = await deliveryRouter.routeDelivery({
               projectedIssue: completionInput.issue,
               runId: completionInput.runId,
               recordedAt: completionInput.recordedAt,
-              status: "completed",
-              onDispatchRequested: async (dispatchRequest) => {
-                continueWithRunMode = dispatchRequest.runMode;
-              }
+              status: "completed"
             });
 
             return {
               issue: routedDelivery.projectedIssue,
-              continueWithRunMode
+              continueWithRunMode: null
             };
           }
           case "awaiting_input":
@@ -558,34 +517,7 @@ export async function createRuntimeRouteLifecycleService(input: {
         projectedIssue,
         runId: deliveryInput.runId,
         recordedAt: deliveryInput.recordedAt,
-        status: deliveryInput.status,
-        onDispatchRequested: createDispatchRequestHandler({
-          externalCallback: deliveryInput.onDispatchRequested,
-          missingCallbackMessage:
-            "Delivery routing emitted run.dispatch without a dispatch callback."
-        })
-      });
-      return true;
-    },
-    async routeMergeResult(mergeResultInput) {
-      assertLegacyFollowUpRoutingUnsupported({
-        presetId: routing.presetId,
-        routeKind: "merge-result"
-      });
-      const projectedIssue = await loadWorkflowProjectedLifecycleIssue({
-        sessionLoader,
-        issueIdentifier: mergeResultInput.issueIdentifier,
-        failureContext: "during merge-result routing"
-      });
-      if (!projectedIssue) {
-        return false;
-      }
-
-      await mergeResultRouter.routeMergeResult({
-        projectedIssue,
-        runId: mergeResultInput.runId,
-        recordedAt: mergeResultInput.recordedAt,
-        mergeResult: mergeResultInput.mergeResult
+        status: deliveryInput.status
       });
       return true;
     },
@@ -605,37 +537,6 @@ export async function createRuntimeRouteLifecycleService(input: {
         recordedAt: stateRequestInput.recordedAt,
         requestKind: stateRequestInput.requestKind,
         targetState: stateRequestInput.targetState
-      });
-      return true;
-    },
-    async routeReviewReworkRequest(reviewReworkInput) {
-      assertLegacyFollowUpRoutingUnsupported({
-        presetId: routing.presetId,
-        routeKind: "review-rework"
-      });
-      const observed = await trackerStateObservationRouter.observe({
-        observationKind: "idle",
-        issueIdentifier: reviewReworkInput.issueIdentifier,
-        recordedAt: reviewReworkInput.recordedAt,
-        onDispatchRequested: createDispatchRequestHandler({
-          externalCallback: reviewReworkInput.onDispatchRequested,
-          missingCallbackMessage:
-            "Idle tracker state observation emitted run.dispatch without a dispatch callback."
-        })
-      });
-      if (!observed) {
-        return false;
-      }
-
-      await reviewReworkRouter.routeReviewRework({
-        observedTrackerIssue: observed.issue,
-        recordedAt: reviewReworkInput.recordedAt,
-        handoff: reviewReworkInput.handoff,
-        onDispatchRequested: createDispatchRequestHandler({
-          externalCallback: reviewReworkInput.onDispatchRequested,
-          missingCallbackMessage:
-            "Review rework routing emitted run.dispatch without a dispatch callback."
-        })
       });
       return true;
     },
@@ -775,19 +676,6 @@ function resolveActiveRunMode(
     workflowId: hydration.hydrationState.workflow.workflowId,
     data: snapshot.projection.data
   });
-}
-
-function assertLegacyFollowUpRoutingUnsupported(input: {
-  presetId: string;
-  routeKind: "merge-result" | "review-rework";
-}): void {
-  if (input.presetId !== "intelligent-flow") {
-    return;
-  }
-
-  throw new TypeError(
-    `Live intelligent-flow does not support ${input.routeKind} routing. Delivery completion is terminal and follow-up work must be selected through capability planning instead.`
-  );
 }
 
 function readWorkflowLifecycleViewFromProjection(input: {

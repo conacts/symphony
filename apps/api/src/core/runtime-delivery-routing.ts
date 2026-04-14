@@ -10,12 +10,10 @@ import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-pr
 import type {
   SymphonyRuntimeWorkflowSettlementSession
 } from "./runtime-workflow-session-types.js";
-import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import {
   createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
   normalizeWorkflowToken,
-  readDispatchRunMode,
   readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
 
@@ -26,9 +24,6 @@ export type SymphonyDeliveryRoutingInput = {
   runId: string;
   recordedAt: string;
   status: SymphonyDeliveryStatus;
-  onDispatchRequested?(
-    input: SymphonyTrackerStateDispatchRequest
-  ): Promise<void> | void;
 };
 
 export type SymphonyDeliveryRoutingResult = {
@@ -96,8 +91,7 @@ export async function createRuntimeDeliveryRouter(input: {
         }),
         recordedAt: deliveryInput.recordedAt,
         presetAdapter,
-        status: deliveryInput.status,
-        onDispatchRequested: deliveryInput.onDispatchRequested
+        status: deliveryInput.status
       });
 
       return {
@@ -120,9 +114,6 @@ async function executeDeliveryCommands(input: {
   recordedAt: string;
   presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
   status: SymphonyDeliveryStatus;
-  onDispatchRequested?(
-    input: SymphonyTrackerStateDispatchRequest
-  ): Promise<void> | void;
 }): Promise<SymphonyTrackerIssue> {
   let currentProjectedIssue = input.projectedIssue;
 
@@ -156,37 +147,24 @@ async function executeDeliveryCommands(input: {
         loadSettlementSession: input.loadSettlementSession,
         command,
         recordedAt: input.recordedAt,
-        async execute(executedCommand) {
+        async execute() {
           if (input.status !== "completed") {
             throw new TypeError(
               `Delivery routing only supports run.dispatch for completed delivery reports. Received ${input.status}.`
             );
           }
 
-          const runMode = readDispatchRunMode({
-            adapter: input.presetAdapter,
-            command: executedCommand
-          });
-          void runMode;
           throw new TypeError(
             "Delivery routing no longer supports run.dispatch commands for completed delivery reports."
           );
-
-          if (!input.onDispatchRequested) {
-            throw new TypeError(
-              "Delivery routing emitted run.dispatch without a dispatch callback."
-            );
-          }
         }
       });
       continue;
     }
 
-    {
-      throw new TypeError(
-        `Delivery routing does not support command kind ${command.kind}.`
-      );
-    }
+    throw new TypeError(
+      `Delivery routing does not support command kind ${command.kind}.`
+    );
   }
 
   return currentProjectedIssue;

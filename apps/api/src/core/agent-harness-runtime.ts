@@ -60,9 +60,6 @@ import {
   createPiRuntimeHarness,
   type SymphonyRuntimeHarness
 } from "./runtime-harness.js";
-import {
-  type RuntimeMergeResult
-} from "./runtime-result-types.js";
 import { CommandResourceMonitor } from "./command-resource-monitor.js";
 import type {
   SymphonyRuntimeWorkflowLifecycleView
@@ -733,7 +730,7 @@ async function executeRun(input: {
           maxTurns: input.runtimePolicy.agent.maxTurns
         });
       } else {
-        const completion = missingExplicitCompletion(explicitCompletionRequirement);
+        const completion = missingExplicitCompletion();
         await recordWorkerSessionCompletion({
           workerSessionContract: input.workerSessionContract,
           sessionId: session.threadId,
@@ -1011,27 +1008,6 @@ function describeLaunchTarget(target: SymphonyRuntimeLaunchTarget): JsonObject {
   };
 }
 
-function matchesIssueState(actualState: string, expectedState: string | null): boolean {
-  const normalizedActual = actualState.trim().toLowerCase();
-  const normalizedExpected = expectedState?.trim().toLowerCase();
-
-  return normalizedExpected !== undefined && normalizedExpected !== null
-    ? normalizedActual === normalizedExpected
-    : false;
-}
-
-function buildUnexpectedMergeResultStateReason(
-  mergeStatus: RuntimeMergeResult["status"],
-  expectedState: string | null,
-  actualState: string
-): string {
-  const expected = expectedState?.trim() || "the expected terminal state";
-
-  return mergeStatus === "merged"
-    ? `Merge was recorded as merged, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`
-    : `Merge was recorded as blocked, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`;
-}
-
 type ExplicitCompletionRequirement =
   | "none"
   | "delivery_report";
@@ -1106,9 +1082,7 @@ function capabilityManagedRunCompletion(input: {
   return implicitCapabilityRunCompletion();
 }
 
-function missingExplicitCompletion(
-  requirement: ExplicitCompletionRequirement
-): SymphonyAgentRuntimeCompletion {
+function missingExplicitCompletion(): SymphonyAgentRuntimeCompletion {
   return missingDeliveryReportCompletion();
 }
 

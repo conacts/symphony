@@ -721,26 +721,13 @@ export async function loadDefaultSymphonyRuntimeAppServices(
 
       if (result.status !== "ignored" && issueIdentifier) {
         if (result.status === "requeued") {
-          if (bootstrapBinding.presetSelection.presetId === "intelligent-flow") {
-            logger.info(
-              "Ignoring GitHub review ingress requeue for intelligent-flow runtime",
-              {
-                issueIdentifier
-              }
-            );
-          } else {
-            const routed = await routeLifecycle.routeReviewReworkRequest({
+          logger.info(
+            "Ignoring GitHub review ingress requeue for intelligent-flow runtime",
+            {
               issueIdentifier,
-              recordedAt: requeuedHandoff?.recordedAt ?? new Date().toISOString(),
-              handoff: result.handoff,
-              onDispatchRequested: dispatchObservedIssue
-            });
-            if (!routed) {
-              throw new TypeError(
-                `GitHub review ingress requeued ${issueIdentifier} but no workflow-backed review rework route could be applied.`
-              );
+              recordedAt: requeuedHandoff?.recordedAt ?? new Date().toISOString()
             }
-          }
+          );
         }
       }
 

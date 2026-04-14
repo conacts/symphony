@@ -13,8 +13,7 @@ describe("resolveRuntimePolicy", () => {
       "Todo",
       "Bootstrapping",
       "In Progress",
-      "Rework",
-      "Approved"
+      "Rework"
     ]);
     expect(config.tracker.terminalStates).toEqual(["Canceled", "Done"]);
     expect(config.tracker.blockedTransitionToState).toBe("Blocked");

@@ -698,7 +698,7 @@ describe("runtime route workflows", () => {
         SymphonyIntelligentFlowData,
         SymphonyIntelligentFlowPolicy
       >(workflowId);
-      expect(hydration?.snapshot?.projection.currentNode).toBe("implementation");
+      expect(hydration?.snapshot?.projection.currentNode).toBe("active");
       expect(hydration?.snapshot?.projection.data.trackerState).toBe("In Progress");
       expect(hydration?.tailHistory.map((entry) => entry.kind)).toEqual([
         "command_settled"
@@ -714,7 +714,7 @@ describe("runtime route workflows", () => {
         router,
         policy: {}
       });
-      expect(rehydrated?.projection.currentNode).toBe("implementation");
+      expect(rehydrated?.projection.currentNode).toBe("active");
       expect(rehydrated?.projection.pendingCommands).toEqual([]);
       expect(rehydrated?.projection.data.lastDispatchStatus).toBe("succeeded");
     } finally {

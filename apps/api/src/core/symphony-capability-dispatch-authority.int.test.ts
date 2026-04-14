@@ -8,7 +8,6 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import {
-  buildSymphonyReworkHandoff,
   buildSymphonyRuntimePolicy,
   buildSymphonyTrackerIssue
 } from "@symphony/test-support";
@@ -104,28 +103,6 @@ describe("Symphony capability dispatch authority", () => {
       expect(commands.map((command) => command.command.payload.capabilityId)).toEqual([
         "implement.spec"
       ]);
-    } finally {
-      harness.close();
-    }
-  });
-
-  it("rejects review rework routing for the live intelligent-flow lifecycle", async () => {
-    const harness = await createHarness({
-      state: "In Review"
-    });
-
-    try {
-      await expect(
-        harness.service.routeReviewReworkRequest({
-          issueIdentifier: harness.issue.identifier,
-          recordedAt: "2026-04-13T08:05:10.000Z",
-          handoff: buildSymphonyReworkHandoff({
-            triggerKind: "changes_requested_review",
-            recordedAt: "2026-04-13T08:05:10.000Z"
-          }),
-          onDispatchRequested: async () => {}
-        })
-      ).rejects.toThrow(/does not support review-rework routing/i);
     } finally {
       harness.close();
     }

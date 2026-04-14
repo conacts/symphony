@@ -109,7 +109,7 @@ describe("runtime workflow preset selection", () => {
           }
         }
       })
-    ).toThrow(/does not support workflow preset "current-flow"/i);
+    ).toThrow(/invalid workflow preset "current-flow"|unknown workflow router preset "current-flow"/i);
   });
 
   it("prefers an explicit bootstrap preset override over the runtime manifest", () => {
@@ -300,7 +300,7 @@ describe("runtime workflow preset selection", () => {
           }
         }
       })
-    ).toThrow(/does not support workflow preset "auto-merge"/i);
+    ).toThrow(/invalid workflow preset "auto-merge"|unknown workflow router preset "auto-merge"/i);
   });
 
   it("rejects auto-merge bootstrap overrides in the live runtime", () => {
@@ -347,7 +347,7 @@ describe("runtime workflow preset selection", () => {
         },
         overridePresetId: "auto-merge"
       })
-    ).toThrow(/does not support workflow preset "auto-merge"/i);
+    ).toThrow(/invalid workflow preset "auto-merge"|unknown workflow router preset "auto-merge"/i);
   });
 
   it("rejects current-flow bootstrap overrides in the live runtime", () => {
@@ -394,6 +394,6 @@ describe("runtime workflow preset selection", () => {
         },
         overridePresetId: "current-flow"
       })
-    ).toThrow(/does not support workflow preset "current-flow"/i);
+    ).toThrow(/invalid workflow preset "current-flow"|unknown workflow router preset "current-flow"/i);
   });
 });
